@@ -9,6 +9,9 @@ use ark_groth16::{
     prepare_verifying_key,
     verify_proof
 };
+use ark_serialize::{CanonicalSerialize, CanonicalDeserialize, SerializationError};
+
+use std::io::{self, Read, Write};
 
 
 pub struct Multiplier {
@@ -43,9 +46,20 @@ impl Multiplier {
         Multiplier { circom, params }
     }
 
-    // TODO Return proof
-    pub fn prove() -> bool {
-        false
+    // TODO Input Read
+    pub fn prove<W: Write>(&self, mut result_data: W) -> io::Result<()> {
+        let mut rng = thread_rng();
+
+        // XXX: There's probably a better way to do this
+        let circom = self.circom.clone();
+        let params = self.params.clone();
+
+        let proof = prove(circom, &params, &mut rng).unwrap();
+
+        // XXX: Unclear if this is different from other serialization(s)
+        let _ = proof.serialize(result_data).unwrap();
+
+        Ok(())
     }
 
     // TODO Return proof

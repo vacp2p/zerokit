@@ -22,7 +22,7 @@ ark-bn254 = { version = "0.3.0" }
 ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", rev = "765817f", features = ["parallel"] }
 # ark-poly = { version = "^0.3.0", default-features = false, features = ["parallel"] }
 ark-relations = { version = "0.3.0", default-features = false }
-# ark-serialize = { version = "0.3.0", default-features = false }
+ark-serialize = { version = "0.3.0", default-features = false }
 
 ark-circom = { git = "https://github.com/gakonst/ark-circom", features = ["circom-2"] }
 
