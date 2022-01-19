@@ -2,8 +2,13 @@ use ark_circom::{CircomBuilder, CircomConfig, CircomCircuit};
 use ark_std::rand::thread_rng;
 
 use ark_bn254::Bn254;
-use ark_groth16::generate_random_parameters;
-use ark_groth16::ProvingKey;
+use ark_groth16::{
+    ProvingKey,
+    generate_random_parameters,
+    create_random_proof as prove,
+    prepare_verifying_key,
+    verify_proof
+};
 
 
 pub struct Multiplier {
@@ -47,4 +52,20 @@ impl Multiplier {
     pub fn verify() -> bool {
         false
     }
+}
+
+#[test]
+fn multiplier_proof() {
+    let mul = Multiplier::new();
+    let inputs = mul.circom.get_public_inputs().unwrap();
+
+    let mut rng = thread_rng();
+
+    let proof = prove(mul.circom, &mul.params, &mut rng).unwrap();
+
+    let pvk = prepare_verifying_key(&mul.params.vk);
+
+    let verified = verify_proof(&pvk, &proof, &inputs).unwrap();
+
+    assert!(verified);
 }
