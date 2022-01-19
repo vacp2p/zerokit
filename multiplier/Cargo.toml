@@ -1,7 +1,7 @@
 [package]
 name = "multiplier"
 version = "0.1.0"
-edition = "2021"
+edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -15,13 +15,13 @@ edition = "2021"
 num-bigint = { version = "0.4", default-features = false, features = ["rand"] }
 
 # ZKP Generation
-# ark-ec = { version = "0.3.0", default-features = false, features = ["parallel"] }
+ark-ec = { version = "0.3.0", default-features = false, features = ["parallel"] }
 # ark-ff = { version = "0.3.0", default-features = false, features = ["parallel", "asm"] }
 ark-std = { version = "0.3.0", default-features = false, features = ["parallel"] }
 ark-bn254 = { version = "0.3.0" }
 ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", rev = "765817f", features = ["parallel"] }
 # ark-poly = { version = "^0.3.0", default-features = false, features = ["parallel"] }
-# ark-relations = { version = "0.3.0", default-features = false }
+ark-relations = { version = "0.3.0", default-features = false }
 # ark-serialize = { version = "0.3.0", default-features = false }
 
 ark-circom = { git = "https://github.com/gakonst/ark-circom", features = ["circom-2"] }
