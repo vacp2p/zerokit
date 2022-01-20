@@ -4,10 +4,11 @@ use ark_std::rand::thread_rng;
 use ark_bn254::Bn254;
 use ark_groth16::{
     ProvingKey,
+    Proof,
     generate_random_parameters,
     create_random_proof as prove,
     prepare_verifying_key,
-    verify_proof
+    verify_proof,
 };
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize, SerializationError};
 
@@ -62,9 +63,17 @@ impl Multiplier {
         Ok(())
     }
 
-    // TODO Return proof
-    pub fn verify() -> bool {
-        false
+    pub fn verify<R: Read>(&self, mut input_data: R) -> io::Result<bool> {
+        let proof = Proof::deserialize(input_data).unwrap();
+
+        let pvk = prepare_verifying_key(&self.params.vk);
+
+        // XXX Part of input data?
+        let inputs = self.circom.get_public_inputs().unwrap();
+
+        let verified = verify_proof(&pvk, &proof, &inputs).unwrap();
+
+        Ok(verified)
     }
 }
 
@@ -73,13 +82,15 @@ fn multiplier_proof() {
     let mul = Multiplier::new();
     let inputs = mul.circom.get_public_inputs().unwrap();
 
-    let mut rng = thread_rng();
 
-    let proof = prove(mul.circom, &mul.params, &mut rng).unwrap();
+    let mut output_data: Vec<u8> = Vec::new();
+    let _ = mul.prove(&mut output_data);
 
-    let pvk = prepare_verifying_key(&mul.params.vk);
+    let proof_data = &output_data[..];
 
-    let verified = verify_proof(&pvk, &proof, &inputs).unwrap();
+    //let pvk = prepare_verifying_key(&mul.params.vk);
+
+    let verified = mul.verify(proof_data).unwrap();
 
     assert!(verified);
 }
