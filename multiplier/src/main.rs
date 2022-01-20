@@ -8,7 +8,6 @@ use ark_groth16::{
 };
 
 fn groth16_proof_example() -> Result<()> {
-
     let cfg = CircomConfig::<Bn254>::new(
         "./resources/circom2_multiplier2.wasm",
         "./resources/circom2_multiplier2.r1cs",
@@ -44,6 +43,6 @@ fn main() {
 
     match groth16_proof_example() {
         Ok(_) => println!("Success"),
-        Err(_) => println!("Error")
+        Err(_) => println!("Error"),
     }
 }
