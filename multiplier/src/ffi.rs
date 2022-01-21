@@ -29,7 +29,15 @@ impl<'a> From<&Buffer> for &'a [u8] {
 }
 
 #[no_mangle]
-pub extern "C" fn foobar() -> bool {
+pub extern "C" fn new(ctx: *mut *mut Multiplier) -> bool {
+    println!("multiplier ffi: new");
+    let mul = Multiplier::new();
+
+    unsafe { *ctx = Box::into_raw(Box::new(mul)) };
+
+    true
+}
+
     true
 }
 
