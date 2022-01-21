@@ -56,6 +56,22 @@ pub extern "C" fn prove(
     true
 }
 
-// prove
-// verify
-// params?
+#[no_mangle]
+pub extern "C" fn verify(
+    ctx: *const Multiplier,
+    proof_buffer: *const Buffer,
+    result_ptr: *mut u32,
+) -> bool {
+    println!("multiplier ffi: verify");
+    let mul = unsafe { &*ctx };
+    let proof_data = <&[u8]>::from(unsafe { &*proof_buffer });
+    if match mul.verify(proof_data) {
+        Ok(verified) => verified,
+        Err(_) => return false,
+    } {
+        unsafe { *result_ptr = 0 };
+    } else {
+        unsafe { *result_ptr = 1 };
+    };
+    true
+}
