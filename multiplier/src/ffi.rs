@@ -29,7 +29,7 @@ impl<'a> From<&Buffer> for &'a [u8] {
 }
 
 #[no_mangle]
-pub extern "C" fn new(ctx: *mut *mut Multiplier) -> bool {
+pub extern "C" fn new_circuit(ctx: *mut *mut Multiplier) -> bool {
     println!("multiplier ffi: new");
     let mul = Multiplier::new();
 
