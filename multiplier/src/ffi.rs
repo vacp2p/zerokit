@@ -38,6 +38,21 @@ pub extern "C" fn new(ctx: *mut *mut Multiplier) -> bool {
     true
 }
 
+#[no_mangle]
+pub extern "C" fn prove(
+    ctx: *const Multiplier,
+    output_buffer: *mut Buffer
+) -> bool {
+    println!("multiplier ffi: prove");
+    let mul = unsafe { &*ctx };
+    let mut output_data: Vec<u8> = Vec::new();
+
+    match mul.prove(&mut output_data) {
+        Ok(proof_data) => proof_data,
+        Err(_) => return false,
+    };
+    unsafe { *output_buffer = Buffer::from(&output_data[..]) };
+    std::mem::forget(output_data);
     true
 }
 
