@@ -9,8 +9,8 @@ use ark_groth16::{
 
 fn groth16_proof_example() -> Result<()> {
     let cfg = CircomConfig::<Bn254>::new(
-        "./resources/circom2_multiplier2.wasm",
-        "./resources/circom2_multiplier2.r1cs",
+        "./resources/withdraw.wasm",
+        "./resources/withdraw.r1cs",
     )?;
 
     let mut builder = CircomBuilder::new(cfg);
