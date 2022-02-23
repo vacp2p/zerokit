@@ -21,10 +21,11 @@ ark-std = { version = "0.3.0", default-features = false, features = ["parallel"]
 ark-bn254 = { version = "0.3.0" }
 ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", rev = "765817f", features = ["parallel"] }
 # ark-poly = { version = "^0.3.0", default-features = false, features = ["parallel"] }
-ark-relations = { version = "0.3.0", default-features = false }
+ark-relations = { version = "0.3.0", default-features = false, path = "../../../arkworks-rs/snark/relations", features = [ "std" ] }
 ark-serialize = { version = "0.3.0", default-features = false }
 
-ark-circom = { git = "https://github.com/gakonst/ark-circom", features = ["circom-2"] }
+# ark-circom = { git = "https://github.com/gakonst/ark-circom", features = ["circom-2"] }
+ark-circom = { features = ["circom-2"], path = "../../../gakonst/ark-circom" }
 
 # error handling
 # thiserror = "1.0.26"
@@ -33,3 +34,7 @@ color-eyre = "0.5"
 # decoding of data
 # hex = "0.4.3"
 # byteorder = "1.4.3"
+
+# tracing
+tracing = "0.1"
+tracing-subscriber = "0.2"
