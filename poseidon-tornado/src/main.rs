@@ -7,6 +7,8 @@ use ark_groth16::{
     create_random_proof as prove, generate_random_parameters, prepare_verifying_key, verify_proof,
 };
 
+use num_bigint::BigInt;
+
 // Tracing
 use tracing::{span, event, Level};
 use ark_relations::r1cs::{ConstraintTrace, ConstraintLayer, ConstraintSystem, TracingMode};
@@ -51,9 +53,6 @@ fn groth16_proof_example() -> Result<()> {
     let trace = ConstraintTrace::capture();
     println!("Trace is: {:?}", trace);
 
-    println!("Circom 2");
-    let mut builder = CircomBuilder::new(cfg);
-
     // From poseidon-tornado JSON witness
     let input_json_str = r#"
 {"root":"0x11cd2b4d61ad61dee506cac59c657e269cbbf5fbd548cd2f1d41dedaf4293748",
@@ -81,19 +80,110 @@ fn groth16_proof_example() -> Result<()> {
                  "0x09589ddb438723f53a8e57bdada7c5f8ed67e8fece3889a73618732965645eec",
                  "0x0064b6a738a5ff537db7b220f3394f0ecbd35bfd355c5425dc1166bf3236079b",
                  "0x095de56281b1d5055e897c3574ff790d5ee81dbc5df784ad2d67795e557c9e9f",
-                 "0x11cf2e2887aa21963a6ec14289183efe4d4c60f14ecd3d6fe0beebdf855a9b63"],
+                 "0x11cf2e2887aa21963a6ec14289183efe4d4c60f14ecd3d6fe0beebdf855a9b63"
+],
  "pathIndices":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}
 "#;
 
-    let witness : WitnessInput = serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
+    let witness_input : WitnessInput = serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
 
-    println!("JSON: {:?}", witness);
+    println!("JSON: {:?}", witness_input);
 
-    println!("Circom 3");
-    // XXX Here - probably is inputs don't match,
+    println!("Circom 2");
+
+    let mut builder = CircomBuilder::new(cfg);
+
+    // XXX Seems like a mix between BigInt and hex-encoded - radix 10 and 16 mixed?
+    // Especially problematic for pathElements - let's try and see
+
+    builder.push_input(
+        "root",
+        BigInt::parse_bytes(
+            witness_input.root.strip_prefix("0x").unwrap().as_bytes(),
+            16,
+        )
+        .unwrap(),
+    );
+
+    builder.push_input(
+        "nullifierHash",
+        BigInt::parse_bytes(
+            witness_input.nullifier_hash.strip_prefix("0x").unwrap().as_bytes(),
+            16,
+        )
+        .unwrap(),
+    );
+
+    builder.push_input(
+        "recipient",
+        BigInt::parse_bytes(
+            witness_input.recipient.strip_prefix("0x").unwrap().as_bytes(),
+            16,
+        )
+        .unwrap(),
+    );
+
+    builder.push_input(
+        "relayer",
+        BigInt::parse_bytes(
+            witness_input.relayer.strip_prefix("0x").unwrap().as_bytes(),
+            16,
+        )
+        .unwrap(),
+    );
+
+    // XXX
+    builder.push_input(
+        "fee",
+        witness_input.fee
+        //BigInt::parse_bytes(witness_input.fee.as_bytes(), 10).unwrap(),
+    );
+
+     builder.push_input(
+        "nullifer",
+        BigInt::parse_bytes(witness_input.nullifier.as_bytes(), 10).unwrap(),
+    );
+
+    // XXX We have a mix here - conditionally push? seems smelly
+    for v in witness_input.path_elements.iter() {
+        if v.starts_with("0x") {
+            builder.push_input(
+                "pathElements",
+                BigInt::parse_bytes(v.strip_prefix("0x").unwrap().as_bytes(), 16,).unwrap(),
+            );
+        } else {
+            builder.push_input(
+                "pathElements",
+                BigInt::parse_bytes(v.as_bytes(), 10).unwrap(),
+            );
+        }
+    }
+
+    for v in witness_input.path_indices.iter() {
+        builder.push_input("pathIndices", BigInt::from(*v));
+    }
+
+    // XXX
+    println!("Circom 3 - builder");
+    println!("Builder input:\n {:#?}", builder.inputs);
+
     // but would like the tracing to tell me this
-    builder.push_input("a", 3);
-    builder.push_input("b", 11);
+    //
+    // what are the public inputs here
+    //
+    //  From poseidon-tornado
+    // const witness = {
+    //     // Public
+    //     root,
+    //     nullifierHash,
+    //     recipient,
+    //     relayer,
+    //     fee,
+    //     // Private
+    //     nullifier: BigNumber.from(deposit.nullifier).toBigInt(),
+    //     pathElements: path_elements,
+    //     pathIndices: path_index,
+    // };
 
     // create an empty instance for setting it up
     let circom = builder.setup();
