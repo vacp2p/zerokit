@@ -12,6 +12,23 @@ use tracing::{span, event, Level};
 use ark_relations::r1cs::{ConstraintTrace, ConstraintLayer, ConstraintSystem, TracingMode};
 use tracing_subscriber::layer::SubscriberExt;
 
+// JSON
+use serde::Deserialize;
+use serde_json;
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WitnessInput {
+    root: String,
+    nullifier_hash: String,
+    recipient: String,
+    relayer: String,
+    //fee: String,
+    fee: i32,
+    nullifier: String,
+    path_elements: Vec<String>,
+    path_indices: Vec<i32>,
+}
 
 fn groth16_proof_example() -> Result<()> {
     println!("Circom 1");
@@ -67,6 +84,10 @@ fn groth16_proof_example() -> Result<()> {
                  "0x11cf2e2887aa21963a6ec14289183efe4d4c60f14ecd3d6fe0beebdf855a9b63"],
  "pathIndices":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}
 "#;
+
+    let witness : WitnessInput = serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
+
+    println!("JSON: {:?}", witness);
 
     println!("Circom 3");
     // XXX Here - probably is inputs don't match,
