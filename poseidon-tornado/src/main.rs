@@ -49,23 +49,10 @@ struct DepositInput {
 fn groth16_proof_example() -> Result<()> {
     println!("Circom 1");
 
-    // Tracing to help with debugging
-    let mut layer = ConstraintLayer::default();
-    layer.mode = TracingMode::OnlyConstraints;
-    let subscriber = tracing_subscriber::Registry::default().with(layer);
-    let _guard = tracing::subscriber::set_default(subscriber);
-
-    let trace = ConstraintTrace::capture();
-    println!("Trace is: {:?}", trace);
-
     let cfg = CircomConfig::<Bn254>::new(
         "./resources/withdraw.wasm",
         "./resources/withdraw.r1cs",
      )?;
-
-    // Test
-    let trace = ConstraintTrace::capture();
-    println!("Trace is: {:?}", trace);
 
     // XXX: Weird mix here
     // From poseidon-tornado JSON witness
@@ -150,7 +137,7 @@ fn groth16_proof_example() -> Result<()> {
     );
 
      builder.push_input(
-        "nullifer",
+        "nullifier",
         BigInt::parse_bytes(witness_input.nullifier.as_bytes(), 10).unwrap(),
     );
 
@@ -200,7 +187,9 @@ fn groth16_proof_example() -> Result<()> {
 
     println!("Inputs {:#?} ", inputs);
 
-    let proof = prove(circom, &params, &mut rng)?;
+    let proof = create_random_proof(circom, &params, &mut rng)?;
+
+    println!("Proof: {:?}", proof);
 
     let pvk = prepare_verifying_key(&params.vk);
 
@@ -365,7 +354,7 @@ fn main() {
     println!("Hello, world!");
 
     // Tornado-core
-    match groth16_proof_example2() {
+    match groth16_proof_example() {
         Ok(_) => println!("Success"),
         Err(_) => println!("Error"),
     }
