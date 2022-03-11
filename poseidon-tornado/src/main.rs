@@ -4,7 +4,7 @@ use color_eyre::Result;
 
 use ark_bn254::Bn254;
 use ark_groth16::{
-    create_random_proof as prove, generate_random_parameters, prepare_verifying_key, verify_proof,
+    create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
 };
 
 use num_bigint::BigInt;
@@ -15,7 +15,7 @@ use serde_json;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct WitnessInput2 {
+struct DepositInput {
     root: String,
     nullifier_hash: String,
     relayer: String,
@@ -31,11 +31,6 @@ struct WitnessInput2 {
 // tornado-core
 fn groth16_proof_example2() -> Result<()> {
     println!("Circom 1");
-
-    let cfg = CircomConfig::<Bn254>::new(
-        "./resources/tornado-core/withdraw.wasm",
-        "./resources/tornado-core/withdraw.r1cs",
-     )?;
 
     // XXX Using other input.json here to check, based on tornado-cash proper
     let input_json_str = r#"
@@ -76,9 +71,15 @@ fn groth16_proof_example2() -> Result<()> {
     }
     "#;
 
-    let witness_input : WitnessInput2 = serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
+    let input_deposit : DepositInput =
+        serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
 
-    println!("JSON: {:?}", witness_input);
+    println!("JSON: {:?}", input_deposit);
+
+    let cfg = CircomConfig::<Bn254>::new(
+        "./resources/tornado-core/withdraw.wasm",
+        "./resources/tornado-core/withdraw.r1cs",
+     )?;
 
     println!("Circom 2");
 
@@ -89,23 +90,23 @@ fn groth16_proof_example2() -> Result<()> {
 
     builder.push_input(
         "root",
-        BigInt::parse_bytes(witness_input.root.as_bytes(), 10).unwrap(),
+        BigInt::parse_bytes(input_deposit.root.as_bytes(), 10).unwrap(),
     );
 
     builder.push_input(
         "nullifierHash",
-        BigInt::parse_bytes(witness_input.nullifier_hash.as_bytes(), 10).unwrap(),
+        BigInt::parse_bytes(input_deposit.nullifier_hash.as_bytes(), 10).unwrap(),
     );
 
     builder.push_input(
         "recipient",
-        BigInt::parse_bytes(witness_input.recipient.as_bytes(), 10).unwrap(),
+        BigInt::parse_bytes(input_deposit.recipient.as_bytes(), 10).unwrap(),
     );
 
     builder.push_input(
         "relayer",
         BigInt::parse_bytes(
-            witness_input.relayer.strip_prefix("0x").unwrap().as_bytes(),
+            input_deposit.relayer.strip_prefix("0x").unwrap().as_bytes(),
             16,
         )
         .unwrap(),
@@ -113,34 +114,34 @@ fn groth16_proof_example2() -> Result<()> {
 
     builder.push_input(
         "fee",
-        BigInt::parse_bytes(witness_input.fee.as_bytes(), 10).unwrap(),
+        BigInt::parse_bytes(input_deposit.fee.as_bytes(), 10).unwrap(),
     );
 
     builder.push_input(
         "refund",
-        BigInt::parse_bytes(witness_input.refund.as_bytes(), 10).unwrap(),
+        BigInt::parse_bytes(input_deposit.refund.as_bytes(), 10).unwrap(),
     );
 
 
      builder.push_input(
         "nullifer",
-        BigInt::parse_bytes(witness_input.nullifier.as_bytes(), 10).unwrap(),
+        BigInt::parse_bytes(input_deposit.nullifier.as_bytes(), 10).unwrap(),
     );
 
 
     builder.push_input(
         "secret",
-        BigInt::parse_bytes(witness_input.secret.as_bytes(), 10).unwrap(),
+        BigInt::parse_bytes(input_deposit.secret.as_bytes(), 10).unwrap(),
     );
 
-    for v in witness_input.path_elements.iter() {
+    for v in input_deposit.path_elements.iter() {
             builder.push_input(
                 "pathElements",
                 BigInt::parse_bytes(v.as_bytes(), 10).unwrap(),
             );
     }
 
-    for v in witness_input.path_indices.iter() {
+    for v in input_deposit.path_indices.iter() {
         builder.push_input("pathIndices", BigInt::from(*v));
     }
 
@@ -160,7 +161,9 @@ fn groth16_proof_example2() -> Result<()> {
 
     println!("Inputs {:#?} ", inputs);
 
-    let proof = prove(circom, &params, &mut rng)?;
+    let proof = create_random_proof(circom, &params, &mut rng).unwrap();
+
+    println!("Proof: {:?}", proof);
 
     let pvk = prepare_verifying_key(&params.vk);
 
