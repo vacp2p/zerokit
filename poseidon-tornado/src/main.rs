@@ -54,6 +54,8 @@ fn groth16_proof_example() -> Result<()> {
     println!("Trace is: {:?}", trace);
 
     // From poseidon-tornado JSON witness
+    // Input generated with https://github.com/oskarth/poseidon-tornado/commit/db64ad09fdb16ad310ba395fc73520f87ad7d344
+    // With nullifier set to 0
     let input_json_str = r#"
 {
   "root": "17777834528943231885798890273562835075271930126129561600279382876922601684948",
