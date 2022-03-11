@@ -29,7 +29,6 @@ struct WitnessInput {
 
 // Poseidon-tornado
 fn groth16_proof_example() -> Result<()> {
-    println!("Circom 1");
 
     let cfg = CircomConfig::<Bn254>::new(
         "./resources/withdraw.wasm",
@@ -72,14 +71,9 @@ fn groth16_proof_example() -> Result<()> {
 
     let witness_input : WitnessInput = serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
 
-    println!("JSON: {:?}", witness_input);
-
-    println!("Circom 2");
+    println!("Witness input JSON: {:?}", witness_input);
 
     let mut builder = CircomBuilder::new(cfg);
-
-    // XXX Seems like a mix between BigInt and hex-encoded - radix 10 and 16 mixed?
-    // Especially problematic for pathElements - let's try and see
 
     builder.push_input(
         "root",
@@ -93,11 +87,6 @@ fn groth16_proof_example() -> Result<()> {
 
     builder.push_input(
         "recipient",
-        // BigInt::parse_bytes(
-        //     witness_input.recipient.strip_prefix("0x").unwrap().as_bytes(),
-        //     16,
-        // )
-        // .unwrap(),
         BigInt::parse_bytes(witness_input.recipient.as_bytes(), 10).unwrap(),
     );
 
@@ -122,7 +111,6 @@ fn groth16_proof_example() -> Result<()> {
         BigInt::parse_bytes(witness_input.nullifier.as_bytes(), 10).unwrap(),
     );
 
-    // XXX We have a mix here - conditionally push? seems smelly
     for v in witness_input.path_elements.iter() {
             builder.push_input(
                 "pathElements",
@@ -134,29 +122,9 @@ fn groth16_proof_example() -> Result<()> {
         builder.push_input("pathIndices", BigInt::from(*v));
     }
 
-    // XXX
-    println!("Circom 3 - builder");
     println!("Builder input:\n {:#?}", builder.inputs);
 
-    // but would like the tracing to tell me this
-    //
-    // what are the public inputs here
-    //
-    //  From poseidon-tornado
-    // const witness = {
-    //     // Public
-    //     root,
-    //     nullifierHash,
-    //     recipient,
-    //     relayer,
-    //     fee,
-    //     // Private
-    //     nullifier: BigNumber.from(deposit.nullifier).toBigInt(),
-    //     pathElements: path_elements,
-    //     pathIndices: path_index,
-    // };
-
-    // create an empty instance for setting it up
+   // create an empty instance for setting it up
     let circom = builder.setup();
 
     let mut rng = thread_rng();
@@ -166,7 +134,7 @@ fn groth16_proof_example() -> Result<()> {
 
     let inputs = circom.get_public_inputs().unwrap();
 
-    println!("Inputs {:#?} ", inputs);
+    println!("Public inputs {:#?} ", inputs);
 
     let proof = create_random_proof(circom, &params, &mut rng)?;
 
@@ -182,7 +150,7 @@ fn groth16_proof_example() -> Result<()> {
 }
 
 fn main() {
-    println!("Hello, world!");
+    println!("tornado-poseidon example proof");
 
     // Tornado-core
     match groth16_proof_example() {
