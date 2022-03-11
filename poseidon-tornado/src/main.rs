@@ -9,11 +9,6 @@ use ark_groth16::{
 
 use num_bigint::BigInt;
 
-// Tracing
-use tracing::{span, event, Level};
-use ark_relations::r1cs::{ConstraintTrace, ConstraintLayer, ConstraintSystem, TracingMode};
-use tracing_subscriber::layer::SubscriberExt;
-
 // JSON
 use serde::Deserialize;
 use serde_json;
@@ -37,23 +32,10 @@ struct WitnessInput2 {
 fn groth16_proof_example2() -> Result<()> {
     println!("Circom 1");
 
-    // Tracing to help with debugging
-    let mut layer = ConstraintLayer::default();
-    layer.mode = TracingMode::OnlyConstraints;
-    let subscriber = tracing_subscriber::Registry::default().with(layer);
-    let _guard = tracing::subscriber::set_default(subscriber);
-
-    let trace = ConstraintTrace::capture();
-    println!("Trace is: {:?}", trace);
-
     let cfg = CircomConfig::<Bn254>::new(
         "./resources/tornado-core/withdraw.wasm",
         "./resources/tornado-core/withdraw.r1cs",
      )?;
-
-    // Test
-    let trace = ConstraintTrace::capture();
-    println!("Trace is: {:?}", trace);
 
     // XXX Using other input.json here to check, based on tornado-cash proper
     let input_json_str = r#"
