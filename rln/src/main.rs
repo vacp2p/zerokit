@@ -19,20 +19,17 @@ use serde::Deserialize;
 use serde_json;
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+//#[serde(rename_all = "camelCase")]
 struct WitnessInput {
-    root: String,
-    nullifier_hash: String,
-    recipient: String,
-    relayer: String,
-    //fee: String,
-    fee: i32,
-    nullifier: String,
+    identity_secret: String,
     path_elements: Vec<String>,
-    path_indices: Vec<i32>,
+    identity_path_index: Vec<i32>,
+    x: String,
+    epoch: String,
+    rln_identifier: String,
 }
 
-// Poseidon-tornado
+// RLN
 fn groth16_proof_example() -> Result<()> {
 
     // Tracing to help with debugging
@@ -45,48 +42,57 @@ fn groth16_proof_example() -> Result<()> {
     println!("Trace is: {:?}", trace);
 
     let cfg = CircomConfig::<Bn254>::new(
-        "./resources/withdraw.wasm",
-        "./resources/withdraw.r1cs",
+        "./resources/rln.wasm",
+        "./resources/rln.r1cs",
      )?;
 
     // Test
     let trace = ConstraintTrace::capture();
     println!("Trace is: {:?}", trace);
 
-    // From poseidon-tornado JSON witness
-    // Input generated with https://github.com/oskarth/poseidon-tornado/commit/db64ad09fdb16ad310ba395fc73520f87ad7d344
-    // With nullifier set to 0
+    // From rln JSON witness
+    // Input generated with https://github.com/oskarth/zk-kit/commit/b6a872f7160c7c14e10a0ea40acab99cbb23c9a8
     let input_json_str = r#"
-{
-  "root": "17777834528943231885798890273562835075271930126129561600279382876922601684948",
-  "nullifierHash": "8506691148847834795277894036216352001616813487121834991716343668271924769133",
-  "recipient": "344073830386746567427978432078835137280280269756",
-  "relayer": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-  "fee": 0,
-  "nullifier": "0",
-  "pathElements": [
-    "21663839004416932945382355908790599225266501822907911457504978515578255421292",
-    "8995896153219992062710898675021891003404871425075198597897889079729967997688",
-    "15126246733515326086631621937388047923581111613947275249184377560170833782629",
-    "6404200169958188928270149728908101781856690902670925316782889389790091378414",
-    "17903822129909817717122288064678017104411031693253675943446999432073303897479",
-    "11423673436710698439362231088473903829893023095386581732682931796661338615804",
-    "10494842461667482273766668782207799332467432901404302674544629280016211342367",
-    "17400501067905286947724900644309270241576392716005448085614420258732805558809",
-    "7924095784194248701091699324325620647610183513781643345297447650838438175245",
-    "3170907381568164996048434627595073437765146540390351066869729445199396390350",
-    "21224698076141654110749227566074000819685780865045032659353546489395159395031",
-    "18113275293366123216771546175954550524914431153457717566389477633419482708807",
-    "1952712013602708178570747052202251655221844679392349715649271315658568301659",
-    "18071586466641072671725723167170872238457150900980957071031663421538421560166",
-    "9993139859464142980356243228522899168680191731482953959604385644693217291503",
-    "14825089209834329031146290681677780462512538924857394026404638992248153156554",
-    "4227387664466178643628175945231814400524887119677268757709033164980107894508",
-    "177945332589823419436506514313470826662740485666603469953512016396504401819",
-    "4236715569920417171293504597566056255435509785944924295068274306682611080863",
-    "8055374341341620501424923482910636721817757020788836089492629714380498049891"
-  ],
-  "pathIndices": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
+    {
+      "identity_secret": "12825549237505733615964533204745049909430608936689388901883576945030025938736",
+      "path_elements": [
+        "18622655742232062119094611065896226799484910997537830749762961454045300666333",
+        "20590447254980891299813706518821659736846425329007960381537122689749540452732",
+        "7423237065226347324353380772367382631490014989348495481811164164159255474657",
+        "11286972368698509976183087595462810875513684078608517520839298933882497716792",
+        "3607627140608796879659380071776844901612302623152076817094415224584923813162",
+        "19712377064642672829441595136074946683621277828620209496774504837737984048981",
+        "20775607673010627194014556968476266066927294572720319469184847051418138353016",
+        "3396914609616007258851405644437304192397291162432396347162513310381425243293",
+        "21551820661461729022865262380882070649935529853313286572328683688269863701601",
+        "6573136701248752079028194407151022595060682063033565181951145966236778420039",
+        "12413880268183407374852357075976609371175688755676981206018884971008854919922",
+        "14271763308400718165336499097156975241954733520325982997864342600795471836726",
+        "20066985985293572387227381049700832219069292839614107140851619262827735677018",
+        "9394776414966240069580838672673694685292165040808226440647796406499139370960",
+        "11331146992410411304059858900317123658895005918277453009197229807340014528524"
+      ],
+      "identity_path_index": [
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "x": "8143228284048792769012135629627737459844825626241842423967352803501040982",
+      "epoch": "0x0000005b612540fc986b42322f8cb91c2273afad58ed006fdba0c97b4b16b12f",
+      "rln_identifier": "11412926387081627876309792396682864042420635853496105400039841573530884328439"
+    }
 "#;
 
     let witness_input : WitnessInput = serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
@@ -96,51 +102,40 @@ fn groth16_proof_example() -> Result<()> {
     let mut builder = CircomBuilder::new(cfg);
 
     builder.push_input(
-        "root",
-        BigInt::parse_bytes(witness_input.root.as_bytes(), 10).unwrap(),
+        "identity_secret",
+        BigInt::parse_bytes(witness_input.identity_secret.as_bytes(), 10).unwrap(),
+    );
+
+    for v in witness_input.path_elements.iter() {
+        builder.push_input(
+            "path_elements",
+            BigInt::parse_bytes(v.as_bytes(), 10).unwrap(),
+        );
+    }
+
+    for v in witness_input.identity_path_index.iter() {
+        builder.push_input("identity_path_index", BigInt::from(*v));
+    }
+
+
+    builder.push_input(
+        "x",
+        BigInt::parse_bytes(witness_input.x.as_bytes(), 10).unwrap(),
     );
 
     builder.push_input(
-        "nullifierHash",
-        BigInt::parse_bytes(witness_input.nullifier_hash.as_bytes(), 10).unwrap(),
-    );
-
-    builder.push_input(
-        "recipient",
-        BigInt::parse_bytes(witness_input.recipient.as_bytes(), 10).unwrap(),
-    );
-
-    builder.push_input(
-        "relayer",
+        "epoch",
         BigInt::parse_bytes(
-            witness_input.relayer.strip_prefix("0x").unwrap().as_bytes(),
+            witness_input.epoch.strip_prefix("0x").unwrap().as_bytes(),
             16,
         )
         .unwrap(),
     );
 
-    // XXX
     builder.push_input(
-        "fee",
-        witness_input.fee
-        //BigInt::parse_bytes(witness_input.fee.as_bytes(), 10).unwrap(),
+        "rln_identifier",
+        BigInt::parse_bytes(witness_input.rln_identifier.as_bytes(), 10).unwrap(),
     );
-
-     builder.push_input(
-        "nullifier",
-        BigInt::parse_bytes(witness_input.nullifier.as_bytes(), 10).unwrap(),
-    );
-
-    for v in witness_input.path_elements.iter() {
-            builder.push_input(
-                "pathElements",
-                BigInt::parse_bytes(v.as_bytes(), 10).unwrap(),
-            );
-    }
-
-    for v in witness_input.path_indices.iter() {
-        builder.push_input("pathIndices", BigInt::from(*v));
-    }
 
     println!("Builder input:\n {:#?}", builder.inputs);
 
@@ -170,7 +165,7 @@ fn groth16_proof_example() -> Result<()> {
 }
 
 fn main() {
-    println!("tornado-poseidon example proof");
+    println!("rln example proof");
 
     // Tornado-core
     match groth16_proof_example() {
