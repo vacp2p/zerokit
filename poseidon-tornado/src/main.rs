@@ -123,8 +123,9 @@ fn groth16_proof_example2() -> Result<()> {
     );
 
 
+    // Fucking hell... nullifier not nullifer. FFS.
      builder.push_input(
-        "nullifer",
+        "nullifier",
         BigInt::parse_bytes(input_deposit.nullifier.as_bytes(), 10).unwrap(),
     );
 
