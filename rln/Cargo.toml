@@ -32,8 +32,9 @@ ark-circom = { features = ["circom-2"], path = "../../../gakonst/ark-circom" }
 color-eyre = "0.5"
 
 # decoding of data
-# hex = "0.4.3"
+hex = "0.4.3"
 # byteorder = "1.4.3"
+hex-literal = "0.3"
 
 # tracing
 tracing = "0.1"
