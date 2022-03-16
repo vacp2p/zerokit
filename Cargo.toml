@@ -1,4 +1,6 @@
 [workspace]
 members = [
-    "rln",
+  "multiplier",
+  "poseidon-tornado",
+  "rln",
 ]
