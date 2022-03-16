@@ -3,5 +3,8 @@
 
 pub mod ffi;
 pub mod identity;
+pub mod hash;
+pub mod merkle_tree;
+pub mod poseidon_tree;
 pub mod public;
 pub mod util;
