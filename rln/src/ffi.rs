@@ -41,10 +41,7 @@ pub extern "C" fn new_circuit(ctx: *mut *mut RLN) -> bool {
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn prove(
-    ctx: *const RLN,
-    output_buffer: *mut Buffer
-) -> bool {
+pub extern "C" fn prove(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
     println!("RLN ffi: prove");
     let mul = unsafe { &*ctx };
     let mut output_data: Vec<u8> = Vec::new();

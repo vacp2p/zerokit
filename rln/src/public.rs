@@ -17,8 +17,6 @@ use num_bigint::BigInt;
 use serde::Deserialize;
 use serde_json;
 
-
-
 pub struct RLN {
     circom: CircomCircuit<Bn254>,
     params: ProvingKey<Bn254>,
@@ -38,10 +36,8 @@ struct WitnessInput {
 impl RLN {
     // TODO Break this apart here
     pub fn new() -> RLN {
-        let cfg = CircomConfig::<Bn254>::new(
-            "./resources/rln.wasm",
-            "./resources/rln.r1cs",
-        ).unwrap();
+        let cfg =
+            CircomConfig::<Bn254>::new("./resources/rln.wasm", "./resources/rln.r1cs").unwrap();
 
         // TODO Refactor
         // From rln JSON witness
@@ -89,7 +85,8 @@ impl RLN {
     }
 "#;
 
-        let witness_input : WitnessInput = serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
+        let witness_input: WitnessInput =
+            serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
 
         println!("Witness input JSON: {:?}", witness_input);
 
@@ -111,7 +108,6 @@ impl RLN {
             builder.push_input("identity_path_index", BigInt::from(*v));
         }
 
-
         builder.push_input(
             "x",
             BigInt::parse_bytes(witness_input.x.as_bytes(), 10).unwrap(),
@@ -123,7 +119,7 @@ impl RLN {
                 witness_input.epoch.strip_prefix("0x").unwrap().as_bytes(),
                 16,
             )
-                .unwrap(),
+            .unwrap(),
         );
 
         builder.push_input(

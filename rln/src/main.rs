@@ -10,8 +10,8 @@ use ark_groth16::{
 use num_bigint::BigInt;
 
 // Tracing
-use tracing::{span, event, Level};
-use ark_relations::r1cs::{ConstraintTrace, ConstraintLayer, ConstraintSystem, TracingMode};
+use ark_relations::r1cs::{ConstraintLayer, ConstraintSystem, ConstraintTrace, TracingMode};
+use tracing::{event, span, Level};
 use tracing_subscriber::layer::SubscriberExt;
 
 // JSON
@@ -31,7 +31,6 @@ struct WitnessInput {
 
 // RLN
 fn groth16_proof_example() -> Result<()> {
-
     // Tracing to help with debugging
     let mut layer = ConstraintLayer::default();
     layer.mode = TracingMode::OnlyConstraints;
@@ -41,10 +40,7 @@ fn groth16_proof_example() -> Result<()> {
     let trace = ConstraintTrace::capture();
     println!("Trace is: {:?}", trace);
 
-    let cfg = CircomConfig::<Bn254>::new(
-        "./resources/rln.wasm",
-        "./resources/rln.r1cs",
-     )?;
+    let cfg = CircomConfig::<Bn254>::new("./resources/rln.wasm", "./resources/rln.r1cs")?;
 
     // Test
     let trace = ConstraintTrace::capture();
@@ -95,7 +91,8 @@ fn groth16_proof_example() -> Result<()> {
     }
 "#;
 
-    let witness_input : WitnessInput = serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
+    let witness_input: WitnessInput =
+        serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
 
     println!("Witness input JSON: {:?}", witness_input);
 
@@ -116,7 +113,6 @@ fn groth16_proof_example() -> Result<()> {
     for v in witness_input.identity_path_index.iter() {
         builder.push_input("identity_path_index", BigInt::from(*v));
     }
-
 
     builder.push_input(
         "x",
@@ -139,7 +135,7 @@ fn groth16_proof_example() -> Result<()> {
 
     println!("Builder input:\n {:#?}", builder.inputs);
 
-   // create an empty instance for setting it up
+    // create an empty instance for setting it up
     let circom = builder.setup();
 
     let mut rng = thread_rng();

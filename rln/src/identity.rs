@@ -12,7 +12,7 @@ static POSEIDON: Lazy<Poseidon> = Lazy::new(Poseidon::new);
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Identity {
-    pub trapdoor:  BigInt,
+    pub trapdoor: BigInt,
     pub nullifier: BigInt,
 }
 
@@ -78,6 +78,5 @@ pub mod test {
         let x = BigInt::from_str(s).unwrap();
 
         assert!(id.commitment() == x);
-
     }
 }

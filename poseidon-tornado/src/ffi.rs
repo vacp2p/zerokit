@@ -39,10 +39,7 @@ pub extern "C" fn new_circuit(ctx: *mut *mut Multiplier) -> bool {
 }
 
 #[no_mangle]
-pub extern "C" fn prove(
-    ctx: *const Multiplier,
-    output_buffer: *mut Buffer
-) -> bool {
+pub extern "C" fn prove(ctx: *const Multiplier, output_buffer: *mut Buffer) -> bool {
     println!("multiplier ffi: prove");
     let mul = unsafe { &*ctx };
     let mut output_data: Vec<u8> = Vec::new();
