@@ -18,7 +18,7 @@ pub type Branch = merkle_tree::Branch<PoseidonHash>;
 #[allow(dead_code)]
 pub type Proof = merkle_tree::Proof<PoseidonHash>;
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PoseidonHash;
 
 #[allow(clippy::fallible_impl_from)] // TODO
@@ -70,6 +70,10 @@ pub mod test {
             ))
         );
         let proof = tree.proof(3).expect("proof should exist");
+
+        //println!("Proof {:#?}", proof);
+        //println!("Tree {:#?}", tree);
+
         assert_eq!(
             proof,
             crate::merkle_tree::Proof(vec![

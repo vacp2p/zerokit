@@ -2,8 +2,8 @@
 #![allow(unused_imports)]
 
 pub mod ffi;
-pub mod identity;
 pub mod hash;
+pub mod identity;
 pub mod merkle_tree;
 pub mod poseidon_tree;
 pub mod public;
