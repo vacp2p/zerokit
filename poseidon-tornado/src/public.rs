@@ -16,6 +16,8 @@ pub struct Multiplier {
     params: ProvingKey<Bn254>,
 }
 
+// TODO This should use poseidon-tornado stuff in main.rs for proper example
+
 impl Multiplier {
     // TODO Break this apart here
     pub fn new() -> Multiplier {
@@ -70,6 +72,12 @@ impl Multiplier {
         let verified = verify_proof(&pvk, &proof, &inputs).unwrap();
 
         Ok(verified)
+    }
+}
+
+impl Default for Multiplier {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

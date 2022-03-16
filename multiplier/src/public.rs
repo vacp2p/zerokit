@@ -73,6 +73,12 @@ impl Multiplier {
     }
 }
 
+impl Default for Multiplier {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[test]
 fn multiplier_proof() {
     let mul = Multiplier::new();

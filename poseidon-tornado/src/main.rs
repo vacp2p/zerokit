@@ -10,13 +10,13 @@ use ark_groth16::{
 use num_bigint::BigInt;
 
 // Tracing
-use ark_relations::r1cs::{ConstraintLayer, ConstraintSystem, ConstraintTrace, TracingMode};
-use tracing::{event, span, Level};
+use ark_relations::r1cs::{ConstraintLayer, ConstraintTrace, TracingMode};
+//use tracing::{event, span, Level};
 use tracing_subscriber::layer::SubscriberExt;
 
 // JSON
 use serde::Deserialize;
-use serde_json;
+//use serde_json;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

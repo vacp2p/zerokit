@@ -178,6 +178,12 @@ impl RLN {
     }
 }
 
+impl Default for RLN {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[test]
 fn rln_proof() {
     let mul = RLN::new();
