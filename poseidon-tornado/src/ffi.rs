@@ -28,6 +28,7 @@ impl<'a> From<&Buffer> for &'a [u8] {
     }
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn new_circuit(ctx: *mut *mut Multiplier) -> bool {
     println!("multiplier ffi: new");
@@ -38,6 +39,7 @@ pub extern "C" fn new_circuit(ctx: *mut *mut Multiplier) -> bool {
     true
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn prove(ctx: *const Multiplier, output_buffer: *mut Buffer) -> bool {
     println!("multiplier ffi: prove");
@@ -53,6 +55,7 @@ pub extern "C" fn prove(ctx: *const Multiplier, output_buffer: *mut Buffer) -> b
     true
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn verify(
     ctx: *const Multiplier,
