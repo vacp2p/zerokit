@@ -1,4 +1,4 @@
-use crate::public::Multiplier;
+use crate::public::PoseidonTornado;
 use std::slice;
 
 /// Buffer struct is taken from
@@ -30,9 +30,9 @@ impl<'a> From<&Buffer> for &'a [u8] {
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn new_circuit(ctx: *mut *mut Multiplier) -> bool {
+pub extern "C" fn new_circuit(ctx: *mut *mut PoseidonTornado) -> bool {
     println!("multiplier ffi: new");
-    let mul = Multiplier::new();
+    let mul = PoseidonTornado::new();
 
     unsafe { *ctx = Box::into_raw(Box::new(mul)) };
 
@@ -41,7 +41,7 @@ pub extern "C" fn new_circuit(ctx: *mut *mut Multiplier) -> bool {
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn prove(ctx: *const Multiplier, output_buffer: *mut Buffer) -> bool {
+pub extern "C" fn prove(ctx: *const PoseidonTornado, output_buffer: *mut Buffer) -> bool {
     println!("multiplier ffi: prove");
     let mul = unsafe { &*ctx };
     let mut output_data: Vec<u8> = Vec::new();
@@ -58,7 +58,7 @@ pub extern "C" fn prove(ctx: *const Multiplier, output_buffer: *mut Buffer) -> b
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn verify(
-    ctx: *const Multiplier,
+    ctx: *const PoseidonTornado,
     proof_buffer: *const Buffer,
     result_ptr: *mut u32,
 ) -> bool {
