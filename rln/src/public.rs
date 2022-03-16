@@ -184,6 +184,8 @@ impl Default for RLN {
     }
 }
 
+// NOTE: Expensive test, ignoring by default
+#[ignore]
 #[test]
 fn rln_proof() {
     let mul = RLN::new();
