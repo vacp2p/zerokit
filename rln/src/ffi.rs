@@ -1,4 +1,4 @@
-use crate::public::Multiplier;
+use crate::public::RLN;
 use std::slice;
 
 /// Buffer struct is taken from
@@ -29,9 +29,9 @@ impl<'a> From<&Buffer> for &'a [u8] {
 }
 
 #[no_mangle]
-pub extern "C" fn new_circuit(ctx: *mut *mut Multiplier) -> bool {
-    println!("multiplier ffi: new");
-    let mul = Multiplier::new();
+pub extern "C" fn new_circuit(ctx: *mut *mut RLN) -> bool {
+    println!("rln ffi: new");
+    let mul = RLN::new();
 
     unsafe { *ctx = Box::into_raw(Box::new(mul)) };
 
@@ -40,10 +40,10 @@ pub extern "C" fn new_circuit(ctx: *mut *mut Multiplier) -> bool {
 
 #[no_mangle]
 pub extern "C" fn prove(
-    ctx: *const Multiplier,
+    ctx: *const RLN,
     output_buffer: *mut Buffer
 ) -> bool {
-    println!("multiplier ffi: prove");
+    println!("RLN ffi: prove");
     let mul = unsafe { &*ctx };
     let mut output_data: Vec<u8> = Vec::new();
 
@@ -58,11 +58,11 @@ pub extern "C" fn prove(
 
 #[no_mangle]
 pub extern "C" fn verify(
-    ctx: *const Multiplier,
+    ctx: *const RLN,
     proof_buffer: *const Buffer,
     result_ptr: *mut u32,
 ) -> bool {
-    println!("multiplier ffi: verify");
+    println!("RLN ffi: verify");
     let mul = unsafe { &*ctx };
     let proof_data = <&[u8]>::from(unsafe { &*proof_buffer });
     if match mul.verify(proof_data) {
