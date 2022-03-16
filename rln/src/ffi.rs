@@ -28,6 +28,7 @@ impl<'a> From<&Buffer> for &'a [u8] {
     }
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn new_circuit(ctx: *mut *mut RLN) -> bool {
     println!("rln ffi: new");
@@ -38,6 +39,7 @@ pub extern "C" fn new_circuit(ctx: *mut *mut RLN) -> bool {
     true
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn prove(
     ctx: *const RLN,
@@ -56,6 +58,7 @@ pub extern "C" fn prove(
     true
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn verify(
     ctx: *const RLN,
