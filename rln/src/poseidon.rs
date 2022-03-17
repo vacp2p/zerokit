@@ -9,8 +9,10 @@ use sapling_crypto::bellman::pairing::Engine;
 //use ff::{Field, PrimeField, PrimeFieldRepr};
 //use ark_ec::{PairingEngine as Engine};
 
+use ark_ec::PairingEngine;
+
 #[derive(Clone)]
-pub struct PoseidonParams<E: Engine> {
+pub struct PoseidonParams<E: PairingEngine> {
     rf: usize,
     rp: usize,
     t: usize,
@@ -19,11 +21,11 @@ pub struct PoseidonParams<E: Engine> {
 }
 
 #[derive(Clone)]
-pub struct Poseidon<E: Engine> {
+pub struct Poseidon<E: PairingEngine> {
     params: PoseidonParams<E>,
 }
 
-impl<E: Engine> PoseidonParams<E> {
+impl<E: PairingEngine> PoseidonParams<E> {
     pub fn new(
         rf: usize,
         rp: usize,
@@ -120,7 +122,7 @@ impl<E: Engine> PoseidonParams<E> {
     }
 }
 
-impl<E: Engine> Poseidon<E> {
+impl<E: PairingEngine> Poseidon<E> {
     pub fn new(params: PoseidonParams<E>) -> Poseidon<E> {
         Poseidon { params }
     }

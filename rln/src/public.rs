@@ -161,15 +161,12 @@ where
 
         println!("Public inputs {:#?} ", inputs);
 
-        // Sapling based tree
-        // // TODO Add as parameter(s)
-        // let merkle_depth: usize = 3;
-        // let poseidon_params = PoseidonParams::<Bn256>::new(8, 55, 3, None, None, None);
-        // let hasher = PoseidonHasher::new(poseidon_params.clone());
-        // let tree = IncrementalMerkleTree::empty(hasher, merkle_depth);
-
-        const LEAF: Hash = Hash::from_bytes_be([0u8; 32]);
-        let mut tree = PoseidonTree::new(21, LEAF);
+       // TODO Add as parameter(s)
+        let merkle_depth: usize = 3;
+        // XXX
+        let poseidon_params = PoseidonParams::<Bn254>::new(8, 55, 3, None, None, None);
+        let hasher = PoseidonHasher::new(poseidon_params.clone());
+        let tree = IncrementalMerkleTree::empty(hasher, merkle_depth);
 
         RLN {
             circom,

@@ -7,9 +7,11 @@ use sapling_crypto::bellman::pairing::Engine;
 use std::io::{self, Error, ErrorKind};
 use std::{collections::HashMap, hash::Hash};
 
+use ark_ec::PairingEngine;
+
 pub struct IncrementalMerkleTree<E>
 where
-    E: Engine,
+    E: PairingEngine,
 {
     pub current_index: usize,
     merkle_tree: MerkleTree<E>,
@@ -17,7 +19,7 @@ where
 
 impl<E> IncrementalMerkleTree<E>
 where
-    E: Engine,
+    E: PairingEngine,
 {
     pub fn empty(hasher: Hasher<E>, depth: usize) -> Self {
         let mut zero: Vec<E::Fr> = Vec::with_capacity(depth + 1);
@@ -86,7 +88,7 @@ where
 
 pub struct MerkleTree<E>
 where
-    E: Engine,
+    E: PairingEngine,
 {
     pub hasher: Hasher<E>,
     pub depth: usize,
@@ -96,7 +98,7 @@ where
 
 impl<E> MerkleTree<E>
 where
-    E: Engine,
+    E: PairingEngine,
 {
     pub fn empty(hasher: Hasher<E>, depth: usize) -> Self {
         let mut zero: Vec<E::Fr> = Vec::with_capacity(depth + 1);
