@@ -1,7 +1,7 @@
 use crate::merkle::IncrementalMerkleTree;
 use crate::poseidon::{Poseidon as PoseidonHasher, PoseidonParams};
-use crate::poseidon_tree::PoseidonTree;
-use crate::hash::Hash;
+use semaphore::hash::Hash;
+use semaphore::poseidon_tree::PoseidonTree;
 
 use ark_circom::{CircomBuilder, CircomCircuit, CircomConfig};
 use ark_std::rand::thread_rng;

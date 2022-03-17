@@ -2,69 +2,55 @@
 #![allow(unused_imports)]
 
 pub mod ffi;
-pub mod hash;
-pub mod identity;
-pub mod merkle_tree;
-pub mod poseidon_tree;
 pub mod public;
-pub mod util;
 
+use ark_bn254::{Fr, Parameters};
+use ark_ec::bn::Bn;
+
+pub type Field = Fr;
+pub type Groth16Proof = ark_groth16::Proof<Bn<Parameters>>;
+pub type EthereumGroth16Proof = ark_circom::ethereum::Proof;
+
+// RLN lib
 pub mod merkle;
 pub mod poseidon;
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use hash::*;
-    use identity::*;
-    use poseidon_tree::*;
-    // use protocol::*;
+    use hex_literal::hex;
+    use num_bigint::BigInt;
+    use semaphore::{hash::Hash, identity::Identity, poseidon_tree::PoseidonTree, protocol::*};
 
-    // Adapted from https://github.com/worldcoin/semaphore-rs/blob/main/src/lib.rs
     #[test]
     fn test_merkle_proof() {
-        //fn test_end_to_end() {
+        const LEAF: Hash = Hash::from_bytes_be(hex!(
+            "0000000000000000000000000000000000000000000000000000000000000000"
+        ));
+
         // generate identity
-        let id = Identity::new(b"secret");
+        let id = Identity::new(b"hello");
 
         // generate merkle tree
-        const LEAF: Hash = Hash::from_bytes_be([0u8; 32]);
-
         let mut tree = PoseidonTree::new(21, LEAF);
-        let (_, leaf) = id.commitment().to_bytes_be();
-        tree.set(0, leaf.into());
+        tree.set(0, id.commitment().into());
 
         let merkle_proof = tree.proof(0).expect("proof should exist");
-        let root = tree.root();
+        let root: Hash = tree.root().into();
 
         println!("Root: {:#}", root);
         println!("Merkle proof: {:#?}", merkle_proof);
 
-        // change signal and external_nullifier here
-        // let signal = "xxx".as_bytes();
-        // let external_nullifier = "appId".as_bytes();
+        // // change signal and external_nullifier here
+        // let signal = b"xxx";
+        // let external_nullifier = b"appId";
 
         // let external_nullifier_hash = hash_external_nullifier(external_nullifier);
-        // let nullifier_hash = generate_nullifier_hash(&id, &external_nullifier_hash);
+        // let nullifier_hash = generate_nullifier_hash(&id, external_nullifier_hash);
 
-        // let config = SnarkFileConfig {
-        //     zkey: "./semaphore/build/snark/semaphore_final.zkey".to_string(),
-        //     wasm: "./semaphore/build/snark/semaphore.wasm".to_string(),
-        // };
+        // let proof = generate_proof(&id, &merkle_proof, external_nullifier, signal).unwrap();
 
-        // let proof =
-        //     generate_proof(&config, &id, &merkle_proof, &external_nullifier_hash, signal).unwrap();
-
-        // let success = verify_proof(
-        //     &config,
-        //     &root.into(),
-        //     &nullifier_hash,
-        //     signal,
-        //     &external_nullifier_hash,
-        //     &proof,
-        // )
-        // .unwrap();
-
-        // assert!(success);
+        // let success =
+        //     verify_proof(root, nullifier_hash, signal, external_nullifier, &proof).unwrap();
     }
 }
