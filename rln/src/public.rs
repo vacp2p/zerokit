@@ -26,7 +26,9 @@ use serde_json;
 use bellman::pairing::ff::{Field, PrimeField, PrimeFieldRepr, ScalarEngine};
 use sapling_crypto::bellman::pairing::bn256::Bn256;
 
-// TODO Add Engine here? i.e. <E: Engine> not <Bn254>
+use ark_ec::PairingEngine;
+
+
 // NOTE Bn254 vs Bn256 mismatch! Tree is originally Bn256
 // TODO Figure out Bn254 vs Bn256 mismatch
 pub struct RLN {
@@ -48,9 +50,12 @@ struct WitnessInput {
     rln_identifier: String,
 }
 
-impl RLN {
+impl<E> RLN<E>
+where
+    E: PairingEngine,
+{
     // TODO Break this apart here
-    pub fn new() -> RLN {
+    pub fn new() -> RLN<E> {
         let cfg =
             CircomConfig::<Bn254>::new("./resources/rln.wasm", "./resources/rln.r1cs").unwrap();
 
@@ -219,12 +224,6 @@ impl RLN {
         let verified = verify_proof(&pvk, &proof, &inputs).unwrap();
 
         Ok(verified)
-    }
-}
-
-impl Default for RLN {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

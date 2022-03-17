@@ -1,6 +1,8 @@
 use crate::public::RLN;
 use std::slice;
 
+use ark_bn254::Bn254;
+
 /// Buffer struct is taken from
 /// https://github.com/celo-org/celo-threshold-bls-rs/blob/master/crates/threshold-bls-ffi/src/ffi.rs
 ///
@@ -30,7 +32,7 @@ impl<'a> From<&Buffer> for &'a [u8] {
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn get_root(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
+pub extern "C" fn get_root(ctx: *const RLN<Bn254>, output_buffer: *mut Buffer) -> bool {
     let rln = unsafe { &*ctx };
     let mut output_data: Vec<u8> = Vec::new();
     match rln.get_root(&mut output_data) {
@@ -44,7 +46,7 @@ pub extern "C" fn get_root(ctx: *const RLN, output_buffer: *mut Buffer) -> bool 
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn new_circuit(ctx: *mut *mut RLN) -> bool {
+pub extern "C" fn new_circuit(ctx: *mut *mut RLN<Bn254>) -> bool {
     println!("rln ffi: new");
     let mul = RLN::new();
 
@@ -55,7 +57,7 @@ pub extern "C" fn new_circuit(ctx: *mut *mut RLN) -> bool {
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn prove(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
+pub extern "C" fn prove(ctx: *const RLN<Bn254>, output_buffer: *mut Buffer) -> bool {
     println!("RLN ffi: prove");
     let mul = unsafe { &*ctx };
     let mut output_data: Vec<u8> = Vec::new();
@@ -72,7 +74,7 @@ pub extern "C" fn prove(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn verify(
-    ctx: *const RLN,
+    ctx: *const RLN<Bn254>,
     proof_buffer: *const Buffer,
     result_ptr: *mut u32,
 ) -> bool {
