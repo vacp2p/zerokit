@@ -9,6 +9,7 @@ pub mod poseidon_tree;
 pub mod public;
 pub mod util;
 
+pub mod merkle;
 pub mod poseidon;
 
 #[cfg(test)]
