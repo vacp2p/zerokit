@@ -2,15 +2,21 @@
 //
 use blake2::{Blake2s, Digest};
 
-use sapling_crypto::bellman::pairing::ff::{Field, PrimeField, PrimeFieldRepr};
-use sapling_crypto::bellman::pairing::Engine;
-
 // TODO: Using arkworks libs here instead
+//
+// NOTE: Using arkworks libs here
+//use sapling_crypto::bellman::pairing::ff::{Field, PrimeField, PrimeFieldRepr};
+use ark_ff::{Field, PrimeField};
 //use ff::{Field, PrimeField, PrimeFieldRepr};
-//use ark_ec::{PairingEngine as Engine};
+use ark_ec::PairingEngine;
+
+use std::str::FromStr;
+use std::ops::AddAssign;
+use std::fmt::Debug;
+
 
 #[derive(Clone)]
-pub struct PoseidonParams<E: Engine> {
+pub struct PoseidonParams<E: PairingEngine> {
     rf: usize,
     rp: usize,
     t: usize,
@@ -19,11 +25,14 @@ pub struct PoseidonParams<E: Engine> {
 }
 
 #[derive(Clone)]
-pub struct Poseidon<E: Engine> {
+pub struct Poseidon<E: PairingEngine> {
     params: PoseidonParams<E>,
 }
 
-impl<E: Engine> PoseidonParams<E> {
+impl<E: PairingEngine> PoseidonParams<E>
+    where
+    <<E as PairingEngine>::Fr as FromStr>::Err: Debug,
+{
     pub fn new(
         rf: usize,
         rp: usize,
@@ -120,7 +129,7 @@ impl<E: Engine> PoseidonParams<E> {
     }
 }
 
-impl<E: Engine> Poseidon<E> {
+impl<E: PairingEngine> Poseidon<E> {
     pub fn new(params: PoseidonParams<E>) -> Poseidon<E> {
         Poseidon { params }
     }
@@ -217,10 +226,13 @@ impl<E: Engine> Poseidon<E> {
 
 #[test]
 fn test_poseidon_hash() {
-    use sapling_crypto::bellman::pairing::bn256;
-    use sapling_crypto::bellman::pairing::bn256::{Bn256, Fr};
-    let params = PoseidonParams::<Bn256>::new(8, 55, 3, None, None, None);
-    let hasher = Poseidon::<Bn256>::new(params);
+    // Replace with bn254
+    use ark_bn254::Bn254;
+    use poseidon_rs::Fr;
+    //use sapling_crypto::bellman::pairing::bn256;
+    //use sapling_crypto::bellman::pairing::bn256::{Bn256, Fr};
+    let params = PoseidonParams::<Bn254>::new(8, 55, 3, None, None, None);
+    let hasher = Poseidon::<Bn254>::new(params);
     let input1: Vec<Fr> = ["0"].iter().map(|e| Fr::from_str(e).unwrap()).collect();
     let r1: Fr = hasher.hash(input1);
     let input2: Vec<Fr> = ["0", "0"]

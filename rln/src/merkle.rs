@@ -1,26 +1,36 @@
 // Adapted from https://github.com/kilic/rln/blob/master/src/merkle.rs
 //
 use crate::poseidon::{Poseidon as Hasher, PoseidonParams};
-// TODO Replace these with arkworks
-use sapling_crypto::bellman::pairing::ff::{Field, PrimeField, PrimeFieldRepr};
-use sapling_crypto::bellman::pairing::Engine;
+use ark_ff::{Field, PrimeField};
+//use ff::{Field, PrimeField, PrimeFieldRepr};
+use ark_ec::PairingEngine;
+
 use std::io::{self, Error, ErrorKind};
 use std::{collections::HashMap, hash::Hash};
+use std::str::FromStr;
+use std::fmt::Debug;
+
+use ark_bn254::Fr;
 
 pub struct IncrementalMerkleTree<E>
 where
-    E: Engine,
+    E: PairingEngine,
 {
     pub current_index: usize,
     merkle_tree: MerkleTree<E>,
 }
 
+// XXX: I don't understand this second where clause
 impl<E> IncrementalMerkleTree<E>
 where
-    E: Engine,
+    E: PairingEngine,
+    <<E as PairingEngine>::Fr as FromStr>::Err: Debug,
 {
+    // XXX Some kind of trait bound thing?
     pub fn empty(hasher: Hasher<E>, depth: usize) -> Self {
         let mut zero: Vec<E::Fr> = Vec::with_capacity(depth + 1);
+        // XXX I don't understand why I can't call from_str here
+        // XXX minimal example?
         zero.push(E::Fr::from_str("0").unwrap());
         for i in 0..depth {
             zero.push(hasher.hash([zero[i]; 2].to_vec()));
@@ -86,7 +96,7 @@ where
 
 pub struct MerkleTree<E>
 where
-    E: Engine,
+    E: PairingEngine,
 {
     pub hasher: Hasher<E>,
     pub depth: usize,
@@ -96,7 +106,8 @@ where
 
 impl<E> MerkleTree<E>
 where
-    E: Engine,
+    E: PairingEngine,
+    <<E as PairingEngine>::Fr as FromStr>::Err: Debug,
 {
     pub fn empty(hasher: Hasher<E>, depth: usize) -> Self {
         let mut zero: Vec<E::Fr> = Vec::with_capacity(depth + 1);
@@ -215,8 +226,9 @@ fn test_merkle_set() {
     let data: Vec<Fr> = (0..8)
         .map(|s| Fr::from_str(&format!("{}", s)).unwrap())
         .collect();
-    use sapling_crypto::bellman::pairing::bn256::{Bn256, Fr, FrRepr};
-    let params = PoseidonParams::<Bn256>::new(8, 55, 3, None, None, None);
+    //use sapling_crypto::bellman::pairing::bn256::{Bn256, Fr, FrRepr};
+    use ark_bn254::Bn254;
+    let params = PoseidonParams::<Bn254>::new(8, 55, 3, None, None, None);
     let hasher = Hasher::new(params);
     let mut set = MerkleTree::empty(hasher.clone(), 3);
     let leaf_index = 6;

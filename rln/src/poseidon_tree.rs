@@ -4,7 +4,8 @@ use crate::{
     hash::Hash,
     merkle_tree::{self, Hasher, MerkleTree},
 };
-use ff::{PrimeField, PrimeFieldRepr};
+//use ff::{PrimeField, PrimeFieldRepr};
+use ark_ff::PrimeField;
 use once_cell::sync::Lazy;
 use poseidon_rs::{Fr, FrRepr, Poseidon};
 use serde::{Deserialize, Serialize};

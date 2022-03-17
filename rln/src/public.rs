@@ -22,9 +22,8 @@ use num_bigint::BigInt;
 use serde::Deserialize;
 use serde_json;
 
-// XXX
-use bellman::pairing::ff::{Field, PrimeField, PrimeFieldRepr, ScalarEngine};
-use sapling_crypto::bellman::pairing::bn256::Bn256;
+use ark_ff::{BigInteger, Field, PrimeField};
+use ark_ec::PairingEngine;
 
 // TODO Add Engine here? i.e. <E: Engine> not <Bn254>
 // NOTE Bn254 vs Bn256 mismatch! Tree is originally Bn256
@@ -33,8 +32,7 @@ pub struct RLN {
     circom: CircomCircuit<Bn254>,
     params: ProvingKey<Bn254>,
     // TODO Replace Bn256 with Bn254 here
-    //tree: IncrementalMerkleTree<Bn256>,
-    tree: PoseidonTree,
+    tree: IncrementalMerkleTree<Bn254>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -156,15 +154,12 @@ impl RLN {
 
         println!("Public inputs {:#?} ", inputs);
 
-        // Sapling based tree
-        // // TODO Add as parameter(s)
-        // let merkle_depth: usize = 3;
-        // let poseidon_params = PoseidonParams::<Bn256>::new(8, 55, 3, None, None, None);
-        // let hasher = PoseidonHasher::new(poseidon_params.clone());
-        // let tree = IncrementalMerkleTree::empty(hasher, merkle_depth);
-
-        const LEAF: Hash = Hash::from_bytes_be([0u8; 32]);
-        let mut tree = PoseidonTree::new(21, LEAF);
+        // TODO Add as parameter(s)
+        let merkle_depth: usize = 3;
+        // XXX
+        let poseidon_params = PoseidonParams::<Bn254>::new(8, 55, 3, None, None, None);
+        let hasher = PoseidonHasher::new(poseidon_params.clone());
+        let tree = IncrementalMerkleTree::empty(hasher, merkle_depth);
 
         RLN {
             circom,
@@ -176,15 +171,10 @@ impl RLN {
     /// returns current membership root
     /// * `root` is a scalar field element in 32 bytes
     pub fn get_root<W: Write>(&self, mut result_data: W) -> io::Result<()> {
-        //let root = self.tree.get_root();
-        // Converts PrimeFieldRepr into LE
-        //root.into_repr().write_le(&mut result_data)?;
+       let root = self.tree.get_root();
 
-        //returns H::Hash, which is a 256 bit hash value
-        let root = self.tree.root();
-        // TODO Return root as LE here
-        //root.write_le(&mut result_data)?;
-        println!("NYI: root le write buffer {:#?}", root);
+        //root.into_repr().write_le(&mut result_data)?;
+        root.into_repr().write_le(&mut result_data)?;
         Ok(())
     }
 

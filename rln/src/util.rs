@@ -1,7 +1,8 @@
 // Adapted from
 // https://github.com/worldcoin/semaphore-rs/blob/main/src/util.rs
 
-use ff::{PrimeField, PrimeFieldRepr};
+use ark_ff::PrimeField;
+//use ff::{PrimeField, PrimeFieldRepr};
 use num_bigint::{BigInt, Sign};
 use poseidon_rs::{Fr, FrRepr};
 

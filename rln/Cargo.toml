@@ -16,7 +16,7 @@ num-bigint = { version = "0.4", default-features = false, features = ["rand"] }
 
 # ZKP Generation
 ark-ec = { version = "0.3.0", default-features = false, features = ["parallel"] }
-# ark-ff = { version = "0.3.0", default-features = false, features = ["parallel", "asm"] }
+ark-ff = { version = "0.3.0", default-features = false, features = ["parallel", "asm"] }
 ark-std = { version = "0.3.0", default-features = false, features = ["parallel"] }
 ark-bn254 = { version = "0.3.0" }
 ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", rev = "765817f", features = ["parallel"] }
@@ -50,7 +50,8 @@ once_cell = "1.8"
 poseidon-rs = "0.0.8"
 sha2 = "0.10.1"
 
-ff = { package="ff_ce", version="0.11"}
+# XXX this vs ark-ff
+#ff = { package="ff_ce", version="0.11"}
 
 zkp-u256 = { version = "0.2", optional = true }
 ethers-core = "0.6.3"
@@ -60,5 +61,5 @@ tiny-keccak = "2.0.2"
 blake2 = "0.8.1"
 
 # TODO Remove this and use arkworks instead
-sapling-crypto = { package = "sapling-crypto_ce", version = "0.1.3", default-features = false }
-bellman = { package = "bellman_ce", version = "0.3.4", default-features = false }
+#sapling-crypto = { package = "sapling-crypto_ce", version = "0.1.3", default-features = false }
+#bellman = { package = "bellman_ce", version = "0.3.4", default-features = false }
