@@ -30,6 +30,20 @@ impl<'a> From<&Buffer> for &'a [u8] {
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+pub extern "C" fn get_root(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
+    let rln = unsafe { &*ctx };
+    let mut output_data: Vec<u8> = Vec::new();
+    match rln.get_root(&mut output_data) {
+        Ok(_) => true,
+        Err(_) => false,
+    };
+    unsafe { *output_buffer = Buffer::from(&output_data[..]) };
+    std::mem::forget(output_data);
+    true
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
 pub extern "C" fn new_circuit(ctx: *mut *mut RLN) -> bool {
     println!("rln ffi: new");
     let mul = RLN::new();

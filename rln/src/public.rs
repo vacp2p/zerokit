@@ -1,3 +1,6 @@
+use crate::merkle::IncrementalMerkleTree;
+use crate::poseidon::{Poseidon as PoseidonHasher, PoseidonParams};
+
 use ark_circom::{CircomBuilder, CircomCircuit, CircomConfig};
 use ark_std::rand::thread_rng;
 
@@ -17,9 +20,18 @@ use num_bigint::BigInt;
 use serde::Deserialize;
 use serde_json;
 
+// XXX
+use bellman::pairing::ff::{Field, PrimeField, PrimeFieldRepr, ScalarEngine};
+use sapling_crypto::bellman::pairing::bn256::Bn256;
+
+// TODO Add Engine here? i.e. <E: Engine> not <Bn254>
+// NOTE Bn254 vs Bn256 mismatch! Tree is originally Bn256
+// TODO Figure out Bn254 vs Bn256 mismatch
 pub struct RLN {
     circom: CircomCircuit<Bn254>,
     params: ProvingKey<Bn254>,
+    // TODO Replace Bn256 with Bn254 here
+    tree: IncrementalMerkleTree<Bn256>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -141,7 +153,26 @@ impl RLN {
 
         println!("Public inputs {:#?} ", inputs);
 
-        RLN { circom, params }
+        // TODO Add as parameter(s)
+        let merkle_depth: usize = 3;
+        // XXX
+        let poseidon_params = PoseidonParams::<Bn256>::new(8, 55, 3, None, None, None);
+        let hasher = PoseidonHasher::new(poseidon_params.clone());
+        let tree = IncrementalMerkleTree::empty(hasher, merkle_depth);
+
+        RLN {
+            circom,
+            params,
+            tree,
+        }
+    }
+
+    /// returns current membership root
+    /// * `root` is a scalar field element in 32 bytes
+    pub fn get_root<W: Write>(&self, mut result_data: W) -> io::Result<()> {
+        let root = self.tree.get_root();
+        root.into_repr().write_le(&mut result_data)?;
+        Ok(())
     }
 
     // TODO Input Read
