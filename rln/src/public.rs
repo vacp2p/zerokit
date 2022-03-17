@@ -1,5 +1,7 @@
 use crate::merkle::IncrementalMerkleTree;
 use crate::poseidon::{Poseidon as PoseidonHasher, PoseidonParams};
+use crate::poseidon_tree::PoseidonTree;
+use crate::hash::Hash;
 
 use ark_circom::{CircomBuilder, CircomCircuit, CircomConfig};
 use ark_std::rand::thread_rng;
@@ -31,7 +33,8 @@ pub struct RLN {
     circom: CircomCircuit<Bn254>,
     params: ProvingKey<Bn254>,
     // TODO Replace Bn256 with Bn254 here
-    tree: IncrementalMerkleTree<Bn256>,
+    //tree: IncrementalMerkleTree<Bn256>,
+    tree: PoseidonTree,
 }
 
 #[derive(Debug, Deserialize)]
@@ -153,12 +156,15 @@ impl RLN {
 
         println!("Public inputs {:#?} ", inputs);
 
-        // TODO Add as parameter(s)
-        let merkle_depth: usize = 3;
-        // XXX
-        let poseidon_params = PoseidonParams::<Bn256>::new(8, 55, 3, None, None, None);
-        let hasher = PoseidonHasher::new(poseidon_params.clone());
-        let tree = IncrementalMerkleTree::empty(hasher, merkle_depth);
+        // Sapling based tree
+        // // TODO Add as parameter(s)
+        // let merkle_depth: usize = 3;
+        // let poseidon_params = PoseidonParams::<Bn256>::new(8, 55, 3, None, None, None);
+        // let hasher = PoseidonHasher::new(poseidon_params.clone());
+        // let tree = IncrementalMerkleTree::empty(hasher, merkle_depth);
+
+        const LEAF: Hash = Hash::from_bytes_be([0u8; 32]);
+        let mut tree = PoseidonTree::new(21, LEAF);
 
         RLN {
             circom,
@@ -170,8 +176,15 @@ impl RLN {
     /// returns current membership root
     /// * `root` is a scalar field element in 32 bytes
     pub fn get_root<W: Write>(&self, mut result_data: W) -> io::Result<()> {
-        let root = self.tree.get_root();
-        root.into_repr().write_le(&mut result_data)?;
+        //let root = self.tree.get_root();
+        // Converts PrimeFieldRepr into LE
+        //root.into_repr().write_le(&mut result_data)?;
+
+        //returns H::Hash, which is a 256 bit hash value
+        let root = self.tree.root();
+        // TODO Return root as LE here
+        //root.write_le(&mut result_data)?;
+        println!("NYI: root le write buffer {:#?}", root);
         Ok(())
     }
 
