@@ -9,6 +9,8 @@ pub mod poseidon_tree;
 pub mod public;
 pub mod util;
 
+pub mod poseidon;
+
 #[cfg(test)]
 mod test {
     use super::*;
