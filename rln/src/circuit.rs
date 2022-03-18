@@ -9,7 +9,7 @@ use std::io::{Cursor, Write};
 use tempfile::NamedTempFile;
 
 const ZKEY_BYTES: &[u8] = include_bytes!("../resources/rln_final.zkey");
-const WASM: &[u8] = include_bytes!("../resources/semaphore.wasm");
+const WASM: &[u8] = include_bytes!("../resources/rln.wasm");
 
 pub static ZKEY: Lazy<(ProvingKey<Bn254>, ConstraintMatrices<Fr>)> = Lazy::new(|| {
     let mut reader = Cursor::new(ZKEY_BYTES);
