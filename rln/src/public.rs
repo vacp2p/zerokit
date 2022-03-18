@@ -1,3 +1,6 @@
+/// This is the main public API for RLN. It is used by the FFI, and should be
+/// used by tests etc as well
+///
 use crate::merkle::IncrementalMerkleTree;
 use crate::poseidon::{Poseidon as PoseidonHasher, PoseidonParams};
 use semaphore::hash::Hash;
@@ -47,6 +50,9 @@ struct WitnessInput {
     epoch: String,
     rln_identifier: String,
 }
+
+// TODO Isolate hardcoded JSON test here
+// TODO Expand API to have better coverage of things needed
 
 impl RLN {
     // TODO Break this apart here

@@ -41,6 +41,8 @@ mod test {
         println!("Root: {:#}", root);
         println!("Merkle proof: {:#?}", merkle_proof);
 
+        // TODO Expand this test to cover RLN end to end
+
         // // change signal and external_nullifier here
         // let signal = b"xxx";
         // let external_nullifier = b"appId";

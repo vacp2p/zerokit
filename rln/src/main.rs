@@ -1,3 +1,6 @@
+/// This is basic entry point for `cargo run` to play around with proof,
+/// outputs, etc.
+///
 use ark_circom::{CircomBuilder, CircomConfig};
 use ark_std::rand::thread_rng;
 use color_eyre::Result;
@@ -28,6 +31,8 @@ struct WitnessInput {
     epoch: String,
     rln_identifier: String,
 }
+
+// TODO: This should use public.rs as much as possible
 
 // RLN
 fn groth16_proof_example() -> Result<()> {
