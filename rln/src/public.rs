@@ -278,6 +278,8 @@ fn rln_proof() {
     // XXX Pass as arg?
     //let pvk = prepare_verifying_key(&mul.params.vk);
 
+    // XXX: Something is wrong here I think, because it doesn't verify with the
+    // full proof fields like yShare - just witness? Might be a bug
     let verified = rln.verify(proof_data).unwrap();
 
     assert!(verified);

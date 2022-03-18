@@ -82,6 +82,7 @@ fn ark_to_bigint(n: Field) -> BigInt {
 // const fullProof = await RLN.genProof(witness, wasmFilePath, finalZkeyPath)
 //
 
+// TODO Change API here
 /// Generates a semaphore proof
 ///
 /// # Errors
@@ -105,12 +106,18 @@ pub fn generate_proof(
     // epoch
     // rln_identifier
     let inputs = [
-        ("identityNullifier", vec![identity.nullifier]),
-        ("identityTrapdoor", vec![identity.trapdoor]),
-        ("treePathIndices", merkle_proof.path_index()),
-        ("treeSiblings", merkle_proof_to_vec(merkle_proof)),
+        // FIXME should be identity_secret, not just nullifier!
+        ("identity_secret", vec![identity.nullifier]),
+        //("identityTrapdoor", vec![identity.trapdoor]),
+        ("path_elements", merkle_proof_to_vec(merkle_proof)),
+        ("identity_path_index", merkle_proof.path_index()),
         ("externalNullifier", vec![external_nullifier]),
-        ("signalHash", vec![signal]),
+        // XXX: Assuming signal is hashed
+        ("x", vec![signal]),
+        // FIXME epoch just hardcoded to random value
+        ("epoch", vec![signal]),
+        // FIXME rln_identifier just hardcoded to random value
+        ("rln_identifier", vec![signal]),
     ];
     let inputs = inputs.into_iter().map(|(name, values)| {
         (
@@ -155,6 +162,8 @@ pub fn generate_proof(
     Ok(proof)
 }
 
+// TODO Update API here
+
 /// Verifies a given semaphore proof
 ///
 /// # Errors
@@ -168,8 +177,20 @@ pub fn verify_proof(
     external_nullifier: &[u8],
     proof: &Proof<Bn<Parameters>>,
 ) -> Result<bool, ProofError> {
+    // XXX: Why is verification key in zkey but that's not what is used in
+    // verifyProof with verification_key.json? Is there a difference?
     let pvk = prepare_verifying_key(&ZKEY.0.vk);
 
+    // TODO Update this, should be:
+    // XXX This is returned from the proof! Why is it called yShare here?
+    // Isn't this publicOutput?
+    // publicSignals 0..5 in specific order:
+    // yShare
+    // merkleRoot
+    // internalNullifier
+    // signalHash
+    // epoch
+    // rlnIdentifier
     let public_inputs = vec![
         root,
         nullifier_hash,
