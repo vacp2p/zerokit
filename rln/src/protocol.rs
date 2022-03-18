@@ -77,6 +77,11 @@ fn ark_to_bigint(n: Field) -> BigInt {
     n.to_bigint().expect("conversion always succeeds for uint")
 }
 
+// XXX This is different from zk-kit API:
+// const witness = RLN.genWitness(secretHash, merkleProof, epoch, signal, rlnIdentifier)
+// const fullProof = await RLN.genProof(witness, wasmFilePath, finalZkeyPath)
+//
+
 /// Generates a semaphore proof
 ///
 /// # Errors
@@ -90,6 +95,15 @@ pub fn generate_proof(
 ) -> Result<Proof<Bn<Parameters>>, ProofError> {
     let external_nullifier = hash_external_nullifier(external_nullifier);
     let signal = hash_signal(signal);
+    // TODO Fix inputs
+    // Semaphore genWitness corresponds to these
+    // RLN different, should be:
+    // identity_secret
+    // path_elements (merkleProof.siblings))
+    // identity_path_index (merkleProof.pathIndices)
+    // x (RLN.genSignalHash(signal), assuming shouldHash is true)
+    // epoch
+    // rln_identifier
     let inputs = [
         ("identityNullifier", vec![identity.nullifier]),
         ("identityTrapdoor", vec![identity.trapdoor]),

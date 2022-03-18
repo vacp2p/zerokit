@@ -25,17 +25,17 @@ use num_bigint::BigInt;
 use serde::Deserialize;
 use serde_json;
 
-// XXX
-use bellman::pairing::ff::{Field, PrimeField, PrimeFieldRepr, ScalarEngine};
-use sapling_crypto::bellman::pairing::bn256::Bn256;
+// For RLN Rust version
+//use bellman::pairing::ff::{Field, PrimeField, PrimeFieldRepr, ScalarEngine};
+//use sapling_crypto::bellman::pairing::bn256::Bn256;
 
 // TODO Add Engine here? i.e. <E: Engine> not <Bn254>
-// NOTE Bn254 vs Bn256 mismatch! Tree is originally Bn256
-// TODO Figure out Bn254 vs Bn256 mismatch
+// TODO Assuming we want to use IncrementalMerkleTree, figure out type/trait conversions
+// TODO Adopt to new protocol structure
 pub struct RLN {
     circom: CircomCircuit<Bn254>,
     params: ProvingKey<Bn254>,
-    // TODO Replace Bn256 with Bn254 here
+    // RLN Rust version
     //tree: IncrementalMerkleTree<Bn256>,
     tree: PoseidonTree,
 }
