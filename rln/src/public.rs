@@ -51,12 +51,40 @@ struct WitnessInput {
     rln_identifier: String,
 }
 
-// TODO Isolate hardcoded JSON test here
 // TODO Expand API to have better coverage of things needed
 
 impl RLN {
-    // TODO Break this apart here
+    // TODO Update this to use new protocol
     pub fn new() -> RLN {
+        let cfg =
+            CircomConfig::<Bn254>::new("./resources/rln.wasm", "./resources/rln.r1cs").unwrap();
+
+        let mut builder = CircomBuilder::new(cfg);
+
+        // create an empty instance for setting it up
+        let circom = builder.setup();
+
+        let mut rng = thread_rng();
+        let params = generate_random_parameters::<Bn254, _, _>(circom, &mut rng).unwrap();
+
+        let circom = builder.build().unwrap();
+
+        let inputs = circom.get_public_inputs().unwrap();
+        println!("Public inputs {:#?} ", inputs);
+
+        const LEAF: Hash = Hash::from_bytes_be([0u8; 32]);
+        let mut tree = PoseidonTree::new(21, LEAF);
+
+        RLN {
+            circom,
+            params,
+            tree,
+        }
+    }
+
+    // XXX This is a tempory hack to get end to end proving/verification working
+    // Not supposed to be part of public API
+    pub fn new_json_spike() -> RLN {
         let cfg =
             CircomConfig::<Bn254>::new("./resources/rln.wasm", "./resources/rln.r1cs").unwrap();
 
@@ -238,18 +266,19 @@ impl Default for RLN {
 #[ignore]
 #[test]
 fn rln_proof() {
-    let mul = RLN::new();
+    let rln = RLN::new();
+    let rln_spike = RLN::new_json_spike();
     //let inputs = mul.circom.get_public_inputs().unwrap();
 
     let mut output_data: Vec<u8> = Vec::new();
-    let _ = mul.prove(&mut output_data);
+    let _ = rln_spike.prove(&mut output_data);
 
     let proof_data = &output_data[..];
 
     // XXX Pass as arg?
     //let pvk = prepare_verifying_key(&mul.params.vk);
 
-    let verified = mul.verify(proof_data).unwrap();
+    let verified = rln.verify(proof_data).unwrap();
 
     assert!(verified);
 }
