@@ -6,6 +6,11 @@ use std::slice;
 ///
 /// Also heavily inspired by https://github.com/kilic/rln/blob/master/src/ffi.rs
 
+// TODO Update mul to rln references
+// TODO Make sure get_root etc is on right LE form
+// TODO Add other FFI interfaces (update_next_member etc) while making sure it
+// is according to new RLN spec
+
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Buffer {
