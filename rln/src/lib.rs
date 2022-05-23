@@ -24,20 +24,20 @@ mod test {
     use crate::protocol::*;
     use hex_literal::hex;
     use num_bigint::BigInt;
-    use semaphore::{hash::Hash, identity::Identity, poseidon_tree::PoseidonTree};
+    use semaphore::{
+        hash::Hash, hash_to_field, identity::Identity, poseidon_tree::PoseidonTree, Field,
+    };
 
     #[test]
     fn test_merkle_proof() {
-        const LEAF: Hash = Hash::from_bytes_be(hex!(
-            "0000000000000000000000000000000000000000000000000000000000000000"
-        ));
+        let leaf = Field::from(0);
 
         // generate identity
-        let id = Identity::new(b"hello");
+        let id = Identity::from_seed(b"hello");
 
         // generate merkle tree
-        let mut tree = PoseidonTree::new(21, LEAF);
-        tree.set(0, id.commitment().into());
+        let mut tree = PoseidonTree::new(21, leaf);
+        tree.set(0, id.commitment());
 
         let merkle_proof = tree.proof(0).expect("proof should exist");
         let root: Field = tree.root().into();
@@ -48,38 +48,38 @@ mod test {
 
     #[test]
     fn test_semaphore() {
-        const LEAF: Hash = Hash::from_bytes_be(hex!(
-            "0000000000000000000000000000000000000000000000000000000000000000"
-        ));
+        let leaf = Field::from(0);
 
         // generate identity
-        let id = Identity::new(b"hello");
+        let id = Identity::from_seed(b"hello");
 
         // generate merkle tree
-        let mut tree = PoseidonTree::new(21, LEAF);
-        tree.set(0, id.commitment().into());
+        let mut tree = PoseidonTree::new(21, leaf);
+        tree.set(0, id.commitment());
 
         let merkle_proof = tree.proof(0).expect("proof should exist");
         let root = tree.root().into();
 
-        // change signal and external_nullifier here
-        let signal = b"xxx";
-        let external_nullifier = b"appId";
+        // change signal_hash and external_nullifier here
+        let signal_hash = hash_to_field(b"xxx");
+        let external_nullifier_hash = hash_to_field(b"appId");
 
-        let external_nullifier_hash =
-            semaphore::protocol::hash_external_nullifier(external_nullifier);
         let nullifier_hash =
             semaphore::protocol::generate_nullifier_hash(&id, external_nullifier_hash);
 
-        let proof =
-            semaphore::protocol::generate_proof(&id, &merkle_proof, external_nullifier, signal)
-                .unwrap();
+        let proof = semaphore::protocol::generate_proof(
+            &id,
+            &merkle_proof,
+            external_nullifier_hash,
+            signal_hash,
+        )
+        .unwrap();
 
         let success = semaphore::protocol::verify_proof(
             root,
             nullifier_hash,
-            signal,
-            external_nullifier,
+            signal_hash,
+            external_nullifier_hash,
             &proof,
         )
         .unwrap();
@@ -90,15 +90,13 @@ mod test {
     #[ignore]
     #[test]
     fn test_end_to_end() {
-        const LEAF: Hash = Hash::from_bytes_be(hex!(
-            "0000000000000000000000000000000000000000000000000000000000000000"
-        ));
+        let leaf = Field::from(0);
 
         // generate identity
-        let id = Identity::new(b"hello");
+        let id = Identity::from_seed(b"hello");
 
         // generate merkle tree
-        let mut tree = PoseidonTree::new(21, LEAF);
+        let mut tree = PoseidonTree::new(21, leaf);
         tree.set(0, id.commitment().into());
 
         let merkle_proof = tree.proof(0).expect("proof should exist");
@@ -107,14 +105,14 @@ mod test {
         println!("Root: {:#}", root);
         println!("Merkle proof: {:#?}", merkle_proof);
 
-        // change signal and external_nullifier here
-        let signal = b"xxx";
-        let external_nullifier = b"appId";
+        // change signal_hash and external_nullifier_hash here
+        let signal_hash = hash_to_field(b"xxx");
+        let external_nullifier_hash = hash_to_field(b"appId");
 
-        let external_nullifier_hash = hash_external_nullifier(external_nullifier);
         let nullifier_hash = generate_nullifier_hash(&id, external_nullifier_hash);
 
-        let proof = generate_proof(&id, &merkle_proof, external_nullifier, signal).unwrap();
+        let proof =
+            generate_proof(&id, &merkle_proof, external_nullifier_hash, signal_hash).unwrap();
 
         println!("Proof: {:#?}", proof);
 
@@ -130,7 +128,13 @@ mod test {
         //
         // Indeed:
         // if (public_inputs.len() + 1) != pvk.vk.gamma_abc_g1.len() {
-        let success =
-            verify_proof(root, nullifier_hash, signal, external_nullifier, &proof).unwrap();
+        let success = verify_proof(
+            root,
+            nullifier_hash,
+            signal_hash,
+            external_nullifier_hash,
+            &proof,
+        )
+        .unwrap();
     }
 }

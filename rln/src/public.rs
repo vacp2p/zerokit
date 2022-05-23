@@ -3,8 +3,9 @@
 ///
 use crate::merkle::IncrementalMerkleTree;
 use crate::poseidon::{Poseidon as PoseidonHasher, PoseidonParams};
-use semaphore::hash::Hash;
-use semaphore::poseidon_tree::PoseidonTree;
+use semaphore::{
+    hash_to_field, identity::Identity, poseidon_tree::PoseidonTree, protocol::*, Field,
+};
 
 use ark_circom::{CircomBuilder, CircomCircuit, CircomConfig};
 use ark_std::rand::thread_rng;
@@ -72,8 +73,8 @@ impl RLN {
         let inputs = circom.get_public_inputs().unwrap();
         println!("Public inputs {:#?} ", inputs);
 
-        const LEAF: Hash = Hash::from_bytes_be([0u8; 32]);
-        let mut tree = PoseidonTree::new(21, LEAF);
+        let leaf = Field::from(0);
+        let mut tree = PoseidonTree::new(21, leaf);
 
         RLN {
             circom,
@@ -197,8 +198,8 @@ impl RLN {
         // let hasher = PoseidonHasher::new(poseidon_params.clone());
         // let tree = IncrementalMerkleTree::empty(hasher, merkle_depth);
 
-        const LEAF: Hash = Hash::from_bytes_be([0u8; 32]);
-        let mut tree = PoseidonTree::new(21, LEAF);
+        let leaf = Field::from(0);
+        let mut tree = PoseidonTree::new(21, leaf);
 
         RLN {
             circom,
