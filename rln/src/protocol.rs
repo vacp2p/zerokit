@@ -1,12 +1,5 @@
 /// Adapted from semaphore-rs
 use crate::circuit::{WITNESS_CALCULATOR, ZKEY};
-use semaphore::{
-    identity::Identity,
-    merkle_tree::{self, Branch},
-    poseidon_hash,
-    poseidon_tree::PoseidonHash,
-    Field,
-};
 use ark_bn254::{Bn254, Parameters};
 use ark_circom::CircomReduction;
 use ark_ec::bn::Bn;
@@ -17,6 +10,13 @@ use ark_std::{rand::thread_rng, UniformRand};
 use color_eyre::Result;
 use ethers_core::utils::keccak256;
 use num_bigint::{BigInt, BigUint, ToBigInt};
+use semaphore::{
+    identity::Identity,
+    merkle_tree::{self, Branch},
+    poseidon_hash,
+    poseidon_tree::PoseidonHash,
+    Field,
+};
 use std::time::Instant;
 use thiserror::Error;
 

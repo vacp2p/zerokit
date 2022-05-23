@@ -7,8 +7,8 @@ pub mod public;
 use ark_bn254::{Fr, Parameters};
 use ark_ec::bn::Bn;
 
-pub mod protocol;
 pub mod circuit;
+pub mod protocol;
 
 pub type Field = Fr;
 pub type Groth16Proof = ark_groth16::Proof<Bn<Parameters>>;
@@ -21,10 +21,10 @@ pub mod poseidon;
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::protocol::*;
     use hex_literal::hex;
     use num_bigint::BigInt;
     use semaphore::{hash::Hash, identity::Identity, poseidon_tree::PoseidonTree};
-    use crate::protocol::*;
 
     #[test]
     fn test_merkle_proof() {
@@ -66,18 +66,26 @@ mod test {
         let signal = b"xxx";
         let external_nullifier = b"appId";
 
-        let external_nullifier_hash = semaphore::protocol::hash_external_nullifier(external_nullifier);
-        let nullifier_hash = semaphore::protocol::generate_nullifier_hash(&id, external_nullifier_hash);
+        let external_nullifier_hash =
+            semaphore::protocol::hash_external_nullifier(external_nullifier);
+        let nullifier_hash =
+            semaphore::protocol::generate_nullifier_hash(&id, external_nullifier_hash);
 
-        let proof = semaphore::protocol::generate_proof(&id, &merkle_proof, external_nullifier, signal).unwrap();
+        let proof =
+            semaphore::protocol::generate_proof(&id, &merkle_proof, external_nullifier, signal)
+                .unwrap();
 
-        let success =
-            semaphore::protocol::verify_proof(root, nullifier_hash, signal, external_nullifier, &proof).unwrap();
+        let success = semaphore::protocol::verify_proof(
+            root,
+            nullifier_hash,
+            signal,
+            external_nullifier,
+            &proof,
+        )
+        .unwrap();
 
         assert!(success);
     }
-
-
 
     #[ignore]
     #[test]
