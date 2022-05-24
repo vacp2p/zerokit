@@ -10,3 +10,23 @@ Proof: Proof { a: GroupAffine { x: Fp256(BigInteger256([8483808811394525823, 291
 
 See:
 https://github.com/oskarth/zk-kit/commit/b6a872f7160c7c14e10a0ea40acab99cbb23c9a8
+
+## Compiling circuits
+
+`rln` (https://github.com/privacy-scaling-explorations/rln) repo with Circuits is contained as a submodule.
+
+``` sh
+# Update submodules
+git submodule update --init --recursive
+
+# Install rln dependencies
+cd vendor/rln/ && npm install
+
+# Build circuits
+./scripts/build-circuits.sh rln
+
+# Copy over assets
+cp build/rln.r1cs ../../resources
+cp build/zkeyFiles/rln-final.zkey ../../resources
+cp build/zkeyFiles/rln.wasm ../../resources
+```
