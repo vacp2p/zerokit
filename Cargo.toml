@@ -2,5 +2,6 @@
 members = [
   "multiplier",
   "poseidon-tornado",
+  "semaphore",
   "rln",
 ]
