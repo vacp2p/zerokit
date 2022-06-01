@@ -1,3 +1,7 @@
 [submodule "rln/vendor/rln"]
 	path = rln/vendor/rln
 	url = https://github.com/privacy-scaling-explorations/rln.git
+[submodule "semaphore/vendor/semaphore"]
+	path = semaphore/vendor/semaphore
+	ignore = dirty
+	url = https://github.com/appliedzkp/semaphore.git
