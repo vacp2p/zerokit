@@ -1,11 +1,10 @@
 /// Adapted from semaphore-rs
-use crate::circuit::{WITNESS_CALCULATOR, ZKEY};
-use ark_bn254::{Bn254, Parameters};
-use ark_circom::CircomReduction;
+use crate::circuit::{WITNESS_CALCULATOR, ZKEY, VK};
+use ark_bn254::{Bn254, Parameters, Fr};
 use ark_ec::bn::Bn;
 use ark_ff::{Fp256, PrimeField};
 use ark_groth16::{
-    create_proof_with_reduction_and_matrices, prepare_verifying_key, Proof as ArkProof,
+    create_proof_with_reduction_and_matrices, prepare_verifying_key, Proof as ArkProof, create_random_proof_with_reduction, ProvingKey, VerifyingKey, verify_proof as ark_verify_proof
 };
 use ark_relations::r1cs::SynthesisError;
 use ark_std::{rand::thread_rng, UniformRand};
@@ -23,6 +22,43 @@ use semaphore::{
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use thiserror::Error;
+
+use ark_circom::{read_zkey, CircomReduction, CircomBuilder, CircomConfig};
+
+
+#[derive(Debug, Deserialize)]
+pub struct RLNWitnessInput {
+    identity_secret: String,
+    path_elements: Vec<String>,
+    identity_path_index: Vec<u8>,
+    x: String,
+    epoch: String,
+    rln_identifier: String,
+}
+
+pub fn initRLNWitnessFromJSON(input_json_str: &str) -> RLNWitnessInput {
+    let rlnWitness: RLNWitnessInput = serde_json::from_str(&input_json_str).expect("JSON was not well-formatted");
+    return rlnWitness;
+}
+
+
+pub fn initRLNWitnessFromValues(identity_secret: Field, merkle_proof:  &merkle_tree::Proof<PoseidonHash>, x: Field, epoch: Field, rln_identifier: Field) -> RLNWitnessInput {
+    
+    //println!("Merkle proof: {:#?}", merkle_proof);
+    let path_elements = getPathElements(merkle_proof);
+    let identity_path_index = getIdentityPathIndex(merkle_proof);
+
+    let rlnWitness = RLNWitnessInput {
+            identity_secret: BigInt::from(identity_secret).to_str_radix(10),
+            path_elements: path_elements,
+            identity_path_index: identity_path_index,
+            x: BigInt::from(x).to_str_radix(10),
+            epoch: format!("{:#066x}", BigInt::from(epoch)), //We format it as a padded 32 bytes hex with leading 0x for compatibility with zk-kit
+            rln_identifier: BigInt::from(rln_identifier).to_str_radix(10),
+    };
+
+    return rlnWitness;
+}
 
 // TODO Fields need to be updated to RLN based ones
 
@@ -68,15 +104,26 @@ impl From<Proof> for ArkProof<Bn<Parameters>> {
 
 /// Helper to merkle proof into a bigint vector
 /// TODO: we should create a From trait for this
-fn merkle_proof_to_vec(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<Field> {
+pub fn getPathElements(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<String> {
     proof
         .0
         .iter()
         .map(|x| match x {
-            Branch::Left(value) | Branch::Right(value) => *value,
+            Branch::Left(value) | Branch::Right(value) => BigInt::from(*value).to_str_radix(10),
         })
         .collect()
 }
+
+pub fn getIdentityPathIndex(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<u8> {
+        proof.0
+            .iter()
+            .map(|branch| match branch {
+                Branch::Left(_) => 0,
+                Branch::Right(_) => 1,
+            })
+            .collect()
+}
+
 
 /// Internal helper to hash the signal to make sure it's in the field
 fn hash_signal(signal: &[u8]) -> Field {
@@ -103,121 +150,83 @@ pub enum ProofError {
     SynthesisError(#[from] SynthesisError),
 }
 
-// XXX This is different from zk-kit API:
-// const witness = RLN.genWitness(secretHash, merkleProof, epoch, signal, rlnIdentifier)
-// const fullProof = await RLN.genProof(witness, wasmFilePath, finalZkeyPath)
-//
 
-// TODO Change API here
-/// Generates a semaphore proof
+/// Generates a RLN proof
 ///
 /// # Errors
 ///
 /// Returns a [`ProofError`] if proving fails.
-pub fn generate_proof(
-    identity: &Identity,
-    merkle_proof: &merkle_tree::Proof<PoseidonHash>,
-    external_nullifier_hash: Field,
-    signal_hash: Field,
-) -> Result<Proof, ProofError> {
-    // TODO Fix inputs
-    // Semaphore genWitness corresponds to these
-    // RLN different, should be:
-    // identity_secret
-    // path_elements (merkleProof.siblings))
-    // identity_path_index (merkleProof.pathIndices)
-    // x (RLN.genSignalHash(signal), assuming shouldHash is true)
-    // epoch
-    // rln_identifier
-    let inputs = [
-        // FIXME should be identity_secret, not just nullifier!
-        ("identity_secret", vec![identity.nullifier]),
-        //("identityTrapdoor", vec![identity.trapdoor]),
-        ("path_elements", merkle_proof_to_vec(merkle_proof)),
-        ("identity_path_index", merkle_proof.path_index()),
-        ("externalNullifier", vec![external_nullifier_hash]),
-        // XXX: Assuming signal is hashed
-        ("x", vec![signal_hash]),
-        // FIXME epoch just hardcoded to random value
-        ("epoch", vec![signal_hash]),
-        // FIXME rln_identifier just hardcoded to random value
-        ("rln_identifier", vec![signal_hash]),
-    ];
-    let inputs = inputs.into_iter().map(|(name, values)| {
-        (
-            name.to_string(),
-            values.iter().copied().map(Into::into).collect::<Vec<_>>(),
-        )
-    });
-
+pub fn generate_proof(mut builder: CircomBuilder<Bn254>, proving_key: &ProvingKey<Bn254>, rln_witness: RLNWitnessInput) -> Result<(Proof, Vec<Fr>), ProofError> {
+    
     let now = Instant::now();
 
-    let full_assignment = WITNESS_CALCULATOR
-        .clone()
-        .calculate_witness_element::<Bn254, _>(inputs, false)
-        .map_err(ProofError::WitnessError)?;
+    builder.push_input(
+        "identity_secret",
+        BigInt::parse_bytes(rln_witness.identity_secret.as_bytes(), 10).unwrap(),
+        );
+
+    for v in rln_witness.path_elements.iter() {
+        builder.push_input(
+            "path_elements", 
+            BigInt::parse_bytes(v.as_bytes(), 10).unwrap(),
+        );
+    }
+
+    for v in rln_witness.identity_path_index.iter() {
+        builder.push_input(
+            "identity_path_index", 
+            BigInt::from(*v));
+    }
+
+    builder.push_input(
+        "x",
+        BigInt::parse_bytes(rln_witness.x.as_bytes(), 10).unwrap(),
+    );
+
+    builder.push_input(
+        "epoch",
+        BigInt::parse_bytes(rln_witness.epoch.strip_prefix("0x").unwrap().as_bytes(),16).unwrap(),
+    );
+
+    builder.push_input(
+        "rln_identifier",
+        BigInt::parse_bytes(rln_witness.rln_identifier.as_bytes(), 10).unwrap(),
+    );
+
+    let circom = builder.build().unwrap();
+
+    // Get the populated instance of the circuit with the witness
+    let inputs = circom.get_public_inputs().unwrap();
 
     println!("witness generation took: {:.2?}", now.elapsed());
 
-    let mut rng = thread_rng();
-    let rng = &mut rng;
-
-    let r = ark_bn254::Fr::rand(rng);
-    let s = ark_bn254::Fr::rand(rng);
-
     let now = Instant::now();
 
-    let ark_proof = create_proof_with_reduction_and_matrices::<_, CircomReduction>(
-        &ZKEY.0,
-        r,
-        s,
-        &ZKEY.1,
-        ZKEY.1.num_instance_variables,
-        ZKEY.1.num_constraints,
-        full_assignment.as_slice(),
-    )?;
+    // Generate a random proof
+    let mut rng = thread_rng();
+
+    let ark_proof = create_random_proof_with_reduction::<_, _, _, CircomReduction>(circom, proving_key, &mut rng).unwrap();
+    
     let proof = ark_proof.into();
+
     println!("proof generation took: {:.2?}", now.elapsed());
 
-    Ok(proof)
+    Ok((proof, inputs))
 }
 
-// TODO Update API here
 
-/// Verifies a given semaphore proof
+/// Verifies a given RLN proof
 ///
 /// # Errors
 ///
 /// Returns a [`ProofError`] if verifying fails. Verification failure does not
 /// necessarily mean the proof is incorrect.
-pub fn verify_proof(
-    root: Field,
-    nullifier_hash: Field,
-    signal_hash: Field,
-    external_nullifier_hash: Field,
-    proof: &Proof,
-) -> Result<bool, ProofError> {
-    // XXX: Why is verification key in zkey but that's not what is used in
-    // verifyProof with verification_key.json? Is there a difference?
-    let pvk = prepare_verifying_key(&ZKEY.0.vk);
-
-    // TODO Update this, should be:
-    // XXX This is returned from the proof! Why is it called yShare here?
-    // Isn't this publicOutput?
-    // publicSignals 0..5 in specific order:
-    // yShare
-    // merkleRoot
-    // internalNullifier
-    // signalHash
-    // epoch
-    // rlnIdentifier
-    let public_inputs = vec![
-        root.into(),
-        nullifier_hash.into(),
-        signal_hash.into(),
-        external_nullifier_hash.into(),
-    ];
-    let ark_proof = (*proof).into();
-    let result = ark_groth16::verify_proof(&pvk, &ark_proof, &public_inputs[..])?;
-    Ok(result)
+pub fn verify_proof(verifyingKey: &VerifyingKey<Bn254>, proof: Proof, inputs: Vec<Fr>) -> Result<bool, ProofError> {
+    
+    // Check that the proof is valid
+    let pvk = prepare_verifying_key(verifyingKey);
+    let pr: ArkProof<Bn254> = proof.into();
+    let verified = ark_verify_proof(&pvk, &pr, &inputs)?;
+    
+    Ok(verified)
 }

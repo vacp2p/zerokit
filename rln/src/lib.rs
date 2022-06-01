@@ -7,6 +7,7 @@ pub mod public;
 use ark_bn254::{Fr, Parameters};
 use ark_ec::bn::Bn;
 
+
 pub mod circuit;
 pub mod protocol;
 
@@ -14,9 +15,8 @@ pub type Field = Fr;
 pub type Groth16Proof = ark_groth16::Proof<Bn<Parameters>>;
 pub type EthereumGroth16Proof = ark_circom::ethereum::Proof;
 
-// RLN lib
-pub mod merkle;
-pub mod poseidon;
+use crate::circuit::{ZKEY,VK,CIRCOM};
+
 
 #[cfg(test)]
 mod test {
@@ -25,7 +25,7 @@ mod test {
     use hex_literal::hex;
     use num_bigint::BigInt;
     use semaphore::{
-        hash::Hash, hash_to_field, identity::Identity, poseidon_tree::PoseidonTree, Field,
+        hash::Hash, hash_to_field, identity::Identity, poseidon_tree::PoseidonTree, Field, poseidon_hash
     };
 
     #[test]
@@ -87,54 +87,67 @@ mod test {
         assert!(success);
     }
 
-    #[ignore]
     #[test]
     fn test_end_to_end() {
-        let leaf = Field::from(0);
 
-        // generate identity
+        let TREE_HEIGHT = 16;
+        let leafIndex = 3;
+
+        // Generate identity
+        // We follow zk-kit approach for identity generation
         let id = Identity::from_seed(b"hello");
+        let identity_secret = poseidon_hash(&vec![id.trapdoor, id.nullifier]);
+        let id_commitment = poseidon_hash(&vec![identity_secret]);
 
-        // generate merkle tree
-        let mut tree = PoseidonTree::new(21, leaf);
-        tree.set(0, id.commitment().into());
+        //// generate merkle tree
+        let leaf = Field::from(0);
+        let mut tree = PoseidonTree::new(TREE_HEIGHT, leaf);
+        tree.set(leafIndex, id_commitment.into());
 
-        let merkle_proof = tree.proof(0).expect("proof should exist");
-        let root = tree.root().into();
+        let merkle_proof = tree.proof(leafIndex).expect("proof should exist");
 
-        println!("Root: {:#}", root);
-        println!("Merkle proof: {:#?}", merkle_proof);
+        let signal = b"hey hey";
+        let x = hash_to_field(signal);
 
-        // change signal_hash and external_nullifier_hash here
-        let signal_hash = hash_to_field(b"xxx");
-        let external_nullifier_hash = hash_to_field(b"appId");
+        // We set the remaining values to random ones
+        let epoch = hash_to_field(b"test-epoch");
+        let rln_identifier =hash_to_field(b"test-rln-identifier");
 
-        let nullifier_hash = generate_nullifier_hash(&id, external_nullifier_hash);
+        let rlnWitness: RLNWitnessInput = initRLNWitnessFromValues(identity_secret, &merkle_proof, x, epoch, rln_identifier);
 
-        let proof =
-            generate_proof(&id, &merkle_proof, external_nullifier_hash, signal_hash).unwrap();
+        println!("rlnWitness: {:#?}", rlnWitness);
 
-        println!("Proof: {:#?}", proof);
+        // We generate all relevant keys
+        let provingKey = &ZKEY();
+        let verificationKey = &VK(); 
+        let mut builder = CIRCOM();
+        
+        // Let's generate a zkSNARK proof
+        let (proof, inputs) = generate_proof(builder, provingKey, rlnWitness).unwrap();
 
-        // TODO Make this test pass
-        //
-        // Currently fails at:
-        // thread 'test::test_end_to_end' panicked at 'called `Result::unwrap()`
-        // on an `Err` value: SynthesisError(MalformedVerifyingKey)',
-        // rln/src/lib.rs:62:84
-        //
-        // Not sure why this is MalformedVerifyingKey, though the proof is
-        // likely incorrect with wrong fields in protocol.rs
-        //
-        // Indeed:
-        // if (public_inputs.len() + 1) != pvk.vk.gamma_abc_g1.len() {
-        let success = verify_proof(
-            root,
-            nullifier_hash,
-            signal_hash,
-            external_nullifier_hash,
-            &proof,
-        )
-        .unwrap();
-    }
+        // Let's verify the proof
+        let success = verify_proof(verificationKey, proof, inputs).unwrap();
+
+        assert!(success);
+
 }
+
+
+        //to_str_radix(10);
+
+//
+        //// change signal_hash and external_nullifier_hash here
+        //let signal_hash = hash_to_field(b"xxx");
+        //let external_nullifier_hash = hash_to_field(b"appId");
+//
+        //let nullifier_hash = generate_nullifier_hash(&id, external_nullifier_hash);
+//
+        //
+        //// We generate all relevant keys
+        //let provingKey = &ZKEY();
+        //let verificationKey = &VK(); 
+        //let mut builder = CIRCOM();
+
+        //println!("Proof: {:#?}", proof);
+    }
+

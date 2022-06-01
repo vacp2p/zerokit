@@ -1,8 +1,6 @@
 /// This is the main public API for RLN. It is used by the FFI, and should be
 /// used by tests etc as well
 ///
-use crate::merkle::IncrementalMerkleTree;
-use crate::poseidon::{Poseidon as PoseidonHasher, PoseidonParams};
 use semaphore::{
     hash_to_field, identity::Identity, poseidon_tree::PoseidonTree, protocol::*, Field,
 };
