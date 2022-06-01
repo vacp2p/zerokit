@@ -2,17 +2,8 @@
 // For illustration purposes only as an example protocol
 
 // Private module
-use crate::{
-    circuit::{witness_calculator, zkey}
-};
+use crate::circuit::{witness_calculator, zkey};
 
-use semaphore::{
-    identity::Identity,
-    merkle_tree::{self, Branch},
-    poseidon_hash,
-    poseidon_tree::PoseidonHash,
-    Field,
-};
 use ark_bn254::{Bn254, Parameters};
 use ark_circom::CircomReduction;
 use ark_ec::bn::Bn;
@@ -24,6 +15,13 @@ use ark_std::UniformRand;
 use color_eyre::Result;
 use primitive_types::U256;
 use rand::{thread_rng, Rng};
+use semaphore::{
+    identity::Identity,
+    merkle_tree::{self, Branch},
+    poseidon_hash,
+    poseidon_tree::PoseidonHash,
+    Field,
+};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use thiserror::Error;
@@ -218,9 +216,9 @@ pub fn verify_proof(
 #[cfg(test)]
 mod test {
     use super::*;
-    use semaphore::{hash_to_field, poseidon_tree::PoseidonTree};
     use rand::SeedableRng as _;
     use rand_chacha::ChaChaRng;
+    use semaphore::{hash_to_field, poseidon_tree::PoseidonTree};
     use serde_json::json;
 
     fn arb_proof(seed: u64) -> Proof {

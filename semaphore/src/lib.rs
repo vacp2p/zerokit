@@ -1,17 +1,15 @@
 #![allow(clippy::multiple_crate_versions)]
 
-pub mod protocol;
 pub mod circuit;
+pub mod protocol;
 
 #[cfg(feature = "dylib")]
 pub use circuit::initialize;
 
 #[cfg(test)]
 mod tests {
-    use semaphore::{
-        hash_to_field, identity::Identity, poseidon_tree::PoseidonTree, Field,
-    };
     use crate::protocol::*;
+    use semaphore::{hash_to_field, identity::Identity, poseidon_tree::PoseidonTree, Field};
 
     #[test]
     fn test_semaphore() {
