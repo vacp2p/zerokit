@@ -1,9 +1,13 @@
 [package]
-name = "semaphore"
+name = "semaphore-wrapper"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = []
+dylib = [ "wasmer/dylib", "wasmer-engine-dylib", "wasmer-compiler-cranelift" ]
 
 [dependencies]
 ark-bn254 = { version = "0.3.0" }
@@ -28,3 +32,18 @@ serde_json = "1.0.79"
 
 [build-dependencies]
 color-eyre = "0.5"
+wasmer = { version = "2.0" }
+wasmer-engine-dylib = { version = "2.2.1", optional = true }
+wasmer-compiler-cranelift = { version = "2.2.1", optional = true }
+
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"
+opt-level = 3
+
+# Compilation profile for any non-workspace member.
+# Dependencies are optimized, even in a dev build. This improves dev performance
+# while having neglible impact on incremental build times.
+[profile.dev.package."*"]
+opt-level = 3
