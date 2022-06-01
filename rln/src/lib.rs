@@ -7,7 +7,6 @@ pub mod public;
 use ark_bn254::{Fr, Parameters};
 use ark_ec::bn::Bn;
 
-
 pub mod circuit;
 pub mod protocol;
 
@@ -15,8 +14,7 @@ pub type Field = Fr;
 pub type Groth16Proof = ark_groth16::Proof<Bn<Parameters>>;
 pub type EthereumGroth16Proof = ark_circom::ethereum::Proof;
 
-use crate::circuit::{ZKEY,VK,CIRCOM};
-
+use crate::circuit::{CIRCOM, VK, ZKEY};
 
 #[cfg(test)]
 mod test {
@@ -25,7 +23,8 @@ mod test {
     use hex_literal::hex;
     use num_bigint::BigInt;
     use semaphore::{
-        hash::Hash, hash_to_field, identity::Identity, poseidon_tree::PoseidonTree, Field, poseidon_hash
+        hash::Hash, hash_to_field, identity::Identity, poseidon_hash, poseidon_tree::PoseidonTree,
+        Field,
     };
 
     #[test]
@@ -89,7 +88,6 @@ mod test {
 
     #[test]
     fn test_end_to_end() {
-
         let TREE_HEIGHT = 16;
         let leafIndex = 3;
 
@@ -111,17 +109,18 @@ mod test {
 
         // We set the remaining values to random ones
         let epoch = hash_to_field(b"test-epoch");
-        let rln_identifier =hash_to_field(b"test-rln-identifier");
+        let rln_identifier = hash_to_field(b"test-rln-identifier");
 
-        let rlnWitness: RLNWitnessInput = initRLNWitnessFromValues(identity_secret, &merkle_proof, x, epoch, rln_identifier);
+        let rlnWitness: RLNWitnessInput =
+            initRLNWitnessFromValues(identity_secret, &merkle_proof, x, epoch, rln_identifier);
 
         println!("rlnWitness: {:#?}", rlnWitness);
 
         // We generate all relevant keys
         let provingKey = &ZKEY();
-        let verificationKey = &VK(); 
+        let verificationKey = &VK();
         let mut builder = CIRCOM();
-        
+
         // Let's generate a zkSNARK proof
         let (proof, inputs) = generate_proof(builder, provingKey, rlnWitness).unwrap();
 
@@ -129,25 +128,22 @@ mod test {
         let success = verify_proof(verificationKey, proof, inputs).unwrap();
 
         assert!(success);
-
-}
-
-
-        //to_str_radix(10);
-
-//
-        //// change signal_hash and external_nullifier_hash here
-        //let signal_hash = hash_to_field(b"xxx");
-        //let external_nullifier_hash = hash_to_field(b"appId");
-//
-        //let nullifier_hash = generate_nullifier_hash(&id, external_nullifier_hash);
-//
-        //
-        //// We generate all relevant keys
-        //let provingKey = &ZKEY();
-        //let verificationKey = &VK(); 
-        //let mut builder = CIRCOM();
-
-        //println!("Proof: {:#?}", proof);
     }
 
+    //to_str_radix(10);
+
+    //
+    //// change signal_hash and external_nullifier_hash here
+    //let signal_hash = hash_to_field(b"xxx");
+    //let external_nullifier_hash = hash_to_field(b"appId");
+    //
+    //let nullifier_hash = generate_nullifier_hash(&id, external_nullifier_hash);
+    //
+    //
+    //// We generate all relevant keys
+    //let provingKey = &ZKEY();
+    //let verificationKey = &VK();
+    //let mut builder = CIRCOM();
+
+    //println!("Proof: {:#?}", proof);
+}

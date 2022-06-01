@@ -15,9 +15,8 @@ use tracing_subscriber::layer::SubscriberExt;
 // JSON
 use serde::Deserialize;
 
-use rln::protocol::{initRLNWitnessFromJSON, verify_proof, generate_proof};
-use rln::circuit::{VK,ZKEY,CIRCOM};
-
+use rln::circuit::{CIRCOM, VK, ZKEY};
+use rln::protocol::{generate_proof, initRLNWitnessFromJSON, verify_proof};
 
 // RLN
 fn groth16_proof_example() -> Result<()> {
@@ -77,12 +76,12 @@ fn groth16_proof_example() -> Result<()> {
 
     // We generate all relevant keys
     let provingKey = &ZKEY();
-    let verificationKey = &VK(); 
+    let verificationKey = &VK();
     let mut builder = CIRCOM();
 
     // We compute witness from the json input example
     let rlnWitness = initRLNWitnessFromJSON(input_json_str);
-    
+
     // Let's generate a zkSNARK proof
     let (proof, inputs) = generate_proof(builder, provingKey, rlnWitness).unwrap();
 

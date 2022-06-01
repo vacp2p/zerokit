@@ -1,10 +1,12 @@
 /// Adapted from semaphore-rs
-use crate::circuit::{WITNESS_CALCULATOR, ZKEY, VK};
-use ark_bn254::{Bn254, Parameters, Fr};
+use crate::circuit::{VK, WITNESS_CALCULATOR, ZKEY};
+use ark_bn254::{Bn254, Fr, Parameters};
 use ark_ec::bn::Bn;
 use ark_ff::{Fp256, PrimeField};
 use ark_groth16::{
-    create_proof_with_reduction_and_matrices, prepare_verifying_key, Proof as ArkProof, create_random_proof_with_reduction, ProvingKey, VerifyingKey, verify_proof as ark_verify_proof
+    create_proof_with_reduction_and_matrices, create_random_proof_with_reduction,
+    prepare_verifying_key, verify_proof as ark_verify_proof, Proof as ArkProof, ProvingKey,
+    VerifyingKey,
 };
 use ark_relations::r1cs::SynthesisError;
 use ark_std::{rand::thread_rng, UniformRand};
@@ -23,8 +25,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use thiserror::Error;
 
-use ark_circom::{read_zkey, CircomReduction, CircomBuilder, CircomConfig};
-
+use ark_circom::{read_zkey, CircomBuilder, CircomConfig, CircomReduction};
 
 #[derive(Debug, Deserialize)]
 pub struct RLNWitnessInput {
@@ -37,24 +38,29 @@ pub struct RLNWitnessInput {
 }
 
 pub fn initRLNWitnessFromJSON(input_json_str: &str) -> RLNWitnessInput {
-    let rlnWitness: RLNWitnessInput = serde_json::from_str(&input_json_str).expect("JSON was not well-formatted");
+    let rlnWitness: RLNWitnessInput =
+        serde_json::from_str(&input_json_str).expect("JSON was not well-formatted");
     return rlnWitness;
 }
 
-
-pub fn initRLNWitnessFromValues(identity_secret: Field, merkle_proof:  &merkle_tree::Proof<PoseidonHash>, x: Field, epoch: Field, rln_identifier: Field) -> RLNWitnessInput {
-    
+pub fn initRLNWitnessFromValues(
+    identity_secret: Field,
+    merkle_proof: &merkle_tree::Proof<PoseidonHash>,
+    x: Field,
+    epoch: Field,
+    rln_identifier: Field,
+) -> RLNWitnessInput {
     //println!("Merkle proof: {:#?}", merkle_proof);
     let path_elements = getPathElements(merkle_proof);
     let identity_path_index = getIdentityPathIndex(merkle_proof);
 
     let rlnWitness = RLNWitnessInput {
-            identity_secret: BigInt::from(identity_secret).to_str_radix(10),
-            path_elements: path_elements,
-            identity_path_index: identity_path_index,
-            x: BigInt::from(x).to_str_radix(10),
-            epoch: format!("{:#066x}", BigInt::from(epoch)), //We format it as a padded 32 bytes hex with leading 0x for compatibility with zk-kit
-            rln_identifier: BigInt::from(rln_identifier).to_str_radix(10),
+        identity_secret: BigInt::from(identity_secret).to_str_radix(10),
+        path_elements: path_elements,
+        identity_path_index: identity_path_index,
+        x: BigInt::from(x).to_str_radix(10),
+        epoch: format!("{:#066x}", BigInt::from(epoch)), //We format it as a padded 32 bytes hex with leading 0x for compatibility with zk-kit
+        rln_identifier: BigInt::from(rln_identifier).to_str_radix(10),
     };
 
     return rlnWitness;
@@ -115,15 +121,15 @@ pub fn getPathElements(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<String> 
 }
 
 pub fn getIdentityPathIndex(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<u8> {
-        proof.0
-            .iter()
-            .map(|branch| match branch {
-                Branch::Left(_) => 0,
-                Branch::Right(_) => 1,
-            })
-            .collect()
+    proof
+        .0
+        .iter()
+        .map(|branch| match branch {
+            Branch::Left(_) => 0,
+            Branch::Right(_) => 1,
+        })
+        .collect()
 }
-
 
 /// Internal helper to hash the signal to make sure it's in the field
 fn hash_signal(signal: &[u8]) -> Field {
@@ -150,32 +156,32 @@ pub enum ProofError {
     SynthesisError(#[from] SynthesisError),
 }
 
-
 /// Generates a RLN proof
 ///
 /// # Errors
 ///
 /// Returns a [`ProofError`] if proving fails.
-pub fn generate_proof(mut builder: CircomBuilder<Bn254>, proving_key: &ProvingKey<Bn254>, rln_witness: RLNWitnessInput) -> Result<(Proof, Vec<Fr>), ProofError> {
-    
+pub fn generate_proof(
+    mut builder: CircomBuilder<Bn254>,
+    proving_key: &ProvingKey<Bn254>,
+    rln_witness: RLNWitnessInput,
+) -> Result<(Proof, Vec<Fr>), ProofError> {
     let now = Instant::now();
 
     builder.push_input(
         "identity_secret",
         BigInt::parse_bytes(rln_witness.identity_secret.as_bytes(), 10).unwrap(),
-        );
+    );
 
     for v in rln_witness.path_elements.iter() {
         builder.push_input(
-            "path_elements", 
+            "path_elements",
             BigInt::parse_bytes(v.as_bytes(), 10).unwrap(),
         );
     }
 
     for v in rln_witness.identity_path_index.iter() {
-        builder.push_input(
-            "identity_path_index", 
-            BigInt::from(*v));
+        builder.push_input("identity_path_index", BigInt::from(*v));
     }
 
     builder.push_input(
@@ -185,7 +191,7 @@ pub fn generate_proof(mut builder: CircomBuilder<Bn254>, proving_key: &ProvingKe
 
     builder.push_input(
         "epoch",
-        BigInt::parse_bytes(rln_witness.epoch.strip_prefix("0x").unwrap().as_bytes(),16).unwrap(),
+        BigInt::parse_bytes(rln_witness.epoch.strip_prefix("0x").unwrap().as_bytes(), 16).unwrap(),
     );
 
     builder.push_input(
@@ -205,8 +211,13 @@ pub fn generate_proof(mut builder: CircomBuilder<Bn254>, proving_key: &ProvingKe
     // Generate a random proof
     let mut rng = thread_rng();
 
-    let ark_proof = create_random_proof_with_reduction::<_, _, _, CircomReduction>(circom, proving_key, &mut rng).unwrap();
-    
+    let ark_proof = create_random_proof_with_reduction::<_, _, _, CircomReduction>(
+        circom,
+        proving_key,
+        &mut rng,
+    )
+    .unwrap();
+
     let proof = ark_proof.into();
 
     println!("proof generation took: {:.2?}", now.elapsed());
@@ -214,19 +225,21 @@ pub fn generate_proof(mut builder: CircomBuilder<Bn254>, proving_key: &ProvingKe
     Ok((proof, inputs))
 }
 
-
 /// Verifies a given RLN proof
 ///
 /// # Errors
 ///
 /// Returns a [`ProofError`] if verifying fails. Verification failure does not
 /// necessarily mean the proof is incorrect.
-pub fn verify_proof(verifyingKey: &VerifyingKey<Bn254>, proof: Proof, inputs: Vec<Fr>) -> Result<bool, ProofError> {
-    
+pub fn verify_proof(
+    verifyingKey: &VerifyingKey<Bn254>,
+    proof: Proof,
+    inputs: Vec<Fr>,
+) -> Result<bool, ProofError> {
     // Check that the proof is valid
     let pvk = prepare_verifying_key(verifyingKey);
     let pr: ArkProof<Bn254> = proof.into();
     let verified = ark_verify_proof(&pvk, &pr, &inputs)?;
-    
+
     Ok(verified)
 }
