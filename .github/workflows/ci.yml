@@ -18,7 +18,8 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-
+      - name: Update git submodules
+        run: git submodule update --init --recursive
       - name: cargo test
         run: |
             cargo test
@@ -34,6 +35,8 @@ jobs:
           toolchain: stable
           override: true
           components: rustfmt, clippy
+      - name: Update git submodules
+        run: git submodule update --init --recursive
       - name: cargo fmt
         run: cargo fmt --all -- --check
       - name: cargo clippy
