@@ -58,7 +58,7 @@ impl RLN {
         let cfg =
             CircomConfig::<Bn254>::new("./resources/rln.wasm", "./resources/rln.r1cs").unwrap();
 
-        let mut builder = CircomBuilder::new(cfg);
+        let builder = CircomBuilder::new(cfg);
 
         // create an empty instance for setting it up
         let circom = builder.setup();
@@ -72,7 +72,7 @@ impl RLN {
         println!("Public inputs {:#?} ", inputs);
 
         let leaf = Field::from(0);
-        let mut tree = PoseidonTree::new(21, leaf);
+        let tree = PoseidonTree::new(21, leaf);
 
         RLN {
             circom,
@@ -197,7 +197,7 @@ impl RLN {
         // let tree = IncrementalMerkleTree::empty(hasher, merkle_depth);
 
         let leaf = Field::from(0);
-        let mut tree = PoseidonTree::new(21, leaf);
+        let tree = PoseidonTree::new(21, leaf);
 
         RLN {
             circom,
@@ -208,7 +208,7 @@ impl RLN {
 
     /// returns current membership root
     /// * `root` is a scalar field element in 32 bytes
-    pub fn get_root<W: Write>(&self, mut result_data: W) -> io::Result<()> {
+    pub fn get_root<W: Write>(&self, _result_data: W) -> io::Result<()> {
         //let root = self.tree.get_root();
         // Converts PrimeFieldRepr into LE
         //root.into_repr().write_le(&mut result_data)?;

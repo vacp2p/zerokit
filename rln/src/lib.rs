@@ -119,7 +119,7 @@ mod test {
         // We generate all relevant keys
         let provingKey = &ZKEY();
         let verificationKey = &VK();
-        let mut builder = CIRCOM();
+        let builder = CIRCOM();
 
         // Let's generate a zkSNARK proof
         let (proof, inputs) = generate_proof(builder, provingKey, rlnWitness).unwrap();

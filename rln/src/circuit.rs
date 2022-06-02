@@ -28,7 +28,7 @@ pub fn ZKEY() -> ProvingKey<Bn254> /*, ConstraintMatrices<Fr>)*/ {
 }
 
 pub fn VK() -> VerifyingKey<Bn254> {
-    let mut verifyingKey: VerifyingKey<Bn254>;
+    let verifyingKey: VerifyingKey<Bn254>;
 
     if Path::new(VK_PATH).exists() {
         let verifyingKey = vk_from_json(VK_PATH);
@@ -46,7 +46,7 @@ pub fn CIRCOM() -> CircomBuilder<Bn254> {
     let cfg = CircomConfig::<Bn254>::new(WASM_PATH, R1CS_PATH).unwrap(); // should be )?; but need to address "the trait `From<ErrReport>` is not implemented for `protocol::ProofError`"
 
     // We build the circuit
-    let mut builder = CircomBuilder::new(cfg);
+    let builder = CircomBuilder::new(cfg);
 
     builder
 }
@@ -127,7 +127,7 @@ fn vk_from_json(vk_path: &str) -> VerifyingKey<Bn254> {
     let json = std::fs::read_to_string(vk_path).unwrap();
     let json: Value = serde_json::from_str(&json).unwrap();
 
-    let mut vk = VerifyingKey {
+    let vk = VerifyingKey {
         alpha_g1: json_to_g1(&json, "vk_alpha_1"),
         beta_g2: json_to_g2(&json, "vk_beta_2"),
         gamma_g2: json_to_g2(&json, "vk_gamma_2"),

@@ -1,19 +1,16 @@
-/// This is basic entry point for `cargo run` to play around with proof,
-/// outputs, etc.
-///
-use ark_circom::{CircomBuilder, CircomConfig};
-use ark_std::rand::thread_rng;
+
+
 use color_eyre::Result;
 
-use ark_bn254::Bn254;
-use num_bigint::BigInt;
+
+
 
 // Tracing
 use ark_relations::r1cs::{ConstraintLayer, ConstraintTrace, TracingMode};
 use tracing_subscriber::layer::SubscriberExt;
 
 // JSON
-use serde::Deserialize;
+
 
 use rln::circuit::{CIRCOM, VK, ZKEY};
 use rln::protocol::{generate_proof, initRLNWitnessFromJSON, verify_proof};
@@ -77,7 +74,7 @@ fn groth16_proof_example() -> Result<()> {
     // We generate all relevant keys
     let provingKey = &ZKEY();
     let verificationKey = &VK();
-    let mut builder = CIRCOM();
+    let builder = CIRCOM();
 
     // We compute witness from the json input example
     let rlnWitness = initRLNWitnessFromJSON(input_json_str);
