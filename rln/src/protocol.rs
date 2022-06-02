@@ -1,6 +1,6 @@
-/// Adapted from semaphore-rs
-use crate::circuit::{VK, WITNESS_CALCULATOR, ZKEY};
+use crate::circuit::{VK, ZKEY};
 use ark_bn254::{Bn254, Fr, Parameters};
+use ark_circom::{read_zkey, CircomBuilder, CircomConfig, CircomReduction};
 use ark_ec::bn::Bn;
 use ark_ff::{Fp256, PrimeField};
 use ark_groth16::{
@@ -25,7 +25,9 @@ use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use thiserror::Error;
 
-use ark_circom::{read_zkey, CircomBuilder, CircomConfig, CircomReduction};
+///////////////////////////////////////////////////////
+// RLN Witness data structure and utility functions
+///////////////////////////////////////////////////////
 
 #[derive(Debug, Deserialize)]
 pub struct RLNWitnessInput {
@@ -37,36 +39,37 @@ pub struct RLNWitnessInput {
     rln_identifier: String,
 }
 
-pub fn initRLNWitnessFromJSON(input_json_str: &str) -> RLNWitnessInput {
-    let rlnWitness: RLNWitnessInput =
-        serde_json::from_str(&input_json_str).expect("JSON was not well-formatted");
-    return rlnWitness;
+pub fn rln_witness_from_json(input_json_str: &str) -> RLNWitnessInput {
+    let rln_witness: RLNWitnessInput =
+        serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
+    rln_witness
 }
 
-pub fn initRLNWitnessFromValues(
+pub fn rln_witness_from_values(
     identity_secret: Field,
     merkle_proof: &merkle_tree::Proof<PoseidonHash>,
     x: Field,
     epoch: Field,
     rln_identifier: Field,
 ) -> RLNWitnessInput {
-    //println!("Merkle proof: {:#?}", merkle_proof);
-    let path_elements = getPathElements(merkle_proof);
-    let identity_path_index = getIdentityPathIndex(merkle_proof);
+    let path_elements = get_path_elements(merkle_proof);
+    let identity_path_index = get_identity_path_index(merkle_proof);
 
-    let rlnWitness = RLNWitnessInput {
+    let rln_witness = RLNWitnessInput {
         identity_secret: BigInt::from(identity_secret).to_str_radix(10),
-        path_elements: path_elements,
-        identity_path_index: identity_path_index,
+        path_elements,
+        identity_path_index,
         x: BigInt::from(x).to_str_radix(10),
         epoch: format!("{:#066x}", BigInt::from(epoch)), //We format it as a padded 32 bytes hex with leading 0x for compatibility with zk-kit
         rln_identifier: BigInt::from(rln_identifier).to_str_radix(10),
     };
 
-    return rlnWitness;
+    rln_witness
 }
 
-// TODO Fields need to be updated to RLN based ones
+///////////////////////////////////////////////////////
+// Proof data structure and utility functions
+///////////////////////////////////////////////////////
 
 // Matches the private G1Tup type in ark-circom.
 pub type G1 = (U256, U256);
@@ -108,9 +111,13 @@ impl From<Proof> for ArkProof<Bn<Parameters>> {
     }
 }
 
+///////////////////////////////////////////////////////
+// Merkle tree utility functions
+///////////////////////////////////////////////////////
+
 /// Helper to merkle proof into a bigint vector
 /// TODO: we should create a From trait for this
-pub fn getPathElements(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<String> {
+pub fn get_path_elements(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<String> {
     proof
         .0
         .iter()
@@ -120,7 +127,7 @@ pub fn getPathElements(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<String> 
         .collect()
 }
 
-pub fn getIdentityPathIndex(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<u8> {
+pub fn get_identity_path_index(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<u8> {
     proof
         .0
         .iter()
@@ -130,6 +137,10 @@ pub fn getIdentityPathIndex(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<u8>
         })
         .collect()
 }
+
+///////////////////////////////////////////////////////
+// Signal/nullifier utility functions
+///////////////////////////////////////////////////////
 
 /// Internal helper to hash the signal to make sure it's in the field
 fn hash_signal(signal: &[u8]) -> Field {
@@ -145,6 +156,10 @@ fn hash_signal(signal: &[u8]) -> Field {
 pub fn generate_nullifier_hash(identity: &Identity, external_nullifier: Field) -> Field {
     poseidon_hash(&[external_nullifier, identity.nullifier])
 }
+
+///////////////////////////////////////////////////////
+// zkSNARK utility functions
+///////////////////////////////////////////////////////
 
 #[derive(Error, Debug)]
 pub enum ProofError {
@@ -232,12 +247,12 @@ pub fn generate_proof(
 /// Returns a [`ProofError`] if verifying fails. Verification failure does not
 /// necessarily mean the proof is incorrect.
 pub fn verify_proof(
-    verifyingKey: &VerifyingKey<Bn254>,
+    verifying_key: &VerifyingKey<Bn254>,
     proof: Proof,
     inputs: Vec<Fr>,
 ) -> Result<bool, ProofError> {
     // Check that the proof is valid
-    let pvk = prepare_verifying_key(verifyingKey);
+    let pvk = prepare_verifying_key(verifying_key);
     let pr: ArkProof<Bn254> = proof.into();
     let verified = ark_verify_proof(&pvk, &pr, &inputs)?;
 

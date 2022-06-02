@@ -1,9 +1,4 @@
-
-
 use color_eyre::Result;
-
-
-
 
 // Tracing
 use ark_relations::r1cs::{ConstraintLayer, ConstraintTrace, TracingMode};
@@ -11,9 +6,8 @@ use tracing_subscriber::layer::SubscriberExt;
 
 // JSON
 
-
 use rln::circuit::{CIRCOM, VK, ZKEY};
-use rln::protocol::{generate_proof, initRLNWitnessFromJSON, verify_proof};
+use rln::protocol::{generate_proof, rln_witness_from_json, verify_proof};
 
 // RLN
 fn groth16_proof_example() -> Result<()> {
@@ -72,18 +66,18 @@ fn groth16_proof_example() -> Result<()> {
     "#;
 
     // We generate all relevant keys
-    let provingKey = &ZKEY();
-    let verificationKey = &VK();
+    let proving_key = &ZKEY();
+    let verification_key = &VK();
     let builder = CIRCOM();
 
     // We compute witness from the json input example
-    let rlnWitness = initRLNWitnessFromJSON(input_json_str);
+    let rln_witness = rln_witness_from_json(input_json_str);
 
     // Let's generate a zkSNARK proof
-    let (proof, inputs) = generate_proof(builder, provingKey, rlnWitness).unwrap();
+    let (proof, inputs) = generate_proof(builder, proving_key, rln_witness).unwrap();
 
     // Let's verify the proof
-    let verified = verify_proof(verificationKey, proof, inputs);
+    let verified = verify_proof(verification_key, proof, inputs);
 
     assert!(verified.unwrap());
 

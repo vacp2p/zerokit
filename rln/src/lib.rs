@@ -1,20 +1,17 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-pub mod ffi;
-pub mod public;
-
+use crate::circuit::{CIRCOM, VK, ZKEY};
 use ark_bn254::{Fr, Parameters};
 use ark_ec::bn::Bn;
+use ark_std::str::FromStr;
 
 pub mod circuit;
+pub mod ffi;
 pub mod protocol;
+pub mod public;
 
 pub type Field = Fr;
-pub type Groth16Proof = ark_groth16::Proof<Bn<Parameters>>;
-pub type EthereumGroth16Proof = ark_circom::ethereum::Proof;
-
-use crate::circuit::{CIRCOM, VK, ZKEY};
 
 #[cfg(test)]
 mod test {
@@ -28,68 +25,68 @@ mod test {
     };
 
     #[test]
+    // We test Merkle Tree generation, proofs and verification
     fn test_merkle_proof() {
-        let leaf = Field::from(0);
+        let tree_height = 16;
+        let leaf_index = 3;
 
         // generate identity
-        let id = Identity::from_seed(b"hello");
+        // We follow zk-kit approach for identity generation
+        let id = Identity::from_seed(b"test-merkle-proof");
+        let identity_secret = poseidon_hash(&vec![id.trapdoor, id.nullifier]);
+        let id_commitment = poseidon_hash(&vec![identity_secret]);
 
         // generate merkle tree
-        let mut tree = PoseidonTree::new(21, leaf);
-        tree.set(0, id.commitment());
+        let default_leaf = Field::from(0);
+        let mut tree = PoseidonTree::new(tree_height, default_leaf);
+        tree.set(leaf_index, id_commitment.into());
 
-        let merkle_proof = tree.proof(0).expect("proof should exist");
-        let root: Field = tree.root().into();
-
-        println!("Root: {:#}", root);
-        println!("Merkle proof: {:#?}", merkle_proof);
-    }
-
-    #[test]
-    fn test_semaphore() {
-        let leaf = Field::from(0);
-
-        // generate identity
-        let id = Identity::from_seed(b"hello");
-
-        // generate merkle tree
-        let mut tree = PoseidonTree::new(21, leaf);
-        tree.set(0, id.commitment());
-
-        let merkle_proof = tree.proof(0).expect("proof should exist");
-        let root = tree.root().into();
-
-        // change signal_hash and external_nullifier here
-        let signal_hash = hash_to_field(b"xxx");
-        let external_nullifier_hash = hash_to_field(b"appId");
-
-        let nullifier_hash =
-            semaphore::protocol::generate_nullifier_hash(&id, external_nullifier_hash);
-
-        let proof = semaphore::protocol::generate_proof(
-            &id,
-            &merkle_proof,
-            external_nullifier_hash,
-            signal_hash,
-        )
-        .unwrap();
-
-        let success = semaphore::protocol::verify_proof(
+        // We check correct computation of the root
+        let root = tree.root();
+        assert_eq!(
             root,
-            nullifier_hash,
-            signal_hash,
-            external_nullifier_hash,
-            &proof,
-        )
-        .unwrap();
+            Field::from_str("0x27401a4559ce263630907ce3b77c570649e28ede22d2a7f5296839627a16e870")
+                .unwrap()
+        );
 
-        assert!(success);
+        let merkle_proof = tree.proof(leaf_index).expect("proof should exist");
+        let path_elements = get_path_elements(&merkle_proof);
+        let identity_path_index = get_identity_path_index(&merkle_proof);
+
+        // We check correct computation of the path and indexes
+        let expected_path_elements = vec![
+            "0",
+            "14744269619966411208579211824598458697587494354926760081771325075741142829156",
+            "7423237065226347324353380772367382631490014989348495481811164164159255474657",
+            "11286972368698509976183087595462810875513684078608517520839298933882497716792",
+            "3607627140608796879659380071776844901612302623152076817094415224584923813162",
+            "19712377064642672829441595136074946683621277828620209496774504837737984048981",
+            "20775607673010627194014556968476266066927294572720319469184847051418138353016",
+            "3396914609616007258851405644437304192397291162432396347162513310381425243293",
+            "21551820661461729022865262380882070649935529853313286572328683688269863701601",
+            "6573136701248752079028194407151022595060682063033565181951145966236778420039",
+            "12413880268183407374852357075976609371175688755676981206018884971008854919922",
+            "14271763308400718165336499097156975241954733520325982997864342600795471836726",
+            "20066985985293572387227381049700832219069292839614107140851619262827735677018",
+            "9394776414966240069580838672673694685292165040808226440647796406499139370960",
+            "11331146992410411304059858900317123658895005918277453009197229807340014528524",
+        ];
+
+        let expected_identity_path_index: Vec<u8> =
+            vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+        assert_eq!(path_elements, expected_path_elements);
+        assert_eq!(identity_path_index, expected_identity_path_index);
+
+        // We check correct verification of the proof
+        assert!(tree.verify(id_commitment.into(), &merkle_proof));
     }
 
     #[test]
+    // We test a RLN proof generation and verification
     fn test_end_to_end() {
-        let TREE_HEIGHT = 16;
-        let leafIndex = 3;
+        let tree_height = 16;
+        let leaf_index = 3;
 
         // Generate identity
         // We follow zk-kit approach for identity generation
@@ -98,11 +95,11 @@ mod test {
         let id_commitment = poseidon_hash(&vec![identity_secret]);
 
         //// generate merkle tree
-        let leaf = Field::from(0);
-        let mut tree = PoseidonTree::new(TREE_HEIGHT, leaf);
-        tree.set(leafIndex, id_commitment.into());
+        let default_leaf = Field::from(0);
+        let mut tree = PoseidonTree::new(tree_height, default_leaf);
+        tree.set(leaf_index, id_commitment.into());
 
-        let merkle_proof = tree.proof(leafIndex).expect("proof should exist");
+        let merkle_proof = tree.proof(leaf_index).expect("proof should exist");
 
         let signal = b"hey hey";
         let x = hash_to_field(signal);
@@ -111,39 +108,20 @@ mod test {
         let epoch = hash_to_field(b"test-epoch");
         let rln_identifier = hash_to_field(b"test-rln-identifier");
 
-        let rlnWitness: RLNWitnessInput =
-            initRLNWitnessFromValues(identity_secret, &merkle_proof, x, epoch, rln_identifier);
-
-        println!("rlnWitness: {:#?}", rlnWitness);
+        let rln_witness: RLNWitnessInput =
+            rln_witness_from_values(identity_secret, &merkle_proof, x, epoch, rln_identifier);
 
         // We generate all relevant keys
-        let provingKey = &ZKEY();
-        let verificationKey = &VK();
+        let proving_key = &ZKEY();
+        let verification_key = &VK();
         let builder = CIRCOM();
 
         // Let's generate a zkSNARK proof
-        let (proof, inputs) = generate_proof(builder, provingKey, rlnWitness).unwrap();
+        let (proof, inputs) = generate_proof(builder, proving_key, rln_witness).unwrap();
 
         // Let's verify the proof
-        let success = verify_proof(verificationKey, proof, inputs).unwrap();
+        let success = verify_proof(verification_key, proof, inputs).unwrap();
 
         assert!(success);
     }
-
-    //to_str_radix(10);
-
-    //
-    //// change signal_hash and external_nullifier_hash here
-    //let signal_hash = hash_to_field(b"xxx");
-    //let external_nullifier_hash = hash_to_field(b"appId");
-    //
-    //let nullifier_hash = generate_nullifier_hash(&id, external_nullifier_hash);
-    //
-    //
-    //// We generate all relevant keys
-    //let provingKey = &ZKEY();
-    //let verificationKey = &VK();
-    //let mut builder = CIRCOM();
-
-    //println!("Proof: {:#?}", proof);
 }
