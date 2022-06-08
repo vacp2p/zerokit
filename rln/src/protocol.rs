@@ -9,7 +9,7 @@ use ark_groth16::{
     VerifyingKey,
 };
 use ark_relations::r1cs::SynthesisError;
-use ark_std::{rand::thread_rng, UniformRand};
+use ark_std::{rand::thread_rng, str::FromStr, UniformRand};
 use color_eyre::Result;
 use ethers_core::utils::keccak256;
 use num_bigint::{BigInt, BigUint, ToBigInt};
@@ -25,24 +25,52 @@ use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use thiserror::Error;
 
+pub use crate::utils::{str_to_field, vec_to_field, vec_to_fr};
+
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
 ///////////////////////////////////////////////////////
 
 #[derive(Debug, Deserialize)]
 pub struct RLNWitnessInput {
-    identity_secret: String,
-    path_elements: Vec<String>,
+    identity_secret: Field,
+    path_elements: Vec<Field>,
     identity_path_index: Vec<u8>,
-    x: String,
-    epoch: String,
-    rln_identifier: String,
+    x: Field,
+    epoch: Field,
+    rln_identifier: Field,
 }
 
 pub fn rln_witness_from_json(input_json_str: &str) -> RLNWitnessInput {
-    let rln_witness: RLNWitnessInput =
+    let input_json: serde_json::Value =
         serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
-    rln_witness
+
+    let identity_secret = str_to_field(input_json["identity_secret"].to_string(), 10);
+
+    let mut path_elements: Vec<Field> = vec![];
+    for v in input_json["path_elements"].as_array().unwrap().iter() {
+        path_elements.push(str_to_field(v.to_string(), 10));
+    }
+
+    let mut identity_path_index: Vec<u8> = vec![];
+    for v in input_json["identity_path_index"].as_array().unwrap().iter() {
+        identity_path_index.push(v.as_u64().unwrap() as u8);
+    }
+
+    let x = str_to_field(input_json["x"].to_string(), 10);
+
+    let epoch = str_to_field(input_json["epoch"].to_string(), 16);
+
+    let rln_identifier = str_to_field(input_json["rln_identifier"].to_string(), 10);
+
+    RLNWitnessInput {
+        identity_secret,
+        path_elements,
+        identity_path_index,
+        x,
+        epoch,
+        rln_identifier,
+    }
 }
 
 pub fn rln_witness_from_values(
@@ -55,16 +83,14 @@ pub fn rln_witness_from_values(
     let path_elements = get_path_elements(merkle_proof);
     let identity_path_index = get_identity_path_index(merkle_proof);
 
-    let rln_witness = RLNWitnessInput {
-        identity_secret: BigInt::from(identity_secret).to_str_radix(10),
+    RLNWitnessInput {
+        identity_secret,
         path_elements,
         identity_path_index,
-        x: BigInt::from(x).to_str_radix(10),
-        epoch: format!("{:#066x}", BigInt::from(epoch)), //We format it as a padded 32 bytes hex with leading 0x for compatibility with zk-kit
-        rln_identifier: BigInt::from(rln_identifier).to_str_radix(10),
-    };
-
-    rln_witness
+        x,
+        epoch,
+        rln_identifier,
+    }
 }
 
 ///////////////////////////////////////////////////////
@@ -117,12 +143,12 @@ impl From<Proof> for ArkProof<Bn<Parameters>> {
 
 /// Helper to merkle proof into a bigint vector
 /// TODO: we should create a From trait for this
-pub fn get_path_elements(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<String> {
+pub fn get_path_elements(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<Field> {
     proof
         .0
         .iter()
         .map(|x| match x {
-            Branch::Left(value) | Branch::Right(value) => BigInt::from(*value).to_str_radix(10),
+            Branch::Left(value) | Branch::Right(value) => *value,
         })
         .collect()
 }
@@ -180,44 +206,29 @@ pub fn generate_proof(
     mut builder: CircomBuilder<Bn254>,
     proving_key: &ProvingKey<Bn254>,
     rln_witness: RLNWitnessInput,
-) -> Result<(Proof, Vec<Fr>), ProofError> {
+) -> Result<(Proof, Vec<Field>), ProofError> {
     let now = Instant::now();
 
-    builder.push_input(
-        "identity_secret",
-        BigInt::parse_bytes(rln_witness.identity_secret.as_bytes(), 10).unwrap(),
-    );
+    builder.push_input("identity_secret", BigInt::from(rln_witness.identity_secret));
 
     for v in rln_witness.path_elements.iter() {
-        builder.push_input(
-            "path_elements",
-            BigInt::parse_bytes(v.as_bytes(), 10).unwrap(),
-        );
+        builder.push_input("path_elements", BigInt::from(*v));
     }
 
     for v in rln_witness.identity_path_index.iter() {
         builder.push_input("identity_path_index", BigInt::from(*v));
     }
 
-    builder.push_input(
-        "x",
-        BigInt::parse_bytes(rln_witness.x.as_bytes(), 10).unwrap(),
-    );
+    builder.push_input("x", BigInt::from(rln_witness.x));
 
-    builder.push_input(
-        "epoch",
-        BigInt::parse_bytes(rln_witness.epoch.strip_prefix("0x").unwrap().as_bytes(), 16).unwrap(),
-    );
+    builder.push_input("epoch", BigInt::from(rln_witness.epoch));
 
-    builder.push_input(
-        "rln_identifier",
-        BigInt::parse_bytes(rln_witness.rln_identifier.as_bytes(), 10).unwrap(),
-    );
+    builder.push_input("rln_identifier", BigInt::from(rln_witness.rln_identifier));
 
     let circom = builder.build().unwrap();
 
     // Get the populated instance of the circuit with the witness
-    let inputs = circom.get_public_inputs().unwrap();
+    let inputs = vec_to_field(circom.get_public_inputs().unwrap());
 
     println!("witness generation took: {:.2?}", now.elapsed());
 
@@ -249,12 +260,12 @@ pub fn generate_proof(
 pub fn verify_proof(
     verifying_key: &VerifyingKey<Bn254>,
     proof: Proof,
-    inputs: Vec<Fr>,
+    inputs: Vec<Field>,
 ) -> Result<bool, ProofError> {
     // Check that the proof is valid
     let pvk = prepare_verifying_key(verifying_key);
     let pr: ArkProof<Bn254> = proof.into();
-    let verified = ark_verify_proof(&pvk, &pr, &inputs)?;
+    let verified = ark_verify_proof(&pvk, &pr, &vec_to_fr(inputs))?;
 
     Ok(verified)
 }

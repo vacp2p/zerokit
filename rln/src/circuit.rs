@@ -51,6 +51,7 @@ fn fq_from_str(s: &str) -> Fq {
         .into()
 }
 
+// Extracts the element in G1 corresponding to its JSON serialization
 fn json_to_g1(json: &Value, key: &str) -> G1Affine {
     let els: Vec<String> = json
         .get(key)
@@ -67,6 +68,7 @@ fn json_to_g1(json: &Value, key: &str) -> G1Affine {
     ))
 }
 
+// Extracts the vector of G1 elements corresponding to its JSON serialization
 fn json_to_g1_vec(json: &Value, key: &str) -> Vec<G1Affine> {
     let els: Vec<Vec<String>> = json
         .get(key)
@@ -94,6 +96,7 @@ fn json_to_g1_vec(json: &Value, key: &str) -> Vec<G1Affine> {
         .collect()
 }
 
+// Extracts the element in G2 corresponding to its JSON serialization
 fn json_to_g2(json: &Value, key: &str) -> G2Affine {
     let els: Vec<Vec<String>> = json
         .get(key)
@@ -116,6 +119,7 @@ fn json_to_g2(json: &Value, key: &str) -> G2Affine {
     G2Affine::from(G2Projective::new(x, y, z))
 }
 
+// Computes the verification key from its JSON serialization
 fn vk_from_json(vk_path: &str) -> VerifyingKey<Bn254> {
     let json = std::fs::read_to_string(vk_path).unwrap();
     let json: Value = serde_json::from_str(&json).unwrap();
@@ -129,6 +133,7 @@ fn vk_from_json(vk_path: &str) -> VerifyingKey<Bn254> {
     }
 }
 
+// Checks verification key to be correct with respect to proving key
 pub fn check_vk_from_zkey(verifying_key: VerifyingKey<Bn254>) {
     assert_eq!(ZKEY().vk, verifying_key);
 }

@@ -17,24 +17,16 @@ use serde::Deserialize;
 use serde_json;
 use std::io::{self, Read, Write};
 
+use crate::circuit::{CIRCOM, ZKEY};
+use crate::protocol;
+
 // TODO Add Engine here? i.e. <E: Engine> not <Bn254>
 // TODO Assuming we want to use IncrementalMerkleTree, figure out type/trait conversions
 // TODO Adopt to new protocol structure
 pub struct RLN {
-    circom: CircomCircuit<Bn254>,
+    circom: CircomCircuit<Bn254>, //Was CircomCircuit
     params: ProvingKey<Bn254>,
     tree: PoseidonTree,
-}
-
-#[derive(Debug, Deserialize)]
-//#[serde(rename_all = "camelCase")]
-struct WitnessInput {
-    identity_secret: String,
-    path_elements: Vec<String>,
-    identity_path_index: Vec<i32>,
-    x: String,
-    epoch: String,
-    rln_identifier: String,
 }
 
 // TODO Expand API to have better coverage of things needed
@@ -47,25 +39,36 @@ impl RLN {
 
         let builder = CircomBuilder::new(cfg);
 
-        // create an empty instance for setting it up
-        let circom = builder.setup();
-
-        let mut rng = thread_rng();
-        let params = generate_random_parameters::<Bn254, _, _>(circom, &mut rng).unwrap();
+        let params = ZKEY();
 
         let circom = builder.build().unwrap();
 
         let inputs = circom.get_public_inputs().unwrap();
         println!("Public inputs {:#?} ", inputs);
 
+        // We compute a default empty tree
+        // Probably better to pass it as parameter
+        let TREE_HEIGHT = 21;
         let leaf = Field::from(0);
-        let tree = PoseidonTree::new(21, leaf);
+        let tree = PoseidonTree::new(TREE_HEIGHT, leaf);
 
         RLN {
             circom,
             params,
             tree,
         }
+    }
+
+    pub fn set_tree<R: Read>(&self, _input_data: R) -> io::Result<()> {
+        //Implement leaf and deserialization
+        //let leaf = Leaf::deserialize(input_data).unwrap();
+
+        //returns H::Hash, which is a 256 bit hash value
+        //let root = self.tree.root();
+        // TODO Return root as LE here
+        //root.write_le(&mut result_data)?;
+        //println!("NYI: root le write buffer {:#?}", root);
+        Ok(())
     }
 
     /// returns current membership root
