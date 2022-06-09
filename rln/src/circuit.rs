@@ -46,9 +46,7 @@ pub fn CIRCOM() -> CircomBuilder<Bn254> {
 
 // Utilities to convert a json verification key in a groth16::VerificationKey
 fn fq_from_str(s: &str) -> Fq {
-    BigInteger256::try_from(BigUint::from_str(s).unwrap())
-        .unwrap()
-        .into()
+    Fq::try_from(BigUint::from_str(s).unwrap()).unwrap() //was BigInteger256:: and .into()
 }
 
 // Extracts the element in G1 corresponding to its JSON serialization

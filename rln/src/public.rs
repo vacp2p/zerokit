@@ -24,7 +24,7 @@ use crate::protocol;
 // TODO Assuming we want to use IncrementalMerkleTree, figure out type/trait conversions
 // TODO Adopt to new protocol structure
 pub struct RLN {
-    circom: CircomCircuit<Bn254>, //Was CircomCircuit
+    circom: CircomCircuit<Bn254>,
     params: ProvingKey<Bn254>,
     tree: PoseidonTree,
 }

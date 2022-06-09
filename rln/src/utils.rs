@@ -49,6 +49,14 @@ pub fn str_to_field(input: String, radix: i32) -> Field {
     }
 }
 
+pub fn bytes_to_fr(input: &[u8]) -> Fr {
+    Fr::from(BigUint::from_bytes_le(input))
+}
+
+pub fn bytes_to_field(input: &[u8]) -> Field {
+    to_field(bytes_to_fr(input))
+}
+
 // Arithmetic over Field elements (wrapped over arkworks algebra crate)
 
 pub fn add(a: Field, b: Field) -> Field {

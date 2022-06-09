@@ -25,17 +25,29 @@ use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use thiserror::Error;
 
-pub use crate::utils::{str_to_field, vec_to_field, vec_to_fr};
+pub use crate::utils::{add, bytes_to_field, mul, str_to_field, vec_to_field, vec_to_fr};
 
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
 ///////////////////////////////////////////////////////
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct RLNWitnessInput {
     identity_secret: Field,
     path_elements: Vec<Field>,
     identity_path_index: Vec<u8>,
+    x: Field,
+    epoch: Field,
+    rln_identifier: Field,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct RLNProofValues {
+    // Public outputs:
+    y: Field,
+    nullifier: Field,
+    root: Field,
+    // Public Inputs:
     x: Field,
     epoch: Field,
     rln_identifier: Field,
@@ -93,6 +105,107 @@ pub fn rln_witness_from_values(
     }
 }
 
+pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> RLNProofValues {
+    // y share
+    let a_0 = rln_witness.identity_secret;
+    let a_1 = poseidon_hash(&[a_0, rln_witness.epoch]);
+    let y = mul(rln_witness.x, a_1);
+    let y = add(y, a_0);
+
+    // Nullifier
+    let nullifier = poseidon_hash(&[a_1, rln_witness.rln_identifier]);
+
+    // Merkle tree root computations
+    let mut root = poseidon_hash(&[rln_witness.identity_secret]);
+    for i in 0..rln_witness.identity_path_index.len() {
+        if rln_witness.identity_path_index[i] == 0 {
+            root = poseidon_hash(&[root, rln_witness.path_elements[i]]);
+        } else {
+            root = poseidon_hash(&[rln_witness.path_elements[i], root]);
+        }
+    }
+
+    let root = get_tree_root(
+        rln_witness.identity_secret,
+        &rln_witness.path_elements,
+        &rln_witness.identity_path_index,
+        true,
+    );
+
+    RLNProofValues {
+        y,
+        nullifier,
+        root,
+        x: rln_witness.x,
+        epoch: rln_witness.epoch,
+        rln_identifier: rln_witness.rln_identifier,
+    }
+}
+
+///////////////////////////////////////////////////////
+// Merkle tree utility functions
+///////////////////////////////////////////////////////
+
+/// Helper to merkle proof into a bigint vector
+/// TODO: we should create a From trait for this
+pub fn get_path_elements(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<Field> {
+    proof
+        .0
+        .iter()
+        .map(|x| match x {
+            Branch::Left(value) | Branch::Right(value) => *value,
+        })
+        .collect()
+}
+
+pub fn get_identity_path_index(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<u8> {
+    proof
+        .0
+        .iter()
+        .map(|branch| match branch {
+            Branch::Left(_) => 0,
+            Branch::Right(_) => 1,
+        })
+        .collect()
+}
+
+pub fn get_tree_root(
+    leaf: Field,
+    path_elements: &[Field],
+    identity_path_index: &[u8],
+    hash_leaf: bool,
+) -> Field {
+    let mut root = leaf;
+    if hash_leaf {
+        root = poseidon_hash(&[root]);
+    }
+
+    for i in 0..identity_path_index.len() {
+        if identity_path_index[i] == 0 {
+            root = poseidon_hash(&[root, path_elements[i]]);
+        } else {
+            root = poseidon_hash(&[path_elements[i], root]);
+        }
+    }
+
+    root
+}
+
+///////////////////////////////////////////////////////
+// Signal/nullifier utility functions
+///////////////////////////////////////////////////////
+
+fn hash_signal(signal: &[u8]) -> Field {
+    let hash = keccak256(signal);
+    bytes_to_field(&hash)
+}
+
+/// Generates the nullifier hash
+#[must_use]
+pub fn generate_nullifier_hash(identity: &Identity, external_nullifier: Field) -> Field {
+    poseidon_hash(&[external_nullifier, identity.nullifier])
+}
+
 ///////////////////////////////////////////////////////
 // Proof data structure and utility functions
 ///////////////////////////////////////////////////////
@@ -138,52 +251,6 @@ impl From<Proof> for ArkProof<Bn<Parameters>> {
 }
 
 ///////////////////////////////////////////////////////
-// Merkle tree utility functions
-///////////////////////////////////////////////////////
-
-/// Helper to merkle proof into a bigint vector
-/// TODO: we should create a From trait for this
-pub fn get_path_elements(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<Field> {
-    proof
-        .0
-        .iter()
-        .map(|x| match x {
-            Branch::Left(value) | Branch::Right(value) => *value,
-        })
-        .collect()
-}
-
-pub fn get_identity_path_index(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<u8> {
-    proof
-        .0
-        .iter()
-        .map(|branch| match branch {
-            Branch::Left(_) => 0,
-            Branch::Right(_) => 1,
-        })
-        .collect()
-}
-
-///////////////////////////////////////////////////////
-// Signal/nullifier utility functions
-///////////////////////////////////////////////////////
-
-/// Internal helper to hash the signal to make sure it's in the field
-fn hash_signal(signal: &[u8]) -> Field {
-    let hash = keccak256(signal);
-    // Shift right one byte to make it fit in the field
-    let mut bytes = [0_u8; 32];
-    bytes[1..].copy_from_slice(&hash[..31]);
-    Field::from_be_bytes_mod_order(&bytes)
-}
-
-/// Generates the nullifier hash
-#[must_use]
-pub fn generate_nullifier_hash(identity: &Identity, external_nullifier: Field) -> Field {
-    poseidon_hash(&[external_nullifier, identity.nullifier])
-}
-
-///////////////////////////////////////////////////////
 // zkSNARK utility functions
 ///////////////////////////////////////////////////////
 
@@ -205,8 +272,8 @@ pub enum ProofError {
 pub fn generate_proof(
     mut builder: CircomBuilder<Bn254>,
     proving_key: &ProvingKey<Bn254>,
-    rln_witness: RLNWitnessInput,
-) -> Result<(Proof, Vec<Field>), ProofError> {
+    rln_witness: &RLNWitnessInput,
+) -> Result<Proof, ProofError> {
     let now = Instant::now();
 
     builder.push_input("identity_secret", BigInt::from(rln_witness.identity_secret));
@@ -227,8 +294,9 @@ pub fn generate_proof(
 
     let circom = builder.build().unwrap();
 
+    // This can be checked against proof_values_from_witness
     // Get the populated instance of the circuit with the witness
-    let inputs = vec_to_field(circom.get_public_inputs().unwrap());
+    //let inputs = vec_to_field(circom.get_public_inputs().unwrap());
 
     println!("witness generation took: {:.2?}", now.elapsed());
 
@@ -248,7 +316,7 @@ pub fn generate_proof(
 
     println!("proof generation took: {:.2?}", now.elapsed());
 
-    Ok((proof, inputs))
+    Ok(proof)
 }
 
 /// Verifies a given RLN proof
@@ -260,8 +328,18 @@ pub fn generate_proof(
 pub fn verify_proof(
     verifying_key: &VerifyingKey<Bn254>,
     proof: Proof,
-    inputs: Vec<Field>,
+    proof_values: &RLNProofValues,
 ) -> Result<bool, ProofError> {
+    // We re-arrange proof-values according to the circuit specification
+    let inputs = vec![
+        proof_values.y,
+        proof_values.root,
+        proof_values.nullifier,
+        proof_values.x,
+        proof_values.epoch,
+        proof_values.rln_identifier,
+    ];
+
     // Check that the proof is valid
     let pvk = prepare_verifying_key(verifying_key);
     let pr: ArkProof<Bn254> = proof.into();

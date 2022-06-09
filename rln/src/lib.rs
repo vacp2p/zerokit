@@ -153,10 +153,12 @@ mod test {
         let rln_witness = rln_witness_from_json(input_json_str);
 
         // Let's generate a zkSNARK proof
-        let (proof, inputs) = generate_proof(builder, proving_key, rln_witness).unwrap();
+        let proof = generate_proof(builder, proving_key, &rln_witness).unwrap();
+
+        let proof_values = proof_values_from_witness(&rln_witness);
 
         // Let's verify the proof
-        let verified = verify_proof(verification_key, proof, inputs);
+        let verified = verify_proof(verification_key, proof, &proof_values);
 
         assert!(verified.unwrap());
     }
@@ -196,10 +198,12 @@ mod test {
         let builder = CIRCOM();
 
         // Let's generate a zkSNARK proof
-        let (proof, inputs) = generate_proof(builder, proving_key, rln_witness).unwrap();
+        let proof = generate_proof(builder, proving_key, &rln_witness).unwrap();
+
+        let proof_values = proof_values_from_witness(&rln_witness);
 
         // Let's verify the proof
-        let success = verify_proof(verification_key, proof, inputs).unwrap();
+        let success = verify_proof(verification_key, proof, &proof_values).unwrap();
 
         assert!(success);
     }

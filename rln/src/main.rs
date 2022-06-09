@@ -7,7 +7,9 @@ use tracing_subscriber::layer::SubscriberExt;
 // JSON
 
 use rln::circuit::{CIRCOM, VK, ZKEY};
-use rln::protocol::{generate_proof, rln_witness_from_json, verify_proof};
+use rln::protocol::{
+    generate_proof, proof_values_from_witness, rln_witness_from_json, verify_proof,
+};
 
 // RLN
 fn groth16_proof_example() -> Result<()> {
@@ -74,10 +76,12 @@ fn groth16_proof_example() -> Result<()> {
     let rln_witness = rln_witness_from_json(input_json_str);
 
     // Let's generate a zkSNARK proof
-    let (proof, inputs) = generate_proof(builder, proving_key, rln_witness).unwrap();
+    let proof = generate_proof(builder, proving_key, &rln_witness).unwrap();
+
+    let proof_values = proof_values_from_witness(&rln_witness);
 
     // Let's verify the proof
-    let verified = verify_proof(verification_key, proof, inputs);
+    let verified = verify_proof(verification_key, proof, &proof_values);
 
     assert!(verified.unwrap());
 
