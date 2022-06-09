@@ -65,7 +65,9 @@ blake2 = "0.8.1"
 sapling-crypto = { package = "sapling-crypto_ce", version = "0.1.3", default-features = false }
 bellman = { package = "bellman_ce", version = "0.3.4", default-features = false }
 
-semaphore = { git = "https://github.com/oskarth/semaphore-rs" }
+#semaphore = { git = "https://github.com/oskarth/semaphore-rs" }
+semaphore = { git = "https://github.com/worldcoin/semaphore-rs", rev = "d462a43"}
+
 
 tempfile = "3.3.0"
 
