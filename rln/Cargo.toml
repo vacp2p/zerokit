@@ -17,6 +17,7 @@ num-bigint = { version = "0.4", default-features = false, features = ["rand"] }
 # ZKP Generation
 ark-ec = { version = "0.3.0", default-features = false, features = ["parallel"] }
 ark-ff = { version = "0.3.0", default-features = false, features = ["parallel", "asm"] }
+#ark-ff = { git = "https://github.com/arkworks-rs/algebra/"}
 ark-std = { version = "0.3.0", default-features = false, features = ["parallel"] }
 ark-bn254 = { version = "0.3.0" }
 ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", rev = "765817f", features = ["parallel"] }
@@ -64,7 +65,9 @@ blake2 = "0.8.1"
 sapling-crypto = { package = "sapling-crypto_ce", version = "0.1.3", default-features = false }
 bellman = { package = "bellman_ce", version = "0.3.4", default-features = false }
 
-semaphore = { git = "https://github.com/oskarth/semaphore-rs" }
+#semaphore = { git = "https://github.com/oskarth/semaphore-rs" }
+semaphore = { git = "https://github.com/worldcoin/semaphore-rs", rev = "d462a43"}
+
 
 tempfile = "3.3.0"
 
