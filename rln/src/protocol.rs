@@ -25,13 +25,18 @@ use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use thiserror::Error;
 
-pub use crate::utils::{add, bytes_to_field, mul, str_to_field, vec_to_field, vec_to_fr};
+pub use crate::utils::{
+    add, bytes_be_to_field, bytes_be_to_vec_field, bytes_be_to_vec_u8, bytes_le_to_field,
+    bytes_le_to_vec_field, bytes_le_to_vec_u8, field_to_bytes_be, field_to_bytes_le, mul,
+    str_to_field, vec_field_to_bytes_be, vec_field_to_bytes_le, vec_to_field, vec_to_fr,
+    vec_u8_to_bytes_be, vec_u8_to_bytes_le,
+};
 
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
 ///////////////////////////////////////////////////////
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RLNWitnessInput {
     identity_secret: Field,
     path_elements: Vec<Field>,
@@ -41,7 +46,7 @@ pub struct RLNWitnessInput {
     rln_identifier: Field,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RLNProofValues {
     // Public outputs:
     y: Field,
@@ -51,6 +56,98 @@ pub struct RLNProofValues {
     x: Field,
     epoch: Field,
     rln_identifier: Field,
+}
+
+pub fn serialize_witness(rln_witness: RLNWitnessInput) -> Vec<u8> {
+    let mut serialized: Vec<u8> = Vec::new();
+
+    serialized.append(&mut field_to_bytes_le(rln_witness.identity_secret));
+    serialized.append(&mut vec_field_to_bytes_le(rln_witness.path_elements));
+    serialized.append(&mut vec_u8_to_bytes_le(rln_witness.identity_path_index));
+    serialized.append(&mut field_to_bytes_le(rln_witness.x));
+    serialized.append(&mut field_to_bytes_le(rln_witness.epoch));
+    serialized.append(&mut field_to_bytes_le(rln_witness.rln_identifier));
+
+    serialized
+}
+
+pub fn deserialize_witness(serialized: Vec<u8>) -> RLNWitnessInput {
+    let mut all_read: usize = 0;
+
+    let (identity_secret, read) = bytes_le_to_field(serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (path_elements, read) = bytes_le_to_vec_field(serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (identity_path_index, read) = bytes_le_to_vec_u8(serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (x, read) = bytes_le_to_field(serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (epoch, read) = bytes_le_to_field(serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (rln_identifier, read) = bytes_le_to_field(serialized[all_read..].to_vec());
+    all_read += read;
+
+    assert_eq!(serialized.len(), all_read);
+    
+    RLNWitnessInput {
+        identity_secret,
+        path_elements,
+        identity_path_index,
+        x,
+        epoch,
+        rln_identifier,
+    }
+}
+
+pub fn serialize_proof_values(rln_proof_values: RLNProofValues) -> Vec<u8> {
+    let mut serialized: Vec<u8> = Vec::new();
+
+    serialized.append(&mut field_to_bytes_le(rln_proof_values.y));
+    serialized.append(&mut field_to_bytes_le(rln_proof_values.nullifier));
+    serialized.append(&mut field_to_bytes_le(rln_proof_values.root));
+    serialized.append(&mut field_to_bytes_le(rln_proof_values.x));
+    serialized.append(&mut field_to_bytes_le(rln_proof_values.epoch));
+    serialized.append(&mut field_to_bytes_le(rln_proof_values.rln_identifier));
+
+    serialized
+}
+
+pub fn deserialize_proof_values(serialized: Vec<u8>) -> RLNProofValues {
+    let mut all_read: usize = 0;
+
+    let (y, read) = bytes_le_to_field(serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (nullifier, read) = bytes_le_to_field(serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (root, read) = bytes_le_to_field(serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (x, read) = bytes_le_to_field(serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (epoch, read) = bytes_le_to_field(serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (rln_identifier, read) = bytes_le_to_field(serialized[all_read..].to_vec());
+    all_read += read;
+
+    assert_eq!(serialized.len(), all_read);
+
+    RLNProofValues {
+        y,
+        nullifier,
+        root,
+        x,
+        epoch,
+        rln_identifier,
+    }
 }
 
 pub fn rln_witness_from_json(input_json_str: &str) -> RLNWitnessInput {
@@ -197,7 +294,8 @@ pub fn get_tree_root(
 
 fn hash_signal(signal: &[u8]) -> Field {
     let hash = keccak256(signal);
-    bytes_to_field(&hash)
+    let (el, _) = bytes_le_to_field(hash.to_vec());
+    el
 }
 
 /// Generates the nullifier hash

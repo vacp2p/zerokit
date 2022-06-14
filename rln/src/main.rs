@@ -1,26 +1,12 @@
 use color_eyre::Result;
 
-// Tracing
-use ark_relations::r1cs::{ConstraintLayer, ConstraintTrace, TracingMode};
-use tracing_subscriber::layer::SubscriberExt;
-
-// JSON
-
-use rln::circuit::{CIRCOM, VK, ZKEY};
 use rln::protocol::{
-    generate_proof, proof_values_from_witness, rln_witness_from_json, verify_proof,
+    deserialize_proof_values, deserialize_witness, proof_values_from_witness,
+    rln_witness_from_json, serialize_proof_values, serialize_witness,
 };
 
 // RLN
-fn groth16_proof_example() -> Result<()> {
-    // Tracing to help with debugging
-    let mut layer = ConstraintLayer::default();
-    layer.mode = TracingMode::OnlyConstraints;
-    let subscriber = tracing_subscriber::Registry::default().with(layer);
-    let _guard = tracing::subscriber::set_default(subscriber);
-
-    let trace = ConstraintTrace::capture();
-    println!("Trace is: {:?}", trace);
+fn example() -> Result<()> {
 
     // From rln JSON witness
     // Input generated with https://github.com/oskarth/zk-kit/commit/b6a872f7160c7c14e10a0ea40acab99cbb23c9a8
@@ -67,31 +53,28 @@ fn groth16_proof_example() -> Result<()> {
         }
     "#;
 
-    // We generate all relevant keys
-    let proving_key = &ZKEY();
-    let verification_key = &VK();
-    let builder = CIRCOM();
-
-    // We compute witness from the json input example
     let rln_witness = rln_witness_from_json(input_json_str);
-
-    // Let's generate a zkSNARK proof
-    let proof = generate_proof(builder, proving_key, &rln_witness).unwrap();
-
     let proof_values = proof_values_from_witness(&rln_witness);
 
-    // Let's verify the proof
-    let verified = verify_proof(verification_key, proof, &proof_values);
+    println!("witness: {:#?}", rln_witness);
 
-    assert!(verified.unwrap());
+    let ser = serialize_witness(rln_witness);
+    let b = deserialize_witness(ser);
+    println!("witness deser: {:#?}", b);
+
+    println!("proof values: {:#?}", proof_values);
+
+    let ser = serialize_proof_values(proof_values);
+    let b = deserialize_proof_values(ser);
+    println!("proof values deser: {:#?}", b);
 
     Ok(())
 }
 
 fn main() {
-    println!("rln example proof");
+    println!("rln serialization tests");
 
-    match groth16_proof_example() {
+    match example() {
         Ok(_) => println!("Success"),
         Err(_) => println!("Error"),
     }

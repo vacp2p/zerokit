@@ -51,13 +51,16 @@ pub extern "C" fn get_root(ctx: *const RLN, output_buffer: *mut Buffer) -> bool 
 #[no_mangle]
 pub extern "C" fn new_circuit(ctx: *mut *mut RLN) -> bool {
     println!("rln ffi: new");
-    let mul = RLN::new();
+
+    let default_tree_height = 21;
+    let mul = RLN::new(default_tree_height);
 
     unsafe { *ctx = Box::into_raw(Box::new(mul)) };
 
     true
 }
 
+/*
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn prove(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
@@ -94,3 +97,4 @@ pub extern "C" fn verify(
     };
     true
 }
+*/

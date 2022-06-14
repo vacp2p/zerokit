@@ -1,9 +1,21 @@
 use ark_bn254::{Bn254, Fr, Parameters};
-use ark_ff::{Fp256, PrimeField};
+use ark_ff::{BigInteger, Field as ArkField, FpParameters, PrimeField};
 use ark_std::str::FromStr;
 use ethers_core::utils::keccak256;
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use semaphore::{identity::Identity, Field};
+
+pub fn modulus_bit_size() -> usize {
+    <Fr as PrimeField>::Params::MODULUS
+        .num_bits()
+        .try_into()
+        .unwrap()
+}
+
+pub fn fr_byte_size() -> usize {
+    let mbs = modulus_bit_size();
+    (mbs + 64 - (mbs % 64)) / 8
+}
 
 pub fn to_fr(el: Field) -> Fr {
     Fr::try_from(el).unwrap()
@@ -29,6 +41,22 @@ pub fn vec_to_field(v: Vec<Fr>) -> Vec<Field> {
     result
 }
 
+pub fn vec_fr_to_field(input: Vec<Fr>) -> Vec<Field> {
+    let mut res: Vec<Field> = Vec::new();
+    for el in input {
+        res.push(to_field(el));
+    }
+    res
+}
+
+pub fn vec_field_to_fr(input: Vec<Field>) -> Vec<Fr> {
+    let mut res: Vec<Fr> = Vec::new();
+    for el in input {
+        res.push(to_fr(el));
+    }
+    res
+}
+
 pub fn str_to_field(input: String, radix: i32) -> Field {
     assert!((radix == 10) || (radix == 16));
 
@@ -49,12 +77,179 @@ pub fn str_to_field(input: String, radix: i32) -> Field {
     }
 }
 
-pub fn bytes_to_fr(input: &[u8]) -> Fr {
-    Fr::from(BigUint::from_bytes_le(input))
+pub fn bytes_le_to_fr(input: Vec<u8>) -> (Fr, usize) {
+    let el_size = fr_byte_size();
+    (
+        Fr::from(BigUint::from_bytes_le(&input[0..el_size])),
+        el_size,
+    )
 }
 
-pub fn bytes_to_field(input: &[u8]) -> Field {
-    to_field(bytes_to_fr(input))
+pub fn bytes_be_to_fr(input: Vec<u8>) -> (Fr, usize) {
+    let el_size = fr_byte_size();
+    (
+        Fr::from(BigUint::from_bytes_be(&input[0..el_size])),
+        el_size,
+    )
+}
+
+pub fn bytes_le_to_field(input: Vec<u8>) -> (Field, usize) {
+    let (fr_el, read) = bytes_le_to_fr(input);
+    (to_field(fr_el), read)
+}
+
+pub fn bytes_be_to_field(input: Vec<u8>) -> (Field, usize) {
+    let (fr_el, read) = bytes_be_to_fr(input);
+    (to_field(fr_el), read)
+}
+
+pub fn fr_to_bytes_le(input: Fr) -> Vec<u8> {
+    let input_biguint: BigUint = input.into();
+    let mut res = input_biguint.to_bytes_le();
+    //BigUint conversion ignores most significant zero bytes. We restore them otherwise serialization will fail (length % 8 != 0)
+    while res.len() != fr_byte_size() {
+        res.push(0);
+    }
+    res
+}
+
+pub fn fr_to_bytes_be(input: Fr) -> Vec<u8> {
+    let input_biguint: BigUint = input.into();
+    let mut res = input_biguint.to_bytes_be();
+    // BigUint conversion ignores most significant zero bytes. We restore them otherwise serialization might fail
+    // Fr elements are stored using 64 bits nimbs
+    while res.len() != fr_byte_size() {
+        res.insert(0, 0);
+    }
+    res
+}
+
+pub fn field_to_bytes_le(input: Field) -> Vec<u8> {
+    fr_to_bytes_le(to_fr(input))
+}
+
+pub fn field_to_bytes_be(input: Field) -> Vec<u8> {
+    fr_to_bytes_be(to_fr(input))
+}
+
+pub fn vec_fr_to_bytes_le(input: Vec<Fr>) -> Vec<u8> {
+    let mut bytes: Vec<u8> = Vec::new();
+    //We store the vector length
+    bytes.append(&mut input.len().to_le_bytes().to_vec());
+    // We store each element
+    for el in input {
+        bytes.append(&mut fr_to_bytes_le(el));
+    }
+    bytes
+}
+
+pub fn vec_fr_to_bytes_be(input: Vec<Fr>) -> Vec<u8> {
+    let mut bytes: Vec<u8> = Vec::new();
+    //We store the vector length
+    bytes.append(&mut input.len().to_be_bytes().to_vec());
+    // We store each element
+    for el in input {
+        bytes.append(&mut fr_to_bytes_be(el));
+    }
+    bytes
+}
+
+pub fn vec_field_to_bytes_le(input: Vec<Field>) -> Vec<u8> {
+    vec_fr_to_bytes_le(vec_field_to_fr(input))
+}
+
+pub fn vec_field_to_bytes_be(input: Vec<Field>) -> Vec<u8> {
+    vec_fr_to_bytes_be(vec_field_to_fr(input))
+}
+
+pub fn vec_u8_to_bytes_le(mut input: Vec<u8>) -> Vec<u8> {
+    let mut bytes: Vec<u8> = Vec::new();
+    //We store the vector length
+    bytes.append(&mut input.len().to_le_bytes().to_vec());
+    bytes.append(&mut input);
+    bytes
+}
+
+pub fn vec_u8_to_bytes_be(mut input: Vec<u8>) -> Vec<u8> {
+    let mut bytes: Vec<u8> = Vec::new();
+    //We store the vector length
+    bytes.append(&mut input.len().to_be_bytes().to_vec());
+    bytes.append(&mut input);
+    bytes
+}
+
+pub fn bytes_le_to_vec_u8(input: Vec<u8>) -> (Vec<u8>, usize) {
+    let mut read: usize = 0;
+
+    let usize_len: usize = (usize::BITS / 8).try_into().unwrap();
+    let len: usize = usize::from_le_bytes(input[0..usize_len].try_into().unwrap());
+    read += usize_len;
+
+    let res = input[usize_len..usize_len + len].to_vec();
+    read += res.len();
+
+    (res, read)
+}
+
+pub fn bytes_be_to_vec_u8(input: Vec<u8>) -> (Vec<u8>, usize) {
+    let mut read: usize = 0;
+
+    let usize_len: usize = (usize::BITS / 8).try_into().unwrap();
+    let len: usize = usize::from_be_bytes(input[0..usize_len].try_into().unwrap());
+    read += usize_len;
+
+    let res = input[usize_len..usize_len + len].to_vec();
+    read += res.len();
+
+    (res, read)
+}
+
+pub fn bytes_le_to_vec_fr(input: Vec<u8>) -> (Vec<Fr>, usize) {
+    let mut read: usize = 0;
+
+    let mut res: Vec<Fr> = Vec::new();
+    let usize_len: usize = (usize::BITS / 8).try_into().unwrap();
+    let len: usize = usize::from_le_bytes(input[0..usize_len].try_into().unwrap());
+    read += usize_len;
+
+    let el_size = fr_byte_size();
+    for i in 0..len {
+        let (curr_el, _) =
+            bytes_le_to_fr(input[usize_len + el_size * i..usize_len + el_size * (i + 1)].to_vec());
+        res.push(curr_el);
+        read += el_size;
+    }
+
+    (res, read)
+}
+
+pub fn bytes_be_to_vec_fr(input: Vec<u8>) -> (Vec<Fr>, usize) {
+    let mut read: usize = 0;
+
+    let mut res: Vec<Fr> = Vec::new();
+    let usize_len: usize = (usize::BITS / 8).try_into().unwrap();
+    let len: usize = usize::from_be_bytes(input[0..usize_len].try_into().unwrap());
+    read += usize_len;
+
+    let el_size = fr_byte_size();
+    for i in 0..len {
+        let (curr_el, _) =
+            bytes_be_to_fr(input[usize_len + el_size * i..usize_len + el_size * (i + 1)].to_vec());
+        res.push(curr_el);
+        read += el_size;
+    }
+
+    (res, read)
+}
+
+pub fn bytes_le_to_vec_field(input: Vec<u8>) -> (Vec<Field>, usize) {
+    let (vec_fr, read) = bytes_le_to_vec_fr(input);
+    (vec_fr_to_field(vec_fr), read)
+}
+
+pub fn bytes_be_to_vec_field(input: Vec<u8>) -> (Vec<Field>, usize) {
+    let (vec_fr, read) = bytes_be_to_vec_fr(input);
+    (vec_fr_to_field(vec_fr), read)
 }
 
 // Arithmetic over Field elements (wrapped over arkworks algebra crate)
