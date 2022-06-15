@@ -145,20 +145,20 @@ mod test {
         "#;
 
         // We generate all relevant keys
-        let proving_key = &ZKEY();
-        let verification_key = &VK();
+        let proving_key = ZKEY();
+        let verification_key = VK();
         let builder = CIRCOM();
 
         // We compute witness from the json input example
         let rln_witness = rln_witness_from_json(input_json_str);
 
         // Let's generate a zkSNARK proof
-        let proof = generate_proof(builder, proving_key, &rln_witness).unwrap();
+        let proof = generate_proof(builder, &proving_key, &rln_witness).unwrap();
 
         let proof_values = proof_values_from_witness(&rln_witness);
 
         // Let's verify the proof
-        let verified = verify_proof(verification_key, proof, &proof_values);
+        let verified = verify_proof(&verification_key, &proof, &proof_values);
 
         assert!(verified.unwrap());
     }
@@ -193,17 +193,17 @@ mod test {
             rln_witness_from_values(identity_secret, &merkle_proof, x, epoch, rln_identifier);
 
         // We generate all relevant keys
-        let proving_key = &ZKEY();
-        let verification_key = &VK();
+        let proving_key = ZKEY();
+        let verification_key = VK();
         let builder = CIRCOM();
 
         // Let's generate a zkSNARK proof
-        let proof = generate_proof(builder, proving_key, &rln_witness).unwrap();
+        let proof = generate_proof(builder, &proving_key, &rln_witness).unwrap();
 
         let proof_values = proof_values_from_witness(&rln_witness);
 
         // Let's verify the proof
-        let success = verify_proof(verification_key, proof, &proof_values).unwrap();
+        let success = verify_proof(&verification_key, &proof, &proof_values).unwrap();
 
         assert!(success);
     }

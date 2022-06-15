@@ -53,19 +53,19 @@ fn example() -> Result<()> {
         }
     "#;
 
-    let rln_witness = rln_witness_from_json(input_json_str);
+    let rln_witness = rln_witness_from_json(&input_json_str);
     let proof_values = proof_values_from_witness(&rln_witness);
 
     println!("witness: {:#?}", rln_witness);
 
-    let ser = serialize_witness(rln_witness);
-    let b = deserialize_witness(ser);
+    let ser = serialize_witness(&rln_witness);
+    let b = deserialize_witness(&ser);
     println!("witness deser: {:#?}", b);
 
     println!("proof values: {:#?}", proof_values);
 
-    let ser = serialize_proof_values(proof_values);
-    let b = deserialize_proof_values(ser);
+    let ser = serialize_proof_values(&proof_values);
+    let b = deserialize_proof_values(&ser);
     println!("proof values deser: {:#?}", b);
 
     Ok(())

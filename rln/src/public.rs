@@ -58,7 +58,7 @@ impl RLN {
         input_data.read_to_end(&mut leaf_byte);
 
         // We set the leaf at input index
-        let (leaf, _) = bytes_le_to_field(leaf_byte);
+        let (leaf, _) = bytes_le_to_field(&leaf_byte);
         self.tree.set(index, leaf);
 
         Ok(())
@@ -68,7 +68,7 @@ impl RLN {
     /// * `root` is a scalar field element in 32 bytes
     pub fn get_root<W: Write>(&self, mut output_data: W) -> io::Result<()> {
         let root = self.tree.root();
-        output_data.write_all(&field_to_bytes_le(root))?;
+        output_data.write_all(&field_to_bytes_le(&root))?;
 
         Ok(())
     }
@@ -80,8 +80,8 @@ impl RLN {
         let path_elements = get_path_elements(&merkle_proof);
         let identity_path_index = get_identity_path_index(&merkle_proof);
 
-        output_data.write_all(&vec_field_to_bytes_le(path_elements))?;
-        output_data.write_all(&vec_u8_to_bytes_le(identity_path_index))?;
+        output_data.write_all(&vec_field_to_bytes_le(&path_elements))?;
+        output_data.write_all(&vec_u8_to_bytes_le(&identity_path_index))?;
 
         Ok(())
     }
@@ -137,6 +137,7 @@ mod test {
     #[test]
     // This test is similar to the one in lib, but uses only public API
     fn public_test_merkle_proof() {
+        
         let tree_height = 16;
         let leaf_index = 3;
 
@@ -149,13 +150,13 @@ mod test {
         let id_commitment = poseidon_hash(&vec![identity_secret]);
 
         // We pass id_commitment as Read buffer to RLN's set_leaf
-        let mut buffer = Cursor::new(field_to_bytes_le(id_commitment));
+        let mut buffer = Cursor::new(field_to_bytes_le(&id_commitment));
         rln.set_leaf(leaf_index, &mut buffer).unwrap();
 
         // We check correct computation of the root
         let mut buffer = Cursor::new(Vec::<u8>::new());
         rln.get_root(&mut buffer).unwrap();
-        let (root, _) = bytes_le_to_field(buffer.into_inner());
+        let (root, _) = bytes_le_to_field(&buffer.into_inner());
 
         assert_eq!(
             root,
@@ -167,9 +168,10 @@ mod test {
         let mut buffer = Cursor::new(Vec::<u8>::new());
         rln.get_proof(leaf_index, &mut buffer).unwrap();
 
-        let (path_elements, read) = bytes_le_to_vec_field(buffer.clone().into_inner());
+        let buffer_inner = buffer.into_inner();
+        let (path_elements, read) = bytes_le_to_vec_field(&buffer_inner);
         let (identity_path_index, _) =
-            bytes_le_to_vec_u8(buffer.into_inner()[read..].to_vec());
+            bytes_le_to_vec_u8(&buffer_inner[read..].to_vec());
 
         // We check correct computation of the path and indexes
         let expected_path_elements = vec![
@@ -213,7 +215,7 @@ mod test {
 
         // We double check that the proof computed from public API is correct
         let root_from_proof =
-            get_tree_root(id_commitment, &path_elements, &identity_path_index, false);
+            get_tree_root(&id_commitment, &path_elements, &identity_path_index, false);
 
         assert_eq!(root, root_from_proof);
     }
