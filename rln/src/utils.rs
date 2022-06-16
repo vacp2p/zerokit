@@ -166,7 +166,7 @@ pub fn vec_field_to_bytes_be(input: &Vec<Field>) -> Vec<u8> {
 pub fn vec_u8_to_bytes_le(input: &Vec<u8>) -> Vec<u8> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
-    bytes.extend(input.len().to_le_bytes().to_vec());
+    bytes.extend(u64::try_from(input.len()).unwrap().to_le_bytes().to_vec());
     bytes.extend(input);
     bytes
 }
@@ -174,7 +174,7 @@ pub fn vec_u8_to_bytes_le(input: &Vec<u8>) -> Vec<u8> {
 pub fn vec_u8_to_bytes_be(input: Vec<u8>) -> Vec<u8> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
-    bytes.extend(input.len().to_be_bytes().to_vec());
+    bytes.extend(u64::try_from(input.len()).unwrap().to_be_bytes().to_vec());
     bytes.extend(input);
     bytes
 }
@@ -182,11 +182,10 @@ pub fn vec_u8_to_bytes_be(input: Vec<u8>) -> Vec<u8> {
 pub fn bytes_le_to_vec_u8(input: &Vec<u8>) -> (Vec<u8>, usize) {
     let mut read: usize = 0;
 
-    let usize_len: usize = (usize::BITS / 8).try_into().unwrap();
-    let len: usize = usize::from_le_bytes(input[0..usize_len].try_into().unwrap());
-    read += usize_len;
+    let len = usize::try_from(u64::from_le_bytes(input[0..8].try_into().unwrap())).unwrap();
+    read += 8;
 
-    let res = input[usize_len..usize_len + len].to_vec();
+    let res = input[8..8 + len].to_vec();
     read += res.len();
 
     (res, read)
@@ -195,11 +194,11 @@ pub fn bytes_le_to_vec_u8(input: &Vec<u8>) -> (Vec<u8>, usize) {
 pub fn bytes_be_to_vec_u8(input: &Vec<u8>) -> (Vec<u8>, usize) {
     let mut read: usize = 0;
 
-    let usize_len: usize = (usize::BITS / 8).try_into().unwrap();
-    let len: usize = usize::from_be_bytes(input[0..usize_len].try_into().unwrap());
-    read += usize_len;
+    let len = usize::try_from(u64::from_be_bytes(input[0..8].try_into().unwrap())).unwrap();
+    read += 8;
 
-    let res = input[usize_len..usize_len + len].to_vec();
+    let res = input[8..8 + len].to_vec();
+
     read += res.len();
 
     (res, read)
@@ -207,16 +206,14 @@ pub fn bytes_be_to_vec_u8(input: &Vec<u8>) -> (Vec<u8>, usize) {
 
 pub fn bytes_le_to_vec_fr(input: &Vec<u8>) -> (Vec<Fr>, usize) {
     let mut read: usize = 0;
-
     let mut res: Vec<Fr> = Vec::new();
-    let usize_len: usize = (usize::BITS / 8).try_into().unwrap();
-    let len: usize = usize::from_le_bytes(input[0..usize_len].try_into().unwrap());
-    read += usize_len;
+
+    let len = usize::try_from(u64::from_le_bytes(input[0..8].try_into().unwrap())).unwrap();
+    read += 8;
 
     let el_size = fr_byte_size();
     for i in 0..len {
-        let (curr_el, _) =
-            bytes_le_to_fr(&input[usize_len + el_size * i..usize_len + el_size * (i + 1)].to_vec());
+        let (curr_el, _) = bytes_le_to_fr(&input[8 + el_size * i..8 + el_size * (i + 1)].to_vec());
         res.push(curr_el);
         read += el_size;
     }
@@ -226,16 +223,14 @@ pub fn bytes_le_to_vec_fr(input: &Vec<u8>) -> (Vec<Fr>, usize) {
 
 pub fn bytes_be_to_vec_fr(input: &Vec<u8>) -> (Vec<Fr>, usize) {
     let mut read: usize = 0;
-
     let mut res: Vec<Fr> = Vec::new();
-    let usize_len: usize = (usize::BITS / 8).try_into().unwrap();
-    let len: usize = usize::from_be_bytes(input[0..usize_len].try_into().unwrap());
-    read += usize_len;
+
+    let len = usize::try_from(u64::from_be_bytes(input[0..8].try_into().unwrap())).unwrap();
+    read += 8;
 
     let el_size = fr_byte_size();
     for i in 0..len {
-        let (curr_el, _) =
-            bytes_be_to_fr(&input[usize_len + el_size * i..usize_len + el_size * (i + 1)].to_vec());
+        let (curr_el, _) = bytes_be_to_fr(&input[8 + el_size * i..8 + el_size * (i + 1)].to_vec());
         res.push(curr_el);
         read += el_size;
     }

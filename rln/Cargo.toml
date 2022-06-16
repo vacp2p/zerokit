@@ -68,6 +68,7 @@ bellman = { package = "bellman_ce", version = "0.3.4", default-features = false 
 #semaphore = { git = "https://github.com/oskarth/semaphore-rs" }
 semaphore = { git = "https://github.com/worldcoin/semaphore-rs", rev = "d462a43"}
 
+rand = "0.8"
 
 tempfile = "3.3.0"
 

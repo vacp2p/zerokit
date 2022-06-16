@@ -15,6 +15,7 @@ use color_eyre::Result;
 use ethers_core::utils::keccak256;
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use primitive_types::U256;
+use rand::Rng;
 use semaphore::{
     identity::Identity,
     merkle_tree::{self, Branch},
@@ -192,6 +193,34 @@ pub fn rln_witness_from_values(
 ) -> RLNWitnessInput {
     let path_elements = get_path_elements(merkle_proof);
     let identity_path_index = get_identity_path_index(merkle_proof);
+
+    RLNWitnessInput {
+        identity_secret,
+        path_elements,
+        identity_path_index,
+        x,
+        epoch,
+        rln_identifier,
+    }
+}
+
+pub fn random_rln_witness(tree_height: usize) -> RLNWitnessInput {
+    let mut rng = thread_rng();
+
+    let identity_secret = hash_to_field(&rng.gen::<[u8; 32]>());
+    let x = hash_to_field(&rng.gen::<[u8; 32]>());
+    let epoch = hash_to_field(&rng.gen::<[u8; 32]>());
+    let rln_identifier = hash_to_field(&rng.gen::<[u8; 32]>());
+
+    let mut path_elements: Vec<Field> = Vec::new();
+    let mut identity_path_index: Vec<u8> = Vec::new();
+
+    // In semaphore's poseidon_tree, the leaves level is counted in tree_height.
+    // This means that a merkle proof consists of tree_height-1 field elements
+    for _ in 0..tree_height - 1 {
+        path_elements.push(hash_to_field(&rng.gen::<[u8; 32]>()));
+        identity_path_index.push(rng.gen_range(0..2) as u8);
+    }
 
     RLNWitnessInput {
         identity_secret,
