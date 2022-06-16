@@ -23,7 +23,7 @@ pub fn to_fr(el: &Field) -> Fr {
 }
 
 pub fn to_field(el: &Fr) -> Field {
-   (*el).try_into().unwrap()
+    (*el).try_into().unwrap()
 }
 
 pub fn vec_to_fr(v: &Vec<Field>) -> Vec<Fr> {

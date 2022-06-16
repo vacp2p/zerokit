@@ -2,13 +2,14 @@ use crate::circuit::{VK, ZKEY};
 use ark_bn254::{Bn254, Fr, Parameters};
 use ark_circom::{read_zkey, CircomBuilder, CircomConfig, CircomReduction};
 use ark_ec::bn::Bn;
-use ark_ff::{Fp256, PrimeField};
+use ark_ff::{bytes::ToBytes, Fp256, PrimeField};
 use ark_groth16::{
     create_proof_with_reduction_and_matrices, create_random_proof_with_reduction,
     prepare_verifying_key, verify_proof as ark_verify_proof, Proof as ArkProof, ProvingKey,
     VerifyingKey,
 };
 use ark_relations::r1cs::SynthesisError;
+use ark_serialize::*;
 use ark_std::{rand::thread_rng, str::FromStr, UniformRand};
 use color_eyre::Result;
 use ethers_core::utils::keccak256;
@@ -22,6 +23,7 @@ use semaphore::{
     Field,
 };
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::time::Instant;
 use thiserror::Error;
 
@@ -36,7 +38,7 @@ pub use crate::utils::{
 // RLN Witness data structure and utility functions
 ///////////////////////////////////////////////////////
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct RLNWitnessInput {
     identity_secret: Field,
     path_elements: Vec<Field>,
@@ -46,7 +48,7 @@ pub struct RLNWitnessInput {
     rln_identifier: Field,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct RLNProofValues {
     // Public outputs:
     y: Field,
@@ -291,7 +293,7 @@ pub fn get_tree_root(
 // Signal/nullifier utility functions
 ///////////////////////////////////////////////////////
 
-fn hash_signal(signal: &[u8]) -> Field {
+pub fn hash_to_field(signal: &[u8]) -> Field {
     let hash = keccak256(signal);
     let (el, _) = bytes_le_to_field(&hash.to_vec());
     el

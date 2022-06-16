@@ -1,65 +1,90 @@
 /// This is the main public API for RLN. It is used by the FFI, and should be
 /// used by tests etc as well
 ///
-use ark_bn254::Bn254;
+use ark_bn254::{Bn254, Fr};
 use ark_circom::{CircomBuilder, CircomCircuit, CircomConfig};
-use ark_groth16::{
-    create_random_proof as prove, generate_random_parameters, prepare_verifying_key, verify_proof,
-    Proof, ProvingKey,
-};
+use ark_groth16::Proof as ArkProof;
+use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::rand::thread_rng;
 use num_bigint::BigInt;
-use semaphore::{
-    hash_to_field, identity::Identity, poseidon_tree::PoseidonTree, protocol::*, Field,
-};
-use serde::Deserialize;
+use semaphore::{hash_to_field, identity::Identity, poseidon_tree::PoseidonTree, Field};
+use serde::{Deserialize, Serialize};
 use serde_json;
-use std::io::{self, Read, Write};
+use std::io::{self, Error, ErrorKind, Result}; //default read/write
 
-use crate::circuit::{CIRCOM, ZKEY};
+// For the ToBytes implementation of groth16::Proof
+use ark_ec::bn::Bn;
+use ark_ff::bytes::ToBytes;
+use ark_serialize::{Read, Write};
+
+use crate::circuit::{CIRCOM, VK, ZKEY};
 use crate::protocol::*;
 use crate::utils::*;
 
 // TODO Add Engine here? i.e. <E: Engine> not <Bn254>
 // TODO Assuming we want to use IncrementalMerkleTree, figure out type/trait conversions
-// TODO Adopt to new protocol structure
 pub struct RLN {
-    //pub circom: CircomBuilder<Bn254>,
-    pub params: ProvingKey<Bn254>,
+    pub circom: CircomBuilder<Bn254>,
+    pub proving_key: Result<ProvingKey<Bn254>>,
+    pub verification_key: Result<VerifyingKey<Bn254>>,
     pub tree: PoseidonTree,
 }
 
 use crate::utils::{to_field, to_fr};
-
-// TODO Expand API to have better coverage of things needed
+use std::io::Cursor;
 
 impl RLN {
-    // TODO Update this to use new protocol
     pub fn new(tree_height: usize) -> RLN {
-        //let circom = CIRCOM();
+        let circom = CIRCOM();
 
-        let params = ZKEY();
+        let proving_key = ZKEY();
+        let verification_key = VK();
 
         // We compute a default empty tree
         let leaf = Field::from(0);
         let tree = PoseidonTree::new(tree_height, leaf);
 
         RLN {
-            //circom,
-            params,
+            circom,
+            proving_key,
+            verification_key,
             tree,
         }
+    }
+
+    ////////////////////////////////////////////////////////
+    // Merkle-tree APIs
+    ////////////////////////////////////////////////////////
+    pub fn set_tree(&mut self, tree_height: usize) {
+        // We compute a default empty tree of desired height
+        let leaf = Field::from(0);
+        self.tree = PoseidonTree::new(tree_height, leaf);
     }
 
     pub fn set_leaf<R: Read>(&mut self, index: usize, mut input_data: R) -> io::Result<()> {
         // We read input
         let mut leaf_byte: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut leaf_byte);
+        input_data.read_to_end(&mut leaf_byte)?;
 
         // We set the leaf at input index
         let (leaf, _) = bytes_le_to_field(&leaf_byte);
         self.tree.set(index, leaf);
+
+        Ok(())
+    }
+
+    pub fn set_leaves<R: Read>(&mut self, mut input_data: R) -> io::Result<()> {
+        // We read input
+        let mut leaves_byte: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut leaves_byte)?;
+
+        let (leaves, _) = bytes_le_to_vec_field(&leaves_byte);
+
+        // We set the leaves
+        for (i, leaf) in leaves.iter().enumerate() {
+            self.tree.set(i, *leaf);
+        }
 
         Ok(())
     }
@@ -86,38 +111,53 @@ impl RLN {
         Ok(())
     }
 
-    // TODO Input Read -> can go in RLN
-    //    pub fn prove<W: Write>(&self, result_data: W) -> io::Result<()> {
-    //        let mut rng = thread_rng();
-    //
-    //        // XXX: There's probably a better way to do this
-    //        let circom = self.circom.clone();
-    //        let params = self.params.clone();
-    //
-    //        //let proof = create_random_proof(circom, &params, &mut rng)?;
-    //
-    //        let proof = prove(circom, &params, &mut rng).unwrap();
-    //
-    //        println!("Proof: {:?}", proof);
-    //
-    //        // XXX: Unclear if this is different from other serialization(s)
-    //        let _ = proof.serialize(result_data).unwrap();
-    //
-    //        Ok(())
-    //    }
-    //
-    //    pub fn verify<R: Read>(&self, input_data: R) -> io::Result<bool> {
-    //        let proof = Proof::deserialize(input_data).unwrap();
-    //
-    //        let pvk = prepare_verifying_key(&self.params.vk);
-    //
-    //        // XXX Part of input data?
-    //        let inputs = self.circom.get_public_inputs().unwrap();
-    //
-    //        let verified = verify_proof(&pvk, &proof, &inputs).unwrap();
-    //
-    //        Ok(verified)
-    //    }
+    ////////////////////////////////////////////////////////
+    // zkSNARK APIs
+    ////////////////////////////////////////////////////////
+    pub fn prove<R: Read, W: Write>(
+        &self,
+        mut input_data: R,
+        mut output_data: W,
+    ) -> io::Result<()> {
+        // We read input RLN witness and we deserialize it
+        let mut witness_byte: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut witness_byte)?;
+        let rln_witness = deserialize_witness(&witness_byte);
+
+        let proof = generate_proof(
+            self.circom.clone(),
+            self.proving_key.as_ref().unwrap(),
+            &rln_witness,
+        )
+        .unwrap();
+
+        println!("Proof: {:?}", proof);
+
+        // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
+        ArkProof::from(proof).serialize(&mut output_data).unwrap();
+
+        Ok(())
+    }
+
+    pub fn verify<R: Read>(&self, mut input_data: R) -> io::Result<bool> {
+        // Input data is serialized for Bn254 as:
+        // serialized_proof (compressed, 4*32 bytes) || serialized_proof_values (6*32 bytes)
+        let mut input_byte: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut input_byte)?;
+        let proof: Proof = ArkProof::deserialize(&mut Cursor::new(&input_byte[..128].to_vec()))
+            .unwrap()
+            .into();
+        let proof_values = deserialize_proof_values(&input_byte[128..].to_vec());
+
+        let verified = verify_proof(
+            self.verification_key.as_ref().unwrap(),
+            &proof,
+            &proof_values,
+        )
+        .unwrap();
+
+        Ok(verified)
+    }
 }
 
 impl Default for RLN {
@@ -131,13 +171,53 @@ impl Default for RLN {
 mod test {
     use super::*;
     use ark_std::str::FromStr;
+    use ark_std::{rand::Rng, test_rng};
     use semaphore::poseidon_hash;
-    use std::io::Cursor;
+
+    #[test]
+    // We test merkle batch Merkle tree additions
+    fn test_merkle_batch_additions() {
+        let tree_height = 16;
+
+        // We generate a vector of random leaves
+        let mut leaves: Vec<Field> = Vec::new();
+        let mut rng = thread_rng();
+        for _ in 0..256 {
+            leaves.push(hash_to_field(&rng.gen::<[u8; 32]>()));
+        }
+
+        // We create a new tree
+        let mut rln = RLN::new(tree_height);
+
+        // We first add leaves one by one
+        for (i, leaf) in leaves.iter().enumerate() {
+            let mut buffer = Cursor::new(field_to_bytes_le(&leaf));
+            rln.set_leaf(i, &mut buffer).unwrap();
+        }
+
+        // We get the root of the tree obtained adding one leaf per time
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_root(&mut buffer).unwrap();
+        let (root_single, _) = bytes_le_to_field(&buffer.into_inner());
+
+        // We reset the tree to default
+        rln.set_tree(tree_height);
+
+        // We add leaves in a batch into the tree
+        let mut buffer = Cursor::new(vec_field_to_bytes_le(&leaves));
+        rln.set_leaves(&mut buffer).unwrap();
+
+        // We get the root of the tree obtained adding leaves in batch
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_root(&mut buffer).unwrap();
+        let (root_batch, _) = bytes_le_to_field(&buffer.into_inner());
+
+        assert_eq!(root_single, root_batch);
+    }
 
     #[test]
     // This test is similar to the one in lib, but uses only public API
-    fn public_test_merkle_proof() {
-        
+    fn test_merkle_proof() {
         let tree_height = 16;
         let leaf_index = 3;
 
@@ -164,14 +244,13 @@ mod test {
                 .unwrap()
         );
 
-        // We check correct computation of proof
+        // We check correct computation of merkle proof
         let mut buffer = Cursor::new(Vec::<u8>::new());
         rln.get_proof(leaf_index, &mut buffer).unwrap();
 
         let buffer_inner = buffer.into_inner();
         let (path_elements, read) = bytes_le_to_vec_field(&buffer_inner);
-        let (identity_path_index, _) =
-            bytes_le_to_vec_u8(&buffer_inner[read..].to_vec());
+        let (identity_path_index, _) = bytes_le_to_vec_u8(&buffer_inner[read..].to_vec());
 
         // We check correct computation of the path and indexes
         let expected_path_elements = vec![
@@ -218,5 +297,88 @@ mod test {
             get_tree_root(&id_commitment, &path_elements, &identity_path_index, false);
 
         assert_eq!(root, root_from_proof);
+    }
+
+    #[test]
+    // This test is similar to the one in lib, but uses only public API
+    fn test_groth16_proof() {
+        let tree_height = 16;
+
+        let rln = RLN::new(tree_height);
+
+        let witness_json = r#"
+            {
+              "identity_secret": "12825549237505733615964533204745049909430608936689388901883576945030025938736",
+              "path_elements": [
+                "18622655742232062119094611065896226799484910997537830749762961454045300666333",
+                "20590447254980891299813706518821659736846425329007960381537122689749540452732",
+                "7423237065226347324353380772367382631490014989348495481811164164159255474657",
+                "11286972368698509976183087595462810875513684078608517520839298933882497716792",
+                "3607627140608796879659380071776844901612302623152076817094415224584923813162",
+                "19712377064642672829441595136074946683621277828620209496774504837737984048981",
+                "20775607673010627194014556968476266066927294572720319469184847051418138353016",
+                "3396914609616007258851405644437304192397291162432396347162513310381425243293",
+                "21551820661461729022865262380882070649935529853313286572328683688269863701601",
+                "6573136701248752079028194407151022595060682063033565181951145966236778420039",
+                "12413880268183407374852357075976609371175688755676981206018884971008854919922",
+                "14271763308400718165336499097156975241954733520325982997864342600795471836726",
+                "20066985985293572387227381049700832219069292839614107140851619262827735677018",
+                "9394776414966240069580838672673694685292165040808226440647796406499139370960",
+                "11331146992410411304059858900317123658895005918277453009197229807340014528524"
+              ],
+              "identity_path_index": [
+                1,
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "x": "8143228284048792769012135629627737459844825626241842423967352803501040982",
+              "epoch": "0x0000005b612540fc986b42322f8cb91c2273afad58ed006fdba0c97b4b16b12f",
+              "rln_identifier": "11412926387081627876309792396682864042420635853496105400039841573530884328439"
+            }
+        "#;
+
+        let rln_witness = rln_witness_from_json(witness_json);
+        let proof_values = proof_values_from_witness(&rln_witness);
+
+        // We compute a Groth16 proof
+        let mut input_buffer = Cursor::new(serialize_witness(&rln_witness));
+        let mut output_buffer = Cursor::new(Vec::<u8>::new());
+        rln.prove(&mut input_buffer, &mut output_buffer).unwrap();
+        let serialized_proof = output_buffer.into_inner();
+
+        // Before checking public verify API, we check that the (deserialized) proof generated by prove is actually valid
+        let proof: Proof = ArkProof::deserialize(&mut Cursor::new(&serialized_proof))
+            .unwrap()
+            .into();
+        let verified = verify_proof(
+            &rln.verification_key.as_ref().unwrap(),
+            &proof,
+            &proof_values,
+        );
+        assert!(verified.unwrap());
+
+        // We prepare the input to prove API, consisting of serialized_proof (compressed, 4*32 bytes) || serialized_proof_values (6*32 bytes)
+        let serialized_proof_values = serialize_proof_values(&proof_values);
+        let mut verify_data = Vec::<u8>::new();
+        verify_data.extend(&serialized_proof);
+        verify_data.extend(&serialized_proof_values);
+        let mut input_buffer = Cursor::new(verify_data);
+
+        // We verify the Groth16 proof against the provided proof values
+        let verified = rln.verify(&mut input_buffer).unwrap();
+
+        assert!(verified);
     }
 }
