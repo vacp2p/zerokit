@@ -1,15 +1,10 @@
-use crate::public::RLN;
+use crate::{public::RLN};
 use std::slice;
 
 /// Buffer struct is taken from
 /// https://github.com/celo-org/celo-threshold-bls-rs/blob/master/crates/threshold-bls-ffi/src/ffi.rs
 ///
 /// Also heavily inspired by https://github.com/kilic/rln/blob/master/src/ffi.rs
-
-// TODO Update mul to rln references
-// TODO Make sure get_root etc is on right LE form
-// TODO Add other FFI interfaces (update_next_member etc) while making sure it
-// is according to new RLN spec
 
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq)]
@@ -27,10 +22,55 @@ impl From<&[u8]> for Buffer {
     }
 }
 
+
 impl<'a> From<&Buffer> for &'a [u8] {
     fn from(src: &Buffer) -> &'a [u8] {
         unsafe { slice::from_raw_parts(src.ptr, src.len) }
     }
+}
+
+// TODO: check if there are security implications for this clippy. It seems we should have pub unsafe extern "C" fn ...
+// #[allow(clippy::not_unsafe_ptr_arg_deref)]
+
+////////////////////////////////////////////////////////
+// RLN APIs
+////////////////////////////////////////////////////////
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn new(
+    tree_height: usize,
+    ctx: *mut *mut RLN,
+) -> bool {
+    let rln = RLN::new(tree_height);
+    unsafe { *ctx = Box::into_raw(Box::new(rln)) };
+    true
+}
+
+////////////////////////////////////////////////////////
+// Merkle tree APIs
+////////////////////////////////////////////////////////
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn set_tree(ctx: *mut RLN, tree_height: usize) -> bool {
+    let rln = unsafe { &mut *ctx };
+    rln.set_tree(tree_height).is_ok()
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn set_leaf(ctx: *mut RLN, index: usize, input_buffer: *const Buffer) -> bool {
+    let rln = unsafe { &mut *ctx };
+    let input_data = <&[u8]>::from(unsafe { &*input_buffer });
+    rln.set_leaf(index, input_data).is_ok()
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn set_leaves(ctx: *mut RLN, input_buffer: *const Buffer) -> bool {
+    let rln = unsafe { &mut *ctx };
+    let input_data = <&[u8]>::from(unsafe { &*input_buffer });
+    rln.set_leaves(input_data).is_ok()
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -38,43 +78,53 @@ impl<'a> From<&Buffer> for &'a [u8] {
 pub extern "C" fn get_root(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
     let rln = unsafe { &*ctx };
     let mut output_data: Vec<u8> = Vec::new();
-    match rln.get_root(&mut output_data) {
-        Ok(_) => true,
-        Err(_) => false,
-    };
-    unsafe { *output_buffer = Buffer::from(&output_data[..]) };
-    std::mem::forget(output_data);
-    true
+    if rln.get_root(&mut output_data).is_ok() {
+        unsafe { *output_buffer = Buffer::from(&output_data[..]) };
+        std::mem::forget(output_data);
+        true
+    } else {
+        std::mem::forget(output_data);
+        false
+    }
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn new_circuit(ctx: *mut *mut RLN) -> bool {
-    println!("rln ffi: new");
-
-    let default_tree_height = 21;
-    let mul = RLN::new(default_tree_height);
-
-    unsafe { *ctx = Box::into_raw(Box::new(mul)) };
-
-    true
+pub extern "C" fn get_proof(ctx: *const RLN, index: usize, output_buffer: *mut Buffer) -> bool {
+    let rln = unsafe { &*ctx };
+    let mut output_data: Vec<u8> = Vec::new();
+    if rln.get_proof(index, &mut output_data).is_ok() {
+        unsafe { *output_buffer = Buffer::from(&output_data[..]) };
+        std::mem::forget(output_data);
+        true
+    } else {
+        std::mem::forget(output_data);
+        false
+    }
 }
 
-/*
+////////////////////////////////////////////////////////
+// zkSNARKs APIs
+////////////////////////////////////////////////////////
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn prove(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
-    println!("RLN ffi: prove");
-    let mul = unsafe { &*ctx };
+pub extern "C" fn prove(
+    ctx: *const RLN,
+    input_buffer: *const Buffer,
+    output_buffer: *mut Buffer,
+) -> bool {
+    let rln = unsafe { &*ctx };
+    let input_data = <&[u8]>::from(unsafe { &*input_buffer });
     let mut output_data: Vec<u8> = Vec::new();
 
-    match mul.prove(&mut output_data) {
-        Ok(proof_data) => proof_data,
-        Err(_) => return false,
-    };
-    unsafe { *output_buffer = Buffer::from(&output_data[..]) };
-    std::mem::forget(output_data);
-    true
+    if rln.prove(input_data, &mut output_data).is_ok() {
+        unsafe { *output_buffer = Buffer::from(&output_data[..]) };
+        std::mem::forget(output_data);
+        true
+    } else {
+        std::mem::forget(output_data);
+        false
+    }
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -82,19 +132,19 @@ pub extern "C" fn prove(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
 pub extern "C" fn verify(
     ctx: *const RLN,
     proof_buffer: *const Buffer,
-    result_ptr: *mut u32,
+    proof_is_valid_ptr: *mut bool,
 ) -> bool {
-    println!("RLN ffi: verify");
-    let mul = unsafe { &*ctx };
+    let rln = unsafe { &*ctx };
     let proof_data = <&[u8]>::from(unsafe { &*proof_buffer });
-    if match mul.verify(proof_data) {
+    if match rln.verify(proof_data) {
         Ok(verified) => verified,
         Err(_) => return false,
     } {
-        unsafe { *result_ptr = 0 };
+        unsafe { *proof_is_valid_ptr = true };
     } else {
-        unsafe { *result_ptr = 1 };
+        unsafe { *proof_is_valid_ptr = false };
     };
     true
 }
-*/
+
+

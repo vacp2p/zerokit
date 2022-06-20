@@ -56,10 +56,12 @@ impl RLN {
     ////////////////////////////////////////////////////////
     // Merkle-tree APIs
     ////////////////////////////////////////////////////////
-    pub fn set_tree(&mut self, tree_height: usize) {
+    pub fn set_tree(&mut self, tree_height: usize) -> io::Result<()>  {
         // We compute a default empty tree of desired height
         let leaf = Field::from(0);
         self.tree = PoseidonTree::new(tree_height, leaf);
+
+        Ok(())
     }
 
     pub fn set_leaf<R: Read>(&mut self, index: usize, mut input_data: R) -> io::Result<()> {
@@ -74,6 +76,7 @@ impl RLN {
         Ok(())
     }
 
+    //TODO: change to set_leaves_from(index, input_data)
     pub fn set_leaves<R: Read>(&mut self, mut input_data: R) -> io::Result<()> {
         // We read input
         let mut leaves_byte: Vec<u8> = Vec::new();
@@ -130,8 +133,6 @@ impl RLN {
             &rln_witness,
         )
         .unwrap();
-
-        println!("Proof: {:?}", proof);
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         ArkProof::from(proof).serialize(&mut output_data).unwrap();
