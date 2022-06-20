@@ -56,7 +56,7 @@ impl RLN {
     ////////////////////////////////////////////////////////
     // Merkle-tree APIs
     ////////////////////////////////////////////////////////
-    pub fn set_tree(&mut self, tree_height: usize) -> io::Result<()>  {
+    pub fn set_tree(&mut self, tree_height: usize) -> io::Result<()> {
         // We compute a default empty tree of desired height
         let leaf = Field::from(0);
         self.tree = PoseidonTree::new(tree_height, leaf);

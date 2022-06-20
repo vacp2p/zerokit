@@ -1,4 +1,4 @@
-use crate::{public::RLN};
+use crate::public::RLN;
 use std::slice;
 
 /// Buffer struct is taken from
@@ -22,7 +22,6 @@ impl From<&[u8]> for Buffer {
     }
 }
 
-
 impl<'a> From<&Buffer> for &'a [u8] {
     fn from(src: &Buffer) -> &'a [u8] {
         unsafe { slice::from_raw_parts(src.ptr, src.len) }
@@ -38,10 +37,7 @@ impl<'a> From<&Buffer> for &'a [u8] {
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn new(
-    tree_height: usize,
-    ctx: *mut *mut RLN,
-) -> bool {
+pub extern "C" fn new(tree_height: usize, ctx: *mut *mut RLN) -> bool {
     let rln = RLN::new(tree_height);
     unsafe { *ctx = Box::into_raw(Box::new(rln)) };
     true
@@ -146,5 +142,3 @@ pub extern "C" fn verify(
     };
     true
 }
-
-
