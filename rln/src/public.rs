@@ -202,7 +202,7 @@ mod test {
         let (root_single, _) = bytes_le_to_field(&buffer.into_inner());
 
         // We reset the tree to default
-        rln.set_tree(tree_height);
+        rln.set_tree(tree_height).unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_field_to_bytes_le(&leaves));
@@ -307,6 +307,7 @@ mod test {
 
         let rln = RLN::new(tree_height);
 
+        // Note: we only test Groth16 proof generation, so we ignore setting the tree in the RLN object
         let rln_witness = random_rln_witness(tree_height);
         let proof_values = proof_values_from_witness(&rln_witness);
 
