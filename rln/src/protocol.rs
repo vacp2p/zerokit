@@ -28,18 +28,13 @@ use std::io::Write;
 use std::time::Instant;
 use thiserror::Error;
 
-pub use crate::utils::{
-    add, bytes_be_to_field, bytes_be_to_vec_field, bytes_be_to_vec_u8, bytes_le_to_field,
-    bytes_le_to_vec_field, bytes_le_to_vec_u8, field_to_bytes_be, field_to_bytes_le, mul,
-    str_to_field, vec_field_to_bytes_be, vec_field_to_bytes_le, vec_to_field, vec_to_fr,
-    vec_u8_to_bytes_be, vec_u8_to_bytes_le,
-};
+pub use crate::utils::*;
 
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
 ///////////////////////////////////////////////////////
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct RLNWitnessInput {
     identity_secret: Field,
     path_elements: Vec<Field>,
@@ -49,7 +44,7 @@ pub struct RLNWitnessInput {
     rln_identifier: Field,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct RLNProofValues {
     // Public outputs:
     y: Field,

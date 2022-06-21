@@ -199,7 +199,7 @@ mod test {
         assert!(success, "set tree call failed");
 
         // We add leaves in a batch into the tree
-        let mut leaves_ser = vec_field_to_bytes_le(&leaves);
+        let leaves_ser = vec_field_to_bytes_le(&leaves);
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
         let success = set_leaves(rln_pointer, input_buffer);
         assert!(success, "set leaf call failed");
