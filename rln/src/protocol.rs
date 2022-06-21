@@ -69,7 +69,7 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Vec<u8> {
     serialized
 }
 
-pub fn deserialize_witness(serialized: &Vec<u8>) -> RLNWitnessInput {
+pub fn deserialize_witness(serialized: &[u8]) -> RLNWitnessInput {
     let mut all_read: usize = 0;
 
     let (identity_secret, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
@@ -114,7 +114,7 @@ pub fn serialize_proof_values(rln_proof_values: &RLNProofValues) -> Vec<u8> {
     serialized
 }
 
-pub fn deserialize_proof_values(serialized: &Vec<u8>) -> RLNProofValues {
+pub fn deserialize_proof_values(serialized: &[u8]) -> RLNProofValues {
     let mut all_read: usize = 0;
 
     let (y, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
@@ -319,7 +319,7 @@ pub fn get_tree_root(
 
 pub fn hash_to_field(signal: &[u8]) -> Field {
     let hash = keccak256(signal);
-    let (el, _) = bytes_le_to_field(&hash.to_vec());
+    let (el, _) = bytes_le_to_field(hash.as_ref());
     el
 }
 

@@ -78,7 +78,7 @@ pub fn str_to_field(input: String, radix: i32) -> Field {
     }
 }
 
-pub fn bytes_le_to_fr(input: &Vec<u8>) -> (Fr, usize) {
+pub fn bytes_le_to_fr(input: &[u8]) -> (Fr, usize) {
     let el_size = fr_byte_size();
     (
         Fr::from(BigUint::from_bytes_le(&input[0..el_size])),
@@ -86,7 +86,7 @@ pub fn bytes_le_to_fr(input: &Vec<u8>) -> (Fr, usize) {
     )
 }
 
-pub fn bytes_be_to_fr(input: &Vec<u8>) -> (Fr, usize) {
+pub fn bytes_be_to_fr(input: &[u8]) -> (Fr, usize) {
     let el_size = fr_byte_size();
     (
         Fr::from(BigUint::from_bytes_be(&input[0..el_size])),
@@ -94,12 +94,12 @@ pub fn bytes_be_to_fr(input: &Vec<u8>) -> (Fr, usize) {
     )
 }
 
-pub fn bytes_le_to_field(input: &Vec<u8>) -> (Field, usize) {
+pub fn bytes_le_to_field(input: &[u8]) -> (Field, usize) {
     let (fr_el, read) = bytes_le_to_fr(input);
     (to_field(&fr_el), read)
 }
 
-pub fn bytes_be_to_field(input: &Vec<u8>) -> (Field, usize) {
+pub fn bytes_be_to_field(input: &[u8]) -> (Field, usize) {
     let (fr_el, read) = bytes_be_to_fr(input);
     (to_field(&fr_el), read)
 }
@@ -179,7 +179,7 @@ pub fn vec_u8_to_bytes_be(input: Vec<u8>) -> Vec<u8> {
     bytes
 }
 
-pub fn bytes_le_to_vec_u8(input: &Vec<u8>) -> (Vec<u8>, usize) {
+pub fn bytes_le_to_vec_u8(input: &[u8]) -> (Vec<u8>, usize) {
     let mut read: usize = 0;
 
     let len = usize::try_from(u64::from_le_bytes(input[0..8].try_into().unwrap())).unwrap();
@@ -191,7 +191,7 @@ pub fn bytes_le_to_vec_u8(input: &Vec<u8>) -> (Vec<u8>, usize) {
     (res, read)
 }
 
-pub fn bytes_be_to_vec_u8(input: &Vec<u8>) -> (Vec<u8>, usize) {
+pub fn bytes_be_to_vec_u8(input: &[u8]) -> (Vec<u8>, usize) {
     let mut read: usize = 0;
 
     let len = usize::try_from(u64::from_be_bytes(input[0..8].try_into().unwrap())).unwrap();
@@ -204,7 +204,7 @@ pub fn bytes_be_to_vec_u8(input: &Vec<u8>) -> (Vec<u8>, usize) {
     (res, read)
 }
 
-pub fn bytes_le_to_vec_fr(input: &Vec<u8>) -> (Vec<Fr>, usize) {
+pub fn bytes_le_to_vec_fr(input: &[u8]) -> (Vec<Fr>, usize) {
     let mut read: usize = 0;
     let mut res: Vec<Fr> = Vec::new();
 
@@ -221,7 +221,7 @@ pub fn bytes_le_to_vec_fr(input: &Vec<u8>) -> (Vec<Fr>, usize) {
     (res, read)
 }
 
-pub fn bytes_be_to_vec_fr(input: &Vec<u8>) -> (Vec<Fr>, usize) {
+pub fn bytes_be_to_vec_fr(input: &[u8]) -> (Vec<Fr>, usize) {
     let mut read: usize = 0;
     let mut res: Vec<Fr> = Vec::new();
 
@@ -238,12 +238,12 @@ pub fn bytes_be_to_vec_fr(input: &Vec<u8>) -> (Vec<Fr>, usize) {
     (res, read)
 }
 
-pub fn bytes_le_to_vec_field(input: &Vec<u8>) -> (Vec<Field>, usize) {
+pub fn bytes_le_to_vec_field(input: &[u8]) -> (Vec<Field>, usize) {
     let (vec_fr, read) = bytes_le_to_vec_fr(input);
     (vec_fr_to_field(&vec_fr), read)
 }
 
-pub fn bytes_be_to_vec_field(input: &Vec<u8>) -> (Vec<Field>, usize) {
+pub fn bytes_be_to_vec_field(input: &[u8]) -> (Vec<Field>, usize) {
     let (vec_fr, read) = bytes_be_to_vec_fr(input);
     (vec_fr_to_field(&vec_fr), read)
 }
