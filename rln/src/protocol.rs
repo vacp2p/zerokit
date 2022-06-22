@@ -2,18 +2,20 @@ use crate::circuit::{VK, ZKEY};
 use ark_bn254::{Bn254, Fr, Parameters};
 use ark_circom::{read_zkey, CircomBuilder, CircomConfig, CircomReduction};
 use ark_ec::bn::Bn;
-use ark_ff::{Fp256, PrimeField};
+use ark_ff::{bytes::ToBytes, Fp256, PrimeField};
 use ark_groth16::{
     create_proof_with_reduction_and_matrices, create_random_proof_with_reduction,
     prepare_verifying_key, verify_proof as ark_verify_proof, Proof as ArkProof, ProvingKey,
     VerifyingKey,
 };
 use ark_relations::r1cs::SynthesisError;
+use ark_serialize::*;
 use ark_std::{rand::thread_rng, str::FromStr, UniformRand};
 use color_eyre::Result;
 use ethers_core::utils::keccak256;
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use primitive_types::U256;
+use rand::Rng;
 use semaphore::{
     identity::Identity,
     merkle_tree::{self, Branch},
@@ -22,16 +24,17 @@ use semaphore::{
     Field,
 };
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::time::Instant;
 use thiserror::Error;
 
-pub use crate::utils::{add, bytes_to_field, mul, str_to_field, vec_to_field, vec_to_fr};
+pub use crate::utils::*;
 
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
 ///////////////////////////////////////////////////////
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, PartialEq)]
 pub struct RLNWitnessInput {
     identity_secret: Field,
     path_elements: Vec<Field>,
@@ -41,7 +44,7 @@ pub struct RLNWitnessInput {
     rln_identifier: Field,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, PartialEq)]
 pub struct RLNProofValues {
     // Public outputs:
     y: Field,
@@ -51,6 +54,97 @@ pub struct RLNProofValues {
     x: Field,
     epoch: Field,
     rln_identifier: Field,
+}
+
+pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Vec<u8> {
+    let mut serialized: Vec<u8> = Vec::new();
+
+    serialized.append(&mut field_to_bytes_le(&rln_witness.identity_secret));
+    serialized.append(&mut vec_field_to_bytes_le(&rln_witness.path_elements));
+    serialized.append(&mut vec_u8_to_bytes_le(&rln_witness.identity_path_index));
+    serialized.append(&mut field_to_bytes_le(&rln_witness.x));
+    serialized.append(&mut field_to_bytes_le(&rln_witness.epoch));
+    serialized.append(&mut field_to_bytes_le(&rln_witness.rln_identifier));
+
+    serialized
+}
+
+pub fn deserialize_witness(serialized: &[u8]) -> RLNWitnessInput {
+    let mut all_read: usize = 0;
+
+    let (identity_secret, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (path_elements, read) = bytes_le_to_vec_field(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (identity_path_index, read) = bytes_le_to_vec_u8(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (x, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (epoch, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (rln_identifier, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    assert_eq!(serialized.len(), all_read);
+    RLNWitnessInput {
+        identity_secret,
+        path_elements,
+        identity_path_index,
+        x,
+        epoch,
+        rln_identifier,
+    }
+}
+
+pub fn serialize_proof_values(rln_proof_values: &RLNProofValues) -> Vec<u8> {
+    let mut serialized: Vec<u8> = Vec::new();
+
+    serialized.append(&mut field_to_bytes_le(&rln_proof_values.y));
+    serialized.append(&mut field_to_bytes_le(&rln_proof_values.nullifier));
+    serialized.append(&mut field_to_bytes_le(&rln_proof_values.root));
+    serialized.append(&mut field_to_bytes_le(&rln_proof_values.x));
+    serialized.append(&mut field_to_bytes_le(&rln_proof_values.epoch));
+    serialized.append(&mut field_to_bytes_le(&rln_proof_values.rln_identifier));
+
+    serialized
+}
+
+pub fn deserialize_proof_values(serialized: &[u8]) -> RLNProofValues {
+    let mut all_read: usize = 0;
+
+    let (y, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (nullifier, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (root, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (x, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (epoch, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (rln_identifier, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    assert_eq!(serialized.len(), all_read);
+
+    RLNProofValues {
+        y,
+        nullifier,
+        root,
+        x,
+        epoch,
+        rln_identifier,
+    }
 }
 
 pub fn rln_witness_from_json(input_json_str: &str) -> RLNWitnessInput {
@@ -105,12 +199,40 @@ pub fn rln_witness_from_values(
     }
 }
 
+pub fn random_rln_witness(tree_height: usize) -> RLNWitnessInput {
+    let mut rng = thread_rng();
+
+    let identity_secret = hash_to_field(&rng.gen::<[u8; 32]>());
+    let x = hash_to_field(&rng.gen::<[u8; 32]>());
+    let epoch = hash_to_field(&rng.gen::<[u8; 32]>());
+    let rln_identifier = hash_to_field(&rng.gen::<[u8; 32]>());
+
+    let mut path_elements: Vec<Field> = Vec::new();
+    let mut identity_path_index: Vec<u8> = Vec::new();
+
+    // In semaphore's poseidon_tree, the leaves level is counted in tree_height.
+    // This means that a merkle proof consists of tree_height-1 field elements
+    for _ in 0..tree_height - 1 {
+        path_elements.push(hash_to_field(&rng.gen::<[u8; 32]>()));
+        identity_path_index.push(rng.gen_range(0..2) as u8);
+    }
+
+    RLNWitnessInput {
+        identity_secret,
+        path_elements,
+        identity_path_index,
+        x,
+        epoch,
+        rln_identifier,
+    }
+}
+
 pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> RLNProofValues {
     // y share
     let a_0 = rln_witness.identity_secret;
     let a_1 = poseidon_hash(&[a_0, rln_witness.epoch]);
-    let y = mul(rln_witness.x, a_1);
-    let y = add(y, a_0);
+    let y = mul(&rln_witness.x, &a_1);
+    let y = add(&y, &a_0);
 
     // Nullifier
     let nullifier = poseidon_hash(&[a_1, rln_witness.rln_identifier]);
@@ -126,7 +248,7 @@ pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> RLNProofValue
     }
 
     let root = get_tree_root(
-        rln_witness.identity_secret,
+        &rln_witness.identity_secret,
         &rln_witness.path_elements,
         &rln_witness.identity_path_index,
         true,
@@ -170,12 +292,12 @@ pub fn get_identity_path_index(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<
 }
 
 pub fn get_tree_root(
-    leaf: Field,
+    leaf: &Field,
     path_elements: &[Field],
     identity_path_index: &[u8],
     hash_leaf: bool,
 ) -> Field {
-    let mut root = leaf;
+    let mut root = *leaf;
     if hash_leaf {
         root = poseidon_hash(&[root]);
     }
@@ -195,9 +317,10 @@ pub fn get_tree_root(
 // Signal/nullifier utility functions
 ///////////////////////////////////////////////////////
 
-fn hash_signal(signal: &[u8]) -> Field {
+pub fn hash_to_field(signal: &[u8]) -> Field {
     let hash = keccak256(signal);
-    bytes_to_field(&hash)
+    let (el, _) = bytes_le_to_field(hash.as_ref());
+    el
 }
 
 /// Generates the nullifier hash
@@ -327,7 +450,7 @@ pub fn generate_proof(
 /// necessarily mean the proof is incorrect.
 pub fn verify_proof(
     verifying_key: &VerifyingKey<Bn254>,
-    proof: Proof,
+    proof: &Proof,
     proof_values: &RLNProofValues,
 ) -> Result<bool, ProofError> {
     // We re-arrange proof-values according to the circuit specification
@@ -342,8 +465,8 @@ pub fn verify_proof(
 
     // Check that the proof is valid
     let pvk = prepare_verifying_key(verifying_key);
-    let pr: ArkProof<Bn254> = proof.into();
-    let verified = ark_verify_proof(&pvk, &pr, &vec_to_fr(inputs))?;
+    let pr: ArkProof<Bn254> = (*proof).into();
+    let verified = ark_verify_proof(&pvk, &pr, &vec_to_fr(&inputs))?;
 
     Ok(verified)
 }

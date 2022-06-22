@@ -8,7 +8,7 @@ use num_bigint::BigUint;
 use serde_json::Value;
 use std::convert::TryFrom;
 use std::fs::File;
-use std::io::{Cursor, Write};
+use std::io::{Cursor, Error, ErrorKind, Result, Write};
 use std::path::Path;
 use std::str::FromStr;
 
@@ -17,23 +17,30 @@ const VK_PATH: &str = "./resources/verifying_key.json";
 const R1CS_PATH: &str = "./resources/rln.r1cs";
 const WASM_PATH: &str = "./resources/rln.wasm";
 
-pub fn ZKEY() -> ProvingKey<Bn254> /*, ConstraintMatrices<Fr>)*/ {
-    let mut file = File::open(ZKEY_PATH).unwrap();
-    let (proving_key, _matrices) = read_zkey(&mut file).unwrap();
-    proving_key
+pub fn ZKEY() -> Result<ProvingKey<Bn254>> /*, ConstraintMatrices<Fr>)*/ {
+    if Path::new(ZKEY_PATH).exists() {
+        let mut file = File::open(ZKEY_PATH).unwrap();
+        let (proving_key, _matrices) = read_zkey(&mut file).unwrap();
+        Ok(proving_key)
+    } else {
+        Err(Error::new(ErrorKind::NotFound, "No proving key found!"))
+    }
 }
 
-pub fn VK() -> VerifyingKey<Bn254> {
+pub fn VK() -> Result<VerifyingKey<Bn254>> {
     let verifying_key: VerifyingKey<Bn254>;
 
     if Path::new(VK_PATH).exists() {
         verifying_key = vk_from_json(VK_PATH);
-        verifying_key
+        Ok(verifying_key)
     } else if Path::new(ZKEY_PATH).exists() {
-        verifying_key = ZKEY().vk;
-        verifying_key
+        verifying_key = ZKEY().unwrap().vk;
+        Ok(verifying_key)
     } else {
-        panic!("No proving/verification key present!");
+        Err(Error::new(
+            ErrorKind::NotFound,
+            "No proving/verification key found!",
+        ))
     }
 }
 
@@ -133,5 +140,8 @@ fn vk_from_json(vk_path: &str) -> VerifyingKey<Bn254> {
 
 // Checks verification key to be correct with respect to proving key
 pub fn check_vk_from_zkey(verifying_key: VerifyingKey<Bn254>) {
-    assert_eq!(ZKEY().vk, verifying_key);
+    let zkey = ZKEY();
+    if zkey.is_ok() {
+        assert_eq!(zkey.unwrap().vk, verifying_key);
+    }
 }
