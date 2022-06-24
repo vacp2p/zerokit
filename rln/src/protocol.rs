@@ -18,11 +18,11 @@ use primitive_types::U256;
 use rand::Rng;
 use semaphore::{
     identity::Identity,
-    merkle_tree::{self, Branch},
     poseidon_hash,
-    poseidon_tree::PoseidonHash,
     Field,
 };
+use crate::merkle_tree::{self, Branch};
+use crate::poseidon_tree::PoseidonHash;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::time::Instant;

@@ -11,6 +11,8 @@ pub mod ffi;
 pub mod protocol;
 pub mod public;
 pub mod utils;
+pub mod merkle_tree;
+pub mod poseidon_tree;
 
 #[cfg(test)]
 mod test {
@@ -19,9 +21,10 @@ mod test {
     use hex_literal::hex;
     use num_bigint::BigInt;
     use semaphore::{
-        hash::Hash, hash_to_field, identity::Identity, poseidon_hash, poseidon_tree::PoseidonTree,
+        hash::Hash, hash_to_field, identity::Identity, poseidon_hash,
         Field,
     };
+    use crate::poseidon_tree::PoseidonTree;
 
     // Input generated with https://github.com/oskarth/zk-kit/commit/b6a872f7160c7c14e10a0ea40acab99cbb23c9a8
     const WITNESS_JSON: &str = r#"

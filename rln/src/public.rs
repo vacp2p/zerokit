@@ -8,7 +8,8 @@ use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::rand::thread_rng;
 use num_bigint::BigInt;
-use semaphore::{hash_to_field, identity::Identity, poseidon_tree::PoseidonTree, Field};
+use semaphore::{hash_to_field, identity::Identity, Field};
+use crate::poseidon_tree::PoseidonTree;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::io::{self, Error, ErrorKind, Result}; //default read/write
