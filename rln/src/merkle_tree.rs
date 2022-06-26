@@ -1,4 +1,4 @@
-// Implementation from https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/merkle_tree.rs
+// Implementation adapted from https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/merkle_tree.rs
 //! Implements basic binary Merkle trees
 //!
 //! # To do
@@ -8,6 +8,7 @@
 use semaphore::Field;
 use serde::{Deserialize, Serialize};
 use std::{
+    cmp::max,
     fmt::Debug,
     iter::{once, repeat, successors},
 };
@@ -15,7 +16,7 @@ use std::{
 /// Hash types, values and algorithms for a Merkle tree
 pub trait Hasher {
     /// Type of the leaf and node hashes
-    type Hash: Clone + Eq + Serialize;
+    type Hash: Copy + Clone + Eq + Serialize;
 
     /// Compute the hash of an intermediate node
     fn hash_node(left: &Self::Hash, right: &Self::Hash) -> Self::Hash;
@@ -32,6 +33,10 @@ pub struct MerkleTree<H: Hasher> {
 
     /// Hash values of tree nodes and leaves, breadth first order
     nodes: Vec<H::Hash>,
+
+    // The next available (i.e., never used) tree index. Equivalently, the number of leaves added to the tree
+    // (deletions leave next_index unchanged)
+    pub next_index: usize,
 }
 
 /// Element of a Merkle proof
@@ -89,10 +94,13 @@ impl<H: Hasher> MerkleTree<H> {
             .collect::<Vec<_>>();
         debug_assert!(nodes.len() == (1 << depth) - 1);
 
+        let next_index = 0;
+
         Self {
             depth,
             empty,
             nodes,
+            next_index,
         }
     }
 
@@ -106,11 +114,12 @@ impl<H: Hasher> MerkleTree<H> {
 
     #[must_use]
     pub fn root(&self) -> H::Hash {
-        self.nodes[0].clone()
+        self.nodes[0]
     }
 
     pub fn set(&mut self, leaf: usize, hash: H::Hash) {
         self.set_range(leaf, once(hash));
+        self.next_index = max(self.next_index, leaf + 1);
     }
 
     pub fn set_range<I: IntoIterator<Item = H::Hash>>(&mut self, start: usize, hashes: I) {
@@ -123,6 +132,7 @@ impl<H: Hasher> MerkleTree<H> {
         }
         if count != 0 {
             self.update_nodes(index, index + (count - 1));
+            self.next_index = max(self.next_index, start + count);
         }
     }
 
@@ -147,8 +157,8 @@ impl<H: Hasher> MerkleTree<H> {
         while let Some(parent) = parent(index) {
             // Add proof for node at index to parent
             path.push(match index & 1 {
-                1 => Branch::Left(self.nodes[index + 1].clone()),
-                0 => Branch::Right(self.nodes[index - 1].clone()),
+                1 => Branch::Left(self.nodes[index + 1]),
+                0 => Branch::Right(self.nodes[index - 1]),
                 _ => unreachable!(),
             });
             index = parent;
@@ -177,14 +187,24 @@ impl<H: Hasher> Proof<H> {
         })
     }
 
+    #[must_use]
+    pub fn get_path_elements(&self) -> Vec<H::Hash> {
+        self.0
+            .iter()
+            .map(|x| match x {
+                Branch::Left(value) | Branch::Right(value) => *value,
+            })
+            .collect()
+    }
+
     /// Compute path index (TODO: do we want to keep this here?)
     #[must_use]
-    pub fn path_index(&self) -> Vec<Field> {
+    pub fn get_path_index(&self) -> Vec<u8> {
         self.0
             .iter()
             .map(|branch| match branch {
-                Branch::Left(_) => Field::from(0),
-                Branch::Right(_) => Field::from(1),
+                Branch::Left(_) => 0,
+                Branch::Right(_) => 1,
             })
             .collect()
     }

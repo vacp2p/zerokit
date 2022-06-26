@@ -9,6 +9,7 @@ use serde_json::Value;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{Cursor, Error, ErrorKind, Result, Write};
+use std::option::Option;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -44,11 +45,11 @@ pub fn VK() -> Result<VerifyingKey<Bn254>> {
     }
 }
 
-pub fn CIRCOM() -> CircomBuilder<Bn254> {
+pub fn CIRCOM() -> Option<CircomBuilder<Bn254>> {
     // Load the WASM and R1CS for witness and proof generation
     let cfg = CircomConfig::<Bn254>::new(WASM_PATH, R1CS_PATH).unwrap(); // should be )?; but need to address "the trait `From<ErrReport>` is not implemented for `protocol::ProofError`"
                                                                          // We build and return the circuit
-    CircomBuilder::new(cfg)
+    Some(CircomBuilder::new(cfg))
 }
 
 // Utilities to convert a json verification key in a groth16::VerificationKey

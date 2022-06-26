@@ -1,4 +1,6 @@
 use crate::circuit::{VK, ZKEY};
+use crate::merkle_tree::{self, Branch};
+use crate::poseidon_tree::PoseidonHash;
 use ark_bn254::{Bn254, Fr, Parameters};
 use ark_circom::{read_zkey, CircomBuilder, CircomConfig, CircomReduction};
 use ark_ec::bn::Bn;
@@ -16,18 +18,14 @@ use ethers_core::utils::keccak256;
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use primitive_types::U256;
 use rand::Rng;
-use semaphore::{
-    identity::Identity,
-    poseidon_hash,
-    Field,
-};
-use crate::merkle_tree::{self, Branch};
-use crate::poseidon_tree::PoseidonHash;
+use semaphore::{identity::Identity, poseidon_hash, Field};
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::time::Instant;
 use thiserror::Error;
 
+use crate::poseidon_tree::*;
+use crate::public::{RLN, RLN_IDENTIFIER};
 pub use crate::utils::*;
 
 ///////////////////////////////////////////////////////
@@ -47,13 +45,13 @@ pub struct RLNWitnessInput {
 #[derive(Debug, PartialEq)]
 pub struct RLNProofValues {
     // Public outputs:
-    y: Field,
-    nullifier: Field,
-    root: Field,
+    pub y: Field,
+    pub nullifier: Field,
+    pub root: Field,
     // Public Inputs:
-    x: Field,
-    epoch: Field,
-    rln_identifier: Field,
+    pub x: Field,
+    pub epoch: Field,
+    pub rln_identifier: Field,
 }
 
 pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Vec<u8> {
@@ -69,7 +67,7 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Vec<u8> {
     serialized
 }
 
-pub fn deserialize_witness(serialized: &[u8]) -> RLNWitnessInput {
+pub fn deserialize_witness(serialized: &[u8]) -> (RLNWitnessInput, usize) {
     let mut all_read: usize = 0;
 
     let (identity_secret, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
@@ -90,32 +88,94 @@ pub fn deserialize_witness(serialized: &[u8]) -> RLNWitnessInput {
     let (rln_identifier, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
     all_read += read;
 
+    // TODO: check rln_identifier against public::RLN_IDENTIFIER
     assert_eq!(serialized.len(), all_read);
-    RLNWitnessInput {
-        identity_secret,
-        path_elements,
-        identity_path_index,
-        x,
-        epoch,
-        rln_identifier,
-    }
+
+    (
+        RLNWitnessInput {
+            identity_secret,
+            path_elements,
+            identity_path_index,
+            x,
+            epoch,
+            rln_identifier,
+        },
+        all_read,
+    )
+}
+
+// This function deserializes input for kilic's rln generate_proof public API
+// https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L148
+// input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+// return value is a rln witness populated according to this information
+pub fn proof_inputs_to_rln_witness(
+    tree: &mut PoseidonTree,
+    serialized: &[u8],
+) -> (RLNWitnessInput, usize) {
+    let mut all_read: usize = 0;
+
+    let (identity_secret, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let id_index = u64::from_le_bytes(serialized[all_read..all_read + 8].try_into().unwrap());
+    all_read += 8;
+
+    let (epoch, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let signal_len = u64::from_le_bytes(serialized[all_read..all_read + 8].try_into().unwrap());
+    all_read += 8;
+
+    let signal: Vec<u8> =
+        serialized[all_read..all_read + usize::try_from(signal_len).unwrap()].to_vec();
+
+    let merkle_proof = tree
+        .proof(usize::try_from(id_index).unwrap())
+        .expect("proof should exist");
+    let path_elements = merkle_proof.get_path_elements();
+    let identity_path_index = merkle_proof.get_path_index();
+
+    let x = hash_to_field(&signal);
+
+    let rln_identifier = hash_to_field(RLN_IDENTIFIER);
+
+    (
+        RLNWitnessInput {
+            identity_secret,
+            path_elements,
+            identity_path_index,
+            x,
+            epoch,
+            rln_identifier,
+        },
+        all_read,
+    )
 }
 
 pub fn serialize_proof_values(rln_proof_values: &RLNProofValues) -> Vec<u8> {
     let mut serialized: Vec<u8> = Vec::new();
 
+    serialized.append(&mut field_to_bytes_le(&rln_proof_values.root));
+    serialized.append(&mut field_to_bytes_le(&rln_proof_values.epoch));
+    serialized.append(&mut field_to_bytes_le(&rln_proof_values.x));
     serialized.append(&mut field_to_bytes_le(&rln_proof_values.y));
     serialized.append(&mut field_to_bytes_le(&rln_proof_values.nullifier));
-    serialized.append(&mut field_to_bytes_le(&rln_proof_values.root));
-    serialized.append(&mut field_to_bytes_le(&rln_proof_values.x));
-    serialized.append(&mut field_to_bytes_le(&rln_proof_values.epoch));
     serialized.append(&mut field_to_bytes_le(&rln_proof_values.rln_identifier));
 
     serialized
 }
 
-pub fn deserialize_proof_values(serialized: &[u8]) -> RLNProofValues {
+pub fn deserialize_proof_values(serialized: &[u8]) -> (RLNProofValues, usize) {
     let mut all_read: usize = 0;
+
+    let (root, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (epoch, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (x, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
+    all_read += read;
 
     let (y, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
     all_read += read;
@@ -123,28 +183,20 @@ pub fn deserialize_proof_values(serialized: &[u8]) -> RLNProofValues {
     let (nullifier, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
     all_read += read;
 
-    let (root, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
-    all_read += read;
-
-    let (x, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
-    all_read += read;
-
-    let (epoch, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
-    all_read += read;
-
     let (rln_identifier, read) = bytes_le_to_field(&serialized[all_read..].to_vec());
     all_read += read;
 
-    assert_eq!(serialized.len(), all_read);
-
-    RLNProofValues {
-        y,
-        nullifier,
-        root,
-        x,
-        epoch,
-        rln_identifier,
-    }
+    (
+        RLNProofValues {
+            y,
+            nullifier,
+            root,
+            x,
+            epoch,
+            rln_identifier,
+        },
+        all_read,
+    )
 }
 
 pub fn rln_witness_from_json(input_json_str: &str) -> RLNWitnessInput {
@@ -169,6 +221,8 @@ pub fn rln_witness_from_json(input_json_str: &str) -> RLNWitnessInput {
 
     let rln_identifier = str_to_field(input_json["rln_identifier"].to_string(), 10);
 
+    // TODO: check rln_identifier against public::RLN_IDENTIFIER
+
     RLNWitnessInput {
         identity_secret,
         path_elements,
@@ -184,10 +238,11 @@ pub fn rln_witness_from_values(
     merkle_proof: &merkle_tree::Proof<PoseidonHash>,
     x: Field,
     epoch: Field,
-    rln_identifier: Field,
+    //rln_identifier: Field,
 ) -> RLNWitnessInput {
-    let path_elements = get_path_elements(merkle_proof);
-    let identity_path_index = get_identity_path_index(merkle_proof);
+    let path_elements = merkle_proof.get_path_elements();
+    let identity_path_index = merkle_proof.get_path_index();
+    let rln_identifier = hash_to_field(RLN_IDENTIFIER);
 
     RLNWitnessInput {
         identity_secret,
@@ -205,7 +260,7 @@ pub fn random_rln_witness(tree_height: usize) -> RLNWitnessInput {
     let identity_secret = hash_to_field(&rng.gen::<[u8; 32]>());
     let x = hash_to_field(&rng.gen::<[u8; 32]>());
     let epoch = hash_to_field(&rng.gen::<[u8; 32]>());
-    let rln_identifier = hash_to_field(&rng.gen::<[u8; 32]>());
+    let rln_identifier = hash_to_field(RLN_IDENTIFIER); //hash_to_field(&rng.gen::<[u8; 32]>());
 
     let mut path_elements: Vec<Field> = Vec::new();
     let mut identity_path_index: Vec<u8> = Vec::new();
@@ -247,7 +302,7 @@ pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> RLNProofValue
         }
     }
 
-    let root = get_tree_root(
+    let root = compute_tree_root(
         &rln_witness.identity_secret,
         &rln_witness.path_elements,
         &rln_witness.identity_path_index,
@@ -268,30 +323,7 @@ pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> RLNProofValue
 // Merkle tree utility functions
 ///////////////////////////////////////////////////////
 
-/// Helper to merkle proof into a bigint vector
-/// TODO: we should create a From trait for this
-pub fn get_path_elements(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<Field> {
-    proof
-        .0
-        .iter()
-        .map(|x| match x {
-            Branch::Left(value) | Branch::Right(value) => *value,
-        })
-        .collect()
-}
-
-pub fn get_identity_path_index(proof: &merkle_tree::Proof<PoseidonHash>) -> Vec<u8> {
-    proof
-        .0
-        .iter()
-        .map(|branch| match branch {
-            Branch::Left(_) => 0,
-            Branch::Right(_) => 1,
-        })
-        .collect()
-}
-
-pub fn get_tree_root(
+pub fn compute_tree_root(
     leaf: &Field,
     path_elements: &[Field],
     identity_path_index: &[u8],
@@ -316,6 +348,14 @@ pub fn get_tree_root(
 ///////////////////////////////////////////////////////
 // Signal/nullifier utility functions
 ///////////////////////////////////////////////////////
+// Generates a tupe (identity_secret, id_commitment) where
+// identity_secret is random and id_commitment = PoseidonHash(identity_secret)
+pub fn keygen() -> (Field, Field) {
+    let mut rng = thread_rng();
+    let identity_secret = to_field(&Fr::rand(&mut rng));
+    let id_commitment = poseidon_hash(&[identity_secret]);
+    (identity_secret, id_commitment)
+}
 
 pub fn hash_to_field(signal: &[u8]) -> Field {
     let hash = keccak256(signal);
