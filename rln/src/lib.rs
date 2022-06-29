@@ -8,6 +8,8 @@ use ark_std::str::FromStr;
 
 pub mod circuit;
 pub mod ffi;
+pub mod merkle_tree;
+pub mod poseidon_tree;
 pub mod protocol;
 pub mod public;
 pub mod utils;
@@ -15,13 +17,12 @@ pub mod utils;
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::circuit::{TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
+    use crate::poseidon_tree::PoseidonTree;
     use crate::protocol::*;
     use hex_literal::hex;
     use num_bigint::BigInt;
-    use semaphore::{
-        hash::Hash, hash_to_field, identity::Identity, poseidon_hash, poseidon_tree::PoseidonTree,
-        Field,
-    };
+    use semaphore::{hash::Hash, identity::Identity, poseidon_hash, Field};
 
     // Input generated with https://github.com/oskarth/zk-kit/commit/b6a872f7160c7c14e10a0ea40acab99cbb23c9a8
     const WITNESS_JSON: &str = r#"
@@ -69,8 +70,10 @@ mod test {
 
     #[test]
     // We test Merkle Tree generation, proofs and verification
+    // This test contains hardcoded values!
+    // TODO: expand this test to work with tree_height = 20
     fn test_merkle_proof() {
-        let tree_height = 16;
+        let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
 
         // generate identity
@@ -93,8 +96,8 @@ mod test {
         );
 
         let merkle_proof = tree.proof(leaf_index).expect("proof should exist");
-        let path_elements = get_path_elements(&merkle_proof);
-        let identity_path_index = get_identity_path_index(&merkle_proof);
+        let path_elements = merkle_proof.get_path_elements();
+        let identity_path_index = merkle_proof.get_path_index();
 
         // We check correct computation of the path and indexes
         let expected_path_elements = vec![
@@ -142,11 +145,13 @@ mod test {
 
     #[test]
     // We test a RLN proof generation and verification
+    // This test contains hardcoded values!
+    // TODO: expand this test to work with tree_height = 20
     fn test_witness_from_json() {
         // We generate all relevant keys
-        let proving_key = ZKEY().unwrap();
-        let verification_key = VK().unwrap();
-        let builder = CIRCOM();
+        let proving_key = ZKEY(TEST_RESOURCES_FOLDER).unwrap();
+        let verification_key = VK(TEST_RESOURCES_FOLDER).unwrap();
+        let builder = CIRCOM(TEST_RESOURCES_FOLDER).unwrap();
 
         // We compute witness from the json input example
         let rln_witness = rln_witness_from_json(WITNESS_JSON);
@@ -165,14 +170,11 @@ mod test {
     #[test]
     // We test a RLN proof generation and verification
     fn test_end_to_end() {
-        let tree_height = 16;
+        let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
 
-        // Generate identity
-        // We follow zk-kit approach for identity generation
-        let id = Identity::from_seed(b"hello");
-        let identity_secret = poseidon_hash(&vec![id.trapdoor, id.nullifier]);
-        let id_commitment = poseidon_hash(&vec![identity_secret]);
+        // Generate identity pair
+        let (identity_secret, id_commitment) = keygen();
 
         //// generate merkle tree
         let default_leaf = Field::from(0);
@@ -186,15 +188,19 @@ mod test {
 
         // We set the remaining values to random ones
         let epoch = hash_to_field(b"test-epoch");
-        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        //let rln_identifier = hash_to_field(b"test-rln-identifier");
 
-        let rln_witness: RLNWitnessInput =
-            rln_witness_from_values(identity_secret, &merkle_proof, x, epoch, rln_identifier);
+        let rln_witness: RLNWitnessInput = rln_witness_from_values(
+            identity_secret,
+            &merkle_proof,
+            x,
+            epoch, /*, rln_identifier*/
+        );
 
         // We generate all relevant keys
-        let proving_key = ZKEY().unwrap();
-        let verification_key = VK().unwrap();
-        let builder = CIRCOM();
+        let proving_key = ZKEY(TEST_RESOURCES_FOLDER).unwrap();
+        let verification_key = VK(TEST_RESOURCES_FOLDER).unwrap();
+        let builder = CIRCOM(TEST_RESOURCES_FOLDER).unwrap();
 
         // Let's generate a zkSNARK proof
         let proof = generate_proof(builder, &proving_key, &rln_witness).unwrap();
@@ -212,13 +218,13 @@ mod test {
         // We test witness serialization
         let rln_witness = rln_witness_from_json(WITNESS_JSON);
         let ser = serialize_witness(&rln_witness);
-        let deser = deserialize_witness(&ser);
+        let (deser, _) = deserialize_witness(&ser);
         assert_eq!(rln_witness, deser);
 
         // We test Proof values serialization
         let proof_values = proof_values_from_witness(&rln_witness);
         let ser = serialize_proof_values(&proof_values);
-        let deser = deserialize_proof_values(&ser);
+        let (deser, _) = deserialize_proof_values(&ser);
         assert_eq!(proof_values, deser);
     }
 }

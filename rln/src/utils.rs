@@ -62,7 +62,8 @@ pub fn str_to_field(input: String, radix: i32) -> Field {
     assert!((radix == 10) || (radix == 16));
 
     // We remove any quote present and we trim
-    let input_clean = input.replace("\"", "");
+    let single_quote: char = '\"';
+    let input_clean = input.replace(single_quote, "");
     let input_clean = input_clean.trim();
 
     if radix == 10 {
