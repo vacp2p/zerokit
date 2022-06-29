@@ -13,14 +13,27 @@ use std::option::Option;
 use std::path::Path;
 use std::str::FromStr;
 
-const ZKEY_PATH: &str = "./resources/rln_final.zkey";
-const VK_PATH: &str = "./resources/verifying_key.json";
-const R1CS_PATH: &str = "./resources/rln.r1cs";
-const WASM_PATH: &str = "./resources/rln.wasm";
+const ZKEY_FILENAME: &str = "rln_final.zkey";
+const VK_FILENAME: &str = "verifying_key.json";
+const R1CS_FILENAME: &str = "rln.r1cs";
+const WASM_FILENAME: &str = "rln.wasm";
 
-pub fn ZKEY() -> Result<ProvingKey<Bn254>> /*, ConstraintMatrices<Fr>)*/ {
-    if Path::new(ZKEY_PATH).exists() {
-        let mut file = File::open(ZKEY_PATH).unwrap();
+// These parameters are used for tests
+// Note that the circuit and keys in TEST_RESOURCES_FOLDER are compiled for Merkle trees of height 16 and 20 (including leaves level)
+// Changing these parameters to other value than these pairs of defaults will cause zkSNARK proof verification to fail
+// All tests should pass for TEST_TREE_HEIGHT = 16
+// The following tests fails for TEST_TREE_HEIGHT = 20 : ffi::test::test_merkle_proof_ffi, public::test::test_merkle_proof, test::test_merkle_proof, test::test_witness_from_json
+// TODO: tests containing hardcoded values for TEST_TREE_HEIGHT = 16 need to be extended for the case TEST_TREE_HEIGHT = 20 in order to pass
+pub const TEST_TREE_HEIGHT: usize = 16;
+pub const TEST_RESOURCES_FOLDER: &str = "./resources/tree_height_16/";
+//pub const TEST_TREE_HEIGHT: usize = 20;
+//pub const TEST_RESOURCES_FOLDER: &str = "./resources/tree_height_20/";
+
+#[allow(non_snake_case)]
+pub fn ZKEY(resources_folder: &str) -> Result<ProvingKey<Bn254>> {
+    let zkey_path = format!("{resources_folder}{ZKEY_FILENAME}");
+    if Path::new(&zkey_path).exists() {
+        let mut file = File::open(&zkey_path).unwrap();
         let (proving_key, _matrices) = read_zkey(&mut file).unwrap();
         Ok(proving_key)
     } else {
@@ -28,14 +41,18 @@ pub fn ZKEY() -> Result<ProvingKey<Bn254>> /*, ConstraintMatrices<Fr>)*/ {
     }
 }
 
-pub fn VK() -> Result<VerifyingKey<Bn254>> {
+#[allow(non_snake_case)]
+pub fn VK(resources_folder: &str) -> Result<VerifyingKey<Bn254>> {
+    let vk_path = format!("{resources_folder}{VK_FILENAME}");
+    let zkey_path = format!("{resources_folder}{ZKEY_FILENAME}");
+
     let verifying_key: VerifyingKey<Bn254>;
 
-    if Path::new(VK_PATH).exists() {
-        verifying_key = vk_from_json(VK_PATH);
+    if Path::new(&vk_path).exists() {
+        verifying_key = vk_from_json(&vk_path);
         Ok(verifying_key)
-    } else if Path::new(ZKEY_PATH).exists() {
-        verifying_key = ZKEY().unwrap().vk;
+    } else if Path::new(&zkey_path).exists() {
+        verifying_key = ZKEY(resources_folder).unwrap().vk;
         Ok(verifying_key)
     } else {
         Err(Error::new(
@@ -45,16 +62,23 @@ pub fn VK() -> Result<VerifyingKey<Bn254>> {
     }
 }
 
-pub fn CIRCOM() -> Option<CircomBuilder<Bn254>> {
+#[allow(non_snake_case)]
+pub fn CIRCOM(resources_folder: &str) -> Option<CircomBuilder<Bn254>> {
+    let wasm_path = format!("{resources_folder}{WASM_FILENAME}");
+    let r1cs_path = format!("{resources_folder}{R1CS_FILENAME}");
+
     // Load the WASM and R1CS for witness and proof generation
-    let cfg = CircomConfig::<Bn254>::new(WASM_PATH, R1CS_PATH).unwrap(); // should be )?; but need to address "the trait `From<ErrReport>` is not implemented for `protocol::ProofError`"
-                                                                         // We build and return the circuit
+    let cfg = CircomConfig::<Bn254>::new(&wasm_path, &r1cs_path).unwrap();
+
+    // We build and return the circuit
     Some(CircomBuilder::new(cfg))
 }
 
+// TODO: all the following implementations are taken from a public github project: find reference for them
+
 // Utilities to convert a json verification key in a groth16::VerificationKey
 fn fq_from_str(s: &str) -> Fq {
-    Fq::try_from(BigUint::from_str(s).unwrap()).unwrap() //was BigInteger256:: and .into()
+    Fq::try_from(BigUint::from_str(s).unwrap()).unwrap()
 }
 
 // Extracts the element in G1 corresponding to its JSON serialization
@@ -140,8 +164,8 @@ fn vk_from_json(vk_path: &str) -> VerifyingKey<Bn254> {
 }
 
 // Checks verification key to be correct with respect to proving key
-pub fn check_vk_from_zkey(verifying_key: VerifyingKey<Bn254>) {
-    let zkey = ZKEY();
+pub fn check_vk_from_zkey(resources_folder: &str, verifying_key: VerifyingKey<Bn254>) {
+    let zkey = ZKEY(resources_folder);
     if zkey.is_ok() {
         assert_eq!(zkey.unwrap().vk, verifying_key);
     }

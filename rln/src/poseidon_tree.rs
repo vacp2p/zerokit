@@ -1,4 +1,6 @@
-// Implementation from https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/poseidon_tree.rs
+// Implementation taken from https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/poseidon_tree.rs (no differences)
+// Implements Merkle trees with Poseidon hash for the customized semaphore-rs merkle_tree implementation
+
 use crate::merkle_tree::{self, Hasher, MerkleTree};
 use semaphore::{poseidon_hash, Field};
 

@@ -1,4 +1,6 @@
 // Implementation adapted from https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/merkle_tree.rs
+// In our customization, we expand MerkleTree to have a next_index counter, so that we can add a public API to add leaves to the next available counter with no need to specify the index
+
 //! Implements basic binary Merkle trees
 //!
 //! # To do

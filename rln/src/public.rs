@@ -22,7 +22,7 @@ use ark_ec::bn::Bn;
 use ark_ff::bytes::ToBytes;
 use ark_serialize::{Read, Write};
 
-use crate::circuit::{CIRCOM, VK, ZKEY};
+use crate::circuit::{CIRCOM, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT, VK, ZKEY};
 use crate::protocol::{self, *};
 use crate::utils::*;
 
@@ -36,14 +36,21 @@ pub struct RLN {
     pub proving_key: Result<ProvingKey<Bn254>>,
     pub verification_key: Result<VerifyingKey<Bn254>>,
     pub tree: PoseidonTree,
+    pub resources_folder: String,
 }
 
 impl RLN {
-    pub fn new(tree_height: usize) -> RLN {
+    pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> RLN {
+        // We read input
+        let mut input: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut input).unwrap();
+
+        let resources_folder = String::from_utf8(input).expect("Found invalid UTF-8");
+
         let circom = None::<CircomBuilder<Bn254>>; //CIRCOM();
 
-        let proving_key = ZKEY();
-        let verification_key = VK();
+        let proving_key = ZKEY(&resources_folder);
+        let verification_key = VK(&resources_folder);
 
         // We compute a default empty tree
         let leaf = Field::from(0);
@@ -54,6 +61,7 @@ impl RLN {
             proving_key,
             verification_key,
             tree,
+            resources_folder,
         }
     }
 
@@ -156,7 +164,7 @@ impl RLN {
         let (rln_witness, _) = deserialize_witness(&serialized);
 
         if self.circom.is_none() {
-            self.circom = CIRCOM();
+            self.circom = CIRCOM(&self.resources_folder);
         }
 
         let proof = generate_proof(
@@ -208,7 +216,7 @@ impl RLN {
         let proof_values = proof_values_from_witness(&rln_witness);
 
         if self.circom.is_none() {
-            self.circom = CIRCOM();
+            self.circom = CIRCOM(&self.resources_folder);
         }
 
         let proof = generate_proof(
@@ -288,8 +296,9 @@ impl RLN {
 
 impl Default for RLN {
     fn default() -> Self {
-        let tree_height = 21;
-        Self::new(tree_height)
+        let tree_height = TEST_TREE_HEIGHT;
+        let buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        Self::new(tree_height, buffer)
     }
 }
 
@@ -303,7 +312,7 @@ mod test {
     #[test]
     // We test merkle batch Merkle tree additions
     fn test_merkle_operations() {
-        let tree_height = 16;
+        let tree_height = TEST_TREE_HEIGHT;
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
@@ -314,7 +323,8 @@ mod test {
         }
 
         // We create a new tree
-        let mut rln = RLN::new(tree_height);
+        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let mut rln = RLN::new(tree_height, input_buffer);
 
         // We first add leaves one by one specifying the index
         for (i, leaf) in leaves.iter().enumerate() {
@@ -391,11 +401,14 @@ mod test {
 
     #[test]
     // This test is similar to the one in lib, but uses only public API
+    // This test contains hardcoded values!
+    // TODO: expand this test to work with tree_height = 20
     fn test_merkle_proof() {
-        let tree_height = 16;
+        let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
 
-        let mut rln = RLN::new(tree_height);
+        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let mut rln = RLN::new(tree_height, input_buffer);
 
         // generate identity
         // We follow zk-kit approach for identity generation
@@ -476,9 +489,10 @@ mod test {
     #[test]
     // This test is similar to the one in lib, but uses only public API
     fn test_groth16_proof() {
-        let tree_height = 16;
+        let tree_height = TEST_TREE_HEIGHT;
 
-        let mut rln = RLN::new(tree_height);
+        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let mut rln = RLN::new(tree_height, input_buffer);
 
         // Note: we only test Groth16 proof generation, so we ignore setting the tree in the RLN object
         let rln_witness = random_rln_witness(tree_height);
@@ -516,7 +530,7 @@ mod test {
 
     #[test]
     fn test_rln_proof() {
-        let tree_height = 16;
+        let tree_height = TEST_TREE_HEIGHT;
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
@@ -527,7 +541,8 @@ mod test {
         }
 
         // We create a new RLN instance
-        let mut rln = RLN::new(tree_height);
+        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let mut rln = RLN::new(tree_height, input_buffer);
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_field_to_bytes_le(&leaves));

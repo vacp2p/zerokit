@@ -17,6 +17,7 @@ pub mod utils;
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::circuit::{TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
     use crate::poseidon_tree::PoseidonTree;
     use crate::protocol::*;
     use hex_literal::hex;
@@ -69,8 +70,10 @@ mod test {
 
     #[test]
     // We test Merkle Tree generation, proofs and verification
+    // This test contains hardcoded values!
+    // TODO: expand this test to work with tree_height = 20
     fn test_merkle_proof() {
-        let tree_height = 16;
+        let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
 
         // generate identity
@@ -142,11 +145,13 @@ mod test {
 
     #[test]
     // We test a RLN proof generation and verification
+    // This test contains hardcoded values!
+    // TODO: expand this test to work with tree_height = 20
     fn test_witness_from_json() {
         // We generate all relevant keys
-        let proving_key = ZKEY().unwrap();
-        let verification_key = VK().unwrap();
-        let builder = CIRCOM().unwrap();
+        let proving_key = ZKEY(TEST_RESOURCES_FOLDER).unwrap();
+        let verification_key = VK(TEST_RESOURCES_FOLDER).unwrap();
+        let builder = CIRCOM(TEST_RESOURCES_FOLDER).unwrap();
 
         // We compute witness from the json input example
         let rln_witness = rln_witness_from_json(WITNESS_JSON);
@@ -165,7 +170,7 @@ mod test {
     #[test]
     // We test a RLN proof generation and verification
     fn test_end_to_end() {
-        let tree_height = 16;
+        let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
 
         // Generate identity pair
@@ -193,9 +198,9 @@ mod test {
         );
 
         // We generate all relevant keys
-        let proving_key = ZKEY().unwrap();
-        let verification_key = VK().unwrap();
-        let builder = CIRCOM().unwrap();
+        let proving_key = ZKEY(TEST_RESOURCES_FOLDER).unwrap();
+        let verification_key = VK(TEST_RESOURCES_FOLDER).unwrap();
+        let builder = CIRCOM(TEST_RESOURCES_FOLDER).unwrap();
 
         // Let's generate a zkSNARK proof
         let proof = generate_proof(builder, &proving_key, &rln_witness).unwrap();

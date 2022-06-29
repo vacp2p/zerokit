@@ -37,8 +37,9 @@ impl<'a> From<&Buffer> for &'a [u8] {
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn new(tree_height: usize, ctx: *mut *mut RLN) -> bool {
-    let rln = RLN::new(tree_height);
+pub extern "C" fn new(tree_height: usize, input_buffer: *const Buffer, ctx: *mut *mut RLN) -> bool {
+    let input_data = <&[u8]>::from(unsafe { &*input_buffer });
+    let rln = RLN::new(tree_height, input_data);
     unsafe { *ctx = Box::into_raw(Box::new(rln)) };
     true
 }
@@ -258,7 +259,7 @@ mod test {
     #[test]
     // We test merkle batch Merkle tree additions
     fn test_merkle_operations_ffi() {
-        let tree_height = 16;
+        let tree_height = TEST_TREE_HEIGHT;
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
@@ -270,7 +271,8 @@ mod test {
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let success = new(tree_height, rln_pointer.as_mut_ptr());
+        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
@@ -337,7 +339,8 @@ mod test {
 
         // We now delete all leaves set and check if the root corresponds to the empty tree root
         // delete calls over indexes higher than no_of_leaves are ignored and will not increase self.tree.next_index
-        for i in 0..2 * no_of_leaves {
+        let delete_range = 2 * no_of_leaves;
+        for i in 0..delete_range {
             let success = delete_leaf(rln_pointer, i);
             assert!(success, "delete leaf call failed");
         }
@@ -368,13 +371,16 @@ mod test {
 
     #[test]
     // This test is similar to the one in lib, but uses only public C API
+    // This test contains hardcoded values!
+    // TODO: expand this test to work with tree_height = 20
     fn test_merkle_proof_ffi() {
-        let tree_height = 16;
+        let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let success = new(tree_height, rln_pointer.as_mut_ptr());
+        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
@@ -397,12 +403,6 @@ mod test {
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
         let (root, _) = bytes_le_to_field(&result_data);
-
-        assert_eq!(
-            root,
-            Field::from_str("0x27401a4559ce263630907ce3b77c570649e28ede22d2a7f5296839627a16e870")
-                .unwrap()
-        );
 
         // We obtain the Merkle tree root
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
@@ -463,11 +463,12 @@ mod test {
 
     #[test]
     fn test_groth16_proof_ffi() {
-        let tree_height: usize = 16;
+        let tree_height = TEST_TREE_HEIGHT;
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let success = new(tree_height, rln_pointer.as_mut_ptr());
+        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
@@ -501,7 +502,7 @@ mod test {
 
     #[test]
     fn test_rln_proof_ffi() {
-        let tree_height = 16;
+        let tree_height = TEST_TREE_HEIGHT;
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
@@ -513,7 +514,8 @@ mod test {
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let success = new(tree_height, rln_pointer.as_mut_ptr());
+        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
@@ -583,11 +585,12 @@ mod test {
 
     #[test]
     fn test_hash_to_field_ffi() {
-        let tree_height: usize = 16;
+        let tree_height = TEST_TREE_HEIGHT;
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let success = new(tree_height, rln_pointer.as_mut_ptr());
+        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
