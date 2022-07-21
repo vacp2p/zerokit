@@ -151,7 +151,7 @@ mod test {
         // We generate all relevant keys
         let proving_key = ZKEY(TEST_RESOURCES_FOLDER).unwrap();
         let verification_key = VK(TEST_RESOURCES_FOLDER).unwrap();
-        let builder = CIRCOM(TEST_RESOURCES_FOLDER).unwrap();
+        let builder = CIRCOM(TEST_RESOURCES_FOLDER);
 
         // We compute witness from the json input example
         let rln_witness = rln_witness_from_json(WITNESS_JSON);
@@ -200,7 +200,7 @@ mod test {
         // We generate all relevant keys
         let proving_key = ZKEY(TEST_RESOURCES_FOLDER).unwrap();
         let verification_key = VK(TEST_RESOURCES_FOLDER).unwrap();
-        let builder = CIRCOM(TEST_RESOURCES_FOLDER).unwrap();
+        let builder = CIRCOM(TEST_RESOURCES_FOLDER);
 
         // Let's generate a zkSNARK proof
         let proof = generate_proof(builder, &proving_key, &rln_witness).unwrap();

@@ -12,6 +12,12 @@ use std::io::{Cursor, Error, ErrorKind, Result, Write};
 use std::option::Option;
 use std::path::Path;
 use std::str::FromStr;
+use std::io::Read;
+
+use once_cell::sync::{Lazy, OnceCell};
+use std::{sync::Mutex};
+use wasmer::{Module, Store};
+
 
 const ZKEY_FILENAME: &str = "rln_final.zkey";
 const VK_FILENAME: &str = "verifying_key.json";
@@ -30,16 +36,17 @@ pub const TEST_RESOURCES_FOLDER: &str = "./resources/tree_height_16/";
 //pub const TEST_RESOURCES_FOLDER: &str = "./resources/tree_height_20/";
 
 #[allow(non_snake_case)]
-pub fn ZKEY(resources_folder: &str) -> Result<ProvingKey<Bn254>> {
+pub fn ZKEY(resources_folder: &str) -> Result<(ProvingKey<Bn254>, ConstraintMatrices<Fr>)> {
     let zkey_path = format!("{resources_folder}{ZKEY_FILENAME}");
     if Path::new(&zkey_path).exists() {
         let mut file = File::open(&zkey_path).unwrap();
-        let (proving_key, _matrices) = read_zkey(&mut file).unwrap();
-        Ok(proving_key)
+        let proving_key_and_matrices = read_zkey(&mut file).unwrap();
+        Ok(proving_key_and_matrices)
     } else {
         Err(Error::new(ErrorKind::NotFound, "No proving key found!"))
     }
 }
+
 
 #[allow(non_snake_case)]
 pub fn VK(resources_folder: &str) -> Result<VerifyingKey<Bn254>> {
@@ -52,7 +59,8 @@ pub fn VK(resources_folder: &str) -> Result<VerifyingKey<Bn254>> {
         verifying_key = vk_from_json(&vk_path);
         Ok(verifying_key)
     } else if Path::new(&zkey_path).exists() {
-        verifying_key = ZKEY(resources_folder).unwrap().vk;
+        let (proving_key, _matrices) = ZKEY(resources_folder).unwrap();
+        verifying_key = proving_key.vk;
         Ok(verifying_key)
     } else {
         Err(Error::new(
@@ -62,17 +70,31 @@ pub fn VK(resources_folder: &str) -> Result<VerifyingKey<Bn254>> {
     }
 }
 
-#[allow(non_snake_case)]
-pub fn CIRCOM(resources_folder: &str) -> Option<CircomBuilder<Bn254>> {
+static WITNESS_CALCULATOR: OnceCell<Mutex<WitnessCalculator>> = OnceCell::new();
+
+fn read_wasm(resources_folder: &str) -> Vec<u8> {
     let wasm_path = format!("{resources_folder}{WASM_FILENAME}");
-    let r1cs_path = format!("{resources_folder}{R1CS_FILENAME}");
-
-    // Load the WASM and R1CS for witness and proof generation
-    let cfg = CircomConfig::<Bn254>::new(&wasm_path, &r1cs_path).unwrap();
-
-    // We build and return the circuit
-    Some(CircomBuilder::new(cfg))
+    let mut wasm_file = File::open(&wasm_path).expect("no file found");
+    let metadata = std::fs::metadata(&wasm_path).expect("unable to read metadata");
+    let mut wasm_buffer = vec![0; metadata.len() as usize];
+    wasm_file.read(&mut wasm_buffer).expect("buffer overflow");
+    wasm_buffer
 }
+
+#[allow(non_snake_case)]
+pub fn CIRCOM(resources_folder: &str) -> &'static Mutex<WitnessCalculator> {
+    WITNESS_CALCULATOR.get_or_init(|| {
+        // We read the wasm file
+        let mut wasm_buffer = read_wasm(&resources_folder);
+        let store = Store::default();
+        let module = Module::from_binary(&store, &mut wasm_buffer).expect("wasm should be valid");
+        let result =
+            WitnessCalculator::from_module(module).expect("Failed to create witness calculator");
+        Mutex::new(result)
+    })
+}
+
+
 
 // TODO: all the following implementations are taken from a public github project: find reference for them
 
@@ -167,6 +189,7 @@ fn vk_from_json(vk_path: &str) -> VerifyingKey<Bn254> {
 pub fn check_vk_from_zkey(resources_folder: &str, verifying_key: VerifyingKey<Bn254>) {
     let zkey = ZKEY(resources_folder);
     if zkey.is_ok() {
-        assert_eq!(zkey.unwrap().vk, verifying_key);
+        let (proving_key, _matrices) = zkey.unwrap();
+        assert_eq!(proving_key.vk, verifying_key);
     }
 }

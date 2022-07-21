@@ -11,7 +11,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 
 # WASM operations
-# wasmer = { version = "2.0" }
+wasmer = { version = "2.0" }
 # fnv = { version = "1.0.3", default-features = false }
 # num = { version = "0.4.0" }
 # num-traits = { version = "0.2.0", default-features = false }
@@ -26,7 +26,7 @@ ark-bn254 = { version = "0.3.0" }
 ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", rev = "765817f", features = ["parallel"] }
 # ark-poly = { version = "^0.3.0", default-features = false, features = ["parallel"] }
 #ark-relations = { version = "0.3.0", default-features = false, path = "../../../arkworks-rs/snark/relations", features = [ "std" ] }
-ark-relations = { version = "0.3.0", default-features = false, features = [ "std" ] }
+ark-relations = { version = "0.3.0", default-features = false }
 ark-serialize = { version = "0.3.0", default-features = false }
 
 ark-circom = { git = "https://github.com/gakonst/ark-circom", features = ["circom-2"] }

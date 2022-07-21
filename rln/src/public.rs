@@ -3,7 +3,7 @@ use crate::poseidon_tree::PoseidonTree;
 /// used by tests etc as well
 ///
 use ark_bn254::{Bn254, Fr};
-use ark_circom::{CircomBuilder, CircomCircuit, CircomConfig};
+use ark_circom::{CircomBuilder, CircomCircuit, CircomConfig, WitnessCalculator};
 use ark_groth16::Proof as ArkProof;
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -16,6 +16,8 @@ use std::default::Default;
 use std::io::Cursor;
 use std::io::{self, Error, ErrorKind, Result}; //default read/write
 use std::option::Option;
+use std::{sync::Mutex};
+use ark_relations::r1cs::ConstraintMatrices;
 
 // For the ToBytes implementation of groth16::Proof
 use ark_ec::bn::Bn;
@@ -31,23 +33,23 @@ pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
 
 // TODO Add Engine here? i.e. <E: Engine> not <Bn254>
 // TODO Assuming we want to use IncrementalMerkleTree, figure out type/trait conversions
-pub struct RLN {
-    pub circom: Option<CircomBuilder<Bn254>>,
-    pub proving_key: Result<ProvingKey<Bn254>>,
-    pub verification_key: Result<VerifyingKey<Bn254>>,
-    pub tree: PoseidonTree,
-    pub resources_folder: String,
+pub struct RLN<'a> {
+    witness_calculator: &'a Mutex<WitnessCalculator>,
+    proving_key: Result<(ProvingKey<Bn254>, ConstraintMatrices<Fr>)>,
+    verification_key: Result<VerifyingKey<Bn254>>,
+    tree: PoseidonTree,
+    resources_folder: String,
 }
 
-impl RLN {
-    pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> RLN {
+impl RLN<'_> {
+    pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> RLN<'static> {
         // We read input
         let mut input: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input).unwrap();
 
         let resources_folder = String::from_utf8(input).expect("Found invalid UTF-8");
 
-        let circom = None::<CircomBuilder<Bn254>>; //CIRCOM();
+        let witness_calculator = CIRCOM(&resources_folder);
 
         let proving_key = ZKEY(&resources_folder);
         let verification_key = VK(&resources_folder);
@@ -57,7 +59,7 @@ impl RLN {
         let tree = PoseidonTree::new(tree_height, leaf);
 
         RLN {
-            circom,
+            witness_calculator,
             proving_key,
             verification_key,
             tree,
@@ -163,12 +165,14 @@ impl RLN {
         input_data.read_to_end(&mut serialized)?;
         let (rln_witness, _) = deserialize_witness(&serialized);
 
-        if self.circom.is_none() {
-            self.circom = CIRCOM(&self.resources_folder);
+        /*
+        if self.witness_calculator.is_none() {
+            self.witness_calculator = CIRCOM(&self.resources_folder);
         }
+        */
 
         let proof = generate_proof(
-            self.circom.as_ref().unwrap().clone(),
+            self.witness_calculator,
             self.proving_key.as_ref().unwrap(),
             &rln_witness,
         )
@@ -215,12 +219,14 @@ impl RLN {
         let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte);
         let proof_values = proof_values_from_witness(&rln_witness);
 
-        if self.circom.is_none() {
-            self.circom = CIRCOM(&self.resources_folder);
+        /*
+        if self.witness_calculator.is_none() {
+            self.witness_calculator = CIRCOM(&self.resources_folder);
         }
+        */
 
         let proof = generate_proof(
-            self.circom.as_ref().unwrap().clone(),
+            self.witness_calculator,
             self.proving_key.as_ref().unwrap(),
             &rln_witness,
         )
@@ -294,7 +300,7 @@ impl RLN {
     }
 }
 
-impl Default for RLN {
+impl Default for RLN<'_> {
     fn default() -> Self {
         let tree_height = TEST_TREE_HEIGHT;
         let buffer = Cursor::new(TEST_RESOURCES_FOLDER);
