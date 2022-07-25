@@ -14,7 +14,7 @@ use ark_relations::r1cs::SynthesisError;
 use ark_serialize::*;
 use ark_std::{rand::thread_rng, str::FromStr, UniformRand};
 use color_eyre::Result;
-use ethers_core::utils::keccak256;
+use ethers::core::utils::keccak256;
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use primitive_types::U256;
 use rand::Rng;
