@@ -1,7 +1,7 @@
 use ark_bn254::{Bn254, Fr, Parameters};
 use ark_ff::{BigInteger, Field as ArkField, FpParameters, PrimeField};
 use ark_std::str::FromStr;
-use ethers_core::utils::keccak256;
+use ethers::core::utils::keccak256;
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use semaphore::{identity::Identity, Field};
 use std::iter::Extend;

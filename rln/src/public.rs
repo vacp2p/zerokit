@@ -6,6 +6,7 @@ use ark_bn254::{Bn254, Fr};
 use ark_circom::{CircomBuilder, CircomCircuit, CircomConfig, WitnessCalculator};
 use ark_groth16::Proof as ArkProof;
 use ark_groth16::{ProvingKey, VerifyingKey};
+use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::thread_rng, str::FromStr, UniformRand};
 use num_bigint::BigInt;
@@ -16,8 +17,7 @@ use std::default::Default;
 use std::io::Cursor;
 use std::io::{self, Error, ErrorKind, Result}; //default read/write
 use std::option::Option;
-use std::{sync::Mutex};
-use ark_relations::r1cs::ConstraintMatrices;
+use std::sync::Mutex;
 
 // For the ToBytes implementation of groth16::Proof
 use ark_ec::bn::Bn;
@@ -407,8 +407,6 @@ mod test {
 
     #[test]
     // This test is similar to the one in lib, but uses only public API
-    // This test contains hardcoded values!
-    // TODO: expand this test to work with tree_height = 20
     fn test_merkle_proof() {
         let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
@@ -431,11 +429,23 @@ mod test {
         rln.get_root(&mut buffer).unwrap();
         let (root, _) = bytes_le_to_field(&buffer.into_inner());
 
-        assert_eq!(
-            root,
-            Field::from_str("0x27401a4559ce263630907ce3b77c570649e28ede22d2a7f5296839627a16e870")
+        if TEST_TREE_HEIGHT == 16 {
+            assert_eq!(
+                root,
+                Field::from_str(
+                    "0x27401a4559ce263630907ce3b77c570649e28ede22d2a7f5296839627a16e870"
+                )
                 .unwrap()
-        );
+            );
+        } else if TEST_TREE_HEIGHT == 20 {
+            assert_eq!(
+                root,
+                Field::from_str(
+                    "0x302920b5e5af8bf5f4bf32995f1ac5933d9a4b6f74803fdde84b8b9a761a2991"
+                )
+                .unwrap()
+            );
+        }
 
         // We check correct computation of merkle proof
         let mut buffer = Cursor::new(Vec::<u8>::new());
@@ -446,7 +456,7 @@ mod test {
         let (identity_path_index, _) = bytes_le_to_vec_u8(&buffer_inner[read..].to_vec());
 
         // We check correct computation of the path and indexes
-        let expected_path_elements = vec![
+        let mut expected_path_elements = vec![
             Field::from_str("0x0000000000000000000000000000000000000000000000000000000000000000")
                 .unwrap(),
             Field::from_str("0x2098f5fb9e239eab3ceac3f27b81e481dc3124d55ffed523a839ee8446b64864")
@@ -479,8 +489,31 @@ mod test {
                 .unwrap(),
         ];
 
-        let expected_identity_path_index: Vec<u8> =
+        let mut expected_identity_path_index: Vec<u8> =
             vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+        // We add the remaining elements for the case TEST_TREE_HEIGHT = 20
+        if TEST_TREE_HEIGHT == 20 {
+            expected_path_elements.append(&mut vec![
+                Field::from_str(
+                    "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
+                )
+                .unwrap(),
+                Field::from_str(
+                    "0x2a7c7c9b6ce5880b9f6f228d72bf6a575a526f29c66ecceef8b753d38bba7323",
+                )
+                .unwrap(),
+                Field::from_str(
+                    "0x2e8186e558698ec1c67af9c14d463ffc470043c9c2988b954d75dd643f36b992",
+                )
+                .unwrap(),
+                Field::from_str(
+                    "0x0f57c5571e9a4eab49e2c8cf050dae948aef6ead647392273546249d1c1ff10f",
+                )
+                .unwrap(),
+            ]);
+            expected_identity_path_index.append(&mut vec![0, 0, 0, 0]);
+        }
 
         assert_eq!(path_elements, expected_path_elements);
         assert_eq!(identity_path_index, expected_identity_path_index);

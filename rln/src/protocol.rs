@@ -10,22 +10,21 @@ use ark_groth16::{
     prepare_verifying_key, verify_proof as ark_verify_proof, Proof as ArkProof, ProvingKey,
     VerifyingKey,
 };
+use ark_relations::r1cs::ConstraintMatrices;
 use ark_relations::r1cs::SynthesisError;
 use ark_serialize::*;
 use ark_std::{rand::thread_rng, str::FromStr, UniformRand};
 use color_eyre::Result;
-use ethers_core::utils::keccak256;
+use ethers::core::utils::keccak256;
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use primitive_types::U256;
 use rand::Rng;
 use semaphore::{identity::Identity, poseidon_hash, Field};
 use serde::{Deserialize, Serialize};
 use std::io::Write;
+use std::sync::Mutex;
 use std::time::Instant;
 use thiserror::Error;
-use std::{sync::Mutex};
-use ark_relations::r1cs::ConstraintMatrices;
-
 
 use crate::poseidon_tree::*;
 use crate::public::{RLN, RLN_IDENTIFIER};
@@ -440,7 +439,6 @@ pub fn generate_proof(
     proving_key: &(ProvingKey<Bn254>, ConstraintMatrices<Fr>),
     rln_witness: &RLNWitnessInput,
 ) -> Result<Proof, ProofError> {
-
     // We confert the path indexes to field elements
     // TODO: check if necessary
     let mut path_elements: Vec<BigInt> = Vec::new();
@@ -454,20 +452,22 @@ pub fn generate_proof(
     }
 
     let inputs = [
-        ("identity_secret", vec![BigInt::from(rln_witness.identity_secret)]),
+        (
+            "identity_secret",
+            vec![BigInt::from(rln_witness.identity_secret)],
+        ),
         ("path_elements", path_elements),
         ("identity_path_index", identity_path_index),
         ("x", vec![BigInt::from(rln_witness.x)]),
         ("epoch", vec![BigInt::from(rln_witness.epoch)]),
-        ("rln_identifier", vec![BigInt::from(rln_witness.rln_identifier)]),
-    ];
-    let inputs = inputs.into_iter().map(|(name, values)| {
         (
-            name.to_string(),
-            values,
-        )
-    });
-
+            "rln_identifier",
+            vec![BigInt::from(rln_witness.rln_identifier)],
+        ),
+    ];
+    let inputs = inputs
+        .into_iter()
+        .map(|(name, values)| (name.to_string(), values));
 
     let now = Instant::now();
 
@@ -498,7 +498,6 @@ pub fn generate_proof(
     println!("proof generation took: {:.2?}", now.elapsed());
 
     Ok(proof)
-
 }
 
 /// Verifies a given RLN proof
@@ -525,7 +524,9 @@ pub fn verify_proof(
     // Check that the proof is valid
     let pvk = prepare_verifying_key(verifying_key);
     let pr: ArkProof<Bn254> = (*proof).into();
+    let now = Instant::now();
     let verified = ark_verify_proof(&pvk, &pr, &vec_to_fr(&inputs))?;
+    println!("verify took: {:.2?}", now.elapsed());
 
     Ok(verified)
 }
