@@ -255,6 +255,7 @@ mod test {
     use serde::{Deserialize, Serialize};
     use std::io::Cursor;
     use std::mem::MaybeUninit;
+    use std::time::{Duration, Instant};
 
     #[test]
     // We test merkle batch Merkle tree additions
@@ -371,8 +372,6 @@ mod test {
 
     #[test]
     // This test is similar to the one in lib, but uses only public C API
-    // This test contains hardcoded values!
-    // TODO: expand this test to work with tree_height = 20
     fn test_merkle_proof_ffi() {
         let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
@@ -415,7 +414,7 @@ mod test {
         let (identity_path_index, _) = bytes_le_to_vec_u8(&result_data[read..].to_vec());
 
         // We check correct computation of the path and indexes
-        let expected_path_elements = vec![
+        let mut expected_path_elements = vec![
             Field::from_str("0x0000000000000000000000000000000000000000000000000000000000000000")
                 .unwrap(),
             Field::from_str("0x2098f5fb9e239eab3ceac3f27b81e481dc3124d55ffed523a839ee8446b64864")
@@ -448,8 +447,31 @@ mod test {
                 .unwrap(),
         ];
 
-        let expected_identity_path_index: Vec<u8> =
+        let mut expected_identity_path_index: Vec<u8> =
             vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+        // We add the remaining elements for the case TEST_TREE_HEIGHT = 20
+        if TEST_TREE_HEIGHT == 20 {
+            expected_path_elements.append(&mut vec![
+                Field::from_str(
+                    "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
+                )
+                .unwrap(),
+                Field::from_str(
+                    "0x2a7c7c9b6ce5880b9f6f228d72bf6a575a526f29c66ecceef8b753d38bba7323",
+                )
+                .unwrap(),
+                Field::from_str(
+                    "0x2e8186e558698ec1c67af9c14d463ffc470043c9c2988b954d75dd643f36b992",
+                )
+                .unwrap(),
+                Field::from_str(
+                    "0x0f57c5571e9a4eab49e2c8cf050dae948aef6ead647392273546249d1c1ff10f",
+                )
+                .unwrap(),
+            ]);
+            expected_identity_path_index.append(&mut vec![0, 0, 0, 0]);
+        }
 
         assert_eq!(path_elements, expected_path_elements);
         assert_eq!(identity_path_index, expected_identity_path_index);
@@ -462,7 +484,7 @@ mod test {
     }
 
     #[test]
-    fn test_groth16_proof_ffi() {
+    fn test_100_groth16_proofs_ffi() {
         let tree_height = TEST_TREE_HEIGHT;
 
         // We create a RLN instance
@@ -472,32 +494,54 @@ mod test {
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
-        // We generate random witness instances and relative proof values
-        let rln_witness = random_rln_witness(tree_height);
-        let proof_values = proof_values_from_witness(&rln_witness);
+        // We compute some benchmarks regarding proof and verify API calls
+        // Note that circuit loading requires some initial overhead.
+        // Once the circuit is loaded (i.e., when the RLN object is created), proof generation and verification times should be similar at each call.
+        let sample_size = 100;
+        let mut prove_time: u128 = 0;
+        let mut verify_time: u128 = 0;
 
-        // We prepare id_commitment and we set the leaf at provided index
-        let rln_witness_ser = serialize_witness(&rln_witness);
-        let input_buffer = &Buffer::from(rln_witness_ser.as_ref());
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = prove(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
-        assert!(success, "prove call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
+        for _ in 0..sample_size {
+            // We generate random witness instances and relative proof values
+            let rln_witness = random_rln_witness(tree_height);
+            let proof_values = proof_values_from_witness(&rln_witness);
 
-        // We read the returned proof and we append proof values for verify
-        let serialized_proof = <&[u8]>::from(&output_buffer).to_vec();
-        let serialized_proof_values = serialize_proof_values(&proof_values);
-        let mut verify_data = Vec::<u8>::new();
-        verify_data.extend(&serialized_proof);
-        verify_data.extend(&serialized_proof_values);
+            // We prepare id_commitment and we set the leaf at provided index
+            let rln_witness_ser = serialize_witness(&rln_witness);
+            let input_buffer = &Buffer::from(rln_witness_ser.as_ref());
+            let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+            let now = Instant::now();
+            let success = prove(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
+            prove_time += now.elapsed().as_nanos();
+            assert!(success, "prove call failed");
+            let output_buffer = unsafe { output_buffer.assume_init() };
 
-        // We prepare input proof values and we call verify
-        let input_buffer = &Buffer::from(verify_data.as_ref());
-        let mut proof_is_valid: bool = false;
-        let proof_is_valid_ptr = &mut proof_is_valid as *mut bool;
-        let success = verify(rln_pointer, input_buffer, proof_is_valid_ptr);
-        assert!(success, "verify call failed");
-        assert_eq!(proof_is_valid, true);
+            // We read the returned proof and we append proof values for verify
+            let serialized_proof = <&[u8]>::from(&output_buffer).to_vec();
+            let serialized_proof_values = serialize_proof_values(&proof_values);
+            let mut verify_data = Vec::<u8>::new();
+            verify_data.extend(&serialized_proof);
+            verify_data.extend(&serialized_proof_values);
+
+            // We prepare input proof values and we call verify
+            let input_buffer = &Buffer::from(verify_data.as_ref());
+            let mut proof_is_valid: bool = false;
+            let proof_is_valid_ptr = &mut proof_is_valid as *mut bool;
+            let now = Instant::now();
+            let success = verify(rln_pointer, input_buffer, proof_is_valid_ptr);
+            verify_time += now.elapsed().as_nanos();
+            assert!(success, "verify call failed");
+            assert_eq!(proof_is_valid, true);
+        }
+
+        println!(
+            "Average prove API call time: {:?}",
+            Duration::from_nanos((prove_time / sample_size).try_into().unwrap())
+        );
+        println!(
+            "Average verify API call time: {:?}",
+            Duration::from_nanos((verify_time / sample_size).try_into().unwrap())
+        );
     }
 
     #[test]

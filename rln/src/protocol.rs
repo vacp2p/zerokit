@@ -1,8 +1,8 @@
-use crate::circuit::{VK, ZKEY};
+use crate::circuit::{CIRCOM, VK, ZKEY};
 use crate::merkle_tree::{self, Branch};
 use crate::poseidon_tree::PoseidonHash;
 use ark_bn254::{Bn254, Fr, Parameters};
-use ark_circom::{read_zkey, CircomBuilder, CircomConfig, CircomReduction};
+use ark_circom::{read_zkey, CircomBuilder, CircomConfig, CircomReduction, WitnessCalculator};
 use ark_ec::bn::Bn;
 use ark_ff::{bytes::ToBytes, Fp256, PrimeField};
 use ark_groth16::{
@@ -10,6 +10,7 @@ use ark_groth16::{
     prepare_verifying_key, verify_proof as ark_verify_proof, Proof as ArkProof, ProvingKey,
     VerifyingKey,
 };
+use ark_relations::r1cs::ConstraintMatrices;
 use ark_relations::r1cs::SynthesisError;
 use ark_serialize::*;
 use ark_std::{rand::thread_rng, str::FromStr, UniformRand};
@@ -21,6 +22,7 @@ use rand::Rng;
 use semaphore::{identity::Identity, poseidon_hash, Field};
 use serde::{Deserialize, Serialize};
 use std::io::Write;
+use std::sync::Mutex;
 use std::time::Instant;
 use thiserror::Error;
 
@@ -433,50 +435,66 @@ pub enum ProofError {
 ///
 /// Returns a [`ProofError`] if proving fails.
 pub fn generate_proof(
-    mut builder: CircomBuilder<Bn254>,
-    proving_key: &ProvingKey<Bn254>,
+    witness_calculator: &Mutex<WitnessCalculator>,
+    proving_key: &(ProvingKey<Bn254>, ConstraintMatrices<Fr>),
     rln_witness: &RLNWitnessInput,
 ) -> Result<Proof, ProofError> {
+    // We confert the path indexes to field elements
+    // TODO: check if necessary
+    let mut path_elements: Vec<BigInt> = Vec::new();
+    for v in rln_witness.path_elements.iter() {
+        path_elements.push(BigInt::from(*v));
+    }
+
+    let mut identity_path_index: Vec<BigInt> = Vec::new();
+    for v in rln_witness.identity_path_index.iter() {
+        identity_path_index.push(BigInt::from(*v));
+    }
+
+    let inputs = [
+        (
+            "identity_secret",
+            vec![BigInt::from(rln_witness.identity_secret)],
+        ),
+        ("path_elements", path_elements),
+        ("identity_path_index", identity_path_index),
+        ("x", vec![BigInt::from(rln_witness.x)]),
+        ("epoch", vec![BigInt::from(rln_witness.epoch)]),
+        (
+            "rln_identifier",
+            vec![BigInt::from(rln_witness.rln_identifier)],
+        ),
+    ];
+    let inputs = inputs
+        .into_iter()
+        .map(|(name, values)| (name.to_string(), values));
+
     let now = Instant::now();
 
-    builder.push_input("identity_secret", BigInt::from(rln_witness.identity_secret));
-
-    for v in rln_witness.path_elements.iter() {
-        builder.push_input("path_elements", BigInt::from(*v));
-    }
-
-    for v in rln_witness.identity_path_index.iter() {
-        builder.push_input("identity_path_index", BigInt::from(*v));
-    }
-
-    builder.push_input("x", BigInt::from(rln_witness.x));
-
-    builder.push_input("epoch", BigInt::from(rln_witness.epoch));
-
-    builder.push_input("rln_identifier", BigInt::from(rln_witness.rln_identifier));
-
-    let circom = builder.build().unwrap();
-
-    // This can be checked against proof_values_from_witness
-    // Get the populated instance of the circuit with the witness
-    //let inputs = vec_to_field(circom.get_public_inputs().unwrap());
+    let full_assignment = witness_calculator
+        .lock()
+        .expect("witness_calculator mutex should not get poisoned")
+        .calculate_witness_element::<Bn254, _>(inputs, false)
+        .map_err(ProofError::WitnessError)?;
 
     println!("witness generation took: {:.2?}", now.elapsed());
 
-    let now = Instant::now();
-
-    // Generate a random proof
+    // Random Values
     let mut rng = thread_rng();
+    let r = ark_bn254::Fr::rand(&mut rng);
+    let s = ark_bn254::Fr::rand(&mut rng);
 
-    let ark_proof = create_random_proof_with_reduction::<_, _, _, CircomReduction>(
-        circom,
-        proving_key,
-        &mut rng,
-    )
-    .unwrap();
-
+    let now = Instant::now();
+    let ark_proof = create_proof_with_reduction_and_matrices::<_, CircomReduction>(
+        &proving_key.0,
+        r,
+        s,
+        &proving_key.1,
+        proving_key.1.num_instance_variables,
+        proving_key.1.num_constraints,
+        full_assignment.as_slice(),
+    )?;
     let proof = ark_proof.into();
-
     println!("proof generation took: {:.2?}", now.elapsed());
 
     Ok(proof)
@@ -506,7 +524,9 @@ pub fn verify_proof(
     // Check that the proof is valid
     let pvk = prepare_verifying_key(verifying_key);
     let pr: ArkProof<Bn254> = (*proof).into();
+    let now = Instant::now();
     let verified = ark_verify_proof(&pvk, &pr, &vec_to_fr(&inputs))?;
+    println!("verify took: {:.2?}", now.elapsed());
 
     Ok(verified)
 }

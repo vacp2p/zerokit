@@ -25,7 +25,7 @@ mod test {
     use semaphore::{hash::Hash, identity::Identity, poseidon_hash, Field};
 
     // Input generated with https://github.com/oskarth/zk-kit/commit/b6a872f7160c7c14e10a0ea40acab99cbb23c9a8
-    const WITNESS_JSON: &str = r#"
+    const WITNESS_JSON_16: &str = r#"
             {
               "identity_secret": "12825549237505733615964533204745049909430608936689388901883576945030025938736",
               "path_elements": [
@@ -68,10 +68,60 @@ mod test {
             }
         "#;
 
+    // Input generated with protocol::random_rln_witness
+    const WITNESS_JSON_20: &str = r#"
+            {
+              "identity_secret": "922538810348594125658702672067738675294669207539999802857585668079702330450",
+              "path_elements": [
+                  "16059714054680148404543504061485737353203416489071538960876865983954285286166",
+                  "3041470753871943901334053763207316028823782848445723460227667780327106380356",
+                  "2557297527793326315072058421057853700096944625924483912548759909801348042183",
+                  "6677578602456189582427063963562590713054668181987223110955234085327917303436",
+                  "2250827150965576973906150764756422151438812678308727218463995574869267980301",
+                  "1895457427602709606993445561553433669787657053834360973759981803464906070980",
+                  "11033689991077061346803816826729204895841441316315304395980565540264104346466",
+                  "18588752216879570844240300406954267039026327526134910835334500497981810174976",
+                  "19346480964028499661277403659363466542857230928032088490855656809181891953123",
+                  "21460193770370072688835316363068413651465631481105148051902686770759127189327",
+                  "20906347653364838502964722817589315918082261023317339146393355650507243340078",
+                  "13466599592974387800162739317046838825289754472645703919149409009404541432954",
+                  "9617165663598957201253074168824246164494443748556931540348223968573884172285",
+                  "6936463137584425684797785981770877165377386163416057257854261010817156666898",
+                  "369902028235468424790098825415813437044876310542601948037281422841675126849",
+                  "13510969869821080499683463562609720931680005714401083864659516045615497273644",
+                  "2567921390740781421487331055530491683313154421589525170472201828596388395736",
+                  "14360870889466292805403568662660511177232987619663547772298178013674025998478",
+                  "4735344599616284973799984501493858013178071155960162022656706545116168334293"
+              ],
+              "identity_path_index": [
+                  1,
+                  0,
+                  1,
+                  0,
+                  1,
+                  1,
+                  0,
+                  0,
+                  1,
+                  1,
+                  1,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  1,
+                  1,
+                  0
+              ],
+              "x": "6427050788896290028100534859169645070970780055911091444144195464808120686416",
+              "epoch": "0x2bd155d9f85c741044da6909d144f9cc5ce8e0d545a9ed4921b156e8b8569bab",
+              "rln_identifier": "2193983000213424579594329476781986065965849144986973472766961413131458022566"
+            }
+        "#;
+
     #[test]
     // We test Merkle Tree generation, proofs and verification
-    // This test contains hardcoded values!
-    // TODO: expand this test to work with tree_height = 20
     fn test_merkle_proof() {
         let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
@@ -89,18 +139,32 @@ mod test {
 
         // We check correct computation of the root
         let root = tree.root();
-        assert_eq!(
-            root,
-            Field::from_str("0x27401a4559ce263630907ce3b77c570649e28ede22d2a7f5296839627a16e870")
+
+        if TEST_TREE_HEIGHT == 16 {
+            assert_eq!(
+                root,
+                Field::from_str(
+                    "0x27401a4559ce263630907ce3b77c570649e28ede22d2a7f5296839627a16e870"
+                )
                 .unwrap()
-        );
+            );
+        } else if TEST_TREE_HEIGHT == 20 {
+            assert_eq!(
+                root,
+                Field::from_str(
+                    "0x302920b5e5af8bf5f4bf32995f1ac5933d9a4b6f74803fdde84b8b9a761a2991"
+                )
+                .unwrap()
+            );
+        }
 
         let merkle_proof = tree.proof(leaf_index).expect("proof should exist");
         let path_elements = merkle_proof.get_path_elements();
         let identity_path_index = merkle_proof.get_path_index();
 
         // We check correct computation of the path and indexes
-        let expected_path_elements = vec![
+        // These values refers to TEST_TREE_HEIGHT == 16
+        let mut expected_path_elements = vec![
             Field::from_str("0x0000000000000000000000000000000000000000000000000000000000000000")
                 .unwrap(),
             Field::from_str("0x2098f5fb9e239eab3ceac3f27b81e481dc3124d55ffed523a839ee8446b64864")
@@ -133,8 +197,31 @@ mod test {
                 .unwrap(),
         ];
 
-        let expected_identity_path_index: Vec<u8> =
+        let mut expected_identity_path_index: Vec<u8> =
             vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+        // We add the remaining elements for the case TEST_TREE_HEIGHT = 20
+        if TEST_TREE_HEIGHT == 20 {
+            expected_path_elements.append(&mut vec![
+                Field::from_str(
+                    "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
+                )
+                .unwrap(),
+                Field::from_str(
+                    "0x2a7c7c9b6ce5880b9f6f228d72bf6a575a526f29c66ecceef8b753d38bba7323",
+                )
+                .unwrap(),
+                Field::from_str(
+                    "0x2e8186e558698ec1c67af9c14d463ffc470043c9c2988b954d75dd643f36b992",
+                )
+                .unwrap(),
+                Field::from_str(
+                    "0x0f57c5571e9a4eab49e2c8cf050dae948aef6ead647392273546249d1c1ff10f",
+                )
+                .unwrap(),
+            ]);
+            expected_identity_path_index.append(&mut vec![0, 0, 0, 0]);
+        }
 
         assert_eq!(path_elements, expected_path_elements);
         assert_eq!(identity_path_index, expected_identity_path_index);
@@ -145,16 +232,22 @@ mod test {
 
     #[test]
     // We test a RLN proof generation and verification
-    // This test contains hardcoded values!
-    // TODO: expand this test to work with tree_height = 20
     fn test_witness_from_json() {
         // We generate all relevant keys
         let proving_key = ZKEY(TEST_RESOURCES_FOLDER).unwrap();
         let verification_key = VK(TEST_RESOURCES_FOLDER).unwrap();
-        let builder = CIRCOM(TEST_RESOURCES_FOLDER).unwrap();
+        let builder = CIRCOM(TEST_RESOURCES_FOLDER);
 
         // We compute witness from the json input example
-        let rln_witness = rln_witness_from_json(WITNESS_JSON);
+        let mut witness_json: &str = "";
+
+        if TEST_TREE_HEIGHT == 16 {
+            witness_json = WITNESS_JSON_16;
+        } else if TEST_TREE_HEIGHT == 20 {
+            witness_json = WITNESS_JSON_20;
+        }
+
+        let rln_witness = rln_witness_from_json(witness_json);
 
         // Let's generate a zkSNARK proof
         let proof = generate_proof(builder, &proving_key, &rln_witness).unwrap();
@@ -200,7 +293,7 @@ mod test {
         // We generate all relevant keys
         let proving_key = ZKEY(TEST_RESOURCES_FOLDER).unwrap();
         let verification_key = VK(TEST_RESOURCES_FOLDER).unwrap();
-        let builder = CIRCOM(TEST_RESOURCES_FOLDER).unwrap();
+        let builder = CIRCOM(TEST_RESOURCES_FOLDER);
 
         // Let's generate a zkSNARK proof
         let proof = generate_proof(builder, &proving_key, &rln_witness).unwrap();
@@ -216,7 +309,16 @@ mod test {
     #[test]
     fn test_serialization() {
         // We test witness serialization
-        let rln_witness = rln_witness_from_json(WITNESS_JSON);
+        let mut witness_json: &str = "";
+
+        if TEST_TREE_HEIGHT == 16 {
+            witness_json = WITNESS_JSON_16;
+        } else if TEST_TREE_HEIGHT == 20 {
+            witness_json = WITNESS_JSON_20;
+        }
+
+        let rln_witness = rln_witness_from_json(witness_json);
+
         let ser = serialize_witness(&rln_witness);
         let (deser, _) = deserialize_witness(&ser);
         assert_eq!(rln_witness, deser);
