@@ -23,10 +23,12 @@ const VK_FILENAME: &str = "verifying_key.json";
 const WASM_FILENAME: &str = "rln.wasm";
 
 // These parameters are used for tests
-// Note that the circuit and keys in TEST_RESOURCES_FOLDER are compiled for Merkle trees of height 16 and 20 (including leaves level)
-// Changing these parameters to other value than these twp defaults will cause zkSNARK proof verification to fail
-//pub const TEST_TREE_HEIGHT: usize = 16;
-//pub const TEST_RESOURCES_FOLDER: &str = "./resources/tree_height_16/";
+// Note that the circuit and keys in TEST_RESOURCES_FOLDER are compiled for Merkle trees of height 15 and 19
+// Changing these parameters to other values than these two defaults will cause zkSNARK proof verification to fail
+//pub const TEST_TREE_HEIGHT: usize = 15;
+//pub const TEST_RESOURCES_FOLDER: &str = "./resources/tree_height_15/";
+//pub const TEST_TREE_HEIGHT: usize = 19;
+//pub const TEST_RESOURCES_FOLDER: &str = "./resources/tree_height_19/";
 pub const TEST_TREE_HEIGHT: usize = 20;
 pub const TEST_RESOURCES_FOLDER: &str = "./resources/tree_height_20/";
 

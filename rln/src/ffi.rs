@@ -450,8 +450,8 @@ mod test {
         let mut expected_identity_path_index: Vec<u8> =
             vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-        // We add the remaining elements for the case TEST_TREE_HEIGHT = 20
-        if TEST_TREE_HEIGHT == 20 {
+        // We add the remaining elements for the case TEST_TREE_HEIGHT = 19
+        if TEST_TREE_HEIGHT == 19 || TEST_TREE_HEIGHT == 20 {
             expected_path_elements.append(&mut vec![
                 Field::from_str(
                     "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
@@ -471,6 +471,14 @@ mod test {
                 .unwrap(),
             ]);
             expected_identity_path_index.append(&mut vec![0, 0, 0, 0]);
+        }
+
+        if TEST_TREE_HEIGHT == 20 {
+            expected_path_elements.append(&mut vec![Field::from_str(
+                "0x1830ee67b5fb554ad5f63d4388800e1cfe78e310697d46e43c9ce36134f72cca",
+            )
+            .unwrap()]);
+            expected_identity_path_index.append(&mut vec![0]);
         }
 
         assert_eq!(path_elements, expected_path_elements);

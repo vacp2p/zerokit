@@ -25,7 +25,7 @@ mod test {
     use semaphore::{hash::Hash, identity::Identity, poseidon_hash, Field};
 
     // Input generated with https://github.com/oskarth/zk-kit/commit/b6a872f7160c7c14e10a0ea40acab99cbb23c9a8
-    const WITNESS_JSON_16: &str = r#"
+    const WITNESS_JSON_15: &str = r#"
             {
               "identity_secret": "12825549237505733615964533204745049909430608936689388901883576945030025938736",
               "path_elements": [
@@ -69,7 +69,7 @@ mod test {
         "#;
 
     // Input generated with protocol::random_rln_witness
-    const WITNESS_JSON_20: &str = r#"
+    const WITNESS_JSON_19: &str = r#"
             {
               "identity_secret": "922538810348594125658702672067738675294669207539999802857585668079702330450",
               "path_elements": [
@@ -120,6 +120,60 @@ mod test {
             }
         "#;
 
+    const WITNESS_JSON_20: &str = r#"
+            {
+              "identity_secret": "13732353453861280511150022598793312186188599006979552959297495195757997428306",
+              "path_elements": [
+                  "20463525608687844300981085488128968694844212760055234622292326942405619575964",
+                  "8040856403709217901175408904825741112286158901303127670929462145501210871313",
+                  "3776499751255585163563840252112871568402966629435152937692711318702338789837",
+                  "19415813252626942110541463414404411443562242499365750694284604341271149125679",
+                  "19414720788761208006634240390286942738242262010168559813148115573784354129237",
+                  "17680594732844291740094158892269696200077963275550625226493856898849422516043",
+                  "16009199741350632715210088346611798597033333293348807000623441780059543674510",
+                  "18743496911007535170857676824393811326863602477260615792503039058813338644738",
+                  "1029572792321380246989475723806770724699749375691788486434716005338938722216",
+                  "21713138150151063186050010182615713685603650963220209951496401043119768920892",
+                  "6713732504049401389983008178456811894856018247924860823028704114266363984580",
+                  "2746686888799473963221285145390361693256731812094259845879519459924507786594",
+                  "18620748467731297359505500266677881218553438497271819903304075323783392031715",
+                  "2446201221122671119406471414204229600430018713181038717206670749886932158104",
+                  "12037171942017611311954851302868199608036334625783560875426350283156617524597",
+                  "21798743392351780927808323348278035105395367759688979232116905142049921734349",
+                  "17450230289417496971557215666910229260621413088991137405744457922069827319039",
+                  "20936854099128086256353520300046664152516566958630447858438908748907198510485",
+                  "13513344965831154386658059617477268600255664386844920822248038939666265737046",
+                  "15546319496880899251450021422131511560001766832580480193115646510655765306630"
+
+              ],
+              "identity_path_index": [
+                  0,
+                  1,
+                  0,
+                  0,
+                  1,
+                  1,
+                  0,
+                  0,
+                  1,
+                  1,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  1,
+                  1,
+                  0,
+                  0,
+                  0
+              ],
+              "x": "18073935665561339809445069958310044423750771681863480888589546877024349720547",
+              "epoch": "0x147e4c23a43a1ddca78d94bcd28147f62ca74b3dc7e56bb0a314a954b9f0e567",
+              "rln_identifier": "2193983000213424579594329476781986065965849144986973472766961413131458022566"
+            }
+        "#;
+
     #[test]
     // We test Merkle Tree generation, proofs and verification
     fn test_merkle_proof() {
@@ -140,7 +194,7 @@ mod test {
         // We check correct computation of the root
         let root = tree.root();
 
-        if TEST_TREE_HEIGHT == 16 {
+        if TEST_TREE_HEIGHT == 15 {
             assert_eq!(
                 root,
                 Field::from_str(
@@ -148,11 +202,19 @@ mod test {
                 )
                 .unwrap()
             );
-        } else if TEST_TREE_HEIGHT == 20 {
+        } else if TEST_TREE_HEIGHT == 19 {
             assert_eq!(
                 root,
                 Field::from_str(
                     "0x302920b5e5af8bf5f4bf32995f1ac5933d9a4b6f74803fdde84b8b9a761a2991"
+                )
+                .unwrap()
+            );
+        } else if TEST_TREE_HEIGHT == 20 {
+            assert_eq!(
+                root,
+                Field::from_str(
+                    "0x0c33d9be0ca0dd96c64d92107886de4235108e0fee203bb044ac4ee210a3dfea"
                 )
                 .unwrap()
             );
@@ -201,7 +263,7 @@ mod test {
             vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         // We add the remaining elements for the case TEST_TREE_HEIGHT = 20
-        if TEST_TREE_HEIGHT == 20 {
+        if TEST_TREE_HEIGHT == 19 || TEST_TREE_HEIGHT == 20 {
             expected_path_elements.append(&mut vec![
                 Field::from_str(
                     "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
@@ -223,6 +285,14 @@ mod test {
             expected_identity_path_index.append(&mut vec![0, 0, 0, 0]);
         }
 
+        if TEST_TREE_HEIGHT == 20 {
+            expected_path_elements.append(&mut vec![Field::from_str(
+                "0x1830ee67b5fb554ad5f63d4388800e1cfe78e310697d46e43c9ce36134f72cca",
+            )
+            .unwrap()]);
+            expected_identity_path_index.append(&mut vec![0]);
+        }
+
         assert_eq!(path_elements, expected_path_elements);
         assert_eq!(identity_path_index, expected_identity_path_index);
 
@@ -241,8 +311,10 @@ mod test {
         // We compute witness from the json input example
         let mut witness_json: &str = "";
 
-        if TEST_TREE_HEIGHT == 16 {
-            witness_json = WITNESS_JSON_16;
+        if TEST_TREE_HEIGHT == 15 {
+            witness_json = WITNESS_JSON_15;
+        } else if TEST_TREE_HEIGHT == 19 {
+            witness_json = WITNESS_JSON_19;
         } else if TEST_TREE_HEIGHT == 20 {
             witness_json = WITNESS_JSON_20;
         }
@@ -311,8 +383,10 @@ mod test {
         // We test witness serialization
         let mut witness_json: &str = "";
 
-        if TEST_TREE_HEIGHT == 16 {
-            witness_json = WITNESS_JSON_16;
+        if TEST_TREE_HEIGHT == 15 {
+            witness_json = WITNESS_JSON_15;
+        } else if TEST_TREE_HEIGHT == 19 {
+            witness_json = WITNESS_JSON_19;
         } else if TEST_TREE_HEIGHT == 20 {
             witness_json = WITNESS_JSON_20;
         }
