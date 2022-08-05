@@ -27,10 +27,10 @@ pub trait Hasher {
 /// Merkle tree with all leaf and intermediate hashes stored
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct MerkleTree<H: Hasher> {
-    /// Depth of the tree, # of layers including leaf layer
-    depth: usize,
+    /// total number of levels of the tree, i.e. # of layers including pre-images layer of tree leaves
+    levels: usize,
 
-    /// Hash value of empty subtrees of given depth, starting at leaf level
+    /// Hash value of empty subtrees of given levels, starting at leaf level
     empty: Vec<H::Hash>,
 
     /// Hash values of tree nodes and leaves, breadth first order
@@ -70,7 +70,7 @@ const fn first_child(index: usize) -> usize {
     (index << 1) + 1
 }
 
-const fn depth(index: usize) -> usize {
+const fn levels(index: usize) -> usize {
     // `n.next_power_of_two()` will return `n` iff `n` is a power of two.
     // The extra offset corrects this.
     (index + 2).next_power_of_two().trailing_zeros() as usize - 1
@@ -78,12 +78,13 @@ const fn depth(index: usize) -> usize {
 
 impl<H: Hasher> MerkleTree<H> {
     /// Creates a new `MerkleTree`
-    /// * `depth` - The depth of the tree, including the root. This is 1 greater
-    ///   than the `treeLevels` argument to the Semaphore contract.
-    pub fn new(depth: usize, initial_leaf: H::Hash) -> Self {
+    /// tree_height - the height of the tree made only of hash nodes. 2^tree_height is the maximum number of leaves hash nodes
+    pub fn new(tree_height: usize, initial_leaf: H::Hash) -> Self {
+        // total number of levels of the tree, i.e. # of layers including pre-images layer of tree leaves, thus equal to tree_height+1
+        let levels = tree_height + 1;
         // Compute empty node values, leaf to root
         let empty = successors(Some(initial_leaf), |prev| Some(H::hash_node(prev, prev)))
-            .take(depth)
+            .take(levels)
             .collect::<Vec<_>>();
 
         // Compute node values
@@ -91,15 +92,15 @@ impl<H: Hasher> MerkleTree<H> {
             .iter()
             .rev()
             .enumerate()
-            .flat_map(|(depth, hash)| repeat(hash).take(1 << depth))
+            .flat_map(|(levels, hash)| repeat(hash).take(1 << levels))
             .cloned()
             .collect::<Vec<_>>();
-        debug_assert!(nodes.len() == (1 << depth) - 1);
+        debug_assert!(nodes.len() == (1 << levels) - 1);
 
         let next_index = 0;
 
         Self {
-            depth,
+            levels,
             empty,
             nodes,
             next_index,
@@ -108,7 +109,7 @@ impl<H: Hasher> MerkleTree<H> {
 
     #[must_use]
     pub fn num_leaves(&self) -> usize {
-        self.depth
+        self.levels
             .checked_sub(1)
             .map(|n| 1 << n)
             .unwrap_or_default()
@@ -139,7 +140,7 @@ impl<H: Hasher> MerkleTree<H> {
     }
 
     fn update_nodes(&mut self, start: usize, end: usize) {
-        debug_assert_eq!(depth(start), depth(end));
+        debug_assert_eq!(levels(start), levels(end));
         if let (Some(start), Some(end)) = (parent(start), parent(end)) {
             for parent in start..=end {
                 let child = first_child(parent);
@@ -155,7 +156,7 @@ impl<H: Hasher> MerkleTree<H> {
             return None;
         }
         let mut index = self.num_leaves() + leaf - 1;
-        let mut path = Vec::with_capacity(self.depth);
+        let mut path = Vec::with_capacity(self.levels);
         while let Some(parent) = parent(index) {
             // Add proof for node at index to parent
             path.push(match index & 1 {
@@ -276,16 +277,16 @@ pub mod test {
         assert_eq!(parent(6), Some(2));
         assert_eq!(first_child(0), 1);
         assert_eq!(first_child(2), 5);
-        assert_eq!(depth(0), 0);
-        assert_eq!(depth(1), 1);
-        assert_eq!(depth(2), 1);
-        assert_eq!(depth(3), 2);
-        assert_eq!(depth(6), 2);
+        assert_eq!(levels(0), 0);
+        assert_eq!(levels(1), 1);
+        assert_eq!(levels(2), 1);
+        assert_eq!(levels(3), 2);
+        assert_eq!(levels(6), 2);
     }
 
     #[test]
     fn test_root() {
-        let mut tree = MerkleTree::<Keccak256>::new(3, [0; 32]);
+        let mut tree = MerkleTree::<Keccak256>::new(2, [0; 32]);
         assert_eq!(
             tree.root(),
             hex!("b4c11951957c6f8f642c4af61cd6b24640fec6dc7fc607ee8206a99e92410d30")
@@ -326,7 +327,7 @@ pub mod test {
 
     #[test]
     fn test_proof() {
-        let mut tree = MerkleTree::<Keccak256>::new(3, [0; 32]);
+        let mut tree = MerkleTree::<Keccak256>::new(2, [0; 32]);
         tree.set(
             0,
             hex!("0000000000000000000000000000000000000000000000000000000000000001"),
@@ -358,7 +359,7 @@ pub mod test {
 
     #[test]
     fn test_position() {
-        let mut tree = MerkleTree::<Keccak256>::new(3, [0; 32]);
+        let mut tree = MerkleTree::<Keccak256>::new(2, [0; 32]);
         tree.set(
             0,
             hex!("0000000000000000000000000000000000000000000000000000000000000001"),

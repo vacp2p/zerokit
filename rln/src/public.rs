@@ -219,12 +219,6 @@ impl RLN<'_> {
         let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte);
         let proof_values = proof_values_from_witness(&rln_witness);
 
-        /*
-        if self.witness_calculator.is_none() {
-            self.witness_calculator = CIRCOM(&self.resources_folder);
-        }
-        */
-
         let proof = generate_proof(
             self.witness_calculator,
             self.proving_key.as_ref().unwrap(),
@@ -429,7 +423,7 @@ mod test {
         rln.get_root(&mut buffer).unwrap();
         let (root, _) = bytes_le_to_field(&buffer.into_inner());
 
-        if TEST_TREE_HEIGHT == 16 {
+        if TEST_TREE_HEIGHT == 15 {
             assert_eq!(
                 root,
                 Field::from_str(
@@ -437,11 +431,19 @@ mod test {
                 )
                 .unwrap()
             );
-        } else if TEST_TREE_HEIGHT == 20 {
+        } else if TEST_TREE_HEIGHT == 19 {
             assert_eq!(
                 root,
                 Field::from_str(
                     "0x302920b5e5af8bf5f4bf32995f1ac5933d9a4b6f74803fdde84b8b9a761a2991"
+                )
+                .unwrap()
+            );
+        } else if TEST_TREE_HEIGHT == 20 {
+            assert_eq!(
+                root,
+                Field::from_str(
+                    "0x0c33d9be0ca0dd96c64d92107886de4235108e0fee203bb044ac4ee210a3dfea"
                 )
                 .unwrap()
             );
@@ -493,7 +495,7 @@ mod test {
             vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         // We add the remaining elements for the case TEST_TREE_HEIGHT = 20
-        if TEST_TREE_HEIGHT == 20 {
+        if TEST_TREE_HEIGHT == 19 || TEST_TREE_HEIGHT == 20 {
             expected_path_elements.append(&mut vec![
                 Field::from_str(
                     "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
@@ -513,6 +515,15 @@ mod test {
                 .unwrap(),
             ]);
             expected_identity_path_index.append(&mut vec![0, 0, 0, 0]);
+        }
+
+        if TEST_TREE_HEIGHT == 20 {
+            expected_path_elements.append(&mut vec![
+                Field::from_str(
+                    "0x1830ee67b5fb554ad5f63d4388800e1cfe78e310697d46e43c9ce36134f72cca",
+                )
+                .unwrap()]);
+            expected_identity_path_index.append(&mut vec![0]);
         }
 
         assert_eq!(path_elements, expected_path_elements);

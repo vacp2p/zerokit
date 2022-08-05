@@ -267,9 +267,7 @@ pub fn random_rln_witness(tree_height: usize) -> RLNWitnessInput {
     let mut path_elements: Vec<Field> = Vec::new();
     let mut identity_path_index: Vec<u8> = Vec::new();
 
-    // In semaphore's poseidon_tree, the leaves level is counted in tree_height.
-    // This means that a merkle proof consists of tree_height-1 field elements
-    for _ in 0..tree_height - 1 {
+    for _ in 0..tree_height {
         path_elements.push(hash_to_field(&rng.gen::<[u8; 32]>()));
         identity_path_index.push(rng.gen_range(0..2) as u8);
     }
@@ -295,15 +293,6 @@ pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> RLNProofValue
     let nullifier = poseidon_hash(&[a_1, rln_witness.rln_identifier]);
 
     // Merkle tree root computations
-    let mut root = poseidon_hash(&[rln_witness.identity_secret]);
-    for i in 0..rln_witness.identity_path_index.len() {
-        if rln_witness.identity_path_index[i] == 0 {
-            root = poseidon_hash(&[root, rln_witness.path_elements[i]]);
-        } else {
-            root = poseidon_hash(&[rln_witness.path_elements[i], root]);
-        }
-    }
-
     let root = compute_tree_root(
         &rln_witness.identity_secret,
         &rln_witness.path_elements,
