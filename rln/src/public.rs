@@ -518,11 +518,10 @@ mod test {
         }
 
         if TEST_TREE_HEIGHT == 20 {
-            expected_path_elements.append(&mut vec![
-                Field::from_str(
-                    "0x1830ee67b5fb554ad5f63d4388800e1cfe78e310697d46e43c9ce36134f72cca",
-                )
-                .unwrap()]);
+            expected_path_elements.append(&mut vec![Field::from_str(
+                "0x1830ee67b5fb554ad5f63d4388800e1cfe78e310697d46e43c9ce36134f72cca",
+            )
+            .unwrap()]);
             expected_identity_path_index.append(&mut vec![0]);
         }
 
