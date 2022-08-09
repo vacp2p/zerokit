@@ -492,7 +492,7 @@ mod test {
     }
 
     #[test]
-    fn test_100_groth16_proofs_ffi() {
+    fn test_groth16_proofs_performance_ffi() {
         let tree_height = TEST_TREE_HEIGHT;
 
         // We create a RLN instance

@@ -85,7 +85,7 @@ impl RLN<'_> {
 
         // We set the leaf at input index
         let (leaf, _) = bytes_le_to_field(&leaf_byte);
-        self.tree.set(index, leaf);
+        self.tree.set(index, leaf)?;
 
         Ok(())
     }
@@ -100,7 +100,7 @@ impl RLN<'_> {
 
         // We set the leaves
         for (i, leaf) in leaves.iter().enumerate() {
-            self.tree.set(i, *leaf);
+            self.tree.set(i, *leaf)?;
         }
 
         Ok(())
@@ -114,7 +114,7 @@ impl RLN<'_> {
 
         // We set the leaf at input index
         let (leaf, _) = bytes_le_to_field(&leaf_byte);
-        self.tree.set(self.tree.next_index, leaf);
+        self.tree.update_next(leaf)?;
 
         Ok(())
     }
@@ -124,7 +124,7 @@ impl RLN<'_> {
         // We reset the leaf only if we previously set a leaf at that index
         if index < self.tree.next_index {
             let leaf = Field::from(0);
-            self.tree.set(index, leaf);
+            self.tree.set(index, leaf)?;
         }
 
         Ok(())

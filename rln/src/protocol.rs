@@ -1,6 +1,5 @@
 use crate::circuit::{CIRCOM, VK, ZKEY};
-use crate::merkle_tree::{self, Branch};
-use crate::poseidon_tree::PoseidonHash;
+use crate::merkle_tree::MerkleProof;
 use ark_bn254::{Bn254, Fr, Parameters};
 use ark_circom::{read_zkey, CircomBuilder, CircomConfig, CircomReduction, WitnessCalculator};
 use ark_ec::bn::Bn;
@@ -237,7 +236,7 @@ pub fn rln_witness_from_json(input_json_str: &str) -> RLNWitnessInput {
 
 pub fn rln_witness_from_values(
     identity_secret: Field,
-    merkle_proof: &merkle_tree::Proof<PoseidonHash>,
+    merkle_proof: &MerkleProof<PoseidonHash>,
     x: Field,
     epoch: Field,
     //rln_identifier: Field,

@@ -6,20 +6,59 @@ use semaphore::{poseidon_hash, Field};
 
 use serde::{Deserialize, Serialize};
 
-#[allow(dead_code)]
-pub type PoseidonTree = MerkleTree<PoseidonHash>;
-#[allow(dead_code)]
-pub type Branch = merkle_tree::Branch<PoseidonHash>;
-#[allow(dead_code)]
-pub type Proof = merkle_tree::Proof<PoseidonHash>;
-
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PoseidonHash;
 
-impl Hasher for PoseidonHash {
-    type Hash = Field;
+// Incremental Merkle tree
+#[allow(dead_code)]
+pub type PoseidonTree = MerkleTree<PoseidonHash>;
 
-    fn hash_node(left: &Self::Hash, right: &Self::Hash) -> Self::Hash {
-        poseidon_hash(&[*left, *right])
+impl Hasher for PoseidonHash {
+    type Fr = Field;
+
+    fn default_leaf() -> Self::Fr {
+        Self::Fr::from(0)
     }
+
+    fn hash(inputs: &[Self::Fr]) -> Self::Fr {
+        poseidon_hash(inputs)
+    }
+}
+
+#[test]
+fn test_merkle_performance() {
+    use std::time::{Duration, Instant};
+
+    let tree_height = 20;
+    let sample_size = 10000;
+
+    let leaves: Vec<Field> = (0..sample_size).map(|s| Field::from(s)).collect();
+
+    let mut gen_time: u128 = 0;
+    let mut upd_time: u128 = 0;
+
+    for _ in 0..sample_size.try_into().unwrap() {
+        let now = Instant::now();
+        PoseidonTree::new(tree_height, Field::from(0));
+        gen_time += now.elapsed().as_nanos();
+    }
+
+    let mut tree = PoseidonTree::new(tree_height, Field::from(0));
+    for i in 0..sample_size.try_into().unwrap() {
+        let now = Instant::now();
+        tree.set(i, leaves[i]).unwrap();
+        upd_time += now.elapsed().as_nanos();
+        let proof = tree.proof(i).expect("index should be set");
+        assert_eq!(proof.leaf_index(), i);
+    }
+
+    println!(
+        "Average tree generation time: {:?}",
+        Duration::from_nanos((gen_time / u128::from(sample_size)).try_into().unwrap())
+    );
+
+    println!(
+        "Average update_next time: {:?}",
+        Duration::from_nanos((upd_time / u128::from(sample_size)).try_into().unwrap())
+    );
 }
