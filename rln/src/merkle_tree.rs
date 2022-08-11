@@ -1,7 +1,6 @@
 // Implementation adapted from https://github.com/kilic/rln/blob/master/src/merkle.rs
 // and https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/merkle_tree.rs
 
-
 //!
 //! # To do
 //!
@@ -30,7 +29,8 @@ pub trait Hasher {
 pub struct MerkleTree<H>
 where
     H: Hasher,
-{   /// The depth of the tree
+{
+    /// The depth of the tree
     pub depth: usize,
     /// The nodes cached from the empty part of the tree (where leaves are set to default).
     /// Since the rightmost part of the tree is usually changed much later than its creation,
