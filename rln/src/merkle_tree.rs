@@ -1,6 +1,12 @@
 // Implementation adapted from https://github.com/kilic/rln/blob/master/src/merkle.rs
 // and https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/merkle_tree.rs
 
+
+//!
+//! # To do
+//!
+//! * Disk based storage backend (using mmaped files should be easy)
+
 use ark_std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use std::cmp::max;
@@ -8,15 +14,15 @@ use std::fmt::Debug;
 use std::io::{self, Error, ErrorKind};
 use std::{collections::HashMap, hash::Hash};
 
-/// Hash types, values and algorithms for a Merkle tree
+/// In Hasher we define the node type, the default leaf and the hash function used to initialize the Merkle Tree
 pub trait Hasher {
-    /// Type of the leaf and node hashes
+    /// Type of the leaf and tree node
     type Fr: Copy + Clone + Eq + Serialize;
 
-    /// Return the default Fr element
+    /// Returns the default tree leaf
     fn default_leaf() -> Self::Fr;
 
-    /// Compute the hash of an intermediate node
+    /// Utility to compute the hash of an intermediate node
     fn hash(input: &[Self::Fr]) -> Self::Fr;
 }
 
@@ -24,14 +30,21 @@ pub trait Hasher {
 pub struct MerkleTree<H>
 where
     H: Hasher,
-{
+{   /// The depth of the tree
     pub depth: usize,
+    /// The nodes cached from the empty part of the tree (where leaves are set to default).
+    /// Since the rightmost part of the tree is usually changed much later than its creation,
+    /// we can prove accumulation of elements in the leftmost part, with no need to initialize the full tree
+    /// and by caching few intermediate nodes to the root computed from default leaves
     cached_nodes: Vec<H::Fr>,
+    /// The tree nodes
     nodes: HashMap<(usize, usize), H::Fr>,
+    /// The next available leaf index
     pub next_index: usize,
 }
 
 /// The Merkle proof
+/// Contains a vector of (node, branch_index) that defines the proof path elements and branch direction (1 or 0)
 #[derive(Clone, PartialEq, Eq, Serialize)]
 pub struct MerkleProof<H: Hasher>(pub Vec<(H::Fr, u8)>);
 
