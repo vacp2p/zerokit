@@ -1,5 +1,4 @@
-use crate::poseidon_tree::PoseidonTree;
-/// This is the main public API for RLN. It is used by the FFI, and should be
+/// This is the main public API for RLN module. It is used by the FFI, and should be
 /// used by tests etc as well
 ///
 use ark_bn254::{Bn254, Fr};
@@ -25,6 +24,7 @@ use ark_ff::bytes::ToBytes;
 use ark_serialize::{Read, Write};
 
 use crate::circuit::{CIRCOM, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT, VK, ZKEY};
+use crate::poseidon_tree::PoseidonTree;
 use crate::protocol::{self, *};
 use crate::utils::*;
 
@@ -55,8 +55,7 @@ impl RLN<'_> {
         let verification_key = VK(&resources_folder);
 
         // We compute a default empty tree
-        let leaf = Field::from(0);
-        let tree = PoseidonTree::new(tree_height, leaf);
+        let tree = PoseidonTree::default(tree_height);
 
         RLN {
             witness_calculator,
@@ -72,8 +71,7 @@ impl RLN<'_> {
     ////////////////////////////////////////////////////////
     pub fn set_tree(&mut self, tree_height: usize) -> io::Result<()> {
         // We compute a default empty tree of desired height
-        let leaf = Field::from(0);
-        self.tree = PoseidonTree::new(tree_height, leaf);
+        self.tree = PoseidonTree::default(tree_height);
 
         Ok(())
     }
@@ -121,12 +119,7 @@ impl RLN<'_> {
 
     // Deleting a leaf corresponds to set its value to the default 0 leaf
     pub fn delete_leaf(&mut self, index: usize) -> io::Result<()> {
-        // We reset the leaf only if we previously set a leaf at that index
-        if index < self.tree.next_index {
-            let leaf = Field::from(0);
-            self.tree.set(index, leaf)?;
-        }
-
+        self.tree.delete(index)?;
         Ok(())
     }
 
@@ -328,8 +321,8 @@ mod test {
 
         // We first add leaves one by one specifying the index
         for (i, leaf) in leaves.iter().enumerate() {
-            // We check if internal index is properly set
-            assert_eq!(rln.tree.next_index, i);
+            // We check if the number of leaves set is consistent
+            assert_eq!(rln.tree.leaves_set(), i);
 
             let mut buffer = Cursor::new(field_to_bytes_le(&leaf));
             rln.set_leaf(i, &mut buffer).unwrap();
@@ -349,8 +342,8 @@ mod test {
             rln.set_next_leaf(&mut buffer).unwrap();
         }
 
-        // We check if internal index is properly set
-        assert_eq!(rln.tree.next_index, no_of_leaves);
+        // We check if numbers of leaves set is consistent
+        assert_eq!(rln.tree.leaves_set(), no_of_leaves);
 
         // We get the root of the tree obtained adding leaves using the internal index
         let mut buffer = Cursor::new(Vec::<u8>::new());
@@ -366,8 +359,8 @@ mod test {
         let mut buffer = Cursor::new(vec_field_to_bytes_le(&leaves));
         rln.set_leaves(&mut buffer).unwrap();
 
-        // We check if internal index is properly set
-        assert_eq!(rln.tree.next_index, no_of_leaves);
+        // We check if number of leaves set is consistent
+        assert_eq!(rln.tree.leaves_set(), no_of_leaves);
 
         // We get the root of the tree obtained adding leaves in batch
         let mut buffer = Cursor::new(Vec::<u8>::new());
@@ -382,8 +375,8 @@ mod test {
             rln.delete_leaf(i).unwrap();
         }
 
-        // We check if internal index is properly set
-        assert_eq!(rln.tree.next_index, no_of_leaves);
+        // We check if number of leaves set is consistent
+        assert_eq!(rln.tree.leaves_set(), no_of_leaves);
 
         let mut buffer = Cursor::new(Vec::<u8>::new());
         rln.get_root(&mut buffer).unwrap();
@@ -601,7 +594,7 @@ mod test {
         let (identity_secret, id_commitment) = keygen();
 
         // We set as leaf id_commitment after storing its index
-        let identity_index = u64::try_from(rln.tree.next_index).unwrap();
+        let identity_index = u64::try_from(rln.tree.leaves_set()).unwrap();
         let mut buffer = Cursor::new(field_to_bytes_le(&id_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
 

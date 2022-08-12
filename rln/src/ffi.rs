@@ -1,3 +1,5 @@
+// This crate implements the public Foreign Function Interface (FFI) for the RLN module
+
 use crate::public::RLN;
 use std::slice;
 
