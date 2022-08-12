@@ -45,20 +45,20 @@ where
     H: Hasher,
 {
     /// The depth of the tree, i.e. the number of levels from leaf to root
-    pub depth: usize,
-    
+    depth: usize,
+
     /// The nodes cached from the empty part of the tree (where leaves are set to default).
     /// Since the rightmost part of the tree is usually changed much later than its creation,
     /// we can prove accumulation of elements in the leftmost part, with no need to initialize the full tree
     /// and by caching few intermediate nodes to the root computed from default leaves
     cached_nodes: Vec<H::Fr>,
-    
+
     /// The tree nodes
     nodes: HashMap<(usize, usize), H::Fr>,
-    
+
     // The next available (i.e., never used) tree index. Equivalently, the number of leaves added to the tree
     // (deletions leave next_index unchanged)
-    pub next_index: usize,
+    next_index: usize,
 }
 
 /// The Merkle proof
@@ -69,7 +69,6 @@ pub struct OptimalMerkleProof<H: Hasher>(pub Vec<(H::Fr, u8)>);
 /// Implementations
 
 impl<H: Hasher> OptimalMerkleTree<H> {
-
     pub fn default(depth: usize) -> Self {
         OptimalMerkleTree::<H>::new(depth, H::default_leaf())
     }
@@ -91,9 +90,19 @@ impl<H: Hasher> OptimalMerkleTree<H> {
         }
     }
 
+    // Returns the depth of the tree
+    pub fn depth(&self) -> usize {
+        self.depth
+    }
+
     // Returns the capacity of the tree, i.e. the maximum number of accumulatable leaves
     pub fn capacity(&self) -> usize {
         1 << self.depth
+    }
+
+    // Returns the total number of leaves set
+    pub fn leaves_set(&mut self) -> usize {
+        self.next_index
     }
 
     #[must_use]
@@ -116,7 +125,6 @@ impl<H: Hasher> OptimalMerkleTree<H> {
         Ok(())
     }
 
-    #[must_use]
     // Sets a leaf at the next available index
     pub fn update_next(&mut self, leaf: H::Fr) -> io::Result<()> {
         self.set(self.next_index, leaf)?;
@@ -127,17 +135,11 @@ impl<H: Hasher> OptimalMerkleTree<H> {
     pub fn delete(&mut self, index: usize) -> io::Result<()> {
         // We reset the leaf only if we previously set a leaf at that index
         if index < self.next_index {
-            self.set(index, H::default_leaf())?;            
+            self.set(index, H::default_leaf())?;
         }
         Ok(())
     }
 
-    // Returns the total number of leaves set
-    pub fn leaves_set(&mut self) -> usize {
-        self.next_index
-    }
-
-    #[must_use]
     // Computes a merkle proof the the leaf at the specified index
     pub fn proof(&self, index: usize) -> io::Result<OptimalMerkleProof<H>> {
         if index >= self.capacity() {
@@ -162,7 +164,6 @@ impl<H: Hasher> OptimalMerkleTree<H> {
         Ok(OptimalMerkleProof(witness))
     }
 
-    #[must_use]
     // Verifies a Merkle proof with respect to the input leaf and the tree root
     pub fn verify(&self, leaf: &H::Fr, witness: &OptimalMerkleProof<H>) -> io::Result<bool> {
         if witness.length() != self.depth {
@@ -212,7 +213,6 @@ impl<H: Hasher> OptimalMerkleTree<H> {
 }
 
 impl<H: Hasher> OptimalMerkleProof<H> {
-
     #[must_use]
     // Returns the length of a Merkle proof
     pub fn length(&self) -> usize {
@@ -282,14 +282,14 @@ pub struct FullMerkleTree<H: Hasher> {
     /// Since the rightmost part of the tree is usually changed much later than its creation,
     /// we can prove accumulation of elements in the leftmost part, with no need to initialize the full tree
     /// and by caching few intermediate nodes to the root computed from default leaves
-        cached_nodes: Vec<H::Fr>,
+    cached_nodes: Vec<H::Fr>,
 
     /// The tree nodes
     nodes: Vec<H::Fr>,
 
     // The next available (i.e., never used) tree index. Equivalently, the number of leaves added to the tree
     // (deletions leave next_index unchanged)
-    pub next_index: usize,
+    next_index: usize,
 }
 
 /// Element of a Merkle proof
@@ -309,7 +309,6 @@ pub struct FullMerkleProof<H: Hasher>(pub Vec<FullMerkleBranch<H>>);
 /// Implementations
 
 impl<H: Hasher> FullMerkleTree<H> {
-
     pub fn default(depth: usize) -> Self {
         FullMerkleTree::<H>::new(depth, H::default_leaf())
     }
@@ -319,7 +318,7 @@ impl<H: Hasher> FullMerkleTree<H> {
     pub fn new(depth: usize, initial_leaf: H::Fr) -> Self {
         // Compute cache node values, leaf to root
         let cached_nodes = successors(Some(initial_leaf), |prev| Some(H::hash(&[*prev, *prev])))
-            .take(depth+1)
+            .take(depth + 1)
             .collect::<Vec<_>>();
 
         // Compute node values
@@ -330,7 +329,7 @@ impl<H: Hasher> FullMerkleTree<H> {
             .flat_map(|(levels, hash)| repeat(hash).take(1 << levels))
             .cloned()
             .collect::<Vec<_>>();
-        debug_assert!(nodes.len() == (1 << (depth+1)) - 1);
+        debug_assert!(nodes.len() == (1 << (depth + 1)) - 1);
 
         let next_index = 0;
 
@@ -342,9 +341,19 @@ impl<H: Hasher> FullMerkleTree<H> {
         }
     }
 
+    // Returns the depth of the tree
+    pub fn depth(&self) -> usize {
+        self.depth
+    }
+
     // Returns the capacity of the tree, i.e. the maximum number of accumulatable leaves
     pub fn capacity(&self) -> usize {
         1 << self.depth
+    }
+
+    // Returns the total number of leaves set
+    pub fn leaves_set(&mut self) -> usize {
+        self.next_index
     }
 
     #[must_use]
@@ -381,7 +390,6 @@ impl<H: Hasher> FullMerkleTree<H> {
         Ok(())
     }
 
-    #[must_use]
     // Sets a leaf at the next available index
     pub fn update_next(&mut self, leaf: H::Fr) -> io::Result<()> {
         self.set(self.next_index, leaf)?;
@@ -392,21 +400,18 @@ impl<H: Hasher> FullMerkleTree<H> {
     pub fn delete(&mut self, index: usize) -> io::Result<()> {
         // We reset the leaf only if we previously set a leaf at that index
         if index < self.next_index {
-            self.set(index, H::default_leaf())?;            
+            self.set(index, H::default_leaf())?;
         }
         Ok(())
     }
 
-    // Returns the total number of leaves set
-    pub fn leaves_set(&mut self) -> usize {
-        self.next_index
-    }
-
-    #[must_use]
     // Computes a merkle proof the the leaf at the specified index
-    pub fn proof(&self, leaf: usize) -> Option<FullMerkleProof<H>> {
+    pub fn proof(&self, leaf: usize) -> io::Result<FullMerkleProof<H>> {
         if leaf >= self.capacity() {
-            return None;
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "index exceeds set size",
+            ));
         }
         let mut index = self.capacity() + leaf - 1;
         let mut path = Vec::with_capacity(self.depth + 1);
@@ -419,18 +424,12 @@ impl<H: Hasher> FullMerkleTree<H> {
             });
             index = parent;
         }
-        Some(FullMerkleProof(path))
+        Ok(FullMerkleProof(path))
     }
 
-    #[must_use]
     // Verifies a Merkle proof with respect to the input leaf and the tree root
     pub fn verify(&self, hash: &H::Fr, proof: &FullMerkleProof<H>) -> io::Result<bool> {
         Ok(proof.compute_root_from(hash) == self.root())
-    }
-
-    #[must_use]
-    pub fn leaves(&self) -> &[H::Fr] {
-        &self.nodes[(self.capacity() - 1)..]
     }
 
     // Utilities for updating the tree nodes
@@ -469,7 +468,6 @@ impl<H: Hasher> FullMerkleTree<H> {
 }
 
 impl<H: Hasher> FullMerkleProof<H> {
-    
     #[must_use]
     // Returns the length of a Merkle proof
     pub fn length(&self) -> usize {

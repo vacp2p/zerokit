@@ -1,7 +1,9 @@
 // This crate defines RLN module default Merkle tree implementation and Hasher
 // Implementation inspired by https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/poseidon_tree.rs (no differences)
 
-use crate::merkle_tree::{Hasher, FullMerkleProof, FullMerkleTree, OptimalMerkleProof, OptimalMerkleTree};
+use crate::merkle_tree::{
+    FullMerkleProof, FullMerkleTree, Hasher, OptimalMerkleProof, OptimalMerkleTree,
+};
 use semaphore::{poseidon_hash, Field};
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +14,6 @@ pub type PoseidonTree = OptimalMerkleTree<PoseidonHash>;
 pub type MerkleProof = OptimalMerkleProof<PoseidonHash>;
 //pub type PoseidonTree = FullMerkleTree<PoseidonHash>;
 //pub type MerkleProof = FullMerkleProof<PoseidonHash>;
-
 
 // The zerokit RLN default Hasher
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
