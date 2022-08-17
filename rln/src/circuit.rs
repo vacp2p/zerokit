@@ -1,3 +1,5 @@
+// This crate provides interfaces for the zero-knowledge circuit and keys
+
 use ark_bn254::{Bn254, Fq, Fq2, Fr, G1Affine, G1Projective, G2Affine, G2Projective};
 use ark_circom::{read_zkey, CircomBuilder, CircomConfig, WitnessCalculator};
 use ark_ff::BigInteger256;

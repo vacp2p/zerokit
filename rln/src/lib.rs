@@ -189,7 +189,7 @@ mod test {
         // generate merkle tree
         let default_leaf = Field::from(0);
         let mut tree = PoseidonTree::new(tree_height, default_leaf);
-        tree.set(leaf_index, id_commitment.into());
+        tree.set(leaf_index, id_commitment.into()).unwrap();
 
         // We check correct computation of the root
         let root = tree.root();
@@ -297,7 +297,7 @@ mod test {
         assert_eq!(identity_path_index, expected_identity_path_index);
 
         // We check correct verification of the proof
-        assert!(tree.verify(id_commitment.into(), &merkle_proof));
+        assert!(tree.verify(&id_commitment, &merkle_proof).unwrap());
     }
 
     #[test]
@@ -344,7 +344,7 @@ mod test {
         //// generate merkle tree
         let default_leaf = Field::from(0);
         let mut tree = PoseidonTree::new(tree_height, default_leaf);
-        tree.set(leaf_index, id_commitment.into());
+        tree.set(leaf_index, id_commitment.into()).unwrap();
 
         let merkle_proof = tree.proof(leaf_index).expect("proof should exist");
 

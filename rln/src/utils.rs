@@ -1,3 +1,5 @@
+// This crate provides cross-module useful utilities (mainly type conversions) not necessarily specific to RLN
+
 use ark_bn254::{Bn254, Fr, Parameters};
 use ark_ff::{BigInteger, Field as ArkField, FpParameters, PrimeField};
 use ark_std::str::FromStr;
