@@ -29,35 +29,27 @@ pub fn to_field(el: &Fr) -> Field {
 }
 
 pub fn vec_to_fr(v: &Vec<Field>) -> Vec<Fr> {
-    let mut result: Vec<Fr> = vec![];
-    for el in v {
-        result.push(to_fr(el));
-    }
-    result
+    v.iter()
+     .map(|el| to_fr(el))
+     .collect()
 }
 
 pub fn vec_to_field(v: &Vec<Fr>) -> Vec<Field> {
-    let mut result: Vec<Field> = vec![];
-    for el in v {
-        result.push(to_field(el));
-    }
-    result
+    v.iter()
+     .map(|el| to_field(el))
+     .collect()
 }
 
 pub fn vec_fr_to_field(input: &Vec<Fr>) -> Vec<Field> {
-    let mut res: Vec<Field> = Vec::new();
-    for el in input {
-        res.push(to_field(el));
-    }
-    res
+    input.iter()
+         .map(|el| to_field(el))
+         .collect()
 }
 
 pub fn vec_field_to_fr(input: &Vec<Field>) -> Vec<Fr> {
-    let mut res: Vec<Fr> = Vec::new();
-    for el in input {
-        res.push(to_fr(el));
-    }
-    res
+    input.iter()
+         .map(|el| to_fr(el))
+         .collect()
 }
 
 pub fn str_to_field(input: String, radix: i32) -> Field {
@@ -141,9 +133,8 @@ pub fn vec_fr_to_bytes_le(input: &Vec<Fr>) -> Vec<u8> {
     //We store the vector length
     bytes.extend(input.len().to_le_bytes().to_vec());
     // We store each element
-    for el in input {
-        bytes.extend(fr_to_bytes_le(el));
-    }
+    input.iter().for_each(|el| bytes.extend(fr_to_bytes_le(el)));
+
     bytes
 }
 
@@ -152,9 +143,8 @@ pub fn vec_fr_to_bytes_be(input: &Vec<Fr>) -> Vec<u8> {
     //We store the vector length
     bytes.extend(input.len().to_be_bytes().to_vec());
     // We store each element
-    for el in input {
-        bytes.extend(fr_to_bytes_be(el));
-    }
+    input.iter().for_each(|el| bytes.extend(fr_to_bytes_be(el)));
+
     bytes
 }
 

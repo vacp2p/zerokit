@@ -207,16 +207,20 @@ pub fn rln_witness_from_json(input_json_str: &str) -> RLNWitnessInput {
 
     let identity_secret = str_to_field(input_json["identity_secret"].to_string(), 10);
 
-    let mut path_elements: Vec<Field> = vec![];
-    for v in input_json["path_elements"].as_array().unwrap().iter() {
-        path_elements.push(str_to_field(v.to_string(), 10));
-    }
-
-    let mut identity_path_index: Vec<u8> = vec![];
-    for v in input_json["identity_path_index"].as_array().unwrap().iter() {
-        identity_path_index.push(v.as_u64().unwrap() as u8);
-    }
-
+    let path_elements = input_json["path_elements"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| str_to_field(v.to_string(), 10))
+            .collect();
+            
+    let identity_path_index = input_json["identity_path_index"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_u64().unwrap() as u8)
+            .collect();
+    
     let x = str_to_field(input_json["x"].to_string(), 10);
 
     let epoch = str_to_field(input_json["epoch"].to_string(), 16);
@@ -430,15 +434,15 @@ pub fn generate_proof(
 ) -> Result<Proof, ProofError> {
     // We confert the path indexes to field elements
     // TODO: check if necessary
-    let mut path_elements: Vec<BigInt> = Vec::new();
-    for v in rln_witness.path_elements.iter() {
-        path_elements.push(BigInt::from(*v));
-    }
+    let mut path_elements = Vec::new();
+    rln_witness.path_elements
+        .iter()
+        .for_each(|v| path_elements.push(BigInt::from(*v)));
 
-    let mut identity_path_index: Vec<BigInt> = Vec::new();
-    for v in rln_witness.identity_path_index.iter() {
-        identity_path_index.push(BigInt::from(*v));
-    }
+    let mut identity_path_index = Vec::new();
+    rln_witness.identity_path_index
+                .iter()
+                .for_each(|v| identity_path_index.push(BigInt::from(*v)));
 
     let inputs = [
         (
