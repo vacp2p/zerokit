@@ -29,27 +29,19 @@ pub fn to_field(el: &Fr) -> Field {
 }
 
 pub fn vec_to_fr(v: &Vec<Field>) -> Vec<Fr> {
-    v.iter()
-     .map(|el| to_fr(el))
-     .collect()
+    v.iter().map(|el| to_fr(el)).collect()
 }
 
 pub fn vec_to_field(v: &Vec<Fr>) -> Vec<Field> {
-    v.iter()
-     .map(|el| to_field(el))
-     .collect()
+    v.iter().map(|el| to_field(el)).collect()
 }
 
 pub fn vec_fr_to_field(input: &Vec<Fr>) -> Vec<Field> {
-    input.iter()
-         .map(|el| to_field(el))
-         .collect()
+    input.iter().map(|el| to_field(el)).collect()
 }
 
 pub fn vec_field_to_fr(input: &Vec<Field>) -> Vec<Fr> {
-    input.iter()
-         .map(|el| to_fr(el))
-         .collect()
+    input.iter().map(|el| to_fr(el)).collect()
 }
 
 pub fn str_to_field(input: String, radix: i32) -> Field {
