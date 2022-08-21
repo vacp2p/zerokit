@@ -28,19 +28,19 @@ pub fn to_field(el: &Fr) -> Field {
     (*el).try_into().unwrap()
 }
 
-pub fn vec_to_fr(v: &Vec<Field>) -> Vec<Fr> {
+pub fn vec_to_fr(v: &[Field]) -> Vec<Fr> {
     v.iter().map(|el| to_fr(el)).collect()
 }
 
-pub fn vec_to_field(v: &Vec<Fr>) -> Vec<Field> {
+pub fn vec_to_field(v: &[Fr]) -> Vec<Field> {
     v.iter().map(|el| to_field(el)).collect()
 }
 
-pub fn vec_fr_to_field(input: &Vec<Fr>) -> Vec<Field> {
+pub fn vec_fr_to_field(input: &[Fr]) -> Vec<Field> {
     input.iter().map(|el| to_field(el)).collect()
 }
 
-pub fn vec_field_to_fr(input: &Vec<Field>) -> Vec<Fr> {
+pub fn vec_field_to_fr(input: &[Field]) -> Vec<Fr> {
     input.iter().map(|el| to_fr(el)).collect()
 }
 
@@ -120,7 +120,7 @@ pub fn field_to_bytes_be(input: &Field) -> Vec<u8> {
     fr_to_bytes_be(&to_fr(input))
 }
 
-pub fn vec_fr_to_bytes_le(input: &Vec<Fr>) -> Vec<u8> {
+pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Vec<u8> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
     bytes.extend(input.len().to_le_bytes().to_vec());
@@ -130,7 +130,7 @@ pub fn vec_fr_to_bytes_le(input: &Vec<Fr>) -> Vec<u8> {
     bytes
 }
 
-pub fn vec_fr_to_bytes_be(input: &Vec<Fr>) -> Vec<u8> {
+pub fn vec_fr_to_bytes_be(input: &[Fr]) -> Vec<u8> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
     bytes.extend(input.len().to_be_bytes().to_vec());
@@ -140,15 +140,15 @@ pub fn vec_fr_to_bytes_be(input: &Vec<Fr>) -> Vec<u8> {
     bytes
 }
 
-pub fn vec_field_to_bytes_le(input: &Vec<Field>) -> Vec<u8> {
+pub fn vec_field_to_bytes_le(input: &[Field]) -> Vec<u8> {
     vec_fr_to_bytes_le(&vec_field_to_fr(input))
 }
 
-pub fn vec_field_to_bytes_be(input: &Vec<Field>) -> Vec<u8> {
+pub fn vec_field_to_bytes_be(input: &[Field]) -> Vec<u8> {
     vec_fr_to_bytes_be(&vec_field_to_fr(input))
 }
 
-pub fn vec_u8_to_bytes_le(input: &Vec<u8>) -> Vec<u8> {
+pub fn vec_u8_to_bytes_le(input: &[u8]) -> Vec<u8> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
     bytes.extend(u64::try_from(input.len()).unwrap().to_le_bytes().to_vec());
