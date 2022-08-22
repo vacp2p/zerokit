@@ -38,8 +38,8 @@ pub const TEST_RESOURCES_FOLDER: &str = "./resources/tree_height_20/";
 pub fn ZKEY(resources_folder: &str) -> Result<(ProvingKey<Bn254>, ConstraintMatrices<Fr>)> {
     let zkey_path = format!("{resources_folder}{ZKEY_FILENAME}");
     if Path::new(&zkey_path).exists() {
-        let mut file = File::open(&zkey_path).unwrap();
-        let proving_key_and_matrices = read_zkey(&mut file).unwrap();
+        let mut file = File::open(&zkey_path)?;
+        let proving_key_and_matrices = read_zkey(&mut file)?;
         Ok(proving_key_and_matrices)
     } else {
         Err(Error::new(ErrorKind::NotFound, "No proving key found!"))
@@ -57,7 +57,7 @@ pub fn VK(resources_folder: &str) -> Result<VerifyingKey<Bn254>> {
         verifying_key = vk_from_json(&vk_path);
         Ok(verifying_key)
     } else if Path::new(&zkey_path).exists() {
-        let (proving_key, _matrices) = ZKEY(resources_folder).unwrap();
+        let (proving_key, _matrices) = ZKEY(resources_folder)?;
         verifying_key = proving_key.vk;
         Ok(verifying_key)
     } else {
