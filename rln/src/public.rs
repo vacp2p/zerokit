@@ -1,8 +1,7 @@
 /// This is the main public API for RLN module. It is used by the FFI, and should be
 /// used by tests etc as well
-
 use ark_bn254::{Bn254, Fr};
-use ark_circom::{WitnessCalculator};
+use ark_circom::WitnessCalculator;
 use ark_groth16::Proof as ArkProof;
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
@@ -288,9 +287,9 @@ impl Default for RLN<'_> {
 mod test {
     use super::*;
     use ark_std::str::FromStr;
+    use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use semaphore::poseidon_hash;
-    use ark_std::{rand::thread_rng, UniformRand};
     use semaphore::{identity::Identity, Field};
 
     #[test]

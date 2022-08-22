@@ -248,7 +248,7 @@ mod test {
     use crate::circuit::*;
     use crate::protocol::*;
     use crate::utils::*;
-    use ark_bn254::{Fr};
+    use ark_bn254::Fr;
     use ark_std::str::FromStr;
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;

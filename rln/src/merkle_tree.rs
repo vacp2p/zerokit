@@ -13,13 +13,13 @@
 //! * Disk based storage backend (using mmaped files should be easy)
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::io;
 use std::{
     cmp::max,
     fmt::Debug,
     iter::{once, repeat, successors},
 };
-use std::{collections::HashMap};
 
 /// In the Hasher trait we define the node type, the default leaf
 /// and the hash function used to initialize a Merkle Tree implementation

@@ -4,16 +4,15 @@ use ark_bn254::{Bn254, Fr, Parameters};
 use ark_circom::{CircomReduction, WitnessCalculator};
 use ark_ec::bn::Bn;
 use ark_groth16::{
-    create_proof_with_reduction_and_matrices,
-    prepare_verifying_key, verify_proof as ark_verify_proof, Proof as ArkProof, ProvingKey,
-    VerifyingKey,
+    create_proof_with_reduction_and_matrices, prepare_verifying_key,
+    verify_proof as ark_verify_proof, Proof as ArkProof, ProvingKey, VerifyingKey,
 };
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_relations::r1cs::SynthesisError;
 use ark_std::{rand::thread_rng, UniformRand};
 use color_eyre::Result;
 use ethers::core::utils::keccak256;
-use num_bigint::{BigInt};
+use num_bigint::BigInt;
 use primitive_types::U256;
 use rand::Rng;
 use semaphore::{identity::Identity, poseidon_hash, Field};
@@ -23,7 +22,7 @@ use std::time::Instant;
 use thiserror::Error;
 
 use crate::poseidon_tree::*;
-use crate::public::{RLN_IDENTIFIER};
+use crate::public::RLN_IDENTIFIER;
 use crate::utils::*;
 
 ///////////////////////////////////////////////////////

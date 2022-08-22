@@ -11,7 +11,7 @@ pub mod utils;
 #[cfg(test)]
 mod test {
 
-    use crate::circuit::{CIRCOM, VK, ZKEY, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
+    use crate::circuit::{CIRCOM, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT, VK, ZKEY};
     use crate::poseidon_tree::PoseidonTree;
     use crate::protocol::*;
     use ark_std::str::FromStr;
