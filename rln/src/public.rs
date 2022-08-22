@@ -1,27 +1,16 @@
 /// This is the main public API for RLN module. It is used by the FFI, and should be
 /// used by tests etc as well
-///
+
 use ark_bn254::{Bn254, Fr};
-use ark_circom::{CircomBuilder, CircomCircuit, CircomConfig, WitnessCalculator};
+use ark_circom::{WitnessCalculator};
 use ark_groth16::Proof as ArkProof;
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::{rand::thread_rng, str::FromStr, UniformRand};
-use num_bigint::BigInt;
-use semaphore::{identity::Identity, Field};
-use serde::{Deserialize, Serialize};
-use serde_json;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 use std::default::Default;
 use std::io::Cursor;
-use std::io::{self, Error, ErrorKind, Result}; //default read/write
-use std::option::Option;
+use std::io::{self, Result};
 use std::sync::Mutex;
-
-// For the ToBytes implementation of groth16::Proof
-use ark_ec::bn::Bn;
-use ark_ff::bytes::ToBytes;
-use ark_serialize::{Read, Write};
 
 use crate::circuit::{CIRCOM, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT, VK, ZKEY};
 use crate::poseidon_tree::PoseidonTree;
@@ -301,6 +290,8 @@ mod test {
     use ark_std::str::FromStr;
     use rand::Rng;
     use semaphore::poseidon_hash;
+    use ark_std::{rand::thread_rng, UniformRand};
+    use semaphore::{identity::Identity, Field};
 
     #[test]
     // We test merkle batch Merkle tree additions

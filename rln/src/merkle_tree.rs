@@ -12,15 +12,14 @@
 //!
 //! * Disk based storage backend (using mmaped files should be easy)
 
-use ark_std::str::FromStr;
 use serde::{Deserialize, Serialize};
-use std::io::{self, Error, ErrorKind};
+use std::io;
 use std::{
     cmp::max,
     fmt::Debug,
     iter::{once, repeat, successors},
 };
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap};
 
 /// In the Hasher trait we define the node type, the default leaf
 /// and the hash function used to initialize a Merkle Tree implementation
@@ -546,7 +545,8 @@ where
 ////////////////////////////////////////////////////////////
 
 // Tests adapted from https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/merkle_tree.rs
-pub mod test {
+#[cfg(test)]
+mod test {
     use super::*;
     use hex_literal::hex;
     use tiny_keccak::{Hasher as _, Keccak};

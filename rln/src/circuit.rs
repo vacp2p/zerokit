@@ -1,22 +1,16 @@
 // This crate provides interfaces for the zero-knowledge circuit and keys
 
 use ark_bn254::{Bn254, Fq, Fq2, Fr, G1Affine, G1Projective, G2Affine, G2Projective};
-use ark_circom::{read_zkey, CircomBuilder, CircomConfig, WitnessCalculator};
-use ark_ff::BigInteger256;
+use ark_circom::{read_zkey, WitnessCalculator};
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
-use core::include_bytes;
 use num_bigint::BigUint;
+use once_cell::sync::{OnceCell};
 use serde_json::Value;
-use std::convert::TryFrom;
 use std::fs::File;
-use std::io::Read;
-use std::io::{Cursor, Error, ErrorKind, Result, Write};
-use std::option::Option;
+use std::io::{Error, ErrorKind, Result, Read};
 use std::path::Path;
 use std::str::FromStr;
-
-use once_cell::sync::{Lazy, OnceCell};
 use std::sync::Mutex;
 use wasmer::{Module, Store};
 
@@ -94,7 +88,7 @@ pub fn CIRCOM(resources_folder: &str) -> &'static Mutex<WitnessCalculator> {
     })
 }
 
-// TODO: all the following implementations are taken from a public github project: find reference for them
+// The following function implementations are taken/adapted from https://github.com/gakonst/ark-circom/blob/1732e15d6313fe176b0b1abb858ac9e095d0dbd7/src/zkey.rs
 
 // Utilities to convert a json verification key in a groth16::VerificationKey
 fn fq_from_str(s: &str) -> Fq {

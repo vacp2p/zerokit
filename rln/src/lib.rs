@@ -1,10 +1,4 @@
 #![allow(dead_code)]
-#![allow(unused_imports)]
-
-use crate::circuit::{CIRCOM, VK, ZKEY};
-use ark_bn254::{Fr, Parameters};
-use ark_ec::bn::Bn;
-use ark_std::str::FromStr;
 
 pub mod circuit;
 pub mod ffi;
@@ -16,13 +10,12 @@ pub mod utils;
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::circuit::{TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
+
+    use crate::circuit::{CIRCOM, VK, ZKEY, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
     use crate::poseidon_tree::PoseidonTree;
     use crate::protocol::*;
-    use hex_literal::hex;
-    use num_bigint::BigInt;
-    use semaphore::{hash::Hash, identity::Identity, poseidon_hash, Field};
+    use ark_std::str::FromStr;
+    use semaphore::{identity::Identity, poseidon_hash, Field};
 
     // Input generated with https://github.com/oskarth/zk-kit/commit/b6a872f7160c7c14e10a0ea40acab99cbb23c9a8
     const WITNESS_JSON_15: &str = r#"
@@ -379,7 +372,7 @@ mod test {
     }
 
     #[test]
-    fn test_serialization() {
+    fn test_witness_serialization() {
         // We test witness serialization
         let mut witness_json: &str = "";
 

@@ -1,11 +1,10 @@
 // This crate provides cross-module useful utilities (mainly type conversions) not necessarily specific to RLN
 
-use ark_bn254::{Bn254, Fr, Parameters};
-use ark_ff::{BigInteger, Field as ArkField, FpParameters, PrimeField};
+use ark_bn254::{Fr};
+use ark_ff::{BigInteger, FpParameters, PrimeField};
 use ark_std::str::FromStr;
-use ethers::core::utils::keccak256;
-use num_bigint::{BigInt, BigUint, ToBigInt};
-use semaphore::{identity::Identity, Field};
+use num_bigint::{BigUint};
+use semaphore::{Field};
 use std::iter::Extend;
 
 pub fn modulus_bit_size() -> usize {

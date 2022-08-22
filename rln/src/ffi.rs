@@ -1,7 +1,8 @@
 // This crate implements the public Foreign Function Interface (FFI) for the RLN module
 
-use crate::public::RLN;
 use std::slice;
+
+use crate::public::RLN;
 
 /// Buffer struct is taken from
 /// https://github.com/celo-org/celo-threshold-bls-rs/blob/master/crates/threshold-bls-ffi/src/ffi.rs
@@ -247,15 +248,11 @@ mod test {
     use crate::circuit::*;
     use crate::protocol::*;
     use crate::utils::*;
-    use ark_bn254::{Bn254, Fr};
-    use ark_groth16::Proof as ArkProof;
-    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+    use ark_bn254::{Fr};
     use ark_std::str::FromStr;
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use semaphore::{identity::Identity, poseidon_hash, Field};
-    use serde::{Deserialize, Serialize};
-    use std::io::Cursor;
     use std::mem::MaybeUninit;
     use std::time::{Duration, Instant};
 

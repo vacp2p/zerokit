@@ -1,34 +1,30 @@
 // This crate collects all the underlying primitives used to implement RLN
 
-use crate::circuit::{CIRCOM, VK, ZKEY};
 use ark_bn254::{Bn254, Fr, Parameters};
-use ark_circom::{read_zkey, CircomBuilder, CircomConfig, CircomReduction, WitnessCalculator};
+use ark_circom::{CircomReduction, WitnessCalculator};
 use ark_ec::bn::Bn;
-use ark_ff::{bytes::ToBytes, Fp256, PrimeField};
 use ark_groth16::{
-    create_proof_with_reduction_and_matrices, create_random_proof_with_reduction,
+    create_proof_with_reduction_and_matrices,
     prepare_verifying_key, verify_proof as ark_verify_proof, Proof as ArkProof, ProvingKey,
     VerifyingKey,
 };
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_relations::r1cs::SynthesisError;
-use ark_serialize::*;
-use ark_std::{rand::thread_rng, str::FromStr, UniformRand};
+use ark_std::{rand::thread_rng, UniformRand};
 use color_eyre::Result;
 use ethers::core::utils::keccak256;
-use num_bigint::{BigInt, BigUint, ToBigInt};
+use num_bigint::{BigInt};
 use primitive_types::U256;
 use rand::Rng;
 use semaphore::{identity::Identity, poseidon_hash, Field};
 use serde::{Deserialize, Serialize};
-use std::io::Write;
 use std::sync::Mutex;
 use std::time::Instant;
 use thiserror::Error;
 
 use crate::poseidon_tree::*;
-use crate::public::{RLN, RLN_IDENTIFIER};
-pub use crate::utils::*;
+use crate::public::{RLN_IDENTIFIER};
+use crate::utils::*;
 
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
