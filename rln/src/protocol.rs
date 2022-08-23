@@ -11,7 +11,7 @@ use ark_std::{rand::thread_rng, UniformRand};
 use color_eyre::Result;
 use num_bigint::BigInt;
 use rand::Rng;
-use semaphore::{poseidon_hash, Field};
+use semaphore::Field;
 //use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use std::time::Instant;

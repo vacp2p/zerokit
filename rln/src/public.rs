@@ -280,10 +280,10 @@ impl Default for RLN<'_> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::poseidon_tree::poseidon_hash; 
     use ark_std::str::FromStr;
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
-    use semaphore::poseidon_hash;
     use semaphore::Field;
 
     #[test]

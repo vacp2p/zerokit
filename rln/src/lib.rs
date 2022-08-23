@@ -12,10 +12,10 @@ pub mod utils;
 mod test {
 
     use crate::circuit::{CIRCOM, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT, VK, ZKEY};
-    use crate::poseidon_tree::PoseidonTree;
+    use crate::poseidon_tree::{poseidon_hash, PoseidonTree};
     use crate::protocol::*;
     use ark_std::str::FromStr;
-    use semaphore::{poseidon_hash, Field};
+    use semaphore::Field;
 
     // Input generated with https://github.com/oskarth/zk-kit/commit/b6a872f7160c7c14e10a0ea40acab99cbb23c9a8
     const WITNESS_JSON_15: &str = r#"

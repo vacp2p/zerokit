@@ -1,10 +1,56 @@
 // This crate defines RLN module default Merkle tree implementation and Hasher
 // Implementation inspired by https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/poseidon_tree.rs (no differences)
 
-use semaphore::{poseidon_hash, Field};
+use semaphore::Field;
 use serde::{Deserialize, Serialize};
 
 use crate::merkle_tree::*;
+
+////////////////////////////////////////////////////////////////////////////////////////////
+// This is temporary to allow progressive switch to arkworks Fr only arithmetic
+////////////////////////////////////////////////////////////////////////////////////////////
+use crate::circuit::Fr;
+use crate::utils::*;
+use ark_ff::{BigInteger as _, PrimeField as _};
+use ff::{PrimeField as _, PrimeFieldRepr as _};
+use once_cell::sync::Lazy;
+use poseidon_rs::{Fr as PosFr, Poseidon};
+
+static POSEIDON: Lazy<Poseidon> = Lazy::new(Poseidon::new);
+
+fn fr_to_posfr(value: Fr) -> PosFr {
+    let mut bytes = [0_u8; 32];
+    let byte_vec = value.into_repr().to_bytes_be();
+    bytes.copy_from_slice(&byte_vec[..]);
+    let mut repr = <PosFr as ff::PrimeField>::Repr::default();
+    repr.read_be(&bytes[..])
+        .expect("read from correctly sized slice always succeeds");
+    PosFr::from_repr(repr).expect("value is always in range")
+}
+
+fn posfr_to_fr(value: PosFr) -> Fr {
+    let mut bytes = [0u8; 32];
+    value
+        .into_repr()
+        .write_be(&mut bytes[..])
+        .expect("write to correctly sized slice always succeeds");
+    Fr::from_be_bytes_mod_order(&bytes)
+}
+
+pub fn poseidon_hash(input: &[Field]) -> Field {
+    let input = input
+        .iter()
+        .copied()
+        .map(|x| fr_to_posfr(to_fr(&x)))
+        .collect::<Vec<_>>();
+
+    POSEIDON
+        .hash(input)
+        .map(|x| to_field(&posfr_to_fr(x)))
+        .expect("hash with fixed input size can't fail")
+}
+////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////
 
 // The zerokit RLN default Merkle tree implementation.
 // To switch to FullMerkleTree implementation it is enough to redefine the following two types

@@ -246,13 +246,14 @@ pub extern "C" fn hash(
 mod test {
     use super::*;
     use crate::circuit::*;
+    use crate::poseidon_tree::poseidon_hash;
     use crate::protocol::*;
     use crate::utils::*;
     use ark_bn254::Fr;
     use ark_std::str::FromStr;
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
-    use semaphore::{poseidon_hash, Field};
+    use semaphore::Field;
     use std::mem::MaybeUninit;
     use std::time::{Duration, Instant};
 
