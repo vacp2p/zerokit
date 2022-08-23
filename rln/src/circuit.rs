@@ -1,6 +1,9 @@
 // This crate provides interfaces for the zero-knowledge circuit and keys
 
-use ark_bn254::{Bn254, Fq, Fq2, Fr, G1Affine, G1Projective, G2Affine, G2Projective};
+use ark_bn254::{
+    Bn254, Fq as ArkFq, Fq2 as ArkFq2, Fr as ArkFr, G1Affine as ArkG1Affine,
+    G1Projective as ArkG1Projective, G2Affine as ArkG2Affine, G2Projective as ArkG2Projective,
+};
 use ark_circom::{read_zkey, WitnessCalculator};
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
@@ -28,8 +31,21 @@ const WASM_FILENAME: &str = "rln.wasm";
 pub const TEST_TREE_HEIGHT: usize = 20;
 pub const TEST_RESOURCES_FOLDER: &str = "./resources/tree_height_20/";
 
+// The following types define the pairing friendly elliptic curve, the underlying finite fields and groups default to this module
+// Note that proofs are serialized assuming Fr to be 4x8 = 32 bytes in size. Hence, changing to a curve with different encoding will make proof verification to fail
+
+pub type Curve = Bn254;
+pub type Fr = ArkFr;
+pub type Fq = ArkFq;
+pub type Fq2 = ArkFq2;
+pub type G1Affine = ArkG1Affine;
+pub type G1Projective = ArkG1Projective;
+pub type G2Affine = ArkG2Affine;
+pub type G2Projective = ArkG2Projective;
+
 #[allow(non_snake_case)]
-pub fn ZKEY(resources_folder: &str) -> Result<(ProvingKey<Bn254>, ConstraintMatrices<Fr>)> {
+// Loads the proving key
+pub fn ZKEY(resources_folder: &str) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
     let zkey_path = format!("{resources_folder}{ZKEY_FILENAME}");
     if Path::new(&zkey_path).exists() {
         let mut file = File::open(&zkey_path)?;
@@ -41,11 +57,12 @@ pub fn ZKEY(resources_folder: &str) -> Result<(ProvingKey<Bn254>, ConstraintMatr
 }
 
 #[allow(non_snake_case)]
-pub fn VK(resources_folder: &str) -> Result<VerifyingKey<Bn254>> {
+// Loads the verification key
+pub fn VK(resources_folder: &str) -> Result<VerifyingKey<Curve>> {
     let vk_path = format!("{resources_folder}{VK_FILENAME}");
     let zkey_path = format!("{resources_folder}{ZKEY_FILENAME}");
 
-    let verifying_key: VerifyingKey<Bn254>;
+    let verifying_key: VerifyingKey<Curve>;
 
     if Path::new(&vk_path).exists() {
         verifying_key = vk_from_json(&vk_path);
@@ -64,6 +81,7 @@ pub fn VK(resources_folder: &str) -> Result<VerifyingKey<Bn254>> {
 
 static WITNESS_CALCULATOR: OnceCell<Mutex<WitnessCalculator>> = OnceCell::new();
 
+// Loads the circuit WASM
 fn read_wasm(resources_folder: &str) -> Vec<u8> {
     let wasm_path = format!("{resources_folder}{WASM_FILENAME}");
     let mut wasm_file = File::open(&wasm_path).expect("no file found");
@@ -76,6 +94,7 @@ fn read_wasm(resources_folder: &str) -> Vec<u8> {
 }
 
 #[allow(non_snake_case)]
+// Initializes the witness calculator
 pub fn CIRCOM(resources_folder: &str) -> &'static Mutex<WitnessCalculator> {
     WITNESS_CALCULATOR.get_or_init(|| {
         // We read the wasm file
@@ -164,7 +183,7 @@ fn json_to_g2(json: &Value, key: &str) -> G2Affine {
 }
 
 // Computes the verification key from its JSON serialization
-fn vk_from_json(vk_path: &str) -> VerifyingKey<Bn254> {
+fn vk_from_json(vk_path: &str) -> VerifyingKey<Curve> {
     let json = std::fs::read_to_string(vk_path).unwrap();
     let json: Value = serde_json::from_str(&json).unwrap();
 
@@ -178,7 +197,7 @@ fn vk_from_json(vk_path: &str) -> VerifyingKey<Bn254> {
 }
 
 // Checks verification key to be correct with respect to proving key
-pub fn check_vk_from_zkey(resources_folder: &str, verifying_key: VerifyingKey<Bn254>) {
+pub fn check_vk_from_zkey(resources_folder: &str, verifying_key: VerifyingKey<Curve>) {
     let (proving_key, _matrices) = ZKEY(resources_folder).unwrap();
     assert_eq!(proving_key.vk, verifying_key);
 }

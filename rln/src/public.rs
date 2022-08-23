@@ -1,6 +1,5 @@
 /// This is the main public API for RLN module. It is used by the FFI, and should be
 /// used by tests etc as well
-use ark_bn254::{Bn254, Fr};
 use ark_circom::WitnessCalculator;
 use ark_groth16::Proof as ArkProof;
 use ark_groth16::{ProvingKey, VerifyingKey};
@@ -11,20 +10,20 @@ use std::io::Cursor;
 use std::io::{self, Result};
 use std::sync::Mutex;
 
-use crate::circuit::{CIRCOM, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT, VK, ZKEY};
+use crate::circuit::{Curve, Fr, CIRCOM, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT, VK, ZKEY};
 use crate::poseidon_tree::PoseidonTree;
-use crate::protocol::{self, *};
+use crate::protocol::*;
 use crate::utils::*;
 
 // Application specific RLN identifier
 pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
 
-// TODO Add Engine here? i.e. <E: Engine> not <Bn254>
+// TODO Add Engine here? i.e. <E: Engine> not <Curve>
 // TODO Assuming we want to use IncrementalMerkleTree, figure out type/trait conversions
 pub struct RLN<'a> {
     witness_calculator: &'a Mutex<WitnessCalculator>,
-    proving_key: Result<(ProvingKey<Bn254>, ConstraintMatrices<Fr>)>,
-    verification_key: Result<VerifyingKey<Bn254>>,
+    proving_key: Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)>,
+    verification_key: Result<VerifyingKey<Curve>>,
     tree: PoseidonTree,
     resources_folder: String,
 }
@@ -160,20 +159,18 @@ impl RLN<'_> {
         .unwrap();
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
-        ArkProof::from(proof).serialize(&mut output_data).unwrap();
+        proof.serialize(&mut output_data).unwrap();
 
         Ok(())
     }
 
     pub fn verify<R: Read>(&self, mut input_data: R) -> io::Result<bool> {
-        // Input data is serialized for Bn254 as:
+        // Input data is serialized for Curve as:
         // serialized_proof (compressed, 4*32 bytes) || serialized_proof_values (6*32 bytes)
         let mut input_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input_byte)?;
-        let proof: protocol::Proof =
-            ArkProof::deserialize(&mut Cursor::new(&input_byte[..128].to_vec()))
-                .unwrap()
-                .into();
+        let proof = ArkProof::deserialize(&mut Cursor::new(&input_byte[..128].to_vec())).unwrap();
+
         let (proof_values, _) = deserialize_proof_values(&input_byte[128..].to_vec());
 
         let verified = verify_proof(
@@ -209,22 +206,19 @@ impl RLN<'_> {
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
-        ArkProof::from(proof).serialize(&mut output_data).unwrap();
+        proof.serialize(&mut output_data).unwrap();
         output_data.write_all(&serialize_proof_values(&proof_values))?;
 
         Ok(())
     }
 
-    // Input data is serialized for Bn254 as:
+    // Input data is serialized for Curve as:
     // [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
     pub fn verify_rln_proof<R: Read>(&self, mut input_data: R) -> io::Result<bool> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
-        let proof: protocol::Proof =
-            ArkProof::deserialize(&mut Cursor::new(&serialized[..128].to_vec()))
-                .unwrap()
-                .into();
+        let proof = ArkProof::deserialize(&mut Cursor::new(&serialized[..128].to_vec())).unwrap();
         all_read += 128;
         let (proof_values, read) = deserialize_proof_values(&serialized[all_read..].to_vec());
         all_read += read;
@@ -290,7 +284,7 @@ mod test {
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use semaphore::poseidon_hash;
-    use semaphore::{identity::Identity, Field};
+    use semaphore::Field;
 
     #[test]
     // We test merkle batch Merkle tree additions
@@ -392,9 +386,7 @@ mod test {
         let mut rln = RLN::new(tree_height, input_buffer);
 
         // generate identity
-        // We follow zk-kit approach for identity generation
-        let id = Identity::from_seed(b"test-merkle-proof");
-        let identity_secret = poseidon_hash(&vec![id.trapdoor, id.nullifier]);
+        let identity_secret = hash_to_field(b"test-merkle-proof");
         let id_commitment = poseidon_hash(&vec![identity_secret]);
 
         // We pass id_commitment as Read buffer to RLN's set_leaf
@@ -410,7 +402,7 @@ mod test {
             assert_eq!(
                 root,
                 Field::from_str(
-                    "0x27401a4559ce263630907ce3b77c570649e28ede22d2a7f5296839627a16e870"
+                    "0x1984f2e01184aef5cb974640898a5f5c25556554e2b06d99d4841badb8b198cd"
                 )
                 .unwrap()
             );
@@ -418,7 +410,7 @@ mod test {
             assert_eq!(
                 root,
                 Field::from_str(
-                    "0x302920b5e5af8bf5f4bf32995f1ac5933d9a4b6f74803fdde84b8b9a761a2991"
+                    "0x219ceb53f2b1b7a6cf74e80d50d44d68ecb4a53c6cc65b25593c8d56343fb1fe"
                 )
                 .unwrap()
             );
@@ -426,7 +418,7 @@ mod test {
             assert_eq!(
                 root,
                 Field::from_str(
-                    "0x0c33d9be0ca0dd96c64d92107886de4235108e0fee203bb044ac4ee210a3dfea"
+                    "0x21947ffd0bce0c385f876e7c97d6a42eec5b1fe935aab2f01c1f8a8cbcc356d2"
                 )
                 .unwrap()
             );
@@ -537,9 +529,7 @@ mod test {
         let serialized_proof = output_buffer.into_inner();
 
         // Before checking public verify API, we check that the (deserialized) proof generated by prove is actually valid
-        let proof: protocol::Proof = ArkProof::deserialize(&mut Cursor::new(&serialized_proof))
-            .unwrap()
-            .into();
+        let proof = ArkProof::deserialize(&mut Cursor::new(&serialized_proof)).unwrap();
         let verified = verify_proof(
             &rln.verification_key.as_ref().unwrap(),
             &proof,

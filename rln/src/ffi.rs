@@ -31,7 +31,7 @@ impl<'a> From<&Buffer> for &'a [u8] {
     }
 }
 
-// TODO: check if there are security implications for this clippy. It seems we should have pub unsafe extern "C" fn ...
+// TODO: check if there are security implications by using this clippy
 // #[allow(clippy::not_unsafe_ptr_arg_deref)]
 
 ////////////////////////////////////////////////////////
@@ -252,7 +252,7 @@ mod test {
     use ark_std::str::FromStr;
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
-    use semaphore::{identity::Identity, poseidon_hash, Field};
+    use semaphore::{poseidon_hash, Field};
     use std::mem::MaybeUninit;
     use std::time::{Duration, Instant};
 
@@ -383,9 +383,7 @@ mod test {
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
         // generate identity
-        // We follow zk-kit approach for identity generation
-        let id = Identity::from_seed(b"test-merkle-proof");
-        let identity_secret = poseidon_hash(&vec![id.trapdoor, id.nullifier]);
+        let identity_secret = hash_to_field(b"test-merkle-proof");
         let id_commitment = poseidon_hash(&vec![identity_secret]);
 
         // We prepare id_commitment and we set the leaf at provided index
@@ -491,6 +489,7 @@ mod test {
     }
 
     #[test]
+    // Benchmarks proof generation and verification
     fn test_groth16_proofs_performance_ffi() {
         let tree_height = TEST_TREE_HEIGHT;
 
@@ -552,6 +551,7 @@ mod test {
     }
 
     #[test]
+    // Computes and verifies an RLN ZK proof using FFI APIs
     fn test_rln_proof_ffi() {
         let tree_height = TEST_TREE_HEIGHT;
         let no_of_leaves = 256;
@@ -635,6 +635,7 @@ mod test {
     }
 
     #[test]
+    // Tests hash to field using FFI APIs
     fn test_hash_to_field_ffi() {
         let tree_height = TEST_TREE_HEIGHT;
 

@@ -1,8 +1,6 @@
 // This crate collects all the underlying primitives used to implement RLN
 
-use ark_bn254::{Bn254, Fr, Parameters};
 use ark_circom::{CircomReduction, WitnessCalculator};
-use ark_ec::bn::Bn;
 use ark_groth16::{
     create_proof_with_reduction_and_matrices, prepare_verifying_key,
     verify_proof as ark_verify_proof, Proof as ArkProof, ProvingKey, VerifyingKey,
@@ -11,16 +9,16 @@ use ark_relations::r1cs::ConstraintMatrices;
 use ark_relations::r1cs::SynthesisError;
 use ark_std::{rand::thread_rng, UniformRand};
 use color_eyre::Result;
-use ethers::core::utils::keccak256;
 use num_bigint::BigInt;
-use primitive_types::U256;
 use rand::Rng;
-use semaphore::{identity::Identity, poseidon_hash, Field};
-use serde::{Deserialize, Serialize};
+use semaphore::{poseidon_hash, Field};
+//use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use std::time::Instant;
 use thiserror::Error;
+use tiny_keccak::{Hasher as _, Keccak};
 
+use crate::circuit::{Curve, Fr};
 use crate::poseidon_tree::*;
 use crate::public::RLN_IDENTIFIER;
 use crate::utils::*;
@@ -338,6 +336,7 @@ pub fn compute_tree_root(
 ///////////////////////////////////////////////////////
 // Signal/nullifier utility functions
 ///////////////////////////////////////////////////////
+
 // Generates a tupe (identity_secret, id_commitment) where
 // identity_secret is random and id_commitment = PoseidonHash(identity_secret)
 pub fn keygen() -> (Field, Field) {
@@ -347,60 +346,18 @@ pub fn keygen() -> (Field, Field) {
     (identity_secret, id_commitment)
 }
 
+// Hashes arbitrary signal to the underlying prime field
 pub fn hash_to_field(signal: &[u8]) -> Field {
-    let hash = keccak256(signal);
+    // We hash the input signal using Keccak256
+    // (note that a bigger curve order might require a bigger hash blocksize)
+    let mut hash = [0; 32];
+    let mut hasher = Keccak::v256();
+    hasher.update(signal);
+    hasher.finalize(&mut hash);
+
+    // We export the hash as a field element
     let (el, _) = bytes_le_to_field(hash.as_ref());
     el
-}
-
-/// Generates the nullifier hash
-#[must_use]
-pub fn generate_nullifier_hash(identity: &Identity, external_nullifier: Field) -> Field {
-    poseidon_hash(&[external_nullifier, identity.nullifier])
-}
-
-///////////////////////////////////////////////////////
-// Proof data structure and utility functions
-///////////////////////////////////////////////////////
-
-// Matches the private G1Tup type in ark-circom.
-pub type G1 = (U256, U256);
-
-// Matches the private G2Tup type in ark-circom.
-pub type G2 = ([U256; 2], [U256; 2]);
-
-/// Wrap a proof object so we have serde support
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Proof(G1, G2, G1);
-
-impl From<ArkProof<Bn<Parameters>>> for Proof {
-    fn from(proof: ArkProof<Bn<Parameters>>) -> Self {
-        let proof = ark_circom::ethereum::Proof::from(proof);
-        let (a, b, c) = proof.as_tuple();
-        Self(a, b, c)
-    }
-}
-
-impl From<Proof> for ArkProof<Bn<Parameters>> {
-    fn from(proof: Proof) -> Self {
-        let eth_proof = ark_circom::ethereum::Proof {
-            a: ark_circom::ethereum::G1 {
-                x: proof.0 .0,
-                y: proof.0 .1,
-            },
-            #[rustfmt::skip] // Rustfmt inserts some confusing spaces
-            b: ark_circom::ethereum::G2 {
-                // The order of coefficients is flipped.
-                x: [proof.1.0[1], proof.1.0[0]],
-                y: [proof.1.1[1], proof.1.1[0]],
-            },
-            c: ark_circom::ethereum::G1 {
-                x: proof.2 .0,
-                y: proof.2 .1,
-            },
-        };
-        eth_proof.into()
-    }
 }
 
 ///////////////////////////////////////////////////////
@@ -424,9 +381,9 @@ pub enum ProofError {
 /// Returns a [`ProofError`] if proving fails.
 pub fn generate_proof(
     witness_calculator: &Mutex<WitnessCalculator>,
-    proving_key: &(ProvingKey<Bn254>, ConstraintMatrices<Fr>),
+    proving_key: &(ProvingKey<Curve>, ConstraintMatrices<Fr>),
     rln_witness: &RLNWitnessInput,
-) -> Result<Proof, ProofError> {
+) -> Result<ArkProof<Curve>, ProofError> {
     // We confert the path indexes to field elements
     // TODO: check if necessary
     let mut path_elements = Vec::new();
@@ -464,7 +421,7 @@ pub fn generate_proof(
     let full_assignment = witness_calculator
         .lock()
         .expect("witness_calculator mutex should not get poisoned")
-        .calculate_witness_element::<Bn254, _>(inputs, false)
+        .calculate_witness_element::<Curve, _>(inputs, false)
         .map_err(ProofError::WitnessError)?;
 
     println!("witness generation took: {:.2?}", now.elapsed());
@@ -484,7 +441,7 @@ pub fn generate_proof(
         proving_key.1.num_constraints,
         full_assignment.as_slice(),
     )?;
-    let proof = ark_proof.into();
+    let proof = ark_proof;
     println!("proof generation took: {:.2?}", now.elapsed());
 
     Ok(proof)
@@ -497,8 +454,8 @@ pub fn generate_proof(
 /// Returns a [`ProofError`] if verifying fails. Verification failure does not
 /// necessarily mean the proof is incorrect.
 pub fn verify_proof(
-    verifying_key: &VerifyingKey<Bn254>,
-    proof: &Proof,
+    verifying_key: &VerifyingKey<Curve>,
+    proof: &ArkProof<Curve>,
     proof_values: &RLNProofValues,
 ) -> Result<bool, ProofError> {
     // We re-arrange proof-values according to the circuit specification
@@ -513,9 +470,9 @@ pub fn verify_proof(
 
     // Check that the proof is valid
     let pvk = prepare_verifying_key(verifying_key);
-    let pr: ArkProof<Bn254> = (*proof).into();
+    //let pr: ArkProof<Curve> = (*proof).into();
     let now = Instant::now();
-    let verified = ark_verify_proof(&pvk, &pr, &vec_to_fr(&inputs))?;
+    let verified = ark_verify_proof(&pvk, &proof, &vec_to_fr(&inputs))?;
     println!("verify took: {:.2?}", now.elapsed());
 
     Ok(verified)

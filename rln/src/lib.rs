@@ -15,7 +15,7 @@ mod test {
     use crate::poseidon_tree::PoseidonTree;
     use crate::protocol::*;
     use ark_std::str::FromStr;
-    use semaphore::{identity::Identity, poseidon_hash, Field};
+    use semaphore::{poseidon_hash, Field};
 
     // Input generated with https://github.com/oskarth/zk-kit/commit/b6a872f7160c7c14e10a0ea40acab99cbb23c9a8
     const WITNESS_JSON_15: &str = r#"
@@ -168,15 +168,13 @@ mod test {
         "#;
 
     #[test]
-    // We test Merkle Tree generation, proofs and verification
+    // We test Merkle tree generation, proofs and verification
     fn test_merkle_proof() {
         let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
 
         // generate identity
-        // We follow zk-kit approach for identity generation
-        let id = Identity::from_seed(b"test-merkle-proof");
-        let identity_secret = poseidon_hash(&vec![id.trapdoor, id.nullifier]);
+        let identity_secret = hash_to_field(b"test-merkle-proof");
         let id_commitment = poseidon_hash(&vec![identity_secret]);
 
         // generate merkle tree
@@ -191,7 +189,7 @@ mod test {
             assert_eq!(
                 root,
                 Field::from_str(
-                    "0x27401a4559ce263630907ce3b77c570649e28ede22d2a7f5296839627a16e870"
+                    "0x1984f2e01184aef5cb974640898a5f5c25556554e2b06d99d4841badb8b198cd"
                 )
                 .unwrap()
             );
@@ -199,7 +197,7 @@ mod test {
             assert_eq!(
                 root,
                 Field::from_str(
-                    "0x302920b5e5af8bf5f4bf32995f1ac5933d9a4b6f74803fdde84b8b9a761a2991"
+                    "0x219ceb53f2b1b7a6cf74e80d50d44d68ecb4a53c6cc65b25593c8d56343fb1fe"
                 )
                 .unwrap()
             );
@@ -207,7 +205,7 @@ mod test {
             assert_eq!(
                 root,
                 Field::from_str(
-                    "0x0c33d9be0ca0dd96c64d92107886de4235108e0fee203bb044ac4ee210a3dfea"
+                    "0x21947ffd0bce0c385f876e7c97d6a42eec5b1fe935aab2f01c1f8a8cbcc356d2"
                 )
                 .unwrap()
             );
