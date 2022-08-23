@@ -428,11 +428,11 @@ pub fn generate_proof(
 
     // Random Values
     let mut rng = thread_rng();
-    let r = ark_bn254::Fr::rand(&mut rng);
-    let s = ark_bn254::Fr::rand(&mut rng);
+    let r = Fr::rand(&mut rng);
+    let s = Fr::rand(&mut rng);
 
     let now = Instant::now();
-    let ark_proof = create_proof_with_reduction_and_matrices::<_, CircomReduction>(
+    let proof = create_proof_with_reduction_and_matrices::<_, CircomReduction>(
         &proving_key.0,
         r,
         s,
