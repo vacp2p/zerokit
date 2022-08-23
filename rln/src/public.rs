@@ -69,7 +69,7 @@ impl RLN<'_> {
         input_data.read_to_end(&mut leaf_byte)?;
 
         // We set the leaf at input index
-        let (leaf, _) = bytes_le_to_field(&leaf_byte);
+        let (leaf, _) = bytes_le_to_fr(&leaf_byte);
         self.tree.set(index, leaf)?;
 
         Ok(())
@@ -81,7 +81,7 @@ impl RLN<'_> {
         let mut leaves_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut leaves_byte)?;
 
-        let (leaves, _) = bytes_le_to_vec_field(&leaves_byte);
+        let (leaves, _) = bytes_le_to_vec_fr(&leaves_byte);
 
         // We set the leaves
         for (i, leaf) in leaves.iter().enumerate() {
@@ -98,7 +98,7 @@ impl RLN<'_> {
         input_data.read_to_end(&mut leaf_byte)?;
 
         // We set the leaf at input index
-        let (leaf, _) = bytes_le_to_field(&leaf_byte);
+        let (leaf, _) = bytes_le_to_fr(&leaf_byte);
         self.tree.update_next(leaf)?;
 
         Ok(())
@@ -114,7 +114,7 @@ impl RLN<'_> {
     /// * `root` is a scalar field element in 32 bytes
     pub fn get_root<W: Write>(&self, mut output_data: W) -> io::Result<()> {
         let root = self.tree.root();
-        output_data.write_all(&field_to_bytes_le(&root))?;
+        output_data.write_all(&fr_to_bytes_le(&root))?;
 
         Ok(())
     }
@@ -126,7 +126,7 @@ impl RLN<'_> {
         let path_elements = merkle_proof.get_path_elements();
         let identity_path_index = merkle_proof.get_path_index();
 
-        output_data.write_all(&vec_field_to_bytes_le(&path_elements))?;
+        output_data.write_all(&vec_fr_to_bytes_le(&path_elements))?;
         output_data.write_all(&vec_u8_to_bytes_le(&identity_path_index))?;
 
         Ok(())
@@ -252,8 +252,8 @@ impl RLN<'_> {
 
     pub fn key_gen<W: Write>(&self, mut output_data: W) -> io::Result<()> {
         let (id_key, id_commitment_key) = keygen();
-        output_data.write_all(&field_to_bytes_le(&id_key))?;
-        output_data.write_all(&field_to_bytes_le(&id_commitment_key))?;
+        output_data.write_all(&fr_to_bytes_le(&id_key))?;
+        output_data.write_all(&fr_to_bytes_le(&id_commitment_key))?;
 
         Ok(())
     }
@@ -263,7 +263,7 @@ impl RLN<'_> {
         input_data.read_to_end(&mut serialized)?;
 
         let hash = hash_to_field(&serialized);
-        output_data.write_all(&field_to_bytes_le(&hash))?;
+        output_data.write_all(&fr_to_bytes_le(&hash))?;
 
         Ok(())
     }
@@ -281,10 +281,8 @@ impl Default for RLN<'_> {
 mod test {
     use super::*;
     use crate::poseidon_tree::poseidon_hash;
-    use ark_std::str::FromStr;
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
-    use semaphore::Field;
 
     #[test]
     // We test merkle batch Merkle tree additions
@@ -293,10 +291,10 @@ mod test {
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
-        let mut leaves: Vec<Field> = Vec::new();
+        let mut leaves: Vec<Fr> = Vec::new();
         let mut rng = thread_rng();
         for _ in 0..no_of_leaves {
-            leaves.push(to_field(&Fr::rand(&mut rng)));
+            leaves.push(Fr::rand(&mut rng));
         }
 
         // We create a new tree
@@ -308,21 +306,21 @@ mod test {
             // We check if the number of leaves set is consistent
             assert_eq!(rln.tree.leaves_set(), i);
 
-            let mut buffer = Cursor::new(field_to_bytes_le(&leaf));
+            let mut buffer = Cursor::new(fr_to_bytes_le(&leaf));
             rln.set_leaf(i, &mut buffer).unwrap();
         }
 
         // We get the root of the tree obtained adding one leaf per time
         let mut buffer = Cursor::new(Vec::<u8>::new());
         rln.get_root(&mut buffer).unwrap();
-        let (root_single, _) = bytes_le_to_field(&buffer.into_inner());
+        let (root_single, _) = bytes_le_to_fr(&buffer.into_inner());
 
         // We reset the tree to default
         rln.set_tree(tree_height).unwrap();
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
         for leaf in &leaves {
-            let mut buffer = Cursor::new(field_to_bytes_le(&leaf));
+            let mut buffer = Cursor::new(fr_to_bytes_le(&leaf));
             rln.set_next_leaf(&mut buffer).unwrap();
         }
 
@@ -332,7 +330,7 @@ mod test {
         // We get the root of the tree obtained adding leaves using the internal index
         let mut buffer = Cursor::new(Vec::<u8>::new());
         rln.get_root(&mut buffer).unwrap();
-        let (root_next, _) = bytes_le_to_field(&buffer.into_inner());
+        let (root_next, _) = bytes_le_to_fr(&buffer.into_inner());
 
         assert_eq!(root_single, root_next);
 
@@ -340,7 +338,7 @@ mod test {
         rln.set_tree(tree_height).unwrap();
 
         // We add leaves in a batch into the tree
-        let mut buffer = Cursor::new(vec_field_to_bytes_le(&leaves));
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
         rln.set_leaves(&mut buffer).unwrap();
 
         // We check if number of leaves set is consistent
@@ -349,7 +347,7 @@ mod test {
         // We get the root of the tree obtained adding leaves in batch
         let mut buffer = Cursor::new(Vec::<u8>::new());
         rln.get_root(&mut buffer).unwrap();
-        let (root_batch, _) = bytes_le_to_field(&buffer.into_inner());
+        let (root_batch, _) = bytes_le_to_fr(&buffer.into_inner());
 
         assert_eq!(root_single, root_batch);
 
@@ -364,14 +362,14 @@ mod test {
 
         let mut buffer = Cursor::new(Vec::<u8>::new());
         rln.get_root(&mut buffer).unwrap();
-        let (root_delete, _) = bytes_le_to_field(&buffer.into_inner());
+        let (root_delete, _) = bytes_le_to_fr(&buffer.into_inner());
 
         // We reset the tree to default
         rln.set_tree(tree_height).unwrap();
 
         let mut buffer = Cursor::new(Vec::<u8>::new());
         rln.get_root(&mut buffer).unwrap();
-        let (root_empty, _) = bytes_le_to_field(&buffer.into_inner());
+        let (root_empty, _) = bytes_le_to_fr(&buffer.into_inner());
 
         assert_eq!(root_delete, root_empty);
     }
@@ -390,37 +388,37 @@ mod test {
         let id_commitment = poseidon_hash(&vec![identity_secret]);
 
         // We pass id_commitment as Read buffer to RLN's set_leaf
-        let mut buffer = Cursor::new(field_to_bytes_le(&id_commitment));
+        let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
         rln.set_leaf(leaf_index, &mut buffer).unwrap();
 
         // We check correct computation of the root
         let mut buffer = Cursor::new(Vec::<u8>::new());
         rln.get_root(&mut buffer).unwrap();
-        let (root, _) = bytes_le_to_field(&buffer.into_inner());
+        let (root, _) = bytes_le_to_fr(&buffer.into_inner());
 
         if TEST_TREE_HEIGHT == 15 {
             assert_eq!(
                 root,
-                Field::from_str(
-                    "0x1984f2e01184aef5cb974640898a5f5c25556554e2b06d99d4841badb8b198cd"
+                str_to_fr(
+                    "0x1984f2e01184aef5cb974640898a5f5c25556554e2b06d99d4841badb8b198cd",
+                    16
                 )
-                .unwrap()
             );
         } else if TEST_TREE_HEIGHT == 19 {
             assert_eq!(
                 root,
-                Field::from_str(
-                    "0x219ceb53f2b1b7a6cf74e80d50d44d68ecb4a53c6cc65b25593c8d56343fb1fe"
+                str_to_fr(
+                    "0x219ceb53f2b1b7a6cf74e80d50d44d68ecb4a53c6cc65b25593c8d56343fb1fe",
+                    16
                 )
-                .unwrap()
             );
         } else if TEST_TREE_HEIGHT == 20 {
             assert_eq!(
                 root,
-                Field::from_str(
-                    "0x21947ffd0bce0c385f876e7c97d6a42eec5b1fe935aab2f01c1f8a8cbcc356d2"
+                str_to_fr(
+                    "0x21947ffd0bce0c385f876e7c97d6a42eec5b1fe935aab2f01c1f8a8cbcc356d2",
+                    16
                 )
-                .unwrap()
             );
         }
 
@@ -429,41 +427,71 @@ mod test {
         rln.get_proof(leaf_index, &mut buffer).unwrap();
 
         let buffer_inner = buffer.into_inner();
-        let (path_elements, read) = bytes_le_to_vec_field(&buffer_inner);
+        let (path_elements, read) = bytes_le_to_vec_fr(&buffer_inner);
         let (identity_path_index, _) = bytes_le_to_vec_u8(&buffer_inner[read..].to_vec());
 
         // We check correct computation of the path and indexes
         let mut expected_path_elements = vec![
-            Field::from_str("0x0000000000000000000000000000000000000000000000000000000000000000")
-                .unwrap(),
-            Field::from_str("0x2098f5fb9e239eab3ceac3f27b81e481dc3124d55ffed523a839ee8446b64864")
-                .unwrap(),
-            Field::from_str("0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1")
-                .unwrap(),
-            Field::from_str("0x18f43331537ee2af2e3d758d50f72106467c6eea50371dd528d57eb2b856d238")
-                .unwrap(),
-            Field::from_str("0x07f9d837cb17b0d36320ffe93ba52345f1b728571a568265caac97559dbc952a")
-                .unwrap(),
-            Field::from_str("0x2b94cf5e8746b3f5c9631f4c5df32907a699c58c94b2ad4d7b5cec1639183f55")
-                .unwrap(),
-            Field::from_str("0x2dee93c5a666459646ea7d22cca9e1bcfed71e6951b953611d11dda32ea09d78")
-                .unwrap(),
-            Field::from_str("0x078295e5a22b84e982cf601eb639597b8b0515a88cb5ac7fa8a4aabe3c87349d")
-                .unwrap(),
-            Field::from_str("0x2fa5e5f18f6027a6501bec864564472a616b2e274a41211a444cbe3a99f3cc61")
-                .unwrap(),
-            Field::from_str("0x0e884376d0d8fd21ecb780389e941f66e45e7acce3e228ab3e2156a614fcd747")
-                .unwrap(),
-            Field::from_str("0x1b7201da72494f1e28717ad1a52eb469f95892f957713533de6175e5da190af2")
-                .unwrap(),
-            Field::from_str("0x1f8d8822725e36385200c0b201249819a6e6e1e4650808b5bebc6bface7d7636")
-                .unwrap(),
-            Field::from_str("0x2c5d82f66c914bafb9701589ba8cfcfb6162b0a12acf88a8d0879a0471b5f85a")
-                .unwrap(),
-            Field::from_str("0x14c54148a0940bb820957f5adf3fa1134ef5c4aaa113f4646458f270e0bfbfd0")
-                .unwrap(),
-            Field::from_str("0x190d33b12f986f961e10c0ee44d8b9af11be25588cad89d416118e4bf4ebe80c")
-                .unwrap(),
+            str_to_fr(
+                "0x0000000000000000000000000000000000000000000000000000000000000000",
+                16,
+            ),
+            str_to_fr(
+                "0x2098f5fb9e239eab3ceac3f27b81e481dc3124d55ffed523a839ee8446b64864",
+                16,
+            ),
+            str_to_fr(
+                "0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1",
+                16,
+            ),
+            str_to_fr(
+                "0x18f43331537ee2af2e3d758d50f72106467c6eea50371dd528d57eb2b856d238",
+                16,
+            ),
+            str_to_fr(
+                "0x07f9d837cb17b0d36320ffe93ba52345f1b728571a568265caac97559dbc952a",
+                16,
+            ),
+            str_to_fr(
+                "0x2b94cf5e8746b3f5c9631f4c5df32907a699c58c94b2ad4d7b5cec1639183f55",
+                16,
+            ),
+            str_to_fr(
+                "0x2dee93c5a666459646ea7d22cca9e1bcfed71e6951b953611d11dda32ea09d78",
+                16,
+            ),
+            str_to_fr(
+                "0x078295e5a22b84e982cf601eb639597b8b0515a88cb5ac7fa8a4aabe3c87349d",
+                16,
+            ),
+            str_to_fr(
+                "0x2fa5e5f18f6027a6501bec864564472a616b2e274a41211a444cbe3a99f3cc61",
+                16,
+            ),
+            str_to_fr(
+                "0x0e884376d0d8fd21ecb780389e941f66e45e7acce3e228ab3e2156a614fcd747",
+                16,
+            ),
+            str_to_fr(
+                "0x1b7201da72494f1e28717ad1a52eb469f95892f957713533de6175e5da190af2",
+                16,
+            ),
+            str_to_fr(
+                "0x1f8d8822725e36385200c0b201249819a6e6e1e4650808b5bebc6bface7d7636",
+                16,
+            ),
+            str_to_fr(
+                "0x2c5d82f66c914bafb9701589ba8cfcfb6162b0a12acf88a8d0879a0471b5f85a",
+                16,
+            ),
+            str_to_fr(
+                "0x14c54148a0940bb820957f5adf3fa1134ef5c4aaa113f4646458f270e0bfbfd0",
+                16,
+            ),
+            str_to_fr(
+                "0x190d33b12f986f961e10c0ee44d8b9af11be25588cad89d416118e4bf4ebe80c",
+                16,
+            ),
         ];
 
         let mut expected_identity_path_index: Vec<u8> =
@@ -472,31 +500,31 @@ mod test {
         // We add the remaining elements for the case TEST_TREE_HEIGHT = 20
         if TEST_TREE_HEIGHT == 19 || TEST_TREE_HEIGHT == 20 {
             expected_path_elements.append(&mut vec![
-                Field::from_str(
+                str_to_fr(
                     "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
-                )
-                .unwrap(),
-                Field::from_str(
+                    16,
+                ),
+                str_to_fr(
                     "0x2a7c7c9b6ce5880b9f6f228d72bf6a575a526f29c66ecceef8b753d38bba7323",
-                )
-                .unwrap(),
-                Field::from_str(
+                    16,
+                ),
+                str_to_fr(
                     "0x2e8186e558698ec1c67af9c14d463ffc470043c9c2988b954d75dd643f36b992",
-                )
-                .unwrap(),
-                Field::from_str(
+                    16,
+                ),
+                str_to_fr(
                     "0x0f57c5571e9a4eab49e2c8cf050dae948aef6ead647392273546249d1c1ff10f",
-                )
-                .unwrap(),
+                    16,
+                ),
             ]);
             expected_identity_path_index.append(&mut vec![0, 0, 0, 0]);
         }
 
         if TEST_TREE_HEIGHT == 20 {
-            expected_path_elements.append(&mut vec![Field::from_str(
+            expected_path_elements.append(&mut vec![str_to_fr(
                 "0x1830ee67b5fb554ad5f63d4388800e1cfe78e310697d46e43c9ce36134f72cca",
-            )
-            .unwrap()]);
+                16,
+            )]);
             expected_identity_path_index.append(&mut vec![0]);
         }
 
@@ -556,10 +584,10 @@ mod test {
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
-        let mut leaves: Vec<Field> = Vec::new();
+        let mut leaves: Vec<Fr> = Vec::new();
         let mut rng = thread_rng();
         for _ in 0..no_of_leaves {
-            leaves.push(to_field(&Fr::rand(&mut rng)));
+            leaves.push(Fr::rand(&mut rng));
         }
 
         // We create a new RLN instance
@@ -567,7 +595,7 @@ mod test {
         let mut rln = RLN::new(tree_height, input_buffer);
 
         // We add leaves in a batch into the tree
-        let mut buffer = Cursor::new(vec_field_to_bytes_le(&leaves));
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
         rln.set_leaves(&mut buffer).unwrap();
 
         // Generate identity pair
@@ -575,7 +603,7 @@ mod test {
 
         // We set as leaf id_commitment after storing its index
         let identity_index = u64::try_from(rln.tree.leaves_set()).unwrap();
-        let mut buffer = Cursor::new(field_to_bytes_le(&id_commitment));
+        let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate a random signal
@@ -589,9 +617,9 @@ mod test {
         // We prepare input for generate_rln_proof API
         // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized: Vec<u8> = Vec::new();
-        serialized.append(&mut field_to_bytes_le(&identity_secret));
+        serialized.append(&mut fr_to_bytes_le(&identity_secret));
         serialized.append(&mut identity_index.to_le_bytes().to_vec());
-        serialized.append(&mut field_to_bytes_le(&epoch));
+        serialized.append(&mut fr_to_bytes_le(&epoch));
         serialized.append(&mut signal_len.to_le_bytes().to_vec());
         serialized.append(&mut signal.to_vec());
 
@@ -627,7 +655,7 @@ mod test {
 
         rln.hash(&mut input_buffer, &mut output_buffer).unwrap();
         let serialized_hash = output_buffer.into_inner();
-        let (hash1, _) = bytes_le_to_field(&serialized_hash);
+        let (hash1, _) = bytes_le_to_fr(&serialized_hash);
 
         let hash2 = hash_to_field(&signal);
 

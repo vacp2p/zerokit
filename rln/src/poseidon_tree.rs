@@ -1,56 +1,11 @@
 // This crate defines RLN module default Merkle tree implementation and Hasher
 // Implementation inspired by https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/poseidon_tree.rs (no differences)
 
-use semaphore::Field;
-use serde::{Deserialize, Serialize};
-
-use crate::merkle_tree::*;
-
-////////////////////////////////////////////////////////////////////////////////////////////
-// This is temporary to allow progressive switch to arkworks Fr only arithmetic
-////////////////////////////////////////////////////////////////////////////////////////////
 use crate::circuit::Fr;
-use crate::utils::*;
-use ark_ff::{BigInteger as _, PrimeField as _};
-use ff::{PrimeField as _, PrimeFieldRepr as _};
+use crate::merkle_tree::*;
+use crate::utils::{fr_to_posfr, posfr_to_fr};
 use once_cell::sync::Lazy;
-use poseidon_rs::{Fr as PosFr, Poseidon};
-
-static POSEIDON: Lazy<Poseidon> = Lazy::new(Poseidon::new);
-
-fn fr_to_posfr(value: Fr) -> PosFr {
-    let mut bytes = [0_u8; 32];
-    let byte_vec = value.into_repr().to_bytes_be();
-    bytes.copy_from_slice(&byte_vec[..]);
-    let mut repr = <PosFr as ff::PrimeField>::Repr::default();
-    repr.read_be(&bytes[..])
-        .expect("read from correctly sized slice always succeeds");
-    PosFr::from_repr(repr).expect("value is always in range")
-}
-
-fn posfr_to_fr(value: PosFr) -> Fr {
-    let mut bytes = [0u8; 32];
-    value
-        .into_repr()
-        .write_be(&mut bytes[..])
-        .expect("write to correctly sized slice always succeeds");
-    Fr::from_be_bytes_mod_order(&bytes)
-}
-
-pub fn poseidon_hash(input: &[Field]) -> Field {
-    let input = input
-        .iter()
-        .copied()
-        .map(|x| fr_to_posfr(to_fr(&x)))
-        .collect::<Vec<_>>();
-
-    POSEIDON
-        .hash(input)
-        .map(|x| to_field(&posfr_to_fr(x)))
-        .expect("hash with fixed input size can't fail")
-}
-////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////
+use poseidon_rs::Poseidon;
 
 // The zerokit RLN default Merkle tree implementation.
 // To switch to FullMerkleTree implementation it is enough to redefine the following two types
@@ -60,11 +15,11 @@ pub type MerkleProof = OptimalMerkleProof<PoseidonHash>;
 //pub type MerkleProof = FullMerkleProof<PoseidonHash>;
 
 // The zerokit RLN default Hasher
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct PoseidonHash;
 
 impl Hasher for PoseidonHash {
-    type Fr = Field;
+    type Fr = Fr;
 
     fn default_leaf() -> Self::Fr {
         Self::Fr::from(0)
@@ -73,6 +28,23 @@ impl Hasher for PoseidonHash {
     fn hash(inputs: &[Self::Fr]) -> Self::Fr {
         poseidon_hash(inputs)
     }
+}
+
+// Poseidon Hash wrapper over poseidon-rs implementation. Adapted from semaphore-rs poseidon hash wrapper.
+// TODO: integrate poseidon hash in zerokit
+static POSEIDON: Lazy<Poseidon> = Lazy::new(Poseidon::new);
+
+pub fn poseidon_hash(input: &[Fr]) -> Fr {
+    let input = input
+        .iter()
+        .copied()
+        .map(|x| fr_to_posfr(x))
+        .collect::<Vec<_>>();
+
+    POSEIDON
+        .hash(input)
+        .map(|x| posfr_to_fr(x))
+        .expect("hash with fixed input size can't fail")
 }
 
 ////////////////////////////////////////////////////////////
@@ -91,7 +63,7 @@ mod test {
         let tree_height = 20;
         let sample_size = 100;
 
-        let leaves: Vec<Field> = (0..sample_size).map(|s| Field::from(s)).collect();
+        let leaves: Vec<Fr> = (0..sample_size).map(|s| Fr::from(s)).collect();
 
         let mut gen_time_full: u128 = 0;
         let mut upd_time_full: u128 = 0;
@@ -127,30 +99,22 @@ mod test {
         println!("Average tree generation time:");
         println!(
             "   - Full Merkle Tree:  {:?}",
-            Duration::from_nanos(
-                (gen_time_full / u128::from(sample_size))
-                    .try_into()
-                    .unwrap()
-            )
+            Duration::from_nanos((gen_time_full / sample_size).try_into().unwrap())
         );
         println!(
             "   - Optimal Merkle Tree: {:?}",
-            Duration::from_nanos((gen_time_opt / u128::from(sample_size)).try_into().unwrap())
+            Duration::from_nanos((gen_time_opt / sample_size).try_into().unwrap())
         );
 
         println!("Average update_next execution time:");
         println!(
             "   - Full Merkle Tree: {:?}",
-            Duration::from_nanos(
-                (upd_time_full / u128::from(sample_size))
-                    .try_into()
-                    .unwrap()
-            )
+            Duration::from_nanos((upd_time_full / sample_size).try_into().unwrap())
         );
 
         println!(
             "   - Optimal Merkle Tree: {:?}",
-            Duration::from_nanos((upd_time_opt / u128::from(sample_size)).try_into().unwrap())
+            Duration::from_nanos((upd_time_opt / sample_size).try_into().unwrap())
         );
     }
 }

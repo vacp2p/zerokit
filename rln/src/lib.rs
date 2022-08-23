@@ -11,11 +11,10 @@ pub mod utils;
 #[cfg(test)]
 mod test {
 
-    use crate::circuit::{CIRCOM, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT, VK, ZKEY};
+    use crate::circuit::{Fr, CIRCOM, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT, VK, ZKEY};
     use crate::poseidon_tree::{poseidon_hash, PoseidonTree};
     use crate::protocol::*;
-    use ark_std::str::FromStr;
-    use semaphore::Field;
+    use crate::utils::str_to_fr;
 
     // Input generated with https://github.com/oskarth/zk-kit/commit/b6a872f7160c7c14e10a0ea40acab99cbb23c9a8
     const WITNESS_JSON_15: &str = r#"
@@ -178,7 +177,7 @@ mod test {
         let id_commitment = poseidon_hash(&vec![identity_secret]);
 
         // generate merkle tree
-        let default_leaf = Field::from(0);
+        let default_leaf = Fr::from(0);
         let mut tree = PoseidonTree::new(tree_height, default_leaf);
         tree.set(leaf_index, id_commitment.into()).unwrap();
 
@@ -188,26 +187,26 @@ mod test {
         if TEST_TREE_HEIGHT == 15 {
             assert_eq!(
                 root,
-                Field::from_str(
-                    "0x1984f2e01184aef5cb974640898a5f5c25556554e2b06d99d4841badb8b198cd"
+                str_to_fr(
+                    "0x1984f2e01184aef5cb974640898a5f5c25556554e2b06d99d4841badb8b198cd",
+                    16
                 )
-                .unwrap()
             );
         } else if TEST_TREE_HEIGHT == 19 {
             assert_eq!(
                 root,
-                Field::from_str(
-                    "0x219ceb53f2b1b7a6cf74e80d50d44d68ecb4a53c6cc65b25593c8d56343fb1fe"
+                str_to_fr(
+                    "0x219ceb53f2b1b7a6cf74e80d50d44d68ecb4a53c6cc65b25593c8d56343fb1fe",
+                    16
                 )
-                .unwrap()
             );
         } else if TEST_TREE_HEIGHT == 20 {
             assert_eq!(
                 root,
-                Field::from_str(
-                    "0x21947ffd0bce0c385f876e7c97d6a42eec5b1fe935aab2f01c1f8a8cbcc356d2"
+                str_to_fr(
+                    "0x21947ffd0bce0c385f876e7c97d6a42eec5b1fe935aab2f01c1f8a8cbcc356d2",
+                    16
                 )
-                .unwrap()
             );
         }
 
@@ -218,36 +217,66 @@ mod test {
         // We check correct computation of the path and indexes
         // These values refers to TEST_TREE_HEIGHT == 16
         let mut expected_path_elements = vec![
-            Field::from_str("0x0000000000000000000000000000000000000000000000000000000000000000")
-                .unwrap(),
-            Field::from_str("0x2098f5fb9e239eab3ceac3f27b81e481dc3124d55ffed523a839ee8446b64864")
-                .unwrap(),
-            Field::from_str("0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1")
-                .unwrap(),
-            Field::from_str("0x18f43331537ee2af2e3d758d50f72106467c6eea50371dd528d57eb2b856d238")
-                .unwrap(),
-            Field::from_str("0x07f9d837cb17b0d36320ffe93ba52345f1b728571a568265caac97559dbc952a")
-                .unwrap(),
-            Field::from_str("0x2b94cf5e8746b3f5c9631f4c5df32907a699c58c94b2ad4d7b5cec1639183f55")
-                .unwrap(),
-            Field::from_str("0x2dee93c5a666459646ea7d22cca9e1bcfed71e6951b953611d11dda32ea09d78")
-                .unwrap(),
-            Field::from_str("0x078295e5a22b84e982cf601eb639597b8b0515a88cb5ac7fa8a4aabe3c87349d")
-                .unwrap(),
-            Field::from_str("0x2fa5e5f18f6027a6501bec864564472a616b2e274a41211a444cbe3a99f3cc61")
-                .unwrap(),
-            Field::from_str("0x0e884376d0d8fd21ecb780389e941f66e45e7acce3e228ab3e2156a614fcd747")
-                .unwrap(),
-            Field::from_str("0x1b7201da72494f1e28717ad1a52eb469f95892f957713533de6175e5da190af2")
-                .unwrap(),
-            Field::from_str("0x1f8d8822725e36385200c0b201249819a6e6e1e4650808b5bebc6bface7d7636")
-                .unwrap(),
-            Field::from_str("0x2c5d82f66c914bafb9701589ba8cfcfb6162b0a12acf88a8d0879a0471b5f85a")
-                .unwrap(),
-            Field::from_str("0x14c54148a0940bb820957f5adf3fa1134ef5c4aaa113f4646458f270e0bfbfd0")
-                .unwrap(),
-            Field::from_str("0x190d33b12f986f961e10c0ee44d8b9af11be25588cad89d416118e4bf4ebe80c")
-                .unwrap(),
+            str_to_fr(
+                "0x0000000000000000000000000000000000000000000000000000000000000000",
+                16,
+            ),
+            str_to_fr(
+                "0x2098f5fb9e239eab3ceac3f27b81e481dc3124d55ffed523a839ee8446b64864",
+                16,
+            ),
+            str_to_fr(
+                "0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1",
+                16,
+            ),
+            str_to_fr(
+                "0x18f43331537ee2af2e3d758d50f72106467c6eea50371dd528d57eb2b856d238",
+                16,
+            ),
+            str_to_fr(
+                "0x07f9d837cb17b0d36320ffe93ba52345f1b728571a568265caac97559dbc952a",
+                16,
+            ),
+            str_to_fr(
+                "0x2b94cf5e8746b3f5c9631f4c5df32907a699c58c94b2ad4d7b5cec1639183f55",
+                16,
+            ),
+            str_to_fr(
+                "0x2dee93c5a666459646ea7d22cca9e1bcfed71e6951b953611d11dda32ea09d78",
+                16,
+            ),
+            str_to_fr(
+                "0x078295e5a22b84e982cf601eb639597b8b0515a88cb5ac7fa8a4aabe3c87349d",
+                16,
+            ),
+            str_to_fr(
+                "0x2fa5e5f18f6027a6501bec864564472a616b2e274a41211a444cbe3a99f3cc61",
+                16,
+            ),
+            str_to_fr(
+                "0x0e884376d0d8fd21ecb780389e941f66e45e7acce3e228ab3e2156a614fcd747",
+                16,
+            ),
+            str_to_fr(
+                "0x1b7201da72494f1e28717ad1a52eb469f95892f957713533de6175e5da190af2",
+                16,
+            ),
+            str_to_fr(
+                "0x1f8d8822725e36385200c0b201249819a6e6e1e4650808b5bebc6bface7d7636",
+                16,
+            ),
+            str_to_fr(
+                "0x2c5d82f66c914bafb9701589ba8cfcfb6162b0a12acf88a8d0879a0471b5f85a",
+                16,
+            ),
+            str_to_fr(
+                "0x14c54148a0940bb820957f5adf3fa1134ef5c4aaa113f4646458f270e0bfbfd0",
+                16,
+            ),
+            str_to_fr(
+                "0x190d33b12f986f961e10c0ee44d8b9af11be25588cad89d416118e4bf4ebe80c",
+                16,
+            ),
         ];
 
         let mut expected_identity_path_index: Vec<u8> =
@@ -256,31 +285,31 @@ mod test {
         // We add the remaining elements for the case TEST_TREE_HEIGHT = 20
         if TEST_TREE_HEIGHT == 19 || TEST_TREE_HEIGHT == 20 {
             expected_path_elements.append(&mut vec![
-                Field::from_str(
+                str_to_fr(
                     "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
-                )
-                .unwrap(),
-                Field::from_str(
+                    16,
+                ),
+                str_to_fr(
                     "0x2a7c7c9b6ce5880b9f6f228d72bf6a575a526f29c66ecceef8b753d38bba7323",
-                )
-                .unwrap(),
-                Field::from_str(
+                    16,
+                ),
+                str_to_fr(
                     "0x2e8186e558698ec1c67af9c14d463ffc470043c9c2988b954d75dd643f36b992",
-                )
-                .unwrap(),
-                Field::from_str(
+                    16,
+                ),
+                str_to_fr(
                     "0x0f57c5571e9a4eab49e2c8cf050dae948aef6ead647392273546249d1c1ff10f",
-                )
-                .unwrap(),
+                    16,
+                ),
             ]);
             expected_identity_path_index.append(&mut vec![0, 0, 0, 0]);
         }
 
         if TEST_TREE_HEIGHT == 20 {
-            expected_path_elements.append(&mut vec![Field::from_str(
+            expected_path_elements.append(&mut vec![str_to_fr(
                 "0x1830ee67b5fb554ad5f63d4388800e1cfe78e310697d46e43c9ce36134f72cca",
-            )
-            .unwrap()]);
+                16,
+            )]);
             expected_identity_path_index.append(&mut vec![0]);
         }
 
@@ -333,7 +362,7 @@ mod test {
         let (identity_secret, id_commitment) = keygen();
 
         //// generate merkle tree
-        let default_leaf = Field::from(0);
+        let default_leaf = Fr::from(0);
         let mut tree = PoseidonTree::new(tree_height, default_leaf);
         tree.set(leaf_index, id_commitment.into()).unwrap();
 

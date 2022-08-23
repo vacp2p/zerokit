@@ -11,8 +11,8 @@
 //! # To do
 //!
 //! * Disk based storage backend (using mmaped files should be easy)
+//! * Implement serialization for tree and Merkle proof
 
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io;
 use std::{
@@ -25,7 +25,7 @@ use std::{
 /// and the hash function used to initialize a Merkle Tree implementation
 pub trait Hasher {
     /// Type of the leaf and tree node
-    type Fr: Copy + Clone + Eq + Serialize;
+    type Fr: Copy + Clone + Eq;
 
     /// Returns the default tree leaf
     fn default_leaf() -> Self::Fr;
@@ -39,6 +39,7 @@ pub trait Hasher {
 ////////////////////////////////////////////////////////////
 
 /// The Merkle tree structure
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct OptimalMerkleTree<H>
 where
     H: Hasher,
@@ -62,7 +63,7 @@ where
 
 /// The Merkle proof
 /// Contains a vector of (node, branch_index) that defines the proof path elements and branch direction (1 or 0)
-#[derive(Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct OptimalMerkleProof<H: Hasher>(pub Vec<(H::Fr, u8)>);
 
 /// Implementations
@@ -292,7 +293,7 @@ pub struct FullMerkleTree<H: Hasher> {
 }
 
 /// Element of a Merkle proof
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum FullMerkleBranch<H: Hasher> {
     /// Left branch taken, value is the right sibling hash.
     Left(H::Fr),
@@ -302,7 +303,7 @@ pub enum FullMerkleBranch<H: Hasher> {
 }
 
 /// Merkle proof path, bottom to top.
-#[derive(Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct FullMerkleProof<H: Hasher>(pub Vec<FullMerkleBranch<H>>);
 
 /// Implementations
