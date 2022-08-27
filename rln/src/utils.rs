@@ -2,10 +2,8 @@
 
 use crate::circuit::Fr;
 use ark_ff::{BigInteger, FpParameters, PrimeField};
-use ff::{PrimeField as _, PrimeFieldRepr as _};
 use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
-use poseidon_rs::Fr as PosFr;
 use std::iter::Extend;
 
 pub fn modulus_bit_size() -> usize {
@@ -30,8 +28,8 @@ pub fn str_to_fr(input: &str, radix: u32) -> Fr {
 
     // We remove any quote present and we trim
     let single_quote: char = '\"';
-    let input_clean = input.replace(single_quote, "");
-    let input_clean = input_clean.trim();
+    let mut input_clean = input.replace(single_quote, "");
+    input_clean = input_clean.trim().to_string();
 
     if radix == 10 {
         BigUint::from_str_radix(&input_clean, radix)
@@ -39,7 +37,7 @@ pub fn str_to_fr(input: &str, radix: u32) -> Fr {
             .try_into()
             .unwrap()
     } else {
-        let input_clean = input_clean.replace("0x", "");
+        input_clean = input_clean.replace("0x", "");
         BigUint::from_str_radix(&input_clean, radix)
             .unwrap()
             .try_into()
@@ -179,7 +177,12 @@ pub fn bytes_be_to_vec_fr(input: &[u8]) -> (Vec<Fr>, usize) {
     (res, read)
 }
 
-// Conversion Utilities between poseidon-rs Field and arkworks Fr (in order to call directly poseidon-rs poseidon_hash)
+/* Old conversion utilities between different libraries data types
+
+// Conversion Utilities between poseidon-rs Field and arkworks Fr (in order to call directly poseidon-rs' poseidon_hash)
+
+use ff::{PrimeField as _, PrimeFieldRepr as _};
+use poseidon_rs::Fr as PosFr;
 
 pub fn fr_to_posfr(value: Fr) -> PosFr {
     let mut bytes = [0_u8; 32];
@@ -200,9 +203,9 @@ pub fn posfr_to_fr(value: PosFr) -> Fr {
     Fr::from_be_bytes_mod_order(&bytes)
 }
 
+
 // Conversion Utilities between semaphore-rs Field and arkworks Fr
 
-/*
 use semaphore::Field;
 
 pub fn to_fr(el: &Field) -> Fr {

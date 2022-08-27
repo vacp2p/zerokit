@@ -17,6 +17,7 @@ use thiserror::Error;
 use tiny_keccak::{Hasher as _, Keccak};
 
 use crate::circuit::{Curve, Fr};
+use crate::poseidon_hash::poseidon_hash;
 use crate::poseidon_tree::*;
 use crate::public::RLN_IDENTIFIER;
 use crate::utils::*;
@@ -469,7 +470,7 @@ pub fn verify_proof(
     let pvk = prepare_verifying_key(verifying_key);
     //let pr: ArkProof<Curve> = (*proof).into();
     let now = Instant::now();
-    let verified = ark_verify_proof(&pvk, &proof, &inputs)?;
+    let verified = ark_verify_proof(&pvk, proof, &inputs)?;
     println!("verify took: {:.2?}", now.elapsed());
 
     Ok(verified)
