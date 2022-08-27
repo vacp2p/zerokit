@@ -22,18 +22,18 @@ const VK_FILENAME: &str = "verifying_key.json";
 const WASM_FILENAME: &str = "rln.wasm";
 
 // These parameters are used for tests
-// Note that the circuit and keys in TEST_RESOURCES_FOLDER are compiled for Merkle trees of height 15 and 19
-// Changing these parameters to other values than these two defaults will cause zkSNARK proof verification to fail
-//pub const TEST_TREE_HEIGHT: usize = 15;
-//pub const TEST_RESOURCES_FOLDER: &str = "./resources/tree_height_15/";
-//pub const TEST_TREE_HEIGHT: usize = 19;
-//pub const TEST_RESOURCES_FOLDER: &str = "./resources/tree_height_19/";
-pub const TEST_TREE_HEIGHT: usize = 20;
-pub const TEST_RESOURCES_FOLDER: &str = "./resources/tree_height_20/";
+// Note that the circuit and keys in TEST_RESOURCES_FOLDER are compiled for Merkle trees of height 15, 19 and 20
+// Changing these parameters to other values than these defaults will cause zkSNARK proof verification to fail
+pub const TEST_PARAMETERS_INDEX: usize = 2;
+pub const TEST_TREE_HEIGHT: usize = [15, 19, 20][TEST_PARAMETERS_INDEX];
+pub const TEST_RESOURCES_FOLDER: &str = [
+    "./resources/tree_height_15/",
+    "./resources/tree_height_19/",
+    "./resources/tree_height_20/",
+][TEST_PARAMETERS_INDEX];
 
 // The following types define the pairing friendly elliptic curve, the underlying finite fields and groups default to this module
 // Note that proofs are serialized assuming Fr to be 4x8 = 32 bytes in size. Hence, changing to a curve with different encoding will make proof verification to fail
-
 pub type Curve = Bn254;
 pub type Fr = ArkFr;
 pub type Fq = ArkFq;
