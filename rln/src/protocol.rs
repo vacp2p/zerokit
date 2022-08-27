@@ -12,6 +12,7 @@ use color_eyre::Result;
 use num_bigint::BigInt;
 use rand::Rng;
 use std::sync::Mutex;
+#[cfg(debug_assertions)]
 use std::time::Instant;
 use thiserror::Error;
 use tiny_keccak::{Hasher as _, Keccak};
@@ -415,6 +416,8 @@ pub fn generate_proof(
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));
 
+    // If in debug mode, we measure and later print time take to compute witness
+    #[cfg(debug_assertions)]
     let now = Instant::now();
 
     let full_assignment = witness_calculator
@@ -423,6 +426,7 @@ pub fn generate_proof(
         .calculate_witness_element::<Curve, _>(inputs, false)
         .map_err(ProofError::WitnessError)?;
 
+    #[cfg(debug_assertions)]
     println!("witness generation took: {:.2?}", now.elapsed());
 
     // Random Values
@@ -430,7 +434,10 @@ pub fn generate_proof(
     let r = Fr::rand(&mut rng);
     let s = Fr::rand(&mut rng);
 
+    // If in debug mode, we measure and later print time take to compute proof
+    #[cfg(debug_assertions)]
     let now = Instant::now();
+
     let proof = create_proof_with_reduction_and_matrices::<_, CircomReduction>(
         &proving_key.0,
         r,
@@ -440,6 +447,8 @@ pub fn generate_proof(
         proving_key.1.num_constraints,
         full_assignment.as_slice(),
     )?;
+
+    #[cfg(debug_assertions)]
     println!("proof generation took: {:.2?}", now.elapsed());
 
     Ok(proof)
@@ -469,8 +478,14 @@ pub fn verify_proof(
     // Check that the proof is valid
     let pvk = prepare_verifying_key(verifying_key);
     //let pr: ArkProof<Curve> = (*proof).into();
+
+    // If in debug mode, we measure and later print time take to verify proof
+    #[cfg(debug_assertions)]
     let now = Instant::now();
+
     let verified = ark_verify_proof(&pvk, proof, &inputs)?;
+
+    #[cfg(debug_assertions)]
     println!("verify took: {:.2?}", now.elapsed());
 
     Ok(verified)
