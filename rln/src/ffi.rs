@@ -47,6 +47,23 @@ pub extern "C" fn new(tree_height: usize, input_buffer: *const Buffer, ctx: *mut
     true
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn new_with_params(
+    tree_height: usize,
+    circom_buffer: *const Buffer,
+    zkey_buffer: *const Buffer,
+    vk_buffer: *const Buffer,
+    ctx: *mut *mut RLN,
+) -> bool {
+    let circom_data = <&[u8]>::from(unsafe { &*circom_buffer });
+    let zkey_data = <&[u8]>::from(unsafe { &*zkey_buffer });
+    let vk_data = <&[u8]>::from(unsafe { &*vk_buffer });
+    let rln = RLN::new_with_params(tree_height, circom_data, zkey_data, vk_data);
+    unsafe { *ctx = Box::into_raw(Box::new(rln)) };
+    true
+}
+
 ////////////////////////////////////////////////////////
 // Merkle tree APIs
 ////////////////////////////////////////////////////////
