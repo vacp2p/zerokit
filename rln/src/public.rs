@@ -10,7 +10,10 @@ use std::io::Cursor;
 use std::io::{self, Result};
 use std::sync::Mutex;
 
-use crate::circuit::{Curve, Fr, CIRCOM, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT, VK, ZKEY};
+use crate::circuit::{
+    circom_from_folder, circom_from_raw, vk_from_folder, vk_from_raw, zkey_from_folder,
+    zkey_from_raw, Curve, Fr, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT,
+};
 use crate::poseidon_tree::PoseidonTree;
 use crate::protocol::*;
 use crate::utils::*;
@@ -25,7 +28,6 @@ pub struct RLN<'a> {
     proving_key: Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)>,
     verification_key: Result<VerifyingKey<Curve>>,
     tree: PoseidonTree,
-    resources_folder: String,
 }
 
 impl RLN<'_> {
@@ -36,10 +38,10 @@ impl RLN<'_> {
 
         let resources_folder = String::from_utf8(input).expect("Found invalid UTF-8");
 
-        let witness_calculator = CIRCOM(&resources_folder);
+        let witness_calculator = circom_from_folder(&resources_folder);
 
-        let proving_key = ZKEY(&resources_folder);
-        let verification_key = VK(&resources_folder);
+        let proving_key = zkey_from_folder(&resources_folder);
+        let verification_key = vk_from_folder(&resources_folder);
 
         // We compute a default empty tree
         let tree = PoseidonTree::default(tree_height);
@@ -49,7 +51,36 @@ impl RLN<'_> {
             proving_key,
             verification_key,
             tree,
-            resources_folder,
+        }
+    }
+
+    pub fn new_with_params<R: Read>(
+        tree_height: usize,
+        mut circom_data: R,
+        mut zkey_data: R,
+        mut vk_data: R,
+    ) -> RLN<'static> {
+        // We read input
+        let mut circom_vec: Vec<u8> = Vec::new();
+        circom_data.read_to_end(&mut circom_vec).unwrap();
+        let mut zkey_vec: Vec<u8> = Vec::new();
+        zkey_data.read_to_end(&mut zkey_vec).unwrap();
+        let mut vk_vec: Vec<u8> = Vec::new();
+        vk_data.read_to_end(&mut vk_vec).unwrap();
+
+        let witness_calculator = circom_from_raw(circom_vec);
+
+        let proving_key = zkey_from_raw(&zkey_vec);
+        let verification_key = vk_from_raw(&vk_vec, &zkey_vec);
+
+        // We compute a default empty tree
+        let tree = PoseidonTree::default(tree_height);
+
+        RLN {
+            witness_calculator,
+            proving_key,
+            verification_key,
+            tree,
         }
     }
 
