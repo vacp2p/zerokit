@@ -14,7 +14,7 @@ pub mod utils;
 mod test {
 
     use crate::circuit::{
-        CIRCOM_from_folder, Fr, VK_from_folder, ZKEY_from_folder, TEST_RESOURCES_FOLDER,
+        circom_from_folder, vk_from_folder, zkey_from_folder, Fr, TEST_RESOURCES_FOLDER,
         TEST_TREE_HEIGHT,
     };
     use crate::poseidon_hash::poseidon_hash;
@@ -330,9 +330,9 @@ mod test {
     // We test a RLN proof generation and verification
     fn test_witness_from_json() {
         // We generate all relevant keys
-        let proving_key = ZKEY_from_folder(TEST_RESOURCES_FOLDER).unwrap();
-        let verification_key = VK_from_folder(TEST_RESOURCES_FOLDER).unwrap();
-        let builder = CIRCOM_from_folder(TEST_RESOURCES_FOLDER);
+        let proving_key = zkey_from_folder(TEST_RESOURCES_FOLDER).unwrap();
+        let verification_key = vk_from_folder(TEST_RESOURCES_FOLDER).unwrap();
+        let builder = circom_from_folder(TEST_RESOURCES_FOLDER);
 
         // We compute witness from the json input example
         let mut witness_json: &str = "";
@@ -389,9 +389,9 @@ mod test {
         );
 
         // We generate all relevant keys
-        let proving_key = ZKEY_from_folder(TEST_RESOURCES_FOLDER).unwrap();
-        let verification_key = VK_from_folder(TEST_RESOURCES_FOLDER).unwrap();
-        let builder = CIRCOM_from_folder(TEST_RESOURCES_FOLDER);
+        let proving_key = zkey_from_folder(TEST_RESOURCES_FOLDER).unwrap();
+        let verification_key = vk_from_folder(TEST_RESOURCES_FOLDER).unwrap();
+        let builder = circom_from_folder(TEST_RESOURCES_FOLDER);
 
         // Let's generate a zkSNARK proof
         let proof = generate_proof(builder, &proving_key, &rln_witness).unwrap();

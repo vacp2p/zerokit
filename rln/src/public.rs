@@ -11,8 +11,8 @@ use std::io::{self, Result};
 use std::sync::Mutex;
 
 use crate::circuit::{
-    CIRCOM_from_folder, Curve, Fr, VK_from_folder, ZKEY_from_folder, CIRCOM, TEST_RESOURCES_FOLDER,
-    TEST_TREE_HEIGHT, VK, ZKEY,
+    circom_from_folder, circom_from_raw, vk_from_folder, vk_from_raw, zkey_from_folder,
+    zkey_from_raw, Curve, Fr, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT,
 };
 use crate::poseidon_tree::PoseidonTree;
 use crate::protocol::*;
@@ -38,10 +38,10 @@ impl RLN<'_> {
 
         let resources_folder = String::from_utf8(input).expect("Found invalid UTF-8");
 
-        let witness_calculator = CIRCOM_from_folder(&resources_folder);
+        let witness_calculator = circom_from_folder(&resources_folder);
 
-        let proving_key = ZKEY_from_folder(&resources_folder);
-        let verification_key = VK_from_folder(&resources_folder);
+        let proving_key = zkey_from_folder(&resources_folder);
+        let verification_key = vk_from_folder(&resources_folder);
 
         // We compute a default empty tree
         let tree = PoseidonTree::default(tree_height);
@@ -68,10 +68,10 @@ impl RLN<'_> {
         let mut vk_vec: Vec<u8> = Vec::new();
         vk_data.read_to_end(&mut vk_vec).unwrap();
 
-        let witness_calculator = CIRCOM(circom_vec);
+        let witness_calculator = circom_from_raw(circom_vec);
 
-        let proving_key = ZKEY(&zkey_vec);
-        let verification_key = VK(&vk_vec, &zkey_vec);
+        let proving_key = zkey_from_raw(&zkey_vec);
+        let verification_key = vk_from_raw(&vk_vec, &zkey_vec);
 
         // We compute a default empty tree
         let tree = PoseidonTree::default(tree_height);

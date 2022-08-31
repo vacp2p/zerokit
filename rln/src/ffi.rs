@@ -268,6 +268,8 @@ mod test {
     use crate::utils::*;
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
+    use std::fs::File;
+    use std::io::Read;
     use std::mem::MaybeUninit;
     use std::time::{Duration, Instant};
 
@@ -593,6 +595,78 @@ mod test {
             "Average verify API call time: {:?}",
             Duration::from_nanos((verify_time / sample_size).try_into().unwrap())
         );
+    }
+
+    #[test]
+    // Creating a RLN with raw data should generate same results as using a path to resources
+    fn test_rln_raw_ffi() {
+        let tree_height = TEST_TREE_HEIGHT;
+
+        // We create a RLN instance using a resource folder path
+        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
+        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        assert!(success, "RLN object creation failed");
+        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+
+        // We obtain the root from the RLN instance
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "get root call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (root_rln_folder, _) = bytes_le_to_fr(&result_data);
+
+        // Reading the raw data from the files required for instantiating a RLN instance using raw data
+        let circom_path = format!("./resources/tree_height_{TEST_TREE_HEIGHT}/rln.wasm");
+        let mut circom_file = File::open(&circom_path).expect("no file found");
+        let metadata = std::fs::metadata(&circom_path).expect("unable to read metadata");
+        let mut circom_buffer = vec![0; metadata.len() as usize];
+        circom_file
+            .read_exact(&mut circom_buffer)
+            .expect("buffer overflow");
+
+        let zkey_path = format!("./resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.zkey");
+        let mut zkey_file = File::open(&zkey_path).expect("no file found");
+        let metadata = std::fs::metadata(&zkey_path).expect("unable to read metadata");
+        let mut zkey_buffer = vec![0; metadata.len() as usize];
+        zkey_file
+            .read_exact(&mut zkey_buffer)
+            .expect("buffer overflow");
+
+        let vk_path = format!("./resources/tree_height_{TEST_TREE_HEIGHT}/verification_key.json");
+
+        let mut vk_file = File::open(&vk_path).expect("no file found");
+        let metadata = std::fs::metadata(&vk_path).expect("unable to read metadata");
+        let mut vk_buffer = vec![0; metadata.len() as usize];
+        vk_file.read_exact(&mut vk_buffer).expect("buffer overflow");
+
+        let circom_data = &Buffer::from(&circom_buffer[..]);
+        let zkey_data = &Buffer::from(&zkey_buffer[..]);
+        let vk_data = &Buffer::from(&vk_buffer[..]);
+
+        // Creating a RLN instance passing the raw data
+        let mut rln_pointer_raw_bytes = MaybeUninit::<*mut RLN>::uninit();
+        let success = new_with_params(
+            tree_height,
+            circom_data,
+            zkey_data,
+            vk_data,
+            rln_pointer_raw_bytes.as_mut_ptr(),
+        );
+        assert!(success, "RLN object creation failed");
+        let rln_pointer2 = unsafe { &mut *rln_pointer_raw_bytes.assume_init() };
+
+        // We obtain the root from the RLN instance containing raw data
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = get_root(rln_pointer2, output_buffer.as_mut_ptr());
+        assert!(success, "get root call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (root_rln_raw, _) = bytes_le_to_fr(&result_data);
+
+        // And compare that the same root was generated
+        assert_eq!(root_rln_folder, root_rln_raw);
     }
 
     #[test]
