@@ -11,7 +11,7 @@ use num_bigint::BigUint;
 use once_cell::sync::OnceCell;
 use serde_json::Value;
 use std::fs::File;
-use std::io::{Cursor, Error, ErrorKind, Read, Result};
+use std::io::{Cursor, Error, ErrorKind, Result};
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Mutex;
@@ -111,23 +111,11 @@ pub fn vk_from_folder(resources_folder: &str) -> Result<VerifyingKey<Curve>> {
 
 static WITNESS_CALCULATOR: OnceCell<Mutex<WitnessCalculator>> = OnceCell::new();
 
-// Loads the circuit WASM
-fn read_wasm(resources_folder: &str) -> Vec<u8> {
-    let wasm_path = format!("{resources_folder}{WASM_FILENAME}");
-    let mut wasm_file = File::open(&wasm_path).expect("no file found");
-    let metadata = std::fs::metadata(&wasm_path).expect("unable to read metadata");
-    let mut wasm_buffer = vec![0; metadata.len() as usize];
-    wasm_file
-        .read_exact(&mut wasm_buffer)
-        .expect("buffer overflow");
-    wasm_buffer
-}
-
 // Initializes the witness calculator using a bytes vector
 pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> &'static Mutex<WitnessCalculator> {
     WITNESS_CALCULATOR.get_or_init(|| {
         let store = Store::default();
-        let module = Module::from_binary(&store, &wasm_buffer).expect("wasm should be valid");
+        let module = Module::new(&store, wasm_buffer).unwrap();
         let result =
             WitnessCalculator::from_module(module).expect("Failed to create witness calculator");
         Mutex::new(result)
@@ -137,7 +125,8 @@ pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> &'static Mutex<WitnessCalculator
 // Initializes the witness calculator
 pub fn circom_from_folder(resources_folder: &str) -> &'static Mutex<WitnessCalculator> {
     // We read the wasm file
-    let wasm_buffer = read_wasm(resources_folder);
+    let wasm_path = format!("{resources_folder}{WASM_FILENAME}");
+    let wasm_buffer = std::fs::read(&wasm_path).unwrap();
     circom_from_raw(wasm_buffer)
 }
 
