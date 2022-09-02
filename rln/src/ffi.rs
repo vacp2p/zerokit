@@ -59,7 +59,12 @@ pub extern "C" fn new_with_params(
     let circom_data = <&[u8]>::from(unsafe { &*circom_buffer });
     let zkey_data = <&[u8]>::from(unsafe { &*zkey_buffer });
     let vk_data = <&[u8]>::from(unsafe { &*vk_buffer });
-    let rln = RLN::new_with_params(tree_height, circom_data, zkey_data, vk_data);
+    let rln = RLN::new_with_params(
+        tree_height,
+        circom_data.to_vec(),
+        zkey_data.to_vec(),
+        vk_data.to_vec(),
+    );
     unsafe { *ctx = Box::into_raw(Box::new(rln)) };
     true
 }
@@ -784,3 +789,4 @@ mod test {
         assert_eq!(hash1, hash2);
     }
 }
+

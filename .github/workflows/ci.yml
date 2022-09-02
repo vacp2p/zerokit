@@ -22,7 +22,7 @@ jobs:
         run: git submodule update --init --recursive
       - name: cargo test
         run: |
-            cargo test
+            cargo test --release --workspace --exclude rln-wasm
   lint:
     runs-on: ubuntu-latest
     steps:

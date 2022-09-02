@@ -1,21 +1,29 @@
+use crate::circuit::{vk_from_raw, zkey_from_raw, Curve, Fr};
 /// This is the main public API for RLN module. It is used by the FFI, and should be
 /// used by tests etc as well
-use ark_circom::WitnessCalculator;
 use ark_groth16::Proof as ArkProof;
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use std::default::Default;
-use std::io::{self, Cursor, Read, Result, Write};
-use std::sync::Mutex;
-
-use crate::circuit::{
-    circom_from_folder, circom_from_raw, vk_from_folder, vk_from_raw, zkey_from_folder,
-    zkey_from_raw, Curve, Fr, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT,
-};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
+use cfg_if::cfg_if;
+use num_bigint::BigInt;
+use std::io::Cursor;
+use std::io::{self, Result};
 use crate::poseidon_tree::PoseidonTree;
 use crate::protocol::*;
 use crate::utils::*;
+
+cfg_if! {
+    if #[cfg(not(target_arch = "wasm32"))] {
+        use std::default::Default;
+        use std::sync::Mutex;
+        use crate::circuit::{circom_from_folder, vk_from_folder, circom_from_raw, zkey_from_folder, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
+        use ark_circom::WitnessCalculator;
+    } else {
+        use std::marker::*;
+    }
+}
+
 
 // Application specific RLN identifier
 pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
@@ -23,13 +31,21 @@ pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
 // TODO Add Engine here? i.e. <E: Engine> not <Curve>
 // TODO Assuming we want to use IncrementalMerkleTree, figure out type/trait conversions
 pub struct RLN<'a> {
-    witness_calculator: &'a Mutex<WitnessCalculator>,
     proving_key: Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)>,
     verification_key: Result<VerifyingKey<Curve>>,
     tree: PoseidonTree,
+
+    // The witness calculator can't be loaded in zerokit. Since this struct
+    // contains a lifetime, a PhantomData is necessary to avoid a compiler
+    // error since the lifetime is not being used
+    #[cfg(not(target_arch = "wasm32"))]
+    witness_calculator: &'a Mutex<WitnessCalculator>,
+    #[cfg(target_arch = "wasm32")]
+    _marker: PhantomData<&'a ()>,
 }
 
 impl RLN<'_> {
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> RLN<'static> {
         // We read input
         let mut input: Vec<u8> = Vec::new();
@@ -50,23 +66,18 @@ impl RLN<'_> {
             proving_key,
             verification_key,
             tree,
+            #[cfg(target_arch = "wasm32")]
+            _marker: PhantomData,
         }
     }
 
-    pub fn new_with_params<R: Read>(
+    pub fn new_with_params(
         tree_height: usize,
-        mut circom_data: R,
-        mut zkey_data: R,
-        mut vk_data: R,
+        #[cfg(not(target_arch = "wasm32"))] circom_vec: Vec<u8>,
+        zkey_vec: Vec<u8>,
+        vk_vec: Vec<u8>,
     ) -> RLN<'static> {
-        // We read input
-        let mut circom_vec: Vec<u8> = Vec::new();
-        circom_data.read_to_end(&mut circom_vec).unwrap();
-        let mut zkey_vec: Vec<u8> = Vec::new();
-        zkey_data.read_to_end(&mut zkey_vec).unwrap();
-        let mut vk_vec: Vec<u8> = Vec::new();
-        vk_data.read_to_end(&mut vk_vec).unwrap();
-
+        #[cfg(not(target_arch = "wasm32"))]
         let witness_calculator = circom_from_raw(circom_vec);
 
         let proving_key = zkey_from_raw(&zkey_vec);
@@ -76,10 +87,13 @@ impl RLN<'_> {
         let tree = PoseidonTree::default(tree_height);
 
         RLN {
+            #[cfg(not(target_arch = "wasm32"))]
             witness_calculator,
             proving_key,
             verification_key,
             tree,
+            #[cfg(target_arch = "wasm32")]
+            _marker: PhantomData,
         }
     }
 
@@ -165,6 +179,7 @@ impl RLN<'_> {
     ////////////////////////////////////////////////////////
     // zkSNARK APIs
     ////////////////////////////////////////////////////////
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn prove<R: Read, W: Write>(
         &mut self,
         mut input_data: R,
@@ -182,7 +197,7 @@ impl RLN<'_> {
         */
 
         let proof = generate_proof(
-            self.witness_calculator,
+            &mut self.witness_calculator,
             self.proving_key.as_ref().unwrap(),
             &rln_witness,
         )
@@ -213,9 +228,29 @@ impl RLN<'_> {
         Ok(verified)
     }
 
+    /// Get the serialized rln_witness for some input
+    pub fn get_serialized_rln_witness<R: Read>(&mut self, mut input_data: R) -> Vec<u8> {
+        // We read input RLN witness and we deserialize it
+        let mut witness_byte: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut witness_byte).unwrap();
+        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte);
+
+        serialize_witness(&rln_witness)
+    }
+
+    /// Get JSON inputs for serialized RLN witness
+    pub fn get_rln_witness_json(
+        &mut self,
+        serialized_witness: &[u8],
+    ) -> io::Result<serde_json::Value> {
+        let (rln_witness, _) = deserialize_witness(serialized_witness);
+        Ok(get_json_inputs(&rln_witness))
+    }
+
     // This API keeps partial compatibility with kilic's rln public API https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L148
     // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
     // output_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn generate_rln_proof<R: Read, W: Write>(
         &mut self,
         mut input_data: R,
@@ -242,6 +277,29 @@ impl RLN<'_> {
         Ok(())
     }
 
+    /// Generate RLN Proof using a witness calculated from outside zerokit
+    ///
+    /// output_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+    pub fn generate_rln_proof_with_witness<W: Write>(
+        &mut self,
+        calculated_witness: Vec<BigInt>,
+        rln_witness_vec: Vec<u8>,
+        mut output_data: W,
+    ) -> io::Result<()> {
+        let (rln_witness, _) = deserialize_witness(&rln_witness_vec[..]);
+        let proof_values = proof_values_from_witness(&rln_witness);
+
+        let proof =
+            generate_proof_with_witness(calculated_witness, self.proving_key.as_ref().unwrap())
+                .unwrap();
+
+        // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
+        // This proof is compressed, i.e. 128 bytes long
+        proof.serialize(&mut output_data).unwrap();
+        output_data.write_all(&serialize_proof_values(&proof_values))?;
+        Ok(())
+    }
+
     // Input data is serialized for Curve as:
     // [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
     pub fn verify_rln_proof<R: Read>(&self, mut input_data: R) -> io::Result<bool> {
@@ -253,10 +311,8 @@ impl RLN<'_> {
         let (proof_values, read) = deserialize_proof_values(&serialized[all_read..].to_vec());
         all_read += read;
 
-        let signal_len = usize::try_from(u64::from_le_bytes(
-            serialized[all_read..all_read + 8].try_into().unwrap(),
-        ))
-        .unwrap();
+        let signal_len =
+            u64::from_le_bytes(serialized[all_read..all_read + 8].try_into().unwrap()) as usize;
         all_read += 8;
 
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
@@ -299,6 +355,7 @@ impl RLN<'_> {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl Default for RLN<'_> {
     fn default() -> Self {
         let tree_height = TEST_TREE_HEIGHT;
