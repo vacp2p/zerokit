@@ -4,7 +4,7 @@ use ark_circom::WitnessCalculator;
 use ark_groth16::Proof as ArkProof;
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
-use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use std::default::Default;
 use std::io::{self, Cursor, Read, Result, Write};
 use std::sync::Mutex;
