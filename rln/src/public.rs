@@ -165,6 +165,7 @@ impl RLN<'_> {
     ////////////////////////////////////////////////////////
     // zkSNARK APIs
     ////////////////////////////////////////////////////////
+    // Generates a zkSNARK proof from input RLN witness
     pub fn prove<R: Read, W: Write>(
         &mut self,
         mut input_data: R,
@@ -194,6 +195,7 @@ impl RLN<'_> {
         Ok(())
     }
 
+    // Verifies a zkSNARK proof from input proof values
     pub fn verify<R: Read>(&self, mut input_data: R) -> io::Result<bool> {
         // Input data is serialized for Curve as:
         // serialized_proof (compressed, 4*32 bytes) || serialized_proof_values (6*32 bytes)
@@ -213,7 +215,7 @@ impl RLN<'_> {
         Ok(verified)
     }
 
-    // This API keeps partial compatibility with kilic's rln public API https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L148
+    // Generates an RLN proof from input_data
     // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
     // output_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
     pub fn generate_rln_proof<R: Read, W: Write>(

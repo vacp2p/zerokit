@@ -5,20 +5,11 @@
 use crate::circuit::Fr;
 use crate::merkle_tree::*;
 use crate::poseidon_hash::poseidon_hash;
-use cfg_if::cfg_if;
 
-// The zerokit RLN default Merkle tree implementation is the OptimalMerkleTree.
-// To switch to FullMerkleTree implementation, it is enough to enable the fullmerkletree feature
+// The zerokit RLN default Merkle tree implementation is the FullMerkleTree.
 
-cfg_if! {
-    if #[cfg(feature = "fullmerkletree")] {
-        pub type PoseidonTree = FullMerkleTree<PoseidonHash>;
-        pub type MerkleProof = FullMerkleProof<PoseidonHash>;
-    } else {
-        pub type PoseidonTree = OptimalMerkleTree<PoseidonHash>;
-        pub type MerkleProof = OptimalMerkleProof<PoseidonHash>;
-    }
-}
+pub type PoseidonTree = FullMerkleTree<PoseidonHash>;
+pub type MerkleProof = FullMerkleProof<PoseidonHash>;
 
 // The zerokit RLN default Hasher
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -45,7 +36,7 @@ mod test {
     use super::*;
 
     #[test]
-    /// A basic performance comparison between the two supported Merkle Tree implementations
+    /// A basic performance benchmark for the supported Merkle Tree implementation
     fn test_merkle_implementations_performances() {
         use std::time::{Duration, Instant};
 
@@ -56,32 +47,19 @@ mod test {
 
         let mut gen_time_full: u128 = 0;
         let mut upd_time_full: u128 = 0;
-        let mut gen_time_opt: u128 = 0;
-        let mut upd_time_opt: u128 = 0;
 
         for _ in 0..sample_size.try_into().unwrap() {
             let now = Instant::now();
             FullMerkleTree::<PoseidonHash>::default(tree_height);
             gen_time_full += now.elapsed().as_nanos();
-
-            let now = Instant::now();
-            OptimalMerkleTree::<PoseidonHash>::default(tree_height);
-            gen_time_opt += now.elapsed().as_nanos();
         }
 
         let mut tree_full = FullMerkleTree::<PoseidonHash>::default(tree_height);
-        let mut tree_opt = OptimalMerkleTree::<PoseidonHash>::default(tree_height);
         for i in 0..sample_size.try_into().unwrap() {
             let now = Instant::now();
             tree_full.set(i, leaves[i]).unwrap();
             upd_time_full += now.elapsed().as_nanos();
             let proof = tree_full.proof(i).expect("index should be set");
-            assert_eq!(proof.leaf_index(), i);
-
-            let now = Instant::now();
-            tree_opt.set(i, leaves[i]).unwrap();
-            upd_time_opt += now.elapsed().as_nanos();
-            let proof = tree_opt.proof(i).expect("index should be set");
             assert_eq!(proof.leaf_index(), i);
         }
 
@@ -90,20 +68,11 @@ mod test {
             "   - Full Merkle Tree:  {:?}",
             Duration::from_nanos((gen_time_full / sample_size).try_into().unwrap())
         );
-        println!(
-            "   - Optimal Merkle Tree: {:?}",
-            Duration::from_nanos((gen_time_opt / sample_size).try_into().unwrap())
-        );
 
         println!("Average update_next execution time:");
         println!(
             "   - Full Merkle Tree: {:?}",
             Duration::from_nanos((upd_time_full / sample_size).try_into().unwrap())
-        );
-
-        println!(
-            "   - Optimal Merkle Tree: {:?}",
-            Duration::from_nanos((upd_time_opt / sample_size).try_into().unwrap())
         );
     }
 }

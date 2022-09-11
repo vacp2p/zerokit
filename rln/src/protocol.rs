@@ -99,8 +99,7 @@ pub fn deserialize_witness(serialized: &[u8]) -> (RLNWitnessInput, usize) {
     )
 }
 
-// This function deserializes input for kilic's rln generate_proof public API
-// https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L148
+// This function deserializes proof values to a RLN witness
 // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
 // return value is a rln witness populated according to this information
 pub fn proof_inputs_to_rln_witness(

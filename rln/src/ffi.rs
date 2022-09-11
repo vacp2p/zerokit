@@ -5,9 +5,7 @@ use std::slice;
 use crate::public::RLN;
 
 /// Buffer struct is taken from
-/// https://github.com/celo-org/celo-threshold-bls-rs/blob/master/crates/threshold-bls-ffi/src/ffi.rs
-///
-/// Also heavily inspired by https://github.com/kilic/rln/blob/master/src/ffi.rs
+/// https://github.com/celo-org/celo-bls-snark-rs/blob/13cc5666de0bbd51ebea12d373819bf763bcb99f/crates/bls-snark-sys/src/utils.rs
 
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq)]
