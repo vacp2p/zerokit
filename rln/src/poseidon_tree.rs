@@ -29,23 +29,6 @@ impl Hasher for PoseidonHash {
     }
 }
 
-// Poseidon Hash wrapper over poseidon-rs implementation. Adapted from semaphore-rs poseidon hash wrapper.
-// TODO: integrate poseidon hash in zerokit
-static POSEIDON: Lazy<Poseidon> = Lazy::new(Poseidon::new);
-
-pub fn poseidon_hash(input: &[Fr]) -> Fr {
-    let input = input
-        .iter()
-        .copied()
-        .map(|x| fr_to_posfr(x))
-        .collect::<Vec<_>>();
-
-    POSEIDON
-        .hash(input)
-        .map(|x| posfr_to_fr(x))
-        .expect("hash with fixed input size can't fail")
-}
-
 ////////////////////////////////////////////////////////////
 /// Tests
 ////////////////////////////////////////////////////////////
