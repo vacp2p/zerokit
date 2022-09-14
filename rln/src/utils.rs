@@ -1,11 +1,11 @@
 // This crate provides cross-module useful utilities (mainly type conversions) not necessarily specific to RLN
 
-use ark_bn254::{Bn254, Fr, Parameters};
-use ark_ff::{BigInteger, Field as ArkField, FpParameters, PrimeField};
-use ark_std::str::FromStr;
-use ethers::core::utils::keccak256;
-use num_bigint::{BigInt, BigUint, ToBigInt};
-use semaphore::{identity::Identity, Field};
+use crate::circuit::Fr;
+use ark_ff::{BigInteger, FpParameters, PrimeField};
+use ff::{PrimeField as _, PrimeFieldRepr as _};
+use num_bigint::{BigInt, BigUint};
+use num_traits::Num;
+use poseidon_rs::Fr as PosFr;
 use std::iter::Extend;
 
 pub fn modulus_bit_size() -> usize {
@@ -15,36 +15,17 @@ pub fn modulus_bit_size() -> usize {
         .unwrap()
 }
 
+pub fn to_bigint(el: &Fr) -> BigInt {
+    let res: BigUint = (*el).try_into().unwrap();
+    res.try_into().unwrap()
+}
+
 pub fn fr_byte_size() -> usize {
     let mbs = modulus_bit_size();
     (mbs + 64 - (mbs % 64)) / 8
 }
 
-pub fn to_fr(el: &Field) -> Fr {
-    Fr::try_from(*el).unwrap()
-}
-
-pub fn to_field(el: &Fr) -> Field {
-    (*el).try_into().unwrap()
-}
-
-pub fn vec_to_fr(v: &[Field]) -> Vec<Fr> {
-    v.iter().map(|el| to_fr(el)).collect()
-}
-
-pub fn vec_to_field(v: &[Fr]) -> Vec<Field> {
-    v.iter().map(|el| to_field(el)).collect()
-}
-
-pub fn vec_fr_to_field(input: &[Fr]) -> Vec<Field> {
-    input.iter().map(|el| to_field(el)).collect()
-}
-
-pub fn vec_field_to_fr(input: &[Field]) -> Vec<Fr> {
-    input.iter().map(|el| to_fr(el)).collect()
-}
-
-pub fn str_to_field(input: String, radix: i32) -> Field {
+pub fn str_to_fr(input: &str, radix: u32) -> Fr {
     assert!((radix == 10) || (radix == 16));
 
     // We remove any quote present and we trim
@@ -53,15 +34,16 @@ pub fn str_to_field(input: String, radix: i32) -> Field {
     let input_clean = input_clean.trim();
 
     if radix == 10 {
-        Field::from_str(&format!(
-            "{:01$x}",
-            BigUint::from_str(input_clean).unwrap(),
-            64
-        ))
-        .unwrap()
+        BigUint::from_str_radix(&input_clean, radix)
+            .unwrap()
+            .try_into()
+            .unwrap()
     } else {
         let input_clean = input_clean.replace("0x", "");
-        Field::from_str(&format!("{:0>64}", &input_clean)).unwrap()
+        BigUint::from_str_radix(&input_clean, radix)
+            .unwrap()
+            .try_into()
+            .unwrap()
     }
 }
 
@@ -79,16 +61,6 @@ pub fn bytes_be_to_fr(input: &[u8]) -> (Fr, usize) {
         Fr::from(BigUint::from_bytes_be(&input[0..el_size])),
         el_size,
     )
-}
-
-pub fn bytes_le_to_field(input: &[u8]) -> (Field, usize) {
-    let (fr_el, read) = bytes_le_to_fr(input);
-    (to_field(&fr_el), read)
-}
-
-pub fn bytes_be_to_field(input: &[u8]) -> (Field, usize) {
-    let (fr_el, read) = bytes_be_to_fr(input);
-    (to_field(&fr_el), read)
 }
 
 pub fn fr_to_bytes_le(input: &Fr) -> Vec<u8> {
@@ -112,14 +84,6 @@ pub fn fr_to_bytes_be(input: &Fr) -> Vec<u8> {
     res
 }
 
-pub fn field_to_bytes_le(input: &Field) -> Vec<u8> {
-    fr_to_bytes_le(&to_fr(input))
-}
-
-pub fn field_to_bytes_be(input: &Field) -> Vec<u8> {
-    fr_to_bytes_be(&to_fr(input))
-}
-
 pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Vec<u8> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
@@ -138,14 +102,6 @@ pub fn vec_fr_to_bytes_be(input: &[Fr]) -> Vec<u8> {
     input.iter().for_each(|el| bytes.extend(fr_to_bytes_be(el)));
 
     bytes
-}
-
-pub fn vec_field_to_bytes_le(input: &[Field]) -> Vec<u8> {
-    vec_fr_to_bytes_le(&vec_field_to_fr(input))
-}
-
-pub fn vec_field_to_bytes_be(input: &[Field]) -> Vec<u8> {
-    vec_fr_to_bytes_be(&vec_field_to_fr(input))
 }
 
 pub fn vec_u8_to_bytes_le(input: &[u8]) -> Vec<u8> {
@@ -223,6 +179,106 @@ pub fn bytes_be_to_vec_fr(input: &[u8]) -> (Vec<Fr>, usize) {
     (res, read)
 }
 
+// Conversion Utilities between poseidon-rs Field and arkworks Fr (in order to call directly poseidon-rs poseidon_hash)
+
+pub fn fr_to_posfr(value: Fr) -> PosFr {
+    let mut bytes = [0_u8; 32];
+    let byte_vec = value.into_repr().to_bytes_be();
+    bytes.copy_from_slice(&byte_vec[..]);
+    let mut repr = <PosFr as ff::PrimeField>::Repr::default();
+    repr.read_be(&bytes[..])
+        .expect("read from correctly sized slice always succeeds");
+    PosFr::from_repr(repr).expect("value is always in range")
+}
+
+pub fn posfr_to_fr(value: PosFr) -> Fr {
+    let mut bytes = [0u8; 32];
+    value
+        .into_repr()
+        .write_be(&mut bytes[..])
+        .expect("write to correctly sized slice always succeeds");
+    Fr::from_be_bytes_mod_order(&bytes)
+}
+
+// Conversion Utilities between semaphore-rs Field and arkworks Fr
+
+/*
+use semaphore::Field;
+
+pub fn to_fr(el: &Field) -> Fr {
+    Fr::try_from(*el).unwrap()
+}
+
+pub fn to_field(el: &Fr) -> Field {
+    (*el).try_into().unwrap()
+}
+
+pub fn vec_to_fr(v: &[Field]) -> Vec<Fr> {
+    v.iter().map(|el| to_fr(el)).collect()
+}
+
+pub fn vec_to_field(v: &[Fr]) -> Vec<Field> {
+    v.iter().map(|el| to_field(el)).collect()
+}
+
+pub fn vec_fr_to_field(input: &[Fr]) -> Vec<Field> {
+    input.iter().map(|el| to_field(el)).collect()
+}
+
+pub fn vec_field_to_fr(input: &[Field]) -> Vec<Fr> {
+    input.iter().map(|el| to_fr(el)).collect()
+}
+
+pub fn str_to_field(input: String, radix: i32) -> Field {
+    assert!((radix == 10) || (radix == 16));
+
+    // We remove any quote present and we trim
+    let single_quote: char = '\"';
+    let input_clean = input.replace(single_quote, "");
+    let input_clean = input_clean.trim();
+
+    if radix == 10 {
+        Field::from_str(&format!(
+            "{:01$x}",
+            BigUint::from_str(input_clean).unwrap(),
+            64
+        ))
+        .unwrap()
+    } else {
+        let input_clean = input_clean.replace("0x", "");
+        Field::from_str(&format!("{:0>64}", &input_clean)).unwrap()
+    }
+}
+
+pub fn bytes_le_to_field(input: &[u8]) -> (Field, usize) {
+    let (fr_el, read) = bytes_le_to_fr(input);
+    (to_field(&fr_el), read)
+}
+
+pub fn bytes_be_to_field(input: &[u8]) -> (Field, usize) {
+    let (fr_el, read) = bytes_be_to_fr(input);
+    (to_field(&fr_el), read)
+}
+
+
+pub fn field_to_bytes_le(input: &Field) -> Vec<u8> {
+    fr_to_bytes_le(&to_fr(input))
+}
+
+pub fn field_to_bytes_be(input: &Field) -> Vec<u8> {
+    fr_to_bytes_be(&to_fr(input))
+}
+
+
+pub fn vec_field_to_bytes_le(input: &[Field]) -> Vec<u8> {
+    vec_fr_to_bytes_le(&vec_field_to_fr(input))
+}
+
+pub fn vec_field_to_bytes_be(input: &[Field]) -> Vec<u8> {
+    vec_fr_to_bytes_be(&vec_field_to_fr(input))
+}
+
+
 pub fn bytes_le_to_vec_field(input: &[u8]) -> (Vec<Field>, usize) {
     let (vec_fr, read) = bytes_le_to_vec_fr(input);
     (vec_fr_to_field(&vec_fr), read)
@@ -250,3 +306,4 @@ pub fn div(a: &Field, b: &Field) -> Field {
 pub fn inv(a: &Field) -> Field {
     to_field(&(Fr::from(1) / to_fr(a)))
 }
+*/

@@ -1,7 +1,8 @@
 // This crate implements the public Foreign Function Interface (FFI) for the RLN module
 
-use crate::public::RLN;
 use std::slice;
+
+use crate::public::RLN;
 
 /// Buffer struct is taken from
 /// https://github.com/celo-org/celo-threshold-bls-rs/blob/master/crates/threshold-bls-ffi/src/ffi.rs
@@ -30,7 +31,7 @@ impl<'a> From<&Buffer> for &'a [u8] {
     }
 }
 
-// TODO: check if there are security implications for this clippy. It seems we should have pub unsafe extern "C" fn ...
+// TODO: check if there are security implications by using this clippy
 // #[allow(clippy::not_unsafe_ptr_arg_deref)]
 
 ////////////////////////////////////////////////////////
@@ -245,17 +246,11 @@ pub extern "C" fn hash(
 mod test {
     use super::*;
     use crate::circuit::*;
+    use crate::poseidon_tree::poseidon_hash;
     use crate::protocol::*;
     use crate::utils::*;
-    use ark_bn254::{Bn254, Fr};
-    use ark_groth16::Proof as ArkProof;
-    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-    use ark_std::str::FromStr;
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
-    use semaphore::{identity::Identity, poseidon_hash, Field};
-    use serde::{Deserialize, Serialize};
-    use std::io::Cursor;
     use std::mem::MaybeUninit;
     use std::time::{Duration, Instant};
 
@@ -266,10 +261,10 @@ mod test {
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
-        let mut leaves: Vec<Field> = Vec::new();
+        let mut leaves: Vec<Fr> = Vec::new();
         let mut rng = thread_rng();
         for _ in 0..no_of_leaves {
-            leaves.push(to_field(&Fr::rand(&mut rng)));
+            leaves.push(Fr::rand(&mut rng));
         }
 
         // We create a RLN instance
@@ -282,7 +277,7 @@ mod test {
         // We first add leaves one by one specifying the index
         for (i, leaf) in leaves.iter().enumerate() {
             // We prepare id_commitment and we set the leaf at provided index
-            let leaf_ser = field_to_bytes_le(&leaf);
+            let leaf_ser = fr_to_bytes_le(&leaf);
             let input_buffer = &Buffer::from(leaf_ser.as_ref());
             let success = set_leaf(rln_pointer, i, input_buffer);
             assert!(success, "set leaf call failed");
@@ -294,7 +289,7 @@ mod test {
         assert!(success, "get root call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_single, _) = bytes_le_to_field(&result_data);
+        let (root_single, _) = bytes_le_to_fr(&result_data);
 
         // We reset the tree to default
         let success = set_tree(rln_pointer, tree_height);
@@ -302,7 +297,7 @@ mod test {
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
         for leaf in &leaves {
-            let leaf_ser = field_to_bytes_le(&leaf);
+            let leaf_ser = fr_to_bytes_le(&leaf);
             let input_buffer = &Buffer::from(leaf_ser.as_ref());
             let success = set_next_leaf(rln_pointer, input_buffer);
             assert!(success, "set next leaf call failed");
@@ -314,7 +309,7 @@ mod test {
         assert!(success, "get root call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_next, _) = bytes_le_to_field(&result_data);
+        let (root_next, _) = bytes_le_to_fr(&result_data);
 
         // We check if roots are the same
         assert_eq!(root_single, root_next);
@@ -324,7 +319,7 @@ mod test {
         assert!(success, "set tree call failed");
 
         // We add leaves in a batch into the tree
-        let leaves_ser = vec_field_to_bytes_le(&leaves);
+        let leaves_ser = vec_fr_to_bytes_le(&leaves);
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
         let success = set_leaves(rln_pointer, input_buffer);
         assert!(success, "set leaves call failed");
@@ -335,7 +330,7 @@ mod test {
         assert!(success, "get root call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_batch, _) = bytes_le_to_field(&result_data);
+        let (root_batch, _) = bytes_le_to_fr(&result_data);
 
         // We check if roots are the same
         assert_eq!(root_single, root_batch);
@@ -354,7 +349,7 @@ mod test {
         assert!(success, "get root call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_delete, _) = bytes_le_to_field(&result_data);
+        let (root_delete, _) = bytes_le_to_fr(&result_data);
 
         // We reset the tree to default
         let success = set_tree(rln_pointer, tree_height);
@@ -366,7 +361,7 @@ mod test {
         assert!(success, "get root call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_empty, _) = bytes_le_to_field(&result_data);
+        let (root_empty, _) = bytes_le_to_fr(&result_data);
 
         // We check if roots are the same
         assert_eq!(root_delete, root_empty);
@@ -386,13 +381,11 @@ mod test {
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
         // generate identity
-        // We follow zk-kit approach for identity generation
-        let id = Identity::from_seed(b"test-merkle-proof");
-        let identity_secret = poseidon_hash(&vec![id.trapdoor, id.nullifier]);
+        let identity_secret = hash_to_field(b"test-merkle-proof");
         let id_commitment = poseidon_hash(&vec![identity_secret]);
 
         // We prepare id_commitment and we set the leaf at provided index
-        let leaf_ser = field_to_bytes_le(&id_commitment);
+        let leaf_ser = fr_to_bytes_le(&id_commitment);
         let input_buffer = &Buffer::from(leaf_ser.as_ref());
         let success = set_leaf(rln_pointer, leaf_index, input_buffer);
         assert!(success, "set leaf call failed");
@@ -403,7 +396,7 @@ mod test {
         assert!(success, "get root call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root, _) = bytes_le_to_field(&result_data);
+        let (root, _) = bytes_le_to_fr(&result_data);
 
         // We obtain the Merkle tree root
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
@@ -412,41 +405,71 @@ mod test {
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
 
-        let (path_elements, read) = bytes_le_to_vec_field(&result_data);
+        let (path_elements, read) = bytes_le_to_vec_fr(&result_data);
         let (identity_path_index, _) = bytes_le_to_vec_u8(&result_data[read..].to_vec());
 
         // We check correct computation of the path and indexes
         let mut expected_path_elements = vec![
-            Field::from_str("0x0000000000000000000000000000000000000000000000000000000000000000")
-                .unwrap(),
-            Field::from_str("0x2098f5fb9e239eab3ceac3f27b81e481dc3124d55ffed523a839ee8446b64864")
-                .unwrap(),
-            Field::from_str("0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1")
-                .unwrap(),
-            Field::from_str("0x18f43331537ee2af2e3d758d50f72106467c6eea50371dd528d57eb2b856d238")
-                .unwrap(),
-            Field::from_str("0x07f9d837cb17b0d36320ffe93ba52345f1b728571a568265caac97559dbc952a")
-                .unwrap(),
-            Field::from_str("0x2b94cf5e8746b3f5c9631f4c5df32907a699c58c94b2ad4d7b5cec1639183f55")
-                .unwrap(),
-            Field::from_str("0x2dee93c5a666459646ea7d22cca9e1bcfed71e6951b953611d11dda32ea09d78")
-                .unwrap(),
-            Field::from_str("0x078295e5a22b84e982cf601eb639597b8b0515a88cb5ac7fa8a4aabe3c87349d")
-                .unwrap(),
-            Field::from_str("0x2fa5e5f18f6027a6501bec864564472a616b2e274a41211a444cbe3a99f3cc61")
-                .unwrap(),
-            Field::from_str("0x0e884376d0d8fd21ecb780389e941f66e45e7acce3e228ab3e2156a614fcd747")
-                .unwrap(),
-            Field::from_str("0x1b7201da72494f1e28717ad1a52eb469f95892f957713533de6175e5da190af2")
-                .unwrap(),
-            Field::from_str("0x1f8d8822725e36385200c0b201249819a6e6e1e4650808b5bebc6bface7d7636")
-                .unwrap(),
-            Field::from_str("0x2c5d82f66c914bafb9701589ba8cfcfb6162b0a12acf88a8d0879a0471b5f85a")
-                .unwrap(),
-            Field::from_str("0x14c54148a0940bb820957f5adf3fa1134ef5c4aaa113f4646458f270e0bfbfd0")
-                .unwrap(),
-            Field::from_str("0x190d33b12f986f961e10c0ee44d8b9af11be25588cad89d416118e4bf4ebe80c")
-                .unwrap(),
+            str_to_fr(
+                "0x0000000000000000000000000000000000000000000000000000000000000000",
+                16,
+            ),
+            str_to_fr(
+                "0x2098f5fb9e239eab3ceac3f27b81e481dc3124d55ffed523a839ee8446b64864",
+                16,
+            ),
+            str_to_fr(
+                "0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1",
+                16,
+            ),
+            str_to_fr(
+                "0x18f43331537ee2af2e3d758d50f72106467c6eea50371dd528d57eb2b856d238",
+                16,
+            ),
+            str_to_fr(
+                "0x07f9d837cb17b0d36320ffe93ba52345f1b728571a568265caac97559dbc952a",
+                16,
+            ),
+            str_to_fr(
+                "0x2b94cf5e8746b3f5c9631f4c5df32907a699c58c94b2ad4d7b5cec1639183f55",
+                16,
+            ),
+            str_to_fr(
+                "0x2dee93c5a666459646ea7d22cca9e1bcfed71e6951b953611d11dda32ea09d78",
+                16,
+            ),
+            str_to_fr(
+                "0x078295e5a22b84e982cf601eb639597b8b0515a88cb5ac7fa8a4aabe3c87349d",
+                16,
+            ),
+            str_to_fr(
+                "0x2fa5e5f18f6027a6501bec864564472a616b2e274a41211a444cbe3a99f3cc61",
+                16,
+            ),
+            str_to_fr(
+                "0x0e884376d0d8fd21ecb780389e941f66e45e7acce3e228ab3e2156a614fcd747",
+                16,
+            ),
+            str_to_fr(
+                "0x1b7201da72494f1e28717ad1a52eb469f95892f957713533de6175e5da190af2",
+                16,
+            ),
+            str_to_fr(
+                "0x1f8d8822725e36385200c0b201249819a6e6e1e4650808b5bebc6bface7d7636",
+                16,
+            ),
+            str_to_fr(
+                "0x2c5d82f66c914bafb9701589ba8cfcfb6162b0a12acf88a8d0879a0471b5f85a",
+                16,
+            ),
+            str_to_fr(
+                "0x14c54148a0940bb820957f5adf3fa1134ef5c4aaa113f4646458f270e0bfbfd0",
+                16,
+            ),
+            str_to_fr(
+                "0x190d33b12f986f961e10c0ee44d8b9af11be25588cad89d416118e4bf4ebe80c",
+                16,
+            ),
         ];
 
         let mut expected_identity_path_index: Vec<u8> =
@@ -455,31 +478,31 @@ mod test {
         // We add the remaining elements for the case TEST_TREE_HEIGHT = 19
         if TEST_TREE_HEIGHT == 19 || TEST_TREE_HEIGHT == 20 {
             expected_path_elements.append(&mut vec![
-                Field::from_str(
+                str_to_fr(
                     "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
-                )
-                .unwrap(),
-                Field::from_str(
+                    16,
+                ),
+                str_to_fr(
                     "0x2a7c7c9b6ce5880b9f6f228d72bf6a575a526f29c66ecceef8b753d38bba7323",
-                )
-                .unwrap(),
-                Field::from_str(
+                    16,
+                ),
+                str_to_fr(
                     "0x2e8186e558698ec1c67af9c14d463ffc470043c9c2988b954d75dd643f36b992",
-                )
-                .unwrap(),
-                Field::from_str(
+                    16,
+                ),
+                str_to_fr(
                     "0x0f57c5571e9a4eab49e2c8cf050dae948aef6ead647392273546249d1c1ff10f",
-                )
-                .unwrap(),
+                    16,
+                ),
             ]);
             expected_identity_path_index.append(&mut vec![0, 0, 0, 0]);
         }
 
         if TEST_TREE_HEIGHT == 20 {
-            expected_path_elements.append(&mut vec![Field::from_str(
+            expected_path_elements.append(&mut vec![str_to_fr(
                 "0x1830ee67b5fb554ad5f63d4388800e1cfe78e310697d46e43c9ce36134f72cca",
-            )
-            .unwrap()]);
+                16,
+            )]);
             expected_identity_path_index.append(&mut vec![0]);
         }
 
@@ -494,6 +517,7 @@ mod test {
     }
 
     #[test]
+    // Benchmarks proof generation and verification
     fn test_groth16_proofs_performance_ffi() {
         let tree_height = TEST_TREE_HEIGHT;
 
@@ -555,15 +579,16 @@ mod test {
     }
 
     #[test]
+    // Computes and verifies an RLN ZK proof using FFI APIs
     fn test_rln_proof_ffi() {
         let tree_height = TEST_TREE_HEIGHT;
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
-        let mut leaves: Vec<Field> = Vec::new();
+        let mut leaves: Vec<Fr> = Vec::new();
         let mut rng = thread_rng();
         for _ in 0..no_of_leaves {
-            leaves.push(to_field(&Fr::rand(&mut rng)));
+            leaves.push(Fr::rand(&mut rng));
         }
 
         // We create a RLN instance
@@ -574,7 +599,7 @@ mod test {
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
         // We add leaves in a batch into the tree
-        let leaves_ser = vec_field_to_bytes_le(&leaves);
+        let leaves_ser = vec_fr_to_bytes_le(&leaves);
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
         let success = set_leaves(rln_pointer, input_buffer);
         assert!(success, "set leaves call failed");
@@ -585,11 +610,11 @@ mod test {
         assert!(success, "key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret, read) = bytes_le_to_field(&result_data);
-        let (id_commitment, _) = bytes_le_to_field(&result_data[read..].to_vec());
+        let (identity_secret, read) = bytes_le_to_fr(&result_data);
+        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
 
         // We set as leaf id_commitment, its index would be equal to no_of_leaves
-        let leaf_ser = field_to_bytes_le(&id_commitment);
+        let leaf_ser = fr_to_bytes_le(&id_commitment);
         let input_buffer = &Buffer::from(leaf_ser.as_ref());
         let success = set_next_leaf(rln_pointer, input_buffer);
         assert!(success, "set next leaf call failed");
@@ -607,9 +632,9 @@ mod test {
         // We prepare input for generate_rln_proof API
         // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized: Vec<u8> = Vec::new();
-        serialized.append(&mut field_to_bytes_le(&identity_secret));
+        serialized.append(&mut fr_to_bytes_le(&identity_secret));
         serialized.append(&mut identity_index.to_le_bytes().to_vec());
-        serialized.append(&mut field_to_bytes_le(&epoch));
+        serialized.append(&mut fr_to_bytes_le(&epoch));
         serialized.append(&mut signal_len.to_le_bytes().to_vec());
         serialized.append(&mut signal.to_vec());
 
@@ -638,6 +663,7 @@ mod test {
     }
 
     #[test]
+    // Tests hash to field using FFI APIs
     fn test_hash_to_field_ffi() {
         let tree_height = TEST_TREE_HEIGHT;
 
@@ -660,7 +686,7 @@ mod test {
 
         // We read the returned proof and we append proof values for verify
         let serialized_hash = <&[u8]>::from(&output_buffer).to_vec();
-        let (hash1, _) = bytes_le_to_field(&serialized_hash);
+        let (hash1, _) = bytes_le_to_fr(&serialized_hash);
 
         let hash2 = hash_to_field(&signal);
 
