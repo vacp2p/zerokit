@@ -11,7 +11,7 @@ use num_bigint::BigUint;
 use once_cell::sync::OnceCell;
 use serde_json::Value;
 use std::fs::File;
-use std::io::{Error, ErrorKind, Read, Result};
+use std::io::{Cursor, Error, ErrorKind, Result};
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Mutex;
@@ -22,18 +22,18 @@ const VK_FILENAME: &str = "verifying_key.json";
 const WASM_FILENAME: &str = "rln.wasm";
 
 // These parameters are used for tests
-// Note that the circuit and keys in TEST_RESOURCES_FOLDER are compiled for Merkle trees of height 15 and 19
-// Changing these parameters to other values than these two defaults will cause zkSNARK proof verification to fail
-//pub const TEST_TREE_HEIGHT: usize = 15;
-//pub const TEST_RESOURCES_FOLDER: &str = "./resources/tree_height_15/";
-//pub const TEST_TREE_HEIGHT: usize = 19;
-//pub const TEST_RESOURCES_FOLDER: &str = "./resources/tree_height_19/";
-pub const TEST_TREE_HEIGHT: usize = 20;
-pub const TEST_RESOURCES_FOLDER: &str = "./resources/tree_height_20/";
+// Note that the circuit and keys in TEST_RESOURCES_FOLDER are compiled for Merkle trees of height 15, 19 and 20
+// Changing these parameters to other values than these defaults will cause zkSNARK proof verification to fail
+pub const TEST_PARAMETERS_INDEX: usize = 2;
+pub const TEST_TREE_HEIGHT: usize = [15, 19, 20][TEST_PARAMETERS_INDEX];
+pub const TEST_RESOURCES_FOLDER: &str = [
+    "./resources/tree_height_15/",
+    "./resources/tree_height_19/",
+    "./resources/tree_height_20/",
+][TEST_PARAMETERS_INDEX];
 
 // The following types define the pairing friendly elliptic curve, the underlying finite fields and groups default to this module
 // Note that proofs are serialized assuming Fr to be 4x8 = 32 bytes in size. Hence, changing to a curve with different encoding will make proof verification to fail
-
 pub type Curve = Bn254;
 pub type Fr = ArkFr;
 pub type Fq = ArkFq;
@@ -43,9 +43,21 @@ pub type G1Projective = ArkG1Projective;
 pub type G2Affine = ArkG2Affine;
 pub type G2Projective = ArkG2Projective;
 
-#[allow(non_snake_case)]
+// Loads the proving key using a bytes vector
+pub fn zkey_from_raw(zkey_data: &Vec<u8>) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
+    if !zkey_data.is_empty() {
+        let mut c = Cursor::new(zkey_data);
+        let proving_key_and_matrices = read_zkey(&mut c)?;
+        Ok(proving_key_and_matrices)
+    } else {
+        Err(Error::new(ErrorKind::NotFound, "No proving key found!"))
+    }
+}
+
 // Loads the proving key
-pub fn ZKEY(resources_folder: &str) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
+pub fn zkey_from_folder(
+    resources_folder: &str,
+) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
     let zkey_path = format!("{resources_folder}{ZKEY_FILENAME}");
     if Path::new(&zkey_path).exists() {
         let mut file = File::open(&zkey_path)?;
@@ -56,9 +68,27 @@ pub fn ZKEY(resources_folder: &str) -> Result<(ProvingKey<Curve>, ConstraintMatr
     }
 }
 
-#[allow(non_snake_case)]
+// Loads the verification key from a bytes vector
+pub fn vk_from_raw(vk_data: &Vec<u8>, zkey_data: &Vec<u8>) -> Result<VerifyingKey<Curve>> {
+    let verifying_key: VerifyingKey<Curve>;
+
+    if !vk_data.is_empty() {
+        verifying_key = vk_from_vector(vk_data);
+        Ok(verifying_key)
+    } else if !zkey_data.is_empty() {
+        let (proving_key, _matrices) = zkey_from_raw(zkey_data)?;
+        verifying_key = proving_key.vk;
+        Ok(verifying_key)
+    } else {
+        Err(Error::new(
+            ErrorKind::NotFound,
+            "No proving/verification key found!",
+        ))
+    }
+}
+
 // Loads the verification key
-pub fn VK(resources_folder: &str) -> Result<VerifyingKey<Curve>> {
+pub fn vk_from_folder(resources_folder: &str) -> Result<VerifyingKey<Curve>> {
     let vk_path = format!("{resources_folder}{VK_FILENAME}");
     let zkey_path = format!("{resources_folder}{ZKEY_FILENAME}");
 
@@ -68,7 +98,7 @@ pub fn VK(resources_folder: &str) -> Result<VerifyingKey<Curve>> {
         verifying_key = vk_from_json(&vk_path);
         Ok(verifying_key)
     } else if Path::new(&zkey_path).exists() {
-        let (proving_key, _matrices) = ZKEY(resources_folder)?;
+        let (proving_key, _matrices) = zkey_from_folder(resources_folder)?;
         verifying_key = proving_key.vk;
         Ok(verifying_key)
     } else {
@@ -81,30 +111,23 @@ pub fn VK(resources_folder: &str) -> Result<VerifyingKey<Curve>> {
 
 static WITNESS_CALCULATOR: OnceCell<Mutex<WitnessCalculator>> = OnceCell::new();
 
-// Loads the circuit WASM
-fn read_wasm(resources_folder: &str) -> Vec<u8> {
-    let wasm_path = format!("{resources_folder}{WASM_FILENAME}");
-    let mut wasm_file = File::open(&wasm_path).expect("no file found");
-    let metadata = std::fs::metadata(&wasm_path).expect("unable to read metadata");
-    let mut wasm_buffer = vec![0; metadata.len() as usize];
-    wasm_file
-        .read_exact(&mut wasm_buffer)
-        .expect("buffer overflow");
-    wasm_buffer
-}
-
-#[allow(non_snake_case)]
-// Initializes the witness calculator
-pub fn CIRCOM(resources_folder: &str) -> &'static Mutex<WitnessCalculator> {
+// Initializes the witness calculator using a bytes vector
+pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> &'static Mutex<WitnessCalculator> {
     WITNESS_CALCULATOR.get_or_init(|| {
-        // We read the wasm file
-        let wasm_buffer = read_wasm(resources_folder);
         let store = Store::default();
-        let module = Module::from_binary(&store, &wasm_buffer).expect("wasm should be valid");
+        let module = Module::new(&store, wasm_buffer).unwrap();
         let result =
             WitnessCalculator::from_module(module).expect("Failed to create witness calculator");
         Mutex::new(result)
     })
+}
+
+// Initializes the witness calculator
+pub fn circom_from_folder(resources_folder: &str) -> &'static Mutex<WitnessCalculator> {
+    // We read the wasm file
+    let wasm_path = format!("{resources_folder}{WASM_FILENAME}");
+    let wasm_buffer = std::fs::read(&wasm_path).unwrap();
+    circom_from_raw(wasm_buffer)
 }
 
 // The following function implementations are taken/adapted from https://github.com/gakonst/ark-circom/blob/1732e15d6313fe176b0b1abb858ac9e095d0dbd7/src/zkey.rs
@@ -182,11 +205,8 @@ fn json_to_g2(json: &Value, key: &str) -> G2Affine {
     G2Affine::from(G2Projective::new(x, y, z))
 }
 
-// Computes the verification key from its JSON serialization
-fn vk_from_json(vk_path: &str) -> VerifyingKey<Curve> {
-    let json = std::fs::read_to_string(vk_path).unwrap();
-    let json: Value = serde_json::from_str(&json).unwrap();
-
+// Converts JSON to a VerifyingKey
+fn to_verifying_key(json: serde_json::Value) -> VerifyingKey<Curve> {
     VerifyingKey {
         alpha_g1: json_to_g1(&json, "vk_alpha_1"),
         beta_g2: json_to_g2(&json, "vk_beta_2"),
@@ -196,8 +216,24 @@ fn vk_from_json(vk_path: &str) -> VerifyingKey<Curve> {
     }
 }
 
+// Computes the verification key from its JSON serialization
+fn vk_from_json(vk_path: &str) -> VerifyingKey<Curve> {
+    let json = std::fs::read_to_string(vk_path).unwrap();
+    let json: Value = serde_json::from_str(&json).unwrap();
+
+    to_verifying_key(json)
+}
+
+// Computes the verification key from a bytes vector containing its JSON serialization
+fn vk_from_vector(vk: &[u8]) -> VerifyingKey<Curve> {
+    let json = String::from_utf8(vk.to_vec()).expect("Found invalid UTF-8");
+    let json: Value = serde_json::from_str(&json).unwrap();
+
+    to_verifying_key(json)
+}
+
 // Checks verification key to be correct with respect to proving key
 pub fn check_vk_from_zkey(resources_folder: &str, verifying_key: VerifyingKey<Curve>) {
-    let (proving_key, _matrices) = ZKEY(resources_folder).unwrap();
+    let (proving_key, _matrices) = zkey_from_folder(resources_folder).unwrap();
     assert_eq!(proving_key.vk, verifying_key);
 }

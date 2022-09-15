@@ -5,13 +5,20 @@
 use crate::circuit::Fr;
 use crate::merkle_tree::*;
 use crate::poseidon_hash::poseidon_hash;
+use cfg_if::cfg_if;
 
-// The zerokit RLN default Merkle tree implementation.
-// To switch to FullMerkleTree implementation it is enough to redefine the following two types
-pub type PoseidonTree = OptimalMerkleTree<PoseidonHash>;
-pub type MerkleProof = OptimalMerkleProof<PoseidonHash>;
-//pub type PoseidonTree = FullMerkleTree<PoseidonHash>;
-//pub type MerkleProof = FullMerkleProof<PoseidonHash>;
+// The zerokit RLN default Merkle tree implementation is the OptimalMerkleTree.
+// To switch to FullMerkleTree implementation, it is enough to enable the fullmerkletree feature
+
+cfg_if! {
+    if #[cfg(feature = "fullmerkletree")] {
+        pub type PoseidonTree = FullMerkleTree<PoseidonHash>;
+        pub type MerkleProof = FullMerkleProof<PoseidonHash>;
+    } else {
+        pub type PoseidonTree = OptimalMerkleTree<PoseidonHash>;
+        pub type MerkleProof = OptimalMerkleProof<PoseidonHash>;
+    }
+}
 
 // The zerokit RLN default Hasher
 #[derive(Clone, Copy, PartialEq, Eq)]

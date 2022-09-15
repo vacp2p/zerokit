@@ -1,7 +1,7 @@
 [submodule "rln/vendor/rln"]
 	path = rln/vendor/rln
 	ignore = dirty
-	url = https://github.com/privacy-scaling-explorations/rln.git
+	url = https://github.com/Rate-Limiting-Nullifier/rln_circuits
 [submodule "semaphore/vendor/semaphore"]
 	path = semaphore/vendor/semaphore
 	ignore = dirty
