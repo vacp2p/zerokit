@@ -246,7 +246,7 @@ pub extern "C" fn hash(
 mod test {
     use super::*;
     use crate::circuit::*;
-    use crate::poseidon_tree::poseidon_hash;
+    use crate::poseidon_hash::poseidon_hash;
     use crate::protocol::*;
     use crate::utils::*;
     use ark_std::{rand::thread_rng, UniformRand};

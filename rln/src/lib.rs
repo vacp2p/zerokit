@@ -3,6 +3,8 @@
 pub mod circuit;
 pub mod ffi;
 pub mod merkle_tree;
+pub mod poseidon_constants;
+pub mod poseidon_hash;
 pub mod poseidon_tree;
 pub mod protocol;
 pub mod public;
@@ -12,7 +14,8 @@ pub mod utils;
 mod test {
 
     use crate::circuit::{Fr, CIRCOM, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT, VK, ZKEY};
-    use crate::poseidon_tree::{poseidon_hash, PoseidonTree};
+    use crate::poseidon_hash::poseidon_hash;
+    use crate::poseidon_tree::PoseidonTree;
     use crate::protocol::*;
     use crate::utils::str_to_fr;
 
