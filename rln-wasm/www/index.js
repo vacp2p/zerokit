@@ -60,10 +60,10 @@ wc(circomUint8Array).then(async witnessCalculator => {
     console.log("IDKey", IDKey, "IDCommitment", IDCommitment)
 
     //peer's index in the Merkle Tree
-    const index = 5
+    const index = 0
 
     // Create a Merkle tree with random members
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 1; i++) {
         if (i == index) {
             // insert the current peer's pk
             let result = rln.insertMember(rlnInstance, IDCommitment); // TODO: error handling

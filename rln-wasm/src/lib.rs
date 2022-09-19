@@ -1,9 +1,10 @@
-use rln::public::RLN;
-use wasm_bindgen::prelude::*;
+extern crate wasm_bindgen;
 extern crate web_sys;
 
 use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
 use num_bigint::BigInt;
+use rln::public::RLN;
+use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub fn init_panic_hook() {
@@ -125,4 +126,97 @@ pub fn wasm_verify(ctx: *const RLNWrapper, proof: Uint8Array) -> bool {
     }
 
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rln::circuit::TEST_TREE_HEIGHT;
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    #[wasm_bindgen(module = "/src/utils.js")]
+    extern "C" {
+        #[wasm_bindgen(catch)]
+        fn read_file(path: &str) -> Result<Uint8Array, JsValue>;
+
+        #[wasm_bindgen(catch)]
+        async fn calculateWitness(circom_path: &str, input: Object) -> Result<JsValue, JsValue>;
+    }
+
+    #[wasm_bindgen_test]
+    pub async fn test_basic_flow() {
+        let tree_height = TEST_TREE_HEIGHT;
+        let circom_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln.wasm");
+        let zkey_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.zkey");
+        let vk_path =
+            format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/verification_key.json");
+        let zkey = read_file(&zkey_path).unwrap();
+        let vk = read_file(&vk_path).unwrap();
+
+        // Creating an instance of RLN
+        let rln_instance = wasm_new(tree_height, zkey, vk);
+
+        // Creating membership key
+        let mem_keys = wasm_key_gen(rln_instance).unwrap();
+        let idkey = mem_keys.subarray(0, 32);
+        let idcommitment = mem_keys.subarray(32, 64);
+
+        // Insert PK
+        wasm_set_next_leaf(rln_instance, idcommitment).unwrap();
+
+        // Prepare the message
+        let mut signal = "Hello World".as_bytes().to_vec();
+        let signal_len: u64 = signal.len() as u64;
+
+        // Setting up the epoch (With 0s for the test)
+        let epoch = Uint8Array::new_with_length(32);
+        epoch.fill(0, 0, 32);
+
+        let identity_index: u64 = 0;
+
+        // Serializing the message
+        let mut serialized_vec: Vec<u8> = Vec::new();
+        serialized_vec.append(&mut idkey.to_vec());
+        serialized_vec.append(&mut identity_index.to_le_bytes().to_vec());
+        serialized_vec.append(&mut epoch.to_vec());
+        serialized_vec.append(&mut signal_len.to_le_bytes().to_vec());
+        serialized_vec.append(&mut signal);
+        let serialized_message = Uint8Array::from(&serialized_vec[..]);
+
+        let serialized_rln_witness =
+            wasm_get_serialized_rln_witness(rln_instance, serialized_message);
+
+        // Obtaining inputs that should be sent to circom witness calculator
+        let json_inputs = rln_witness_to_json(rln_instance, serialized_rln_witness.clone());
+
+        // Calculating witness with JS
+        // (Using a JSON since wasm_bindgen does not like Result<Vec<JsBigInt>,JsValue>)
+        let calculated_witness_json = calculateWitness(&circom_path, json_inputs)
+            .await
+            .unwrap()
+            .as_string()
+            .unwrap();
+        let calculated_witness_vec_str: Vec<String> =
+            serde_json::from_str(&calculated_witness_json).unwrap();
+        let calculated_witness: Vec<JsBigInt> = calculated_witness_vec_str
+            .iter()
+            .map(|x| JsBigInt::new(&x.into()).unwrap())
+            .collect();
+
+        // Generating proof
+        let proof = generate_rln_proof_with_witness(
+            rln_instance,
+            calculated_witness.into(),
+            serialized_rln_witness,
+        )
+        .unwrap();
+
+        // Validate Proof
+        let is_proof_valid = wasm_verify(rln_instance, proof);
+
+        assert!(
+            is_proof_valid,
+            "validating proof generated with wasm failed"
+        );
+    }
 }
