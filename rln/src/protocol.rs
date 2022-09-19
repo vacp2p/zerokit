@@ -451,7 +451,7 @@ pub fn inputs_for_witness_calculation(rln_witness: &RLNWitnessInput) -> [(&str, 
         .iter()
         .for_each(|v| identity_path_index.push(BigInt::from(*v)));
 
-    let inputs = [
+    [
         (
             "identity_secret",
             vec![to_bigint(&rln_witness.identity_secret)],
@@ -464,9 +464,7 @@ pub fn inputs_for_witness_calculation(rln_witness: &RLNWitnessInput) -> [(&str, 
             "rln_identifier",
             vec![to_bigint(&rln_witness.rln_identifier)],
         ),
-    ];
-
-    inputs
+    ]
 }
 
 /// Generates a RLN proof
