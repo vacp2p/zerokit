@@ -436,17 +436,7 @@ pub fn generate_proof_with_witness(
     Ok(proof)
 }
 
-/// Generates a RLN proof
-///
-/// # Errors
-///
-/// Returns a [`ProofError`] if proving fails.
-pub fn generate_proof(
-    #[cfg(not(target_arch = "wasm32"))] witness_calculator: &Mutex<WitnessCalculator>,
-    #[cfg(target_arch = "wasm32")] witness_calculator: &mut WitnessCalculator,
-    proving_key: &(ProvingKey<Curve>, ConstraintMatrices<Fr>),
-    rln_witness: &RLNWitnessInput,
-) -> Result<ArkProof<Curve>, ProofError> {
+pub fn inputs_for_witness_calculation(rln_witness: &RLNWitnessInput) -> [(&str, Vec<BigInt>); 6] {
     // We confert the path indexes to field elements
     // TODO: check if necessary
     let mut path_elements = Vec::new();
@@ -475,7 +465,22 @@ pub fn generate_proof(
             vec![to_bigint(&rln_witness.rln_identifier)],
         ),
     ];
-    let inputs = inputs
+
+    inputs
+}
+
+/// Generates a RLN proof
+///
+/// # Errors
+///
+/// Returns a [`ProofError`] if proving fails.
+pub fn generate_proof(
+    #[cfg(not(target_arch = "wasm32"))] witness_calculator: &Mutex<WitnessCalculator>,
+    #[cfg(target_arch = "wasm32")] witness_calculator: &mut WitnessCalculator,
+    proving_key: &(ProvingKey<Curve>, ConstraintMatrices<Fr>),
+    rln_witness: &RLNWitnessInput,
+) -> Result<ArkProof<Curve>, ProofError> {
+    let inputs = inputs_for_witness_calculation(rln_witness)
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));
 

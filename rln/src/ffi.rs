@@ -789,4 +789,3 @@ mod test {
         assert_eq!(hash1, hash2);
     }
 }
-

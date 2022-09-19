@@ -1,4 +1,7 @@
 use crate::circuit::{vk_from_raw, zkey_from_raw, Curve, Fr};
+use crate::poseidon_tree::PoseidonTree;
+use crate::protocol::*;
+use crate::utils::*;
 /// This is the main public API for RLN module. It is used by the FFI, and should be
 /// used by tests etc as well
 use ark_groth16::Proof as ArkProof;
@@ -9,9 +12,6 @@ use cfg_if::cfg_if;
 use num_bigint::BigInt;
 use std::io::Cursor;
 use std::io::{self, Result};
-use crate::poseidon_tree::PoseidonTree;
-use crate::protocol::*;
-use crate::utils::*;
 
 cfg_if! {
     if #[cfg(not(target_arch = "wasm32"))] {
@@ -23,7 +23,6 @@ cfg_if! {
         use std::marker::*;
     }
 }
-
 
 // Application specific RLN identifier
 pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
@@ -714,6 +713,101 @@ mod test {
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
             .unwrap();
+
+        // output_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+        let mut proof_data = output_buffer.into_inner();
+
+        // We prepare input for verify_rln_proof API
+        // input_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
+        // that is [ proof_data || signal_len<8> | signal<var> ]
+        proof_data.append(&mut signal_len.to_le_bytes().to_vec());
+        proof_data.append(&mut signal.to_vec());
+
+        let mut input_buffer = Cursor::new(proof_data);
+        let verified = rln.verify_rln_proof(&mut input_buffer).unwrap();
+
+        assert!(verified);
+    }
+
+    #[test]
+    fn test_rln_with_witness() {
+        let tree_height = TEST_TREE_HEIGHT;
+        let no_of_leaves = 256;
+
+        // We generate a vector of random leaves
+        let mut leaves: Vec<Fr> = Vec::new();
+        let mut rng = thread_rng();
+        for _ in 0..no_of_leaves {
+            leaves.push(Fr::rand(&mut rng));
+        }
+
+        // We create a new RLN instance
+        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let mut rln = RLN::new(tree_height, input_buffer);
+
+        // We add leaves in a batch into the tree
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
+        rln.set_leaves(&mut buffer).unwrap();
+
+        // Generate identity pair
+        let (identity_secret, id_commitment) = keygen();
+
+        // We set as leaf id_commitment after storing its index
+        let identity_index = u64::try_from(rln.tree.leaves_set()).unwrap();
+        let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+        rln.set_next_leaf(&mut buffer).unwrap();
+
+        // We generate a random signal
+        let mut rng = rand::thread_rng();
+        let signal: [u8; 32] = rng.gen();
+        let signal_len = u64::try_from(signal.len()).unwrap();
+
+        // We generate a random epoch
+        let epoch = hash_to_field(b"test-epoch");
+
+        // We prepare input for generate_rln_proof API
+        // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        let mut serialized: Vec<u8> = Vec::new();
+        serialized.append(&mut fr_to_bytes_le(&identity_secret));
+        serialized.append(&mut identity_index.to_le_bytes().to_vec());
+        serialized.append(&mut fr_to_bytes_le(&epoch));
+        serialized.append(&mut signal_len.to_le_bytes().to_vec());
+        serialized.append(&mut signal.to_vec());
+
+        let mut input_buffer = Cursor::new(serialized);
+
+        // We read input RLN witness and we deserialize it
+        let mut witness_byte: Vec<u8> = Vec::new();
+        input_buffer.read_to_end(&mut witness_byte).unwrap();
+        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut rln.tree, &witness_byte);
+
+        let serialized_witness = serialize_witness(&rln_witness);
+
+        // Calculate witness outside zerokit (simulating what JS is doing)
+        let inputs = inputs_for_witness_calculation(&rln_witness)
+            .into_iter()
+            .map(|(name, values)| (name.to_string(), values));
+        let calculated_witness = rln
+            .witness_calculator
+            .lock()
+            .expect("witness_calculator mutex should not get poisoned")
+            .calculate_witness_element::<Curve, _>(inputs, false)
+            .map_err(ProofError::WitnessError)
+            .unwrap();
+
+        let calculated_witness_vec: Vec<BigInt> = calculated_witness
+            .into_iter()
+            .map(|v| to_bigint(&v))
+            .collect();
+
+        // Generating the proof
+        let mut output_buffer = Cursor::new(Vec::<u8>::new());
+        rln.generate_rln_proof_with_witness(
+            calculated_witness_vec,
+            serialized_witness,
+            &mut output_buffer,
+        )
+        .unwrap();
 
         // output_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
         let mut proof_data = output_buffer.into_inner();

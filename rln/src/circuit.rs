@@ -7,13 +7,13 @@ use ark_bn254::{
 use ark_circom::read_zkey;
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
+use cfg_if::cfg_if;
 use num_bigint::BigUint;
 use serde_json::Value;
 use std::fs::File;
 use std::io::{Cursor, Error, ErrorKind, Result};
 use std::path::Path;
 use std::str::FromStr;
-use cfg_if::cfg_if;
 
 cfg_if! {
     if #[cfg(not(target_arch = "wasm32"))] {
