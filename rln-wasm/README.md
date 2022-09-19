@@ -1,6 +1,7 @@
-# RLN WASM EXAMPLE APP
+# RLN for WASM
+This library is used in [waku-org/js-rln](https://github.com/waku-org/js-rln/)
 
-How to compile zerokit for wasm and see example code:
+## Building the library
 1. Make sure you have nodejs installed and the `build-essential` package if using ubuntu.
 2. Install wasm-pack
 ```
@@ -11,10 +12,9 @@ curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 cd rln-wasm
 wasm-pack build --release
 ```
-4. Launch example app
+
+## Running tests
 ```
-cd www
-npm install
-npm start
+cd rln-wasm
+wasm-pack test --node --release
 ```
-5. Browse http://localhost:8080 and open the developer tools to see console logs
