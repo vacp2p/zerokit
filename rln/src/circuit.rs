@@ -4,18 +4,25 @@ use ark_bn254::{
     Bn254, Fq as ArkFq, Fq2 as ArkFq2, Fr as ArkFr, G1Affine as ArkG1Affine,
     G1Projective as ArkG1Projective, G2Affine as ArkG2Affine, G2Projective as ArkG2Projective,
 };
-use ark_circom::{read_zkey, WitnessCalculator};
+use ark_circom::read_zkey;
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
+use cfg_if::cfg_if;
 use num_bigint::BigUint;
-use once_cell::sync::OnceCell;
 use serde_json::Value;
 use std::fs::File;
 use std::io::{Cursor, Error, ErrorKind, Result};
 use std::path::Path;
 use std::str::FromStr;
-use std::sync::Mutex;
-use wasmer::{Module, Store};
+
+cfg_if! {
+    if #[cfg(not(target_arch = "wasm32"))] {
+        use ark_circom::{WitnessCalculator};
+        use once_cell::sync::OnceCell;
+        use std::sync::Mutex;
+        use wasmer::{Module, Store};
+    }
+}
 
 const ZKEY_FILENAME: &str = "rln_final.zkey";
 const VK_FILENAME: &str = "verifying_key.json";
@@ -109,9 +116,11 @@ pub fn vk_from_folder(resources_folder: &str) -> Result<VerifyingKey<Curve>> {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 static WITNESS_CALCULATOR: OnceCell<Mutex<WitnessCalculator>> = OnceCell::new();
 
 // Initializes the witness calculator using a bytes vector
+#[cfg(not(target_arch = "wasm32"))]
 pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> &'static Mutex<WitnessCalculator> {
     WITNESS_CALCULATOR.get_or_init(|| {
         let store = Store::default();
@@ -123,6 +132,7 @@ pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> &'static Mutex<WitnessCalculator
 }
 
 // Initializes the witness calculator
+#[cfg(not(target_arch = "wasm32"))]
 pub fn circom_from_folder(resources_folder: &str) -> &'static Mutex<WitnessCalculator> {
     // We read the wasm file
     let wasm_path = format!("{resources_folder}{WASM_FILENAME}");

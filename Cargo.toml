@@ -3,4 +3,5 @@ members = [
   "multiplier",
   "semaphore",
   "rln",
+  "rln-wasm",
 ]

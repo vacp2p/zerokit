@@ -11,6 +11,7 @@ use ark_std::{rand::thread_rng, UniformRand};
 use color_eyre::Result;
 use num_bigint::BigInt;
 use rand::Rng;
+#[cfg(not(target_arch = "wasm32"))]
 use std::sync::Mutex;
 #[cfg(debug_assertions)]
 use std::time::Instant;
@@ -22,6 +23,7 @@ use crate::poseidon_hash::poseidon_hash;
 use crate::poseidon_tree::*;
 use crate::public::RLN_IDENTIFIER;
 use crate::utils::*;
+use cfg_if::cfg_if;
 
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
@@ -121,12 +123,9 @@ pub fn proof_inputs_to_rln_witness(
     let signal_len = u64::from_le_bytes(serialized[all_read..all_read + 8].try_into().unwrap());
     all_read += 8;
 
-    let signal: Vec<u8> =
-        serialized[all_read..all_read + usize::try_from(signal_len).unwrap()].to_vec();
+    let signal: Vec<u8> = serialized[all_read..all_read + (signal_len as usize)].to_vec();
 
-    let merkle_proof = tree
-        .proof(usize::try_from(id_index).unwrap())
-        .expect("proof should exist");
+    let merkle_proof = tree.proof(id_index as usize).expect("proof should exist");
     let path_elements = merkle_proof.get_path_elements();
     let identity_path_index = merkle_proof.get_path_index();
 
@@ -374,16 +373,70 @@ pub enum ProofError {
     SynthesisError(#[from] SynthesisError),
 }
 
-/// Generates a RLN proof
-///
-/// # Errors
-///
-/// Returns a [`ProofError`] if proving fails.
-pub fn generate_proof(
-    witness_calculator: &Mutex<WitnessCalculator>,
+fn calculate_witness_element<E: ark_ec::PairingEngine>(witness: Vec<BigInt>) -> Result<Vec<E::Fr>> {
+    use ark_ff::{FpParameters, PrimeField};
+    let modulus = <<E::Fr as PrimeField>::Params as FpParameters>::MODULUS;
+
+    // convert it to field elements
+    use num_traits::Signed;
+    let witness = witness
+        .into_iter()
+        .map(|w| {
+            let w = if w.sign() == num_bigint::Sign::Minus {
+                // Need to negate the witness element if negative
+                modulus.into() - w.abs().to_biguint().unwrap()
+            } else {
+                w.to_biguint().unwrap()
+            };
+            E::Fr::from(w)
+        })
+        .collect::<Vec<_>>();
+
+    Ok(witness)
+}
+
+pub fn generate_proof_with_witness(
+    witness: Vec<BigInt>,
     proving_key: &(ProvingKey<Curve>, ConstraintMatrices<Fr>),
-    rln_witness: &RLNWitnessInput,
 ) -> Result<ArkProof<Curve>, ProofError> {
+    // If in debug mode, we measure and later print time take to compute witness
+    #[cfg(debug_assertions)]
+    let now = Instant::now();
+
+    let full_assignment = calculate_witness_element::<Curve>(witness)
+        .map_err(ProofError::WitnessError)
+        .unwrap();
+
+    #[cfg(debug_assertions)]
+    println!("witness generation took: {:.2?}", now.elapsed());
+
+    // Random Values
+    let mut rng = thread_rng();
+    let r = Fr::rand(&mut rng);
+    let s = Fr::rand(&mut rng);
+
+    // If in debug mode, we measure and later print time take to compute proof
+    #[cfg(debug_assertions)]
+    let now = Instant::now();
+
+    let proof = create_proof_with_reduction_and_matrices::<_, CircomReduction>(
+        &proving_key.0,
+        r,
+        s,
+        &proving_key.1,
+        proving_key.1.num_instance_variables,
+        proving_key.1.num_constraints,
+        full_assignment.as_slice(),
+    )
+    .unwrap();
+
+    #[cfg(debug_assertions)]
+    println!("proof generation took: {:.2?}", now.elapsed());
+
+    Ok(proof)
+}
+
+pub fn inputs_for_witness_calculation(rln_witness: &RLNWitnessInput) -> [(&str, Vec<BigInt>); 6] {
     // We confert the path indexes to field elements
     // TODO: check if necessary
     let mut path_elements = Vec::new();
@@ -398,7 +451,7 @@ pub fn generate_proof(
         .iter()
         .for_each(|v| identity_path_index.push(BigInt::from(*v)));
 
-    let inputs = [
+    [
         (
             "identity_secret",
             vec![to_bigint(&rln_witness.identity_secret)],
@@ -411,8 +464,21 @@ pub fn generate_proof(
             "rln_identifier",
             vec![to_bigint(&rln_witness.rln_identifier)],
         ),
-    ];
-    let inputs = inputs
+    ]
+}
+
+/// Generates a RLN proof
+///
+/// # Errors
+///
+/// Returns a [`ProofError`] if proving fails.
+pub fn generate_proof(
+    #[cfg(not(target_arch = "wasm32"))] witness_calculator: &Mutex<WitnessCalculator>,
+    #[cfg(target_arch = "wasm32")] witness_calculator: &mut WitnessCalculator,
+    proving_key: &(ProvingKey<Curve>, ConstraintMatrices<Fr>),
+    rln_witness: &RLNWitnessInput,
+) -> Result<ArkProof<Curve>, ProofError> {
+    let inputs = inputs_for_witness_calculation(rln_witness)
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));
 
@@ -420,11 +486,19 @@ pub fn generate_proof(
     #[cfg(debug_assertions)]
     let now = Instant::now();
 
-    let full_assignment = witness_calculator
-        .lock()
-        .expect("witness_calculator mutex should not get poisoned")
-        .calculate_witness_element::<Curve, _>(inputs, false)
-        .map_err(ProofError::WitnessError)?;
+    cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+            let full_assignment = witness_calculator
+            .calculate_witness_element::<Curve, _>(inputs, false)
+            .map_err(ProofError::WitnessError)?;
+        } else {
+            let full_assignment = witness_calculator
+            .lock()
+            .expect("witness_calculator mutex should not get poisoned")
+            .calculate_witness_element::<Curve, _>(inputs, false)
+            .map_err(ProofError::WitnessError)?;
+        }
+    }
 
     #[cfg(debug_assertions)]
     println!("witness generation took: {:.2?}", now.elapsed());
@@ -489,4 +563,33 @@ pub fn verify_proof(
     println!("verify took: {:.2?}", now.elapsed());
 
     Ok(verified)
+}
+
+/// Get CIRCOM JSON inputs
+///
+/// Returns a JSON object containing the inputs necessary to calculate
+/// the witness with CIRCOM on javascript
+pub fn get_json_inputs(rln_witness: &RLNWitnessInput) -> serde_json::Value {
+    let mut path_elements = Vec::new();
+    rln_witness
+        .path_elements
+        .iter()
+        .for_each(|v| path_elements.push(to_bigint(v).to_str_radix(10)));
+
+    let mut identity_path_index = Vec::new();
+    rln_witness
+        .identity_path_index
+        .iter()
+        .for_each(|v| identity_path_index.push(BigInt::from(*v).to_str_radix(10)));
+
+    let inputs = serde_json::json!({
+        "identity_secret": to_bigint(&rln_witness.identity_secret).to_str_radix(10),
+        "path_elements": path_elements,
+        "identity_path_index": identity_path_index,
+        "x": to_bigint(&rln_witness.x).to_str_radix(10),
+        "epoch":  format!("0x{:064x}", to_bigint(&rln_witness.epoch)),
+        "rln_identifier": to_bigint(&rln_witness.rln_identifier).to_str_radix(10),
+    });
+
+    inputs
 }

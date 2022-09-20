@@ -22,7 +22,7 @@ jobs:
         run: git submodule update --init --recursive
       - name: cargo test
         run: |
-            cargo test
+            cargo test --release --workspace --exclude rln-wasm
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -40,6 +40,9 @@ jobs:
       - name: cargo fmt
         run: cargo fmt --all -- --check
       - name: cargo clippy
-        run: cargo clippy
+        run: |
+          (cd multiplier && cargo clippy)
+          (cd rln && cargo clippy)
+          (cd semaphore && cargo clippy)
         # Currently not treating warnings as error, too noisy
         # -- -D warnings
