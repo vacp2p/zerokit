@@ -1,0 +1,29 @@
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+
+[tasks.pack-build]
+command = "wasm-pack"
+args = ["build", "--release", "--target", "web", "--scope", "waku"]
+
+[tasks.pack-rename]
+script = "sed -i 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json"
+
+[tasks.build]
+clear = true
+dependencies = [
+    "pack-build",
+    "pack-rename"
+]
+
+[tasks.test]
+command = "wasm-pack"
+args = ["test", "--release", "--node"]
+dependencies = ["build"]
+
+[tasks.login]
+command = "wasm-pack"
+args = ["login"]
+
+[tasks.publish]
+command = "wasm-pack"
+args = ["publish", "--access", "public", "--target", "web"]
