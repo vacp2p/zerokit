@@ -4,57 +4,60 @@
 // and slightly adapted to work over arkworks field data type
 
 use crate::circuit::Fr;
-use crate::poseidon_constants::constants;
-use crate::utils::*;
+use crate::poseidon_constants::find_poseidon_ark_and_mds;
+use ark_ff::{FpParameters, PrimeField};
 use ark_std::Zero;
 use once_cell::sync::Lazy;
 
-#[derive(Debug)]
-pub struct Constants {
+// These indexed constants hardcodes the round parameters triple (t, RF, RN) from the paper
+// SKIP_MATRICES is the index of the randomly generated secure MDS matrix. See security note in the poseidon_constants crate on this.
+// TODO: generate in-code such parameters
+pub const INPUT_LENGTH: &[usize] = &[1, 2, 3, 4, 5, 6, 7, 8];
+pub const N_ROUNDS_F: &[usize] = &[8, 8, 8, 8, 8, 8, 8, 8];
+pub const N_ROUNDS_P: &[usize] = &[56, 57, 56, 60, 60, 63, 64, 63];
+pub const SKIP_MATRICES: &[u64] = &[0, 0, 0, 0, 0, 0, 0, 0];
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct Constants<'a> {
     pub c: Vec<Vec<Fr>>,
     pub m: Vec<Vec<Vec<Fr>>>,
-    pub n_rounds_f: usize,
-    pub n_rounds_p: Vec<usize>,
+    pub n_rounds_f: &'a [usize],
+    pub n_rounds_p: &'a [usize],
 }
-pub fn load_constants() -> Constants {
-    let (c_str, m_str) = constants();
+
+pub fn gen_constants() -> Constants<'static> {
     let mut c: Vec<Vec<Fr>> = Vec::new();
-    for i in 0..c_str.len() {
-        let mut cci: Vec<Fr> = Vec::new();
-        for j in 0..c_str[i].len() {
-            let b: Fr = str_to_fr(c_str[i][j], 10);
-            cci.push(b);
-        }
-        c.push(cci);
-    }
     let mut m: Vec<Vec<Vec<Fr>>> = Vec::new();
-    for i in 0..m_str.len() {
-        let mut mi: Vec<Vec<Fr>> = Vec::new();
-        for j in 0..m_str[i].len() {
-            let mut mij: Vec<Fr> = Vec::new();
-            for k in 0..m_str[i][j].len() {
-                let b: Fr = str_to_fr(m_str[i][j][k], 10);
-                mij.push(b);
-            }
-            mi.push(mij);
-        }
-        m.push(mi);
+
+    for i in 0..INPUT_LENGTH.len() {
+        let (ark, mds) = find_poseidon_ark_and_mds::<Fr>(
+            1,
+            0,
+            <Fr as PrimeField>::Params::MODULUS_BITS as u64,
+            INPUT_LENGTH[i],
+            N_ROUNDS_F[i] as u64,
+            N_ROUNDS_P[i] as u64,
+            SKIP_MATRICES[i],
+        );
+        c.push(ark);
+        m.push(mds);
     }
+
     Constants {
         c: c,
         m: m,
-        n_rounds_f: 8,
-        n_rounds_p: vec![56, 57, 56, 60, 60, 63, 64, 63],
+        n_rounds_f: N_ROUNDS_F,
+        n_rounds_p: N_ROUNDS_P,
     }
 }
 
-pub struct Poseidon {
-    constants: Constants,
+pub struct Poseidon<'a> {
+    constants: Constants<'a>,
 }
-impl Poseidon {
-    pub fn new() -> Poseidon {
+impl Poseidon<'_> {
+    pub fn new() -> Poseidon<'static> {
         Poseidon {
-            constants: load_constants(),
+            constants: gen_constants(),
         }
     }
     pub fn ark(&self, state: &mut [Fr], c: &[Fr], it: usize) {
@@ -93,18 +96,19 @@ impl Poseidon {
     }
 
     pub fn hash(&self, inp: Vec<Fr>) -> Result<Fr, String> {
+        // Note that T becomes input lenght + 1, hence for lenght N we pick parameters with T = N + 1
         let t = inp.len() + 1;
         if inp.is_empty() || (inp.len() >= self.constants.n_rounds_p.len() - 1) {
             return Err("Wrong inputs length".to_string());
         }
-        let n_rounds_f = self.constants.n_rounds_f;
+        let n_rounds_f = self.constants.n_rounds_f[t - 2];
         let n_rounds_p = self.constants.n_rounds_p[t - 2];
 
         let mut state = vec![Fr::zero(); t];
         state[1..].clone_from_slice(&inp);
 
         for i in 0..(n_rounds_f + n_rounds_p) {
-            self.ark(&mut state, &self.constants.c[t - 2], i * t);
+            self.ark(&mut state, &self.constants.c[t - 2], (i as usize) * t);
             self.sbox(n_rounds_f, n_rounds_p, &mut state, i);
             state = self.mix(&state, &self.constants.m[t - 2]);
         }
@@ -113,7 +117,7 @@ impl Poseidon {
     }
 }
 
-impl Default for Poseidon {
+impl Default for Poseidon<'_> {
     fn default() -> Self {
         Self::new()
     }
