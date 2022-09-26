@@ -13,6 +13,8 @@
 //! * Disk based storage backend (using mmaped files should be easy)
 //! * Implement serialization for tree and Merkle proof
 
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 use std::io;
 use std::{
