@@ -1,12 +1,12 @@
 // This crate implements the Poseidon hash algorithm https://eprint.iacr.org/2019/458.pdf
 
 // Implementation partially taken from https://github.com/arnaucube/poseidon-rs/blob/233027d6075a637c29ad84a8a44f5653b81f0410/src/lib.rs
-// and adapted to work over arkworks field data types
+// and adapted to work over arkworks field traits and custom data structures
 
 use crate::poseidon_constants::find_poseidon_ark_and_mds;
 use ark_ff::{FpParameters, PrimeField};
 
-// These indexed constants hardcodes the round parameters triple (t, RF, RN) from the paper for the Bn254 scalar field
+// These indexed constants hardcodes the round parameters tuple (t, RF, RN) from the paper for the Bn254 scalar field
 // SKIP_MATRICES is the index of the randomly generated secure MDS matrix. See security note in the poseidon_constants crate on this.
 // TODO: generate in-code such parameters
 pub const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
@@ -34,6 +34,10 @@ pub struct Poseidon<F: PrimeField> {
     round_params: Vec<RoundParamenters<F>>,
 }
 impl<F: PrimeField> Poseidon<F> {
+    // Loads round parameters and generates round constants
+    // poseidon_params is a vector containing tuples (t, RF, RP, skip_matrices)
+    // where: t is the rate (input lenght + 1), RF is the number of full rounds, RP is the number of partial rounds
+    // and skip_matrices is a (temporary) parameter used to generate secure MDS matrices (see comments in the description of find_poseidon_ark_and_mds)
     // TODO: implement automatic generation of round parameters
     pub fn from(poseidon_params: &[(usize, usize, usize, usize)]) -> Self {
         let mut read_params = Vec::<RoundParamenters<F>>::new();
@@ -64,6 +68,11 @@ impl<F: PrimeField> Poseidon<F> {
             round_params: read_params,
         }
     }
+
+    pub fn get_parameters(&self) -> Vec<RoundParamenters<F>> {
+        self.round_params.clone()
+    }
+
 
     pub fn ark(&self, state: &mut [F], c: &[F], it: usize) {
         for i in 0..state.len() {
@@ -104,7 +113,7 @@ impl<F: PrimeField> Poseidon<F> {
         // Note that the rate t becomes input lenght + 1, hence for lenght N we pick parameters with T = N + 1
         let t = inp.len() + 1;
 
-        // We seek the index (Poseidon's round_params is an ordered vectors) for the parameters corresponding to t
+        // We seek the index (Poseidon's round_params is an ordered vector) for the parameters corresponding to t
         let param_index = self.round_params.iter().position(|el| el.t == t);
 
         if inp.is_empty() || param_index.is_none() {

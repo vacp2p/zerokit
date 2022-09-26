@@ -272,21 +272,32 @@ pub fn find_poseidon_ark_and_mds<F: PrimeField>(
     (ark, mds)
 }
 
-/*
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::circuit::Fr;
-    use crate::poseidon_hash::{PoseidonParameters, ROUND_PARAMS};
+    use crate::poseidon_hash::{Poseidon};
     use crate::utils::str_to_fr;
 
-    // These constants were taken from https://github.com/arnaucube/poseidon-rs/blob/233027d6075a637c29ad84a8a44f5653b81f0410/src/constants.rs
+    const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
+        (2, 8, 56, 0),
+        (3, 8, 57, 0),
+        (4, 8, 56, 0),
+        (5, 8, 60, 0),
+        (6, 8, 60, 0),
+        (7, 8, 63, 0),
+        (8, 8, 64, 0),
+        (9, 8, 63, 0),
+    ];
+
+    // The following constants were taken from https://github.com/arnaucube/poseidon-rs/blob/233027d6075a637c29ad84a8a44f5653b81f0410/src/constants.rs
     // Constants were generated from the Poseidon reference implementation as
     // generate_parameters_grain.sage 1 0 254 T RF RP 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
-    // with T in [2, 3, 4, 5, 6, 7, 8, 9], RF = [8, 8, 8, 8, 8, 8, 8, 8] and RP in [56, 57, 56, 60, 60, 63, 64, 63], respectively.
-    // (note that, in implementation, if we want to hash N elements we use T = N+1)
-    // Note that these constants were generated for Bn254 scalar field characteristic only, i.e. 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
+    // with T in [2, 3, 4, 5, 6, 7, 8, 9], RF in [8, 8, 8, 8, 8, 8, 8, 8] and RP in [56, 57, 56, 60, 60, 63, 64, 63], respectively.
+    // (in implementation, if we want to hash N elements we use parameters for T = N+1)
+    // The constants were generated and are valid only for Bn254 scalar field characteristic, i.e. 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
 
+    // The following constants should correspond to the one obtained by instantiating Poseidon with ROUND_PARAMS above (skip_matrices all set to 0)
     fn constants() -> (Vec<Vec<&'static str>>, Vec<Vec<Vec<&'static str>>>) {
         let c_str: Vec<Vec<&str>> = vec![
             vec![
@@ -3740,7 +3751,7 @@ mod test {
         (c_str, m_str)
     }
 
-    fn load_constants() -> Constants<Fr> {
+    fn load_constants() -> (Vec<Vec<Fr>>, Vec<Vec<Vec<Fr>>>) {
         let (c_str, m_str) = constants();
         let mut c: Vec<Vec<Fr>> = Vec::new();
         for i in 0..c_str.len() {
@@ -3764,28 +3775,28 @@ mod test {
             }
             m.push(mi);
         }
-        Constants::<Fr> {
-            c: c,
-            m: m,
-        }
+        (c, m)
     }
 
     #[test]
-    // This tests checks if the generated constants correspond to the expected hardcoded ones
-    fn test_constants_generation() {
-        // Hardcoded constants are only for Bn254 scalar field
+    // This tests checks if the generated constants correspond to the expected hardcoded ones for the Bn254 scalar field
+    fn test_bn254_constants_generation() {
+        // Hardcoded constants are only for Bn254 scalar field. So we check if field characteristic corresponds to 0
         if Fr::from(0)
             == str_to_fr(
                 "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
                 16,
             )
         {
-            let poseidon_parameters = PoseidonParameters::from(&ROUND_PARAMS.to_vec());
-            let generated_constants = Constants::<Fr>::generate_from(poseidon_parameters);
-            let loaded_constants = load_constants();
-            assert_eq!(generated_constants, loaded_constants);
+            // We check if the round constants and matrices correspond to the one generated when instantiating Poseidon with ROUND_PARAMS
+            let (loaded_c, loaded_m) = load_constants();
+            let poseidon_parameters = Poseidon::<Fr>::from(&ROUND_PARAMS).get_parameters();
+            for i in 0..poseidon_parameters.len() {
+                assert_eq!(loaded_c[i], poseidon_parameters[i].c);
+                assert_eq!(loaded_m[i], poseidon_parameters[i].m);
+            }
         } else {
             assert!(false);
         }
     }
-}*/
+}
