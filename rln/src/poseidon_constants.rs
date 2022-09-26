@@ -17,7 +17,6 @@ use num_bigint::BigUint;
 
 pub struct PoseidonGrainLFSR {
     pub prime_num_bits: u64,
-
     pub state: [bool; 80],
     pub head: usize,
 }
@@ -227,29 +226,33 @@ pub fn find_poseidon_ark_and_mds<F: PrimeField>(
     rate: usize,
     full_rounds: u64,
     partial_rounds: u64,
-    skip_matrices: u64,
+    skip_matrices: usize,
 ) -> (Vec<F>, Vec<Vec<F>>) {
     let mut lfsr = PoseidonGrainLFSR::new(
         is_field,
         is_sbox_an_inverse,
         prime_bits,
-        (rate + 1) as u64,
+        rate as u64,
         full_rounds,
         partial_rounds,
     );
 
     let mut ark = Vec::<F>::with_capacity((full_rounds + partial_rounds) as usize);
     for _ in 0..(full_rounds + partial_rounds) {
-        let values = lfsr.get_field_elements_rejection_sampling::<F>(rate + 1);
+        let values = lfsr.get_field_elements_rejection_sampling::<F>(rate);
         for el in values {
             ark.push(el);
         }
     }
 
-    let mut mds = Vec::<Vec<F>>::with_capacity(rate + 1);
-    mds.resize(rate + 1, vec![F::zero(); rate + 1]);
+    let mut mds = Vec::<Vec<F>>::with_capacity(rate);
+    mds.resize(rate, vec![F::zero(); rate]);
+
+    // Note that we build the MDS matrix generating 2*rate elements. If the matrix built is not secure (see checks with algorithm 1, 2, 3 in reference implementation)
+    // it has to be skipped. Since here we do not implement such algorithm we allow to pass a parameter to skip generations of elements giving unsecure matrixes.
+    // At the moment, the skip_matrices parameter has to be generated from the reference implementation and passed to this function
     for _ in 0..skip_matrices {
-        let _ = lfsr.get_field_elements_mod_p::<F>(2 * (rate + 1));
+        let _ = lfsr.get_field_elements_mod_p::<F>(2 * (rate));
     }
 
     // a qualifying matrix must satisfy the following requirements
@@ -257,11 +260,11 @@ pub fn find_poseidon_ark_and_mds<F: PrimeField>(
     // - there is no i and j such that x[i] + y[j] = p
     // - the resultant MDS passes all the three tests
 
-    let xs = lfsr.get_field_elements_mod_p::<F>(rate + 1);
-    let ys = lfsr.get_field_elements_mod_p::<F>(rate + 1);
+    let xs = lfsr.get_field_elements_mod_p::<F>(rate);
+    let ys = lfsr.get_field_elements_mod_p::<F>(rate);
 
-    for i in 0..(rate + 1) {
-        for j in 0..(rate + 1) {
+    for i in 0..(rate) {
+        for j in 0..(rate) {
             mds[i][j] = (xs[i] + &ys[j]).inverse().unwrap();
         }
     }
@@ -269,11 +272,12 @@ pub fn find_poseidon_ark_and_mds<F: PrimeField>(
     (ark, mds)
 }
 
+/*
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::circuit::Fr;
-    use crate::poseidon_hash::{gen_constants, Constants, N_ROUNDS_F, N_ROUNDS_P};
+    use crate::poseidon_hash::{PoseidonParameters, ROUND_PARAMS};
     use crate::utils::str_to_fr;
 
     // These constants were taken from https://github.com/arnaucube/poseidon-rs/blob/233027d6075a637c29ad84a8a44f5653b81f0410/src/constants.rs
@@ -3736,7 +3740,7 @@ mod test {
         (c_str, m_str)
     }
 
-    fn load_constants() -> Constants<'static> {
+    fn load_constants() -> Constants<Fr> {
         let (c_str, m_str) = constants();
         let mut c: Vec<Vec<Fr>> = Vec::new();
         for i in 0..c_str.len() {
@@ -3760,11 +3764,9 @@ mod test {
             }
             m.push(mi);
         }
-        Constants {
+        Constants::<Fr> {
             c: c,
             m: m,
-            n_rounds_f: N_ROUNDS_F,
-            n_rounds_p: N_ROUNDS_P,
         }
     }
 
@@ -3778,11 +3780,12 @@ mod test {
                 16,
             )
         {
-            let generated_constants = gen_constants();
+            let poseidon_parameters = PoseidonParameters::from(&ROUND_PARAMS.to_vec());
+            let generated_constants = Constants::<Fr>::generate_from(poseidon_parameters);
             let loaded_constants = load_constants();
             assert_eq!(generated_constants, loaded_constants);
         } else {
             assert!(false);
         }
     }
-}
+}*/
