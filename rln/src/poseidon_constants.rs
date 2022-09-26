@@ -276,7 +276,7 @@ pub fn find_poseidon_ark_and_mds<F: PrimeField>(
 mod test {
     use super::*;
     use crate::circuit::Fr;
-    use crate::poseidon_hash::{Poseidon};
+    use crate::poseidon_hash::Poseidon;
     use crate::utils::str_to_fr;
 
     const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [

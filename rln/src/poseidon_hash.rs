@@ -73,7 +73,6 @@ impl<F: PrimeField> Poseidon<F> {
         self.round_params.clone()
     }
 
-
     pub fn ark(&self, state: &mut [F], c: &[F], it: usize) {
         for i in 0..state.len() {
             state[i] += c[it + i];
