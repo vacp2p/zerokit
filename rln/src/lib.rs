@@ -2,7 +2,6 @@
 
 pub mod circuit;
 pub mod merkle_tree;
-pub mod poseidon_constants;
 pub mod poseidon_hash;
 pub mod poseidon_tree;
 pub mod protocol;
