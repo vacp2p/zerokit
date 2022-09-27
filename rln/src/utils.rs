@@ -1,17 +1,10 @@
 // This crate provides cross-module useful utilities (mainly type conversions) not necessarily specific to RLN
 
 use crate::circuit::Fr;
-use ark_ff::{BigInteger, FpParameters, PrimeField};
+use ark_ff::PrimeField;
 use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use std::iter::Extend;
-
-pub fn modulus_bit_size() -> usize {
-    <Fr as PrimeField>::Params::MODULUS
-        .num_bits()
-        .try_into()
-        .unwrap()
-}
 
 pub fn to_bigint(el: &Fr) -> BigInt {
     let res: BigUint = (*el).try_into().unwrap();
@@ -19,7 +12,7 @@ pub fn to_bigint(el: &Fr) -> BigInt {
 }
 
 pub fn fr_byte_size() -> usize {
-    let mbs = modulus_bit_size();
+    let mbs = <Fr as PrimeField>::size_in_bits();
     (mbs + 64 - (mbs % 64)) / 8
 }
 
