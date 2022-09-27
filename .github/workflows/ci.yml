@@ -23,6 +23,24 @@ jobs:
       - name: cargo test
         run: |
             cargo test --release --workspace --exclude rln-wasm
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: git submodule update --init --recursive
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.3.0
+      - run: cargo install cargo-make
+      - run: cargo make build
+        working-directory: rln-wasm
+      - run: cargo make test
+        working-directory: rln-wasm
   lint:
     runs-on: ubuntu-latest
     steps:
