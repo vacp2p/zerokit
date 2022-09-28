@@ -245,6 +245,26 @@ pub extern "C" fn key_gen(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+pub extern "C" fn seeded_key_gen(
+    ctx: *const RLN,
+    input_buffer: *const Buffer,
+    output_buffer: *mut Buffer,
+) -> bool {
+    let rln = unsafe { &*ctx };
+    let input_data = <&[u8]>::from(unsafe { &*input_buffer });
+    let mut output_data: Vec<u8> = Vec::new();
+    if rln.seeded_key_gen(input_data, &mut output_data).is_ok() {
+        unsafe { *output_buffer = Buffer::from(&output_data[..]) };
+        std::mem::forget(output_data);
+        true
+    } else {
+        std::mem::forget(output_data);
+        false
+    }
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
 pub extern "C" fn hash(
     ctx: *mut RLN,
     input_buffer: *const Buffer,
@@ -756,6 +776,43 @@ mod test {
         let success = verify_rln_proof(rln_pointer, input_buffer, proof_is_valid_ptr);
         assert!(success, "verify call failed");
         assert_eq!(proof_is_valid, true);
+    }
+
+    #[test]
+    // Tests hash to field using FFI APIs
+    fn test_seeded_keygen_ffi() {
+        let tree_height = TEST_TREE_HEIGHT;
+
+        // We create a RLN instance
+        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
+        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        assert!(success, "RLN object creation failed");
+        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+
+        // We generate a new identity pair from an input seed
+        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let input_buffer = &Buffer::from(seed_bytes);
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = seeded_key_gen(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
+        assert!(success, "seeded key gen call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (identity_secret, read) = bytes_le_to_fr(&result_data);
+        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
+
+        // We check against expected values
+        let expected_identity_secret_seed_bytes = str_to_fr(
+            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
+            16,
+        );
+        let expected_id_commitment_seed_bytes = str_to_fr(
+            "0xbf16d2b5c0d6f9d9d561e05bfca16a81b4b873bb063508fae360d8c74cef51f",
+            16,
+        );
+
+        assert_eq!(identity_secret, expected_identity_secret_seed_bytes);
+        assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
     }
 
     #[test]
