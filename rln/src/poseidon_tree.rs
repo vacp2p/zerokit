@@ -3,9 +3,9 @@
 // Implementation inspired by https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/poseidon_tree.rs (no differences)
 
 use crate::circuit::Fr;
-use crate::merkle_tree::*;
 use crate::poseidon_hash::poseidon_hash;
 use cfg_if::cfg_if;
+use utils::merkle_tree::*;
 
 // The zerokit RLN default Merkle tree implementation is the OptimalMerkleTree.
 // To switch to FullMerkleTree implementation, it is enough to enable the fullmerkletree feature

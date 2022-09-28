@@ -12,7 +12,6 @@
 #![allow(dead_code)]
 
 use ark_ff::{FpParameters, PrimeField};
-use ark_std::vec::Vec;
 use num_bigint::BigUint;
 
 pub struct PoseidonGrainLFSR {
@@ -274,10 +273,10 @@ pub fn find_poseidon_ark_and_mds<F: PrimeField>(
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::circuit::Fr;
     use crate::poseidon_hash::Poseidon;
-    use crate::utils::str_to_fr;
+    use ark_bn254::Fr;
+    use num_bigint::BigUint;
+    use num_traits::Num;
 
     const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
         (2, 8, 56, 0),
@@ -290,14 +289,34 @@ mod test {
         (9, 8, 63, 0),
     ];
 
+    fn str_to_fr(input: &str, radix: u32) -> Fr {
+        assert!((radix == 10) || (radix == 16));
+
+        // We remove any quote present and we trim
+        let single_quote: char = '\"';
+        let mut input_clean = input.replace(single_quote, "");
+        input_clean = input_clean.trim().to_string();
+
+        if radix == 10 {
+            BigUint::from_str_radix(&input_clean, radix)
+                .unwrap()
+                .try_into()
+                .unwrap()
+        } else {
+            input_clean = input_clean.replace("0x", "");
+            BigUint::from_str_radix(&input_clean, radix)
+                .unwrap()
+                .try_into()
+                .unwrap()
+        }
+    }
     // The following constants were taken from https://github.com/arnaucube/poseidon-rs/blob/233027d6075a637c29ad84a8a44f5653b81f0410/src/constants.rs
     // Constants were generated from the Poseidon reference implementation as
     // generate_parameters_grain.sage 1 0 254 T RF RP 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
     // with T in [2, 3, 4, 5, 6, 7, 8, 9], RF in [8, 8, 8, 8, 8, 8, 8, 8] and RP in [56, 57, 56, 60, 60, 63, 64, 63], respectively.
     // (in implementation, if we want to hash N elements we use parameters for T = N+1)
     // The constants were generated and are valid only for Bn254 scalar field characteristic, i.e. 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
-
-    // The following constants should correspond to the one obtained by instantiating Poseidon with ROUND_PARAMS above (skip_matrices all set to 0)
+    // They should correspond to the one obtained by instantiating Poseidon with ROUND_PARAMS above (skip_matrices all set to 0)
     fn constants() -> (Vec<Vec<&'static str>>, Vec<Vec<Vec<&'static str>>>) {
         let c_str: Vec<Vec<&str>> = vec![
             vec![
