@@ -10,7 +10,8 @@ use ark_relations::r1cs::SynthesisError;
 use ark_std::{rand::thread_rng, UniformRand};
 use color_eyre::Result;
 use num_bigint::BigInt;
-use rand::Rng;
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha20Rng;
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::Mutex;
 #[cfg(debug_assertions)]
@@ -338,8 +339,26 @@ pub fn compute_tree_root(
 
 // Generates a tupe (identity_secret, id_commitment) where
 // identity_secret is random and id_commitment = PoseidonHash(identity_secret)
+// RNG is instantiated using thread_rng()
 pub fn keygen() -> (Fr, Fr) {
     let mut rng = thread_rng();
+    let identity_secret = Fr::rand(&mut rng);
+    let id_commitment = poseidon_hash(&[identity_secret]);
+    (identity_secret, id_commitment)
+}
+
+// Generates a tupe (identity_secret, id_commitment) where
+// identity_secret is random and id_commitment = PoseidonHash(identity_secret)
+// RNG is instantiated using 20 rounds of ChaCha seeded with the hash of the input
+pub fn seeded_keygen(signal: &[u8]) -> (Fr, Fr) {
+    // ChaCha20 requires a seed of exactly 32 bytes.
+    // We first hash the input seed signal to a 32 bytes array and pass this as seed to ChaCha20
+    let mut seed = [0; 32];
+    let mut hasher = Keccak::v256();
+    hasher.update(signal);
+    hasher.finalize(&mut seed);
+
+    let mut rng = ChaCha20Rng::from_seed(seed);
     let identity_secret = Fr::rand(&mut rng);
     let id_commitment = poseidon_hash(&[identity_secret]);
     (identity_secret, id_commitment)

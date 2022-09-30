@@ -343,6 +343,21 @@ impl RLN<'_> {
         Ok(())
     }
 
+    pub fn seeded_key_gen<R: Read, W: Write>(
+        &self,
+        mut input_data: R,
+        mut output_data: W,
+    ) -> io::Result<()> {
+        let mut serialized: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut serialized)?;
+
+        let (id_key, id_commitment_key) = seeded_keygen(&serialized);
+        output_data.write_all(&fr_to_bytes_le(&id_key))?;
+        output_data.write_all(&fr_to_bytes_le(&id_commitment_key))?;
+
+        Ok(())
+    }
+
     pub fn hash<R: Read, W: Write>(&self, mut input_data: R, mut output_data: W) -> io::Result<()> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
@@ -822,6 +837,36 @@ mod test {
         let verified = rln.verify_rln_proof(&mut input_buffer).unwrap();
 
         assert!(verified);
+    }
+
+    #[test]
+    fn test_seeded_keygen() {
+        let rln = RLN::default();
+
+        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+        let mut input_buffer = Cursor::new(&seed_bytes);
+        let mut output_buffer = Cursor::new(Vec::<u8>::new());
+
+        rln.seeded_key_gen(&mut input_buffer, &mut output_buffer)
+            .unwrap();
+        let serialized_output = output_buffer.into_inner();
+
+        let (identity_secret, read) = bytes_le_to_fr(&serialized_output);
+        let (id_commitment, _) = bytes_le_to_fr(&serialized_output[read..].to_vec());
+
+        // We check against expected values
+        let expected_identity_secret_seed_bytes = str_to_fr(
+            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
+            16,
+        );
+        let expected_id_commitment_seed_bytes = str_to_fr(
+            "0xbf16d2b5c0d6f9d9d561e05bfca16a81b4b873bb063508fae360d8c74cef51f",
+            16,
+        );
+
+        assert_eq!(identity_secret, expected_identity_secret_seed_bytes);
+        assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
     }
 
     #[test]

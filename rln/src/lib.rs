@@ -429,4 +429,49 @@ mod test {
         let (deser, _) = deserialize_proof_values(&ser);
         assert_eq!(proof_values, deser);
     }
+
+    #[test]
+    // Tests seeded keygen
+    // Note that hardcoded values are only valid for Bn254
+    fn test_seeded_keygen() {
+        // Generate identity pair using a seed phrase
+        let seed_phrase: &str = "A seed phrase example";
+        let (identity_secret, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
+
+        // We check against expected values
+        let expected_identity_secret_seed_phrase = str_to_fr(
+            "0x20df38f3f00496f19fe7c6535492543b21798ed7cb91aebe4af8012db884eda3",
+            16,
+        );
+        let expected_id_commitment_seed_phrase = str_to_fr(
+            "0x1223a78a5d66043a7f9863e14507dc80720a5602b2a894923e5b5147d5a9c325",
+            16,
+        );
+
+        assert_eq!(identity_secret, expected_identity_secret_seed_phrase);
+        assert_eq!(id_commitment, expected_id_commitment_seed_phrase);
+
+        // Generate identity pair using an byte array
+        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let (identity_secret, id_commitment) = seeded_keygen(seed_bytes);
+
+        // We check against expected values
+        let expected_identity_secret_seed_bytes = str_to_fr(
+            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
+            16,
+        );
+        let expected_id_commitment_seed_bytes = str_to_fr(
+            "0xbf16d2b5c0d6f9d9d561e05bfca16a81b4b873bb063508fae360d8c74cef51f",
+            16,
+        );
+
+        assert_eq!(identity_secret, expected_identity_secret_seed_bytes);
+        assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
+
+        // We check again if the identity pair generated with the same seed phrase corresponds to the previously generated one
+        let (identity_secret, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
+
+        assert_eq!(identity_secret, expected_identity_secret_seed_phrase);
+        assert_eq!(id_commitment, expected_id_commitment_seed_phrase);
+    }
 }
