@@ -117,10 +117,10 @@ pub fn wasm_key_gen(ctx: *const RLNWrapper) -> Result<Uint8Array, String> {
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = verifyProof)]
-pub fn wasm_verify(ctx: *const RLNWrapper, proof: Uint8Array) -> bool {
+#[wasm_bindgen(js_name = verifyRLNProof)]
+pub fn wasm_verify_rln_proof(ctx: *const RLNWrapper, proof: Uint8Array) -> bool {
     let wrapper = unsafe { &*ctx };
-    if match wrapper.instance.verify(&proof.to_vec()[..]) {
+    if match wrapper.instance.verify_rln_proof(&proof.to_vec()[..]) {
         Ok(verified) => verified,
         Err(_) => return false,
     } {
@@ -167,7 +167,7 @@ mod tests {
         wasm_set_next_leaf(rln_instance, idcommitment).unwrap();
 
         // Prepare the message
-        let mut signal = "Hello World".as_bytes().to_vec();
+        let signal = "Hello World".as_bytes();
         let signal_len: u64 = signal.len() as u64;
 
         // Setting up the epoch (With 0s for the test)
@@ -182,7 +182,7 @@ mod tests {
         serialized_vec.append(&mut identity_index.to_le_bytes().to_vec());
         serialized_vec.append(&mut epoch.to_vec());
         serialized_vec.append(&mut signal_len.to_le_bytes().to_vec());
-        serialized_vec.append(&mut signal);
+        serialized_vec.append(&mut signal.to_vec());
         let serialized_message = Uint8Array::from(&serialized_vec[..]);
 
         let serialized_rln_witness =
@@ -213,8 +213,14 @@ mod tests {
         )
         .unwrap();
 
+        // Add signal_len | signal
+        let mut proof_bytes = proof.to_vec();
+        proof_bytes.append(&mut signal_len.to_le_bytes().to_vec());
+        proof_bytes.append(&mut signal.to_vec());
+        let proof_with_signal = Uint8Array::from(&proof_bytes[..]);
+
         // Validate Proof
-        let is_proof_valid = wasm_verify(rln_instance, proof);
+        let is_proof_valid = wasm_verify_rln_proof(rln_instance, proof_with_signal);
 
         assert!(
             is_proof_valid,
