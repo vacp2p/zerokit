@@ -248,7 +248,7 @@ impl RLN<'_> {
 
     // This API keeps partial compatibility with kilic's rln public API https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L148
     // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
-    // output_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+    // output_data is [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
     #[cfg(not(target_arch = "wasm32"))]
     pub fn generate_rln_proof<R: Read, W: Write>(
         &mut self,
@@ -278,7 +278,7 @@ impl RLN<'_> {
 
     /// Generate RLN Proof using a witness calculated from outside zerokit
     ///
-    /// output_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+    /// output_data is  [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
     pub fn generate_rln_proof_with_witness<W: Write>(
         &mut self,
         calculated_witness: Vec<BigInt>,
@@ -300,7 +300,7 @@ impl RLN<'_> {
     }
 
     // Input data is serialized for Curve as:
-    // [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
+    // [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
     pub fn verify_rln_proof<R: Read>(&self, mut input_data: R) -> io::Result<bool> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
