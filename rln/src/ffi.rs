@@ -19,7 +19,7 @@ pub struct Buffer {
 impl From<&[u8]> for Buffer {
     fn from(src: &[u8]) -> Self {
         Self {
-            ptr: &src[0] as *const u8,
+            ptr: src.as_ptr(),
             len: src.len(),
         }
     }
@@ -215,6 +215,28 @@ pub extern "C" fn verify_rln_proof(
     let rln = unsafe { &*ctx };
     let proof_data = <&[u8]>::from(unsafe { &*proof_buffer });
     if match rln.verify_rln_proof(proof_data) {
+        Ok(verified) => verified,
+        Err(_) => return false,
+    } {
+        unsafe { *proof_is_valid_ptr = true };
+    } else {
+        unsafe { *proof_is_valid_ptr = false };
+    };
+    true
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn verify_with_roots(
+    ctx: *const RLN,
+    proof_buffer: *const Buffer,
+    roots_buffer: *const Buffer,
+    proof_is_valid_ptr: *mut bool,
+) -> bool {
+    let rln = unsafe { &*ctx };
+    let proof_data = <&[u8]>::from(unsafe { &*proof_buffer });
+    let roots_data = <&[u8]>::from(unsafe { &*roots_buffer });
+    if match rln.verify_with_roots(proof_data, roots_data) {
         Ok(verified) => verified,
         Err(_) => return false,
     } {
@@ -769,12 +791,140 @@ mod test {
         proof_data.append(&mut signal_len.to_le_bytes().to_vec());
         proof_data.append(&mut signal.to_vec());
 
-        // We call generate_rln_proof
+        // We call verify_rln_proof
         let input_buffer = &Buffer::from(proof_data.as_ref());
         let mut proof_is_valid: bool = false;
         let proof_is_valid_ptr = &mut proof_is_valid as *mut bool;
         let success = verify_rln_proof(rln_pointer, input_buffer, proof_is_valid_ptr);
         assert!(success, "verify call failed");
+        assert_eq!(proof_is_valid, true);
+    }
+
+    #[test]
+    // Computes and verifies an RLN ZK proof by checking proof's root against an input roots buffer
+    fn test_verify_with_roots() {
+        // First part similar to test_rln_proof_ffi
+        let tree_height = TEST_TREE_HEIGHT;
+        let no_of_leaves = 256;
+
+        // We generate a vector of random leaves
+        let mut leaves: Vec<Fr> = Vec::new();
+        let mut rng = thread_rng();
+        for _ in 0..no_of_leaves {
+            leaves.push(Fr::rand(&mut rng));
+        }
+
+        // We create a RLN instance
+        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
+        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        assert!(success, "RLN object creation failed");
+        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+
+        // We add leaves in a batch into the tree
+        let leaves_ser = vec_fr_to_bytes_le(&leaves);
+        let input_buffer = &Buffer::from(leaves_ser.as_ref());
+        let success = set_leaves(rln_pointer, input_buffer);
+        assert!(success, "set leaves call failed");
+
+        // We generate a new identity pair
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = key_gen(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "key gen call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (identity_secret, read) = bytes_le_to_fr(&result_data);
+        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
+
+        // We set as leaf id_commitment, its index would be equal to no_of_leaves
+        let leaf_ser = fr_to_bytes_le(&id_commitment);
+        let input_buffer = &Buffer::from(leaf_ser.as_ref());
+        let success = set_next_leaf(rln_pointer, input_buffer);
+        assert!(success, "set next leaf call failed");
+
+        let identity_index: u64 = no_of_leaves;
+
+        // We generate a random signal
+        let mut rng = rand::thread_rng();
+        let signal: [u8; 32] = rng.gen();
+        let signal_len = u64::try_from(signal.len()).unwrap();
+
+        // We generate a random epoch
+        let epoch = hash_to_field(b"test-epoch");
+
+        // We prepare input for generate_rln_proof API
+        // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        let mut serialized: Vec<u8> = Vec::new();
+        serialized.append(&mut fr_to_bytes_le(&identity_secret));
+        serialized.append(&mut identity_index.to_le_bytes().to_vec());
+        serialized.append(&mut fr_to_bytes_le(&epoch));
+        serialized.append(&mut signal_len.to_le_bytes().to_vec());
+        serialized.append(&mut signal.to_vec());
+
+        // We call generate_rln_proof
+        let input_buffer = &Buffer::from(serialized.as_ref());
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = generate_rln_proof(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
+        assert!(success, "set leaves call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        // result_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+        let mut proof_data = <&[u8]>::from(&output_buffer).to_vec();
+
+        // We prepare input for verify_rln_proof API
+        // input_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
+        // that is [ proof_data | signal_len<8> | signal<var> ]
+        proof_data.append(&mut signal_len.to_le_bytes().to_vec());
+        proof_data.append(&mut signal.to_vec());
+
+        // We test verify_with_roots
+
+        // We first try to verify against an empty buffer of roots.
+        // In this case, since no root is provided, proof's root check is skipped and proof is verified if other proof values are valid
+        let mut roots_data: Vec<u8> = Vec::new();
+
+        let input_buffer = &Buffer::from(proof_data.as_ref());
+        let roots_buffer = &Buffer::from(roots_data.as_ref());
+        let mut proof_is_valid: bool = false;
+        let proof_is_valid_ptr = &mut proof_is_valid as *mut bool;
+        let success =
+            verify_with_roots(rln_pointer, input_buffer, roots_buffer, proof_is_valid_ptr);
+        assert!(success, "verify call failed");
+        // Proof should be valid
+        assert_eq!(proof_is_valid, true);
+
+        // We then try to verify against some random values not containing the correct one.
+        for _ in 0..5 {
+            roots_data.append(&mut fr_to_bytes_le(&Fr::rand(&mut rng)));
+        }
+        let input_buffer = &Buffer::from(proof_data.as_ref());
+        let roots_buffer = &Buffer::from(roots_data.as_ref());
+        let mut proof_is_valid: bool = false;
+        let proof_is_valid_ptr = &mut proof_is_valid as *mut bool;
+        let success =
+            verify_with_roots(rln_pointer, input_buffer, roots_buffer, proof_is_valid_ptr);
+        assert!(success, "verify call failed");
+        // Proof should be invalid.
+        assert_eq!(proof_is_valid, false);
+
+        // We finally include the correct root
+        // We get the root of the tree obtained adding one leaf per time
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "get root call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (root, _) = bytes_le_to_fr(&result_data);
+
+        // We include the root and verify the proof
+        roots_data.append(&mut fr_to_bytes_le(&root));
+        let input_buffer = &Buffer::from(proof_data.as_ref());
+        let roots_buffer = &Buffer::from(roots_data.as_ref());
+        let mut proof_is_valid: bool = false;
+        let proof_is_valid_ptr = &mut proof_is_valid as *mut bool;
+        let success =
+            verify_with_roots(rln_pointer, input_buffer, roots_buffer, proof_is_valid_ptr);
+        assert!(success, "verify call failed");
+        // Proof should be valid.
         assert_eq!(proof_is_valid, true);
     }
 

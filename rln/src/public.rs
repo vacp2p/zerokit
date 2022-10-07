@@ -333,6 +333,84 @@ impl RLN<'_> {
             && (proof_values.rln_identifier == hash_to_field(RLN_IDENTIFIER)))
     }
 
+    // This function verifies a proof against a sequence of input valid roots to allow external validation of the tree state.
+    // Input data is serialized for Curve as:
+    // [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
+    // roots_data is serialized as (arbitrary long, even empty) sequence of Fr elements serialized in little endian (32 bytes each for Bn254)
+    pub fn verify_with_roots<R: Read>(
+        &self,
+        mut input_data: R,
+        mut roots_data: R,
+    ) -> io::Result<bool> {
+        let mut serialized: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut serialized)?;
+        let mut all_read = 0;
+        let proof = ArkProof::deserialize(&mut Cursor::new(&serialized[..128].to_vec())).unwrap();
+        all_read += 128;
+        let (proof_values, read) = deserialize_proof_values(&serialized[all_read..].to_vec());
+        all_read += read;
+
+        let signal_len =
+            u64::from_le_bytes(serialized[all_read..all_read + 8].try_into().unwrap()) as usize;
+        all_read += 8;
+
+        let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
+
+        let verified = verify_proof(
+            self.verification_key.as_ref().unwrap(),
+            &proof,
+            &proof_values,
+        )
+        .unwrap();
+
+        // First consistency checks to counter proof tampering
+        let x = hash_to_field(&signal);
+        let partial_result = verified
+            && (x == proof_values.x)
+            && (proof_values.rln_identifier == hash_to_field(RLN_IDENTIFIER));
+
+        // We skip root validation if proof is already invalid
+        if partial_result == false {
+            return Ok(partial_result);
+        }
+
+        // We read passed roots
+        let mut roots_serialized: Vec<u8> = Vec::new();
+        roots_data.read_to_end(&mut roots_serialized)?;
+
+        // The vector where we'll store read roots
+        let mut roots: Vec<Fr> = Vec::new();
+
+        // We expect each root to be fr_byte_size() bytes long.
+        let fr_size = fr_byte_size();
+        println!(
+            "Fr size {:#?}, roots_serialized len {:#?}",
+            fr_size,
+            roots_serialized.len()
+        );
+
+        // We read the buffer and convert to Fr as much as we can
+        all_read = 0;
+        while all_read + fr_size <= roots_serialized.len() {
+            let (root, read) = bytes_le_to_fr(&roots_serialized[all_read..]);
+            all_read += read;
+            roots.push(root);
+        }
+
+        // We validate the root
+        let roots_verified: bool;
+        if roots.is_empty() {
+            // If no root is passed in roots_buffer, we skip proof's root check
+            roots_verified = true;
+        } else {
+            // Otherwise we check if proof's root is contained in the passed buffer
+            roots_verified = roots.contains(&proof_values.root);
+        }
+
+        // We combine all checks
+        Ok(partial_result && roots_verified)
+    }
+
     ////////////////////////////////////////////////////////
     // Utils
     ////////////////////////////////////////////////////////
@@ -888,5 +966,101 @@ mod test {
         let hash2 = hash_to_field(&signal);
 
         assert_eq!(hash1, hash2);
+    }
+
+    #[test]
+    fn proof_verification_with_roots() {
+        // The first part is similar to test_rln_with_witness
+        let tree_height = TEST_TREE_HEIGHT;
+        let no_of_leaves = 256;
+
+        // We generate a vector of random leaves
+        let mut leaves: Vec<Fr> = Vec::new();
+        let mut rng = thread_rng();
+        for _ in 0..no_of_leaves {
+            leaves.push(Fr::rand(&mut rng));
+        }
+
+        // We create a new RLN instance
+        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let mut rln = RLN::new(tree_height, input_buffer);
+
+        // We add leaves in a batch into the tree
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
+        rln.set_leaves(&mut buffer).unwrap();
+
+        // Generate identity pair
+        let (identity_secret, id_commitment) = keygen();
+
+        // We set as leaf id_commitment after storing its index
+        let identity_index = u64::try_from(rln.tree.leaves_set()).unwrap();
+        let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+        rln.set_next_leaf(&mut buffer).unwrap();
+
+        // We generate a random signal
+        let mut rng = rand::thread_rng();
+        let signal: [u8; 32] = rng.gen();
+        let signal_len = u64::try_from(signal.len()).unwrap();
+
+        // We generate a random epoch
+        let epoch = hash_to_field(b"test-epoch");
+
+        // We prepare input for generate_rln_proof API
+        // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        let mut serialized: Vec<u8> = Vec::new();
+        serialized.append(&mut fr_to_bytes_le(&identity_secret));
+        serialized.append(&mut identity_index.to_le_bytes().to_vec());
+        serialized.append(&mut fr_to_bytes_le(&epoch));
+        serialized.append(&mut signal_len.to_le_bytes().to_vec());
+        serialized.append(&mut signal.to_vec());
+
+        let mut input_buffer = Cursor::new(serialized);
+        let mut output_buffer = Cursor::new(Vec::<u8>::new());
+        rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
+            .unwrap();
+
+        // output_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+        let mut proof_data = output_buffer.into_inner();
+
+        // We prepare input for verify_rln_proof API
+        // input_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
+        // that is [ proof_data || signal_len<8> | signal<var> ]
+        proof_data.append(&mut signal_len.to_le_bytes().to_vec());
+        proof_data.append(&mut signal.to_vec());
+        let input_buffer = Cursor::new(proof_data);
+
+        // If no roots is provided, proof validation is skipped and if the remaining proof values are valid, the proof will be correctly verified
+        let mut roots_serialized: Vec<u8> = Vec::new();
+        let mut roots_buffer = Cursor::new(roots_serialized.clone());
+        let verified = rln
+            .verify_with_roots(&mut input_buffer.clone(), &mut roots_buffer)
+            .unwrap();
+
+        assert!(verified);
+
+        // We serialize in the roots buffer some random values and we check that the proof is not verified since doesn't contain the correct root the proof refers to
+        for _ in 0..5 {
+            roots_serialized.append(&mut fr_to_bytes_le(&Fr::rand(&mut rng)));
+        }
+        roots_buffer = Cursor::new(roots_serialized.clone());
+        let verified = rln
+            .verify_with_roots(&mut input_buffer.clone(), &mut roots_buffer)
+            .unwrap();
+
+        assert!(verified == false);
+
+        // We get the root of the tree obtained adding one leaf per time
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_root(&mut buffer).unwrap();
+        let (root, _) = bytes_le_to_fr(&buffer.into_inner());
+
+        // We add the real root and we check if now the proof is verified
+        roots_serialized.append(&mut fr_to_bytes_le(&root));
+        roots_buffer = Cursor::new(roots_serialized.clone());
+        let verified = rln
+            .verify_with_roots(&mut input_buffer.clone(), &mut roots_buffer)
+            .unwrap();
+
+        assert!(verified);
     }
 }
