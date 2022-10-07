@@ -118,16 +118,52 @@ pub fn wasm_key_gen(ctx: *const RLNWrapper) -> Result<Uint8Array, String> {
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = verifyRLNProof)]
-pub fn wasm_verify_rln_proof(ctx: *const RLNWrapper, proof: Uint8Array) -> bool {
+pub fn wasm_verify_rln_proof(ctx: *const RLNWrapper, proof: Uint8Array) -> Result<bool, String> {
     let wrapper = unsafe { &*ctx };
     if match wrapper.instance.verify_rln_proof(&proof.to_vec()[..]) {
         Ok(verified) => verified,
-        Err(_) => return false,
+        Err(_) => return Err("error while verifying rln proof".into()),
     } {
-        return true;
+        return Ok(true);
     }
 
-    false
+    Ok(false)
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[wasm_bindgen(js_name = verifyWithRoots)]
+pub fn wasm_verify_with_roots(
+    ctx: *const RLNWrapper,
+    proof: Uint8Array,
+    roots: Uint8Array,
+) -> Result<bool, String> {
+    let wrapper = unsafe { &*ctx };
+    if match wrapper
+        .instance
+        .verify_with_roots(&proof.to_vec()[..], &roots.to_vec()[..])
+    {
+        Ok(verified) => verified,
+        Err(_) => return Err("error while verifying proof with roots".into()),
+    } {
+        return Ok(true);
+    }
+
+    Ok(false)
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[wasm_bindgen(js_name = getRoot)]
+pub fn wasm_get_root(ctx: *const RLNWrapper) -> Result<Uint8Array, String> {
+    let wrapper = unsafe { &*ctx };
+    let mut output_data: Vec<u8> = Vec::new();
+    if wrapper.instance.get_root(&mut output_data).is_ok() {
+        let result = Uint8Array::from(&output_data[..]);
+        std::mem::forget(output_data);
+        Ok(result)
+    } else {
+        std::mem::forget(output_data);
+        Err("could not obtain root".into())
+    }
 }
 
 #[cfg(test)]
@@ -223,8 +259,16 @@ mod tests {
         let is_proof_valid = wasm_verify_rln_proof(rln_instance, proof_with_signal);
 
         assert!(
-            is_proof_valid,
+            is_proof_valid.unwrap(),
             "validating proof generated with wasm failed"
         );
+
+        // Validating Proof with Roots
+        let root = wasm_get_root(rln_instance).unwrap();
+        let roots = Uint8Array::from(&root.to_vec()[..]);
+        let proof_with_signal = Uint8Array::from(&proof_bytes[..]);
+
+        let is_proof_valid = wasm_verify_with_roots(rln_instance, proof_with_signal, roots);
+        assert!(is_proof_valid.unwrap(), "verifying proof with roots failed");
     }
 }
