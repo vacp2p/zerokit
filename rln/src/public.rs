@@ -210,7 +210,8 @@ impl RLN<'_> {
 
     pub fn verify<R: Read>(&self, mut input_data: R) -> io::Result<bool> {
         // Input data is serialized for Curve as:
-        // serialized_proof (compressed, 4*32 bytes) || serialized_proof_values (6*32 bytes)
+        // serialized_proof (compressed, 4*32 bytes) || serialized_proof_values (6*32 bytes), i.e.
+        // [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
         let mut input_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input_byte)?;
         let proof = ArkProof::deserialize(&mut Cursor::new(&input_byte[..128].to_vec())).unwrap();
@@ -301,6 +302,7 @@ impl RLN<'_> {
 
     // Input data is serialized for Curve as:
     // [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
+    // Note that in contrast to verify, this function takes as input the signal and further verifies: the tree root, the X coordinate, the RLN identifier
     pub fn verify_rln_proof<R: Read>(&self, mut input_data: R) -> io::Result<bool> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
