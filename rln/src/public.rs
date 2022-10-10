@@ -383,11 +383,6 @@ impl RLN<'_> {
 
         // We expect each root to be fr_byte_size() bytes long.
         let fr_size = fr_byte_size();
-        println!(
-            "Fr size {:#?}, roots_serialized len {:#?}",
-            fr_size,
-            roots_serialized.len()
-        );
 
         // We read the buffer and convert to Fr as much as we can
         all_read = 0;
