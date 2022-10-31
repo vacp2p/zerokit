@@ -104,7 +104,11 @@ pub extern "C" fn set_next_leaf(ctx: *mut RLN, input_buffer: *const Buffer) -> b
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn set_leaves_from(ctx: *mut RLN, input_buffer: *const Buffer, index: usize) -> bool {
+pub extern "C" fn set_leaves_from(
+    ctx: *mut RLN,
+    input_buffer: *const Buffer,
+    index: usize,
+) -> bool {
     let rln = unsafe { &mut *ctx };
     let input_data = <&[u8]>::from(unsafe { &*input_buffer });
     rln.set_leaves_from(index, input_data).is_ok()
