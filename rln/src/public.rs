@@ -8,7 +8,6 @@ use ark_groth16::Proof as ArkProof;
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
-use ark_std::Zero;
 use cfg_if::cfg_if;
 use num_bigint::BigInt;
 use std::io::Cursor;
@@ -561,6 +560,7 @@ mod test {
         let tree_height = TEST_TREE_HEIGHT;
         let no_of_leaves = 256;
         let start_index = 5;
+        let default_leaf = Fr::from(0);
 
         // We generate a vector of random leaves
         let mut leaves: Vec<Fr> = Vec::new();
@@ -590,7 +590,7 @@ mod test {
 
         // add `start_index` empty leaves
         for _ in 0..start_index {
-            let mut buffer = Cursor::new(fr_to_bytes_le(&Fr::zero()));
+            let mut buffer = Cursor::new(fr_to_bytes_le(&default_leaf));
             rln.set_next_leaf(&mut buffer).unwrap();
         }
 
