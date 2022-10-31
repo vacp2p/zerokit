@@ -8,6 +8,7 @@ use ark_groth16::Proof as ArkProof;
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
+use ark_std::Zero;
 use cfg_if::cfg_if;
 use num_bigint::BigInt;
 use std::io::Cursor;
@@ -118,8 +119,7 @@ impl RLN<'_> {
         Ok(())
     }
 
-    //TODO: change to set_leaves_from(index, input_data)
-    pub fn set_leaves<R: Read>(&mut self, mut input_data: R) -> io::Result<()> {
+    pub fn set_leaves_from<R: Read>(&mut self, index: usize, mut input_data: R) -> io::Result<()> {
         // We read input
         let mut leaves_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut leaves_byte)?;
@@ -128,10 +128,14 @@ impl RLN<'_> {
 
         // We set the leaves
         for (i, leaf) in leaves.iter().enumerate() {
-            self.tree.set(i, *leaf)?;
+            self.tree.set(i + index, *leaf)?;
         }
 
         Ok(())
+    }
+
+    pub fn init_tree_with_leaves<R: Read>(&mut self, input_data: R) -> io::Result<()> {
+        return self.set_leaves_from(0, input_data);
     }
 
     // Set input leaf to the next available index
@@ -515,7 +519,7 @@ mod test {
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
-        rln.set_leaves(&mut buffer).unwrap();
+        rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // We check if number of leaves set is consistent
         assert_eq!(rln.tree.leaves_set(), no_of_leaves);
@@ -548,6 +552,63 @@ mod test {
         let (root_empty, _) = bytes_le_to_fr(&buffer.into_inner());
 
         assert_eq!(root_delete, root_empty);
+    }
+
+    #[test]
+    // We test leaf setting with a custom index, to enable batch updates to the root
+    // Uses `set_leaves_from` to set leaves in a batch, from index `start_index`
+    fn test_leaf_setting_with_index() {
+        let tree_height = TEST_TREE_HEIGHT;
+        let no_of_leaves = 256;
+        let start_index = 5;
+
+        // We generate a vector of random leaves
+        let mut leaves: Vec<Fr> = Vec::new();
+        let mut rng = thread_rng();
+        for _ in 0..no_of_leaves {
+            leaves.push(Fr::rand(&mut rng));
+        }
+
+        // We create a new tree
+        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let mut rln = RLN::new(tree_height, input_buffer);
+
+        // We add leaves in a batch into the tree
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
+        rln.set_leaves_from(start_index, &mut buffer).unwrap();
+
+        // We check if number of leaves set is consistent
+        assert_eq!(rln.tree.leaves_set(), no_of_leaves + start_index);
+
+        // We get the root of the tree obtained adding leaves in batch
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_root(&mut buffer).unwrap();
+        let (root_batch, _) = bytes_le_to_fr(&buffer.into_inner());
+
+        // We reset the tree to default
+        rln.set_tree(tree_height).unwrap();
+
+        // add `start_index` empty leaves
+        for _ in 0..start_index {
+            let mut buffer = Cursor::new(fr_to_bytes_le(&Fr::zero()));
+            rln.set_next_leaf(&mut buffer).unwrap();
+        }
+
+        // We add leaves one by one using the internal index (new leaves goes in next available position)
+        for leaf in &leaves {
+            let mut buffer = Cursor::new(fr_to_bytes_le(&leaf));
+            rln.set_next_leaf(&mut buffer).unwrap();
+        }
+
+        // We check if numbers of leaves set is consistent
+        assert_eq!(rln.tree.leaves_set(), no_of_leaves + start_index);
+
+        // We get the root of the tree obtained adding leaves using the internal index
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_root(&mut buffer).unwrap();
+        let (root_next, _) = bytes_le_to_fr(&buffer.into_inner());
+
+        assert_eq!(root_batch, root_next);
     }
 
     #[test]
@@ -772,7 +833,7 @@ mod test {
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
-        rln.set_leaves(&mut buffer).unwrap();
+        rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // Generate identity pair
         let (identity_secret, id_commitment) = keygen();
@@ -837,7 +898,7 @@ mod test {
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
-        rln.set_leaves(&mut buffer).unwrap();
+        rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // Generate identity pair
         let (identity_secret, id_commitment) = keygen();
@@ -982,7 +1043,7 @@ mod test {
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
-        rln.set_leaves(&mut buffer).unwrap();
+        rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // Generate identity pair
         let (identity_secret, id_commitment) = keygen();

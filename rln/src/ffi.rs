@@ -104,10 +104,18 @@ pub extern "C" fn set_next_leaf(ctx: *mut RLN, input_buffer: *const Buffer) -> b
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn set_leaves(ctx: *mut RLN, input_buffer: *const Buffer) -> bool {
+pub extern "C" fn set_leaves_from(ctx: *mut RLN, input_buffer: *const Buffer, index: usize) -> bool {
     let rln = unsafe { &mut *ctx };
     let input_data = <&[u8]>::from(unsafe { &*input_buffer });
-    rln.set_leaves(input_data).is_ok()
+    rln.set_leaves_from(index, input_data).is_ok()
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn init_tree_with_leaves(ctx: *mut RLN, input_buffer: *const Buffer) -> bool {
+    let rln = unsafe { &mut *ctx };
+    let input_data = <&[u8]>::from(unsafe { &*input_buffer });
+    rln.init_tree_with_leaves(input_data).is_ok()
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -387,7 +395,7 @@ mod test {
         // We add leaves in a batch into the tree
         let leaves_ser = vec_fr_to_bytes_le(&leaves);
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
-        let success = set_leaves(rln_pointer, input_buffer);
+        let success = init_tree_with_leaves(rln_pointer, input_buffer);
         assert!(success, "set leaves call failed");
 
         // We get the root of the tree obtained adding leaves in batch
@@ -739,7 +747,7 @@ mod test {
         // We add leaves in a batch into the tree
         let leaves_ser = vec_fr_to_bytes_le(&leaves);
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
-        let success = set_leaves(rln_pointer, input_buffer);
+        let success = init_tree_with_leaves(rln_pointer, input_buffer);
         assert!(success, "set leaves call failed");
 
         // We generate a new identity pair
@@ -824,7 +832,7 @@ mod test {
         // We add leaves in a batch into the tree
         let leaves_ser = vec_fr_to_bytes_le(&leaves);
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
-        let success = set_leaves(rln_pointer, input_buffer);
+        let success = init_tree_with_leaves(rln_pointer, input_buffer);
         assert!(success, "set leaves call failed");
 
         // We generate a new identity pair
