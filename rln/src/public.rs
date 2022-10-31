@@ -135,7 +135,7 @@ impl RLN<'_> {
     }
 
     pub fn init_tree_with_leaves<R: Read>(&mut self, input_data: R) -> io::Result<()> {
-        return self.set_leaves_from(0, input_data)?;
+        return self.set_leaves_from(0, input_data);
     }
 
     // Set input leaf to the next available index
