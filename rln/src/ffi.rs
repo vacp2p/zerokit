@@ -446,6 +446,57 @@ mod test {
     }
 
     #[test]
+    // This test is similar to the one in public.rs but it uses the RLN object as a pointer
+    // Uses `set_leaves_from` to set leaves in a batch, from index `start_index`
+    // `start_index` is a variable that is set to 5
+    fn test_leaf_setting_with_index_ffi() {
+        let tree_height = 4;
+        let start_index = 5;
+        let no_of_leaves = 10;
+
+        // We create a RLN instance
+        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
+        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        assert!(success, "RLN object creation failed");
+        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+
+        // We create a vector of leaves
+        let mut leaves = Vec::new();
+        let mut rng = thread_rng();
+        for _ in 0..no_of_leaves {
+            leaves.push(Fr::rand(&mut rng));
+        }
+
+        // We add leaves in a batch into the tree
+        let leaves_ser = vec_fr_to_bytes_le(&leaves);
+        let input_buffer = &Buffer::from(leaves_ser.as_ref());
+        let success = set_leaves_from(rln_pointer, start_index, input_buffer);
+        assert!(success, "set leaves call failed");
+
+        // We get the root of the tree obtained adding leaves in batch
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "get root call failed");
+
+        // We reset the tree to default
+        let success = set_tree(rln_pointer, tree_height);
+        assert!(success, "set tree call failed");
+
+        // We add leaves one by one using the internal index (new leaves goes in next available position)
+        for leaf in &leaves {
+            let leaf_ser = fr_to_bytes_le(&leaf);
+            let input_buffer = &Buffer::from(leaf_ser.as_ref());
+            let success = set_next_leaf(rln_pointer, input_buffer);
+            assert!(success, "set next leaf call failed");
+        }
+
+        // We get the root of the tree obtained adding leaves using the internal index
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "get root call failed");
+    }
+    #[test]
     // This test is similar to the one in lib, but uses only public C API
     fn test_merkle_proof_ffi() {
         let tree_height = TEST_TREE_HEIGHT;
