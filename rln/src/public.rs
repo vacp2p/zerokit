@@ -460,8 +460,10 @@ impl Default for RLN<'_> {
 mod test {
     use super::*;
     use crate::poseidon_hash::poseidon_hash;
+    use crate::poseidon_tree::PoseidonHash;
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
+    use utils::Hasher;
 
     #[test]
     // We test merkle batch Merkle tree additions
@@ -560,7 +562,7 @@ mod test {
         let tree_height = TEST_TREE_HEIGHT;
         let no_of_leaves = 256;
         let start_index = 5;
-        let default_leaf = Fr::from(0);
+        let default_leaf = PoseidonHash::default_leaf();
 
         // We generate a vector of random leaves
         let mut leaves: Vec<Fr> = Vec::new();
@@ -588,10 +590,10 @@ mod test {
         // We reset the tree to default
         rln.set_tree(tree_height).unwrap();
 
+        let zero_buffer = Cursor::new(fr_to_bytes_le(&default_leaf));
         // add `start_index` empty leaves
         for _ in 0..start_index {
-            let mut buffer = Cursor::new(fr_to_bytes_le(&default_leaf));
-            rln.set_next_leaf(&mut buffer).unwrap();
+            rln.set_next_leaf(&mut zero_buffer.clone()).unwrap();
         }
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
