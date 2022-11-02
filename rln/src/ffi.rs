@@ -106,8 +106,8 @@ pub extern "C" fn set_next_leaf(ctx: *mut RLN, input_buffer: *const Buffer) -> b
 #[no_mangle]
 pub extern "C" fn set_leaves_from(
     ctx: *mut RLN,
-    input_buffer: *const Buffer,
     index: usize,
+    input_buffer: *const Buffer,
 ) -> bool {
     let rln = unsafe { &mut *ctx };
     let input_data = <&[u8]>::from(unsafe { &*input_buffer });
