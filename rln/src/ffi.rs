@@ -104,10 +104,22 @@ pub extern "C" fn set_next_leaf(ctx: *mut RLN, input_buffer: *const Buffer) -> b
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn set_leaves(ctx: *mut RLN, input_buffer: *const Buffer) -> bool {
+pub extern "C" fn set_leaves_from(
+    ctx: *mut RLN,
+    index: usize,
+    input_buffer: *const Buffer,
+) -> bool {
     let rln = unsafe { &mut *ctx };
     let input_data = <&[u8]>::from(unsafe { &*input_buffer });
-    rln.set_leaves(input_data).is_ok()
+    rln.set_leaves_from(index, input_data).is_ok()
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn init_tree_with_leaves(ctx: *mut RLN, input_buffer: *const Buffer) -> bool {
+    let rln = unsafe { &mut *ctx };
+    let input_data = <&[u8]>::from(unsafe { &*input_buffer });
+    rln.init_tree_with_leaves(input_data).is_ok()
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -387,7 +399,7 @@ mod test {
         // We add leaves in a batch into the tree
         let leaves_ser = vec_fr_to_bytes_le(&leaves);
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
-        let success = set_leaves(rln_pointer, input_buffer);
+        let success = init_tree_with_leaves(rln_pointer, input_buffer);
         assert!(success, "set leaves call failed");
 
         // We get the root of the tree obtained adding leaves in batch
@@ -433,6 +445,95 @@ mod test {
         assert_eq!(root_delete, root_empty);
     }
 
+    #[test]
+    // This test is similar to the one in public.rs but it uses the RLN object as a pointer
+    // Uses `set_leaves_from` to set leaves in a batch
+    fn test_leaf_setting_with_index_ffi() {
+        // We create a new tree
+        let tree_height = TEST_TREE_HEIGHT;
+        let no_of_leaves = 256;
+
+        // We create a RLN instance
+        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
+        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        assert!(success, "RLN object creation failed");
+        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+
+        // We generate a vector of random leaves
+        let mut leaves: Vec<Fr> = Vec::new();
+        let mut rng = thread_rng();
+        for _ in 0..no_of_leaves {
+            leaves.push(Fr::rand(&mut rng));
+        }
+
+        // set_index is the index from which we start setting leaves
+        // random number between 0..no_of_leaves
+        let set_index = rng.gen_range(0..no_of_leaves) as usize;
+
+        // We add leaves in a batch into the tree
+        let leaves_ser = vec_fr_to_bytes_le(&leaves);
+        let input_buffer = &Buffer::from(leaves_ser.as_ref());
+        let success = init_tree_with_leaves(rln_pointer, input_buffer);
+        assert!(success, "init tree with leaves call failed");
+
+        // We get the root of the tree obtained adding leaves in batch
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "get root call failed");
+
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (root_batch_with_init, _) = bytes_le_to_fr(&result_data);
+
+        // `init_tree_with_leaves` resets the tree to the height it was initialized with, using `set_tree`
+
+        // We add leaves in a batch starting from index 0..set_index
+        let leaves_m = vec_fr_to_bytes_le(&leaves[0..set_index]);
+        let buffer = &Buffer::from(leaves_m.as_ref());
+        let success = init_tree_with_leaves(rln_pointer, buffer);
+        assert!(success, "init tree with leaves call failed");
+
+        // We add the remaining n leaves in a batch starting from index set_index
+        let leaves_n = vec_fr_to_bytes_le(&leaves[set_index..]);
+        let buffer = &Buffer::from(leaves_n.as_ref());
+        let success = set_leaves_from(rln_pointer, set_index, buffer);
+        assert!(success, "set leaves from call failed");
+
+        // We get the root of the tree obtained adding leaves in batch
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "get root call failed");
+
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (root_batch_with_custom_index, _) = bytes_le_to_fr(&result_data);
+
+        assert_eq!(root_batch_with_init, root_batch_with_custom_index);
+
+        // We reset the tree to default
+        let success = set_tree(rln_pointer, tree_height);
+        assert!(success, "set tree call failed");
+
+        // We add leaves one by one using the internal index (new leaves goes in next available position)
+        for leaf in &leaves {
+            let leaf_ser = fr_to_bytes_le(&leaf);
+            let input_buffer = &Buffer::from(leaf_ser.as_ref());
+            let success = set_next_leaf(rln_pointer, input_buffer);
+            assert!(success, "set next leaf call failed");
+        }
+
+        // We get the root of the tree obtained adding leaves using the internal index
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "get root call failed");
+
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (root_single_additions, _) = bytes_le_to_fr(&result_data);
+
+        assert_eq!(root_batch_with_init, root_single_additions);
+    }
     #[test]
     // This test is similar to the one in lib, but uses only public C API
     fn test_merkle_proof_ffi() {
@@ -739,7 +840,7 @@ mod test {
         // We add leaves in a batch into the tree
         let leaves_ser = vec_fr_to_bytes_le(&leaves);
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
-        let success = set_leaves(rln_pointer, input_buffer);
+        let success = init_tree_with_leaves(rln_pointer, input_buffer);
         assert!(success, "set leaves call failed");
 
         // We generate a new identity pair
@@ -824,7 +925,7 @@ mod test {
         // We add leaves in a batch into the tree
         let leaves_ser = vec_fr_to_bytes_le(&leaves);
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
-        let success = set_leaves(rln_pointer, input_buffer);
+        let success = init_tree_with_leaves(rln_pointer, input_buffer);
         assert!(success, "set leaves call failed");
 
         // We generate a new identity pair
