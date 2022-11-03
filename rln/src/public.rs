@@ -134,6 +134,8 @@ impl RLN<'_> {
     }
 
     pub fn init_tree_with_leaves<R: Read>(&mut self, input_data: R) -> io::Result<()> {
+        // reset the tree
+        self.set_tree(self.tree.depth())?;
         return self.set_leaves_from(0, input_data);
     }
 
@@ -587,8 +589,8 @@ mod test {
         rln.get_root(&mut buffer).unwrap();
         let (root_batch_with_init, _) = bytes_le_to_fr(&buffer.into_inner());
 
-        // We reset the tree to default
-        rln.set_tree(tree_height).unwrap();
+        // Previously, resetting the tree was required, now it is a part
+        // of the `init_tree_with_leaves` function
 
         // We add leaves in a batch starting from index 0..set_index
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves[0..set_index]));
@@ -623,9 +625,9 @@ mod test {
         // We get the root of the tree obtained adding leaves using the internal index
         let mut buffer = Cursor::new(Vec::<u8>::new());
         rln.get_root(&mut buffer).unwrap();
-        let (root_manual, _) = bytes_le_to_fr(&buffer.into_inner());
+        let (root_single_additions, _) = bytes_le_to_fr(&buffer.into_inner());
 
-        assert_eq!(root_batch_with_init, root_manual);
+        assert_eq!(root_batch_with_init, root_single_additions);
     }
 
     #[test]

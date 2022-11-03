@@ -486,9 +486,8 @@ mod test {
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
         let (root_batch_with_init, _) = bytes_le_to_fr(&result_data);
 
-        // We reset the tree to default
-        let success = set_tree(rln_pointer, tree_height);
-        assert!(success, "set tree call failed");
+        // Previously, resetting the tree was required, now it is a part
+        // of the `init_tree_with_leaves` function
 
         // We add leaves in a batch starting from index 0..set_index
         let leaves_m = vec_fr_to_bytes_le(&leaves[0..set_index]);
@@ -532,9 +531,9 @@ mod test {
 
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_manual, _) = bytes_le_to_fr(&result_data);
+        let (root_single_additions, _) = bytes_le_to_fr(&result_data);
 
-        assert_eq!(root_batch_with_init, root_manual);
+        assert_eq!(root_batch_with_init, root_single_additions);
     }
     #[test]
     // This test is similar to the one in lib, but uses only public C API
