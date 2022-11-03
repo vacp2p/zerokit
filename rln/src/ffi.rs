@@ -491,13 +491,14 @@ mod test {
         assert!(success, "set tree call failed");
 
         // We add leaves in a batch starting from index 0..set_index
-        let leaves_m = leaves[0..set_index].to_vec();
-        let buffer = &Buffer::from(vec_fr_to_bytes_le(&leaves_m).as_ref());
+        let leaves_m = vec_fr_to_bytes_le(&leaves[0..set_index]);
+        let buffer = &Buffer::from(leaves_m.as_ref());
         let success = init_tree_with_leaves(rln_pointer, buffer);
         assert!(success, "init tree with leaves call failed");
 
-        // We add the remaining n leaves in a batch starting from index m
-        let buffer = &Buffer::from(vec_fr_to_bytes_le(&leaves[set_index..]).as_ref());
+        // We add the remaining n leaves in a batch starting from index set_index
+        let leaves_n = vec_fr_to_bytes_le(&leaves[set_index..]);
+        let buffer = &Buffer::from(leaves_n.as_ref());
         let success = set_leaves_from(rln_pointer, set_index, buffer);
         assert!(success, "set leaves from call failed");
 
