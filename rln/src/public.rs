@@ -135,6 +135,8 @@ impl RLN<'_> {
 
     pub fn init_tree_with_leaves<R: Read>(&mut self, input_data: R) -> io::Result<()> {
         // reset the tree
+        // NOTE: this requires the tree to be initialized with the correct height initially
+        // TODO: accept tree_height as a parameter and initialize the tree with that height
         self.set_tree(self.tree.depth())?;
         return self.set_leaves_from(0, input_data);
     }
