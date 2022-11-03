@@ -486,8 +486,7 @@ mod test {
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
         let (root_batch_with_init, _) = bytes_le_to_fr(&result_data);
 
-        // Previously, resetting the tree was required, now it is a part
-        // of the `init_tree_with_leaves` function
+        // `init_tree_with_leaves` resets the tree to the height it was initialized with, using `set_tree`
 
         // We add leaves in a batch starting from index 0..set_index
         let leaves_m = vec_fr_to_bytes_le(&leaves[0..set_index]);

@@ -591,8 +591,7 @@ mod test {
         rln.get_root(&mut buffer).unwrap();
         let (root_batch_with_init, _) = bytes_le_to_fr(&buffer.into_inner());
 
-        // Previously, resetting the tree was required, now it is a part
-        // of the `init_tree_with_leaves` function
+        // `init_tree_with_leaves` resets the tree to the height it was initialized with, using `set_tree`
 
         // We add leaves in a batch starting from index 0..set_index
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves[0..set_index]));
