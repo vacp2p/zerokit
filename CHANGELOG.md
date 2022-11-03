@@ -1,9 +1,18 @@
-## 2022-11-02
+## Upcoming release
 
-This breaking change contains:
+Release highlights:
+- Allows consumers of zerokit RLN to set leaves to the Merkle Tree from an arbitrary index. Useful for batching updates to the Merkle Tree.
 
-- Renaming of `set_leaves` to `init_tree_with_leaves`, which is a more accurate representation of the function's utility.
+The full list of changes is below.
+
+### Features
 - Creation of `set_leaves_from`, which allows consumers to add leaves to a tree from a given starting index. `init_tree_with_leaves` internally uses `set_leaves_from`, with index 0.
+
+### Changes
+- Renaming of `set_leaves` to `init_tree_with_leaves`, which is a more accurate representation of the function's utility.
+
+### Fixes
+- None
 
 ## 2022-09-19 v0.1
 
