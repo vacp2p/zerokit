@@ -137,8 +137,10 @@ impl<H: Hasher> OptimalMerkleTree<H> {
     pub fn delete(&mut self, index: usize) -> io::Result<()> {
         // We reset the leaf only if we previously set a leaf at that index
         if index < self.next_index {
-            self.set(index, H::default_leaf())?;
+            // free up the space
+            self.nodes.remove(&(self.depth, index));
         }
+        self.recalculate_from(index);
         Ok(())
     }
 

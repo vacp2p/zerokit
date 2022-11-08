@@ -686,7 +686,8 @@ mod test {
         rln.get_root(&mut buffer).unwrap();
         let (root_after_bad_leaf_insertion, _) = bytes_le_to_fr(&buffer.into_inner());
 
-        // We check if the root of the tree obtained adding leaves in batch is consistent with the empty tree root
+        // We check if the root of the tree obtained adding leaves in batch is consistent
+        // with the root of the tree obtained adding good leaves in batch
         assert_eq!(root_good_leaves, root_after_bad_leaf_insertion);
         // We check if numbers of leaves set is consistent
         assert_eq!(rln.tree.leaves_set(), good_leaf_index);
