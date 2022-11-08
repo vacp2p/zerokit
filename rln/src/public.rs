@@ -125,9 +125,20 @@ impl RLN<'_> {
 
         let (leaves, _) = bytes_le_to_vec_fr(&leaves_byte);
 
+        let index_before_setting = self.tree.leaves_set();
         // We set the leaves
         for (i, leaf) in leaves.iter().enumerate() {
-            self.tree.set(i + index, *leaf)?;
+            let index_offset = index + i;
+            let result = self.tree.set(index_offset, *leaf);
+            if result.is_err() {
+                // Revert the changes upto this point
+                for j in index..index_offset {
+                    self.tree.delete(j)?;
+                }
+                // Reset the index since we reverted the changes
+                self.tree.set_next_index(index_before_setting)?;
+                return result;
+            }
         }
 
         Ok(())
@@ -464,8 +475,10 @@ impl Default for RLN<'_> {
 mod test {
     use super::*;
     use crate::poseidon_hash::poseidon_hash;
+    use crate::poseidon_tree::PoseidonHash;
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
+    use utils::Hasher;
 
     #[test]
     // We test merkle batch Merkle tree additions
@@ -629,6 +642,58 @@ mod test {
         let (root_single_additions, _) = bytes_le_to_fr(&buffer.into_inner());
 
         assert_eq!(root_batch_with_init, root_single_additions);
+    }
+
+    #[test]
+    // This test is used to test the atomicity of the `set_leaves_from` function
+    fn test_bad_leaf_setting() {
+        // We create a new tree
+        let tree_height = TEST_TREE_HEIGHT;
+        let no_of_leaves = 256;
+
+        // We generate a vector of random leaves
+        let mut leaves: Vec<Fr> = Vec::new();
+        let mut rng = thread_rng();
+        for _ in 0..no_of_leaves {
+            leaves.push(Fr::rand(&mut rng));
+        }
+
+        // insert good leaves first
+        let good_leaf_index = rng.gen_range(0..no_of_leaves) as usize;
+        // let the bad leaf index be 0..no_of_leaves
+        let bad_leaf_index = (1 << tree_height) - rng.gen_range(0..no_of_leaves) as usize;
+
+        // We create a new tree
+        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let mut rln = RLN::new(tree_height, input_buffer);
+
+        // We insert good leaves first, upto index `good_leaf_index`
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves[0..good_leaf_index]));
+        rln.init_tree_with_leaves(&mut buffer).unwrap();
+
+        // Get the root of the tree with good leaves
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_root(&mut buffer).unwrap();
+        let (root_good_leaves, _) = bytes_le_to_fr(&buffer.into_inner());
+
+        // We add bad leaves in a batch into the tree
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
+        rln.set_leaves_from(bad_leaf_index, &mut buffer)
+            .expect_err("Should have failed");
+
+        // We get the root of the tree obtained adding leaves in batch
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_root(&mut buffer).unwrap();
+        let (root_after_bad_leaf_insertion, _) = bytes_le_to_fr(&buffer.into_inner());
+
+        // We check if the root of the tree obtained adding leaves in batch is consistent with the empty tree root
+        assert_eq!(root_good_leaves, root_after_bad_leaf_insertion);
+        // We check if numbers of leaves set is consistent
+        assert_eq!(rln.tree.leaves_set(), good_leaf_index);
+
+        // Check if the next leaf index is empty
+        let leaf_at_next_index = rln.tree.get_leaf(good_leaf_index);
+        assert_eq!(leaf_at_next_index, PoseidonHash::default_leaf());
     }
 
     #[test]

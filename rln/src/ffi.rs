@@ -534,6 +534,68 @@ mod test {
 
         assert_eq!(root_batch_with_init, root_single_additions);
     }
+
+    #[test]
+    // This test is used for the atomicity of the `set_leaves_from` function
+    fn test_bad_leaf_setting_ffi() {
+        // We create a new tree
+        let tree_height = TEST_TREE_HEIGHT;
+        let no_of_leaves = 256;
+
+        // We create a RLN instance
+        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
+        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        assert!(success, "RLN object creation failed");
+
+        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+
+        // We generate a vector of random leaves
+        let mut leaves: Vec<Fr> = Vec::new();
+        let mut rng = thread_rng();
+        for _ in 0..no_of_leaves {
+            leaves.push(Fr::rand(&mut rng));
+        }
+
+        // let the good leaf index be 0..no_of_leaves
+        let good_leaf_index = rng.gen_range(0..no_of_leaves) as usize;
+        // let the bad leaf index be max_leaves - 0..no_of_leaves
+        let bad_leaf_index = (1 << tree_height) - rng.gen_range(0..no_of_leaves) as usize;
+
+        // We insert the good leaves in a batch
+        let leaves_m = vec_fr_to_bytes_le(&leaves[0..good_leaf_index]);
+        let buffer = &Buffer::from(leaves_m.as_ref());
+        let success = init_tree_with_leaves(rln_pointer, buffer);
+        assert!(success, "init tree with leaves call failed");
+
+        // Get root of the tree with good leaves
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "get root call failed");
+
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (root_good_leaves, _) = bytes_le_to_fr(&result_data);
+
+        // We add bad leaves in a batch into the tree
+        let leaves_ser = vec_fr_to_bytes_le(&leaves);
+        let input_buffer = &Buffer::from(leaves_ser.as_ref());
+        let success = set_leaves_from(rln_pointer, bad_leaf_index, input_buffer);
+        assert!(!success, "set leaves from call succeeded");
+
+        // We get the root of the tree obtained adding leaves in batch
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "get root call failed");
+
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (root_after_bad_leaf_insertion, _) = bytes_le_to_fr(&result_data);
+
+        // We check if the root of the tree obtained adding leaves in batch is consistent with the empty tree root
+        assert_eq!(root_good_leaves, root_after_bad_leaf_insertion);
+    }
+
     #[test]
     // This test is similar to the one in lib, but uses only public C API
     fn test_merkle_proof_ffi() {

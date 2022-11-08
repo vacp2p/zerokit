@@ -142,6 +142,20 @@ impl<H: Hasher> OptimalMerkleTree<H> {
         Ok(())
     }
 
+    // Sets the next index
+    // WARNING: This function should be used only to reset the next index to a lower value
+    // (e.g. when deleting leaves)
+    pub fn set_next_index(&mut self, next_index: usize) -> io::Result<()> {
+        if self.next_index < next_index {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "next_index cannot be set to a higher value",
+            ));
+        }
+        self.next_index = next_index;
+        Ok(())
+    }
+
     // Computes a merkle proof the the leaf at the specified index
     pub fn proof(&self, index: usize) -> io::Result<OptimalMerkleProof<H>> {
         if index >= self.capacity() {
@@ -188,7 +202,7 @@ impl<H: Hasher> OptimalMerkleTree<H> {
         node
     }
 
-    fn get_leaf(&self, index: usize) -> H::Fr {
+    pub fn get_leaf(&self, index: usize) -> H::Fr {
         self.get_node(self.depth, index)
     }
 
