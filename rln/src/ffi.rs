@@ -534,6 +534,56 @@ mod test {
 
         assert_eq!(root_batch_with_init, root_single_additions);
     }
+
+    #[test]
+    // This test is similar to the one in public.rs but it uses the RLN object as a pointer
+    fn test_set_leaves_bad_index_ffi() {
+        let tree_height = TEST_TREE_HEIGHT;
+        let no_of_leaves = 256;
+
+        // We generate a vector of random leaves
+        let mut leaves: Vec<Fr> = Vec::new();
+        let mut rng = thread_rng();
+        for _ in 0..no_of_leaves {
+            leaves.push(Fr::rand(&mut rng));
+        }
+
+        let bad_index = (1 << tree_height) - rng.gen_range(0..no_of_leaves) as usize;
+
+        // We create a RLN instance
+        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
+        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        assert!(success, "RLN object creation failed");
+        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+
+        // Get root of empty tree
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "get root call failed");
+
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (root_empty, _) = bytes_le_to_fr(&result_data);
+
+        // We add leaves in a batch into the tree
+        let leaves = vec_fr_to_bytes_le(&leaves);
+        let buffer = &Buffer::from(leaves.as_ref());
+        let success = set_leaves_from(rln_pointer, bad_index, buffer);
+        assert!(!success, "set leaves from call succeeded");
+
+        // Get root of tree after attempted set
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "get root call failed");
+
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (root_after_bad_set, _) = bytes_le_to_fr(&result_data);
+
+        assert_eq!(root_empty, root_after_bad_set);
+    }
+
     #[test]
     // This test is similar to the one in lib, but uses only public C API
     fn test_merkle_proof_ffi() {

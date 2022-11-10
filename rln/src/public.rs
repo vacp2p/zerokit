@@ -126,11 +126,7 @@ impl RLN<'_> {
         let (leaves, _) = bytes_le_to_vec_fr(&leaves_byte);
 
         // We set the leaves
-        for (i, leaf) in leaves.iter().enumerate() {
-            self.tree.set(i + index, *leaf)?;
-        }
-
-        Ok(())
+        return self.tree.set_range(index, leaves);
     }
 
     pub fn init_tree_with_leaves<R: Read>(&mut self, input_data: R) -> io::Result<()> {
@@ -629,6 +625,45 @@ mod test {
         let (root_single_additions, _) = bytes_le_to_fr(&buffer.into_inner());
 
         assert_eq!(root_batch_with_init, root_single_additions);
+    }
+
+    #[test]
+    // This test checks if `set_leaves_from` throws an error when the index is out of bounds
+    fn test_set_leaves_bad_index() {
+        let tree_height = TEST_TREE_HEIGHT;
+        let no_of_leaves = 256;
+
+        // We generate a vector of random leaves
+        let mut leaves: Vec<Fr> = Vec::new();
+        let mut rng = thread_rng();
+        for _ in 0..no_of_leaves {
+            leaves.push(Fr::rand(&mut rng));
+        }
+        let bad_index = (1 << tree_height) - rng.gen_range(0..no_of_leaves) as usize;
+
+        // We create a new tree
+        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let mut rln = RLN::new(tree_height, input_buffer);
+
+        // Get root of empty tree
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_root(&mut buffer).unwrap();
+        let (root_empty, _) = bytes_le_to_fr(&buffer.into_inner());
+
+        // We add leaves in a batch into the tree
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
+        rln.set_leaves_from(bad_index, &mut buffer)
+            .expect_err("Should throw an error");
+
+        // We check if number of leaves set is consistent
+        assert_eq!(rln.tree.leaves_set(), 0);
+
+        // Get the root of the tree
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_root(&mut buffer).unwrap();
+        let (root_after_bad_set, _) = bytes_le_to_fr(&buffer.into_inner());
+
+        assert_eq!(root_empty, root_after_bad_set);
     }
 
     #[test]

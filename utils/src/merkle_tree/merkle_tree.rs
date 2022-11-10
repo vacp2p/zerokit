@@ -127,6 +127,28 @@ impl<H: Hasher> OptimalMerkleTree<H> {
         Ok(())
     }
 
+    // Sets multiple leaves from the specified tree index
+    pub fn set_range<I: IntoIterator<Item = H::Fr>>(
+        &mut self,
+        start: usize,
+        leaves: I,
+    ) -> io::Result<()> {
+        let leaves = leaves.into_iter().collect::<Vec<_>>();
+        // check if the range is valid
+        if start + leaves.len() > self.capacity() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "provided range exceeds set size",
+            ));
+        }
+        for (i, leaf) in leaves.iter().enumerate() {
+            self.nodes.insert((self.depth, start + i), *leaf);
+            self.recalculate_from(start + i);
+        }
+        self.next_index = max(self.next_index, start + leaves.len());
+        Ok(())
+    }
+
     // Sets a leaf at the next available index
     pub fn update_next(&mut self, leaf: H::Fr) -> io::Result<()> {
         self.set(self.next_index, leaf)?;
@@ -380,11 +402,19 @@ impl<H: Hasher> FullMerkleTree<H> {
     ) -> io::Result<()> {
         let index = self.capacity() + start - 1;
         let mut count = 0;
-        // TODO: Error/panic when hashes is longer than available leafs
-        for (leaf, hash) in self.nodes[index..].iter_mut().zip(hashes) {
-            *leaf = hash;
-            count += 1;
+        // first count number of hashes, and check that they fit in the tree
+        // then insert into the tree
+        let hashes = hashes.into_iter().collect::<Vec<_>>();
+        if hashes.len() + start > self.capacity() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "provided hashes do not fit in the tree",
+            ));
         }
+        hashes.into_iter().for_each(|hash| {
+            self.nodes[index + count] = hash;
+            count += 1;
+        });
         if count != 0 {
             self.update_nodes(index, index + (count - 1));
             self.next_index = max(self.next_index, start + count);
