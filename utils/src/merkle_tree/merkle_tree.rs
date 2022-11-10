@@ -128,7 +128,13 @@ impl<H: Hasher> OptimalMerkleTree<H> {
     }
 
     // Sets multiple leaves from the specified tree index
-    pub fn set_range(&mut self, start: usize, leaves: Vec<H::Fr>) -> io::Result<()> {
+    pub fn set_range<I: IntoIterator<Item = H::Fr>>(
+        &mut self,
+        start: usize,
+        leaves: I,
+    ) -> io::Result<()> {
+        let leaves = leaves.into_iter().collect::<Vec<_>>();
+        // check if the range is valid
         if start + leaves.len() > self.capacity() {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
