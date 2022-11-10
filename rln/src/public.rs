@@ -126,9 +126,7 @@ impl RLN<'_> {
         let (leaves, _) = bytes_le_to_vec_fr(&leaves_byte);
 
         // We set the leaves
-        self.tree.set_range(index, leaves)?;
-
-        Ok(())
+        return self.tree.set_range(index, leaves);
     }
 
     pub fn init_tree_with_leaves<R: Read>(&mut self, input_data: R) -> io::Result<()> {
