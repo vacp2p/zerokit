@@ -132,7 +132,7 @@ impl<H: Hasher> OptimalMerkleTree<H> {
         if start + leaves.len() > self.capacity() {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                "index exceeds set size",
+                "provided range exceeds set size",
             ));
         }
         for (i, leaf) in leaves.iter().enumerate() {
