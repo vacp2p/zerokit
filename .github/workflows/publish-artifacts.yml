@@ -1,7 +1,7 @@
 on:
   workflow_run:
     workflows: ["Tests"]
-    # branches: [master]
+    branches: [master]
     types:
       - completed
 
