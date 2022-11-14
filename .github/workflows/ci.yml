@@ -64,3 +64,33 @@ jobs:
           (cd semaphore && cargo clippy)
         # Currently not treating warnings as error, too noisy
         # -- -D warnings
+  publish:
+    # only run on pushes to master
+    if: github.ref == 'refs/heads/master'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    needs: [tests, wasm, lint]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Update git submodules
+        run: git submodule update --init --recursive
+      - name: cargo build and ready artifacts
+        run: |
+            cargo build --release --workspace --exclude rln-wasm
+            mkdir -p artifacts
+            cp target/release/librln* artifacts/
+      - name: Publish artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: rln-artifacts
+          path: artifacts
+
