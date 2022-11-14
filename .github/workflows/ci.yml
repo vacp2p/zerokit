@@ -105,9 +105,10 @@ jobs:
             cargo build --release --workspace --exclude rln-wasm
             mkdir -p artifacts
             cp target/release/librln* artifacts/
+            tar -cvzf zerokit-rln-artifacts-${{matrix.os}}.tar.gz ./artifacts/
       - name: Publish artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: rln-artifacts-${{ matrix.os }}-${{ github.sha }}
-          path: artifacts
+          name: zerokit-rln-artifacts-${{ matrix.os }}
+          path: zerokit-rln-artifacts-${{matrix.os}}.tar.gz
 
