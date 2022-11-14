@@ -5,12 +5,20 @@ on:
     paths-ignore:
       - '**.md'
       - '!.github/workflows/*.yml'
-      - '!**.rs'
+      - '!multiplier/src/**'
+      - '!private-settlement/src/**'
+      - '!rln/src/**'
+      - '!rln-wasm/**'
+      - '!semaphore/src/**'
   pull_request:
     paths-ignore:
       - '**.md'
       - '!.github/workflows/*.yml'
-      - '!**.rs'
+      - '!multiplier/src/**'
+      - '!private-settlement/src/**'
+      - '!rln/src/**'
+      - '!rln-wasm/**'
+      - '!semaphore/src/**'
 
 
 name: Tests
@@ -75,7 +83,7 @@ jobs:
         # -- -D warnings
   publish:
     # only run on pushes to master
-    if: ${{ github.event_name == 'push' && github.ref == 'publish-artifacts' }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/publish-artifacts' }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
