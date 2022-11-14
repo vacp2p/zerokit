@@ -7,7 +7,10 @@ on:
       - '!.github/workflows/*.yml'
       - '!**.rs'
   pull_request:
-
+    paths-ignore:
+      - '**.md'
+      - '!.github/workflows/*.yml'
+      - '!**.rs'
 
 
 name: Tests
