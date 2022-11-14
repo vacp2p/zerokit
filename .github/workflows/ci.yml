@@ -108,6 +108,6 @@ jobs:
       - name: Publish artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: rln-artifacts
+          name: rln-artifacts-${{ matrix.os }}-${{ github.sha }}
           path: artifacts
 
