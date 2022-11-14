@@ -83,7 +83,7 @@ jobs:
         # -- -D warnings
   publish:
     # only run on pushes to master
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/publish-artifacts' }}
+    if: ${{ github.event_name == 'push' && github.ref_name == 'publish-artifacts' }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
