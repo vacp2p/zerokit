@@ -2,7 +2,13 @@ on:
   push:
     branches:
       - master
+    paths-ignore:
+      - '**.md'
+      - '!.github/workflows/*.yml'
+      - '!**.rs'
   pull_request:
+
+
 
 name: Tests
 
@@ -66,7 +72,7 @@ jobs:
         # -- -D warnings
   publish:
     # only run on pushes to master
-    if: github.ref == 'refs/heads/publish-artifacts'
+    if: ${{ github.event_name == 'push' && github.ref == 'publish-artifacts' }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
