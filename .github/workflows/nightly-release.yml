@@ -1,0 +1,120 @@
+name: Nightly build
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  linux:
+    name: Linux build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Declare short sha
+        id: vars
+        shell: bash
+        run: |
+          echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Update git submodules
+        run: git submodule update --init --recursive
+      - name: cargo build
+        run: |
+          cargo build --release --workspace --exclude rln-wasm
+          mkdir release
+          cp target/release/librln* release/
+          tar -czvf linux-rln-${{steps.vars.outputs.sha_short}}.tar.gz release/
+
+      - name: Upload archive artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: linux-archive
+          path: linux-rln-${{steps.vars.outputs.sha_short}}.tar.gz
+          retention-days: 2
+
+  macos:
+    name: MacOS build
+    runs-on: macos-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+        with:
+          ref: master
+      - name: Declare short sha
+        id: vars
+        shell: bash
+        run: |
+          echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Update git submodules
+        run: git submodule update --init --recursive
+      - name: cargo build
+        run: |
+          cargo build --release --workspace --exclude rln-wasm
+          mkdir release
+          cp target/release/librln* release/
+          tar -czvf macos-rln-${{steps.vars.outputs.sha_short}}.tar.gz release/
+
+      - name: Upload archive artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: macos-archive
+          path: macos-rln-${{steps.vars.outputs.sha_short}}.tar.gz
+          retention-days: 2
+
+  prepare-prerelease:
+    name: Prepare pre-release
+    needs: [linux, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          ref: master
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+      - name: Create release notes
+        run: |
+          echo "## Release notes" > release-notes.md
+          echo "### Linux" >> release-notes.md
+          tar -xvf linux-rln-*.tar.gz
+          ls -l release >> release-notes.md
+          echo "### MacOS" >> release-notes.md
+          tar -xvf macos-rln-*.tar.gz
+          ls -l release >> release-notes.md
+          
+      - name: Delete tag
+        uses: dev-drprasad/delete-tag-and-release@v0.2.0
+        with:
+          delete_release: true
+          tag_name: nightly
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create prerelease
+        run: |
+          gh release create nightly --prerelease --target master \
+            --title 'Nightly build ("master" branch)' --notes-file release_notes.md \
+            linux-archive/* \
+            macos-archive/* 
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete artefacts
+        uses: geekyeggo/delete-artifact@v1
+        with:
+          failOnError: false
+          name: |
+            linux-archive
+            macos-archive
