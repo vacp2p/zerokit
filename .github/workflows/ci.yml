@@ -2,7 +2,24 @@ on:
   push:
     branches:
       - master
+    paths-ignore:
+      - '**.md'
+      - '!.github/workflows/*.yml'
+      - '!multiplier/src/**'
+      - '!private-settlement/src/**'
+      - '!rln/src/**'
+      - '!rln-wasm/**'
+      - '!semaphore/src/**'
   pull_request:
+    paths-ignore:
+      - '**.md'
+      - '!.github/workflows/*.yml'
+      - '!multiplier/src/**'
+      - '!private-settlement/src/**'
+      - '!rln/src/**'
+      - '!rln-wasm/**'
+      - '!semaphore/src/**'
+
 
 name: Tests
 

@@ -1,0 +1,165 @@
+name: Nightly build
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  linux:
+    name: Linux build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Declare short sha
+        id: vars
+        shell: bash
+        run: |
+          echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+      - name: Install nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+      - name: Update git submodules
+        run: git submodule update --init --recursive
+      - name: cargo build
+        run: |
+          cargo build --release --workspace
+          mkdir release
+          cp target/release/librln* release/
+          tar -czvf linux-rln-${{steps.vars.outputs.sha_short}}.tar.gz release/
+
+      - name: Upload archive artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: linux-archive
+          path: linux-rln-${{steps.vars.outputs.sha_short}}.tar.gz
+          retention-days: 2
+
+  macos:
+    name: MacOS build
+    runs-on: macos-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+        with:
+          ref: master
+      - name: Declare short sha
+        id: vars
+        shell: bash
+        run: |
+          echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+      - name: Install nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+      - name: Update git submodules
+        run: git submodule update --init --recursive
+      - name: cargo build
+        run: |
+          cargo build --release --workspace
+          mkdir release
+          cp target/release/librln* release/
+          tar -czvf macos-rln-${{steps.vars.outputs.sha_short}}.tar.gz release/
+
+      - name: Upload archive artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: macos-archive
+          path: macos-rln-${{steps.vars.outputs.sha_short}}.tar.gz
+          retention-days: 2
+  
+  browser-rln-wasm:
+    name: Browser build (RLN WASM)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+        with:
+          ref: master
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Declare short sha
+        id: vars
+        shell: bash
+        run: |
+          echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+      - run: git submodule update --init --recursive
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.3.0
+      - name: Install cargo-make
+        run: cargo install cargo-make
+      - name: cargo make build
+        run: |
+          cargo make build
+          mkdir release
+          cp pkg/** release/
+          tar -czvf browser-rln-wasm-${{steps.vars.outputs.sha_short}}.tar.gz release/
+        working-directory: rln-wasm
+
+      - name: Upload archive artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: browser-rln-wasm-archive
+          path: browser-rln-wasm-${{steps.vars.outputs.sha_short}}.tar.gz
+          retention-days: 2
+
+
+  prepare-prerelease:
+    name: Prepare pre-release
+    needs: [linux, macos, browser-rln-wasm]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          ref: master
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+      - name: Create release notes
+        run: |
+          echo "## Release notes" > release-notes.md
+          echo "### Linux" >> release-notes.md
+          tar -xvf linux-rln-*.tar.gz
+          ls -l release >> release-notes.md
+          echo "### MacOS" >> release-notes.md
+          tar -xvf macos-rln-*.tar.gz
+          ls -l release >> release-notes.md
+          echo "### Browser (RLN WASM)" >> release-notes.md
+          tar -xvf browser-rln-wasm-*.tar.gz
+          ls -l release >> release-notes.md
+          
+      - name: Delete tag
+        uses: dev-drprasad/delete-tag-and-release@v0.2.0
+        with:
+          delete_release: true
+          tag_name: nightly
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create prerelease
+        run: |
+          gh release create nightly --prerelease --target master \
+            --title 'Nightly build ("master" branch)' --notes-file release_notes.md \
+            linux-archive/* \
+            macos-archive/* \
+            browser-rln-wasm-archive/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete artifacts
+        uses: geekyeggo/delete-artifact@v1
+        with:
+          failOnError: false
+          name: |
+            linux-archive
+            macos-archive
+            browser-rln-wasm-archive
