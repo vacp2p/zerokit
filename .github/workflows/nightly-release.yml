@@ -109,7 +109,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: browser-rln-wasm-archive
-          path: browser-rln-wasm-${{steps.vars.outputs.sha_short}}.tar.gz
+          path: rln-wasm/browser-rln-wasm-${{steps.vars.outputs.sha_short}}.tar.gz
           retention-days: 2
 
 
@@ -128,14 +128,14 @@ jobs:
         run: |
           echo "## Release notes" > release-notes.md
           echo "### Linux" >> release-notes.md
-          tar -xvf linux-rln-*.tar.gz
-          ls -l release >> release-notes.md
+          tar -xvf linux-archive/linux-rln-*.tar.gz
+          ls -l linux-archive/release >> release-notes.md
           echo "### MacOS" >> release-notes.md
-          tar -xvf macos-rln-*.tar.gz
-          ls -l release >> release-notes.md
+          tar -xvf macos-archive/macos-rln-*.tar.gz
+          ls -l macos-archive/release >> release-notes.md
           echo "### Browser (RLN WASM)" >> release-notes.md
-          tar -xvf browser-rln-wasm-*.tar.gz
-          ls -l release >> release-notes.md
+          tar -xvf browser-rln-wasm-archive/browser-rln-wasm-*.tar.gz
+          ls -l browser-rln-wasm-archive/release >> release-notes.md
           
       - name: Delete tag
         uses: dev-drprasad/delete-tag-and-release@v0.2.0
