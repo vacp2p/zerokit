@@ -26,7 +26,7 @@ jobs:
         run: git submodule update --init --recursive
       - name: cargo build
         run: |
-          cargo build --release --workspace
+          cargo build --release --workspace --exclude rln-wasm
           mkdir release
           cp target/release/librln* release/
           tar -czvf linux-rln-${{steps.vars.outputs.sha_short}}.tar.gz release/
@@ -61,7 +61,7 @@ jobs:
         run: git submodule update --init --recursive
       - name: cargo build
         run: |
-          cargo build --release --workspace
+          cargo build --release --workspace --exclude rln-wasm
           mkdir release
           cp target/release/librln* release/
           tar -czvf macos-rln-${{steps.vars.outputs.sha_short}}.tar.gz release/
