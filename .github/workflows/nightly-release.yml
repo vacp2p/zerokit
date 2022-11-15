@@ -129,13 +129,13 @@ jobs:
           echo "## Release notes" > release-notes.md
           echo "### Linux" >> release-notes.md
           tar -xvf linux-archive/linux-rln-*.tar.gz
-          ls -l linux-archive/release >> release-notes.md
+          ls -l linux-archive/linux-rln-*/ >> release-notes.md
           echo "### MacOS" >> release-notes.md
           tar -xvf macos-archive/macos-rln-*.tar.gz
-          ls -l macos-archive/release >> release-notes.md
+          ls -l macos-archive/macos-rln-*/ >> release-notes.md
           echo "### Browser (RLN WASM)" >> release-notes.md
           tar -xvf browser-rln-wasm-archive/browser-rln-wasm-*.tar.gz
-          ls -l browser-rln-wasm-archive/release >> release-notes.md
+          ls -l browser-rln-wasm-archive/browser-rln-wasm-*/ >> release-notes.md
           
       - name: Delete tag
         uses: dev-drprasad/delete-tag-and-release@v0.2.0
