@@ -111,7 +111,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Delete artefacts
+      - name: Delete artifacts
         uses: geekyeggo/delete-artifact@v1
         with:
           failOnError: false
