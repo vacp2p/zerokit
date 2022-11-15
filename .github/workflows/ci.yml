@@ -81,5 +81,3 @@ jobs:
           (cd semaphore && cargo clippy)
         # Currently not treating warnings as error, too noisy
         # -- -D warnings
-
-
