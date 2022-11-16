@@ -11,11 +11,6 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-      - name: Declare short sha
-        id: vars
-        shell: bash
-        run: |
-          echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -29,13 +24,13 @@ jobs:
           cargo build --release --workspace --exclude rln-wasm
           mkdir release
           cp target/release/librln* release/
-          tar -czvf linux-rln-${{steps.vars.outputs.sha_short}}.tar.gz release/
+          tar -czvf linux-rln.tar.gz release/
 
       - name: Upload archive artifact
         uses: actions/upload-artifact@v2
         with:
           name: linux-archive
-          path: linux-rln-${{steps.vars.outputs.sha_short}}.tar.gz
+          path: linux-rln.tar.gz
           retention-days: 2
 
   macos:
@@ -46,11 +41,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           ref: master
-      - name: Declare short sha
-        id: vars
-        shell: bash
-        run: |
-          echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -64,13 +54,13 @@ jobs:
           cargo build --release --workspace --exclude rln-wasm
           mkdir release
           cp target/release/librln* release/
-          tar -czvf macos-rln-${{steps.vars.outputs.sha_short}}.tar.gz release/
+          tar -czvf macos-rln.tar.gz release/
 
       - name: Upload archive artifact
         uses: actions/upload-artifact@v2
         with:
           name: macos-archive
-          path: macos-rln-${{steps.vars.outputs.sha_short}}.tar.gz
+          path: macos-rln.tar.gz
           retention-days: 2
   
   browser-rln-wasm:
@@ -87,11 +77,6 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - name: Declare short sha
-        id: vars
-        shell: bash
-        run: |
-          echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
       - run: git submodule update --init --recursive
       - name: Install wasm-pack
         uses: jetli/wasm-pack-action@v0.3.0
@@ -102,14 +87,14 @@ jobs:
           cargo make build
           mkdir release
           cp pkg/** release/
-          tar -czvf browser-rln-wasm-${{steps.vars.outputs.sha_short}}.tar.gz release/
+          tar -czvf browser-rln-wasm.tar.gz release/
         working-directory: rln-wasm
 
       - name: Upload archive artifact
         uses: actions/upload-artifact@v2
         with:
           name: browser-rln-wasm-archive
-          path: rln-wasm/browser-rln-wasm-${{steps.vars.outputs.sha_short}}.tar.gz
+          path: rln-wasm/browser-rln-wasm.tar.gz
           retention-days: 2
 
 
@@ -137,9 +122,9 @@ jobs:
         run: |
           gh release create nightly --prerelease --target master \
             --title 'Nightly build ("master" branch)' --generate-notes \
-            linux-archive/linux-rln-*.tar.gz \
-            macos-archive/macos-rln-*.tar.gz \
-            browser-rln-wasm-archive/browser-rln-wasm-*.tar.gz
+            linux-archive/linux-rln.tar.gz \
+            macos-archive/macos-rln.tar.gz \
+            browser-rln-wasm-archive/browser-rln-wasm.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
