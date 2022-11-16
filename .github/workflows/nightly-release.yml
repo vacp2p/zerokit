@@ -124,20 +124,6 @@ jobs:
           ref: master
       - name: Download artifacts
         uses: actions/download-artifact@v2
-      - name: Create release notes
-        run: |
-          echo "## Release notes" > release-notes.md
-          echo "### Linux" >> release-notes.md
-          tar -xvf linux-archive/linux-rln-*.tar.gz
-          mkdir linux-release && mv release/* linux/ && rm -rf release
-          tar -xvf macos-archive/macos-rln-*.tar.gz
-          mkdir macos-release && mv release/* macos/ && rm -rf release
-          tar -xvf browser-rln-wasm-archive/browser-rln-wasm-*.tar.gz
-          mkdir browser-rln-wasm-release && mv release/* browser-rln-wasm/ && rm -rf release
-          mkdir release && mv linux-release/* release/ && mv macos-release/* release/ && mv browser-rln-wasm-release/* release/
-          echo "```" >> release-notes.md
-          tree release >> release-notes.md
-          echo "```" >> release-notes.md
           
       - name: Delete tag
         uses: dev-drprasad/delete-tag-and-release@v0.2.0
@@ -150,7 +136,7 @@ jobs:
       - name: Create prerelease
         run: |
           gh release create nightly --prerelease --target master \
-            --title 'Nightly build ("master" branch)' --notes-file release-notes.md \
+            --title 'Nightly build ("master" branch)' --generate-notes \
             linux-archive/linux-rln-*.tar.gz \
             macos-archive/macos-rln-*.tar.gz \
             browser-rln-wasm-archive/browser-rln-wasm-*.tar.gz
