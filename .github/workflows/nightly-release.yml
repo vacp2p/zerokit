@@ -150,10 +150,10 @@ jobs:
       - name: Create prerelease
         run: |
           gh release create nightly --prerelease --target master \
-            --title 'Nightly build ("master" branch)' --notes-file release_notes.md \
-            linux-archive/* \
-            macos-archive/* \
-            browser-rln-wasm-archive/*
+            --title 'Nightly build ("master" branch)' --notes-file release-notes.md \
+            linux-archive/linux-rln-*.tar.gz \
+            macos-archive/macos-rln-*.tar.gz \
+            browser-rln-wasm-archive/browser-rln-wasm-*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
