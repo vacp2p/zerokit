@@ -129,6 +129,7 @@ jobs:
           echo "## Release notes" > release-notes.md
           echo "### Linux" >> release-notes.md
           tar -xvf linux-archive/linux-rln-*.tar.gz
+          tree 
           ls -l linux-archive/linux-rln-*/ >> release-notes.md
           echo "### MacOS" >> release-notes.md
           tar -xvf macos-archive/macos-rln-*.tar.gz
