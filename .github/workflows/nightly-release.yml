@@ -120,8 +120,11 @@ jobs:
 
       - name: Create prerelease
         run: |
+          start_tag=$(gh release list -L 2 --exclude-drafts | grep -v nightly | cut -d$'\t' -f3)
           gh release create nightly --prerelease --target master \
-            --title 'Nightly build ("master" branch)' --generate-notes \
+            --title 'Nightly build ("master" branch)' \
+            --generate-notes \
+            --notes-start-tag $start_tag \
             linux-archive/linux-rln.tar.gz \
             macos-archive/macos-rln.tar.gz \
             browser-rln-wasm-archive/browser-rln-wasm.tar.gz
