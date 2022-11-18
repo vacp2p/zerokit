@@ -2,15 +2,22 @@
 
 This module provides APIs to manage, compute and verify [RLN](https://rfc.vac.dev/spec/32/) zkSNARK proofs and RLN primitives.
 
-Currently, this module comes with three [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) RLN circuits having Merkle tree of height `15`, `19` and `20`, respectively.
+## Pre-requisites
+### Install
 
+```sh
+git clone https://github.com/vacp2p/zerokit.git
+cd zerokit/rln
+```
 Implemented tests can be executed by running within the module folder
 
 `cargo test --release`
 
-## Compiling circuits
+### Compile ZK circuits
 
-`rln` (https://github.com/privacy-scaling-explorations/rln) repo with Circuits is contained as a submodule. 
+The `rln` (https://github.com/privacy-scaling-explorations/rln) repository, which contains the RLN circuit implementation is a submodule of zerokit RLN. 
+
+To compile the RLN circuit
 
 ``` sh
 # Update submodules
@@ -27,9 +34,9 @@ cp build/zkeyFiles/rln-final.zkey ../../resources/tree_height_15
 cp build/zkeyFiles/rln.wasm ../../resources/tree_height_15
 ```
 
-Note that the above code snippet will compile a RLN circuit with a Merkle tree of height equal `15` based on the default value set in `rln/circuit/rln.circom`.
+Note that the above code snippet will compile a RLN circuit with a Merkle tree of height equal `15` based on the default value set in `vendor/rln/circuit/rln.circom`.
 
-To compile a RLN circuit with Merkle tree height `N`, it suffices to change `rln/circuit/rln.circom` to
+In order to compile a RLN circuit with Merkle tree height `N`, it suffices to change `vendor/rln/circuit/rln.circom` to
 
 ```
 pragma circom 2.0.0;
@@ -41,3 +48,144 @@ component main {public [x, epoch, rln_identifier ]} = RLN(N);
 
 However, if `N` is too big, this might require a bigger Powers of Tau ceremony than the one hardcoded in `./scripts/build-circuits.sh`, which is `2^14`. 
 In such case we refer to the official [Circom documentation](https://docs.circom.io/getting-started/proving-circuits/#powers-of-tau) for instructions on how to run an appropriate Powers of Tau ceremony and Phase 2 in order to compile the desired circuit.
+
+
+Currently, the `rln` module comes with three [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) RLN circuits having Merkle tree of height `15`, `19` and `20`, respectively.
+
+## Getting started
+
+### Add RLN as dependency
+
+We start by adding zerokit RLN to our `Cargo.toml`
+
+```toml
+[dependencies]
+rln = { git = "https://github.com/vacp2p/zerokit" }
+```
+
+### Create a RLN object
+
+First, we need to create a RLN object for a chosen input Merkle tree size.
+
+Note that we need to pass to RLN object constructor the path where the circuit (`rln.wasm`, built for the input tree size), the corresponding proving key (`rln_final.zkey`) and verification key (`verification_key.json`, optional) are found.
+
+In the following we will use cursors to pass and read data from RLN public APIs.
+
+```rust
+use rln::public::*;
+use rln::utils::*;
+use std::io::Cursor;
+
+let tree_height = 20;
+// We set the resource folder. Don't forget the trailing "/" !
+let resources = Cursor::new("../zerokit/rln/resources/tree_height_20/");
+
+// We create a new RLN instance
+let mut rln = RLN::new(tree_height, resources);
+```
+
+### Generate an identity keypair
+
+We generate an identity keypair
+
+```rust
+// We generate an identity pair
+let mut buffer = Cursor::new(Vec::<u8>::new());
+rln.key_gen(&mut buffer).unwrap();
+
+// We deserialize the keygen output to obtain
+// identiy_secret and id_commitment
+let serialized = buffer.into_inner();
+let (identity_secret, read) = bytes_le_to_fr(&serialized);
+let (id_commitment, _) = bytes_le_to_fr(&serialized[read..].to_vec());
+```
+
+### Add ID commitment to the RLN Merkle tree
+
+```rust
+// We define the tree index where id_commitment will be added
+let id_index = 10;
+
+// We serialize id_commitment and pass it to set_leaf
+let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+rln.set_leaf(id_index, &mut buffer).unwrap();
+```
+
+Note that when tree leaves are not explicitly set by the user (in this example, all those with index less and greater than `10`), their values is set to an hardcoded default (all-`0` bytes in current implementation).
+
+### Set epoch and signal
+
+The epoch, sometimes referred to as _external nullifier_, is used to identify messages received in a certain time frame. It usually corresponds to the current UNIX time but can also be set to a random value, provided that it corresponds to a field element.
+
+```rust
+// We set a seed to generate epoch
+let epoch_seed = b"a seed";
+
+// We ensure epoch is mapped to a field element
+// by hashing-to-field its content
+let mut in_buffer = Cursor::new(&epoch_seed);
+let mut out_buffer = Cursor::new(Vec::<u8>::new());
+rln.hash(&mut in_buffer, &mut out_buffer).unwrap();
+let mut epoch = out_buffer.into_inner();
+```
+
+The signal is the message for which we are computing a RLN proof.
+
+```rust
+let signal = b"RLN is awesome";
+// Since signal size is variable, we serialize its length too
+let signal_len = u64::try_from(signal.len()).unwrap();
+```
+
+### Generate a RLN proof
+
+We prepare the input to the proof generation routine. 
+
+Input buffer is serialized as `[ identity_key | id_index | epoch | signal_len | signal ]`
+
+```rust
+let mut serialized: Vec<u8> = Vec::new();
+serialized.append(&mut fr_to_bytes_le(&identity_secret));
+serialized.append(&mut id_index.to_le_bytes().to_vec());
+serialized.append(&mut epoch);
+serialized.append(&mut signal_len.to_le_bytes().to_vec());
+serialized.append(&mut signal.to_vec());
+```
+
+We are now ready to generate a RLN ZK proof along with the _public outputs_ of the ZK circuit evaluation.
+
+```rust
+let mut in_buffer = Cursor::new(serialized);
+let mut out_buffer = Cursor::new(Vec::<u8>::new());
+rln.generate_rln_proof(&mut in_buffer, &mut out_buffer).unwrap();
+let mut proof_data = out_buffer.into_inner();
+```
+
+The byte vector `proof_data` serializes the values `[ zk-proof | tree_root | epoch | share_x | share_y | nullifier | rln_identifier ]`.
+
+
+### Verify a RLN proof
+
+We prepare the input to the proof verification routine. 
+
+Input buffer is serialized as `[proof_data | signal_len | signal ]`, where `proof_data` is (computed as) the output obtained by `generate_rln_proof`.
+
+```rust
+// We prepare input to the proof verification routine
+proof_data.append(&mut signal_len.to_le_bytes().to_vec());
+proof_data.append(&mut signal.to_vec());
+let mut in_buffer = Cursor::new(proof_data);
+
+// We verify the zk-proof against the provided proof values
+let verified = rln.verify(&mut in_buffer).unwrap();
+assert!(verified);
+```
+
+## Get involved!
+Zerokit RLN public and FFI APIs allow interaction with many more features than what briefly showcased above.
+
+We invite you to check our API documentation by running
+```rust
+cargo doc --no-deps
+```
+and look at unit tests to have an hint on how to interface and use them.
