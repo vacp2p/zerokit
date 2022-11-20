@@ -27,7 +27,7 @@ use crate::utils::*;
 use cfg_if::cfg_if;
 
 ///////////////////////////////////////////////////////
-// RLN Witness data structure and utility functions 
+// RLN Witness data structure and utility functions
 ///////////////////////////////////////////////////////
 
 #[derive(Debug, PartialEq)]
@@ -52,7 +52,6 @@ pub struct RLNProofValues {
     pub rln_identifier: Fr,
 }
 
-
 pub fn serialize_field_element(element: Fr) -> Vec<u8> {
     return fr_to_bytes_le(&element);
 }
@@ -62,7 +61,6 @@ pub fn deserialize_field_element(serialized: Vec<u8>) -> Fr {
 
     return element;
 }
-
 
 pub fn deserialize_identity_pair(serialized: Vec<u8>) -> (Fr, Fr) {
     let (identity_secret, read) = bytes_le_to_fr(&serialized);
@@ -165,7 +163,6 @@ pub fn proof_inputs_to_rln_witness(
         all_read,
     )
 }
-
 
 pub fn rln_witness_from_json(input_json_str: &str) -> RLNWitnessInput {
     let input_json: serde_json::Value =
