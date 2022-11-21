@@ -7,24 +7,26 @@ on:
       - '!.github/workflows/*.yml'
       - '!multiplier/src/**'
       - '!private-settlement/src/**'
-      - '!rln/src/**'
       - '!rln-wasm/**'
+      - '!rln/src/**'
       - '!semaphore/src/**'
+      - '!utils/src/**'
   pull_request:
     paths-ignore:
       - '**.md'
       - '!.github/workflows/*.yml'
       - '!multiplier/src/**'
       - '!private-settlement/src/**'
-      - '!rln/src/**'
       - '!rln-wasm/**'
+      - '!rln/src/**'
       - '!semaphore/src/**'
+      - '!utils/src/**'
 
 
 name: Tests
 
 jobs:
-  tests:
+  multiplier-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -39,8 +41,26 @@ jobs:
         run: git submodule update --init --recursive
       - name: cargo test
         run: |
-            cargo test --release --workspace --exclude rln-wasm
-  wasm:
+            cargo test --release
+        working-directory: multiplier
+  semaphore-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Update git submodules
+        run: git submodule update --init --recursive
+      - name: cargo test
+        run: |
+            cargo test --release
+        working-directory: semaphore
+  rln-wasm:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -58,6 +78,40 @@ jobs:
         working-directory: rln-wasm
       - run: cargo make test
         working-directory: rln-wasm
+  rln-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Update git submodules
+        run: git submodule update --init --recursive
+      - name: cargo test
+        run: |
+            cargo test --release
+        working-directory: rln
+  utils-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Update git submodules
+        run: git submodule update --init --recursive
+      - name: cargo test
+        run: |
+            cargo test --release
+        working-directory: utils
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -77,7 +131,9 @@ jobs:
       - name: cargo clippy
         run: |
           (cd multiplier && cargo clippy)
+          (cd rln-wasm && cargo clippy)
           (cd rln && cargo clippy)
           (cd semaphore && cargo clippy)
+          (cd utils && cargo clippy)
         # Currently not treating warnings as error, too noisy
         # -- -D warnings
