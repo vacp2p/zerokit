@@ -6,7 +6,7 @@ command = "wasm-pack"
 args = ["build", "--release", "--target", "web", "--scope", "waku"]
 
 [tasks.pack-rename]
-script = "sed -i 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json"
+script = "sed -i.bak 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json && rm pkg/package.json.bak"
 
 [tasks.build]
 clear = true
