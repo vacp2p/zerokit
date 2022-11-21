@@ -26,14 +26,15 @@ on:
 name: Tests
 
 jobs:
-  test:
+  
+  multiplier:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
   
-    name: multiplier ${{ github.workflow }} - ${{ matrix.platform }}
+    name: ${{ github.workflow }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -50,7 +51,14 @@ jobs:
             cargo test --release
         working-directory: multiplier
   
-    name: semaphore ${{ github.workflow }} - ${{ matrix.platform }}
+  semaphore:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+  
+    name: ${{ github.workflow }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -66,8 +74,15 @@ jobs:
         run: |
             cargo test --release
         working-directory: semaphore
+
+  rln-wasm:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
   
-    name: rln-wasm ${{ github.workflow }} - ${{ matrix.platform }}
+    name: ${{ github.workflow }} - ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v2
       - name: Install stable toolchain
@@ -84,8 +99,15 @@ jobs:
         working-directory: rln-wasm
       - run: cargo make test
         working-directory: rln-wasm
+
+  rln:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
   
-    name: rln ${{ github.workflow }} - ${{ matrix.platform }}
+    name: ${{ github.workflow }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -101,8 +123,15 @@ jobs:
         run: |
             cargo test --release
         working-directory: rln
+
+  utils:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
   
-    name: utils ${{ github.workflow }} - ${{ matrix.platform }}
+    name: ${{ github.workflow }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -118,6 +147,7 @@ jobs:
         run: |
             cargo test --release
         working-directory: utils
+
   lint:
     strategy:
       matrix:
