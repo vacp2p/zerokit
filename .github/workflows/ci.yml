@@ -26,7 +26,7 @@ on:
 name: Tests
 
 jobs:
-  
+
   multiplier:
     strategy:
       matrix:
@@ -34,7 +34,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
   
-    name: ${{ github.workflow }} - ${{ matrix.platform }}
+    name: multiplier - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -58,7 +58,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
   
-    name: ${{ github.workflow }} - ${{ matrix.platform }}
+    name: semaphore - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -82,7 +82,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
   
-    name: ${{ github.workflow }} - ${{ matrix.platform }}
+    name: rln-wasm - ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v2
       - name: Install stable toolchain
@@ -107,7 +107,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
   
-    name: ${{ github.workflow }} - ${{ matrix.platform }}
+    name: rln - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -131,7 +131,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
   
-    name: ${{ github.workflow }} - ${{ matrix.platform }}
+    name: utils - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -155,7 +155,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
-    name: ${{ github.workflow }} - ${{ matrix.platform }}  
+    name: lint - ${{ matrix.platform }}  
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
