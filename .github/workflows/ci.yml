@@ -26,7 +26,7 @@ on:
 name: Tests
 
 jobs:
-  multiplier-tests:
+  multiplier:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -43,7 +43,7 @@ jobs:
         run: |
             cargo test --release
         working-directory: multiplier
-  semaphore-tests:
+  semaphore:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -78,7 +78,7 @@ jobs:
         working-directory: rln-wasm
       - run: cargo make test
         working-directory: rln-wasm
-  rln-tests:
+  rln:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -95,7 +95,7 @@ jobs:
         run: |
             cargo test --release
         working-directory: rln
-  utils-tests:
+  utils:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -128,12 +128,22 @@ jobs:
         run: git submodule update --init --recursive
       - name: cargo fmt
         run: cargo fmt --all -- --check
-      - name: cargo clippy
+      - name: multiplier - cargo clippy
         run: |
-          (cd multiplier && cargo clippy)
-          (cd rln-wasm && cargo clippy)
-          (cd rln && cargo clippy)
-          (cd semaphore && cargo clippy)
-          (cd utils && cargo clippy)
+            cargo clippy --release
+        working-directory: multiplier
+      - name: semaphore - cargo clippy
+        run: |
+            cargo clippy --release
+        working-directory: semaphore
+      - name: rln - cargo clippy
+        run: |
+            cargo clippy --release
+        working-directory: rln
+      - name: utils - cargo clippy
+        run: |
+            cargo clippy --release
+        working-directory: utils
+        # We skip clippy on rln-wasm, since wasm target is managed by cargo make
         # Currently not treating warnings as error, too noisy
         # -- -D warnings
