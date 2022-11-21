@@ -26,8 +26,14 @@ on:
 name: Tests
 
 jobs:
-  multiplier:
-    runs-on: ubuntu-latest
+  test:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+  
+    name: multiplier ${{ github.workflow }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -43,8 +49,8 @@ jobs:
         run: |
             cargo test --release
         working-directory: multiplier
-  semaphore:
-    runs-on: ubuntu-latest
+  
+    name: semaphore ${{ github.workflow }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -60,8 +66,8 @@ jobs:
         run: |
             cargo test --release
         working-directory: semaphore
-  rln-wasm:
-    runs-on: ubuntu-latest
+  
+    name: rln-wasm ${{ github.workflow }} - ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v2
       - name: Install stable toolchain
@@ -78,8 +84,8 @@ jobs:
         working-directory: rln-wasm
       - run: cargo make test
         working-directory: rln-wasm
-  rln:
-    runs-on: ubuntu-latest
+  
+    name: rln ${{ github.workflow }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -95,8 +101,8 @@ jobs:
         run: |
             cargo test --release
         working-directory: rln
-  utils:
-    runs-on: ubuntu-latest
+  
+    name: utils ${{ github.workflow }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -113,7 +119,13 @@ jobs:
             cargo test --release
         working-directory: utils
   lint:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+
+    name: ${{ github.workflow }} - ${{ matrix.platform }}  
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
