@@ -151,7 +151,8 @@ jobs:
   lint:
     strategy:
       matrix:
-        platform: [ubuntu-latest, macos-latest]
+        # we run lint tests only on ubuntu
+        platform: [ubuntu-latest]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
