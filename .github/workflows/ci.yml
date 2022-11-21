@@ -127,20 +127,25 @@ jobs:
       - name: Update git submodules
         run: git submodule update --init --recursive
       - name: cargo fmt
+        if: success() || failure()
         run: cargo fmt --all -- --check
       - name: multiplier - cargo clippy
+        if: success() || failure()
         run: |
             cargo clippy --release
         working-directory: multiplier
       - name: semaphore - cargo clippy
+        if: success() || failure()
         run: |
             cargo clippy --release
         working-directory: semaphore
       - name: rln - cargo clippy
+        if: success() || failure()
         run: |
             cargo clippy --release
         working-directory: rln
       - name: utils - cargo clippy
+        if: success() || failure()
         run: |
             cargo clippy --release
         working-directory: utils
