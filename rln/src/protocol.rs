@@ -52,6 +52,23 @@ pub struct RLNProofValues {
     pub rln_identifier: Fr,
 }
 
+pub fn serialize_field_element(element: Fr) -> Vec<u8> {
+    return fr_to_bytes_le(&element);
+}
+
+pub fn deserialize_field_element(serialized: Vec<u8>) -> Fr {
+    let (element, _) = bytes_le_to_fr(&serialized);
+
+    return element;
+}
+
+pub fn deserialize_identity_pair(serialized: Vec<u8>) -> (Fr, Fr) {
+    let (identity_secret, read) = bytes_le_to_fr(&serialized);
+    let (id_commitment, _) = bytes_le_to_fr(&serialized[read..].to_vec());
+
+    return (identity_secret, id_commitment);
+}
+
 pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Vec<u8> {
     let mut serialized: Vec<u8> = Vec::new();
 
@@ -139,53 +156,6 @@ pub fn proof_inputs_to_rln_witness(
             identity_secret,
             path_elements,
             identity_path_index,
-            x,
-            epoch,
-            rln_identifier,
-        },
-        all_read,
-    )
-}
-
-pub fn serialize_proof_values(rln_proof_values: &RLNProofValues) -> Vec<u8> {
-    let mut serialized: Vec<u8> = Vec::new();
-
-    serialized.append(&mut fr_to_bytes_le(&rln_proof_values.root));
-    serialized.append(&mut fr_to_bytes_le(&rln_proof_values.epoch));
-    serialized.append(&mut fr_to_bytes_le(&rln_proof_values.x));
-    serialized.append(&mut fr_to_bytes_le(&rln_proof_values.y));
-    serialized.append(&mut fr_to_bytes_le(&rln_proof_values.nullifier));
-    serialized.append(&mut fr_to_bytes_le(&rln_proof_values.rln_identifier));
-
-    serialized
-}
-
-pub fn deserialize_proof_values(serialized: &[u8]) -> (RLNProofValues, usize) {
-    let mut all_read: usize = 0;
-
-    let (root, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
-    all_read += read;
-
-    let (epoch, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
-    all_read += read;
-
-    let (x, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
-    all_read += read;
-
-    let (y, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
-    all_read += read;
-
-    let (nullifier, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
-    all_read += read;
-
-    let (rln_identifier, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
-    all_read += read;
-
-    (
-        RLNProofValues {
-            y,
-            nullifier,
-            root,
             x,
             epoch,
             rln_identifier,
@@ -305,6 +275,84 @@ pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> RLNProofValue
         epoch: rln_witness.epoch,
         rln_identifier: rln_witness.rln_identifier,
     }
+}
+
+pub fn serialize_proof_values(rln_proof_values: &RLNProofValues) -> Vec<u8> {
+    let mut serialized: Vec<u8> = Vec::new();
+
+    serialized.append(&mut fr_to_bytes_le(&rln_proof_values.root));
+    serialized.append(&mut fr_to_bytes_le(&rln_proof_values.epoch));
+    serialized.append(&mut fr_to_bytes_le(&rln_proof_values.x));
+    serialized.append(&mut fr_to_bytes_le(&rln_proof_values.y));
+    serialized.append(&mut fr_to_bytes_le(&rln_proof_values.nullifier));
+    serialized.append(&mut fr_to_bytes_le(&rln_proof_values.rln_identifier));
+
+    serialized
+}
+
+pub fn deserialize_proof_values(serialized: &[u8]) -> (RLNProofValues, usize) {
+    let mut all_read: usize = 0;
+
+    let (root, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (epoch, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (x, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (y, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (nullifier, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (rln_identifier, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    (
+        RLNProofValues {
+            y,
+            nullifier,
+            root,
+            x,
+            epoch,
+            rln_identifier,
+        },
+        all_read,
+    )
+}
+
+pub fn prepare_prove_input(
+    identity_secret: Fr,
+    id_index: usize,
+    epoch: Fr,
+    signal: &[u8],
+) -> Vec<u8> {
+    let signal_len = u64::try_from(signal.len()).unwrap();
+
+    let mut serialized: Vec<u8> = Vec::new();
+
+    serialized.append(&mut fr_to_bytes_le(&identity_secret));
+    serialized.append(&mut id_index.to_le_bytes().to_vec());
+    serialized.append(&mut fr_to_bytes_le(&epoch));
+    serialized.append(&mut signal_len.to_le_bytes().to_vec());
+    serialized.append(&mut signal.to_vec());
+
+    return serialized;
+}
+
+pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Vec<u8> {
+    let signal_len = u64::try_from(signal.len()).unwrap();
+
+    let mut serialized: Vec<u8> = Vec::new();
+
+    serialized.append(&mut proof_data.clone());
+    serialized.append(&mut signal_len.to_le_bytes().to_vec());
+    serialized.append(&mut signal.to_vec());
+
+    return serialized;
 }
 
 ///////////////////////////////////////////////////////
