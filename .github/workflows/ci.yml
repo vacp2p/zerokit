@@ -7,25 +7,34 @@ on:
       - '!.github/workflows/*.yml'
       - '!multiplier/src/**'
       - '!private-settlement/src/**'
-      - '!rln/src/**'
       - '!rln-wasm/**'
+      - '!rln/src/**'
       - '!semaphore/src/**'
+      - '!utils/src/**'
   pull_request:
     paths-ignore:
       - '**.md'
       - '!.github/workflows/*.yml'
       - '!multiplier/src/**'
       - '!private-settlement/src/**'
-      - '!rln/src/**'
       - '!rln-wasm/**'
+      - '!rln/src/**'
       - '!semaphore/src/**'
+      - '!utils/src/**'
 
 
 name: Tests
 
 jobs:
-  tests:
-    runs-on: ubuntu-latest
+
+  multiplier:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+  
+    name: multiplier - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -39,9 +48,41 @@ jobs:
         run: git submodule update --init --recursive
       - name: cargo test
         run: |
-            cargo test --release --workspace --exclude rln-wasm
-  wasm:
-    runs-on: ubuntu-latest
+            cargo test --release
+        working-directory: multiplier
+  
+  semaphore:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+  
+    name: semaphore - ${{ matrix.platform }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Update git submodules
+        run: git submodule update --init --recursive
+      - name: cargo test
+        run: |
+            cargo test --release
+        working-directory: semaphore
+
+  rln-wasm:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+  
+    name: rln-wasm - ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v2
       - name: Install stable toolchain
@@ -58,8 +99,64 @@ jobs:
         working-directory: rln-wasm
       - run: cargo make test
         working-directory: rln-wasm
+
+  rln:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+  
+    name: rln - ${{ matrix.platform }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Update git submodules
+        run: git submodule update --init --recursive
+      - name: cargo test
+        run: |
+            cargo test --release
+        working-directory: rln
+
+  utils:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+  
+    name: utils - ${{ matrix.platform }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Update git submodules
+        run: git submodule update --init --recursive
+      - name: cargo test
+        run: |
+            cargo test --release
+        working-directory: utils
+
   lint:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # we run lint tests only on ubuntu
+        platform: [ubuntu-latest]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+
+    name: lint - ${{ matrix.platform }}  
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -73,11 +170,28 @@ jobs:
       - name: Update git submodules
         run: git submodule update --init --recursive
       - name: cargo fmt
+        if: success() || failure()
         run: cargo fmt --all -- --check
-      - name: cargo clippy
+      - name: multiplier - cargo clippy
+        if: success() || failure()
         run: |
-          (cd multiplier && cargo clippy)
-          (cd rln && cargo clippy)
-          (cd semaphore && cargo clippy)
+            cargo clippy --release
+        working-directory: multiplier
+      - name: semaphore - cargo clippy
+        if: success() || failure()
+        run: |
+            cargo clippy --release
+        working-directory: semaphore
+      - name: rln - cargo clippy
+        if: success() || failure()
+        run: |
+            cargo clippy --release
+        working-directory: rln
+      - name: utils - cargo clippy
+        if: success() || failure()
+        run: |
+            cargo clippy --release
+        working-directory: utils
+        # We skip clippy on rln-wasm, since wasm target is managed by cargo make
         # Currently not treating warnings as error, too noisy
         # -- -D warnings
