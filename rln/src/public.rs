@@ -647,7 +647,7 @@ impl RLN<'_> {
     /// If `roots_data` contains no root (is empty), root validation is skipped and the proof will be correctly verified only if the other proof values results valid (i.e., zk-proof, signal, x-coordinate, RLN identifier)
     ///   
     /// Example
-    /// ``` 
+    /// ```
     /// // proof_data is computed as in the example code snippet provided for rln::public::RLN::generate_rln_proof
     ///
     /// // If no roots is provided, proof validation is skipped and if the remaining proof values are valid, the proof will be correctly verified
@@ -657,9 +657,9 @@ impl RLN<'_> {
     /// let verified = rln
     ///     .verify_with_roots(&mut input_buffer.clone(), &mut roots_buffer)
     ///     .unwrap();
-    /// 
+    ///
     /// assert!(verified);
-    /// 
+    ///
     /// // We serialize in the roots buffer some random values and we check that the proof is not verified since doesn't contain the correct root the proof refers to
     /// for _ in 0..5 {
     ///     roots_serialized.append(&mut fr_to_bytes_le(&Fr::rand(&mut rng)));
@@ -668,23 +668,23 @@ impl RLN<'_> {
     /// let verified = rln
     ///     .verify_with_roots(&mut input_buffer.clone(), &mut roots_buffer)
     ///     .unwrap();
-    /// 
+    ///
     /// assert!(verified == false);
-    /// 
+    ///
     /// // We get the root of the tree obtained adding one leaf per time
     /// let mut buffer = Cursor::new(Vec::<u8>::new());
     /// rln.get_root(&mut buffer).unwrap();
     /// let (root, _) = bytes_le_to_fr(&buffer.into_inner());
-    /// 
+    ///
     /// // We add the real root and we check if now the proof is verified
     /// roots_serialized.append(&mut fr_to_bytes_le(&root));
     /// roots_buffer = Cursor::new(roots_serialized.clone());
     /// let verified = rln
     ///     .verify_with_roots(&mut input_buffer.clone(), &mut roots_buffer)
     ///     .unwrap();
-    /// 
+    ///
     /// assert!(verified);
-    /// ``` 
+    /// ```
     pub fn verify_with_roots<R: Read>(
         &self,
         mut input_data: R,
