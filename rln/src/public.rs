@@ -53,7 +53,7 @@ impl RLN<'_> {
     ///
     /// Input parameters are
     /// - `tree_height`: the height of the internal Merkle tree
-    /// - `input_data`: a reader for the string path of the resource folder containing the ZK circuit (rln.wasm), the proving key (rln_final.zkey) and the verification key (verification_key.json).
+    /// - `input_data`: a reader for the string path of the resource folder containing the ZK circuit (`rln.wasm`), the proving key (`rln_final.zkey`) and the verification key (`verification_key.json`).
     ///
     /// Example:
     /// ```
@@ -95,9 +95,9 @@ impl RLN<'_> {
     ///
     /// Input parameters are
     /// - `tree_height`: the height of the internal Merkle tree
-    /// - `circom_vec`: a byte vector containing the ZK circuit (rln.wasm) as binary file
-    /// - `zkey_vec`: a byte vector containing to the proving key (rln_final.zkey) as binary file
-    /// - `vk_vec`: a byte vector containing to the verification key (verification_key.json) as binary file
+    /// - `circom_vec`: a byte vector containing the ZK circuit (`rln.wasm`) as binary file
+    /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`) as binary file
+    /// - `vk_vec`: a byte vector containing to the verification key (`verification_key.json`) as binary file
     ///
     /// Example:
     /// ```
@@ -202,7 +202,7 @@ impl RLN<'_> {
     ///
     /// If n leaves are passed as input, these will be set at positions `index`, `index+1`, ..., `index+n-1` respectively.
     ///
-    /// This function updates the internal Merkle tree  next_index value indicating the next available index corresponding to a never-set leaf as `next_index = max(next_index, index + n)`.
+    /// This function updates the internal Merkle tree `next_index value indicating the next available index corresponding to a never-set leaf as `next_index = max(next_index, index + n)`.
     ///
     /// Input values are:
     /// - `index`: the index of the first leaf to be set
@@ -241,7 +241,7 @@ impl RLN<'_> {
 
     /// Resets the tree state to default and sets multiple leaves starting from index 0.
     ///
-    /// In contrast to [`set_leaves_from`](crate::public::RLN::set_leaves_from), this function resets to 0 the internal next_index value, before setting the input leaves values.
+    /// In contrast to [`set_leaves_from`](crate::public::RLN::set_leaves_from), this function resets to 0 the internal `next_index` value, before setting the input leaves values.
     ///
     /// Input values are:
     /// - `input_data`: a reader for the serialization of multiple leaf values (serialization done with [`rln::utils::vec_fr_to_bytes_le`](crate::utils::vec_fr_to_bytes_le))
@@ -255,7 +255,7 @@ impl RLN<'_> {
 
     /// Sets a leaf value at the next available never-set leaf index.
     ///
-    /// This function updates the internal Merkle tree next_index value indicating the next available index corresponding to a never-set leaf as `next_index = next_index + 1`.
+    /// This function updates the internal Merkle tree `next_index` value indicating the next available index corresponding to a never-set leaf as `next_index = next_index + 1`.
     ///
     /// Input values are:
     /// - `input_data`: a reader for the serialization of multiple leaf values (serialization done with [`rln::utils::vec_fr_to_bytes_le`](crate::utils::vec_fr_to_bytes_le))
@@ -308,10 +308,17 @@ impl RLN<'_> {
 
     /// Sets the value of the leaf at position index to the harcoded default value.
     ///
-    /// This function does not change the internal Merkle tree next_index value.
+    /// This function does not change the internal Merkle tree `next_index` value.
     ///
     /// Input values are:
     /// - `index`: the index of the leaf whose value will be reset
+    ///
+    /// Example
+    /// ```
+    ///
+    /// let index = 10;
+    /// rln.delete_leaf(index).unwrap();
+    /// ```
     pub fn delete_leaf(&mut self, index: usize) -> io::Result<()> {
         self.tree.delete(index)?;
         Ok(())
@@ -859,6 +866,12 @@ impl RLN<'_> {
     // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
     // return value is a rln witness populated according to this information
 
+    /// Returns the serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) populated from the identity secret, the Merkle tree index, the epoch and signal.
+    ///
+    /// Input values are:
+    /// - `input_data`: a reader for the serialization of `[ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]`
+    ///
+    /// The function returns the corresponding [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object serialized using [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
     pub fn get_serialized_rln_witness<R: Read>(&mut self, mut input_data: R) -> Vec<u8> {
         // We read input RLN witness and we deserialize it
         let mut witness_byte: Vec<u8> = Vec::new();
@@ -868,7 +881,12 @@ impl RLN<'_> {
         serialize_witness(&rln_witness)
     }
 
-    /// Get JSON inputs for serialized RLN witness
+    /// Converts a byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object to the corresponding JSON serialization.
+    ///
+    /// Input values are:
+    /// - `serialized_witness`: the byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object (serialization done with  [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
+    ///
+    /// The function returns the corresponding JSON encoding of the input [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
     pub fn get_rln_witness_json(
         &mut self,
         serialized_witness: &[u8],
