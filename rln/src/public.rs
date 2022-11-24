@@ -24,11 +24,16 @@ cfg_if! {
     }
 }
 
-// Application specific RLN identifier
+/// The application-specific RLN identifier
+///
+/// Prevents a RLN ZK proof generated for one application to be re-used in another one 
 pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
 
-// TODO Add Engine here? i.e. <E: Engine> not <Curve>
-// TODO Assuming we want to use IncrementalMerkleTree, figure out type/trait conversions
+/// The RLN object. 
+///
+/// It implements the methods required to update the internal Merkle Tree, generate and verify RLN ZK proofs.
+///
+/// I/O is mostly done using writers and readers implementing `std::io::Write` and `std::io::Read`, respectively.
 pub struct RLN<'a> {
     proving_key: Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)>,
     verification_key: Result<VerifyingKey<Curve>>,
@@ -44,6 +49,22 @@ pub struct RLN<'a> {
 }
 
 impl RLN<'_> {
+    /// Creates a new RLN object by loading circuit resources from a folder.
+    ///
+    /// Input parameters are
+    /// - `tree_height`: the height of the internal Merkle tree
+    /// - `input_data`: a reader for the string path of the resource folder containing the ZK circuit (rln.wasm), the proving key (rln_final.zkey) and the verification key (verification_key.json).
+    ///
+    /// Example:
+    /// ```
+    /// use std::io::Cursor;
+    /// 
+    /// let tree_height = 20;
+    /// let resources = Cursor::new("./resources/tree_height_20/");
+    /// 
+    /// // We create a new RLN instance
+    /// let mut rln = RLN::new(tree_height, resources);
+    ///```
     #[cfg(not(target_arch = "wasm32"))]
     pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> RLN<'static> {
         // We read input
@@ -70,6 +91,39 @@ impl RLN<'_> {
         }
     }
 
+    /// Creates a new RLN object by passing circuit resources as byte vectors.
+    ///
+    /// Input parameters are
+    /// - `tree_height`: the height of the internal Merkle tree
+    /// - `circom_vec`: a byte vector containing the ZK circuit (rln.wasm) as binary file
+    /// - `zkey_vec`: a byte vector containing to the proving key (rln_final.zkey) as binary file
+    /// - `vk_vec`: a byte vector containing to the verification key (verification_key.json) as binary file
+    ///
+    /// Example:
+    ///```
+    /// use std::fs::File;
+    /// use std::io::Read;
+    /// 
+    /// let tree_height = 20;
+    /// let resources_folder = "./resources/tree_height_20/";
+    /// 
+    /// let mut resources: Vec<Vec<u8>> = Vec::new();
+    /// for filename in ["rln.wasm", "rln_final.zkey", "verification_key.json"] {
+    ///     let fullpath = format!("{resources_folder}{filename}");
+    ///     let mut file = File::open(&fullpath).expect("no file found");
+    ///     let metadata = std::fs::metadata(&fullpath).expect("unable to read metadata");
+    ///     let mut buffer = vec![0; metadata.len() as usize];
+    ///     file.read_exact(&mut buffer).expect("buffer overflow");
+    ///     resources.push(buffer);
+    /// }
+    /// 
+    /// let mut rln = RLN::new_with_params(
+    ///     tree_height,
+    ///     resources[0].clone(),
+    ///     resources[1].clone(),
+    ///     resources[2].clone(),
+    /// );
+    ///```
     pub fn new_with_params(
         tree_height: usize,
         #[cfg(not(target_arch = "wasm32"))] circom_vec: Vec<u8>,
@@ -99,6 +153,12 @@ impl RLN<'_> {
     ////////////////////////////////////////////////////////
     // Merkle-tree APIs
     ////////////////////////////////////////////////////////
+    /// Initializes the internal Merkle tree.
+    ///
+    /// Leaves are set to the default value implemented in PoseidonTree implementation.
+    ///
+    /// Input values are:
+    /// - `tree_height`: the height of the Merkle tree.
     pub fn set_tree(&mut self, tree_height: usize) -> io::Result<()> {
         // We compute a default empty tree of desired height
         self.tree = PoseidonTree::default(tree_height);
@@ -106,6 +166,26 @@ impl RLN<'_> {
         Ok(())
     }
 
+    /// Sets a leaf value at position index in the internal Merkle tree.
+    ///
+    /// Input values are:
+    /// - `index`: the index of the leaf
+    /// - `input_data`: a reader for the serialization of the leaf value (id_commitment)
+    ///
+    /// Example:
+    ///```
+    /// use crate::protocol::*;
+    ///
+    /// // We generate a random id secret and commitment pair
+    /// let (identity_secret, id_commitment) = keygen();
+    ///
+    /// // We define the tree index where id_commitment will be added
+    /// let id_index = 10;
+    ///
+    /// // We serialize id_commitment and pass it to set_leaf
+    /// let mut buffer = Cursor::new(serialize_field_element(id_commitment));
+    /// rln.set_leaf(id_index, &mut buffer).unwrap();
+    ///```
     pub fn set_leaf<R: Read>(&mut self, index: usize, mut input_data: R) -> io::Result<()> {
         // We read input
         let mut leaf_byte: Vec<u8> = Vec::new();
@@ -118,6 +198,36 @@ impl RLN<'_> {
         Ok(())
     }
 
+    /// Sets multiple leaves starting from position index in the internal Merkle tree.
+    ///
+    /// If n leaves are passed as input, these will be set at positions `index`, `index+1`, ..., `index+n-1` respectively.
+    ///
+    /// This function updates the internal Merkle tree  next_index value indicating the next available index corresponding to a never-set leaf as `next_index = max(next_index, index + n)`.
+    ///
+    /// Input values are:
+    /// - `index`: the index of the first leaf to be set 
+    /// - `input_data`: a reader for the serialization of multiple leaf values (id_commitments)
+    ///
+    /// Example:
+    ///```
+    /// use rln::circuit::Fr;
+    /// use rln::utils::*;
+    /// 
+    /// let start_index = 10;
+    /// let no_of_leaves = 256;
+    /// 
+    /// // We generate a vector of random leaves
+    /// let mut leaves: Vec<Fr> = Vec::new();
+    /// let mut rng = thread_rng();
+    /// for _ in 0..no_of_leaves {
+    ///     let (_, id_commitment) = keygen();
+    ///     leaves.push(id_commitment);
+    /// }
+    /// 
+    /// // We add leaves in a batch into the tree
+    /// let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
+    /// rln.set_leaves_from(index, &mut buffer).unwrap();
+    ///```
     pub fn set_leaves_from<R: Read>(&mut self, index: usize, mut input_data: R) -> io::Result<()> {
         // We read input
         let mut leaves_byte: Vec<u8> = Vec::new();
@@ -129,6 +239,13 @@ impl RLN<'_> {
         return self.tree.set_range(index, leaves);
     }
 
+
+    /// Resets the tree state to default and sets multiple leaves starting from index 0.
+    ///
+    /// In contrast to set_leaves_from, this function resets to 0 the internal next_index value, before setting the input leaves values.
+    ///
+    /// Input values are:
+    /// - `input_data`: a reader for the serialization of multiple leaf values (id_commitments)
     pub fn init_tree_with_leaves<R: Read>(&mut self, input_data: R) -> io::Result<()> {
         // reset the tree
         // NOTE: this requires the tree to be initialized with the correct height initially
@@ -137,7 +254,47 @@ impl RLN<'_> {
         return self.set_leaves_from(0, input_data);
     }
 
-    // Set input leaf to the next available index
+    /// Sets a leaf value at the next available never-set leaf index.
+    ///
+    /// This function updates the internal Merkle tree next_index value indicating the next available index corresponding to a never-set leaf as `next_index = next_index + 1`.
+    ///
+    /// Input values are:
+    /// - `input_data`: a reader for the serialization of multiple leaf values (id_commitments)
+    ///
+    /// Example:
+    ///```
+    /// use rln::circuit::Fr;
+    /// use rln::utils::*;
+    /// 
+    /// let tree_height = 20;
+    /// let start_index = 10;
+    /// let no_of_leaves = 256;
+    /// 
+    /// // We reset the tree
+    /// rln.set_tree(tree_height).unwrap();
+    ///
+    /// // Internal Merkle tree next_index value is now 0
+    ///
+    /// // We generate a vector of random leaves
+    /// let mut leaves: Vec<Fr> = Vec::new();
+    /// let mut rng = thread_rng();
+    /// for _ in 0..no_of_leaves {
+    ///     let (_, id_commitment) = keygen();
+    ///     leaves.push(id_commitment);
+    /// }
+    /// 
+    /// // We add leaves in a batch into the tree
+    /// let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
+    /// rln.set_leaves_from(index, &mut buffer).unwrap();
+    ///
+    /// // We set 256 leaves starting from index 10: next_index value is now max(0, 256+10) = 266
+    ///
+    /// // We set a leaf on next available index
+    /// // id_commitment will be set at index 266
+    /// let (_, id_commitment) = keygen();
+    /// let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+    /// rln.set_next_leaf(&mut buffer).unwrap();
+    ///```
     pub fn set_next_leaf<R: Read>(&mut self, mut input_data: R) -> io::Result<()> {
         // We read input
         let mut leaf_byte: Vec<u8> = Vec::new();
@@ -150,14 +307,30 @@ impl RLN<'_> {
         Ok(())
     }
 
-    // Deleting a leaf corresponds to set its value to the default 0 leaf
+    /// Sets the value of the leaf at position index to the harcoded default value.
+    ///
+    /// This function does not change the internal Merkle tree next_index value.
+    ///
+    /// Input values are:
+    /// - `index`: the index of the leaf whose value will be reset
     pub fn delete_leaf(&mut self, index: usize) -> io::Result<()> {
         self.tree.delete(index)?;
         Ok(())
     }
 
-    /// returns current membership root
-    /// * `root` is a scalar field element in 32 bytes
+    /// Returns the Merkle tree root
+    ///
+    /// Output values are:
+    /// - `output_data`: a writer receiving the serialization of the root value (uses `rln::utils::fr_to_bytes_le`)
+    ///
+    /// Example
+    ///```
+    /// use rln::utils::*;
+    ///
+    /// let mut buffer = Cursor::new(Vec::<u8>::new());
+    /// rln.get_root(&mut buffer).unwrap();
+    /// let (root, _) = bytes_le_to_fr(&buffer.into_inner());
+    ///```
     pub fn get_root<W: Write>(&self, mut output_data: W) -> io::Result<()> {
         let root = self.tree.root();
         output_data.write_all(&fr_to_bytes_le(&root))?;
@@ -165,8 +338,27 @@ impl RLN<'_> {
         Ok(())
     }
 
-    /// returns current membership root
-    /// * `root` is a scalar field element in 32 bytes
+    /// Returns the Merkle proof of the leaf at position index
+    ///
+    /// Input values are:
+    /// - `index`: the index of the leaf
+    ///
+    /// Output values are:
+    /// - `output_data`: a writer receiving the serialization of the path elements and path indexes (uses `rln::utils::vec_fr_to_bytes_le` and `rln::utils::vec_u8_to_bytes_le`, respectively)
+    ///
+    /// Example
+    ///```
+    /// use rln::utils::*;
+    ///
+    /// let index = 10;
+    ///
+    /// let mut buffer = Cursor::new(Vec::<u8>::new());
+    /// rln.get_proof(index, &mut buffer).unwrap();
+    /// 
+    /// let buffer_inner = buffer.into_inner();
+    /// let (path_elements, read) = bytes_le_to_vec_fr(&buffer_inner);
+    /// let (identity_path_index, _) = bytes_le_to_vec_u8(&buffer_inner[read..].to_vec());
+    ///```
     pub fn get_proof<W: Write>(&self, index: usize, mut output_data: W) -> io::Result<()> {
         let merkle_proof = self.tree.proof(index).expect("proof should exist");
         let path_elements = merkle_proof.get_path_elements();
@@ -229,25 +421,6 @@ impl RLN<'_> {
         .unwrap();
 
         Ok(verified)
-    }
-
-    /// Get the serialized rln_witness for some input
-    pub fn get_serialized_rln_witness<R: Read>(&mut self, mut input_data: R) -> Vec<u8> {
-        // We read input RLN witness and we deserialize it
-        let mut witness_byte: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut witness_byte).unwrap();
-        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte);
-
-        serialize_witness(&rln_witness)
-    }
-
-    /// Get JSON inputs for serialized RLN witness
-    pub fn get_rln_witness_json(
-        &mut self,
-        serialized_witness: &[u8],
-    ) -> io::Result<serde_json::Value> {
-        let (rln_witness, _) = deserialize_witness(serialized_witness);
-        Ok(get_json_inputs(&rln_witness))
     }
 
     // This API keeps partial compatibility with kilic's rln public API https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L148
@@ -444,6 +617,26 @@ impl RLN<'_> {
         output_data.write_all(&fr_to_bytes_le(&hash))?;
 
         Ok(())
+    }
+
+    
+    /// Get the serialized rln_witness for some input
+    pub fn get_serialized_rln_witness<R: Read>(&mut self, mut input_data: R) -> Vec<u8> {
+        // We read input RLN witness and we deserialize it
+        let mut witness_byte: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut witness_byte).unwrap();
+        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte);
+
+        serialize_witness(&rln_witness)
+    }
+
+    /// Get JSON inputs for serialized RLN witness
+    pub fn get_rln_witness_json(
+        &mut self,
+        serialized_witness: &[u8],
+    ) -> io::Result<serde_json::Value> {
+        let (rln_witness, _) = deserialize_witness(serialized_witness);
+        Ok(get_json_inputs(&rln_witness))
     }
 }
 
