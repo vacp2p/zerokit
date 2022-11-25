@@ -528,7 +528,7 @@ impl RLN<'_> {
     /// rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
     ///     .unwrap();
     ///
-    /// // proof_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+    /// // proof_data is [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> |  rln_identifier<32> ]
     /// let mut proof_data = output_buffer.into_inner();
     /// ```
     #[cfg(not(target_arch = "wasm32"))]
@@ -1618,5 +1618,137 @@ mod test {
             .unwrap();
 
         assert!(verified);
+    }
+
+    #[test]
+    fn test_recover_id_secret() {
+        let tree_height = TEST_TREE_HEIGHT;
+        let no_of_leaves = 256;
+
+        // We generate a vector of random leaves
+        let mut leaves: Vec<Fr> = Vec::new();
+        let mut rng = thread_rng();
+        for _ in 0..no_of_leaves {
+            leaves.push(Fr::rand(&mut rng));
+        }
+
+        // We create a new RLN instance
+        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let mut rln = RLN::new(tree_height, input_buffer);
+
+        // We add leaves in a batch into the tree
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
+        rln.init_tree_with_leaves(&mut buffer).unwrap();
+
+        // Generate identity pair
+        let (identity_secret, id_commitment) = keygen();
+
+        // We set as leaf id_commitment after storing its index
+        let identity_index = u64::try_from(rln.tree.leaves_set()).unwrap();
+        let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+        rln.set_next_leaf(&mut buffer).unwrap();
+
+        // We generate two random signals
+        let mut rng = rand::thread_rng();
+        let signal1: [u8; 32] = rng.gen();
+        let signal1_len = u64::try_from(signal1.len()).unwrap();
+
+        let signal2: [u8; 32] = rng.gen();
+        let signal2_len = u64::try_from(signal2.len()).unwrap();
+
+        // We generate a random epoch
+        let epoch = hash_to_field(b"test-epoch");
+
+        // We generate two proofs using same epoch but different signals.
+
+        // We prepare input for generate_rln_proof API
+        // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        let mut serialized1: Vec<u8> = Vec::new();
+        serialized1.append(&mut fr_to_bytes_le(&identity_secret));
+        serialized1.append(&mut identity_index.to_le_bytes().to_vec());
+        serialized1.append(&mut fr_to_bytes_le(&epoch));
+
+        // The first part is the same for both proof input, so we clone
+        let mut serialized2 = serialized1.clone();
+
+        // We attach the first signal to the first proof input
+        serialized1.append(&mut signal1_len.to_le_bytes().to_vec());
+        serialized1.append(&mut signal1.to_vec());
+
+        // We attach the second signal to the first proof input
+        serialized2.append(&mut signal2_len.to_le_bytes().to_vec());
+        serialized2.append(&mut signal2.to_vec());
+
+        // We generate the first proof
+        let mut input_buffer = Cursor::new(serialized1);
+        let mut output_buffer = Cursor::new(Vec::<u8>::new());
+        rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
+            .unwrap();
+        let proof_data1 = output_buffer.into_inner();
+
+        // We generate the second proof
+        let mut input_buffer = Cursor::new(serialized2);
+        let mut output_buffer = Cursor::new(Vec::<u8>::new());
+        rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
+            .unwrap();
+        let proof_data2 = output_buffer.into_inner();
+
+        // We deserialize proof data values
+        // Note that deserialize_proof_values deserializes only proof _values_, while proof data contains the
+        // 128 bytes long zk-proof at the beginning. Hence we skip it before passing to deserialization.
+        let (proof_values1, _) = deserialize_proof_values(&proof_data1[128..]);
+        let (proof_values2, _) = deserialize_proof_values(&proof_data2[128..]);
+
+        // We extract the two shares
+        let share1 = (proof_values1.x, proof_values1.y);
+        let share2 = (proof_values2.x, proof_values2.y);
+
+        // We recover the secret
+        let recovered_id_secret = compute_id_secret(share1, share2, epoch);
+
+        assert!(recovered_id_secret.is_ok());
+        assert_eq!(recovered_id_secret.unwrap(), identity_secret);
+
+        // We test that computing_id_secret fails if shares computed from two different id secrets but within same epoch are passed
+
+        // We generate a new identity pair
+        let (identity_secret_new, id_commitment_new) = keygen();
+
+        // We add it to the tree
+        let identity_index_new = u64::try_from(rln.tree.leaves_set()).unwrap();
+        let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment_new));
+        rln.set_next_leaf(&mut buffer).unwrap();
+
+        // We generate a random signals
+        let signal3: [u8; 32] = rng.gen();
+        let signal3_len = u64::try_from(signal3.len()).unwrap();
+
+        // We prepare proof input. Note that epoch is the same as before
+        // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        let mut serialized3: Vec<u8> = Vec::new();
+        serialized3.append(&mut fr_to_bytes_le(&identity_secret_new));
+        serialized3.append(&mut identity_index_new.to_le_bytes().to_vec());
+        serialized3.append(&mut fr_to_bytes_le(&epoch));
+        serialized3.append(&mut signal3_len.to_le_bytes().to_vec());
+        serialized3.append(&mut signal3.to_vec());
+
+        // We generate the proof
+        let mut input_buffer = Cursor::new(serialized3);
+        let mut output_buffer = Cursor::new(Vec::<u8>::new());
+        rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
+            .unwrap();
+        let proof_data3 = output_buffer.into_inner();
+
+        // We deserialize proof data values (we skip 128 bytes containing the zk proof)
+        let (proof_values3, _) = deserialize_proof_values(&proof_data3[128..]);
+
+        // We extract the share
+        let share3 = (proof_values3.x, proof_values3.y);
+
+        // We attempt to recover the secret using share1 (coming from identity_secret) and share3 (coming from identity_secret_new)
+        let recovered_id_secret = compute_id_secret(share1, share3, epoch);
+
+        // We ensure that, in fact, no secret is recovered
+        assert!(recovered_id_secret.is_err())
     }
 }
