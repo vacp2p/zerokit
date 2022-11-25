@@ -830,7 +830,38 @@ impl RLN<'_> {
         Ok(())
     }
 
-    // Input can be both the one given to gen_proof or verify
+    /// Recovers the identity secret from two set of proof values computed for same secret in same epoch.
+    ///
+    /// Input values are:
+    /// - `input_proof_data_1`: a reader for the serialization of a RLN zkSNARK proof concatenated with a serialization of the circuit output values and -optionally- the signal information, i.e. either `[ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]` or `[ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> | signal_len<8> | signal<var> ]` (to maintain compatibility with both output of [`generate_rln_proof`](crate::public::RLN::generate_rln_proof) and input of [`verify_rln_proof`](crate::public::RLN::verify_rln_proof))
+    /// - `input_proof_data_2`: same as `input_proof_data_1`
+    ///
+    /// Output values are:
+    /// - `output_data`: a writer receiving the serialization of the recovered identity secret field element if correctly recovered (serialization done with [`rln::utils::fr_to_bytes_le`](crate::utils::fr_to_bytes_le)), a writer receiving an empty byte vector if not.
+    ///
+    /// Example
+    /// ```
+    /// // identity_secret, proof_data_1 and proof_data_2 are computed as in the example code snippet provided for rln::public::RLN::generate_rln_proof using same identity secret and epoch (but not necessarily same signal)
+    ///
+    /// let mut input_proof_data_1 = Cursor::new(proof_data_1);
+    /// let mut input_proof_data_2 = Cursor::new(proof_data_2);
+    /// let mut output_buffer = Cursor::new(Vec::<u8>::new());
+    /// rln.recover_id_secret(
+    ///     &mut input_proof_data_1,
+    ///     &mut input_proof_data_2,
+    ///     &mut output_buffer,
+    /// )
+    /// .unwrap();
+    ///
+    /// let serialized_id_secret = output_buffer.into_inner();
+    ///
+    /// // We ensure that a non-empty value is written to output_buffer
+    /// assert!(!serialized_id_secret.is_empty());
+    ///
+    /// // We check if the recovered id secret corresponds to the original one
+    /// let (recovered_id_secret, _) = bytes_le_to_fr(&serialized_id_secret);
+    /// assert_eq!(recovered_id_secret, identity_secret);
+    /// ```
     pub fn recover_id_secret<R: Read, W: Write>(
         &self,
         mut input_proof_data_1: R,
@@ -1746,13 +1777,13 @@ mod test {
         let serialized_id_secret = output_buffer.into_inner();
 
         // We ensure that a non-empty value is written to output_buffer
-        assert!(serialized_id_secret.len() != 0);
+        assert!(!serialized_id_secret.is_empty());
 
         // We check if the recovered id secret corresponds to the original one
         let (recovered_id_secret, _) = bytes_le_to_fr(&serialized_id_secret);
         assert_eq!(recovered_id_secret, identity_secret);
 
-        // We now test that computing_id_secret fails if shares computed from two different id secrets but within same epoch are passed
+        // We now test that computing_id_secret is unsuccessful if shares computed from two different id secrets but within same epoch are passed
 
         // We generate a new identity pair
         let (identity_secret_new, id_commitment_new) = keygen();
