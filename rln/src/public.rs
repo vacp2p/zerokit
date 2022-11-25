@@ -862,10 +862,6 @@ impl RLN<'_> {
         Ok(())
     }
 
-    /// Get the serialized rln_witness for some input
-    // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
-    // return value is a rln witness populated according to this information
-
     /// Returns the serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) populated from the identity secret, the Merkle tree index, the epoch and signal.
     ///
     /// Input values are:
