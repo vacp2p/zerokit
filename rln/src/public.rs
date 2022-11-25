@@ -830,6 +830,46 @@ impl RLN<'_> {
         Ok(())
     }
 
+    // Input can be both the one given to gen_proof or verify
+    pub fn recover_id_secret<R: Read, W: Write>(
+        &self,
+        mut input_proof_data_1: R,
+        mut input_proof_data_2: R,
+        mut output_data: W,
+    ) -> io::Result<()> {
+        // We deserialize the two proofs and we get the corresponding RLNProofValues objects
+        let mut serialized: Vec<u8> = Vec::new();
+        input_proof_data_1.read_to_end(&mut serialized)?;
+        // We skip deserialization of the zk-proof at the beginning
+        let (proof_values_1, _) = deserialize_proof_values(&serialized[128..].to_vec());
+
+        let mut serialized: Vec<u8> = Vec::new();
+        input_proof_data_2.read_to_end(&mut serialized)?;
+        // We skip deserialization of the zk-proof at the beginning
+        let (proof_values_2, _) = deserialize_proof_values(&serialized[128..].to_vec());
+
+        // We continue only if the proof values are for the same epoch
+        // The idea is that proof values that go as input to this function are verified first (with zk-proof verify), hence ensuring validity of epoch and other fields.
+        // Only in case all fields are valid, an external_nullifier for the message will be stored (otherwise signal/proof will be simply discarded)
+        // If the nullifier matches one already seen, we can recovery of identity secret.
+        if proof_values_1.epoch == proof_values_2.epoch {
+            // We extract the two shares
+            let share1 = (proof_values_1.x, proof_values_1.y);
+            let share2 = (proof_values_2.x, proof_values_2.y);
+
+            // We recover the secret
+            let recovered_id_secret = compute_id_secret(share1, share2, proof_values_1.epoch);
+
+            // If an id secret is recovered, we write it to output_data, otherwise nothing will be written.
+            if recovered_id_secret.is_ok() {
+                let id_secret = recovered_id_secret.unwrap();
+                output_data.write_all(&fr_to_bytes_le(&id_secret))?;
+            }
+        }
+
+        return Ok(());
+    }
+
     /// Hashes an input signal to an element in the working prime field.
     ///
     /// The result is computed as the Keccak256 of the input signal modulo the prime field characteristic.
@@ -1684,32 +1724,35 @@ mod test {
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
             .unwrap();
-        let proof_data1 = output_buffer.into_inner();
+        let proof_data_1 = output_buffer.into_inner();
 
         // We generate the second proof
         let mut input_buffer = Cursor::new(serialized2);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
             .unwrap();
-        let proof_data2 = output_buffer.into_inner();
+        let proof_data_2 = output_buffer.into_inner();
 
-        // We deserialize proof data values
-        // Note that deserialize_proof_values deserializes only proof _values_, while proof data contains the
-        // 128 bytes long zk-proof at the beginning. Hence we skip it before passing to deserialization.
-        let (proof_values1, _) = deserialize_proof_values(&proof_data1[128..]);
-        let (proof_values2, _) = deserialize_proof_values(&proof_data2[128..]);
+        let mut input_proof_data_1 = Cursor::new(proof_data_1.clone());
+        let mut input_proof_data_2 = Cursor::new(proof_data_2);
+        let mut output_buffer = Cursor::new(Vec::<u8>::new());
+        rln.recover_id_secret(
+            &mut input_proof_data_1,
+            &mut input_proof_data_2,
+            &mut output_buffer,
+        )
+        .unwrap();
 
-        // We extract the two shares
-        let share1 = (proof_values1.x, proof_values1.y);
-        let share2 = (proof_values2.x, proof_values2.y);
+        let serialized_id_secret = output_buffer.into_inner();
 
-        // We recover the secret
-        let recovered_id_secret = compute_id_secret(share1, share2, epoch);
+        // We ensure that a non-empty value is written to output_buffer
+        assert!(serialized_id_secret.len() != 0);
 
-        assert!(recovered_id_secret.is_ok());
-        assert_eq!(recovered_id_secret.unwrap(), identity_secret);
+        // We check if the recovered id secret corresponds to the original one
+        let (recovered_id_secret, _) = bytes_le_to_fr(&serialized_id_secret);
+        assert_eq!(recovered_id_secret, identity_secret);
 
-        // We test that computing_id_secret fails if shares computed from two different id secrets but within same epoch are passed
+        // We now test that computing_id_secret fails if shares computed from two different id secrets but within same epoch are passed
 
         // We generate a new identity pair
         let (identity_secret_new, id_commitment_new) = keygen();
@@ -1737,18 +1780,23 @@ mod test {
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
             .unwrap();
-        let proof_data3 = output_buffer.into_inner();
-
-        // We deserialize proof data values (we skip 128 bytes containing the zk proof)
-        let (proof_values3, _) = deserialize_proof_values(&proof_data3[128..]);
-
-        // We extract the share
-        let share3 = (proof_values3.x, proof_values3.y);
+        let proof_data_3 = output_buffer.into_inner();
 
         // We attempt to recover the secret using share1 (coming from identity_secret) and share3 (coming from identity_secret_new)
-        let recovered_id_secret = compute_id_secret(share1, share3, epoch);
 
-        // We ensure that, in fact, no secret is recovered
-        assert!(recovered_id_secret.is_err())
+        let mut input_proof_data_1 = Cursor::new(proof_data_1.clone());
+        let mut input_proof_data_3 = Cursor::new(proof_data_3);
+        let mut output_buffer = Cursor::new(Vec::<u8>::new());
+        rln.recover_id_secret(
+            &mut input_proof_data_1,
+            &mut input_proof_data_3,
+            &mut output_buffer,
+        )
+        .unwrap();
+
+        let serialized_id_secret = output_buffer.into_inner();
+
+        // We ensure that an empty value was written to output_buffer, i.e. no secret is recovered
+        assert!(serialized_id_secret.is_empty());
     }
 }
