@@ -898,7 +898,7 @@ impl RLN<'_> {
             }
         }
 
-        return Ok(());
+        Ok(());
     }
 
     /// Hashes an input signal to an element in the working prime field.
@@ -1694,22 +1694,10 @@ mod test {
     #[test]
     fn test_recover_id_secret() {
         let tree_height = TEST_TREE_HEIGHT;
-        let no_of_leaves = 256;
-
-        // We generate a vector of random leaves
-        let mut leaves: Vec<Fr> = Vec::new();
-        let mut rng = thread_rng();
-        for _ in 0..no_of_leaves {
-            leaves.push(Fr::rand(&mut rng));
-        }
 
         // We create a new RLN instance
         let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
         let mut rln = RLN::new(tree_height, input_buffer);
-
-        // We add leaves in a batch into the tree
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
-        rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // Generate identity pair
         let (identity_secret, id_commitment) = keygen();

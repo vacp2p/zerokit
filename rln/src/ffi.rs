@@ -1108,14 +1108,6 @@ mod test {
     // Computes and verifies an RLN ZK proof using FFI APIs
     fn test_recover_id_secret_ffi() {
         let tree_height = TEST_TREE_HEIGHT;
-        let no_of_leaves = 256;
-
-        // We generate a vector of random leaves
-        let mut leaves: Vec<Fr> = Vec::new();
-        let mut rng = thread_rng();
-        for _ in 0..no_of_leaves {
-            leaves.push(Fr::rand(&mut rng));
-        }
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
@@ -1123,12 +1115,6 @@ mod test {
         let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
-
-        // We add leaves in a batch into the tree
-        let leaves_ser = vec_fr_to_bytes_le(&leaves);
-        let input_buffer = &Buffer::from(leaves_ser.as_ref());
-        let success = init_tree_with_leaves(rln_pointer, input_buffer);
-        assert!(success, "set leaves call failed");
 
         // We generate a new identity pair
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
@@ -1139,13 +1125,13 @@ mod test {
         let (identity_secret, read) = bytes_le_to_fr(&result_data);
         let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
 
-        // We set as leaf id_commitment, its index would be equal to no_of_leaves
+        // We set as leaf id_commitment, its index would be equal to 0 since tree is empty
         let leaf_ser = fr_to_bytes_le(&id_commitment);
         let input_buffer = &Buffer::from(leaf_ser.as_ref());
         let success = set_next_leaf(rln_pointer, input_buffer);
         assert!(success, "set next leaf call failed");
 
-        let identity_index: u64 = no_of_leaves;
+        let identity_index: u64 = 0;
 
         // We generate two proofs using same epoch but different signals.
 
@@ -1229,13 +1215,13 @@ mod test {
         let (identity_secret_new, read) = bytes_le_to_fr(&result_data);
         let (id_commitment_new, _) = bytes_le_to_fr(&result_data[read..].to_vec());
 
-        // We set as leaf id_commitment, its index would be equal to no_of_leaves
+        // We set as leaf id_commitment, its index would be equal to 1 since at 0 there is id_commitment
         let leaf_ser = fr_to_bytes_le(&id_commitment_new);
         let input_buffer = &Buffer::from(leaf_ser.as_ref());
         let success = set_next_leaf(rln_pointer, input_buffer);
         assert!(success, "set next leaf call failed");
 
-        let identity_index_new: u64 = no_of_leaves;
+        let identity_index_new: u64 = 1;
 
         // We generate a random signals
         let signal3: [u8; 32] = rng.gen();

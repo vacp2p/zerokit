@@ -440,7 +440,7 @@ pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr), epoch: Fr) -> Resul
     let a_1 = (y1 - y2) / (x1 - x2);
     let a_0 = y1 - x1 * a_1;
 
-    // If shares come the same polynomial, a0 is correctly recovered and a1 = poseidonHash([a0, epoch])
+    // If shares come from the same polynomial, a0 is correctly recovered and a1 = poseidonHash([a0, epoch])
     let computed_a_1 = poseidon_hash(&[a_0, epoch]);
 
     if a_1 == computed_a_1 {
