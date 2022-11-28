@@ -299,6 +299,31 @@ pub extern "C" fn seeded_key_gen(
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+pub extern "C" fn recover_id_secret(
+    ctx: *const RLN,
+    input_proof_buffer_1: *const Buffer,
+    input_proof_buffer_2: *const Buffer,
+    output_buffer: *mut Buffer,
+) -> bool {
+    let rln = unsafe { &*ctx };
+    let input_proof_data_1 = <&[u8]>::from(unsafe { &*input_proof_buffer_1 });
+    let input_proof_data_2 = <&[u8]>::from(unsafe { &*input_proof_buffer_2 });
+    let mut output_data: Vec<u8> = Vec::new();
+    if rln
+        .recover_id_secret(input_proof_data_1, input_proof_data_2, &mut output_data)
+        .is_ok()
+    {
+        unsafe { *output_buffer = Buffer::from(&output_data[..]) };
+        std::mem::forget(output_data);
+        true
+    } else {
+        std::mem::forget(output_data);
+        false
+    }
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
 pub extern "C" fn hash(
     ctx: *mut RLN,
     input_buffer: *const Buffer,
@@ -400,7 +425,7 @@ mod test {
         let leaves_ser = vec_fr_to_bytes_le(&leaves);
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
         let success = init_tree_with_leaves(rln_pointer, input_buffer);
-        assert!(success, "set leaves call failed");
+        assert!(success, "init tree with leaves call failed");
 
         // We get the root of the tree obtained adding leaves in batch
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
@@ -891,7 +916,7 @@ mod test {
         let leaves_ser = vec_fr_to_bytes_le(&leaves);
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
         let success = init_tree_with_leaves(rln_pointer, input_buffer);
-        assert!(success, "set leaves call failed");
+        assert!(success, "init tree with leaves call failed");
 
         // We generate a new identity pair
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
@@ -931,7 +956,7 @@ mod test {
         let input_buffer = &Buffer::from(serialized.as_ref());
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
         let success = generate_rln_proof(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
-        assert!(success, "set leaves call failed");
+        assert!(success, "generate rln proof call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         // result_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
         let mut proof_data = <&[u8]>::from(&output_buffer).to_vec();
@@ -1016,7 +1041,7 @@ mod test {
         let input_buffer = &Buffer::from(serialized.as_ref());
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
         let success = generate_rln_proof(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
-        assert!(success, "set leaves call failed");
+        assert!(success, "generate rln proof call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         // result_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
         let mut proof_data = <&[u8]>::from(&output_buffer).to_vec();
@@ -1077,6 +1102,168 @@ mod test {
         assert!(success, "verify call failed");
         // Proof should be valid.
         assert_eq!(proof_is_valid, true);
+    }
+
+    #[test]
+    // Computes and verifies an RLN ZK proof using FFI APIs
+    fn test_recover_id_secret_ffi() {
+        let tree_height = TEST_TREE_HEIGHT;
+
+        // We create a RLN instance
+        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
+        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        assert!(success, "RLN object creation failed");
+        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+
+        // We generate a new identity pair
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = key_gen(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "key gen call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (identity_secret, read) = bytes_le_to_fr(&result_data);
+        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
+
+        // We set as leaf id_commitment, its index would be equal to 0 since tree is empty
+        let leaf_ser = fr_to_bytes_le(&id_commitment);
+        let input_buffer = &Buffer::from(leaf_ser.as_ref());
+        let success = set_next_leaf(rln_pointer, input_buffer);
+        assert!(success, "set next leaf call failed");
+
+        let identity_index: u64 = 0;
+
+        // We generate two proofs using same epoch but different signals.
+
+        // We generate two random signals
+        let mut rng = rand::thread_rng();
+        let signal1: [u8; 32] = rng.gen();
+        let signal1_len = u64::try_from(signal1.len()).unwrap();
+
+        // We generate two random signals
+        let signal2: [u8; 32] = rng.gen();
+        let signal2_len = u64::try_from(signal2.len()).unwrap();
+
+        // We generate a random epoch
+        let epoch = hash_to_field(b"test-epoch");
+
+        // We prepare input for generate_rln_proof API
+        // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        let mut serialized1: Vec<u8> = Vec::new();
+        serialized1.append(&mut fr_to_bytes_le(&identity_secret));
+        serialized1.append(&mut identity_index.to_le_bytes().to_vec());
+        serialized1.append(&mut fr_to_bytes_le(&epoch));
+
+        // The first part is the same for both proof input, so we clone
+        let mut serialized2 = serialized1.clone();
+
+        // We attach the first signal to the first proof input
+        serialized1.append(&mut signal1_len.to_le_bytes().to_vec());
+        serialized1.append(&mut signal1.to_vec());
+
+        // We attach the second signal to the first proof input
+        serialized2.append(&mut signal2_len.to_le_bytes().to_vec());
+        serialized2.append(&mut signal2.to_vec());
+
+        // We call generate_rln_proof for first proof values
+        let input_buffer = &Buffer::from(serialized1.as_ref());
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = generate_rln_proof(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
+        assert!(success, "generate rln proof call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        // result_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+        let proof_data_1 = <&[u8]>::from(&output_buffer).to_vec();
+
+        // We call generate_rln_proof
+        let input_buffer = &Buffer::from(serialized2.as_ref());
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = generate_rln_proof(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
+        assert!(success, "generate rln proof call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        // result_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+        let proof_data_2 = <&[u8]>::from(&output_buffer).to_vec();
+
+        let input_proof_buffer_1 = &Buffer::from(proof_data_1.as_ref());
+        let input_proof_buffer_2 = &Buffer::from(proof_data_2.as_ref());
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = recover_id_secret(
+            rln_pointer,
+            input_proof_buffer_1,
+            input_proof_buffer_2,
+            output_buffer.as_mut_ptr(),
+        );
+        assert!(success, "recover id secret call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let serialized_id_secret = <&[u8]>::from(&output_buffer).to_vec();
+
+        // We passed two shares for the same secret, so recovery should be successful
+        // To check it, we ensure that recovered_id_secret is non-empty
+        assert!(!serialized_id_secret.is_empty());
+
+        // We check if the recovered id secret corresponds to the original one
+        let (recovered_id_secret, _) = bytes_le_to_fr(&serialized_id_secret);
+        assert_eq!(recovered_id_secret, identity_secret);
+
+        // We now test that computing_id_secret is unsuccessful if shares computed from two different id secrets but within same epoch are passed
+
+        // We generate a new identity pair
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = key_gen(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "key gen call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (identity_secret_new, read) = bytes_le_to_fr(&result_data);
+        let (id_commitment_new, _) = bytes_le_to_fr(&result_data[read..].to_vec());
+
+        // We set as leaf id_commitment, its index would be equal to 1 since at 0 there is id_commitment
+        let leaf_ser = fr_to_bytes_le(&id_commitment_new);
+        let input_buffer = &Buffer::from(leaf_ser.as_ref());
+        let success = set_next_leaf(rln_pointer, input_buffer);
+        assert!(success, "set next leaf call failed");
+
+        let identity_index_new: u64 = 1;
+
+        // We generate a random signals
+        let signal3: [u8; 32] = rng.gen();
+        let signal3_len = u64::try_from(signal3.len()).unwrap();
+
+        // We prepare input for generate_rln_proof API
+        // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        // Note that epoch is the same as before
+        let mut serialized: Vec<u8> = Vec::new();
+        serialized.append(&mut fr_to_bytes_le(&identity_secret_new));
+        serialized.append(&mut identity_index_new.to_le_bytes().to_vec());
+        serialized.append(&mut fr_to_bytes_le(&epoch));
+        serialized.append(&mut signal3_len.to_le_bytes().to_vec());
+        serialized.append(&mut signal3.to_vec());
+
+        // We call generate_rln_proof
+        let input_buffer = &Buffer::from(serialized.as_ref());
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = generate_rln_proof(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
+        assert!(success, "generate rln proof call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        // result_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+        let proof_data_3 = <&[u8]>::from(&output_buffer).to_vec();
+
+        // We attempt to recover the secret using share1 (coming from identity_secret) and share3 (coming from identity_secret_new)
+
+        let input_proof_buffer_1 = &Buffer::from(proof_data_1.as_ref());
+        let input_proof_buffer_3 = &Buffer::from(proof_data_3.as_ref());
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = recover_id_secret(
+            rln_pointer,
+            input_proof_buffer_1,
+            input_proof_buffer_3,
+            output_buffer.as_mut_ptr(),
+        );
+        assert!(success, "recover id secret call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let serialized_id_secret = <&[u8]>::from(&output_buffer).to_vec();
+
+        // We passed two shares for different secrets, so recovery should be not successful
+        // To check it, we ensure that recovered_id_secret is empty
+        assert!(serialized_id_secret.is_empty());
     }
 
     #[test]

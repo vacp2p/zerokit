@@ -253,8 +253,7 @@ pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> RLNProofValue
     // y share
     let a_0 = rln_witness.identity_secret;
     let a_1 = poseidon_hash(&[a_0, rln_witness.epoch]);
-    let y = rln_witness.x * a_1;
-    let y = y + a_0;
+    let y = a_0 + rln_witness.x * a_1;
 
     // Nullifier
     let nullifier = poseidon_hash(&[a_1, rln_witness.rln_identifier]);
@@ -290,6 +289,8 @@ pub fn serialize_proof_values(rln_proof_values: &RLNProofValues) -> Vec<u8> {
     serialized
 }
 
+// Note: don't forget to skip the 128 bytes ZK proof, if serialized contains it.
+// This proc deserialzies only proof _values_, i.e. circuit outputs, not the zk proof.
 pub fn deserialize_proof_values(serialized: &[u8]) -> (RLNProofValues, usize) {
     let mut all_read: usize = 0;
 
@@ -382,7 +383,7 @@ pub fn compute_tree_root(
 }
 
 ///////////////////////////////////////////////////////
-// Signal/nullifier utility functions
+// Protocol utility functions
 ///////////////////////////////////////////////////////
 
 // Generates a tupe (identity_secret, id_commitment) where
@@ -424,6 +425,30 @@ pub fn hash_to_field(signal: &[u8]) -> Fr {
     // We export the hash as a field element
     let (el, _) = bytes_le_to_fr(hash.as_ref());
     el
+}
+
+pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr), epoch: Fr) -> Result<Fr, String> {
+    // Assuming a0 is the identity secret and a1 = poseidonHash([a0, epoch]),
+    // a (x,y) share satisfies the following relation
+    // y = a_0 + x * a_1
+    let (x1, y1) = share1;
+    let (x2, y2) = share2;
+
+    // If the two input shares were computed for the same epoch and identity secret, we can recover the latter
+    // y1 = a_0 + x1 * a_1
+    // y2 = a_0 + x2 * a_1
+    let a_1 = (y1 - y2) / (x1 - x2);
+    let a_0 = y1 - x1 * a_1;
+
+    // If shares come from the same polynomial, a0 is correctly recovered and a1 = poseidonHash([a0, epoch])
+    let computed_a_1 = poseidon_hash(&[a_0, epoch]);
+
+    if a_1 == computed_a_1 {
+        // We successfully recovered the identity secret
+        return Ok(a_0);
+    } else {
+        return Err("Cannot recover id_secret from provided shares".into());
+    }
 }
 
 ///////////////////////////////////////////////////////
