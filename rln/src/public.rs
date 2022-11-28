@@ -898,7 +898,7 @@ impl RLN<'_> {
             }
         }
 
-        Ok(());
+        Ok(())
     }
 
     /// Hashes an input signal to an element in the working prime field.
