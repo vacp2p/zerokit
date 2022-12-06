@@ -69,6 +69,23 @@ pub fn deserialize_identity_pair(serialized: Vec<u8>) -> (Fr, Fr) {
     return (identity_secret, id_commitment);
 }
 
+pub fn deserialize_identity_tuple(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
+    let mut all_read = 0;
+
+    let (id_trapdoor, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (id_nullifier, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (id_secret, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    all_read += read;
+
+    let (id_commitment, _) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+
+    return (id_trapdoor, id_nullifier, id_secret, id_commitment);
+}
+
 pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Vec<u8> {
     let mut serialized: Vec<u8> = Vec::new();
 
@@ -387,7 +404,7 @@ pub fn compute_tree_root(
 // Protocol utility functions
 ///////////////////////////////////////////////////////
 
-// Generates a tupe (identity_secret, id_commitment) where
+// Generates a tuple (identity_secret, id_commitment) where
 // identity_secret is random and id_commitment = PoseidonHash(identity_secret)
 // RNG is instantiated using thread_rng()
 pub fn keygen() -> (Fr, Fr) {
@@ -395,6 +412,21 @@ pub fn keygen() -> (Fr, Fr) {
     let identity_secret = Fr::rand(&mut rng);
     let id_commitment = poseidon_hash(&[identity_secret]);
     (identity_secret, id_commitment)
+}
+
+// Generates a tuple (id_trapdoor, id_nullifier, id_secret, id_commitment) where
+// id_trapdoor and id_nullifier are random,
+// identity_secret = PoseidonHash(id_trapdoor, id_nullifier),
+// id_commitment = PoseidonHash(identity_secret),
+// RNG is instantiated using thread_rng()
+// Generated credentials are compatible with Semaphore credentials
+pub fn extended_keygen() -> (Fr, Fr, Fr, Fr) {
+    let mut rng = thread_rng();
+    let id_trapdoor = Fr::rand(&mut rng);
+    let id_nullifier = Fr::rand(&mut rng);
+    let identity_secret = poseidon_hash(&[id_trapdoor, id_nullifier]);
+    let id_commitment = poseidon_hash(&[identity_secret]);
+    (id_trapdoor, id_nullifier, identity_secret, id_commitment)
 }
 
 // Generates a tupe (identity_secret, id_commitment) where
@@ -412,6 +444,28 @@ pub fn seeded_keygen(signal: &[u8]) -> (Fr, Fr) {
     let identity_secret = Fr::rand(&mut rng);
     let id_commitment = poseidon_hash(&[identity_secret]);
     (identity_secret, id_commitment)
+}
+
+// Generates a tuple (id_trapdoor, id_nullifier, id_secret, id_commitment) where
+// id_trapdoor and id_nullifier are random,
+// identity_secret = PoseidonHash(id_trapdoor, id_nullifier),
+// id_commitment = PoseidonHash(identity_secret),
+// RNG is instantiated using 20 rounds of ChaCha seeded with the hash of the input
+// Generated credentials are compatible with Semaphore credentials
+pub fn extended_seeded_keygen(signal: &[u8]) -> (Fr, Fr, Fr, Fr) {
+    // ChaCha20 requires a seed of exactly 32 bytes.
+    // We first hash the input seed signal to a 32 bytes array and pass this as seed to ChaCha20
+    let mut seed = [0; 32];
+    let mut hasher = Keccak::v256();
+    hasher.update(signal);
+    hasher.finalize(&mut seed);
+
+    let mut rng = ChaCha20Rng::from_seed(seed);
+    let id_trapdoor = Fr::rand(&mut rng);
+    let id_nullifier = Fr::rand(&mut rng);
+    let identity_secret = poseidon_hash(&[id_trapdoor, id_nullifier]);
+    let id_commitment = poseidon_hash(&[identity_secret]);
+    (id_trapdoor, id_nullifier, identity_secret, id_commitment)
 }
 
 // Hashes arbitrary signal to the underlying prime field

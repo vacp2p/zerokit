@@ -792,6 +792,38 @@ impl RLN<'_> {
         Ok(())
     }
 
+    /// Returns an identity trapdoor, nullifier, secret and commitment tuple.
+    ///
+    /// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
+    ///
+    /// The identity commitment is the Poseidon hash of the identity secret.
+    ///
+    /// Generated credentials are compatible with [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
+    ///
+    /// Output values are:
+    /// - `output_data`: a writer receiving the serialization of the identity tapdoor, identity nullifier, identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
+    ///
+    /// Example
+    /// ```
+    /// use rln::protocol::*;
+    ///
+    /// // We generate an identity tuple
+    /// let mut buffer = Cursor::new(Vec::<u8>::new());
+    /// rln.extended_key_gen(&mut buffer).unwrap();
+    ///
+    /// // We deserialize the keygen output
+    /// let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
+    /// ```
+    pub fn extended_key_gen<W: Write>(&self, mut output_data: W) -> io::Result<()> {
+        let (id_trapdoor, id_nullifier, id_secret, id_commitment) = extended_keygen();
+        output_data.write_all(&fr_to_bytes_le(&id_trapdoor))?;
+        output_data.write_all(&fr_to_bytes_le(&id_nullifier))?;
+        output_data.write_all(&fr_to_bytes_le(&id_secret))?;
+        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
+
+        Ok(())
+    }
+
     /// Returns an identity secret and identity commitment pair generated using a seed.
     ///
     /// The identity commitment is the Poseidon hash of the identity secret.
@@ -827,6 +859,52 @@ impl RLN<'_> {
         let (id_key, id_commitment_key) = seeded_keygen(&serialized);
         output_data.write_all(&fr_to_bytes_le(&id_key))?;
         output_data.write_all(&fr_to_bytes_le(&id_commitment_key))?;
+
+        Ok(())
+    }
+
+    /// Returns an identity trapdoor, nullifier, secret and commitment tuple generated using a seed.
+    ///
+    /// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
+    ///
+    /// The identity commitment is the Poseidon hash of the identity secret.
+    ///
+    /// Generated credentials are compatible with [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
+    ///
+    /// Input values are:
+    /// - `input_data`: a reader for the byte vector containing the seed
+    ///
+    /// Output values are:
+    /// - `output_data`: a writer receiving the serialization of the identity tapdoor, identity nullifier, identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
+    ///
+    /// Example
+    /// ```
+    /// use rln::protocol::*;
+    ///
+    /// let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    ///
+    /// let mut input_buffer = Cursor::new(&seed_bytes);
+    /// let mut output_buffer = Cursor::new(Vec::<u8>::new());
+    /// rln.seeded_key_gen(&mut input_buffer, &mut output_buffer)
+    ///     .unwrap();
+    ///
+    /// // We deserialize the keygen output
+    /// let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
+    /// ```
+    pub fn seeded_extended_key_gen<R: Read, W: Write>(
+        &self,
+        mut input_data: R,
+        mut output_data: W,
+    ) -> io::Result<()> {
+        let mut serialized: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut serialized)?;
+
+        let (id_trapdoor, id_nullifier, id_secret, id_commitment) =
+            extended_seeded_keygen(&serialized);
+        output_data.write_all(&fr_to_bytes_le(&id_trapdoor))?;
+        output_data.write_all(&fr_to_bytes_le(&id_nullifier))?;
+        output_data.write_all(&fr_to_bytes_le(&id_secret))?;
+        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
 
         Ok(())
     }
@@ -1577,6 +1655,46 @@ mod test {
             16,
         );
 
+        assert_eq!(identity_secret, expected_identity_secret_seed_bytes);
+        assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
+    }
+
+    #[test]
+    fn test_seeded_extended_keygen() {
+        let rln = RLN::default();
+
+        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+        let mut input_buffer = Cursor::new(&seed_bytes);
+        let mut output_buffer = Cursor::new(Vec::<u8>::new());
+
+        rln.seeded_extended_key_gen(&mut input_buffer, &mut output_buffer)
+            .unwrap();
+        let serialized_output = output_buffer.into_inner();
+
+        let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) =
+            deserialize_identity_tuple(serialized_output);
+
+        // We check against expected values
+        let expected_identity_trapdoor_seed_bytes = str_to_fr(
+            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
+            16,
+        );
+        let expected_identity_nullifier_seed_bytes = str_to_fr(
+            "0x1f18714c7bc83b5bca9e89d404cf6f2f585bc4c0f7ed8b53742b7e2b298f50b4",
+            16,
+        );
+        let expected_identity_secret_seed_bytes = str_to_fr(
+            "0x2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521",
+            16,
+        );
+        let expected_id_commitment_seed_bytes = str_to_fr(
+            "0x68b66aa0a8320d2e56842581553285393188714c48f9b17acd198b4f1734c5c",
+            16,
+        );
+
+        assert_eq!(identity_trapdoor, expected_identity_trapdoor_seed_bytes);
+        assert_eq!(identity_nullifier, expected_identity_nullifier_seed_bytes);
         assert_eq!(identity_secret, expected_identity_secret_seed_bytes);
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
     }
