@@ -117,6 +117,25 @@ pub fn wasm_key_gen(ctx: *const RLNWrapper) -> Result<Uint8Array, String> {
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[wasm_bindgen(js_name = generateSeededMembershipKey)]
+pub fn wasm_seeded_key_gen(ctx: *const RLNWrapper, seed: Uint8Array) -> Result<Uint8Array, String> {
+    let wrapper = unsafe { &*ctx };
+    let mut output_data: Vec<u8> = Vec::new();
+    if wrapper
+        .instance
+        .seeded_key_gen(&seed.to_vec()[..], &mut output_data)
+        .is_ok()
+    {
+        let result = Uint8Array::from(&output_data[..]);
+        std::mem::forget(output_data);
+        Ok(result)
+    } else {
+        std::mem::forget(output_data);
+        Err("could not generate membership key".into())
+    }
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = verifyRLNProof)]
 pub fn wasm_verify_rln_proof(ctx: *const RLNWrapper, proof: Uint8Array) -> Result<bool, String> {
     let wrapper = unsafe { &*ctx };
