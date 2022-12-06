@@ -1,4 +1,5 @@
 use crate::circuit::{vk_from_raw, zkey_from_raw, Curve, Fr};
+use crate::poseidon_hash::poseidon_hash;
 use crate::poseidon_tree::PoseidonTree;
 use crate::protocol::*;
 use crate::utils::*;
@@ -873,23 +874,27 @@ impl RLN<'_> {
         input_proof_data_1.read_to_end(&mut serialized)?;
         // We skip deserialization of the zk-proof at the beginning
         let (proof_values_1, _) = deserialize_proof_values(&serialized[128..].to_vec());
+        let external_nullifier_1 =
+            poseidon_hash(&[proof_values_1.epoch, proof_values_1.rln_identifier]);
 
         let mut serialized: Vec<u8> = Vec::new();
         input_proof_data_2.read_to_end(&mut serialized)?;
         // We skip deserialization of the zk-proof at the beginning
         let (proof_values_2, _) = deserialize_proof_values(&serialized[128..].to_vec());
+        let external_nullifier_2 =
+            poseidon_hash(&[proof_values_2.epoch, proof_values_2.rln_identifier]);
 
         // We continue only if the proof values are for the same epoch
         // The idea is that proof values that go as input to this function are verified first (with zk-proof verify), hence ensuring validity of epoch and other fields.
         // Only in case all fields are valid, an external_nullifier for the message will be stored (otherwise signal/proof will be simply discarded)
         // If the nullifier matches one already seen, we can recovery of identity secret.
-        if proof_values_1.epoch == proof_values_2.epoch {
+        if external_nullifier_1 == external_nullifier_2 {
             // We extract the two shares
             let share1 = (proof_values_1.x, proof_values_1.y);
             let share2 = (proof_values_2.x, proof_values_2.y);
 
             // We recover the secret
-            let recovered_id_secret = compute_id_secret(share1, share2, proof_values_1.epoch);
+            let recovered_id_secret = compute_id_secret(share1, share2, external_nullifier_1);
 
             // If an id secret is recovered, we write it to output_data, otherwise nothing will be written.
             if recovered_id_secret.is_ok() {
