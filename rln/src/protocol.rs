@@ -83,7 +83,12 @@ pub fn deserialize_identity_tuple(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
 
     let (identity_commitment, _) = bytes_le_to_fr(&serialized[all_read..].to_vec());
 
-    return (identity_trapdoor, identity_nullifier, identity_secret_hash, identity_commitment);
+    return (
+        identity_trapdoor,
+        identity_nullifier,
+        identity_secret_hash,
+        identity_commitment,
+    );
 }
 
 pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Vec<u8> {
@@ -426,7 +431,12 @@ pub fn extended_keygen() -> (Fr, Fr, Fr, Fr) {
     let identity_nullifier = Fr::rand(&mut rng);
     let identity_secret_hash = poseidon_hash(&[identity_trapdoor, identity_nullifier]);
     let id_commitment = poseidon_hash(&[identity_secret_hash]);
-    (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment)
+    (
+        identity_trapdoor,
+        identity_nullifier,
+        identity_secret_hash,
+        id_commitment,
+    )
 }
 
 // Generates a tuple (identity_secret_hash, id_commitment) where
@@ -465,7 +475,12 @@ pub fn extended_seeded_keygen(signal: &[u8]) -> (Fr, Fr, Fr, Fr) {
     let identity_nullifier = Fr::rand(&mut rng);
     let identity_secret_hash = poseidon_hash(&[identity_trapdoor, identity_nullifier]);
     let id_commitment = poseidon_hash(&[identity_secret_hash]);
-    (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment)
+    (
+        identity_trapdoor,
+        identity_nullifier,
+        identity_secret_hash,
+        id_commitment,
+    )
 }
 
 // Hashes arbitrary signal to the underlying prime field

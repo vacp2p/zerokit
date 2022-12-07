@@ -448,7 +448,10 @@ mod test {
             16,
         );
 
-        assert_eq!(identity_secret_hash, expected_identity_secret_hash_seed_phrase);
+        assert_eq!(
+            identity_secret_hash,
+            expected_identity_secret_hash_seed_phrase
+        );
         assert_eq!(id_commitment, expected_id_commitment_seed_phrase);
 
         // Generate identity pair using an byte array
@@ -465,13 +468,19 @@ mod test {
             16,
         );
 
-        assert_eq!(identity_secret_hash, expected_identity_secret_hash_seed_bytes);
+        assert_eq!(
+            identity_secret_hash,
+            expected_identity_secret_hash_seed_bytes
+        );
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
 
         // We check again if the identity pair generated with the same seed phrase corresponds to the previously generated one
         let (identity_secret_hash, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
 
-        assert_eq!(identity_secret_hash, expected_identity_secret_hash_seed_phrase);
+        assert_eq!(
+            identity_secret_hash,
+            expected_identity_secret_hash_seed_phrase
+        );
         assert_eq!(id_commitment, expected_id_commitment_seed_phrase);
     }
 }

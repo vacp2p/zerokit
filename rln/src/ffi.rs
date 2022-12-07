@@ -1337,7 +1337,10 @@ mod test {
             16,
         );
 
-        assert_eq!(identity_secret_hash, expected_identity_secret_hash_seed_bytes);
+        assert_eq!(
+            identity_secret_hash,
+            expected_identity_secret_hash_seed_bytes
+        );
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
     }
 
@@ -1385,7 +1388,10 @@ mod test {
 
         assert_eq!(identity_trapdoor, expected_identity_trapdoor_seed_bytes);
         assert_eq!(identity_nullifier, expected_identity_nullifier_seed_bytes);
-        assert_eq!(identity_secret_hash, expected_identity_secret_hash_seed_bytes);
+        assert_eq!(
+            identity_secret_hash,
+            expected_identity_secret_hash_seed_bytes
+        );
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
     }
 

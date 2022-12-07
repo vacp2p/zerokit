@@ -815,7 +815,8 @@ impl RLN<'_> {
     /// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
     /// ```
     pub fn extended_key_gen<W: Write>(&self, mut output_data: W) -> io::Result<()> {
-        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = extended_keygen();
+        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
+            extended_keygen();
         output_data.write_all(&fr_to_bytes_le(&identity_trapdoor))?;
         output_data.write_all(&fr_to_bytes_le(&identity_nullifier))?;
         output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
@@ -972,7 +973,8 @@ impl RLN<'_> {
             let share2 = (proof_values_2.x, proof_values_2.y);
 
             // We recover the secret
-            let recovered_identity_secret_hash = compute_id_secret(share1, share2, external_nullifier_1);
+            let recovered_identity_secret_hash =
+                compute_id_secret(share1, share2, external_nullifier_1);
 
             // If an identity secret hash is recovered, we write it to output_data, otherwise nothing will be written.
             if recovered_identity_secret_hash.is_ok() {
@@ -1655,7 +1657,10 @@ mod test {
             16,
         );
 
-        assert_eq!(identity_secret_hash, expected_identity_secret_hash_seed_bytes);
+        assert_eq!(
+            identity_secret_hash,
+            expected_identity_secret_hash_seed_bytes
+        );
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
     }
 
@@ -1695,7 +1700,10 @@ mod test {
 
         assert_eq!(identity_trapdoor, expected_identity_trapdoor_seed_bytes);
         assert_eq!(identity_nullifier, expected_identity_nullifier_seed_bytes);
-        assert_eq!(identity_secret_hash, expected_identity_secret_hash_seed_bytes);
+        assert_eq!(
+            identity_secret_hash,
+            expected_identity_secret_hash_seed_bytes
+        );
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
     }
 
