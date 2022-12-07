@@ -661,8 +661,8 @@ mod test {
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
         // generate identity
-        let identity_secret = hash_to_field(b"test-merkle-proof");
-        let id_commitment = poseidon_hash(&vec![identity_secret]);
+        let identity_secret_hash = hash_to_field(b"test-merkle-proof");
+        let id_commitment = poseidon_hash(&vec![identity_secret_hash]);
 
         // We prepare id_commitment and we set the leaf at provided index
         let leaf_ser = fr_to_bytes_le(&id_commitment);
@@ -962,7 +962,7 @@ mod test {
         assert!(success, "key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret, read) = bytes_le_to_fr(&result_data);
+        let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
         let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
 
         // We set as leaf id_commitment, its index would be equal to no_of_leaves
@@ -982,9 +982,9 @@ mod test {
         let epoch = hash_to_field(b"test-epoch");
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized: Vec<u8> = Vec::new();
-        serialized.append(&mut fr_to_bytes_le(&identity_secret));
+        serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut identity_index.to_le_bytes().to_vec());
         serialized.append(&mut fr_to_bytes_le(&epoch));
         serialized.append(&mut signal_len.to_le_bytes().to_vec());
@@ -1047,7 +1047,7 @@ mod test {
         assert!(success, "key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret, read) = bytes_le_to_fr(&result_data);
+        let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
         let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
 
         // We set as leaf id_commitment, its index would be equal to no_of_leaves
@@ -1067,9 +1067,9 @@ mod test {
         let epoch = hash_to_field(b"test-epoch");
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized: Vec<u8> = Vec::new();
-        serialized.append(&mut fr_to_bytes_le(&identity_secret));
+        serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut identity_index.to_le_bytes().to_vec());
         serialized.append(&mut fr_to_bytes_le(&epoch));
         serialized.append(&mut signal_len.to_le_bytes().to_vec());
@@ -1160,7 +1160,7 @@ mod test {
         assert!(success, "key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret, read) = bytes_le_to_fr(&result_data);
+        let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
         let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
 
         // We set as leaf id_commitment, its index would be equal to 0 since tree is empty
@@ -1186,9 +1186,9 @@ mod test {
         let epoch = hash_to_field(b"test-epoch");
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized1: Vec<u8> = Vec::new();
-        serialized1.append(&mut fr_to_bytes_le(&identity_secret));
+        serialized1.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized1.append(&mut identity_index.to_le_bytes().to_vec());
         serialized1.append(&mut fr_to_bytes_le(&epoch));
 
@@ -1232,17 +1232,17 @@ mod test {
         );
         assert!(success, "recover id secret call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
-        let serialized_id_secret = <&[u8]>::from(&output_buffer).to_vec();
+        let serialized_identity_secret_hash = <&[u8]>::from(&output_buffer).to_vec();
 
         // We passed two shares for the same secret, so recovery should be successful
-        // To check it, we ensure that recovered_id_secret is non-empty
-        assert!(!serialized_id_secret.is_empty());
+        // To check it, we ensure that recovered identity secret hash is empty
+        assert!(!serialized_identity_secret_hash.is_empty());
 
-        // We check if the recovered id secret corresponds to the original one
-        let (recovered_id_secret, _) = bytes_le_to_fr(&serialized_id_secret);
-        assert_eq!(recovered_id_secret, identity_secret);
+        // We check if the recovered identity secret hash corresponds to the original one
+        let (recovered_identity_secret_hash, _) = bytes_le_to_fr(&serialized_identity_secret_hash);
+        assert_eq!(recovered_identity_secret_hash, identity_secret_hash);
 
-        // We now test that computing_id_secret is unsuccessful if shares computed from two different id secrets but within same epoch are passed
+        // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
 
         // We generate a new identity pair
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
@@ -1250,7 +1250,7 @@ mod test {
         assert!(success, "key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret_new, read) = bytes_le_to_fr(&result_data);
+        let (identity_secret_hash_new, read) = bytes_le_to_fr(&result_data);
         let (id_commitment_new, _) = bytes_le_to_fr(&result_data[read..].to_vec());
 
         // We set as leaf id_commitment, its index would be equal to 1 since at 0 there is id_commitment
@@ -1266,10 +1266,10 @@ mod test {
         let signal3_len = u64::try_from(signal3.len()).unwrap();
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         // Note that epoch is the same as before
         let mut serialized: Vec<u8> = Vec::new();
-        serialized.append(&mut fr_to_bytes_le(&identity_secret_new));
+        serialized.append(&mut fr_to_bytes_le(&identity_secret_hash_new));
         serialized.append(&mut identity_index_new.to_le_bytes().to_vec());
         serialized.append(&mut fr_to_bytes_le(&epoch));
         serialized.append(&mut signal3_len.to_le_bytes().to_vec());
@@ -1284,7 +1284,7 @@ mod test {
         // result_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
         let proof_data_3 = <&[u8]>::from(&output_buffer).to_vec();
 
-        // We attempt to recover the secret using share1 (coming from identity_secret) and share3 (coming from identity_secret_new)
+        // We attempt to recover the secret using share1 (coming from identity_secret_hash) and share3 (coming from identity_secret_hash_new)
 
         let input_proof_buffer_1 = &Buffer::from(proof_data_1.as_ref());
         let input_proof_buffer_3 = &Buffer::from(proof_data_3.as_ref());
@@ -1297,11 +1297,11 @@ mod test {
         );
         assert!(success, "recover id secret call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
-        let serialized_id_secret = <&[u8]>::from(&output_buffer).to_vec();
+        let serialized_identity_secret_hash = <&[u8]>::from(&output_buffer).to_vec();
 
         // We passed two shares for different secrets, so recovery should be not successful
-        // To check it, we ensure that recovered_id_secret is empty
-        assert!(serialized_id_secret.is_empty());
+        // To check it, we ensure that recovered identity secret hash is empty
+        assert!(serialized_identity_secret_hash.is_empty());
     }
 
     #[test]
@@ -1324,11 +1324,11 @@ mod test {
         assert!(success, "seeded key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret, read) = bytes_le_to_fr(&result_data);
+        let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
         let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
 
         // We check against expected values
-        let expected_identity_secret_seed_bytes = str_to_fr(
+        let expected_identity_secret_hash_seed_bytes = str_to_fr(
             "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
             16,
         );
@@ -1337,7 +1337,7 @@ mod test {
             16,
         );
 
-        assert_eq!(identity_secret, expected_identity_secret_seed_bytes);
+        assert_eq!(identity_secret_hash, expected_identity_secret_hash_seed_bytes);
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
     }
 
@@ -1362,7 +1362,7 @@ mod test {
         assert!(success, "seeded key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) =
+        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
             deserialize_identity_tuple(result_data);
 
         // We check against expected values
@@ -1374,7 +1374,7 @@ mod test {
             "0x1f18714c7bc83b5bca9e89d404cf6f2f585bc4c0f7ed8b53742b7e2b298f50b4",
             16,
         );
-        let expected_identity_secret_seed_bytes = str_to_fr(
+        let expected_identity_secret_hash_seed_bytes = str_to_fr(
             "0x2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521",
             16,
         );
@@ -1385,7 +1385,7 @@ mod test {
 
         assert_eq!(identity_trapdoor, expected_identity_trapdoor_seed_bytes);
         assert_eq!(identity_nullifier, expected_identity_nullifier_seed_bytes);
-        assert_eq!(identity_secret, expected_identity_secret_seed_bytes);
+        assert_eq!(identity_secret_hash, expected_identity_secret_hash_seed_bytes);
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
     }
 

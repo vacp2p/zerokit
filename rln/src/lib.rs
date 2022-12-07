@@ -179,8 +179,8 @@ mod test {
         let leaf_index = 3;
 
         // generate identity
-        let identity_secret = hash_to_field(b"test-merkle-proof");
-        let id_commitment = poseidon_hash(&vec![identity_secret]);
+        let identity_secret_hash = hash_to_field(b"test-merkle-proof");
+        let id_commitment = poseidon_hash(&vec![identity_secret_hash]);
 
         // generate merkle tree
         let default_leaf = Fr::from(0);
@@ -365,7 +365,7 @@ mod test {
         let leaf_index = 3;
 
         // Generate identity pair
-        let (identity_secret, id_commitment) = keygen();
+        let (identity_secret_hash, id_commitment) = keygen();
 
         //// generate merkle tree
         let default_leaf = Fr::from(0);
@@ -382,7 +382,7 @@ mod test {
         //let rln_identifier = hash_to_field(b"test-rln-identifier");
 
         let rln_witness: RLNWitnessInput = rln_witness_from_values(
-            identity_secret,
+            identity_secret_hash,
             &merkle_proof,
             x,
             epoch, /*, rln_identifier*/
@@ -436,10 +436,10 @@ mod test {
     fn test_seeded_keygen() {
         // Generate identity pair using a seed phrase
         let seed_phrase: &str = "A seed phrase example";
-        let (identity_secret, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
+        let (identity_secret_hash, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
 
         // We check against expected values
-        let expected_identity_secret_seed_phrase = str_to_fr(
+        let expected_identity_secret_hash_seed_phrase = str_to_fr(
             "0x20df38f3f00496f19fe7c6535492543b21798ed7cb91aebe4af8012db884eda3",
             16,
         );
@@ -448,15 +448,15 @@ mod test {
             16,
         );
 
-        assert_eq!(identity_secret, expected_identity_secret_seed_phrase);
+        assert_eq!(identity_secret_hash, expected_identity_secret_hash_seed_phrase);
         assert_eq!(id_commitment, expected_id_commitment_seed_phrase);
 
         // Generate identity pair using an byte array
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let (identity_secret, id_commitment) = seeded_keygen(seed_bytes);
+        let (identity_secret_hash, id_commitment) = seeded_keygen(seed_bytes);
 
         // We check against expected values
-        let expected_identity_secret_seed_bytes = str_to_fr(
+        let expected_identity_secret_hash_seed_bytes = str_to_fr(
             "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
             16,
         );
@@ -465,13 +465,13 @@ mod test {
             16,
         );
 
-        assert_eq!(identity_secret, expected_identity_secret_seed_bytes);
+        assert_eq!(identity_secret_hash, expected_identity_secret_hash_seed_bytes);
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
 
         // We check again if the identity pair generated with the same seed phrase corresponds to the previously generated one
-        let (identity_secret, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
+        let (identity_secret_hash, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
 
-        assert_eq!(identity_secret, expected_identity_secret_seed_phrase);
+        assert_eq!(identity_secret_hash, expected_identity_secret_hash_seed_phrase);
         assert_eq!(id_commitment, expected_id_commitment_seed_phrase);
     }
 }

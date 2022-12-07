@@ -97,7 +97,7 @@ rln.key_gen(&mut buffer).unwrap();
 
 // We deserialize the keygen output to obtain
 // the identiy_secret and id_commitment
-let (identity_secret, id_commitment) = deserialize_identity_pair(buffer.into_inner());
+let (identity_secret_hash, id_commitment) = deserialize_identity_pair(buffer.into_inner());
 ```
 
 ### Add ID commitment to the RLN Merkle tree
@@ -139,7 +139,7 @@ Input buffer is serialized as `[ identity_key | id_index | epoch | signal_len | 
 
 ```rust
 // We prepare input to the proof generation routine
-let proof_input = prepare_prove_input(identity_secret, id_index, epoch, signal);
+let proof_input = prepare_prove_input(identity_secret_hash, id_index, epoch, signal);
 ```
 
 We are now ready to generate a RLN ZK proof along with the _public outputs_ of the ZK circuit evaluation.
