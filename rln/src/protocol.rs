@@ -251,12 +251,13 @@ pub fn random_rln_witness(tree_height: usize) -> RLNWitnessInput {
 
 pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> RLNProofValues {
     // y share
+    let external_nullifier = poseidon_hash(&[rln_witness.epoch, rln_witness.rln_identifier]);
     let a_0 = rln_witness.identity_secret;
-    let a_1 = poseidon_hash(&[a_0, rln_witness.epoch]);
+    let a_1 = poseidon_hash(&[a_0, external_nullifier]);
     let y = a_0 + rln_witness.x * a_1;
 
     // Nullifier
-    let nullifier = poseidon_hash(&[a_1, rln_witness.rln_identifier]);
+    let nullifier = poseidon_hash(&[a_1]);
 
     // Merkle tree root computations
     let root = compute_tree_root(
@@ -427,21 +428,25 @@ pub fn hash_to_field(signal: &[u8]) -> Fr {
     el
 }
 
-pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr), epoch: Fr) -> Result<Fr, String> {
-    // Assuming a0 is the identity secret and a1 = poseidonHash([a0, epoch]),
+pub fn compute_id_secret(
+    share1: (Fr, Fr),
+    share2: (Fr, Fr),
+    external_nullifier: Fr,
+) -> Result<Fr, String> {
+    // Assuming a0 is the identity secret and a1 = poseidonHash([a0, external_nullifier]),
     // a (x,y) share satisfies the following relation
     // y = a_0 + x * a_1
     let (x1, y1) = share1;
     let (x2, y2) = share2;
 
-    // If the two input shares were computed for the same epoch and identity secret, we can recover the latter
+    // If the two input shares were computed for the same external_nullifier and identity secret, we can recover the latter
     // y1 = a_0 + x1 * a_1
     // y2 = a_0 + x2 * a_1
     let a_1 = (y1 - y2) / (x1 - x2);
     let a_0 = y1 - x1 * a_1;
 
-    // If shares come from the same polynomial, a0 is correctly recovered and a1 = poseidonHash([a0, epoch])
-    let computed_a_1 = poseidon_hash(&[a_0, epoch]);
+    // If shares come from the same polynomial, a0 is correctly recovered and a1 = poseidonHash([a0, external_nullifier])
+    let computed_a_1 = poseidon_hash(&[a_0, external_nullifier]);
 
     if a_1 == computed_a_1 {
         // We successfully recovered the identity secret

@@ -9,6 +9,7 @@ on:
       - '!private-settlement/src/**'
       - '!rln-wasm/**'
       - '!rln/src/**'
+      - '!rln/resources/**'
       - '!semaphore/src/**'
       - '!utils/src/**'
   pull_request:
@@ -19,6 +20,7 @@ on:
       - '!private-settlement/src/**'
       - '!rln-wasm/**'
       - '!rln/src/**'
+      - '!rln/resources/**'
       - '!semaphore/src/**'
       - '!utils/src/**'
 
