@@ -177,8 +177,8 @@ impl RLN<'_> {
     /// ```
     /// use crate::protocol::*;
     ///
-    /// // We generate a random id secret and commitment pair
-    /// let (identity_secret, id_commitment) = keygen();
+    /// // We generate a random identity secret hash and commitment pair
+    /// let (identity_secret_hash, id_commitment) = keygen();
     ///
     /// // We define the tree index where id_commitment will be added
     /// let id_index = 10;
@@ -489,7 +489,7 @@ impl RLN<'_> {
     /// Computes a zkSNARK RLN proof from the identity secret, the Merkle tree index, the epoch and signal.
     ///
     /// Input values are:
-    /// - `input_data`: a reader for the serialization of `[ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]`
+    /// - `input_data`: a reader for the serialization of `[ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]`
     ///
     /// Output values are:
     /// - `output_data`: a writer receiving the serialization of the zkSNARK proof and the circuit evaluations outputs, i.e. `[ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]`
@@ -500,7 +500,7 @@ impl RLN<'_> {
     /// use rln::utils::*;
     ///
     /// // Generate identity pair
-    /// let (identity_secret, id_commitment) = keygen();
+    /// let (identity_secret_hash, id_commitment) = keygen();
     ///
     /// // We set as leaf id_commitment after storing its index
     /// let identity_index = 10;
@@ -516,9 +516,9 @@ impl RLN<'_> {
     /// let epoch = hash_to_field(b"test-epoch");
     ///
     /// // We prepare input for generate_rln_proof API
-    /// // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+    /// // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
     /// let mut serialized: Vec<u8> = Vec::new();
-    /// serialized.append(&mut fr_to_bytes_le(&identity_secret));
+    /// serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
     /// serialized.append(&mut identity_index.to_le_bytes().to_vec());
     /// serialized.append(&mut fr_to_bytes_le(&epoch));
     /// serialized.append(&mut signal_len.to_le_bytes().to_vec());
@@ -782,12 +782,45 @@ impl RLN<'_> {
     /// rln.key_gen(&mut buffer).unwrap();
     ///
     /// // We deserialize the keygen output
-    /// let (identity_secret, id_commitment) = deserialize_identity_pair(buffer.into_inner());
+    /// let (identity_secret_hash, id_commitment) = deserialize_identity_pair(buffer.into_inner());
     /// ```
     pub fn key_gen<W: Write>(&self, mut output_data: W) -> io::Result<()> {
-        let (id_key, id_commitment_key) = keygen();
-        output_data.write_all(&fr_to_bytes_le(&id_key))?;
-        output_data.write_all(&fr_to_bytes_le(&id_commitment_key))?;
+        let (identity_secret_hash, id_commitment) = keygen();
+        output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
+        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
+
+        Ok(())
+    }
+
+    /// Returns an identity trapdoor, nullifier, secret and commitment tuple.
+    ///
+    /// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
+    ///
+    /// The identity commitment is the Poseidon hash of the identity secret.
+    ///
+    /// Generated credentials are compatible with [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
+    ///
+    /// Output values are:
+    /// - `output_data`: a writer receiving the serialization of the identity tapdoor, identity nullifier, identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
+    ///
+    /// Example
+    /// ```
+    /// use rln::protocol::*;
+    ///
+    /// // We generate an identity tuple
+    /// let mut buffer = Cursor::new(Vec::<u8>::new());
+    /// rln.extended_key_gen(&mut buffer).unwrap();
+    ///
+    /// // We deserialize the keygen output
+    /// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
+    /// ```
+    pub fn extended_key_gen<W: Write>(&self, mut output_data: W) -> io::Result<()> {
+        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
+            extended_keygen();
+        output_data.write_all(&fr_to_bytes_le(&identity_trapdoor))?;
+        output_data.write_all(&fr_to_bytes_le(&identity_nullifier))?;
+        output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
+        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
 
         Ok(())
     }
@@ -814,7 +847,7 @@ impl RLN<'_> {
     ///     .unwrap();
     ///
     /// // We deserialize the keygen output
-    /// let (identity_secret, id_commitment) = deserialize_identity_pair(output_buffer.into_inner());
+    /// let (identity_secret_hash, id_commitment) = deserialize_identity_pair(output_buffer.into_inner());
     /// ```
     pub fn seeded_key_gen<R: Read, W: Write>(
         &self,
@@ -824,9 +857,55 @@ impl RLN<'_> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
 
-        let (id_key, id_commitment_key) = seeded_keygen(&serialized);
-        output_data.write_all(&fr_to_bytes_le(&id_key))?;
-        output_data.write_all(&fr_to_bytes_le(&id_commitment_key))?;
+        let (identity_secret_hash, id_commitment) = seeded_keygen(&serialized);
+        output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
+        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
+
+        Ok(())
+    }
+
+    /// Returns an identity trapdoor, nullifier, secret and commitment tuple generated using a seed.
+    ///
+    /// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
+    ///
+    /// The identity commitment is the Poseidon hash of the identity secret.
+    ///
+    /// Generated credentials are compatible with [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
+    ///
+    /// Input values are:
+    /// - `input_data`: a reader for the byte vector containing the seed
+    ///
+    /// Output values are:
+    /// - `output_data`: a writer receiving the serialization of the identity tapdoor, identity nullifier, identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
+    ///
+    /// Example
+    /// ```
+    /// use rln::protocol::*;
+    ///
+    /// let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    ///
+    /// let mut input_buffer = Cursor::new(&seed_bytes);
+    /// let mut output_buffer = Cursor::new(Vec::<u8>::new());
+    /// rln.seeded_key_gen(&mut input_buffer, &mut output_buffer)
+    ///     .unwrap();
+    ///
+    /// // We deserialize the keygen output
+    /// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
+    /// ```
+    pub fn seeded_extended_key_gen<R: Read, W: Write>(
+        &self,
+        mut input_data: R,
+        mut output_data: W,
+    ) -> io::Result<()> {
+        let mut serialized: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut serialized)?;
+
+        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
+            extended_seeded_keygen(&serialized);
+        output_data.write_all(&fr_to_bytes_le(&identity_trapdoor))?;
+        output_data.write_all(&fr_to_bytes_le(&identity_nullifier))?;
+        output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
+        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
 
         Ok(())
     }
@@ -838,11 +917,11 @@ impl RLN<'_> {
     /// - `input_proof_data_2`: same as `input_proof_data_1`
     ///
     /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the recovered identity secret field element if correctly recovered (serialization done with [`rln::utils::fr_to_bytes_le`](crate::utils::fr_to_bytes_le)), a writer receiving an empty byte vector if not.
+    /// - `output_data`: a writer receiving the serialization of the recovered identity secret hash field element if correctly recovered (serialization done with [`rln::utils::fr_to_bytes_le`](crate::utils::fr_to_bytes_le)), a writer receiving an empty byte vector if not.
     ///
     /// Example
     /// ```
-    /// // identity_secret, proof_data_1 and proof_data_2 are computed as in the example code snippet provided for rln::public::RLN::generate_rln_proof using same identity secret and epoch (but not necessarily same signal)
+    /// // identity_secret_hash, proof_data_1 and proof_data_2 are computed as in the example code snippet provided for rln::public::RLN::generate_rln_proof using same identity secret and epoch (but not necessarily same signal)
     ///
     /// let mut input_proof_data_1 = Cursor::new(proof_data_1);
     /// let mut input_proof_data_2 = Cursor::new(proof_data_2);
@@ -854,14 +933,14 @@ impl RLN<'_> {
     /// )
     /// .unwrap();
     ///
-    /// let serialized_id_secret = output_buffer.into_inner();
+    /// let serialized_identity_secret_hash = output_buffer.into_inner();
     ///
     /// // We ensure that a non-empty value is written to output_buffer
-    /// assert!(!serialized_id_secret.is_empty());
+    /// assert!(!serialized_identity_secret_hash.is_empty());
     ///
-    /// // We check if the recovered id secret corresponds to the original one
-    /// let (recovered_id_secret, _) = bytes_le_to_fr(&serialized_id_secret);
-    /// assert_eq!(recovered_id_secret, identity_secret);
+    /// // We check if the recovered identity secret hash corresponds to the original one
+    /// let (recovered_identity_secret_hash, _) = bytes_le_to_fr(&serialized_identity_secret_hash);
+    /// assert_eq!(recovered_identity_secret_hash, identity_secret_hash);
     /// ```
     pub fn recover_id_secret<R: Read, W: Write>(
         &self,
@@ -894,12 +973,13 @@ impl RLN<'_> {
             let share2 = (proof_values_2.x, proof_values_2.y);
 
             // We recover the secret
-            let recovered_id_secret = compute_id_secret(share1, share2, external_nullifier_1);
+            let recovered_identity_secret_hash =
+                compute_id_secret(share1, share2, external_nullifier_1);
 
-            // If an id secret is recovered, we write it to output_data, otherwise nothing will be written.
-            if recovered_id_secret.is_ok() {
-                let id_secret = recovered_id_secret.unwrap();
-                output_data.write_all(&fr_to_bytes_le(&id_secret))?;
+            // If an identity secret hash is recovered, we write it to output_data, otherwise nothing will be written.
+            if recovered_identity_secret_hash.is_ok() {
+                let identity_secret_hash = recovered_identity_secret_hash.unwrap();
+                output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
             }
         }
 
@@ -941,7 +1021,7 @@ impl RLN<'_> {
     /// Returns the serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) populated from the identity secret, the Merkle tree index, the epoch and signal.
     ///
     /// Input values are:
-    /// - `input_data`: a reader for the serialization of `[ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]`
+    /// - `input_data`: a reader for the serialization of `[ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]`
     ///
     /// The function returns the corresponding [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object serialized using [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
     pub fn get_serialized_rln_witness<R: Read>(&mut self, mut input_data: R) -> Vec<u8> {
@@ -1197,8 +1277,8 @@ mod test {
         let mut rln = RLN::new(tree_height, input_buffer);
 
         // generate identity
-        let identity_secret = hash_to_field(b"test-merkle-proof");
-        let id_commitment = poseidon_hash(&vec![identity_secret]);
+        let identity_secret_hash = hash_to_field(b"test-merkle-proof");
+        let id_commitment = poseidon_hash(&vec![identity_secret_hash]);
 
         // We pass id_commitment as Read buffer to RLN's set_leaf
         let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
@@ -1412,7 +1492,7 @@ mod test {
         rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // Generate identity pair
-        let (identity_secret, id_commitment) = keygen();
+        let (identity_secret_hash, id_commitment) = keygen();
 
         // We set as leaf id_commitment after storing its index
         let identity_index = u64::try_from(rln.tree.leaves_set()).unwrap();
@@ -1428,9 +1508,9 @@ mod test {
         let epoch = hash_to_field(b"test-epoch");
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized: Vec<u8> = Vec::new();
-        serialized.append(&mut fr_to_bytes_le(&identity_secret));
+        serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut identity_index.to_le_bytes().to_vec());
         serialized.append(&mut fr_to_bytes_le(&epoch));
         serialized.append(&mut signal_len.to_le_bytes().to_vec());
@@ -1477,7 +1557,7 @@ mod test {
         rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // Generate identity pair
-        let (identity_secret, id_commitment) = keygen();
+        let (identity_secret_hash, id_commitment) = keygen();
 
         // We set as leaf id_commitment after storing its index
         let identity_index = u64::try_from(rln.tree.leaves_set()).unwrap();
@@ -1493,9 +1573,9 @@ mod test {
         let epoch = hash_to_field(b"test-epoch");
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized: Vec<u8> = Vec::new();
-        serialized.append(&mut fr_to_bytes_le(&identity_secret));
+        serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut identity_index.to_le_bytes().to_vec());
         serialized.append(&mut fr_to_bytes_le(&epoch));
         serialized.append(&mut signal_len.to_le_bytes().to_vec());
@@ -1564,11 +1644,11 @@ mod test {
             .unwrap();
         let serialized_output = output_buffer.into_inner();
 
-        let (identity_secret, read) = bytes_le_to_fr(&serialized_output);
+        let (identity_secret_hash, read) = bytes_le_to_fr(&serialized_output);
         let (id_commitment, _) = bytes_le_to_fr(&serialized_output[read..].to_vec());
 
         // We check against expected values
-        let expected_identity_secret_seed_bytes = str_to_fr(
+        let expected_identity_secret_hash_seed_bytes = str_to_fr(
             "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
             16,
         );
@@ -1577,7 +1657,53 @@ mod test {
             16,
         );
 
-        assert_eq!(identity_secret, expected_identity_secret_seed_bytes);
+        assert_eq!(
+            identity_secret_hash,
+            expected_identity_secret_hash_seed_bytes
+        );
+        assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
+    }
+
+    #[test]
+    fn test_seeded_extended_keygen() {
+        let rln = RLN::default();
+
+        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+        let mut input_buffer = Cursor::new(&seed_bytes);
+        let mut output_buffer = Cursor::new(Vec::<u8>::new());
+
+        rln.seeded_extended_key_gen(&mut input_buffer, &mut output_buffer)
+            .unwrap();
+        let serialized_output = output_buffer.into_inner();
+
+        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
+            deserialize_identity_tuple(serialized_output);
+
+        // We check against expected values
+        let expected_identity_trapdoor_seed_bytes = str_to_fr(
+            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
+            16,
+        );
+        let expected_identity_nullifier_seed_bytes = str_to_fr(
+            "0x1f18714c7bc83b5bca9e89d404cf6f2f585bc4c0f7ed8b53742b7e2b298f50b4",
+            16,
+        );
+        let expected_identity_secret_hash_seed_bytes = str_to_fr(
+            "0x2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521",
+            16,
+        );
+        let expected_id_commitment_seed_bytes = str_to_fr(
+            "0x68b66aa0a8320d2e56842581553285393188714c48f9b17acd198b4f1734c5c",
+            16,
+        );
+
+        assert_eq!(identity_trapdoor, expected_identity_trapdoor_seed_bytes);
+        assert_eq!(identity_nullifier, expected_identity_nullifier_seed_bytes);
+        assert_eq!(
+            identity_secret_hash,
+            expected_identity_secret_hash_seed_bytes
+        );
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
     }
 
@@ -1622,7 +1748,7 @@ mod test {
         rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // Generate identity pair
-        let (identity_secret, id_commitment) = keygen();
+        let (identity_secret_hash, id_commitment) = keygen();
 
         // We set as leaf id_commitment after storing its index
         let identity_index = u64::try_from(rln.tree.leaves_set()).unwrap();
@@ -1638,9 +1764,9 @@ mod test {
         let epoch = hash_to_field(b"test-epoch");
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized: Vec<u8> = Vec::new();
-        serialized.append(&mut fr_to_bytes_le(&identity_secret));
+        serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut identity_index.to_le_bytes().to_vec());
         serialized.append(&mut fr_to_bytes_le(&epoch));
         serialized.append(&mut signal_len.to_le_bytes().to_vec());
@@ -1705,7 +1831,7 @@ mod test {
         let mut rln = RLN::new(tree_height, input_buffer);
 
         // Generate identity pair
-        let (identity_secret, id_commitment) = keygen();
+        let (identity_secret_hash, id_commitment) = keygen();
 
         // We set as leaf id_commitment after storing its index
         let identity_index = u64::try_from(rln.tree.leaves_set()).unwrap();
@@ -1726,9 +1852,9 @@ mod test {
         // We generate two proofs using same epoch but different signals.
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized1: Vec<u8> = Vec::new();
-        serialized1.append(&mut fr_to_bytes_le(&identity_secret));
+        serialized1.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized1.append(&mut identity_index.to_le_bytes().to_vec());
         serialized1.append(&mut fr_to_bytes_le(&epoch));
 
@@ -1767,19 +1893,19 @@ mod test {
         )
         .unwrap();
 
-        let serialized_id_secret = output_buffer.into_inner();
+        let serialized_identity_secret_hash = output_buffer.into_inner();
 
         // We ensure that a non-empty value is written to output_buffer
-        assert!(!serialized_id_secret.is_empty());
+        assert!(!serialized_identity_secret_hash.is_empty());
 
-        // We check if the recovered id secret corresponds to the original one
-        let (recovered_id_secret, _) = bytes_le_to_fr(&serialized_id_secret);
-        assert_eq!(recovered_id_secret, identity_secret);
+        // We check if the recovered identity secret hash corresponds to the original one
+        let (recovered_identity_secret_hash, _) = bytes_le_to_fr(&serialized_identity_secret_hash);
+        assert_eq!(recovered_identity_secret_hash, identity_secret_hash);
 
-        // We now test that computing_id_secret is unsuccessful if shares computed from two different id secrets but within same epoch are passed
+        // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
 
         // We generate a new identity pair
-        let (identity_secret_new, id_commitment_new) = keygen();
+        let (identity_secret_hash_new, id_commitment_new) = keygen();
 
         // We add it to the tree
         let identity_index_new = u64::try_from(rln.tree.leaves_set()).unwrap();
@@ -1791,9 +1917,9 @@ mod test {
         let signal3_len = u64::try_from(signal3.len()).unwrap();
 
         // We prepare proof input. Note that epoch is the same as before
-        // input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized3: Vec<u8> = Vec::new();
-        serialized3.append(&mut fr_to_bytes_le(&identity_secret_new));
+        serialized3.append(&mut fr_to_bytes_le(&identity_secret_hash_new));
         serialized3.append(&mut identity_index_new.to_le_bytes().to_vec());
         serialized3.append(&mut fr_to_bytes_le(&epoch));
         serialized3.append(&mut signal3_len.to_le_bytes().to_vec());
@@ -1806,7 +1932,7 @@ mod test {
             .unwrap();
         let proof_data_3 = output_buffer.into_inner();
 
-        // We attempt to recover the secret using share1 (coming from identity_secret) and share3 (coming from identity_secret_new)
+        // We attempt to recover the secret using share1 (coming from identity_secret_hash) and share3 (coming from identity_secret_hash_new)
 
         let mut input_proof_data_1 = Cursor::new(proof_data_1.clone());
         let mut input_proof_data_3 = Cursor::new(proof_data_3);
@@ -1818,9 +1944,9 @@ mod test {
         )
         .unwrap();
 
-        let serialized_id_secret = output_buffer.into_inner();
+        let serialized_identity_secret_hash = output_buffer.into_inner();
 
         // We ensure that an empty value was written to output_buffer, i.e. no secret is recovered
-        assert!(serialized_id_secret.is_empty());
+        assert!(serialized_identity_secret_hash.is_empty());
     }
 }
