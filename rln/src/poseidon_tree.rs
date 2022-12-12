@@ -63,8 +63,6 @@ impl pmtree::Hasher for PoseidonHash {
 
     fn deserialize(value: Value) -> Self::Fr {
         let (fr, _) = bytes_le_to_fr(&value);
-        //let c = std::io::Cursor::new(value);
-        //Fr::deserialize(c).unwrap()
         fr
     }
 
@@ -104,14 +102,25 @@ struct SledDB(Sled);
 impl Database for SledDB {
     fn new(dbpath: &str) -> Result<Self> {
         if Path::new(dbpath).exists() {
-            fs::remove_dir_all(dbpath).unwrap();
+            match fs::remove_dir_all(dbpath) {
+                Ok(x) => x,
+                Err(e) => return Err(Error(e.to_string())),
+            }
         }
-        let db = sled::open(dbpath).unwrap();
+
+        let db: Sled = match sled::open(dbpath) {
+            Ok(db) => db,
+            Err(e) => return Err(Error(e.to_string())),
+        };
+
         Ok(SledDB(db))
     }
 
     fn load(dbpath: &str) -> Result<Self> {
-        let db = sled::open(dbpath).unwrap();
+        let db: Sled = match sled::open(dbpath) {
+            Ok(db) => db,
+            Err(e) => return Err(Error(e.to_string())),
+        };
 
         if !db.was_recovered() {
             return Err(Error("Trying to load non-existing database!".to_string()));
@@ -121,14 +130,17 @@ impl Database for SledDB {
     }
 
     fn get(&self, key: DBKey) -> Result<Option<Value>> {
-        Ok(self.0.get(key).unwrap().map(|val| val.to_vec()))
+        match self.0.get(key) {
+            Ok(value) => Ok(value.map(|val| val.to_vec())),
+            Err(e) => Err(Error(e.to_string())),
+        }
     }
 
     fn put(&mut self, key: DBKey, value: Value) -> Result<()> {
-        self.0.insert(key, value).unwrap();
-        self.0.flush().unwrap();
-
-        Ok(())
+        match self.0.insert(key, value) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(Error(e.to_string())),
+        }
     }
 }
 
@@ -211,6 +223,16 @@ mod test {
             let proof = tree_pm_sled.proof(i).expect("index should be set");
             assert_eq!(proof.leaf_index(), i);
         }
+
+        // We check all roots are the same
+        let tree_full_root = tree_full.root();
+        let tree_opt_root = tree_opt.root();
+        let tree_pm_memory_root = tree_pm_memory.root();
+        let tree_pm_sled_root = tree_pm_sled.root();
+
+        assert_eq!(tree_full_root, tree_opt_root);
+        assert_eq!(tree_opt_root, tree_pm_memory_root);
+        assert_eq!(tree_pm_memory_root, tree_pm_sled_root);
 
         println!(" Average tree generation time:");
         println!(
