@@ -11,7 +11,6 @@ doctest = false
 
 
 [dependencies]
-
 # ZKP Generation
 ark-ec = { version = "0.3.0", default-features = false }
 ark-ff = { version = "0.3.0", default-features = false, features = [ "asm"] }
@@ -43,8 +42,15 @@ utils = { path = "../utils/", default-features = false }
 # serialization
 serde_json = "1.0.48"
 
+[dev-dependencies]
+pmtree = { git = "https://github.com/Rate-Limiting-Nullifier/pmtree" }
+sled = "0.34.7"
+
 [features]
 default = ["parallel", "wasmer/sys-default"]
-fullmerkletree = []
 parallel = ["ark-ec/parallel", "ark-ff/parallel", "ark-std/parallel", "ark-groth16/parallel", "utils/parallel"]
 wasm = ["wasmer/js", "wasmer/std"]
+fullmerkletree = ["default"]
+
+# Note: pmtree feature is still experimental
+pmtree = ["default"]
