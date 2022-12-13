@@ -4,25 +4,13 @@
 
 use crate::circuit::Fr;
 use crate::poseidon_hash::poseidon_hash;
-use crate::utils::{bytes_le_to_fr, fr_to_bytes_le};
 use cfg_if::cfg_if;
-
-use pmtree::*;
-use sled::Db as Sled;
-use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
 use utils::merkle_tree::*;
 
 // The zerokit RLN default Merkle tree implementation is the OptimalMerkleTree.
-// To switch to FullMerkleTree or PMTree implementations, it is enough to enable the fullmerkletree or pmtree feature, respectively
+// To switch to FullMerkleTree implementation, it is enough to enable the fullmerkletree feature
 
 cfg_if! {
-    // Not all used Merkle tree APIs are supported by pmtree. We comment for now.
-    // if #[cfg(feature = "pmtree")] {
-    //     pub type PoseidonTree = pmtree::MerkleTree<SledDB, PoseidonHash>;
-    //     pub type MerkleProof = pmtree::MerkleProof<PoseidonHash>;
-    // } else
     if #[cfg(feature = "fullmerkletree")] {
         pub type PoseidonTree = FullMerkleTree<PoseidonHash>;
         pub type MerkleProof = FullMerkleProof<PoseidonHash>;
@@ -49,101 +37,6 @@ impl utils::merkle_tree::Hasher for PoseidonHash {
     }
 }
 
-// The pmtree Hasher trait used by pmtree Merkle tree
-impl pmtree::Hasher for PoseidonHash {
-    type Fr = Fr;
-
-    fn default_leaf() -> Self::Fr {
-        Fr::from(0)
-    }
-
-    fn serialize(value: Self::Fr) -> Value {
-        fr_to_bytes_le(&value)
-    }
-
-    fn deserialize(value: Value) -> Self::Fr {
-        let (fr, _) = bytes_le_to_fr(&value);
-        fr
-    }
-
-    fn hash(inputs: &[Self::Fr]) -> Self::Fr {
-        poseidon_hash(inputs)
-    }
-}
-
-// pmtree supports in-memory and on-disk databases (Database trait) for storing the Merkle tree state
-
-// We implement Database for hashmaps, an in-memory database
-struct MemoryDB(HashMap<DBKey, Value>);
-
-impl Database for MemoryDB {
-    fn new(_dbpath: &str) -> Result<Self> {
-        Ok(MemoryDB(HashMap::new()))
-    }
-
-    fn load(_dbpath: &str) -> Result<Self> {
-        Err(Error("Cannot load in-memory DB".to_string()))
-    }
-
-    fn get(&self, key: DBKey) -> Result<Option<Value>> {
-        Ok(self.0.get(&key).cloned())
-    }
-
-    fn put(&mut self, key: DBKey, value: Value) -> Result<()> {
-        self.0.insert(key, value);
-
-        Ok(())
-    }
-}
-
-// We implement Database for sled DB, an on-disk database
-struct SledDB(Sled);
-
-impl Database for SledDB {
-    fn new(dbpath: &str) -> Result<Self> {
-        if Path::new(dbpath).exists() {
-            match fs::remove_dir_all(dbpath) {
-                Ok(x) => x,
-                Err(e) => return Err(Error(e.to_string())),
-            }
-        }
-
-        let db: Sled = match sled::open(dbpath) {
-            Ok(db) => db,
-            Err(e) => return Err(Error(e.to_string())),
-        };
-
-        Ok(SledDB(db))
-    }
-
-    fn load(dbpath: &str) -> Result<Self> {
-        let db: Sled = match sled::open(dbpath) {
-            Ok(db) => db,
-            Err(e) => return Err(Error(e.to_string())),
-        };
-
-        if !db.was_recovered() {
-            return Err(Error("Trying to load non-existing database!".to_string()));
-        }
-
-        Ok(SledDB(db))
-    }
-
-    fn get(&self, key: DBKey) -> Result<Option<Value>> {
-        match self.0.get(key) {
-            Ok(value) => Ok(value.map(|val| val.to_vec())),
-            Err(e) => Err(Error(e.to_string())),
-        }
-    }
-
-    fn put(&mut self, key: DBKey, value: Value) -> Result<()> {
-        match self.0.insert(key, value) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(Error(e.to_string())),
-        }
-    }
-}
-
 ////////////////////////////////////////////////////////////
 /// Tests
 ////////////////////////////////////////////////////////////
@@ -151,12 +44,192 @@ impl Database for SledDB {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    /// A basic performance comparison between the two supported Merkle Tree implementations
+    fn test_zerokit_merkle_implementations_performances() {
+        use std::time::{Duration, Instant};
+
+        let tree_height = 20;
+        let sample_size = 100;
+
+        let leaves: Vec<Fr> = (0..sample_size).map(|s| Fr::from(s)).collect();
+
+        let mut gen_time_full: u128 = 0;
+        let mut upd_time_full: u128 = 0;
+        let mut gen_time_opt: u128 = 0;
+        let mut upd_time_opt: u128 = 0;
+
+        for _ in 0..sample_size.try_into().unwrap() {
+            let now = Instant::now();
+            FullMerkleTree::<PoseidonHash>::default(tree_height);
+            gen_time_full += now.elapsed().as_nanos();
+
+            let now = Instant::now();
+            OptimalMerkleTree::<PoseidonHash>::default(tree_height);
+            gen_time_opt += now.elapsed().as_nanos();
+        }
+
+        let mut tree_full = FullMerkleTree::<PoseidonHash>::default(tree_height);
+        let mut tree_opt = OptimalMerkleTree::<PoseidonHash>::default(tree_height);
+
+        for i in 0..sample_size.try_into().unwrap() {
+            let now = Instant::now();
+            tree_full.set(i, leaves[i]).unwrap();
+            upd_time_full += now.elapsed().as_nanos();
+            let proof = tree_full.proof(i).expect("index should be set");
+            assert_eq!(proof.leaf_index(), i);
+
+            let now = Instant::now();
+            tree_opt.set(i, leaves[i]).unwrap();
+            upd_time_opt += now.elapsed().as_nanos();
+            let proof = tree_opt.proof(i).expect("index should be set");
+            assert_eq!(proof.leaf_index(), i);
+        }
+
+        // We check all roots are the same
+        let tree_full_root = tree_full.root();
+        let tree_opt_root = tree_opt.root();
+
+        assert_eq!(tree_full_root, tree_opt_root);
+
+        println!(" Average tree generation time:");
+        println!(
+            "   - Full Merkle Tree:  {:?}",
+            Duration::from_nanos((gen_time_full / sample_size).try_into().unwrap())
+        );
+        println!(
+            "   - Optimal Merkle Tree: {:?}",
+            Duration::from_nanos((gen_time_opt / sample_size).try_into().unwrap())
+        );
+
+        println!(" Average update_next execution time:");
+        println!(
+            "   - Full Merkle Tree: {:?}",
+            Duration::from_nanos((upd_time_full / sample_size).try_into().unwrap())
+        );
+
+        println!(
+            "   - Optimal Merkle Tree: {:?}",
+            Duration::from_nanos((upd_time_opt / sample_size).try_into().unwrap())
+        );
+    }
+}
+
+// Test module for testing pmtree integration and features in zerokit
+// enabled only if the pmtree feature is enabled
+
+#[cfg(feature = "pmtree")]
+#[cfg(test)]
+mod pmtree_test {
+
+    use super::*;
     use crate::protocol::hash_to_field;
-    use crate::utils::str_to_fr;
+    use crate::utils::{bytes_le_to_fr, fr_to_bytes_le, str_to_fr};
+    use pmtree::*;
+    use sled::Db as Sled;
+    use std::collections::HashMap;
+    use std::fs;
+    use std::path::Path;
+
+    // The pmtree Hasher trait used by pmtree Merkle tree
+    impl pmtree::Hasher for PoseidonHash {
+        type Fr = Fr;
+
+        fn default_leaf() -> Self::Fr {
+            Fr::from(0)
+        }
+
+        fn serialize(value: Self::Fr) -> Value {
+            fr_to_bytes_le(&value)
+        }
+
+        fn deserialize(value: Value) -> Self::Fr {
+            let (fr, _) = bytes_le_to_fr(&value);
+            fr
+        }
+
+        fn hash(inputs: &[Self::Fr]) -> Self::Fr {
+            poseidon_hash(inputs)
+        }
+    }
+
+    // pmtree supports in-memory and on-disk databases (Database trait) for storing the Merkle tree state
+
+    // We implement Database for hashmaps, an in-memory database
+    struct MemoryDB(HashMap<DBKey, Value>);
+
+    impl Database for MemoryDB {
+        fn new(_dbpath: &str) -> Result<Self> {
+            Ok(MemoryDB(HashMap::new()))
+        }
+
+        fn load(_dbpath: &str) -> Result<Self> {
+            Err(Error("Cannot load in-memory DB".to_string()))
+        }
+
+        fn get(&self, key: DBKey) -> Result<Option<Value>> {
+            Ok(self.0.get(&key).cloned())
+        }
+
+        fn put(&mut self, key: DBKey, value: Value) -> Result<()> {
+            self.0.insert(key, value);
+
+            Ok(())
+        }
+    }
+
+    // We implement Database for sled DB, an on-disk database
+    struct SledDB(Sled);
+
+    impl Database for SledDB {
+        fn new(dbpath: &str) -> Result<Self> {
+            if Path::new(dbpath).exists() {
+                match fs::remove_dir_all(dbpath) {
+                    Ok(x) => x,
+                    Err(e) => return Err(Error(e.to_string())),
+                }
+            }
+
+            let db: Sled = match sled::open(dbpath) {
+                Ok(db) => db,
+                Err(e) => return Err(Error(e.to_string())),
+            };
+
+            Ok(SledDB(db))
+        }
+
+        fn load(dbpath: &str) -> Result<Self> {
+            let db: Sled = match sled::open(dbpath) {
+                Ok(db) => db,
+                Err(e) => return Err(Error(e.to_string())),
+            };
+
+            if !db.was_recovered() {
+                return Err(Error("Trying to load non-existing database!".to_string()));
+            }
+
+            Ok(SledDB(db))
+        }
+
+        fn get(&self, key: DBKey) -> Result<Option<Value>> {
+            match self.0.get(key) {
+                Ok(value) => Ok(value.map(|val| val.to_vec())),
+                Err(e) => Err(Error(e.to_string())),
+            }
+        }
+
+        fn put(&mut self, key: DBKey, value: Value) -> Result<()> {
+            match self.0.insert(key, value) {
+                Ok(_) => Ok(()),
+                Err(e) => Err(Error(e.to_string())),
+            }
+        }
+    }
 
     #[test]
     /// A basic performance comparison between the two supported Merkle Tree implementations and in-memory/on-disk pmtree implementations
-    fn test_merkle_implementations_performances() {
+    fn test_zerokit_and_pmtree_merkle_implementations_performances() {
         use std::time::{Duration, Instant};
 
         let tree_height = 20;
