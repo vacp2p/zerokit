@@ -117,6 +117,21 @@ pub fn wasm_key_gen(ctx: *const RLNWrapper) -> Result<Uint8Array, String> {
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[wasm_bindgen(js_name = generateExtendedMembershipKey)]
+pub fn wasm_extended_key_gen(ctx: *const RLNWrapper) -> Result<Uint8Array, String> {
+    let wrapper = unsafe { &*ctx };
+    let mut output_data: Vec<u8> = Vec::new();
+    if wrapper.instance.extended_key_gen(&mut output_data).is_ok() {
+        let result = Uint8Array::from(&output_data[..]);
+        std::mem::forget(output_data);
+        Ok(result)
+    } else {
+        std::mem::forget(output_data);
+        Err("could not generate membership keys".into())
+    }
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = generateSeededMembershipKey)]
 pub fn wasm_seeded_key_gen(ctx: *const RLNWrapper, seed: Uint8Array) -> Result<Uint8Array, String> {
     let wrapper = unsafe { &*ctx };
@@ -132,6 +147,55 @@ pub fn wasm_seeded_key_gen(ctx: *const RLNWrapper, seed: Uint8Array) -> Result<U
     } else {
         std::mem::forget(output_data);
         Err("could not generate membership key".into())
+    }
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[wasm_bindgen(js_name = generateSeededExtendedMembershipKey)]
+pub fn wasm_seeded_extended_key_gen(
+    ctx: *const RLNWrapper,
+    seed: Uint8Array,
+) -> Result<Uint8Array, String> {
+    let wrapper = unsafe { &*ctx };
+    let mut output_data: Vec<u8> = Vec::new();
+    if wrapper
+        .instance
+        .seeded_extended_key_gen(&seed.to_vec()[..], &mut output_data)
+        .is_ok()
+    {
+        let result = Uint8Array::from(&output_data[..]);
+        std::mem::forget(output_data);
+        Ok(result)
+    } else {
+        std::mem::forget(output_data);
+        Err("could not generate membership key".into())
+    }
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[wasm_bindgen(js_name = recovedIDSecret)]
+pub fn wasm_recover_id_secret(
+    ctx: *const RLNWrapper,
+    input_proof_data_1: Uint8Array,
+    input_proof_data_2: Uint8Array,
+) -> Result<Uint8Array, String> {
+    let wrapper = unsafe { &*ctx };
+    let mut output_data: Vec<u8> = Vec::new();
+    if wrapper
+        .instance
+        .recover_id_secret(
+            &input_proof_data_1.to_vec()[..],
+            &input_proof_data_2.to_vec()[..],
+            &mut output_data,
+        )
+        .is_ok()
+    {
+        let result = Uint8Array::from(&output_data[..]);
+        std::mem::forget(output_data);
+        Ok(result)
+    } else {
+        std::mem::forget(output_data);
+        Err("could not recover id secret".into())
     }
 }
 
