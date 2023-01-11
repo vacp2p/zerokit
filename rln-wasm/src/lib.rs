@@ -51,6 +51,40 @@ pub fn wasm_set_next_leaf(ctx: *mut RLNWrapper, input: Uint8Array) -> Result<(),
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[wasm_bindgen(js_name = setLeavesFrom)]
+pub fn wasm_set_leaves_from(
+    ctx: *mut RLNWrapper,
+    index: usize,
+    input: Uint8Array,
+) -> Result<(), String> {
+    let wrapper = unsafe { &mut *ctx };
+    if wrapper
+        .instance
+        .set_leaves_from(index as usize, &input.to_vec()[..])
+        .is_ok()
+    {
+        Ok(())
+    } else {
+        Err("could not set multiple leaves".into())
+    }
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[wasm_bindgen(js_name = initTreeWithLeaves)]
+pub fn wasm_init_tree_with_leaves(ctx: *mut RLNWrapper, input: Uint8Array) -> Result<(), String> {
+    let wrapper = unsafe { &mut *ctx };
+    if wrapper
+        .instance
+        .init_tree_with_leaves(&input.to_vec()[..])
+        .is_ok()
+    {
+        Ok(())
+    } else {
+        Err("could not init merkle tree".into())
+    }
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = RLNWitnessToJson)]
 pub fn rln_witness_to_json(ctx: *mut RLNWrapper, serialized_witness: Uint8Array) -> Object {
     let wrapper = unsafe { &mut *ctx };
