@@ -510,7 +510,7 @@ impl RLN<'_> {
     /// // We generate a random signal
     /// let mut rng = rand::thread_rng();
     /// let signal: [u8; 32] = rng.gen();
-    /// let signal_len = u64::try_from(signal.len()).unwrap();
+    /// let signal_len = signal.len();
     ///
     /// // We generate a random epoch
     /// let epoch = hash_to_field(b"test-epoch");
@@ -1495,14 +1495,14 @@ mod test {
         let (identity_secret_hash, id_commitment) = keygen();
 
         // We set as leaf id_commitment after storing its index
-        let identity_index = u64::try_from(rln.tree.leaves_set()).unwrap();
+        let identity_index = rln.tree.leaves_set();
         let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate a random signal
         let mut rng = rand::thread_rng();
         let signal: [u8; 32] = rng.gen();
-        let signal_len = u64::try_from(signal.len()).unwrap();
+        let signal_len = signal.len();
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
@@ -1560,14 +1560,14 @@ mod test {
         let (identity_secret_hash, id_commitment) = keygen();
 
         // We set as leaf id_commitment after storing its index
-        let identity_index = u64::try_from(rln.tree.leaves_set()).unwrap();
+        let identity_index = rln.tree.leaves_set();
         let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate a random signal
         let mut rng = rand::thread_rng();
         let signal: [u8; 32] = rng.gen();
-        let signal_len = u64::try_from(signal.len()).unwrap();
+        let signal_len = signal.len();
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
@@ -1751,14 +1751,14 @@ mod test {
         let (identity_secret_hash, id_commitment) = keygen();
 
         // We set as leaf id_commitment after storing its index
-        let identity_index = u64::try_from(rln.tree.leaves_set()).unwrap();
+        let identity_index = rln.tree.leaves_set();
         let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate a random signal
         let mut rng = rand::thread_rng();
         let signal: [u8; 32] = rng.gen();
-        let signal_len = u64::try_from(signal.len()).unwrap();
+        let signal_len = signal.len();
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
@@ -1834,17 +1834,17 @@ mod test {
         let (identity_secret_hash, id_commitment) = keygen();
 
         // We set as leaf id_commitment after storing its index
-        let identity_index = u64::try_from(rln.tree.leaves_set()).unwrap();
+        let identity_index = rln.tree.leaves_set();
         let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate two random signals
         let mut rng = rand::thread_rng();
         let signal1: [u8; 32] = rng.gen();
-        let signal1_len = u64::try_from(signal1.len()).unwrap();
+        let signal1_len = signal1.len();
 
         let signal2: [u8; 32] = rng.gen();
-        let signal2_len = u64::try_from(signal2.len()).unwrap();
+        let signal2_len = signal2.len();
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
@@ -1908,13 +1908,13 @@ mod test {
         let (identity_secret_hash_new, id_commitment_new) = keygen();
 
         // We add it to the tree
-        let identity_index_new = u64::try_from(rln.tree.leaves_set()).unwrap();
+        let identity_index_new = rln.tree.leaves_set();
         let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment_new));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate a random signals
         let signal3: [u8; 32] = rng.gen();
-        let signal3_len = u64::try_from(signal3.len()).unwrap();
+        let signal3_len = signal3.len();
 
         // We prepare proof input. Note that epoch is the same as before
         // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]

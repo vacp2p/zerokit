@@ -976,7 +976,7 @@ mod test {
         // We generate a random signal
         let mut rng = rand::thread_rng();
         let signal: [u8; 32] = rng.gen();
-        let signal_len = u64::try_from(signal.len()).unwrap();
+        let signal_len = signal.len();
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
@@ -1061,7 +1061,7 @@ mod test {
         // We generate a random signal
         let mut rng = rand::thread_rng();
         let signal: [u8; 32] = rng.gen();
-        let signal_len = u64::try_from(signal.len()).unwrap();
+        let signal_len = signal.len();
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
@@ -1176,11 +1176,11 @@ mod test {
         // We generate two random signals
         let mut rng = rand::thread_rng();
         let signal1: [u8; 32] = rng.gen();
-        let signal1_len = u64::try_from(signal1.len()).unwrap();
+        let signal1_len = signal1.len();
 
         // We generate two random signals
         let signal2: [u8; 32] = rng.gen();
-        let signal2_len = u64::try_from(signal2.len()).unwrap();
+        let signal2_len = signal2.len();
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
@@ -1263,7 +1263,7 @@ mod test {
 
         // We generate a random signals
         let signal3: [u8; 32] = rng.gen();
-        let signal3_len = u64::try_from(signal3.len()).unwrap();
+        let signal3_len = signal3.len();
 
         // We prepare input for generate_rln_proof API
         // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]

@@ -354,7 +354,7 @@ pub fn prepare_prove_input(
     epoch: Fr,
     signal: &[u8],
 ) -> Vec<u8> {
-    let signal_len = u64::try_from(signal.len()).unwrap();
+    let signal_len = signal.len();
 
     let mut serialized: Vec<u8> = Vec::new();
 
@@ -368,7 +368,7 @@ pub fn prepare_prove_input(
 }
 
 pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Vec<u8> {
-    let signal_len = u64::try_from(signal.len()).unwrap();
+    let signal_len = signal.len();
 
     let mut serialized: Vec<u8> = Vec::new();
 

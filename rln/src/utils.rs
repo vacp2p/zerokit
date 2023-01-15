@@ -78,7 +78,7 @@ pub fn fr_to_bytes_be(input: &Fr) -> Vec<u8> {
 pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Vec<u8> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
-    bytes.extend(u64::try_from(input.len()).unwrap().to_le_bytes().to_vec());
+    bytes.extend(input.len().to_le_bytes().to_vec());
     // We store each element
     input.iter().for_each(|el| bytes.extend(fr_to_bytes_le(el)));
 
@@ -88,7 +88,7 @@ pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Vec<u8> {
 pub fn vec_fr_to_bytes_be(input: &[Fr]) -> Vec<u8> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
-    bytes.extend(u64::try_from(input.len()).unwrap().to_be_bytes().to_vec());
+    bytes.extend(input.len().to_be_bytes().to_vec());
     // We store each element
     input.iter().for_each(|el| bytes.extend(fr_to_bytes_be(el)));
 
@@ -98,7 +98,7 @@ pub fn vec_fr_to_bytes_be(input: &[Fr]) -> Vec<u8> {
 pub fn vec_u8_to_bytes_le(input: &[u8]) -> Vec<u8> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
-    bytes.extend(u64::try_from(input.len()).unwrap().to_le_bytes().to_vec());
+    bytes.extend(input.len().to_le_bytes().to_vec());
     bytes.extend(input);
     bytes
 }
@@ -106,7 +106,7 @@ pub fn vec_u8_to_bytes_le(input: &[u8]) -> Vec<u8> {
 pub fn vec_u8_to_bytes_be(input: Vec<u8>) -> Vec<u8> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
-    bytes.extend(u64::try_from(input.len()).unwrap().to_be_bytes().to_vec());
+    bytes.extend(input.len().to_be_bytes().to_vec());
     bytes.extend(input);
     bytes
 }
