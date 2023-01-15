@@ -36,15 +36,3 @@ color-eyre = "0.5"
 wasmer = { version = "2.0" }
 wasmer-engine-dylib = { version = "2.2.1", optional = true }
 wasmer-compiler-cranelift = { version = "2.2.1", optional = true }
-
-[profile.release]
-codegen-units = 1
-lto = true
-panic = "abort"
-opt-level = 3
-
-# Compilation profile for any non-workspace member.
-# Dependencies are optimized, even in a dev build. This improves dev performance
-# while having neglible impact on incremental build times.
-[profile.dev.package."*"]
-opt-level = 3
