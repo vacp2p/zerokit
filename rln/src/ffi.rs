@@ -181,35 +181,9 @@ pub extern "C" fn get_root(ctx: *const RLN, output_buffer: *mut Buffer) -> bool 
     }
 }
 
-// #[allow(clippy::not_unsafe_ptr_arg_deref)]
-// #[no_mangle]
-// pub extern "C" fn get_proof(ctx: *const RLN, index: usize, output_buffer: *mut Buffer) -> bool {
-//     let rln = unsafe { &*ctx };
-//     let mut output_data: Vec<u8> = Vec::new();
-//     if rln.get_proof(index, &mut output_data).is_ok() {
-//         unsafe { *output_buffer = Buffer::from(&output_data[..]) };
-//         std::mem::forget(output_data);
-//         true
-//     } else {
-//         std::mem::forget(output_data);
-//         false
-//     }
-// }
-
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn get_proof(ctx: *const RLN, index: usize, output_buffer: *mut Buffer) -> bool {
-    // let rln = unsafe { &*ctx };
-    // let mut output_data: Vec<u8> = Vec::new();
-    // if rln.get_proof(index, &mut output_data).is_ok() {
-    //     unsafe { *output_buffer = Buffer::from(&output_data[..]) };
-    //     std::mem::forget(output_data);
-    //     true
-    // } else {
-    //     std::mem::forget(output_data);
-    //     false
-    // }
-
     call_method_with_output_arg!(ctx, get_proof, output_buffer, index)
 }
 
