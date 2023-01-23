@@ -4,6 +4,52 @@ use std::slice;
 
 use crate::public::RLN;
 
+macro_rules! call_method {
+    ($instance:expr, $method:ident $(, $arg:expr)*) => {
+        {
+            let instance = $instance;
+            let new_instance: &mut RLN = unsafe { &mut *instance };
+            // let processed_args = vec![];
+            new_instance.$method($($arg.process()),*).is_ok()
+        }
+    }
+}
+
+macro_rules! call_method_with_output_arg {
+    ($instance:expr, $method:ident, $first:expr, $( $arg:expr ),* ) => {
+        {
+            let mut output_data: Vec<u8> = Vec::new();
+            if unsafe { &*$instance }.$method($($arg),*, &mut output_data).is_ok() {
+                unsafe { *$first = Buffer::from(&output_data[..]) };
+                std::mem::forget(output_data);
+                true
+            } else {
+                std::mem::forget(output_data);
+                false
+            }
+        }
+    }
+}
+
+trait ProcessArg {
+    type ReturnType;
+    fn process(self) -> Self::ReturnType;
+}
+
+impl ProcessArg for usize {
+    type ReturnType = usize;
+    fn process(self) -> Self::ReturnType {
+        self
+    }
+}
+
+impl ProcessArg for *const Buffer {
+    type ReturnType = &'static [u8];
+    fn process(self) -> Self::ReturnType {
+        <&[u8]>::from(unsafe { &*self })
+    }
+}
+
 /// Buffer struct is taken from
 /// <https://github.com/celo-org/celo-threshold-bls-rs/blob/master/crates/threshold-bls-ffi/src/ffi.rs>
 ///
@@ -109,9 +155,7 @@ pub extern "C" fn set_leaves_from(
     index: usize,
     input_buffer: *const Buffer,
 ) -> bool {
-    let rln = unsafe { &mut *ctx };
-    let input_data = <&[u8]>::from(unsafe { &*input_buffer });
-    rln.set_leaves_from(index, input_data).is_ok()
+    call_method!(ctx, set_leaves_from, index, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -137,19 +181,36 @@ pub extern "C" fn get_root(ctx: *const RLN, output_buffer: *mut Buffer) -> bool 
     }
 }
 
+// #[allow(clippy::not_unsafe_ptr_arg_deref)]
+// #[no_mangle]
+// pub extern "C" fn get_proof(ctx: *const RLN, index: usize, output_buffer: *mut Buffer) -> bool {
+//     let rln = unsafe { &*ctx };
+//     let mut output_data: Vec<u8> = Vec::new();
+//     if rln.get_proof(index, &mut output_data).is_ok() {
+//         unsafe { *output_buffer = Buffer::from(&output_data[..]) };
+//         std::mem::forget(output_data);
+//         true
+//     } else {
+//         std::mem::forget(output_data);
+//         false
+//     }
+// }
+
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn get_proof(ctx: *const RLN, index: usize, output_buffer: *mut Buffer) -> bool {
-    let rln = unsafe { &*ctx };
-    let mut output_data: Vec<u8> = Vec::new();
-    if rln.get_proof(index, &mut output_data).is_ok() {
-        unsafe { *output_buffer = Buffer::from(&output_data[..]) };
-        std::mem::forget(output_data);
-        true
-    } else {
-        std::mem::forget(output_data);
-        false
-    }
+    // let rln = unsafe { &*ctx };
+    // let mut output_data: Vec<u8> = Vec::new();
+    // if rln.get_proof(index, &mut output_data).is_ok() {
+    //     unsafe { *output_buffer = Buffer::from(&output_data[..]) };
+    //     std::mem::forget(output_data);
+    //     true
+    // } else {
+    //     std::mem::forget(output_data);
+    //     false
+    // }
+
+    call_method_with_output_arg!(ctx, get_proof, output_buffer, index)
 }
 
 ////////////////////////////////////////////////////////
