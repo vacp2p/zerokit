@@ -98,6 +98,8 @@ mod pmtree_test {
     use rln::utils::{bytes_le_to_fr, fr_to_bytes_le, str_to_fr};
     use utils::{FullMerkleTree, OptimalMerkleTree};
 
+    
+
     // The pmtree Hasher trait used by pmtree Merkle tree
     impl pmtree::Hasher for PoseidonHash {
         type Fr = Fr;
