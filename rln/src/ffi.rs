@@ -262,7 +262,13 @@ pub extern "C" fn verify_with_roots(
     roots_buffer: *const Buffer,
     proof_is_valid_ptr: *mut bool,
 ) -> bool {
-    call_method_with_bool_arg!(ctx, verify_with_roots, proof_is_valid_ptr, proof_buffer, roots_buffer)
+    call_method_with_bool_arg!(
+        ctx,
+        verify_with_roots,
+        proof_is_valid_ptr,
+        proof_buffer,
+        roots_buffer
+    )
 }
 
 ////////////////////////////////////////////////////////
@@ -308,7 +314,13 @@ pub extern "C" fn recover_id_secret(
     input_proof_buffer_2: *const Buffer,
     output_buffer: *mut Buffer,
 ) -> bool {
-    call_method_with_output_arg!(ctx, recover_id_secret, output_buffer, input_proof_buffer_1, input_proof_buffer_2)
+    call_method_with_output_arg!(
+        ctx,
+        recover_id_secret,
+        output_buffer,
+        input_proof_buffer_1,
+        input_proof_buffer_2
+    )
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
