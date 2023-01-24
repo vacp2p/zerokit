@@ -87,18 +87,16 @@ mod test {
 mod pmtree_test {
 
     use pmtree::*;
-    use sled::Db as Sled;
-    use std::collections::HashMap;
-    use std::fs;
-    use std::path::Path;
     use rln::circuit::Fr;
     use rln::poseidon_hash::poseidon_hash;
     use rln::poseidon_tree::PoseidonHash;
     use rln::protocol::hash_to_field;
     use rln::utils::{bytes_le_to_fr, fr_to_bytes_le, str_to_fr};
+    use sled::Db as Sled;
+    use std::collections::HashMap;
+    use std::fs;
+    use std::path::Path;
     use utils::{FullMerkleTree, OptimalMerkleTree};
-
-    
 
     // The pmtree Hasher trait used by pmtree Merkle tree
     impl pmtree::Hasher for PoseidonHash {

@@ -2,16 +2,16 @@
 mod test {
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
-    use std::fs::File;
-    use std::io::Read;
-    use std::mem::MaybeUninit;
-    use std::time::{Duration, Instant};
     use rln::circuit::*;
     use rln::ffi::*;
     use rln::poseidon_hash::poseidon_hash;
     use rln::protocol::*;
     use rln::public::RLN;
     use rln::utils::*;
+    use std::fs::File;
+    use std::io::Read;
+    use std::mem::MaybeUninit;
+    use std::time::{Duration, Instant};
 
     #[test]
     // We test merkle batch Merkle tree additions

@@ -2,12 +2,12 @@
 
 #[cfg(test)]
 mod tests {
-    use js_sys::{Object, Uint8Array, BigInt as JsBigInt};
-    use wasm_bindgen::JsValue;
+    use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
     use rln::circuit::TEST_TREE_HEIGHT;
-    use wasm_bindgen::prelude::*;
-    use wasm_bindgen_test::wasm_bindgen_test;
     use rln_wasm::*;
+    use wasm_bindgen::prelude::*;
+    use wasm_bindgen::JsValue;
+    use wasm_bindgen_test::wasm_bindgen_test;
 
     #[wasm_bindgen(module = "src/utils.js")]
     extern "C" {
@@ -84,7 +84,7 @@ mod tests {
             calculated_witness.into(),
             serialized_rln_witness,
         )
-            .unwrap();
+        .unwrap();
 
         // Add signal_len | signal
         let mut proof_bytes = proof.to_vec();

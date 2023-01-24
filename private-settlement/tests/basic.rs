@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod tests{
+mod tests {
     #[cfg(test)]
     mod tests {
         #[test]

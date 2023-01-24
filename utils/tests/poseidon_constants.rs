@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod test {
-    use utils::poseidon_hash::Poseidon;
     use ark_bn254::Fr;
     use num_bigint::BigUint;
     use num_traits::Num;
+    use utils::poseidon_hash::Poseidon;
 
     const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
         (2, 8, 56, 0),
@@ -3530,9 +3530,9 @@ mod test {
         // Hardcoded constants are only for Bn254 scalar field. So we check if field characteristic corresponds to 0
         if Fr::from(0)
             == str_to_fr(
-            "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
-            16,
-        )
+                "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+                16,
+            )
         {
             // We check if the round constants and matrices correspond to the one generated when instantiating Poseidon with ROUND_PARAMS
             let (loaded_c, loaded_m) = load_constants();
