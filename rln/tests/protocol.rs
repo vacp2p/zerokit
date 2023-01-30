@@ -1,12 +1,8 @@
 #[cfg(test)]
 mod test {
     use rln::circuit::{
+        circom_from_folder, vk_from_folder, zkey_from_folder, Fr, TEST_RESOURCES_FOLDER,
         TEST_TREE_HEIGHT,
-        TEST_RESOURCES_FOLDER,
-        Fr,
-        circom_from_folder,
-        vk_from_folder,
-        zkey_from_folder
     };
     use rln::poseidon_hash::poseidon_hash;
     use rln::poseidon_tree::PoseidonTree;

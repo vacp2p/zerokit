@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod test {
-    use std::io::Cursor;
     use rand::Rng;
     use rln::circuit::{TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
     use rln::poseidon_hash::poseidon_hash;
     use rln::protocol::{compute_tree_root, deserialize_identity_tuple, hash_to_field};
     use rln::public::RLN;
     use rln::utils::*;
+    use std::io::Cursor;
 
     #[test]
     // This test is similar to the one in lib, but uses only public API

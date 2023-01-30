@@ -1449,7 +1449,7 @@ mod test {
             serialized_witness,
             &mut output_buffer,
         )
-            .unwrap();
+        .unwrap();
 
         // output_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
         let mut proof_data = output_buffer.into_inner();
@@ -1631,7 +1631,7 @@ mod test {
             &mut input_proof_data_2,
             &mut output_buffer,
         )
-            .unwrap();
+        .unwrap();
 
         let serialized_identity_secret_hash = output_buffer.into_inner();
 
@@ -1682,7 +1682,7 @@ mod test {
             &mut input_proof_data_3,
             &mut output_buffer,
         )
-            .unwrap();
+        .unwrap();
 
         let serialized_identity_secret_hash = output_buffer.into_inner();
 
