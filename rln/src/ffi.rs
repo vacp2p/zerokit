@@ -4,6 +4,10 @@ use std::slice;
 
 use crate::public::RLN;
 
+// Macro to call methods with arbitrary amount of arguments,
+// First argument to the macro is context, 
+// second is the actual method on `RLN`
+// rest are all other arguments to the method
 macro_rules! call_method {
     ($instance:expr, $method:ident $(, $arg:expr)*) => {
         {
@@ -14,7 +18,15 @@ macro_rules! call_method {
     }
 }
 
+// Macro to call methods with arbitrary amount of arguments,
+// which have the last argument is output buffer pointer
+// First argument to the macro is context, 
+// second is the actual method on `RLN` 
+// third is the aforementioned output buffer argument
+// rest are all other arguments to the method
 macro_rules! call_method_with_output_arg {
+    // this variant is needed for the case when
+    // there are zero other arguments
     ($instance:expr, $method:ident, $first:expr) => {
         {
             let mut output_data: Vec<u8> = Vec::new();
@@ -45,6 +57,12 @@ macro_rules! call_method_with_output_arg {
     }
 }
 
+// Macro to call methods with arbitrary amount of arguments,
+// which have the last argument as bool
+// First argument to the macro is context, 
+// second is the actual method on `RLN`
+// third is the aforementioned bool argument
+// rest are all other arguments to the method
 macro_rules! call_method_with_bool_arg {
     ($instance:expr, $method:ident, $first:expr, $( $arg:expr ),* ) => {
         {
