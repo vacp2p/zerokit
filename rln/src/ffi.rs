@@ -8,7 +8,7 @@ use crate::public::RLN;
 // First argument to the macro is context,
 // second is the actual method on `RLN`
 // rest are all other arguments to the method
-macro_rules! call_method {
+macro_rules! call {
     ($instance:expr, $method:ident $(, $arg:expr)*) => {
         {
             let new_instance: &mut RLN = $instance.process();
@@ -23,7 +23,7 @@ macro_rules! call_method {
 // second is the actual method on `RLN`
 // third is the aforementioned output buffer argument
 // rest are all other arguments to the method
-macro_rules! call_method_with_output_arg {
+macro_rules! call_with_output_arg {
     // this variant is needed for the case when
     // there are zero other arguments
     ($instance:expr, $method:ident, $first:expr) => {
@@ -62,7 +62,7 @@ macro_rules! call_method_with_output_arg {
 // second is the actual method on `RLN`
 // third is the aforementioned bool argument
 // rest are all other arguments to the method
-macro_rules! call_method_with_bool_arg {
+macro_rules! call_with_bool_arg {
     ($instance:expr, $method:ident, $first:expr, $( $arg:expr ),* ) => {
         {
             let new_instance = $instance.process();
@@ -179,25 +179,25 @@ pub extern "C" fn new_with_params(
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn set_tree(ctx: *mut RLN, tree_height: usize) -> bool {
-    call_method!(ctx, set_tree, tree_height)
+    call!(ctx, set_tree, tree_height)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn delete_leaf(ctx: *mut RLN, index: usize) -> bool {
-    call_method!(ctx, delete_leaf, index)
+    call!(ctx, delete_leaf, index)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn set_leaf(ctx: *mut RLN, index: usize, input_buffer: *const Buffer) -> bool {
-    call_method!(ctx, set_leaf, index, input_buffer)
+    call!(ctx, set_leaf, index, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn set_next_leaf(ctx: *mut RLN, input_buffer: *const Buffer) -> bool {
-    call_method!(ctx, set_next_leaf, input_buffer)
+    call!(ctx, set_next_leaf, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -207,25 +207,25 @@ pub extern "C" fn set_leaves_from(
     index: usize,
     input_buffer: *const Buffer,
 ) -> bool {
-    call_method!(ctx, set_leaves_from, index, input_buffer)
+    call!(ctx, set_leaves_from, index, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn init_tree_with_leaves(ctx: *mut RLN, input_buffer: *const Buffer) -> bool {
-    call_method!(ctx, init_tree_with_leaves, input_buffer)
+    call!(ctx, init_tree_with_leaves, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn get_root(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
-    call_method_with_output_arg!(ctx, get_root, output_buffer)
+    call_with_output_arg!(ctx, get_root, output_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn get_proof(ctx: *const RLN, index: usize, output_buffer: *mut Buffer) -> bool {
-    call_method_with_output_arg!(ctx, get_proof, output_buffer, index)
+    call_with_output_arg!(ctx, get_proof, output_buffer, index)
 }
 
 ////////////////////////////////////////////////////////
@@ -238,7 +238,7 @@ pub extern "C" fn prove(
     input_buffer: *const Buffer,
     output_buffer: *mut Buffer,
 ) -> bool {
-    call_method_with_output_arg!(ctx, prove, output_buffer, input_buffer)
+    call_with_output_arg!(ctx, prove, output_buffer, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -248,7 +248,7 @@ pub extern "C" fn verify(
     proof_buffer: *const Buffer,
     proof_is_valid_ptr: *mut bool,
 ) -> bool {
-    call_method_with_bool_arg!(ctx, verify, proof_is_valid_ptr, proof_buffer)
+    call_with_bool_arg!(ctx, verify, proof_is_valid_ptr, proof_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -258,7 +258,7 @@ pub extern "C" fn generate_rln_proof(
     input_buffer: *const Buffer,
     output_buffer: *mut Buffer,
 ) -> bool {
-    call_method_with_output_arg!(ctx, generate_rln_proof, output_buffer, input_buffer)
+    call_with_output_arg!(ctx, generate_rln_proof, output_buffer, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -268,7 +268,7 @@ pub extern "C" fn verify_rln_proof(
     proof_buffer: *const Buffer,
     proof_is_valid_ptr: *mut bool,
 ) -> bool {
-    call_method_with_bool_arg!(ctx, verify_rln_proof, proof_is_valid_ptr, proof_buffer)
+    call_with_bool_arg!(ctx, verify_rln_proof, proof_is_valid_ptr, proof_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -279,7 +279,7 @@ pub extern "C" fn verify_with_roots(
     roots_buffer: *const Buffer,
     proof_is_valid_ptr: *mut bool,
 ) -> bool {
-    call_method_with_bool_arg!(
+    call_with_bool_arg!(
         ctx,
         verify_with_roots,
         proof_is_valid_ptr,
@@ -294,7 +294,7 @@ pub extern "C" fn verify_with_roots(
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn key_gen(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
-    call_method_with_output_arg!(ctx, key_gen, output_buffer)
+    call_with_output_arg!(ctx, key_gen, output_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -304,13 +304,13 @@ pub extern "C" fn seeded_key_gen(
     input_buffer: *const Buffer,
     output_buffer: *mut Buffer,
 ) -> bool {
-    call_method_with_output_arg!(ctx, seeded_key_gen, output_buffer, input_buffer)
+    call_with_output_arg!(ctx, seeded_key_gen, output_buffer, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn extended_key_gen(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
-    call_method_with_output_arg!(ctx, extended_key_gen, output_buffer)
+    call_with_output_arg!(ctx, extended_key_gen, output_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -320,7 +320,7 @@ pub extern "C" fn seeded_extended_key_gen(
     input_buffer: *const Buffer,
     output_buffer: *mut Buffer,
 ) -> bool {
-    call_method_with_output_arg!(ctx, seeded_extended_key_gen, output_buffer, input_buffer)
+    call_with_output_arg!(ctx, seeded_extended_key_gen, output_buffer, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -331,7 +331,7 @@ pub extern "C" fn recover_id_secret(
     input_proof_buffer_2: *const Buffer,
     output_buffer: *mut Buffer,
 ) -> bool {
-    call_method_with_output_arg!(
+    call_with_output_arg!(
         ctx,
         recover_id_secret,
         output_buffer,
@@ -347,7 +347,7 @@ pub extern "C" fn hash(
     input_buffer: *const Buffer,
     output_buffer: *mut Buffer,
 ) -> bool {
-    call_method_with_output_arg!(ctx, hash, output_buffer, input_buffer)
+    call_with_output_arg!(ctx, hash, output_buffer, input_buffer)
 }
 
 #[cfg(test)]
