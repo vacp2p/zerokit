@@ -48,9 +48,9 @@ jobs:
           override: true
       - name: Update git submodules
         run: git submodule update --init --recursive
-      - name: cargo test
+      - name: cargo-make test
         run: |
-            cargo test --release
+            cargo make test --release
         working-directory: multiplier
   
   semaphore:
@@ -72,9 +72,9 @@ jobs:
           override: true
       - name: Update git submodules
         run: git submodule update --init --recursive
-      - name: cargo test
+      - name: cargo-make test
         run: |
-            cargo test --release
+            cargo make test --release
         working-directory: semaphore
 
   rln-wasm:
@@ -99,7 +99,7 @@ jobs:
       - run: cargo install cargo-make
       - run: cargo make build
         working-directory: rln-wasm
-      - run: cargo make test
+      - run: cargo-make test
         working-directory: rln-wasm
 
   rln:
@@ -121,9 +121,9 @@ jobs:
           override: true
       - name: Update git submodules
         run: git submodule update --init --recursive
-      - name: cargo test
+      - name: cargo-make test
         run: |
-            cargo test --release
+            cargo make test --release
         working-directory: rln
 
   utils:
@@ -145,9 +145,9 @@ jobs:
           override: true
       - name: Update git submodules
         run: git submodule update --init --recursive
-      - name: cargo test
+      - name: cargo-make test
         run: |
-            cargo test --release
+            cargo make test --release
         working-directory: utils
 
   lint:
