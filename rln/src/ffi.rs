@@ -5,7 +5,7 @@ use std::slice;
 use crate::public::RLN;
 
 // Macro to call methods with arbitrary amount of arguments,
-// First argument to the macro is context, 
+// First argument to the macro is context,
 // second is the actual method on `RLN`
 // rest are all other arguments to the method
 macro_rules! call_method {
@@ -20,8 +20,8 @@ macro_rules! call_method {
 
 // Macro to call methods with arbitrary amount of arguments,
 // which have the last argument is output buffer pointer
-// First argument to the macro is context, 
-// second is the actual method on `RLN` 
+// First argument to the macro is context,
+// second is the actual method on `RLN`
 // third is the aforementioned output buffer argument
 // rest are all other arguments to the method
 macro_rules! call_method_with_output_arg {
@@ -59,7 +59,7 @@ macro_rules! call_method_with_output_arg {
 
 // Macro to call methods with arbitrary amount of arguments,
 // which have the last argument as bool
-// First argument to the macro is context, 
+// First argument to the macro is context,
 // second is the actual method on `RLN`
 // third is the aforementioned bool argument
 // rest are all other arguments to the method
