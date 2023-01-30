@@ -48,6 +48,8 @@ jobs:
           override: true
       - name: Update git submodules
         run: git submodule update --init --recursive
+      - name: Install cargo-make
+        run: cargo install cargo-make
       - name: cargo-make test
         run: |
             cargo make test --release
@@ -72,6 +74,8 @@ jobs:
           override: true
       - name: Update git submodules
         run: git submodule update --init --recursive
+      - name: Install cargo-make
+        run: cargo install cargo-make
       - name: cargo-make test
         run: |
             cargo make test --release
@@ -121,6 +125,8 @@ jobs:
           override: true
       - name: Update git submodules
         run: git submodule update --init --recursive
+      - name: Install cargo-make
+        run: cargo install cargo-make
       - name: cargo-make test
         run: |
             cargo make test --release
@@ -145,6 +151,8 @@ jobs:
           override: true
       - name: Update git submodules
         run: git submodule update --init --recursive
+      - name: Install cargo-make
+        run: cargo install cargo-make
       - name: cargo-make test
         run: |
             cargo make test --release
