@@ -26,12 +26,12 @@ macro_rules! call {
 macro_rules! call_with_output_arg {
     // this variant is needed for the case when
     // there are zero other arguments
-    ($instance:expr, $method:ident, $first:expr) => {
+    ($instance:expr, $method:ident, $output_arg:expr) => {
         {
             let mut output_data: Vec<u8> = Vec::new();
             let new_instance = $instance.process();
             if new_instance.$method(&mut output_data).is_ok() {
-                unsafe { *$first = Buffer::from(&output_data[..]) };
+                unsafe { *$output_arg = Buffer::from(&output_data[..]) };
                 std::mem::forget(output_data);
                 true
             } else {
@@ -40,12 +40,12 @@ macro_rules! call_with_output_arg {
             }
         }
     };
-    ($instance:expr, $method:ident, $first:expr, $( $arg:expr ),* ) => {
+    ($instance:expr, $method:ident, $output_arg:expr, $( $arg:expr ),* ) => {
         {
             let mut output_data: Vec<u8> = Vec::new();
             let new_instance = $instance.process();
             if new_instance.$method($($arg.process()),*, &mut output_data).is_ok() {
-                unsafe { *$first = Buffer::from(&output_data[..]) };
+                unsafe { *$output_arg = Buffer::from(&output_data[..]) };
                 std::mem::forget(output_data);
                 true
             } else {
@@ -63,16 +63,16 @@ macro_rules! call_with_output_arg {
 // third is the aforementioned bool argument
 // rest are all other arguments to the method
 macro_rules! call_with_bool_arg {
-    ($instance:expr, $method:ident, $first:expr, $( $arg:expr ),* ) => {
+    ($instance:expr, $method:ident, $bool_arg:expr, $( $arg:expr ),* ) => {
         {
             let new_instance = $instance.process();
             if match new_instance.$method($($arg.process()),*,) {
                 Ok(verified) => verified,
                 Err(_) => return false,
             } {
-                unsafe { *$first = true };
+                unsafe { *$bool_arg = true };
             } else {
-                unsafe { *$first = false };
+                unsafe { *$bool_arg = false };
             };
             true
         }
