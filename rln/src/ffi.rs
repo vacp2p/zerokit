@@ -12,7 +12,6 @@ macro_rules! call_method {
     ($instance:expr, $method:ident $(, $arg:expr)*) => {
         {
             let new_instance: &mut RLN = $instance.process();
-            // let processed_args = vec![];
             new_instance.$method($($arg.process()),*).is_ok()
         }
     }
