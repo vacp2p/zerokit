@@ -7,8 +7,8 @@ edition = "2021"
 
 [features]
 default = []
-dylib = [ "wasmer/dylib", "wasmer-engine-dylib", "wasmer-compiler-cranelift" ]
-
+dylib = [ "wasmer-engine-dylib", "wasmer-compiler-cranelift" ]
+# "wasmer/dylib", 
 [dependencies]
 ark-bn254 = { version = "0.3.0" }
 ark-circom = { git = "https://github.com/gakonst/ark-circom", features=["circom-2"] }
