@@ -88,8 +88,8 @@ impl PoseidonGrainLFSR {
         }
 
         // b50, ..., b79 are set to 1
-        for i in 50..=79 {
-            state[i] = true;
+        for item in state.iter_mut().skip(50) {
+            *item = true;
         }
 
         let head = 0;
@@ -111,7 +111,7 @@ impl PoseidonGrainLFSR {
             let mut new_bit = self.update();
 
             // Loop until the first bit is true
-            while new_bit == false {
+            while !new_bit {
                 // Discard the second bit
                 let _ = self.update();
                 // Obtain another first bit
@@ -263,8 +263,8 @@ pub fn find_poseidon_ark_and_mds<F: PrimeField>(
     let ys = lfsr.get_field_elements_mod_p::<F>(rate);
 
     for i in 0..(rate) {
-        for j in 0..(rate) {
-            mds[i][j] = (xs[i] + &ys[j]).inverse().unwrap();
+        for (j, ys_item) in ys.iter().enumerate().take(rate) {
+            mds[i][j] = (xs[i] + ys_item).inverse().unwrap();
         }
     }
 
