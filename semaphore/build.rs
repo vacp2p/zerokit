@@ -37,7 +37,7 @@ fn build_circuit() -> Result<()> {
             .current_dir("./vendor/semaphore")
             .status()?
             .success()
-            .then(|| ())
+            .then_some(())
             .ok_or(eyre!("procees returned failure"))?;
         Ok(())
     };
