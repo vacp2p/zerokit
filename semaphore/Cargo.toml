@@ -7,8 +7,8 @@ edition = "2021"
 
 [features]
 default = []
-dylib = [  "wasmer-compiler-cranelift" ]
-# "wasmer/dylib", "wasmer-engine-dylib",
+dylib = [ "wasmer/dylib", "wasmer-engine-dylib", "wasmer-compiler-cranelift" ]
+
 [dependencies]
 ark-bn254 = { version = "0.3.0" }
 ark-circom = { git = "https://github.com/gakonst/ark-circom", features=["circom-2"] }
@@ -33,8 +33,8 @@ serde_json = "1.0.79"
 
 [build-dependencies]
 color-eyre = "0.6.1"
-wasmer = { version = "3.1.1" }
-# wasmer-engine-dylib = { version = "2.2.1", optional = true }
+wasmer = { version = "2.0" }
+wasmer-engine-dylib = { version = "2.2.1", optional = true }
 wasmer-compiler-cranelift = { version = "3.1.1", optional = true }
 
 [profile.release]
