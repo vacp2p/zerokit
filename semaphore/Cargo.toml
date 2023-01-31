@@ -25,7 +25,7 @@ ethers-core = { git = "https://github.com/gakonst/ethers-rs", default-features =
 ruint = { version = "1.2.0", features = [ "serde", "num-bigint", "ark-ff" ] }
 serde = "1.0"
 thiserror = "1.0.0"
-wasmer = { version = "3.1.1" }
+wasmer = { version = "2.0" }
 
 [dev-dependencies]
 rand_chacha = "0.3.1"
