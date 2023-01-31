@@ -1,4 +1,4 @@
-.PHONY: all test clean lint
+.PHONY: all test clean
 
 all: .pre-build
 	@cargo make build
@@ -13,7 +13,3 @@ test: .pre-build
 
 clean:
 	@cargo clean
-
-lint:
-	cargo fmt --all --check
-	cargo clippy -- -D warnings
