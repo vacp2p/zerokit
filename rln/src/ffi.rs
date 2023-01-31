@@ -4,6 +4,114 @@ use std::slice;
 
 use crate::public::RLN;
 
+// Macro to call methods with arbitrary amount of arguments,
+// First argument to the macro is context,
+// second is the actual method on `RLN`
+// rest are all other arguments to the method
+macro_rules! call {
+    ($instance:expr, $method:ident $(, $arg:expr)*) => {
+        {
+            let new_instance: &mut RLN = $instance.process();
+            new_instance.$method($($arg.process()),*).is_ok()
+        }
+    }
+}
+
+// Macro to call methods with arbitrary amount of arguments,
+// which have the last argument is output buffer pointer
+// First argument to the macro is context,
+// second is the actual method on `RLN`
+// third is the aforementioned output buffer argument
+// rest are all other arguments to the method
+macro_rules! call_with_output_arg {
+    // this variant is needed for the case when
+    // there are zero other arguments
+    ($instance:expr, $method:ident, $output_arg:expr) => {
+        {
+            let mut output_data: Vec<u8> = Vec::new();
+            let new_instance = $instance.process();
+            if new_instance.$method(&mut output_data).is_ok() {
+                unsafe { *$output_arg = Buffer::from(&output_data[..]) };
+                std::mem::forget(output_data);
+                true
+            } else {
+                std::mem::forget(output_data);
+                false
+            }
+        }
+    };
+    ($instance:expr, $method:ident, $output_arg:expr, $( $arg:expr ),* ) => {
+        {
+            let mut output_data: Vec<u8> = Vec::new();
+            let new_instance = $instance.process();
+            if new_instance.$method($($arg.process()),*, &mut output_data).is_ok() {
+                unsafe { *$output_arg = Buffer::from(&output_data[..]) };
+                std::mem::forget(output_data);
+                true
+            } else {
+                std::mem::forget(output_data);
+                false
+            }
+        }
+    }
+}
+
+// Macro to call methods with arbitrary amount of arguments,
+// which have the last argument as bool
+// First argument to the macro is context,
+// second is the actual method on `RLN`
+// third is the aforementioned bool argument
+// rest are all other arguments to the method
+macro_rules! call_with_bool_arg {
+    ($instance:expr, $method:ident, $bool_arg:expr, $( $arg:expr ),* ) => {
+        {
+            let new_instance = $instance.process();
+            if match new_instance.$method($($arg.process()),*,) {
+                Ok(verified) => verified,
+                Err(_) => return false,
+            } {
+                unsafe { *$bool_arg = true };
+            } else {
+                unsafe { *$bool_arg = false };
+            };
+            true
+        }
+    }
+}
+
+trait ProcessArg {
+    type ReturnType;
+    fn process(self) -> Self::ReturnType;
+}
+
+impl ProcessArg for usize {
+    type ReturnType = usize;
+    fn process(self) -> Self::ReturnType {
+        self
+    }
+}
+
+impl ProcessArg for *const Buffer {
+    type ReturnType = &'static [u8];
+    fn process(self) -> Self::ReturnType {
+        <&[u8]>::from(unsafe { &*self })
+    }
+}
+
+impl<'a> ProcessArg for *const RLN<'a> {
+    type ReturnType = &'a RLN<'a>;
+    fn process(self) -> Self::ReturnType {
+        unsafe { &*self }
+    }
+}
+
+impl<'a> ProcessArg for *mut RLN<'a> {
+    type ReturnType = &'a mut RLN<'a>;
+    fn process(self) -> Self::ReturnType {
+        unsafe { &mut *self }
+    }
+}
+
 /// Buffer struct is taken from
 /// <https://github.com/celo-org/celo-threshold-bls-rs/blob/master/crates/threshold-bls-ffi/src/ffi.rs>
 ///
@@ -41,8 +149,7 @@ impl<'a> From<&Buffer> for &'a [u8] {
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn new(tree_height: usize, input_buffer: *const Buffer, ctx: *mut *mut RLN) -> bool {
-    let input_data = <&[u8]>::from(unsafe { &*input_buffer });
-    let rln = RLN::new(tree_height, input_data);
+    let rln = RLN::new(tree_height, input_buffer.process());
     unsafe { *ctx = Box::into_raw(Box::new(rln)) };
     true
 }
@@ -56,14 +163,11 @@ pub extern "C" fn new_with_params(
     vk_buffer: *const Buffer,
     ctx: *mut *mut RLN,
 ) -> bool {
-    let circom_data = <&[u8]>::from(unsafe { &*circom_buffer });
-    let zkey_data = <&[u8]>::from(unsafe { &*zkey_buffer });
-    let vk_data = <&[u8]>::from(unsafe { &*vk_buffer });
     let rln = RLN::new_with_params(
         tree_height,
-        circom_data.to_vec(),
-        zkey_data.to_vec(),
-        vk_data.to_vec(),
+        circom_buffer.process().to_vec(),
+        zkey_buffer.process().to_vec(),
+        vk_buffer.process().to_vec(),
     );
     unsafe { *ctx = Box::into_raw(Box::new(rln)) };
     true
@@ -75,31 +179,25 @@ pub extern "C" fn new_with_params(
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn set_tree(ctx: *mut RLN, tree_height: usize) -> bool {
-    let rln = unsafe { &mut *ctx };
-    rln.set_tree(tree_height).is_ok()
+    call!(ctx, set_tree, tree_height)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn delete_leaf(ctx: *mut RLN, index: usize) -> bool {
-    let rln = unsafe { &mut *ctx };
-    rln.delete_leaf(index).is_ok()
+    call!(ctx, delete_leaf, index)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn set_leaf(ctx: *mut RLN, index: usize, input_buffer: *const Buffer) -> bool {
-    let rln = unsafe { &mut *ctx };
-    let input_data = <&[u8]>::from(unsafe { &*input_buffer });
-    rln.set_leaf(index, input_data).is_ok()
+    call!(ctx, set_leaf, index, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn set_next_leaf(ctx: *mut RLN, input_buffer: *const Buffer) -> bool {
-    let rln = unsafe { &mut *ctx };
-    let input_data = <&[u8]>::from(unsafe { &*input_buffer });
-    rln.set_next_leaf(input_data).is_ok()
+    call!(ctx, set_next_leaf, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -109,47 +207,25 @@ pub extern "C" fn set_leaves_from(
     index: usize,
     input_buffer: *const Buffer,
 ) -> bool {
-    let rln = unsafe { &mut *ctx };
-    let input_data = <&[u8]>::from(unsafe { &*input_buffer });
-    rln.set_leaves_from(index, input_data).is_ok()
+    call!(ctx, set_leaves_from, index, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn init_tree_with_leaves(ctx: *mut RLN, input_buffer: *const Buffer) -> bool {
-    let rln = unsafe { &mut *ctx };
-    let input_data = <&[u8]>::from(unsafe { &*input_buffer });
-    rln.init_tree_with_leaves(input_data).is_ok()
+    call!(ctx, init_tree_with_leaves, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn get_root(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
-    let rln = unsafe { &*ctx };
-    let mut output_data: Vec<u8> = Vec::new();
-    if rln.get_root(&mut output_data).is_ok() {
-        unsafe { *output_buffer = Buffer::from(&output_data[..]) };
-        std::mem::forget(output_data);
-        true
-    } else {
-        std::mem::forget(output_data);
-        false
-    }
+    call_with_output_arg!(ctx, get_root, output_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn get_proof(ctx: *const RLN, index: usize, output_buffer: *mut Buffer) -> bool {
-    let rln = unsafe { &*ctx };
-    let mut output_data: Vec<u8> = Vec::new();
-    if rln.get_proof(index, &mut output_data).is_ok() {
-        unsafe { *output_buffer = Buffer::from(&output_data[..]) };
-        std::mem::forget(output_data);
-        true
-    } else {
-        std::mem::forget(output_data);
-        false
-    }
+    call_with_output_arg!(ctx, get_proof, output_buffer, index)
 }
 
 ////////////////////////////////////////////////////////
@@ -162,18 +238,7 @@ pub extern "C" fn prove(
     input_buffer: *const Buffer,
     output_buffer: *mut Buffer,
 ) -> bool {
-    let rln = unsafe { &mut *ctx };
-    let input_data = <&[u8]>::from(unsafe { &*input_buffer });
-    let mut output_data: Vec<u8> = Vec::new();
-
-    if rln.prove(input_data, &mut output_data).is_ok() {
-        unsafe { *output_buffer = Buffer::from(&output_data[..]) };
-        std::mem::forget(output_data);
-        true
-    } else {
-        std::mem::forget(output_data);
-        false
-    }
+    call_with_output_arg!(ctx, prove, output_buffer, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -183,17 +248,7 @@ pub extern "C" fn verify(
     proof_buffer: *const Buffer,
     proof_is_valid_ptr: *mut bool,
 ) -> bool {
-    let rln = unsafe { &*ctx };
-    let proof_data = <&[u8]>::from(unsafe { &*proof_buffer });
-    if match rln.verify(proof_data) {
-        Ok(verified) => verified,
-        Err(_) => return false,
-    } {
-        unsafe { *proof_is_valid_ptr = true };
-    } else {
-        unsafe { *proof_is_valid_ptr = false };
-    };
-    true
+    call_with_bool_arg!(ctx, verify, proof_is_valid_ptr, proof_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -203,18 +258,7 @@ pub extern "C" fn generate_rln_proof(
     input_buffer: *const Buffer,
     output_buffer: *mut Buffer,
 ) -> bool {
-    let rln = unsafe { &mut *ctx };
-    let input_data = <&[u8]>::from(unsafe { &*input_buffer });
-    let mut output_data: Vec<u8> = Vec::new();
-
-    if rln.generate_rln_proof(input_data, &mut output_data).is_ok() {
-        unsafe { *output_buffer = Buffer::from(&output_data[..]) };
-        std::mem::forget(output_data);
-        true
-    } else {
-        std::mem::forget(output_data);
-        false
-    }
+    call_with_output_arg!(ctx, generate_rln_proof, output_buffer, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -224,17 +268,7 @@ pub extern "C" fn verify_rln_proof(
     proof_buffer: *const Buffer,
     proof_is_valid_ptr: *mut bool,
 ) -> bool {
-    let rln = unsafe { &*ctx };
-    let proof_data = <&[u8]>::from(unsafe { &*proof_buffer });
-    if match rln.verify_rln_proof(proof_data) {
-        Ok(verified) => verified,
-        Err(_) => return false,
-    } {
-        unsafe { *proof_is_valid_ptr = true };
-    } else {
-        unsafe { *proof_is_valid_ptr = false };
-    };
-    true
+    call_with_bool_arg!(ctx, verify_rln_proof, proof_is_valid_ptr, proof_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -245,18 +279,13 @@ pub extern "C" fn verify_with_roots(
     roots_buffer: *const Buffer,
     proof_is_valid_ptr: *mut bool,
 ) -> bool {
-    let rln = unsafe { &*ctx };
-    let proof_data = <&[u8]>::from(unsafe { &*proof_buffer });
-    let roots_data = <&[u8]>::from(unsafe { &*roots_buffer });
-    if match rln.verify_with_roots(proof_data, roots_data) {
-        Ok(verified) => verified,
-        Err(_) => return false,
-    } {
-        unsafe { *proof_is_valid_ptr = true };
-    } else {
-        unsafe { *proof_is_valid_ptr = false };
-    };
-    true
+    call_with_bool_arg!(
+        ctx,
+        verify_with_roots,
+        proof_is_valid_ptr,
+        proof_buffer,
+        roots_buffer
+    )
 }
 
 ////////////////////////////////////////////////////////
@@ -265,16 +294,7 @@ pub extern "C" fn verify_with_roots(
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn key_gen(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
-    let rln = unsafe { &*ctx };
-    let mut output_data: Vec<u8> = Vec::new();
-    if rln.key_gen(&mut output_data).is_ok() {
-        unsafe { *output_buffer = Buffer::from(&output_data[..]) };
-        std::mem::forget(output_data);
-        true
-    } else {
-        std::mem::forget(output_data);
-        false
-    }
+    call_with_output_arg!(ctx, key_gen, output_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -284,32 +304,13 @@ pub extern "C" fn seeded_key_gen(
     input_buffer: *const Buffer,
     output_buffer: *mut Buffer,
 ) -> bool {
-    let rln = unsafe { &*ctx };
-    let input_data = <&[u8]>::from(unsafe { &*input_buffer });
-    let mut output_data: Vec<u8> = Vec::new();
-    if rln.seeded_key_gen(input_data, &mut output_data).is_ok() {
-        unsafe { *output_buffer = Buffer::from(&output_data[..]) };
-        std::mem::forget(output_data);
-        true
-    } else {
-        std::mem::forget(output_data);
-        false
-    }
+    call_with_output_arg!(ctx, seeded_key_gen, output_buffer, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn extended_key_gen(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
-    let rln = unsafe { &*ctx };
-    let mut output_data: Vec<u8> = Vec::new();
-    if rln.extended_key_gen(&mut output_data).is_ok() {
-        unsafe { *output_buffer = Buffer::from(&output_data[..]) };
-        std::mem::forget(output_data);
-        true
-    } else {
-        std::mem::forget(output_data);
-        false
-    }
+    call_with_output_arg!(ctx, extended_key_gen, output_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -319,20 +320,7 @@ pub extern "C" fn seeded_extended_key_gen(
     input_buffer: *const Buffer,
     output_buffer: *mut Buffer,
 ) -> bool {
-    let rln = unsafe { &*ctx };
-    let input_data = <&[u8]>::from(unsafe { &*input_buffer });
-    let mut output_data: Vec<u8> = Vec::new();
-    if rln
-        .seeded_extended_key_gen(input_data, &mut output_data)
-        .is_ok()
-    {
-        unsafe { *output_buffer = Buffer::from(&output_data[..]) };
-        std::mem::forget(output_data);
-        true
-    } else {
-        std::mem::forget(output_data);
-        false
-    }
+    call_with_output_arg!(ctx, seeded_extended_key_gen, output_buffer, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -343,21 +331,13 @@ pub extern "C" fn recover_id_secret(
     input_proof_buffer_2: *const Buffer,
     output_buffer: *mut Buffer,
 ) -> bool {
-    let rln = unsafe { &*ctx };
-    let input_proof_data_1 = <&[u8]>::from(unsafe { &*input_proof_buffer_1 });
-    let input_proof_data_2 = <&[u8]>::from(unsafe { &*input_proof_buffer_2 });
-    let mut output_data: Vec<u8> = Vec::new();
-    if rln
-        .recover_id_secret(input_proof_data_1, input_proof_data_2, &mut output_data)
-        .is_ok()
-    {
-        unsafe { *output_buffer = Buffer::from(&output_data[..]) };
-        std::mem::forget(output_data);
-        true
-    } else {
-        std::mem::forget(output_data);
-        false
-    }
+    call_with_output_arg!(
+        ctx,
+        recover_id_secret,
+        output_buffer,
+        input_proof_buffer_1,
+        input_proof_buffer_2
+    )
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -367,18 +347,7 @@ pub extern "C" fn hash(
     input_buffer: *const Buffer,
     output_buffer: *mut Buffer,
 ) -> bool {
-    let rln = unsafe { &mut *ctx };
-    let input_data = <&[u8]>::from(unsafe { &*input_buffer });
-    let mut output_data: Vec<u8> = Vec::new();
-
-    if rln.hash(input_data, &mut output_data).is_ok() {
-        unsafe { *output_buffer = Buffer::from(&output_data[..]) };
-        std::mem::forget(output_data);
-        true
-    } else {
-        std::mem::forget(output_data);
-        false
-    }
+    call_with_output_arg!(ctx, hash, output_buffer, input_buffer)
 }
 
 #[cfg(test)]
