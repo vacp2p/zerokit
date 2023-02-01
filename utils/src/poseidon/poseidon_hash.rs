@@ -66,11 +66,11 @@ impl<F: PrimeField> Poseidon<F> {
 
     pub fn sbox(&self, n_rounds_f: usize, n_rounds_p: usize, state: &mut [F], i: usize) {
         if (i < n_rounds_f / 2) || (i >= n_rounds_f / 2 + n_rounds_p) {
-            for item in &mut state.iter_mut() {
-                let aux = *item;
-                *item *= *item;
-                *item *= *item;
-                *item *= aux;
+            for current_state in &mut state.iter_mut() {
+                let aux = *current_state;
+                *current_state *= *current_state;
+                *current_state *= *current_state;
+                *current_state *= aux;
             }
         } else {
             let aux = state[0];
