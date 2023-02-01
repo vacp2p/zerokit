@@ -11,7 +11,7 @@ crate-type = ["cdylib", "rlib"]
 default = ["console_error_panic_hook"]
 
 [dependencies]
-rln = { path = "../rln", default-features = false, features = ["wasm"] }
+rln = { path = "../rln", default-features = false, features = ["wasm", "parallel"] }
 num-bigint = { version = "0.4", default-features = false, features = ["rand", "serde"] }
 wasmer = { version = "3.1.1", default-features = false, features = ["js", "std"] }
 web-sys = {version = "0.3", features=["console"]}
