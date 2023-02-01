@@ -1,5 +1,6 @@
 // This crate collects all the underlying primitives used to implement RLN
 
+use std::fmt;
 use ark_circom::{CircomReduction, WitnessCalculator};
 use ark_groth16::{
     create_proof_with_reduction_and_matrices, prepare_verifying_key,
@@ -9,7 +10,7 @@ use ark_relations::r1cs::ConstraintMatrices;
 use ark_relations::r1cs::SynthesisError;
 use ark_std::{rand::thread_rng, UniformRand};
 use color_eyre::Result;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, BigUint};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 #[cfg(not(target_arch = "wasm32"))]
@@ -18,6 +19,7 @@ use std::sync::Mutex;
 use std::time::Instant;
 use thiserror::Error;
 use tiny_keccak::{Hasher as _, Keccak};
+use serde::{Serialize, Serializer, ser::SerializeStruct, Deserialize, Deserializer};
 
 use crate::circuit::{Curve, Fr};
 use crate::poseidon_hash::poseidon_hash;
@@ -25,6 +27,7 @@ use crate::poseidon_tree::*;
 use crate::public::RLN_IDENTIFIER;
 use crate::utils::*;
 use cfg_if::cfg_if;
+use serde::de::{SeqAccess, Visitor};
 
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
@@ -38,6 +41,42 @@ pub struct RLNWitnessInput {
     x: Fr,
     epoch: Fr,
     rln_identifier: Fr,
+}
+
+impl Serialize for RLNWitnessInput {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        let mut witness_ser = serializer.serialize_struct("RLNWitnessInput", 6)?;
+
+        let identity_secret: BigUint = self.identity_secret.into();
+        witness_ser.serialize_field("identity_secret", &identity_secret)?;
+
+        let path_el_as_biguints: Vec<BigUint> = (&self).path_elements.iter().map(
+            |e| {
+                let e_biguint: BigUint = (*e).into();
+                e_biguint
+            }
+        ).collect();
+        witness_ser.serialize_field(
+            "path_elements",
+            &path_el_as_biguints
+        )?;
+
+        witness_ser.serialize_field("identity_path_index", &self.identity_path_index)?;
+
+        let x: BigUint = self.x.into();
+        witness_ser.serialize_field("x", &x)?;
+
+        let epoch: BigUint = self.epoch.into();
+        witness_ser.serialize_field("epoch", &epoch)?;
+
+        let rln_identifier: BigUint = self.rln_identifier.into();
+        witness_ser.serialize_field("rln_identifier", &rln_identifier)?;
+
+        witness_ser.end()
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -102,6 +141,42 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Vec<u8> {
     serialized.append(&mut fr_to_bytes_le(&rln_witness.rln_identifier));
 
     serialized
+}
+
+impl<'de> Deserialize<'de> for RLNWitnessInput {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+    {
+        deserializer.deserialize_seq(WitnessVisitor)
+        deserializer.
+    }
+}
+
+struct WitnessVisitor;
+
+impl<'de> Visitor<'de> for WitnessVisitor {
+    type Value = RLNWitnessInput;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a sequence that deserializes to RLNWitnessInput")
+    }
+
+    fn visit_seq<S>(self, mut seq: S) -> Result<Self::Value, S::Error>
+        where
+            S: SeqAccess<'de>,
+    {
+        let len = seq.size_hint().unwrap_or(0);
+        let mut data = Vec::with_capacity(len);
+
+        while let Some(value) = seq.next_element::<u32>()? {
+            data.push(value);
+        }
+
+        BigUint::deserialize()
+
+        Ok(biguint_from_vec(data))
+    }
 }
 
 pub fn deserialize_witness(serialized: &[u8]) -> (RLNWitnessInput, usize) {
