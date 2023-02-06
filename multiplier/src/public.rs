@@ -54,7 +54,7 @@ impl Multiplier {
         let proof = prove(circom, &params, &mut rng).unwrap();
 
         // XXX: Unclear if this is different from other serialization(s)
-        let _ = proof.serialize(result_data).unwrap();
+        proof.serialize(result_data).unwrap();
 
         Ok(())
     }

@@ -86,7 +86,7 @@ impl<H: Hasher> OptimalMerkleTree<H> {
         cached_nodes.reverse();
         OptimalMerkleTree {
             cached_nodes: cached_nodes.clone(),
-            depth: depth,
+            depth,
             nodes: HashMap::new(),
             next_index: 0,
         }

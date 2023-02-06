@@ -145,7 +145,7 @@ pub fn bytes_le_to_vec_fr(input: &[u8]) -> (Vec<Fr>, usize) {
 
     let el_size = fr_byte_size();
     for i in 0..len {
-        let (curr_el, _) = bytes_le_to_fr(&input[8 + el_size * i..8 + el_size * (i + 1)].to_vec());
+        let (curr_el, _) = bytes_le_to_fr(&input[8 + el_size * i..8 + el_size * (i + 1)]);
         res.push(curr_el);
         read += el_size;
     }
@@ -162,7 +162,7 @@ pub fn bytes_be_to_vec_fr(input: &[u8]) -> (Vec<Fr>, usize) {
 
     let el_size = fr_byte_size();
     for i in 0..len {
-        let (curr_el, _) = bytes_be_to_fr(&input[8 + el_size * i..8 + el_size * (i + 1)].to_vec());
+        let (curr_el, _) = bytes_be_to_fr(&input[8 + el_size * i..8 + el_size * (i + 1)]);
         res.push(curr_el);
         read += el_size;
     }

@@ -136,7 +136,7 @@ pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> &'static Mutex<WitnessCalculator
 pub fn circom_from_folder(resources_folder: &str) -> &'static Mutex<WitnessCalculator> {
     // We read the wasm file
     let wasm_path = format!("{resources_folder}{WASM_FILENAME}");
-    let wasm_buffer = std::fs::read(&wasm_path).unwrap();
+    let wasm_buffer = std::fs::read(wasm_path).unwrap();
     circom_from_raw(wasm_buffer)
 }
 

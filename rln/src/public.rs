@@ -237,7 +237,7 @@ impl RLN<'_> {
         let (leaves, _) = bytes_le_to_vec_fr(&leaves_byte);
 
         // We set the leaves
-        return self.tree.set_range(index, leaves);
+        self.tree.set_range(index, leaves)
     }
 
     /// Resets the tree state to default and sets multiple leaves starting from index 0.
@@ -251,7 +251,7 @@ impl RLN<'_> {
         // NOTE: this requires the tree to be initialized with the correct height initially
         // TODO: accept tree_height as a parameter and initialize the tree with that height
         self.set_tree(self.tree.depth())?;
-        return self.set_leaves_from(0, input_data);
+        self.set_leaves_from(0, input_data)
     }
 
     /// Sets a leaf value at the next available never-set leaf index.
@@ -419,7 +419,7 @@ impl RLN<'_> {
         */
 
         let proof = generate_proof(
-            &mut self.witness_calculator,
+            self.witness_calculator,
             self.proving_key.as_ref().unwrap(),
             &rln_witness,
         )
@@ -472,9 +472,9 @@ impl RLN<'_> {
         // [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
         let mut input_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input_byte)?;
-        let proof = ArkProof::deserialize(&mut Cursor::new(&input_byte[..128].to_vec())).unwrap();
+        let proof = ArkProof::deserialize(&mut Cursor::new(&input_byte[..128])).unwrap();
 
-        let (proof_values, _) = deserialize_proof_values(&input_byte[128..].to_vec());
+        let (proof_values, _) = deserialize_proof_values(&input_byte[128..]);
 
         let verified = verify_proof(
             self.verification_key.as_ref().unwrap(),
@@ -618,7 +618,7 @@ impl RLN<'_> {
         let mut all_read = 0;
         let proof = ArkProof::deserialize(&mut Cursor::new(&serialized[..128].to_vec())).unwrap();
         all_read += 128;
-        let (proof_values, read) = deserialize_proof_values(&serialized[all_read..].to_vec());
+        let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
         all_read += read;
 
         let signal_len =
@@ -703,7 +703,7 @@ impl RLN<'_> {
         let mut all_read = 0;
         let proof = ArkProof::deserialize(&mut Cursor::new(&serialized[..128].to_vec())).unwrap();
         all_read += 128;
-        let (proof_values, read) = deserialize_proof_values(&serialized[all_read..].to_vec());
+        let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
         all_read += read;
 
         let signal_len =
@@ -726,7 +726,7 @@ impl RLN<'_> {
             && (proof_values.rln_identifier == hash_to_field(RLN_IDENTIFIER));
 
         // We skip root validation if proof is already invalid
-        if partial_result == false {
+        if !partial_result {
             return Ok(partial_result);
         }
 
@@ -749,14 +749,13 @@ impl RLN<'_> {
         }
 
         // We validate the root
-        let roots_verified: bool;
-        if roots.is_empty() {
+        let roots_verified: bool = if roots.is_empty() {
             // If no root is passed in roots_buffer, we skip proof's root check
-            roots_verified = true;
+            true
         } else {
             // Otherwise we check if proof's root is contained in the passed buffer
-            roots_verified = roots.contains(&proof_values.root);
-        }
+            roots.contains(&proof_values.root)
+        };
 
         // We combine all checks
         Ok(partial_result && roots_verified)
@@ -952,14 +951,14 @@ impl RLN<'_> {
         let mut serialized: Vec<u8> = Vec::new();
         input_proof_data_1.read_to_end(&mut serialized)?;
         // We skip deserialization of the zk-proof at the beginning
-        let (proof_values_1, _) = deserialize_proof_values(&serialized[128..].to_vec());
+        let (proof_values_1, _) = deserialize_proof_values(&serialized[128..]);
         let external_nullifier_1 =
             poseidon_hash(&[proof_values_1.epoch, proof_values_1.rln_identifier]);
 
         let mut serialized: Vec<u8> = Vec::new();
         input_proof_data_2.read_to_end(&mut serialized)?;
         // We skip deserialization of the zk-proof at the beginning
-        let (proof_values_2, _) = deserialize_proof_values(&serialized[128..].to_vec());
+        let (proof_values_2, _) = deserialize_proof_values(&serialized[128..]);
         let external_nullifier_2 =
             poseidon_hash(&[proof_values_2.epoch, proof_values_2.rln_identifier]);
 
@@ -977,8 +976,7 @@ impl RLN<'_> {
                 compute_id_secret(share1, share2, external_nullifier_1);
 
             // If an identity secret hash is recovered, we write it to output_data, otherwise nothing will be written.
-            if recovered_identity_secret_hash.is_ok() {
-                let identity_secret_hash = recovered_identity_secret_hash.unwrap();
+            if let Ok(identity_secret_hash) = recovered_identity_secret_hash {
                 output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
             }
         }
