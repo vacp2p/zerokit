@@ -28,8 +28,7 @@ impl<F: PrimeField> Poseidon<F> {
     pub fn from(poseidon_params: &[(usize, usize, usize, usize)]) -> Self {
         let mut read_params = Vec::<RoundParamenters<F>>::new();
 
-        for i in 0..poseidon_params.len() {
-            let (t, n_rounds_f, n_rounds_p, skip_matrices) = poseidon_params[i];
+        for &(t, n_rounds_f, n_rounds_p, skip_matrices) in poseidon_params {
             let (ark, mds) = find_poseidon_ark_and_mds::<F>(
                 1, // is_field = 1
                 0, // is_sbox_inverse = 0
@@ -40,10 +39,10 @@ impl<F: PrimeField> Poseidon<F> {
                 skip_matrices,
             );
             let rp = RoundParamenters {
-                t: t,
-                n_rounds_p: n_rounds_p,
-                n_rounds_f: n_rounds_f,
-                skip_matrices: skip_matrices,
+                t,
+                n_rounds_p,
+                n_rounds_f,
+                skip_matrices,
                 c: ark,
                 m: mds,
             };
@@ -67,11 +66,11 @@ impl<F: PrimeField> Poseidon<F> {
 
     pub fn sbox(&self, n_rounds_f: usize, n_rounds_p: usize, state: &mut [F], i: usize) {
         if (i < n_rounds_f / 2) || (i >= n_rounds_f / 2 + n_rounds_p) {
-            for j in 0..state.len() {
-                let aux = state[j];
-                state[j] *= state[j];
-                state[j] *= state[j];
-                state[j] *= aux;
+            for current_state in &mut state.iter_mut() {
+                let aux = *current_state;
+                *current_state *= *current_state;
+                *current_state *= *current_state;
+                *current_state *= aux;
             }
         } else {
             let aux = state[0];
@@ -85,9 +84,9 @@ impl<F: PrimeField> Poseidon<F> {
         let mut new_state: Vec<F> = Vec::new();
         for i in 0..state.len() {
             new_state.push(F::zero());
-            for j in 0..state.len() {
+            for (j, state_item) in state.iter().enumerate() {
                 let mut mij = m[i][j];
-                mij *= state[j];
+                mij *= state_item;
                 new_state[i] += mij;
             }
         }
@@ -116,7 +115,7 @@ impl<F: PrimeField> Poseidon<F> {
             self.ark(
                 &mut state,
                 &self.round_params[param_index].c,
-                (i as usize) * self.round_params[param_index].t,
+                i * self.round_params[param_index].t,
             );
             self.sbox(
                 self.round_params[param_index].n_rounds_f,

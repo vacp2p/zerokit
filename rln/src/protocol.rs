@@ -53,42 +53,42 @@ pub struct RLNProofValues {
 }
 
 pub fn serialize_field_element(element: Fr) -> Vec<u8> {
-    return fr_to_bytes_le(&element);
+    fr_to_bytes_le(&element)
 }
 
 pub fn deserialize_field_element(serialized: Vec<u8>) -> Fr {
     let (element, _) = bytes_le_to_fr(&serialized);
 
-    return element;
+    element
 }
 
 pub fn deserialize_identity_pair(serialized: Vec<u8>) -> (Fr, Fr) {
     let (identity_secret_hash, read) = bytes_le_to_fr(&serialized);
-    let (id_commitment, _) = bytes_le_to_fr(&serialized[read..].to_vec());
+    let (id_commitment, _) = bytes_le_to_fr(&serialized[read..]);
 
-    return (identity_secret_hash, id_commitment);
+    (identity_secret_hash, id_commitment)
 }
 
 pub fn deserialize_identity_tuple(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
     let mut all_read = 0;
 
-    let (identity_trapdoor, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    let (identity_trapdoor, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let (identity_nullifier, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    let (identity_nullifier, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let (identity_secret_hash, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    let (identity_secret_hash, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let (identity_commitment, _) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    let (identity_commitment, _) = bytes_le_to_fr(&serialized[all_read..]);
 
-    return (
+    (
         identity_trapdoor,
         identity_nullifier,
         identity_secret_hash,
         identity_commitment,
-    );
+    )
 }
 
 pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Vec<u8> {
@@ -107,22 +107,22 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Vec<u8> {
 pub fn deserialize_witness(serialized: &[u8]) -> (RLNWitnessInput, usize) {
     let mut all_read: usize = 0;
 
-    let (identity_secret, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    let (identity_secret, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let (path_elements, read) = bytes_le_to_vec_fr(&serialized[all_read..].to_vec());
+    let (path_elements, read) = bytes_le_to_vec_fr(&serialized[all_read..]);
     all_read += read;
 
-    let (identity_path_index, read) = bytes_le_to_vec_u8(&serialized[all_read..].to_vec());
+    let (identity_path_index, read) = bytes_le_to_vec_u8(&serialized[all_read..]);
     all_read += read;
 
-    let (x, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    let (x, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let (epoch, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    let (epoch, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let (rln_identifier, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    let (rln_identifier, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
     // TODO: check rln_identifier against public::RLN_IDENTIFIER
@@ -151,13 +151,13 @@ pub fn proof_inputs_to_rln_witness(
 ) -> (RLNWitnessInput, usize) {
     let mut all_read: usize = 0;
 
-    let (identity_secret, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    let (identity_secret, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
     let id_index = u64::from_le_bytes(serialized[all_read..all_read + 8].try_into().unwrap());
     all_read += 8;
 
-    let (epoch, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    let (epoch, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
     let signal_len = u64::from_le_bytes(serialized[all_read..all_read + 8].try_into().unwrap());
@@ -317,22 +317,22 @@ pub fn serialize_proof_values(rln_proof_values: &RLNProofValues) -> Vec<u8> {
 pub fn deserialize_proof_values(serialized: &[u8]) -> (RLNProofValues, usize) {
     let mut all_read: usize = 0;
 
-    let (root, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    let (root, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let (epoch, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    let (epoch, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let (x, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    let (x, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let (y, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    let (y, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let (nullifier, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    let (nullifier, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let (rln_identifier, read) = bytes_le_to_fr(&serialized[all_read..].to_vec());
+    let (rln_identifier, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
     (
@@ -364,9 +364,10 @@ pub fn prepare_prove_input(
     serialized.append(&mut signal_len.to_le_bytes().to_vec());
     serialized.append(&mut signal.to_vec());
 
-    return serialized;
+    serialized
 }
 
+#[allow(clippy::redundant_clone)]
 pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Vec<u8> {
     let signal_len = u64::try_from(signal.len()).unwrap();
 
@@ -376,7 +377,7 @@ pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Vec<u8> {
     serialized.append(&mut signal_len.to_le_bytes().to_vec());
     serialized.append(&mut signal.to_vec());
 
-    return serialized;
+    serialized
 }
 
 ///////////////////////////////////////////////////////
@@ -519,9 +520,9 @@ pub fn compute_id_secret(
 
     if a_1 == computed_a_1 {
         // We successfully recovered the identity secret
-        return Ok(a_0);
+        Ok(a_0)
     } else {
-        return Err("Cannot recover identity_secret_hash from provided shares".into());
+        Err("Cannot recover identity_secret_hash from provided shares".into())
     }
 }
 

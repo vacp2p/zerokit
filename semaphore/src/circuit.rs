@@ -50,7 +50,7 @@ fn from_dylib(path: &Path) -> Mutex<WitnessCalculator> {
 
 #[must_use]
 pub fn zkey() -> &'static (ProvingKey<Bn254>, ConstraintMatrices<Fr>) {
-    &*ZKEY
+    &ZKEY
 }
 
 #[cfg(feature = "dylib")]
