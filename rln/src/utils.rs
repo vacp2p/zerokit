@@ -6,9 +6,9 @@ use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use std::iter::Extend;
 
-pub fn to_bigint(el: &Fr) -> BigInt {
-    let res: BigUint = (*el).try_into().unwrap();
-    res.try_into().unwrap()
+pub fn to_bigint(el: &Fr) -> color_eyre::Result<BigInt> {
+    let res: BigUint = (*el).try_into()?;
+    Ok(res.into())
 }
 
 pub fn fr_byte_size() -> usize {

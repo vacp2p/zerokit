@@ -51,66 +51,68 @@ pub type G2Affine = ArkG2Affine;
 pub type G2Projective = ArkG2Projective;
 
 // Loads the proving key using a bytes vector
-pub fn zkey_from_raw(zkey_data: &Vec<u8>) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
+pub fn zkey_from_raw(
+    zkey_data: &Vec<u8>,
+) -> color_eyre::Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
     if !zkey_data.is_empty() {
         let mut c = Cursor::new(zkey_data);
         let proving_key_and_matrices = read_zkey(&mut c)?;
         Ok(proving_key_and_matrices)
     } else {
-        Err(Error::new(ErrorKind::NotFound, "No proving key found!"))
+        Err(color_eyre::Report::msg("No proving key found!"))
     }
 }
 
 // Loads the proving key
 pub fn zkey_from_folder(
     resources_folder: &str,
-) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
+) -> color_eyre::Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
     let zkey_path = format!("{resources_folder}{ZKEY_FILENAME}");
     if Path::new(&zkey_path).exists() {
         let mut file = File::open(&zkey_path)?;
         let proving_key_and_matrices = read_zkey(&mut file)?;
         Ok(proving_key_and_matrices)
     } else {
-        Err(Error::new(ErrorKind::NotFound, "No proving key found!"))
+        Err(color_eyre::Report::msg("No proving key found!"))
     }
 }
 
 // Loads the verification key from a bytes vector
-pub fn vk_from_raw(vk_data: &Vec<u8>, zkey_data: &Vec<u8>) -> Result<VerifyingKey<Curve>> {
+pub fn vk_from_raw(
+    vk_data: &Vec<u8>,
+    zkey_data: &Vec<u8>,
+) -> color_eyre::Result<VerifyingKey<Curve>> {
     let verifying_key: VerifyingKey<Curve>;
 
     if !vk_data.is_empty() {
-        verifying_key = vk_from_vector(vk_data);
+        verifying_key = vk_from_vector(vk_data)?;
         Ok(verifying_key)
     } else if !zkey_data.is_empty() {
         let (proving_key, _matrices) = zkey_from_raw(zkey_data)?;
         verifying_key = proving_key.vk;
         Ok(verifying_key)
     } else {
-        Err(Error::new(
-            ErrorKind::NotFound,
+        Err(color_eyre::Report::msg(
             "No proving/verification key found!",
         ))
     }
 }
 
 // Loads the verification key
-pub fn vk_from_folder(resources_folder: &str) -> Result<VerifyingKey<Curve>> {
+pub fn vk_from_folder(resources_folder: &str) -> color_eyre::Result<VerifyingKey<Curve>> {
     let vk_path = format!("{resources_folder}{VK_FILENAME}");
     let zkey_path = format!("{resources_folder}{ZKEY_FILENAME}");
 
     let verifying_key: VerifyingKey<Curve>;
 
     if Path::new(&vk_path).exists() {
-        verifying_key = vk_from_json(&vk_path);
-        Ok(verifying_key)
+        vk_from_json(&vk_path)
     } else if Path::new(&zkey_path).exists() {
         let (proving_key, _matrices) = zkey_from_folder(resources_folder)?;
         verifying_key = proving_key.vk;
         Ok(verifying_key)
     } else {
-        Err(Error::new(
-            ErrorKind::NotFound,
+        Err(color_eyre::Report::msg(
             "No proving/verification key found!",
         ))
     }
@@ -148,40 +150,53 @@ fn fq_from_str(s: &str) -> Fq {
 }
 
 // Extracts the element in G1 corresponding to its JSON serialization
-fn json_to_g1(json: &Value, key: &str) -> G1Affine {
+fn json_to_g1(json: &Value, key: &str) -> color_eyre::Result<G1Affine> {
     let els: Vec<String> = json
         .get(key)
-        .unwrap()
+        .ok_or(color_eyre::Report::msg("no json value"))?
         .as_array()
-        .unwrap()
+        .ok_or(color_eyre::Report::msg("value not an array"))?
         .iter()
-        .map(|i| i.as_str().unwrap().to_string())
-        .collect();
-    G1Affine::from(G1Projective::new(
+        .map(|i| {
+            i.as_str()
+                .ok_or(color_eyre::Report::msg("element is not a string"))
+        })
+        .map(|x| x.map(|v| v.to_owned()))
+        .collect::<color_eyre::Result<Vec<String>>>()?;
+
+    Ok(G1Affine::from(G1Projective::new(
         fq_from_str(&els[0]),
         fq_from_str(&els[1]),
         fq_from_str(&els[2]),
-    ))
+    )))
 }
 
 // Extracts the vector of G1 elements corresponding to its JSON serialization
-fn json_to_g1_vec(json: &Value, key: &str) -> Vec<G1Affine> {
+fn json_to_g1_vec(json: &Value, key: &str) -> color_eyre::Result<Vec<G1Affine>> {
     let els: Vec<Vec<String>> = json
         .get(key)
-        .unwrap()
+        .ok_or(color_eyre::Report::msg("no json value"))?
         .as_array()
-        .unwrap()
+        .ok_or(color_eyre::Report::msg("value not an array"))?
         .iter()
         .map(|i| {
             i.as_array()
-                .unwrap()
-                .iter()
-                .map(|x| x.as_str().unwrap().to_string())
-                .collect::<Vec<String>>()
+                .ok_or(color_eyre::Report::msg("element is not an array"))
+                .and_then(|array| {
+                    array
+                        .iter()
+                        .map(|x| {
+                            x.as_str()
+                                .ok_or(color_eyre::Report::msg("element is not a string"))
+                        })
+                        .map(|x| x.map(|v| v.to_owned()))
+                        .collect::<color_eyre::Result<Vec<String>>>()
+                })
         })
-        .collect();
+        .collect::<color_eyre::Result<Vec<Vec<String>>>>()?;
 
-    els.iter()
+    Ok(els
+        .iter()
         .map(|coords| {
             G1Affine::from(G1Projective::new(
                 fq_from_str(&coords[0]),
@@ -189,61 +204,74 @@ fn json_to_g1_vec(json: &Value, key: &str) -> Vec<G1Affine> {
                 fq_from_str(&coords[2]),
             ))
         })
-        .collect()
+        .collect())
 }
 
 // Extracts the element in G2 corresponding to its JSON serialization
-fn json_to_g2(json: &Value, key: &str) -> G2Affine {
+fn json_to_g2(json: &Value, key: &str) -> color_eyre::Result<G2Affine> {
     let els: Vec<Vec<String>> = json
         .get(key)
-        .unwrap()
+        .ok_or(color_eyre::Report::msg("no json value"))?
         .as_array()
-        .unwrap()
+        .ok_or(color_eyre::Report::msg("value not an array"))?
         .iter()
         .map(|i| {
             i.as_array()
-                .unwrap()
-                .iter()
-                .map(|x| x.as_str().unwrap().to_string())
-                .collect::<Vec<String>>()
+                .ok_or(color_eyre::Report::msg("element is not an array"))
+                .and_then(|array| {
+                    array
+                        .iter()
+                        .map(|x| {
+                            x.as_str()
+                                .ok_or(color_eyre::Report::msg("element is not a string"))
+                        })
+                        .map(|x| x.map(|v| v.to_owned()))
+                        .collect::<color_eyre::Result<Vec<String>>>()
+                })
         })
-        .collect();
+        .collect::<color_eyre::Result<Vec<Vec<String>>>>()?;
 
     let x = Fq2::new(fq_from_str(&els[0][0]), fq_from_str(&els[0][1]));
     let y = Fq2::new(fq_from_str(&els[1][0]), fq_from_str(&els[1][1]));
     let z = Fq2::new(fq_from_str(&els[2][0]), fq_from_str(&els[2][1]));
-    G2Affine::from(G2Projective::new(x, y, z))
+    Ok(G2Affine::from(G2Projective::new(x, y, z)))
 }
 
 // Converts JSON to a VerifyingKey
-fn to_verifying_key(json: serde_json::Value) -> VerifyingKey<Curve> {
-    VerifyingKey {
-        alpha_g1: json_to_g1(&json, "vk_alpha_1"),
-        beta_g2: json_to_g2(&json, "vk_beta_2"),
-        gamma_g2: json_to_g2(&json, "vk_gamma_2"),
-        delta_g2: json_to_g2(&json, "vk_delta_2"),
-        gamma_abc_g1: json_to_g1_vec(&json, "IC"),
-    }
+fn to_verifying_key(json: serde_json::Value) -> color_eyre::Result<VerifyingKey<Curve>> {
+    Ok(VerifyingKey {
+        alpha_g1: json_to_g1(&json, "vk_alpha_1")?,
+        beta_g2: json_to_g2(&json, "vk_beta_2")?,
+        gamma_g2: json_to_g2(&json, "vk_gamma_2")?,
+        delta_g2: json_to_g2(&json, "vk_delta_2")?,
+        gamma_abc_g1: json_to_g1_vec(&json, "IC")?,
+    })
 }
 
 // Computes the verification key from its JSON serialization
-fn vk_from_json(vk_path: &str) -> VerifyingKey<Curve> {
-    let json = std::fs::read_to_string(vk_path).unwrap();
-    let json: Value = serde_json::from_str(&json).unwrap();
+fn vk_from_json(vk_path: &str) -> color_eyre::Result<VerifyingKey<Curve>> {
+    let json = std::fs::read_to_string(vk_path)?;
+    let json: Value = serde_json::from_str(&json)?;
 
     to_verifying_key(json)
 }
 
 // Computes the verification key from a bytes vector containing its JSON serialization
-fn vk_from_vector(vk: &[u8]) -> VerifyingKey<Curve> {
-    let json = String::from_utf8(vk.to_vec()).expect("Found invalid UTF-8");
-    let json: Value = serde_json::from_str(&json).unwrap();
+fn vk_from_vector(vk: &[u8]) -> color_eyre::Result<VerifyingKey<Curve>> {
+    let json = String::from_utf8(vk.to_vec())?;
+    let json: Value = serde_json::from_str(&json)?;
 
     to_verifying_key(json)
 }
 
 // Checks verification key to be correct with respect to proving key
-pub fn check_vk_from_zkey(resources_folder: &str, verifying_key: VerifyingKey<Curve>) {
-    let (proving_key, _matrices) = zkey_from_folder(resources_folder).unwrap();
-    assert_eq!(proving_key.vk, verifying_key);
+pub fn check_vk_from_zkey(resources_folder: &str, verifying_key: VerifyingKey<Curve>) -> color_eyre::Result<()> {
+    let (proving_key, _matrices) = zkey_from_folder(resources_folder)?;
+    if proving_key.vk == verifying_key {
+        Ok(())
+    } else {
+        Err(color_eyre::Report::msg(
+            "proving_key is not equal to verifying_key",
+        ))
+    }
 }

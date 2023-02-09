@@ -533,7 +533,7 @@ pub fn compute_id_secret(
 #[derive(Error, Debug)]
 pub enum ProofError {
     #[error("Error reading circuit key: {0}")]
-    CircuitKeyError(#[from] std::io::Error),
+    CircuitKeyError(#[from] color_eyre::Report),
     #[error("Error producing witness: {0}")]
     WitnessError(color_eyre::Report),
     #[error("Error producing proof: {0}")]
@@ -603,14 +603,14 @@ pub fn generate_proof_with_witness(
     Ok(proof)
 }
 
-pub fn inputs_for_witness_calculation(rln_witness: &RLNWitnessInput) -> [(&str, Vec<BigInt>); 6] {
+pub fn inputs_for_witness_calculation(rln_witness: &RLNWitnessInput) -> color_eyre::Result<[(&str, Vec<BigInt>); 6]> {
     // We confert the path indexes to field elements
     // TODO: check if necessary
     let mut path_elements = Vec::new();
-    rln_witness
-        .path_elements
-        .iter()
-        .for_each(|v| path_elements.push(to_bigint(v)));
+
+    for v in rln_witness.path_elements.iter() {
+        path_elements.push(to_bigint(v)?);
+    }
 
     let mut identity_path_index = Vec::new();
     rln_witness
@@ -618,20 +618,20 @@ pub fn inputs_for_witness_calculation(rln_witness: &RLNWitnessInput) -> [(&str, 
         .iter()
         .for_each(|v| identity_path_index.push(BigInt::from(*v)));
 
-    [
+    Ok([
         (
             "identity_secret",
-            vec![to_bigint(&rln_witness.identity_secret)],
+            vec![to_bigint(&rln_witness.identity_secret)?],
         ),
         ("path_elements", path_elements),
         ("identity_path_index", identity_path_index),
-        ("x", vec![to_bigint(&rln_witness.x)]),
-        ("epoch", vec![to_bigint(&rln_witness.epoch)]),
+        ("x", vec![to_bigint(&rln_witness.x)?]),
+        ("epoch", vec![to_bigint(&rln_witness.epoch)?]),
         (
             "rln_identifier",
-            vec![to_bigint(&rln_witness.rln_identifier)],
+            vec![to_bigint(&rln_witness.rln_identifier)?],
         ),
-    ]
+    ])
 }
 
 /// Generates a RLN proof
@@ -645,7 +645,7 @@ pub fn generate_proof(
     proving_key: &(ProvingKey<Curve>, ConstraintMatrices<Fr>),
     rln_witness: &RLNWitnessInput,
 ) -> Result<ArkProof<Curve>, ProofError> {
-    let inputs = inputs_for_witness_calculation(rln_witness)
+    let inputs = inputs_for_witness_calculation(rln_witness)?
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));
 
@@ -736,12 +736,12 @@ pub fn verify_proof(
 ///
 /// Returns a JSON object containing the inputs necessary to calculate
 /// the witness with CIRCOM on javascript
-pub fn get_json_inputs(rln_witness: &RLNWitnessInput) -> serde_json::Value {
+pub fn get_json_inputs(rln_witness: &RLNWitnessInput) -> color_eyre::Result<serde_json::Value> {
     let mut path_elements = Vec::new();
-    rln_witness
-        .path_elements
-        .iter()
-        .for_each(|v| path_elements.push(to_bigint(v).to_str_radix(10)));
+
+    for v in rln_witness.path_elements.iter() {
+        path_elements.push(to_bigint(v)?.to_str_radix(10));
+    }
 
     let mut identity_path_index = Vec::new();
     rln_witness
@@ -750,13 +750,13 @@ pub fn get_json_inputs(rln_witness: &RLNWitnessInput) -> serde_json::Value {
         .for_each(|v| identity_path_index.push(BigInt::from(*v).to_str_radix(10)));
 
     let inputs = serde_json::json!({
-        "identity_secret": to_bigint(&rln_witness.identity_secret).to_str_radix(10),
+        "identity_secret": to_bigint(&rln_witness.identity_secret)?.to_str_radix(10),
         "path_elements": path_elements,
         "identity_path_index": identity_path_index,
-        "x": to_bigint(&rln_witness.x).to_str_radix(10),
-        "epoch":  format!("0x{:064x}", to_bigint(&rln_witness.epoch)),
-        "rln_identifier": to_bigint(&rln_witness.rln_identifier).to_str_radix(10),
+        "x": to_bigint(&rln_witness.x)?.to_str_radix(10),
+        "epoch":  format!("0x{:064x}", to_bigint(&rln_witness.epoch)?),
+        "rln_identifier": to_bigint(&rln_witness.rln_identifier)?.to_str_radix(10),
     });
 
-    inputs
+    Ok(inputs)
 }

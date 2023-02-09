@@ -36,8 +36,8 @@ pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
 ///
 /// I/O is mostly done using writers and readers implementing `std::io::Write` and `std::io::Read`, respectively.
 pub struct RLN<'a> {
-    proving_key: Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)>,
-    verification_key: Result<VerifyingKey<Curve>>,
+    proving_key: color_eyre::Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)>,
+    verification_key: color_eyre::Result<VerifyingKey<Curve>>,
     tree: PoseidonTree,
 
     // The witness calculator can't be loaded in zerokit. Since this struct
@@ -1040,9 +1040,9 @@ impl RLN<'_> {
     pub fn get_rln_witness_json(
         &mut self,
         serialized_witness: &[u8],
-    ) -> io::Result<serde_json::Value> {
+    ) -> color_eyre::Result<serde_json::Value> {
         let (rln_witness, _) = deserialize_witness(serialized_witness);
-        Ok(get_json_inputs(&rln_witness))
+        get_json_inputs(&rln_witness)
     }
 }
 
@@ -1424,7 +1424,7 @@ mod test {
         let serialized_witness = serialize_witness(&rln_witness);
 
         // Calculate witness outside zerokit (simulating what JS is doing)
-        let inputs = inputs_for_witness_calculation(&rln_witness)
+        let inputs = inputs_for_witness_calculation(&rln_witness).unwrap()
             .into_iter()
             .map(|(name, values)| (name.to_string(), values));
         let calculated_witness = rln
@@ -1437,7 +1437,7 @@ mod test {
 
         let calculated_witness_vec: Vec<BigInt> = calculated_witness
             .into_iter()
-            .map(|v| to_bigint(&v))
+            .map(|v| to_bigint(&v).unwrap())
             .collect();
 
         // Generating the proof
