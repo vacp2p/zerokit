@@ -186,18 +186,18 @@ pub fn proof_inputs_to_rln_witness(
     )
 }
 
-pub fn rln_witness_from_json(input_json_str: &str) -> RLNWitnessInput {
+pub fn rln_witness_from_json(input_json_str: &str) -> color_eyre::Result<RLNWitnessInput> {
     let input_json: serde_json::Value =
         serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
 
-    let identity_secret = str_to_fr(&input_json["identity_secret"].to_string(), 10);
+    let identity_secret = str_to_fr(&input_json["identity_secret"].to_string(), 10)?;
 
     let path_elements = input_json["path_elements"]
         .as_array()
         .unwrap()
         .iter()
         .map(|v| str_to_fr(&v.to_string(), 10))
-        .collect();
+        .collect::<color_eyre::Result<_>>()?;
 
     let identity_path_index = input_json["identity_path_index"]
         .as_array()
@@ -206,22 +206,22 @@ pub fn rln_witness_from_json(input_json_str: &str) -> RLNWitnessInput {
         .map(|v| v.as_u64().unwrap() as u8)
         .collect();
 
-    let x = str_to_fr(&input_json["x"].to_string(), 10);
+    let x = str_to_fr(&input_json["x"].to_string(), 10)?;
 
-    let epoch = str_to_fr(&input_json["epoch"].to_string(), 16);
+    let epoch = str_to_fr(&input_json["epoch"].to_string(), 16)?;
 
-    let rln_identifier = str_to_fr(&input_json["rln_identifier"].to_string(), 10);
+    let rln_identifier = str_to_fr(&input_json["rln_identifier"].to_string(), 10)?;
 
     // TODO: check rln_identifier against public::RLN_IDENTIFIER
 
-    RLNWitnessInput {
+    Ok(RLNWitnessInput {
         identity_secret,
         path_elements,
         identity_path_index,
         x,
         epoch,
         rln_identifier,
-    }
+    })
 }
 
 pub fn rln_witness_from_values(

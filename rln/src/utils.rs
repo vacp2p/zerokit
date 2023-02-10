@@ -16,7 +16,7 @@ pub fn fr_byte_size() -> usize {
     (mbs + 64 - (mbs % 64)) / 8
 }
 
-pub fn str_to_fr(input: &str, radix: u32) -> Fr {
+pub fn str_to_fr(input: &str, radix: u32) -> color_eyre::Result<Fr> {
     assert!((radix == 10) || (radix == 16));
 
     // We remove any quote present and we trim
@@ -25,16 +25,12 @@ pub fn str_to_fr(input: &str, radix: u32) -> Fr {
     input_clean = input_clean.trim().to_string();
 
     if radix == 10 {
-        BigUint::from_str_radix(&input_clean, radix)
-            .unwrap()
-            .try_into()
-            .unwrap()
+        Ok(BigUint::from_str_radix(&input_clean, radix)?
+            .try_into()?)
     } else {
         input_clean = input_clean.replace("0x", "");
-        BigUint::from_str_radix(&input_clean, radix)
-            .unwrap()
-            .try_into()
-            .unwrap()
+        Ok(BigUint::from_str_radix(&input_clean, radix)?
+            .try_into()?)
     }
 }
 
