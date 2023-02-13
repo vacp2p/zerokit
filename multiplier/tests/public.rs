@@ -4,7 +4,7 @@ mod tests {
 
     #[test]
     fn multiplier_proof() {
-        let mul = Multiplier::new();
+        let mul = Multiplier::new().unwrap();
         //let inputs = mul.circom.get_public_inputs().unwrap();
 
         let mut output_data: Vec<u8> = Vec::new();
