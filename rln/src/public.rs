@@ -12,7 +12,6 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 use cfg_if::cfg_if;
 use num_bigint::BigInt;
 use std::io::Cursor;
-use std::io::{self, Result};
 
 cfg_if! {
     if #[cfg(not(target_arch = "wasm32"))] {
@@ -36,8 +35,8 @@ pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
 ///
 /// I/O is mostly done using writers and readers implementing `std::io::Write` and `std::io::Read`, respectively.
 pub struct RLN<'a> {
-    proving_key: color_eyre::Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)>,
-    verification_key: color_eyre::Result<VerifyingKey<Curve>>,
+    proving_key: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
+    verification_key: VerifyingKey<Curve>,
     tree: PoseidonTree,
 
     // The witness calculator can't be loaded in zerokit. Since this struct
@@ -67,29 +66,29 @@ impl RLN<'_> {
     /// let mut rln = RLN::new(tree_height, resources);
     /// ```
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> RLN<'static> {
+    pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> color_eyre::Result<RLN<'static>> {
         // We read input
         let mut input: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut input).unwrap();
+        input_data.read_to_end(&mut input)?;
 
-        let resources_folder = String::from_utf8(input).expect("Found invalid UTF-8");
+        let resources_folder = String::from_utf8(input)?;
 
-        let witness_calculator = circom_from_folder(&resources_folder);
+        let witness_calculator = circom_from_folder(&resources_folder)?;
 
-        let proving_key = zkey_from_folder(&resources_folder);
-        let verification_key = vk_from_folder(&resources_folder);
+        let proving_key = zkey_from_folder(&resources_folder)?;
+        let verification_key = vk_from_folder(&resources_folder)?;
 
         // We compute a default empty tree
         let tree = PoseidonTree::default(tree_height);
 
-        RLN {
+        Ok(RLN {
             witness_calculator,
             proving_key,
             verification_key,
             tree,
             #[cfg(target_arch = "wasm32")]
             _marker: PhantomData,
-        }
+        })
     }
 
     /// Creates a new RLN object by passing circuit resources as byte vectors.
@@ -130,17 +129,17 @@ impl RLN<'_> {
         #[cfg(not(target_arch = "wasm32"))] circom_vec: Vec<u8>,
         zkey_vec: Vec<u8>,
         vk_vec: Vec<u8>,
-    ) -> RLN<'static> {
+    ) -> color_eyre::Result<RLN<'static>> {
         #[cfg(not(target_arch = "wasm32"))]
-        let witness_calculator = circom_from_raw(circom_vec);
+        let witness_calculator = circom_from_raw(circom_vec)?;
 
-        let proving_key = zkey_from_raw(&zkey_vec);
-        let verification_key = vk_from_raw(&vk_vec, &zkey_vec);
+        let proving_key = zkey_from_raw(&zkey_vec)?;
+        let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
 
         // We compute a default empty tree
         let tree = PoseidonTree::default(tree_height);
 
-        RLN {
+        Ok(RLN {
             #[cfg(not(target_arch = "wasm32"))]
             witness_calculator,
             proving_key,
@@ -148,7 +147,7 @@ impl RLN<'_> {
             tree,
             #[cfg(target_arch = "wasm32")]
             _marker: PhantomData,
-        }
+        })
     }
 
     ////////////////////////////////////////////////////////
@@ -160,7 +159,7 @@ impl RLN<'_> {
     ///
     /// Input values are:
     /// - `tree_height`: the height of the Merkle tree.
-    pub fn set_tree(&mut self, tree_height: usize) -> io::Result<()> {
+    pub fn set_tree(&mut self, tree_height: usize) -> color_eyre::Result<()> {
         // We compute a default empty tree of desired height
         self.tree = PoseidonTree::default(tree_height);
 
@@ -187,7 +186,7 @@ impl RLN<'_> {
     /// let mut buffer = Cursor::new(serialize_field_element(id_commitment));
     /// rln.set_leaf(id_index, &mut buffer).unwrap();
     /// ```
-    pub fn set_leaf<R: Read>(&mut self, index: usize, mut input_data: R) -> io::Result<()> {
+    pub fn set_leaf<R: Read>(&mut self, index: usize, mut input_data: R) -> color_eyre::Result<()> {
         // We read input
         let mut leaf_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut leaf_byte)?;
@@ -229,12 +228,12 @@ impl RLN<'_> {
     /// let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
     /// rln.set_leaves_from(index, &mut buffer).unwrap();
     /// ```
-    pub fn set_leaves_from<R: Read>(&mut self, index: usize, mut input_data: R) -> io::Result<()> {
+    pub fn set_leaves_from<R: Read>(&mut self, index: usize, mut input_data: R) -> color_eyre::Result<()> {
         // We read input
         let mut leaves_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut leaves_byte)?;
 
-        let (leaves, _) = bytes_le_to_vec_fr(&leaves_byte);
+        let (leaves, _) = bytes_le_to_vec_fr(&leaves_byte)?;
 
         // We set the leaves
         self.tree.set_range(index, leaves)
@@ -246,7 +245,7 @@ impl RLN<'_> {
     ///
     /// Input values are:
     /// - `input_data`: a reader for the serialization of multiple leaf values (serialization done with [`rln::utils::vec_fr_to_bytes_le`](crate::utils::vec_fr_to_bytes_le))
-    pub fn init_tree_with_leaves<R: Read>(&mut self, input_data: R) -> io::Result<()> {
+    pub fn init_tree_with_leaves<R: Read>(&mut self, input_data: R) -> color_eyre::Result<()> {
         // reset the tree
         // NOTE: this requires the tree to be initialized with the correct height initially
         // TODO: accept tree_height as a parameter and initialize the tree with that height
@@ -295,7 +294,7 @@ impl RLN<'_> {
     /// let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
     /// rln.set_next_leaf(&mut buffer).unwrap();
     /// ```
-    pub fn set_next_leaf<R: Read>(&mut self, mut input_data: R) -> io::Result<()> {
+    pub fn set_next_leaf<R: Read>(&mut self, mut input_data: R) -> color_eyre::Result<()> {
         // We read input
         let mut leaf_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut leaf_byte)?;
@@ -320,7 +319,7 @@ impl RLN<'_> {
     /// let index = 10;
     /// rln.delete_leaf(index).unwrap();
     /// ```
-    pub fn delete_leaf(&mut self, index: usize) -> io::Result<()> {
+    pub fn delete_leaf(&mut self, index: usize) -> color_eyre::Result<()> {
         self.tree.delete(index)?;
         Ok(())
     }
@@ -338,7 +337,7 @@ impl RLN<'_> {
     /// rln.get_root(&mut buffer).unwrap();
     /// let (root, _) = bytes_le_to_fr(&buffer.into_inner());
     /// ```
-    pub fn get_root<W: Write>(&self, mut output_data: W) -> io::Result<()> {
+    pub fn get_root<W: Write>(&self, mut output_data: W) -> color_eyre::Result<()> {
         let root = self.tree.root();
         output_data.write_all(&fr_to_bytes_le(&root))?;
 
@@ -366,13 +365,13 @@ impl RLN<'_> {
     /// let (path_elements, read) = bytes_le_to_vec_fr(&buffer_inner);
     /// let (identity_path_index, _) = bytes_le_to_vec_u8(&buffer_inner[read..].to_vec());
     /// ```
-    pub fn get_proof<W: Write>(&self, index: usize, mut output_data: W) -> io::Result<()> {
+    pub fn get_proof<W: Write>(&self, index: usize, mut output_data: W) -> color_eyre::Result<()> {
         let merkle_proof = self.tree.proof(index).expect("proof should exist");
         let path_elements = merkle_proof.get_path_elements();
         let identity_path_index = merkle_proof.get_path_index();
 
-        output_data.write_all(&vec_fr_to_bytes_le(&path_elements))?;
-        output_data.write_all(&vec_u8_to_bytes_le(&identity_path_index))?;
+        output_data.write_all(&vec_fr_to_bytes_le(&path_elements)?)?;
+        output_data.write_all(&vec_u8_to_bytes_le(&identity_path_index)?)?;
 
         Ok(())
     }
@@ -406,11 +405,11 @@ impl RLN<'_> {
         &mut self,
         mut input_data: R,
         mut output_data: W,
-    ) -> io::Result<()> {
+    ) -> color_eyre::Result<()> {
         // We read input RLN witness and we deserialize it
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
-        let (rln_witness, _) = deserialize_witness(&serialized);
+        let (rln_witness, _) = deserialize_witness(&serialized)?;
 
         /*
         if self.witness_calculator.is_none() {
@@ -420,13 +419,12 @@ impl RLN<'_> {
 
         let proof = generate_proof(
             self.witness_calculator,
-            self.proving_key.as_ref().unwrap(),
+            &self.proving_key,
             &rln_witness,
-        )
-        .unwrap();
+        )?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
-        proof.serialize(&mut output_data).unwrap();
+        proof.serialize(&mut output_data)?;
 
         Ok(())
     }
@@ -466,22 +464,21 @@ impl RLN<'_> {
     ///
     /// assert!(verified);
     /// ```
-    pub fn verify<R: Read>(&self, mut input_data: R) -> io::Result<bool> {
+    pub fn verify<R: Read>(&self, mut input_data: R) -> color_eyre::Result<bool> {
         // Input data is serialized for Curve as:
         // serialized_proof (compressed, 4*32 bytes) || serialized_proof_values (6*32 bytes), i.e.
         // [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
         let mut input_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input_byte)?;
-        let proof = ArkProof::deserialize(&mut Cursor::new(&input_byte[..128])).unwrap();
+        let proof = ArkProof::deserialize(&mut Cursor::new(&input_byte[..128]))?;
 
         let (proof_values, _) = deserialize_proof_values(&input_byte[128..]);
 
         let verified = verify_proof(
-            self.verification_key.as_ref().unwrap(),
+            &self.verification_key,
             &proof,
             &proof_values,
-        )
-        .unwrap();
+        )?;
 
         Ok(verified)
     }
@@ -537,23 +534,22 @@ impl RLN<'_> {
         &mut self,
         mut input_data: R,
         mut output_data: W,
-    ) -> io::Result<()> {
+    ) -> color_eyre::Result<()> {
         // We read input RLN witness and we deserialize it
         let mut witness_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut witness_byte)?;
-        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte);
+        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
         let proof_values = proof_values_from_witness(&rln_witness);
 
         let proof = generate_proof(
             self.witness_calculator,
-            self.proving_key.as_ref().unwrap(),
+            &self.proving_key,
             &rln_witness,
-        )
-        .unwrap();
+        )?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
-        proof.serialize(&mut output_data).unwrap();
+        proof.serialize(&mut output_data)?;
         output_data.write_all(&serialize_proof_values(&proof_values))?;
 
         Ok(())
@@ -570,17 +566,17 @@ impl RLN<'_> {
         calculated_witness: Vec<BigInt>,
         rln_witness_vec: Vec<u8>,
         mut output_data: W,
-    ) -> io::Result<()> {
-        let (rln_witness, _) = deserialize_witness(&rln_witness_vec[..]);
+    ) -> color_eyre::Result<()> {
+        let (rln_witness, _) = deserialize_witness(&rln_witness_vec[..])?;
         let proof_values = proof_values_from_witness(&rln_witness);
 
         let proof =
-            generate_proof_with_witness(calculated_witness, self.proving_key.as_ref().unwrap())
+            generate_proof_with_witness(calculated_witness, &self.proving_key)
                 .unwrap();
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
-        proof.serialize(&mut output_data).unwrap();
+        proof.serialize(&mut output_data)?;
         output_data.write_all(&serialize_proof_values(&proof_values))?;
         Ok(())
     }
@@ -612,27 +608,26 @@ impl RLN<'_> {
     ///
     /// assert!(verified);
     /// ```
-    pub fn verify_rln_proof<R: Read>(&self, mut input_data: R) -> io::Result<bool> {
+    pub fn verify_rln_proof<R: Read>(&self, mut input_data: R) -> color_eyre::Result<bool> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
-        let proof = ArkProof::deserialize(&mut Cursor::new(&serialized[..128].to_vec())).unwrap();
+        let proof = ArkProof::deserialize(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
         let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
         all_read += read;
 
         let signal_len =
-            u64::from_le_bytes(serialized[all_read..all_read + 8].try_into().unwrap()) as usize;
+            u64::from_le_bytes(serialized[all_read..all_read + 8].try_into()?) as usize;
         all_read += 8;
 
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
 
         let verified = verify_proof(
-            self.verification_key.as_ref().unwrap(),
+            &self.verification_key,
             &proof,
             &proof_values,
-        )
-        .unwrap();
+        )?;
 
         // Consistency checks to counter proof tampering
         let x = hash_to_field(&signal);
@@ -697,27 +692,26 @@ impl RLN<'_> {
         &self,
         mut input_data: R,
         mut roots_data: R,
-    ) -> io::Result<bool> {
+    ) -> color_eyre::Result<bool> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
-        let proof = ArkProof::deserialize(&mut Cursor::new(&serialized[..128].to_vec())).unwrap();
+        let proof = ArkProof::deserialize(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
         let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
         all_read += read;
 
         let signal_len =
-            u64::from_le_bytes(serialized[all_read..all_read + 8].try_into().unwrap()) as usize;
+            u64::from_le_bytes(serialized[all_read..all_read + 8].try_into()?) as usize;
         all_read += 8;
 
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
 
         let verified = verify_proof(
-            self.verification_key.as_ref().unwrap(),
+            &self.verification_key,
             &proof,
             &proof_values,
-        )
-        .unwrap();
+        )?;
 
         // First consistency checks to counter proof tampering
         let x = hash_to_field(&signal);
@@ -783,7 +777,7 @@ impl RLN<'_> {
     /// // We deserialize the keygen output
     /// let (identity_secret_hash, id_commitment) = deserialize_identity_pair(buffer.into_inner());
     /// ```
-    pub fn key_gen<W: Write>(&self, mut output_data: W) -> io::Result<()> {
+    pub fn key_gen<W: Write>(&self, mut output_data: W) -> color_eyre::Result<()> {
         let (identity_secret_hash, id_commitment) = keygen();
         output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
         output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
@@ -813,7 +807,7 @@ impl RLN<'_> {
     /// // We deserialize the keygen output
     /// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
     /// ```
-    pub fn extended_key_gen<W: Write>(&self, mut output_data: W) -> io::Result<()> {
+    pub fn extended_key_gen<W: Write>(&self, mut output_data: W) -> color_eyre::Result<()> {
         let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
             extended_keygen();
         output_data.write_all(&fr_to_bytes_le(&identity_trapdoor))?;
@@ -852,7 +846,7 @@ impl RLN<'_> {
         &self,
         mut input_data: R,
         mut output_data: W,
-    ) -> io::Result<()> {
+    ) -> color_eyre::Result<()> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
 
@@ -895,7 +889,7 @@ impl RLN<'_> {
         &self,
         mut input_data: R,
         mut output_data: W,
-    ) -> io::Result<()> {
+    ) -> color_eyre::Result<()> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
 
@@ -946,7 +940,7 @@ impl RLN<'_> {
         mut input_proof_data_1: R,
         mut input_proof_data_2: R,
         mut output_data: W,
-    ) -> io::Result<()> {
+    ) -> color_eyre::Result<()> {
         // We deserialize the two proofs and we get the corresponding RLNProofValues objects
         let mut serialized: Vec<u8> = Vec::new();
         input_proof_data_1.read_to_end(&mut serialized)?;
@@ -1006,7 +1000,7 @@ impl RLN<'_> {
     /// // We deserialize the keygen output
     /// let field_element = deserialize_field_element(output_buffer.into_inner());
     /// ```
-    pub fn hash<R: Read, W: Write>(&self, mut input_data: R, mut output_data: W) -> io::Result<()> {
+    pub fn hash<R: Read, W: Write>(&self, mut input_data: R, mut output_data: W) -> color_eyre::Result<()> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
 
@@ -1022,11 +1016,14 @@ impl RLN<'_> {
     /// - `input_data`: a reader for the serialization of `[ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]`
     ///
     /// The function returns the corresponding [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object serialized using [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
-    pub fn get_serialized_rln_witness<R: Read>(&mut self, mut input_data: R) -> Vec<u8> {
+    pub fn get_serialized_rln_witness<R: Read>(
+        &mut self,
+        mut input_data: R,
+    ) -> color_eyre::Result<Vec<u8>> {
         // We read input RLN witness and we deserialize it
         let mut witness_byte: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut witness_byte).unwrap();
-        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte);
+        input_data.read_to_end(&mut witness_byte)?;
+        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
 
         serialize_witness(&rln_witness)
     }
@@ -1041,7 +1038,7 @@ impl RLN<'_> {
         &mut self,
         serialized_witness: &[u8],
     ) -> color_eyre::Result<serde_json::Value> {
-        let (rln_witness, _) = deserialize_witness(serialized_witness);
+        let (rln_witness, _) = deserialize_witness(serialized_witness)?;
         get_json_inputs(&rln_witness)
     }
 }
@@ -1051,7 +1048,7 @@ impl Default for RLN<'_> {
     fn default() -> Self {
         let tree_height = TEST_TREE_HEIGHT;
         let buffer = Cursor::new(TEST_RESOURCES_FOLDER);
-        Self::new(tree_height, buffer)
+        Self::new(tree_height, buffer).unwrap()
     }
 }
 
@@ -1076,7 +1073,7 @@ mod test {
 
         // We create a new tree
         let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
-        let mut rln = RLN::new(tree_height, input_buffer);
+        let mut rln = RLN::new(tree_height, input_buffer).unwrap();
 
         // We first add leaves one by one specifying the index
         for (i, leaf) in leaves.iter().enumerate() {
@@ -1115,7 +1112,7 @@ mod test {
         rln.set_tree(tree_height).unwrap();
 
         // We add leaves in a batch into the tree
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
         rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // We check if number of leaves set is consistent
@@ -1171,10 +1168,10 @@ mod test {
 
         // We create a new tree
         let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
-        let mut rln = RLN::new(tree_height, input_buffer);
+        let mut rln = RLN::new(tree_height, input_buffer).unwrap();
 
         // We add leaves in a batch into the tree
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
         rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // We check if number of leaves set is consistent
@@ -1188,11 +1185,11 @@ mod test {
         // `init_tree_with_leaves` resets the tree to the height it was initialized with, using `set_tree`
 
         // We add leaves in a batch starting from index 0..set_index
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves[0..set_index]));
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves[0..set_index]).unwrap());
         rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // We add the remaining n leaves in a batch starting from index m
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves[set_index..]));
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves[set_index..]).unwrap());
         rln.set_leaves_from(set_index, &mut buffer).unwrap();
 
         // We check if number of leaves set is consistent
@@ -1225,6 +1222,7 @@ mod test {
         assert_eq!(root_batch_with_init, root_single_additions);
     }
 
+    #[allow(unused_must_use)]
     #[test]
     // This test checks if `set_leaves_from` throws an error when the index is out of bounds
     fn test_set_leaves_bad_index() {
@@ -1241,7 +1239,7 @@ mod test {
 
         // We create a new tree
         let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
-        let mut rln = RLN::new(tree_height, input_buffer);
+        let mut rln = RLN::new(tree_height, input_buffer).unwrap();
 
         // Get root of empty tree
         let mut buffer = Cursor::new(Vec::<u8>::new());
@@ -1249,7 +1247,7 @@ mod test {
         let (root_empty, _) = bytes_le_to_fr(&buffer.into_inner());
 
         // We add leaves in a batch into the tree
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
         rln.set_leaves_from(bad_index, &mut buffer)
             .expect_err("Should throw an error");
 
@@ -1270,14 +1268,14 @@ mod test {
         let tree_height = TEST_TREE_HEIGHT;
 
         let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
-        let mut rln = RLN::new(tree_height, input_buffer);
+        let mut rln = RLN::new(tree_height, input_buffer).unwrap();
 
         // Note: we only test Groth16 proof generation, so we ignore setting the tree in the RLN object
         let rln_witness = random_rln_witness(tree_height);
         let proof_values = proof_values_from_witness(&rln_witness);
 
         // We compute a Groth16 proof
-        let mut input_buffer = Cursor::new(serialize_witness(&rln_witness));
+        let mut input_buffer = Cursor::new(serialize_witness(&rln_witness).unwrap());
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.prove(&mut input_buffer, &mut output_buffer).unwrap();
         let serialized_proof = output_buffer.into_inner();
@@ -1285,7 +1283,7 @@ mod test {
         // Before checking public verify API, we check that the (deserialized) proof generated by prove is actually valid
         let proof = ArkProof::deserialize(&mut Cursor::new(&serialized_proof)).unwrap();
         let verified = verify_proof(
-            &rln.verification_key.as_ref().unwrap(),
+            &rln.verification_key,
             &proof,
             &proof_values,
         );
@@ -1318,10 +1316,10 @@ mod test {
 
         // We create a new RLN instance
         let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
-        let mut rln = RLN::new(tree_height, input_buffer);
+        let mut rln = RLN::new(tree_height, input_buffer).unwrap();
 
         // We add leaves in a batch into the tree
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
         rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // Generate identity pair
@@ -1383,10 +1381,10 @@ mod test {
 
         // We create a new RLN instance
         let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
-        let mut rln = RLN::new(tree_height, input_buffer);
+        let mut rln = RLN::new(tree_height, input_buffer).unwrap();
 
         // We add leaves in a batch into the tree
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
         rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // Generate identity pair
@@ -1419,12 +1417,13 @@ mod test {
         // We read input RLN witness and we deserialize it
         let mut witness_byte: Vec<u8> = Vec::new();
         input_buffer.read_to_end(&mut witness_byte).unwrap();
-        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut rln.tree, &witness_byte);
+        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut rln.tree, &witness_byte).unwrap();
 
-        let serialized_witness = serialize_witness(&rln_witness);
+        let serialized_witness = serialize_witness(&rln_witness).unwrap();
 
         // Calculate witness outside zerokit (simulating what JS is doing)
-        let inputs = inputs_for_witness_calculation(&rln_witness).unwrap()
+        let inputs = inputs_for_witness_calculation(&rln_witness)
+            .unwrap()
             .into_iter()
             .map(|(name, values)| (name.to_string(), values));
         let calculated_witness = rln
@@ -1479,10 +1478,10 @@ mod test {
 
         // We create a new RLN instance
         let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
-        let mut rln = RLN::new(tree_height, input_buffer);
+        let mut rln = RLN::new(tree_height, input_buffer).unwrap();
 
         // We add leaves in a batch into the tree
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
         rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // Generate identity pair
@@ -1566,7 +1565,7 @@ mod test {
 
         // We create a new RLN instance
         let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
-        let mut rln = RLN::new(tree_height, input_buffer);
+        let mut rln = RLN::new(tree_height, input_buffer).unwrap();
 
         // Generate identity pair
         let (identity_secret_hash, id_commitment) = keygen();

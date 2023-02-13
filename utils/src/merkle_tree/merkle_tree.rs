@@ -132,13 +132,12 @@ impl<H: Hasher> OptimalMerkleTree<H> {
         &mut self,
         start: usize,
         leaves: I,
-    ) -> io::Result<()> {
+    ) -> color_eyre::Result<()> {
         let leaves = leaves.into_iter().collect::<Vec<_>>();
         // check if the range is valid
         if start + leaves.len() > self.capacity() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "provided range exceeds set size",
+            return Err(color_eyre::Report::msg(
+                "provided range exceeds set size"
             ));
         }
         for (i, leaf) in leaves.iter().enumerate() {

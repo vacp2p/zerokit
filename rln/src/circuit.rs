@@ -11,7 +11,7 @@ use cfg_if::cfg_if;
 use num_bigint::BigUint;
 use serde_json::Value;
 use std::fs::File;
-use std::io::{Cursor, Error, ErrorKind, Result};
+use std::io::Cursor;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -123,30 +123,30 @@ static WITNESS_CALCULATOR: OnceCell<Mutex<WitnessCalculator>> = OnceCell::new();
 
 // Initializes the witness calculator using a bytes vector
 #[cfg(not(target_arch = "wasm32"))]
-pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> &'static Mutex<WitnessCalculator> {
-    WITNESS_CALCULATOR.get_or_init(|| {
+pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> color_eyre::Result<&'static Mutex<WitnessCalculator>> {
+    Ok(WITNESS_CALCULATOR.get_or_try_init(|| {
         let store = Store::default();
-        let module = Module::new(&store, wasm_buffer).unwrap();
+        let module = Module::new(&store, wasm_buffer)?;
         let result =
-            WitnessCalculator::from_module(module).expect("Failed to create witness calculator");
-        Mutex::new(result)
-    })
+            WitnessCalculator::from_module(module)?;
+        Ok::<Mutex<WitnessCalculator>, color_eyre::Report>(Mutex::new(result))
+    })?)
 }
 
 // Initializes the witness calculator
 #[cfg(not(target_arch = "wasm32"))]
-pub fn circom_from_folder(resources_folder: &str) -> &'static Mutex<WitnessCalculator> {
+pub fn circom_from_folder(resources_folder: &str) -> color_eyre::Result<&'static Mutex<WitnessCalculator>> {
     // We read the wasm file
     let wasm_path = format!("{resources_folder}{WASM_FILENAME}");
-    let wasm_buffer = std::fs::read(wasm_path).unwrap();
+    let wasm_buffer = std::fs::read(wasm_path)?;
     circom_from_raw(wasm_buffer)
 }
 
 // The following function implementations are taken/adapted from https://github.com/gakonst/ark-circom/blob/1732e15d6313fe176b0b1abb858ac9e095d0dbd7/src/zkey.rs
 
 // Utilities to convert a json verification key in a groth16::VerificationKey
-fn fq_from_str(s: &str) -> Fq {
-    Fq::try_from(BigUint::from_str(s).unwrap()).unwrap()
+fn fq_from_str(s: &str) ->  color_eyre::Result<Fq> {
+    Ok(Fq::try_from(BigUint::from_str(s)?)?)
 }
 
 // Extracts the element in G1 corresponding to its JSON serialization
@@ -165,9 +165,9 @@ fn json_to_g1(json: &Value, key: &str) -> color_eyre::Result<G1Affine> {
         .collect::<color_eyre::Result<Vec<String>>>()?;
 
     Ok(G1Affine::from(G1Projective::new(
-        fq_from_str(&els[0]),
-        fq_from_str(&els[1]),
-        fq_from_str(&els[2]),
+        fq_from_str(&els[0])?,
+        fq_from_str(&els[1])?,
+        fq_from_str(&els[2])?,
     )))
 }
 
@@ -195,16 +195,16 @@ fn json_to_g1_vec(json: &Value, key: &str) -> color_eyre::Result<Vec<G1Affine>> 
         })
         .collect::<color_eyre::Result<Vec<Vec<String>>>>()?;
 
-    Ok(els
-        .iter()
-        .map(|coords| {
-            G1Affine::from(G1Projective::new(
-                fq_from_str(&coords[0]),
-                fq_from_str(&coords[1]),
-                fq_from_str(&coords[2]),
-            ))
-        })
-        .collect())
+    let mut res = vec![];
+    for coords in els {
+        res.push(G1Affine::from(G1Projective::new(
+            fq_from_str(&coords[0])?,
+            fq_from_str(&coords[1])?,
+            fq_from_str(&coords[2])?,
+        )))
+    }
+
+    Ok(res)
 }
 
 // Extracts the element in G2 corresponding to its JSON serialization
@@ -231,9 +231,9 @@ fn json_to_g2(json: &Value, key: &str) -> color_eyre::Result<G2Affine> {
         })
         .collect::<color_eyre::Result<Vec<Vec<String>>>>()?;
 
-    let x = Fq2::new(fq_from_str(&els[0][0]), fq_from_str(&els[0][1]));
-    let y = Fq2::new(fq_from_str(&els[1][0]), fq_from_str(&els[1][1]));
-    let z = Fq2::new(fq_from_str(&els[2][0]), fq_from_str(&els[2][1]));
+    let x = Fq2::new(fq_from_str(&els[0][0])?, fq_from_str(&els[0][1])?);
+    let y = Fq2::new(fq_from_str(&els[1][0])?, fq_from_str(&els[1][1])?);
+    let z = Fq2::new(fq_from_str(&els[2][0])?, fq_from_str(&els[2][1])?);
     Ok(G2Affine::from(G2Projective::new(x, y, z)))
 }
 
@@ -265,7 +265,10 @@ fn vk_from_vector(vk: &[u8]) -> color_eyre::Result<VerifyingKey<Curve>> {
 }
 
 // Checks verification key to be correct with respect to proving key
-pub fn check_vk_from_zkey(resources_folder: &str, verifying_key: VerifyingKey<Curve>) -> color_eyre::Result<()> {
+pub fn check_vk_from_zkey(
+    resources_folder: &str,
+    verifying_key: VerifyingKey<Curve>,
+) -> color_eyre::Result<()> {
     let (proving_key, _matrices) = zkey_from_folder(resources_folder)?;
     if proving_key.vk == verifying_key {
         Ok(())

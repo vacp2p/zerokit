@@ -25,12 +25,10 @@ pub fn str_to_fr(input: &str, radix: u32) -> color_eyre::Result<Fr> {
     input_clean = input_clean.trim().to_string();
 
     if radix == 10 {
-        Ok(BigUint::from_str_radix(&input_clean, radix)?
-            .try_into()?)
+        Ok(BigUint::from_str_radix(&input_clean, radix)?.try_into()?)
     } else {
         input_clean = input_clean.replace("0x", "");
-        Ok(BigUint::from_str_radix(&input_clean, radix)?
-            .try_into()?)
+        Ok(BigUint::from_str_radix(&input_clean, radix)?.try_into()?)
     }
 }
 
@@ -71,72 +69,73 @@ pub fn fr_to_bytes_be(input: &Fr) -> Vec<u8> {
     res
 }
 
-pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Vec<u8> {
+pub fn vec_fr_to_bytes_le(input: &[Fr]) -> color_eyre::Result<Vec<u8>> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
-    bytes.extend(u64::try_from(input.len()).unwrap().to_le_bytes().to_vec());
+    bytes.extend(u64::try_from(input.len())?.to_le_bytes().to_vec());
     // We store each element
     input.iter().for_each(|el| bytes.extend(fr_to_bytes_le(el)));
 
-    bytes
+    Ok(bytes)
 }
 
-pub fn vec_fr_to_bytes_be(input: &[Fr]) -> Vec<u8> {
+pub fn vec_fr_to_bytes_be(input: &[Fr]) -> color_eyre::Result<Vec<u8>> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
-    bytes.extend(u64::try_from(input.len()).unwrap().to_be_bytes().to_vec());
+    bytes.extend(u64::try_from(input.len())?.to_be_bytes().to_vec());
     // We store each element
     input.iter().for_each(|el| bytes.extend(fr_to_bytes_be(el)));
 
-    bytes
+    Ok(bytes)
 }
 
-pub fn vec_u8_to_bytes_le(input: &[u8]) -> Vec<u8> {
+pub fn vec_u8_to_bytes_le(input: &[u8]) -> color_eyre::Result<Vec<u8>> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
-    bytes.extend(u64::try_from(input.len()).unwrap().to_le_bytes().to_vec());
+    bytes.extend(u64::try_from(input.len())?.to_le_bytes().to_vec());
     bytes.extend(input);
-    bytes
+
+    Ok(bytes)
 }
 
-pub fn vec_u8_to_bytes_be(input: Vec<u8>) -> Vec<u8> {
-    let mut bytes: Vec<u8> = Vec::new();
+pub fn vec_u8_to_bytes_be(input: Vec<u8>) -> color_eyre::Result<Vec<u8>> {
     //We store the vector length
-    bytes.extend(u64::try_from(input.len()).unwrap().to_be_bytes().to_vec());
+    let mut bytes: Vec<u8> = u64::try_from(input.len())?.to_be_bytes().to_vec();
     bytes.extend(input);
-    bytes
+
+    Ok(bytes)
 }
 
-pub fn bytes_le_to_vec_u8(input: &[u8]) -> (Vec<u8>, usize) {
+pub fn bytes_le_to_vec_u8(input: &[u8]) -> color_eyre::Result<(Vec<u8>, usize)> {
     let mut read: usize = 0;
 
-    let len = u64::from_le_bytes(input[0..8].try_into().unwrap()) as usize;
+    let len = u64::from_le_bytes(input[0..8].try_into()?) as usize;
     read += 8;
 
     let res = input[8..8 + len].to_vec();
     read += res.len();
 
-    (res, read)
+    Ok((res, read))
 }
 
-pub fn bytes_be_to_vec_u8(input: &[u8]) -> (Vec<u8>, usize) {
+pub fn bytes_be_to_vec_u8(input: &[u8]) -> color_eyre::Result<(Vec<u8>, usize)> {
     let mut read: usize = 0;
 
-    let len = u64::from_be_bytes(input[0..8].try_into().unwrap()) as usize;
+    let len = u64::from_be_bytes(input[0..8].try_into()?) as usize;
     read += 8;
 
     let res = input[8..8 + len].to_vec();
 
     read += res.len();
 
-    (res, read)
+    Ok((res, read))
 }
 
-pub fn bytes_le_to_vec_fr(input: &[u8]) -> (Vec<Fr>, usize) {
+pub fn bytes_le_to_vec_fr(input: &[u8]) -> color_eyre::Result<(Vec<Fr>, usize)> {
     let mut read: usize = 0;
     let mut res: Vec<Fr> = Vec::new();
 
-    let len = u64::from_le_bytes(input[0..8].try_into().unwrap()) as usize;
+    let len = u64::from_le_bytes(input[0..8].try_into()?) as usize;
     read += 8;
 
     let el_size = fr_byte_size();
@@ -146,14 +145,14 @@ pub fn bytes_le_to_vec_fr(input: &[u8]) -> (Vec<Fr>, usize) {
         read += el_size;
     }
 
-    (res, read)
+    Ok((res, read))
 }
 
-pub fn bytes_be_to_vec_fr(input: &[u8]) -> (Vec<Fr>, usize) {
+pub fn bytes_be_to_vec_fr(input: &[u8]) -> color_eyre::Result<(Vec<Fr>, usize)> {
     let mut read: usize = 0;
     let mut res: Vec<Fr> = Vec::new();
 
-    let len = u64::from_be_bytes(input[0..8].try_into().unwrap()) as usize;
+    let len = u64::from_be_bytes(input[0..8].try_into()?) as usize;
     read += 8;
 
     let el_size = fr_byte_size();
@@ -163,7 +162,7 @@ pub fn bytes_be_to_vec_fr(input: &[u8]) -> (Vec<Fr>, usize) {
         read += el_size;
     }
 
-    (res, read)
+    Ok((res, read))
 }
 
 /* Old conversion utilities between different libraries data types

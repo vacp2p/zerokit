@@ -149,7 +149,7 @@ impl<'a> From<&Buffer> for &'a [u8] {
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn new(tree_height: usize, input_buffer: *const Buffer, ctx: *mut *mut RLN) -> bool {
-    let rln = RLN::new(tree_height, input_buffer.process());
+    let rln = RLN::new(tree_height, input_buffer.process()).unwrap();
     unsafe { *ctx = Box::into_raw(Box::new(rln)) };
     true
 }
@@ -168,7 +168,7 @@ pub extern "C" fn new_with_params(
         circom_buffer.process().to_vec(),
         zkey_buffer.process().to_vec(),
         vk_buffer.process().to_vec(),
-    );
+    ).unwrap();
     unsafe { *ctx = Box::into_raw(Box::new(rln)) };
     true
 }
