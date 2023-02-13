@@ -8,6 +8,7 @@ use ark_groth16::{
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_relations::r1cs::SynthesisError;
 use ark_std::{rand::thread_rng, UniformRand};
+use color_eyre::Report;
 use color_eyre::Result;
 use num_bigint::BigInt;
 use rand::{Rng, SeedableRng};
@@ -126,7 +127,9 @@ pub fn deserialize_witness(serialized: &[u8]) -> color_eyre::Result<(RLNWitnessI
     all_read += read;
 
     // TODO: check rln_identifier against public::RLN_IDENTIFIER
-    assert_eq!(serialized.len(), all_read);
+    if serialized.len() != all_read {
+        Report::msg("serialized length is not equal to all_read");
+    }
 
     Ok((
         RLNWitnessInput {

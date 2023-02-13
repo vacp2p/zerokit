@@ -31,11 +31,11 @@ fn groth16_proof_example() -> Result<()> {
 
     let pvk = prepare_verifying_key(&params.vk);
 
-    let verified = verify_proof(&pvk, &proof, &inputs)?;
-
-    assert!(verified);
-
-    Ok(())
+    if verify_proof(&pvk, &proof, &inputs)? {
+        Ok(())
+    } else {
+        Err(Report::msg("not verified"))
+    }
 }
 
 fn main() {

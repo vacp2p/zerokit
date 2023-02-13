@@ -22,21 +22,30 @@ pub struct RLNWrapper {
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = newRLN)]
-pub fn wasm_new(tree_height: usize, zkey: Uint8Array, vk: Uint8Array) -> *mut RLNWrapper {
-    let instance = RLN::new_with_params(tree_height, zkey.to_vec(), vk.to_vec());
+pub fn wasm_new(
+    tree_height: usize,
+    zkey: Uint8Array,
+    vk: Uint8Array,
+) -> Result<*mut RLNWrapper, String> {
+    let instance = RLN::new_with_params(tree_height, zkey.to_vec(), vk.to_vec())
+        .map_err(|err| format!("{:#?}", err))?;
     let wrapper = RLNWrapper { instance };
-    Box::into_raw(Box::new(wrapper))
+    Ok(Box::into_raw(Box::new(wrapper)))
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = getSerializedRLNWitness)]
-pub fn wasm_get_serialized_rln_witness(ctx: *mut RLNWrapper, input: Uint8Array) -> Uint8Array {
+pub fn wasm_get_serialized_rln_witness(
+    ctx: *mut RLNWrapper,
+    input: Uint8Array,
+) -> Result<Uint8Array, String> {
     let wrapper = unsafe { &mut *ctx };
     let rln_witness = wrapper
         .instance
-        .get_serialized_rln_witness(&input.to_vec()[..]);
+        .get_serialized_rln_witness(&input.to_vec()[..])
+        .map_err(|err| format!("{:#?}", err))?;
 
-    Uint8Array::from(&rln_witness[..])
+    Ok(Uint8Array::from(&rln_witness[..]))
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -86,16 +95,18 @@ pub fn wasm_init_tree_with_leaves(ctx: *mut RLNWrapper, input: Uint8Array) -> Re
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = RLNWitnessToJson)]
-pub fn rln_witness_to_json(ctx: *mut RLNWrapper, serialized_witness: Uint8Array) -> Object {
+pub fn rln_witness_to_json(
+    ctx: *mut RLNWrapper,
+    serialized_witness: Uint8Array,
+) -> Result<Object, String> {
     let wrapper = unsafe { &mut *ctx };
     let inputs = wrapper
         .instance
         .get_rln_witness_json(&serialized_witness.to_vec()[..])
-        .unwrap();
+        .map_err(|err| err.to_string())?;
 
-    let js_value = serde_wasm_bindgen::to_value(&inputs).unwrap();
-    let obj = Object::from_entries(&js_value);
-    obj.unwrap()
+    let js_value = serde_wasm_bindgen::to_value(&inputs).map_err(|err| err.to_string())?;
+    Object::from_entries(&js_value).map_err(|err| format!("{:#?}", err))
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -107,17 +118,18 @@ pub fn generate_rln_proof_with_witness(
 ) -> Result<Uint8Array, String> {
     let wrapper = unsafe { &mut *ctx };
 
-    let witness_vec: Vec<BigInt> = calculated_witness
-        .iter()
-        .map(|v| {
+    let mut witness_vec: Vec<BigInt> = vec![];
+
+    for v in calculated_witness {
+        witness_vec.push(
             v.to_string(10)
-                .unwrap()
+                .map_err(|err| format!("{:#?}", err))?
                 .as_string()
-                .unwrap()
+                .ok_or("not a string error")?
                 .parse::<BigInt>()
-                .unwrap()
-        })
-        .collect();
+                .map_err(|err| format!("{:#?}", err))?,
+        );
+    }
 
     let mut output_data: Vec<u8> = Vec::new();
 
