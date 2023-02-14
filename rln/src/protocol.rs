@@ -92,7 +92,7 @@ pub fn deserialize_identity_tuple(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
     )
 }
 
-pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> color_eyre::Result<Vec<u8>> {
+pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>> {
     let mut serialized: Vec<u8> = Vec::new();
 
     serialized.append(&mut fr_to_bytes_le(&rln_witness.identity_secret));
@@ -105,7 +105,7 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> color_eyre::Result<Ve
     Ok(serialized)
 }
 
-pub fn deserialize_witness(serialized: &[u8]) -> color_eyre::Result<(RLNWitnessInput, usize)> {
+pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)> {
     let mut all_read: usize = 0;
 
     let (identity_secret, read) = bytes_le_to_fr(&serialized[all_read..]);
@@ -128,7 +128,7 @@ pub fn deserialize_witness(serialized: &[u8]) -> color_eyre::Result<(RLNWitnessI
 
     // TODO: check rln_identifier against public::RLN_IDENTIFIER
     if serialized.len() != all_read {
-        Report::msg("serialized length is not equal to all_read");
+        return Err(Report::msg("serialized length is not equal to all_read"));
     }
 
     Ok((
@@ -151,7 +151,7 @@ pub fn deserialize_witness(serialized: &[u8]) -> color_eyre::Result<(RLNWitnessI
 pub fn proof_inputs_to_rln_witness(
     tree: &mut PoseidonTree,
     serialized: &[u8],
-) -> color_eyre::Result<(RLNWitnessInput, usize)> {
+) -> Result<(RLNWitnessInput, usize)> {
     let mut all_read: usize = 0;
 
     let (identity_secret, read) = bytes_le_to_fr(&serialized[all_read..]);
@@ -189,7 +189,7 @@ pub fn proof_inputs_to_rln_witness(
     ))
 }
 
-pub fn rln_witness_from_json(input_json_str: &str) -> color_eyre::Result<RLNWitnessInput> {
+pub fn rln_witness_from_json(input_json_str: &str) -> Result<RLNWitnessInput> {
     let input_json: serde_json::Value =
         serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
 
@@ -200,7 +200,7 @@ pub fn rln_witness_from_json(input_json_str: &str) -> color_eyre::Result<RLNWitn
         .ok_or(color_eyre::Report::msg("not an array"))?
         .iter()
         .map(|v| str_to_fr(&v.to_string(), 10))
-        .collect::<color_eyre::Result<_>>()?;
+        .collect::<Result<_>>()?;
 
     let identity_path_index_array = input_json["identity_path_index"]
         .as_array()
@@ -362,7 +362,7 @@ pub fn prepare_prove_input(
     id_index: usize,
     epoch: Fr,
     signal: &[u8],
-) -> color_eyre::Result<Vec<u8>> {
+) -> Result<Vec<u8>> {
     let signal_len = u64::try_from(signal.len())?;
 
     let mut serialized: Vec<u8> = Vec::new();
@@ -377,7 +377,7 @@ pub fn prepare_prove_input(
 }
 
 #[allow(clippy::redundant_clone)]
-pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> color_eyre::Result<Vec<u8>> {
+pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Result<Vec<u8>> {
     let signal_len = u64::try_from(signal.len())?;
 
     let mut serialized: Vec<u8> = Vec::new();
@@ -614,7 +614,7 @@ pub fn generate_proof_with_witness(
 
 pub fn inputs_for_witness_calculation(
     rln_witness: &RLNWitnessInput,
-) -> color_eyre::Result<[(&str, Vec<BigInt>); 6]> {
+) -> Result<[(&str, Vec<BigInt>); 6]> {
     // We confert the path indexes to field elements
     // TODO: check if necessary
     let mut path_elements = Vec::new();
@@ -747,7 +747,7 @@ pub fn verify_proof(
 ///
 /// Returns a JSON object containing the inputs necessary to calculate
 /// the witness with CIRCOM on javascript
-pub fn get_json_inputs(rln_witness: &RLNWitnessInput) -> color_eyre::Result<serde_json::Value> {
+pub fn get_json_inputs(rln_witness: &RLNWitnessInput) -> Result<serde_json::Value> {
     let mut path_elements = Vec::new();
 
     for v in rln_witness.path_elements.iter() {

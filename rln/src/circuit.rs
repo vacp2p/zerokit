@@ -123,19 +123,22 @@ static WITNESS_CALCULATOR: OnceCell<Mutex<WitnessCalculator>> = OnceCell::new();
 
 // Initializes the witness calculator using a bytes vector
 #[cfg(not(target_arch = "wasm32"))]
-pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> color_eyre::Result<&'static Mutex<WitnessCalculator>> {
+pub fn circom_from_raw(
+    wasm_buffer: Vec<u8>,
+) -> color_eyre::Result<&'static Mutex<WitnessCalculator>> {
     Ok(WITNESS_CALCULATOR.get_or_try_init(|| {
         let store = Store::default();
         let module = Module::new(&store, wasm_buffer)?;
-        let result =
-            WitnessCalculator::from_module(module)?;
+        let result = WitnessCalculator::from_module(module)?;
         Ok::<Mutex<WitnessCalculator>, color_eyre::Report>(Mutex::new(result))
     })?)
 }
 
 // Initializes the witness calculator
 #[cfg(not(target_arch = "wasm32"))]
-pub fn circom_from_folder(resources_folder: &str) -> color_eyre::Result<&'static Mutex<WitnessCalculator>> {
+pub fn circom_from_folder(
+    resources_folder: &str,
+) -> color_eyre::Result<&'static Mutex<WitnessCalculator>> {
     // We read the wasm file
     let wasm_path = format!("{resources_folder}{WASM_FILENAME}");
     let wasm_buffer = std::fs::read(wasm_path)?;
@@ -145,7 +148,7 @@ pub fn circom_from_folder(resources_folder: &str) -> color_eyre::Result<&'static
 // The following function implementations are taken/adapted from https://github.com/gakonst/ark-circom/blob/1732e15d6313fe176b0b1abb858ac9e095d0dbd7/src/zkey.rs
 
 // Utilities to convert a json verification key in a groth16::VerificationKey
-fn fq_from_str(s: &str) ->  color_eyre::Result<Fq> {
+fn fq_from_str(s: &str) -> color_eyre::Result<Fq> {
     Ok(Fq::try_from(BigUint::from_str(s)?)?)
 }
 

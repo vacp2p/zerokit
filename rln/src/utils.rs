@@ -18,7 +18,7 @@ pub fn fr_byte_size() -> usize {
 
 pub fn str_to_fr(input: &str, radix: u32) -> color_eyre::Result<Fr> {
     if !(radix == 10 || radix == 16) {
-        return Err(color_eyre::Report::msg("wrong radix"))
+        return Err(color_eyre::Report::msg("wrong radix"));
     }
 
     // We remove any quote present and we trim
