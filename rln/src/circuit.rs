@@ -126,12 +126,12 @@ static WITNESS_CALCULATOR: OnceCell<Mutex<WitnessCalculator>> = OnceCell::new();
 pub fn circom_from_raw(
     wasm_buffer: Vec<u8>,
 ) -> color_eyre::Result<&'static Mutex<WitnessCalculator>> {
-    Ok(WITNESS_CALCULATOR.get_or_try_init(|| {
+    WITNESS_CALCULATOR.get_or_try_init(|| {
         let store = Store::default();
         let module = Module::new(&store, wasm_buffer)?;
         let result = WitnessCalculator::from_module(module)?;
         Ok::<Mutex<WitnessCalculator>, color_eyre::Report>(Mutex::new(result))
-    })?)
+    })
 }
 
 // Initializes the witness calculator
