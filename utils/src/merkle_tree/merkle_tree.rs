@@ -120,7 +120,7 @@ impl<H: Hasher> OptimalMerkleTree<H> {
             return Err(color_eyre::Report::msg("index exceeds set size"));
         }
         self.nodes.insert((self.depth, index), leaf);
-        self.recalculate_from(index);
+        self.recalculate_from(index)?;
         self.next_index = max(self.next_index, index + 1);
         Ok(())
     }
@@ -138,7 +138,7 @@ impl<H: Hasher> OptimalMerkleTree<H> {
         }
         for (i, leaf) in leaves.iter().enumerate() {
             self.nodes.insert((self.depth, start + i), *leaf);
-            self.recalculate_from(start + i);
+            self.recalculate_from(start + i)?;
         }
         self.next_index = max(self.next_index, start + leaves.len());
         Ok(())
@@ -418,7 +418,7 @@ impl<H: Hasher> FullMerkleTree<H> {
             count += 1;
         });
         if count != 0 {
-            self.update_nodes(index, index + (count - 1));
+            self.update_nodes(index, index + (count - 1))?;
             self.next_index = max(self.next_index, start + count);
         }
         Ok(())
@@ -495,7 +495,7 @@ impl<H: Hasher> FullMerkleTree<H> {
                 let child = self.first_child(parent);
                 self.nodes[parent] = H::hash(&[self.nodes[child], self.nodes[child + 1]]);
             }
-            self.update_nodes(start, end);
+            self.update_nodes(start, end)?;
         }
         Ok(())
     }

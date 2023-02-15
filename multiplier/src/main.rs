@@ -1,6 +1,6 @@
 use ark_circom::{CircomBuilder, CircomConfig};
 use ark_std::rand::thread_rng;
-use color_eyre::{Result, Report};
+use color_eyre::{Report, Result};
 
 use ark_bn254::Bn254;
 use ark_groth16::{
@@ -25,7 +25,9 @@ fn groth16_proof_example() -> Result<()> {
 
     let circom = builder.build()?;
 
-    let inputs = circom.get_public_inputs().ok_or(Report::msg("no public inputs"))?;
+    let inputs = circom
+        .get_public_inputs()
+        .ok_or(Report::msg("no public inputs"))?;
 
     let proof = prove(circom, &params, &mut rng)?;
 

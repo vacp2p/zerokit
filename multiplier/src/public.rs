@@ -63,7 +63,10 @@ impl Multiplier {
         let pvk = prepare_verifying_key(&self.params.vk);
 
         // XXX Part of input data?
-        let inputs = self.circom.get_public_inputs().ok_or(Report::msg("no public inputs"))?;
+        let inputs = self
+            .circom
+            .get_public_inputs()
+            .ok_or(Report::msg("no public inputs"))?;
 
         let verified = verify_proof(&pvk, &proof, &inputs)?;
 
