@@ -1071,7 +1071,7 @@ mod test {
         for _ in 0..number_of_inputs {
             inputs.push(Fr::rand(&mut rng));
         }
-        let inputs_ser = vec_fr_to_bytes_le(&inputs);
+        let inputs_ser = vec_fr_to_bytes_le(&inputs).unwrap();
         let input_buffer = &Buffer::from(inputs_ser.as_ref());
 
         let expected_hash = utils_poseidon_hash(inputs.as_ref());

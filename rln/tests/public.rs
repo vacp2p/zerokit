@@ -305,7 +305,7 @@ mod test {
         }
         let expected_hash = utils_poseidon_hash(&inputs);
 
-        let mut input_buffer = Cursor::new(vec_fr_to_bytes_le(&inputs));
+        let mut input_buffer = Cursor::new(vec_fr_to_bytes_le(&inputs).unwrap());
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
 
         public_poseidon_hash(&mut input_buffer, &mut output_buffer).unwrap();
