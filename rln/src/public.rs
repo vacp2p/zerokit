@@ -1024,7 +1024,7 @@ impl Default for RLN<'_> {
 /// // We deserialize the keygen output
 /// let field_element = deserialize_field_element(output_buffer.into_inner());
 /// ```
-pub fn hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> io::Result<()> {
+pub fn hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> color_eyre::Result<()> {
     let mut serialized: Vec<u8> = Vec::new();
     input_data.read_to_end(&mut serialized)?;
 
@@ -1057,11 +1057,11 @@ pub fn hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> io::Res
 /// // We deserialize the hash output
 /// let hash_result = deserialize_field_element(output_buffer.into_inner());
 /// ```
-pub fn poseidon_hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> io::Result<()> {
+pub fn poseidon_hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> color_eyre::Result<()> {
     let mut serialized: Vec<u8> = Vec::new();
     input_data.read_to_end(&mut serialized)?;
 
-    let (inputs, _) = bytes_le_to_vec_fr(&serialized);
+    let (inputs, _) = bytes_le_to_vec_fr(&serialized)?;
     let hash = utils_poseidon_hash(inputs.as_ref());
     output_data.write_all(&fr_to_bytes_le(&hash))?;
 
