@@ -986,7 +986,6 @@ mod test {
     // Tests hash to field using FFI APIs
     fn test_seeded_extended_keygen_ffi() {
         let tree_height = TEST_TREE_HEIGHT;
-
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
         let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
