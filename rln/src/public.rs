@@ -1057,7 +1057,10 @@ pub fn hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> color_e
 /// // We deserialize the hash output
 /// let hash_result = deserialize_field_element(output_buffer.into_inner());
 /// ```
-pub fn poseidon_hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> color_eyre::Result<()> {
+pub fn poseidon_hash<R: Read, W: Write>(
+    mut input_data: R,
+    mut output_data: W,
+) -> color_eyre::Result<()> {
     let mut serialized: Vec<u8> = Vec::new();
     input_data.read_to_end(&mut serialized)?;
 
