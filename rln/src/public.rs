@@ -1,5 +1,5 @@
 use crate::circuit::{vk_from_raw, zkey_from_raw, Curve, Fr};
-use crate::poseidon_hash::poseidon_hash;
+use crate::poseidon_hash::poseidon_hash as utils_poseidon_hash;
 use crate::poseidon_tree::PoseidonTree;
 use crate::protocol::*;
 use crate::utils::*;
@@ -929,14 +929,14 @@ impl RLN<'_> {
         // We skip deserialization of the zk-proof at the beginning
         let (proof_values_1, _) = deserialize_proof_values(&serialized[128..]);
         let external_nullifier_1 =
-            poseidon_hash(&[proof_values_1.epoch, proof_values_1.rln_identifier]);
+            utils_poseidon_hash(&[proof_values_1.epoch, proof_values_1.rln_identifier]);
 
         let mut serialized: Vec<u8> = Vec::new();
         input_proof_data_2.read_to_end(&mut serialized)?;
         // We skip deserialization of the zk-proof at the beginning
         let (proof_values_2, _) = deserialize_proof_values(&serialized[128..]);
         let external_nullifier_2 =
-            poseidon_hash(&[proof_values_2.epoch, proof_values_2.rln_identifier]);
+            utils_poseidon_hash(&[proof_values_2.epoch, proof_values_2.rln_identifier]);
 
         // We continue only if the proof values are for the same epoch
         // The idea is that proof values that go as input to this function are verified first (with zk-proof verify), hence ensuring validity of epoch and other fields.
@@ -956,42 +956,6 @@ impl RLN<'_> {
                 output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
             }
         }
-
-        Ok(())
-    }
-
-    /// Hashes an input signal to an element in the working prime field.
-    ///
-    /// The result is computed as the Keccak256 of the input signal modulo the prime field characteristic.
-    ///
-    /// Input values are:
-    /// - `input_data`: a reader for the byte vector containing the input signal.
-    ///
-    /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the resulting field element (serialization done with [`rln::utils::fr_to_bytes_le`](crate::utils::fr_to_bytes_le))
-    ///
-    /// Example
-    /// ```
-    /// let signal: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    ///
-    /// let mut input_buffer = Cursor::new(&signal);
-    /// let mut output_buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.hash(&mut input_buffer, &mut output_buffer)
-    ///     .unwrap();
-    ///
-    /// // We deserialize the keygen output
-    /// let field_element = deserialize_field_element(output_buffer.into_inner());
-    /// ```
-    pub fn hash<R: Read, W: Write>(
-        &self,
-        mut input_data: R,
-        mut output_data: W,
-    ) -> color_eyre::Result<()> {
-        let mut serialized: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut serialized)?;
-
-        let hash = hash_to_field(&serialized);
-        output_data.write_all(&fr_to_bytes_le(&hash))?;
 
         Ok(())
     }
@@ -1036,6 +1000,72 @@ impl Default for RLN<'_> {
         let buffer = Cursor::new(TEST_RESOURCES_FOLDER);
         Self::new(tree_height, buffer).unwrap()
     }
+}
+
+/// Hashes an input signal to an element in the working prime field.
+///
+/// The result is computed as the Keccak256 of the input signal modulo the prime field characteristic.
+///
+/// Input values are:
+/// - `input_data`: a reader for the byte vector containing the input signal.
+///
+/// Output values are:
+/// - `output_data`: a writer receiving the serialization of the resulting field element (serialization done with [`rln::utils::fr_to_bytes_le`](crate::utils::fr_to_bytes_le))
+///
+/// Example
+/// ```
+/// let signal: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+///
+/// let mut input_buffer = Cursor::new(&signal);
+/// let mut output_buffer = Cursor::new(Vec::<u8>::new());
+/// hash(&mut input_buffer, &mut output_buffer)
+///     .unwrap();
+///
+/// // We deserialize the keygen output
+/// let field_element = deserialize_field_element(output_buffer.into_inner());
+/// ```
+pub fn hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> io::Result<()> {
+    let mut serialized: Vec<u8> = Vec::new();
+    input_data.read_to_end(&mut serialized)?;
+
+    let hash = hash_to_field(&serialized);
+    output_data.write_all(&fr_to_bytes_le(&hash))?;
+
+    Ok(())
+}
+
+/// Hashes a set of elements to a single element in the working prime field, using Poseidon.
+///
+/// The result is computed as the Poseidon Hash of the input signal.
+///
+/// Input values are:
+/// - `input_data`: a reader for the byte vector containing the input signal.
+///
+/// Output values are:
+/// - `output_data`: a writer receiving the serialization of the resulting field element (serialization done with [`rln::utils::fr_to_bytes_le`](crate::utils::fr_to_bytes_le))
+///
+/// Example
+/// ```
+/// let data = vec![hash_to_field(b"foo")];
+/// let signal = vec_fr_to_bytes_le(&data);
+///
+/// let mut input_buffer = Cursor::new(&signal);
+/// let mut output_buffer = Cursor::new(Vec::<u8>::new());
+/// poseidon_hash(&mut input_buffer, &mut output_buffer)
+///     .unwrap();
+///
+/// // We deserialize the hash output
+/// let hash_result = deserialize_field_element(output_buffer.into_inner());
+/// ```
+pub fn poseidon_hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> io::Result<()> {
+    let mut serialized: Vec<u8> = Vec::new();
+    input_data.read_to_end(&mut serialized)?;
+
+    let (inputs, _) = bytes_le_to_vec_fr(&serialized);
+    let hash = utils_poseidon_hash(inputs.as_ref());
+    output_data.write_all(&fr_to_bytes_le(&hash))?;
+
+    Ok(())
 }
 
 #[cfg(test)]

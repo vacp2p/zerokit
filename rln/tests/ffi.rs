@@ -3,8 +3,8 @@ mod test {
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use rln::circuit::*;
-    use rln::ffi::*;
-    use rln::poseidon_hash::poseidon_hash;
+    use rln::ffi::{hash as ffi_hash, poseidon_hash as ffi_poseidon_hash, *};
+    use rln::poseidon_hash::{poseidon_hash as utils_poseidon_hash, ROUND_PARAMS};
     use rln::protocol::*;
     use rln::public::RLN;
     use rln::utils::*;
@@ -280,7 +280,7 @@ mod test {
 
         // generate identity
         let identity_secret_hash = hash_to_field(b"test-merkle-proof");
-        let id_commitment = poseidon_hash(&vec![identity_secret_hash]);
+        let id_commitment = utils_poseidon_hash(&vec![identity_secret_hash]);
 
         // We prepare id_commitment and we set the leaf at provided index
         let leaf_ser = fr_to_bytes_le(&id_commitment);
@@ -1042,22 +1042,13 @@ mod test {
     #[test]
     // Tests hash to field using FFI APIs
     fn test_hash_to_field_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
-
-        // We create a RLN instance
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
-
         let mut rng = rand::thread_rng();
         let signal: [u8; 32] = rng.gen();
 
         // We prepare id_commitment and we set the leaf at provided index
         let input_buffer = &Buffer::from(signal.as_ref());
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = hash(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
+        let success = ffi_hash(input_buffer, output_buffer.as_mut_ptr());
         assert!(success, "hash call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
 
@@ -1068,5 +1059,31 @@ mod test {
         let hash2 = hash_to_field(&signal);
 
         assert_eq!(hash1, hash2);
+    }
+
+    #[test]
+    // Test Poseidon hash FFI
+    fn test_poseidon_hash_ffi() {
+        // generate random number between 1..ROUND_PARAMS.len()
+        let mut rng = thread_rng();
+        let number_of_inputs = rng.gen_range(1..ROUND_PARAMS.len());
+        let mut inputs = Vec::with_capacity(number_of_inputs);
+        for _ in 0..number_of_inputs {
+            inputs.push(Fr::rand(&mut rng));
+        }
+        let inputs_ser = vec_fr_to_bytes_le(&inputs);
+        let input_buffer = &Buffer::from(inputs_ser.as_ref());
+
+        let expected_hash = utils_poseidon_hash(inputs.as_ref());
+
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = ffi_poseidon_hash(input_buffer, output_buffer.as_mut_ptr());
+        assert!(success, "poseidon hash call failed");
+
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (received_hash, _) = bytes_le_to_fr(&result_data);
+
+        assert_eq!(received_hash, expected_hash);
     }
 }

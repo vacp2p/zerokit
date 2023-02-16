@@ -1,10 +1,11 @@
 #[cfg(test)]
 mod test {
+    use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
-    use rln::circuit::{TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
-    use rln::poseidon_hash::poseidon_hash;
+    use rln::circuit::{Fr, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
+    use rln::poseidon_hash::{poseidon_hash as utils_poseidon_hash, ROUND_PARAMS};
     use rln::protocol::{compute_tree_root, deserialize_identity_tuple, hash_to_field};
-    use rln::public::RLN;
+    use rln::public::{hash as public_hash, poseidon_hash as public_poseidon_hash, RLN};
     use rln::utils::*;
     use std::io::Cursor;
 
@@ -19,7 +20,7 @@ mod test {
 
         // generate identity
         let identity_secret_hash = hash_to_field(b"test-merkle-proof");
-        let id_commitment = poseidon_hash(&vec![identity_secret_hash]);
+        let id_commitment = utils_poseidon_hash(&vec![identity_secret_hash]);
 
         // We pass id_commitment as Read buffer to RLN's set_leaf
         let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
@@ -279,20 +280,38 @@ mod test {
 
     #[test]
     fn test_hash_to_field() {
-        let rln = RLN::default();
-
-        let mut rng = rand::thread_rng();
+        let mut rng = thread_rng();
         let signal: [u8; 32] = rng.gen();
 
         let mut input_buffer = Cursor::new(&signal);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
 
-        rln.hash(&mut input_buffer, &mut output_buffer).unwrap();
+        public_hash(&mut input_buffer, &mut output_buffer).unwrap();
         let serialized_hash = output_buffer.into_inner();
         let (hash1, _) = bytes_le_to_fr(&serialized_hash);
 
         let hash2 = hash_to_field(&signal);
 
         assert_eq!(hash1, hash2);
+    }
+
+    #[test]
+    fn test_poseidon_hash() {
+        let mut rng = thread_rng();
+        let number_of_inputs = rng.gen_range(1..ROUND_PARAMS.len());
+        let mut inputs = Vec::with_capacity(number_of_inputs);
+        for _ in 0..number_of_inputs {
+            inputs.push(Fr::rand(&mut rng));
+        }
+        let expected_hash = utils_poseidon_hash(&inputs);
+
+        let mut input_buffer = Cursor::new(vec_fr_to_bytes_le(&inputs));
+        let mut output_buffer = Cursor::new(Vec::<u8>::new());
+
+        public_poseidon_hash(&mut input_buffer, &mut output_buffer).unwrap();
+        let serialized_hash = output_buffer.into_inner();
+        let (hash, _) = bytes_le_to_fr(&serialized_hash);
+
+        assert_eq!(hash, expected_hash);
     }
 }
