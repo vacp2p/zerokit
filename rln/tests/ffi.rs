@@ -248,8 +248,8 @@ mod test {
         let (root_empty, _) = bytes_le_to_fr(&result_data);
 
         // We add leaves in a batch into the tree
-        let leaves = vec_fr_to_bytes_le(&leaves);
-        let buffer = &Buffer::from(leaves.unwrap().as_ref());
+        let leaves = vec_fr_to_bytes_le(&leaves).unwrap();
+        let buffer = &Buffer::from(leaves.as_ref());
         let success = set_leaves_from(rln_pointer, bad_index, buffer);
         assert!(!success, "set leaves from call succeeded");
 
@@ -459,8 +459,8 @@ mod test {
             let proof_values = proof_values_from_witness(&rln_witness);
 
             // We prepare id_commitment and we set the leaf at provided index
-            let rln_witness_ser = serialize_witness(&rln_witness);
-            let input_buffer = &Buffer::from(rln_witness_ser.unwrap().as_ref());
+            let rln_witness_ser = serialize_witness(&rln_witness).unwrap();
+            let input_buffer = &Buffer::from(rln_witness_ser.as_ref());
             let mut output_buffer = MaybeUninit::<Buffer>::uninit();
             let now = Instant::now();
             let success = prove(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
@@ -674,8 +674,8 @@ mod test {
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
         // We add leaves in a batch into the tree
-        let leaves_ser = vec_fr_to_bytes_le(&leaves);
-        let input_buffer = &Buffer::from(leaves_ser.unwrap().as_ref());
+        let leaves_ser = vec_fr_to_bytes_le(&leaves).unwrap();
+        let input_buffer = &Buffer::from(leaves_ser.as_ref());
         let success = init_tree_with_leaves(rln_pointer, input_buffer);
         assert!(success, "set leaves call failed");
 
