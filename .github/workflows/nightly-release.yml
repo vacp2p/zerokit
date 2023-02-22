@@ -6,6 +6,13 @@ on:
 
 jobs:
   linux:
+    strategy:
+      matrix:
+        target: 
+          - x86_64-unknown-linux-gnu
+          # TODO: enable after https://github.com/rust-lang/cargo/issues/4133 is resolved
+          # - aarch64-unknown-linux-gnu
+          # - i686-unknown-linux-gnu
     name: Linux build
     runs-on: ubuntu-latest
     steps:
@@ -17,25 +24,32 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
+          target: ${{ matrix.target }}
       - name: Update git submodules
         run: git submodule update --init --recursive
       - name: cargo build
         run: |
-          cargo build --release --workspace --exclude rln-wasm
+          cargo build --release --target ${{ matrix.target }} --workspace --exclude rln-wasm
           mkdir release
-          cp target/release/librln* release/
-          tar -czvf linux-rln.tar.gz release/
+          cp target/${{ matrix.target }}/release/librln* release/
+          tar -czvf ${{ matrix.target }}-rln.tar.gz release/
 
       - name: Upload archive artifact
         uses: actions/upload-artifact@v2
         with:
-          name: linux-archive
-          path: linux-rln.tar.gz
+          name: ${{ matrix.target }}-archive
+          path: ${{ matrix.target }}-rln.tar.gz
           retention-days: 2
 
   macos:
     name: MacOS build
     runs-on: macos-latest
+    strategy:
+      matrix:
+        target: 
+          - x86_64-apple-darwin
+          # TODO: enable after https://github.com/rust-lang/cargo/issues/4133 is resolved
+          # - aarch64-apple-darwin
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -47,20 +61,21 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
+          target: ${{ matrix.target }}
       - name: Update git submodules
         run: git submodule update --init --recursive
       - name: cargo build
         run: |
-          cargo build --release --workspace --exclude rln-wasm
+          cargo build --release --target ${{ matrix.target }} --workspace --exclude rln-wasm
           mkdir release
-          cp target/release/librln* release/
-          tar -czvf macos-rln.tar.gz release/
+          cp target/${{ matrix.target }}/release/librln* release/
+          tar -czvf ${{ matrix.target }}-rln.tar.gz release/
 
       - name: Upload archive artifact
         uses: actions/upload-artifact@v2
         with:
-          name: macos-archive
-          path: macos-rln.tar.gz
+          name: ${{ matrix.target }}-archive
+          path: ${{ matrix.target }}-rln.tar.gz
           retention-days: 2
   
   browser-rln-wasm:
@@ -125,9 +140,7 @@ jobs:
             --title 'Nightly build ("master" branch)' \
             --generate-notes \
             --notes-start-tag $start_tag \
-            linux-archive/linux-rln.tar.gz \
-            macos-archive/macos-rln.tar.gz \
-            browser-rln-wasm-archive/browser-rln-wasm.tar.gz
+            *-archive/*.tar.gz \
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -136,6 +149,4 @@ jobs:
         with:
           failOnError: false
           name: |
-            linux-archive
-            macos-archive
-            browser-rln-wasm-archive
+            *-archive

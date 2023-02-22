@@ -61,7 +61,7 @@ impl RLN<'_> {
     /// use std::io::Cursor;
     ///
     /// let tree_height = 20;
-    /// let resources = Cursor::new("./resources/tree_height_20/");
+    /// let resources = Cursor::new("tree_height_20/");
     ///
     /// // We create a new RLN instance
     /// let mut rln = RLN::new(tree_height, resources);
