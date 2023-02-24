@@ -4,7 +4,7 @@ all: .pre-build
 	@cargo make build
 
 .pre-build:
-ifndef $(cargo make --help)
+ifeq (, $(shell which cargo-make))
 	@cargo install --force cargo-make
 endif
 
