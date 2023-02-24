@@ -2,7 +2,7 @@
 
 use crate::circuit::Fr;
 use ark_ff::PrimeField;
-use color_eyre::Result;
+use color_eyre::{Report, Result};
 use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use std::iter::Extend;

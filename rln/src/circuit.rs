@@ -8,7 +8,7 @@ use ark_circom::read_zkey;
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use cfg_if::cfg_if;
-use color_eyre::Result;
+use color_eyre::{Report, Result};
 use num_bigint::BigUint;
 use serde_json::Value;
 use std::fs::File;
