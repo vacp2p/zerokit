@@ -117,7 +117,7 @@ impl<H: Hasher> OptimalMerkleTree<H> {
     // Sets a leaf at the specified tree index
     pub fn set(&mut self, index: usize, leaf: H::Fr) -> Result<()> {
         if index >= self.capacity() {
-            return Err(color_eyre::Report::msg("index exceeds set size"));
+            return Err(Report::msg("index exceeds set size"));
         }
         self.nodes.insert((self.depth, index), leaf);
         self.recalculate_from(index)?;
@@ -134,7 +134,7 @@ impl<H: Hasher> OptimalMerkleTree<H> {
         let leaves = leaves.into_iter().collect::<Vec<_>>();
         // check if the range is valid
         if start + leaves.len() > self.capacity() {
-            return Err(color_eyre::Report::msg("provided range exceeds set size"));
+            return Err(Report::msg("provided range exceeds set size"));
         }
         for (i, leaf) in leaves.iter().enumerate() {
             self.nodes.insert((self.depth, start + i), *leaf);
@@ -162,7 +162,7 @@ impl<H: Hasher> OptimalMerkleTree<H> {
     // Computes a merkle proof the the leaf at the specified index
     pub fn proof(&self, index: usize) -> Result<OptimalMerkleProof<H>> {
         if index >= self.capacity() {
-            return Err(color_eyre::Report::msg("index exceeds set size"));
+            return Err(Report::msg("index exceeds set size"));
         }
         let mut witness = Vec::<(H::Fr, u8)>::with_capacity(self.depth);
         let mut i = index;
@@ -186,7 +186,7 @@ impl<H: Hasher> OptimalMerkleTree<H> {
     // Verifies a Merkle proof with respect to the input leaf and the tree root
     pub fn verify(&self, leaf: &H::Fr, witness: &OptimalMerkleProof<H>) -> Result<bool> {
         if witness.length() != self.depth {
-            return Err(color_eyre::Report::msg(
+            return Err(Report::msg(
                 "witness length doesn't match tree depth",
             ));
         }
@@ -401,7 +401,7 @@ impl<H: Hasher> FullMerkleTree<H> {
         // then insert into the tree
         let hashes = hashes.into_iter().collect::<Vec<_>>();
         if hashes.len() + start > self.capacity() {
-            return Err(color_eyre::Report::msg(
+            return Err(Report::msg(
                 "provided hashes do not fit in the tree",
             ));
         }
@@ -434,7 +434,7 @@ impl<H: Hasher> FullMerkleTree<H> {
     // Computes a merkle proof the the leaf at the specified index
     pub fn proof(&self, leaf: usize) -> Result<FullMerkleProof<H>> {
         if leaf >= self.capacity() {
-            return Err(color_eyre::Report::msg("index exceeds set size"));
+            return Err(Report::msg("index exceeds set size"));
         }
         let mut index = self.capacity() + leaf - 1;
         let mut path = Vec::with_capacity(self.depth + 1);

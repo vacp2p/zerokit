@@ -58,7 +58,7 @@ pub fn zkey_from_raw(zkey_data: &Vec<u8>) -> Result<(ProvingKey<Curve>, Constrai
         let proving_key_and_matrices = read_zkey(&mut c)?;
         Ok(proving_key_and_matrices)
     } else {
-        Err(color_eyre::Report::msg("No proving key found!"))
+        Err(Report::msg("No proving key found!"))
     }
 }
 
@@ -72,7 +72,7 @@ pub fn zkey_from_folder(
         let proving_key_and_matrices = read_zkey(&mut file)?;
         Ok(proving_key_and_matrices)
     } else {
-        Err(color_eyre::Report::msg("No proving key found!"))
+        Err(Report::msg("No proving key found!"))
     }
 }
 
@@ -88,7 +88,7 @@ pub fn vk_from_raw(vk_data: &Vec<u8>, zkey_data: &Vec<u8>) -> Result<VerifyingKe
         verifying_key = proving_key.vk;
         Ok(verifying_key)
     } else {
-        Err(color_eyre::Report::msg(
+        Err(Report::msg(
             "No proving/verification key found!",
         ))
     }
@@ -108,7 +108,7 @@ pub fn vk_from_folder(resources_folder: &str) -> Result<VerifyingKey<Curve>> {
         verifying_key = proving_key.vk;
         Ok(verifying_key)
     } else {
-        Err(color_eyre::Report::msg(
+        Err(Report::msg(
             "No proving/verification key found!",
         ))
     }
@@ -124,7 +124,7 @@ pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> Result<&'static Mutex<WitnessCal
         let store = Store::default();
         let module = Module::new(&store, wasm_buffer)?;
         let result = WitnessCalculator::from_module(module)?;
-        Ok::<Mutex<WitnessCalculator>, color_eyre::Report>(Mutex::new(result))
+        Ok::<Mutex<WitnessCalculator>, Report>(Mutex::new(result))
     })
 }
 
@@ -148,13 +148,13 @@ fn fq_from_str(s: &str) -> Result<Fq> {
 fn json_to_g1(json: &Value, key: &str) -> Result<G1Affine> {
     let els: Vec<String> = json
         .get(key)
-        .ok_or(color_eyre::Report::msg("no json value"))?
+        .ok_or(Report::msg("no json value"))?
         .as_array()
-        .ok_or(color_eyre::Report::msg("value not an array"))?
+        .ok_or(Report::msg("value not an array"))?
         .iter()
         .map(|i| {
             i.as_str()
-                .ok_or(color_eyre::Report::msg("element is not a string"))
+                .ok_or(Report::msg("element is not a string"))
         })
         .map(|x| x.map(|v| v.to_owned()))
         .collect::<Result<Vec<String>>>()?;
@@ -170,19 +170,19 @@ fn json_to_g1(json: &Value, key: &str) -> Result<G1Affine> {
 fn json_to_g1_vec(json: &Value, key: &str) -> Result<Vec<G1Affine>> {
     let els: Vec<Vec<String>> = json
         .get(key)
-        .ok_or(color_eyre::Report::msg("no json value"))?
+        .ok_or(Report::msg("no json value"))?
         .as_array()
-        .ok_or(color_eyre::Report::msg("value not an array"))?
+        .ok_or(Report::msg("value not an array"))?
         .iter()
         .map(|i| {
             i.as_array()
-                .ok_or(color_eyre::Report::msg("element is not an array"))
+                .ok_or(Report::msg("element is not an array"))
                 .and_then(|array| {
                     array
                         .iter()
                         .map(|x| {
                             x.as_str()
-                                .ok_or(color_eyre::Report::msg("element is not a string"))
+                                .ok_or(Report::msg("element is not a string"))
                         })
                         .map(|x| x.map(|v| v.to_owned()))
                         .collect::<Result<Vec<String>>>()
@@ -206,19 +206,19 @@ fn json_to_g1_vec(json: &Value, key: &str) -> Result<Vec<G1Affine>> {
 fn json_to_g2(json: &Value, key: &str) -> Result<G2Affine> {
     let els: Vec<Vec<String>> = json
         .get(key)
-        .ok_or(color_eyre::Report::msg("no json value"))?
+        .ok_or(Report::msg("no json value"))?
         .as_array()
-        .ok_or(color_eyre::Report::msg("value not an array"))?
+        .ok_or(Report::msg("value not an array"))?
         .iter()
         .map(|i| {
             i.as_array()
-                .ok_or(color_eyre::Report::msg("element is not an array"))
+                .ok_or(Report::msg("element is not an array"))
                 .and_then(|array| {
                     array
                         .iter()
                         .map(|x| {
                             x.as_str()
-                                .ok_or(color_eyre::Report::msg("element is not a string"))
+                                .ok_or(Report::msg("element is not a string"))
                         })
                         .map(|x| x.map(|v| v.to_owned()))
                         .collect::<Result<Vec<String>>>()
@@ -268,7 +268,7 @@ pub fn check_vk_from_zkey(
     if proving_key.vk == verifying_key {
         Ok(())
     } else {
-        Err(color_eyre::Report::msg(
+        Err(Report::msg(
             "proving_key is not equal to verifying_key",
         ))
     }

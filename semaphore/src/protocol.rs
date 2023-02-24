@@ -89,7 +89,7 @@ pub enum ProofError {
     #[error("Error reading circuit key: {0}")]
     CircuitKeyError(#[from] std::io::Error),
     #[error("Error producing witness: {0}")]
-    WitnessError(color_eyre::Report),
+    WitnessError(Report),
     #[error("Error producing proof: {0}")]
     SynthesisError(#[from] SynthesisError),
     #[error("Error converting public input: {0}")]

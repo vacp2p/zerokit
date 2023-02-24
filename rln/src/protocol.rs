@@ -8,8 +8,7 @@ use ark_groth16::{
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_relations::r1cs::SynthesisError;
 use ark_std::{rand::thread_rng, UniformRand};
-use color_eyre::Report;
-use color_eyre::Result;
+use color_eyre::{Report, Result};
 use num_bigint::BigInt;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -197,21 +196,21 @@ pub fn rln_witness_from_json(input_json_str: &str) -> Result<RLNWitnessInput> {
 
     let path_elements = input_json["path_elements"]
         .as_array()
-        .ok_or(color_eyre::Report::msg("not an array"))?
+        .ok_or(Report::msg("not an array"))?
         .iter()
         .map(|v| str_to_fr(&v.to_string(), 10))
         .collect::<Result<_>>()?;
 
     let identity_path_index_array = input_json["identity_path_index"]
         .as_array()
-        .ok_or(color_eyre::Report::msg("not an arrray"))?;
+        .ok_or(Report::msg("not an arrray"))?;
 
     let mut identity_path_index: Vec<u8> = vec![];
 
     for v in identity_path_index_array {
         identity_path_index.push(
             v.as_u64()
-                .ok_or(color_eyre::Report::msg("not a u64 value"))? as u8,
+                .ok_or(Report::msg("not a u64 value"))? as u8,
         );
     }
 
@@ -542,9 +541,9 @@ pub fn compute_id_secret(
 #[derive(Error, Debug)]
 pub enum ProofError {
     #[error("Error reading circuit key: {0}")]
-    CircuitKeyError(#[from] color_eyre::Report),
+    CircuitKeyError(#[from] Report),
     #[error("Error producing witness: {0}")]
-    WitnessError(color_eyre::Report),
+    WitnessError(Report),
     #[error("Error producing proof: {0}")]
     SynthesisError(#[from] SynthesisError),
 }
@@ -562,10 +561,10 @@ fn calculate_witness_element<E: ark_ec::PairingEngine>(witness: Vec<BigInt>) -> 
             modulus.into()
                 - w.abs()
                     .to_biguint()
-                    .ok_or(color_eyre::Report::msg("not a biguint value"))?
+                    .ok_or(Report::msg("not a biguint value"))?
         } else {
             w.to_biguint()
-                .ok_or(color_eyre::Report::msg("not a biguint value"))?
+                .ok_or(Report::msg("not a biguint value"))?
         };
         witness_vec.push(E::Fr::from(w))
     }
