@@ -10,7 +10,7 @@ use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 use cfg_if::cfg_if;
-use color_eyre::{Report, Result};
+use color_eyre::Result;
 use num_bigint::BigInt;
 use std::io::Cursor;
 
