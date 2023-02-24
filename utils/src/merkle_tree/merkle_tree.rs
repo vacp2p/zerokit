@@ -22,7 +22,7 @@ use std::{
     iter::{once, repeat, successors},
 };
 
-use color_eyre::Report;
+use color_eyre::{Report, Result};
 
 /// In the Hasher trait we define the node type, the default leaf
 /// and the hash function used to initialize a Merkle Tree implementation
@@ -115,7 +115,7 @@ impl<H: Hasher> OptimalMerkleTree<H> {
     }
 
     // Sets a leaf at the specified tree index
-    pub fn set(&mut self, index: usize, leaf: H::Fr) -> color_eyre::Result<()> {
+    pub fn set(&mut self, index: usize, leaf: H::Fr) -> Result<()> {
         if index >= self.capacity() {
             return Err(color_eyre::Report::msg("index exceeds set size"));
         }
@@ -130,7 +130,7 @@ impl<H: Hasher> OptimalMerkleTree<H> {
         &mut self,
         start: usize,
         leaves: I,
-    ) -> color_eyre::Result<()> {
+    ) -> Result<()> {
         let leaves = leaves.into_iter().collect::<Vec<_>>();
         // check if the range is valid
         if start + leaves.len() > self.capacity() {
@@ -145,13 +145,13 @@ impl<H: Hasher> OptimalMerkleTree<H> {
     }
 
     // Sets a leaf at the next available index
-    pub fn update_next(&mut self, leaf: H::Fr) -> color_eyre::Result<()> {
+    pub fn update_next(&mut self, leaf: H::Fr) -> Result<()> {
         self.set(self.next_index, leaf)?;
         Ok(())
     }
 
     // Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
-    pub fn delete(&mut self, index: usize) -> color_eyre::Result<()> {
+    pub fn delete(&mut self, index: usize) -> Result<()> {
         // We reset the leaf only if we previously set a leaf at that index
         if index < self.next_index {
             self.set(index, H::default_leaf())?;
@@ -160,7 +160,7 @@ impl<H: Hasher> OptimalMerkleTree<H> {
     }
 
     // Computes a merkle proof the the leaf at the specified index
-    pub fn proof(&self, index: usize) -> color_eyre::Result<OptimalMerkleProof<H>> {
+    pub fn proof(&self, index: usize) -> Result<OptimalMerkleProof<H>> {
         if index >= self.capacity() {
             return Err(color_eyre::Report::msg("index exceeds set size"));
         }
@@ -184,11 +184,7 @@ impl<H: Hasher> OptimalMerkleTree<H> {
     }
 
     // Verifies a Merkle proof with respect to the input leaf and the tree root
-    pub fn verify(
-        &self,
-        leaf: &H::Fr,
-        witness: &OptimalMerkleProof<H>,
-    ) -> color_eyre::Result<bool> {
+    pub fn verify(&self, leaf: &H::Fr, witness: &OptimalMerkleProof<H>) -> Result<bool> {
         if witness.length() != self.depth {
             return Err(color_eyre::Report::msg(
                 "witness length doesn't match tree depth",
@@ -217,7 +213,7 @@ impl<H: Hasher> OptimalMerkleTree<H> {
         H::hash(&[self.get_node(depth, b), self.get_node(depth, b + 1)])
     }
 
-    fn recalculate_from(&mut self, index: usize) -> color_eyre::Result<()> {
+    fn recalculate_from(&mut self, index: usize) -> Result<()> {
         let mut i = index;
         let mut depth = self.depth;
         loop {
@@ -390,7 +386,7 @@ impl<H: Hasher> FullMerkleTree<H> {
     }
 
     // Sets a leaf at the specified tree index
-    pub fn set(&mut self, leaf: usize, hash: H::Fr) -> color_eyre::Result<()> {
+    pub fn set(&mut self, leaf: usize, hash: H::Fr) -> Result<()> {
         self.set_range(leaf, once(hash))?;
         self.next_index = max(self.next_index, leaf + 1);
         Ok(())
@@ -398,11 +394,7 @@ impl<H: Hasher> FullMerkleTree<H> {
 
     // Sets tree nodes, starting from start index
     // Function proper of FullMerkleTree implementation
-    fn set_range<I: IntoIterator<Item = H::Fr>>(
-        &mut self,
-        start: usize,
-        hashes: I,
-    ) -> color_eyre::Result<()> {
+    fn set_range<I: IntoIterator<Item = H::Fr>>(&mut self, start: usize, hashes: I) -> Result<()> {
         let index = self.capacity() + start - 1;
         let mut count = 0;
         // first count number of hashes, and check that they fit in the tree
@@ -425,13 +417,13 @@ impl<H: Hasher> FullMerkleTree<H> {
     }
 
     // Sets a leaf at the next available index
-    pub fn update_next(&mut self, leaf: H::Fr) -> color_eyre::Result<()> {
+    pub fn update_next(&mut self, leaf: H::Fr) -> Result<()> {
         self.set(self.next_index, leaf)?;
         Ok(())
     }
 
     // Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
-    pub fn delete(&mut self, index: usize) -> color_eyre::Result<()> {
+    pub fn delete(&mut self, index: usize) -> Result<()> {
         // We reset the leaf only if we previously set a leaf at that index
         if index < self.next_index {
             self.set(index, H::default_leaf())?;
@@ -440,7 +432,7 @@ impl<H: Hasher> FullMerkleTree<H> {
     }
 
     // Computes a merkle proof the the leaf at the specified index
-    pub fn proof(&self, leaf: usize) -> color_eyre::Result<FullMerkleProof<H>> {
+    pub fn proof(&self, leaf: usize) -> Result<FullMerkleProof<H>> {
         if leaf >= self.capacity() {
             return Err(color_eyre::Report::msg("index exceeds set size"));
         }
@@ -459,7 +451,7 @@ impl<H: Hasher> FullMerkleTree<H> {
     }
 
     // Verifies a Merkle proof with respect to the input leaf and the tree root
-    pub fn verify(&self, hash: &H::Fr, proof: &FullMerkleProof<H>) -> color_eyre::Result<bool> {
+    pub fn verify(&self, hash: &H::Fr, proof: &FullMerkleProof<H>) -> Result<bool> {
         Ok(proof.compute_root_from(hash) == self.root())
     }
 
@@ -486,7 +478,7 @@ impl<H: Hasher> FullMerkleTree<H> {
         (index + 2).next_power_of_two().trailing_zeros() as usize - 1
     }
 
-    fn update_nodes(&mut self, start: usize, end: usize) -> color_eyre::Result<()> {
+    fn update_nodes(&mut self, start: usize, end: usize) -> Result<()> {
         if self.levels(start) != self.levels(end) {
             return Err(Report::msg("self.levels(start) != self.levels(end)"));
         }

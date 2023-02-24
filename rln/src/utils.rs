@@ -2,11 +2,12 @@
 
 use crate::circuit::Fr;
 use ark_ff::PrimeField;
+use color_eyre::Result;
 use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use std::iter::Extend;
 
-pub fn to_bigint(el: &Fr) -> color_eyre::Result<BigInt> {
+pub fn to_bigint(el: &Fr) -> Result<BigInt> {
     let res: BigUint = (*el).try_into()?;
     Ok(res.into())
 }
@@ -16,7 +17,7 @@ pub fn fr_byte_size() -> usize {
     (mbs + 64 - (mbs % 64)) / 8
 }
 
-pub fn str_to_fr(input: &str, radix: u32) -> color_eyre::Result<Fr> {
+pub fn str_to_fr(input: &str, radix: u32) -> Result<Fr> {
     if !(radix == 10 || radix == 16) {
         return Err(color_eyre::Report::msg("wrong radix"));
     }
@@ -71,7 +72,7 @@ pub fn fr_to_bytes_be(input: &Fr) -> Vec<u8> {
     res
 }
 
-pub fn vec_fr_to_bytes_le(input: &[Fr]) -> color_eyre::Result<Vec<u8>> {
+pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Result<Vec<u8>> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
     bytes.extend(u64::try_from(input.len())?.to_le_bytes().to_vec());
@@ -81,7 +82,7 @@ pub fn vec_fr_to_bytes_le(input: &[Fr]) -> color_eyre::Result<Vec<u8>> {
     Ok(bytes)
 }
 
-pub fn vec_fr_to_bytes_be(input: &[Fr]) -> color_eyre::Result<Vec<u8>> {
+pub fn vec_fr_to_bytes_be(input: &[Fr]) -> Result<Vec<u8>> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
     bytes.extend(u64::try_from(input.len())?.to_be_bytes().to_vec());
@@ -91,7 +92,7 @@ pub fn vec_fr_to_bytes_be(input: &[Fr]) -> color_eyre::Result<Vec<u8>> {
     Ok(bytes)
 }
 
-pub fn vec_u8_to_bytes_le(input: &[u8]) -> color_eyre::Result<Vec<u8>> {
+pub fn vec_u8_to_bytes_le(input: &[u8]) -> Result<Vec<u8>> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
     bytes.extend(u64::try_from(input.len())?.to_le_bytes().to_vec());
@@ -100,7 +101,7 @@ pub fn vec_u8_to_bytes_le(input: &[u8]) -> color_eyre::Result<Vec<u8>> {
     Ok(bytes)
 }
 
-pub fn vec_u8_to_bytes_be(input: Vec<u8>) -> color_eyre::Result<Vec<u8>> {
+pub fn vec_u8_to_bytes_be(input: Vec<u8>) -> Result<Vec<u8>> {
     //We store the vector length
     let mut bytes: Vec<u8> = u64::try_from(input.len())?.to_be_bytes().to_vec();
     bytes.extend(input);
@@ -108,7 +109,7 @@ pub fn vec_u8_to_bytes_be(input: Vec<u8>) -> color_eyre::Result<Vec<u8>> {
     Ok(bytes)
 }
 
-pub fn bytes_le_to_vec_u8(input: &[u8]) -> color_eyre::Result<(Vec<u8>, usize)> {
+pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize)> {
     let mut read: usize = 0;
 
     let len = u64::from_le_bytes(input[0..8].try_into()?) as usize;
@@ -120,7 +121,7 @@ pub fn bytes_le_to_vec_u8(input: &[u8]) -> color_eyre::Result<(Vec<u8>, usize)> 
     Ok((res, read))
 }
 
-pub fn bytes_be_to_vec_u8(input: &[u8]) -> color_eyre::Result<(Vec<u8>, usize)> {
+pub fn bytes_be_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize)> {
     let mut read: usize = 0;
 
     let len = u64::from_be_bytes(input[0..8].try_into()?) as usize;
@@ -133,7 +134,7 @@ pub fn bytes_be_to_vec_u8(input: &[u8]) -> color_eyre::Result<(Vec<u8>, usize)> 
     Ok((res, read))
 }
 
-pub fn bytes_le_to_vec_fr(input: &[u8]) -> color_eyre::Result<(Vec<Fr>, usize)> {
+pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize)> {
     let mut read: usize = 0;
     let mut res: Vec<Fr> = Vec::new();
 
@@ -150,7 +151,7 @@ pub fn bytes_le_to_vec_fr(input: &[u8]) -> color_eyre::Result<(Vec<Fr>, usize)> 
     Ok((res, read))
 }
 
-pub fn bytes_be_to_vec_fr(input: &[u8]) -> color_eyre::Result<(Vec<Fr>, usize)> {
+pub fn bytes_be_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize)> {
     let mut read: usize = 0;
     let mut res: Vec<Fr> = Vec::new();
 

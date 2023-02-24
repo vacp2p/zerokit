@@ -8,6 +8,7 @@ use ark_circom::read_zkey;
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use cfg_if::cfg_if;
+use color_eyre::Result;
 use num_bigint::BigUint;
 use serde_json::Value;
 use std::fs::File;
@@ -51,9 +52,7 @@ pub type G2Affine = ArkG2Affine;
 pub type G2Projective = ArkG2Projective;
 
 // Loads the proving key using a bytes vector
-pub fn zkey_from_raw(
-    zkey_data: &Vec<u8>,
-) -> color_eyre::Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
+pub fn zkey_from_raw(zkey_data: &Vec<u8>) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
     if !zkey_data.is_empty() {
         let mut c = Cursor::new(zkey_data);
         let proving_key_and_matrices = read_zkey(&mut c)?;
@@ -66,7 +65,7 @@ pub fn zkey_from_raw(
 // Loads the proving key
 pub fn zkey_from_folder(
     resources_folder: &str,
-) -> color_eyre::Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
+) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
     let zkey_path = format!("{resources_folder}{ZKEY_FILENAME}");
     if Path::new(&zkey_path).exists() {
         let mut file = File::open(&zkey_path)?;
@@ -78,10 +77,7 @@ pub fn zkey_from_folder(
 }
 
 // Loads the verification key from a bytes vector
-pub fn vk_from_raw(
-    vk_data: &Vec<u8>,
-    zkey_data: &Vec<u8>,
-) -> color_eyre::Result<VerifyingKey<Curve>> {
+pub fn vk_from_raw(vk_data: &Vec<u8>, zkey_data: &Vec<u8>) -> Result<VerifyingKey<Curve>> {
     let verifying_key: VerifyingKey<Curve>;
 
     if !vk_data.is_empty() {
@@ -99,7 +95,7 @@ pub fn vk_from_raw(
 }
 
 // Loads the verification key
-pub fn vk_from_folder(resources_folder: &str) -> color_eyre::Result<VerifyingKey<Curve>> {
+pub fn vk_from_folder(resources_folder: &str) -> Result<VerifyingKey<Curve>> {
     let vk_path = format!("{resources_folder}{VK_FILENAME}");
     let zkey_path = format!("{resources_folder}{ZKEY_FILENAME}");
 
@@ -123,9 +119,7 @@ static WITNESS_CALCULATOR: OnceCell<Mutex<WitnessCalculator>> = OnceCell::new();
 
 // Initializes the witness calculator using a bytes vector
 #[cfg(not(target_arch = "wasm32"))]
-pub fn circom_from_raw(
-    wasm_buffer: Vec<u8>,
-) -> color_eyre::Result<&'static Mutex<WitnessCalculator>> {
+pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> Result<&'static Mutex<WitnessCalculator>> {
     WITNESS_CALCULATOR.get_or_try_init(|| {
         let store = Store::default();
         let module = Module::new(&store, wasm_buffer)?;
@@ -136,9 +130,7 @@ pub fn circom_from_raw(
 
 // Initializes the witness calculator
 #[cfg(not(target_arch = "wasm32"))]
-pub fn circom_from_folder(
-    resources_folder: &str,
-) -> color_eyre::Result<&'static Mutex<WitnessCalculator>> {
+pub fn circom_from_folder(resources_folder: &str) -> Result<&'static Mutex<WitnessCalculator>> {
     // We read the wasm file
     let wasm_path = format!("{resources_folder}{WASM_FILENAME}");
     let wasm_buffer = std::fs::read(wasm_path)?;
@@ -148,12 +140,12 @@ pub fn circom_from_folder(
 // The following function implementations are taken/adapted from https://github.com/gakonst/ark-circom/blob/1732e15d6313fe176b0b1abb858ac9e095d0dbd7/src/zkey.rs
 
 // Utilities to convert a json verification key in a groth16::VerificationKey
-fn fq_from_str(s: &str) -> color_eyre::Result<Fq> {
+fn fq_from_str(s: &str) -> Result<Fq> {
     Ok(Fq::try_from(BigUint::from_str(s)?)?)
 }
 
 // Extracts the element in G1 corresponding to its JSON serialization
-fn json_to_g1(json: &Value, key: &str) -> color_eyre::Result<G1Affine> {
+fn json_to_g1(json: &Value, key: &str) -> Result<G1Affine> {
     let els: Vec<String> = json
         .get(key)
         .ok_or(color_eyre::Report::msg("no json value"))?
@@ -165,7 +157,7 @@ fn json_to_g1(json: &Value, key: &str) -> color_eyre::Result<G1Affine> {
                 .ok_or(color_eyre::Report::msg("element is not a string"))
         })
         .map(|x| x.map(|v| v.to_owned()))
-        .collect::<color_eyre::Result<Vec<String>>>()?;
+        .collect::<Result<Vec<String>>>()?;
 
     Ok(G1Affine::from(G1Projective::new(
         fq_from_str(&els[0])?,
@@ -175,7 +167,7 @@ fn json_to_g1(json: &Value, key: &str) -> color_eyre::Result<G1Affine> {
 }
 
 // Extracts the vector of G1 elements corresponding to its JSON serialization
-fn json_to_g1_vec(json: &Value, key: &str) -> color_eyre::Result<Vec<G1Affine>> {
+fn json_to_g1_vec(json: &Value, key: &str) -> Result<Vec<G1Affine>> {
     let els: Vec<Vec<String>> = json
         .get(key)
         .ok_or(color_eyre::Report::msg("no json value"))?
@@ -193,10 +185,10 @@ fn json_to_g1_vec(json: &Value, key: &str) -> color_eyre::Result<Vec<G1Affine>> 
                                 .ok_or(color_eyre::Report::msg("element is not a string"))
                         })
                         .map(|x| x.map(|v| v.to_owned()))
-                        .collect::<color_eyre::Result<Vec<String>>>()
+                        .collect::<Result<Vec<String>>>()
                 })
         })
-        .collect::<color_eyre::Result<Vec<Vec<String>>>>()?;
+        .collect::<Result<Vec<Vec<String>>>>()?;
 
     let mut res = vec![];
     for coords in els {
@@ -211,7 +203,7 @@ fn json_to_g1_vec(json: &Value, key: &str) -> color_eyre::Result<Vec<G1Affine>> 
 }
 
 // Extracts the element in G2 corresponding to its JSON serialization
-fn json_to_g2(json: &Value, key: &str) -> color_eyre::Result<G2Affine> {
+fn json_to_g2(json: &Value, key: &str) -> Result<G2Affine> {
     let els: Vec<Vec<String>> = json
         .get(key)
         .ok_or(color_eyre::Report::msg("no json value"))?
@@ -229,10 +221,10 @@ fn json_to_g2(json: &Value, key: &str) -> color_eyre::Result<G2Affine> {
                                 .ok_or(color_eyre::Report::msg("element is not a string"))
                         })
                         .map(|x| x.map(|v| v.to_owned()))
-                        .collect::<color_eyre::Result<Vec<String>>>()
+                        .collect::<Result<Vec<String>>>()
                 })
         })
-        .collect::<color_eyre::Result<Vec<Vec<String>>>>()?;
+        .collect::<Result<Vec<Vec<String>>>>()?;
 
     let x = Fq2::new(fq_from_str(&els[0][0])?, fq_from_str(&els[0][1])?);
     let y = Fq2::new(fq_from_str(&els[1][0])?, fq_from_str(&els[1][1])?);
@@ -241,7 +233,7 @@ fn json_to_g2(json: &Value, key: &str) -> color_eyre::Result<G2Affine> {
 }
 
 // Converts JSON to a VerifyingKey
-fn to_verifying_key(json: serde_json::Value) -> color_eyre::Result<VerifyingKey<Curve>> {
+fn to_verifying_key(json: serde_json::Value) -> Result<VerifyingKey<Curve>> {
     Ok(VerifyingKey {
         alpha_g1: json_to_g1(&json, "vk_alpha_1")?,
         beta_g2: json_to_g2(&json, "vk_beta_2")?,
@@ -252,7 +244,7 @@ fn to_verifying_key(json: serde_json::Value) -> color_eyre::Result<VerifyingKey<
 }
 
 // Computes the verification key from its JSON serialization
-fn vk_from_json(vk_path: &str) -> color_eyre::Result<VerifyingKey<Curve>> {
+fn vk_from_json(vk_path: &str) -> Result<VerifyingKey<Curve>> {
     let json = std::fs::read_to_string(vk_path)?;
     let json: Value = serde_json::from_str(&json)?;
 
@@ -260,7 +252,7 @@ fn vk_from_json(vk_path: &str) -> color_eyre::Result<VerifyingKey<Curve>> {
 }
 
 // Computes the verification key from a bytes vector containing its JSON serialization
-fn vk_from_vector(vk: &[u8]) -> color_eyre::Result<VerifyingKey<Curve>> {
+fn vk_from_vector(vk: &[u8]) -> Result<VerifyingKey<Curve>> {
     let json = String::from_utf8(vk.to_vec())?;
     let json: Value = serde_json::from_str(&json)?;
 
@@ -271,7 +263,7 @@ fn vk_from_vector(vk: &[u8]) -> color_eyre::Result<VerifyingKey<Curve>> {
 pub fn check_vk_from_zkey(
     resources_folder: &str,
     verifying_key: VerifyingKey<Curve>,
-) -> color_eyre::Result<()> {
+) -> Result<()> {
     let (proving_key, _matrices) = zkey_from_folder(resources_folder)?;
     if proving_key.vk == verifying_key {
         Ok(())

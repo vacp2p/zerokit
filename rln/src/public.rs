@@ -10,6 +10,7 @@ use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 use cfg_if::cfg_if;
+use color_eyre::Result;
 use num_bigint::BigInt;
 use std::io::Cursor;
 
@@ -66,7 +67,7 @@ impl RLN<'_> {
     /// let mut rln = RLN::new(tree_height, resources);
     /// ```
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> color_eyre::Result<RLN<'static>> {
+    pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> Result<RLN<'static>> {
         // We read input
         let mut input: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input)?;
@@ -129,7 +130,7 @@ impl RLN<'_> {
         #[cfg(not(target_arch = "wasm32"))] circom_vec: Vec<u8>,
         zkey_vec: Vec<u8>,
         vk_vec: Vec<u8>,
-    ) -> color_eyre::Result<RLN<'static>> {
+    ) -> Result<RLN<'static>> {
         #[cfg(not(target_arch = "wasm32"))]
         let witness_calculator = circom_from_raw(circom_vec)?;
 
@@ -159,7 +160,7 @@ impl RLN<'_> {
     ///
     /// Input values are:
     /// - `tree_height`: the height of the Merkle tree.
-    pub fn set_tree(&mut self, tree_height: usize) -> color_eyre::Result<()> {
+    pub fn set_tree(&mut self, tree_height: usize) -> Result<()> {
         // We compute a default empty tree of desired height
         self.tree = PoseidonTree::default(tree_height);
 
@@ -186,7 +187,7 @@ impl RLN<'_> {
     /// let mut buffer = Cursor::new(serialize_field_element(id_commitment));
     /// rln.set_leaf(id_index, &mut buffer).unwrap();
     /// ```
-    pub fn set_leaf<R: Read>(&mut self, index: usize, mut input_data: R) -> color_eyre::Result<()> {
+    pub fn set_leaf<R: Read>(&mut self, index: usize, mut input_data: R) -> Result<()> {
         // We read input
         let mut leaf_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut leaf_byte)?;
@@ -228,11 +229,7 @@ impl RLN<'_> {
     /// let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
     /// rln.set_leaves_from(index, &mut buffer).unwrap();
     /// ```
-    pub fn set_leaves_from<R: Read>(
-        &mut self,
-        index: usize,
-        mut input_data: R,
-    ) -> color_eyre::Result<()> {
+    pub fn set_leaves_from<R: Read>(&mut self, index: usize, mut input_data: R) -> Result<()> {
         // We read input
         let mut leaves_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut leaves_byte)?;
@@ -249,7 +246,7 @@ impl RLN<'_> {
     ///
     /// Input values are:
     /// - `input_data`: a reader for the serialization of multiple leaf values (serialization done with [`rln::utils::vec_fr_to_bytes_le`](crate::utils::vec_fr_to_bytes_le))
-    pub fn init_tree_with_leaves<R: Read>(&mut self, input_data: R) -> color_eyre::Result<()> {
+    pub fn init_tree_with_leaves<R: Read>(&mut self, input_data: R) -> Result<()> {
         // reset the tree
         // NOTE: this requires the tree to be initialized with the correct height initially
         // TODO: accept tree_height as a parameter and initialize the tree with that height
@@ -298,7 +295,7 @@ impl RLN<'_> {
     /// let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
     /// rln.set_next_leaf(&mut buffer).unwrap();
     /// ```
-    pub fn set_next_leaf<R: Read>(&mut self, mut input_data: R) -> color_eyre::Result<()> {
+    pub fn set_next_leaf<R: Read>(&mut self, mut input_data: R) -> Result<()> {
         // We read input
         let mut leaf_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut leaf_byte)?;
@@ -323,7 +320,7 @@ impl RLN<'_> {
     /// let index = 10;
     /// rln.delete_leaf(index).unwrap();
     /// ```
-    pub fn delete_leaf(&mut self, index: usize) -> color_eyre::Result<()> {
+    pub fn delete_leaf(&mut self, index: usize) -> Result<()> {
         self.tree.delete(index)?;
         Ok(())
     }
@@ -341,7 +338,7 @@ impl RLN<'_> {
     /// rln.get_root(&mut buffer).unwrap();
     /// let (root, _) = bytes_le_to_fr(&buffer.into_inner());
     /// ```
-    pub fn get_root<W: Write>(&self, mut output_data: W) -> color_eyre::Result<()> {
+    pub fn get_root<W: Write>(&self, mut output_data: W) -> Result<()> {
         let root = self.tree.root();
         output_data.write_all(&fr_to_bytes_le(&root))?;
 
@@ -369,7 +366,7 @@ impl RLN<'_> {
     /// let (path_elements, read) = bytes_le_to_vec_fr(&buffer_inner);
     /// let (identity_path_index, _) = bytes_le_to_vec_u8(&buffer_inner[read..].to_vec());
     /// ```
-    pub fn get_proof<W: Write>(&self, index: usize, mut output_data: W) -> color_eyre::Result<()> {
+    pub fn get_proof<W: Write>(&self, index: usize, mut output_data: W) -> Result<()> {
         let merkle_proof = self.tree.proof(index).expect("proof should exist");
         let path_elements = merkle_proof.get_path_elements();
         let identity_path_index = merkle_proof.get_path_index();
@@ -409,7 +406,7 @@ impl RLN<'_> {
         &mut self,
         mut input_data: R,
         mut output_data: W,
-    ) -> color_eyre::Result<()> {
+    ) -> Result<()> {
         // We read input RLN witness and we deserialize it
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
@@ -464,7 +461,7 @@ impl RLN<'_> {
     ///
     /// assert!(verified);
     /// ```
-    pub fn verify<R: Read>(&self, mut input_data: R) -> color_eyre::Result<bool> {
+    pub fn verify<R: Read>(&self, mut input_data: R) -> Result<bool> {
         // Input data is serialized for Curve as:
         // serialized_proof (compressed, 4*32 bytes) || serialized_proof_values (6*32 bytes), i.e.
         // [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
@@ -530,7 +527,7 @@ impl RLN<'_> {
         &mut self,
         mut input_data: R,
         mut output_data: W,
-    ) -> color_eyre::Result<()> {
+    ) -> Result<()> {
         // We read input RLN witness and we deserialize it
         let mut witness_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut witness_byte)?;
@@ -558,7 +555,7 @@ impl RLN<'_> {
         calculated_witness: Vec<BigInt>,
         rln_witness_vec: Vec<u8>,
         mut output_data: W,
-    ) -> color_eyre::Result<()> {
+    ) -> Result<()> {
         let (rln_witness, _) = deserialize_witness(&rln_witness_vec[..])?;
         let proof_values = proof_values_from_witness(&rln_witness);
 
@@ -598,7 +595,7 @@ impl RLN<'_> {
     ///
     /// assert!(verified);
     /// ```
-    pub fn verify_rln_proof<R: Read>(&self, mut input_data: R) -> color_eyre::Result<bool> {
+    pub fn verify_rln_proof<R: Read>(&self, mut input_data: R) -> Result<bool> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
@@ -674,11 +671,7 @@ impl RLN<'_> {
     ///
     /// assert!(verified);
     /// ```
-    pub fn verify_with_roots<R: Read>(
-        &self,
-        mut input_data: R,
-        mut roots_data: R,
-    ) -> color_eyre::Result<bool> {
+    pub fn verify_with_roots<R: Read>(&self, mut input_data: R, mut roots_data: R) -> Result<bool> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
@@ -759,7 +752,7 @@ impl RLN<'_> {
     /// // We deserialize the keygen output
     /// let (identity_secret_hash, id_commitment) = deserialize_identity_pair(buffer.into_inner());
     /// ```
-    pub fn key_gen<W: Write>(&self, mut output_data: W) -> color_eyre::Result<()> {
+    pub fn key_gen<W: Write>(&self, mut output_data: W) -> Result<()> {
         let (identity_secret_hash, id_commitment) = keygen();
         output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
         output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
@@ -789,7 +782,7 @@ impl RLN<'_> {
     /// // We deserialize the keygen output
     /// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
     /// ```
-    pub fn extended_key_gen<W: Write>(&self, mut output_data: W) -> color_eyre::Result<()> {
+    pub fn extended_key_gen<W: Write>(&self, mut output_data: W) -> Result<()> {
         let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
             extended_keygen();
         output_data.write_all(&fr_to_bytes_le(&identity_trapdoor))?;
@@ -828,7 +821,7 @@ impl RLN<'_> {
         &self,
         mut input_data: R,
         mut output_data: W,
-    ) -> color_eyre::Result<()> {
+    ) -> Result<()> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
 
@@ -871,7 +864,7 @@ impl RLN<'_> {
         &self,
         mut input_data: R,
         mut output_data: W,
-    ) -> color_eyre::Result<()> {
+    ) -> Result<()> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
 
@@ -922,7 +915,7 @@ impl RLN<'_> {
         mut input_proof_data_1: R,
         mut input_proof_data_2: R,
         mut output_data: W,
-    ) -> color_eyre::Result<()> {
+    ) -> Result<()> {
         // We deserialize the two proofs and we get the corresponding RLNProofValues objects
         let mut serialized: Vec<u8> = Vec::new();
         input_proof_data_1.read_to_end(&mut serialized)?;
@@ -966,10 +959,7 @@ impl RLN<'_> {
     /// - `input_data`: a reader for the serialization of `[ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]`
     ///
     /// The function returns the corresponding [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object serialized using [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
-    pub fn get_serialized_rln_witness<R: Read>(
-        &mut self,
-        mut input_data: R,
-    ) -> color_eyre::Result<Vec<u8>> {
+    pub fn get_serialized_rln_witness<R: Read>(&mut self, mut input_data: R) -> Result<Vec<u8>> {
         // We read input RLN witness and we deserialize it
         let mut witness_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut witness_byte)?;
@@ -984,10 +974,7 @@ impl RLN<'_> {
     /// - `serialized_witness`: the byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object (serialization done with  [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
     ///
     /// The function returns the corresponding JSON encoding of the input [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
-    pub fn get_rln_witness_json(
-        &mut self,
-        serialized_witness: &[u8],
-    ) -> color_eyre::Result<serde_json::Value> {
+    pub fn get_rln_witness_json(&mut self, serialized_witness: &[u8]) -> Result<serde_json::Value> {
         let (rln_witness, _) = deserialize_witness(serialized_witness)?;
         get_json_inputs(&rln_witness)
     }
@@ -1024,7 +1011,7 @@ impl Default for RLN<'_> {
 /// // We deserialize the keygen output
 /// let field_element = deserialize_field_element(output_buffer.into_inner());
 /// ```
-pub fn hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> color_eyre::Result<()> {
+pub fn hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> Result<()> {
     let mut serialized: Vec<u8> = Vec::new();
     input_data.read_to_end(&mut serialized)?;
 
@@ -1057,10 +1044,7 @@ pub fn hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> color_e
 /// // We deserialize the hash output
 /// let hash_result = deserialize_field_element(output_buffer.into_inner());
 /// ```
-pub fn poseidon_hash<R: Read, W: Write>(
-    mut input_data: R,
-    mut output_data: W,
-) -> color_eyre::Result<()> {
+pub fn poseidon_hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> Result<()> {
     let mut serialized: Vec<u8> = Vec::new();
     input_data.read_to_end(&mut serialized)?;
 

@@ -7,7 +7,7 @@ use ark_groth16::{
     Proof, ProvingKey,
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use color_eyre::Report;
+use color_eyre::{Report, Result};
 use std::io::{Read, Write};
 
 pub struct Multiplier {
@@ -17,7 +17,7 @@ pub struct Multiplier {
 
 impl Multiplier {
     // TODO Break this apart here
-    pub fn new() -> color_eyre::Result<Multiplier> {
+    pub fn new() -> Result<Multiplier> {
         let cfg = CircomConfig::<Bn254>::new(
             "./resources/circom2_multiplier2.wasm",
             "./resources/circom2_multiplier2.r1cs",
@@ -42,7 +42,7 @@ impl Multiplier {
     }
 
     // TODO Input Read
-    pub fn prove<W: Write>(&self, result_data: W) -> color_eyre::Result<()> {
+    pub fn prove<W: Write>(&self, result_data: W) -> Result<()> {
         let mut rng = thread_rng();
 
         // XXX: There's probably a better way to do this
@@ -57,7 +57,7 @@ impl Multiplier {
         Ok(())
     }
 
-    pub fn verify<R: Read>(&self, input_data: R) -> color_eyre::Result<bool> {
+    pub fn verify<R: Read>(&self, input_data: R) -> Result<bool> {
         let proof = Proof::deserialize(input_data)?;
 
         let pvk = prepare_verifying_key(&self.params.vk);
