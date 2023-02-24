@@ -1,6 +1,6 @@
 [package]
 name = "rln-wasm"
-version = "0.0.6"
+version = "0.0.7"
 edition = "2021"
 license = "MIT or Apache2"
 
@@ -31,6 +31,3 @@ console_error_panic_hook = { version = "0.1.7", optional = true }
 wasm-bindgen-test = "0.3.13"
 wasm-bindgen-futures = "0.4.33"
 
-[profile.release]
-# Tell `rustc` to optimize for small code size.
-opt-level = "s"

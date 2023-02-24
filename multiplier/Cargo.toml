@@ -28,7 +28,7 @@ ark-circom = { git = "https://github.com/gakonst/ark-circom", features = ["circo
 
 # error handling
 # thiserror = "1.0.26"
-color-eyre = "0.5"
+color-eyre = "0.6.1"
 
 # decoding of data
 # hex = "0.4.3"

@@ -7,3 +7,16 @@ members = [
   "rln-wasm",
   "utils",
 ]
+
+# Compilation profile for any non-workspace member.
+# Dependencies are optimized, even in a dev build. This improves dev performance
+# while having neglible impact on incremental build times.
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release.package."rln-wasm"]
+# Tell `rustc` to optimize for small code size.
+opt-level = "s"
+
+[profile.release.package."semaphore"]
+codegen-units = 1
