@@ -31,7 +31,6 @@ impl<'a> From<&Buffer> for &'a [u8] {
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn new_circuit(ctx: *mut *mut Multiplier) -> bool {
-    println!("multiplier ffi: new");
     if let Ok(mul) = Multiplier::new() {
         unsafe { *ctx = Box::into_raw(Box::new(mul)) };
         true
