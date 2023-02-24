@@ -8,18 +8,27 @@ mod tests {
     use wasm_bindgen::prelude::*;
     use wasm_bindgen::JsValue;
     use wasm_bindgen_test::wasm_bindgen_test;
+    use wasm_bindgen_rayon::init_thread_pool;
 
-    #[wasm_bindgen(module = "src/utils.js")]
+    wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+
+    #[wasm_bindgen(module = "/src/utils.js")]
     extern "C" {
         #[wasm_bindgen(catch)]
         fn read_file(path: &str) -> Result<Uint8Array, JsValue>;
 
         #[wasm_bindgen(catch)]
-        async fn calculateWitness(circom_path: &str, input: Object) -> Result<JsValue, JsValue>;
+        async fn initWasm() -> Result<(), JsValue>;
+
+        #[wasm_bindgen(catch)]
+        async fn calculateWitness(circom_path: &str, inputs: Object) -> Result<JsValue, JsValue>;
     }
 
     #[wasm_bindgen_test]
     pub async fn test_basic_flow() {
+        initWasm().await.unwrap();
+        wasm_bindgen_futures::JsFuture::from(init_thread_pool(4)).await.unwrap();
+
         let tree_height = TEST_TREE_HEIGHT;
         let circom_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln.wasm");
         let zkey_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.zkey");
