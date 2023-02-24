@@ -208,10 +208,7 @@ pub fn rln_witness_from_json(input_json_str: &str) -> Result<RLNWitnessInput> {
     let mut identity_path_index: Vec<u8> = vec![];
 
     for v in identity_path_index_array {
-        identity_path_index.push(
-            v.as_u64()
-                .ok_or(Report::msg("not a u64 value"))? as u8,
-        );
+        identity_path_index.push(v.as_u64().ok_or(Report::msg("not a u64 value"))? as u8);
     }
 
     let x = str_to_fr(&input_json["x"].to_string(), 10)?;
@@ -563,8 +560,7 @@ fn calculate_witness_element<E: ark_ec::PairingEngine>(witness: Vec<BigInt>) -> 
                     .to_biguint()
                     .ok_or(Report::msg("not a biguint value"))?
         } else {
-            w.to_biguint()
-                .ok_or(Report::msg("not a biguint value"))?
+            w.to_biguint().ok_or(Report::msg("not a biguint value"))?
         };
         witness_vec.push(E::Fr::from(w))
     }

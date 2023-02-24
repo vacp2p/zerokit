@@ -33,10 +33,9 @@ fn groth16_proof_example() -> Result<()> {
 
     let pvk = prepare_verifying_key(&params.vk);
 
-    if verify_proof(&pvk, &proof, &inputs)? {
-        Ok(())
-    } else {
-        Err(Report::msg("not verified"))
+    match verify_proof(&pvk, &proof, &inputs) {
+        Ok(_) => OK(()),
+        Err(_) => Err(Report::msg("not verified")),
     }
 }
 

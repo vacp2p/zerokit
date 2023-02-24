@@ -36,8 +36,6 @@ impl Multiplier {
 
         let circom = builder.build()?;
 
-        //let inputs = circom.get_public_inputs().unwrap();
-
         Ok(Multiplier { circom, params })
     }
 

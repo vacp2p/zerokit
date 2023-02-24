@@ -88,9 +88,7 @@ pub fn vk_from_raw(vk_data: &Vec<u8>, zkey_data: &Vec<u8>) -> Result<VerifyingKe
         verifying_key = proving_key.vk;
         Ok(verifying_key)
     } else {
-        Err(Report::msg(
-            "No proving/verification key found!",
-        ))
+        Err(Report::msg("No proving/verification key found!"))
     }
 }
 
@@ -108,9 +106,7 @@ pub fn vk_from_folder(resources_folder: &str) -> Result<VerifyingKey<Curve>> {
         verifying_key = proving_key.vk;
         Ok(verifying_key)
     } else {
-        Err(Report::msg(
-            "No proving/verification key found!",
-        ))
+        Err(Report::msg("No proving/verification key found!"))
     }
 }
 
@@ -152,10 +148,7 @@ fn json_to_g1(json: &Value, key: &str) -> Result<G1Affine> {
         .as_array()
         .ok_or(Report::msg("value not an array"))?
         .iter()
-        .map(|i| {
-            i.as_str()
-                .ok_or(Report::msg("element is not a string"))
-        })
+        .map(|i| i.as_str().ok_or(Report::msg("element is not a string")))
         .map(|x| x.map(|v| v.to_owned()))
         .collect::<Result<Vec<String>>>()?;
 
@@ -180,10 +173,7 @@ fn json_to_g1_vec(json: &Value, key: &str) -> Result<Vec<G1Affine>> {
                 .and_then(|array| {
                     array
                         .iter()
-                        .map(|x| {
-                            x.as_str()
-                                .ok_or(Report::msg("element is not a string"))
-                        })
+                        .map(|x| x.as_str().ok_or(Report::msg("element is not a string")))
                         .map(|x| x.map(|v| v.to_owned()))
                         .collect::<Result<Vec<String>>>()
                 })
@@ -216,10 +206,7 @@ fn json_to_g2(json: &Value, key: &str) -> Result<G2Affine> {
                 .and_then(|array| {
                     array
                         .iter()
-                        .map(|x| {
-                            x.as_str()
-                                .ok_or(Report::msg("element is not a string"))
-                        })
+                        .map(|x| x.as_str().ok_or(Report::msg("element is not a string")))
                         .map(|x| x.map(|v| v.to_owned()))
                         .collect::<Result<Vec<String>>>()
                 })
@@ -268,8 +255,6 @@ pub fn check_vk_from_zkey(
     if proving_key.vk == verifying_key {
         Ok(())
     } else {
-        Err(Report::msg(
-            "proving_key is not equal to verifying_key",
-        ))
+        Err(Report::msg("verifying_keys are not equal"))
     }
 }

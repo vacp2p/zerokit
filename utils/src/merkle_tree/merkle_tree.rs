@@ -186,9 +186,7 @@ impl<H: Hasher> OptimalMerkleTree<H> {
     // Verifies a Merkle proof with respect to the input leaf and the tree root
     pub fn verify(&self, leaf: &H::Fr, witness: &OptimalMerkleProof<H>) -> Result<bool> {
         if witness.length() != self.depth {
-            return Err(Report::msg(
-                "witness length doesn't match tree depth",
-            ));
+            return Err(Report::msg("witness length doesn't match tree depth"));
         }
         let expected_root = witness.compute_root_from(leaf);
         Ok(expected_root.eq(&self.root()))
@@ -401,9 +399,7 @@ impl<H: Hasher> FullMerkleTree<H> {
         // then insert into the tree
         let hashes = hashes.into_iter().collect::<Vec<_>>();
         if hashes.len() + start > self.capacity() {
-            return Err(Report::msg(
-                "provided hashes do not fit in the tree",
-            ));
+            return Err(Report::msg("provided hashes do not fit in the tree"));
         }
         hashes.into_iter().for_each(|hash| {
             self.nodes[index + count] = hash;
