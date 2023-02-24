@@ -3,15 +3,21 @@
 This module provides APIs to manage, compute and verify [RLN](https://rfc.vac.dev/spec/32/) zkSNARK proofs and RLN primitives.
 
 ## Pre-requisites
-### Install
+### Install dependencies and clone repo
 
 ```sh
+make installdeps
 git clone https://github.com/vacp2p/zerokit.git
 cd zerokit/rln
 ```
-Implemented tests can be executed by running within the module folder
 
-`cargo test --release`
+### Build and Test
+
+To build and test, run the following commands within the module folder
+```bash
+cargo make build
+cargo make test
+```
 
 ### Compile ZK circuits
 
