@@ -14,7 +14,7 @@ dependencies = [
 
 [tasks.test]
 command = "wasm-pack"
-args = ["test", "--release", "--node"]
+args = ["test", "--release", "--firefox", "--headless"]
 dependencies = ["build"]
 
 [tasks.login]
