@@ -10,6 +10,12 @@ curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 ```
 cargo install cargo-make
 ```
+
+OR
+
+```
+make installdeps
+```
 3. Compile zerokit for `wasm32-unknown-unknown`:
 ```
 cd rln-wasm
