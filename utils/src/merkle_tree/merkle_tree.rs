@@ -224,10 +224,10 @@ impl<H: Hasher> OptimalMerkleTree<H> {
             }
         }
         if depth != 0 {
-            return Err(Report::msg("depth != 0"));
+            return Err(Report::msg("did not reach the depth"));
         }
         if i != 0 {
-            return Err(Report::msg("i != 0"));
+            return Err(Report::msg("did not go through all indexes"));
         }
         Ok(())
     }
