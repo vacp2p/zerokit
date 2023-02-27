@@ -609,7 +609,7 @@ mod test {
         let success = set_next_leaf(rln_pointer, input_buffer);
         assert!(success, "set next leaf call failed");
 
-        let identity_index: u64 = no_of_leaves;
+        let identity_index: usize = no_of_leaves;
 
         // We generate a random signal
         let mut rng = rand::thread_rng();
@@ -694,7 +694,7 @@ mod test {
         let success = set_next_leaf(rln_pointer, input_buffer);
         assert!(success, "set next leaf call failed");
 
-        let identity_index: u64 = no_of_leaves;
+        let identity_index: usize = no_of_leaves;
 
         // We generate a random signal
         let mut rng = rand::thread_rng();
@@ -807,7 +807,7 @@ mod test {
         let success = set_next_leaf(rln_pointer, input_buffer);
         assert!(success, "set next leaf call failed");
 
-        let identity_index: u64 = 0;
+        let identity_index: usize = 0;
 
         // We generate two proofs using same epoch but different signals.
 
@@ -897,7 +897,7 @@ mod test {
         let success = set_next_leaf(rln_pointer, input_buffer);
         assert!(success, "set next leaf call failed");
 
-        let identity_index_new: u64 = 1;
+        let identity_index_new: usize = 1;
 
         // We generate a random signals
         let signal3: [u8; 32] = rng.gen();

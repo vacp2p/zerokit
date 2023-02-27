@@ -604,8 +604,7 @@ impl RLN<'_> {
         let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
         all_read += read;
 
-        let signal_len =
-            u64::from_le_bytes(serialized[all_read..all_read + 8].try_into()?) as usize;
+        let signal_len = usize::from_le_bytes(serialized[all_read..all_read + 8].try_into()?);
         all_read += 8;
 
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
@@ -680,8 +679,7 @@ impl RLN<'_> {
         let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
         all_read += read;
 
-        let signal_len =
-            u64::from_le_bytes(serialized[all_read..all_read + 8].try_into()?) as usize;
+        let signal_len = usize::from_le_bytes(serialized[all_read..all_read + 8].try_into()?);
         all_read += 8;
 
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();

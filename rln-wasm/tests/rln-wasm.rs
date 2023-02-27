@@ -41,13 +41,13 @@ mod tests {
 
         // Prepare the message
         let signal = "Hello World".as_bytes();
-        let signal_len: u64 = signal.len() as u64;
+        let signal_len = signal.len();
 
         // Setting up the epoch (With 0s for the test)
         let epoch = Uint8Array::new_with_length(32);
         epoch.fill(0, 0, 32);
 
-        let identity_index: u64 = 0;
+        let identity_index: usize = 0;
 
         // Serializing the message
         let mut serialized_vec: Vec<u8> = Vec::new();
