@@ -16,12 +16,13 @@
 #![allow(dead_code)]
 
 use std::collections::HashMap;
-use std::io;
 use std::{
     cmp::max,
     fmt::Debug,
     iter::{once, repeat, successors},
 };
+
+use color_eyre::{Report, Result};
 
 /// In the Hasher trait we define the node type, the default leaf
 /// and the hash function used to initialize a Merkle Tree implementation
@@ -114,15 +115,12 @@ impl<H: Hasher> OptimalMerkleTree<H> {
     }
 
     // Sets a leaf at the specified tree index
-    pub fn set(&mut self, index: usize, leaf: H::Fr) -> io::Result<()> {
+    pub fn set(&mut self, index: usize, leaf: H::Fr) -> Result<()> {
         if index >= self.capacity() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "index exceeds set size",
-            ));
+            return Err(Report::msg("index exceeds set size"));
         }
         self.nodes.insert((self.depth, index), leaf);
-        self.recalculate_from(index);
+        self.recalculate_from(index)?;
         self.next_index = max(self.next_index, index + 1);
         Ok(())
     }
@@ -132,31 +130,28 @@ impl<H: Hasher> OptimalMerkleTree<H> {
         &mut self,
         start: usize,
         leaves: I,
-    ) -> io::Result<()> {
+    ) -> Result<()> {
         let leaves = leaves.into_iter().collect::<Vec<_>>();
         // check if the range is valid
         if start + leaves.len() > self.capacity() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "provided range exceeds set size",
-            ));
+            return Err(Report::msg("provided range exceeds set size"));
         }
         for (i, leaf) in leaves.iter().enumerate() {
             self.nodes.insert((self.depth, start + i), *leaf);
-            self.recalculate_from(start + i);
+            self.recalculate_from(start + i)?;
         }
         self.next_index = max(self.next_index, start + leaves.len());
         Ok(())
     }
 
     // Sets a leaf at the next available index
-    pub fn update_next(&mut self, leaf: H::Fr) -> io::Result<()> {
+    pub fn update_next(&mut self, leaf: H::Fr) -> Result<()> {
         self.set(self.next_index, leaf)?;
         Ok(())
     }
 
     // Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
-    pub fn delete(&mut self, index: usize) -> io::Result<()> {
+    pub fn delete(&mut self, index: usize) -> Result<()> {
         // We reset the leaf only if we previously set a leaf at that index
         if index < self.next_index {
             self.set(index, H::default_leaf())?;
@@ -165,12 +160,9 @@ impl<H: Hasher> OptimalMerkleTree<H> {
     }
 
     // Computes a merkle proof the the leaf at the specified index
-    pub fn proof(&self, index: usize) -> io::Result<OptimalMerkleProof<H>> {
+    pub fn proof(&self, index: usize) -> Result<OptimalMerkleProof<H>> {
         if index >= self.capacity() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "index exceeds set size",
-            ));
+            return Err(Report::msg("index exceeds set size"));
         }
         let mut witness = Vec::<(H::Fr, u8)>::with_capacity(self.depth);
         let mut i = index;
@@ -184,17 +176,17 @@ impl<H: Hasher> OptimalMerkleTree<H> {
                 break;
             }
         }
-        assert_eq!(i, 0);
-        Ok(OptimalMerkleProof(witness))
+        if i != 0 {
+            Err(Report::msg("i != 0"))
+        } else {
+            Ok(OptimalMerkleProof(witness))
+        }
     }
 
     // Verifies a Merkle proof with respect to the input leaf and the tree root
-    pub fn verify(&self, leaf: &H::Fr, witness: &OptimalMerkleProof<H>) -> io::Result<bool> {
+    pub fn verify(&self, leaf: &H::Fr, witness: &OptimalMerkleProof<H>) -> Result<bool> {
         if witness.length() != self.depth {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "witness length doesn't match tree depth",
-            ));
+            return Err(Report::msg("witness length doesn't match tree depth"));
         }
         let expected_root = witness.compute_root_from(leaf);
         Ok(expected_root.eq(&self.root()))
@@ -219,7 +211,7 @@ impl<H: Hasher> OptimalMerkleTree<H> {
         H::hash(&[self.get_node(depth, b), self.get_node(depth, b + 1)])
     }
 
-    fn recalculate_from(&mut self, index: usize) {
+    fn recalculate_from(&mut self, index: usize) -> Result<()> {
         let mut i = index;
         let mut depth = self.depth;
         loop {
@@ -231,8 +223,13 @@ impl<H: Hasher> OptimalMerkleTree<H> {
                 break;
             }
         }
-        assert_eq!(depth, 0);
-        assert_eq!(i, 0);
+        if depth != 0 {
+            return Err(Report::msg("did not reach the depth"));
+        }
+        if i != 0 {
+            return Err(Report::msg("did not go through all indexes"));
+        }
+        Ok(())
     }
 }
 
@@ -387,7 +384,7 @@ impl<H: Hasher> FullMerkleTree<H> {
     }
 
     // Sets a leaf at the specified tree index
-    pub fn set(&mut self, leaf: usize, hash: H::Fr) -> io::Result<()> {
+    pub fn set(&mut self, leaf: usize, hash: H::Fr) -> Result<()> {
         self.set_range(leaf, once(hash))?;
         self.next_index = max(self.next_index, leaf + 1);
         Ok(())
@@ -395,41 +392,34 @@ impl<H: Hasher> FullMerkleTree<H> {
 
     // Sets tree nodes, starting from start index
     // Function proper of FullMerkleTree implementation
-    fn set_range<I: IntoIterator<Item = H::Fr>>(
-        &mut self,
-        start: usize,
-        hashes: I,
-    ) -> io::Result<()> {
+    fn set_range<I: IntoIterator<Item = H::Fr>>(&mut self, start: usize, hashes: I) -> Result<()> {
         let index = self.capacity() + start - 1;
         let mut count = 0;
         // first count number of hashes, and check that they fit in the tree
         // then insert into the tree
         let hashes = hashes.into_iter().collect::<Vec<_>>();
         if hashes.len() + start > self.capacity() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "provided hashes do not fit in the tree",
-            ));
+            return Err(Report::msg("provided hashes do not fit in the tree"));
         }
         hashes.into_iter().for_each(|hash| {
             self.nodes[index + count] = hash;
             count += 1;
         });
         if count != 0 {
-            self.update_nodes(index, index + (count - 1));
+            self.update_nodes(index, index + (count - 1))?;
             self.next_index = max(self.next_index, start + count);
         }
         Ok(())
     }
 
     // Sets a leaf at the next available index
-    pub fn update_next(&mut self, leaf: H::Fr) -> io::Result<()> {
+    pub fn update_next(&mut self, leaf: H::Fr) -> Result<()> {
         self.set(self.next_index, leaf)?;
         Ok(())
     }
 
     // Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
-    pub fn delete(&mut self, index: usize) -> io::Result<()> {
+    pub fn delete(&mut self, index: usize) -> Result<()> {
         // We reset the leaf only if we previously set a leaf at that index
         if index < self.next_index {
             self.set(index, H::default_leaf())?;
@@ -438,12 +428,9 @@ impl<H: Hasher> FullMerkleTree<H> {
     }
 
     // Computes a merkle proof the the leaf at the specified index
-    pub fn proof(&self, leaf: usize) -> io::Result<FullMerkleProof<H>> {
+    pub fn proof(&self, leaf: usize) -> Result<FullMerkleProof<H>> {
         if leaf >= self.capacity() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "index exceeds set size",
-            ));
+            return Err(Report::msg("index exceeds set size"));
         }
         let mut index = self.capacity() + leaf - 1;
         let mut path = Vec::with_capacity(self.depth + 1);
@@ -460,7 +447,7 @@ impl<H: Hasher> FullMerkleTree<H> {
     }
 
     // Verifies a Merkle proof with respect to the input leaf and the tree root
-    pub fn verify(&self, hash: &H::Fr, proof: &FullMerkleProof<H>) -> io::Result<bool> {
+    pub fn verify(&self, hash: &H::Fr, proof: &FullMerkleProof<H>) -> Result<bool> {
         Ok(proof.compute_root_from(hash) == self.root())
     }
 
@@ -487,15 +474,18 @@ impl<H: Hasher> FullMerkleTree<H> {
         (index + 2).next_power_of_two().trailing_zeros() as usize - 1
     }
 
-    fn update_nodes(&mut self, start: usize, end: usize) {
-        debug_assert_eq!(self.levels(start), self.levels(end));
+    fn update_nodes(&mut self, start: usize, end: usize) -> Result<()> {
+        if self.levels(start) != self.levels(end) {
+            return Err(Report::msg("self.levels(start) != self.levels(end)"));
+        }
         if let (Some(start), Some(end)) = (self.parent(start), self.parent(end)) {
             for parent in start..=end {
                 let child = self.first_child(parent);
                 self.nodes[parent] = H::hash(&[self.nodes[child], self.nodes[child + 1]]);
             }
-            self.update_nodes(start, end);
+            self.update_nodes(start, end)?;
         }
+        Ok(())
     }
 }
 

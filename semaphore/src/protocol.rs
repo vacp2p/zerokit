@@ -12,7 +12,7 @@ use ark_groth16::{
 };
 use ark_relations::r1cs::SynthesisError;
 use ark_std::UniformRand;
-use color_eyre::Result;
+use color_eyre::{Report, Result};
 use ethers_core::types::U256;
 use rand::{thread_rng, Rng};
 use semaphore::{
@@ -89,7 +89,7 @@ pub enum ProofError {
     #[error("Error reading circuit key: {0}")]
     CircuitKeyError(#[from] std::io::Error),
     #[error("Error producing witness: {0}")]
-    WitnessError(color_eyre::Report),
+    WitnessError(Report),
     #[error("Error producing proof: {0}")]
     SynthesisError(#[from] SynthesisError),
     #[error("Error converting public input: {0}")]
