@@ -369,7 +369,7 @@ pub fn prepare_prove_input(
     serialized.append(&mut signal_len.to_le_bytes().to_vec());
     serialized.append(&mut signal.to_vec());
 
-    Ok(serialized)
+    serialized
 }
 
 #[allow(clippy::redundant_clone)]
@@ -382,7 +382,7 @@ pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Vec<u8> {
     serialized.append(&mut signal_len.to_le_bytes().to_vec());
     serialized.append(&mut signal.to_vec());
 
-    Ok(serialized)
+    serialized
 }
 
 ///////////////////////////////////////////////////////

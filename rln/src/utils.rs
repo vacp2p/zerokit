@@ -105,6 +105,7 @@ pub fn vec_u8_to_bytes_le(input: &[u8]) -> Result<Vec<u8>> {
 }
 
 pub fn vec_u8_to_bytes_be(input: Vec<u8>) -> Result<Vec<u8>> {
+    let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
     bytes.extend(input.len().to_be_bytes().to_vec());
 
