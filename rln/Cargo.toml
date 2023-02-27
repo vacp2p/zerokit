@@ -19,7 +19,7 @@ ark-bn254 = { version = "0.3.0" }
 ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", rev = "765817f", default-features = false }
 ark-relations = { version = "0.3.0", default-features = false, features = [ "std" ] }
 ark-serialize = { version = "0.3.0", default-features = false }
-ark-circom = { git = "https://github.com/vacp2p/ark-circom", branch = "wasm", default-features = false, features = ["circom-2"] }
+ark-circom = { git = "https://github.com/gakonst/ark-circom", default-features = false, features = ["circom-2"] }
 #ark-circom = { git = "https://github.com/vacp2p/ark-circom", branch = "no-ethers-core", features = ["circom-2"] }
 
 # WASM

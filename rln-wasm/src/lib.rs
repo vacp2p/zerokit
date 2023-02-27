@@ -1,7 +1,6 @@
 #![cfg(target_arch = "wasm32")]
 
 extern crate wasm_bindgen;
-// extern crate web_sys;
 
 use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
 use num_bigint::BigInt;
