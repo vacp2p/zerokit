@@ -17,3 +17,15 @@ in Rust.
 - [RLN library](https://github.com/kilic/rln) written in Rust based on Bellman.
 
 - [semaphore-rs](https://github.com/worldcoin/semaphore-rs) written in Rust based on ark-circom.
+
+## Build and Test
+
+To install missing dependencies, run the following commands from the root folder
+```bash
+make installdeps
+```
+To build and test all crates, run the following commands from the root folder
+```bash
+make build
+make test
+```

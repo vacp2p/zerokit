@@ -3,8 +3,8 @@ mod test {
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use rln::circuit::*;
-    use rln::ffi::*;
-    use rln::poseidon_hash::poseidon_hash;
+    use rln::ffi::{hash as ffi_hash, poseidon_hash as ffi_poseidon_hash, *};
+    use rln::poseidon_hash::{poseidon_hash as utils_poseidon_hash, ROUND_PARAMS};
     use rln::protocol::*;
     use rln::public::RLN;
     use rln::utils::*;
@@ -78,7 +78,7 @@ mod test {
         assert!(success, "set tree call failed");
 
         // We add leaves in a batch into the tree
-        let leaves_ser = vec_fr_to_bytes_le(&leaves);
+        let leaves_ser = vec_fr_to_bytes_le(&leaves).unwrap();
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
         let success = init_tree_with_leaves(rln_pointer, input_buffer);
         assert!(success, "init tree with leaves call failed");
@@ -153,7 +153,7 @@ mod test {
         let set_index = rng.gen_range(0..no_of_leaves) as usize;
 
         // We add leaves in a batch into the tree
-        let leaves_ser = vec_fr_to_bytes_le(&leaves);
+        let leaves_ser = vec_fr_to_bytes_le(&leaves).unwrap();
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
         let success = init_tree_with_leaves(rln_pointer, input_buffer);
         assert!(success, "init tree with leaves call failed");
@@ -170,13 +170,13 @@ mod test {
         // `init_tree_with_leaves` resets the tree to the height it was initialized with, using `set_tree`
 
         // We add leaves in a batch starting from index 0..set_index
-        let leaves_m = vec_fr_to_bytes_le(&leaves[0..set_index]);
+        let leaves_m = vec_fr_to_bytes_le(&leaves[0..set_index]).unwrap();
         let buffer = &Buffer::from(leaves_m.as_ref());
         let success = init_tree_with_leaves(rln_pointer, buffer);
         assert!(success, "init tree with leaves call failed");
 
         // We add the remaining n leaves in a batch starting from index set_index
-        let leaves_n = vec_fr_to_bytes_le(&leaves[set_index..]);
+        let leaves_n = vec_fr_to_bytes_le(&leaves[set_index..]).unwrap();
         let buffer = &Buffer::from(leaves_n.as_ref());
         let success = set_leaves_from(rln_pointer, set_index, buffer);
         assert!(success, "set leaves from call failed");
@@ -248,7 +248,7 @@ mod test {
         let (root_empty, _) = bytes_le_to_fr(&result_data);
 
         // We add leaves in a batch into the tree
-        let leaves = vec_fr_to_bytes_le(&leaves);
+        let leaves = vec_fr_to_bytes_le(&leaves).unwrap();
         let buffer = &Buffer::from(leaves.as_ref());
         let success = set_leaves_from(rln_pointer, bad_index, buffer);
         assert!(!success, "set leaves from call succeeded");
@@ -280,7 +280,7 @@ mod test {
 
         // generate identity
         let identity_secret_hash = hash_to_field(b"test-merkle-proof");
-        let id_commitment = poseidon_hash(&vec![identity_secret_hash]);
+        let id_commitment = utils_poseidon_hash(&vec![identity_secret_hash]);
 
         // We prepare id_commitment and we set the leaf at provided index
         let leaf_ser = fr_to_bytes_le(&id_commitment);
@@ -303,71 +303,86 @@ mod test {
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
 
-        let (path_elements, read) = bytes_le_to_vec_fr(&result_data);
-        let (identity_path_index, _) = bytes_le_to_vec_u8(&result_data[read..].to_vec());
+        let (path_elements, read) = bytes_le_to_vec_fr(&result_data).unwrap();
+        let (identity_path_index, _) = bytes_le_to_vec_u8(&result_data[read..].to_vec()).unwrap();
 
         // We check correct computation of the path and indexes
         let mut expected_path_elements = vec![
             str_to_fr(
                 "0x0000000000000000000000000000000000000000000000000000000000000000",
                 16,
-            ),
+            )
+            .unwrap(),
             str_to_fr(
                 "0x2098f5fb9e239eab3ceac3f27b81e481dc3124d55ffed523a839ee8446b64864",
                 16,
-            ),
+            )
+            .unwrap(),
             str_to_fr(
                 "0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1",
                 16,
-            ),
+            )
+            .unwrap(),
             str_to_fr(
                 "0x18f43331537ee2af2e3d758d50f72106467c6eea50371dd528d57eb2b856d238",
                 16,
-            ),
+            )
+            .unwrap(),
             str_to_fr(
                 "0x07f9d837cb17b0d36320ffe93ba52345f1b728571a568265caac97559dbc952a",
                 16,
-            ),
+            )
+            .unwrap(),
             str_to_fr(
                 "0x2b94cf5e8746b3f5c9631f4c5df32907a699c58c94b2ad4d7b5cec1639183f55",
                 16,
-            ),
+            )
+            .unwrap(),
             str_to_fr(
                 "0x2dee93c5a666459646ea7d22cca9e1bcfed71e6951b953611d11dda32ea09d78",
                 16,
-            ),
+            )
+            .unwrap(),
             str_to_fr(
                 "0x078295e5a22b84e982cf601eb639597b8b0515a88cb5ac7fa8a4aabe3c87349d",
                 16,
-            ),
+            )
+            .unwrap(),
             str_to_fr(
                 "0x2fa5e5f18f6027a6501bec864564472a616b2e274a41211a444cbe3a99f3cc61",
                 16,
-            ),
+            )
+            .unwrap(),
             str_to_fr(
                 "0x0e884376d0d8fd21ecb780389e941f66e45e7acce3e228ab3e2156a614fcd747",
                 16,
-            ),
+            )
+            .unwrap(),
             str_to_fr(
                 "0x1b7201da72494f1e28717ad1a52eb469f95892f957713533de6175e5da190af2",
                 16,
-            ),
+            )
+            .unwrap(),
             str_to_fr(
                 "0x1f8d8822725e36385200c0b201249819a6e6e1e4650808b5bebc6bface7d7636",
                 16,
-            ),
+            )
+            .unwrap(),
             str_to_fr(
                 "0x2c5d82f66c914bafb9701589ba8cfcfb6162b0a12acf88a8d0879a0471b5f85a",
                 16,
-            ),
+            )
+            .unwrap(),
             str_to_fr(
                 "0x14c54148a0940bb820957f5adf3fa1134ef5c4aaa113f4646458f270e0bfbfd0",
                 16,
-            ),
+            )
+            .unwrap(),
             str_to_fr(
                 "0x190d33b12f986f961e10c0ee44d8b9af11be25588cad89d416118e4bf4ebe80c",
                 16,
-            ),
+            )
+            .unwrap(),
         ];
 
         let mut expected_identity_path_index: Vec<u8> =
@@ -379,19 +394,23 @@ mod test {
                 str_to_fr(
                     "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
                     16,
-                ),
+                )
+                .unwrap(),
                 str_to_fr(
                     "0x2a7c7c9b6ce5880b9f6f228d72bf6a575a526f29c66ecceef8b753d38bba7323",
                     16,
-                ),
+                )
+                .unwrap(),
                 str_to_fr(
                     "0x2e8186e558698ec1c67af9c14d463ffc470043c9c2988b954d75dd643f36b992",
                     16,
-                ),
+                )
+                .unwrap(),
                 str_to_fr(
                     "0x0f57c5571e9a4eab49e2c8cf050dae948aef6ead647392273546249d1c1ff10f",
                     16,
-                ),
+                )
+                .unwrap(),
             ]);
             expected_identity_path_index.append(&mut vec![0, 0, 0, 0]);
         }
@@ -400,7 +419,8 @@ mod test {
             expected_path_elements.append(&mut vec![str_to_fr(
                 "0x1830ee67b5fb554ad5f63d4388800e1cfe78e310697d46e43c9ce36134f72cca",
                 16,
-            )]);
+            )
+            .unwrap()]);
             expected_identity_path_index.append(&mut vec![0]);
         }
 
@@ -439,7 +459,7 @@ mod test {
             let proof_values = proof_values_from_witness(&rln_witness);
 
             // We prepare id_commitment and we set the leaf at provided index
-            let rln_witness_ser = serialize_witness(&rln_witness);
+            let rln_witness_ser = serialize_witness(&rln_witness).unwrap();
             let input_buffer = &Buffer::from(rln_witness_ser.as_ref());
             let mut output_buffer = MaybeUninit::<Buffer>::uninit();
             let now = Instant::now();
@@ -569,7 +589,7 @@ mod test {
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
         // We add leaves in a batch into the tree
-        let leaves_ser = vec_fr_to_bytes_le(&leaves);
+        let leaves_ser = vec_fr_to_bytes_le(&leaves).unwrap();
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
         let success = init_tree_with_leaves(rln_pointer, input_buffer);
         assert!(success, "init tree with leaves call failed");
@@ -654,7 +674,7 @@ mod test {
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
         // We add leaves in a batch into the tree
-        let leaves_ser = vec_fr_to_bytes_le(&leaves);
+        let leaves_ser = vec_fr_to_bytes_le(&leaves).unwrap();
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
         let success = init_tree_with_leaves(rln_pointer, input_buffer);
         assert!(success, "set leaves call failed");
@@ -957,16 +977,15 @@ mod test {
 
         assert_eq!(
             identity_secret_hash,
-            expected_identity_secret_hash_seed_bytes
+            expected_identity_secret_hash_seed_bytes.unwrap()
         );
-        assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
+        assert_eq!(id_commitment, expected_id_commitment_seed_bytes.unwrap());
     }
 
     #[test]
     // Tests hash to field using FFI APIs
     fn test_seeded_extended_keygen_ffi() {
         let tree_height = TEST_TREE_HEIGHT;
-
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
         let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
@@ -1004,34 +1023,31 @@ mod test {
             16,
         );
 
-        assert_eq!(identity_trapdoor, expected_identity_trapdoor_seed_bytes);
-        assert_eq!(identity_nullifier, expected_identity_nullifier_seed_bytes);
+        assert_eq!(
+            identity_trapdoor,
+            expected_identity_trapdoor_seed_bytes.unwrap()
+        );
+        assert_eq!(
+            identity_nullifier,
+            expected_identity_nullifier_seed_bytes.unwrap()
+        );
         assert_eq!(
             identity_secret_hash,
-            expected_identity_secret_hash_seed_bytes
+            expected_identity_secret_hash_seed_bytes.unwrap()
         );
-        assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
+        assert_eq!(id_commitment, expected_id_commitment_seed_bytes.unwrap());
     }
 
     #[test]
     // Tests hash to field using FFI APIs
     fn test_hash_to_field_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
-
-        // We create a RLN instance
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
-
         let mut rng = rand::thread_rng();
         let signal: [u8; 32] = rng.gen();
 
         // We prepare id_commitment and we set the leaf at provided index
         let input_buffer = &Buffer::from(signal.as_ref());
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = hash(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
+        let success = ffi_hash(input_buffer, output_buffer.as_mut_ptr());
         assert!(success, "hash call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
 
@@ -1042,5 +1058,31 @@ mod test {
         let hash2 = hash_to_field(&signal);
 
         assert_eq!(hash1, hash2);
+    }
+
+    #[test]
+    // Test Poseidon hash FFI
+    fn test_poseidon_hash_ffi() {
+        // generate random number between 1..ROUND_PARAMS.len()
+        let mut rng = thread_rng();
+        let number_of_inputs = rng.gen_range(1..ROUND_PARAMS.len());
+        let mut inputs = Vec::with_capacity(number_of_inputs);
+        for _ in 0..number_of_inputs {
+            inputs.push(Fr::rand(&mut rng));
+        }
+        let inputs_ser = vec_fr_to_bytes_le(&inputs).unwrap();
+        let input_buffer = &Buffer::from(inputs_ser.as_ref());
+
+        let expected_hash = utils_poseidon_hash(inputs.as_ref());
+
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = ffi_poseidon_hash(input_buffer, output_buffer.as_mut_ptr());
+        assert!(success, "poseidon hash call failed");
+
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (received_hash, _) = bytes_le_to_fr(&result_data);
+
+        assert_eq!(received_hash, expected_hash);
     }
 }

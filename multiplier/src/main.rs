@@ -1,6 +1,6 @@
 use ark_circom::{CircomBuilder, CircomConfig};
 use ark_std::rand::thread_rng;
-use color_eyre::Result;
+use color_eyre::{Report, Result};
 
 use ark_bn254::Bn254;
 use ark_groth16::{
@@ -25,17 +25,18 @@ fn groth16_proof_example() -> Result<()> {
 
     let circom = builder.build()?;
 
-    let inputs = circom.get_public_inputs().unwrap();
+    let inputs = circom
+        .get_public_inputs()
+        .ok_or(Report::msg("no public inputs"))?;
 
     let proof = prove(circom, &params, &mut rng)?;
 
     let pvk = prepare_verifying_key(&params.vk);
 
-    let verified = verify_proof(&pvk, &proof, &inputs)?;
-
-    assert!(verified);
-
-    Ok(())
+    match verify_proof(&pvk, &proof, &inputs) {
+        Ok(_) => Ok(()),
+        Err(_) => Err(Report::msg("not verified")),
+    }
 }
 
 fn main() {

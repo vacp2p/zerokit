@@ -8,7 +8,7 @@ use ark_groth16::{
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_relations::r1cs::SynthesisError;
 use ark_std::{rand::thread_rng, UniformRand};
-use color_eyre::Result;
+use color_eyre::{Report, Result};
 use num_bigint::BigInt;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -91,29 +91,29 @@ pub fn deserialize_identity_tuple(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
     )
 }
 
-pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Vec<u8> {
+pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>> {
     let mut serialized: Vec<u8> = Vec::new();
 
     serialized.append(&mut fr_to_bytes_le(&rln_witness.identity_secret));
-    serialized.append(&mut vec_fr_to_bytes_le(&rln_witness.path_elements));
-    serialized.append(&mut vec_u8_to_bytes_le(&rln_witness.identity_path_index));
+    serialized.append(&mut vec_fr_to_bytes_le(&rln_witness.path_elements)?);
+    serialized.append(&mut vec_u8_to_bytes_le(&rln_witness.identity_path_index)?);
     serialized.append(&mut fr_to_bytes_le(&rln_witness.x));
     serialized.append(&mut fr_to_bytes_le(&rln_witness.epoch));
     serialized.append(&mut fr_to_bytes_le(&rln_witness.rln_identifier));
 
-    serialized
+    Ok(serialized)
 }
 
-pub fn deserialize_witness(serialized: &[u8]) -> (RLNWitnessInput, usize) {
+pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)> {
     let mut all_read: usize = 0;
 
     let (identity_secret, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let (path_elements, read) = bytes_le_to_vec_fr(&serialized[all_read..]);
+    let (path_elements, read) = bytes_le_to_vec_fr(&serialized[all_read..])?;
     all_read += read;
 
-    let (identity_path_index, read) = bytes_le_to_vec_u8(&serialized[all_read..]);
+    let (identity_path_index, read) = bytes_le_to_vec_u8(&serialized[all_read..])?;
     all_read += read;
 
     let (x, read) = bytes_le_to_fr(&serialized[all_read..]);
@@ -126,9 +126,11 @@ pub fn deserialize_witness(serialized: &[u8]) -> (RLNWitnessInput, usize) {
     all_read += read;
 
     // TODO: check rln_identifier against public::RLN_IDENTIFIER
-    assert_eq!(serialized.len(), all_read);
+    if serialized.len() != all_read {
+        return Err(Report::msg("serialized length is not equal to all_read"));
+    }
 
-    (
+    Ok((
         RLNWitnessInput {
             identity_secret,
             path_elements,
@@ -138,7 +140,7 @@ pub fn deserialize_witness(serialized: &[u8]) -> (RLNWitnessInput, usize) {
             rln_identifier,
         },
         all_read,
-    )
+    ))
 }
 
 // This function deserializes input for kilic's rln generate_proof public API
@@ -148,19 +150,19 @@ pub fn deserialize_witness(serialized: &[u8]) -> (RLNWitnessInput, usize) {
 pub fn proof_inputs_to_rln_witness(
     tree: &mut PoseidonTree,
     serialized: &[u8],
-) -> (RLNWitnessInput, usize) {
+) -> Result<(RLNWitnessInput, usize)> {
     let mut all_read: usize = 0;
 
     let (identity_secret, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let id_index = u64::from_le_bytes(serialized[all_read..all_read + 8].try_into().unwrap());
+    let id_index = u64::from_le_bytes(serialized[all_read..all_read + 8].try_into()?);
     all_read += 8;
 
     let (epoch, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let signal_len = u64::from_le_bytes(serialized[all_read..all_read + 8].try_into().unwrap());
+    let signal_len = u64::from_le_bytes(serialized[all_read..all_read + 8].try_into()?);
     all_read += 8;
 
     let signal: Vec<u8> = serialized[all_read..all_read + (signal_len as usize)].to_vec();
@@ -173,7 +175,7 @@ pub fn proof_inputs_to_rln_witness(
 
     let rln_identifier = hash_to_field(RLN_IDENTIFIER);
 
-    (
+    Ok((
         RLNWitnessInput {
             identity_secret,
             path_elements,
@@ -183,45 +185,48 @@ pub fn proof_inputs_to_rln_witness(
             rln_identifier,
         },
         all_read,
-    )
+    ))
 }
 
-pub fn rln_witness_from_json(input_json_str: &str) -> RLNWitnessInput {
+pub fn rln_witness_from_json(input_json_str: &str) -> Result<RLNWitnessInput> {
     let input_json: serde_json::Value =
         serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
 
-    let identity_secret = str_to_fr(&input_json["identity_secret"].to_string(), 10);
+    let identity_secret = str_to_fr(&input_json["identity_secret"].to_string(), 10)?;
 
     let path_elements = input_json["path_elements"]
         .as_array()
-        .unwrap()
+        .ok_or(Report::msg("not an array"))?
         .iter()
         .map(|v| str_to_fr(&v.to_string(), 10))
-        .collect();
+        .collect::<Result<_>>()?;
 
-    let identity_path_index = input_json["identity_path_index"]
+    let identity_path_index_array = input_json["identity_path_index"]
         .as_array()
-        .unwrap()
-        .iter()
-        .map(|v| v.as_u64().unwrap() as u8)
-        .collect();
+        .ok_or(Report::msg("not an arrray"))?;
 
-    let x = str_to_fr(&input_json["x"].to_string(), 10);
+    let mut identity_path_index: Vec<u8> = vec![];
 
-    let epoch = str_to_fr(&input_json["epoch"].to_string(), 16);
+    for v in identity_path_index_array {
+        identity_path_index.push(v.as_u64().ok_or(Report::msg("not a u64 value"))? as u8);
+    }
 
-    let rln_identifier = str_to_fr(&input_json["rln_identifier"].to_string(), 10);
+    let x = str_to_fr(&input_json["x"].to_string(), 10)?;
+
+    let epoch = str_to_fr(&input_json["epoch"].to_string(), 16)?;
+
+    let rln_identifier = str_to_fr(&input_json["rln_identifier"].to_string(), 10)?;
 
     // TODO: check rln_identifier against public::RLN_IDENTIFIER
 
-    RLNWitnessInput {
+    Ok(RLNWitnessInput {
         identity_secret,
         path_elements,
         identity_path_index,
         x,
         epoch,
         rln_identifier,
-    }
+    })
 }
 
 pub fn rln_witness_from_values(
@@ -353,8 +358,8 @@ pub fn prepare_prove_input(
     id_index: usize,
     epoch: Fr,
     signal: &[u8],
-) -> Vec<u8> {
-    let signal_len = u64::try_from(signal.len()).unwrap();
+) -> Result<Vec<u8>> {
+    let signal_len = u64::try_from(signal.len())?;
 
     let mut serialized: Vec<u8> = Vec::new();
 
@@ -364,12 +369,12 @@ pub fn prepare_prove_input(
     serialized.append(&mut signal_len.to_le_bytes().to_vec());
     serialized.append(&mut signal.to_vec());
 
-    serialized
+    Ok(serialized)
 }
 
 #[allow(clippy::redundant_clone)]
-pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Vec<u8> {
-    let signal_len = u64::try_from(signal.len()).unwrap();
+pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Result<Vec<u8>> {
+    let signal_len = u64::try_from(signal.len())?;
 
     let mut serialized: Vec<u8> = Vec::new();
 
@@ -377,7 +382,7 @@ pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Vec<u8> {
     serialized.append(&mut signal_len.to_le_bytes().to_vec());
     serialized.append(&mut signal.to_vec());
 
-    serialized
+    Ok(serialized)
 }
 
 ///////////////////////////////////////////////////////
@@ -533,9 +538,9 @@ pub fn compute_id_secret(
 #[derive(Error, Debug)]
 pub enum ProofError {
     #[error("Error reading circuit key: {0}")]
-    CircuitKeyError(#[from] std::io::Error),
+    CircuitKeyError(#[from] Report),
     #[error("Error producing witness: {0}")]
-    WitnessError(color_eyre::Report),
+    WitnessError(Report),
     #[error("Error producing proof: {0}")]
     SynthesisError(#[from] SynthesisError),
 }
@@ -546,20 +551,21 @@ fn calculate_witness_element<E: ark_ec::PairingEngine>(witness: Vec<BigInt>) -> 
 
     // convert it to field elements
     use num_traits::Signed;
-    let witness = witness
-        .into_iter()
-        .map(|w| {
-            let w = if w.sign() == num_bigint::Sign::Minus {
-                // Need to negate the witness element if negative
-                modulus.into() - w.abs().to_biguint().unwrap()
-            } else {
-                w.to_biguint().unwrap()
-            };
-            E::Fr::from(w)
-        })
-        .collect::<Vec<_>>();
+    let mut witness_vec = vec![];
+    for w in witness.into_iter() {
+        let w = if w.sign() == num_bigint::Sign::Minus {
+            // Need to negate the witness element if negative
+            modulus.into()
+                - w.abs()
+                    .to_biguint()
+                    .ok_or(Report::msg("not a biguint value"))?
+        } else {
+            w.to_biguint().ok_or(Report::msg("not a biguint value"))?
+        };
+        witness_vec.push(E::Fr::from(w))
+    }
 
-    Ok(witness)
+    Ok(witness_vec)
 }
 
 pub fn generate_proof_with_witness(
@@ -570,9 +576,8 @@ pub fn generate_proof_with_witness(
     #[cfg(debug_assertions)]
     let now = Instant::now();
 
-    let full_assignment = calculate_witness_element::<Curve>(witness)
-        .map_err(ProofError::WitnessError)
-        .unwrap();
+    let full_assignment =
+        calculate_witness_element::<Curve>(witness).map_err(ProofError::WitnessError)?;
 
     #[cfg(debug_assertions)]
     println!("witness generation took: {:.2?}", now.elapsed());
@@ -594,8 +599,7 @@ pub fn generate_proof_with_witness(
         proving_key.1.num_instance_variables,
         proving_key.1.num_constraints,
         full_assignment.as_slice(),
-    )
-    .unwrap();
+    )?;
 
     #[cfg(debug_assertions)]
     println!("proof generation took: {:.2?}", now.elapsed());
@@ -603,14 +607,16 @@ pub fn generate_proof_with_witness(
     Ok(proof)
 }
 
-pub fn inputs_for_witness_calculation(rln_witness: &RLNWitnessInput) -> [(&str, Vec<BigInt>); 6] {
+pub fn inputs_for_witness_calculation(
+    rln_witness: &RLNWitnessInput,
+) -> Result<[(&str, Vec<BigInt>); 6]> {
     // We confert the path indexes to field elements
     // TODO: check if necessary
     let mut path_elements = Vec::new();
-    rln_witness
-        .path_elements
-        .iter()
-        .for_each(|v| path_elements.push(to_bigint(v)));
+
+    for v in rln_witness.path_elements.iter() {
+        path_elements.push(to_bigint(v)?);
+    }
 
     let mut identity_path_index = Vec::new();
     rln_witness
@@ -618,20 +624,20 @@ pub fn inputs_for_witness_calculation(rln_witness: &RLNWitnessInput) -> [(&str, 
         .iter()
         .for_each(|v| identity_path_index.push(BigInt::from(*v)));
 
-    [
+    Ok([
         (
             "identity_secret",
-            vec![to_bigint(&rln_witness.identity_secret)],
+            vec![to_bigint(&rln_witness.identity_secret)?],
         ),
         ("path_elements", path_elements),
         ("identity_path_index", identity_path_index),
-        ("x", vec![to_bigint(&rln_witness.x)]),
-        ("epoch", vec![to_bigint(&rln_witness.epoch)]),
+        ("x", vec![to_bigint(&rln_witness.x)?]),
+        ("epoch", vec![to_bigint(&rln_witness.epoch)?]),
         (
             "rln_identifier",
-            vec![to_bigint(&rln_witness.rln_identifier)],
+            vec![to_bigint(&rln_witness.rln_identifier)?],
         ),
-    ]
+    ])
 }
 
 /// Generates a RLN proof
@@ -645,7 +651,7 @@ pub fn generate_proof(
     proving_key: &(ProvingKey<Curve>, ConstraintMatrices<Fr>),
     rln_witness: &RLNWitnessInput,
 ) -> Result<ArkProof<Curve>, ProofError> {
-    let inputs = inputs_for_witness_calculation(rln_witness)
+    let inputs = inputs_for_witness_calculation(rln_witness)?
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));
 
@@ -736,12 +742,12 @@ pub fn verify_proof(
 ///
 /// Returns a JSON object containing the inputs necessary to calculate
 /// the witness with CIRCOM on javascript
-pub fn get_json_inputs(rln_witness: &RLNWitnessInput) -> serde_json::Value {
+pub fn get_json_inputs(rln_witness: &RLNWitnessInput) -> Result<serde_json::Value> {
     let mut path_elements = Vec::new();
-    rln_witness
-        .path_elements
-        .iter()
-        .for_each(|v| path_elements.push(to_bigint(v).to_str_radix(10)));
+
+    for v in rln_witness.path_elements.iter() {
+        path_elements.push(to_bigint(v)?.to_str_radix(10));
+    }
 
     let mut identity_path_index = Vec::new();
     rln_witness
@@ -750,13 +756,13 @@ pub fn get_json_inputs(rln_witness: &RLNWitnessInput) -> serde_json::Value {
         .for_each(|v| identity_path_index.push(BigInt::from(*v).to_str_radix(10)));
 
     let inputs = serde_json::json!({
-        "identity_secret": to_bigint(&rln_witness.identity_secret).to_str_radix(10),
+        "identity_secret": to_bigint(&rln_witness.identity_secret)?.to_str_radix(10),
         "path_elements": path_elements,
         "identity_path_index": identity_path_index,
-        "x": to_bigint(&rln_witness.x).to_str_radix(10),
-        "epoch":  format!("0x{:064x}", to_bigint(&rln_witness.epoch)),
-        "rln_identifier": to_bigint(&rln_witness.rln_identifier).to_str_radix(10),
+        "x": to_bigint(&rln_witness.x)?.to_str_radix(10),
+        "epoch":  format!("0x{:064x}", to_bigint(&rln_witness.epoch)?),
+        "rln_identifier": to_bigint(&rln_witness.rln_identifier)?.to_str_radix(10),
     });
 
-    inputs
+    Ok(inputs)
 }

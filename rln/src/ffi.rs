@@ -2,7 +2,7 @@
 
 use std::slice;
 
-use crate::public::RLN;
+use crate::public::{hash as public_hash, poseidon_hash as public_poseidon_hash, RLN};
 
 // Macro to call methods with arbitrary amount of arguments,
 // First argument to the macro is context,
@@ -45,6 +45,28 @@ macro_rules! call_with_output_arg {
             let mut output_data: Vec<u8> = Vec::new();
             let new_instance = $instance.process();
             if new_instance.$method($($arg.process()),*, &mut output_data).is_ok() {
+                unsafe { *$output_arg = Buffer::from(&output_data[..]) };
+                std::mem::forget(output_data);
+                true
+            } else {
+                std::mem::forget(output_data);
+                false
+            }
+        }
+    };
+
+}
+
+// Macro to call methods with arbitrary amount of arguments,
+// which are not implemented in a ctx RLN object
+// First argument is the method to call
+// Second argument is the output buffer argument
+// The remaining arguments are all other inputs to the method
+macro_rules! no_ctx_call_with_output_arg {
+    ($method:ident, $output_arg:expr, $( $arg:expr ),* ) => {
+        {
+            let mut output_data: Vec<u8> = Vec::new();
+            if $method($($arg.process()),*, &mut output_data).is_ok() {
                 unsafe { *$output_arg = Buffer::from(&output_data[..]) };
                 std::mem::forget(output_data);
                 true
@@ -149,9 +171,12 @@ impl<'a> From<&Buffer> for &'a [u8] {
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn new(tree_height: usize, input_buffer: *const Buffer, ctx: *mut *mut RLN) -> bool {
-    let rln = RLN::new(tree_height, input_buffer.process());
-    unsafe { *ctx = Box::into_raw(Box::new(rln)) };
-    true
+    if let Ok(rln) = RLN::new(tree_height, input_buffer.process()) {
+        unsafe { *ctx = Box::into_raw(Box::new(rln)) };
+        true
+    } else {
+        false
+    }
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -163,14 +188,17 @@ pub extern "C" fn new_with_params(
     vk_buffer: *const Buffer,
     ctx: *mut *mut RLN,
 ) -> bool {
-    let rln = RLN::new_with_params(
+    if let Ok(rln) = RLN::new_with_params(
         tree_height,
         circom_buffer.process().to_vec(),
         zkey_buffer.process().to_vec(),
         vk_buffer.process().to_vec(),
-    );
-    unsafe { *ctx = Box::into_raw(Box::new(rln)) };
-    true
+    ) {
+        unsafe { *ctx = Box::into_raw(Box::new(rln)) };
+        true
+    } else {
+        false
+    }
 }
 
 ////////////////////////////////////////////////////////
@@ -342,10 +370,12 @@ pub extern "C" fn recover_id_secret(
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn hash(
-    ctx: *mut RLN,
-    input_buffer: *const Buffer,
-    output_buffer: *mut Buffer,
-) -> bool {
-    call_with_output_arg!(ctx, hash, output_buffer, input_buffer)
+pub extern "C" fn hash(input_buffer: *const Buffer, output_buffer: *mut Buffer) -> bool {
+    no_ctx_call_with_output_arg!(public_hash, output_buffer, input_buffer)
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn poseidon_hash(input_buffer: *const Buffer, output_buffer: *mut Buffer) -> bool {
+    no_ctx_call_with_output_arg!(public_poseidon_hash, output_buffer, input_buffer)
 }
