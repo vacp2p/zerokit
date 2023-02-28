@@ -1,18 +1,15 @@
-## Upcoming release
+## 2023-02-28 v0.2
 
-Release highlights:
+This release contains:
+
+- Improved code quality
 - Allows consumers of zerokit RLN to set leaves to the Merkle Tree from an arbitrary index. Useful for batching updates to the Merkle Tree.
+- Improved performance for proof generation and verification
+- rln_wasm which allows for the consumption of RLN through a WebAssembly interface
+- Refactored to generate Semaphore-compatible credentials
+- Dual License under Apache 2.0 and MIT
+- RLN compiles as a static library, which can be consumed through a C FFI
 
-The full list of changes is below.
-
-### Features
-- Creation of `set_leaves_from`, which allows consumers to add leaves to a tree from a given starting index. `init_tree_with_leaves` internally uses `set_leaves_from`, with index 0.
-
-### Changes
-- Renaming of `set_leaves` to `init_tree_with_leaves`, which is a more accurate representation of the function's utility.
-
-### Fixes
-- None
 
 ## 2022-09-19 v0.1
 
