@@ -4,6 +4,7 @@
 mod tests {
     use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
     use rln::circuit::TEST_TREE_HEIGHT;
+    use rln::utils::normalize_usize;
     use rln_wasm::*;
     use wasm_bindgen::prelude::*;
     use wasm_bindgen::JsValue;
@@ -41,7 +42,6 @@ mod tests {
 
         // Prepare the message
         let signal = "Hello World".as_bytes();
-        let signal_len = signal.len();
 
         // Setting up the epoch (With 0s for the test)
         let epoch = Uint8Array::new_with_length(32);
@@ -52,9 +52,9 @@ mod tests {
         // Serializing the message
         let mut serialized_vec: Vec<u8> = Vec::new();
         serialized_vec.append(&mut idkey.to_vec());
-        serialized_vec.append(&mut identity_index.to_le_bytes().to_vec());
+        serialized_vec.append(&mut normalize_usize(identity_index));
         serialized_vec.append(&mut epoch.to_vec());
-        serialized_vec.append(&mut signal_len.to_le_bytes().to_vec());
+        serialized_vec.append(&mut normalize_usize(signal.len()));
         serialized_vec.append(&mut signal.to_vec());
         let serialized_message = Uint8Array::from(&serialized_vec[..]);
 
@@ -88,7 +88,7 @@ mod tests {
 
         // Add signal_len | signal
         let mut proof_bytes = proof.to_vec();
-        proof_bytes.append(&mut signal_len.to_le_bytes().to_vec());
+        proof_bytes.append(&mut normalize_usize(signal.len()));
         proof_bytes.append(&mut signal.to_vec());
         let proof_with_signal = Uint8Array::from(&proof_bytes[..]);
 

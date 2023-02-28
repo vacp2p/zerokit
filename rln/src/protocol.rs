@@ -359,14 +359,12 @@ pub fn prepare_prove_input(
     epoch: Fr,
     signal: &[u8],
 ) -> Vec<u8> {
-    let signal_len = signal.len();
-
     let mut serialized: Vec<u8> = Vec::new();
 
     serialized.append(&mut fr_to_bytes_le(&identity_secret));
-    serialized.append(&mut id_index.to_le_bytes().to_vec());
+    serialized.append(&mut normalize_usize(id_index));
     serialized.append(&mut fr_to_bytes_le(&epoch));
-    serialized.append(&mut signal_len.to_le_bytes().to_vec());
+    serialized.append(&mut normalize_usize(signal.len()));
     serialized.append(&mut signal.to_vec());
 
     serialized
@@ -374,12 +372,10 @@ pub fn prepare_prove_input(
 
 #[allow(clippy::redundant_clone)]
 pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Vec<u8> {
-    let signal_len = signal.len();
-
     let mut serialized: Vec<u8> = Vec::new();
 
     serialized.append(&mut proof_data.clone());
-    serialized.append(&mut signal_len.to_le_bytes().to_vec());
+    serialized.append(&mut normalize_usize(signal.len()));
     serialized.append(&mut signal.to_vec());
 
     serialized

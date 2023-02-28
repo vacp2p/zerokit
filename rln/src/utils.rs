@@ -173,6 +173,12 @@ pub fn bytes_be_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize)> {
     Ok((res, read))
 }
 
+pub fn normalize_usize(input: usize) -> Vec<u8> {
+    let mut normalized_usize = input.to_le_bytes().to_vec();
+    normalized_usize.resize(8, 0);
+    normalized_usize
+}
+
 /* Old conversion utilities between different libraries data types
 
 // Conversion Utilities between poseidon-rs Field and arkworks Fr (in order to call directly poseidon-rs' poseidon_hash)
