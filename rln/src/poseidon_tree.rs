@@ -7,6 +7,11 @@ use crate::poseidon_hash::poseidon_hash;
 use cfg_if::cfg_if;
 use utils::merkle_tree::*;
 
+#[cfg(feature = "pmtree-ft")]
+use crate::utils::{bytes_le_to_fr, fr_to_bytes_le};
+#[cfg(feature = "pmtree-ft")]
+use pmtree::*;
+
 // The zerokit RLN default Merkle tree implementation is the OptimalMerkleTree.
 // To switch to FullMerkleTree implementation, it is enough to enable the fullmerkletree feature
 
@@ -37,12 +42,7 @@ impl utils::merkle_tree::Hasher for PoseidonHash {
     }
 }
 
-// #[cfg(feature = "pmtree-ft")]
-use pmtree::*;
-use crate::utils::{bytes_le_to_fr, fr_to_bytes_le};
-use utils::OptimalMerkleTree;
-
-// #[cfg(feature = "pmtree-ft")]
+#[cfg(feature = "pmtree-ft")]
 // The pmtree Hasher trait used by pmtree Merkle tree
 impl pmtree::Hasher for PoseidonHash {
     type Fr = Fr;
@@ -64,4 +64,3 @@ impl pmtree::Hasher for PoseidonHash {
         poseidon_hash(inputs)
     }
 }
-
