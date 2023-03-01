@@ -36,3 +36,32 @@ impl utils::merkle_tree::Hasher for PoseidonHash {
         poseidon_hash(inputs)
     }
 }
+
+// #[cfg(feature = "pmtree-ft")]
+use pmtree::*;
+use crate::utils::{bytes_le_to_fr, fr_to_bytes_le};
+use utils::OptimalMerkleTree;
+
+// #[cfg(feature = "pmtree-ft")]
+// The pmtree Hasher trait used by pmtree Merkle tree
+impl pmtree::Hasher for PoseidonHash {
+    type Fr = Fr;
+
+    fn default_leaf() -> Self::Fr {
+        Fr::from(0)
+    }
+
+    fn serialize(value: Self::Fr) -> Value {
+        fr_to_bytes_le(&value)
+    }
+
+    fn deserialize(value: Value) -> Self::Fr {
+        let (fr, _) = bytes_le_to_fr(&value);
+        fr
+    }
+
+    fn hash(inputs: &[Self::Fr]) -> Self::Fr {
+        poseidon_hash(inputs)
+    }
+}
+

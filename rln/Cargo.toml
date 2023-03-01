@@ -39,19 +39,20 @@ rand = "0.8"
 rand_chacha = "0.3.1"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 utils = { path = "../utils/", default-features = false }
+pmtree = { git = "https://github.com/Rate-Limiting-Nullifier/pmtree", optional = true}
+# pmtree = { git = "https://github.com/Rate-Limiting-Nullifier/pmtree" }
 
 # serialization
 serde_json = "1.0.48"
 
 [dev-dependencies]
-pmtree = { git = "https://github.com/Rate-Limiting-Nullifier/pmtree" }
 sled = "0.34.7"
 
 [features]
-default = ["parallel", "wasmer/sys-default"]
+default = ["parallel", "wasmer/sys-default", "pmtree"]
 parallel = ["ark-ec/parallel", "ark-ff/parallel", "ark-std/parallel", "ark-groth16/parallel", "utils/parallel"]
 wasm = ["wasmer/js", "wasmer/std"]
 fullmerkletree = ["default"]
 
 # Note: pmtree feature is still experimental
-pmtree = ["default"]
+pmtree-ft = ["default", "pmtree"]
