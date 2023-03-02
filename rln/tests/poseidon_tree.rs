@@ -103,12 +103,12 @@ mod pmtree_test {
     struct MemoryDB(HashMap<DBKey, Value>);
 
     #[derive(Default)]
-    struct DBConfig {
+    struct MemoryDBConfig {
         dbpath: PathBuf,
     }
 
     impl Database for MemoryDB {
-        type Config = DBConfig;
+        type Config = MemoryDBConfig;
 
         fn new(_config: Self::Config) -> Result<Self> {
             Ok(MemoryDB(HashMap::new()))
@@ -138,9 +138,10 @@ mod pmtree_test {
     struct SledDB(Sled);
 
     impl Database for SledDB {
-        type Config = DBConfig;
+        type Config = sled::Config;
 
         fn new(config: Self::Config) -> Result<Self> {
+            let dbpath = config.path;
             if config.dbpath.exists() {
                 match fs::remove_dir_all(&config.dbpath) {
                     Ok(x) => x,
@@ -148,7 +149,7 @@ mod pmtree_test {
                 }
             }
 
-            let db: Sled = match sled::open(&config.dbpath) {
+            let db: Sled = match config.open() {
                 Ok(db) => db,
                 Err(e) => return Err(Box::new(Error(e.to_string()))),
             };
