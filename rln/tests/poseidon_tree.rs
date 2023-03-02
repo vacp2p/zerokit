@@ -103,9 +103,7 @@ mod pmtree_test {
     struct MemoryDB(HashMap<DBKey, Value>);
 
     #[derive(Default)]
-    struct MemoryDBConfig {
-        dbpath: PathBuf,
-    }
+    struct MemoryDBConfig {}
 
     impl Database for MemoryDB {
         type Config = MemoryDBConfig;
