@@ -75,7 +75,8 @@ pub fn fr_to_bytes_be(input: &Fr) -> Vec<u8> {
 pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Result<Vec<u8>> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
-    bytes.extend(u64::try_from(input.len())?.to_le_bytes().to_vec());
+    bytes.extend(input.len().to_le_bytes().to_vec());
+
     // We store each element
     input.iter().for_each(|el| bytes.extend(fr_to_bytes_le(el)));
 
@@ -85,7 +86,8 @@ pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Result<Vec<u8>> {
 pub fn vec_fr_to_bytes_be(input: &[Fr]) -> Result<Vec<u8>> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
-    bytes.extend(u64::try_from(input.len())?.to_be_bytes().to_vec());
+    bytes.extend(input.len().to_be_bytes().to_vec());
+
     // We store each element
     input.iter().for_each(|el| bytes.extend(fr_to_bytes_be(el)));
 
@@ -95,15 +97,18 @@ pub fn vec_fr_to_bytes_be(input: &[Fr]) -> Result<Vec<u8>> {
 pub fn vec_u8_to_bytes_le(input: &[u8]) -> Result<Vec<u8>> {
     let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
-    bytes.extend(u64::try_from(input.len())?.to_le_bytes().to_vec());
+    bytes.extend(input.len().to_le_bytes().to_vec());
+
     bytes.extend(input);
 
     Ok(bytes)
 }
 
 pub fn vec_u8_to_bytes_be(input: Vec<u8>) -> Result<Vec<u8>> {
+    let mut bytes: Vec<u8> = Vec::new();
     //We store the vector length
-    let mut bytes: Vec<u8> = u64::try_from(input.len())?.to_be_bytes().to_vec();
+    bytes.extend(input.len().to_be_bytes().to_vec());
+
     bytes.extend(input);
 
     Ok(bytes)
@@ -112,7 +117,7 @@ pub fn vec_u8_to_bytes_be(input: Vec<u8>) -> Result<Vec<u8>> {
 pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize)> {
     let mut read: usize = 0;
 
-    let len = u64::from_le_bytes(input[0..8].try_into()?) as usize;
+    let len = usize::from_le_bytes(input[0..8].try_into()?);
     read += 8;
 
     let res = input[8..8 + len].to_vec();
@@ -124,7 +129,7 @@ pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize)> {
 pub fn bytes_be_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize)> {
     let mut read: usize = 0;
 
-    let len = u64::from_be_bytes(input[0..8].try_into()?) as usize;
+    let len = usize::from_be_bytes(input[0..8].try_into()?);
     read += 8;
 
     let res = input[8..8 + len].to_vec();
@@ -138,7 +143,7 @@ pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize)> {
     let mut read: usize = 0;
     let mut res: Vec<Fr> = Vec::new();
 
-    let len = u64::from_le_bytes(input[0..8].try_into()?) as usize;
+    let len = usize::from_le_bytes(input[0..8].try_into()?);
     read += 8;
 
     let el_size = fr_byte_size();
@@ -155,7 +160,7 @@ pub fn bytes_be_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize)> {
     let mut read: usize = 0;
     let mut res: Vec<Fr> = Vec::new();
 
-    let len = u64::from_be_bytes(input[0..8].try_into()?) as usize;
+    let len = usize::from_be_bytes(input[0..8].try_into()?);
     read += 8;
 
     let el_size = fr_byte_size();
@@ -166,6 +171,12 @@ pub fn bytes_be_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize)> {
     }
 
     Ok((res, read))
+}
+
+pub fn normalize_usize(input: usize) -> Vec<u8> {
+    let mut normalized_usize = input.to_le_bytes().to_vec();
+    normalized_usize.resize(8, 0);
+    normalized_usize
 }
 
 /* Old conversion utilities between different libraries data types

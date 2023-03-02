@@ -500,8 +500,6 @@ impl RLN<'_> {
     /// // We generate a random signal
     /// let mut rng = rand::thread_rng();
     /// let signal: [u8; 32] = rng.gen();
-    /// let signal_len = u64::try_from(signal.len()).unwrap();
-    ///
     /// // We generate a random epoch
     /// let epoch = hash_to_field(b"test-epoch");
     ///
@@ -509,9 +507,9 @@ impl RLN<'_> {
     /// // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
     /// let mut serialized: Vec<u8> = Vec::new();
     /// serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
-    /// serialized.append(&mut identity_index.to_le_bytes().to_vec());
+    /// serialized.append(&mut normalize_usize(identity_index));
     /// serialized.append(&mut fr_to_bytes_le(&epoch));
-    /// serialized.append(&mut signal_len.to_le_bytes().to_vec());
+    /// serialized.append(&mut normalize_usize(signal_len).resize(8,0));
     /// serialized.append(&mut signal.to_vec());
     ///
     /// let mut input_buffer = Cursor::new(serialized);
@@ -587,7 +585,7 @@ impl RLN<'_> {
     /// // We prepare input for verify_rln_proof API
     /// // input_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
     /// // that is [ proof_data || signal_len<8> | signal<var> ]
-    /// proof_data.append(&mut signal_len.to_le_bytes().to_vec());
+    /// proof_data.append(&mut normalize_usize(signal_len));
     /// proof_data.append(&mut signal.to_vec());
     ///
     /// let mut input_buffer = Cursor::new(proof_data);
@@ -604,8 +602,7 @@ impl RLN<'_> {
         let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
         all_read += read;
 
-        let signal_len =
-            u64::from_le_bytes(serialized[all_read..all_read + 8].try_into()?) as usize;
+        let signal_len = usize::from_le_bytes(serialized[all_read..all_read + 8].try_into()?);
         all_read += 8;
 
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
@@ -680,8 +677,7 @@ impl RLN<'_> {
         let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
         all_read += read;
 
-        let signal_len =
-            u64::from_le_bytes(serialized[all_read..all_read + 8].try_into()?) as usize;
+        let signal_len = usize::from_le_bytes(serialized[all_read..all_read + 8].try_into()?);
         all_read += 8;
 
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
@@ -1325,14 +1321,13 @@ mod test {
         let (identity_secret_hash, id_commitment) = keygen();
 
         // We set as leaf id_commitment after storing its index
-        let identity_index = u64::try_from(rln.tree.leaves_set()).unwrap();
+        let identity_index = rln.tree.leaves_set();
         let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate a random signal
         let mut rng = rand::thread_rng();
         let signal: [u8; 32] = rng.gen();
-        let signal_len = u64::try_from(signal.len()).unwrap();
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
@@ -1341,9 +1336,9 @@ mod test {
         // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
-        serialized.append(&mut identity_index.to_le_bytes().to_vec());
+        serialized.append(&mut normalize_usize(identity_index));
         serialized.append(&mut fr_to_bytes_le(&epoch));
-        serialized.append(&mut signal_len.to_le_bytes().to_vec());
+        serialized.append(&mut normalize_usize(signal.len()));
         serialized.append(&mut signal.to_vec());
 
         let mut input_buffer = Cursor::new(serialized);
@@ -1357,7 +1352,7 @@ mod test {
         // We prepare input for verify_rln_proof API
         // input_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
         // that is [ proof_data || signal_len<8> | signal<var> ]
-        proof_data.append(&mut signal_len.to_le_bytes().to_vec());
+        proof_data.append(&mut normalize_usize(signal.len()));
         proof_data.append(&mut signal.to_vec());
 
         let mut input_buffer = Cursor::new(proof_data);
@@ -1390,14 +1385,13 @@ mod test {
         let (identity_secret_hash, id_commitment) = keygen();
 
         // We set as leaf id_commitment after storing its index
-        let identity_index = u64::try_from(rln.tree.leaves_set()).unwrap();
+        let identity_index = rln.tree.leaves_set();
         let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate a random signal
         let mut rng = rand::thread_rng();
         let signal: [u8; 32] = rng.gen();
-        let signal_len = u64::try_from(signal.len()).unwrap();
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
@@ -1406,9 +1400,9 @@ mod test {
         // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
-        serialized.append(&mut identity_index.to_le_bytes().to_vec());
+        serialized.append(&mut normalize_usize(identity_index));
         serialized.append(&mut fr_to_bytes_le(&epoch));
-        serialized.append(&mut signal_len.to_le_bytes().to_vec());
+        serialized.append(&mut normalize_usize(signal.len()));
         serialized.append(&mut signal.to_vec());
 
         let mut input_buffer = Cursor::new(serialized);
@@ -1453,7 +1447,7 @@ mod test {
         // We prepare input for verify_rln_proof API
         // input_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
         // that is [ proof_data || signal_len<8> | signal<var> ]
-        proof_data.append(&mut signal_len.to_le_bytes().to_vec());
+        proof_data.append(&mut normalize_usize(signal.len()));
         proof_data.append(&mut signal.to_vec());
 
         let mut input_buffer = Cursor::new(proof_data);
@@ -1487,14 +1481,13 @@ mod test {
         let (identity_secret_hash, id_commitment) = keygen();
 
         // We set as leaf id_commitment after storing its index
-        let identity_index = u64::try_from(rln.tree.leaves_set()).unwrap();
+        let identity_index = rln.tree.leaves_set();
         let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate a random signal
         let mut rng = rand::thread_rng();
         let signal: [u8; 32] = rng.gen();
-        let signal_len = u64::try_from(signal.len()).unwrap();
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
@@ -1503,9 +1496,9 @@ mod test {
         // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
-        serialized.append(&mut identity_index.to_le_bytes().to_vec());
+        serialized.append(&mut normalize_usize(identity_index));
         serialized.append(&mut fr_to_bytes_le(&epoch));
-        serialized.append(&mut signal_len.to_le_bytes().to_vec());
+        serialized.append(&mut normalize_usize(signal.len()));
         serialized.append(&mut signal.to_vec());
 
         let mut input_buffer = Cursor::new(serialized);
@@ -1519,7 +1512,7 @@ mod test {
         // We prepare input for verify_rln_proof API
         // input_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
         // that is [ proof_data || signal_len<8> | signal<var> ]
-        proof_data.append(&mut signal_len.to_le_bytes().to_vec());
+        proof_data.append(&mut normalize_usize(signal.len()));
         proof_data.append(&mut signal.to_vec());
         let input_buffer = Cursor::new(proof_data);
 
@@ -1570,17 +1563,15 @@ mod test {
         let (identity_secret_hash, id_commitment) = keygen();
 
         // We set as leaf id_commitment after storing its index
-        let identity_index = u64::try_from(rln.tree.leaves_set()).unwrap();
+        let identity_index = rln.tree.leaves_set();
         let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate two random signals
         let mut rng = rand::thread_rng();
         let signal1: [u8; 32] = rng.gen();
-        let signal1_len = u64::try_from(signal1.len()).unwrap();
 
         let signal2: [u8; 32] = rng.gen();
-        let signal2_len = u64::try_from(signal2.len()).unwrap();
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
@@ -1591,18 +1582,18 @@ mod test {
         // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized1: Vec<u8> = Vec::new();
         serialized1.append(&mut fr_to_bytes_le(&identity_secret_hash));
-        serialized1.append(&mut identity_index.to_le_bytes().to_vec());
+        serialized1.append(&mut normalize_usize(identity_index));
         serialized1.append(&mut fr_to_bytes_le(&epoch));
 
         // The first part is the same for both proof input, so we clone
         let mut serialized2 = serialized1.clone();
 
         // We attach the first signal to the first proof input
-        serialized1.append(&mut signal1_len.to_le_bytes().to_vec());
+        serialized1.append(&mut normalize_usize(signal1.len()));
         serialized1.append(&mut signal1.to_vec());
 
         // We attach the second signal to the first proof input
-        serialized2.append(&mut signal2_len.to_le_bytes().to_vec());
+        serialized2.append(&mut normalize_usize(signal2.len()));
         serialized2.append(&mut signal2.to_vec());
 
         // We generate the first proof
@@ -1644,21 +1635,20 @@ mod test {
         let (identity_secret_hash_new, id_commitment_new) = keygen();
 
         // We add it to the tree
-        let identity_index_new = u64::try_from(rln.tree.leaves_set()).unwrap();
+        let identity_index_new = rln.tree.leaves_set();
         let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment_new));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate a random signals
         let signal3: [u8; 32] = rng.gen();
-        let signal3_len = u64::try_from(signal3.len()).unwrap();
 
         // We prepare proof input. Note that epoch is the same as before
         // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized3: Vec<u8> = Vec::new();
         serialized3.append(&mut fr_to_bytes_le(&identity_secret_hash_new));
-        serialized3.append(&mut identity_index_new.to_le_bytes().to_vec());
+        serialized3.append(&mut normalize_usize(identity_index_new));
         serialized3.append(&mut fr_to_bytes_le(&epoch));
-        serialized3.append(&mut signal3_len.to_le_bytes().to_vec());
+        serialized3.append(&mut normalize_usize(signal3.len()));
         serialized3.append(&mut signal3.to_vec());
 
         // We generate the proof

@@ -156,18 +156,18 @@ pub fn proof_inputs_to_rln_witness(
     let (identity_secret, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let id_index = u64::from_le_bytes(serialized[all_read..all_read + 8].try_into()?);
+    let id_index = usize::from_le_bytes(serialized[all_read..all_read + 8].try_into()?);
     all_read += 8;
 
     let (epoch, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let signal_len = u64::from_le_bytes(serialized[all_read..all_read + 8].try_into()?);
+    let signal_len = usize::from_le_bytes(serialized[all_read..all_read + 8].try_into()?);
     all_read += 8;
 
-    let signal: Vec<u8> = serialized[all_read..all_read + (signal_len as usize)].to_vec();
+    let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
 
-    let merkle_proof = tree.proof(id_index as usize).expect("proof should exist");
+    let merkle_proof = tree.proof(id_index).expect("proof should exist");
     let path_elements = merkle_proof.get_path_elements();
     let identity_path_index = merkle_proof.get_path_index();
 
@@ -358,31 +358,27 @@ pub fn prepare_prove_input(
     id_index: usize,
     epoch: Fr,
     signal: &[u8],
-) -> Result<Vec<u8>> {
-    let signal_len = u64::try_from(signal.len())?;
-
+) -> Vec<u8> {
     let mut serialized: Vec<u8> = Vec::new();
 
     serialized.append(&mut fr_to_bytes_le(&identity_secret));
-    serialized.append(&mut id_index.to_le_bytes().to_vec());
+    serialized.append(&mut normalize_usize(id_index));
     serialized.append(&mut fr_to_bytes_le(&epoch));
-    serialized.append(&mut signal_len.to_le_bytes().to_vec());
+    serialized.append(&mut normalize_usize(signal.len()));
     serialized.append(&mut signal.to_vec());
 
-    Ok(serialized)
+    serialized
 }
 
 #[allow(clippy::redundant_clone)]
-pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Result<Vec<u8>> {
-    let signal_len = u64::try_from(signal.len())?;
-
+pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Vec<u8> {
     let mut serialized: Vec<u8> = Vec::new();
 
     serialized.append(&mut proof_data.clone());
-    serialized.append(&mut signal_len.to_le_bytes().to_vec());
+    serialized.append(&mut normalize_usize(signal.len()));
     serialized.append(&mut signal.to_vec());
 
-    Ok(serialized)
+    serialized
 }
 
 ///////////////////////////////////////////////////////
