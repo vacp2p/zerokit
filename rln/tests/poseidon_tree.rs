@@ -82,7 +82,7 @@ mod test {
 // Test module for testing pmtree integration and features in zerokit
 // enabled only if the pmtree feature is enabled
 
-// #[cfg(feature = "pmtree-ft")]
+#[cfg(feature = "pmtree-ft")]
 #[cfg(test)]
 mod pmtree_test {
 
