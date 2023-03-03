@@ -38,7 +38,7 @@ rand = "=0.8.5"
 rand_chacha = "=0.3.1"
 tiny-keccak = { version = "=2.0.2", features = ["keccak"] }
 utils = { path = "../utils/", default-features = false }
-pmtree = { git = "https://github.com/Rate-Limiting-Nullifier/pmtree", optional = true}
+pmtree = { git = "https://github.com/Rate-Limiting-Nullifier/pmtree", rev = "f6d1a1fecad72cd39e6808e78085091d541dc882", optional = true}
 
 # serialization
 serde_json = "=1.0.93"
