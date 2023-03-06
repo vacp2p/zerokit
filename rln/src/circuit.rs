@@ -11,8 +11,8 @@ use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
 use num_bigint::BigUint;
 use serde_json::Value;
-use std::path::Path;
 use std::io::Cursor;
+use std::path::Path;
 use std::str::FromStr;
 
 cfg_if! {
