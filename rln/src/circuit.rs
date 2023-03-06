@@ -11,6 +11,7 @@ use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
 use num_bigint::BigUint;
 use serde_json::Value;
+use std::path::Path;
 use std::io::Cursor;
 use std::str::FromStr;
 
@@ -66,7 +67,7 @@ pub fn zkey_from_raw(zkey_data: &Vec<u8>) -> Result<(ProvingKey<Curve>, Constrai
 pub fn zkey_from_folder(
     resources_folder: &str,
 ) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
-    let zkey = RESOURCES_DIR.get_file(format!("{resources_folder}{ZKEY_FILENAME}"));
+    let zkey = RESOURCES_DIR.get_file(Path::new(resources_folder).join(ZKEY_FILENAME));
     if let Some(zkey) = zkey {
         let mut c = Cursor::new(zkey.contents());
         let proving_key_and_matrices = read_zkey(&mut c)?;
@@ -95,8 +96,8 @@ pub fn vk_from_raw(vk_data: &Vec<u8>, zkey_data: &Vec<u8>) -> Result<VerifyingKe
 // Loads the verification key
 #[cfg(not(target_arch = "wasm32"))]
 pub fn vk_from_folder(resources_folder: &str) -> Result<VerifyingKey<Curve>> {
-    let vk = RESOURCES_DIR.get_file(format!("{resources_folder}{VK_FILENAME}"));
-    let zkey = RESOURCES_DIR.get_file(format!("{resources_folder}{ZKEY_FILENAME}"));
+    let vk = RESOURCES_DIR.get_file(Path::new(resources_folder).join(VK_FILENAME));
+    let zkey = RESOURCES_DIR.get_file(Path::new(resources_folder).join(ZKEY_FILENAME));
 
     let verifying_key: VerifyingKey<Curve>;
     if let Some(vk) = vk {
@@ -131,7 +132,7 @@ pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> Result<&'static Mutex<WitnessCal
 #[cfg(not(target_arch = "wasm32"))]
 pub fn circom_from_folder(resources_folder: &str) -> Result<&'static Mutex<WitnessCalculator>> {
     // We read the wasm file
-    let wasm = RESOURCES_DIR.get_file(format!("{resources_folder}{WASM_FILENAME}"));
+    let wasm = RESOURCES_DIR.get_file(Path::new(resources_folder).join(WASM_FILENAME));
 
     if let Some(wasm) = wasm {
         let wasm_buffer = wasm.contents();
