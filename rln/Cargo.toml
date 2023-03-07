@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [lib]
-crate-type = ["cdylib", "rlib", "staticlib"]
+crate-type = ["rlib", "staticlib"]
 
 # This flag disable cargo doctests, i.e. testing example code-snippets in documentation
 doctest = false
@@ -41,7 +41,9 @@ utils = { path = "../utils/", default-features = false }
 pmtree = { git = "https://github.com/Rate-Limiting-Nullifier/pmtree", rev = "f6d1a1fecad72cd39e6808e78085091d541dc882", optional = true}
 
 # serialization
-serde_json = "=1.0.93"
+serde_json = "1.0.48"
+
+include_dir = "=0.7.3"
 
 [dev-dependencies]
 sled = "=0.34.7"

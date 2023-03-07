@@ -11,7 +11,6 @@ use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
 use num_bigint::BigUint;
 use serde_json::Value;
-use std::fs::File;
 use std::io::Cursor;
 use std::path::Path;
 use std::str::FromStr;
@@ -22,11 +21,12 @@ cfg_if! {
         use once_cell::sync::OnceCell;
         use std::sync::Mutex;
         use wasmer::{Module, Store};
+        use include_dir::{include_dir, Dir};
     }
 }
 
 const ZKEY_FILENAME: &str = "rln_final.zkey";
-const VK_FILENAME: &str = "verifying_key.json";
+const VK_FILENAME: &str = "verification_key.json";
 const WASM_FILENAME: &str = "rln.wasm";
 
 // These parameters are used for tests
@@ -34,11 +34,11 @@ const WASM_FILENAME: &str = "rln.wasm";
 // Changing these parameters to other values than these defaults will cause zkSNARK proof verification to fail
 pub const TEST_PARAMETERS_INDEX: usize = 2;
 pub const TEST_TREE_HEIGHT: usize = [15, 19, 20][TEST_PARAMETERS_INDEX];
-pub const TEST_RESOURCES_FOLDER: &str = [
-    "./resources/tree_height_15/",
-    "./resources/tree_height_19/",
-    "./resources/tree_height_20/",
-][TEST_PARAMETERS_INDEX];
+pub const TEST_RESOURCES_FOLDER: &str =
+    ["tree_height_15", "tree_height_19", "tree_height_20"][TEST_PARAMETERS_INDEX];
+
+#[cfg(not(target_arch = "wasm32"))]
+static RESOURCES_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/resources");
 
 // The following types define the pairing friendly elliptic curve, the underlying finite fields and groups default to this module
 // Note that proofs are serialized assuming Fr to be 4x8 = 32 bytes in size. Hence, changing to a curve with different encoding will make proof verification to fail
@@ -63,13 +63,14 @@ pub fn zkey_from_raw(zkey_data: &Vec<u8>) -> Result<(ProvingKey<Curve>, Constrai
 }
 
 // Loads the proving key
+#[cfg(not(target_arch = "wasm32"))]
 pub fn zkey_from_folder(
     resources_folder: &str,
 ) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
-    let zkey_path = format!("{resources_folder}{ZKEY_FILENAME}");
-    if Path::new(&zkey_path).exists() {
-        let mut file = File::open(&zkey_path)?;
-        let proving_key_and_matrices = read_zkey(&mut file)?;
+    let zkey = RESOURCES_DIR.get_file(Path::new(resources_folder).join(ZKEY_FILENAME));
+    if let Some(zkey) = zkey {
+        let mut c = Cursor::new(zkey.contents());
+        let proving_key_and_matrices = read_zkey(&mut c)?;
         Ok(proving_key_and_matrices)
     } else {
         Err(Report::msg("No proving key found!"))
@@ -93,15 +94,18 @@ pub fn vk_from_raw(vk_data: &Vec<u8>, zkey_data: &Vec<u8>) -> Result<VerifyingKe
 }
 
 // Loads the verification key
+#[cfg(not(target_arch = "wasm32"))]
 pub fn vk_from_folder(resources_folder: &str) -> Result<VerifyingKey<Curve>> {
-    let vk_path = format!("{resources_folder}{VK_FILENAME}");
-    let zkey_path = format!("{resources_folder}{ZKEY_FILENAME}");
+    let vk = RESOURCES_DIR.get_file(Path::new(resources_folder).join(VK_FILENAME));
+    let zkey = RESOURCES_DIR.get_file(Path::new(resources_folder).join(ZKEY_FILENAME));
 
     let verifying_key: VerifyingKey<Curve>;
-
-    if Path::new(&vk_path).exists() {
-        vk_from_json(&vk_path)
-    } else if Path::new(&zkey_path).exists() {
+    if let Some(vk) = vk {
+        verifying_key = vk_from_json(vk.contents_utf8().ok_or(Report::msg(
+            "Could not read verification key from JSON file!",
+        ))?)?;
+        Ok(verifying_key)
+    } else if let Some(_zkey) = zkey {
         let (proving_key, _matrices) = zkey_from_folder(resources_folder)?;
         verifying_key = proving_key.vk;
         Ok(verifying_key)
@@ -128,9 +132,14 @@ pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> Result<&'static Mutex<WitnessCal
 #[cfg(not(target_arch = "wasm32"))]
 pub fn circom_from_folder(resources_folder: &str) -> Result<&'static Mutex<WitnessCalculator>> {
     // We read the wasm file
-    let wasm_path = format!("{resources_folder}{WASM_FILENAME}");
-    let wasm_buffer = std::fs::read(wasm_path)?;
-    circom_from_raw(wasm_buffer)
+    let wasm = RESOURCES_DIR.get_file(Path::new(resources_folder).join(WASM_FILENAME));
+
+    if let Some(wasm) = wasm {
+        let wasm_buffer = wasm.contents();
+        circom_from_raw(wasm_buffer.to_vec())
+    } else {
+        Err(Report::msg("No wasm file found!"))
+    }
 }
 
 // The following function implementations are taken/adapted from https://github.com/gakonst/ark-circom/blob/1732e15d6313fe176b0b1abb858ac9e095d0dbd7/src/zkey.rs
@@ -231,10 +240,8 @@ fn to_verifying_key(json: serde_json::Value) -> Result<VerifyingKey<Curve>> {
 }
 
 // Computes the verification key from its JSON serialization
-fn vk_from_json(vk_path: &str) -> Result<VerifyingKey<Curve>> {
-    let json = std::fs::read_to_string(vk_path)?;
-    let json: Value = serde_json::from_str(&json)?;
-
+fn vk_from_json(vk: &str) -> Result<VerifyingKey<Curve>> {
+    let json: Value = serde_json::from_str(vk)?;
     to_verifying_key(json)
 }
 
@@ -247,6 +254,7 @@ fn vk_from_vector(vk: &[u8]) -> Result<VerifyingKey<Curve>> {
 }
 
 // Checks verification key to be correct with respect to proving key
+#[cfg(not(target_arch = "wasm32"))]
 pub fn check_vk_from_zkey(
     resources_folder: &str,
     verifying_key: VerifyingKey<Curve>,
