@@ -13,40 +13,40 @@ doctest = false
 
 [dependencies]
 # ZKP Generation
-ark-ec = { version = "0.3.0", default-features = false }
-ark-ff = { version = "0.3.0", default-features = false, features = [ "asm"] }
-ark-std = { version = "0.3.0", default-features = false }
-ark-bn254 = { version = "0.3.0" }
+ark-ec = { version = "=0.3.0", default-features = false }
+ark-ff = { version = "=0.3.0", default-features = false, features = [ "asm"] }
+ark-std = { version = "=0.3.0", default-features = false }
+ark-bn254 = { version = "=0.3.0" }
 ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", rev = "765817f", default-features = false }
-ark-relations = { version = "0.3.0", default-features = false, features = [ "std" ] }
-ark-serialize = { version = "0.3.0", default-features = false }
-ark-circom = { git = "https://github.com/vacp2p/ark-circom", branch = "wasm", default-features = false, features = ["circom-2"] }
-#ark-circom = { git = "https://github.com/vacp2p/ark-circom", branch = "no-ethers-core", features = ["circom-2"] }
+ark-relations = { version = "=0.3.0", default-features = false, features = [ "std" ] }
+ark-serialize = { version = "=0.3.0", default-features = false }
+ark-circom = { git = "https://github.com/vacp2p/ark-circom", rev = "0e587145cb05e08b2d1a01509eb578670088eb2f", default-features = false, features = ["circom-2"] }
 
 # WASM
 wasmer = { version = "2.3.0", default-features = false }
 
 # error handling
-color-eyre = "0.6.1"
-thiserror = "1.0.0"
+color-eyre = "=0.6.2"
+thiserror = "=1.0.38"
 
 # utilities
-cfg-if = "1.0"
-num-bigint = { version = "0.4.3", default-features = false, features = ["rand"] }
+cfg-if = "=1.0"
+num-bigint = { version = "=0.4.3", default-features = false, features = ["rand"] }
 num-traits = "0.2.11"
 once_cell = "1.14.0"
-rand = "0.8"
-rand_chacha = "0.3.1"
-tiny-keccak = { version = "2.0.2", features = ["keccak"] }
+rand = "=0.8.5"
+rand_chacha = "=0.3.1"
+tiny-keccak = { version = "=2.0.2", features = ["keccak"] }
 utils = { path = "../utils/", default-features = false }
+pmtree = { git = "https://github.com/Rate-Limiting-Nullifier/pmtree", rev = "f6d1a1fecad72cd39e6808e78085091d541dc882", optional = true}
 
 # serialization
 serde_json = "1.0.48"
-include_dir = "0.7.3"
+
+include_dir = "=0.7.3"
 
 [dev-dependencies]
-pmtree = { git = "https://github.com/Rate-Limiting-Nullifier/pmtree" }
-sled = "0.34.7"
+sled = "=0.34.7"
 
 [features]
 default = ["parallel", "wasmer/sys-default"]
@@ -55,4 +55,4 @@ wasm = ["wasmer/js", "wasmer/std"]
 fullmerkletree = ["default"]
 
 # Note: pmtree feature is still experimental
-pmtree = ["default"]
+pmtree-ft = ["default", "pmtree"]
