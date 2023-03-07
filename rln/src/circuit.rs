@@ -35,7 +35,7 @@ const WASM_FILENAME: &str = "rln.wasm";
 pub const TEST_PARAMETERS_INDEX: usize = 2;
 pub const TEST_TREE_HEIGHT: usize = [15, 19, 20][TEST_PARAMETERS_INDEX];
 pub const TEST_RESOURCES_FOLDER: &str =
-    ["tree_height_15/", "tree_height_19/", "tree_height_20/"][TEST_PARAMETERS_INDEX];
+    ["tree_height_15", "tree_height_19", "tree_height_20"][TEST_PARAMETERS_INDEX];
 
 #[cfg(not(target_arch = "wasm32"))]
 static RESOURCES_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/resources");
