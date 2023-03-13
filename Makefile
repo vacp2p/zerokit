@@ -6,9 +6,8 @@ all: .pre-build build
 	@git submodule update --init --recursive
 
 .pre-build: .fetch-submodules
-ifeq (, $(shell which cargo-make))
-	@cargo install --force cargo-make
-endif
+	@cargo install cargo-make
+	@cargo install cross --git https://github.com/cross-rs/cross --branch main
 
 installdeps: .pre-build
 
