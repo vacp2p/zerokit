@@ -10,9 +10,8 @@ jobs:
       matrix:
         target: 
           - x86_64-unknown-linux-gnu
-          # TODO: enable after https://github.com/rust-lang/cargo/issues/4133 is resolved
-          # - aarch64-unknown-linux-gnu
-          # - i686-unknown-linux-gnu
+          - aarch64-unknown-linux-gnu
+          - i686-unknown-linux-gnu
     name: Linux build
     runs-on: ubuntu-latest
     steps:
@@ -25,11 +24,12 @@ jobs:
           toolchain: stable
           override: true
           target: ${{ matrix.target }}
-      - name: Update git submodules
-        run: git submodule update --init --recursive
-      - name: cargo build
+      - uses: Swatinem/rust-cache@v2
+      - name: Install dependencies
+        run: make installdeps
+      - name: cross build
         run: |
-          cargo build --release --target ${{ matrix.target }} --workspace --exclude rln-wasm
+          cross build --release --target ${{ matrix.target }} --workspace --exclude rln-wasm
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-rln.tar.gz release/
@@ -48,13 +48,10 @@ jobs:
       matrix:
         target: 
           - x86_64-apple-darwin
-          # TODO: enable after https://github.com/rust-lang/cargo/issues/4133 is resolved
-          # - aarch64-apple-darwin
+          - aarch64-apple-darwin
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-        with:
-          ref: master
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -62,11 +59,12 @@ jobs:
           toolchain: stable
           override: true
           target: ${{ matrix.target }}
-      - name: Update git submodules
-        run: git submodule update --init --recursive
-      - name: cargo build
+      - uses: Swatinem/rust-cache@v2
+      - name: Install dependencies
+        run: make installdeps
+      - name: cross build
         run: |
-          cargo build --release --target ${{ matrix.target }} --workspace --exclude rln-wasm
+          cross build --release --target ${{ matrix.target }} --workspace --exclude rln-wasm
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-rln.tar.gz release/
@@ -84,22 +82,20 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-        with:
-          ref: master
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - run: git submodule update --init --recursive
+      - uses: Swatinem/rust-cache@v2
+      - name: Install dependencies
+        run: make installdeps
       - name: Install wasm-pack
         uses: jetli/wasm-pack-action@v0.3.0
-      - name: Install cargo-make
-        run: cargo install cargo-make
-      - name: cargo make build
+      - name: cross make build
         run: |
-          cargo make build
+          cross make build
           mkdir release
           cp pkg/** release/
           tar -czvf browser-rln-wasm.tar.gz release/

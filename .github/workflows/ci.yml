@@ -46,10 +46,9 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - name: Update git submodules
-        run: git submodule update --init --recursive
-      - name: Install cargo-make
-        run: cargo install cargo-make
+      - uses: Swatinem/rust-cache@v2
+      - name: Install dependencies
+        run: make installdeps
       - name: cargo-make test
         run: |
             cargo make test --release
@@ -72,10 +71,9 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - name: Update git submodules
-        run: git submodule update --init --recursive
-      - name: Install cargo-make
-        run: cargo install cargo-make
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Dependencies
+        run: make installdeps
       - name: cargo-make test
         run: |
             cargo make test --release
@@ -97,10 +95,11 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - run: git submodule update --init --recursive
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Dependencies
+        run: make installdeps
       - name: Install wasm-pack
         uses: jetli/wasm-pack-action@v0.3.0
-      - run: cargo install cargo-make
       - run: cargo make build
         working-directory: rln-wasm
       - run: cargo-make test
@@ -123,10 +122,9 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - name: Update git submodules
-        run: git submodule update --init --recursive
-      - name: Install cargo-make
-        run: cargo install cargo-make
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Dependencies
+        run: make installdeps
       - name: cargo-make test
         run: |
             cargo make test --release
@@ -149,10 +147,9 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - name: Update git submodules
-        run: git submodule update --init --recursive
-      - name: Install cargo-make
-        run: cargo install cargo-make
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Dependencies
+        run: make installdeps
       - name: cargo-make test
         run: |
             cargo make test --release
@@ -177,8 +174,9 @@ jobs:
           toolchain: stable
           override: true
           components: rustfmt, clippy
-      - name: Update git submodules
-        run: git submodule update --init --recursive
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Dependencies
+        run: make installdeps
       - name: cargo fmt
         if: success() || failure()
         run: cargo fmt --all -- --check
