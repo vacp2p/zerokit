@@ -29,3 +29,7 @@ To build and test all crates, run the following commands from the root folder
 make build
 make test
 ```
+
+## Release assets
+
+We use [`cross-rs`](https://github.com/cross-rs/cross) to cross-compile and generate release assets for rln. 
