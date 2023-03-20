@@ -2,8 +2,8 @@
 
 use ark_circom::{CircomReduction, WitnessCalculator};
 use ark_groth16::{
-    create_proof_with_reduction_and_matrices, prepare_verifying_key,
-    verify_proof as ark_verify_proof, Proof as ArkProof, ProvingKey, VerifyingKey,
+    Groth16, prepare_verifying_key,
+    Proof as ArkProof, ProvingKey, VerifyingKey,
 };
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_relations::r1cs::SynthesisError;
@@ -541,9 +541,9 @@ pub enum ProofError {
     SynthesisError(#[from] SynthesisError),
 }
 
-fn calculate_witness_element<E: ark_ec::PairingEngine>(witness: Vec<BigInt>) -> Result<Vec<E::Fr>> {
-    use ark_ff::{FpParameters, PrimeField};
-    let modulus = <<E::Fr as PrimeField>::Params as FpParameters>::MODULUS;
+fn calculate_witness_element<E: ark_ec::pairing::Pairing>(witness: Vec<BigInt>) -> Result<Vec<E::ScalarField>> {
+    use ark_ff::PrimeField;
+    let modulus = <E::ScalarField as PrimeField>::MODULUS;
 
     // convert it to field elements
     use num_traits::Signed;
@@ -558,7 +558,7 @@ fn calculate_witness_element<E: ark_ec::PairingEngine>(witness: Vec<BigInt>) -> 
         } else {
             w.to_biguint().ok_or(Report::msg("not a biguint value"))?
         };
-        witness_vec.push(E::Fr::from(w))
+        witness_vec.push(E::ScalarField::from(w))
     }
 
     Ok(witness_vec)
@@ -587,7 +587,7 @@ pub fn generate_proof_with_witness(
     #[cfg(debug_assertions)]
     let now = Instant::now();
 
-    let proof = create_proof_with_reduction_and_matrices::<_, CircomReduction>(
+    let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
         &proving_key.0,
         r,
         s,
@@ -681,7 +681,7 @@ pub fn generate_proof(
     #[cfg(debug_assertions)]
     let now = Instant::now();
 
-    let proof = create_proof_with_reduction_and_matrices::<_, CircomReduction>(
+    let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
         &proving_key.0,
         r,
         s,
@@ -726,7 +726,7 @@ pub fn verify_proof(
     #[cfg(debug_assertions)]
     let now = Instant::now();
 
-    let verified = ark_verify_proof(&pvk, proof, &inputs)?;
+    let verified = Groth16::<_, CircomReduction>::verify_proof(&pvk, proof, &inputs)?;
 
     #[cfg(debug_assertions)]
     println!("verify took: {:.2?}", now.elapsed());
