@@ -1,10 +1,7 @@
 // This crate collects all the underlying primitives used to implement RLN
 
 use ark_circom::{CircomReduction, WitnessCalculator};
-use ark_groth16::{
-    Groth16, prepare_verifying_key,
-    Proof as ArkProof, ProvingKey, VerifyingKey,
-};
+use ark_groth16::{prepare_verifying_key, Groth16, Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_relations::r1cs::SynthesisError;
 use ark_std::{rand::thread_rng, UniformRand};
@@ -541,7 +538,9 @@ pub enum ProofError {
     SynthesisError(#[from] SynthesisError),
 }
 
-fn calculate_witness_element<E: ark_ec::pairing::Pairing>(witness: Vec<BigInt>) -> Result<Vec<E::ScalarField>> {
+fn calculate_witness_element<E: ark_ec::pairing::Pairing>(
+    witness: Vec<BigInt>,
+) -> Result<Vec<E::ScalarField>> {
     use ark_ff::PrimeField;
     let modulus = <E::ScalarField as PrimeField>::MODULUS;
 

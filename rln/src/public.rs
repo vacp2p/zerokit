@@ -598,7 +598,8 @@ impl RLN<'_> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
-        let proof = ArkProof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
+        let proof =
+            ArkProof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
         let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
         all_read += read;
@@ -673,7 +674,8 @@ impl RLN<'_> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
-        let proof = ArkProof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
+        let proof =
+            ArkProof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
         let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
         all_read += read;
