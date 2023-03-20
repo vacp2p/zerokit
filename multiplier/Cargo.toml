@@ -22,7 +22,7 @@ ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", rev = "765817f",
 # ark-poly = { version = "^0.3.0", default-features = false, features = ["parallel"] }
 ark-serialize = { version = "0.3.0", default-features = false }
 
-ark-circom = { git = "https://github.com/gakonst/ark-circom", features = ["circom-2"] }
+ark-circom = { git = "https://github.com/gakonst/ark-circom", features = ["circom-2"], rev = "35ce5a9" }
 
 # error handling
 color-eyre = "0.6.1"
