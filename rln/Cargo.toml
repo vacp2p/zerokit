@@ -17,7 +17,6 @@ ark-ec = { version = "=0.4.1", default-features = false }
 ark-ff = { version = "=0.4.1", default-features = false, features = [ "asm"] }
 ark-std = { version = "=0.4.0", default-features = false }
 ark-bn254 = { version = "=0.4.0" }
-# ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", rev = "765817f", default-features = false }
 ark-groth16 = { version = "=0.4.0", features = ["parallel"], default-features = false }
 ark-relations = { version = "=0.4.0", default-features = false, features = [ "std" ] }
 ark-serialize = { version = "=0.4.1", default-features = false }
