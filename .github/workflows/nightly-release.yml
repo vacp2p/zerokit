@@ -122,7 +122,7 @@ jobs:
         uses: actions/download-artifact@v2
           
       - name: Delete tag
-        uses: dev-drprasad/delete-tag-and-release@v0.2
+        uses: dev-drprasad/delete-tag-and-release@v0.2.1
         with:
           delete_release: true
           tag_name: nightly
