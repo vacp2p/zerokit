@@ -22,7 +22,6 @@ ark-groth16 = { version = "=0.4.0", features = ["parallel"], default-features = 
 ark-relations = { version = "=0.4.0", default-features = false, features = [ "std" ] }
 ark-serialize = { version = "=0.4.1", default-features = false }
 ark-circom = { git = "https://github.com/gakonst/ark-circom", default-features = false, features = ["circom-2"] }
-rkyv = "0.7.40"
 
 # WASM
 wasmer = { version = "2.3.0", default-features = false }
