@@ -13,14 +13,14 @@ doctest = false
 
 [dependencies]
 # ZKP Generation
-ark-ec = { version = "=0.3.0", default-features = false }
-ark-ff = { version = "=0.3.0", default-features = false, features = [ "asm"] }
-ark-std = { version = "=0.3.0", default-features = false }
-ark-bn254 = { version = "=0.3.0" }
-ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", rev = "765817f", default-features = false }
-ark-relations = { version = "=0.3.0", default-features = false, features = [ "std" ] }
-ark-serialize = { version = "=0.3.0", default-features = false }
-ark-circom = { git = "https://github.com/vacp2p/ark-circom", rev = "0e587145cb05e08b2d1a01509eb578670088eb2f", default-features = false, features = ["circom-2"] }
+ark-ec = { version = "=0.4.1", default-features = false }
+ark-ff = { version = "=0.4.1", default-features = false, features = [ "asm"] }
+ark-std = { version = "=0.4.0", default-features = false }
+ark-bn254 = { version = "=0.4.0" }
+ark-groth16 = { version = "=0.4.0", features = ["parallel"], default-features = false }
+ark-relations = { version = "=0.4.0", default-features = false, features = [ "std" ] }
+ark-serialize = { version = "=0.4.1", default-features = false }
+ark-circom = { git = "https://github.com/gakonst/ark-circom", default-features = false, features = ["circom-2"] }
 
 # WASM
 wasmer = { version = "2.3.0", default-features = false }

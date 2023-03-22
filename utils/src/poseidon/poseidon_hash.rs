@@ -4,7 +4,7 @@
 // and adapted to work over arkworks field traits and custom data structures
 
 use crate::poseidon_constants::find_poseidon_ark_and_mds;
-use ark_ff::{FpParameters, PrimeField};
+use ark_ff::PrimeField;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RoundParamenters<F: PrimeField> {
@@ -32,7 +32,7 @@ impl<F: PrimeField> Poseidon<F> {
             let (ark, mds) = find_poseidon_ark_and_mds::<F>(
                 1, // is_field = 1
                 0, // is_sbox_inverse = 0
-                F::Params::MODULUS_BITS as u64,
+                F::MODULUS_BIT_SIZE as u64,
                 t,
                 n_rounds_f as u64,
                 n_rounds_p as u64,

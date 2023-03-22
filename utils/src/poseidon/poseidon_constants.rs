@@ -11,7 +11,7 @@
 
 #![allow(dead_code)]
 
-use ark_ff::{FpParameters, PrimeField};
+use ark_ff::PrimeField;
 use num_bigint::BigUint;
 
 pub struct PoseidonGrainLFSR {
@@ -129,8 +129,8 @@ impl PoseidonGrainLFSR {
         &mut self,
         num_elems: usize,
     ) -> Vec<F> {
-        assert_eq!(F::Params::MODULUS_BITS as u64, self.prime_num_bits);
-        let modulus: BigUint = F::Params::MODULUS.into();
+        assert_eq!(F::MODULUS_BIT_SIZE as u64, self.prime_num_bits);
+        let modulus: BigUint = F::MODULUS.into();
 
         let mut res = Vec::new();
         for _ in 0..num_elems {
@@ -163,7 +163,7 @@ impl PoseidonGrainLFSR {
     }
 
     pub fn get_field_elements_mod_p<F: PrimeField>(&mut self, num_elems: usize) -> Vec<F> {
-        assert_eq!(F::Params::MODULUS_BITS as u64, self.prime_num_bits);
+        assert_eq!(F::MODULUS_BIT_SIZE as u64, self.prime_num_bits);
 
         let mut res = Vec::new();
         for _ in 0..num_elems {

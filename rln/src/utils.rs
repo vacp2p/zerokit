@@ -13,8 +13,8 @@ pub fn to_bigint(el: &Fr) -> Result<BigInt> {
 }
 
 pub fn fr_byte_size() -> usize {
-    let mbs = <Fr as PrimeField>::size_in_bits();
-    (mbs + 64 - (mbs % 64)) / 8
+    let mbs = <Fr as PrimeField>::MODULUS_BIT_SIZE;
+    ((mbs + 64 - (mbs % 64)) / 8) as usize
 }
 
 pub fn str_to_fr(input: &str, radix: u32) -> Result<Fr> {
