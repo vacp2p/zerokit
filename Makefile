@@ -12,6 +12,9 @@ ifdef CI
 endif
 
 installdeps: .pre-build
+	@git clone --recursive https://github.com/WebAssembly/wabt.git
+	@cd wabt && make
+	@sudo make install
 
 build: .pre-build
 	@cargo make build
