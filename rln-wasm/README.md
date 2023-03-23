@@ -21,6 +21,11 @@ make installdeps
 cd rln-wasm
 cargo make build
 ```
+4. Compile a slimmer version of zerokit for `wasm32-unknown-unknown`:
+```
+cd rln-wasm
+cargo make post-build
+```
 
 ## Running tests
 ```

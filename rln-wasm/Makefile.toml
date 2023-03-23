@@ -12,6 +12,11 @@ dependencies = [
     "pack-rename"
 ]
 
+[tasks.post-build]
+command = "wasm-strip"
+args = ["./pkg/rln_wasm_bg.wasm"]
+dependencies = ["build"]
+
 [tasks.test]
 command = "wasm-pack"
 args = ["test", "--release", "--node"]
