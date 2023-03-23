@@ -12,9 +12,10 @@ ifdef CI
 endif
 
 installdeps: .pre-build
+	@sudo apt-get update
+	@sudo apt-get install -y cmake ninja-build
 	@git clone --recursive https://github.com/WebAssembly/wabt.git
-	@cd wabt && make
-	@sudo make install
+	@cd wabt && mkdir build && cd build && cmake .. -GNinja && ninja && sudo ninja install
 
 build: .pre-build
 	@cargo make build
