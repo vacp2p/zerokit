@@ -12,6 +12,15 @@ ifdef CI
 endif
 
 installdeps: .pre-build
+ifeq ($(shell uname),Darwin)
+	@brew update
+	@brew install cmake ninja
+else ifeq ($(shell uname),Linux)
+	@sudo apt-get update
+	@sudo apt-get install -y cmake ninja-build
+endif
+	@git clone --recursive https://github.com/WebAssembly/wabt.git
+	@cd wabt && mkdir build && cd build && cmake .. -GNinja && ninja && sudo ninja install
 
 build: .pre-build
 	@cargo make build
