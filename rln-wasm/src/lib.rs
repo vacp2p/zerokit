@@ -109,7 +109,12 @@ pub fn wasm_get_serialized_rln_witness(
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = insertMember)]
 pub fn wasm_set_next_leaf(ctx: *mut RLNWrapper, input: Uint8Array) -> Result<(), String> {
-    call_with_error_msg!(ctx, set_next_leaf, "could not insert member into merkle tree".to_string(), &input.to_vec()[..])
+    call_with_error_msg!(
+        ctx,
+        set_next_leaf,
+        "could not insert member into merkle tree".to_string(),
+        &input.to_vec()[..]
+    )
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -119,13 +124,24 @@ pub fn wasm_set_leaves_from(
     index: usize,
     input: Uint8Array,
 ) -> Result<(), String> {
-    call_with_error_msg!(ctx, set_leaves_from, "could not set multiple leaves".to_string(), index, &*input.to_vec())
+    call_with_error_msg!(
+        ctx,
+        set_leaves_from,
+        "could not set multiple leaves".to_string(),
+        index,
+        &*input.to_vec()
+    )
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = initTreeWithLeaves)]
 pub fn wasm_init_tree_with_leaves(ctx: *mut RLNWrapper, input: Uint8Array) -> Result<(), String> {
-    call_with_error_msg!(ctx, init_tree_with_leaves, "could not init merkle tree".to_string(), &*input.to_vec())
+    call_with_error_msg!(
+        ctx,
+        init_tree_with_leaves,
+        "could not init merkle tree".to_string(),
+        &*input.to_vec()
+    )
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
