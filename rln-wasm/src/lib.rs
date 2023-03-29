@@ -119,7 +119,7 @@ impl ProcessArg for *mut RLNWrapper {
     }
 }
 
-impl<'a> ProcessArgRef for &'a [u8] {
+impl<'a> ProcessArg for &'a [u8] {
     type ReturnType = &'a [u8];
 
     fn process(self) -> Self::ReturnType {
