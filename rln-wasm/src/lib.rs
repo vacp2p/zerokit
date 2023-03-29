@@ -3,6 +3,8 @@
 extern crate wasm_bindgen;
 extern crate web_sys;
 
+use std::vec::Vec;
+
 use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
 use num_bigint::BigInt;
 use rln::public::RLN;
@@ -18,6 +20,99 @@ pub struct RLNWrapper {
     // The purpose of this wrapper is to hold a RLN instance with the 'static lifetime
     // because wasm_bindgen does not allow returning elements with lifetimes
     instance: RLN<'static>,
+}
+
+// Macro to call methods with arbitrary amount of arguments,
+// which have the last argument is output buffer pointer
+// First argument to the macro is context,
+// second is the actual method on `RLN`
+// third is the aforementioned output buffer argument
+// rest are all other arguments to the method
+macro_rules! call_with_output_and_error_msg {
+    // this variant is needed for the case when
+    // there are zero other arguments
+    ($instance:expr, $method:ident, $error_msg:expr) => {
+        {
+            let mut output_data: Vec<u8> = Vec::new();
+            let new_instance = $instance.process();
+            if new_instance.instance.$method(&mut output_data).is_ok() {
+                let result = Uint8Array::from(&output_data[..]);
+                std::mem::forget(output_data);
+                Ok(result)
+            } else {
+                std::mem::forget(output_data);
+                Err($error_msg.into())
+            }
+        }
+    };
+    ($instance:expr, $method:ident, $error_msg:expr, $( $arg:expr ),* ) => {
+        {
+            let mut output_data: Vec<u8> = Vec::new();
+            let new_instance = $instance.process();
+            if new_instance.instance.$method($($arg.process()),*, &mut output_data).is_ok() {
+                let result = Uint8Array::from(&output_data[..]);
+                std::mem::forget(output_data);
+                Ok(result)
+            } else {
+                std::mem::forget(output_data);
+                Err($error_msg.into())
+            }
+        }
+    };
+
+}
+
+trait ProcessArg {
+    type ReturnType;
+    fn process(self) -> Self::ReturnType;
+}
+
+impl ProcessArg for usize {
+    type ReturnType = usize;
+    fn process(self) -> Self::ReturnType {
+        self
+    }
+}
+
+impl<T> ProcessArg for Vec<T> {
+    type ReturnType = Vec<T>;
+    fn process(self) -> Self::ReturnType {
+        self
+    }
+}
+
+impl<'a> ProcessArg for *const RLN<'a> {
+    type ReturnType = &'a RLN<'a>;
+    fn process(self) -> Self::ReturnType {
+        unsafe { &*self }
+    }
+}
+
+trait ProcessArgRef {
+    type ReturnType;
+    fn process(self) -> Self::ReturnType;
+}
+
+impl ProcessArg for *const RLNWrapper {
+    type ReturnType = &'static RLNWrapper;
+    fn process(self) -> Self::ReturnType {
+        unsafe { &*self }
+    }
+}
+
+impl ProcessArg for *mut RLNWrapper {
+    type ReturnType = &'static mut RLNWrapper;
+    fn process(self) -> Self::ReturnType {
+        unsafe { &mut *self }
+    }
+}
+
+impl<'a> ProcessArgRef for &'a [u8] {
+    type ReturnType = &'a [u8];
+
+    fn process(self) -> Self::ReturnType {
+        self
+    }
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -116,8 +211,6 @@ pub fn generate_rln_proof_with_witness(
     calculated_witness: Vec<JsBigInt>,
     serialized_witness: Uint8Array,
 ) -> Result<Uint8Array, String> {
-    let wrapper = unsafe { &mut *ctx };
-
     let mut witness_vec: Vec<BigInt> = vec![];
 
     for v in calculated_witness {
@@ -131,69 +224,36 @@ pub fn generate_rln_proof_with_witness(
         );
     }
 
-    let mut output_data: Vec<u8> = Vec::new();
-
-    if wrapper
-        .instance
-        .generate_rln_proof_with_witness(witness_vec, serialized_witness.to_vec(), &mut output_data)
-        .is_ok()
-    {
-        let result = Uint8Array::from(&output_data[..]);
-        std::mem::forget(output_data);
-        Ok(result)
-    } else {
-        std::mem::forget(output_data);
-        Err("could not generate proof".into())
-    }
+    call_with_output_and_error_msg!(
+        ctx,
+        generate_rln_proof_with_witness,
+        "could not generate proof",
+        witness_vec,
+        serialized_witness.to_vec()
+    )
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = generateMembershipKey)]
 pub fn wasm_key_gen(ctx: *const RLNWrapper) -> Result<Uint8Array, String> {
-    let wrapper = unsafe { &*ctx };
-    let mut output_data: Vec<u8> = Vec::new();
-    if wrapper.instance.key_gen(&mut output_data).is_ok() {
-        let result = Uint8Array::from(&output_data[..]);
-        std::mem::forget(output_data);
-        Ok(result)
-    } else {
-        std::mem::forget(output_data);
-        Err("could not generate membership keys".into())
-    }
+    call_with_output_and_error_msg!(ctx, key_gen, "could not generate membership keys")
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = generateExtendedMembershipKey)]
 pub fn wasm_extended_key_gen(ctx: *const RLNWrapper) -> Result<Uint8Array, String> {
-    let wrapper = unsafe { &*ctx };
-    let mut output_data: Vec<u8> = Vec::new();
-    if wrapper.instance.extended_key_gen(&mut output_data).is_ok() {
-        let result = Uint8Array::from(&output_data[..]);
-        std::mem::forget(output_data);
-        Ok(result)
-    } else {
-        std::mem::forget(output_data);
-        Err("could not generate membership keys".into())
-    }
+    call_with_output_and_error_msg!(ctx, extended_key_gen, "could not generate membership keys")
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = generateSeededMembershipKey)]
 pub fn wasm_seeded_key_gen(ctx: *const RLNWrapper, seed: Uint8Array) -> Result<Uint8Array, String> {
-    let wrapper = unsafe { &*ctx };
-    let mut output_data: Vec<u8> = Vec::new();
-    if wrapper
-        .instance
-        .seeded_key_gen(&seed.to_vec()[..], &mut output_data)
-        .is_ok()
-    {
-        let result = Uint8Array::from(&output_data[..]);
-        std::mem::forget(output_data);
-        Ok(result)
-    } else {
-        std::mem::forget(output_data);
-        Err("could not generate membership key".into())
-    }
+    call_with_output_and_error_msg!(
+        ctx,
+        seeded_key_gen,
+        "could not generate membership key",
+        &seed.to_vec()[..]
+    )
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -202,20 +262,12 @@ pub fn wasm_seeded_extended_key_gen(
     ctx: *const RLNWrapper,
     seed: Uint8Array,
 ) -> Result<Uint8Array, String> {
-    let wrapper = unsafe { &*ctx };
-    let mut output_data: Vec<u8> = Vec::new();
-    if wrapper
-        .instance
-        .seeded_extended_key_gen(&seed.to_vec()[..], &mut output_data)
-        .is_ok()
-    {
-        let result = Uint8Array::from(&output_data[..]);
-        std::mem::forget(output_data);
-        Ok(result)
-    } else {
-        std::mem::forget(output_data);
-        Err("could not generate membership key".into())
-    }
+    call_with_output_and_error_msg!(
+        ctx,
+        seeded_extended_key_gen,
+        "could not generate membership key",
+        &seed.to_vec()[..]
+    )
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -225,24 +277,13 @@ pub fn wasm_recover_id_secret(
     input_proof_data_1: Uint8Array,
     input_proof_data_2: Uint8Array,
 ) -> Result<Uint8Array, String> {
-    let wrapper = unsafe { &*ctx };
-    let mut output_data: Vec<u8> = Vec::new();
-    if wrapper
-        .instance
-        .recover_id_secret(
-            &input_proof_data_1.to_vec()[..],
-            &input_proof_data_2.to_vec()[..],
-            &mut output_data,
-        )
-        .is_ok()
-    {
-        let result = Uint8Array::from(&output_data[..]);
-        std::mem::forget(output_data);
-        Ok(result)
-    } else {
-        std::mem::forget(output_data);
-        Err("could not recover id secret".into())
-    }
+    call_with_output_and_error_msg!(
+        ctx,
+        recover_id_secret,
+        "could not recover id secret",
+        &input_proof_data_1.to_vec()[..],
+        &input_proof_data_2.to_vec()[..]
+    )
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -283,14 +324,5 @@ pub fn wasm_verify_with_roots(
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = getRoot)]
 pub fn wasm_get_root(ctx: *const RLNWrapper) -> Result<Uint8Array, String> {
-    let wrapper = unsafe { &*ctx };
-    let mut output_data: Vec<u8> = Vec::new();
-    if wrapper.instance.get_root(&mut output_data).is_ok() {
-        let result = Uint8Array::from(&output_data[..]);
-        std::mem::forget(output_data);
-        Ok(result)
-    } else {
-        std::mem::forget(output_data);
-        Err("could not obtain root".into())
-    }
+    call_with_output_and_error_msg!(ctx, get_root, "could not obtain root")
 }
