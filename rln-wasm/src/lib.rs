@@ -28,10 +28,10 @@ macro_rules! call_with_error_msg {
     ($instance:expr, $method:ident, $error_msg:expr $(, $arg:expr)*) => {
         {
             let new_instance: &mut RLNWrapper = $instance.process();
-            if new_instance.instance.$method($($arg.process()),*).is_ok() {
-                Ok(())
+            if let Err(err) = new_instance.instance.$method($($arg.process()),*) {
+                Err(format!("Msg: {:#?}, Error: {:#?}", $error_msg, err))
             } else {
-                Err($error_msg)
+                Ok(())
             }
 
         }
