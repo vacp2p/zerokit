@@ -59,7 +59,24 @@ macro_rules! call_with_output_and_error_msg {
             }
         }
     };
+}
 
+// Macro to call_with_error_msg methods with arbitrary amount of arguments,
+// First argument to the macro is context,
+// second is the actual method on `RLNWrapper`
+// rest are all other arguments to the method
+macro_rules! call_with_error_msg {
+    ($instance:expr, $method:ident, $error_msg:expr $(, $arg:expr)*) => {
+        {
+            let new_instance: &mut RLNWrapper = $instance.process();
+            if let Err(err) = new_instance.instance.$method($($arg.process()),*) {
+                Err(format!("Msg: {:#?}, Error: {:#?}", $error_msg, err))
+            } else {
+                Ok(())
+            }
+
+        }
+    }
 }
 
 trait ProcessArg {
@@ -86,11 +103,6 @@ impl<'a> ProcessArg for *const RLN<'a> {
     fn process(self) -> Self::ReturnType {
         unsafe { &*self }
     }
-}
-
-trait ProcessArgRef {
-    type ReturnType;
-    fn process(self) -> Self::ReturnType;
 }
 
 impl ProcessArg for *const RLNWrapper {
@@ -146,12 +158,12 @@ pub fn wasm_get_serialized_rln_witness(
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = insertMember)]
 pub fn wasm_set_next_leaf(ctx: *mut RLNWrapper, input: Uint8Array) -> Result<(), String> {
-    let wrapper = unsafe { &mut *ctx };
-    if wrapper.instance.set_next_leaf(&input.to_vec()[..]).is_ok() {
-        Ok(())
-    } else {
-        Err("could not insert member into merkle tree".into())
-    }
+    call_with_error_msg!(
+        ctx,
+        set_next_leaf,
+        "could not insert member into merkle tree".to_string(),
+        &input.to_vec()[..]
+    )
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -161,31 +173,24 @@ pub fn wasm_set_leaves_from(
     index: usize,
     input: Uint8Array,
 ) -> Result<(), String> {
-    let wrapper = unsafe { &mut *ctx };
-    if wrapper
-        .instance
-        .set_leaves_from(index as usize, &input.to_vec()[..])
-        .is_ok()
-    {
-        Ok(())
-    } else {
-        Err("could not set multiple leaves".into())
-    }
+    call_with_error_msg!(
+        ctx,
+        set_leaves_from,
+        "could not set multiple leaves".to_string(),
+        index,
+        &*input.to_vec()
+    )
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = initTreeWithLeaves)]
 pub fn wasm_init_tree_with_leaves(ctx: *mut RLNWrapper, input: Uint8Array) -> Result<(), String> {
-    let wrapper = unsafe { &mut *ctx };
-    if wrapper
-        .instance
-        .init_tree_with_leaves(&input.to_vec()[..])
-        .is_ok()
-    {
-        Ok(())
-    } else {
-        Err("could not init merkle tree".into())
-    }
+    call_with_error_msg!(
+        ctx,
+        init_tree_with_leaves,
+        "could not init merkle tree".to_string(),
+        &*input.to_vec()
+    )
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
