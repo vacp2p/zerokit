@@ -1060,7 +1060,7 @@ mod test {
     use super::*;
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
-    use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
+    use utils::ZerokitMerkleTree;
     // use rkyv::Deserialize;
 
     #[test]
