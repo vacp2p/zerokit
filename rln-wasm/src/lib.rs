@@ -35,13 +35,13 @@ macro_rules! call_with_output_and_error_msg {
         {
             let mut output_data: Vec<u8> = Vec::new();
             let new_instance = $instance.process();
-            if new_instance.instance.$method(&mut output_data).is_ok() {
+            if let Err(err) = new_instance.instance.$method(&mut output_data) {
+                std::mem::forget(output_data);
+                Err(format!("Msg: {:#?}, Error: {:#?}", $error_msg, err))
+            } else {
                 let result = Uint8Array::from(&output_data[..]);
                 std::mem::forget(output_data);
                 Ok(result)
-            } else {
-                std::mem::forget(output_data);
-                Err($error_msg.into())
             }
         }
     };
@@ -49,13 +49,13 @@ macro_rules! call_with_output_and_error_msg {
         {
             let mut output_data: Vec<u8> = Vec::new();
             let new_instance = $instance.process();
-            if new_instance.instance.$method($($arg.process()),*, &mut output_data).is_ok() {
+            if let Err(err) = new_instance.instance.$method($($arg.process()),*, &mut output_data) {
+                std::mem::forget(output_data);
+                Err(format!("Msg: {:#?}, Error: {:#?}", $error_msg, err))
+            } else {
                 let result = Uint8Array::from(&output_data[..]);
                 std::mem::forget(output_data);
                 Ok(result)
-            } else {
-                std::mem::forget(output_data);
-                Err($error_msg.into())
             }
         }
     };
