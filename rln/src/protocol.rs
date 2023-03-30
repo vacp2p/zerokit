@@ -22,6 +22,7 @@ use crate::poseidon_tree::*;
 use crate::public::RLN_IDENTIFIER;
 use crate::utils::*;
 use cfg_if::cfg_if;
+use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions

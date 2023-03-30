@@ -6,7 +6,7 @@
 mod test {
     use rln::circuit::*;
     use rln::poseidon_tree::*;
-    use utils::{FullMerkleTree, OptimalMerkleTree};
+    use utils::{FullMerkleTree, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
     #[test]
     /// A basic performance comparison between the two supported Merkle Tree implementations

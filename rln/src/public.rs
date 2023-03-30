@@ -13,6 +13,7 @@ use cfg_if::cfg_if;
 use color_eyre::Result;
 use num_bigint::BigInt;
 use std::io::Cursor;
+use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 // use rkyv::Deserialize;
 
 cfg_if! {
@@ -1059,6 +1060,7 @@ mod test {
     use super::*;
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
+    use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
     // use rkyv::Deserialize;
 
     #[test]
