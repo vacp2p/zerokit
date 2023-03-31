@@ -135,6 +135,7 @@ jobs:
           gh release create nightly --prerelease --target master \
             --title 'Nightly build ("master" branch)' \
             --generate-notes \
+            --draft=false \
             --notes-start-tag $start_tag \
             *-archive/*.tar.gz \
         env:
