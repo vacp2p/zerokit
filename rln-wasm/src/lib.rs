@@ -79,6 +79,15 @@ macro_rules! call_with_error_msg {
     }
 }
 
+macro_rules! call_bool_method_with_error_msg {
+    ($instance:expr, $method:ident, $error_msg:expr $(, $arg:expr)*) => {
+        {
+            let new_instance: &RLNWrapper = $instance.process();
+            new_instance.instance.$method($($arg.process()),*).map_err(|err| format!("Msg: {:#?}, Error: {:#?}", $error_msg, err))
+        }
+    }
+}
+
 trait ProcessArg {
     type ReturnType;
     fn process(self) -> Self::ReturnType;
@@ -294,15 +303,12 @@ pub fn wasm_recover_id_secret(
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = verifyRLNProof)]
 pub fn wasm_verify_rln_proof(ctx: *const RLNWrapper, proof: Uint8Array) -> Result<bool, String> {
-    let wrapper = unsafe { &*ctx };
-    if match wrapper.instance.verify_rln_proof(&proof.to_vec()[..]) {
-        Ok(verified) => verified,
-        Err(_) => return Err("error while verifying rln proof".into()),
-    } {
-        return Ok(true);
-    }
-
-    Ok(false)
+    call_bool_method_with_error_msg!(
+        ctx,
+        verify_rln_proof,
+        "error while verifying rln proof".to_string(),
+        &proof.to_vec()[..]
+    )
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -312,18 +318,13 @@ pub fn wasm_verify_with_roots(
     proof: Uint8Array,
     roots: Uint8Array,
 ) -> Result<bool, String> {
-    let wrapper = unsafe { &*ctx };
-    if match wrapper
-        .instance
-        .verify_with_roots(&proof.to_vec()[..], &roots.to_vec()[..])
-    {
-        Ok(verified) => verified,
-        Err(_) => return Err("error while verifying proof with roots".into()),
-    } {
-        return Ok(true);
-    }
-
-    Ok(false)
+    call_bool_method_with_error_msg!(
+        ctx,
+        verify_with_roots,
+        "error while verifying proof with roots".to_string(),
+        &proof.to_vec()[..],
+        &roots.to_vec()[..]
+    )
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
