@@ -8,6 +8,7 @@ mod test {
     use rln::poseidon_tree::PoseidonTree;
     use rln::protocol::*;
     use rln::utils::str_to_fr;
+    use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 
     // Input generated with https://github.com/oskarth/zk-kit/commit/b6a872f7160c7c14e10a0ea40acab99cbb23c9a8
     const WITNESS_JSON_15: &str = r#"

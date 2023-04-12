@@ -3,7 +3,7 @@
 mod test {
     use hex_literal::hex;
     use tiny_keccak::{Hasher as _, Keccak};
-    use utils::{FullMerkleTree, Hasher, OptimalMerkleTree};
+    use utils::{FullMerkleTree, Hasher, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
     struct Keccak256;
 
