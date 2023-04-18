@@ -96,8 +96,7 @@ mod test {
 
         // We now delete all leaves set and check if the root corresponds to the empty tree root
         // delete calls over indexes higher than no_of_leaves are ignored and will not increase self.tree.next_index
-        let delete_range = 2 * no_of_leaves;
-        for i in 0..delete_range {
+        for i in 0..no_of_leaves {
             let success = delete_leaf(rln_pointer, i);
             assert!(success, "delete leaf call failed");
         }

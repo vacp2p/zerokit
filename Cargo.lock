@@ -2110,7 +2110,7 @@ dependencies = [
 [[package]]
 name = "pmtree"
 version = "1.0.0"
-source = "git+https://github.com/Rate-Limiting-Nullifier/pmtree?rev=f6d1a1fecad72cd39e6808e78085091d541dc882#f6d1a1fecad72cd39e6808e78085091d541dc882"
+source = "git+https://github.com/vacp2p/pmtree?rev=a938b11f3837c98f0731db398e82714c2d3116a3#a938b11f3837c98f0731db398e82714c2d3116a3"
 dependencies = [
  "rayon",
 ]
@@ -2393,7 +2393,6 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "once_cell",
- "pmtree",
  "rand",
  "rand_chacha",
  "serde_json",
@@ -3117,6 +3116,8 @@ dependencies = [
  "hex-literal",
  "num-bigint",
  "num-traits",
+ "pmtree",
+ "sled",
  "tiny-keccak",
 ]
 

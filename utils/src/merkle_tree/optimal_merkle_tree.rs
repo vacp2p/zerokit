@@ -37,31 +37,32 @@ pub struct OptimalMerkleProof<H: Hasher>(pub Vec<(H::Fr, u8)>);
 
 /// Implementations
 
-impl<H: Hasher> ZerokitMerkleTree<H> for OptimalMerkleTree<H>
+impl<H: Hasher> ZerokitMerkleTree for OptimalMerkleTree<H>
 where
     H: Hasher,
 {
     type Proof = OptimalMerkleProof<H>;
+    type Hasher = H;
 
-    fn default(depth: usize) -> Self {
+    fn default(depth: usize) -> Result<Self> {
         OptimalMerkleTree::<H>::new(depth, H::default_leaf())
     }
 
     /// Creates a new `MerkleTree`
     /// depth - the height of the tree made only of hash nodes. 2^depth is the maximum number of leaves hash nodes
-    fn new(depth: usize, default_leaf: H::Fr) -> Self {
+    fn new(depth: usize, default_leaf: H::Fr) -> Result<Self> {
         let mut cached_nodes: Vec<H::Fr> = Vec::with_capacity(depth + 1);
         cached_nodes.push(default_leaf);
         for i in 0..depth {
             cached_nodes.push(H::hash(&[cached_nodes[i]; 2]));
         }
         cached_nodes.reverse();
-        OptimalMerkleTree {
+        Ok(OptimalMerkleTree {
             cached_nodes: cached_nodes.clone(),
             depth,
             nodes: HashMap::new(),
             next_index: 0,
-        }
+        })
     }
 
     // Returns the depth of the tree
@@ -205,11 +206,13 @@ where
     }
 }
 
-impl<H: Hasher> ZerokitMerkleProof<H> for OptimalMerkleProof<H>
+impl<H: Hasher> ZerokitMerkleProof for OptimalMerkleProof<H>
 where
     H: Hasher,
 {
     type Index = u8;
+    type Hasher = H;
+
     #[must_use]
     // Returns the length of a Merkle proof
     fn length(&self) -> usize {

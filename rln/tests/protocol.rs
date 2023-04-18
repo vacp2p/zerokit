@@ -172,7 +172,7 @@ mod test {
 
         // generate merkle tree
         let default_leaf = Fr::from(0);
-        let mut tree = PoseidonTree::new(tree_height, default_leaf);
+        let mut tree = PoseidonTree::new(tree_height, default_leaf).unwrap();
         tree.set(leaf_index, id_commitment.into()).unwrap();
 
         // We check correct computation of the root
@@ -382,7 +382,7 @@ mod test {
 
         //// generate merkle tree
         let default_leaf = Fr::from(0);
-        let mut tree = PoseidonTree::new(tree_height, default_leaf);
+        let mut tree = PoseidonTree::new(tree_height, default_leaf).unwrap();
         tree.set(leaf_index, id_commitment.into()).unwrap();
 
         let merkle_proof = tree.proof(leaf_index).expect("proof should exist");

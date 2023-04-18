@@ -26,3 +26,20 @@ pub fn poseidon_hash(input: &[Fr]) -> Fr {
         .hash(input.to_vec())
         .expect("hash with fixed input size can't fail")
 }
+
+// The zerokit RLN Merkle tree Hasher
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct PoseidonHash;
+
+// The default Hasher trait used by Merkle tree implementation in utils
+impl utils::merkle_tree::Hasher for PoseidonHash {
+    type Fr = Fr;
+
+    fn default_leaf() -> Self::Fr {
+        Self::Fr::from(0)
+    }
+
+    fn hash(inputs: &[Self::Fr]) -> Self::Fr {
+        poseidon_hash(inputs)
+    }
+}

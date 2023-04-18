@@ -45,16 +45,22 @@ pub enum FullMerkleBranch<H: Hasher> {
 pub struct FullMerkleProof<H: Hasher>(pub Vec<FullMerkleBranch<H>>);
 
 /// Implementations
-
-impl<H: Hasher> ZerokitMerkleTree<H> for FullMerkleTree<H> {
+impl<H: Hasher> ZerokitMerkleTree for FullMerkleTree<H>
+where
+    H: Hasher,
+{
     type Proof = FullMerkleProof<H>;
-    fn default(depth: usize) -> Self {
-        FullMerkleTree::<H>::new(depth, H::default_leaf())
+    type Hasher = H;
+    fn default(depth: usize) -> Result<Self> {
+        FullMerkleTree::<H>::new(depth, Self::Hasher::default_leaf())
     }
 
     /// Creates a new `MerkleTree`
     /// depth - the height of the tree made only of hash nodes. 2^depth is the maximum number of leaves hash nodes
-    fn new(depth: usize, initial_leaf: H::Fr) -> Self {
+    fn new(
+        depth: usize,
+        initial_leaf: <<FullMerkleTree<H> as ZerokitMerkleTree>::Hasher as Hasher>::Fr,
+    ) -> Result<Self> {
         // Compute cache node values, leaf to root
         let cached_nodes = successors(Some(initial_leaf), |prev| Some(H::hash(&[*prev, *prev])))
             .take(depth + 1)
@@ -72,12 +78,12 @@ impl<H: Hasher> ZerokitMerkleTree<H> for FullMerkleTree<H> {
 
         let next_index = 0;
 
-        Self {
+        Ok(Self {
             depth,
             cached_nodes,
             nodes,
             next_index,
-        }
+        })
     }
 
     // Returns the depth of the tree
@@ -212,8 +218,9 @@ where
     }
 }
 
-impl<H: Hasher> ZerokitMerkleProof<H> for FullMerkleProof<H> {
+impl<H: Hasher> ZerokitMerkleProof for FullMerkleProof<H> {
     type Index = u8;
+    type Hasher = H;
 
     #[must_use]
     // Returns the length of a Merkle proof
