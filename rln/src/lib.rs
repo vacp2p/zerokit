@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 pub mod circuit;
-pub mod poseidon_hash;
+pub mod hashers;
 pub mod poseidon_tree;
 pub mod protocol;
 pub mod public;
