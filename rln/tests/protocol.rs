@@ -4,7 +4,7 @@ mod test {
         circom_from_folder, vk_from_folder, zkey_from_folder, Fr, TEST_RESOURCES_FOLDER,
         TEST_TREE_HEIGHT,
     };
-    use rln::poseidon_hash::poseidon_hash;
+    use rln::hashers::{hash_to_field, poseidon_hash};
     use rln::poseidon_tree::PoseidonTree;
     use rln::protocol::*;
     use rln::utils::str_to_fr;

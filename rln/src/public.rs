@@ -1,5 +1,5 @@
 use crate::circuit::{vk_from_raw, zkey_from_raw, Curve, Fr};
-use crate::poseidon_hash::poseidon_hash as utils_poseidon_hash;
+use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
 use crate::poseidon_tree::PoseidonTree;
 use crate::protocol::*;
 use crate::utils::*;

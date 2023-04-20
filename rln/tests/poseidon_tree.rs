@@ -88,7 +88,7 @@ mod pmtree_test {
 
     use pmtree::*;
     use rln::circuit::Fr;
-    use rln::poseidon_hash::poseidon_hash;
+    use rln::hashers::{hash_to_field, poseidon_hash};
     use rln::poseidon_tree::PoseidonHash;
     use rln::protocol::hash_to_field;
     use rln::utils::str_to_fr;

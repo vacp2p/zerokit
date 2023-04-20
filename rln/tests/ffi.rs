@@ -4,7 +4,7 @@ mod test {
     use rand::Rng;
     use rln::circuit::*;
     use rln::ffi::{hash as ffi_hash, poseidon_hash as ffi_poseidon_hash, *};
-    use rln::poseidon_hash::{poseidon_hash as utils_poseidon_hash, ROUND_PARAMS};
+    use rln::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash, ROUND_PARAMS};
     use rln::protocol::*;
     use rln::public::RLN;
     use rln::utils::*;
