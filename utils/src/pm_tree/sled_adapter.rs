@@ -2,7 +2,6 @@ use pmtree::*;
 
 use sled::Db as Sled;
 use std::collections::HashMap;
-use std::fs;
 
 pub struct SledDB(Sled);
 
@@ -10,23 +9,14 @@ impl Database for SledDB {
     type Config = sled::Config;
 
     fn new(config: Self::Config) -> PmtreeResult<Self> {
-        let dbpath = &config.path;
-        if dbpath.exists() {
-            match fs::remove_dir_all(&dbpath) {
-                Ok(x) => x,
-                Err(_e) => {
-                    return Err(PmtreeErrorKind::DatabaseError(
-                        DatabaseErrorKind::CannotLoadDatabase,
-                    ))
-                }
-            }
-        }
-
         let db: Sled = match config.open() {
             Ok(db) => db,
-            Err(_e) => {
+            Err(e) => {
                 return Err(PmtreeErrorKind::DatabaseError(
-                    DatabaseErrorKind::CannotLoadDatabase,
+                    DatabaseErrorKind::CustomError(format!(
+                        "Cannot create database: {} {:#?}",
+                        e, config
+                    )),
                 ))
             }
         };
@@ -37,16 +27,19 @@ impl Database for SledDB {
     fn load(config: Self::Config) -> PmtreeResult<Self> {
         let db: Sled = match sled::open(&config.path) {
             Ok(db) => db,
-            Err(_e) => {
+            Err(e) => {
                 return Err(PmtreeErrorKind::DatabaseError(
-                    DatabaseErrorKind::CannotLoadDatabase,
+                    DatabaseErrorKind::CustomError(format!("Cannot load database: {}", e)),
                 ))
             }
         };
 
         if !db.was_recovered() {
             return Err(PmtreeErrorKind::DatabaseError(
-                DatabaseErrorKind::CannotLoadDatabase,
+                DatabaseErrorKind::CustomError(format!(
+                    "Database was not recovered: {}",
+                    config.path.display()
+                )),
             ));
         }
 

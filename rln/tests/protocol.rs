@@ -10,6 +10,8 @@ mod test {
     use rln::utils::str_to_fr;
     use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 
+    type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
+
     // Input generated with https://github.com/oskarth/zk-kit/commit/b6a872f7160c7c14e10a0ea40acab99cbb23c9a8
     const WITNESS_JSON_15: &str = r#"
             {
@@ -172,7 +174,12 @@ mod test {
 
         // generate merkle tree
         let default_leaf = Fr::from(0);
-        let mut tree = PoseidonTree::new(tree_height, default_leaf).unwrap();
+        let mut tree = PoseidonTree::new(
+            tree_height,
+            default_leaf,
+            ConfigOf::<PoseidonTree>::default(),
+        )
+        .unwrap();
         tree.set(leaf_index, id_commitment.into()).unwrap();
 
         // We check correct computation of the root
@@ -382,7 +389,12 @@ mod test {
 
         //// generate merkle tree
         let default_leaf = Fr::from(0);
-        let mut tree = PoseidonTree::new(tree_height, default_leaf).unwrap();
+        let mut tree = PoseidonTree::new(
+            tree_height,
+            default_leaf,
+            ConfigOf::<PoseidonTree>::default(),
+        )
+        .unwrap();
         tree.set(leaf_index, id_commitment.into()).unwrap();
 
         let merkle_proof = tree.proof(leaf_index).expect("proof should exist");

@@ -1,4 +1,4 @@
-use crate::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
+use crate::merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
 use color_eyre::{Report, Result};
 use std::{
     cmp::max,
@@ -51,16 +51,15 @@ where
 {
     type Proof = FullMerkleProof<H>;
     type Hasher = H;
+    type Config = ();
+
     fn default(depth: usize) -> Result<Self> {
-        FullMerkleTree::<H>::new(depth, Self::Hasher::default_leaf())
+        FullMerkleTree::<H>::new(depth, Self::Hasher::default_leaf(), ())
     }
 
     /// Creates a new `MerkleTree`
     /// depth - the height of the tree made only of hash nodes. 2^depth is the maximum number of leaves hash nodes
-    fn new(
-        depth: usize,
-        initial_leaf: <<FullMerkleTree<H> as ZerokitMerkleTree>::Hasher as Hasher>::Fr,
-    ) -> Result<Self> {
+    fn new(depth: usize, initial_leaf: FrOf<Self::Hasher>, _config: Self::Config) -> Result<Self> {
         // Compute cache node values, leaf to root
         let cached_nodes = successors(Some(initial_leaf), |prev| Some(H::hash(&[*prev, *prev])))
             .take(depth + 1)
@@ -103,12 +102,12 @@ where
 
     #[must_use]
     // Returns the root of the tree
-    fn root(&self) -> H::Fr {
+    fn root(&self) -> FrOf<Self::Hasher> {
         self.nodes[0]
     }
 
     // Sets a leaf at the specified tree index
-    fn set(&mut self, leaf: usize, hash: H::Fr) -> Result<()> {
+    fn set(&mut self, leaf: usize, hash: FrOf<Self::Hasher>) -> Result<()> {
         self.set_range(leaf, once(hash))?;
         self.next_index = max(self.next_index, leaf + 1);
         Ok(())
@@ -116,7 +115,11 @@ where
 
     // Sets tree nodes, starting from start index
     // Function proper of FullMerkleTree implementation
-    fn set_range<I: IntoIterator<Item = H::Fr>>(&mut self, start: usize, hashes: I) -> Result<()> {
+    fn set_range<I: IntoIterator<Item = FrOf<Self::Hasher>>>(
+        &mut self,
+        start: usize,
+        hashes: I,
+    ) -> Result<()> {
         let index = self.capacity() + start - 1;
         let mut count = 0;
         // first count number of hashes, and check that they fit in the tree
@@ -137,7 +140,7 @@ where
     }
 
     // Sets a leaf at the next available index
-    fn update_next(&mut self, leaf: H::Fr) -> Result<()> {
+    fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<()> {
         self.set(self.next_index, leaf)?;
         Ok(())
     }
@@ -171,7 +174,7 @@ where
     }
 
     // Verifies a Merkle proof with respect to the input leaf and the tree root
-    fn verify(&self, hash: &H::Fr, proof: &FullMerkleProof<H>) -> Result<bool> {
+    fn verify(&self, hash: &FrOf<Self::Hasher>, proof: &FullMerkleProof<H>) -> Result<bool> {
         Ok(proof.compute_root_from(hash) == self.root())
     }
 }
@@ -239,7 +242,7 @@ impl<H: Hasher> ZerokitMerkleProof for FullMerkleProof<H> {
 
     #[must_use]
     /// Returns the path elements forming a Merkle proof
-    fn get_path_elements(&self) -> Vec<H::Fr> {
+    fn get_path_elements(&self) -> Vec<FrOf<Self::Hasher>> {
         self.0
             .iter()
             .map(|x| match x {
@@ -262,7 +265,7 @@ impl<H: Hasher> ZerokitMerkleProof for FullMerkleProof<H> {
 
     /// Computes the Merkle root corresponding by iteratively hashing a Merkle proof with a given input leaf
     #[must_use]
-    fn compute_root_from(&self, hash: &H::Fr) -> H::Fr {
+    fn compute_root_from(&self, hash: &FrOf<Self::Hasher>) -> FrOf<Self::Hasher> {
         self.0.iter().fold(*hash, |hash, branch| match branch {
             FullMerkleBranch::Left(sibling) => H::hash(&[hash, *sibling]),
             FullMerkleBranch::Right(sibling) => H::hash(&[*sibling, hash]),

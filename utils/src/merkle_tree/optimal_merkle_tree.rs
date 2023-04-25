@@ -43,14 +43,15 @@ where
 {
     type Proof = OptimalMerkleProof<H>;
     type Hasher = H;
+    type Config = ();
 
     fn default(depth: usize) -> Result<Self> {
-        OptimalMerkleTree::<H>::new(depth, H::default_leaf())
+        OptimalMerkleTree::<H>::new(depth, H::default_leaf(), ())
     }
 
     /// Creates a new `MerkleTree`
     /// depth - the height of the tree made only of hash nodes. 2^depth is the maximum number of leaves hash nodes
-    fn new(depth: usize, default_leaf: H::Fr) -> Result<Self> {
+    fn new(depth: usize, default_leaf: H::Fr, _config: Self::Config) -> Result<Self> {
         let mut cached_nodes: Vec<H::Fr> = Vec::with_capacity(depth + 1);
         cached_nodes.push(default_leaf);
         for i in 0..depth {

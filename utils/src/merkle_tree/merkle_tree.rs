@@ -28,30 +28,33 @@ pub trait Hasher {
     fn hash(input: &[Self::Fr]) -> Self::Fr;
 }
 
+pub type FrOf<H> = <H as Hasher>::Fr;
+
 /// In the ZerokitMerkleTree trait we define the methods that are required to be implemented by a Merkle tree
 /// Including, OptimalMerkleTree, FullMerkleTree
 pub trait ZerokitMerkleTree {
     type Proof: ZerokitMerkleProof;
     type Hasher: Hasher;
+    type Config: Default;
 
     fn default(depth: usize) -> Result<Self>
     where
         Self: Sized;
-    fn new(depth: usize, default_leaf: <Self::Hasher as Hasher>::Fr) -> Result<Self>
+    fn new(depth: usize, default_leaf: FrOf<Self::Hasher>, config: Self::Config) -> Result<Self>
     where
         Self: Sized;
     fn depth(&self) -> usize;
     fn capacity(&self) -> usize;
     fn leaves_set(&mut self) -> usize;
-    fn root(&self) -> <Self::Hasher as Hasher>::Fr;
-    fn set(&mut self, index: usize, leaf: <Self::Hasher as Hasher>::Fr) -> Result<()>;
+    fn root(&self) -> FrOf<Self::Hasher>;
+    fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>) -> Result<()>;
     fn set_range<I>(&mut self, start: usize, leaves: I) -> Result<()>
     where
-        I: IntoIterator<Item = <Self::Hasher as Hasher>::Fr>;
-    fn update_next(&mut self, leaf: <Self::Hasher as Hasher>::Fr) -> Result<()>;
+        I: IntoIterator<Item = FrOf<Self::Hasher>>;
+    fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<()>;
     fn delete(&mut self, index: usize) -> Result<()>;
     fn proof(&self, index: usize) -> Result<Self::Proof>;
-    fn verify(&self, leaf: &<Self::Hasher as Hasher>::Fr, witness: &Self::Proof) -> Result<bool>;
+    fn verify(&self, leaf: &FrOf<Self::Hasher>, witness: &Self::Proof) -> Result<bool>;
 }
 
 pub trait ZerokitMerkleProof {
@@ -60,10 +63,7 @@ pub trait ZerokitMerkleProof {
 
     fn length(&self) -> usize;
     fn leaf_index(&self) -> usize;
-    fn get_path_elements(&self) -> Vec<<Self::Hasher as Hasher>::Fr>;
+    fn get_path_elements(&self) -> Vec<FrOf<Self::Hasher>>;
     fn get_path_index(&self) -> Vec<Self::Index>;
-    fn compute_root_from(
-        &self,
-        leaf: &<Self::Hasher as Hasher>::Fr,
-    ) -> <Self::Hasher as Hasher>::Fr;
+    fn compute_root_from(&self, leaf: &FrOf<Self::Hasher>) -> FrOf<Self::Hasher>;
 }

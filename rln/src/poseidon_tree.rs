@@ -8,7 +8,7 @@ cfg_if! {
     if #[cfg(feature = "pmtree-ft")] {
         use crate::pm_tree_adapter::*;
     } else {
-        use crate::poseidon_hash::{PoseidonHash};
+        use crate::hashers::{PoseidonHash};
         use utils::merkle_tree::*;
     }
 }
