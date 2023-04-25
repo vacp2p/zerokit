@@ -1,7 +1,8 @@
 // This crate instantiate the Poseidon hash algorithm
 
-use crate::circuit::Fr;
+use crate::{circuit::Fr, utils::bytes_le_to_fr};
 use once_cell::sync::Lazy;
+use tiny_keccak::{Hasher, Keccak};
 use utils::poseidon::Poseidon;
 
 // These indexed constants hardcodes the supported round parameters tuples (t, RF, RN, SKIP_MATRICES) for the Bn254 scalar field
@@ -42,4 +43,18 @@ impl utils::merkle_tree::Hasher for PoseidonHash {
     fn hash(inputs: &[Self::Fr]) -> Self::Fr {
         poseidon_hash(inputs)
     }
+}
+
+// Hashes arbitrary signal to the underlying prime field
+pub fn hash_to_field(signal: &[u8]) -> Fr {
+    // We hash the input signal using Keccak256
+    // (note that a bigger curve order might require a bigger hash blocksize)
+    let mut hash = [0; 32];
+    let mut hasher = Keccak::v256();
+    hasher.update(signal);
+    hasher.finalize(&mut hash);
+
+    // We export the hash as a field element
+    let (el, _) = bytes_le_to_fr(hash.as_ref());
+    el
 }

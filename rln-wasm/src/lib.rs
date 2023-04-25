@@ -79,6 +79,15 @@ macro_rules! call_with_error_msg {
     }
 }
 
+macro_rules! call {
+    ($instance:expr, $method:ident $(, $arg:expr)*) => {
+        {
+            let new_instance: &mut RLNWrapper = $instance.process();
+            new_instance.instance.$method($($arg.process()),*)
+        }
+    }
+}
+
 macro_rules! call_bool_method_with_error_msg {
     ($instance:expr, $method:ident, $error_msg:expr $(, $arg:expr)*) => {
         {
@@ -155,12 +164,8 @@ pub fn wasm_get_serialized_rln_witness(
     ctx: *mut RLNWrapper,
     input: Uint8Array,
 ) -> Result<Uint8Array, String> {
-    let wrapper = unsafe { &mut *ctx };
-    let rln_witness = wrapper
-        .instance
-        .get_serialized_rln_witness(&input.to_vec()[..])
+    let rln_witness = call!(ctx, get_serialized_rln_witness, &input.to_vec()[..])
         .map_err(|err| format!("{:#?}", err))?;
-
     Ok(Uint8Array::from(&rln_witness[..]))
 }
 
@@ -208,12 +213,8 @@ pub fn rln_witness_to_json(
     ctx: *mut RLNWrapper,
     serialized_witness: Uint8Array,
 ) -> Result<Object, String> {
-    let wrapper = unsafe { &mut *ctx };
-    let inputs = wrapper
-        .instance
-        .get_rln_witness_json(&serialized_witness.to_vec()[..])
+    let inputs = call!(ctx, get_rln_witness_json, &serialized_witness.to_vec()[..])
         .map_err(|err| err.to_string())?;
-
     let js_value = serde_wasm_bindgen::to_value(&inputs).map_err(|err| err.to_string())?;
     Object::from_entries(&js_value).map_err(|err| format!("{:#?}", err))
 }

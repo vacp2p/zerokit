@@ -17,7 +17,8 @@ use thiserror::Error;
 use tiny_keccak::{Hasher as _, Keccak};
 
 use crate::circuit::{Curve, Fr};
-use crate::poseidon_hash::poseidon_hash;
+use crate::hashers::hash_to_field;
+use crate::hashers::poseidon_hash;
 use crate::poseidon_tree::*;
 use crate::public::RLN_IDENTIFIER;
 use crate::utils::*;
@@ -481,20 +482,6 @@ pub fn extended_seeded_keygen(signal: &[u8]) -> (Fr, Fr, Fr, Fr) {
         identity_secret_hash,
         id_commitment,
     )
-}
-
-// Hashes arbitrary signal to the underlying prime field
-pub fn hash_to_field(signal: &[u8]) -> Fr {
-    // We hash the input signal using Keccak256
-    // (note that a bigger curve order might require a bigger hash blocksize)
-    let mut hash = [0; 32];
-    let mut hasher = Keccak::v256();
-    hasher.update(signal);
-    hasher.finalize(&mut hash);
-
-    // We export the hash as a field element
-    let (el, _) = bytes_le_to_fr(hash.as_ref());
-    el
 }
 
 pub fn compute_id_secret(
