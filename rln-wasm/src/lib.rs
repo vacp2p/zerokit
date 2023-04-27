@@ -7,7 +7,7 @@ use std::vec::Vec;
 
 use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
 use num_bigint::BigInt;
-use rln::public::RLN;
+use rln::public::{hash, poseidon_hash, RLN};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -95,6 +95,40 @@ macro_rules! call_bool_method_with_error_msg {
             new_instance.instance.$method($($arg.process()),*).map_err(|err| format!("Msg: {:#?}, Error: {:#?}", $error_msg, err))
         }
     }
+}
+
+// Macro to execute a function with arbitrary amount of arguments,
+// First argument is the function to execute
+// Rest are all other arguments to the method
+macro_rules! fn_call_with_output_and_error_msg {
+    // this variant is needed for the case when
+    // there are zero other arguments
+    ($func:ident, $error_msg:expr) => {
+        {
+            let mut output_data: Vec<u8> = Vec::new();
+            if let Err(err) = $func(&mut output_data) {
+                std::mem::forget(output_data);
+                Err(format!("Msg: {:#?}, Error: {:#?}", $error_msg, err))
+            } else {
+                let result = Uint8Array::from(&output_data[..]);
+                std::mem::forget(output_data);
+                Ok(result)
+            }
+        }
+    };
+    ($func:ident, $error_msg:expr, $( $arg:expr ),* ) => {
+        {
+            let mut output_data: Vec<u8> = Vec::new();
+            if let Err(err) = $func($($arg.process()),*, &mut output_data) {
+                std::mem::forget(output_data);
+                Err(format!("Msg: {:#?}, Error: {:#?}", $error_msg, err))
+            } else {
+                let result = Uint8Array::from(&output_data[..]);
+                std::mem::forget(output_data);
+                Ok(result)
+            }
+        }
+    };
 }
 
 trait ProcessArg {
@@ -194,6 +228,12 @@ pub fn wasm_set_leaves_from(
         index,
         &*input.to_vec()
     )
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[wasm_bindgen(js_name = deleteLeaf)]
+pub fn wasm_delete_leaf(ctx: *mut RLNWrapper, index: usize) -> Result<(), String> {
+    call_with_error_msg!(ctx, delete_leaf, "could not delete leaf".to_string(), index)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -332,4 +372,18 @@ pub fn wasm_verify_with_roots(
 #[wasm_bindgen(js_name = getRoot)]
 pub fn wasm_get_root(ctx: *const RLNWrapper) -> Result<Uint8Array, String> {
     call_with_output_and_error_msg!(ctx, get_root, "could not obtain root")
+}
+
+#[wasm_bindgen(js_name = hash)]
+pub fn wasm_hash(input: Uint8Array) -> Result<Uint8Array, String> {
+    fn_call_with_output_and_error_msg!(hash, "could not generate hash", &input.to_vec()[..])
+}
+
+#[wasm_bindgen(js_name = poseidonHash)]
+pub fn wasm_poseidon_hash(input: Uint8Array) -> Result<Uint8Array, String> {
+    fn_call_with_output_and_error_msg!(
+        poseidon_hash,
+        "could not generate poseidon hash",
+        &input.to_vec()[..]
+    )
 }
