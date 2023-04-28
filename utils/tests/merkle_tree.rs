@@ -4,7 +4,7 @@ mod test {
     use hex_literal::hex;
     use tiny_keccak::{Hasher as _, Keccak};
     use utils::{FullMerkleTree, Hasher, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
-
+    #[derive(Clone, Copy, Eq, PartialEq)]
     struct Keccak256;
 
     impl Hasher for Keccak256 {
@@ -44,14 +44,14 @@ mod test {
             hex!("a9bb8c3f1f12e9aa903a50c47f314b57610a3ab32f2d463293f58836def38d36"),
         ];
 
-        let mut tree = FullMerkleTree::<Keccak256>::new(2, [0; 32]);
+        let mut tree = FullMerkleTree::<Keccak256>::new(2, [0; 32], ()).unwrap();
         assert_eq!(tree.root(), default_tree_root);
         for i in 0..leaves.len() {
             tree.set(i, leaves[i]).unwrap();
             assert_eq!(tree.root(), roots[i]);
         }
 
-        let mut tree = OptimalMerkleTree::<Keccak256>::new(2, [0; 32]);
+        let mut tree = OptimalMerkleTree::<Keccak256>::new(2, [0; 32], ()).unwrap();
         assert_eq!(tree.root(), default_tree_root);
         for i in 0..leaves.len() {
             tree.set(i, leaves[i]).unwrap();
@@ -69,7 +69,7 @@ mod test {
         ];
 
         // We thest the FullMerkleTree implementation
-        let mut tree = FullMerkleTree::<Keccak256>::new(2, [0; 32]);
+        let mut tree = FullMerkleTree::<Keccak256>::new(2, [0; 32], ()).unwrap();
         for i in 0..leaves.len() {
             // We set the leaves
             tree.set(i, leaves[i]).unwrap();
@@ -93,7 +93,7 @@ mod test {
         }
 
         // We test the OptimalMerkleTree implementation
-        let mut tree = OptimalMerkleTree::<Keccak256>::new(2, [0; 32]);
+        let mut tree = OptimalMerkleTree::<Keccak256>::new(2, [0; 32], ()).unwrap();
         for i in 0..leaves.len() {
             // We set the leaves
             tree.set(i, leaves[i]).unwrap();

@@ -10,11 +10,10 @@ use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 use cfg_if::cfg_if;
-use color_eyre::Result;
+use color_eyre::{Report, Result};
 use num_bigint::BigInt;
 use std::io::Cursor;
 use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
-// use rkyv::Deserialize;
 
 cfg_if! {
     if #[cfg(not(target_arch = "wasm32"))] {
@@ -82,7 +81,7 @@ impl RLN<'_> {
         let verification_key = vk_from_folder(&resources_folder)?;
 
         // We compute a default empty tree
-        let tree = PoseidonTree::default(tree_height);
+        let tree = PoseidonTree::default(tree_height)?;
 
         Ok(RLN {
             witness_calculator,
@@ -140,7 +139,7 @@ impl RLN<'_> {
         let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
 
         // We compute a default empty tree
-        let tree = PoseidonTree::default(tree_height);
+        let tree = PoseidonTree::default(tree_height)?;
 
         Ok(RLN {
             #[cfg(not(target_arch = "wasm32"))]
@@ -164,7 +163,7 @@ impl RLN<'_> {
     /// - `tree_height`: the height of the Merkle tree.
     pub fn set_tree(&mut self, tree_height: usize) -> Result<()> {
         // We compute a default empty tree of desired height
-        self.tree = PoseidonTree::default(tree_height);
+        self.tree = PoseidonTree::default(tree_height)?;
 
         Ok(())
     }
@@ -239,7 +238,10 @@ impl RLN<'_> {
         let (leaves, _) = bytes_le_to_vec_fr(&leaves_byte)?;
 
         // We set the leaves
-        self.tree.set_range(index, leaves)
+        self.tree
+            .set_range(index, leaves)
+            .map_err(|_| Report::msg("Could not set leaves"))?;
+        Ok(())
     }
 
     /// Resets the tree state to default and sets multiple leaves starting from index 0.
@@ -1061,7 +1063,6 @@ mod test {
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use utils::ZerokitMerkleTree;
-    // use rkyv::Deserialize;
 
     #[test]
     // We test merkle batch Merkle tree additions
@@ -1132,7 +1133,7 @@ mod test {
 
         // We now delete all leaves set and check if the root corresponds to the empty tree root
         // delete calls over indexes higher than no_of_leaves are ignored and will not increase self.tree.next_index
-        for i in 0..2 * no_of_leaves {
+        for i in 0..no_of_leaves {
             rln.delete_leaf(i).unwrap();
         }
 
