@@ -12,7 +12,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
 use num_bigint::BigInt;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::io::Cursor;
 use std::str::FromStr;
 use utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
@@ -64,7 +64,7 @@ impl RLN<'_> {
     /// use std::io::Cursor;
     ///
     /// let tree_height = 20;
-    /// let resources = Cursor::new("tree_height_20");
+    /// let resources = Cursor::new(json!({"resources_folder": "tree_height_20"});
     ///
     /// // We create a new RLN instance
     /// let mut rln = RLN::new(tree_height, resources);
@@ -1003,7 +1003,7 @@ impl RLN<'_> {
 impl Default for RLN<'_> {
     fn default() -> Self {
         let tree_height = TEST_TREE_HEIGHT;
-        let buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let buffer = Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
         Self::new(tree_height, buffer).unwrap()
     }
 }
