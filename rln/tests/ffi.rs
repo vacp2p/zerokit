@@ -8,6 +8,7 @@ mod test {
     use rln::protocol::*;
     use rln::public::RLN;
     use rln::utils::*;
+    use serde_json::json;
     use std::fs::File;
     use std::io::Read;
     use std::mem::MaybeUninit;
@@ -28,7 +29,11 @@ mod test {
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let input_buffer = &Buffer::from(
+            json!({ "resources_folder": TEST_RESOURCES_FOLDER })
+                .to_string()
+                .as_bytes(),
+        );
         let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
@@ -135,7 +140,11 @@ mod test {
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let input_buffer = &Buffer::from(
+            json!({ "resources_folder": TEST_RESOURCES_FOLDER })
+                .to_string()
+                .as_bytes(),
+        );
         let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
@@ -232,7 +241,11 @@ mod test {
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let input_buffer = &Buffer::from(
+            json!({ "resources_folder": TEST_RESOURCES_FOLDER })
+                .to_string()
+                .as_bytes(),
+        );
         let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
@@ -272,7 +285,11 @@ mod test {
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let input_buffer = &Buffer::from(
+            json!({ "resources_folder": TEST_RESOURCES_FOLDER })
+                .to_string()
+                .as_bytes(),
+        );
         let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
@@ -440,7 +457,11 @@ mod test {
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let input_buffer = &Buffer::from(
+            json!({ "resources_folder": TEST_RESOURCES_FOLDER })
+                .to_string()
+                .as_bytes(),
+        );
         let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
@@ -502,7 +523,11 @@ mod test {
 
         // We create a RLN instance using a resource folder path
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let input_buffer = &Buffer::from(
+            json!({ "resources_folder": TEST_RESOURCES_FOLDER })
+                .to_string()
+                .as_bytes(),
+        );
         let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
@@ -582,7 +607,11 @@ mod test {
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let input_buffer = &Buffer::from(
+            json!({ "resources_folder": TEST_RESOURCES_FOLDER })
+                .to_string()
+                .as_bytes(),
+        );
         let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
@@ -666,7 +695,11 @@ mod test {
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let input_buffer = &Buffer::from(
+            json!({ "resources_folder": TEST_RESOURCES_FOLDER })
+                .to_string()
+                .as_bytes(),
+        );
         let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
@@ -784,7 +817,11 @@ mod test {
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let input_buffer = &Buffer::from(
+            json!({ "resources_folder": TEST_RESOURCES_FOLDER })
+                .to_string()
+                .as_bytes(),
+        );
         let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
@@ -943,7 +980,11 @@ mod test {
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let input_buffer = &Buffer::from(
+            json!({ "resources_folder": TEST_RESOURCES_FOLDER })
+                .to_string()
+                .as_bytes(),
+        );
         let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
@@ -982,7 +1023,11 @@ mod test {
         let tree_height = TEST_TREE_HEIGHT;
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_buffer = &Buffer::from(TEST_RESOURCES_FOLDER.as_bytes());
+        let input_buffer = &Buffer::from(
+            json!({ "resources_folder": TEST_RESOURCES_FOLDER })
+                .to_string()
+                .as_bytes(),
+        );
         let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };

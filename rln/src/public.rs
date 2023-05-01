@@ -12,8 +12,10 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
 use num_bigint::BigInt;
+use serde_json::Value;
 use std::io::Cursor;
-use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
+use std::str::FromStr;
+use utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
 
 cfg_if! {
     if #[cfg(not(target_arch = "wasm32"))] {
@@ -73,15 +75,30 @@ impl RLN<'_> {
         let mut input: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input)?;
 
-        let resources_folder = String::from_utf8(input)?;
+        let rln_config: Value = serde_json::from_str(&String::from_utf8(input)?)?;
+        let resources_folder = rln_config["resources_folder"]
+            .as_str()
+            .unwrap_or(TEST_RESOURCES_FOLDER);
+        let tree_config_opt = rln_config["tree_config"].as_str();
 
         let witness_calculator = circom_from_folder(&resources_folder)?;
 
         let proving_key = zkey_from_folder(&resources_folder)?;
         let verification_key = vk_from_folder(&resources_folder)?;
 
+        let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = match tree_config_opt {
+            Some(tree_config_str) => {
+                <PoseidonTree as ZerokitMerkleTree>::Config::from_str(tree_config_str)?
+            }
+            None => <PoseidonTree as ZerokitMerkleTree>::Config::default(),
+        };
+
         // We compute a default empty tree
-        let tree = PoseidonTree::default(tree_height)?;
+        let tree = PoseidonTree::new(
+            tree_height,
+            <PoseidonTree as ZerokitMerkleTree>::Hasher::default_leaf(),
+            tree_config,
+        )?;
 
         Ok(RLN {
             witness_calculator,
@@ -1062,6 +1079,7 @@ mod test {
     use super::*;
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
+    use serde_json::json;
     use utils::ZerokitMerkleTree;
 
     #[test]
@@ -1078,7 +1096,8 @@ mod test {
         }
 
         // We create a new tree
-        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let input_buffer =
+            Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
         let mut rln = RLN::new(tree_height, input_buffer).unwrap();
 
         // We first add leaves one by one specifying the index
@@ -1173,7 +1192,8 @@ mod test {
         let set_index = rng.gen_range(0..no_of_leaves) as usize;
 
         // We create a new tree
-        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let input_buffer =
+            Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
         let mut rln = RLN::new(tree_height, input_buffer).unwrap();
 
         // We add leaves in a batch into the tree
@@ -1244,7 +1264,8 @@ mod test {
         let bad_index = (1 << tree_height) - rng.gen_range(0..no_of_leaves) as usize;
 
         // We create a new tree
-        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let input_buffer =
+            Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
         let mut rln = RLN::new(tree_height, input_buffer).unwrap();
 
         // Get root of empty tree
@@ -1273,7 +1294,8 @@ mod test {
     fn test_groth16_proof() {
         let tree_height = TEST_TREE_HEIGHT;
 
-        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let input_buffer =
+            Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
         let mut rln = RLN::new(tree_height, input_buffer).unwrap();
 
         // Note: we only test Groth16 proof generation, so we ignore setting the tree in the RLN object
@@ -1317,7 +1339,8 @@ mod test {
         }
 
         // We create a new RLN instance
-        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let input_buffer =
+            Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
         let mut rln = RLN::new(tree_height, input_buffer).unwrap();
 
         // We add leaves in a batch into the tree
@@ -1381,7 +1404,8 @@ mod test {
         }
 
         // We create a new RLN instance
-        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let input_buffer =
+            Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
         let mut rln = RLN::new(tree_height, input_buffer).unwrap();
 
         // We add leaves in a batch into the tree
@@ -1477,7 +1501,8 @@ mod test {
         }
 
         // We create a new RLN instance
-        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let input_buffer =
+            Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
         let mut rln = RLN::new(tree_height, input_buffer).unwrap();
 
         // We add leaves in a batch into the tree
@@ -1563,7 +1588,8 @@ mod test {
         let tree_height = TEST_TREE_HEIGHT;
 
         // We create a new RLN instance
-        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let input_buffer =
+            Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
         let mut rln = RLN::new(tree_height, input_buffer).unwrap();
 
         // Generate identity pair

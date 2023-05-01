@@ -1,6 +1,7 @@
 use crate::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
 use color_eyre::{Report, Result};
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::{cmp::max, fmt::Debug};
 
 ////////////////////////////////////////////////////////////
@@ -35,6 +36,22 @@ where
 #[derive(Clone, PartialEq, Eq)]
 pub struct OptimalMerkleProof<H: Hasher>(pub Vec<(H::Fr, u8)>);
 
+pub struct OptimalMerkleConfig(());
+
+impl Default for OptimalMerkleConfig {
+    fn default() -> Self {
+        OptimalMerkleConfig(())
+    }
+}
+
+impl FromStr for OptimalMerkleConfig {
+    type Err = Report;
+
+    fn from_str(_s: &str) -> Result<Self> {
+        Ok(OptimalMerkleConfig::default())
+    }
+}
+
 /// Implementations
 
 impl<H: Hasher> ZerokitMerkleTree for OptimalMerkleTree<H>
@@ -43,10 +60,10 @@ where
 {
     type Proof = OptimalMerkleProof<H>;
     type Hasher = H;
-    type Config = ();
+    type Config = OptimalMerkleConfig;
 
     fn default(depth: usize) -> Result<Self> {
-        OptimalMerkleTree::<H>::new(depth, H::default_leaf(), ())
+        OptimalMerkleTree::<H>::new(depth, H::default_leaf(), Self::Config::default())
     }
 
     /// Creates a new `MerkleTree`

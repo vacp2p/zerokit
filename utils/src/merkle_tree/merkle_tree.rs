@@ -13,6 +13,8 @@
 //! * Disk based storage backend (using mmaped files should be easy)
 //! * Implement serialization for tree and Merkle proof
 
+use std::str::FromStr;
+
 use color_eyre::Result;
 
 /// In the Hasher trait we define the node type, the default leaf
@@ -35,7 +37,7 @@ pub type FrOf<H> = <H as Hasher>::Fr;
 pub trait ZerokitMerkleTree {
     type Proof: ZerokitMerkleProof;
     type Hasher: Hasher;
-    type Config: Default;
+    type Config: Default + FromStr;
 
     fn default(depth: usize) -> Result<Self>
     where
