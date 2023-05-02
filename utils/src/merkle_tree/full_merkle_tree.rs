@@ -45,13 +45,8 @@ pub enum FullMerkleBranch<H: Hasher> {
 #[derive(Clone, PartialEq, Eq)]
 pub struct FullMerkleProof<H: Hasher>(pub Vec<FullMerkleBranch<H>>);
 
+#[derive(Default)]
 pub struct FullMerkleConfig(());
-
-impl Default for FullMerkleConfig {
-    fn default() -> Self {
-        FullMerkleConfig(())
-    }
-}
 
 impl FromStr for FullMerkleConfig {
     type Err = Report;

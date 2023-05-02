@@ -81,10 +81,10 @@ impl RLN<'_> {
             .unwrap_or(TEST_RESOURCES_FOLDER);
         let tree_config_opt = rln_config["tree_config"].as_str();
 
-        let witness_calculator = circom_from_folder(&resources_folder)?;
+        let witness_calculator = circom_from_folder(resources_folder)?;
 
-        let proving_key = zkey_from_folder(&resources_folder)?;
-        let verification_key = vk_from_folder(&resources_folder)?;
+        let proving_key = zkey_from_folder(resources_folder)?;
+        let verification_key = vk_from_folder(resources_folder)?;
 
         let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = match tree_config_opt {
             Some(tree_config_str) => {

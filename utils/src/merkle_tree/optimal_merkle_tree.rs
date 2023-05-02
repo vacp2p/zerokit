@@ -36,13 +36,8 @@ where
 #[derive(Clone, PartialEq, Eq)]
 pub struct OptimalMerkleProof<H: Hasher>(pub Vec<(H::Fr, u8)>);
 
+#[derive(Default)]
 pub struct OptimalMerkleConfig(());
-
-impl Default for OptimalMerkleConfig {
-    fn default() -> Self {
-        OptimalMerkleConfig(())
-    }
-}
 
 impl FromStr for OptimalMerkleConfig {
     type Err = Report;
