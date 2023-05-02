@@ -2405,7 +2405,7 @@ dependencies = [
 
 [[package]]
 name = "rln-wasm"
-version = "0.0.7"
+version = "0.0.9"
 dependencies = [
  "console_error_panic_hook",
  "getrandom",
