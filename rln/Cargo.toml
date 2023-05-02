@@ -48,10 +48,10 @@ include_dir = "=0.7.3"
 sled = "=0.34.7"
 
 [features]
-default = ["parallel", "wasmer/sys-default"]
+default = ["parallel", "wasmer/sys-default", "pmtree-ft"]
 parallel = ["ark-ec/parallel", "ark-ff/parallel", "ark-std/parallel", "ark-groth16/parallel", "utils/parallel"]
 wasm = ["wasmer/js", "wasmer/std"]
 fullmerkletree = ["default"]
 
 # Note: pmtree feature is still experimental
-pmtree-ft = ["default", "utils/pmtree-ft"]
+pmtree-ft = ["utils/pmtree-ft"]
