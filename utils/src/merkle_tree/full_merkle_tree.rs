@@ -4,6 +4,7 @@ use std::{
     cmp::max,
     fmt::Debug,
     iter::{once, repeat, successors},
+    str::FromStr,
 };
 
 ////////////////////////////////////////////////////////////
@@ -44,6 +45,17 @@ pub enum FullMerkleBranch<H: Hasher> {
 #[derive(Clone, PartialEq, Eq)]
 pub struct FullMerkleProof<H: Hasher>(pub Vec<FullMerkleBranch<H>>);
 
+#[derive(Default)]
+pub struct FullMerkleConfig(());
+
+impl FromStr for FullMerkleConfig {
+    type Err = Report;
+
+    fn from_str(_s: &str) -> Result<Self> {
+        Ok(FullMerkleConfig::default())
+    }
+}
+
 /// Implementations
 impl<H: Hasher> ZerokitMerkleTree for FullMerkleTree<H>
 where
@@ -51,10 +63,10 @@ where
 {
     type Proof = FullMerkleProof<H>;
     type Hasher = H;
-    type Config = ();
+    type Config = FullMerkleConfig;
 
     fn default(depth: usize) -> Result<Self> {
-        FullMerkleTree::<H>::new(depth, Self::Hasher::default_leaf(), ())
+        FullMerkleTree::<H>::new(depth, Self::Hasher::default_leaf(), Self::Config::default())
     }
 
     /// Creates a new `MerkleTree`

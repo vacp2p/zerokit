@@ -2,7 +2,10 @@ use crate::circuit::Fr;
 use crate::hashers::{poseidon_hash, PoseidonHash};
 use crate::utils::{bytes_le_to_fr, fr_to_bytes_le};
 use color_eyre::{Report, Result};
+use serde_json::Value;
 use std::fmt::Debug;
+use std::path::PathBuf;
+use std::str::FromStr;
 use utils::*;
 
 pub struct PmTree {
@@ -37,10 +40,39 @@ impl pmtree::Hasher for PoseidonHash {
     }
 }
 
+fn get_tmp_path() -> std::path::PathBuf {
+    std::env::temp_dir().join(format!("pmtree-{}", rand::random::<u64>()))
+}
+
+fn get_tmp() -> bool {
+    true
+}
+
 pub struct PmtreeConfig(pm_tree::Config);
+
+impl FromStr for PmtreeConfig {
+    type Err = Report;
+
+    fn from_str(s: &str) -> Result<Self> {
+        let config: Value = serde_json::from_str(s)?;
+
+        let temporary = config["temporary"].as_bool();
+        let path = config["path"].as_str();
+        let path = match path {
+            Some(path) => Some(PathBuf::from(path)),
+            None => None,
+        };
+
+        let config = pm_tree::Config::new()
+            .temporary(temporary.unwrap_or(get_tmp()))
+            .path(path.unwrap_or(get_tmp_path()));
+        Ok(PmtreeConfig(config))
+    }
+}
+
 impl Default for PmtreeConfig {
     fn default() -> Self {
-        let tmp_path = std::env::temp_dir().join(format!("pmtree-{}", rand::random::<u64>()));
+        let tmp_path = get_tmp_path();
         PmtreeConfig(pm_tree::Config::new().temporary(true).path(tmp_path))
     }
 }

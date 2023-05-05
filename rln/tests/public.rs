@@ -7,6 +7,7 @@ mod test {
     use rln::protocol::{compute_tree_root, deserialize_identity_tuple};
     use rln::public::{hash as public_hash, poseidon_hash as public_poseidon_hash, RLN};
     use rln::utils::*;
+    use serde_json::json;
     use std::io::Cursor;
 
     #[test]
@@ -15,7 +16,8 @@ mod test {
         let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
 
-        let input_buffer = Cursor::new(TEST_RESOURCES_FOLDER);
+        let input_buffer =
+            Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
         let mut rln = RLN::new(tree_height, input_buffer).unwrap();
 
         // generate identity

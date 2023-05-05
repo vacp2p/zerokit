@@ -2395,6 +2395,7 @@ dependencies = [
  "once_cell",
  "rand",
  "rand_chacha",
+ "serde",
  "serde_json",
  "sled",
  "thiserror",
@@ -3117,6 +3118,7 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "pmtree",
+ "serde",
  "sled",
  "tiny-keccak",
 ]
