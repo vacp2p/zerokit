@@ -3,9 +3,11 @@ use crate::hashers::{poseidon_hash, PoseidonHash};
 use crate::utils::{bytes_le_to_fr, fr_to_bytes_le};
 use color_eyre::{Report, Result};
 use serde_json::Value;
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::str::FromStr;
+use utils::pmtree::Hasher;
 use utils::*;
 
 pub struct PmTree {
@@ -127,6 +129,10 @@ impl ZerokitMerkleTree for PmTree {
             .map_err(|e| Report::msg(e.to_string()))
     }
 
+    fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>> {
+        self.tree.get(index).map_err(|e| Report::msg(e.to_string()))
+    }
+
     fn set_range<I: IntoIterator<Item = FrOf<Self::Hasher>>>(
         &mut self,
         start: usize,
@@ -134,6 +140,42 @@ impl ZerokitMerkleTree for PmTree {
     ) -> Result<()> {
         self.tree
             .set_range(start, values)
+            .map_err(|e| Report::msg(e.to_string()))
+    }
+
+    fn override_range<I: IntoIterator<Item = FrOf<Self::Hasher>>, J: IntoIterator<Item = usize>>(
+        &mut self,
+        start: usize,
+        leaves: I,
+        indices: J,
+    ) -> Result<()> {
+        let leaves = leaves.into_iter().collect::<Vec<_>>();
+        let indices = indices.into_iter().collect::<HashSet<_>>();
+        let end = start + leaves.len();
+
+        if leaves.len() + start - indices.len() > self.capacity() {
+            return Err(Report::msg("index out of bounds"));
+        }
+
+        // extend the range to include indices to be removed
+        let min_index = indices.iter().min().unwrap_or(&start);
+        let max_index = indices.iter().max().unwrap_or(&end);
+
+        let mut new_leaves = Vec::new();
+
+        // insert leaves into new_leaves
+        for i in *min_index..*max_index {
+            if indices.contains(&i) {
+                // insert 0
+                new_leaves.push(Self::Hasher::default_leaf());
+            } else {
+                // insert leaf
+                new_leaves.push(leaves[i - start]);
+            }
+        }
+
+        self.tree
+            .set_range(start, new_leaves)
             .map_err(|e| Report::msg(e.to_string()))
     }
 
@@ -160,6 +202,11 @@ impl ZerokitMerkleTree for PmTree {
         } else {
             Err(Report::msg("verify failed"))
         }
+    }
+
+    fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>> {
+        self.tree.recalculate_from(0)?;
+        Ok(self.tree.root())
     }
 }
 

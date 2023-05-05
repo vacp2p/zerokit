@@ -2110,7 +2110,7 @@ dependencies = [
 [[package]]
 name = "pmtree"
 version = "1.0.0"
-source = "git+https://github.com/Rate-Limiting-Nullifier/pmtree?rev=b3a02216cece3e9c24e1754ea381bf784fd1df48#b3a02216cece3e9c24e1754ea381bf784fd1df48"
+source = "git+https://github.com/Rate-Limiting-Nullifier/pmtree?rev=be5b3a7b138ea26c0596734d922871d44d3da301#be5b3a7b138ea26c0596734d922871d44d3da301"
 dependencies = [
  "rayon",
 ]
