@@ -58,10 +58,7 @@ impl FromStr for PmtreeConfig {
 
         let temporary = config["temporary"].as_bool();
         let path = config["path"].as_str();
-        let path = match path {
-            Some(path) => Some(PathBuf::from(path)),
-            None => None,
-        };
+        let path = path.map(PathBuf::from);
 
         let config = pm_tree::Config::new()
             .temporary(temporary.unwrap_or(get_tmp()))
