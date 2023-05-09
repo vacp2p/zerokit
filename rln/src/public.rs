@@ -428,7 +428,7 @@ impl RLN<'_> {
         mut input_data: R,
         mut output_data: W,
     ) -> Result<()> {
-        // We read input RLN witness and we serialize_compressed it
+        // We read input RLN witness and we serialize_uncompressed it
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let (rln_witness, _) = deserialize_witness(&serialized)?;
@@ -442,7 +442,7 @@ impl RLN<'_> {
         let proof = generate_proof(self.witness_calculator, &self.proving_key, &rln_witness)?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
-        proof.serialize_compressed(&mut output_data)?;
+        proof.serialize_uncompressed(&mut output_data)?;
 
         Ok(())
     }
@@ -488,7 +488,7 @@ impl RLN<'_> {
         // [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
         let mut input_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input_byte)?;
-        let proof = ArkProof::deserialize_compressed(&mut Cursor::new(&input_byte[..128]))?;
+        let proof = ArkProof::deserialize_uncompressed(&mut Cursor::new(&input_byte[..128]))?;
 
         let (proof_values, _) = deserialize_proof_values(&input_byte[128..]);
 
@@ -547,7 +547,7 @@ impl RLN<'_> {
         mut input_data: R,
         mut output_data: W,
     ) -> Result<()> {
-        // We read input RLN witness and we serialize_compressed it
+        // We read input RLN witness and we serialize_uncompressed it
         let mut witness_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut witness_byte)?;
         let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
@@ -557,7 +557,7 @@ impl RLN<'_> {
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
-        proof.serialize_compressed(&mut output_data)?;
+        proof.serialize_uncompressed(&mut output_data)?;
         output_data.write_all(&serialize_proof_values(&proof_values))?;
 
         Ok(())
@@ -582,7 +582,7 @@ impl RLN<'_> {
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
-        proof.serialize_compressed(&mut output_data)?;
+        proof.serialize_uncompressed(&mut output_data)?;
         output_data.write_all(&serialize_proof_values(&proof_values))?;
         Ok(())
     }
@@ -619,7 +619,7 @@ impl RLN<'_> {
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
         let proof =
-            ArkProof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
+            ArkProof::deserialize_uncompressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
         let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
         all_read += read;
@@ -697,7 +697,7 @@ impl RLN<'_> {
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
         let proof =
-            ArkProof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
+            ArkProof::deserialize_uncompressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
         let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
         all_read += read;
@@ -772,7 +772,7 @@ impl RLN<'_> {
     /// let mut buffer = Cursor::new(Vec::<u8>::new());
     /// rln.key_gen(&mut buffer).unwrap();
     ///
-    /// // We serialize_compressed the keygen output
+    /// // We serialize_uncompressed the keygen output
     /// let (identity_secret_hash, id_commitment) = deserialize_identity_pair(buffer.into_inner());
     /// ```
     pub fn key_gen<W: Write>(&self, mut output_data: W) -> Result<()> {
@@ -802,7 +802,7 @@ impl RLN<'_> {
     /// let mut buffer = Cursor::new(Vec::<u8>::new());
     /// rln.extended_key_gen(&mut buffer).unwrap();
     ///
-    /// // We serialize_compressed the keygen output
+    /// // We serialize_uncompressed the keygen output
     /// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
     /// ```
     pub fn extended_key_gen<W: Write>(&self, mut output_data: W) -> Result<()> {
@@ -837,7 +837,7 @@ impl RLN<'_> {
     /// rln.seeded_key_gen(&mut input_buffer, &mut output_buffer)
     ///     .unwrap();
     ///
-    /// // We serialize_compressed the keygen output
+    /// // We serialize_uncompressed the keygen output
     /// let (identity_secret_hash, id_commitment) = deserialize_identity_pair(output_buffer.into_inner());
     /// ```
     pub fn seeded_key_gen<R: Read, W: Write>(
@@ -880,7 +880,7 @@ impl RLN<'_> {
     /// rln.seeded_key_gen(&mut input_buffer, &mut output_buffer)
     ///     .unwrap();
     ///
-    /// // We serialize_compressed the keygen output
+    /// // We serialize_uncompressed the keygen output
     /// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
     /// ```
     pub fn seeded_extended_key_gen<R: Read, W: Write>(
@@ -939,7 +939,7 @@ impl RLN<'_> {
         mut input_proof_data_2: R,
         mut output_data: W,
     ) -> Result<()> {
-        // We serialize_compressed the two proofs and we get the corresponding RLNProofValues objects
+        // We serialize_uncompressed the two proofs and we get the corresponding RLNProofValues objects
         let mut serialized: Vec<u8> = Vec::new();
         input_proof_data_1.read_to_end(&mut serialized)?;
         // We skip deserialization of the zk-proof at the beginning
@@ -983,7 +983,7 @@ impl RLN<'_> {
     ///
     /// The function returns the corresponding [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object serialized using [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
     pub fn get_serialized_rln_witness<R: Read>(&mut self, mut input_data: R) -> Result<Vec<u8>> {
-        // We read input RLN witness and we serialize_compressed it
+        // We read input RLN witness and we serialize_uncompressed it
         let mut witness_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut witness_byte)?;
         let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
@@ -1031,7 +1031,7 @@ impl Default for RLN<'_> {
 /// hash(&mut input_buffer, &mut output_buffer)
 ///     .unwrap();
 ///
-/// // We serialize_compressed the keygen output
+/// // We serialize_uncompressed the keygen output
 /// let field_element = deserialize_field_element(output_buffer.into_inner());
 /// ```
 pub fn hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> Result<()> {
@@ -1064,7 +1064,7 @@ pub fn hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> Result<
 /// poseidon_hash(&mut input_buffer, &mut output_buffer)
 ///     .unwrap();
 ///
-/// // We serialize_compressed the hash output
+/// // We serialize_uncompressed the hash output
 /// let hash_result = deserialize_field_element(output_buffer.into_inner());
 /// ```
 pub fn poseidon_hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> Result<()> {
@@ -1313,7 +1313,7 @@ mod test {
         let serialized_proof = output_buffer.into_inner();
 
         // Before checking public verify API, we check that the (deserialized) proof generated by prove is actually valid
-        let proof = ArkProof::deserialize_compressed(&mut Cursor::new(&serialized_proof)).unwrap();
+        let proof = ArkProof::deserialize_uncompressed(&mut Cursor::new(&serialized_proof)).unwrap();
         let verified = verify_proof(&rln.verification_key, &proof, &proof_values);
         assert!(verified.unwrap());
 
@@ -1442,7 +1442,7 @@ mod test {
 
         let mut input_buffer = Cursor::new(serialized);
 
-        // We read input RLN witness and we serialize_compressed it
+        // We read input RLN witness and we serialize_uncompressed it
         let mut witness_byte: Vec<u8> = Vec::new();
         input_buffer.read_to_end(&mut witness_byte).unwrap();
         let (rln_witness, _) = proof_inputs_to_rln_witness(&mut rln.tree, &witness_byte).unwrap();
