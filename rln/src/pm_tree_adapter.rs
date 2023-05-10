@@ -205,7 +205,6 @@ impl ZerokitMerkleTree for PmTree {
     }
 
     fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>> {
-        self.tree.recalculate_from(0)?;
         Ok(self.tree.root())
     }
 }
