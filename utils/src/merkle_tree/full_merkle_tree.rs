@@ -125,6 +125,14 @@ where
         Ok(())
     }
 
+    // Get a leaf from the specified tree index
+    fn get(&self, leaf: usize) -> Result<FrOf<Self::Hasher>> {
+        if leaf >= self.capacity() {
+            return Err(Report::msg("leaf index out of bounds"));
+        }
+        Ok(self.nodes[self.capacity() + leaf - 1])
+    }
+
     // Sets tree nodes, starting from start index
     // Function proper of FullMerkleTree implementation
     fn set_range<I: IntoIterator<Item = FrOf<Self::Hasher>>>(
@@ -147,6 +155,39 @@ where
         if count != 0 {
             self.update_nodes(index, index + (count - 1))?;
             self.next_index = max(self.next_index, start + count);
+        }
+        Ok(())
+    }
+
+    fn override_range<I, J>(&mut self, start: usize, leaves: I, to_remove_indices: J) -> Result<()>
+    where
+        I: IntoIterator<Item = FrOf<Self::Hasher>>,
+        J: IntoIterator<Item = usize>,
+    {
+        let index = self.capacity() + start - 1;
+        let mut count = 0;
+        let leaves = leaves.into_iter().collect::<Vec<_>>();
+        let to_remove_indices = to_remove_indices.into_iter().collect::<Vec<_>>();
+        // first count number of hashes, and check that they fit in the tree
+        // then insert into the tree
+        if leaves.len() + start - to_remove_indices.len() > self.capacity() {
+            return Err(Report::msg("provided hashes do not fit in the tree"));
+        }
+
+        // remove leaves
+        for i in &to_remove_indices {
+            self.delete(*i)?;
+        }
+
+        // insert new leaves
+        for hash in leaves {
+            self.nodes[index + count] = hash;
+            count += 1;
+        }
+
+        if count != 0 {
+            self.update_nodes(index, index + (count - 1))?;
+            self.next_index = max(self.next_index, start + count - to_remove_indices.len());
         }
         Ok(())
     }
@@ -188,6 +229,10 @@ where
     // Verifies a Merkle proof with respect to the input leaf and the tree root
     fn verify(&self, hash: &FrOf<Self::Hasher>, proof: &FullMerkleProof<H>) -> Result<bool> {
         Ok(proof.compute_root_from(hash) == self.root())
+    }
+
+    fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>> {
+        Ok(self.root())
     }
 }
 

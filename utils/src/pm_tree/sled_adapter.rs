@@ -14,8 +14,7 @@ impl Database for SledDB {
             Err(e) => {
                 return Err(PmtreeErrorKind::DatabaseError(
                     DatabaseErrorKind::CustomError(format!(
-                        "Cannot create database: {} {:#?}",
-                        e, config
+                        "Cannot create database: {e} {config:#?}",
                     )),
                 ))
             }
@@ -29,7 +28,7 @@ impl Database for SledDB {
             Ok(db) => db,
             Err(e) => {
                 return Err(PmtreeErrorKind::DatabaseError(
-                    DatabaseErrorKind::CustomError(format!("Cannot load database: {}", e)),
+                    DatabaseErrorKind::CustomError(format!("Cannot load database: {e}")),
                 ))
             }
         };

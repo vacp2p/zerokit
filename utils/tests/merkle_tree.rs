@@ -125,4 +125,41 @@ mod test {
                 .unwrap());
         }
     }
+
+    #[test]
+    fn test_override_range() {
+        let initial_leaves = [
+            hex!("0000000000000000000000000000000000000000000000000000000000000001"),
+            hex!("0000000000000000000000000000000000000000000000000000000000000002"),
+            hex!("0000000000000000000000000000000000000000000000000000000000000003"),
+            hex!("0000000000000000000000000000000000000000000000000000000000000004"),
+        ];
+
+        let mut tree =
+            OptimalMerkleTree::<Keccak256>::new(2, [0; 32], OptimalMerkleConfig::default())
+                .unwrap();
+
+        // We set the leaves
+        tree.set_range(0, initial_leaves.iter().cloned()).unwrap();
+
+        let new_leaves = [
+            hex!("0000000000000000000000000000000000000000000000000000000000000005"),
+            hex!("0000000000000000000000000000000000000000000000000000000000000006"),
+        ];
+
+        let to_delete_indices: [usize; 2] = [0, 1];
+
+        // We override the leaves
+        tree.override_range(
+            0, // start from the end of the initial leaves
+            new_leaves.iter().cloned(),
+            to_delete_indices.iter().cloned(),
+        )
+        .unwrap();
+
+        // ensure that the leaves are set correctly
+        for i in 0..new_leaves.len() {
+            assert_eq!(tree.get_leaf(i), new_leaves[i]);
+        }
+    }
 }
