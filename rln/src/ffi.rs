@@ -246,6 +246,17 @@ pub extern "C" fn init_tree_with_leaves(ctx: *mut RLN, input_buffer: *const Buff
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+pub extern "C" fn atomic_operation(
+    ctx: *mut RLN,
+    index: usize,
+    leaves_buffer: *const Buffer,
+    indices_buffer: *const Buffer,
+) -> bool {
+    call!(ctx, atomic_operation, index, leaves_buffer, indices_buffer)
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
 pub extern "C" fn get_root(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
     call_with_output_arg!(ctx, get_root, output_buffer)
 }
