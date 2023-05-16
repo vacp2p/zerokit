@@ -220,6 +220,71 @@ mod test {
 
     #[test]
     // This test is similar to the one in public.rs but it uses the RLN object as a pointer
+    fn test_atomic_operation_ffi() {
+        let tree_height = TEST_TREE_HEIGHT;
+        let no_of_leaves = 256;
+
+        // We create a RLN instance
+        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
+        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_buffer = &Buffer::from(input_config.as_bytes());
+        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        assert!(success, "RLN object creation failed");
+        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+
+        // We generate a vector of random leaves
+        let mut leaves: Vec<Fr> = Vec::new();
+        let mut rng = thread_rng();
+        for _ in 0..no_of_leaves {
+            leaves.push(Fr::rand(&mut rng));
+        }
+
+        // We add leaves in a batch into the tree
+        let leaves_ser = vec_fr_to_bytes_le(&leaves).unwrap();
+        let input_buffer = &Buffer::from(leaves_ser.as_ref());
+        let success = init_tree_with_leaves(rln_pointer, input_buffer);
+        assert!(success, "init tree with leaves call failed");
+
+        // We get the root of the tree obtained adding leaves in batch
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "get root call failed");
+
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (root_after_insertion, _) = bytes_le_to_fr(&result_data);
+
+        let last_leaf = leaves.last().unwrap();
+        let last_leaf_index = no_of_leaves - 1;
+        let indices = vec![last_leaf_index as u8];
+        let last_leaf = vec![*last_leaf];
+        let indices = vec_u8_to_bytes_le(&indices).unwrap();
+        let indices_buffer = &Buffer::from(indices.as_ref());
+        let leaves = vec_fr_to_bytes_le(&last_leaf).unwrap();
+        let leaves_buffer = &Buffer::from(leaves.as_ref());
+
+        let success = atomic_operation(
+            rln_pointer,
+            no_of_leaves as usize,
+            leaves_buffer,
+            indices_buffer,
+        );
+        assert!(success, "atomic operation call failed");
+
+        // We get the root of the tree obtained after a no-op
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "get root call failed");
+
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (root_after_noop, _) = bytes_le_to_fr(&result_data);
+
+        assert_eq!(root_after_insertion, root_after_noop);
+    }
+
+    #[test]
+    // This test is similar to the one in public.rs but it uses the RLN object as a pointer
     fn test_set_leaves_bad_index_ffi() {
         let tree_height = TEST_TREE_HEIGHT;
         let no_of_leaves = 256;
