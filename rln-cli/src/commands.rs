@@ -19,4 +19,9 @@ pub(crate) enum Commands {
     SetTree {
         tree_height: usize,
     },
+    SetLeaf {
+        index: usize,
+        #[arg(short, long)]
+        file: PathBuf,
+    },
 }
