@@ -10,3 +10,8 @@ struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
 }
+
+#[derive(Default)]
+struct State<'a> {
+    rln: Option<RLN<'a>>,
+}
