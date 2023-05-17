@@ -1,12 +1,17 @@
 use std::{
     fs::File,
     io::Read,
-    path::{Path, PathBuf},
+    path::Path,
 };
 
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use color_eyre::Result;
+use commands::Commands;
 use rln::public::RLN;
+use state::State;
+
+mod commands;
+mod state;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -15,26 +20,6 @@ struct Cli {
     command: Option<Commands>,
 }
 
-#[derive(Default)]
-struct State<'a> {
-    rln: Option<RLN<'a>>,
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    New {
-        tree_height: usize,
-        /// Sets a custom config file
-        #[arg(short, long)]
-        config: PathBuf,
-    },
-    NewWithParams {
-        tree_height: usize,
-        /// Sets a custom config file
-        #[arg(short, long)]
-        config: PathBuf,
-    },
-}
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
