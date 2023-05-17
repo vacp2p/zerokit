@@ -31,7 +31,7 @@ fn main() -> Result<()> {
             tree_height,
             config,
         }) => {
-            let resources = File::open(&config).expect("no file found");
+            let resources = File::open(&config)?;
             state.rln = Some(RLN::new(*tree_height, resources)?);
             Ok(())
         }
