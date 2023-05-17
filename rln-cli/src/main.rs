@@ -65,5 +65,14 @@ fn main() -> Result<()> {
             state.rln.ok_or(Report::msg("no RLN initialized"))?.set_leaf(*index, input_data)?;
             Ok(())
         }
+        Some(Commands::SetMultipleLeaves {
+            index,
+            file,
+        }) => {
+            let input_data = File::open(&file)?;
+            state.rln.ok_or(Report::msg("no RLN initialized"))?.set_leaves_from(*index, input_data)?;
+            Ok(())
+        }
+        None => Ok(()),
     }
 }
