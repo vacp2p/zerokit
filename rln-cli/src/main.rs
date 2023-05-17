@@ -1,8 +1,4 @@
-use std::{
-    fs::File,
-    io::Read,
-    path::Path,
-};
+use std::{fs::File, io::Read, path::Path};
 
 use clap::Parser;
 use color_eyre::Result;
@@ -19,7 +15,6 @@ struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
 }
-
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
