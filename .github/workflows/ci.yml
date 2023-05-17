@@ -102,7 +102,7 @@ jobs:
         uses: jetli/wasm-pack-action@v0.3.0
       - run: cargo make build
         working-directory: rln-wasm
-      - run: cargo-make test
+      - run: cargo make test --release
         working-directory: rln-wasm
 
   rln:
