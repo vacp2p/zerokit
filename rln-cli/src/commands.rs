@@ -16,4 +16,7 @@ pub(crate) enum Commands {
         #[arg(short, long)]
         config: PathBuf,
     },
+    SetTree {
+        tree_height: usize,
+    },
 }
