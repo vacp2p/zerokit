@@ -29,4 +29,8 @@ pub(crate) enum Commands {
         #[arg(short, long)]
         file: PathBuf,
     },
+    ResetMultipleLeaves {
+        #[arg(short, long)]
+        file: PathBuf,
+    },
 }
