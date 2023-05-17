@@ -51,33 +51,35 @@ fn main() -> Result<()> {
             )?);
             Ok(())
         }
-        Some(Commands::SetTree {
-            tree_height,
-        }) => {
-            state.rln.ok_or(Report::msg("no RLN initialized"))?.set_tree(*tree_height)?;
+        Some(Commands::SetTree { tree_height }) => {
+            state
+                .rln
+                .ok_or(Report::msg("no RLN initialized"))?
+                .set_tree(*tree_height)?;
             Ok(())
         }
-        Some(Commands::SetLeaf {
-            index,
-            file,
-        }) => {
+        Some(Commands::SetLeaf { index, file }) => {
             let input_data = File::open(&file)?;
-            state.rln.ok_or(Report::msg("no RLN initialized"))?.set_leaf(*index, input_data)?;
+            state
+                .rln
+                .ok_or(Report::msg("no RLN initialized"))?
+                .set_leaf(*index, input_data)?;
             Ok(())
         }
-        Some(Commands::SetMultipleLeaves {
-            index,
-            file,
-        }) => {
+        Some(Commands::SetMultipleLeaves { index, file }) => {
             let input_data = File::open(&file)?;
-            state.rln.ok_or(Report::msg("no RLN initialized"))?.set_leaves_from(*index, input_data)?;
+            state
+                .rln
+                .ok_or(Report::msg("no RLN initialized"))?
+                .set_leaves_from(*index, input_data)?;
             Ok(())
         }
-        Some(Commands::ResetMultipleLeaves {
-            file,
-        }) => {
+        Some(Commands::ResetMultipleLeaves { file }) => {
             let input_data = File::open(&file)?;
-            state.rln.ok_or(Report::msg("no RLN initialized"))?.init_tree_with_leaves(input_data)?;
+            state
+                .rln
+                .ok_or(Report::msg("no RLN initialized"))?
+                .init_tree_with_leaves(input_data)?;
             Ok(())
         }
         None => Ok(()),
