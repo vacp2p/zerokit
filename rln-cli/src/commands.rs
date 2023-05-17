@@ -24,4 +24,9 @@ pub(crate) enum Commands {
         #[arg(short, long)]
         file: PathBuf,
     },
+    SetMultipleLeaves {
+        index: usize,
+        #[arg(short, long)]
+        file: PathBuf,
+    },
 }
