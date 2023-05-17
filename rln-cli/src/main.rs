@@ -1,7 +1,7 @@
 use std::{fs::File, io::Read, path::Path};
 
 use clap::Parser;
-use color_eyre::Result;
+use color_eyre::{Report, Result};
 use commands::Commands;
 use rln::public::RLN;
 use state::State;
@@ -49,6 +49,12 @@ fn main() -> Result<()> {
                 resources[1].clone(),
                 resources[2].clone(),
             )?);
+            Ok(())
+        }
+        Some(Commands::SetTree {
+            tree_height,
+        }) => {
+            state.rln.ok_or(Report::msg("no RLN initialized"))?.set_tree(*tree_height)?;
             Ok(())
         }
         None => Ok(()),
