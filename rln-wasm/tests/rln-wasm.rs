@@ -62,7 +62,8 @@ mod tests {
             wasm_get_serialized_rln_witness(rln_instance, serialized_message).unwrap();
 
         // Obtaining inputs that should be sent to circom witness calculator
-        let json_inputs = rln_witness_to_json(rln_instance, serialized_rln_witness.clone()).unwrap();
+        let json_inputs =
+            rln_witness_to_json(rln_instance, serialized_rln_witness.clone()).unwrap();
 
         // Calculating witness with JS
         // (Using a JSON since wasm_bindgen does not like Result<Vec<JsBigInt>,JsValue>)
