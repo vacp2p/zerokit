@@ -1,8 +1,12 @@
-use std::{path::{PathBuf, Path}, fs::File, io::Read};
+use std::{
+    fs::File,
+    io::Read,
+    path::{Path, PathBuf},
+};
 
 use clap::{Parser, Subcommand};
-use rln::public::RLN;
 use color_eyre::Result;
+use rln::public::RLN;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -32,18 +36,24 @@ enum Commands {
     },
 }
 
-fn main() -> Result<()>{
+fn main() -> Result<()> {
     let cli = Cli::parse();
 
     let mut state = State::default();
 
     match &cli.command {
-        Some(Commands::New { tree_height, config }) => {
+        Some(Commands::New {
+            tree_height,
+            config,
+        }) => {
             let resources = File::open(&config).expect("no file found");
             state.rln = Some(RLN::new(*tree_height, resources)?);
             Ok(())
         }
-        Some(Commands::NewWithParams { tree_height, config }) => {
+        Some(Commands::NewWithParams {
+            tree_height,
+            config,
+        }) => {
             let mut resources: Vec<Vec<u8>> = Vec::new();
             for filename in ["rln.wasm", "rln_final.zkey", "verification_key.json"] {
                 let fullpath = config.join(Path::new(filename));
@@ -61,6 +71,6 @@ fn main() -> Result<()>{
             )?);
             Ok(())
         }
-        None => {Ok(())}
+        None => Ok(()),
     }
 }
