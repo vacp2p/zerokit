@@ -15,3 +15,19 @@ struct Cli {
 struct State<'a> {
     rln: Option<RLN<'a>>,
 }
+
+#[derive(Subcommand)]
+enum Commands {
+    New {
+        tree_height: usize,
+        /// Sets a custom config file
+        #[arg(short, long)]
+        config: PathBuf,
+    },
+    NewWithParams {
+        tree_height: usize,
+        /// Sets a custom config file
+        #[arg(short, long)]
+        config: PathBuf,
+    },
+}
