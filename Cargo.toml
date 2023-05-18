@@ -4,6 +4,7 @@ members = [
   "private-settlement",
   "semaphore",
   "rln",
+  "rln-cli",
   "rln-wasm",
   "utils",
 ]
