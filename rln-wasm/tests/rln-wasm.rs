@@ -30,7 +30,7 @@ mod tests {
         let vk = read_file(&vk_path).unwrap();
 
         // Creating an instance of RLN
-        let rln_instance = wasm_new(tree_height, zkey, vk);
+        let rln_instance = wasm_new(tree_height, zkey, vk).unwrap();
 
         // Creating membership key
         let mem_keys = wasm_key_gen(rln_instance).unwrap();
@@ -59,10 +59,11 @@ mod tests {
         let serialized_message = Uint8Array::from(&serialized_vec[..]);
 
         let serialized_rln_witness =
-            wasm_get_serialized_rln_witness(rln_instance, serialized_message);
+            wasm_get_serialized_rln_witness(rln_instance, serialized_message).unwrap();
 
         // Obtaining inputs that should be sent to circom witness calculator
-        let json_inputs = rln_witness_to_json(rln_instance, serialized_rln_witness.clone());
+        let json_inputs =
+            rln_witness_to_json(rln_instance, serialized_rln_witness.clone()).unwrap();
 
         // Calculating witness with JS
         // (Using a JSON since wasm_bindgen does not like Result<Vec<JsBigInt>,JsValue>)
