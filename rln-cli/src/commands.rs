@@ -16,4 +16,21 @@ pub(crate) enum Commands {
         #[arg(short, long)]
         config: PathBuf,
     },
+    SetTree {
+        tree_height: usize,
+    },
+    SetLeaf {
+        index: usize,
+        #[arg(short, long)]
+        file: PathBuf,
+    },
+    SetMultipleLeaves {
+        index: usize,
+        #[arg(short, long)]
+        file: PathBuf,
+    },
+    ResetMultipleLeaves {
+        #[arg(short, long)]
+        file: PathBuf,
+    },
 }

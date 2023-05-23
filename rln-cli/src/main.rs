@@ -1,7 +1,7 @@
 use std::{fs::File, io::Read, path::Path};
 
 use clap::Parser;
-use color_eyre::Result;
+use color_eyre::{Report, Result};
 use commands::Commands;
 use rln::public::RLN;
 use state::State;
@@ -49,6 +49,37 @@ fn main() -> Result<()> {
                 resources[1].clone(),
                 resources[2].clone(),
             )?);
+            Ok(())
+        }
+        Some(Commands::SetTree { tree_height }) => {
+            state
+                .rln
+                .ok_or(Report::msg("no RLN initialized"))?
+                .set_tree(*tree_height)?;
+            Ok(())
+        }
+        Some(Commands::SetLeaf { index, file }) => {
+            let input_data = File::open(&file)?;
+            state
+                .rln
+                .ok_or(Report::msg("no RLN initialized"))?
+                .set_leaf(*index, input_data)?;
+            Ok(())
+        }
+        Some(Commands::SetMultipleLeaves { index, file }) => {
+            let input_data = File::open(&file)?;
+            state
+                .rln
+                .ok_or(Report::msg("no RLN initialized"))?
+                .set_leaves_from(*index, input_data)?;
+            Ok(())
+        }
+        Some(Commands::ResetMultipleLeaves { file }) => {
+            let input_data = File::open(&file)?;
+            state
+                .rln
+                .ok_or(Report::msg("no RLN initialized"))?
+                .init_tree_with_leaves(input_data)?;
             Ok(())
         }
         None => Ok(()),
