@@ -37,4 +37,7 @@ pub(crate) enum Commands {
         #[arg(short, long)]
         file: PathBuf,
     },
+    DeleteLeaf {
+        index: usize,
+    },
 }
