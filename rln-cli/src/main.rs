@@ -82,6 +82,14 @@ fn main() -> Result<()> {
                 .init_tree_with_leaves(input_data)?;
             Ok(())
         }
+        Some(Commands::SetNextLeaf { file }) => {
+            let input_data = File::open(&file)?;
+            state
+                .rln
+                .ok_or(Report::msg("no RLN initialized"))?
+                .set_next_leaf(input_data)?;
+            Ok(())
+        }
         None => Ok(()),
     }
 }
