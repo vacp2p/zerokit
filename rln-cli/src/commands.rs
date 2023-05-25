@@ -40,4 +40,8 @@ pub(crate) enum Commands {
     DeleteLeaf {
         index: usize,
     },
+    GetRoot {
+        #[arg(short, long)]
+        file: PathBuf,
+    },
 }
