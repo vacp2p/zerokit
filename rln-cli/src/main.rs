@@ -97,6 +97,14 @@ fn main() -> Result<()> {
                 .delete_leaf(*index)?;
             Ok(())
         }
+        Some(Commands::GetRoot { file }) => {
+            let output_data = File::open(&file)?;
+            state
+                .rln
+                .ok_or(Report::msg("no RLN initialized"))?
+                .get_root(output_data)?;
+            Ok(())
+        }
         None => Ok(()),
     }
 }
