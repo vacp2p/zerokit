@@ -3,6 +3,7 @@ name = "utils"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
+bench = false
 
 [dependencies]
 ark-ff = { version = "=0.4.1", default-features = false, features = ["asm"] }
@@ -17,8 +18,13 @@ ark-bn254 = "=0.4.0"
 num-traits = "0.2.11"
 hex-literal = "0.3.4"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
+criterion = { version = "0.4", features = ["html_reports"] }
 
 [features]
 default = ["parallel"]
 parallel = ["ark-ff/parallel"]
 pmtree-ft = ["pmtree"]
+
+[[bench]]
+name = "merkle_tree_benchmark"
+harness = false
