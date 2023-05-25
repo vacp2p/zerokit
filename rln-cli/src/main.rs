@@ -90,6 +90,13 @@ fn main() -> Result<()> {
                 .set_next_leaf(input_data)?;
             Ok(())
         }
+        Some(Commands::DeleteLeaf { index }) => {
+            state
+                .rln
+                .ok_or(Report::msg("no RLN initialized"))?
+                .delete_leaf(*index)?;
+            Ok(())
+        }
         None => Ok(()),
     }
 }
