@@ -134,6 +134,19 @@ fn main() -> Result<()> {
                 .verify(input_data)?;
             Ok(())
         }
+        Some(Commands::GenerateProof {
+            input,
+            output,
+        }) => {
+            let input_data = File::open(&input)?;
+            let output_data = File::open(&output)?;
+            state.rln = Some(RLN::new(*tree_height, resources)?);
+            state
+                .rln
+                .ok_or(Report::msg("no RLN initialized"))?
+                .generate_rln_proof(input_data, output_data)?;
+            Ok(())
+        }
         None => Ok(()),
     }
 }
