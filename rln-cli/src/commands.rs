@@ -44,4 +44,9 @@ pub(crate) enum Commands {
         #[arg(short, long)]
         file: PathBuf,
     },
+    GetProof {
+        index: usize,
+        #[arg(short, long)]
+        file: PathBuf,
+    },
 }
