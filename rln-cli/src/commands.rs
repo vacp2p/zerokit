@@ -55,4 +55,8 @@ pub(crate) enum Commands {
         #[arg(short, long)]
         output: PathBuf,
     },
+    Verify {
+        #[arg(short, long)]
+        file: PathBuf,
+    },
 }
