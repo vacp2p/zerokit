@@ -113,10 +113,7 @@ fn main() -> Result<()> {
                 .get_proof(*index, output_data)?;
             Ok(())
         }
-        Some(Commands::Prove {
-            input,
-            output,
-        }) => {
+        Some(Commands::Prove { input, output }) => {
             let input_data = File::open(&input)?;
             let output_data = File::open(&output)?;
             state.rln = Some(RLN::new(*tree_height, resources)?);
@@ -134,10 +131,7 @@ fn main() -> Result<()> {
                 .verify(input_data)?;
             Ok(())
         }
-        Some(Commands::GenerateProof {
-            input,
-            output,
-        }) => {
+        Some(Commands::GenerateProof { input, output }) => {
             let input_data = File::open(&input)?;
             let output_data = File::open(&output)?;
             state.rln = Some(RLN::new(*tree_height, resources)?);
@@ -147,10 +141,7 @@ fn main() -> Result<()> {
                 .generate_rln_proof(input_data, output_data)?;
             Ok(())
         }
-        Some(Commands::VerifyWithRoots {
-            input,
-            roots,
-        }) => {
+        Some(Commands::VerifyWithRoots { input, roots }) => {
             let input_data = File::open(&input)?;
             let roots_data = File::open(&output)?;
             state.rln = Some(RLN::new(*tree_height, resources)?);
