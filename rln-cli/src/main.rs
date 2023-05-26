@@ -105,6 +105,14 @@ fn main() -> Result<()> {
                 .get_root(output_data)?;
             Ok(())
         }
+        Some(Commands::GetProof { index, file }) => {
+            let output_data = File::open(&file)?;
+            state
+                .rln
+                .ok_or(Report::msg("no RLN initialized"))?
+                .get_proof(*index, output_data)?;
+            Ok(())
+        }
         None => Ok(()),
     }
 }
