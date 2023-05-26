@@ -49,4 +49,10 @@ pub(crate) enum Commands {
         #[arg(short, long)]
         file: PathBuf,
     },
+    Prove {
+        #[arg(short, long)]
+        input: PathBuf,
+        #[arg(short, long)]
+        output: PathBuf,
+    },
 }
