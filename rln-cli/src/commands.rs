@@ -65,4 +65,10 @@ pub(crate) enum Commands {
         #[arg(short, long)]
         output: PathBuf,
     },
+    VerifyWithRoots {
+        #[arg(short, long)]
+        input: PathBuf,
+        #[arg(short, long)]
+        roots: PathBuf,
+    },
 }
