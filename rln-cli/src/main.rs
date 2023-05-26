@@ -126,6 +126,14 @@ fn main() -> Result<()> {
                 .prove(input_data, output_data)?;
             Ok(())
         }
+        Some(Commands::Verify { file }) => {
+            let input_data = File::open(&file)?;
+            state
+                .rln
+                .ok_or(Report::msg("no RLN initialized"))?
+                .verify(input_data)?;
+            Ok(())
+        }
         None => Ok(()),
     }
 }
