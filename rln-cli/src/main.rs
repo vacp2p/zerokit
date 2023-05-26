@@ -97,12 +97,12 @@ fn main() -> Result<()> {
                 .delete_leaf(*index)?;
             Ok(())
         }
-        Some(Commands::GetRoot { file }) => {
-            let output_data = File::open(&file)?;
+        Some(Commands::GetRoot) => {
+            let writer = std::io::stdout();
             state
                 .rln
                 .ok_or(Report::msg("no RLN instance initialized"))?
-                .get_root(output_data)?;
+                .get_root(writer)?;
             Ok(())
         }
         None => Ok(()),
