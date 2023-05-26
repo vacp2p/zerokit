@@ -54,7 +54,7 @@ fn main() -> Result<()> {
         Some(Commands::SetTree { tree_height }) => {
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
+                .ok_or(Report::msg("no RLN instance initialized"))?
                 .set_tree(*tree_height)?;
             Ok(())
         }
@@ -62,7 +62,7 @@ fn main() -> Result<()> {
             let input_data = File::open(&file)?;
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
+                .ok_or(Report::msg("no RLN instance initialized"))?
                 .set_leaf(*index, input_data)?;
             Ok(())
         }
@@ -70,7 +70,7 @@ fn main() -> Result<()> {
             let input_data = File::open(&file)?;
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
+                .ok_or(Report::msg("no RLN instance initialized"))?
                 .set_leaves_from(*index, input_data)?;
             Ok(())
         }
@@ -78,7 +78,7 @@ fn main() -> Result<()> {
             let input_data = File::open(&file)?;
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
+                .ok_or(Report::msg("no RLN instance initialized"))?
                 .init_tree_with_leaves(input_data)?;
             Ok(())
         }
@@ -86,14 +86,14 @@ fn main() -> Result<()> {
             let input_data = File::open(&file)?;
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
+                .ok_or(Report::msg("no RLN instance initialized"))?
                 .set_next_leaf(input_data)?;
             Ok(())
         }
         Some(Commands::DeleteLeaf { index }) => {
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
+                .ok_or(Report::msg("no RLN instance initialized"))?
                 .delete_leaf(*index)?;
             Ok(())
         }
@@ -101,7 +101,7 @@ fn main() -> Result<()> {
             let output_data = File::open(&file)?;
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
+                .ok_or(Report::msg("no RLN instance initialized"))?
                 .get_root(output_data)?;
             Ok(())
         }
