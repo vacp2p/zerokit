@@ -40,5 +40,5 @@ pub(crate) enum Commands {
     DeleteLeaf {
         index: usize,
     },
-    GetRoot
+    GetRoot,
 }
