@@ -113,6 +113,19 @@ fn main() -> Result<()> {
                 .get_proof(*index, output_data)?;
             Ok(())
         }
+        Some(Commands::Prove {
+            input,
+            output,
+        }) => {
+            let input_data = File::open(&input)?;
+            let output_data = File::open(&output)?;
+            state.rln = Some(RLN::new(*tree_height, resources)?);
+            state
+                .rln
+                .ok_or(Report::msg("no RLN initialized"))?
+                .prove(input_data, output_data)?;
+            Ok(())
+        }
         None => Ok(()),
     }
 }
