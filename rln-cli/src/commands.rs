@@ -33,4 +33,12 @@ pub(crate) enum Commands {
         #[arg(short, long)]
         file: PathBuf,
     },
+    SetNextLeaf {
+        #[arg(short, long)]
+        file: PathBuf,
+    },
+    DeleteLeaf {
+        index: usize,
+    },
+    GetRoot,
 }
