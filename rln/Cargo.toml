@@ -3,10 +3,10 @@ name = "rln"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-bench = false
 
 [lib]
 crate-type = ["rlib", "staticlib"]
+bench = false
 
 # This flag disable cargo doctests, i.e. testing example code-snippets in documentation
 doctest = false
