@@ -116,6 +116,8 @@ jobs:
         # Currently not treating warnings as error, too noisy
         # -- -D warnings
   benchmark:
+    # run only in pull requests
+    if: github.event_name == 'pull_request'
     strategy:
       matrix:
         # we run benchmark tests only on ubuntu
