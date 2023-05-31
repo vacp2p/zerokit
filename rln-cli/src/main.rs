@@ -93,7 +93,7 @@ fn main() -> Result<()> {
         Some(Commands::DeleteLeaf { index }) => {
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
+                .ok_or(Report::msg("no RLN instance initialized"))?
                 .delete_leaf(*index)?;
             Ok(())
         }
@@ -105,21 +105,21 @@ fn main() -> Result<()> {
                 .get_root(writer)?;
             Ok(())
         }
-        Some(Commands::GetProof { index, file }) => {
-            let output_data = File::open(&file)?;
+        Some(Commands::GetProof { index }) => {
+            let writer = std::io::stdout();
             state
                 .rln
                 .ok_or(Report::msg("no RLN instance initialized"))?
-                .get_proof(*index, output_data)?;
+                .get_proof(*index, writer)?;
             Ok(())
         }
-        Some(Commands::Prove { input, output }) => {
+        Some(Commands::Prove { input }) => {
             let input_data = File::open(&input)?;
-            let output_data = File::open(&output)?;
+            let writer = std::io::stdout();
             state
                 .rln
                 .ok_or(Report::msg("no RLN instance initialized"))?
-                .prove(input_data, output_data)?;
+                .prove(input_data, writer)?;
             Ok(())
         }
         Some(Commands::Verify { file }) => {
@@ -130,13 +130,13 @@ fn main() -> Result<()> {
                 .verify(input_data)?;
             Ok(())
         }
-        Some(Commands::GenerateProof { input, output }) => {
+        Some(Commands::GenerateProof { input }) => {
             let input_data = File::open(&input)?;
-            let output_data = File::open(&output)?;
+            let writer = std::io::stdout();
             state
                 .rln
                 .ok_or(Report::msg("no RLN instance initialized"))?
-                .generate_rln_proof(input_data, output_data)?;
+                .generate_rln_proof(input_data, writer)?;
             Ok(())
         }
         Some(Commands::VerifyWithRoots { input, roots }) => {

@@ -43,14 +43,10 @@ pub(crate) enum Commands {
     GetRoot,
     GetProof {
         index: usize,
-        #[arg(short, long)]
-        file: PathBuf,
     },
     Prove {
         #[arg(short, long)]
         input: PathBuf,
-        #[arg(short, long)]
-        output: PathBuf,
     },
     Verify {
         #[arg(short, long)]
@@ -59,8 +55,6 @@ pub(crate) enum Commands {
     GenerateProof {
         #[arg(short, long)]
         input: PathBuf,
-        #[arg(short, long)]
-        output: PathBuf,
     },
     VerifyWithRoots {
         #[arg(short, long)]
