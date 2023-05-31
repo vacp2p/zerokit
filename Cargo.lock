@@ -2678,6 +2678,7 @@ dependencies = [
  "ark-std 0.4.0",
  "cfg-if",
  "color-eyre 0.6.2",
+ "criterion 0.4.0",
  "include_dir",
  "num-bigint",
  "num-traits",

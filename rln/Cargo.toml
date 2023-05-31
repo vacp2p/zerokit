@@ -6,6 +6,7 @@ license = "MIT OR Apache-2.0"
 
 [lib]
 crate-type = ["rlib", "staticlib"]
+bench = false
 
 # This flag disable cargo doctests, i.e. testing example code-snippets in documentation
 doctest = false
@@ -47,6 +48,7 @@ include_dir = "=0.7.3"
 
 [dev-dependencies]
 sled = "=0.34.7"
+criterion = { version = "0.4", features = ["html_reports"] }
 
 [features]
 default = ["parallel", "wasmer/sys-default", "pmtree-ft"]
@@ -56,3 +58,7 @@ fullmerkletree = ["default"]
 
 # Note: pmtree feature is still experimental
 pmtree-ft = ["utils/pmtree-ft"]
+
+[[bench]]
+name = "pmtree_benchmark"
+harness = false

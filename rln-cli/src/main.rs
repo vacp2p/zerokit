@@ -54,7 +54,7 @@ fn main() -> Result<()> {
         Some(Commands::SetTree { tree_height }) => {
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
+                .ok_or(Report::msg("no RLN instance initialized"))?
                 .set_tree(*tree_height)?;
             Ok(())
         }
@@ -62,7 +62,7 @@ fn main() -> Result<()> {
             let input_data = File::open(&file)?;
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
+                .ok_or(Report::msg("no RLN instance initialized"))?
                 .set_leaf(*index, input_data)?;
             Ok(())
         }
@@ -70,7 +70,7 @@ fn main() -> Result<()> {
             let input_data = File::open(&file)?;
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
+                .ok_or(Report::msg("no RLN instance initialized"))?
                 .set_leaves_from(*index, input_data)?;
             Ok(())
         }
@@ -78,7 +78,7 @@ fn main() -> Result<()> {
             let input_data = File::open(&file)?;
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
+                .ok_or(Report::msg("no RLN instance initialized"))?
                 .init_tree_with_leaves(input_data)?;
             Ok(())
         }
@@ -86,7 +86,7 @@ fn main() -> Result<()> {
             let input_data = File::open(&file)?;
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
+                .ok_or(Report::msg("no RLN instance initialized"))?
                 .set_next_leaf(input_data)?;
             Ok(())
         }
@@ -97,19 +97,19 @@ fn main() -> Result<()> {
                 .delete_leaf(*index)?;
             Ok(())
         }
-        Some(Commands::GetRoot { file }) => {
-            let output_data = File::open(&file)?;
+        Some(Commands::GetRoot) => {
+            let writer = std::io::stdout();
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
-                .get_root(output_data)?;
+                .ok_or(Report::msg("no RLN instance initialized"))?
+                .get_root(writer)?;
             Ok(())
         }
         Some(Commands::GetProof { index, file }) => {
             let output_data = File::open(&file)?;
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
+                .ok_or(Report::msg("no RLN instance initialized"))?
                 .get_proof(*index, output_data)?;
             Ok(())
         }
@@ -118,7 +118,7 @@ fn main() -> Result<()> {
             let output_data = File::open(&output)?;
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
+                .ok_or(Report::msg("no RLN instance initialized"))?
                 .prove(input_data, output_data)?;
             Ok(())
         }
@@ -126,7 +126,7 @@ fn main() -> Result<()> {
             let input_data = File::open(&file)?;
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
+                .ok_or(Report::msg("no RLN instance initialized"))?
                 .verify(input_data)?;
             Ok(())
         }
@@ -135,7 +135,7 @@ fn main() -> Result<()> {
             let output_data = File::open(&output)?;
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
+                .ok_or(Report::msg("no RLN instance initialized"))?
                 .generate_rln_proof(input_data, output_data)?;
             Ok(())
         }
@@ -144,7 +144,7 @@ fn main() -> Result<()> {
             let roots_data = File::open(&roots)?;
             state
                 .rln
-                .ok_or(Report::msg("no RLN initialized"))?
+                .ok_or(Report::msg("no RLN instance initialized"))?
                 .verify_with_roots(input_data, roots_data)?;
             Ok(())
         }
