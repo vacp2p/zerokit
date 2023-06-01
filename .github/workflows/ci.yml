@@ -28,18 +28,18 @@ on:
 name: Tests
 
 jobs:
-
-  multiplier:
+  test:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
+        crate: [multiplier, semaphore, rln, utils]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
   
-    name: multiplier - ${{ matrix.platform }}
+    name: test - ${{ matrix.crate }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -52,33 +52,8 @@ jobs:
       - name: cargo-make test
         run: |
             cargo make test --release
-        working-directory: multiplier
+        working-directory: ${{ matrix.crate }}
   
-  semaphore:
-    strategy:
-      matrix:
-        platform: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.platform }}
-    timeout-minutes: 60
-  
-    name: semaphore - ${{ matrix.platform }}
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - uses: Swatinem/rust-cache@v2
-      - name: Install Dependencies
-        run: make installdeps
-      - name: cargo-make test
-        run: |
-            cargo make test --release
-        working-directory: semaphore
-
   rln-wasm:
     strategy:
       matrix:
@@ -86,9 +61,9 @@ jobs:
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
   
-    name: rln-wasm - ${{ matrix.platform }}
+    name: test - rln-wasm - ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -102,71 +77,22 @@ jobs:
         uses: jetli/wasm-pack-action@v0.3.0
       - run: cargo make build
         working-directory: rln-wasm
-      - run: cargo-make test
+      - run: cargo make test --release
         working-directory: rln-wasm
-
-  rln:
-    strategy:
-      matrix:
-        platform: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.platform }}
-    timeout-minutes: 60
-  
-    name: rln - ${{ matrix.platform }}
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - uses: Swatinem/rust-cache@v2
-      - name: Install Dependencies
-        run: make installdeps
-      - name: cargo-make test
-        run: |
-            cargo make test --release
-        working-directory: rln
-
-  utils:
-    strategy:
-      matrix:
-        platform: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.platform }}
-    timeout-minutes: 60
-  
-    name: utils - ${{ matrix.platform }}
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - uses: Swatinem/rust-cache@v2
-      - name: Install Dependencies
-        run: make installdeps
-      - name: cargo-make test
-        run: |
-            cargo make test --release
-        working-directory: utils
 
   lint:
     strategy:
       matrix:
         # we run lint tests only on ubuntu
         platform: [ubuntu-latest]
+        crate: [multiplier, semaphore, rln, utils]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
-    name: lint - ${{ matrix.platform }}  
+    name: lint - ${{ matrix.crate }} - ${{ matrix.platform }}  
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -179,27 +105,33 @@ jobs:
         run: make installdeps
       - name: cargo fmt
         if: success() || failure()
-        run: cargo fmt --all -- --check
-      - name: multiplier - cargo clippy
+        run: cargo fmt -- --check
+        working-directory: ${{ matrix.crate }}
+      - name: cargo clippy
         if: success() || failure()
         run: |
             cargo clippy --release -- -D warnings
-        working-directory: multiplier
-      - name: semaphore - cargo clippy
-        if: success() || failure()
-        run: |
-            cargo clippy --release -- -D warnings
-        working-directory: semaphore
-      - name: rln - cargo clippy
-        if: success() || failure()
-        run: |
-            cargo clippy --release -- -D warnings
-        working-directory: rln
-      - name: utils - cargo clippy
-        if: success() || failure()
-        run: |
-            cargo clippy --release -- -D warnings
-        working-directory: utils
+        working-directory: ${{ matrix.crate }}
         # We skip clippy on rln-wasm, since wasm target is managed by cargo make
         # Currently not treating warnings as error, too noisy
         # -- -D warnings
+  benchmark:
+    # run only in pull requests
+    if: github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        # we run benchmark tests only on ubuntu
+        platform: [ubuntu-latest]
+        crate: [rln, utils]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+
+    name: benchmark - ${{ matrix.platform }} - ${{ matrix.crate }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - uses: Swatinem/rust-cache@v2
+      - uses: boa-dev/criterion-compare-action@v3
+        with:
+          branchName: ${{ github.base_ref }}
+          cwd: ${{ matrix.crate }}

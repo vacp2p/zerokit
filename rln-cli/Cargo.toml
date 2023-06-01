@@ -1,0 +1,10 @@
+[package]
+name = "rln-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rln = { path = "../rln" }
+clap = { version = "4.2.7", features = ["cargo", "derive", "env"]}
+clap_derive = { version = "=4.2.0" }
+color-eyre = "=0.6.2"

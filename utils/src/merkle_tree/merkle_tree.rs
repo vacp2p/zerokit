@@ -49,10 +49,16 @@ pub trait ZerokitMerkleTree {
     fn capacity(&self) -> usize;
     fn leaves_set(&mut self) -> usize;
     fn root(&self) -> FrOf<Self::Hasher>;
+    fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>>;
     fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>) -> Result<()>;
     fn set_range<I>(&mut self, start: usize, leaves: I) -> Result<()>
     where
         I: IntoIterator<Item = FrOf<Self::Hasher>>;
+    fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>>;
+    fn override_range<I, J>(&mut self, start: usize, leaves: I, to_remove_indices: J) -> Result<()>
+    where
+        I: IntoIterator<Item = FrOf<Self::Hasher>>,
+        J: IntoIterator<Item = usize>;
     fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<()>;
     fn delete(&mut self, index: usize) -> Result<()>;
     fn proof(&self, index: usize) -> Result<Self::Proof>;

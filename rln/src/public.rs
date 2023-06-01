@@ -256,7 +256,7 @@ impl RLN<'_> {
 
         // We set the leaves
         self.tree
-            .set_range(index, leaves)
+            .override_range(index, leaves, [])
             .map_err(|_| Report::msg("Could not set leaves"))?;
         Ok(())
     }
@@ -273,6 +273,72 @@ impl RLN<'_> {
         // TODO: accept tree_height as a parameter and initialize the tree with that height
         self.set_tree(self.tree.depth())?;
         self.set_leaves_from(0, input_data)
+    }
+
+    /// Sets multiple leaves starting from position index in the internal Merkle tree.
+    /// Also accepts an array of indices to remove from the tree.
+    ///
+    /// If n leaves are passed as input, these will be set at positions `index`, `index+1`, ..., `index+n-1` respectively.
+    /// If m indices are passed as input, these will be removed from the tree.
+    ///
+    /// This function updates the internal Merkle tree `next_index value indicating the next available index corresponding to a never-set leaf as `next_index = max(next_index, index + n)`.
+    ///
+    /// Input values are:
+    /// - `index`: the index of the first leaf to be set
+    /// - `input_leaves`: a reader for the serialization of multiple leaf values (serialization done with [`rln::utils::vec_fr_to_bytes_le`](crate::utils::vec_fr_to_bytes_le))
+    /// - `input_indices`: a reader for the serialization of multiple indices to remove (serialization done with [`rln::utils::vec_u8_to_bytes_le`](crate::utils::vec_u8_to_bytes_le))
+    ///
+    /// Example:
+    /// ```
+    /// use rln::circuit::Fr;
+    /// use rln::utils::*;
+    ///
+    /// let start_index = 10;
+    /// let no_of_leaves = 256;
+    ///
+    /// // We generate a vector of random leaves
+    /// let mut leaves: Vec<Fr> = Vec::new();
+    /// let mut rng = thread_rng();
+    /// for _ in 0..no_of_leaves {
+    ///     let (_, id_commitment) = keygen();
+    ///     leaves.push(id_commitment);
+    /// }
+    ///
+    /// let mut indices: Vec<u8> = Vec::new();
+    /// for i in 0..no_of_leaves {
+    ///    if i % 2 == 0 {
+    ///       indices.push(i as u8);
+    ///   }
+    /// }
+    ///
+    /// // We atomically add leaves and remove indices from the tree
+    /// let mut leaves_buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
+    /// let mut indices_buffer = Cursor::new(vec_u8_to_bytes_le(&indices));
+    /// rln.set_leaves_from(index, &mut leaves_buffer, indices_buffer).unwrap();
+    /// ```
+    pub fn atomic_operation<R: Read>(
+        &mut self,
+        index: usize,
+        mut input_leaves: R,
+        mut input_indices: R,
+    ) -> Result<()> {
+        // We read input
+        let mut leaves_byte: Vec<u8> = Vec::new();
+        input_leaves.read_to_end(&mut leaves_byte)?;
+
+        let (leaves, _) = bytes_le_to_vec_fr(&leaves_byte)?;
+
+        let mut indices_byte: Vec<u8> = Vec::new();
+        input_indices.read_to_end(&mut indices_byte)?;
+
+        let (indices, _) = bytes_le_to_vec_u8(&indices_byte)?;
+        let indices: Vec<usize> = indices.iter().map(|x| *x as usize).collect();
+
+        // We set the leaves
+        self.tree
+            .override_range(index, leaves, indices)
+            .map_err(|_| Report::msg("Could not perform the batch operation"))?;
+        Ok(())
     }
 
     /// Sets a leaf value at the next available never-set leaf index.
@@ -1253,6 +1319,57 @@ mod test {
         let (root_single_additions, _) = bytes_le_to_fr(&buffer.into_inner());
 
         assert_eq!(root_batch_with_init, root_single_additions);
+    }
+
+    #[test]
+    // Tests the atomic_operation fn, which set_leaves_from uses internally
+    fn test_atomic_operation() {
+        let tree_height = TEST_TREE_HEIGHT;
+        let no_of_leaves = 256;
+
+        // We generate a vector of random leaves
+        let mut leaves: Vec<Fr> = Vec::new();
+        let mut rng = thread_rng();
+        for _ in 0..no_of_leaves {
+            leaves.push(Fr::rand(&mut rng));
+        }
+
+        // We create a new tree
+        let input_buffer =
+            Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
+        let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+
+        // We add leaves in a batch into the tree
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
+        rln.init_tree_with_leaves(&mut buffer).unwrap();
+
+        // We check if number of leaves set is consistent
+        assert_eq!(rln.tree.leaves_set(), no_of_leaves);
+
+        // We get the root of the tree obtained adding leaves in batch
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_root(&mut buffer).unwrap();
+        let (root_after_insertion, _) = bytes_le_to_fr(&buffer.into_inner());
+
+        // We check if number of leaves set is consistent
+        assert_eq!(rln.tree.leaves_set(), no_of_leaves);
+
+        let last_leaf = leaves.last().unwrap();
+        let last_leaf_index = no_of_leaves - 1;
+        let indices = vec![last_leaf_index as u8];
+        let last_leaf = vec![*last_leaf];
+        let indices_buffer = Cursor::new(vec_u8_to_bytes_le(&indices).unwrap());
+        let leaves_buffer = Cursor::new(vec_fr_to_bytes_le(&last_leaf).unwrap());
+
+        rln.atomic_operation(no_of_leaves, leaves_buffer, indices_buffer)
+            .unwrap();
+
+        // We get the root of the tree obtained after a no-op
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_root(&mut buffer).unwrap();
+        let (root_after_noop, _) = bytes_le_to_fr(&buffer.into_inner());
+
+        assert_eq!(root_after_insertion, root_after_noop);
     }
 
     #[allow(unused_must_use)]

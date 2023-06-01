@@ -4,11 +4,14 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 
+[lib]
+bench = false
+
 [dependencies]
 ark-ff = { version = "=0.4.1", default-features = false, features = ["asm"] }
 num-bigint = { version = "=0.4.3", default-features = false, features = ["rand"] }
 color-eyre = "=0.6.2"
-pmtree = { git = "https://github.com/Rate-Limiting-Nullifier/pmtree", rev = "b3a02216cece3e9c24e1754ea381bf784fd1df48", optional = true}
+pmtree = { git = "https://github.com/Rate-Limiting-Nullifier/pmtree", rev = "bf27d4273b34a7f4ec3c77cdf67fb17a5602504a", optional = true}
 sled = "=0.34.7"
 serde = "1.0.44"
 
@@ -17,8 +20,13 @@ ark-bn254 = "=0.4.0"
 num-traits = "0.2.11"
 hex-literal = "0.3.4"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
+criterion = { version = "0.4", features = ["html_reports"] }
 
 [features]
 default = ["parallel"]
 parallel = ["ark-ff/parallel"]
 pmtree-ft = ["pmtree"]
+
+[[bench]]
+name = "merkle_tree_benchmark"
+harness = false

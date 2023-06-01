@@ -1,4 +1,5 @@
 use crate::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
+use crate::FrOf;
 use color_eyre::{Report, Result};
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -110,6 +111,14 @@ where
         Ok(())
     }
 
+    // Get a leaf from the specified tree index
+    fn get(&self, index: usize) -> Result<H::Fr> {
+        if index >= self.capacity() {
+            return Err(Report::msg("index exceeds set size"));
+        }
+        Ok(self.get_node(self.depth, index))
+    }
+
     // Sets multiple leaves from the specified tree index
     fn set_range<I: IntoIterator<Item = H::Fr>>(&mut self, start: usize, leaves: I) -> Result<()> {
         let leaves = leaves.into_iter().collect::<Vec<_>>();
@@ -122,6 +131,36 @@ where
             self.recalculate_from(start + i)?;
         }
         self.next_index = max(self.next_index, start + leaves.len());
+        Ok(())
+    }
+
+    fn override_range<I, J>(&mut self, start: usize, leaves: I, to_remove_indices: J) -> Result<()>
+    where
+        I: IntoIterator<Item = FrOf<Self::Hasher>>,
+        J: IntoIterator<Item = usize>,
+    {
+        let leaves = leaves.into_iter().collect::<Vec<_>>();
+        let to_remove_indices = to_remove_indices.into_iter().collect::<Vec<_>>();
+        // check if the range is valid
+        if leaves.len() + start - to_remove_indices.len() > self.capacity() {
+            return Err(Report::msg("provided range exceeds set size"));
+        }
+
+        // remove leaves
+        for i in &to_remove_indices {
+            self.delete(*i)?;
+        }
+
+        // add leaves
+        for (i, leaf) in leaves.iter().enumerate() {
+            self.nodes.insert((self.depth, start + i), *leaf);
+            self.recalculate_from(start + i)?;
+        }
+
+        self.next_index = max(
+            self.next_index,
+            start + leaves.len() - to_remove_indices.len(),
+        );
         Ok(())
     }
 
@@ -171,6 +210,11 @@ where
         }
         let expected_root = witness.compute_root_from(leaf);
         Ok(expected_root.eq(&self.root()))
+    }
+
+    fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>> {
+        self.recalculate_from(0)?;
+        Ok(self.root())
     }
 }
 
