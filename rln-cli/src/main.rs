@@ -7,6 +7,7 @@ use rln::public::RLN;
 use state::State;
 
 mod commands;
+mod config;
 mod state;
 
 #[derive(Parser)]
@@ -19,7 +20,7 @@ struct Cli {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let mut state = State::default();
+    let mut state = State::load_state()?;
 
     match &cli.command {
         Some(Commands::New {
