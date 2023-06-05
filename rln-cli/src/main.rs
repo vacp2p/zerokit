@@ -105,6 +105,49 @@ fn main() -> Result<()> {
                 .get_root(writer)?;
             Ok(())
         }
+        Some(Commands::GetProof { index }) => {
+            let writer = std::io::stdout();
+            state
+                .rln
+                .ok_or(Report::msg("no RLN instance initialized"))?
+                .get_proof(*index, writer)?;
+            Ok(())
+        }
+        Some(Commands::Prove { input }) => {
+            let input_data = File::open(&input)?;
+            let writer = std::io::stdout();
+            state
+                .rln
+                .ok_or(Report::msg("no RLN instance initialized"))?
+                .prove(input_data, writer)?;
+            Ok(())
+        }
+        Some(Commands::Verify { file }) => {
+            let input_data = File::open(&file)?;
+            state
+                .rln
+                .ok_or(Report::msg("no RLN instance initialized"))?
+                .verify(input_data)?;
+            Ok(())
+        }
+        Some(Commands::GenerateProof { input }) => {
+            let input_data = File::open(&input)?;
+            let writer = std::io::stdout();
+            state
+                .rln
+                .ok_or(Report::msg("no RLN instance initialized"))?
+                .generate_rln_proof(input_data, writer)?;
+            Ok(())
+        }
+        Some(Commands::VerifyWithRoots { input, roots }) => {
+            let input_data = File::open(&input)?;
+            let roots_data = File::open(&roots)?;
+            state
+                .rln
+                .ok_or(Report::msg("no RLN instance initialized"))?
+                .verify_with_roots(input_data, roots_data)?;
+            Ok(())
+        }
         None => Ok(()),
     }
 }

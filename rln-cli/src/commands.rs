@@ -41,4 +41,25 @@ pub(crate) enum Commands {
         index: usize,
     },
     GetRoot,
+    GetProof {
+        index: usize,
+    },
+    Prove {
+        #[arg(short, long)]
+        input: PathBuf,
+    },
+    Verify {
+        #[arg(short, long)]
+        file: PathBuf,
+    },
+    GenerateProof {
+        #[arg(short, long)]
+        input: PathBuf,
+    },
+    VerifyWithRoots {
+        #[arg(short, long)]
+        input: PathBuf,
+        #[arg(short, long)]
+        roots: PathBuf,
+    },
 }
