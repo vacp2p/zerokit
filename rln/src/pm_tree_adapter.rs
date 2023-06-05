@@ -88,7 +88,7 @@ impl Default for PmtreeConfig {
             pm_tree::Config::new()
                 .temporary(true)
                 .path(tmp_path)
-                .cache_capacity(15_000)
+                .cache_capacity(150_000)
                 .mode(Mode::HighThroughput)
                 .use_compression(false)
                 .flush_every_ms(Some(12_000)),
