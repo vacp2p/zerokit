@@ -61,10 +61,22 @@ impl FromStr for PmtreeConfig {
         let temporary = config["temporary"].as_bool();
         let path = config["path"].as_str();
         let path = path.map(PathBuf::from);
+        let cache_capacity = config["cache_capacity"].as_u64();
+        let flush_every_ms = config["flush_every_ms"].as_u64();
+        let mode = match config["mode"].as_str() {
+            Some("HighThroughput") => Mode::HighThroughput,
+            Some("LowSpace") => Mode::LowSpace,
+            _ => Mode::HighThroughput,
+        };
+        let use_compression = config["use_compression"].as_bool();
 
         let config = pm_tree::Config::new()
             .temporary(temporary.unwrap_or(get_tmp()))
-            .path(path.unwrap_or(get_tmp_path()));
+            .path(path.unwrap_or(get_tmp_path()))
+            .cache_capacity(cache_capacity.unwrap_or(1024 * 1024 * 1024))
+            .flush_every_ms(flush_every_ms)
+            .mode(mode)
+            .use_compression(use_compression.unwrap_or(false));
         Ok(PmtreeConfig(config))
     }
 }
@@ -72,7 +84,15 @@ impl FromStr for PmtreeConfig {
 impl Default for PmtreeConfig {
     fn default() -> Self {
         let tmp_path = get_tmp_path();
-        PmtreeConfig(pm_tree::Config::new().temporary(true).path(tmp_path))
+        PmtreeConfig(
+            pm_tree::Config::new()
+                .temporary(true)
+                .path(tmp_path)
+                .cache_capacity(150_000)
+                .mode(Mode::HighThroughput)
+                .use_compression(false)
+                .flush_every_ms(Some(12_000)),
+        )
     }
 }
 impl Debug for PmtreeConfig {
