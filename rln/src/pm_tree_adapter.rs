@@ -70,13 +70,15 @@ impl FromStr for PmtreeConfig {
         };
         let use_compression = config["use_compression"].as_bool();
 
-        if temporary.is_some() && path.is_some() {
-            if temporary.unwrap() && path.as_ref().unwrap().exists() {
-                return Err(Report::msg(format!(
-                    "Path {:?} already exists, cannot use temporary",
-                    path.unwrap()
-                )));
-            }
+        if temporary.is_some()
+            && path.is_some()
+            && temporary.unwrap()
+            && path.as_ref().unwrap().exists()
+        {
+            return Err(Report::msg(format!(
+                "Path {:?} already exists, cannot use temporary",
+                path.unwrap()
+            )));
         }
 
         let config = pm_tree::Config::new()
