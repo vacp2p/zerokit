@@ -58,9 +58,9 @@ impl FromStr for PmtreeConfig {
     fn from_str(s: &str) -> Result<Self> {
         let config: Value = serde_json::from_str(s)?;
 
-        let temporary = config["temporary"].as_bool();
         let path = config["path"].as_str();
         let path = path.map(PathBuf::from);
+        let temporary = config["temporary"].as_bool();
         let cache_capacity = config["cache_capacity"].as_u64();
         let flush_every_ms = config["flush_every_ms"].as_u64();
         let mode = match config["mode"].as_str() {
@@ -69,6 +69,15 @@ impl FromStr for PmtreeConfig {
             _ => Mode::HighThroughput,
         };
         let use_compression = config["use_compression"].as_bool();
+
+        if temporary.is_some() && path.is_some() {
+            if temporary.unwrap() && path.unwrap().exists() {
+                return Err(Report::msg(format!(
+                    "Path {:?} already exists, cannot use temporary",
+                    path.unwrap()
+                )));
+            }
+        }
 
         let config = pm_tree::Config::new()
             .temporary(temporary.unwrap_or(get_tmp()))
