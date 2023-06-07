@@ -2702,6 +2702,8 @@ dependencies = [
  "clap_derive",
  "color-eyre 0.6.2",
  "rln",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
