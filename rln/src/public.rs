@@ -217,6 +217,31 @@ impl RLN<'_> {
         Ok(())
     }
 
+    /// Gets a leaf value at position index in the internal Merkle tree.
+    /// The leaf value is written to output_data.
+    /// Input values are:
+    /// - `index`: the index of the leaf
+    ///
+    /// Example:
+    /// ```
+    /// use crate::protocol::*;
+    /// use std::io::Cursor;
+    ///
+    /// let id_index = 10;
+    /// let mut buffer = Cursor::new(Vec::<u8>::new());
+    /// rln.get_leaf(id_index, &mut buffer).unwrap();
+    /// let id_commitment = deserialize_field_element(&buffer.into_inner()).unwrap();
+    pub fn get_leaf<W: Write>(&self, index: usize, mut output_data: W) -> Result<()> {
+        // We get the leaf at input index
+        let leaf = self.tree.get(index)?;
+
+        // We serialize the leaf and write it to output
+        let leaf_byte = fr_to_bytes_le(&leaf);
+        output_data.write_all(&leaf_byte)?;
+
+        Ok(())
+    }
+
     /// Sets multiple leaves starting from position index in the internal Merkle tree.
     ///
     /// If n leaves are passed as input, these will be set at positions `index`, `index+1`, ..., `index+n-1` respectively.
@@ -1828,5 +1853,33 @@ mod test {
 
         // We ensure that an empty value was written to output_buffer, i.e. no secret is recovered
         assert!(serialized_identity_secret_hash.is_empty());
+    }
+
+    #[test]
+    fn test_get_leaf() {
+        // We generate a random tree
+        let tree_height = 10;
+        let mut rng = thread_rng();
+        let input_buffer =
+            Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
+        let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+
+        // We generate a random leaf
+        let leaf = Fr::rand(&mut rng);
+
+        // We generate a random index
+        let index = rng.gen_range(0..rln.tree.capacity());
+
+        // We add the leaf to the tree
+        let mut buffer = Cursor::new(fr_to_bytes_le(&leaf));
+        rln.set_leaf(index, &mut buffer).unwrap();
+
+        // We get the leaf
+        let mut output_buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_leaf(index, &mut output_buffer).unwrap();
+
+        // We ensure that the leaf is the same as the one we added
+        let (received_leaf, _) = bytes_le_to_fr(output_buffer.into_inner().as_ref());
+        assert_eq!(received_leaf, leaf);
     }
 }
