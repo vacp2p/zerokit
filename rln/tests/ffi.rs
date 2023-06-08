@@ -1156,4 +1156,49 @@ mod test {
 
         assert_eq!(received_hash, expected_hash);
     }
+
+    #[test]
+    fn test_get_leaf() {
+        // We create a RLN instance
+        let tree_height = TEST_TREE_HEIGHT;
+        let no_of_leaves = 1 << TEST_TREE_HEIGHT;
+
+        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
+        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_buffer = &Buffer::from(input_config.as_bytes());
+        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        assert!(success, "RLN object creation failed");
+        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+
+        // We generate a new identity tuple from an input seed
+        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let input_buffer = &Buffer::from(seed_bytes);
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success =
+            seeded_extended_key_gen(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
+        assert!(success, "seeded key gen call failed");
+
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (_, _, _, id_commitment) = deserialize_identity_tuple(result_data);
+
+        // We insert the id_commitment into the tree at a random index
+        let mut rng = thread_rng();
+        let index = rng.gen_range(0..no_of_leaves) as usize;
+        let leaf = fr_to_bytes_le(&id_commitment);
+        let input_buffer = &Buffer::from(leaf.as_ref());
+        let success = set_leaf(rln_pointer, index, input_buffer);
+        assert!(success, "set leaf call failed");
+
+        // We get the leaf at the same index
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = get_leaf(rln_pointer, index, output_buffer.as_mut_ptr());
+        assert!(success, "get leaf call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (received_id_commitment, _) = bytes_le_to_fr(&result_data);
+
+        // We check that the received id_commitment is the same as the one we inserted
+        assert_eq!(received_id_commitment, id_commitment);
+    }
 }

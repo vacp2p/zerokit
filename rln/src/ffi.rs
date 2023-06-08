@@ -224,6 +224,12 @@ pub extern "C" fn set_leaf(ctx: *mut RLN, index: usize, input_buffer: *const Buf
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+pub extern "C" fn get_leaf(ctx: *mut RLN, index: usize, output_buffer: *mut Buffer) -> bool {
+    call_with_output_arg!(ctx, get_leaf, output_buffer, index)
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
 pub extern "C" fn set_next_leaf(ctx: *mut RLN, input_buffer: *const Buffer) -> bool {
     call!(ctx, set_next_leaf, input_buffer)
 }
