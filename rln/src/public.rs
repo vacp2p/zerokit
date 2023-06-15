@@ -12,10 +12,8 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
 use num_bigint::BigInt;
-use serde_json::{json, Value};
 use std::io::Cursor;
-use std::str::FromStr;
-use utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
+use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 
 cfg_if! {
     if #[cfg(not(target_arch = "wasm32"))] {
