@@ -30,6 +30,9 @@ where
     // The next available (i.e., never used) tree index. Equivalently, the number of leaves added to the tree
     // (deletions leave next_index unchanged)
     next_index: usize,
+
+    // metadata that an application may use to store additional information
+    metadata: Vec<u8>,
 }
 
 /// The Merkle proof
@@ -76,6 +79,7 @@ where
             depth,
             nodes: HashMap::new(),
             next_index: 0,
+            metadata: Vec::new(),
         })
     }
 
@@ -215,6 +219,15 @@ where
     fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>> {
         self.recalculate_from(0)?;
         Ok(self.root())
+    }
+
+    fn set_metadata(&mut self, metadata: &[u8]) -> Result<()> {
+        self.metadata = metadata.to_vec();
+        Ok(())
+    }
+
+    fn metadata(&self) -> Result<Vec<u8>> {
+        Ok(self.metadata.to_vec())
     }
 }
 

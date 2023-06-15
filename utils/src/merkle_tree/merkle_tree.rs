@@ -63,6 +63,8 @@ pub trait ZerokitMerkleTree {
     fn delete(&mut self, index: usize) -> Result<()>;
     fn proof(&self, index: usize) -> Result<Self::Proof>;
     fn verify(&self, leaf: &FrOf<Self::Hasher>, witness: &Self::Proof) -> Result<bool>;
+    fn set_metadata(&mut self, metadata: &[u8]) -> Result<()>;
+    fn metadata(&self) -> Result<Vec<u8>>;
 }
 
 pub trait ZerokitMerkleProof {

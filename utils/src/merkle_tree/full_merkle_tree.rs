@@ -29,6 +29,9 @@ pub struct FullMerkleTree<H: Hasher> {
     // The next available (i.e., never used) tree index. Equivalently, the number of leaves added to the tree
     // (deletions leave next_index unchanged)
     next_index: usize,
+
+    // metadata that an application may use to store additional information
+    metadata: Vec<u8>,
 }
 
 /// Element of a Merkle proof
@@ -94,6 +97,7 @@ where
             cached_nodes,
             nodes,
             next_index,
+            metadata: Vec::new(),
         })
     }
 
@@ -233,6 +237,15 @@ where
 
     fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>> {
         Ok(self.root())
+    }
+
+    fn set_metadata(&mut self, metadata: &[u8]) -> Result<()> {
+        self.metadata = metadata.to_vec();
+        Ok(())
+    }
+
+    fn metadata(&self) -> Result<Vec<u8>> {
+        Ok(self.metadata.to_vec())
     }
 }
 

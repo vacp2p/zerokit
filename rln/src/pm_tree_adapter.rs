@@ -7,11 +7,15 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::str::FromStr;
-use utils::pmtree::Hasher;
+use utils::pmtree::{Database, Hasher};
 use utils::*;
+
+const METADATA_KEY: [u8; 8] = *b"metadata";
 
 pub struct PmTree {
     tree: pmtree::MerkleTree<SledDB, PoseidonHash>,
+    // metadata that an application may use to store additional information
+    metadata: Vec<u8>,
 }
 
 pub struct PmTreeProof {
@@ -135,7 +139,10 @@ impl ZerokitMerkleTree for PmTree {
             Err(_) => pmtree::MerkleTree::new(depth, config.0)?,
         };
 
-        Ok(PmTree { tree })
+        Ok(PmTree {
+            tree,
+            metadata: Vec::new(),
+        })
     }
 
     fn depth(&self) -> usize {
@@ -237,6 +244,25 @@ impl ZerokitMerkleTree for PmTree {
 
     fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>> {
         Ok(self.tree.root())
+    }
+
+    fn set_metadata(&mut self, metadata: &[u8]) -> Result<()> {
+        self.tree.db.put(METADATA_KEY, metadata.to_vec())?;
+        self.metadata = metadata.to_vec();
+        Ok(())
+    }
+
+    fn metadata(&self) -> Result<Vec<u8>> {
+        if !self.metadata.is_empty() {
+            return Ok(self.metadata.clone());
+        }
+        // if empty, try searching the db
+        let data = self.tree.db.get(METADATA_KEY)?;
+
+        if data.is_none() {
+            return Err(Report::msg("metadata does not exist"));
+        }
+        Ok(data.unwrap())
     }
 }
 

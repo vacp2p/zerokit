@@ -385,6 +385,22 @@ pub extern "C" fn recover_id_secret(
     )
 }
 
+////////////////////////////////////////////////////////
+// Persistent metadata APIs
+////////////////////////////////////////////////////////
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn set_metadata(ctx: *mut RLN, input_buffer: *const Buffer) -> bool {
+    call!(ctx, set_metadata, input_buffer)
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn get_metadata(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
+    call_with_output_arg!(ctx, get_metadata, output_buffer)
+}
+
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn hash(input_buffer: *const Buffer, output_buffer: *mut Buffer) -> bool {

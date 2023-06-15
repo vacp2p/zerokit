@@ -1201,4 +1201,32 @@ mod test {
         // We check that the received id_commitment is the same as the one we inserted
         assert_eq!(received_id_commitment, id_commitment);
     }
+
+    #[test]
+    fn test_metadata() {
+        // We create a RLN instance
+        let tree_height = TEST_TREE_HEIGHT;
+
+        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
+        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_buffer = &Buffer::from(input_config.as_bytes());
+        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        assert!(success, "RLN object creation failed");
+        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+
+        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let input_buffer = &Buffer::from(seed_bytes);
+
+        let success = set_metadata(rln_pointer, input_buffer);
+        assert!(success, "set_metadata call failed");
+
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = get_metadata(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "get_metadata call failed");
+
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+
+        assert_eq!(result_data, seed_bytes.to_vec());
+    }
 }
