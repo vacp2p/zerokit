@@ -437,6 +437,43 @@ impl RLN<'_> {
         Ok(())
     }
 
+    /// Sets some metadata that a consuming application may want to store in the RLN object.
+    /// This metadata is not used by the RLN module.
+    ///
+    /// Input values are:
+    /// - `metadata`: a byte vector containing the metadata
+    ///
+    /// Example
+    ///
+    /// ```
+    /// let metadata = b"some metadata";
+    /// rln.set_metadata(metadata).unwrap();
+    /// ```
+    pub fn set_metadata(&mut self, metadata: &[u8]) -> Result<()> {
+        self.tree.set_metadata(metadata)?;
+        Ok(())
+    }
+
+    /// Returns the metadata stored in the RLN object.
+    ///
+    /// Output values are:
+    /// - `output_data`: a writer receiving the serialization of the metadata
+    ///
+    /// Example
+    ///
+    /// ```
+    /// use std::io::Cursor;
+    ///
+    /// let mut buffer = Cursor::new(Vec::<u8>::new());
+    /// rln.get_metadata(&mut buffer).unwrap();
+    /// let metadata = buffer.into_inner();
+    /// ```
+    pub fn get_metadata<W: Write>(&self, mut output_data: W) -> Result<()> {
+        let metadata = self.tree.metadata()?;
+        output_data.write_all(&metadata)?;
+        Ok(())
+    }
+
     /// Returns the Merkle tree root
     ///
     /// Output values are:
@@ -1881,5 +1918,23 @@ mod test {
         // We ensure that the leaf is the same as the one we added
         let (received_leaf, _) = bytes_le_to_fr(output_buffer.into_inner().as_ref());
         assert_eq!(received_leaf, leaf);
+    }
+
+    #[test]
+    fn test_metadata() {
+        let tree_height = TEST_TREE_HEIGHT;
+
+        let input_buffer =
+            Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
+        let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+
+        let arbitrary_metadata: &[u8] = b"block_number:200000";
+        rln.set_metadata(arbitrary_metadata).unwrap();
+
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_metadata(&mut buffer).unwrap();
+        let received_metadata = buffer.into_inner();
+
+        assert_eq!(arbitrary_metadata, received_metadata);
     }
 }
