@@ -12,10 +12,8 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
 use num_bigint::BigInt;
-use serde_json::{json, Value};
 use std::io::Cursor;
-use std::str::FromStr;
-use utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
+use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 
 cfg_if! {
     if #[cfg(not(target_arch = "wasm32"))] {
@@ -23,6 +21,9 @@ cfg_if! {
         use std::sync::Mutex;
         use crate::circuit::{circom_from_folder, vk_from_folder, circom_from_raw, zkey_from_folder, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
         use ark_circom::WitnessCalculator;
+        use serde_json::{json, Value};
+        use utils::{Hasher};
+        use std::str::FromStr;
     } else {
         use std::marker::*;
     }

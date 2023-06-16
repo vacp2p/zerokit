@@ -6,8 +6,7 @@ mod tests {
     use rln::circuit::TEST_TREE_HEIGHT;
     use rln::utils::normalize_usize;
     use rln_wasm::*;
-    use wasm_bindgen::prelude::*;
-    use wasm_bindgen::JsValue;
+    use wasm_bindgen::{prelude::*, JsValue};
     use wasm_bindgen_test::wasm_bindgen_test;
 
     #[wasm_bindgen(module = "src/utils.js")]
@@ -108,5 +107,29 @@ mod tests {
 
         let is_proof_valid = wasm_verify_with_roots(rln_instance, proof_with_signal, roots);
         assert!(is_proof_valid.unwrap(), "verifying proof with roots failed");
+    }
+
+    #[wasm_bindgen_test]
+    fn test_metadata() {
+        let tree_height = TEST_TREE_HEIGHT;
+        let circom_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln.wasm");
+        let zkey_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.zkey");
+        let vk_path =
+            format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/verification_key.json");
+        let zkey = read_file(&zkey_path).unwrap();
+        let vk = read_file(&vk_path).unwrap();
+
+        // Creating an instance of RLN
+        let rln_instance = wasm_new(tree_height, zkey, vk).unwrap();
+
+
+        let test_metadata = Uint8Array::new(&JsValue::from_str("test"));
+        // Inserting random metadata
+        wasm_set_metadata(rln_instance, test_metadata.clone()).unwrap();
+
+        // Getting metadata
+        let metadata = wasm_get_metadata(rln_instance).unwrap();
+
+        assert_eq!(metadata.to_vec(), test_metadata.to_vec());
     }
 }
