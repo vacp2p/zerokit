@@ -87,7 +87,7 @@ impl RLN<'_> {
         let proving_key = zkey_from_folder(resources_folder)?;
         let verification_key = vk_from_folder(resources_folder)?;
 
-        let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = if tree_config == "" {
+        let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = if tree_config.is_empty() {
             <PoseidonTree as ZerokitMerkleTree>::Config::default()
         } else {
             <PoseidonTree as ZerokitMerkleTree>::Config::from_str(&tree_config)?
