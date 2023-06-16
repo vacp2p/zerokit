@@ -80,18 +80,17 @@ impl RLN<'_> {
         let resources_folder = rln_config["resources_folder"]
             .as_str()
             .unwrap_or(TEST_RESOURCES_FOLDER);
-        let tree_config_opt = rln_config["tree_config"].as_str();
+        let tree_config = rln_config["tree_config"].to_string();
 
         let witness_calculator = circom_from_folder(resources_folder)?;
 
         let proving_key = zkey_from_folder(resources_folder)?;
         let verification_key = vk_from_folder(resources_folder)?;
 
-        let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = match tree_config_opt {
-            Some(tree_config_str) => {
-                <PoseidonTree as ZerokitMerkleTree>::Config::from_str(tree_config_str)?
-            }
-            None => <PoseidonTree as ZerokitMerkleTree>::Config::default(),
+        let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = if tree_config.is_empty() {
+            <PoseidonTree as ZerokitMerkleTree>::Config::default()
+        } else {
+            <PoseidonTree as ZerokitMerkleTree>::Config::from_str(&tree_config)?
         };
 
         // We compute a default empty tree
