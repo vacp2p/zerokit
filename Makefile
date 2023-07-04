@@ -8,12 +8,13 @@ all: .pre-build build
 .pre-build: .fetch-submodules
 	@cargo install cargo-make
 ifdef CI
-	@cargo install cross --git https://github.com/cross-rs/cross --rev 1511a28
+	@cargo install cross --git https://github.com/cross-rs/cross.git --rev 1511a28
 endif
 
 installdeps: .pre-build
 ifeq ($(shell uname),Darwin)
-	@brew update
+# commented due to https://github.com/orgs/Homebrew/discussions/4612	
+# @brew update 
 	@brew install cmake ninja
 else ifeq ($(shell uname),Linux)
 	@sudo apt-get update
