@@ -155,7 +155,7 @@ dependencies = [
 [[package]]
 name = "ark-circom"
 version = "0.1.0"
-source = "git+https://github.com/vacp2p/ark-circom?rev=f8a23cf#f8a23cfeaadbc8036194642a64ee142e0d7998dd"
+source = "git+https://github.com/vacp2p/ark-circom?rev=f8a23cf"
 dependencies = [
  "ark-bn254 0.4.0",
  "ark-crypto-primitives 0.4.0",
