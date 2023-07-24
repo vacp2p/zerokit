@@ -3081,7 +3081,7 @@ version = "0.1.0"
 source = "git+https://github.com/worldcoin/semaphore-rs?rev=ee658c2#ee658c22684696232f68ef08beb8494280fb7da4"
 dependencies = [
  "ark-bn254 0.3.0",
- "ark-circom 0.1.0 (git+https://github.com/gakonst/ark-circom?rev=a93c8b0)",
+ "ark-circom 0.1.0 (git+https://github.com/vacp2p/ark-circom?rev=f8a23cf)",
  "ark-ec 0.3.0",
  "ark-ff 0.3.0",
  "ark-groth16 0.3.0",
