@@ -5,7 +5,6 @@ on:
     paths-ignore:
       - '**.md'
       - '!.github/workflows/*.yml'
-      - '!multiplier/src/**'
       - '!private-settlement/src/**'
       - '!rln-wasm/**'
       - '!rln/src/**'
@@ -16,7 +15,6 @@ on:
     paths-ignore:
       - '**.md'
       - '!.github/workflows/*.yml'
-      - '!multiplier/src/**'
       - '!private-settlement/src/**'
       - '!rln-wasm/**'
       - '!rln/src/**'
@@ -32,7 +30,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        crate: [multiplier, semaphore, rln, utils]
+        crate: [semaphore, rln, utils]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
   
@@ -85,7 +83,7 @@ jobs:
       matrix:
         # we run lint tests only on ubuntu
         platform: [ubuntu-latest]
-        crate: [multiplier, semaphore, rln, utils]
+        crate: [semaphore, rln, utils]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
