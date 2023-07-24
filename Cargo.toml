@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "multiplier",
   "private-settlement",
   "semaphore",
   "rln",
