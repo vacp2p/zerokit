@@ -12,7 +12,7 @@ dylib = [ "wasmer/dylib", "wasmer-engine-dylib", "wasmer-compiler-cranelift" ]
 
 [dependencies]
 ark-bn254 = { version = "0.3.0" }
-ark-circom = { git = "https://github.com/gakonst/ark-circom", features=["circom-2"], rev = "35ce5a9" }
+ark-circom = { git = "https://github.com/vacp2p/ark-circom", features=["circom-2"], rev = "f8a23cf" }
 ark-ec = { version = "0.3.0", default-features = false, features = ["parallel"] }
 ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", rev = "765817f", features = ["parallel"] }
 ark-relations = { version = "0.3.0", default-features = false }
