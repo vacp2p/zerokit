@@ -1531,8 +1531,8 @@ dependencies = [
 
 [[package]]
 name = "ethers-core"
-version = "2.0.7"
-source = "git+https://github.com/gakonst/ethers-rs?rev=3110864#311086466871204c3965065b8c81e47418261412"
+version = "2.0.8"
+source = "git+https://github.com/gakonst/ethers-rs?rev=030bf43#030bf439a100dcacd2e968e3114de0612229056b"
 dependencies = [
  "arrayvec",
  "bytes",
@@ -2960,7 +2960,7 @@ dependencies = [
  "ark-relations 0.3.0",
  "ark-std 0.3.0",
  "color-eyre 0.6.2",
- "ethers-core 2.0.7",
+ "ethers-core 2.0.8",
  "once_cell",
  "rand",
  "rand_chacha",
