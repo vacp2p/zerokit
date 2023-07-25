@@ -65,6 +65,7 @@ pub trait ZerokitMerkleTree {
     fn verify(&self, leaf: &FrOf<Self::Hasher>, witness: &Self::Proof) -> Result<bool>;
     fn set_metadata(&mut self, metadata: &[u8]) -> Result<()>;
     fn metadata(&self) -> Result<Vec<u8>>;
+    fn close_db_connection(&mut self) -> Result<()>;
 }
 
 pub trait ZerokitMerkleProof {

@@ -145,6 +145,10 @@ impl ZerokitMerkleTree for PmTree {
         })
     }
 
+    fn close_db_connection(&mut self) -> Result<()> {
+        self.tree.db.close().map_err(|e| Report::msg(e.to_string()))
+    }
+
     fn depth(&self) -> usize {
         self.tree.depth()
     }
