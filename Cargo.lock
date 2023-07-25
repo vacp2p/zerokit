@@ -2414,7 +2414,7 @@ dependencies = [
 [[package]]
 name = "pmtree"
 version = "1.0.0"
-source = "git+https://github.com/vacp2p/pmtree?rev=46a39a3#46a39a373ffdb6da14fd122b008437e63f1f7e2b"
+source = "git+https://github.com/vacp2p/pmtree?rev=be7c964#be7c96472f5c97b348297ab23c77f228fba0914f"
 dependencies = [
  "rayon",
 ]
