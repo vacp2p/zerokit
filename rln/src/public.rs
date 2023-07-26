@@ -1134,7 +1134,7 @@ impl RLN<'_> {
     /// This function should be called before the RLN object is dropped.
     /// If not called, the connection will be closed when the RLN object is dropped.
     /// This improves robustness of the tree.
-    pub fn close_db_connection(&mut self) -> Result<()> {
+    pub fn flush(&mut self) -> Result<()> {
         self.tree.close_db_connection()
     }
 }
@@ -1387,7 +1387,7 @@ mod test {
 
         assert_eq!(root_batch_with_init, root_single_additions);
 
-        rln.close_db_connection();
+        rln.flush();
     }
 
     #[test]

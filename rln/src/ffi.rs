@@ -403,8 +403,8 @@ pub extern "C" fn get_metadata(ctx: *const RLN, output_buffer: *mut Buffer) -> b
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn close_db_connection(ctx: *mut RLN) -> bool {
-    call!(ctx, close_db_connection)
+pub extern "C" fn flush(ctx: *mut RLN) -> bool {
+    call!(ctx, flush)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
