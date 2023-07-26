@@ -136,7 +136,10 @@ impl ZerokitMerkleTree for PmTree {
         let tree_loaded = pmtree::MerkleTree::load(config.clone().0);
         let tree = match tree_loaded {
             Ok(tree) => tree,
-            Err(_) => pmtree::MerkleTree::new(depth, config.0)?,
+            Err(e) => {
+                eprintln!("{}", e);
+                pmtree::MerkleTree::new(depth, config.0)?
+            },
         };
 
         Ok(PmTree {
