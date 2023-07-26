@@ -137,9 +137,12 @@ impl ZerokitMerkleTree for PmTree {
         let tree = match tree_loaded {
             Ok(tree) => tree,
             Err(e) => {
-                eprintln!("{}", e);
-                pmtree::MerkleTree::new(depth, config.0)?
-            },
+                return Err(Report::msg(format!(
+                    "Cannot load tree: {e} {config:#?}",
+                    e = e,
+                    config = config
+                )))
+            }
         };
 
         Ok(PmTree {
