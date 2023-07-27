@@ -128,6 +128,34 @@ dependencies = [
 [[package]]
 name = "ark-circom"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "295bb8e275f3e211b36a822469ba88deb028ecb3d7fe8684102598a9158a7350"
+dependencies = [
+ "ark-bn254 0.4.0",
+ "ark-crypto-primitives 0.4.0",
+ "ark-ec 0.4.1",
+ "ark-ff 0.4.1",
+ "ark-groth16 0.4.0",
+ "ark-poly 0.4.1",
+ "ark-relations 0.4.0",
+ "ark-serialize 0.4.1",
+ "ark-std 0.4.0",
+ "byteorder",
+ "cfg-if",
+ "color-eyre 0.6.2",
+ "criterion 0.3.6",
+ "fnv",
+ "hex",
+ "num",
+ "num-bigint",
+ "num-traits",
+ "thiserror",
+ "wasmer",
+]
+
+[[package]]
+name = "ark-circom"
+version = "0.1.0"
 source = "git+https://github.com/gakonst/ark-circom?rev=35ce5a9#35ce5a909ee09ae8c3101e69cc57785a21ed7f64"
 dependencies = [
  "ark-bn254 0.3.0",
@@ -170,33 +198,6 @@ dependencies = [
  "color-eyre 0.5.11",
  "criterion 0.3.6",
  "ethers-core",
- "fnv",
- "hex",
- "num",
- "num-bigint",
- "num-traits",
- "thiserror",
- "wasmer",
-]
-
-[[package]]
-name = "ark-circom"
-version = "0.1.0"
-source = "git+https://github.com/gakonst/ark-circom#f97ac2b2458fd14489bc70375bb45688f5ef26a8"
-dependencies = [
- "ark-bn254 0.4.0",
- "ark-crypto-primitives 0.4.0",
- "ark-ec 0.4.1",
- "ark-ff 0.4.1",
- "ark-groth16 0.4.0",
- "ark-poly 0.4.1",
- "ark-relations 0.4.0",
- "ark-serialize 0.4.1",
- "ark-std 0.4.0",
- "byteorder",
- "cfg-if",
- "color-eyre 0.6.2",
- "criterion 0.3.6",
  "fnv",
  "hex",
  "num",
@@ -2669,7 +2670,7 @@ name = "rln"
 version = "0.1.0"
 dependencies = [
  "ark-bn254 0.4.0",
- "ark-circom 0.1.0 (git+https://github.com/gakonst/ark-circom)",
+ "ark-circom 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ark-ec 0.4.1",
  "ark-ff 0.4.1",
  "ark-groth16 0.4.0",
@@ -3227,18 +3228,18 @@ checksum = "222a222a5bfe1bba4a77b45ec488a741b3cb8872e5e499451fd7d0129c9c7c3d"
 
 [[package]]
 name = "thiserror"
-version = "1.0.38"
+version = "1.0.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a9cd18aa97d5c45c6603caea1da6628790b37f7a34b6ca89522331c5180fed0"
+checksum = "a5ab016db510546d856297882807df8da66a16fb8c4101cb8b30054b0d5b2d9c"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.38"
+version = "1.0.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fb327af4685e4d03fa8cbcf1716380da910eeb2bb8be417e7f9fd3fb164f36f"
+checksum = "5420d42e90af0c38c3290abcca25b9b3bdf379fc9f55c528f53a269d9c9a267e"
 dependencies = [
  "proc-macro2",
  "quote",
