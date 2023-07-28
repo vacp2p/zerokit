@@ -2413,14 +2413,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pmtree"
-version = "1.0.0"
-source = "git+https://github.com/vacp2p/pmtree?rev=4521c44#4521c4406551fecd8f2e8543233e73e5061686e7"
-dependencies = [
- "rayon",
-]
-
-[[package]]
 name = "ppv-lite86"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2718,8 +2710,8 @@ dependencies = [
  "sled",
  "thiserror",
  "tiny-keccak",
- "utils",
  "wasmer",
+ "zerokit_utils",
 ]
 
 [[package]]
@@ -3507,27 +3499,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
-name = "utils"
-version = "0.1.0"
-dependencies = [
- "ark-bn254 0.4.0",
- "ark-ff 0.4.1",
- "color-eyre 0.6.2",
- "criterion 0.4.0",
- "hex-literal",
- "num-bigint",
- "num-traits",
- "pmtree",
- "serde",
- "sled",
- "tiny-keccak",
-]
-
-[[package]]
 name = "uuid"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4dad5567ad0cf5b760e5665964bec1b47dfd077ba8a2544b513f3556d3d239a2"
+
+[[package]]
+name = "vacp2p_pmtree"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bee78790de52d6774ea318eb747a488fd5d96055bfe75ec2e7f605b15e21c664"
+dependencies = [
+ "rayon",
+]
 
 [[package]]
 name = "valuable"
@@ -4272,4 +4256,21 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.16",
+]
+
+[[package]]
+name = "zerokit_utils"
+version = "0.1.0"
+dependencies = [
+ "ark-bn254 0.4.0",
+ "ark-ff 0.4.1",
+ "color-eyre 0.6.2",
+ "criterion 0.4.0",
+ "hex-literal",
+ "num-bigint",
+ "num-traits",
+ "serde",
+ "sled",
+ "tiny-keccak",
+ "vacp2p_pmtree",
 ]
