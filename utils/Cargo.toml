@@ -13,14 +13,14 @@ num-bigint = { version = "=0.4.3", default-features = false, features = ["rand"]
 color-eyre = "=0.6.2"
 pmtree = { git = "https://github.com/vacp2p/pmtree", rev = "8b005bb44a4c51b56638ad6057b8bc90629fca59", optional = true}
 sled = "=0.34.7"
-serde = "1.0.44"
+serde = "=1.0.163"
 
 [dev-dependencies]
 ark-bn254 = "=0.4.0"
-num-traits = "0.2.11"
-hex-literal = "0.3.4"
-tiny-keccak = { version = "2.0.2", features = ["keccak"] }
-criterion = { version = "0.4", features = ["html_reports"] }
+num-traits = "=0.2.15"
+hex-literal = "=0.3.4"
+tiny-keccak = { version = "=2.0.2", features = ["keccak"] }
+criterion = { version = "=0.4.0", features = ["html_reports"] }
 
 [features]
 default = ["parallel"]
