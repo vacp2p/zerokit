@@ -1129,6 +1129,14 @@ impl RLN<'_> {
         let (rln_witness, _) = deserialize_witness(serialized_witness)?;
         get_json_inputs(&rln_witness)
     }
+
+    /// Closes the connection to the Merkle tree database.
+    /// This function should be called before the RLN object is dropped.
+    /// If not called, the connection will be closed when the RLN object is dropped.
+    /// This improves robustness of the tree.
+    pub fn flush(&mut self) -> Result<()> {
+        self.tree.close_db_connection()
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -1378,6 +1386,8 @@ mod test {
         let (root_single_additions, _) = bytes_le_to_fr(&buffer.into_inner());
 
         assert_eq!(root_batch_with_init, root_single_additions);
+
+        rln.flush();
     }
 
     #[test]

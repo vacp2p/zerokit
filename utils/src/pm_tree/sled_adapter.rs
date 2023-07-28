@@ -45,6 +45,15 @@ impl Database for SledDB {
         Ok(SledDB(db))
     }
 
+    fn close(&mut self) -> PmtreeResult<()> {
+        let _ = self.0.flush().map_err(|_| {
+            PmtreeErrorKind::DatabaseError(DatabaseErrorKind::CustomError(
+                "Cannot flush database".to_string(),
+            ))
+        })?;
+        Ok(())
+    }
+
     fn get(&self, key: DBKey) -> PmtreeResult<Option<Value>> {
         match self.0.get(key) {
             Ok(value) => Ok(value.map(|val| val.to_vec())),

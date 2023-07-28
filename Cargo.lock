@@ -170,7 +170,7 @@ dependencies = [
  "cfg-if",
  "color-eyre 0.6.2",
  "criterion 0.3.6",
- "ethers-core",
+ "ethers-core 2.0.4",
  "fnv",
  "hex",
  "num",
@@ -197,7 +197,7 @@ dependencies = [
  "cfg-if",
  "color-eyre 0.5.11",
  "criterion 0.3.6",
- "ethers-core",
+ "ethers-core 2.0.4",
  "fnv",
  "hex",
  "num",
@@ -1523,7 +1523,34 @@ dependencies = [
  "rlp",
  "serde",
  "serde_json",
- "strum",
+ "strum 0.24.1",
+ "tempfile",
+ "thiserror",
+ "tiny-keccak",
+ "unicode-xid",
+]
+
+[[package]]
+name = "ethers-core"
+version = "2.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60ca2514feb98918a0a31de7e1983c29f2267ebf61b2dc5d4294f91e5b866623"
+dependencies = [
+ "arrayvec",
+ "bytes",
+ "chrono",
+ "elliptic-curve",
+ "ethabi",
+ "generic-array",
+ "hex",
+ "k256",
+ "num_enum",
+ "open-fastrlp",
+ "rand",
+ "rlp",
+ "serde",
+ "serde_json",
+ "strum 0.25.0",
  "tempfile",
  "thiserror",
  "tiny-keccak",
@@ -2388,7 +2415,7 @@ dependencies = [
 [[package]]
 name = "pmtree"
 version = "1.0.0"
-source = "git+https://github.com/vacp2p/pmtree?rev=8b005bb44a4c51b56638ad6057b8bc90629fca59#8b005bb44a4c51b56638ad6057b8bc90629fca59"
+source = "git+https://github.com/vacp2p/pmtree?rev=4521c44#4521c4406551fecd8f2e8543233e73e5061686e7"
 dependencies = [
  "rayon",
 ]
@@ -2909,7 +2936,7 @@ dependencies = [
  "ark-std 0.3.0",
  "color-eyre 0.6.2",
  "enumset",
- "ethers-core",
+ "ethers-core 2.0.4",
  "hex",
  "hex-literal",
  "num-bigint",
@@ -2935,7 +2962,7 @@ dependencies = [
  "ark-relations 0.3.0",
  "ark-std 0.3.0",
  "color-eyre 0.6.2",
- "ethers-core",
+ "ethers-core 2.0.8",
  "once_cell",
  "rand",
  "rand_chacha",
@@ -3142,7 +3169,16 @@ version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "063e6045c0e62079840579a7e47a355ae92f60eb74daaf156fb1e84ba164e63f"
 dependencies = [
- "strum_macros",
+ "strum_macros 0.24.3",
+]
+
+[[package]]
+name = "strum"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
+dependencies = [
+ "strum_macros 0.25.0",
 ]
 
 [[package]]
@@ -3156,6 +3192,19 @@ dependencies = [
  "quote",
  "rustversion",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe9f3bd7d2e45dcc5e265fbb88d6513e4747d8ef9444cf01a533119bce28a157"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.16",
 ]
 
 [[package]]

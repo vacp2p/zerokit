@@ -403,6 +403,12 @@ pub extern "C" fn get_metadata(ctx: *const RLN, output_buffer: *mut Buffer) -> b
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+pub extern "C" fn flush(ctx: *mut RLN) -> bool {
+    call!(ctx, flush)
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
 pub extern "C" fn hash(input_buffer: *const Buffer, output_buffer: *mut Buffer) -> bool {
     no_ctx_call_with_output_arg!(public_hash, output_buffer, input_buffer)
 }

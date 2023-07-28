@@ -36,20 +36,12 @@ impl PoseidonGrainLFSR {
         assert!(is_field == 1);
 
         // b0, b1 describes the field
-        if is_field == 1 {
-            state[1] = true;
-        } else {
-            state[1] = false;
-        }
+        state[1] = is_field == 1;
 
         assert!(is_sbox_an_inverse == 0 || is_sbox_an_inverse == 1);
 
         // b2, ..., b5 describes the S-BOX
-        if is_sbox_an_inverse == 1 {
-            state[5] = true;
-        } else {
-            state[5] = false;
-        }
+        state[5] = is_sbox_an_inverse == 1;
 
         // b6, ..., b17 are the binary representation of n (prime_num_bits)
         {

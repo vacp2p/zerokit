@@ -101,6 +101,10 @@ where
         })
     }
 
+    fn close_db_connection(&mut self) -> Result<()> {
+        Ok(())
+    }
+
     // Returns the depth of the tree
     fn depth(&self) -> usize {
         self.depth
