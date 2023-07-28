@@ -128,6 +128,34 @@ dependencies = [
 [[package]]
 name = "ark-circom"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "295bb8e275f3e211b36a822469ba88deb028ecb3d7fe8684102598a9158a7350"
+dependencies = [
+ "ark-bn254 0.4.0",
+ "ark-crypto-primitives 0.4.0",
+ "ark-ec 0.4.1",
+ "ark-ff 0.4.1",
+ "ark-groth16 0.4.0",
+ "ark-poly 0.4.1",
+ "ark-relations 0.4.0",
+ "ark-serialize 0.4.1",
+ "ark-std 0.4.0",
+ "byteorder",
+ "cfg-if",
+ "color-eyre 0.6.2",
+ "criterion 0.3.6",
+ "fnv",
+ "hex",
+ "num",
+ "num-bigint",
+ "num-traits",
+ "thiserror",
+ "wasmer",
+]
+
+[[package]]
+name = "ark-circom"
+version = "0.1.0"
 source = "git+https://github.com/gakonst/ark-circom?rev=35ce5a9#35ce5a909ee09ae8c3101e69cc57785a21ed7f64"
 dependencies = [
  "ark-bn254 0.3.0",
@@ -170,33 +198,6 @@ dependencies = [
  "color-eyre 0.5.11",
  "criterion 0.3.6",
  "ethers-core 2.0.4",
- "fnv",
- "hex",
- "num",
- "num-bigint",
- "num-traits",
- "thiserror",
- "wasmer",
-]
-
-[[package]]
-name = "ark-circom"
-version = "0.1.0"
-source = "git+https://github.com/gakonst/ark-circom#f97ac2b2458fd14489bc70375bb45688f5ef26a8"
-dependencies = [
- "ark-bn254 0.4.0",
- "ark-crypto-primitives 0.4.0",
- "ark-ec 0.4.1",
- "ark-ff 0.4.1",
- "ark-groth16 0.4.0",
- "ark-poly 0.4.1",
- "ark-relations 0.4.0",
- "ark-serialize 0.4.1",
- "ark-std 0.4.0",
- "byteorder",
- "cfg-if",
- "color-eyre 0.6.2",
- "criterion 0.3.6",
  "fnv",
  "hex",
  "num",
@@ -2412,14 +2413,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pmtree"
-version = "1.0.0"
-source = "git+https://github.com/vacp2p/pmtree?rev=4521c44#4521c4406551fecd8f2e8543233e73e5061686e7"
-dependencies = [
- "rayon",
-]
-
-[[package]]
 name = "ppv-lite86"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2696,7 +2689,7 @@ name = "rln"
 version = "0.1.0"
 dependencies = [
  "ark-bn254 0.4.0",
- "ark-circom 0.1.0 (git+https://github.com/gakonst/ark-circom)",
+ "ark-circom 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ark-ec 0.4.1",
  "ark-ff 0.4.1",
  "ark-groth16 0.4.0",
@@ -2717,8 +2710,8 @@ dependencies = [
  "sled",
  "thiserror",
  "tiny-keccak",
- "utils",
  "wasmer",
+ "zerokit_utils",
 ]
 
 [[package]]
@@ -3177,7 +3170,7 @@ version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
 dependencies = [
- "strum_macros 0.25.0",
+ "strum_macros 0.25.1",
 ]
 
 [[package]]
@@ -3195,9 +3188,9 @@ dependencies = [
 
 [[package]]
 name = "strum_macros"
-version = "0.25.0"
+version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe9f3bd7d2e45dcc5e265fbb88d6513e4747d8ef9444cf01a533119bce28a157"
+checksum = "6069ca09d878a33f883cc06aaa9718ede171841d3832450354410b718b097232"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -3276,18 +3269,18 @@ checksum = "222a222a5bfe1bba4a77b45ec488a741b3cb8872e5e499451fd7d0129c9c7c3d"
 
 [[package]]
 name = "thiserror"
-version = "1.0.38"
+version = "1.0.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a9cd18aa97d5c45c6603caea1da6628790b37f7a34b6ca89522331c5180fed0"
+checksum = "a5ab016db510546d856297882807df8da66a16fb8c4101cb8b30054b0d5b2d9c"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.38"
+version = "1.0.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fb327af4685e4d03fa8cbcf1716380da910eeb2bb8be417e7f9fd3fb164f36f"
+checksum = "5420d42e90af0c38c3290abcca25b9b3bdf379fc9f55c528f53a269d9c9a267e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3506,27 +3499,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
-name = "utils"
-version = "0.1.0"
-dependencies = [
- "ark-bn254 0.4.0",
- "ark-ff 0.4.1",
- "color-eyre 0.6.2",
- "criterion 0.4.0",
- "hex-literal",
- "num-bigint",
- "num-traits",
- "pmtree",
- "serde",
- "sled",
- "tiny-keccak",
-]
-
-[[package]]
 name = "uuid"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4dad5567ad0cf5b760e5665964bec1b47dfd077ba8a2544b513f3556d3d239a2"
+
+[[package]]
+name = "vacp2p_pmtree"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bee78790de52d6774ea318eb747a488fd5d96055bfe75ec2e7f605b15e21c664"
+dependencies = [
+ "rayon",
+]
 
 [[package]]
 name = "valuable"
@@ -4271,4 +4256,21 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.16",
+]
+
+[[package]]
+name = "zerokit_utils"
+version = "0.1.0"
+dependencies = [
+ "ark-bn254 0.4.0",
+ "ark-ff 0.4.1",
+ "color-eyre 0.6.2",
+ "criterion 0.4.0",
+ "hex-literal",
+ "num-bigint",
+ "num-traits",
+ "serde",
+ "sled",
+ "tiny-keccak",
+ "vacp2p_pmtree",
 ]

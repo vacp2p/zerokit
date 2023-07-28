@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use hex_literal::hex;
 use tiny_keccak::{Hasher as _, Keccak};
-use utils::{
+use zerokit_utils::{
     FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree,
     ZerokitMerkleTree,
 };
