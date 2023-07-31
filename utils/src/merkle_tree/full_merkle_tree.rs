@@ -1,10 +1,10 @@
-use crate::{merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree}, merkle_tree::Batch};
+use crate::merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
 use color_eyre::{Report, Result};
 use std::{
     cmp::max,
     fmt::Debug,
-    iter::{repeat, successors},
-    str::FromStr, collections::HashMap,
+    iter::{once, repeat, successors},
+    str::FromStr,
 };
 
 ////////////////////////////////////////////////////////////
@@ -59,30 +59,6 @@ impl FromStr for FullMerkleConfig {
     }
 }
 
-impl<H> Batch<H> for HashMap<usize, FrOf<H>>
-where
-    H: Hasher,
-{
-    type Key = usize;
-
-    fn insert(&mut self, key: usize, value: FrOf<H>) {
-        self.insert(key, value);
-    }
-
-    fn remove(&mut self, key: usize) {
-        self.remove(&key);
-    }
-
-    fn max_index(&self) -> usize {
-        *self.keys().max().unwrap_or(&0)
-    }
-
-    fn min_index(&self) -> usize {
-        *self.keys().min().unwrap_or(&0)
-    }
-}
-
-
 /// Implementations
 impl<H: Hasher> ZerokitMerkleTree for FullMerkleTree<H>
 where
@@ -91,7 +67,6 @@ where
     type Proof = FullMerkleProof<H>;
     type Hasher = H;
     type Config = FullMerkleConfig;
-    type Batch = HashMap<usize, FrOf<Self::Hasher>>;
 
     fn default(depth: usize) -> Result<Self> {
         FullMerkleTree::<H>::new(depth, Self::Hasher::default_leaf(), Self::Config::default())
@@ -153,12 +128,7 @@ where
 
     // Sets a leaf at the specified tree index
     fn set(&mut self, leaf: usize, hash: FrOf<Self::Hasher>) -> Result<()> {
-        if leaf >= self.capacity() {
-            return Err(Report::msg("leaf index out of bounds"));
-        }
-        let capacity = self.capacity();
-        self.nodes[capacity + leaf - 1] = hash;
-        self.update_nodes(capacity + leaf - 1, capacity + leaf - 1)?;
+        self.set_range(leaf, once(hash))?;
         self.next_index = max(self.next_index, leaf + 1);
         Ok(())
     }
@@ -173,18 +143,59 @@ where
 
     // Sets tree nodes, starting from start index
     // Function proper of FullMerkleTree implementation
-    fn set_range(
+    fn set_range<I: IntoIterator<Item = FrOf<Self::Hasher>>>(
         &mut self,
-        batch: &Self::Batch,
+        start: usize,
+        hashes: I,
     ) -> Result<()> {
+        let index = self.capacity() + start - 1;
+        let mut count = 0;
         // first count number of hashes, and check that they fit in the tree
         // then insert into the tree
-        if batch.len() > self.capacity() {
+        let hashes = hashes.into_iter().collect::<Vec<_>>();
+        if hashes.len() + start > self.capacity() {
+            return Err(Report::msg("provided hashes do not fit in the tree"));
+        }
+        hashes.into_iter().for_each(|hash| {
+            self.nodes[index + count] = hash;
+            count += 1;
+        });
+        if count != 0 {
+            self.update_nodes(index, index + (count - 1))?;
+            self.next_index = max(self.next_index, start + count);
+        }
+        Ok(())
+    }
+
+    fn override_range<I, J>(&mut self, start: usize, leaves: I, to_remove_indices: J) -> Result<()>
+    where
+        I: IntoIterator<Item = FrOf<Self::Hasher>>,
+        J: IntoIterator<Item = usize>,
+    {
+        let index = self.capacity() + start - 1;
+        let mut count = 0;
+        let leaves = leaves.into_iter().collect::<Vec<_>>();
+        let to_remove_indices = to_remove_indices.into_iter().collect::<Vec<_>>();
+        // first count number of hashes, and check that they fit in the tree
+        // then insert into the tree
+        if leaves.len() + start - to_remove_indices.len() > self.capacity() {
             return Err(Report::msg("provided hashes do not fit in the tree"));
         }
 
-        for (key, value) in batch {
-            self.set(*key, *value)?;
+        // remove leaves
+        for i in &to_remove_indices {
+            self.delete(*i)?;
+        }
+
+        // insert new leaves
+        for hash in leaves {
+            self.nodes[index + count] = hash;
+            count += 1;
+        }
+
+        if count != 0 {
+            self.update_nodes(index, index + (count - 1))?;
+            self.next_index = max(self.next_index, start + count - to_remove_indices.len());
         }
         Ok(())
     }

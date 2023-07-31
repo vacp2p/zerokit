@@ -60,7 +60,6 @@ where
     type Proof = OptimalMerkleProof<H>;
     type Hasher = H;
     type Config = OptimalMerkleConfig;
-    type Batch = HashMap<usize, FrOf<H>>;
 
     fn default(depth: usize) -> Result<Self> {
         OptimalMerkleTree::<H>::new(depth, H::default_leaf(), Self::Config::default())
@@ -129,15 +128,47 @@ where
     }
 
     // Sets multiple leaves from the specified tree index
-    fn set_range(&mut self, batch: &Self::Batch) -> Result<()> {
+    fn set_range<I: IntoIterator<Item = H::Fr>>(&mut self, start: usize, leaves: I) -> Result<()> {
+        let leaves = leaves.into_iter().collect::<Vec<_>>();
         // check if the range is valid
-        if batch.len() > self.capacity() {
+        if start + leaves.len() > self.capacity() {
+            return Err(Report::msg("provided range exceeds set size"));
+        }
+        for (i, leaf) in leaves.iter().enumerate() {
+            self.nodes.insert((self.depth, start + i), *leaf);
+            self.recalculate_from(start + i)?;
+        }
+        self.next_index = max(self.next_index, start + leaves.len());
+        Ok(())
+    }
+
+    fn override_range<I, J>(&mut self, start: usize, leaves: I, to_remove_indices: J) -> Result<()>
+    where
+        I: IntoIterator<Item = FrOf<Self::Hasher>>,
+        J: IntoIterator<Item = usize>,
+    {
+        let leaves = leaves.into_iter().collect::<Vec<_>>();
+        let to_remove_indices = to_remove_indices.into_iter().collect::<Vec<_>>();
+        // check if the range is valid
+        if leaves.len() + start - to_remove_indices.len() > self.capacity() {
             return Err(Report::msg("provided range exceeds set size"));
         }
 
-        for (key, value) in batch {
-            self.set(*key, *value)?;
+        // remove leaves
+        for i in &to_remove_indices {
+            self.delete(*i)?;
         }
+
+        // add leaves
+        for (i, leaf) in leaves.iter().enumerate() {
+            self.nodes.insert((self.depth, start + i), *leaf);
+            self.recalculate_from(start + i)?;
+        }
+
+        self.next_index = max(
+            self.next_index,
+            start + leaves.len() - to_remove_indices.len(),
+        );
         Ok(())
     }
 

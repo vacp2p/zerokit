@@ -1438,12 +1438,6 @@ mod test {
         rln.get_root(&mut buffer).unwrap();
         let (root_after_noop, _) = bytes_le_to_fr(&buffer.into_inner());
 
-        let mut output_buffer = Cursor::new(Vec::<u8>::new());
-        rln.get_leaf(last_leaf_index, &mut output_buffer).unwrap();
-        let (received_leaf, _) = bytes_le_to_fr(output_buffer.into_inner().as_ref());
-
-        assert_eq!(received_leaf, last_leaf[0]);
-
         assert_eq!(root_after_insertion, root_after_noop);
     }
 
