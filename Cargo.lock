@@ -2081,7 +2081,7 @@ checksum = "7843ec2de400bcbc6a6328c958dc38e5359da6e93e72e37bc5246bf1ae776389"
 
 [[package]]
 name = "multiplier"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "ark-bn254 0.3.0",
  "ark-circom 0.1.0 (git+https://github.com/gakonst/ark-circom?rev=35ce5a9)",
@@ -2434,7 +2434,7 @@ dependencies = [
 
 [[package]]
 name = "private-settlement"
-version = "0.1.0"
+version = "0.3.0"
 
 [[package]]
 name = "proc-macro-crate"
@@ -2686,7 +2686,7 @@ dependencies = [
 
 [[package]]
 name = "rln"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "ark-bn254 0.4.0",
  "ark-circom 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2716,7 +2716,7 @@ dependencies = [
 
 [[package]]
 name = "rln-cli"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "clap 4.2.7",
  "clap_derive",
@@ -2945,7 +2945,7 @@ dependencies = [
 
 [[package]]
 name = "semaphore-wrapper"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "ark-bn254 0.3.0",
  "ark-circom 0.1.0 (git+https://github.com/gakonst/ark-circom?rev=35ce5a9)",
@@ -4260,7 +4260,7 @@ dependencies = [
 
 [[package]]
 name = "zerokit_utils"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "ark-bn254 0.4.0",
  "ark-ff 0.4.1",
