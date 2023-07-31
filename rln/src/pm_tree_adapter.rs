@@ -192,7 +192,7 @@ impl ZerokitMerkleTree for PmTree {
         indices: J,
     ) -> Result<()> {
         let leaves = leaves.into_iter().collect::<Vec<_>>();
-        let indices = indices.into_iter().collect::<HashSet<_>>();
+        let indices = indices.into_iter().collect::<Vec<_>>();
         let end = start + leaves.len() + indices.len();
 
         // handle each case appropriately -
@@ -206,14 +206,11 @@ impl ZerokitMerkleTree for PmTree {
                 // case 3
                 // remove indices
                 let mut new_leaves = Vec::new();
-                for i in start..end {
-                    if indices.contains(&i) {
-                        // insert 0
-                        new_leaves.push(Self::Hasher::default_leaf());
-                    } else {
-                        // insert leaf
-                        new_leaves.push(self.tree.get(i)?);
-                    }
+                let start = start + indices[0];
+                let end = start + indices.len();
+                for _ in start..end {
+                    // Insert 0
+                    new_leaves.push(Self::Hasher::default_leaf());
                 }
                 self.tree
                     .set_range(start, new_leaves)
@@ -230,6 +227,7 @@ impl ZerokitMerkleTree for PmTree {
                 // case 1
                 // remove indices
                 let mut new_leaves = Vec::new();
+                let indices = indices.into_iter().collect::<HashSet<_>>();
                 let new_start = start + leaves.len();
                 for i in new_start..=end {
                     if indices.contains(&i) {
