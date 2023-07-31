@@ -362,7 +362,7 @@ impl RLN<'_> {
         // We set the leaves
         self.tree
             .override_range(index, leaves, indices)
-            .map_err(|_| Report::msg("Could not perform the batch operation"))?;
+            .map_err(|e| Report::msg(format!("Could not perform the batch operation: {e}")))?;
         Ok(())
     }
 
@@ -1387,7 +1387,7 @@ mod test {
 
         assert_eq!(root_batch_with_init, root_single_additions);
 
-        rln.flush();
+        rln.flush().unwrap();
     }
 
     #[test]
@@ -1430,7 +1430,7 @@ mod test {
         let indices_buffer = Cursor::new(vec_u8_to_bytes_le(&indices).unwrap());
         let leaves_buffer = Cursor::new(vec_fr_to_bytes_le(&last_leaf).unwrap());
 
-        rln.atomic_operation(no_of_leaves, leaves_buffer, indices_buffer)
+        rln.atomic_operation(last_leaf_index, leaves_buffer, indices_buffer)
             .unwrap();
 
         // We get the root of the tree obtained after a no-op
@@ -1439,6 +1439,43 @@ mod test {
         let (root_after_noop, _) = bytes_le_to_fr(&buffer.into_inner());
 
         assert_eq!(root_after_insertion, root_after_noop);
+    }
+
+    #[test]
+    fn test_atomic_operation_zero_indexed() {
+        // Test duplicated from https://github.com/waku-org/go-zerokit-rln/pull/12/files
+        let tree_height = TEST_TREE_HEIGHT;
+        let no_of_leaves = 256;
+
+        // We generate a vector of random leaves
+        let mut leaves: Vec<Fr> = Vec::new();
+        let mut rng = thread_rng();
+        for _ in 0..no_of_leaves {
+            leaves.push(Fr::rand(&mut rng));
+        }
+
+        // We create a new tree
+        let input_buffer =
+            Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
+        let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+
+        // We add leaves in a batch into the tree
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
+        rln.init_tree_with_leaves(&mut buffer).unwrap();
+
+        // We check if number of leaves set is consistent
+        assert_eq!(rln.tree.leaves_set(), no_of_leaves);
+
+        // We check if number of leaves set is consistent
+        assert_eq!(rln.tree.leaves_set(), no_of_leaves);
+
+        let zero_index = 0;
+        let indices = vec![zero_index as u8];
+        let zero_leaf: Vec<Fr> = vec![];
+        let indices_buffer = Cursor::new(vec_u8_to_bytes_le(&indices).unwrap());
+        let leaves_buffer = Cursor::new(vec_fr_to_bytes_le(&zero_leaf).unwrap());
+        rln.atomic_operation(0, leaves_buffer, indices_buffer)
+            .unwrap();
     }
 
     #[allow(unused_must_use)]

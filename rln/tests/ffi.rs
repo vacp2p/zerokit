@@ -265,7 +265,7 @@ mod test {
 
         let success = atomic_operation(
             rln_pointer,
-            no_of_leaves as usize,
+            last_leaf_index as usize,
             leaves_buffer,
             indices_buffer,
         );

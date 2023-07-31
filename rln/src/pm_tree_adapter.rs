@@ -193,32 +193,60 @@ impl ZerokitMerkleTree for PmTree {
     ) -> Result<()> {
         let leaves = leaves.into_iter().collect::<Vec<_>>();
         let indices = indices.into_iter().collect::<HashSet<_>>();
-        let end = start + leaves.len();
+        let end = start + leaves.len() + indices.len();
 
-        if leaves.len() + start - indices.len() > self.capacity() {
-            return Err(Report::msg("index out of bounds"));
-        }
-
-        // extend the range to include indices to be removed
-        let min_index = indices.iter().min().unwrap_or(&start);
-        let max_index = indices.iter().max().unwrap_or(&end);
-
-        let mut new_leaves = Vec::new();
-
-        // insert leaves into new_leaves
-        for i in *min_index..*max_index {
-            if indices.contains(&i) {
-                // insert 0
-                new_leaves.push(Self::Hasher::default_leaf());
-            } else {
-                // insert leaf
-                new_leaves.push(leaves[i - start]);
+        // handle each case appropriately -
+        // case 1: both leaves and indices to be removed are passed in
+        // case 2: only leaves are passed in
+        // case 3: only indices are passed in
+        // case 4: neither leaves nor indices are passed in
+        match (leaves.len(), indices.len()) {
+            (0, 0) => {
+                Err(Report::msg("no leaves or indices to be removed"))
+            }
+            (0, _) => {
+                // case 3
+                // remove indices
+                let mut new_leaves = Vec::new();
+                for i in start..end {
+                    if indices.contains(&i) {
+                        // insert 0
+                        new_leaves.push(Self::Hasher::default_leaf());
+                    } else {
+                        // insert leaf
+                        new_leaves.push(self.tree.get(i)?);
+                    }
+                }
+                self.tree
+                    .set_range(start, new_leaves)
+                    .map_err(|e| Report::msg(e.to_string()))
+            }
+            (_, 0) => {
+                // case 2
+                // insert leaves
+                self.tree
+                    .set_range(start, leaves)
+                    .map_err(|e| Report::msg(e.to_string()))
+            }
+            (_, _) => {
+                // case 1
+                // remove indices
+                let mut new_leaves = Vec::new();
+                let new_start = start + leaves.len();
+                for i in new_start..=end {
+                    if indices.contains(&i) {
+                        // Insert 0
+                        new_leaves.push(Self::Hasher::default_leaf());
+                    } else if let Some(leaf) = leaves.get(i - new_start) {
+                        // Insert leaf
+                        new_leaves.push(*leaf);
+                    }
+                }
+                self.tree
+                    .set_range(start, new_leaves)
+                    .map_err(|e| Report::msg(e.to_string()))
             }
         }
-
-        self.tree
-            .set_range(start, new_leaves)
-            .map_err(|e| Report::msg(e.to_string()))
     }
 
     fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<()> {
