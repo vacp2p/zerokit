@@ -201,9 +201,7 @@ impl ZerokitMerkleTree for PmTree {
         // case 3: only indices are passed in
         // case 4: neither leaves nor indices are passed in
         match (leaves.len(), indices.len()) {
-            (0, 0) => {
-                Err(Report::msg("no leaves or indices to be removed"))
-            }
+            (0, 0) => Err(Report::msg("no leaves or indices to be removed")),
             (0, _) => {
                 // case 3
                 // remove indices
