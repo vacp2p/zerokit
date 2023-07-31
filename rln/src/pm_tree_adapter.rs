@@ -3,11 +3,11 @@ use crate::hashers::{poseidon_hash, PoseidonHash};
 use crate::utils::{bytes_le_to_fr, fr_to_bytes_le};
 use color_eyre::{Report, Result};
 use serde_json::Value;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::str::FromStr;
-use utils::pmtree::{Database, Hasher};
+use utils::pmtree::{DBKey, Database, Hasher};
 use utils::*;
 
 const METADATA_KEY: [u8; 8] = *b"metadata";
@@ -192,57 +192,42 @@ impl ZerokitMerkleTree for PmTree {
         indices: J,
     ) -> Result<()> {
         let leaves = leaves.into_iter().collect::<Vec<_>>();
-        let indices = indices.into_iter().collect::<Vec<_>>();
-        let end = start + leaves.len() + indices.len();
+        let indices = indices.into_iter().collect::<HashSet<_>>();
+        let mut subtree = HashMap::<usize, Fr>::new();
+        let leaves_len = leaves.len();
+        let leaves_set = self.tree.leaves_set();
 
-        // handle each case appropriately -
-        // case 1: both leaves and indices to be removed are passed in
-        // case 2: only leaves are passed in
-        // case 3: only indices are passed in
-        // case 4: neither leaves nor indices are passed in
-        match (leaves.len(), indices.len()) {
-            (0, 0) => Err(Report::msg("no leaves or indices to be removed")),
-            (0, _) => {
-                // case 3
-                // remove indices
-                let mut new_leaves = Vec::new();
-                let start = start + indices[0];
-                let end = start + indices.len();
-                for _ in start..end {
-                    // Insert 0
-                    new_leaves.push(Self::Hasher::default_leaf());
-                }
-                self.tree
-                    .set_range(start, new_leaves)
-                    .map_err(|e| Report::msg(e.to_string()))
-            }
-            (_, 0) => {
-                // case 2
-                // insert leaves
-                self.tree
-                    .set_range(start, leaves)
-                    .map_err(|e| Report::msg(e.to_string()))
-            }
-            (_, _) => {
-                // case 1
-                // remove indices
-                let mut new_leaves = Vec::new();
-                let indices = indices.into_iter().collect::<HashSet<_>>();
-                let new_start = start + leaves.len();
-                for i in new_start..=end {
-                    if indices.contains(&i) {
-                        // Insert 0
-                        new_leaves.push(Self::Hasher::default_leaf());
-                    } else if let Some(leaf) = leaves.get(i - new_start) {
-                        // Insert leaf
-                        new_leaves.push(*leaf);
-                    }
-                }
-                self.tree
-                    .set_range(start, new_leaves)
-                    .map_err(|e| Report::msg(e.to_string()))
-            }
+        dbg!(self.tree.root());
+
+        // insert the old leaves
+        for i in 0..leaves_set {
+            let leaf = self.tree.get(i)?;
+            subtree.insert(i, leaf);
         }
+
+        // zero out the leaves to be removed
+        for index in indices {
+            if index >= leaves_set {
+                return Err(Report::msg(format!(
+                    "Index {} is out of bounds, leaves_set: {}",
+                    index, leaves_set
+                )));
+            }
+            subtree.insert(index, Self::Hasher::default_leaf());
+        }
+        // insert the new leaves from start
+        for i in start..(start + leaves_len) {
+            let leaf = leaves[i - start];
+            subtree.insert(i, leaf);
+        }
+
+        // Use set_range with the new_leaves buffer to update the tree.
+        let res = self
+            .tree
+            .set_range(0, subtree.into_iter().map(|(_, v)| v))
+            .map_err(|e| Report::msg(e.to_string()));
+        dbg!(self.tree.root());
+        return res;
     }
 
     fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<()> {

@@ -30,7 +30,17 @@ pub trait Hasher {
     fn hash(input: &[Self::Fr]) -> Self::Fr;
 }
 
+pub trait Batch<H: Hasher> where H:Hasher  {
+    type Key;
+
+    fn insert(&mut self, key: usize, value: H::Fr);
+    fn remove(&mut self, key: usize);
+    fn max_index(&self) -> usize;
+    fn min_index(&self) -> usize;
+}
+
 pub type FrOf<H> = <H as Hasher>::Fr;
+pub type BatchOf<Tree> = <Tree as ZerokitMerkleTree>::Batch;
 
 /// In the ZerokitMerkleTree trait we define the methods that are required to be implemented by a Merkle tree
 /// Including, OptimalMerkleTree, FullMerkleTree
@@ -38,6 +48,7 @@ pub trait ZerokitMerkleTree {
     type Proof: ZerokitMerkleProof;
     type Hasher: Hasher;
     type Config: Default + FromStr;
+    type Batch: Batch<Self::Hasher>;
 
     fn default(depth: usize) -> Result<Self>
     where
@@ -51,14 +62,8 @@ pub trait ZerokitMerkleTree {
     fn root(&self) -> FrOf<Self::Hasher>;
     fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>>;
     fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>) -> Result<()>;
-    fn set_range<I>(&mut self, start: usize, leaves: I) -> Result<()>
-    where
-        I: IntoIterator<Item = FrOf<Self::Hasher>>;
+    fn set_range(&mut self, batch: &Self::Batch) -> Result<()>;
     fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>>;
-    fn override_range<I, J>(&mut self, start: usize, leaves: I, to_remove_indices: J) -> Result<()>
-    where
-        I: IntoIterator<Item = FrOf<Self::Hasher>>,
-        J: IntoIterator<Item = usize>;
     fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<()>;
     fn delete(&mut self, index: usize) -> Result<()>;
     fn proof(&self, index: usize) -> Result<Self::Proof>;

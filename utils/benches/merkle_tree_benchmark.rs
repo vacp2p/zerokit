@@ -3,7 +3,7 @@ use hex_literal::hex;
 use tiny_keccak::{Hasher as _, Keccak};
 use zerokit_utils::{
     FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree,
-    ZerokitMerkleTree,
+    ZerokitMerkleTree, BatchOf,
 };
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -50,9 +50,16 @@ pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("OptimalMerkleTree::override_range", |b| {
+    c.bench_function("OptimalMerkleTree::set_range", |b| {
         b.iter(|| {
-            tree.override_range(0, leaves, [0, 1, 2, 3]).unwrap();
+            let mut batch = BatchOf::<OptimalMerkleTree<Keccak256>>::new();
+            for i in 0..leaves.len() {
+                batch.insert(i, leaves[i]);
+            }
+            for i in [0, 1, 2, 3] {
+                batch.remove(&i);
+            }
+            tree.set_range(&batch).unwrap();
         })
     });
 
@@ -94,7 +101,14 @@ pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
 
     c.bench_function("FullMerkleTree::override_range", |b| {
         b.iter(|| {
-            tree.override_range(0, leaves, [0, 1, 2, 3]).unwrap();
+            let mut batch = BatchOf::<FullMerkleTree<Keccak256>>::new();
+            for i in 0..leaves.len() {
+                batch.insert(i, leaves[i]);
+            }
+            for i in [0, 1, 2, 3] {
+                batch.remove(&i);
+            }
+            tree.set_range(&batch).unwrap();
         })
     });
 

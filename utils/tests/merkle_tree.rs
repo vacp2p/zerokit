@@ -1,11 +1,13 @@
 // Tests adapted from https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/merkle_tree.rs
 #[cfg(test)]
 mod test {
+    use std::collections::HashMap;
+
     use hex_literal::hex;
     use tiny_keccak::{Hasher as _, Keccak};
     use zerokit_utils::{
         FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree,
-        ZerokitMerkleProof, ZerokitMerkleTree,
+        ZerokitMerkleProof, ZerokitMerkleTree, BatchOf,
     };
     #[derive(Clone, Copy, Eq, PartialEq)]
     struct Keccak256;
@@ -139,27 +141,27 @@ mod test {
             OptimalMerkleTree::<Keccak256>::new(2, [0; 32], OptimalMerkleConfig::default())
                 .unwrap();
 
-        // We set the leaves
-        tree.set_range(0, initial_leaves.iter().cloned()).unwrap();
+        // We set the leaves in a batch
+        // Batch = Hashmap<index, leaf>
+        let batch = initial_leaves
+            .iter()
+            .enumerate()
+            .map(|(i, leaf)| (i, *leaf))
+            .collect::<HashMap<_, _>>();
+        tree.set_range(&batch).unwrap();
 
-        let new_leaves = [
-            hex!("0000000000000000000000000000000000000000000000000000000000000005"),
-            hex!("0000000000000000000000000000000000000000000000000000000000000006"),
-        ];
-
-        let to_delete_indices: [usize; 2] = [0, 1];
+        let mut new_batch = BatchOf::<OptimalMerkleTree<Keccak256>>::new();
+        new_batch.remove(&0);
+        new_batch.remove(&1);
+        new_batch.insert(tree.leaves_set() - 2, hex!("0000000000000000000000000000000000000000000000000000000000000005"));
+        new_batch.insert(tree.leaves_set() - 1, hex!("0000000000000000000000000000000000000000000000000000000000000006"));
 
         // We override the leaves
-        tree.override_range(
-            0, // start from the end of the initial leaves
-            new_leaves.iter().cloned(),
-            to_delete_indices.iter().cloned(),
-        )
-        .unwrap();
+        tree.set_range(&new_batch).unwrap();
 
         // ensure that the leaves are set correctly
-        for i in 0..new_leaves.len() {
-            assert_eq!(tree.get_leaf(i), new_leaves[i]);
+        for (i, leaf) in new_batch {
+            assert_eq!(tree.get_leaf(i), leaf);
         }
     }
 }
