@@ -288,20 +288,28 @@ impl PmTree {
         leaves: Vec<FrOfPmTreeHasher>,
         indices: Vec<usize>,
     ) -> Result<()> {
-        let mut new_leaves = Vec::new();
-        let new_start = start + leaves.len();
-        let end = start + leaves.len() + indices.len();
+        let min_index = *indices.first().unwrap();
+        let max_index = start + leaves.len();
 
-        for i in new_start..=end {
-            if indices.contains(&i) {
-                new_leaves.push(PmTreeHasher::default_leaf());
-            } else if let Some(leaf) = leaves.get(i - new_start) {
-                new_leaves.push(*leaf);
+        // Generated a placeholder with the exact size needed,
+        // Initiated with default values to be overridden throughout the method
+        let mut set_values = vec![PmTreeHasher::default_leaf(); max_index - min_index];
+
+        // If the index is not in indices list, keep the original value
+        for i in min_index..start {
+            if !indices.contains(&i) {
+                let value = self.tree.get(i)?;
+                set_values[i - min_index] = value;
             }
         }
 
+        // Insert new leaves after 'start' position
+        for (i, &leaf) in leaves.iter().enumerate() {
+            set_values[start - min_index + i] = leaf;
+        }
+
         self.tree
-            .set_range(start, new_leaves)
+            .set_range(min_index, set_values)
             .map_err(|e| Report::msg(e.to_string()))
     }
 }
