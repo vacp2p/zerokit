@@ -214,9 +214,8 @@ impl ZerokitMerkleTree for PmTree {
                 for i in start..end {
                     new_leaves.push(self.tree.get(i)?);
                 }
-                for i in 0..indices.len() {
-                    // Insert 0
-                    new_leaves[i] = Self::Hasher::default_leaf();
+                for leaf in new_leaves.iter_mut().take(indices.len()) {
+                    *leaf = Self::Hasher::default_leaf();
                 }
                 self.tree
                     .set_range(start, new_leaves)
@@ -240,7 +239,7 @@ impl ZerokitMerkleTree for PmTree {
                         new_leaves.push(Self::Hasher::default_leaf());
                     } else if let Some(leaf) = leaves.get(i - new_start) {
                         // Insert leaf
-                        new_leaves.push(*leaf);
+                        new_leaves.push(*leaf as FrOf<Self::Hasher>);
                     }
                 }
                 self.tree
