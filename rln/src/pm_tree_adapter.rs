@@ -1,13 +1,16 @@
-use crate::circuit::Fr;
-use crate::hashers::{poseidon_hash, PoseidonHash};
-use crate::utils::{bytes_le_to_fr, fr_to_bytes_le};
-use color_eyre::{Report, Result};
-use serde_json::Value;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::str::FromStr;
-use utils::pmtree::{Database, Hasher};
+
+use color_eyre::{Report, Result};
+use serde_json::Value;
+
 use utils::*;
+use utils::pmtree::{Database, Hasher};
+
+use crate::circuit::Fr;
+use crate::hashers::{poseidon_hash, PoseidonHash};
+use crate::utils::{bytes_le_to_fr, fr_to_bytes_le};
 
 const METADATA_KEY: [u8; 8] = *b"metadata";
 
@@ -24,12 +27,8 @@ pub struct PmTreeProof {
 pub type FrOf<H> = <H as Hasher>::Fr;
 
 // The pmtree Hasher trait used by pmtree Merkle tree
-impl pmtree::Hasher for PoseidonHash {
+impl Hasher for PoseidonHash {
     type Fr = Fr;
-
-    fn default_leaf() -> Self::Fr {
-        Fr::from(0)
-    }
 
     fn serialize(value: Self::Fr) -> pmtree::Value {
         fr_to_bytes_le(&value)
@@ -40,12 +39,16 @@ impl pmtree::Hasher for PoseidonHash {
         fr
     }
 
+    fn default_leaf() -> Self::Fr {
+        Fr::from(0)
+    }
+
     fn hash(inputs: &[Self::Fr]) -> Self::Fr {
         poseidon_hash(inputs)
     }
 }
 
-fn get_tmp_path() -> std::path::PathBuf {
+fn get_tmp_path() -> PathBuf {
     std::env::temp_dir().join(format!("pmtree-{}", rand::random::<u64>()))
 }
 
@@ -53,7 +56,7 @@ fn get_tmp() -> bool {
     true
 }
 
-pub struct PmtreeConfig(pm_tree::Config);
+pub struct PmtreeConfig(Config);
 
 impl FromStr for PmtreeConfig {
     type Err = Report;
@@ -84,7 +87,7 @@ impl FromStr for PmtreeConfig {
             )));
         }
 
-        let config = pm_tree::Config::new()
+        let config = Config::new()
             .temporary(temporary.unwrap_or(get_tmp()))
             .path(path.unwrap_or(get_tmp_path()))
             .cache_capacity(cache_capacity.unwrap_or(1024 * 1024 * 1024))
@@ -99,7 +102,7 @@ impl Default for PmtreeConfig {
     fn default() -> Self {
         let tmp_path = get_tmp_path();
         PmtreeConfig(
-            pm_tree::Config::new()
+            Config::new()
                 .temporary(true)
                 .path(tmp_path)
                 .cache_capacity(150_000)
@@ -144,10 +147,6 @@ impl ZerokitMerkleTree for PmTree {
         })
     }
 
-    fn close_db_connection(&mut self) -> Result<()> {
-        self.tree.db.close().map_err(|e| Report::msg(e.to_string()))
-    }
-
     fn depth(&self) -> usize {
         self.tree.depth()
     }
@@ -164,14 +163,14 @@ impl ZerokitMerkleTree for PmTree {
         self.tree.root()
     }
 
+    fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>> {
+        Ok(self.tree.root())
+    }
+
     fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>) -> Result<()> {
         self.tree
             .set(index, leaf)
             .map_err(|e| Report::msg(e.to_string()))
-    }
-
-    fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>> {
-        self.tree.get(index).map_err(|e| Report::msg(e.to_string()))
     }
 
     fn set_range<I: IntoIterator<Item = FrOf<Self::Hasher>>>(
@@ -182,6 +181,10 @@ impl ZerokitMerkleTree for PmTree {
         self.tree
             .set_range(start, values)
             .map_err(|e| Report::msg(e.to_string()))
+    }
+
+    fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>> {
+        self.tree.get(index).map_err(|e| Report::msg(e.to_string()))
     }
 
     fn override_range<I: IntoIterator<Item = FrOf<Self::Hasher>>, J: IntoIterator<Item = usize>>(
@@ -272,10 +275,6 @@ impl ZerokitMerkleTree for PmTree {
         }
     }
 
-    fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>> {
-        Ok(self.tree.root())
-    }
-
     fn set_metadata(&mut self, metadata: &[u8]) -> Result<()> {
         self.tree.db.put(METADATA_KEY, metadata.to_vec())?;
         self.metadata = metadata.to_vec();
@@ -293,6 +292,10 @@ impl ZerokitMerkleTree for PmTree {
             return Err(Report::msg("metadata does not exist"));
         }
         Ok(data.unwrap())
+    }
+
+    fn close_db_connection(&mut self) -> Result<()> {
+        self.tree.db.close().map_err(|e| Report::msg(e.to_string()))
     }
 }
 
