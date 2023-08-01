@@ -1,14 +1,16 @@
-use crate::circuit::Fr;
-use crate::hashers::{poseidon_hash, PoseidonHash};
-use crate::utils::{bytes_le_to_fr, fr_to_bytes_le};
-use color_eyre::{Report, Result};
-use serde_json::Value;
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::str::FromStr;
+
+use color_eyre::{Report, Result};
+use serde_json::Value;
+
 use utils::pmtree::{Database, Hasher};
 use utils::*;
+
+use crate::circuit::Fr;
+use crate::hashers::{poseidon_hash, PoseidonHash};
+use crate::utils::{bytes_le_to_fr, fr_to_bytes_le};
 
 const METADATA_KEY: [u8; 8] = *b"metadata";
 
@@ -25,12 +27,8 @@ pub struct PmTreeProof {
 pub type FrOf<H> = <H as Hasher>::Fr;
 
 // The pmtree Hasher trait used by pmtree Merkle tree
-impl pmtree::Hasher for PoseidonHash {
+impl Hasher for PoseidonHash {
     type Fr = Fr;
-
-    fn default_leaf() -> Self::Fr {
-        Fr::from(0)
-    }
 
     fn serialize(value: Self::Fr) -> pmtree::Value {
         fr_to_bytes_le(&value)
@@ -41,12 +39,16 @@ impl pmtree::Hasher for PoseidonHash {
         fr
     }
 
+    fn default_leaf() -> Self::Fr {
+        Fr::from(0)
+    }
+
     fn hash(inputs: &[Self::Fr]) -> Self::Fr {
         poseidon_hash(inputs)
     }
 }
 
-fn get_tmp_path() -> std::path::PathBuf {
+fn get_tmp_path() -> PathBuf {
     std::env::temp_dir().join(format!("pmtree-{}", rand::random::<u64>()))
 }
 
@@ -54,7 +56,7 @@ fn get_tmp() -> bool {
     true
 }
 
-pub struct PmtreeConfig(pm_tree::Config);
+pub struct PmtreeConfig(Config);
 
 impl FromStr for PmtreeConfig {
     type Err = Report;
@@ -85,7 +87,7 @@ impl FromStr for PmtreeConfig {
             )));
         }
 
-        let config = pm_tree::Config::new()
+        let config = Config::new()
             .temporary(temporary.unwrap_or(get_tmp()))
             .path(path.unwrap_or(get_tmp_path()))
             .cache_capacity(cache_capacity.unwrap_or(1024 * 1024 * 1024))
@@ -100,7 +102,7 @@ impl Default for PmtreeConfig {
     fn default() -> Self {
         let tmp_path = get_tmp_path();
         PmtreeConfig(
-            pm_tree::Config::new()
+            Config::new()
                 .temporary(true)
                 .path(tmp_path)
                 .cache_capacity(150_000)
@@ -145,10 +147,6 @@ impl ZerokitMerkleTree for PmTree {
         })
     }
 
-    fn close_db_connection(&mut self) -> Result<()> {
-        self.tree.db.close().map_err(|e| Report::msg(e.to_string()))
-    }
-
     fn depth(&self) -> usize {
         self.tree.depth()
     }
@@ -165,14 +163,14 @@ impl ZerokitMerkleTree for PmTree {
         self.tree.root()
     }
 
+    fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>> {
+        Ok(self.tree.root())
+    }
+
     fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>) -> Result<()> {
         self.tree
             .set(index, leaf)
             .map_err(|e| Report::msg(e.to_string()))
-    }
-
-    fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>> {
-        self.tree.get(index).map_err(|e| Report::msg(e.to_string()))
     }
 
     fn set_range<I: IntoIterator<Item = FrOf<Self::Hasher>>>(
@@ -185,6 +183,10 @@ impl ZerokitMerkleTree for PmTree {
             .map_err(|e| Report::msg(e.to_string()))
     }
 
+    fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>> {
+        self.tree.get(index).map_err(|e| Report::msg(e.to_string()))
+    }
+
     fn override_range<I: IntoIterator<Item = FrOf<Self::Hasher>>, J: IntoIterator<Item = usize>>(
         &mut self,
         start: usize,
@@ -192,33 +194,15 @@ impl ZerokitMerkleTree for PmTree {
         indices: J,
     ) -> Result<()> {
         let leaves = leaves.into_iter().collect::<Vec<_>>();
-        let indices = indices.into_iter().collect::<HashSet<_>>();
-        let end = start + leaves.len();
+        let mut indices = indices.into_iter().collect::<Vec<_>>();
+        indices.sort();
 
-        if leaves.len() + start - indices.len() > self.capacity() {
-            return Err(Report::msg("index out of bounds"));
+        match (leaves.is_empty(), indices.is_empty()) {
+            (true, true) => Err(Report::msg("no leaves or indices to be removed")),
+            (false, true) => self.set_range_with_leaves(start, leaves),
+            (true, false) => self.remove_indices(indices),
+            (false, false) => self.remove_indices_and_set_leaves(start, leaves, indices),
         }
-
-        // extend the range to include indices to be removed
-        let min_index = indices.iter().min().unwrap_or(&start);
-        let max_index = indices.iter().max().unwrap_or(&end);
-
-        let mut new_leaves = Vec::new();
-
-        // insert leaves into new_leaves
-        for i in *min_index..*max_index {
-            if indices.contains(&i) {
-                // insert 0
-                new_leaves.push(Self::Hasher::default_leaf());
-            } else {
-                // insert leaf
-                new_leaves.push(leaves[i - start]);
-            }
-        }
-
-        self.tree
-            .set_range(start, new_leaves)
-            .map_err(|e| Report::msg(e.to_string()))
     }
 
     fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<()> {
@@ -246,10 +230,6 @@ impl ZerokitMerkleTree for PmTree {
         }
     }
 
-    fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>> {
-        Ok(self.tree.root())
-    }
-
     fn set_metadata(&mut self, metadata: &[u8]) -> Result<()> {
         self.tree.db.put(METADATA_KEY, metadata.to_vec())?;
         self.metadata = metadata.to_vec();
@@ -267,6 +247,70 @@ impl ZerokitMerkleTree for PmTree {
             return Err(Report::msg("metadata does not exist"));
         }
         Ok(data.unwrap())
+    }
+
+    fn close_db_connection(&mut self) -> Result<()> {
+        self.tree.db.close().map_err(|e| Report::msg(e.to_string()))
+    }
+}
+
+type PmTreeHasher = <PmTree as ZerokitMerkleTree>::Hasher;
+type FrOfPmTreeHasher = FrOf<PmTreeHasher>;
+
+impl PmTree {
+    fn set_range_with_leaves(&mut self, start: usize, leaves: Vec<FrOfPmTreeHasher>) -> Result<()> {
+        self.tree
+            .set_range(start, leaves)
+            .map_err(|e| Report::msg(e.to_string()))
+    }
+
+    fn remove_indices(&mut self, indices: Vec<usize>) -> Result<()> {
+        let start = indices[0];
+        let end = indices.last().unwrap() + 1;
+
+        let mut new_leaves: Vec<_> = (start..end)
+            .map(|i| self.tree.get(i))
+            .collect::<Result<_, _>>()?;
+
+        new_leaves
+            .iter_mut()
+            .take(indices.len())
+            .for_each(|leaf| *leaf = PmTreeHasher::default_leaf());
+
+        self.tree
+            .set_range(start, new_leaves)
+            .map_err(|e| Report::msg(e.to_string()))
+    }
+
+    fn remove_indices_and_set_leaves(
+        &mut self,
+        start: usize,
+        leaves: Vec<FrOfPmTreeHasher>,
+        indices: Vec<usize>,
+    ) -> Result<()> {
+        let min_index = *indices.first().unwrap();
+        let max_index = start + leaves.len();
+
+        // Generated a placeholder with the exact size needed,
+        // Initiated with default values to be overridden throughout the method
+        let mut set_values = vec![PmTreeHasher::default_leaf(); max_index - min_index];
+
+        // If the index is not in indices list, keep the original value
+        for i in min_index..start {
+            if !indices.contains(&i) {
+                let value = self.tree.get(i)?;
+                set_values[i - min_index] = value;
+            }
+        }
+
+        // Insert new leaves after 'start' position
+        for (i, &leaf) in leaves.iter().enumerate() {
+            set_values[start - min_index + i] = leaf;
+        }
+
+        self.tree
+            .set_range(min_index, set_values)
+            .map_err(|e| Report::msg(e.to_string()))
     }
 }
 

@@ -8,6 +8,7 @@ members = [
   "rln-wasm",
   "utils",
 ]
+resolver = "2"
 
 # Compilation profile for any non-workspace member.
 # Dependencies are optimized, even in a dev build. This improves dev performance
