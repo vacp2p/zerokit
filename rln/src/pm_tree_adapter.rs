@@ -3,7 +3,6 @@ use crate::hashers::{poseidon_hash, PoseidonHash};
 use crate::utils::{bytes_le_to_fr, fr_to_bytes_le};
 use color_eyre::{Report, Result};
 use serde_json::Value;
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -207,14 +206,14 @@ impl ZerokitMerkleTree for PmTree {
                 // case 3
                 // remove indices
                 let mut new_leaves = Vec::new();
-                let start = start + indices[0];
-                let end = start + indices.last().unwrap() - indices[0] + 1;
+                let start = indices[0];
+                let end = indices.last().unwrap() + 1;
                 for i in start..end {
                     new_leaves.push(self.tree.get(i)?);
                 }
-                for elem in indices {
+                for i in 0..indices.len() {
                     // Insert 0
-                    new_leaves[start - elem] = Self::Hasher::default_leaf();
+                    new_leaves[i] = Self::Hasher::default_leaf();
                 }
                 self.tree
                     .set_range(start, new_leaves)
@@ -231,7 +230,6 @@ impl ZerokitMerkleTree for PmTree {
                 // case 1
                 // remove indices
                 let mut new_leaves = Vec::new();
-                let indices = indices.into_iter().collect::<HashSet<_>>();
                 let new_start = start + leaves.len();
                 for i in new_start..=end {
                     if indices.contains(&i) {
