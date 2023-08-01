@@ -254,12 +254,11 @@ impl ZerokitMerkleTree for PmTree {
     }
 }
 
+type PmTreeHasher = <PmTree as ZerokitMerkleTree>::Hasher;
+type FrOfPmTreeHasher = FrOf<PmTreeHasher>;
+
 impl PmTree {
-    fn set_range_with_leaves(
-        &mut self,
-        start: usize,
-        leaves: Vec<FrOf<<PmTree as ZerokitMerkleTree>::Hasher>>,
-    ) -> Result<()> {
+    fn set_range_with_leaves(&mut self, start: usize, leaves: Vec<FrOfPmTreeHasher>) -> Result<()> {
         self.tree
             .set_range(start, leaves)
             .map_err(|e| Report::msg(e.to_string()))
@@ -276,7 +275,7 @@ impl PmTree {
         new_leaves
             .iter_mut()
             .take(indices.len())
-            .for_each(|leaf| *leaf = <PmTree as ZerokitMerkleTree>::Hasher::default_leaf());
+            .for_each(|leaf| *leaf = PmTreeHasher::default_leaf());
 
         self.tree
             .set_range(start, new_leaves)
@@ -286,7 +285,7 @@ impl PmTree {
     fn remove_indices_and_set_leaves(
         &mut self,
         start: usize,
-        leaves: Vec<FrOf<<PmTree as ZerokitMerkleTree>::Hasher>>,
+        leaves: Vec<FrOfPmTreeHasher>,
         indices: Vec<usize>,
     ) -> Result<()> {
         let mut new_leaves = Vec::new();
@@ -295,7 +294,7 @@ impl PmTree {
 
         for i in new_start..=end {
             if indices.contains(&i) {
-                new_leaves.push(<PmTree as ZerokitMerkleTree>::Hasher::default_leaf());
+                new_leaves.push(PmTreeHasher::default_leaf());
             } else if let Some(leaf) = leaves.get(i - new_start) {
                 new_leaves.push(*leaf);
             }
