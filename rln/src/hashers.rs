@@ -1,13 +1,12 @@
-// This crate instantiate the Poseidon hash algorithm
-
+/// This crate instantiates the Poseidon hash algorithm.
 use crate::{circuit::Fr, utils::bytes_le_to_fr};
 use once_cell::sync::Lazy;
 use tiny_keccak::{Hasher, Keccak};
 use utils::poseidon::Poseidon;
 
-// These indexed constants hardcodes the supported round parameters tuples (t, RF, RN, SKIP_MATRICES) for the Bn254 scalar field
-// SKIP_MATRICES is the index of the randomly generated secure MDS matrix. See security note in the zerokit_utils::poseidon::poseidon_constants crate on this.
-// TODO: generate these parameters
+/// These indexed constants hardcode the supported round parameters tuples (t, RF, RN, SKIP_MATRICES) for the Bn254 scalar field.
+/// SKIP_MATRICES is the index of the randomly generated secure MDS matrix.
+/// TODO: generate these parameters
 pub const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
     (2, 8, 56, 0),
     (3, 8, 57, 0),
@@ -19,7 +18,7 @@ pub const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
     (9, 8, 63, 0),
 ];
 
-// Poseidon Hash wrapper over above implementation. Adapted from semaphore-rs poseidon hash wrapper.
+/// Poseidon Hash wrapper over above implementation.
 static POSEIDON: Lazy<Poseidon<Fr>> = Lazy::new(|| Poseidon::<Fr>::from(&ROUND_PARAMS));
 
 pub fn poseidon_hash(input: &[Fr]) -> Fr {
@@ -28,11 +27,11 @@ pub fn poseidon_hash(input: &[Fr]) -> Fr {
         .expect("hash with fixed input size can't fail")
 }
 
-// The zerokit RLN Merkle tree Hasher
+/// The zerokit RLN Merkle tree Hasher.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct PoseidonHash;
 
-// The default Hasher trait used by Merkle tree implementation in utils
+/// The default Hasher trait used by Merkle tree implementation in utils.
 impl utils::merkle_tree::Hasher for PoseidonHash {
     type Fr = Fr;
 
@@ -45,10 +44,9 @@ impl utils::merkle_tree::Hasher for PoseidonHash {
     }
 }
 
-// Hashes arbitrary signal to the underlying prime field
+/// Hashes arbitrary signal to the underlying prime field.
 pub fn hash_to_field(signal: &[u8]) -> Fr {
     // We hash the input signal using Keccak256
-    // (note that a bigger curve order might require a bigger hash blocksize)
     let mut hash = [0; 32];
     let mut hasher = Keccak::v256();
     hasher.update(signal);
