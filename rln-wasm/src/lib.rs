@@ -250,11 +250,7 @@ pub fn wasm_set_metadata(ctx: *mut RLNWrapper, input: Uint8Array) -> Result<(), 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = getMetadata)]
 pub fn wasm_get_metadata(ctx: *mut RLNWrapper) -> Result<Uint8Array, String> {
-    call_with_output_and_error_msg!(
-        ctx,
-        get_metadata,
-        "could not get metadata".to_string()
-    )
+    call_with_output_and_error_msg!(ctx, get_metadata, "could not get metadata".to_string())
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]

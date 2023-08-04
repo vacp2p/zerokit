@@ -617,11 +617,14 @@ mod test {
 
         // Creating a RLN instance passing the raw data
         let mut rln_pointer_raw_bytes = MaybeUninit::<*mut RLN>::uninit();
+        let tree_config = "".to_string();
+        let tree_config_buffer = &Buffer::from(tree_config.as_bytes());
         let success = new_with_params(
             tree_height,
             circom_data,
             zkey_data,
             vk_data,
+            tree_config_buffer,
             rln_pointer_raw_bytes.as_mut_ptr(),
         );
         assert!(success, "RLN object creation failed");
