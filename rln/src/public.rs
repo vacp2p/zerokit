@@ -117,6 +117,7 @@ impl RLN<'_> {
     /// - `circom_vec`: a byte vector containing the ZK circuit (`rln.wasm`) as binary file
     /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`) as binary file
     /// - `vk_vec`: a byte vector containing to the verification key (`verification_key.json`) as binary file
+    /// - `tree_config`: a reader for a string containing a json with the merkle tree configuration
     ///
     /// Example:
     /// ```
@@ -134,6 +135,8 @@ impl RLN<'_> {
     ///     let mut buffer = vec![0; metadata.len() as usize];
     ///     file.read_exact(&mut buffer).expect("buffer overflow");
     ///     resources.push(buffer);
+    ///     let tree_config = "{}".to_string();
+    ///     let tree_config_buffer = &Buffer::from(tree_config.as_bytes());
     /// }
     ///
     /// let mut rln = RLN::new_with_params(
@@ -141,11 +144,51 @@ impl RLN<'_> {
     ///     resources[0].clone(),
     ///     resources[1].clone(),
     ///     resources[2].clone(),
+    ///     tree_config_buffer,
     /// );
     /// ```
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn new_with_params<R: Read>(
+        tree_height: usize,
+        circom_vec: Vec<u8>,
+        zkey_vec: Vec<u8>,
+        vk_vec: Vec<u8>,
+        mut tree_config_input: R,
+    ) -> Result<RLN<'static>> {
+        #[cfg(not(target_arch = "wasm32"))]
+        let witness_calculator = circom_from_raw(circom_vec)?;
+
+        let proving_key = zkey_from_raw(&zkey_vec)?;
+        let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
+
+        let mut tree_config_vec: Vec<u8> = Vec::new();
+        tree_config_input.read_to_end(&mut tree_config_vec)?;
+        let tree_config_str = String::from_utf8(tree_config_vec)?;
+        let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = if tree_config_str.is_empty()
+        {
+            <PoseidonTree as ZerokitMerkleTree>::Config::default()
+        } else {
+            <PoseidonTree as ZerokitMerkleTree>::Config::from_str(&tree_config_str)?
+        };
+
+        // We compute a default empty tree
+        let tree = PoseidonTree::new(
+            tree_height,
+            <PoseidonTree as ZerokitMerkleTree>::Hasher::default_leaf(),
+            tree_config,
+        )?;
+
+        Ok(RLN {
+            witness_calculator,
+            proving_key,
+            verification_key,
+            tree,
+        })
+    }
+
+    #[cfg(target_arch = "wasm32")]
     pub fn new_with_params(
         tree_height: usize,
-        #[cfg(not(target_arch = "wasm32"))] circom_vec: Vec<u8>,
         zkey_vec: Vec<u8>,
         vk_vec: Vec<u8>,
     ) -> Result<RLN<'static>> {
@@ -159,12 +202,9 @@ impl RLN<'_> {
         let tree = PoseidonTree::default(tree_height)?;
 
         Ok(RLN {
-            #[cfg(not(target_arch = "wasm32"))]
-            witness_calculator,
             proving_key,
             verification_key,
             tree,
-            #[cfg(target_arch = "wasm32")]
             _marker: PhantomData,
         })
     }
