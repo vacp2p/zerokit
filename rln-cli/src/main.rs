@@ -1,3 +1,4 @@
+use std::io::Cursor;
 use std::{fs::File, io::Read, path::Path};
 
 use clap::Parser;
@@ -49,6 +50,8 @@ fn main() -> Result<()> {
                 resources[0].clone(),
                 resources[1].clone(),
                 resources[2].clone(),
+                // TODO: use appropriate tree_config
+                Cursor::new(""),
             )?);
             Ok(())
         }
