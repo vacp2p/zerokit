@@ -12,7 +12,15 @@ macro_rules! call {
     ($instance:expr, $method:ident $(, $arg:expr)*) => {
         {
             let new_instance: &mut RLN = $instance.process();
-            new_instance.$method($($arg.process()),*).is_ok()
+            match new_instance.$method($($arg.process()),*) {
+                Ok(()) => {
+                    true
+                }
+                Err(err) => {
+                    eprintln!("execution error: {err}");
+                    false
+                }
+            }
         }
     }
 }
@@ -30,13 +38,17 @@ macro_rules! call_with_output_arg {
         {
             let mut output_data: Vec<u8> = Vec::new();
             let new_instance = $instance.process();
-            if new_instance.$method(&mut output_data).is_ok() {
-                unsafe { *$output_arg = Buffer::from(&output_data[..]) };
-                std::mem::forget(output_data);
-                true
-            } else {
-                std::mem::forget(output_data);
-                false
+            match new_instance.$method(&mut output_data) {
+                Ok(()) => {
+                    unsafe { *$output_arg = Buffer::from(&output_data[..]) };
+                    std::mem::forget(output_data);
+                    true
+                }
+                Err(err) => {
+                    std::mem::forget(output_data);
+                    eprintln!("execution error: {err}");
+                    false
+                }
             }
         }
     };
@@ -44,13 +56,17 @@ macro_rules! call_with_output_arg {
         {
             let mut output_data: Vec<u8> = Vec::new();
             let new_instance = $instance.process();
-            if new_instance.$method($($arg.process()),*, &mut output_data).is_ok() {
-                unsafe { *$output_arg = Buffer::from(&output_data[..]) };
-                std::mem::forget(output_data);
-                true
-            } else {
-                std::mem::forget(output_data);
-                false
+            match new_instance.$method($($arg.process()),*, &mut output_data) {
+                Ok(()) => {
+                    unsafe { *$output_arg = Buffer::from(&output_data[..]) };
+                    std::mem::forget(output_data);
+                    true
+                }
+                Err(err) => {
+                    std::mem::forget(output_data);
+                    eprintln!("execution error: {err}");
+                    false
+                }
             }
         }
     };
@@ -66,13 +82,17 @@ macro_rules! no_ctx_call_with_output_arg {
     ($method:ident, $output_arg:expr, $( $arg:expr ),* ) => {
         {
             let mut output_data: Vec<u8> = Vec::new();
-            if $method($($arg.process()),*, &mut output_data).is_ok() {
-                unsafe { *$output_arg = Buffer::from(&output_data[..]) };
-                std::mem::forget(output_data);
-                true
-            } else {
-                std::mem::forget(output_data);
-                false
+            match $method($($arg.process()),*, &mut output_data) {
+                Ok(()) => {
+                    unsafe { *$output_arg = Buffer::from(&output_data[..]) };
+                    std::mem::forget(output_data);
+                    true
+                }
+                Err(err) => {
+                    std::mem::forget(output_data);
+                    eprintln!("execution error: {err}");
+                    false
+                }
             }
         }
     }
@@ -89,8 +109,11 @@ macro_rules! call_with_bool_arg {
         {
             let new_instance = $instance.process();
             if match new_instance.$method($($arg.process()),*,) {
-                Ok(verified) => verified,
-                Err(_) => return false,
+                Ok(result) => result,
+                Err(err) => {
+                    eprintln!("execution error: {err}");
+                    return false
+                },
             } {
                 unsafe { *$bool_arg = true };
             } else {
@@ -171,11 +194,15 @@ impl<'a> From<&Buffer> for &'a [u8] {
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn new(tree_height: usize, input_buffer: *const Buffer, ctx: *mut *mut RLN) -> bool {
-    if let Ok(rln) = RLN::new(tree_height, input_buffer.process()) {
-        unsafe { *ctx = Box::into_raw(Box::new(rln)) };
-        true
-    } else {
-        false
+    match RLN::new(tree_height, input_buffer.process()) {
+        Ok(rln) => {
+            unsafe { *ctx = Box::into_raw(Box::new(rln)) };
+            true
+        }
+        Err(err) => {
+            eprintln!("could not instantiate rln: {err}");
+            false
+        }
     }
 }
 
@@ -189,17 +216,21 @@ pub extern "C" fn new_with_params(
     tree_config: *const Buffer,
     ctx: *mut *mut RLN,
 ) -> bool {
-    if let Ok(rln) = RLN::new_with_params(
+    match RLN::new_with_params(
         tree_height,
         circom_buffer.process().to_vec(),
         zkey_buffer.process().to_vec(),
         vk_buffer.process().to_vec(),
         tree_config.process(),
     ) {
-        unsafe { *ctx = Box::into_raw(Box::new(rln)) };
-        true
-    } else {
-        false
+        Ok(rln) => {
+            unsafe { *ctx = Box::into_raw(Box::new(rln)) };
+            true
+        }
+        Err(err) => {
+            eprintln!("could not instantiate rln: {err}");
+            false
+        }
     }
 }
 
