@@ -1693,13 +1693,17 @@ mod test {
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
+        // We generate a random rln_identifier
+        let rln_identifier = hash_to_field(b"test-rln-identifier");
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut normalize_usize(identity_index));
         serialized.append(&mut fr_to_bytes_le(&epoch));
+        serialized.append(&mut fr_to_bytes_le(&rln_identifier));
+        serialized.append(&mut fr_to_bytes_le(&Fr::from(100)));
+        serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
         serialized.append(&mut normalize_usize(signal.len()));
         serialized.append(&mut signal.to_vec());
 
@@ -1758,6 +1762,8 @@ mod test {
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
+        // We generate a random rln_identifier
+        let rln_identifier = hash_to_field(b"test-rln-identifier");
 
         // We prepare input for generate_rln_proof API
         // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
@@ -1765,6 +1771,9 @@ mod test {
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut normalize_usize(identity_index));
         serialized.append(&mut fr_to_bytes_le(&epoch));
+        serialized.append(&mut fr_to_bytes_le(&rln_identifier));
+        serialized.append(&mut fr_to_bytes_le(&Fr::from(100)));
+        serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
         serialized.append(&mut normalize_usize(signal.len()));
         serialized.append(&mut signal.to_vec());
 
@@ -1855,13 +1864,18 @@ mod test {
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
+        // We generate a random rln_identifier
+        let rln_identifier = hash_to_field(b"test-rln-identifier");
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | rln_identifier<32> | user_message_limit<32> | message_id<32> | signal_len<8> | signal<var> ]
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut normalize_usize(identity_index));
         serialized.append(&mut fr_to_bytes_le(&epoch));
+        serialized.append(&mut fr_to_bytes_le(&rln_identifier));
+        serialized.append(&mut fr_to_bytes_le(&Fr::from(100)));
+        serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
         serialized.append(&mut normalize_usize(signal.len()));
         serialized.append(&mut signal.to_vec());
 
@@ -1940,15 +1954,19 @@ mod test {
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
+        // We generate a random rln_identifier
+        let rln_identifier = hash_to_field(b"test-rln-identifier");
 
         // We generate two proofs using same epoch but different signals.
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized1: Vec<u8> = Vec::new();
         serialized1.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized1.append(&mut normalize_usize(identity_index));
         serialized1.append(&mut fr_to_bytes_le(&epoch));
+        serialized1.append(&mut fr_to_bytes_le(&rln_identifier));
+        serialized1.append(&mut fr_to_bytes_le(&Fr::from(100)));
+        serialized1.append(&mut fr_to_bytes_le(&Fr::from(1)));
 
         // The first part is the same for both proof input, so we clone
         let mut serialized2 = serialized1.clone();
@@ -2008,11 +2026,13 @@ mod test {
         let signal3: [u8; 32] = rng.gen();
 
         // We prepare proof input. Note that epoch is the same as before
-        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized3: Vec<u8> = Vec::new();
         serialized3.append(&mut fr_to_bytes_le(&identity_secret_hash_new));
         serialized3.append(&mut normalize_usize(identity_index_new));
         serialized3.append(&mut fr_to_bytes_le(&epoch));
+        serialized3.append(&mut fr_to_bytes_le(&rln_identifier));
+        serialized3.append(&mut fr_to_bytes_le(&Fr::from(100)));
+        serialized3.append(&mut fr_to_bytes_le(&Fr::from(1)));
         serialized3.append(&mut normalize_usize(signal3.len()));
         serialized3.append(&mut signal3.to_vec());
 
