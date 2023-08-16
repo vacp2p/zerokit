@@ -2413,6 +2413,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "pmtree"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e054322ee96d2ccd86cd47b87797166682e45f5d67571c48eaa864668d26f510"
+dependencies = [
+ "rayon",
+]
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3505,15 +3514,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4dad5567ad0cf5b760e5665964bec1b47dfd077ba8a2544b513f3556d3d239a2"
 
 [[package]]
-name = "vacp2p_pmtree"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bee78790de52d6774ea318eb747a488fd5d96055bfe75ec2e7f605b15e21c664"
-dependencies = [
- "rayon",
-]
-
-[[package]]
 name = "valuable"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4269,8 +4269,8 @@ dependencies = [
  "hex-literal",
  "num-bigint",
  "num-traits",
+ "pmtree",
  "serde",
  "sled",
  "tiny-keccak",
- "vacp2p_pmtree",
 ]
