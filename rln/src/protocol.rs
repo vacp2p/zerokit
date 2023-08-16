@@ -32,6 +32,8 @@ use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 #[derive(Debug, PartialEq)]
 pub struct RLNWitnessInput {
     identity_secret: Fr,
+    user_message_limit: Fr,
+    message_id: Fr,
     path_elements: Vec<Fr>,
     identity_path_index: Vec<u8>,
     x: Fr,
@@ -99,6 +101,8 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>> {
     serialized.append(&mut fr_to_bytes_le(&rln_witness.x));
     serialized.append(&mut fr_to_bytes_le(&rln_witness.epoch));
     serialized.append(&mut fr_to_bytes_le(&rln_witness.rln_identifier));
+    serialized.append(&mut fr_to_bytes_le(&rln_witness.user_message_limit));
+    serialized.append(&mut fr_to_bytes_le(&rln_witness.message_id));
 
     Ok(serialized)
 }
@@ -124,7 +128,12 @@ pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)
     let (rln_identifier, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    // TODO: check rln_identifier against public::RLN_IDENTIFIER
+    let (user_message_limit, read) = bytes_le_to_fr(&serialized[all_read..]);
+    all_read += read;
+
+    let (message_id, read) = bytes_le_to_fr(&serialized[all_read..]);
+    all_read += read;
+
     if serialized.len() != all_read {
         return Err(Report::msg("serialized length is not equal to all_read"));
     }
@@ -137,6 +146,8 @@ pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)
             x,
             epoch,
             rln_identifier,
+            user_message_limit,
+            message_id,
         },
         all_read,
     ))
@@ -144,7 +155,7 @@ pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)
 
 // This function deserializes input for kilic's rln generate_proof public API
 // https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L148
-// input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+// input_data is [ identity_secret<32> | id_index<8> | epoch<32> | rln_identifier<32> | user_message_limit<32> | user_message_id<32> | signal_len<8> | signal<var> ]
 // return value is a rln witness populated according to this information
 pub fn proof_inputs_to_rln_witness(
     tree: &mut PoseidonTree,
@@ -163,6 +174,15 @@ pub fn proof_inputs_to_rln_witness(
     let (epoch, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
+    let (rln_identifier, read) = bytes_le_to_fr(&serialized[all_read..]);
+    all_read += read;
+
+    let (user_message_limit, read) = bytes_le_to_fr(&serialized[all_read..]);
+    all_read += read;
+
+    let (message_id, read) = bytes_le_to_fr(&serialized[all_read..]);
+    all_read += read;
+
     let signal_len = usize::try_from(u64::from_le_bytes(
         serialized[all_read..all_read + 8].try_into()?,
     ))?;
@@ -176,13 +196,13 @@ pub fn proof_inputs_to_rln_witness(
 
     let x = hash_to_field(&signal);
 
-    let rln_identifier = hash_to_field(RLN_IDENTIFIER);
-
     Ok((
         RLNWitnessInput {
             identity_secret,
             path_elements,
             identity_path_index,
+            user_message_limit,
+            message_id,
             x,
             epoch,
             rln_identifier,
@@ -220,7 +240,9 @@ pub fn rln_witness_from_json(input_json_str: &str) -> Result<RLNWitnessInput> {
 
     let rln_identifier = str_to_fr(&input_json["rln_identifier"].to_string(), 10)?;
 
-    // TODO: check rln_identifier against public::RLN_IDENTIFIER
+    let user_message_limit = str_to_fr(&input_json["user_message_limit"].to_string(), 10)?;
+
+    let message_id = str_to_fr(&input_json["message_id"].to_string(), 10)?;
 
     Ok(RLNWitnessInput {
         identity_secret,
@@ -229,6 +251,8 @@ pub fn rln_witness_from_json(input_json_str: &str) -> Result<RLNWitnessInput> {
         x,
         epoch,
         rln_identifier,
+        user_message_limit,
+        message_id,
     })
 }
 
@@ -237,11 +261,12 @@ pub fn rln_witness_from_values(
     merkle_proof: &MerkleProof,
     x: Fr,
     epoch: Fr,
-    //rln_identifier: Fr,
+    rln_identifier: Fr,
+    user_message_limit: Fr,
+    message_id: Fr,
 ) -> RLNWitnessInput {
     let path_elements = merkle_proof.get_path_elements();
     let identity_path_index = merkle_proof.get_path_index();
-    let rln_identifier = hash_to_field(RLN_IDENTIFIER);
 
     RLNWitnessInput {
         identity_secret,
@@ -250,6 +275,8 @@ pub fn rln_witness_from_values(
         x,
         epoch,
         rln_identifier,
+        user_message_limit,
+        message_id,
     }
 }
 
@@ -269,6 +296,9 @@ pub fn random_rln_witness(tree_height: usize) -> RLNWitnessInput {
         identity_path_index.push(rng.gen_range(0..2) as u8);
     }
 
+    let user_message_limit = Fr::from(100);
+    let message_id = Fr::from(1);
+
     RLNWitnessInput {
         identity_secret,
         path_elements,
@@ -276,6 +306,8 @@ pub fn random_rln_witness(tree_height: usize) -> RLNWitnessInput {
         x,
         epoch,
         rln_identifier,
+        user_message_limit,
+        message_id,
     }
 }
 
@@ -283,7 +315,7 @@ pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> RLNProofValue
     // y share
     let external_nullifier = poseidon_hash(&[rln_witness.epoch, rln_witness.rln_identifier]);
     let a_0 = rln_witness.identity_secret;
-    let a_1 = poseidon_hash(&[a_0, external_nullifier]);
+    let a_1 = poseidon_hash(&[a_0, external_nullifier, rln_witness.message_id]);
     let y = a_0 + rln_witness.x * a_1;
 
     // Nullifier
@@ -596,7 +628,7 @@ pub fn generate_proof_with_witness(
 
 pub fn inputs_for_witness_calculation(
     rln_witness: &RLNWitnessInput,
-) -> Result<[(&str, Vec<BigInt>); 6]> {
+) -> Result<[(&str, Vec<BigInt>); 8]> {
     // We confert the path indexes to field elements
     // TODO: check if necessary
     let mut path_elements = Vec::new();
@@ -624,6 +656,11 @@ pub fn inputs_for_witness_calculation(
             "rln_identifier",
             vec![to_bigint(&rln_witness.rln_identifier)?],
         ),
+        (
+            "user_message_limit",
+            vec![to_bigint(&rln_witness.user_message_limit)?],
+        ),
+        ("message_id", vec![to_bigint(&rln_witness.message_id)?]),
     ])
 }
 
@@ -749,6 +786,8 @@ pub fn get_json_inputs(rln_witness: &RLNWitnessInput) -> Result<serde_json::Valu
         "x": to_bigint(&rln_witness.x)?.to_str_radix(10),
         "epoch":  format!("0x{:064x}", to_bigint(&rln_witness.epoch)?),
         "rln_identifier": to_bigint(&rln_witness.rln_identifier)?.to_str_radix(10),
+        "user_message_limit": to_bigint(&rln_witness.user_message_limit)?.to_str_radix(10),
+        "message_id": to_bigint(&rln_witness.message_id)?.to_str_radix(10),
     });
 
     Ok(inputs)

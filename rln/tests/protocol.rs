@@ -52,7 +52,9 @@ mod test {
               ],
               "x": "8143228284048792769012135629627737459844825626241842423967352803501040982",
               "epoch": "0x0000005b612540fc986b42322f8cb91c2273afad58ed006fdba0c97b4b16b12f",
-              "rln_identifier": "11412926387081627876309792396682864042420635853496105400039841573530884328439"
+              "rln_identifier": "11412926387081627876309792396682864042420635853496105400039841573530884328439",
+              "user_message_limit": 100,
+              "message_id": 1
             }
         "#;
 
@@ -104,7 +106,9 @@ mod test {
               ],
               "x": "6427050788896290028100534859169645070970780055911091444144195464808120686416",
               "epoch": "0x2bd155d9f85c741044da6909d144f9cc5ce8e0d545a9ed4921b156e8b8569bab",
-              "rln_identifier": "2193983000213424579594329476781986065965849144986973472766961413131458022566"
+              "rln_identifier": "2193983000213424579594329476781986065965849144986973472766961413131458022566",
+              "user_message_limit": 100,
+              "message_id": 1
             }
         "#;
 
@@ -158,7 +162,9 @@ mod test {
               ],
               "x": "18073935665561339809445069958310044423750771681863480888589546877024349720547",
               "epoch": "0x147e4c23a43a1ddca78d94bcd28147f62ca74b3dc7e56bb0a314a954b9f0e567",
-              "rln_identifier": "2193983000213424579594329476781986065965849144986973472766961413131458022566"
+              "rln_identifier": "2193983000213424579594329476781986065965849144986973472766961413131458022566",
+              "user_message_limit": 100,
+              "message_id": 1
             }
         "#;
 
@@ -404,13 +410,16 @@ mod test {
 
         // We set the remaining values to random ones
         let epoch = hash_to_field(b"test-epoch");
-        //let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let rln_identifier = hash_to_field(b"test-rln-identifier");
 
         let rln_witness: RLNWitnessInput = rln_witness_from_values(
             identity_secret_hash,
             &merkle_proof,
             x,
-            epoch, /*, rln_identifier*/
+            epoch,
+            rln_identifier,
+            Fr::from(100),
+            Fr::from(1),
         );
 
         // We generate all relevant keys
