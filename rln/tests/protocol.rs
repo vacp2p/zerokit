@@ -177,6 +177,7 @@ mod test {
         // generate identity
         let identity_secret_hash = hash_to_field(b"test-merkle-proof");
         let id_commitment = poseidon_hash(&vec![identity_secret_hash]);
+        let rate_commitment = poseidon_hash(&[id_commitment, 1]);
 
         // generate merkle tree
         let default_leaf = Fr::from(0);
@@ -186,7 +187,7 @@ mod test {
             ConfigOf::<PoseidonTree>::default(),
         )
         .unwrap();
-        tree.set(leaf_index, id_commitment.into()).unwrap();
+        tree.set(leaf_index, rate_commitment.into()).unwrap();
 
         // We check correct computation of the root
         let root = tree.root();
@@ -347,7 +348,7 @@ mod test {
         assert_eq!(identity_path_index, expected_identity_path_index);
 
         // We check correct verification of the proof
-        assert!(tree.verify(&id_commitment, &merkle_proof).unwrap());
+        assert!(tree.verify(&rate_commitment, &merkle_proof).unwrap());
     }
 
     #[test]
@@ -392,6 +393,8 @@ mod test {
 
         // Generate identity pair
         let (identity_secret_hash, id_commitment) = keygen();
+        let user_message_limit = Fr::from(100);
+        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
 
         //// generate merkle tree
         let default_leaf = Fr::from(0);
@@ -401,7 +404,7 @@ mod test {
             ConfigOf::<PoseidonTree>::default(),
         )
         .unwrap();
-        tree.set(leaf_index, id_commitment.into()).unwrap();
+        tree.set(leaf_index, rate_commitment.into()).unwrap();
 
         let merkle_proof = tree.proof(leaf_index).expect("proof should exist");
 
@@ -418,7 +421,7 @@ mod test {
             x,
             epoch,
             rln_identifier,
-            Fr::from(100),
+            user_message_limit,
             Fr::from(1),
         );
 

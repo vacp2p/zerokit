@@ -15,6 +15,7 @@ mod test {
     fn test_merkle_proof() {
         let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
+        let user_message_limit = 1;
 
         let input_buffer =
             Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
@@ -23,9 +24,10 @@ mod test {
         // generate identity
         let identity_secret_hash = hash_to_field(b"test-merkle-proof");
         let id_commitment = utils_poseidon_hash(&vec![identity_secret_hash]);
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, 1]);
 
-        // We pass id_commitment as Read buffer to RLN's set_leaf
-        let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+        // We pass rate_commitment as Read buffer to RLN's set_leaf
+        let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
         rln.set_leaf(leaf_index, &mut buffer).unwrap();
 
         // We check correct computation of the root
@@ -192,8 +194,12 @@ mod test {
         assert_eq!(identity_path_index, expected_identity_path_index);
 
         // We double check that the proof computed from public API is correct
-        let root_from_proof =
-            compute_tree_root(&id_commitment, &path_elements, &identity_path_index, false);
+        let root_from_proof = compute_tree_root(
+            &rate_commitment,
+            &path_elements,
+            &identity_path_index,
+            false,
+        );
 
         assert_eq!(root, root_from_proof);
     }

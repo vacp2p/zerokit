@@ -238,11 +238,14 @@ impl RLN<'_> {
     /// // We generate a random identity secret hash and commitment pair
     /// let (identity_secret_hash, id_commitment) = keygen();
     ///
-    /// // We define the tree index where id_commitment will be added
+    /// // We define the tree index where rate_commitment will be added
     /// let id_index = 10;
+    /// let user_message_limit = 1;
     ///
-    /// // We serialize id_commitment and pass it to set_leaf
-    /// let mut buffer = Cursor::new(serialize_field_element(id_commitment));
+    /// let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
+    ///
+    /// // We serialize rate_commitment and pass it to set_leaf
+    /// let mut buffer = Cursor::new(serialize_field_element(rate_commitment));
     /// rln.set_leaf(id_index, &mut buffer).unwrap();
     /// ```
     pub fn set_leaf<R: Read>(&mut self, index: usize, mut input_data: R) -> Result<()> {
@@ -270,7 +273,7 @@ impl RLN<'_> {
     /// let id_index = 10;
     /// let mut buffer = Cursor::new(Vec::<u8>::new());
     /// rln.get_leaf(id_index, &mut buffer).unwrap();
-    /// let id_commitment = deserialize_field_element(&buffer.into_inner()).unwrap();
+    /// let rate_commitment = deserialize_field_element(&buffer.into_inner()).unwrap();
     pub fn get_leaf<W: Write>(&self, index: usize, mut output_data: W) -> Result<()> {
         // We get the leaf at input index
         let leaf = self.tree.get(index)?;
@@ -305,7 +308,8 @@ impl RLN<'_> {
     /// let mut rng = thread_rng();
     /// for _ in 0..no_of_leaves {
     ///     let (_, id_commitment) = keygen();
-    ///     leaves.push(id_commitment);
+    ///     let rate_commitment = poseidon_hash(&[id_commitment, 1]);
+    ///     leaves.push(rate_commitment);
     /// }
     ///
     /// // We add leaves in a batch into the tree
@@ -366,7 +370,8 @@ impl RLN<'_> {
     /// let mut rng = thread_rng();
     /// for _ in 0..no_of_leaves {
     ///     let (_, id_commitment) = keygen();
-    ///     leaves.push(id_commitment);
+    ///     let rate_commitment = poseidon_hash(&[id_commitment, 1]);
+    ///     leaves.push(rate_commitment);
     /// }
     ///
     /// let mut indices: Vec<u8> = Vec::new();
@@ -432,7 +437,8 @@ impl RLN<'_> {
     /// let mut rng = thread_rng();
     /// for _ in 0..no_of_leaves {
     ///     let (_, id_commitment) = keygen();
-    ///     leaves.push(id_commitment);
+    ///     let rate_commitment = poseidon_hash(&[id_commitment, 1]);
+    ///     leaves.push(rate_commitment);
     /// }
     ///
     /// // We add leaves in a batch into the tree
@@ -442,9 +448,10 @@ impl RLN<'_> {
     /// // We set 256 leaves starting from index 10: next_index value is now max(0, 256+10) = 266
     ///
     /// // We set a leaf on next available index
-    /// // id_commitment will be set at index 266
+    /// // rate_commitment will be set at index 266
     /// let (_, id_commitment) = keygen();
-    /// let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+    /// let rate_commitment = poseidon_hash(&[id_commitment, 1]);
+    /// let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
     /// rln.set_next_leaf(&mut buffer).unwrap();
     /// ```
     pub fn set_next_leaf<R: Read>(&mut self, mut input_data: R) -> Result<()> {
@@ -681,9 +688,10 @@ impl RLN<'_> {
     /// // Generate identity pair
     /// let (identity_secret_hash, id_commitment) = keygen();
     ///
-    /// // We set as leaf id_commitment after storing its index
+    /// // We set as leaf rate_commitment after storing its index
     /// let identity_index = 10;
-    /// let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+    /// let rate_commitment = poseidon_hash(&[id_commitment, 1]);
+    /// let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
     /// rln.set_leaf(identity_index, &mut buffer).unwrap();
     ///
     /// // We generate a random signal
@@ -1682,9 +1690,11 @@ mod test {
         // Generate identity pair
         let (identity_secret_hash, id_commitment) = keygen();
 
-        // We set as leaf id_commitment after storing its index
+        // We set as leaf rate_commitment after storing its index
         let identity_index = rln.tree.leaves_set();
-        let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+        let user_message_limit = Fr::from(100);
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
+        let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate a random signal
@@ -1702,7 +1712,7 @@ mod test {
         serialized.append(&mut normalize_usize(identity_index));
         serialized.append(&mut fr_to_bytes_le(&epoch));
         serialized.append(&mut fr_to_bytes_le(&rln_identifier));
-        serialized.append(&mut fr_to_bytes_le(&Fr::from(100)));
+        serialized.append(&mut fr_to_bytes_le(&user_message_limit));
         serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
         serialized.append(&mut normalize_usize(signal.len()));
         serialized.append(&mut signal.to_vec());
@@ -1751,9 +1761,11 @@ mod test {
         // Generate identity pair
         let (identity_secret_hash, id_commitment) = keygen();
 
-        // We set as leaf id_commitment after storing its index
+        // We set as leaf rate_commitment after storing its index
         let identity_index = rln.tree.leaves_set();
-        let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+        let user_message_limit = Fr::from(100);
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
+        let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate a random signal
@@ -1772,7 +1784,7 @@ mod test {
         serialized.append(&mut normalize_usize(identity_index));
         serialized.append(&mut fr_to_bytes_le(&epoch));
         serialized.append(&mut fr_to_bytes_le(&rln_identifier));
-        serialized.append(&mut fr_to_bytes_le(&Fr::from(100)));
+        serialized.append(&mut fr_to_bytes_le(&user_message_limit));
         serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
         serialized.append(&mut normalize_usize(signal.len()));
         serialized.append(&mut signal.to_vec());
@@ -1855,7 +1867,9 @@ mod test {
 
         // We set as leaf id_commitment after storing its index
         let identity_index = rln.tree.leaves_set();
-        let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+        let user_message_limit = Fr::from(100);
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
+        let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate a random signal
@@ -1874,7 +1888,7 @@ mod test {
         serialized.append(&mut normalize_usize(identity_index));
         serialized.append(&mut fr_to_bytes_le(&epoch));
         serialized.append(&mut fr_to_bytes_le(&rln_identifier));
-        serialized.append(&mut fr_to_bytes_le(&Fr::from(100)));
+        serialized.append(&mut fr_to_bytes_le(&user_message_limit));
         serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
         serialized.append(&mut normalize_usize(signal.len()));
         serialized.append(&mut signal.to_vec());
