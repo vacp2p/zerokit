@@ -308,7 +308,7 @@ impl RLN<'_> {
     /// let mut rng = thread_rng();
     /// for _ in 0..no_of_leaves {
     ///     let (_, id_commitment) = keygen();
-    ///     let rate_commitment = poseidon_hash(&[id_commitment, 1]);
+    ///     let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
     ///     leaves.push(rate_commitment);
     /// }
     ///
@@ -370,7 +370,7 @@ impl RLN<'_> {
     /// let mut rng = thread_rng();
     /// for _ in 0..no_of_leaves {
     ///     let (_, id_commitment) = keygen();
-    ///     let rate_commitment = poseidon_hash(&[id_commitment, 1]);
+    ///     let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
     ///     leaves.push(rate_commitment);
     /// }
     ///
@@ -437,7 +437,7 @@ impl RLN<'_> {
     /// let mut rng = thread_rng();
     /// for _ in 0..no_of_leaves {
     ///     let (_, id_commitment) = keygen();
-    ///     let rate_commitment = poseidon_hash(&[id_commitment, 1]);
+    ///     let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
     ///     leaves.push(rate_commitment);
     /// }
     ///
@@ -450,7 +450,7 @@ impl RLN<'_> {
     /// // We set a leaf on next available index
     /// // rate_commitment will be set at index 266
     /// let (_, id_commitment) = keygen();
-    /// let rate_commitment = poseidon_hash(&[id_commitment, 1]);
+    /// let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
     /// let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
     /// rln.set_next_leaf(&mut buffer).unwrap();
     /// ```
@@ -690,7 +690,7 @@ impl RLN<'_> {
     ///
     /// // We set as leaf rate_commitment after storing its index
     /// let identity_index = 10;
-    /// let rate_commitment = poseidon_hash(&[id_commitment, 1]);
+    /// let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
     /// let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
     /// rln.set_leaf(identity_index, &mut buffer).unwrap();
     ///

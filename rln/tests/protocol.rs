@@ -177,7 +177,7 @@ mod test {
         // generate identity
         let identity_secret_hash = hash_to_field(b"test-merkle-proof");
         let id_commitment = poseidon_hash(&vec![identity_secret_hash]);
-        let rate_commitment = poseidon_hash(&[id_commitment, 1]);
+        let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
 
         // generate merkle tree
         let default_leaf = Fr::from(0);
