@@ -37,7 +37,7 @@ mod test {
 
         // We first add leaves one by one specifying the index
         for (i, leaf) in leaves.iter().enumerate() {
-            // We prepare id_commitment and we set the leaf at provided index
+            // We prepare the rate_commitment and we set the leaf at provided index
             let leaf_ser = fr_to_bytes_le(&leaf);
             let input_buffer = &Buffer::from(leaf_ser.as_ref());
             let success = set_leaf(rln_pointer, i, input_buffer);
