@@ -296,6 +296,22 @@ pub extern "C" fn atomic_operation(
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+pub extern "C" fn seq_atomic_operation(
+    ctx: *mut RLN,
+    leaves_buffer: *const Buffer,
+    indices_buffer: *const Buffer,
+) -> bool {
+    call!(
+        ctx,
+        atomic_operation,
+        ctx.process().leaves_set(),
+        leaves_buffer,
+        indices_buffer
+    )
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
 pub extern "C" fn get_root(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
     call_with_output_arg!(ctx, get_root, output_buffer)
 }
