@@ -2,7 +2,7 @@ use color_eyre::Result;
 use rln::public::RLN;
 use std::fs::File;
 
-use crate::config::{InnerConfig, Config};
+use crate::config::{Config, InnerConfig};
 
 #[derive(Default)]
 pub(crate) struct State<'a> {

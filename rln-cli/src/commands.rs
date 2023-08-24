@@ -15,6 +15,8 @@ pub(crate) enum Commands {
         /// Sets a custom config file
         #[arg(short, long)]
         config: PathBuf,
+        #[arg(short, long)]
+        tree_config_input: PathBuf,
     },
     SetTree {
         tree_height: usize,
