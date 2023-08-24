@@ -24,7 +24,7 @@ impl Database for SledDB {
     }
 
     fn load(config: Self::Config) -> PmtreeResult<Self> {
-        let db: Sled = match sled::open(&config.path) {
+        let db: Sled = match config.open() {
             Ok(db) => db,
             Err(e) => {
                 return Err(PmtreeErrorKind::DatabaseError(

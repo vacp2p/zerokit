@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use color_eyre::{Report, Result};
+use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
 use serde_json::Value;
 
 use utils::pmtree::{Database, Hasher};
@@ -49,7 +51,13 @@ impl Hasher for PoseidonHash {
 }
 
 fn get_tmp_path() -> PathBuf {
-    std::env::temp_dir().join(format!("pmtree-{}", rand::random::<u64>()))
+    let rand_dir: String = thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(30)
+        .map(char::from)
+        .collect();
+
+    std::env::temp_dir().join(format!("pmtree-{}", rand_dir))
 }
 
 fn get_tmp() -> bool {
@@ -87,28 +95,28 @@ impl FromStr for PmtreeConfig {
             )));
         }
 
-        let config = Config::new()
+        let mut config = Config::new()
             .temporary(temporary.unwrap_or(get_tmp()))
-            .path(path.unwrap_or(get_tmp_path()))
             .cache_capacity(cache_capacity.unwrap_or(1024 * 1024 * 1024))
             .flush_every_ms(flush_every_ms)
             .mode(mode)
             .use_compression(use_compression.unwrap_or(false));
+
+        if let Some(path) = path {
+            config = config.path(path);
+        }
+
         Ok(PmtreeConfig(config))
     }
 }
 
 impl Default for PmtreeConfig {
     fn default() -> Self {
-        let tmp_path = get_tmp_path();
         PmtreeConfig(
             Config::new()
                 .temporary(true)
-                .path(tmp_path)
-                .cache_capacity(150_000)
-                .mode(Mode::HighThroughput)
-                .use_compression(false)
-                .flush_every_ms(Some(12_000)),
+                .flush_every_ms(None)
+                .path(get_tmp_path()),
         )
     }
 }
