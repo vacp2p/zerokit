@@ -233,7 +233,7 @@ pub fn proof_inputs_to_rln_witness(
 pub fn rln_witness_from_json(input_json_str: &str) -> Result<RLNWitnessInput> {
     let input_json: serde_json::Value =
         serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
-    
+
     let user_message_limit = str_to_fr(&input_json["user_message_limit"].to_string(), 10)?;
 
     let message_id = str_to_fr(&input_json["message_id"].to_string(), 10)?;
@@ -680,7 +680,6 @@ pub fn inputs_for_witness_calculation(
         .iter()
         .for_each(|v| identity_path_index.push(BigInt::from(*v)));
 
-
     Ok([
         (
             "identity_secret",
@@ -804,7 +803,7 @@ pub fn verify_proof(
 ///
 /// Returns a JSON object containing the inputs necessary to calculate
 /// the witness with CIRCOM on javascript
-/// 
+///
 /// # Errors
 ///
 /// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
@@ -837,10 +836,7 @@ pub fn get_json_inputs(rln_witness: &RLNWitnessInput) -> Result<serde_json::Valu
     Ok(inputs)
 }
 
-pub fn message_id_range_check(
-    message_id: &Fr,
-    user_message_limit: &Fr,
-) -> Result<()> {
+pub fn message_id_range_check(message_id: &Fr, user_message_limit: &Fr) -> Result<()> {
     if message_id > user_message_limit {
         return Err(color_eyre::Report::msg(
             "message_id is not within user_message_limit",
