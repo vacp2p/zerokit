@@ -92,6 +92,11 @@ pub fn deserialize_identity_tuple(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
     )
 }
 
+/// Serializes witness
+///
+/// # Errors
+///
+/// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
 pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>> {
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
@@ -109,6 +114,11 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>> {
     Ok(serialized)
 }
 
+/// Deserializes witness
+///
+/// # Errors
+///
+/// Returns an error if `message_id` is not within `user_message_limit`.
 pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)> {
     let mut all_read: usize = 0;
 
@@ -215,6 +225,11 @@ pub fn proof_inputs_to_rln_witness(
     ))
 }
 
+/// Returns `RLNWitnessInput` given a file with JSON serialized values.
+///
+/// # Errors
+///
+/// Returns an error if `message_id` is not within `user_message_limit`.
 pub fn rln_witness_from_json(input_json_str: &str) -> Result<RLNWitnessInput> {
     let input_json: serde_json::Value =
         serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
@@ -262,6 +277,11 @@ pub fn rln_witness_from_json(input_json_str: &str) -> Result<RLNWitnessInput> {
     })
 }
 
+/// Creates `RLNWitnessInput` from it's fields.
+///
+/// # Errors
+///
+/// Returns an error if `message_id` is not within `user_message_limit`.
 pub fn rln_witness_from_values(
     identity_secret: Fr,
     merkle_proof: &MerkleProof,
@@ -272,7 +292,7 @@ pub fn rln_witness_from_values(
     message_id: Fr,
 ) -> Result<RLNWitnessInput> {
     message_id_range_check(&message_id, &user_message_limit)?;
-    
+
     let path_elements = merkle_proof.get_path_elements();
     let identity_path_index = merkle_proof.get_path_index();
 
@@ -784,6 +804,10 @@ pub fn verify_proof(
 ///
 /// Returns a JSON object containing the inputs necessary to calculate
 /// the witness with CIRCOM on javascript
+/// 
+/// # Errors
+///
+/// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
 pub fn get_json_inputs(rln_witness: &RLNWitnessInput) -> Result<serde_json::Value> {
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
