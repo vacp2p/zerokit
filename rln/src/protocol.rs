@@ -626,6 +626,11 @@ pub fn generate_proof_with_witness(
     Ok(proof)
 }
 
+/// Formats inputs for witness calculation
+///
+/// # Errors
+///
+/// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
 pub fn inputs_for_witness_calculation(
     rln_witness: &RLNWitnessInput,
 ) -> Result<[(&str, Vec<BigInt>); 8]> {
@@ -642,6 +647,10 @@ pub fn inputs_for_witness_calculation(
         .identity_path_index
         .iter()
         .for_each(|v| identity_path_index.push(BigInt::from(*v)));
+
+    if rln_witness.message_id > rln_witness.user_message_limit {
+        return Err(color_eyre::Report::msg("message_id is not within user_message_limit"))
+    }
 
     Ok([
         (
