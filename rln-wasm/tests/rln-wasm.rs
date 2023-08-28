@@ -122,7 +122,6 @@ mod tests {
         // Creating an instance of RLN
         let rln_instance = wasm_new(tree_height, zkey, vk).unwrap();
 
-
         let test_metadata = Uint8Array::new(&JsValue::from_str("test"));
         // Inserting random metadata
         wasm_set_metadata(rln_instance, test_metadata.clone()).unwrap();

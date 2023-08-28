@@ -649,7 +649,9 @@ pub fn inputs_for_witness_calculation(
         .for_each(|v| identity_path_index.push(BigInt::from(*v)));
 
     if rln_witness.message_id > rln_witness.user_message_limit {
-        return Err(color_eyre::Report::msg("message_id is not within user_message_limit"))
+        return Err(color_eyre::Report::msg(
+            "message_id is not within user_message_limit",
+        ));
     }
 
     Ok([
