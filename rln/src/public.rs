@@ -727,7 +727,7 @@ impl RLN<'_> {
         let mut witness_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut witness_byte)?;
         let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
-        let proof_values = proof_values_from_witness(&rln_witness);
+        let proof_values = proof_values_from_witness(&rln_witness)?;
 
         let proof = generate_proof(self.witness_calculator, &self.proving_key, &rln_witness)?;
 
@@ -752,7 +752,7 @@ impl RLN<'_> {
         mut output_data: W,
     ) -> Result<()> {
         let (rln_witness, _) = deserialize_witness(&rln_witness_vec[..])?;
-        let proof_values = proof_values_from_witness(&rln_witness);
+        let proof_values = proof_values_from_witness(&rln_witness)?;
 
         let proof = generate_proof_with_witness(calculated_witness, &self.proving_key).unwrap();
 
