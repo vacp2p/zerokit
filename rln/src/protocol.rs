@@ -49,8 +49,7 @@ pub struct RLNProofValues {
     pub root: Fr,
     // Public Inputs:
     pub x: Fr,
-    pub epoch: Fr,
-    pub rln_identifier: Fr,
+    pub external_nullifier: Fr,
 }
 
 pub fn serialize_field_element(element: Fr) -> Vec<u8> {

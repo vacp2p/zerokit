@@ -24,7 +24,7 @@ mod test {
         // generate identity
         let identity_secret_hash = hash_to_field(b"test-merkle-proof");
         let id_commitment = utils_poseidon_hash(&vec![identity_secret_hash]);
-        let rate_commitment = utils_poseidon_hash(&[id_commitment, 1.into()]);
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit.into()]);
 
         // We pass rate_commitment as Read buffer to RLN's set_leaf
         let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
