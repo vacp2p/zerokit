@@ -92,7 +92,14 @@ pub fn deserialize_identity_tuple(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
     )
 }
 
+/// Serializes witness
+///
+/// # Errors
+///
+/// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
 pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>> {
+    message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
+
     let mut serialized: Vec<u8> = Vec::new();
 
     serialized.append(&mut fr_to_bytes_le(&rln_witness.identity_secret));
@@ -107,6 +114,11 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>> {
     Ok(serialized)
 }
 
+/// Deserializes witness
+///
+/// # Errors
+///
+/// Returns an error if `message_id` is not within `user_message_limit`.
 pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)> {
     let mut all_read: usize = 0;
 
@@ -133,6 +145,8 @@ pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)
 
     let (message_id, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
+
+    message_id_range_check(&message_id, &user_message_limit)?;
 
     if serialized.len() != all_read {
         return Err(Report::msg("serialized length is not equal to all_read"));
@@ -211,9 +225,20 @@ pub fn proof_inputs_to_rln_witness(
     ))
 }
 
+/// Returns `RLNWitnessInput` given a file with JSON serialized values.
+///
+/// # Errors
+///
+/// Returns an error if `message_id` is not within `user_message_limit`.
 pub fn rln_witness_from_json(input_json_str: &str) -> Result<RLNWitnessInput> {
     let input_json: serde_json::Value =
         serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
+
+    let user_message_limit = str_to_fr(&input_json["user_message_limit"].to_string(), 10)?;
+
+    let message_id = str_to_fr(&input_json["message_id"].to_string(), 10)?;
+
+    message_id_range_check(&message_id, &user_message_limit)?;
 
     let identity_secret = str_to_fr(&input_json["identity_secret"].to_string(), 10)?;
 
@@ -240,10 +265,6 @@ pub fn rln_witness_from_json(input_json_str: &str) -> Result<RLNWitnessInput> {
 
     let rln_identifier = str_to_fr(&input_json["rln_identifier"].to_string(), 10)?;
 
-    let user_message_limit = str_to_fr(&input_json["user_message_limit"].to_string(), 10)?;
-
-    let message_id = str_to_fr(&input_json["message_id"].to_string(), 10)?;
-
     Ok(RLNWitnessInput {
         identity_secret,
         path_elements,
@@ -256,6 +277,11 @@ pub fn rln_witness_from_json(input_json_str: &str) -> Result<RLNWitnessInput> {
     })
 }
 
+/// Creates `RLNWitnessInput` from it's fields.
+///
+/// # Errors
+///
+/// Returns an error if `message_id` is not within `user_message_limit`.
 pub fn rln_witness_from_values(
     identity_secret: Fr,
     merkle_proof: &MerkleProof,
@@ -264,11 +290,13 @@ pub fn rln_witness_from_values(
     rln_identifier: Fr,
     user_message_limit: Fr,
     message_id: Fr,
-) -> RLNWitnessInput {
+) -> Result<RLNWitnessInput> {
+    message_id_range_check(&message_id, &user_message_limit)?;
+
     let path_elements = merkle_proof.get_path_elements();
     let identity_path_index = merkle_proof.get_path_index();
 
-    RLNWitnessInput {
+    Ok(RLNWitnessInput {
         identity_secret,
         path_elements,
         identity_path_index,
@@ -277,7 +305,7 @@ pub fn rln_witness_from_values(
         rln_identifier,
         user_message_limit,
         message_id,
-    }
+    })
 }
 
 pub fn random_rln_witness(tree_height: usize) -> RLNWitnessInput {
@@ -311,7 +339,9 @@ pub fn random_rln_witness(tree_height: usize) -> RLNWitnessInput {
     }
 }
 
-pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> RLNProofValues {
+pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> Result<RLNProofValues> {
+    message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
+
     // y share
     let external_nullifier = poseidon_hash(&[rln_witness.epoch, rln_witness.rln_identifier]);
     let a_0 = rln_witness.identity_secret;
@@ -329,14 +359,14 @@ pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> RLNProofValue
         true,
     );
 
-    RLNProofValues {
+    Ok(RLNProofValues {
         y,
         nullifier,
         root,
         x: rln_witness.x,
         epoch: rln_witness.epoch,
         rln_identifier: rln_witness.rln_identifier,
-    }
+    })
 }
 
 pub fn serialize_proof_values(rln_proof_values: &RLNProofValues) -> Vec<u8> {
@@ -626,9 +656,16 @@ pub fn generate_proof_with_witness(
     Ok(proof)
 }
 
+/// Formats inputs for witness calculation
+///
+/// # Errors
+///
+/// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
 pub fn inputs_for_witness_calculation(
     rln_witness: &RLNWitnessInput,
 ) -> Result<[(&str, Vec<BigInt>); 8]> {
+    message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
+
     // We confert the path indexes to field elements
     // TODO: check if necessary
     let mut path_elements = Vec::new();
@@ -766,7 +803,13 @@ pub fn verify_proof(
 ///
 /// Returns a JSON object containing the inputs necessary to calculate
 /// the witness with CIRCOM on javascript
+///
+/// # Errors
+///
+/// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
 pub fn get_json_inputs(rln_witness: &RLNWitnessInput) -> Result<serde_json::Value> {
+    message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
+
     let mut path_elements = Vec::new();
 
     for v in rln_witness.path_elements.iter() {
@@ -791,4 +834,13 @@ pub fn get_json_inputs(rln_witness: &RLNWitnessInput) -> Result<serde_json::Valu
     });
 
     Ok(inputs)
+}
+
+pub fn message_id_range_check(message_id: &Fr, user_message_limit: &Fr) -> Result<()> {
+    if message_id > user_message_limit {
+        return Err(color_eyre::Report::msg(
+            "message_id is not within user_message_limit",
+        ));
+    }
+    Ok(())
 }
