@@ -35,25 +35,16 @@ mod test {
         rln.get_root(&mut buffer).unwrap();
         let (root, _) = bytes_le_to_fr(&buffer.into_inner());
 
-        if TEST_TREE_HEIGHT == 15 {
+        if TEST_TREE_HEIGHT == 20 {
             assert_eq!(
                 root,
                 str_to_fr(
-                    "0x1984f2e01184aef5cb974640898a5f5c25556554e2b06d99d4841badb8b198cd",
+                    "0x21947ffd0bce0c385f876e7c97d6a42eec5b1fe935aab2f01c1f8a8cbcc356d2",
                     16
                 )
                 .unwrap()
             );
-        } else if TEST_TREE_HEIGHT == 19 {
-            assert_eq!(
-                root,
-                str_to_fr(
-                    "0x219ceb53f2b1b7a6cf74e80d50d44d68ecb4a53c6cc65b25593c8d56343fb1fe",
-                    16
-                )
-                .unwrap()
-            );
-        } else if TEST_TREE_HEIGHT == 20 {
+        } else if TEST_TREE_HEIGHT == 32 {
             assert_eq!(
                 root,
                 str_to_fr(
@@ -155,7 +146,7 @@ mod test {
             vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         // We add the remaining elements for the case TEST_TREE_HEIGHT = 20
-        if TEST_TREE_HEIGHT == 19 || TEST_TREE_HEIGHT == 20 {
+        if TEST_TREE_HEIGHT == 20 || TEST_TREE_HEIGHT == 32 {
             expected_path_elements.append(&mut vec![
                 str_to_fr(
                     "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",

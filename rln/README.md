@@ -56,7 +56,7 @@ However, if `N` is too big, this might require a bigger Powers of Tau ceremony t
 In such case we refer to the official [Circom documentation](https://docs.circom.io/getting-started/proving-circuits/#powers-of-tau) for instructions on how to run an appropriate Powers of Tau ceremony and Phase 2 in order to compile the desired circuit.
 
 
-Currently, the `rln` module comes with three [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) RLN circuits having Merkle tree of height `15`, `19` and `20`, respectively.
+Currently, the `rln` module comes with 2 [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) RLN circuits having Merkle tree of height `20` and `32`, respectively.
 
 ## Getting started
 
