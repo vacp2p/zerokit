@@ -1640,7 +1640,7 @@ mod test {
 
         // Note: we only test Groth16 proof generation, so we ignore setting the tree in the RLN object
         let rln_witness = random_rln_witness(tree_height);
-        let proof_values = proof_values_from_witness(&rln_witness);
+        let proof_values = proof_values_from_witness(&rln_witness).unwrap();
 
         // We compute a Groth16 proof
         let mut input_buffer = Cursor::new(serialize_witness(&rln_witness).unwrap());

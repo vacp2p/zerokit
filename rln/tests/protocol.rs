@@ -377,7 +377,7 @@ mod test {
         // Let's generate a zkSNARK proof
         let proof = generate_proof(builder, &proving_key, &rln_witness_unwrapped).unwrap();
 
-        let proof_values = proof_values_from_witness(&rln_witness_unwrapped);
+        let proof_values = proof_values_from_witness(&rln_witness_unwrapped).unwrap();
 
         // Let's verify the proof
         let verified = verify_proof(&verification_key, &proof, &proof_values);
@@ -423,7 +423,8 @@ mod test {
             rln_identifier,
             user_message_limit,
             Fr::from(1),
-        );
+        )
+        .unwrap();
 
         // We generate all relevant keys
         let proving_key = zkey_from_folder(TEST_RESOURCES_FOLDER).unwrap();
@@ -433,7 +434,7 @@ mod test {
         // Let's generate a zkSNARK proof
         let proof = generate_proof(builder, &proving_key, &rln_witness).unwrap();
 
-        let proof_values = proof_values_from_witness(&rln_witness);
+        let proof_values = proof_values_from_witness(&rln_witness).unwrap();
 
         // Let's verify the proof
         let success = verify_proof(&verification_key, &proof, &proof_values).unwrap();
@@ -461,7 +462,7 @@ mod test {
         assert_eq!(rln_witness, deser);
 
         // We test Proof values serialization
-        let proof_values = proof_values_from_witness(&rln_witness);
+        let proof_values = proof_values_from_witness(&rln_witness).unwrap();
         let ser = serialize_proof_values(&proof_values);
         let (deser, _) = deserialize_proof_values(&ser);
         assert_eq!(proof_values, deser);
