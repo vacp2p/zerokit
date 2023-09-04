@@ -526,7 +526,7 @@ mod test {
         for _ in 0..sample_size {
             // We generate random witness instances and relative proof values
             let rln_witness = random_rln_witness(tree_height);
-            let proof_values = proof_values_from_witness(&rln_witness);
+            let proof_values = proof_values_from_witness(&rln_witness).unwrap();
 
             // We prepare id_commitment and we set the leaf at provided index
             let rln_witness_ser = serialize_witness(&rln_witness).unwrap();
