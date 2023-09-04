@@ -423,7 +423,8 @@ mod test {
             rln_identifier,
             user_message_limit,
             Fr::from(1),
-        ).unwrap();
+        )
+        .unwrap();
 
         // We generate all relevant keys
         let proving_key = zkey_from_folder(TEST_RESOURCES_FOLDER).unwrap();
