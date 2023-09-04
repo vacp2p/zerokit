@@ -37,8 +37,7 @@ pub struct RLNWitnessInput {
     path_elements: Vec<Fr>,
     identity_path_index: Vec<u8>,
     x: Fr,
-    epoch: Fr,
-    rln_identifier: Fr,
+    external_nullifier: Fr,
 }
 
 #[derive(Debug, PartialEq)]
@@ -105,8 +104,7 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>> {
     serialized.append(&mut vec_fr_to_bytes_le(&rln_witness.path_elements)?);
     serialized.append(&mut vec_u8_to_bytes_le(&rln_witness.identity_path_index)?);
     serialized.append(&mut fr_to_bytes_le(&rln_witness.x));
-    serialized.append(&mut fr_to_bytes_le(&rln_witness.epoch));
-    serialized.append(&mut fr_to_bytes_le(&rln_witness.rln_identifier));
+    serialized.append(&mut fr_to_bytes_le(&rln_witness.external_nullifier));
     serialized.append(&mut fr_to_bytes_le(&rln_witness.user_message_limit));
     serialized.append(&mut fr_to_bytes_le(&rln_witness.message_id));
 
@@ -133,10 +131,7 @@ pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)
     let (x, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let (epoch, read) = bytes_le_to_fr(&serialized[all_read..]);
-    all_read += read;
-
-    let (rln_identifier, read) = bytes_le_to_fr(&serialized[all_read..]);
+    let (external_nullifier, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
     let (user_message_limit, read) = bytes_le_to_fr(&serialized[all_read..]);
@@ -157,8 +152,7 @@ pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)
             path_elements,
             identity_path_index,
             x,
-            epoch,
-            rln_identifier,
+            external_nullifier,
             user_message_limit,
             message_id,
         },
@@ -184,10 +178,7 @@ pub fn proof_inputs_to_rln_witness(
     ))?;
     all_read += 8;
 
-    let (epoch, read) = bytes_le_to_fr(&serialized[all_read..]);
-    all_read += read;
-
-    let (rln_identifier, read) = bytes_le_to_fr(&serialized[all_read..]);
+    let (external_nullifier, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
     let (user_message_limit, read) = bytes_le_to_fr(&serialized[all_read..]);
@@ -217,8 +208,7 @@ pub fn proof_inputs_to_rln_witness(
             user_message_limit,
             message_id,
             x,
-            epoch,
-            rln_identifier,
+            external_nullifier,
         },
         all_read,
     ))
@@ -260,17 +250,14 @@ pub fn rln_witness_from_json(input_json_str: &str) -> Result<RLNWitnessInput> {
 
     let x = str_to_fr(&input_json["x"].to_string(), 10)?;
 
-    let epoch = str_to_fr(&input_json["epoch"].to_string(), 16)?;
-
-    let rln_identifier = str_to_fr(&input_json["rln_identifier"].to_string(), 10)?;
+    let external_nullifier = str_to_fr(&input_json["external_nullifier"].to_string(), 16)?;
 
     Ok(RLNWitnessInput {
         identity_secret,
         path_elements,
         identity_path_index,
         x,
-        epoch,
-        rln_identifier,
+        external_nullifier,
         user_message_limit,
         message_id,
     })
@@ -285,8 +272,7 @@ pub fn rln_witness_from_values(
     identity_secret: Fr,
     merkle_proof: &MerkleProof,
     x: Fr,
-    epoch: Fr,
-    rln_identifier: Fr,
+    external_nullifier: Fr,
     user_message_limit: Fr,
     message_id: Fr,
 ) -> Result<RLNWitnessInput> {
@@ -300,8 +286,7 @@ pub fn rln_witness_from_values(
         path_elements,
         identity_path_index,
         x,
-        epoch,
-        rln_identifier,
+        external_nullifier,
         user_message_limit,
         message_id,
     })
@@ -331,8 +316,7 @@ pub fn random_rln_witness(tree_height: usize) -> RLNWitnessInput {
         path_elements,
         identity_path_index,
         x,
-        epoch,
-        rln_identifier,
+        external_nullifier: poseidon_hash(&[epoch, rln_identifier]),
         user_message_limit,
         message_id,
     }
@@ -342,9 +326,8 @@ pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> Result<RLNPro
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
     // y share
-    let external_nullifier = poseidon_hash(&[rln_witness.epoch, rln_witness.rln_identifier]);
     let a_0 = rln_witness.identity_secret;
-    let a_1 = poseidon_hash(&[a_0, external_nullifier, rln_witness.message_id]);
+    let a_1 = poseidon_hash(&[a_0, rln_witness.external_nullifier, rln_witness.message_id]);
     let y = a_0 + rln_witness.x * a_1;
 
     // Nullifier
@@ -363,8 +346,7 @@ pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> Result<RLNPro
         nullifier,
         root,
         x: rln_witness.x,
-        epoch: rln_witness.epoch,
-        rln_identifier: rln_witness.rln_identifier,
+        external_nullifier: rln_witness.external_nullifier,
     })
 }
 
@@ -372,11 +354,10 @@ pub fn serialize_proof_values(rln_proof_values: &RLNProofValues) -> Vec<u8> {
     let mut serialized: Vec<u8> = Vec::new();
 
     serialized.append(&mut fr_to_bytes_le(&rln_proof_values.root));
-    serialized.append(&mut fr_to_bytes_le(&rln_proof_values.epoch));
+    serialized.append(&mut fr_to_bytes_le(&rln_proof_values.external_nullifier));
     serialized.append(&mut fr_to_bytes_le(&rln_proof_values.x));
     serialized.append(&mut fr_to_bytes_le(&rln_proof_values.y));
     serialized.append(&mut fr_to_bytes_le(&rln_proof_values.nullifier));
-    serialized.append(&mut fr_to_bytes_le(&rln_proof_values.rln_identifier));
 
     serialized
 }
@@ -389,7 +370,7 @@ pub fn deserialize_proof_values(serialized: &[u8]) -> (RLNProofValues, usize) {
     let (root, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let (epoch, read) = bytes_le_to_fr(&serialized[all_read..]);
+    let (external_nullifier, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
     let (x, read) = bytes_le_to_fr(&serialized[all_read..]);
@@ -401,17 +382,13 @@ pub fn deserialize_proof_values(serialized: &[u8]) -> (RLNProofValues, usize) {
     let (nullifier, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    let (rln_identifier, read) = bytes_le_to_fr(&serialized[all_read..]);
-    all_read += read;
-
     (
         RLNProofValues {
             y,
             nullifier,
             root,
             x,
-            epoch,
-            rln_identifier,
+            external_nullifier,
         },
         all_read,
     )
@@ -420,14 +397,14 @@ pub fn deserialize_proof_values(serialized: &[u8]) -> (RLNProofValues, usize) {
 pub fn prepare_prove_input(
     identity_secret: Fr,
     id_index: usize,
-    epoch: Fr,
+    external_nullifier: Fr,
     signal: &[u8],
 ) -> Vec<u8> {
     let mut serialized: Vec<u8> = Vec::new();
 
     serialized.append(&mut fr_to_bytes_le(&identity_secret));
     serialized.append(&mut normalize_usize(id_index));
-    serialized.append(&mut fr_to_bytes_le(&epoch));
+    serialized.append(&mut fr_to_bytes_le(&external_nullifier));
     serialized.append(&mut normalize_usize(signal.len()));
     serialized.append(&mut signal.to_vec());
 
@@ -662,7 +639,7 @@ pub fn generate_proof_with_witness(
 /// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
 pub fn inputs_for_witness_calculation(
     rln_witness: &RLNWitnessInput,
-) -> Result<[(&str, Vec<BigInt>); 8]> {
+) -> Result<[(&str, Vec<BigInt>); 7]> {
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
     // We confert the path indexes to field elements
@@ -687,10 +664,9 @@ pub fn inputs_for_witness_calculation(
         ("path_elements", path_elements),
         ("identity_path_index", identity_path_index),
         ("x", vec![to_bigint(&rln_witness.x)?]),
-        ("epoch", vec![to_bigint(&rln_witness.epoch)?]),
         (
-            "rln_identifier",
-            vec![to_bigint(&rln_witness.rln_identifier)?],
+            "external_nullifier",
+            vec![to_bigint(&rln_witness.external_nullifier)?],
         ),
         (
             "user_message_limit",
@@ -778,8 +754,7 @@ pub fn verify_proof(
         proof_values.root,
         proof_values.nullifier,
         proof_values.x,
-        proof_values.epoch,
-        proof_values.rln_identifier,
+        proof_values.external_nullifier,
     ];
 
     // Check that the proof is valid
@@ -826,8 +801,7 @@ pub fn get_json_inputs(rln_witness: &RLNWitnessInput) -> Result<serde_json::Valu
         "path_elements": path_elements,
         "identity_path_index": identity_path_index,
         "x": to_bigint(&rln_witness.x)?.to_str_radix(10),
-        "epoch":  format!("0x{:064x}", to_bigint(&rln_witness.epoch)?),
-        "rln_identifier": to_bigint(&rln_witness.rln_identifier)?.to_str_radix(10),
+        "external_nullifier":  format!("0x{:064x}", to_bigint(&rln_witness.external_nullifier)?),
         "user_message_limit": to_bigint(&rln_witness.user_message_limit)?.to_str_radix(10),
         "message_id": to_bigint(&rln_witness.message_id)?.to_str_radix(10),
     });

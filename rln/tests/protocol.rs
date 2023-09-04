@@ -414,13 +414,13 @@ mod test {
         // We set the remaining values to random ones
         let epoch = hash_to_field(b"test-epoch");
         let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
 
         let rln_witness: RLNWitnessInput = rln_witness_from_values(
             identity_secret_hash,
             &merkle_proof,
             x,
-            epoch,
-            rln_identifier,
+            external_nullifier,
             user_message_limit,
             Fr::from(1),
         )
