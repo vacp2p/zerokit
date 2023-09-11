@@ -1134,7 +1134,7 @@ impl RLN<'_> {
 
             // We recover the secret
             let recovered_identity_secret_hash =
-                compute_id_secret(share1, share2, external_nullifier_1);
+                compute_id_secret(share1, share2, external_nullifier_1, proof_values_1.message_id);
 
             // If an identity secret hash is recovered, we write it to output_data, otherwise nothing will be written.
             if let Ok(identity_secret_hash) = recovered_identity_secret_hash {
@@ -1704,8 +1704,8 @@ mod test {
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut normalize_usize(identity_index));
-        serialized.append(&mut fr_to_bytes_le(&epoch));
-        serialized.append(&mut fr_to_bytes_le(&rln_identifier));
+        let external_nullifier = crate::hashers::poseidon_hash(&[epoch, rln_identifier]);
+        serialized.append(&mut fr_to_bytes_le(&external_nullifier));
         serialized.append(&mut fr_to_bytes_le(&user_message_limit));
         serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
         serialized.append(&mut normalize_usize(signal.len()));
@@ -1776,8 +1776,8 @@ mod test {
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut normalize_usize(identity_index));
-        serialized.append(&mut fr_to_bytes_le(&epoch));
-        serialized.append(&mut fr_to_bytes_le(&rln_identifier));
+        let external_nullifier = crate::hashers::poseidon_hash(&[epoch, rln_identifier]);
+        serialized.append(&mut fr_to_bytes_le(&external_nullifier));
         serialized.append(&mut fr_to_bytes_le(&user_message_limit));
         serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
         serialized.append(&mut normalize_usize(signal.len()));
@@ -1880,8 +1880,8 @@ mod test {
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut normalize_usize(identity_index));
-        serialized.append(&mut fr_to_bytes_le(&epoch));
-        serialized.append(&mut fr_to_bytes_le(&rln_identifier));
+        let external_nullifier = crate::hashers::poseidon_hash(&[epoch, rln_identifier]);
+        serialized.append(&mut fr_to_bytes_le(&external_nullifier));
         serialized.append(&mut fr_to_bytes_le(&user_message_limit));
         serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
         serialized.append(&mut normalize_usize(signal.len()));
@@ -1971,8 +1971,9 @@ mod test {
         let mut serialized1: Vec<u8> = Vec::new();
         serialized1.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized1.append(&mut normalize_usize(identity_index));
-        serialized1.append(&mut fr_to_bytes_le(&epoch));
-        serialized1.append(&mut fr_to_bytes_le(&rln_identifier));
+        let external_nullifier = crate::hashers::poseidon_hash(&[epoch, rln_identifier]);
+        serialized1.append(&mut fr_to_bytes_le(&external_nullifier));
+        // serialized1.append(&mut fr_to_bytes_le(&rln_identifier));
         serialized1.append(&mut fr_to_bytes_le(&Fr::from(100)));
         serialized1.append(&mut fr_to_bytes_le(&Fr::from(1)));
 
@@ -2037,8 +2038,10 @@ mod test {
         let mut serialized3: Vec<u8> = Vec::new();
         serialized3.append(&mut fr_to_bytes_le(&identity_secret_hash_new));
         serialized3.append(&mut normalize_usize(identity_index_new));
-        serialized3.append(&mut fr_to_bytes_le(&epoch));
-        serialized3.append(&mut fr_to_bytes_le(&rln_identifier));
+        let external_nullifier = crate::hashers::poseidon_hash(&[epoch, rln_identifier]);
+        serialized3.append(&mut fr_to_bytes_le(&external_nullifier));
+        // serialized3.append(&mut fr_to_bytes_le(&epoch));
+        // serialized3.append(&mut fr_to_bytes_le(&rln_identifier));
         serialized3.append(&mut fr_to_bytes_le(&Fr::from(100)));
         serialized3.append(&mut fr_to_bytes_le(&Fr::from(1)));
         serialized3.append(&mut normalize_usize(signal3.len()));

@@ -49,6 +49,7 @@ pub struct RLNProofValues {
     // Public Inputs:
     pub x: Fr,
     pub external_nullifier: Fr,
+    pub message_id: Fr,
 }
 
 pub fn serialize_field_element(element: Fr) -> Vec<u8> {
@@ -347,6 +348,7 @@ pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> Result<RLNPro
         root,
         x: rln_witness.x,
         external_nullifier: rln_witness.external_nullifier,
+        message_id: rln_witness.message_id,
     })
 }
 
@@ -358,6 +360,7 @@ pub fn serialize_proof_values(rln_proof_values: &RLNProofValues) -> Vec<u8> {
     serialized.append(&mut fr_to_bytes_le(&rln_proof_values.x));
     serialized.append(&mut fr_to_bytes_le(&rln_proof_values.y));
     serialized.append(&mut fr_to_bytes_le(&rln_proof_values.nullifier));
+    serialized.append(&mut fr_to_bytes_le(&rln_proof_values.message_id));
 
     serialized
 }
@@ -382,6 +385,9 @@ pub fn deserialize_proof_values(serialized: &[u8]) -> (RLNProofValues, usize) {
     let (nullifier, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
+    let (message_id, read) = bytes_le_to_fr(&serialized[all_read..]);
+    all_read += read;
+
     (
         RLNProofValues {
             y,
@@ -389,6 +395,7 @@ pub fn deserialize_proof_values(serialized: &[u8]) -> (RLNProofValues, usize) {
             root,
             x,
             external_nullifier,
+            message_id,
         },
         all_read,
     )
@@ -530,6 +537,7 @@ pub fn compute_id_secret(
     share1: (Fr, Fr),
     share2: (Fr, Fr),
     external_nullifier: Fr,
+    message_id: Fr,
 ) -> Result<Fr, String> {
     // Assuming a0 is the identity secret and a1 = poseidonHash([a0, external_nullifier]),
     // a (x,y) share satisfies the following relation
@@ -544,7 +552,7 @@ pub fn compute_id_secret(
     let a_0 = y1 - x1 * a_1;
 
     // If shares come from the same polynomial, a0 is correctly recovered and a1 = poseidonHash([a0, external_nullifier])
-    let computed_a_1 = poseidon_hash(&[a_0, external_nullifier]);
+    let computed_a_1 = poseidon_hash(&[a_0, external_nullifier, message_id]);
 
     if a_1 == computed_a_1 {
         // We successfully recovered the identity secret
@@ -651,10 +659,14 @@ pub fn inputs_for_witness_calculation(
     }
 
     let mut identity_path_index = Vec::new();
-    rln_witness
-        .identity_path_index
-        .iter()
-        .for_each(|v| identity_path_index.push(BigInt::from(*v)));
+    use num_traits::FromPrimitive;
+    for v in rln_witness.identity_path_index.clone().into_iter() {
+        identity_path_index.push(BigInt::from_u8(v).unwrap());
+    }
+    // rln_witness
+    //     .identity_path_index
+    //     .iter()
+    //     .for_each(|v| identity_path_index.push(BigInt::from(*v)));
 
     Ok([
         (
@@ -755,6 +767,7 @@ pub fn verify_proof(
         proof_values.nullifier,
         proof_values.x,
         proof_values.external_nullifier,
+        // proof_values.message_id,
     ];
 
     // Check that the proof is valid
