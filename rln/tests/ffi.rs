@@ -143,6 +143,8 @@ mod test {
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
+        assert_eq!(rln_pointer.leaves_set(), 0);
+
         // We generate a vector of random leaves
         let mut leaves: Vec<Fr> = Vec::new();
         let mut rng = thread_rng();
@@ -159,6 +161,7 @@ mod test {
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
         let success = init_tree_with_leaves(rln_pointer, input_buffer);
         assert!(success, "init tree with leaves call failed");
+        assert_eq!(rln_pointer.leaves_set(), no_of_leaves);
 
         // We get the root of the tree obtained adding leaves in batch
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
