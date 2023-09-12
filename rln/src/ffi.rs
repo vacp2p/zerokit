@@ -263,6 +263,12 @@ pub extern "C" fn get_leaf(ctx: *mut RLN, index: usize, output_buffer: *mut Buff
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+pub extern "C" fn leaves_set(ctx: *mut RLN) -> usize {
+    ctx.process().leaves_set()
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
 pub extern "C" fn set_next_leaf(ctx: *mut RLN, input_buffer: *const Buffer) -> bool {
     call!(ctx, set_next_leaf, input_buffer)
 }
