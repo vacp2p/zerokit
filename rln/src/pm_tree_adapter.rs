@@ -178,6 +178,13 @@ impl ZerokitMerkleTree for PmTree {
         start: usize,
         values: I,
     ) -> Result<()> {
+        let values = values.into_iter().collect::<Vec<_>>();
+        if values.len() == 1 {
+            return self
+                .tree
+                .set(start, values[0])
+                .map_err(|e| Report::msg(e.to_string()));
+        }
         self.tree
             .set_range(start, values)
             .map_err(|e| Report::msg(e.to_string()))
