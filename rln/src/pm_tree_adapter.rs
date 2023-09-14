@@ -178,13 +178,6 @@ impl ZerokitMerkleTree for PmTree {
         start: usize,
         values: I,
     ) -> Result<()> {
-        let values = values.into_iter().collect::<Vec<_>>();
-        if values.len() == 1 {
-            return self
-                .tree
-                .set(start, values[0])
-                .map_err(|e| Report::msg(e.to_string()));
-        }
         self.tree
             .set_range(start, values)
             .map_err(|e| Report::msg(e.to_string()))
@@ -204,11 +197,13 @@ impl ZerokitMerkleTree for PmTree {
         let mut indices = indices.into_iter().collect::<Vec<_>>();
         indices.sort();
 
-        match (leaves.is_empty(), indices.is_empty()) {
-            (true, true) => Err(Report::msg("no leaves or indices to be removed")),
-            (false, true) => self.set_range_with_leaves(start, leaves),
-            (true, false) => self.remove_indices(indices),
-            (false, false) => self.remove_indices_and_set_leaves(start, leaves, indices),
+        match (leaves.len(), indices.len()) {
+            (0, 0) => Err(Report::msg("no leaves or indices to be removed")),
+            (1, 0) => self.set(start, leaves[0]),
+            (0, 1) => self.delete(indices[0]),
+            (_, 0) => self.set_range_with_leaves(start, leaves),
+            (0, _) => self.remove_indices(&indices),
+            (_, _) => self.remove_indices_and_set_leaves(start, leaves, &indices),
         }
     }
 
@@ -271,18 +266,11 @@ impl PmTree {
             .map_err(|e| Report::msg(e.to_string()))
     }
 
-    fn remove_indices(&mut self, indices: Vec<usize>) -> Result<()> {
+    fn remove_indices(&mut self, indices: &[usize]) -> Result<()> {
         let start = indices[0];
         let end = indices.last().unwrap() + 1;
 
-        let mut new_leaves: Vec<_> = (start..end)
-            .map(|i| self.tree.get(i))
-            .collect::<Result<_, _>>()?;
-
-        new_leaves
-            .iter_mut()
-            .take(indices.len())
-            .for_each(|leaf| *leaf = PmTreeHasher::default_leaf());
+        let new_leaves = (start..end).map(|_| PmTreeHasher::default_leaf());
 
         self.tree
             .set_range(start, new_leaves)
@@ -293,16 +281,13 @@ impl PmTree {
         &mut self,
         start: usize,
         leaves: Vec<FrOfPmTreeHasher>,
-        indices: Vec<usize>,
+        indices: &[usize],
     ) -> Result<()> {
         let min_index = *indices.first().unwrap();
         let max_index = start + leaves.len();
 
-        // Generated a placeholder with the exact size needed,
-        // Initiated with default values to be overridden throughout the method
         let mut set_values = vec![PmTreeHasher::default_leaf(); max_index - min_index];
 
-        // If the index is not in indices list, keep the original value
         for i in min_index..start {
             if !indices.contains(&i) {
                 let value = self.tree.get(i)?;
@@ -310,7 +295,6 @@ impl PmTree {
             }
         }
 
-        // Insert new leaves after 'start' position
         for (i, &leaf) in leaves.iter().enumerate() {
             set_values[start - min_index + i] = leaf;
         }
