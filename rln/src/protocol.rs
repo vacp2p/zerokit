@@ -763,7 +763,6 @@ pub fn verify_proof(
         proof_values.nullifier,
         proof_values.x,
         proof_values.external_nullifier,
-        // proof_values.message_id,
     ];
 
     // Check that the proof is valid
