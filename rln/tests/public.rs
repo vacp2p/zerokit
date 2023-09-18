@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod test {
+    use ark_ff::BigInt;
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use rln::circuit::{Fr, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
@@ -38,11 +39,12 @@ mod test {
         if TEST_TREE_HEIGHT == 20 {
             assert_eq!(
                 root,
-                str_to_fr(
-                    "0x21947ffd0bce0c385f876e7c97d6a42eec5b1fe935aab2f01c1f8a8cbcc356d2",
-                    16
-                )
-                .unwrap()
+                Fr::from(BigInt([
+                    17110646155607829651,
+                    5040045984242729823,
+                    6965416728592533086,
+                    2328960363755461975
+                ]))
             );
         } else if TEST_TREE_HEIGHT == 32 {
             assert_eq!(

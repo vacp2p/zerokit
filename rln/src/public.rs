@@ -729,6 +729,8 @@ impl RLN<'_> {
         let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
+        dbg!(&proof_values.root);
+
         let proof = generate_proof(self.witness_calculator, &self.proving_key, &rln_witness)?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
@@ -1696,7 +1698,7 @@ mod test {
 
         // We set as leaf rate_commitment after storing its index
         let identity_index = rln.tree.leaves_set();
-        let user_message_limit = Fr::from(100);
+        let user_message_limit = Fr::from(65535);
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
         let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
