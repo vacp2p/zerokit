@@ -659,14 +659,10 @@ pub fn inputs_for_witness_calculation(
     }
 
     let mut identity_path_index = Vec::new();
-    use num_traits::FromPrimitive;
-    for v in rln_witness.identity_path_index.clone().into_iter() {
-        identity_path_index.push(BigInt::from_u8(v).unwrap());
-    }
-    // rln_witness
-    //     .identity_path_index
-    //     .iter()
-    //     .for_each(|v| identity_path_index.push(BigInt::from(*v)));
+    rln_witness
+        .identity_path_index
+        .iter()
+        .for_each(|v| identity_path_index.push(BigInt::from(*v)));
 
     Ok([
         (
