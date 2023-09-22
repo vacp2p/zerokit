@@ -642,7 +642,7 @@ pub fn inputs_for_witness_calculation(
 ) -> Result<[(&str, Vec<BigInt>); 7]> {
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
-    // We confert the path indexes to field elements
+    // We convert the path indexes to field elements
     // TODO: check if necessary
     let mut path_elements = Vec::new();
 
@@ -750,11 +750,11 @@ pub fn verify_proof(
 ) -> Result<bool, ProofError> {
     // We re-arrange proof-values according to the circuit specification
     let inputs = vec![
+        proof_values.x,
+        proof_values.external_nullifier,
         proof_values.y,
         proof_values.root,
         proof_values.nullifier,
-        proof_values.x,
-        proof_values.external_nullifier,
     ];
 
     // Check that the proof is valid
@@ -801,7 +801,7 @@ pub fn get_json_inputs(rln_witness: &RLNWitnessInput) -> Result<serde_json::Valu
         "path_elements": path_elements,
         "identity_path_index": identity_path_index,
         "x": to_bigint(&rln_witness.x)?.to_str_radix(10),
-        "external_nullifier":  format!("0x{:064x}", to_bigint(&rln_witness.external_nullifier)?),
+        "external_nullifier":  to_bigint(&rln_witness.external_nullifier)?.to_str_radix(10),
         "user_message_limit": to_bigint(&rln_witness.user_message_limit)?.to_str_radix(10),
         "message_id": to_bigint(&rln_witness.message_id)?.to_str_radix(10),
     });
