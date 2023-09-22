@@ -729,8 +729,6 @@ impl RLN<'_> {
         let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
-        dbg!(&proof_values.root);
-
         let proof = generate_proof(self.witness_calculator, &self.proving_key, &rln_witness)?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
@@ -811,14 +809,6 @@ impl RLN<'_> {
 
         let verified = verify_proof(&self.verification_key, &proof, &proof_values)?;
         let x = hash_to_field(&signal);
-
-        dbg!(
-            verified,
-            self.tree.root() == proof_values.root,
-            self.tree.root(),
-            proof_values.root,
-            x == proof_values.x
-        );
 
         // Consistency checks to counter proof tampering
         Ok(verified && (self.tree.root() == proof_values.root) && (x == proof_values.x))

@@ -223,24 +223,24 @@ pub fn rln_witness_from_json(input_json_str: &str) -> Result<RLNWitnessInput> {
     let input_json: serde_json::Value =
         serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
 
-    let user_message_limit = str_to_fr(&input_json["user_message_limit"].to_string(), 10)?;
+    let user_message_limit = str_to_fr(&input_json["userMessageLimit"].to_string(), 10)?;
 
-    let message_id = str_to_fr(&input_json["message_id"].to_string(), 10)?;
+    let message_id = str_to_fr(&input_json["messageId"].to_string(), 10)?;
 
     message_id_range_check(&message_id, &user_message_limit)?;
 
-    let identity_secret = str_to_fr(&input_json["identity_secret"].to_string(), 10)?;
+    let identity_secret = str_to_fr(&input_json["identitySecret"].to_string(), 10)?;
 
-    let path_elements = input_json["path_elements"]
+    let path_elements = input_json["pathElements"]
         .as_array()
         .ok_or(Report::msg("not an array"))?
         .iter()
         .map(|v| str_to_fr(&v.to_string(), 10))
         .collect::<Result<_>>()?;
 
-    let identity_path_index_array = input_json["identity_path_index"]
+    let identity_path_index_array = input_json["identityPathIndex"]
         .as_array()
-        .ok_or(Report::msg("not an arrray"))?;
+        .ok_or(Report::msg("not an array"))?;
 
     let mut identity_path_index: Vec<u8> = vec![];
 
@@ -250,7 +250,7 @@ pub fn rln_witness_from_json(input_json_str: &str) -> Result<RLNWitnessInput> {
 
     let x = str_to_fr(&input_json["x"].to_string(), 10)?;
 
-    let external_nullifier = str_to_fr(&input_json["external_nullifier"].to_string(), 16)?;
+    let external_nullifier = str_to_fr(&input_json["externalNullifier"].to_string(), 16)?;
 
     Ok(RLNWitnessInput {
         identity_secret,
@@ -658,21 +658,21 @@ pub fn inputs_for_witness_calculation(
 
     Ok([
         (
-            "identity_secret",
+            "identitySecret",
             vec![to_bigint(&rln_witness.identity_secret)?],
         ),
-        ("path_elements", path_elements),
-        ("identity_path_index", identity_path_index),
+        ("pathElements", path_elements),
+        ("identityPathIndex", identity_path_index),
         ("x", vec![to_bigint(&rln_witness.x)?]),
         (
-            "external_nullifier",
+            "externalNullifier",
             vec![to_bigint(&rln_witness.external_nullifier)?],
         ),
         (
-            "user_message_limit",
+            "userMessageLimit",
             vec![to_bigint(&rln_witness.user_message_limit)?],
         ),
-        ("message_id", vec![to_bigint(&rln_witness.message_id)?]),
+        ("messageId", vec![to_bigint(&rln_witness.message_id)?]),
     ])
 }
 
@@ -720,7 +720,6 @@ pub fn generate_proof(
     // If in debug mode, we measure and later print time take to compute proof
     #[cfg(debug_assertions)]
     let now = Instant::now();
-
     let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
         &proving_key.0,
         r,
@@ -797,13 +796,13 @@ pub fn get_json_inputs(rln_witness: &RLNWitnessInput) -> Result<serde_json::Valu
         .for_each(|v| identity_path_index.push(BigInt::from(*v).to_str_radix(10)));
 
     let inputs = serde_json::json!({
-        "identity_secret": to_bigint(&rln_witness.identity_secret)?.to_str_radix(10),
-        "path_elements": path_elements,
-        "identity_path_index": identity_path_index,
+        "identitySecret": to_bigint(&rln_witness.identity_secret)?.to_str_radix(10),
+        "pathElements": path_elements,
+        "identityPathIndex": identity_path_index,
         "x": to_bigint(&rln_witness.x)?.to_str_radix(10),
-        "external_nullifier":  to_bigint(&rln_witness.external_nullifier)?.to_str_radix(10),
-        "user_message_limit": to_bigint(&rln_witness.user_message_limit)?.to_str_radix(10),
-        "message_id": to_bigint(&rln_witness.message_id)?.to_str_radix(10),
+        "externalNullifier":  to_bigint(&rln_witness.external_nullifier)?.to_str_radix(10),
+        "userMessageLimit": to_bigint(&rln_witness.user_message_limit)?.to_str_radix(10),
+        "messageId": to_bigint(&rln_witness.message_id)?.to_str_radix(10),
     });
 
     Ok(inputs)
