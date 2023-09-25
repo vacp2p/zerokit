@@ -1704,8 +1704,10 @@ mod test {
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut normalize_usize(identity_index));
-        let external_nullifier = crate::hashers::poseidon_hash(&[epoch, rln_identifier]);
-        serialized.append(&mut fr_to_bytes_le(&external_nullifier));
+        serialized.append(&mut fr_to_bytes_le(&utils_poseidon_hash(&[
+            epoch,
+            rln_identifier,
+        ])));
         serialized.append(&mut fr_to_bytes_le(&user_message_limit));
         serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
         serialized.append(&mut normalize_usize(signal.len()));
