@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod test {
+    use ark_ff::BigInt;
     use rln::circuit::{
         circom_from_folder, vk_from_folder, zkey_from_folder, Fr, TEST_RESOURCES_FOLDER,
         TEST_TREE_HEIGHT,
@@ -15,8 +16,8 @@ mod test {
     // Input generated with https://github.com/oskarth/zk-kit/commit/b6a872f7160c7c14e10a0ea40acab99cbb23c9a8
     const WITNESS_JSON_15: &str = r#"
             {
-              "identity_secret": "12825549237505733615964533204745049909430608936689388901883576945030025938736",
-              "path_elements": [
+              "identitySecret": "12825549237505733615964533204745049909430608936689388901883576945030025938736",
+              "pathElements": [
                 "18622655742232062119094611065896226799484910997537830749762961454045300666333",
                 "20590447254980891299813706518821659736846425329007960381537122689749540452732",
                 "7423237065226347324353380772367382631490014989348495481811164164159255474657",
@@ -33,7 +34,7 @@ mod test {
                 "9394776414966240069580838672673694685292165040808226440647796406499139370960",
                 "11331146992410411304059858900317123658895005918277453009197229807340014528524"
               ],
-              "identity_path_index": [
+              "identityPathIndex": [
                 1,
                 1,
                 0,
@@ -51,18 +52,17 @@ mod test {
                 0
               ],
               "x": "8143228284048792769012135629627737459844825626241842423967352803501040982",
-              "epoch": "0x0000005b612540fc986b42322f8cb91c2273afad58ed006fdba0c97b4b16b12f",
-              "rln_identifier": "11412926387081627876309792396682864042420635853496105400039841573530884328439",
-              "user_message_limit": 100,
-              "message_id": 1
+              "externalNullifier": "8143228284048792769012135629627737459844825626241842423967352803501040982",
+              "userMessageLimit": 100,
+              "messageId": 1
             }
         "#;
 
     // Input generated with protocol::random_rln_witness
     const WITNESS_JSON_19: &str = r#"
             {
-              "identity_secret": "922538810348594125658702672067738675294669207539999802857585668079702330450",
-              "path_elements": [
+              "identitySecret": "922538810348594125658702672067738675294669207539999802857585668079702330450",
+              "pathElements": [
                   "16059714054680148404543504061485737353203416489071538960876865983954285286166",
                   "3041470753871943901334053763207316028823782848445723460227667780327106380356",
                   "2557297527793326315072058421057853700096944625924483912548759909801348042183",
@@ -83,7 +83,7 @@ mod test {
                   "14360870889466292805403568662660511177232987619663547772298178013674025998478",
                   "4735344599616284973799984501493858013178071155960162022656706545116168334293"
               ],
-              "identity_path_index": [
+              "identityPathIndex": [
                   1,
                   0,
                   1,
@@ -105,17 +105,16 @@ mod test {
                   0
               ],
               "x": "6427050788896290028100534859169645070970780055911091444144195464808120686416",
-              "epoch": "0x2bd155d9f85c741044da6909d144f9cc5ce8e0d545a9ed4921b156e8b8569bab",
-              "rln_identifier": "2193983000213424579594329476781986065965849144986973472766961413131458022566",
-              "user_message_limit": 100,
-              "message_id": 1
+              "externalNullifier": "8143228284048792769012135629627737459844825626241842423967352803501040982",
+              "userMessageLimit": 100,
+              "messageId": 1
             }
         "#;
 
     const WITNESS_JSON_20: &str = r#"
             {
-              "identity_secret": "13732353453861280511150022598793312186188599006979552959297495195757997428306",
-              "path_elements": [
+              "identitySecret": "13732353453861280511150022598793312186188599006979552959297495195757997428306",
+              "pathElements": [
                   "20463525608687844300981085488128968694844212760055234622292326942405619575964",
                   "8040856403709217901175408904825741112286158901303127670929462145501210871313",
                   "3776499751255585163563840252112871568402966629435152937692711318702338789837",
@@ -138,7 +137,7 @@ mod test {
                   "15546319496880899251450021422131511560001766832580480193115646510655765306630"
 
               ],
-              "identity_path_index": [
+              "identityPathIndex": [
                   0,
                   1,
                   0,
@@ -161,10 +160,9 @@ mod test {
                   0
               ],
               "x": "18073935665561339809445069958310044423750771681863480888589546877024349720547",
-              "epoch": "0x147e4c23a43a1ddca78d94bcd28147f62ca74b3dc7e56bb0a314a954b9f0e567",
-              "rln_identifier": "2193983000213424579594329476781986065965849144986973472766961413131458022566",
-              "user_message_limit": 100,
-              "message_id": 1
+              "externalNullifier": "8143228284048792769012135629627737459844825626241842423967352803501040982",
+              "userMessageLimit": 100,
+              "messageId": 1
             }
         "#;
 
@@ -192,32 +190,16 @@ mod test {
         // We check correct computation of the root
         let root = tree.root();
 
-        if TEST_TREE_HEIGHT == 15 {
+        if TEST_TREE_HEIGHT == 20 || TEST_TREE_HEIGHT == 32 {
             assert_eq!(
                 root,
-                str_to_fr(
-                    "0x1984f2e01184aef5cb974640898a5f5c25556554e2b06d99d4841badb8b198cd",
-                    16
-                )
-                .unwrap()
-            );
-        } else if TEST_TREE_HEIGHT == 19 {
-            assert_eq!(
-                root,
-                str_to_fr(
-                    "0x219ceb53f2b1b7a6cf74e80d50d44d68ecb4a53c6cc65b25593c8d56343fb1fe",
-                    16
-                )
-                .unwrap()
-            );
-        } else if TEST_TREE_HEIGHT == 20 {
-            assert_eq!(
-                root,
-                str_to_fr(
-                    "0x21947ffd0bce0c385f876e7c97d6a42eec5b1fe935aab2f01c1f8a8cbcc356d2",
-                    16
-                )
-                .unwrap()
+                BigInt([
+                    17110646155607829651,
+                    5040045984242729823,
+                    6965416728592533086,
+                    2328960363755461975
+                ])
+                .into()
             );
         }
 
@@ -360,24 +342,12 @@ mod test {
         let builder = circom_from_folder(TEST_RESOURCES_FOLDER).unwrap();
 
         // We compute witness from the json input example
-        let mut witness_json: &str = "";
-
-        if TEST_TREE_HEIGHT == 15 {
-            witness_json = WITNESS_JSON_15;
-        } else if TEST_TREE_HEIGHT == 19 {
-            witness_json = WITNESS_JSON_19;
-        } else if TEST_TREE_HEIGHT == 20 {
-            witness_json = WITNESS_JSON_20;
-        }
-
-        let rln_witness = rln_witness_from_json(witness_json);
-
-        let rln_witness_unwrapped = rln_witness.unwrap();
+        let witness_json = WITNESS_JSON_20;
+        let rln_witness = rln_witness_from_json(witness_json).unwrap();
 
         // Let's generate a zkSNARK proof
-        let proof = generate_proof(builder, &proving_key, &rln_witness_unwrapped).unwrap();
-
-        let proof_values = proof_values_from_witness(&rln_witness_unwrapped).unwrap();
+        let proof = generate_proof(builder, &proving_key, &rln_witness).unwrap();
+        let proof_values = proof_values_from_witness(&rln_witness).unwrap();
 
         // Let's verify the proof
         let verified = verify_proof(&verification_key, &proof, &proof_values);
