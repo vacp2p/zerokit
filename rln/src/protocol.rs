@@ -49,6 +49,7 @@ pub struct RLNProofValues {
     // Public Inputs:
     pub x: Fr,
     pub external_nullifier: Fr,
+    // Private Inputs:
     pub message_id: Fr,
 }
 
