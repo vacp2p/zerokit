@@ -1622,6 +1622,123 @@ mod test {
         assert_eq!(root_empty, root_after_bad_set);
     }
 
+    fn fq_from_str(s: String) -> ark_bn254::Fq {
+        ark_bn254::Fq::from_str(&s).unwrap()
+    }
+
+    fn g1_from_str(g1: &[String]) -> ark_bn254::G1Affine {
+        let x = fq_from_str(g1[0].clone());
+        let y = fq_from_str(g1[1].clone());
+        let z = fq_from_str(g1[2].clone());
+        ark_bn254::G1Affine::from(ark_bn254::G1Projective::new(x, y, z))
+    }
+
+    fn g2_from_str(g2: &[Vec<String>]) -> ark_bn254::G2Affine {
+        let c0 = fq_from_str(g2[0][0].clone());
+        let c1 = fq_from_str(g2[0][1].clone());
+        let x = ark_bn254::Fq2::new(c0, c1);
+
+        let c0 = fq_from_str(g2[1][0].clone());
+        let c1 = fq_from_str(g2[1][1].clone());
+        let y = ark_bn254::Fq2::new(c0, c1);
+
+        let c0 = fq_from_str(g2[2][0].clone());
+        let c1 = fq_from_str(g2[2][1].clone());
+        let z = ark_bn254::Fq2::new(c0, c1);
+
+        ark_bn254::G2Affine::from(ark_bn254::G2Projective::new(x, y, z))
+    }
+
+    fn value_to_string_vec(value: &Value) -> Vec<String> {
+        value
+            .as_array()
+            .unwrap()
+            .into_iter()
+            .map(|val| val.as_str().unwrap().to_string())
+            .collect()
+    }
+
+    #[test]
+    fn test_groth16_proof_hardcoded() {
+        let tree_height = TEST_TREE_HEIGHT;
+
+        let input_buffer =
+            Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
+        let rln = RLN::new(tree_height, input_buffer).unwrap();
+
+        let valid_snarkjs_proof = json!({
+         "pi_a": [
+          "4470527391588441860193200161084455226340491373346283552408949960585113822665",
+          "17066173901974939377117728437830216011764222423156801199965800887938087190121",
+          "1"
+         ],
+         "pi_b": [
+          [
+           "15972566464269406830925988363875489807783626890329856187767783138745533264635",
+           "14937519511565349355063307001263881540320664095110809840110097755110649950560"
+          ],
+          [
+           "533488241215365262498062426054646750918758165791898421060280269581011723961",
+           "9035874337973494769294028746597715861635666159729389919309920308765805688602"
+          ],
+          [
+           "1",
+           "0"
+          ]
+         ],
+         "pi_c": [
+          "20620241453393708332486848754039748595639801912969370960546027260091108922454",
+          "20580342189093698831710267260567759683930279312746044733195059538431965163807",
+          "1"
+         ],
+         "protocol": "groth16",
+         "curve": "bn128"
+        });
+        let valid_ark_proof = ArkProof {
+            a: g1_from_str(&value_to_string_vec(&valid_snarkjs_proof["pi_a"])),
+            b: g2_from_str(
+                &valid_snarkjs_proof["pi_b"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|item| value_to_string_vec(item))
+                    .collect::<Vec<Vec<String>>>(),
+            ),
+            c: g1_from_str(&value_to_string_vec(&valid_snarkjs_proof["pi_c"])),
+        };
+
+        let valid_proof_values = RLNProofValues {
+            x: str_to_fr(
+                "16401008481486069296141645075505218976370369489687327284155463920202585288271",
+                10,
+            )
+            .unwrap(),
+            external_nullifier: str_to_fr(
+                "8502402278351299594663821509741133196466235670407051417832304486953898514733",
+                10,
+            )
+            .unwrap(),
+            y: str_to_fr(
+                "9102791780887227194595604713537772536258726662792598131262022534710887343694",
+                10,
+            )
+            .unwrap(),
+            root: str_to_fr(
+                "20645213238265527935869146898028115621427162613172918400241870500502509785943",
+                10,
+            )
+            .unwrap(),
+            nullifier: str_to_fr(
+                "21074405743803627666274838159589343934394162804826017440941339048886754734203",
+                10,
+            )
+            .unwrap(),
+        };
+
+        let verified = verify_proof(&rln.verification_key, &valid_ark_proof, &valid_proof_values);
+        assert!(verified.unwrap());
+    }
+
     #[test]
     // This test is similar to the one in lib, but uses only public API
     fn test_groth16_proof() {
@@ -1706,12 +1823,12 @@ mod test {
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut normalize_usize(identity_index));
+        serialized.append(&mut fr_to_bytes_le(&user_message_limit));
+        serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
         serialized.append(&mut fr_to_bytes_le(&utils_poseidon_hash(&[
             epoch,
             rln_identifier,
         ])));
-        serialized.append(&mut fr_to_bytes_le(&user_message_limit));
-        serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
         serialized.append(&mut normalize_usize(signal.len()));
         serialized.append(&mut signal.to_vec());
 
@@ -1780,8 +1897,10 @@ mod test {
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut normalize_usize(identity_index));
-        serialized.append(&mut fr_to_bytes_le(&epoch));
-        serialized.append(&mut fr_to_bytes_le(&rln_identifier));
+        serialized.append(&mut fr_to_bytes_le(&utils_poseidon_hash(&[
+            epoch,
+            rln_identifier,
+        ])));
         serialized.append(&mut fr_to_bytes_le(&user_message_limit));
         serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
         serialized.append(&mut normalize_usize(signal.len()));
@@ -1885,9 +2004,9 @@ mod test {
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut normalize_usize(identity_index));
-        serialized.append(&mut fr_to_bytes_le(&external_nullifier));
         serialized.append(&mut fr_to_bytes_le(&user_message_limit));
         serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
+        serialized.append(&mut fr_to_bytes_le(&external_nullifier));
         serialized.append(&mut normalize_usize(signal.len()));
         serialized.append(&mut signal.to_vec());
 
