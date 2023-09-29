@@ -250,7 +250,7 @@ pub fn rln_witness_from_json(input_json_str: &str) -> Result<RLNWitnessInput> {
 
     let x = str_to_fr(&input_json["x"].to_string(), 10)?;
 
-    let external_nullifier = str_to_fr(&input_json["externalNullifier"].to_string(), 16)?;
+    let external_nullifier = str_to_fr(&input_json["externalNullifier"].to_string(), 10)?;
 
     Ok(RLNWitnessInput {
         identity_secret,
@@ -336,9 +336,9 @@ pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> Result<RLNPro
     // Merkle tree root computations
     let root = compute_tree_root(
         &rln_witness.identity_secret,
+        &rln_witness.user_message_limit,
         &rln_witness.path_elements,
         &rln_witness.identity_path_index,
-        true,
     );
 
     Ok(RLNProofValues {
@@ -427,15 +427,13 @@ pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Vec<u8> {
 ///////////////////////////////////////////////////////
 
 pub fn compute_tree_root(
-    leaf: &Fr,
+    identity_secret: &Fr,
+    user_message_limit: &Fr,
     path_elements: &[Fr],
     identity_path_index: &[u8],
-    hash_leaf: bool,
 ) -> Fr {
-    let mut root = *leaf;
-    if hash_leaf {
-        root = poseidon_hash(&[root]);
-    }
+    let id_commitment = poseidon_hash(&[*identity_secret]);
+    let mut root = poseidon_hash(&[id_commitment, *user_message_limit]);
 
     for i in 0..identity_path_index.len() {
         if identity_path_index[i] == 0 {
@@ -749,11 +747,11 @@ pub fn verify_proof(
 ) -> Result<bool, ProofError> {
     // We re-arrange proof-values according to the circuit specification
     let inputs = vec![
-        proof_values.x,
-        proof_values.external_nullifier,
         proof_values.y,
         proof_values.root,
         proof_values.nullifier,
+        proof_values.x,
+        proof_values.external_nullifier,
     ];
 
     // Check that the proof is valid

@@ -1709,27 +1709,27 @@ mod test {
 
         let valid_proof_values = RLNProofValues {
             x: str_to_fr(
-                "16401008481486069296141645075505218976370369489687327284155463920202585288271",
-                10,
-            )
-            .unwrap(),
-            external_nullifier: str_to_fr(
-                "8502402278351299594663821509741133196466235670407051417832304486953898514733",
-                10,
-            )
-            .unwrap(),
-            y: str_to_fr(
-                "9102791780887227194595604713537772536258726662792598131262022534710887343694",
-                10,
-            )
-            .unwrap(),
-            root: str_to_fr(
                 "20645213238265527935869146898028115621427162613172918400241870500502509785943",
                 10,
             )
             .unwrap(),
-            nullifier: str_to_fr(
+            external_nullifier: str_to_fr(
                 "21074405743803627666274838159589343934394162804826017440941339048886754734203",
+                10,
+            )
+            .unwrap(),
+            y: str_to_fr(
+                "16401008481486069296141645075505218976370369489687327284155463920202585288271",
+                10,
+            )
+            .unwrap(),
+            root: str_to_fr(
+                "8502402278351299594663821509741133196466235670407051417832304486953898514733",
+                10,
+            )
+            .unwrap(),
+            nullifier: str_to_fr(
+                "9102791780887227194595604713537772536258726662792598131262022534710887343694",
                 10,
             )
             .unwrap(),
@@ -1897,12 +1897,12 @@ mod test {
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut normalize_usize(identity_index));
+        serialized.append(&mut fr_to_bytes_le(&user_message_limit));
+        serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
         serialized.append(&mut fr_to_bytes_le(&utils_poseidon_hash(&[
             epoch,
             rln_identifier,
         ])));
-        serialized.append(&mut fr_to_bytes_le(&user_message_limit));
-        serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
         serialized.append(&mut normalize_usize(signal.len()));
         serialized.append(&mut signal.to_vec());
 

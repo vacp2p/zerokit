@@ -188,10 +188,10 @@ mod test {
 
         // We double check that the proof computed from public API is correct
         let root_from_proof = compute_tree_root(
-            &rate_commitment,
+            &identity_secret_hash,
+            &user_message_limit.into(),
             &path_elements,
             &identity_path_index,
-            false,
         );
 
         assert_eq!(root, root_from_proof);
