@@ -1134,12 +1134,10 @@ impl RLN<'_> {
 
             // We recover the secret
             let recovered_identity_secret_hash =
-                compute_id_secret(share1, share2, external_nullifier_1, proof_values_1.message_id);
+                compute_id_secret(share1, share2, external_nullifier_1);
 
             // If an identity secret hash is recovered, we write it to output_data, otherwise nothing will be written.
-            if let Ok(identity_secret_hash) = recovered_identity_secret_hash {
-                output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
-            }
+            output_data.write_all(&fr_to_bytes_le(&recovered_identity_secret_hash))?;
         }
 
         Ok(())
