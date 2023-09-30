@@ -739,8 +739,6 @@ pub fn verify_proof(
 ) -> Result<bool, ProofError> {
     // We re-arrange proof-values according to the circuit specification
     let inputs = vec![
-        proof_values.x,
-        proof_values.external_nullifier,
         proof_values.y,
         proof_values.root,
         proof_values.nullifier,

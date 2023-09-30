@@ -1168,7 +1168,7 @@ mod test {
     fn test_get_leaf() {
         // We create a RLN instance
         let tree_height = TEST_TREE_HEIGHT;
-        let no_of_leaves: usize = 1 << TEST_TREE_HEIGHT;
+        let no_of_leaves = 1 << TEST_TREE_HEIGHT;
 
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
         let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
