@@ -528,7 +528,7 @@ pub fn compute_id_secret(
     share1: (Fr, Fr),
     share2: (Fr, Fr),
     external_nullifier: Fr,
-) -> Fr {
+) -> Result<Fr, String> {
     // Assuming a0 is the identity secret and a1 = poseidonHash([a0, external_nullifier]),
     // a (x,y) share satisfies the following relation
     // y = a_0 + x * a_1
@@ -538,10 +538,13 @@ pub fn compute_id_secret(
     // If the two input shares were computed for the same external_nullifier and identity secret, we can recover the latter
     // y1 = a_0 + x1 * a_1
     // y2 = a_0 + x2 * a_1
+    if x1 <= x2 {
+        return Err("x1 <= x2".to_string());
+    }
     let a_1 = (y1 - y2) / (x1 - x2);
     let a_0 = y1 - x1 * a_1;
 
-    a_0
+    Ok(a_0)
 }
 
 ///////////////////////////////////////////////////////
