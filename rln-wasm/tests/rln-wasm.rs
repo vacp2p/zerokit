@@ -5,7 +5,7 @@ mod tests {
     use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
     use rln::circuit::{Fr, TEST_TREE_HEIGHT};
     use rln::hashers::{hash_to_field, poseidon_hash};
-    use rln::utils::{fr_to_bytes_le, normalize_usize};
+    use rln::utils::{bytes_le_to_fr, fr_to_bytes_le, normalize_usize};
     use rln_wasm::*;
     use wasm_bindgen::{prelude::*, JsValue};
     use wasm_bindgen_test::wasm_bindgen_test;
@@ -34,11 +34,8 @@ mod tests {
 
         // Creating membership key
         let mem_keys = wasm_key_gen(rln_instance).unwrap();
-        let idkey = mem_keys.subarray(0, 32);
-        let idcommitment = mem_keys.subarray(32, 64);
-
-        // Insert PK
-        wasm_set_next_leaf(rln_instance, idcommitment).unwrap();
+        let id_key = mem_keys.subarray(0, 32);
+        let id_commitment = mem_keys.subarray(32, 64);
 
         // Prepare the message
         let signal = b"Hello World";
@@ -51,14 +48,24 @@ mod tests {
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
         let external_nullifier = fr_to_bytes_le(&external_nullifier);
 
-        let user_message_limit = fr_to_bytes_le(&Fr::from(100));
+        let user_message_limit = Fr::from(100);
         let message_id = fr_to_bytes_le(&Fr::from(0));
+
+        let (id_commitment_fr, _) = bytes_le_to_fr(&id_commitment.to_vec()[..]);
+        let rate_commitment = poseidon_hash(&[id_commitment_fr, user_message_limit]);
+
+        // Insert PK
+        wasm_set_next_leaf(
+            rln_instance,
+            Uint8Array::from(fr_to_bytes_le(&rate_commitment).as_slice()),
+        )
+        .unwrap();
 
         // Serializing the message
         let mut serialized_vec: Vec<u8> = Vec::new();
-        serialized_vec.append(&mut idkey.to_vec());
+        serialized_vec.append(&mut id_key.to_vec());
         serialized_vec.append(&mut normalize_usize(identity_index));
-        serialized_vec.append(&mut user_message_limit.to_vec());
+        serialized_vec.append(&mut fr_to_bytes_le(&user_message_limit).to_vec());
         serialized_vec.append(&mut message_id.to_vec());
         serialized_vec.append(&mut external_nullifier.to_vec());
         serialized_vec.append(&mut normalize_usize(signal.len()));
