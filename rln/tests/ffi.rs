@@ -349,10 +349,12 @@ mod test {
 
         // generate identity
         let identity_secret_hash = hash_to_field(b"test-merkle-proof");
-        let id_commitment = utils_poseidon_hash(&vec![identity_secret_hash]);
+        let id_commitment = utils_poseidon_hash(&[identity_secret_hash]);
+        let user_message_limit = Fr::from(100);
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
         // We prepare id_commitment and we set the leaf at provided index
-        let leaf_ser = fr_to_bytes_le(&id_commitment);
+        let leaf_ser = fr_to_bytes_le(&rate_commitment);
         let input_buffer = &Buffer::from(leaf_ser.as_ref());
         let success = set_leaf(rln_pointer, leaf_index, input_buffer);
         assert!(success, "set leaf call failed");
@@ -457,8 +459,7 @@ mod test {
         let mut expected_identity_path_index: Vec<u8> =
             vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-        // We add the remaining elements for the case TEST_TREE_HEIGHT = 19
-        if TEST_TREE_HEIGHT == 19 || TEST_TREE_HEIGHT == 20 {
+        if TEST_TREE_HEIGHT == 20 {
             expected_path_elements.append(&mut vec![
                 str_to_fr(
                     "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
@@ -499,7 +500,7 @@ mod test {
         // We double check that the proof computed from public API is correct
         let root_from_proof = compute_tree_root(
             &identity_secret_hash,
-            &Fr::from(100),
+            &user_message_limit,
             &path_elements,
             &identity_path_index,
         );
@@ -682,12 +683,6 @@ mod test {
         let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
         let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
 
-        // We set as leaf id_commitment, its index would be equal to no_of_leaves
-        let leaf_ser = fr_to_bytes_le(&id_commitment);
-        let input_buffer = &Buffer::from(leaf_ser.as_ref());
-        let success = set_next_leaf(rln_pointer, input_buffer);
-        assert!(success, "set next leaf call failed");
-
         let identity_index: usize = no_of_leaves;
 
         // We generate a random signal
@@ -696,13 +691,27 @@ mod test {
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
+        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
+
+        let user_message_limit = Fr::from(100);
+        let message_id = Fr::from(0);
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
+
+        // We set as leaf rate_commitment, its index would be equal to no_of_leaves
+        let leaf_ser = fr_to_bytes_le(&rate_commitment);
+        let input_buffer = &Buffer::from(leaf_ser.as_ref());
+        let success = set_next_leaf(rln_pointer, input_buffer);
+        assert!(success, "set next leaf call failed");
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut normalize_usize(identity_index));
-        serialized.append(&mut fr_to_bytes_le(&epoch));
+        serialized.append(&mut fr_to_bytes_le(&user_message_limit));
+        serialized.append(&mut fr_to_bytes_le(&message_id));
+        serialized.append(&mut fr_to_bytes_le(&external_nullifier));
         serialized.append(&mut normalize_usize(signal.len()));
         serialized.append(&mut signal.to_vec());
 
@@ -767,12 +776,6 @@ mod test {
         let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
         let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
 
-        // We set as leaf id_commitment, its index would be equal to no_of_leaves
-        let leaf_ser = fr_to_bytes_le(&id_commitment);
-        let input_buffer = &Buffer::from(leaf_ser.as_ref());
-        let success = set_next_leaf(rln_pointer, input_buffer);
-        assert!(success, "set next leaf call failed");
-
         let identity_index: usize = no_of_leaves;
 
         // We generate a random signal
@@ -781,13 +784,27 @@ mod test {
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
+        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
+
+        let user_message_limit = Fr::from(100);
+        let message_id = Fr::from(0);
+
+        // We set as leaf rate_commitment, its index would be equal to no_of_leaves
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
+        let leaf_ser = fr_to_bytes_le(&rate_commitment);
+        let input_buffer = &Buffer::from(leaf_ser.as_ref());
+        let success = set_next_leaf(rln_pointer, input_buffer);
+        assert!(success, "set next leaf call failed");
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut normalize_usize(identity_index));
-        serialized.append(&mut fr_to_bytes_le(&epoch));
+        serialized.append(&mut fr_to_bytes_le(&user_message_limit));
+        serialized.append(&mut fr_to_bytes_le(&message_id));
+        serialized.append(&mut fr_to_bytes_le(&external_nullifier));
         serialized.append(&mut normalize_usize(signal.len()));
         serialized.append(&mut signal.to_vec());
 
