@@ -2131,22 +2131,22 @@ mod test {
         let mut input_proof_data_1 = Cursor::new(proof_data_1.clone());
         let mut input_proof_data_2 = Cursor::new(proof_data_2);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
-        // rln.recover_id_secret(
-        //     &mut input_proof_data_1,
-        //     &mut input_proof_data_2,
-        //     // BTreeMap::new(),
-        //     &mut output_buffer,
-        // )
-        // .unwrap();
+        rln.recover_id_secret(
+            &mut input_proof_data_1,
+            &mut input_proof_data_2,
+            // BTreeMap::new(),
+            &mut output_buffer,
+        )
+        .unwrap();
 
-        // let serialized_identity_secret_hash = output_buffer.into_inner();
+        let serialized_identity_secret_hash = output_buffer.into_inner();
 
-        // // We ensure that a non-empty value is written to output_buffer
-        // assert!(!serialized_identity_secret_hash.is_empty());
+        // We ensure that a non-empty value is written to output_buffer
+        assert!(!serialized_identity_secret_hash.is_empty());
 
-        // // We check if the recovered identity secret hash corresponds to the original one
-        // let (recovered_identity_secret_hash, _) = bytes_le_to_fr(&serialized_identity_secret_hash);
-        // assert_eq!(recovered_identity_secret_hash, identity_secret_hash);
+        // We check if the recovered identity secret hash corresponds to the original one
+        let (recovered_identity_secret_hash, _) = bytes_le_to_fr(&serialized_identity_secret_hash);
+        assert_eq!(recovered_identity_secret_hash, identity_secret_hash);
 
         // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
 
@@ -2187,7 +2187,6 @@ mod test {
         rln.recover_id_secret(
             &mut input_proof_data_1,
             &mut input_proof_data_3,
-            // BTreeMap::new(),
             &mut output_buffer,
         )
         .unwrap();

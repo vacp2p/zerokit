@@ -989,23 +989,23 @@ mod test {
         let input_proof_buffer_1 = &Buffer::from(proof_data_1.as_ref());
         let input_proof_buffer_2 = &Buffer::from(proof_data_2.as_ref());
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        // let success = recover_id_secret(
-        //     rln_pointer,
-        //     input_proof_buffer_1,
-        //     input_proof_buffer_2,
-        //     output_buffer.as_mut_ptr(),
-        // );
-        // assert!(success, "recover id secret call failed");
-        // let output_buffer = unsafe { output_buffer.assume_init() };
-        // let serialized_identity_secret_hash = <&[u8]>::from(&output_buffer).to_vec();
+        let success = recover_id_secret(
+            rln_pointer,
+            input_proof_buffer_1,
+            input_proof_buffer_2,
+            output_buffer.as_mut_ptr(),
+        );
+        assert!(success, "recover id secret call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let serialized_identity_secret_hash = <&[u8]>::from(&output_buffer).to_vec();
 
-        // // We passed two shares for the same secret, so recovery should be successful
-        // // To check it, we ensure that recovered identity secret hash is empty
-        // assert!(!serialized_identity_secret_hash.is_empty());
+        // We passed two shares for the same secret, so recovery should be successful
+        // To check it, we ensure that recovered identity secret hash is empty
+        assert!(!serialized_identity_secret_hash.is_empty());
 
-        // // We check if the recovered identity secret hash corresponds to the original one
-        // let (recovered_identity_secret_hash, _) = bytes_le_to_fr(&serialized_identity_secret_hash);
-        // assert_eq!(recovered_identity_secret_hash, identity_secret_hash);
+        // We check if the recovered identity secret hash corresponds to the original one
+        let (recovered_identity_secret_hash, _) = bytes_le_to_fr(&serialized_identity_secret_hash);
+        assert_eq!(recovered_identity_secret_hash, identity_secret_hash);
 
         // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
 
