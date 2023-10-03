@@ -238,11 +238,14 @@ impl RLN<'_> {
     /// // We generate a random identity secret hash and commitment pair
     /// let (identity_secret_hash, id_commitment) = keygen();
     ///
-    /// // We define the tree index where id_commitment will be added
+    /// // We define the tree index where rate_commitment will be added
     /// let id_index = 10;
+    /// let user_message_limit = 1;
     ///
-    /// // We serialize id_commitment and pass it to set_leaf
-    /// let mut buffer = Cursor::new(serialize_field_element(id_commitment));
+    /// let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
+    ///
+    /// // We serialize rate_commitment and pass it to set_leaf
+    /// let mut buffer = Cursor::new(serialize_field_element(rate_commitment));
     /// rln.set_leaf(id_index, &mut buffer).unwrap();
     /// ```
     pub fn set_leaf<R: Read>(&mut self, index: usize, mut input_data: R) -> Result<()> {
@@ -270,7 +273,7 @@ impl RLN<'_> {
     /// let id_index = 10;
     /// let mut buffer = Cursor::new(Vec::<u8>::new());
     /// rln.get_leaf(id_index, &mut buffer).unwrap();
-    /// let id_commitment = deserialize_field_element(&buffer.into_inner()).unwrap();
+    /// let rate_commitment = deserialize_field_element(&buffer.into_inner()).unwrap();
     pub fn get_leaf<W: Write>(&self, index: usize, mut output_data: W) -> Result<()> {
         // We get the leaf at input index
         let leaf = self.tree.get(index)?;
@@ -305,7 +308,8 @@ impl RLN<'_> {
     /// let mut rng = thread_rng();
     /// for _ in 0..no_of_leaves {
     ///     let (_, id_commitment) = keygen();
-    ///     leaves.push(id_commitment);
+    ///     let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
+    ///     leaves.push(rate_commitment);
     /// }
     ///
     /// // We add leaves in a batch into the tree
@@ -366,7 +370,8 @@ impl RLN<'_> {
     /// let mut rng = thread_rng();
     /// for _ in 0..no_of_leaves {
     ///     let (_, id_commitment) = keygen();
-    ///     leaves.push(id_commitment);
+    ///     let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
+    ///     leaves.push(rate_commitment);
     /// }
     ///
     /// let mut indices: Vec<u8> = Vec::new();
@@ -436,7 +441,8 @@ impl RLN<'_> {
     /// let mut rng = thread_rng();
     /// for _ in 0..no_of_leaves {
     ///     let (_, id_commitment) = keygen();
-    ///     leaves.push(id_commitment);
+    ///     let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
+    ///     leaves.push(rate_commitment);
     /// }
     ///
     /// // We add leaves in a batch into the tree
@@ -446,9 +452,10 @@ impl RLN<'_> {
     /// // We set 256 leaves starting from index 10: next_index value is now max(0, 256+10) = 266
     ///
     /// // We set a leaf on next available index
-    /// // id_commitment will be set at index 266
+    /// // rate_commitment will be set at index 266
     /// let (_, id_commitment) = keygen();
-    /// let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+    /// let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
+    /// let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
     /// rln.set_next_leaf(&mut buffer).unwrap();
     /// ```
     pub fn set_next_leaf<R: Read>(&mut self, mut input_data: R) -> Result<()> {
@@ -657,7 +664,7 @@ impl RLN<'_> {
     pub fn verify<R: Read>(&self, mut input_data: R) -> Result<bool> {
         // Input data is serialized for Curve as:
         // serialized_proof (compressed, 4*32 bytes) || serialized_proof_values (6*32 bytes), i.e.
-        // [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
+        // [ proof<128> | root<32> | external_nullifier<32> | share_x<32> | share_y<32> | nullifier<32> ]
         let mut input_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input_byte)?;
         let proof = ArkProof::deserialize_compressed(&mut Cursor::new(&input_byte[..128]))?;
@@ -685,9 +692,10 @@ impl RLN<'_> {
     /// // Generate identity pair
     /// let (identity_secret_hash, id_commitment) = keygen();
     ///
-    /// // We set as leaf id_commitment after storing its index
+    /// // We set as leaf rate_commitment after storing its index
     /// let identity_index = 10;
-    /// let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+    /// let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
+    /// let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
     /// rln.set_leaf(identity_index, &mut buffer).unwrap();
     ///
     /// // We generate a random signal
@@ -723,7 +731,7 @@ impl RLN<'_> {
         let mut witness_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut witness_byte)?;
         let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
-        let proof_values = proof_values_from_witness(&rln_witness);
+        let proof_values = proof_values_from_witness(&rln_witness)?;
 
         let proof = generate_proof(self.witness_calculator, &self.proving_key, &rln_witness)?;
 
@@ -748,7 +756,7 @@ impl RLN<'_> {
         mut output_data: W,
     ) -> Result<()> {
         let (rln_witness, _) = deserialize_witness(&rln_witness_vec[..])?;
-        let proof_values = proof_values_from_witness(&rln_witness);
+        let proof_values = proof_values_from_witness(&rln_witness)?;
 
         let proof = generate_proof_with_witness(calculated_witness, &self.proving_key).unwrap();
 
@@ -804,13 +812,10 @@ impl RLN<'_> {
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
 
         let verified = verify_proof(&self.verification_key, &proof, &proof_values)?;
+        let x = hash_to_field(&signal);
 
         // Consistency checks to counter proof tampering
-        let x = hash_to_field(&signal);
-        Ok(verified
-            && (self.tree.root() == proof_values.root)
-            && (x == proof_values.x)
-            && (proof_values.rln_identifier == hash_to_field(RLN_IDENTIFIER)))
+        Ok(verified && (self.tree.root() == proof_values.root) && (x == proof_values.x))
     }
 
     /// Verifies a zkSNARK RLN proof against the provided proof values and a set of allowed Merkle tree roots.
@@ -885,9 +890,7 @@ impl RLN<'_> {
 
         // First consistency checks to counter proof tampering
         let x = hash_to_field(&signal);
-        let partial_result = verified
-            && (x == proof_values.x)
-            && (proof_values.rln_identifier == hash_to_field(RLN_IDENTIFIER));
+        let partial_result = verified && (x == proof_values.x);
 
         // We skip root validation if proof is already invalid
         if !partial_result {
@@ -1116,15 +1119,13 @@ impl RLN<'_> {
         input_proof_data_1.read_to_end(&mut serialized)?;
         // We skip deserialization of the zk-proof at the beginning
         let (proof_values_1, _) = deserialize_proof_values(&serialized[128..]);
-        let external_nullifier_1 =
-            utils_poseidon_hash(&[proof_values_1.epoch, proof_values_1.rln_identifier]);
+        let external_nullifier_1 = proof_values_1.external_nullifier;
 
         let mut serialized: Vec<u8> = Vec::new();
         input_proof_data_2.read_to_end(&mut serialized)?;
         // We skip deserialization of the zk-proof at the beginning
         let (proof_values_2, _) = deserialize_proof_values(&serialized[128..]);
-        let external_nullifier_2 =
-            utils_poseidon_hash(&[proof_values_2.epoch, proof_values_2.rln_identifier]);
+        let external_nullifier_2 = proof_values_2.external_nullifier;
 
         // We continue only if the proof values are for the same epoch
         // The idea is that proof values that go as input to this function are verified first (with zk-proof verify), hence ensuring validity of epoch and other fields.
@@ -1136,12 +1137,13 @@ impl RLN<'_> {
             let share2 = (proof_values_2.x, proof_values_2.y);
 
             // We recover the secret
-            let recovered_identity_secret_hash =
-                compute_id_secret(share1, share2, external_nullifier_1);
+            let recovered_identity_secret_hash = compute_id_secret(share1, share2);
 
             // If an identity secret hash is recovered, we write it to output_data, otherwise nothing will be written.
             if let Ok(identity_secret_hash) = recovered_identity_secret_hash {
                 output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
+            } else {
+                return Err(Report::msg("could not extract secret"));
             }
         }
 
@@ -1625,6 +1627,123 @@ mod test {
         assert_eq!(root_empty, root_after_bad_set);
     }
 
+    fn fq_from_str(s: String) -> ark_bn254::Fq {
+        ark_bn254::Fq::from_str(&s).unwrap()
+    }
+
+    fn g1_from_str(g1: &[String]) -> ark_bn254::G1Affine {
+        let x = fq_from_str(g1[0].clone());
+        let y = fq_from_str(g1[1].clone());
+        let z = fq_from_str(g1[2].clone());
+        ark_bn254::G1Affine::from(ark_bn254::G1Projective::new(x, y, z))
+    }
+
+    fn g2_from_str(g2: &[Vec<String>]) -> ark_bn254::G2Affine {
+        let c0 = fq_from_str(g2[0][0].clone());
+        let c1 = fq_from_str(g2[0][1].clone());
+        let x = ark_bn254::Fq2::new(c0, c1);
+
+        let c0 = fq_from_str(g2[1][0].clone());
+        let c1 = fq_from_str(g2[1][1].clone());
+        let y = ark_bn254::Fq2::new(c0, c1);
+
+        let c0 = fq_from_str(g2[2][0].clone());
+        let c1 = fq_from_str(g2[2][1].clone());
+        let z = ark_bn254::Fq2::new(c0, c1);
+
+        ark_bn254::G2Affine::from(ark_bn254::G2Projective::new(x, y, z))
+    }
+
+    fn value_to_string_vec(value: &Value) -> Vec<String> {
+        value
+            .as_array()
+            .unwrap()
+            .into_iter()
+            .map(|val| val.as_str().unwrap().to_string())
+            .collect()
+    }
+
+    #[test]
+    fn test_groth16_proof_hardcoded() {
+        let tree_height = TEST_TREE_HEIGHT;
+
+        let input_buffer =
+            Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
+        let rln = RLN::new(tree_height, input_buffer).unwrap();
+
+        let valid_snarkjs_proof = json!({
+         "pi_a": [
+          "4470527391588441860193200161084455226340491373346283552408949960585113822665",
+          "17066173901974939377117728437830216011764222423156801199965800887938087190121",
+          "1"
+         ],
+         "pi_b": [
+          [
+           "15972566464269406830925988363875489807783626890329856187767783138745533264635",
+           "14937519511565349355063307001263881540320664095110809840110097755110649950560"
+          ],
+          [
+           "533488241215365262498062426054646750918758165791898421060280269581011723961",
+           "9035874337973494769294028746597715861635666159729389919309920308765805688602"
+          ],
+          [
+           "1",
+           "0"
+          ]
+         ],
+         "pi_c": [
+          "20620241453393708332486848754039748595639801912969370960546027260091108922454",
+          "20580342189093698831710267260567759683930279312746044733195059538431965163807",
+          "1"
+         ],
+         "protocol": "groth16",
+         "curve": "bn128"
+        });
+        let valid_ark_proof = ArkProof {
+            a: g1_from_str(&value_to_string_vec(&valid_snarkjs_proof["pi_a"])),
+            b: g2_from_str(
+                &valid_snarkjs_proof["pi_b"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|item| value_to_string_vec(item))
+                    .collect::<Vec<Vec<String>>>(),
+            ),
+            c: g1_from_str(&value_to_string_vec(&valid_snarkjs_proof["pi_c"])),
+        };
+
+        let valid_proof_values = RLNProofValues {
+            x: str_to_fr(
+                "20645213238265527935869146898028115621427162613172918400241870500502509785943",
+                10,
+            )
+            .unwrap(),
+            external_nullifier: str_to_fr(
+                "21074405743803627666274838159589343934394162804826017440941339048886754734203",
+                10,
+            )
+            .unwrap(),
+            y: str_to_fr(
+                "16401008481486069296141645075505218976370369489687327284155463920202585288271",
+                10,
+            )
+            .unwrap(),
+            root: str_to_fr(
+                "8502402278351299594663821509741133196466235670407051417832304486953898514733",
+                10,
+            )
+            .unwrap(),
+            nullifier: str_to_fr(
+                "9102791780887227194595604713537772536258726662792598131262022534710887343694",
+                10,
+            )
+            .unwrap(),
+        };
+
+        let verified = verify_proof(&rln.verification_key, &valid_ark_proof, &valid_proof_values);
+        assert!(verified.unwrap());
+    }
+
     #[test]
     // This test is similar to the one in lib, but uses only public API
     fn test_groth16_proof() {
@@ -1636,7 +1755,7 @@ mod test {
 
         // Note: we only test Groth16 proof generation, so we ignore setting the tree in the RLN object
         let rln_witness = random_rln_witness(tree_height);
-        let proof_values = proof_values_from_witness(&rln_witness);
+        let proof_values = proof_values_from_witness(&rln_witness).unwrap();
 
         // We compute a Groth16 proof
         let mut input_buffer = Cursor::new(serialize_witness(&rln_witness).unwrap());
@@ -1647,6 +1766,7 @@ mod test {
         // Before checking public verify API, we check that the (deserialized) proof generated by prove is actually valid
         let proof = ArkProof::deserialize_compressed(&mut Cursor::new(&serialized_proof)).unwrap();
         let verified = verify_proof(&rln.verification_key, &proof, &proof_values);
+        // dbg!(verified.unwrap());
         assert!(verified.unwrap());
 
         // We prepare the input to prove API, consisting of serialized_proof (compressed, 4*32 bytes) || serialized_proof_values (6*32 bytes)
@@ -1671,7 +1791,9 @@ mod test {
         let mut leaves: Vec<Fr> = Vec::new();
         let mut rng = thread_rng();
         for _ in 0..no_of_leaves {
-            leaves.push(Fr::rand(&mut rng));
+            let id_commitment = Fr::rand(&mut rng);
+            let rate_commitment = utils_poseidon_hash(&[id_commitment, Fr::from(100)]);
+            leaves.push(rate_commitment);
         }
 
         // We create a new RLN instance
@@ -1686,9 +1808,11 @@ mod test {
         // Generate identity pair
         let (identity_secret_hash, id_commitment) = keygen();
 
-        // We set as leaf id_commitment after storing its index
+        // We set as leaf rate_commitment after storing its index
         let identity_index = rln.tree.leaves_set();
-        let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+        let user_message_limit = Fr::from(65535);
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
+        let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate a random signal
@@ -1697,13 +1821,19 @@ mod test {
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
+        // We generate a random rln_identifier
+        let rln_identifier = hash_to_field(b"test-rln-identifier");
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut normalize_usize(identity_index));
-        serialized.append(&mut fr_to_bytes_le(&epoch));
+        serialized.append(&mut fr_to_bytes_le(&user_message_limit));
+        serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
+        serialized.append(&mut fr_to_bytes_le(&utils_poseidon_hash(&[
+            epoch,
+            rln_identifier,
+        ])));
         serialized.append(&mut normalize_usize(signal.len()));
         serialized.append(&mut signal.to_vec());
 
@@ -1751,9 +1881,11 @@ mod test {
         // Generate identity pair
         let (identity_secret_hash, id_commitment) = keygen();
 
-        // We set as leaf id_commitment after storing its index
+        // We set as leaf rate_commitment after storing its index
         let identity_index = rln.tree.leaves_set();
-        let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+        let user_message_limit = Fr::from(100);
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
+        let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate a random signal
@@ -1762,13 +1894,20 @@ mod test {
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
+        // We generate a random rln_identifier
+        let rln_identifier = hash_to_field(b"test-rln-identifier");
 
         // We prepare input for generate_rln_proof API
         // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut normalize_usize(identity_index));
-        serialized.append(&mut fr_to_bytes_le(&epoch));
+        serialized.append(&mut fr_to_bytes_le(&user_message_limit));
+        serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
+        serialized.append(&mut fr_to_bytes_le(&utils_poseidon_hash(&[
+            epoch,
+            rln_identifier,
+        ])));
         serialized.append(&mut normalize_usize(signal.len()));
         serialized.append(&mut signal.to_vec());
 
@@ -1850,22 +1989,29 @@ mod test {
 
         // We set as leaf id_commitment after storing its index
         let identity_index = rln.tree.leaves_set();
-        let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+        let user_message_limit = Fr::from(100);
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
+        let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate a random signal
-        let mut rng = rand::thread_rng();
+        let mut rng = thread_rng();
         let signal: [u8; 32] = rng.gen();
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
+        // We generate a random rln_identifier
+        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | rln_identifier<32> | user_message_limit<32> | message_id<32> | signal_len<8> | signal<var> ]
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized.append(&mut normalize_usize(identity_index));
-        serialized.append(&mut fr_to_bytes_le(&epoch));
+        serialized.append(&mut fr_to_bytes_le(&user_message_limit));
+        serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
+        serialized.append(&mut fr_to_bytes_le(&external_nullifier));
         serialized.append(&mut normalize_usize(signal.len()));
         serialized.append(&mut signal.to_vec());
 
@@ -1902,7 +2048,7 @@ mod test {
             .verify_with_roots(&mut input_buffer.clone(), &mut roots_buffer)
             .unwrap();
 
-        assert!(verified == false);
+        assert_eq!(verified, false);
 
         // We get the root of the tree obtained adding one leaf per time
         let mut buffer = Cursor::new(Vec::<u8>::new());
@@ -1930,10 +2076,13 @@ mod test {
 
         // Generate identity pair
         let (identity_secret_hash, id_commitment) = keygen();
+        let user_message_limit = Fr::from(100);
+        let message_id = Fr::from(0);
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
         // We set as leaf id_commitment after storing its index
         let identity_index = rln.tree.leaves_set();
-        let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+        let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate two random signals
@@ -1944,15 +2093,19 @@ mod test {
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
+        // We generate a random rln_identifier
+        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
 
         // We generate two proofs using same epoch but different signals.
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized1: Vec<u8> = Vec::new();
         serialized1.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized1.append(&mut normalize_usize(identity_index));
-        serialized1.append(&mut fr_to_bytes_le(&epoch));
+        serialized1.append(&mut fr_to_bytes_le(&user_message_limit));
+        serialized1.append(&mut fr_to_bytes_le(&message_id));
+        serialized1.append(&mut fr_to_bytes_le(&external_nullifier));
 
         // The first part is the same for both proof input, so we clone
         let mut serialized2 = serialized1.clone();
@@ -2002,21 +2155,23 @@ mod test {
 
         // We generate a new identity pair
         let (identity_secret_hash_new, id_commitment_new) = keygen();
+        let rate_commitment_new = utils_poseidon_hash(&[id_commitment_new, user_message_limit]);
 
         // We add it to the tree
         let identity_index_new = rln.tree.leaves_set();
-        let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment_new));
+        let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment_new));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate a random signals
         let signal3: [u8; 32] = rng.gen();
 
         // We prepare proof input. Note that epoch is the same as before
-        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized3: Vec<u8> = Vec::new();
         serialized3.append(&mut fr_to_bytes_le(&identity_secret_hash_new));
         serialized3.append(&mut normalize_usize(identity_index_new));
-        serialized3.append(&mut fr_to_bytes_le(&epoch));
+        serialized3.append(&mut fr_to_bytes_le(&user_message_limit));
+        serialized3.append(&mut fr_to_bytes_le(&message_id));
+        serialized3.append(&mut fr_to_bytes_le(&external_nullifier));
         serialized3.append(&mut normalize_usize(signal3.len()));
         serialized3.append(&mut signal3.to_vec());
 
@@ -2040,9 +2195,12 @@ mod test {
         .unwrap();
 
         let serialized_identity_secret_hash = output_buffer.into_inner();
+        let (recovered_identity_secret_hash_new, _) =
+            bytes_le_to_fr(&serialized_identity_secret_hash);
 
-        // We ensure that an empty value was written to output_buffer, i.e. no secret is recovered
-        assert!(serialized_identity_secret_hash.is_empty());
+        // ensure that the recovered secret does not match with either of the
+        // used secrets in proof generation
+        assert_ne!(recovered_identity_secret_hash_new, identity_secret_hash_new);
     }
 
     #[test]

@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod test {
+    use ark_ff::BigInt;
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use rln::circuit::{Fr, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
@@ -15,6 +16,7 @@ mod test {
     fn test_merkle_proof() {
         let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
+        let user_message_limit = 1;
 
         let input_buffer =
             Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
@@ -23,9 +25,10 @@ mod test {
         // generate identity
         let identity_secret_hash = hash_to_field(b"test-merkle-proof");
         let id_commitment = utils_poseidon_hash(&vec![identity_secret_hash]);
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit.into()]);
 
-        // We pass id_commitment as Read buffer to RLN's set_leaf
-        let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+        // We pass rate_commitment as Read buffer to RLN's set_leaf
+        let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
         rln.set_leaf(leaf_index, &mut buffer).unwrap();
 
         // We check correct computation of the root
@@ -33,25 +36,17 @@ mod test {
         rln.get_root(&mut buffer).unwrap();
         let (root, _) = bytes_le_to_fr(&buffer.into_inner());
 
-        if TEST_TREE_HEIGHT == 15 {
+        if TEST_TREE_HEIGHT == 20 {
             assert_eq!(
                 root,
-                str_to_fr(
-                    "0x1984f2e01184aef5cb974640898a5f5c25556554e2b06d99d4841badb8b198cd",
-                    16
-                )
-                .unwrap()
+                Fr::from(BigInt([
+                    17110646155607829651,
+                    5040045984242729823,
+                    6965416728592533086,
+                    2328960363755461975
+                ]))
             );
-        } else if TEST_TREE_HEIGHT == 19 {
-            assert_eq!(
-                root,
-                str_to_fr(
-                    "0x219ceb53f2b1b7a6cf74e80d50d44d68ecb4a53c6cc65b25593c8d56343fb1fe",
-                    16
-                )
-                .unwrap()
-            );
-        } else if TEST_TREE_HEIGHT == 20 {
+        } else if TEST_TREE_HEIGHT == 32 {
             assert_eq!(
                 root,
                 str_to_fr(
@@ -153,7 +148,7 @@ mod test {
             vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         // We add the remaining elements for the case TEST_TREE_HEIGHT = 20
-        if TEST_TREE_HEIGHT == 19 || TEST_TREE_HEIGHT == 20 {
+        if TEST_TREE_HEIGHT == 20 || TEST_TREE_HEIGHT == 32 {
             expected_path_elements.append(&mut vec![
                 str_to_fr(
                     "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
@@ -192,8 +187,12 @@ mod test {
         assert_eq!(identity_path_index, expected_identity_path_index);
 
         // We double check that the proof computed from public API is correct
-        let root_from_proof =
-            compute_tree_root(&id_commitment, &path_elements, &identity_path_index, false);
+        let root_from_proof = compute_tree_root(
+            &identity_secret_hash,
+            &user_message_limit.into(),
+            &path_elements,
+            &identity_path_index,
+        );
 
         assert_eq!(root, root_from_proof);
     }

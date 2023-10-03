@@ -56,7 +56,7 @@ However, if `N` is too big, this might require a bigger Powers of Tau ceremony t
 In such case we refer to the official [Circom documentation](https://docs.circom.io/getting-started/proving-circuits/#powers-of-tau) for instructions on how to run an appropriate Powers of Tau ceremony and Phase 2 in order to compile the desired circuit.
 
 
-Currently, the `rln` module comes with three [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) RLN circuits having Merkle tree of height `15`, `19` and `20`, respectively.
+Currently, the `rln` module comes with 2 [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) RLN circuits having Merkle tree of height `20` and `32`, respectively.
 
 ## Getting started
 
@@ -102,18 +102,20 @@ let mut buffer = Cursor::new(Vec::<u8>::new());
 rln.key_gen(&mut buffer).unwrap();
 
 // We deserialize the keygen output to obtain
-// the identiy_secret and id_commitment
+// the identity_secret and id_commitment
 let (identity_secret_hash, id_commitment) = deserialize_identity_pair(buffer.into_inner());
 ```
 
-### Add ID commitment to the RLN Merkle tree
+### Add Rate commitment to the RLN Merkle tree
 
 ```rust
 // We define the tree index where id_commitment will be added
 let id_index = 10;
+let user_message_limit = 10;
 
 // We serialize id_commitment and pass it to set_leaf
-let mut buffer = Cursor::new(serialize_field_element(id_commitment));
+let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
+let mut buffer = Cursor::new(serialize_field_element(rate_commitment));
 rln.set_leaf(id_index, &mut buffer).unwrap();
 ```
 
@@ -141,11 +143,11 @@ let signal = b"RLN is awesome";
 
 We prepare the input to the proof generation routine. 
 
-Input buffer is serialized as `[ identity_key | id_index | epoch | signal_len | signal ]`.
+Input buffer is serialized as `[ identity_key | id_index | epoch | rln_identifier | user_message_limit | message_id | signal_len | signal ]`.
 
 ```rust
 // We prepare input to the proof generation routine
-let proof_input = prepare_prove_input(identity_secret_hash, id_index, epoch, signal);
+let proof_input = prepare_prove_input(identity_secret_hash, id_index, epoch, rln_identifier, user_message_limit, message_id, signal);
 ```
 
 We are now ready to generate a RLN ZK proof along with the _public outputs_ of the ZK circuit evaluation.
