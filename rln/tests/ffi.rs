@@ -338,6 +338,7 @@ mod test {
     fn test_merkle_proof_ffi() {
         let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
+        let user_message_limit = 1;
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
@@ -366,6 +367,21 @@ mod test {
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
         let (root, _) = bytes_le_to_fr(&result_data);
+
+        use ark_ff::BigInt;
+
+        if TEST_TREE_HEIGHT == 20 || TEST_TREE_HEIGHT == 32 {
+            assert_eq!(
+                root,
+                BigInt([
+                    4939322235247991215,
+                    5110804094006647505,
+                    4427606543677101242,
+                    910933464535675827
+                ])
+                .into()
+            );
+        }
 
         // We obtain the Merkle tree root
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
@@ -652,12 +668,15 @@ mod test {
     fn test_rln_proof_ffi() {
         let tree_height = TEST_TREE_HEIGHT;
         let no_of_leaves = 256;
+        let user_message_limit = Fr::from(65535);
 
         // We generate a vector of random leaves
         let mut leaves: Vec<Fr> = Vec::new();
         let mut rng = thread_rng();
         for _ in 0..no_of_leaves {
-            leaves.push(Fr::rand(&mut rng));
+            let id_commitment = Fr::rand(&mut rng);
+            let rate_commitment = utils_poseidon_hash(&[id_commitment, Fr::from(100)]);
+            leaves.push(rate_commitment);
         }
 
         // We create a RLN instance
@@ -682,6 +701,7 @@ mod test {
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
         let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
         let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
         let identity_index: usize = no_of_leaves;
 
@@ -703,6 +723,9 @@ mod test {
         let input_buffer = &Buffer::from(leaf_ser.as_ref());
         let success = set_next_leaf(rln_pointer, input_buffer);
         assert!(success, "set next leaf call failed");
+
+        // We generate a random rln_identifier
+        let rln_identifier = hash_to_field(b"test-rln-identifier");
 
         // We prepare input for generate_rln_proof API
         // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
@@ -745,6 +768,7 @@ mod test {
         // First part similar to test_rln_proof_ffi
         let tree_height = TEST_TREE_HEIGHT;
         let no_of_leaves = 256;
+        let user_message_limit = Fr::from(100);
 
         // We generate a vector of random leaves
         let mut leaves: Vec<Fr> = Vec::new();
@@ -775,6 +799,7 @@ mod test {
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
         let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
         let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
         let identity_index: usize = no_of_leaves;
 
@@ -1045,10 +1070,7 @@ mod test {
 
         // ensure that the recovered secret does not match with either of the
         // used secrets in proof generation
-        assert_ne!(
-            recovered_identity_secret_hash_new,
-            recovered_identity_secret_hash
-        );
+        assert_ne!(recovered_identity_secret_hash_new, identity_secret_hash_new);
     }
 
     #[test]
