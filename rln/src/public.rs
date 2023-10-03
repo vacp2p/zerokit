@@ -12,7 +12,6 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
 use num_bigint::BigInt;
-use std::collections::BTreeMap;
 use std::io::Cursor;
 use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 

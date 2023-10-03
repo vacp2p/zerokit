@@ -9,7 +9,6 @@ use color_eyre::{Report, Result};
 use num_bigint::BigInt;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
-use std::collections::BTreeMap;
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::Mutex;
 #[cfg(debug_assertions)]
