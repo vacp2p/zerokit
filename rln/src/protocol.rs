@@ -9,13 +9,13 @@ use color_eyre::{Report, Result};
 use num_bigint::BigInt;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
+use std::collections::BTreeMap;
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::Mutex;
 #[cfg(debug_assertions)]
 use std::time::Instant;
 use thiserror::Error;
 use tiny_keccak::{Hasher as _, Keccak};
-use std::collections::BTreeMap;
 
 use crate::circuit::{Curve, Fr};
 use crate::hashers::hash_to_field;
