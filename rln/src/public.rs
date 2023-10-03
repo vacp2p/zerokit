@@ -411,6 +411,10 @@ impl RLN<'_> {
         Ok(())
     }
 
+    pub fn leaves_set(&mut self) -> usize {
+        self.tree.leaves_set()
+    }
+
     /// Sets a leaf value at the next available never-set leaf index.
     ///
     /// This function updates the internal Merkle tree `next_index` value indicating the next available index corresponding to a never-set leaf as `next_index = next_index + 1`.

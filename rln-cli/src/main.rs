@@ -1,4 +1,3 @@
-use std::io::Cursor;
 use std::{fs::File, io::Read, path::Path};
 
 use clap::Parser;
@@ -35,6 +34,7 @@ fn main() -> Result<()> {
         Some(Commands::NewWithParams {
             tree_height,
             config,
+            tree_config_input,
         }) => {
             let mut resources: Vec<Vec<u8>> = Vec::new();
             for filename in ["rln.wasm", "rln_final.zkey", "verification_key.json"] {
@@ -45,13 +45,13 @@ fn main() -> Result<()> {
                 file.read_exact(&mut buffer)?;
                 resources.push(buffer);
             }
+            let tree_config_input_file = File::open(&tree_config_input)?;
             state.rln = Some(RLN::new_with_params(
                 *tree_height,
                 resources[0].clone(),
                 resources[1].clone(),
                 resources[2].clone(),
-                // TODO: use appropriate tree_config
-                Cursor::new(""),
+                tree_config_input_file,
             )?);
             Ok(())
         }
