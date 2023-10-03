@@ -2134,7 +2134,6 @@ mod test {
         rln.recover_id_secret(
             &mut input_proof_data_1,
             &mut input_proof_data_2,
-            // BTreeMap::new(),
             &mut output_buffer,
         )
         .unwrap();
