@@ -1133,12 +1133,13 @@ impl RLN<'_> {
             let share2 = (proof_values_2.x, proof_values_2.y);
 
             // We recover the secret
-            let recovered_identity_secret_hash =
-                compute_id_secret(share1, share2, external_nullifier_1);
+            let recovered_identity_secret_hash = compute_id_secret(share1, share2);
 
             // If an identity secret hash is recovered, we write it to output_data, otherwise nothing will be written.
             if let Ok(identity_secret_hash) = recovered_identity_secret_hash {
                 output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
+            } else {
+                return Err(Report::msg("could not extract secret"));
             }
         }
 
@@ -2071,10 +2072,13 @@ mod test {
 
         // Generate identity pair
         let (identity_secret_hash, id_commitment) = keygen();
+        let user_message_limit = Fr::from(100);
+        let message_id = Fr::from(0);
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
         // We set as leaf id_commitment after storing its index
         let identity_index = rln.tree.leaves_set();
-        let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment));
+        let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate two random signals
@@ -2087,6 +2091,7 @@ mod test {
         let epoch = hash_to_field(b"test-epoch");
         // We generate a random rln_identifier
         let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
 
         // We generate two proofs using same epoch but different signals.
 
@@ -2094,10 +2099,9 @@ mod test {
         let mut serialized1: Vec<u8> = Vec::new();
         serialized1.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized1.append(&mut normalize_usize(identity_index));
-        serialized1.append(&mut fr_to_bytes_le(&epoch));
-        serialized1.append(&mut fr_to_bytes_le(&rln_identifier));
-        serialized1.append(&mut fr_to_bytes_le(&Fr::from(100)));
-        serialized1.append(&mut fr_to_bytes_le(&Fr::from(1)));
+        serialized1.append(&mut fr_to_bytes_le(&user_message_limit));
+        serialized1.append(&mut fr_to_bytes_le(&message_id));
+        serialized1.append(&mut fr_to_bytes_le(&external_nullifier));
 
         // The first part is the same for both proof input, so we clone
         let mut serialized2 = serialized1.clone();
@@ -2147,10 +2151,11 @@ mod test {
 
         // We generate a new identity pair
         let (identity_secret_hash_new, id_commitment_new) = keygen();
+        let rate_commitment_new = utils_poseidon_hash(&[id_commitment_new, user_message_limit]);
 
         // We add it to the tree
         let identity_index_new = rln.tree.leaves_set();
-        let mut buffer = Cursor::new(fr_to_bytes_le(&id_commitment_new));
+        let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment_new));
         rln.set_next_leaf(&mut buffer).unwrap();
 
         // We generate a random signals
@@ -2160,10 +2165,9 @@ mod test {
         let mut serialized3: Vec<u8> = Vec::new();
         serialized3.append(&mut fr_to_bytes_le(&identity_secret_hash_new));
         serialized3.append(&mut normalize_usize(identity_index_new));
-        serialized3.append(&mut fr_to_bytes_le(&epoch));
-        serialized3.append(&mut fr_to_bytes_le(&rln_identifier));
-        serialized3.append(&mut fr_to_bytes_le(&Fr::from(100)));
-        serialized3.append(&mut fr_to_bytes_le(&Fr::from(1)));
+        serialized3.append(&mut fr_to_bytes_le(&user_message_limit));
+        serialized3.append(&mut fr_to_bytes_le(&message_id));
+        serialized3.append(&mut fr_to_bytes_le(&external_nullifier));
         serialized3.append(&mut normalize_usize(signal3.len()));
         serialized3.append(&mut signal3.to_vec());
 
@@ -2187,9 +2191,15 @@ mod test {
         .unwrap();
 
         let serialized_identity_secret_hash = output_buffer.into_inner();
+        let (recovered_identity_secret_hash_new, _) =
+            bytes_le_to_fr(&serialized_identity_secret_hash);
 
-        // We ensure that an empty value was written to output_buffer, i.e. no secret is recovered
-        assert!(serialized_identity_secret_hash.is_empty());
+        // ensure that the recovered secret does not match with either of the
+        // used secrets in proof generation
+        assert_ne!(
+            recovered_identity_secret_hash_new,
+            recovered_identity_secret_hash
+        );
     }
 
     #[test]

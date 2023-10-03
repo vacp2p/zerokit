@@ -524,11 +524,7 @@ pub fn extended_seeded_keygen(signal: &[u8]) -> (Fr, Fr, Fr, Fr) {
     )
 }
 
-pub fn compute_id_secret(
-    share1: (Fr, Fr),
-    share2: (Fr, Fr),
-    external_nullifier: Fr,
-) -> Result<Fr, String> {
+pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<Fr, String> {
     // Assuming a0 is the identity secret and a1 = poseidonHash([a0, external_nullifier]),
     // a (x,y) share satisfies the following relation
     // y = a_0 + x * a_1
@@ -542,14 +538,7 @@ pub fn compute_id_secret(
     let a_0 = y1 - x1 * a_1;
 
     // If shares come from the same polynomial, a0 is correctly recovered and a1 = poseidonHash([a0, external_nullifier])
-    let computed_a_1 = poseidon_hash(&[a_0, external_nullifier]);
-
-    if a_1 == computed_a_1 {
-        // We successfully recovered the identity secret
-        Ok(a_0)
-    } else {
-        Err("Cannot recover identity_secret_hash from provided shares".into())
-    }
+    Ok(a_0)
 }
 
 ///////////////////////////////////////////////////////

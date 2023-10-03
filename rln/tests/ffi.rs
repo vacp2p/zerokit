@@ -897,8 +897,12 @@ mod test {
         let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
         let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
 
-        // We set as leaf id_commitment, its index would be equal to 0 since tree is empty
-        let leaf_ser = fr_to_bytes_le(&id_commitment);
+        let user_message_limit = Fr::from(100);
+        let message_id = Fr::from(0);
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
+
+        // We set as leaf rate_commitment, its index would be equal to 0 since tree is empty
+        let leaf_ser = fr_to_bytes_le(&rate_commitment);
         let input_buffer = &Buffer::from(leaf_ser.as_ref());
         let success = set_next_leaf(rln_pointer, input_buffer);
         assert!(success, "set next leaf call failed");
@@ -916,13 +920,17 @@ mod test {
 
         // We generate a random epoch
         let epoch = hash_to_field(b"test-epoch");
+        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
 
         // We prepare input for generate_rln_proof API
         // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         let mut serialized1: Vec<u8> = Vec::new();
         serialized1.append(&mut fr_to_bytes_le(&identity_secret_hash));
         serialized1.append(&mut normalize_usize(identity_index));
-        serialized1.append(&mut fr_to_bytes_le(&epoch));
+        serialized1.append(&mut fr_to_bytes_le(&user_message_limit));
+        serialized1.append(&mut fr_to_bytes_le(&message_id));
+        serialized1.append(&mut fr_to_bytes_le(&external_nullifier));
 
         // The first part is the same for both proof input, so we clone
         let mut serialized2 = serialized1.clone();
@@ -984,9 +992,10 @@ mod test {
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
         let (identity_secret_hash_new, read) = bytes_le_to_fr(&result_data);
         let (id_commitment_new, _) = bytes_le_to_fr(&result_data[read..].to_vec());
+        let rate_commitment_new = utils_poseidon_hash(&[id_commitment_new, user_message_limit]);
 
         // We set as leaf id_commitment, its index would be equal to 1 since at 0 there is id_commitment
-        let leaf_ser = fr_to_bytes_le(&id_commitment_new);
+        let leaf_ser = fr_to_bytes_le(&rate_commitment_new);
         let input_buffer = &Buffer::from(leaf_ser.as_ref());
         let success = set_next_leaf(rln_pointer, input_buffer);
         assert!(success, "set next leaf call failed");
@@ -1002,7 +1011,9 @@ mod test {
         let mut serialized: Vec<u8> = Vec::new();
         serialized.append(&mut fr_to_bytes_le(&identity_secret_hash_new));
         serialized.append(&mut normalize_usize(identity_index_new));
-        serialized.append(&mut fr_to_bytes_le(&epoch));
+        serialized.append(&mut fr_to_bytes_le(&user_message_limit));
+        serialized.append(&mut fr_to_bytes_le(&message_id));
+        serialized.append(&mut fr_to_bytes_le(&external_nullifier));
         serialized.append(&mut normalize_usize(signal3.len()));
         serialized.append(&mut signal3.to_vec());
 
@@ -1029,10 +1040,15 @@ mod test {
         assert!(success, "recover id secret call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let serialized_identity_secret_hash = <&[u8]>::from(&output_buffer).to_vec();
+        let (recovered_identity_secret_hash_new, _) =
+            bytes_le_to_fr(&serialized_identity_secret_hash);
 
-        // We passed two shares for different secrets, so recovery should be not successful
-        // To check it, we ensure that recovered identity secret hash is empty
-        assert!(serialized_identity_secret_hash.is_empty());
+        // ensure that the recovered secret does not match with either of the
+        // used secrets in proof generation
+        assert_ne!(
+            recovered_identity_secret_hash_new,
+            recovered_identity_secret_hash
+        );
     }
 
     #[test]
