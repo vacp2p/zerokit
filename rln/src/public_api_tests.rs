@@ -1,23 +1,16 @@
 use crate::circuit::{
-    vk_from_raw, zkey_from_raw, Curve, Fr, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT,
+    Curve, Fr, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT,
 };
 use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
-use crate::poseidon_tree::PoseidonTree;
 use crate::protocol::*;
 use crate::public::RLN;
 use crate::utils::*;
-/// This is the main public API for RLN module. It is used by the FFI, and should be
-/// used by tests etc as well
 use ark_groth16::Proof as ArkProof;
-use ark_groth16::{ProvingKey, VerifyingKey};
-use ark_relations::r1cs::ConstraintMatrices;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
-use cfg_if::cfg_if;
-use color_eyre::{Report, Result};
+use ark_serialize::{CanonicalDeserialize, Read};
 use num_bigint::BigInt;
 use std::io::Cursor;
 use std::str::FromStr;
-use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
+use utils::ZerokitMerkleTree;
 
 use ark_std::{rand::thread_rng, UniformRand};
 use rand::Rng;
