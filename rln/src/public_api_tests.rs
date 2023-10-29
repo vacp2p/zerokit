@@ -1,6 +1,4 @@
-use crate::circuit::{
-    Curve, Fr, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT,
-};
+use crate::circuit::{Curve, Fr, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
 use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
 use crate::protocol::*;
 use crate::public::RLN;
