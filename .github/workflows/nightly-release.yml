@@ -25,6 +25,8 @@ jobs:
           override: true
           target: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
+      - name: Install ssl
+        run: apt install libssl-dev && apt install pkg-config
       - name: Install dependencies
         run: make installdeps
       - name: cross build
