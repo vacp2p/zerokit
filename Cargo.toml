@@ -22,3 +22,6 @@ opt-level = "s"
 
 [profile.release.package."semaphore"]
 codegen-units = 1
+
+[dependencies]
+openssl = { version = "*", features = ["vendored"] }
