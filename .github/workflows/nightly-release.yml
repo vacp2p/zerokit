@@ -25,12 +25,11 @@ jobs:
           override: true
           target: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
-      - name: Install ssl
-        run: sudo apt-get install libssl-dev && sudo apt-get install pkg-config
       - name: Install dependencies
         run: make installdeps
       - name: cross build
         run: |
+          sudo apt-get install libssl-dev && sudo apt-get install pkg-config
           cross build --release --target ${{ matrix.target }} --workspace --exclude rln-wasm
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
