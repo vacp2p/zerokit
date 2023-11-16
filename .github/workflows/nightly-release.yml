@@ -29,7 +29,6 @@ jobs:
         run: make installdeps
       - name: cross build
         run: |
-          sudo apt-get update && sudo apt-get upgrade && sudo apt-get install -y pkg-config build-essential libudev-dev && sudo apt-get install perl build-essential && sudo apt-get install libssl-dev && sudo apt-get install pkg-config
           cross build --release --target ${{ matrix.target }} --workspace --exclude rln-wasm
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
