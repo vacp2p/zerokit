@@ -3,8 +3,7 @@ use ark_std::rand::thread_rng;
 use color_eyre::{Report, Result};
 
 use ark_bn254::Bn254;
-use ark_groth16::{
-    create_random_proof as prove, generate_random_parameters, prepare_verifying_key, verify_proof,
+use ark_groth16::{prepare_verifying_key, Groth16,
 };
 
 fn groth16_proof_example() -> Result<()> {
@@ -21,7 +20,7 @@ fn groth16_proof_example() -> Result<()> {
     let circom = builder.setup();
 
     let mut rng = thread_rng();
-    let params = generate_random_parameters::<Bn254, _, _>(circom, &mut rng)?;
+    let params = Groth16::<Bn254>::generate_random_parameters_with_reduction(circom, &mut rng)?;
 
     let circom = builder.build()?;
 
@@ -29,11 +28,11 @@ fn groth16_proof_example() -> Result<()> {
         .get_public_inputs()
         .ok_or(Report::msg("no public inputs"))?;
 
-    let proof = prove(circom, &params, &mut rng)?;
+    let proof = Groth16::<Bn254>::create_random_proof_with_reduction(circom, &params, &mut rng)?;
 
     let pvk = prepare_verifying_key(&params.vk);
 
-    match verify_proof(&pvk, &proof, &inputs) {
+    match Groth16::<Bn254>::verify_proof(&pvk, &proof, &inputs) {
         Ok(_) => Ok(()),
         Err(_) => Err(Report::msg("not verified")),
     }
