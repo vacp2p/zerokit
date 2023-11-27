@@ -2,11 +2,11 @@
 members = [
   "multiplier",
   "private-settlement",
-  "semaphore",
-  "rln",
-  "rln-cli",
-  "rln-wasm",
-  "utils",
+  # "semaphore",
+  # "rln",
+  # "rln-cli",
+  # "rln-wasm",
+  # "utils",
 ]
 resolver = "2"
 
