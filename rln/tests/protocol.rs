@@ -107,6 +107,8 @@ mod test {
 
         let merkle_proof = tree.proof(leaf_index).expect("proof should exist");
         let path_elements = merkle_proof.get_path_elements();
+        dbg!(&path_elements);
+        dbg!(poseidon_hash(&[rate_commitment, Fr::from(0)]));
         let identity_path_index = merkle_proof.get_path_index();
 
         // We check correct computation of the path and indexes
@@ -258,6 +260,118 @@ mod test {
     }
 
     #[test]
+    fn test_compute_root_single_insertion() {
+        let tree_height = TEST_TREE_HEIGHT;
+        let leaf_index = 0;
+
+        let rate_commitment = str_to_fr(
+            "0x2A09A9FD93C590C26B91EFFBB2499F07E8F7AA12E2B4940A3AED2411CB65E11C",
+            16,
+        )
+        .unwrap();
+
+        let default_leaf = Fr::from(0);
+        let mut tree = PoseidonTree::new(
+            tree_height,
+            default_leaf,
+            ConfigOf::<PoseidonTree>::default(),
+        )
+        .unwrap();
+        tree.set(leaf_index, rate_commitment.into()).unwrap();
+
+        assert_eq!(
+            tree.root().to_string(),
+            "7919895337495550471953660523154055129542864206434083474237224229170626792564"
+        );
+    }
+
+    #[test]
+    fn test_compute_root_multiple_insertions() {
+        let tree_height = TEST_TREE_HEIGHT;
+        let start_index = 0;
+
+        let rate_commitments: Vec<Fr> = [
+            BigInt([
+                6344960399222479404,
+                8873735028955887118,
+                7344916015079734877,
+                3049769223023031486,
+            ]),
+            BigInt([
+                5712098114927176582,
+                8940737845291386850,
+                13760702216785496874,
+                2705829225787818087,
+            ]),
+            BigInt([
+                11095489423361569757,
+                3600059334404558726,
+                2596276295120316067,
+                1747990648971046346,
+            ]),
+            BigInt([
+                6042348329893423557,
+                18258910608249868782,
+                15808282831752017379,
+                431669247253051424,
+            ]),
+            BigInt([
+                10095207707778447201,
+                5682738389371124904,
+                13211310082780638286,
+                1315201582035914269,
+            ]),
+            BigInt([
+                17025532269492512967,
+                1150892318682047614,
+                9382150527271933425,
+                3232654496558305327,
+            ]),
+            BigInt([
+                12575250814731208081,
+                3588033008530583836,
+                14988210865591309718,
+                1882695786084137797,
+            ]),
+            BigInt([
+                2907978739955320703,
+                8716018548752635030,
+                10462674785957232325,
+                2943370953425792650,
+            ]),
+            BigInt([
+                5234706529109067247,
+                11231622334196983240,
+                1886386083208828393,
+                1690607978854820878,
+            ]),
+            BigInt([
+                12359804935986041669,
+                10294673542421867784,
+                11783956311711833641,
+                2759017549080634703,
+            ]),
+        ]
+        .into_iter()
+        .map(|x| Fr::from(x))
+        .collect();
+
+        let default_leaf = Fr::from(0);
+        let mut tree = PoseidonTree::new(
+            tree_height,
+            default_leaf,
+            ConfigOf::<PoseidonTree>::default(),
+        )
+        .unwrap();
+        tree.set_range(start_index, rate_commitments).unwrap();
+
+        assert_eq!(
+            tree.root().to_string(),
+            "5210724218081541877101688952118136930297124697603087561558225712176057209122"
+        );
+    }
+
+    #[test]
     // We test a RLN proof generation and verification
     fn test_end_to_end() {
         let tree_height = TEST_TREE_HEIGHT;
@@ -330,6 +444,24 @@ mod test {
         let ser = serialize_proof_values(&proof_values);
         let (deser, _) = deserialize_proof_values(&ser);
         assert_eq!(proof_values, deser);
+    }
+
+    #[test]
+    fn test_poseidon_hash() {
+        let inputs = &[
+            str_to_fr(
+                "0x2A09A9FD93C590C26B91EFFBB2499F07E8F7AA12E2B4940A3AED2411CB65E11C",
+                16,
+            )
+            .unwrap(),
+            Fr::from(0),
+        ];
+        let hash = poseidon_hash(inputs);
+
+        assert_eq!(
+            hash.to_string(),
+            "13164376930590487041313497514223288845711140604177161029957349518915056324115"
+        );
     }
 
     #[test]

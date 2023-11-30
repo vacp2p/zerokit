@@ -113,6 +113,8 @@ where
         if index >= self.capacity() {
             return Err(Report::msg("index exceeds set size"));
         }
+        let log = format!("inserting {} at {}[{index}]", leaf.to_string(), self.depth);
+        dbg!(log);
         self.nodes.insert((self.depth, index), leaf);
         self.recalculate_from(index)?;
         self.next_index = max(self.next_index, index + 1);
@@ -192,6 +194,7 @@ where
         if index >= self.capacity() {
             return Err(Report::msg("index exceeds set size"));
         }
+        dbg!("yomama");
         let mut witness = Vec::<(H::Fr, u8)>::with_capacity(self.depth);
         let mut i = index;
         let mut depth = self.depth;
@@ -246,6 +249,13 @@ where
             .nodes
             .get(&(depth, index))
             .unwrap_or_else(|| &self.cached_nodes[depth]);
+        let log = format!(
+            "depth: {}, index: {}, node at depth[index]: {}",
+            depth,
+            index,
+            &node.to_string()
+        );
+        dbg!(log);
         node
     }
 
@@ -255,10 +265,14 @@ where
 
     fn hash_couple(&mut self, depth: usize, index: usize) -> H::Fr {
         let b = index & !1;
-        H::hash(&[self.get_node(depth, b), self.get_node(depth, b + 1)])
+        let l = self.get_node(depth, b);
+        let r = self.get_node(depth, b + 1);
+        dbg!(l.to_string(), r.to_string());
+        H::hash(&[l, r])
     }
 
     fn recalculate_from(&mut self, index: usize) -> Result<()> {
+        dbg!("running recalc from");
         let mut i = index;
         let mut depth = self.depth;
         loop {
@@ -266,6 +280,8 @@ where
             i >>= 1;
             depth -= 1;
             self.nodes.insert((depth, i), h);
+            let log = format!("inserting {} at {depth}[{i}]", h.to_string());
+            dbg!(log);
             if depth == 0 {
                 break;
             }
