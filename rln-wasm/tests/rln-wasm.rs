@@ -21,7 +21,6 @@ mod tests {
 
     #[wasm_bindgen_test]
     pub async fn test_basic_flow() {
-        let tree_height = TEST_TREE_HEIGHT;
         let circom_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln.wasm");
         let zkey_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.zkey");
         let vk_path =
@@ -126,7 +125,6 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_metadata() {
-        let tree_height = TEST_TREE_HEIGHT;
         let zkey_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.zkey");
         let vk_path =
             format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/verification_key.json");

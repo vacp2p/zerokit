@@ -193,8 +193,8 @@ impl<'a> From<&Buffer> for &'a [u8] {
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn new(tree_height: usize, input_buffer: *const Buffer, ctx: *mut *mut RLN) -> bool {
-    match RLN::new(tree_height, input_buffer.process()) {
+pub extern "C" fn new(input_buffer: *const Buffer, ctx: *mut *mut RLN) -> bool {
+    match RLN::new(input_buffer.process()) {
         Ok(rln) => {
             unsafe { *ctx = Box::into_raw(Box::new(rln)) };
             true

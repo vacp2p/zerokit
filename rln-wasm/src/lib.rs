@@ -181,13 +181,8 @@ impl<'a> ProcessArg for &'a [u8] {
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = newRLN)]
-pub fn wasm_new(
-    tree_height: usize,
-    zkey: Uint8Array,
-    vk: Uint8Array,
-) -> Result<*mut RLNWrapper, String> {
-    let instance = RLN::new_with_params(tree_height, zkey.to_vec(), vk.to_vec())
-        .map_err(|err| format!("{:#?}", err))?;
+pub fn wasm_new(tree_height: usize) -> Result<*mut RLNWrapper, String> {
+    let instance = RLN::new(tree_height, "").map_err(|err| format!("{:#?}", err))?;
     let wrapper = RLNWrapper { instance };
     Ok(Box::into_raw(Box::new(wrapper)))
 }

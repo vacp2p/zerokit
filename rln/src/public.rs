@@ -9,25 +9,18 @@ use ark_groth16::Proof as ArkProof;
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
-use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
 use num_bigint::BigInt;
 use std::io::Cursor;
 use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 
-cfg_if! {
-    if #[cfg(not(target_arch = "wasm32"))] {
-        use std::default::Default;
-        use std::sync::Mutex;
-        use crate::circuit::{circom_from_folder, vk_from_folder, circom_from_raw, zkey_from_folder, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
-        use ark_circom::WitnessCalculator;
-        use serde_json::{json, Value};
-        use utils::{Hasher};
-        use std::str::FromStr;
-    } else {
-        use std::marker::*;
-    }
-}
+use crate::circuit::{circom_from_raw, default_circom, default_vk, default_zkey};
+use ark_circom::WitnessCalculator;
+use serde_json::{json, Value};
+use std::default::Default;
+use std::str::FromStr;
+use std::sync::Mutex;
+use utils::Hasher;
 
 /// The application-specific RLN identifier.
 ///
@@ -70,22 +63,18 @@ impl RLN<'_> {
     /// // We create a new RLN instance
     /// let mut rln = RLN::new(tree_height, resources);
     /// ```
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> Result<RLN<'static>> {
+    pub fn new<R: Read>(mut input_data: R) -> Result<RLN<'static>> {
         // We read input
         let mut input: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input)?;
 
         let rln_config: Value = serde_json::from_str(&String::from_utf8(input)?)?;
-        let resources_folder = rln_config["resources_folder"]
-            .as_str()
-            .unwrap_or(TEST_RESOURCES_FOLDER);
         let tree_config = rln_config["tree_config"].to_string();
 
-        let witness_calculator = circom_from_folder(resources_folder)?;
+        let witness_calculator = default_circom()?;
 
-        let proving_key = zkey_from_folder(resources_folder)?;
-        let verification_key = vk_from_folder(resources_folder)?;
+        let proving_key = default_zkey()?;
+        let verification_key = default_vk()?;
 
         let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = if tree_config.is_empty() {
             <PoseidonTree as ZerokitMerkleTree>::Config::default()
@@ -95,7 +84,7 @@ impl RLN<'_> {
 
         // We compute a default empty tree
         let tree = PoseidonTree::new(
-            tree_height,
+            20,
             <PoseidonTree as ZerokitMerkleTree>::Hasher::default_leaf(),
             tree_config,
         )?;
@@ -1188,9 +1177,8 @@ impl RLN<'_> {
 #[cfg(not(target_arch = "wasm32"))]
 impl Default for RLN<'_> {
     fn default() -> Self {
-        let tree_height = TEST_TREE_HEIGHT;
-        let buffer = Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-        Self::new(tree_height, buffer).unwrap()
+        let buffer = Cursor::new(json!({}).to_string());
+        Self::new(buffer).unwrap()
     }
 }
 

@@ -1,10 +1,7 @@
 #[cfg(test)]
 mod test {
     use ark_ff::BigInt;
-    use rln::circuit::{
-        circom_from_folder, vk_from_folder, zkey_from_folder, Fr, TEST_RESOURCES_FOLDER,
-        TEST_TREE_HEIGHT,
-    };
+    use rln::circuit::{default_circom, default_vk, default_zkey, Fr};
     use rln::hashers::{hash_to_field, poseidon_hash};
     use rln::poseidon_tree::PoseidonTree;
     use rln::protocol::*;
@@ -71,7 +68,6 @@ mod test {
     #[test]
     // We test Merkle tree generation, proofs and verification
     fn test_merkle_proof() {
-        let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
 
         // generate identity
@@ -81,36 +77,29 @@ mod test {
 
         // generate merkle tree
         let default_leaf = Fr::from(0);
-        let mut tree = PoseidonTree::new(
-            tree_height,
-            default_leaf,
-            ConfigOf::<PoseidonTree>::default(),
-        )
-        .unwrap();
+        let mut tree =
+            PoseidonTree::new(20, default_leaf, ConfigOf::<PoseidonTree>::default()).unwrap();
         tree.set(leaf_index, rate_commitment.into()).unwrap();
 
         // We check correct computation of the root
         let root = tree.root();
 
-        if TEST_TREE_HEIGHT == 20 || TEST_TREE_HEIGHT == 32 {
-            assert_eq!(
-                root,
-                BigInt([
-                    4939322235247991215,
-                    5110804094006647505,
-                    4427606543677101242,
-                    910933464535675827
-                ])
-                .into()
-            );
-        }
+        assert_eq!(
+            root,
+            BigInt([
+                4939322235247991215,
+                5110804094006647505,
+                4427606543677101242,
+                910933464535675827
+            ])
+            .into()
+        );
 
         let merkle_proof = tree.proof(leaf_index).expect("proof should exist");
         let path_elements = merkle_proof.get_path_elements();
         let identity_path_index = merkle_proof.get_path_index();
 
         // We check correct computation of the path and indexes
-        // These values refers to TEST_TREE_HEIGHT == 16
         let mut expected_path_elements = vec![
             str_to_fr(
                 "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -193,40 +182,36 @@ mod test {
             vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         // We add the remaining elements for the case TEST_TREE_HEIGHT = 20
-        if TEST_TREE_HEIGHT == 20 {
-            expected_path_elements.append(&mut vec![
-                str_to_fr(
-                    "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
-                    16,
-                )
-                .unwrap(),
-                str_to_fr(
-                    "0x2a7c7c9b6ce5880b9f6f228d72bf6a575a526f29c66ecceef8b753d38bba7323",
-                    16,
-                )
-                .unwrap(),
-                str_to_fr(
-                    "0x2e8186e558698ec1c67af9c14d463ffc470043c9c2988b954d75dd643f36b992",
-                    16,
-                )
-                .unwrap(),
-                str_to_fr(
-                    "0x0f57c5571e9a4eab49e2c8cf050dae948aef6ead647392273546249d1c1ff10f",
-                    16,
-                )
-                .unwrap(),
-            ]);
-            expected_identity_path_index.append(&mut vec![0, 0, 0, 0]);
-        }
-
-        if TEST_TREE_HEIGHT == 20 {
-            expected_path_elements.append(&mut vec![str_to_fr(
-                "0x1830ee67b5fb554ad5f63d4388800e1cfe78e310697d46e43c9ce36134f72cca",
+        expected_path_elements.append(&mut vec![
+            str_to_fr(
+                "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
                 16,
             )
-            .unwrap()]);
-            expected_identity_path_index.append(&mut vec![0]);
-        }
+            .unwrap(),
+            str_to_fr(
+                "0x2a7c7c9b6ce5880b9f6f228d72bf6a575a526f29c66ecceef8b753d38bba7323",
+                16,
+            )
+            .unwrap(),
+            str_to_fr(
+                "0x2e8186e558698ec1c67af9c14d463ffc470043c9c2988b954d75dd643f36b992",
+                16,
+            )
+            .unwrap(),
+            str_to_fr(
+                "0x0f57c5571e9a4eab49e2c8cf050dae948aef6ead647392273546249d1c1ff10f",
+                16,
+            )
+            .unwrap(),
+        ]);
+        expected_identity_path_index.append(&mut vec![0, 0, 0, 0]);
+
+        expected_path_elements.append(&mut vec![str_to_fr(
+            "0x1830ee67b5fb554ad5f63d4388800e1cfe78e310697d46e43c9ce36134f72cca",
+            16,
+        )
+        .unwrap()]);
+        expected_identity_path_index.append(&mut vec![0]);
 
         assert_eq!(path_elements, expected_path_elements);
         assert_eq!(identity_path_index, expected_identity_path_index);
@@ -239,9 +224,9 @@ mod test {
     // We test a RLN proof generation and verification
     fn test_witness_from_json() {
         // We generate all relevant keys
-        let proving_key = zkey_from_folder(TEST_RESOURCES_FOLDER).unwrap();
-        let verification_key = vk_from_folder(TEST_RESOURCES_FOLDER).unwrap();
-        let builder = circom_from_folder(TEST_RESOURCES_FOLDER).unwrap();
+        let proving_key = default_zkey().unwrap();
+        let verification_key = default_vk().unwrap();
+        let builder = default_circom().unwrap();
 
         // We compute witness from the json input example
         let witness_json = WITNESS_JSON_20;
@@ -260,7 +245,6 @@ mod test {
     #[test]
     // We test a RLN proof generation and verification
     fn test_end_to_end() {
-        let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
 
         // Generate identity pair
@@ -270,12 +254,8 @@ mod test {
 
         //// generate merkle tree
         let default_leaf = Fr::from(0);
-        let mut tree = PoseidonTree::new(
-            tree_height,
-            default_leaf,
-            ConfigOf::<PoseidonTree>::default(),
-        )
-        .unwrap();
+        let mut tree =
+            PoseidonTree::new(20, default_leaf, ConfigOf::<PoseidonTree>::default()).unwrap();
         tree.set(leaf_index, rate_commitment.into()).unwrap();
 
         let merkle_proof = tree.proof(leaf_index).expect("proof should exist");
@@ -299,9 +279,9 @@ mod test {
         .unwrap();
 
         // We generate all relevant keys
-        let proving_key = zkey_from_folder(TEST_RESOURCES_FOLDER).unwrap();
-        let verification_key = vk_from_folder(TEST_RESOURCES_FOLDER).unwrap();
-        let builder = circom_from_folder(TEST_RESOURCES_FOLDER).unwrap();
+        let proving_key = default_zkey().unwrap();
+        let verification_key = default_vk().unwrap();
+        let builder = default_circom().unwrap();
 
         // Let's generate a zkSNARK proof
         let proof = generate_proof(builder, &proving_key, &rln_witness).unwrap();
