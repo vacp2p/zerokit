@@ -1,26 +1,34 @@
-use crate::circuit::{vk_from_raw, zkey_from_raw, Curve, Fr};
+use crate::circuit::{Curve, Fr};
 use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
 use crate::poseidon_tree::PoseidonTree;
 use crate::protocol::*;
 use crate::utils::*;
+use ark_circom::WitnessCalculator;
 /// This is the main public API for RLN module. It is used by the FFI, and should be
 /// used by tests etc as well
 use ark_groth16::Proof as ArkProof;
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
+use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
 use num_bigint::BigInt;
 use std::io::Cursor;
+
 use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 
-use crate::circuit::{circom_from_raw, default_circom, default_vk, default_zkey};
-use ark_circom::WitnessCalculator;
-use serde_json::{json, Value};
-use std::default::Default;
-use std::str::FromStr;
-use std::sync::Mutex;
-use utils::Hasher;
+cfg_if! {
+    if #[cfg(not(target_arch = "wasm32"))] {
+        use std::default::Default;
+        use std::sync::Mutex;
+        use crate::circuit::{zkey_from_raw, circom_from_raw, vk_from_raw, default_zkey, default_vk, default_circom};
+        use serde_json::{json, Value};
+        use utils::{Hasher};
+        use std::str::FromStr;
+    } else {
+        use std::marker::*;
+    }
+}
 
 /// The application-specific RLN identifier.
 ///
@@ -63,6 +71,7 @@ impl RLN<'_> {
     /// // We create a new RLN instance
     /// let mut rln = RLN::new(tree_height, resources);
     /// ```
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn new<R: Read>(mut input_data: R) -> Result<RLN<'static>> {
         // We read input
         let mut input: Vec<u8> = Vec::new();
@@ -177,22 +186,15 @@ impl RLN<'_> {
 
     #[cfg(target_arch = "wasm32")]
     pub fn new_with_params(
-        tree_height: usize,
-        zkey_vec: Vec<u8>,
-        vk_vec: Vec<u8>,
+        zkey: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
+        vk: VerifyingKey<Curve>,
     ) -> Result<RLN<'static>> {
-        #[cfg(not(target_arch = "wasm32"))]
-        let witness_calculator = circom_from_raw(circom_vec)?;
-
-        let proving_key = zkey_from_raw(&zkey_vec)?;
-        let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
-
         // We compute a default empty tree
-        let tree = PoseidonTree::default(tree_height)?;
+        let tree = PoseidonTree::default(20)?;
 
         Ok(RLN {
-            proving_key,
-            verification_key,
+            proving_key: zkey,
+            verification_key: vk,
             tree,
             _marker: PhantomData,
         })
@@ -723,6 +725,29 @@ impl RLN<'_> {
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
         let proof = generate_proof(self.witness_calculator, &self.proving_key, &rln_witness)?;
+
+        // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
+        // This proof is compressed, i.e. 128 bytes long
+        proof.serialize_compressed(&mut output_data)?;
+        output_data.write_all(&serialize_proof_values(&proof_values))?;
+
+        Ok(())
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn generate_rln_proof<R: Read, W: Write>(
+        &mut self,
+        witness_calculator: &mut WitnessCalculator,
+        mut input_data: R,
+        mut output_data: W,
+    ) -> Result<()> {
+        // We read input RLN witness and we serialize_compressed it
+        let mut witness_byte: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut witness_byte)?;
+        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
+        let proof_values = proof_values_from_witness(&rln_witness)?;
+
+        let proof = generate_proof(witness_calculator, &self.proving_key, &rln_witness)?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long

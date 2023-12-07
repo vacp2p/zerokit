@@ -2,8 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
-    use rln::circuit::{Fr, TEST_TREE_HEIGHT};
+    use js_sys::{Object, Uint8Array};
+    use rln::circuit::Fr;
     use rln::hashers::{hash_to_field, poseidon_hash};
     use rln::utils::{bytes_le_to_fr, fr_to_bytes_le, normalize_usize};
     use rln_wasm::*;
@@ -21,15 +21,8 @@ mod tests {
 
     #[wasm_bindgen_test]
     pub async fn test_basic_flow() {
-        let circom_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln.wasm");
-        let zkey_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.zkey");
-        let vk_path =
-            format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/verification_key.json");
-        let zkey = read_file(&zkey_path).unwrap();
-        let vk = read_file(&vk_path).unwrap();
-
         // Creating an instance of RLN
-        let rln_instance = wasm_new(tree_height, zkey, vk).unwrap();
+        let rln_instance = wasm_new().unwrap();
 
         // Creating membership key
         let mem_keys = wasm_key_gen(rln_instance).unwrap();
@@ -74,31 +67,8 @@ mod tests {
         let serialized_rln_witness =
             wasm_get_serialized_rln_witness(rln_instance, serialized_message).unwrap();
 
-        // Obtaining inputs that should be sent to circom witness calculator
-        let json_inputs =
-            rln_witness_to_json(rln_instance, serialized_rln_witness.clone()).unwrap();
-
-        // Calculating witness with JS
-        // (Using a JSON since wasm_bindgen does not like Result<Vec<JsBigInt>,JsValue>)
-        let calculated_witness_json = calculateWitness(&circom_path, json_inputs)
-            .await
-            .unwrap()
-            .as_string()
-            .unwrap();
-        let calculated_witness_vec_str: Vec<String> =
-            serde_json::from_str(&calculated_witness_json).unwrap();
-        let calculated_witness: Vec<JsBigInt> = calculated_witness_vec_str
-            .iter()
-            .map(|x| JsBigInt::new(&x.into()).unwrap())
-            .collect();
-
         // Generating proof
-        let proof = generate_rln_proof_with_witness(
-            rln_instance,
-            calculated_witness.into(),
-            serialized_rln_witness,
-        )
-        .unwrap();
+        let proof = generate_rln_proof(rln_instance, serialized_rln_witness).unwrap();
 
         // Add signal_len | signal
         let mut proof_bytes = proof.to_vec();
@@ -122,17 +92,10 @@ mod tests {
         let is_proof_valid = wasm_verify_with_roots(rln_instance, proof_with_signal, roots);
         assert!(is_proof_valid.unwrap(), "verifying proof with roots failed");
     }
-
     #[wasm_bindgen_test]
     fn test_metadata() {
-        let zkey_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.zkey");
-        let vk_path =
-            format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/verification_key.json");
-        let zkey = read_file(&zkey_path).unwrap();
-        let vk = read_file(&vk_path).unwrap();
-
         // Creating an instance of RLN
-        let rln_instance = wasm_new(tree_height, zkey, vk).unwrap();
+        let rln_instance = wasm_new().unwrap();
 
         let test_metadata = Uint8Array::new(&JsValue::from_str("test"));
         // Inserting random metadata

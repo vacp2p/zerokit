@@ -5,6 +5,7 @@ use ark_bn254::{
     G1Projective as ArkG1Projective, G2Affine as ArkG2Affine, G2Projective as ArkG2Projective,
 };
 use ark_circom::read_zkey;
+use ark_circom::WitnessCalculator;
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use color_eyre::{Report, Result};
@@ -12,11 +13,16 @@ use num_bigint::BigUint;
 use serde_json::Value;
 use std::io::Cursor;
 use std::str::FromStr;
-
-use ark_circom::WitnessCalculator;
-use once_cell::sync::OnceCell;
-use std::sync::Mutex;
 use wasmer::{Module, Store};
+
+use cfg_if::cfg_if;
+
+cfg_if! {
+    if #[cfg(not(target_arch = "wasm32"))] {
+        use once_cell::sync::OnceCell;
+        use std::sync::Mutex;
+    }
+}
 
 // These parameters are used for tests
 const ZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.zkey");
@@ -75,9 +81,11 @@ pub fn default_vk() -> Result<VerifyingKey<Curve>> {
     vk_from_vector(VK_BYTES)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 static WITNESS_CALCULATOR: OnceCell<Mutex<WitnessCalculator>> = OnceCell::new();
 
 // Initializes the witness calculator using a bytes vector
+#[cfg(not(target_arch = "wasm32"))]
 pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> Result<&'static Mutex<WitnessCalculator>> {
     WITNESS_CALCULATOR.get_or_try_init(|| {
         let store = Store::default();
@@ -87,8 +95,23 @@ pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> Result<&'static Mutex<WitnessCal
     })
 }
 
+#[cfg(target_arch = "wasm32")]
+pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> Result<WitnessCalculator> {
+    let store = Store::default();
+    let module = Module::new(&store, wasm_buffer)?;
+    let witness_calculator = WitnessCalculator::from_module(module)?;
+    Ok(witness_calculator)
+}
+
 // Initializes the witness calculator
+#[cfg(not(target_arch = "wasm32"))]
 pub fn default_circom() -> Result<&'static Mutex<WitnessCalculator>> {
+    // We read the wasm file
+    circom_from_raw(WASM_BYTES.into())
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn default_circom() -> Result<WitnessCalculator> {
     // We read the wasm file
     circom_from_raw(WASM_BYTES.into())
 }
