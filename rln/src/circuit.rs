@@ -29,7 +29,7 @@ const ZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.
 
 const VK_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/verification_key.json");
 
-const WASM_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln.wasm");
+pub const WASM_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln.wasm");
 
 // The following types define the pairing friendly elliptic curve, the underlying finite fields and groups default to this module
 // Note that proofs are serialized assuming Fr to be 4x8 = 32 bytes in size. Hence, changing to a curve with different encoding will make proof verification to fail

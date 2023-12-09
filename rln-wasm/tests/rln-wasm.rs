@@ -2,22 +2,13 @@
 
 #[cfg(test)]
 mod tests {
-    use js_sys::{Object, Uint8Array};
+    use js_sys::Uint8Array;
     use rln::circuit::Fr;
     use rln::hashers::{hash_to_field, poseidon_hash};
     use rln::utils::{bytes_le_to_fr, fr_to_bytes_le, normalize_usize};
     use rln_wasm::*;
-    use wasm_bindgen::{prelude::*, JsValue};
+    use wasm_bindgen::JsValue;
     use wasm_bindgen_test::wasm_bindgen_test;
-
-    #[wasm_bindgen(module = "src/utils.js")]
-    extern "C" {
-        #[wasm_bindgen(catch)]
-        fn read_file(path: &str) -> Result<Uint8Array, JsValue>;
-
-        #[wasm_bindgen(catch)]
-        async fn calculateWitness(circom_path: &str, input: Object) -> Result<JsValue, JsValue>;
-    }
 
     #[wasm_bindgen_test]
     pub async fn test_basic_flow() {
