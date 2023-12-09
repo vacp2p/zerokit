@@ -5,9 +5,9 @@ extern crate web_sys;
 
 use std::vec::Vec;
 
-use ark_circom::WitnessCalculator;
-use js_sys::{Object, Uint8Array};
-use rln::circuit::{default_circom, default_vk, default_zkey};
+use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
+use num_bigint::BigInt;
+use rln::circuit::{default_vk, default_zkey};
 use rln::public::{hash, poseidon_hash, RLN};
 use wasm_bindgen::prelude::*;
 
@@ -21,7 +21,6 @@ pub struct RLNWrapper {
     // The purpose of this wrapper is to hold a RLN instance with the 'static lifetime
     // because wasm_bindgen does not allow returning elements with lifetimes
     instance: RLN<'static>,
-    witness_calculator: WitnessCalculator,
 }
 
 // Macro to call methods with arbitrary amount of arguments,
@@ -186,12 +185,8 @@ impl<'a> ProcessArg for &'a [u8] {
 pub fn wasm_new() -> Result<*mut RLNWrapper, String> {
     let zkey = default_zkey().map_err(|err| format!("{:#?}", err))?;
     let vk = default_vk().map_err(|err| format!("{:#?}", err))?;
-    let witness_calculator = default_circom().map_err(|err| format!("{:#?}", err))?;
     let instance = RLN::new_with_params(zkey, vk).map_err(|err| format!("{:#?}", err))?;
-    let wrapper = RLNWrapper {
-        instance,
-        witness_calculator,
-    };
+    let wrapper = RLNWrapper { instance };
     Ok(Box::into_raw(Box::new(wrapper)))
 }
 
@@ -280,28 +275,38 @@ pub fn rln_witness_to_json(
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen]
-pub fn generate_rln_proof(ctx: *mut RLNWrapper, input: Uint8Array) -> Result<Uint8Array, String> {
-    let mut output_data: Vec<u8> = Vec::new();
-    let new_instance = ctx.process();
-    if let Err(err) = new_instance.instance.generate_rln_proof(
-        &mut new_instance.witness_calculator,
-        &input.to_vec()[..],
-        &mut output_data,
-    ) {
-        std::mem::forget(output_data);
-        Err(format!("Error: {:#?}", err))
-    } else {
-        let result = Uint8Array::from(&output_data[..]);
-        std::mem::forget(output_data);
-        Ok(result)
-    }
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = generateMembershipKey)]
 pub fn wasm_key_gen(ctx: *const RLNWrapper) -> Result<Uint8Array, String> {
     call_with_output_and_error_msg!(ctx, key_gen, "could not generate membership keys")
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[wasm_bindgen]
+pub fn generate_rln_proof_with_witness(
+    ctx: *mut RLNWrapper,
+    calculated_witness: Vec<JsBigInt>,
+    serialized_witness: Uint8Array,
+) -> Result<Uint8Array, String> {
+    let mut witness_vec: Vec<BigInt> = vec![];
+
+    for v in calculated_witness {
+        witness_vec.push(
+            v.to_string(10)
+                .map_err(|err| format!("{:#?}", err))?
+                .as_string()
+                .ok_or("not a string error")?
+                .parse::<BigInt>()
+                .map_err(|err| format!("{:#?}", err))?,
+        );
+    }
+
+    call_with_output_and_error_msg!(
+        ctx,
+        generate_rln_proof_with_witness,
+        "could not generate proof",
+        witness_vec,
+        serialized_witness.to_vec()
+    )
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]

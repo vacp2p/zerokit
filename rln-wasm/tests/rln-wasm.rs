@@ -2,17 +2,27 @@
 
 #[cfg(test)]
 mod tests {
-    use js_sys::Uint8Array;
+    use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
     use rln::circuit::Fr;
     use rln::hashers::{hash_to_field, poseidon_hash};
     use rln::utils::{bytes_le_to_fr, fr_to_bytes_le, normalize_usize};
     use rln_wasm::*;
-    use wasm_bindgen::JsValue;
+    use wasm_bindgen::{prelude::*, JsValue};
     use wasm_bindgen_test::wasm_bindgen_test;
+
+    #[wasm_bindgen(module = "src/utils.js")]
+    extern "C" {
+        #[wasm_bindgen(catch)]
+        fn read_file(path: &str) -> Result<Uint8Array, JsValue>;
+
+        #[wasm_bindgen(catch)]
+        async fn calculateWitness(circom_path: &str, input: Object) -> Result<JsValue, JsValue>;
+    }
 
     #[wasm_bindgen_test]
     pub async fn test_basic_flow() {
         // Creating an instance of RLN
+        let circom_path = format!("../rln/resources/tree_height_20/rln.wasm");
         let rln_instance = wasm_new().unwrap();
 
         // Creating membership key
@@ -58,8 +68,31 @@ mod tests {
         let serialized_rln_witness =
             wasm_get_serialized_rln_witness(rln_instance, serialized_message).unwrap();
 
+        // Obtaining inputs that should be sent to circom witness calculator
+        let json_inputs =
+            rln_witness_to_json(rln_instance, serialized_rln_witness.clone()).unwrap();
+
+        // Calculating witness with JS
+        // (Using a JSON since wasm_bindgen does not like Result<Vec<JsBigInt>,JsValue>)
+        let calculated_witness_json = calculateWitness(&circom_path, json_inputs)
+            .await
+            .unwrap()
+            .as_string()
+            .unwrap();
+        let calculated_witness_vec_str: Vec<String> =
+            serde_json::from_str(&calculated_witness_json).unwrap();
+        let calculated_witness: Vec<JsBigInt> = calculated_witness_vec_str
+            .iter()
+            .map(|x| JsBigInt::new(&x.into()).unwrap())
+            .collect();
+
         // Generating proof
-        let proof = generate_rln_proof(rln_instance, serialized_rln_witness).unwrap();
+        let proof = generate_rln_proof_with_witness(
+            rln_instance,
+            calculated_witness.into(),
+            serialized_rln_witness,
+        )
+        .unwrap();
 
         // Add signal_len | signal
         let mut proof_bytes = proof.to_vec();
