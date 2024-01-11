@@ -363,6 +363,21 @@ pub extern "C" fn generate_rln_proof(
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+pub extern "C" fn generate_rln_proof_with_witness(
+    ctx: *mut RLN,
+    input_buffer: *const Buffer,
+    output_buffer: *mut Buffer,
+) -> bool {
+    call_with_output_arg!(
+        ctx,
+        generate_rln_proof_with_witness,
+        output_buffer,
+        input_buffer
+    )
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
 pub extern "C" fn verify_rln_proof(
     ctx: *const RLN,
     proof_buffer: *const Buffer,
