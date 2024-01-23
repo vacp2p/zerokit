@@ -739,7 +739,7 @@ impl RLN<'_> {
     //
     // output_data is  [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
     // we skip it from documentation for now
-    #[doc(hidden)]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn generate_rln_proof_with_witness<R: Read, W: Write>(
         &mut self,
         mut input_data: R,
@@ -751,6 +751,27 @@ impl RLN<'_> {
         let proof_values = proof_values_from_witness(&rln_witness);
 
         let proof = generate_proof(self.witness_calculator, &self.proving_key, &rln_witness)?;
+
+        // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
+        // This proof is compressed, i.e. 128 bytes long
+        proof.serialize_compressed(&mut output_data)?;
+        output_data.write_all(&serialize_proof_values(&proof_values))?;
+        Ok(())
+    }
+
+    // Different in wasm since witness_calculator is not available
+    // See: https://github.com/vacp2p/zerokit/blob/b903d8d740e0b8b82057bcc5377ddce05ae5676b/rln/src/public.rs#L47-L49
+    #[cfg(target_arch = "wasm32")]
+    pub fn generate_rln_proof_with_witness<W: Write>(
+        &mut self,
+        calculated_witness: Vec<BigInt>,
+        rln_witness_vec: Vec<u8>,
+        mut output_data: W,
+    ) -> Result<()> {
+        let (rln_witness, _) = deserialize_witness(&rln_witness_vec[..])?;
+        let proof_values = proof_values_from_witness(&rln_witness);
+
+        let proof = generate_proof_with_witness(calculated_witness, &self.proving_key).unwrap();
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
