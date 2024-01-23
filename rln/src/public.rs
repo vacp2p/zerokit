@@ -720,9 +720,9 @@ impl RLN<'_> {
         mut output_data: W,
     ) -> Result<()> {
         // We read input RLN witness and we serialize_compressed it
-        let mut witness_byte: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut witness_byte)?;
-        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
+        let mut input_byte: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut input_byte)?;
+        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &input_byte)?;
         let proof_values = proof_values_from_witness(&rln_witness);
 
         let proof = generate_proof(self.witness_calculator, &self.proving_key, &rln_witness)?;
@@ -735,12 +735,33 @@ impl RLN<'_> {
         Ok(())
     }
 
-    // TODO: this function seems to use redundant witness (as bigint and serialized) and should be refactored
     // Generate RLN Proof using a witness calculated from outside zerokit
     //
     // output_data is  [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
     // we skip it from documentation for now
-    #[doc(hidden)]
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn generate_rln_proof_with_witness<R: Read, W: Write>(
+        &mut self,
+        mut input_data: R,
+        mut output_data: W,
+    ) -> Result<()> {
+        let mut witness_byte: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut witness_byte)?;
+        let (rln_witness, _) = deserialize_witness(&witness_byte)?;
+        let proof_values = proof_values_from_witness(&rln_witness);
+
+        let proof = generate_proof(self.witness_calculator, &self.proving_key, &rln_witness)?;
+
+        // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
+        // This proof is compressed, i.e. 128 bytes long
+        proof.serialize_compressed(&mut output_data)?;
+        output_data.write_all(&serialize_proof_values(&proof_values))?;
+        Ok(())
+    }
+
+    // Different in wasm since witness_calculator is not available
+    // See: https://github.com/vacp2p/zerokit/blob/b903d8d740e0b8b82057bcc5377ddce05ae5676b/rln/src/public.rs#L47-L49
+    #[cfg(target_arch = "wasm32")]
     pub fn generate_rln_proof_with_witness<W: Write>(
         &mut self,
         calculated_witness: Vec<BigInt>,
@@ -1800,13 +1821,10 @@ mod test {
             .collect();
 
         // Generating the proof
+        let mut input_buffer = Cursor::new(serialized_witness);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
-        rln.generate_rln_proof_with_witness(
-            calculated_witness_vec,
-            serialized_witness,
-            &mut output_buffer,
-        )
-        .unwrap();
+        rln.generate_rln_proof_with_witness(&mut input_buffer, &mut output_buffer)
+            .unwrap();
 
         // output_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
         let mut proof_data = output_buffer.into_inner();
