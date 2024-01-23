@@ -2,6 +2,7 @@ on:
   push:
     branches:
       - v0.3.5
+      - add-witness
     paths-ignore:
       - '**.md'
       - '!.github/workflows/*.yml'
