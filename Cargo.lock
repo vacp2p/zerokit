@@ -2695,7 +2695,7 @@ dependencies = [
 
 [[package]]
 name = "rln"
-version = "0.3.4"
+version = "0.3.5"
 dependencies = [
  "ark-bn254 0.4.0",
  "ark-circom 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
