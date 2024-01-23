@@ -30,3 +30,6 @@ image = "ghcr.io/cross-rs/mips64el-unknown-linux-gnuabi64:latest"
 
 [target.mipsel-unknown-linux-gnu]
 image = "ghcr.io/cross-rs/mipsel-unknown-linux-gnu:latest"
+
+[target.aarch64-linux-android]
+image = "ghcr.io/cross-rs/aarch64-linux-android:edge"
