@@ -3,7 +3,7 @@ mod test {
     use ark_ff::BigInt;
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
-    use rln::circuit::{Fr, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
+    use rln::circuit::Fr;
     use rln::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash, ROUND_PARAMS};
     use rln::protocol::{compute_tree_root, deserialize_identity_tuple};
     use rln::public::{hash as public_hash, poseidon_hash as public_poseidon_hash, RLN};
@@ -14,13 +14,11 @@ mod test {
     #[test]
     // This test is similar to the one in lib, but uses only public API
     fn test_merkle_proof() {
-        let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
         let user_message_limit = 1;
 
-        let input_buffer =
-            Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-        let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+        let input_buffer = Cursor::new(json!({}).to_string());
+        let mut rln = RLN::new(input_buffer).unwrap();
 
         // generate identity
         let identity_secret_hash = hash_to_field(b"test-merkle-proof");
@@ -36,26 +34,15 @@ mod test {
         rln.get_root(&mut buffer).unwrap();
         let (root, _) = bytes_le_to_fr(&buffer.into_inner());
 
-        if TEST_TREE_HEIGHT == 20 {
-            assert_eq!(
-                root,
-                Fr::from(BigInt([
-                    17110646155607829651,
-                    5040045984242729823,
-                    6965416728592533086,
-                    2328960363755461975
-                ]))
-            );
-        } else if TEST_TREE_HEIGHT == 32 {
-            assert_eq!(
-                root,
-                str_to_fr(
-                    "0x21947ffd0bce0c385f876e7c97d6a42eec5b1fe935aab2f01c1f8a8cbcc356d2",
-                    16
-                )
-                .unwrap()
-            );
-        }
+        assert_eq!(
+            root,
+            Fr::from(BigInt([
+                17110646155607829651,
+                5040045984242729823,
+                6965416728592533086,
+                2328960363755461975
+            ]))
+        );
 
         // We check correct computation of merkle proof
         let mut buffer = Cursor::new(Vec::<u8>::new());
@@ -148,40 +135,36 @@ mod test {
             vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         // We add the remaining elements for the case TEST_TREE_HEIGHT = 20
-        if TEST_TREE_HEIGHT == 20 || TEST_TREE_HEIGHT == 32 {
-            expected_path_elements.append(&mut vec![
-                str_to_fr(
-                    "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
-                    16,
-                )
-                .unwrap(),
-                str_to_fr(
-                    "0x2a7c7c9b6ce5880b9f6f228d72bf6a575a526f29c66ecceef8b753d38bba7323",
-                    16,
-                )
-                .unwrap(),
-                str_to_fr(
-                    "0x2e8186e558698ec1c67af9c14d463ffc470043c9c2988b954d75dd643f36b992",
-                    16,
-                )
-                .unwrap(),
-                str_to_fr(
-                    "0x0f57c5571e9a4eab49e2c8cf050dae948aef6ead647392273546249d1c1ff10f",
-                    16,
-                )
-                .unwrap(),
-            ]);
-            expected_identity_path_index.append(&mut vec![0, 0, 0, 0]);
-        }
-
-        if TEST_TREE_HEIGHT == 20 {
-            expected_path_elements.append(&mut vec![str_to_fr(
-                "0x1830ee67b5fb554ad5f63d4388800e1cfe78e310697d46e43c9ce36134f72cca",
+        expected_path_elements.append(&mut vec![
+            str_to_fr(
+                "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
                 16,
             )
-            .unwrap()]);
-            expected_identity_path_index.append(&mut vec![0]);
-        }
+            .unwrap(),
+            str_to_fr(
+                "0x2a7c7c9b6ce5880b9f6f228d72bf6a575a526f29c66ecceef8b753d38bba7323",
+                16,
+            )
+            .unwrap(),
+            str_to_fr(
+                "0x2e8186e558698ec1c67af9c14d463ffc470043c9c2988b954d75dd643f36b992",
+                16,
+            )
+            .unwrap(),
+            str_to_fr(
+                "0x0f57c5571e9a4eab49e2c8cf050dae948aef6ead647392273546249d1c1ff10f",
+                16,
+            )
+            .unwrap(),
+        ]);
+        expected_identity_path_index.append(&mut vec![0, 0, 0, 0]);
+
+        expected_path_elements.append(&mut vec![str_to_fr(
+            "0x1830ee67b5fb554ad5f63d4388800e1cfe78e310697d46e43c9ce36134f72cca",
+            16,
+        )
+        .unwrap()]);
+        expected_identity_path_index.append(&mut vec![0]);
 
         assert_eq!(path_elements, expected_path_elements);
         assert_eq!(identity_path_index, expected_identity_path_index);

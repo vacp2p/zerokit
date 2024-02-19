@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod test {
+    const tree_height: usize = 20;
+
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use rln::circuit::*;
@@ -17,7 +19,6 @@ mod test {
     #[test]
     // We test merkle batch Merkle tree additions
     fn test_merkle_operations_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
@@ -29,9 +30,9 @@ mod test {
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resource_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_config = json!({}).to_string();
         let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        let success = new(input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
@@ -132,14 +133,13 @@ mod test {
     // Uses `set_leaves_from` to set leaves in a batch
     fn test_leaf_setting_with_index_ffi() {
         // We create a new tree
-        let tree_height = TEST_TREE_HEIGHT;
         let no_of_leaves = 256;
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_config = json!({}).to_string();
         let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        let success = new(input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
@@ -224,14 +224,13 @@ mod test {
     #[test]
     // This test is similar to the one in public.rs but it uses the RLN object as a pointer
     fn test_atomic_operation_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
         let no_of_leaves = 256;
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_config = json!({}).to_string();
         let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        let success = new(input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
@@ -289,7 +288,6 @@ mod test {
     #[test]
     // This test is similar to the one in public.rs but it uses the RLN object as a pointer
     fn test_set_leaves_bad_index_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
@@ -303,9 +301,9 @@ mod test {
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_config = json!({}).to_string();
         let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        let success = new(input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
@@ -339,15 +337,14 @@ mod test {
     #[test]
     // This test is similar to the one in lib, but uses only public C API
     fn test_merkle_proof_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
         let user_message_limit = 1;
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_config = json!({}).to_string();
         let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        let success = new(input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
@@ -373,18 +370,16 @@ mod test {
 
         use ark_ff::BigInt;
 
-        if TEST_TREE_HEIGHT == 20 || TEST_TREE_HEIGHT == 32 {
-            assert_eq!(
-                root,
-                BigInt([
-                    4939322235247991215,
-                    5110804094006647505,
-                    4427606543677101242,
-                    910933464535675827
-                ])
-                .into()
-            );
-        }
+        assert_eq!(
+            root,
+            BigInt([
+                4939322235247991215,
+                5110804094006647505,
+                4427606543677101242,
+                910933464535675827
+            ])
+            .into()
+        );
 
         // We obtain the Merkle tree root
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
@@ -478,40 +473,36 @@ mod test {
         let mut expected_identity_path_index: Vec<u8> =
             vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-        if TEST_TREE_HEIGHT == 20 {
-            expected_path_elements.append(&mut vec![
-                str_to_fr(
-                    "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
-                    16,
-                )
-                .unwrap(),
-                str_to_fr(
-                    "0x2a7c7c9b6ce5880b9f6f228d72bf6a575a526f29c66ecceef8b753d38bba7323",
-                    16,
-                )
-                .unwrap(),
-                str_to_fr(
-                    "0x2e8186e558698ec1c67af9c14d463ffc470043c9c2988b954d75dd643f36b992",
-                    16,
-                )
-                .unwrap(),
-                str_to_fr(
-                    "0x0f57c5571e9a4eab49e2c8cf050dae948aef6ead647392273546249d1c1ff10f",
-                    16,
-                )
-                .unwrap(),
-            ]);
-            expected_identity_path_index.append(&mut vec![0, 0, 0, 0]);
-        }
-
-        if TEST_TREE_HEIGHT == 20 {
-            expected_path_elements.append(&mut vec![str_to_fr(
-                "0x1830ee67b5fb554ad5f63d4388800e1cfe78e310697d46e43c9ce36134f72cca",
+        expected_path_elements.append(&mut vec![
+            str_to_fr(
+                "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
                 16,
             )
-            .unwrap()]);
-            expected_identity_path_index.append(&mut vec![0]);
-        }
+            .unwrap(),
+            str_to_fr(
+                "0x2a7c7c9b6ce5880b9f6f228d72bf6a575a526f29c66ecceef8b753d38bba7323",
+                16,
+            )
+            .unwrap(),
+            str_to_fr(
+                "0x2e8186e558698ec1c67af9c14d463ffc470043c9c2988b954d75dd643f36b992",
+                16,
+            )
+            .unwrap(),
+            str_to_fr(
+                "0x0f57c5571e9a4eab49e2c8cf050dae948aef6ead647392273546249d1c1ff10f",
+                16,
+            )
+            .unwrap(),
+        ]);
+        expected_identity_path_index.append(&mut vec![0, 0, 0, 0]);
+
+        expected_path_elements.append(&mut vec![str_to_fr(
+            "0x1830ee67b5fb554ad5f63d4388800e1cfe78e310697d46e43c9ce36134f72cca",
+            16,
+        )
+        .unwrap()]);
+        expected_identity_path_index.append(&mut vec![0]);
 
         assert_eq!(path_elements, expected_path_elements);
         assert_eq!(identity_path_index, expected_identity_path_index);
@@ -530,13 +521,11 @@ mod test {
     #[test]
     // Benchmarks proof generation and verification
     fn test_groth16_proofs_performance_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
-
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_config = json!({}).to_string();
         let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        let success = new(input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
@@ -593,13 +582,11 @@ mod test {
     #[test]
     // Creating a RLN with raw data should generate same results as using a path to resources
     fn test_rln_raw_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
-
         // We create a RLN instance using a resource folder path
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_config = json!({}).to_string();
         let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        let success = new(input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
@@ -612,7 +599,7 @@ mod test {
         let (root_rln_folder, _) = bytes_le_to_fr(&result_data);
 
         // Reading the raw data from the files required for instantiating a RLN instance using raw data
-        let circom_path = format!("./resources/tree_height_{TEST_TREE_HEIGHT}/rln.wasm");
+        let circom_path = format!("./resources/tree_height_20/rln.wasm");
         let mut circom_file = File::open(&circom_path).expect("no file found");
         let metadata = std::fs::metadata(&circom_path).expect("unable to read metadata");
         let mut circom_buffer = vec![0; metadata.len() as usize];
@@ -620,7 +607,7 @@ mod test {
             .read_exact(&mut circom_buffer)
             .expect("buffer overflow");
 
-        let zkey_path = format!("./resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.zkey");
+        let zkey_path = format!("./resources/tree_height_20/rln_final.zkey");
         let mut zkey_file = File::open(&zkey_path).expect("no file found");
         let metadata = std::fs::metadata(&zkey_path).expect("unable to read metadata");
         let mut zkey_buffer = vec![0; metadata.len() as usize];
@@ -628,7 +615,7 @@ mod test {
             .read_exact(&mut zkey_buffer)
             .expect("buffer overflow");
 
-        let vk_path = format!("./resources/tree_height_{TEST_TREE_HEIGHT}/verification_key.json");
+        let vk_path = format!("./resources/tree_height_20/verification_key.json");
 
         let mut vk_file = File::open(&vk_path).expect("no file found");
         let metadata = std::fs::metadata(&vk_path).expect("unable to read metadata");
@@ -669,7 +656,6 @@ mod test {
     #[test]
     // Computes and verifies an RLN ZK proof using FFI APIs
     fn test_rln_proof_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
         let no_of_leaves = 256;
         let user_message_limit = Fr::from(65535);
 
@@ -684,9 +670,9 @@ mod test {
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_config = json!({}).to_string();
         let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        let success = new(input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
@@ -769,7 +755,6 @@ mod test {
     // Computes and verifies an RLN ZK proof by checking proof's root against an input roots buffer
     fn test_verify_with_roots() {
         // First part similar to test_rln_proof_ffi
-        let tree_height = TEST_TREE_HEIGHT;
         let no_of_leaves = 256;
         let user_message_limit = Fr::from(100);
 
@@ -782,9 +767,9 @@ mod test {
 
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_config = json!({}).to_string();
         let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        let success = new(input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
@@ -906,13 +891,11 @@ mod test {
     #[test]
     // Computes and verifies an RLN ZK proof using FFI APIs
     fn test_recover_id_secret_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
-
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_config = json!({}).to_string();
         let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        let success = new(input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
@@ -1079,13 +1062,11 @@ mod test {
     #[test]
     // Tests hash to field using FFI APIs
     fn test_seeded_keygen_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
-
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_config = json!({}).to_string();
         let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        let success = new(input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
@@ -1120,12 +1101,11 @@ mod test {
     #[test]
     // Tests hash to field using FFI APIs
     fn test_seeded_extended_keygen_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_config = json!({}).to_string();
         let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        let success = new(input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
@@ -1225,13 +1205,12 @@ mod test {
     #[test]
     fn test_get_leaf() {
         // We create a RLN instance
-        let tree_height = TEST_TREE_HEIGHT;
-        let no_of_leaves = 1 << TEST_TREE_HEIGHT;
+        let no_of_leaves = 1 << tree_height;
 
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_config = json!({}).to_string();
         let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        let success = new(input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
@@ -1270,12 +1249,11 @@ mod test {
     #[test]
     fn test_metadata() {
         // We create a RLN instance
-        let tree_height = TEST_TREE_HEIGHT;
 
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_config = json!({}).to_string();
         let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        let success = new(input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 

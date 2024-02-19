@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
-    use rln::circuit::{Fr, TEST_TREE_HEIGHT};
+    use rln::circuit::Fr;
     use rln::hashers::{hash_to_field, poseidon_hash};
     use rln::utils::{bytes_le_to_fr, fr_to_bytes_le, normalize_usize};
     use rln_wasm::*;
@@ -21,16 +21,9 @@ mod tests {
 
     #[wasm_bindgen_test]
     pub async fn test_basic_flow() {
-        let tree_height = TEST_TREE_HEIGHT;
-        let circom_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln.wasm");
-        let zkey_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.zkey");
-        let vk_path =
-            format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/verification_key.json");
-        let zkey = read_file(&zkey_path).unwrap();
-        let vk = read_file(&vk_path).unwrap();
-
         // Creating an instance of RLN
-        let rln_instance = wasm_new(tree_height, zkey, vk).unwrap();
+        let circom_path = format!("../rln/resources/tree_height_20/rln.wasm");
+        let rln_instance = wasm_new().unwrap();
 
         // Creating membership key
         let mem_keys = wasm_key_gen(rln_instance).unwrap();
@@ -123,18 +116,10 @@ mod tests {
         let is_proof_valid = wasm_verify_with_roots(rln_instance, proof_with_signal, roots);
         assert!(is_proof_valid.unwrap(), "verifying proof with roots failed");
     }
-
     #[wasm_bindgen_test]
     fn test_metadata() {
-        let tree_height = TEST_TREE_HEIGHT;
-        let zkey_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.zkey");
-        let vk_path =
-            format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/verification_key.json");
-        let zkey = read_file(&zkey_path).unwrap();
-        let vk = read_file(&vk_path).unwrap();
-
         // Creating an instance of RLN
-        let rln_instance = wasm_new(tree_height, zkey, vk).unwrap();
+        let rln_instance = wasm_new().unwrap();
 
         let test_metadata = Uint8Array::new(&JsValue::from_str("test"));
         // Inserting random metadata

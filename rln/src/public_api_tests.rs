@@ -1,4 +1,4 @@
-use crate::circuit::{Curve, Fr, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
+use crate::circuit::{Curve, Fr};
 use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
 use crate::protocol::*;
 use crate::public::RLN;
@@ -14,10 +14,11 @@ use ark_std::{rand::thread_rng, UniformRand};
 use rand::Rng;
 use serde_json::{json, Value};
 
+const tree_height: usize = 20;
+
 #[test]
 // We test merkle batch Merkle tree additions
 fn test_merkle_operations() {
-    let tree_height = TEST_TREE_HEIGHT;
     let no_of_leaves = 256;
 
     // We generate a vector of random leaves
@@ -28,9 +29,8 @@ fn test_merkle_operations() {
     }
 
     // We create a new tree
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let input_buffer = Cursor::new(json!({}).to_string());
+    let mut rln = RLN::new(input_buffer).unwrap();
 
     // We first add leaves one by one specifying the index
     for (i, leaf) in leaves.iter().enumerate() {
@@ -109,7 +109,6 @@ fn test_merkle_operations() {
 // We test leaf setting with a custom index, to enable batch updates to the root
 // Uses `set_leaves_from` to set leaves in a batch, from index `start_index`
 fn test_leaf_setting_with_index() {
-    let tree_height = TEST_TREE_HEIGHT;
     let no_of_leaves = 256;
 
     // We generate a vector of random leaves
@@ -124,9 +123,8 @@ fn test_leaf_setting_with_index() {
     let set_index = rng.gen_range(0..no_of_leaves) as usize;
 
     // We create a new tree
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let input_buffer = Cursor::new(json!({}).to_string());
+    let mut rln = RLN::new(input_buffer).unwrap();
 
     // We add leaves in a batch into the tree
     let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
@@ -185,7 +183,6 @@ fn test_leaf_setting_with_index() {
 #[test]
 // Tests the atomic_operation fn, which set_leaves_from uses internally
 fn test_atomic_operation() {
-    let tree_height = TEST_TREE_HEIGHT;
     let no_of_leaves = 256;
 
     // We generate a vector of random leaves
@@ -196,9 +193,8 @@ fn test_atomic_operation() {
     }
 
     // We create a new tree
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let input_buffer = Cursor::new(json!({}).to_string());
+    let mut rln = RLN::new(input_buffer).unwrap();
 
     // We add leaves in a batch into the tree
     let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
@@ -236,7 +232,6 @@ fn test_atomic_operation() {
 #[test]
 fn test_atomic_operation_zero_indexed() {
     // Test duplicated from https://github.com/waku-org/go-zerokit-rln/pull/12/files
-    let tree_height = TEST_TREE_HEIGHT;
     let no_of_leaves = 256;
 
     // We generate a vector of random leaves
@@ -247,9 +242,8 @@ fn test_atomic_operation_zero_indexed() {
     }
 
     // We create a new tree
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let input_buffer = Cursor::new(json!({}).to_string());
+    let mut rln = RLN::new(input_buffer).unwrap();
 
     // We add leaves in a batch into the tree
     let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
@@ -282,7 +276,6 @@ fn test_atomic_operation_zero_indexed() {
 #[test]
 fn test_atomic_operation_consistency() {
     // Test duplicated from https://github.com/waku-org/go-zerokit-rln/pull/12/files
-    let tree_height = TEST_TREE_HEIGHT;
     let no_of_leaves = 256;
 
     // We generate a vector of random leaves
@@ -293,9 +286,8 @@ fn test_atomic_operation_consistency() {
     }
 
     // We create a new tree
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let input_buffer = Cursor::new(json!({}).to_string());
+    let mut rln = RLN::new(input_buffer).unwrap();
 
     // We add leaves in a batch into the tree
     let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
@@ -336,7 +328,6 @@ fn test_atomic_operation_consistency() {
 #[test]
 // This test checks if `set_leaves_from` throws an error when the index is out of bounds
 fn test_set_leaves_bad_index() {
-    let tree_height = TEST_TREE_HEIGHT;
     let no_of_leaves = 256;
 
     // We generate a vector of random leaves
@@ -348,9 +339,8 @@ fn test_set_leaves_bad_index() {
     let bad_index = (1 << tree_height) - rng.gen_range(0..no_of_leaves) as usize;
 
     // We create a new tree
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let input_buffer = Cursor::new(json!({}).to_string());
+    let mut rln = RLN::new(input_buffer).unwrap();
 
     // Get root of empty tree
     let mut buffer = Cursor::new(Vec::<u8>::new());
@@ -411,11 +401,8 @@ fn value_to_string_vec(value: &Value) -> Vec<String> {
 
 #[test]
 fn test_groth16_proof_hardcoded() {
-    let tree_height = TEST_TREE_HEIGHT;
-
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let rln = RLN::new(tree_height, input_buffer).unwrap();
+    let input_buffer = Cursor::new(json!({}).to_string());
+    let rln = RLN::new(input_buffer).unwrap();
 
     let valid_snarkjs_proof = json!({
      "pi_a": [
@@ -493,14 +480,11 @@ fn test_groth16_proof_hardcoded() {
 #[test]
 // This test is similar to the one in lib, but uses only public API
 fn test_groth16_proof() {
-    let tree_height = TEST_TREE_HEIGHT;
-
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let input_buffer = Cursor::new(json!({}).to_string());
+    let mut rln = RLN::new(input_buffer).unwrap();
 
     // Note: we only test Groth16 proof generation, so we ignore setting the tree in the RLN object
-    let rln_witness = random_rln_witness(tree_height);
+    let rln_witness = random_rln_witness(tree_height.into());
     let proof_values = proof_values_from_witness(&rln_witness).unwrap();
 
     // We compute a Groth16 proof
@@ -530,7 +514,6 @@ fn test_groth16_proof() {
 
 #[test]
 fn test_rln_proof() {
-    let tree_height = TEST_TREE_HEIGHT;
     let no_of_leaves = 256;
 
     // We generate a vector of random leaves
@@ -543,9 +526,8 @@ fn test_rln_proof() {
     }
 
     // We create a new RLN instance
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let input_buffer = Cursor::new(json!({}).to_string());
+    let mut rln = RLN::new(input_buffer).unwrap();
 
     // We add leaves in a batch into the tree
     let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
@@ -605,7 +587,6 @@ fn test_rln_proof() {
 
 #[test]
 fn test_rln_with_witness() {
-    let tree_height = TEST_TREE_HEIGHT;
     let no_of_leaves = 256;
 
     // We generate a vector of random leaves
@@ -616,9 +597,8 @@ fn test_rln_with_witness() {
     }
 
     // We create a new RLN instance
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let input_buffer = Cursor::new(json!({}).to_string());
+    let mut rln = RLN::new(input_buffer).unwrap();
 
     // We add leaves in a batch into the tree
     let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
@@ -711,7 +691,6 @@ fn test_rln_with_witness() {
 #[test]
 fn proof_verification_with_roots() {
     // The first part is similar to test_rln_with_witness
-    let tree_height = TEST_TREE_HEIGHT;
     let no_of_leaves = 256;
 
     // We generate a vector of random leaves
@@ -722,9 +701,8 @@ fn proof_verification_with_roots() {
     }
 
     // We create a new RLN instance
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let input_buffer = Cursor::new(json!({}).to_string());
+    let mut rln = RLN::new(input_buffer).unwrap();
 
     // We add leaves in a batch into the tree
     let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
@@ -813,12 +791,9 @@ fn proof_verification_with_roots() {
 
 #[test]
 fn test_recover_id_secret() {
-    let tree_height = TEST_TREE_HEIGHT;
-
     // We create a new RLN instance
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let input_buffer = Cursor::new(json!({}).to_string());
+    let mut rln = RLN::new(input_buffer).unwrap();
 
     // Generate identity pair
     let (identity_secret_hash, id_commitment) = keygen();
@@ -951,11 +926,9 @@ fn test_recover_id_secret() {
 #[test]
 fn test_get_leaf() {
     // We generate a random tree
-    let tree_height = 10;
     let mut rng = thread_rng();
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let input_buffer = Cursor::new(json!({}).to_string());
+    let mut rln = RLN::new(input_buffer).unwrap();
 
     // We generate a random leaf
     let leaf = Fr::rand(&mut rng);
@@ -978,11 +951,8 @@ fn test_get_leaf() {
 
 #[test]
 fn test_metadata() {
-    let tree_height = TEST_TREE_HEIGHT;
-
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let input_buffer = Cursor::new(json!({}).to_string());
+    let mut rln = RLN::new(input_buffer).unwrap();
 
     let arbitrary_metadata: &[u8] = b"block_number:200000";
     rln.set_metadata(arbitrary_metadata).unwrap();

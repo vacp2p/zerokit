@@ -7,6 +7,7 @@ use std::vec::Vec;
 
 use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
 use num_bigint::BigInt;
+use rln::circuit::{default_vk, default_zkey};
 use rln::public::{hash, poseidon_hash, RLN};
 use wasm_bindgen::prelude::*;
 
@@ -181,13 +182,10 @@ impl<'a> ProcessArg for &'a [u8] {
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = newRLN)]
-pub fn wasm_new(
-    tree_height: usize,
-    zkey: Uint8Array,
-    vk: Uint8Array,
-) -> Result<*mut RLNWrapper, String> {
-    let instance = RLN::new_with_params(tree_height, zkey.to_vec(), vk.to_vec())
-        .map_err(|err| format!("{:#?}", err))?;
+pub fn wasm_new() -> Result<*mut RLNWrapper, String> {
+    let zkey = default_zkey().map_err(|err| format!("{:#?}", err))?;
+    let vk = default_vk().map_err(|err| format!("{:#?}", err))?;
+    let instance = RLN::new_with_params(zkey, vk).map_err(|err| format!("{:#?}", err))?;
     let wrapper = RLNWrapper { instance };
     Ok(Box::into_raw(Box::new(wrapper)))
 }
@@ -277,6 +275,12 @@ pub fn rln_witness_to_json(
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[wasm_bindgen(js_name = generateMembershipKey)]
+pub fn wasm_key_gen(ctx: *const RLNWrapper) -> Result<Uint8Array, String> {
+    call_with_output_and_error_msg!(ctx, key_gen, "could not generate membership keys")
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen]
 pub fn generate_rln_proof_with_witness(
     ctx: *mut RLNWrapper,
@@ -303,12 +307,6 @@ pub fn generate_rln_proof_with_witness(
         witness_vec,
         serialized_witness.to_vec()
     )
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = generateMembershipKey)]
-pub fn wasm_key_gen(ctx: *const RLNWrapper) -> Result<Uint8Array, String> {
-    call_with_output_and_error_msg!(ctx, key_gen, "could not generate membership keys")
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
