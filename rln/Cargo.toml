@@ -1,6 +1,6 @@
 [package]
 name = "rln"
-version = "0.3.5"
+version = "0.3.6"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "APIs to manage, compute and verify zkSNARK proofs and RLN primitives"
