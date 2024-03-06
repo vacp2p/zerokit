@@ -2108,4 +2108,19 @@ mod test {
 
         assert_eq!(arbitrary_metadata, received_metadata);
     }
+
+    #[test]
+    fn test_empty_metadata() {
+        let tree_height = TEST_TREE_HEIGHT;
+
+        let input_buffer =
+            Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
+        let rln = RLN::new(tree_height, input_buffer).unwrap();
+
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_metadata(&mut buffer).unwrap();
+        let received_metadata = buffer.into_inner();
+
+        assert_eq!(received_metadata.len(), 0);
+    }
 }

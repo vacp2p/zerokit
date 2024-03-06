@@ -246,7 +246,8 @@ impl ZerokitMerkleTree for PmTree {
         let data = self.tree.db.get(METADATA_KEY)?;
 
         if data.is_none() {
-            return Err(Report::msg("metadata does not exist"));
+            // send empty Metadata
+            return Ok(Vec::new());
         }
         Ok(data.unwrap())
     }
