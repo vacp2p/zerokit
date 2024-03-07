@@ -2784,7 +2784,7 @@ dependencies = [
 
 [[package]]
 name = "rln"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "ark-bn254 0.4.0",
  "ark-circom 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -4385,7 +4385,7 @@ dependencies = [
 
 [[package]]
 name = "zerokit_utils"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "ark-bn254 0.4.0",
  "ark-ff 0.4.1",
