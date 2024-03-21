@@ -4,6 +4,7 @@ extern crate wasm_bindgen;
 extern crate web_sys;
 
 use std::vec::Vec;
+use rln::circuit::Fr;
 
 use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
 use num_bigint::BigInt;
@@ -200,6 +201,29 @@ pub fn wasm_get_serialized_rln_witness(
 ) -> Result<Uint8Array, String> {
     let rln_witness = call!(ctx, get_serialized_rln_witness, &input.to_vec()[..])
         .map_err(|err| format!("{:#?}", err))?;
+    Ok(Uint8Array::from(&rln_witness[..]))
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[wasm_bindgen(js_name = getSerializedRLNWitnessWithProof)]
+pub fn wasm_get_serialized_rln_witness_with_proof(
+    ctx: *mut RLNWrapper,
+    path_elements: Uint8Array,
+    identity_path_index: Uint8Array,
+    input: Uint8Array,
+) -> Result<Uint8Array, String> {
+    let path_elements_vec: Vec<Fr> = path_elements.to_vec().iter().map(|&x| Fr::from(x as u64)).collect();
+    let identity_path_index_vec: Vec<u8> = identity_path_index.to_vec();
+
+    let rln_witness = call!(
+        ctx,
+        get_serialized_rln_witness_with_proof,
+        path_elements_vec,
+        identity_path_index_vec,
+        &input.to_vec()[..]
+    )
+    .map_err(|err| format!("{:#?}", err))?;
+
     Ok(Uint8Array::from(&rln_witness[..]))
 }
 

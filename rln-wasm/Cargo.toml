@@ -1,6 +1,6 @@
 [package]
 name = "rln-wasm"
-version = "0.0.13"
+version = "0.0.14-poc"
 edition = "2021"
 license = "MIT or Apache2"
 
