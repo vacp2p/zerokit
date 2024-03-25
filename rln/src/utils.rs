@@ -8,7 +8,7 @@ use num_traits::Num;
 use std::iter::Extend;
 
 pub fn to_bigint(el: &Fr) -> Result<BigInt> {
-    let res: BigUint = (*el).try_into()?;
+    let res: BigUint = (*el).into();
     Ok(res.into())
 }
 
@@ -28,10 +28,10 @@ pub fn str_to_fr(input: &str, radix: u32) -> Result<Fr> {
     input_clean = input_clean.trim().to_string();
 
     if radix == 10 {
-        Ok(BigUint::from_str_radix(&input_clean, radix)?.try_into()?)
+        Ok(BigUint::from_str_radix(&input_clean, radix)?.into())
     } else {
         input_clean = input_clean.replace("0x", "");
-        Ok(BigUint::from_str_radix(&input_clean, radix)?.try_into()?)
+        Ok(BigUint::from_str_radix(&input_clean, radix)?.into())
     }
 }
 

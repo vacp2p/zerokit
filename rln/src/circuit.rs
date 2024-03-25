@@ -77,7 +77,7 @@ pub fn zkey_from_folder(
 }
 
 // Loads the verification key from a bytes vector
-pub fn vk_from_raw(vk_data: &Vec<u8>, zkey_data: &Vec<u8>) -> Result<VerifyingKey<Curve>> {
+pub fn vk_from_raw(vk_data: &[u8], zkey_data: &Vec<u8>) -> Result<VerifyingKey<Curve>> {
     let verifying_key: VerifyingKey<Curve>;
 
     if !vk_data.is_empty() {
@@ -145,7 +145,7 @@ pub fn circom_from_folder(resources_folder: &str) -> Result<&'static Mutex<Witne
 
 // Utilities to convert a json verification key in a groth16::VerificationKey
 fn fq_from_str(s: &str) -> Result<Fq> {
-    Ok(Fq::try_from(BigUint::from_str(s)?)?)
+    Ok(Fq::from(BigUint::from_str(s)?))
 }
 
 // Extracts the element in G1 corresponding to its JSON serialization
