@@ -1,11 +1,14 @@
 use ark_circom::{CircomBuilder, CircomCircuit, CircomConfig};
+use ark_ec::bn::Bn;
+use ark_groth16::r1cs_to_qap::LibsnarkReduction;
 use ark_std::rand::thread_rng;
 
-use ark_bn254::Bn254;
+use ark_bn254::{Bn254, Config};
 use ark_groth16::{
-    create_random_proof as prove, generate_random_parameters, prepare_verifying_key, verify_proof,
-    Proof, ProvingKey,
+    // prover::create_random_proof_with_reduction as prove, generator::generate_random_parameters_with_reduction, prepare_verifying_key, verifier::verify_proof,
+    Groth16, Proof, ProvingKey
 };
+use ark_groth16::prepare_verifying_key;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use color_eyre::{Report, Result};
 use std::io::{Read, Write};
@@ -32,7 +35,7 @@ impl Multiplier {
 
         let mut rng = thread_rng();
 
-        let params = generate_random_parameters::<Bn254, _, _>(circom, &mut rng)?;
+        let params = Groth16::<Bn<ark_bn254::Config>, LibsnarkReduction>::generate_random_parameters_with_reduction::<CircomCircuit<Bn<Config>>>(circom, &mut rng)?;
 
         let circom = builder.build()?;
 
@@ -47,16 +50,16 @@ impl Multiplier {
         let circom = self.circom.clone();
         let params = self.params.clone();
 
-        let proof = prove(circom, &params, &mut rng)?;
+        let proof = Groth16::<Bn<ark_bn254::Config>, LibsnarkReduction>::create_random_proof_with_reduction(circom, &params, &mut rng)?;
 
         // XXX: Unclear if this is different from other serialization(s)
-        proof.serialize(result_data)?;
+        proof.serialize_compressed(result_data)?;
 
         Ok(())
     }
 
     pub fn verify<R: Read>(&self, input_data: R) -> Result<bool> {
-        let proof = Proof::deserialize(input_data)?;
+        let proof = Proof::deserialize_compressed(input_data)?;
 
         let pvk = prepare_verifying_key(&self.params.vk);
 
@@ -66,7 +69,7 @@ impl Multiplier {
             .get_public_inputs()
             .ok_or(Report::msg("no public inputs"))?;
 
-        let verified = verify_proof(&pvk, &proof, &inputs)?;
+        let verified = Groth16::<Bn<ark_bn254::Config>, LibsnarkReduction>::verify_proof(&pvk, &proof, &inputs)?;
 
         Ok(verified)
     }
