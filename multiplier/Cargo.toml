@@ -16,14 +16,15 @@ license = "MIT OR Apache-2.0"
 
 # ZKP Generation
 # ark-ff = { version = "0.3.0", default-features = false, features = ["parallel", "asm"] }
-ark-std = { version = "=0.4.0", default-features = false, features = ["parallel"] }
-ark-bn254 = { version = "=0.4.0" }
+ark-std = { version = "0.4.0", default-features = false, features = ["parallel"] }
+ark-bn254 = { version = "0.4.0", default-features = false }
 # ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", rev = "c7e8ade", features = ["parallel"] }
-ark-groth16 = { version = "=0.4.0", default-features = false, features = ["parallel"] }
+ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", rev = "8e5c347", default-features = false, features = ["parallel"] }
 # ark-poly = { version = "^0.3.0", default-features = false, features = ["parallel"] }
-ark-serialize = { version = "=0.4.2", default-features = false }
+ark-serialize = { version = "0.4.0", default-features = false }
+ark-ec ={ version = "0.4.2", default-features = false}
 
-ark-circom = { git = "https://github.com/RajeshRk18/circom-compat", features = ["circom-2"], rev = "6cc2f04" }
+ark-circom = { git = "https://github.com/tyshko-rostyslav/ark-circom.git", features = ["circom-2"], rev = "c367686" }
 
 # error handling
 color-eyre = "0.6.1"
