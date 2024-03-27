@@ -1165,6 +1165,26 @@ impl RLN<'_> {
         serialize_witness(&rln_witness)
     }
 
+    /// Returns the serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) populated from the identity secret, the Merkle tree index, the epoch and signal.
+    ///
+    /// Input values are:
+    /// - `input_data`: a reader for the serialization of `[ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]`
+    ///
+    /// The function returns the corresponding [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object serialized using [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
+    pub fn get_serialized_rln_witness_with_proof<R: Read>(
+        &mut self,
+        path_elements: Vec<Fr>,
+        identity_path_index: Vec<u8>,
+        mut input_data: R,
+    ) -> Result<Vec<u8>> {
+        // We read input RLN witness and we serialize_compressed it
+        let mut witness_byte: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut witness_byte)?;
+        let (rln_witness, _) = proof_inputs_to_rln_witness_with_proof(path_elements, identity_path_index, &witness_byte)?;
+
+        serialize_witness(&rln_witness)
+    }
+
     /// Converts a byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object to the corresponding JSON serialization.
     ///
     /// Input values are:

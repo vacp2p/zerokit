@@ -214,6 +214,53 @@ pub fn proof_inputs_to_rln_witness(
     ))
 }
 
+pub fn proof_inputs_to_rln_witness_with_proof(
+    path_elements: Vec<Fr>,
+    identity_path_index: Vec<u8>,
+    serialized: &[u8],
+) -> Result<(RLNWitnessInput, usize)> {
+    let mut all_read: usize = 0;
+
+    let (identity_secret, read) = bytes_le_to_fr(&serialized[all_read..]);
+    all_read += read;
+
+    let id_index = usize::try_from(u64::from_le_bytes(
+        serialized[all_read..all_read + 8].try_into()?,
+    ))?;
+    all_read += 8;
+
+    let (user_message_limit, read) = bytes_le_to_fr(&serialized[all_read..]);
+    all_read += read;
+
+    let (message_id, read) = bytes_le_to_fr(&serialized[all_read..]);
+    all_read += read;
+
+    let (external_nullifier, read) = bytes_le_to_fr(&serialized[all_read..]);
+    all_read += read;
+
+    let signal_len = usize::try_from(u64::from_le_bytes(
+        serialized[all_read..all_read + 8].try_into()?,
+    ))?;
+    all_read += 8;
+
+    let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
+
+    let x = hash_to_field(&signal);
+
+    Ok((
+        RLNWitnessInput {
+            identity_secret,
+            path_elements,
+            identity_path_index,
+            user_message_limit,
+            message_id,
+            x,
+            external_nullifier,
+        },
+        all_read,
+    ))
+}
+
 /// Returns `RLNWitnessInput` given a file with JSON serialized values.
 ///
 /// # Errors
@@ -347,6 +394,41 @@ pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> Result<RLNPro
         root,
         x: rln_witness.x,
         external_nullifier: rln_witness.external_nullifier,
+    })
+}
+
+pub fn proof_values_from_witness_with_merkle_proof(
+    identity_secret: &Fr,
+    user_message_limit: &Fr,
+    path_elements: &[Fr],
+    identity_path_index: &[u8],
+    external_nullifier: &Fr,
+    message_id: &Fr,
+    x: &Fr,
+) -> Result<RLNProofValues> {
+    message_id_range_check(message_id, user_message_limit)?;
+
+    // y share
+    let a_1 = poseidon_hash(&[*identity_secret, *external_nullifier, *message_id]);
+    let y = *identity_secret + *x * a_1;
+
+    // Nullifier
+    let nullifier = poseidon_hash(&[a_1]);
+
+    // Merkle tree root computations
+    let root = compute_tree_root(
+        identity_secret,
+        user_message_limit,
+        path_elements,
+        identity_path_index,
+    );
+
+    Ok(RLNProofValues {
+        y,
+        nullifier,
+        root,
+        x: *x,
+        external_nullifier: *external_nullifier,
     })
 }
 
