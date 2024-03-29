@@ -103,29 +103,50 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>> {
     Ok(serialized)
 }
 
+extern crate web_sys;
+
 pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)> {
     let mut all_read: usize = 0;
 
     let (identity_secret, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
+    web_sys::console::log_1(&"Read identity secret".into());
+    web_sys::console::log_1(&identity_secret.to_string().into());
+    web_sys::console::log_1(&all_read.to_string().into());
 
     let (path_elements, read) = bytes_le_to_vec_fr(&serialized[all_read..])?;
     all_read += read;
+    web_sys::console::log_1(&"Read path elements".into());
+    web_sys::console::log_1(&format!("{:?}", path_elements).into());
+    web_sys::console::log_1(&all_read.to_string().into());
 
     let (identity_path_index, read) = bytes_le_to_vec_u8(&serialized[all_read..])?;
     all_read += read;
+    web_sys::console::log_1(&"Read identity path index".into());
+    web_sys::console::log_1(&format!("{:?}", identity_path_index).into());
+    web_sys::console::log_1(&all_read.to_string().into());
 
     let (x, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
+    web_sys::console::log_1(&"Read x".into());
+    web_sys::console::log_1(&x.to_string().into());
+    web_sys::console::log_1(&all_read.to_string().into());
 
     let (epoch, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
+    web_sys::console::log_1(&"Read epoch".into());
+    web_sys::console::log_1(&epoch.to_string().into());
+    web_sys::console::log_1(&all_read.to_string().into());
 
     let (rln_identifier, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
+    web_sys::console::log_1(&"Read rln identifier".into());
+    web_sys::console::log_1(&rln_identifier.to_string().into());
+    web_sys::console::log_1(&all_read.to_string().into());
 
     // TODO: check rln_identifier against public::RLN_IDENTIFIER
     if serialized.len() != all_read {
+        web_sys::console::log_1(&"serialized length is not equal to all_read".into());
         return Err(Report::msg("serialized length is not equal to all_read"));
     }
 

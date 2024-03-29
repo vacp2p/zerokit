@@ -19,6 +19,7 @@ opt-level = 3
 [profile.release.package."rln-wasm"]
 # Tell `rustc` to optimize for small code size.
 opt-level = "s"
+debug = true
 
 [profile.release.package."semaphore"]
 codegen-units = 1

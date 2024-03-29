@@ -14,6 +14,9 @@ use color_eyre::{Report, Result};
 use num_bigint::BigInt;
 use std::io::Cursor;
 use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
+extern crate console_error_panic_hook;
+use std::panic;
+
 
 cfg_if! {
     if #[cfg(not(target_arch = "wasm32"))] {
@@ -1191,6 +1194,7 @@ impl RLN<'_> {
     ///
     /// The function returns the corresponding JSON encoding of the input [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
     pub fn get_rln_witness_json(&mut self, serialized_witness: &[u8]) -> Result<serde_json::Value> {
+        panic::set_hook(Box::new(console_error_panic_hook::hook));
         let (rln_witness, _) = deserialize_witness(serialized_witness)?;
         get_json_inputs(&rln_witness)
     }
