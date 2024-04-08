@@ -1,4 +1,0 @@
-[submodule "semaphore/vendor/semaphore"]
-	path = semaphore/vendor/semaphore
-	ignore = dirty
-	url = https://github.com/appliedzkp/semaphore.git
