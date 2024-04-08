@@ -1761,7 +1761,7 @@ dependencies = [
 
 [[package]]
 name = "rln"
-version = "0.3.6"
+version = "0.3.7"
 dependencies = [
  "ark-bn254",
  "ark-circom",
@@ -2889,7 +2889,7 @@ dependencies = [
 
 [[package]]
 name = "zerokit_utils"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "ark-bn254",
  "ark-ff",
