@@ -1,8 +1,0 @@
-[submodule "rln/vendor/rln"]
-	path = rln/vendor/rln
-	ignore = dirty
-	url = https://github.com/Rate-Limiting-Nullifier/rln_circuits.git
-[submodule "semaphore/vendor/semaphore"]
-	path = semaphore/vendor/semaphore
-	ignore = dirty
-	url = https://github.com/appliedzkp/semaphore.git

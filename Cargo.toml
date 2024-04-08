@@ -1,13 +1,5 @@
 [workspace]
-members = [
-  "multiplier",
-  "private-settlement",
-  "semaphore",
-  "rln",
-  "rln-cli",
-  "rln-wasm",
-  "utils",
-]
+members = ["rln", "rln-cli", "rln-wasm", "utils"]
 resolver = "2"
 
 # Compilation profile for any non-workspace member.
@@ -19,6 +11,3 @@ opt-level = 3
 [profile.release.package."rln-wasm"]
 # Tell `rustc` to optimize for small code size.
 opt-level = "s"
-
-[profile.release.package."semaphore"]
-codegen-units = 1
