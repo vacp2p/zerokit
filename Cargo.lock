@@ -1770,7 +1770,7 @@ dependencies = [
 
 [[package]]
 name = "rln"
-version = "0.4.3"
+version = "0.4.2"
 dependencies = [
  "ark-bn254",
  "ark-circom",

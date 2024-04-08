@@ -1,6 +1,6 @@
 [package]
 name = "rln"
-version = "0.4.3"
+version = "0.4.2"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "APIs to manage, compute and verify zkSNARK proofs and RLN primitives"
@@ -19,13 +19,19 @@ doctest = false
 [dependencies]
 # ZKP Generation
 ark-ec = { version = "=0.4.1", default-features = false }
-ark-ff = { version = "=0.4.1", default-features = false, features = [ "asm"] }
+ark-ff = { version = "=0.4.1", default-features = false, features = ["asm"] }
 ark-std = { version = "=0.4.0", default-features = false }
 ark-bn254 = { version = "=0.4.0" }
-ark-groth16 = { version = "=0.4.0", features = ["parallel"], default-features = false }
-ark-relations = { version = "=0.4.0", default-features = false, features = [ "std" ] }
+ark-groth16 = { version = "=0.4.0", features = [
+    "parallel",
+], default-features = false }
+ark-relations = { version = "=0.4.0", default-features = false, features = [
+    "std",
+] }
 ark-serialize = { version = "=0.4.1", default-features = false }
-ark-circom = { version = "=0.1.0", default-features = false, features = ["circom-2"] }
+ark-circom = { version = "=0.1.0", default-features = false, features = [
+    "circom-2",
+] }
 
 # WASM
 wasmer = { version = "=2.3.0", default-features = false }
@@ -36,7 +42,9 @@ thiserror = "=1.0.39"
 
 # utilities
 cfg-if = "=1.0"
-num-bigint = { version = "=0.4.3", default-features = false, features = ["rand"] }
+num-bigint = { version = "=0.4.3", default-features = false, features = [
+    "rand",
+] }
 num-traits = "=0.2.15"
 once_cell = "=1.17.1"
 rand = "=0.8.5"
@@ -57,7 +65,13 @@ criterion = { version = "=0.4.0", features = ["html_reports"] }
 
 [features]
 default = ["parallel", "wasmer/sys-default", "pmtree-ft"]
-parallel = ["ark-ec/parallel", "ark-ff/parallel", "ark-std/parallel", "ark-groth16/parallel", "utils/parallel"]
+parallel = [
+    "ark-ec/parallel",
+    "ark-ff/parallel",
+    "ark-std/parallel",
+    "ark-groth16/parallel",
+    "utils/parallel",
+]
 wasm = ["wasmer/js", "wasmer/std"]
 fullmerkletree = ["default"]
 
