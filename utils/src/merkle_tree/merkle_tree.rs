@@ -21,7 +21,7 @@ use color_eyre::Result;
 /// and the hash function used to initialize a Merkle Tree implementation
 pub trait Hasher {
     /// Type of the leaf and tree node
-    type Fr: Clone + Copy + Eq;
+    type Fr: Clone + Copy + Eq + Default + std::fmt::Debug + std::fmt::Display + FromStr;
 
     /// Returns the default tree leaf
     fn default_leaf() -> Self::Fr;

@@ -1,5 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use hex_literal::hex;
+use std::{fmt::Display, str::FromStr};
 use tiny_keccak::{Hasher as _, Keccak};
 use zerokit_utils::{
     FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree,
@@ -9,34 +10,53 @@ use zerokit_utils::{
 #[derive(Clone, Copy, Eq, PartialEq)]
 struct Keccak256;
 
+#[derive(Clone, Copy, Eq, PartialEq, Debug, Default)]
+struct TestFr([u8; 32]);
+
 impl Hasher for Keccak256 {
-    type Fr = [u8; 32];
+    type Fr = TestFr;
 
     fn default_leaf() -> Self::Fr {
-        [0; 32]
+        TestFr([0; 32])
     }
 
     fn hash(inputs: &[Self::Fr]) -> Self::Fr {
         let mut output = [0; 32];
         let mut hasher = Keccak::v256();
         for element in inputs {
-            hasher.update(element);
+            hasher.update(element.0.as_slice());
         }
         hasher.finalize(&mut output);
-        output
+        TestFr(output)
+    }
+}
+
+impl Display for TestFr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", String::from_utf8_lossy(self.0.as_slice()))
+    }
+}
+
+impl FromStr for TestFr {
+    type Err = std::string::FromUtf8Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(TestFr(s.as_bytes().try_into().unwrap()))
     }
 }
 
 pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
     let mut tree =
-        OptimalMerkleTree::<Keccak256>::new(2, [0; 32], OptimalMerkleConfig::default()).unwrap();
+        OptimalMerkleTree::<Keccak256>::new(2, TestFr([0; 32]), OptimalMerkleConfig::default())
+            .unwrap();
 
     let leaves = [
         hex!("0000000000000000000000000000000000000000000000000000000000000001"),
         hex!("0000000000000000000000000000000000000000000000000000000000000002"),
         hex!("0000000000000000000000000000000000000000000000000000000000000003"),
         hex!("0000000000000000000000000000000000000000000000000000000000000004"),
-    ];
+    ]
+    .map(|x| TestFr(x));
 
     c.bench_function("OptimalMerkleTree::set", |b| {
         b.iter(|| {
@@ -71,14 +91,15 @@ pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
 
 pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
     let mut tree =
-        FullMerkleTree::<Keccak256>::new(2, [0; 32], FullMerkleConfig::default()).unwrap();
+        FullMerkleTree::<Keccak256>::new(2, TestFr([0; 32]), FullMerkleConfig::default()).unwrap();
 
     let leaves = [
         hex!("0000000000000000000000000000000000000000000000000000000000000001"),
         hex!("0000000000000000000000000000000000000000000000000000000000000002"),
         hex!("0000000000000000000000000000000000000000000000000000000000000003"),
         hex!("0000000000000000000000000000000000000000000000000000000000000004"),
-    ];
+    ]
+    .map(|x| TestFr(x));
 
     c.bench_function("FullMerkleTree::set", |b| {
         b.iter(|| {
