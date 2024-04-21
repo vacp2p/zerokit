@@ -18,13 +18,23 @@ in Rust.
 
 - [semaphore-rs](https://github.com/worldcoin/semaphore-rs) written in Rust based on ark-circom.
 
+## Users
+
+Zerokit is used by -
+
+- [nwaku](https://github.com/waku-org/nwaku)
+- [js-rln](https://github.com/waku-org/js-rln)
+
 ## Build and Test
 
 To install missing dependencies, run the following commands from the root folder
+
 ```bash
 make installdeps
 ```
+
 To build and test all crates, run the following commands from the root folder
+
 ```bash
 make build
 make test
@@ -32,4 +42,4 @@ make test
 
 ## Release assets
 
-We use [`cross-rs`](https://github.com/cross-rs/cross) to cross-compile and generate release assets for rln. 
+We use [`cross-rs`](https://github.com/cross-rs/cross) to cross-compile and generate release assets for rln.
