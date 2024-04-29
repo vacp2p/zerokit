@@ -46,15 +46,6 @@ mod test {
                     2328960363755461975
                 ]))
             );
-        } else if TEST_TREE_HEIGHT == 32 {
-            assert_eq!(
-                root,
-                str_to_fr(
-                    "0x21947ffd0bce0c385f876e7c97d6a42eec5b1fe935aab2f01c1f8a8cbcc356d2",
-                    16
-                )
-                .unwrap()
-            );
         }
 
         // We check correct computation of merkle proof
@@ -148,7 +139,7 @@ mod test {
             vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         // We add the remaining elements for the case TEST_TREE_HEIGHT = 20
-        if TEST_TREE_HEIGHT == 20 || TEST_TREE_HEIGHT == 32 {
+        if TEST_TREE_HEIGHT == 20 {
             expected_path_elements.append(&mut vec![
                 str_to_fr(
                     "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",

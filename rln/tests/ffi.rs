@@ -372,7 +372,7 @@ mod test {
 
         use ark_ff::BigInt;
 
-        if TEST_TREE_HEIGHT == 20 || TEST_TREE_HEIGHT == 32 {
+        if TEST_TREE_HEIGHT == 20 {
             assert_eq!(
                 root,
                 BigInt([

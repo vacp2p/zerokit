@@ -29,12 +29,8 @@ const ZKEY_FILENAME: &str = "rln_final.zkey";
 const VK_FILENAME: &str = "verification_key.json";
 const WASM_FILENAME: &str = "rln.wasm";
 
-// These parameters are used for tests
-// Note that the circuit and keys in TEST_RESOURCES_FOLDER are compiled for Merkle trees of height 20 & 32
-// Changing these parameters to other values than these defaults will cause zkSNARK proof verification to fail
-pub const TEST_PARAMETERS_INDEX: usize = 0;
-pub const TEST_TREE_HEIGHT: usize = [20, 32][TEST_PARAMETERS_INDEX];
-pub const TEST_RESOURCES_FOLDER: &str = ["tree_height_20", "tree_height_32"][TEST_PARAMETERS_INDEX];
+pub const TEST_TREE_HEIGHT: usize = 20;
+pub const TEST_RESOURCES_FOLDER: &str = "tree_height_20";
 
 #[cfg(not(target_arch = "wasm32"))]
 static RESOURCES_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/resources");
