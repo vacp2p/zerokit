@@ -25,7 +25,7 @@ endif
 	@which wasm-pack || cargo install wasm-pack
 	# nvm already checks if it's installed, and no-ops if it is
 	@curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-	@. ${HOME}/.nvm/nvm.sh && nvm use 18.20.2;
+	@. ${HOME}/.nvm/nvm.sh && nvm install 18.20.2 && nvm use 18.20.2;
 
 build: .pre-build
 	@cargo make build
