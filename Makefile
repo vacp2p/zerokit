@@ -22,7 +22,10 @@ else ifeq ($(shell uname),Linux)
 endif
 	@git -C "wabt" pull || git clone --recursive https://github.com/WebAssembly/wabt.git "wabt"
 	@cd wabt && mkdir -p build && cd build && cmake .. -GNinja && ninja && sudo ninja install
-	@cargo install wasm-pack
+	@which wasm-pack || cargo install wasm-pack
+	# nvm already checks if it's installed, and no-ops if it is
+	@curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+	@. ${HOME}/.nvm/nvm.sh && nvm use 18.20.2;
 
 build: .pre-build
 	@cargo make build
