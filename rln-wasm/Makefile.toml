@@ -29,3 +29,7 @@ args = ["login"]
 [tasks.publish]
 command = "wasm-pack"
 args = ["publish", "--access", "public", "--target", "web"]
+
+[tasks.bench]
+command = "echo"
+args = ["'No benchmarks available for this project'"]
