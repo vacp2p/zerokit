@@ -13,15 +13,16 @@ endif
 
 installdeps: .pre-build
 ifeq ($(shell uname),Darwin)
-# commented due to https://github.com/orgs/Homebrew/discussions/4612	
-# @brew update 
+# commented due to https://github.com/orgs/Homebrew/discussions/4612
+# @brew update
 	@brew install cmake ninja
 else ifeq ($(shell uname),Linux)
 	@sudo apt-get update
 	@sudo apt-get install -y cmake ninja-build
 endif
-	@git clone --recursive https://github.com/WebAssembly/wabt.git
-	@cd wabt && mkdir build && cd build && cmake .. -GNinja && ninja && sudo ninja install
+	@git -C "wabt" pull || git clone --recursive https://github.com/WebAssembly/wabt.git "wabt"
+	@cd wabt && mkdir -p build && cd build && cmake .. -GNinja && ninja && sudo ninja install
+	@cargo install wasm-pack
 
 build: .pre-build
 	@cargo make build
