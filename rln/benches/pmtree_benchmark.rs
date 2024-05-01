@@ -1,7 +1,10 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use utils::ZerokitMerkleTree;
 
-use rln::{circuit::Fr, pm_tree_adapter::PmTree};
+use rln::{
+    circuit::{arkzkey_from_folder, zkey_from_folder, Fr, TEST_RESOURCES_FOLDER},
+    pm_tree_adapter::PmTree,
+};
 
 pub fn pmtree_benchmark(c: &mut Criterion) {
     let mut tree = PmTree::default(2).unwrap();
@@ -40,5 +43,19 @@ pub fn pmtree_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, pmtree_benchmark);
+pub fn key_load_benchmark(c: &mut Criterion) {
+    c.bench_function("ark_zkey::load", |b| {
+        b.iter(|| {
+            let _ = arkzkey_from_folder(TEST_RESOURCES_FOLDER);
+        })
+    });
+
+    c.bench_function("zkey::load", |b| {
+        b.iter(|| {
+            let _ = zkey_from_folder(TEST_RESOURCES_FOLDER);
+        })
+    });
+}
+
+criterion_group!(benches, pmtree_benchmark, key_load_benchmark);
 criterion_main!(benches);

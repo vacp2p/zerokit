@@ -7,6 +7,7 @@ use ark_bn254::{
 use ark_circom::read_zkey;
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
+use ark_zkey::read_arkzkey_from_bytes;
 use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
 use num_bigint::BigUint;
@@ -26,6 +27,7 @@ cfg_if! {
 }
 
 const ZKEY_FILENAME: &str = "rln_final.zkey";
+const ARKZKEY_FILENAME: &str = "rln_final.arkzkey";
 const VK_FILENAME: &str = "verification_key.json";
 const WASM_FILENAME: &str = "rln.wasm";
 
@@ -72,6 +74,19 @@ pub fn zkey_from_folder(
     }
 }
 
+// Loads the proving key into arkzkey format
+pub fn arkzkey_from_folder(
+    resources_folder: &str,
+) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
+    let zkey = RESOURCES_DIR.get_file(Path::new(resources_folder).join(ARKZKEY_FILENAME));
+    if let Some(zkey) = zkey {
+        let proving_key_and_matrices = read_arkzkey_from_bytes(zkey.contents())?;
+        Ok(proving_key_and_matrices)
+    } else {
+        Err(Report::msg("No proving key found!"))
+    }
+}
+
 // Loads the verification key from a bytes vector
 pub fn vk_from_raw(vk_data: &[u8], zkey_data: &Vec<u8>) -> Result<VerifyingKey<Curve>> {
     let verifying_key: VerifyingKey<Curve>;
@@ -101,7 +116,7 @@ pub fn vk_from_folder(resources_folder: &str) -> Result<VerifyingKey<Curve>> {
         ))?)?;
         Ok(verifying_key)
     } else if let Some(_zkey) = zkey {
-        let (proving_key, _matrices) = zkey_from_folder(resources_folder)?;
+        let (proving_key, _matrices) = arkzkey_from_folder(resources_folder)?;
         verifying_key = proving_key.vk;
         Ok(verifying_key)
     } else {
@@ -254,7 +269,7 @@ pub fn check_vk_from_zkey(
     resources_folder: &str,
     verifying_key: VerifyingKey<Curve>,
 ) -> Result<()> {
-    let (proving_key, _matrices) = zkey_from_folder(resources_folder)?;
+    let (proving_key, _matrices) = arkzkey_from_folder(resources_folder)?;
     if proving_key.vk == verifying_key {
         Ok(())
     } else {

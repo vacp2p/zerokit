@@ -19,7 +19,8 @@ cfg_if! {
     if #[cfg(not(target_arch = "wasm32"))] {
         use std::default::Default;
         use std::sync::Mutex;
-        use crate::circuit::{circom_from_folder, vk_from_folder, circom_from_raw, zkey_from_folder, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
+        use crate::circuit::{circom_from_folder, vk_from_folder, circom_from_raw, arkzkey_from_folder, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
+        // use crate::circuit::zkey_from_folder;
         use ark_circom::WitnessCalculator;
         use serde_json::{json, Value};
         use utils::{Hasher};
@@ -84,7 +85,8 @@ impl RLN<'_> {
 
         let witness_calculator = circom_from_folder(resources_folder)?;
 
-        let proving_key = zkey_from_folder(resources_folder)?;
+        let proving_key = arkzkey_from_folder(resources_folder)?;
+        // let proving_key = zkey_from_folder(resources_folder)?;
         let verification_key = vk_from_folder(resources_folder)?;
 
         let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = if tree_config.is_empty() {
@@ -684,7 +686,7 @@ impl RLN<'_> {
     /// Output values are:
     /// - `output_data`: a writer receiving the serialization of the zkSNARK proof and the circuit evaluations outputs, i.e. `[ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]`
     ///
-    /// Example    
+    /// Example
     /// ```
     /// use rln::protocol::*:
     /// use rln::utils::*;
@@ -829,7 +831,7 @@ impl RLN<'_> {
     /// Note that contrary to [`verify_rln_proof`](crate::public::RLN::verify_rln_proof), this function does not check if the internal Merkle tree root corresponds to the root provided as input, but rather checks if the root provided as input in `input_data` corresponds to one of the roots serialized in `roots_data`.
     ///
     /// If `roots_data` contains no root (is empty), root validation is skipped and the proof will be correctly verified only if the other proof values results valid (i.e., zk-proof, signal, x-coordinate, RLN identifier)
-    ///   
+    ///
     /// Example
     /// ```
     /// // proof_data is computed as in the example code snippet provided for rln::public::RLN::generate_rln_proof
