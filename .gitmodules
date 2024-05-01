@@ -1,0 +1,3 @@
+[submodule "mopro"]
+	path = mopro
+	url = git@github.com:zkmopro/mopro.git
