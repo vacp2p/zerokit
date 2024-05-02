@@ -1,9 +1,6 @@
 #[cfg(test)]
 mod test {
     use ark_ff::BigInt;
-    #[cfg(feature = "arkzkey")]
-    use rln::circuit::arkzkey_from_folder;
-    #[cfg(not(feature = "arkzkey"))]
     use rln::circuit::zkey_from_folder;
     use rln::circuit::{
         circom_from_folder, vk_from_folder, Fr, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT,
@@ -242,9 +239,6 @@ mod test {
     // We test a RLN proof generation and verification
     fn test_witness_from_json() {
         // We generate all relevant keys
-        #[cfg(feature = "arkzkey")]
-        let proving_key = arkzkey_from_folder(TEST_RESOURCES_FOLDER).unwrap();
-        #[cfg(not(feature = "arkzkey"))]
         let proving_key = zkey_from_folder(TEST_RESOURCES_FOLDER).unwrap();
         let verification_key = vk_from_folder(TEST_RESOURCES_FOLDER).unwrap();
         let builder = circom_from_folder(TEST_RESOURCES_FOLDER).unwrap();
@@ -305,9 +299,6 @@ mod test {
         .unwrap();
 
         // We generate all relevant keys
-        #[cfg(feature = "arkzkey")]
-        let proving_key = arkzkey_from_folder(TEST_RESOURCES_FOLDER).unwrap();
-        #[cfg(not(feature = "arkzkey"))]
         let proving_key = zkey_from_folder(TEST_RESOURCES_FOLDER).unwrap();
         let verification_key = vk_from_folder(TEST_RESOURCES_FOLDER).unwrap();
         let builder = circom_from_folder(TEST_RESOURCES_FOLDER).unwrap();

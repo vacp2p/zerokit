@@ -26,15 +26,13 @@ cfg_if! {
 cfg_if! {
     if #[cfg(feature = "arkzkey")] {
         use ark_zkey::read_arkzkey_from_bytes;
+        const ARKZKEY_FILENAME: &str = "rln_final.arkzkey";
 
     } else {
         use std::io::Cursor;
         use ark_circom::read_zkey;
     }
 }
-
-#[cfg(feature = "arkzkey")]
-const ARKZKEY_FILENAME: &str = "rln_final.arkzkey";
 
 const ZKEY_FILENAME: &str = "rln_final.zkey";
 const VK_FILENAME: &str = "verification_key.json";
@@ -58,11 +56,17 @@ pub type G2Affine = ArkG2Affine;
 pub type G2Projective = ArkG2Projective;
 
 // Loads the proving key using a bytes vector
-#[cfg(not(feature = "arkzkey"))]
 pub fn zkey_from_raw(zkey_data: &Vec<u8>) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
     if !zkey_data.is_empty() {
-        let mut c = Cursor::new(zkey_data);
-        let proving_key_and_matrices = read_zkey(&mut c)?;
+        let proving_key_and_matrices = match () {
+            #[cfg(feature = "arkzkey")]
+            () => read_arkzkey_from_bytes(zkey_data.as_slice())?,
+            #[cfg(not(feature = "arkzkey"))]
+            () => {
+                let mut c = Cursor::new(zkey_data);
+                read_zkey(&mut c)?
+            }
+        };
         Ok(proving_key_and_matrices)
     } else {
         Err(Report::msg("No proving key found!"))
@@ -70,41 +74,25 @@ pub fn zkey_from_raw(zkey_data: &Vec<u8>) -> Result<(ProvingKey<Curve>, Constrai
 }
 
 // Loads the proving key
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "arkzkey")))]
+#[cfg(not(target_arch = "wasm32"))]
 pub fn zkey_from_folder(
     resources_folder: &str,
 ) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
-    let zkey = RESOURCES_DIR.get_file(Path::new(resources_folder).join(ZKEY_FILENAME));
-    if let Some(zkey) = zkey {
-        let mut c = Cursor::new(zkey.contents());
-        let proving_key_and_matrices = read_zkey(&mut c)?;
-        Ok(proving_key_and_matrices)
-    } else {
-        Err(Report::msg("No proving key found!"))
-    }
-}
-
-// Loads the proving key in arkzkey format using a bytes vector
-#[cfg(feature = "arkzkey")]
-pub fn arkzkey_from_raw(
-    zkey_data: &Vec<u8>,
-) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
-    if !zkey_data.is_empty() {
-        let proving_key_and_matrices = read_arkzkey_from_bytes(zkey_data.as_slice())?;
-        Ok(proving_key_and_matrices)
-    } else {
-        Err(Report::msg("No proving key found!"))
-    }
-}
-
-// Loads the proving key in arkzkey format
-#[cfg(feature = "arkzkey")]
-pub fn arkzkey_from_folder(
-    resources_folder: &str,
-) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
+    #[cfg(feature = "arkzkey")]
     let zkey = RESOURCES_DIR.get_file(Path::new(resources_folder).join(ARKZKEY_FILENAME));
+    #[cfg(not(feature = "arkzkey"))]
+    let zkey = RESOURCES_DIR.get_file(Path::new(resources_folder).join(ZKEY_FILENAME));
+
     if let Some(zkey) = zkey {
-        let proving_key_and_matrices = read_arkzkey_from_bytes(zkey.contents())?;
+        let proving_key_and_matrices = match () {
+            #[cfg(feature = "arkzkey")]
+            () => read_arkzkey_from_bytes(zkey.contents())?,
+            #[cfg(not(feature = "arkzkey"))]
+            () => {
+                let mut c = Cursor::new(zkey.contents());
+                read_zkey(&mut c)?
+            }
+        };
         Ok(proving_key_and_matrices)
     } else {
         Err(Report::msg("No proving key found!"))
@@ -119,9 +107,6 @@ pub fn vk_from_raw(vk_data: &[u8], zkey_data: &Vec<u8>) -> Result<VerifyingKey<C
         verifying_key = vk_from_vector(vk_data)?;
         Ok(verifying_key)
     } else if !zkey_data.is_empty() {
-        #[cfg(feature = "arkzkey")]
-        let (proving_key, _matrices) = arkzkey_from_raw(zkey_data)?;
-        #[cfg(not(feature = "arkzkey"))]
         let (proving_key, _matrices) = zkey_from_raw(zkey_data)?;
         verifying_key = proving_key.vk;
         Ok(verifying_key)
@@ -143,9 +128,6 @@ pub fn vk_from_folder(resources_folder: &str) -> Result<VerifyingKey<Curve>> {
         ))?)?;
         Ok(verifying_key)
     } else if let Some(_zkey) = zkey {
-        #[cfg(feature = "arkzkey")]
-        let (proving_key, _matrices) = arkzkey_from_folder(resources_folder)?;
-        #[cfg(not(feature = "arkzkey"))]
         let (proving_key, _matrices) = zkey_from_folder(resources_folder)?;
         verifying_key = proving_key.vk;
         Ok(verifying_key)
@@ -299,9 +281,6 @@ pub fn check_vk_from_zkey(
     resources_folder: &str,
     verifying_key: VerifyingKey<Curve>,
 ) -> Result<()> {
-    #[cfg(feature = "arkzkey")]
-    let (proving_key, _matrices) = arkzkey_from_folder(resources_folder)?;
-    #[cfg(not(feature = "arkzkey"))]
     let (proving_key, _matrices) = zkey_from_folder(resources_folder)?;
     if proving_key.vk == verifying_key {
         Ok(())
