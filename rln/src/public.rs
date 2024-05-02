@@ -1,4 +1,4 @@
-use crate::circuit::{vk_from_raw, zkey_from_raw, Curve, Fr};
+use crate::circuit::{vk_from_raw, Curve, Fr};
 use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
 use crate::poseidon_tree::PoseidonTree;
 use crate::protocol::*;
@@ -16,11 +16,25 @@ use std::io::Cursor;
 use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 
 cfg_if! {
+    if #[cfg(feature = "arkzkey")] {
+        use crate::circuit::arkzkey_from_raw;
+    } else {
+        use crate::circuit::zkey_from_raw;
+    }
+}
+
+cfg_if! {
     if #[cfg(not(target_arch = "wasm32"))] {
+        cfg_if! {
+            if #[cfg(feature = "arkzkey")] {
+                use crate::circuit::arkzkey_from_folder;
+            } else {
+                use crate::circuit::zkey_from_folder;
+            }
+        }
         use std::default::Default;
         use std::sync::Mutex;
-        use crate::circuit::{circom_from_folder, vk_from_folder, circom_from_raw, arkzkey_from_folder, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
-        // use crate::circuit::zkey_from_folder;
+        use crate::circuit::{circom_from_folder, vk_from_folder, circom_from_raw, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
         use ark_circom::WitnessCalculator;
         use serde_json::{json, Value};
         use utils::{Hasher};
@@ -59,7 +73,7 @@ impl RLN<'_> {
     ///
     /// Input parameters are
     /// - `tree_height`: the height of the internal Merkle tree
-    /// - `input_data`: a reader for the string path of the resource folder containing the ZK circuit (`rln.wasm`), the proving key (`rln_final.zkey`) and the verification key (`verification_key.json`).
+    /// - `input_data`: a reader for the string path of the resource folder containing the ZK circuit (`rln.wasm`), the proving key (`rln_final.zkey`) or (`rln_final.arkzkey`) and the verification key (`verification_key.json`).
     ///
     /// Example:
     /// ```
@@ -84,9 +98,11 @@ impl RLN<'_> {
         let tree_config = rln_config["tree_config"].to_string();
 
         let witness_calculator = circom_from_folder(resources_folder)?;
-
+        #[cfg(feature = "arkzkey")]
         let proving_key = arkzkey_from_folder(resources_folder)?;
-        // let proving_key = zkey_from_folder(resources_folder)?;
+        #[cfg(not(feature = "arkzkey"))]
+        let proving_key = zkey_from_folder(resources_folder)?;
+
         let verification_key = vk_from_folder(resources_folder)?;
 
         let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = if tree_config.is_empty() {
@@ -117,7 +133,7 @@ impl RLN<'_> {
     /// Input parameters are
     /// - `tree_height`: the height of the internal Merkle tree
     /// - `circom_vec`: a byte vector containing the ZK circuit (`rln.wasm`) as binary file
-    /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`) as binary file
+    /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`)  or (`rln_final.arkzkey`) as binary file
     /// - `vk_vec`: a byte vector containing to the verification key (`verification_key.json`) as binary file
     /// - `tree_config`: a reader for a string containing a json with the merkle tree configuration
     ///
@@ -160,6 +176,9 @@ impl RLN<'_> {
         #[cfg(not(target_arch = "wasm32"))]
         let witness_calculator = circom_from_raw(circom_vec)?;
 
+        #[cfg(feature = "arkzkey")]
+        let proving_key = arkzkey_from_raw(&zkey_vec)?;
+        #[cfg(not(feature = "arkzkey"))]
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
 
@@ -197,6 +216,9 @@ impl RLN<'_> {
         #[cfg(not(target_arch = "wasm32"))]
         let witness_calculator = circom_from_raw(circom_vec)?;
 
+        #[cfg(feature = "arkzkey")]
+        let proving_key = arkzkey_from_raw(&zkey_vec)?;
+        #[cfg(not(feature = "arkzkey"))]
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
 

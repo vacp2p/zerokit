@@ -32,7 +32,7 @@ ark-serialize = { version = "=0.4.1", default-features = false }
 ark-circom = { version = "=0.1.0", default-features = false, features = [
     "circom-2",
 ] }
-ark-zkey = { path = "../mopro/ark-zkey" }
+ark-zkey = { path = "../mopro/ark-zkey", optional = true, default-features = false }
 
 # WASM
 wasmer = { version = "=2.3.0", default-features = false }
@@ -75,6 +75,7 @@ parallel = [
 ]
 wasm = ["wasmer/js", "wasmer/std"]
 fullmerkletree = ["default"]
+arkzkey = ["ark-zkey"]
 
 # Note: pmtree feature is still experimental
 pmtree-ft = ["utils/pmtree-ft"]

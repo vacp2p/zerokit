@@ -618,7 +618,9 @@ mod test {
         circom_file
             .read_exact(&mut circom_buffer)
             .expect("buffer overflow");
-
+        #[cfg(feature = "arkzkey")]
+        let zkey_path = format!("./resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.arkzkey");
+        #[cfg(not(feature = "arkzkey"))]
         let zkey_path = format!("./resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.zkey");
         let mut zkey_file = File::open(&zkey_path).expect("no file found");
         let metadata = std::fs::metadata(&zkey_path).expect("unable to read metadata");
