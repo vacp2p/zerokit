@@ -37,7 +37,11 @@ fn main() -> Result<()> {
             tree_config_input,
         }) => {
             let mut resources: Vec<Vec<u8>> = Vec::new();
-            for filename in ["rln.wasm", "rln_final.zkey", "verification_key.json"] {
+            #[cfg(feature = "arkzkey")]
+            let filenames = ["rln.wasm", "rln_final.arkzkey", "verification_key.json"];
+            #[cfg(not(feature = "arkzkey"))]
+            let filenames = ["rln.wasm", "rln_final.zkey", "verification_key.json"];
+            for filename in filenames {
                 let fullpath = config.join(Path::new(filename));
                 let mut file = File::open(&fullpath)?;
                 let metadata = std::fs::metadata(&fullpath)?;

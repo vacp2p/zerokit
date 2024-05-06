@@ -4,14 +4,12 @@ use ark_bn254::{
     Bn254, Fq as ArkFq, Fq2 as ArkFq2, Fr as ArkFr, G1Affine as ArkG1Affine,
     G1Projective as ArkG1Projective, G2Affine as ArkG2Affine, G2Projective as ArkG2Projective,
 };
-use ark_circom::read_zkey;
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
 use num_bigint::BigUint;
 use serde_json::Value;
-use std::io::Cursor;
 use std::str::FromStr;
 
 cfg_if! {
@@ -22,6 +20,17 @@ cfg_if! {
         use wasmer::{Module, Store};
         use include_dir::{include_dir, Dir};
         use std::path::Path;
+    }
+}
+
+cfg_if! {
+    if #[cfg(feature = "arkzkey")] {
+        use ark_zkey::read_arkzkey_from_bytes;
+        const ARKZKEY_FILENAME: &str = "rln_final.arkzkey";
+
+    } else {
+        use std::io::Cursor;
+        use ark_circom::read_zkey;
     }
 }
 
@@ -49,8 +58,15 @@ pub type G2Projective = ArkG2Projective;
 // Loads the proving key using a bytes vector
 pub fn zkey_from_raw(zkey_data: &Vec<u8>) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
     if !zkey_data.is_empty() {
-        let mut c = Cursor::new(zkey_data);
-        let proving_key_and_matrices = read_zkey(&mut c)?;
+        let proving_key_and_matrices = match () {
+            #[cfg(feature = "arkzkey")]
+            () => read_arkzkey_from_bytes(zkey_data.as_slice())?,
+            #[cfg(not(feature = "arkzkey"))]
+            () => {
+                let mut c = Cursor::new(zkey_data);
+                read_zkey(&mut c)?
+            }
+        };
         Ok(proving_key_and_matrices)
     } else {
         Err(Report::msg("No proving key found!"))
@@ -62,10 +78,21 @@ pub fn zkey_from_raw(zkey_data: &Vec<u8>) -> Result<(ProvingKey<Curve>, Constrai
 pub fn zkey_from_folder(
     resources_folder: &str,
 ) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
+    #[cfg(feature = "arkzkey")]
+    let zkey = RESOURCES_DIR.get_file(Path::new(resources_folder).join(ARKZKEY_FILENAME));
+    #[cfg(not(feature = "arkzkey"))]
     let zkey = RESOURCES_DIR.get_file(Path::new(resources_folder).join(ZKEY_FILENAME));
+
     if let Some(zkey) = zkey {
-        let mut c = Cursor::new(zkey.contents());
-        let proving_key_and_matrices = read_zkey(&mut c)?;
+        let proving_key_and_matrices = match () {
+            #[cfg(feature = "arkzkey")]
+            () => read_arkzkey_from_bytes(zkey.contents())?,
+            #[cfg(not(feature = "arkzkey"))]
+            () => {
+                let mut c = Cursor::new(zkey.contents());
+                read_zkey(&mut c)?
+            }
+        };
         Ok(proving_key_and_matrices)
     } else {
         Err(Report::msg("No proving key found!"))

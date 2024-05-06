@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod test {
     use ark_ff::BigInt;
+    use rln::circuit::zkey_from_folder;
     use rln::circuit::{
-        circom_from_folder, vk_from_folder, zkey_from_folder, Fr, TEST_RESOURCES_FOLDER,
-        TEST_TREE_HEIGHT,
+        circom_from_folder, vk_from_folder, Fr, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT,
     };
     use rln::hashers::{hash_to_field, poseidon_hash};
     use rln::poseidon_tree::PoseidonTree;

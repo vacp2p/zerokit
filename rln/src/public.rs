@@ -58,7 +58,7 @@ impl RLN<'_> {
     ///
     /// Input parameters are
     /// - `tree_height`: the height of the internal Merkle tree
-    /// - `input_data`: a reader for the string path of the resource folder containing the ZK circuit (`rln.wasm`), the proving key (`rln_final.zkey`) and the verification key (`verification_key.json`).
+    /// - `input_data`: a reader for the string path of the resource folder containing the ZK circuit (`rln.wasm`), the proving key (`rln_final.zkey`) or (`rln_final.arkzkey`) and the verification key (`verification_key.json`).
     ///
     /// Example:
     /// ```
@@ -83,8 +83,8 @@ impl RLN<'_> {
         let tree_config = rln_config["tree_config"].to_string();
 
         let witness_calculator = circom_from_folder(resources_folder)?;
-
         let proving_key = zkey_from_folder(resources_folder)?;
+
         let verification_key = vk_from_folder(resources_folder)?;
 
         let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = if tree_config.is_empty() {
@@ -115,7 +115,7 @@ impl RLN<'_> {
     /// Input parameters are
     /// - `tree_height`: the height of the internal Merkle tree
     /// - `circom_vec`: a byte vector containing the ZK circuit (`rln.wasm`) as binary file
-    /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`) as binary file
+    /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`)  or (`rln_final.arkzkey`) as binary file
     /// - `vk_vec`: a byte vector containing to the verification key (`verification_key.json`) as binary file
     /// - `tree_config`: a reader for a string containing a json with the merkle tree configuration
     ///
@@ -684,7 +684,7 @@ impl RLN<'_> {
     /// Output values are:
     /// - `output_data`: a writer receiving the serialization of the zkSNARK proof and the circuit evaluations outputs, i.e. `[ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]`
     ///
-    /// Example    
+    /// Example
     /// ```
     /// use rln::protocol::*:
     /// use rln::utils::*;
@@ -829,7 +829,7 @@ impl RLN<'_> {
     /// Note that contrary to [`verify_rln_proof`](crate::public::RLN::verify_rln_proof), this function does not check if the internal Merkle tree root corresponds to the root provided as input, but rather checks if the root provided as input in `input_data` corresponds to one of the roots serialized in `roots_data`.
     ///
     /// If `roots_data` contains no root (is empty), root validation is skipped and the proof will be correctly verified only if the other proof values results valid (i.e., zk-proof, signal, x-coordinate, RLN identifier)
-    ///   
+    ///
     /// Example
     /// ```
     /// // proof_data is computed as in the example code snippet provided for rln::public::RLN::generate_rln_proof

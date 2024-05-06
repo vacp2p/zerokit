@@ -1,7 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use utils::ZerokitMerkleTree;
-
 use rln::{circuit::Fr, pm_tree_adapter::PmTree};
+use utils::ZerokitMerkleTree;
 
 pub fn pmtree_benchmark(c: &mut Criterion) {
     let mut tree = PmTree::default(2).unwrap();
