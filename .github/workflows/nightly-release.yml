@@ -8,7 +8,8 @@ jobs:
   linux:
     strategy:
       matrix:
-        target: 
+        feature: ["default", "arkzkey"]
+        target:
           - x86_64-unknown-linux-gnu
           - aarch64-unknown-linux-gnu
           - i686-unknown-linux-gnu
@@ -29,16 +30,16 @@ jobs:
         run: make installdeps
       - name: cross build
         run: |
-          cross build --release --target ${{ matrix.target }} --workspace --exclude rln-wasm
+          cross build --release --target ${{ matrix.target }} --features ${{ matrix.feature }} --workspace --exclude rln-wasm
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
-          tar -czvf ${{ matrix.target }}-rln.tar.gz release/
+          tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
 
       - name: Upload archive artifact
         uses: actions/upload-artifact@v2
         with:
-          name: ${{ matrix.target }}-archive
-          path: ${{ matrix.target }}-rln.tar.gz
+          name: ${{ matrix.target }}-${{ matrix.feature }}-archive
+          path: ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz
           retention-days: 2
 
   macos:
@@ -46,7 +47,8 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        target: 
+        feature: ["default", "arkzkey"]
+        target:
           - x86_64-apple-darwin
           - aarch64-apple-darwin
     steps:
@@ -64,18 +66,18 @@ jobs:
         run: make installdeps
       - name: cross build
         run: |
-          cross build --release --target ${{ matrix.target }} --workspace --exclude rln-wasm
+          cross build --release --target ${{ matrix.target }} --features ${{ matrix.feature }} --workspace --exclude rln-wasm
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
-          tar -czvf ${{ matrix.target }}-rln.tar.gz release/
+          tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
 
       - name: Upload archive artifact
         uses: actions/upload-artifact@v2
         with:
-          name: ${{ matrix.target }}-archive
-          path: ${{ matrix.target }}-rln.tar.gz
+          name: ${{ matrix.target }}-${{ matrix.feature }}-archive
+          path: ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz
           retention-days: 2
-  
+
   browser-rln-wasm:
     name: Browser build (RLN WASM)
     runs-on: ubuntu-latest
@@ -108,7 +110,6 @@ jobs:
           path: rln-wasm/browser-rln-wasm.tar.gz
           retention-days: 2
 
-
   prepare-prerelease:
     name: Prepare pre-release
     needs: [linux, macos, browser-rln-wasm]
@@ -120,7 +121,7 @@ jobs:
           ref: master
       - name: Download artifacts
         uses: actions/download-artifact@v2
-          
+
       - name: Delete tag
         uses: dev-drprasad/delete-tag-and-release@v0.2.1
         with:
