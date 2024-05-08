@@ -25,16 +25,10 @@ mod test {
         input_clean = input_clean.trim().to_string();
 
         if radix == 10 {
-            BigUint::from_str_radix(&input_clean, radix)
-                .unwrap()
-                .try_into()
-                .unwrap()
+            BigUint::from_str_radix(&input_clean, radix).unwrap().into()
         } else {
             input_clean = input_clean.replace("0x", "");
-            BigUint::from_str_radix(&input_clean, radix)
-                .unwrap()
-                .try_into()
-                .unwrap()
+            BigUint::from_str_radix(&input_clean, radix).unwrap().into()
         }
     }
     // The following constants were taken from https://github.com/arnaucube/poseidon-rs/blob/233027d6075a637c29ad84a8a44f5653b81f0410/src/constants.rs
@@ -3500,21 +3494,21 @@ mod test {
     fn load_constants() -> (Vec<Vec<Fr>>, Vec<Vec<Vec<Fr>>>) {
         let (c_str, m_str) = constants();
         let mut c: Vec<Vec<Fr>> = Vec::new();
-        for i in 0..c_str.len() {
-            let mut cci: Vec<Fr> = Vec::new();
-            for j in 0..c_str[i].len() {
-                let b: Fr = str_to_fr(c_str[i][j], 10);
-                cci.push(b);
+        for c_i in c_str {
+            let mut ci: Vec<Fr> = Vec::new();
+            for c_i_j in c_i {
+                let b: Fr = str_to_fr(c_i_j, 10);
+                ci.push(b);
             }
-            c.push(cci);
+            c.push(ci);
         }
         let mut m: Vec<Vec<Vec<Fr>>> = Vec::new();
-        for i in 0..m_str.len() {
+        for m_i in m_str {
             let mut mi: Vec<Vec<Fr>> = Vec::new();
-            for j in 0..m_str[i].len() {
+            for m_i_j in m_i {
                 let mut mij: Vec<Fr> = Vec::new();
-                for k in 0..m_str[i][j].len() {
-                    let b: Fr = str_to_fr(m_str[i][j][k], 10);
+                for m_i_j_k in m_i_j {
+                    let b: Fr = str_to_fr(m_i_j_k, 10);
                     mij.push(b);
                 }
                 mi.push(mij);
@@ -3542,7 +3536,7 @@ mod test {
                 assert_eq!(loaded_m[i], poseidon_parameters[i].m);
             }
         } else {
-            assert!(false);
+            unreachable!();
         }
     }
 }

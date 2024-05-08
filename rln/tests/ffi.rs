@@ -14,26 +14,37 @@ mod test {
     use std::mem::MaybeUninit;
     use std::time::{Duration, Instant};
 
+    const NO_OF_LEAVES: usize = 256;
+
+    fn create_rln_instance() -> &'static mut RLN<'static> {
+        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
+        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_buffer = &Buffer::from(input_config.as_bytes());
+        let success = new(TEST_TREE_HEIGHT, input_buffer, rln_pointer.as_mut_ptr());
+        assert!(success, "RLN object creation failed");
+        unsafe { &mut *rln_pointer.assume_init() }
+    }
+
+    fn set_leaves(rln_pointer: &mut RLN, leaves: &Vec<Fr>) {
+        let leaves_ser = vec_fr_to_bytes_le(&leaves).unwrap();
+        let input_buffer = &Buffer::from(leaves_ser.as_ref());
+        let success = init_tree_with_leaves(rln_pointer, input_buffer);
+        assert!(success, "init tree with leaves call failed");
+        assert_eq!(rln_pointer.leaves_set(), NO_OF_LEAVES);
+    }
+
+    fn get_random_leaves() -> Vec<Fr> {
+        let mut rng = thread_rng();
+        (0..NO_OF_LEAVES).map(|_| Fr::rand(&mut rng)).collect()
+    }
+
     #[test]
     // We test merkle batch Merkle tree additions
     fn test_merkle_operations_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
-        let no_of_leaves = 256;
-
         // We generate a vector of random leaves
-        let mut leaves: Vec<Fr> = Vec::new();
-        let mut rng = thread_rng();
-        for _ in 0..no_of_leaves {
-            leaves.push(Fr::rand(&mut rng));
-        }
-
+        let leaves = get_random_leaves();
         // We create a RLN instance
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resource_folder": TEST_RESOURCES_FOLDER }).to_string();
-        let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+        let mut rln_pointer = create_rln_instance();
 
         // We first add leaves one by one specifying the index
         for (i, leaf) in leaves.iter().enumerate() {
@@ -53,7 +64,7 @@ mod test {
         let (root_single, _) = bytes_le_to_fr(&result_data);
 
         // We reset the tree to default
-        let success = set_tree(rln_pointer, tree_height);
+        let success = set_tree(rln_pointer, TEST_TREE_HEIGHT);
         assert!(success, "set tree call failed");
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
@@ -76,14 +87,11 @@ mod test {
         assert_eq!(root_single, root_next);
 
         // We reset the tree to default
-        let success = set_tree(rln_pointer, tree_height);
+        let success = set_tree(rln_pointer, TEST_TREE_HEIGHT);
         assert!(success, "set tree call failed");
 
         // We add leaves in a batch into the tree
-        let leaves_ser = vec_fr_to_bytes_le(&leaves).unwrap();
-        let input_buffer = &Buffer::from(leaves_ser.as_ref());
-        let success = init_tree_with_leaves(rln_pointer, input_buffer);
-        assert!(success, "init tree with leaves call failed");
+        set_leaves(rln_pointer, &leaves);
 
         // We get the root of the tree obtained adding leaves in batch
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
@@ -98,7 +106,7 @@ mod test {
 
         // We now delete all leaves set and check if the root corresponds to the empty tree root
         // delete calls over indexes higher than no_of_leaves are ignored and will not increase self.tree.next_index
-        for i in 0..no_of_leaves {
+        for i in 0..NO_OF_LEAVES {
             let success = delete_leaf(rln_pointer, i);
             assert!(success, "delete leaf call failed");
         }
@@ -112,7 +120,7 @@ mod test {
         let (root_delete, _) = bytes_le_to_fr(&result_data);
 
         // We reset the tree to default
-        let success = set_tree(rln_pointer, tree_height);
+        let success = set_tree(rln_pointer, TEST_TREE_HEIGHT);
         assert!(success, "set tree call failed");
 
         // We get the root of the empty tree
@@ -131,37 +139,30 @@ mod test {
     // This test is similar to the one in public.rs but it uses the RLN object as a pointer
     // Uses `set_leaves_from` to set leaves in a batch
     fn test_leaf_setting_with_index_ffi() {
-        // We create a new tree
-        let tree_height = TEST_TREE_HEIGHT;
-        let no_of_leaves = 256;
-
         // We create a RLN instance
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
         let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
         let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
+        let success = new(TEST_TREE_HEIGHT, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
 
         assert_eq!(rln_pointer.leaves_set(), 0);
 
         // We generate a vector of random leaves
-        let mut leaves: Vec<Fr> = Vec::new();
-        let mut rng = thread_rng();
-        for _ in 0..no_of_leaves {
-            leaves.push(Fr::rand(&mut rng));
-        }
+        let leaves = get_random_leaves();
 
         // set_index is the index from which we start setting leaves
         // random number between 0..no_of_leaves
-        let set_index = rng.gen_range(0..no_of_leaves) as usize;
+        let mut rng = thread_rng();
+        let set_index = rng.gen_range(0..NO_OF_LEAVES) as usize;
 
         // We add leaves in a batch into the tree
         let leaves_ser = vec_fr_to_bytes_le(&leaves).unwrap();
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
         let success = init_tree_with_leaves(rln_pointer, input_buffer);
         assert!(success, "init tree with leaves call failed");
-        assert_eq!(rln_pointer.leaves_set(), no_of_leaves);
+        assert_eq!(rln_pointer.leaves_set(), NO_OF_LEAVES);
 
         // We get the root of the tree obtained adding leaves in batch
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
@@ -198,7 +199,7 @@ mod test {
         assert_eq!(root_batch_with_init, root_batch_with_custom_index);
 
         // We reset the tree to default
-        let success = set_tree(rln_pointer, tree_height);
+        let success = set_tree(rln_pointer, TEST_TREE_HEIGHT);
         assert!(success, "set tree call failed");
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
@@ -224,29 +225,13 @@ mod test {
     #[test]
     // This test is similar to the one in public.rs but it uses the RLN object as a pointer
     fn test_atomic_operation_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
-        let no_of_leaves = 256;
-
-        // We create a RLN instance
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
-        let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
-
         // We generate a vector of random leaves
-        let mut leaves: Vec<Fr> = Vec::new();
-        let mut rng = thread_rng();
-        for _ in 0..no_of_leaves {
-            leaves.push(Fr::rand(&mut rng));
-        }
+        let leaves = get_random_leaves();
+        // We create a RLN instance
+        let rln_pointer = create_rln_instance();
 
         // We add leaves in a batch into the tree
-        let leaves_ser = vec_fr_to_bytes_le(&leaves).unwrap();
-        let input_buffer = &Buffer::from(leaves_ser.as_ref());
-        let success = init_tree_with_leaves(rln_pointer, input_buffer);
-        assert!(success, "init tree with leaves call failed");
+        set_leaves(rln_pointer, &leaves);
 
         // We get the root of the tree obtained adding leaves in batch
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
@@ -258,7 +243,7 @@ mod test {
         let (root_after_insertion, _) = bytes_le_to_fr(&result_data);
 
         let last_leaf = leaves.last().unwrap();
-        let last_leaf_index = no_of_leaves - 1;
+        let last_leaf_index = NO_OF_LEAVES - 1;
         let indices = vec![last_leaf_index as u8];
         let last_leaf = vec![*last_leaf];
         let indices = vec_u8_to_bytes_le(&indices).unwrap();
@@ -289,25 +274,13 @@ mod test {
     #[test]
     // This test is similar to the one in public.rs but it uses the RLN object as a pointer
     fn test_set_leaves_bad_index_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
-        let no_of_leaves = 256;
-
         // We generate a vector of random leaves
-        let mut leaves: Vec<Fr> = Vec::new();
-        let mut rng = thread_rng();
-        for _ in 0..no_of_leaves {
-            leaves.push(Fr::rand(&mut rng));
-        }
-
-        let bad_index = (1 << tree_height) - rng.gen_range(0..no_of_leaves) as usize;
-
+        let leaves = get_random_leaves();
         // We create a RLN instance
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
-        let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+        let rln_pointer = create_rln_instance();
+
+        let mut rng = thread_rng();
+        let bad_index = (1 << TEST_TREE_HEIGHT) - rng.gen_range(0..NO_OF_LEAVES) as usize;
 
         // Get root of empty tree
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
@@ -339,16 +312,9 @@ mod test {
     #[test]
     // This test is similar to the one in lib, but uses only public C API
     fn test_merkle_proof_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
         let leaf_index = 3;
-
         // We create a RLN instance
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
-        let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+        let rln_pointer = create_rln_instance();
 
         // generate identity
         let identity_secret_hash = hash_to_field(b"test-merkle-proof");
@@ -372,18 +338,16 @@ mod test {
 
         use ark_ff::BigInt;
 
-        if TEST_TREE_HEIGHT == 20 {
-            assert_eq!(
-                root,
-                BigInt([
-                    4939322235247991215,
-                    5110804094006647505,
-                    4427606543677101242,
-                    910933464535675827
-                ])
-                .into()
-            );
-        }
+        assert_eq!(
+            root,
+            BigInt([
+                4939322235247991215,
+                5110804094006647505,
+                4427606543677101242,
+                910933464535675827
+            ])
+            .into()
+        );
 
         // We obtain the Merkle tree root
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
@@ -396,121 +360,33 @@ mod test {
         let (identity_path_index, _) = bytes_le_to_vec_u8(&result_data[read..].to_vec()).unwrap();
 
         // We check correct computation of the path and indexes
-        let mut expected_path_elements = vec![
-            str_to_fr(
-                "0x0000000000000000000000000000000000000000000000000000000000000000",
-                16,
-            )
-            .unwrap(),
-            str_to_fr(
-                "0x2098f5fb9e239eab3ceac3f27b81e481dc3124d55ffed523a839ee8446b64864",
-                16,
-            )
-            .unwrap(),
-            str_to_fr(
-                "0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1",
-                16,
-            )
-            .unwrap(),
-            str_to_fr(
-                "0x18f43331537ee2af2e3d758d50f72106467c6eea50371dd528d57eb2b856d238",
-                16,
-            )
-            .unwrap(),
-            str_to_fr(
-                "0x07f9d837cb17b0d36320ffe93ba52345f1b728571a568265caac97559dbc952a",
-                16,
-            )
-            .unwrap(),
-            str_to_fr(
-                "0x2b94cf5e8746b3f5c9631f4c5df32907a699c58c94b2ad4d7b5cec1639183f55",
-                16,
-            )
-            .unwrap(),
-            str_to_fr(
-                "0x2dee93c5a666459646ea7d22cca9e1bcfed71e6951b953611d11dda32ea09d78",
-                16,
-            )
-            .unwrap(),
-            str_to_fr(
-                "0x078295e5a22b84e982cf601eb639597b8b0515a88cb5ac7fa8a4aabe3c87349d",
-                16,
-            )
-            .unwrap(),
-            str_to_fr(
-                "0x2fa5e5f18f6027a6501bec864564472a616b2e274a41211a444cbe3a99f3cc61",
-                16,
-            )
-            .unwrap(),
-            str_to_fr(
-                "0x0e884376d0d8fd21ecb780389e941f66e45e7acce3e228ab3e2156a614fcd747",
-                16,
-            )
-            .unwrap(),
-            str_to_fr(
-                "0x1b7201da72494f1e28717ad1a52eb469f95892f957713533de6175e5da190af2",
-                16,
-            )
-            .unwrap(),
-            str_to_fr(
-                "0x1f8d8822725e36385200c0b201249819a6e6e1e4650808b5bebc6bface7d7636",
-                16,
-            )
-            .unwrap(),
-            str_to_fr(
-                "0x2c5d82f66c914bafb9701589ba8cfcfb6162b0a12acf88a8d0879a0471b5f85a",
-                16,
-            )
-            .unwrap(),
-            str_to_fr(
-                "0x14c54148a0940bb820957f5adf3fa1134ef5c4aaa113f4646458f270e0bfbfd0",
-                16,
-            )
-            .unwrap(),
-            str_to_fr(
-                "0x190d33b12f986f961e10c0ee44d8b9af11be25588cad89d416118e4bf4ebe80c",
-                16,
-            )
-            .unwrap(),
-        ];
+        let expected_path_elements: Vec<Fr> = [
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "0x2098f5fb9e239eab3ceac3f27b81e481dc3124d55ffed523a839ee8446b64864",
+            "0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1",
+            "0x18f43331537ee2af2e3d758d50f72106467c6eea50371dd528d57eb2b856d238",
+            "0x07f9d837cb17b0d36320ffe93ba52345f1b728571a568265caac97559dbc952a",
+            "0x2b94cf5e8746b3f5c9631f4c5df32907a699c58c94b2ad4d7b5cec1639183f55",
+            "0x2dee93c5a666459646ea7d22cca9e1bcfed71e6951b953611d11dda32ea09d78",
+            "0x078295e5a22b84e982cf601eb639597b8b0515a88cb5ac7fa8a4aabe3c87349d",
+            "0x2fa5e5f18f6027a6501bec864564472a616b2e274a41211a444cbe3a99f3cc61",
+            "0x0e884376d0d8fd21ecb780389e941f66e45e7acce3e228ab3e2156a614fcd747",
+            "0x1b7201da72494f1e28717ad1a52eb469f95892f957713533de6175e5da190af2",
+            "0x1f8d8822725e36385200c0b201249819a6e6e1e4650808b5bebc6bface7d7636",
+            "0x2c5d82f66c914bafb9701589ba8cfcfb6162b0a12acf88a8d0879a0471b5f85a",
+            "0x14c54148a0940bb820957f5adf3fa1134ef5c4aaa113f4646458f270e0bfbfd0",
+            "0x190d33b12f986f961e10c0ee44d8b9af11be25588cad89d416118e4bf4ebe80c",
+            "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
+            "0x2a7c7c9b6ce5880b9f6f228d72bf6a575a526f29c66ecceef8b753d38bba7323",
+            "0x2e8186e558698ec1c67af9c14d463ffc470043c9c2988b954d75dd643f36b992",
+            "0x0f57c5571e9a4eab49e2c8cf050dae948aef6ead647392273546249d1c1ff10f",
+            "0x1830ee67b5fb554ad5f63d4388800e1cfe78e310697d46e43c9ce36134f72cca",
+        ]
+        .map(|e| str_to_fr(e, 16).unwrap())
+        .to_vec();
 
-        let mut expected_identity_path_index: Vec<u8> =
-            vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-
-        if TEST_TREE_HEIGHT == 20 {
-            expected_path_elements.append(&mut vec![
-                str_to_fr(
-                    "0x22f98aa9ce704152ac17354914ad73ed1167ae6596af510aa5b3649325e06c92",
-                    16,
-                )
-                .unwrap(),
-                str_to_fr(
-                    "0x2a7c7c9b6ce5880b9f6f228d72bf6a575a526f29c66ecceef8b753d38bba7323",
-                    16,
-                )
-                .unwrap(),
-                str_to_fr(
-                    "0x2e8186e558698ec1c67af9c14d463ffc470043c9c2988b954d75dd643f36b992",
-                    16,
-                )
-                .unwrap(),
-                str_to_fr(
-                    "0x0f57c5571e9a4eab49e2c8cf050dae948aef6ead647392273546249d1c1ff10f",
-                    16,
-                )
-                .unwrap(),
-            ]);
-            expected_identity_path_index.append(&mut vec![0, 0, 0, 0]);
-        }
-
-        if TEST_TREE_HEIGHT == 20 {
-            expected_path_elements.append(&mut vec![str_to_fr(
-                "0x1830ee67b5fb554ad5f63d4388800e1cfe78e310697d46e43c9ce36134f72cca",
-                16,
-            )
-            .unwrap()]);
-            expected_identity_path_index.append(&mut vec![0]);
-        }
+        let expected_identity_path_index: Vec<u8> =
+            vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         assert_eq!(path_elements, expected_path_elements);
         assert_eq!(identity_path_index, expected_identity_path_index);
@@ -529,15 +405,8 @@ mod test {
     #[test]
     // Benchmarks proof generation and verification
     fn test_groth16_proofs_performance_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
-
         // We create a RLN instance
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
-        let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+        let rln_pointer = create_rln_instance();
 
         // We compute some benchmarks regarding proof and verify API calls
         // Note that circuit loading requires some initial overhead.
@@ -548,7 +417,7 @@ mod test {
 
         for _ in 0..sample_size {
             // We generate random witness instances and relative proof values
-            let rln_witness = random_rln_witness(tree_height);
+            let rln_witness = random_rln_witness(TEST_TREE_HEIGHT);
             let proof_values = proof_values_from_witness(&rln_witness).unwrap();
 
             // We prepare id_commitment and we set the leaf at provided index
@@ -592,15 +461,8 @@ mod test {
     #[test]
     // Creating a RLN with raw data should generate same results as using a path to resources
     fn test_rln_raw_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
-
-        // We create a RLN instance using a resource folder path
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
-        let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+        // We create a RLN instance
+        let rln_pointer = create_rln_instance();
 
         // We obtain the root from the RLN instance
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
@@ -611,7 +473,7 @@ mod test {
         let (root_rln_folder, _) = bytes_le_to_fr(&result_data);
 
         // Reading the raw data from the files required for instantiating a RLN instance using raw data
-        let circom_path = format!("./resources/tree_height_{TEST_TREE_HEIGHT}/rln.wasm");
+        let circom_path = "./resources/tree_height_20/rln.wasm";
         let mut circom_file = File::open(&circom_path).expect("no file found");
         let metadata = std::fs::metadata(&circom_path).expect("unable to read metadata");
         let mut circom_buffer = vec![0; metadata.len() as usize];
@@ -619,9 +481,9 @@ mod test {
             .read_exact(&mut circom_buffer)
             .expect("buffer overflow");
         #[cfg(feature = "arkzkey")]
-        let zkey_path = format!("./resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.arkzkey");
+        let zkey_path = "./resources/tree_height_20/rln_final.arkzkey";
         #[cfg(not(feature = "arkzkey"))]
-        let zkey_path = format!("./resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.zkey");
+        let zkey_path = "./resources/tree_height_20/rln_final.zkey";
         let mut zkey_file = File::open(&zkey_path).expect("no file found");
         let metadata = std::fs::metadata(&zkey_path).expect("unable to read metadata");
         let mut zkey_buffer = vec![0; metadata.len() as usize];
@@ -629,8 +491,7 @@ mod test {
             .read_exact(&mut zkey_buffer)
             .expect("buffer overflow");
 
-        let vk_path = format!("./resources/tree_height_{TEST_TREE_HEIGHT}/verification_key.json");
-
+        let vk_path = "./resources/tree_height_20/verification_key.json";
         let mut vk_file = File::open(&vk_path).expect("no file found");
         let metadata = std::fs::metadata(&vk_path).expect("unable to read metadata");
         let mut vk_buffer = vec![0; metadata.len() as usize];
@@ -645,7 +506,7 @@ mod test {
         let tree_config = "".to_string();
         let tree_config_buffer = &Buffer::from(tree_config.as_bytes());
         let success = new_with_params(
-            tree_height,
+            TEST_TREE_HEIGHT,
             circom_data,
             zkey_data,
             vk_data,
@@ -670,26 +531,16 @@ mod test {
     #[test]
     // Computes and verifies an RLN ZK proof using FFI APIs
     fn test_rln_proof_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
-        let no_of_leaves = 256;
         let user_message_limit = Fr::from(100);
 
         // We generate a vector of random leaves
-        let mut leaves: Vec<Fr> = Vec::new();
         let mut rng = thread_rng();
-        for _ in 0..no_of_leaves {
-            let id_commitment = Fr::rand(&mut rng);
-            let rate_commitment = utils_poseidon_hash(&[id_commitment, Fr::from(100)]);
-            leaves.push(rate_commitment);
-        }
+        let leaves: Vec<Fr> = (0..NO_OF_LEAVES)
+            .map(|_| utils_poseidon_hash(&[Fr::rand(&mut rng), Fr::from(100)]))
+            .collect();
 
         // We create a RLN instance
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
-        let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+        let rln_pointer = create_rln_instance();
 
         // We add leaves in a batch into the tree
         let leaves_ser = vec_fr_to_bytes_le(&leaves).unwrap();
@@ -706,7 +557,7 @@ mod test {
         let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
         let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
 
-        let identity_index: usize = no_of_leaves;
+        let identity_index: usize = NO_OF_LEAVES;
 
         // We generate a random signal
         let mut rng = rand::thread_rng();
@@ -765,24 +616,12 @@ mod test {
     // Computes and verifies an RLN ZK proof by checking proof's root against an input roots buffer
     fn test_verify_with_roots() {
         // First part similar to test_rln_proof_ffi
-        let tree_height = TEST_TREE_HEIGHT;
-        let no_of_leaves = 256;
         let user_message_limit = Fr::from(100);
 
         // We generate a vector of random leaves
-        let mut leaves: Vec<Fr> = Vec::new();
-        let mut rng = thread_rng();
-        for _ in 0..no_of_leaves {
-            leaves.push(Fr::rand(&mut rng));
-        }
-
+        let leaves = get_random_leaves();
         // We create a RLN instance
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
-        let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+        let rln_pointer = create_rln_instance();
 
         // We add leaves in a batch into the tree
         let leaves_ser = vec_fr_to_bytes_le(&leaves).unwrap();
@@ -800,7 +639,7 @@ mod test {
         let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
-        let identity_index: usize = no_of_leaves;
+        let identity_index: usize = NO_OF_LEAVES;
 
         // We generate a random signal
         let mut rng = rand::thread_rng();
@@ -901,15 +740,8 @@ mod test {
     #[test]
     // Computes and verifies an RLN ZK proof using FFI APIs
     fn test_recover_id_secret_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
-
         // We create a RLN instance
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
-        let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+        let rln_pointer = create_rln_instance();
 
         // We generate a new identity pair
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
@@ -1074,15 +906,8 @@ mod test {
     #[test]
     // Tests hash to field using FFI APIs
     fn test_seeded_keygen_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
-
         // We create a RLN instance
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
-        let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+        let rln_pointer = create_rln_instance();
 
         // We generate a new identity pair from an input seed
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -1115,14 +940,8 @@ mod test {
     #[test]
     // Tests hash to field using FFI APIs
     fn test_seeded_extended_keygen_ffi() {
-        let tree_height = TEST_TREE_HEIGHT;
         // We create a RLN instance
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
-        let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+        let rln_pointer = create_rln_instance();
 
         // We generate a new identity tuple from an input seed
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -1220,15 +1039,10 @@ mod test {
     #[test]
     fn test_get_leaf() {
         // We create a RLN instance
-        let tree_height = TEST_TREE_HEIGHT;
         let no_of_leaves = 1 << TEST_TREE_HEIGHT;
 
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
-        let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+        // We create a RLN instance
+        let rln_pointer = create_rln_instance();
 
         // We generate a new identity tuple from an input seed
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -1265,14 +1079,7 @@ mod test {
     #[test]
     fn test_valid_metadata() {
         // We create a RLN instance
-        let tree_height = TEST_TREE_HEIGHT;
-
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
-        let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+        let rln_pointer = create_rln_instance();
 
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         let input_buffer = &Buffer::from(seed_bytes);
@@ -1293,14 +1100,7 @@ mod test {
     #[test]
     fn test_empty_metadata() {
         // We create a RLN instance
-        let tree_height = TEST_TREE_HEIGHT;
-
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
-        let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(tree_height, input_buffer, rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
+        let mut rln_pointer = create_rln_instance();
 
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
         let success = get_metadata(rln_pointer, output_buffer.as_mut_ptr());

@@ -9,15 +9,13 @@ mod test {
     use utils::{FullMerkleTree, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
     #[test]
-    /// The test is checked correctness for `FullMerkleTree` and `OptimalMerkleTree`
+    /// The test is checked correctness for `FullMerkleTree` and `OptimalMerkleTree` with Poseidon hash
     fn test_zerokit_merkle_implementations() {
-        let tree_height = TEST_TREE_HEIGHT;
         let sample_size = 100;
-
         let leaves: Vec<Fr> = (0..sample_size).map(|s| Fr::from(s)).collect();
 
-        let mut tree_full = FullMerkleTree::<PoseidonHash>::default(tree_height).unwrap();
-        let mut tree_opt = OptimalMerkleTree::<PoseidonHash>::default(tree_height).unwrap();
+        let mut tree_full = FullMerkleTree::<PoseidonHash>::default(TEST_TREE_HEIGHT).unwrap();
+        let mut tree_opt = OptimalMerkleTree::<PoseidonHash>::default(TEST_TREE_HEIGHT).unwrap();
 
         for i in 0..sample_size.try_into().unwrap() {
             tree_full.set(i, leaves[i]).unwrap();

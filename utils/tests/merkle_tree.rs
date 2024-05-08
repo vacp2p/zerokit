@@ -57,6 +57,15 @@ pub mod test {
         .map(TestFr);
     }
 
+    fn default_full_merkle_tree() -> FullMerkleTree<Keccak256> {
+        FullMerkleTree::<Keccak256>::new(2, TestFr([0; 32]), FullMerkleConfig::default()).unwrap()
+    }
+
+    fn default_optimal_merkle_tree() -> OptimalMerkleTree<Keccak256> {
+        OptimalMerkleTree::<Keccak256>::new(2, TestFr([0; 32]), OptimalMerkleConfig::default())
+            .unwrap()
+    }
+
     #[test]
     fn test_root() {
         let default_tree_root = TestFr(hex!(
@@ -71,18 +80,14 @@ pub mod test {
         ]
         .map(TestFr);
 
-        let mut tree =
-            FullMerkleTree::<Keccak256>::new(2, TestFr([0; 32]), FullMerkleConfig::default())
-                .unwrap();
+        let mut tree = default_full_merkle_tree();
         assert_eq!(tree.root(), default_tree_root);
         for i in 0..LEAVES.len() {
             tree.set(i, LEAVES[i]).unwrap();
             assert_eq!(tree.root(), roots[i]);
         }
 
-        let mut tree =
-            OptimalMerkleTree::<Keccak256>::new(2, TestFr([0; 32]), OptimalMerkleConfig::default())
-                .unwrap();
+        let mut tree = default_optimal_merkle_tree();
         assert_eq!(tree.root(), default_tree_root);
         for i in 0..LEAVES.len() {
             tree.set(i, LEAVES[i]).unwrap();
@@ -93,9 +98,7 @@ pub mod test {
     #[test]
     fn test_proof() {
         // We thest the FullMerkleTree implementation
-        let mut tree =
-            FullMerkleTree::<Keccak256>::new(2, TestFr([0; 32]), FullMerkleConfig::default())
-                .unwrap();
+        let mut tree = default_full_merkle_tree();
         for i in 0..LEAVES.len() {
             // We set the leaves
             tree.set(i, LEAVES[i]).unwrap();
@@ -119,9 +122,7 @@ pub mod test {
         }
 
         // We test the OptimalMerkleTree implementation
-        let mut tree =
-            OptimalMerkleTree::<Keccak256>::new(2, TestFr([0; 32]), OptimalMerkleConfig::default())
-                .unwrap();
+        let mut tree = default_optimal_merkle_tree();
         for i in 0..LEAVES.len() {
             // We set the leaves
             tree.set(i, LEAVES[i]).unwrap();
@@ -147,9 +148,7 @@ pub mod test {
 
     #[test]
     fn test_override_range() {
-        let mut tree =
-            OptimalMerkleTree::<Keccak256>::new(2, TestFr([0; 32]), OptimalMerkleConfig::default())
-                .unwrap();
+        let mut tree = default_optimal_merkle_tree();
 
         // We set the leaves
         tree.set_range(0, LEAVES.iter().cloned()).unwrap();

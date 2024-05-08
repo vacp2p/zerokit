@@ -29,9 +29,8 @@ pub fn optimal_merkle_tree_poseidon_benchmark(c: &mut Criterion) {
             })
         });
 
-        let mut tree_r = OptimalMerkleTree::<PoseidonHash>::default(TEST_TREE_HEIGHT).unwrap();
         group.bench_function(BenchmarkId::new("OptimalMerkleTree::set_range", n), |b| {
-            b.iter(|| tree_r.set_range(0, leaves.iter().cloned()))
+            b.iter(|| tree.set_range(0, leaves.iter().cloned()))
         });
     }
     group.finish();
@@ -57,9 +56,8 @@ pub fn full_merkle_tree_poseidon_benchmark(c: &mut Criterion) {
             })
         });
 
-        let mut tree_r = FullMerkleTree::<PoseidonHash>::default(TEST_TREE_HEIGHT).unwrap();
         group.bench_function(BenchmarkId::new("FullMerkleTree::set_range", n), |b| {
-            b.iter(|| tree_r.set_range(0, leaves.iter().cloned()))
+            b.iter(|| tree.set_range(0, leaves.iter().cloned()))
         });
     }
     group.finish();
