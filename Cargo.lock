@@ -3596,6 +3596,7 @@ dependencies = [
  "color-eyre",
  "criterion 0.4.0",
  "hex-literal",
+ "lazy_static 1.4.0",
  "num-bigint",
  "num-traits",
  "pmtree",

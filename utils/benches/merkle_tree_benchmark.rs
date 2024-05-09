@@ -1,5 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use hex_literal::hex;
+use lazy_static::lazy_static;
 use std::{fmt::Display, str::FromStr};
 use tiny_keccak::{Hasher as _, Keccak};
 use zerokit_utils::{
@@ -45,22 +46,24 @@ impl FromStr for TestFr {
     }
 }
 
-pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
-    let mut tree =
-        OptimalMerkleTree::<Keccak256>::new(2, TestFr([0; 32]), OptimalMerkleConfig::default())
-            .unwrap();
-
-    let leaves = [
+lazy_static! {
+    static ref LEAVES: [TestFr; 4] = [
         hex!("0000000000000000000000000000000000000000000000000000000000000001"),
         hex!("0000000000000000000000000000000000000000000000000000000000000002"),
         hex!("0000000000000000000000000000000000000000000000000000000000000003"),
         hex!("0000000000000000000000000000000000000000000000000000000000000004"),
     ]
-    .map(|x| TestFr(x));
+    .map(TestFr);
+}
+
+pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
+    let mut tree =
+        OptimalMerkleTree::<Keccak256>::new(2, TestFr([0; 32]), OptimalMerkleConfig::default())
+            .unwrap();
 
     c.bench_function("OptimalMerkleTree::set", |b| {
         b.iter(|| {
-            tree.set(0, leaves[0]).unwrap();
+            tree.set(0, LEAVES[0]).unwrap();
         })
     });
 
@@ -72,7 +75,7 @@ pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
 
     c.bench_function("OptimalMerkleTree::override_range", |b| {
         b.iter(|| {
-            tree.override_range(0, leaves, [0, 1, 2, 3]).unwrap();
+            tree.override_range(0, *LEAVES, [0, 1, 2, 3]).unwrap();
         })
     });
 
@@ -93,17 +96,9 @@ pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
     let mut tree =
         FullMerkleTree::<Keccak256>::new(2, TestFr([0; 32]), FullMerkleConfig::default()).unwrap();
 
-    let leaves = [
-        hex!("0000000000000000000000000000000000000000000000000000000000000001"),
-        hex!("0000000000000000000000000000000000000000000000000000000000000002"),
-        hex!("0000000000000000000000000000000000000000000000000000000000000003"),
-        hex!("0000000000000000000000000000000000000000000000000000000000000004"),
-    ]
-    .map(|x| TestFr(x));
-
     c.bench_function("FullMerkleTree::set", |b| {
         b.iter(|| {
-            tree.set(0, leaves[0]).unwrap();
+            tree.set(0, LEAVES[0]).unwrap();
         })
     });
 
@@ -115,7 +110,7 @@ pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
 
     c.bench_function("FullMerkleTree::override_range", |b| {
         b.iter(|| {
-            tree.override_range(0, leaves, [0, 1, 2, 3]).unwrap();
+            tree.override_range(0, *LEAVES, [0, 1, 2, 3]).unwrap();
         })
     });
 
