@@ -25,17 +25,47 @@ mod test {
         unsafe { &mut *rln_pointer.assume_init() }
     }
 
-    fn set_leaves(rln_pointer: &mut RLN, leaves: &Vec<Fr>) {
+    fn set_leaves_init(rln_pointer: &mut RLN, leaves: &[Fr]) {
         let leaves_ser = vec_fr_to_bytes_le(&leaves).unwrap();
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
         let success = init_tree_with_leaves(rln_pointer, input_buffer);
         assert!(success, "init tree with leaves call failed");
-        assert_eq!(rln_pointer.leaves_set(), NO_OF_LEAVES);
+        assert_eq!(rln_pointer.leaves_set(), leaves.len());
     }
 
     fn get_random_leaves() -> Vec<Fr> {
         let mut rng = thread_rng();
         (0..NO_OF_LEAVES).map(|_| Fr::rand(&mut rng)).collect()
+    }
+
+    fn get_tree_root(rln_pointer: &mut RLN) -> Fr {
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "get root call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (root, _) = bytes_le_to_fr(&result_data);
+        root
+    }
+
+    fn identity_pair_gen(rln_pointer: &mut RLN) -> (Fr, Fr) {
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = key_gen(rln_pointer, output_buffer.as_mut_ptr());
+        assert!(success, "key gen call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
+        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
+        (identity_secret_hash, id_commitment)
+    }
+
+    fn rln_proof_gen(rln_pointer: &mut RLN, serialized: &[u8]) -> Vec<u8> {
+        let input_buffer = &Buffer::from(serialized);
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = generate_rln_proof(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
+        assert!(success, "generate rln proof call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        <&[u8]>::from(&output_buffer).to_vec()
     }
 
     #[test]
@@ -44,7 +74,7 @@ mod test {
         // We generate a vector of random leaves
         let leaves = get_random_leaves();
         // We create a RLN instance
-        let mut rln_pointer = create_rln_instance();
+        let rln_pointer = create_rln_instance();
 
         // We first add leaves one by one specifying the index
         for (i, leaf) in leaves.iter().enumerate() {
@@ -56,12 +86,7 @@ mod test {
         }
 
         // We get the root of the tree obtained adding one leaf per time
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "get root call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_single, _) = bytes_le_to_fr(&result_data);
+        let root_single = get_tree_root(rln_pointer);
 
         // We reset the tree to default
         let success = set_tree(rln_pointer, TEST_TREE_HEIGHT);
@@ -76,12 +101,7 @@ mod test {
         }
 
         // We get the root of the tree obtained adding leaves using the internal index
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "get root call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_next, _) = bytes_le_to_fr(&result_data);
+        let root_next = get_tree_root(rln_pointer);
 
         // We check if roots are the same
         assert_eq!(root_single, root_next);
@@ -91,15 +111,10 @@ mod test {
         assert!(success, "set tree call failed");
 
         // We add leaves in a batch into the tree
-        set_leaves(rln_pointer, &leaves);
+        set_leaves_init(rln_pointer, &leaves);
 
         // We get the root of the tree obtained adding leaves in batch
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "get root call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_batch, _) = bytes_le_to_fr(&result_data);
+        let root_batch = get_tree_root(rln_pointer);
 
         // We check if roots are the same
         assert_eq!(root_single, root_batch);
@@ -112,24 +127,14 @@ mod test {
         }
 
         // We get the root of the tree obtained deleting all leaves
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "get root call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_delete, _) = bytes_le_to_fr(&result_data);
+        let root_delete = get_tree_root(rln_pointer);
 
         // We reset the tree to default
         let success = set_tree(rln_pointer, TEST_TREE_HEIGHT);
         assert!(success, "set tree call failed");
 
         // We get the root of the empty tree
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "get root call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_empty, _) = bytes_le_to_fr(&result_data);
+        let root_empty = get_tree_root(rln_pointer);
 
         // We check if roots are the same
         assert_eq!(root_delete, root_empty);
@@ -140,13 +145,7 @@ mod test {
     // Uses `set_leaves_from` to set leaves in a batch
     fn test_leaf_setting_with_index_ffi() {
         // We create a RLN instance
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
-        let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(TEST_TREE_HEIGHT, input_buffer, rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        let rln_pointer = unsafe { &mut *rln_pointer.assume_init() };
-
+        let rln_pointer = create_rln_instance();
         assert_eq!(rln_pointer.leaves_set(), 0);
 
         // We generate a vector of random leaves
@@ -158,28 +157,15 @@ mod test {
         let set_index = rng.gen_range(0..NO_OF_LEAVES) as usize;
 
         // We add leaves in a batch into the tree
-        let leaves_ser = vec_fr_to_bytes_le(&leaves).unwrap();
-        let input_buffer = &Buffer::from(leaves_ser.as_ref());
-        let success = init_tree_with_leaves(rln_pointer, input_buffer);
-        assert!(success, "init tree with leaves call failed");
-        assert_eq!(rln_pointer.leaves_set(), NO_OF_LEAVES);
+        set_leaves_init(rln_pointer, &leaves);
 
         // We get the root of the tree obtained adding leaves in batch
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "get root call failed");
-
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_batch_with_init, _) = bytes_le_to_fr(&result_data);
+        let root_batch_with_init = get_tree_root(rln_pointer);
 
         // `init_tree_with_leaves` resets the tree to the height it was initialized with, using `set_tree`
 
         // We add leaves in a batch starting from index 0..set_index
-        let leaves_m = vec_fr_to_bytes_le(&leaves[0..set_index]).unwrap();
-        let buffer = &Buffer::from(leaves_m.as_ref());
-        let success = init_tree_with_leaves(rln_pointer, buffer);
-        assert!(success, "init tree with leaves call failed");
+        set_leaves_init(rln_pointer, &leaves[0..set_index]);
 
         // We add the remaining n leaves in a batch starting from index set_index
         let leaves_n = vec_fr_to_bytes_le(&leaves[set_index..]).unwrap();
@@ -188,14 +174,7 @@ mod test {
         assert!(success, "set leaves from call failed");
 
         // We get the root of the tree obtained adding leaves in batch
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "get root call failed");
-
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_batch_with_custom_index, _) = bytes_le_to_fr(&result_data);
-
+        let root_batch_with_custom_index = get_tree_root(rln_pointer);
         assert_eq!(root_batch_with_init, root_batch_with_custom_index);
 
         // We reset the tree to default
@@ -211,14 +190,7 @@ mod test {
         }
 
         // We get the root of the tree obtained adding leaves using the internal index
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "get root call failed");
-
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_single_additions, _) = bytes_le_to_fr(&result_data);
-
+        let root_single_additions = get_tree_root(rln_pointer);
         assert_eq!(root_batch_with_init, root_single_additions);
     }
 
@@ -231,16 +203,10 @@ mod test {
         let rln_pointer = create_rln_instance();
 
         // We add leaves in a batch into the tree
-        set_leaves(rln_pointer, &leaves);
+        set_leaves_init(rln_pointer, &leaves);
 
         // We get the root of the tree obtained adding leaves in batch
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "get root call failed");
-
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_after_insertion, _) = bytes_le_to_fr(&result_data);
+        let root_after_insertion = get_tree_root(rln_pointer);
 
         let last_leaf = leaves.last().unwrap();
         let last_leaf_index = NO_OF_LEAVES - 1;
@@ -260,14 +226,7 @@ mod test {
         assert!(success, "atomic operation call failed");
 
         // We get the root of the tree obtained after a no-op
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "get root call failed");
-
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_after_noop, _) = bytes_le_to_fr(&result_data);
-
+        let root_after_noop = get_tree_root(rln_pointer);
         assert_eq!(root_after_insertion, root_after_noop);
     }
 
@@ -283,13 +242,7 @@ mod test {
         let bad_index = (1 << TEST_TREE_HEIGHT) - rng.gen_range(0..NO_OF_LEAVES) as usize;
 
         // Get root of empty tree
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "get root call failed");
-
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_empty, _) = bytes_le_to_fr(&result_data);
+        let root_empty = get_tree_root(rln_pointer);
 
         // We add leaves in a batch into the tree
         let leaves = vec_fr_to_bytes_le(&leaves).unwrap();
@@ -298,14 +251,7 @@ mod test {
         assert!(!success, "set leaves from call succeeded");
 
         // Get root of tree after attempted set
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "get root call failed");
-
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_after_bad_set, _) = bytes_le_to_fr(&result_data);
-
+        let root_after_bad_set = get_tree_root(rln_pointer);
         assert_eq!(root_empty, root_after_bad_set);
     }
 
@@ -329,15 +275,9 @@ mod test {
         assert!(success, "set leaf call failed");
 
         // We obtain the Merkle tree root
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "get root call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root, _) = bytes_le_to_fr(&result_data);
+        let root = get_tree_root(rln_pointer);
 
         use ark_ff::BigInt;
-
         assert_eq!(
             root,
             BigInt([
@@ -458,6 +398,14 @@ mod test {
         );
     }
 
+    fn fread(fpath: &str) -> Vec<u8> {
+        let mut file = File::open(&fpath).expect("no file found");
+        let metadata = std::fs::metadata(&fpath).expect("unable to read metadata");
+        let mut buffer = vec![0; metadata.len() as usize];
+        file.read_exact(&mut buffer).expect("buffer overflow");
+        buffer
+    }
+
     #[test]
     // Creating a RLN with raw data should generate same results as using a path to resources
     fn test_rln_raw_ffi() {
@@ -465,41 +413,18 @@ mod test {
         let rln_pointer = create_rln_instance();
 
         // We obtain the root from the RLN instance
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "get root call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_rln_folder, _) = bytes_le_to_fr(&result_data);
+        let root_rln_folder = get_tree_root(rln_pointer);
 
         // Reading the raw data from the files required for instantiating a RLN instance using raw data
-        let circom_path = "./resources/tree_height_20/rln.wasm";
-        let mut circom_file = File::open(&circom_path).expect("no file found");
-        let metadata = std::fs::metadata(&circom_path).expect("unable to read metadata");
-        let mut circom_buffer = vec![0; metadata.len() as usize];
-        circom_file
-            .read_exact(&mut circom_buffer)
-            .expect("buffer overflow");
+        let circom_data = &Buffer::from(fread("./resources/tree_height_20/rln.wasm").as_ref());
+        let vk_data =
+            &Buffer::from(fread("./resources/tree_height_20/verification_key.json").as_ref());
+
         #[cfg(feature = "arkzkey")]
         let zkey_path = "./resources/tree_height_20/rln_final.arkzkey";
         #[cfg(not(feature = "arkzkey"))]
         let zkey_path = "./resources/tree_height_20/rln_final.zkey";
-        let mut zkey_file = File::open(&zkey_path).expect("no file found");
-        let metadata = std::fs::metadata(&zkey_path).expect("unable to read metadata");
-        let mut zkey_buffer = vec![0; metadata.len() as usize];
-        zkey_file
-            .read_exact(&mut zkey_buffer)
-            .expect("buffer overflow");
-
-        let vk_path = "./resources/tree_height_20/verification_key.json";
-        let mut vk_file = File::open(&vk_path).expect("no file found");
-        let metadata = std::fs::metadata(&vk_path).expect("unable to read metadata");
-        let mut vk_buffer = vec![0; metadata.len() as usize];
-        vk_file.read_exact(&mut vk_buffer).expect("buffer overflow");
-
-        let circom_data = &Buffer::from(&circom_buffer[..]);
-        let zkey_data = &Buffer::from(&zkey_buffer[..]);
-        let vk_data = &Buffer::from(&vk_buffer[..]);
+        let zkey_data = &Buffer::from(fread(zkey_path).as_ref());
 
         // Creating a RLN instance passing the raw data
         let mut rln_pointer_raw_bytes = MaybeUninit::<*mut RLN>::uninit();
@@ -517,14 +442,8 @@ mod test {
         let rln_pointer2 = unsafe { &mut *rln_pointer_raw_bytes.assume_init() };
 
         // We obtain the root from the RLN instance containing raw data
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_root(rln_pointer2, output_buffer.as_mut_ptr());
-        assert!(success, "get root call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root_rln_raw, _) = bytes_le_to_fr(&result_data);
-
         // And compare that the same root was generated
+        let root_rln_raw = get_tree_root(rln_pointer2);
         assert_eq!(root_rln_folder, root_rln_raw);
     }
 
@@ -543,20 +462,10 @@ mod test {
         let rln_pointer = create_rln_instance();
 
         // We add leaves in a batch into the tree
-        let leaves_ser = vec_fr_to_bytes_le(&leaves).unwrap();
-        let input_buffer = &Buffer::from(leaves_ser.as_ref());
-        let success = init_tree_with_leaves(rln_pointer, input_buffer);
-        assert!(success, "init tree with leaves call failed");
+        set_leaves_init(rln_pointer, &leaves);
 
         // We generate a new identity pair
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = key_gen(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "key gen call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
-        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
-
+        let (identity_secret_hash, id_commitment) = identity_pair_gen(rln_pointer);
         let identity_index: usize = NO_OF_LEAVES;
 
         // We generate a random signal
@@ -589,13 +498,8 @@ mod test {
         serialized.append(&mut signal.to_vec());
 
         // We call generate_rln_proof
-        let input_buffer = &Buffer::from(serialized.as_ref());
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = generate_rln_proof(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
-        assert!(success, "generate rln proof call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
         // result_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
-        let mut proof_data = <&[u8]>::from(&output_buffer).to_vec();
+        let mut proof_data = rln_proof_gen(rln_pointer, serialized.as_ref());
 
         // We prepare input for verify_rln_proof API
         // input_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
@@ -624,21 +528,11 @@ mod test {
         let rln_pointer = create_rln_instance();
 
         // We add leaves in a batch into the tree
-        let leaves_ser = vec_fr_to_bytes_le(&leaves).unwrap();
-        let input_buffer = &Buffer::from(leaves_ser.as_ref());
-        let success = init_tree_with_leaves(rln_pointer, input_buffer);
-        assert!(success, "set leaves call failed");
+        set_leaves_init(rln_pointer, &leaves);
 
         // We generate a new identity pair
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = key_gen(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "key gen call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
-        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
+        let (identity_secret_hash, id_commitment) = identity_pair_gen(rln_pointer);
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
-
         let identity_index: usize = NO_OF_LEAVES;
 
         // We generate a random signal
@@ -671,13 +565,8 @@ mod test {
         serialized.append(&mut signal.to_vec());
 
         // We call generate_rln_proof
-        let input_buffer = &Buffer::from(serialized.as_ref());
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = generate_rln_proof(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
-        assert!(success, "generate rln proof call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
         // result_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
-        let mut proof_data = <&[u8]>::from(&output_buffer).to_vec();
+        let mut proof_data = rln_proof_gen(rln_pointer, serialized.as_ref());
 
         // We prepare input for verify_rln_proof API
         // input_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
@@ -717,12 +606,7 @@ mod test {
 
         // We finally include the correct root
         // We get the root of the tree obtained adding one leaf per time
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "get root call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root, _) = bytes_le_to_fr(&result_data);
+        let root = get_tree_root(rln_pointer);
 
         // We include the root and verify the proof
         roots_data.append(&mut fr_to_bytes_le(&root));
@@ -744,13 +628,7 @@ mod test {
         let rln_pointer = create_rln_instance();
 
         // We generate a new identity pair
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = key_gen(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "key gen call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
-        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
+        let (identity_secret_hash, id_commitment) = identity_pair_gen(rln_pointer);
 
         let user_message_limit = Fr::from(100);
         let message_id = Fr::from(0);
@@ -799,22 +677,12 @@ mod test {
         serialized2.append(&mut signal2.to_vec());
 
         // We call generate_rln_proof for first proof values
-        let input_buffer = &Buffer::from(serialized1.as_ref());
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = generate_rln_proof(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
-        assert!(success, "generate rln proof call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
         // result_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
-        let proof_data_1 = <&[u8]>::from(&output_buffer).to_vec();
+        let proof_data_1 = rln_proof_gen(rln_pointer, serialized1.as_ref());
 
         // We call generate_rln_proof
-        let input_buffer = &Buffer::from(serialized2.as_ref());
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = generate_rln_proof(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
-        assert!(success, "generate rln proof call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
         // result_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
-        let proof_data_2 = <&[u8]>::from(&output_buffer).to_vec();
+        let proof_data_2 = rln_proof_gen(rln_pointer, serialized2.as_ref());
 
         let input_proof_buffer_1 = &Buffer::from(proof_data_1.as_ref());
         let input_proof_buffer_2 = &Buffer::from(proof_data_2.as_ref());
@@ -840,13 +708,7 @@ mod test {
         // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
 
         // We generate a new identity pair
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = key_gen(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "key gen call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret_hash_new, read) = bytes_le_to_fr(&result_data);
-        let (id_commitment_new, _) = bytes_le_to_fr(&result_data[read..].to_vec());
+        let (identity_secret_hash_new, id_commitment_new) = identity_pair_gen(rln_pointer);
         let rate_commitment_new = utils_poseidon_hash(&[id_commitment_new, user_message_limit]);
 
         // We set as leaf id_commitment, its index would be equal to 1 since at 0 there is id_commitment
@@ -873,13 +735,8 @@ mod test {
         serialized.append(&mut signal3.to_vec());
 
         // We call generate_rln_proof
-        let input_buffer = &Buffer::from(serialized.as_ref());
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = generate_rln_proof(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
-        assert!(success, "generate rln proof call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
         // result_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
-        let proof_data_3 = <&[u8]>::from(&output_buffer).to_vec();
+        let proof_data_3 = rln_proof_gen(rln_pointer, serialized.as_ref());
 
         // We attempt to recover the secret using share1 (coming from identity_secret_hash) and share3 (coming from identity_secret_hash_new)
 
@@ -1100,14 +957,13 @@ mod test {
     #[test]
     fn test_empty_metadata() {
         // We create a RLN instance
-        let mut rln_pointer = create_rln_instance();
+        let rln_pointer = create_rln_instance();
 
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
         let success = get_metadata(rln_pointer, output_buffer.as_mut_ptr());
         assert!(success, "get_metadata call failed");
 
         let output_buffer = unsafe { output_buffer.assume_init() };
-
         assert_eq!(output_buffer.len, 0);
     }
 }

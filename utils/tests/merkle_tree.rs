@@ -170,8 +170,8 @@ pub mod test {
         .unwrap();
 
         // ensure that the leaves are set correctly
-        for (i, &new_leave) in new_leaves.iter().enumerate() {
-            assert_eq!(tree.get_leaf(i), new_leave);
+        for (i, &new_leaf) in new_leaves.iter().enumerate() {
+            assert_eq!(tree.get_leaf(i), new_leaf);
         }
     }
 }

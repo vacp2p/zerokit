@@ -10,7 +10,7 @@ pub fn get_leaves(n: u32) -> Vec<Fr> {
 }
 
 pub fn optimal_merkle_tree_poseidon_benchmark(c: &mut Criterion) {
-    c.bench_function("OptimalMerkleTree::full_height_gen", |b| {
+    c.bench_function("OptimalMerkleTree::<Poseidon>::full_height_gen", |b| {
         b.iter(|| {
             OptimalMerkleTree::<PoseidonHash>::default(TEST_TREE_HEIGHT).unwrap();
         })
@@ -21,23 +21,27 @@ pub fn optimal_merkle_tree_poseidon_benchmark(c: &mut Criterion) {
         let leaves = get_leaves(n);
 
         let mut tree = OptimalMerkleTree::<PoseidonHash>::default(TEST_TREE_HEIGHT).unwrap();
-        group.bench_function(BenchmarkId::new("OptimalMerkleTree::set", n), |b| {
-            b.iter(|| {
-                for (i, l) in leaves.iter().enumerate() {
-                    let _ = tree.set(i, *l);
-                }
-            })
-        });
+        group.bench_function(
+            BenchmarkId::new("OptimalMerkleTree::<Poseidon>::set", n),
+            |b| {
+                b.iter(|| {
+                    for (i, l) in leaves.iter().enumerate() {
+                        let _ = tree.set(i, *l);
+                    }
+                })
+            },
+        );
 
-        group.bench_function(BenchmarkId::new("OptimalMerkleTree::set_range", n), |b| {
-            b.iter(|| tree.set_range(0, leaves.iter().cloned()))
-        });
+        group.bench_function(
+            BenchmarkId::new("OptimalMerkleTree::<Poseidon>::set_range", n),
+            |b| b.iter(|| tree.set_range(0, leaves.iter().cloned())),
+        );
     }
     group.finish();
 }
 
 pub fn full_merkle_tree_poseidon_benchmark(c: &mut Criterion) {
-    c.bench_function("FullMerkleTree::full_height_gen", |b| {
+    c.bench_function("FullMerkleTree::<Poseidon>::full_height_gen", |b| {
         b.iter(|| {
             FullMerkleTree::<PoseidonHash>::default(TEST_TREE_HEIGHT).unwrap();
         })
@@ -48,17 +52,21 @@ pub fn full_merkle_tree_poseidon_benchmark(c: &mut Criterion) {
         let leaves = get_leaves(n);
 
         let mut tree = FullMerkleTree::<PoseidonHash>::default(TEST_TREE_HEIGHT).unwrap();
-        group.bench_function(BenchmarkId::new("FullMerkleTree::set", n), |b| {
-            b.iter(|| {
-                for (i, l) in leaves.iter().enumerate() {
-                    let _ = tree.set(i, *l);
-                }
-            })
-        });
+        group.bench_function(
+            BenchmarkId::new("FullMerkleTree::<Poseidon>::set", n),
+            |b| {
+                b.iter(|| {
+                    for (i, l) in leaves.iter().enumerate() {
+                        let _ = tree.set(i, *l);
+                    }
+                })
+            },
+        );
 
-        group.bench_function(BenchmarkId::new("FullMerkleTree::set_range", n), |b| {
-            b.iter(|| tree.set_range(0, leaves.iter().cloned()))
-        });
+        group.bench_function(
+            BenchmarkId::new("FullMerkleTree::<Poseidon>::set_range", n),
+            |b| b.iter(|| tree.set_range(0, leaves.iter().cloned())),
+        );
     }
     group.finish();
 }
