@@ -398,14 +398,6 @@ mod test {
         );
     }
 
-    fn fread(fpath: &str) -> Vec<u8> {
-        let mut file = File::open(&fpath).expect("no file found");
-        let metadata = std::fs::metadata(&fpath).expect("unable to read metadata");
-        let mut buffer = vec![0; metadata.len() as usize];
-        file.read_exact(&mut buffer).expect("buffer overflow");
-        buffer
-    }
-
     #[test]
     // Creating a RLN with raw data should generate same results as using a path to resources
     fn test_rln_raw_ffi() {
@@ -416,15 +408,34 @@ mod test {
         let root_rln_folder = get_tree_root(rln_pointer);
 
         // Reading the raw data from the files required for instantiating a RLN instance using raw data
-        let circom_data = &Buffer::from(fread("./resources/tree_height_20/rln.wasm").as_ref());
-        let vk_data =
-            &Buffer::from(fread("./resources/tree_height_20/verification_key.json").as_ref());
+        let circom_path = "./resources/tree_height_20/rln.wasm";
+        let mut circom_file = File::open(&circom_path).expect("no file found");
+        let metadata = std::fs::metadata(&circom_path).expect("unable to read metadata");
+        let mut circom_buffer = vec![0; metadata.len() as usize];
+        circom_file
+            .read_exact(&mut circom_buffer)
+            .expect("buffer overflow");
 
         #[cfg(feature = "arkzkey")]
         let zkey_path = "./resources/tree_height_20/rln_final.arkzkey";
         #[cfg(not(feature = "arkzkey"))]
         let zkey_path = "./resources/tree_height_20/rln_final.zkey";
-        let zkey_data = &Buffer::from(fread(zkey_path).as_ref());
+        let mut zkey_file = File::open(&zkey_path).expect("no file found");
+        let metadata = std::fs::metadata(&zkey_path).expect("unable to read metadata");
+        let mut zkey_buffer = vec![0; metadata.len() as usize];
+        zkey_file
+            .read_exact(&mut zkey_buffer)
+            .expect("buffer overflow");
+
+        let vk_path = "./resources/tree_height_20/verification_key.json";
+        let mut vk_file = File::open(&vk_path).expect("no file found");
+        let metadata = std::fs::metadata(&vk_path).expect("unable to read metadata");
+        let mut vk_buffer = vec![0; metadata.len() as usize];
+        vk_file.read_exact(&mut vk_buffer).expect("buffer overflow");
+
+        let circom_data = &Buffer::from(&circom_buffer[..]);
+        let zkey_data = &Buffer::from(&zkey_buffer[..]);
+        let vk_data = &Buffer::from(&vk_buffer[..]);
 
         // Creating a RLN instance passing the raw data
         let mut rln_pointer_raw_bytes = MaybeUninit::<*mut RLN>::uninit();
