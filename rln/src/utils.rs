@@ -5,6 +5,8 @@ use ark_ff::PrimeField;
 use color_eyre::{Report, Result};
 use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
+use serde_json::json;
+use std::io::Cursor;
 use std::iter::Extend;
 
 pub fn to_bigint(el: &Fr) -> Result<BigInt> {
@@ -177,6 +179,11 @@ pub fn normalize_usize(input: usize) -> Vec<u8> {
     let mut normalized_usize = input.to_le_bytes().to_vec();
     normalized_usize.resize(8, 0);
     normalized_usize
+}
+
+// using for test
+pub fn generate_input_buffer() -> Cursor<String> {
+    Cursor::new(json!({}).to_string())
 }
 
 /* Old conversion utilities between different libraries data types

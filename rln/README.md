@@ -23,7 +23,7 @@ cargo make test
 
 ### Compile ZK circuits
 
-The `rln` (https://github.com/privacy-scaling-explorations/rln) repository, which contains the RLN circuit implementation is a submodule of zerokit RLN.
+The `rln` (https://github.com/rate-limiting-nullifier/circom-rln) repository, which contains the RLN circuit implementation is a submodule of zerokit RLN.
 
 To compile the RLN circuit
 

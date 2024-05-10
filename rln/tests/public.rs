@@ -8,7 +8,6 @@ mod test {
     use rln::protocol::{compute_tree_root, deserialize_identity_tuple};
     use rln::public::{hash as public_hash, poseidon_hash as public_poseidon_hash, RLN};
     use rln::utils::*;
-    use serde_json::json;
     use std::io::Cursor;
 
     #[test]
@@ -17,8 +16,7 @@ mod test {
         let leaf_index = 3;
         let user_message_limit = 1;
 
-        let input_buffer = Cursor::new(json!({}).to_string());
-        let mut rln = RLN::new(TEST_TREE_HEIGHT, input_buffer).unwrap();
+        let mut rln = RLN::new(TEST_TREE_HEIGHT, generate_input_buffer()).unwrap();
 
         // generate identity
         let identity_secret_hash = hash_to_field(b"test-merkle-proof");
