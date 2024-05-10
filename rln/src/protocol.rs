@@ -162,7 +162,7 @@ pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)
 
 // This function deserializes input for kilic's rln generate_proof public API
 // https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L148
-// input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | signal_len<8> | signal<var> ]
+// input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
 // return value is a rln witness populated according to this information
 pub fn proof_inputs_to_rln_witness(
     tree: &mut PoseidonTree,
