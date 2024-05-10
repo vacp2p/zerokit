@@ -58,14 +58,15 @@ impl RLN<'_> {
     ///
     /// Input parameters are
     /// - `tree_height`: the height of the internal Merkle tree
-    /// - `input_data`: a reader for the string path of the resource folder containing the ZK circuit (`rln.wasm`), the proving key (`rln_final.zkey`) or (`rln_final.arkzkey`) and the verification key (`verification_key.json`).
-    ///
+    /// - `input_data`: include next parameters
+    ///     - `resources_folder`: a reader for the string path of the resource folder containing the ZK circuit (`rln.wasm`), the proving key (`rln_final.zkey`) or (`rln_final.arkzkey`) and the verification key (`verification_key.json`).
+    ///     - `tree_config`: a reader for a string containing a json with the merkle tree configuration
     /// Example:
     /// ```
     /// use std::io::Cursor;
     ///
     /// let tree_height = 20;
-    /// let resources = Cursor::new(json!({"resources_folder": "tree_height_20"});
+    /// let resources = Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());;
     ///
     /// // We create a new RLN instance
     /// let mut rln = RLN::new(tree_height, resources);
@@ -117,7 +118,7 @@ impl RLN<'_> {
     /// - `circom_vec`: a byte vector containing the ZK circuit (`rln.wasm`) as binary file
     /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`)  or (`rln_final.arkzkey`) as binary file
     /// - `vk_vec`: a byte vector containing to the verification key (`verification_key.json`) as binary file
-    /// - `tree_config`: a reader for a string containing a json with the merkle tree configuration
+    /// - `tree_config_input`: a reader for a string containing a json with the merkle tree configuration
     ///
     /// Example:
     /// ```
@@ -136,7 +137,7 @@ impl RLN<'_> {
     ///     file.read_exact(&mut buffer).expect("buffer overflow");
     ///     resources.push(buffer);
     ///     let tree_config = "{}".to_string();
-    ///     let tree_config_buffer = &Buffer::from(tree_config.as_bytes());
+    ///     let tree_config_input = &Buffer::from(tree_config.as_bytes());
     /// }
     ///
     /// let mut rln = RLN::new_with_params(
@@ -144,7 +145,7 @@ impl RLN<'_> {
     ///     resources[0].clone(),
     ///     resources[1].clone(),
     ///     resources[2].clone(),
-    ///     tree_config_buffer,
+    ///     tree_config_input,
     /// );
     /// ```
     #[cfg(not(target_arch = "wasm32"))]
@@ -265,6 +266,9 @@ impl RLN<'_> {
     /// Input values are:
     /// - `index`: the index of the leaf
     ///
+    /// Output values are:
+    /// - `output_data`: a writer receiving the serialization of the metadata
+    ///
     /// Example:
     /// ```
     /// use crate::protocol::*;
@@ -384,7 +388,7 @@ impl RLN<'_> {
     /// // We atomically add leaves and remove indices from the tree
     /// let mut leaves_buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
     /// let mut indices_buffer = Cursor::new(vec_u8_to_bytes_le(&indices));
-    /// rln.set_leaves_from(index, &mut leaves_buffer, indices_buffer).unwrap();
+    /// rln.atomic_operation(index, &mut leaves_buffer, indices_buffer).unwrap();
     /// ```
     pub fn atomic_operation<R: Read>(
         &mut self,
@@ -629,7 +633,8 @@ impl RLN<'_> {
     /// Verifies a zkSNARK RLN proof.
     ///
     /// Input values are:
-    /// - `input_data`: a reader for the serialization of the RLN zkSNARK proof concatenated with a serialization of the circuit output values, i.e. `[ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]`, where <_> indicates the byte length.
+    /// - `input_data`: a reader for the serialization of the RLN zkSNARK proof concatenated with a serialization of the circuit output values,
+    ///  i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]`, where <_> indicates the byte length.
     ///
     /// The function returns true if the zkSNARK proof is valid with respect to the provided circuit output values, false otherwise.
     ///
@@ -664,7 +669,7 @@ impl RLN<'_> {
     pub fn verify<R: Read>(&self, mut input_data: R) -> Result<bool> {
         // Input data is serialized for Curve as:
         // serialized_proof (compressed, 4*32 bytes) || serialized_proof_values (6*32 bytes), i.e.
-        // [ proof<128> | root<32> | external_nullifier<32> | share_x<32> | share_y<32> | nullifier<32> ]
+        // [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
         let mut input_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input_byte)?;
         let proof = ArkProof::deserialize_compressed(&mut Cursor::new(&input_byte[..128]))?;
@@ -676,18 +681,19 @@ impl RLN<'_> {
         Ok(verified)
     }
 
-    /// Computes a zkSNARK RLN proof from the identity secret, the Merkle tree index, the epoch and signal.
+    /// Computes a zkSNARK RLN proof from the identity secret, the Merkle tree index, the user message limit, the message id, the external nullifier (which include epoch and rln identifier) and signal.
     ///
     /// Input values are:
-    /// - `input_data`: a reader for the serialization of `[ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]`
+    /// - `input_data`: a reader for the serialization of `[ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]`
     ///
     /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the zkSNARK proof and the circuit evaluations outputs, i.e. `[ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]`
+    /// - `output_data`: a writer receiving the serialization of the zkSNARK proof and the circuit evaluations outputs, i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]`
     ///
     /// Example
     /// ```
     /// use rln::protocol::*:
     /// use rln::utils::*;
+    /// use rln::hashers::*;
     ///
     /// // Generate identity pair
     /// let (identity_secret_hash, id_commitment) = keygen();
@@ -701,15 +707,21 @@ impl RLN<'_> {
     /// // We generate a random signal
     /// let mut rng = rand::thread_rng();
     /// let signal: [u8; 32] = rng.gen();
+    ///
     /// // We generate a random epoch
     /// let epoch = hash_to_field(b"test-epoch");
+    /// // We generate a random rln_identifier
+    /// let rln_identifier = hash_to_field(b"test-rln-identifier");
+    /// let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
     ///
     /// // We prepare input for generate_rln_proof API
-    /// // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+    /// // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
     /// let mut serialized: Vec<u8> = Vec::new();
     /// serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
     /// serialized.append(&mut normalize_usize(identity_index));
-    /// serialized.append(&mut fr_to_bytes_le(&epoch));
+    /// serialized.append(&mut fr_to_bytes_le(&user_message_limit));
+    /// serialized.append(&mut fr_to_bytes_le(&Fr::from(1))); // message_id
+    /// serialized.append(&mut fr_to_bytes_le(&external_nullifier));
     /// serialized.append(&mut normalize_usize(signal_len).resize(8,0));
     /// serialized.append(&mut signal.to_vec());
     ///
@@ -718,7 +730,7 @@ impl RLN<'_> {
     /// rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
     ///     .unwrap();
     ///
-    /// // proof_data is [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> |  rln_identifier<32> ]
+    /// // proof_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
     /// let mut proof_data = output_buffer.into_inner();
     /// ```
     #[cfg(not(target_arch = "wasm32"))]
@@ -746,7 +758,7 @@ impl RLN<'_> {
     // TODO: this function seems to use redundant witness (as bigint and serialized) and should be refactored
     // Generate RLN Proof using a witness calculated from outside zerokit
     //
-    // output_data is  [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
+    // output_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
     // we skip it from documentation for now
     #[doc(hidden)]
     pub fn generate_rln_proof_with_witness<W: Write>(
@@ -770,7 +782,8 @@ impl RLN<'_> {
     /// Verifies a zkSNARK RLN proof against the provided proof values and the state of the internal Merkle tree.
     ///
     /// Input values are:
-    /// - `input_data`: a reader for the serialization of the RLN zkSNARK proof concatenated with a serialization of the circuit output values and the signal information, i.e. `[ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> | signal_len<8> | signal<var> ]`
+    /// - `input_data`: a reader for the serialization of the RLN zkSNARK proof concatenated with a serialization of the circuit output values and the signal information,
+    ///  i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var>]`, where <_> indicates the byte length.
     ///
     /// The function returns true if the zkSNARK proof is valid with respect to the provided circuit output values and signal. Returns false otherwise.
     ///
@@ -784,7 +797,7 @@ impl RLN<'_> {
     /// // proof_data is computed as in the example code snippet provided for rln::public::RLN::generate_rln_proof
     ///
     /// // We prepare input for verify_rln_proof API
-    /// // input_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
+    /// // input_data is  `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var>]`
     /// // that is [ proof_data || signal_len<8> | signal<var> ]
     /// proof_data.append(&mut normalize_usize(signal_len));
     /// proof_data.append(&mut signal.to_vec());
@@ -821,7 +834,7 @@ impl RLN<'_> {
     /// Verifies a zkSNARK RLN proof against the provided proof values and a set of allowed Merkle tree roots.
     ///
     /// Input values are:
-    /// - `input_data`: a reader for the serialization of the RLN zkSNARK proof concatenated with a serialization of the circuit output values and the signal information, i.e. `[ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> | signal_len<8> | signal<var> ]`
+    /// - `input_data`: a reader for the serialization of the RLN zkSNARK proof concatenated with a serialization of the circuit output values and the signal information, i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var>]`
     /// - `roots_data`: a reader for the serialization of a vector of roots, i.e. `[ number_of_roots<8> | root_1<32> | ... | root_n<32> ]` (number_of_roots is a uint64 in little-endian, roots are serialized using `rln::utils::fr_to_bytes_le`))
     ///
     /// The function returns true if the zkSNARK proof is valid with respect to the provided circuit output values, signal and roots. Returns false otherwise.
@@ -1076,10 +1089,12 @@ impl RLN<'_> {
         Ok(())
     }
 
-    /// Recovers the identity secret from two set of proof values computed for same secret in same epoch.
+    /// Recovers the identity secret from two set of proof values computed for same secret in same epoch with same rln identifier.
     ///
     /// Input values are:
-    /// - `input_proof_data_1`: a reader for the serialization of a RLN zkSNARK proof concatenated with a serialization of the circuit output values and -optionally- the signal information, i.e. either `[ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]` or `[ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> | signal_len<8> | signal<var> ]` (to maintain compatibility with both output of [`generate_rln_proof`](crate::public::RLN::generate_rln_proof) and input of [`verify_rln_proof`](crate::public::RLN::verify_rln_proof))
+    /// - `input_proof_data_1`: a reader for the serialization of a RLN zkSNARK proof concatenated with a serialization of the circuit output values and -optionally- the signal information,
+    /// i.e. either `[proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]`
+    /// or `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]` (to maintain compatibility with both output of [`generate_rln_proof`](crate::public::RLN::generate_rln_proof) and input of [`verify_rln_proof`](crate::public::RLN::verify_rln_proof))
     /// - `input_proof_data_2`: same as `input_proof_data_1`
     ///
     /// Output values are:
@@ -1087,7 +1102,7 @@ impl RLN<'_> {
     ///
     /// Example
     /// ```
-    /// // identity_secret_hash, proof_data_1 and proof_data_2 are computed as in the example code snippet provided for rln::public::RLN::generate_rln_proof using same identity secret and epoch (but not necessarily same signal)
+    /// // identity_secret_hash, proof_data_1 and proof_data_2 are computed as in the example code snippet provided for rln::public::RLN::generate_rln_proof using same identity secret, epoch and rln identifier (but not necessarily same signal)
     ///
     /// let mut input_proof_data_1 = Cursor::new(proof_data_1);
     /// let mut input_proof_data_2 = Cursor::new(proof_data_2);
@@ -1127,8 +1142,8 @@ impl RLN<'_> {
         let (proof_values_2, _) = deserialize_proof_values(&serialized[128..]);
         let external_nullifier_2 = proof_values_2.external_nullifier;
 
-        // We continue only if the proof values are for the same epoch
-        // The idea is that proof values that go as input to this function are verified first (with zk-proof verify), hence ensuring validity of epoch and other fields.
+        // We continue only if the proof values are for the same external nullifier (which includes epoch and rln identifier)
+        // The idea is that proof values that go as input to this function are verified first (with zk-proof verify), hence ensuring validity of external nullifier and other fields.
         // Only in case all fields are valid, an external_nullifier for the message will be stored (otherwise signal/proof will be simply discarded)
         // If the nullifier matches one already seen, we can recovery of identity secret.
         if external_nullifier_1 == external_nullifier_2 {
@@ -1150,10 +1165,10 @@ impl RLN<'_> {
         Ok(())
     }
 
-    /// Returns the serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) populated from the identity secret, the Merkle tree index, the epoch and signal.
+    /// Returns the serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) populated from the identity secret, the Merkle tree index, the user message limit, the message id, the external nullifier (which include epoch and rln identifier) and signal.
     ///
     /// Input values are:
-    /// - `input_data`: a reader for the serialization of `[ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]`
+    /// - `input_data`: a reader for the serialization of `[ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]`
     ///
     /// The function returns the corresponding [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object serialized using [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
     pub fn get_serialized_rln_witness<R: Read>(&mut self, mut input_data: R) -> Result<Vec<u8>> {
