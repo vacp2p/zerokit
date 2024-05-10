@@ -66,7 +66,7 @@ impl RLN<'_> {
     /// use std::io::Cursor;
     ///
     /// let tree_height = 20;
-    /// let resources = Cursor::new(json!({"resources_folder": "tree_config"});
+    /// let resources = Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());;
     ///
     /// // We create a new RLN instance
     /// let mut rln = RLN::new(tree_height, resources);
