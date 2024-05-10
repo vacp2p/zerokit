@@ -18,7 +18,7 @@ mod test {
 
     fn create_rln_instance() -> &'static mut RLN<'static> {
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let input_config = json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string();
+        let input_config = json!({}).to_string();
         let input_buffer = &Buffer::from(input_config.as_bytes());
         let success = new(TEST_TREE_HEIGHT, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
@@ -509,11 +509,11 @@ mod test {
         serialized.append(&mut signal.to_vec());
 
         // We call generate_rln_proof
-        // result_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+        // result_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
         let mut proof_data = rln_proof_gen(rln_pointer, serialized.as_ref());
 
         // We prepare input for verify_rln_proof API
-        // input_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
+        // input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
         // that is [ proof_data | signal_len<8> | signal<var> ]
         proof_data.append(&mut normalize_usize(signal.len()));
         proof_data.append(&mut signal.to_vec());
@@ -576,11 +576,11 @@ mod test {
         serialized.append(&mut signal.to_vec());
 
         // We call generate_rln_proof
-        // result_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+        // result_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
         let mut proof_data = rln_proof_gen(rln_pointer, serialized.as_ref());
 
         // We prepare input for verify_rln_proof API
-        // input_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
+        // input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
         // that is [ proof_data | signal_len<8> | signal<var> ]
         proof_data.append(&mut normalize_usize(signal.len()));
         proof_data.append(&mut signal.to_vec());
@@ -688,11 +688,11 @@ mod test {
         serialized2.append(&mut signal2.to_vec());
 
         // We call generate_rln_proof for first proof values
-        // result_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+        // result_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
         let proof_data_1 = rln_proof_gen(rln_pointer, serialized1.as_ref());
 
         // We call generate_rln_proof
-        // result_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+        // result_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
         let proof_data_2 = rln_proof_gen(rln_pointer, serialized2.as_ref());
 
         let input_proof_buffer_1 = &Buffer::from(proof_data_1.as_ref());
@@ -746,7 +746,7 @@ mod test {
         serialized.append(&mut signal3.to_vec());
 
         // We call generate_rln_proof
-        // result_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+        // result_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
         let proof_data_3 = rln_proof_gen(rln_pointer, serialized.as_ref());
 
         // We attempt to recover the secret using share1 (coming from identity_secret_hash) and share3 (coming from identity_secret_hash_new)

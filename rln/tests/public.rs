@@ -3,7 +3,7 @@ mod test {
     use ark_ff::BigInt;
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
-    use rln::circuit::{Fr, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
+    use rln::circuit::{Fr, TEST_TREE_HEIGHT};
     use rln::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash, ROUND_PARAMS};
     use rln::protocol::{compute_tree_root, deserialize_identity_tuple};
     use rln::public::{hash as public_hash, poseidon_hash as public_poseidon_hash, RLN};
@@ -17,8 +17,7 @@ mod test {
         let leaf_index = 3;
         let user_message_limit = 1;
 
-        let input_buffer =
-            Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
+        let input_buffer = Cursor::new(json!({}).to_string());
         let mut rln = RLN::new(TEST_TREE_HEIGHT, input_buffer).unwrap();
 
         // generate identity

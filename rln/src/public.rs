@@ -19,7 +19,7 @@ cfg_if! {
     if #[cfg(not(target_arch = "wasm32"))] {
         use std::default::Default;
         use std::sync::Mutex;
-        use crate::circuit::{circom_from_folder, vk_from_folder, circom_from_raw, zkey_from_folder, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
+        use crate::circuit::{circom_from_folder, vk_from_folder, circom_from_raw, zkey_from_folder, TEST_TREE_HEIGHT};
         use ark_circom::WitnessCalculator;
         use serde_json::{json, Value};
         use utils::{Hasher};
@@ -58,18 +58,16 @@ impl RLN<'_> {
     ///
     /// Input parameters are
     /// - `tree_height`: the height of the internal Merkle tree
-    /// - `input_data`: include next parameters
-    ///     - `resources_folder`: a reader for the string path of the resource folder containing the ZK circuit (`rln.wasm`), the proving key (`rln_final.zkey`) or (`rln_final.arkzkey`) and the verification key (`verification_key.json`).
-    ///     - `tree_config`: a reader for a string containing a json with the merkle tree configuration
+    /// - `input_data`: include `tree_config` a reader for a string containing a json with the merkle tree configuration
     /// Example:
     /// ```
     /// use std::io::Cursor;
     ///
     /// let tree_height = 20;
-    /// let resources = Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());;
+    /// let input = Cursor::new(json!({}).to_string());;
     ///
     /// // We create a new RLN instance
-    /// let mut rln = RLN::new(tree_height, resources);
+    /// let mut rln = RLN::new(tree_height, input);
     /// ```
     #[cfg(not(target_arch = "wasm32"))]
     pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> Result<RLN<'static>> {
@@ -78,15 +76,12 @@ impl RLN<'_> {
         input_data.read_to_end(&mut input)?;
 
         let rln_config: Value = serde_json::from_str(&String::from_utf8(input)?)?;
-        let resources_folder = rln_config["resources_folder"]
-            .as_str()
-            .unwrap_or(TEST_RESOURCES_FOLDER);
         let tree_config = rln_config["tree_config"].to_string();
 
-        let witness_calculator = circom_from_folder(resources_folder)?;
-        let proving_key = zkey_from_folder(resources_folder)?;
+        let witness_calculator = circom_from_folder()?;
+        let proving_key = zkey_from_folder()?;
 
-        let verification_key = vk_from_folder(resources_folder)?;
+        let verification_key = vk_from_folder()?;
 
         let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = if tree_config.is_empty() {
             <PoseidonTree as ZerokitMerkleTree>::Config::default()
@@ -1204,7 +1199,7 @@ impl RLN<'_> {
 impl Default for RLN<'_> {
     fn default() -> Self {
         let tree_height = TEST_TREE_HEIGHT;
-        let buffer = Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
+        let buffer = Cursor::new(json!({}).to_string());
         Self::new(tree_height, buffer).unwrap()
     }
 }
