@@ -2,9 +2,7 @@
 mod test {
     use ark_ff::BigInt;
     use rln::circuit::zkey_from_folder;
-    use rln::circuit::{
-        circom_from_folder, vk_from_folder, Fr, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT,
-    };
+    use rln::circuit::{circom_from_folder, vk_from_folder, Fr, TEST_TREE_HEIGHT};
     use rln::hashers::{hash_to_field, poseidon_hash};
     use rln::poseidon_tree::PoseidonTree;
     use rln::protocol::*;
@@ -146,9 +144,9 @@ mod test {
     // We test a RLN proof generation and verification
     fn test_witness_from_json() {
         // We generate all relevant keys
-        let proving_key = zkey_from_folder(TEST_RESOURCES_FOLDER).unwrap();
-        let verification_key = vk_from_folder(TEST_RESOURCES_FOLDER).unwrap();
-        let builder = circom_from_folder(TEST_RESOURCES_FOLDER).unwrap();
+        let proving_key = zkey_from_folder().unwrap();
+        let verification_key = vk_from_folder().unwrap();
+        let builder = circom_from_folder().unwrap();
 
         // We compute witness from the json input example
         let witness_json = WITNESS_JSON_20;
@@ -205,9 +203,9 @@ mod test {
         .unwrap();
 
         // We generate all relevant keys
-        let proving_key = zkey_from_folder(TEST_RESOURCES_FOLDER).unwrap();
-        let verification_key = vk_from_folder(TEST_RESOURCES_FOLDER).unwrap();
-        let builder = circom_from_folder(TEST_RESOURCES_FOLDER).unwrap();
+        let proving_key = zkey_from_folder().unwrap();
+        let verification_key = vk_from_folder().unwrap();
+        let builder = circom_from_folder().unwrap();
 
         // Let's generate a zkSNARK proof
         let proof = generate_proof(builder, &proving_key, &rln_witness).unwrap();

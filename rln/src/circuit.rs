@@ -26,7 +26,7 @@ cfg_if! {
 cfg_if! {
     if #[cfg(feature = "arkzkey")] {
         use ark_zkey::read_arkzkey_from_bytes;
-        const ARKZKEY_FILENAME: &str = "rln_final.arkzkey";
+        const ARKZKEY_FILENAME: &str = "tree_height_20/rln_final.arkzkey";
 
     } else {
         use std::io::Cursor;
@@ -34,12 +34,11 @@ cfg_if! {
     }
 }
 
-const ZKEY_FILENAME: &str = "rln_final.zkey";
-const VK_FILENAME: &str = "verification_key.json";
-const WASM_FILENAME: &str = "rln.wasm";
+const ZKEY_FILENAME: &str = "tree_height_20/rln_final.zkey";
+const VK_FILENAME: &str = "tree_height_20/verification_key.json";
+const WASM_FILENAME: &str = "tree_height_20/rln.wasm";
 
 pub const TEST_TREE_HEIGHT: usize = 20;
-pub const TEST_RESOURCES_FOLDER: &str = "tree_height_20";
 
 #[cfg(not(target_arch = "wasm32"))]
 static RESOURCES_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/resources");
@@ -75,13 +74,11 @@ pub fn zkey_from_raw(zkey_data: &Vec<u8>) -> Result<(ProvingKey<Curve>, Constrai
 
 // Loads the proving key
 #[cfg(not(target_arch = "wasm32"))]
-pub fn zkey_from_folder(
-    resources_folder: &str,
-) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
+pub fn zkey_from_folder() -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
     #[cfg(feature = "arkzkey")]
-    let zkey = RESOURCES_DIR.get_file(Path::new(resources_folder).join(ARKZKEY_FILENAME));
+    let zkey = RESOURCES_DIR.get_file(Path::new(ARKZKEY_FILENAME));
     #[cfg(not(feature = "arkzkey"))]
-    let zkey = RESOURCES_DIR.get_file(Path::new(resources_folder).join(ZKEY_FILENAME));
+    let zkey = RESOURCES_DIR.get_file(Path::new(ZKEY_FILENAME));
 
     if let Some(zkey) = zkey {
         let proving_key_and_matrices = match () {
@@ -117,9 +114,9 @@ pub fn vk_from_raw(vk_data: &[u8], zkey_data: &Vec<u8>) -> Result<VerifyingKey<C
 
 // Loads the verification key
 #[cfg(not(target_arch = "wasm32"))]
-pub fn vk_from_folder(resources_folder: &str) -> Result<VerifyingKey<Curve>> {
-    let vk = RESOURCES_DIR.get_file(Path::new(resources_folder).join(VK_FILENAME));
-    let zkey = RESOURCES_DIR.get_file(Path::new(resources_folder).join(ZKEY_FILENAME));
+pub fn vk_from_folder() -> Result<VerifyingKey<Curve>> {
+    let vk = RESOURCES_DIR.get_file(Path::new(VK_FILENAME));
+    let zkey = RESOURCES_DIR.get_file(Path::new(ZKEY_FILENAME));
 
     let verifying_key: VerifyingKey<Curve>;
     if let Some(vk) = vk {
@@ -128,7 +125,7 @@ pub fn vk_from_folder(resources_folder: &str) -> Result<VerifyingKey<Curve>> {
         ))?)?;
         Ok(verifying_key)
     } else if let Some(_zkey) = zkey {
-        let (proving_key, _matrices) = zkey_from_folder(resources_folder)?;
+        let (proving_key, _matrices) = zkey_from_folder()?;
         verifying_key = proving_key.vk;
         Ok(verifying_key)
     } else {
@@ -152,9 +149,9 @@ pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> Result<&'static Mutex<WitnessCal
 
 // Initializes the witness calculator
 #[cfg(not(target_arch = "wasm32"))]
-pub fn circom_from_folder(resources_folder: &str) -> Result<&'static Mutex<WitnessCalculator>> {
+pub fn circom_from_folder() -> Result<&'static Mutex<WitnessCalculator>> {
     // We read the wasm file
-    let wasm = RESOURCES_DIR.get_file(Path::new(resources_folder).join(WASM_FILENAME));
+    let wasm = RESOURCES_DIR.get_file(Path::new(WASM_FILENAME));
 
     if let Some(wasm) = wasm {
         let wasm_buffer = wasm.contents();
@@ -277,11 +274,8 @@ fn vk_from_vector(vk: &[u8]) -> Result<VerifyingKey<Curve>> {
 
 // Checks verification key to be correct with respect to proving key
 #[cfg(not(target_arch = "wasm32"))]
-pub fn check_vk_from_zkey(
-    resources_folder: &str,
-    verifying_key: VerifyingKey<Curve>,
-) -> Result<()> {
-    let (proving_key, _matrices) = zkey_from_folder(resources_folder)?;
+pub fn check_vk_from_zkey(verifying_key: VerifyingKey<Curve>) -> Result<()> {
+    let (proving_key, _matrices) = zkey_from_folder()?;
     if proving_key.vk == verifying_key {
         Ok(())
     } else {

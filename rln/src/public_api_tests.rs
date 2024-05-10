@@ -1,4 +1,4 @@
-use crate::circuit::{Curve, Fr, TEST_RESOURCES_FOLDER, TEST_TREE_HEIGHT};
+use crate::circuit::{Curve, Fr, TEST_TREE_HEIGHT};
 use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
 use crate::protocol::*;
 use crate::public::RLN;
@@ -28,9 +28,7 @@ fn test_merkle_operations() {
     }
 
     // We create a new tree
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
     // We first add leaves one by one specifying the index
     for (i, leaf) in leaves.iter().enumerate() {
@@ -124,9 +122,7 @@ fn test_leaf_setting_with_index() {
     let set_index = rng.gen_range(0..no_of_leaves) as usize;
 
     // We create a new tree
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
     // We add leaves in a batch into the tree
     let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
@@ -196,9 +192,7 @@ fn test_atomic_operation() {
     }
 
     // We create a new tree
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
     // We add leaves in a batch into the tree
     let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
@@ -247,9 +241,7 @@ fn test_atomic_operation_zero_indexed() {
     }
 
     // We create a new tree
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
     // We add leaves in a batch into the tree
     let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
@@ -293,9 +285,7 @@ fn test_atomic_operation_consistency() {
     }
 
     // We create a new tree
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
     // We add leaves in a batch into the tree
     let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
@@ -348,9 +338,7 @@ fn test_set_leaves_bad_index() {
     let bad_index = (1 << tree_height) - rng.gen_range(0..no_of_leaves) as usize;
 
     // We create a new tree
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
     // Get root of empty tree
     let mut buffer = Cursor::new(Vec::<u8>::new());
@@ -413,9 +401,7 @@ fn value_to_string_vec(value: &Value) -> Vec<String> {
 fn test_groth16_proof_hardcoded() {
     let tree_height = TEST_TREE_HEIGHT;
 
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let rln = RLN::new(tree_height, input_buffer).unwrap();
+    let rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
     let valid_snarkjs_proof = json!({
      "pi_a": [
@@ -495,9 +481,7 @@ fn test_groth16_proof_hardcoded() {
 fn test_groth16_proof() {
     let tree_height = TEST_TREE_HEIGHT;
 
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
     // Note: we only test Groth16 proof generation, so we ignore setting the tree in the RLN object
     let rln_witness = random_rln_witness(tree_height);
@@ -543,9 +527,7 @@ fn test_rln_proof() {
     }
 
     // We create a new RLN instance
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
     // We add leaves in a batch into the tree
     let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
@@ -588,11 +570,11 @@ fn test_rln_proof() {
     rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
         .unwrap();
 
-    // output_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+    // output_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
     let mut proof_data = output_buffer.into_inner();
 
     // We prepare input for verify_rln_proof API
-    // input_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
+    // input_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
     // that is [ proof_data || signal_len<8> | signal<var> ]
     proof_data.append(&mut normalize_usize(signal.len()));
     proof_data.append(&mut signal.to_vec());
@@ -616,9 +598,7 @@ fn test_rln_with_witness() {
     }
 
     // We create a new RLN instance
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
     // We add leaves in a batch into the tree
     let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
@@ -693,11 +673,11 @@ fn test_rln_with_witness() {
     )
     .unwrap();
 
-    // output_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+    // output_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
     let mut proof_data = output_buffer.into_inner();
 
     // We prepare input for verify_rln_proof API
-    // input_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
+    // input_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
     // that is [ proof_data || signal_len<8> | signal<var> ]
     proof_data.append(&mut normalize_usize(signal.len()));
     proof_data.append(&mut signal.to_vec());
@@ -722,9 +702,7 @@ fn proof_verification_with_roots() {
     }
 
     // We create a new RLN instance
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
     // We add leaves in a batch into the tree
     let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
@@ -751,7 +729,7 @@ fn proof_verification_with_roots() {
     let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
 
     // We prepare input for generate_rln_proof API
-    // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | rln_identifier<32> | user_message_limit<32> | message_id<32> | signal_len<8> | signal<var> ]
+    // input_data is [ identity_secret<32> | id_index<8> | external_nullifier<32> | user_message_limit<32> | message_id<32> | signal_len<8> | signal<var> ]
     let mut serialized: Vec<u8> = Vec::new();
     serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
     serialized.append(&mut normalize_usize(identity_index));
@@ -766,11 +744,11 @@ fn proof_verification_with_roots() {
     rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
         .unwrap();
 
-    // output_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+    // output_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
     let mut proof_data = output_buffer.into_inner();
 
     // We prepare input for verify_rln_proof API
-    // input_data is [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
+    // input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
     // that is [ proof_data || signal_len<8> | signal<var> ]
     proof_data.append(&mut normalize_usize(signal.len()));
     proof_data.append(&mut signal.to_vec());
@@ -816,9 +794,7 @@ fn test_recover_id_secret() {
     let tree_height = TEST_TREE_HEIGHT;
 
     // We create a new RLN instance
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
     // Generate identity pair
     let (identity_secret_hash, id_commitment) = keygen();
@@ -953,9 +929,7 @@ fn test_get_leaf() {
     // We generate a random tree
     let tree_height = 10;
     let mut rng = thread_rng();
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
     // We generate a random leaf
     let leaf = Fr::rand(&mut rng);
@@ -980,9 +954,7 @@ fn test_get_leaf() {
 fn test_valid_metadata() {
     let tree_height = TEST_TREE_HEIGHT;
 
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let mut rln = RLN::new(tree_height, input_buffer).unwrap();
+    let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
     let arbitrary_metadata: &[u8] = b"block_number:200000";
     rln.set_metadata(arbitrary_metadata).unwrap();
@@ -998,9 +970,7 @@ fn test_valid_metadata() {
 fn test_empty_metadata() {
     let tree_height = TEST_TREE_HEIGHT;
 
-    let input_buffer =
-        Cursor::new(json!({ "resources_folder": TEST_RESOURCES_FOLDER }).to_string());
-    let rln = RLN::new(tree_height, input_buffer).unwrap();
+    let rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
     let mut buffer = Cursor::new(Vec::<u8>::new());
     rln.get_metadata(&mut buffer).unwrap();
