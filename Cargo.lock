@@ -3595,6 +3595,7 @@ dependencies = [
  "ark-ff",
  "color-eyre",
  "criterion 0.4.0",
+ "hex",
  "hex-literal",
  "lazy_static 1.4.0",
  "num-bigint",

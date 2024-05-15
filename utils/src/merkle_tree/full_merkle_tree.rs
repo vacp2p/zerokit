@@ -141,6 +141,33 @@ where
         Ok(self.nodes[self.capacity() + leaf - 1])
     }
 
+    fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr> {
+        if n > self.depth() {
+            return Err(Report::msg("level exceeds depth size"));
+        }
+        if index >= self.capacity() {
+            return Err(Report::msg("index exceeds set size"));
+        }
+        if n == 0 {
+            Ok(self.root())
+        } else if n == self.depth {
+            self.get(index)
+        } else {
+            let mut idx = self.capacity() + index - 1;
+            let mut nd = self.depth;
+            loop {
+                let parent = self.parent(idx).unwrap();
+                nd -= 1;
+                if nd == n {
+                    return Ok(self.nodes[parent]);
+                } else {
+                    idx = parent;
+                    continue;
+                }
+            }
+        }
+    }
+
     // Sets tree nodes, starting from start index
     // Function proper of FullMerkleTree implementation
     fn set_range<I: IntoIterator<Item = FrOf<Self::Hasher>>>(

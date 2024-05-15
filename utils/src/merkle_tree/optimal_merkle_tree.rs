@@ -108,6 +108,22 @@ where
         self.get_node(0, 0)
     }
 
+    fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr> {
+        if n > self.depth() {
+            return Err(Report::msg("level exceeds depth size"));
+        }
+        if index >= self.capacity() {
+            return Err(Report::msg("index exceeds set size"));
+        }
+        if n == 0 {
+            Ok(self.root())
+        } else if n == self.depth {
+            self.get(index)
+        } else {
+            Ok(self.get_node(n, index >> (self.depth - n)))
+        }
+    }
+
     // Sets a leaf at the specified tree index
     fn set(&mut self, index: usize, leaf: H::Fr) -> Result<()> {
         if index >= self.capacity() {

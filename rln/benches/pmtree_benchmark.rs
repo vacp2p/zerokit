@@ -37,6 +37,13 @@ pub fn pmtree_benchmark(c: &mut Criterion) {
             tree.get(0).unwrap();
         })
     });
+
+    // check intermediate node getter which required additional computation of sub root index
+    c.bench_function("Pmtree::get_subtree_root", |b| {
+        b.iter(|| {
+            tree.get_subtree_root(1, 0).unwrap();
+        })
+    });
 }
 
 criterion_group!(benches, pmtree_benchmark);

@@ -10,9 +10,19 @@ use utils::*;
 
 use crate::circuit::Fr;
 use crate::hashers::{poseidon_hash, PoseidonHash};
+use crate::pm_tree_adapter::pmtree::DBKey;
 use crate::utils::{bytes_le_to_fr, fr_to_bytes_le};
 
 const METADATA_KEY: [u8; 8] = *b"metadata";
+
+// Sourced from https://github.com/vacp2p/pmtree/blob/a48c3d94001e2f6b566afb0801c188c1c2832159/src/tree.rs#L16
+struct Key(usize, usize);
+impl From<Key> for DBKey {
+    fn from(key: Key) -> Self {
+        let cantor_pairing = ((key.0 + key.1) * (key.0 + key.1 + 1) / 2 + key.1) as u64;
+        cantor_pairing.to_be_bytes()
+    }
+}
 
 pub struct PmTree {
     tree: pmtree::MerkleTree<SledDB, PoseidonHash>,
@@ -185,6 +195,28 @@ impl ZerokitMerkleTree for PmTree {
 
     fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>> {
         self.tree.get(index).map_err(|e| Report::msg(e.to_string()))
+    }
+
+    fn get_subtree_root(&self, n: usize, index: usize) -> Result<FrOf<Self::Hasher>> {
+        if n > self.depth() {
+            return Err(Report::msg("level exceeds depth size"));
+        }
+        if index >= self.capacity() {
+            return Err(Report::msg("index exceeds set size"));
+        }
+        if n == 0 {
+            Ok(self.root())
+        } else if n == self.depth() {
+            self.get(index)
+        } else {
+            let node = self
+                .tree
+                .db
+                .get(Key(n, index >> (self.depth() - n)).into())
+                .unwrap()
+                .unwrap();
+            Ok(Self::Hasher::deserialize(node))
+        }
     }
 
     fn override_range<I: IntoIterator<Item = FrOf<Self::Hasher>>, J: IntoIterator<Item = usize>>(
