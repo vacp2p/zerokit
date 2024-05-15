@@ -3,7 +3,7 @@
 pub mod test {
     use hex_literal::hex;
     use lazy_static::lazy_static;
-    use std::{collections::HashMap, fmt::Display, str::FromStr};
+    use std::{fmt::Display, str::FromStr};
     use tiny_keccak::{Hasher as _, Keccak};
     use zerokit_utils::{
         FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree,
@@ -109,33 +109,8 @@ pub mod test {
 
     #[test]
     fn test_subtree_root() {
-        let mut subtree_roots: HashMap<usize, Vec<TestFr>> = HashMap::new();
-        subtree_roots.insert(
-            2,
-            [
-                hex!("e90b7bceb6e7df5418fb78d8ee546e97c83a08bbccc01a0644d599ccd2a7c2e0"),
-                hex!("2e174c10e159ea99b867ce3205125c24a42d128804e4070ed6fcc8cc98166aa0"),
-                hex!("bfd358e93f18da3ed276c3afdbdba00b8f0b6008a03476a6a86bd6320ee6938b"),
-                hex!("ad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5"),
-            ]
-            .map(TestFr)
-            .to_vec(),
-        );
-        subtree_roots.insert(
-            1,
-            [
-                hex!("a9bb8c3f1f12e9aa903a50c47f314b57610a3ab32f2d463293f58836def38d36"),
-                hex!("f00594ffc06155c440df3fabd328625cf94342eaed0ecb4fcdd05f54e942a4cf"),
-            ]
-            .map(TestFr)
-            .to_vec(),
-        );
-
         let mut tree_full = default_optimal_merkle_tree(DEPTH_3);
         let _ = tree_full.set_range(0, LEAVES_D3.iter().cloned());
-
-        let mut tree_opt = default_full_merkle_tree(DEPTH_3);
-        let _ = tree_opt.set_range(0, LEAVES_D3.iter().cloned());
 
         for i in 0..LEAVES_D3.len() {
             // check leaves
@@ -143,22 +118,53 @@ pub mod test {
                 tree_full.get(i).unwrap(),
                 tree_full.get_subtree_root(DEPTH_3, i).unwrap()
             );
+
+            // check root
+            assert_eq!(tree_full.root(), tree_full.get_subtree_root(0, i).unwrap());
+        }
+
+        // check intermediate nodes
+        for n in (1..=DEPTH_3).rev() {
+            for i in (0..(1 << n)).step_by(2) {
+                let idx_l = i * (1 << (DEPTH_3 - n));
+                let idx_r = (i + 1) * (1 << (DEPTH_3 - n));
+                let idx_sr = idx_l;
+
+                let prev_l = tree_full.get_subtree_root(n, idx_l).unwrap();
+                let prev_r = tree_full.get_subtree_root(n, idx_r).unwrap();
+                let subroot = tree_full.get_subtree_root(n - 1, idx_sr).unwrap();
+
+                // check intermediate nodes
+                assert_eq!(Keccak256::hash(&[prev_l, prev_r]), subroot);
+            }
+        }
+
+        let mut tree_opt = default_full_merkle_tree(DEPTH_3);
+        let _ = tree_opt.set_range(0, LEAVES_D3.iter().cloned());
+
+        for i in 0..LEAVES_D3.len() {
+            // check leaves
             assert_eq!(
                 tree_opt.get(i).unwrap(),
                 tree_opt.get_subtree_root(DEPTH_3, i).unwrap()
             );
             // check root
-            assert_eq!(tree_full.root(), tree_full.get_subtree_root(0, i).unwrap());
             assert_eq!(tree_opt.root(), tree_opt.get_subtree_root(0, i).unwrap());
         }
 
         // check intermediate nodes
-        for n in 1..DEPTH_3 {
-            for i in 0..LEAVES_D3.len() {
-                let subroot_full = tree_full.get_subtree_root(n, i).unwrap();
-                let subroot_opt = tree_opt.get_subtree_root(n, i).unwrap();
-                assert_eq!(subroot_full, subroot_opt);
-                assert_eq!(subroot_full, subtree_roots[&n][i >> (DEPTH_3 - n)]);
+        for n in (1..=DEPTH_3).rev() {
+            for i in (0..(1 << n)).step_by(2) {
+                let idx_l = i * (1 << (DEPTH_3 - n));
+                let idx_r = (i + 1) * (1 << (DEPTH_3 - n));
+                let idx_sr = idx_l;
+
+                let prev_l = tree_opt.get_subtree_root(n, idx_l).unwrap();
+                let prev_r = tree_opt.get_subtree_root(n, idx_r).unwrap();
+                let subroot = tree_opt.get_subtree_root(n - 1, idx_sr).unwrap();
+
+                // check intermediate nodes
+                assert_eq!(Keccak256::hash(&[prev_l, prev_r]), subroot);
             }
         }
     }

@@ -214,7 +214,7 @@ impl ZerokitMerkleTree for PmTree {
                 .db
                 .get(Key(n, index >> (self.depth() - n)).into())
                 .unwrap()
-                .unwrap();
+                .unwrap_or_default(); // here should be cache value as in https://github.com/vacp2p/pmtree/blob/a48c3d94001e2f6b566afb0801c188c1c2832159/src/tree.rs#L180.
             Ok(Self::Hasher::deserialize(node))
         }
     }
