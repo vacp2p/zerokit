@@ -27,6 +27,10 @@ where
     /// The tree nodes
     nodes: HashMap<(usize, usize), H::Fr>,
 
+    /// The indices of leaves which are set into zero upto next_index.
+    /// Set to 0 if the leaf is empty and set to 1 in otherwise.
+    cached_leaves_indices: Vec<u8>,
+
     // The next available (i.e., never used) tree index. Equivalently, the number of leaves added to the tree
     // (deletions leave next_index unchanged)
     next_index: usize,
@@ -78,6 +82,7 @@ where
             cached_nodes: cached_nodes.clone(),
             depth,
             nodes: HashMap::new(),
+            cached_leaves_indices: vec![0; 1 << depth],
             next_index: 0,
             metadata: Vec::new(),
         })
@@ -98,7 +103,7 @@ where
     }
 
     // Returns the total number of leaves set
-    fn leaves_set(&mut self) -> usize {
+    fn leaves_set(&self) -> usize {
         self.next_index
     }
 
@@ -132,6 +137,7 @@ where
         self.nodes.insert((self.depth, index), leaf);
         self.recalculate_from(index)?;
         self.next_index = max(self.next_index, index + 1);
+        self.cached_leaves_indices[index] = 1;
         Ok(())
     }
 
@@ -143,6 +149,16 @@ where
         Ok(self.get_node(self.depth, index))
     }
 
+    fn get_empty_leaves_indices(&self) -> Vec<usize> {
+        self.cached_leaves_indices
+            .iter()
+            .take(self.next_index)
+            .enumerate()
+            .filter(|&(_, &v)| v == 0u8)
+            .map(|(idx, _)| idx)
+            .collect()
+    }
+
     // Sets multiple leaves from the specified tree index
     fn set_range<I: IntoIterator<Item = H::Fr>>(&mut self, start: usize, leaves: I) -> Result<()> {
         let leaves = leaves.into_iter().collect::<Vec<_>>();
@@ -152,6 +168,7 @@ where
         }
         for (i, leaf) in leaves.iter().enumerate() {
             self.nodes.insert((self.depth, start + i), *leaf);
+            self.cached_leaves_indices[start + i] = 1;
             self.recalculate_from(start + i)?;
         }
         self.next_index = max(self.next_index, start + leaves.len());
@@ -178,6 +195,7 @@ where
         // add leaves
         for (i, leaf) in leaves.iter().enumerate() {
             self.nodes.insert((self.depth, start + i), *leaf);
+            self.cached_leaves_indices[start + i] = 1;
             self.recalculate_from(start + i)?;
         }
 
@@ -199,6 +217,7 @@ where
         // We reset the leaf only if we previously set a leaf at that index
         if index < self.next_index {
             self.set(index, H::default_leaf())?;
+            self.cached_leaves_indices[index] = 0;
         }
         Ok(())
     }
@@ -282,6 +301,7 @@ where
             i >>= 1;
             depth -= 1;
             self.nodes.insert((depth, i), h);
+            self.cached_leaves_indices[index] = 1;
             if depth == 0 {
                 break;
             }

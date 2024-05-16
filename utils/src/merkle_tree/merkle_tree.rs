@@ -47,7 +47,7 @@ pub trait ZerokitMerkleTree {
         Self: Sized;
     fn depth(&self) -> usize;
     fn capacity(&self) -> usize;
-    fn leaves_set(&mut self) -> usize;
+    fn leaves_set(&self) -> usize;
     fn root(&self) -> FrOf<Self::Hasher>;
     fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>>;
     fn get_subtree_root(&self, n: usize, index: usize) -> Result<FrOf<Self::Hasher>>;
@@ -56,6 +56,7 @@ pub trait ZerokitMerkleTree {
     where
         I: IntoIterator<Item = FrOf<Self::Hasher>>;
     fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>>;
+    fn get_empty_leaves_indices(&self) -> Vec<usize>;
     fn override_range<I, J>(&mut self, start: usize, leaves: I, to_remove_indices: J) -> Result<()>
     where
         I: IntoIterator<Item = FrOf<Self::Hasher>>,

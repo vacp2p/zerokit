@@ -23,9 +23,21 @@ mod test {
         let id_commitment = utils_poseidon_hash(&vec![identity_secret_hash]);
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit.into()]);
 
+        // check that leaves indices is empty
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_empty_leaves_indices(&mut buffer).unwrap();
+        let idxs = bytes_le_to_vec_usize(&buffer.into_inner()).unwrap();
+        assert!(idxs.is_empty());
+
         // We pass rate_commitment as Read buffer to RLN's set_leaf
         let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
         rln.set_leaf(leaf_index, &mut buffer).unwrap();
+
+        // check that leaves before leaf_index is set to zero
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_empty_leaves_indices(&mut buffer).unwrap();
+        let idxs = bytes_le_to_vec_usize(&buffer.into_inner()).unwrap();
+        assert_eq!(idxs, [0, 1, 2]);
 
         // We check correct computation of the root
         let mut buffer = Cursor::new(Vec::<u8>::new());

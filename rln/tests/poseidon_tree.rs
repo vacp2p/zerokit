@@ -4,7 +4,7 @@
 
 #[cfg(test)]
 mod test {
-    use rln::hashers::{poseidon_hash, PoseidonHash};
+    use rln::hashers::PoseidonHash;
     use rln::{circuit::*, poseidon_tree::PoseidonTree};
     use utils::{FullMerkleTree, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
@@ -67,5 +67,63 @@ mod test {
                 assert_eq!(poseidon_hash(&[prev_l, prev_r]), subroot);
             }
         }
+    }
+
+    #[test]
+    fn test_get_empty_leaves_indices() {
+        let depth = 4;
+        let nof_leaves: usize = 1 << (depth - 1);
+
+        let mut tree = PoseidonTree::default(depth).unwrap();
+        let leaves: Vec<Fr> = (0..nof_leaves).map(|s| Fr::from(s as i32)).collect();
+
+        // check set_range
+        let _ = tree.set_range(0, leaves.clone());
+        assert!(tree.get_empty_leaves_indices().is_empty());
+
+        let mut vec_idxs = Vec::new();
+        // check delete function
+        for i in 0..nof_leaves {
+            vec_idxs.push(i);
+            let _ = tree.delete(i);
+            assert_eq!(tree.get_empty_leaves_indices(), vec_idxs);
+        }
+        // check set function
+        for i in (0..nof_leaves).rev() {
+            vec_idxs.pop();
+            let _ = tree.set(i, leaves[i]);
+            assert_eq!(tree.get_empty_leaves_indices(), vec_idxs);
+        }
+
+        // check remove_indices_and_set_leaves inside override_range function
+        assert!(tree.get_empty_leaves_indices().is_empty());
+        let leaves_2: Vec<Fr> = (0..2).map(|s| Fr::from(s as i32)).collect();
+        tree.override_range(0, leaves_2.clone(), [0, 1, 2, 3])
+            .unwrap();
+        assert_eq!(tree.get_empty_leaves_indices(), vec![2, 3]);
+
+        // check remove_indices inside override_range function
+        tree.override_range(0, [], [0, 1]).unwrap();
+        assert_eq!(tree.get_empty_leaves_indices(), vec![0, 1, 2, 3]);
+
+        // check set_range inside override_range function
+        tree.override_range(0, leaves_2.clone(), []).unwrap();
+        assert_eq!(tree.get_empty_leaves_indices(), vec![2, 3]);
+
+        let leaves_4: Vec<Fr> = (0..4).map(|s| Fr::from(s as i32)).collect();
+        // check if the indexes for write and delete are the same
+        tree.override_range(0, leaves_4.clone(), [0, 1, 2, 3])
+            .unwrap();
+        assert!(tree.get_empty_leaves_indices().is_empty());
+
+        // check if indexes for deletion are before indexes for overwriting
+        // tree.override_range(4, leaves_4.clone(), [0, 1, 2, 3])
+        //     .unwrap();
+        // assert_eq!(tree.get_empty_leaves_indices(), vec![0, 1, 2, 3]);
+
+        // check if the indices for write and delete do not overlap completely
+        // tree.override_range(2, leaves_4.clone(), [0, 1, 2, 3])
+        //     .unwrap();
+        // assert_eq!(tree.get_empty_leaves_indices(), vec![0, 1]);
     }
 }

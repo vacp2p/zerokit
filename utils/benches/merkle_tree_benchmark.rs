@@ -91,10 +91,17 @@ pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
         })
     });
 
+<<<<<<< HEAD
     // check intermediate node getter which required additional computation of sub root index
     c.bench_function("OptimalMerkleTree::get_subtree_root", |b| {
         b.iter(|| {
             tree.get_subtree_root(1, 0).unwrap();
+        })
+    });
+
+    c.bench_function("OptimalMerkleTree::get_empty_leaves_indices", |b| {
+        b.iter(|| {
+            tree.get_empty_leaves_indices();
         })
     });
 }
@@ -137,6 +144,13 @@ pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
     c.bench_function("FullMerkleTree::get_subtree_root", |b| {
         b.iter(|| {
             tree.get_subtree_root(1, 0).unwrap();
+        })
+    });
+
+
+    c.bench_function("FullMerkleTree::get_empty_leaves_indices", |b| {
+        b.iter(|| {
+            tree.get_empty_leaves_indices();
         })
     });
 }

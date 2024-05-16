@@ -44,6 +44,12 @@ pub fn pmtree_benchmark(c: &mut Criterion) {
             tree.get_subtree_root(1, 0).unwrap();
         })
     });
+
+    c.bench_function("Pmtree::get_empty_leaves_indices", |b| {
+        b.iter(|| {
+            tree.get_empty_leaves_indices();
+        })
+    });
 }
 
 criterion_group!(benches, pmtree_benchmark);
