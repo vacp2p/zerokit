@@ -186,7 +186,7 @@ pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>> {
     if nof_elem == 0 {
         Ok(vec![])
     } else {
-        let elements: Vec<usize> = (&input[8..])
+        let elements: Vec<usize> = input[8..]
             .chunks(8)
             .map(|ch| usize::from_le_bytes(ch[0..8].try_into().unwrap()))
             .collect();
