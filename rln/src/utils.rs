@@ -181,6 +181,19 @@ pub fn normalize_usize(input: usize) -> Vec<u8> {
     normalized_usize
 }
 
+pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>> {
+    let nof_elem = usize::try_from(u64::from_le_bytes(input[0..8].try_into()?))?;
+    if nof_elem == 0 {
+        Ok(vec![])
+    } else {
+        let elements: Vec<usize> = input[8..]
+            .chunks(8)
+            .map(|ch| usize::from_le_bytes(ch[0..8].try_into().unwrap()))
+            .collect();
+        Ok(elements)
+    }
+}
+
 // using for test
 pub fn generate_input_buffer() -> Cursor<String> {
     Cursor::new(json!({}).to_string())

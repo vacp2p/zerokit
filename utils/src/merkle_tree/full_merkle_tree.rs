@@ -26,6 +26,10 @@ pub struct FullMerkleTree<H: Hasher> {
     /// The tree nodes
     nodes: Vec<H::Fr>,
 
+    /// The indices of leaves which are set into zero upto next_index.
+    /// Set to 0 if the leaf is empty and set to 1 in otherwise.
+    cached_leaves_indices: Vec<u8>,
+
     // The next available (i.e., never used) tree index. Equivalently, the number of leaves added to the tree
     // (deletions leave next_index unchanged)
     next_index: usize,
@@ -96,6 +100,7 @@ where
             depth,
             cached_nodes,
             nodes,
+            cached_leaves_indices: vec![0; 1 << depth],
             next_index,
             metadata: Vec::new(),
         })
@@ -116,7 +121,7 @@ where
     }
 
     // Returns the total number of leaves set
-    fn leaves_set(&mut self) -> usize {
+    fn leaves_set(&self) -> usize {
         self.next_index
     }
 
@@ -141,6 +146,42 @@ where
         Ok(self.nodes[self.capacity() + leaf - 1])
     }
 
+    fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr> {
+        if n > self.depth() {
+            return Err(Report::msg("level exceeds depth size"));
+        }
+        if index >= self.capacity() {
+            return Err(Report::msg("index exceeds set size"));
+        }
+        if n == 0 {
+            Ok(self.root())
+        } else if n == self.depth {
+            self.get(index)
+        } else {
+            let mut idx = self.capacity() + index - 1;
+            let mut nd = self.depth;
+            loop {
+                let parent = self.parent(idx).unwrap();
+                nd -= 1;
+                if nd == n {
+                    return Ok(self.nodes[parent]);
+                } else {
+                    idx = parent;
+                    continue;
+                }
+            }
+        }
+    }
+    fn get_empty_leaves_indices(&self) -> Vec<usize> {
+        self.cached_leaves_indices
+            .iter()
+            .take(self.next_index)
+            .enumerate()
+            .filter(|&(_, &v)| v == 0u8)
+            .map(|(idx, _)| idx)
+            .collect()
+    }
+
     // Sets tree nodes, starting from start index
     // Function proper of FullMerkleTree implementation
     fn set_range<I: IntoIterator<Item = FrOf<Self::Hasher>>>(
@@ -158,6 +199,7 @@ where
         }
         hashes.into_iter().for_each(|hash| {
             self.nodes[index + count] = hash;
+            self.cached_leaves_indices[start + count] = 1;
             count += 1;
         });
         if count != 0 {
@@ -184,6 +226,7 @@ where
             if !indices.contains(&i) {
                 let value = self.get(i)?;
                 set_values[i - min_index] = value;
+                self.cached_leaves_indices[start + count] = 1;
             }
         }
 
@@ -206,6 +249,7 @@ where
         // We reset the leaf only if we previously set a leaf at that index
         if index < self.next_index {
             self.set(index, H::default_leaf())?;
+            self.cached_leaves_indices[index] = 0;
         }
         Ok(())
     }

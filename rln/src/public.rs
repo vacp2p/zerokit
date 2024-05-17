@@ -544,6 +544,33 @@ impl RLN<'_> {
         Ok(())
     }
 
+    /// Returns the root of subtree in the Merkle tree
+    ///
+    /// Output values are:
+    /// - `output_data`: a writer receiving the serialization of the node value (serialization done with [`rln::utils::fr_to_bytes_le`](crate::utils::fr_to_bytes_le))
+    ///
+    /// Example
+    /// ```
+    /// use rln::utils::*;
+    ///
+    /// let mut buffer = Cursor::new(Vec::<u8>::new());
+    /// let level = 1;
+    /// let index = 2;
+    /// rln.get_subtree_root(level, index, &mut buffer).unwrap();
+    /// let (subroot, _) = bytes_le_to_fr(&buffer.into_inner());
+    /// ```
+    pub fn get_subtree_root<W: Write>(
+        &self,
+        level: usize,
+        index: usize,
+        mut output_data: W,
+    ) -> Result<()> {
+        let subroot = self.tree.get_subtree_root(level, index)?;
+        output_data.write_all(&fr_to_bytes_le(&subroot))?;
+
+        Ok(())
+    }
+
     /// Returns the Merkle proof of the leaf at position index
     ///
     /// Input values are:
@@ -573,6 +600,44 @@ impl RLN<'_> {
         output_data.write_all(&vec_fr_to_bytes_le(&path_elements)?)?;
         output_data.write_all(&vec_u8_to_bytes_le(&identity_path_index)?)?;
 
+        Ok(())
+    }
+
+    /// Returns indices of leaves in the tree are set to zero (upto the final leaf that was set).
+    ///
+    /// Output values are:
+    /// - `output_data`: a writer receiving the serialization of the indices of leaves.
+    ///
+    /// Example
+    /// ```
+    /// use rln::circuit::Fr;
+    /// use rln::utils::*;
+    ///
+    /// let start_index = 5;
+    /// let no_of_leaves = 256;
+    ///
+    /// // We generate a vector of random leaves
+    /// let mut leaves: Vec<Fr> = Vec::new();
+    /// let mut rng = thread_rng();
+    /// for _ in 0..no_of_leaves {
+    ///     let (_, id_commitment) = keygen();
+    ///     let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
+    ///     leaves.push(rate_commitment);
+    /// }
+    ///
+    /// // We add leaves in a batch into the tree
+    /// let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
+    /// rln.set_leaves_from(index, &mut buffer).unwrap();
+    ///
+    /// // Get indices of first empty leaves upto start_index
+    /// let mut buffer = Cursor::new(Vec::<u8>::new());
+    /// rln.get_empty_leaves_indices(&mut buffer).unwrap();
+    /// let idxs = bytes_le_to_vec_usize(&buffer.into_inner()).unwrap();
+    /// assert_eq!(idxs, [0, 1, 2, 3, 4]);
+    /// ```
+    pub fn get_empty_leaves_indices<W: Write>(&self, mut output_data: W) -> Result<()> {
+        let idxs = self.tree.get_empty_leaves_indices();
+        idxs.serialize_compressed(&mut output_data)?;
         Ok(())
     }
 

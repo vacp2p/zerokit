@@ -23,9 +23,21 @@ mod test {
         let id_commitment = utils_poseidon_hash(&vec![identity_secret_hash]);
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit.into()]);
 
+        // check that leaves indices is empty
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_empty_leaves_indices(&mut buffer).unwrap();
+        let idxs = bytes_le_to_vec_usize(&buffer.into_inner()).unwrap();
+        assert!(idxs.is_empty());
+
         // We pass rate_commitment as Read buffer to RLN's set_leaf
         let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
         rln.set_leaf(leaf_index, &mut buffer).unwrap();
+
+        // check that leaves before leaf_index is set to zero
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_empty_leaves_indices(&mut buffer).unwrap();
+        let idxs = bytes_le_to_vec_usize(&buffer.into_inner()).unwrap();
+        assert_eq!(idxs, [0, 1, 2]);
 
         // We check correct computation of the root
         let mut buffer = Cursor::new(Vec::<u8>::new());
@@ -81,6 +93,29 @@ mod test {
 
         assert_eq!(path_elements, expected_path_elements);
         assert_eq!(identity_path_index, expected_identity_path_index);
+
+        // check subtree root computation for leaf 0 for all corresponding node until the root
+        let l_idx = 0;
+        for n in (1..=TEST_TREE_HEIGHT).rev() {
+            let idx_l = l_idx * (1 << (TEST_TREE_HEIGHT - n));
+            let idx_r = (l_idx + 1) * (1 << (TEST_TREE_HEIGHT - n));
+            let idx_sr = idx_l;
+
+            let mut buffer = Cursor::new(Vec::<u8>::new());
+            rln.get_subtree_root(n, idx_l, &mut buffer).unwrap();
+            let (prev_l, _) = bytes_le_to_fr(&buffer.into_inner());
+
+            let mut buffer = Cursor::new(Vec::<u8>::new());
+            rln.get_subtree_root(n, idx_r, &mut buffer).unwrap();
+            let (prev_r, _) = bytes_le_to_fr(&buffer.into_inner());
+
+            let mut buffer = Cursor::new(Vec::<u8>::new());
+            rln.get_subtree_root(n - 1, idx_sr, &mut buffer).unwrap();
+            let (subroot, _) = bytes_le_to_fr(&buffer.into_inner());
+
+            let res = utils_poseidon_hash(&[prev_l, prev_r]);
+            assert_eq!(res, subroot);
+        }
 
         // We double check that the proof computed from public API is correct
         let root_from_proof = compute_tree_root(

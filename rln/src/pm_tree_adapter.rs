@@ -5,6 +5,7 @@ use std::str::FromStr;
 use color_eyre::{Report, Result};
 use serde_json::Value;
 
+use utils::pmtree::tree::Key;
 use utils::pmtree::{Database, Hasher};
 use utils::*;
 
@@ -16,6 +17,9 @@ const METADATA_KEY: [u8; 8] = *b"metadata";
 
 pub struct PmTree {
     tree: pmtree::MerkleTree<SledDB, PoseidonHash>,
+    /// The indices of leaves which are set into zero upto next_index.
+    /// Set to 0 if the leaf is empty and set to 1 in otherwise.
+    cached_leaves_indices: Vec<u8>,
     // metadata that an application may use to store additional information
     metadata: Vec<u8>,
 }
@@ -143,6 +147,7 @@ impl ZerokitMerkleTree for PmTree {
 
         Ok(PmTree {
             tree,
+            cached_leaves_indices: vec![0; 1 << depth],
             metadata: Vec::new(),
         })
     }
@@ -155,7 +160,7 @@ impl ZerokitMerkleTree for PmTree {
         self.tree.capacity()
     }
 
-    fn leaves_set(&mut self) -> usize {
+    fn leaves_set(&self) -> usize {
         self.tree.leaves_set()
     }
 
@@ -170,7 +175,9 @@ impl ZerokitMerkleTree for PmTree {
     fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>) -> Result<()> {
         self.tree
             .set(index, leaf)
-            .map_err(|e| Report::msg(e.to_string()))
+            .map_err(|e| Report::msg(e.to_string()))?;
+        self.cached_leaves_indices[index] = 1;
+        Ok(())
     }
 
     fn set_range<I: IntoIterator<Item = FrOf<Self::Hasher>>>(
@@ -178,13 +185,49 @@ impl ZerokitMerkleTree for PmTree {
         start: usize,
         values: I,
     ) -> Result<()> {
+        let v = values.into_iter().collect::<Vec<_>>();
         self.tree
-            .set_range(start, values)
-            .map_err(|e| Report::msg(e.to_string()))
+            .set_range(start, v.clone().into_iter())
+            .map_err(|e| Report::msg(e.to_string()))?;
+        for i in start..v.len() {
+            self.cached_leaves_indices[i] = 1
+        }
+        Ok(())
     }
 
     fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>> {
         self.tree.get(index).map_err(|e| Report::msg(e.to_string()))
+    }
+
+    fn get_subtree_root(&self, n: usize, index: usize) -> Result<FrOf<Self::Hasher>> {
+        if n > self.depth() {
+            return Err(Report::msg("level exceeds depth size"));
+        }
+        if index >= self.capacity() {
+            return Err(Report::msg("index exceeds set size"));
+        }
+        if n == 0 {
+            Ok(self.root())
+        } else if n == self.depth() {
+            self.get(index)
+        } else {
+            let node = self
+                .tree
+                .get_elem(Key::new(n, index >> (self.depth() - n)))
+                .unwrap();
+            Ok(node)
+        }
+    }
+
+    fn get_empty_leaves_indices(&self) -> Vec<usize> {
+        let next_idx = self.leaves_set();
+        self.cached_leaves_indices
+            .iter()
+            .take(next_idx)
+            .enumerate()
+            .filter(|&(_, &v)| v == 0u8)
+            .map(|(idx, _)| idx)
+            .collect()
     }
 
     fn override_range<I: IntoIterator<Item = FrOf<Self::Hasher>>, J: IntoIterator<Item = usize>>(
@@ -201,7 +244,7 @@ impl ZerokitMerkleTree for PmTree {
             (0, 0) => Err(Report::msg("no leaves or indices to be removed")),
             (1, 0) => self.set(start, leaves[0]),
             (0, 1) => self.delete(indices[0]),
-            (_, 0) => self.set_range_with_leaves(start, leaves),
+            (_, 0) => self.set_range(start, leaves),
             (0, _) => self.remove_indices(&indices),
             (_, _) => self.remove_indices_and_set_leaves(start, leaves, &indices),
         }
@@ -216,7 +259,9 @@ impl ZerokitMerkleTree for PmTree {
     fn delete(&mut self, index: usize) -> Result<()> {
         self.tree
             .delete(index)
-            .map_err(|e| Report::msg(e.to_string()))
+            .map_err(|e| Report::msg(e.to_string()))?;
+        self.cached_leaves_indices[index] = 0;
+        Ok(())
     }
 
     fn proof(&self, index: usize) -> Result<Self::Proof> {
@@ -261,12 +306,6 @@ type PmTreeHasher = <PmTree as ZerokitMerkleTree>::Hasher;
 type FrOfPmTreeHasher = FrOf<PmTreeHasher>;
 
 impl PmTree {
-    fn set_range_with_leaves(&mut self, start: usize, leaves: Vec<FrOfPmTreeHasher>) -> Result<()> {
-        self.tree
-            .set_range(start, leaves)
-            .map_err(|e| Report::msg(e.to_string()))
-    }
-
     fn remove_indices(&mut self, indices: &[usize]) -> Result<()> {
         let start = indices[0];
         let end = indices.last().unwrap() + 1;
@@ -275,7 +314,12 @@ impl PmTree {
 
         self.tree
             .set_range(start, new_leaves)
-            .map_err(|e| Report::msg(e.to_string()))
+            .map_err(|e| Report::msg(e.to_string()))?;
+
+        for i in start..end {
+            self.cached_leaves_indices[i] = 0
+        }
+        Ok(())
     }
 
     fn remove_indices_and_set_leaves(
@@ -302,7 +346,15 @@ impl PmTree {
 
         self.tree
             .set_range(start, set_values)
-            .map_err(|e| Report::msg(e.to_string()))
+            .map_err(|e| Report::msg(e.to_string()))?;
+
+        for i in indices {
+            self.cached_leaves_indices[*i] = 0;
+        }
+        for i in min_index..(max_index - min_index) {
+            self.cached_leaves_indices[i] = 1
+        }
+        Ok(())
     }
 }
 
