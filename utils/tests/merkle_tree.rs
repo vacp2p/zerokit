@@ -2,7 +2,6 @@
 #[cfg(test)]
 pub mod test {
     use hex_literal::hex;
-    use lazy_static::lazy_static;
     use std::{fmt::Display, str::FromStr};
     use tiny_keccak::{Hasher as _, Keccak};
     use zerokit_utils::{
@@ -56,19 +55,6 @@ pub mod test {
     }
 
     const DEFAULT_DEPTH: usize = 2;
-
-    lazy_static! {
-        static ref LEAVES_D3: [TestFr; 6] = [
-            hex!("0000000000000000000000000000000000000000000000000000000000000001"),
-            hex!("0000000000000000000000000000000000000000000000000000000000000002"),
-            hex!("0000000000000000000000000000000000000000000000000000000000000003"),
-            hex!("0000000000000000000000000000000000000000000000000000000000000004"),
-            hex!("0000000000000000000000000000000000000000000000000000000000000005"),
-            hex!("0000000000000000000000000000000000000000000000000000000000000006"),
-        ]
-        .map(TestFr);
-    }
-    const DEPTH_3: usize = 3;
 
     fn default_full_merkle_tree(depth: usize) -> FullMerkleTree<Keccak256> {
         FullMerkleTree::<Keccak256>::new(depth, TestFr([0; 32]), FullMerkleConfig::default())
@@ -206,14 +192,18 @@ pub mod test {
 
     #[test]
     fn test_subtree_root() {
-        let mut tree_full = default_optimal_merkle_tree(DEPTH_3);
-        let _ = tree_full.set_range(0, LEAVES_D3.iter().cloned());
+        let depth = 3;
+        let nof_leaves: usize = 6;
+        let leaves: Vec<TestFr> = (0..nof_leaves as u32).map(TestFr::from).collect();
 
-        for i in 0..LEAVES_D3.len() {
+        let mut tree_full = default_optimal_merkle_tree(depth);
+        let _ = tree_full.set_range(0, leaves.iter().cloned());
+
+        for i in 0..nof_leaves {
             // check leaves
             assert_eq!(
                 tree_full.get(i).unwrap(),
-                tree_full.get_subtree_root(DEPTH_3, i).unwrap()
+                tree_full.get_subtree_root(depth, i).unwrap()
             );
 
             // check root
@@ -221,10 +211,10 @@ pub mod test {
         }
 
         // check intermediate nodes
-        for n in (1..=DEPTH_3).rev() {
+        for n in (1..=depth).rev() {
             for i in (0..(1 << n)).step_by(2) {
-                let idx_l = i * (1 << (DEPTH_3 - n));
-                let idx_r = (i + 1) * (1 << (DEPTH_3 - n));
+                let idx_l = i * (1 << (depth - n));
+                let idx_r = (i + 1) * (1 << (depth - n));
                 let idx_sr = idx_l;
 
                 let prev_l = tree_full.get_subtree_root(n, idx_l).unwrap();
@@ -236,24 +226,24 @@ pub mod test {
             }
         }
 
-        let mut tree_opt = default_full_merkle_tree(DEPTH_3);
-        let _ = tree_opt.set_range(0, LEAVES_D3.iter().cloned());
+        let mut tree_opt = default_full_merkle_tree(depth);
+        let _ = tree_opt.set_range(0, leaves.iter().cloned());
 
-        for i in 0..LEAVES_D3.len() {
+        for i in 0..nof_leaves {
             // check leaves
             assert_eq!(
                 tree_opt.get(i).unwrap(),
-                tree_opt.get_subtree_root(DEPTH_3, i).unwrap()
+                tree_opt.get_subtree_root(depth, i).unwrap()
             );
             // check root
             assert_eq!(tree_opt.root(), tree_opt.get_subtree_root(0, i).unwrap());
         }
 
         // check intermediate nodes
-        for n in (1..=DEPTH_3).rev() {
+        for n in (1..=depth).rev() {
             for i in (0..(1 << n)).step_by(2) {
-                let idx_l = i * (1 << (DEPTH_3 - n));
-                let idx_r = (i + 1) * (1 << (DEPTH_3 - n));
+                let idx_l = i * (1 << (depth - n));
+                let idx_r = (i + 1) * (1 << (depth - n));
                 let idx_sr = idx_l;
 
                 let prev_l = tree_opt.get_subtree_root(n, idx_l).unwrap();
