@@ -5,6 +5,7 @@ use std::str::FromStr;
 use color_eyre::{Report, Result};
 use serde_json::Value;
 
+use utils::pmtree::tree::Key;
 use utils::pmtree::{Database, Hasher};
 use utils::*;
 
@@ -185,6 +186,26 @@ impl ZerokitMerkleTree for PmTree {
 
     fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>> {
         self.tree.get(index).map_err(|e| Report::msg(e.to_string()))
+    }
+
+    fn get_subtree_root(&self, n: usize, index: usize) -> Result<FrOf<Self::Hasher>> {
+        if n > self.depth() {
+            return Err(Report::msg("level exceeds depth size"));
+        }
+        if index >= self.capacity() {
+            return Err(Report::msg("index exceeds set size"));
+        }
+        if n == 0 {
+            Ok(self.root())
+        } else if n == self.depth() {
+            self.get(index)
+        } else {
+            let node = self
+                .tree
+                .get_elem(Key::new(n, index >> (self.depth() - n)))
+                .unwrap();
+            Ok(node)
+        }
     }
 
     fn override_range<I: IntoIterator<Item = FrOf<Self::Hasher>>, J: IntoIterator<Item = usize>>(

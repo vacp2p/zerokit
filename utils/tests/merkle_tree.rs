@@ -35,7 +35,7 @@ pub mod test {
 
     impl Display for TestFr {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "{}", String::from_utf8_lossy(self.0.as_slice()))
+            write!(f, "{}", hex::encode(self.0.as_slice()))
         }
     }
 
@@ -48,21 +48,33 @@ pub mod test {
     }
 
     lazy_static! {
-        static ref LEAVES: [TestFr; 4] = [
+        static ref LEAVES_D2: [TestFr; 4] = [
             hex!("0000000000000000000000000000000000000000000000000000000000000001"),
             hex!("0000000000000000000000000000000000000000000000000000000000000002"),
             hex!("0000000000000000000000000000000000000000000000000000000000000003"),
             hex!("0000000000000000000000000000000000000000000000000000000000000004"),
         ]
         .map(TestFr);
+        static ref LEAVES_D3: [TestFr; 6] = [
+            hex!("0000000000000000000000000000000000000000000000000000000000000001"),
+            hex!("0000000000000000000000000000000000000000000000000000000000000002"),
+            hex!("0000000000000000000000000000000000000000000000000000000000000003"),
+            hex!("0000000000000000000000000000000000000000000000000000000000000004"),
+            hex!("0000000000000000000000000000000000000000000000000000000000000005"),
+            hex!("0000000000000000000000000000000000000000000000000000000000000006"),
+        ]
+        .map(TestFr);
+    }
+    const DEPTH_2: usize = 2;
+    const DEPTH_3: usize = 3;
+
+    fn default_full_merkle_tree(depth: usize) -> FullMerkleTree<Keccak256> {
+        FullMerkleTree::<Keccak256>::new(depth, TestFr([0; 32]), FullMerkleConfig::default())
+            .unwrap()
     }
 
-    fn default_full_merkle_tree() -> FullMerkleTree<Keccak256> {
-        FullMerkleTree::<Keccak256>::new(2, TestFr([0; 32]), FullMerkleConfig::default()).unwrap()
-    }
-
-    fn default_optimal_merkle_tree() -> OptimalMerkleTree<Keccak256> {
-        OptimalMerkleTree::<Keccak256>::new(2, TestFr([0; 32]), OptimalMerkleConfig::default())
+    fn default_optimal_merkle_tree(depth: usize) -> OptimalMerkleTree<Keccak256> {
+        OptimalMerkleTree::<Keccak256>::new(depth, TestFr([0; 32]), OptimalMerkleConfig::default())
             .unwrap()
     }
 
@@ -80,28 +92,90 @@ pub mod test {
         ]
         .map(TestFr);
 
-        let mut tree = default_full_merkle_tree();
+        let mut tree = default_full_merkle_tree(DEPTH_2);
         assert_eq!(tree.root(), default_tree_root);
-        for i in 0..LEAVES.len() {
-            tree.set(i, LEAVES[i]).unwrap();
+        for i in 0..LEAVES_D2.len() {
+            tree.set(i, LEAVES_D2[i]).unwrap();
             assert_eq!(tree.root(), roots[i]);
         }
 
-        let mut tree = default_optimal_merkle_tree();
+        let mut tree = default_optimal_merkle_tree(DEPTH_2);
         assert_eq!(tree.root(), default_tree_root);
-        for i in 0..LEAVES.len() {
-            tree.set(i, LEAVES[i]).unwrap();
+        for i in 0..LEAVES_D2.len() {
+            tree.set(i, LEAVES_D2[i]).unwrap();
             assert_eq!(tree.root(), roots[i]);
+        }
+    }
+
+    #[test]
+    fn test_subtree_root() {
+        let mut tree_full = default_optimal_merkle_tree(DEPTH_3);
+        let _ = tree_full.set_range(0, LEAVES_D3.iter().cloned());
+
+        for i in 0..LEAVES_D3.len() {
+            // check leaves
+            assert_eq!(
+                tree_full.get(i).unwrap(),
+                tree_full.get_subtree_root(DEPTH_3, i).unwrap()
+            );
+
+            // check root
+            assert_eq!(tree_full.root(), tree_full.get_subtree_root(0, i).unwrap());
+        }
+
+        // check intermediate nodes
+        for n in (1..=DEPTH_3).rev() {
+            for i in (0..(1 << n)).step_by(2) {
+                let idx_l = i * (1 << (DEPTH_3 - n));
+                let idx_r = (i + 1) * (1 << (DEPTH_3 - n));
+                let idx_sr = idx_l;
+
+                let prev_l = tree_full.get_subtree_root(n, idx_l).unwrap();
+                let prev_r = tree_full.get_subtree_root(n, idx_r).unwrap();
+                let subroot = tree_full.get_subtree_root(n - 1, idx_sr).unwrap();
+
+                // check intermediate nodes
+                assert_eq!(Keccak256::hash(&[prev_l, prev_r]), subroot);
+            }
+        }
+
+        let mut tree_opt = default_full_merkle_tree(DEPTH_3);
+        let _ = tree_opt.set_range(0, LEAVES_D3.iter().cloned());
+
+        for i in 0..LEAVES_D3.len() {
+            // check leaves
+            assert_eq!(
+                tree_opt.get(i).unwrap(),
+                tree_opt.get_subtree_root(DEPTH_3, i).unwrap()
+            );
+            // check root
+            assert_eq!(tree_opt.root(), tree_opt.get_subtree_root(0, i).unwrap());
+        }
+
+        // check intermediate nodes
+        for n in (1..=DEPTH_3).rev() {
+            for i in (0..(1 << n)).step_by(2) {
+                let idx_l = i * (1 << (DEPTH_3 - n));
+                let idx_r = (i + 1) * (1 << (DEPTH_3 - n));
+                let idx_sr = idx_l;
+
+                let prev_l = tree_opt.get_subtree_root(n, idx_l).unwrap();
+                let prev_r = tree_opt.get_subtree_root(n, idx_r).unwrap();
+                let subroot = tree_opt.get_subtree_root(n - 1, idx_sr).unwrap();
+
+                // check intermediate nodes
+                assert_eq!(Keccak256::hash(&[prev_l, prev_r]), subroot);
+            }
         }
     }
 
     #[test]
     fn test_proof() {
         // We thest the FullMerkleTree implementation
-        let mut tree = default_full_merkle_tree();
-        for i in 0..LEAVES.len() {
+        let mut tree = default_full_merkle_tree(DEPTH_2);
+        for i in 0..LEAVES_D2.len() {
             // We set the leaves
-            tree.set(i, LEAVES[i]).unwrap();
+            tree.set(i, LEAVES_D2[i]).unwrap();
 
             // We compute a merkle proof
             let proof = tree.proof(i).expect("index should be set");
@@ -110,22 +184,22 @@ pub mod test {
             assert_eq!(proof.leaf_index(), i);
 
             // We verify the proof
-            assert!(tree.verify(&LEAVES[i], &proof).unwrap());
+            assert!(tree.verify(&LEAVES_D2[i], &proof).unwrap());
 
             // We ensure that the Merkle proof and the leaf generate the same root as the tree
-            assert_eq!(proof.compute_root_from(&LEAVES[i]), tree.root());
+            assert_eq!(proof.compute_root_from(&LEAVES_D2[i]), tree.root());
 
             // We check that the proof is not valid for another leaf
             assert!(!tree
-                .verify(&LEAVES[(i + 1) % LEAVES.len()], &proof)
+                .verify(&LEAVES_D2[(i + 1) % LEAVES_D2.len()], &proof)
                 .unwrap());
         }
 
         // We test the OptimalMerkleTree implementation
-        let mut tree = default_optimal_merkle_tree();
-        for i in 0..LEAVES.len() {
+        let mut tree = default_optimal_merkle_tree(DEPTH_2);
+        for i in 0..LEAVES_D2.len() {
             // We set the leaves
-            tree.set(i, LEAVES[i]).unwrap();
+            tree.set(i, LEAVES_D2[i]).unwrap();
 
             // We compute a merkle proof
             let proof = tree.proof(i).expect("index should be set");
@@ -134,24 +208,24 @@ pub mod test {
             assert_eq!(proof.leaf_index(), i);
 
             // We verify the proof
-            assert!(tree.verify(&LEAVES[i], &proof).unwrap());
+            assert!(tree.verify(&LEAVES_D2[i], &proof).unwrap());
 
             // We ensure that the Merkle proof and the leaf generate the same root as the tree
-            assert_eq!(proof.compute_root_from(&LEAVES[i]), tree.root());
+            assert_eq!(proof.compute_root_from(&LEAVES_D2[i]), tree.root());
 
             // We check that the proof is not valid for another leaf
             assert!(!tree
-                .verify(&LEAVES[(i + 1) % LEAVES.len()], &proof)
+                .verify(&LEAVES_D2[(i + 1) % LEAVES_D2.len()], &proof)
                 .unwrap());
         }
     }
 
     #[test]
     fn test_override_range() {
-        let mut tree = default_optimal_merkle_tree();
+        let mut tree = default_optimal_merkle_tree(DEPTH_2);
 
         // We set the leaves
-        tree.set_range(0, LEAVES.iter().cloned()).unwrap();
+        tree.set_range(0, LEAVES_D2.iter().cloned()).unwrap();
 
         let new_leaves = [
             hex!("0000000000000000000000000000000000000000000000000000000000000005"),

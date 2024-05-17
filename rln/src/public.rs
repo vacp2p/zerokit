@@ -544,6 +544,33 @@ impl RLN<'_> {
         Ok(())
     }
 
+    /// Returns the root of subtree in the Merkle tree
+    ///
+    /// Output values are:
+    /// - `output_data`: a writer receiving the serialization of the node value (serialization done with [`rln::utils::fr_to_bytes_le`](crate::utils::fr_to_bytes_le))
+    ///
+    /// Example
+    /// ```
+    /// use rln::utils::*;
+    ///
+    /// let mut buffer = Cursor::new(Vec::<u8>::new());
+    /// let level = 1;
+    /// let index = 2;
+    /// rln.get_subtree_root(level, index, &mut buffer).unwrap();
+    /// let (subroot, _) = bytes_le_to_fr(&buffer.into_inner());
+    /// ```
+    pub fn get_subtree_root<W: Write>(
+        &self,
+        level: usize,
+        index: usize,
+        mut output_data: W,
+    ) -> Result<()> {
+        let subroot = self.tree.get_subtree_root(level, index)?;
+        output_data.write_all(&fr_to_bytes_le(&subroot))?;
+
+        Ok(())
+    }
+
     /// Returns the Merkle proof of the leaf at position index
     ///
     /// Input values are:
