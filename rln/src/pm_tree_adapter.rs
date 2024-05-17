@@ -301,7 +301,7 @@ impl PmTree {
         }
 
         self.tree
-            .set_range(min_index, set_values)
+            .set_range(start, set_values)
             .map_err(|e| Report::msg(e.to_string()))
     }
 }
