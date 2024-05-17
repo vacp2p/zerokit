@@ -192,12 +192,15 @@ where
             if !indices.contains(&i) {
                 let value = self.get_leaf(i);
                 set_values[i - min_index] = value;
-                self.cached_leaves_indices[start + i] = 1;
             }
         }
 
         for i in 0..leaves_vec.len() {
             set_values[start - min_index + i] = leaves_vec[i];
+        }
+
+        for i in indices {
+            self.cached_leaves_indices[i] = 0;
         }
 
         self.set_range(start, set_values)

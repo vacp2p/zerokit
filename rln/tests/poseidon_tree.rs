@@ -117,13 +117,23 @@ mod test {
         assert!(tree.get_empty_leaves_indices().is_empty());
 
         // check if indexes for deletion are before indexes for overwriting
-        // tree.override_range(4, leaves_4.clone(), [0, 1, 2, 3])
-        //     .unwrap();
-        // assert_eq!(tree.get_empty_leaves_indices(), vec![0, 1, 2, 3]);
+        tree.override_range(4, leaves_4.clone(), [0, 1, 2, 3])
+            .unwrap();
+        // The result will be like this, because in the set_range function in pmtree
+        // the next_index value is increased not by the number of elements to insert,
+        // but by the union of indices for deleting and inserting.
+        assert_eq!(
+            tree.get_empty_leaves_indices(),
+            vec![0, 1, 2, 3, 8, 9, 10, 11]
+        );
 
         // check if the indices for write and delete do not overlap completely
-        // tree.override_range(2, leaves_4.clone(), [0, 1, 2, 3])
-        //     .unwrap();
-        // assert_eq!(tree.get_empty_leaves_indices(), vec![0, 1]);
+        tree.override_range(2, leaves_4.clone(), [0, 1, 2, 3])
+            .unwrap();
+        // The result will be like this, because in the set_range function in pmtree
+        // the next_index value is increased not by the number of elements to insert,
+        // but by the union of indices for deleting and inserting.
+        // + we've already set to 6 and 7 in previous test
+        assert_eq!(tree.get_empty_leaves_indices(), vec![0, 1, 8, 9, 10, 11]);
     }
 }

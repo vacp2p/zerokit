@@ -351,7 +351,8 @@ impl PmTree {
         for i in indices {
             self.cached_leaves_indices[*i] = 0;
         }
-        for i in min_index..(max_index - min_index) {
+
+        for i in start..(max_index - min_index) {
             self.cached_leaves_indices[i] = 1
         }
         Ok(())

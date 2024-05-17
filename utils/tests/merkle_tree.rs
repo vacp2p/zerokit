@@ -103,7 +103,7 @@ pub mod test {
         let depth = 4;
         let nof_leaves: usize = 1 << (depth - 1);
         let leaves: Vec<TestFr> = (0..nof_leaves as u32).map(TestFr::from).collect();
-        // let leaves_2: Vec<TestFr> = (0u32..2).map(TestFr::from).collect();
+        let leaves_2: Vec<TestFr> = (0u32..2).map(TestFr::from).collect();
         let leaves_4: Vec<TestFr> = (0u32..4).map(TestFr::from).collect();
 
         let mut tree_full = default_full_merkle_tree(depth);
@@ -124,11 +124,10 @@ pub mod test {
         }
 
         // Check situation when the number of items to insert is less than the number of items to delete
-        // tree_full
-        //     .override_range(0, leaves_2.clone(), [0, 1, 2, 3])
-        //     .unwrap();
+        tree_full
+            .override_range(0, leaves_2.clone(), [0, 1, 2, 3])
+            .unwrap();
 
-        assert!(tree_full.get_empty_leaves_indices().is_empty());
         // check if the indexes for write and delete are the same
         tree_full
             .override_range(0, leaves_4.clone(), [0, 1, 2, 3])
@@ -166,11 +165,10 @@ pub mod test {
         }
 
         // Check situation when the number of items to insert is less than the number of items to delete
-        // tree_opt
-        //     .override_range(0, leaves_2.clone(), [0, 1, 2, 3])
-        //     .unwrap();
+        tree_opt
+            .override_range(0, leaves_2.clone(), [0, 1, 2, 3])
+            .unwrap();
 
-        assert!(tree_opt.get_empty_leaves_indices().is_empty());
         // check if the indexes for write and delete are the same
         tree_opt
             .override_range(0, leaves_4.clone(), [0, 1, 2, 3])
