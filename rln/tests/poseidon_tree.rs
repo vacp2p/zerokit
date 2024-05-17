@@ -4,7 +4,7 @@
 
 #[cfg(test)]
 mod test {
-    use rln::hashers::PoseidonHash;
+    use rln::hashers::{poseidon_hash, PoseidonHash};
     use rln::{circuit::*, poseidon_tree::PoseidonTree};
     use utils::{FullMerkleTree, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
