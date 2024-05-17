@@ -175,35 +175,33 @@ where
         Ok(())
     }
 
-    fn override_range<I, J>(&mut self, start: usize, leaves: I, to_remove_indices: J) -> Result<()>
+    fn override_range<I, J>(&mut self, start: usize, leaves: I, indices: J) -> Result<()>
     where
         I: IntoIterator<Item = FrOf<Self::Hasher>>,
         J: IntoIterator<Item = usize>,
     {
-        let leaves = leaves.into_iter().collect::<Vec<_>>();
-        let to_remove_indices = to_remove_indices.into_iter().collect::<Vec<_>>();
-        // check if the range is valid
-        if leaves.len() + start - to_remove_indices.len() > self.capacity() {
-            return Err(Report::msg("provided range exceeds set size"));
+        let indices = indices.into_iter().collect::<Vec<_>>();
+        let min_index = *indices.first().unwrap();
+        let leaves_vec = leaves.into_iter().collect::<Vec<_>>();
+
+        let max_index = start + leaves_vec.len();
+
+        let mut set_values = vec![Self::Hasher::default_leaf(); max_index - min_index];
+
+        for i in min_index..start {
+            if !indices.contains(&i) {
+                let value = self.get_leaf(i);
+                set_values[i - min_index] = value;
+                self.cached_leaves_indices[start + i] = 1;
+            }
         }
 
-        // remove leaves
-        for i in &to_remove_indices {
-            self.delete(*i)?;
+        for i in 0..leaves_vec.len() {
+            set_values[start - min_index + i] = leaves_vec[i];
         }
 
-        // add leaves
-        for (i, leaf) in leaves.iter().enumerate() {
-            self.nodes.insert((self.depth, start + i), *leaf);
-            self.cached_leaves_indices[start + i] = 1;
-            self.recalculate_from(start + i)?;
-        }
-
-        self.next_index = max(
-            self.next_index,
-            start + leaves.len() - to_remove_indices.len(),
-        );
-        Ok(())
+        self.set_range(start, set_values)
+            .map_err(|e| Report::msg(e.to_string()))
     }
 
     // Sets a leaf at the next available index
