@@ -5,24 +5,15 @@ use std::str::FromStr;
 use color_eyre::{Report, Result};
 use serde_json::Value;
 
+use utils::pmtree::tree::Key;
 use utils::pmtree::{Database, Hasher};
 use utils::*;
 
 use crate::circuit::Fr;
 use crate::hashers::{poseidon_hash, PoseidonHash};
-use crate::pm_tree_adapter::pmtree::DBKey;
 use crate::utils::{bytes_le_to_fr, fr_to_bytes_le};
 
 const METADATA_KEY: [u8; 8] = *b"metadata";
-
-// Sourced from https://github.com/vacp2p/pmtree/blob/a48c3d94001e2f6b566afb0801c188c1c2832159/src/tree.rs#L16
-struct Key(usize, usize);
-impl From<Key> for DBKey {
-    fn from(key: Key) -> Self {
-        let cantor_pairing = ((key.0 + key.1) * (key.0 + key.1 + 1) / 2 + key.1) as u64;
-        cantor_pairing.to_be_bytes()
-    }
-}
 
 pub struct PmTree {
     tree: pmtree::MerkleTree<SledDB, PoseidonHash>,
@@ -211,11 +202,9 @@ impl ZerokitMerkleTree for PmTree {
         } else {
             let node = self
                 .tree
-                .db
-                .get(Key(n, index >> (self.depth() - n)).into())
-                .unwrap()
-                .unwrap_or_default(); // here should be cache value as in https://github.com/vacp2p/pmtree/blob/a48c3d94001e2f6b566afb0801c188c1c2832159/src/tree.rs#L180.
-            Ok(Self::Hasher::deserialize(node))
+                .get_elem(Key::new(n, index >> (self.depth() - n)))
+                .unwrap();
+            Ok(node)
         }
     }
 

@@ -82,17 +82,12 @@ mod test {
         assert_eq!(path_elements, expected_path_elements);
         assert_eq!(identity_path_index, expected_identity_path_index);
 
-        // check subtree root computation for leaf 0
+        // check subtree root computation for leaf 0 for all corresponding node until the root
         let l_idx = 0;
         for n in (1..=TEST_TREE_HEIGHT).rev() {
             let idx_l = l_idx * (1 << (TEST_TREE_HEIGHT - n));
             let idx_r = (l_idx + 1) * (1 << (TEST_TREE_HEIGHT - n));
             let idx_sr = idx_l;
-
-            println!(
-                "Level {n}: ([{n}][{idx_l}], [{n}][{idx_r}]) == [{}][{idx_sr}]",
-                n - 1
-            );
 
             let mut buffer = Cursor::new(Vec::<u8>::new());
             rln.get_subtree_root(n, idx_l, &mut buffer).unwrap();
@@ -107,7 +102,7 @@ mod test {
             let (subroot, _) = bytes_le_to_fr(&buffer.into_inner());
 
             let res = utils_poseidon_hash(&[prev_l, prev_r]);
-            // assert_eq!(res, subroot);
+            assert_eq!(res, subroot);
         }
 
         // We double check that the proof computed from public API is correct
