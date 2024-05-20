@@ -133,33 +133,6 @@ dependencies = [
  "cfg-if",
  "color-eyre",
  "criterion 0.3.6",
- "fnv",
- "hex",
- "num",
- "num-bigint",
- "num-traits",
- "thiserror",
- "wasmer",
-]
-
-[[package]]
-name = "ark-circom"
-version = "0.1.0"
-source = "git+https://github.com/vimwitch/circom-compat.git#21c6d43132c062364c270147e876dbc00d505a1c"
-dependencies = [
- "ark-bn254",
- "ark-crypto-primitives",
- "ark-ec",
- "ark-ff",
- "ark-groth16",
- "ark-poly",
- "ark-relations",
- "ark-serialize",
- "ark-std",
- "byteorder",
- "cfg-if",
- "color-eyre",
- "criterion 0.3.6",
  "ethers-core",
  "fnv",
  "hex",
@@ -342,9 +315,11 @@ dependencies = [
 [[package]]
 name = "ark-zkey"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2974c9f59c1a071db6753ffa7848dbed39746b4e0b431f9c5709553b9433f989"
 dependencies = [
  "ark-bn254",
- "ark-circom 0.1.0 (git+https://github.com/vimwitch/circom-compat.git)",
+ "ark-circom",
  "ark-ec",
  "ark-ff",
  "ark-groth16",
@@ -2317,7 +2292,7 @@ name = "rln"
 version = "0.4.3"
 dependencies = [
  "ark-bn254",
- "ark-circom 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ark-circom",
  "ark-ec",
  "ark-ff",
  "ark-groth16",
