@@ -11,61 +11,6 @@ mod test {
 
     type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
 
-    // Input generated with https://github.com/oskarth/zk-kit/commit/b6a872f7160c7c14e10a0ea40acab99cbb23c9a8
-    const WITNESS_JSON_20: &str = r#"
-            {
-                "externalNullifier": "21074405743803627666274838159589343934394162804826017440941339048886754734203",
-                "identityPathIndex": [
-                    1,
-                    1,
-                    1,
-                    0,
-                    1,
-                    0,
-                    1,
-                    0,
-                    1,
-                    0,
-                    1,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    1,
-                    1,
-                    1,
-                    0
-                ],
-                "identitySecret": "2301650865650889795878889082892690584512243988708213561328369865554257051708",
-                "messageId": "1",
-                "pathElements": [
-                    "14082964758224722211945379872337797638951236517417253447686770846170014042825",
-                    "6628418579821163687428454604867534487917867918886059133241840211975892987309",
-                    "12745863228198753394445659605634840709296716381893463421165313830643281758511",
-                    "56118267389743063830320351452083247040583061493621478539311100137113963555",
-                    "3648731943306935051357703221473866306053186513730785325303257057776816073765",
-                    "10548621390442503192989374711060717107954536293658152583621924810330521179016",
-                    "11741160669079729961275351458682156164905457324981803454515784688429276743441",
-                    "17165464309215350864730477596846156251863702878546777829650812432906796008534",
-                    "18947162586829418653666557598416458949428989734998924978331450666032720066913",
-                    "8809427088917589399897132358419395928548406347152047718919154153577297139202",
-                    "6261460226929242970747566981077801929281729646713842579109271945192964422300",
-                    "13871468675790284383809887052382100311103716176061564908030808887079542722597",
-                    "10413964486611723004584705484327518190402370933255450052832412709168190985805",
-                    "3978387560092078849178760154060822400741873818692524912249877867958842934383",
-                    "14014915591348694328771517896715085647041518432952027841088176673715002508448",
-                    "17680675606519345547327984724173632294904524423937145835611954334756161077843",
-                    "17107175244885276119916848057745382329169223109661217238296871427531065458152",
-                    "18326186549441826262593357123467931475982067066825042001499291800252145875109",
-                    "7043961192177345916232559778383741091053414803377017307095275172896944935996",
-                    "2807630271073553218355393059254209097448243975722083008310815929736065268921"
-                ],
-                "userMessageLimit": "100",
-                "x": "20645213238265527935869146898028115621427162613172918400241870500502509785943"
-            }
-        "#;
-
     #[test]
     // We test Merkle tree generation, proofs and verification
     fn test_merkle_proof() {
@@ -140,33 +85,8 @@ mod test {
         assert!(tree.verify(&rate_commitment, &merkle_proof).unwrap());
     }
 
-    #[test]
-    // We test a RLN proof generation and verification
-    fn test_witness_from_json() {
-        // We generate all relevant keys
-        let proving_key = zkey_from_folder().unwrap();
-        let verification_key = vk_from_folder().unwrap();
-        let builder = circom_from_folder().unwrap();
-
-        // We compute witness from the json input example
-        let witness_json = WITNESS_JSON_20;
-        let rln_witness = rln_witness_from_json(witness_json).unwrap();
-
-        // Let's generate a zkSNARK proof
-        let proof = generate_proof(builder, &proving_key, &rln_witness).unwrap();
-        let proof_values = proof_values_from_witness(&rln_witness).unwrap();
-
-        // Let's verify the proof
-        let verified = verify_proof(&verification_key, &proof, &proof_values);
-
-        assert!(verified.unwrap());
-    }
-
-    #[test]
-    // We test a RLN proof generation and verification
-    fn test_end_to_end() {
+    fn get_test_witness() -> RLNWitnessInput {
         let leaf_index = 3;
-
         // Generate identity pair
         let (identity_secret_hash, id_commitment) = keygen();
         let user_message_limit = Fr::from(100);
@@ -192,7 +112,7 @@ mod test {
         let rln_identifier = hash_to_field(b"test-rln-identifier");
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
 
-        let rln_witness: RLNWitnessInput = rln_witness_from_values(
+        rln_witness_from_values(
             identity_secret_hash,
             &merkle_proof,
             x,
@@ -200,7 +120,40 @@ mod test {
             user_message_limit,
             Fr::from(1),
         )
-        .unwrap();
+        .unwrap()
+    }
+
+    #[test]
+    // We test a RLN proof generation and verification
+    fn test_witness_from_json() {
+        // We generate all relevant keys
+        let proving_key = zkey_from_folder().unwrap();
+        let verification_key = vk_from_folder().unwrap();
+        let builder = circom_from_folder().unwrap();
+
+        // We compute witness from the json input
+        let rln_witness = get_test_witness();
+        let rln_witness_json = rln_witness_to_json(&rln_witness).unwrap();
+        let rln_witness_deser = rln_witness_from_json(rln_witness_json).unwrap();
+        assert_eq!(rln_witness_deser, rln_witness);
+
+        // Let's generate a zkSNARK proof
+        let proof = generate_proof(builder, &proving_key, &rln_witness_deser).unwrap();
+        let proof_values = proof_values_from_witness(&rln_witness_deser).unwrap();
+
+        // Let's verify the proof
+        let verified = verify_proof(&verification_key, &proof, &proof_values);
+
+        assert!(verified.unwrap());
+    }
+
+    #[test]
+    // We test a RLN proof generation and verification
+    fn test_end_to_end() {
+        let rln_witness = get_test_witness();
+        let rln_witness_json = rln_witness_to_json(&rln_witness).unwrap();
+        let rln_witness_deser = rln_witness_from_json(rln_witness_json).unwrap();
+        assert_eq!(rln_witness_deser, rln_witness);
 
         // We generate all relevant keys
         let proving_key = zkey_from_folder().unwrap();
@@ -208,9 +161,9 @@ mod test {
         let builder = circom_from_folder().unwrap();
 
         // Let's generate a zkSNARK proof
-        let proof = generate_proof(builder, &proving_key, &rln_witness).unwrap();
+        let proof = generate_proof(builder, &proving_key, &rln_witness_deser).unwrap();
 
-        let proof_values = proof_values_from_witness(&rln_witness).unwrap();
+        let proof_values = proof_values_from_witness(&rln_witness_deser).unwrap();
 
         // Let's verify the proof
         let success = verify_proof(&verification_key, &proof, &proof_values).unwrap();
@@ -220,11 +173,13 @@ mod test {
 
     #[test]
     fn test_witness_serialization() {
+        // We test witness JSON serialization
+        let rln_witness = get_test_witness();
+        let rln_witness_json = rln_witness_to_json(&rln_witness).unwrap();
+        let rln_witness_deser = rln_witness_from_json(rln_witness_json).unwrap();
+        assert_eq!(rln_witness_deser, rln_witness);
+
         // We test witness serialization
-        let witness_json: &str = WITNESS_JSON_20;
-
-        let rln_witness = rln_witness_from_json(witness_json).unwrap();
-
         let ser = serialize_witness(&rln_witness).unwrap();
         let (deser, _) = deserialize_witness(&ser).unwrap();
         assert_eq!(rln_witness, deser);

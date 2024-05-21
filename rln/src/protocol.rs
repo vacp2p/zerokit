@@ -4,11 +4,13 @@ use ark_circom::{CircomReduction, WitnessCalculator};
 use ark_groth16::{prepare_verifying_key, Groth16, Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_relations::r1cs::SynthesisError;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::thread_rng, UniformRand};
 use color_eyre::{Report, Result};
 use num_bigint::BigInt;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
+use serde::{Deserialize, Serialize};
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::Mutex;
 #[cfg(debug_assertions)]
@@ -29,14 +31,20 @@ use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 // RLN Witness data structure and utility functions
 ///////////////////////////////////////////////////////
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct RLNWitnessInput {
+    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     identity_secret: Fr,
+    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     user_message_limit: Fr,
+    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     message_id: Fr,
+    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     path_elements: Vec<Fr>,
     identity_path_index: Vec<u8>,
+    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     x: Fr,
+    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     external_nullifier: Fr,
 }
 
@@ -212,55 +220,6 @@ pub fn proof_inputs_to_rln_witness(
         },
         all_read,
     ))
-}
-
-/// Returns `RLNWitnessInput` given a file with JSON serialized values.
-///
-/// # Errors
-///
-/// Returns an error if `message_id` is not within `user_message_limit`.
-pub fn rln_witness_from_json(input_json_str: &str) -> Result<RLNWitnessInput> {
-    let input_json: serde_json::Value =
-        serde_json::from_str(input_json_str).expect("JSON was not well-formatted");
-
-    let user_message_limit = str_to_fr(&input_json["userMessageLimit"].to_string(), 10)?;
-
-    let message_id = str_to_fr(&input_json["messageId"].to_string(), 10)?;
-
-    message_id_range_check(&message_id, &user_message_limit)?;
-
-    let identity_secret = str_to_fr(&input_json["identitySecret"].to_string(), 10)?;
-
-    let path_elements = input_json["pathElements"]
-        .as_array()
-        .ok_or(Report::msg("not an array"))?
-        .iter()
-        .map(|v| str_to_fr(&v.to_string(), 10))
-        .collect::<Result<_>>()?;
-
-    let identity_path_index_array = input_json["identityPathIndex"]
-        .as_array()
-        .ok_or(Report::msg("not an array"))?;
-
-    let mut identity_path_index: Vec<u8> = vec![];
-
-    for v in identity_path_index_array {
-        identity_path_index.push(v.as_u64().ok_or(Report::msg("not a u64 value"))? as u8);
-    }
-
-    let x = str_to_fr(&input_json["x"].to_string(), 10)?;
-
-    let external_nullifier = str_to_fr(&input_json["externalNullifier"].to_string(), 10)?;
-
-    Ok(RLNWitnessInput {
-        identity_secret,
-        path_elements,
-        identity_path_index,
-        x,
-        external_nullifier,
-        user_message_limit,
-        message_id,
-    })
 }
 
 /// Creates `RLNWitnessInput` from it's fields.
@@ -759,40 +718,49 @@ pub fn verify_proof(
     Ok(verified)
 }
 
-/// Get CIRCOM JSON inputs
+// auxiliary function for serialisation Fr to json using ark serilize
+fn ark_se<S, A: CanonicalSerialize>(a: &A, s: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let mut bytes = vec![];
+    a.serialize_compressed(&mut bytes)
+        .map_err(serde::ser::Error::custom)?;
+    s.serialize_bytes(&bytes)
+}
+
+// auxiliary function for deserialisation Fr to json using ark serilize
+fn ark_de<'de, D, A: CanonicalDeserialize>(data: D) -> Result<A, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    let s: Vec<u8> = serde::de::Deserialize::deserialize(data)?;
+    let a = A::deserialize_compressed_unchecked(s.as_slice());
+    a.map_err(serde::de::Error::custom)
+}
+
+/// Converts a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object to the corresponding JSON serialization.
 ///
-/// Returns a JSON object containing the inputs necessary to calculate
-/// the witness with CIRCOM on javascript
+/// # Errors
+///
+/// Returns an error if `message_id` is not within `user_message_limit`.
+pub fn rln_witness_from_json(input_json: serde_json::Value) -> Result<RLNWitnessInput> {
+    let rln_witness: RLNWitnessInput = serde_json::from_value(input_json).unwrap();
+    message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
+
+    Ok(rln_witness)
+}
+
+/// Converts a JSON value into [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
 ///
 /// # Errors
 ///
 /// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
-pub fn get_json_inputs(rln_witness: &RLNWitnessInput) -> Result<serde_json::Value> {
+pub fn rln_witness_to_json(rln_witness: &RLNWitnessInput) -> Result<serde_json::Value> {
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
-    let mut path_elements = Vec::new();
-
-    for v in rln_witness.path_elements.iter() {
-        path_elements.push(to_bigint(v)?.to_str_radix(10));
-    }
-
-    let mut identity_path_index = Vec::new();
-    rln_witness
-        .identity_path_index
-        .iter()
-        .for_each(|v| identity_path_index.push(BigInt::from(*v).to_str_radix(10)));
-
-    let inputs = serde_json::json!({
-        "identitySecret": to_bigint(&rln_witness.identity_secret)?.to_str_radix(10),
-        "userMessageLimit": to_bigint(&rln_witness.user_message_limit)?.to_str_radix(10),
-        "messageId": to_bigint(&rln_witness.message_id)?.to_str_radix(10),
-        "pathElements": path_elements,
-        "identityPathIndex": identity_path_index,
-        "x": to_bigint(&rln_witness.x)?.to_str_radix(10),
-        "externalNullifier":  to_bigint(&rln_witness.external_nullifier)?.to_str_radix(10),
-    });
-
-    Ok(inputs)
+    let rln_witness_json = serde_json::to_value(rln_witness)?;
+    Ok(rln_witness_json)
 }
 
 pub fn message_id_range_check(message_id: &Fr, user_message_limit: &Fr) -> Result<()> {
