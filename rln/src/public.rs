@@ -1248,7 +1248,7 @@ impl RLN<'_> {
     /// The function returns the corresponding JSON encoding of the input [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
     pub fn get_rln_witness_json(&mut self, serialized_witness: &[u8]) -> Result<serde_json::Value> {
         let (rln_witness, _) = deserialize_witness(serialized_witness)?;
-        get_json_inputs(&rln_witness)
+        rln_witness_to_json(&rln_witness)
     }
 
     /// Closes the connection to the Merkle tree database.
