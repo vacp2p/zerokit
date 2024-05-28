@@ -665,13 +665,10 @@ fn test_rln_with_witness() {
         .collect();
 
     // Generating the proof
+    let mut input_buffer = Cursor::new(serialized_witness);
     let mut output_buffer = Cursor::new(Vec::<u8>::new());
-    rln.generate_rln_proof_with_witness(
-        calculated_witness_vec,
-        serialized_witness,
-        &mut output_buffer,
-    )
-    .unwrap();
+    rln.generate_rln_proof_with_witness(&mut input_buffer, &mut output_buffer)
+        .unwrap();
 
     // output_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
     let mut proof_data = output_buffer.into_inner();
