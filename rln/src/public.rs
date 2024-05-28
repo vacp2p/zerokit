@@ -820,7 +820,7 @@ impl RLN<'_> {
     //
     // output_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
     // we skip it from documentation for now
-    #[doc(hidden)]
+    #[cfg(target_arch = "wasm32")]
     pub fn generate_rln_proof_with_witness<W: Write>(
         &mut self,
         calculated_witness: Vec<BigInt>,
