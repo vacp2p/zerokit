@@ -23,9 +23,9 @@ cfg_if! {
         use serde_json::{json, Value};
         use utils::{Hasher};
         use std::str::FromStr;
-        use num_bigint::BigInt;
     } else {
         use std::marker::*;
+        use num_bigint::BigInt;
     }
 }
 
