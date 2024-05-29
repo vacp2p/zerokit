@@ -11,7 +11,6 @@ use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
-use num_bigint::BigInt;
 use std::io::Cursor;
 use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 
@@ -26,6 +25,7 @@ cfg_if! {
         use std::str::FromStr;
     } else {
         use std::marker::*;
+        use num_bigint::BigInt;
     }
 }
 
@@ -819,8 +819,7 @@ impl RLN<'_> {
     // Generate RLN Proof using a witness calculated from outside zerokit
     //
     // output_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
-    // we skip it from documentation for now
-    #[doc(hidden)]
+    #[cfg(target_arch = "wasm32")]
     pub fn generate_rln_proof_with_witness<W: Write>(
         &mut self,
         calculated_witness: Vec<BigInt>,
@@ -831,6 +830,30 @@ impl RLN<'_> {
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
         let proof = generate_proof_with_witness(calculated_witness, &self.proving_key).unwrap();
+
+        // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
+        // This proof is compressed, i.e. 128 bytes long
+        proof.serialize_compressed(&mut output_data)?;
+        output_data.write_all(&serialize_proof_values(&proof_values))?;
+        Ok(())
+    }
+
+    // Generate RLN Proof using a witness calculated from outside zerokit
+    //
+    // output_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
+    // we skip it from documentation for now
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn generate_rln_proof_with_witness<R: Read, W: Write>(
+        &mut self,
+        mut input_data: R,
+        mut output_data: W,
+    ) -> Result<()> {
+        let mut witness_byte: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut witness_byte)?;
+        let (rln_witness, _) = deserialize_witness(&witness_byte)?;
+        let proof_values = proof_values_from_witness(&rln_witness)?;
+
+        let proof = generate_proof(self.witness_calculator, &self.proving_key, &rln_witness)?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
