@@ -840,7 +840,7 @@ impl RLN<'_> {
 
     // Generate RLN Proof using a witness calculated from outside zerokit
     //
-    // output_data is  [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
+    // output_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
     // we skip it from documentation for now
     #[cfg(not(target_arch = "wasm32"))]
     pub fn generate_rln_proof_with_witness<R: Read, W: Write>(
