@@ -180,7 +180,7 @@ fn json_to_g1(json: &Value, key: &str) -> Result<G1Affine> {
         .map(|x| x.map(|v| v.to_owned()))
         .collect::<Result<Vec<String>>>()?;
 
-    Ok(G1Affine::from(G1Projective::new(
+    Ok(G1Affine::from(G1Projective::new_unchecked(
         fq_from_str(&els[0])?,
         fq_from_str(&els[1])?,
         fq_from_str(&els[2])?,
@@ -210,7 +210,7 @@ fn json_to_g1_vec(json: &Value, key: &str) -> Result<Vec<G1Affine>> {
 
     let mut res = vec![];
     for coords in els {
-        res.push(G1Affine::from(G1Projective::new(
+        res.push(G1Affine::from(G1Projective::new_unchecked(
             fq_from_str(&coords[0])?,
             fq_from_str(&coords[1])?,
             fq_from_str(&coords[2])?,
@@ -244,7 +244,7 @@ fn json_to_g2(json: &Value, key: &str) -> Result<G2Affine> {
     let x = Fq2::new(fq_from_str(&els[0][0])?, fq_from_str(&els[0][1])?);
     let y = Fq2::new(fq_from_str(&els[1][0])?, fq_from_str(&els[1][1])?);
     let z = Fq2::new(fq_from_str(&els[2][0])?, fq_from_str(&els[2][1])?);
-    Ok(G2Affine::from(G2Projective::new(x, y, z)))
+    Ok(G2Affine::from(G2Projective::new_unchecked(x, y, z)))
 }
 
 // Converts JSON to a VerifyingKey

@@ -369,7 +369,7 @@ fn g1_from_str(g1: &[String]) -> ark_bn254::G1Affine {
     let x = fq_from_str(g1[0].clone());
     let y = fq_from_str(g1[1].clone());
     let z = fq_from_str(g1[2].clone());
-    ark_bn254::G1Affine::from(ark_bn254::G1Projective::new(x, y, z))
+    ark_bn254::G1Affine::from(ark_bn254::G1Projective::new_unchecked(x, y, z))
 }
 
 fn g2_from_str(g2: &[Vec<String>]) -> ark_bn254::G2Affine {
@@ -385,7 +385,7 @@ fn g2_from_str(g2: &[Vec<String>]) -> ark_bn254::G2Affine {
     let c1 = fq_from_str(g2[2][1].clone());
     let z = ark_bn254::Fq2::new(c0, c1);
 
-    ark_bn254::G2Affine::from(ark_bn254::G2Projective::new(x, y, z))
+    ark_bn254::G2Affine::from(ark_bn254::G2Projective::new_unchecked(x, y, z))
 }
 
 fn value_to_string_vec(value: &Value) -> Vec<String> {
