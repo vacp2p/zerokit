@@ -10,5 +10,9 @@ pub fn key_load_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, key_load_benchmark);
+criterion_group! {
+    name = benches;
+    config = Criterion::default().measurement_time(std::time::Duration::from_secs(250));
+    targets = key_load_benchmark
+}
 criterion_main!(benches);

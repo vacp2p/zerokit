@@ -35,13 +35,13 @@ cfg_if! {
 }
 
 const ZKEY_FILENAME: &str = "tree_height_20/rln_final.zkey";
-const VK_FILENAME: &str = "tree_height_20/verification_key.json";
+pub const VK_FILENAME: &str = "tree_height_20/verification_key.json";
 const WASM_FILENAME: &str = "tree_height_20/rln.wasm";
 
 pub const TEST_TREE_HEIGHT: usize = 20;
 
 #[cfg(not(target_arch = "wasm32"))]
-static RESOURCES_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/resources");
+pub static RESOURCES_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/resources");
 
 // The following types define the pairing friendly elliptic curve, the underlying finite fields and groups default to this module
 // Note that proofs are serialized assuming Fr to be 4x8 = 32 bytes in size. Hence, changing to a curve with different encoding will make proof verification to fail
@@ -248,20 +248,20 @@ fn json_to_g2(json: &Value, key: &str) -> Result<G2Affine> {
 }
 
 // Converts JSON to a VerifyingKey
-fn to_verifying_key(json: serde_json::Value) -> Result<VerifyingKey<Curve>> {
+pub fn to_verifying_key(json: &serde_json::Value) -> Result<VerifyingKey<Curve>> {
     Ok(VerifyingKey {
-        alpha_g1: json_to_g1(&json, "vk_alpha_1")?,
-        beta_g2: json_to_g2(&json, "vk_beta_2")?,
-        gamma_g2: json_to_g2(&json, "vk_gamma_2")?,
-        delta_g2: json_to_g2(&json, "vk_delta_2")?,
-        gamma_abc_g1: json_to_g1_vec(&json, "IC")?,
+        alpha_g1: json_to_g1(json, "vk_alpha_1")?,
+        beta_g2: json_to_g2(json, "vk_beta_2")?,
+        gamma_g2: json_to_g2(json, "vk_gamma_2")?,
+        delta_g2: json_to_g2(json, "vk_delta_2")?,
+        gamma_abc_g1: json_to_g1_vec(json, "IC")?,
     })
 }
 
 // Computes the verification key from its JSON serialization
 fn vk_from_json(vk: &str) -> Result<VerifyingKey<Curve>> {
     let json: Value = serde_json::from_str(vk)?;
-    to_verifying_key(json)
+    to_verifying_key(&json)
 }
 
 // Computes the verification key from a bytes vector containing its JSON serialization
@@ -269,7 +269,7 @@ fn vk_from_vector(vk: &[u8]) -> Result<VerifyingKey<Curve>> {
     let json = String::from_utf8(vk.to_vec())?;
     let json: Value = serde_json::from_str(&json)?;
 
-    to_verifying_key(json)
+    to_verifying_key(&json)
 }
 
 // Checks verification key to be correct with respect to proving key
