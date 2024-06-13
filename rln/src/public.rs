@@ -112,7 +112,7 @@ impl RLN<'_> {
     /// - `tree_height`: the height of the internal Merkle tree
     /// - `circom_vec`: a byte vector containing the ZK circuit (`rln.wasm`) as binary file
     /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`)  or (`rln_final.arkzkey`) as binary file
-    /// - `vk_vec`: a byte vector containing to the verification key (`verification_key.json`) as binary file
+    /// - `vk_vec`: a byte vector containing to the verification key (`verification_key.arkvkey`) as binary file
     /// - `tree_config_input`: a reader for a string containing a json with the merkle tree configuration
     ///
     /// Example:
@@ -124,7 +124,7 @@ impl RLN<'_> {
     /// let resources_folder = "./resources/tree_height_20/";
     ///
     /// let mut resources: Vec<Vec<u8>> = Vec::new();
-    /// for filename in ["rln.wasm", "rln_final.zkey", "verification_key.json"] {
+    /// for filename in ["rln.wasm", "rln_final.zkey", "verification_key.arkvkey"] {
     ///     let fullpath = format!("{resources_folder}{filename}");
     ///     let mut file = File::open(&fullpath).expect("no file found");
     ///     let metadata = std::fs::metadata(&fullpath).expect("unable to read metadata");

@@ -74,7 +74,7 @@ rln = { git = "https://github.com/vacp2p/zerokit" }
 
 First, we need to create a RLN object for a chosen input Merkle tree size.
 
-Note that we need to pass to RLN object constructor the path where the circuit (`rln.wasm`, built for the input tree size), the corresponding proving key (`rln_final.zkey`) or (`rln_final.arkzkey`) and verification key (`verification_key.json`, optional) are found.
+Note that we need to pass to RLN object constructor the path where the circuit (`rln.wasm`, built for the input tree size), the corresponding proving key (`rln_final.zkey`) or (`rln_final.arkzkey`) and verification key (`verification_key.arkvkey`, optional) are found.
 
 In the following we will use [cursors](https://doc.rust-lang.org/std/io/struct.Cursor.html) as readers/writers for interfacing with RLN public APIs.
 

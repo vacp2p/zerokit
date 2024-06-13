@@ -25,7 +25,7 @@ mod tests {
         let circom_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln.wasm");
         let zkey_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.zkey");
         let vk_path =
-            format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/verification_key.json");
+            format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/verification_key.arkvkey");
         let zkey = read_file(&zkey_path).unwrap();
         let vk = read_file(&vk_path).unwrap();
 
@@ -129,7 +129,7 @@ mod tests {
         let tree_height = TEST_TREE_HEIGHT;
         let zkey_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.zkey");
         let vk_path =
-            format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/verification_key.json");
+            format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/verification_key.arkvkey");
         let zkey = read_file(&zkey_path).unwrap();
         let vk = read_file(&vk_path).unwrap();
 
