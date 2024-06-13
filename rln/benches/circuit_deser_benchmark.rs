@@ -1,4 +1,3 @@
-use ark_serialize::{CanonicalSerialize, Compress, Validate};
 use criterion::{criterion_group, criterion_main, Criterion};
 use rln::circuit::{vk_from_slice, RESOURCES_DIR, VK_FILENAME};
 use std::path::Path;
