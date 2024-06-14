@@ -427,7 +427,7 @@ mod test {
             .read_exact(&mut zkey_buffer)
             .expect("buffer overflow");
 
-        let vk_path = "./resources/tree_height_20/verification_key.json";
+        let vk_path = "./resources/tree_height_20/verification_key.arkvkey";
         let mut vk_file = File::open(&vk_path).expect("no file found");
         let metadata = std::fs::metadata(&vk_path).expect("unable to read metadata");
         let mut vk_buffer = vec![0; metadata.len() as usize];

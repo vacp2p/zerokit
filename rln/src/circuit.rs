@@ -6,11 +6,9 @@ use ark_bn254::{
 };
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
+use ark_serialize::CanonicalDeserialize;
 use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
-use num_bigint::BigUint;
-use serde_json::Value;
-use std::str::FromStr;
 
 cfg_if! {
     if #[cfg(not(target_arch = "wasm32"))] {
@@ -35,7 +33,7 @@ cfg_if! {
 }
 
 const ZKEY_FILENAME: &str = "tree_height_20/rln_final.zkey";
-pub const VK_FILENAME: &str = "tree_height_20/verification_key.json";
+pub const VK_FILENAME: &str = "tree_height_20/verification_key.arkvkey";
 const WASM_FILENAME: &str = "tree_height_20/rln.wasm";
 
 pub const TEST_TREE_HEIGHT: usize = 20;
@@ -101,7 +99,7 @@ pub fn vk_from_raw(vk_data: &[u8], zkey_data: &Vec<u8>) -> Result<VerifyingKey<C
     let verifying_key: VerifyingKey<Curve>;
 
     if !vk_data.is_empty() {
-        verifying_key = vk_from_vector(vk_data)?;
+        verifying_key = vk_from_ark_serialized(vk_data)?;
         Ok(verifying_key)
     } else if !zkey_data.is_empty() {
         let (proving_key, _matrices) = zkey_from_raw(zkey_data)?;
@@ -120,9 +118,7 @@ pub fn vk_from_folder() -> Result<VerifyingKey<Curve>> {
 
     let verifying_key: VerifyingKey<Curve>;
     if let Some(vk) = vk {
-        verifying_key = vk_from_json(vk.contents_utf8().ok_or(Report::msg(
-            "Could not read verification key from JSON file!",
-        ))?)?;
+        verifying_key = vk_from_ark_serialized(vk.contents())?;
         Ok(verifying_key)
     } else if let Some(_zkey) = zkey {
         let (proving_key, _matrices) = zkey_from_folder()?;
@@ -161,115 +157,11 @@ pub fn circom_from_folder() -> Result<&'static Mutex<WitnessCalculator>> {
     }
 }
 
-// The following function implementations are taken/adapted from https://github.com/gakonst/ark-circom/blob/1732e15d6313fe176b0b1abb858ac9e095d0dbd7/src/zkey.rs
-
-// Utilities to convert a json verification key in a groth16::VerificationKey
-fn fq_from_str(s: &str) -> Result<Fq> {
-    Ok(Fq::from(BigUint::from_str(s)?))
-}
-
-// Extracts the element in G1 corresponding to its JSON serialization
-fn json_to_g1(json: &Value, key: &str) -> Result<G1Affine> {
-    let els: Vec<String> = json
-        .get(key)
-        .ok_or(Report::msg("no json value"))?
-        .as_array()
-        .ok_or(Report::msg("value not an array"))?
-        .iter()
-        .map(|i| i.as_str().ok_or(Report::msg("element is not a string")))
-        .map(|x| x.map(|v| v.to_owned()))
-        .collect::<Result<Vec<String>>>()?;
-
-    Ok(G1Affine::from(G1Projective::new(
-        fq_from_str(&els[0])?,
-        fq_from_str(&els[1])?,
-        fq_from_str(&els[2])?,
-    )))
-}
-
-// Extracts the vector of G1 elements corresponding to its JSON serialization
-fn json_to_g1_vec(json: &Value, key: &str) -> Result<Vec<G1Affine>> {
-    let els: Vec<Vec<String>> = json
-        .get(key)
-        .ok_or(Report::msg("no json value"))?
-        .as_array()
-        .ok_or(Report::msg("value not an array"))?
-        .iter()
-        .map(|i| {
-            i.as_array()
-                .ok_or(Report::msg("element is not an array"))
-                .and_then(|array| {
-                    array
-                        .iter()
-                        .map(|x| x.as_str().ok_or(Report::msg("element is not a string")))
-                        .map(|x| x.map(|v| v.to_owned()))
-                        .collect::<Result<Vec<String>>>()
-                })
-        })
-        .collect::<Result<Vec<Vec<String>>>>()?;
-
-    let mut res = vec![];
-    for coords in els {
-        res.push(G1Affine::from(G1Projective::new(
-            fq_from_str(&coords[0])?,
-            fq_from_str(&coords[1])?,
-            fq_from_str(&coords[2])?,
-        )))
-    }
-
-    Ok(res)
-}
-
-// Extracts the element in G2 corresponding to its JSON serialization
-fn json_to_g2(json: &Value, key: &str) -> Result<G2Affine> {
-    let els: Vec<Vec<String>> = json
-        .get(key)
-        .ok_or(Report::msg("no json value"))?
-        .as_array()
-        .ok_or(Report::msg("value not an array"))?
-        .iter()
-        .map(|i| {
-            i.as_array()
-                .ok_or(Report::msg("element is not an array"))
-                .and_then(|array| {
-                    array
-                        .iter()
-                        .map(|x| x.as_str().ok_or(Report::msg("element is not a string")))
-                        .map(|x| x.map(|v| v.to_owned()))
-                        .collect::<Result<Vec<String>>>()
-                })
-        })
-        .collect::<Result<Vec<Vec<String>>>>()?;
-
-    let x = Fq2::new(fq_from_str(&els[0][0])?, fq_from_str(&els[0][1])?);
-    let y = Fq2::new(fq_from_str(&els[1][0])?, fq_from_str(&els[1][1])?);
-    let z = Fq2::new(fq_from_str(&els[2][0])?, fq_from_str(&els[2][1])?);
-    Ok(G2Affine::from(G2Projective::new(x, y, z)))
-}
-
-// Converts JSON to a VerifyingKey
-pub fn to_verifying_key(json: &serde_json::Value) -> Result<VerifyingKey<Curve>> {
-    Ok(VerifyingKey {
-        alpha_g1: json_to_g1(json, "vk_alpha_1")?,
-        beta_g2: json_to_g2(json, "vk_beta_2")?,
-        gamma_g2: json_to_g2(json, "vk_gamma_2")?,
-        delta_g2: json_to_g2(json, "vk_delta_2")?,
-        gamma_abc_g1: json_to_g1_vec(json, "IC")?,
-    })
-}
-
-// Computes the verification key from its JSON serialization
-fn vk_from_json(vk: &str) -> Result<VerifyingKey<Curve>> {
-    let json: Value = serde_json::from_str(vk)?;
-    to_verifying_key(&json)
-}
-
-// Computes the verification key from a bytes vector containing its JSON serialization
-fn vk_from_vector(vk: &[u8]) -> Result<VerifyingKey<Curve>> {
-    let json = String::from_utf8(vk.to_vec())?;
-    let json: Value = serde_json::from_str(&json)?;
-
-    to_verifying_key(&json)
+// Computes the verification key from a bytes vector containing pre-processed ark-serialized verification key
+// uncompressed, unchecked
+pub fn vk_from_ark_serialized(data: &[u8]) -> Result<VerifyingKey<Curve>> {
+    let vk = VerifyingKey::<Curve>::deserialize_uncompressed_unchecked(data)?;
+    Ok(vk)
 }
 
 // Checks verification key to be correct with respect to proving key

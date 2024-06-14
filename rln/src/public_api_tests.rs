@@ -1,11 +1,10 @@
-use crate::circuit::{Curve, Fr, TEST_TREE_HEIGHT};
+use crate::circuit::{Fr, TEST_TREE_HEIGHT};
 use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
 use crate::protocol::*;
 use crate::public::RLN;
 use crate::utils::*;
 use ark_groth16::Proof as ArkProof;
 use ark_serialize::{CanonicalDeserialize, Read};
-use num_bigint::BigInt;
 use std::io::Cursor;
 use std::str::FromStr;
 use utils::ZerokitMerkleTree;
@@ -645,24 +644,6 @@ fn test_rln_with_witness() {
     let (rln_witness, _) = proof_inputs_to_rln_witness(&mut rln.tree, &witness_byte).unwrap();
 
     let serialized_witness = serialize_witness(&rln_witness).unwrap();
-
-    // Calculate witness outside zerokit (simulating what JS is doing)
-    let inputs = inputs_for_witness_calculation(&rln_witness)
-        .unwrap()
-        .into_iter()
-        .map(|(name, values)| (name.to_string(), values));
-    let calculated_witness = rln
-        .witness_calculator
-        .lock()
-        .expect("witness_calculator mutex should not get poisoned")
-        .calculate_witness_element::<Curve, _>(inputs, false)
-        .map_err(ProofError::WitnessError)
-        .unwrap();
-
-    let calculated_witness_vec: Vec<BigInt> = calculated_witness
-        .into_iter()
-        .map(|v| to_bigint(&v).unwrap())
-        .collect();
 
     // Generating the proof
     let mut input_buffer = Cursor::new(serialized_witness);
