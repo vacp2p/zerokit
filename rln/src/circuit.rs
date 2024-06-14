@@ -99,7 +99,7 @@ pub fn vk_from_raw(vk_data: &[u8], zkey_data: &Vec<u8>) -> Result<VerifyingKey<C
     let verifying_key: VerifyingKey<Curve>;
 
     if !vk_data.is_empty() {
-        verifying_key = vk_from_slice(vk_data)?;
+        verifying_key = vk_from_ark_serialized(vk_data)?;
         Ok(verifying_key)
     } else if !zkey_data.is_empty() {
         let (proving_key, _matrices) = zkey_from_raw(zkey_data)?;
@@ -118,7 +118,7 @@ pub fn vk_from_folder() -> Result<VerifyingKey<Curve>> {
 
     let verifying_key: VerifyingKey<Curve>;
     if let Some(vk) = vk {
-        verifying_key = vk_from_slice(vk.contents())?;
+        verifying_key = vk_from_ark_serialized(vk.contents())?;
         Ok(verifying_key)
     } else if let Some(_zkey) = zkey {
         let (proving_key, _matrices) = zkey_from_folder()?;
@@ -159,7 +159,7 @@ pub fn circom_from_folder() -> Result<&'static Mutex<WitnessCalculator>> {
 
 // Computes the verification key from a bytes vector containing pre-processed ark-serialized verification key
 // uncompressed, unchecked
-pub fn vk_from_slice(data: &[u8]) -> Result<VerifyingKey<Curve>> {
+pub fn vk_from_ark_serialized(data: &[u8]) -> Result<VerifyingKey<Curve>> {
     let vk = VerifyingKey::<Curve>::deserialize_uncompressed_unchecked(data)?;
     Ok(vk)
 }

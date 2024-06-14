@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use rln::circuit::{vk_from_slice, RESOURCES_DIR, VK_FILENAME};
+use rln::circuit::{vk_from_ark_serialized, RESOURCES_DIR, VK_FILENAME};
 use std::path::Path;
 
 // Here we benchmark how long the deserialization of the
@@ -11,7 +11,7 @@ pub fn vk_deserialize_benchmark(c: &mut Criterion) {
 
     c.bench_function("circuit::to_verifying_key", |b| {
         b.iter(|| {
-            let _ = vk_from_slice(&vk);
+            let _ = vk_from_ark_serialized(&vk);
         })
     });
 }
