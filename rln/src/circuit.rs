@@ -33,6 +33,7 @@ const ZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.
 pub const VK_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/verification_key.arkvkey");
 const WASM_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln.wasm");
 
+#[cfg(not(target_arch = "wasm32"))]
 static ZKEY: Lazy<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> = Lazy::new(|| {
     cfg_if! {
         if #[cfg(feature = "arkzkey")] {
@@ -44,6 +45,7 @@ static ZKEY: Lazy<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> = Lazy::new(|| {
     }
 });
 
+#[cfg(not(target_arch = "wasm32"))]
 static VK: Lazy<VerifyingKey<Curve>> =
     Lazy::new(|| vk_from_ark_serialized(VK_BYTES).expect("Failed to read vk"));
 

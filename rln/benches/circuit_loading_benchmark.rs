@@ -12,7 +12,7 @@ pub fn key_load_benchmark(c: &mut Criterion) {
 
 criterion_group! {
     name = benches;
-    config = Criterion::default().measurement_time(std::time::Duration::from_secs(250));
+    config = Criterion::default().measurement_time(std::time::Duration::from_secs(10));
     targets = key_load_benchmark
 }
 criterion_main!(benches);
