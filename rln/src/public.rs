@@ -79,9 +79,9 @@ impl RLN<'_> {
         let tree_config = rln_config["tree_config"].to_string();
 
         let witness_calculator = circom_from_folder()?;
-        let proving_key = zkey_from_folder()?;
+        let proving_key = zkey_from_folder();
 
-        let verification_key = vk_from_folder()?;
+        let verification_key = vk_from_folder();
 
         let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = if tree_config.is_empty() {
             <PoseidonTree as ZerokitMerkleTree>::Config::default()
@@ -98,8 +98,8 @@ impl RLN<'_> {
 
         Ok(RLN {
             witness_calculator,
-            proving_key,
-            verification_key,
+            proving_key: proving_key.to_owned(),
+            verification_key: verification_key.to_owned(),
             tree,
             #[cfg(target_arch = "wasm32")]
             _marker: PhantomData,

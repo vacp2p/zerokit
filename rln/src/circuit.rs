@@ -13,33 +13,41 @@ use color_eyre::{Report, Result};
 cfg_if! {
     if #[cfg(not(target_arch = "wasm32"))] {
         use ark_circom::{WitnessCalculator};
-        use once_cell::sync::OnceCell;
+        use once_cell::sync::{OnceCell, Lazy};
         use std::sync::Mutex;
         use wasmer::{Module, Store};
-        use include_dir::{include_dir, Dir};
-        use std::path::Path;
     }
 }
 
 cfg_if! {
     if #[cfg(feature = "arkzkey")] {
         use ark_zkey::read_arkzkey_from_bytes;
-        const ARKZKEY_FILENAME: &str = "tree_height_20/rln_final.arkzkey";
-
+        const ARKZKEY_BYTES: &[u8] = include_bytes!("tree_height_20/rln_final.arkzkey");
     } else {
         use std::io::Cursor;
         use ark_circom::read_zkey;
     }
 }
 
-const ZKEY_FILENAME: &str = "tree_height_20/rln_final.zkey";
-pub const VK_FILENAME: &str = "tree_height_20/verification_key.arkvkey";
-const WASM_FILENAME: &str = "tree_height_20/rln.wasm";
+const ZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.zkey");
+pub const VK_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/verification_key.arkvkey");
+const WASM_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln.wasm");
+
+static ZKEY: Lazy<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> = Lazy::new(|| {
+    cfg_if! {
+        if #[cfg(feature = "arkzkey")] {
+            read_arkzkey_from_bytes(ARKZKEY_BYTES).expect("Failed to read arkzkey")
+        } else {
+            let mut reader = Cursor::new(ZKEY_BYTES);
+            read_zkey(&mut reader).expect("Failed to read zkey")
+        }
+    }
+});
+
+static VK: Lazy<VerifyingKey<Curve>> =
+    Lazy::new(|| vk_from_ark_serialized(VK_BYTES).expect("Failed to read vk"));
 
 pub const TEST_TREE_HEIGHT: usize = 20;
-
-#[cfg(not(target_arch = "wasm32"))]
-pub static RESOURCES_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/resources");
 
 // The following types define the pairing friendly elliptic curve, the underlying finite fields and groups default to this module
 // Note that proofs are serialized assuming Fr to be 4x8 = 32 bytes in size. Hence, changing to a curve with different encoding will make proof verification to fail
@@ -55,14 +63,12 @@ pub type G2Projective = ArkG2Projective;
 // Loads the proving key using a bytes vector
 pub fn zkey_from_raw(zkey_data: &Vec<u8>) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
     if !zkey_data.is_empty() {
-        let proving_key_and_matrices = match () {
-            #[cfg(feature = "arkzkey")]
-            () => read_arkzkey_from_bytes(zkey_data.as_slice())?,
-            #[cfg(not(feature = "arkzkey"))]
-            () => {
-                let mut c = Cursor::new(zkey_data);
-                read_zkey(&mut c)?
-            }
+        #[cfg(feature = "arkzkey")]
+        let proving_key_and_matrices = read_arkzkey_from_bytes(zkey_data)?;
+        #[cfg(not(feature = "arkzkey"))]
+        let proving_key_and_matrices = {
+            let mut reader = Cursor::new(zkey_data);
+            read_zkey(&mut reader)?
         };
         Ok(proving_key_and_matrices)
     } else {
@@ -72,26 +78,8 @@ pub fn zkey_from_raw(zkey_data: &Vec<u8>) -> Result<(ProvingKey<Curve>, Constrai
 
 // Loads the proving key
 #[cfg(not(target_arch = "wasm32"))]
-pub fn zkey_from_folder() -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
-    #[cfg(feature = "arkzkey")]
-    let zkey = RESOURCES_DIR.get_file(Path::new(ARKZKEY_FILENAME));
-    #[cfg(not(feature = "arkzkey"))]
-    let zkey = RESOURCES_DIR.get_file(Path::new(ZKEY_FILENAME));
-
-    if let Some(zkey) = zkey {
-        let proving_key_and_matrices = match () {
-            #[cfg(feature = "arkzkey")]
-            () => read_arkzkey_from_bytes(zkey.contents())?,
-            #[cfg(not(feature = "arkzkey"))]
-            () => {
-                let mut c = Cursor::new(zkey.contents());
-                read_zkey(&mut c)?
-            }
-        };
-        Ok(proving_key_and_matrices)
-    } else {
-        Err(Report::msg("No proving key found!"))
-    }
+pub fn zkey_from_folder() -> &'static (ProvingKey<Curve>, ConstraintMatrices<Fr>) {
+    &ZKEY
 }
 
 // Loads the verification key from a bytes vector
@@ -112,21 +100,8 @@ pub fn vk_from_raw(vk_data: &[u8], zkey_data: &Vec<u8>) -> Result<VerifyingKey<C
 
 // Loads the verification key
 #[cfg(not(target_arch = "wasm32"))]
-pub fn vk_from_folder() -> Result<VerifyingKey<Curve>> {
-    let vk = RESOURCES_DIR.get_file(Path::new(VK_FILENAME));
-    let zkey = RESOURCES_DIR.get_file(Path::new(ZKEY_FILENAME));
-
-    let verifying_key: VerifyingKey<Curve>;
-    if let Some(vk) = vk {
-        verifying_key = vk_from_ark_serialized(vk.contents())?;
-        Ok(verifying_key)
-    } else if let Some(_zkey) = zkey {
-        let (proving_key, _matrices) = zkey_from_folder()?;
-        verifying_key = proving_key.vk;
-        Ok(verifying_key)
-    } else {
-        Err(Report::msg("No proving/verification key found!"))
-    }
+pub fn vk_from_folder() -> &'static VerifyingKey<Curve> {
+    &VK
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -147,14 +122,8 @@ pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> Result<&'static Mutex<WitnessCal
 #[cfg(not(target_arch = "wasm32"))]
 pub fn circom_from_folder() -> Result<&'static Mutex<WitnessCalculator>> {
     // We read the wasm file
-    let wasm = RESOURCES_DIR.get_file(Path::new(WASM_FILENAME));
-
-    if let Some(wasm) = wasm {
-        let wasm_buffer = wasm.contents();
-        circom_from_raw(wasm_buffer.to_vec())
-    } else {
-        Err(Report::msg("No wasm file found!"))
-    }
+    let wasm = WASM_BYTES;
+    circom_from_raw(wasm.to_vec())
 }
 
 // Computes the verification key from a bytes vector containing pre-processed ark-serialized verification key
@@ -167,7 +136,7 @@ pub fn vk_from_ark_serialized(data: &[u8]) -> Result<VerifyingKey<Curve>> {
 // Checks verification key to be correct with respect to proving key
 #[cfg(not(target_arch = "wasm32"))]
 pub fn check_vk_from_zkey(verifying_key: VerifyingKey<Curve>) -> Result<()> {
-    let (proving_key, _matrices) = zkey_from_folder()?;
+    let (proving_key, _matrices) = zkey_from_folder();
     if proving_key.vk == verifying_key {
         Ok(())
     } else {
