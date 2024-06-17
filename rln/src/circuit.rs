@@ -30,7 +30,7 @@ cfg_if! {
     }
 }
 
-const ZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.zkey");
+pub const ZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.zkey");
 pub const VK_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/verification_key.arkvkey");
 const WASM_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln.wasm");
 
@@ -71,12 +71,14 @@ pub type G2Projective = ArkG2Projective;
 // Loads the proving key using a bytes vector
 pub fn zkey_from_raw(zkey_data: &Vec<u8>) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
     if !zkey_data.is_empty() {
-        #[cfg(feature = "arkzkey")]
-        let proving_key_and_matrices = read_arkzkey_from_bytes(zkey_data)?;
-        #[cfg(not(feature = "arkzkey"))]
-        let proving_key_and_matrices = {
-            let mut reader = Cursor::new(zkey_data);
-            read_zkey(&mut reader)?
+        let proving_key_and_matrices = match () {
+            #[cfg(feature = "arkzkey")]
+            () => read_arkzkey_from_bytes(zkey_data.as_slice())?,
+            #[cfg(not(feature = "arkzkey"))]
+            () => {
+                let mut c = Cursor::new(zkey_data);
+                read_zkey(&mut c)?
+            }
         };
         Ok(proving_key_and_matrices)
     } else {
