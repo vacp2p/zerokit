@@ -120,8 +120,6 @@ jobs:
     timeout-minutes: 60
 
     name: benchmark - ${{ matrix.platform }} - ${{ matrix.crate }}
-    env:
-      RUST_BACKTRACE: 1
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
