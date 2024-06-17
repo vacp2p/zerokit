@@ -19,7 +19,7 @@ pub fn init_panic_hook() {
 pub struct RLNWrapper {
     // The purpose of this wrapper is to hold a RLN instance with the 'static lifetime
     // because wasm_bindgen does not allow returning elements with lifetimes
-    instance: RLN<'static>,
+    instance: RLN,
 }
 
 // Macro to call methods with arbitrary amount of arguments,

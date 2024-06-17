@@ -186,11 +186,7 @@ impl RLN {
     }
 
     #[cfg(target_arch = "wasm32")]
-    pub fn new_with_params(
-        tree_height: usize,
-        zkey_vec: Vec<u8>,
-        vk_vec: Vec<u8>,
-    ) -> Result<RLN<'static>> {
+    pub fn new_with_params(tree_height: usize, zkey_vec: Vec<u8>, vk_vec: Vec<u8>) -> Result<RLN> {
         #[cfg(not(target_arch = "wasm32"))]
         let witness_calculator = circom_from_raw(circom_vec)?;
 
