@@ -150,8 +150,8 @@ impl<T> ProcessArg for Vec<T> {
     }
 }
 
-impl<'a> ProcessArg for *const RLN<'a> {
-    type ReturnType = &'a RLN<'a>;
+impl ProcessArg for *const RLN {
+    type ReturnType = &'static RLN;
     fn process(self) -> Self::ReturnType {
         unsafe { &*self }
     }

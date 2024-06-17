@@ -16,7 +16,7 @@ mod test {
 
     const NO_OF_LEAVES: usize = 256;
 
-    fn create_rln_instance() -> &'static mut RLN<'static> {
+    fn create_rln_instance() -> &'static mut RLN {
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
         let input_config = json!({}).to_string();
         let input_buffer = &Buffer::from(input_config.as_bytes());

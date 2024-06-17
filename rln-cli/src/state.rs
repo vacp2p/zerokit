@@ -5,12 +5,12 @@ use std::fs::File;
 use crate::config::{Config, InnerConfig};
 
 #[derive(Default)]
-pub(crate) struct State<'a> {
-    pub rln: Option<RLN<'a>>,
+pub(crate) struct State {
+    pub rln: Option<RLN>,
 }
 
-impl<'a> State<'a> {
-    pub(crate) fn load_state() -> Result<State<'a>> {
+impl State {
+    pub(crate) fn load_state() -> Result<State> {
         let config = Config::load_config()?;
         let rln = if let Some(InnerConfig { file, tree_height }) = config.inner {
             let resources = File::open(&file)?;

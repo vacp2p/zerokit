@@ -129,7 +129,7 @@ mod test {
         // We generate all relevant keys
         let proving_key = zkey_from_folder();
         let verification_key = vk_from_folder();
-        let builder = circom_from_folder().unwrap();
+        let builder = circom_from_folder();
 
         // We compute witness from the json input
         let rln_witness = get_test_witness();
@@ -158,7 +158,7 @@ mod test {
         // We generate all relevant keys
         let proving_key = zkey_from_folder();
         let verification_key = vk_from_folder();
-        let builder = circom_from_folder().unwrap();
+        let builder = circom_from_folder();
 
         // Let's generate a zkSNARK proof
         let proof = generate_proof(builder, &proving_key, &rln_witness_deser).unwrap();

@@ -22,6 +22,7 @@ cfg_if! {
         use ark_circom::WitnessCalculator;
         use serde_json::{json, Value};
         use utils::{Hasher};
+        use std::sync::Arc;
         use std::str::FromStr;
     } else {
         use std::marker::*;
@@ -39,7 +40,7 @@ pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
 /// It implements the methods required to update the internal Merkle Tree, generate and verify RLN ZK proofs.
 ///
 /// I/O is mostly done using writers and readers implementing `std::io::Write` and `std::io::Read`, respectively.
-pub struct RLN<'a> {
+pub struct RLN {
     proving_key: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
     pub(crate) verification_key: VerifyingKey<Curve>,
     pub(crate) tree: PoseidonTree,
@@ -48,12 +49,12 @@ pub struct RLN<'a> {
     // contains a lifetime, a PhantomData is necessary to avoid a compiler
     // error since the lifetime is not being used
     #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) witness_calculator: &'a Mutex<WitnessCalculator>,
+    pub(crate) witness_calculator: Arc<Mutex<WitnessCalculator>>,
     #[cfg(target_arch = "wasm32")]
-    _marker: PhantomData<&'a ()>,
+    _marker: PhantomData<()>,
 }
 
-impl RLN<'_> {
+impl RLN {
     /// Creates a new RLN object by loading circuit resources from a folder.
     ///
     /// Input parameters are
@@ -70,7 +71,7 @@ impl RLN<'_> {
     /// let mut rln = RLN::new(tree_height, input);
     /// ```
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> Result<RLN<'static>> {
+    pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> Result<RLN> {
         // We read input
         let mut input: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input)?;
@@ -78,7 +79,7 @@ impl RLN<'_> {
         let rln_config: Value = serde_json::from_str(&String::from_utf8(input)?)?;
         let tree_config = rln_config["tree_config"].to_string();
 
-        let witness_calculator = circom_from_folder()?;
+        let witness_calculator = circom_from_folder();
         let proving_key = zkey_from_folder();
 
         let verification_key = vk_from_folder();
@@ -97,7 +98,7 @@ impl RLN<'_> {
         )?;
 
         Ok(RLN {
-            witness_calculator,
+            witness_calculator: witness_calculator.to_owned(),
             proving_key: proving_key.to_owned(),
             verification_key: verification_key.to_owned(),
             tree,
@@ -150,7 +151,7 @@ impl RLN<'_> {
         zkey_vec: Vec<u8>,
         vk_vec: Vec<u8>,
         mut tree_config_input: R,
-    ) -> Result<RLN<'static>> {
+    ) -> Result<RLN> {
         #[cfg(not(target_arch = "wasm32"))]
         let witness_calculator = circom_from_raw(circom_vec)?;
 
@@ -179,6 +180,8 @@ impl RLN<'_> {
             proving_key,
             verification_key,
             tree,
+            #[cfg(target_arch = "wasm32")]
+            _marker: PhantomData,
         })
     }
 
@@ -682,7 +685,7 @@ impl RLN<'_> {
         }
         */
 
-        let proof = generate_proof(self.witness_calculator, &self.proving_key, &rln_witness)?;
+        let proof = generate_proof(&self.witness_calculator, &self.proving_key, &rln_witness)?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         proof.serialize_compressed(&mut output_data)?;
@@ -805,7 +808,7 @@ impl RLN<'_> {
         let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
-        let proof = generate_proof(self.witness_calculator, &self.proving_key, &rln_witness)?;
+        let proof = generate_proof(&self.witness_calculator, &self.proving_key, &rln_witness)?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
@@ -853,7 +856,7 @@ impl RLN<'_> {
         let (rln_witness, _) = deserialize_witness(&witness_byte)?;
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
-        let proof = generate_proof(self.witness_calculator, &self.proving_key, &rln_witness)?;
+        let proof = generate_proof(&self.witness_calculator, &self.proving_key, &rln_witness)?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
@@ -1284,7 +1287,7 @@ impl RLN<'_> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-impl Default for RLN<'_> {
+impl Default for RLN {
     fn default() -> Self {
         let tree_height = TEST_TREE_HEIGHT;
         let buffer = Cursor::new(json!({}).to_string());

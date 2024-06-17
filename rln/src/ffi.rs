@@ -143,15 +143,15 @@ impl ProcessArg for *const Buffer {
     }
 }
 
-impl<'a> ProcessArg for *const RLN<'a> {
-    type ReturnType = &'a RLN<'a>;
+impl ProcessArg for *const RLN {
+    type ReturnType = &'static RLN;
     fn process(self) -> Self::ReturnType {
         unsafe { &*self }
     }
 }
 
-impl<'a> ProcessArg for *mut RLN<'a> {
-    type ReturnType = &'a mut RLN<'a>;
+impl ProcessArg for *mut RLN {
+    type ReturnType = &'static mut RLN;
     fn process(self) -> Self::ReturnType {
         unsafe { &mut *self }
     }

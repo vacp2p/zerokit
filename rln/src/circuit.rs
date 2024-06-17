@@ -13,9 +13,10 @@ use color_eyre::{Report, Result};
 cfg_if! {
     if #[cfg(not(target_arch = "wasm32"))] {
         use ark_circom::{WitnessCalculator};
-        use once_cell::sync::{OnceCell, Lazy};
+        use once_cell::sync::{Lazy};
         use std::sync::Mutex;
         use wasmer::{Module, Store};
+        use std::sync::Arc;
     }
 }
 
@@ -48,6 +49,11 @@ static ZKEY: Lazy<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> = Lazy::new(|| {
 #[cfg(not(target_arch = "wasm32"))]
 static VK: Lazy<VerifyingKey<Curve>> =
     Lazy::new(|| vk_from_ark_serialized(VK_BYTES).expect("Failed to read vk"));
+
+#[cfg(not(target_arch = "wasm32"))]
+static WITNESS_CALCULATOR: Lazy<Arc<Mutex<WitnessCalculator>>> = Lazy::new(|| {
+    circom_from_raw(WASM_BYTES.to_vec()).expect("Failed to create witness calculator")
+});
 
 pub const TEST_TREE_HEIGHT: usize = 20;
 
@@ -106,26 +112,20 @@ pub fn vk_from_folder() -> &'static VerifyingKey<Curve> {
     &VK
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-static WITNESS_CALCULATOR: OnceCell<Mutex<WitnessCalculator>> = OnceCell::new();
-
 // Initializes the witness calculator using a bytes vector
 #[cfg(not(target_arch = "wasm32"))]
-pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> Result<&'static Mutex<WitnessCalculator>> {
-    WITNESS_CALCULATOR.get_or_try_init(|| {
-        let store = Store::default();
-        let module = Module::new(&store, wasm_buffer)?;
-        let result = WitnessCalculator::from_module(module)?;
-        Ok::<Mutex<WitnessCalculator>, Report>(Mutex::new(result))
-    })
+pub fn circom_from_raw(wasm_buffer: Vec<u8>) -> Result<Arc<Mutex<WitnessCalculator>>> {
+    let store = Store::default();
+    let module = Module::new(&store, wasm_buffer)?;
+    let result = WitnessCalculator::from_module(module)?;
+    let wrapped = Mutex::new(result);
+    Ok(Arc::new(wrapped))
 }
 
 // Initializes the witness calculator
 #[cfg(not(target_arch = "wasm32"))]
-pub fn circom_from_folder() -> Result<&'static Mutex<WitnessCalculator>> {
-    // We read the wasm file
-    let wasm = WASM_BYTES;
-    circom_from_raw(wasm.to_vec())
+pub fn circom_from_folder() -> &'static Arc<Mutex<WitnessCalculator>> {
+    &WITNESS_CALCULATOR
 }
 
 // Computes the verification key from a bytes vector containing pre-processed ark-serialized verification key
