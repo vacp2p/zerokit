@@ -19,7 +19,7 @@ pub fn init_panic_hook() {
 pub struct RLNWrapper {
     // The purpose of this wrapper is to hold a RLN instance with the 'static lifetime
     // because wasm_bindgen does not allow returning elements with lifetimes
-    instance: RLN<'static>,
+    instance: RLN,
 }
 
 // Macro to call methods with arbitrary amount of arguments,
@@ -150,8 +150,8 @@ impl<T> ProcessArg for Vec<T> {
     }
 }
 
-impl<'a> ProcessArg for *const RLN<'a> {
-    type ReturnType = &'a RLN<'a>;
+impl ProcessArg for *const RLN {
+    type ReturnType = &'static RLN;
     fn process(self) -> Self::ReturnType {
         unsafe { &*self }
     }

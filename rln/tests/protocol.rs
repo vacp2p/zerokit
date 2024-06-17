@@ -127,9 +127,9 @@ mod test {
     // We test a RLN proof generation and verification
     fn test_witness_from_json() {
         // We generate all relevant keys
-        let proving_key = zkey_from_folder().unwrap();
-        let verification_key = vk_from_folder().unwrap();
-        let builder = circom_from_folder().unwrap();
+        let proving_key = zkey_from_folder();
+        let verification_key = vk_from_folder();
+        let builder = circom_from_folder();
 
         // We compute witness from the json input
         let rln_witness = get_test_witness();
@@ -156,9 +156,9 @@ mod test {
         assert_eq!(rln_witness_deser, rln_witness);
 
         // We generate all relevant keys
-        let proving_key = zkey_from_folder().unwrap();
-        let verification_key = vk_from_folder().unwrap();
-        let builder = circom_from_folder().unwrap();
+        let proving_key = zkey_from_folder();
+        let verification_key = vk_from_folder();
+        let builder = circom_from_folder();
 
         // Let's generate a zkSNARK proof
         let proof = generate_proof(builder, &proving_key, &rln_witness_deser).unwrap();
