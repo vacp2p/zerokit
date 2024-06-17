@@ -7,7 +7,7 @@ use rln::circuit::{vk_from_ark_serialized, VK_BYTES};
 pub fn vk_deserialize_benchmark(c: &mut Criterion) {
     let vk = VK_BYTES;
 
-    c.bench_function("circuit::to_verifying_key", |b| {
+    c.bench_function("vk::vk_from_ark_serialized", |b| {
         b.iter(|| {
             let _ = vk_from_ark_serialized(vk);
         })
