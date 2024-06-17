@@ -2284,6 +2284,7 @@ dependencies = [
  "cfg-if",
  "color-eyre",
  "criterion 0.4.0",
+ "lazy_static 1.4.0",
  "num-bigint",
  "num-traits",
  "once_cell",
