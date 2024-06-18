@@ -153,7 +153,7 @@ impl RLN {
         mut tree_config_input: R,
     ) -> Result<RLN> {
         #[cfg(not(target_arch = "wasm32"))]
-        let witness_calculator = circom_from_raw(circom_vec)?;
+        let witness_calculator = circom_from_raw(&circom_vec)?;
 
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
