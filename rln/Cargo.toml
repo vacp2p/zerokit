@@ -94,3 +94,7 @@ harness = false
 [[bench]]
 name = "poseidon_tree_benchmark"
 harness = false
+
+[[bench]]
+name = "serialize_benchmark"
+harness = false
