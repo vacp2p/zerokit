@@ -3,9 +3,6 @@ name = "rln-wasm"
 version = "0.0.13"
 edition = "2021"
 license = "MIT or Apache2"
-autobenches = false
-autotests = false
-autobins = false
 
 [lib]
 crate-type = ["cdylib", "rlib"]
