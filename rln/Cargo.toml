@@ -59,6 +59,8 @@ utils = { package = "zerokit_utils", version = "=0.5.1", path = "../utils/", def
 serde_json = "=1.0.96"
 serde = { version = "=1.0.163", features = ["derive"] }
 
+document-features = { version = "=0.2.10", optional = true }
+
 [dev-dependencies]
 sled = "=0.34.7"
 criterion = { version = "=0.4.0", features = ["html_reports"] }
@@ -75,6 +77,7 @@ parallel = [
 wasm = ["wasmer/js", "wasmer/std"]
 fullmerkletree = ["default"]
 arkzkey = ["ark-zkey"]
+stateless = []
 
 # Note: pmtree feature is still experimental
 pmtree-ft = ["utils/pmtree-ft"]
@@ -94,3 +97,6 @@ harness = false
 [[bench]]
 name = "poseidon_tree_benchmark"
 harness = false
+
+[package.metadata.docs.rs]
+all-features = true
