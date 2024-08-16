@@ -60,6 +60,7 @@ impl RLN {
     /// Input parameters are
     /// - `tree_height`: the height of the internal Merkle tree
     /// - `input_data`: include `tree_config` a reader for a string containing a json with the merkle tree configuration
+    ///
     /// Example:
     /// ```
     /// use std::io::Cursor;
@@ -693,7 +694,7 @@ impl RLN {
     ///
     /// Input values are:
     /// - `input_data`: a reader for the serialization of the RLN zkSNARK proof concatenated with a serialization of the circuit output values,
-    ///  i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]`, where <_> indicates the byte length.
+    ///   i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]`, where <_> indicates the byte length.
     ///
     /// The function returns true if the zkSNARK proof is valid with respect to the provided circuit output values, false otherwise.
     ///
@@ -865,7 +866,7 @@ impl RLN {
     ///
     /// Input values are:
     /// - `input_data`: a reader for the serialization of the RLN zkSNARK proof concatenated with a serialization of the circuit output values and the signal information,
-    ///  i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var>]`, where <_> indicates the byte length.
+    ///   i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var>]`, where <_> indicates the byte length.
     ///
     /// The function returns true if the zkSNARK proof is valid with respect to the provided circuit output values and signal. Returns false otherwise.
     ///
@@ -1175,8 +1176,8 @@ impl RLN {
     ///
     /// Input values are:
     /// - `input_proof_data_1`: a reader for the serialization of a RLN zkSNARK proof concatenated with a serialization of the circuit output values and -optionally- the signal information,
-    /// i.e. either `[proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]`
-    /// or `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]` (to maintain compatibility with both output of [`generate_rln_proof`](crate::public::RLN::generate_rln_proof) and input of [`verify_rln_proof`](crate::public::RLN::verify_rln_proof))
+    ///   i.e. either `[proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]`
+    ///   or `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]` (to maintain compatibility with both output of [`generate_rln_proof`](crate::public::RLN::generate_rln_proof) and input of [`verify_rln_proof`](crate::public::RLN::verify_rln_proof))
     /// - `input_proof_data_2`: same as `input_proof_data_1`
     ///
     /// Output values are:
