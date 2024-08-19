@@ -7,11 +7,7 @@ script = "sed -i.bak 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json && rm pkg/
 
 [tasks.build]
 clear = true
-dependencies = [
-    "pack-build",
-    "pack-rename",
-    "post-build"
-]
+dependencies = ["pack-build", "pack-rename", "post-build"]
 
 [tasks.post-build]
 command = "wasm-strip"

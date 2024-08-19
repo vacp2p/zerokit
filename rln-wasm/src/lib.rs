@@ -270,8 +270,12 @@ pub fn rln_witness_to_json(
     ctx: *mut RLNWrapper,
     serialized_witness: Uint8Array,
 ) -> Result<Object, String> {
-    let inputs = call!(ctx, get_rln_witness_json, &serialized_witness.to_vec()[..])
-        .map_err(|err| err.to_string())?;
+    let inputs = call!(
+        ctx,
+        get_rln_witness_bigint_json,
+        &serialized_witness.to_vec()[..]
+    )
+    .map_err(|err| err.to_string())?;
     let js_value = serde_wasm_bindgen::to_value(&inputs).map_err(|err| err.to_string())?;
     Object::from_entries(&js_value).map_err(|err| format!("{:#?}", err))
 }

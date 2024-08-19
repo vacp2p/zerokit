@@ -1274,6 +1274,14 @@ impl RLN {
         rln_witness_to_json(&rln_witness)
     }
 
+    pub fn get_rln_witness_bigint_json(
+        &mut self,
+        serialized_witness: &[u8],
+    ) -> Result<serde_json::Value> {
+        let (rln_witness, _) = deserialize_witness(serialized_witness)?;
+        rln_witness_to_bigint_json(&rln_witness)
+    }
+
     /// Closes the connection to the Merkle tree database.
     /// This function should be called before the RLN object is dropped.
     /// If not called, the connection will be closed when the RLN object is dropped.
