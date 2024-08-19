@@ -1274,6 +1274,13 @@ impl RLN {
         rln_witness_to_json(&rln_witness)
     }
 
+    /// Converts a byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object to the corresponding JSON serialization.
+    /// Before serialisation the data will be translated into big int for further calculation in the witness calculator.
+    ///
+    /// Input values are:
+    /// - `serialized_witness`: the byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object (serialization done with  [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
+    ///
+    /// The function returns the corresponding JSON encoding of the input [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
     pub fn get_rln_witness_bigint_json(
         &mut self,
         serialized_witness: &[u8],
