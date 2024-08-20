@@ -739,11 +739,11 @@ where
     a.map_err(serde::de::Error::custom)
 }
 
-/// Converts a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object to the corresponding JSON serialization.
+/// Converts a JSON value into [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
 ///
 /// # Errors
 ///
-/// Returns an error if `message_id` is not within `user_message_limit`.
+/// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
 pub fn rln_witness_from_json(input_json: serde_json::Value) -> Result<RLNWitnessInput> {
     let rln_witness: RLNWitnessInput = serde_json::from_value(input_json).unwrap();
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
@@ -751,16 +751,50 @@ pub fn rln_witness_from_json(input_json: serde_json::Value) -> Result<RLNWitness
     Ok(rln_witness)
 }
 
-/// Converts a JSON value into [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
+/// Converts a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object to the corresponding JSON serialization.
 ///
 /// # Errors
 ///
-/// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
+/// Returns an error if `message_id` is not within `user_message_limit`.
 pub fn rln_witness_to_json(rln_witness: &RLNWitnessInput) -> Result<serde_json::Value> {
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
     let rln_witness_json = serde_json::to_value(rln_witness)?;
     Ok(rln_witness_json)
+}
+
+/// Converts a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object to the corresponding JSON serialization.
+/// Before serialisation the data should be translated into big int for further calculation in the witness calculator.
+///
+/// # Errors
+///
+/// Returns an error if `message_id` is not within `user_message_limit`.
+pub fn rln_witness_to_bigint_json(rln_witness: &RLNWitnessInput) -> Result<serde_json::Value> {
+    message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
+
+    let mut path_elements = Vec::new();
+
+    for v in rln_witness.path_elements.iter() {
+        path_elements.push(to_bigint(v)?.to_str_radix(10));
+    }
+
+    let mut identity_path_index = Vec::new();
+    rln_witness
+        .identity_path_index
+        .iter()
+        .for_each(|v| identity_path_index.push(BigInt::from(*v).to_str_radix(10)));
+
+    let inputs = serde_json::json!({
+        "identitySecret": to_bigint(&rln_witness.identity_secret)?.to_str_radix(10),
+        "userMessageLimit": to_bigint(&rln_witness.user_message_limit)?.to_str_radix(10),
+        "messageId": to_bigint(&rln_witness.message_id)?.to_str_radix(10),
+        "pathElements": path_elements,
+        "identityPathIndex": identity_path_index,
+        "x": to_bigint(&rln_witness.x)?.to_str_radix(10),
+        "externalNullifier":  to_bigint(&rln_witness.external_nullifier)?.to_str_radix(10),
+    });
+
+    Ok(inputs)
 }
 
 pub fn message_id_range_check(message_id: &Fr, user_message_limit: &Fr) -> Result<()> {
