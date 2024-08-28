@@ -12,6 +12,7 @@ mod test {
 
     #[test]
     // This test is similar to the one in lib, but uses only public API
+    #[cfg(not(feature = "stateless"))]
     fn test_merkle_proof() {
         let leaf_index = 3;
         let user_message_limit = 1;

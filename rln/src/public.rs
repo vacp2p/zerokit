@@ -43,6 +43,7 @@ pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
 pub struct RLN {
     proving_key: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
     pub(crate) verification_key: VerifyingKey<Curve>,
+    #[cfg(not(feature = "stateless"))]
     pub(crate) tree: PoseidonTree,
 
     // The witness calculator can't be loaded in zerokit. Since this struct
@@ -66,12 +67,12 @@ impl RLN {
     /// use std::io::Cursor;
     ///
     /// let tree_height = 20;
-    /// let input = Cursor::new(json!({}).to_string());;
+    /// let input = Cursor::new(json!({}).to_string());
     ///
     /// // We create a new RLN instance
     /// let mut rln = RLN::new(tree_height, input);
     /// ```
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> Result<RLN> {
         // We read input
         let mut input: Vec<u8> = Vec::new();
@@ -102,7 +103,30 @@ impl RLN {
             witness_calculator: witness_calculator.to_owned(),
             proving_key: proving_key.to_owned(),
             verification_key: verification_key.to_owned(),
+            #[cfg(not(feature = "stateless"))]
             tree,
+            #[cfg(target_arch = "wasm32")]
+            _marker: PhantomData,
+        })
+    }
+
+    /// Creates a new stateless RLN object by loading circuit resources from a folder.
+    /// ```
+    /// // We create a new RLN instance
+    /// let mut rln = RLN::new(input);
+    /// ```
+    #[cfg_attr(docsrs, doc(cfg(feature = "stateless")))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
+    pub fn new() -> Result<RLN> {
+        #[cfg(not(target_arch = "wasm32"))]
+        let witness_calculator = circom_from_folder();
+        let proving_key = zkey_from_folder();
+        let verification_key = vk_from_folder();
+
+        Ok(RLN {
+            witness_calculator: witness_calculator.to_owned(),
+            proving_key: proving_key.to_owned(),
+            verification_key: verification_key.to_owned(),
             #[cfg(target_arch = "wasm32")]
             _marker: PhantomData,
         })
@@ -145,7 +169,7 @@ impl RLN {
     ///     tree_config_input,
     /// );
     /// ```
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn new_with_params<R: Read>(
         tree_height: usize,
         circom_vec: Vec<u8>,
@@ -180,14 +204,16 @@ impl RLN {
             witness_calculator,
             proving_key,
             verification_key,
+            #[cfg(not(feature = "stateless"))]
             tree,
             #[cfg(target_arch = "wasm32")]
             _marker: PhantomData,
         })
     }
 
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(target_arch = "wasm32", not(feature = "stateless")))]
     pub fn new_with_params(tree_height: usize, zkey_vec: Vec<u8>, vk_vec: Vec<u8>) -> Result<RLN> {
+        // TODO: check this lines while update rln-wasm
         #[cfg(not(target_arch = "wasm32"))]
         let witness_calculator = circom_from_raw(circom_vec)?;
 
@@ -205,6 +231,93 @@ impl RLN {
         })
     }
 
+    /// Creates a new stateless RLN object by passing circuit resources as byte vectors.
+    ///
+    /// Input parameters are
+    /// - `circom_vec`: a byte vector containing the ZK circuit (`rln.wasm`) as binary file
+    /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`)  or (`rln_final.arkzkey`) as binary file
+    /// - `vk_vec`: a byte vector containing to the verification key (`verification_key.arkvkey`) as binary file
+    ///
+    /// Example:
+    /// ```
+    /// use std::fs::File;
+    /// use std::io::Read;
+    ///
+    /// let resources_folder = "./resources/tree_height_20/";
+    ///
+    /// let mut resources: Vec<Vec<u8>> = Vec::new();
+    /// for filename in ["rln.wasm", "rln_final.zkey", "verification_key.arkvkey"] {
+    ///     let fullpath = format!("{resources_folder}{filename}");
+    ///     let mut file = File::open(&fullpath).expect("no file found");
+    ///     let metadata = std::fs::metadata(&fullpath).expect("unable to read metadata");
+    ///     let mut buffer = vec![0; metadata.len() as usize];
+    ///     file.read_exact(&mut buffer).expect("buffer overflow");
+    ///     resources.push(buffer);
+    /// }
+    ///
+    /// let mut rln = RLN::new_with_params(
+    ///     resources[0].clone(),
+    ///     resources[1].clone(),
+    ///     resources[2].clone(),
+    /// );
+    /// ```
+    #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
+    pub fn new_with_params(circom_vec: Vec<u8>, zkey_vec: Vec<u8>, vk_vec: Vec<u8>) -> Result<RLN> {
+        let witness_calculator = circom_from_raw(&circom_vec)?;
+
+        let proving_key = zkey_from_raw(&zkey_vec)?;
+        let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
+
+        Ok(RLN {
+            witness_calculator,
+            proving_key,
+            verification_key,
+        })
+    }
+
+    /// Creates a new stateless RLN object by passing circuit resources as byte vectors.
+    ///
+    /// Input parameters are
+    /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`)  or (`rln_final.arkzkey`) as binary file
+    /// - `vk_vec`: a byte vector containing to the verification key (`verification_key.arkvkey`) as binary file
+    ///
+    /// Example:
+    /// ```
+    /// use std::fs::File;
+    /// use std::io::Read;
+    ///
+    /// let resources_folder = "./resources/tree_height_20/";
+    ///
+    /// let mut resources: Vec<Vec<u8>> = Vec::new();
+    /// for filename in ["rln_final.zkey", "verification_key.arkvkey"] {
+    ///     let fullpath = format!("{resources_folder}{filename}");
+    ///     let mut file = File::open(&fullpath).expect("no file found");
+    ///     let metadata = std::fs::metadata(&fullpath).expect("unable to read metadata");
+    ///     let mut buffer = vec![0; metadata.len() as usize];
+    ///     file.read_exact(&mut buffer).expect("buffer overflow");
+    ///     resources.push(buffer);
+    /// }
+    ///
+    /// let mut rln = RLN::new_with_params(
+    ///     resources[0].clone(),
+    ///     resources[1].clone(),
+    /// );
+    /// ```
+    #[cfg(all(target_arch = "wasm32", feature = "stateless"))]
+    pub fn new_with_params(zkey_vec: Vec<u8>, vk_vec: Vec<u8>) -> Result<RLN> {
+        #[cfg(not(target_arch = "wasm32"))]
+        let witness_calculator = circom_from_raw(circom_vec)?;
+
+        let proving_key = zkey_from_raw(&zkey_vec)?;
+        let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
+
+        Ok(RLN {
+            proving_key,
+            verification_key,
+            _marker: PhantomData,
+        })
+    }
+
     ////////////////////////////////////////////////////////
     // Merkle-tree APIs
     ////////////////////////////////////////////////////////
@@ -214,6 +327,7 @@ impl RLN {
     ///
     /// Input values are:
     /// - `tree_height`: the height of the Merkle tree.
+    #[cfg(not(feature = "stateless"))]
     pub fn set_tree(&mut self, tree_height: usize) -> Result<()> {
         // We compute a default empty tree of desired height
         self.tree = PoseidonTree::default(tree_height)?;
@@ -244,6 +358,7 @@ impl RLN {
     /// let mut buffer = Cursor::new(serialize_field_element(rate_commitment));
     /// rln.set_leaf(id_index, &mut buffer).unwrap();
     /// ```
+    #[cfg(not(feature = "stateless"))]
     pub fn set_leaf<R: Read>(&mut self, index: usize, mut input_data: R) -> Result<()> {
         // We read input
         let mut leaf_byte: Vec<u8> = Vec::new();
@@ -273,6 +388,7 @@ impl RLN {
     /// let mut buffer = Cursor::new(Vec::<u8>::new());
     /// rln.get_leaf(id_index, &mut buffer).unwrap();
     /// let rate_commitment = deserialize_field_element(&buffer.into_inner()).unwrap();
+    #[cfg(not(feature = "stateless"))]
     pub fn get_leaf<W: Write>(&self, index: usize, mut output_data: W) -> Result<()> {
         // We get the leaf at input index
         let leaf = self.tree.get(index)?;
@@ -315,6 +431,7 @@ impl RLN {
     /// let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
     /// rln.set_leaves_from(index, &mut buffer).unwrap();
     /// ```
+    #[cfg(not(feature = "stateless"))]
     pub fn set_leaves_from<R: Read>(&mut self, index: usize, mut input_data: R) -> Result<()> {
         // We read input
         let mut leaves_byte: Vec<u8> = Vec::new();
@@ -335,6 +452,7 @@ impl RLN {
     ///
     /// Input values are:
     /// - `input_data`: a reader for the serialization of multiple leaf values (serialization done with [`rln::utils::vec_fr_to_bytes_le`](crate::utils::vec_fr_to_bytes_le))
+    #[cfg(not(feature = "stateless"))]
     pub fn init_tree_with_leaves<R: Read>(&mut self, input_data: R) -> Result<()> {
         // reset the tree
         // NOTE: this requires the tree to be initialized with the correct height initially
@@ -385,6 +503,7 @@ impl RLN {
     /// let mut indices_buffer = Cursor::new(vec_u8_to_bytes_le(&indices));
     /// rln.atomic_operation(index, &mut leaves_buffer, indices_buffer).unwrap();
     /// ```
+    #[cfg(not(feature = "stateless"))]
     pub fn atomic_operation<R: Read>(
         &mut self,
         index: usize,
@@ -410,6 +529,7 @@ impl RLN {
         Ok(())
     }
 
+    #[cfg(not(feature = "stateless"))]
     pub fn leaves_set(&mut self) -> usize {
         self.tree.leaves_set()
     }
@@ -457,6 +577,7 @@ impl RLN {
     /// let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
     /// rln.set_next_leaf(&mut buffer).unwrap();
     /// ```
+    #[cfg(not(feature = "stateless"))]
     pub fn set_next_leaf<R: Read>(&mut self, mut input_data: R) -> Result<()> {
         // We read input
         let mut leaf_byte: Vec<u8> = Vec::new();
@@ -482,6 +603,7 @@ impl RLN {
     /// let index = 10;
     /// rln.delete_leaf(index).unwrap();
     /// ```
+    #[cfg(not(feature = "stateless"))]
     pub fn delete_leaf(&mut self, index: usize) -> Result<()> {
         self.tree.delete(index)?;
         Ok(())
@@ -499,6 +621,7 @@ impl RLN {
     /// let metadata = b"some metadata";
     /// rln.set_metadata(metadata).unwrap();
     /// ```
+    #[cfg(not(feature = "stateless"))]
     pub fn set_metadata(&mut self, metadata: &[u8]) -> Result<()> {
         self.tree.set_metadata(metadata)?;
         Ok(())
@@ -518,6 +641,7 @@ impl RLN {
     /// rln.get_metadata(&mut buffer).unwrap();
     /// let metadata = buffer.into_inner();
     /// ```
+    #[cfg(not(feature = "stateless"))]
     pub fn get_metadata<W: Write>(&self, mut output_data: W) -> Result<()> {
         let metadata = self.tree.metadata()?;
         output_data.write_all(&metadata)?;
@@ -537,6 +661,7 @@ impl RLN {
     /// rln.get_root(&mut buffer).unwrap();
     /// let (root, _) = bytes_le_to_fr(&buffer.into_inner());
     /// ```
+    #[cfg(not(feature = "stateless"))]
     pub fn get_root<W: Write>(&self, mut output_data: W) -> Result<()> {
         let root = self.tree.root();
         output_data.write_all(&fr_to_bytes_le(&root))?;
@@ -559,6 +684,7 @@ impl RLN {
     /// rln.get_subtree_root(level, index, &mut buffer).unwrap();
     /// let (subroot, _) = bytes_le_to_fr(&buffer.into_inner());
     /// ```
+    #[cfg(not(feature = "stateless"))]
     pub fn get_subtree_root<W: Write>(
         &self,
         level: usize,
@@ -592,6 +718,7 @@ impl RLN {
     /// let (path_elements, read) = bytes_le_to_vec_fr(&buffer_inner);
     /// let (identity_path_index, _) = bytes_le_to_vec_u8(&buffer_inner[read..].to_vec());
     /// ```
+    #[cfg(not(feature = "stateless"))]
     pub fn get_proof<W: Write>(&self, index: usize, mut output_data: W) -> Result<()> {
         let merkle_proof = self.tree.proof(index).expect("proof should exist");
         let path_elements = merkle_proof.get_path_elements();
@@ -635,6 +762,7 @@ impl RLN {
     /// let idxs = bytes_le_to_vec_usize(&buffer.into_inner()).unwrap();
     /// assert_eq!(idxs, [0, 1, 2, 3, 4]);
     /// ```
+    #[cfg(not(feature = "stateless"))]
     pub fn get_empty_leaves_indices<W: Write>(&self, mut output_data: W) -> Result<()> {
         let idxs = self.tree.get_empty_leaves_indices();
         idxs.serialize_compressed(&mut output_data)?;
@@ -793,7 +921,7 @@ impl RLN {
     /// // proof_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
     /// let mut proof_data = output_buffer.into_inner();
     /// ```
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn generate_rln_proof<R: Read, W: Write>(
         &mut self,
         mut input_data: R,
@@ -890,6 +1018,7 @@ impl RLN {
     ///
     /// assert!(verified);
     /// ```
+    #[cfg(not(feature = "stateless"))]
     pub fn verify_rln_proof<R: Read>(&self, mut input_data: R) -> Result<bool> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
@@ -1254,6 +1383,7 @@ impl RLN {
     /// - `input_data`: a reader for the serialization of `[ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]`
     ///
     /// The function returns the corresponding [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object serialized using [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
+    #[cfg(not(feature = "stateless"))]
     pub fn get_serialized_rln_witness<R: Read>(&mut self, mut input_data: R) -> Result<Vec<u8>> {
         // We read input RLN witness and we serialize_compressed it
         let mut witness_byte: Vec<u8> = Vec::new();
@@ -1293,6 +1423,7 @@ impl RLN {
     /// This function should be called before the RLN object is dropped.
     /// If not called, the connection will be closed when the RLN object is dropped.
     /// This improves robustness of the tree.
+    #[cfg(not(feature = "stateless"))]
     pub fn flush(&mut self) -> Result<()> {
         self.tree.close_db_connection()
     }
@@ -1301,9 +1432,14 @@ impl RLN {
 #[cfg(not(target_arch = "wasm32"))]
 impl Default for RLN {
     fn default() -> Self {
-        let tree_height = TEST_TREE_HEIGHT;
-        let buffer = Cursor::new(json!({}).to_string());
-        Self::new(tree_height, buffer).unwrap()
+        #[cfg(not(feature = "stateless"))]
+        {
+            let tree_height = TEST_TREE_HEIGHT;
+            let buffer = Cursor::new(json!({}).to_string());
+            Self::new(tree_height, buffer).unwrap()
+        }
+        #[cfg(feature = "stateless")]
+        Self::new().unwrap()
     }
 }
 

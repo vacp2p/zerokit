@@ -192,6 +192,7 @@ impl<'a> From<&Buffer> for &'a [u8] {
 ////////////////////////////////////////////////////////
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[cfg(not(feature = "stateless"))]
 #[no_mangle]
 pub extern "C" fn new(tree_height: usize, input_buffer: *const Buffer, ctx: *mut *mut RLN) -> bool {
     match RLN::new(tree_height, input_buffer.process()) {
@@ -207,6 +208,23 @@ pub extern "C" fn new(tree_height: usize, input_buffer: *const Buffer, ctx: *mut
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[cfg(feature = "stateless")]
+#[no_mangle]
+pub extern "C" fn new(ctx: *mut *mut RLN) -> bool {
+    match RLN::new() {
+        Ok(rln) => {
+            unsafe { *ctx = Box::into_raw(Box::new(rln)) };
+            true
+        }
+        Err(err) => {
+            eprintln!("could not instantiate rln: {err}");
+            false
+        }
+    }
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[cfg(not(feature = "stateless"))]
 #[no_mangle]
 pub extern "C" fn new_with_params(
     tree_height: usize,
@@ -234,47 +252,79 @@ pub extern "C" fn new_with_params(
     }
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[cfg(feature = "stateless")]
+#[no_mangle]
+pub extern "C" fn new_with_params(
+    circom_buffer: *const Buffer,
+    zkey_buffer: *const Buffer,
+    vk_buffer: *const Buffer,
+    ctx: *mut *mut RLN,
+) -> bool {
+    match RLN::new_with_params(
+        circom_buffer.process().to_vec(),
+        zkey_buffer.process().to_vec(),
+        vk_buffer.process().to_vec(),
+    ) {
+        Ok(rln) => {
+            unsafe { *ctx = Box::into_raw(Box::new(rln)) };
+            true
+        }
+        Err(err) => {
+            eprintln!("could not instantiate rln: {err}");
+            false
+        }
+    }
+}
+
 ////////////////////////////////////////////////////////
 // Merkle tree APIs
 ////////////////////////////////////////////////////////
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+#[cfg(not(feature = "stateless"))]
 pub extern "C" fn set_tree(ctx: *mut RLN, tree_height: usize) -> bool {
     call!(ctx, set_tree, tree_height)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+#[cfg(not(feature = "stateless"))]
 pub extern "C" fn delete_leaf(ctx: *mut RLN, index: usize) -> bool {
     call!(ctx, delete_leaf, index)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+#[cfg(not(feature = "stateless"))]
 pub extern "C" fn set_leaf(ctx: *mut RLN, index: usize, input_buffer: *const Buffer) -> bool {
     call!(ctx, set_leaf, index, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+#[cfg(not(feature = "stateless"))]
 pub extern "C" fn get_leaf(ctx: *mut RLN, index: usize, output_buffer: *mut Buffer) -> bool {
     call_with_output_arg!(ctx, get_leaf, output_buffer, index)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+#[cfg(not(feature = "stateless"))]
 pub extern "C" fn leaves_set(ctx: *mut RLN) -> usize {
     ctx.process().leaves_set()
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+#[cfg(not(feature = "stateless"))]
 pub extern "C" fn set_next_leaf(ctx: *mut RLN, input_buffer: *const Buffer) -> bool {
     call!(ctx, set_next_leaf, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+#[cfg(not(feature = "stateless"))]
 pub extern "C" fn set_leaves_from(
     ctx: *mut RLN,
     index: usize,
@@ -285,12 +335,14 @@ pub extern "C" fn set_leaves_from(
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+#[cfg(not(feature = "stateless"))]
 pub extern "C" fn init_tree_with_leaves(ctx: *mut RLN, input_buffer: *const Buffer) -> bool {
     call!(ctx, init_tree_with_leaves, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+#[cfg(not(feature = "stateless"))]
 pub extern "C" fn atomic_operation(
     ctx: *mut RLN,
     index: usize,
@@ -302,6 +354,7 @@ pub extern "C" fn atomic_operation(
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+#[cfg(not(feature = "stateless"))]
 pub extern "C" fn seq_atomic_operation(
     ctx: *mut RLN,
     leaves_buffer: *const Buffer,
@@ -318,12 +371,14 @@ pub extern "C" fn seq_atomic_operation(
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+#[cfg(not(feature = "stateless"))]
 pub extern "C" fn get_root(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
     call_with_output_arg!(ctx, get_root, output_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+#[cfg(not(feature = "stateless"))]
 pub extern "C" fn get_proof(ctx: *const RLN, index: usize, output_buffer: *mut Buffer) -> bool {
     call_with_output_arg!(ctx, get_proof, output_buffer, index)
 }
@@ -353,6 +408,7 @@ pub extern "C" fn verify(
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+#[cfg(not(feature = "stateless"))]
 pub extern "C" fn generate_rln_proof(
     ctx: *mut RLN,
     input_buffer: *const Buffer,
@@ -378,6 +434,7 @@ pub extern "C" fn generate_rln_proof_with_witness(
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+#[cfg(not(feature = "stateless"))]
 pub extern "C" fn verify_rln_proof(
     ctx: *const RLN,
     proof_buffer: *const Buffer,
@@ -461,18 +518,21 @@ pub extern "C" fn recover_id_secret(
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+#[cfg(not(feature = "stateless"))]
 pub extern "C" fn set_metadata(ctx: *mut RLN, input_buffer: *const Buffer) -> bool {
     call!(ctx, set_metadata, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+#[cfg(not(feature = "stateless"))]
 pub extern "C" fn get_metadata(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
     call_with_output_arg!(ctx, get_metadata, output_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+#[cfg(not(feature = "stateless"))]
 pub extern "C" fn flush(ctx: *mut RLN) -> bool {
     call!(ctx, flush)
 }
