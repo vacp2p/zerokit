@@ -182,86 +182,13 @@ impl<'a> ProcessArg for &'a [u8] {
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = newRLN)]
 pub fn wasm_new(
-    tree_height: usize,
     zkey: Uint8Array,
     vk: Uint8Array,
 ) -> Result<*mut RLNWrapper, String> {
-    let instance = RLN::new_with_params(tree_height, zkey.to_vec(), vk.to_vec())
+    let instance = RLN::new_with_params(zkey.to_vec(), vk.to_vec())
         .map_err(|err| format!("{:#?}", err))?;
     let wrapper = RLNWrapper { instance };
     Ok(Box::into_raw(Box::new(wrapper)))
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = getSerializedRLNWitness)]
-pub fn wasm_get_serialized_rln_witness(
-    ctx: *mut RLNWrapper,
-    input: Uint8Array,
-) -> Result<Uint8Array, String> {
-    let rln_witness = call!(ctx, get_serialized_rln_witness, &input.to_vec()[..])
-        .map_err(|err| format!("{:#?}", err))?;
-    Ok(Uint8Array::from(&rln_witness[..]))
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = insertMember)]
-pub fn wasm_set_next_leaf(ctx: *mut RLNWrapper, input: Uint8Array) -> Result<(), String> {
-    call_with_error_msg!(
-        ctx,
-        set_next_leaf,
-        "could not insert member into merkle tree".to_string(),
-        &input.to_vec()[..]
-    )
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = setLeavesFrom)]
-pub fn wasm_set_leaves_from(
-    ctx: *mut RLNWrapper,
-    index: usize,
-    input: Uint8Array,
-) -> Result<(), String> {
-    call_with_error_msg!(
-        ctx,
-        set_leaves_from,
-        "could not set multiple leaves".to_string(),
-        index,
-        &*input.to_vec()
-    )
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = deleteLeaf)]
-pub fn wasm_delete_leaf(ctx: *mut RLNWrapper, index: usize) -> Result<(), String> {
-    call_with_error_msg!(ctx, delete_leaf, "could not delete leaf".to_string(), index)
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = setMetadata)]
-pub fn wasm_set_metadata(ctx: *mut RLNWrapper, input: Uint8Array) -> Result<(), String> {
-    call_with_error_msg!(
-        ctx,
-        set_metadata,
-        "could not set metadata".to_string(),
-        &*input.to_vec()
-    )
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = getMetadata)]
-pub fn wasm_get_metadata(ctx: *mut RLNWrapper) -> Result<Uint8Array, String> {
-    call_with_output_and_error_msg!(ctx, get_metadata, "could not get metadata".to_string())
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = initTreeWithLeaves)]
-pub fn wasm_init_tree_with_leaves(ctx: *mut RLNWrapper, input: Uint8Array) -> Result<(), String> {
-    call_with_error_msg!(
-        ctx,
-        init_tree_with_leaves,
-        "could not init merkle tree".to_string(),
-        &*input.to_vec()
-    )
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -363,17 +290,6 @@ pub fn wasm_recover_id_secret(
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = verifyRLNProof)]
-pub fn wasm_verify_rln_proof(ctx: *const RLNWrapper, proof: Uint8Array) -> Result<bool, String> {
-    call_bool_method_with_error_msg!(
-        ctx,
-        verify_rln_proof,
-        "error while verifying rln proof".to_string(),
-        &proof.to_vec()[..]
-    )
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = verifyWithRoots)]
 pub fn wasm_verify_with_roots(
     ctx: *const RLNWrapper,
@@ -387,12 +303,6 @@ pub fn wasm_verify_with_roots(
         &proof.to_vec()[..],
         &roots.to_vec()[..]
     )
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = getRoot)]
-pub fn wasm_get_root(ctx: *const RLNWrapper) -> Result<Uint8Array, String> {
-    call_with_output_and_error_msg!(ctx, get_root, "could not obtain root")
 }
 
 #[wasm_bindgen(js_name = hash)]

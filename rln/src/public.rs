@@ -211,26 +211,6 @@ impl RLN {
         })
     }
 
-    #[cfg(all(target_arch = "wasm32", not(feature = "stateless")))]
-    pub fn new_with_params(tree_height: usize, zkey_vec: Vec<u8>, vk_vec: Vec<u8>) -> Result<RLN> {
-        // TODO: check this lines while update rln-wasm
-        #[cfg(not(target_arch = "wasm32"))]
-        let witness_calculator = circom_from_raw(circom_vec)?;
-
-        let proving_key = zkey_from_raw(&zkey_vec)?;
-        let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
-
-        // We compute a default empty tree
-        let tree = PoseidonTree::default(tree_height)?;
-
-        Ok(RLN {
-            proving_key,
-            verification_key,
-            tree,
-            _marker: PhantomData,
-        })
-    }
-
     /// Creates a new stateless RLN object by passing circuit resources as byte vectors.
     ///
     /// Input parameters are
@@ -275,39 +255,8 @@ impl RLN {
         })
     }
 
-    /// Creates a new stateless RLN object by passing circuit resources as byte vectors.
-    ///
-    /// Input parameters are
-    /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`)  or (`rln_final.arkzkey`) as binary file
-    /// - `vk_vec`: a byte vector containing to the verification key (`verification_key.arkvkey`) as binary file
-    ///
-    /// Example:
-    /// ```
-    /// use std::fs::File;
-    /// use std::io::Read;
-    ///
-    /// let resources_folder = "./resources/tree_height_20/";
-    ///
-    /// let mut resources: Vec<Vec<u8>> = Vec::new();
-    /// for filename in ["rln_final.zkey", "verification_key.arkvkey"] {
-    ///     let fullpath = format!("{resources_folder}{filename}");
-    ///     let mut file = File::open(&fullpath).expect("no file found");
-    ///     let metadata = std::fs::metadata(&fullpath).expect("unable to read metadata");
-    ///     let mut buffer = vec![0; metadata.len() as usize];
-    ///     file.read_exact(&mut buffer).expect("buffer overflow");
-    ///     resources.push(buffer);
-    /// }
-    ///
-    /// let mut rln = RLN::new_with_params(
-    ///     resources[0].clone(),
-    ///     resources[1].clone(),
-    /// );
-    /// ```
     #[cfg(all(target_arch = "wasm32", feature = "stateless"))]
     pub fn new_with_params(zkey_vec: Vec<u8>, vk_vec: Vec<u8>) -> Result<RLN> {
-        #[cfg(not(target_arch = "wasm32"))]
-        let witness_calculator = circom_from_raw(circom_vec)?;
-
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
 
