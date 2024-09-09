@@ -30,7 +30,11 @@ jobs:
         run: make installdeps
       - name: cross build
         run: |
-          cross build --release --target ${{ matrix.target }} --features ${{ matrix.feature }} --workspace --exclude rln-wasm
+          if [ "${{ matrix.feature }}" == "stateless" ]; then
+            cross build --release --target ${{ matrix.target }} --features ${{ matrix.feature }} --workspace --exclude rln-wasm --exclude rln-cli
+          else
+            cross build --release --target ${{ matrix.target }} --features ${{ matrix.feature }} --workspace --exclude rln-wasm
+          fi
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
@@ -66,7 +70,11 @@ jobs:
         run: make installdeps
       - name: cross build
         run: |
-          cross build --release --target ${{ matrix.target }} --features ${{ matrix.feature }} --workspace --exclude rln-wasm
+          if [ "${{ matrix.feature }}" == "stateless" ]; then
+            cross build --release --target ${{ matrix.target }} --features ${{ matrix.feature }} --workspace --exclude rln-wasm --exclude rln-cli
+          else
+            cross build --release --target ${{ matrix.target }} --features ${{ matrix.feature }} --workspace --exclude rln-wasm
+          fi
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/

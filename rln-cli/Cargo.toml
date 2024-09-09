@@ -4,7 +4,7 @@ version = "0.3.0"
 edition = "2021"
 
 [dependencies]
-rln = { path = "../rln" }
+rln = { path = "../rln", default-features = true, features = ["arkzkey"] }
 clap = { version = "4.2.7", features = ["cargo", "derive", "env"]}
 clap_derive = { version = "=4.2.0" }
 color-eyre = "=0.6.2"
