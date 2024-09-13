@@ -126,7 +126,7 @@ jobs:
         with:
           ref: master
       - name: Download artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
 
       - name: Delete tag
         uses: dev-drprasad/delete-tag-and-release@v0.2.1
@@ -149,7 +149,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Delete artifacts
-        uses: geekyeggo/delete-artifact@v1
+        uses: geekyeggo/delete-artifact@v5
         with:
           failOnError: false
           name: |
