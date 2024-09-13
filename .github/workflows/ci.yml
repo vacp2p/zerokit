@@ -169,7 +169,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
-    name: benchmark - ${{ matrix.platform }} - ${{ matrix.crate }}
+    name: benchmark - ${{ matrix.platform }} - ${{ matrix.crate }} - ${{ matrix.feature }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3

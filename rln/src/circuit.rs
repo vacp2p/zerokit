@@ -30,7 +30,8 @@ use {ark_circom::read_zkey, std::io::Cursor};
 #[cfg(feature = "arkzkey")]
 pub const ARKZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.arkzkey");
 #[cfg(feature = "arkzkey")]
-pub const ARKZKEY_BYTES_UNCOMPR: &[u8] = include_bytes!("../resources/tree_height_20/rln_final_uncompr.arkzkey");
+pub const ARKZKEY_BYTES_UNCOMPR: &[u8] =
+    include_bytes!("../resources/tree_height_20/rln_final_uncompr.arkzkey");
 
 pub const ZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.zkey");
 pub const VK_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/verification_key.arkvkey");
@@ -149,13 +150,13 @@ pub fn check_vk_from_zkey(verifying_key: VerifyingKey<Curve>) -> Result<()> {
     }
 }
 
-
 ////////////////////////////////////////////////////////
 // Function from [arkzkey](https://github.com/zkmopro/ark-zkey/blob/main/src/lib.rs#L106) for benchmark
 // without print and using compressed and uncompressed data
 ////////////////////////////////////////////////////////
 #[cfg(feature = "arkzkey")]
-pub fn arkzkey_from_raw_uncompressed(arkzkey_data: &[u8],
+pub fn arkzkey_from_raw_uncompressed(
+    arkzkey_data: &[u8],
 ) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
     if arkzkey_data.is_empty() {
         return Err(Report::msg("No proving key found!"));
@@ -189,7 +190,8 @@ pub fn arkzkey_from_raw_uncompressed(arkzkey_data: &[u8],
 }
 
 #[cfg(feature = "arkzkey")]
-pub fn arkzkey_from_raw_compressed(arkzkey_data: &[u8],
+pub fn arkzkey_from_raw_compressed(
+    arkzkey_data: &[u8],
 ) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
     if arkzkey_data.is_empty() {
         return Err(Report::msg("No proving key found!"));
