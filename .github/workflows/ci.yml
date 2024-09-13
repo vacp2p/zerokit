@@ -135,14 +135,15 @@ jobs:
         # We skip clippy on rln-wasm, since wasm target is managed by cargo make
         # Currently not treating warnings as error, too noisy
         # -- -D warnings
-  benchmark:
+
+  benchmark-utils:
     # run only in pull requests
     if: github.event_name == 'pull_request'
     strategy:
       matrix:
         # we run benchmark tests only on ubuntu
         platform: [ ubuntu-latest ]
-        crate: [ rln, utils ]
+        crate: [ utils ]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
@@ -155,3 +156,26 @@ jobs:
         with:
           branchName: ${{ github.base_ref }}
           cwd: ${{ matrix.crate }}
+
+  benchmark-rln:
+    # run only in pull requests
+    if: github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        # we run benchmark tests only on ubuntu
+        platform: [ ubuntu-latest ]
+        crate: [ rln ]
+        feature: [ "default", "arkzkey" ]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+
+    name: benchmark - ${{ matrix.platform }} - ${{ matrix.crate }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - uses: Swatinem/rust-cache@v2
+      - uses: boa-dev/criterion-compare-action@v3
+        with:
+          branchName: ${{ github.base_ref }}
+          cwd: ${{ matrix.crate }}
+          features: ${{ matrix.feature }}

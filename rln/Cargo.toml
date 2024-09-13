@@ -91,6 +91,11 @@ name = "circuit_loading_benchmark"
 harness = false
 
 [[bench]]
+name = "circuit_loading_arkzkey_benchmark"
+harness = false
+required-features = ["arkzkey"]
+
+[[bench]]
 name = "circuit_deser_benchmark"
 harness = false
 
