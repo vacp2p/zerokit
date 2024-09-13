@@ -8,7 +8,7 @@ jobs:
   linux:
     strategy:
       matrix:
-        feature: ["default", "arkzkey", "stateless"]
+        feature: [ "default", "arkzkey", "stateless" ]
         target:
           - x86_64-unknown-linux-gnu
           - aarch64-unknown-linux-gnu
@@ -39,7 +39,7 @@ jobs:
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
 
       - name: Upload archive artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.target }}-${{ matrix.feature }}-archive
           path: ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz
@@ -50,7 +50,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        feature: ["default", "arkzkey", "stateless"]
+        feature: [ "default", "arkzkey", "stateless" ]
         target:
           - x86_64-apple-darwin
           - aarch64-apple-darwin
@@ -78,7 +78,7 @@ jobs:
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
 
       - name: Upload archive artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.target }}-${{ matrix.feature }}-archive
           path: ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz
@@ -110,7 +110,7 @@ jobs:
         working-directory: rln-wasm
 
       - name: Upload archive artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: browser-rln-wasm-archive
           path: rln-wasm/browser-rln-wasm.tar.gz
@@ -118,7 +118,7 @@ jobs:
 
   prepare-prerelease:
     name: Prepare pre-release
-    needs: [linux, macos, browser-rln-wasm]
+    needs: [ linux, macos, browser-rln-wasm ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
