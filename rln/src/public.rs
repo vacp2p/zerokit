@@ -1,10 +1,9 @@
 use crate::circuit::{vk_from_raw, zkey_from_raw, Curve, Fr};
 use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
-use crate::poseidon_tree::PoseidonTree;
 use crate::protocol::*;
 use crate::utils::*;
 /// This is the main public API for RLN module. It is used by the FFI, and should be
-/// used by tests etc as well
+/// used by tests etc. as well
 use ark_groth16::Proof as ArkProof;
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
@@ -20,6 +19,7 @@ cfg_if! {
         use std::sync::Mutex;
         use crate::circuit::{circom_from_folder, vk_from_folder, circom_from_raw, zkey_from_folder, TEST_TREE_HEIGHT};
         use ark_circom::WitnessCalculator;
+        use crate::poseidon_tree::PoseidonTree;
         use serde_json::{json, Value};
         use utils::{Hasher};
         use std::sync::Arc;
@@ -111,9 +111,12 @@ impl RLN {
     }
 
     /// Creates a new stateless RLN object by loading circuit resources from a folder.
+    ///
+    /// Example:
+    ///
     /// ```
     /// // We create a new RLN instance
-    /// let mut rln = RLN::new(input);
+    /// let mut rln = RLN::new();
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "stateless")))]
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
@@ -211,26 +214,6 @@ impl RLN {
         })
     }
 
-    #[cfg(all(target_arch = "wasm32", not(feature = "stateless")))]
-    pub fn new_with_params(tree_height: usize, zkey_vec: Vec<u8>, vk_vec: Vec<u8>) -> Result<RLN> {
-        // TODO: check this lines while update rln-wasm
-        #[cfg(not(target_arch = "wasm32"))]
-        let witness_calculator = circom_from_raw(circom_vec)?;
-
-        let proving_key = zkey_from_raw(&zkey_vec)?;
-        let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
-
-        // We compute a default empty tree
-        let tree = PoseidonTree::default(tree_height)?;
-
-        Ok(RLN {
-            proving_key,
-            verification_key,
-            tree,
-            _marker: PhantomData,
-        })
-    }
-
     /// Creates a new stateless RLN object by passing circuit resources as byte vectors.
     ///
     /// Input parameters are
@@ -305,9 +288,6 @@ impl RLN {
     /// ```
     #[cfg(all(target_arch = "wasm32", feature = "stateless"))]
     pub fn new_with_params(zkey_vec: Vec<u8>, vk_vec: Vec<u8>) -> Result<RLN> {
-        #[cfg(not(target_arch = "wasm32"))]
-        let witness_calculator = circom_from_raw(circom_vec)?;
-
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
 
@@ -590,7 +570,7 @@ impl RLN {
         Ok(())
     }
 
-    /// Sets the value of the leaf at position index to the harcoded default value.
+    /// Sets the value of the leaf at position index to the hardcoded default value.
     ///
     /// This function does not change the internal Merkle tree `next_index` value.
     ///
@@ -998,7 +978,7 @@ impl RLN {
     ///
     /// The function returns true if the zkSNARK proof is valid with respect to the provided circuit output values and signal. Returns false otherwise.
     ///
-    /// Note that contrary to [`verify`](crate::public::RLN::verify), this function takes additionaly as input the signal and further verifies if
+    /// Note that contrary to [`verify`](crate::public::RLN::verify), this function takes additionally as input the signal and further verifies if
     /// - the Merkle tree root corresponds to the root provided as input;
     /// - the input signal corresponds to the Shamir's x coordinate provided as input
     /// - the hardcoded application [RLN identifier](crate::public::RLN_IDENTIFIER) corresponds to the RLN identifier provided as input
@@ -1047,7 +1027,7 @@ impl RLN {
     ///
     /// Input values are:
     /// - `input_data`: a reader for the serialization of the RLN zkSNARK proof concatenated with a serialization of the circuit output values and the signal information, i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var>]`
-    /// - `roots_data`: a reader for the serialization of a vector of roots, i.e. `[ number_of_roots<8> | root_1<32> | ... | root_n<32> ]` (number_of_roots is a uint64 in little-endian, roots are serialized using `rln::utils::fr_to_bytes_le`))
+    /// - `roots_data`: a reader for the serialization of a vector of roots, i.e. `[ number_of_roots<8> | root_1<32> | ... | root_n<32> ]` (number_of_roots is an uint64 in little-endian, roots are serialized using `rln::utils::fr_to_bytes_le`)
     ///
     /// The function returns true if the zkSNARK proof is valid with respect to the provided circuit output values, signal and roots. Returns false otherwise.
     ///
@@ -1192,7 +1172,7 @@ impl RLN {
     /// Generated credentials are compatible with [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
     ///
     /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the identity tapdoor, identity nullifier, identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
+    /// - `output_data`: a writer receiving the serialization of the identity trapdoor, identity nullifier, identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
     ///
     /// Example
     /// ```
@@ -1267,7 +1247,7 @@ impl RLN {
     /// - `input_data`: a reader for the byte vector containing the seed
     ///
     /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the identity tapdoor, identity nullifier, identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
+    /// - `output_data`: a writer receiving the serialization of the identity trapdoor, identity nullifier, identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
     ///
     /// Example
     /// ```
@@ -1341,7 +1321,7 @@ impl RLN {
         mut input_proof_data_2: R,
         mut output_data: W,
     ) -> Result<()> {
-        // We serialize_compressed the two proofs and we get the corresponding RLNProofValues objects
+        // We serialize_compressed the two proofs, and we get the corresponding RLNProofValues objects
         let mut serialized: Vec<u8> = Vec::new();
         input_proof_data_1.read_to_end(&mut serialized)?;
         // We skip deserialization of the zk-proof at the beginning
@@ -1357,7 +1337,7 @@ impl RLN {
         // We continue only if the proof values are for the same external nullifier (which includes epoch and rln identifier)
         // The idea is that proof values that go as input to this function are verified first (with zk-proof verify), hence ensuring validity of external nullifier and other fields.
         // Only in case all fields are valid, an external_nullifier for the message will be stored (otherwise signal/proof will be simply discarded)
-        // If the nullifier matches one already seen, we can recovery of identity secret.
+        // If the nullifier matches one already seen, we can recover of identity secret.
         if external_nullifier_1 == external_nullifier_2 {
             // We extract the two shares
             let share1 = (proof_values_1.x, proof_values_1.y);
@@ -1382,7 +1362,7 @@ impl RLN {
     /// Input values are:
     /// - `input_data`: a reader for the serialization of `[ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]`
     ///
-    /// The function returns the corresponding [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object serialized using [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
+    /// The function returns the corresponding [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object serialized using [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness).
     #[cfg(not(feature = "stateless"))]
     pub fn get_serialized_rln_witness<R: Read>(&mut self, mut input_data: R) -> Result<Vec<u8>> {
         // We read input RLN witness and we serialize_compressed it
@@ -1405,7 +1385,7 @@ impl RLN {
     }
 
     /// Converts a byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object to the corresponding JSON serialization.
-    /// Before serialisation the data will be translated into big int for further calculation in the witness calculator.
+    /// Before serialization the data will be translated into big int for further calculation in the witness calculator.
     ///
     /// Input values are:
     /// - `serialized_witness`: the byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object (serialization done with  [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).

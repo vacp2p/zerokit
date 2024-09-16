@@ -7,8 +7,13 @@ mod tests {
     use rln::hashers::{hash_to_field, poseidon_hash};
     use rln::utils::{bytes_le_to_fr, fr_to_bytes_le, normalize_usize};
     use rln_wasm::*;
+    use rln::poseidon_tree::PoseidonTree;
+    use rln::utils::vec_fr_to_bytes_le;
     use wasm_bindgen::{prelude::*, JsValue};
     use wasm_bindgen_test::wasm_bindgen_test;
+    use zerokit_utils::merkle_tree::merkle_tree::ZerokitMerkleTree;
+    use zerokit_utils::ZerokitMerkleProof;
+     use rln::utils::vec_u8_to_bytes_le;
 
     #[wasm_bindgen(module = "src/utils.js")]
     extern "C" {
@@ -30,7 +35,9 @@ mod tests {
         let vk = read_file(&vk_path).unwrap();
 
         // Creating an instance of RLN
-        let rln_instance = wasm_new(tree_height, zkey, vk).unwrap();
+        let rln_instance = wasm_new(zkey, vk).unwrap();
+
+        let mut tree = PoseidonTree::default(TEST_TREE_HEIGHT).unwrap();
 
         // Creating membership key
         let mem_keys = wasm_key_gen(rln_instance).unwrap();
@@ -40,7 +47,7 @@ mod tests {
         // Prepare the message
         let signal = b"Hello World";
 
-        let identity_index: usize = 0;
+        let identity_index = tree.leaves_set();
         // Setting up the epoch and rln_identifier
         let epoch = hash_to_field(b"test-epoch");
         let rln_identifier = hash_to_field(b"test-rln-identifier");
@@ -53,31 +60,28 @@ mod tests {
 
         let (id_commitment_fr, _) = bytes_le_to_fr(&id_commitment.to_vec()[..]);
         let rate_commitment = poseidon_hash(&[id_commitment_fr, user_message_limit]);
+        tree.update_next(rate_commitment).unwrap();
 
-        // Insert PK
-        wasm_set_next_leaf(
-            rln_instance,
-            Uint8Array::from(fr_to_bytes_le(&rate_commitment).as_slice()),
-        )
-        .unwrap();
+        let x = hash_to_field(signal);
+        let merkle_proof = tree.proof(identity_index).expect("proof should exist");
+        let path_elements = merkle_proof.get_path_elements();
+        let identity_path_index = merkle_proof.get_path_index();
+
 
         // Serializing the message
         let mut serialized_vec: Vec<u8> = Vec::new();
         serialized_vec.append(&mut id_key.to_vec());
-        serialized_vec.append(&mut normalize_usize(identity_index));
         serialized_vec.append(&mut fr_to_bytes_le(&user_message_limit).to_vec());
         serialized_vec.append(&mut message_id.to_vec());
+        serialized_vec.append(&mut vec_fr_to_bytes_le(&path_elements).unwrap());
+        serialized_vec.append(&mut vec_u8_to_bytes_le(&identity_path_index).unwrap());
+        serialized_vec.append(&mut fr_to_bytes_le(&x));
         serialized_vec.append(&mut external_nullifier.to_vec());
-        serialized_vec.append(&mut normalize_usize(signal.len()));
-        serialized_vec.append(&mut signal.to_vec());
         let serialized_message = Uint8Array::from(&serialized_vec[..]);
-
-        let serialized_rln_witness =
-            wasm_get_serialized_rln_witness(rln_instance, serialized_message).unwrap();
 
         // Obtaining inputs that should be sent to circom witness calculator
         let json_inputs =
-            rln_witness_to_json(rln_instance, serialized_rln_witness.clone()).unwrap();
+            rln_witness_to_json(rln_instance, serialized_message.clone()).unwrap();
 
         // Calculating witness with JS
         // (Using a JSON since wasm_bindgen does not like Result<Vec<JsBigInt>,JsValue>)
@@ -97,7 +101,7 @@ mod tests {
         let proof = generate_rln_proof_with_witness(
             rln_instance,
             calculated_witness.into(),
-            serialized_rln_witness,
+            serialized_message,
         )
         .unwrap();
 
@@ -107,42 +111,13 @@ mod tests {
         proof_bytes.append(&mut signal.to_vec());
         let proof_with_signal = Uint8Array::from(&proof_bytes[..]);
 
-        // Validate Proof
-        let is_proof_valid = wasm_verify_rln_proof(rln_instance, proof_with_signal);
-
-        assert!(
-            is_proof_valid.unwrap(),
-            "validating proof generated with wasm failed"
-        );
-
         // Validating Proof with Roots
-        let root = wasm_get_root(rln_instance).unwrap();
-        let roots = Uint8Array::from(&root.to_vec()[..]);
+        let root = tree.root();
+        let root_le = fr_to_bytes_le(&root);
+        let roots = Uint8Array::from(&root_le[..]);
         let proof_with_signal = Uint8Array::from(&proof_bytes[..]);
 
         let is_proof_valid = wasm_verify_with_roots(rln_instance, proof_with_signal, roots);
         assert!(is_proof_valid.unwrap(), "verifying proof with roots failed");
-    }
-
-    #[wasm_bindgen_test]
-    fn test_metadata() {
-        let tree_height = TEST_TREE_HEIGHT;
-        let zkey_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.zkey");
-        let vk_path =
-            format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/verification_key.arkvkey");
-        let zkey = read_file(&zkey_path).unwrap();
-        let vk = read_file(&vk_path).unwrap();
-
-        // Creating an instance of RLN
-        let rln_instance = wasm_new(tree_height, zkey, vk).unwrap();
-
-        let test_metadata = Uint8Array::new(&JsValue::from_str("test"));
-        // Inserting random metadata
-        wasm_set_metadata(rln_instance, test_metadata.clone()).unwrap();
-
-        // Getting metadata
-        let metadata = wasm_get_metadata(rln_instance).unwrap();
-
-        assert_eq!(metadata.to_vec(), test_metadata.to_vec());
     }
 }

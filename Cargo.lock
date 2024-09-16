@@ -2340,6 +2340,7 @@ dependencies = [
  "wasm-bindgen-test",
  "wasmer",
  "web-sys",
+ "zerokit_utils",
 ]
 
 [[package]]
