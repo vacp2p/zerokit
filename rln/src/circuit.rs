@@ -43,7 +43,7 @@ lazy_static! {
     static ref ZKEY: (ProvingKey<Curve>, ConstraintMatrices<Fr>) = {
         cfg_if! {
                 if #[cfg(feature = "arkzkey")] {
-                    read_arkzkey_from_bytes(ARKZKEY_BYTES).expect("Failed to read arkzkey")
+                    read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES_UNCOMPR).expect("Failed to read arkzkey")
                 } else {
                     let mut reader = Cursor::new(ZKEY_BYTES);
                     read_zkey(&mut reader).expect("Failed to read zkey")
@@ -151,11 +151,11 @@ pub fn check_vk_from_zkey(verifying_key: VerifyingKey<Curve>) -> Result<()> {
 }
 
 ////////////////////////////////////////////////////////
-// Function from [arkzkey](https://github.com/zkmopro/ark-zkey/blob/main/src/lib.rs#L106) for benchmark
-// without print and using compressed and uncompressed data
+// Functions from [arkz-key](https://github.com/zkmopro/ark-zkey/blob/main/src/lib.rs#L106)
+// without print and allow to choose between compressed and uncompressed arkzkey
 ////////////////////////////////////////////////////////
 #[cfg(feature = "arkzkey")]
-pub fn arkzkey_from_raw_uncompressed(
+pub fn read_arkzkey_from_bytes_uncompressed(
     arkzkey_data: &[u8],
 ) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
     if arkzkey_data.is_empty() {
@@ -190,7 +190,7 @@ pub fn arkzkey_from_raw_uncompressed(
 }
 
 #[cfg(feature = "arkzkey")]
-pub fn arkzkey_from_raw_compressed(
+pub fn read_arkzkey_from_bytes_compressed(
     arkzkey_data: &[u8],
 ) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
     if arkzkey_data.is_empty() {

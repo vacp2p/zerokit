@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use rln::circuit::{
-    arkzkey_from_raw_compressed, arkzkey_from_raw_uncompressed, ARKZKEY_BYTES,
+    read_arkzkey_from_bytes_compressed, read_arkzkey_from_bytes_uncompressed, ARKZKEY_BYTES,
     ARKZKEY_BYTES_UNCOMPR,
 };
 
@@ -14,7 +14,7 @@ pub fn uncompressed_bench(c: &mut Criterion) {
 
     c.bench_function("arkzkey::arkzkey_from_raw_uncompressed", |b| {
         b.iter(|| {
-            let r = arkzkey_from_raw_uncompressed(&arkzkey);
+            let r = read_arkzkey_from_bytes_uncompressed(&arkzkey);
             assert_eq!(r.is_ok(), true);
         })
     });
@@ -29,7 +29,7 @@ pub fn compressed_bench(c: &mut Criterion) {
 
     c.bench_function("arkzkey::arkzkey_from_raw_compressed", |b| {
         b.iter(|| {
-            let r = arkzkey_from_raw_compressed(&arkzkey);
+            let r = read_arkzkey_from_bytes_compressed(&arkzkey);
             assert_eq!(r.is_ok(), true);
         })
     });
