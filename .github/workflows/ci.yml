@@ -21,11 +21,11 @@ on:
 name: Tests
 
 jobs:
-  test:
+  utils-test:
     strategy:
       matrix:
-        platform: [ubuntu-latest, macos-latest]
-        crate: [rln, utils]
+        platform: [ ubuntu-latest, macos-latest ]
+        crate: [ utils ]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
@@ -47,10 +47,37 @@ jobs:
           cargo make test --release
         working-directory: ${{ matrix.crate }}
 
+  rln-test:
+    strategy:
+      matrix:
+        platform: [ ubuntu-latest, macos-latest ]
+        crate: [ rln ]
+        feature: [ "default", "arkzkey", "stateless" ]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+
+    name: test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: Swatinem/rust-cache@v2
+      - name: Install dependencies
+        run: make installdeps
+      - name: cargo-make test
+        run: |
+          cargo make test_${{ matrix.feature }} --release
+        working-directory: ${{ matrix.crate }}
+
   rln-wasm:
     strategy:
       matrix:
-        platform: [ubuntu-latest, macos-latest]
+        platform: [ ubuntu-latest, macos-latest ]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
@@ -77,8 +104,8 @@ jobs:
     strategy:
       matrix:
         # we run lint tests only on ubuntu
-        platform: [ubuntu-latest]
-        crate: [rln, utils]
+        platform: [ ubuntu-latest ]
+        crate: [ rln, utils ]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
@@ -114,8 +141,8 @@ jobs:
     strategy:
       matrix:
         # we run benchmark tests only on ubuntu
-        platform: [ubuntu-latest]
-        crate: [rln, utils]
+        platform: [ ubuntu-latest ]
+        crate: [ rln, utils ]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 

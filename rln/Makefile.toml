@@ -2,9 +2,17 @@
 command = "cargo"
 args = ["build", "--release"]
 
-[tasks.test]
+[tasks.test_default]
 command = "cargo"
 args = ["test", "--release"]
+
+[tasks.test_stateless]
+command = "cargo"
+args = ["test", "--release", "--features", "stateless"]
+
+[tasks.test_arkzkey]
+command = "cargo"
+args = ["test", "--release", "--features", "arkzkey"]
 
 [tasks.bench]
 command = "cargo"
