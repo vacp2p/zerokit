@@ -19,13 +19,19 @@ use {
 };
 
 #[cfg(feature = "arkzkey")]
-use ark_zkey::read_arkzkey_from_bytes;
+use {
+    ark_zkey::{read_arkzkey_from_bytes, SerializableConstraintMatrices, SerializableProvingKey},
+    color_eyre::eyre::WrapErr,
+};
 
 #[cfg(not(feature = "arkzkey"))]
 use {ark_circom::read_zkey, std::io::Cursor};
 
 #[cfg(feature = "arkzkey")]
-const ARKZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.arkzkey");
+pub const ARKZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.arkzkey");
+#[cfg(feature = "arkzkey")]
+pub const ARKZKEY_BYTES_UNCOMPR: &[u8] =
+    include_bytes!("../resources/tree_height_20/rln_final_uncompr.arkzkey");
 
 pub const ZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.zkey");
 pub const VK_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/verification_key.arkvkey");
@@ -37,7 +43,7 @@ lazy_static! {
     static ref ZKEY: (ProvingKey<Curve>, ConstraintMatrices<Fr>) = {
         cfg_if! {
                 if #[cfg(feature = "arkzkey")] {
-                    read_arkzkey_from_bytes(ARKZKEY_BYTES).expect("Failed to read arkzkey")
+                    read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES_UNCOMPR).expect("Failed to read arkzkey")
                 } else {
                     let mut reader = Cursor::new(ZKEY_BYTES);
                     read_zkey(&mut reader).expect("Failed to read zkey")
@@ -142,4 +148,78 @@ pub fn check_vk_from_zkey(verifying_key: VerifyingKey<Curve>) -> Result<()> {
     } else {
         Err(Report::msg("verifying_keys are not equal"))
     }
+}
+
+////////////////////////////////////////////////////////
+// Functions from [arkz-key](https://github.com/zkmopro/ark-zkey/blob/main/src/lib.rs#L106)
+// without print and allow to choose between compressed and uncompressed arkzkey
+////////////////////////////////////////////////////////
+#[cfg(feature = "arkzkey")]
+pub fn read_arkzkey_from_bytes_uncompressed(
+    arkzkey_data: &[u8],
+) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
+    if arkzkey_data.is_empty() {
+        return Err(Report::msg("No proving key found!"));
+    }
+
+    let mut cursor = std::io::Cursor::new(arkzkey_data);
+
+    let serialized_proving_key =
+        SerializableProvingKey::deserialize_uncompressed_unchecked(&mut cursor)
+            .wrap_err("Failed to deserialize proving key")?;
+
+    let serialized_constraint_matrices =
+        SerializableConstraintMatrices::deserialize_uncompressed_unchecked(&mut cursor)
+            .wrap_err("Failed to deserialize constraint matrices")?;
+
+    // Get on right form for API
+    let proving_key: ProvingKey<Bn254> = serialized_proving_key.0;
+    let constraint_matrices: ConstraintMatrices<ark_bn254::Fr> = ConstraintMatrices {
+        num_instance_variables: serialized_constraint_matrices.num_instance_variables,
+        num_witness_variables: serialized_constraint_matrices.num_witness_variables,
+        num_constraints: serialized_constraint_matrices.num_constraints,
+        a_num_non_zero: serialized_constraint_matrices.a_num_non_zero,
+        b_num_non_zero: serialized_constraint_matrices.b_num_non_zero,
+        c_num_non_zero: serialized_constraint_matrices.c_num_non_zero,
+        a: serialized_constraint_matrices.a.data,
+        b: serialized_constraint_matrices.b.data,
+        c: serialized_constraint_matrices.c.data,
+    };
+
+    Ok((proving_key, constraint_matrices))
+}
+
+#[cfg(feature = "arkzkey")]
+pub fn read_arkzkey_from_bytes_compressed(
+    arkzkey_data: &[u8],
+) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
+    if arkzkey_data.is_empty() {
+        return Err(Report::msg("No proving key found!"));
+    }
+
+    let mut cursor = std::io::Cursor::new(arkzkey_data);
+
+    let serialized_proving_key =
+        SerializableProvingKey::deserialize_compressed_unchecked(&mut cursor)
+            .wrap_err("Failed to deserialize proving key")?;
+
+    let serialized_constraint_matrices =
+        SerializableConstraintMatrices::deserialize_compressed_unchecked(&mut cursor)
+            .wrap_err("Failed to deserialize constraint matrices")?;
+
+    // Get on right form for API
+    let proving_key: ProvingKey<Bn254> = serialized_proving_key.0;
+    let constraint_matrices: ConstraintMatrices<ark_bn254::Fr> = ConstraintMatrices {
+        num_instance_variables: serialized_constraint_matrices.num_instance_variables,
+        num_witness_variables: serialized_constraint_matrices.num_witness_variables,
+        num_constraints: serialized_constraint_matrices.num_constraints,
+        a_num_non_zero: serialized_constraint_matrices.a_num_non_zero,
+        b_num_non_zero: serialized_constraint_matrices.b_num_non_zero,
+        c_num_non_zero: serialized_constraint_matrices.c_num_non_zero,
+        a: serialized_constraint_matrices.a.data,
+        b: serialized_constraint_matrices.b.data,
+        c: serialized_constraint_matrices.c.data,
+    };
+
+    Ok((proving_key, constraint_matrices))
 }

@@ -1,14 +1,17 @@
+use ark_circom::read_zkey;
 use criterion::{criterion_group, criterion_main, Criterion};
-use rln::circuit::{zkey_from_raw, ZKEY_BYTES};
+use std::io::Cursor;
 
-// Depending on the key type (enabled by the `--features arkzkey` flag)
-// the upload speed from the `rln_final.zkey` or `rln_final.arkzkey` file is calculated
-pub fn key_load_benchmark(c: &mut Criterion) {
-    let zkey = ZKEY_BYTES.to_vec();
+pub fn zkey_load_benchmark(c: &mut Criterion) {
+    let zkey = rln::circuit::ZKEY_BYTES.to_vec();
+    let size = zkey.len() as f32;
+    println!("Size of zkey: {:.2?} MB", size / 1024.0 / 1024.0);
 
     c.bench_function("zkey::zkey_from_raw", |b| {
         b.iter(|| {
-            let _ = zkey_from_raw(&zkey);
+            let mut reader = Cursor::new(zkey.clone());
+            let r = read_zkey(&mut reader);
+            assert_eq!(r.is_ok(), true);
         })
     });
 }
@@ -16,6 +19,6 @@ pub fn key_load_benchmark(c: &mut Criterion) {
 criterion_group! {
     name = benches;
     config = Criterion::default().measurement_time(std::time::Duration::from_secs(250));
-    targets = key_load_benchmark
+    targets = zkey_load_benchmark
 }
 criterion_main!(benches);
