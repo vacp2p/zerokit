@@ -94,7 +94,8 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          # TODO: Update to stable once wasmer supports it
+          toolchain: 1.82.0
           override: true
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
