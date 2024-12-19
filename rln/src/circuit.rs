@@ -1,5 +1,6 @@
 // This crate provides interfaces for the zero-knowledge circuit and keys
 
+use crate::iden3calc::calc_witness;
 use ark_bn254::{
     Bn254, Fq as ArkFq, Fq2 as ArkFq2, Fr as ArkFr, G1Affine as ArkG1Affine,
     G1Projective as ArkG1Projective, G2Affine as ArkG2Affine, G2Projective as ArkG2Projective,
@@ -9,14 +10,10 @@ use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::CanonicalDeserialize;
 use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
+use num_bigint::BigInt;
 
 #[cfg(not(target_arch = "wasm32"))]
-use {
-    ark_circom::WitnessCalculator,
-    lazy_static::lazy_static,
-    std::sync::{Arc, Mutex},
-    wasmer::{Module, Store},
-};
+use ::lazy_static::lazy_static;
 
 #[cfg(feature = "arkzkey")]
 use {
@@ -35,7 +32,7 @@ pub const ARKZKEY_BYTES_UNCOMPR: &[u8] =
 
 pub const ZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.zkey");
 pub const VK_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/verification_key.arkvkey");
-const WASM_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln.wasm");
+const GRAPH_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/graph.bin");
 
 #[cfg(not(target_arch = "wasm32"))]
 lazy_static! {
@@ -53,11 +50,6 @@ lazy_static! {
 
     #[cfg(not(target_arch = "wasm32"))]
     static ref VK: VerifyingKey<Curve> = vk_from_ark_serialized(VK_BYTES).expect("Failed to read vk");
-
-    #[cfg(not(target_arch = "wasm32"))]
-    static ref WITNESS_CALCULATOR: Arc<Mutex<WitnessCalculator>> = {
-        circom_from_raw(WASM_BYTES).expect("Failed to create witness calculator")
-    };
 }
 
 pub const TEST_TREE_HEIGHT: usize = 20;
@@ -92,6 +84,10 @@ pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<(ProvingKey<Curve>, ConstraintM
     Ok(proving_key_and_matrices)
 }
 
+pub fn calculate_rln_witness<I: IntoIterator<Item = (String, Vec<BigInt>)>>(inputs: I) -> Vec<Fr> {
+    calc_witness(inputs, GRAPH_BYTES)
+}
+
 // Loads the proving key
 #[cfg(not(target_arch = "wasm32"))]
 pub fn zkey_from_folder() -> &'static (ProvingKey<Curve>, ConstraintMatrices<Fr>) {
@@ -116,20 +112,6 @@ pub fn vk_from_raw(vk_data: &[u8], zkey_data: &[u8]) -> Result<VerifyingKey<Curv
 #[cfg(not(target_arch = "wasm32"))]
 pub fn vk_from_folder() -> &'static VerifyingKey<Curve> {
     &VK
-}
-
-// Initializes the witness calculator using a bytes vector
-#[cfg(not(target_arch = "wasm32"))]
-pub fn circom_from_raw(wasm_buffer: &[u8]) -> Result<Arc<Mutex<WitnessCalculator>>> {
-    let module = Module::new(&Store::default(), wasm_buffer)?;
-    let result = WitnessCalculator::from_module(module)?;
-    Ok(Arc::new(Mutex::new(result)))
-}
-
-// Initializes the witness calculator
-#[cfg(not(target_arch = "wasm32"))]
-pub fn circom_from_folder() -> &'static Arc<Mutex<WitnessCalculator>> {
-    &WITNESS_CALCULATOR
 }
 
 // Computes the verification key from a bytes vector containing pre-processed ark-serialized verification key
