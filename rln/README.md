@@ -17,8 +17,8 @@ cd zerokit/rln
  ~~To build and test, run the following commands within the module folder~~
 
 ``` ~~bash~~
- ~~cargo make build~~
- ~~cargo make test~~
+ cargo make build
+ cargo make test
 ```
 
 ### Compile ZK circuits
