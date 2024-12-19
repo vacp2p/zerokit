@@ -12,7 +12,7 @@ git clone https://github.com/vacp2p/zerokit.git
 cd zerokit/rln
 ```
 
- ~~### Build and Test~~
+ ### ~~Build and Test~~
 
  ~~To build and test, run the following commands within the module folder~~
 
