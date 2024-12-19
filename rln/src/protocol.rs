@@ -1,6 +1,6 @@
 // This crate collects all the underlying primitives used to implement RLN
 
-use ark_circom::{CircomReduction, WitnessCalculator};
+use ark_circom::CircomReduction;
 use ark_groth16::{prepare_verifying_key, Groth16, Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_relations::r1cs::SynthesisError;
@@ -11,20 +11,17 @@ use num_bigint::BigInt;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
-#[cfg(not(target_arch = "wasm32"))]
-use std::sync::Mutex;
-#[cfg(debug_assertions)]
+#[cfg(test)]
 use std::time::Instant;
 use thiserror::Error;
 use tiny_keccak::{Hasher as _, Keccak};
 
-use crate::circuit::{Curve, Fr};
+use crate::circuit::{calculate_rln_witness, Curve, Fr};
 use crate::hashers::hash_to_field;
 use crate::hashers::poseidon_hash;
 use crate::poseidon_tree::*;
 use crate::public::RLN_IDENTIFIER;
 use crate::utils::*;
-use cfg_if::cfg_if;
 use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 
 ///////////////////////////////////////////////////////
@@ -544,13 +541,13 @@ pub fn generate_proof_with_witness(
     proving_key: &(ProvingKey<Curve>, ConstraintMatrices<Fr>),
 ) -> Result<ArkProof<Curve>, ProofError> {
     // If in debug mode, we measure and later print time take to compute witness
-    #[cfg(debug_assertions)]
+    #[cfg(test)]
     let now = Instant::now();
 
     let full_assignment =
         calculate_witness_element::<Curve>(witness).map_err(ProofError::WitnessError)?;
 
-    #[cfg(debug_assertions)]
+    #[cfg(test)]
     println!("witness generation took: {:.2?}", now.elapsed());
 
     // Random Values
@@ -559,7 +556,7 @@ pub fn generate_proof_with_witness(
     let s = Fr::rand(&mut rng);
 
     // If in debug mode, we measure and later print time take to compute proof
-    #[cfg(debug_assertions)]
+    #[cfg(test)]
     let now = Instant::now();
 
     let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
@@ -572,7 +569,7 @@ pub fn generate_proof_with_witness(
         full_assignment.as_slice(),
     )?;
 
-    #[cfg(debug_assertions)]
+    #[cfg(test)]
     println!("proof generation took: {:.2?}", now.elapsed());
 
     Ok(proof)
@@ -628,8 +625,6 @@ pub fn inputs_for_witness_calculation(
 ///
 /// Returns a [`ProofError`] if proving fails.
 pub fn generate_proof(
-    #[cfg(not(target_arch = "wasm32"))] witness_calculator: &Mutex<WitnessCalculator>,
-    #[cfg(target_arch = "wasm32")] witness_calculator: &mut WitnessCalculator,
     proving_key: &(ProvingKey<Curve>, ConstraintMatrices<Fr>),
     rln_witness: &RLNWitnessInput,
 ) -> Result<ArkProof<Curve>, ProofError> {
@@ -638,24 +633,11 @@ pub fn generate_proof(
         .map(|(name, values)| (name.to_string(), values));
 
     // If in debug mode, we measure and later print time take to compute witness
-    #[cfg(debug_assertions)]
+    #[cfg(test)]
     let now = Instant::now();
+    let full_assignment = calculate_rln_witness(inputs);
 
-    cfg_if! {
-        if #[cfg(target_arch = "wasm32")] {
-            let full_assignment = witness_calculator
-            .calculate_witness_element::<Curve, _>(inputs, false)
-            .map_err(ProofError::WitnessError)?;
-        } else {
-            let full_assignment = witness_calculator
-            .lock()
-            .expect("witness_calculator mutex should not get poisoned")
-            .calculate_witness_element::<Curve, _>(inputs, false)
-            .map_err(ProofError::WitnessError)?;
-        }
-    }
-
-    #[cfg(debug_assertions)]
+    #[cfg(test)]
     println!("witness generation took: {:.2?}", now.elapsed());
 
     // Random Values
@@ -664,7 +646,7 @@ pub fn generate_proof(
     let s = Fr::rand(&mut rng);
 
     // If in debug mode, we measure and later print time take to compute proof
-    #[cfg(debug_assertions)]
+    #[cfg(test)]
     let now = Instant::now();
     let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
         &proving_key.0,
@@ -676,7 +658,7 @@ pub fn generate_proof(
         full_assignment.as_slice(),
     )?;
 
-    #[cfg(debug_assertions)]
+    #[cfg(test)]
     println!("proof generation took: {:.2?}", now.elapsed());
 
     Ok(proof)
@@ -707,12 +689,12 @@ pub fn verify_proof(
     //let pr: ArkProof<Curve> = (*proof).into();
 
     // If in debug mode, we measure and later print time take to verify proof
-    #[cfg(debug_assertions)]
+    #[cfg(test)]
     let now = Instant::now();
 
     let verified = Groth16::<_, CircomReduction>::verify_proof(&pvk, proof, &inputs)?;
 
-    #[cfg(debug_assertions)]
+    #[cfg(test)]
     println!("verify took: {:.2?}", now.elapsed());
 
     Ok(verified)

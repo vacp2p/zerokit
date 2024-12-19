@@ -12,13 +12,17 @@ git clone https://github.com/vacp2p/zerokit.git
 cd zerokit/rln
 ```
 
-### Build and Test
+ ### ~~Build and Test~~
 
-To build and test, run the following commands within the module folder
+ ~~To build and test, run the following commands within the module folder~~
 
-```bash
-cargo make build
-cargo make test
+``` bash
+ cargo make build
+ cargo make test
+```
+ ### Currently the tests are run as follows:
+ ``` bash
+cargo make test_default
 ```
 
 ### Compile ZK circuits
