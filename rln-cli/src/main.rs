@@ -38,9 +38,9 @@ fn main() -> Result<()> {
         }) => {
             let mut resources: Vec<Vec<u8>> = Vec::new();
             #[cfg(feature = "arkzkey")]
-            let filenames = ["rln.wasm", "rln_final.arkzkey", "verification_key.arkvkey"];
+            let filenames = ["rln_final.arkzkey", "verification_key.arkvkey"];
             #[cfg(not(feature = "arkzkey"))]
-            let filenames = ["rln.wasm", "rln_final.zkey", "verification_key.arkvkey"];
+            let filenames = ["rln_final.zkey", "verification_key.arkvkey"];
             for filename in filenames {
                 let fullpath = config.join(Path::new(filename));
                 let mut file = File::open(&fullpath)?;
@@ -54,7 +54,6 @@ fn main() -> Result<()> {
                 *tree_height,
                 resources[0].clone(),
                 resources[1].clone(),
-                resources[2].clone(),
                 tree_config_input_file,
             )?);
             Ok(())
