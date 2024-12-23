@@ -258,10 +258,7 @@ pub extern "C" fn new_with_params(
     vk_buffer: *const Buffer,
     ctx: *mut *mut RLN,
 ) -> bool {
-    match RLN::new_with_params(
-        zkey_buffer.process().to_vec(),
-        vk_buffer.process().to_vec(),
-    ) {
+    match RLN::new_with_params(zkey_buffer.process().to_vec(), vk_buffer.process().to_vec()) {
         Ok(rln) => {
             unsafe { *ctx = Box::into_raw(Box::new(rln)) };
             true
