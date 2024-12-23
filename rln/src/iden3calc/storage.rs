@@ -136,7 +136,7 @@ impl From<proto::TresOp> for graph::TresOperation {
 pub fn serialize_witnesscalc_graph<T: Write>(
     mut w: T,
     nodes: &Vec<graph::Node>,
-    witness_signals: &Vec<usize>,
+    witness_signals: &[usize],
     input_signals: &InputSignalsInfo,
 ) -> std::io::Result<()> {
     let mut ptr = 0usize;

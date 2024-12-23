@@ -148,14 +148,14 @@ impl RLN {
     ///     resources.push(buffer);
     /// }
     ///
-    /// let tree_config = "{}".to_string();
-    /// let mut tree_config_input = Buffer::from(tree_config.as_bytes());
+    /// let tree_config = "".to_string();
+    /// let tree_config_buffer = &Buffer::from(tree_config.as_bytes());
     ///
     /// let mut rln = RLN::new_with_params(
     ///     tree_height,
     ///     resources[0].clone(),
     ///     resources[1].clone(),
-    ///     tree_config_input,
+    ///     tree_config_buffer,
     /// );
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]

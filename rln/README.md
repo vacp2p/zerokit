@@ -12,18 +12,18 @@ git clone https://github.com/vacp2p/zerokit.git
 cd zerokit/rln
 ```
 
- ### ~~Build and Test~~
+ ### Build and Test
 
- ~~To build and test, run the following commands within the module folder~~
+ To build and test, run the following commands within the module folder
 
 ``` bash
  cargo make build
- cargo make test
+ cargo make test_**mode**
 ```
- ### Currently the tests are run as follows:
- ``` bash
-cargo make test_default
-```
+The **mode** placeholder should be replaced with
+* **default** for the default tests;
+* **arkzkey** for the tests with the arkzkey feature;
+* **stateless** for the tests with the stateless feature.
 
 ### Compile ZK circuits
 

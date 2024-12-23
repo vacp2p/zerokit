@@ -410,7 +410,7 @@ pub fn evaluate(nodes: &[Node], inputs: &[U256], outputs: &[usize]) -> Vec<Fr> {
 
     // Evaluate the graph.
     let mut values = Vec::with_capacity(nodes.len());
-    for (_, &node) in nodes.iter().enumerate() {
+    for &node in nodes.iter() {
         let value = match node {
             Node::Constant(c) => Fr::new(c.into()),
             Node::MontConstant(c) => c,
@@ -434,12 +434,10 @@ pub fn evaluate(nodes: &[Node], inputs: &[U256], outputs: &[usize]) -> Vec<Fr> {
 /// Constant propagation
 pub fn propagate(nodes: &mut [Node]) {
     assert_valid(nodes);
-    let mut constants = 0_usize;
     for i in 0..nodes.len() {
         if let Node::Op(op, a, b) = nodes[i] {
             if let (Node::Constant(va), Node::Constant(vb)) = (nodes[a], nodes[b]) {
                 nodes[i] = Node::Constant(op.eval(va, vb));
-                constants += 1;
             } else if a == b {
                 // Not constant but equal
                 use Operation::*;
@@ -449,25 +447,20 @@ pub fn propagate(nodes: &mut [Node]) {
                     _ => None,
                 } {
                     nodes[i] = Node::Constant(U256::from(c));
-                    constants += 1;
                 }
             }
         } else if let Node::UnoOp(op, a) = nodes[i] {
             if let Node::Constant(va) = nodes[a] {
                 nodes[i] = Node::Constant(op.eval(va));
-                constants += 1;
             }
         } else if let Node::TresOp(op, a, b, c) = nodes[i] {
             if let (Node::Constant(va), Node::Constant(vb), Node::Constant(vc)) =
                 (nodes[a], nodes[b], nodes[c])
             {
                 nodes[i] = Node::Constant(op.eval(va, vb, vc));
-                constants += 1;
             }
         }
     }
-
-    eprintln!("Propagated {constants} constants");
 }
 
 /// Remove unused nodes
@@ -502,7 +495,6 @@ pub fn tree_shake(nodes: &mut Vec<Node>, outputs: &mut [usize]) {
     let n = nodes.len();
     let mut retain = used.iter();
     nodes.retain(|_| *retain.next().unwrap());
-    let removed = n - nodes.len();
 
     // Renumber references.
     let mut renumber = vec![None; n];
@@ -536,12 +528,10 @@ pub fn tree_shake(nodes: &mut Vec<Node>, outputs: &mut [usize]) {
     for output in outputs.iter_mut() {
         *output = renumber[*output].unwrap();
     }
-
-    eprintln!("Removed {removed} unused nodes");
 }
 
 /// Randomly evaluate the graph
-fn random_eval(nodes: &mut Vec<Node>) -> Vec<U256> {
+fn random_eval(nodes: &mut [Node]) -> Vec<U256> {
     let mut rng = rand::thread_rng();
     let mut values = Vec::with_capacity(nodes.len());
     let mut inputs = HashMap::new();
@@ -580,7 +570,7 @@ fn random_eval(nodes: &mut Vec<Node>) -> Vec<U256> {
 }
 
 /// Value numbering
-pub fn value_numbering(nodes: &mut Vec<Node>, outputs: &mut [usize]) {
+pub fn value_numbering(nodes: &mut [Node], outputs: &mut [usize]) {
     assert_valid(nodes);
 
     // Evaluate the graph in random field elements.
@@ -593,10 +583,7 @@ pub fn value_numbering(nodes: &mut Vec<Node>, outputs: &mut [usize]) {
     }
 
     // For nodes that are the same, pick the first index.
-    let mut renumber = Vec::with_capacity(nodes.len());
-    for value in values {
-        renumber.push(value_map[&value][0]);
-    }
+    let renumber: Vec<_> = values.into_iter().map(|v| value_map[&v][0]).collect();
 
     // Renumber references.
     for node in nodes.iter_mut() {
@@ -616,12 +603,10 @@ pub fn value_numbering(nodes: &mut Vec<Node>, outputs: &mut [usize]) {
     for output in outputs.iter_mut() {
         *output = renumber[*output];
     }
-
-    eprintln!("Global value numbering applied");
 }
 
 /// Probabilistic constant determination
-pub fn constants(nodes: &mut Vec<Node>) {
+pub fn constants(nodes: &mut [Node]) {
     assert_valid(nodes);
 
     // Evaluate the graph in random field elements.
@@ -629,17 +614,14 @@ pub fn constants(nodes: &mut Vec<Node>) {
     let values_b = random_eval(nodes);
 
     // Find all nodes with the same value.
-    let mut constants = 0;
     for i in 0..nodes.len() {
         if let Node::Constant(_) = nodes[i] {
             continue;
         }
         if values_a[i] == values_b[i] {
             nodes[i] = Node::Constant(values_a[i]);
-            constants += 1;
         }
     }
-    eprintln!("Found {} constants", constants);
 }
 
 /// Convert to Montgomery form
@@ -662,7 +644,6 @@ pub fn montgomery_form(nodes: &mut [Node]) {
             TresOp(TresOperation::TernCond, ..) => (),
         }
     }
-    eprintln!("Converted to Montgomery form");
 }
 
 fn shl(a: Fr, b: Fr) -> Fr {
@@ -678,7 +659,7 @@ fn shl(a: Fr, b: Fr) -> Fr {
 
     let mut a = a.into_bigint();
     a.muln(n);
-    return Fr::from_bigint(a).unwrap();
+    Fr::from_bigint(a).unwrap()
 }
 
 fn shr(a: Fr, b: Fr) -> Fr {
@@ -721,10 +702,12 @@ fn shr(a: Fr, b: Fr) -> Fr {
 fn bit_and(a: Fr, b: Fr) -> Fr {
     let a = a.into_bigint();
     let b = b.into_bigint();
-    let mut c: [u64; 4] = [0; 4];
-    for i in 0..4 {
-        c[i] = a.0[i] & b.0[i];
-    }
+    let c: [u64; 4] = [
+        a.0[0] & b.0[0],
+        a.0[1] & b.0[1],
+        a.0[2] & b.0[2],
+        a.0[3] & b.0[3],
+    ];
     let mut d: BigInt<4> = BigInt::new(c);
     if d > Fr::MODULUS {
         d.sub_with_borrow(&Fr::MODULUS);
@@ -736,10 +719,12 @@ fn bit_and(a: Fr, b: Fr) -> Fr {
 fn bit_or(a: Fr, b: Fr) -> Fr {
     let a = a.into_bigint();
     let b = b.into_bigint();
-    let mut c: [u64; 4] = [0; 4];
-    for i in 0..4 {
-        c[i] = a.0[i] | b.0[i];
-    }
+    let c: [u64; 4] = [
+        a.0[0] | b.0[0],
+        a.0[1] | b.0[1],
+        a.0[2] | b.0[2],
+        a.0[3] | b.0[3],
+    ];
     let mut d: BigInt<4> = BigInt::new(c);
     if d > Fr::MODULUS {
         d.sub_with_borrow(&Fr::MODULUS);
@@ -751,10 +736,12 @@ fn bit_or(a: Fr, b: Fr) -> Fr {
 fn bit_xor(a: Fr, b: Fr) -> Fr {
     let a = a.into_bigint();
     let b = b.into_bigint();
-    let mut c: [u64; 4] = [0; 4];
-    for i in 0..4 {
-        c[i] = a.0[i] ^ b.0[i];
-    }
+    let c: [u64; 4] = [
+        a.0[0] ^ b.0[0],
+        a.0[1] ^ b.0[1],
+        a.0[2] ^ b.0[2],
+        a.0[3] ^ b.0[3],
+    ];
     let mut d: BigInt<4> = BigInt::new(c);
     if d > Fr::MODULUS {
         d.sub_with_borrow(&Fr::MODULUS);
@@ -764,12 +751,12 @@ fn bit_xor(a: Fr, b: Fr) -> Fr {
 }
 
 // M / 2
-const halfM: U256 =
+const HALF_M: U256 =
     uint!(10944121435919637611123202872628637544274182200208017171849102093287904247808_U256);
 
 fn u_gte(a: &U256, b: &U256) -> U256 {
-    let a_neg = &halfM < a;
-    let b_neg = &halfM < b;
+    let a_neg = &HALF_M < a;
+    let b_neg = &HALF_M < b;
 
     match (a_neg, b_neg) {
         (false, false) => U256::from(a >= b),
@@ -780,8 +767,8 @@ fn u_gte(a: &U256, b: &U256) -> U256 {
 }
 
 fn u_lte(a: &U256, b: &U256) -> U256 {
-    let a_neg = &halfM < a;
-    let b_neg = &halfM < b;
+    let a_neg = &HALF_M < a;
+    let b_neg = &HALF_M < b;
 
     match (a_neg, b_neg) {
         (false, false) => U256::from(a <= b),
@@ -792,8 +779,8 @@ fn u_lte(a: &U256, b: &U256) -> U256 {
 }
 
 fn u_gt(a: &U256, b: &U256) -> U256 {
-    let a_neg = &halfM < a;
-    let b_neg = &halfM < b;
+    let a_neg = &HALF_M < a;
+    let b_neg = &HALF_M < b;
 
     match (a_neg, b_neg) {
         (false, false) => U256::from(a > b),
@@ -804,8 +791,8 @@ fn u_gt(a: &U256, b: &U256) -> U256 {
 }
 
 fn u_lt(a: &U256, b: &U256) -> U256 {
-    let a_neg = &halfM < a;
-    let b_neg = &halfM < b;
+    let a_neg = &HALF_M < a;
+    let b_neg = &HALF_M < b;
 
     match (a_neg, b_neg) {
         (false, false) => U256::from(a < b),
