@@ -18,9 +18,9 @@ cd zerokit/rln
 
 ``` bash
  cargo make build
- cargo make test_**mode**
+ cargo make test_{mode}
 ```
-The **mode** placeholder should be replaced with
+The {mode} placeholder should be replaced with
 * **default** for the default tests;
 * **arkzkey** for the tests with the arkzkey feature;
 * **stateless** for the tests with the stateless feature.
