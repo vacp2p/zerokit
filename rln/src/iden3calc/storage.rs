@@ -246,8 +246,8 @@ pub fn deserialize_witnesscalc_graph(
         ));
     }
 
-    let mut nodes = Vec::new();
     let nodes_num = br.read_u64::<LittleEndian>()?;
+    let mut nodes = Vec::with_capacity(nodes_num as usize);
     for _ in 0..nodes_num {
         let n: proto::Node = read_message(&mut br)?;
         let n2: graph::Node = n.into();
