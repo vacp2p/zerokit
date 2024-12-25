@@ -225,7 +225,7 @@ where
         Ok(())
     }
 
-    // Computes a merkle proof the the leaf at the specified index
+    // Computes a merkle proof the leaf at the specified index
     fn proof(&self, index: usize) -> Result<Self::Proof> {
         if index >= self.capacity() {
             return Err(Report::msg("index exceeds set size"));
