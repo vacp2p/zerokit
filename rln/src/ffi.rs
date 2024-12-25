@@ -228,7 +228,6 @@ pub extern "C" fn new(ctx: *mut *mut RLN) -> bool {
 #[no_mangle]
 pub extern "C" fn new_with_params(
     tree_height: usize,
-    circom_buffer: *const Buffer,
     zkey_buffer: *const Buffer,
     vk_buffer: *const Buffer,
     tree_config: *const Buffer,
@@ -236,7 +235,6 @@ pub extern "C" fn new_with_params(
 ) -> bool {
     match RLN::new_with_params(
         tree_height,
-        circom_buffer.process().to_vec(),
         zkey_buffer.process().to_vec(),
         vk_buffer.process().to_vec(),
         tree_config.process(),
@@ -256,16 +254,11 @@ pub extern "C" fn new_with_params(
 #[cfg(feature = "stateless")]
 #[no_mangle]
 pub extern "C" fn new_with_params(
-    circom_buffer: *const Buffer,
     zkey_buffer: *const Buffer,
     vk_buffer: *const Buffer,
     ctx: *mut *mut RLN,
 ) -> bool {
-    match RLN::new_with_params(
-        circom_buffer.process().to_vec(),
-        zkey_buffer.process().to_vec(),
-        vk_buffer.process().to_vec(),
-    ) {
+    match RLN::new_with_params(zkey_buffer.process().to_vec(), vk_buffer.process().to_vec()) {
         Ok(rln) => {
             unsafe { *ctx = Box::into_raw(Box::new(rln)) };
             true
