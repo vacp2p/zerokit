@@ -1,6 +1,9 @@
-{ pkgs }:
+{ 
+  pkgs,
+  target-platform ? "aarch64-android-prebuilt",
+}:
 
-pkgs.rustPlatform.buildRustPackage {
+pkgs.pkgsCross.${target-platform}.rustPlatform.buildRustPackage {
   pname = "zerokit";
   version = "nightly";
 

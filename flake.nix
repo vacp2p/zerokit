@@ -19,8 +19,10 @@
     {
       packages = forAllSystems (system: let
         pkgs = pkgsFor.${system};
-      in {
-        default = pkgs.callPackage ./default.nix {};
+      in rec {
+        zerokit-android-arm64 = pkgs.callPackage ./default.nix { target-platform="aarch64-android-prebuilt"; };
+        zerokit-android-arm   = pkgs.callPackage ./default.nix { target-platform="armv7a-android-prebuilt"; };
+        default = zerokit-android-arm64;
       });
     };
 }
