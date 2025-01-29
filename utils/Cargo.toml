@@ -13,22 +13,22 @@ bench = false
 
 [dependencies]
 ark-ff = { version = "=0.4.1", default-features = false, features = ["asm"] }
-num-bigint = { version = "=0.4.3", default-features = false, features = [
+num-bigint = { version = "0.4.3", default-features = false, features = [
     "rand",
 ] }
-color-eyre = "=0.6.2"
+color-eyre = "0.6.2"
 pmtree = { package = "vacp2p_pmtree", version = "=2.0.2", optional = true }
 sled = "=0.34.7"
-serde = "=1.0.163"
+serde = "1.0.163"
 lazy_static = "1.4.0"
 hex = "0.4"
 
 [dev-dependencies]
 ark-bn254 = "=0.4.0"
 num-traits = "=0.2.15"
-hex-literal = "=0.3.4"
-tiny-keccak = { version = "=2.0.2", features = ["keccak"] }
-criterion = { version = "=0.4.0", features = ["html_reports"] }
+hex-literal = "0.3.4"
+tiny-keccak = { version = "2.0.2", features = ["keccak"] }
+criterion = { version = "0.4.0", features = ["html_reports"] }
 
 [features]
 default = ["parallel"]
