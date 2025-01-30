@@ -16,10 +16,7 @@ use num_bigint::BigInt;
 use ::lazy_static::lazy_static;
 
 #[cfg(feature = "arkzkey")]
-use {
-    ark_zkey::{read_arkzkey_from_bytes, SerializableConstraintMatrices, SerializableProvingKey},
-    color_eyre::eyre::WrapErr,
-};
+use {ark_ff::Field, ark_serialize::CanonicalSerialize, color_eyre::eyre::WrapErr};
 
 #[cfg(not(feature = "arkzkey"))]
 use {ark_circom::read_zkey, std::io::Cursor};
@@ -73,7 +70,7 @@ pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<(ProvingKey<Curve>, ConstraintM
 
     let proving_key_and_matrices = match () {
         #[cfg(feature = "arkzkey")]
-        () => read_arkzkey_from_bytes(zkey_data)?,
+        () => read_arkzkey_from_bytes_uncompressed(zkey_data)?,
         #[cfg(not(feature = "arkzkey"))]
         () => {
             let mut reader = Cursor::new(zkey_data);
@@ -133,9 +130,34 @@ pub fn check_vk_from_zkey(verifying_key: VerifyingKey<Curve>) -> Result<()> {
 }
 
 ////////////////////////////////////////////////////////
-// Functions from [arkz-key](https://github.com/zkmopro/ark-zkey/blob/main/src/lib.rs#L106)
+// Functions and structs from [arkz-key](https://github.com/zkmopro/ark-zkey/blob/main/src/lib.rs#L106)
 // without print and allow to choose between compressed and uncompressed arkzkey
 ////////////////////////////////////////////////////////
+
+#[cfg(feature = "arkzkey")]
+#[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq)]
+pub struct SerializableProvingKey(pub ProvingKey<Bn254>);
+
+#[cfg(feature = "arkzkey")]
+#[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq)]
+pub struct SerializableConstraintMatrices<F: Field> {
+    pub num_instance_variables: usize,
+    pub num_witness_variables: usize,
+    pub num_constraints: usize,
+    pub a_num_non_zero: usize,
+    pub b_num_non_zero: usize,
+    pub c_num_non_zero: usize,
+    pub a: SerializableMatrix<F>,
+    pub b: SerializableMatrix<F>,
+    pub c: SerializableMatrix<F>,
+}
+
+#[cfg(feature = "arkzkey")]
+#[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq)]
+pub struct SerializableMatrix<F: Field> {
+    pub data: Vec<Vec<(F, usize)>>,
+}
+
 #[cfg(feature = "arkzkey")]
 pub fn read_arkzkey_from_bytes_uncompressed(
     arkzkey_data: &[u8],
