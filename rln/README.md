@@ -7,27 +7,29 @@ This module provides APIs to manage, compute and verify [RLN](https://rfc.vac.de
 ### Install dependencies and clone repo
 
 ```sh
-make installdeps
 git clone https://github.com/vacp2p/zerokit.git
+make installdeps
 cd zerokit/rln
 ```
 
- ### Build and Test
+### Build and Test
 
- To build and test, run the following commands within the module folder
+To build and test, run the following commands within the module folder
 
 ``` bash
  cargo make build
- cargo make test_{mode}
+ cargo make test{_mode}
 ```
+
 The {mode} placeholder should be replaced with
-* **default** for the default tests;
+
+* put nothing for the default tests;
 * **arkzkey** for the tests with the arkzkey feature;
 * **stateless** for the tests with the stateless feature.
 
 ### Compile ZK circuits
 
-The `rln` (https://github.com/rate-limiting-nullifier/circom-rln) repository, which contains the RLN circuit implementation is a submodule of zerokit RLN.
+The `rln` (<https://github.com/rate-limiting-nullifier/circom-rln>) repository, which contains the RLN circuit implementation is a submodule of zerokit RLN.
 
 To compile the RLN circuit
 
@@ -50,7 +52,7 @@ Note that the above code snippet will compile a RLN circuit with a Merkle tree o
 
 In order to compile a RLN circuit with Merkle tree height `N`, it suffices to change `vendor/rln/circuit/rln.circom` to
 
-```
+```text
 pragma circom 2.0.0;
 
 include "./rln-base.circom";
@@ -203,7 +205,7 @@ We check if the proof verification was successful:
 assert!(verified);
 ```
 
-## Get involved!
+## Get involved
 
 Zerokit RLN public and FFI APIs allow interaction with many more features than what briefly showcased above.
 

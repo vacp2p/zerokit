@@ -5,7 +5,6 @@ on:
     paths-ignore:
       - "**.md"
       - "!.github/workflows/*.yml"
-      - "!rln-wasm/**"
       - "!rln/src/**"
       - "!rln/resources/**"
       - "!utils/src/**"
@@ -13,7 +12,6 @@ on:
     paths-ignore:
       - "**.md"
       - "!.github/workflows/*.yml"
-      - "!rln-wasm/**"
       - "!rln/src/**"
       - "!rln/resources/**"
       - "!utils/src/**"
@@ -74,33 +72,6 @@ jobs:
           cargo make test_${{ matrix.feature }} --release
         working-directory: ${{ matrix.crate }}
 
-  rln-wasm:
-    strategy:
-      matrix:
-        platform: [ ubuntu-latest, macos-latest ]
-    runs-on: ${{ matrix.platform }}
-    timeout-minutes: 60
-
-    name: test - rln-wasm - ${{ matrix.platform }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          # TODO: Update to stable once wasmer supports it
-          toolchain: 1.82.0
-          override: true
-      - uses: Swatinem/rust-cache@v2
-      - name: Install Dependencies
-        run: make installdeps
-      - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@v0.3.0
-      - run: cargo make build
-        working-directory: rln-wasm
-      - run: cargo make test --release
-        working-directory: rln-wasm
-
   lint:
     strategy:
       matrix:
@@ -133,9 +104,6 @@ jobs:
         run: |
           cargo clippy --release -- -D warnings
         working-directory: ${{ matrix.crate }}
-        # We skip clippy on rln-wasm, since wasm target is managed by cargo make
-        # Currently not treating warnings as error, too noisy
-        # -- -D warnings
 
   benchmark-utils:
     # run only in pull requests
