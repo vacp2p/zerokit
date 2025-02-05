@@ -2,7 +2,7 @@
 command = "cargo"
 args = ["build", "--release"]
 
-[tasks.test]
+[tasks.test_default]
 command = "cargo"
 args = ["test", "--release", "--", "--nocapture"]
 
