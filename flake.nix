@@ -14,14 +14,29 @@
         "i686-windows"
       ];
       forAllSystems = nixpkgs.lib.genAttrs stableSystems;
-      pkgsFor = forAllSystems (system: import nixpkgs { inherit system; });
+      pkgsFor = forAllSystems (
+        system: import nixpkgs {
+          inherit system;
+          config = {
+            android_sdk.accept_license = true;
+            allowUnfree = true;
+          };
+          overlays =  [
+            (final: prev: {
+              androidEnvCustom = prev.callPackage ./nix/pkgs/android-sdk { };
+              androidPkgs = final.androidEnvCustom.pkgs;
+              androidShell = final.androidEnvCustom.shell;
+            })
+          ];
+        }
+      );
     in
     {
       packages = forAllSystems (system: let
         pkgs = pkgsFor.${system};
       in rec {
-        zerokit-android-arm64 = pkgs.callPackage ./default.nix { target-platform="aarch64-android-prebuilt"; };
-        zerokit-android-arm   = pkgs.callPackage ./default.nix { target-platform="armv7a-android-prebuilt"; };
+        zerokit-android-arm64 = pkgs.callPackage ./nix/default.nix { target-platform="aarch64-android"; rust-target= "aarch64-linux-android"; };
+        zerokit-android-arm   = pkgs.callPackage ./nix/default.nix { target-platform="x86_64-linux-android"; rust-target= "x86_64-linux-android"; };
         default = zerokit-android-arm64;
       });
     };
