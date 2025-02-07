@@ -409,7 +409,7 @@ mod test {
         let root_rln_folder = get_tree_root(rln_pointer);
 
         #[cfg(feature = "arkzkey")]
-        let zkey_path = "./resources/tree_height_20/rln_final.arkzkey";
+        let zkey_path = "./resources/tree_height_20/rln_final_uncompr.arkzkey";
         #[cfg(not(feature = "arkzkey"))]
         let zkey_path = "./resources/tree_height_20/rln_final.zkey";
         let mut zkey_file = File::open(&zkey_path).expect("no file found");

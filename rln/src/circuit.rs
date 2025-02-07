@@ -1,6 +1,7 @@
 // This crate provides interfaces for the zero-knowledge circuit and keys
 
 use crate::iden3calc::calc_witness;
+use ::lazy_static::lazy_static;
 use ark_bn254::{
     Bn254, Fq as ArkFq, Fq2 as ArkFq2, Fr as ArkFr, G1Affine as ArkG1Affine,
     G1Projective as ArkG1Projective, G2Affine as ArkG2Affine, G2Projective as ArkG2Projective,
@@ -12,14 +13,8 @@ use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
 use num_bigint::BigInt;
 
-#[cfg(not(target_arch = "wasm32"))]
-use ::lazy_static::lazy_static;
-
 #[cfg(feature = "arkzkey")]
-use {
-    ark_zkey::{read_arkzkey_from_bytes, SerializableConstraintMatrices, SerializableProvingKey},
-    color_eyre::eyre::WrapErr,
-};
+use {ark_ff::Field, ark_serialize::CanonicalSerialize, color_eyre::eyre::WrapErr};
 
 #[cfg(not(feature = "arkzkey"))]
 use {ark_circom::read_zkey, std::io::Cursor};
@@ -34,9 +29,7 @@ pub const ZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_fi
 pub const VK_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/verification_key.arkvkey");
 const GRAPH_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/graph.bin");
 
-#[cfg(not(target_arch = "wasm32"))]
 lazy_static! {
-    #[cfg(not(target_arch = "wasm32"))]
     static ref ZKEY: (ProvingKey<Curve>, ConstraintMatrices<Fr>) = {
         cfg_if! {
                 if #[cfg(feature = "arkzkey")] {
@@ -47,9 +40,8 @@ lazy_static! {
                 }
         }
     };
-
-    #[cfg(not(target_arch = "wasm32"))]
-    static ref VK: VerifyingKey<Curve> = vk_from_ark_serialized(VK_BYTES).expect("Failed to read vk");
+    static ref VK: VerifyingKey<Curve> =
+        vk_from_ark_serialized(VK_BYTES).expect("Failed to read vk");
 }
 
 pub const TEST_TREE_HEIGHT: usize = 20;
@@ -73,7 +65,7 @@ pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<(ProvingKey<Curve>, ConstraintM
 
     let proving_key_and_matrices = match () {
         #[cfg(feature = "arkzkey")]
-        () => read_arkzkey_from_bytes(zkey_data)?,
+        () => read_arkzkey_from_bytes_uncompressed(zkey_data)?,
         #[cfg(not(feature = "arkzkey"))]
         () => {
             let mut reader = Cursor::new(zkey_data);
@@ -89,7 +81,6 @@ pub fn calculate_rln_witness<I: IntoIterator<Item = (String, Vec<BigInt>)>>(inpu
 }
 
 // Loads the proving key
-#[cfg(not(target_arch = "wasm32"))]
 pub fn zkey_from_folder() -> &'static (ProvingKey<Curve>, ConstraintMatrices<Fr>) {
     &ZKEY
 }
@@ -109,7 +100,6 @@ pub fn vk_from_raw(vk_data: &[u8], zkey_data: &[u8]) -> Result<VerifyingKey<Curv
 }
 
 // Loads the verification key
-#[cfg(not(target_arch = "wasm32"))]
 pub fn vk_from_folder() -> &'static VerifyingKey<Curve> {
     &VK
 }
@@ -122,7 +112,6 @@ pub fn vk_from_ark_serialized(data: &[u8]) -> Result<VerifyingKey<Curve>> {
 }
 
 // Checks verification key to be correct with respect to proving key
-#[cfg(not(target_arch = "wasm32"))]
 pub fn check_vk_from_zkey(verifying_key: VerifyingKey<Curve>) -> Result<()> {
     let (proving_key, _matrices) = zkey_from_folder();
     if proving_key.vk == verifying_key {
@@ -133,9 +122,34 @@ pub fn check_vk_from_zkey(verifying_key: VerifyingKey<Curve>) -> Result<()> {
 }
 
 ////////////////////////////////////////////////////////
-// Functions from [arkz-key](https://github.com/zkmopro/ark-zkey/blob/main/src/lib.rs#L106)
+// Functions and structs from [arkz-key](https://github.com/zkmopro/ark-zkey/blob/main/src/lib.rs#L106)
 // without print and allow to choose between compressed and uncompressed arkzkey
 ////////////////////////////////////////////////////////
+
+#[cfg(feature = "arkzkey")]
+#[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq)]
+pub struct SerializableProvingKey(pub ProvingKey<Bn254>);
+
+#[cfg(feature = "arkzkey")]
+#[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq)]
+pub struct SerializableConstraintMatrices<F: Field> {
+    pub num_instance_variables: usize,
+    pub num_witness_variables: usize,
+    pub num_constraints: usize,
+    pub a_num_non_zero: usize,
+    pub b_num_non_zero: usize,
+    pub c_num_non_zero: usize,
+    pub a: SerializableMatrix<F>,
+    pub b: SerializableMatrix<F>,
+    pub c: SerializableMatrix<F>,
+}
+
+#[cfg(feature = "arkzkey")]
+#[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq)]
+pub struct SerializableMatrix<F: Field> {
+    pub data: Vec<Vec<(F, usize)>>,
+}
+
 #[cfg(feature = "arkzkey")]
 pub fn read_arkzkey_from_bytes_uncompressed(
     arkzkey_data: &[u8],

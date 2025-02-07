@@ -16,13 +16,14 @@ ifeq ($(shell uname),Darwin)
 # commented due to https://github.com/orgs/Homebrew/discussions/4612
 # @brew update
 	@brew install cmake ninja
+	@git -C "wabt" pull || git clone --recursive https://github.com/WebAssembly/wabt.git "wabt"
+	@cd wabt && mkdir -p build && make
 else ifeq ($(shell uname),Linux)
 	@sudo apt-get update
 	@sudo apt-get install -y cmake ninja-build
-endif
 	@git -C "wabt" pull || git clone --recursive https://github.com/WebAssembly/wabt.git "wabt"
 	@cd wabt && mkdir -p build && cd build && cmake .. -GNinja && ninja && sudo ninja install
-	@which wasm-pack || cargo install wasm-pack
+endif
 	# nvm already checks if it's installed, and no-ops if it is
 	@curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 	@. ${HOME}/.nvm/nvm.sh && nvm install 18.20.2 && nvm use 18.20.2;

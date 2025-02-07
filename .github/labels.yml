@@ -90,11 +90,6 @@
   description: go-waku-productionization track (Waku Product)
   color: 9DEA79
 
-# Tracks within zk-WASM project
-- name: track:kickoff
-  description: Kickoff track (zk-WASM)
-  color: 06B6C8
-
 # Tracks within RAD project
 - name: track:waku-specs
   description: Waku specs track (RAD)

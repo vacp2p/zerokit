@@ -1,31 +1,22 @@
-use crate::circuit::{vk_from_raw, zkey_from_raw, Curve, Fr};
-use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
-use crate::protocol::*;
-use crate::utils::*;
 /// This is the main public API for RLN module. It is used by the FFI, and should be
 /// used by tests etc. as well
-use ark_groth16::Proof as ArkProof;
-use ark_groth16::{ProvingKey, VerifyingKey};
+use crate::circuit::{
+    vk_from_folder, vk_from_raw, zkey_from_folder, zkey_from_raw, Curve, Fr, TEST_TREE_HEIGHT,
+};
+use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
+use crate::poseidon_tree::PoseidonTree;
+use crate::protocol::*;
+use crate::utils::*;
+
+use ark_groth16::{Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
-use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
-use std::io::Cursor;
-use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
+use serde_json::{json, Value};
+use std::{default::Default, io::Cursor, str::FromStr};
 
-cfg_if! {
-    if #[cfg(not(target_arch = "wasm32"))] {
-        use std::default::Default;
-        use crate::circuit::{vk_from_folder, zkey_from_folder, TEST_TREE_HEIGHT};
-        use crate::poseidon_tree::PoseidonTree;
-        use serde_json::{json, Value};
-        use utils::Hasher;
-        use std::str::FromStr;
-    } else {
-        use std::marker::*;
-        use num_bigint::BigInt;
-    }
-}
+#[cfg(not(feature = "stateless"))]
+use utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
 
 /// The application-specific RLN identifier.
 ///
@@ -42,8 +33,6 @@ pub struct RLN {
     pub(crate) verification_key: VerifyingKey<Curve>,
     #[cfg(not(feature = "stateless"))]
     pub(crate) tree: PoseidonTree,
-    #[cfg(target_arch = "wasm32")]
-    _marker: PhantomData<()>,
 }
 
 impl RLN {
@@ -63,7 +52,7 @@ impl RLN {
     /// // We create a new RLN instance
     /// let mut rln = RLN::new(tree_height, input);
     /// ```
-    #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
+    #[cfg(not(feature = "stateless"))]
     pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> Result<RLN> {
         // We read input
         let mut input: Vec<u8> = Vec::new();
@@ -94,8 +83,6 @@ impl RLN {
             verification_key: verification_key.to_owned(),
             #[cfg(not(feature = "stateless"))]
             tree,
-            #[cfg(target_arch = "wasm32")]
-            _marker: PhantomData,
         })
     }
 
@@ -108,17 +95,14 @@ impl RLN {
     /// let mut rln = RLN::new();
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "stateless")))]
-    #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
+    #[cfg(feature = "stateless")]
     pub fn new() -> Result<RLN> {
-        #[cfg(not(target_arch = "wasm32"))]
         let proving_key = zkey_from_folder();
         let verification_key = vk_from_folder();
 
         Ok(RLN {
             proving_key: proving_key.to_owned(),
             verification_key: verification_key.to_owned(),
-            #[cfg(target_arch = "wasm32")]
-            _marker: PhantomData,
         })
     }
 
@@ -158,14 +142,13 @@ impl RLN {
     ///     tree_config_buffer,
     /// );
     /// ```
-    #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
+    #[cfg(not(feature = "stateless"))]
     pub fn new_with_params<R: Read>(
         tree_height: usize,
         zkey_vec: Vec<u8>,
         vk_vec: Vec<u8>,
         mut tree_config_input: R,
     ) -> Result<RLN> {
-        #[cfg(not(target_arch = "wasm32"))]
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
 
@@ -191,8 +174,6 @@ impl RLN {
             verification_key,
             #[cfg(not(feature = "stateless"))]
             tree,
-            #[cfg(target_arch = "wasm32")]
-            _marker: PhantomData,
         })
     }
 
@@ -224,7 +205,7 @@ impl RLN {
     ///     resources[1].clone(),
     /// );
     /// ```
-    #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
+    #[cfg(feature = "stateless")]
     pub fn new_with_params(zkey_vec: Vec<u8>, vk_vec: Vec<u8>) -> Result<RLN> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
@@ -232,46 +213,6 @@ impl RLN {
         Ok(RLN {
             proving_key,
             verification_key,
-        })
-    }
-
-    /// Creates a new stateless RLN object by passing circuit resources as byte vectors.
-    ///
-    /// Input parameters are
-    /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`)  or (`rln_final.arkzkey`) as binary file
-    /// - `vk_vec`: a byte vector containing to the verification key (`verification_key.arkvkey`) as binary file
-    ///
-    /// Example:
-    /// ```
-    /// use std::fs::File;
-    /// use std::io::Read;
-    ///
-    /// let resources_folder = "./resources/tree_height_20/";
-    ///
-    /// let mut resources: Vec<Vec<u8>> = Vec::new();
-    /// for filename in ["rln_final.zkey", "verification_key.arkvkey"] {
-    ///     let fullpath = format!("{resources_folder}{filename}");
-    ///     let mut file = File::open(&fullpath).expect("no file found");
-    ///     let metadata = std::fs::metadata(&fullpath).expect("unable to read metadata");
-    ///     let mut buffer = vec![0; metadata.len() as usize];
-    ///     file.read_exact(&mut buffer).expect("buffer overflow");
-    ///     resources.push(buffer);
-    /// }
-    ///
-    /// let mut rln = RLN::new_with_params(
-    ///     resources[0].clone(),
-    ///     resources[1].clone(),
-    /// );
-    /// ```
-    #[cfg(all(target_arch = "wasm32", feature = "stateless"))]
-    pub fn new_with_params(zkey_vec: Vec<u8>, vk_vec: Vec<u8>) -> Result<RLN> {
-        let proving_key = zkey_from_raw(&zkey_vec)?;
-        let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
-
-        Ok(RLN {
-            proving_key,
-            verification_key,
-            _marker: PhantomData,
         })
     }
 
@@ -750,7 +691,6 @@ impl RLN {
     /// rln.prove(&mut input_buffer, &mut output_buffer).unwrap();
     /// let zk_proof = output_buffer.into_inner();
     /// ```
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn prove<R: Read, W: Write>(
         &mut self,
         mut input_data: R,
@@ -872,7 +812,7 @@ impl RLN {
     /// // proof_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
     /// let mut proof_data = output_buffer.into_inner();
     /// ```
-    #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
+    #[cfg(not(feature = "stateless"))]
     pub fn generate_rln_proof<R: Read, W: Write>(
         &mut self,
         mut input_data: R,
@@ -894,34 +834,10 @@ impl RLN {
         Ok(())
     }
 
-    // TODO: this function seems to use redundant witness (as bigint and serialized) and should be refactored
-    // Generate RLN Proof using a witness calculated from outside zerokit
-    //
-    // output_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
-    #[cfg(target_arch = "wasm32")]
-    pub fn generate_rln_proof_with_witness<W: Write>(
-        &mut self,
-        calculated_witness: Vec<BigInt>,
-        rln_witness_vec: Vec<u8>,
-        mut output_data: W,
-    ) -> Result<()> {
-        let (rln_witness, _) = deserialize_witness(&rln_witness_vec[..])?;
-        let proof_values = proof_values_from_witness(&rln_witness)?;
-
-        let proof = generate_proof_with_witness(calculated_witness, &self.proving_key).unwrap();
-
-        // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
-        // This proof is compressed, i.e. 128 bytes long
-        proof.serialize_compressed(&mut output_data)?;
-        output_data.write_all(&serialize_proof_values(&proof_values))?;
-        Ok(())
-    }
-
     // Generate RLN Proof using a witness calculated from outside zerokit
     //
     // output_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
     // we skip it from documentation for now
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn generate_rln_proof_with_witness<R: Read, W: Write>(
         &mut self,
         mut input_data: R,
@@ -1380,7 +1296,6 @@ impl RLN {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl Default for RLN {
     fn default() -> Self {
         #[cfg(not(feature = "stateless"))]
