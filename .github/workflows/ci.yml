@@ -69,7 +69,7 @@ jobs:
         run: make installdeps
       - name: cargo-make test
         run: |
-          if [${{ matrix.feature }} == "default"]; then
+          if [ ${{ matrix.feature }} == default ]; then
             cargo make test --release
           else
             cargo make test_${{ matrix.feature }} --release
