@@ -18,12 +18,18 @@ To build and test, run the following commands within the module folder
 
 ``` bash
  cargo make build
+ cargo make test
+```
+
+To run tests with a specific feature, use the following command:
+
+``` bash
+ cargo make build
  cargo make test_{mode}
 ```
 
-The {mode} placeholder should be replaced with
+The {mode} placeholder corresponds to the feature name and should be replaced with
 
-* **default** for the default tests;
 * **arkzkey** for the tests with the arkzkey feature;
 * **stateless** for the tests with the stateless feature.
 
