@@ -1,6 +1,6 @@
 { 
   pkgs,
-  target-platform ? "aarch64-android",
+  target-platform ? "aarch64-android-prebuilt",
   rust-target ? "aarch64-linux-android",
 }:
 
@@ -15,7 +15,7 @@ pkgs.pkgsCross.${target-platform}.rustPlatform.buildRustPackage {
     allowBuiltinFetchGit = true;
   };
 
-  ANDROID_NDK_HOME="${pkgs.androidPkgs.ndk}";
+  #ANDROID_NDK_HOME="${pkgs.androidPkgs.ndk}";
   CARGO_HOME = "/tmp";
 
   buildPhase = ''
@@ -25,8 +25,8 @@ pkgs.pkgsCross.${target-platform}.rustPlatform.buildRustPackage {
   '';
 
   installPhase = ''
-    mkdir -p $out/build/
-    cp -r ./target/release/librln.so $out/build/
+    mkdir -p $out/
+    cp ./target/${rust-target}/release/librln.so $out/
   '';
 
   meta = with pkgs.lib; {

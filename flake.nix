@@ -35,8 +35,8 @@
       packages = forAllSystems (system: let
         pkgs = pkgsFor.${system};
       in rec {
-        zerokit-android-arm64 = pkgs.callPackage ./nix/default.nix { target-platform="aarch64-android"; rust-target= "aarch64-linux-android"; };
-        zerokit-android-arm   = pkgs.callPackage ./nix/default.nix { target-platform="x86_64-linux-android"; rust-target= "x86_64-linux-android"; };
+        zerokit-android-arm64 = pkgs.callPackage ./nix/default.nix { target-platform="aarch64-android-prebuilt"; rust-target= "aarch64-linux-android"; };
+        #zerokit-android-arm   = pkgs.callPackage ./nix/default.nix { target-platform="armv7a-android-prebuilt"; rust-target= "armv7-linux-androideabi"; };
         default = zerokit-android-arm64;
       });
     };
