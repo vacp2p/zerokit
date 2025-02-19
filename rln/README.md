@@ -14,7 +14,7 @@ cd zerokit/rln
 
 ### Build and Test
 
-To build and test, run the following commands within the module folder
+To build and test for default features, run the following commands within the module folder
 
 ``` bash
  cargo make build
@@ -35,41 +35,47 @@ The {mode} placeholder corresponds to the feature name and should be replaced wi
 
 ### Compile ZK circuits
 
-The `rln` (<https://github.com/rate-limiting-nullifier/circom-rln>) repository, which contains the RLN circuit implementation is a submodule of zerokit RLN.
+The `rln` (<https://github.com/rate-limiting-nullifier/circom-rln>) repository, which contains the RLN circuit implementation is using for pre-compiled RLN circuit for zerokit RLN. If you want to compile your own RLN circuit, you can follow the instructions below.
 
 To compile the RLN circuit
 
 ```sh
-# Update submodules
-git submodule update --init --recursive
+# Clone the circom-rln repository
+git clone https://github.com/rate-limiting-nullifier/circom-rln vendor/circom-rln
 
 # Install rln dependencies
-cd vendor/rln/ && npm install
+cd vendor/circom-rln/ && npm install
 
 # Build circuits
 ./scripts/build-circuits.sh rln
-
-# Copy over assets
-cp build/zkeyFiles/rln-final.zkey ../../resources/tree_height_15
-cp build/zkeyFiles/rln.wasm ../../resources/tree_height_15
 ```
 
-Note that the above code snippet will compile a RLN circuit with a Merkle tree of height equal `15` based on the default value set in `vendor/rln/circuit/rln.circom`.
+Note that the above code snippet will compile a RLN circuit with a Merkle tree of height equal `20` based on the default value set in `vendor/circom-rln/circuit/rln.circom`. And `LIMIT_BIT_SIZE` is set to 16.
 
-In order to compile a RLN circuit with Merkle tree height `N`, it suffices to change `vendor/rln/circuit/rln.circom` to
+In order to compile a RLN circuit with Merkle tree height `N` and `LIMIT_BIT_SIZE` set to `M`, it suffices to change `vendor/circom-rln/circuit/rln.circom`
 
 ```text
-pragma circom 2.0.0;
+pragma circom 2.1.0;
 
-include "./rln-base.circom";
+include "./rln.circom";
 
-component main {public [x, epoch, rln_identifier ]} = RLN(N);
+component main { public [x, externalNullifier] } = RLN(N, M);
 ```
 
 However, if `N` is too big, this might require a bigger Powers of Tau ceremony than the one hardcoded in `./scripts/build-circuits.sh`, which is `2^14`.
 In such case we refer to the official [Circom documentation](https://docs.circom.io/getting-started/proving-circuits/#powers-of-tau) for instructions on how to run an appropriate Powers of Tau ceremony and Phase 2 in order to compile the desired circuit.
 
-Currently, the `rln` module comes with 2 [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) RLN circuits having Merkle tree of height `20` and `32`, respectively.
+Currently, the `rln` module comes with one [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) RLN circuit having Merkle tree of height `20`.
+
+### Compile zkey representation as arkzkey
+
+Reading zkey file takes a lot of time. So we compile zkey file into arkzkey format to speed up the reading process.
+
+```bash
+cargo make compile-zkey
+```
+
+### Compile 
 
 ## Getting started
 
