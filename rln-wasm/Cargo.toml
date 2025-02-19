@@ -1,6 +1,6 @@
 [package]
 name = "rln-wasm"
-version = "0.0.13"
+version = "0.1.0"
 edition = "2021"
 license = "MIT or Apache2"
 
@@ -14,7 +14,7 @@ default = ["console_error_panic_hook"]
 rln = { path = "../rln", default-features = false, features = [
     "wasm",
     "stateless",
-] }
+], version = "=0.6.1"}
 num-bigint = { version = "0.4", default-features = false, features = [
     "rand",
     "serde",
