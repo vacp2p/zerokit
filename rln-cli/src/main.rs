@@ -27,7 +27,7 @@ fn main() -> Result<()> {
             tree_height,
             config,
         }) => {
-            let resources = File::open(&config)?;
+            let resources = File::open(config)?;
             state.rln = Some(RLN::new(*tree_height, resources)?);
             Ok(())
         }
@@ -38,9 +38,9 @@ fn main() -> Result<()> {
         }) => {
             let mut resources: Vec<Vec<u8>> = Vec::new();
             #[cfg(feature = "arkzkey")]
-            let filenames = ["rln.wasm", "rln_final.arkzkey", "verification_key.arkvkey"];
+            let filenames = ["rln_final.arkzkey", "verification_key.arkvkey"];
             #[cfg(not(feature = "arkzkey"))]
-            let filenames = ["rln.wasm", "rln_final.zkey", "verification_key.arkvkey"];
+            let filenames = ["rln_final.zkey", "verification_key.arkvkey"];
             for filename in filenames {
                 let fullpath = config.join(Path::new(filename));
                 let mut file = File::open(&fullpath)?;
@@ -49,12 +49,11 @@ fn main() -> Result<()> {
                 file.read_exact(&mut buffer)?;
                 resources.push(buffer);
             }
-            let tree_config_input_file = File::open(&tree_config_input)?;
+            let tree_config_input_file = File::open(tree_config_input)?;
             state.rln = Some(RLN::new_with_params(
                 *tree_height,
                 resources[0].clone(),
                 resources[1].clone(),
-                resources[2].clone(),
                 tree_config_input_file,
             )?);
             Ok(())
@@ -67,7 +66,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::SetLeaf { index, file }) => {
-            let input_data = File::open(&file)?;
+            let input_data = File::open(file)?;
             state
                 .rln
                 .ok_or(Report::msg("no RLN instance initialized"))?
@@ -75,7 +74,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::SetMultipleLeaves { index, file }) => {
-            let input_data = File::open(&file)?;
+            let input_data = File::open(file)?;
             state
                 .rln
                 .ok_or(Report::msg("no RLN instance initialized"))?
@@ -83,7 +82,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::ResetMultipleLeaves { file }) => {
-            let input_data = File::open(&file)?;
+            let input_data = File::open(file)?;
             state
                 .rln
                 .ok_or(Report::msg("no RLN instance initialized"))?
@@ -91,7 +90,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::SetNextLeaf { file }) => {
-            let input_data = File::open(&file)?;
+            let input_data = File::open(file)?;
             state
                 .rln
                 .ok_or(Report::msg("no RLN instance initialized"))?
@@ -122,7 +121,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::Prove { input }) => {
-            let input_data = File::open(&input)?;
+            let input_data = File::open(input)?;
             let writer = std::io::stdout();
             state
                 .rln
@@ -131,7 +130,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::Verify { file }) => {
-            let input_data = File::open(&file)?;
+            let input_data = File::open(file)?;
             state
                 .rln
                 .ok_or(Report::msg("no RLN instance initialized"))?
@@ -139,7 +138,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::GenerateProof { input }) => {
-            let input_data = File::open(&input)?;
+            let input_data = File::open(input)?;
             let writer = std::io::stdout();
             state
                 .rln
@@ -148,8 +147,8 @@ fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::VerifyWithRoots { input, roots }) => {
-            let input_data = File::open(&input)?;
-            let roots_data = File::open(&roots)?;
+            let input_data = File::open(input)?;
+            let roots_data = File::open(roots)?;
             state
                 .rln
                 .ok_or(Report::msg("no RLN instance initialized"))?

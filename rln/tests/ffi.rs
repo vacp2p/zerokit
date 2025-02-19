@@ -408,17 +408,8 @@ mod test {
         // We obtain the root from the RLN instance
         let root_rln_folder = get_tree_root(rln_pointer);
 
-        // Reading the raw data from the files required for instantiating a RLN instance using raw data
-        let circom_path = "./resources/tree_height_20/rln.wasm";
-        let mut circom_file = File::open(&circom_path).expect("no file found");
-        let metadata = std::fs::metadata(&circom_path).expect("unable to read metadata");
-        let mut circom_buffer = vec![0; metadata.len() as usize];
-        circom_file
-            .read_exact(&mut circom_buffer)
-            .expect("buffer overflow");
-
         #[cfg(feature = "arkzkey")]
-        let zkey_path = "./resources/tree_height_20/rln_final.arkzkey";
+        let zkey_path = "./resources/tree_height_20/rln_final_uncompr.arkzkey";
         #[cfg(not(feature = "arkzkey"))]
         let zkey_path = "./resources/tree_height_20/rln_final.zkey";
         let mut zkey_file = File::open(&zkey_path).expect("no file found");
@@ -434,7 +425,6 @@ mod test {
         let mut vk_buffer = vec![0; metadata.len() as usize];
         vk_file.read_exact(&mut vk_buffer).expect("buffer overflow");
 
-        let circom_data = &Buffer::from(&circom_buffer[..]);
         let zkey_data = &Buffer::from(&zkey_buffer[..]);
         let vk_data = &Buffer::from(&vk_buffer[..]);
 
@@ -444,7 +434,6 @@ mod test {
         let tree_config_buffer = &Buffer::from(tree_config.as_bytes());
         let success = new_with_params(
             TEST_TREE_HEIGHT,
-            circom_data,
             zkey_data,
             vk_data,
             tree_config_buffer,
