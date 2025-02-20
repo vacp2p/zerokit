@@ -33,7 +33,7 @@ jobs:
         run: make installdeps
       - name: cross build
         run: |
-          cross build --release --target ${{ matrix.target }} --features ${{ matrix.feature }}
+          cross build --release --target ${{ matrix.target }} --features ${{ matrix.feature }} --workspace ${{ matrix.cargo_args }}
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
@@ -72,7 +72,7 @@ jobs:
         run: make installdeps
       - name: cross build
         run: |
-          cross build --release --target ${{ matrix.target }} --features ${{ matrix.feature }}
+          cross build --release --target ${{ matrix.target }} --features ${{ matrix.feature }} --workspace ${{ matrix.cargo_args }}
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
