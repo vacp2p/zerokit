@@ -1,83 +1,17 @@
 # Zerokit RLN Module
 
-This module provides APIs to manage, compute and verify [RLN](https://rfc.vac.dev/spec/32/) zkSNARK proofs and RLN primitives.
+[![Crates.io](https://img.shields.io/crates/v/rln.svg)](https://crates.io/crates/rln)
 
-## Pre-requisites
+The Zerokit RLN Module provides a Rust implementation for working with Rate-Limiting Nullifier [RLN](https://rfc.vac.dev/spec/32/) zkSNARK proofs and primitives. This module allows you to:
 
-### Install dependencies and clone repo
+- Generate and verify RLN proofs
+- Work with Merkle trees for commitment storage
+- Implement rate-limiting mechanisms for distributed systems
 
-```sh
-git clone https://github.com/vacp2p/zerokit.git
-make installdeps
-cd zerokit/rln
-```
+## Quick Start
 
-### Build and Test
-
-To build and test for default features, run the following commands within the module folder
-
-``` bash
- cargo make build
- cargo make test
-```
-
-To run tests with a specific feature, use the following command:
-
-``` bash
- cargo make build
- cargo make test_{mode}
-```
-
-The {mode} placeholder corresponds to the feature name and should be replaced with
-
-* **arkzkey** for the tests with the arkzkey feature;
-* **stateless** for the tests with the stateless feature.
-
-### Compile ZK circuits
-
-The `rln` (<https://github.com/rate-limiting-nullifier/circom-rln>) repository, which contains the RLN circuit implementation is using for pre-compiled RLN circuit for zerokit RLN. If you want to compile your own RLN circuit, you can follow the instructions below.
-
-To compile the RLN circuit
-
-```sh
-# Clone the circom-rln repository
-git clone https://github.com/rate-limiting-nullifier/circom-rln vendor/circom-rln
-
-# Install rln dependencies
-cd vendor/circom-rln/ && npm install
-
-# Build circuits
-./scripts/build-circuits.sh rln
-```
-
-Note that the above code snippet will compile a RLN circuit with a Merkle tree of height equal `20` based on the default value set in `vendor/circom-rln/circuit/rln.circom`. And `LIMIT_BIT_SIZE` is set to 16.
-
-In order to compile a RLN circuit with Merkle tree height `N` and `LIMIT_BIT_SIZE` set to `M`, it suffices to change `vendor/circom-rln/circuit/rln.circom`
-
-```text
-pragma circom 2.1.0;
-
-include "./rln.circom";
-
-component main { public [x, externalNullifier] } = RLN(N, M);
-```
-
-However, if `N` is too big, this might require a bigger Powers of Tau ceremony than the one hardcoded in `./scripts/build-circuits.sh`, which is `2^14`.
-In such case we refer to the official [Circom documentation](https://docs.circom.io/getting-started/proving-circuits/#powers-of-tau) for instructions on how to run an appropriate Powers of Tau ceremony and Phase 2 in order to compile the desired circuit.
-
-Currently, the `rln` module comes with one [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) RLN circuit having Merkle tree of height `20`.
-
-### Compile zkey representation as arkzkey
-
-Reading zkey file takes a lot of time. So we compile zkey file into arkzkey format to speed up the reading process.
-
-```bash
-cargo make compile-zkey
-```
-
-### Compile 
-
-## Getting started
+> [!IMPORTANT] \
+> Version 0.6.1 is required for WASM support or x32 architecture. Current version doesn't support these platforms due to dependency issues. WASM support will return in a future release.
 
 ### Add RLN as dependency
 
@@ -88,11 +22,9 @@ We start by adding zerokit RLN to our `Cargo.toml`
 rln = { git = "https://github.com/vacp2p/zerokit" }
 ```
 
-### Create a RLN object
+## Basic Usage Example
 
-First, we need to create a RLN object for a chosen input Merkle tree size.
-
-Note that we need to pass to RLN object constructor the path where the circuit (`rln.wasm`, built for the input tree size), the corresponding proving key (`rln_final.zkey`) or (`rln_final.arkzkey`) and verification key (`verification_key.arkvkey`, optional) are found.
+Note that we need to pass to RLN object constructor the path where the graph file (`graph.bin`, built for the input tree size), the corresponding proving key (`rln_final.zkey`) or (`rln_final_uncompr.arkzkey`) and verification key (`verification_key.arkvkey`, optional) are found.
 
 In the following we will use [cursors](https://doc.rust-lang.org/std/io/struct.Cursor.html) as readers/writers for interfacing with RLN public APIs.
 
@@ -101,46 +33,70 @@ use rln::protocol::*;
 use rln::public::*;
 use std::io::Cursor;
 
-// We set the RLN parameters:
+// 1. Initialize RLN with parameters:
 // - the tree height;
 // - the tree config, if it is not defined, the default value will be set
 let tree_height = 20;
 let input = Cursor::new(json!({}).to_string());
-
-// We create a new RLN instance
 let mut rln = RLN::new(tree_height, input);
-```
 
-### Generate an identity keypair
+// 2. Generate an identity keypair
+let (identity_secret_hash, id_commitment) = keygen();
 
-We generate an identity keypair
-
-```rust
-// We generate an identity pair
-let mut buffer = Cursor::new(Vec::<u8>::new());
-rln.key_gen(&mut buffer).unwrap();
-
-// We deserialize the keygen output to obtain
-// the identity_secret and id_commitment
-let (identity_secret_hash, id_commitment) = deserialize_identity_pair(buffer.into_inner());
-```
-
-### Add Rate commitment to the RLN Merkle tree
-
-```rust
-// We define the tree index where id_commitment will be added
+// 3. Add a rate commitment to the Merkle tree
 let id_index = 10;
 let user_message_limit = 10;
-
-// We serialize id_commitment and pass it to set_leaf
-let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
-let mut buffer = Cursor::new(serialize_field_element(rate_commitment));
+let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
+let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
 rln.set_leaf(id_index, &mut buffer).unwrap();
+
+// 4. Set up external nullifier (epoch + app identifier)
+// We generate epoch from a date seed and we ensure is
+// mapped to a field element by hashing-to-field its content
+let epoch = hash_to_field(b"Today at noon, this year");
+// We generate rln_identifier from a date seed and we ensure is
+// mapped to a field element by hashing-to-field its content
+let rln_identifier = hash_to_field(b"test-rln-identifier");
+let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
+
+// 5. Generate and verify a proof for a message
+let signal = b"RLN is awesome";
+
+// 6. Prepare input for generate_rln_proof API
+// input_data is [ identity_secret<32> | id_index<8> | external_nullifier<32> | user_message_limit<32> | message_id<32> | signal_len<8> | signal<var> ]
+let mut serialized: Vec<u8> = Vec::new();
+serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
+serialized.append(&mut normalize_usize(identity_index));
+serialized.append(&mut fr_to_bytes_le(&user_message_limit));
+serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
+serialized.append(&mut fr_to_bytes_le(&external_nullifier));
+serialized.append(&mut normalize_usize(signal.len()));
+serialized.append(&mut signal.to_vec());
+
+// 7. Generate a RLN proof
+// We generate a RLN proof for proof_input
+let mut input_buffer = Cursor::new(serialized);
+let mut output_buffer = Cursor::new(Vec::<u8>::new());
+rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
+    .unwrap();
+
+// We get the public outputs returned by the circuit evaluation
+// The byte vector `proof_data` is serialized as `[ zk-proof | tree_root | external_nullifier | share_x | share_y | nullifier ]`.
+let mut proof_data = output_buffer.into_inner();
+
+// 8. Verify a RLN proof
+// Input buffer is serialized as `[proof_data | signal_len | signal ]`, where `proof_data` is (computed as) the output obtained by `generate_rln_proof`.
+let verify_data = prepare_verify_input(proof_data, signal);
+
+// We verify the zk-proof against the provided proof values
+let mut input_buffer = Cursor::new(verify_data);
+let verified = rln.verify_rln_proof(&mut input_buffer).unwrap();
+
+// We ensure the proof is valid
+assert!(verified);
 ```
 
-Note that when tree leaves are not explicitly set by the user (in this example, all those with index less and greater than `10`), their values is set to an hardcoded default (all-`0` bytes in current implementation).
-
-### Set external nullifier
+### Comments for the code above for point 4
 
 The `external nullifier` includes two parameters.
 
@@ -148,74 +104,81 @@ The first one is `epoch` and it's used to identify messages received in a certai
 
 The second one is `rln_identifier` and it's used to prevent a RLN ZK proof generated for one application to be re-used in another one.
 
-```rust
-// We generate epoch from a date seed and we ensure is
-// mapped to a field element by hashing-to-field its content
-let epoch = hash_to_field(b"Today at noon, this year");
-// We generate rln_identifier from a date seed and we ensure is
-// mapped to a field element by hashing-to-field its content
-let rln_identifier = hash_to_field(b"test-rln-identifier");
+### Features
 
-let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+- **Multiple Backend Support**: Choose between different zkey formats with feature flags
+  - `arkzkey`: Use the optimized Arkworks-compatible zkey format (faster loading)
+  - `stateless`: For stateless proof verification
+- **Pre-compiled Circuits**: Ready-to-use circuits with Merkle tree height of 20
+
+## Building and Testing
+
+### Prerequisites
+
+```sh
+git clone https://github.com/vacp2p/zerokit.git
+make installdeps
+cd zerokit/rln
 ```
 
-### Set signal
+### Build Commands
 
-The signal is the message for which we are computing a RLN proof.
+```sh
+# Build with default features
+cargo make build
 
-```rust
-// We set our signal
-let signal = b"RLN is awesome";
+# Test with default features
+cargo make test
+
+# Test with specific features
+cargo make test_arkzkey    # For arkzkey feature
+cargo make test_stateless  # For stateless feature
 ```
 
-### Generate a RLN proof
+## Advanced: Custom Circuit Compilation
 
-We prepare the input to the proof generation routine.
+The `rln` (<https://github.com/rate-limiting-nullifier/circom-rln>) repository, which contains the RLN circuit implementation is using for pre-compiled RLN circuit for zerokit RLN. If you want to compile your own RLN circuit, you can follow the instructions below.
 
-Input buffer is serialized as `[ identity_key | id_index | external_nullifier | user_message_limit | message_id | signal_len | signal ]`.
+### 1. Compile ZK Circuits
 
-```rust
-// We prepare input to the proof generation routine
-let proof_input = prepare_prove_input(identity_secret_hash, id_index, external_nullifier, signal);
+```sh
+# Clone the circom-rln repository
+git clone https://github.com/rate-limiting-nullifier/circom-rln
+
+# Install dependencies
+cd circom-rln && npm install
+
+# Build circuits
+./scripts/build-circuits.sh rln
+
+# Copy assets to resources directory
+cp build/zkeyFiles/final.zkey ./resources/tree_height_20/rln_final.zkey
 ```
 
-We are now ready to generate a RLN ZK proof along with the _public outputs_ of the ZK circuit evaluation.
+To customize the circuit parameters, modify `circom-rln/circuit/rln.circom`:
 
-```rust
-
-// We generate a RLN proof for proof_input
-let mut in_buffer = Cursor::new(proof_input);
-let mut out_buffer = Cursor::new(Vec::<u8>::new());
-rln.generate_rln_proof(&mut in_buffer, &mut out_buffer)
-    .unwrap();
-
-// We get the public outputs returned by the circuit evaluation
-let proof_data = out_buffer.into_inner();
+```circom
+pragma circom 2.1.0;
+include "./rln.circom";
+component main { public [x, externalNullifier] } = RLN(N, M); // N = tree height, M = limit bit size
 ```
 
-The byte vector `proof_data` is serialized as `[ zk-proof | tree_root | external_nullifier | share_x | share_y | nullifier ]`.
+> [!NOTE] \
+> However, if `N` is too big, this might require a bigger Powers of Tau ceremony than the one hardcoded in `./scripts/build-circuits.sh`, which is `2^14`. \
+> In such case we refer to the official [Circom documentation](https://docs.circom.io/getting-started/proving-circuits/#powers-of-tau) for instructions on how to run an appropriate Powers of Tau ceremony and Phase 2 in order to compile the desired circuit. \
+> Currently, the `rln` module comes with one [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) RLN circuit having Merkle tree of height `20`.for details.
 
-### Verify a RLN proof
+### 2. Generate Arkzkey Representation
 
-We prepare the input to the proof verification routine.
+For faster loading, compile the zkey file into the arkzkey format using [ark-zkey](https://github.com/zkmopro/ark-zkey).
 
-Input buffer is serialized as `[proof_data | signal_len | signal ]`, where `proof_data` is (computed as) the output obtained by `generate_rln_proof`.
+Currently, the `rln` module comes with [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) arkzkey keys for the RLN circuit.
 
-```rust
-// We prepare input to the proof verification routine
-let verify_data = prepare_verify_input(proof_data, signal);
+### 3. Generate Witness Calculation Graph
 
-// We verify the zk-proof against the provided proof values
-let mut in_buffer = Cursor::new(verify_data);
-let verified = rln.verify(&mut in_buffer).unwrap();
-```
+The execution graph file used for witness calculation can be compiled following instructions in the [circom-witnesscalc](https://github.com/iden3/circom-witnesscalc) repository.
 
-We check if the proof verification was successful:
-
-```rust
-// We ensure the proof is valid
-assert!(verified);
-```
+The `rln` module comes with [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) execution graph files for the RLN circuit.
 
 ## Get involved
 
@@ -228,3 +191,20 @@ cargo doc --no-deps
 ```
 
 and look at unit tests to have an hint on how to interface and use them.
+
+## Detailed Protocol Flow
+
+1. **Identity Creation**: Generate a secret key and commitment
+2. **Rate Commitment**: Add commitment to a Merkle tree
+3. **External Nullifier Setup**: Combine epoch and application identifier
+4. **Proof Generation**: Create a zkSNARK proof that:
+   - Proves membership in the Merkle tree
+   - Ensures rate-limiting constraints are satisfied
+   - Generates a nullifier to prevent double-usage
+5. **Proof Verification**: Verify the proof without revealing the prover's identity
+
+## Getting Involved
+
+- Check the [unit tests](https://github.com/vacp2p/zerokit/tree/master/rln/tests) for more usage examples
+- [RFC specification](https://rfc.vac.dev/spec/32/) for the Rate-Limiting Nullifier protocol
+- [GitHub repository](https://github.com/vacp2p/zerokit) for the latest updates
