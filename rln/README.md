@@ -10,7 +10,7 @@ The Zerokit RLN Module provides a Rust implementation for working with Rate-Limi
 
 ## Quick Start
 
-> [!IMPORTANT] \
+> [!IMPORTANT]
 > Version 0.6.1 is required for WASM support or x32 architecture. Current version doesn't support these platforms due to dependency issues. WASM support will return in a future release.
 
 ### Add RLN as dependency
@@ -163,7 +163,7 @@ include "./rln.circom";
 component main { public [x, externalNullifier] } = RLN(N, M); // N = tree height, M = limit bit size
 ```
 
-> [!NOTE] \
+> [!NOTE]
 > However, if `N` is too big, this might require a bigger Powers of Tau ceremony than the one hardcoded in `./scripts/build-circuits.sh`, which is `2^14`. \
 > In such case we refer to the official [Circom documentation](https://docs.circom.io/getting-started/proving-circuits/#powers-of-tau) for instructions on how to run an appropriate Powers of Tau ceremony and Phase 2 in order to compile the desired circuit. \
 > Currently, the `rln` module comes with one [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) RLN circuit having Merkle tree of height `20`.for details.
