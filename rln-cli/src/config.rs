@@ -1,8 +1,10 @@
-use color_eyre::Result;
-use serde::{Deserialize, Serialize};
 use std::{fs::File, io::Read, path::PathBuf};
 
-pub const RLN_STATE_PATH: &str = "RLN_STATE_PATH";
+use color_eyre::Result;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+pub const RLN_CONFIG_PATH: &str = "RLN_CONFIG_PATH";
 
 #[derive(Default, Serialize, Deserialize)]
 pub(crate) struct Config {
@@ -11,19 +13,26 @@ pub(crate) struct Config {
 
 #[derive(Default, Serialize, Deserialize)]
 pub(crate) struct InnerConfig {
-    pub file: PathBuf,
     pub tree_height: usize,
+    pub tree_config: Value,
 }
 
 impl Config {
     pub(crate) fn load_config() -> Result<Config> {
-        let path = PathBuf::from(std::env::var(RLN_STATE_PATH)?);
+        match std::env::var(RLN_CONFIG_PATH) {
+            Ok(env) => {
+                let path = PathBuf::from(env);
+                let mut file = File::open(path)?;
+                let mut contents = String::new();
+                file.read_to_string(&mut contents)?;
+                let inner: InnerConfig = serde_json::from_str(&contents)?;
+                Ok(Config { inner: Some(inner) })
+            }
+            Err(_) => Ok(Config::default()),
+        }
+    }
 
-        let mut file = File::open(path)?;
-
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
-        let state: Config = serde_json::from_str(&contents)?;
-        Ok(state)
+    pub(crate) fn as_bytes(&self) -> Vec<u8> {
+        serde_json::to_string(&self.inner).unwrap().into_bytes()
     }
 }
