@@ -1,3 +1,4 @@
+#![cfg(feature = "stateless")]
 use std::{
     collections::HashMap,
     io::{stdin, stdout, Cursor, Write},
@@ -67,7 +68,6 @@ struct RLNSystem {
 
 impl RLNSystem {
     fn new() -> Result<Self> {
-        #[cfg(feature = "stateless")]
         let rln = RLN::new()?;
         let default_leaf = Fr::from(0);
         let tree = PoseidonTree::new(
@@ -238,6 +238,8 @@ impl RLNSystem {
 }
 
 fn main() -> Result<()> {
+    println!("Initializing RLN instance...");
+    print!("\x1B[2J\x1B[1;1H");
     let mut rln_system = RLNSystem::new()?;
     let rln_epoch = hash_to_field(b"epoch");
     let rln_identifier = hash_to_field(b"rln-identifier");

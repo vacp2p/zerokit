@@ -27,6 +27,16 @@ If the configuration file is empty, default settings will be used, but the tree 
 
 We recommend using the example config, as all commands (except `new` and `create-with-params`) require an initialized RLN instance.
 
+## Feature Flags
+
+The CLI supports optional features. To enable the **arkzkey** feature, run:
+
+```bash
+cargo run --features arkzkey -- <SUBCOMMAND> [OPTIONS]
+```
+
+For more details, refer to the [Zerokit RLN Module](../rln/README.md) documentation.
+
 ## CLI Commands
 
 ### Instance Management
@@ -120,16 +130,6 @@ To obtain a Merkle proof for a specific index:
 ```bash
 cargo run get-proof --index <INDEX>
 ```
-
-## Feature Flags
-
-The CLI supports optional features. To enable the **arkzkey** feature, run:
-
-```bash
-cargo run --features arkzkey -- <SUBCOMMAND> [OPTIONS]
-```
-
-For more details, refer to the [Zerokit RLN Module](../rln/README.md) documentation.
 
 ## Relay Example
 
