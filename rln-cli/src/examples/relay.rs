@@ -8,7 +8,7 @@ use color_eyre::{eyre::eyre, Result};
 use rln::{
     circuit::{Fr, TEST_TREE_HEIGHT},
     hashers::{hash_to_field, poseidon_hash},
-    protocol::{deserialize_field_element, keygen},
+    protocol::{deserialize_field_element, keygen, prepare_verify_input},
     public::RLN,
     utils::{bytes_le_to_fr, fr_to_bytes_le, generate_input_buffer, normalize_usize},
 };
@@ -56,9 +56,7 @@ impl Identity {
 
 struct RLNSystem {
     rln: RLN,
-    // Mimic smart contract storage for used nullifiers for each epoch
     used_nullifiers: HashMap<[u8; 32], Vec<u8>>,
-    // Mimic local storage for user identities of each user index
     local_identities: HashMap<usize, Identity>,
 }
 
@@ -154,9 +152,7 @@ impl RLNSystem {
     }
 
     fn verify_proof(&mut self, proof_data: Vec<u8>, signal: &str) -> Result<()> {
-        let mut proof_with_signal = proof_data.clone();
-        proof_with_signal.append(&mut normalize_usize(signal.len()));
-        proof_with_signal.append(&mut signal.as_bytes().to_vec());
+        let proof_with_signal = prepare_verify_input(proof_data.clone(), signal.as_bytes());
         let mut input_buffer = Cursor::new(proof_with_signal);
 
         match self.rln.verify_rln_proof(&mut input_buffer) {
@@ -184,6 +180,15 @@ impl RLNSystem {
         previous_proof: Vec<u8>,
         current_proof: Vec<u8>,
     ) -> Result<()> {
+        let x = &current_proof[192..224];
+        let y = &current_proof[224..256];
+
+        let prev_x = &previous_proof[192..224];
+        let prev_y = &previous_proof[224..256];
+        if x == prev_x && y == prev_y {
+            return Err(eyre!("this exact message and signal has already been sent"));
+        }
+
         let mut proof1 = Cursor::new(previous_proof);
         let mut proof2 = Cursor::new(current_proof);
         let mut output = Cursor::new(Vec::new());
@@ -241,7 +246,7 @@ fn main() -> Result<()> {
         let mut input = String::new();
         stdin().read_line(&mut input)?;
         let trimmed = input.trim();
-        let args = std::iter::once("rln").chain(trimmed.split_whitespace());
+        let args = std::iter::once("").chain(trimmed.split_whitespace());
 
         match Cli::try_parse_from(args) {
             Ok(cli) => match cli.command {

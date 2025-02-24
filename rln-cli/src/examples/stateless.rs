@@ -1,214 +1,311 @@
-use std::io::Cursor;
+use std::{
+    collections::HashMap,
+    io::{stdin, stdout, Cursor, Write},
+};
 
+use clap::{Parser, Subcommand};
+use color_eyre::{eyre::eyre, Result};
 use rln::{
     circuit::{Fr, TEST_TREE_HEIGHT},
     hashers::{hash_to_field, poseidon_hash},
     poseidon_tree::PoseidonTree,
-    protocol::{keygen, rln_witness_from_values, serialize_witness},
+    protocol::{keygen, prepare_verify_input, rln_witness_from_values, serialize_witness},
     public::RLN,
-    utils::{bytes_le_to_fr, fr_to_bytes_le, normalize_usize},
+    utils::{bytes_le_to_fr, fr_to_bytes_le},
 };
 use zerokit_utils::ZerokitMerkleTree;
 
+const MESSAGE_LIMIT: u32 = 1;
+
 type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("RLN Stateless Example");
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
 
-    // Create RLN instance
-    #[cfg(feature = "stateless")]
-    let mut rln = RLN::new()?;
-    println!("1. Created stateless RLN instance");
+#[derive(Subcommand)]
+enum Commands {
+    List,
+    Register,
+    Send {
+        #[arg(short, long)]
+        user_index: usize,
+        #[arg(short, long)]
+        message_id: u32,
+        #[arg(short, long)]
+        signal: String,
+    },
+    Clear,
+    Exit,
+}
 
-    // Create Merkle tree outside of RLN instance
-    let default_leaf = Fr::from(0);
-    let mut tree = PoseidonTree::new(
-        TEST_TREE_HEIGHT,
-        default_leaf,
-        ConfigOf::<PoseidonTree>::default(),
-    )?;
-    println!("2. Created Merkle tree outside of RLN instance with height: {TEST_TREE_HEIGHT}");
+#[derive(Debug, Clone)]
+struct Identity {
+    identity_secret_hash: Fr,
+    id_commitment: Fr,
+}
 
-    // Generate user identity with user message limit
-    let (identity_secret_hash, id_commitment) = keygen();
-    println!("3. Generated user identity with secret hash: {identity_secret_hash}");
+impl Identity {
+    fn new() -> Self {
+        let (identity_secret_hash, id_commitment) = keygen();
+        Identity {
+            identity_secret_hash,
+            id_commitment,
+        }
+    }
+}
 
-    let message_limit: u32 = 1;
-    let user_message_limit: Fr = Fr::from(message_limit);
-    let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
-    println!("4. Generated rate commitment with message limit: {message_limit}");
+struct RLNSystem {
+    rln: RLN,
+    tree: PoseidonTree,
+    used_nullifiers: HashMap<[u8; 32], Vec<u8>>,
+    local_identities: HashMap<usize, Identity>,
+}
 
-    // Add user to tree
-    let identity_index = tree.leaves_set();
-    tree.update_next(rate_commitment)?;
-    let merkle_proof = tree.proof(identity_index)?;
-    println!("5. Added user to tree with identity index: {identity_index}");
+impl RLNSystem {
+    fn new() -> Result<Self> {
+        #[cfg(feature = "stateless")]
+        let rln = RLN::new()?;
+        let default_leaf = Fr::from(0);
+        let tree = PoseidonTree::new(
+            TEST_TREE_HEIGHT,
+            default_leaf,
+            ConfigOf::<PoseidonTree>::default(),
+        )?;
 
-    // Get tree root
-    let tree_root = tree.root();
-    println!("6. Tree root: {tree_root}");
+        Ok(RLNSystem {
+            rln,
+            tree,
+            used_nullifiers: HashMap::new(),
+            local_identities: HashMap::new(),
+        })
+    }
 
-    // Setup nullifier components
-    let epoch = hash_to_field(b"epoch");
+    fn list_users(&self) {
+        if self.local_identities.is_empty() {
+            println!("No users registered yet.");
+            return;
+        }
+
+        println!("Registered users:");
+        for (index, identity) in &self.local_identities {
+            println!("User Index: {index}");
+            println!("+ Identity Secret Hash: {}", identity.identity_secret_hash);
+            println!("+ Identity Commitment: {}", identity.id_commitment);
+            println!();
+        }
+    }
+
+    fn register_user(&mut self) -> Result<usize> {
+        let index = self.tree.leaves_set();
+        let identity = Identity::new();
+
+        let rate_commitment = poseidon_hash(&[identity.id_commitment, Fr::from(MESSAGE_LIMIT)]);
+        self.tree.update_next(rate_commitment)?;
+
+        println!("Registered User Index: {index}");
+        println!("+ Identity secret hash: {}", identity.identity_secret_hash);
+        println!("+ Identity commitment: {}", identity.id_commitment);
+
+        self.local_identities.insert(index, identity);
+        Ok(index)
+    }
+
+    fn generate_proof(
+        &mut self,
+        user_index: usize,
+        message_id: u32,
+        signal: &str,
+        external_nullifier: Fr,
+    ) -> Result<Vec<u8>> {
+        let identity = match self.local_identities.get(&user_index) {
+            Some(identity) => identity,
+            None => return Err(eyre!("user index {user_index} not found")),
+        };
+
+        let merkle_proof = self.tree.proof(user_index)?;
+
+        let rln_witness = rln_witness_from_values(
+            identity.identity_secret_hash,
+            &merkle_proof,
+            hash_to_field(signal.as_bytes()),
+            external_nullifier,
+            Fr::from(MESSAGE_LIMIT),
+            Fr::from(message_id),
+        )?;
+
+        let serialized = serialize_witness(&rln_witness)?;
+        let mut input_buffer = Cursor::new(serialized);
+        let mut output_buffer = Cursor::new(Vec::new());
+
+        self.rln
+            .generate_rln_proof_with_witness(&mut input_buffer, &mut output_buffer)?;
+
+        println!("Proof generated successfully:");
+        println!("+ User Index: {user_index}");
+        println!("+ Message ID: {message_id}");
+        println!("+ Signal: {signal}");
+
+        Ok(output_buffer.into_inner())
+    }
+
+    fn verify_proof(&mut self, proof_data: Vec<u8>, signal: &str) -> Result<()> {
+        let proof_with_signal = prepare_verify_input(proof_data.clone(), signal.as_bytes());
+        let mut input_buffer = Cursor::new(proof_with_signal);
+
+        let root = self.tree.root();
+        let root_serialized = fr_to_bytes_le(&root);
+        let mut root_buffer = Cursor::new(root_serialized);
+
+        match self
+            .rln
+            .verify_with_roots(&mut input_buffer, &mut root_buffer)
+        {
+            Ok(true) => {
+                let nullifier = &proof_data[256..288];
+                let nullifier_key: [u8; 32] = nullifier.try_into()?;
+
+                if let Some(previous_proof) = self.used_nullifiers.get(&nullifier_key) {
+                    self.handle_duplicate_message_id(previous_proof.clone(), proof_data)?;
+                    return Ok(());
+                }
+                self.used_nullifiers.insert(nullifier_key, proof_data);
+                println!("Message verified and accepted");
+            }
+            Ok(false) => {
+                println!("Verification failed: message_id must be unique within the epoch and satisfy 0 <= message_id < MESSAGE_LIMIT: {MESSAGE_LIMIT}");
+            }
+            Err(err) => return Err(err.into()),
+        }
+        Ok(())
+    }
+
+    fn handle_duplicate_message_id(
+        &mut self,
+        previous_proof: Vec<u8>,
+        current_proof: Vec<u8>,
+    ) -> Result<()> {
+        let x = &current_proof[192..224];
+        let y = &current_proof[224..256];
+
+        let prev_x = &previous_proof[192..224];
+        let prev_y = &previous_proof[224..256];
+        if x == prev_x && y == prev_y {
+            return Err(eyre!("this exact message and signal has already been sent"));
+        }
+
+        let mut proof1 = Cursor::new(previous_proof);
+        let mut proof2 = Cursor::new(current_proof);
+        let mut output = Cursor::new(Vec::new());
+
+        match self
+            .rln
+            .recover_id_secret(&mut proof1, &mut proof2, &mut output)
+        {
+            Ok(_) => {
+                let output_data = output.into_inner();
+                let (leaked_identity_secret_hash, _) = bytes_le_to_fr(&output_data);
+
+                if let Some((user_index, identity)) = self
+                    .local_identities
+                    .iter()
+                    .find(|(_, identity)| {
+                        identity.identity_secret_hash == leaked_identity_secret_hash
+                    })
+                    .map(|(index, identity)| (*index, identity))
+                {
+                    let real_identity_secret_hash = identity.identity_secret_hash;
+                    if leaked_identity_secret_hash != real_identity_secret_hash {
+                        Err(eyre!("identity secret hash mismatch {leaked_identity_secret_hash} != {real_identity_secret_hash}"))
+                    } else {
+                        println!("DUPLICATE message ID detected! Reveal identity secret hash: {leaked_identity_secret_hash}");
+                        self.local_identities.remove(&user_index);
+                        println!("User index {user_index} has been SLASHED");
+                        Ok(())
+                    }
+                } else {
+                    Err(eyre!(
+                        "user identity secret hash {leaked_identity_secret_hash} not found"
+                    ))
+                }
+            }
+            Err(err) => Err(eyre!("Failed to recover identity secret: {err}")),
+        }
+    }
+}
+
+fn main() -> Result<()> {
+    let mut rln_system = RLNSystem::new()?;
+    let rln_epoch = hash_to_field(b"epoch");
     let rln_identifier = hash_to_field(b"rln-identifier");
-    let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+    let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]);
+    println!("RLN Stateless Relay Example:");
+    println!("Message Limit: {MESSAGE_LIMIT}");
+    println!("----------------------------------");
+    println!();
+    show_commands();
 
-    // Prepare root buffer - Handle correctly for stateless verification
-    let root_serialized = fr_to_bytes_le(&tree_root);
-    let mut root_buffer = Cursor::new(root_serialized);
-    println!("7. Set up external nullifier and root buffer");
+    loop {
+        print!("\n> ");
+        stdout().flush()?;
+        let mut input = String::new();
+        stdin().read_line(&mut input)?;
+        let trimmed = input.trim();
+        let args = std::iter::once("").chain(trimmed.split_whitespace());
 
-    // Generate first message signal
-    let mut signal_1 = b"signal_1".to_vec();
-    println!("8. Created first message signal");
-
-    // Create message_id for first message
-    let message_id_1 = Fr::from(0);
-    let x_1 = hash_to_field(&signal_1);
-
-    // Create witness for first message
-    let rln_witness_1 = rln_witness_from_values(
-        identity_secret_hash,
-        &merkle_proof,
-        x_1,
-        external_nullifier,
-        user_message_limit,
-        message_id_1,
-    )?;
-
-    // Serialize witness
-    let serialized_1 = serialize_witness(&rln_witness_1)?;
-    let mut input_buffer_1 = Cursor::new(serialized_1);
-
-    // Output data:  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
-    let mut output_buffer_1 = Cursor::new(Vec::new());
-
-    // Generate proof for first message with witness in stateless mode
-    rln.generate_rln_proof_with_witness(&mut input_buffer_1, &mut output_buffer_1)?;
-    println!("9. Generated proof for first message");
-
-    // Input proof data: [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var>]
-    let mut proof_data_1 = output_buffer_1.into_inner();
-    proof_data_1.append(&mut normalize_usize(signal_1.len()));
-    proof_data_1.append(&mut signal_1);
-
-    // Verify first proof with stateless verification
-    let mut input_buffer = Cursor::new(proof_data_1.clone());
-    let verified = rln.verify_with_roots(&mut input_buffer, &mut root_buffer)?;
-
-    println!(
-        "10. Stateless verification of first message: {}",
-        if verified { "VALID" } else { "INVALID" }
-    );
-
-    // Generate second message signal (now the second in sequence)
-    let mut signal_2 = b"signal_2".to_vec();
-    println!("11. Created second message signal");
-
-    // Create message_id for second message (now second in sequence)
-    // Using a valid message_id=1 which is at the limit of our message_limit=1
-    let message_id_2 = Fr::from(1);
-    let x_2 = hash_to_field(&signal_2);
-
-    // Create witness for second message
-    let rln_witness_2 = rln_witness_from_values(
-        identity_secret_hash,
-        &merkle_proof,
-        x_2,
-        external_nullifier,
-        user_message_limit,
-        message_id_2,
-    )?;
-
-    // Serialize witness
-    let serialized_2 = serialize_witness(&rln_witness_2)?;
-    let mut input_buffer_2 = Cursor::new(serialized_2);
-
-    // Output data:  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
-    let mut output_buffer_2 = Cursor::new(Vec::new());
-
-    // Generate proof for second message with witness in stateless mode
-    rln.generate_rln_proof_with_witness(&mut input_buffer_2, &mut output_buffer_2)?;
-    println!("12. Generated proof for second message with message_id=1");
-
-    // Input proof data: [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var>]
-    let mut proof_data_2 = output_buffer_2.into_inner();
-    proof_data_2.append(&mut normalize_usize(signal_2.len()));
-    proof_data_2.append(&mut signal_2);
-
-    // Verify second proof with stateless verification
-    let mut input_buffer = Cursor::new(proof_data_2.clone());
-    let verified = rln.verify_with_roots(&mut input_buffer, &mut root_buffer)?;
-
-    println!(
-        "13. Stateless verification of second message: {}",
-        if verified {
-            "VALID (message_id=1 is within our message_limit=1)"
-        } else {
-            "INVALID (message_id must satisfy 0 <= message_id < MESSAGE_LIMIT)"
+        match Cli::try_parse_from(args) {
+            Ok(cli) => match cli.command {
+                Commands::List => {
+                    rln_system.list_users();
+                }
+                Commands::Register => {
+                    rln_system.register_user()?;
+                }
+                Commands::Send {
+                    user_index,
+                    message_id,
+                    signal,
+                } => {
+                    match rln_system.generate_proof(
+                        user_index,
+                        message_id,
+                        &signal,
+                        external_nullifier,
+                    ) {
+                        Ok(proof) => {
+                            if let Err(err) = rln_system.verify_proof(proof, &signal) {
+                                println!("Verification error: {err}");
+                            };
+                        }
+                        Err(err) => {
+                            println!("Proof generation error: {err}");
+                        }
+                    }
+                }
+                Commands::Clear => {
+                    print!("\x1B[2J\x1B[1;1H");
+                    show_commands();
+                }
+                Commands::Exit => {
+                    break;
+                }
+            },
+            Err(err) => {
+                eprintln!("Command error: {err}");
+            }
         }
-    );
-
-    // Generate third message signal (now third in sequence)
-    let mut signal_3 = b"signal_3".to_vec();
-    println!("14. Created third message signal (duplicate message_id demonstration)");
-
-    // Duplicate message_id! Creating a double-post situation for third message
-    let message_id_3 = Fr::from(0); // Reusing message_id=0 which was already used for the first message
-    let x_3 = hash_to_field(&signal_3);
-
-    // Create witness for third message
-    let rln_witness_3 = rln_witness_from_values(
-        identity_secret_hash,
-        &merkle_proof,
-        x_3,
-        external_nullifier,
-        user_message_limit,
-        message_id_3,
-    )?;
-
-    // Serialize witness
-    let serialized_3 = serialize_witness(&rln_witness_3)?;
-    let mut input_buffer_3 = Cursor::new(serialized_3);
-
-    // Output data:  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
-    let mut output_buffer_3 = Cursor::new(Vec::new());
-
-    // Generate proof for third message with witness in stateless mode
-    rln.generate_rln_proof_with_witness(&mut input_buffer_3, &mut output_buffer_3)?;
-    println!("15. Generated proof for third message (with duplicate message_id=0)");
-
-    // Input proof data: [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var>]
-    let mut proof_data_3 = output_buffer_3.into_inner();
-    proof_data_3.append(&mut normalize_usize(signal_3.len()));
-    proof_data_3.append(&mut signal_3);
-
-    // Verify third proof with stateless verification
-    let mut input_buffer = Cursor::new(proof_data_3.clone());
-    let verified = rln.verify_with_roots(&mut input_buffer, &mut root_buffer)?;
-
-    println!(
-        "16. Stateless verification of third message: {}",
-        if verified { "VALID" } else { "INVALID" }
-    );
-
-    // Recover identity from double-posting
-    let mut input_1 = Cursor::new(proof_data_1);
-    let mut input_3 = Cursor::new(proof_data_3);
-    let mut output = Cursor::new(Vec::new());
-    rln.recover_id_secret(&mut input_1, &mut input_3, &mut output)?;
-    let recovered_data = output.into_inner();
-    let (recovered_identity, _) = bytes_le_to_fr(&recovered_data);
-
-    print!("17. Revealed identity secret hash: {}", recovered_identity);
-    println!(
-        " is{}MATCH the original",
-        if identity_secret_hash == recovered_identity {
-            " "
-        } else {
-            " NOT "
-        }
-    );
-
+    }
     Ok(())
+}
+
+fn show_commands() {
+    println!("Available commands:");
+    println!("  list                                        - List registered users");
+    println!("  register                                    - Register a new user index");
+    println!("  send -u <index> -m <message_id> -s <signal> - Send a message with proof");
+    println!("  clear                                       - Clear the screen");
+    println!("  exit                                        - Exit the program");
 }
