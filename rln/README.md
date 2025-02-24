@@ -29,71 +29,80 @@ Note that we need to pass to RLN object constructor the path where the graph fil
 In the following we will use [cursors](https://doc.rust-lang.org/std/io/struct.Cursor.html) as readers/writers for interfacing with RLN public APIs.
 
 ```rust
-use rln::protocol::*;
-use rln::public::*;
 use std::io::Cursor;
 
-// 1. Initialize RLN with parameters:
-// - the tree height;
-// - the tree config, if it is not defined, the default value will be set
-let tree_height = 20;
-let input = Cursor::new(json!({}).to_string());
-let mut rln = RLN::new(tree_height, input);
+use rln::{
+    circuit::Fr,
+    hashers::{hash_to_field, poseidon_hash},
+    protocol::{keygen, prepare_verify_input},
+    public::RLN,
+    utils::{fr_to_bytes_le, normalize_usize},
+};
+use serde_json::json;
 
-// 2. Generate an identity keypair
-let (identity_secret_hash, id_commitment) = keygen();
+fn main() {
+    // 1. Initialize RLN with parameters:
+    // - the tree height;
+    // - the tree config, if it is not defined, the default value will be set
+    let tree_height = 20;
+    let input = Cursor::new(json!({}).to_string());
+    let mut rln = RLN::new(tree_height, input).unwrap();
 
-// 3. Add a rate commitment to the Merkle tree
-let id_index = 10;
-let user_message_limit = 10;
-let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
-let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
-rln.set_leaf(id_index, &mut buffer).unwrap();
+    // 2. Generate an identity keypair
+    let (identity_secret_hash, id_commitment) = keygen();
 
-// 4. Set up external nullifier (epoch + app identifier)
-// We generate epoch from a date seed and we ensure is
-// mapped to a field element by hashing-to-field its content
-let epoch = hash_to_field(b"Today at noon, this year");
-// We generate rln_identifier from a date seed and we ensure is
-// mapped to a field element by hashing-to-field its content
-let rln_identifier = hash_to_field(b"test-rln-identifier");
-let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
+    // 3. Add a rate commitment to the Merkle tree
+    let id_index = 10;
+    let user_message_limit = 10;
+    let rate_commitment = poseidon_hash(&[id_commitment, Fr::from(user_message_limit)]);
+    let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
+    rln.set_leaf(id_index, &mut buffer).unwrap();
 
-// 5. Generate and verify a proof for a message
-let signal = b"RLN is awesome";
+    // 4. Set up external nullifier (epoch + app identifier)
+    // We generate epoch from a date seed and we ensure is
+    // mapped to a field element by hashing-to-field its content
+    let epoch = hash_to_field(b"Today at noon, this year");
+    // We generate rln_identifier from a date seed and we ensure is
+    // mapped to a field element by hashing-to-field its content
+    let rln_identifier = hash_to_field(b"test-rln-identifier");
+    let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
 
-// 6. Prepare input for generate_rln_proof API
-// input_data is [ identity_secret<32> | id_index<8> | external_nullifier<32> | user_message_limit<32> | message_id<32> | signal_len<8> | signal<var> ]
-let mut serialized: Vec<u8> = Vec::new();
-serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
-serialized.append(&mut normalize_usize(identity_index));
-serialized.append(&mut fr_to_bytes_le(&user_message_limit));
-serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
-serialized.append(&mut fr_to_bytes_le(&external_nullifier));
-serialized.append(&mut normalize_usize(signal.len()));
-serialized.append(&mut signal.to_vec());
+    // 5. Generate and verify a proof for a message
+    let signal = b"RLN is awesome";
 
-// 7. Generate a RLN proof
-// We generate a RLN proof for proof_input
-let mut input_buffer = Cursor::new(serialized);
-let mut output_buffer = Cursor::new(Vec::<u8>::new());
-rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
-    .unwrap();
+    // 6. Prepare input for generate_rln_proof API
+    // input_data is [ identity_secret<32> | id_index<8> | external_nullifier<32> | user_message_limit<32> | message_id<32> | signal_len<8> | signal<var> ]
+    let mut serialized: Vec<u8> = Vec::new();
+    serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
+    serialized.append(&mut normalize_usize(id_index));
+    serialized.append(&mut fr_to_bytes_le(&Fr::from(user_message_limit)));
+    serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
+    serialized.append(&mut fr_to_bytes_le(&external_nullifier));
+    serialized.append(&mut normalize_usize(signal.len()));
+    serialized.append(&mut signal.to_vec());
 
-// We get the public outputs returned by the circuit evaluation
-// The byte vector `proof_data` is serialized as `[ zk-proof | tree_root | external_nullifier | share_x | share_y | nullifier ]`.
-let mut proof_data = output_buffer.into_inner();
+    // 7. Generate a RLN proof
+    // We generate a RLN proof for proof_input
+    let mut input_buffer = Cursor::new(serialized);
+    let mut output_buffer = Cursor::new(Vec::<u8>::new());
+    rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
+        .unwrap();
 
-// 8. Verify a RLN proof
-// Input buffer is serialized as `[proof_data | signal_len | signal ]`, where `proof_data` is (computed as) the output obtained by `generate_rln_proof`.
-let verify_data = prepare_verify_input(proof_data, signal);
+    // We get the public outputs returned by the circuit evaluation
+    // The byte vector `proof_data` is serialized as `[ zk-proof | tree_root | external_nullifier | share_x | share_y | nullifier ]`.
+    let proof_data = output_buffer.into_inner();
 
-// We verify the zk-proof against the provided proof values
-let mut input_buffer = Cursor::new(verify_data);
-let verified = rln.verify_rln_proof(&mut input_buffer).unwrap();
+    // 8. Verify a RLN proof
+    // Input buffer is serialized as `[proof_data | signal_len | signal ]`, where `proof_data` is (computed as) the output obtained by `generate_rln_proof`.
+    let verify_data = prepare_verify_input(proof_data, signal);
 
-// We ensure the proof is valid
-assert!(verified);
+    // We verify the zk-proof against the provided proof values
+    let mut input_buffer = Cursor::new(verify_data);
+    let verified = rln.verify_rln_proof(&mut input_buffer).unwrap();
+
+    // We ensure the proof is valid
+    assert!(verified);
+}
 ```
 
 ### Comments for the code above for point 4
