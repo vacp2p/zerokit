@@ -31,7 +31,7 @@ ark-relations = { version = "=0.4.0", default-features = false, features = [
 ark-serialize = { version = "=0.4.2", default-features = false }
 # v0.5.0 use all other ark 0.5.0 versions and they are not compatible with current code.
 # master branch contains commit with compatible version
-ark-circom = { git = "https://github.com/gakonst/ark-circom.git" }
+ark-circom = { git = "https://github.com/gakonst/ark-circom.git", rev = "7f80002" }
 
 # error handling
 color-eyre = "0.6.2"
