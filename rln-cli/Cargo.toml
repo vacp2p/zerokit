@@ -1,16 +1,26 @@
 [package]
 name = "rln-cli"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 
+[[example]]
+name = "relay"
+path = "src/examples/relay.rs"
+
+[[example]]
+name = "stateless"
+path = "src/examples/stateless.rs"
+required-features = ["stateless"]
+
 [dependencies]
-rln = { path = "../rln", default-features = true, features = ["arkzkey"] }
-clap = { version = "4.5.0", features = ["cargo", "derive", "env"]}
-clap_derive = { version = "4.5.0" }
+rln = { path = "../rln", default-features = true, features = ["pmtree-ft"] }
+zerokit_utils = { path = "../utils" }
+clap = { version = "4.5.29", features = ["cargo", "derive", "env"] }
+clap_derive = { version = "4.5.28" }
 color-eyre = "0.6.2"
-# serialization
-serde_json = "1.0"
-serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.138"
+serde = { version = "1.0.217", features = ["derive"] }
 
 [features]
-arkzkey = []
+arkzkey = ["rln/arkzkey"]
+stateless = ["rln/stateless"]

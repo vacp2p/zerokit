@@ -1,49 +1,51 @@
 use std::path::PathBuf;
 
 use clap::Subcommand;
+use rln::circuit::TEST_TREE_HEIGHT;
 
 #[derive(Subcommand)]
 pub(crate) enum Commands {
     New {
+        #[arg(short, long, default_value_t = TEST_TREE_HEIGHT)]
         tree_height: usize,
-        /// Sets a custom config file
-        #[arg(short, long)]
-        config: PathBuf,
     },
     NewWithParams {
+        #[arg(short, long, default_value_t = TEST_TREE_HEIGHT)]
         tree_height: usize,
-        /// Sets a custom config file
-        #[arg(short, long)]
-        config: PathBuf,
-        #[arg(short, long)]
-        tree_config_input: PathBuf,
+        #[arg(short, long, default_value = "../rln/resources/tree_height_20")]
+        resources_path: PathBuf,
     },
     SetTree {
+        #[arg(short, long, default_value_t = TEST_TREE_HEIGHT)]
         tree_height: usize,
     },
     SetLeaf {
+        #[arg(short, long)]
         index: usize,
         #[arg(short, long)]
-        file: PathBuf,
+        input: PathBuf,
     },
     SetMultipleLeaves {
+        #[arg(short, long)]
         index: usize,
         #[arg(short, long)]
-        file: PathBuf,
+        input: PathBuf,
     },
     ResetMultipleLeaves {
         #[arg(short, long)]
-        file: PathBuf,
+        input: PathBuf,
     },
     SetNextLeaf {
         #[arg(short, long)]
-        file: PathBuf,
+        input: PathBuf,
     },
     DeleteLeaf {
+        #[arg(short, long)]
         index: usize,
     },
     GetRoot,
     GetProof {
+        #[arg(short, long)]
         index: usize,
     },
     Prove {
@@ -52,7 +54,7 @@ pub(crate) enum Commands {
     },
     Verify {
         #[arg(short, long)]
-        file: PathBuf,
+        input: PathBuf,
     },
     GenerateProof {
         #[arg(short, long)]
