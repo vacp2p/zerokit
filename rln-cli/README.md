@@ -37,6 +37,42 @@ cargo run --features arkzkey -- <SUBCOMMAND> [OPTIONS]
 
 For more details, refer to the [Zerokit RLN Module](../rln/README.md) documentation.
 
+## Relay Example
+
+The following [Example](src/examples/relay.rs) demonstrates how RLN enables spam prevention in anonymous environments for multple users.
+
+You can run the example using the following command:
+
+```bash
+cargo run --example relay
+```
+
+or with the **arkzkey** feature flag:
+
+```bash
+cargo run --example relay --features arkzkey
+```
+
+You can also change **MESSAGE_LIMIT** constant in the [relay.rs](src/examples/relay.rs) file to see how the RLN instance behaves with different parameters.
+
+## Stateless Example
+
+The following [Example](src/examples/stateless.rs) demonstrates how RLN can be used for stateless features by creating the Merkle tree outside of RLN instance.
+
+This example function similarly to the [Relay Example](#relay-example) but uses a stateless RLN and seperate Merkle tree.
+
+You can run the example using the following command:
+
+```bash
+cargo run --example stateless --features stateless
+```
+
+or with the **arkzkey** feature flag:
+
+```bash
+cargo run --example stateless --features stateless,arkzkey
+```
+
 ## CLI Commands
 
 ### Instance Management
@@ -129,40 +165,4 @@ To obtain a Merkle proof for a specific index:
 
 ```bash
 cargo run get-proof --index <INDEX>
-```
-
-## Relay Example
-
-The following [Example](src/examples/relay.rs) demonstrates how RLN enables spam prevention in anonymous environments for multple users.
-
-You can run the example using the following command:
-
-```bash
-cargo run --example relay
-```
-
-or with the **arkzkey** feature flag:
-
-```bash
-cargo run --example relay --features arkzkey
-```
-
-You can also change **MESSAGE_LIMIT** constant in the [relay.rs](src/examples/relay.rs) file to see how the RLN instance behaves with different parameters.
-
-## Stateless Example
-
-The following [Example](src/examples/stateless.rs) demonstrates how RLN can be used for stateless features by creating the Merkle tree outside of RLN instance.
-
-This example function similarly to the [Relay Example](#relay-example) but uses a stateless RLN and seperate Merkle tree.
-
-You can run the example using the following command:
-
-```bash
-cargo run --example stateless --features stateless
-```
-
-or with the **arkzkey** feature flag:
-
-```bash
-cargo run --example stateless --features stateless,arkzkey
 ```
