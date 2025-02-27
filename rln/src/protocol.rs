@@ -219,7 +219,7 @@ pub fn proof_inputs_to_rln_witness(
     ))
 }
 
-/// Creates `RLNWitnessInput` from it's fields.
+/// Creates [`RLNWitnessInput`] from it's fields.
 ///
 /// # Errors
 ///
@@ -722,7 +722,7 @@ where
     a.map_err(serde::de::Error::custom)
 }
 
-/// Converts a JSON value into [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
+/// Converts a JSON value into [`RLNWitnessInput`] object.
 ///
 /// # Errors
 ///
@@ -734,7 +734,7 @@ pub fn rln_witness_from_json(input_json: serde_json::Value) -> Result<RLNWitness
     Ok(rln_witness)
 }
 
-/// Converts a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object to the corresponding JSON serialization.
+/// Converts a [`RLNWitnessInput`] object to the corresponding JSON serialization.
 ///
 /// # Errors
 ///
@@ -746,7 +746,7 @@ pub fn rln_witness_to_json(rln_witness: &RLNWitnessInput) -> Result<serde_json::
     Ok(rln_witness_json)
 }
 
-/// Converts a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object to the corresponding JSON serialization.
+/// Converts a [`RLNWitnessInput`] object to the corresponding JSON serialization.
 /// Before serialisation the data should be translated into big int for further calculation in the witness calculator.
 ///
 /// # Errors
