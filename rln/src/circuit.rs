@@ -76,10 +76,6 @@ pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<(ProvingKey<Curve>, ConstraintM
     Ok(proving_key_and_matrices)
 }
 
-pub fn calculate_rln_witness<I: IntoIterator<Item = (String, Vec<BigInt>)>>(inputs: I) -> Vec<Fr> {
-    calc_witness(inputs, GRAPH_BYTES)
-}
-
 // Loads the proving key
 pub fn zkey_from_folder() -> &'static (ProvingKey<Curve>, ConstraintMatrices<Fr>) {
     &ZKEY
@@ -119,6 +115,17 @@ pub fn check_vk_from_zkey(verifying_key: VerifyingKey<Curve>) -> Result<()> {
     } else {
         Err(Report::msg("verifying_keys are not equal"))
     }
+}
+
+pub fn calculate_rln_witness<I: IntoIterator<Item = (String, Vec<BigInt>)>>(
+    inputs: I,
+    graph_data: &[u8],
+) -> Vec<Fr> {
+    calc_witness(inputs, graph_data)
+}
+
+pub fn graph_from_folder() -> &'static [u8] {
+    GRAPH_BYTES
 }
 
 ////////////////////////////////////////////////////////
