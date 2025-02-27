@@ -353,6 +353,8 @@ pub fn deserialize_proof_values(serialized: &[u8]) -> (RLNProofValues, usize) {
 pub fn prepare_prove_input(
     identity_secret: Fr,
     id_index: usize,
+    user_message_limit: Fr,
+    message_id: Fr,
     external_nullifier: Fr,
     signal: &[u8],
 ) -> Vec<u8> {
@@ -360,6 +362,8 @@ pub fn prepare_prove_input(
 
     serialized.append(&mut fr_to_bytes_le(&identity_secret));
     serialized.append(&mut normalize_usize(id_index));
+    serialized.append(&mut fr_to_bytes_le(&user_message_limit));
+    serialized.append(&mut fr_to_bytes_le(&message_id));
     serialized.append(&mut fr_to_bytes_le(&external_nullifier));
     serialized.append(&mut normalize_usize(signal.len()));
     serialized.append(&mut signal.to_vec());
@@ -367,7 +371,6 @@ pub fn prepare_prove_input(
     serialized
 }
 
-#[allow(clippy::redundant_clone)]
 pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Vec<u8> {
     let mut serialized: Vec<u8> = Vec::new();
 
