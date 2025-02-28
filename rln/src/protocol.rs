@@ -633,6 +633,7 @@ pub fn inputs_for_witness_calculation(
 pub fn generate_proof(
     proving_key: &(ProvingKey<Curve>, ConstraintMatrices<Fr>),
     rln_witness: &RLNWitnessInput,
+    graph_data: &[u8],
 ) -> Result<ArkProof<Curve>, ProofError> {
     let inputs = inputs_for_witness_calculation(rln_witness)?
         .into_iter()
@@ -641,7 +642,7 @@ pub fn generate_proof(
     // If in debug mode, we measure and later print time take to compute witness
     #[cfg(test)]
     let now = Instant::now();
-    let full_assignment = calculate_rln_witness(inputs);
+    let full_assignment = calculate_rln_witness(inputs, graph_data);
 
     #[cfg(test)]
     println!("witness generation took: {:.2?}", now.elapsed());

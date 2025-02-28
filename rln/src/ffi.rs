@@ -230,6 +230,7 @@ pub extern "C" fn new_with_params(
     tree_height: usize,
     zkey_buffer: *const Buffer,
     vk_buffer: *const Buffer,
+    graph_data: *const Buffer,
     tree_config: *const Buffer,
     ctx: *mut *mut RLN,
 ) -> bool {
@@ -237,6 +238,7 @@ pub extern "C" fn new_with_params(
         tree_height,
         zkey_buffer.process().to_vec(),
         vk_buffer.process().to_vec(),
+        graph_data.process().to_vec(),
         tree_config.process(),
     ) {
         Ok(rln) => {
@@ -256,9 +258,14 @@ pub extern "C" fn new_with_params(
 pub extern "C" fn new_with_params(
     zkey_buffer: *const Buffer,
     vk_buffer: *const Buffer,
+    graph_buffer: *const Buffer,
     ctx: *mut *mut RLN,
 ) -> bool {
-    match RLN::new_with_params(zkey_buffer.process().to_vec(), vk_buffer.process().to_vec()) {
+    match RLN::new_with_params(
+        zkey_buffer.process().to_vec(),
+        vk_buffer.process().to_vec(),
+        graph_buffer.process().to_vec(),
+    ) {
         Ok(rln) => {
             unsafe { *ctx = Box::into_raw(Box::new(rln)) };
             true

@@ -428,6 +428,16 @@ mod test {
         let zkey_data = &Buffer::from(&zkey_buffer[..]);
         let vk_data = &Buffer::from(&vk_buffer[..]);
 
+        let graph_data = "./resources/tree_height_20/graph.bin";
+        let mut graph_file = File::open(&graph_data).expect("no file found");
+        let metadata = std::fs::metadata(&graph_data).expect("unable to read metadata");
+        let mut graph_buffer = vec![0; metadata.len() as usize];
+        graph_file
+            .read_exact(&mut graph_buffer)
+            .expect("buffer overflow");
+
+        let graph_data = &Buffer::from(&graph_buffer[..]);
+
         // Creating a RLN instance passing the raw data
         let mut rln_pointer_raw_bytes = MaybeUninit::<*mut RLN>::uninit();
         let tree_config = "".to_string();
@@ -436,6 +446,7 @@ mod test {
             TEST_TREE_HEIGHT,
             zkey_data,
             vk_data,
+            graph_data,
             tree_config_buffer,
             rln_pointer_raw_bytes.as_mut_ptr(),
         );

@@ -1,7 +1,8 @@
 /// This is the main public API for RLN module. It is used by the FFI, and should be
 /// used by tests etc. as well
 use crate::circuit::{
-    vk_from_folder, vk_from_raw, zkey_from_folder, zkey_from_raw, Curve, Fr, TEST_TREE_HEIGHT,
+    graph_from_folder, vk_from_folder, vk_from_raw, zkey_from_folder, zkey_from_raw, Curve, Fr,
+    TEST_TREE_HEIGHT,
 };
 use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
 use crate::poseidon_tree::PoseidonTree;
@@ -31,6 +32,7 @@ pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
 pub struct RLN {
     proving_key: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
     pub(crate) verification_key: VerifyingKey<Curve>,
+    pub(crate) graph_data: Vec<u8>,
     #[cfg(not(feature = "stateless"))]
     pub(crate) tree: PoseidonTree,
 }
@@ -62,8 +64,8 @@ impl RLN {
         let tree_config = rln_config["tree_config"].to_string();
 
         let proving_key = zkey_from_folder();
-
         let verification_key = vk_from_folder();
+        let graph_data = graph_from_folder();
 
         let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = if tree_config.is_empty() {
             <PoseidonTree as ZerokitMerkleTree>::Config::default()
@@ -81,6 +83,7 @@ impl RLN {
         Ok(RLN {
             proving_key: proving_key.to_owned(),
             verification_key: verification_key.to_owned(),
+            graph_data: graph_data.to_vec(),
             #[cfg(not(feature = "stateless"))]
             tree,
         })
@@ -99,10 +102,12 @@ impl RLN {
     pub fn new() -> Result<RLN> {
         let proving_key = zkey_from_folder();
         let verification_key = vk_from_folder();
+        let graph_data = graph_from_folder();
 
         Ok(RLN {
             proving_key: proving_key.to_owned(),
             verification_key: verification_key.to_owned(),
+            graph_data: graph_data.to_vec(),
         })
     }
 
@@ -123,7 +128,7 @@ impl RLN {
     /// let resources_folder = "./resources/tree_height_20/";
     ///
     /// let mut resources: Vec<Vec<u8>> = Vec::new();
-    /// for filename in ["rln_final.zkey", "verification_key.arkvkey"] {
+    /// for filename in ["rln_final.zkey", "verification_key.arkvkey", "graph.bin"] {
     ///     let fullpath = format!("{resources_folder}{filename}");
     ///     let mut file = File::open(&fullpath).expect("no file found");
     ///     let metadata = std::fs::metadata(&fullpath).expect("unable to read metadata");
@@ -139,6 +144,7 @@ impl RLN {
     ///     tree_height,
     ///     resources[0].clone(),
     ///     resources[1].clone(),
+    ///     resources[2].clone(),
     ///     tree_config_buffer,
     /// );
     /// ```
@@ -147,6 +153,7 @@ impl RLN {
         tree_height: usize,
         zkey_vec: Vec<u8>,
         vk_vec: Vec<u8>,
+        graph_data: Vec<u8>,
         mut tree_config_input: R,
     ) -> Result<RLN> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
@@ -172,6 +179,7 @@ impl RLN {
         Ok(RLN {
             proving_key,
             verification_key,
+            graph_data,
             #[cfg(not(feature = "stateless"))]
             tree,
         })
@@ -191,7 +199,7 @@ impl RLN {
     /// let resources_folder = "./resources/tree_height_20/";
     ///
     /// let mut resources: Vec<Vec<u8>> = Vec::new();
-    /// for filename in ["rln_final.zkey", "verification_key.arkvkey"] {
+    /// for filename in ["rln_final.zkey", "verification_key.arkvkey", "graph.bin"] {
     ///     let fullpath = format!("{resources_folder}{filename}");
     ///     let mut file = File::open(&fullpath).expect("no file found");
     ///     let metadata = std::fs::metadata(&fullpath).expect("unable to read metadata");
@@ -203,16 +211,18 @@ impl RLN {
     /// let mut rln = RLN::new_with_params(
     ///     resources[0].clone(),
     ///     resources[1].clone(),
+    ///     resources[2].clone(),
     /// );
     /// ```
     #[cfg(feature = "stateless")]
-    pub fn new_with_params(zkey_vec: Vec<u8>, vk_vec: Vec<u8>) -> Result<RLN> {
+    pub fn new_with_params(zkey_vec: Vec<u8>, vk_vec: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
 
         Ok(RLN {
             proving_key,
             verification_key,
+            graph_data,
         })
     }
 
@@ -701,7 +711,7 @@ impl RLN {
         input_data.read_to_end(&mut serialized)?;
         let (rln_witness, _) = deserialize_witness(&serialized)?;
 
-        let proof = generate_proof(&self.proving_key, &rln_witness)?;
+        let proof = generate_proof(&self.proving_key, &rln_witness, &self.graph_data)?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         proof.serialize_compressed(&mut output_data)?;
@@ -823,7 +833,7 @@ impl RLN {
         let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
-        let proof = generate_proof(&self.proving_key, &rln_witness)?;
+        let proof = generate_proof(&self.proving_key, &rln_witness, &self.graph_data)?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
@@ -847,7 +857,7 @@ impl RLN {
         let (rln_witness, _) = deserialize_witness(&witness_byte)?;
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
-        let proof = generate_proof(&self.proving_key, &rln_witness)?;
+        let proof = generate_proof(&self.proving_key, &rln_witness, &self.graph_data)?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
