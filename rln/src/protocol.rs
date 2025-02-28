@@ -350,6 +350,8 @@ pub fn deserialize_proof_values(serialized: &[u8]) -> (RLNProofValues, usize) {
     )
 }
 
+// input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
+// output_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
 pub fn prepare_prove_input(
     identity_secret: Fr,
     id_index: usize,
@@ -358,25 +360,26 @@ pub fn prepare_prove_input(
     external_nullifier: Fr,
     signal: &[u8],
 ) -> Vec<u8> {
-    let mut serialized: Vec<u8> = Vec::new();
+    let mut serialized = Vec::with_capacity(144 + signal.len());
 
-    serialized.append(&mut fr_to_bytes_le(&identity_secret));
-    serialized.append(&mut normalize_usize(id_index));
-    serialized.append(&mut fr_to_bytes_le(&user_message_limit));
-    serialized.append(&mut fr_to_bytes_le(&message_id));
-    serialized.append(&mut fr_to_bytes_le(&external_nullifier));
-    serialized.append(&mut normalize_usize(signal.len()));
-    serialized.append(&mut signal.to_vec());
+    serialized.extend_from_slice(&fr_to_bytes_le(&identity_secret));
+    serialized.extend_from_slice(&normalize_usize(id_index));
+    serialized.extend_from_slice(&fr_to_bytes_le(&user_message_limit));
+    serialized.extend_from_slice(&fr_to_bytes_le(&message_id));
+    serialized.extend_from_slice(&fr_to_bytes_le(&external_nullifier));
+    serialized.extend_from_slice(&normalize_usize(signal.len()));
+    serialized.extend_from_slice(signal);
 
     serialized
 }
 
+// input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
 pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Vec<u8> {
-    let mut serialized: Vec<u8> = Vec::new();
+    let mut serialized = Vec::with_capacity(proof_data.len() + 8 + signal.len());
 
-    serialized.append(&mut proof_data.clone());
-    serialized.append(&mut normalize_usize(signal.len()));
-    serialized.append(&mut signal.to_vec());
+    serialized.extend(proof_data);
+    serialized.extend_from_slice(&normalize_usize(signal.len()));
+    serialized.extend_from_slice(signal);
 
     serialized
 }

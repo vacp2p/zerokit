@@ -9,28 +9,28 @@ use std::str::FromStr;
 
 use serde_json::{json, Value};
 
-fn fq_from_str(s: String) -> ark_bn254::Fq {
+fn fq_from_str(s: &str) -> ark_bn254::Fq {
     ark_bn254::Fq::from_str(&s).unwrap()
 }
 
 fn g1_from_str(g1: &[String]) -> ark_bn254::G1Affine {
-    let x = fq_from_str(g1[0].clone());
-    let y = fq_from_str(g1[1].clone());
-    let z = fq_from_str(g1[2].clone());
+    let x = fq_from_str(&g1[0]);
+    let y = fq_from_str(&g1[1]);
+    let z = fq_from_str(&g1[2]);
     ark_bn254::G1Affine::from(ark_bn254::G1Projective::new(x, y, z))
 }
 
 fn g2_from_str(g2: &[Vec<String>]) -> ark_bn254::G2Affine {
-    let c0 = fq_from_str(g2[0][0].clone());
-    let c1 = fq_from_str(g2[0][1].clone());
+    let c0 = fq_from_str(&g2[0][0]);
+    let c1 = fq_from_str(&g2[0][1]);
     let x = ark_bn254::Fq2::new(c0, c1);
 
-    let c0 = fq_from_str(g2[1][0].clone());
-    let c1 = fq_from_str(g2[1][1].clone());
+    let c0 = fq_from_str(&g2[1][0]);
+    let c1 = fq_from_str(&g2[1][1]);
     let y = ark_bn254::Fq2::new(c0, c1);
 
-    let c0 = fq_from_str(g2[2][0].clone());
-    let c1 = fq_from_str(g2[2][1].clone());
+    let c0 = fq_from_str(&g2[2][0]);
+    let c1 = fq_from_str(&g2[2][1]);
     let z = ark_bn254::Fq2::new(c0, c1);
 
     ark_bn254::G2Affine::from(ark_bn254::G2Projective::new(x, y, z))
@@ -619,35 +619,36 @@ mod tree_test {
         let epoch = hash_to_field(b"test-epoch");
         // We generate a random rln_identifier
         let rln_identifier = hash_to_field(b"test-rln-identifier");
+        // We generate a external nullifier
+        let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
+        // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
+        let message_id = Fr::from(1);
 
         // We prepare input for generate_rln_proof API
-        let mut serialized: Vec<u8> = Vec::new();
-        serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
-        serialized.append(&mut normalize_usize(identity_index));
-        serialized.append(&mut fr_to_bytes_le(&user_message_limit));
-        serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
-        serialized.append(&mut fr_to_bytes_le(&utils_poseidon_hash(&[
-            epoch,
-            rln_identifier,
-        ])));
-        serialized.append(&mut normalize_usize(signal.len()));
-        serialized.append(&mut signal.to_vec());
+        // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
+        let prove_input = prepare_prove_input(
+            identity_secret_hash,
+            identity_index,
+            user_message_limit,
+            message_id,
+            external_nullifier,
+            &signal,
+        );
 
-        let mut input_buffer = Cursor::new(serialized);
+        let mut input_buffer = Cursor::new(prove_input);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
             .unwrap();
 
         // output_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-        let mut proof_data = output_buffer.into_inner();
+        let proof_data = output_buffer.into_inner();
 
         // We prepare input for verify_rln_proof API
-        // input_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
+        // input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
         // that is [ proof_data || signal_len<8> | signal<var> ]
-        proof_data.append(&mut normalize_usize(signal.len()));
-        proof_data.append(&mut signal.to_vec());
+        let verify_input = prepare_verify_input(proof_data, &signal);
 
-        let mut input_buffer = Cursor::new(proof_data);
+        let mut input_buffer = Cursor::new(verify_input);
         let verified = rln.verify_rln_proof(&mut input_buffer).unwrap();
 
         assert!(verified);
@@ -690,22 +691,23 @@ mod tree_test {
         let epoch = hash_to_field(b"test-epoch");
         // We generate a random rln_identifier
         let rln_identifier = hash_to_field(b"test-rln-identifier");
+        // We generate a external nullifier
+        let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
+        // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
+        let message_id = Fr::from(1);
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
-        let mut serialized: Vec<u8> = Vec::new();
-        serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
-        serialized.append(&mut normalize_usize(identity_index));
-        serialized.append(&mut fr_to_bytes_le(&user_message_limit));
-        serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
-        serialized.append(&mut fr_to_bytes_le(&utils_poseidon_hash(&[
-            epoch,
-            rln_identifier,
-        ])));
-        serialized.append(&mut normalize_usize(signal.len()));
-        serialized.append(&mut signal.to_vec());
+        // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
+        let prove_input = prepare_prove_input(
+            identity_secret_hash,
+            identity_index,
+            user_message_limit,
+            message_id,
+            external_nullifier,
+            &signal,
+        );
 
-        let mut input_buffer = Cursor::new(serialized);
+        let mut input_buffer = Cursor::new(prove_input);
 
         // We read input RLN witness and we serialize_compressed it
         let mut witness_byte: Vec<u8> = Vec::new();
@@ -720,16 +722,15 @@ mod tree_test {
         rln.generate_rln_proof_with_witness(&mut input_buffer, &mut output_buffer)
             .unwrap();
 
-        // output_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-        let mut proof_data = output_buffer.into_inner();
+        // output_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
+        let proof_data = output_buffer.into_inner();
 
         // We prepare input for verify_rln_proof API
-        // input_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
+        // input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
         // that is [ proof_data || signal_len<8> | signal<var> ]
-        proof_data.append(&mut normalize_usize(signal.len()));
-        proof_data.append(&mut signal.to_vec());
+        let verify_input = prepare_verify_input(proof_data, &signal);
 
-        let mut input_buffer = Cursor::new(proof_data);
+        let mut input_buffer = Cursor::new(verify_input);
         let verified = rln.verify_rln_proof(&mut input_buffer).unwrap();
 
         assert!(verified);
@@ -773,33 +774,35 @@ mod tree_test {
         let epoch = hash_to_field(b"test-epoch");
         // We generate a random rln_identifier
         let rln_identifier = hash_to_field(b"test-rln-identifier");
+        // We generate a external nullifier
         let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
+        // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
+        let message_id = Fr::from(1);
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ identity_secret<32> | id_index<8> | external_nullifier<32> | user_message_limit<32> | message_id<32> | signal_len<8> | signal<var> ]
-        let mut serialized: Vec<u8> = Vec::new();
-        serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
-        serialized.append(&mut normalize_usize(identity_index));
-        serialized.append(&mut fr_to_bytes_le(&user_message_limit));
-        serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
-        serialized.append(&mut fr_to_bytes_le(&external_nullifier));
-        serialized.append(&mut normalize_usize(signal.len()));
-        serialized.append(&mut signal.to_vec());
+        // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
+        let prove_input = prepare_prove_input(
+            identity_secret_hash,
+            identity_index,
+            user_message_limit,
+            message_id,
+            external_nullifier,
+            &signal,
+        );
 
-        let mut input_buffer = Cursor::new(serialized);
+        let mut input_buffer = Cursor::new(prove_input);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
             .unwrap();
 
-        // output_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-        let mut proof_data = output_buffer.into_inner();
+        // output_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
+        let proof_data = output_buffer.into_inner();
 
-        // We prepare input for verify_rln_proof API
-        // input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
+        // input_data is  [ proof<128> |// We prepare input for verify_rln_proof API root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
         // that is [ proof_data || signal_len<8> | signal<var> ]
-        proof_data.append(&mut normalize_usize(signal.len()));
-        proof_data.append(&mut signal.to_vec());
-        let input_buffer = Cursor::new(proof_data);
+        let verify_input = prepare_verify_input(proof_data, &signal);
+
+        let mut input_buffer = Cursor::new(verify_input);
 
         // If no roots is provided, proof validation is skipped and if the remaining proof values are valid, the proof will be correctly verified
         let mut roots_serialized: Vec<u8> = Vec::new();
@@ -828,9 +831,9 @@ mod tree_test {
 
         // We add the real root and we check if now the proof is verified
         roots_serialized.append(&mut fr_to_bytes_le(&root));
-        roots_buffer = Cursor::new(roots_serialized.clone());
+        roots_buffer = Cursor::new(roots_serialized);
         let verified = rln
-            .verify_with_roots(&mut input_buffer.clone(), &mut roots_buffer)
+            .verify_with_roots(&mut input_buffer, &mut roots_buffer)
             .unwrap();
 
         assert!(verified);
@@ -846,7 +849,6 @@ mod tree_test {
         // Generate identity pair
         let (identity_secret_hash, id_commitment) = keygen();
         let user_message_limit = Fr::from(100);
-        let message_id = Fr::from(0);
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
         // We set as leaf id_commitment after storing its index
@@ -864,41 +866,49 @@ mod tree_test {
         let epoch = hash_to_field(b"test-epoch");
         // We generate a random rln_identifier
         let rln_identifier = hash_to_field(b"test-rln-identifier");
+        // We generate a external nullifier
         let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
+        // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
+        let message_id = Fr::from(1);
 
         // We generate two proofs using same epoch but different signals.
 
         // We prepare input for generate_rln_proof API
-        let mut serialized1: Vec<u8> = Vec::new();
-        serialized1.append(&mut fr_to_bytes_le(&identity_secret_hash));
-        serialized1.append(&mut normalize_usize(identity_index));
-        serialized1.append(&mut fr_to_bytes_le(&user_message_limit));
-        serialized1.append(&mut fr_to_bytes_le(&message_id));
-        serialized1.append(&mut fr_to_bytes_le(&external_nullifier));
+        // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
+        let prove_input1 = prepare_prove_input(
+            identity_secret_hash,
+            identity_index,
+            user_message_limit,
+            message_id,
+            external_nullifier,
+            &signal1,
+        );
 
-        // The first part is the same for both proof input, so we clone
-        let mut serialized2 = serialized1.clone();
-
-        // We attach the first signal to the first proof input
-        serialized1.append(&mut normalize_usize(signal1.len()));
-        serialized1.append(&mut signal1.to_vec());
-
-        // We attach the second signal to the second proof input
-        serialized2.append(&mut normalize_usize(signal2.len()));
-        serialized2.append(&mut signal2.to_vec());
+        let prove_input2 = prepare_prove_input(
+            identity_secret_hash,
+            identity_index,
+            user_message_limit,
+            message_id,
+            external_nullifier,
+            &signal2,
+        );
 
         // We generate the first proof
-        let mut input_buffer = Cursor::new(serialized1);
+        let mut input_buffer = Cursor::new(prove_input1);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
             .unwrap();
+
+        // output_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
         let proof_data_1 = output_buffer.into_inner();
 
         // We generate the second proof
-        let mut input_buffer = Cursor::new(serialized2);
+        let mut input_buffer = Cursor::new(prove_input2);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
             .unwrap();
+
+        // output_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
         let proof_data_2 = output_buffer.into_inner();
 
         let mut input_proof_data_1 = Cursor::new(proof_data_1.clone());
@@ -935,25 +945,24 @@ mod tree_test {
         let signal3: [u8; 32] = rng.gen();
 
         // We prepare proof input. Note that epoch is the same as before
-        let mut serialized3: Vec<u8> = Vec::new();
-        serialized3.append(&mut fr_to_bytes_le(&identity_secret_hash_new));
-        serialized3.append(&mut normalize_usize(identity_index_new));
-        serialized3.append(&mut fr_to_bytes_le(&user_message_limit));
-        serialized3.append(&mut fr_to_bytes_le(&message_id));
-        serialized3.append(&mut fr_to_bytes_le(&external_nullifier));
-        serialized3.append(&mut normalize_usize(signal3.len()));
-        serialized3.append(&mut signal3.to_vec());
+        let prove_input3 = prepare_prove_input(
+            identity_secret_hash,
+            identity_index_new,
+            user_message_limit,
+            message_id,
+            external_nullifier,
+            &signal3,
+        );
 
         // We generate the proof
-        let mut input_buffer = Cursor::new(serialized3);
+        let mut input_buffer = Cursor::new(prove_input3);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
             .unwrap();
         let proof_data_3 = output_buffer.into_inner();
 
         // We attempt to recover the secret using share1 (coming from identity_secret_hash) and share3 (coming from identity_secret_hash_new)
-
-        let mut input_proof_data_1 = Cursor::new(proof_data_1.clone());
+        let mut input_proof_data_1 = Cursor::new(proof_data_1);
         let mut input_proof_data_3 = Cursor::new(proof_data_3);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.recover_id_secret(
@@ -1022,7 +1031,7 @@ mod stateless_test {
         let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
 
         // We prepare input for generate_rln_proof API
-        // input_data is [ identity_secret<32> | id_index<8> | external_nullifier<32> | user_message_limit<32> | message_id<32> | signal_len<8> | signal<var> ]
+        // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
 
         let x = hash_to_field(&signal);
         let merkle_proof = tree.proof(identity_index).expect("proof should exist");
@@ -1043,15 +1052,15 @@ mod stateless_test {
         rln.generate_rln_proof_with_witness(&mut input_buffer, &mut output_buffer)
             .unwrap();
 
-        // output_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-        let mut proof_data = output_buffer.into_inner();
+        // output_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
+        let proof_data = output_buffer.into_inner();
 
         // We prepare input for verify_rln_proof API
         // input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
         // that is [ proof_data || signal_len<8> | signal<var> ]
-        proof_data.append(&mut normalize_usize(signal.len()));
-        proof_data.append(&mut signal.to_vec());
-        let input_buffer = Cursor::new(proof_data);
+        let verify_input = prepare_verify_input(proof_data, &signal);
+
+        let mut input_buffer = Cursor::new(verify_input);
 
         // If no roots is provided, proof validation is skipped and if the remaining proof values are valid, the proof will be correctly verified
         let mut roots_serialized: Vec<u8> = Vec::new();
@@ -1078,9 +1087,9 @@ mod stateless_test {
 
         // We add the real root and we check if now the proof is verified
         roots_serialized.append(&mut fr_to_bytes_le(&root));
-        roots_buffer = Cursor::new(roots_serialized.clone());
+        roots_buffer = Cursor::new(roots_serialized);
         let verified = rln
-            .verify_with_roots(&mut input_buffer.clone(), &mut roots_buffer)
+            .verify_with_roots(&mut input_buffer, &mut roots_buffer)
             .unwrap();
 
         assert!(verified);
@@ -1205,7 +1214,7 @@ mod stateless_test {
             .unwrap();
         let proof_data_3 = output_buffer.into_inner();
 
-        let mut input_proof_data_1 = Cursor::new(proof_data_1.clone());
+        let mut input_proof_data_1 = Cursor::new(proof_data_1);
         let mut input_proof_data_3 = Cursor::new(proof_data_3);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.recover_id_secret(
