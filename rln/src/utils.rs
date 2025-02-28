@@ -7,18 +7,19 @@ use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use serde_json::json;
 use std::io::Cursor;
-use std::iter::Extend;
 
+#[inline(always)]
 pub fn to_bigint(el: &Fr) -> Result<BigInt> {
-    let res: BigUint = (*el).into();
-    Ok(res.into())
+    Ok(BigUint::from(*el).into())
 }
 
+#[inline(always)]
 pub fn fr_byte_size() -> usize {
     let mbs = <Fr as PrimeField>::MODULUS_BIT_SIZE;
     ((mbs + 64 - (mbs % 64)) / 8) as usize
 }
 
+#[inline(always)]
 pub fn str_to_fr(input: &str, radix: u32) -> Result<Fr> {
     if !(radix == 10 || radix == 16) {
         return Err(Report::msg("wrong radix"));
@@ -37,6 +38,7 @@ pub fn str_to_fr(input: &str, radix: u32) -> Result<Fr> {
     }
 }
 
+#[inline(always)]
 pub fn bytes_le_to_fr(input: &[u8]) -> (Fr, usize) {
     let el_size = fr_byte_size();
     (
@@ -45,37 +47,44 @@ pub fn bytes_le_to_fr(input: &[u8]) -> (Fr, usize) {
     )
 }
 
+#[inline(always)]
 pub fn fr_to_bytes_le(input: &Fr) -> Vec<u8> {
     let input_biguint: BigUint = (*input).into();
     let mut res = input_biguint.to_bytes_le();
     //BigUint conversion ignores most significant zero bytes. We restore them otherwise serialization will fail (length % 8 != 0)
-    while res.len() != fr_byte_size() {
-        res.push(0);
-    }
+    res.resize(fr_byte_size(), 0);
     res
 }
 
+#[inline(always)]
 pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Result<Vec<u8>> {
-    let mut bytes: Vec<u8> = Vec::new();
-    //We store the vector length
-    bytes.extend(u64::try_from(input.len())?.to_le_bytes().to_vec());
+    let mut bytes = Vec::with_capacity(8 + input.len() * fr_byte_size());
+
+    // We store the vector length
+    bytes.extend_from_slice(&normalize_usize(input.len()));
 
     // We store each element
-    input.iter().for_each(|el| bytes.extend(fr_to_bytes_le(el)));
+    for el in input {
+        bytes.extend_from_slice(&fr_to_bytes_le(el));
+    }
 
     Ok(bytes)
 }
 
+#[inline(always)]
 pub fn vec_u8_to_bytes_le(input: &[u8]) -> Result<Vec<u8>> {
-    let mut bytes: Vec<u8> = Vec::new();
-    //We store the vector length
-    bytes.extend(u64::try_from(input.len())?.to_le_bytes().to_vec());
+    let mut bytes = Vec::with_capacity(8 + input.len());
 
-    bytes.extend(input);
+    // We store the vector length
+    bytes.extend_from_slice(&normalize_usize(input.len()));
+
+    // We store the input
+    bytes.extend_from_slice(input);
 
     Ok(bytes)
 }
 
+#[inline(always)]
 pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize)> {
     let mut read: usize = 0;
 
@@ -88,6 +97,7 @@ pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize)> {
     Ok((res, read))
 }
 
+#[inline(always)]
 pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize)> {
     let mut read: usize = 0;
     let mut res: Vec<Fr> = Vec::new();
@@ -105,12 +115,7 @@ pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize)> {
     Ok((res, read))
 }
 
-pub fn normalize_usize(input: usize) -> Vec<u8> {
-    let mut normalized_usize = input.to_le_bytes().to_vec();
-    normalized_usize.resize(8, 0);
-    normalized_usize
-}
-
+#[inline(always)]
 pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>> {
     let nof_elem = usize::try_from(u64::from_le_bytes(input[0..8].try_into()?))?;
     if nof_elem == 0 {
@@ -124,7 +129,12 @@ pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>> {
     }
 }
 
-// using for test
+#[inline(always)]
+pub fn normalize_usize(input: usize) -> [u8; 8] {
+    input.to_le_bytes()
+}
+
+#[inline(always)] // using for test
 pub fn generate_input_buffer() -> Cursor<String> {
     Cursor::new(json!({}).to_string())
 }

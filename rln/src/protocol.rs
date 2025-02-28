@@ -105,7 +105,8 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>> {
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
     let mut serialized: Vec<u8> = Vec::with_capacity(
-        160 + 32 * rln_witness.path_elements.len() + rln_witness.identity_path_index.len(),
+        fr_byte_size() * (5 + rln_witness.path_elements.len())
+            + rln_witness.identity_path_index.len(),
     );
 
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.identity_secret));
@@ -311,7 +312,7 @@ pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> Result<RLNPro
 
 /// input_data is [ root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
 pub fn serialize_proof_values(rln_proof_values: &RLNProofValues) -> Vec<u8> {
-    let mut serialized = Vec::with_capacity(160);
+    let mut serialized = Vec::with_capacity(fr_byte_size() * 5);
 
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.root));
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.external_nullifier));
@@ -363,7 +364,7 @@ pub fn prepare_prove_input(
     external_nullifier: Fr,
     signal: &[u8],
 ) -> Vec<u8> {
-    let mut serialized = Vec::with_capacity(144 + signal.len());
+    let mut serialized = Vec::with_capacity(fr_byte_size() * 4 + 16 + signal.len());
 
     serialized.extend_from_slice(&fr_to_bytes_le(&identity_secret));
     serialized.extend_from_slice(&normalize_usize(id_index));
