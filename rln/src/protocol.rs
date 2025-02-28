@@ -108,13 +108,13 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>> {
         160 + 32 * rln_witness.path_elements.len() + rln_witness.identity_path_index.len(),
     );
 
-    serialized.extend_from_slice(&mut fr_to_bytes_le(&rln_witness.identity_secret));
-    serialized.extend_from_slice(&mut fr_to_bytes_le(&rln_witness.user_message_limit));
-    serialized.extend_from_slice(&mut fr_to_bytes_le(&rln_witness.message_id));
-    serialized.extend_from_slice(&mut vec_fr_to_bytes_le(&rln_witness.path_elements)?);
-    serialized.extend_from_slice(&mut vec_u8_to_bytes_le(&rln_witness.identity_path_index)?);
-    serialized.extend_from_slice(&mut fr_to_bytes_le(&rln_witness.x));
-    serialized.extend_from_slice(&mut fr_to_bytes_le(&rln_witness.external_nullifier));
+    serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.identity_secret));
+    serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.user_message_limit));
+    serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.message_id));
+    serialized.extend_from_slice(&vec_fr_to_bytes_le(&rln_witness.path_elements)?);
+    serialized.extend_from_slice(&vec_u8_to_bytes_le(&rln_witness.identity_path_index)?);
+    serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.x));
+    serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.external_nullifier));
 
     Ok(serialized)
 }
