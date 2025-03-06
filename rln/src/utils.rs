@@ -58,6 +58,9 @@ pub fn fr_to_bytes_le(input: &Fr) -> Vec<u8> {
 
 #[inline(always)]
 pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Result<Vec<u8>> {
+    // Calculate capacity for Vec:
+    // - 8 bytes for normalized vector length (usize)
+    // - each Fr element requires fr_byte_size() bytes (typically 32 bytes)
     let mut bytes = Vec::with_capacity(8 + input.len() * fr_byte_size());
 
     // We store the vector length
@@ -73,6 +76,9 @@ pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Result<Vec<u8>> {
 
 #[inline(always)]
 pub fn vec_u8_to_bytes_le(input: &[u8]) -> Result<Vec<u8>> {
+    // Calculate capacity for Vec:
+    // - 8 bytes for normalized vector length (usize)
+    // - variable length input data
     let mut bytes = Vec::with_capacity(8 + input.len());
 
     // We store the vector length

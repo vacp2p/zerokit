@@ -102,13 +102,17 @@ pub fn deserialize_identity_tuple(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
 /// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
 /// input data is [ identity_secret<32> | user_message_limit<32> | message_id<32> | path_elements[<32>] | identity_path_index<8> | x<32> | external_nullifier<32> ]
 pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>> {
+    // Check if message_id is within user_message_limit
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
+    // Calculate capacity for Vec:
+    // - 5 fixed field elements: identity_secret, user_message_limit, message_id, x, external_nullifier
+    // - variable number of path elements
+    // - identity_path_index (variable size)
     let mut serialized: Vec<u8> = Vec::with_capacity(
         fr_byte_size() * (5 + rln_witness.path_elements.len())
             + rln_witness.identity_path_index.len(),
     );
-
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.identity_secret));
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.user_message_limit));
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.message_id));
@@ -312,6 +316,8 @@ pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> Result<RLNPro
 
 /// input_data is [ root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
 pub fn serialize_proof_values(rln_proof_values: &RLNProofValues) -> Vec<u8> {
+    // Calculate capacity for Vec:
+    // 5 field elements: root, external_nullifier, x, y, nullifier
     let mut serialized = Vec::with_capacity(fr_byte_size() * 5);
 
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.root));
@@ -364,7 +370,11 @@ pub fn prepare_prove_input(
     external_nullifier: Fr,
     signal: &[u8],
 ) -> Vec<u8> {
-    let mut serialized = Vec::with_capacity(fr_byte_size() * 4 + 16 + signal.len());
+    // Calculate capacity for Vec:
+    // - 4 field elements: identity_secret, user_message_limit, message_id, external_nullifier
+    // - 16 bytes for two normalized usize values (id_index<8> + signal_len<8>)
+    // - variable length signal data
+    let mut serialized = Vec::with_capacity(fr_byte_size() * 4 + 16 + signal.len()); // length of 4 fr elements + 16 bytes (id_index + len) + signal length
 
     serialized.extend_from_slice(&fr_to_bytes_le(&identity_secret));
     serialized.extend_from_slice(&normalize_usize(id_index));
@@ -379,6 +389,10 @@ pub fn prepare_prove_input(
 
 // input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
 pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Vec<u8> {
+    // Calculate capacity for Vec:
+    // - proof_data contains the proof and proof values (proof<128> + root<32> + external_nullifier<32> + x<32> + y<32> + nullifier<32>)
+    // - 8 bytes for normalized signal length value (signal_len<8>)
+    // - variable length signal data
     let mut serialized = Vec::with_capacity(proof_data.len() + 8 + signal.len());
 
     serialized.extend(proof_data);
