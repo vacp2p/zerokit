@@ -64,7 +64,7 @@ pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<(ProvingKey<Curve>, ConstraintM
 
     let proving_key_and_matrices = match () {
         #[cfg(feature = "arkzkey")]
-        () => read_arkzkey_from_bytes_compressed(zkey_data)?,
+        () => read_arkzkey_from_bytes_uncompressed(zkey_data)?,
         #[cfg(not(feature = "arkzkey"))]
         () => {
             let mut reader = Cursor::new(zkey_data);
