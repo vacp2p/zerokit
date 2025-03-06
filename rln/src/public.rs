@@ -789,26 +789,25 @@ impl RLN {
     /// let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
     /// rln.set_leaf(identity_index, &mut buffer).unwrap();
     ///
-    /// // We generate a random signal
-    /// let mut rng = rand::thread_rng();
-    /// let signal: [u8; 32] = rng.gen();
-    ///
     /// // We generate a random epoch
     /// let epoch = hash_to_field(b"test-epoch");
     /// // We generate a random rln_identifier
     /// let rln_identifier = hash_to_field(b"test-rln-identifier");
-    /// let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+    /// // We generate a external nullifier
+    /// let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
+    /// // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
+    /// let message_id = Fr::from(1);
     ///
     /// // We prepare input for generate_rln_proof API
     /// // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
-    /// let mut serialized: Vec<u8> = Vec::new();
-    /// serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
-    /// serialized.append(&mut normalize_usize(identity_index));
-    /// serialized.append(&mut fr_to_bytes_le(&user_message_limit));
-    /// serialized.append(&mut fr_to_bytes_le(&Fr::from(1))); // message_id
-    /// serialized.append(&mut fr_to_bytes_le(&external_nullifier));
-    /// serialized.append(&mut normalize_usize(signal_len).resize(8,0));
-    /// serialized.append(&mut signal.to_vec());
+    /// let prove_input = prepare_prove_input(
+    ///     identity_secret_hash,
+    ///     identity_index,
+    ///     user_message_limit,
+    ///     message_id,
+    ///     external_nullifier,
+    ///     &signal,
+    /// );
     ///
     /// let mut input_buffer = Cursor::new(serialized);
     /// let mut output_buffer = Cursor::new(Vec::<u8>::new());
@@ -883,10 +882,9 @@ impl RLN {
     /// // We prepare input for verify_rln_proof API
     /// // input_data is  `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var>]`
     /// // that is [ proof_data || signal_len<8> | signal<var> ]
-    /// proof_data.append(&mut normalize_usize(signal_len));
-    /// proof_data.append(&mut signal.to_vec());
+    /// let verify_input = prepare_verify_input(proof_data, &signal);
     ///
-    /// let mut input_buffer = Cursor::new(proof_data);
+    /// let mut input_buffer = Cursor::new(verify_input);
     /// let verified = rln.verify_rln_proof(&mut input_buffer).unwrap();
     ///
     /// assert!(verified);
@@ -962,7 +960,7 @@ impl RLN {
     /// roots_serialized.append(&mut fr_to_bytes_le(&root));
     /// roots_buffer = Cursor::new(roots_serialized.clone());
     /// let verified = rln
-    ///     .verify_with_roots(&mut input_buffer.clone(), &mut roots_buffer)
+    ///     .verify_with_roots(&mut input_buffer, &mut roots_buffer)
     ///     .unwrap();
     ///
     /// assert!(verified);

@@ -10,9 +10,9 @@ use color_eyre::{eyre::eyre, Result};
 use rln::{
     circuit::Fr,
     hashers::{hash_to_field, poseidon_hash},
-    protocol::{deserialize_field_element, keygen, prepare_verify_input},
+    protocol::{keygen, prepare_prove_input, prepare_verify_input},
     public::RLN,
-    utils::{bytes_le_to_fr, fr_to_bytes_le, generate_input_buffer, normalize_usize},
+    utils::{bytes_le_to_fr, fr_to_bytes_le, generate_input_buffer},
 };
 
 const MESSAGE_LIMIT: u32 = 1;
@@ -142,26 +142,14 @@ impl RLNSystem {
             None => return Err(eyre!("user index {user_index} not found")),
         };
 
-        let mut input_buffer = Cursor::new(Vec::new());
-        self.rln.get_leaf(user_index, &mut input_buffer)?;
-        let stored_rate_commitment = deserialize_field_element(input_buffer.into_inner());
-
-        let expected_rate_commitment =
-            poseidon_hash(&[identity.id_commitment, Fr::from(MESSAGE_LIMIT)]);
-
-        if stored_rate_commitment != expected_rate_commitment {
-            return Err(eyre!("user mismatch in merkle tree"));
-        }
-
-        let mut serialized = Vec::new();
-        serialized.append(&mut fr_to_bytes_le(&identity.identity_secret_hash));
-        serialized.append(&mut normalize_usize(user_index));
-        serialized.append(&mut fr_to_bytes_le(&Fr::from(MESSAGE_LIMIT)));
-        serialized.append(&mut fr_to_bytes_le(&Fr::from(message_id)));
-        serialized.append(&mut fr_to_bytes_le(&external_nullifier));
-        serialized.append(&mut normalize_usize(signal.len()));
-        serialized.append(&mut signal.as_bytes().to_vec());
-
+        let serialized = prepare_prove_input(
+            identity.identity_secret_hash,
+            user_index,
+            Fr::from(MESSAGE_LIMIT),
+            Fr::from(message_id),
+            external_nullifier,
+            signal.as_bytes(),
+        );
         let mut input_buffer = Cursor::new(serialized);
         let mut output_buffer = Cursor::new(Vec::new());
         self.rln
