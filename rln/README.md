@@ -24,7 +24,7 @@ rln = { git = "https://github.com/vacp2p/zerokit" }
 
 ## Basic Usage Example
 
-Note that we need to pass to RLN object constructor the path where the graph file (`graph.bin`, built for the input tree size), the corresponding proving key (`rln_final.zkey`) or (`rln_final_uncompr.arkzkey`) are found.
+Note that we need to pass to RLN object constructor the path where the graph file (`graph.bin`, built for the input tree size), the corresponding proving key (`rln_final.zkey`) are found.
 
 In the following we will use [cursors](https://doc.rust-lang.org/std/io/struct.Cursor.html) as readers/writers for interfacing with RLN public APIs.
 
