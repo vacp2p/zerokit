@@ -69,7 +69,7 @@ impl RLNSystem {
         let mut resources: Vec<Vec<u8>> = Vec::new();
         let resources_path: PathBuf = format!("../rln/resources/tree_height_{TREEE_HEIGHT}").into();
         #[cfg(feature = "arkzkey")]
-        let filenames = ["rln_final.arkzkey", "graph.bin"];
+        let filenames = ["rln_final_uncompr.arkzkey", "graph.bin"];
         #[cfg(not(feature = "arkzkey"))]
         let filenames = ["rln_final.zkey", "graph.bin"];
         for filename in filenames {

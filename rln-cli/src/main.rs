@@ -52,7 +52,7 @@ fn main() -> Result<()> {
         }) => {
             let mut resources: Vec<Vec<u8>> = Vec::new();
             #[cfg(feature = "arkzkey")]
-            let filenames = ["rln_final.arkzkey", "graph.bin"];
+            let filenames = ["rln_final_uncompr.arkzkey", "graph.bin"];
             #[cfg(not(feature = "arkzkey"))]
             let filenames = ["rln_final.zkey", "graph.bin"];
             for filename in filenames {
