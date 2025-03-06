@@ -8,13 +8,15 @@ use ark_bn254::{
 };
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
-use ark_serialize::CanonicalDeserialize;
 use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
 use num_bigint::BigInt;
 
 #[cfg(feature = "arkzkey")]
-use {ark_ff::Field, ark_serialize::CanonicalSerialize, color_eyre::eyre::WrapErr};
+use {
+    ark_ff::Field, ark_serialize::CanonicalDeserialize, ark_serialize::CanonicalSerialize,
+    color_eyre::eyre::WrapErr,
+};
 
 #[cfg(not(feature = "arkzkey"))]
 use {ark_circom::read_zkey, std::io::Cursor};
@@ -26,7 +28,6 @@ pub const ARKZKEY_BYTES_UNCOMPR: &[u8] =
     include_bytes!("../resources/tree_height_20/rln_final_uncompr.arkzkey");
 
 pub const ZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.zkey");
-pub const VK_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/verification_key.arkvkey");
 const GRAPH_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/graph.bin");
 
 lazy_static! {
@@ -40,8 +41,6 @@ lazy_static! {
                 }
         }
     };
-    static ref VK: VerifyingKey<Curve> =
-        vk_from_ark_serialized(VK_BYTES).expect("Failed to read vk");
 }
 
 pub const TEST_TREE_HEIGHT: usize = 20;
@@ -82,29 +81,13 @@ pub fn zkey_from_folder() -> &'static (ProvingKey<Curve>, ConstraintMatrices<Fr>
 }
 
 // Loads the verification key from a bytes vector
-pub fn vk_from_raw(vk_data: &[u8], zkey_data: &[u8]) -> Result<VerifyingKey<Curve>> {
-    if !vk_data.is_empty() {
-        return vk_from_ark_serialized(vk_data);
-    }
-
+pub fn vk_from_raw(zkey_data: &[u8]) -> Result<VerifyingKey<Curve>> {
     if !zkey_data.is_empty() {
         let (proving_key, _matrices) = zkey_from_raw(zkey_data)?;
         return Ok(proving_key.vk);
     }
 
     Err(Report::msg("No proving/verification key found!"))
-}
-
-// Loads the verification key
-pub fn vk_from_folder() -> &'static VerifyingKey<Curve> {
-    &VK
-}
-
-// Computes the verification key from a bytes vector containing pre-processed ark-serialized verification key
-// uncompressed, unchecked
-pub fn vk_from_ark_serialized(data: &[u8]) -> Result<VerifyingKey<Curve>> {
-    let vk = VerifyingKey::<Curve>::deserialize_uncompressed_unchecked(data)?;
-    Ok(vk)
 }
 
 // Checks verification key to be correct with respect to proving key

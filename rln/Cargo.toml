@@ -99,10 +99,6 @@ harness = false
 required-features = ["arkzkey"]
 
 [[bench]]
-name = "circuit_deser_benchmark"
-harness = false
-
-[[bench]]
 name = "poseidon_tree_benchmark"
 harness = false
 

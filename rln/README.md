@@ -24,7 +24,7 @@ rln = { git = "https://github.com/vacp2p/zerokit" }
 
 ## Basic Usage Example
 
-Note that we need to pass to RLN object constructor the path where the graph file (`graph.bin`, built for the input tree size), the corresponding proving key (`rln_final.zkey`) or (`rln_final_uncompr.arkzkey`) and verification key (`verification_key.arkvkey`, optional) are found.
+Note that we need to pass to RLN object constructor the path where the graph file (`graph.bin`, built for the input tree size), the corresponding proving key (`rln_final.zkey`) or (`rln_final_uncompr.arkzkey`) are found.
 
 In the following we will use [cursors](https://doc.rust-lang.org/std/io/struct.Cursor.html) as readers/writers for interfacing with RLN public APIs.
 
@@ -168,17 +168,17 @@ component main { public [x, externalNullifier] } = RLN(N, M); // N = tree height
 #### Generate the zkey and verification key files example
 
 ```sh
-# Clone the circom-rln repository
-git clone https://github.com/rate-limiting-nullifier/circom-rln
+# Clone the circom-rln repository into the same directory as zerokit
+git clone https://github.com/rate-limiting-nullifier/circom-rln && cd circom-rln
 
 # Install dependencies
-cd circom-rln && npm install
+npm install
 
 # Build circuits
 ./scripts/build-circuits.sh rln
 
 # Copy assets to resources directory
-cp build/zkeyFiles/final.zkey ./resources/tree_height_20/rln_final.zkey
+cp zkeyFiles/rln/final.zkey ../zerokit/rln/resources/tree_height_20/rln_final.zkey
 ```
 
 ### 2. Generate Witness Calculation Graph
@@ -186,8 +186,8 @@ cp build/zkeyFiles/final.zkey ./resources/tree_height_20/rln_final.zkey
 The execution graph file used for witness calculation can be compiled following instructions in the [circom-witnesscalc](https://github.com/iden3/circom-witnesscalc) repository. As mentioned  in step 1, we should use rln.circom file from circom-rln repository.
 
 ```sh
-# Clone the circom-witnesscalc repository
-git clone https://github.com/iden3/circom-witnesscalc
+# Clone the circom-witnesscalc repository same directory as circom-rln
+git clone https://github.com/iden3/circom-witnesscalc && cd circom-witnesscalc
 
 # Load the submodules
 git submodule update --init --recursive
@@ -196,7 +196,7 @@ git submodule update --init --recursive
 cargo build
 
 # Generate the witness calculation graph
-cargo run --package circom_witnesscalc --bin build-circuit ../circom-rln/circuits/rln.circom <path_to_graph.bin>
+cargo run --package circom_witnesscalc --bin build-circuit ../circom-rln/circuits/rln.circom ../zerokit/rln/resources/tree_height_20/graph.bin
 ```
 
 The `rln` module comes with [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) execution graph files for the RLN circuit.
@@ -204,6 +204,17 @@ The `rln` module comes with [pre-compiled](https://github.com/vacp2p/zerokit/tre
 ### 3. Generate Arkzkey Representation for zkey and verification key files
 
 For faster loading, compile the zkey file into the arkzkey format using [ark-zkey](https://github.com/zkmopro/ark-zkey).
+
+```sh
+# Clone the ark-zkey repository into the same directory as zerokit
+git clone https://github.com/zkmopro/ark-zkey.git && cd ark-zkey
+
+# Build the ark-zkey tool
+cargo build
+
+# Generate the arkzkey representation for the zkey file
+cargo run --bin arkzkey-util ../zerokit/rln/resources/tree_height_20/rln_final.zkey
+```
 
 Currently, the `rln` module comes with [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) arkzkey keys for the RLN circuit.
 

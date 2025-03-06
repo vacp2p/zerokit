@@ -52,9 +52,9 @@ fn main() -> Result<()> {
         }) => {
             let mut resources: Vec<Vec<u8>> = Vec::new();
             #[cfg(feature = "arkzkey")]
-            let filenames = ["rln_final.arkzkey", "verification_key.arkvkey", "graph.bin"];
+            let filenames = ["rln_final.arkzkey", "graph.bin"];
             #[cfg(not(feature = "arkzkey"))]
-            let filenames = ["rln_final.zkey", "verification_key.arkvkey", "graph.bin"];
+            let filenames = ["rln_final.zkey", "graph.bin"];
             for filename in filenames {
                 let fullpath = resources_path.join(Path::new(filename));
                 let mut file = File::open(&fullpath)?;
@@ -74,7 +74,6 @@ fn main() -> Result<()> {
                     tree_height,
                     resources[0].clone(),
                     resources[1].clone(),
-                    resources[2].clone(),
                     Cursor::new(tree_config.to_string().as_bytes()),
                 )?)
             } else {
@@ -83,7 +82,6 @@ fn main() -> Result<()> {
                     tree_height,
                     resources[0].clone(),
                     resources[1].clone(),
-                    resources[2].clone(),
                     Cursor::new(json!({}).to_string()),
                 )?)
             };
