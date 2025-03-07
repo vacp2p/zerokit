@@ -8,6 +8,7 @@ use crate::public::{hash as public_hash, poseidon_hash as public_poseidon_hash, 
 // First argument to the macro is context,
 // second is the actual method on `RLN`
 // rest are all other arguments to the method
+#[cfg(not(feature = "stateless"))]
 macro_rules! call {
     ($instance:expr, $method:ident $(, $arg:expr)*) => {
         {
@@ -229,7 +230,6 @@ pub extern "C" fn new(ctx: *mut *mut RLN) -> bool {
 pub extern "C" fn new_with_params(
     tree_height: usize,
     zkey_buffer: *const Buffer,
-    vk_buffer: *const Buffer,
     graph_data: *const Buffer,
     tree_config: *const Buffer,
     ctx: *mut *mut RLN,
@@ -237,7 +237,6 @@ pub extern "C" fn new_with_params(
     match RLN::new_with_params(
         tree_height,
         zkey_buffer.process().to_vec(),
-        vk_buffer.process().to_vec(),
         graph_data.process().to_vec(),
         tree_config.process(),
     ) {
@@ -257,13 +256,11 @@ pub extern "C" fn new_with_params(
 #[no_mangle]
 pub extern "C" fn new_with_params(
     zkey_buffer: *const Buffer,
-    vk_buffer: *const Buffer,
     graph_buffer: *const Buffer,
     ctx: *mut *mut RLN,
 ) -> bool {
     match RLN::new_with_params(
         zkey_buffer.process().to_vec(),
-        vk_buffer.process().to_vec(),
         graph_buffer.process().to_vec(),
     ) {
         Ok(rln) => {

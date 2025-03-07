@@ -1,11 +1,15 @@
 /// This is the main public API for RLN module. It is used by the FFI, and should be
 /// used by tests etc. as well
-use crate::circuit::{
-    graph_from_folder, vk_from_folder, vk_from_raw, zkey_from_folder, zkey_from_raw, Curve, Fr,
-    TEST_TREE_HEIGHT,
+#[cfg(not(feature = "stateless"))]
+use {
+    crate::{circuit::TEST_TREE_HEIGHT, poseidon_tree::PoseidonTree},
+    serde_json::{json, Value},
+    std::str::FromStr,
+    utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
 };
+
+use crate::circuit::{graph_from_folder, vk_from_raw, zkey_from_folder, zkey_from_raw, Curve, Fr};
 use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
-use crate::poseidon_tree::PoseidonTree;
 use crate::protocol::*;
 use crate::utils::*;
 
@@ -13,11 +17,7 @@ use ark_groth16::{Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 use color_eyre::{Report, Result};
-use serde_json::{json, Value};
-use std::{default::Default, io::Cursor, str::FromStr};
-
-#[cfg(not(feature = "stateless"))]
-use utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
+use std::{default::Default, io::Cursor};
 
 /// The application-specific RLN identifier.
 ///
@@ -64,7 +64,7 @@ impl RLN {
         let tree_config = rln_config["tree_config"].to_string();
 
         let proving_key = zkey_from_folder();
-        let verification_key = vk_from_folder();
+        let verification_key = &proving_key.0.vk;
         let graph_data = graph_from_folder();
 
         let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = if tree_config.is_empty() {
@@ -101,7 +101,7 @@ impl RLN {
     #[cfg(feature = "stateless")]
     pub fn new() -> Result<RLN> {
         let proving_key = zkey_from_folder();
-        let verification_key = vk_from_folder();
+        let verification_key = &proving_key.0.vk;
         let graph_data = graph_from_folder();
 
         Ok(RLN {
@@ -116,7 +116,6 @@ impl RLN {
     /// Input parameters are
     /// - `tree_height`: the height of the internal Merkle tree
     /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`)  or (`rln_final.arkzkey`) as binary file
-    /// - `vk_vec`: a byte vector containing to the verification key (`verification_key.arkvkey`) as binary file
     /// - `tree_config_input`: a reader for a string containing a json with the merkle tree configuration
     ///
     /// Example:
@@ -128,7 +127,7 @@ impl RLN {
     /// let resources_folder = "./resources/tree_height_20/";
     ///
     /// let mut resources: Vec<Vec<u8>> = Vec::new();
-    /// for filename in ["rln_final.zkey", "verification_key.arkvkey", "graph.bin"] {
+    /// for filename in ["rln_final.zkey", "graph.bin"] {
     ///     let fullpath = format!("{resources_folder}{filename}");
     ///     let mut file = File::open(&fullpath).expect("no file found");
     ///     let metadata = std::fs::metadata(&fullpath).expect("unable to read metadata");
@@ -152,12 +151,11 @@ impl RLN {
     pub fn new_with_params<R: Read>(
         tree_height: usize,
         zkey_vec: Vec<u8>,
-        vk_vec: Vec<u8>,
         graph_data: Vec<u8>,
         mut tree_config_input: R,
     ) -> Result<RLN> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
-        let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
+        let verification_key = vk_from_raw(&zkey_vec)?;
 
         let mut tree_config_vec: Vec<u8> = Vec::new();
         tree_config_input.read_to_end(&mut tree_config_vec)?;
@@ -189,7 +187,6 @@ impl RLN {
     ///
     /// Input parameters are
     /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`)  or (`rln_final.arkzkey`) as binary file
-    /// - `vk_vec`: a byte vector containing to the verification key (`verification_key.arkvkey`) as binary file
     ///
     /// Example:
     /// ```
@@ -199,7 +196,7 @@ impl RLN {
     /// let resources_folder = "./resources/tree_height_20/";
     ///
     /// let mut resources: Vec<Vec<u8>> = Vec::new();
-    /// for filename in ["rln_final.zkey", "verification_key.arkvkey", "graph.bin"] {
+    /// for filename in ["rln_final.zkey", "graph.bin"] {
     ///     let fullpath = format!("{resources_folder}{filename}");
     ///     let mut file = File::open(&fullpath).expect("no file found");
     ///     let metadata = std::fs::metadata(&fullpath).expect("unable to read metadata");
@@ -215,9 +212,9 @@ impl RLN {
     /// );
     /// ```
     #[cfg(feature = "stateless")]
-    pub fn new_with_params(zkey_vec: Vec<u8>, vk_vec: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN> {
+    pub fn new_with_params(zkey_vec: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
-        let verification_key = vk_from_raw(&vk_vec, &zkey_vec)?;
+        let verification_key = vk_from_raw(&zkey_vec)?;
 
         Ok(RLN {
             proving_key,
@@ -793,26 +790,25 @@ impl RLN {
     /// let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
     /// rln.set_leaf(identity_index, &mut buffer).unwrap();
     ///
-    /// // We generate a random signal
-    /// let mut rng = rand::thread_rng();
-    /// let signal: [u8; 32] = rng.gen();
-    ///
     /// // We generate a random epoch
     /// let epoch = hash_to_field(b"test-epoch");
     /// // We generate a random rln_identifier
     /// let rln_identifier = hash_to_field(b"test-rln-identifier");
-    /// let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+    /// // We generate a external nullifier
+    /// let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
+    /// // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
+    /// let message_id = Fr::from(1);
     ///
     /// // We prepare input for generate_rln_proof API
     /// // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
-    /// let mut serialized: Vec<u8> = Vec::new();
-    /// serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
-    /// serialized.append(&mut normalize_usize(identity_index));
-    /// serialized.append(&mut fr_to_bytes_le(&user_message_limit));
-    /// serialized.append(&mut fr_to_bytes_le(&Fr::from(1))); // message_id
-    /// serialized.append(&mut fr_to_bytes_le(&external_nullifier));
-    /// serialized.append(&mut normalize_usize(signal_len).resize(8,0));
-    /// serialized.append(&mut signal.to_vec());
+    /// let prove_input = prepare_prove_input(
+    ///     identity_secret_hash,
+    ///     identity_index,
+    ///     user_message_limit,
+    ///     message_id,
+    ///     external_nullifier,
+    ///     &signal,
+    /// );
     ///
     /// let mut input_buffer = Cursor::new(serialized);
     /// let mut output_buffer = Cursor::new(Vec::<u8>::new());
@@ -887,10 +883,9 @@ impl RLN {
     /// // We prepare input for verify_rln_proof API
     /// // input_data is  `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var>]`
     /// // that is [ proof_data || signal_len<8> | signal<var> ]
-    /// proof_data.append(&mut normalize_usize(signal_len));
-    /// proof_data.append(&mut signal.to_vec());
+    /// let verify_input = prepare_verify_input(proof_data, &signal);
     ///
-    /// let mut input_buffer = Cursor::new(proof_data);
+    /// let mut input_buffer = Cursor::new(verify_input);
     /// let verified = rln.verify_rln_proof(&mut input_buffer).unwrap();
     ///
     /// assert!(verified);
@@ -966,7 +961,7 @@ impl RLN {
     /// roots_serialized.append(&mut fr_to_bytes_le(&root));
     /// roots_buffer = Cursor::new(roots_serialized.clone());
     /// let verified = rln
-    ///     .verify_with_roots(&mut input_buffer.clone(), &mut roots_buffer)
+    ///     .verify_with_roots(&mut input_buffer, &mut roots_buffer)
     ///     .unwrap();
     ///
     /// assert!(verified);
