@@ -8,6 +8,7 @@ use crate::public::{hash as public_hash, poseidon_hash as public_poseidon_hash, 
 // First argument to the macro is context,
 // second is the actual method on `RLN`
 // rest are all other arguments to the method
+#[cfg(not(feature = "stateless"))]
 macro_rules! call {
     ($instance:expr, $method:ident $(, $arg:expr)*) => {
         {

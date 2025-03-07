@@ -1,10 +1,15 @@
 /// This is the main public API for RLN module. It is used by the FFI, and should be
 /// used by tests etc. as well
-use crate::circuit::{
-    graph_from_folder, vk_from_raw, zkey_from_folder, zkey_from_raw, Curve, Fr, TEST_TREE_HEIGHT,
+#[cfg(not(feature = "stateless"))]
+use {
+    crate::{circuit::TEST_TREE_HEIGHT, poseidon_tree::PoseidonTree},
+    serde_json::{json, Value},
+    std::str::FromStr,
+    utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
 };
+
+use crate::circuit::{graph_from_folder, vk_from_raw, zkey_from_folder, zkey_from_raw, Curve, Fr};
 use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
-use crate::poseidon_tree::PoseidonTree;
 use crate::protocol::*;
 use crate::utils::*;
 
@@ -12,11 +17,7 @@ use ark_groth16::{Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 use color_eyre::{Report, Result};
-use serde_json::{json, Value};
-use std::{default::Default, io::Cursor, str::FromStr};
-
-#[cfg(not(feature = "stateless"))]
-use utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
+use std::{default::Default, io::Cursor};
 
 /// The application-specific RLN identifier.
 ///

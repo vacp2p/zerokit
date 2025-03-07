@@ -203,7 +203,7 @@ The `rln` module comes with [pre-compiled](https://github.com/vacp2p/zerokit/tre
 
 ### 3. Generate Arkzkey Representation for zkey and verification key files
 
-For faster loading, compile the zkey file into the arkzkey format using [ark-zkey](https://github.com/zkmopro/ark-zkey).
+For faster loading, compile the zkey file into the arkzkey format using [ark-zkey](https://github.com/seemenkina/ark-zkey). This is fork of the [original](https://github.com/zkmopro/ark-zkey) repository with the uncompressed zkey support.
 
 ```sh
 # Clone the ark-zkey repository into the same directory as zerokit
