@@ -32,8 +32,10 @@ This crate provides an implementation to compute the Poseidon hash round constan
 The MDS matrices are generated iteratively using the Grain LFSR until certain criteria are met.
 According to the paper, such matrices must respect specific conditions which are checked by 3 different algorithms in the reference implementation.
 
-These validation algorithms are not currently implemented in this crate. For the hardcoded parameters, the first random matrix generated satisfies these conditions.
-If using different parameters, you should check against the reference implementation how many matrices are generated before outputting the correct one, and pass this number to the `skip_matrices` parameter of the `find_poseidon_ark_and_mds` function.
+These validation algorithms are not currently implemented in this crate.
+For the hardcoded parameters, the first random matrix generated satisfies these conditions.
+If using different parameters, you should check against the reference implementation how many matrices are generated before outputting the correct one,
+and pass this number to the `skip_matrices` parameter of the `find_poseidon_ark_and_mds` function.
 
 ## Installation
 
