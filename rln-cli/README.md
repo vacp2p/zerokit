@@ -55,7 +55,7 @@ cargo run --example relay --features arkzkey
 
 You can also change **MESSAGE_LIMIT** and **TREEE_HEIGHT** in the [relay.rs](src/examples/relay.rs) file to see how the RLN instance behaves with different parameters.
 
-The customize **TREEE_HEIGHT** constant differs from the default value of `10` and `20` should follow [Custom Circuit Compilation](../rln/README.md#advanced-custom-circuit-compilation) instructions.
+The customize **TREEE_HEIGHT** constant differs from the default value of `20` should follow [Custom Circuit Compilation](../rln/README.md#advanced-custom-circuit-compilation) instructions.
 
 ## Stateless Example
 
