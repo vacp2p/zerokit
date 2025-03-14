@@ -240,7 +240,7 @@ For faster loading, compile the zkey file into the arkzkey format using [ark-zke
 
 ```sh
 # Clone the ark-zkey repository
-git clone https://github.com/zkmopro/ark-zkey.git
+git clone https://github.com/seemenkina/ark-zkey.git
 
 # Build the ark-zkey tool
 cd ark-zkey && cargo build
