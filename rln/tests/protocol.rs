@@ -2,7 +2,7 @@
 mod test {
     use ark_ff::BigInt;
     use rln::circuit::{graph_from_folder, zkey_from_folder};
-    use rln::circuit::{vk_from_folder, Fr, TEST_TREE_HEIGHT};
+    use rln::circuit::{Fr, TEST_TREE_HEIGHT};
     use rln::hashers::{hash_to_field, poseidon_hash};
     use rln::poseidon_tree::PoseidonTree;
     use rln::protocol::*;
@@ -128,7 +128,7 @@ mod test {
     fn test_witness_from_json() {
         // We generate all relevant keys
         let proving_key = zkey_from_folder();
-        let verification_key = vk_from_folder();
+        let verification_key = &proving_key.0.vk;
         let graph_data = graph_from_folder();
         // We compute witness from the json input
         let rln_witness = get_test_witness();
@@ -156,7 +156,7 @@ mod test {
 
         // We generate all relevant keys
         let proving_key = zkey_from_folder();
-        let verification_key = vk_from_folder();
+        let verification_key = &proving_key.0.vk;
         let graph_data = graph_from_folder();
 
         // Let's generate a zkSNARK proof

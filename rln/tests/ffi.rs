@@ -409,7 +409,7 @@ mod test {
         let root_rln_folder = get_tree_root(rln_pointer);
 
         #[cfg(feature = "arkzkey")]
-        let zkey_path = "./resources/tree_height_20/rln_final_uncompr.arkzkey";
+        let zkey_path = "./resources/tree_height_20/rln_final.arkzkey";
         #[cfg(not(feature = "arkzkey"))]
         let zkey_path = "./resources/tree_height_20/rln_final.zkey";
         let mut zkey_file = File::open(&zkey_path).expect("no file found");
@@ -419,14 +419,7 @@ mod test {
             .read_exact(&mut zkey_buffer)
             .expect("buffer overflow");
 
-        let vk_path = "./resources/tree_height_20/verification_key.arkvkey";
-        let mut vk_file = File::open(&vk_path).expect("no file found");
-        let metadata = std::fs::metadata(&vk_path).expect("unable to read metadata");
-        let mut vk_buffer = vec![0; metadata.len() as usize];
-        vk_file.read_exact(&mut vk_buffer).expect("buffer overflow");
-
         let zkey_data = &Buffer::from(&zkey_buffer[..]);
-        let vk_data = &Buffer::from(&vk_buffer[..]);
 
         let graph_data = "./resources/tree_height_20/graph.bin";
         let mut graph_file = File::open(&graph_data).expect("no file found");
@@ -445,7 +438,6 @@ mod test {
         let success = new_with_params(
             TEST_TREE_HEIGHT,
             zkey_data,
-            vk_data,
             graph_data,
             tree_config_buffer,
             rln_pointer_raw_bytes.as_mut_ptr(),
