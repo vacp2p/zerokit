@@ -1,16 +1,17 @@
 // This file is based on the code by iden3. Its preimage can be found here:
 // https://github.com/iden3/circom-witnesscalc/blob/5cb365b6e4d9052ecc69d4567fcf5bc061c20e94/src/storage.rs
 
-use crate::iden3calc::{
-    graph,
-    graph::{Operation, TresOperation, UnoOperation},
-    proto, InputSignalsInfo,
-};
 use ark_bn254::Fr;
 use ark_ff::PrimeField;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use prost::Message;
 use std::io::{Read, Write};
+
+use crate::iden3calc::{
+    graph,
+    graph::{Operation, TresOperation, UnoOperation},
+    proto, InputSignalsInfo,
+};
 
 // format of the wtns.graph file:
 // + magic line: wtns.graph.001

@@ -5,22 +5,22 @@ pub mod graph;
 pub mod proto;
 pub mod storage;
 
-use ark_bn254::Fr;
-use graph::Node;
-use num_bigint::BigInt;
 use ruint::aliases::U256;
 use std::collections::HashMap;
 use storage::deserialize_witnesscalc_graph;
 
+use crate::circuit::Fr;
+use graph::{fr_to_u256, Node};
+
 pub type InputSignalsInfo = HashMap<String, (usize, usize)>;
 
-pub fn calc_witness<I: IntoIterator<Item = (String, Vec<BigInt>)>>(
+pub fn calc_witness<I: IntoIterator<Item = (String, Vec<Fr>)>>(
     inputs: I,
     graph_data: &[u8],
 ) -> Vec<Fr> {
     let inputs: HashMap<String, Vec<U256>> = inputs
         .into_iter()
-        .map(|(key, value)| (key, value.iter().map(|v| U256::from(v)).collect()))
+        .map(|(key, value)| (key, value.iter().map(fr_to_u256).collect()))
         .collect();
 
     let (nodes, signals, input_mapping): (Vec<Node>, Vec<usize>, InputSignalsInfo) =
