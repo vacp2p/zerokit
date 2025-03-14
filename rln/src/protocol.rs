@@ -1,9 +1,9 @@
 // This crate collects all the underlying primitives used to implement RLN
 
+use ark_bn254::Fr;
 use ark_circom::CircomReduction;
 use ark_groth16::{prepare_verifying_key, Groth16, Proof as ArkProof, ProvingKey, VerifyingKey};
-use ark_relations::r1cs::ConstraintMatrices;
-use ark_relations::r1cs::SynthesisError;
+use ark_relations::r1cs::{ConstraintMatrices, SynthesisError};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::thread_rng, UniformRand};
 use color_eyre::{Report, Result};
@@ -16,9 +16,8 @@ use std::time::Instant;
 use thiserror::Error;
 use tiny_keccak::{Hasher as _, Keccak};
 
-use crate::circuit::{calculate_rln_witness, Curve, Fr};
-use crate::hashers::hash_to_field;
-use crate::hashers::poseidon_hash;
+use crate::circuit::{calculate_rln_witness, Curve};
+use crate::hashers::{hash_to_field, poseidon_hash};
 use crate::poseidon_tree::*;
 use crate::public::RLN_IDENTIFIER;
 use crate::utils::*;
@@ -606,40 +605,23 @@ pub fn generate_proof_with_witness(
 /// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
 pub fn inputs_for_witness_calculation(
     rln_witness: &RLNWitnessInput,
-) -> Result<[(&str, Vec<BigInt>); 7]> {
+) -> Result<[(&str, Vec<Fr>); 7]> {
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
-    // We convert the path indexes to field elements
-    // TODO: check if necessary
-    let mut path_elements = Vec::new();
-
-    for v in rln_witness.path_elements.iter() {
-        path_elements.push(to_bigint(v)?);
-    }
-
-    let mut identity_path_index = Vec::new();
+    let mut identity_path_index = Vec::with_capacity(rln_witness.identity_path_index.len());
     rln_witness
         .identity_path_index
         .iter()
-        .for_each(|v| identity_path_index.push(BigInt::from(*v)));
+        .for_each(|v| identity_path_index.push(Fr::from(*v)));
 
     Ok([
-        (
-            "identitySecret",
-            vec![to_bigint(&rln_witness.identity_secret)?],
-        ),
-        (
-            "userMessageLimit",
-            vec![to_bigint(&rln_witness.user_message_limit)?],
-        ),
-        ("messageId", vec![to_bigint(&rln_witness.message_id)?]),
-        ("pathElements", path_elements),
+        ("identitySecret", vec![rln_witness.identity_secret]),
+        ("userMessageLimit", vec![rln_witness.user_message_limit]),
+        ("messageId", vec![rln_witness.message_id]),
+        ("pathElements", rln_witness.path_elements.clone()),
         ("identityPathIndex", identity_path_index),
-        ("x", vec![to_bigint(&rln_witness.x)?]),
-        (
-            "externalNullifier",
-            vec![to_bigint(&rln_witness.external_nullifier)?],
-        ),
+        ("x", vec![rln_witness.x]),
+        ("externalNullifier", vec![rln_witness.external_nullifier]),
     ])
 }
 

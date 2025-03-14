@@ -1,12 +1,13 @@
 // This crate provides cross-module useful utilities (mainly type conversions) not necessarily specific to RLN
 
-use crate::circuit::Fr;
 use ark_ff::PrimeField;
 use color_eyre::{Report, Result};
 use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use serde_json::json;
 use std::io::Cursor;
+
+use crate::circuit::Fr;
 
 #[inline(always)]
 pub fn to_bigint(el: &Fr) -> Result<BigInt> {

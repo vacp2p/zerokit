@@ -1,6 +1,5 @@
 // This crate provides interfaces for the zero-knowledge circuit and keys
 
-use crate::iden3calc::calc_witness;
 use ::lazy_static::lazy_static;
 use ark_bn254::{
     Bn254, Fq as ArkFq, Fq2 as ArkFq2, Fr as ArkFr, G1Affine as ArkG1Affine,
@@ -10,7 +9,8 @@ use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
-use num_bigint::BigInt;
+
+use crate::iden3calc::calc_witness;
 
 #[cfg(feature = "arkzkey")]
 use {
@@ -97,7 +97,7 @@ pub fn check_vk_from_zkey(verifying_key: VerifyingKey<Curve>) -> Result<()> {
     }
 }
 
-pub fn calculate_rln_witness<I: IntoIterator<Item = (String, Vec<BigInt>)>>(
+pub fn calculate_rln_witness<I: IntoIterator<Item = (String, Vec<Fr>)>>(
     inputs: I,
     graph_data: &[u8],
 ) -> Vec<Fr> {

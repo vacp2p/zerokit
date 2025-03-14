@@ -1,22 +1,20 @@
 // This file is based on the code by iden3. Its preimage can be found here:
 // https://github.com/iden3/circom-witnesscalc/blob/5cb365b6e4d9052ecc69d4567fcf5bc061c20e94/src/graph.rs
 
-use crate::iden3calc::proto;
-use ark_bn254::Fr;
 use ark_ff::{BigInt, BigInteger, One, PrimeField, Zero};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate};
 use rand::Rng;
-use ruint::aliases::U256;
+use ruint::{aliases::U256, uint};
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
-use std::error::Error;
-use std::ops::{BitOr, BitXor, Deref};
 use std::{
+    cmp::Ordering,
     collections::HashMap,
-    ops::{BitAnd, Shl, Shr},
+    error::Error,
+    ops::{BitAnd, BitOr, BitXor, Deref, Shl, Shr},
 };
 
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate};
-use ruint::uint;
+use crate::circuit::Fr;
+use crate::iden3calc::proto;
 
 pub const M: U256 =
     uint!(21888242871839275222246405745257275088548364400416034343698204186575808495617_U256);
@@ -38,6 +36,16 @@ where
     let s: Vec<u8> = serde::de::Deserialize::deserialize(data)?;
     let a = A::deserialize_with_mode(s.as_slice(), Compress::Yes, Validate::Yes);
     a.map_err(serde::de::Error::custom)
+}
+
+#[inline(always)]
+pub fn fr_to_u256(x: &Fr) -> U256 {
+    U256::from_limbs(x.into_bigint().0)
+}
+
+#[inline(always)]
+pub fn u256_to_fr(x: &U256) -> Fr {
+    Fr::from_bigint(BigInt::new(x.into_limbs())).expect("Failed to convert U256 to Fr")
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
@@ -125,14 +133,18 @@ impl Operation {
                 if b.is_zero() {
                     Fr::zero()
                 } else {
-                    Fr::new((Into::<U256>::into(a) / Into::<U256>::into(b)).into())
+                    let a_u256 = fr_to_u256(&a);
+                    let b_u256 = fr_to_u256(&b);
+                    u256_to_fr(&(a_u256 / b_u256))
                 }
             }
             Mod => {
                 if b.is_zero() {
                     Fr::zero()
                 } else {
-                    Fr::new((Into::<U256>::into(a) % Into::<U256>::into(b)).into())
+                    let a_u256 = fr_to_u256(&a);
+                    let b_u256 = fr_to_u256(&b);
+                    u256_to_fr(&(a_u256 % b_u256))
                 }
             }
             Eq => match a.cmp(&b) {
@@ -143,10 +155,10 @@ impl Operation {
                 Ordering::Equal => Fr::zero(),
                 _ => Fr::one(),
             },
-            Lt => Fr::new(u_lt(&a.into(), &b.into()).into()),
-            Gt => Fr::new(u_gt(&a.into(), &b.into()).into()),
-            Leq => Fr::new(u_lte(&a.into(), &b.into()).into()),
-            Geq => Fr::new(u_gte(&a.into(), &b.into()).into()),
+            Lt => u256_to_fr(&u_lt(&fr_to_u256(&a), &fr_to_u256(&b))),
+            Gt => u256_to_fr(&u_gt(&fr_to_u256(&a), &fr_to_u256(&b))),
+            Leq => u256_to_fr(&u_lte(&fr_to_u256(&a), &fr_to_u256(&b))),
+            Geq => u256_to_fr(&u_gte(&fr_to_u256(&a), &fr_to_u256(&b))),
             Land => {
                 if a.is_zero() || b.is_zero() {
                     Fr::zero()
@@ -415,9 +427,9 @@ pub fn evaluate(nodes: &[Node], inputs: &[U256], outputs: &[usize]) -> Vec<Fr> {
     let mut values = Vec::with_capacity(nodes.len());
     for &node in nodes.iter() {
         let value = match node {
-            Node::Constant(c) => Fr::new(c.into()),
+            Node::Constant(c) => u256_to_fr(&c),
             Node::MontConstant(c) => c,
-            Node::Input(i) => Fr::new(inputs[i].into()),
+            Node::Input(i) => u256_to_fr(&inputs[i]),
             Node::Op(op, a, b) => op.eval_fr(values[a], values[b]),
             Node::UnoOp(op, a) => op.eval_fr(values[a]),
             Node::TresOp(op, a, b, c) => op.eval_fr(values[a], values[b], values[c]),
@@ -633,7 +645,7 @@ pub fn montgomery_form(nodes: &mut [Node]) {
         use Node::*;
         use Operation::*;
         match node {
-            Constant(c) => *node = MontConstant(Fr::new((*c).into())),
+            Constant(c) => *node = MontConstant(u256_to_fr(c)),
             MontConstant(..) => (),
             Input(..) => (),
             Op(
@@ -659,10 +671,8 @@ fn shl(a: Fr, b: Fr) -> Fr {
     }
 
     let n = b.into_bigint().0[0] as u32;
-
-    let mut a = a.into_bigint();
-    a.muln(n);
-    Fr::from_bigint(a).unwrap()
+    let a = a.into_bigint();
+    Fr::from_bigint(a << n).unwrap()
 }
 
 fn shr(a: Fr, b: Fr) -> Fr {
