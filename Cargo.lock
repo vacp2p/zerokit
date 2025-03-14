@@ -6018,7 +6018,7 @@ dependencies = [
 
 [[package]]
 name = "zerokit_utils"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "ark-bn254",
  "ark-ff 0.5.0",

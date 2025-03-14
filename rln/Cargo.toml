@@ -38,7 +38,7 @@ thiserror = "2.0.11"
 # utilities
 byteorder = "1.4.3"
 cfg-if = "1.0"
-num-bigint = { version = "0.4.3", default-features = false, features = [
+num-bigint = { version = "0.4.6", default-features = false, features = [
     "rand",
 ] }
 num-traits = "0.2.19"
@@ -48,18 +48,18 @@ rand = "0.8.5"
 rand_chacha = "0.3.1"
 ruint = { version = "1.12.4", features = ["rand", "serde", "ark-ff-04"] }
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
-utils = { package = "zerokit_utils", version = "0.5.1", path = "../utils/", default-features = false }
+utils = { package = "zerokit_utils", version = "0.5.2", path = "../utils/", default-features = false }
 
 # serialization
 prost = "0.13.1"
-serde_json = "1.0.138"
-serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
 
 document-features = { version = "=0.2.10", optional = true }
 
 [dev-dependencies]
-sled = "=0.34.7"
-criterion = { version = "=0.4.0", features = ["html_reports"] }
+sled = "0.34.7"
+criterion = { version = "0.4.0", features = ["html_reports"] }
 
 [features]
 default = ["parallel", "pmtree-ft"]
