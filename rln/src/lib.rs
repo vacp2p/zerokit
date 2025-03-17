@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 pub mod circuit;
 pub mod hashers;
 pub mod iden3calc;
@@ -12,4 +10,5 @@ pub mod public;
 pub mod public_api_tests;
 pub mod utils;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub mod ffi;

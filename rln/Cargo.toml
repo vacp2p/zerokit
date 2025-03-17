@@ -28,8 +28,7 @@ ark-groth16 = { version = "0.5.0", features = [
 ark-relations = { version = "0.5.0", default-features = false, features = [
     "std",
 ] }
-ark-circom = { version = "0.5.0" }
-ark-r1cs-std = { version = "0.5.0" }
+ark-circom = { version = "0.5.0" , default-features = false, features = ["wasm"]}
 
 # error handling
 color-eyre = "0.6.2"

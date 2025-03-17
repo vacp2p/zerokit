@@ -1,6 +1,6 @@
 [workspace]
-members = ["rln", "rln-cli", "utils"]
-default-members = ["rln", "rln-cli", "utils"]
+members = ["rln", "rln-cli", "rln-wasm", "utils"]
+default-members = ["rln", "rln-cli","rln-wasm", "utils"]
 resolver = "2"
 
 # Compilation profile for any non-workspace member.

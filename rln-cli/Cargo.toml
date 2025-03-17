@@ -13,7 +13,7 @@ path = "src/examples/stateless.rs"
 required-features = ["stateless"]
 
 [dependencies]
-rln = { path = "../rln", default-features = true, features = ["pmtree-ft"] }
+rln = { path = "../rln", default-features = false }
 zerokit_utils = { path = "../utils" }
 clap = { version = "4.5.29", features = ["cargo", "derive", "env"] }
 clap_derive = { version = "4.5.28" }
@@ -22,5 +22,6 @@ serde_json = "1.0.138"
 serde = { version = "1.0.217", features = ["derive"] }
 
 [features]
+default = []
 arkzkey = ["rln/arkzkey"]
 stateless = ["rln/stateless"]

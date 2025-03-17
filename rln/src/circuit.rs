@@ -25,6 +25,8 @@ use {ark_circom::read_zkey, std::io::Cursor};
 pub const ARKZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.arkzkey");
 
 pub const ZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.zkey");
+
+#[cfg(not(target_arch = "wasm32"))]
 const GRAPH_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/graph.bin");
 
 lazy_static! {
@@ -73,6 +75,7 @@ pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<(ProvingKey<Curve>, ConstraintM
 }
 
 // Loads the proving key
+#[cfg(not(target_arch = "wasm32"))]
 pub fn zkey_from_folder() -> &'static (ProvingKey<Curve>, ConstraintMatrices<Fr>) {
     &ZKEY
 }
@@ -87,16 +90,6 @@ pub fn vk_from_raw(zkey_data: &[u8]) -> Result<VerifyingKey<Curve>> {
     Err(Report::msg("No proving/verification key found!"))
 }
 
-// Checks verification key to be correct with respect to proving key
-pub fn check_vk_from_zkey(verifying_key: VerifyingKey<Curve>) -> Result<()> {
-    let (proving_key, _matrices) = zkey_from_folder();
-    if proving_key.vk == verifying_key {
-        Ok(())
-    } else {
-        Err(Report::msg("verifying_keys are not equal"))
-    }
-}
-
 pub fn calculate_rln_witness<I: IntoIterator<Item = (String, Vec<Fr>)>>(
     inputs: I,
     graph_data: &[u8],
@@ -104,6 +97,7 @@ pub fn calculate_rln_witness<I: IntoIterator<Item = (String, Vec<Fr>)>>(
     calc_witness(inputs, graph_data)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn graph_from_folder() -> &'static [u8] {
     GRAPH_BYTES
 }
