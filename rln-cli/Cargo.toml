@@ -18,8 +18,8 @@ zerokit_utils = { path = "../utils" }
 clap = { version = "4.5.32", features = ["cargo", "derive", "env"] }
 clap_derive = { version = "4.5.32" }
 color-eyre = "0.6.3"
-serde_json = "1.0.140"
-serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
 
 [features]
 default = []

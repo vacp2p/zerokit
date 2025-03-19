@@ -26,7 +26,7 @@ else ifeq ($(shell uname),Linux)
 endif
 	# nvm already checks if it's installed, and no-ops if it is
 	@curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-	@. ${HOME}/.nvm/nvm.sh && nvm install 18.20.2 && nvm use 18.20.2;
+	@. ${HOME}/.nvm/nvm.sh && nvm install 23.10.0 && nvm use 23.10.0;
 
 build: .pre-build
 	@cargo make build
