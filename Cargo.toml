@@ -1,6 +1,6 @@
 [workspace]
 members = ["rln", "rln-cli", "rln-wasm", "utils"]
-default-members = ["rln", "rln-cli","rln-wasm", "utils"]
+default-members = ["rln", "rln-cli", "rln-wasm", "utils"]
 resolver = "2"
 
 # Compilation profile for any non-workspace member.
@@ -8,3 +8,6 @@ resolver = "2"
 # while having neglible impact on incremental build times.
 [profile.dev.package."*"]
 opt-level = 3
+
+[patch.crates-io]
+wasmer = { git = "https://github.com/vinhtc27/wasmer" }

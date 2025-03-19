@@ -1,13 +1,9 @@
 #![cfg(target_arch = "wasm32")]
 
-extern crate wasm_bindgen;
-extern crate web_sys;
-
-use std::vec::Vec;
-
 use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
 use num_bigint::BigInt;
 use rln::public::{hash, poseidon_hash, RLN};
+use std::vec::Vec;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = initPanicHook)]
