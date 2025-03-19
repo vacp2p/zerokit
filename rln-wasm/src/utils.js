@@ -8,9 +8,9 @@ module.exports = {
   },
 
   calculateWitness: async function (circom_path, inputs) {
-    const wc = require("resources/witness_calculator.js");
+    const wc = require("../resources/witness_calculator.js");
     const wasmFile = fs.readFileSync(circom_path);
-    const wasmFileBuffer = wasmFile.subarray(
+    const wasmFileBuffer = wasmFile.slice(
       wasmFile.byteOffset,
       wasmFile.byteOffset + wasmFile.byteLength
     );

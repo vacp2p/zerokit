@@ -8,22 +8,24 @@ use {
     utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
 };
 
+use crate::circuit::{vk_from_raw, zkey_from_raw, Curve, Fr};
+use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
+use crate::protocol::*;
+use crate::utils::*;
 #[cfg(not(target_arch = "wasm32"))]
 use {
     crate::circuit::{graph_from_folder, zkey_from_folder},
     std::default::Default,
 };
-use crate::circuit::{vk_from_raw, zkey_from_raw, Curve, Fr};
-use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
-use crate::protocol::*;
-use crate::utils::*;
 
 use ark_groth16::{Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 use color_eyre::{Report, Result};
-use num_bigint::BigInt;
 use std::io::Cursor;
+
+#[cfg(target_arch = "wasm32")]
+use num_bigint::BigInt;
 
 /// The application-specific RLN identifier.
 ///

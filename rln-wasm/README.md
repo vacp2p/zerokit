@@ -2,7 +2,7 @@
 
 This library is used in [waku-org/js-rln](https://github.com/waku-org/js-rln/)
 
-## Building the library
+> **Note**: This project requires `wasm-pack` for compiling Rust to WebAssembly and `cargo-make` for running the build commands. Make sure both are installed before proceeding.
 
 Install `wasm-pack`
 
@@ -22,31 +22,35 @@ OR
 make installdeps
 ```
 
-Compile zerokit for `wasm32-unknown-unknown`:
+## Building the library
+
+First, navigate to the rln-wasm directory:
 
 ```bash
 cd rln-wasm
+```
+
+Compile zerokit for `wasm32-unknown-unknown`:
+
+```bash
 cargo make build
 ```
 
 Compile a slimmer version of zerokit for `wasm32-unknown-unknown`:
 
 ```bash
-cd rln-wasm
 cargo make post-build
 ```
 
 ## Running tests
 
 ```bash
-cd rln-wasm
 cargo make test
 ```
 
 ## Publishing a npm package
 
 ```bash
-cd rln-wasm
 cargo make login
 cargo make publish
 ```

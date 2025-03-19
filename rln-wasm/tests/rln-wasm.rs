@@ -1,19 +1,19 @@
-// #![cfg(target_arch = "wasm32")]
+#![cfg(target_arch = "wasm32")]
 
 #[cfg(test)]
 mod tests {
     use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
     use rln::circuit::{Fr, TEST_TREE_HEIGHT};
     use rln::hashers::{hash_to_field, poseidon_hash};
-    use rln::utils::{bytes_le_to_fr, fr_to_bytes_le, normalize_usize};
-    use rln_wasm::*;
     use rln::poseidon_tree::PoseidonTree;
     use rln::utils::vec_fr_to_bytes_le;
+    use rln::utils::vec_u8_to_bytes_le;
+    use rln::utils::{bytes_le_to_fr, fr_to_bytes_le, normalize_usize};
+    use rln_wasm::*;
     use wasm_bindgen::{prelude::*, JsValue};
     use wasm_bindgen_test::wasm_bindgen_test;
     use zerokit_utils::merkle_tree::merkle_tree::ZerokitMerkleTree;
     use zerokit_utils::ZerokitMerkleProof;
-     use rln::utils::vec_u8_to_bytes_le;
 
     #[wasm_bindgen(module = "src/utils.js")]
     extern "C" {
@@ -27,6 +27,9 @@ mod tests {
     #[wasm_bindgen_test]
     pub async fn test_basic_flow() {
         let zkey_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln_final.zkey");
+
+        let circom_path = format!("../rln/resources/tree_height_{TEST_TREE_HEIGHT}/rln.wasm");
+
         let zkey = read_file(&zkey_path).unwrap();
 
         // Creating an instance of RLN
@@ -62,21 +65,20 @@ mod tests {
         let path_elements = merkle_proof.get_path_elements();
         let identity_path_index = merkle_proof.get_path_index();
 
-
         // Serializing the message
-        let mut serialized_vec: Vec<u8> = Vec::new();
-        serialized_vec.append(&mut id_key.to_vec());
-        serialized_vec.append(&mut fr_to_bytes_le(&user_message_limit).to_vec());
-        serialized_vec.append(&mut message_id.to_vec());
-        serialized_vec.append(&mut vec_fr_to_bytes_le(&path_elements).unwrap());
-        serialized_vec.append(&mut vec_u8_to_bytes_le(&identity_path_index).unwrap());
-        serialized_vec.append(&mut fr_to_bytes_le(&x));
-        serialized_vec.append(&mut external_nullifier.to_vec());
-        let serialized_message = Uint8Array::from(&serialized_vec[..]);
+        let mut serialized: Vec<u8> = Vec::new();
+        serialized.append(&mut id_key.to_vec());
+        serialized.append(&mut fr_to_bytes_le(&user_message_limit).to_vec());
+        serialized.append(&mut message_id.to_vec());
+        serialized.append(&mut vec_fr_to_bytes_le(&path_elements).unwrap());
+        serialized.append(&mut vec_u8_to_bytes_le(&identity_path_index).unwrap());
+        serialized.append(&mut fr_to_bytes_le(&x));
+        serialized.append(&mut external_nullifier.to_vec());
+        let serialized_message = Uint8Array::from(&serialized[..]);
 
         // Obtaining inputs that should be sent to circom witness calculator
         let json_inputs =
-            rln_witness_to_json(rln_instance, serialized_message.clone()).unwrap();
+            wasm_rln_witness_to_json(rln_instance, serialized_message.clone()).unwrap();
 
         // Calculating witness with JS
         // (Using a JSON since wasm_bindgen does not like Result<Vec<JsBigInt>,JsValue>)
@@ -93,7 +95,7 @@ mod tests {
             .collect();
 
         // Generating proof
-        let proof = generate_rln_proof_with_witness(
+        let proof = wasm_generate_rln_proof_with_witness(
             rln_instance,
             calculated_witness.into(),
             serialized_message,
@@ -104,7 +106,6 @@ mod tests {
         let mut proof_bytes = proof.to_vec();
         proof_bytes.append(&mut normalize_usize(signal.len()));
         proof_bytes.append(&mut signal.to_vec());
-        let proof_with_signal = Uint8Array::from(&proof_bytes[..]);
 
         // Validating Proof with Roots
         let root = tree.root();
