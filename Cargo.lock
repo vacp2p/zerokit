@@ -3733,6 +3733,7 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
+ "wasmer",
  "web-sys",
  "zerokit_utils",
 ]
