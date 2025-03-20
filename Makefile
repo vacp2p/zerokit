@@ -15,22 +15,10 @@ installdeps: .pre-build
 ifeq ($(shell uname),Darwin)
 # commented due to https://github.com/orgs/Homebrew/discussions/4612
 # @brew update
-	@brew install cmake ninja
-	@if [ -d "wabt" ]; then \
-		git -C "wabt" pull; \
-	else \
-		git clone --recursive https://github.com/WebAssembly/wabt.git "wabt"; \
-	fi
-	@cd wabt && mkdir -p build && cd build && cmake .. && make
+	@brew install cmake ninja wabt
 else ifeq ($(shell uname),Linux)
 	@sudo apt-get update
-	@sudo apt-get install -y cmake ninja-build
-	@if [ -d "wabt" ]; then \
-		git -C "wabt" pull; \
-	else \
-		git clone --recursive https://github.com/WebAssembly/wabt.git "wabt"; \
-	fi
-	@cd wabt && mkdir -p build && cd build && cmake .. -GNinja && ninja
+	@sudo apt-get install -y cmake ninja-build wabt
 endif
 	# nvm already checks if it's installed, and no-ops if it is
 	@curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash || true
