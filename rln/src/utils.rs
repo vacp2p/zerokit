@@ -137,8 +137,10 @@ pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>> {
 }
 
 #[inline(always)]
-pub fn normalize_usize(input: usize) -> [u8; 8] {
-    input.to_le_bytes()
+pub fn normalize_usize(input: usize) -> Vec<u8> {
+    let mut normalized_usize = input.to_le_bytes().to_vec();
+    normalized_usize.resize(8, 0);
+    normalized_usize
 }
 
 #[inline(always)] // using for test
