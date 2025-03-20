@@ -22,8 +22,6 @@ ifeq ($(shell uname),Darwin)
 		git clone --recursive https://github.com/WebAssembly/wabt.git "wabt"; \
 	fi
 	@cd wabt && mkdir -p build && cd build && cmake .. && make
-	@mkdir -p $(CURDIR)/bin
-	@ln -sf $(CURDIR)/wabt/build/wasm-strip $(CURDIR)/bin/wasm-strip
 else ifeq ($(shell uname),Linux)
 	@sudo apt-get update
 	@sudo apt-get install -y cmake ninja-build
@@ -33,11 +31,7 @@ else ifeq ($(shell uname),Linux)
 		git clone --recursive https://github.com/WebAssembly/wabt.git "wabt"; \
 	fi
 	@cd wabt && mkdir -p build && cd build && cmake .. -GNinja && ninja
-	@mkdir -p $(CURDIR)/bin
-	@ln -sf $(CURDIR)/wabt/build/wasm-strip $(CURDIR)/bin/wasm-strip
 endif
-	# Add bin directory to PATH if in GitHub Actions
-	@if [ -n "$$GITHUB_PATH" ]; then echo "$(CURDIR)/bin" >> $$GITHUB_PATH; fi
 	# nvm already checks if it's installed, and no-ops if it is
 	@curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash || true
 	@. "$$HOME/.nvm/nvm.sh" && nvm install 23.10.0 && nvm use 23.10.0 || true
