@@ -44,7 +44,7 @@ once_cell = "1.21.1"
 lazy_static = "1.5.0"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
-ruint = { version = "1.13.1", features = ["rand", "serde", "ark-ff-04"] }
+ruint = { version = "1.14.0", features = ["rand", "serde", "ark-ff-04"] }
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 utils = { package = "zerokit_utils", version = "0.5.2", path = "../utils/", default-features = false }
 

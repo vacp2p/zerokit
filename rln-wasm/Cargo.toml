@@ -14,7 +14,7 @@ num-bigint = { version = "0.4.6", default-features = false, features = [
     "rand",
     "serde",
 ] }
-wasm-bindgen = "0.2.100"
+wasm-bindgen = "0.2.93"
 serde-wasm-bindgen = "0.6.5"
 js-sys = "0.3.77"
 serde_json = "1.0"
@@ -33,3 +33,6 @@ wasm-bindgen-futures = "0.4.50"
 [features]
 default = ["console_error_panic_hook"]
 stateless = ["rln/stateless"]
+
+# [package.metadata.wasm-pack.profile.release]
+# wasm-opt = true
