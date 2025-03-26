@@ -1,3 +1,7 @@
+[tasks.build]
+clear = true
+dependencies = ["pack-build", "pack-rename", "post-build"]
+
 [tasks.pack-build]
 command = "wasm-pack"
 args = ["build", "--release", "--target", "web", "--scope", "waku"]
@@ -5,10 +9,6 @@ env = { "RUSTFLAGS" = "--cfg feature=\"stateless\"" }
 
 [tasks.pack-rename]
 script = "sed -i.bak 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json && rm pkg/package.json.bak"
-
-[tasks.build]
-clear = true
-dependencies = ["pack-build", "pack-rename", "post-build"]
 
 [tasks.post-build]
 command = "wasm-strip"
@@ -29,5 +29,5 @@ command = "wasm-pack"
 args = ["publish", "--access", "public", "--target", "web"]
 
 [tasks.bench]
-command = "echo"
-args = ["'No benchmarks available for this project'"]
+command = "cargo"
+args = ["bench"]
