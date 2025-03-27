@@ -100,9 +100,7 @@ jobs:
       - name: Install dependencies
         run: make installdeps
       - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@v0.4.0
-        with:
-          version: latest
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: cross make build
         run: |
           cross make build
