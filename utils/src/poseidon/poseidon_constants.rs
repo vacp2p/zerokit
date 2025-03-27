@@ -18,7 +18,6 @@ pub struct PoseidonGrainLFSR {
     pub head: usize,
 }
 
-#[allow(unused_variables)]
 impl PoseidonGrainLFSR {
     pub fn new(
         is_field: u64,

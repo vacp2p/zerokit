@@ -1,5 +1,5 @@
-use ark_circom::read_zkey;
 use criterion::{criterion_group, criterion_main, Criterion};
+use rln::zkey::read_zkey;
 use std::io::Cursor;
 
 pub fn zkey_load_benchmark(c: &mut Criterion) {

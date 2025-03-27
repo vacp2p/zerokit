@@ -19,7 +19,7 @@ use {
 };
 
 #[cfg(not(feature = "arkzkey"))]
-use {ark_circom::read_zkey, std::io::Cursor};
+use {crate::zkey::read_zkey, std::io::Cursor};
 
 #[cfg(feature = "arkzkey")]
 pub const ARKZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.arkzkey");

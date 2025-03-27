@@ -125,7 +125,6 @@ where
         self.next_index
     }
 
-    #[must_use]
     // Returns the root of the tree
     fn root(&self) -> FrOf<Self::Hasher> {
         self.nodes[0]
@@ -341,14 +340,12 @@ impl<H: Hasher> ZerokitMerkleProof for FullMerkleProof<H> {
     type Index = u8;
     type Hasher = H;
 
-    #[must_use]
     // Returns the length of a Merkle proof
     fn length(&self) -> usize {
         self.0.len()
     }
 
     /// Computes the leaf index corresponding to a Merkle proof
-    #[must_use]
     fn leaf_index(&self) -> usize {
         self.0.iter().rev().fold(0, |index, branch| match branch {
             FullMerkleBranch::Left(_) => index << 1,
@@ -356,7 +353,6 @@ impl<H: Hasher> ZerokitMerkleProof for FullMerkleProof<H> {
         })
     }
 
-    #[must_use]
     /// Returns the path elements forming a Merkle proof
     fn get_path_elements(&self) -> Vec<FrOf<Self::Hasher>> {
         self.0
@@ -368,7 +364,6 @@ impl<H: Hasher> ZerokitMerkleProof for FullMerkleProof<H> {
     }
 
     /// Returns the path indexes forming a Merkle proof
-    #[must_use]
     fn get_path_index(&self) -> Vec<Self::Index> {
         self.0
             .iter()
@@ -380,7 +375,6 @@ impl<H: Hasher> ZerokitMerkleProof for FullMerkleProof<H> {
     }
 
     /// Computes the Merkle root corresponding by iteratively hashing a Merkle proof with a given input leaf
-    #[must_use]
     fn compute_root_from(&self, hash: &FrOf<Self::Hasher>) -> FrOf<Self::Hasher> {
         self.0.iter().fold(*hash, |hash, branch| match branch {
             FullMerkleBranch::Left(sibling) => H::hash(&[hash, *sibling]),
