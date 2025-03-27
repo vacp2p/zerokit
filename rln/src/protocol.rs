@@ -15,11 +15,10 @@ use std::time::Instant;
 use thiserror::Error;
 use tiny_keccak::{Hasher as _, Keccak};
 
-use crate::circuit::{calculate_rln_witness, Curve};
+use crate::circuit::{calculate_rln_witness, qap::CircomReduction, Curve};
 use crate::hashers::{hash_to_field, poseidon_hash};
 use crate::poseidon_tree::*;
 use crate::public::RLN_IDENTIFIER;
-use crate::qap::CircomReduction;
 use crate::utils::*;
 use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 

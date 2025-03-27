@@ -1,5 +1,9 @@
 // This crate provides interfaces for the zero-knowledge circuit and keys
 
+pub mod iden3calc;
+pub mod qap;
+pub mod zkey;
+
 use ::lazy_static::lazy_static;
 use ark_bn254::{
     Bn254, Fq as ArkFq, Fq2 as ArkFq2, Fr as ArkFr, G1Affine as ArkG1Affine,
@@ -10,7 +14,7 @@ use ark_relations::r1cs::ConstraintMatrices;
 use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
 
-use crate::iden3calc::calc_witness;
+use crate::circuit::iden3calc::calc_witness;
 
 #[cfg(feature = "arkzkey")]
 use {
@@ -19,15 +23,15 @@ use {
 };
 
 #[cfg(not(feature = "arkzkey"))]
-use {crate::zkey::read_zkey, std::io::Cursor};
+use {crate::circuit::zkey::read_zkey, std::io::Cursor};
 
 #[cfg(feature = "arkzkey")]
-pub const ARKZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.arkzkey");
+pub const ARKZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_height_20/rln_final.arkzkey");
 
-pub const ZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.zkey");
+pub const ZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_height_20/rln_final.zkey");
 
 #[cfg(not(target_arch = "wasm32"))]
-const GRAPH_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/graph.bin");
+const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_height_20/graph.bin");
 
 lazy_static! {
     static ref ZKEY: (ProvingKey<Curve>, ConstraintMatrices<Fr>) = {
