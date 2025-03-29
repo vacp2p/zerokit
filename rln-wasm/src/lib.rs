@@ -181,19 +181,16 @@ impl<'a> ProcessArg for &'a [u8] {
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = newRLN)]
-pub fn wasm_new(
-    zkey: Uint8Array,
-    vk: Uint8Array,
-) -> Result<*mut RLNWrapper, String> {
-    let instance = RLN::new_with_params(zkey.to_vec(), vk.to_vec())
-        .map_err(|err| format!("{:#?}", err))?;
+pub fn wasm_new(zkey: Uint8Array, vk: Uint8Array) -> Result<*mut RLNWrapper, String> {
+    let instance =
+        RLN::new_with_params(zkey.to_vec(), vk.to_vec()).map_err(|err| format!("{:#?}", err))?;
     let wrapper = RLNWrapper { instance };
     Ok(Box::into_raw(Box::new(wrapper)))
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = RLNWitnessToJson)]
-pub fn rln_witness_to_json(
+#[wasm_bindgen(js_name = rlnWitnessToJson)]
+pub fn wasm_rln_witness_to_json(
     ctx: *mut RLNWrapper,
     serialized_witness: Uint8Array,
 ) -> Result<Object, String> {
@@ -208,8 +205,8 @@ pub fn rln_witness_to_json(
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen]
-pub fn generate_rln_proof_with_witness(
+#[wasm_bindgen(js_name = generateRLNProofWithWitness)]
+pub fn wasm_generate_rln_proof_with_witness(
     ctx: *mut RLNWrapper,
     calculated_witness: Vec<JsBigInt>,
     serialized_witness: Uint8Array,
