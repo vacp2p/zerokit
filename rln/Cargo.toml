@@ -81,17 +81,17 @@ arkzkey = []
 pmtree-ft = ["utils/pmtree-ft"]
 
 [[bench]]
-name = "pmtree_benchmark"
+name = "circuit_loading_arkzkey_benchmark"
 harness = false
+required-features = ["arkzkey"]
 
 [[bench]]
 name = "circuit_loading_benchmark"
 harness = false
 
 [[bench]]
-name = "circuit_loading_arkzkey_benchmark"
+name = "pmtree_benchmark"
 harness = false
-required-features = ["arkzkey"]
 
 [[bench]]
 name = "poseidon_tree_benchmark"

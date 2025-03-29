@@ -42,7 +42,7 @@ Compile a slimmer version of zerokit for `wasm32-unknown-unknown`:
 cargo make post-build
 ```
 
-## Running tests
+## Running tests and benchmarks
 
 ```bash
 cargo make test

@@ -16,7 +16,15 @@ args = ["./pkg/rln_wasm_bg.wasm"]
 
 [tasks.test]
 command = "wasm-pack"
-args = ["test", "--release", "--node", "--target", "wasm32-unknown-unknown"]
+args = [
+    "test",
+    "--release",
+    "--node",
+    "--target",
+    "wasm32-unknown-unknown",
+    "--",
+    "--nocapture",
+]
 env = { "RUSTFLAGS" = "--cfg feature=\"stateless\"" }
 dependencies = ["build"]
 
@@ -27,7 +35,3 @@ args = ["login"]
 [tasks.publish]
 command = "wasm-pack"
 args = ["publish", "--access", "public", "--target", "web"]
-
-[tasks.bench]
-command = "cargo"
-args = ["bench"]
