@@ -6,9 +6,9 @@ mod tests {
     use rln::circuit::{Fr, TEST_TREE_HEIGHT};
     use rln::hashers::{hash_to_field, poseidon_hash};
     use rln::poseidon_tree::PoseidonTree;
-    use rln::utils::vec_fr_to_bytes_le;
-    use rln::utils::vec_u8_to_bytes_le;
-    use rln::utils::{bytes_le_to_fr, fr_to_bytes_le, normalize_usize};
+    use rln::utils::{
+        bytes_le_to_fr, fr_to_bytes_le, normalize_usize, vec_fr_to_bytes_le, vec_u8_to_bytes_le,
+    };
     use rln_wasm::*;
     use wasm_bindgen::{prelude::*, JsValue};
     use wasm_bindgen_test::wasm_bindgen_test;
@@ -96,7 +96,7 @@ mod tests {
         // Generating proof
         let proof = wasm_generate_rln_proof_with_witness(
             rln_instance,
-            calculated_witness.into(),
+            calculated_witness,
             serialized_message,
         )
         .unwrap();
@@ -130,18 +130,18 @@ mod tests {
         let wasm_new_result = Date::now() - start_wasm_new;
 
         // Initialize instance for other benchmarks
-        let rln_instance = wasm_new(zkey.clone()).unwrap();
+        let rln_instance = wasm_new(zkey).unwrap();
 
         // Benchmark wasm_key_gen
         let start_wasm_key_gen = Date::now();
         for _ in 0..iterations {
-            let _ = wasm_key_gen(rln_instance.clone());
+            let _ = wasm_key_gen(rln_instance);
         }
         let wasm_key_gen_result = Date::now() - start_wasm_key_gen;
 
         // Setup for proof generation and verification
         let tree = PoseidonTree::default(TEST_TREE_HEIGHT).unwrap();
-        let mem_keys = wasm_key_gen(rln_instance.clone()).unwrap();
+        let mem_keys = wasm_key_gen(rln_instance).unwrap();
         let id_key = mem_keys.subarray(0, 32);
         let id_commitment = mem_keys.subarray(32, 64);
         let epoch = hash_to_field(b"test-epoch");
@@ -149,7 +149,7 @@ mod tests {
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
 
         // Prepare inputs for other benchmarks
-        let mut benchmark_tree = tree.clone();
+        let mut benchmark_tree = tree;
         let signal = b"Hello World";
         let identity_index = benchmark_tree.leaves_set();
         let user_message_limit = Fr::from(100);
@@ -178,7 +178,7 @@ mod tests {
         let serialized_message = Uint8Array::from(&serialized[..]);
 
         let json_inputs =
-            wasm_rln_witness_to_json(rln_instance.clone(), serialized_message.clone()).unwrap();
+            wasm_rln_witness_to_json(rln_instance, serialized_message.clone()).unwrap();
 
         // Benchmark calculateWitness
         let start_calculate_witness = Date::now();
@@ -201,21 +201,22 @@ mod tests {
             .collect();
 
         // Benchmark wasm_generate_rln_proof_with_witness
-        let start_generate = Date::now();
+        let start_wasm_generate_rln_proof_with_witness = Date::now();
         for _ in 0..iterations {
             let _ = wasm_generate_rln_proof_with_witness(
-                rln_instance.clone(),
+                rln_instance,
                 calculated_witness.clone(),
                 serialized_message.clone(),
             );
         }
-        let wasm_generate_proof_result = Date::now() - start_generate;
+        let wasm_generate_rln_proof_with_witness_result =
+            Date::now() - start_wasm_generate_rln_proof_with_witness;
 
         // Generate a proof for other benchmarks
         let proof = wasm_generate_rln_proof_with_witness(
-            rln_instance.clone(),
-            calculated_witness.clone(),
-            serialized_message.clone(),
+            rln_instance,
+            calculated_witness,
+            serialized_message,
         )
         .unwrap();
 
@@ -230,26 +231,22 @@ mod tests {
         let proof_with_signal = Uint8Array::from(&proof_bytes[..]);
 
         // Benchmark wasm_verify_with_roots
-        let start_verify = Date::now();
+        let start_wasm_verify_with_roots = Date::now();
         for _ in 0..iterations {
-            let _ = wasm_verify_with_roots(
-                rln_instance.clone(),
-                proof_with_signal.clone(),
-                roots.clone(),
-            );
+            let _ = wasm_verify_with_roots(rln_instance, proof_with_signal.clone(), roots.clone());
         }
-        let wasm_verify_result = Date::now() - start_verify;
+        let wasm_verify_with_roots_result = Date::now() - start_wasm_verify_with_roots;
 
         let is_proof_valid = wasm_verify_with_roots(rln_instance, proof_with_signal, roots);
         assert!(is_proof_valid.unwrap(), "verifying proof with roots failed");
 
         // Format and display results
         let format_duration = |duration_ms: f64| -> String {
-            let seconds = duration_ms / 1000.0;
-            if seconds >= 1.0 {
-                format!("{} s", seconds)
+            let avg_ms = duration_ms / iterations as f64;
+            if avg_ms >= 1000.0 {
+                format!("{:.4} s", avg_ms / 1000.0)
             } else {
-                format!("{:.2} ms", duration_ms)
+                format!("{:.2} ms", avg_ms)
             }
         };
 
@@ -264,11 +261,11 @@ mod tests {
         ));
         results.push_str(&format!(
             "wasm_generate_rln_proof_with_witness: {}\n",
-            format_duration(wasm_generate_proof_result)
+            format_duration(wasm_generate_rln_proof_with_witness_result)
         ));
         results.push_str(&format!(
             "wasm_verify_with_roots: {}\n",
-            format_duration(wasm_verify_result)
+            format_duration(wasm_verify_with_roots_result)
         ));
 
         wasm_bindgen_test::console_log!("{results}");
