@@ -100,14 +100,16 @@ jobs:
         run: make installdeps
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-      - run: |
+      - name: cargo-make build
+        run: |
           if [ ${{ matrix.feature }} == default ]; then
             cargo make build
           else
             cargo make build_${{ matrix.feature }}
           fi
         working-directory: rln-wasm
-      - run: |
+      - name: cargo-make test
+        run: |
           if [ ${{ matrix.feature }} == default ]; then
             cargo make test --release
           else
