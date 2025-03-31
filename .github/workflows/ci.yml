@@ -98,8 +98,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Install Dependencies
         run: make installdeps
-      - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: cargo-make build
         run: |
           if [ ${{ matrix.feature }} == default ]; then

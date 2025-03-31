@@ -99,8 +99,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
         run: make installdeps
-      - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: cross make build
         run: |
           cross make build
