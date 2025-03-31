@@ -82,10 +82,11 @@ jobs:
     strategy:
       matrix:
         platform: [ ubuntu-latest, macos-latest ]
+        feature: [ "default", "arkzkey" ]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
-    name: test - rln-wasm - ${{ matrix.platform }}
+    name: test - rln-wasm - ${{ matrix.platform }} - ${{ matrix.feature }}
     steps:
       - uses: actions/checkout@v3
       - name: Install stable toolchain
@@ -99,9 +100,19 @@ jobs:
         run: make installdeps
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-      - run: cargo make build
+      - run: |
+          if [ ${{ matrix.feature }} == default ]; then
+            cargo make build
+          else
+            cargo make build_${{ matrix.feature }}
+          fi
         working-directory: rln-wasm
-      - run: cargo make test --release
+      - run: |
+          if [ ${{ matrix.feature }} == default ]; then
+            cargo make test --release
+          else
+            cargo make test_${{ matrix.feature }} --release
+          fi
         working-directory: rln-wasm
 
   lint:

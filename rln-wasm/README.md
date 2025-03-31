@@ -36,16 +36,28 @@ Compile zerokit for `wasm32-unknown-unknown`:
 cargo make build
 ```
 
+- Or compile with **arkzkey** feature enabled
+
+```bash
+cargo make build_arkzkey
+```
+
 Compile a slimmer version of zerokit for `wasm32-unknown-unknown`:
 
 ```bash
-cargo make post-build
+cargo make post_build
 ```
 
 ## Running tests and benchmarks
 
 ```bash
 cargo make test
+```
+
+- Or test with **arkzkey** feature enabled
+
+```bash
+cargo make test_arkzkey
 ```
 
 ## Publishing a npm package

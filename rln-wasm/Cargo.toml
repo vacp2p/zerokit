@@ -36,3 +36,4 @@ wasm-bindgen-futures = "0.4.50"
 [features]
 default = ["console_error_panic_hook"]
 stateless = ["rln/stateless"]
+arkzkey = ["rln/arkzkey"]
