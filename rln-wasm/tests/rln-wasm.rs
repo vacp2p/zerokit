@@ -55,7 +55,7 @@ mod tests {
         let wasm_key_gen_result = Date::now() - start_wasm_key_gen;
 
         // Setup for proof generation and verification
-        let tree = PoseidonTree::default(TEST_TREE_HEIGHT).unwrap();
+        let mut tree = PoseidonTree::default(TEST_TREE_HEIGHT).unwrap();
         let mem_keys = wasm_key_gen(rln_instance).unwrap();
         let id_key = mem_keys.subarray(0, 32);
         let id_commitment = mem_keys.subarray(32, 64);
@@ -64,21 +64,18 @@ mod tests {
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
 
         // Prepare inputs for other benchmarks
-        let mut benchmark_tree = tree;
         let signal = b"Hello World";
-        let identity_index = benchmark_tree.leaves_set();
+        let identity_index = tree.leaves_set();
         let user_message_limit = Fr::from(100);
         let message_id = fr_to_bytes_le(&Fr::from(0));
         let external_nullifier_bytes = fr_to_bytes_le(&external_nullifier);
 
         let (id_commitment_fr, _) = bytes_le_to_fr(&id_commitment.to_vec()[..]);
         let rate_commitment = poseidon_hash(&[id_commitment_fr, user_message_limit]);
-        benchmark_tree.update_next(rate_commitment).unwrap();
+        tree.update_next(rate_commitment).unwrap();
 
         let x = hash_to_field(signal);
-        let merkle_proof = benchmark_tree
-            .proof(identity_index)
-            .expect("proof should exist");
+        let merkle_proof = tree.proof(identity_index).expect("proof should exist");
         let path_elements = merkle_proof.get_path_elements();
         let identity_path_index = merkle_proof.get_path_index();
 
@@ -135,12 +132,11 @@ mod tests {
         )
         .unwrap();
 
-        // Prepare verification inputs
         let mut proof_bytes = proof.to_vec();
         proof_bytes.append(&mut normalize_usize(signal.len()));
         proof_bytes.append(&mut signal.to_vec());
 
-        let root = benchmark_tree.root();
+        let root = tree.root();
         let root_le = fr_to_bytes_le(&root);
         let roots = Uint8Array::from(&root_le[..]);
         let proof_with_signal = Uint8Array::from(&proof_bytes[..]);
@@ -157,13 +153,11 @@ mod tests {
 
         // Format and display results
         let format_duration = |duration_ms: f64| -> String {
-            let avg_ms = duration_ms / iterations as f64;
+            let avg_ms = duration_ms / (iterations as f64);
             if avg_ms >= 1000.0 {
-                format!("{:.2} s", avg_ms / 1000.0)
-            } else if avg_ms >= 1.0 {
-                format!("{:.2} ms", avg_ms)
+                format!("{:.3} s", avg_ms / 1000.0)
             } else {
-                format!("< 1 ms")
+                format!("{:.3} ms", avg_ms)
             }
         };
 
@@ -185,6 +179,7 @@ mod tests {
             format_duration(wasm_verify_with_roots_result)
         ));
 
+        // Log the results
         wasm_bindgen_test::console_log!("{results}");
     }
 
