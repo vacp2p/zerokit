@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RLN WASM Benchmark</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .panel {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .file-input {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        button {
+            background: #4361ee;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        button:hover {
+            background: #3a56d4;
+        }
+
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .results-table th,
+        .results-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .results-table th {
+            font-weight: 600;
+            background-color: #f1f3f5;
+        }
+
+        .operation {
+            font-weight: 500;
+        }
+
+        .time {
+            font-family: monospace;
+            text-align: right;
+        }
+
+        .status {
+            padding: 10px;
+            margin-top: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .running {
+            background-color: #cce5ff;
+            color: #004085;
+        }
+
+        /* Download button style */
+        .download-btn {
+            background: #28a745;
+            margin-top: 15px;
+        }
+
+        .download-btn:hover {
+            background: #218838;
+        }
+
+        /* Summary section */
+        .summary {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+        }
+
+        .summary h3 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>RLN WASM Benchmark</h1>
+
+    <div class="panel">
+        <div class="file-input">
+            <label for="zkeyFile">zKey File:</label>
+            <input type="file" id="zkeyFile">
+        </div>
+        <div class="file-input">
+            <label for="vkeyFile">vkey File:</label>
+            <input type="file" id="vkeyFile">
+        </div>
+        <div class="file-input">
+            <label for="rootFile">Root File:</label>
+            <input type="file" id="rootFile">
+        </div>
+        <div class="file-input">
+            <label for="witnessFile">Witness File:</label>
+            <input type="file" id="witnessFile">
+        </div>
+        <div class="file-input">
+            <label for="messageFile">Message File:</label>
+            <input type="file" id="messageFile">
+        </div>
+        <div class="file-input">
+            <label for="proofFile">Proof File:</label>
+            <input type="file" id="proofFile">
+        </div>
+
+        <button id="runBenchmark">Run Benchmark</button>
+
+        <div id="status" class="status"></div>
+    </div>
+
+    <div class="panel">
+        <h2>Results</h2>
+        <table class="results-table">
+            <thead>
+                <tr>
+                    <th>Operation</th>
+                    <th>Time (ms)</th>
+                </tr>
+            </thead>
+            <tbody id="results">
+                <!-- Results will be populated here -->
+            </tbody>
+        </table>
+
+        <div id="summarySection" class="summary" style="display: none;">
+            <h3>Summary</h3>
+            <div id="summaryContent"></div>
+            <button id="downloadResults" class="download-btn">Download Results</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import init, * as RLN from '../pkg/rln_wasm.js';
+
+        const runBtn = document.getElementById('runBenchmark');
+        const results = document.getElementById('results');
+        const status = document.getElementById('status');
+        const summarySection = document.getElementById('summarySection');
+        const summaryContent = document.getElementById('summaryContent');
+        const downloadBtn = document.getElementById('downloadResults');
+
+        // Track benchmark operations
+        const benchmarks = [];
+
+        // Measure operation time
+        async function benchmark(name, fn) {
+            updateStatus(`Running: ${name}...`, 'running');
+
+            const start = performance.now();
+            try {
+                const result = await fn();
+                const duration = performance.now() - start;
+
+                // Record result
+                benchmarks.push({ name, duration, success: true });
+                updateResults();
+
+                return { result, duration };
+            } catch (error) {
+                const duration = performance.now() - start;
+                benchmarks.push({ name: `${name} (FAILED)`, duration, success: false, error: error.message });
+                updateResults();
+                throw error;
+            }
+        }
+
+        // Update results table
+        function updateResults() {
+            results.innerHTML = '';
+            benchmarks.forEach(b => {
+                const row = document.createElement('tr');
+
+                const nameCell = document.createElement('td');
+                nameCell.className = 'operation';
+                nameCell.textContent = b.name;
+
+                const timeCell = document.createElement('td');
+                timeCell.className = 'time';
+                timeCell.textContent = b.duration.toFixed(2);
+
+                row.appendChild(nameCell);
+                row.appendChild(timeCell);
+
+                if (!b.success) {
+                    row.style.color = '#dc3545';
+                }
+
+                results.appendChild(row);
+            });
+        }
+
+        // Update status message
+        function updateStatus(message, type = '') {
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+
+        // Show benchmark summary
+        function showSummary() {
+            if (benchmarks.length === 0) return;
+
+            const successfulOps = benchmarks.filter(b => b.success).length;
+
+            let summaryHTML = `
+                <p><strong>Operations:</strong> ${successfulOps}/${benchmarks.length} successful</p>
+            `;
+
+            summaryContent.innerHTML = summaryHTML;
+            summarySection.style.display = 'block';
+        }
+
+        // Download results as JSON
+        downloadBtn.addEventListener('click', () => {
+            const dataStr = JSON.stringify({
+                timestamp: new Date().toISOString(),
+                operations: benchmarks,
+            }, null, 2);
+
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `rln-benchmark-${new Date().toISOString().slice(0, 19)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        // Read file as Uint8Array
+        async function readFile(file) {
+            const buffer = await file.arrayBuffer();
+            return new Uint8Array(buffer);
+        }
+
+        // Parse witness JSON
+        async function parseWitness(file) {
+            const text = await file.text();
+            try {
+                const data = JSON.parse(text);
+
+                if (!Array.isArray(data)) {
+                    throw new Error("Witness JSON must be an array");
+                }
+
+                return data.map(value => BigInt(value));
+            } catch (e) {
+                throw new Error(`Failed to parse witness JSON: ${e.message}`);
+            }
+        }
+
+        // Main benchmark runner
+        runBtn.addEventListener('click', async () => {
+            const files = {
+                zkey: document.getElementById('zkeyFile').files[0],
+                vkey: document.getElementById('vkeyFile').files[0],
+                root: document.getElementById('rootFile').files[0],
+                witness: document.getElementById('witnessFile').files[0],
+                message: document.getElementById('messageFile').files[0],
+                proof: document.getElementById('proofFile').files[0]
+            };
+
+            // Validation
+            if (!files.zkey| !files.vkey || !files.root || !files.proof) {
+                updateStatus('Please select zKey, vKey, Root, and Proof files', 'error');
+                return;
+            }
+
+            const canGenerate = files.witness && files.message;
+
+            try {
+                // Clear previous results
+                benchmarks.length = 0;
+                updateResults();
+                summarySection.style.display = 'none';
+                runBtn.disabled = true;
+
+                // Initialize
+                const { result: _ } = await benchmark('Initialize WASM Module', async () => {
+                    return await init();
+                });
+
+                // Load files
+                const zkeyData = await readFile(files.zkey);
+                const vkeyData = await readFile(files.vkey);
+                const rootData = await readFile(files.root);
+
+                // Create RLN instance
+                const { result: instance } = await benchmark('Create RLN Instance', async () => {
+                    return RLN.newRLN(zkeyData, vkeyData);
+                });
+
+                // Handle proof generation (if witness and message files provided)
+                if (canGenerate) {
+                    const witnessData = await parseWitness(files.witness);
+                    const messageData = await readFile(files.message);
+
+                    await benchmark('Generate RLN Proof', async () => {
+                        return RLN.generateRLNProofWithWitness(instance, witnessData, messageData);
+                    });
+                }
+
+                // Verify uploaded proof (required)
+                const proofData = await readFile(files.proof);
+
+                await benchmark('Verify Proof', async () => {
+                    return RLN.verifyWithRoots(instance, proofData, rootData);
+                });
+
+                updateStatus('Benchmark completed successfully!', 'success');
+                showSummary();
+
+            } catch (error) {
+                console.error(error);
+                updateStatus(`Error: ${error.message}`, 'error');
+                showSummary();
+            } finally {
+                runBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+
+</html>
