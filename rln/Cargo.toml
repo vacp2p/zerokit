@@ -30,6 +30,19 @@ ark-relations = { version = "0.5.0", default-features = false, features = [
 ] }
 ark-circom = { version = "0.5.0" }
 ark-r1cs-std = { version = "0.5.0" }
+# circom-witnesscalc = { git = "https://github.com/iden3/circom-witnesscalc", branch = "main" }
+# Dec 8, 2024 (Note: name is circom_XX and not circom-X in this git rev id)
+circom_witnesscalc = { git = "https://github.com/iden3/circom-witnesscalc", rev = "5cb365b6e4d9052ecc69d4567fcf5bc061c20e94" }
+# Dec 16, 2024
+# circom_witnesscalc = { git = "https://github.com/iden3/circom-witnesscalc", rev = "bdc15673f7351a1792342e68c659b78d4b327425" }
+# Jan 31, 2025
+# circom_witnesscalc = { git = "https://github.com/iden3/circom-witnesscalc", rev = "cec2cdefad044e5c6b796db75267901cc2e6fd6b" }
+# Last (e.g. March 23, 2025 - latest)
+# circom-witnesscalc = { git = "https://github.com/iden3/circom-witnesscalc", rev = "de9e6f15800d3f37e5d60da4dbc8e07b49c815e6" }
+
+# local path
+# circom-witnesscalc = { path = "../../circom-witnesscalc" }
+# circom_witnesscalc = { path = "../../circom-witnesscalc" }
 
 # error handling
 color-eyre = "0.6.2"
@@ -92,6 +105,10 @@ required-features = ["arkzkey"]
 
 [[bench]]
 name = "poseidon_tree_benchmark"
+harness = false
+
+[[bench]]
+name = "calc_witness_benchmark"
 harness = false
 
 [package.metadata.docs.rs]
