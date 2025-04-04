@@ -3,7 +3,7 @@ use color_eyre::{Report, Result};
 use std::{
     cmp::max,
     fmt::Debug,
-    iter::{once, repeat, successors},
+    iter::{once, repeat_n, successors},
     str::FromStr,
 };
 
@@ -89,7 +89,7 @@ where
             .iter()
             .rev()
             .enumerate()
-            .flat_map(|(levels, hash)| repeat(hash).take(1 << levels))
+            .flat_map(|(levels, hash)| repeat_n(hash, 1 << levels))
             .cloned()
             .collect::<Vec<_>>();
         debug_assert!(nodes.len() == (1 << (depth + 1)) - 1);
