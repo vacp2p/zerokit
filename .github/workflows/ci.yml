@@ -120,7 +120,7 @@ jobs:
       matrix:
         # we run lint tests only on ubuntu
         platform: [ ubuntu-latest ]
-        crate: [ rln, utils ]
+        crate: [ rln, rln-wasm, utils ]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
