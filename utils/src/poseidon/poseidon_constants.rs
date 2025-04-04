@@ -9,8 +9,6 @@
 
 // The following implementation was adapted from https://github.com/arkworks-rs/sponge/blob/7d9b3a474c9ddb62890014aeaefcb142ac2b3776/src/poseidon/grain_lfsr.rs
 
-#![allow(dead_code)]
-
 use ark_ff::PrimeField;
 use num_bigint::BigUint;
 
@@ -20,7 +18,6 @@ pub struct PoseidonGrainLFSR {
     pub head: usize,
 }
 
-#[allow(unused_variables)]
 impl PoseidonGrainLFSR {
     pub fn new(
         is_field: u64,

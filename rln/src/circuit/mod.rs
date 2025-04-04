@@ -1,16 +1,20 @@
 // This crate provides interfaces for the zero-knowledge circuit and keys
 
+pub mod iden3calc;
+pub mod qap;
+pub mod zkey;
+
 use ::lazy_static::lazy_static;
 use ark_bn254::{
     Bn254, Fq as ArkFq, Fq2 as ArkFq2, Fr as ArkFr, G1Affine as ArkG1Affine,
     G1Projective as ArkG1Projective, G2Affine as ArkG2Affine, G2Projective as ArkG2Projective,
 };
-use ark_groth16::{ProvingKey, VerifyingKey};
+use ark_groth16::ProvingKey;
 use ark_relations::r1cs::ConstraintMatrices;
 use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
 
-use crate::iden3calc::calc_witness;
+use crate::circuit::iden3calc::calc_witness;
 
 #[cfg(feature = "arkzkey")]
 use {
@@ -19,13 +23,15 @@ use {
 };
 
 #[cfg(not(feature = "arkzkey"))]
-use {ark_circom::read_zkey, std::io::Cursor};
+use {crate::circuit::zkey::read_zkey, std::io::Cursor};
 
 #[cfg(feature = "arkzkey")]
-pub const ARKZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.arkzkey");
+pub const ARKZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_height_20/rln_final.arkzkey");
 
-pub const ZKEY_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/rln_final.zkey");
-const GRAPH_BYTES: &[u8] = include_bytes!("../resources/tree_height_20/graph.bin");
+pub const ZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_height_20/rln_final.zkey");
+
+#[cfg(not(target_arch = "wasm32"))]
+const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_height_20/graph.bin");
 
 lazy_static! {
     static ref ZKEY: (ProvingKey<Curve>, ConstraintMatrices<Fr>) = {
@@ -73,28 +79,9 @@ pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<(ProvingKey<Curve>, ConstraintM
 }
 
 // Loads the proving key
+#[cfg(not(target_arch = "wasm32"))]
 pub fn zkey_from_folder() -> &'static (ProvingKey<Curve>, ConstraintMatrices<Fr>) {
     &ZKEY
-}
-
-// Loads the verification key from a bytes vector
-pub fn vk_from_raw(zkey_data: &[u8]) -> Result<VerifyingKey<Curve>> {
-    if !zkey_data.is_empty() {
-        let (proving_key, _matrices) = zkey_from_raw(zkey_data)?;
-        return Ok(proving_key.vk);
-    }
-
-    Err(Report::msg("No proving/verification key found!"))
-}
-
-// Checks verification key to be correct with respect to proving key
-pub fn check_vk_from_zkey(verifying_key: VerifyingKey<Curve>) -> Result<()> {
-    let (proving_key, _matrices) = zkey_from_folder();
-    if proving_key.vk == verifying_key {
-        Ok(())
-    } else {
-        Err(Report::msg("verifying_keys are not equal"))
-    }
 }
 
 pub fn calculate_rln_witness<I: IntoIterator<Item = (String, Vec<Fr>)>>(
@@ -104,6 +91,7 @@ pub fn calculate_rln_witness<I: IntoIterator<Item = (String, Vec<Fr>)>>(
     calc_witness(inputs, graph_data)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn graph_from_folder() -> &'static [u8] {
     GRAPH_BYTES
 }

@@ -18,77 +18,79 @@ doctest = false
 [dependencies]
 # ZKP Generation
 ark-bn254 = { version = "0.5.0", features = ["std"] }
-ark-ff = { version = "0.5.0", features = ["std", "asm"] }
-ark-serialize = { version = "0.5.0", features = ["derive"] }
-ark-ec = { version = "0.5.0", default-features = false }
-ark-std = { version = "0.5.0", default-features = false }
-ark-groth16 = { version = "0.5.0", features = [
+ark-relations = { version = "0.5.1", features = ["std"] }
+ark-ff = { version = "0.5.0", default-features = false, features = [
     "parallel",
-], default-features = false }
-ark-relations = { version = "0.5.0", default-features = false, features = [
-    "std",
 ] }
-ark-circom = { version = "0.5.0" }
-ark-r1cs-std = { version = "0.5.0" }
+ark-ec = { version = "0.5.0", default-features = false, features = [
+    "parallel",
+] }
+
+ark-std = { version = "0.5.0", default-features = false, features = [
+    "parallel",
+] }
+ark-poly = { version = "0.5.0", default-features = false, features = [
+    "parallel",
+] }
+ark-groth16 = { version = "0.5.0", default-features = false, features = [
+    "parallel",
+] }
+ark-serialize = { version = "0.5.0", default-features = false, features = [
+    "parallel",
+] }
 
 # error handling
-color-eyre = "0.6.2"
-thiserror = "2.0.11"
+color-eyre = "0.6.3"
+thiserror = "2.0.12"
 
 # utilities
-byteorder = "1.4.3"
+byteorder = "1.5.0"
 cfg-if = "1.0"
 num-bigint = { version = "0.4.6", default-features = false, features = [
     "rand",
+    "std",
 ] }
 num-traits = "0.2.19"
-once_cell = "1.19.0"
-lazy_static = "1.4.0"
+once_cell = "1.21.3"
+lazy_static = "1.5.0"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
-ruint = { version = "1.12.4", features = ["rand", "serde", "ark-ff-04"] }
+ruint = { version = "1.14.0", features = ["rand", "serde", "ark-ff-04"] }
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
-utils = { package = "zerokit_utils", version = "0.5.2", path = "../utils/", default-features = false }
+utils = { package = "zerokit_utils", version = "0.5.2", path = "../utils", default-features = false }
 
 # serialization
-prost = "0.13.1"
+prost = "0.13.5"
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 
-document-features = { version = "=0.2.10", optional = true }
+document-features = { version = "0.2.11", optional = true }
 
 [dev-dependencies]
 sled = "0.34.7"
 criterion = { version = "0.4.0", features = ["html_reports"] }
 
 [features]
-default = ["parallel", "pmtree-ft"]
-parallel = [
-    "ark-ec/parallel",
-    "ark-ff/parallel",
-    "ark-std/parallel",
-    "ark-groth16/parallel",
-    "utils/parallel",
-]
+default = ["pmtree-ft"]
 fullmerkletree = ["default"]
-arkzkey = []
 stateless = []
+arkzkey = []
 
 # Note: pmtree feature is still experimental
 pmtree-ft = ["utils/pmtree-ft"]
 
 [[bench]]
-name = "pmtree_benchmark"
+name = "circuit_loading_arkzkey_benchmark"
 harness = false
+required-features = ["arkzkey"]
 
 [[bench]]
 name = "circuit_loading_benchmark"
 harness = false
 
 [[bench]]
-name = "circuit_loading_arkzkey_benchmark"
+name = "pmtree_benchmark"
 harness = false
-required-features = ["arkzkey"]
 
 [[bench]]
 name = "poseidon_tree_benchmark"

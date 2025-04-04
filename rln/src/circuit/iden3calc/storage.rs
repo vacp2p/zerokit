@@ -7,7 +7,7 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use prost::Message;
 use std::io::{Read, Write};
 
-use crate::iden3calc::{
+use crate::circuit::iden3calc::{
     graph,
     graph::{Operation, TresOperation, UnoOperation},
     proto, InputSignalsInfo,

@@ -13,8 +13,8 @@ use std::{
     ops::{BitAnd, BitOr, BitXor, Deref, Shl, Shr},
 };
 
+use crate::circuit::iden3calc::proto;
 use crate::circuit::Fr;
-use crate::iden3calc::proto;
 
 pub const M: U256 =
     uint!(21888242871839275222246405745257275088548364400416034343698204186575808495617_U256);

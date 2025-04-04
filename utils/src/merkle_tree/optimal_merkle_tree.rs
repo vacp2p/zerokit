@@ -109,7 +109,6 @@ where
         self.next_index
     }
 
-    #[must_use]
     // Returns the root of the tree
     fn root(&self) -> H::Fr {
         self.get_node(0, 0)
@@ -326,14 +325,12 @@ where
     type Index = u8;
     type Hasher = H;
 
-    #[must_use]
     // Returns the length of a Merkle proof
     fn length(&self) -> usize {
         self.0.len()
     }
 
     /// Computes the leaf index corresponding to a Merkle proof
-    #[must_use]
     fn leaf_index(&self) -> usize {
         // In current implementation the path indexes in a proof correspond to the binary representation of the leaf index
         let mut binary_repr = self.get_path_index();
@@ -343,19 +340,16 @@ where
             .fold(0, |acc, digit| (acc << 1) + usize::from(digit))
     }
 
-    #[must_use]
     /// Returns the path elements forming a Merkle proof
     fn get_path_elements(&self) -> Vec<H::Fr> {
         self.0.iter().map(|x| x.0).collect()
     }
 
     /// Returns the path indexes forming a Merkle proof
-    #[must_use]
     fn get_path_index(&self) -> Vec<u8> {
         self.0.iter().map(|x| x.1).collect()
     }
 
-    #[must_use]
     /// Computes the Merkle root corresponding by iteratively hashing a Merkle proof with a given input leaf
     fn compute_root_from(&self, leaf: &H::Fr) -> H::Fr {
         let mut acc: H::Fr = *leaf;

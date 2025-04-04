@@ -56,13 +56,13 @@ zerokit-utils = "0.5.1"
 
 ```bash
 # Build the crate
-cargo build
+cargo make build
 
 # Run tests
-cargo test
+cargo make test
 
 # Run benchmarks
-cargo bench
+cargo make bench
 ```
 
 To view the results of the benchmark, open the `target/criterion/report/index.html` file generated after the bench

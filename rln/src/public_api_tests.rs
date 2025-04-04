@@ -486,7 +486,6 @@ mod tree_test {
         assert_eq!(received_leaf, Fr::from(0));
     }
 
-    #[allow(unused_must_use)]
     #[test]
     // This test checks if `set_leaves_from` throws an error when the index is out of bounds
     fn test_set_leaves_bad_index() {
@@ -511,6 +510,8 @@ mod tree_test {
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
+
+        #[allow(unused_must_use)]
         rln.set_leaves_from(bad_index, &mut buffer)
             .expect_err("Should throw an error");
 

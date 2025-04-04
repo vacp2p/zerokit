@@ -84,9 +84,39 @@ jobs:
           path: ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz
           retention-days: 2
 
+  browser-rln-wasm:
+    name: Browser build (RLN WASM)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: Swatinem/rust-cache@v2
+      - name: Install dependencies
+        run: make installdeps
+      - name: cross make build
+        run: |
+          cross make build
+          mkdir release
+          cp pkg/** release/
+          tar -czvf browser-rln-wasm.tar.gz release/
+        working-directory: rln-wasm
+
+      - name: Upload archive artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-rln-wasm-archive
+          path: rln-wasm/browser-rln-wasm.tar.gz
+          retention-days: 2
+
   prepare-prerelease:
     name: Prepare pre-release
-    needs: [ linux, macos ]
+    needs: [ linux, macos, browser-rln-wasm ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
