@@ -8,7 +8,7 @@ use {
     utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
 };
 
-use crate::circuit::{vk_from_raw, zkey_from_raw, Curve, Fr};
+use crate::circuit::{zkey_from_raw, Curve, Fr};
 use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
 use crate::protocol::*;
 use crate::utils::*;
@@ -72,8 +72,8 @@ impl RLN {
         let rln_config: Value = serde_json::from_str(&String::from_utf8(input)?)?;
         let tree_config = rln_config["tree_config"].to_string();
 
-        let proving_key = zkey_from_folder();
-        let verification_key = &proving_key.0.vk;
+        let proving_key = zkey_from_folder().to_owned();
+        let verification_key = proving_key.0.vk.to_owned();
         let graph_data = graph_from_folder();
 
         let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = if tree_config.is_empty() {
@@ -90,8 +90,8 @@ impl RLN {
         )?;
 
         Ok(RLN {
-            proving_key: proving_key.to_owned(),
-            verification_key: verification_key.to_owned(),
+            proving_key,
+            verification_key,
             graph_data: graph_data.to_vec(),
             #[cfg(not(feature = "stateless"))]
             tree,
@@ -109,13 +109,13 @@ impl RLN {
     #[cfg_attr(docsrs, doc(cfg(feature = "stateless")))]
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
     pub fn new() -> Result<RLN> {
-        let proving_key = zkey_from_folder();
-        let verification_key = &proving_key.0.vk;
+        let proving_key = zkey_from_folder().to_owned();
+        let verification_key = proving_key.0.vk.to_owned();
         let graph_data = graph_from_folder();
 
         Ok(RLN {
-            proving_key: proving_key.to_owned(),
-            verification_key: verification_key.to_owned(),
+            proving_key,
+            verification_key,
             graph_data: graph_data.to_vec(),
         })
     }
@@ -164,7 +164,7 @@ impl RLN {
         mut tree_config_input: R,
     ) -> Result<RLN> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
-        let verification_key = vk_from_raw(&zkey_vec)?;
+        let verification_key = proving_key.0.vk.to_owned();
 
         let mut tree_config_vec: Vec<u8> = Vec::new();
         tree_config_input.read_to_end(&mut tree_config_vec)?;
@@ -223,7 +223,7 @@ impl RLN {
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
     pub fn new_with_params(zkey_vec: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
-        let verification_key = vk_from_raw(&zkey_vec)?;
+        let verification_key = proving_key.0.vk.to_owned();
 
         Ok(RLN {
             proving_key,
@@ -232,37 +232,29 @@ impl RLN {
         })
     }
 
-    /// Creates a new stateless RLN object by passing circuit resources as byte vectors.
+    /// Creates a new stateless RLN object by passing circuit resources as a byte vector.
     ///
     /// Input parameters are
-    /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`)  or (`rln_final.arkzkey`) as binary file
+    /// - `zkey_vec`: a byte vector containing the proving key (`rln_final.zkey`) or (`rln_final.arkzkey`) as binary file
     ///
     /// Example:
     /// ```
     /// use std::fs::File;
     /// use std::io::Read;
     ///
-    /// let resources_folder = "./resources/tree_height_20/";
+    /// let zkey_path = "./resources/tree_height_20/rln_final.zkey";
     ///
-    /// let mut resources: Vec<Vec<u8>> = Vec::new();
-    /// for filename in ["rln_final.zkey", "graph.bin"] {
-    ///     let fullpath = format!("{resources_folder}{filename}");
-    ///     let mut file = File::open(&fullpath).expect("no file found");
-    ///     let metadata = std::fs::metadata(&fullpath).expect("unable to read metadata");
-    ///     let mut buffer = vec![0; metadata.len() as usize];
-    ///     file.read_exact(&mut buffer).expect("buffer overflow");
-    ///     resources.push(buffer);
-    /// }
+    /// let mut file = File::open(zkey_path).expect("Failed to open file");
+    /// let metadata = std::fs::metadata(zkey_path).expect("Failed to read metadata");
+    /// let mut zkey_vec = vec![0; metadata.len() as usize];
+    /// file.read_exact(&mut zkey_vec).expect("Failed to read file");
     ///
-    /// let mut rln = RLN::new_with_params(
-    ///     resources[0].clone(),
-    ///     resources[1].clone(),
-    /// );
+    /// let mut rln = RLN::new_with_params(zkey_vec)?;
     /// ```
     #[cfg(all(target_arch = "wasm32", feature = "stateless"))]
     pub fn new_with_params(zkey_vec: Vec<u8>) -> Result<RLN> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
-        let verification_key = vk_from_raw(&zkey_vec)?;
+        let verification_key = proving_key.0.vk.to_owned();
 
         Ok(RLN {
             proving_key,
@@ -752,9 +744,9 @@ impl RLN {
         mut output_data: W,
     ) -> Result<()> {
         // We read input RLN witness and we serialize_compressed it
-        let mut serialized: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut serialized)?;
-        let (rln_witness, _) = deserialize_witness(&serialized)?;
+        let mut serialized_witness: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut serialized_witness)?;
+        let (rln_witness, _) = deserialize_witness(&serialized_witness)?;
 
         let proof = generate_proof(&self.proving_key, &rln_witness, &self.graph_data)?;
 
@@ -898,9 +890,9 @@ impl RLN {
         mut input_data: R,
         mut output_data: W,
     ) -> Result<()> {
-        let mut witness_byte: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut witness_byte)?;
-        let (rln_witness, _) = deserialize_witness(&witness_byte)?;
+        let mut serialized_witness: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut serialized_witness)?;
+        let (rln_witness, _) = deserialize_witness(&serialized_witness)?;
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
         let proof = generate_proof(&self.proving_key, &rln_witness, &self.graph_data)?;
@@ -919,10 +911,10 @@ impl RLN {
     pub fn generate_rln_proof_with_witness<W: Write>(
         &mut self,
         calculated_witness: Vec<BigInt>,
-        rln_witness_vec: Vec<u8>,
+        serialized_witness: Vec<u8>,
         mut output_data: W,
     ) -> Result<()> {
-        let (rln_witness, _) = deserialize_witness(&rln_witness_vec[..])?;
+        let (rln_witness, _) = deserialize_witness(&serialized_witness[..])?;
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
         let proof = generate_proof_with_witness(calculated_witness, &self.proving_key).unwrap();

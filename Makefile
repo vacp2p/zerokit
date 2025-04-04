@@ -13,6 +13,7 @@ endif
 
 installdeps: .pre-build
 ifeq ($(shell uname),Darwin)
+	@brew update
 	@brew install cmake ninja wabt
 else ifeq ($(shell uname),Linux)
 	@sudo apt-get update
@@ -26,7 +27,7 @@ endif
 		nvm install 22.14.0 && \
 		nvm use 22.14.0'
 	@curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-	@echo "\033[1;32m>>> Now run this command to activate Node.js 22.14.0 in your current terminal: \033[1;33msource $$HOME/.nvm/nvm.sh && nvm use 22.14.0\033[0m"
+	@echo "\033[1;32m>>> Now run this command to activate Node.js 22.14.0: \033[1;33msource $$HOME/.nvm/nvm.sh && nvm use 22.14.0\033[0m"
 
 build: .pre-build
 	@cargo make build

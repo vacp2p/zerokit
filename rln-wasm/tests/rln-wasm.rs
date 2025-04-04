@@ -6,14 +6,12 @@ mod tests {
     use rln::circuit::{Fr, TEST_TREE_HEIGHT};
     use rln::hashers::{hash_to_field, poseidon_hash};
     use rln::poseidon_tree::PoseidonTree;
-    use rln::utils::{
-        bytes_le_to_fr, fr_to_bytes_le, normalize_usize, vec_fr_to_bytes_le, vec_u8_to_bytes_le,
-    };
+    use rln::protocol::{prepare_verify_input, rln_witness_from_values, serialize_witness};
+    use rln::utils::{bytes_le_to_fr, fr_to_bytes_le};
     use rln_wasm::*;
     use wasm_bindgen::{prelude::*, JsValue};
     use wasm_bindgen_test::wasm_bindgen_test;
     use zerokit_utils::merkle_tree::merkle_tree::ZerokitMerkleTree;
-    use zerokit_utils::ZerokitMerkleProof;
 
     #[wasm_bindgen(module = "src/utils.js")]
     extern "C" {
@@ -36,16 +34,18 @@ mod tests {
         let mut results = String::from("\nbenchmarks:\n");
         let iterations = 10;
 
-        // Benchmark wasm_new
         let zkey = read_file(&ZKEY_PATH).unwrap();
+
+        // Benchmark wasm_new
         let start_wasm_new = Date::now();
         for _ in 0..iterations {
             let _ = wasm_new(zkey.clone()).unwrap();
         }
         let wasm_new_result = Date::now() - start_wasm_new;
 
-        // Initialize instance for other benchmarks
+        // Create RLN instance for other benchmarks
         let rln_instance = wasm_new(zkey).unwrap();
+        let mut tree = PoseidonTree::default(TEST_TREE_HEIGHT).unwrap();
 
         // Benchmark wasm_key_gen
         let start_wasm_key_gen = Date::now();
@@ -54,43 +54,43 @@ mod tests {
         }
         let wasm_key_gen_result = Date::now() - start_wasm_key_gen;
 
-        // Setup for proof generation and verification
-        let mut tree = PoseidonTree::default(TEST_TREE_HEIGHT).unwrap();
+        // Generate identity pair for other benchmarks
         let mem_keys = wasm_key_gen(rln_instance).unwrap();
         let id_key = mem_keys.subarray(0, 32);
-        let id_commitment = mem_keys.subarray(32, 64);
+        let (identity_secret_hash, _) = bytes_le_to_fr(&id_key.to_vec());
+        let (id_commitment, _) = bytes_le_to_fr(&mem_keys.subarray(32, 64).to_vec());
+
         let epoch = hash_to_field(b"test-epoch");
         let rln_identifier = hash_to_field(b"test-rln-identifier");
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
 
-        // Prepare inputs for other benchmarks
-        let signal = b"Hello World";
         let identity_index = tree.leaves_set();
-        let user_message_limit = Fr::from(100);
-        let message_id = fr_to_bytes_le(&Fr::from(0));
-        let external_nullifier_bytes = fr_to_bytes_le(&external_nullifier);
 
-        let (id_commitment_fr, _) = bytes_le_to_fr(&id_commitment.to_vec()[..]);
-        let rate_commitment = poseidon_hash(&[id_commitment_fr, user_message_limit]);
+        let user_message_limit = Fr::from(100);
+
+        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
         tree.update_next(rate_commitment).unwrap();
 
-        let x = hash_to_field(signal);
+        let message_id = Fr::from(0);
+        let signal: [u8; 32] = [0; 32];
+        let x = hash_to_field(&signal);
+
         let merkle_proof = tree.proof(identity_index).expect("proof should exist");
-        let path_elements = merkle_proof.get_path_elements();
-        let identity_path_index = merkle_proof.get_path_index();
 
-        let mut serialized: Vec<u8> = Vec::new();
-        serialized.append(&mut id_key.to_vec());
-        serialized.append(&mut fr_to_bytes_le(&user_message_limit).to_vec());
-        serialized.append(&mut message_id.to_vec());
-        serialized.append(&mut vec_fr_to_bytes_le(&path_elements).unwrap());
-        serialized.append(&mut vec_u8_to_bytes_le(&identity_path_index).unwrap());
-        serialized.append(&mut fr_to_bytes_le(&x));
-        serialized.append(&mut external_nullifier_bytes.to_vec());
-        let serialized_message = Uint8Array::from(&serialized[..]);
+        let rln_witness = rln_witness_from_values(
+            identity_secret_hash,
+            &merkle_proof,
+            x,
+            external_nullifier,
+            user_message_limit,
+            message_id,
+        )
+        .unwrap();
 
-        let json_inputs =
-            wasm_rln_witness_to_json(rln_instance, serialized_message.clone()).unwrap();
+        let serialized_witness = serialize_witness(&rln_witness).unwrap();
+        let witness_buffer = Uint8Array::from(&serialized_witness[..]);
+
+        let json_inputs = wasm_rln_witness_to_json(rln_instance, witness_buffer.clone()).unwrap();
 
         // Benchmark calculateWitness
         let start_calculate_witness = Date::now();
@@ -99,7 +99,7 @@ mod tests {
         }
         let calculate_witness_result = Date::now() - start_calculate_witness;
 
-        // Calculate witness other benchmarks
+        // Calculate witness for other benchmarks
         let calculated_witness_json = calculateWitness(&CIRCOM_PATH, json_inputs)
             .await
             .unwrap()
@@ -118,38 +118,36 @@ mod tests {
             let _ = wasm_generate_rln_proof_with_witness(
                 rln_instance,
                 calculated_witness.clone(),
-                serialized_message.clone(),
+                witness_buffer.clone(),
             );
         }
         let wasm_generate_rln_proof_with_witness_result =
             Date::now() - start_wasm_generate_rln_proof_with_witness;
 
         // Generate a proof for other benchmarks
-        let proof = wasm_generate_rln_proof_with_witness(
-            rln_instance,
-            calculated_witness,
-            serialized_message,
-        )
-        .unwrap();
+        let proof =
+            wasm_generate_rln_proof_with_witness(rln_instance, calculated_witness, witness_buffer)
+                .unwrap();
 
-        let mut proof_bytes = proof.to_vec();
-        proof_bytes.append(&mut normalize_usize(signal.len()));
-        proof_bytes.append(&mut signal.to_vec());
+        let proof_data = proof.to_vec();
+        let verify_input = prepare_verify_input(proof_data, &signal);
+        let input_buffer = Uint8Array::from(&verify_input[..]);
 
         let root = tree.root();
-        let root_le = fr_to_bytes_le(&root);
-        let roots = Uint8Array::from(&root_le[..]);
-        let proof_with_signal = Uint8Array::from(&proof_bytes[..]);
+        let roots_serialized = fr_to_bytes_le(&root);
+        let roots_buffer = Uint8Array::from(&roots_serialized[..]);
 
         // Benchmark wasm_verify_with_roots
         let start_wasm_verify_with_roots = Date::now();
         for _ in 0..iterations {
-            let _ = wasm_verify_with_roots(rln_instance, proof_with_signal.clone(), roots.clone());
+            let _ =
+                wasm_verify_with_roots(rln_instance, input_buffer.clone(), roots_buffer.clone());
         }
         let wasm_verify_with_roots_result = Date::now() - start_wasm_verify_with_roots;
 
-        let is_proof_valid = wasm_verify_with_roots(rln_instance, proof_with_signal, roots);
-        assert!(is_proof_valid.unwrap(), "verifying proof with roots failed");
+        // Verify the proof with the root
+        let is_proof_valid = wasm_verify_with_roots(rln_instance, input_buffer, roots_buffer);
+        assert!(is_proof_valid.unwrap(), "verification failed");
 
         // Format and display results
         let format_duration = |duration_ms: f64| -> String {
@@ -185,55 +183,58 @@ mod tests {
 
     #[wasm_bindgen_test]
     pub async fn rln_wasm_test() {
+        // Read the zkey file
         let zkey = read_file(&ZKEY_PATH).unwrap();
 
-        // Creating an instance of RLN
+        // Create RLN instance and separated tree
         let rln_instance = wasm_new(zkey).unwrap();
-
         let mut tree = PoseidonTree::default(TEST_TREE_HEIGHT).unwrap();
 
-        // Creating membership key
-        let mem_keys = wasm_key_gen(rln_instance).unwrap();
-        let id_key = mem_keys.subarray(0, 32);
-        let id_commitment = mem_keys.subarray(32, 64);
-
-        // Prepare the message
-        let signal = b"Hello World";
-
-        let identity_index = tree.leaves_set();
         // Setting up the epoch and rln_identifier
         let epoch = hash_to_field(b"test-epoch");
         let rln_identifier = hash_to_field(b"test-rln-identifier");
-
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
-        let external_nullifier = fr_to_bytes_le(&external_nullifier);
 
+        // Generate identity pair
+        let mem_keys = wasm_key_gen(rln_instance).unwrap();
+        let (identity_secret_hash, _) = bytes_le_to_fr(&mem_keys.subarray(0, 32).to_vec());
+        let (id_commitment, _) = bytes_le_to_fr(&mem_keys.subarray(32, 64).to_vec());
+
+        // Get index of the identity
+        let identity_index = tree.leaves_set();
+
+        // Setting up the user message limit
         let user_message_limit = Fr::from(100);
-        let message_id = fr_to_bytes_le(&Fr::from(0));
 
-        let (id_commitment_fr, _) = bytes_le_to_fr(&id_commitment.to_vec()[..]);
-        let rate_commitment = poseidon_hash(&[id_commitment_fr, user_message_limit]);
+        // Updating the tree with the rate commitment
+        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
         tree.update_next(rate_commitment).unwrap();
 
-        let x = hash_to_field(signal);
+        // Generate merkle proof
         let merkle_proof = tree.proof(identity_index).expect("proof should exist");
-        let path_elements = merkle_proof.get_path_elements();
-        let identity_path_index = merkle_proof.get_path_index();
 
-        // Serializing the message
-        let mut serialized: Vec<u8> = Vec::new();
-        serialized.append(&mut id_key.to_vec());
-        serialized.append(&mut fr_to_bytes_le(&user_message_limit).to_vec());
-        serialized.append(&mut message_id.to_vec());
-        serialized.append(&mut vec_fr_to_bytes_le(&path_elements).unwrap());
-        serialized.append(&mut vec_u8_to_bytes_le(&identity_path_index).unwrap());
-        serialized.append(&mut fr_to_bytes_le(&x));
-        serialized.append(&mut external_nullifier.to_vec());
-        let serialized_message = Uint8Array::from(&serialized[..]);
+        // Create message id and signal
+        let message_id = Fr::from(0);
+        let signal: [u8; 32] = [0; 32];
+        let x = hash_to_field(&signal);
+
+        // Prepare input for witness calculation
+        let rln_witness = rln_witness_from_values(
+            identity_secret_hash,
+            &merkle_proof,
+            x,
+            external_nullifier,
+            user_message_limit,
+            message_id,
+        )
+        .unwrap();
+
+        // Serialize the rln witness
+        let serialized_witness = serialize_witness(&rln_witness).unwrap();
+        let witness_buffer = Uint8Array::from(&serialized_witness[..]);
 
         // Obtaining inputs that should be sent to circom witness calculator
-        let json_inputs =
-            wasm_rln_witness_to_json(rln_instance, serialized_message.clone()).unwrap();
+        let json_inputs = wasm_rln_witness_to_json(rln_instance, witness_buffer.clone()).unwrap();
 
         // Calculating witness with JS
         // (Using a JSON since wasm_bindgen does not like Result<Vec<JsBigInt>,JsValue>)
@@ -249,26 +250,23 @@ mod tests {
             .map(|x| JsBigInt::new(&x.into()).unwrap())
             .collect();
 
-        // Generating proof
-        let proof = wasm_generate_rln_proof_with_witness(
-            rln_instance,
-            calculated_witness,
-            serialized_message,
-        )
-        .unwrap();
+        // Generate a proof from the calculated witness
+        let proof =
+            wasm_generate_rln_proof_with_witness(rln_instance, calculated_witness, witness_buffer)
+                .unwrap();
 
-        // Add signal_len | signal
-        let mut proof_bytes = proof.to_vec();
-        proof_bytes.append(&mut normalize_usize(signal.len()));
-        proof_bytes.append(&mut signal.to_vec());
-
-        // Validating Proof with Roots
+        // Prepare the root for verification
         let root = tree.root();
-        let root_le = fr_to_bytes_le(&root);
-        let roots = Uint8Array::from(&root_le[..]);
-        let proof_with_signal = Uint8Array::from(&proof_bytes[..]);
+        let roots_serialized = fr_to_bytes_le(&root);
+        let roots_buffer = Uint8Array::from(&roots_serialized[..]);
 
-        let is_proof_valid = wasm_verify_with_roots(rln_instance, proof_with_signal, roots);
-        assert!(is_proof_valid.unwrap(), "verifying proof with roots failed");
+        // Prepare input for proof verification
+        let proof_data = proof.to_vec();
+        let verify_input = prepare_verify_input(proof_data, &signal);
+        let input_buffer = Uint8Array::from(&verify_input[..]);
+
+        // Verify the proof with the root
+        let is_proof_valid = wasm_verify_with_roots(rln_instance, input_buffer, roots_buffer);
+        assert!(is_proof_valid.unwrap(), "verification failed");
     }
 }

@@ -9,7 +9,7 @@ use ark_bn254::{
     Bn254, Fq as ArkFq, Fq2 as ArkFq2, Fr as ArkFr, G1Affine as ArkG1Affine,
     G1Projective as ArkG1Projective, G2Affine as ArkG2Affine, G2Projective as ArkG2Projective,
 };
-use ark_groth16::{ProvingKey, VerifyingKey};
+use ark_groth16::ProvingKey;
 use ark_relations::r1cs::ConstraintMatrices;
 use cfg_if::cfg_if;
 use color_eyre::{Report, Result};
@@ -82,16 +82,6 @@ pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<(ProvingKey<Curve>, ConstraintM
 #[cfg(not(target_arch = "wasm32"))]
 pub fn zkey_from_folder() -> &'static (ProvingKey<Curve>, ConstraintMatrices<Fr>) {
     &ZKEY
-}
-
-// Loads the verification key from a bytes vector
-pub fn vk_from_raw(zkey_data: &[u8]) -> Result<VerifyingKey<Curve>> {
-    if !zkey_data.is_empty() {
-        let (proving_key, _matrices) = zkey_from_raw(zkey_data)?;
-        return Ok(proving_key.vk);
-    }
-
-    Err(Report::msg("No proving/verification key found!"))
 }
 
 pub fn calculate_rln_witness<I: IntoIterator<Item = (String, Vec<Fr>)>>(

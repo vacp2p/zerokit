@@ -127,11 +127,12 @@ impl RLNSystem {
         };
 
         let merkle_proof = self.tree.proof(user_index)?;
+        let x = hash_to_field(signal.as_bytes());
 
         let rln_witness = rln_witness_from_values(
             identity.identity_secret_hash,
             &merkle_proof,
-            hash_to_field(signal.as_bytes()),
+            x,
             external_nullifier,
             Fr::from(MESSAGE_LIMIT),
             Fr::from(message_id),
@@ -157,12 +158,12 @@ impl RLNSystem {
         let mut input_buffer = Cursor::new(proof_with_signal);
 
         let root = self.tree.root();
-        let root_serialized = fr_to_bytes_le(&root);
-        let mut root_buffer = Cursor::new(root_serialized);
+        let roots_serialized = fr_to_bytes_le(&root);
+        let mut roots_buffer = Cursor::new(roots_serialized);
 
         match self
             .rln
-            .verify_with_roots(&mut input_buffer, &mut root_buffer)
+            .verify_with_roots(&mut input_buffer, &mut roots_buffer)
         {
             Ok(true) => {
                 let nullifier = &proof_data[256..288];

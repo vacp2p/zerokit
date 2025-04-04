@@ -136,11 +136,15 @@ pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>> {
     }
 }
 
+/// Normalizes a `usize` into an 8-byte array, ensuring consistency across architectures.
+/// On 32-bit systems, the result is zero-padded to 8 bytes.
+/// On 64-bit systems, it directly represents the `usize` value.
 #[inline(always)]
-pub fn normalize_usize(input: usize) -> Vec<u8> {
-    let mut normalized_usize = input.to_le_bytes().to_vec();
-    normalized_usize.resize(8, 0);
-    normalized_usize
+pub fn normalize_usize(input: usize) -> [u8; 8] {
+    let mut bytes = [0u8; 8];
+    let input_bytes = input.to_le_bytes();
+    bytes[..input_bytes.len()].copy_from_slice(&input_bytes);
+    bytes
 }
 
 #[inline(always)] // using for test

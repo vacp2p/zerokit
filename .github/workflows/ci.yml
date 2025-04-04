@@ -145,11 +145,8 @@ jobs:
       - name: cargo clippy
         if: success() || failure()
         run: |
-          cargo clippy --release -- -D warnings
+          cargo clippy --release
         working-directory: ${{ matrix.crate }}
-        # We skip clippy on rln-wasm, since wasm target is managed by cargo make
-        # Currently not treating warnings as error, too noisy
-        # -- -D warnings
 
   benchmark-utils:
     # run only in pull requests
