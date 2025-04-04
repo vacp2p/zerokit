@@ -23,7 +23,7 @@ brew install wabt # macOS
 sudo apt-get install wabt # Ubuntu
 ```
 
-Or install everything needed for `zerokit` which includes `wasm-pack`, `cargo-make` and `wabt`:
+Or install everything needed for `zerokit` at the root of the repository:
 
 ```bash
 make installdeps
