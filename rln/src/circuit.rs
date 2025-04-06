@@ -1,16 +1,22 @@
 // This crate provides interfaces for the zero-knowledge circuit and keys
 
+use std::collections::HashMap;
 use ::lazy_static::lazy_static;
 use ark_bn254::{
     Bn254, Fq as ArkFq, Fq2 as ArkFq2, Fr as ArkFr, G1Affine as ArkG1Affine,
     G1Projective as ArkG1Projective, G2Affine as ArkG2Affine, G2Projective as ArkG2Projective,
 };
+use ark_ff::{BigInteger, PrimeField};
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use cfg_if::cfg_if;
+use circom_witnesscalc::{calc_witness, deserialize_inputs, graph, Error, InputSignalsInfo};
+use circom_witnesscalc::graph::Node;
+use circom_witnesscalc::storage::deserialize_witnesscalc_graph;
 use color_eyre::{Report, Result};
-
-use crate::iden3calc::calc_witness;
+use ruint::aliases::U256;
+// use crate::iden3calc::calc_witness;
+use crate::iden3calc::graph::{fr_to_u256, u256_to_fr};
 
 #[cfg(feature = "arkzkey")]
 use {
@@ -101,7 +107,66 @@ pub fn calculate_rln_witness<I: IntoIterator<Item = (String, Vec<Fr>)>>(
     inputs: I,
     graph_data: &[u8],
 ) -> Vec<Fr> {
-    calc_witness(inputs, graph_data)
+    // calc_witness(inputs, graph_data)
+    let res = calc_witness_2(inputs, graph_data).unwrap();
+    res.iter().map(|v| u256_to_fr(&v)).collect()
+}
+
+pub fn calc_witness_2<I: IntoIterator<Item = (String, Vec<Fr>)>>(inputs: I, graph_data: &[u8]) -> std::result::Result<Vec<U256>, Error> {
+
+    // HashMap<String, U256>
+    // let inputs = deserialize_inputs(inputs.as_bytes())?;
+
+    let inputs: HashMap<String, Vec<U256>> = inputs
+        .into_iter()
+        .map(|(key, value)| (key, value.iter().map(fr_to_u256).collect()))
+        .collect();
+
+    let (nodes, signals, input_mapping): (Vec<Node>, Vec<usize>, InputSignalsInfo) =
+        deserialize_witnesscalc_graph(std::io::Cursor::new(graph_data)).unwrap();
+
+    let mut inputs_buffer = get_inputs_buffer(get_inputs_size(&nodes));
+    populate_inputs(&inputs, &input_mapping, &mut inputs_buffer);
+
+    Ok(graph::evaluate(&nodes, inputs_buffer.as_slice(), &signals))
+}
+
+fn get_inputs_buffer(size: usize) -> Vec<U256> {
+    let mut inputs = vec![U256::ZERO; size];
+    inputs[0] = U256::from(1);
+    inputs
+}
+
+fn get_inputs_size(nodes: &[Node]) -> usize {
+    let mut start = false;
+    let mut max_index = 0usize;
+    for &node in nodes.iter() {
+        if let Node::Input(i) = node {
+            if i > max_index {
+                max_index = i;
+            }
+            start = true
+        } else if start {
+            break;
+        }
+    }
+    max_index + 1
+}
+
+fn populate_inputs(
+    input_list: &HashMap<String, Vec<U256>>, inputs_info: &InputSignalsInfo,
+    input_buffer: &mut [U256]) {
+    for (key, value) in input_list {
+        let (offset, len) = inputs_info[key];
+        if len != value.len() {
+            panic!("Invalid input length for {}", key);
+        }
+        // println!("input {}, offset {}, len {}", key, offset, len);
+
+        for (i, v) in value.iter().enumerate() {
+            input_buffer[offset + i] = *v;
+        }
+    }
 }
 
 pub fn graph_from_folder() -> &'static [u8] {
