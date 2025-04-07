@@ -1,4 +1,4 @@
-.PHONY: all installdeps build test clean
+.PHONY: all installdeps build test bench clean
 
 all: .pre-build build
 
