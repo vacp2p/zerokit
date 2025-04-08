@@ -1,0 +1,58 @@
+[tasks.build]
+clear = true
+dependencies = ["pack_build", "pack_rename"]
+
+[tasks.build_arkzkey]
+clear = true
+dependencies = ["pack_build_arkzkey", "pack_rename"]
+
+[tasks.pack_build]
+command = "wasm-pack"
+args = ["build", "--release", "--target", "web", "--scope", "waku"]
+env = { "RUSTFLAGS" = "--cfg feature=\"stateless\"" }
+
+[tasks.pack_build_arkzkey]
+command = "wasm-pack"
+args = ["build", "--release", "--target", "web", "--scope", "waku"]
+env = { "RUSTFLAGS" = "--cfg feature=\"stateless\" --cfg feature=\"arkzkey\"" }
+
+[tasks.pack_rename]
+script = "sed -i.bak 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json && rm pkg/package.json.bak"
+
+[tasks.test]
+command = "wasm-pack"
+args = [
+    "test",
+    "--release",
+    "--node",
+    "--target",
+    "wasm32-unknown-unknown",
+    "--",
+    "--nocapture",
+]
+env = { "RUSTFLAGS" = "--cfg feature=\"stateless\"" }
+
+[tasks.test_arkzkey]
+command = "wasm-pack"
+args = [
+    "test",
+    "--release",
+    "--node",
+    "--target",
+    "wasm32-unknown-unknown",
+    "--",
+    "--nocapture",
+]
+env = { "RUSTFLAGS" = "--cfg feature=\"stateless\" --cfg feature=\"arkzkey\"" }
+dependencies = ["build_arkzkey"]
+
+[tasks.bench]
+disabled = true
+
+[tasks.login]
+command = "wasm-pack"
+args = ["login"]
+
+[tasks.publish]
+command = "wasm-pack"
+args = ["publish", "--access", "public", "--target", "web"]

@@ -1,7 +1,6 @@
 // This crate collects all the underlying primitives used to implement RLN
 
 use ark_bn254::Fr;
-use ark_circom::CircomReduction;
 use ark_groth16::{prepare_verifying_key, Groth16, Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::{ConstraintMatrices, SynthesisError};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -16,7 +15,7 @@ use std::time::Instant;
 use thiserror::Error;
 use tiny_keccak::{Hasher as _, Keccak};
 
-use crate::circuit::{calculate_rln_witness, Curve};
+use crate::circuit::{calculate_rln_witness, qap::CircomReduction, Curve};
 use crate::hashers::{hash_to_field, poseidon_hash};
 use crate::poseidon_tree::*;
 use crate::public::RLN_IDENTIFIER;

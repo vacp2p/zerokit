@@ -34,9 +34,9 @@ use std::io::Cursor;
 use rln::{
     circuit::Fr,
     hashers::{hash_to_field, poseidon_hash},
-    protocol::{keygen, prepare_verify_input},
+    protocol::{keygen, prepare_prove_input, prepare_verify_input},
     public::RLN,
-    utils::{fr_to_bytes_le, normalize_usize},
+    utils::fr_to_bytes_le,
 };
 use serde_json::json;
 
@@ -53,8 +53,8 @@ fn main() {
 
     // 3. Add a rate commitment to the Merkle tree
     let id_index = 10;
-    let user_message_limit = 10;
-    let rate_commitment = poseidon_hash(&[id_commitment, Fr::from(user_message_limit)]);
+    let user_message_limit = Fr::from(10);
+    let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
     let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
     rln.set_leaf(id_index, &mut buffer).unwrap();
 
@@ -65,25 +65,28 @@ fn main() {
     // We generate rln_identifier from a date seed and we ensure is
     // mapped to a field element by hashing-to-field its content
     let rln_identifier = hash_to_field(b"test-rln-identifier");
+    // We generate a external nullifier
     let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+    // We choose a message_id satisfy 0 <= message_id < user_message_limit
+    let message_id = Fr::from(1);
 
     // 5. Generate and verify a proof for a message
     let signal = b"RLN is awesome";
 
     // 6. Prepare input for generate_rln_proof API
     // input_data is [ identity_secret<32> | id_index<8> | external_nullifier<32> | user_message_limit<32> | message_id<32> | signal_len<8> | signal<var> ]
-    let mut serialized: Vec<u8> = Vec::new();
-    serialized.append(&mut fr_to_bytes_le(&identity_secret_hash));
-    serialized.append(&mut normalize_usize(id_index));
-    serialized.append(&mut fr_to_bytes_le(&Fr::from(user_message_limit)));
-    serialized.append(&mut fr_to_bytes_le(&Fr::from(1)));
-    serialized.append(&mut fr_to_bytes_le(&external_nullifier));
-    serialized.append(&mut normalize_usize(signal.len()));
-    serialized.append(&mut signal.to_vec());
+    let prove_input = prepare_prove_input(
+        identity_secret_hash,
+        id_index,
+        user_message_limit,
+        message_id,
+        external_nullifier,
+        signal,
+    );
 
     // 7. Generate a RLN proof
     // We generate a RLN proof for proof_input
-    let mut input_buffer = Cursor::new(serialized);
+    let mut input_buffer = Cursor::new(prove_input);
     let mut output_buffer = Cursor::new(Vec::<u8>::new());
     rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
         .unwrap();

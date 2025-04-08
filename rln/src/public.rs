@@ -8,16 +8,24 @@ use {
     utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
 };
 
-use crate::circuit::{graph_from_folder, vk_from_raw, zkey_from_folder, zkey_from_raw, Curve, Fr};
+use crate::circuit::{zkey_from_raw, Curve, Fr};
 use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
 use crate::protocol::*;
 use crate::utils::*;
+#[cfg(not(target_arch = "wasm32"))]
+use {
+    crate::circuit::{graph_from_folder, zkey_from_folder},
+    std::default::Default,
+};
 
 use ark_groth16::{Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 use color_eyre::{Report, Result};
-use std::{default::Default, io::Cursor};
+use std::io::Cursor;
+
+#[cfg(target_arch = "wasm32")]
+use num_bigint::BigInt;
 
 /// The application-specific RLN identifier.
 ///
@@ -32,6 +40,7 @@ pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
 pub struct RLN {
     proving_key: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
     pub(crate) verification_key: VerifyingKey<Curve>,
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) graph_data: Vec<u8>,
     #[cfg(not(feature = "stateless"))]
     pub(crate) tree: PoseidonTree,
@@ -54,7 +63,7 @@ impl RLN {
     /// // We create a new RLN instance
     /// let mut rln = RLN::new(tree_height, input);
     /// ```
-    #[cfg(not(feature = "stateless"))]
+    #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> Result<RLN> {
         // We read input
         let mut input: Vec<u8> = Vec::new();
@@ -63,9 +72,9 @@ impl RLN {
         let rln_config: Value = serde_json::from_str(&String::from_utf8(input)?)?;
         let tree_config = rln_config["tree_config"].to_string();
 
-        let proving_key = zkey_from_folder();
-        let verification_key = &proving_key.0.vk;
-        let graph_data = graph_from_folder();
+        let proving_key = zkey_from_folder().to_owned();
+        let verification_key = proving_key.0.vk.to_owned();
+        let graph_data = graph_from_folder().to_owned();
 
         let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = if tree_config.is_empty() {
             <PoseidonTree as ZerokitMerkleTree>::Config::default()
@@ -81,9 +90,9 @@ impl RLN {
         )?;
 
         Ok(RLN {
-            proving_key: proving_key.to_owned(),
-            verification_key: verification_key.to_owned(),
-            graph_data: graph_data.to_vec(),
+            proving_key,
+            verification_key,
+            graph_data,
             #[cfg(not(feature = "stateless"))]
             tree,
         })
@@ -98,16 +107,16 @@ impl RLN {
     /// let mut rln = RLN::new();
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "stateless")))]
-    #[cfg(feature = "stateless")]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
     pub fn new() -> Result<RLN> {
-        let proving_key = zkey_from_folder();
-        let verification_key = &proving_key.0.vk;
-        let graph_data = graph_from_folder();
+        let proving_key = zkey_from_folder().to_owned();
+        let verification_key = proving_key.0.vk.to_owned();
+        let graph_data = graph_from_folder().to_owned();
 
         Ok(RLN {
-            proving_key: proving_key.to_owned(),
-            verification_key: verification_key.to_owned(),
-            graph_data: graph_data.to_vec(),
+            proving_key,
+            verification_key,
+            graph_data,
         })
     }
 
@@ -116,6 +125,7 @@ impl RLN {
     /// Input parameters are
     /// - `tree_height`: the height of the internal Merkle tree
     /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`)  or (`rln_final.arkzkey`) as binary file
+    /// - `graph_data`: a byte vector containing the graph data (`graph.bin`) as binary file
     /// - `tree_config_input`: a reader for a string containing a json with the merkle tree configuration
     ///
     /// Example:
@@ -143,11 +153,10 @@ impl RLN {
     ///     tree_height,
     ///     resources[0].clone(),
     ///     resources[1].clone(),
-    ///     resources[2].clone(),
     ///     tree_config_buffer,
     /// );
     /// ```
-    #[cfg(not(feature = "stateless"))]
+    #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn new_with_params<R: Read>(
         tree_height: usize,
         zkey_vec: Vec<u8>,
@@ -155,7 +164,7 @@ impl RLN {
         mut tree_config_input: R,
     ) -> Result<RLN> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
-        let verification_key = vk_from_raw(&zkey_vec)?;
+        let verification_key = proving_key.0.vk.to_owned();
 
         let mut tree_config_vec: Vec<u8> = Vec::new();
         tree_config_input.read_to_end(&mut tree_config_vec)?;
@@ -187,6 +196,7 @@ impl RLN {
     ///
     /// Input parameters are
     /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`)  or (`rln_final.arkzkey`) as binary file
+    /// - `graph_data`: a byte vector containing the graph data (`graph.bin`) as binary file
     ///
     /// Example:
     /// ```
@@ -208,18 +218,47 @@ impl RLN {
     /// let mut rln = RLN::new_with_params(
     ///     resources[0].clone(),
     ///     resources[1].clone(),
-    ///     resources[2].clone(),
     /// );
     /// ```
-    #[cfg(feature = "stateless")]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
     pub fn new_with_params(zkey_vec: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
-        let verification_key = vk_from_raw(&zkey_vec)?;
+        let verification_key = proving_key.0.vk.to_owned();
 
         Ok(RLN {
             proving_key,
             verification_key,
             graph_data,
+        })
+    }
+
+    /// Creates a new stateless RLN object by passing circuit resources as a byte vector.
+    ///
+    /// Input parameters are
+    /// - `zkey_vec`: a byte vector containing the proving key (`rln_final.zkey`) or (`rln_final.arkzkey`) as binary file
+    ///
+    /// Example:
+    /// ```
+    /// use std::fs::File;
+    /// use std::io::Read;
+    ///
+    /// let zkey_path = "./resources/tree_height_20/rln_final.zkey";
+    ///
+    /// let mut file = File::open(zkey_path).expect("Failed to open file");
+    /// let metadata = std::fs::metadata(zkey_path).expect("Failed to read metadata");
+    /// let mut zkey_vec = vec![0; metadata.len() as usize];
+    /// file.read_exact(&mut zkey_vec).expect("Failed to read file");
+    ///
+    /// let mut rln = RLN::new_with_params(zkey_vec)?;
+    /// ```
+    #[cfg(all(target_arch = "wasm32", feature = "stateless"))]
+    pub fn new_with_params(zkey_vec: Vec<u8>) -> Result<RLN> {
+        let proving_key = zkey_from_raw(&zkey_vec)?;
+        let verification_key = proving_key.0.vk.to_owned();
+
+        Ok(RLN {
+            proving_key,
+            verification_key,
         })
     }
 
@@ -698,15 +737,16 @@ impl RLN {
     /// rln.prove(&mut input_buffer, &mut output_buffer).unwrap();
     /// let zk_proof = output_buffer.into_inner();
     /// ```
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn prove<R: Read, W: Write>(
         &mut self,
         mut input_data: R,
         mut output_data: W,
     ) -> Result<()> {
         // We read input RLN witness and we serialize_compressed it
-        let mut serialized: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut serialized)?;
-        let (rln_witness, _) = deserialize_witness(&serialized)?;
+        let mut serialized_witness: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut serialized_witness)?;
+        let (rln_witness, _) = deserialize_witness(&serialized_witness)?;
 
         let proof = generate_proof(&self.proving_key, &rln_witness, &self.graph_data)?;
 
@@ -818,7 +858,7 @@ impl RLN {
     /// // proof_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
     /// let mut proof_data = output_buffer.into_inner();
     /// ```
-    #[cfg(not(feature = "stateless"))]
+    #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn generate_rln_proof<R: Read, W: Write>(
         &mut self,
         mut input_data: R,
@@ -840,21 +880,43 @@ impl RLN {
         Ok(())
     }
 
-    // Generate RLN Proof using a witness calculated from outside zerokit
-    //
-    // output_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
-    // we skip it from documentation for now
+    /// Generate RLN Proof using a witness calculated from outside zerokit
+    ///
+    /// output_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn generate_rln_proof_with_witness<R: Read, W: Write>(
         &mut self,
         mut input_data: R,
         mut output_data: W,
     ) -> Result<()> {
-        let mut witness_byte: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut witness_byte)?;
-        let (rln_witness, _) = deserialize_witness(&witness_byte)?;
+        let mut serialized_witness: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut serialized_witness)?;
+        let (rln_witness, _) = deserialize_witness(&serialized_witness)?;
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
         let proof = generate_proof(&self.proving_key, &rln_witness, &self.graph_data)?;
+
+        // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
+        // This proof is compressed, i.e. 128 bytes long
+        proof.serialize_compressed(&mut output_data)?;
+        output_data.write_all(&serialize_proof_values(&proof_values))?;
+        Ok(())
+    }
+
+    /// Generate RLN Proof using a witness calculated from outside zerokit
+    ///
+    /// output_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
+    #[cfg(target_arch = "wasm32")]
+    pub fn generate_rln_proof_with_witness<W: Write>(
+        &mut self,
+        calculated_witness: Vec<BigInt>,
+        serialized_witness: Vec<u8>,
+        mut output_data: W,
+    ) -> Result<()> {
+        let (rln_witness, _) = deserialize_witness(&serialized_witness[..])?;
+        let proof_values = proof_values_from_witness(&rln_witness)?;
+
+        let proof = generate_proof_with_witness(calculated_witness, &self.proving_key).unwrap();
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
@@ -1301,6 +1363,7 @@ impl RLN {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl Default for RLN {
     fn default() -> Self {
         #[cfg(not(feature = "stateless"))]

@@ -1,3 +1,5 @@
+# CHANGE LOG
+
 ## 2023-02-28 v0.2
 
 This release contains:
@@ -9,7 +11,6 @@ This release contains:
 - Refactored to generate Semaphore-compatible credentials
 - Dual License under Apache 2.0 and MIT
 - RLN compiles as a static library, which can be consumed through a C FFI
-
 
 ## 2022-09-19 v0.1
 
