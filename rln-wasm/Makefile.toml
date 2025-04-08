@@ -1,10 +1,10 @@
 [tasks.build]
 clear = true
-dependencies = ["pack_build", "pack_rename", "post_build"]
+dependencies = ["pack_build", "pack_rename"]
 
 [tasks.build_arkzkey]
 clear = true
-dependencies = ["pack_build_arkzkey", "pack_rename", "post_build"]
+dependencies = ["pack_build_arkzkey", "pack_rename"]
 
 [tasks.pack_build]
 command = "wasm-pack"
@@ -19,10 +19,6 @@ env = { "RUSTFLAGS" = "--cfg feature=\"stateless\" --cfg feature=\"arkzkey\"" }
 [tasks.pack_rename]
 script = "sed -i.bak 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json && rm pkg/package.json.bak"
 
-[tasks.post_build]
-command = "wasm-strip"
-args = ["./pkg/rln_wasm_bg.wasm"]
-
 [tasks.test]
 command = "wasm-pack"
 args = [
@@ -35,7 +31,6 @@ args = [
     "--nocapture",
 ]
 env = { "RUSTFLAGS" = "--cfg feature=\"stateless\"" }
-dependencies = ["build"]
 
 [tasks.test_arkzkey]
 command = "wasm-pack"

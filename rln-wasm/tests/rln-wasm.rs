@@ -34,28 +34,28 @@ mod tests {
         let mut results = String::from("\nbenchmarks:\n");
         let iterations = 10;
 
-        let zkey = read_file(&ZKEY_PATH).unwrap();
+        let zkey = read_file(&ZKEY_PATH).expect("Failed to read zkey file");
 
         // Benchmark wasm_new
         let start_wasm_new = Date::now();
         for _ in 0..iterations {
-            let _ = wasm_new(zkey.clone()).unwrap();
+            let _ = wasm_new(zkey.clone()).expect("Failed to create RLN instance");
         }
         let wasm_new_result = Date::now() - start_wasm_new;
 
         // Create RLN instance for other benchmarks
-        let rln_instance = wasm_new(zkey).unwrap();
-        let mut tree = PoseidonTree::default(TEST_TREE_HEIGHT).unwrap();
+        let rln_instance = wasm_new(zkey).expect("Failed to create RLN instance");
+        let mut tree = PoseidonTree::default(TEST_TREE_HEIGHT).expect("Failed to create tree");
 
         // Benchmark wasm_key_gen
         let start_wasm_key_gen = Date::now();
         for _ in 0..iterations {
-            let _ = wasm_key_gen(rln_instance);
+            let _ = wasm_key_gen(rln_instance).expect("Failed to generate keys");
         }
         let wasm_key_gen_result = Date::now() - start_wasm_key_gen;
 
         // Generate identity pair for other benchmarks
-        let mem_keys = wasm_key_gen(rln_instance).unwrap();
+        let mem_keys = wasm_key_gen(rln_instance).expect("Failed to generate keys");
         let id_key = mem_keys.subarray(0, 32);
         let (identity_secret_hash, _) = bytes_le_to_fr(&id_key.to_vec());
         let (id_commitment, _) = bytes_le_to_fr(&mem_keys.subarray(32, 64).to_vec());
@@ -69,13 +69,16 @@ mod tests {
         let user_message_limit = Fr::from(100);
 
         let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
-        tree.update_next(rate_commitment).unwrap();
+        tree.update_next(rate_commitment)
+            .expect("Failed to update tree");
 
         let message_id = Fr::from(0);
         let signal: [u8; 32] = [0; 32];
         let x = hash_to_field(&signal);
 
-        let merkle_proof = tree.proof(identity_index).expect("proof should exist");
+        let merkle_proof = tree
+            .proof(identity_index)
+            .expect("Failed to generate merkle proof");
 
         let rln_witness = rln_witness_from_values(
             identity_secret_hash,
@@ -85,31 +88,35 @@ mod tests {
             user_message_limit,
             message_id,
         )
-        .unwrap();
+        .expect("Failed to create RLN witness");
 
-        let serialized_witness = serialize_witness(&rln_witness).unwrap();
+        let serialized_witness =
+            serialize_witness(&rln_witness).expect("Failed to serialize witness");
         let witness_buffer = Uint8Array::from(&serialized_witness[..]);
 
-        let json_inputs = wasm_rln_witness_to_json(rln_instance, witness_buffer.clone()).unwrap();
+        let json_inputs = wasm_rln_witness_to_json(rln_instance, witness_buffer.clone())
+            .expect("Failed to convert witness to JSON");
 
         // Benchmark calculateWitness
         let start_calculate_witness = Date::now();
         for _ in 0..iterations {
-            let _ = calculateWitness(&CIRCOM_PATH, json_inputs.clone()).await;
+            let _ = calculateWitness(&CIRCOM_PATH, json_inputs.clone())
+                .await
+                .expect("Failed to calculate witness");
         }
         let calculate_witness_result = Date::now() - start_calculate_witness;
 
         // Calculate witness for other benchmarks
         let calculated_witness_json = calculateWitness(&CIRCOM_PATH, json_inputs)
             .await
-            .unwrap()
+            .expect("Failed to calculate witness")
             .as_string()
-            .unwrap();
+            .expect("Failed to convert calculated witness to string");
         let calculated_witness_vec_str: Vec<String> =
-            serde_json::from_str(&calculated_witness_json).unwrap();
+            serde_json::from_str(&calculated_witness_json).expect("Failed to parse JSON");
         let calculated_witness: Vec<JsBigInt> = calculated_witness_vec_str
             .iter()
-            .map(|x| JsBigInt::new(&x.into()).unwrap())
+            .map(|x| JsBigInt::new(&x.into()).expect("Failed to create JsBigInt"))
             .collect();
 
         // Benchmark wasm_generate_rln_proof_with_witness
@@ -119,7 +126,8 @@ mod tests {
                 rln_instance,
                 calculated_witness.clone(),
                 witness_buffer.clone(),
-            );
+            )
+            .expect("Failed to generate proof");
         }
         let wasm_generate_rln_proof_with_witness_result =
             Date::now() - start_wasm_generate_rln_proof_with_witness;
@@ -127,7 +135,7 @@ mod tests {
         // Generate a proof for other benchmarks
         let proof =
             wasm_generate_rln_proof_with_witness(rln_instance, calculated_witness, witness_buffer)
-                .unwrap();
+                .expect("Failed to generate proof");
 
         let proof_data = proof.to_vec();
         let verify_input = prepare_verify_input(proof_data, &signal);
@@ -141,13 +149,15 @@ mod tests {
         let start_wasm_verify_with_roots = Date::now();
         for _ in 0..iterations {
             let _ =
-                wasm_verify_with_roots(rln_instance, input_buffer.clone(), roots_buffer.clone());
+                wasm_verify_with_roots(rln_instance, input_buffer.clone(), roots_buffer.clone())
+                    .expect("Failed to verify proof");
         }
         let wasm_verify_with_roots_result = Date::now() - start_wasm_verify_with_roots;
 
         // Verify the proof with the root
-        let is_proof_valid = wasm_verify_with_roots(rln_instance, input_buffer, roots_buffer);
-        assert!(is_proof_valid.unwrap(), "verification failed");
+        let is_proof_valid = wasm_verify_with_roots(rln_instance, input_buffer, roots_buffer)
+            .expect("Failed to verify proof");
+        assert!(is_proof_valid, "verification failed");
 
         // Format and display results
         let format_duration = |duration_ms: f64| -> String {
@@ -184,11 +194,11 @@ mod tests {
     #[wasm_bindgen_test]
     pub async fn rln_wasm_test() {
         // Read the zkey file
-        let zkey = read_file(&ZKEY_PATH).unwrap();
+        let zkey = read_file(&ZKEY_PATH).expect("Failed to read zkey file");
 
         // Create RLN instance and separated tree
-        let rln_instance = wasm_new(zkey).unwrap();
-        let mut tree = PoseidonTree::default(TEST_TREE_HEIGHT).unwrap();
+        let rln_instance = wasm_new(zkey).expect("Failed to create RLN instance");
+        let mut tree = PoseidonTree::default(TEST_TREE_HEIGHT).expect("Failed to create tree");
 
         // Setting up the epoch and rln_identifier
         let epoch = hash_to_field(b"test-epoch");
@@ -196,7 +206,7 @@ mod tests {
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
 
         // Generate identity pair
-        let mem_keys = wasm_key_gen(rln_instance).unwrap();
+        let mem_keys = wasm_key_gen(rln_instance).expect("Failed to generate keys");
         let (identity_secret_hash, _) = bytes_le_to_fr(&mem_keys.subarray(0, 32).to_vec());
         let (id_commitment, _) = bytes_le_to_fr(&mem_keys.subarray(32, 64).to_vec());
 
@@ -208,10 +218,13 @@ mod tests {
 
         // Updating the tree with the rate commitment
         let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
-        tree.update_next(rate_commitment).unwrap();
+        tree.update_next(rate_commitment)
+            .expect("Failed to update tree");
 
         // Generate merkle proof
-        let merkle_proof = tree.proof(identity_index).expect("proof should exist");
+        let merkle_proof = tree
+            .proof(identity_index)
+            .expect("Failed to generate merkle proof");
 
         // Create message id and signal
         let message_id = Fr::from(0);
@@ -227,33 +240,36 @@ mod tests {
             user_message_limit,
             message_id,
         )
-        .unwrap();
+        .expect("Failed to create RLN witness");
 
         // Serialize the rln witness
-        let serialized_witness = serialize_witness(&rln_witness).unwrap();
+        let serialized_witness =
+            serialize_witness(&rln_witness).expect("Failed to serialize witness");
+        // Convert the serialized witness to a Uint8Array
         let witness_buffer = Uint8Array::from(&serialized_witness[..]);
 
         // Obtaining inputs that should be sent to circom witness calculator
-        let json_inputs = wasm_rln_witness_to_json(rln_instance, witness_buffer.clone()).unwrap();
+        let json_inputs = wasm_rln_witness_to_json(rln_instance, witness_buffer.clone())
+            .expect("Failed to convert witness to JSON");
 
         // Calculating witness with JS
         // (Using a JSON since wasm_bindgen does not like Result<Vec<JsBigInt>,JsValue>)
         let calculated_witness_json = calculateWitness(&CIRCOM_PATH, json_inputs)
             .await
-            .unwrap()
+            .expect("Failed to calculate witness")
             .as_string()
-            .unwrap();
+            .expect("Failed to convert calculated witness to string");
         let calculated_witness_vec_str: Vec<String> =
-            serde_json::from_str(&calculated_witness_json).unwrap();
+            serde_json::from_str(&calculated_witness_json).expect("Failed to parse JSON");
         let calculated_witness: Vec<JsBigInt> = calculated_witness_vec_str
             .iter()
-            .map(|x| JsBigInt::new(&x.into()).unwrap())
+            .map(|x| JsBigInt::new(&x.into()).expect("Failed to create JsBigInt"))
             .collect();
 
         // Generate a proof from the calculated witness
         let proof =
             wasm_generate_rln_proof_with_witness(rln_instance, calculated_witness, witness_buffer)
-                .unwrap();
+                .expect("Failed to generate proof");
 
         // Prepare the root for verification
         let root = tree.root();
@@ -266,7 +282,8 @@ mod tests {
         let input_buffer = Uint8Array::from(&verify_input[..]);
 
         // Verify the proof with the root
-        let is_proof_valid = wasm_verify_with_roots(rln_instance, input_buffer, roots_buffer);
-        assert!(is_proof_valid.unwrap(), "verification failed");
+        let is_proof_valid = wasm_verify_with_roots(rln_instance, input_buffer, roots_buffer)
+            .expect("Failed to verify proof");
+        assert!(is_proof_valid, "verification failed");
     }
 }

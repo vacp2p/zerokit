@@ -14,10 +14,10 @@ endif
 installdeps: .pre-build
 ifeq ($(shell uname),Darwin)
 	@brew update
-	@brew install cmake ninja wabt
+	@brew install cmake ninja
 else ifeq ($(shell uname),Linux)
 	@sudo apt-get update
-	@sudo apt-get install -y cmake ninja-build wabt
+	@sudo apt-get install -y cmake ninja-build
 endif
 	@if [ ! -d "$$HOME/.nvm" ]; then \
 		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash; \

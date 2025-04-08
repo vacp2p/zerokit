@@ -74,7 +74,7 @@ impl RLN {
 
         let proving_key = zkey_from_folder().to_owned();
         let verification_key = proving_key.0.vk.to_owned();
-        let graph_data = graph_from_folder();
+        let graph_data = graph_from_folder().to_owned();
 
         let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = if tree_config.is_empty() {
             <PoseidonTree as ZerokitMerkleTree>::Config::default()
@@ -92,7 +92,7 @@ impl RLN {
         Ok(RLN {
             proving_key,
             verification_key,
-            graph_data: graph_data.to_vec(),
+            graph_data,
             #[cfg(not(feature = "stateless"))]
             tree,
         })
@@ -111,12 +111,12 @@ impl RLN {
     pub fn new() -> Result<RLN> {
         let proving_key = zkey_from_folder().to_owned();
         let verification_key = proving_key.0.vk.to_owned();
-        let graph_data = graph_from_folder();
+        let graph_data = graph_from_folder().to_owned();
 
         Ok(RLN {
             proving_key,
             verification_key,
-            graph_data: graph_data.to_vec(),
+            graph_data,
         })
     }
 
@@ -880,10 +880,9 @@ impl RLN {
         Ok(())
     }
 
-    // Generate RLN Proof using a witness calculated from outside zerokit
-    //
-    // output_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
-    // we skip it from documentation for now
+    /// Generate RLN Proof using a witness calculated from outside zerokit
+    ///
+    /// output_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
     #[cfg(not(target_arch = "wasm32"))]
     pub fn generate_rln_proof_with_witness<R: Read, W: Write>(
         &mut self,
@@ -904,9 +903,9 @@ impl RLN {
         Ok(())
     }
 
-    // Generate RLN Proof using a witness calculated from outside zerokit
-    //
-    // output_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
+    /// Generate RLN Proof using a witness calculated from outside zerokit
+    ///
+    /// output_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
     #[cfg(target_arch = "wasm32")]
     pub fn generate_rln_proof_with_witness<W: Write>(
         &mut self,
