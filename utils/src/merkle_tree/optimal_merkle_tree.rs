@@ -137,6 +137,9 @@ where
         }
         self.nodes.insert((self.depth, index), leaf);
         self.recalculate_from(index)?;
+        // FIXME: tests/poseidon_tree.rs - test::test_zerokit_merkle_implementations
+        //        -> inf loop
+        // self.update_hashes(index, 1)?;
         self.next_index = max(self.next_index, index + 1);
         self.cached_leaves_indices[index] = 1;
         Ok(())
@@ -170,8 +173,9 @@ where
         for (i, leaf) in leaves.iter().enumerate() {
             self.nodes.insert((self.depth, start + i), *leaf);
             self.cached_leaves_indices[start + i] = 1;
-            self.recalculate_from(start + i)?;
+            // self.recalculate_from(start + i)?;
         }
+        self.update_hashes(start, leaves.len())?;
         self.next_index = max(self.next_index, start + leaves.len());
         Ok(())
     }
@@ -314,6 +318,64 @@ where
         if i != 0 {
             return Err(Report::msg("did not go through all indexes"));
         }
+        Ok(())
+    }
+
+    /// Update hashes after some leaves have been set or updated
+    /// index - first leaf index (which has been set or updated)
+    /// length - number of elements set or updated
+    fn update_hashes(&mut self, index: usize, length: usize) -> Result<()> {
+
+        // parent depth & index (used to store in the tree)
+        let mut parent_depth = self.depth - 1; // tree depth (or leaves depth) - 1
+        let mut parent_index = index >> 1;
+        let mut parent_index_bak = parent_index;
+        // maximum index at this depth
+        let mut parent_max_index_0 = (1 << parent_depth) / 2;
+        // Based on given length (number of elements we will update)
+        // we could restrict the parent_max_index
+        let current_index_max = if (index + length) % 2 == 0 { index + length + 2 } else { index + length + 1 };
+        let mut parent_max_index = max(current_index_max >> 1, parent_max_index_0);
+
+        // current depth & index (used to compute the hash)
+        // current depth initially == tree depth (or leaves depth)
+        let mut current_depth = self.depth;
+        let mut current_index = if index % 2 == 0 { index } else { index - 1 };
+        let mut current_index_bak = current_index;
+
+        loop {
+            // println!("=====");
+            // println!("parent depth: {}, index: {}", parent_depth, parent_index);
+            // println!("parent max index: {}", parent_max_index);
+            // println!("current depth: {}, index: {}", current_depth, current_index);
+
+            // Hash 2 value at (current depth, current_index) & (current_depth, current_index + 1)
+            let n_hash = self.hash_couple(current_depth, current_index);
+            // Insert this hash at (parent_depth, parent_index)
+            self.nodes.insert((parent_depth, parent_index), n_hash);
+
+            if parent_depth == 0 {
+                // We just set the value of the tree root - nothing to do anymore
+                break;
+            }
+            // Incr parent index
+            parent_index += 1;
+            if parent_index >= parent_max_index {
+                // reset (aka decr depth & reset indexes)
+                parent_depth -= 1;
+                parent_index = parent_index_bak >> 1;
+                parent_index_bak = parent_index;
+                // parent_max_index = (1 << parent_depth) / 2;
+                parent_max_index >>= 1;
+                current_depth -= 1;
+                current_index = current_index_bak >> 1;
+                current_index_bak = current_index;
+            } else {
+                // Incr current index (+2 because we have hashed current index & current_index + 1)
+                current_index += 2;
+            }
+        }
+
         Ok(())
     }
 }
