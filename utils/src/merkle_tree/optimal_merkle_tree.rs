@@ -325,16 +325,19 @@ where
     /// index - first leaf index (which has been set or updated)
     /// length - number of elements set or updated
     fn update_hashes(&mut self, index: usize, length: usize) -> Result<()> {
-
         // parent depth & index (used to store in the tree)
         let mut parent_depth = self.depth - 1; // tree depth (or leaves depth) - 1
         let mut parent_index = index >> 1;
         let mut parent_index_bak = parent_index;
         // maximum index at this depth
-        let mut parent_max_index_0 = (1 << parent_depth) / 2;
+        let parent_max_index_0 = (1 << parent_depth) / 2;
         // Based on given length (number of elements we will update)
         // we could restrict the parent_max_index
-        let current_index_max = if (index + length) % 2 == 0 { index + length + 2 } else { index + length + 1 };
+        let current_index_max = if (index + length) % 2 == 0 {
+            index + length + 2
+        } else {
+            index + length + 1
+        };
         let mut parent_max_index = max(current_index_max >> 1, parent_max_index_0);
 
         // current depth & index (used to compute the hash)
