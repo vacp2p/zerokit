@@ -6,6 +6,9 @@ use rln::public::{hash, poseidon_hash, RLN};
 use std::vec::Vec;
 use wasm_bindgen::prelude::*;
 
+#[cfg(feature = "rayon-parallelism")]
+pub use wasm_bindgen_rayon::init_thread_pool;
+
 #[wasm_bindgen(js_name = initPanicHook)]
 pub fn init_panic_hook() {
     console_error_panic_hook::set_once();
