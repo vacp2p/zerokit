@@ -80,10 +80,11 @@ where
             cached_nodes.push(H::hash(&[cached_nodes[i]; 2]));
         }
         cached_nodes.reverse();
+        let leaf_count = 1 << (depth - 1);
         Ok(OptimalMerkleTree {
-            cached_nodes: cached_nodes.clone(),
+            cached_nodes,
             depth,
-            nodes: HashMap::new(),
+            nodes: HashMap::with_capacity(leaf_count),
             cached_leaves_indices: vec![0; 1 << depth],
             next_index: 0,
             metadata: Vec::new(),
@@ -161,26 +162,26 @@ where
     }
 
     // Sets multiple leaves from the specified tree index
-    fn set_range<I: IntoIterator<Item = H::Fr>>(&mut self, start: usize, leaves: I) -> Result<()> {
-        let leaves = leaves.into_iter().collect::<Vec<_>>();
+    fn set_range<I: ExactSizeIterator<Item = H::Fr>>(&mut self, start: usize, leaves: I) -> Result<()> {
         // check if the range is valid
-        if start + leaves.len() > self.capacity() {
+        let leaves_len = leaves.len();
+        if start + leaves_len > self.capacity() {
             return Err(Report::msg("provided range exceeds set size"));
         }
-        for (i, leaf) in leaves.iter().enumerate() {
-            self.nodes.insert((self.depth, start + i), *leaf);
+        for (i, leaf) in leaves.enumerate() {
+            self.nodes.insert((self.depth, start + i), leaf);
             self.cached_leaves_indices[start + i] = 1;
             // self.recalculate_from(start + i)?;
         }
-        self.update_hashes(start, leaves.len())?;
-        self.next_index = max(self.next_index, start + leaves.len());
+        self.update_hashes(start, leaves_len)?;
+        self.next_index = max(self.next_index, start + leaves_len);
         Ok(())
     }
 
     fn override_range<I, J>(&mut self, start: usize, leaves: I, indices: J) -> Result<()>
     where
-        I: IntoIterator<Item = FrOf<Self::Hasher>>,
-        J: IntoIterator<Item = usize>,
+        I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
+        J: ExactSizeIterator<Item = usize>,
     {
         let indices = indices.into_iter().collect::<Vec<_>>();
         let min_index = *indices.first().unwrap();
@@ -205,7 +206,7 @@ where
             self.cached_leaves_indices[i] = 0;
         }
 
-        self.set_range(start, set_values)
+        self.set_range(start, set_values.into_iter())
             .map_err(|e| Report::msg(e.to_string()))
     }
 

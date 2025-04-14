@@ -42,7 +42,7 @@ mod test {
 
         let mut tree = PoseidonTree::default(DEPTH).unwrap();
         let leaves: Vec<Fr> = (0..LEAVES_LEN).map(|s| Fr::from(s as i32)).collect();
-        let _ = tree.set_range(0, leaves);
+        let _ = tree.set_range(0, leaves.into_iter());
 
         for i in 0..LEAVES_LEN {
             // check leaves
@@ -79,7 +79,7 @@ mod test {
         let leaves: Vec<Fr> = (0..nof_leaves).map(|s| Fr::from(s as i32)).collect();
 
         // check set_range
-        let _ = tree.set_range(0, leaves.clone());
+        let _ = tree.set_range(0, leaves.clone().into_iter());
         assert!(tree.get_empty_leaves_indices().is_empty());
 
         let mut vec_idxs = Vec::new();
@@ -99,26 +99,26 @@ mod test {
         // check remove_indices_and_set_leaves inside override_range function
         assert!(tree.get_empty_leaves_indices().is_empty());
         let leaves_2: Vec<Fr> = (0..2).map(|s| Fr::from(s as i32)).collect();
-        tree.override_range(0, leaves_2.clone(), [0, 1, 2, 3])
+        tree.override_range(0, leaves_2.clone().into_iter(), [0, 1, 2, 3].into_iter())
             .unwrap();
         assert_eq!(tree.get_empty_leaves_indices(), vec![2, 3]);
 
         // check remove_indices inside override_range function
-        tree.override_range(0, [], [0, 1]).unwrap();
+        tree.override_range(0, [].into_iter(), [0, 1].into_iter()).unwrap();
         assert_eq!(tree.get_empty_leaves_indices(), vec![0, 1, 2, 3]);
 
         // check set_range inside override_range function
-        tree.override_range(0, leaves_2.clone(), []).unwrap();
+        tree.override_range(0, leaves_2.clone().into_iter(), [].into_iter()).unwrap();
         assert_eq!(tree.get_empty_leaves_indices(), vec![2, 3]);
 
         let leaves_4: Vec<Fr> = (0..4).map(|s| Fr::from(s as i32)).collect();
         // check if the indexes for write and delete are the same
-        tree.override_range(0, leaves_4.clone(), [0, 1, 2, 3])
+        tree.override_range(0, leaves_4.clone().into_iter(), [0, 1, 2, 3].into_iter())
             .unwrap();
         assert!(tree.get_empty_leaves_indices().is_empty());
 
         // check if indexes for deletion are before indexes for overwriting
-        tree.override_range(4, leaves_4.clone(), [0, 1, 2, 3])
+        tree.override_range(4, leaves_4.clone().into_iter(), [0, 1, 2, 3].into_iter())
             .unwrap();
         // The result will be like this, because in the set_range function in pmtree
         // the next_index value is increased not by the number of elements to insert,
@@ -129,7 +129,7 @@ mod test {
         );
 
         // check if the indices for write and delete do not overlap completely
-        tree.override_range(2, leaves_4.clone(), [0, 1, 2, 3])
+        tree.override_range(2, leaves_4.clone().into_iter(), [0, 1, 2, 3].into_iter())
             .unwrap();
         // The result will be like this, because in the set_range function in pmtree
         // the next_index value is increased not by the number of elements to insert,
