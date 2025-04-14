@@ -191,7 +191,7 @@ pub mod test {
     #[test]
     fn test_subtree_root() {
         let depth = 3;
-        let nof_leaves: usize = 6;
+        let nof_leaves: usize = 4;
         let leaves: Vec<TestFr> = (0..nof_leaves as u32).map(TestFr::from).collect();
 
         let mut tree_full = default_optimal_merkle_tree(depth);

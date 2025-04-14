@@ -4,7 +4,7 @@ use color_eyre::{Report, Result};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::{cmp::max, fmt::Debug};
-
+use std::cmp::min;
 ////////////////////////////////////////////////////////////
 ///// Optimal Merkle Tree Implementation
 ////////////////////////////////////////////////////////////
@@ -136,10 +136,7 @@ where
             return Err(Report::msg("index exceeds set size"));
         }
         self.nodes.insert((self.depth, index), leaf);
-        self.recalculate_from(index)?;
-        // FIXME: tests/poseidon_tree.rs - test::test_zerokit_merkle_implementations
-        //        -> inf loop
-        // self.update_hashes(index, 1)?;
+        self.update_hashes(index, 1)?;
         self.next_index = max(self.next_index, index + 1);
         self.cached_leaves_indices[index] = 1;
         Ok(())
@@ -338,7 +335,7 @@ where
         } else {
             index + length + 1
         };
-        let mut parent_max_index = max(current_index_max >> 1, parent_max_index_0);
+        let mut parent_max_index = min(current_index_max >> 1, parent_max_index_0);
 
         // current depth & index (used to compute the hash)
         // current depth initially == tree depth (or leaves depth)
@@ -352,17 +349,19 @@ where
             // println!("parent max index: {}", parent_max_index);
             // println!("current depth: {}, index: {}", current_depth, current_index);
 
-            // Hash 2 value at (current depth, current_index) & (current_depth, current_index + 1)
+            // Hash 2 values at (current depth, current_index) & (current_depth, current_index + 1)
             let n_hash = self.hash_couple(current_depth, current_index);
             // Insert this hash at (parent_depth, parent_index)
             self.nodes.insert((parent_depth, parent_index), n_hash);
 
             if parent_depth == 0 {
-                // We just set the value of the tree root - nothing to do anymore
+                // We just set the root hash of the tree - nothing to do anymore
                 break;
             }
             // Incr parent index
             parent_index += 1;
+            // Incr current index (+2 because we've just hashed current index & current_index + 1)
+            current_index += 2;
             if parent_index >= parent_max_index {
                 // reset (aka decr depth & reset indexes)
                 parent_depth -= 1;
@@ -373,9 +372,6 @@ where
                 current_depth -= 1;
                 current_index = current_index_bak >> 1;
                 current_index_bak = current_index;
-            } else {
-                // Incr current index (+2 because we have hashed current index & current_index + 1)
-                current_index += 2;
             }
         }
 

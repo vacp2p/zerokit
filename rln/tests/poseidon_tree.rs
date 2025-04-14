@@ -23,6 +23,7 @@ mod test {
             assert_eq!(proof.leaf_index(), i);
 
             tree_opt.set(i, leaves[i]).unwrap();
+            assert_eq!(tree_opt.root(), tree_full.root());
             let proof = tree_opt.proof(i).expect("index should be set");
             assert_eq!(proof.leaf_index(), i);
         }
