@@ -1,10 +1,10 @@
 use crate::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
 use crate::FrOf;
 use color_eyre::{Report, Result};
+use std::cmp::min;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::{cmp::max, fmt::Debug};
-use std::cmp::min;
 ////////////////////////////////////////////////////////////
 ///// Optimal Merkle Tree Implementation
 ////////////////////////////////////////////////////////////
@@ -162,7 +162,11 @@ where
     }
 
     // Sets multiple leaves from the specified tree index
-    fn set_range<I: ExactSizeIterator<Item = H::Fr>>(&mut self, start: usize, leaves: I) -> Result<()> {
+    fn set_range<I: ExactSizeIterator<Item = H::Fr>>(
+        &mut self,
+        start: usize,
+        leaves: I,
+    ) -> Result<()> {
         // check if the range is valid
         let leaves_len = leaves.len();
         if start + leaves_len > self.capacity() {

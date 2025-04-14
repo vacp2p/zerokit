@@ -104,11 +104,13 @@ mod test {
         assert_eq!(tree.get_empty_leaves_indices(), vec![2, 3]);
 
         // check remove_indices inside override_range function
-        tree.override_range(0, [].into_iter(), [0, 1].into_iter()).unwrap();
+        tree.override_range(0, [].into_iter(), [0, 1].into_iter())
+            .unwrap();
         assert_eq!(tree.get_empty_leaves_indices(), vec![0, 1, 2, 3]);
 
         // check set_range inside override_range function
-        tree.override_range(0, leaves_2.clone().into_iter(), [].into_iter()).unwrap();
+        tree.override_range(0, leaves_2.clone().into_iter(), [].into_iter())
+            .unwrap();
         assert_eq!(tree.get_empty_leaves_indices(), vec![2, 3]);
 
         let leaves_4: Vec<Fr> = (0..4).map(|s| Fr::from(s as i32)).collect();

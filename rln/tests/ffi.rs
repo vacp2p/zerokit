@@ -177,7 +177,10 @@ mod test {
 
         // We get the root of the tree obtained adding leaves in batch
         let root_batch_with_custom_index = get_tree_root(rln_pointer);
-        assert_eq!(root_batch_with_init, root_batch_with_custom_index, "root batch !=");
+        assert_eq!(
+            root_batch_with_init, root_batch_with_custom_index,
+            "root batch !="
+        );
 
         // We reset the tree to default
         let success = set_tree(rln_pointer, TEST_TREE_HEIGHT);
@@ -193,7 +196,10 @@ mod test {
 
         // We get the root of the tree obtained adding leaves using the internal index
         let root_single_additions = get_tree_root(rln_pointer);
-        assert_eq!(root_batch_with_init, root_single_additions, "root single additions !=");
+        assert_eq!(
+            root_batch_with_init, root_single_additions,
+            "root single additions !="
+        );
     }
 
     #[test]

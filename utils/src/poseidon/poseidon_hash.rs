@@ -91,7 +91,7 @@ impl<F: PrimeField> Poseidon<F> {
         }
         new_state
     }
-    
+
     pub fn mix_2(&self, state: &[F], m: &[Vec<F>], state_2: &mut [F]) {
         // let mut new_state: Vec<F> = vec![F::ZERO; state.len()];
         for i in 0..state.len() {
@@ -140,7 +140,7 @@ impl<F: PrimeField> Poseidon<F> {
             );
             // let state_tmp = self.mix(&state, &self.round_params[param_index].m);
             // let state = state_tmp;
-            
+
             self.mix_2(&state, &self.round_params[param_index].m, &mut state_2);
             std::mem::swap(&mut state, &mut state_2);
         }
