@@ -30,10 +30,6 @@ zerokit_utils = { path = "../utils" }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2.15", features = ["js"] }
 
-[dependencies.web-sys]
-version = "0.3.77"
-features = ['MessageEvent', 'Worker']
-
 [dev-dependencies]
 wasm-bindgen-test = "0.3.50"
 wasm-bindgen-futures = "0.4.50"
@@ -42,4 +38,4 @@ wasm-bindgen-futures = "0.4.50"
 default = ["console_error_panic_hook"]
 stateless = ["rln/stateless"]
 arkzkey = ["rln/arkzkey"]
-rayon-parallelism = ["wasm-bindgen-rayon"]
+multithread = ["wasm-bindgen-rayon"]

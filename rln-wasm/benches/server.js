@@ -20,8 +20,6 @@ const MIME_TYPES = {
 
 // Create HTTP server
 const server = http.createServer((req, res) => {
-  console.log(`${req.method} ${req.url}`);
-
   // Set COOP and COEP headers for SharedArrayBuffer support
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
   res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
@@ -30,9 +28,9 @@ const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url);
   let requestPath = parsedUrl.pathname;
 
-  // Ignore favicon requests
+  // Ignore favicon
   if (requestPath === "/favicon.ico") {
-    res.writeHead(204); // No content
+    res.writeHead(204);
     res.end();
     return;
   }
@@ -45,9 +43,7 @@ const server = http.createServer((req, res) => {
 
   // Handle pkg files (including snippets)
   if (requestPath.startsWith("/pkg/")) {
-    // Map to the parent directory structure
     filePath = ".." + requestPath;
-    console.log(`Mapped pkg path: ${filePath}`);
   }
 
   // Determine content type based on file extension
@@ -77,7 +73,6 @@ const server = http.createServer((req, res) => {
     } else {
       res.writeHead(200, { "Content-Type": contentType });
       res.end(content, "utf-8");
-      console.log(`Served: ${filePath} (${contentType})`);
     }
   });
 });

@@ -6,9 +6,21 @@ dependencies = ["pack_build", "pack_rename"]
 clear = true
 dependencies = ["pack_build_arkzkey", "pack_rename"]
 
-[tasks.build_rayon_parallelism]
+[tasks.build_multithread]
 clear = true
-dependencies = ["pack_build_rayon_parallelism", "pack_rename"]
+dependencies = [
+    "pack_build_multithread",
+    "pack_rename",
+    "post_build_multithread",
+]
+
+[tasks.build_multithread_arkzkey]
+clear = true
+dependencies = [
+    "pack_build_multithread_arkzkey",
+    "pack_rename",
+    "post_build_multithread",
+]
 
 [tasks.pack_build]
 command = "wasm-pack"
@@ -20,7 +32,7 @@ command = "wasm-pack"
 args = ["build", "--release", "--target", "web", "--scope", "waku"]
 env = { "RUSTFLAGS" = "--cfg feature=\"stateless\" --cfg feature=\"arkzkey\"" }
 
-[tasks.pack_build_rayon_parallelism]
+[tasks.pack_build_multithread]
 command = "rustup"
 args = [
     "run",
@@ -33,11 +45,36 @@ args = [
     "--scope",
     "waku",
     "--features",
-    "rayon-parallelism",
+    "multithread",
     "-Z",
     "build-std=panic_abort,std",
 ]
-env = { "RUSTFLAGS" = "--cfg feature=\"stateless\" --cfg feature=\"rayon-parallelism\" -C target-feature=+atomics,+bulk-memory,+mutable-globals" }
+env = { "RUSTFLAGS" = "--cfg feature=\"stateless\" --cfg feature=\"multithread\" -C target-feature=+atomics,+bulk-memory,+mutable-globals" }
+
+[tasks.pack_build_multithread_arkzkey]
+command = "rustup"
+args = [
+    "run",
+    "nightly",
+    "wasm-pack",
+    "build",
+    "--release",
+    "--target",
+    "web",
+    "--scope",
+    "waku",
+    "--features",
+    "multithread,arkzkey",
+    "-Z",
+    "build-std=panic_abort,std",
+]
+env = { "RUSTFLAGS" = "--cfg feature=\"stateless\" --cfg feature=\"multithread\" --cfg feature=\"arkzkey\" -C target-feature=+atomics,+bulk-memory,+mutable-globals" }
+
+[tasks.post_build_multithread]
+script = '''
+wasm-bindgen --target web --split-linked-modules --out-dir ./pkg ../target/wasm32-unknown-unknown/release/rln_wasm.wasm && \
+find ./pkg/snippets -name "workerHelpers.worker.js" -exec sed -i.bak "s|from '../../../';|from '../../../rln_wasm.js';|g" {} \; -exec rm -f {}.bak \;
+'''
 
 [tasks.pack_rename]
 script = "sed -i.bak 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json && rm pkg/package.json.bak"
