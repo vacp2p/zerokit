@@ -80,11 +80,10 @@ where
             cached_nodes.push(H::hash(&[cached_nodes[i]; 2]));
         }
         cached_nodes.reverse();
-        let leaf_count = 1 << (depth - 1);
         Ok(OptimalMerkleTree {
             cached_nodes,
             depth,
-            nodes: HashMap::with_capacity(leaf_count),
+            nodes: HashMap::with_capacity(1 << depth),
             cached_leaves_indices: vec![0; 1 << depth],
             next_index: 0,
             metadata: Vec::new(),

@@ -38,7 +38,7 @@ mod test {
     #[test]
     fn test_subtree_root() {
         const DEPTH: usize = 3;
-        const LEAVES_LEN: usize = 6;
+        const LEAVES_LEN: usize = 8;
 
         let mut tree = PoseidonTree::default(DEPTH).unwrap();
         let leaves: Vec<Fr> = (0..LEAVES_LEN).map(|s| Fr::from(s as i32)).collect();
