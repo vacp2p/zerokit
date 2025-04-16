@@ -75,7 +75,8 @@ pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
 
     c.bench_function("OptimalMerkleTree::override_range", |b| {
         b.iter(|| {
-            tree.override_range(0, *LEAVES, [0, 1, 2, 3]).unwrap();
+            tree.override_range(0, LEAVES.into_iter(), [0, 1, 2, 3].into_iter())
+                .unwrap();
         })
     });
 
@@ -123,7 +124,8 @@ pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
 
     c.bench_function("FullMerkleTree::override_range", |b| {
         b.iter(|| {
-            tree.override_range(0, *LEAVES, [0, 1, 2, 3]).unwrap();
+            tree.override_range(0, LEAVES.into_iter(), [0, 1, 2, 3].into_iter())
+                .unwrap();
         })
     });
 

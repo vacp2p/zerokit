@@ -7,7 +7,7 @@ use crate::poseidon_constants::find_poseidon_ark_and_mds;
 use ark_ff::PrimeField;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RoundParamenters<F: PrimeField> {
+pub struct RoundParameters<F: PrimeField> {
     pub t: usize,
     pub n_rounds_f: usize,
     pub n_rounds_p: usize,
@@ -17,16 +17,16 @@ pub struct RoundParamenters<F: PrimeField> {
 }
 
 pub struct Poseidon<F: PrimeField> {
-    round_params: Vec<RoundParamenters<F>>,
+    round_params: Vec<RoundParameters<F>>,
 }
 impl<F: PrimeField> Poseidon<F> {
     // Loads round parameters and generates round constants
     // poseidon_params is a vector containing tuples (t, RF, RP, skip_matrices)
-    // where: t is the rate (input lenght + 1), RF is the number of full rounds, RP is the number of partial rounds
+    // where: t is the rate (input length + 1), RF is the number of full rounds, RP is the number of partial rounds
     // and skip_matrices is a (temporary) parameter used to generate secure MDS matrices (see comments in the description of find_poseidon_ark_and_mds)
     // TODO: implement automatic generation of round parameters
     pub fn from(poseidon_params: &[(usize, usize, usize, usize)]) -> Self {
-        let mut read_params = Vec::<RoundParamenters<F>>::new();
+        let mut read_params = Vec::<RoundParameters<F>>::with_capacity(poseidon_params.len());
 
         for &(t, n_rounds_f, n_rounds_p, skip_matrices) in poseidon_params {
             let (ark, mds) = find_poseidon_ark_and_mds::<F>(
@@ -38,7 +38,7 @@ impl<F: PrimeField> Poseidon<F> {
                 n_rounds_p as u64,
                 skip_matrices,
             );
-            let rp = RoundParamenters {
+            let rp = RoundParameters {
                 t,
                 n_rounds_p,
                 n_rounds_f,
@@ -54,7 +54,7 @@ impl<F: PrimeField> Poseidon<F> {
         }
     }
 
-    pub fn get_parameters(&self) -> Vec<RoundParamenters<F>> {
+    pub fn get_parameters(&self) -> Vec<RoundParameters<F>> {
         self.round_params.clone()
     }
 
@@ -80,21 +80,19 @@ impl<F: PrimeField> Poseidon<F> {
         }
     }
 
-    pub fn mix(&self, state: &[F], m: &[Vec<F>]) -> Vec<F> {
-        let mut new_state: Vec<F> = Vec::new();
+    pub fn mix_2(&self, state: &[F], m: &[Vec<F>], state_2: &mut [F]) {
         for i in 0..state.len() {
-            new_state.push(F::zero());
+            state_2[i] = F::ZERO;
             for (j, state_item) in state.iter().enumerate() {
                 let mut mij = m[i][j];
                 mij *= state_item;
-                new_state[i] += mij;
+                state_2[i] += mij;
             }
         }
-        new_state.clone()
     }
 
     pub fn hash(&self, inp: Vec<F>) -> Result<F, String> {
-        // Note that the rate t becomes input lenght + 1, hence for lenght N we pick parameters with T = N + 1
+        // Note that the rate t becomes input length + 1, hence for length N we pick parameters with T = N + 1
         let t = inp.len() + 1;
 
         // We seek the index (Poseidon's round_params is an ordered vector) for the parameters corresponding to t
@@ -106,8 +104,9 @@ impl<F: PrimeField> Poseidon<F> {
 
         let param_index = param_index.unwrap();
 
-        let mut state = vec![F::zero(); t];
+        let mut state = vec![F::ZERO; t];
         state[1..].clone_from_slice(&inp);
+        let mut state_2 = vec![F::ZERO; state.len()];
 
         for i in 0..(self.round_params[param_index].n_rounds_f
             + self.round_params[param_index].n_rounds_p)
@@ -123,7 +122,8 @@ impl<F: PrimeField> Poseidon<F> {
                 &mut state,
                 i,
             );
-            state = self.mix(&state, &self.round_params[param_index].m);
+            self.mix_2(&state, &self.round_params[param_index].m, &mut state_2);
+            std::mem::swap(&mut state, &mut state_2);
         }
 
         Ok(state[0])

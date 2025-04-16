@@ -244,7 +244,7 @@ impl ZerokitMerkleTree for PmTree {
             (0, 0) => Err(Report::msg("no leaves or indices to be removed")),
             (1, 0) => self.set(start, leaves[0]),
             (0, 1) => self.delete(indices[0]),
-            (_, 0) => self.set_range(start, leaves),
+            (_, 0) => self.set_range(start, leaves.into_iter()),
             (0, _) => self.remove_indices(&indices),
             (_, _) => self.remove_indices_and_set_leaves(start, leaves, &indices),
         }

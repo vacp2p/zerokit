@@ -107,7 +107,7 @@ pub mod test {
         let leaves_4: Vec<TestFr> = (0u32..4).map(TestFr::from).collect();
 
         let mut tree_full = default_full_merkle_tree(depth);
-        let _ = tree_full.set_range(0, leaves.clone());
+        let _ = tree_full.set_range(0, leaves.clone().into_iter());
         assert!(tree_full.get_empty_leaves_indices().is_empty());
 
         let mut vec_idxs = Vec::new();
@@ -125,31 +125,31 @@ pub mod test {
 
         // Check situation when the number of items to insert is less than the number of items to delete
         tree_full
-            .override_range(0, leaves_2.clone(), [0, 1, 2, 3])
+            .override_range(0, leaves_2.clone().into_iter(), [0, 1, 2, 3].into_iter())
             .unwrap();
 
         // check if the indexes for write and delete are the same
         tree_full
-            .override_range(0, leaves_4.clone(), [0, 1, 2, 3])
+            .override_range(0, leaves_4.clone().into_iter(), [0, 1, 2, 3].into_iter())
             .unwrap();
         assert_eq!(tree_full.get_empty_leaves_indices(), vec![]);
 
         // check if indexes for deletion are before indexes for overwriting
         tree_full
-            .override_range(4, leaves_4.clone(), [0, 1, 2, 3])
+            .override_range(4, leaves_4.clone().into_iter(), [0, 1, 2, 3].into_iter())
             .unwrap();
         assert_eq!(tree_full.get_empty_leaves_indices(), vec![0, 1, 2, 3]);
 
         // check if the indices for write and delete do not overlap completely
         tree_full
-            .override_range(2, leaves_4.clone(), [0, 1, 2, 3])
+            .override_range(2, leaves_4.clone().into_iter(), [0, 1, 2, 3].into_iter())
             .unwrap();
         assert_eq!(tree_full.get_empty_leaves_indices(), vec![0, 1]);
 
         //// Optimal Merkle Tree Trest
 
         let mut tree_opt = default_optimal_merkle_tree(depth);
-        let _ = tree_opt.set_range(0, leaves.clone());
+        let _ = tree_opt.set_range(0, leaves.clone().into_iter());
         assert!(tree_opt.get_empty_leaves_indices().is_empty());
 
         let mut vec_idxs = Vec::new();
@@ -166,24 +166,24 @@ pub mod test {
 
         // Check situation when the number of items to insert is less than the number of items to delete
         tree_opt
-            .override_range(0, leaves_2.clone(), [0, 1, 2, 3])
+            .override_range(0, leaves_2.clone().into_iter(), [0, 1, 2, 3].into_iter())
             .unwrap();
 
         // check if the indexes for write and delete are the same
         tree_opt
-            .override_range(0, leaves_4.clone(), [0, 1, 2, 3])
+            .override_range(0, leaves_4.clone().into_iter(), [0, 1, 2, 3].into_iter())
             .unwrap();
         assert_eq!(tree_opt.get_empty_leaves_indices(), vec![]);
 
         // check if indexes for deletion are before indexes for overwriting
         tree_opt
-            .override_range(4, leaves_4.clone(), [0, 1, 2, 3])
+            .override_range(4, leaves_4.clone().into_iter(), [0, 1, 2, 3].into_iter())
             .unwrap();
         assert_eq!(tree_opt.get_empty_leaves_indices(), vec![0, 1, 2, 3]);
 
         // check if the indices for write and delete do not overlap completely
         tree_opt
-            .override_range(2, leaves_4.clone(), [0, 1, 2, 3])
+            .override_range(2, leaves_4.clone().into_iter(), [0, 1, 2, 3].into_iter())
             .unwrap();
         assert_eq!(tree_opt.get_empty_leaves_indices(), vec![0, 1]);
     }
@@ -191,7 +191,7 @@ pub mod test {
     #[test]
     fn test_subtree_root() {
         let depth = 3;
-        let nof_leaves: usize = 6;
+        let nof_leaves: usize = 4;
         let leaves: Vec<TestFr> = (0..nof_leaves as u32).map(TestFr::from).collect();
 
         let mut tree_full = default_optimal_merkle_tree(depth);
