@@ -24,17 +24,35 @@ dependencies = [
 
 [tasks.pack_build]
 command = "wasm-pack"
-args = ["build", "--release", "--target", "web", "--scope", "waku"]
-env = { "RUSTFLAGS" = "--cfg feature=\"stateless\"" }
+args = [
+    "build",
+    "--release",
+    "--target",
+    "web",
+    "--scope",
+    "waku",
+    "--features",
+    "stateless",
+]
 
 [tasks.pack_build_arkzkey]
 command = "wasm-pack"
-args = ["build", "--release", "--target", "web", "--scope", "waku"]
-env = { "RUSTFLAGS" = "--cfg feature=\"stateless\" --cfg feature=\"arkzkey\"" }
+args = [
+    "build",
+    "--release",
+    "--target",
+    "web",
+    "--scope",
+    "waku",
+    "--features",
+    "stateless,arkzkey",
+]
 
 [tasks.pack_build_multithread]
-command = "rustup"
+command = "env"
 args = [
+    "RUSTFLAGS=-C target-feature=+atomics,+bulk-memory,+mutable-globals",
+    "rustup",
     "run",
     "nightly",
     "wasm-pack",
@@ -45,15 +63,16 @@ args = [
     "--scope",
     "waku",
     "--features",
-    "multithread",
+    "stateless,multithread",
     "-Z",
     "build-std=panic_abort,std",
 ]
-env = { "RUSTFLAGS" = "--cfg feature=\"stateless\" --cfg feature=\"multithread\" -C target-feature=+atomics,+bulk-memory,+mutable-globals" }
 
 [tasks.pack_build_multithread_arkzkey]
-command = "rustup"
+command = "env"
 args = [
+    "RUSTFLAGS=-C target-feature=+atomics,+bulk-memory,+mutable-globals",
+    "rustup",
     "run",
     "nightly",
     "wasm-pack",
@@ -64,16 +83,16 @@ args = [
     "--scope",
     "waku",
     "--features",
-    "multithread,arkzkey",
+    "stateless,multithread,arkzkey",
     "-Z",
     "build-std=panic_abort,std",
 ]
-env = { "RUSTFLAGS" = "--cfg feature=\"stateless\" --cfg feature=\"multithread\" --cfg feature=\"arkzkey\" -C target-feature=+atomics,+bulk-memory,+mutable-globals" }
 
 [tasks.post_build_multithread]
 script = '''
 wasm-bindgen --target web --split-linked-modules --out-dir ./pkg ../target/wasm32-unknown-unknown/release/rln_wasm.wasm && \
-find ./pkg/snippets -name "workerHelpers.worker.js" -exec sed -i.bak "s|from '../../../';|from '../../../rln_wasm.js';|g" {} \; -exec rm -f {}.bak \;
+find ./pkg/snippets -name "workerHelpers.worker.js" -exec sed -i.bak 's|from '\''\.\.\/\.\.\/\.\.\/'\'';|from "../../../rln_wasm.js";|g' {} \; -exec rm -f {}.bak \; && \
+find ./pkg/snippets -name "workerHelpers.worker.js" -exec sed -i.bak 's|await initWbg(module, memory);|await initWbg({ module, memory });|g' {} \; -exec rm -f {}.bak \;
 '''
 
 [tasks.pack_rename]
@@ -87,10 +106,11 @@ args = [
     "--node",
     "--target",
     "wasm32-unknown-unknown",
+    "--features",
+    "stateless",
     "--",
     "--nocapture",
 ]
-env = { "RUSTFLAGS" = "--cfg feature=\"stateless\"" }
 
 [tasks.test_arkzkey]
 command = "wasm-pack"
@@ -100,11 +120,58 @@ args = [
     "--node",
     "--target",
     "wasm32-unknown-unknown",
+    "--features",
+    "stateless,arkzkey",
     "--",
     "--nocapture",
 ]
-env = { "RUSTFLAGS" = "--cfg feature=\"stateless\" --cfg feature=\"arkzkey\"" }
 dependencies = ["build_arkzkey"]
+
+[tasks.test_multithread]
+command = "env"
+args = [
+    "RUSTFLAGS=-C target-feature=+atomics,+bulk-memory,+mutable-globals",
+    "rustup",
+    "run",
+    "nightly",
+    "wasm-pack",
+    "test",
+    "--release",
+    # "--headless",
+    "--chrome",
+    "--target",
+    "wasm32-unknown-unknown",
+    "--features",
+    "stateless,multithread",
+    "-Z",
+    "build-std=panic_abort,std",
+    "--",
+    "--nocapture",
+]
+dependencies = ["build_multithread"]
+
+[tasks.test_multithread_arkzkey]
+command = "env"
+args = [
+    "RUSTFLAGS=-C target-feature=+atomics,+bulk-memory,+mutable-globals",
+    "rustup",
+    "run",
+    "nightly",
+    "wasm-pack",
+    "test",
+    "--release",
+    # "--headless",
+    "--chrome",
+    "--target",
+    "wasm32-unknown-unknown",
+    "--features",
+    "stateless,multithread,arkzkey",
+    "-Z",
+    "build-std=panic_abort,std",
+    "--",
+    "--nocapture",
+]
+dependencies = ["build_multithread"]
 
 [tasks.bench]
 disabled = true

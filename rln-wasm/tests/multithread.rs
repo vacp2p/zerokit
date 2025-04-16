@@ -1,7 +1,11 @@
+#![cfg(feature = "multithread")]
 #![cfg(target_arch = "wasm32")]
 
 #[cfg(test)]
 mod tests {
+    use wasm_bindgen_test::*;
+    wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+
     use js_sys::{BigInt as JsBigInt, Date, Object, Uint8Array};
     use rln::circuit::{Fr, TEST_TREE_HEIGHT};
     use rln::hashers::{hash_to_field, poseidon_hash};
@@ -10,31 +14,91 @@ mod tests {
     use rln::utils::{bytes_le_to_fr, fr_to_bytes_le};
     use rln_wasm::*;
     use wasm_bindgen::{prelude::*, JsValue};
-    use wasm_bindgen_test::wasm_bindgen_test;
+    use wasm_bindgen_rayon::init_thread_pool;
+    use web_sys::window;
     use zerokit_utils::merkle_tree::merkle_tree::ZerokitMerkleTree;
 
-    #[wasm_bindgen(module = "src/utils.js")]
-    extern "C" {
-        #[wasm_bindgen(catch)]
-        fn read_file(path: &str) -> Result<Uint8Array, JsValue>;
-
-        #[wasm_bindgen(catch)]
-        async fn calculateWitness(circom_path: &str, input: Object) -> Result<JsValue, JsValue>;
+    #[wasm_bindgen(inline_js = r#"
+    export function isThreadpoolSupported() {
+      return typeof SharedArrayBuffer !== 'undefined' &&
+             typeof Atomics !== 'undefined' &&
+             typeof crossOriginIsolated !== 'undefined' &&
+             crossOriginIsolated;
     }
 
-    #[cfg(feature = "arkzkey")]
-    const ZKEY_PATH: &str = "../rln/resources/tree_height_20/rln_final.arkzkey";
-    #[cfg(not(feature = "arkzkey"))]
-    const ZKEY_PATH: &str = "../rln/resources/tree_height_20/rln_final.zkey";
+    export function initWitnessCalculator(jsCode) {
+      eval(jsCode);
+      if (typeof window.witnessCalculatorBuilder !== 'function' && typeof self.witnessCalculatorBuilder !== 'function') {
+        return false;
+      }
+      return true;
+    }
 
-    const CIRCOM_PATH: &str = "../rln/resources/tree_height_20/rln.wasm";
+    export function readFile(data) {
+      return new Uint8Array(data);
+    }
+
+    export async function calculateWitness(circom_data, inputs) {
+      const wasmBuffer = circom_data instanceof Uint8Array ? circom_data : new Uint8Array(circom_data);
+      const witnessCalculator = await window.witnessCalculatorBuilder(wasmBuffer);
+      const calculatedWitness = await witnessCalculator.calculateWitness(inputs, false);
+      return JSON.stringify(calculatedWitness, (key, value) =>
+        typeof value === "bigint" ? value.toString() : value
+      );
+    }
+    "#)]
+    extern "C" {
+        #[wasm_bindgen(catch)]
+        pub fn isThreadpoolSupported() -> Result<bool, JsValue>;
+
+        #[wasm_bindgen(catch)]
+        pub fn initWitnessCalculator(js: &str) -> Result<bool, JsValue>;
+
+        #[wasm_bindgen(catch)]
+        pub fn readFile(data: &[u8]) -> Result<Uint8Array, JsValue>;
+
+        #[wasm_bindgen(catch)]
+        pub async fn calculateWitness(
+            circom_data: &[u8],
+            inputs: Object,
+        ) -> Result<JsValue, JsValue>;
+    }
+
+    const RLN_WASM_JS: &str = include_str!("../pkg/rln_wasm.js");
+
+    const WITNESS_CALCULATOR_JS: &str = include_str!("../resources/witness_calculator(browser).js");
+
+    #[cfg(feature = "arkzkey")]
+    const ZKEY_BYTES: &[u8] =
+        include_bytes!("../../rln/resources/tree_height_20/rln_final.arkzkey");
+    #[cfg(not(feature = "arkzkey"))]
+    const ZKEY_BYTES: &[u8] = include_bytes!("../../rln/resources/tree_height_20/rln_final.zkey");
+
+    const CIRCOM_BYTES: &[u8] = include_bytes!("../../rln/resources/tree_height_20/rln.wasm");
 
     #[wasm_bindgen_test]
     pub async fn rln_wasm_benchmark() {
+        // Check if thread pool is supported
+        #[cfg(feature = "multithread")]
+        if !isThreadpoolSupported().expect("Failed to check thread pool support") {
+            panic!("Thread pool is NOT supported");
+        } else {
+            // Initialize thread pool
+            let cpu_count = window()
+                .expect("Failed to get window")
+                .navigator()
+                .hardware_concurrency() as usize;
+            let _ = init_thread_pool(cpu_count);
+        }
+
+        // Initialize the witness calculator
+        initWitnessCalculator(WITNESS_CALCULATOR_JS)
+            .expect("Failed to initialize witness calculator");
+
         let mut results = String::from("\nbenchmarks:\n");
         let iterations = 10;
 
-        let zkey = read_file(&ZKEY_PATH).expect("Failed to read zkey file");
+        let zkey = readFile(&ZKEY_BYTES).expect("Failed to read zkey file");
 
         // Benchmark wasm_new
         let start_wasm_new = Date::now();
@@ -100,14 +164,14 @@ mod tests {
         // Benchmark calculateWitness
         let start_calculate_witness = Date::now();
         for _ in 0..iterations {
-            let _ = calculateWitness(&CIRCOM_PATH, json_inputs.clone())
+            let _ = calculateWitness(&CIRCOM_BYTES, json_inputs.clone())
                 .await
                 .expect("Failed to calculate witness");
         }
         let calculate_witness_result = Date::now() - start_calculate_witness;
 
         // Calculate witness for other benchmarks
-        let calculated_witness_json = calculateWitness(&CIRCOM_PATH, json_inputs)
+        let calculated_witness_json = calculateWitness(&CIRCOM_BYTES, json_inputs)
             .await
             .expect("Failed to calculate witness")
             .as_string()
@@ -188,13 +252,31 @@ mod tests {
         ));
 
         // Log the results
-        wasm_bindgen_test::console_log!("{results}");
+        console_log!("{results}");
     }
 
     #[wasm_bindgen_test]
     pub async fn rln_wasm_test() {
+        // Check if thread pool is supported
+        #[cfg(feature = "multithread")]
+        if !isThreadpoolSupported().expect("Failed to check thread pool support") {
+            panic!("Thread pool is NOT supported");
+        } else {
+            // Initialize thread pool
+            let cpu_count = window()
+                .expect("Failed to get window")
+                .navigator()
+                .hardware_concurrency() as usize;
+            console_log!("Automatically detected {cpu_count} CPU cores for optimal performance");
+            let _ = init_thread_pool(cpu_count);
+        }
+
+        // Initialize the witness calculator
+        initWitnessCalculator(WITNESS_CALCULATOR_JS)
+            .expect("Failed to initialize witness calculator");
+
         // Read the zkey file
-        let zkey = read_file(&ZKEY_PATH).expect("Failed to read zkey file");
+        let zkey = readFile(&ZKEY_BYTES).expect("Failed to read zkey file");
 
         // Create RLN instance and separated tree
         let rln_instance = wasm_new(zkey).expect("Failed to create RLN instance");
@@ -254,7 +336,7 @@ mod tests {
 
         // Calculating witness with JS
         // (Using a JSON since wasm_bindgen does not like Result<Vec<JsBigInt>,JsValue>)
-        let calculated_witness_json = calculateWitness(&CIRCOM_PATH, json_inputs)
+        let calculated_witness_json = calculateWitness(&CIRCOM_BYTES, json_inputs)
             .await
             .expect("Failed to calculate witness")
             .as_string()

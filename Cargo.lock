@@ -1749,6 +1749,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-bindgen-rayon",
  "wasm-bindgen-test",
+ "web-sys",
  "zerokit_utils",
 ]
 

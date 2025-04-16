@@ -1,3 +1,4 @@
+// Node.js module compatible witness calculator
 module.exports = async function builder(code, options) {
   options = options || {};
 
