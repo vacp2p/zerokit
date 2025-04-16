@@ -174,7 +174,6 @@ where
         for (i, leaf) in leaves.enumerate() {
             self.nodes.insert((self.depth, start + i), leaf);
             self.cached_leaves_indices[start + i] = 1;
-            // self.recalculate_from(start + i)?;
         }
         self.update_hashes(start, leaves_len)?;
         self.next_index = max(self.next_index, start + leaves_len);
@@ -348,11 +347,6 @@ where
         let mut current_index_bak = current_index;
 
         loop {
-            // println!("=====");
-            // println!("parent depth: {}, index: {}", parent_depth, parent_index);
-            // println!("parent max index: {}", parent_max_index);
-            // println!("current depth: {}, index: {}", current_depth, current_index);
-
             // Hash 2 values at (current depth, current_index) & (current_depth, current_index + 1)
             let n_hash = self.hash_couple(current_depth, current_index);
             // Insert this hash at (parent_depth, parent_index)
@@ -371,7 +365,6 @@ where
                 parent_depth -= 1;
                 parent_index = parent_index_bak >> 1;
                 parent_index_bak = parent_index;
-                // parent_max_index = (1 << parent_depth) / 2;
                 parent_max_index >>= 1;
                 current_depth -= 1;
                 current_index = current_index_bak >> 1;
