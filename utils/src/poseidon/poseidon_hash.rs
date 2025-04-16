@@ -80,20 +80,7 @@ impl<F: PrimeField> Poseidon<F> {
         }
     }
 
-    pub fn mix(&self, state: &[F], m: &[Vec<F>]) -> Vec<F> {
-        let mut new_state: Vec<F> = vec![F::ZERO; state.len()];
-        for i in 0..state.len() {
-            for (j, state_item) in state.iter().enumerate() {
-                let mut mij = m[i][j];
-                mij *= state_item;
-                new_state[i] += mij;
-            }
-        }
-        new_state
-    }
-
     pub fn mix_2(&self, state: &[F], m: &[Vec<F>], state_2: &mut [F]) {
-        // let mut new_state: Vec<F> = vec![F::ZERO; state.len()];
         for i in 0..state.len() {
             state_2[i] = F::ZERO;
             for (j, state_item) in state.iter().enumerate() {
@@ -102,7 +89,6 @@ impl<F: PrimeField> Poseidon<F> {
                 state_2[i] += mij;
             }
         }
-        // state_2
     }
 
     pub fn hash(&self, inp: Vec<F>) -> Result<F, String> {
@@ -121,12 +107,10 @@ impl<F: PrimeField> Poseidon<F> {
         let mut state = vec![F::ZERO; t];
         state[1..].clone_from_slice(&inp);
         let mut state_2 = vec![F::ZERO; state.len()];
-        // println!("state: {:?}", state);
 
         for i in 0..(self.round_params[param_index].n_rounds_f
             + self.round_params[param_index].n_rounds_p)
         {
-            // println!("i: {}", i);
             self.ark(
                 &mut state,
                 &self.round_params[param_index].c,
@@ -138,9 +122,6 @@ impl<F: PrimeField> Poseidon<F> {
                 &mut state,
                 i,
             );
-            // let state_tmp = self.mix(&state, &self.round_params[param_index].m);
-            // let state = state_tmp;
-
             self.mix_2(&state, &self.round_params[param_index].m, &mut state_2);
             std::mem::swap(&mut state, &mut state_2);
         }
