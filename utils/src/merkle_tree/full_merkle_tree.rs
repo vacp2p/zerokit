@@ -236,7 +236,7 @@ where
             self.cached_leaves_indices[i] = 0;
         }
 
-        self.set_range(start, set_values)
+        self.set_range(start, set_values.into_iter())
             .map_err(|e| Report::msg(e.to_string()))
     }
 

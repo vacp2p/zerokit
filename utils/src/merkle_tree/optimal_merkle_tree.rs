@@ -1,10 +1,10 @@
 use crate::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
 use crate::FrOf;
 use color_eyre::{Report, Result};
+use std::cmp::min;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::{cmp::max, fmt::Debug};
-
 ////////////////////////////////////////////////////////////
 ///// Optimal Merkle Tree Implementation
 ////////////////////////////////////////////////////////////
@@ -81,9 +81,9 @@ where
         }
         cached_nodes.reverse();
         Ok(OptimalMerkleTree {
-            cached_nodes: cached_nodes.clone(),
+            cached_nodes,
             depth,
-            nodes: HashMap::new(),
+            nodes: HashMap::with_capacity(1 << depth),
             cached_leaves_indices: vec![0; 1 << depth],
             next_index: 0,
             metadata: Vec::new(),
@@ -136,7 +136,7 @@ where
             return Err(Report::msg("index exceeds set size"));
         }
         self.nodes.insert((self.depth, index), leaf);
-        self.recalculate_from(index)?;
+        self.update_hashes(index, 1)?;
         self.next_index = max(self.next_index, index + 1);
         self.cached_leaves_indices[index] = 1;
         Ok(())
@@ -161,25 +161,29 @@ where
     }
 
     // Sets multiple leaves from the specified tree index
-    fn set_range<I: IntoIterator<Item = H::Fr>>(&mut self, start: usize, leaves: I) -> Result<()> {
-        let leaves = leaves.into_iter().collect::<Vec<_>>();
+    fn set_range<I: ExactSizeIterator<Item = H::Fr>>(
+        &mut self,
+        start: usize,
+        leaves: I,
+    ) -> Result<()> {
         // check if the range is valid
-        if start + leaves.len() > self.capacity() {
+        let leaves_len = leaves.len();
+        if start + leaves_len > self.capacity() {
             return Err(Report::msg("provided range exceeds set size"));
         }
-        for (i, leaf) in leaves.iter().enumerate() {
-            self.nodes.insert((self.depth, start + i), *leaf);
+        for (i, leaf) in leaves.enumerate() {
+            self.nodes.insert((self.depth, start + i), leaf);
             self.cached_leaves_indices[start + i] = 1;
-            self.recalculate_from(start + i)?;
         }
-        self.next_index = max(self.next_index, start + leaves.len());
+        self.update_hashes(start, leaves_len)?;
+        self.next_index = max(self.next_index, start + leaves_len);
         Ok(())
     }
 
     fn override_range<I, J>(&mut self, start: usize, leaves: I, indices: J) -> Result<()>
     where
-        I: IntoIterator<Item = FrOf<Self::Hasher>>,
-        J: IntoIterator<Item = usize>,
+        I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
+        J: ExactSizeIterator<Item = usize>,
     {
         let indices = indices.into_iter().collect::<Vec<_>>();
         let min_index = *indices.first().unwrap();
@@ -204,7 +208,7 @@ where
             self.cached_leaves_indices[i] = 0;
         }
 
-        self.set_range(start, set_values)
+        self.set_range(start, set_values.into_iter())
             .map_err(|e| Report::msg(e.to_string()))
     }
 
@@ -314,6 +318,60 @@ where
         if i != 0 {
             return Err(Report::msg("did not go through all indexes"));
         }
+        Ok(())
+    }
+
+    /// Update hashes after some leaves have been set or updated
+    /// index - first leaf index (which has been set or updated)
+    /// length - number of elements set or updated
+    fn update_hashes(&mut self, index: usize, length: usize) -> Result<()> {
+        // parent depth & index (used to store in the tree)
+        let mut parent_depth = self.depth - 1; // tree depth (or leaves depth) - 1
+        let mut parent_index = index >> 1;
+        let mut parent_index_bak = parent_index;
+        // maximum index at this depth
+        let parent_max_index_0 = (1 << parent_depth) / 2;
+        // Based on given length (number of elements we will update)
+        // we could restrict the parent_max_index
+        let current_index_max = if (index + length) % 2 == 0 {
+            index + length + 2
+        } else {
+            index + length + 1
+        };
+        let mut parent_max_index = min(current_index_max >> 1, parent_max_index_0);
+
+        // current depth & index (used to compute the hash)
+        // current depth initially == tree depth (or leaves depth)
+        let mut current_depth = self.depth;
+        let mut current_index = if index % 2 == 0 { index } else { index - 1 };
+        let mut current_index_bak = current_index;
+
+        loop {
+            // Hash 2 values at (current depth, current_index) & (current_depth, current_index + 1)
+            let n_hash = self.hash_couple(current_depth, current_index);
+            // Insert this hash at (parent_depth, parent_index)
+            self.nodes.insert((parent_depth, parent_index), n_hash);
+
+            if parent_depth == 0 {
+                // We just set the root hash of the tree - nothing to do anymore
+                break;
+            }
+            // Incr parent index
+            parent_index += 1;
+            // Incr current index (+2 because we've just hashed current index & current_index + 1)
+            current_index += 2;
+            if parent_index >= parent_max_index {
+                // reset (aka decr depth & reset indexes)
+                parent_depth -= 1;
+                parent_index = parent_index_bak >> 1;
+                parent_index_bak = parent_index;
+                parent_max_index >>= 1;
+                current_depth -= 1;
+                current_index = current_index_bak >> 1;
+                current_index_bak = current_index;
+            }
+        }
+
         Ok(())
     }
 }

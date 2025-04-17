@@ -385,7 +385,7 @@ impl RLN {
 
         // We set the leaves
         self.tree
-            .override_range(index, leaves, [])
+            .override_range(index, leaves.into_iter(), [].into_iter())
             .map_err(|_| Report::msg("Could not set leaves"))?;
         Ok(())
     }
@@ -468,7 +468,7 @@ impl RLN {
 
         // We set the leaves
         self.tree
-            .override_range(index, leaves, indices)
+            .override_range(index, leaves.into_iter(), indices.into_iter())
             .map_err(|e| Report::msg(format!("Could not perform the batch operation: {e}")))?;
         Ok(())
     }

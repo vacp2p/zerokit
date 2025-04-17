@@ -54,13 +54,13 @@ pub trait ZerokitMerkleTree {
     fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>) -> Result<()>;
     fn set_range<I>(&mut self, start: usize, leaves: I) -> Result<()>
     where
-        I: IntoIterator<Item = FrOf<Self::Hasher>>;
+        I: ExactSizeIterator<Item = FrOf<Self::Hasher>>;
     fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>>;
     fn get_empty_leaves_indices(&self) -> Vec<usize>;
     fn override_range<I, J>(&mut self, start: usize, leaves: I, to_remove_indices: J) -> Result<()>
     where
-        I: IntoIterator<Item = FrOf<Self::Hasher>>,
-        J: IntoIterator<Item = usize>;
+        I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
+        J: ExactSizeIterator<Item = usize>;
     fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<()>;
     fn delete(&mut self, index: usize) -> Result<()>;
     fn proof(&self, index: usize) -> Result<Self::Proof>;

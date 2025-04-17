@@ -21,7 +21,7 @@ pub fn pmtree_benchmark(c: &mut Criterion) {
 
     c.bench_function("Pmtree::override_range", |b| {
         b.iter(|| {
-            tree.override_range(0, leaves.clone(), [0, 1, 2, 3])
+            tree.override_range(0, leaves.clone().into_iter(), [0, 1, 2, 3].into_iter())
                 .unwrap();
         })
     });

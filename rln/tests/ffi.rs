@@ -156,6 +156,7 @@ mod test {
         // random number between 0..no_of_leaves
         let mut rng = thread_rng();
         let set_index = rng.gen_range(0..NO_OF_LEAVES) as usize;
+        println!("set_index: {}", set_index);
 
         // We add leaves in a batch into the tree
         set_leaves_init(rln_pointer, &leaves);
@@ -176,7 +177,10 @@ mod test {
 
         // We get the root of the tree obtained adding leaves in batch
         let root_batch_with_custom_index = get_tree_root(rln_pointer);
-        assert_eq!(root_batch_with_init, root_batch_with_custom_index);
+        assert_eq!(
+            root_batch_with_init, root_batch_with_custom_index,
+            "root batch !="
+        );
 
         // We reset the tree to default
         let success = set_tree(rln_pointer, TEST_TREE_HEIGHT);
@@ -192,7 +196,10 @@ mod test {
 
         // We get the root of the tree obtained adding leaves using the internal index
         let root_single_additions = get_tree_root(rln_pointer);
-        assert_eq!(root_batch_with_init, root_single_additions);
+        assert_eq!(
+            root_batch_with_init, root_single_additions,
+            "root single additions !="
+        );
     }
 
     #[test]
