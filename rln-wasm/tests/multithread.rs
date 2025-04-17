@@ -213,18 +213,18 @@ mod tests {
         let roots_buffer = Uint8Array::from(&roots_serialized[..]);
 
         // Benchmark wasm_verify_with_roots
-        // let start_wasm_verify_with_roots = Date::now();
-        // for _ in 0..iterations {
-        //     let _ =
-        //         wasm_verify_with_roots(rln_instance, input_buffer.clone(), roots_buffer.clone())
-        //             .expect("Failed to verify proof");
-        // }
-        // let wasm_verify_with_roots_result = Date::now() - start_wasm_verify_with_roots;
+        let start_wasm_verify_with_roots = Date::now();
+        for _ in 0..iterations {
+            let _ =
+                wasm_verify_with_roots(rln_instance, input_buffer.clone(), roots_buffer.clone())
+                    .expect("Failed to verify proof");
+        }
+        let wasm_verify_with_roots_result = Date::now() - start_wasm_verify_with_roots;
 
         // Verify the proof with the root
-        // let is_proof_valid = wasm_verify_with_roots(rln_instance, input_buffer, roots_buffer)
-        //     .expect("Failed to verify proof");
-        // assert!(is_proof_valid, "verification failed");
+        let is_proof_valid = wasm_verify_with_roots(rln_instance, input_buffer, roots_buffer)
+            .expect("Failed to verify proof");
+        assert!(is_proof_valid, "verification failed");
 
         // Format and display results
         let format_duration = |duration_ms: f64| -> String {
@@ -249,10 +249,10 @@ mod tests {
             "wasm_generate_rln_proof_with_witness: {}\n",
             format_duration(wasm_generate_rln_proof_with_witness_result)
         ));
-        // results.push_str(&format!(
-        //     "wasm_verify_with_roots: {}\n",
-        //     format_duration(wasm_verify_with_roots_result)
-        // ));
+        results.push_str(&format!(
+            "wasm_verify_with_roots: {}\n",
+            format_duration(wasm_verify_with_roots_result)
+        ));
 
         // Log the results
         console_log!("{results}");

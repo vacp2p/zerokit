@@ -1,10 +1,13 @@
 [tasks.build]
+clear = true
 dependencies = ["pack_build", "pack_rename"]
 
 [tasks.build_arkzkey]
+clear = true
 dependencies = ["pack_build_arkzkey", "pack_rename"]
 
 [tasks.build_multithread]
+clear = true
 dependencies = [
     "pack_build_multithread",
     "pack_rename",
@@ -12,6 +15,7 @@ dependencies = [
 ]
 
 [tasks.build_multithread_arkzkey]
+clear = true
 dependencies = [
     "pack_build_multithread_arkzkey",
     "pack_rename",
@@ -133,10 +137,10 @@ args = [
     "wasm-pack",
     "test",
     "--release",
-    # "--headless",
     "--chrome",
     # "--firefox",
     # "--safari",
+    "--headless",
     "--target",
     "wasm32-unknown-unknown",
     "--features",
@@ -158,10 +162,10 @@ args = [
     "wasm-pack",
     "test",
     "--release",
-    # "--headless",
     "--chrome",
     # "--firefox",
     # "--safari",
+    "--headless",
     "--target",
     "wasm32-unknown-unknown",
     "--features",
