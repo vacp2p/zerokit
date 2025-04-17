@@ -8,14 +8,14 @@ dependencies = ["pack_build_arkzkey", "pack_rename"]
 dependencies = [
     "pack_build_multithread",
     "pack_rename",
-    # "post_build_multithread",
+    "post_build_multithread",
 ]
 
 [tasks.build_multithread_arkzkey]
 dependencies = [
     "pack_build_multithread_arkzkey",
     "pack_rename",
-    # "post_build_multithread",
+    "post_build_multithread",
 ]
 
 [tasks.pack_build]
