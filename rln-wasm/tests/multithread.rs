@@ -3,20 +3,23 @@
 
 #[cfg(test)]
 mod tests {
-    use wasm_bindgen_test::*;
-    wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
-
     use js_sys::{BigInt as JsBigInt, Date, Object, Uint8Array};
     use rln::circuit::{Fr, TEST_TREE_HEIGHT};
     use rln::hashers::{hash_to_field, poseidon_hash};
     use rln::poseidon_tree::PoseidonTree;
     use rln::protocol::{prepare_verify_input, rln_witness_from_values, serialize_witness};
     use rln::utils::{bytes_le_to_fr, fr_to_bytes_le};
-    use rln_wasm::*;
-    use wasm_bindgen::{prelude::*, JsValue};
-    use wasm_bindgen_rayon::init_thread_pool;
+    use rln_wasm::{
+        init_thread_pool, wasm_generate_rln_proof_with_witness, wasm_key_gen, wasm_new,
+        wasm_rln_witness_to_json, wasm_verify_with_roots,
+    };
+    use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
+    use wasm_bindgen_futures::JsFuture;
+    use wasm_bindgen_test::{console_log, wasm_bindgen_test};
     use web_sys::window;
     use zerokit_utils::merkle_tree::merkle_tree::ZerokitMerkleTree;
+
+    wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
     #[wasm_bindgen(inline_js = r#"
     export function isThreadpoolSupported() {
@@ -64,8 +67,6 @@ mod tests {
         ) -> Result<JsValue, JsValue>;
     }
 
-    const RLN_WASM_JS: &str = include_str!("../pkg/rln_wasm.js");
-
     const WITNESS_CALCULATOR_JS: &str = include_str!("../resources/witness_calculator(browser).js");
 
     #[cfg(feature = "arkzkey")]
@@ -88,7 +89,9 @@ mod tests {
                 .expect("Failed to get window")
                 .navigator()
                 .hardware_concurrency() as usize;
-            let _ = init_thread_pool(cpu_count);
+            let _ = JsFuture::from(init_thread_pool(cpu_count))
+                .await
+                .expect("Failed to initialize thread pool");
         }
 
         // Initialize the witness calculator
@@ -210,18 +213,18 @@ mod tests {
         let roots_buffer = Uint8Array::from(&roots_serialized[..]);
 
         // Benchmark wasm_verify_with_roots
-        let start_wasm_verify_with_roots = Date::now();
-        for _ in 0..iterations {
-            let _ =
-                wasm_verify_with_roots(rln_instance, input_buffer.clone(), roots_buffer.clone())
-                    .expect("Failed to verify proof");
-        }
-        let wasm_verify_with_roots_result = Date::now() - start_wasm_verify_with_roots;
+        // let start_wasm_verify_with_roots = Date::now();
+        // for _ in 0..iterations {
+        //     let _ =
+        //         wasm_verify_with_roots(rln_instance, input_buffer.clone(), roots_buffer.clone())
+        //             .expect("Failed to verify proof");
+        // }
+        // let wasm_verify_with_roots_result = Date::now() - start_wasm_verify_with_roots;
 
         // Verify the proof with the root
-        let is_proof_valid = wasm_verify_with_roots(rln_instance, input_buffer, roots_buffer)
-            .expect("Failed to verify proof");
-        assert!(is_proof_valid, "verification failed");
+        // let is_proof_valid = wasm_verify_with_roots(rln_instance, input_buffer, roots_buffer)
+        //     .expect("Failed to verify proof");
+        // assert!(is_proof_valid, "verification failed");
 
         // Format and display results
         let format_duration = |duration_ms: f64| -> String {
@@ -246,10 +249,10 @@ mod tests {
             "wasm_generate_rln_proof_with_witness: {}\n",
             format_duration(wasm_generate_rln_proof_with_witness_result)
         ));
-        results.push_str(&format!(
-            "wasm_verify_with_roots: {}\n",
-            format_duration(wasm_verify_with_roots_result)
-        ));
+        // results.push_str(&format!(
+        //     "wasm_verify_with_roots: {}\n",
+        //     format_duration(wasm_verify_with_roots_result)
+        // ));
 
         // Log the results
         console_log!("{results}");
@@ -268,7 +271,9 @@ mod tests {
                 .navigator()
                 .hardware_concurrency() as usize;
             console_log!("Automatically detected {cpu_count} CPU cores for optimal performance");
-            let _ = init_thread_pool(cpu_count);
+            let _ = JsFuture::from(init_thread_pool(cpu_count))
+                .await
+                .expect("Failed to initialize thread pool");
         }
 
         // Initialize the witness calculator

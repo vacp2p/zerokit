@@ -19,6 +19,7 @@ else ifeq ($(shell uname),Linux)
 	@sudo apt-get update
 	@sudo apt-get install -y cmake ninja-build
 endif
+	@cargo install wasm-bindgen-cli
 	@if [ ! -d "$$HOME/.nvm" ]; then \
 		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash; \
 	fi

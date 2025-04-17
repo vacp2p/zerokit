@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const url = require("url");
 
-const PORT = 8080;
+const PORT = 8000;
 
 // MIME type mapping
 const MIME_TYPES = {

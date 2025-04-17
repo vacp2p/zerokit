@@ -9,9 +9,12 @@ mod tests {
     use rln::poseidon_tree::PoseidonTree;
     use rln::protocol::{prepare_verify_input, rln_witness_from_values, serialize_witness};
     use rln::utils::{bytes_le_to_fr, fr_to_bytes_le};
-    use rln_wasm::*;
-    use wasm_bindgen::{prelude::*, JsValue};
-    use wasm_bindgen_test::*;
+    use rln_wasm::{
+        wasm_generate_rln_proof_with_witness, wasm_key_gen, wasm_new, wasm_rln_witness_to_json,
+        wasm_verify_with_roots,
+    };
+    use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
+    use wasm_bindgen_test::{console_log, wasm_bindgen_test};
     use zerokit_utils::merkle_tree::merkle_tree::ZerokitMerkleTree;
 
     #[wasm_bindgen(inline_js = r#"

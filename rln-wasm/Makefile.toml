@@ -1,25 +1,21 @@
 [tasks.build]
-clear = true
 dependencies = ["pack_build", "pack_rename"]
 
 [tasks.build_arkzkey]
-clear = true
 dependencies = ["pack_build_arkzkey", "pack_rename"]
 
 [tasks.build_multithread]
-clear = true
 dependencies = [
     "pack_build_multithread",
     "pack_rename",
-    "post_build_multithread",
+    # "post_build_multithread",
 ]
 
 [tasks.build_multithread_arkzkey]
-clear = true
 dependencies = [
     "pack_build_multithread_arkzkey",
     "pack_rename",
-    "post_build_multithread",
+    # "post_build_multithread",
 ]
 
 [tasks.pack_build]
@@ -139,6 +135,8 @@ args = [
     "--release",
     # "--headless",
     "--chrome",
+    # "--firefox",
+    # "--safari",
     "--target",
     "wasm32-unknown-unknown",
     "--features",
@@ -162,6 +160,8 @@ args = [
     "--release",
     # "--headless",
     "--chrome",
+    # "--firefox",
+    # "--safari",
     "--target",
     "wasm32-unknown-unknown",
     "--features",
@@ -171,7 +171,7 @@ args = [
     "--",
     "--nocapture",
 ]
-dependencies = ["build_multithread"]
+dependencies = ["build_multithread_arkzkey"]
 
 [tasks.bench]
 disabled = true
