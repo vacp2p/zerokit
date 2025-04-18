@@ -10,11 +10,12 @@ mod tests {
     use rln::protocol::{prepare_verify_input, rln_witness_from_values, serialize_witness};
     use rln::utils::{bytes_le_to_fr, fr_to_bytes_le};
     use rln_wasm::{
-        init_thread_pool, wasm_generate_rln_proof_with_witness, wasm_key_gen, wasm_new,
-        wasm_rln_witness_to_json, wasm_verify_with_roots,
+        wasm_generate_rln_proof_with_witness, wasm_key_gen, wasm_new, wasm_rln_witness_to_json,
+        wasm_verify_with_roots,
     };
     use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
     use wasm_bindgen_futures::JsFuture;
+    use wasm_bindgen_rayon::init_thread_pool;
     use wasm_bindgen_test::{console_log, wasm_bindgen_test};
     use web_sys::window;
     use zerokit_utils::merkle_tree::merkle_tree::ZerokitMerkleTree;
@@ -31,7 +32,7 @@ mod tests {
 
     export function initWitnessCalculator(jsCode) {
       eval(jsCode);
-      if (typeof window.witnessCalculatorBuilder !== 'function' && typeof self.witnessCalculatorBuilder !== 'function') {
+      if (typeof window.witnessCalculatorBuilder !== 'function') {
         return false;
       }
       return true;
