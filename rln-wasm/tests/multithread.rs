@@ -90,9 +90,11 @@ mod tests {
                 .expect("Failed to get window")
                 .navigator()
                 .hardware_concurrency() as usize;
-            let _ = JsFuture::from(init_thread_pool(cpu_count))
-                .await
-                .expect("Failed to initialize thread pool");
+            wasm_bindgen_futures::spawn_local(async move {
+                JsFuture::from(init_thread_pool(cpu_count))
+                    .await
+                    .expect("Failed to initialize thread pool");
+            });
         }
 
         // Initialize the witness calculator
@@ -271,10 +273,11 @@ mod tests {
                 .expect("Failed to get window")
                 .navigator()
                 .hardware_concurrency() as usize;
-            console_log!("Automatically detected {cpu_count} CPU cores for optimal performance");
-            let _ = JsFuture::from(init_thread_pool(cpu_count))
-                .await
-                .expect("Failed to initialize thread pool");
+            wasm_bindgen_futures::spawn_local(async move {
+                JsFuture::from(init_thread_pool(cpu_count))
+                    .await
+                    .expect("Failed to initialize thread pool");
+            });
         }
 
         // Initialize the witness calculator

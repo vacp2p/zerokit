@@ -82,7 +82,7 @@ jobs:
     strategy:
       matrix:
         platform: [ ubuntu-latest, macos-latest ]
-        feature: [ "default", "arkzkey" ]
+        feature: [ "default", "arkzkey","multithread", "multithread_arkzkey" ]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
