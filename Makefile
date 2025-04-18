@@ -15,10 +15,13 @@ installdeps: .pre-build
 ifeq ($(shell uname),Darwin)
 	@brew update
 	@brew install cmake ninja
+	@brew install --cask chromedriver
 else ifeq ($(shell uname),Linux)
 	@sudo apt-get update
-	@sudo apt-get install -y cmake ninja-build
+	@sudo apt-get install -y cmake ninja-build chromium-chromedriver
+	@sudo ln -sf $(shell which chromedriver) /usr/bin/chromedriver
 endif
+	@cargo install wasm-bindgen-cli
 	@if [ ! -d "$$HOME/.nvm" ]; then \
 		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash; \
 	fi

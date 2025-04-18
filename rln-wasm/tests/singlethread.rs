@@ -1,3 +1,4 @@
+#![cfg(not(feature = "multithread"))]
 #![cfg(target_arch = "wasm32")]
 
 #[cfg(test)]
@@ -8,15 +9,43 @@ mod tests {
     use rln::poseidon_tree::PoseidonTree;
     use rln::protocol::{prepare_verify_input, rln_witness_from_values, serialize_witness};
     use rln::utils::{bytes_le_to_fr, fr_to_bytes_le};
-    use rln_wasm::*;
-    use wasm_bindgen::{prelude::*, JsValue};
-    use wasm_bindgen_test::wasm_bindgen_test;
+    use rln_wasm::{
+        wasm_generate_rln_proof_with_witness, wasm_key_gen, wasm_new, wasm_rln_witness_to_json,
+        wasm_verify_with_roots,
+    };
+    use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
+    use wasm_bindgen_test::{console_log, wasm_bindgen_test};
     use zerokit_utils::merkle_tree::merkle_tree::ZerokitMerkleTree;
 
-    #[wasm_bindgen(module = "src/utils.js")]
+    #[wasm_bindgen(inline_js = r#"
+    const fs = require("fs");
+
+    module.exports = {
+      readFile: function (path) {
+        return fs.readFileSync(path);
+      },
+
+      calculateWitness: async function (circom_path, inputs) {
+        const wc = require("resources/witness_calculator(node).js");
+        const wasmFile = fs.readFileSync(circom_path);
+        const wasmFileBuffer = wasmFile.slice(
+          wasmFile.byteOffset,
+          wasmFile.byteOffset + wasmFile.byteLength
+        );
+        const witnessCalculator = await wc(wasmFileBuffer);
+        const calculatedWitness = await witnessCalculator.calculateWitness(
+          inputs,
+          false
+        );
+        return JSON.stringify(calculatedWitness, (key, value) =>
+          typeof value === "bigint" ? value.toString() : value
+        );
+      },
+    };
+    "#)]
     extern "C" {
         #[wasm_bindgen(catch)]
-        fn read_file(path: &str) -> Result<Uint8Array, JsValue>;
+        fn readFile(path: &str) -> Result<Uint8Array, JsValue>;
 
         #[wasm_bindgen(catch)]
         async fn calculateWitness(circom_path: &str, input: Object) -> Result<JsValue, JsValue>;
@@ -34,7 +63,7 @@ mod tests {
         let mut results = String::from("\nbenchmarks:\n");
         let iterations = 10;
 
-        let zkey = read_file(&ZKEY_PATH).expect("Failed to read zkey file");
+        let zkey = readFile(&ZKEY_PATH).expect("Failed to read zkey file");
 
         // Benchmark wasm_new
         let start_wasm_new = Date::now();
@@ -188,13 +217,13 @@ mod tests {
         ));
 
         // Log the results
-        wasm_bindgen_test::console_log!("{results}");
+        console_log!("{results}");
     }
 
     #[wasm_bindgen_test]
     pub async fn rln_wasm_test() {
         // Read the zkey file
-        let zkey = read_file(&ZKEY_PATH).expect("Failed to read zkey file");
+        let zkey = readFile(&ZKEY_PATH).expect("Failed to read zkey file");
 
         // Create RLN instance and separated tree
         let rln_instance = wasm_new(zkey).expect("Failed to create RLN instance");
