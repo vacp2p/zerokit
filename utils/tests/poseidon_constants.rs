@@ -3530,7 +3530,8 @@ mod test {
         {
             // We check if the round constants and matrices correspond to the one generated when instantiating Poseidon with ROUND_PARAMS
             let (loaded_c, loaded_m) = load_constants();
-            let poseidon_parameters = Poseidon::<Fr>::from(&ROUND_PARAMS).get_parameters();
+            let poseidon_hasher = Poseidon::<Fr>::from(&ROUND_PARAMS);
+            let poseidon_parameters = poseidon_hasher.get_parameters();
             for i in 0..poseidon_parameters.len() {
                 assert_eq!(loaded_c[i], poseidon_parameters[i].c);
                 assert_eq!(loaded_m[i], poseidon_parameters[i].m);
