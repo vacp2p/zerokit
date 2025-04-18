@@ -23,7 +23,7 @@ static POSEIDON: Lazy<Poseidon<Fr>> = Lazy::new(|| Poseidon::<Fr>::from(&ROUND_P
 
 pub fn poseidon_hash(input: &[Fr]) -> Fr {
     POSEIDON
-        .hash(input.to_vec())
+        .hash(input)
         .expect("hash with fixed input size can't fail")
 }
 

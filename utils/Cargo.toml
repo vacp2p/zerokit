@@ -39,3 +39,7 @@ pmtree-ft = ["pmtree"]
 [[bench]]
 name = "merkle_tree_benchmark"
 harness = false
+
+[[bench]]
+name = "poseidon_benchmark"
+harness = false

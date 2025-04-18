@@ -57,16 +57,17 @@ mod test {
             ),
         ]);
 
+        // map (key: what to hash, value: expected value)
         for (k, v) in map.into_iter() {
             let hasher = Poseidon::<Fr>::from(&ROUND_PARAMS);
-            let h = hasher.hash([k].to_vec());
+            let h = hasher.hash(&[k]);
             assert_eq!(h.unwrap(), v);
         }
     }
 
     #[test]
     fn test_poseidon_hash_multi() {
-        // All hashes done in a merkle tree (with leaves: [0, 1, 2, 3, 4, 5? 6, 7])
+        // All hashes done in a merkle tree (with leaves: [0, 1, 2, 3, 4, 5, 6, 7])
 
         // ~ leaves
         let fr_0 = Fr::ZERO;
@@ -110,6 +111,7 @@ mod test {
         )
         .unwrap();
 
+        // map (key: what to hash, value: expected value)
         let map = HashMap::from([
             ((fr_0, fr_1), fr_0_1),
             ((fr_2, fr_3), fr_2_3),
@@ -122,7 +124,7 @@ mod test {
 
         for (k, v) in map.into_iter() {
             let hasher = Poseidon::<Fr>::from(&ROUND_PARAMS);
-            let h = hasher.hash([k.0, k.1].to_vec());
+            let h = hasher.hash(&[k.0, k.1]);
             assert_eq!(h.unwrap(), v);
         }
     }
