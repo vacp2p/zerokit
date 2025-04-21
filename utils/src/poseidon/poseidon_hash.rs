@@ -54,24 +54,24 @@ impl<F: PrimeField> Poseidon<F> {
         }
     }
 
-    pub fn get_parameters(&self) -> Vec<RoundParameters<F>> {
-        self.round_params.clone()
+    pub fn get_parameters(&self) -> &Vec<RoundParameters<F>> {
+        &self.round_params
     }
 
     pub fn ark(&self, state: &mut [F], c: &[F], it: usize) {
-        for i in 0..state.len() {
-            state[i] += c[it + i];
-        }
+        state.iter_mut().enumerate().for_each(|(i, elem)| {
+            *elem += c[it + i];
+        });
     }
 
     pub fn sbox(&self, n_rounds_f: usize, n_rounds_p: usize, state: &mut [F], i: usize) {
         if (i < n_rounds_f / 2) || (i >= n_rounds_f / 2 + n_rounds_p) {
-            for current_state in &mut state.iter_mut() {
+            state.iter_mut().for_each(|current_state| {
                 let aux = *current_state;
                 *current_state *= *current_state;
                 *current_state *= *current_state;
                 *current_state *= aux;
-            }
+            })
         } else {
             let aux = state[0];
             state[0] *= state[0];
@@ -82,17 +82,18 @@ impl<F: PrimeField> Poseidon<F> {
 
     pub fn mix_2(&self, state: &[F], m: &[Vec<F>], state_2: &mut [F]) {
         for i in 0..state.len() {
-            state_2[i] = F::ZERO;
-            for (j, state_item) in state.iter().enumerate() {
-                let mut mij = m[i][j];
-                mij *= state_item;
-                state_2[i] += mij;
+            // Cache the row reference
+            let row = &m[i];
+            let mut acc = F::ZERO;
+            for j in 0..state.len() {
+                acc += row[j] * state[j];
             }
+            state_2[i] = acc;
         }
     }
 
-    pub fn hash(&self, inp: Vec<F>) -> Result<F, String> {
-        // Note that the rate t becomes input length + 1, hence for length N we pick parameters with T = N + 1
+    pub fn hash(&self, inp: &[F]) -> Result<F, String> {
+        // Note that the rate t becomes input length + 1; hence for length N we pick parameters with T = N + 1
         let t = inp.len() + 1;
 
         // We seek the index (Poseidon's round_params is an ordered vector) for the parameters corresponding to t
@@ -105,8 +106,8 @@ impl<F: PrimeField> Poseidon<F> {
         let param_index = param_index.unwrap();
 
         let mut state = vec![F::ZERO; t];
-        state[1..].clone_from_slice(&inp);
-        let mut state_2 = vec![F::ZERO; state.len()];
+        let mut state_2 = state.clone();
+        state[1..].clone_from_slice(inp);
 
         for i in 0..(self.round_params[param_index].n_rounds_f
             + self.round_params[param_index].n_rounds_p)

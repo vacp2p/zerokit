@@ -20,6 +20,40 @@ The crate supports two interchangeable Merkle tree implementations:
 - **OptimalMerkleTree**
   - Only stores nodes used to prove accumulation of set leaves
 
+### Implementation notes
+
+Glossary:
+
+* depth: level of leaves if we count from levels from 0
+* number of levels: depth + 1
+* capacity (== number of leaves) -- 1 << depth
+* total number of nodes: 1 << (depth + 1)) - 1
+
+So for instance:
+* depth: 3
+* number of levels: 4
+* capacity (number of leaves): 8
+* total number of nodes: 15
+
+```mermaid
+flowchart TD
+    A[Root] --> N1
+    A[Root] --> N2
+    N1 --> N3
+    N1 --> N4
+    N2 --> N5
+    N2 --> N6
+    N3 -->|Leaf| L1
+    N3 -->|Leaf| L2
+    N4 -->|Leaf| L3
+    N4 -->|Leaf| L4
+    N5 -->|Leaf| L5
+    N5 -->|Leaf| L6
+    N6 -->|Leaf| L7
+    N6 -->|Leaf| L8
+```
+
+
 ## Poseidon Hash Implementation
 
 This crate provides an implementation to compute the Poseidon hash round constants and MDS matrices:
