@@ -134,6 +134,8 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
+          components: rust-src
+          target: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - name: Install Dependencies
         run: make installdeps
