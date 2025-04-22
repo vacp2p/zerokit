@@ -6,8 +6,8 @@ use rln::public::{hash, poseidon_hash, RLN};
 use std::vec::Vec;
 use wasm_bindgen::prelude::*;
 
-// #[cfg(feature = "multithread")]
-// pub use wasm_bindgen_rayon::init_thread_pool;
+#[cfg(feature = "multithread")]
+pub use wasm_bindgen_rayon::init_thread_pool;
 
 #[wasm_bindgen(js_name = initPanicHook)]
 pub fn init_panic_hook() {

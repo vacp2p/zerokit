@@ -33,7 +33,10 @@ getrandom = { version = "0.2.15", features = ["js"] }
 serde_json = "1.0"
 wasm-bindgen-test = "0.3.50"
 wasm-bindgen-futures = "0.4.50"
-web-sys = { version = "0.3.77", features = ["Navigator"] }
+
+[dev-dependencies.web-sys]
+version = "0.3.77"
+features = ["Window", "Navigator"]
 
 [features]
 default = ["console_error_panic_hook"]

@@ -1,4 +1,3 @@
-#![cfg(feature = "multithread")]
 #![cfg(target_arch = "wasm32")]
 
 #[cfg(test)]
@@ -10,17 +9,15 @@ mod tests {
     use rln::protocol::{prepare_verify_input, rln_witness_from_values, serialize_witness};
     use rln::utils::{bytes_le_to_fr, fr_to_bytes_le};
     use rln_wasm::{
-        wasm_generate_rln_proof_with_witness, wasm_key_gen, wasm_new, wasm_rln_witness_to_json,
-        wasm_verify_with_roots,
+        init_thread_pool, wasm_generate_rln_proof_with_witness, wasm_key_gen, wasm_new,
+        wasm_rln_witness_to_json, wasm_verify_with_roots,
     };
     use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
-    use wasm_bindgen_futures::JsFuture;
-    use wasm_bindgen_rayon::init_thread_pool;
-    use wasm_bindgen_test::{console_log, wasm_bindgen_test};
-    use web_sys::window;
+    use wasm_bindgen_test::{console_log, wasm_bindgen_test, wasm_bindgen_test_configure};
     use zerokit_utils::merkle_tree::merkle_tree::ZerokitMerkleTree;
 
-    wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+    #[cfg(feature = "multithread")]
+    use {wasm_bindgen_futures::JsFuture, web_sys::window};
 
     #[wasm_bindgen(inline_js = r#"
     export function isThreadpoolSupported() {
@@ -77,6 +74,8 @@ mod tests {
     const ZKEY_BYTES: &[u8] = include_bytes!("../../rln/resources/tree_height_20/rln_final.zkey");
 
     const CIRCOM_BYTES: &[u8] = include_bytes!("../../rln/resources/tree_height_20/rln.wasm");
+
+    wasm_bindgen_test_configure!(run_in_browser);
 
     #[wasm_bindgen_test]
     pub async fn rln_wasm_benchmark() {
