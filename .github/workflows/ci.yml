@@ -83,7 +83,7 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest]
         crate: [rln-wasm]
-        feature: ["default", "arkzkey", "browser", "browser_arkzkey"]
+        feature: ["default", "arkzkey"]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
@@ -113,6 +113,14 @@ jobs:
             cargo make test --release
           else
             cargo make test_${{ matrix.feature }} --release
+          fi
+        working-directory: ${{ matrix.crate }}
+      - name: cargo-make test browser
+        run: |
+          if [ ${{ matrix.feature }} == default ]; then
+            cargo make test_browser --release
+          else
+            cargo make test_browser_${{ matrix.feature }} --release
           fi
         working-directory: ${{ matrix.crate }}
 
