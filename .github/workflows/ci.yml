@@ -120,6 +120,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
+        crate: [rln-wasm]
         feature: ["multithread", "multithread_arkzkey"]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
