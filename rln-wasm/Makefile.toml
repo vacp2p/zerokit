@@ -103,6 +103,7 @@ args = [
     "--",
     "--nocapture",
 ]
+dependencies = ["build"]
 
 [tasks.test_arkzkey]
 command = "wasm-pack"
@@ -110,6 +111,42 @@ args = [
     "test",
     "--release",
     "--node",
+    "--target",
+    "wasm32-unknown-unknown",
+    "--features",
+    "stateless,arkzkey",
+    "--",
+    "--nocapture",
+]
+dependencies = ["build_arkzkey"]
+
+[tasks.test_browser]
+command = "wasm-pack"
+args = [
+    "test",
+    "--release",
+    "--chrome",
+    # "--firefox",
+    # "--safari",
+    "--headless",
+    "--target",
+    "wasm32-unknown-unknown",
+    "--features",
+    "stateless",
+    "--",
+    "--nocapture",
+]
+dependencies = ["build"]
+
+[tasks.test_browser_arkzkey]
+command = "wasm-pack"
+args = [
+    "test",
+    "--release",
+    "--chrome",
+    # "--firefox",
+    # "--safari",
+    "--headless",
     "--target",
     "wasm32-unknown-unknown",
     "--features",
@@ -132,7 +169,7 @@ args = [
     "--chrome",
     # "--firefox",
     # "--safari",
-    # "--headless",
+    "--headless",
     "--target",
     "wasm32-unknown-unknown",
     "--features",
@@ -157,7 +194,7 @@ args = [
     "--chrome",
     # "--firefox",
     # "--safari",
-    # "--headless",
+    "--headless",
     "--target",
     "wasm32-unknown-unknown",
     "--features",

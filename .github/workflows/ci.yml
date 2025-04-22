@@ -83,7 +83,7 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest]
         crate: [rln-wasm]
-        feature: ["default", "arkzkey"]
+        feature: ["default", "arkzkey", "browser", browser_arkzkey"]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
