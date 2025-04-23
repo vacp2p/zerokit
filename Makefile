@@ -1,6 +1,6 @@
 .PHONY: all installdeps build test bench clean
 
-all: .pre-build build
+all: installdeps build
 
 .fetch-submodules:
 	@git submodule update --init --recursive
