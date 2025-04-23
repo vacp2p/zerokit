@@ -13,22 +13,14 @@ endif
 
 installdeps: .pre-build
 ifeq ($(shell uname),Darwin)
-	@brew update
-	@brew install cmake ninja
+	@brew install cmake ninja binaryen || true
 else ifeq ($(shell uname),Linux)
-	@sudo apt-get update
-	@sudo apt-get install -y cmake ninja-build
+	@sudo apt-get install -y cmake ninja-build binaryen || true
 endif
-	@cargo install wasm-bindgen-cli
-	@if [ ! -d "$$HOME/.nvm" ]; then \
-		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash; \
-	fi
-	@bash -c 'export NVM_DIR="$$HOME/.nvm" && \
-		[ -s "$$NVM_DIR/nvm.sh" ] && \. "$$NVM_DIR/nvm.sh" && \
-		nvm install 22.14.0 && \
-		nvm use 22.14.0'
-	@curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-	@echo "\033[1;32m>>> Now run this command to activate Node.js 22.14.0: \033[1;33msource $$HOME/.nvm/nvm.sh && nvm use 22.14.0\033[0m"
+	@cargo install wasm-pack || true
+	@cargo install wasm-bindgen-cli || true
+	@curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash || true
+	@bash -c 'export NVM_DIR="$$HOME/.nvm"; . "$$NVM_DIR/nvm.sh"; nvm install 22.14.0; nvm use 22.14.0' || true
 
 build: .pre-build
 	@cargo make build

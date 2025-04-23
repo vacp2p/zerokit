@@ -1,25 +1,27 @@
 [tasks.build]
 clear = true
-dependencies = ["pack_build", "pack_rename"]
+dependencies = ["pack_build", "pack_rename", "pack_resize"]
 
 [tasks.build_arkzkey]
 clear = true
-dependencies = ["pack_build_arkzkey", "pack_rename"]
+dependencies = ["pack_build_arkzkey", "pack_rename", "pack_resize"]
 
 [tasks.build_multithread]
 clear = true
 dependencies = [
     "pack_build_multithread",
-    "pack_rename",
     "post_build_multithread",
+    "pack_rename",
+    "pack_resize",
 ]
 
 [tasks.build_multithread_arkzkey]
 clear = true
 dependencies = [
     "pack_build_multithread_arkzkey",
-    "pack_rename",
     "post_build_multithread",
+    "pack_rename",
+    "pack_resize",
 ]
 
 [tasks.pack_build]
@@ -97,6 +99,19 @@ find ./pkg/snippets -name "workerHelpers.worker.js" -exec sed -i.bak 's|await in
 
 [tasks.pack_rename]
 script = "sed -i.bak 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json && rm pkg/package.json.bak"
+
+[tasks.pack_resize]
+command = "wasm-opt"
+args = [
+    "pkg/rln_wasm_bg.wasm",
+    "-Oz",
+    "--strip-debug",
+    "--strip-dwarf",
+    "--remove-unused-module-elements",
+    "--vacuum",
+    "-o",
+    "pkg/rln_wasm_bg.wasm",
+]
 
 [tasks.test]
 command = "wasm-pack"
