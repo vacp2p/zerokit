@@ -4,9 +4,13 @@
   inputs = {
     # Version 24.11
     nixpkgs.url = "github:NixOS/nixpkgs?rev=f44bd8ca21e026135061a0a57dcf3d0775b67a49";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs }: 
+  outputs = { self, nixpkgs, rust-overlay }: 
     let
       stableSystems = [
         "x86_64-linux" "aarch64-linux"
@@ -15,7 +19,8 @@
         "i686-windows"
       ];
       forAllSystems = nixpkgs.lib.genAttrs stableSystems;
-      pkgsFor = forAllSystems (system: import nixpkgs { inherit system; });
+      overlays = [ (import rust-overlay) ];
+      pkgsFor = forAllSystems (system: import nixpkgs { inherit system overlays; });
     in rec
     {
       packages = forAllSystems (system: let
@@ -29,9 +34,19 @@
         pkgs = pkgsFor.${system};
       in {
         default = pkgs.mkShell {
-          inputsFrom = [
-            packages.${system}.default
+          buildInputs = with pkgs; [
+            git
+            cmake
+            rustup
+            xz
+            wasm-pack
+            rust-bin.stable.latest.default
           ];
+          # Shared library liblzma.so.5 used by wasm-pack
+          shellHook = ''
+            xz_lib=$(nix-store -q --references $(which xz) | grep xz)
+            export LD_LIBRARY_PATH=$xz_lib/lib:$LD_LIBRARY_PATH
+          '';
         };
       });
     };
