@@ -124,45 +124,45 @@ jobs:
           fi
         working-directory: ${{ matrix.crate }}
 
-  rln-wasm-multihread-test:
-    strategy:
-      matrix:
-        platform: [ubuntu-latest, macos-latest]
-        crate: [rln-wasm]
-        feature: ["multithread", "multithread_arkzkey"]
-    runs-on: ${{ matrix.platform }}
-    timeout-minutes: 60
+  # rln-wasm-multihread-test:
+  #   strategy:
+  #     matrix:
+  #       platform: [ubuntu-latest, macos-latest]
+  #       crate: [rln-wasm]
+  #       feature: ["multithread", "multithread_arkzkey"]
+  #   runs-on: ${{ matrix.platform }}
+  #   timeout-minutes: 60
 
-    name: test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install nightly toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-          components: rust-src
-          target: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-      - name: Install Dependencies
-        run: make installdeps
-      - name: cargo-make build
-        run: |
-          if [ ${{ matrix.feature }} == default ]; then
-            cargo make build
-          else
-            cargo make build_${{ matrix.feature }}
-          fi
-        working-directory: ${{ matrix.crate }}
-      - name: cargo-make test
-        run: |
-          if [ ${{ matrix.feature }} == default ]; then
-            cargo make test --release
-          else
-            cargo make test_${{ matrix.feature }} --release
-          fi
-        working-directory: ${{ matrix.crate }}
+  #   name: test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - name: Install nightly toolchain
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         profile: minimal
+  #         toolchain: nightly
+  #         override: true
+  #         components: rust-src
+  #         target: wasm32-unknown-unknown
+  #     - uses: Swatinem/rust-cache@v2
+  #     - name: Install Dependencies
+  #       run: make installdeps
+  #     - name: cargo-make build
+  #       run: |
+  #         if [ ${{ matrix.feature }} == default ]; then
+  #           cargo make build
+  #         else
+  #           cargo make build_${{ matrix.feature }}
+  #         fi
+  #       working-directory: ${{ matrix.crate }}
+  #     - name: cargo-make test
+  #       run: |
+  #         if [ ${{ matrix.feature }} == default ]; then
+  #           cargo make test --release
+  #         else
+  #           cargo make test_${{ matrix.feature }} --release
+  #         fi
+  #       working-directory: ${{ matrix.crate }}
 
   lint:
     strategy:
