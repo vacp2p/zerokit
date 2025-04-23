@@ -2,7 +2,9 @@
 
 This library is used in [waku-org/js-rln](https://github.com/waku-org/js-rln/)
 
-> **Note**: This project requires `wasm-pack` for compiling Rust to WebAssembly and `cargo-make` for running the build commands. Make sure both are installed before proceeding.
+> [!NOTE]
+> This poject requires `wasm-pack` for compiling Rust to WebAssembly and `cargo-make` for running the build commands. \
+> Make sure both are installed before proceeding.
 
 Install `wasm-pack`:
 
@@ -65,7 +67,9 @@ cargo make test_browser_arkzkey
 
 The library supports parallel computation using the `wasm-bindgen-rayon` crate, enabling multi-threaded execution in the browser.
 
-> **Note**: Parallel support is not enabled by default due to WebAssembly and browser limitations. Compiling this feature requires `nightly` Rust.
+> [!NOTE]
+> Parallel support is not enabled by default due to WebAssembly and browser limitations. \
+> Compiling this feature requires `nightly` Rust.
 
 To enable parallel computation for WebAssembly threads, you can use the following command:
 
