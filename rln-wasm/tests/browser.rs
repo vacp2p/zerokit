@@ -50,19 +50,16 @@ mod tests {
     "#)]
     extern "C" {
         #[wasm_bindgen(catch)]
-        pub fn isThreadpoolSupported() -> Result<bool, JsValue>;
+        fn isThreadpoolSupported() -> Result<bool, JsValue>;
 
         #[wasm_bindgen(catch)]
-        pub fn initWitnessCalculator(js: &str) -> Result<bool, JsValue>;
+        fn initWitnessCalculator(js: &str) -> Result<bool, JsValue>;
 
         #[wasm_bindgen(catch)]
-        pub fn readFile(data: &[u8]) -> Result<Uint8Array, JsValue>;
+        fn readFile(data: &[u8]) -> Result<Uint8Array, JsValue>;
 
         #[wasm_bindgen(catch)]
-        pub async fn calculateWitness(
-            circom_data: &[u8],
-            inputs: Object,
-        ) -> Result<JsValue, JsValue>;
+        async fn calculateWitness(circom_data: &[u8], inputs: Object) -> Result<JsValue, JsValue>;
     }
 
     const WITNESS_CALCULATOR_JS: &str = include_str!("../resources/witness_calculator(browser).js");
