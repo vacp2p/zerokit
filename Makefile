@@ -26,7 +26,7 @@ endif
 		[ -s "$$NVM_DIR/nvm.sh" ] && \. "$$NVM_DIR/nvm.sh" && \
 		nvm install 22.14.0 && \
 		nvm use 22.14.0'
-	@curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+	@cargo install wasm-pack
 	@echo "\033[1;32m>>> Now run this command to activate Node.js 22.14.0: \033[1;33msource $$HOME/.nvm/nvm.sh && nvm use 22.14.0\033[0m"
 
 build: .pre-build
