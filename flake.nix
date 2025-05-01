@@ -38,6 +38,8 @@
             git
             cmake
             rustup
+            cargo-make
+            gnuplot
             xz
             wasm-pack
             rust-bin.stable.latest.default
