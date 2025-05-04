@@ -13,14 +13,14 @@ endif
 
 installdeps: .pre-build
 ifeq ($(shell uname),Darwin)
-	@brew install cmake ninja binaryen || true
+	@brew install cmake ninja binaryen
 else ifeq ($(shell uname),Linux)
-	@sudo apt-get install -y cmake ninja-build binaryen || true
+	@sudo apt-get install -y cmake ninja-build binaryen
 endif
-	@cargo install wasm-pack || true
-	@cargo install wasm-bindgen-cli || true
-	@curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash || true
-	@bash -c 'export NVM_DIR="$$HOME/.nvm"; . "$$NVM_DIR/nvm.sh"; nvm install 22.14.0; nvm use 22.14.0' || true
+	@cargo install wasm-pack
+	@cargo install wasm-bindgen-cli
+	@curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash
+	@bash -c 'export NVM_DIR="$$HOME/.nvm"; . "$$NVM_DIR/nvm.sh"; nvm install 22.14.0; nvm use 22.14.0'
 
 build: .pre-build
 	@cargo make build
