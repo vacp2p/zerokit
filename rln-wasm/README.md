@@ -85,7 +85,7 @@ cargo make build_multithread_arkzkey
 
 ### WebAssembly Threading Support
 
-Most modern browsers support WebAssembly threads, but they require the following headers to enable `SharedArrayBuffer` and multithreading:
+Most modern browsers support WebAssembly threads, but they require the following headers to enable `SharedArrayBuffer`, which is needed for multithreading:
 
 - Cross-Origin-Opener-Policy: same-origin
 - Cross-Origin-Embedder-Policy: require-corp
