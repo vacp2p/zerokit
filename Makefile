@@ -22,13 +22,13 @@ endif
 	@curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash
 	@bash -c 'export NVM_DIR="$$HOME/.nvm"; . "$$NVM_DIR/nvm.sh"; nvm install 22.14.0; nvm use 22.14.0'
 
-build: .pre-build
+build: installdeps
 	@cargo make build
 
-test: .pre-build
+test: build
 	@cargo make test
 
-bench: .pre-build
+bench: build
 	@cargo make bench
 
 clean:
