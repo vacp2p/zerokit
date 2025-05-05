@@ -8,49 +8,80 @@ use ark_ff::PrimeField;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RoundParameters<F: PrimeField> {
+    // confirm: Is this "rate"? does this correlate with light-poseidon "width" parameter?
     pub t: usize,
-    pub n_rounds_f: usize,
-    pub n_rounds_p: usize,
+    pub n_rounds_full: usize,
+    pub n_rounds_partial: usize,
     pub skip_matrices: usize,
-    pub c: Vec<F>,
-    pub m: Vec<Vec<F>>,
+    pub ark_consts: Vec<F>,
+    pub mds: Vec<Vec<F>>,
 }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RoundParameVec<F: PrimeField> {
+    pub inner: Vec<RoundParameters<F>>,
+}
+
+// Dev artifact: helps grok internal params against light-poseidon approach to params
+// /// Parameters for the Poseidon hash algorithm.
+// pub struct PoseidonParameters<F: PrimeField> {
+//     /// Round constants.
+//     pub ark: Vec<F>,
+//     /// MDS matrix.
+//     pub mds: Vec<Vec<F>>,
+//     /// Number of full rounds (where S-box is applied to all elements of the
+//     /// state).
+//     pub full_rounds: usize,
+//     /// Number of partial rounds (where S-box is applied only to the first
+//     /// element of the state).
+//     pub partial_rounds: usize,
+//     /// Number of prime fields in the state.
+//     pub width: usize,
+//     /// Exponential used in S-box to power elements of the state.
+//     pub alpha: u64,
+// }
 
 pub struct Poseidon<F: PrimeField> {
     round_params: Vec<RoundParameters<F>>,
 }
-impl<F: PrimeField> Poseidon<F> {
-    // Loads round parameters and generates round constants
-    // poseidon_params is a vector containing tuples (t, RF, RP, skip_matrices)
-    // where: t is the rate (input length + 1), RF is the number of full rounds, RP is the number of partial rounds
-    // and skip_matrices is a (temporary) parameter used to generate secure MDS matrices (see comments in the description of find_poseidon_ark_and_mds)
-    // TODO: implement automatic generation of round parameters
-    pub fn from(poseidon_params: &[(usize, usize, usize, usize)]) -> Self {
+
+impl<F: PrimeField> RoundParameVec<F> {
+    fn make_param_vec(poseidon_params: &[(usize, usize, usize, usize)]) -> Self {
         let mut read_params = Vec::<RoundParameters<F>>::with_capacity(poseidon_params.len());
 
-        for &(t, n_rounds_f, n_rounds_p, skip_matrices) in poseidon_params {
+        for &(t, n_rounds_full, n_rounds_partial, skip_matrices) in poseidon_params {
             let (ark, mds) = find_poseidon_ark_and_mds::<F>(
                 1, // is_field = 1
                 0, // is_sbox_inverse = 0
                 F::MODULUS_BIT_SIZE as u64,
                 t,
-                n_rounds_f as u64,
-                n_rounds_p as u64,
+                n_rounds_full as u64,
+                n_rounds_partial as u64,
                 skip_matrices,
             );
             let rp = RoundParameters {
                 t,
-                n_rounds_p,
-                n_rounds_f,
+                n_rounds_partial,
+                n_rounds_full,
                 skip_matrices,
-                c: ark,
-                m: mds,
+                ark_consts: ark,
+                mds,
             };
             read_params.push(rp);
         }
-
+        Self { inner: read_params }
+    }
+}
+impl<F: PrimeField> Poseidon<F> {
+    // Loads round parameters and generates round constants
+    // poseidon_params is a vector containing tuples (t, n_rounds_full, n_rounds_partial, skip_matrices)
+    // where t is the rate (input length + 1)
+    // and skip_matrices is a (temporary) parameter used to generate secure MDS matrices (see comments in the description of find_poseidon_ark_and_mds)
+    // TODO: implement automatic generation of round parameters
+    pub fn from(poseidon_params: &[(usize, usize, usize, usize)]) -> Self {
+        let param_vec = RoundParameVec::make_param_vec(poseidon_params);
+        // dbg!(&param_vec.inner);
         Poseidon {
-            round_params: read_params,
+            round_params: param_vec.inner,
         }
     }
 
@@ -93,37 +124,24 @@ impl<F: PrimeField> Poseidon<F> {
     }
 
     pub fn hash(&self, inp: &[F]) -> Result<F, String> {
+        if inp.is_empty() {
+            return Err("Attempt to hash empty data input".to_string());
+        }
         // Note that the rate t becomes input length + 1; hence for length N we pick parameters with T = N + 1
         let t = inp.len() + 1;
 
-        // We seek the index (Poseidon's round_params is an ordered vector) for the parameters corresponding to t
-        let param_index = self.round_params.iter().position(|el| el.t == t);
-
-        if inp.is_empty() || param_index.is_none() {
+        let Some(params) = self.round_params.iter().find(|el| el.t == t) else {
             return Err("No parameters found for inputs length".to_string());
-        }
-
-        let param_index = param_index.unwrap();
+        };
 
         let mut state = vec![F::ZERO; t];
         let mut state_2 = state.clone();
         state[1..].clone_from_slice(inp);
 
-        for i in 0..(self.round_params[param_index].n_rounds_f
-            + self.round_params[param_index].n_rounds_p)
-        {
-            self.ark(
-                &mut state,
-                &self.round_params[param_index].c,
-                i * self.round_params[param_index].t,
-            );
-            self.sbox(
-                self.round_params[param_index].n_rounds_f,
-                self.round_params[param_index].n_rounds_p,
-                &mut state,
-                i,
-            );
-            self.mix_2(&state, &self.round_params[param_index].m, &mut state_2);
+        for i in 0..(params.n_rounds_full + params.n_rounds_partial) {
+            self.ark(&mut state, &params.ark_consts, i * params.t);
+            self.sbox(params.n_rounds_full, params.n_rounds_partial, &mut state, i);
+            self.mix_2(&state, &params.mds, &mut state_2);
             std::mem::swap(&mut state, &mut state_2);
         }
 
@@ -138,5 +156,43 @@ where
     // Default instantiation has no round constants set. Will return an error when hashing is attempted.
     fn default() -> Self {
         Self::from(&[])
+    }
+}
+
+// WIP artifact
+#[cfg(test)]
+mod test {
+    use ark_bn254::Fr;
+
+    use super::*;
+    const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
+        (2, 8, 56, 0),
+        (3, 8, 57, 0),
+        (4, 8, 56, 0),
+        (5, 8, 60, 0),
+        (6, 8, 60, 0),
+        (7, 8, 63, 0),
+        (8, 8, 64, 0),
+        (9, 8, 63, 0),
+    ];
+    // #[test]
+    // fn see_params() {
+    //     let mut param_vec = RoundParameVec::<Fr>::make_param_vec(&ROUND_PARAMS);
+    //     let stats /* (rate, fulls, partual, sm, ark_n, mds_n) */ = param_vec.inner.into_iter().map(|RoundParameters { rate, n_rounds_full, n_rounds_partial, skip_matrices, ark_consts, mds }| (rate, n_rounds_full, n_rounds_partial, skip_matrices, ark_consts.len(), mds.len())).collect::<Vec<_>>();
+    //     println!("r  f  p   s  cl   ml");
+    //     for s in stats.iter() {
+    //         println!("{:?}", s);
+    //     }
+    //     panic!();
+    // }
+    #[test]
+    fn see_data() {
+        let size = 10;
+        let mut param_vec = RoundParameVec::<Fr>::make_param_vec(&ROUND_PARAMS);
+        let mut values = Vec::with_capacity(size as usize);
+        for i in 0..size {
+            values.push([Fr::from(u128::MAX - i)]);
+        }
+        panic!("{:?}", values);
     }
 }

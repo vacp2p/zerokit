@@ -225,37 +225,43 @@ pub fn find_poseidon_ark_and_mds<F: PrimeField>(
         partial_rounds,
     );
 
-    let mut ark = Vec::<F>::with_capacity((full_rounds + partial_rounds) as usize);
-    for _ in 0..(full_rounds + partial_rounds) {
-        let values = lfsr.get_field_elements_rejection_sampling::<F>(rate);
-        for el in values {
-            ark.push(el);
+    let ark = {
+        let mut res = Vec::<F>::with_capacity((full_rounds + partial_rounds) as usize);
+        for _ in 0..(full_rounds + partial_rounds) {
+            let values = lfsr.get_field_elements_rejection_sampling::<F>(rate);
+            for el in values {
+                res.push(el);
+            }
         }
-    }
+        res
+    };
 
-    let mut mds = Vec::<Vec<F>>::with_capacity(rate);
-    mds.resize(rate, vec![F::zero(); rate]);
+    let mds = {
+        let mut res = Vec::<Vec<F>>::with_capacity(rate);
+        res.resize(rate, vec![F::zero(); rate]);
 
-    // Note that we build the MDS matrix generating 2*rate elements. If the matrix built is not secure (see checks with algorithm 1, 2, 3 in reference implementation)
-    // it has to be skipped. Since here we do not implement such algorithm we allow to pass a parameter to skip generations of elements giving unsecure matrixes.
-    // At the moment, the skip_matrices parameter has to be generated from the reference implementation and passed to this function
-    for _ in 0..skip_matrices {
-        let _ = lfsr.get_field_elements_mod_p::<F>(2 * (rate));
-    }
-
-    // a qualifying matrix must satisfy the following requirements
-    // - there is no duplication among the elements in x or y
-    // - there is no i and j such that x[i] + y[j] = p
-    // - the resultant MDS passes all the three tests
-
-    let xs = lfsr.get_field_elements_mod_p::<F>(rate);
-    let ys = lfsr.get_field_elements_mod_p::<F>(rate);
-
-    for i in 0..(rate) {
-        for (j, ys_item) in ys.iter().enumerate().take(rate) {
-            mds[i][j] = (xs[i] + ys_item).inverse().unwrap();
+        // Note that we build the MDS matrix generating 2*rate elements. If the matrix built is not secure (see checks with algorithm 1, 2, 3 in reference implementation)
+        // it has to be skipped. Since here we do not implement such algorithm we allow to pass a parameter to skip generations of elements giving unsecure matrixes.
+        // At the moment, the skip_matrices parameter has to be generated from the reference implementation and passed to this function
+        for _ in 0..skip_matrices {
+            let _ = lfsr.get_field_elements_mod_p::<F>(2 * (rate));
         }
-    }
+
+        // a qualifying matrix must satisfy the following requirements
+        // - there is no duplication among the elements in x or y
+        // - there is no i and j such that x[i] + y[j] = p
+        // - the resultant MDS passes all the three tests
+
+        let xs = lfsr.get_field_elements_mod_p::<F>(rate);
+        let ys = lfsr.get_field_elements_mod_p::<F>(rate);
+
+        for i in 0..(rate) {
+            for (j, ys_item) in ys.iter().enumerate().take(rate) {
+                res[i][j] = (xs[i] + ys_item).inverse().unwrap();
+            }
+        }
+        res
+    };
 
     (ark, mds)
 }
