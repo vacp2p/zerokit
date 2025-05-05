@@ -13,15 +13,22 @@
 //! * Disk based storage backend (using mmaped files should be easy)
 //! * Implement serialization for tree and Merkle proof
 
-use std::str::FromStr;
-
 use color_eyre::Result;
+use std::str::FromStr;
 
 /// In the Hasher trait we define the node type, the default leaf
 /// and the hash function used to initialize a Merkle Tree implementation
 pub trait Hasher {
     /// Type of the leaf and tree node
-    type Fr: Clone + Copy + Eq + Default + std::fmt::Debug + std::fmt::Display + FromStr;
+    type Fr: Clone
+        + Copy
+        + Eq
+        + Default
+        + std::fmt::Debug
+        + std::fmt::Display
+        + FromStr
+        + Send
+        + Sync;
 
     /// Returns the default tree leaf
     fn default_leaf() -> Self::Fr;

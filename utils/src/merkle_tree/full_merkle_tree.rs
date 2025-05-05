@@ -13,7 +13,10 @@ use std::{
 
 /// Merkle tree with all leaf and intermediate hashes stored
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct FullMerkleTree<H: Hasher> {
+pub struct FullMerkleTree<H>
+where
+    H: Hasher,
+{
     /// The depth of the tree, i.e. the number of levels from leaf to root
     depth: usize,
 

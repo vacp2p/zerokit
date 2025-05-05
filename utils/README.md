@@ -24,16 +24,17 @@ The crate supports two interchangeable Merkle tree implementations:
 
 Glossary:
 
-* depth: level of leaves if we count from levels from 0
-* number of levels: depth + 1
-* capacity (== number of leaves) -- 1 << depth
-* total number of nodes: 1 << (depth + 1)) - 1
+- depth: level of leaves if we count from levels from 0
+- number of levels: depth + 1
+- capacity (number of leaves): 1 << depth
+- total number of nodes: 1 << (depth + 1) - 1
 
 So for instance:
-* depth: 3
-* number of levels: 4
-* capacity (number of leaves): 8
-* total number of nodes: 15
+
+- depth: 3
+- number of levels: 4
+- capacity (number of leaves): 8
+- total number of nodes: 15
 
 ```mermaid
 flowchart TD
@@ -52,7 +53,6 @@ flowchart TD
     N6 -->|Leaf| L7
     N6 -->|Leaf| L8
 ```
-
 
 ## Poseidon Hash Implementation
 

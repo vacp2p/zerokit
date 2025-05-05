@@ -335,4 +335,23 @@ pub mod test {
             assert_eq!(tree.get_leaf(i), new_leaf);
         }
     }
+
+    #[test]
+    fn test_override_range_parallel_triggered() {
+        let depth = 13;
+        let leaf_count = 8192;
+        let leaves: Vec<TestFr> = (10000..10000 + leaf_count as u32)
+            .map(TestFr::from)
+            .collect();
+        let indices: Vec<usize> = (0..leaf_count).collect();
+
+        let mut tree = default_optimal_merkle_tree(depth);
+
+        tree.override_range(0, leaves.iter().cloned(), indices.iter().cloned())
+            .unwrap();
+
+        for (i, &leaf) in leaves.iter().enumerate() {
+            assert_eq!(tree.get_leaf(i), leaf);
+        }
+    }
 }

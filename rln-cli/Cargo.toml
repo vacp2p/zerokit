@@ -13,9 +13,9 @@ path = "src/examples/stateless.rs"
 required-features = ["stateless"]
 
 [dependencies]
-rln = { path = "../rln", default-features = false }
+rln = { path = "../rln", default-features = true }
 zerokit_utils = { path = "../utils" }
-clap = { version = "4.5.35", features = ["cargo", "derive", "env"] }
+clap = { version = "4.5.37", features = ["cargo", "derive", "env"] }
 clap_derive = { version = "4.5.32" }
 color-eyre = "0.6.3"
 serde_json = "1.0"

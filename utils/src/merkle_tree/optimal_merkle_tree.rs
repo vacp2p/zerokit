@@ -1,10 +1,11 @@
 use crate::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
 use crate::FrOf;
 use color_eyre::{Report, Result};
-use std::cmp::min;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::{cmp::max, fmt::Debug};
+
 ////////////////////////////////////////////////////////////
 ///// Optimal Merkle Tree Implementation
 ////////////////////////////////////////////////////////////
@@ -294,7 +295,7 @@ where
         self.get_node(self.depth, index)
     }
 
-    fn hash_couple(&mut self, depth: usize, index: usize) -> H::Fr {
+    fn hash_couple(&self, depth: usize, index: usize) -> H::Fr {
         let b = index & !1;
         H::hash(&[self.get_node(depth, b), self.get_node(depth, b + 1)])
     }
@@ -325,51 +326,39 @@ where
     /// index - first leaf index (which has been set or updated)
     /// length - number of elements set or updated
     fn update_hashes(&mut self, index: usize, length: usize) -> Result<()> {
-        // parent depth & index (used to store in the tree)
-        let mut parent_depth = self.depth - 1; // tree depth (or leaves depth) - 1
-        let mut parent_index = index >> 1;
-        let mut parent_index_bak = parent_index;
-        // maximum index at this depth
-        let parent_max_index_0 = (1 << parent_depth) / 2;
-        // Based on given length (number of elements we will update)
-        // we could restrict the parent_max_index
-        let current_index_max = if (index + length) % 2 == 0 {
-            index + length + 2
-        } else {
-            index + length + 1
-        };
-        let mut parent_max_index = min(current_index_max >> 1, parent_max_index_0);
-
-        // current depth & index (used to compute the hash)
-        // current depth initially == tree depth (or leaves depth)
         let mut current_depth = self.depth;
-        let mut current_index = if index % 2 == 0 { index } else { index - 1 };
-        let mut current_index_bak = current_index;
+        let mut start = if index % 2 == 0 { index } else { index - 1 };
+        let mut end = index + length;
 
-        loop {
-            // Hash 2 values at (current depth, current_index) & (current_depth, current_index + 1)
-            let n_hash = self.hash_couple(current_depth, current_index);
-            // Insert this hash at (parent_depth, parent_index)
-            self.nodes.insert((parent_depth, parent_index), n_hash);
+        while current_depth > 0 {
+            let parent_depth = current_depth - 1;
 
-            if parent_depth == 0 {
-                // We just set the root hash of the tree - nothing to do anymore
-                break;
+            if end - start >= 64 {
+                // Use Rayon parallelization when the level is wide enough
+                let updates: Vec<((usize, usize), H::Fr)> = (start..end)
+                    .step_by(2)
+                    .collect::<Vec<_>>()
+                    .into_par_iter()
+                    .map(|i| {
+                        let hash = self.hash_couple(current_depth, i);
+                        ((parent_depth, i >> 1), hash)
+                    })
+                    .collect();
+
+                for (key, hash) in updates {
+                    self.nodes.insert(key, hash);
+                }
+            } else {
+                // Fall back to sequential when the level is narrow
+                for i in (start..end).step_by(2) {
+                    let hash = self.hash_couple(current_depth, i);
+                    self.nodes.insert((parent_depth, i >> 1), hash);
+                }
             }
-            // Incr parent index
-            parent_index += 1;
-            // Incr current index (+2 because we've just hashed current index & current_index + 1)
-            current_index += 2;
-            if parent_index >= parent_max_index {
-                // reset (aka decr depth & reset indexes)
-                parent_depth -= 1;
-                parent_index = parent_index_bak >> 1;
-                parent_index_bak = parent_index;
-                parent_max_index >>= 1;
-                current_depth -= 1;
-                current_index = current_index_bak >> 1;
-                current_index_bak = current_index;
-            }
+
+            start >>= 1;
+            end = (end + 1) >> 1;
+            current_depth -= 1;
         }
 
         Ok(())
