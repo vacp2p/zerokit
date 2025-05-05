@@ -123,20 +123,24 @@ impl<F: PrimeField> Poseidon<F> {
         }
     }
 
-    pub fn hash(&self, inp: &[F]) -> Result<F, String> {
+    pub fn select_params(&self, inp: &[F]) -> Result<&RoundParameters<F>, String> {
         if inp.is_empty() {
             return Err("Attempt to hash empty data input".to_string());
         }
         // Note that the rate t becomes input length + 1; hence for length N we pick parameters with T = N + 1
         let t = inp.len() + 1;
+        self.round_params
+            .iter()
+            .find(|el| el.t == t)
+            .ok_or("No parameters found for inputs length".to_string())
+    }
 
-        let Some(params) = self.round_params.iter().find(|el| el.t == t) else {
-            return Err("No parameters found for inputs length".to_string());
-        };
-
-        let mut state = vec![F::ZERO; t];
-        let mut state_2 = state.clone();
-        state[1..].clone_from_slice(inp);
+    pub fn hash(&self, inp: &[F]) -> Result<F, String> {
+        let params = self.select_params(inp)?;
+        let mut state = Vec::with_capacity(inp.len() + 1);
+        state.push(F::ZERO);
+        state.extend_from_slice(inp);
+        let mut state_2 = vec![F::ZERO; inp.len() + 1];
 
         for i in 0..(params.n_rounds_full + params.n_rounds_partial) {
             self.ark(&mut state, &params.ark_consts, i * params.t);
@@ -185,14 +189,14 @@ mod test {
     //     }
     //     panic!();
     // }
-    #[test]
-    fn see_data() {
-        let size = 10;
-        let mut param_vec = RoundParameVec::<Fr>::make_param_vec(&ROUND_PARAMS);
-        let mut values = Vec::with_capacity(size as usize);
-        for i in 0..size {
-            values.push([Fr::from(u128::MAX - i)]);
-        }
-        panic!("{:?}", values);
-    }
+    // #[test]
+    // fn see_data() {
+    //     let size = 10;
+    //     let mut param_vec = RoundParameVec::<Fr>::make_param_vec(&ROUND_PARAMS);
+    //     let mut values = Vec::with_capacity(size as usize);
+    //     for i in 0..size {
+    //         values.push([Fr::from(u128::MAX - i)]);
+    //     }
+    //     panic!("{:?}", values);
+    // }
 }
