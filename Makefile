@@ -17,10 +17,10 @@ ifeq ($(shell uname),Darwin)
 else ifeq ($(shell uname),Linux)
 	@sudo apt-get install -y cmake ninja-build binaryen
 endif
-	@cargo install wasm-pack --version=0.13.1 --force
-	@cargo install wasm-bindgen-cli --version=0.2.100 --force
+	@which wasm-pack > /dev/null && wasm-pack --version | grep -q "0.13.1" || cargo install wasm-pack --version=0.13.1
+	@which wasm-bindgen > /dev/null && wasm-bindgen --version | grep -q "0.2.100" || cargo install wasm-bindgen-cli --version=0.2.100
 	@curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash
-	@bash -c 'export NVM_DIR="$$HOME/.nvm"; . "$$NVM_DIR/nvm.sh"; nvm install 22.14.0; nvm use 22.14.0'
+	@bash -c '. $$HOME/.nvm/nvm.sh && nvm install 22.14.0 && nvm use 22.14.0'
 
 build: installdeps
 	@cargo make build
