@@ -56,7 +56,7 @@ pub fn poseidon_benchmark(c: &mut Criterion) {
                             full_rounds: *n_rounds_full,
                             partial_rounds: *n_rounds_partial,
                             width: *t,
-                            alpha: 1,
+                            alpha: 5,
                         };
                         let vals = make_values(size);
                         let light_hasher = light_poseidon::Poseidon::<Fr>::new(l_params);
