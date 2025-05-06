@@ -3533,8 +3533,8 @@ mod test {
             let poseidon_hasher = Poseidon::<Fr>::from(&ROUND_PARAMS);
             let poseidon_parameters = poseidon_hasher.get_parameters();
             for i in 0..poseidon_parameters.len() {
-                assert_eq!(loaded_c[i], poseidon_parameters[i].c);
-                assert_eq!(loaded_m[i], poseidon_parameters[i].m);
+                assert_eq!(loaded_c[i], poseidon_parameters[i].ark_consts);
+                assert_eq!(loaded_m[i], poseidon_parameters[i].mds);
             }
         } else {
             unreachable!();
