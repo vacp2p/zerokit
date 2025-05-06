@@ -43,7 +43,7 @@ pub fn poseidon_benchmark(c: &mut Criterion) {
         group.throughput(Throughput::Elements(*size as u64));
 
         group.bench_with_input(
-            BenchmarkId::new("Array hash ift", size),
+            BenchmarkId::new("Array hash light", size),
             size,
             |b, &size| {
                 b.iter_batched(
@@ -73,7 +73,7 @@ pub fn poseidon_benchmark(c: &mut Criterion) {
             },
         );
         group.bench_with_input(
-            BenchmarkId::new("Array hash light", size),
+            BenchmarkId::new("Array hash ift", size),
             size,
             |b, &size| {
                 b.iter_batched(
