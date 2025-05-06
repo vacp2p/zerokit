@@ -39,6 +39,7 @@ pub fn poseidon_benchmark(c: &mut Criterion) {
         mds,
     } = hasher.select_params(&[Fr::from(1)]).unwrap();
 
+    // group.measurement_time(std::time::Duration::from_secs(30));
     for size in [10u32, 100, 1000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
 
@@ -83,6 +84,27 @@ pub fn poseidon_benchmark(c: &mut Criterion) {
                     |values| {
                         for v in values.iter() {
                             let _ = hasher.hash(black_box(&v[..]));
+                        }
+                    },
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("Array hash light_circom", size),
+            size,
+            |b, &size| {
+                b.iter_batched(
+                    // setup
+                    || {
+                        let light_hasher_circom =
+                            light_poseidon::Poseidon::<Fr>::new_circom(1).unwrap();
+                        (light_hasher_circom, make_values(size))
+                    },
+                    // Actual benchmark
+                    |(mut light_hasher_circom, values)| {
+                        for v in values.iter() {
+                            let _ = light_hasher_circom.hash(black_box(&v[..]));
                         }
                     },
                     BatchSize::SmallInput,
