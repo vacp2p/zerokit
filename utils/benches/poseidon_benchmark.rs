@@ -19,68 +19,76 @@ const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
 ];
 
 fn make_values(size: u32) -> Vec<[Fr; 1]> {
-    let mut values = Vec::with_capacity(size as usize);
-    for i in 0..size {
-        values.push([Fr::from(i)]);
-    }
-    values
+    (0..size).map(|i| [Fr::from(i)]).collect()
 }
 
 pub fn poseidon_benchmark(c: &mut Criterion) {
     let hasher = Poseidon::<Fr>::from(&ROUND_PARAMS);
     let mut group = c.benchmark_group("poseidon Fr");
 
+    // pull out the _actual_ parameters used by the benchmark.
+    // This is a potential smell: It doesn't feel "clean" to do it this way, however, I can't see a
+    // clear way to get an equivilent parameter set without non-trivial work to the ift poseidon
+    // implimentation
+    let RoundParameters {
+        t,
+        n_rounds_full,
+        n_rounds_partial,
+        skip_matrices: _,
+        ark_consts,
+        mds,
+    } = hasher.select_params(&[Fr::from(1)]).unwrap();
+
     for size in [10u32, 100, 1000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
 
-        group.bench_with_input(BenchmarkId::new("Array hash", size), size, |b, &size| {
-            b.iter_batched(
-                // Setup: create values for each benchmark iteration
-                || make_values(size),
-                // Actual benchmark
-                |values| {
-                    for v in values.iter() {
-                        let _ = hasher.hash(black_box(&v[..]));
-                    }
-                },
-                BatchSize::SmallInput,
-            );
-            b.iter_batched(
-                // Setup: create values for each benchmark iteration
-                || {
-                    // first, we need to pull out the parameters that the internal hasher is
-                    // using...
-                    let RoundParameters {
-                        t,
-                        n_rounds_full,
-                        n_rounds_partial,
-                        skip_matrices: _,
-                        ark_consts,
-                        mds,
-                    } = hasher.select_params(&[Fr::from(1)]).unwrap();
-                    // then we need to translate it to the light-poseidon paramater
-                    let l_params = LPoseidonParameters {
-                        ark: ark_consts.clone(),
-                        mds: mds.clone(),
-                        full_rounds: *n_rounds_full,
-                        partial_rounds: *n_rounds_partial,
-                        width: *t,
-                        alpha: 1,
-                    };
-                    
-                    let vals = make_values(size);
-                    let light_hasher = light_poseidon::Poseidon::<Fr>::new(l_params);
-                    (vals, light_hasher)
-                },
-                // Actual benchmark
-                |(values, mut light_hasher)| {
-                    for v in values.iter() {
-                        let _ = light_hasher.hash(black_box(&v[..]));
-                    }
-                },
-                BatchSize::SmallInput,
-            )
-        });
+        group.bench_with_input(
+            BenchmarkId::new("Array hash ift", size),
+            size,
+            |b, &size| {
+                b.iter_batched(
+                    // setup
+                    || {
+                        // this needs to be done here due to move/copy/etc issues.
+                        let l_params = LPoseidonParameters {
+                            ark: ark_consts.clone(),
+                            mds: mds.clone(),
+                            full_rounds: *n_rounds_full,
+                            partial_rounds: *n_rounds_partial,
+                            width: *t,
+                            alpha: 1,
+                        };
+                        let vals = make_values(size);
+                        let light_hasher = light_poseidon::Poseidon::<Fr>::new(l_params);
+                        (vals, light_hasher)
+                    },
+                    // Actual benchmark
+                    |(values, mut light_hasher)| {
+                        for v in values.iter() {
+                            let _ = light_hasher.hash(black_box(&v[..]));
+                        }
+                    },
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("Array hash light", size),
+            size,
+            |b, &size| {
+                b.iter_batched(
+                    // setup
+                    || make_values(size),
+                    // Actual benchmark
+                    |values| {
+                        for v in values.iter() {
+                            let _ = hasher.hash(black_box(&v[..]));
+                        }
+                    },
+                    BatchSize::SmallInput,
+                )
+            },
+        );
     }
 
     // Benchmark single hash operation separately
