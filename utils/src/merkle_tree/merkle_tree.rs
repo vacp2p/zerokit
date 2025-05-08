@@ -8,7 +8,7 @@
 // and https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/merkle_tree.rs
 
 //!
-//! # To do
+//! # TODO
 //!
 //! * Disk based storage backend (using mmaped files should be easy)
 //! * Implement serialization for tree and Merkle proof
