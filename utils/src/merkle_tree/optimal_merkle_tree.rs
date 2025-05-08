@@ -1,10 +1,9 @@
-use crate::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
-use crate::FrOf;
+use std::{cmp::max, collections::HashMap, fmt::Debug, str::FromStr};
+
 use color_eyre::{Report, Result};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use std::collections::HashMap;
-use std::str::FromStr;
-use std::{cmp::max, fmt::Debug};
+
+use crate::merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, PARALLEL_THRESHOLD};
 
 ////////////////////////////////////////////////////////////
 ///// Optimal Merkle Tree Implementation
@@ -263,7 +262,21 @@ where
     }
 
     fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>> {
-        self.recalculate_from(0)?;
+        let mut i = 0;
+        let mut depth = self.depth;
+
+        while depth > 0 {
+            let h = self.hash_couple(depth, i);
+            i >>= 1;
+            depth -= 1;
+            self.nodes.insert((depth, i), h);
+            self.cached_leaves_indices[0] = 1;
+        }
+
+        if i != 0 {
+            return Err(Report::msg("did not go through all indexes"));
+        }
+
         Ok(self.root())
     }
 
@@ -276,9 +289,6 @@ where
         Ok(self.metadata.to_vec())
     }
 }
-
-/// Enables parallel hashing when there are at least 8 nodes (4 pairs to hash), justifying the overhead.
-const PARALLEL_THRESHOLD: usize = 8;
 
 impl<H: Hasher> OptimalMerkleTree<H>
 where
@@ -303,41 +313,19 @@ where
         H::hash(&[self.get_node(depth, b), self.get_node(depth, b + 1)])
     }
 
-    fn recalculate_from(&mut self, index: usize) -> Result<()> {
-        let mut i = index;
-        let mut depth = self.depth;
-        loop {
-            let h = self.hash_couple(depth, i);
-            i >>= 1;
-            depth -= 1;
-            self.nodes.insert((depth, i), h);
-            self.cached_leaves_indices[index] = 1;
-            if depth == 0 {
-                break;
-            }
-        }
-        if depth != 0 {
-            return Err(Report::msg("did not reach the depth"));
-        }
-        if i != 0 {
-            return Err(Report::msg("did not go through all indexes"));
-        }
-        Ok(())
-    }
-
     /// Updates parent hashes after modifying a range of leaf nodes.
     ///
-    /// - `index`: Starting leaf index that was updated.
+    /// - `start`: Starting leaf index that was updated.
     /// - `length`: Number of consecutive leaves that were updated.
-    fn update_hashes(&mut self, index: usize, length: usize) -> Result<()> {
+    fn update_hashes(&mut self, start: usize, length: usize) -> Result<()> {
         // Start at the leaf level
         let mut current_depth = self.depth;
 
         // Round the start index down to the nearest even number
-        let mut current_index = index & !1;
+        let mut current_index = start & !1;
 
         // Compute the max index at this level, rounded up to the next even number
-        let mut current_index_max = (index + length + 1) & !1;
+        let mut current_index_max = (start + length + 1) & !1;
 
         // Traverse from the leaf level up to the root
         while current_depth > 0 {
