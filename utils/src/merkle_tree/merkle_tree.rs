@@ -13,22 +13,21 @@
 //! * Disk based storage backend (using mmaped files should be easy)
 //! * Implement serialization for tree and Merkle proof
 
+use std::{
+    fmt::{Debug, Display},
+    str::FromStr,
+};
+
 use color_eyre::Result;
-use std::str::FromStr;
+
+/// Enables parallel hashing when there are at least 8 nodes (4 pairs to hash), justifying the overhead.
+pub(crate) const PARALLEL_THRESHOLD: usize = 8;
 
 /// In the Hasher trait we define the node type, the default leaf
 /// and the hash function used to initialize a Merkle Tree implementation
 pub trait Hasher {
     /// Type of the leaf and tree node
-    type Fr: Clone
-        + Copy
-        + Eq
-        + Default
-        + std::fmt::Debug
-        + std::fmt::Display
-        + FromStr
-        + Send
-        + Sync;
+    type Fr: Clone + Copy + Eq + Default + Debug + Display + FromStr + Send + Sync;
 
     /// Returns the default tree leaf
     fn default_leaf() -> Self::Fr;

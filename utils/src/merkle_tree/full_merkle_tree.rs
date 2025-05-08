@@ -1,11 +1,14 @@
-use crate::merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
-use color_eyre::{Report, Result};
 use std::{
     cmp::max,
     fmt::Debug,
     iter::{once, repeat_n, successors},
     str::FromStr,
 };
+
+use color_eyre::{Report, Result};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
+use crate::merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, PARALLEL_THRESHOLD};
 
 ////////////////////////////////////////////////////////////
 ///// Full Merkle Tree Implementation
@@ -186,7 +189,7 @@ where
 
     // Sets tree nodes, starting from start index
     // Function proper of FullMerkleTree implementation
-    fn set_range<I: IntoIterator<Item = FrOf<Self::Hasher>>>(
+    fn set_range<I: ExactSizeIterator<Item = FrOf<Self::Hasher>>>(
         &mut self,
         start: usize,
         hashes: I,
@@ -205,7 +208,7 @@ where
             count += 1;
         });
         if count != 0 {
-            self.update_nodes(index, index + (count - 1))?;
+            self.update_hashes(index, index + (count - 1))?;
             self.next_index = max(self.next_index, start + count);
         }
         Ok(())
@@ -213,8 +216,8 @@ where
 
     fn override_range<I, J>(&mut self, start: usize, leaves: I, indices: J) -> Result<()>
     where
-        I: IntoIterator<Item = FrOf<Self::Hasher>>,
-        J: IntoIterator<Item = usize>,
+        I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
+        J: ExactSizeIterator<Item = usize>,
     {
         let indices = indices.into_iter().collect::<Vec<_>>();
         let min_index = *indices.first().unwrap();
@@ -324,17 +327,51 @@ where
         (index + 2).next_power_of_two().trailing_zeros() as usize - 1
     }
 
-    fn update_nodes(&mut self, start: usize, end: usize) -> Result<()> {
-        if self.levels(start) != self.levels(end) {
-            return Err(Report::msg("self.levels(start) != self.levels(end)"));
+    /// Updates parent hashes after modifying a range of nodes at the same level.
+    ///
+    /// - `start_index`: The first index at the current level that was updated.
+    /// - `end_index`: The last index (inclusive) at the same level that was updated.
+    fn update_hashes(&mut self, start_index: usize, end_index: usize) -> Result<()> {
+        // Ensure the range is within the same tree level
+        if self.levels(start_index) != self.levels(end_index) {
+            return Err(Report::msg(
+                "start_index and end_index must be on the same level",
+            ));
         }
-        if let (Some(start), Some(end)) = (self.parent(start), self.parent(end)) {
-            for parent in start..=end {
-                let child = self.first_child(parent);
-                self.nodes[parent] = H::hash(&[self.nodes[child], self.nodes[child + 1]]);
+
+        // Compute parent indices for the range
+        if let (Some(start_parent), Some(end_parent)) =
+            (self.parent(start_index), self.parent(end_index))
+        {
+            // If the number of parent nodes is large, use parallel processing
+            if end_parent - start_parent + 1 >= PARALLEL_THRESHOLD {
+                let updates: Vec<(usize, H::Fr)> = (start_parent..=end_parent)
+                    .into_par_iter()
+                    .map(|parent| {
+                        let left_child = self.first_child(parent);
+                        let right_child = left_child + 1;
+                        let hash = H::hash(&[self.nodes[left_child], self.nodes[right_child]]);
+                        (parent, hash)
+                    })
+                    .collect();
+
+                for (parent, hash) in updates {
+                    self.nodes[parent] = hash;
+                }
+            } else {
+                // Otherwise, fall back to sequential update
+                for parent in start_parent..=end_parent {
+                    let left_child = self.first_child(parent);
+                    let right_child = left_child + 1;
+                    self.nodes[parent] =
+                        H::hash(&[self.nodes[left_child], self.nodes[right_child]]);
+                }
             }
-            self.update_nodes(start, end)?;
+
+            // Recurse to update upper levels
+            self.update_hashes(start_parent, end_parent)?;
         }
+
         Ok(())
     }
 }
