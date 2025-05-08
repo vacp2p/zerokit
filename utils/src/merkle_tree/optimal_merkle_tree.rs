@@ -277,6 +277,9 @@ where
     }
 }
 
+/// Enables parallel hashing when there are at least 8 nodes (4 pairs to hash), justifying the overhead.
+const PARALLEL_THRESHOLD: usize = 8;
+
 impl<H: Hasher> OptimalMerkleTree<H>
 where
     H: Hasher,
@@ -322,42 +325,54 @@ where
         Ok(())
     }
 
-    /// Update hashes after some leaves have been set or updated
-    /// index - first leaf index (which has been set or updated)
-    /// length - number of elements set or updated
+    /// Updates parent hashes after modifying a range of leaf nodes.
+    ///
+    /// - `index`: Starting leaf index that was updated.
+    /// - `length`: Number of consecutive leaves that were updated.
     fn update_hashes(&mut self, index: usize, length: usize) -> Result<()> {
+        // Start at the leaf level
         let mut current_depth = self.depth;
-        let mut start = if index % 2 == 0 { index } else { index - 1 };
-        let mut end = index + length;
 
+        // Round the start index down to the nearest even number
+        let mut current_index = index & !1;
+
+        // Compute the max index at this level, rounded up to the next even number
+        let mut current_index_max = (index + length + 1) & !1;
+
+        // Traverse from the leaf level up to the root
         while current_depth > 0 {
+            // Compute the parent level (one level above the current)
             let parent_depth = current_depth - 1;
 
-            if end - start >= 64 {
-                // Use Rayon parallelization when the level is wide enough
-                let updates: Vec<((usize, usize), H::Fr)> = (start..end)
+            // Use parallel processing when the number of pairs exceeds the threshold
+            if current_index_max - current_index >= PARALLEL_THRESHOLD {
+                let updates: Vec<((usize, usize), H::Fr)> = (current_index..current_index_max)
                     .step_by(2)
                     .collect::<Vec<_>>()
                     .into_par_iter()
-                    .map(|i| {
-                        let hash = self.hash_couple(current_depth, i);
-                        ((parent_depth, i >> 1), hash)
+                    .map(|index| {
+                        // Hash two child nodes at positions (current_depth, index) and (current_depth, index + 1)
+                        let hash = self.hash_couple(current_depth, index);
+                        // Return the computed parent hash and its position at (parent_depth, index >> 1)
+                        ((parent_depth, index >> 1), hash)
                     })
                     .collect();
 
-                for (key, hash) in updates {
-                    self.nodes.insert(key, hash);
+                // Insert computed parent hashes into the tree
+                for (position, hash) in updates {
+                    self.nodes.insert(position, hash);
                 }
             } else {
-                // Fall back to sequential when the level is narrow
-                for i in (start..end).step_by(2) {
-                    let hash = self.hash_couple(current_depth, i);
-                    self.nodes.insert((parent_depth, i >> 1), hash);
+                // Fallback to sequential update for small ranges
+                for index in (current_index..current_index_max).step_by(2) {
+                    let hash = self.hash_couple(current_depth, index);
+                    self.nodes.insert((parent_depth, index >> 1), hash);
                 }
             }
 
-            start >>= 1;
-            end = (end + 1) >> 1;
+            // Move up one level in the tree
+            current_index >>= 1;
+            current_index_max = (current_index_max + 1) >> 1;
             current_depth -= 1;
         }
 
