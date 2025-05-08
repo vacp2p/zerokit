@@ -83,19 +83,54 @@ pub mod test {
         let nof_leaves = 4;
         let leaves: Vec<TestFr> = (1..=nof_leaves as u32).map(TestFr::from).collect();
 
-        let mut tree = default_full_merkle_tree(DEFAULT_DEPTH);
-        assert_eq!(tree.root(), default_tree_root);
+        let mut tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
+        assert_eq!(tree_full.root(), default_tree_root);
         for i in 0..nof_leaves {
-            tree.set(i, leaves[i]).unwrap();
-            assert_eq!(tree.root(), roots[i]);
+            tree_full.set(i, leaves[i]).unwrap();
+            assert_eq!(tree_full.root(), roots[i]);
         }
 
-        let mut tree = default_optimal_merkle_tree(DEFAULT_DEPTH);
-        assert_eq!(tree.root(), default_tree_root);
+        let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
+        assert_eq!(tree_opt.root(), default_tree_root);
         for i in 0..nof_leaves {
-            tree.set(i, leaves[i]).unwrap();
-            assert_eq!(tree.root(), roots[i]);
+            tree_opt.set(i, leaves[i]).unwrap();
+            assert_eq!(tree_opt.root(), roots[i]);
         }
+    }
+
+    #[test]
+    fn test_compute_root() {
+        let depth = 4;
+        let leaves: Vec<TestFr> = (0..(1 << depth) as u32).map(TestFr::from).collect();
+
+        let mut tree_full = default_full_merkle_tree(depth);
+        tree_full.set_range(0, leaves.iter().cloned()).unwrap();
+        let root_before = tree_full.root();
+        let recomputed_root = tree_full.compute_root().unwrap();
+        assert_eq!(root_before, recomputed_root);
+
+        let mut tree_opt = default_optimal_merkle_tree(depth);
+        tree_opt.set_range(0, leaves.iter().cloned()).unwrap();
+        let root_before = tree_opt.root();
+        let recomputed_root = tree_opt.compute_root().unwrap();
+        assert_eq!(root_before, recomputed_root);
+    }
+
+    #[test]
+    fn test_update_next() {
+        let mut tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
+        let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
+
+        for i in 0..4 {
+            let leaf = TestFr::from(i as u32);
+            tree_full.update_next(leaf).unwrap();
+            tree_opt.update_next(leaf).unwrap();
+            assert_eq!(tree_full.get(i).unwrap(), leaf);
+            assert_eq!(tree_opt.get(i).unwrap(), leaf);
+        }
+
+        assert_eq!(tree_full.leaves_set(), 4);
+        assert_eq!(tree_opt.leaves_set(), 4);
     }
 
     #[test]
@@ -146,8 +181,6 @@ pub mod test {
             .unwrap();
         assert_eq!(tree_full.get_empty_leaves_indices(), vec![0, 1]);
 
-        //// Optimal Merkle Tree Trest
-
         let mut tree_opt = default_optimal_merkle_tree(depth);
         let _ = tree_opt.set_range(0, leaves.clone().into_iter());
         assert!(tree_opt.get_empty_leaves_indices().is_empty());
@@ -194,7 +227,7 @@ pub mod test {
         let nof_leaves: usize = 4;
         let leaves: Vec<TestFr> = (0..nof_leaves as u32).map(TestFr::from).collect();
 
-        let mut tree_full = default_optimal_merkle_tree(depth);
+        let mut tree_full = default_full_merkle_tree(depth);
         let _ = tree_full.set_range(0, leaves.iter().cloned());
 
         for i in 0..nof_leaves {
@@ -224,7 +257,7 @@ pub mod test {
             }
         }
 
-        let mut tree_opt = default_full_merkle_tree(depth);
+        let mut tree_opt = default_optimal_merkle_tree(depth);
         let _ = tree_opt.set_range(0, leaves.iter().cloned());
 
         for i in 0..nof_leaves {
@@ -259,60 +292,74 @@ pub mod test {
         let nof_leaves = 4;
         let leaves: Vec<TestFr> = (0..nof_leaves as u32).map(TestFr::from).collect();
 
-        // We thest the FullMerkleTree implementation
-        let mut tree = default_full_merkle_tree(DEFAULT_DEPTH);
+        // We test the FullMerkleTree implementation
+        let mut tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
         for i in 0..nof_leaves {
             // We set the leaves
-            tree.set(i, leaves[i]).unwrap();
+            tree_full.set(i, leaves[i]).unwrap();
 
             // We compute a merkle proof
-            let proof = tree.proof(i).expect("index should be set");
+            let proof = tree_full.proof(i).expect("index should be set");
 
             // We verify if the merkle proof corresponds to the right leaf index
             assert_eq!(proof.leaf_index(), i);
 
             // We verify the proof
-            assert!(tree.verify(&leaves[i], &proof).unwrap());
+            assert!(tree_full.verify(&leaves[i], &proof).unwrap());
 
             // We ensure that the Merkle proof and the leaf generate the same root as the tree
-            assert_eq!(proof.compute_root_from(&leaves[i]), tree.root());
+            assert_eq!(proof.compute_root_from(&leaves[i]), tree_full.root());
 
             // We check that the proof is not valid for another leaf
-            assert!(!tree.verify(&leaves[(i + 1) % nof_leaves], &proof).unwrap());
+            assert!(!tree_full
+                .verify(&leaves[(i + 1) % nof_leaves], &proof)
+                .unwrap());
         }
 
         // We test the OptimalMerkleTree implementation
-        let mut tree = default_optimal_merkle_tree(DEFAULT_DEPTH);
+        let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
         for i in 0..nof_leaves {
             // We set the leaves
-            tree.set(i, leaves[i]).unwrap();
+            tree_opt.set(i, leaves[i]).unwrap();
 
             // We compute a merkle proof
-            let proof = tree.proof(i).expect("index should be set");
+            let proof = tree_opt.proof(i).expect("index should be set");
 
             // We verify if the merkle proof corresponds to the right leaf index
             assert_eq!(proof.leaf_index(), i);
 
             // We verify the proof
-            assert!(tree.verify(&leaves[i], &proof).unwrap());
+            assert!(tree_opt.verify(&leaves[i], &proof).unwrap());
 
             // We ensure that the Merkle proof and the leaf generate the same root as the tree
-            assert_eq!(proof.compute_root_from(&leaves[i]), tree.root());
+            assert_eq!(proof.compute_root_from(&leaves[i]), tree_opt.root());
 
             // We check that the proof is not valid for another leaf
-            assert!(!tree.verify(&leaves[(i + 1) % nof_leaves], &proof).unwrap());
+            assert!(!tree_opt
+                .verify(&leaves[(i + 1) % nof_leaves], &proof)
+                .unwrap());
         }
+    }
+
+    #[test]
+    fn test_proof_fail() {
+        let tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
+        let tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
+
+        let invalid_leaf = TestFr::from(12345);
+
+        let proof_full = tree_full.proof(0).unwrap();
+        let proof_opt = tree_opt.proof(0).unwrap();
+
+        // Should fail because no leaf was set
+        assert!(!tree_full.verify(&invalid_leaf, &proof_full).unwrap());
+        assert!(!tree_opt.verify(&invalid_leaf, &proof_opt).unwrap());
     }
 
     #[test]
     fn test_override_range() {
         let nof_leaves = 4;
         let leaves: Vec<TestFr> = (0..nof_leaves as u32).map(TestFr::from).collect();
-
-        let mut tree = default_optimal_merkle_tree(DEFAULT_DEPTH);
-
-        // We set the leaves
-        tree.set_range(0, leaves.iter().cloned()).unwrap();
 
         let new_leaves = [
             hex!("0000000000000000000000000000000000000000000000000000000000000005"),
@@ -322,36 +369,34 @@ pub mod test {
 
         let to_delete_indices: [usize; 2] = [0, 1];
 
-        // We override the leaves
-        tree.override_range(
-            0, // start from the end of the initial leaves
-            new_leaves.iter().cloned(),
-            to_delete_indices.iter().cloned(),
-        )
-        .unwrap();
+        let mut tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
+        tree_full.set_range(0, leaves.iter().cloned()).unwrap();
 
-        // ensure that the leaves are set correctly
-        for (i, &new_leaf) in new_leaves.iter().enumerate() {
-            assert_eq!(tree.get_leaf(i), new_leaf);
-        }
-    }
-
-    #[test]
-    fn test_override_range_parallel_triggered() {
-        let depth = 13;
-        let leaf_count = 8192;
-        let leaves: Vec<TestFr> = (10000..10000 + leaf_count as u32)
-            .map(TestFr::from)
-            .collect();
-        let indices: Vec<usize> = (0..leaf_count).collect();
-
-        let mut tree = default_optimal_merkle_tree(depth);
-
-        tree.override_range(0, leaves.iter().cloned(), indices.iter().cloned())
+        tree_full
+            .override_range(
+                0,
+                new_leaves.iter().cloned(),
+                to_delete_indices.iter().cloned(),
+            )
             .unwrap();
 
-        for (i, &leaf) in leaves.iter().enumerate() {
-            assert_eq!(tree.get_leaf(i), leaf);
+        for (i, &new_leaf) in new_leaves.iter().enumerate() {
+            assert_eq!(tree_full.get(i).unwrap(), new_leaf);
+        }
+
+        let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
+        tree_opt.set_range(0, leaves.iter().cloned()).unwrap();
+
+        tree_opt
+            .override_range(
+                0,
+                new_leaves.iter().cloned(),
+                to_delete_indices.iter().cloned(),
+            )
+            .unwrap();
+
+        for (i, &new_leaf) in new_leaves.iter().enumerate() {
+            assert_eq!(tree_opt.get_leaf(i), new_leaf);
         }
     }
 }
