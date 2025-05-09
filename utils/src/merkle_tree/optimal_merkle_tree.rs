@@ -55,10 +55,7 @@ impl FromStr for OptimalMerkleConfig {
     }
 }
 
-////////////////////////////////////////////////////////////
-///// Implementations
-////////////////////////////////////////////////////////////
-
+/// Implementations
 impl<H: Hasher> ZerokitMerkleTree for OptimalMerkleTree<H>
 where
     H: Hasher,
@@ -116,22 +113,6 @@ where
         self.get_node(0, 0)
     }
 
-    fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr> {
-        if n > self.depth() {
-            return Err(Report::msg("level exceeds depth size"));
-        }
-        if index >= self.capacity() {
-            return Err(Report::msg("index exceeds set size"));
-        }
-        if n == 0 {
-            Ok(self.root())
-        } else if n == self.depth {
-            self.get(index)
-        } else {
-            Ok(self.get_node(n, index >> (self.depth - n)))
-        }
-    }
-
     // Sets a leaf at the specified tree index
     fn set(&mut self, index: usize, leaf: H::Fr) -> Result<()> {
         if index >= self.capacity() {
@@ -152,6 +133,24 @@ where
         Ok(self.get_node(self.depth, index))
     }
 
+    // Returns the root of the subtree at level n and index
+    fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr> {
+        if n > self.depth() {
+            return Err(Report::msg("level exceeds depth size"));
+        }
+        if index >= self.capacity() {
+            return Err(Report::msg("index exceeds set size"));
+        }
+        if n == 0 {
+            Ok(self.root())
+        } else if n == self.depth {
+            self.get(index)
+        } else {
+            Ok(self.get_node(n, index >> (self.depth - n)))
+        }
+    }
+
+    // Returns the indices of the leaves that are empty
     fn get_empty_leaves_indices(&self) -> Vec<usize> {
         self.cached_leaves_indices
             .iter()
@@ -182,6 +181,7 @@ where
         Ok(())
     }
 
+    // Overrides a range of leaves while resetting specified indices to default and preserving unaffected values.
     fn override_range<I, J>(&mut self, start: usize, leaves: I, indices: J) -> Result<()>
     where
         I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
@@ -197,7 +197,7 @@ where
 
         for i in min_index..start {
             if !indices.contains(&i) {
-                let value = self.get_leaf(i);
+                let value = self.get(i)?;
                 set_values[i - min_index] = value;
             }
         }
@@ -292,24 +292,22 @@ where
     }
 }
 
+// Utilities for updating the tree nodes
 impl<H: Hasher> OptimalMerkleTree<H>
 where
     H: Hasher,
 {
-    // Utilities for updating the tree nodes
-
+    /// Returns the value of a node at a specific (depth, index).
+    /// Falls back to a cached default if the node hasn't been set.
     fn get_node(&self, depth: usize, index: usize) -> H::Fr {
-        let node = *self
+        *self
             .nodes
             .get(&(depth, index))
-            .unwrap_or_else(|| &self.cached_nodes[depth]);
-        node
+            .unwrap_or_else(|| &self.cached_nodes[depth])
     }
 
-    pub fn get_leaf(&self, index: usize) -> H::Fr {
-        self.get_node(self.depth, index)
-    }
-
+    /// Computes the hash of a node’s two children at the given depth.
+    /// If the index is odd, it is rounded down to the nearest even index.
     fn hash_couple(&self, depth: usize, index: usize) -> H::Fr {
         let b = index & !1;
         H::hash(&[self.get_node(depth, b), self.get_node(depth, b + 1)])

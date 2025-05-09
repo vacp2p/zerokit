@@ -134,6 +134,43 @@ pub mod test {
     }
 
     #[test]
+    fn test_delete_and_reset() {
+        let index = 1;
+        let original_leaf = TestFr::from(42);
+        let new_leaf = TestFr::from(99);
+
+        let mut tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
+        tree_full.set(index, original_leaf).unwrap();
+        let root_with_original = tree_full.root();
+
+        tree_full.delete(index).unwrap();
+        let root_after_delete = tree_full.root();
+        assert_ne!(root_with_original, root_after_delete);
+
+        tree_full.set(index, new_leaf).unwrap();
+        let root_after_reset = tree_full.root();
+
+        assert_ne!(root_after_delete, root_after_reset);
+        assert_ne!(root_with_original, root_after_reset);
+        assert_eq!(tree_full.get(index).unwrap(), new_leaf);
+
+        let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
+        tree_opt.set(index, original_leaf).unwrap();
+        let root_with_original = tree_opt.root();
+
+        tree_opt.delete(index).unwrap();
+        let root_after_delete = tree_opt.root();
+        assert_ne!(root_with_original, root_after_delete);
+
+        tree_opt.set(index, new_leaf).unwrap();
+        let root_after_reset = tree_opt.root();
+
+        assert_ne!(root_after_delete, root_after_reset);
+        assert_ne!(root_with_original, root_after_reset);
+        assert_eq!(tree_opt.get(index).unwrap(), new_leaf);
+    }
+
+    #[test]
     fn test_get_empty_leaves_indices() {
         let depth = 4;
         let nof_leaves: usize = 1 << (depth - 1);
@@ -396,7 +433,37 @@ pub mod test {
             .unwrap();
 
         for (i, &new_leaf) in new_leaves.iter().enumerate() {
-            assert_eq!(tree_opt.get_leaf(i), new_leaf);
+            assert_eq!(tree_opt.get(i).unwrap(), new_leaf);
+        }
+    }
+
+    #[test]
+    fn test_override_range_parallel_triggered() {
+        let depth = 13;
+        let leaf_count = 8192;
+        let leaves: Vec<TestFr> = (10000..10000 + leaf_count as u32)
+            .map(TestFr::from)
+            .collect();
+        let indices: Vec<usize> = (0..leaf_count).collect();
+
+        let mut tree_full = default_full_merkle_tree(depth);
+
+        tree_full
+            .override_range(0, leaves.iter().cloned(), indices.iter().cloned())
+            .unwrap();
+
+        for (i, &leaf) in leaves.iter().enumerate() {
+            assert_eq!(tree_full.get(i).unwrap(), leaf);
+        }
+
+        let mut tree_opt = default_optimal_merkle_tree(depth);
+
+        tree_opt
+            .override_range(0, leaves.iter().cloned(), indices.iter().cloned())
+            .unwrap();
+
+        for (i, &leaf) in leaves.iter().enumerate() {
+            assert_eq!(tree_opt.get(i).unwrap(), leaf);
         }
     }
 }

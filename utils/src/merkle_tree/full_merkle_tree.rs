@@ -144,6 +144,7 @@ where
         Ok(self.nodes[self.capacity() + leaf - 1])
     }
 
+    // Returns the root of the subtree at level n and index
     fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr> {
         if n > self.depth() {
             return Err(Report::msg("level exceeds depth size"));
@@ -170,6 +171,8 @@ where
             }
         }
     }
+
+    // Returns the indices of the leaves that are empty
     fn get_empty_leaves_indices(&self) -> Vec<usize> {
         self.cached_leaves_indices
             .iter()
@@ -180,22 +183,21 @@ where
             .collect()
     }
 
-    // Sets tree nodes, starting from start index
-    // Function proper of FullMerkleTree implementation
+    // Sets multiple leaves from the specified tree index
     fn set_range<I: ExactSizeIterator<Item = FrOf<Self::Hasher>>>(
         &mut self,
         start: usize,
-        hashes: I,
+        leaves: I,
     ) -> Result<()> {
         let index = self.capacity() + start - 1;
         let mut count = 0;
-        // first count number of hashes, and check that they fit in the tree
+        // first count number of leaves, and check that they fit in the tree
         // then insert into the tree
-        let hashes = hashes.into_iter().collect::<Vec<_>>();
-        if hashes.len() + start > self.capacity() {
-            return Err(Report::msg("provided hashes do not fit in the tree"));
+        let leaves = leaves.into_iter().collect::<Vec<_>>();
+        if leaves.len() + start > self.capacity() {
+            return Err(Report::msg("provided leaves do not fit in the tree"));
         }
-        hashes.into_iter().for_each(|hash| {
+        leaves.into_iter().for_each(|hash| {
             self.nodes[index + count] = hash;
             self.cached_leaves_indices[start + count] = 1;
             count += 1;
@@ -207,6 +209,7 @@ where
         Ok(())
     }
 
+    // Overrides a range of leaves while resetting specified indices to default and preserving unaffected values.
     fn override_range<I, J>(&mut self, start: usize, leaves: I, indices: J) -> Result<()>
     where
         I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
@@ -293,12 +296,11 @@ where
     }
 }
 
+// Utilities for updating the tree nodes
 impl<H: Hasher> FullMerkleTree<H>
 where
     H: Hasher,
 {
-    // Utilities for updating the tree nodes
-
     /// For a given node index, return the parent node index
     /// Returns None if there is no parent (root node)
     fn parent(&self, index: usize) -> Option<usize> {
@@ -314,6 +316,7 @@ where
         (index << 1) + 1
     }
 
+    /// Returns the depth level of a node based on its index in the flattened tree.
     fn levels(&self, index: usize) -> usize {
         // `n.next_power_of_two()` will return `n` iff `n` is a power of two.
         // The extra offset corrects this.
