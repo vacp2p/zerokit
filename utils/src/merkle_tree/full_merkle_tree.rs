@@ -1,7 +1,7 @@
 use std::{
     cmp::max,
     fmt::Debug,
-    iter::{once, repeat_n, successors},
+    iter::{once, repeat_n},
     str::FromStr,
 };
 
@@ -22,12 +22,6 @@ where
 {
     /// The depth of the tree, i.e. the number of levels from leaf to root
     depth: usize,
-
-    /// The nodes cached from the empty part of the tree (where leaves are set to default).
-    /// Since the rightmost part of the tree is usually changed much later than its creation,
-    /// we can prove accumulation of elements in the leftmost part, with no need to initialize the full tree
-    /// and by caching few intermediate nodes to the root computed from default leaves
-    cached_nodes: Vec<H::Fr>,
 
     /// The tree nodes
     nodes: Vec<H::Fr>,
@@ -84,30 +78,29 @@ where
 
     /// Creates a new `MerkleTree`
     /// depth - the height of the tree made only of hash nodes. 2^depth is the maximum number of leaves hash nodes
-    fn new(depth: usize, initial_leaf: FrOf<Self::Hasher>, _config: Self::Config) -> Result<Self> {
+    fn new(depth: usize, default_leaf: FrOf<Self::Hasher>, _config: Self::Config) -> Result<Self> {
         // Compute cache node values, leaf to root
-        let cached_nodes = successors(Some(initial_leaf), |prev| Some(H::hash(&[*prev, *prev])))
-            .take(depth + 1)
-            .collect::<Vec<_>>();
+        let mut cached_nodes: Vec<H::Fr> = Vec::with_capacity(depth + 1);
+        cached_nodes.push(default_leaf);
+        for i in 0..depth {
+            cached_nodes.push(H::hash(&[cached_nodes[i]; 2]));
+        }
+        cached_nodes.reverse();
 
         // Compute node values
         let nodes = cached_nodes
             .iter()
-            .rev()
             .enumerate()
             .flat_map(|(levels, hash)| repeat_n(hash, 1 << levels))
             .cloned()
             .collect::<Vec<_>>();
         debug_assert!(nodes.len() == (1 << (depth + 1)) - 1);
 
-        let next_index = 0;
-
         Ok(Self {
             depth,
-            cached_nodes,
             nodes,
             cached_leaves_indices: vec![0; 1 << depth],
-            next_index,
+            next_index: 0,
             metadata: Vec::new(),
         })
     }

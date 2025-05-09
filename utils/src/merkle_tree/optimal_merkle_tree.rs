@@ -74,15 +74,17 @@ where
     /// Creates a new `MerkleTree`
     /// depth - the height of the tree made only of hash nodes. 2^depth is the maximum number of leaves hash nodes
     fn new(depth: usize, default_leaf: H::Fr, _config: Self::Config) -> Result<Self> {
+        // Compute cache node values, leaf to root
         let mut cached_nodes: Vec<H::Fr> = Vec::with_capacity(depth + 1);
         cached_nodes.push(default_leaf);
         for i in 0..depth {
             cached_nodes.push(H::hash(&[cached_nodes[i]; 2]));
         }
         cached_nodes.reverse();
+
         Ok(OptimalMerkleTree {
-            cached_nodes,
             depth,
+            cached_nodes,
             nodes: HashMap::with_capacity(1 << depth),
             cached_leaves_indices: vec![0; 1 << depth],
             next_index: 0,
