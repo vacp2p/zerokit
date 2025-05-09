@@ -339,7 +339,7 @@ where
         if let (Some(start_parent), Some(end_parent)) =
             (self.parent(start_index), self.parent(end_index))
         {
-            // If the number of parent nodes is large, use parallel processing
+            // Use parallel processing when the number of pairs exceeds the threshold
             if end_parent - start_parent + 1 >= PARALLEL_THRESHOLD {
                 let updates: Vec<(usize, H::Fr)> = (start_parent..=end_parent)
                     .into_par_iter()
@@ -351,11 +351,12 @@ where
                     })
                     .collect();
 
+                // Insert computed parent hashes into the tree
                 for (parent, hash) in updates {
                     self.nodes[parent] = hash;
                 }
             } else {
-                // Otherwise, fall back to sequential update
+                // Otherwise, fallback to sequential update for small ranges
                 for parent in start_parent..=end_parent {
                     let left_child = self.first_child(parent);
                     let right_child = left_child + 1;

@@ -347,11 +347,11 @@ where
                     .collect();
 
                 // Insert computed parent hashes into the tree
-                for (position, hash) in updates {
-                    self.nodes.insert(position, hash);
+                for (parent, hash) in updates {
+                    self.nodes.insert(parent, hash);
                 }
             } else {
-                // Fallback to sequential update for small ranges
+                // Otherwise, fallback to sequential update for small ranges
                 for index in (current_index..current_index_max).step_by(2) {
                     let hash = self.hash_couple(current_depth, index);
                     self.nodes.insert((parent_depth, index >> 1), hash);
