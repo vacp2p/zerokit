@@ -1,6 +1,8 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use hex_literal::hex;
 use lazy_static::lazy_static;
+use rand::RngCore;
+use rand_chacha::ChaCha8Rng;
+use rand_core::SeedableRng;
 use std::{fmt::Display, str::FromStr};
 use tiny_keccak::{Hasher as _, Keccak};
 use zerokit_utils::{
@@ -13,6 +15,28 @@ struct Keccak256;
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Default)]
 struct TestFr([u8; 32]);
+
+// ChaCha8Rng is chosen for its portable determinism
+struct FrRngStream {
+    rng: ChaCha8Rng,
+}
+
+impl FrRngStream {
+    fn seeded_stream(seed: u64) -> Self {
+        let rng = ChaCha8Rng::seed_from_u64(seed);
+        Self { rng }
+    }
+}
+
+impl Iterator for FrRngStream {
+    type Item = TestFr;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut res = [0; 32];
+        self.rng.fill_bytes(&mut res);
+        Some(TestFr(res))
+    }
+}
 
 impl Hasher for Keccak256 {
     type Fr = TestFr;
@@ -47,13 +71,11 @@ impl FromStr for TestFr {
 }
 
 lazy_static! {
-    static ref LEAVES: [TestFr; 4] = [
-        hex!("0000000000000000000000000000000000000000000000000000000000000001"),
-        hex!("0000000000000000000000000000000000000000000000000000000000000002"),
-        hex!("0000000000000000000000000000000000000000000000000000000000000003"),
-        hex!("0000000000000000000000000000000000000000000000000000000000000004"),
-    ]
-    .map(TestFr);
+    static ref LEAVES: [TestFr; 40] = FrRngStream::seeded_stream(42)
+        .take(40)
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap();
 }
 
 pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
@@ -75,7 +97,7 @@ pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
 
     c.bench_function("OptimalMerkleTree::override_range", |b| {
         b.iter(|| {
-            tree.override_range(0, LEAVES.into_iter(), [0, 1, 2, 3].into_iter())
+            tree.override_range(0, LEAVES.into_iter().take(4), [0, 1, 2, 3].into_iter())
                 .unwrap();
         })
     });
@@ -124,7 +146,7 @@ pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
 
     c.bench_function("FullMerkleTree::override_range", |b| {
         b.iter(|| {
-            tree.override_range(0, LEAVES.into_iter(), [0, 1, 2, 3].into_iter())
+            tree.override_range(0, LEAVES.into_iter().take(4), [0, 1, 2, 3].into_iter())
                 .unwrap();
         })
     });
