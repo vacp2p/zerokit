@@ -101,10 +101,13 @@ fn benchy_prototype_code() {
     assert!(HashedLeanIMT::<32, BenchyIFTHasher>::verify_proof(&proof));
 }
 
-pub fn imt_benchy(c: &mut Criterion) {
-    let mut group = c.benchmark_group("merkle tree setup");
-
-    for size in [7u32, 13, 17].iter() {
+pub fn hashless_imt_benchy(c: &mut Criterion) {
+    let mut group = c.benchmark_group("hashless merkle tree setup");
+    let size_group = [7u32, 13, 17];
+    let data_table: Vec<[u8; 32]> = HashMockStream::seeded_stream(42)
+        .take(*size_group.iter().max().unwrap() as usize)
+        .collect();
+    for size in size_group.iter() {
         group.bench_with_input(
             BenchmarkId::new("Lean IMT setup incremental", size),
             size,
@@ -112,9 +115,7 @@ pub fn imt_benchy(c: &mut Criterion) {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
-                        let data_source: Vec<[u8; 32]> = HashMockStream::seeded_stream(42)
-                            .take(size as usize)
-                            .collect();
+                        let data_source = &data_table[0..size as usize];
                         let tree = HashedLeanIMT::<32, BenchyIFTHasher>::new(&[], BenchyIFTHasher)
                             .unwrap();
                         (tree, data_source)
@@ -136,18 +137,13 @@ pub fn imt_benchy(c: &mut Criterion) {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
-                        let data_source: Vec<[u8; 32]> = HashMockStream::seeded_stream(42)
-                            .take(size as usize)
-                            .collect()
-                        ;
+                        let data_source = &data_table[0..size as usize];
                         let tree = HashedLeanIMT::<32, BenchyIFTHasher>::new(&[], BenchyIFTHasher)
                             .unwrap();
                         (tree, data_source)
                     },
                     // Actual benchmark
-                    |(mut tree, data_source)| {
-                        tree.insert_many(&data_source[..])
-                    },
+                    |(mut tree, data_source)| tree.insert_many(data_source),
                     BatchSize::SmallInput,
                 )
             },
@@ -162,6 +158,6 @@ criterion_group! {
         .warm_up_time(std::time::Duration::from_millis(500))
         .measurement_time(std::time::Duration::from_secs(4))
         .sample_size(10);
-    targets = imt_benchy
+    targets = hashless_imt_benchy
 }
 criterion_main!(benchies);
