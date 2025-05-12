@@ -30,11 +30,11 @@ where
     /// Set to 0 if the leaf is empty and set to 1 in otherwise.
     cached_leaves_indices: Vec<u8>,
 
-    // The next available (i.e., never used) tree index. Equivalently, the number of leaves added to the tree
-    // (deletions leave next_index unchanged)
+    /// The next available (i.e., never used) tree index. Equivalently, the number of leaves added to the tree
+    /// (deletions leave next_index unchanged)
     next_index: usize,
 
-    // metadata that an application may use to store additional information
+    /// metadata that an application may use to store additional information
     metadata: Vec<u8>,
 }
 
@@ -109,34 +109,34 @@ where
         Ok(())
     }
 
-    // Returns the depth of the tree
+    /// Returns the depth of the tree
     fn depth(&self) -> usize {
         self.depth
     }
 
-    // Returns the capacity of the tree, i.e. the maximum number of accumulatable leaves
+    /// Returns the capacity of the tree, i.e. the maximum number of accumulatable leaves
     fn capacity(&self) -> usize {
         1 << self.depth
     }
 
-    // Returns the total number of leaves set
+    /// Returns the total number of leaves set
     fn leaves_set(&self) -> usize {
         self.next_index
     }
 
-    // Returns the root of the tree
+    /// Returns the root of the tree
     fn root(&self) -> FrOf<Self::Hasher> {
         self.nodes[0]
     }
 
-    // Sets a leaf at the specified tree index
+    /// Sets a leaf at the specified tree index
     fn set(&mut self, leaf: usize, hash: FrOf<Self::Hasher>) -> Result<()> {
         self.set_range(leaf, once(hash))?;
         self.next_index = max(self.next_index, leaf + 1);
         Ok(())
     }
 
-    // Get a leaf from the specified tree index
+    /// Get a leaf from the specified tree index
     fn get(&self, leaf: usize) -> Result<FrOf<Self::Hasher>> {
         if leaf >= self.capacity() {
             return Err(Report::msg("leaf index out of bounds"));
@@ -144,7 +144,7 @@ where
         Ok(self.nodes[self.capacity() + leaf - 1])
     }
 
-    // Returns the root of the subtree at level n and index
+    /// Returns the root of the subtree at level n and index
     fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr> {
         if n > self.depth() {
             return Err(Report::msg("level exceeds depth size"));
@@ -160,7 +160,7 @@ where
             let mut idx = self.capacity() + index - 1;
             let mut nd = self.depth;
             loop {
-                let parent = self.parent(idx).unwrap();
+                let parent = self.parent(idx).expect("parent should exist");
                 nd -= 1;
                 if nd == n {
                     return Ok(self.nodes[parent]);
@@ -172,7 +172,7 @@ where
         }
     }
 
-    // Returns the indices of the leaves that are empty
+    /// Returns the indices of the leaves that are empty
     fn get_empty_leaves_indices(&self) -> Vec<usize> {
         self.cached_leaves_indices
             .iter()
@@ -183,7 +183,7 @@ where
             .collect()
     }
 
-    // Sets multiple leaves from the specified tree index
+    /// Sets multiple leaves from the specified tree index
     fn set_range<I: ExactSizeIterator<Item = FrOf<Self::Hasher>>>(
         &mut self,
         start: usize,
@@ -209,14 +209,14 @@ where
         Ok(())
     }
 
-    // Overrides a range of leaves while resetting specified indices to default and preserving unaffected values.
+    /// Overrides a range of leaves while resetting specified indices to default and preserving unaffected values.
     fn override_range<I, J>(&mut self, start: usize, leaves: I, indices: J) -> Result<()>
     where
         I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
         J: ExactSizeIterator<Item = usize>,
     {
         let indices = indices.into_iter().collect::<Vec<_>>();
-        let min_index = *indices.first().unwrap();
+        let min_index = *indices.first().expect("indices should not be empty");
         let leaves_vec = leaves.into_iter().collect::<Vec<_>>();
 
         let max_index = start + leaves_vec.len();
@@ -242,13 +242,13 @@ where
             .map_err(|e| Report::msg(e.to_string()))
     }
 
-    // Sets a leaf at the next available index
+    /// Sets a leaf at the next available index
     fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<()> {
         self.set(self.next_index, leaf)?;
         Ok(())
     }
 
-    // Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
+    /// Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
     fn delete(&mut self, index: usize) -> Result<()> {
         // We reset the leaf only if we previously set a leaf at that index
         if index < self.next_index {

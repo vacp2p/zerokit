@@ -21,7 +21,7 @@ use std::{
 use color_eyre::Result;
 
 /// Enables parallel hashing when there are at least 8 nodes (4 pairs to hash), justifying the overhead.
-pub(crate) const MIN_PARALLEL_NODES: usize = 8;
+pub const MIN_PARALLEL_NODES: usize = 8;
 
 /// In the Hasher trait we define the node type, the default leaf
 /// and the hash function used to initialize a Merkle Tree implementation

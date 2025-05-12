@@ -31,11 +31,11 @@ where
     /// Set to 0 if the leaf is empty and set to 1 in otherwise.
     cached_leaves_indices: Vec<u8>,
 
-    // The next available (i.e., never used) tree index. Equivalently, the number of leaves added to the tree
-    // (deletions leave next_index unchanged)
+    /// The next available (i.e., never used) tree index. Equivalently, the number of leaves added to the tree
+    /// (deletions leave next_index unchanged)
     next_index: usize,
 
-    // metadata that an application may use to store additional information
+    /// metadata that an application may use to store additional information
     metadata: Vec<u8>,
 }
 
@@ -93,27 +93,27 @@ where
         Ok(())
     }
 
-    // Returns the depth of the tree
+    /// Returns the depth of the tree
     fn depth(&self) -> usize {
         self.depth
     }
 
-    // Returns the capacity of the tree, i.e. the maximum number of accumulatable leaves
+    /// Returns the capacity of the tree, i.e. the maximum number of accumulatable leaves
     fn capacity(&self) -> usize {
         1 << self.depth
     }
 
-    // Returns the total number of leaves set
+    /// Returns the total number of leaves set
     fn leaves_set(&self) -> usize {
         self.next_index
     }
 
-    // Returns the root of the tree
+    /// Returns the root of the tree
     fn root(&self) -> H::Fr {
         self.get_node(0, 0)
     }
 
-    // Sets a leaf at the specified tree index
+    /// Sets a leaf at the specified tree index
     fn set(&mut self, index: usize, leaf: H::Fr) -> Result<()> {
         if index >= self.capacity() {
             return Err(Report::msg("index exceeds set size"));
@@ -125,7 +125,7 @@ where
         Ok(())
     }
 
-    // Get a leaf from the specified tree index
+    /// Get a leaf from the specified tree index
     fn get(&self, index: usize) -> Result<H::Fr> {
         if index >= self.capacity() {
             return Err(Report::msg("index exceeds set size"));
@@ -133,7 +133,7 @@ where
         Ok(self.get_node(self.depth, index))
     }
 
-    // Returns the root of the subtree at level n and index
+    /// Returns the root of the subtree at level n and index
     fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr> {
         if n > self.depth() {
             return Err(Report::msg("level exceeds depth size"));
@@ -150,7 +150,7 @@ where
         }
     }
 
-    // Returns the indices of the leaves that are empty
+    /// Returns the indices of the leaves that are empty
     fn get_empty_leaves_indices(&self) -> Vec<usize> {
         self.cached_leaves_indices
             .iter()
@@ -161,7 +161,7 @@ where
             .collect()
     }
 
-    // Sets multiple leaves from the specified tree index
+    /// Sets multiple leaves from the specified tree index
     fn set_range<I: ExactSizeIterator<Item = H::Fr>>(
         &mut self,
         start: usize,
@@ -181,14 +181,14 @@ where
         Ok(())
     }
 
-    // Overrides a range of leaves while resetting specified indices to default and preserving unaffected values.
+    /// Overrides a range of leaves while resetting specified indices to default and preserving unaffected values.
     fn override_range<I, J>(&mut self, start: usize, leaves: I, indices: J) -> Result<()>
     where
         I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
         J: ExactSizeIterator<Item = usize>,
     {
         let indices = indices.into_iter().collect::<Vec<_>>();
-        let min_index = *indices.first().unwrap();
+        let min_index = *indices.first().expect("indices should not be empty");
         let leaves_vec = leaves.into_iter().collect::<Vec<_>>();
 
         let max_index = start + leaves_vec.len();
@@ -214,13 +214,13 @@ where
             .map_err(|e| Report::msg(e.to_string()))
     }
 
-    // Sets a leaf at the next available index
+    /// Sets a leaf at the next available index
     fn update_next(&mut self, leaf: H::Fr) -> Result<()> {
         self.set(self.next_index, leaf)?;
         Ok(())
     }
 
-    // Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
+    /// Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
     fn delete(&mut self, index: usize) -> Result<()> {
         // We reset the leaf only if we previously set a leaf at that index
         if index < self.next_index {
@@ -230,7 +230,7 @@ where
         Ok(())
     }
 
-    // Computes a merkle proof the leaf at the specified index
+    /// Computes a merkle proof the leaf at the specified index
     fn proof(&self, index: usize) -> Result<Self::Proof> {
         if index >= self.capacity() {
             return Err(Report::msg("index exceeds set size"));
@@ -240,7 +240,10 @@ where
         let mut depth = self.depth;
         loop {
             i ^= 1;
-            witness.push((self.get_node(depth, i), (1 - (i & 1)).try_into().unwrap()));
+            witness.push((
+                self.get_node(depth, i),
+                (1 - (i & 1)).try_into().expect("0 or 1 expected"),
+            ));
             i >>= 1;
             depth -= 1;
             if depth == 0 {
@@ -254,7 +257,7 @@ where
         }
     }
 
-    // Verifies a Merkle proof with respect to the input leaf and the tree root
+    /// Verifies a Merkle proof with respect to the input leaf and the tree root
     fn verify(&self, leaf: &H::Fr, witness: &Self::Proof) -> Result<bool> {
         if witness.length() != self.depth {
             return Err(Report::msg("witness length doesn't match tree depth"));
@@ -264,7 +267,6 @@ where
     }
 
     fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>> {
-        self.update_hashes(0, 1)?;
         Ok(self.root())
     }
 
@@ -327,7 +329,7 @@ where
                     .map(|index| {
                         // Hash two child nodes at positions (current_depth, index) and (current_depth, index + 1)
                         let hash = self.hash_couple(current_depth, index);
-                        // Return the computed parent hash and its position at (parent_depth, index >> 1)
+                        // Return the computed parent hash and its position at
                         ((parent_depth, index >> 1), hash)
                     })
                     .collect();
@@ -360,7 +362,7 @@ where
     type Index = u8;
     type Hasher = H;
 
-    // Returns the length of a Merkle proof
+    /// Returns the length of a Merkle proof
     fn length(&self) -> usize {
         self.0.len()
     }

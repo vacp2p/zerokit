@@ -118,10 +118,10 @@ pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
         let mut level = 1;
         let mut index = 0;
         b.iter(|| {
-            tree.get_subtree_root(level % 19, index % (1 << (19 - (level % 19))))
+            tree.get_subtree_root(level % 20, index % (1 << (20 - (level % 20))))
                 .unwrap();
-            index = (index + 1) % (1 << (19 - (level % 19)));
-            level = 1 + (level % 19);
+            index = (index + 1) % (1 << (20 - (level % 20)));
+            level = 1 + (level % 20);
         })
     });
 
@@ -191,10 +191,10 @@ pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
         let mut level = 1;
         let mut index = 0;
         b.iter(|| {
-            tree.get_subtree_root(level % 19, index % (1 << (19 - (level % 19))))
+            tree.get_subtree_root(level % 20, index % (1 << (20 - (level % 20))))
                 .unwrap();
-            index = (index + 1) % (1 << (19 - (level % 19)));
-            level = 1 + (level % 19);
+            index = (index + 1) % (1 << (20 - (level % 20)));
+            level = 1 + (level % 20);
         })
     });
 
