@@ -20,6 +20,8 @@ The crate supports two interchangeable Merkle tree implementations:
 - **OptimalMerkleTree**
   - Only stores nodes used to prove accumulation of set leaves
 
+Both OptimalMerkleTree and FullMerkleTree use [Rayon](https://crates.io/crates/rayon) internally to speed up computation through data parallelism. This provides significant performance improvements, especially during large Merkle tree updates.
+
 ### Implementation notes
 
 Glossary:
