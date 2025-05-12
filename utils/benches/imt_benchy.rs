@@ -102,11 +102,11 @@ fn benchy_prototype_code() {
 }
 
 pub fn imt_benchy(c: &mut Criterion) {
-    let mut group = c.benchmark_group("markle tree setup");
+    let mut group = c.benchmark_group("merkle tree setup");
 
     for size in [7u32, 13, 17].iter() {
         group.bench_with_input(
-            BenchmarkId::new("Lean IMT setup", size),
+            BenchmarkId::new("Lean IMT setup incremental", size),
             size,
             |b, &size| {
                 b.iter_batched(
@@ -124,6 +124,29 @@ pub fn imt_benchy(c: &mut Criterion) {
                         for d in data_source.iter() {
                             tree.insert(d);
                         }
+                    },
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("Lean IMT setup batch", size),
+            size,
+            |b, &size| {
+                b.iter_batched(
+                    // Setup: create values for each benchmark iteration
+                    || {
+                        let data_source: Vec<[u8; 32]> = HashMockStream::seeded_stream(42)
+                            .take(size as usize)
+                            .collect()
+                        ;
+                        let tree = HashedLeanIMT::<32, BenchyIFTHasher>::new(&[], BenchyIFTHasher)
+                            .unwrap();
+                        (tree, data_source)
+                    },
+                    // Actual benchmark
+                    |(mut tree, data_source)| {
+                        tree.insert_many(&data_source[..])
                     },
                     BatchSize::SmallInput,
                 )
