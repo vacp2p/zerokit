@@ -58,17 +58,19 @@ lazy_static! {
     static ref INDICES: Vec<usize> = (0..(1 << 20)).collect();
 }
 
+const NOF_LEAVES: usize = 8192;
+
 pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
     let mut tree =
         OptimalMerkleTree::<Keccak256>::new(20, TestFr([0; 32]), OptimalMerkleConfig::default())
             .unwrap();
 
-    for i in 0..8192 {
+    for i in 0..NOF_LEAVES {
         tree.set(i, LEAVES[i % LEAVES.len()]).unwrap();
     }
 
     c.bench_function("OptimalMerkleTree::set", |b| {
-        let mut index = 8192;
+        let mut index = NOF_LEAVES;
         b.iter(|| {
             tree.set(index % (1 << 20), LEAVES[index % LEAVES.len()])
                 .unwrap();
@@ -79,24 +81,24 @@ pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
     c.bench_function("OptimalMerkleTree::delete", |b| {
         let mut index = 0;
         b.iter(|| {
-            tree.delete(index % 8192).unwrap();
-            tree.set(index % 8192, LEAVES[index % LEAVES.len()])
+            tree.delete(index % NOF_LEAVES).unwrap();
+            tree.set(index % NOF_LEAVES, LEAVES[index % LEAVES.len()])
                 .unwrap();
-            index = (index + 1) % 8192;
+            index = (index + 1) % NOF_LEAVES;
         })
     });
 
     c.bench_function("OptimalMerkleTree::override_range", |b| {
         let mut offset = 0;
         b.iter(|| {
-            let range = offset..offset + 8192;
+            let range = offset..offset + NOF_LEAVES;
             tree.override_range(
                 offset,
                 LEAVES[range.clone()].iter().cloned(),
                 INDICES[range.clone()].iter().cloned(),
             )
             .unwrap();
-            offset = (offset + 8192) % (1 << 20);
+            offset = (offset + NOF_LEAVES) % (1 << 20);
         })
     });
 
@@ -109,8 +111,8 @@ pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
     c.bench_function("OptimalMerkleTree::get", |b| {
         let mut index = 0;
         b.iter(|| {
-            tree.get(index % 8192).unwrap();
-            index = (index + 1) % 8192;
+            tree.get(index % NOF_LEAVES).unwrap();
+            index = (index + 1) % NOF_LEAVES;
         })
     });
 
@@ -118,10 +120,10 @@ pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
         let mut level = 1;
         let mut index = 0;
         b.iter(|| {
-            tree.get_subtree_root(level % 19, index % (1 << (19 - (level % 19))))
+            tree.get_subtree_root(level % 20, index % (1 << (20 - (level % 20))))
                 .unwrap();
-            index = (index + 1) % (1 << (19 - (level % 19)));
-            level = 1 + (level % 19);
+            index = (index + 1) % (1 << (20 - (level % 20)));
+            level = 1 + (level % 20);
         })
     });
 
@@ -136,12 +138,12 @@ pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
     let mut tree =
         FullMerkleTree::<Keccak256>::new(20, TestFr([0; 32]), FullMerkleConfig::default()).unwrap();
 
-    for i in 0..8192 {
+    for i in 0..NOF_LEAVES {
         tree.set(i, LEAVES[i % LEAVES.len()]).unwrap();
     }
 
     c.bench_function("FullMerkleTree::set", |b| {
-        let mut index = 8192;
+        let mut index = NOF_LEAVES;
         b.iter(|| {
             tree.set(index % (1 << 20), LEAVES[index % LEAVES.len()])
                 .unwrap();
@@ -152,24 +154,24 @@ pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
     c.bench_function("FullMerkleTree::delete", |b| {
         let mut index = 0;
         b.iter(|| {
-            tree.delete(index % 8192).unwrap();
-            tree.set(index % 8192, LEAVES[index % LEAVES.len()])
+            tree.delete(index % NOF_LEAVES).unwrap();
+            tree.set(index % NOF_LEAVES, LEAVES[index % LEAVES.len()])
                 .unwrap();
-            index = (index + 1) % 8192;
+            index = (index + 1) % NOF_LEAVES;
         })
     });
 
     c.bench_function("FullMerkleTree::override_range", |b| {
         let mut offset = 0;
         b.iter(|| {
-            let range = offset..offset + 8192;
+            let range = offset..offset + NOF_LEAVES;
             tree.override_range(
                 offset,
                 LEAVES[range.clone()].iter().cloned(),
                 INDICES[range.clone()].iter().cloned(),
             )
             .unwrap();
-            offset = (offset + 8192) % (1 << 20);
+            offset = (offset + NOF_LEAVES) % (1 << 20);
         })
     });
 
@@ -182,8 +184,8 @@ pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
     c.bench_function("FullMerkleTree::get", |b| {
         let mut index = 0;
         b.iter(|| {
-            tree.get(index % 8192).unwrap();
-            index = (index + 1) % 8192;
+            tree.get(index % NOF_LEAVES).unwrap();
+            index = (index + 1) % NOF_LEAVES;
         })
     });
 
@@ -191,10 +193,10 @@ pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
         let mut level = 1;
         let mut index = 0;
         b.iter(|| {
-            tree.get_subtree_root(level % 19, index % (1 << (19 - (level % 19))))
+            tree.get_subtree_root(level % 20, index % (1 << (20 - (level % 20))))
                 .unwrap();
-            index = (index + 1) % (1 << (19 - (level % 19)));
-            level = 1 + (level % 19);
+            index = (index + 1) % (1 << (20 - (level % 20)));
+            level = 1 + (level % 20);
         })
     });
 
