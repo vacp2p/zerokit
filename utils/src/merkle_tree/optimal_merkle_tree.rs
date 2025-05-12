@@ -3,7 +3,7 @@ use std::{cmp::max, collections::HashMap, fmt::Debug, str::FromStr};
 use color_eyre::{Report, Result};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-use crate::merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, PARALLEL_THRESHOLD};
+use crate::merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES};
 
 ////////////////////////////////////////////////////////////
 ///// Optimal Merkle Tree Implementation
@@ -264,21 +264,7 @@ where
     }
 
     fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>> {
-        let mut i = 0;
-        let mut depth = self.depth;
-
-        while depth > 0 {
-            let h = self.hash_couple(depth, i);
-            i >>= 1;
-            depth -= 1;
-            self.nodes.insert((depth, i), h);
-            self.cached_leaves_indices[0] = 1;
-        }
-
-        if i != 0 {
-            return Err(Report::msg("did not go through all indexes"));
-        }
-
+        self.update_hashes(0, 1)?;
         Ok(self.root())
     }
 
@@ -321,10 +307,10 @@ where
         // Start at the leaf level
         let mut current_depth = self.depth;
 
-        // Round the start index down to the nearest even number
+        // Round down to include the left sibling in the pair (if start is odd)
         let mut current_index = start & !1;
 
-        // Compute the max index at this level, rounded up to the next even number
+        // Compute the max index at this level, round up to include the last updated leaf’s right sibling (if start + length is odd)
         let mut current_index_max = (start + length + 1) & !1;
 
         // Traverse from the leaf level up to the root
@@ -333,7 +319,7 @@ where
             let parent_depth = current_depth - 1;
 
             // Use parallel processing when the number of pairs exceeds the threshold
-            if current_index_max - current_index >= PARALLEL_THRESHOLD {
+            if current_index_max - current_index >= MIN_PARALLEL_NODES {
                 let updates: Vec<((usize, usize), H::Fr)> = (current_index..current_index_max)
                     .step_by(2)
                     .collect::<Vec<_>>()
@@ -346,7 +332,6 @@ where
                     })
                     .collect();
 
-                // Insert computed parent hashes into the tree
                 for (parent, hash) in updates {
                     self.nodes.insert(parent, hash);
                 }

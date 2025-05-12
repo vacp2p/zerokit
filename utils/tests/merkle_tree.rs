@@ -195,7 +195,7 @@ pub mod test {
             assert_eq!(tree_full.get_empty_leaves_indices(), vec_idxs);
         }
 
-        // Check situation when the number of items to insert is less than the number of items to delete
+        // check situation when the number of items to insert is less than the number of items to delete
         tree_full
             .override_range(0, leaves_2.clone().into_iter(), [0, 1, 2, 3].into_iter())
             .unwrap();
@@ -234,7 +234,7 @@ pub mod test {
             assert_eq!(tree_opt.get_empty_leaves_indices(), vec_idxs);
         }
 
-        // Check situation when the number of items to insert is less than the number of items to delete
+        // check situation when the number of items to insert is less than the number of items to delete
         tree_opt
             .override_range(0, leaves_2.clone().into_iter(), [0, 1, 2, 3].into_iter())
             .unwrap();
@@ -440,6 +440,7 @@ pub mod test {
     #[test]
     fn test_override_range_parallel_triggered() {
         let depth = 13;
+        // number of leaves larger than PARALLEL_THRESHOLD to trigger parallel hashing
         let leaf_count = 8192;
         let leaves: Vec<TestFr> = (10000..10000 + leaf_count as u32)
             .map(TestFr::from)

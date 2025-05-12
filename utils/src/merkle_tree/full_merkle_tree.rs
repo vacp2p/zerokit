@@ -8,7 +8,7 @@ use std::{
 use color_eyre::{Report, Result};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-use crate::merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, PARALLEL_THRESHOLD};
+use crate::merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES};
 
 ////////////////////////////////////////////////////////////
 ///// Full Merkle Tree Implementation
@@ -340,7 +340,7 @@ where
             (self.parent(start_index), self.parent(end_index))
         {
             // Use parallel processing when the number of pairs exceeds the threshold
-            if end_parent - start_parent + 1 >= PARALLEL_THRESHOLD {
+            if end_parent - start_parent + 1 >= MIN_PARALLEL_NODES {
                 let updates: Vec<(usize, H::Fr)> = (start_parent..=end_parent)
                     .into_par_iter()
                     .map(|parent| {
@@ -351,7 +351,6 @@ where
                     })
                     .collect();
 
-                // Insert computed parent hashes into the tree
                 for (parent, hash) in updates {
                     self.nodes[parent] = hash;
                 }
