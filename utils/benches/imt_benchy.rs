@@ -1,3 +1,4 @@
+use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use light_poseidon::{PoseidonBytesHasher, PoseidonHasher};
 use rand::RngCore;
 use rand_chacha::ChaCha8Rng;
@@ -38,6 +39,11 @@ impl Iterator for HashMockStream {
         let mut res = [0; 32];
         self.rng.fill_bytes(&mut res);
         Some(res)
+    }
+}
+impl LeanIMTHasher<32> for HashMockStream {
+    fn hash(input: &[u8]) -> [u8; 32] {
+        input.try_into().unwrap()
     }
 }
 lazy_static::lazy_static! {
@@ -94,3 +100,45 @@ fn benchy_prototype_code() {
     let proof = tree.generate_proof(3).unwrap();
     assert!(HashedLeanIMT::<32, BenchyIFTHasher>::verify_proof(&proof));
 }
+
+pub fn imt_benchy(c: &mut Criterion) {
+    let mut group = c.benchmark_group("markle tree setup");
+
+    for size in [7u32, 13, 17].iter() {
+        group.bench_with_input(
+            BenchmarkId::new("Lean IMT setup", size),
+            size,
+            |b, &size| {
+                b.iter_batched(
+                    // Setup: create values for each benchmark iteration
+                    || {
+                        let data_source: Vec<[u8; 32]> = HashMockStream::seeded_stream(42)
+                            .take(size as usize)
+                            .collect();
+                        let tree = HashedLeanIMT::<32, BenchyIFTHasher>::new(&[], BenchyIFTHasher)
+                            .unwrap();
+                        (tree, data_source)
+                    },
+                    // Actual benchmark
+                    |(mut tree, data_source)| {
+                        for d in data_source.iter() {
+                            tree.insert(d);
+                        }
+                    },
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+    }
+    group.finish();
+}
+
+criterion_group! {
+    name = benchies;
+    config = Criterion::default()
+        .warm_up_time(std::time::Duration::from_millis(500))
+        .measurement_time(std::time::Duration::from_secs(4))
+        .sample_size(10);
+    targets = imt_benchy
+}
+criterion_main!(benchies);
