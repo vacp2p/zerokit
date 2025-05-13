@@ -1,19 +1,18 @@
-use std::{fmt::Display, str::FromStr};
+use std::str::FromStr;
 
-use ark_ff::Field;
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use light_poseidon::{PoseidonBytesHasher, PoseidonHasher};
+use light_poseidon::PoseidonBytesHasher;
 use rand::RngCore;
 use rand_chacha::ChaCha8Rng;
 use rand_core::SeedableRng;
 use rln::{circuit::Fr, utils::fr_to_bytes_le};
 use zerokit_utils::{
-    Hasher, OptimalMerkleConfig, OptimalMerkleTree, Poseidon, ZerokitMerkleTree as _,
+    FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree, Poseidon,
+    ZerokitMerkleTree as _,
 };
-use zk_kit_lean_imt::{
-    hashed_tree::{HashedLeanIMT, LeanIMTHasher},
-    lean_imt::*,
-};
+use zk_kit_lean_imt::
+    hashed_tree::{HashedLeanIMT, LeanIMTHasher}
+;
 
 const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
     (2, 8, 56, 0),
@@ -61,7 +60,7 @@ lazy_static::lazy_static! {
 
 #[derive(Debug)]
 struct BenchyIFTHasher;
-struct BenchyLightPosHasher;
+
 impl Hasher for BenchyIFTHasher {
     type Fr = Fr;
 
@@ -150,7 +149,7 @@ pub fn hashless_setup_iterative(c: &mut Criterion) {
             },
         );
         group.bench_with_input(
-            BenchmarkId::new("IFT iterative", size),
+            BenchmarkId::new("IFT optimal iterative", size),
             &size,
             |b, &size| {
                 b.iter_batched(
@@ -161,6 +160,32 @@ pub fn hashless_setup_iterative(c: &mut Criterion) {
                             6,
                             Fr::default(),
                             OptimalMerkleConfig::default(),
+                        )
+                        .unwrap();
+                        (tree, data_source)
+                    },
+                    // Actual benchmark
+                    |(mut tree, data_source)| {
+                        for (i, d) in data_source.iter().enumerate() {
+                            tree.set(i, *d).unwrap();
+                        }
+                    },
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("IFT full iterative", size),
+            &size,
+            |b, &size| {
+                b.iter_batched(
+                    // Setup: create values for each benchmark iteration
+                    || {
+                        let data_source = &fr_table[0..size as usize];
+                        let tree = FullMerkleTree::<BenchyIFTHasher>::new(
+                            6,
+                            Fr::default(),
+                            FullMerkleConfig::default(),
                         )
                         .unwrap();
                         (tree, data_source)
@@ -195,7 +220,7 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
                 BatchSize::SmallInput,
             )
         });
-        group.bench_with_input(BenchmarkId::new("IFT", size), &size, |b, &size| {
+        group.bench_with_input(BenchmarkId::new("IFT optimal", size), &size, |b, &size| {
             b.iter_batched(
                 // Setup: create values for each benchmark iteration
                 || {
@@ -205,6 +230,25 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
                         6,
                         Fr::default(),
                         OptimalMerkleConfig::default(),
+                    )
+                    .unwrap();
+                    (tree, data_source)
+                },
+                // Actual benchmark
+                |(mut tree, data_source)| tree.set_range(0, data_source),
+                BatchSize::SmallInput,
+            )
+        });
+        group.bench_with_input(BenchmarkId::new("IFT full", size), &size, |b, &size| {
+            b.iter_batched(
+                // Setup: create values for each benchmark iteration
+                || {
+                    let data_source = &fr_table[0..size as usize];
+                    let data_source = data_source.iter().copied();
+                    let tree = FullMerkleTree::<BenchyIFTHasher>::new(
+                        6,
+                        Fr::default(),
+                        FullMerkleConfig::default(),
                     )
                     .unwrap();
                     (tree, data_source)
