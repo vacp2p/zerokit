@@ -1,28 +1,33 @@
-use std::{fmt::Display, str::FromStr};
+use std::str::FromStr;
 
-use ark_ff::Field;
+use ark_ff::{BigInteger, Field, PrimeField};
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use light_poseidon::{PoseidonBytesHasher, PoseidonHasher};
+use light_poseidon::PoseidonBytesHasher;
 use rand::RngCore;
 use rand_chacha::ChaCha8Rng;
 use rand_core::SeedableRng;
-use rln::{circuit::Fr, hashers::PoseidonHash, utils::fr_to_bytes_le};
+use rln::{
+    circuit::Fr,
+    hashers::{PoseidonHash, ROUND_PARAMS},
+};
 use zerokit_utils::{
     FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree, Poseidon,
     ZerokitMerkleTree as _,
 };
-use zk_kit_lean_imt::lean_imt::LeanIMT;
+use zk_kit_lean_imt::{hashed_tree::LeanIMTHasher, lean_imt::LeanIMT};
 
-const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
-    (2, 8, 56, 0),
-    (3, 8, 57, 0),
-    (4, 8, 56, 0),
-    (5, 8, 60, 0),
-    (6, 8, 60, 0),
-    (7, 8, 63, 0),
-    (8, 8, 64, 0),
-    (9, 8, 63, 0),
-];
+impl zerokit_utils::Hasher for BenchyLightPosHasher {
+    type Fr = Fr;
+
+    fn default_leaf() -> Self::Fr {
+        Self::Fr::default()
+    }
+
+    fn hash(input: &[Self::Fr]) -> Self::Fr {
+        let hasher = Poseidon::from(&ROUND_PARAMS);
+        hasher.hash(input).unwrap()
+    }
+}
 // ChaCha8Rng is chosen for its portable determinism
 struct HashMockStream {
     rng: ChaCha8Rng,
@@ -50,8 +55,8 @@ impl Iterator for HashMockStream {
 //     }
 // }
 lazy_static::lazy_static! {
-    static ref LEAVES: [[u8; 32]; 40] = HashMockStream::seeded_stream(42)
-        .take(40)
+    static ref LEAVES: [[u8; 32]; 400] = HashMockStream::seeded_stream(42)
+        .take(400)
         .collect::<Vec<_>>()
         .try_into()
         .unwrap();
@@ -72,32 +77,28 @@ impl Hasher for BenchyIFTHasher {
     }
 }
 
-// impl<const N: usize> LeanIMTHasher<N> for BenchyIFTHasher {
-//     fn hash(input: &[u8]) -> [u8; N] {
-//         let hasher = Poseidon::<Fr>::from(&ROUND_PARAMS);
-//         let input_as_frs: Vec<_> = input
-//             .chunks(N)
-//             .map(|ch| rln::utils::bytes_le_to_fr(ch).0)
-//             .collect();
-//         let res = hasher.hash(&input_as_frs).unwrap();
-//         let byte_vec: Vec<u8> = fr_to_bytes_le(&res);
-//         let mut res = [0; N];
-//         if byte_vec.len() >= N {
-//             res.copy_from_slice(&byte_vec[..N]);
-//         } else {
-//             res.copy_from_slice(&byte_vec);
-//         };
-//         res
-//     }
-// }
-//
-// impl LeanIMTHasher<32> for BenchyLightPosHasher {
-//     fn hash(input: &[u8]) -> [u8; 32] {
-//         let mut hasher = light_poseidon::Poseidon::<Fr>::new_circom(1).unwrap();
-//         let chunks: Vec<&[u8]> = input.chunks(32).collect();
-//         hasher.hash_bytes_le(&chunks).unwrap()
-//     }
-// }
+impl<const N: usize> LeanIMTHasher<N> for BenchyIFTHasher {
+    fn hash(input: &[u8]) -> [u8; N] {
+        let hasher = Poseidon::<Fr>::from(&ROUND_PARAMS);
+
+        let frs = input
+            .chunks(N)
+            .map(|bytes| Fr::from_random_bytes(bytes).unwrap_or(Fr::default()))
+            .collect::<Vec<_>>();
+        let frs = frs.as_slice();
+        let res_fr: Fr = hasher.hash(frs).unwrap();
+        let res_bytes: [u8; N] = res_fr.into_bigint().to_bytes_le().try_into().unwrap();
+        res_bytes
+    }
+}
+impl LeanIMTHasher<32> for BenchyLightPosHasher {
+    fn hash(input: &[u8]) -> [u8; 32] {
+        let mut hasher = light_poseidon::Poseidon::<Fr>::new_circom(1).unwrap();
+        // TODO: this should be doable without mucking around with heap-memory
+        let chunks: Vec<&[u8]> = input.chunks(32).collect();
+        hasher.hash_bytes_le(&chunks).unwrap()
+    }
+}
 
 fn make_data_table() -> (Vec<[u8; 32]>, Vec<Fr>, [u32; 3]) {
     let size_group = [7u32, 13, 17];
@@ -274,12 +275,155 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
     group.finish();
 }
 
+fn tree_hash_batch_shootout(c: &mut Criterion) {
+    let mut group = c.benchmark_group("hash+tree batch shootout");
+    let (data_table, fr_table, size_group) = make_data_table();
+    for size in size_group {
+        group.bench_with_input(
+            BenchmarkId::new("Lean IMT batch poseidon", size),
+            &size,
+            |b, &size| {
+                b.iter_batched(
+                    // Setup: create values for each benchmark iteration
+                    || {
+                        let data_source = &data_table[0..size as usize];
+                        let tree =
+                            LeanIMT::<32>::new(&[], <BenchyIFTHasher as LeanIMTHasher<32>>::hash)
+                                .unwrap();
+                        (tree, data_source)
+                    },
+                    // Actual benchmark
+                    |(mut tree, data_source)| {
+                        tree.insert_many(data_source, <BenchyIFTHasher as LeanIMTHasher<32>>::hash)
+                    },
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("Lean IMT batch light-poseidon", size),
+            &size,
+            |b, &size| {
+                b.iter_batched(
+                    // Setup: create values for each benchmark iteration
+                    || {
+                        let data_source = &data_table[0..size as usize];
+                        let tree = LeanIMT::<32>::new(
+                            &[],
+                            <BenchyLightPosHasher as LeanIMTHasher<32>>::hash,
+                        )
+                        .unwrap();
+                        (tree, data_source)
+                    },
+                    // Actual benchmark
+                    |(mut tree, data_source)| {
+                        tree.insert_many(data_source, <BenchyIFTHasher as LeanIMTHasher<32>>::hash)
+                    },
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("IFT optimal batch poseidon", size),
+            &size,
+            |b, &size| {
+                b.iter_batched(
+                    // Setup: create values for each benchmark iteration
+                    || {
+                        let data_source = &fr_table[0..size as usize];
+                        let data_source = data_source.iter().copied();
+                        let tree = OptimalMerkleTree::<PoseidonHash>::new(
+                            6,
+                            Fr::default(),
+                            OptimalMerkleConfig::default(),
+                        )
+                        .unwrap();
+                        (tree, data_source)
+                    },
+                    // Actual benchmark
+                    |(mut tree, data_source)| tree.set_range(0, data_source),
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("IFT optimal batch light-poseidon", size),
+            &size,
+            |b, &size| {
+                b.iter_batched(
+                    // Setup: create values for each benchmark iteration
+                    || {
+                        let data_source = &fr_table[0..size as usize];
+                        let data_source = data_source.iter().copied();
+                        let tree = OptimalMerkleTree::<BenchyLightPosHasher>::new(
+                            6,
+                            Fr::default(),
+                            OptimalMerkleConfig::default(),
+                        )
+                        .unwrap();
+                        (tree, data_source)
+                    },
+                    // Actual benchmark
+                    |(mut tree, data_source)| tree.set_range(0, data_source),
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("IFT full batch poseidon", size),
+            &size,
+            |b, &size| {
+                b.iter_batched(
+                    // Setup: create values for each benchmark iteration
+                    || {
+                        let data_source = &fr_table[0..size as usize];
+                        let data_source = data_source.iter().copied();
+                        let tree = FullMerkleTree::<PoseidonHash>::new(
+                            6,
+                            Fr::default(),
+                            FullMerkleConfig::default(),
+                        )
+                        .unwrap();
+                        (tree, data_source)
+                    },
+                    // Actual benchmark
+                    |(mut tree, data_source)| tree.set_range(0, data_source),
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("IFT full batch light-poseidon", size),
+            &size,
+            |b, &size| {
+                b.iter_batched(
+                    // Setup: create values for each benchmark iteration
+                    || {
+                        let data_source = &fr_table[0..size as usize];
+                        let data_source = data_source.iter().copied();
+                        let tree = FullMerkleTree::<BenchyLightPosHasher>::new(
+                            6,
+                            Fr::default(),
+                            FullMerkleConfig::default(),
+                        )
+                        .unwrap();
+                        (tree, data_source)
+                    },
+                    // Actual benchmark
+                    |(mut tree, data_source)| tree.set_range(0, data_source),
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+    }
+}
+
 criterion_group! {
     name = benchies;
     config = Criterion::default()
         .warm_up_time(std::time::Duration::from_millis(500))
-        .measurement_time(std::time::Duration::from_secs(2))
-        .sample_size(10);
-    targets =  hashless_setup_batch, hashless_setup_iterative
+        .measurement_time(std::time::Duration::from_secs(4))
+        .sample_size(50);
+    targets =  /* hashless_setup_batch, hashless_setup_iterative, */ tree_hash_batch_shootout
 }
 criterion_main!(benchies);
