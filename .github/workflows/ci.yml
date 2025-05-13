@@ -24,8 +24,8 @@ jobs:
   utils-test:
     strategy:
       matrix:
-        platform: [ ubuntu-latest, macos-latest ]
-        crate: [ utils ]
+        platform: [ubuntu-latest, macos-latest]
+        crate: [utils]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
@@ -50,9 +50,9 @@ jobs:
   rln-test:
     strategy:
       matrix:
-        platform: [ ubuntu-latest, macos-latest ]
-        crate: [ rln ]
-        feature: [ "default", "arkzkey", "stateless" ]
+        platform: [ubuntu-latest, macos-latest]
+        crate: [rln]
+        feature: ["default", "arkzkey", "stateless"]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
@@ -78,15 +78,16 @@ jobs:
           fi
         working-directory: ${{ matrix.crate }}
 
-  rln-wasm:
+  rln-wasm-test:
     strategy:
       matrix:
-        platform: [ ubuntu-latest, macos-latest ]
-        feature: [ "default", "arkzkey" ]
+        platform: [ubuntu-latest, macos-latest]
+        crate: [rln-wasm]
+        feature: ["default", "arkzkey"]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
-    name: test - rln-wasm - ${{ matrix.platform }} - ${{ matrix.feature }}
+    name: test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
     steps:
       - uses: actions/checkout@v3
       - name: Install stable toolchain
@@ -105,7 +106,7 @@ jobs:
           else
             cargo make build_${{ matrix.feature }}
           fi
-        working-directory: rln-wasm
+        working-directory: ${{ matrix.crate }}
       - name: cargo-make test
         run: |
           if [ ${{ matrix.feature }} == default ]; then
@@ -113,14 +114,62 @@ jobs:
           else
             cargo make test_${{ matrix.feature }} --release
           fi
-        working-directory: rln-wasm
+        working-directory: ${{ matrix.crate }}
+      - name: cargo-make test browser
+        run: |
+          if [ ${{ matrix.feature }} == default ]; then
+            cargo make test_browser --release
+          else
+            cargo make test_browser_${{ matrix.feature }} --release
+          fi
+        working-directory: ${{ matrix.crate }}
+
+  # rln-wasm-multihread-test:
+  #   strategy:
+  #     matrix:
+  #       platform: [ubuntu-latest, macos-latest]
+  #       crate: [rln-wasm]
+  #       feature: ["multithread", "multithread_arkzkey"]
+  #   runs-on: ${{ matrix.platform }}
+  #   timeout-minutes: 60
+
+  #   name: test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - name: Install nightly toolchain
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         profile: minimal
+  #         toolchain: nightly
+  #         override: true
+  #         components: rust-src
+  #         target: wasm32-unknown-unknown
+  #     - uses: Swatinem/rust-cache@v2
+  #     - name: Install Dependencies
+  #       run: make installdeps
+  #     - name: cargo-make build
+  #       run: |
+  #         if [ ${{ matrix.feature }} == default ]; then
+  #           cargo make build
+  #         else
+  #           cargo make build_${{ matrix.feature }}
+  #         fi
+  #       working-directory: ${{ matrix.crate }}
+  #     - name: cargo-make test
+  #       run: |
+  #         if [ ${{ matrix.feature }} == default ]; then
+  #           cargo make test --release
+  #         else
+  #           cargo make test_${{ matrix.feature }} --release
+  #         fi
+  #       working-directory: ${{ matrix.crate }}
 
   lint:
     strategy:
       matrix:
         # we run lint tests only on ubuntu
-        platform: [ ubuntu-latest ]
-        crate: [ rln, rln-wasm, utils ]
+        platform: [ubuntu-latest]
+        crate: [rln, rln-wasm, utils]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
@@ -154,12 +203,12 @@ jobs:
     strategy:
       matrix:
         # we run benchmark tests only on ubuntu
-        platform: [ ubuntu-latest ]
-        crate: [ utils ]
+        platform: [ubuntu-latest]
+        crate: [utils]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
-    name: benchmark - ${{ matrix.platform }} - ${{ matrix.crate }}
+    name: benchmark - ${{ matrix.crate }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -175,13 +224,13 @@ jobs:
     strategy:
       matrix:
         # we run benchmark tests only on ubuntu
-        platform: [ ubuntu-latest ]
-        crate: [ rln ]
-        feature: [ "default", "arkzkey" ]
+        platform: [ubuntu-latest]
+        crate: [rln]
+        feature: ["default", "arkzkey"]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
-    name: benchmark - ${{ matrix.platform }} - ${{ matrix.crate }} - ${{ matrix.feature }}
+    name: benchmark - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3

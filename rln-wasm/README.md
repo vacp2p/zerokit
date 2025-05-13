@@ -2,21 +2,48 @@
 
 This library is used in [waku-org/js-rln](https://github.com/waku-org/js-rln/)
 
-> **Note**: This project requires `wasm-pack` for compiling Rust to WebAssembly and `cargo-make` for running the build commands. Make sure both are installed before proceeding.
+## Install Dependencies
 
-Install `wasm-pack`:
+> [!NOTE]
+> This project requires the following tools:
+>
+> - `wasm-pack` (for compiling Rust to WebAssembly)
+> - `cargo-make` (for running build commands)
+> - `nvm` (to install and manage Node.js)
+>
+> Ensure all dependencies are installed before proceeding.
+
+### Manually
+
+#### Install `wasm-pack`
 
 ```bash
-curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+cargo install wasm-pack --version=0.13.1
 ```
 
-Install `cargo-make`
+#### Install `cargo-make`
 
 ```bash
 cargo install cargo-make
 ```
 
-Or install everything needed for `zerokit` at the root of the repository:
+#### Install `Node.js`
+
+If you don't have `nvm` (Node Version Manager), install it by following the [installation instructions](https://github.com/nvm-sh/nvm?tab=readme-ov-file#install--update-script).
+
+After installing `nvm`, install and use Node.js `v22.14.0`:
+
+```bash
+nvm install 22.14.0
+nvm use 22.14.0
+nvm alias default 22.14.0
+```
+
+If you already have Node.js installed, check your version with `node -v` command — the version must be strictly greater than 22.
+
+### Or install everything
+
+You can run the following command from the root of the repository to install all required dependencies for `zerokit`
 
 ```bash
 make installdeps
@@ -52,4 +79,79 @@ Or test with the **arkzkey** feature enabled
 
 ```bash
 cargo make test_arkzkey
+```
+
+If you want to run the tests in browser headless mode, you can use the following command:
+
+```bash
+cargo make test_browser
+cargo make test_browser_arkzkey
+```
+
+## Parallel computation
+
+The library supports parallel computation using the `wasm-bindgen-rayon` crate, enabling multi-threaded execution in the browser.
+
+> [!NOTE]
+> Parallel support is not enabled by default due to WebAssembly and browser limitations. \
+> Compiling this feature requires `nightly` Rust and the `wasm-bindgen-cli` tool.
+
+### Build Setup
+
+#### Install `nightly` Rust
+
+```bash
+rustup install nightly
+```
+
+#### Install `wasm-bindgen-cli`
+
+```bash
+cargo install wasm-bindgen-cli --version=0.2.100
+```
+
+### Build Commands
+
+To enable parallel computation for WebAssembly threads, you can use the following command:
+
+```bash
+cargo make build_multithread
+```
+
+Or with the **arkzkey** feature enabled:
+
+```bash
+cargo make build_multithread_arkzkey
+```
+
+### WebAssembly Threading Support
+
+Most modern browsers support WebAssembly threads, but they require the following headers to enable `SharedArrayBuffer`, which is necessary for multithreading:
+
+- Cross-Origin-Opener-Policy: same-origin
+- Cross-Origin-Embedder-Policy: require-corp
+
+Without these, the application will fall back to single-threaded mode.
+
+## Feature detection
+
+If you're targeting [older browser versions that didn't support WebAssembly threads yet](https://webassembly.org/roadmap/), you'll likely want to create two builds - one with thread support and one without - and use feature detection to choose the right one on the JavaScript side.
+
+You can use [wasm-feature-detect](https://github.com/GoogleChromeLabs/wasm-feature-detect) library for this purpose. For example, your code might look like this:
+
+```js
+import { threads } from 'wasm-feature-detect';
+
+let wasmPkg;
+
+if (await threads()) {
+  wasmPkg = await import('./pkg-with-threads/index.js');
+  await wasmPkg.default();
+  await wasmPkg.initThreadPool(navigator.hardwareConcurrency);
+} else {
+  wasmPkg = await import('./pkg-without-threads/index.js');
+  await wasmPkg.default();
+}
+
+wasmPkg.nowCallAnyExportedFuncs();
 ```

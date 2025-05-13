@@ -1,6 +1,6 @@
 .PHONY: all installdeps build test bench clean
 
-all: .pre-build build
+all: installdeps build
 
 .fetch-submodules:
 	@git submodule update --init --recursive
@@ -13,29 +13,22 @@ endif
 
 installdeps: .pre-build
 ifeq ($(shell uname),Darwin)
-	@brew update
-	@brew install cmake ninja
+	@brew install cmake ninja binaryen
 else ifeq ($(shell uname),Linux)
-	@sudo apt-get update
-	@sudo apt-get install -y cmake ninja-build
+	@sudo apt-get install -y cmake ninja-build binaryen
 endif
-	@if [ ! -d "$$HOME/.nvm" ]; then \
-		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash; \
-	fi
-	@bash -c 'export NVM_DIR="$$HOME/.nvm" && \
-		[ -s "$$NVM_DIR/nvm.sh" ] && \. "$$NVM_DIR/nvm.sh" && \
-		nvm install 22.14.0 && \
-		nvm use 22.14.0'
-	@curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-	@echo "\033[1;32m>>> Now run this command to activate Node.js 22.14.0: \033[1;33msource $$HOME/.nvm/nvm.sh && nvm use 22.14.0\033[0m"
+	@which wasm-pack > /dev/null && wasm-pack --version | grep -q "0.13.1" || cargo install wasm-pack --version=0.13.1
+	@which wasm-bindgen > /dev/null && wasm-bindgen --version | grep -q "0.2.100" || cargo install wasm-bindgen-cli --version=0.2.100
+	@test -s "$$HOME/.nvm/nvm.sh" || curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash
+	@bash -c '. "$$HOME/.nvm/nvm.sh"; [ "$$(node -v 2>/dev/null)" = "v22.14.0" ] || nvm install 22.14.0; nvm use 22.14.0; nvm alias default 22.14.0'
 
-build: .pre-build
+build: installdeps
 	@cargo make build
 
-test: .pre-build
+test: build
 	@cargo make test
 
-bench: .pre-build
+bench: build
 	@cargo make bench
 
 clean:
