@@ -15,7 +15,11 @@ installdeps: .pre-build
 ifeq ($(shell uname),Darwin)
 	@brew install cmake ninja binaryen
 else ifeq ($(shell uname),Linux)
-	@sudo apt-get install -y cmake ninja-build binaryen
+	@if [ -f /etc/os-release ] && grep -q "ID=nixos" /etc/os-release; then \
+		echo "Detected NixOS, skipping apt-get installation."; \
+	else \
+		sudo apt-get install -y cmake ninja-build binaryen; \
+	fi
 endif
 	@which wasm-pack > /dev/null && wasm-pack --version | grep -q "0.13.1" || cargo install wasm-pack --version=0.13.1
 	@which wasm-bindgen > /dev/null && wasm-bindgen --version | grep -q "0.2.100" || cargo install wasm-bindgen-cli --version=0.2.100

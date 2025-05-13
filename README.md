@@ -37,6 +37,12 @@ Zerokit currently focuses on RLN (Rate-Limiting Nullifier) implementation using 
 make installdeps
 ```
 
+#### Use Nix to install dependencies
+
+```bash
+nix develop
+```
+
 ### Build and Test All Crates
 
 ```bash
