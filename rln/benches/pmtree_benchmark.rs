@@ -26,12 +26,6 @@ pub fn pmtree_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("Pmtree::compute_root", |b| {
-        b.iter(|| {
-            tree.compute_root().unwrap();
-        })
-    });
-
     c.bench_function("Pmtree::get", |b| {
         b.iter(|| {
             tree.get(0).unwrap();

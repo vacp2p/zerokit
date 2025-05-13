@@ -282,10 +282,6 @@ where
         Ok(proof.compute_root_from(hash) == self.root())
     }
 
-    fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>> {
-        Ok(self.root())
-    }
-
     fn set_metadata(&mut self, metadata: &[u8]) -> Result<()> {
         self.metadata = metadata.to_vec();
         Ok(())

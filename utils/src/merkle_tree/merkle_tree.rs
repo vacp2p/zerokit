@@ -55,7 +55,6 @@ pub trait ZerokitMerkleTree {
     fn capacity(&self) -> usize;
     fn leaves_set(&self) -> usize;
     fn root(&self) -> FrOf<Self::Hasher>;
-    fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>>;
     fn get_subtree_root(&self, n: usize, index: usize) -> Result<FrOf<Self::Hasher>>;
     fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>) -> Result<()>;
     fn set_range<I>(&mut self, start: usize, leaves: I) -> Result<()>

@@ -102,12 +102,6 @@ pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("OptimalMerkleTree::compute_root", |b| {
-        b.iter(|| {
-            tree.compute_root().unwrap();
-        })
-    });
-
     c.bench_function("OptimalMerkleTree::get", |b| {
         let mut index = 0;
         b.iter(|| {
@@ -172,12 +166,6 @@ pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
             )
             .unwrap();
             offset = (offset + NOF_LEAVES) % (1 << 20);
-        })
-    });
-
-    c.bench_function("FullMerkleTree::compute_root", |b| {
-        b.iter(|| {
-            tree.compute_root().unwrap();
         })
     });
 

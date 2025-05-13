@@ -99,25 +99,25 @@ pub mod test {
     }
 
     #[test]
-    fn test_compute_root() {
+    fn test_set_range() {
         let depth = 4;
         let leaves: Vec<TestFr> = (0..(1 << depth) as u32).map(TestFr::from).collect();
 
         let mut tree_full = default_full_merkle_tree(depth);
+        let root_before = tree_full.root();
         tree_full
             .set_range(0, leaves.iter().cloned())
             .expect("Failed to set leaves");
-        let root_before = tree_full.root();
-        let recomputed_root = tree_full.compute_root().expect("Failed to compute root");
-        assert_eq!(root_before, recomputed_root);
+        let root_after = tree_full.root();
+        assert_eq!(root_before, root_after);
 
         let mut tree_opt = default_optimal_merkle_tree(depth);
+        let root_before = tree_opt.root();
         tree_opt
             .set_range(0, leaves.iter().cloned())
             .expect("Failed to set leaves");
-        let root_before = tree_opt.root();
-        let recomputed_root = tree_opt.compute_root().expect("Failed to compute root");
-        assert_eq!(root_before, recomputed_root);
+        let root_after = tree_opt.root();
+        assert_eq!(root_before, root_after);
     }
 
     #[test]
