@@ -40,7 +40,7 @@ ark-serialize = { version = "0.5.0", default-features = false, features = [
 ] }
 
 # error handling
-color-eyre = "0.6.3"
+color-eyre = "0.6.4"
 thiserror = "2.0.12"
 
 # utilities
