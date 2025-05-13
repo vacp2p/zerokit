@@ -42,7 +42,7 @@ pub mod test {
         type Err = std::string::FromUtf8Error;
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
-            Ok(TestFr(s.as_bytes().try_into().unwrap()))
+            Ok(TestFr(s.as_bytes().try_into().expect("Invalid length")))
         }
     }
 
@@ -50,7 +50,7 @@ pub mod test {
         fn from(value: u32) -> Self {
             let mut bytes: Vec<u8> = vec![0; 28];
             bytes.extend_from_slice(&value.to_be_bytes());
-            TestFr(bytes.as_slice().try_into().unwrap())
+            TestFr(bytes.as_slice().try_into().expect("Invalid length"))
         }
     }
 
@@ -58,12 +58,12 @@ pub mod test {
 
     fn default_full_merkle_tree(depth: usize) -> FullMerkleTree<Keccak256> {
         FullMerkleTree::<Keccak256>::new(depth, TestFr([0; 32]), FullMerkleConfig::default())
-            .unwrap()
+            .expect("Failed to create FullMerkleTree")
     }
 
     fn default_optimal_merkle_tree(depth: usize) -> OptimalMerkleTree<Keccak256> {
         OptimalMerkleTree::<Keccak256>::new(depth, TestFr([0; 32]), OptimalMerkleConfig::default())
-            .unwrap()
+            .expect("Failed to create OptimalMerkleTree")
     }
 
     #[test]
@@ -86,14 +86,14 @@ pub mod test {
         let mut tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
         assert_eq!(tree_full.root(), default_tree_root);
         for i in 0..nof_leaves {
-            tree_full.set(i, leaves[i]).unwrap();
+            tree_full.set(i, leaves[i]).expect("Failed to set leaf");
             assert_eq!(tree_full.root(), roots[i]);
         }
 
         let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
         assert_eq!(tree_opt.root(), default_tree_root);
         for i in 0..nof_leaves {
-            tree_opt.set(i, leaves[i]).unwrap();
+            tree_opt.set(i, leaves[i]).expect("Failed to set leaf");
             assert_eq!(tree_opt.root(), roots[i]);
         }
     }
@@ -104,15 +104,19 @@ pub mod test {
         let leaves: Vec<TestFr> = (0..(1 << depth) as u32).map(TestFr::from).collect();
 
         let mut tree_full = default_full_merkle_tree(depth);
-        tree_full.set_range(0, leaves.iter().cloned()).unwrap();
+        tree_full
+            .set_range(0, leaves.iter().cloned())
+            .expect("Failed to set leaves");
         let root_before = tree_full.root();
-        let recomputed_root = tree_full.compute_root().unwrap();
+        let recomputed_root = tree_full.compute_root().expect("Failed to compute root");
         assert_eq!(root_before, recomputed_root);
 
         let mut tree_opt = default_optimal_merkle_tree(depth);
-        tree_opt.set_range(0, leaves.iter().cloned()).unwrap();
+        tree_opt
+            .set_range(0, leaves.iter().cloned())
+            .expect("Failed to set leaves");
         let root_before = tree_opt.root();
-        let recomputed_root = tree_opt.compute_root().unwrap();
+        let recomputed_root = tree_opt.compute_root().expect("Failed to compute root");
         assert_eq!(root_before, recomputed_root);
     }
 
@@ -123,10 +127,10 @@ pub mod test {
 
         for i in 0..4 {
             let leaf = TestFr::from(i as u32);
-            tree_full.update_next(leaf).unwrap();
-            tree_opt.update_next(leaf).unwrap();
-            assert_eq!(tree_full.get(i).unwrap(), leaf);
-            assert_eq!(tree_opt.get(i).unwrap(), leaf);
+            tree_full.update_next(leaf).expect("Failed to update leaf");
+            tree_opt.update_next(leaf).expect("Failed to update leaf");
+            assert_eq!(tree_full.get(i).expect("Failed to get leaf"), leaf);
+            assert_eq!(tree_opt.get(i).expect("Failed to get leaf"), leaf);
         }
 
         assert_eq!(tree_full.leaves_set(), 4);
@@ -140,34 +144,38 @@ pub mod test {
         let new_leaf = TestFr::from(99);
 
         let mut tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
-        tree_full.set(index, original_leaf).unwrap();
+        tree_full
+            .set(index, original_leaf)
+            .expect("Failed to set leaf");
         let root_with_original = tree_full.root();
 
-        tree_full.delete(index).unwrap();
+        tree_full.delete(index).expect("Failed to delete leaf");
         let root_after_delete = tree_full.root();
         assert_ne!(root_with_original, root_after_delete);
 
-        tree_full.set(index, new_leaf).unwrap();
+        tree_full.set(index, new_leaf).expect("Failed to set leaf");
         let root_after_reset = tree_full.root();
 
         assert_ne!(root_after_delete, root_after_reset);
         assert_ne!(root_with_original, root_after_reset);
-        assert_eq!(tree_full.get(index).unwrap(), new_leaf);
+        assert_eq!(tree_full.get(index).expect("Failed to get leaf"), new_leaf);
 
         let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
-        tree_opt.set(index, original_leaf).unwrap();
+        tree_opt
+            .set(index, original_leaf)
+            .expect("Failed to set leaf");
         let root_with_original = tree_opt.root();
 
-        tree_opt.delete(index).unwrap();
+        tree_opt.delete(index).expect("Failed to delete leaf");
         let root_after_delete = tree_opt.root();
         assert_ne!(root_with_original, root_after_delete);
 
-        tree_opt.set(index, new_leaf).unwrap();
+        tree_opt.set(index, new_leaf).expect("Failed to set leaf");
         let root_after_reset = tree_opt.root();
 
         assert_ne!(root_after_delete, root_after_reset);
         assert_ne!(root_with_original, root_after_reset);
-        assert_eq!(tree_opt.get(index).unwrap(), new_leaf);
+        assert_eq!(tree_opt.get(index).expect("Failed to get leaf"), new_leaf);
     }
 
     #[test]
@@ -198,24 +206,24 @@ pub mod test {
         // check situation when the number of items to insert is less than the number of items to delete
         tree_full
             .override_range(0, leaves_2.clone().into_iter(), [0, 1, 2, 3].into_iter())
-            .unwrap();
+            .expect("Failed to override range");
 
         // check if the indexes for write and delete are the same
         tree_full
             .override_range(0, leaves_4.clone().into_iter(), [0, 1, 2, 3].into_iter())
-            .unwrap();
+            .expect("Failed to override range");
         assert_eq!(tree_full.get_empty_leaves_indices(), vec![]);
 
         // check if indexes for deletion are before indexes for overwriting
         tree_full
             .override_range(4, leaves_4.clone().into_iter(), [0, 1, 2, 3].into_iter())
-            .unwrap();
+            .expect("Failed to override range");
         assert_eq!(tree_full.get_empty_leaves_indices(), vec![0, 1, 2, 3]);
 
         // check if the indices for write and delete do not overlap completely
         tree_full
             .override_range(2, leaves_4.clone().into_iter(), [0, 1, 2, 3].into_iter())
-            .unwrap();
+            .expect("Failed to override range");
         assert_eq!(tree_full.get_empty_leaves_indices(), vec![0, 1]);
 
         let mut tree_opt = default_optimal_merkle_tree(depth);
@@ -237,24 +245,24 @@ pub mod test {
         // check situation when the number of items to insert is less than the number of items to delete
         tree_opt
             .override_range(0, leaves_2.clone().into_iter(), [0, 1, 2, 3].into_iter())
-            .unwrap();
+            .expect("Failed to override range");
 
         // check if the indexes for write and delete are the same
         tree_opt
             .override_range(0, leaves_4.clone().into_iter(), [0, 1, 2, 3].into_iter())
-            .unwrap();
+            .expect("Failed to override range");
         assert_eq!(tree_opt.get_empty_leaves_indices(), vec![]);
 
         // check if indexes for deletion are before indexes for overwriting
         tree_opt
             .override_range(4, leaves_4.clone().into_iter(), [0, 1, 2, 3].into_iter())
-            .unwrap();
+            .expect("Failed to override range");
         assert_eq!(tree_opt.get_empty_leaves_indices(), vec![0, 1, 2, 3]);
 
         // check if the indices for write and delete do not overlap completely
         tree_opt
             .override_range(2, leaves_4.clone().into_iter(), [0, 1, 2, 3].into_iter())
-            .unwrap();
+            .expect("Failed to override range");
         assert_eq!(tree_opt.get_empty_leaves_indices(), vec![0, 1]);
     }
 
@@ -270,12 +278,19 @@ pub mod test {
         for i in 0..nof_leaves {
             // check leaves
             assert_eq!(
-                tree_full.get(i).unwrap(),
-                tree_full.get_subtree_root(depth, i).unwrap()
+                tree_full.get(i).expect("Failed to get leaf"),
+                tree_full
+                    .get_subtree_root(depth, i)
+                    .expect("Failed to get subtree root")
             );
 
             // check root
-            assert_eq!(tree_full.root(), tree_full.get_subtree_root(0, i).unwrap());
+            assert_eq!(
+                tree_full.root(),
+                tree_full
+                    .get_subtree_root(0, i)
+                    .expect("Failed to get subtree root")
+            );
         }
 
         // check intermediate nodes
@@ -285,9 +300,15 @@ pub mod test {
                 let idx_r = (i + 1) * (1 << (depth - n));
                 let idx_sr = idx_l;
 
-                let prev_l = tree_full.get_subtree_root(n, idx_l).unwrap();
-                let prev_r = tree_full.get_subtree_root(n, idx_r).unwrap();
-                let subroot = tree_full.get_subtree_root(n - 1, idx_sr).unwrap();
+                let prev_l = tree_full
+                    .get_subtree_root(n, idx_l)
+                    .expect("Failed to get subtree root");
+                let prev_r = tree_full
+                    .get_subtree_root(n, idx_r)
+                    .expect("Failed to get subtree root");
+                let subroot = tree_full
+                    .get_subtree_root(n - 1, idx_sr)
+                    .expect("Failed to get subtree root");
 
                 // check intermediate nodes
                 assert_eq!(Keccak256::hash(&[prev_l, prev_r]), subroot);
@@ -300,11 +321,18 @@ pub mod test {
         for i in 0..nof_leaves {
             // check leaves
             assert_eq!(
-                tree_opt.get(i).unwrap(),
-                tree_opt.get_subtree_root(depth, i).unwrap()
+                tree_opt.get(i).expect("Failed to get leaf"),
+                tree_opt
+                    .get_subtree_root(depth, i)
+                    .expect("Failed to get subtree root")
             );
             // check root
-            assert_eq!(tree_opt.root(), tree_opt.get_subtree_root(0, i).unwrap());
+            assert_eq!(
+                tree_opt.root(),
+                tree_opt
+                    .get_subtree_root(0, i)
+                    .expect("Failed to get subtree root")
+            );
         }
 
         // check intermediate nodes
@@ -314,9 +342,15 @@ pub mod test {
                 let idx_r = (i + 1) * (1 << (depth - n));
                 let idx_sr = idx_l;
 
-                let prev_l = tree_opt.get_subtree_root(n, idx_l).unwrap();
-                let prev_r = tree_opt.get_subtree_root(n, idx_r).unwrap();
-                let subroot = tree_opt.get_subtree_root(n - 1, idx_sr).unwrap();
+                let prev_l = tree_opt
+                    .get_subtree_root(n, idx_l)
+                    .expect("Failed to get subtree root");
+                let prev_r = tree_opt
+                    .get_subtree_root(n, idx_r)
+                    .expect("Failed to get subtree root");
+                let subroot = tree_opt
+                    .get_subtree_root(n - 1, idx_sr)
+                    .expect("Failed to get subtree root");
 
                 // check intermediate nodes
                 assert_eq!(Keccak256::hash(&[prev_l, prev_r]), subroot);
@@ -333,16 +367,18 @@ pub mod test {
         let mut tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
         for i in 0..nof_leaves {
             // We set the leaves
-            tree_full.set(i, leaves[i]).unwrap();
+            tree_full.set(i, leaves[i]).expect("Failed to set leaf");
 
             // We compute a merkle proof
-            let proof = tree_full.proof(i).expect("index should be set");
+            let proof = tree_full.proof(i).expect("Failed to compute proof");
 
             // We verify if the merkle proof corresponds to the right leaf index
             assert_eq!(proof.leaf_index(), i);
 
             // We verify the proof
-            assert!(tree_full.verify(&leaves[i], &proof).unwrap());
+            assert!(tree_full
+                .verify(&leaves[i], &proof)
+                .expect("Failed to verify proof"));
 
             // We ensure that the Merkle proof and the leaf generate the same root as the tree
             assert_eq!(proof.compute_root_from(&leaves[i]), tree_full.root());
@@ -350,23 +386,25 @@ pub mod test {
             // We check that the proof is not valid for another leaf
             assert!(!tree_full
                 .verify(&leaves[(i + 1) % nof_leaves], &proof)
-                .unwrap());
+                .expect("Failed to verify proof"));
         }
 
         // We test the OptimalMerkleTree implementation
         let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
         for i in 0..nof_leaves {
             // We set the leaves
-            tree_opt.set(i, leaves[i]).unwrap();
+            tree_opt.set(i, leaves[i]).expect("Failed to set leaf");
 
             // We compute a merkle proof
-            let proof = tree_opt.proof(i).expect("index should be set");
+            let proof = tree_opt.proof(i).expect("Failed to compute proof");
 
             // We verify if the merkle proof corresponds to the right leaf index
             assert_eq!(proof.leaf_index(), i);
 
             // We verify the proof
-            assert!(tree_opt.verify(&leaves[i], &proof).unwrap());
+            assert!(tree_opt
+                .verify(&leaves[i], &proof)
+                .expect("Failed to verify proof"));
 
             // We ensure that the Merkle proof and the leaf generate the same root as the tree
             assert_eq!(proof.compute_root_from(&leaves[i]), tree_opt.root());
@@ -374,7 +412,7 @@ pub mod test {
             // We check that the proof is not valid for another leaf
             assert!(!tree_opt
                 .verify(&leaves[(i + 1) % nof_leaves], &proof)
-                .unwrap());
+                .expect("Failed to verify proof"));
         }
     }
 
@@ -385,12 +423,16 @@ pub mod test {
 
         let invalid_leaf = TestFr::from(12345);
 
-        let proof_full = tree_full.proof(0).unwrap();
-        let proof_opt = tree_opt.proof(0).unwrap();
+        let proof_full = tree_full.proof(0).expect("Failed to compute proof");
+        let proof_opt = tree_opt.proof(0).expect("Failed to compute proof");
 
         // Should fail because no leaf was set
-        assert!(!tree_full.verify(&invalid_leaf, &proof_full).unwrap());
-        assert!(!tree_opt.verify(&invalid_leaf, &proof_opt).unwrap());
+        assert!(!tree_full
+            .verify(&invalid_leaf, &proof_full)
+            .expect("Failed to verify proof"));
+        assert!(!tree_opt
+            .verify(&invalid_leaf, &proof_opt)
+            .expect("Failed to verify proof"));
     }
 
     #[test]
@@ -407,7 +449,9 @@ pub mod test {
         let to_delete_indices: [usize; 2] = [0, 1];
 
         let mut tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
-        tree_full.set_range(0, leaves.iter().cloned()).unwrap();
+        tree_full
+            .set_range(0, leaves.iter().cloned())
+            .expect("Failed to set leaves");
 
         tree_full
             .override_range(
@@ -415,14 +459,16 @@ pub mod test {
                 new_leaves.iter().cloned(),
                 to_delete_indices.iter().cloned(),
             )
-            .unwrap();
+            .expect("Failed to override range");
 
         for (i, &new_leaf) in new_leaves.iter().enumerate() {
-            assert_eq!(tree_full.get(i).unwrap(), new_leaf);
+            assert_eq!(tree_full.get(i).expect("Failed to get leaf"), new_leaf);
         }
 
         let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
-        tree_opt.set_range(0, leaves.iter().cloned()).unwrap();
+        tree_opt
+            .set_range(0, leaves.iter().cloned())
+            .expect("Failed to set leaves");
 
         tree_opt
             .override_range(
@@ -430,10 +476,10 @@ pub mod test {
                 new_leaves.iter().cloned(),
                 to_delete_indices.iter().cloned(),
             )
-            .unwrap();
+            .expect("Failed to override range");
 
         for (i, &new_leaf) in new_leaves.iter().enumerate() {
-            assert_eq!(tree_opt.get(i).unwrap(), new_leaf);
+            assert_eq!(tree_opt.get(i).expect("Failed to get leaf"), new_leaf);
         }
     }
 
@@ -452,20 +498,20 @@ pub mod test {
 
         tree_full
             .override_range(0, leaves.iter().cloned(), indices.iter().cloned())
-            .unwrap();
+            .expect("Failed to override range");
 
         for (i, &leaf) in leaves.iter().enumerate() {
-            assert_eq!(tree_full.get(i).unwrap(), leaf);
+            assert_eq!(tree_full.get(i).expect("Failed to get leaf"), leaf);
         }
 
         let mut tree_opt = default_optimal_merkle_tree(depth);
 
         tree_opt
             .override_range(0, leaves.iter().cloned(), indices.iter().cloned())
-            .unwrap();
+            .expect("Failed to override range");
 
         for (i, &leaf) in leaves.iter().enumerate() {
-            assert_eq!(tree_opt.get(i).unwrap(), leaf);
+            assert_eq!(tree_opt.get(i).expect("Failed to get leaf"), leaf);
         }
     }
 }
