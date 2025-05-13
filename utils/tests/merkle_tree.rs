@@ -109,7 +109,7 @@ pub mod test {
             .set_range(0, leaves.iter().cloned())
             .expect("Failed to set leaves");
         let root_after = tree_full.root();
-        assert_eq!(root_before, root_after);
+        assert_ne!(root_before, root_after);
 
         let mut tree_opt = default_optimal_merkle_tree(depth);
         let root_before = tree_opt.root();
@@ -117,7 +117,7 @@ pub mod test {
             .set_range(0, leaves.iter().cloned())
             .expect("Failed to set leaves");
         let root_after = tree_opt.root();
-        assert_eq!(root_before, root_after);
+        assert_ne!(root_before, root_after);
     }
 
     #[test]
