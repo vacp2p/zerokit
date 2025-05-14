@@ -166,7 +166,8 @@ pub fn hashless_setup_iterative(c: &mut Criterion) {
                     // Actual benchmark
                     |mut tree| {
                         for d in data_source.iter() {
-                            black_box(tree.insert(d, noop_hash));
+                            #[allow(clippy::unit_arg)]
+                            black_box(tree.insert(d, noop_hash))
                         }
                     },
                     BatchSize::SmallInput,
@@ -440,15 +441,6 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
     }
     group.finish();
 }
-                    },
-                    // Actual benchmark
-                    |(mut tree, data_source)| tree.set_range(0, data_source),
-                    BatchSize::SmallInput,
-                )
-            },
-        );
-    }
-}
 
 criterion_main!(tree_benchies);
 criterion_group! {
@@ -461,10 +453,4 @@ criterion_group! {
         hashless_setup_batch,
         hashless_setup_iterative,
         tree_hash_batch_setup_shootout,
-}
-    config = Criterion::default()
-        .warm_up_time(std::time::Duration::from_millis(500))
-        .measurement_time(std::time::Duration::from_secs(4))
-        .sample_size(50);
-    targets =  /* hashless_setup_batch, hashless_setup_iterative, */ tree_hash_batch_shootout
 }
