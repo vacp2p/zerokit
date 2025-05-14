@@ -1,5 +1,4 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use hex_literal::hex;
 use lazy_static::lazy_static;
 use std::{fmt::Display, str::FromStr};
 use tiny_keccak::{Hasher as _, Keccak};
@@ -47,55 +46,78 @@ impl FromStr for TestFr {
 }
 
 lazy_static! {
-    static ref LEAVES: [TestFr; 4] = [
-        hex!("0000000000000000000000000000000000000000000000000000000000000001"),
-        hex!("0000000000000000000000000000000000000000000000000000000000000002"),
-        hex!("0000000000000000000000000000000000000000000000000000000000000003"),
-        hex!("0000000000000000000000000000000000000000000000000000000000000004"),
-    ]
-    .map(TestFr);
+    static ref LEAVES: Vec<TestFr> = {
+        let mut leaves = Vec::with_capacity(1 << 20);
+        for i in 0..(1 << 20) {
+            let mut bytes = [0u8; 32];
+            bytes[28..].copy_from_slice(&(i as u32).to_be_bytes());
+            leaves.push(TestFr(bytes));
+        }
+        leaves
+    };
+    static ref INDICES: Vec<usize> = (0..(1 << 20)).collect();
 }
+
+const NOF_LEAVES: usize = 8192;
 
 pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
     let mut tree =
-        OptimalMerkleTree::<Keccak256>::new(2, TestFr([0; 32]), OptimalMerkleConfig::default())
+        OptimalMerkleTree::<Keccak256>::new(20, TestFr([0; 32]), OptimalMerkleConfig::default())
             .unwrap();
 
+    for i in 0..NOF_LEAVES {
+        tree.set(i, LEAVES[i % LEAVES.len()]).unwrap();
+    }
+
     c.bench_function("OptimalMerkleTree::set", |b| {
+        let mut index = NOF_LEAVES;
         b.iter(|| {
-            tree.set(0, LEAVES[0]).unwrap();
+            tree.set(index % (1 << 20), LEAVES[index % LEAVES.len()])
+                .unwrap();
+            index = (index + 1) % (1 << 20);
         })
     });
 
     c.bench_function("OptimalMerkleTree::delete", |b| {
+        let mut index = 0;
         b.iter(|| {
-            tree.delete(0).unwrap();
+            tree.delete(index % NOF_LEAVES).unwrap();
+            tree.set(index % NOF_LEAVES, LEAVES[index % LEAVES.len()])
+                .unwrap();
+            index = (index + 1) % NOF_LEAVES;
         })
     });
 
     c.bench_function("OptimalMerkleTree::override_range", |b| {
+        let mut offset = 0;
         b.iter(|| {
-            tree.override_range(0, LEAVES.into_iter(), [0, 1, 2, 3].into_iter())
-                .unwrap();
-        })
-    });
-
-    c.bench_function("OptimalMerkleTree::compute_root", |b| {
-        b.iter(|| {
-            tree.compute_root().unwrap();
+            let range = offset..offset + NOF_LEAVES;
+            tree.override_range(
+                offset,
+                LEAVES[range.clone()].iter().cloned(),
+                INDICES[range.clone()].iter().cloned(),
+            )
+            .unwrap();
+            offset = (offset + NOF_LEAVES) % (1 << 20);
         })
     });
 
     c.bench_function("OptimalMerkleTree::get", |b| {
+        let mut index = 0;
         b.iter(|| {
-            tree.get(0).unwrap();
+            tree.get(index % NOF_LEAVES).unwrap();
+            index = (index + 1) % NOF_LEAVES;
         })
     });
 
-    // check intermediate node getter which required additional computation of sub root index
     c.bench_function("OptimalMerkleTree::get_subtree_root", |b| {
+        let mut level = 1;
+        let mut index = 0;
         b.iter(|| {
-            tree.get_subtree_root(1, 0).unwrap();
+            tree.get_subtree_root(level % 20, index % (1 << (20 - (level % 20))))
+                .unwrap();
+            index = (index + 1) % (1 << (20 - (level % 20)));
+            level = 1 + (level % 20);
         })
     });
 
@@ -108,43 +130,61 @@ pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
 
 pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
     let mut tree =
-        FullMerkleTree::<Keccak256>::new(2, TestFr([0; 32]), FullMerkleConfig::default()).unwrap();
+        FullMerkleTree::<Keccak256>::new(20, TestFr([0; 32]), FullMerkleConfig::default()).unwrap();
+
+    for i in 0..NOF_LEAVES {
+        tree.set(i, LEAVES[i % LEAVES.len()]).unwrap();
+    }
 
     c.bench_function("FullMerkleTree::set", |b| {
+        let mut index = NOF_LEAVES;
         b.iter(|| {
-            tree.set(0, LEAVES[0]).unwrap();
+            tree.set(index % (1 << 20), LEAVES[index % LEAVES.len()])
+                .unwrap();
+            index = (index + 1) % (1 << 20);
         })
     });
 
     c.bench_function("FullMerkleTree::delete", |b| {
+        let mut index = 0;
         b.iter(|| {
-            tree.delete(0).unwrap();
+            tree.delete(index % NOF_LEAVES).unwrap();
+            tree.set(index % NOF_LEAVES, LEAVES[index % LEAVES.len()])
+                .unwrap();
+            index = (index + 1) % NOF_LEAVES;
         })
     });
 
     c.bench_function("FullMerkleTree::override_range", |b| {
+        let mut offset = 0;
         b.iter(|| {
-            tree.override_range(0, LEAVES.into_iter(), [0, 1, 2, 3].into_iter())
-                .unwrap();
-        })
-    });
-
-    c.bench_function("FullMerkleTree::compute_root", |b| {
-        b.iter(|| {
-            tree.compute_root().unwrap();
+            let range = offset..offset + NOF_LEAVES;
+            tree.override_range(
+                offset,
+                LEAVES[range.clone()].iter().cloned(),
+                INDICES[range.clone()].iter().cloned(),
+            )
+            .unwrap();
+            offset = (offset + NOF_LEAVES) % (1 << 20);
         })
     });
 
     c.bench_function("FullMerkleTree::get", |b| {
+        let mut index = 0;
         b.iter(|| {
-            tree.get(0).unwrap();
+            tree.get(index % NOF_LEAVES).unwrap();
+            index = (index + 1) % NOF_LEAVES;
         })
     });
 
-    // check intermediate node getter which required additional computation of sub root index
     c.bench_function("FullMerkleTree::get_subtree_root", |b| {
+        let mut level = 1;
+        let mut index = 0;
         b.iter(|| {
-            tree.get_subtree_root(1, 0).unwrap();
+            tree.get_subtree_root(level % 20, index % (1 << (20 - (level % 20))))
+                .unwrap();
+            index = (index + 1) % (1 << (20 - (level % 20)));
+            level = 1 + (level % 20);
         })
     });
 

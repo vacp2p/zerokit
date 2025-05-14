@@ -8,20 +8,26 @@
 // and https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/merkle_tree.rs
 
 //!
-//! # To do
+//! # TODO
 //!
 //! * Disk based storage backend (using mmaped files should be easy)
 //! * Implement serialization for tree and Merkle proof
 
-use std::str::FromStr;
+use std::{
+    fmt::{Debug, Display},
+    str::FromStr,
+};
 
 use color_eyre::Result;
+
+/// Enables parallel hashing when there are at least 8 nodes (4 pairs to hash), justifying the overhead.
+pub const MIN_PARALLEL_NODES: usize = 8;
 
 /// In the Hasher trait we define the node type, the default leaf
 /// and the hash function used to initialize a Merkle Tree implementation
 pub trait Hasher {
     /// Type of the leaf and tree node
-    type Fr: Clone + Copy + Eq + Default + std::fmt::Debug + std::fmt::Display + FromStr;
+    type Fr: Clone + Copy + Eq + Default + Debug + Display + FromStr + Send + Sync;
 
     /// Returns the default tree leaf
     fn default_leaf() -> Self::Fr;
@@ -49,7 +55,6 @@ pub trait ZerokitMerkleTree {
     fn capacity(&self) -> usize;
     fn leaves_set(&self) -> usize;
     fn root(&self) -> FrOf<Self::Hasher>;
-    fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>>;
     fn get_subtree_root(&self, n: usize, index: usize) -> Result<FrOf<Self::Hasher>>;
     fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>) -> Result<()>;
     fn set_range<I>(&mut self, start: usize, leaves: I) -> Result<()>

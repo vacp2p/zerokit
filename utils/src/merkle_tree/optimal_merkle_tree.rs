@@ -1,10 +1,10 @@
-use crate::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
-use crate::FrOf;
+use std::{cmp::max, collections::HashMap, fmt::Debug, str::FromStr};
+
 use color_eyre::{Report, Result};
-use std::cmp::min;
-use std::collections::HashMap;
-use std::str::FromStr;
-use std::{cmp::max, fmt::Debug};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
+use crate::merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES};
+
 ////////////////////////////////////////////////////////////
 ///// Optimal Merkle Tree Implementation
 ////////////////////////////////////////////////////////////
@@ -31,11 +31,11 @@ where
     /// Set to 0 if the leaf is empty and set to 1 in otherwise.
     cached_leaves_indices: Vec<u8>,
 
-    // The next available (i.e., never used) tree index. Equivalently, the number of leaves added to the tree
-    // (deletions leave next_index unchanged)
+    /// The next available (i.e., never used) tree index. Equivalently, the number of leaves added to the tree
+    /// (deletions leave next_index unchanged)
     next_index: usize,
 
-    // metadata that an application may use to store additional information
+    /// metadata that an application may use to store additional information
     metadata: Vec<u8>,
 }
 
@@ -55,10 +55,7 @@ impl FromStr for OptimalMerkleConfig {
     }
 }
 
-////////////////////////////////////////////////////////////
-///// Implementations
-////////////////////////////////////////////////////////////
-
+/// Implementations
 impl<H: Hasher> ZerokitMerkleTree for OptimalMerkleTree<H>
 where
     H: Hasher,
@@ -74,15 +71,17 @@ where
     /// Creates a new `MerkleTree`
     /// depth - the height of the tree made only of hash nodes. 2^depth is the maximum number of leaves hash nodes
     fn new(depth: usize, default_leaf: H::Fr, _config: Self::Config) -> Result<Self> {
+        // Compute cache node values, leaf to root
         let mut cached_nodes: Vec<H::Fr> = Vec::with_capacity(depth + 1);
         cached_nodes.push(default_leaf);
         for i in 0..depth {
             cached_nodes.push(H::hash(&[cached_nodes[i]; 2]));
         }
         cached_nodes.reverse();
+
         Ok(OptimalMerkleTree {
-            cached_nodes,
             depth,
+            cached_nodes,
             nodes: HashMap::with_capacity(1 << depth),
             cached_leaves_indices: vec![0; 1 << depth],
             next_index: 0,
@@ -94,26 +93,47 @@ where
         Ok(())
     }
 
-    // Returns the depth of the tree
+    /// Returns the depth of the tree
     fn depth(&self) -> usize {
         self.depth
     }
 
-    // Returns the capacity of the tree, i.e. the maximum number of accumulatable leaves
+    /// Returns the capacity of the tree, i.e. the maximum number of accumulatable leaves
     fn capacity(&self) -> usize {
         1 << self.depth
     }
 
-    // Returns the total number of leaves set
+    /// Returns the total number of leaves set
     fn leaves_set(&self) -> usize {
         self.next_index
     }
 
-    // Returns the root of the tree
+    /// Returns the root of the tree
     fn root(&self) -> H::Fr {
         self.get_node(0, 0)
     }
 
+    /// Sets a leaf at the specified tree index
+    fn set(&mut self, index: usize, leaf: H::Fr) -> Result<()> {
+        if index >= self.capacity() {
+            return Err(Report::msg("index exceeds set size"));
+        }
+        self.nodes.insert((self.depth, index), leaf);
+        self.update_hashes(index, 1)?;
+        self.next_index = max(self.next_index, index + 1);
+        self.cached_leaves_indices[index] = 1;
+        Ok(())
+    }
+
+    /// Get a leaf from the specified tree index
+    fn get(&self, index: usize) -> Result<H::Fr> {
+        if index >= self.capacity() {
+            return Err(Report::msg("index exceeds set size"));
+        }
+        Ok(self.get_node(self.depth, index))
+    }
+
+    /// Returns the root of the subtree at level n and index
     fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr> {
         if n > self.depth() {
             return Err(Report::msg("level exceeds depth size"));
@@ -130,26 +150,7 @@ where
         }
     }
 
-    // Sets a leaf at the specified tree index
-    fn set(&mut self, index: usize, leaf: H::Fr) -> Result<()> {
-        if index >= self.capacity() {
-            return Err(Report::msg("index exceeds set size"));
-        }
-        self.nodes.insert((self.depth, index), leaf);
-        self.update_hashes(index, 1)?;
-        self.next_index = max(self.next_index, index + 1);
-        self.cached_leaves_indices[index] = 1;
-        Ok(())
-    }
-
-    // Get a leaf from the specified tree index
-    fn get(&self, index: usize) -> Result<H::Fr> {
-        if index >= self.capacity() {
-            return Err(Report::msg("index exceeds set size"));
-        }
-        Ok(self.get_node(self.depth, index))
-    }
-
+    /// Returns the indices of the leaves that are empty
     fn get_empty_leaves_indices(&self) -> Vec<usize> {
         self.cached_leaves_indices
             .iter()
@@ -160,7 +161,7 @@ where
             .collect()
     }
 
-    // Sets multiple leaves from the specified tree index
+    /// Sets multiple leaves from the specified tree index
     fn set_range<I: ExactSizeIterator<Item = H::Fr>>(
         &mut self,
         start: usize,
@@ -180,13 +181,14 @@ where
         Ok(())
     }
 
+    /// Overrides a range of leaves while resetting specified indices to default and preserving unaffected values.
     fn override_range<I, J>(&mut self, start: usize, leaves: I, indices: J) -> Result<()>
     where
         I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
         J: ExactSizeIterator<Item = usize>,
     {
         let indices = indices.into_iter().collect::<Vec<_>>();
-        let min_index = *indices.first().unwrap();
+        let min_index = *indices.first().expect("indices should not be empty");
         let leaves_vec = leaves.into_iter().collect::<Vec<_>>();
 
         let max_index = start + leaves_vec.len();
@@ -195,7 +197,7 @@ where
 
         for i in min_index..start {
             if !indices.contains(&i) {
-                let value = self.get_leaf(i);
+                let value = self.get(i)?;
                 set_values[i - min_index] = value;
             }
         }
@@ -212,13 +214,13 @@ where
             .map_err(|e| Report::msg(e.to_string()))
     }
 
-    // Sets a leaf at the next available index
+    /// Sets a leaf at the next available index
     fn update_next(&mut self, leaf: H::Fr) -> Result<()> {
         self.set(self.next_index, leaf)?;
         Ok(())
     }
 
-    // Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
+    /// Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
     fn delete(&mut self, index: usize) -> Result<()> {
         // We reset the leaf only if we previously set a leaf at that index
         if index < self.next_index {
@@ -228,7 +230,7 @@ where
         Ok(())
     }
 
-    // Computes a merkle proof the leaf at the specified index
+    /// Computes a merkle proof the leaf at the specified index
     fn proof(&self, index: usize) -> Result<Self::Proof> {
         if index >= self.capacity() {
             return Err(Report::msg("index exceeds set size"));
@@ -238,7 +240,10 @@ where
         let mut depth = self.depth;
         loop {
             i ^= 1;
-            witness.push((self.get_node(depth, i), (1 - (i & 1)).try_into().unwrap()));
+            witness.push((
+                self.get_node(depth, i),
+                (1 - (i & 1)).try_into().expect("0 or 1 expected"),
+            ));
             i >>= 1;
             depth -= 1;
             if depth == 0 {
@@ -252,18 +257,13 @@ where
         }
     }
 
-    // Verifies a Merkle proof with respect to the input leaf and the tree root
+    /// Verifies a Merkle proof with respect to the input leaf and the tree root
     fn verify(&self, leaf: &H::Fr, witness: &Self::Proof) -> Result<bool> {
         if witness.length() != self.depth {
             return Err(Report::msg("witness length doesn't match tree depth"));
         }
         let expected_root = witness.compute_root_from(leaf);
         Ok(expected_root.eq(&self.root()))
-    }
-
-    fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>> {
-        self.recalculate_from(0)?;
-        Ok(self.root())
     }
 
     fn set_metadata(&mut self, metadata: &[u8]) -> Result<()> {
@@ -276,100 +276,75 @@ where
     }
 }
 
+// Utilities for updating the tree nodes
 impl<H: Hasher> OptimalMerkleTree<H>
 where
     H: Hasher,
 {
-    // Utilities for updating the tree nodes
-
+    /// Returns the value of a node at a specific (depth, index).
+    /// Falls back to a cached default if the node hasn't been set.
     fn get_node(&self, depth: usize, index: usize) -> H::Fr {
-        let node = *self
+        *self
             .nodes
             .get(&(depth, index))
-            .unwrap_or_else(|| &self.cached_nodes[depth]);
-        node
+            .unwrap_or_else(|| &self.cached_nodes[depth])
     }
 
-    pub fn get_leaf(&self, index: usize) -> H::Fr {
-        self.get_node(self.depth, index)
-    }
-
-    fn hash_couple(&mut self, depth: usize, index: usize) -> H::Fr {
+    /// Computes the hash of a node’s two children at the given depth.
+    /// If the index is odd, it is rounded down to the nearest even index.
+    fn hash_couple(&self, depth: usize, index: usize) -> H::Fr {
         let b = index & !1;
         H::hash(&[self.get_node(depth, b), self.get_node(depth, b + 1)])
     }
 
-    fn recalculate_from(&mut self, index: usize) -> Result<()> {
-        let mut i = index;
-        let mut depth = self.depth;
-        loop {
-            let h = self.hash_couple(depth, i);
-            i >>= 1;
-            depth -= 1;
-            self.nodes.insert((depth, i), h);
-            self.cached_leaves_indices[index] = 1;
-            if depth == 0 {
-                break;
-            }
-        }
-        if depth != 0 {
-            return Err(Report::msg("did not reach the depth"));
-        }
-        if i != 0 {
-            return Err(Report::msg("did not go through all indexes"));
-        }
-        Ok(())
-    }
-
-    /// Update hashes after some leaves have been set or updated
-    /// index - first leaf index (which has been set or updated)
-    /// length - number of elements set or updated
-    fn update_hashes(&mut self, index: usize, length: usize) -> Result<()> {
-        // parent depth & index (used to store in the tree)
-        let mut parent_depth = self.depth - 1; // tree depth (or leaves depth) - 1
-        let mut parent_index = index >> 1;
-        let mut parent_index_bak = parent_index;
-        // maximum index at this depth
-        let parent_max_index_0 = (1 << parent_depth) / 2;
-        // Based on given length (number of elements we will update)
-        // we could restrict the parent_max_index
-        let current_index_max = if (index + length) % 2 == 0 {
-            index + length + 2
-        } else {
-            index + length + 1
-        };
-        let mut parent_max_index = min(current_index_max >> 1, parent_max_index_0);
-
-        // current depth & index (used to compute the hash)
-        // current depth initially == tree depth (or leaves depth)
+    /// Updates parent hashes after modifying a range of leaf nodes.
+    ///
+    /// - `start`: Starting leaf index that was updated.
+    /// - `length`: Number of consecutive leaves that were updated.
+    fn update_hashes(&mut self, start: usize, length: usize) -> Result<()> {
+        // Start at the leaf level
         let mut current_depth = self.depth;
-        let mut current_index = if index % 2 == 0 { index } else { index - 1 };
-        let mut current_index_bak = current_index;
 
-        loop {
-            // Hash 2 values at (current depth, current_index) & (current_depth, current_index + 1)
-            let n_hash = self.hash_couple(current_depth, current_index);
-            // Insert this hash at (parent_depth, parent_index)
-            self.nodes.insert((parent_depth, parent_index), n_hash);
+        // Round down to include the left sibling in the pair (if start is odd)
+        let mut current_index = start & !1;
 
-            if parent_depth == 0 {
-                // We just set the root hash of the tree - nothing to do anymore
-                break;
+        // Compute the max index at this level, round up to include the last updated leaf’s right sibling (if start + length is odd)
+        let mut current_index_max = (start + length + 1) & !1;
+
+        // Traverse from the leaf level up to the root
+        while current_depth > 0 {
+            // Compute the parent level (one level above the current)
+            let parent_depth = current_depth - 1;
+
+            // Use parallel processing when the number of pairs exceeds the threshold
+            if current_index_max - current_index >= MIN_PARALLEL_NODES {
+                let updates: Vec<((usize, usize), H::Fr)> = (current_index..current_index_max)
+                    .step_by(2)
+                    .collect::<Vec<_>>()
+                    .into_par_iter()
+                    .map(|index| {
+                        // Hash two child nodes at positions (current_depth, index) and (current_depth, index + 1)
+                        let hash = self.hash_couple(current_depth, index);
+                        // Return the computed parent hash and its position at
+                        ((parent_depth, index >> 1), hash)
+                    })
+                    .collect();
+
+                for (parent, hash) in updates {
+                    self.nodes.insert(parent, hash);
+                }
+            } else {
+                // Otherwise, fallback to sequential update for small ranges
+                for index in (current_index..current_index_max).step_by(2) {
+                    let hash = self.hash_couple(current_depth, index);
+                    self.nodes.insert((parent_depth, index >> 1), hash);
+                }
             }
-            // Incr parent index
-            parent_index += 1;
-            // Incr current index (+2 because we've just hashed current index & current_index + 1)
-            current_index += 2;
-            if parent_index >= parent_max_index {
-                // reset (aka decr depth & reset indexes)
-                parent_depth -= 1;
-                parent_index = parent_index_bak >> 1;
-                parent_index_bak = parent_index;
-                parent_max_index >>= 1;
-                current_depth -= 1;
-                current_index = current_index_bak >> 1;
-                current_index_bak = current_index;
-            }
+
+            // Move up one level in the tree
+            current_index >>= 1;
+            current_index_max = (current_index_max + 1) >> 1;
+            current_depth -= 1;
         }
 
         Ok(())
@@ -383,7 +358,7 @@ where
     type Index = u8;
     type Hasher = H;
 
-    // Returns the length of a Merkle proof
+    /// Returns the length of a Merkle proof
     fn length(&self) -> usize {
         self.0.len()
     }

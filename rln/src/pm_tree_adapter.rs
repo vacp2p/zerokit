@@ -168,10 +168,6 @@ impl ZerokitMerkleTree for PmTree {
         self.tree.root()
     }
 
-    fn compute_root(&mut self) -> Result<FrOf<Self::Hasher>> {
-        Ok(self.tree.root())
-    }
-
     fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>) -> Result<()> {
         self.tree
             .set(index, leaf)
