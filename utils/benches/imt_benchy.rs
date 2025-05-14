@@ -169,12 +169,12 @@ pub fn hashless_setup_iterative(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("IFT optimal iterative", size),
             &size,
-            |b, &_size| {
+            |b, &size| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
                         OptimalMerkleTree::<BenchyNoOpHasher>::new(
-                            6,
+                            (size.ilog2() + 1) as usize,
                             Fr::default(),
                             OptimalMerkleConfig::default(),
                         )
@@ -193,12 +193,12 @@ pub fn hashless_setup_iterative(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("IFT full iterative", size),
             &size,
-            |b, &_size| {
+            |b, &size| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
                         FullMerkleTree::<BenchyNoOpHasher>::new(
-                            6,
+                            (size.ilog2() + 1) as usize,
                             Fr::default(),
                             FullMerkleConfig::default(),
                         )
@@ -253,7 +253,7 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
                         let data_source = &fr_table[0..size as usize];
                         let data_source = data_source.iter().copied();
                         let tree = OptimalMerkleTree::<BenchyNoOpHasher>::new(
-                            6,
+                            (size.ilog2() + 1) as usize,
                             Fr::default(),
                             OptimalMerkleConfig::default(),
                         )
@@ -276,7 +276,7 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
                         let data_source = &fr_table[0..size as usize];
                         let data_source = data_source.iter().copied();
                         let tree = FullMerkleTree::<BenchyNoOpHasher>::new(
-                            6,
+                            (size.ilog2() + 1) as usize,
                             Fr::default(),
                             FullMerkleConfig::default(),
                         )
@@ -361,7 +361,7 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
                         let fr_slice = &fr_table[0..size as usize];
                         let fr_iter = fr_slice.iter().copied();
                         let tree = OptimalMerkleTree::<PoseidonHash>::new(
-                            6,
+                            (size.ilog2() + 1) as usize,
                             Fr::default(),
                             OptimalMerkleConfig::default(),
                         )
@@ -384,7 +384,7 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
                         let fr_slice = &fr_table[0..size as usize];
                         let fr_iter = fr_slice.iter().copied();
                         let tree = OptimalMerkleTree::<BenchyLightPosHasher>::new(
-                            6,
+                            (size.ilog2() + 1) as usize,
                             Fr::default(),
                             OptimalMerkleConfig::default(),
                         )
@@ -407,7 +407,7 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
                         let fr_slice = &fr_table[0..size as usize];
                         let fr_iter = fr_slice.iter().copied();
                         let tree = FullMerkleTree::<PoseidonHash>::new(
-                            6,
+                            (size.ilog2() + 1) as usize,
                             Fr::default(),
                             FullMerkleConfig::default(),
                         )
@@ -430,7 +430,7 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
                         let fr_slice = &fr_table[0..size as usize];
                         let fr_iter = fr_slice.iter().copied();
                         let tree = FullMerkleTree::<BenchyLightPosHasher>::new(
-                            6,
+                            (size.ilog2() + 1) as usize,
                             Fr::default(),
                             FullMerkleConfig::default(),
                         )
