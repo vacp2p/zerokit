@@ -1,18 +1,19 @@
-use std::str::FromStr;
+use std::{hint::black_box, str::FromStr};
 
-use ark_ff::{BigInteger, Field, PrimeField};
+use ark_ff::{BigInteger, PrimeField};
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use light_poseidon::PoseidonBytesHasher;
+use light_poseidon::{Poseidon as LtPoseidon, PoseidonBytesHasher as LtPoseidonBytesHasher};
 use rand::RngCore;
 use rand_chacha::ChaCha8Rng;
 use rand_core::SeedableRng;
 use rln::{
     circuit::Fr,
     hashers::{PoseidonHash, ROUND_PARAMS},
+    utils::{bytes_le_to_fr, fr_to_bytes_le},
 };
 use zerokit_utils::{
     FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree, Poseidon,
-    ZerokitMerkleTree as _,
+    ZerokitMerkleTree,
 };
 use zk_kit_lean_imt::{hashed_tree::LeanIMTHasher, lean_imt::LeanIMT};
 
@@ -63,9 +64,11 @@ lazy_static::lazy_static! {
 }
 
 #[derive(Debug)]
+struct BenchyNoOpHasher;
 struct BenchyIFTHasher;
 struct BenchyLightPosHasher;
-impl Hasher for BenchyIFTHasher {
+
+impl Hasher for BenchyNoOpHasher {
     type Fr = Fr;
 
     fn default_leaf() -> Self::Fr {
@@ -77,13 +80,13 @@ impl Hasher for BenchyIFTHasher {
     }
 }
 
-impl<const N: usize> LeanIMTHasher<N> for BenchyIFTHasher {
+impl<const N: usize> LeanIMTHasher<N> for BenchyNoOpHasher {
     fn hash(input: &[u8]) -> [u8; N] {
         let hasher = Poseidon::<Fr>::from(&ROUND_PARAMS);
 
         let frs = input
             .chunks(N)
-            .map(|bytes| Fr::from_random_bytes(bytes).unwrap_or(Fr::default()))
+            .map(Fr::from_le_bytes_mod_order)
             .collect::<Vec<_>>();
         let frs = frs.as_slice();
         let res_fr: Fr = hasher.hash(frs).unwrap();
@@ -93,15 +96,37 @@ impl<const N: usize> LeanIMTHasher<N> for BenchyIFTHasher {
 }
 impl LeanIMTHasher<32> for BenchyLightPosHasher {
     fn hash(input: &[u8]) -> [u8; 32] {
-        let mut hasher = light_poseidon::Poseidon::<Fr>::new_circom(1).unwrap();
         // TODO: this should be doable without mucking around with heap-memory
         let chunks: Vec<&[u8]> = input.chunks(32).collect();
+        let mut hasher = LtPoseidon::<Fr>::new_circom(chunks.len()).unwrap();
         hasher.hash_bytes_le(&chunks).unwrap()
     }
 }
+impl LeanIMTHasher<32> for BenchyIFTHasher {
+    fn hash(input: &[u8]) -> [u8; 32] {
+        // assert_eq!(input.len() % 32, 0, "Slice length must be a multiple of 32, got modulo {}", input.len() % 32);
+        let chunks: Vec<&[u8]> = input.chunks(32).collect();
+        let mut lt_hasher = LtPoseidon::<Fr>::new_circom(chunks.len()).unwrap();
+        lt_hasher.hash_bytes_le(&chunks).unwrap()
+    }
+}
+/// We start with pseudorandom bytes, and make the changes needed for them
+/// to be valid Fr bytes, just needing raw reinterpretation.
+fn lean_data_prep(raw_vec: &[[u8; 32]]) -> Vec<[u8; 32]> {
+    raw_vec
+        .iter()
+        .cloned()
+        // take raw bytes and Fr-ize it
+        .map(|chunk| bytes_le_to_fr(&chunk).0)
+        // turn it back into a byte collection
+        .map(|bytes| fr_to_bytes_le(&bytes))
+        // coorce it into the [u8; 32]s needed for light-imt hash signature
+        .map(|bytes| std::convert::TryInto::<[u8; 32]>::try_into(bytes).unwrap())
+        .collect()
+}
 
-fn make_data_table() -> (Vec<[u8; 32]>, Vec<Fr>, [u32; 3]) {
-    let size_group = [7u32, 13, 17];
+fn make_data_table() -> (Vec<[u8; 32]>, Vec<Fr>, [u32; 4]) {
+    let size_group = [7u32, 13, 17, 40];
     let data_table: Vec<[u8; 32]> = HashMockStream::seeded_stream(42)
         .take(*size_group.iter().max().unwrap() as usize)
         .collect();
@@ -129,47 +154,44 @@ pub fn hashless_setup_iterative(c: &mut Criterion) {
     let (data_table, fr_table, size_group) = make_data_table();
 
     for size in size_group {
+        let data_source = &data_table[0..size as usize];
+        let fr_source = &fr_table[0..size as usize];
         group.bench_with_input(
             BenchmarkId::new("Lean IMT iterative", size),
             &size,
-            |b, &size| {
+            |b, &_size| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
-                    || {
-                        let data_source = &data_table[0..size as usize];
-                        let tree = LeanIMT::<32>::new(&[], noop_hash).unwrap();
-                        (tree, data_source)
-                    },
+                    || LeanIMT::<32>::new(&[], noop_hash).unwrap(),
                     // Actual benchmark
-                    |(mut tree, data_source)| {
+                    |mut tree| {
                         for d in data_source.iter() {
-                            tree.insert(d, noop_hash);
+                            black_box(tree.insert(d, noop_hash));
                         }
                     },
                     BatchSize::SmallInput,
                 )
             },
         );
+
         group.bench_with_input(
             BenchmarkId::new("IFT optimal iterative", size),
             &size,
-            |b, &size| {
+            |b, &_size| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
-                        let data_source = &fr_table[0..size as usize];
-                        let tree = OptimalMerkleTree::<BenchyIFTHasher>::new(
+                        OptimalMerkleTree::<BenchyNoOpHasher>::new(
                             6,
                             Fr::default(),
                             OptimalMerkleConfig::default(),
                         )
-                        .unwrap();
-                        (tree, data_source)
+                        .unwrap()
                     },
                     // Actual benchmark
-                    |(mut tree, data_source)| {
-                        for (i, d) in data_source.iter().enumerate() {
-                            tree.set(i, *d).unwrap();
+                    |mut tree| {
+                        for (i, d) in fr_source.iter().enumerate() {
+                            black_box(tree.set(i, *d)).unwrap();
                         }
                     },
                     BatchSize::SmallInput,
@@ -179,23 +201,21 @@ pub fn hashless_setup_iterative(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("IFT full iterative", size),
             &size,
-            |b, &size| {
+            |b, &_size| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
-                        let data_source = &fr_table[0..size as usize];
-                        let tree = FullMerkleTree::<BenchyIFTHasher>::new(
+                        FullMerkleTree::<BenchyNoOpHasher>::new(
                             6,
                             Fr::default(),
                             FullMerkleConfig::default(),
                         )
-                        .unwrap();
-                        (tree, data_source)
+                        .unwrap()
                     },
                     // Actual benchmark
-                    |(mut tree, data_source)| {
-                        for (i, d) in data_source.iter().enumerate() {
-                            tree.set(i, *d).unwrap();
+                    |mut tree| {
+                        for (i, d) in fr_source.iter().enumerate() {
+                            black_box(tree.set(i, *d)).unwrap();
                         }
                     },
                     BatchSize::SmallInput,
@@ -208,19 +228,16 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
     let mut group = c.benchmark_group("hashless tree batch setup");
     let (data_table, fr_table, size_group) = make_data_table();
     for size in size_group {
+        let data_source = &data_table[0..size as usize];
         group.bench_with_input(
             BenchmarkId::new("Lean IMT batch", size),
             &size,
-            |b, &size| {
+            |b, &_size| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
-                    || {
-                        let data_source = &data_table[0..size as usize];
-                        let tree = LeanIMT::<32>::new(&[], noop_hash).unwrap();
-                        (tree, data_source)
-                    },
+                    || LeanIMT::<32>::new(&[], noop_hash).unwrap(),
                     // Actual benchmark
-                    |(mut tree, data_source)| tree.insert_many(data_source, noop_hash),
+                    |mut tree| black_box(tree.insert_many(data_source, noop_hash)),
                     BatchSize::SmallInput,
                 )
             },
@@ -234,7 +251,7 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
                     || {
                         let data_source = &fr_table[0..size as usize];
                         let data_source = data_source.iter().copied();
-                        let tree = OptimalMerkleTree::<BenchyIFTHasher>::new(
+                        let tree = OptimalMerkleTree::<BenchyNoOpHasher>::new(
                             6,
                             Fr::default(),
                             OptimalMerkleConfig::default(),
@@ -243,7 +260,7 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
                         (tree, data_source)
                     },
                     // Actual benchmark
-                    |(mut tree, data_source)| tree.set_range(0, data_source),
+                    |(mut tree, data_source)| black_box(tree.set_range(0, data_source)),
                     BatchSize::SmallInput,
                 )
             },
@@ -257,7 +274,7 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
                     || {
                         let data_source = &fr_table[0..size as usize];
                         let data_source = data_source.iter().copied();
-                        let tree = FullMerkleTree::<BenchyIFTHasher>::new(
+                        let tree = FullMerkleTree::<BenchyNoOpHasher>::new(
                             6,
                             Fr::default(),
                             FullMerkleConfig::default(),
@@ -266,7 +283,7 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
                         (tree, data_source)
                     },
                     // Actual benchmark
-                    |(mut tree, data_source)| tree.set_range(0, data_source),
+                    |(mut tree, data_source)| black_box(tree.set_range(0, data_source)),
                     BatchSize::SmallInput,
                 )
             },
@@ -275,26 +292,28 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
     group.finish();
 }
 
-fn tree_hash_batch_shootout(c: &mut Criterion) {
+fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
     let mut group = c.benchmark_group("hash+tree batch shootout");
-    let (data_table, fr_table, size_group) = make_data_table();
+    let (_data_table, fr_table, size_group) = make_data_table();
     for size in size_group {
+        let data_stream = HashMockStream::seeded_stream(size as u64);
+        let data_source = data_stream.take(size as usize).collect::<Vec<[u8; 32]>>();
         group.bench_with_input(
             BenchmarkId::new("Lean IMT batch poseidon", size),
             &size,
-            |b, &size| {
+            |b, &_size| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
-                        let data_source = &data_table[0..size as usize];
+                        let byte_form = lean_data_prep(&data_source);
                         let tree =
                             LeanIMT::<32>::new(&[], <BenchyIFTHasher as LeanIMTHasher<32>>::hash)
                                 .unwrap();
-                        (tree, data_source)
+                        (tree, byte_form)
                     },
                     // Actual benchmark
-                    |(mut tree, data_source)| {
-                        tree.insert_many(data_source, <BenchyIFTHasher as LeanIMTHasher<32>>::hash)
+                    |(mut tree, byte_form)| {
+                        black_box(tree.insert_many(&byte_form, <BenchyIFTHasher as LeanIMTHasher<32>>::hash))
                     },
                     BatchSize::SmallInput,
                 )
@@ -303,21 +322,24 @@ fn tree_hash_batch_shootout(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("Lean IMT batch light-poseidon", size),
             &size,
-            |b, &size| {
+            |b, &_size| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
-                        let data_source = &data_table[0..size as usize];
+                        let byte_form = lean_data_prep(&data_source);
                         let tree = LeanIMT::<32>::new(
                             &[],
                             <BenchyLightPosHasher as LeanIMTHasher<32>>::hash,
                         )
                         .unwrap();
-                        (tree, data_source)
+                        (tree, byte_form)
                     },
                     // Actual benchmark
                     |(mut tree, data_source)| {
-                        tree.insert_many(data_source, <BenchyIFTHasher as LeanIMTHasher<32>>::hash)
+                        black_box(tree.insert_many(
+                            &data_source,
+                            <BenchyLightPosHasher as LeanIMTHasher<32>>::hash,
+                        ))
                     },
                     BatchSize::SmallInput,
                 )
@@ -330,18 +352,18 @@ fn tree_hash_batch_shootout(c: &mut Criterion) {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
-                        let data_source = &fr_table[0..size as usize];
-                        let data_source = data_source.iter().copied();
+                        let fr_slice = &fr_table[0..size as usize];
+                        let fr_iter = fr_slice.iter().copied();
                         let tree = OptimalMerkleTree::<PoseidonHash>::new(
                             6,
                             Fr::default(),
                             OptimalMerkleConfig::default(),
                         )
                         .unwrap();
-                        (tree, data_source)
+                        (tree, fr_iter)
                     },
                     // Actual benchmark
-                    |(mut tree, data_source)| tree.set_range(0, data_source),
+                    |(mut tree, data_source)| black_box(tree.set_range(0, data_source)),
                     BatchSize::SmallInput,
                 )
             },
@@ -353,18 +375,18 @@ fn tree_hash_batch_shootout(c: &mut Criterion) {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
-                        let data_source = &fr_table[0..size as usize];
-                        let data_source = data_source.iter().copied();
+                        let fr_slice = &fr_table[0..size as usize];
+                        let fr_iter = fr_slice.iter().copied();
                         let tree = OptimalMerkleTree::<BenchyLightPosHasher>::new(
                             6,
                             Fr::default(),
                             OptimalMerkleConfig::default(),
                         )
                         .unwrap();
-                        (tree, data_source)
+                        (tree, fr_iter)
                     },
                     // Actual benchmark
-                    |(mut tree, data_source)| tree.set_range(0, data_source),
+                    |(mut tree, fr_iter)| black_box(tree.set_range(0, fr_iter)),
                     BatchSize::SmallInput,
                 )
             },
@@ -376,18 +398,18 @@ fn tree_hash_batch_shootout(c: &mut Criterion) {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
-                        let data_source = &fr_table[0..size as usize];
-                        let data_source = data_source.iter().copied();
+                        let fr_slice = &fr_table[0..size as usize];
+                        let fr_iter = fr_slice.iter().copied();
                         let tree = FullMerkleTree::<PoseidonHash>::new(
                             6,
                             Fr::default(),
                             FullMerkleConfig::default(),
                         )
                         .unwrap();
-                        (tree, data_source)
+                        (tree, fr_iter)
                     },
                     // Actual benchmark
-                    |(mut tree, data_source)| tree.set_range(0, data_source),
+                    |(mut tree, fr_iter)| black_box(tree.set_range(0, fr_iter)),
                     BatchSize::SmallInput,
                 )
             },
@@ -399,15 +421,25 @@ fn tree_hash_batch_shootout(c: &mut Criterion) {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
-                        let data_source = &fr_table[0..size as usize];
-                        let data_source = data_source.iter().copied();
+                        let fr_slice = &fr_table[0..size as usize];
+                        let fr_iter = fr_slice.iter().copied();
                         let tree = FullMerkleTree::<BenchyLightPosHasher>::new(
                             6,
                             Fr::default(),
                             FullMerkleConfig::default(),
                         )
                         .unwrap();
-                        (tree, data_source)
+                        (tree, fr_iter)
+                    },
+                    // Actual benchmark
+                    |(mut tree, fr_iter)| black_box(tree.set_range(0, fr_iter)),
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+    }
+    group.finish();
+}
                     },
                     // Actual benchmark
                     |(mut tree, data_source)| tree.set_range(0, data_source),
@@ -418,12 +450,21 @@ fn tree_hash_batch_shootout(c: &mut Criterion) {
     }
 }
 
+criterion_main!(tree_benchies);
 criterion_group! {
-    name = benchies;
+    name = tree_benchies;
+    config = Criterion::default()
+        .warm_up_time(std::time::Duration::from_millis(500))
+        .measurement_time(std::time::Duration::from_secs(4))
+        .sample_size(40);
+    targets =
+        hashless_setup_batch,
+        hashless_setup_iterative,
+        tree_hash_batch_setup_shootout,
+}
     config = Criterion::default()
         .warm_up_time(std::time::Duration::from_millis(500))
         .measurement_time(std::time::Duration::from_secs(4))
         .sample_size(50);
     targets =  /* hashless_setup_batch, hashless_setup_iterative, */ tree_hash_batch_shootout
 }
-criterion_main!(benchies);
