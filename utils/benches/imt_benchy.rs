@@ -442,6 +442,186 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
     group.finish();
 }
 
+pub fn proof_gen_shootout(c: &mut Criterion) {
+    let mut group = c.benchmark_group("MTree proof-gen shootout");
+    let (_data_table, _fr_table, size_group) = make_data_table();
+    for size in size_group {
+        let data_stream = HashMockStream::seeded_stream(size as u64);
+        let chunk_vec = data_stream.take(size as usize).collect::<Vec<[u8; 32]>>();
+        group.bench_with_input(
+            BenchmarkId::new("Lean IMT proof generation", size),
+            &size,
+            |b, &_size| {
+                b.iter_batched(
+                    // Setup: create values for each benchmark iteration
+                    || {
+                        let frd_byte_chunks = lean_data_prep(&chunk_vec);
+                        LeanIMT::<32>::new(
+                            &frd_byte_chunks,
+                            <BenchyIFTHasher as LeanIMTHasher<32>>::hash,
+                        )
+                        .unwrap()
+                    },
+                    // Actual benchmark
+                    |tree| black_box(tree.generate_proof(0)),
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("IFT full proof generation", size),
+            &size,
+            |b, &_size| {
+                b.iter_batched(
+                    // Setup: create values for each benchmark iteration
+                    || {
+                        let fr_form: Vec<Fr> = chunk_vec
+                            .iter()
+                            .cloned()
+                            // take raw bytes and Fr-ize it
+                            .map(|chunk| bytes_le_to_fr(&chunk).0)
+                            .collect();
+                        let mut tree = FullMerkleTree::<PoseidonHash>::new(
+                            7,
+                            Fr::default(),
+                            FullMerkleConfig::default(),
+                        )
+                        .unwrap();
+                        tree.set_range(0, fr_form.into_iter()).unwrap();
+                        tree
+                    },
+                    // Actual benchmark
+                    |tree| black_box(tree.proof(0)),
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("IFT optimal proof generation", size),
+            &size,
+            |b, &_size| {
+                b.iter_batched(
+                    // Setup: create values for each benchmark iteration
+                    || {
+                        let fr_form: Vec<Fr> = chunk_vec
+                            .iter()
+                            .cloned()
+                            // take raw bytes and Fr-ize it
+                            .map(|chunk| bytes_le_to_fr(&chunk).0)
+                            .collect();
+                        let mut tree = OptimalMerkleTree::<PoseidonHash>::new(
+                            7,
+                            Fr::default(),
+                            OptimalMerkleConfig::default(),
+                        )
+                        .unwrap();
+                        tree.set_range(0, fr_form.into_iter()).unwrap();
+                        tree
+                    },
+                    // Actual benchmark
+                    |tree| black_box(tree.proof(0)),
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+    }
+}
+
+pub fn verification_shootout(c: &mut Criterion) {
+    let mut group = c.benchmark_group("MTree verification shootout");
+    let (_data_table, _fr_table, size_group) = make_data_table();
+    for size in size_group {
+        let data_stream = HashMockStream::seeded_stream(size as u64);
+        let data_source = data_stream.take(size as usize).collect::<Vec<[u8; 32]>>();
+        group.bench_with_input(
+            BenchmarkId::new("Lean IMT verification", size),
+            &size,
+            |b, &_size| {
+                b.iter_batched(
+                    // Setup: create values for each benchmark iteration
+                    || {
+                        let frd_bytes = lean_data_prep(&data_source);
+                        let tree = LeanIMT::<32>::new(
+                            &frd_bytes,
+                            <BenchyIFTHasher as LeanIMTHasher<32>>::hash,
+                        )
+                        .unwrap();
+                        let proof = tree.generate_proof(0).unwrap();
+                        // assert!(LeanIMT::verify_proof(&proof, <BenchyIFTHasher as LeanIMTHasher<32>>::hash));
+                        proof
+                    },
+                    // Actual benchmark
+                    |proof| {
+                        black_box(LeanIMT::verify_proof(&proof, <BenchyIFTHasher as LeanIMTHasher<32>>::hash))
+                    },
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("IFT full verification", size),
+            &size,
+            |b, &_size| {
+                b.iter_batched(
+                    // Setup: create values for each benchmark iteration
+                    || {
+                        let fr_form: Vec<Fr> = data_source
+                            .iter()
+                            .cloned()
+                            // take raw bytes and Fr-ize it
+                            .map(|chunk| bytes_le_to_fr(&chunk).0)
+                            .collect();
+                        let mut tree = FullMerkleTree::<PoseidonHash>::new(
+                            7,
+                            Fr::default(),
+                            FullMerkleConfig::default(),
+                        )
+                        .unwrap();
+                        let first_leaf = *fr_form.first().unwrap();
+                        tree.set_range(0, fr_form.into_iter()).unwrap();
+                        let proof = tree.proof(0).unwrap();
+                        // assert!(tree.verify(&first_leaf, &proof).unwrap());
+                        (first_leaf, tree, proof)
+                    },
+                    // Actual benchmark
+                    |(first_leaf, tree, proof)| black_box(tree.verify(&first_leaf, &proof)),
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("IFT optimal verification", size),
+            &size,
+            |b, &_size| {
+                b.iter_batched(
+                    // Setup: create values for each benchmark iteration
+                    || {
+                        let fr_form: Vec<Fr> = data_source
+                            .iter()
+                            .cloned()
+                            // take raw bytes and Fr-ize it
+                            .map(|chunk| bytes_le_to_fr(&chunk).0)
+                            .collect();
+                        let mut tree = OptimalMerkleTree::<PoseidonHash>::new(
+                            7,
+                            Fr::default(),
+                            OptimalMerkleConfig::default(),
+                        )
+                        .unwrap();
+                        let first_leaf = *fr_form.first().unwrap();
+                        tree.set_range(0, fr_form.into_iter()).unwrap();
+                        let proof = tree.proof(0).unwrap();
+                        // assert!(tree.verify(&first_leaf, &proof).unwrap());
+                        (first_leaf, tree, proof)
+                    },
+                    // Actual benchmark
+                    |(first_leaf, tree, proof)| black_box(tree.verify(&first_leaf, &proof)),
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+    }
+}
 criterion_main!(tree_benchies);
 criterion_group! {
     name = tree_benchies;
@@ -453,4 +633,14 @@ criterion_group! {
         hashless_setup_batch,
         hashless_setup_iterative,
         tree_hash_batch_setup_shootout,
+}
+criterion_group! {
+    name = tree_zk_benchies;
+    config = Criterion::default()
+        .warm_up_time(std::time::Duration::from_millis(500))
+        .measurement_time(std::time::Duration::from_secs(4))
+        .sample_size(10);
+    targets =
+        proof_gen_shootout,
+        verification_shootout
 }
