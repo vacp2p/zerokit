@@ -1,39 +1,27 @@
 use std::{hint::black_box, str::FromStr};
 
-use ark_ff::{BigInteger, PrimeField};
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use light_poseidon::{Poseidon as LtPoseidon, PoseidonBytesHasher as LtPoseidonBytesHasher};
+use light_poseidon::{
+    Poseidon as LtPoseidon, PoseidonBytesHasher as LtPoseidonBytesHasher, PoseidonHasher as _,
+};
 use rand::RngCore;
 use rand_chacha::ChaCha8Rng;
 use rand_core::SeedableRng;
 use rln::{
     circuit::Fr,
-    hashers::{PoseidonHash, ROUND_PARAMS},
+    hashers::PoseidonHash,
     utils::{bytes_le_to_fr, fr_to_bytes_le},
 };
 use zerokit_utils::{
-    FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree, Poseidon,
-    ZerokitMerkleTree,
+    FullMerkleConfig, FullMerkleTree, Hasher as ZKitUtilsHasher, OptimalMerkleConfig,
+    OptimalMerkleTree, ZerokitMerkleTree,
 };
 use zk_kit_lean_imt::{hashed_tree::LeanIMTHasher, lean_imt::LeanIMT};
 
-impl zerokit_utils::Hasher for BenchyLightPosHasher {
-    type Fr = Fr;
-
-    fn default_leaf() -> Self::Fr {
-        Self::Fr::default()
-    }
-
-    fn hash(input: &[Self::Fr]) -> Self::Fr {
-        let hasher = Poseidon::from(&ROUND_PARAMS);
-        hasher.hash(input).unwrap()
-    }
-}
 // ChaCha8Rng is chosen for its portable determinism
 struct HashMockStream {
     rng: ChaCha8Rng,
 }
-
 impl HashMockStream {
     fn seeded_stream(seed: u64) -> Self {
         let rng = ChaCha8Rng::seed_from_u64(seed);
@@ -50,25 +38,19 @@ impl Iterator for HashMockStream {
         Some(res)
     }
 }
-// impl LeanIMTHasher<32> for HashMockStream {
-//     fn hash(input: &[u8]) -> [u8; 32] {
-//         input.try_into().unwrap()
-//     }
-// }
-lazy_static::lazy_static! {
-    static ref LEAVES: [[u8; 32]; 400] = HashMockStream::seeded_stream(42)
-        .take(400)
-        .collect::<Vec<_>>()
-        .try_into()
-        .unwrap();
-}
 
 #[derive(Debug)]
+/// To benchmark the data structure abscent of the hashing overhead
 struct BenchyNoOpHasher;
 struct BenchyIFTHasher;
 struct BenchyLightPosHasher;
 
-impl Hasher for BenchyNoOpHasher {
+// =====
+// Ships to IFT Hasher interface
+// IFT poseidon hasher doesn't need
+// =====
+
+impl ZKitUtilsHasher for BenchyNoOpHasher {
     type Fr = Fr;
 
     fn default_leaf() -> Self::Fr {
@@ -80,23 +62,30 @@ impl Hasher for BenchyNoOpHasher {
     }
 }
 
+impl ZKitUtilsHasher for BenchyLightPosHasher {
+    type Fr = Fr;
+
+    fn default_leaf() -> Self::Fr {
+        Self::Fr::default()
+    }
+
+    fn hash(input: &[Self::Fr]) -> Self::Fr {
+        let mut hasher = LtPoseidon::<Fr>::new_circom(input.len()).unwrap();
+        hasher.hash(input).unwrap()
+    }
+}
+
+// =====
+// shims for lean imt interface
+// =====
+
 impl<const N: usize> LeanIMTHasher<N> for BenchyNoOpHasher {
     fn hash(input: &[u8]) -> [u8; N] {
-        let hasher = Poseidon::<Fr>::from(&ROUND_PARAMS);
-
-        let frs = input
-            .chunks(N)
-            .map(Fr::from_le_bytes_mod_order)
-            .collect::<Vec<_>>();
-        let frs = frs.as_slice();
-        let res_fr: Fr = hasher.hash(frs).unwrap();
-        let res_bytes: [u8; N] = res_fr.into_bigint().to_bytes_le().try_into().unwrap();
-        res_bytes
+        input[0..32].try_into().unwrap()
     }
 }
 impl LeanIMTHasher<32> for BenchyLightPosHasher {
     fn hash(input: &[u8]) -> [u8; 32] {
-        // TODO: this should be doable without mucking around with heap-memory
         let chunks: Vec<&[u8]> = input.chunks(32).collect();
         let mut hasher = LtPoseidon::<Fr>::new_circom(chunks.len()).unwrap();
         hasher.hash_bytes_le(&chunks).unwrap()
@@ -104,14 +93,16 @@ impl LeanIMTHasher<32> for BenchyLightPosHasher {
 }
 impl LeanIMTHasher<32> for BenchyIFTHasher {
     fn hash(input: &[u8]) -> [u8; 32] {
-        // assert_eq!(input.len() % 32, 0, "Slice length must be a multiple of 32, got modulo {}", input.len() % 32);
         let chunks: Vec<&[u8]> = input.chunks(32).collect();
         let mut lt_hasher = LtPoseidon::<Fr>::new_circom(chunks.len()).unwrap();
         lt_hasher.hash_bytes_le(&chunks).unwrap()
     }
 }
-/// We start with pseudorandom bytes, and make the changes needed for them
+
+/// We start with the data to be hashed, and make the changes needed for them
 /// to be valid Fr bytes, just needing raw reinterpretation.
+/// Needed for LeanIMT because it processes  &[u8], not &[Fr]
+/// and we want to do away with that mapping as a performance variable
 fn lean_data_prep(raw_vec: &[[u8; 32]]) -> Vec<[u8; 32]> {
     raw_vec
         .iter()
@@ -125,14 +116,12 @@ fn lean_data_prep(raw_vec: &[[u8; 32]]) -> Vec<[u8; 32]> {
         .collect()
 }
 
-fn make_data_table() -> (Vec<[u8; 32]>, Vec<Fr>, [u32; 4]) {
-    let size_group = [7u32, 13, 17, 40];
-    let data_table: Vec<[u8; 32]> = HashMockStream::seeded_stream(42)
-        .take(*size_group.iter().max().unwrap() as usize)
-        .collect();
+fn spawn_inputs(size_group: &[u32]) -> (Vec<[u8; 32]>, Vec<Fr>) {
+    let max = *size_group.iter().max().unwrap() as usize;
+    let data_table: Vec<[u8; 32]> = HashMockStream::seeded_stream(42).take(max).collect();
 
     let fr_table = HashMockStream::seeded_stream(42)
-        .take(*size_group.iter().max().unwrap() as usize)
+        .take(max)
         .map(|bytes: [u8; 32]| {
             Fr::from_str(
                 bytes
@@ -144,14 +133,13 @@ fn make_data_table() -> (Vec<[u8; 32]>, Vec<Fr>, [u32; 4]) {
         })
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
-    (data_table, fr_table, size_group)
+    (data_table, fr_table)
 }
-fn noop_hash(data: &[u8]) -> [u8; 32] {
-    data[0..32].try_into().unwrap()
-}
+
 pub fn hashless_setup_iterative(c: &mut Criterion) {
     let mut group = c.benchmark_group("hashless tree iterative setup");
-    let (data_table, fr_table, size_group) = make_data_table();
+    let size_group = [7u32, 13, 17, 40];
+    let (data_table, fr_table) = spawn_inputs(&size_group);
 
     for size in size_group {
         let data_source = &data_table[0..size as usize];
@@ -162,12 +150,15 @@ pub fn hashless_setup_iterative(c: &mut Criterion) {
             |b, &_size| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
-                    || LeanIMT::<32>::new(&[], noop_hash).unwrap(),
+                    || {
+                        LeanIMT::<32>::new(&[], <BenchyNoOpHasher as LeanIMTHasher<32>>::hash)
+                            .unwrap()
+                    },
                     // Actual benchmark
                     |mut tree| {
                         for d in data_source.iter() {
                             #[allow(clippy::unit_arg)]
-                            black_box(tree.insert(d, noop_hash))
+                            black_box(tree.insert(d, <BenchyNoOpHasher as LeanIMTHasher<32>>::hash))
                         }
                     },
                     BatchSize::SmallInput,
@@ -227,7 +218,8 @@ pub fn hashless_setup_iterative(c: &mut Criterion) {
 }
 pub fn hashless_setup_batch(c: &mut Criterion) {
     let mut group = c.benchmark_group("hashless tree batch setup");
-    let (data_table, fr_table, size_group) = make_data_table();
+    let size_group = [7u32, 13, 17, 40];
+    let (data_table, fr_table) = spawn_inputs(&size_group);
     for size in size_group {
         let data_source = &data_table[0..size as usize];
         group.bench_with_input(
@@ -236,9 +228,17 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
             |b, &_size| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
-                    || LeanIMT::<32>::new(&[], noop_hash).unwrap(),
+                    || {
+                        LeanIMT::<32>::new(&[], <BenchyNoOpHasher as LeanIMTHasher<32>>::hash)
+                            .unwrap()
+                    },
                     // Actual benchmark
-                    |mut tree| black_box(tree.insert_many(data_source, noop_hash)),
+                    |mut tree| {
+                        black_box(tree.insert_many(
+                            data_source,
+                            <BenchyNoOpHasher as LeanIMTHasher<32>>::hash,
+                        ))
+                    },
                     BatchSize::SmallInput,
                 )
             },
@@ -295,10 +295,10 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
 
 fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
     let mut group = c.benchmark_group("hash+tree batch shootout");
-    let (_data_table, fr_table, size_group) = make_data_table();
+    let size_group = [7u32, 13, 17, 40];
+    let (data_table, fr_table) = spawn_inputs(&size_group);
     for size in size_group {
-        let data_stream = HashMockStream::seeded_stream(size as u64);
-        let data_source = data_stream.take(size as usize).collect::<Vec<[u8; 32]>>();
+        let data_source = &data_table[0..size as usize];
         group.bench_with_input(
             BenchmarkId::new("Lean IMT batch poseidon", size),
             &size,
@@ -306,7 +306,7 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
-                        let byte_form = lean_data_prep(&data_source);
+                        let byte_form = lean_data_prep(data_source);
                         let tree =
                             LeanIMT::<32>::new(&[], <BenchyIFTHasher as LeanIMTHasher<32>>::hash)
                                 .unwrap();
@@ -314,7 +314,12 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
                     },
                     // Actual benchmark
                     |(mut tree, byte_form)| {
-                        black_box(tree.insert_many(&byte_form, <BenchyIFTHasher as LeanIMTHasher<32>>::hash))
+                        black_box(
+                            tree.insert_many(
+                                &byte_form,
+                                <BenchyIFTHasher as LeanIMTHasher<32>>::hash,
+                            ),
+                        )
                     },
                     BatchSize::SmallInput,
                 )
@@ -327,7 +332,7 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
-                        let byte_form = lean_data_prep(&data_source);
+                        let byte_form = lean_data_prep(data_source);
                         let tree = LeanIMT::<32>::new(
                             &[],
                             <BenchyLightPosHasher as LeanIMTHasher<32>>::hash,
@@ -444,10 +449,12 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
 
 pub fn proof_gen_shootout(c: &mut Criterion) {
     let mut group = c.benchmark_group("MTree proof-gen shootout");
-    let (_data_table, _fr_table, size_group) = make_data_table();
+    let size_group = [7u32, 13, 17, 40];
+    let (data_table, fr_table) = spawn_inputs(&size_group);
     for size in size_group {
-        let data_stream = HashMockStream::seeded_stream(size as u64);
-        let chunk_vec = data_stream.take(size as usize).collect::<Vec<[u8; 32]>>();
+        let data_source = &data_table[0..size as usize];
+        // let data_stream = HashMockStream::seeded_stream(size as u64);
+        // let chunk_vec = data_stream.take(size as usize).collect::<Vec<[u8; 32]>>();
         group.bench_with_input(
             BenchmarkId::new("Lean IMT proof generation", size),
             &size,
@@ -455,7 +462,7 @@ pub fn proof_gen_shootout(c: &mut Criterion) {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
-                        let frd_byte_chunks = lean_data_prep(&chunk_vec);
+                        let frd_byte_chunks = lean_data_prep(data_source);
                         LeanIMT::<32>::new(
                             &frd_byte_chunks,
                             <BenchyIFTHasher as LeanIMTHasher<32>>::hash,
@@ -475,7 +482,7 @@ pub fn proof_gen_shootout(c: &mut Criterion) {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
-                        let fr_form: Vec<Fr> = chunk_vec
+                        let fr_form: Vec<Fr> = data_source
                             .iter()
                             .cloned()
                             // take raw bytes and Fr-ize it
@@ -503,19 +510,15 @@ pub fn proof_gen_shootout(c: &mut Criterion) {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
-                        let fr_form: Vec<Fr> = chunk_vec
-                            .iter()
-                            .cloned()
-                            // take raw bytes and Fr-ize it
-                            .map(|chunk| bytes_le_to_fr(&chunk).0)
-                            .collect();
+                        let fr_slice = &fr_table[0..size as usize];
+                        let fr_iter = fr_slice.iter().copied();
                         let mut tree = OptimalMerkleTree::<PoseidonHash>::new(
                             7,
                             Fr::default(),
                             OptimalMerkleConfig::default(),
                         )
                         .unwrap();
-                        tree.set_range(0, fr_form.into_iter()).unwrap();
+                        tree.set_range(0, fr_iter).unwrap();
                         tree
                     },
                     // Actual benchmark
@@ -529,7 +532,7 @@ pub fn proof_gen_shootout(c: &mut Criterion) {
 
 pub fn verification_shootout(c: &mut Criterion) {
     let mut group = c.benchmark_group("MTree verification shootout");
-    let (_data_table, _fr_table, size_group) = make_data_table();
+    let size_group = [7u32, 13, 17, 40];
     for size in size_group {
         let data_stream = HashMockStream::seeded_stream(size as u64);
         let data_source = data_stream.take(size as usize).collect::<Vec<[u8; 32]>>();
@@ -552,7 +555,10 @@ pub fn verification_shootout(c: &mut Criterion) {
                     },
                     // Actual benchmark
                     |proof| {
-                        black_box(LeanIMT::verify_proof(&proof, <BenchyIFTHasher as LeanIMTHasher<32>>::hash))
+                        black_box(LeanIMT::verify_proof(
+                            &proof,
+                            <BenchyIFTHasher as LeanIMTHasher<32>>::hash,
+                        ))
                     },
                     BatchSize::SmallInput,
                 )
