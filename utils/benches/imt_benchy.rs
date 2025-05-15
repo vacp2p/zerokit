@@ -511,14 +511,13 @@ pub fn proof_gen_shootout(c: &mut Criterion) {
 
 pub fn verification_shootout(c: &mut Criterion) {
     let mut group = c.benchmark_group("MTree verification shootout");
-    let size_group = [7u32, 13, 17, 40];
+    let size_group = [7u32, 17, 40];
     for size in size_group {
         let data_stream = HashMockStream::seeded_stream(size as u64);
         let data_source = data_stream.take(size as usize).collect::<Vec<[u8; 32]>>();
-        group.bench_with_input(
-            BenchmarkId::new("Lean IMT verification", size),
-            &size,
-            |b, &_size| {
+        group.bench_function(
+            BenchmarkId::new("Lean IMT + ift-pos verification", size),
+            |b| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
@@ -543,10 +542,66 @@ pub fn verification_shootout(c: &mut Criterion) {
                 )
             },
         );
-        group.bench_with_input(
-            BenchmarkId::new("IFT full verification", size),
-            &size,
-            |b, &_size| {
+        group.bench_function(
+            BenchmarkId::new("Lean IMT + light-pos verification", size),
+            |b| {
+                b.iter_batched(
+                    // Setup: create values for each benchmark iteration
+                    || {
+                        let frd_bytes = lean_data_prep(&data_source);
+                        let tree = LeanIMT::<32>::new(
+                            &frd_bytes,
+                            <BenchyLightPosHasher as LeanIMTHasher<32>>::hash,
+                        )
+                        .unwrap();
+                        let proof = tree.generate_proof(0).unwrap();
+                        // assert!(LeanIMT::verify_proof(&proof, <BenchyIFTHasher as LeanIMTHasher<32>>::hash));
+                        proof
+                    },
+                    // Actual benchmark
+                    |proof| {
+                        black_box(LeanIMT::verify_proof(
+                            &proof,
+                            <BenchyLightPosHasher as LeanIMTHasher<32>>::hash,
+                        ))
+                    },
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+        group.bench_function(
+            BenchmarkId::new("IFT full  + light-pos verification", size),
+            |b| {
+                b.iter_batched(
+                    // Setup: create values for each benchmark iteration
+                    || {
+                        let fr_form: Vec<Fr> = data_source
+                            .iter()
+                            .cloned()
+                            // take raw bytes and Fr-ize it
+                            .map(|chunk| bytes_le_to_fr(&chunk).0)
+                            .collect();
+                        let mut tree = FullMerkleTree::<BenchyLightPosHasher>::new(
+                            7,
+                            Fr::default(),
+                            FullMerkleConfig::default(),
+                        )
+                        .unwrap();
+                        let first_leaf = *fr_form.first().unwrap();
+                        tree.set_range(0, fr_form.into_iter()).unwrap();
+                        let proof = tree.proof(0).unwrap();
+                        // assert!(tree.verify(&first_leaf, &proof).unwrap());
+                        (first_leaf, tree, proof)
+                    },
+                    // Actual benchmark
+                    |(first_leaf, tree, proof)| black_box(tree.verify(&first_leaf, &proof)),
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+        group.bench_function(
+            BenchmarkId::new("IFT full  + ift-pos verification", size),
+            |b| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
@@ -574,10 +629,39 @@ pub fn verification_shootout(c: &mut Criterion) {
                 )
             },
         );
-        group.bench_with_input(
-            BenchmarkId::new("IFT optimal verification", size),
-            &size,
-            |b, &_size| {
+        group.bench_function(
+            BenchmarkId::new("IFT optimal  + light-pos verification", size),
+            |b| {
+                b.iter_batched(
+                    // Setup: create values for each benchmark iteration
+                    || {
+                        let fr_form: Vec<Fr> = data_source
+                            .iter()
+                            .cloned()
+                            // take raw bytes and Fr-ize it
+                            .map(|chunk| bytes_le_to_fr(&chunk).0)
+                            .collect();
+                        let mut tree = OptimalMerkleTree::<BenchyLightPosHasher>::new(
+                            7,
+                            Fr::default(),
+                            OptimalMerkleConfig::default(),
+                        )
+                        .unwrap();
+                        let first_leaf = *fr_form.first().unwrap();
+                        tree.set_range(0, fr_form.into_iter()).unwrap();
+                        let proof = tree.proof(0).unwrap();
+                        // assert!(tree.verify(&first_leaf, &proof).unwrap());
+                        (first_leaf, tree, proof)
+                    },
+                    // Actual benchmark
+                    |(first_leaf, tree, proof)| black_box(tree.verify(&first_leaf, &proof)),
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+        group.bench_function(
+            BenchmarkId::new("IFT optimal  + ift-pos verification", size),
+            |b| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
