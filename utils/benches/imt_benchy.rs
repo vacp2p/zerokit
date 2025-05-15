@@ -159,10 +159,9 @@ pub fn hashless_setup_iterative(c: &mut Criterion) {
             )
         });
 
-        group.bench_with_input(
+        group.bench_function(
             BenchmarkId::new("IFT optimal iterative", size),
-            &size,
-            |b, &size| {
+            |b| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
@@ -183,10 +182,9 @@ pub fn hashless_setup_iterative(c: &mut Criterion) {
                 )
             },
         );
-        group.bench_with_input(
+        group.bench_function(
             BenchmarkId::new("IFT full iterative", size),
-            &size,
-            |b, &size| {
+            |b| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
@@ -229,10 +227,9 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
                 BatchSize::SmallInput,
             )
         });
-        group.bench_with_input(
+        group.bench_function(
             BenchmarkId::new("IFT optimal batch", size),
-            &size,
-            |b, &size| {
+            |b| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
@@ -252,10 +249,9 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
                 )
             },
         );
-        group.bench_with_input(
+        group.bench_function(
             BenchmarkId::new("IFT full batch", size),
-            &size,
-            |b, &size| {
+            |b| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
@@ -330,10 +326,9 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
                 )
             },
         );
-        group.bench_with_input(
+        group.bench_function(
             BenchmarkId::new("IFT optimal batch poseidon", size),
-            &size,
-            |b, &size| {
+            |b| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
@@ -353,10 +348,9 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
                 )
             },
         );
-        group.bench_with_input(
+        group.bench_function(
             BenchmarkId::new("IFT optimal batch light-poseidon", size),
-            &size,
-            |b, &size| {
+            |b| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
@@ -376,10 +370,9 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
                 )
             },
         );
-        group.bench_with_input(
+        group.bench_function(
             BenchmarkId::new("IFT full batch poseidon", size),
-            &size,
-            |b, &size| {
+            |b| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
@@ -399,10 +392,9 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
                 )
             },
         );
-        group.bench_with_input(
+        group.bench_function(
             BenchmarkId::new("IFT full batch light-poseidon", size),
-            &size,
-            |b, &size| {
+            |b| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
@@ -434,10 +426,9 @@ pub fn proof_gen_shootout(c: &mut Criterion) {
         let data_source = &data_table[0..size as usize];
         // let data_stream = HashMockStream::seeded_stream(size as u64);
         // let chunk_vec = data_stream.take(size as usize).collect::<Vec<[u8; 32]>>();
-        group.bench_with_input(
+        group.bench_function(
             BenchmarkId::new("Lean IMT + ift_pos proof generation", size),
-            &size,
-            |b, &_size| {
+            |b,| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
@@ -454,10 +445,9 @@ pub fn proof_gen_shootout(c: &mut Criterion) {
                 )
             },
         );
-        group.bench_with_input(
+        group.bench_function(
             BenchmarkId::new("Lean IMT + light-pos proof generation", size),
-            &size,
-            |b, &_size| {
+            |b,| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
@@ -474,10 +464,9 @@ pub fn proof_gen_shootout(c: &mut Criterion) {
                 )
             },
         );
-        group.bench_with_input(
+        group.bench_function(
             BenchmarkId::new("IFT full  + ift-pos proof generation", size),
-            &size,
-            |b, &_size| {
+            |b| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
@@ -488,7 +477,7 @@ pub fn proof_gen_shootout(c: &mut Criterion) {
                             .map(|chunk| bytes_le_to_fr(&chunk).0)
                             .collect();
                         let mut tree = FullMerkleTree::<PoseidonHash>::new(
-                            7,
+                            size.ilog2() as usize + 1,
                             Fr::default(),
                             FullMerkleConfig::default(),
                         )
@@ -502,10 +491,9 @@ pub fn proof_gen_shootout(c: &mut Criterion) {
                 )
             },
         );
-        group.bench_with_input(
+        group.bench_function(
             BenchmarkId::new("IFT full  + light-pos proof generation", size),
-            &size,
-            |b, &_size| {
+            |b,| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
@@ -516,7 +504,7 @@ pub fn proof_gen_shootout(c: &mut Criterion) {
                             .map(|chunk| bytes_le_to_fr(&chunk).0)
                             .collect();
                         let mut tree = FullMerkleTree::<BenchyLightPosHasher>::new(
-                            7,
+                            size.ilog2() as usize + 1,
                             Fr::default(),
                             FullMerkleConfig::default(),
                         )
@@ -530,17 +518,16 @@ pub fn proof_gen_shootout(c: &mut Criterion) {
                 )
             },
         );
-        group.bench_with_input(
+        group.bench_function(
             BenchmarkId::new("IFT optimal + ift-pos proof generation", size),
-            &size,
-            |b, &_size| {
+            |b,| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
                         let fr_slice = &fr_table[0..size as usize];
                         let fr_iter = fr_slice.iter().copied();
                         let mut tree = OptimalMerkleTree::<PoseidonHash>::new(
-                            7,
+                            size.ilog2() as usize + 1,
                             Fr::default(),
                             OptimalMerkleConfig::default(),
                         )
@@ -554,17 +541,16 @@ pub fn proof_gen_shootout(c: &mut Criterion) {
                 )
             },
         );
-        group.bench_with_input(
+        group.bench_function(
             BenchmarkId::new("IFT optimal + light-pos proof generation", size),
-            &size,
-            |b, &_size| {
+            |b,| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
                         let fr_slice = &fr_table[0..size as usize];
                         let fr_iter = fr_slice.iter().copied();
                         let mut tree = OptimalMerkleTree::<BenchyLightPosHasher>::new(
-                            7,
+                            size.ilog2() as usize + 1,
                             Fr::default(),
                             OptimalMerkleConfig::default(),
                         )
@@ -654,7 +640,7 @@ pub fn verification_shootout(c: &mut Criterion) {
                             .map(|chunk| bytes_le_to_fr(&chunk).0)
                             .collect();
                         let mut tree = FullMerkleTree::<BenchyLightPosHasher>::new(
-                            7,
+                            size.ilog2() as usize + 1,
                             Fr::default(),
                             FullMerkleConfig::default(),
                         )
@@ -684,7 +670,7 @@ pub fn verification_shootout(c: &mut Criterion) {
                             .map(|chunk| bytes_le_to_fr(&chunk).0)
                             .collect();
                         let mut tree = FullMerkleTree::<PoseidonHash>::new(
-                            7,
+                            size.ilog2() as usize + 1,
                             Fr::default(),
                             FullMerkleConfig::default(),
                         )
@@ -714,7 +700,7 @@ pub fn verification_shootout(c: &mut Criterion) {
                             .map(|chunk| bytes_le_to_fr(&chunk).0)
                             .collect();
                         let mut tree = OptimalMerkleTree::<BenchyLightPosHasher>::new(
-                            7,
+                            size.ilog2() as usize + 1,
                             Fr::default(),
                             OptimalMerkleConfig::default(),
                         )
@@ -744,7 +730,7 @@ pub fn verification_shootout(c: &mut Criterion) {
                             .map(|chunk| bytes_le_to_fr(&chunk).0)
                             .collect();
                         let mut tree = OptimalMerkleTree::<PoseidonHash>::new(
-                            7,
+                            size.ilog2() as usize + 1,
                             Fr::default(),
                             OptimalMerkleConfig::default(),
                         )
