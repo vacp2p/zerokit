@@ -236,7 +236,7 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
                     |mut tree| {
                         black_box(tree.insert_many(
                             data_source,
-                            <BenchyNoOpHasher as LeanIMTHasher<32>>::hash,
+                            black_box(<BenchyNoOpHasher as LeanIMTHasher<32>>::hash),
                         ))
                     },
                     BatchSize::SmallInput,
@@ -317,7 +317,7 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
                         black_box(
                             tree.insert_many(
                                 &byte_form,
-                                <BenchyIFTHasher as LeanIMTHasher<32>>::hash,
+                                black_box(<BenchyIFTHasher as LeanIMTHasher<32>>::hash),
                             ),
                         )
                     },
@@ -344,7 +344,7 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
                     |(mut tree, data_source)| {
                         black_box(tree.insert_many(
                             &data_source,
-                            <BenchyLightPosHasher as LeanIMTHasher<32>>::hash,
+                            black_box(<BenchyLightPosHasher as LeanIMTHasher<32>>::hash),
                         ))
                     },
                     BatchSize::SmallInput,
