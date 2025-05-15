@@ -144,26 +144,20 @@ pub fn hashless_setup_iterative(c: &mut Criterion) {
     for size in size_group {
         let data_source = &data_table[0..size as usize];
         let fr_source = &fr_table[0..size as usize];
-        group.bench_function(
-            BenchmarkId::new("Lean IMT iterative", size),
-            |b| {
-                b.iter_batched(
-                    // Setup: create values for each benchmark iteration
-                    || {
-                        LeanIMT::<32>::new(&[], <BenchyNoOpHasher as LeanIMTHasher<32>>::hash)
-                            .unwrap()
-                    },
-                    // Actual benchmark
-                    |mut tree| {
-                        for d in data_source.iter() {
-                            #[allow(clippy::unit_arg)]
-                            black_box(tree.insert(d, <BenchyNoOpHasher as LeanIMTHasher<32>>::hash))
-                        }
-                    },
-                    BatchSize::SmallInput,
-                )
-            },
-        );
+        group.bench_function(BenchmarkId::new("Lean IMT iterative", size), |b| {
+            b.iter_batched(
+                // Setup: create values for each benchmark iteration
+                || LeanIMT::<32>::new(&[], <BenchyNoOpHasher as LeanIMTHasher<32>>::hash).unwrap(),
+                // Actual benchmark
+                |mut tree| {
+                    for d in data_source.iter() {
+                        #[allow(clippy::unit_arg)]
+                        black_box(tree.insert(d, <BenchyNoOpHasher as LeanIMTHasher<32>>::hash))
+                    }
+                },
+                BatchSize::SmallInput,
+            )
+        });
 
         group.bench_with_input(
             BenchmarkId::new("IFT optimal iterative", size),
@@ -221,26 +215,20 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
     let (data_table, fr_table) = spawn_inputs(&size_group);
     for size in size_group {
         let data_source = &data_table[0..size as usize];
-        group.bench_function(
-            BenchmarkId::new("Lean IMT batch", size),
-            |b| {
-                b.iter_batched(
-                    // Setup: create values for each benchmark iteration
-                    || {
-                        LeanIMT::<32>::new(&[], <BenchyNoOpHasher as LeanIMTHasher<32>>::hash)
-                            .unwrap()
-                    },
-                    // Actual benchmark
-                    |mut tree| {
-                        black_box(tree.insert_many(
-                            data_source,
-                            black_box(<BenchyNoOpHasher as LeanIMTHasher<32>>::hash),
-                        ))
-                    },
-                    BatchSize::SmallInput,
-                )
-            },
-        );
+        group.bench_function(BenchmarkId::new("Lean IMT batch", size), |b| {
+            b.iter_batched(
+                // Setup: create values for each benchmark iteration
+                || LeanIMT::<32>::new(&[], <BenchyNoOpHasher as LeanIMTHasher<32>>::hash).unwrap(),
+                // Actual benchmark
+                |mut tree| {
+                    black_box(tree.insert_many(
+                        data_source,
+                        black_box(<BenchyNoOpHasher as LeanIMTHasher<32>>::hash),
+                    ))
+                },
+                BatchSize::SmallInput,
+            )
+        });
         group.bench_with_input(
             BenchmarkId::new("IFT optimal batch", size),
             &size,
@@ -297,31 +285,26 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
     let (data_table, fr_table) = spawn_inputs(&size_group);
     for size in size_group {
         let data_source = &data_table[0..size as usize];
-        group.bench_function(
-            BenchmarkId::new("Lean IMT batch poseidon", size),
-            |b| {
-                b.iter_batched(
-                    // Setup: create values for each benchmark iteration
-                    || {
-                        let byte_form = lean_data_prep(data_source);
-                        let tree =
-                            LeanIMT::<32>::new(&[], <BenchyIFTHasher as LeanIMTHasher<32>>::hash)
-                                .unwrap();
-                        (tree, byte_form)
-                    },
-                    // Actual benchmark
-                    |(mut tree, byte_form)| {
-                        black_box(
-                            tree.insert_many(
-                                &byte_form,
-                                black_box(<BenchyIFTHasher as LeanIMTHasher<32>>::hash),
-                            ),
-                        )
-                    },
-                    BatchSize::SmallInput,
-                )
-            },
-        );
+        group.bench_function(BenchmarkId::new("Lean IMT batch poseidon", size), |b| {
+            b.iter_batched(
+                // Setup: create values for each benchmark iteration
+                || {
+                    let byte_form = lean_data_prep(data_source);
+                    let tree =
+                        LeanIMT::<32>::new(&[], <BenchyIFTHasher as LeanIMTHasher<32>>::hash)
+                            .unwrap();
+                    (tree, byte_form)
+                },
+                // Actual benchmark
+                |(mut tree, byte_form)| {
+                    black_box(tree.insert_many(
+                        &byte_form,
+                        black_box(<BenchyIFTHasher as LeanIMTHasher<32>>::hash),
+                    ))
+                },
+                BatchSize::SmallInput,
+            )
+        });
         group.bench_function(
             BenchmarkId::new("Lean IMT batch light-poseidon", size),
             |b| {
