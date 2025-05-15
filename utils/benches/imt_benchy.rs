@@ -1,4 +1,4 @@
-use std::{hint::black_box, str::FromStr};
+use std::{hint::black_box, str::FromStr, time::Duration};
 
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use light_poseidon::{
@@ -138,6 +138,7 @@ fn spawn_inputs(size_group: &[u32]) -> (Vec<[u8; 32]>, Vec<Fr>) {
 
 pub fn hashless_setup_iterative(c: &mut Criterion) {
     let mut group = c.benchmark_group("hashless tree iterative setup");
+    group.measurement_time(Duration::from_secs(10));
     let size_group = [7u32, 13, 17, 40];
     let (data_table, fr_table) = spawn_inputs(&size_group);
 
@@ -209,6 +210,7 @@ pub fn hashless_setup_iterative(c: &mut Criterion) {
 }
 pub fn hashless_setup_batch(c: &mut Criterion) {
     let mut group = c.benchmark_group("hashless tree batch setup");
+    group.measurement_time(Duration::from_secs(10));
     let size_group = [7u32, 13, 17, 40];
     let (data_table, fr_table) = spawn_inputs(&size_group);
     for size in size_group {
@@ -277,6 +279,7 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
 
 fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
     let mut group = c.benchmark_group("hash+tree batch shootout");
+    group.measurement_time(Duration::from_secs(10));
     let size_group = [7u32, 13, 17, 40];
     let (data_table, fr_table) = spawn_inputs(&size_group);
     for size in size_group {
@@ -420,6 +423,7 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
 
 pub fn proof_gen_shootout(c: &mut Criterion) {
     let mut group = c.benchmark_group("MTree proof-gen shootout");
+    group.measurement_time(Duration::from_secs(15));
     let size_group = [7u32, 13, 17, 40];
     let (data_table, fr_table) = spawn_inputs(&size_group);
     for size in size_group {
@@ -569,6 +573,7 @@ pub fn proof_gen_shootout(c: &mut Criterion) {
 
 pub fn verification_shootout(c: &mut Criterion) {
     let mut group = c.benchmark_group("MTree verification shootout");
+    group.measurement_time(Duration::from_secs(15));
     let size_group = [7u32, 17, 40];
     for size in size_group {
         let data_stream = HashMockStream::seeded_stream(size as u64);
@@ -752,22 +757,11 @@ pub fn verification_shootout(c: &mut Criterion) {
 criterion_main!(tree_benchies);
 criterion_group! {
     name = tree_benchies;
-    config = Criterion::default()
-        .warm_up_time(std::time::Duration::from_millis(500))
-        .measurement_time(std::time::Duration::from_secs(4))
-        .sample_size(40);
+    config = Criterion::default();
     targets =
         hashless_setup_batch,
         hashless_setup_iterative,
         tree_hash_batch_setup_shootout,
-}
-criterion_group! {
-    name = tree_zk_benchies;
-    config = Criterion::default()
-        .warm_up_time(std::time::Duration::from_millis(500))
-        .measurement_time(std::time::Duration::from_secs(4))
-        .sample_size(10);
-    targets =
         proof_gen_shootout,
         verification_shootout
 }
