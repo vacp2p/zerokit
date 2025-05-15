@@ -144,10 +144,9 @@ pub fn hashless_setup_iterative(c: &mut Criterion) {
     for size in size_group {
         let data_source = &data_table[0..size as usize];
         let fr_source = &fr_table[0..size as usize];
-        group.bench_with_input(
+        group.bench_function(
             BenchmarkId::new("Lean IMT iterative", size),
-            &size,
-            |b, &_size| {
+            |b| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
@@ -222,10 +221,9 @@ pub fn hashless_setup_batch(c: &mut Criterion) {
     let (data_table, fr_table) = spawn_inputs(&size_group);
     for size in size_group {
         let data_source = &data_table[0..size as usize];
-        group.bench_with_input(
+        group.bench_function(
             BenchmarkId::new("Lean IMT batch", size),
-            &size,
-            |b, &_size| {
+            |b| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
@@ -299,10 +297,9 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
     let (data_table, fr_table) = spawn_inputs(&size_group);
     for size in size_group {
         let data_source = &data_table[0..size as usize];
-        group.bench_with_input(
+        group.bench_function(
             BenchmarkId::new("Lean IMT batch poseidon", size),
-            &size,
-            |b, &_size| {
+            |b| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
@@ -325,10 +322,9 @@ fn tree_hash_batch_setup_shootout(c: &mut Criterion) {
                 )
             },
         );
-        group.bench_with_input(
+        group.bench_function(
             BenchmarkId::new("Lean IMT batch light-poseidon", size),
-            &size,
-            |b, &_size| {
+            |b| {
                 b.iter_batched(
                     // Setup: create values for each benchmark iteration
                     || {
