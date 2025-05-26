@@ -2532,7 +2532,6 @@ version = "0.5.2"
 dependencies = [
  "ark-bn254",
  "ark-ff 0.5.0",
- "color-eyre",
  "criterion",
  "hex",
  "hex-literal",
@@ -2541,6 +2540,7 @@ dependencies = [
  "num-traits",
  "serde",
  "sled",
+ "thiserror",
  "tiny-keccak",
  "vacp2p_pmtree",
 ]

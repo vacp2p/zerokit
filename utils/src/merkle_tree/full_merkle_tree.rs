@@ -1,12 +1,13 @@
 use crate::merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
-use color_eyre::{Report, Result};
+// use color_eyre::{Report, Result};
 use std::{
     cmp::max,
     fmt::Debug,
     iter::{once, repeat_n, successors},
     str::FromStr,
 };
-
+use num_traits::Zero;
+use crate::ZerokitMerkleTreeError;
 ////////////////////////////////////////////////////////////
 ///// Full Merkle Tree Implementation
 ////////////////////////////////////////////////////////////
@@ -14,7 +15,7 @@ use std::{
 /// Merkle tree with all leaf and intermediate hashes stored
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct FullMerkleTree<H: Hasher> {
-    /// The depth of the tree, i.e. the number of levels from leaf to root
+    /// The depth of the tree, i.e., the number of levels from leaf to root
     depth: usize,
 
     /// The nodes cached from the empty part of the tree (where leaves are set to default).
@@ -56,9 +57,9 @@ pub struct FullMerkleProof<H: Hasher>(pub Vec<FullMerkleBranch<H>>);
 pub struct FullMerkleConfig(());
 
 impl FromStr for FullMerkleConfig {
-    type Err = Report;
+    type Err = ();
 
-    fn from_str(_s: &str) -> Result<Self> {
+    fn from_str(_s: &str) -> Result<Self, ()> {
         Ok(FullMerkleConfig::default())
     }
 }
@@ -72,13 +73,13 @@ where
     type Hasher = H;
     type Config = FullMerkleConfig;
 
-    fn default(depth: usize) -> Result<Self> {
+    fn default(depth: usize) -> Result<Self, ZerokitMerkleTreeError> {
         FullMerkleTree::<H>::new(depth, Self::Hasher::default_leaf(), Self::Config::default())
     }
 
     /// Creates a new `MerkleTree`
     /// depth - the height of the tree made only of hash nodes. 2^depth is the maximum number of leaves hash nodes
-    fn new(depth: usize, initial_leaf: FrOf<Self::Hasher>, _config: Self::Config) -> Result<Self> {
+    fn new(depth: usize, initial_leaf: FrOf<Self::Hasher>, _config: Self::Config) -> Result<Self, ZerokitMerkleTreeError> {
         // Compute cache node values, leaf to root
         let cached_nodes = successors(Some(initial_leaf), |prev| Some(H::hash(&[*prev, *prev])))
             .take(depth + 1)
@@ -106,7 +107,7 @@ where
         })
     }
 
-    fn close_db_connection(&mut self) -> Result<()> {
+    fn close_db_connection(&mut self) -> Result<(), ZerokitMerkleTreeError> {
         Ok(())
     }
 
@@ -115,7 +116,7 @@ where
         self.depth
     }
 
-    // Returns the capacity of the tree, i.e. the maximum number of accumulatable leaves
+    // Returns the capacity of the tree, i.e., the maximum number of accumulatable leaves
     fn capacity(&self) -> usize {
         1 << self.depth
     }
@@ -131,26 +132,26 @@ where
     }
 
     // Sets a leaf at the specified tree index
-    fn set(&mut self, leaf: usize, hash: FrOf<Self::Hasher>) -> Result<()> {
+    fn set(&mut self, leaf: usize, hash: FrOf<Self::Hasher>) -> Result<(), ZerokitMerkleTreeError> {
         self.set_range(leaf, once(hash))?;
         self.next_index = max(self.next_index, leaf + 1);
         Ok(())
     }
 
     // Get a leaf from the specified tree index
-    fn get(&self, leaf: usize) -> Result<FrOf<Self::Hasher>> {
+    fn get(&self, leaf: usize) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError> {
         if leaf >= self.capacity() {
-            return Err(Report::msg("leaf index out of bounds"));
+            return Err(ZerokitMerkleTreeError::InvalidLeaf);
         }
         Ok(self.nodes[self.capacity() + leaf - 1])
     }
 
-    fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr> {
+    fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr, ZerokitMerkleTreeError> {
         if n > self.depth() {
-            return Err(Report::msg("level exceeds depth size"));
+            return Err(ZerokitMerkleTreeError::LevelExceedsDepth);
         }
         if index >= self.capacity() {
-            return Err(Report::msg("index exceeds set size"));
+            return Err(ZerokitMerkleTreeError::InvalidLeaf);
         }
         if n == 0 {
             Ok(self.root())
@@ -187,14 +188,14 @@ where
         &mut self,
         start: usize,
         hashes: I,
-    ) -> Result<()> {
+    ) -> Result<(), ZerokitMerkleTreeError> {
         let index = self.capacity() + start - 1;
         let mut count = 0;
-        // first count number of hashes, and check that they fit in the tree
+        // first count the number of hashes and check that they fit in the tree
         // then insert into the tree
         let hashes = hashes.into_iter().collect::<Vec<_>>();
         if hashes.len() + start > self.capacity() {
-            return Err(Report::msg("provided hashes do not fit in the tree"));
+            return Err(ZerokitMerkleTreeError::TooManySet);
         }
         hashes.into_iter().for_each(|hash| {
             self.nodes[index + count] = hash;
@@ -208,7 +209,7 @@ where
         Ok(())
     }
 
-    fn override_range<I, J>(&mut self, start: usize, leaves: I, indices: J) -> Result<()>
+    fn override_range<I, J>(&mut self, start: usize, leaves: I, indices: J) -> Result<(), ZerokitMerkleTreeError>
     where
         I: IntoIterator<Item = FrOf<Self::Hasher>>,
         J: IntoIterator<Item = usize>,
@@ -237,17 +238,16 @@ where
         }
 
         self.set_range(start, set_values.into_iter())
-            .map_err(|e| Report::msg(e.to_string()))
     }
 
     // Sets a leaf at the next available index
-    fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<()> {
+    fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<(), ZerokitMerkleTreeError> {
         self.set(self.next_index, leaf)?;
         Ok(())
     }
 
     // Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
-    fn delete(&mut self, index: usize) -> Result<()> {
+    fn delete(&mut self, index: usize) -> Result<(), ZerokitMerkleTreeError> {
         // We reset the leaf only if we previously set a leaf at that index
         if index < self.next_index {
             self.set(index, H::default_leaf())?;
