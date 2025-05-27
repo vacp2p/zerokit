@@ -1662,7 +1662,6 @@ name = "rln-cli"
 version = "0.4.0"
 dependencies = [
  "clap",
- "clap_derive",
  "color-eyre",
  "rln",
  "serde",
@@ -2477,7 +2476,6 @@ version = "0.5.2"
 dependencies = [
  "ark-bn254",
  "ark-ff 0.5.0",
- "color-eyre",
  "criterion",
  "hex",
  "hex-literal",
@@ -2487,6 +2485,7 @@ dependencies = [
  "rayon",
  "serde",
  "sled",
+ "thiserror",
  "tiny-keccak",
  "vacp2p_pmtree",
 ]
