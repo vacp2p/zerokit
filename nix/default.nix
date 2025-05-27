@@ -1,10 +1,24 @@
-{ 
+{
   pkgs,
+  rust-overlay,
   target-platform ? "aarch64-android-prebuilt",
   rust-target ? "aarch64-linux-android",
 }:
 
-pkgs.pkgsCross.${target-platform}.rustPlatform.buildRustPackage {
+let
+  # Use cross-compilation if target-platform is specified.
+  targetPlatformPkgs = if target-platform != null
+    then pkgs.pkgsCross.${target-platform}
+    else pkgs;
+
+  rust-bin = rust-overlay.lib.mkRustBin { } targetPlatformPkgs.buildPackages;
+
+  # Use Rust and Cargo versions from rust-overlay.
+  rustPlatform = targetPlatformPkgs.makeRustPlatform {
+    cargo = rust-bin.stable.latest.minimal;
+    rustc = rust-bin.stable.latest.minimal;
+  };
+in rustPlatform.buildRustPackage {
   pname = "zerokit";
   version = "nightly";
 

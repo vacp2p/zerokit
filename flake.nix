@@ -10,7 +10,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, rust-overlay }: 
+  outputs = { self, nixpkgs, rust-overlay }:
     let
       stableSystems = [
         "x86_64-linux" "aarch64-linux"
@@ -26,7 +26,11 @@
       packages = forAllSystems (system: let
         pkgs = pkgsFor.${system};
       in rec {
-        zerokit-android-arm64 = pkgs.callPackage ./nix/default.nix { target-platform="aarch64-android-prebuilt"; rust-target= "aarch64-linux-android"; };
+        zerokit-android-arm64 = pkgs.callPackage ./nix/default.nix {
+          target-platform = "aarch64-android-prebuilt";
+          rust-target = "aarch64-linux-android";
+          inherit rust-overlay;
+        };
         default = zerokit-android-arm64;
       });
 
