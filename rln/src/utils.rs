@@ -1,16 +1,28 @@
 // This crate provides cross-module useful utilities (mainly type conversions) not necessarily specific to RLN
 
+use std::array::TryFromSliceError;
 use ark_ff::PrimeField;
-use color_eyre::{Report, Result};
-use num_bigint::{BigInt, BigUint};
+use num_bigint::{BigInt, BigUint, ParseBigIntError};
 use num_traits::Num;
 use serde_json::json;
 use std::io::Cursor;
-
+use std::num::TryFromIntError;
 use crate::circuit::Fr;
 
+#[derive(Debug, thiserror::Error)]
+enum ConversionError {
+    #[error("Expected radix == 10 or == 16")]
+    WrongRadix,
+    #[error("{0}")]
+    ParseBigInt(#[from] ParseBigIntError),
+    #[error("{0}")]
+    ToUsize(#[from] TryFromIntError),
+    #[error("{0}")]
+    FromSlice(#[from] TryFromSliceError),
+}
+
 #[inline(always)]
-pub fn to_bigint(el: &Fr) -> Result<BigInt> {
+pub fn to_bigint(el: &Fr) -> Result<BigInt, ()> {
     Ok(BigUint::from(*el).into())
 }
 
@@ -21,9 +33,9 @@ pub fn fr_byte_size() -> usize {
 }
 
 #[inline(always)]
-pub fn str_to_fr(input: &str, radix: u32) -> Result<Fr> {
+pub fn str_to_fr(input: &str, radix: u32) -> Result<Fr, ConversionError> {
     if !(radix == 10 || radix == 16) {
-        return Err(Report::msg("wrong radix"));
+        return Err(ConversionError::WrongRadix);
     }
 
     // We remove any quote present and we trim
@@ -58,7 +70,7 @@ pub fn fr_to_bytes_le(input: &Fr) -> Vec<u8> {
 }
 
 #[inline(always)]
-pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Result<Vec<u8>> {
+pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Result<Vec<u8>, ()> {
     // Calculate capacity for Vec:
     // - 8 bytes for normalized vector length (usize)
     // - each Fr element requires fr_byte_size() bytes (typically 32 bytes)
@@ -76,7 +88,7 @@ pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Result<Vec<u8>> {
 }
 
 #[inline(always)]
-pub fn vec_u8_to_bytes_le(input: &[u8]) -> Result<Vec<u8>> {
+pub fn vec_u8_to_bytes_le(input: &[u8]) -> Result<Vec<u8>, ()> {
     // Calculate capacity for Vec:
     // - 8 bytes for normalized vector length (usize)
     // - variable length input data
@@ -92,7 +104,7 @@ pub fn vec_u8_to_bytes_le(input: &[u8]) -> Result<Vec<u8>> {
 }
 
 #[inline(always)]
-pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize)> {
+pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), ConversionError> {
     let mut read: usize = 0;
 
     let len = usize::try_from(u64::from_le_bytes(input[0..8].try_into()?))?;
@@ -105,7 +117,7 @@ pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize)> {
 }
 
 #[inline(always)]
-pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize)> {
+pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), ConversionError> {
     let mut read: usize = 0;
     let mut res: Vec<Fr> = Vec::new();
 
@@ -123,7 +135,7 @@ pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize)> {
 }
 
 #[inline(always)]
-pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>> {
+pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, ConversionError> {
     let nof_elem = usize::try_from(u64::from_le_bytes(input[0..8].try_into()?))?;
     if nof_elem == 0 {
         Ok(vec![])
