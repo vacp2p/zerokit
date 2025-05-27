@@ -18,8 +18,6 @@ use std::{
     str::FromStr,
 };
 
-use color_eyre::Result;
-
 /// Enables parallel hashing when there are at least 8 nodes (4 pairs to hash), justifying the overhead.
 pub const MIN_PARALLEL_NODES: usize = 8;
 
@@ -38,6 +36,27 @@ pub trait Hasher {
 
 pub type FrOf<H> = <H as Hasher>::Fr;
 
+#[derive(thiserror::Error, Debug)]
+pub enum ZerokitMerkleTreeError {
+    #[error("Invalid index")]
+    InvalidIndex,
+    // InvalidProof,
+    #[error("Leaf index out of bounds")]
+    InvalidLeaf,
+    #[error("Level exceeds tree depth")]
+    InvalidLevel,
+    #[error("Subtree index out of bounds")]
+    InvalidSubTreeIndex,
+    #[error("Start level is != from end level")]
+    InvalidStartAndEndLevel,
+    #[error("set_range got too many leaves")]
+    TooManySet,
+    #[error("Unknown error while computing merkle proof")]
+    ComputingProofError,
+    #[error("Invalid witness length (!= tree depth)")]
+    InvalidWitness
+}
+
 /// In the ZerokitMerkleTree trait we define the methods that are required to be implemented by a Merkle tree
 /// Including, OptimalMerkleTree, FullMerkleTree
 pub trait ZerokitMerkleTree {
@@ -45,34 +64,34 @@ pub trait ZerokitMerkleTree {
     type Hasher: Hasher;
     type Config: Default + FromStr;
 
-    fn default(depth: usize) -> Result<Self>
+    fn default(depth: usize) -> Result<Self, ZerokitMerkleTreeError>
     where
         Self: Sized;
-    fn new(depth: usize, default_leaf: FrOf<Self::Hasher>, config: Self::Config) -> Result<Self>
+    fn new(depth: usize, default_leaf: FrOf<Self::Hasher>, config: Self::Config) -> Result<Self, ZerokitMerkleTreeError>
     where
         Self: Sized;
     fn depth(&self) -> usize;
     fn capacity(&self) -> usize;
     fn leaves_set(&self) -> usize;
     fn root(&self) -> FrOf<Self::Hasher>;
-    fn get_subtree_root(&self, n: usize, index: usize) -> Result<FrOf<Self::Hasher>>;
-    fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>) -> Result<()>;
-    fn set_range<I>(&mut self, start: usize, leaves: I) -> Result<()>
+    fn get_subtree_root(&self, n: usize, index: usize) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError>;
+    fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>) -> Result<(), ZerokitMerkleTreeError>;
+    fn set_range<I>(&mut self, start: usize, leaves: I) -> Result<(), ZerokitMerkleTreeError>
     where
         I: ExactSizeIterator<Item = FrOf<Self::Hasher>>;
-    fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>>;
+    fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError>;
     fn get_empty_leaves_indices(&self) -> Vec<usize>;
-    fn override_range<I, J>(&mut self, start: usize, leaves: I, to_remove_indices: J) -> Result<()>
+    fn override_range<I, J>(&mut self, start: usize, leaves: I, to_remove_indices: J) -> Result<(), ZerokitMerkleTreeError>
     where
         I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
         J: ExactSizeIterator<Item = usize>;
-    fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<()>;
-    fn delete(&mut self, index: usize) -> Result<()>;
-    fn proof(&self, index: usize) -> Result<Self::Proof>;
-    fn verify(&self, leaf: &FrOf<Self::Hasher>, witness: &Self::Proof) -> Result<bool>;
-    fn set_metadata(&mut self, metadata: &[u8]) -> Result<()>;
-    fn metadata(&self) -> Result<Vec<u8>>;
-    fn close_db_connection(&mut self) -> Result<()>;
+    fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<(), ZerokitMerkleTreeError>;
+    fn delete(&mut self, index: usize) -> Result<(), ZerokitMerkleTreeError>;
+    fn proof(&self, index: usize) -> Result<Self::Proof, ZerokitMerkleTreeError>;
+    fn verify(&self, leaf: &FrOf<Self::Hasher>, witness: &Self::Proof) -> Result<bool, ZerokitMerkleTreeError>;
+    fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), ZerokitMerkleTreeError>;
+    fn metadata(&self) -> Result<Vec<u8>, ZerokitMerkleTreeError>;
+    fn close_db_connection(&mut self) -> Result<(), ZerokitMerkleTreeError>;
 }
 
 pub trait ZerokitMerkleProof {
