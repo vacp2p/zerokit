@@ -5,7 +5,6 @@ use ark_groth16::{prepare_verifying_key, Groth16, Proof as ArkProof, ProvingKey,
 use ark_relations::r1cs::{ConstraintMatrices, SynthesisError};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::thread_rng, UniformRand};
-use color_eyre::{Report, Result};
 use num_bigint::BigInt;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -41,6 +40,20 @@ pub struct RLNWitnessInput {
     x: Fr,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     external_nullifier: Fr,
+}
+
+#[derive(Debug, thiserror::Error)]
+enum ProtocolError {
+    #[error("{0}")]
+    Conversion(#[from] ConversionError),
+    #[error("Expected to read {0} bytes but read only {1} bytes")]
+    InvalidReadLen(usize, usize),
+    #[error("Cannot convert bigint {0:?} to biguint")]
+    BigUintConversion(BigInt),
+    #[error("{0}")]
+    JsonError(#[from] serde_json::Error),
+    #[error("Message id ({0}) is not within user_message_limit ({1})")]   
+    InvalidMessageId(Fr, Fr)
 }
 
 #[derive(Debug, PartialEq)]
@@ -99,7 +112,7 @@ pub fn deserialize_identity_tuple(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
 ///
 /// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
 /// input data is [ identity_secret<32> | user_message_limit<32> | message_id<32> | path_elements[<32>] | identity_path_index<8> | x<32> | external_nullifier<32> ]
-pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>> {
+pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>, ProtocolError> {
     // Check if message_id is within user_message_limit
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
@@ -114,8 +127,9 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>> {
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.identity_secret));
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.user_message_limit));
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.message_id));
-    serialized.extend_from_slice(&vec_fr_to_bytes_le(&rln_witness.path_elements)?);
-    serialized.extend_from_slice(&vec_u8_to_bytes_le(&rln_witness.identity_path_index)?);
+    // Note: safe to unwrap (error is ())
+    serialized.extend_from_slice(&vec_fr_to_bytes_le(&rln_witness.path_elements).unwrap());
+    serialized.extend_from_slice(&vec_u8_to_bytes_le(&rln_witness.identity_path_index).unwrap());
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.x));
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.external_nullifier));
 
@@ -127,7 +141,7 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>> {
 /// # Errors
 ///
 /// Returns an error if `message_id` is not within `user_message_limit`.
-pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)> {
+pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize), ProtocolError> {
     let mut all_read: usize = 0;
 
     let (identity_secret, read) = bytes_le_to_fr(&serialized[all_read..]);
@@ -154,8 +168,9 @@ pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)
     all_read += read;
 
     if serialized.len() != all_read {
-        return Err(Report::msg("serialized length is not equal to all_read"));
+        return Err(ProtocolError::InvalidReadLen(serialized.len(), all_read));
     }
+    
 
     Ok((
         RLNWitnessInput {
@@ -178,15 +193,17 @@ pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)
 pub fn proof_inputs_to_rln_witness(
     tree: &mut PoseidonTree,
     serialized: &[u8],
-) -> Result<(RLNWitnessInput, usize)> {
+) -> Result<(RLNWitnessInput, usize), ProtocolError> {
     let mut all_read: usize = 0;
 
     let (identity_secret, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
     let id_index = usize::try_from(u64::from_le_bytes(
-        serialized[all_read..all_read + 8].try_into()?,
-    ))?;
+        serialized[all_read..all_read + 8]
+            .try_into()
+            .map_err(|e| ConversionError::FromSlice(e))?,
+    )).map_err(|e| ConversionError::ToUsize(e))?;
     all_read += 8;
 
     let (user_message_limit, read) = bytes_le_to_fr(&serialized[all_read..]);
@@ -199,8 +216,9 @@ pub fn proof_inputs_to_rln_witness(
     all_read += read;
 
     let signal_len = usize::try_from(u64::from_le_bytes(
-        serialized[all_read..all_read + 8].try_into()?,
-    ))?;
+        serialized[all_read..all_read + 8].try_into().map_err(|e| ConversionError::FromSlice(e))?,
+    )).map_err(|e| ConversionError::ToUsize(e))?;
+    all_read += 8;
     all_read += 8;
 
     let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
@@ -237,7 +255,7 @@ pub fn rln_witness_from_values(
     external_nullifier: Fr,
     user_message_limit: Fr,
     message_id: Fr,
-) -> Result<RLNWitnessInput> {
+) -> Result<RLNWitnessInput, ProtocolError> {
     message_id_range_check(&message_id, &user_message_limit)?;
 
     let path_elements = merkle_proof.get_path_elements();
@@ -284,7 +302,7 @@ pub fn random_rln_witness(tree_height: usize) -> RLNWitnessInput {
     }
 }
 
-pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> Result<RLNProofValues> {
+pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> Result<RLNProofValues, ProtocolError> {
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
     // y share
@@ -525,17 +543,22 @@ pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<Fr, Strin
 
 #[derive(Error, Debug)]
 pub enum ProofError {
+    /*
     #[error("Error reading circuit key: {0}")]
     CircuitKeyError(#[from] Report),
     #[error("Error producing witness: {0}")]
     WitnessError(Report),
+    */
+
+    #[error("{0}")]
+    ProtocolError(#[from] ProtocolError),
     #[error("Error producing proof: {0}")]
     SynthesisError(#[from] SynthesisError),
 }
 
 fn calculate_witness_element<E: ark_ec::pairing::Pairing>(
     witness: Vec<BigInt>,
-) -> Result<Vec<E::ScalarField>> {
+) -> Result<Vec<E::ScalarField>, ProtocolError> {
     use ark_ff::PrimeField;
     let modulus = <E::ScalarField as PrimeField>::MODULUS;
 
@@ -548,9 +571,9 @@ fn calculate_witness_element<E: ark_ec::pairing::Pairing>(
             modulus.into()
                 - w.abs()
                     .to_biguint()
-                    .ok_or(Report::msg("not a biguint value"))?
+                    .ok_or(ProtocolError::BigUintConversion(w))?
         } else {
-            w.to_biguint().ok_or(Report::msg("not a biguint value"))?
+            w.to_biguint().ok_or(ProtocolError::BigUintConversion(w))?
         };
         witness_vec.push(E::ScalarField::from(w))
     }
@@ -567,7 +590,7 @@ pub fn generate_proof_with_witness(
     let now = Instant::now();
 
     let full_assignment =
-        calculate_witness_element::<Curve>(witness).map_err(ProofError::WitnessError)?;
+        calculate_witness_element::<Curve>(witness)?;
 
     #[cfg(test)]
     println!("witness generation took: {:.2?}", now.elapsed());
@@ -604,7 +627,7 @@ pub fn generate_proof_with_witness(
 /// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
 pub fn inputs_for_witness_calculation(
     rln_witness: &RLNWitnessInput,
-) -> Result<[(&str, Vec<Fr>); 7]> {
+) -> Result<[(&str, Vec<Fr>); 7], ProtocolError> {
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
     let mut identity_path_index = Vec::with_capacity(rln_witness.identity_path_index.len());
@@ -732,7 +755,7 @@ where
 /// # Errors
 ///
 /// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
-pub fn rln_witness_from_json(input_json: serde_json::Value) -> Result<RLNWitnessInput> {
+pub fn rln_witness_from_json(input_json: serde_json::Value) -> Result<RLNWitnessInput, ProtocolError> {
     let rln_witness: RLNWitnessInput = serde_json::from_value(input_json).unwrap();
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
@@ -744,7 +767,7 @@ pub fn rln_witness_from_json(input_json: serde_json::Value) -> Result<RLNWitness
 /// # Errors
 ///
 /// Returns an error if `message_id` is not within `user_message_limit`.
-pub fn rln_witness_to_json(rln_witness: &RLNWitnessInput) -> Result<serde_json::Value> {
+pub fn rln_witness_to_json(rln_witness: &RLNWitnessInput) -> Result<serde_json::Value, ProtocolError> {
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
     let rln_witness_json = serde_json::to_value(rln_witness)?;
@@ -757,13 +780,14 @@ pub fn rln_witness_to_json(rln_witness: &RLNWitnessInput) -> Result<serde_json::
 /// # Errors
 ///
 /// Returns an error if `message_id` is not within `user_message_limit`.
-pub fn rln_witness_to_bigint_json(rln_witness: &RLNWitnessInput) -> Result<serde_json::Value> {
+pub fn rln_witness_to_bigint_json(rln_witness: &RLNWitnessInput) -> Result<serde_json::Value, ProtocolError> {
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
     let mut path_elements = Vec::new();
 
     for v in rln_witness.path_elements.iter() {
-        path_elements.push(to_bigint(v)?.to_str_radix(10));
+        // Note: unwrap safe - to_bigint is infallible
+        path_elements.push(to_bigint(v).unwrap().to_str_radix(10));
     }
 
     let mut identity_path_index = Vec::new();
@@ -773,23 +797,22 @@ pub fn rln_witness_to_bigint_json(rln_witness: &RLNWitnessInput) -> Result<serde
         .for_each(|v| identity_path_index.push(BigInt::from(*v).to_str_radix(10)));
 
     let inputs = serde_json::json!({
-        "identitySecret": to_bigint(&rln_witness.identity_secret)?.to_str_radix(10),
-        "userMessageLimit": to_bigint(&rln_witness.user_message_limit)?.to_str_radix(10),
-        "messageId": to_bigint(&rln_witness.message_id)?.to_str_radix(10),
+        // Note: unwrap safe - infallible
+        "identitySecret": to_bigint(&rln_witness.identity_secret).unwrap().to_str_radix(10),
+        "userMessageLimit": to_bigint(&rln_witness.user_message_limit).unwrap().to_str_radix(10),
+        "messageId": to_bigint(&rln_witness.message_id).unwrap().to_str_radix(10),
         "pathElements": path_elements,
         "identityPathIndex": identity_path_index,
-        "x": to_bigint(&rln_witness.x)?.to_str_radix(10),
-        "externalNullifier":  to_bigint(&rln_witness.external_nullifier)?.to_str_radix(10),
+        "x": to_bigint(&rln_witness.x).unwrap().to_str_radix(10),
+        "externalNullifier":  to_bigint(&rln_witness.external_nullifier).unwrap().to_str_radix(10),
     });
 
     Ok(inputs)
 }
 
-pub fn message_id_range_check(message_id: &Fr, user_message_limit: &Fr) -> Result<()> {
+pub fn message_id_range_check(message_id: &Fr, user_message_limit: &Fr) -> Result<(), ProtocolError> {
     if message_id > user_message_limit {
-        return Err(color_eyre::Report::msg(
-            "message_id is not within user_message_limit",
-        ));
+        return Err(ProtocolError::InvalidMessageId(*message_id, *user_message_limit));
     }
     Ok(())
 }

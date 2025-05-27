@@ -10,7 +10,7 @@ use std::num::TryFromIntError;
 use crate::circuit::Fr;
 
 #[derive(Debug, thiserror::Error)]
-enum ConversionError {
+pub enum ConversionError {
     #[error("Expected radix == 10 or == 16")]
     WrongRadix,
     #[error("{0}")]

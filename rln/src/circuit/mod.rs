@@ -12,7 +12,6 @@ use ark_bn254::{
 use ark_groth16::ProvingKey;
 use ark_relations::r1cs::ConstraintMatrices;
 use cfg_if::cfg_if;
-use color_eyre::{Report, Result};
 
 use crate::circuit::iden3calc::calc_witness;
 
@@ -59,10 +58,18 @@ pub type G1Projective = ArkG1Projective;
 pub type G2Affine = ArkG2Affine;
 pub type G2Projective = ArkG2Projective;
 
+#[derive(Debug, thiserror::Error)]
+enum ZKeyReadError {
+    #[error("No proving key found!")]
+    EmptyBytes,
+    #[error("{0}")]
+    SerializationError(#[from] ark_serialize::SerializationError),
+}
+
 // Loads the proving key using a bytes vector
-pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
+pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>), ZKeyReadError> {
     if zkey_data.is_empty() {
-        return Err(Report::msg("No proving key found!"));
+        return Err(ZKeyReadError::EmptyBytes);
     }
 
     let proving_key_and_matrices = match () {

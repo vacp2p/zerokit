@@ -54,7 +54,11 @@ pub enum ZerokitMerkleTreeError {
     #[error("Unknown error while computing merkle proof")]
     ComputingProofError,
     #[error("Invalid witness length (!= tree depth)")]
-    InvalidWitness
+    InvalidWitness,
+    #[cfg(feature = "pmtree")]
+    #[error("Pmtree error: {0}")]
+    PmtreeErrorKind(#[from] pmtree::PmtreeErrorKind),
+    
 }
 
 /// In the ZerokitMerkleTree trait we define the methods that are required to be implemented by a Merkle tree
