@@ -19,19 +19,41 @@
         "i686-windows"
       ];
       forAllSystems = nixpkgs.lib.genAttrs stableSystems;
-      overlays = [ (import rust-overlay) ];
+      overlays = [
+        (import rust-overlay)
+        (f: p: { inherit rust-overlay; })
+      ];
       pkgsFor = forAllSystems (system: import nixpkgs { inherit system overlays; });
     in rec
     {
       packages = forAllSystems (system: let
         pkgs = pkgsFor.${system};
+        buildPackage = pkgs.callPackage ./nix/default.nix;
+        buildRln = (buildPackage { src = self; project = "rln"; }).override;
       in rec {
-        zerokit-android-arm64 = pkgs.callPackage ./nix/default.nix {
+        rln = buildRln {
+          features = "arkzkey";
+        };
+
+        rln-linux-arm64 = buildRln {
+          target-platform = "aarch64-multiplatform";
+          rust-target = "aarch64-unknown-linux-gnu";
+        };
+
+        rln-android-arm64 = buildRln {
           target-platform = "aarch64-android-prebuilt";
           rust-target = "aarch64-linux-android";
-          inherit rust-overlay;
         };
-        default = zerokit-android-arm64;
+
+        rln-ios-arm64 = buildRln {
+          target-platform = "aarch64-darwin";
+          rust-target = "aarch64-apple-ios";
+        };
+
+        # TODO: Remove legacy name for RLN android library
+        zerokit-android-arm64 = rln-android-arm64;
+
+        default = rln;
       });
 
       devShells = forAllSystems (system: let
@@ -39,20 +61,10 @@
       in {
         default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            git
-            cmake
-            cargo-make
-            binaryen
-            ninja
-            gnuplot
-            rustup
-            xz
+            git cmake cargo-make rustup
+            binaryen ninja gnuplot
             rust-bin.stable.latest.default
           ];
-          # Shared library liblzma.so.5 used by wasm-pack
-          shellHook = ''
-            export LD_LIBRARY_PATH="${pkgs.xz.out}/lib:$LD_LIBRARY_PATH"
-          '';
         };
       });
     };

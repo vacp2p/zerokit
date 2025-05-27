@@ -1,8 +1,12 @@
 {
   pkgs,
   rust-overlay,
-  target-platform ? "aarch64-android-prebuilt",
-  rust-target ? "aarch64-linux-android",
+  project,
+  src ? ../.,
+  release ? true,
+  features ? "arkzkey",
+  target-platform ? null,
+  rust-target ? null,
 }:
 
 let
@@ -20,27 +24,36 @@ let
   };
 in rustPlatform.buildRustPackage {
   pname = "zerokit";
-  version = "nightly";
+  version = if src ? rev then src.rev else "nightly";
 
-  src = ../.;
+  # Improve caching of sources
+  src = builtins.path { path = src; name = "zerokit"; };
 
   cargoLock = {
     lockFile = ../Cargo.lock;
     allowBuiltinFetchGit = true;
   };
 
+  doCheck = false;
+
   CARGO_HOME = "/tmp";
 
   buildPhase = ''
-    pushd rln
-    cargo rustc --crate-type=cdylib --release --lib --target=${rust-target}
-    popd
+    cargo build --lib \
+      ${if release             then "--release" else ""} \
+      ${if rust-target != null then "--target=${rust-target}" else ""} \
+      ${if features != null    then "--features=${features}" else ""} \
+      --manifest-path ${project}/Cargo.toml
   '';
 
   installPhase = ''
     mkdir -p $out/
-    cp ./target/${rust-target}/release/librln.so $out/
+    for file in $(find target -name 'librln.*' | grep -v deps/); do
+      mkdir -p $out/$(dirname $file)
+      cp -r $file $out/$file
+    done
   '';
+
 
   meta = with pkgs.lib; {
     description = "Zerokit";
