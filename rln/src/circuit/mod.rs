@@ -59,7 +59,7 @@ pub type G2Affine = ArkG2Affine;
 pub type G2Projective = ArkG2Projective;
 
 #[derive(Debug, thiserror::Error)]
-enum ZKeyReadError {
+pub enum ZKeyReadError {
     #[error("No proving key found!")]
     EmptyBytes,
     #[error("{0}")]
@@ -67,7 +67,9 @@ enum ZKeyReadError {
 }
 
 // Loads the proving key using a bytes vector
-pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>), ZKeyReadError> {
+pub fn zkey_from_raw(
+    zkey_data: &[u8],
+) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>), ZKeyReadError> {
     if zkey_data.is_empty() {
         return Err(ZKeyReadError::EmptyBytes);
     }

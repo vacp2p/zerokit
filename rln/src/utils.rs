@@ -1,13 +1,13 @@
 // This crate provides cross-module useful utilities (mainly type conversions) not necessarily specific to RLN
 
-use std::array::TryFromSliceError;
+use crate::circuit::Fr;
 use ark_ff::PrimeField;
 use num_bigint::{BigInt, BigUint, ParseBigIntError};
 use num_traits::Num;
 use serde_json::json;
+use std::array::TryFromSliceError;
 use std::io::Cursor;
 use std::num::TryFromIntError;
-use crate::circuit::Fr;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConversionError {

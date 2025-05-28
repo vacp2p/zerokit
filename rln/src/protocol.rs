@@ -43,7 +43,7 @@ pub struct RLNWitnessInput {
 }
 
 #[derive(Debug, thiserror::Error)]
-enum ProtocolError {
+pub enum ProtocolError {
     #[error("{0}")]
     Conversion(#[from] ConversionError),
     #[error("Expected to read {0} bytes but read only {1} bytes")]
@@ -52,8 +52,8 @@ enum ProtocolError {
     BigUintConversion(BigInt),
     #[error("{0}")]
     JsonError(#[from] serde_json::Error),
-    #[error("Message id ({0}) is not within user_message_limit ({1})")]   
-    InvalidMessageId(Fr, Fr)
+    #[error("Message id ({0}) is not within user_message_limit ({1})")]
+    InvalidMessageId(Fr, Fr),
 }
 
 #[derive(Debug, PartialEq)]
@@ -170,7 +170,6 @@ pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)
     if serialized.len() != all_read {
         return Err(ProtocolError::InvalidReadLen(serialized.len(), all_read));
     }
-    
 
     Ok((
         RLNWitnessInput {
@@ -202,8 +201,9 @@ pub fn proof_inputs_to_rln_witness(
     let id_index = usize::try_from(u64::from_le_bytes(
         serialized[all_read..all_read + 8]
             .try_into()
-            .map_err(|e| ConversionError::FromSlice(e))?,
-    )).map_err(|e| ConversionError::ToUsize(e))?;
+            .map_err(ConversionError::FromSlice)?,
+    ))
+    .map_err(ConversionError::ToUsize)?;
     all_read += 8;
 
     let (user_message_limit, read) = bytes_le_to_fr(&serialized[all_read..]);
@@ -216,8 +216,11 @@ pub fn proof_inputs_to_rln_witness(
     all_read += read;
 
     let signal_len = usize::try_from(u64::from_le_bytes(
-        serialized[all_read..all_read + 8].try_into().map_err(|e| ConversionError::FromSlice(e))?,
-    )).map_err(|e| ConversionError::ToUsize(e))?;
+        serialized[all_read..all_read + 8]
+            .try_into()
+            .map_err(ConversionError::FromSlice)?,
+    ))
+    .map_err(ConversionError::ToUsize)?;
     all_read += 8;
     all_read += 8;
 
@@ -302,7 +305,9 @@ pub fn random_rln_witness(tree_height: usize) -> RLNWitnessInput {
     }
 }
 
-pub fn proof_values_from_witness(rln_witness: &RLNWitnessInput) -> Result<RLNProofValues, ProtocolError> {
+pub fn proof_values_from_witness(
+    rln_witness: &RLNWitnessInput,
+) -> Result<RLNProofValues, ProtocolError> {
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
     // y share
@@ -549,7 +554,6 @@ pub enum ProofError {
     #[error("Error producing witness: {0}")]
     WitnessError(Report),
     */
-
     #[error("{0}")]
     ProtocolError(#[from] ProtocolError),
     #[error("Error producing proof: {0}")]
@@ -589,8 +593,7 @@ pub fn generate_proof_with_witness(
     #[cfg(test)]
     let now = Instant::now();
 
-    let full_assignment =
-        calculate_witness_element::<Curve>(witness)?;
+    let full_assignment = calculate_witness_element::<Curve>(witness)?;
 
     #[cfg(test)]
     println!("witness generation took: {:.2?}", now.elapsed());
@@ -755,7 +758,9 @@ where
 /// # Errors
 ///
 /// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
-pub fn rln_witness_from_json(input_json: serde_json::Value) -> Result<RLNWitnessInput, ProtocolError> {
+pub fn rln_witness_from_json(
+    input_json: serde_json::Value,
+) -> Result<RLNWitnessInput, ProtocolError> {
     let rln_witness: RLNWitnessInput = serde_json::from_value(input_json).unwrap();
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
@@ -767,7 +772,9 @@ pub fn rln_witness_from_json(input_json: serde_json::Value) -> Result<RLNWitness
 /// # Errors
 ///
 /// Returns an error if `message_id` is not within `user_message_limit`.
-pub fn rln_witness_to_json(rln_witness: &RLNWitnessInput) -> Result<serde_json::Value, ProtocolError> {
+pub fn rln_witness_to_json(
+    rln_witness: &RLNWitnessInput,
+) -> Result<serde_json::Value, ProtocolError> {
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
     let rln_witness_json = serde_json::to_value(rln_witness)?;
@@ -780,7 +787,9 @@ pub fn rln_witness_to_json(rln_witness: &RLNWitnessInput) -> Result<serde_json::
 /// # Errors
 ///
 /// Returns an error if `message_id` is not within `user_message_limit`.
-pub fn rln_witness_to_bigint_json(rln_witness: &RLNWitnessInput) -> Result<serde_json::Value, ProtocolError> {
+pub fn rln_witness_to_bigint_json(
+    rln_witness: &RLNWitnessInput,
+) -> Result<serde_json::Value, ProtocolError> {
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
     let mut path_elements = Vec::new();
@@ -810,9 +819,15 @@ pub fn rln_witness_to_bigint_json(rln_witness: &RLNWitnessInput) -> Result<serde
     Ok(inputs)
 }
 
-pub fn message_id_range_check(message_id: &Fr, user_message_limit: &Fr) -> Result<(), ProtocolError> {
+pub fn message_id_range_check(
+    message_id: &Fr,
+    user_message_limit: &Fr,
+) -> Result<(), ProtocolError> {
     if message_id > user_message_limit {
-        return Err(ProtocolError::InvalidMessageId(*message_id, *user_message_limit));
+        return Err(ProtocolError::InvalidMessageId(
+            *message_id,
+            *user_message_limit,
+        ));
     }
     Ok(())
 }

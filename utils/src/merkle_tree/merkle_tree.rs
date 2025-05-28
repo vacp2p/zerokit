@@ -58,7 +58,6 @@ pub enum ZerokitMerkleTreeError {
     #[cfg(feature = "pmtree")]
     #[error("Pmtree error: {0}")]
     PmtreeErrorKind(#[from] pmtree::PmtreeErrorKind),
-    
 }
 
 /// In the ZerokitMerkleTree trait we define the methods that are required to be implemented by a Merkle tree
@@ -71,28 +70,46 @@ pub trait ZerokitMerkleTree {
     fn default(depth: usize) -> Result<Self, ZerokitMerkleTreeError>
     where
         Self: Sized;
-    fn new(depth: usize, default_leaf: FrOf<Self::Hasher>, config: Self::Config) -> Result<Self, ZerokitMerkleTreeError>
+    fn new(
+        depth: usize,
+        default_leaf: FrOf<Self::Hasher>,
+        config: Self::Config,
+    ) -> Result<Self, ZerokitMerkleTreeError>
     where
         Self: Sized;
     fn depth(&self) -> usize;
     fn capacity(&self) -> usize;
     fn leaves_set(&self) -> usize;
     fn root(&self) -> FrOf<Self::Hasher>;
-    fn get_subtree_root(&self, n: usize, index: usize) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError>;
-    fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>) -> Result<(), ZerokitMerkleTreeError>;
+    fn get_subtree_root(
+        &self,
+        n: usize,
+        index: usize,
+    ) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError>;
+    fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>)
+        -> Result<(), ZerokitMerkleTreeError>;
     fn set_range<I>(&mut self, start: usize, leaves: I) -> Result<(), ZerokitMerkleTreeError>
     where
         I: ExactSizeIterator<Item = FrOf<Self::Hasher>>;
     fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError>;
     fn get_empty_leaves_indices(&self) -> Vec<usize>;
-    fn override_range<I, J>(&mut self, start: usize, leaves: I, to_remove_indices: J) -> Result<(), ZerokitMerkleTreeError>
+    fn override_range<I, J>(
+        &mut self,
+        start: usize,
+        leaves: I,
+        to_remove_indices: J,
+    ) -> Result<(), ZerokitMerkleTreeError>
     where
         I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
         J: ExactSizeIterator<Item = usize>;
     fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<(), ZerokitMerkleTreeError>;
     fn delete(&mut self, index: usize) -> Result<(), ZerokitMerkleTreeError>;
     fn proof(&self, index: usize) -> Result<Self::Proof, ZerokitMerkleTreeError>;
-    fn verify(&self, leaf: &FrOf<Self::Hasher>, witness: &Self::Proof) -> Result<bool, ZerokitMerkleTreeError>;
+    fn verify(
+        &self,
+        leaf: &FrOf<Self::Hasher>,
+        witness: &Self::Proof,
+    ) -> Result<bool, ZerokitMerkleTreeError>;
     fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), ZerokitMerkleTreeError>;
     fn metadata(&self) -> Result<Vec<u8>, ZerokitMerkleTreeError>;
     fn close_db_connection(&mut self) -> Result<(), ZerokitMerkleTreeError>;

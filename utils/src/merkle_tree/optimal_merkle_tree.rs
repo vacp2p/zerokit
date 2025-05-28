@@ -69,7 +69,11 @@ where
 
     /// Creates a new `MerkleTree`
     /// depth - the height of the tree made only of hash nodes. 2^depth is the maximum number of leaves hash nodes
-    fn new(depth: usize, default_leaf: H::Fr, _config: Self::Config) -> Result<Self, ZerokitMerkleTreeError> {
+    fn new(
+        depth: usize,
+        default_leaf: H::Fr,
+        _config: Self::Config,
+    ) -> Result<Self, ZerokitMerkleTreeError> {
         // Compute cache node values, leaf to root
         let mut cached_nodes: Vec<H::Fr> = Vec::with_capacity(depth + 1);
         cached_nodes.push(default_leaf);
@@ -181,7 +185,12 @@ where
     }
 
     /// Overrides a range of leaves while resetting specified indices to default and preserving unaffected values.
-    fn override_range<I, J>(&mut self, start: usize, leaves: I, indices: J) -> Result<(), ZerokitMerkleTreeError>
+    fn override_range<I, J>(
+        &mut self,
+        start: usize,
+        leaves: I,
+        indices: J,
+    ) -> Result<(), ZerokitMerkleTreeError>
     where
         I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
         J: ExactSizeIterator<Item = usize>,

@@ -77,7 +77,11 @@ where
 
     /// Creates a new `MerkleTree`
     /// depth - the height of the tree made only of hash nodes. 2^depth is the maximum number of leaves hash nodes
-    fn new(depth: usize, default_leaf: FrOf<Self::Hasher>, _config: Self::Config) -> Result<Self, ZerokitMerkleTreeError> {
+    fn new(
+        depth: usize,
+        default_leaf: FrOf<Self::Hasher>,
+        _config: Self::Config,
+    ) -> Result<Self, ZerokitMerkleTreeError> {
         // Compute cache node values, leaf to root
         let mut cached_nodes: Vec<H::Fr> = Vec::with_capacity(depth + 1);
         cached_nodes.push(default_leaf);
@@ -209,7 +213,12 @@ where
     }
 
     /// Overrides a range of leaves while resetting specified indices to default and preserving unaffected values.
-    fn override_range<I, J>(&mut self, start: usize, leaves: I, indices: J) -> Result<(), ZerokitMerkleTreeError>
+    fn override_range<I, J>(
+        &mut self,
+        start: usize,
+        leaves: I,
+        indices: J,
+    ) -> Result<(), ZerokitMerkleTreeError>
     where
         I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
         J: ExactSizeIterator<Item = usize>,
@@ -276,7 +285,11 @@ where
     }
 
     // Verifies a Merkle proof with respect to the input leaf and the tree root
-    fn verify(&self, hash: &FrOf<Self::Hasher>, proof: &FullMerkleProof<H>) -> Result<bool, ZerokitMerkleTreeError> {
+    fn verify(
+        &self,
+        hash: &FrOf<Self::Hasher>,
+        proof: &FullMerkleProof<H>,
+    ) -> Result<bool, ZerokitMerkleTreeError> {
         Ok(proof.compute_root_from(hash) == self.root())
     }
 
@@ -321,7 +334,11 @@ where
     ///
     /// - `start_index`: The first index at the current level that was updated.
     /// - `end_index`: The last index (inclusive) at the same level that was updated.
-    fn update_hashes(&mut self, start_index: usize, end_index: usize) -> Result<(), ZerokitMerkleTreeError> {
+    fn update_hashes(
+        &mut self,
+        start_index: usize,
+        end_index: usize,
+    ) -> Result<(), ZerokitMerkleTreeError> {
         // Ensure the range is within the same tree level
         if self.levels(start_index) != self.levels(end_index) {
             return Err(ZerokitMerkleTreeError::InvalidStartAndEndLevel);
