@@ -58,18 +58,10 @@ fn get_tmp() -> bool {
     true
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum PmTreeConfigError {
-    #[error("Error while reading pmtree config: {0}")]
-    JsonError(#[from] serde_json::Error),
-    #[error("Error while creating pmtree config: path already exists")]
-    PathExists,
-}
-
 pub struct PmtreeConfig(Config);
 
 impl FromStr for PmtreeConfig {
-    type Err = PmTreeConfigError;
+    type Err = FromConfigError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let config: Value = serde_json::from_str(s)?;
@@ -91,7 +83,7 @@ impl FromStr for PmtreeConfig {
             && temporary.unwrap()
             && path.as_ref().unwrap().exists()
         {
-            return Err(PmTreeConfigError::PathExists);
+            return Err(FromConfigError::PathExists);
         }
 
         let config = Config::new()

@@ -18,8 +18,6 @@ use {
     std::default::Default,
 };
 
-#[cfg(feature = "pmtree-ft")]
-use crate::pm_tree_adapter::PmTreeConfigError;
 use ark_groth16::{Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
@@ -27,7 +25,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Serializatio
 use num_bigint::BigInt;
 use std::io::Cursor;
 use std::string::FromUtf8Error;
-use utils::ZerokitMerkleTreeError;
+use utils::{FromConfigError, ZerokitMerkleTreeError};
 
 /// The application-specific RLN identifier.
 ///
@@ -42,6 +40,8 @@ pub enum RLNError {
     Utf8(#[from] FromUtf8Error),
     #[error("Serde json error: {0}")]
     JSON(#[from] serde_json::Error),
+    #[error("Config error: {0}")]
+    Config(#[from] FromConfigError),
     #[error("Serialization error: {0}")]
     Serialization(#[from] SerializationError),
     #[error("Merkle tree error: {0}")]
@@ -56,10 +56,6 @@ pub enum RLNError {
     Proof(#[from] ProofError),
     #[error("Unable to extract secret")]
     RecoverSecret,
-
-    #[cfg(feature = "pmtree-ft")]
-    #[error("PmTree config error: {0}")]
-    PmTreeConfig(#[from] PmTreeConfigError),
 }
 
 /// The RLN object.

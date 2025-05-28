@@ -8,7 +8,7 @@ use std::{
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES};
-use crate::ZerokitMerkleTreeError;
+use crate::{FromConfigError, ZerokitMerkleTreeError};
 ////////////////////////////////////////////////////////////
 ///// Full Merkle Tree Implementation
 ////////////////////////////////////////////////////////////
@@ -55,9 +55,9 @@ pub struct FullMerkleProof<H: Hasher>(pub Vec<FullMerkleBranch<H>>);
 pub struct FullMerkleConfig(());
 
 impl FromStr for FullMerkleConfig {
-    type Err = ();
+    type Err = FromConfigError;
 
-    fn from_str(_s: &str) -> Result<Self, ()> {
+    fn from_str(_s: &str) -> Result<Self, Self::Err> {
         Ok(FullMerkleConfig::default())
     }
 }

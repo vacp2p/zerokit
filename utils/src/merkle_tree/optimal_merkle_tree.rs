@@ -3,7 +3,7 @@ use std::{cmp::max, collections::HashMap, fmt::Debug, str::FromStr};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES};
-use crate::ZerokitMerkleTreeError;
+use crate::{FromConfigError, ZerokitMerkleTreeError};
 ////////////////////////////////////////////////////////////
 ///// Optimal Merkle Tree Implementation
 ////////////////////////////////////////////////////////////
@@ -47,9 +47,9 @@ pub struct OptimalMerkleProof<H: Hasher>(pub Vec<(H::Fr, u8)>);
 pub struct OptimalMerkleConfig(());
 
 impl FromStr for OptimalMerkleConfig {
-    type Err = ();
+    type Err = FromConfigError;
 
-    fn from_str(_s: &str) -> Result<Self, ()> {
+    fn from_str(_s: &str) -> Result<Self, Self::Err> {
         Ok(OptimalMerkleConfig::default())
     }
 }
