@@ -18,6 +18,8 @@ use {
     std::default::Default,
 };
 
+#[cfg(feature = "pmtree-ft")]
+use crate::pm_tree_adapter::PmTreeConfigError;
 use ark_groth16::{Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
@@ -26,8 +28,6 @@ use num_bigint::BigInt;
 use std::io::Cursor;
 use std::string::FromUtf8Error;
 use utils::ZerokitMerkleTreeError;
-#[cfg(feature = "pmtree-ft")]
-use crate::pm_tree_adapter::PmTreeConfigError;
 
 /// The application-specific RLN identifier.
 ///
@@ -56,7 +56,7 @@ pub enum RLNError {
     Proof(#[from] ProofError),
     #[error("Unable to extract secret")]
     RecoverSecret,
-    
+
     #[cfg(feature = "pmtree-ft")]
     #[error("PmTree config error: {0}")]
     PmTreeConfig(#[from] PmTreeConfigError),

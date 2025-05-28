@@ -16,9 +16,7 @@ use cfg_if::cfg_if;
 use crate::circuit::iden3calc::calc_witness;
 
 #[cfg(feature = "arkzkey")]
-use {
-    ark_ff::Field, ark_serialize::CanonicalDeserialize, ark_serialize::CanonicalSerialize,
-};
+use {ark_ff::Field, ark_serialize::CanonicalDeserialize, ark_serialize::CanonicalSerialize};
 
 #[cfg(not(feature = "arkzkey"))]
 use {crate::circuit::zkey::read_zkey, std::io::Cursor};
@@ -145,11 +143,9 @@ pub fn read_arkzkey_from_bytes_uncompressed(
 
     let serialized_proving_key =
         SerializableProvingKey::deserialize_uncompressed_unchecked(&mut cursor)?;
-            // .wrap_err("Failed to deserialize proving key")?;
 
     let serialized_constraint_matrices =
         SerializableConstraintMatrices::deserialize_uncompressed_unchecked(&mut cursor)?;
-            // .wrap_err("Failed to deserialize constraint matrices")?;
 
     // Get on right form for API
     let proving_key: ProvingKey<Bn254> = serialized_proving_key.0;
