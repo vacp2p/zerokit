@@ -942,7 +942,7 @@ impl RLN {
         calculated_witness: Vec<BigInt>,
         serialized_witness: Vec<u8>,
         mut output_data: W,
-    ) -> Result<()> {
+    ) -> Result<(), RLNError> {
         let (rln_witness, _) = deserialize_witness(&serialized_witness[..])?;
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
