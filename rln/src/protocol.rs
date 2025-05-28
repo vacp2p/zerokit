@@ -222,7 +222,6 @@ pub fn proof_inputs_to_rln_witness(
     ))
     .map_err(ConversionError::ToUsize)?;
     all_read += 8;
-    all_read += 8;
 
     let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
 
