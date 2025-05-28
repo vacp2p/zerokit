@@ -18,7 +18,6 @@ use crate::circuit::iden3calc::calc_witness;
 #[cfg(feature = "arkzkey")]
 use {
     ark_ff::Field, ark_serialize::CanonicalDeserialize, ark_serialize::CanonicalSerialize,
-    color_eyre::eyre::WrapErr,
 };
 
 #[cfg(not(feature = "arkzkey"))]
@@ -137,20 +136,20 @@ pub struct SerializableMatrix<F: Field> {
 #[cfg(feature = "arkzkey")]
 pub fn read_arkzkey_from_bytes_uncompressed(
     arkzkey_data: &[u8],
-) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
+) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>), ZKeyReadError> {
     if arkzkey_data.is_empty() {
-        return Err(Report::msg("No proving key found!"));
+        return Err(ZKeyReadError::EmptyBytes);
     }
 
     let mut cursor = std::io::Cursor::new(arkzkey_data);
 
     let serialized_proving_key =
-        SerializableProvingKey::deserialize_uncompressed_unchecked(&mut cursor)
-            .wrap_err("Failed to deserialize proving key")?;
+        SerializableProvingKey::deserialize_uncompressed_unchecked(&mut cursor)?;
+            // .wrap_err("Failed to deserialize proving key")?;
 
     let serialized_constraint_matrices =
-        SerializableConstraintMatrices::deserialize_uncompressed_unchecked(&mut cursor)
-            .wrap_err("Failed to deserialize constraint matrices")?;
+        SerializableConstraintMatrices::deserialize_uncompressed_unchecked(&mut cursor)?;
+            // .wrap_err("Failed to deserialize constraint matrices")?;
 
     // Get on right form for API
     let proving_key: ProvingKey<Bn254> = serialized_proving_key.0;
