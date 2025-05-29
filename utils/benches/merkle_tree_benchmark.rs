@@ -1,6 +1,7 @@
+use std::{fmt::Display, str::FromStr};
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use lazy_static::lazy_static;
-use std::{fmt::Display, str::FromStr};
 use tiny_keccak::{Hasher as _, Keccak};
 use zerokit_utils::{
     FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree,

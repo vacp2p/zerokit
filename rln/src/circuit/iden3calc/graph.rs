@@ -10,7 +10,7 @@ use std::{
     cmp::Ordering,
     collections::HashMap,
     error::Error,
-    ops::{BitAnd, BitOr, BitXor, Deref, Shl, Shr},
+    ops::{Deref, Shl, Shr},
 };
 
 use crate::circuit::iden3calc::proto;

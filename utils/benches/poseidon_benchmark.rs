@@ -1,7 +1,7 @@
+use std::hint::black_box;
+
 use ark_bn254::Fr;
-use criterion::{
-    black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput,
-};
+use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput};
 use zerokit_utils::Poseidon;
 
 const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
