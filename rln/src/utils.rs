@@ -1,25 +1,12 @@
 // This crate provides cross-module useful utilities (mainly type conversions) not necessarily specific to RLN
 
 use crate::circuit::Fr;
+use crate::error::ConversionError;
 use ark_ff::PrimeField;
-use num_bigint::{BigInt, BigUint, ParseBigIntError};
+use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use serde_json::json;
-use std::array::TryFromSliceError;
 use std::io::Cursor;
-use std::num::TryFromIntError;
-
-#[derive(Debug, thiserror::Error)]
-pub enum ConversionError {
-    #[error("Expected radix 10 or 16")]
-    WrongRadix,
-    #[error("{0}")]
-    ParseBigInt(#[from] ParseBigIntError),
-    #[error("{0}")]
-    ToUsize(#[from] TryFromIntError),
-    #[error("{0}")]
-    FromSlice(#[from] TryFromSliceError),
-}
 
 #[inline(always)]
 pub fn to_bigint(el: &Fr) -> BigInt {

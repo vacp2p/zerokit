@@ -2,7 +2,7 @@
 
 use ark_bn254::Fr;
 use ark_groth16::{prepare_verifying_key, Groth16, Proof as ArkProof, ProvingKey, VerifyingKey};
-use ark_relations::r1cs::{ConstraintMatrices, SynthesisError};
+use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
@@ -11,16 +11,15 @@ use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use std::time::Instant;
-use thiserror::Error;
 use tiny_keccak::{Hasher as _, Keccak};
 
 use crate::circuit::{calculate_rln_witness, qap::CircomReduction, Curve};
+use crate::error::{ConversionError, ProofError, ProtocolError};
 use crate::hashers::{hash_to_field, poseidon_hash};
 use crate::poseidon_tree::*;
 use crate::public::RLN_IDENTIFIER;
 use crate::utils::*;
 use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
-
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
 ///////////////////////////////////////////////////////
@@ -40,20 +39,6 @@ pub struct RLNWitnessInput {
     x: Fr,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     external_nullifier: Fr,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ProtocolError {
-    #[error("{0}")]
-    Conversion(#[from] ConversionError),
-    #[error("Expected to read {0} bytes but read only {1} bytes")]
-    InvalidReadLen(usize, usize),
-    #[error("Cannot convert bigint {0:?} to biguint")]
-    BigUintConversion(BigInt),
-    #[error("{0}")]
-    JsonError(#[from] serde_json::Error),
-    #[error("Message id ({0}) is not within user_message_limit ({1})")]
-    InvalidMessageId(Fr, Fr),
 }
 
 #[derive(Debug, PartialEq)]
@@ -543,14 +528,6 @@ pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<Fr, Strin
 ///////////////////////////////////////////////////////
 // zkSNARK utility functions
 ///////////////////////////////////////////////////////
-
-#[derive(Error, Debug)]
-pub enum ProofError {
-    #[error("{0}")]
-    ProtocolError(#[from] ProtocolError),
-    #[error("Error producing proof: {0}")]
-    SynthesisError(#[from] SynthesisError),
-}
 
 fn calculate_witness_element<E: ark_ec::pairing::Pairing>(
     witness: Vec<BigInt>,

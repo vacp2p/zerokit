@@ -8,7 +8,7 @@ use {
     utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
 };
 
-use crate::circuit::{zkey_from_raw, Curve, Fr, ZKeyReadError};
+use crate::circuit::{zkey_from_raw, Curve, Fr};
 use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
 use crate::protocol::*;
 use crate::utils::*;
@@ -18,45 +18,19 @@ use {
     std::default::Default,
 };
 
+use crate::error::{ConversionError, ProtocolError, RLNError};
 use ark_groth16::{Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 #[cfg(target_arch = "wasm32")]
 use num_bigint::BigInt;
 use std::io::Cursor;
-use std::string::FromUtf8Error;
-use utils::{FromConfigError, ZerokitMerkleTreeError};
+use utils::ZerokitMerkleTreeError;
 
 /// The application-specific RLN identifier.
 ///
 /// Prevents a RLN ZK proof generated for one application to be re-used in another one.
 pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
-
-#[derive(Debug, thiserror::Error)]
-pub enum RLNError {
-    #[error("I/O error: {0}")]
-    IO(#[from] std::io::Error),
-    #[error("Utf8 error: {0}")]
-    Utf8(#[from] FromUtf8Error),
-    #[error("Serde json error: {0}")]
-    JSON(#[from] serde_json::Error),
-    #[error("Config error: {0}")]
-    Config(#[from] FromConfigError),
-    #[error("Serialization error: {0}")]
-    Serialization(#[from] SerializationError),
-    #[error("Merkle tree error: {0}")]
-    MerkleTree(#[from] ZerokitMerkleTreeError),
-    #[error("ZKey error: {0}")]
-    ZKey(#[from] ZKeyReadError),
-    #[error("Conversion error: {0}")]
-    Conversion(#[from] ConversionError),
-    #[error("Protocol error: {0}")]
-    Protocol(#[from] ProtocolError),
-    #[error("Proof error: {0}")]
-    Proof(#[from] ProofError),
-    #[error("Unable to extract secret")]
-    RecoverSecret,
-}
 
 /// The RLN object.
 ///
