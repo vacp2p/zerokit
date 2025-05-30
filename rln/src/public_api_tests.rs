@@ -231,7 +231,7 @@ mod tree_test {
         rln.set_tree(tree_height).unwrap();
 
         // We add leaves in a batch into the tree
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
         rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // We check if number of leaves set is consistent
@@ -289,7 +289,7 @@ mod tree_test {
         let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
         // We add leaves in a batch into the tree
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
         rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // We check if number of leaves set is consistent
@@ -303,11 +303,11 @@ mod tree_test {
         // `init_tree_with_leaves` resets the tree to the height it was initialized with, using `set_tree`
 
         // We add leaves in a batch starting from index 0..set_index
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves[0..set_index]).unwrap());
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves[0..set_index]));
         rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // We add the remaining n leaves in a batch starting from index m
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves[set_index..]).unwrap());
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves[set_index..]));
         rln.set_leaves_from(set_index, &mut buffer).unwrap();
 
         // We check if number of leaves set is consistent
@@ -359,7 +359,7 @@ mod tree_test {
         let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
         // We add leaves in a batch into the tree
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
         rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // We check if number of leaves set is consistent
@@ -377,8 +377,8 @@ mod tree_test {
         let last_leaf_index = no_of_leaves - 1;
         let indices = vec![last_leaf_index as u8];
         let last_leaf = vec![*last_leaf];
-        let indices_buffer = Cursor::new(vec_u8_to_bytes_le(&indices).unwrap());
-        let leaves_buffer = Cursor::new(vec_fr_to_bytes_le(&last_leaf).unwrap());
+        let indices_buffer = Cursor::new(vec_u8_to_bytes_le(&indices));
+        let leaves_buffer = Cursor::new(vec_fr_to_bytes_le(&last_leaf));
 
         rln.atomic_operation(last_leaf_index, leaves_buffer, indices_buffer)
             .unwrap();
@@ -408,7 +408,7 @@ mod tree_test {
         let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
         // We add leaves in a batch into the tree
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
         rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // We check if number of leaves set is consistent
@@ -422,8 +422,8 @@ mod tree_test {
         let zero_index = 0;
         let indices = vec![zero_index as u8];
         let zero_leaf: Vec<Fr> = vec![];
-        let indices_buffer = Cursor::new(vec_u8_to_bytes_le(&indices).unwrap());
-        let leaves_buffer = Cursor::new(vec_fr_to_bytes_le(&zero_leaf).unwrap());
+        let indices_buffer = Cursor::new(vec_u8_to_bytes_le(&indices));
+        let leaves_buffer = Cursor::new(vec_fr_to_bytes_le(&zero_leaf));
         rln.atomic_operation(0, leaves_buffer, indices_buffer)
             .unwrap();
 
@@ -452,7 +452,7 @@ mod tree_test {
         let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
         // We add leaves in a batch into the tree
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
         rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // We check if number of leaves set is consistent
@@ -466,8 +466,8 @@ mod tree_test {
         let set_index = rng.gen_range(0..no_of_leaves) as usize;
         let indices = vec![set_index as u8];
         let zero_leaf: Vec<Fr> = vec![];
-        let indices_buffer = Cursor::new(vec_u8_to_bytes_le(&indices).unwrap());
-        let leaves_buffer = Cursor::new(vec_fr_to_bytes_le(&zero_leaf).unwrap());
+        let indices_buffer = Cursor::new(vec_u8_to_bytes_le(&indices));
+        let leaves_buffer = Cursor::new(vec_fr_to_bytes_le(&zero_leaf));
         rln.atomic_operation(0, leaves_buffer, indices_buffer)
             .unwrap();
 
@@ -509,7 +509,7 @@ mod tree_test {
         let (root_empty, _) = bytes_le_to_fr(&buffer.into_inner());
 
         // We add leaves in a batch into the tree
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
 
         #[allow(unused_must_use)]
         rln.set_leaves_from(bad_index, &mut buffer)
@@ -599,7 +599,7 @@ mod tree_test {
         let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
         // We add leaves in a batch into the tree
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
         rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // Generate identity pair
@@ -671,7 +671,7 @@ mod tree_test {
         let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
         // We add leaves in a batch into the tree
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
         rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // Generate identity pair
@@ -754,7 +754,7 @@ mod tree_test {
         let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
 
         // We add leaves in a batch into the tree
-        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves).unwrap());
+        let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
         rln.init_tree_with_leaves(&mut buffer).unwrap();
 
         // Generate identity pair

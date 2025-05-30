@@ -22,8 +22,8 @@ pub enum ConversionError {
 }
 
 #[inline(always)]
-pub fn to_bigint(el: &Fr) -> Result<BigInt, ()> {
-    Ok(BigUint::from(*el).into())
+pub fn to_bigint(el: &Fr) -> BigInt {
+    BigUint::from(*el).into()
 }
 
 #[inline(always)]
@@ -70,7 +70,7 @@ pub fn fr_to_bytes_le(input: &Fr) -> Vec<u8> {
 }
 
 #[inline(always)]
-pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Result<Vec<u8>, ()> {
+pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Vec<u8> {
     // Calculate capacity for Vec:
     // - 8 bytes for normalized vector length (usize)
     // - each Fr element requires fr_byte_size() bytes (typically 32 bytes)
@@ -84,11 +84,11 @@ pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Result<Vec<u8>, ()> {
         bytes.extend_from_slice(&fr_to_bytes_le(el));
     }
 
-    Ok(bytes)
+    bytes
 }
 
 #[inline(always)]
-pub fn vec_u8_to_bytes_le(input: &[u8]) -> Result<Vec<u8>, ()> {
+pub fn vec_u8_to_bytes_le(input: &[u8]) -> Vec<u8> {
     // Calculate capacity for Vec:
     // - 8 bytes for normalized vector length (usize)
     // - variable length input data
@@ -100,7 +100,7 @@ pub fn vec_u8_to_bytes_le(input: &[u8]) -> Result<Vec<u8>, ()> {
     // We store the input
     bytes.extend_from_slice(input);
 
-    Ok(bytes)
+    bytes
 }
 
 #[inline(always)]

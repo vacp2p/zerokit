@@ -127,9 +127,8 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>, Proto
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.identity_secret));
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.user_message_limit));
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.message_id));
-    // Note: safe to unwrap (error is ())
-    serialized.extend_from_slice(&vec_fr_to_bytes_le(&rln_witness.path_elements).unwrap());
-    serialized.extend_from_slice(&vec_u8_to_bytes_le(&rln_witness.identity_path_index).unwrap());
+    serialized.extend_from_slice(&vec_fr_to_bytes_le(&rln_witness.path_elements));
+    serialized.extend_from_slice(&vec_u8_to_bytes_le(&rln_witness.identity_path_index));
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.x));
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.external_nullifier));
 
@@ -788,8 +787,7 @@ pub fn rln_witness_to_bigint_json(
     let mut path_elements = Vec::new();
 
     for v in rln_witness.path_elements.iter() {
-        // Note: unwrap safe - to_bigint is infallible
-        path_elements.push(to_bigint(v).unwrap().to_str_radix(10));
+        path_elements.push(to_bigint(v).to_str_radix(10));
     }
 
     let mut identity_path_index = Vec::new();
@@ -799,14 +797,13 @@ pub fn rln_witness_to_bigint_json(
         .for_each(|v| identity_path_index.push(BigInt::from(*v).to_str_radix(10)));
 
     let inputs = serde_json::json!({
-        // Note: unwrap safe - infallible
-        "identitySecret": to_bigint(&rln_witness.identity_secret).unwrap().to_str_radix(10),
-        "userMessageLimit": to_bigint(&rln_witness.user_message_limit).unwrap().to_str_radix(10),
-        "messageId": to_bigint(&rln_witness.message_id).unwrap().to_str_radix(10),
+        "identitySecret": to_bigint(&rln_witness.identity_secret).to_str_radix(10),
+        "userMessageLimit": to_bigint(&rln_witness.user_message_limit).to_str_radix(10),
+        "messageId": to_bigint(&rln_witness.message_id).to_str_radix(10),
         "pathElements": path_elements,
         "identityPathIndex": identity_path_index,
-        "x": to_bigint(&rln_witness.x).unwrap().to_str_radix(10),
-        "externalNullifier":  to_bigint(&rln_witness.external_nullifier).unwrap().to_str_radix(10),
+        "x": to_bigint(&rln_witness.x).to_str_radix(10),
+        "externalNullifier":  to_bigint(&rln_witness.external_nullifier).to_str_radix(10),
     });
 
     Ok(inputs)

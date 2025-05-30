@@ -696,8 +696,8 @@ impl RLN {
         let identity_path_index = merkle_proof.get_path_index();
 
         // Note: unwrap safe - vec_fr_to_bytes_le & vec_u8_to_bytes_le are infallible
-        output_data.write_all(&vec_fr_to_bytes_le(&path_elements).unwrap())?;
-        output_data.write_all(&vec_u8_to_bytes_le(&identity_path_index).unwrap())?;
+        output_data.write_all(&vec_fr_to_bytes_le(&path_elements))?;
+        output_data.write_all(&vec_u8_to_bytes_le(&identity_path_index))?;
 
         Ok(())
     }
