@@ -11,7 +11,7 @@ use std::num::TryFromIntError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConversionError {
-    #[error("Expected radix == 10 or == 16")]
+    #[error("Expected radix 10 or 16")]
     WrongRadix,
     #[error("{0}")]
     ParseBigInt(#[from] ParseBigIntError),
