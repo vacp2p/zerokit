@@ -173,7 +173,6 @@ impl ZerokitMerkleTree for PmTree {
         leaf: FrOf<Self::Hasher>,
     ) -> Result<(), ZerokitMerkleTreeError> {
         self.tree.set(index, leaf)?;
-        // .map_err(|e| Report::msg(e.to_string()))?;
         self.cached_leaves_indices[index] = 1;
         Ok(())
     }
@@ -329,7 +328,6 @@ impl PmTree {
         let new_leaves = (start..end).map(|_| PmTreeHasher::default_leaf());
 
         self.tree.set_range(start, new_leaves)?;
-        // .map_err(|e| Report::msg(e.to_string()))?;
 
         for i in start..end {
             self.cached_leaves_indices[i] = 0

@@ -547,12 +547,6 @@ pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<Fr, Strin
 
 #[derive(Error, Debug)]
 pub enum ProofError {
-    /*
-    #[error("Error reading circuit key: {0}")]
-    CircuitKeyError(#[from] Report),
-    #[error("Error producing witness: {0}")]
-    WitnessError(Report),
-    */
     #[error("{0}")]
     ProtocolError(#[from] ProtocolError),
     #[error("Error producing proof: {0}")]
