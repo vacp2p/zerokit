@@ -27,7 +27,7 @@ mod test {
     }
 
     fn set_leaves_init(rln_pointer: &mut RLN, leaves: &[Fr]) {
-        let leaves_ser = vec_fr_to_bytes_le(&leaves).unwrap();
+        let leaves_ser = vec_fr_to_bytes_le(&leaves);
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
         let success = init_tree_with_leaves(rln_pointer, input_buffer);
         assert!(success, "init tree with leaves call failed");
@@ -170,7 +170,7 @@ mod test {
         set_leaves_init(rln_pointer, &leaves[0..set_index]);
 
         // We add the remaining n leaves in a batch starting from index set_index
-        let leaves_n = vec_fr_to_bytes_le(&leaves[set_index..]).unwrap();
+        let leaves_n = vec_fr_to_bytes_le(&leaves[set_index..]);
         let buffer = &Buffer::from(leaves_n.as_ref());
         let success = set_leaves_from(rln_pointer, set_index, buffer);
         assert!(success, "set leaves from call failed");
@@ -220,9 +220,9 @@ mod test {
         let last_leaf_index = NO_OF_LEAVES - 1;
         let indices = vec![last_leaf_index as u8];
         let last_leaf = vec![*last_leaf];
-        let indices = vec_u8_to_bytes_le(&indices).unwrap();
+        let indices = vec_u8_to_bytes_le(&indices);
         let indices_buffer = &Buffer::from(indices.as_ref());
-        let leaves = vec_fr_to_bytes_le(&last_leaf).unwrap();
+        let leaves = vec_fr_to_bytes_le(&last_leaf);
         let leaves_buffer = &Buffer::from(leaves.as_ref());
 
         let success = atomic_operation(
@@ -253,7 +253,7 @@ mod test {
         let root_empty = get_tree_root(rln_pointer);
 
         // We add leaves in a batch into the tree
-        let leaves = vec_fr_to_bytes_le(&leaves).unwrap();
+        let leaves = vec_fr_to_bytes_le(&leaves);
         let buffer = &Buffer::from(leaves.as_ref());
         let success = set_leaves_from(rln_pointer, bad_index, buffer);
         assert!(!success, "set leaves from call succeeded");
@@ -892,7 +892,7 @@ mod test {
         for _ in 0..number_of_inputs {
             inputs.push(Fr::rand(&mut rng));
         }
-        let inputs_ser = vec_fr_to_bytes_le(&inputs).unwrap();
+        let inputs_ser = vec_fr_to_bytes_le(&inputs);
         let input_buffer = &Buffer::from(inputs_ser.as_ref());
 
         let expected_hash = utils_poseidon_hash(inputs.as_ref());
@@ -1433,7 +1433,7 @@ mod stateless_test {
         for _ in 0..number_of_inputs {
             inputs.push(Fr::rand(&mut rng));
         }
-        let inputs_ser = vec_fr_to_bytes_le(&inputs).unwrap();
+        let inputs_ser = vec_fr_to_bytes_le(&inputs);
         let input_buffer = &Buffer::from(inputs_ser.as_ref());
 
         let expected_hash = utils_poseidon_hash(inputs.as_ref());

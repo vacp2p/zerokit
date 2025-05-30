@@ -15,8 +15,7 @@ required-features = ["stateless"]
 [dependencies]
 rln = { path = "../rln", default-features = true }
 zerokit_utils = { path = "../utils" }
-clap = { version = "4.5.39", features = ["cargo", "derive", "env"] }
-clap_derive = { version = "4.5.32" }
+clap = { version = "4.5.38", features = ["cargo", "derive", "env"] }
 color-eyre = "0.6.4"
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }

@@ -212,7 +212,7 @@ pub mod test {
         tree_full
             .override_range(0, leaves_4.clone().into_iter(), [0, 1, 2, 3].into_iter())
             .expect("Failed to override range");
-        assert_eq!(tree_full.get_empty_leaves_indices(), vec![]);
+        assert_eq!(tree_full.get_empty_leaves_indices(), Vec::<usize>::new());
 
         // check if indexes for deletion are before indexes for overwriting
         tree_full
@@ -251,7 +251,7 @@ pub mod test {
         tree_opt
             .override_range(0, leaves_4.clone().into_iter(), [0, 1, 2, 3].into_iter())
             .expect("Failed to override range");
-        assert_eq!(tree_opt.get_empty_leaves_indices(), vec![]);
+        assert_eq!(tree_opt.get_empty_leaves_indices(), Vec::<usize>::new());
 
         // check if indexes for deletion are before indexes for overwriting
         tree_opt
