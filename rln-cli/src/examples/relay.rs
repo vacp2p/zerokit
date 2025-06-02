@@ -6,7 +6,7 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
-use color_eyre::{eyre::eyre, Result};
+use color_eyre::{eyre::eyre, Report, Result};
 use rln::{
     circuit::Fr,
     hashers::{hash_to_field, poseidon_hash},
@@ -182,7 +182,7 @@ impl RLNSystem {
             Ok(false) => {
                 println!("Verification failed: message_id must be unique within the epoch and satisfy 0 <= message_id < MESSAGE_LIMIT: {MESSAGE_LIMIT}");
             }
-            Err(err) => return Err(err),
+            Err(err) => return Err(Report::new(err)),
         }
         Ok(())
     }

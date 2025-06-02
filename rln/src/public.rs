@@ -18,14 +18,14 @@ use {
     std::default::Default,
 };
 
+use crate::error::{ConversionError, ProtocolError, RLNError};
 use ark_groth16::{Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
-use color_eyre::{Report, Result};
-use std::io::Cursor;
-
 #[cfg(target_arch = "wasm32")]
 use num_bigint::BigInt;
+use std::io::Cursor;
+use utils::error::ZerokitMerkleTreeError;
 
 /// The application-specific RLN identifier.
 ///
@@ -64,7 +64,7 @@ impl RLN {
     /// let mut rln = RLN::new(tree_height, input);
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
-    pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> Result<RLN> {
+    pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> Result<RLN, RLNError> {
         // We read input
         let mut input: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input)?;
@@ -108,7 +108,7 @@ impl RLN {
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "stateless")))]
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
-    pub fn new() -> Result<RLN> {
+    pub fn new() -> Result<RLN, RLNError> {
         let proving_key = zkey_from_folder().to_owned();
         let verification_key = proving_key.0.vk.to_owned();
         let graph_data = graph_from_folder().to_owned();
@@ -162,7 +162,7 @@ impl RLN {
         zkey_vec: Vec<u8>,
         graph_data: Vec<u8>,
         mut tree_config_input: R,
-    ) -> Result<RLN> {
+    ) -> Result<RLN, RLNError> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = proving_key.0.vk.to_owned();
 
@@ -221,7 +221,7 @@ impl RLN {
     /// );
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
-    pub fn new_with_params(zkey_vec: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN> {
+    pub fn new_with_params(zkey_vec: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN, RLNError> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = proving_key.0.vk.to_owned();
 
@@ -252,7 +252,7 @@ impl RLN {
     /// let mut rln = RLN::new_with_params(zkey_vec)?;
     /// ```
     #[cfg(all(target_arch = "wasm32", feature = "stateless"))]
-    pub fn new_with_params(zkey_vec: Vec<u8>) -> Result<RLN> {
+    pub fn new_with_params(zkey_vec: Vec<u8>) -> Result<RLN, RLNError> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = proving_key.0.vk.to_owned();
 
@@ -272,7 +272,7 @@ impl RLN {
     /// Input values are:
     /// - `tree_height`: the height of the Merkle tree.
     #[cfg(not(feature = "stateless"))]
-    pub fn set_tree(&mut self, tree_height: usize) -> Result<()> {
+    pub fn set_tree(&mut self, tree_height: usize) -> Result<(), RLNError> {
         // We compute a default empty tree of desired height
         self.tree = PoseidonTree::default(tree_height)?;
 
@@ -303,7 +303,7 @@ impl RLN {
     /// rln.set_leaf(id_index, &mut buffer).unwrap();
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn set_leaf<R: Read>(&mut self, index: usize, mut input_data: R) -> Result<()> {
+    pub fn set_leaf<R: Read>(&mut self, index: usize, mut input_data: R) -> Result<(), RLNError> {
         // We read input
         let mut leaf_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut leaf_byte)?;
@@ -333,7 +333,7 @@ impl RLN {
     /// rln.get_leaf(id_index, &mut buffer).unwrap();
     /// let rate_commitment = deserialize_field_element(&buffer.into_inner()).unwrap();
     #[cfg(not(feature = "stateless"))]
-    pub fn get_leaf<W: Write>(&self, index: usize, mut output_data: W) -> Result<()> {
+    pub fn get_leaf<W: Write>(&self, index: usize, mut output_data: W) -> Result<(), RLNError> {
         // We get the leaf at input index
         let leaf = self.tree.get(index)?;
 
@@ -376,7 +376,11 @@ impl RLN {
     /// rln.set_leaves_from(index, &mut buffer).unwrap();
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn set_leaves_from<R: Read>(&mut self, index: usize, mut input_data: R) -> Result<()> {
+    pub fn set_leaves_from<R: Read>(
+        &mut self,
+        index: usize,
+        mut input_data: R,
+    ) -> Result<(), RLNError> {
         // We read input
         let mut leaves_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut leaves_byte)?;
@@ -385,8 +389,7 @@ impl RLN {
 
         // We set the leaves
         self.tree
-            .override_range(index, leaves.into_iter(), [].into_iter())
-            .map_err(|_| Report::msg("Could not set leaves"))?;
+            .override_range(index, leaves.into_iter(), [].into_iter())?;
         Ok(())
     }
 
@@ -397,7 +400,7 @@ impl RLN {
     /// Input values are:
     /// - `input_data`: a reader for the serialization of multiple leaf values (serialization done with [`rln::utils::vec_fr_to_bytes_le`](crate::utils::vec_fr_to_bytes_le))
     #[cfg(not(feature = "stateless"))]
-    pub fn init_tree_with_leaves<R: Read>(&mut self, input_data: R) -> Result<()> {
+    pub fn init_tree_with_leaves<R: Read>(&mut self, input_data: R) -> Result<(), RLNError> {
         // reset the tree
         // NOTE: this requires the tree to be initialized with the correct height initially
         // TODO: accept tree_height as a parameter and initialize the tree with that height
@@ -453,7 +456,7 @@ impl RLN {
         index: usize,
         mut input_leaves: R,
         mut input_indices: R,
-    ) -> Result<()> {
+    ) -> Result<(), RLNError> {
         // We read input
         let mut leaves_byte: Vec<u8> = Vec::new();
         input_leaves.read_to_end(&mut leaves_byte)?;
@@ -468,8 +471,7 @@ impl RLN {
 
         // We set the leaves
         self.tree
-            .override_range(index, leaves.into_iter(), indices.into_iter())
-            .map_err(|e| Report::msg(format!("Could not perform the batch operation: {e}")))?;
+            .override_range(index, leaves.into_iter(), indices.into_iter())?;
         Ok(())
     }
 
@@ -522,7 +524,7 @@ impl RLN {
     /// rln.set_next_leaf(&mut buffer).unwrap();
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn set_next_leaf<R: Read>(&mut self, mut input_data: R) -> Result<()> {
+    pub fn set_next_leaf<R: Read>(&mut self, mut input_data: R) -> Result<(), RLNError> {
         // We read input
         let mut leaf_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut leaf_byte)?;
@@ -548,7 +550,7 @@ impl RLN {
     /// rln.delete_leaf(index).unwrap();
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn delete_leaf(&mut self, index: usize) -> Result<()> {
+    pub fn delete_leaf(&mut self, index: usize) -> Result<(), RLNError> {
         self.tree.delete(index)?;
         Ok(())
     }
@@ -566,7 +568,7 @@ impl RLN {
     /// rln.set_metadata(metadata).unwrap();
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn set_metadata(&mut self, metadata: &[u8]) -> Result<()> {
+    pub fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), RLNError> {
         self.tree.set_metadata(metadata)?;
         Ok(())
     }
@@ -586,7 +588,7 @@ impl RLN {
     /// let metadata = buffer.into_inner();
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn get_metadata<W: Write>(&self, mut output_data: W) -> Result<()> {
+    pub fn get_metadata<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
         let metadata = self.tree.metadata()?;
         output_data.write_all(&metadata)?;
         Ok(())
@@ -606,10 +608,9 @@ impl RLN {
     /// let (root, _) = bytes_le_to_fr(&buffer.into_inner());
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn get_root<W: Write>(&self, mut output_data: W) -> Result<()> {
+    pub fn get_root<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
         let root = self.tree.root();
         output_data.write_all(&fr_to_bytes_le(&root))?;
-
         Ok(())
     }
 
@@ -634,7 +635,7 @@ impl RLN {
         level: usize,
         index: usize,
         mut output_data: W,
-    ) -> Result<()> {
+    ) -> Result<(), RLNError> {
         let subroot = self.tree.get_subtree_root(level, index)?;
         output_data.write_all(&fr_to_bytes_le(&subroot))?;
 
@@ -663,13 +664,14 @@ impl RLN {
     /// let (identity_path_index, _) = bytes_le_to_vec_u8(&buffer_inner[read..].to_vec());
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn get_proof<W: Write>(&self, index: usize, mut output_data: W) -> Result<()> {
+    pub fn get_proof<W: Write>(&self, index: usize, mut output_data: W) -> Result<(), RLNError> {
         let merkle_proof = self.tree.proof(index).expect("proof should exist");
         let path_elements = merkle_proof.get_path_elements();
         let identity_path_index = merkle_proof.get_path_index();
 
-        output_data.write_all(&vec_fr_to_bytes_le(&path_elements)?)?;
-        output_data.write_all(&vec_u8_to_bytes_le(&identity_path_index)?)?;
+        // Note: unwrap safe - vec_fr_to_bytes_le & vec_u8_to_bytes_le are infallible
+        output_data.write_all(&vec_fr_to_bytes_le(&path_elements))?;
+        output_data.write_all(&vec_u8_to_bytes_le(&identity_path_index))?;
 
         Ok(())
     }
@@ -707,7 +709,7 @@ impl RLN {
     /// assert_eq!(idxs, [0, 1, 2, 3, 4]);
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn get_empty_leaves_indices<W: Write>(&self, mut output_data: W) -> Result<()> {
+    pub fn get_empty_leaves_indices<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
         let idxs = self.tree.get_empty_leaves_indices();
         idxs.serialize_compressed(&mut output_data)?;
         Ok(())
@@ -742,7 +744,7 @@ impl RLN {
         &mut self,
         mut input_data: R,
         mut output_data: W,
-    ) -> Result<()> {
+    ) -> Result<(), RLNError> {
         // We read input RLN witness and we serialize_compressed it
         let mut serialized_witness: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized_witness)?;
@@ -792,7 +794,7 @@ impl RLN {
     ///
     /// assert!(verified);
     /// ```
-    pub fn verify<R: Read>(&self, mut input_data: R) -> Result<bool> {
+    pub fn verify<R: Read>(&self, mut input_data: R) -> Result<bool, RLNError> {
         // Input data is serialized for Curve as:
         // serialized_proof (compressed, 4*32 bytes) || serialized_proof_values (6*32 bytes), i.e.
         // [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
@@ -863,7 +865,7 @@ impl RLN {
         &mut self,
         mut input_data: R,
         mut output_data: W,
-    ) -> Result<()> {
+    ) -> Result<(), RLNError> {
         // We read input RLN witness and we serialize_compressed it
         let mut witness_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut witness_byte)?;
@@ -888,7 +890,7 @@ impl RLN {
         &mut self,
         mut input_data: R,
         mut output_data: W,
-    ) -> Result<()> {
+    ) -> Result<(), RLNError> {
         let mut serialized_witness: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized_witness)?;
         let (rln_witness, _) = deserialize_witness(&serialized_witness)?;
@@ -912,7 +914,7 @@ impl RLN {
         calculated_witness: Vec<BigInt>,
         serialized_witness: Vec<u8>,
         mut output_data: W,
-    ) -> Result<()> {
+    ) -> Result<(), RLNError> {
         let (rln_witness, _) = deserialize_witness(&serialized_witness[..])?;
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
@@ -953,7 +955,7 @@ impl RLN {
     /// assert!(verified);
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn verify_rln_proof<R: Read>(&self, mut input_data: R) -> Result<bool> {
+    pub fn verify_rln_proof<R: Read>(&self, mut input_data: R) -> Result<bool, RLNError> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
@@ -964,8 +966,11 @@ impl RLN {
         all_read += read;
 
         let signal_len = usize::try_from(u64::from_le_bytes(
-            serialized[all_read..all_read + 8].try_into()?,
-        ))?;
+            serialized[all_read..all_read + 8]
+                .try_into()
+                .map_err(ConversionError::FromSlice)?,
+        ))
+        .map_err(ConversionError::from)?;
         all_read += 8;
 
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
@@ -1028,7 +1033,11 @@ impl RLN {
     ///
     /// assert!(verified);
     /// ```
-    pub fn verify_with_roots<R: Read>(&self, mut input_data: R, mut roots_data: R) -> Result<bool> {
+    pub fn verify_with_roots<R: Read>(
+        &self,
+        mut input_data: R,
+        mut roots_data: R,
+    ) -> Result<bool, RLNError> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
@@ -1039,8 +1048,11 @@ impl RLN {
         all_read += read;
 
         let signal_len = usize::try_from(u64::from_le_bytes(
-            serialized[all_read..all_read + 8].try_into()?,
-        ))?;
+            serialized[all_read..all_read + 8]
+                .try_into()
+                .map_err(ConversionError::FromSlice)?,
+        ))
+        .map_err(ConversionError::ToUsize)?;
         all_read += 8;
 
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
@@ -1109,7 +1121,7 @@ impl RLN {
     /// // We serialize_compressed the keygen output
     /// let (identity_secret_hash, id_commitment) = deserialize_identity_pair(buffer.into_inner());
     /// ```
-    pub fn key_gen<W: Write>(&self, mut output_data: W) -> Result<()> {
+    pub fn key_gen<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
         let (identity_secret_hash, id_commitment) = keygen();
         output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
         output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
@@ -1139,7 +1151,7 @@ impl RLN {
     /// // We serialize_compressed the keygen output
     /// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
     /// ```
-    pub fn extended_key_gen<W: Write>(&self, mut output_data: W) -> Result<()> {
+    pub fn extended_key_gen<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
         let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
             extended_keygen();
         output_data.write_all(&fr_to_bytes_le(&identity_trapdoor))?;
@@ -1178,7 +1190,7 @@ impl RLN {
         &self,
         mut input_data: R,
         mut output_data: W,
-    ) -> Result<()> {
+    ) -> Result<(), RLNError> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
 
@@ -1221,7 +1233,7 @@ impl RLN {
         &self,
         mut input_data: R,
         mut output_data: W,
-    ) -> Result<()> {
+    ) -> Result<(), RLNError> {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
 
@@ -1274,7 +1286,7 @@ impl RLN {
         mut input_proof_data_1: R,
         mut input_proof_data_2: R,
         mut output_data: W,
-    ) -> Result<()> {
+    ) -> Result<(), RLNError> {
         // We serialize_compressed the two proofs, and we get the corresponding RLNProofValues objects
         let mut serialized: Vec<u8> = Vec::new();
         input_proof_data_1.read_to_end(&mut serialized)?;
@@ -1304,7 +1316,7 @@ impl RLN {
             if let Ok(identity_secret_hash) = recovered_identity_secret_hash {
                 output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
             } else {
-                return Err(Report::msg("could not extract secret"));
+                return Err(RLNError::RecoverSecret);
             }
         }
 
@@ -1318,13 +1330,16 @@ impl RLN {
     ///
     /// The function returns the corresponding [`RLNWitnessInput`] object serialized using [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness).
     #[cfg(not(feature = "stateless"))]
-    pub fn get_serialized_rln_witness<R: Read>(&mut self, mut input_data: R) -> Result<Vec<u8>> {
+    pub fn get_serialized_rln_witness<R: Read>(
+        &mut self,
+        mut input_data: R,
+    ) -> Result<Vec<u8>, RLNError> {
         // We read input RLN witness and we serialize_compressed it
         let mut witness_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut witness_byte)?;
         let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
 
-        serialize_witness(&rln_witness)
+        serialize_witness(&rln_witness).map_err(RLNError::Protocol)
     }
 
     /// Converts a byte serialization of a [`RLNWitnessInput`] object to the corresponding JSON serialization.
@@ -1333,7 +1348,10 @@ impl RLN {
     /// - `serialized_witness`: the byte serialization of a [`RLNWitnessInput`] object (serialization done with  [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
     ///
     /// The function returns the corresponding JSON encoding of the input [`RLNWitnessInput`] object.
-    pub fn get_rln_witness_json(&mut self, serialized_witness: &[u8]) -> Result<serde_json::Value> {
+    pub fn get_rln_witness_json(
+        &mut self,
+        serialized_witness: &[u8],
+    ) -> Result<serde_json::Value, ProtocolError> {
         let (rln_witness, _) = deserialize_witness(serialized_witness)?;
         rln_witness_to_json(&rln_witness)
     }
@@ -1348,7 +1366,7 @@ impl RLN {
     pub fn get_rln_witness_bigint_json(
         &mut self,
         serialized_witness: &[u8],
-    ) -> Result<serde_json::Value> {
+    ) -> Result<serde_json::Value, ProtocolError> {
         let (rln_witness, _) = deserialize_witness(serialized_witness)?;
         rln_witness_to_bigint_json(&rln_witness)
     }
@@ -1358,7 +1376,7 @@ impl RLN {
     /// If not called, the connection will be closed when the RLN object is dropped.
     /// This improves robustness of the tree.
     #[cfg(not(feature = "stateless"))]
-    pub fn flush(&mut self) -> Result<()> {
+    pub fn flush(&mut self) -> Result<(), ZerokitMerkleTreeError> {
         self.tree.close_db_connection()
     }
 }
@@ -1399,7 +1417,10 @@ impl Default for RLN {
 /// // We serialize_compressed the keygen output
 /// let field_element = deserialize_field_element(output_buffer.into_inner());
 /// ```
-pub fn hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> Result<()> {
+pub fn hash<R: Read, W: Write>(
+    mut input_data: R,
+    mut output_data: W,
+) -> Result<(), std::io::Error> {
     let mut serialized: Vec<u8> = Vec::new();
     input_data.read_to_end(&mut serialized)?;
 
@@ -1432,7 +1453,10 @@ pub fn hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> Result<
 /// // We serialize_compressed the hash output
 /// let hash_result = deserialize_field_element(output_buffer.into_inner());
 /// ```
-pub fn poseidon_hash<R: Read, W: Write>(mut input_data: R, mut output_data: W) -> Result<()> {
+pub fn poseidon_hash<R: Read, W: Write>(
+    mut input_data: R,
+    mut output_data: W,
+) -> Result<(), RLNError> {
     let mut serialized: Vec<u8> = Vec::new();
     input_data.read_to_end(&mut serialized)?;
 

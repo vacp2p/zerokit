@@ -1,5 +1,6 @@
 // This crate provides interfaces for the zero-knowledge circuit and keys
 
+pub mod error;
 pub mod iden3calc;
 pub mod qap;
 pub mod zkey;
@@ -12,15 +13,12 @@ use ark_bn254::{
 use ark_groth16::ProvingKey;
 use ark_relations::r1cs::ConstraintMatrices;
 use cfg_if::cfg_if;
-use color_eyre::{Report, Result};
 
+use crate::circuit::error::ZKeyReadError;
 use crate::circuit::iden3calc::calc_witness;
 
 #[cfg(feature = "arkzkey")]
-use {
-    ark_ff::Field, ark_serialize::CanonicalDeserialize, ark_serialize::CanonicalSerialize,
-    color_eyre::eyre::WrapErr,
-};
+use {ark_ff::Field, ark_serialize::CanonicalDeserialize, ark_serialize::CanonicalSerialize};
 
 #[cfg(not(feature = "arkzkey"))]
 use {crate::circuit::zkey::read_zkey, std::io::Cursor};
@@ -60,9 +58,11 @@ pub type G2Affine = ArkG2Affine;
 pub type G2Projective = ArkG2Projective;
 
 // Loads the proving key using a bytes vector
-pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
+pub fn zkey_from_raw(
+    zkey_data: &[u8],
+) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>), ZKeyReadError> {
     if zkey_data.is_empty() {
-        return Err(Report::msg("No proving key found!"));
+        return Err(ZKeyReadError::EmptyBytes);
     }
 
     let proving_key_and_matrices = match () {
@@ -128,20 +128,18 @@ pub struct SerializableMatrix<F: Field> {
 #[cfg(feature = "arkzkey")]
 pub fn read_arkzkey_from_bytes_uncompressed(
     arkzkey_data: &[u8],
-) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> {
+) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>), ZKeyReadError> {
     if arkzkey_data.is_empty() {
-        return Err(Report::msg("No proving key found!"));
+        return Err(ZKeyReadError::EmptyBytes);
     }
 
     let mut cursor = std::io::Cursor::new(arkzkey_data);
 
     let serialized_proving_key =
-        SerializableProvingKey::deserialize_uncompressed_unchecked(&mut cursor)
-            .wrap_err("Failed to deserialize proving key")?;
+        SerializableProvingKey::deserialize_uncompressed_unchecked(&mut cursor)?;
 
     let serialized_constraint_matrices =
-        SerializableConstraintMatrices::deserialize_uncompressed_unchecked(&mut cursor)
-            .wrap_err("Failed to deserialize constraint matrices")?;
+        SerializableConstraintMatrices::deserialize_uncompressed_unchecked(&mut cursor)?;
 
     // Get on right form for API
     let proving_key: ProvingKey<Bn254> = serialized_proving_key.0;

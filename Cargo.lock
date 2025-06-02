@@ -573,9 +573,9 @@ checksum = "37b2a672a2cb129a2e41c10b1224bb368f9f37a2b16b612598138befd7b37eb5"
 
 [[package]]
 name = "cc"
-version = "1.2.24"
+version = "1.2.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16595d3be041c03b09d08d0858631facccee9221e579704070e6e9e4915d3bc7"
+checksum = "d0fc897dc1e865cc67c0e05a836d9d3f1df3cbe442aa4a9473b18e12624a4951"
 dependencies = [
  "shlex",
 ]
@@ -1183,9 +1183,9 @@ checksum = "b4ce301924b7887e9d637144fdade93f9dfff9b60981d4ac161db09720d39aa5"
 
 [[package]]
 name = "lock_api"
-version = "0.4.12"
+version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07af8b9cdd281b7915f413fa73f29ebd5d55d0d3f0155584dade1ff18cea1b17"
+checksum = "96936507f153605bddfcda068dd804796c84324ed2510809e5b2a624c81da765"
 dependencies = [
  "autocfg",
  "scopeguard",
@@ -1639,7 +1639,6 @@ dependencies = [
  "ark-std 0.5.0",
  "byteorder",
  "cfg-if",
- "color-eyre",
  "criterion",
  "document-features",
  "lazy_static",
@@ -1662,7 +1661,6 @@ name = "rln-cli"
 version = "0.4.0"
 dependencies = [
  "clap",
- "clap_derive",
  "color-eyre",
  "rln",
  "serde",
@@ -2477,7 +2475,6 @@ version = "0.5.2"
 dependencies = [
  "ark-bn254",
  "ark-ff 0.5.0",
- "color-eyre",
  "criterion",
  "hex",
  "hex-literal",
@@ -2485,8 +2482,9 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "rayon",
- "serde",
+ "serde_json",
  "sled",
+ "thiserror",
  "tiny-keccak",
  "vacp2p_pmtree",
 ]
