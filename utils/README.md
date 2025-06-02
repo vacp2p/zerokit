@@ -4,44 +4,42 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-Cryptographic primitives for zero-knowledge applications,
-featuring efficient Merkle tree implementations and a Poseidon hash function.
+**Zerokit Utils** provides essential cryptographic primitives optimized for zero-knowledge applications.
+This crate features efficient Merkle tree implementations and a Poseidon hash function,
+designed to be robust and performant.
 
 ## Overview
 
 This crate provides core cryptographic components optimized for zero-knowledge proof systems:
 
-1. Multiple Merkle tree implementations with different space/time tradeoffs
-2. A Poseidon hash implementation
+- **Versatile Merkle Trees**: Multiple implementations tailored for different space-time tradeoffs.
+- **Poseidon Hash Function**: An efficient hashing algorithm suitable for ZK contexts, with customizable parameters.
+- **Parallel Performance**: Leverages Rayon for significant speed-ups in Merkle tree computations.
+- **Arkworks Compatibility**: Poseidon hash implementation is designed to work seamlessly
+  with Arkworks field traits and data structures.
 
 ## Merkle Tree Implementations
 
-The crate supports two interchangeable Merkle tree implementations:
+Merkle trees are fundamental data structures for verifying data integrity and set membership.
+Zerokit Utils offers two interchangeable implementations:
 
-- **FullMerkleTree**
-  - Stores each tree node in memory
-- **OptimalMerkleTree**
-  - Only stores nodes used to prove accumulation of set leaves
+### Understanding Merkle Tree Terminology
 
-Both OptimalMerkleTree and FullMerkleTree use [Rayon](https://crates.io/crates/rayon) internally
-to speed up computation through data parallelism.
-This provides significant performance improvements, especially during large Merkle tree updates.
+To better understand the structure and parameters of our Merkle trees, here's a quick glossary:
 
-### Implementation notes
+- **Depth (`depth`)**: level of leaves if we count from root.
+  If the root is at level 0, leaves are at level `depth`.
+- **Number of Levels**: `depth + 1`.
+- **Capacity (Number of Leaves)**: $2^{\text{depth}}$. This is the maximum number of leaves the tree can hold.
+- **Total Number of Nodes**: $2^{(\text{depth} + 1)} - 1$ for a full binary tree.
 
-Glossary:
+**Example for a tree with `depth: 3`**:
 
-- depth: level of leaves if we count from levels from 0
-- number of levels: depth + 1
-- capacity (number of leaves): 1 << depth
-- total number of nodes: 1 << (depth + 1) - 1
+- Number of Levels: 4 (levels 0, 1, 2, 3)
+- Capacity (Number of Leaves): $2^3 = 8$
+- Total Number of Nodes: $2^{(3+1)} - 1 = 15$
 
-So for instance:
-
-- depth: 3
-- number of levels: 4
-- capacity (number of leaves): 8
-- total number of nodes: 15
+Visual representation of a Merkle tree with `depth: 3`:
 
 ```mermaid
 flowchart TD
@@ -61,39 +59,54 @@ flowchart TD
     N6 -->|Leaf| L8
 ```
 
+### Available Implementations
+
+- **FullMerkleTree**
+  - Stores all tree nodes in memory.
+  - Use Case: Use when memory is abundant and operation speed is critical.
+
+- **OptimalMerkleTree**
+  - Stores only the nodes required to prove the accumulation of set leaves (i.e., authentication paths).
+  - Use Case: Suited for environments where memory efficiency is a higher priority than raw speed.
+
+#### Parallel Processing with Rayon
+
+Both `OptimalMerkleTree` and `FullMerkleTree` internally utilize the Rayon crate
+to accelerate computations through data parallelism.
+This can lead to significant performance improvements, particularly during updates to large Merkle trees.
+
 ## Poseidon Hash Implementation
 
-This crate provides an implementation to compute the Poseidon hash round constants and MDS matrices:
+This crate provides an implementation for computing Poseidon hash round constants and MDS matrices.
+Key characteristics include:
 
-- **Customizable parameters**: Supports different security levels and input sizes
-- **Arkworks-friendly**: Adapted to work over arkworks field traits and custom data structures
+- **Customizable parameters**: Supports various security levels and input sizes,
+  allowing you to tailor the hash function to your specific needs.
+- **Arkworks-friendly**: Adapted to integrate smoothly with Arkworks field traits and custom data structures.
 
-### Security Note
+### ⚠️ Security Note
 
-The MDS matrices are generated iteratively using the Grain LFSR until certain criteria are met.
-According to the paper, such matrices must respect specific conditions
-which are checked by 3 different algorithms in the reference implementation.
+The MDS matrices used in the Poseidon hash function are generated iteratively
+using the Grain LFSR (Linear Feedback Shift Register) algorithm until specific cryptographic criteria are met.
 
-These validation algorithms are not currently implemented in this crate.
-For the hardcoded parameters, the first random matrix generated satisfies these conditions.
-If using different parameters, you should check against the reference implementation
-how many matrices are generated before outputting the correct one,
-and pass this number to the `skip_matrices` parameter of the `find_poseidon_ark_and_mds` function.
+- The reference Poseidon implementation includes validation algorithms to ensure these criteria are satisfied.
+  These validation algorithms are not currently implemented in this crate.
+- For the hardcoded parameters provided within this crate,
+  the initially generated random matrix has been verified to meet these conditions.
+- If you intend to use custom parameters, it is crucial to verify your generated MDS matrix.
+  You should consult the Poseidon reference implementation to determine
+  how many matrices are typically skipped before a valid one is found.
+  This count should then be passed as the `skip_matrices parameter` to the `find_poseidon_ark_and_mds`
+  function in this crate.
 
 ## Installation
 
-Add Zerokit Utils to your Rust project:
+Add zerokit-utils as a dependency to your Cargo.toml file:
 
 ```toml
 [dependencies]
-zerokit-utils = "0.5.1"
+zerokit-utils = "0.6.0"
 ```
-
-## Performance Considerations
-
-- **FullMerkleTree**: Use when memory is abundant and operation speed is critical
-- **OptimalMerkleTree**: Use when memory efficiency is more important than raw speed
-- **Poseidon**: Offers a good balance between security and performance for ZK applications
 
 ## Building and Testing
 
