@@ -1,4 +1,4 @@
-use crate::circuit::ZKeyReadError;
+use crate::circuit::error::ZKeyReadError;
 use ark_bn254::Fr;
 use ark_relations::r1cs::SynthesisError;
 use ark_serialize::SerializationError;
@@ -7,7 +7,7 @@ use std::array::TryFromSliceError;
 use std::num::TryFromIntError;
 use std::string::FromUtf8Error;
 use thiserror::Error;
-use utils::{FromConfigError, ZerokitMerkleTreeError};
+use utils::error::{FromConfigError, ZerokitMerkleTreeError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConversionError {

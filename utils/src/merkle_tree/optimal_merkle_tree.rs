@@ -2,8 +2,10 @@ use std::{cmp::max, collections::HashMap, fmt::Debug, str::FromStr};
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-use crate::merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES};
-use crate::{FromConfigError, ZerokitMerkleTreeError};
+use crate::merkle_tree::{
+    error::{FromConfigError, ZerokitMerkleTreeError},
+    FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES,
+};
 ////////////////////////////////////////////////////////////
 ///// Optimal Merkle Tree Implementation
 ////////////////////////////////////////////////////////////

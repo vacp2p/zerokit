@@ -1,5 +1,6 @@
 // This crate provides interfaces for the zero-knowledge circuit and keys
 
+pub mod error;
 pub mod iden3calc;
 pub mod qap;
 pub mod zkey;
@@ -13,6 +14,7 @@ use ark_groth16::ProvingKey;
 use ark_relations::r1cs::ConstraintMatrices;
 use cfg_if::cfg_if;
 
+use crate::circuit::error::ZKeyReadError;
 use crate::circuit::iden3calc::calc_witness;
 
 #[cfg(feature = "arkzkey")]
@@ -54,14 +56,6 @@ pub type G1Affine = ArkG1Affine;
 pub type G1Projective = ArkG1Projective;
 pub type G2Affine = ArkG2Affine;
 pub type G2Projective = ArkG2Projective;
-
-#[derive(Debug, thiserror::Error)]
-pub enum ZKeyReadError {
-    #[error("No proving key found!")]
-    EmptyBytes,
-    #[error("{0}")]
-    SerializationError(#[from] ark_serialize::SerializationError),
-}
 
 // Loads the proving key using a bytes vector
 pub fn zkey_from_raw(
