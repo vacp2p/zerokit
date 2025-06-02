@@ -1,8 +1,11 @@
 # Zerokit Utils Crate
 
 [![Crates.io](https://img.shields.io/crates/v/zerokit_utils.svg)](https://crates.io/crates/zerokit_utils)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-Cryptographic primitives for zero-knowledge applications, featuring efficient Merkle tree implementations and a Poseidon hash function.
+Cryptographic primitives for zero-knowledge applications,
+featuring efficient Merkle tree implementations and a Poseidon hash function.
 
 ## Overview
 
@@ -20,7 +23,9 @@ The crate supports two interchangeable Merkle tree implementations:
 - **OptimalMerkleTree**
   - Only stores nodes used to prove accumulation of set leaves
 
-Both OptimalMerkleTree and FullMerkleTree use [Rayon](https://crates.io/crates/rayon) internally to speed up computation through data parallelism. This provides significant performance improvements, especially during large Merkle tree updates.
+Both OptimalMerkleTree and FullMerkleTree use [Rayon](https://crates.io/crates/rayon) internally
+to speed up computation through data parallelism.
+This provides significant performance improvements, especially during large Merkle tree updates.
 
 ### Implementation notes
 
@@ -66,11 +71,13 @@ This crate provides an implementation to compute the Poseidon hash round constan
 ### Security Note
 
 The MDS matrices are generated iteratively using the Grain LFSR until certain criteria are met.
-According to the paper, such matrices must respect specific conditions which are checked by 3 different algorithms in the reference implementation.
+According to the paper, such matrices must respect specific conditions
+which are checked by 3 different algorithms in the reference implementation.
 
 These validation algorithms are not currently implemented in this crate.
 For the hardcoded parameters, the first random matrix generated satisfies these conditions.
-If using different parameters, you should check against the reference implementation how many matrices are generated before outputting the correct one,
+If using different parameters, you should check against the reference implementation
+how many matrices are generated before outputting the correct one,
 and pass this number to the `skip_matrices` parameter of the `find_poseidon_ark_and_mds` function.
 
 ## Installation
