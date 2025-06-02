@@ -1,6 +1,8 @@
 # RLN for WASM
 
 [![npm version](https://badge.fury.io/js/@waku%2Fzerokit-rln-wasm.svg)](https://badge.fury.io/js/@waku%2Fzerokit-rln-wasm)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 The Zerokit RLN WASM Module provides WebAssembly bindings for working with
 Rate-Limiting Nullifier [RLN](https://rfc.vac.dev/spec/32/) zkSNARK proofs and primitives.
