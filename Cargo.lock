@@ -1627,7 +1627,7 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
 name = "rln"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -1670,7 +1670,7 @@ dependencies = [
 
 [[package]]
 name = "rln-wasm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "console_error_panic_hook",
  "getrandom 0.2.16",
@@ -2471,7 +2471,7 @@ dependencies = [
 
 [[package]]
 name = "zerokit_utils"
-version = "0.5.2"
+version = "0.6.0"
 dependencies = [
  "ark-bn254",
  "ark-ff 0.5.0",
