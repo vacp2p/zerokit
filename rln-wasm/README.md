@@ -36,7 +36,7 @@ cargo install cargo-make
 
 #### Install `Node.js`
 
-If you don't have `nvm` (Node Version Manager), install it by following 
+If you don't have `nvm` (Node Version Manager), install it by following
 the [installation instructions](https://github.com/nvm-sh/nvm?tab=readme-ov-file#install--update-script).
 
 After installing `nvm`, install and use Node.js `v22.14.0`:
