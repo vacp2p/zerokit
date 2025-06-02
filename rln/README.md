@@ -84,7 +84,8 @@ fn main() {
     let signal = b"RLN is awesome";
 
     // 6. Prepare input for generate_rln_proof API
-    // input_data is [ identity_secret<32> | id_index<8> | external_nullifier<32> | user_message_limit<32> | message_id<32> | signal_len<8> | signal<var> ]
+    // input_data is [ identity_secret<32> | id_index<8> | external_nullifier<32> 
+    //    | user_message_limit<32> | message_id<32> | signal_len<8> | signal<var> ]
     let prove_input = prepare_prove_input(
         identity_secret_hash,
         id_index,
@@ -196,7 +197,7 @@ Where:
 
 > [!NOTE]
 > However, if `N` is too big, this might require a larger Powers of Tau ceremony
-> than the one hardcoded in `./scripts/build-circuits.sh`, which is `2^14`. \
+> than the one hardcoded in `./scripts/build-circuits.sh`, which is `2^14`.
 > In such case, we refer to the official
 > [Circom documentation](https://docs.circom.io/getting-started/proving-circuits/#powers-of-tau)
 > for instructions on how to run an appropriate Powers of Tau ceremony and Phase 2 in order to compile the desired circuit. \
