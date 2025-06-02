@@ -106,7 +106,6 @@ impl RLN {
     /// // We create a new RLN instance
     /// let mut rln = RLN::new();
     /// ```
-    #[cfg_attr(docsrs, doc(cfg(feature = "stateless")))]
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
     pub fn new() -> Result<RLN, RLNError> {
         let proving_key = zkey_from_folder().to_owned();

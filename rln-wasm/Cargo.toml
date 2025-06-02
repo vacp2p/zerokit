@@ -41,3 +41,6 @@ default = ["console_error_panic_hook"]
 stateless = ["rln/stateless"]
 arkzkey = ["rln/arkzkey"]
 multithread = ["wasm-bindgen-rayon"]
+
+[package.metadata.docs.rs]
+all-features = true

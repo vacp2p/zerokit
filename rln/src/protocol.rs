@@ -96,7 +96,7 @@ pub fn deserialize_identity_tuple(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
 /// # Errors
 ///
 /// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
-/// input data is [ identity_secret<32> | user_message_limit<32> | message_id<32> | path_elements[<32>] | identity_path_index<8> | x<32> | external_nullifier<32> ]
+/// input data is [ identity_secret<32> | user_message_limit<32> | message_id<32> | path_elements<32> | identity_path_index<8> | x<32> | external_nullifier<32> ]
 pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>, ProtocolError> {
     // Check if message_id is within user_message_limit
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;

@@ -42,3 +42,6 @@ harness = false
 [[bench]]
 name = "poseidon_benchmark"
 harness = false
+
+[package.metadata.docs.rs]
+all-features = true
