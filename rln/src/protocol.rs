@@ -1,6 +1,7 @@
 // This crate collects all the underlying primitives used to implement RLN
 
 use ark_bn254::Fr;
+use ark_ff::AdditiveGroup;
 use ark_groth16::{prepare_verifying_key, Groth16, Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -14,7 +15,7 @@ use std::time::Instant;
 use tiny_keccak::{Hasher as _, Keccak};
 
 use crate::circuit::{calculate_rln_witness, qap::CircomReduction, Curve};
-use crate::error::{ConversionError, ProofError, ProtocolError};
+use crate::error::{ComputeIdSecretError, ConversionError, ProofError, ProtocolError};
 use crate::hashers::{hash_to_field, poseidon_hash};
 use crate::poseidon_tree::*;
 use crate::public::RLN_IDENTIFIER;
@@ -508,7 +509,7 @@ pub fn extended_seeded_keygen(signal: &[u8]) -> (Fr, Fr, Fr, Fr) {
     )
 }
 
-pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<Fr, String> {
+pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<Fr, ComputeIdSecretError> {
     // Assuming a0 is the identity secret and a1 = poseidonHash([a0, external_nullifier]),
     // a (x,y) share satisfies the following relation
     // y = a_0 + x * a_1
@@ -518,11 +519,16 @@ pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<Fr, Strin
     // If the two input shares were computed for the same external_nullifier and identity secret, we can recover the latter
     // y1 = a_0 + x1 * a_1
     // y2 = a_0 + x2 * a_1
-    let a_1 = (y1 - y2) / (x1 - x2);
-    let a_0 = y1 - x1 * a_1;
 
-    // If shares come from the same polynomial, a0 is correctly recovered and a1 = poseidonHash([a0, external_nullifier])
-    Ok(a_0)
+    if (x1 - x2) != Fr::ZERO {
+        let a_1 = (y1 - y2) / (x1 - x2);
+        let a_0 = y1 - x1 * a_1;
+
+        // If shares come from the same polynomial, a0 is correctly recovered and a1 = poseidonHash([a0, external_nullifier])
+        Ok(a_0)
+    } else {
+        Err(ComputeIdSecretError::DivisionByZero)
+    }
 }
 
 ///////////////////////////////////////////////////////
