@@ -15,6 +15,10 @@ use {
     crate::circuit::{graph_from_folder, zkey_from_folder},
     std::default::Default,
 };
+
+#[cfg(target_arch = "wasm32")]
+use crate::protocol::generate_proof_with_witness;
+
 /// This is the main public API for RLN module. It is used by the FFI, and should be
 /// used by tests etc. as well
 #[cfg(not(feature = "stateless"))]
