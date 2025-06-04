@@ -1,3 +1,20 @@
+use crate::circuit::{zkey_from_raw, Curve, Fr};
+use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
+use crate::protocol::{
+    compute_id_secret, deserialize_proof_values, deserialize_witness, extended_keygen,
+    extended_seeded_keygen, generate_proof, keygen, proof_inputs_to_rln_witness,
+    proof_values_from_witness, rln_witness_to_bigint_json, rln_witness_to_json, seeded_keygen,
+    serialize_proof_values, serialize_witness, verify_proof,
+};
+use crate::utils::{
+    bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_le,
+    vec_fr_to_bytes_le, vec_u8_to_bytes_le,
+};
+#[cfg(not(target_arch = "wasm32"))]
+use {
+    crate::circuit::{graph_from_folder, zkey_from_folder},
+    std::default::Default,
+};
 /// This is the main public API for RLN module. It is used by the FFI, and should be
 /// used by tests etc. as well
 #[cfg(not(feature = "stateless"))]
@@ -6,16 +23,6 @@ use {
     serde_json::{json, Value},
     std::str::FromStr,
     utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
-};
-
-use crate::circuit::{zkey_from_raw, Curve, Fr};
-use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
-use crate::protocol::*;
-use crate::utils::*;
-#[cfg(not(target_arch = "wasm32"))]
-use {
-    crate::circuit::{graph_from_folder, zkey_from_folder},
-    std::default::Default,
 };
 
 use crate::error::{ConversionError, ProtocolError, RLNError};
