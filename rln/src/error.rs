@@ -44,6 +44,13 @@ pub enum ProtocolError {
 }
 
 #[derive(Debug, thiserror::Error)]
+pub enum ComputeIdSecretError {
+    /// Usually it means that the same signal is used to recover the user secret hash
+    #[error("Cannot recover secret: division by zero")]
+    DivisionByZero,
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum RLNError {
     #[error("I/O error: {0}")]
     IO(#[from] std::io::Error),
@@ -66,5 +73,5 @@ pub enum RLNError {
     #[error("Proof error: {0}")]
     Proof(#[from] ProofError),
     #[error("Unable to extract secret")]
-    RecoverSecret,
+    RecoverSecret(#[from] ComputeIdSecretError),
 }

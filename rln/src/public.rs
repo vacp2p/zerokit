@@ -1309,14 +1309,11 @@ impl RLN {
             let share2 = (proof_values_2.x, proof_values_2.y);
 
             // We recover the secret
-            let recovered_identity_secret_hash = compute_id_secret(share1, share2);
+            let recovered_identity_secret_hash =
+                compute_id_secret(share1, share2).map_err(RLNError::RecoverSecret)?;
 
             // If an identity secret hash is recovered, we write it to output_data, otherwise nothing will be written.
-            if let Ok(identity_secret_hash) = recovered_identity_secret_hash {
-                output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
-            } else {
-                return Err(RLNError::RecoverSecret);
-            }
+            output_data.write_all(&fr_to_bytes_le(&recovered_identity_secret_hash))?;
         }
 
         Ok(())
