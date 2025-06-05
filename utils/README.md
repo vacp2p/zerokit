@@ -12,7 +12,7 @@ designed to be robust and performant.
 
 This crate provides core cryptographic components optimized for zero-knowledge proof systems:
 
-- **Versatile Merkle Trees**: Multiple implementations tailored for different space-time tradeoffs.
+- **Multiple Merkle Trees**: Various implementations optimised for the trade-off between space and time.
 - **Poseidon Hash Function**: An efficient hashing algorithm suitable for ZK contexts, with customizable parameters.
 - **Parallel Performance**: Leverages Rayon for significant speed-ups in Merkle tree computations.
 - **Arkworks Compatibility**: Poseidon hash implementation is designed to work seamlessly
