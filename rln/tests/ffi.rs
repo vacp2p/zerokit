@@ -3,7 +3,7 @@
 mod test {
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
-    use rln::circuit::*;
+    use rln::circuit::{Fr, TEST_TREE_HEIGHT};
     use rln::ffi::{hash as ffi_hash, poseidon_hash as ffi_poseidon_hash, *};
     use rln::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash, ROUND_PARAMS};
     use rln::protocol::*;
