@@ -5,7 +5,12 @@ mod test {
     use rln::circuit::{Fr, TEST_TREE_HEIGHT};
     use rln::hashers::{hash_to_field, poseidon_hash};
     use rln::poseidon_tree::PoseidonTree;
-    use rln::protocol::*;
+    use rln::protocol::{
+        deserialize_proof_values, deserialize_witness, generate_proof, keygen,
+        proof_values_from_witness, rln_witness_from_json, rln_witness_from_values,
+        rln_witness_to_json, seeded_keygen, serialize_proof_values, serialize_witness,
+        verify_proof, RLNWitnessInput,
+    };
     use rln::utils::str_to_fr;
     use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 

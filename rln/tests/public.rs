@@ -12,7 +12,10 @@ mod test {
     use rln::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash, ROUND_PARAMS};
     use rln::protocol::deserialize_identity_tuple;
     use rln::public::{hash as public_hash, poseidon_hash as public_poseidon_hash, RLN};
-    use rln::utils::*;
+    use rln::utils::{
+        bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, bytes_le_to_vec_usize,
+        fr_to_bytes_le, generate_input_buffer, str_to_fr, vec_fr_to_bytes_le,
+    };
     use std::io::Cursor;
 
     #[test]

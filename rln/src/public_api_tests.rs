@@ -1,7 +1,10 @@
 use crate::circuit::TEST_TREE_HEIGHT;
-use crate::protocol::*;
+use crate::protocol::{
+    proof_values_from_witness, random_rln_witness, serialize_proof_values, serialize_witness,
+    verify_proof, RLNProofValues,
+};
 use crate::public::RLN;
-use crate::utils::*;
+use crate::utils::{generate_input_buffer, str_to_fr};
 use ark_groth16::Proof as ArkProof;
 use ark_serialize::CanonicalDeserialize;
 use std::io::Cursor;

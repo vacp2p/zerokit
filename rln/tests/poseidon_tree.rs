@@ -5,7 +5,10 @@
 #[cfg(test)]
 mod test {
     use rln::hashers::{poseidon_hash, PoseidonHash};
-    use rln::{circuit::*, poseidon_tree::PoseidonTree};
+    use rln::{
+        circuit::{Fr, TEST_TREE_HEIGHT},
+        poseidon_tree::PoseidonTree,
+    };
     use utils::{FullMerkleTree, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
     #[test]
