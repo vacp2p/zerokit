@@ -19,7 +19,11 @@ use crate::error::{ComputeIdSecretError, ConversionError, ProofError, ProtocolEr
 use crate::hashers::{hash_to_field, poseidon_hash};
 use crate::poseidon_tree::{MerkleProof, PoseidonTree};
 use crate::public::RLN_IDENTIFIER;
-use crate::utils::{bytes_be_to_fr, bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_be, fr_to_bytes_le, normalize_usize, to_bigint, vec_fr_to_bytes_le, vec_u8_to_bytes_le};
+use crate::utils::{
+    bytes_be_to_fr, bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size,
+    fr_to_bytes_be, fr_to_bytes_le, normalize_usize, to_bigint, vec_fr_to_bytes_le,
+    vec_u8_to_bytes_le,
+};
 use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
