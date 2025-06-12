@@ -1,19 +1,22 @@
 // This crate collects all the underlying primitives used to implement RLN
 
+use std::io::{Read, Write};
 use ark_bn254::Fr;
 use ark_ff::AdditiveGroup;
 use ark_groth16::{prepare_verifying_key, Groth16, Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate};
 use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
+use zeroize::{Zeroize, ZeroizeOnDrop};
+use derive_more::{From, Into, Display};
+
 #[cfg(test)]
 use std::time::Instant;
 use tiny_keccak::{Hasher as _, Keccak};
-
 use crate::circuit::{calculate_rln_witness, qap::CircomReduction, Curve};
 use crate::error::{ComputeIdSecretError, ConversionError, ProofError, ProtocolError};
 use crate::hashers::{hash_to_field, poseidon_hash};
@@ -31,7 +34,7 @@ use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct RLNWitnessInput {
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    identity_secret: Fr,
+    identity_secret: IdSecret,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     user_message_limit: Fr,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
@@ -113,7 +116,9 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>, Proto
         fr_byte_size() * (5 + rln_witness.path_elements.len())
             + rln_witness.identity_path_index.len(),
     );
-    serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.identity_secret));
+    let mut identity_secret: Fr = rln_witness.identity_secret.clone().into();
+    serialized.extend_from_slice(&fr_to_bytes_le(&identity_secret));
+    identity_secret.zeroize();
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.user_message_limit));
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.message_id));
     serialized.extend_from_slice(&vec_fr_to_bytes_le(&rln_witness.path_elements));
@@ -132,7 +137,9 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>, Proto
 pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize), ProtocolError> {
     let mut all_read: usize = 0;
 
-    let (identity_secret, read) = bytes_le_to_fr(&serialized[all_read..]);
+    let (mut identity_secret_, read) = bytes_le_to_fr(&serialized[all_read..]);
+    let identity_secret = IdSecret::from(identity_secret_);
+    identity_secret_.zeroize();
     all_read += read;
 
     let (user_message_limit, read) = bytes_le_to_fr(&serialized[all_read..]);
@@ -183,7 +190,10 @@ pub fn proof_inputs_to_rln_witness(
 ) -> Result<(RLNWitnessInput, usize), ProtocolError> {
     let mut all_read: usize = 0;
 
-    let (identity_secret, read) = bytes_le_to_fr(&serialized[all_read..]);
+    let (mut identity_secret_, read) = bytes_le_to_fr(&serialized[all_read..]);
+    let identity_secret = IdSecret::from(identity_secret_);
+    identity_secret_.zeroize();
+    
     all_read += read;
 
     let id_index = usize::try_from(u64::from_le_bytes(
@@ -239,7 +249,7 @@ pub fn proof_inputs_to_rln_witness(
 ///
 /// Returns an error if `message_id` is not within `user_message_limit`.
 pub fn rln_witness_from_values(
-    identity_secret: Fr,
+    identity_secret: IdSecret,
     merkle_proof: &MerkleProof,
     x: Fr,
     external_nullifier: Fr,
@@ -265,7 +275,7 @@ pub fn rln_witness_from_values(
 pub fn random_rln_witness(tree_height: usize) -> RLNWitnessInput {
     let mut rng = thread_rng();
 
-    let identity_secret = hash_to_field(&rng.gen::<[u8; 32]>());
+    let identity_secret = IdSecret::from(hash_to_field(&rng.gen::<[u8; 32]>()));
     let x = hash_to_field(&rng.gen::<[u8; 32]>());
     let epoch = hash_to_field(&rng.gen::<[u8; 32]>());
     let rln_identifier = hash_to_field(RLN_IDENTIFIER); //hash_to_field(&rng.gen::<[u8; 32]>());
@@ -298,7 +308,7 @@ pub fn proof_values_from_witness(
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
     // y share
-    let a_0 = rln_witness.identity_secret;
+    let a_0 = rln_witness.identity_secret.clone().into();
     let a_1 = poseidon_hash(&[a_0, rln_witness.external_nullifier, rln_witness.message_id]);
     let y = a_0 + rln_witness.x * a_1;
 
@@ -371,7 +381,7 @@ pub fn deserialize_proof_values(serialized: &[u8]) -> (RLNProofValues, usize) {
 
 // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
 pub fn prepare_prove_input(
-    identity_secret: Fr,
+    identity_secret: IdSecret,
     id_index: usize,
     user_message_limit: Fr,
     message_id: Fr,
@@ -384,7 +394,9 @@ pub fn prepare_prove_input(
     // - variable length signal data
     let mut serialized = Vec::with_capacity(fr_byte_size() * 4 + 16 + signal.len()); // length of 4 fr elements + 16 bytes (id_index + len) + signal length
 
-    serialized.extend_from_slice(&fr_to_bytes_le(&identity_secret));
+    let mut identity_secret_: Fr = identity_secret.into();
+    serialized.extend_from_slice(&fr_to_bytes_le(&identity_secret_));
+    identity_secret_.zeroize();
     serialized.extend_from_slice(&normalize_usize(id_index));
     serialized.extend_from_slice(&fr_to_bytes_le(&user_message_limit));
     serialized.extend_from_slice(&fr_to_bytes_le(&message_id));
@@ -415,12 +427,15 @@ pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Vec<u8> {
 ///////////////////////////////////////////////////////
 
 pub fn compute_tree_root(
-    identity_secret: &Fr,
+    identity_secret: &IdSecret,
     user_message_limit: &Fr,
     path_elements: &[Fr],
     identity_path_index: &[u8],
 ) -> Fr {
-    let id_commitment = poseidon_hash(&[*identity_secret]);
+    
+    let mut identity_secret_: Fr = identity_secret.clone().into();
+    let id_commitment = poseidon_hash(&[identity_secret_]);
+    identity_secret_.zeroize();
     let mut root = poseidon_hash(&[id_commitment, *user_message_limit]);
 
     for i in 0..identity_path_index.len() {
@@ -441,11 +456,11 @@ pub fn compute_tree_root(
 // Generates a tuple (identity_secret_hash, id_commitment) where
 // identity_secret_hash is random and id_commitment = PoseidonHash(identity_secret_hash)
 // RNG is instantiated using thread_rng()
-pub fn keygen() -> (Fr, Fr) {
+pub fn keygen() -> (IdSecret, Fr) {
     let mut rng = thread_rng();
     let identity_secret_hash = Fr::rand(&mut rng);
     let id_commitment = poseidon_hash(&[identity_secret_hash]);
-    (identity_secret_hash, id_commitment)
+    (IdSecret::from(identity_secret_hash), id_commitment)
 }
 
 // Generates a tuple (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) where
@@ -512,7 +527,32 @@ pub fn extended_seeded_keygen(signal: &[u8]) -> (Fr, Fr, Fr, Fr) {
     )
 }
 
-pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<Fr, ComputeIdSecretError> {
+#[derive(Debug, Zeroize, ZeroizeOnDrop, From, Into, Clone, PartialEq, Display)]
+pub struct IdSecret(Fr);
+
+impl CanonicalSerialize for IdSecret {
+    fn serialize_with_mode<W: Write>(&self, writer: W, compress: Compress) -> Result<(), SerializationError> {
+        todo!()
+    }
+
+    fn serialized_size(&self, compress: Compress) -> usize {
+        todo!()
+    }
+}
+
+impl Valid for IdSecret {
+    fn check(&self) -> Result<(), SerializationError> {
+        self.0.check()
+    }
+}
+
+impl CanonicalDeserialize for IdSecret {
+    fn deserialize_with_mode<R: Read>(reader: R, compress: Compress, validate: Validate) -> Result<Self, SerializationError> {
+        todo!()
+    }
+}
+
+pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<IdSecret, ComputeIdSecretError> {
     // Assuming a0 is the identity secret and a1 = poseidonHash([a0, external_nullifier]),
     // a (x,y) share satisfies the following relation
     // y = a_0 + x * a_1
@@ -528,7 +568,7 @@ pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<Fr, Compu
         let a_0 = y1 - x1 * a_1;
 
         // If shares come from the same polynomial, a0 is correctly recovered and a1 = poseidonHash([a0, external_nullifier])
-        Ok(a_0)
+        Ok(IdSecret::from(a_0))
     } else {
         Err(ComputeIdSecretError::DivisionByZero)
     }
@@ -618,7 +658,8 @@ pub fn inputs_for_witness_calculation(
         .for_each(|v| identity_path_index.push(Fr::from(*v)));
 
     Ok([
-        ("identitySecret", vec![rln_witness.identity_secret]),
+        // FIXME ?
+        ("identitySecret", vec![rln_witness.identity_secret.clone().into()]),
         ("userMessageLimit", vec![rln_witness.user_message_limit]),
         ("messageId", vec![rln_witness.message_id]),
         ("pathElements", rln_witness.path_elements.clone()),
@@ -782,8 +823,10 @@ pub fn rln_witness_to_bigint_json(
         .iter()
         .for_each(|v| identity_path_index.push(BigInt::from(*v).to_str_radix(10)));
 
+    let mut identity_secret: Fr = rln_witness.identity_secret.clone().into();
+    
     let inputs = serde_json::json!({
-        "identitySecret": to_bigint(&rln_witness.identity_secret).to_str_radix(10),
+        "identitySecret": to_bigint(&identity_secret).to_str_radix(10),
         "userMessageLimit": to_bigint(&rln_witness.user_message_limit).to_str_radix(10),
         "messageId": to_bigint(&rln_witness.message_id).to_str_radix(10),
         "pathElements": path_elements,
@@ -791,6 +834,8 @@ pub fn rln_witness_to_bigint_json(
         "x": to_bigint(&rln_witness.x).to_str_radix(10),
         "externalNullifier":  to_bigint(&rln_witness.external_nullifier).to_str_radix(10),
     });
+    
+    identity_secret.zeroize();
 
     Ok(inputs)
 }

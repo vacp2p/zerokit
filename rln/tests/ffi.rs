@@ -49,15 +49,16 @@ mod test {
         root
     }
 
-    fn identity_pair_gen(rln_pointer: &mut RLN) -> (Fr, Fr) {
+    fn identity_pair_gen(rln_pointer: &mut RLN) -> (IdSecret, Fr) {
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
         let success = key_gen(rln_pointer, output_buffer.as_mut_ptr());
         assert!(success, "key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        // FIXME: zeroize?
         let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
         let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
-        (identity_secret_hash, id_commitment)
+        (IdSecret::from(identity_secret_hash), id_commitment)
     }
 
     fn rln_proof_gen(rln_pointer: &mut RLN, serialized: &[u8]) -> Vec<u8> {
@@ -273,6 +274,7 @@ mod test {
         // generate identity
         let identity_secret_hash = hash_to_field(b"test-merkle-proof");
         let id_commitment = utils_poseidon_hash(&[identity_secret_hash]);
+        let identity_secret_hash = IdSecret::from(identity_secret_hash);
         let user_message_limit = Fr::from(100);
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
@@ -683,7 +685,7 @@ mod test {
         );
 
         let prove_input2 = prepare_prove_input(
-            identity_secret_hash,
+            identity_secret_hash.clone(),
             identity_index,
             user_message_limit,
             message_id,
@@ -718,7 +720,7 @@ mod test {
 
         // We check if the recovered identity secret hash corresponds to the original one
         let (recovered_identity_secret_hash, _) = bytes_le_to_fr(&serialized_identity_secret_hash);
-        assert_eq!(recovered_identity_secret_hash, identity_secret_hash);
+        assert_eq!(recovered_identity_secret_hash.into(), identity_secret_hash);
 
         // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
 
@@ -741,7 +743,7 @@ mod test {
         // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         // Note that epoch is the same as before
         let prove_input3 = prepare_prove_input(
-            identity_secret_hash,
+            identity_secret_hash.clone(),
             identity_index_new,
             user_message_limit,
             message_id,

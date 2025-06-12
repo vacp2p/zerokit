@@ -14,6 +14,7 @@ use rln::{
     public::RLN,
     utils::{bytes_le_to_fr, fr_to_bytes_le, generate_input_buffer},
 };
+use rln::protocol::IdSecret;
 
 const MESSAGE_LIMIT: u32 = 1;
 
@@ -44,7 +45,7 @@ enum Commands {
 
 #[derive(Debug, Clone)]
 struct Identity {
-    identity_secret_hash: Fr,
+    identity_secret_hash: IdSecret,
     id_commitment: Fr,
 }
 
@@ -143,7 +144,7 @@ impl RLNSystem {
         };
 
         let serialized = prepare_prove_input(
-            identity.identity_secret_hash,
+            identity.identity_secret_hash.clone(),
             user_index,
             Fr::from(MESSAGE_LIMIT),
             Fr::from(message_id),

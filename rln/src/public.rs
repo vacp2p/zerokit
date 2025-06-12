@@ -36,6 +36,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 #[cfg(target_arch = "wasm32")]
 use num_bigint::BigInt;
 use std::io::Cursor;
+use zeroize::Zeroize;
 use utils::error::ZerokitMerkleTreeError;
 
 /// The application-specific RLN identifier.
@@ -1133,7 +1134,9 @@ impl RLN {
     /// ```
     pub fn key_gen<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
         let (identity_secret_hash, id_commitment) = keygen();
-        output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
+        let mut identity_secret_hash_: Fr = identity_secret_hash.into();
+        output_data.write_all(&fr_to_bytes_le(&identity_secret_hash_))?;
+        identity_secret_hash_.zeroize();
         output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
 
         Ok(())
@@ -1324,7 +1327,7 @@ impl RLN {
                 compute_id_secret(share1, share2).map_err(RLNError::RecoverSecret)?;
 
             // If an identity secret hash is recovered, we write it to output_data, otherwise nothing will be written.
-            output_data.write_all(&fr_to_bytes_le(&recovered_identity_secret_hash))?;
+            output_data.write_all(&fr_to_bytes_le(&recovered_identity_secret_hash.into()))?;
         }
 
         Ok(())
