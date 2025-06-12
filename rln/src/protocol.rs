@@ -13,8 +13,8 @@ use crate::hashers::{hash_to_field_le, poseidon_hash};
 use crate::public::RLN_IDENTIFIER;
 use crate::utils::{
     bytes_be_to_fr, bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size,
-    fr_to_bytes_le, normalize_usize_le, to_bigint, vec_fr_to_bytes_le, vec_u8_to_bytes_le,
-    FrOrSecret, IdSecret,
+    fr_to_bytes_be, fr_to_bytes_le, normalize_usize_le, to_bigint, vec_fr_to_bytes_le,
+    vec_u8_to_bytes_le, FrOrSecret, IdSecret,
 };
 use ark_bn254::{Fr, FrConfig};
 use ark_ff::{AdditiveGroup, Fp, MontBackend};
@@ -66,9 +66,17 @@ pub fn serialize_field_element(element: Fr) -> Vec<u8> {
     fr_to_bytes_le(&element)
 }
 
+pub fn serialize_field_element_be(element: Fr) -> Vec<u8> {
+    fr_to_bytes_be(&element)
+}
+
 pub fn deserialize_field_element(serialized: Vec<u8>) -> Fr {
     let (element, _) = bytes_le_to_fr(&serialized);
+    element
+}
 
+pub fn deserialize_field_element_be(serialized: Vec<u8>) -> Fr {
+    let (element, _) = bytes_be_to_fr(&serialized);
     element
 }
 
