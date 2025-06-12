@@ -48,9 +48,27 @@ pub fn bytes_le_to_fr(input: &[u8]) -> (Fr, usize) {
 }
 
 #[inline(always)]
+pub fn bytes_be_to_fr(input: &[u8]) -> (Fr, usize) {
+    let el_size = fr_byte_size();
+    (
+        Fr::from(BigUint::from_bytes_be(&input[0..el_size])),
+        el_size,
+    )
+}
+
+#[inline(always)]
 pub fn fr_to_bytes_le(input: &Fr) -> Vec<u8> {
     let input_biguint: BigUint = (*input).into();
     let mut res = input_biguint.to_bytes_le();
+    //BigUint conversion ignores most significant zero bytes. We restore them otherwise serialization will fail (length % 8 != 0)
+    res.resize(fr_byte_size(), 0);
+    res
+}
+
+#[inline(always)]
+pub fn fr_to_bytes_be(input: &Fr) -> Vec<u8> {
+    let input_biguint: BigUint = (*input).into();
+    let mut res = input_biguint.to_bytes_be();
     //BigUint conversion ignores most significant zero bytes. We restore them otherwise serialization will fail (length % 8 != 0)
     res.resize(fr_byte_size(), 0);
     res

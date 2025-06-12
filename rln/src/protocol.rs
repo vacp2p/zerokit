@@ -19,10 +19,7 @@ use crate::error::{ComputeIdSecretError, ConversionError, ProofError, ProtocolEr
 use crate::hashers::{hash_to_field, poseidon_hash};
 use crate::poseidon_tree::{MerkleProof, PoseidonTree};
 use crate::public::RLN_IDENTIFIER;
-use crate::utils::{
-    bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_le,
-    normalize_usize, to_bigint, vec_fr_to_bytes_le, vec_u8_to_bytes_le,
-};
+use crate::utils::{bytes_be_to_fr, bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_be, fr_to_bytes_le, normalize_usize, to_bigint, vec_fr_to_bytes_le, vec_u8_to_bytes_le};
 use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
@@ -60,15 +57,30 @@ pub fn serialize_field_element(element: Fr) -> Vec<u8> {
     fr_to_bytes_le(&element)
 }
 
+pub fn serialize_field_element_be(element: Fr) -> Vec<u8> {
+    fr_to_bytes_be(&element)
+}
+
 pub fn deserialize_field_element(serialized: Vec<u8>) -> Fr {
     let (element, _) = bytes_le_to_fr(&serialized);
+    element
+}
 
+pub fn deserialize_field_element_be(serialized: Vec<u8>) -> Fr {
+    let (element, _) = bytes_be_to_fr(&serialized);
     element
 }
 
 pub fn deserialize_identity_pair(serialized: Vec<u8>) -> (Fr, Fr) {
     let (identity_secret_hash, read) = bytes_le_to_fr(&serialized);
     let (id_commitment, _) = bytes_le_to_fr(&serialized[read..]);
+
+    (identity_secret_hash, id_commitment)
+}
+
+pub fn deserialize_identity_pair_be(serialized: Vec<u8>) -> (Fr, Fr) {
+    let (identity_secret_hash, read) = bytes_be_to_fr(&serialized);
+    let (id_commitment, _) = bytes_be_to_fr(&serialized[read..]);
 
     (identity_secret_hash, id_commitment)
 }
@@ -86,6 +98,28 @@ pub fn deserialize_identity_tuple(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
     all_read += read;
 
     let (identity_commitment, _) = bytes_le_to_fr(&serialized[all_read..]);
+
+    (
+        identity_trapdoor,
+        identity_nullifier,
+        identity_secret_hash,
+        identity_commitment,
+    )
+}
+
+pub fn deserialize_identity_tuple_be(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
+    let mut all_read = 0;
+
+    let (identity_trapdoor, read) = bytes_be_to_fr(&serialized[all_read..]);
+    all_read += read;
+
+    let (identity_nullifier, read) = bytes_be_to_fr(&serialized[all_read..]);
+    all_read += read;
+
+    let (identity_secret_hash, read) = bytes_be_to_fr(&serialized[all_read..]);
+    all_read += read;
+
+    let (identity_commitment, _) = bytes_be_to_fr(&serialized[all_read..]);
 
     (
         identity_trapdoor,
