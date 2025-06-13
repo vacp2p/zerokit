@@ -7,6 +7,7 @@ use std::{
 
 use clap::{Parser, Subcommand};
 use color_eyre::{eyre::eyre, Report, Result};
+use rln::protocol::IdSecret;
 use rln::{
     circuit::Fr,
     hashers::{hash_to_field, poseidon_hash},
@@ -14,7 +15,6 @@ use rln::{
     public::RLN,
     utils::{bytes_le_to_fr, fr_to_bytes_le, generate_input_buffer},
 };
-use rln::protocol::IdSecret;
 
 const MESSAGE_LIMIT: u32 = 1;
 

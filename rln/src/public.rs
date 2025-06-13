@@ -36,8 +36,8 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 #[cfg(target_arch = "wasm32")]
 use num_bigint::BigInt;
 use std::io::Cursor;
-use zeroize::Zeroize;
 use utils::error::ZerokitMerkleTreeError;
+use zeroize::Zeroize;
 
 /// The application-specific RLN identifier.
 ///

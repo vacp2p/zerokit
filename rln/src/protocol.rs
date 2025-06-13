@@ -1,22 +1,21 @@
 // This crate collects all the underlying primitives used to implement RLN
 
-use std::io::{Read, Write};
 use ark_bn254::Fr;
 use ark_ff::AdditiveGroup;
 use ark_groth16::{prepare_verifying_key, Groth16, Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate};
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
+};
 use ark_std::{rand::thread_rng, UniformRand};
+use derive_more::{Display, From, Into};
 use num_bigint::BigInt;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
+use std::io::{Read, Write};
 use zeroize::{Zeroize, ZeroizeOnDrop};
-use derive_more::{From, Into, Display};
 
-#[cfg(test)]
-use std::time::Instant;
-use tiny_keccak::{Hasher as _, Keccak};
 use crate::circuit::{calculate_rln_witness, qap::CircomReduction, Curve};
 use crate::error::{ComputeIdSecretError, ConversionError, ProofError, ProtocolError};
 use crate::hashers::{hash_to_field, poseidon_hash};
@@ -26,6 +25,9 @@ use crate::utils::{
     bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_le,
     normalize_usize, to_bigint, vec_fr_to_bytes_le, vec_u8_to_bytes_le,
 };
+#[cfg(test)]
+use std::time::Instant;
+use tiny_keccak::{Hasher as _, Keccak};
 use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
@@ -193,7 +195,7 @@ pub fn proof_inputs_to_rln_witness(
     let (mut identity_secret_, read) = bytes_le_to_fr(&serialized[all_read..]);
     let identity_secret = IdSecret::from(identity_secret_);
     identity_secret_.zeroize();
-    
+
     all_read += read;
 
     let id_index = usize::try_from(u64::from_le_bytes(
@@ -432,7 +434,6 @@ pub fn compute_tree_root(
     path_elements: &[Fr],
     identity_path_index: &[u8],
 ) -> Fr {
-    
     let mut identity_secret_: Fr = identity_secret.clone().into();
     let id_commitment = poseidon_hash(&[identity_secret_]);
     identity_secret_.zeroize();
@@ -531,7 +532,11 @@ pub fn extended_seeded_keygen(signal: &[u8]) -> (Fr, Fr, Fr, Fr) {
 pub struct IdSecret(Fr);
 
 impl CanonicalSerialize for IdSecret {
-    fn serialize_with_mode<W: Write>(&self, writer: W, compress: Compress) -> Result<(), SerializationError> {
+    fn serialize_with_mode<W: Write>(
+        &self,
+        writer: W,
+        compress: Compress,
+    ) -> Result<(), SerializationError> {
         todo!()
     }
 
@@ -547,12 +552,19 @@ impl Valid for IdSecret {
 }
 
 impl CanonicalDeserialize for IdSecret {
-    fn deserialize_with_mode<R: Read>(reader: R, compress: Compress, validate: Validate) -> Result<Self, SerializationError> {
+    fn deserialize_with_mode<R: Read>(
+        reader: R,
+        compress: Compress,
+        validate: Validate,
+    ) -> Result<Self, SerializationError> {
         todo!()
     }
 }
 
-pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<IdSecret, ComputeIdSecretError> {
+pub fn compute_id_secret(
+    share1: (Fr, Fr),
+    share2: (Fr, Fr),
+) -> Result<IdSecret, ComputeIdSecretError> {
     // Assuming a0 is the identity secret and a1 = poseidonHash([a0, external_nullifier]),
     // a (x,y) share satisfies the following relation
     // y = a_0 + x * a_1
@@ -659,7 +671,10 @@ pub fn inputs_for_witness_calculation(
 
     Ok([
         // FIXME ?
-        ("identitySecret", vec![rln_witness.identity_secret.clone().into()]),
+        (
+            "identitySecret",
+            vec![rln_witness.identity_secret.clone().into()],
+        ),
         ("userMessageLimit", vec![rln_witness.user_message_limit]),
         ("messageId", vec![rln_witness.message_id]),
         ("pathElements", rln_witness.path_elements.clone()),
@@ -824,7 +839,7 @@ pub fn rln_witness_to_bigint_json(
         .for_each(|v| identity_path_index.push(BigInt::from(*v).to_str_radix(10)));
 
     let mut identity_secret: Fr = rln_witness.identity_secret.clone().into();
-    
+
     let inputs = serde_json::json!({
         "identitySecret": to_bigint(&identity_secret).to_str_radix(10),
         "userMessageLimit": to_bigint(&rln_witness.user_message_limit).to_str_radix(10),
@@ -834,7 +849,7 @@ pub fn rln_witness_to_bigint_json(
         "x": to_bigint(&rln_witness.x).to_str_radix(10),
         "externalNullifier":  to_bigint(&rln_witness.external_nullifier).to_str_radix(10),
     });
-    
+
     identity_secret.zeroize();
 
     Ok(inputs)
