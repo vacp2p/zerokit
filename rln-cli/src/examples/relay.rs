@@ -7,13 +7,16 @@ use std::{
 
 use clap::{Parser, Subcommand};
 use color_eyre::{eyre::eyre, Report, Result};
-use rln::protocol::IdSecret;
 use rln::{
     circuit::Fr,
     hashers::{hash_to_field, poseidon_hash},
     protocol::{keygen, prepare_prove_input, prepare_verify_input},
     public::RLN,
-    utils::{bytes_le_to_fr, fr_to_bytes_le, generate_input_buffer},
+    utils::{
+        bytes_le_to_fr, fr_to_bytes_le, 
+        generate_input_buffer,
+        IdSecret
+    },
 };
 
 const MESSAGE_LIMIT: u32 = 1;
@@ -138,6 +141,7 @@ impl RLNSystem {
         signal: &str,
         external_nullifier: Fr,
     ) -> Result<Vec<u8>> {
+        
         let identity = match self.local_identities.get(&user_index) {
             Some(identity) => identity,
             None => return Err(eyre!("user index {user_index} not found")),
@@ -212,7 +216,8 @@ impl RLNSystem {
         {
             Ok(_) => {
                 let output_data = output.into_inner();
-                let (leaked_identity_secret_hash, _) = bytes_le_to_fr(&output_data);
+                let (leaked_identity_secret_hash_, _) = bytes_le_to_fr(&output_data);
+                let leaked_identity_secret_hash = IdSecret::from(leaked_identity_secret_hash_);
 
                 if let Some((user_index, identity)) = self
                     .local_identities
@@ -222,7 +227,7 @@ impl RLNSystem {
                     })
                     .map(|(index, identity)| (*index, identity))
                 {
-                    let real_identity_secret_hash = identity.identity_secret_hash;
+                    let real_identity_secret_hash = identity.identity_secret_hash.clone();
                     if leaked_identity_secret_hash != real_identity_secret_hash {
                         Err(eyre!("identity secret hash mismatch {leaked_identity_secret_hash} != {real_identity_secret_hash}"))
                     } else {

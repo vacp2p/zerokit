@@ -5,30 +5,25 @@ use ark_ff::AdditiveGroup;
 use ark_groth16::{prepare_verifying_key, Groth16, Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{
-    CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
+    CanonicalDeserialize, CanonicalSerialize,
 };
 use ark_std::{rand::thread_rng, UniformRand};
-use derive_more::{Display, From, Into};
 use num_bigint::BigInt;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
-use std::io::{Read, Write};
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use tiny_keccak::{Hasher as _, Keccak};
+use zeroize::Zeroize;
 
 use crate::circuit::{calculate_rln_witness, qap::CircomReduction, Curve};
 use crate::error::{ComputeIdSecretError, ConversionError, ProofError, ProtocolError};
 use crate::hashers::{hash_to_field, poseidon_hash};
 use crate::poseidon_tree::{MerkleProof, PoseidonTree};
 use crate::public::RLN_IDENTIFIER;
-use crate::utils::{
-    bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_le,
-    normalize_usize, to_bigint, vec_fr_to_bytes_le, vec_u8_to_bytes_le,
-};
+use crate::utils::{bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_le, normalize_usize, to_bigint, vec_fr_to_bytes_le, vec_u8_to_bytes_le, IdSecret};
+use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 #[cfg(test)]
 use std::time::Instant;
-use tiny_keccak::{Hasher as _, Keccak};
-use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
 ///////////////////////////////////////////////////////
@@ -118,9 +113,7 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>, Proto
         fr_byte_size() * (5 + rln_witness.path_elements.len())
             + rln_witness.identity_path_index.len(),
     );
-    let mut identity_secret: Fr = rln_witness.identity_secret.clone().into();
-    serialized.extend_from_slice(&fr_to_bytes_le(&identity_secret));
-    identity_secret.zeroize();
+    serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.identity_secret));
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.user_message_limit));
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.message_id));
     serialized.extend_from_slice(&vec_fr_to_bytes_le(&rln_witness.path_elements));
@@ -277,7 +270,9 @@ pub fn rln_witness_from_values(
 pub fn random_rln_witness(tree_height: usize) -> RLNWitnessInput {
     let mut rng = thread_rng();
 
-    let identity_secret = IdSecret::from(hash_to_field(&rng.gen::<[u8; 32]>()));
+    let mut identity_secret_ = hash_to_field(&rng.gen::<[u8; 32]>());
+    let identity_secret = IdSecret::from(identity_secret_);
+    identity_secret_.zeroize();
     let x = hash_to_field(&rng.gen::<[u8; 32]>());
     let epoch = hash_to_field(&rng.gen::<[u8; 32]>());
     let rln_identifier = hash_to_field(RLN_IDENTIFIER); //hash_to_field(&rng.gen::<[u8; 32]>());
@@ -310,9 +305,10 @@ pub fn proof_values_from_witness(
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
     // y share
-    let a_0 = rln_witness.identity_secret.clone().into();
-    let a_1 = poseidon_hash(&[a_0, rln_witness.external_nullifier, rln_witness.message_id]);
-    let y = a_0 + rln_witness.x * a_1;
+    let a_0: &Fr = &rln_witness.identity_secret;
+    let mut a_1 = poseidon_hash(&[*a_0, rln_witness.external_nullifier, rln_witness.message_id]);
+    let y = *a_0 + rln_witness.x * a_1;
+    a_1.zeroize();
 
     // Nullifier
     let nullifier = poseidon_hash(&[a_1]);
@@ -396,9 +392,7 @@ pub fn prepare_prove_input(
     // - variable length signal data
     let mut serialized = Vec::with_capacity(fr_byte_size() * 4 + 16 + signal.len()); // length of 4 fr elements + 16 bytes (id_index + len) + signal length
 
-    let mut identity_secret_: Fr = identity_secret.into();
-    serialized.extend_from_slice(&fr_to_bytes_le(&identity_secret_));
-    identity_secret_.zeroize();
+    serialized.extend_from_slice(&fr_to_bytes_le(&identity_secret));
     serialized.extend_from_slice(&normalize_usize(id_index));
     serialized.extend_from_slice(&fr_to_bytes_le(&user_message_limit));
     serialized.extend_from_slice(&fr_to_bytes_le(&message_id));
@@ -434,9 +428,7 @@ pub fn compute_tree_root(
     path_elements: &[Fr],
     identity_path_index: &[u8],
 ) -> Fr {
-    let mut identity_secret_: Fr = identity_secret.clone().into();
-    let id_commitment = poseidon_hash(&[identity_secret_]);
-    identity_secret_.zeroize();
+    let id_commitment = poseidon_hash(&[**identity_secret]);
     let mut root = poseidon_hash(&[id_commitment, *user_message_limit]);
 
     for i in 0..identity_path_index.len() {
@@ -470,12 +462,14 @@ pub fn keygen() -> (IdSecret, Fr) {
 // id_commitment = PoseidonHash(identity_secret_hash),
 // RNG is instantiated using thread_rng()
 // Generated credentials are compatible with Semaphore credentials
-pub fn extended_keygen() -> (Fr, Fr, Fr, Fr) {
+pub fn extended_keygen() -> (Fr, Fr, IdSecret, Fr) {
     let mut rng = thread_rng();
     let identity_trapdoor = Fr::rand(&mut rng);
     let identity_nullifier = Fr::rand(&mut rng);
-    let identity_secret_hash = poseidon_hash(&[identity_trapdoor, identity_nullifier]);
-    let id_commitment = poseidon_hash(&[identity_secret_hash]);
+    let mut identity_secret_hash_ = poseidon_hash(&[identity_trapdoor, identity_nullifier]);
+    let identity_secret_hash = IdSecret::from(identity_secret_hash_);
+    let id_commitment = poseidon_hash(&[identity_secret_hash_]);
+    identity_secret_hash_.zeroize();
     (
         identity_trapdoor,
         identity_nullifier,
@@ -487,7 +481,7 @@ pub fn extended_keygen() -> (Fr, Fr, Fr, Fr) {
 // Generates a tuple (identity_secret_hash, id_commitment) where
 // identity_secret_hash is random and id_commitment = PoseidonHash(identity_secret_hash)
 // RNG is instantiated using 20 rounds of ChaCha seeded with the hash of the input
-pub fn seeded_keygen(signal: &[u8]) -> (Fr, Fr) {
+pub fn seeded_keygen(signal: &[u8]) -> (IdSecret, Fr) {
     // ChaCha20 requires a seed of exactly 32 bytes.
     // We first hash the input seed signal to a 32 bytes array and pass this as seed to ChaCha20
     let mut seed = [0; 32];
@@ -496,8 +490,11 @@ pub fn seeded_keygen(signal: &[u8]) -> (Fr, Fr) {
     hasher.finalize(&mut seed);
 
     let mut rng = ChaCha20Rng::from_seed(seed);
-    let identity_secret_hash = Fr::rand(&mut rng);
-    let id_commitment = poseidon_hash(&[identity_secret_hash]);
+    let mut identity_secret_hash_ = Fr::rand(&mut rng);
+    let id_commitment = poseidon_hash(&[identity_secret_hash_]);
+    let identity_secret_hash = IdSecret::from(identity_secret_hash_);
+    identity_secret_hash_.zeroize();
+    
     (identity_secret_hash, id_commitment)
 }
 
@@ -507,7 +504,7 @@ pub fn seeded_keygen(signal: &[u8]) -> (Fr, Fr) {
 // id_commitment = PoseidonHash(identity_secret_hash),
 // RNG is instantiated using 20 rounds of ChaCha seeded with the hash of the input
 // Generated credentials are compatible with Semaphore credentials
-pub fn extended_seeded_keygen(signal: &[u8]) -> (Fr, Fr, Fr, Fr) {
+pub fn extended_seeded_keygen(signal: &[u8]) -> (Fr, Fr, IdSecret, Fr) {
     // ChaCha20 requires a seed of exactly 32 bytes.
     // We first hash the input seed signal to a 32 bytes array and pass this as seed to ChaCha20
     let mut seed = [0; 32];
@@ -518,47 +515,16 @@ pub fn extended_seeded_keygen(signal: &[u8]) -> (Fr, Fr, Fr, Fr) {
     let mut rng = ChaCha20Rng::from_seed(seed);
     let identity_trapdoor = Fr::rand(&mut rng);
     let identity_nullifier = Fr::rand(&mut rng);
-    let identity_secret_hash = poseidon_hash(&[identity_trapdoor, identity_nullifier]);
-    let id_commitment = poseidon_hash(&[identity_secret_hash]);
+    let mut identity_secret_hash_ = poseidon_hash(&[identity_trapdoor, identity_nullifier]);
+    let id_commitment = poseidon_hash(&[identity_secret_hash_]);
+    let identity_secret_hash = IdSecret::from(identity_secret_hash_);
+    
     (
         identity_trapdoor,
         identity_nullifier,
         identity_secret_hash,
         id_commitment,
     )
-}
-
-#[derive(Debug, Zeroize, ZeroizeOnDrop, From, Into, Clone, PartialEq, Display)]
-pub struct IdSecret(Fr);
-
-impl CanonicalSerialize for IdSecret {
-    fn serialize_with_mode<W: Write>(
-        &self,
-        writer: W,
-        compress: Compress,
-    ) -> Result<(), SerializationError> {
-        todo!()
-    }
-
-    fn serialized_size(&self, compress: Compress) -> usize {
-        todo!()
-    }
-}
-
-impl Valid for IdSecret {
-    fn check(&self) -> Result<(), SerializationError> {
-        self.0.check()
-    }
-}
-
-impl CanonicalDeserialize for IdSecret {
-    fn deserialize_with_mode<R: Read>(
-        reader: R,
-        compress: Compress,
-        validate: Validate,
-    ) -> Result<Self, SerializationError> {
-        todo!()
-    }
 }
 
 pub fn compute_id_secret(
