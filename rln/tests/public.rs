@@ -10,7 +10,7 @@ mod test {
     use rand::Rng;
     use rln::circuit::Fr;
     use rln::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash, ROUND_PARAMS};
-    use rln::protocol::deserialize_identity_tuple;
+    use rln::protocol::{deserialize_identity_tuple, IdSecret};
     use rln::public::{hash as public_hash, poseidon_hash as public_poseidon_hash, RLN};
     use rln::utils::{
         bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, bytes_le_to_vec_usize,
@@ -30,6 +30,7 @@ mod test {
         // generate identity
         let identity_secret_hash = hash_to_field(b"test-merkle-proof");
         let id_commitment = utils_poseidon_hash(&vec![identity_secret_hash]);
+        let identity_secret_hash = IdSecret::from(identity_secret_hash);
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit.into()]);
 
         // check that leaves indices is empty
