@@ -12,11 +12,7 @@ use rln::{
     hashers::{hash_to_field, poseidon_hash},
     protocol::{keygen, prepare_prove_input, prepare_verify_input},
     public::RLN,
-    utils::{
-        bytes_le_to_fr, fr_to_bytes_le, 
-        generate_input_buffer,
-        IdSecret
-    },
+    utils::{bytes_le_to_fr, fr_to_bytes_le, generate_input_buffer, IdSecret},
 };
 
 const MESSAGE_LIMIT: u32 = 1;
@@ -141,7 +137,6 @@ impl RLNSystem {
         signal: &str,
         external_nullifier: Fr,
     ) -> Result<Vec<u8>> {
-        
         let identity = match self.local_identities.get(&user_index) {
             Some(identity) => identity,
             None => return Err(eyre!("user index {user_index} not found")),

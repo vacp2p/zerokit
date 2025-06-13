@@ -3,13 +3,15 @@
 use crate::circuit::Fr;
 use crate::error::ConversionError;
 use ark_ff::PrimeField;
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
+};
+use derive_more::{Display, From, Into};
 use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use serde_json::json;
 use std::io::{Cursor, Read, Write};
 use std::ops::Deref;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate};
-use derive_more::{Display, From, Into};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 #[inline(always)]
@@ -160,7 +162,7 @@ pub struct IdSecret(ark_bn254::Fr);
 
 impl Deref for IdSecret {
     type Target = Fr;
-    
+
     fn deref(&self) -> &Self::Target {
         &self.0
     }

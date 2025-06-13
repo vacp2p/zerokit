@@ -4,9 +4,7 @@ use ark_bn254::Fr;
 use ark_ff::AdditiveGroup;
 use ark_groth16::{prepare_verifying_key, Groth16, Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
-use ark_serialize::{
-    CanonicalDeserialize, CanonicalSerialize,
-};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
 use rand::{Rng, SeedableRng};
@@ -20,10 +18,13 @@ use crate::error::{ComputeIdSecretError, ConversionError, ProofError, ProtocolEr
 use crate::hashers::{hash_to_field, poseidon_hash};
 use crate::poseidon_tree::{MerkleProof, PoseidonTree};
 use crate::public::RLN_IDENTIFIER;
-use crate::utils::{bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_le, normalize_usize, to_bigint, vec_fr_to_bytes_le, vec_u8_to_bytes_le, IdSecret};
-use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
+use crate::utils::{
+    bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_le,
+    normalize_usize, to_bigint, vec_fr_to_bytes_le, vec_u8_to_bytes_le, IdSecret,
+};
 #[cfg(test)]
 use std::time::Instant;
+use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
 ///////////////////////////////////////////////////////
@@ -494,7 +495,7 @@ pub fn seeded_keygen(signal: &[u8]) -> (IdSecret, Fr) {
     let id_commitment = poseidon_hash(&[identity_secret_hash_]);
     let identity_secret_hash = IdSecret::from(identity_secret_hash_);
     identity_secret_hash_.zeroize();
-    
+
     (identity_secret_hash, id_commitment)
 }
 
@@ -518,7 +519,8 @@ pub fn extended_seeded_keygen(signal: &[u8]) -> (Fr, Fr, IdSecret, Fr) {
     let mut identity_secret_hash_ = poseidon_hash(&[identity_trapdoor, identity_nullifier]);
     let id_commitment = poseidon_hash(&[identity_secret_hash_]);
     let identity_secret_hash = IdSecret::from(identity_secret_hash_);
-    
+    identity_secret_hash_.zeroize();
+
     (
         identity_trapdoor,
         identity_nullifier,
