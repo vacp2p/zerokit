@@ -1729,3 +1729,18 @@ pub fn seeded_extended_key_gen<R: Read, W: Write>(
 
     Ok(())
 }
+
+/// same as poseidon_hash function but in BE format. Note that input is expected in BE format too.
+pub fn poseidon_hash_be<R: Read, W: Write>(
+    mut input_data: R,
+    mut output_data: W,
+) -> Result<(), RLNError> {
+    let mut serialized: Vec<u8> = Vec::new();
+    input_data.read_to_end(&mut serialized)?;
+
+    let (inputs, _) = bytes_be_to_vec_fr(&serialized)?;
+    let hash = utils_poseidon_hash(inputs.as_ref());
+    output_data.write_all(&fr_to_bytes_be(&hash))?;
+
+    Ok(())
+}
