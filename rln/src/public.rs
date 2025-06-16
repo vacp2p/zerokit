@@ -1,5 +1,5 @@
 use crate::circuit::{zkey_from_raw, Curve, Fr};
-use crate::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
+use crate::hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash as utils_poseidon_hash};
 use crate::protocol::{
     compute_id_secret, deserialize_proof_values_be, deserialize_proof_values_le,
     deserialize_witness_be, deserialize_witness_le, extended_keygen, extended_seeded_keygen,
@@ -1077,6 +1077,8 @@ impl RLN {
     /// ```
     #[cfg(not(feature = "stateless"))]
     pub fn verify_rln_proof<R: Read>(&self, mut input_data: R) -> Result<bool, RLNError> {
+        use crate::hashers::hash_to_field_be;
+
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
@@ -1724,190 +1726,6 @@ pub fn seeded_extended_key_gen<R: Read, W: Write>(
         output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
         output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
     }
-
-    Ok(())
-}
-
-/// Returns an identity secret and identity commitment pair.
-///
-/// The identity commitment is the Poseidon hash of the identity secret.
-///
-/// Output values are:
-/// - `output_data`: a writer receiving the serialization of the identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
-///
-/// Example
-/// ```
-/// use rln::protocol::*;
-///
-/// // We generate an identity pair
-/// let mut buffer = Cursor::new(Vec::<u8>::new());
-/// rln.key_gen(&mut buffer).unwrap();
-///
-/// // We serialize_compressed the keygen output
-/// let (identity_secret_hash, id_commitment) = deserialize_identity_pair(buffer.into_inner());
-/// ```
-pub fn key_gen<W: Write>(mut output_data: W, endianness: Endianness) -> Result<(), RLNError> {
-    let (identity_secret_hash, id_commitment) = keygen();
-
-    match endianness {
-        Endianness::LittleEndian => {
-            output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
-            output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
-        }
-        Endianness::BigEndian => {
-            output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
-            output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
-        }
-    };
-
-    Ok(())
-}
-
-/// Returns an identity trapdoor, nullifier, secret and commitment tuple.
-///
-/// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
-///
-/// The identity commitment is the Poseidon hash of the identity secret.
-///
-/// Generated credentials are compatible with [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
-///
-/// Output values are:
-/// - `output_data`: a writer receiving the serialization of the identity trapdoor, identity nullifier, identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
-///
-/// Example
-/// ```
-/// use rln::protocol::*;
-///
-/// // We generate an identity tuple
-/// let mut buffer = Cursor::new(Vec::<u8>::new());
-/// rln.extended_key_gen(&mut buffer).unwrap();
-///
-/// // We serialize_compressed the keygen output
-/// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
-/// ```
-pub fn extended_key_gen<W: Write>(
-    mut output_data: W,
-    endianness: Endianness,
-) -> Result<(), RLNError> {
-    let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
-        extended_keygen();
-    match endianness {
-        Endianness::LittleEndian => {
-            output_data.write_all(&fr_to_bytes_le(&identity_trapdoor))?;
-            output_data.write_all(&fr_to_bytes_le(&identity_nullifier))?;
-            output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
-            output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
-        }
-        Endianness::BigEndian => {
-            output_data.write_all(&fr_to_bytes_be(&identity_trapdoor))?;
-            output_data.write_all(&fr_to_bytes_be(&identity_nullifier))?;
-            output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
-            output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
-        }
-    };
-
-    Ok(())
-}
-
-/// Returns an identity secret and identity commitment pair generated using a seed.
-///
-/// The identity commitment is the Poseidon hash of the identity secret.
-///
-/// Input values are:
-/// - `input_data`: a reader for the byte vector containing the seed
-///
-/// Output values are:
-/// - `output_data`: a writer receiving the serialization of the identity secret and identity commitment (serialization done with [`rln::utils::fr_to_bytes_le`](crate::utils::fr_to_bytes_le))
-///
-/// Example
-/// ```
-/// use rln::protocol::*;
-///
-/// let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-///
-/// let mut input_buffer = Cursor::new(&seed_bytes);
-/// let mut output_buffer = Cursor::new(Vec::<u8>::new());
-/// rln.seeded_key_gen(&mut input_buffer, &mut output_buffer)
-///     .unwrap();
-///
-/// // We serialize_compressed the keygen output
-/// let (identity_secret_hash, id_commitment) = deserialize_identity_pair(output_buffer.into_inner());
-/// ```
-pub fn seeded_key_gen<R: Read, W: Write>(
-    mut input_data: R,
-    mut output_data: W,
-    endianness: Endianness,
-) -> Result<(), RLNError> {
-    let mut serialized: Vec<u8> = Vec::new();
-    input_data.read_to_end(&mut serialized)?;
-
-    let (identity_secret_hash, id_commitment) = seeded_keygen(&serialized);
-    match endianness {
-        Endianness::LittleEndian => {
-            output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
-            output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
-        }
-        Endianness::BigEndian => {
-            output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
-            output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
-        }
-    };
-
-    Ok(())
-}
-
-/// Returns an identity trapdoor, nullifier, secret and commitment tuple generated using a seed.
-///
-/// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
-///
-/// The identity commitment is the Poseidon hash of the identity secret.
-///
-/// Generated credentials are compatible with [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
-///
-/// Input values are:
-/// - `input_data`: a reader for the byte vector containing the seed
-///
-/// Output values are:
-/// - `output_data`: a writer receiving the serialization of the identity trapdoor, identity nullifier, identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
-///
-/// Example
-/// ```
-/// use rln::protocol::*;
-///
-/// let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-///
-/// let mut input_buffer = Cursor::new(&seed_bytes);
-/// let mut output_buffer = Cursor::new(Vec::<u8>::new());
-/// rln.seeded_key_gen(&mut input_buffer, &mut output_buffer)
-///     .unwrap();
-///
-/// // We serialize_compressed the keygen output
-/// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
-/// ```
-pub fn seeded_extended_key_gen<R: Read, W: Write>(
-    mut input_data: R,
-    mut output_data: W,
-    endianness: Endianness,
-) -> Result<(), RLNError> {
-    let mut serialized: Vec<u8> = Vec::new();
-    input_data.read_to_end(&mut serialized)?;
-
-    let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
-        extended_seeded_keygen(&serialized);
-    match endianness {
-        Endianness::LittleEndian => {
-            output_data.write_all(&fr_to_bytes_le(&identity_trapdoor))?;
-            output_data.write_all(&fr_to_bytes_le(&identity_nullifier))?;
-            output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
-            output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
-        }
-        Endianness::BigEndian => {
-            output_data.write_all(&fr_to_bytes_be(&identity_trapdoor))?;
-            output_data.write_all(&fr_to_bytes_be(&identity_nullifier))?;
-            output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
-            output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
-        }
-    };
 
     Ok(())
 }
