@@ -6,8 +6,8 @@ use crate::protocol::{
     rln_witness_to_json, seeded_keygen, serialize_proof_values, verify_proof,
 };
 use crate::utils::{
-    bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_be,
-    fr_to_bytes_le, vec_fr_to_bytes_le, vec_u8_to_bytes_le,
+    bytes_be_to_vec_fr, bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size,
+    fr_to_bytes_be, fr_to_bytes_le, vec_fr_to_bytes_le, vec_u8_to_bytes_le,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use {
@@ -1508,6 +1508,20 @@ pub fn hash<R: Read, W: Write>(
     Ok(())
 }
 
+/// same as hash function but in BE format
+pub fn hash_be<R: Read, W: Write>(
+    mut input_data: R,
+    mut output_data: W,
+) -> Result<(), std::io::Error> {
+    let mut serialized: Vec<u8> = Vec::new();
+    input_data.read_to_end(&mut serialized)?;
+
+    let hash = hash_to_field(&serialized);
+    output_data.write_all(&fr_to_bytes_be(&hash))?;
+
+    Ok(())
+}
+
 /// Hashes a set of elements to a single element in the working prime field, using Poseidon.
 ///
 /// The result is computed as the Poseidon Hash of the input signal.
@@ -1736,6 +1750,21 @@ pub fn seeded_extended_key_gen<R: Read, W: Write>(
         output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
         output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
     }
+
+    Ok(())
+}
+
+/// same as poseidon_hash function but in BE format. Note that input is expected in BE format too.
+pub fn poseidon_hash_be<R: Read, W: Write>(
+    mut input_data: R,
+    mut output_data: W,
+) -> Result<(), RLNError> {
+    let mut serialized: Vec<u8> = Vec::new();
+    input_data.read_to_end(&mut serialized)?;
+
+    let (inputs, _) = bytes_be_to_vec_fr(&serialized)?;
+    let hash = utils_poseidon_hash(inputs.as_ref());
+    output_data.write_all(&fr_to_bytes_be(&hash))?;
 
     Ok(())
 }
