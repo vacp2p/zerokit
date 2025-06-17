@@ -3,10 +3,15 @@
 use crate::circuit::Fr;
 use crate::error::ConversionError;
 use ark_ff::PrimeField;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_std::UniformRand;
 use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
+use rand::Rng;
 use serde_json::json;
 use std::io::Cursor;
+use std::ops::Deref;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 #[inline(always)]
 pub fn to_bigint(el: &Fr) -> BigInt {
@@ -149,3 +154,57 @@ pub fn normalize_usize(input: usize) -> [u8; 8] {
 pub fn generate_input_buffer() -> Cursor<String> {
     Cursor::new(json!({}).to_string())
 }
+
+#[derive(
+    Debug,
+    Zeroize,
+    ZeroizeOnDrop,
+    // From,
+    // Into,
+    Clone,
+    PartialEq,
+    // Display,
+    CanonicalSerialize,
+    CanonicalDeserialize,
+)]
+pub struct IdSecret(ark_bn254::Fr);
+
+impl IdSecret {
+    pub fn rand<R: Rng + ?Sized>(rng: &mut R) -> Self {
+        let mut fr = Fr::rand(rng);
+        let res = Self::from(&mut fr);
+        fr.zeroize();
+        res
+    }
+
+    pub fn from_bytes_le(input: &[u8]) -> (Self, usize) {
+        let el_size = fr_byte_size();
+        let b_uint = BigUint::from_bytes_le(&input[0..el_size]);
+        let mut fr = Fr::from(b_uint);
+        let res = IdSecret::from(&mut fr);
+        // Note: no zeroize on b_uint as it has been moved
+        (res, el_size)
+    }
+
+    fn to_bytes_le(&self) -> Vec<u8> {
+        todo!()
+    }
+}
+
+impl From<&mut Fr> for IdSecret {
+    fn from(value: &mut Fr) -> Self {
+        let id_secret = Self(value.clone());
+        value.zeroize();
+        id_secret
+    }
+}
+
+/*
+impl Deref for IdSecret {
+    type Target = Fr;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+*/
