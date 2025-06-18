@@ -1016,13 +1016,13 @@ mod stateless_test {
         unsafe { &mut *rln_pointer.assume_init() }
     }
 
-    fn identity_pair_gen(rln_pointer: &mut RLN) -> (Fr, Fr) {
+    fn identity_pair_gen(rln_pointer: &mut RLN) -> (IdSecret, Fr) {
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
         let success = key_gen(rln_pointer, output_buffer.as_mut_ptr());
         assert!(success, "key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
+        let (identity_secret_hash, read) = IdSecret::from_bytes_le(&result_data);
         let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
         (identity_secret_hash, id_commitment)
     }
@@ -1075,7 +1075,7 @@ mod stateless_test {
 
         // We prepare input for generate_rln_proof API
         let rln_witness1 = rln_witness_from_values(
-            identity_secret_hash,
+            identity_secret_hash.clone(),
             &merkle_proof,
             x1,
             external_nullifier,
@@ -1086,7 +1086,7 @@ mod stateless_test {
         let serialized1 = serialize_witness(&rln_witness1).unwrap();
 
         let rln_witness2 = rln_witness_from_values(
-            identity_secret_hash,
+            identity_secret_hash.clone(),
             &merkle_proof,
             x2,
             external_nullifier,
@@ -1122,7 +1122,7 @@ mod stateless_test {
         assert!(!serialized_identity_secret_hash.is_empty());
 
         // We check if the recovered identity secret hash corresponds to the original one
-        let (recovered_identity_secret_hash, _) = bytes_le_to_fr(&serialized_identity_secret_hash);
+        let (recovered_identity_secret_hash, _) = IdSecret::from_bytes_le(&serialized_identity_secret_hash);
         assert_eq!(recovered_identity_secret_hash, identity_secret_hash);
 
         // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
@@ -1140,7 +1140,7 @@ mod stateless_test {
         let merkle_proof_new = tree.proof(identity_index_new).expect("proof should exist");
 
         let rln_witness3 = rln_witness_from_values(
-            identity_secret_hash_new,
+            identity_secret_hash_new.clone(),
             &merkle_proof_new,
             x3,
             external_nullifier,
@@ -1173,7 +1173,7 @@ mod stateless_test {
 
         // ensure that the recovered secret does not match with either of the
         // used secrets in proof generation
-        assert_ne!(recovered_identity_secret_hash_new, identity_secret_hash_new);
+        assert_ne!(recovered_identity_secret_hash_new, *identity_secret_hash_new);
     }
 
     #[test]
