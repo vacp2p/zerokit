@@ -373,7 +373,7 @@ pub fn deserialize_proof_values(serialized: &[u8]) -> (RLNProofValues, usize) {
 
 // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
 pub fn prepare_prove_input(
-    identity_secret: Fr,
+    identity_secret: IdSecret,
     id_index: usize,
     user_message_limit: Fr,
     message_id: Fr,
@@ -386,7 +386,7 @@ pub fn prepare_prove_input(
     // - variable length signal data
     let mut serialized = Vec::with_capacity(fr_byte_size() * 4 + 16 + signal.len()); // length of 4 fr elements + 16 bytes (id_index + len) + signal length
 
-    serialized.extend_from_slice(&fr_to_bytes_le(&identity_secret));
+    serialized.extend_from_slice(&identity_secret.to_bytes_le());
     serialized.extend_from_slice(&normalize_usize(id_index));
     serialized.extend_from_slice(&fr_to_bytes_le(&user_message_limit));
     serialized.extend_from_slice(&fr_to_bytes_le(&message_id));

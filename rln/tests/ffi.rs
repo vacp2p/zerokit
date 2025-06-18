@@ -14,6 +14,7 @@ mod test {
     use std::io::Read;
     use std::mem::MaybeUninit;
     use std::time::{Duration, Instant};
+    use zeroize::Zeroize;
 
     const NO_OF_LEAVES: usize = 256;
 
@@ -49,13 +50,13 @@ mod test {
         root
     }
 
-    fn identity_pair_gen(rln_pointer: &mut RLN) -> (Fr, Fr) {
+    fn identity_pair_gen(rln_pointer: &mut RLN) -> (IdSecret, Fr) {
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
         let success = key_gen(rln_pointer, output_buffer.as_mut_ptr());
         assert!(success, "key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
+        let (identity_secret_hash, read) = IdSecret::from_bytes_le(&result_data);
         let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
         (identity_secret_hash, id_commitment)
     }
@@ -271,8 +272,11 @@ mod test {
         let rln_pointer = create_rln_instance();
 
         // generate identity
-        let identity_secret_hash = hash_to_field(b"test-merkle-proof");
-        let id_commitment = utils_poseidon_hash(&[identity_secret_hash]);
+        let mut identity_secret_hash_ = hash_to_field(b"test-merkle-proof");
+        let identity_secret_hash = IdSecret::from(&mut identity_secret_hash_);
+        let mut to_hash = [*identity_secret_hash.clone()];
+        let id_commitment = utils_poseidon_hash(&to_hash);
+        to_hash[0].zeroize();
         let user_message_limit = Fr::from(100);
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
@@ -674,7 +678,7 @@ mod test {
         // We prepare input for generate_rln_proof API
         // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
         let prove_input1 = prepare_prove_input(
-            identity_secret_hash,
+            identity_secret_hash.clone(),
             identity_index,
             user_message_limit,
             message_id,
@@ -683,7 +687,7 @@ mod test {
         );
 
         let prove_input2 = prepare_prove_input(
-            identity_secret_hash,
+            identity_secret_hash.clone(),
             identity_index,
             user_message_limit,
             message_id,
@@ -718,7 +722,7 @@ mod test {
 
         // We check if the recovered identity secret hash corresponds to the original one
         let (recovered_identity_secret_hash, _) = bytes_le_to_fr(&serialized_identity_secret_hash);
-        assert_eq!(recovered_identity_secret_hash, identity_secret_hash);
+        assert_eq!(recovered_identity_secret_hash, *identity_secret_hash);
 
         // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
 
@@ -772,7 +776,7 @@ mod test {
 
         // ensure that the recovered secret does not match with either of the
         // used secrets in proof generation
-        assert_ne!(recovered_identity_secret_hash_new, identity_secret_hash_new);
+        assert_ne!(recovered_identity_secret_hash_new, *identity_secret_hash_new);
     }
 
     #[test]

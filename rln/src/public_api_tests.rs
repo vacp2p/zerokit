@@ -880,7 +880,7 @@ mod tree_test {
         // We prepare input for generate_rln_proof API
         // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
         let prove_input1 = prepare_prove_input(
-            identity_secret_hash,
+            identity_secret_hash.clone(),
             identity_index,
             user_message_limit,
             message_id,
@@ -889,7 +889,7 @@ mod tree_test {
         );
 
         let prove_input2 = prepare_prove_input(
-            identity_secret_hash,
+            identity_secret_hash.clone(),
             identity_index,
             user_message_limit,
             message_id,
@@ -932,7 +932,7 @@ mod tree_test {
 
         // We check if the recovered identity secret hash corresponds to the original one
         let (recovered_identity_secret_hash, _) = bytes_le_to_fr(&serialized_identity_secret_hash);
-        assert_eq!(recovered_identity_secret_hash, identity_secret_hash);
+        assert_eq!(recovered_identity_secret_hash, *identity_secret_hash);
 
         // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
 
@@ -982,7 +982,7 @@ mod tree_test {
 
         // ensure that the recovered secret does not match with either of the
         // used secrets in proof generation
-        assert_ne!(recovered_identity_secret_hash_new, identity_secret_hash_new);
+        assert_ne!(recovered_identity_secret_hash_new, *identity_secret_hash_new);
     }
 }
 
