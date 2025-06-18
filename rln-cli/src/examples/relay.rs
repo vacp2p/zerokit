@@ -12,8 +12,9 @@ use rln::{
     hashers::{hash_to_field, poseidon_hash},
     protocol::{keygen, prepare_prove_input, prepare_verify_input},
     public::RLN,
-    utils::{bytes_le_to_fr, fr_to_bytes_le, generate_input_buffer},
+    utils::{fr_to_bytes_le, generate_input_buffer},
 };
+use rln::utils::IdSecret;
 
 const MESSAGE_LIMIT: u32 = 1;
 
@@ -44,7 +45,7 @@ enum Commands {
 
 #[derive(Debug, Clone)]
 struct Identity {
-    identity_secret_hash: Fr,
+    identity_secret_hash: IdSecret,
     id_commitment: Fr,
 }
 
@@ -103,7 +104,7 @@ impl RLNSystem {
         println!("Registered users:");
         for (index, identity) in &self.local_identities {
             println!("User Index: {index}");
-            println!("+ Identity Secret Hash: {}", identity.identity_secret_hash);
+            println!("+ Identity Secret Hash: ********");
             println!("+ Identity Commitment: {}", identity.id_commitment);
             println!();
         }
@@ -118,7 +119,7 @@ impl RLNSystem {
         match self.rln.set_next_leaf(&mut buffer) {
             Ok(_) => {
                 println!("Registered User Index: {index}");
-                println!("+ Identity secret hash: {}", identity.identity_secret_hash);
+                println!("+ Identity secret hash: ********");
                 println!("+ Identity commitment: {},", identity.id_commitment);
                 self.local_identities.insert(index, identity);
             }
@@ -143,7 +144,7 @@ impl RLNSystem {
         };
 
         let serialized = prepare_prove_input(
-            identity.identity_secret_hash,
+            identity.identity_secret_hash.clone(),
             user_index,
             Fr::from(MESSAGE_LIMIT),
             Fr::from(message_id),
@@ -211,7 +212,7 @@ impl RLNSystem {
         {
             Ok(_) => {
                 let output_data = output.into_inner();
-                let (leaked_identity_secret_hash, _) = bytes_le_to_fr(&output_data);
+                let (leaked_identity_secret_hash, _) = IdSecret::from_bytes_le(&output_data);
 
                 if let Some((user_index, identity)) = self
                     .local_identities
@@ -221,11 +222,11 @@ impl RLNSystem {
                     })
                     .map(|(index, identity)| (*index, identity))
                 {
-                    let real_identity_secret_hash = identity.identity_secret_hash;
+                    let real_identity_secret_hash = identity.identity_secret_hash.clone();
                     if leaked_identity_secret_hash != real_identity_secret_hash {
-                        Err(eyre!("identity secret hash mismatch {leaked_identity_secret_hash} != {real_identity_secret_hash}"))
+                        Err(eyre!("identity secret hash mismatch: leaked_identity_secret_hash != real_identity_secret_hash"))
                     } else {
-                        println!("DUPLICATE message ID detected! Reveal identity secret hash: {leaked_identity_secret_hash}");
+                        println!("DUPLICATE message ID detected! Reveal identity secret hash: ********");
                         self.local_identities.remove(&user_index);
                         self.rln.delete_leaf(user_index)?;
                         println!("User index {user_index} has been SLASHED");
@@ -233,7 +234,7 @@ impl RLNSystem {
                     }
                 } else {
                     Err(eyre!(
-                        "user identity secret hash {leaked_identity_secret_hash} not found"
+                        "user identity secret hash ******** not found"
                     ))
                 }
             }
