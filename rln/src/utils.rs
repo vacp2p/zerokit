@@ -11,7 +11,7 @@ use rand::Rng;
 use serde_json::json;
 use std::io::Cursor;
 use std::ops::Deref;
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 #[inline(always)]
 pub fn to_bigint(el: &Fr) -> BigInt {
@@ -187,9 +187,14 @@ impl IdSecret {
         (res, el_size)
     }
 
-    fn to_bytes_le(&self) -> Vec<u8> {
-        todo!()
+    pub(crate) fn to_bytes_le(&self) -> Zeroizing<Vec<u8>> {
+        let input_biguint: BigUint = self.0.into();
+        let mut res = input_biguint.to_bytes_le();
+        //BigUint conversion ignores most significant zero bytes. We restore them otherwise serialization will fail (length % 8 != 0)
+        res.resize(fr_byte_size(), 0);
+        Zeroizing::new(res)
     }
+
 }
 
 impl From<&mut Fr> for IdSecret {
@@ -200,7 +205,6 @@ impl From<&mut Fr> for IdSecret {
     }
 }
 
-/*
 impl Deref for IdSecret {
     type Target = Fr;
 
@@ -208,4 +212,4 @@ impl Deref for IdSecret {
         &self.0
     }
 }
-*/
+
