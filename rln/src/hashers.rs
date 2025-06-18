@@ -3,7 +3,6 @@ use crate::{circuit::Fr, utils::bytes_le_to_fr};
 use once_cell::sync::Lazy;
 use tiny_keccak::{Hasher, Keccak};
 use utils::poseidon::Poseidon;
-use zeroize::Zeroize;
 
 /// These indexed constants hardcode the supported round parameters tuples (t, RF, RN, SKIP_MATRICES) for the Bn254 scalar field.
 /// SKIP_MATRICES is the index of the randomly generated secure MDS matrix.
@@ -26,14 +25,6 @@ pub fn poseidon_hash(input: &[Fr]) -> Fr {
     POSEIDON
         .hash(input)
         .expect("hash with fixed input size can't fail")
-}
-
-pub fn poseidon_hash_mut(input: &mut [Fr]) -> Fr {
-    let result = POSEIDON
-        .hash(input)
-        .expect("hash with fixed input size can't fail");
-    input.into_iter().for_each(|i| i.zeroize());
-    result
 }
 
 /// The zerokit RLN Merkle tree Hasher.

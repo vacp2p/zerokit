@@ -2,7 +2,7 @@
 
 use crate::circuit::{calculate_rln_witness, qap::CircomReduction, Curve};
 use crate::error::{ComputeIdSecretError, ConversionError, ProofError, ProtocolError};
-use crate::hashers::{hash_to_field, poseidon_hash, poseidon_hash_mut};
+use crate::hashers::{hash_to_field, poseidon_hash};
 use crate::poseidon_tree::{MerkleProof, PoseidonTree};
 use crate::public::RLN_IDENTIFIER;
 use crate::utils::{
@@ -298,13 +298,14 @@ pub fn proof_values_from_witness(
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
     // y share
-    let mut a_0: Fr = *rln_witness.identity_secret;
-    let a_1 = poseidon_hash(&[a_0, rln_witness.external_nullifier, rln_witness.message_id]);
-    let y = a_0 + rln_witness.x * a_1;
-    a_0.zeroize();
+    let a_0 = &rln_witness.identity_secret;
+    let mut to_hash = [*(a_0.clone()), rln_witness.external_nullifier, rln_witness.message_id];
+    let a_1 = poseidon_hash(&to_hash);
+    let y = *(a_0.clone()) + rln_witness.x * a_1;
 
     // Nullifier
     let nullifier = poseidon_hash(&[a_1]);
+    to_hash[0].zeroize();
 
     // Merkle tree root computations
     let root = compute_tree_root(
@@ -421,7 +422,10 @@ pub fn compute_tree_root(
     path_elements: &[Fr],
     identity_path_index: &[u8],
 ) -> Fr {
-    let id_commitment = poseidon_hash_mut(&mut [**identity_secret]);
+    let mut to_hash = [*identity_secret.clone()];
+    let id_commitment = poseidon_hash(&to_hash);
+    to_hash[0].zeroize();
+    
     let mut root = poseidon_hash(&[id_commitment, *user_message_limit]);
 
     for i in 0..identity_path_index.len() {
@@ -445,7 +449,9 @@ pub fn compute_tree_root(
 pub fn keygen() -> (IdSecret, Fr) {
     let mut rng = thread_rng();
     let identity_secret_hash = IdSecret::rand(&mut rng);
-    let id_commitment = poseidon_hash_mut(&mut [*identity_secret_hash]);
+    let mut to_hash = [*identity_secret_hash.clone()];
+    let id_commitment = poseidon_hash(&to_hash);
+    to_hash[0].zeroize();
     (identity_secret_hash, id_commitment)
 }
 

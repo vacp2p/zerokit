@@ -189,11 +189,18 @@ impl IdSecret {
     pub(crate) fn to_bytes_le(&self) -> Zeroizing<Vec<u8>> {
         let input_biguint: BigUint = self.0.into();
         let mut res = input_biguint.to_bytes_le();
-        //BigUint conversion ignores most significant zero bytes. We restore them otherwise serialization will fail (length % 8 != 0)
         res.resize(fr_byte_size(), 0);
         Zeroizing::new(res)
     }
 
+    /*
+    pub(crate) fn to_fr(mut self) -> Zeroizing<Fr> {
+        let result = Zeroizing::new(self.0);
+        self.zeroize();
+        result
+    }
+    */
+    
 }
 
 impl From<&mut Fr> for IdSecret {
