@@ -982,7 +982,10 @@ mod tree_test {
 
         // ensure that the recovered secret does not match with either of the
         // used secrets in proof generation
-        assert_ne!(recovered_identity_secret_hash_new, *identity_secret_hash_new);
+        assert_ne!(
+            recovered_identity_secret_hash_new,
+            *identity_secret_hash_new
+        );
     }
 }
 

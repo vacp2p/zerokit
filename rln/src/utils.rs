@@ -200,12 +200,11 @@ impl IdSecret {
         result
     }
     */
-    
 }
 
 impl From<&mut Fr> for IdSecret {
     fn from(value: &mut Fr) -> Self {
-        let id_secret = Self(value.clone());
+        let id_secret = Self(*value);
         value.zeroize();
         id_secret
     }
@@ -218,4 +217,3 @@ impl Deref for IdSecret {
         &self.0
     }
 }
-

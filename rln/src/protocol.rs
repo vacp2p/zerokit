@@ -299,7 +299,11 @@ pub fn proof_values_from_witness(
 
     // y share
     let a_0 = &rln_witness.identity_secret;
-    let mut to_hash = [*(a_0.clone()), rln_witness.external_nullifier, rln_witness.message_id];
+    let mut to_hash = [
+        *(a_0.clone()),
+        rln_witness.external_nullifier,
+        rln_witness.message_id,
+    ];
     let a_1 = poseidon_hash(&to_hash);
     let y = *(a_0.clone()) + rln_witness.x * a_1;
 
@@ -425,7 +429,7 @@ pub fn compute_tree_root(
     let mut to_hash = [*identity_secret.clone()];
     let id_commitment = poseidon_hash(&to_hash);
     to_hash[0].zeroize();
-    
+
     let mut root = poseidon_hash(&[id_commitment, *user_message_limit]);
 
     for i in 0..identity_path_index.len() {
