@@ -7,6 +7,7 @@ use std::{
 
 use clap::{Parser, Subcommand};
 use color_eyre::{eyre::eyre, Report, Result};
+use rln::utils::IdSecret;
 use rln::{
     circuit::Fr,
     hashers::{hash_to_field, poseidon_hash},
@@ -14,7 +15,6 @@ use rln::{
     public::RLN,
     utils::{fr_to_bytes_le, generate_input_buffer},
 };
-use rln::utils::IdSecret;
 
 const MESSAGE_LIMIT: u32 = 1;
 
@@ -226,16 +226,16 @@ impl RLNSystem {
                     if leaked_identity_secret_hash != real_identity_secret_hash {
                         Err(eyre!("identity secret hash mismatch: leaked_identity_secret_hash != real_identity_secret_hash"))
                     } else {
-                        println!("DUPLICATE message ID detected! Reveal identity secret hash: ********");
+                        println!(
+                            "DUPLICATE message ID detected! Reveal identity secret hash: ********"
+                        );
                         self.local_identities.remove(&user_index);
                         self.rln.delete_leaf(user_index)?;
                         println!("User index {user_index} has been SLASHED");
                         Ok(())
                     }
                 } else {
-                    Err(eyre!(
-                        "user identity secret hash ******** not found"
-                    ))
+                    Err(eyre!("user identity secret hash ******** not found"))
                 }
             }
             Err(err) => Err(eyre!("Failed to recover identity secret: {err}")),

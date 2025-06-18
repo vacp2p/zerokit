@@ -12,7 +12,10 @@ mod test {
     use rln::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash, ROUND_PARAMS};
     use rln::protocol::deserialize_identity_tuple;
     use rln::public::{hash as public_hash, poseidon_hash as public_poseidon_hash, RLN};
-    use rln::utils::{bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, bytes_le_to_vec_usize, fr_to_bytes_le, generate_input_buffer, str_to_fr, vec_fr_to_bytes_le, IdSecret};
+    use rln::utils::{
+        bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, bytes_le_to_vec_usize,
+        fr_to_bytes_le, generate_input_buffer, str_to_fr, vec_fr_to_bytes_le, IdSecret,
+    };
     use std::io::Cursor;
     use zeroize::Zeroize;
 
@@ -28,11 +31,11 @@ mod test {
         // generate identity
         let mut identity_secret_hash_ = hash_to_field(b"test-merkle-proof");
         let identity_secret_hash = IdSecret::from(&mut identity_secret_hash_);
-        
-        let mut to_hash = [*identity_secret_hash.clone()]; 
+
+        let mut to_hash = [*identity_secret_hash.clone()];
         let id_commitment = utils_poseidon_hash(&to_hash);
         to_hash[0].zeroize();
-        
+
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit.into()]);
 
         // check that leaves indices is empty
