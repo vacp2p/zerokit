@@ -1232,8 +1232,8 @@ mod stateless_test {
         .unwrap();
 
         let serialized_identity_secret_hash = output_buffer.into_inner();
-        let (recovered_identity_secret_hash_new, _) = IdSecret::from_bytes_le(
-            &serialized_identity_secret_hash);
+        let (recovered_identity_secret_hash_new, _) =
+            IdSecret::from_bytes_le(&serialized_identity_secret_hash);
 
         // ensure that the recovered secret does not match with either of the
         // used secrets in proof generation
