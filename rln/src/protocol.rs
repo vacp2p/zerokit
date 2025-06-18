@@ -113,7 +113,7 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>, Proto
         fr_byte_size() * (5 + rln_witness.path_elements.len())
             + rln_witness.identity_path_index.len(),
     );
-    serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.identity_secret));
+    serialized.extend_from_slice(&rln_witness.identity_secret.to_bytes_le());
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.user_message_limit));
     serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.message_id));
     serialized.extend_from_slice(&vec_fr_to_bytes_le(&rln_witness.path_elements));
