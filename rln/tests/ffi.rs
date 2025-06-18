@@ -1122,7 +1122,8 @@ mod stateless_test {
         assert!(!serialized_identity_secret_hash.is_empty());
 
         // We check if the recovered identity secret hash corresponds to the original one
-        let (recovered_identity_secret_hash, _) = IdSecret::from_bytes_le(&serialized_identity_secret_hash);
+        let (recovered_identity_secret_hash, _) =
+            IdSecret::from_bytes_le(&serialized_identity_secret_hash);
         assert_eq!(recovered_identity_secret_hash, identity_secret_hash);
 
         // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
@@ -1173,7 +1174,10 @@ mod stateless_test {
 
         // ensure that the recovered secret does not match with either of the
         // used secrets in proof generation
-        assert_ne!(recovered_identity_secret_hash_new, *identity_secret_hash_new);
+        assert_ne!(
+            recovered_identity_secret_hash_new,
+            *identity_secret_hash_new
+        );
     }
 
     #[test]
