@@ -159,11 +159,8 @@ pub fn generate_input_buffer() -> Cursor<String> {
     Debug,
     Zeroize,
     ZeroizeOnDrop,
-    // From,
-    // Into,
     Clone,
     PartialEq,
-    // Display,
     CanonicalSerialize,
     CanonicalDeserialize,
 )]
@@ -173,7 +170,7 @@ impl IdSecret {
     pub fn rand<R: Rng + ?Sized>(rng: &mut R) -> Self {
         let mut fr = Fr::rand(rng);
         let res = Self::from(&mut fr);
-        fr.zeroize();
+        // No need to zeroize fr (already zeroiz'ed in from implementation)
         res
     }
 
@@ -192,14 +189,6 @@ impl IdSecret {
         res.resize(fr_byte_size(), 0);
         Zeroizing::new(res)
     }
-
-    /*
-    pub(crate) fn to_fr(mut self) -> Zeroizing<Fr> {
-        let result = Zeroizing::new(self.0);
-        self.zeroize();
-        result
-    }
-    */
 }
 
 impl From<&mut Fr> for IdSecret {
@@ -212,7 +201,11 @@ impl From<&mut Fr> for IdSecret {
 
 impl Deref for IdSecret {
     type Target = Fr;
-
+    
+    /// Deref to &Fr 
+    /// 
+    /// Warning: this can leak the secret value
+    /// Warning: Leaked value is of type 'Fr' which implement Copy (every copy will not be zeroized)
     fn deref(&self) -> &Self::Target {
         &self.0
     }
