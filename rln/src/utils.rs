@@ -14,7 +14,7 @@ pub fn to_bigint(el: &Fr) -> BigInt {
 }
 
 #[inline(always)]
-pub fn fr_byte_size() -> usize {
+pub const fn fr_byte_size() -> usize {
     let mbs = <Fr as PrimeField>::MODULUS_BIT_SIZE;
     ((mbs + 64 - (mbs % 64)) / 8) as usize
 }
@@ -106,10 +106,9 @@ pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), ConversionEr
 #[inline(always)]
 pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), ConversionError> {
     let mut read: usize = 0;
-    let mut res: Vec<Fr> = Vec::new();
-
     let len = usize::try_from(u64::from_le_bytes(input[0..8].try_into()?))?;
     read += 8;
+    let mut res: Vec<Fr> = Vec::with_capacity(len);
 
     let el_size = fr_byte_size();
     for i in 0..len {
