@@ -7,7 +7,7 @@ use crate::poseidon_tree::{MerkleProof, PoseidonTree};
 use crate::public::RLN_IDENTIFIER;
 use crate::utils::{
     bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_le,
-    normalize_usize, to_bigint, vec_fr_to_bytes_le, vec_u8_to_bytes_le, IdSecret,
+    normalize_usize, to_bigint, vec_fr_to_bytes_le, vec_u8_to_bytes_le, FrOrSecret, IdSecret,
 };
 use ark_bn254::Fr;
 use ark_ff::AdditiveGroup;
@@ -623,7 +623,7 @@ pub fn generate_proof_with_witness(
 /// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
 pub fn inputs_for_witness_calculation(
     rln_witness: &RLNWitnessInput,
-) -> Result<[(&str, Vec<Fr>); 7], ProtocolError> {
+) -> Result<[(&str, Vec<FrOrSecret>); 7], ProtocolError> {
     message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
 
     let mut identity_path_index = Vec::with_capacity(rln_witness.identity_path_index.len());
@@ -633,14 +633,33 @@ pub fn inputs_for_witness_calculation(
         .for_each(|v| identity_path_index.push(Fr::from(*v)));
 
     Ok([
-        // FIXME
-        ("identitySecret", vec![*rln_witness.identity_secret]),
-        ("userMessageLimit", vec![rln_witness.user_message_limit]),
-        ("messageId", vec![rln_witness.message_id]),
-        ("pathElements", rln_witness.path_elements.clone()),
-        ("identityPathIndex", identity_path_index),
-        ("x", vec![rln_witness.x]),
-        ("externalNullifier", vec![rln_witness.external_nullifier]),
+        (
+            "identitySecret",
+            vec![rln_witness.identity_secret.clone().into()],
+        ),
+        (
+            "userMessageLimit",
+            vec![rln_witness.user_message_limit.into()],
+        ),
+        ("messageId", vec![rln_witness.message_id.into()]),
+        (
+            "pathElements",
+            rln_witness
+                .path_elements
+                .iter()
+                .cloned()
+                .map(Into::into)
+                .collect(),
+        ),
+        (
+            "identityPathIndex",
+            identity_path_index.into_iter().map(Into::into).collect(),
+        ),
+        ("x", vec![rln_witness.x.into()]),
+        (
+            "externalNullifier",
+            vec![rln_witness.external_nullifier.into()],
+        ),
     ])
 }
 

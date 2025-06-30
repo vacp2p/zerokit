@@ -8,19 +8,33 @@ pub mod storage;
 use ruint::aliases::U256;
 use std::collections::HashMap;
 use storage::deserialize_witnesscalc_graph;
+use zeroize::zeroize_flat_type;
 
+use crate::circuit::iden3calc::graph::fr_to_u256;
 use crate::circuit::Fr;
-use graph::{fr_to_u256, Node};
+use crate::utils::FrOrSecret;
+use graph::Node;
 
 pub type InputSignalsInfo = HashMap<String, (usize, usize)>;
 
-pub fn calc_witness<I: IntoIterator<Item = (String, Vec<Fr>)>>(
+pub fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
     inputs: I,
     graph_data: &[u8],
 ) -> Vec<Fr> {
-    let inputs: HashMap<String, Vec<U256>> = inputs
+    let mut inputs: HashMap<String, Vec<U256>> = inputs
         .into_iter()
-        .map(|(key, value)| (key, value.iter().map(fr_to_u256).collect()))
+        .map(|(key, value)| {
+            (
+                key,
+                value
+                    .iter()
+                    .map(|f_| match f_ {
+                        FrOrSecret::IdSecret(s) => s.to_u256(),
+                        FrOrSecret::Fr(f) => fr_to_u256(f),
+                    })
+                    .collect(),
+            )
+        })
         .collect();
 
     let (nodes, signals, input_mapping): (Vec<Node>, Vec<usize>, InputSignalsInfo) =
@@ -28,8 +42,15 @@ pub fn calc_witness<I: IntoIterator<Item = (String, Vec<Fr>)>>(
 
     let mut inputs_buffer = get_inputs_buffer(get_inputs_size(&nodes));
     populate_inputs(&inputs, &input_mapping, &mut inputs_buffer);
-
-    graph::evaluate(&nodes, inputs_buffer.as_slice(), &signals)
+    if let Some(v) = inputs.get_mut("identitySecret") {
+        // ~== v[0] = U256::ZERO;
+        unsafe { zeroize_flat_type(v) };
+    }
+    let res = graph::evaluate(&nodes, inputs_buffer.as_slice(), &signals);
+    inputs_buffer.iter_mut().for_each(|i| {
+        unsafe { zeroize_flat_type(i) };
+    });
+    res
 }
 
 fn get_inputs_size(nodes: &[Node]) -> usize {
