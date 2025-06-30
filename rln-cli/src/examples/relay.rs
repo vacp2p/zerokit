@@ -104,7 +104,7 @@ impl RLNSystem {
         println!("Registered users:");
         for (index, identity) in &self.local_identities {
             println!("User Index: {index}");
-            println!("+ Identity Secret Hash: ********");
+            println!("+ Identity Secret Hash: {}", *identity.identity_secret_hash);
             println!("+ Identity Commitment: {}", identity.id_commitment);
             println!();
         }
@@ -227,7 +227,7 @@ impl RLNSystem {
                         Err(eyre!("identity secret hash mismatch: leaked_identity_secret_hash != real_identity_secret_hash"))
                     } else {
                         println!(
-                            "DUPLICATE message ID detected! Reveal identity secret hash: ********"
+                            "DUPLICATE message ID detected! Reveal identity secret hash: {}", *leaked_identity_secret_hash 
                         );
                         self.local_identities.remove(&user_index);
                         self.rln.delete_leaf(user_index)?;
