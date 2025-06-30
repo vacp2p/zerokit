@@ -3,7 +3,7 @@ use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
 use crate::protocol::{
     compute_id_secret, deserialize_proof_values, deserialize_witness, extended_keygen,
     extended_seeded_keygen, keygen, proof_values_from_witness, rln_witness_to_bigint_json,
-    rln_witness_to_json, seeded_keygen, serialize_proof_values, verify_proof,
+    rln_witness_to_json, seeded_keygen, serialize_proof_values, verify_proof, generate_proof,
 };
 use crate::utils::{bytes_le_to_fr, bytes_le_to_vec_fr, fr_byte_size, fr_to_bytes_le};
 #[cfg(not(target_arch = "wasm32"))]
@@ -19,7 +19,7 @@ use crate::protocol::generate_proof_with_witness;
 /// used by tests etc. as well
 #[cfg(not(feature = "stateless"))]
 use {
-    crate::protocol::{generate_proof, proof_inputs_to_rln_witness, serialize_witness},
+    crate::protocol::{proof_inputs_to_rln_witness, serialize_witness},
     crate::utils::{bytes_le_to_vec_u8, vec_fr_to_bytes_le, vec_u8_to_bytes_le},
     crate::{circuit::TEST_TREE_HEIGHT, poseidon_tree::PoseidonTree},
     serde_json::{json, Value},
