@@ -3,11 +3,13 @@
 #[cfg(test)]
 mod tests {
     use js_sys::{BigInt as JsBigInt, Date, Object, Uint8Array};
-    use rln::circuit::{Fr, TEST_TREE_HEIGHT};
-    use rln::hashers::{hash_to_field, poseidon_hash};
-    use rln::poseidon_tree::PoseidonTree;
-    use rln::protocol::{prepare_verify_input, rln_witness_from_values, serialize_witness};
-    use rln::utils::{bytes_le_to_fr, fr_to_bytes_le};
+    use rln_stateless::circuit::{Fr, TEST_TREE_HEIGHT};
+    use rln_stateless::hashers::{hash_to_field, poseidon_hash};
+    use rln_stateless::poseidon_tree::PoseidonTree;
+    use rln_stateless::protocol::{
+        prepare_verify_input, rln_witness_from_values, serialize_witness,
+    };
+    use rln_stateless::utils::{bytes_le_to_fr, fr_to_bytes_le};
     use rln_wasm::{
         wasm_generate_rln_proof_with_witness, wasm_key_gen, wasm_new, wasm_rln_witness_to_json,
         wasm_verify_with_roots,
