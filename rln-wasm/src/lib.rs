@@ -2,7 +2,7 @@
 
 use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
 use num_bigint::BigInt;
-use rln_stateless::public::{hash, poseidon_hash, RLN};
+use rln::public::{hash, poseidon_hash, RLN};
 use std::vec::Vec;
 use wasm_bindgen::prelude::*;
 

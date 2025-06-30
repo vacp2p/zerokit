@@ -8,7 +8,7 @@ license = "MIT or Apache2"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-rln-stateless = { path = "../rln", version = "0.8.0", package = "rln", default-features = false, features = [
+rln = { path = "../rln", version = "0.8.0", default-features = false, features = [
     "stateless",
 ] }
 zerokit_utils = { path = "../utils", version = "0.6.0", default-features = false }
@@ -38,7 +38,7 @@ features = ["Window", "Navigator"]
 
 [features]
 default = ["console_error_panic_hook"]
-arkzkey = ["rln-stateless/arkzkey"]
+arkzkey = ["rln/arkzkey"]
 multithread = ["wasm-bindgen-rayon"]
 
 [package.metadata.docs.rs]
