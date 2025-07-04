@@ -7,8 +7,8 @@ use crate::protocol::{
     serialize_proof_values, serialize_witness, verify_proof,
 };
 use crate::utils::{
-    bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_le,
-    vec_fr_to_bytes_le, vec_u8_to_bytes_le,
+    bytes_be_to_vec_fr, bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size,
+    fr_to_bytes_be, fr_to_bytes_le, vec_fr_to_bytes_le, vec_u8_to_bytes_le,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use {
@@ -1139,6 +1139,15 @@ impl RLN {
         Ok(())
     }
 
+    /// Same as key_gen but serialized in BE format
+    pub fn key_gen_be<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
+        let (identity_secret_hash, id_commitment) = keygen();
+        output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
+        output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
+
+        Ok(())
+    }
+
     /// Returns an identity trapdoor, nullifier, secret and commitment tuple.
     ///
     /// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
@@ -1168,6 +1177,18 @@ impl RLN {
         output_data.write_all(&fr_to_bytes_le(&identity_nullifier))?;
         output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
         output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
+
+        Ok(())
+    }
+
+    /// Same as extend_key_gen but serialized in BE format.
+    pub fn extended_key_gen_be<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
+        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
+            extended_keygen();
+        output_data.write_all(&fr_to_bytes_be(&identity_trapdoor))?;
+        output_data.write_all(&fr_to_bytes_be(&identity_nullifier))?;
+        output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
+        output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
 
         Ok(())
     }
@@ -1207,6 +1228,22 @@ impl RLN {
         let (identity_secret_hash, id_commitment) = seeded_keygen(&serialized);
         output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
         output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
+
+        Ok(())
+    }
+
+    /// Same as seeded_key_gen but in BE format
+    pub fn seeded_key_gen_be<R: Read, W: Write>(
+        &self,
+        mut input_data: R,
+        mut output_data: W,
+    ) -> Result<(), RLNError> {
+        let mut serialized: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut serialized)?;
+
+        let (identity_secret_hash, id_commitment) = seeded_keygen(&serialized);
+        output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
+        output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
 
         Ok(())
     }
@@ -1253,6 +1290,25 @@ impl RLN {
         output_data.write_all(&fr_to_bytes_le(&identity_nullifier))?;
         output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
         output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
+
+        Ok(())
+    }
+
+    /// same as seeded_extended_key_gen but in BE format
+    pub fn seeded_extended_key_gen_be<R: Read, W: Write>(
+        &self,
+        mut input_data: R,
+        mut output_data: W,
+    ) -> Result<(), RLNError> {
+        let mut serialized: Vec<u8> = Vec::new();
+        input_data.read_to_end(&mut serialized)?;
+
+        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
+            extended_seeded_keygen(&serialized);
+        output_data.write_all(&fr_to_bytes_be(&identity_trapdoor))?;
+        output_data.write_all(&fr_to_bytes_be(&identity_nullifier))?;
+        output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
+        output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
 
         Ok(())
     }
@@ -1437,6 +1493,20 @@ pub fn hash<R: Read, W: Write>(
     Ok(())
 }
 
+/// same as hash function but in BE format
+pub fn hash_be<R: Read, W: Write>(
+    mut input_data: R,
+    mut output_data: W,
+) -> Result<(), std::io::Error> {
+    let mut serialized: Vec<u8> = Vec::new();
+    input_data.read_to_end(&mut serialized)?;
+
+    let hash = hash_to_field(&serialized);
+    output_data.write_all(&fr_to_bytes_be(&hash))?;
+
+    Ok(())
+}
+
 /// Hashes a set of elements to a single element in the working prime field, using Poseidon.
 ///
 /// The result is computed as the Poseidon Hash of the input signal.
@@ -1470,6 +1540,21 @@ pub fn poseidon_hash<R: Read, W: Write>(
     let (inputs, _) = bytes_le_to_vec_fr(&serialized)?;
     let hash = utils_poseidon_hash(inputs.as_ref());
     output_data.write_all(&fr_to_bytes_le(&hash))?;
+
+    Ok(())
+}
+
+/// same as poseidon_hash function but in BE format. Note that input is expected in BE format too.
+pub fn poseidon_hash_be<R: Read, W: Write>(
+    mut input_data: R,
+    mut output_data: W,
+) -> Result<(), RLNError> {
+    let mut serialized: Vec<u8> = Vec::new();
+    input_data.read_to_end(&mut serialized)?;
+
+    let (inputs, _) = bytes_be_to_vec_fr(&serialized)?;
+    let hash = utils_poseidon_hash(inputs.as_ref());
+    output_data.write_all(&fr_to_bytes_be(&hash))?;
 
     Ok(())
 }
