@@ -26,16 +26,7 @@ dependencies = [
 
 [tasks.pack_build]
 command = "wasm-pack"
-args = [
-    "build",
-    "--release",
-    "--target",
-    "web",
-    "--scope",
-    "waku",
-    "--features",
-    "stateless",
-]
+args = ["build", "--release", "--target", "web", "--scope", "waku"]
 
 [tasks.pack_build_arkzkey]
 command = "wasm-pack"
@@ -47,7 +38,7 @@ args = [
     "--scope",
     "waku",
     "--features",
-    "stateless,arkzkey",
+    "arkzkey",
 ]
 
 [tasks.pack_build_multithread]
@@ -65,7 +56,7 @@ args = [
     "--scope",
     "waku",
     "--features",
-    "stateless,multithread",
+    "multithread",
     "-Z",
     "build-std=panic_abort,std",
 ]
@@ -85,7 +76,7 @@ args = [
     "--scope",
     "waku",
     "--features",
-    "stateless,multithread,arkzkey",
+    "multithread,arkzkey",
     "-Z",
     "build-std=panic_abort,std",
 ]
@@ -121,8 +112,6 @@ args = [
     "--node",
     "--target",
     "wasm32-unknown-unknown",
-    "--features",
-    "stateless",
     "--",
     "--nocapture",
 ]
@@ -137,7 +126,7 @@ args = [
     "--target",
     "wasm32-unknown-unknown",
     "--features",
-    "stateless,arkzkey",
+    "arkzkey",
     "--",
     "--nocapture",
 ]
@@ -154,8 +143,6 @@ args = [
     "--headless",
     "--target",
     "wasm32-unknown-unknown",
-    "--features",
-    "stateless",
     "--",
     "--nocapture",
 ]
@@ -173,7 +160,7 @@ args = [
     "--target",
     "wasm32-unknown-unknown",
     "--features",
-    "stateless,arkzkey",
+    "arkzkey",
     "--",
     "--nocapture",
 ]
@@ -196,7 +183,7 @@ args = [
     "--target",
     "wasm32-unknown-unknown",
     "--features",
-    "stateless,multithread",
+    "multithread",
     "-Z",
     "build-std=panic_abort,std",
     "--",
@@ -221,7 +208,7 @@ args = [
     "--target",
     "wasm32-unknown-unknown",
     "--features",
-    "stateless,multithread,arkzkey",
+    "multithread,arkzkey",
     "-Z",
     "build-std=panic_abort,std",
     "--",
