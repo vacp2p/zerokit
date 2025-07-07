@@ -119,7 +119,7 @@ impl RLNSystem {
         match self.rln.set_next_leaf(&mut buffer) {
             Ok(_) => {
                 println!("Registered User Index: {index}");
-                println!("+ Identity secret hash: ********");
+                println!("+ Identity secret hash: {}", *identity.identity_secret_hash);
                 println!("+ Identity commitment: {},", identity.id_commitment);
                 self.local_identities.insert(index, identity);
             }

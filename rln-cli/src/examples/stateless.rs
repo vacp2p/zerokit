@@ -94,7 +94,7 @@ impl RLNSystem {
         println!("Registered users:");
         for (index, identity) in &self.local_identities {
             println!("User Index: {index}");
-            println!("+ Identity Secret Hash: ********");
+            println!("+ Identity Secret Hash: {}", *identity.identity_secret_hash);
             println!("+ Identity Commitment: {}", identity.id_commitment);
             println!();
         }
@@ -108,7 +108,7 @@ impl RLNSystem {
         self.tree.update_next(rate_commitment)?;
 
         println!("Registered User Index: {index}");
-        println!("+ Identity secret hash: ********");
+        println!("+ Identity secret hash: {}", *identity.identity_secret_hash);
         println!("+ Identity commitment: {}", identity.id_commitment);
 
         self.local_identities.insert(index, identity);
