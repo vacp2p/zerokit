@@ -20,6 +20,7 @@ use crate::circuit::iden3calc::calc_witness;
 #[cfg(feature = "arkzkey")]
 use {ark_ff::Field, ark_serialize::CanonicalDeserialize, ark_serialize::CanonicalSerialize};
 
+use crate::utils::FrOrSecret;
 #[cfg(not(feature = "arkzkey"))]
 use {crate::circuit::zkey::read_zkey, std::io::Cursor};
 
@@ -84,7 +85,7 @@ pub fn zkey_from_folder() -> &'static (ProvingKey<Curve>, ConstraintMatrices<Fr>
     &ZKEY
 }
 
-pub fn calculate_rln_witness<I: IntoIterator<Item = (String, Vec<Fr>)>>(
+pub fn calculate_rln_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
     inputs: I,
     graph_data: &[u8],
 ) -> Vec<Fr> {

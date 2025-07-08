@@ -6,6 +6,7 @@ use std::{
 
 use clap::{Parser, Subcommand};
 use color_eyre::{eyre::eyre, Result};
+use rln::utils::IdSecret;
 use rln::{
     circuit::{Fr, TEST_TREE_HEIGHT},
     hashers::{hash_to_field, poseidon_hash},
@@ -45,7 +46,7 @@ enum Commands {
 
 #[derive(Debug, Clone)]
 struct Identity {
-    identity_secret_hash: Fr,
+    identity_secret_hash: IdSecret,
     id_commitment: Fr,
 }
 
@@ -93,7 +94,7 @@ impl RLNSystem {
         println!("Registered users:");
         for (index, identity) in &self.local_identities {
             println!("User Index: {index}");
-            println!("+ Identity Secret Hash: {}", identity.identity_secret_hash);
+            println!("+ Identity Secret Hash: {}", *identity.identity_secret_hash);
             println!("+ Identity Commitment: {}", identity.id_commitment);
             println!();
         }
@@ -107,7 +108,7 @@ impl RLNSystem {
         self.tree.update_next(rate_commitment)?;
 
         println!("Registered User Index: {index}");
-        println!("+ Identity secret hash: {}", identity.identity_secret_hash);
+        println!("+ Identity secret hash: {}", *identity.identity_secret_hash);
         println!("+ Identity commitment: {}", identity.id_commitment);
 
         self.local_identities.insert(index, identity);
@@ -130,7 +131,7 @@ impl RLNSystem {
         let x = hash_to_field(signal.as_bytes());
 
         let rln_witness = rln_witness_from_values(
-            identity.identity_secret_hash,
+            identity.identity_secret_hash.clone(),
             &merkle_proof,
             x,
             external_nullifier,
@@ -208,7 +209,7 @@ impl RLNSystem {
         {
             Ok(_) => {
                 let output_data = output.into_inner();
-                let (leaked_identity_secret_hash, _) = bytes_le_to_fr(&output_data);
+                let (leaked_identity_secret_hash, _) = IdSecret::from_bytes_le(&output_data);
 
                 if let Some((user_index, identity)) = self
                     .local_identities
@@ -218,19 +219,19 @@ impl RLNSystem {
                     })
                     .map(|(index, identity)| (*index, identity))
                 {
-                    let real_identity_secret_hash = identity.identity_secret_hash;
+                    let real_identity_secret_hash = identity.identity_secret_hash.clone();
                     if leaked_identity_secret_hash != real_identity_secret_hash {
-                        Err(eyre!("identity secret hash mismatch {leaked_identity_secret_hash} != {real_identity_secret_hash}"))
+                        Err(eyre!("identity secret hash mismatch: leaked_identity_secret_hash != real_identity_secret_hash"))
                     } else {
-                        println!("DUPLICATE message ID detected! Reveal identity secret hash: {leaked_identity_secret_hash}");
+                        println!(
+                            "DUPLICATE message ID detected! Reveal identity secret hash: ********"
+                        );
                         self.local_identities.remove(&user_index);
                         println!("User index {user_index} has been SLASHED");
                         Ok(())
                     }
                 } else {
-                    Err(eyre!(
-                        "user identity secret hash {leaked_identity_secret_hash} not found"
-                    ))
+                    Err(eyre!("user identity secret hash ******** not found"))
                 }
             }
             Err(err) => Err(eyre!("Failed to recover identity secret: {err}")),

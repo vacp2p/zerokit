@@ -7,7 +7,7 @@ mod tests {
     use rln::hashers::{hash_to_field, poseidon_hash};
     use rln::poseidon_tree::PoseidonTree;
     use rln::protocol::{prepare_verify_input, rln_witness_from_values, serialize_witness};
-    use rln::utils::{bytes_le_to_fr, fr_to_bytes_le};
+    use rln::utils::{bytes_le_to_fr, fr_to_bytes_le, IdSecret};
     use rln_wasm::{
         wasm_generate_rln_proof_with_witness, wasm_key_gen, wasm_new, wasm_rln_witness_to_json,
         wasm_verify_with_roots,
@@ -121,7 +121,7 @@ mod tests {
         // Generate identity pair for other benchmarks
         let mem_keys = wasm_key_gen(rln_instance).expect("Failed to generate keys");
         let id_key = mem_keys.subarray(0, 32);
-        let (identity_secret_hash, _) = bytes_le_to_fr(&id_key.to_vec());
+        let (identity_secret_hash, _) = IdSecret::from_bytes_le(&id_key.to_vec());
         let (id_commitment, _) = bytes_le_to_fr(&mem_keys.subarray(32, 64).to_vec());
 
         let epoch = hash_to_field(b"test-epoch");
