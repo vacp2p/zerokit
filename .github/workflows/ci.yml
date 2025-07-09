@@ -32,7 +32,7 @@ jobs:
     name: test - ${{ matrix.crate }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -59,7 +59,7 @@ jobs:
     name: test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -89,7 +89,7 @@ jobs:
 
     name: test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -135,7 +135,7 @@ jobs:
 
   #   name: test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
   #   steps:
-  #     - uses: actions/checkout@v3
+  #     - uses: actions/checkout@v4
   #     - name: Install nightly toolchain
   #       uses: actions-rs/toolchain@v1
   #       with:
@@ -176,7 +176,7 @@ jobs:
     name: lint - ${{ matrix.crate }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -211,7 +211,7 @@ jobs:
     name: benchmark - ${{ matrix.crate }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - uses: boa-dev/criterion-compare-action@v3
         with:
@@ -233,7 +233,7 @@ jobs:
     name: benchmark - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - uses: boa-dev/criterion-compare-action@v3
         with:
