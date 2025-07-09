@@ -141,7 +141,7 @@ fn main() -> Result<()> {
                 .ok_or(Report::msg("no RLN instance initialized"))?
                 .prove(input_data, &mut output_buffer)?;
             let proof = output_buffer.into_inner();
-            println!("proof: {:?}", proof);
+            println!("proof: {proof:?}");
             Ok(())
         }
         Some(Commands::Verify { input }) => {
@@ -150,7 +150,7 @@ fn main() -> Result<()> {
                 .rln
                 .ok_or(Report::msg("no RLN instance initialized"))?
                 .verify(input_data)?;
-            println!("verified: {:?}", verified);
+            println!("verified: {verified:?}");
             Ok(())
         }
         Some(Commands::GenerateProof { input }) => {
@@ -161,7 +161,7 @@ fn main() -> Result<()> {
                 .ok_or(Report::msg("no RLN instance initialized"))?
                 .generate_rln_proof(input_data, &mut output_buffer)?;
             let proof = output_buffer.into_inner();
-            println!("proof: {:?}", proof);
+            println!("proof: {proof:?}");
             Ok(())
         }
         Some(Commands::VerifyWithRoots { input, roots }) => {
@@ -193,7 +193,7 @@ fn main() -> Result<()> {
             let output_buffer_inner = output_buffer.into_inner();
             let (path_elements, _) = bytes_le_to_vec_fr(&output_buffer_inner)?;
             for (index, element) in path_elements.iter().enumerate() {
-                println!("path element {}: {}", index, element);
+                println!("path element {index}: {element}");
             }
             Ok(())
         }
