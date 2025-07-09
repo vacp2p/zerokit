@@ -20,6 +20,10 @@ on:
 
 name: Tests
 
+env:
+  RUSTC_WRAPPER: sccache
+  SCCACHE_GHA_ENABLED: "true"
+
 jobs:
   utils-test:
     strategy:
@@ -35,7 +39,12 @@ jobs:
         uses: actions/checkout@v4
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
+      - name: Run sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
+          cache-targets: "false"
       - name: Install dependencies
         run: make installdeps
       - name: cargo-make test
@@ -58,7 +67,12 @@ jobs:
         uses: actions/checkout@v4
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
+      - name: Run sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
+          cache-targets: "false"
       - name: Install dependencies
         run: make installdeps
       - name: cargo-make test
@@ -84,7 +98,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Run sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
+          cache-targets: "false"
       - name: Install Dependencies
         run: make installdeps
       - name: cargo-make build
@@ -112,7 +133,7 @@ jobs:
           fi
         working-directory: ${{ matrix.crate }}
 
-  # rln-wasm-multihread-test:
+  # rln-wasm-multithread-test:
   #   strategy:
   #     matrix:
   #       platform: [ubuntu-latest, macos-latest]
@@ -125,14 +146,16 @@ jobs:
   #   steps:
   #     - uses: actions/checkout@v4
   #     - name: Install nightly toolchain
-  #       uses: actions-rs/toolchain@v1
+  #       uses: dtolnay/rust-toolchain@nightly
   #       with:
-  #         profile: minimal
-  #         toolchain: nightly
-  #         override: true
   #         components: rust-src
-  #         target: wasm32-unknown-unknown
+  #         targets: wasm32-unknown-unknown
+  #     - name: Run sccache
+  #       uses: mozilla-actions/sccache-action@v0.0.3
   #     - uses: Swatinem/rust-cache@v2
+  #       with:
+  #         cache-on-failure: "true"
+  #         cache-targets: "false"
   #     - name: Install Dependencies
   #       run: make installdeps
   #     - name: cargo-make build
@@ -155,7 +178,6 @@ jobs:
   lint:
     strategy:
       matrix:
-        # we run lint tests only on ubuntu
         platform: [ubuntu-latest]
         crate: [rln, rln-wasm, utils]
     runs-on: ${{ matrix.platform }}
@@ -169,7 +191,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Run sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
+          cache-targets: "false"
       - name: Install Dependencies
         run: make installdeps
       - name: cargo fmt
@@ -183,11 +210,9 @@ jobs:
         working-directory: ${{ matrix.crate }}
 
   benchmark-utils:
-    # run only in pull requests
     if: github.event_name == 'pull_request'
     strategy:
       matrix:
-        # we run benchmark tests only on ubuntu
         platform: [ubuntu-latest]
         crate: [utils]
     runs-on: ${{ matrix.platform }}
@@ -197,18 +222,21 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+      - name: Run sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
+          cache-targets: "false"
       - uses: boa-dev/criterion-compare-action@v3
         with:
           branchName: ${{ github.base_ref }}
           cwd: ${{ matrix.crate }}
 
   benchmark-rln:
-    # run only in pull requests
     if: github.event_name == 'pull_request'
     strategy:
       matrix:
-        # we run benchmark tests only on ubuntu
         platform: [ubuntu-latest]
         crate: [rln]
         feature: ["default", "arkzkey"]
@@ -219,7 +247,14 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+      - name: Run sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
+          cache-targets: "false"
+      - name: Install dependencies
+        run: make installdeps
       - uses: boa-dev/criterion-compare-action@v3
         with:
           branchName: ${{ github.base_ref }}
