@@ -40,7 +40,7 @@ jobs:
         run: make installdeps
       - name: Test utils
         run: |
-          cargo make test
+          cargo make test --release
         working-directory: ${{ matrix.crate }}
 
   rln-test:
@@ -64,9 +64,9 @@ jobs:
       - name: Test rln
         run: |
           if [ ${{ matrix.feature }} == default ]; then
-            cargo make test
+            cargo make test --release
           else
-            cargo make test_${{ matrix.feature }}
+            cargo make test_${{ matrix.feature }} --release
           fi
         working-directory: ${{ matrix.crate }}
 
@@ -98,17 +98,17 @@ jobs:
       - name: Test rln-wasm
         run: |
           if [ ${{ matrix.feature }} == default ]; then
-            cargo make test
+            cargo make test --release
           else
-            cargo make test_${{ matrix.feature }}
+            cargo make test_${{ matrix.feature }} --release
           fi
         working-directory: ${{ matrix.crate }}
       - name: Test rln-wasm on browser
         run: |
           if [ ${{ matrix.feature }} == default ]; then
-            cargo make test_browser
+            cargo make test_browser --release
           else
-            cargo make test_browser_${{ matrix.feature }}
+            cargo make test_browser_${{ matrix.feature }} --release
           fi
         working-directory: ${{ matrix.crate }}
 
@@ -143,9 +143,9 @@ jobs:
   #     - name: Test rln-wasm in multithread mode
   #       run: |
   #         if [ ${{ matrix.feature }} == default ]; then
-  #           cargo make test
+  #           cargo make test --release
   #         else
-  #           cargo make test_${{ matrix.feature }}
+  #           cargo make test_${{ matrix.feature }} --release
   #         fi
   #       working-directory: ${{ matrix.crate }}
 
@@ -176,7 +176,7 @@ jobs:
       - name: Check clippy
         if: success() || failure()
         run: |
-          cargo clippy --all-targets -- -D warnings
+          cargo clippy --all-targets --release -- -D warnings
         working-directory: ${{ matrix.crate }}
 
   benchmark-utils:
