@@ -3,7 +3,15 @@ mod test {
     #[cfg(not(feature = "stateless"))]
     use {
         ark_ff::BigInt,
-        rln::{circuit::TEST_TREE_HEIGHT, protocol::compute_tree_root},
+        rln::{
+            circuit::TEST_TREE_HEIGHT,
+            protocol::compute_tree_root,
+            utils::{
+                bytes_le_to_vec_fr, bytes_le_to_vec_u8, bytes_le_to_vec_usize, fr_to_bytes_le,
+                generate_input_buffer, IdSecret,
+            },
+        },
+        zeroize::Zeroize,
     };
 
     use ark_std::{rand::thread_rng, UniformRand};
@@ -12,12 +20,8 @@ mod test {
     use rln::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash, ROUND_PARAMS};
     use rln::protocol::deserialize_identity_tuple;
     use rln::public::{hash as public_hash, poseidon_hash as public_poseidon_hash, RLN};
-    use rln::utils::{
-        bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, bytes_le_to_vec_usize,
-        fr_to_bytes_le, generate_input_buffer, str_to_fr, vec_fr_to_bytes_le, IdSecret,
-    };
+    use rln::utils::{bytes_le_to_fr, str_to_fr, vec_fr_to_bytes_le};
     use std::io::Cursor;
-    use zeroize::Zeroize;
 
     #[test]
     // This test is similar to the one in lib, but uses only public API
@@ -75,7 +79,7 @@ mod test {
 
         let buffer_inner = buffer.into_inner();
         let (path_elements, read) = bytes_le_to_vec_fr(&buffer_inner).unwrap();
-        let (identity_path_index, _) = bytes_le_to_vec_u8(&buffer_inner[read..].to_vec()).unwrap();
+        let (identity_path_index, _) = bytes_le_to_vec_u8(&buffer_inner[read..]).unwrap();
 
         // We check correct computation of the path and indexes
         let expected_path_elements: Vec<Fr> = [
@@ -157,7 +161,7 @@ mod test {
         let serialized_output = output_buffer.into_inner();
 
         let (identity_secret_hash, read) = bytes_le_to_fr(&serialized_output);
-        let (id_commitment, _) = bytes_le_to_fr(&serialized_output[read..].to_vec());
+        let (id_commitment, _) = bytes_le_to_fr(&serialized_output[read..]);
 
         // We check against expected values
         let expected_identity_secret_hash_seed_bytes = str_to_fr(

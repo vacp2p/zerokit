@@ -4,16 +4,18 @@ use crate::protocol::{
     verify_proof, RLNProofValues,
 };
 use crate::public::RLN;
-use crate::utils::{generate_input_buffer, str_to_fr};
+use crate::utils::str_to_fr;
 use ark_groth16::Proof as ArkProof;
 use ark_serialize::CanonicalDeserialize;
+use serde_json::{json, Value};
 use std::io::Cursor;
 use std::str::FromStr;
 
-use serde_json::{json, Value};
+#[cfg(not(feature = "stateless"))]
+use crate::utils::generate_input_buffer;
 
 fn fq_from_str(s: &str) -> ark_bn254::Fq {
-    ark_bn254::Fq::from_str(&s).unwrap()
+    ark_bn254::Fq::from_str(s).unwrap()
 }
 
 fn g1_from_str(g1: &[String]) -> ark_bn254::G1Affine {
@@ -43,7 +45,7 @@ fn value_to_string_vec(value: &Value) -> Vec<String> {
     value
         .as_array()
         .unwrap()
-        .into_iter()
+        .iter()
         .map(|val| val.as_str().unwrap().to_string())
         .collect()
 }
@@ -90,7 +92,7 @@ fn test_groth16_proof_hardcoded() {
                 .as_array()
                 .unwrap()
                 .iter()
-                .map(|item| value_to_string_vec(item))
+                .map(value_to_string_vec)
                 .collect::<Vec<Vec<String>>>(),
         ),
         c: g1_from_str(&value_to_string_vec(&valid_snarkjs_proof["pi_c"])),
@@ -202,7 +204,7 @@ mod tree_test {
             // We check if the number of leaves set is consistent
             assert_eq!(rln.tree.leaves_set(), i);
 
-            let mut buffer = Cursor::new(fr_to_bytes_le(&leaf));
+            let mut buffer = Cursor::new(fr_to_bytes_le(leaf));
             rln.set_leaf(i, &mut buffer).unwrap();
         }
 
@@ -216,7 +218,7 @@ mod tree_test {
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
         for leaf in &leaves {
-            let mut buffer = Cursor::new(fr_to_bytes_le(&leaf));
+            let mut buffer = Cursor::new(fr_to_bytes_le(leaf));
             rln.set_next_leaf(&mut buffer).unwrap();
         }
 
@@ -328,7 +330,7 @@ mod tree_test {
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
         for leaf in &leaves {
-            let mut buffer = Cursor::new(fr_to_bytes_le(&leaf));
+            let mut buffer = Cursor::new(fr_to_bytes_le(leaf));
             rln.set_next_leaf(&mut buffer).unwrap();
         }
 
@@ -826,7 +828,7 @@ mod tree_test {
             .verify_with_roots(&mut input_buffer.clone(), &mut roots_buffer)
             .unwrap();
 
-        assert_eq!(verified, false);
+        assert!(!verified);
 
         // We get the root of the tree obtained adding one leaf per time
         let mut buffer = Cursor::new(Vec::<u8>::new());
@@ -1087,7 +1089,7 @@ mod stateless_test {
             .verify_with_roots(&mut input_buffer.clone(), &mut roots_buffer)
             .unwrap();
 
-        assert_eq!(verified, false);
+        assert!(!verified);
 
         // We get the root of the tree obtained adding one leaf per time
         let root = tree.root();

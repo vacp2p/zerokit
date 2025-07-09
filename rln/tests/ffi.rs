@@ -28,7 +28,7 @@ mod test {
     }
 
     fn set_leaves_init(rln_pointer: &mut RLN, leaves: &[Fr]) {
-        let leaves_ser = vec_fr_to_bytes_le(&leaves);
+        let leaves_ser = vec_fr_to_bytes_le(leaves);
         let input_buffer = &Buffer::from(leaves_ser.as_ref());
         let success = init_tree_with_leaves(rln_pointer, input_buffer);
         assert!(success, "init tree with leaves call failed");
@@ -57,7 +57,7 @@ mod test {
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
         let (identity_secret_hash, read) = IdSecret::from_bytes_le(&result_data);
-        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
+        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..]);
         (identity_secret_hash, id_commitment)
     }
 
@@ -81,7 +81,7 @@ mod test {
         // We first add leaves one by one specifying the index
         for (i, leaf) in leaves.iter().enumerate() {
             // We prepare the rate_commitment and we set the leaf at provided index
-            let leaf_ser = fr_to_bytes_le(&leaf);
+            let leaf_ser = fr_to_bytes_le(leaf);
             let input_buffer = &Buffer::from(leaf_ser.as_ref());
             let success = set_leaf(rln_pointer, i, input_buffer);
             assert!(success, "set leaf call failed");
@@ -96,7 +96,7 @@ mod test {
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
         for leaf in &leaves {
-            let leaf_ser = fr_to_bytes_le(&leaf);
+            let leaf_ser = fr_to_bytes_le(leaf);
             let input_buffer = &Buffer::from(leaf_ser.as_ref());
             let success = set_next_leaf(rln_pointer, input_buffer);
             assert!(success, "set next leaf call failed");
@@ -157,7 +157,7 @@ mod test {
         // random number between 0..no_of_leaves
         let mut rng = thread_rng();
         let set_index = rng.gen_range(0..NO_OF_LEAVES) as usize;
-        println!("set_index: {}", set_index);
+        println!("set_index: {set_index}");
 
         // We add leaves in a batch into the tree
         set_leaves_init(rln_pointer, &leaves);
@@ -189,7 +189,7 @@ mod test {
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
         for leaf in &leaves {
-            let leaf_ser = fr_to_bytes_le(&leaf);
+            let leaf_ser = fr_to_bytes_le(leaf);
             let input_buffer = &Buffer::from(leaf_ser.as_ref());
             let success = set_next_leaf(rln_pointer, input_buffer);
             assert!(success, "set next leaf call failed");
@@ -226,12 +226,7 @@ mod test {
         let leaves = vec_fr_to_bytes_le(&last_leaf);
         let leaves_buffer = &Buffer::from(leaves.as_ref());
 
-        let success = atomic_operation(
-            rln_pointer,
-            last_leaf_index as usize,
-            leaves_buffer,
-            indices_buffer,
-        );
+        let success = atomic_operation(rln_pointer, last_leaf_index, leaves_buffer, indices_buffer);
         assert!(success, "atomic operation call failed");
 
         // We get the root of the tree obtained after a no-op
@@ -309,7 +304,7 @@ mod test {
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
 
         let (path_elements, read) = bytes_le_to_vec_fr(&result_data).unwrap();
-        let (identity_path_index, _) = bytes_le_to_vec_u8(&result_data[read..].to_vec()).unwrap();
+        let (identity_path_index, _) = bytes_le_to_vec_u8(&result_data[read..]).unwrap();
 
         // We check correct computation of the path and indexes
         let expected_path_elements: Vec<Fr> = [
@@ -397,7 +392,7 @@ mod test {
             let success = verify(rln_pointer, input_buffer, proof_is_valid_ptr);
             verify_time += now.elapsed().as_nanos();
             assert!(success, "verify call failed");
-            assert_eq!(proof_is_valid, true);
+            assert!(proof_is_valid);
         }
 
         println!(
@@ -423,8 +418,8 @@ mod test {
         let zkey_path = "./resources/tree_height_20/rln_final.arkzkey";
         #[cfg(not(feature = "arkzkey"))]
         let zkey_path = "./resources/tree_height_20/rln_final.zkey";
-        let mut zkey_file = File::open(&zkey_path).expect("no file found");
-        let metadata = std::fs::metadata(&zkey_path).expect("unable to read metadata");
+        let mut zkey_file = File::open(zkey_path).expect("no file found");
+        let metadata = std::fs::metadata(zkey_path).expect("unable to read metadata");
         let mut zkey_buffer = vec![0; metadata.len() as usize];
         zkey_file
             .read_exact(&mut zkey_buffer)
@@ -433,8 +428,8 @@ mod test {
         let zkey_data = &Buffer::from(&zkey_buffer[..]);
 
         let graph_data = "./resources/tree_height_20/graph.bin";
-        let mut graph_file = File::open(&graph_data).expect("no file found");
-        let metadata = std::fs::metadata(&graph_data).expect("unable to read metadata");
+        let mut graph_file = File::open(graph_data).expect("no file found");
+        let metadata = std::fs::metadata(graph_data).expect("unable to read metadata");
         let mut graph_buffer = vec![0; metadata.len() as usize];
         graph_file
             .read_exact(&mut graph_buffer)
@@ -529,7 +524,7 @@ mod test {
         let proof_is_valid_ptr = &mut proof_is_valid as *mut bool;
         let success = verify_rln_proof(rln_pointer, input_buffer, proof_is_valid_ptr);
         assert!(success, "verify call failed");
-        assert_eq!(proof_is_valid, true);
+        assert!(proof_is_valid);
     }
 
     #[test]
@@ -604,7 +599,7 @@ mod test {
             verify_with_roots(rln_pointer, input_buffer, roots_buffer, proof_is_valid_ptr);
         assert!(success, "verify call failed");
         // Proof should be valid
-        assert_eq!(proof_is_valid, true);
+        assert!(proof_is_valid);
 
         // We then try to verify against some random values not containing the correct one.
         for _ in 0..5 {
@@ -618,7 +613,7 @@ mod test {
             verify_with_roots(rln_pointer, input_buffer, roots_buffer, proof_is_valid_ptr);
         assert!(success, "verify call failed");
         // Proof should be invalid.
-        assert_eq!(proof_is_valid, false);
+        assert!(!proof_is_valid);
 
         // We finally include the correct root
         // We get the root of the tree obtained adding one leaf per time
@@ -634,7 +629,7 @@ mod test {
             verify_with_roots(rln_pointer, input_buffer, roots_buffer, proof_is_valid_ptr);
         assert!(success, "verify call failed");
         // Proof should be valid.
-        assert_eq!(proof_is_valid, true);
+        assert!(proof_is_valid);
     }
 
     #[test]
@@ -797,7 +792,7 @@ mod test {
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
         let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
-        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
+        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..]);
 
         // We check against expected values
         let expected_identity_secret_hash_seed_bytes = str_to_fr(
@@ -1023,7 +1018,7 @@ mod stateless_test {
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
         let (identity_secret_hash, read) = IdSecret::from_bytes_le(&result_data);
-        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
+        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..]);
         (identity_secret_hash, id_commitment)
     }
 
@@ -1240,7 +1235,7 @@ mod stateless_test {
             verify_with_roots(rln_pointer, input_buffer, roots_buffer, proof_is_valid_ptr);
         assert!(success, "verify call failed");
         // Proof should be valid
-        assert_eq!(proof_is_valid, true);
+        assert!(proof_is_valid);
 
         // We serialize in the roots buffer some random values and we check that the proof is not verified since doesn't contain the correct root the proof refers to
         for _ in 0..5 {
@@ -1254,7 +1249,7 @@ mod stateless_test {
             verify_with_roots(rln_pointer, input_buffer, roots_buffer, proof_is_valid_ptr);
         assert!(success, "verify call failed");
         // Proof should be invalid.
-        assert_eq!(proof_is_valid, false);
+        assert!(!proof_is_valid);
 
         // We get the root of the tree obtained adding one leaf per time
         let root = tree.root();
@@ -1269,7 +1264,7 @@ mod stateless_test {
             verify_with_roots(rln_pointer, input_buffer, roots_buffer, proof_is_valid_ptr);
         assert!(success, "verify call failed");
         // Proof should be valid.
-        assert_eq!(proof_is_valid, true);
+        assert!(proof_is_valid);
     }
 
     #[test]
@@ -1314,7 +1309,7 @@ mod stateless_test {
             let success = verify(rln_pointer, input_buffer, proof_is_valid_ptr);
             verify_time += now.elapsed().as_nanos();
             assert!(success, "verify call failed");
-            assert_eq!(proof_is_valid, true);
+            assert!(proof_is_valid);
         }
 
         println!(
@@ -1342,7 +1337,7 @@ mod stateless_test {
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
         let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
-        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..].to_vec());
+        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..]);
 
         // We check against expected values
         let expected_identity_secret_hash_seed_bytes = str_to_fr(

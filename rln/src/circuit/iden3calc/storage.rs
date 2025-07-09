@@ -419,13 +419,13 @@ mod tests {
         let mut r = WriteBackReader::new(std::io::Cursor::new(&data));
 
         let buf = &mut [0u8; 5];
-        r.read(buf).unwrap();
+        r.read_exact(buf).unwrap();
         assert_eq!(buf, &[1, 2, 3, 4, 5]);
 
         // return [4, 5] to reader
-        r.write(&buf[3..]).unwrap();
+        r.write_all(&buf[3..]).unwrap();
         // return [2, 3] to reader
-        r.write(&buf[1..3]).unwrap();
+        r.write_all(&buf[1..3]).unwrap();
 
         buf.fill(0);
 

@@ -34,7 +34,7 @@ mod test {
             ConfigOf::<PoseidonTree>::default(),
         )
         .unwrap();
-        tree.set(leaf_index, rate_commitment.into()).unwrap();
+        tree.set(leaf_index, rate_commitment).unwrap();
 
         // We check correct computation of the root
         let root = tree.root();
@@ -105,7 +105,7 @@ mod test {
             ConfigOf::<PoseidonTree>::default(),
         )
         .unwrap();
-        tree.set(leaf_index, rate_commitment.into()).unwrap();
+        tree.set(leaf_index, rate_commitment).unwrap();
 
         let merkle_proof = tree.proof(leaf_index).expect("proof should exist");
 
@@ -142,11 +142,11 @@ mod test {
         assert_eq!(rln_witness_deser, rln_witness);
 
         // Let's generate a zkSNARK proof
-        let proof = generate_proof(&proving_key, &rln_witness_deser, &graph_data).unwrap();
+        let proof = generate_proof(proving_key, &rln_witness_deser, graph_data).unwrap();
         let proof_values = proof_values_from_witness(&rln_witness_deser).unwrap();
 
         // Let's verify the proof
-        let verified = verify_proof(&verification_key, &proof, &proof_values);
+        let verified = verify_proof(verification_key, &proof, &proof_values);
 
         assert!(verified.unwrap());
     }
@@ -165,12 +165,12 @@ mod test {
         let graph_data = graph_from_folder();
 
         // Let's generate a zkSNARK proof
-        let proof = generate_proof(&proving_key, &rln_witness_deser, &graph_data).unwrap();
+        let proof = generate_proof(proving_key, &rln_witness_deser, graph_data).unwrap();
 
         let proof_values = proof_values_from_witness(&rln_witness_deser).unwrap();
 
         // Let's verify the proof
-        let success = verify_proof(&verification_key, &proof, &proof_values).unwrap();
+        let success = verify_proof(verification_key, &proof, &proof_values).unwrap();
 
         assert!(success);
     }

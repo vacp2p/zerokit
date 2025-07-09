@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////
-/// Tests
+// Tests
 ////////////////////////////////////////////////////////////
 
 #[cfg(test)]
@@ -15,17 +15,21 @@ mod test {
     // The test is checked correctness for `FullMerkleTree` and `OptimalMerkleTree` with Poseidon hash
     fn test_zerokit_merkle_implementations() {
         let sample_size = 100;
-        let leaves: Vec<Fr> = (0..sample_size).map(|s| Fr::from(s)).collect();
+        let leaves: Vec<Fr> = (0..sample_size).map(Fr::from).collect();
 
         let mut tree_full = FullMerkleTree::<PoseidonHash>::default(TEST_TREE_HEIGHT).unwrap();
         let mut tree_opt = OptimalMerkleTree::<PoseidonHash>::default(TEST_TREE_HEIGHT).unwrap();
 
-        for i in 0..sample_size.try_into().unwrap() {
-            tree_full.set(i, leaves[i]).unwrap();
+        for (i, leave) in leaves
+            .into_iter()
+            .enumerate()
+            .take(sample_size.try_into().unwrap())
+        {
+            tree_full.set(i, leave).unwrap();
             let proof = tree_full.proof(i).expect("index should be set");
             assert_eq!(proof.leaf_index(), i);
 
-            tree_opt.set(i, leaves[i]).unwrap();
+            tree_opt.set(i, leave).unwrap();
             assert_eq!(tree_opt.root(), tree_full.root());
             let proof = tree_opt.proof(i).expect("index should be set");
             assert_eq!(proof.leaf_index(), i);
@@ -101,7 +105,7 @@ mod test {
 
         // check remove_indices_and_set_leaves inside override_range function
         assert!(tree.get_empty_leaves_indices().is_empty());
-        let leaves_2: Vec<Fr> = (0..2).map(|s| Fr::from(s as i32)).collect();
+        let leaves_2: Vec<Fr> = (0..2).map(Fr::from).collect();
         tree.override_range(0, leaves_2.clone().into_iter(), [0, 1, 2, 3].into_iter())
             .unwrap();
         assert_eq!(tree.get_empty_leaves_indices(), vec![2, 3]);
@@ -116,7 +120,7 @@ mod test {
             .unwrap();
         assert_eq!(tree.get_empty_leaves_indices(), vec![2, 3]);
 
-        let leaves_4: Vec<Fr> = (0..4).map(|s| Fr::from(s as i32)).collect();
+        let leaves_4: Vec<Fr> = (0..4).map(Fr::from).collect();
         // check if the indexes for write and delete are the same
         tree.override_range(0, leaves_4.clone().into_iter(), [0, 1, 2, 3].into_iter())
             .unwrap();
