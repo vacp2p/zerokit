@@ -11,7 +11,7 @@ pub fn zkey_load_benchmark(c: &mut Criterion) {
         b.iter(|| {
             let mut reader = Cursor::new(zkey.clone());
             let r = read_zkey(&mut reader);
-            assert_eq!(r.is_ok(), true);
+            assert!(r.is_ok());
         })
     });
 }

@@ -5,7 +5,7 @@ use utils::ZerokitMerkleTree;
 pub fn pmtree_benchmark(c: &mut Criterion) {
     let mut tree = PmTree::default(2).unwrap();
 
-    let leaves: Vec<Fr> = (0..4).map(|s| Fr::from(s)).collect();
+    let leaves: Vec<Fr> = (0..4).map(Fr::from).collect();
 
     c.bench_function("Pmtree::set", |b| {
         b.iter(|| {

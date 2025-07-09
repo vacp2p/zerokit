@@ -38,9 +38,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
         run: make installdeps
-      - name: cargo-make test
+      - name: Test utils
         run: |
-          cargo make test --release
+          cargo make test
         working-directory: ${{ matrix.crate }}
 
   rln-test:
@@ -61,12 +61,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
         run: make installdeps
-      - name: cargo-make test
+      - name: Test rln
         run: |
           if [ ${{ matrix.feature }} == default ]; then
-            cargo make test --release
+            cargo make test
           else
-            cargo make test_${{ matrix.feature }} --release
+            cargo make test_${{ matrix.feature }}
           fi
         working-directory: ${{ matrix.crate }}
 
@@ -85,9 +85,9 @@ jobs:
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Install Dependencies
+      - name: Install dependencies
         run: make installdeps
-      - name: cargo-make build
+      - name: Build rln-wasm
         run: |
           if [ ${{ matrix.feature }} == default ]; then
             cargo make build
@@ -95,20 +95,20 @@ jobs:
             cargo make build_${{ matrix.feature }}
           fi
         working-directory: ${{ matrix.crate }}
-      - name: cargo-make test
+      - name: Test rln-wasm
         run: |
           if [ ${{ matrix.feature }} == default ]; then
-            cargo make test --release
+            cargo make test
           else
-            cargo make test_${{ matrix.feature }} --release
+            cargo make test_${{ matrix.feature }}
           fi
         working-directory: ${{ matrix.crate }}
-      - name: cargo-make test browser
+      - name: Test rln-wasm on browser
         run: |
           if [ ${{ matrix.feature }} == default ]; then
-            cargo make test_browser --release
+            cargo make test_browser
           else
-            cargo make test_browser_${{ matrix.feature }} --release
+            cargo make test_browser_${{ matrix.feature }}
           fi
         working-directory: ${{ matrix.crate }}
 
@@ -130,9 +130,9 @@ jobs:
   #         components: rust-src
   #         targets: wasm32-unknown-unknown
   #     - uses: Swatinem/rust-cache@v2
-  #     - name: Install Dependencies
+  #     - name:  Install dependencies
   #       run: make installdeps
-  #     - name: cargo-make build
+  #     - name: Build rln-wasm in multithread mode
   #       run: |
   #         if [ ${{ matrix.feature }} == default ]; then
   #           cargo make build
@@ -140,12 +140,12 @@ jobs:
   #           cargo make build_${{ matrix.feature }}
   #         fi
   #       working-directory: ${{ matrix.crate }}
-  #     - name: cargo-make test
+  #     - name: Test rln-wasm in multithread mode
   #       run: |
   #         if [ ${{ matrix.feature }} == default ]; then
-  #           cargo make test --release
+  #           cargo make test
   #         else
-  #           cargo make test_${{ matrix.feature }} --release
+  #           cargo make test_${{ matrix.feature }}
   #         fi
   #       working-directory: ${{ matrix.crate }}
 
@@ -154,7 +154,7 @@ jobs:
       matrix:
         # we run lint tests only on ubuntu
         platform: [ubuntu-latest]
-        crate: [rln, rln-wasm, utils]
+        crate: [rln, rln-cli, rln-wasm, utils]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
@@ -167,16 +167,16 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
-      - name: Install Dependencies
+      - name: Install dependencies
         run: make installdeps
-      - name: cargo fmt
+      - name: Check formatting
         if: success() || failure()
         run: cargo fmt -- --check
         working-directory: ${{ matrix.crate }}
-      - name: cargo clippy
+      - name: Check clippy
         if: success() || failure()
         run: |
-          cargo clippy --release
+          cargo clippy --all-targets -- -D warnings
         working-directory: ${{ matrix.crate }}
 
   benchmark-utils:

@@ -12,7 +12,7 @@ pub fn uncompressed_bench(c: &mut Criterion) {
     c.bench_function("arkzkey::arkzkey_from_raw_uncompressed", |b| {
         b.iter(|| {
             let r = read_arkzkey_from_bytes_uncompressed(&arkzkey);
-            assert_eq!(r.is_ok(), true);
+            assert!(r.is_ok());
         })
     });
 }
