@@ -112,12 +112,12 @@ jobs:
           fi
         working-directory: ${{ matrix.crate }}
 
-  # rln-wasm-multithread-test:
+  # rln-wasm-parallel-test:
   #   strategy:
   #     matrix:
   #       platform: [ubuntu-latest, macos-latest]
   #       crate: [rln-wasm]
-  #       feature: ["multithread", "multithread_arkzkey"]
+  #       feature: ["parallel", "parallel_arkzkey"]
   #   runs-on: ${{ matrix.platform }}
   #   timeout-minutes: 60
 
@@ -132,7 +132,7 @@ jobs:
   #     - uses: Swatinem/rust-cache@v2
   #     - name:  Install dependencies
   #       run: make installdeps
-  #     - name: Build rln-wasm in multithread mode
+  #     - name: Build rln-wasm in parallel mode
   #       run: |
   #         if [ ${{ matrix.feature }} == default ]; then
   #           cargo make build
@@ -140,7 +140,7 @@ jobs:
   #           cargo make build_${{ matrix.feature }}
   #         fi
   #       working-directory: ${{ matrix.crate }}
-  #     - name: Test rln-wasm in multithread mode
+  #     - name: Test rln-wasm in parallel mode
   #       run: |
   #         if [ ${{ matrix.feature }} == default ]; then
   #           cargo make test --release

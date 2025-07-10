@@ -19,30 +19,18 @@ doctest = false
 # ZKP Generation
 ark-bn254 = { version = "0.5.0", features = ["std"] }
 ark-relations = { version = "0.5.1", features = ["std"] }
-ark-ff = { version = "0.5.0", default-features = false, features = [
-    "parallel",
-] }
-ark-ec = { version = "0.5.0", default-features = false, features = [
-    "parallel",
-] }
-
-ark-std = { version = "0.5.0", default-features = false, features = [
-    "parallel",
-] }
-ark-poly = { version = "0.5.0", default-features = false, features = [
-    "parallel",
-] }
-ark-groth16 = { version = "0.5.0", default-features = false, features = [
-    "parallel",
-] }
-ark-serialize = { version = "0.5.0", default-features = false, features = [
-    "parallel",
-] }
+ark-ff = { version = "0.5.0", default-features = false }
+ark-ec = { version = "0.5.0", default-features = false }
+ark-std = { version = "0.5.0", default-features = false }
+ark-poly = { version = "0.5.0", default-features = false }
+ark-groth16 = { version = "0.5.0", default-features = false }
+ark-serialize = { version = "0.5.0", default-features = false }
 
 # error handling
 thiserror = "2.0.12"
 
 # utilities
+rayon = { version = "1.7.0" }
 byteorder = "1.5.0"
 cfg-if = "1.0"
 num-bigint = { version = "0.4.6", default-features = false, features = ["std"] }
@@ -67,7 +55,16 @@ document-features = { version = "0.2.11", optional = true }
 criterion = { version = "0.6.0", features = ["html_reports"] }
 
 [features]
-default = ["pmtree-ft", "arkzkey"]
+default = ["parallel", "pmtree-ft"]
+parallel = [
+    "utils/parallel",
+    "ark-ff/parallel",
+    "ark-ec/parallel",
+    "ark-std/parallel",
+    "ark-poly/parallel",
+    "ark-groth16/parallel",
+    "ark-serialize/parallel",
+]
 fullmerkletree = []
 stateless = []
 arkzkey = []
@@ -87,6 +84,7 @@ harness = false
 [[bench]]
 name = "pmtree_benchmark"
 harness = false
+required-features = ["pmtree-ft"]
 
 [[bench]]
 name = "poseidon_tree_benchmark"

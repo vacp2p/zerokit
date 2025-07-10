@@ -6,20 +6,20 @@ dependencies = ["pack_build", "pack_rename", "pack_resize"]
 clear = true
 dependencies = ["pack_build_arkzkey", "pack_rename", "pack_resize"]
 
-[tasks.build_multithread]
+[tasks.build_parallel]
 clear = true
 dependencies = [
-    "pack_build_multithread",
-    "post_build_multithread",
+    "pack_build_parallel",
+    "post_build_parallel",
     "pack_rename",
     "pack_resize",
 ]
 
-[tasks.build_multithread_arkzkey]
+[tasks.build_parallel_arkzkey]
 clear = true
 dependencies = [
-    "pack_build_multithread_arkzkey",
-    "post_build_multithread",
+    "pack_build_parallel_arkzkey",
+    "post_build_parallel",
     "pack_rename",
     "pack_resize",
 ]
@@ -41,7 +41,7 @@ args = [
     "arkzkey",
 ]
 
-[tasks.pack_build_multithread]
+[tasks.pack_build_parallel]
 command = "env"
 args = [
     "RUSTFLAGS=-C target-feature=+atomics,+bulk-memory,+mutable-globals",
@@ -56,12 +56,12 @@ args = [
     "--scope",
     "waku",
     "--features",
-    "multithread",
+    "parallel",
     "-Z",
     "build-std=panic_abort,std",
 ]
 
-[tasks.pack_build_multithread_arkzkey]
+[tasks.pack_build_parallel_arkzkey]
 command = "env"
 args = [
     "RUSTFLAGS=-C target-feature=+atomics,+bulk-memory,+mutable-globals",
@@ -76,14 +76,14 @@ args = [
     "--scope",
     "waku",
     "--features",
-    "multithread,arkzkey",
+    "parallel,arkzkey",
     "-Z",
     "build-std=panic_abort,std",
 ]
 
-[tasks.post_build_multithread]
+[tasks.post_build_parallel]
 script = '''
-wasm-bindgen --target web --split-linked-modules --out-dir ./pkg ../target/wasm32-unknown-unknown/release/rln_wasm.wasm && \
+wasm-bindgen --target web --split-linked-modules --out-dir ./pkg ./target/wasm32-unknown-unknown/release/rln_wasm.wasm && \
 find ./pkg/snippets -name "workerHelpers.worker.js" -exec sed -i.bak 's|from '\''\.\.\/\.\.\/\.\.\/'\'';|from "../../../rln_wasm.js";|g' {} \; -exec rm -f {}.bak \; && \
 find ./pkg/snippets -name "workerHelpers.worker.js" -exec sed -i.bak 's|await initWbg(module, memory);|await initWbg({ module, memory });|g' {} \; -exec rm -f {}.bak \;
 '''
@@ -166,7 +166,7 @@ args = [
 ]
 dependencies = ["build_arkzkey"]
 
-[tasks.test_multithread]
+[tasks.test_parallel]
 command = "env"
 args = [
     "RUSTFLAGS=-C target-feature=+atomics,+bulk-memory,+mutable-globals",
@@ -183,15 +183,15 @@ args = [
     "--target",
     "wasm32-unknown-unknown",
     "--features",
-    "multithread",
+    "parallel",
     "-Z",
     "build-std=panic_abort,std",
     "--",
     "--nocapture",
 ]
-dependencies = ["build_multithread"]
+dependencies = ["build_parallel"]
 
-[tasks.test_multithread_arkzkey]
+[tasks.test_parallel_arkzkey]
 command = "env"
 args = [
     "RUSTFLAGS=-C target-feature=+atomics,+bulk-memory,+mutable-globals",
@@ -208,13 +208,13 @@ args = [
     "--target",
     "wasm32-unknown-unknown",
     "--features",
-    "multithread,arkzkey",
+    "parallel,arkzkey",
     "-Z",
     "build-std=panic_abort,std",
     "--",
     "--nocapture",
 ]
-dependencies = ["build_multithread_arkzkey"]
+dependencies = ["build_parallel_arkzkey"]
 
 [tasks.bench]
 disabled = true
