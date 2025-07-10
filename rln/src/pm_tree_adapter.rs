@@ -261,6 +261,11 @@ impl ZerokitMerkleTree for PmTree {
             .map_err(ZerokitMerkleTreeError::PmtreeErrorKind)
     }
 
+    /// Delete a leaf in the merkle tree given its index
+    ///
+    /// Deleting a leaf is done by resetting it to its default value. Note that the next_index field
+    /// will not be changed (== previously used index cannot be reused - this to avoid replay
+    /// attacks or unexpected and very hard to tackle issues)
     fn delete(&mut self, index: usize) -> Result<(), ZerokitMerkleTreeError> {
         self.tree
             .delete(index)
