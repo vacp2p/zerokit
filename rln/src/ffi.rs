@@ -468,6 +468,12 @@ pub extern "C" fn key_gen(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+pub extern "C" fn key_gen_be(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
+    call_with_output_arg!(ctx, key_gen_be, output_buffer)
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
 pub extern "C" fn seeded_key_gen(
     ctx: *const RLN,
     input_buffer: *const Buffer,
@@ -478,8 +484,24 @@ pub extern "C" fn seeded_key_gen(
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
+pub extern "C" fn seeded_key_gen_be(
+    ctx: *const RLN,
+    input_buffer: *const Buffer,
+    output_buffer: *mut Buffer,
+) -> bool {
+    call_with_output_arg!(ctx, seeded_key_gen_be, output_buffer, input_buffer)
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
 pub extern "C" fn extended_key_gen(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
     call_with_output_arg!(ctx, extended_key_gen, output_buffer)
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn extended_key_gen_be(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
+    call_with_output_arg!(ctx, extended_key_gen_be, output_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -490,6 +512,16 @@ pub extern "C" fn seeded_extended_key_gen(
     output_buffer: *mut Buffer,
 ) -> bool {
     call_with_output_arg!(ctx, seeded_extended_key_gen, output_buffer, input_buffer)
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn seeded_extended_key_gen_be(
+    ctx: *const RLN,
+    input_buffer: *const Buffer,
+    output_buffer: *mut Buffer,
+) -> bool {
+    call_with_output_arg!(ctx, seeded_extended_key_gen_be, output_buffer, input_buffer)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
