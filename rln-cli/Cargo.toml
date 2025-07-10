@@ -13,10 +13,12 @@ path = "src/examples/stateless.rs"
 required-features = ["stateless"]
 
 [dependencies]
-rln = { path = "../rln", version = "0.8.0", default-features = true }
+rln = { path = "../rln", version = "0.8.0", default-features = false, features = [
+    "pmtree-ft",
+] }
 zerokit_utils = { path = "../utils", version = "0.6.0", default-features = false }
-clap = { version = "4.5.38", features = ["cargo", "derive", "env"] }
-color-eyre = "0.6.4"
+clap = { version = "4.5.41", features = ["cargo", "derive", "env"] }
+color-eyre = "0.6.5"
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 

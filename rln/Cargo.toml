@@ -57,7 +57,7 @@ zeroize = "1.8"
 utils = { package = "zerokit_utils", version = "0.6.0", path = "../utils", default-features = false }
 
 # serialization
-prost = "0.13.5"
+prost = "0.14.1"
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 
@@ -67,7 +67,7 @@ document-features = { version = "0.2.11", optional = true }
 criterion = { version = "0.6.0", features = ["html_reports"] }
 
 [features]
-default = ["pmtree-ft"]
+default = ["pmtree-ft", "arkzkey"]
 fullmerkletree = []
 stateless = []
 arkzkey = []
