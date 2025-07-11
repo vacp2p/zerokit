@@ -75,8 +75,12 @@ pub fn fr_to_bytes_le(input: &Fr) -> Vec<u8> {
 pub fn fr_to_bytes_be(input: &Fr) -> Vec<u8> {
     let input_biguint: BigUint = (*input).into();
     let mut res = input_biguint.to_bytes_be();
-    //BigUint conversion ignores most significant zero bytes. We restore them otherwise serialization will fail (length % 8 != 0)
-    res.resize(fr_byte_size(), 0);
+    // For BE, insert 0 at the start of the Vec (see also fr_to_bytes_le comments)
+    let to_insert_count = fr_byte_size().saturating_sub(res.len());
+    if to_insert_count > 0 {
+        // Insert multi 0 at index 0
+        res.splice(0..0, std::iter::repeat_n(0, to_insert_count));
+    }
     res
 }
 
@@ -432,4 +436,18 @@ impl From<IdSecret> for FrOrSecret {
     fn from(value: IdSecret) -> Self {
         FrOrSecret::IdSecret(value)
     }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_fr_be() {
+        let fr_1 = Fr::from(255);
+        let b = fr_to_bytes_be(&fr_1);
+        let fr_1_de = bytes_be_to_fr(&b).0;
+        assert_eq!(fr_1, fr_1_de);
+    }
+
 }
