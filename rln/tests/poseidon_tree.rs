@@ -12,7 +12,7 @@ mod test {
     use utils::{FullMerkleTree, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
     #[test]
-    // The test is checked correctness for `FullMerkleTree` and `OptimalMerkleTree` with Poseidon hash
+    // The test checked correctness for `FullMerkleTree` and `OptimalMerkleTree` with Poseidon hash
     fn test_zerokit_merkle_implementations() {
         let sample_size = 100;
         let leaves: Vec<Fr> = (0..sample_size).map(Fr::from).collect();
