@@ -32,17 +32,13 @@ jobs:
     name: test - ${{ matrix.crate }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+        uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
         run: make installdeps
-      - name: cargo-make test
+      - name: Test utils
         run: |
           cargo make test --release
         working-directory: ${{ matrix.crate }}
@@ -59,17 +55,13 @@ jobs:
     name: test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+        uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
         run: make installdeps
-      - name: cargo-make test
+      - name: Test rln
         run: |
           if [ ${{ matrix.feature }} == default ]; then
             cargo make test --release
@@ -89,17 +81,13 @@ jobs:
 
     name: test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+        uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Install Dependencies
+      - name: Install dependencies
         run: make installdeps
-      - name: cargo-make build
+      - name: Build rln-wasm
         run: |
           if [ ${{ matrix.feature }} == default ]; then
             cargo make build
@@ -107,7 +95,7 @@ jobs:
             cargo make build_${{ matrix.feature }}
           fi
         working-directory: ${{ matrix.crate }}
-      - name: cargo-make test
+      - name: Test rln-wasm
         run: |
           if [ ${{ matrix.feature }} == default ]; then
             cargo make test --release
@@ -115,7 +103,7 @@ jobs:
             cargo make test_${{ matrix.feature }} --release
           fi
         working-directory: ${{ matrix.crate }}
-      - name: cargo-make test browser
+      - name: Test rln-wasm on browser
         run: |
           if [ ${{ matrix.feature }} == default ]; then
             cargo make test_browser --release
@@ -124,30 +112,27 @@ jobs:
           fi
         working-directory: ${{ matrix.crate }}
 
-  # rln-wasm-multihread-test:
+  # rln-wasm-parallel-test:
   #   strategy:
   #     matrix:
   #       platform: [ubuntu-latest, macos-latest]
   #       crate: [rln-wasm]
-  #       feature: ["multithread", "multithread_arkzkey"]
+  #       feature: ["parallel", "parallel_arkzkey"]
   #   runs-on: ${{ matrix.platform }}
   #   timeout-minutes: 60
 
   #   name: test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
   #   steps:
-  #     - uses: actions/checkout@v3
+  #     - uses: actions/checkout@v4
   #     - name: Install nightly toolchain
-  #       uses: actions-rs/toolchain@v1
+  #       uses: dtolnay/rust-toolchain@nightly
   #       with:
-  #         profile: minimal
-  #         toolchain: nightly
-  #         override: true
   #         components: rust-src
-  #         target: wasm32-unknown-unknown
+  #         targets: wasm32-unknown-unknown
   #     - uses: Swatinem/rust-cache@v2
-  #     - name: Install Dependencies
+  #     - name:  Install dependencies
   #       run: make installdeps
-  #     - name: cargo-make build
+  #     - name: Build rln-wasm in parallel mode
   #       run: |
   #         if [ ${{ matrix.feature }} == default ]; then
   #           cargo make build
@@ -155,7 +140,7 @@ jobs:
   #           cargo make build_${{ matrix.feature }}
   #         fi
   #       working-directory: ${{ matrix.crate }}
-  #     - name: cargo-make test
+  #     - name: Test rln-wasm in parallel mode
   #       run: |
   #         if [ ${{ matrix.feature }} == default ]; then
   #           cargo make test --release
@@ -176,25 +161,22 @@ jobs:
     name: lint - ${{ matrix.crate }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
-      - name: Install Dependencies
+      - name: Install dependencies
         run: make installdeps
-      - name: cargo fmt
+      - name: Check formatting
         if: success() || failure()
         run: cargo fmt -- --check
         working-directory: ${{ matrix.crate }}
-      - name: cargo clippy
+      - name: Check clippy
         if: success() || failure()
         run: |
-          cargo clippy --release
+          cargo clippy --all-targets --release -- -D warnings
         working-directory: ${{ matrix.crate }}
 
   benchmark-utils:
@@ -211,7 +193,7 @@ jobs:
     name: benchmark - ${{ matrix.crate }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - uses: boa-dev/criterion-compare-action@v3
         with:
@@ -233,7 +215,7 @@ jobs:
     name: benchmark - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - uses: boa-dev/criterion-compare-action@v3
         with:

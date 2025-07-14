@@ -8,11 +8,10 @@ jobs:
   linux:
     strategy:
       matrix:
-        feature: [ "default", "arkzkey", "stateless" ]
+        feature: ["default", "arkzkey", "stateless"]
         target:
           - x86_64-unknown-linux-gnu
           - aarch64-unknown-linux-gnu
-          # - i686-unknown-linux-gnu
         include:
           - feature: stateless
             cargo_args: --exclude rln-cli
@@ -20,13 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
           target: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
@@ -50,7 +46,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        feature: [ "default", "arkzkey", "stateless" ]
+        feature: ["default", "arkzkey", "stateless"]
         target:
           - x86_64-apple-darwin
           - aarch64-apple-darwin
@@ -59,13 +55,10 @@ jobs:
             cargo_args: --exclude rln-cli
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
           target: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
@@ -89,13 +82,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+        uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
         run: make installdeps
@@ -116,11 +105,11 @@ jobs:
 
   prepare-prerelease:
     name: Prepare pre-release
-    needs: [ linux, macos, browser-rln-wasm ]
+    needs: [linux, macos, browser-rln-wasm]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: master
       - name: Download artifacts

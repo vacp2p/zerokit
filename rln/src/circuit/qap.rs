@@ -7,6 +7,12 @@ use ark_poly::EvaluationDomain;
 use ark_relations::r1cs::{ConstraintMatrices, ConstraintSystemRef, SynthesisError};
 use ark_std::{cfg_into_iter, cfg_iter, cfg_iter_mut, vec};
 
+#[cfg(feature = "parallel")]
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator,
+    IntoParallelRefMutIterator, ParallelIterator,
+};
+
 /// Implements the witness map used by snarkjs. The arkworks witness map calculates the
 /// coefficients of H through computing (AB-C)/Z in the evaluation domain and going back to the
 /// coefficients domain. snarkjs instead precomputes the Lagrange form of the powers of tau bases

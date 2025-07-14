@@ -2,14 +2,16 @@ use crate::circuit::{zkey_from_raw, Curve, Fr};
 use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
 use crate::protocol::{
     compute_id_secret, deserialize_proof_values, deserialize_witness, extended_keygen,
-    extended_seeded_keygen, generate_proof, keygen, proof_values_from_witness,
-    rln_witness_to_bigint_json, rln_witness_to_json, seeded_keygen, serialize_proof_values,
-    verify_proof,
+    extended_seeded_keygen, keygen, proof_values_from_witness, rln_witness_to_bigint_json,
+    rln_witness_to_json, seeded_keygen, serialize_proof_values, verify_proof,
 };
 use crate::utils::{bytes_le_to_fr, bytes_le_to_vec_fr, fr_byte_size, fr_to_bytes_le};
 #[cfg(not(target_arch = "wasm32"))]
 use {
-    crate::circuit::{graph_from_folder, zkey_from_folder},
+    crate::{
+        circuit::{graph_from_folder, zkey_from_folder},
+        protocol::generate_proof,
+    },
     std::default::Default,
 };
 

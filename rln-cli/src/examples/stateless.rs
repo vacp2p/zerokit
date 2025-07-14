@@ -13,7 +13,7 @@ use rln::{
     poseidon_tree::PoseidonTree,
     protocol::{keygen, prepare_verify_input, rln_witness_from_values, serialize_witness},
     public::RLN,
-    utils::{bytes_le_to_fr, fr_to_bytes_le},
+    utils::fr_to_bytes_le,
 };
 use zerokit_utils::ZerokitMerkleTree;
 

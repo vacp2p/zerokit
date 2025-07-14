@@ -944,14 +944,14 @@ mod tests {
         let x = M.div(uint!(2_U256));
 
         println!("x: {:?}", x.as_limbs());
-        println!("x: {}", M);
+        println!("x: {M}");
     }
 
     #[test]
     fn test_2() {
         let nodes: Vec<Node> = vec![];
         // let node = nodes[0];
-        let node = nodes.get(0);
-        println!("{:?}", node);
+        let node = nodes.first();
+        println!("{node:?}");
     }
 }

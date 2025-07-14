@@ -39,7 +39,7 @@ features = ["Window", "Navigator"]
 [features]
 default = ["console_error_panic_hook"]
 arkzkey = ["rln/arkzkey"]
-multithread = ["wasm-bindgen-rayon"]
+parallel = ["rln/parallel", "wasm-bindgen-rayon"]
 
 [package.metadata.docs.rs]
 all-features = true

@@ -16,7 +16,7 @@ mod tests {
     use wasm_bindgen_test::{console_log, wasm_bindgen_test, wasm_bindgen_test_configure};
     use zerokit_utils::merkle_tree::merkle_tree::ZerokitMerkleTree;
 
-    #[cfg(feature = "multithread")]
+    #[cfg(feature = "parallel")]
     use {rln_wasm::init_thread_pool, wasm_bindgen_futures::JsFuture, web_sys::window};
 
     #[wasm_bindgen(inline_js = r#"
@@ -77,7 +77,7 @@ mod tests {
     #[wasm_bindgen_test]
     pub async fn rln_wasm_benchmark() {
         // Check if thread pool is supported
-        #[cfg(feature = "multithread")]
+        #[cfg(feature = "parallel")]
         if !isThreadpoolSupported().expect("Failed to check thread pool support") {
             panic!("Thread pool is NOT supported");
         } else {

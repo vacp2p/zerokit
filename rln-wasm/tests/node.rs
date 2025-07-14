@@ -1,4 +1,4 @@
-#![cfg(not(feature = "multithread"))]
+#![cfg(not(feature = "parallel"))]
 #![cfg(target_arch = "wasm32")]
 
 #[cfg(test)]

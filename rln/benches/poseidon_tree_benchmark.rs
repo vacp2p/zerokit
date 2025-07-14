@@ -6,7 +6,7 @@ use rln::{
 use utils::{FullMerkleTree, OptimalMerkleTree, ZerokitMerkleTree};
 
 pub fn get_leaves(n: u32) -> Vec<Fr> {
-    (0..n).map(|s| Fr::from(s)).collect()
+    (0..n).map(Fr::from).collect()
 }
 
 pub fn optimal_merkle_tree_poseidon_benchmark(c: &mut Criterion) {

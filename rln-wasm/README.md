@@ -125,13 +125,13 @@ cargo install wasm-bindgen-cli --version=0.2.100
 To enable parallel computation for WebAssembly threads, you can use the following command:
 
 ```bash
-cargo make build_multithread
+cargo make build_parallel
 ```
 
 Or with the **arkzkey** feature enabled:
 
 ```bash
-cargo make build_multithread_arkzkey
+cargo make build_parallel_arkzkey
 ```
 
 ### WebAssembly Threading Support
@@ -150,7 +150,7 @@ If you're targeting [older browser versions that didn't support WebAssembly thre
 you'll likely want to create two builds - one with thread support and one without -
 and use feature detection to choose the right one on the JavaScript side.
 
-You can use [wasm-feature-detect](https://github.com/GoogleChromeLabs/wasm-feature-detect)library for this purpose.
+You can use [wasm-feature-detect](https://github.com/GoogleChromeLabs/wasm-feature-detect) library for this purpose.
 For example, your code might look like this:
 
 ```js

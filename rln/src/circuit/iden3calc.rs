@@ -77,7 +77,7 @@ fn populate_inputs(
     for (key, value) in input_list {
         let (offset, len) = inputs_info[key];
         if len != value.len() {
-            panic!("Invalid input length for {}", key);
+            panic!("Invalid input length for {key}");
         }
 
         for (i, v) in value.iter().enumerate() {
