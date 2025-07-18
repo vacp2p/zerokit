@@ -13,7 +13,9 @@ mod test {
     use std::fs::File;
     use std::io::Read;
     use std::mem::MaybeUninit;
+    use std::str::FromStr;
     use std::time::{Duration, Instant};
+    use claims::assert_lt;
 
     const NO_OF_LEAVES: usize = 256;
 
@@ -858,6 +860,72 @@ mod test {
             expected_identity_secret_hash_seed_bytes.unwrap()
         );
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes.unwrap());
+    }
+
+    #[test]
+    // Tests hash to field using FFI APIs
+    fn test_extended_keygen_be_ffi() {
+        let q = ark_bn254::Fr::from_str("21888242871839275222246405745257275088548364400416034343698204186575808495616").unwrap();
+
+        let mut c = 0;
+
+        loop {
+            // We create a RLN instance
+            let rln_pointer = create_rln_instance();
+
+            // We generate a new identity tuple from an input seed
+            // let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+            // let input_buffer = &Buffer::from(seed_bytes);
+            let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+            let success =
+                extended_key_gen_be(rln_pointer, output_buffer.as_mut_ptr());
+            // assert!(success, "seeded key gen call failed");
+            let output_buffer = unsafe { output_buffer.assume_init() };
+            let result_data = <&[u8]>::from(&output_buffer).to_vec();
+            let (identity_secret_hash, id_commitment) =
+                deserialize_identity_pair_be(result_data);
+
+            // We check against expected values
+            // let expected_identity_trapdoor_seed_bytes = str_to_fr(
+            //     "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
+            //     16,
+            // );
+            // let expected_identity_nullifier_seed_bytes = str_to_fr(
+            //     "0x1f18714c7bc83b5bca9e89d404cf6f2f585bc4c0f7ed8b53742b7e2b298f50b4",
+            //     16,
+            // );
+            // let expected_identity_secret_hash_seed_bytes = str_to_fr(
+            //     "0x2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521",
+            //     16,
+            // );
+            // let expected_id_commitment_seed_bytes = str_to_fr(
+            //     "0x68b66aa0a8320d2e56842581553285393188714c48f9b17acd198b4f1734c5c",
+            //     16,
+            // );
+
+            // assert_eq!(
+            //     identity_trapdoor,
+            //     expected_identity_trapdoor_seed_bytes.unwrap()
+            // );
+            // assert_eq!(
+            //     identity_nullifier,
+            //     expected_identity_nullifier_seed_bytes.unwrap()
+            // );
+            // assert_eq!(
+            //     identity_secret_hash,
+            //     expected_identity_secret_hash_seed_bytes.unwrap()
+            // );
+            // assert_eq!(id_commitment, expected_id_commitment_seed_bytes.unwrap());
+
+            assert_lt!(identity_secret_hash, q);
+            assert_lt!(id_commitment, q);
+
+            c+=1;
+            if c > 1000 {
+                break;
+            }
+        }
+
     }
 
     #[test]
