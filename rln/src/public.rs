@@ -1148,6 +1148,14 @@ impl RLN {
         Ok(())
     }
 
+    pub fn key_gen_be_2<W: Write>(&self, mut output_data: W) -> Result<(Fr, Fr), RLNError> {
+        let (identity_secret_hash, id_commitment) = keygen();
+        output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
+        output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
+
+        Ok((identity_secret_hash, id_commitment))
+    }
+
     /// Returns an identity trapdoor, nullifier, secret and commitment tuple.
     ///
     /// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
@@ -1191,6 +1199,17 @@ impl RLN {
         output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
 
         Ok(())
+    }
+
+    pub fn extended_key_gen_be_2<W: Write>(&self, mut output_data: W) -> Result<(Fr, Fr, Fr, Fr), RLNError> {
+        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
+            extended_keygen();
+        output_data.write_all(&fr_to_bytes_be(&identity_trapdoor))?;
+        output_data.write_all(&fr_to_bytes_be(&identity_nullifier))?;
+        output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
+        output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
+
+        Ok((identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment))
     }
 
     /// Returns an identity secret and identity commitment pair generated using a seed.
