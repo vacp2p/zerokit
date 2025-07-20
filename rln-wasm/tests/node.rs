@@ -51,10 +51,7 @@ mod tests {
         async fn calculateWitness(circom_path: &str, input: Object) -> Result<JsValue, JsValue>;
     }
 
-    #[cfg(feature = "arkzkey")]
     const ZKEY_PATH: &str = "../rln/resources/tree_height_20/rln_final.arkzkey";
-    #[cfg(not(feature = "arkzkey"))]
-    const ZKEY_PATH: &str = "../rln/resources/tree_height_20/rln_final.zkey";
 
     const CIRCOM_PATH: &str = "../rln/resources/tree_height_20/rln.wasm";
 

@@ -10,10 +10,6 @@ args = ["test", "--release", "--", "--nocapture"]
 command = "cargo"
 args = ["test", "--release", "--features", "stateless"]
 
-[tasks.test_arkzkey]
-command = "cargo"
-args = ["test", "--release", "--features", "arkzkey"]
-
 [tasks.bench]
 command = "cargo"
 args = ["bench"]

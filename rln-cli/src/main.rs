@@ -51,10 +51,7 @@ fn main() -> Result<()> {
             resources_path,
         }) => {
             let mut resources: Vec<Vec<u8>> = Vec::new();
-            #[cfg(feature = "arkzkey")]
             let filenames = ["rln_final.arkzkey", "graph.bin"];
-            #[cfg(not(feature = "arkzkey"))]
-            let filenames = ["rln_final.zkey", "graph.bin"];
             for filename in filenames {
                 let fullpath = resources_path.join(Path::new(filename));
                 let mut file = File::open(&fullpath)?;

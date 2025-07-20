@@ -8,7 +8,7 @@ jobs:
   linux:
     strategy:
       matrix:
-        feature: ["default", "arkzkey", "stateless"]
+        feature: ["default", "stateless"]
         target:
           - x86_64-unknown-linux-gnu
           - aarch64-unknown-linux-gnu
@@ -46,7 +46,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        feature: ["default", "arkzkey", "stateless"]
+        feature: ["default", "stateless"]
         target:
           - x86_64-apple-darwin
           - aarch64-apple-darwin

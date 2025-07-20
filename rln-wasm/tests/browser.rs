@@ -64,11 +64,8 @@ mod tests {
 
     const WITNESS_CALCULATOR_JS: &str = include_str!("../resources/witness_calculator_browser.js");
 
-    #[cfg(feature = "arkzkey")]
     const ZKEY_BYTES: &[u8] =
         include_bytes!("../../rln/resources/tree_height_20/rln_final.arkzkey");
-    #[cfg(not(feature = "arkzkey"))]
-    const ZKEY_BYTES: &[u8] = include_bytes!("../../rln/resources/tree_height_20/rln_final.zkey");
 
     const CIRCOM_BYTES: &[u8] = include_bytes!("../../rln/resources/tree_height_20/rln.wasm");
 

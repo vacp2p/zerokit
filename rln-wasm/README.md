@@ -72,29 +72,16 @@ Compile zerokit for `wasm32-unknown-unknown`:
 cargo make build
 ```
 
-Or compile with the **arkzkey** feature enabled
-
-```bash
-cargo make build_arkzkey
-```
-
 ## Running tests and benchmarks
 
 ```bash
 cargo make test
 ```
 
-Or test with the **arkzkey** feature enabled
-
-```bash
-cargo make test_arkzkey
-```
-
 If you want to run the tests in browser headless mode, you can use the following command:
 
 ```bash
 cargo make test_browser
-cargo make test_browser_arkzkey
 ```
 
 ## Parallel computation
@@ -126,12 +113,6 @@ To enable parallel computation for WebAssembly threads, you can use the followin
 
 ```bash
 cargo make build_parallel
-```
-
-Or with the **arkzkey** feature enabled:
-
-```bash
-cargo make build_parallel_arkzkey
 ```
 
 ### WebAssembly Threading Support
