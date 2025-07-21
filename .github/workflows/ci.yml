@@ -29,7 +29,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
-    name: test - ${{ matrix.crate }} - ${{ matrix.platform }}
+    name: Test - ${{ matrix.crate }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -52,7 +52,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
-    name: test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
+    name: Test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -79,7 +79,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
-    name: test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
+    name: Test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
     steps:
       - uses: actions/checkout@v4
       - name: Install stable toolchain
@@ -121,7 +121,7 @@ jobs:
   #   runs-on: ${{ matrix.platform }}
   #   timeout-minutes: 60
 
-  #   name: test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
+  #   name: Test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
   #   steps:
   #     - uses: actions/checkout@v4
   #     - name: Install nightly toolchain
