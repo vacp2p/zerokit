@@ -108,7 +108,7 @@ jobs:
           retention-days: 2
 
   browser-rln-wasm:
-    name: Browser build (RLN WASM)
+    name: Browser build
     runs-on: ubuntu-latest
     strategy:
       matrix:
