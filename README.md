@@ -28,9 +28,6 @@ Zerokit currently focuses on RLN (Rate-Limiting Nullifier) implementation using 
 
 ## Build and Test
 
-> [!IMPORTANT]
-> For WASM support or x32 architecture builds, use version `0.6.1`. The current version has dependency issues for these platforms. WASM support will return in a future release.
-
 ### Install Dependencies
 
 ```bash

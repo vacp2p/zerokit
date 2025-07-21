@@ -139,7 +139,7 @@ for one application to be re-used in another one.
 - **Pre-compiled Circuits**: Ready-to-use circuits with Merkle tree depth of 20
 - **Wasm Support**: WebAssembly bindings via rln-wasm crate with features like:
   - Browser and Node.js compatibility
-  - Optional multi-threading support using wasm-bindgen-rayon
+  - Optional parallel feature support using [wasm-bindgen-rayon](https://github.com/RReverser/wasm-bindgen-rayon)
   - Headless browser testing capabilities
 
 ## Building and Testing
@@ -161,8 +161,8 @@ cargo make build
 # Test with default features
 cargo make test
 
-# Test with specific features
-cargo make test_stateless  # For stateless feature
+# Test with stateless features
+cargo make test_stateless
 ```
 
 ## Advanced: Custom Circuit Compilation
@@ -171,9 +171,9 @@ The `rln` (<https://github.com/rate-limiting-nullifier/circom-rln>) repository,
 which contains the RLN circuit implementation is using for pre-compiled RLN circuit for zerokit RLN.
 If you want to compile your own RLN circuit, you can follow the instructions below.
 
-### 1. Compile ZK Circuits for getting the zkey and verification key files
+### 1. Compile ZK Circuits for getting the zkey file
 
-This script actually generates not only the zkey and verification key files for the RLN circuit,
+This script actually generates not only the zkey file for the RLN circuit,
 but also the execution wasm file used for witness calculation.
 However, the wasm file is not needed for the `rln` module,
 because current implementation uses the iden3 graph file for witness calculation.
@@ -267,7 +267,7 @@ cargo run --package circom_witnesscalc --bin build-circuit ../circom-rln/circuit
 The `rln` module comes with [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources)
 execution graph files for the RLN circuit.
 
-### 3. Generate Arkzkey Representation for zkey and verification key files
+### 3. Generate Arkzkey Representation for zkey file
 
 For faster loading, compile the zkey file into the arkzkey format using
 [ark-zkey](https://github.com/seemenkina/ark-zkey).
