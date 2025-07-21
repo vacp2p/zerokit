@@ -6,17 +6,26 @@ on:
 
 jobs:
   linux:
+    name: Linux build
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        feature: ["default", "stateless"]
+        feature:
+          - "pmtree-ft"
+          - "pmtree-ft,stateless"
+          - "pmtree-ft,parallel"
+          - "pmtree-ft,stateless,parallel"
+          - "fullmerkletree"
+          - "fullmerkletree,stateless"
+          - "fullmerkletree,parallel"
+          - "fullmerkletree,stateless,parallel"
+          - "optimalmerkletree"
+          - "optimalmerkletree,stateless"
+          - "optimalmerkletree,parallel"
+          - "optimalmerkletree,stateless,parallel"
         target:
           - x86_64-unknown-linux-gnu
           - aarch64-unknown-linux-gnu
-        include:
-          - feature: stateless
-            cargo_args: --exclude rln-cli
-    name: Linux build
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -29,7 +38,8 @@ jobs:
         run: make installdeps
       - name: cross build
         run: |
-          cross build --release --target ${{ matrix.target }} --features ${{ matrix.feature }} --workspace ${{ matrix.cargo_args }}
+          FEATURES="${{ matrix.feature }}"
+          cross build --release --target ${{ matrix.target }} --features $FEATURES
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
@@ -46,13 +56,22 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        feature: ["default", "stateless"]
+        feature:
+          - "pmtree-ft"
+          - "pmtree-ft,stateless"
+          - "pmtree-ft,parallel"
+          - "pmtree-ft,stateless,parallel"
+          - "fullmerkletree"
+          - "fullmerkletree,stateless"
+          - "fullmerkletree,parallel"
+          - "fullmerkletree,stateless,parallel"
+          - "optimalmerkletree"
+          - "optimalmerkletree,stateless"
+          - "optimalmerkletree,parallel"
+          - "optimalmerkletree,stateless,parallel"
         target:
           - x86_64-apple-darwin
           - aarch64-apple-darwin
-        include:
-          - feature: stateless
-            cargo_args: --exclude rln-cli
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -65,7 +84,8 @@ jobs:
         run: make installdeps
       - name: cross build
         run: |
-          cross build --release --target ${{ matrix.target }} --features ${{ matrix.feature }} --workspace ${{ matrix.cargo_args }}
+          FEATURES="${{ matrix.feature }}"
+          cross build --release --target ${{ matrix.target }} --features $FEATURES
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
@@ -80,6 +100,13 @@ jobs:
   browser-rln-wasm:
     name: Browser build (RLN WASM)
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        feature:
+          - "fullmerkletree"
+          - "fullmerkletree,parallel"
+          - "optimalmerkletree"
+          - "optimalmerkletree,parallel"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
