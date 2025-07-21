@@ -36,7 +36,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
         run: make installdeps
-      - name: cross build
+      - name: Cross build
         run: |
           FEATURES="${{ matrix.feature }}"
           CARGO_ARGS=""
@@ -87,7 +87,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
         run: make installdeps
-      - name: cross build
+      - name: Cross build
         run: |
           FEATURES="${{ matrix.feature }}"
           CARGO_ARGS=""
@@ -175,7 +175,7 @@ jobs:
       - name: Upload archive artifact
         uses: actions/upload-artifact@v4
         with:
-          name: browser-${{ matrix.feature }}-rln-wasm-archive
+          name: Browser-${{ matrix.feature }}-rln-wasm-archive
           path: rln-wasm/browser-${{ matrix.feature }}-rln-wasm.tar.gz
           retention-days: 2
 
