@@ -170,7 +170,7 @@ jobs:
 
           mkdir release
           cp -r pkg/* release/
-          tar -czvf browser-${{ matrix.feature }}-rln-wasm.tar.gz release/
+          tar -czvf browser-rln-wasm-${{ matrix.feature }}.tar.gz release/
         working-directory: rln-wasm
       - name: Upload archive artifact
         uses: actions/upload-artifact@v4
