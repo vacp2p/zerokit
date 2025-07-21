@@ -271,7 +271,7 @@ execution graph files for the RLN circuit.
 
 For faster loading, compile the zkey file into the arkzkey format using
 [ark-zkey](https://github.com/seemenkina/ark-zkey).
-This is fork of the [original](https://github.com/zkmopro/ark-zkey) repository with the uncompressed zkey support.
+This is fork of the [original](https://github.com/zkmopro/ark-zkey) repository with the uncompressed arkzkey support.
 
 ```sh
 # Clone the ark-zkey repository
@@ -288,6 +288,17 @@ This will generate the `rln_final.arkzkey` file, which is used by the `rln` modu
 
 Currently, the `rln` module comes with
 [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) arkzkey keys for the RLN circuit.
+
+> [!NOTE]
+> You can use this [convert_zkey.sh](./convert_zkey.sh) script
+> to automate the process of generating the arkzkey file from any zkey file
+
+Run the script as follows:
+
+```sh
+chmod +x ./convert_zkey.sh
+./convert_zkey.sh <path_to_rln_final.zkey>
+```
 
 ## Get involved
 
