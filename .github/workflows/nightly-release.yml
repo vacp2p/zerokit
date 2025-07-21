@@ -138,9 +138,8 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Install wasm-opt
         run: |
-          wget https://github.com/WebAssembly/binaryen/releases/latest/download/binaryen-version_116-x86_64-linux.tar.gz
-          tar -xzf binaryen-version_116-x86_64-linux.tar.gz
-          sudo cp binaryen-version_116/bin/wasm-opt /usr/local/bin/
+          sudo apt-get update
+          sudo apt-get install -y binaryen
       - name: Build WASM package
         run: |
           FEATURES="${{ matrix.feature }}"
