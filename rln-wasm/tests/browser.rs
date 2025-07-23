@@ -18,7 +18,7 @@ mod tests {
     };
 
     #[cfg(feature = "parallel")]
-    use {wasm_bindgen_futures::JsFuture, wasm_bindgen_rayon::init_thread_pool, web_sys::window};
+    use {rln_wasm::init_thread_pool, wasm_bindgen_futures::JsFuture, web_sys::window};
 
     #[wasm_bindgen(inline_js = r#"
     export function isThreadpoolSupported() {
