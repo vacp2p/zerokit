@@ -51,7 +51,7 @@ mod tests {
         async fn calculateWitness(circom_path: &str, input: Object) -> Result<JsValue, JsValue>;
     }
 
-    const ZKEY_PATH: &str = "../rln/resources/tree_height_20/rln_final.arkzkey";
+    const ARKZKEY_PATH: &str = "../rln/resources/tree_height_20/rln_final.arkzkey";
 
     const CIRCOM_PATH: &str = "../rln/resources/tree_height_20/rln.wasm";
 
@@ -60,7 +60,7 @@ mod tests {
         let mut results = String::from("\nbenchmarks:\n");
         let iterations = 10;
 
-        let zkey = readFile(&ZKEY_PATH).expect("Failed to read zkey file");
+        let zkey = readFile(&ARKZKEY_PATH).expect("Failed to read zkey file");
 
         // Benchmark wasm_new
         let start_wasm_new = Date::now();

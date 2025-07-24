@@ -31,7 +31,7 @@ rln = { git = "https://github.com/vacp2p/zerokit" }
 
 The RLN object constructor requires the following files:
 
-- `rln_final.arkzkey`: The proving key
+- `rln_final.arkzkey`: The proving key in arkzkey format.
 - `graph.bin`: The graph file built for the input tree size
 
 Additionally, `rln.wasm` is used for testing in the rln-wasm module.

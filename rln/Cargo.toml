@@ -72,14 +72,6 @@ optimalmerkletree = []
 pmtree-ft = ["utils/pmtree-ft"]
 
 [[bench]]
-name = "circuit_loading_arkzkey_benchmark"
-harness = false
-
-[[bench]]
-name = "circuit_loading_benchmark"
-harness = false
-
-[[bench]]
 name = "pmtree_benchmark"
 harness = false
 required-features = ["pmtree-ft"]

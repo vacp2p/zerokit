@@ -64,7 +64,7 @@ mod tests {
 
     const WITNESS_CALCULATOR_JS: &str = include_str!("../resources/witness_calculator_browser.js");
 
-    const ZKEY_BYTES: &[u8] =
+    const ARKZKEY_BYTES: &[u8] =
         include_bytes!("../../rln/resources/tree_height_20/rln_final.arkzkey");
 
     const CIRCOM_BYTES: &[u8] = include_bytes!("../../rln/resources/tree_height_20/rln.wasm");
@@ -95,7 +95,7 @@ mod tests {
         let mut results = String::from("\nbenchmarks:\n");
         let iterations = 10;
 
-        let zkey = readFile(&ZKEY_BYTES).expect("Failed to read zkey file");
+        let zkey = readFile(&ARKZKEY_BYTES).expect("Failed to read zkey file");
 
         // Benchmark wasm_new
         let start_wasm_new = Date::now();

@@ -3,7 +3,6 @@
 pub mod error;
 pub mod iden3calc;
 pub mod qap;
-pub mod zkey;
 
 use ::lazy_static::lazy_static;
 use ark_bn254::{
@@ -22,13 +21,11 @@ use crate::utils::FrOrSecret;
 
 pub const ARKZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_height_20/rln_final.arkzkey");
 
-pub const ZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_height_20/rln_final.zkey");
-
 #[cfg(not(target_arch = "wasm32"))]
 const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_height_20/graph.bin");
 
 lazy_static! {
-    static ref ZKEY: (ProvingKey<Curve>, ConstraintMatrices<Fr>) =
+    static ref ARKZKEY: (ProvingKey<Curve>, ConstraintMatrices<Fr>) =
         read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES).expect("Failed to read arkzkey");
 }
 
@@ -61,7 +58,7 @@ pub fn zkey_from_raw(
 // Loads the proving key
 #[cfg(not(target_arch = "wasm32"))]
 pub fn zkey_from_folder() -> &'static (ProvingKey<Curve>, ConstraintMatrices<Fr>) {
-    &ZKEY
+    &ARKZKEY
 }
 
 pub fn calculate_rln_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(

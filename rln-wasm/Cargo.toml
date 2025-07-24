@@ -10,6 +10,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 rln = { path = "../rln", version = "0.8.0", default-features = false, features = [
     "stateless",
+    "fullmerkletree",
 ] }
 zerokit_utils = { path = "../utils", version = "0.6.0", default-features = false }
 num-bigint = { version = "0.4.6", default-features = false }
@@ -37,10 +38,8 @@ version = "0.3.77"
 features = ["Window", "Navigator"]
 
 [features]
-default = ["console_error_panic_hook", "optimalmerkletree"]
+default = ["console_error_panic_hook"]
 parallel = ["rln/parallel", "wasm-bindgen-rayon"]
-fullmerkletree = ["rln/fullmerkletree"]
-optimalmerkletree = ["rln/optimalmerkletree"]
 
 [package.metadata.docs.rs]
 all-features = true

@@ -11,18 +11,14 @@ jobs:
     strategy:
       matrix:
         feature:
+          - "stateless"
+          - "stateless,parallel"
           - "pmtree-ft"
-          - "pmtree-ft,stateless"
           - "pmtree-ft,parallel"
-          - "pmtree-ft,stateless,parallel"
           - "fullmerkletree"
-          - "fullmerkletree,stateless"
           - "fullmerkletree,parallel"
-          - "fullmerkletree,stateless,parallel"
           - "optimalmerkletree"
-          - "optimalmerkletree,stateless"
           - "optimalmerkletree,parallel"
-          - "optimalmerkletree,stateless,parallel"
         target:
           - x86_64-unknown-linux-gnu
           - aarch64-unknown-linux-gnu
@@ -39,13 +35,8 @@ jobs:
       - name: Cross build
         run: |
           FEATURES="${{ matrix.feature }}"
-          CARGO_ARGS=""
 
-          if [[ "$FEATURES" == *"stateless"* ]]; then
-            CARGO_ARGS="--exclude rln-cli"
-          fi
-
-          cross build --release --target ${{ matrix.target }} --features $FEATURES --workspace $CARGO_ARGS
+          cross build --release --target ${{ matrix.target }} --features $FEATURES --workspace --exclude rln-cli
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
@@ -62,18 +53,14 @@ jobs:
     strategy:
       matrix:
         feature:
+          - "stateless"
+          - "stateless,parallel"
           - "pmtree-ft"
-          - "pmtree-ft,stateless"
           - "pmtree-ft,parallel"
-          - "pmtree-ft,stateless,parallel"
           - "fullmerkletree"
-          - "fullmerkletree,stateless"
           - "fullmerkletree,parallel"
-          - "fullmerkletree,stateless,parallel"
           - "optimalmerkletree"
-          - "optimalmerkletree,stateless"
           - "optimalmerkletree,parallel"
-          - "optimalmerkletree,stateless,parallel"
         target:
           - x86_64-apple-darwin
           - aarch64-apple-darwin
@@ -90,13 +77,8 @@ jobs:
       - name: Cross build
         run: |
           FEATURES="${{ matrix.feature }}"
-          CARGO_ARGS=""
 
-          if [[ "$FEATURES" == *"stateless"* ]]; then
-            CARGO_ARGS="--exclude rln-cli"
-          fi
-
-          cross build --release --target ${{ matrix.target }} --features $FEATURES --workspace $CARGO_ARGS
+          cross build --release --target ${{ matrix.target }} --features $FEATURES --workspace --exclude rln-cli
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
@@ -113,10 +95,8 @@ jobs:
     strategy:
       matrix:
         feature:
-          - "fullmerkletree"
-          - "fullmerkletree,parallel"
-          - "optimalmerkletree"
-          - "optimalmerkletree,parallel"
+          - "default"
+          - "parallel"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4

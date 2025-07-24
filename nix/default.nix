@@ -4,7 +4,6 @@
   project,
   src ? ../.,
   release ? true,
-  features ? null,
   target-platform ? null,
   rust-target ? null,
 }:
