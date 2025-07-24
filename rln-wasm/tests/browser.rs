@@ -29,7 +29,15 @@ mod tests {
     }
 
     export function initWitnessCalculator(jsCode) {
-      eval(jsCode);
+      const processedCode = jsCode
+        .replace(/export\s+async\s+function\s+builder/, 'async function builder')
+        .replace(/export\s*\{\s*builder\s*\};?/g, '');
+
+      const moduleFunc = new Function(processedCode + '\nreturn { builder };');
+      const witnessCalculatorModule = moduleFunc();
+
+      window.witnessCalculatorBuilder = witnessCalculatorModule.builder;
+
       if (typeof window.witnessCalculatorBuilder !== 'function') {
         return false;
       }
@@ -63,7 +71,7 @@ mod tests {
         async fn calculateWitness(circom_data: &[u8], inputs: Object) -> Result<JsValue, JsValue>;
     }
 
-    const WITNESS_CALCULATOR_JS: &str = include_str!("../resources/witness_calculator_browser.js");
+    const WITNESS_CALCULATOR_JS: &str = include_str!("../resources/witness_calculator.js");
 
     const ARKZKEY_BYTES: &[u8] =
         include_bytes!("../../rln/resources/tree_height_20/rln_final.arkzkey");
@@ -89,7 +97,7 @@ mod tests {
                 .expect("Failed to initialize thread pool");
         }
 
-        // Initialize the witness calculator
+        // Initialize witness calculator
         initWitnessCalculator(WITNESS_CALCULATOR_JS)
             .expect("Failed to initialize witness calculator");
 

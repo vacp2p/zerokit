@@ -18,22 +18,39 @@ mod tests {
         OptimalMerkleProof, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
     };
 
+    const WITNESS_CALCULATOR_JS: &str = include_str!("../resources/witness_calculator.js");
+
     #[wasm_bindgen(inline_js = r#"
     const fs = require("fs");
 
+    let witnessCalculatorModule = null;
+
     module.exports = {
+      initWitnessCalculator: function(code) {
+        const processedCode = code
+          .replace(/export\s+async\s+function\s+builder/, 'async function builder')
+          .replace(/export\s*\{\s*builder\s*\};?/g, '');
+
+        const moduleFunc = new Function(processedCode + '\nreturn { builder };');
+        witnessCalculatorModule = moduleFunc();
+
+        if (typeof witnessCalculatorModule.builder !== 'function') {
+          return false;
+        }
+        return true;
+      },
+
       readFile: function (path) {
         return fs.readFileSync(path);
       },
 
       calculateWitness: async function (circom_path, inputs) {
-        const wc = require("resources/witness_calculator_node.js");
         const wasmFile = fs.readFileSync(circom_path);
         const wasmFileBuffer = wasmFile.slice(
           wasmFile.byteOffset,
           wasmFile.byteOffset + wasmFile.byteLength
         );
-        const witnessCalculator = await wc(wasmFileBuffer);
+        const witnessCalculator = await witnessCalculatorModule.builder(wasmFileBuffer);
         const calculatedWitness = await witnessCalculator.calculateWitness(
           inputs,
           false
@@ -45,6 +62,9 @@ mod tests {
     };
     "#)]
     extern "C" {
+        #[wasm_bindgen(catch)]
+        fn initWitnessCalculator(code: &str) -> Result<bool, JsValue>;
+
         #[wasm_bindgen(catch)]
         fn readFile(path: &str) -> Result<Uint8Array, JsValue>;
 
@@ -58,6 +78,10 @@ mod tests {
 
     #[wasm_bindgen_test]
     pub async fn rln_wasm_benchmark() {
+        // Initialize witness calculator
+        initWitnessCalculator(WITNESS_CALCULATOR_JS)
+            .expect("Failed to initialize witness calculator");
+
         let mut results = String::from("\nbenchmarks:\n");
         let iterations = 10;
 
