@@ -9,7 +9,7 @@ use color_eyre::{eyre::Report, Result};
 use commands::Commands;
 use config::{Config, InnerConfig};
 use rln::{
-    public::RLN,
+    public::{Endianness, RLN},
     utils::{bytes_le_to_fr, bytes_le_to_vec_fr},
 };
 use serde_json::json;
@@ -39,10 +39,18 @@ fn main() -> Result<()> {
             let config = Config::load_config()?;
             state.rln = if let Some(InnerConfig { tree_height, .. }) = config.inner {
                 println!("Initializing RLN with custom config");
-                Some(RLN::new(tree_height, Cursor::new(config.as_bytes()))?)
+                Some(RLN::new(
+                    tree_height,
+                    Cursor::new(config.as_bytes()),
+                    Endianness::LittleEndian,
+                )?)
             } else {
                 println!("Initializing RLN with default config");
-                Some(RLN::new(tree_height, Cursor::new(json!({}).to_string()))?)
+                Some(RLN::new(
+                    tree_height,
+                    Cursor::new(json!({}).to_string()),
+                    Endianness::LittleEndian,
+                )?)
             };
             Ok(())
         }
@@ -72,6 +80,7 @@ fn main() -> Result<()> {
                     resources[0].clone(),
                     resources[1].clone(),
                     Cursor::new(tree_config.to_string().as_bytes()),
+                    Endianness::LittleEndian,
                 )?)
             } else {
                 println!("Initializing RLN with default config");
@@ -80,6 +89,7 @@ fn main() -> Result<()> {
                     resources[0].clone(),
                     resources[1].clone(),
                     Cursor::new(json!({}).to_string()),
+                    Endianness::LittleEndian,
                 )?)
             };
             Ok(())

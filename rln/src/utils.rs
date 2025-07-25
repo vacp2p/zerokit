@@ -5,6 +5,7 @@ use crate::error::ConversionError;
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
+use ark_std::vec::Vec;
 use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use rand::Rng;
@@ -193,6 +194,19 @@ pub fn bytes_be_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), ConversionEr
     }
     let res = input[8..8 + len].to_vec();
     read += res.len();
+    Ok((res, read))
+}
+
+#[inline(always)]
+pub fn bytes_be_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), ConversionError> {
+    let mut read: usize = 0;
+
+    let len = usize::try_from(u64::from_be_bytes(input[0..8].try_into()?))?;
+    read += 8;
+
+    let res = input[8..8 + len].to_vec();
+    read += res.len();
+
     Ok((res, read))
 }
 
@@ -449,5 +463,4 @@ mod test {
         let fr_1_de = bytes_be_to_fr(&b).0;
         assert_eq!(fr_1, fr_1_de);
     }
-
 }

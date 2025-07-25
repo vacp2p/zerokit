@@ -8,9 +8,9 @@ mod test {
     use rln::hashers::{hash_to_field_le, poseidon_hash};
     use rln::poseidon_tree::PoseidonTree;
     use rln::protocol::{
-        deserialize_proof_values, deserialize_witness, generate_proof, keygen,
+        deserialize_proof_values_le, deserialize_witness_le, generate_proof, keygen,
         proof_values_from_witness, rln_witness_from_json, rln_witness_from_values,
-        rln_witness_to_json, seeded_keygen, serialize_proof_values, serialize_witness,
+        rln_witness_to_json, seeded_keygen, serialize_proof_values_le, serialize_witness_le,
         verify_proof, RLNWitnessInput,
     };
     use rln::utils::str_to_fr;
@@ -187,14 +187,14 @@ mod test {
         assert_eq!(rln_witness_deser, rln_witness);
 
         // We test witness serialization
-        let ser = serialize_witness(&rln_witness).unwrap();
-        let (deser, _) = deserialize_witness(&ser).unwrap();
+        let ser = serialize_witness_le(&rln_witness).unwrap();
+        let (deser, _) = deserialize_witness_le(&ser).unwrap();
         assert_eq!(rln_witness, deser);
 
         // We test Proof values serialization
         let proof_values = proof_values_from_witness(&rln_witness).unwrap();
-        let ser = serialize_proof_values(&proof_values);
-        let (deser, _) = deserialize_proof_values(&ser);
+        let ser = serialize_proof_values_le(&proof_values);
+        let (deser, _) = deserialize_proof_values_le(&ser);
         assert_eq!(proof_values, deser);
     }
 

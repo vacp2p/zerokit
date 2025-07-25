@@ -232,8 +232,13 @@ impl<'a> From<&Buffer> for &'a [u8] {
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[cfg(not(feature = "stateless"))]
 #[no_mangle]
-pub extern "C" fn new(tree_height: usize, input_buffer: *const Buffer, ctx: *mut *mut RLN) -> bool {
-    match RLN::new(tree_height, input_buffer.process()) {
+pub extern "C" fn new(
+    tree_height: usize,
+    endianness: Endianness,
+    input_buffer: *const Buffer,
+    ctx: *mut *mut RLN,
+) -> bool {
+    match RLN::new(tree_height, input_buffer.process(), endianness) {
         Ok(rln) => {
             unsafe { *ctx = Box::into_raw(Box::new(rln)) };
             true
@@ -248,8 +253,8 @@ pub extern "C" fn new(tree_height: usize, input_buffer: *const Buffer, ctx: *mut
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[cfg(feature = "stateless")]
 #[no_mangle]
-pub extern "C" fn new(ctx: *mut *mut RLN) -> bool {
-    match RLN::new() {
+pub extern "C" fn new(ctx: *mut *mut RLN, endianness: Endianness) -> bool {
+    match RLN::new(endianness) {
         Ok(rln) => {
             unsafe { *ctx = Box::into_raw(Box::new(rln)) };
             true
@@ -269,6 +274,7 @@ pub extern "C" fn new_with_params(
     zkey_buffer: *const Buffer,
     graph_data: *const Buffer,
     tree_config: *const Buffer,
+    endianness: Endianness,
     ctx: *mut *mut RLN,
 ) -> bool {
     match RLN::new_with_params(
@@ -276,6 +282,7 @@ pub extern "C" fn new_with_params(
         zkey_buffer.process().to_vec(),
         graph_data.process().to_vec(),
         tree_config.process(),
+        endianness,
     ) {
         Ok(rln) => {
             unsafe { *ctx = Box::into_raw(Box::new(rln)) };
@@ -295,10 +302,12 @@ pub extern "C" fn new_with_params(
     zkey_buffer: *const Buffer,
     graph_buffer: *const Buffer,
     ctx: *mut *mut RLN,
+    endianness: Endianness,
 ) -> bool {
     match RLN::new_with_params(
         zkey_buffer.process().to_vec(),
         graph_buffer.process().to_vec(),
+        endianness,
     ) {
         Ok(rln) => {
             unsafe { *ctx = Box::into_raw(Box::new(rln)) };

@@ -2,10 +2,11 @@
 
 #[cfg(test)]
 mod tests {
-    use js_sys::{BigInt as JsBigInt, Date, Object, Uint8Array};
+    use js_sys::{BigInt as JsBigInt, Date, Number, Object, Uint8Array};
     use rln::circuit::{Fr, TEST_TREE_HEIGHT};
     use rln::hashers::{hash_to_field_le, poseidon_hash, PoseidonHash};
-    use rln::protocol::{prepare_verify_input, rln_witness_from_values, serialize_witness};
+    use rln::poseidon_tree::PoseidonTree;
+    use rln::protocol::{prepare_verify_input_le, rln_witness_from_values, serialize_witness_le};
     use rln::utils::{bytes_le_to_fr, fr_to_bytes_le, IdSecret};
     use rln_wasm::{
         wasm_generate_rln_proof_with_witness, wasm_new, wasm_rln_witness_to_json,
@@ -110,12 +111,12 @@ mod tests {
         // Benchmark wasm_new
         let start_wasm_new = Date::now();
         for _ in 0..iterations {
-            let _ = wasm_new(zkey.clone()).expect("Failed to create RLN instance");
+            let _ = wasm_new(zkey.clone(), Number::from(0)).expect("Failed to create RLN instance");
         }
         let wasm_new_result = Date::now() - start_wasm_new;
 
         // Create RLN instance for other benchmarks
-        let rln_instance = wasm_new(zkey).expect("Failed to create RLN instance");
+        let rln_instance = wasm_new(zkey, Number::from(0)).expect("Failed to create RLN instance");
         let mut tree: OptimalMerkleTree<PoseidonHash> =
             OptimalMerkleTree::default(TEST_TREE_HEIGHT).expect("Failed to create tree");
 
@@ -164,7 +165,7 @@ mod tests {
         .expect("Failed to create RLN witness");
 
         let serialized_witness =
-            serialize_witness(&rln_witness).expect("Failed to serialize witness");
+            serialize_witness_le(&rln_witness).expect("Failed to serialize witness");
         let witness_buffer = Uint8Array::from(&serialized_witness[..]);
 
         let json_inputs = wasm_rln_witness_to_json(rln_instance, witness_buffer.clone())
@@ -211,7 +212,7 @@ mod tests {
                 .expect("Failed to generate proof");
 
         let proof_data = proof.to_vec();
-        let verify_input = prepare_verify_input(proof_data, &signal);
+        let verify_input = prepare_verify_input_le(proof_data, &signal);
         let input_buffer = Uint8Array::from(&verify_input[..]);
 
         let root = tree.root();

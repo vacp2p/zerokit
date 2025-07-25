@@ -1,8 +1,11 @@
 #![cfg(target_arch = "wasm32")]
 
-use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
+use js_sys::{BigInt as JsBigInt, Number, Object, Uint8Array};
 use num_bigint::BigInt;
-use rln::public::RLN;
+use rln::public::{
+    extended_key_gen, hash, key_gen, poseidon_hash, seeded_extended_key_gen, seeded_key_gen,
+    Endianness, RLN,
+};
 use std::vec::Vec;
 use wasm_bindgen::prelude::*;
 
@@ -78,6 +81,36 @@ macro_rules! call_bool_method_with_error_msg {
     }
 }
 
+// Macro for functions that take (output_data, endianness)
+macro_rules! fn_call_key_gen {
+    ($func:ident, $error_msg:expr, $endianness:expr) => {{
+        let mut output_data: Vec<u8> = Vec::new();
+        if let Err(err) = $func(&mut output_data, $endianness.process()) {
+            std::mem::forget(output_data);
+            Err(format!("Msg: {:#?}, Error: {:#?}", $error_msg, err))
+        } else {
+            let result = Uint8Array::from(&output_data[..]);
+            std::mem::forget(output_data);
+            Ok(result)
+        }
+    }};
+}
+
+// Macro for functions that take (input_data, output_data, endianness)
+macro_rules! fn_call_with_input {
+    ($func:ident, $error_msg:expr, $input:expr, $endianness:expr) => {{
+        let mut output_data: Vec<u8> = Vec::new();
+        if let Err(err) = $func($input.process(), &mut output_data, $endianness.process()) {
+            std::mem::forget(output_data);
+            Err(format!("Msg: {:#?}, Error: {:#?}", $error_msg, err))
+        } else {
+            let result = Uint8Array::from(&output_data[..]);
+            std::mem::forget(output_data);
+            Ok(result)
+        }
+    }};
+}
+
 trait ProcessArg {
     type ReturnType;
     fn process(self) -> Self::ReturnType;
@@ -126,10 +159,24 @@ impl<'a> ProcessArg for &'a [u8] {
     }
 }
 
+impl ProcessArg for Endianness {
+    type ReturnType = Endianness;
+
+    fn process(self) -> Self::ReturnType {
+        self
+    }
+}
+
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = newRLN)]
-pub fn wasm_new(zkey: Uint8Array) -> Result<*mut RLNWrapper, String> {
-    let instance = RLN::new_with_params(zkey.to_vec()).map_err(|err| format!("{:#?}", err))?;
+pub fn wasm_new(zkey: Uint8Array, endianness: Number) -> Result<*mut RLNWrapper, String> {
+    let endianness = match endianness.as_f64().unwrap_or(0.0) as i32 {
+        0 => Endianness::LittleEndian,
+        1 => Endianness::BigEndian,
+        _ => return Err("Invalid endianness".to_string()),
+    };
+    let instance =
+        RLN::new_with_params(zkey.to_vec(), endianness).map_err(|err| format!("{:#?}", err))?;
     let wrapper = RLNWrapper { instance };
     Ok(Box::into_raw(Box::new(wrapper)))
 }
@@ -180,6 +227,67 @@ pub fn wasm_generate_rln_proof_with_witness(
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[wasm_bindgen(js_name = generateMembershipKey)]
+pub fn wasm_key_gen(endianness: Number) -> Result<Uint8Array, String> {
+    let endianness = match endianness.as_f64().unwrap_or(0.0) as i32 {
+        0 => Endianness::LittleEndian,
+        1 => Endianness::BigEndian,
+        _ => return Err("Invalid endianness".to_string()),
+    };
+    fn_call_key_gen!(key_gen, "could not generate membership keys", endianness)
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[wasm_bindgen(js_name = generateExtendedMembershipKey)]
+pub fn wasm_extended_key_gen(endianness: Number) -> Result<Uint8Array, String> {
+    let endianness = match endianness.as_f64().unwrap_or(0.0) as i32 {
+        0 => Endianness::LittleEndian,
+        1 => Endianness::BigEndian,
+        _ => return Err("Invalid endianness".to_string()),
+    };
+    fn_call_key_gen!(
+        extended_key_gen,
+        "could not generate membership keys",
+        endianness
+    )
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[wasm_bindgen(js_name = generateSeededMembershipKey)]
+pub fn wasm_seeded_key_gen(seed: Uint8Array, endianness: Number) -> Result<Uint8Array, String> {
+    let endianness = match endianness.as_f64().unwrap_or(0.0) as i32 {
+        0 => Endianness::LittleEndian,
+        1 => Endianness::BigEndian,
+        _ => return Err("Invalid endianness".to_string()),
+    };
+    fn_call_with_input!(
+        seeded_key_gen,
+        "could not generate membership key",
+        &seed.to_vec()[..],
+        endianness
+    )
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[wasm_bindgen(js_name = generateSeededExtendedMembershipKey)]
+pub fn wasm_seeded_extended_key_gen(
+    seed: Uint8Array,
+    endianness: Number,
+) -> Result<Uint8Array, String> {
+    let endianness = match endianness.as_f64().unwrap_or(0.0) as i32 {
+        0 => Endianness::LittleEndian,
+        1 => Endianness::BigEndian,
+        _ => return Err("Invalid endianness".to_string()),
+    };
+    fn_call_with_input!(
+        seeded_extended_key_gen,
+        "could not generate membership key",
+        &seed.to_vec()[..],
+        endianness
+    )
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = recovedIDSecret)]
 pub fn wasm_recover_id_secret(
     ctx: *const RLNWrapper,
@@ -208,5 +316,35 @@ pub fn wasm_verify_with_roots(
         "error while verifying proof with roots".to_string(),
         &proof.to_vec()[..],
         &roots.to_vec()[..]
+    )
+}
+
+#[wasm_bindgen(js_name = hash)]
+pub fn wasm_hash(input: Uint8Array, endianness: Number) -> Result<Uint8Array, String> {
+    let endianness = match endianness.as_f64().unwrap_or(0.0) as i32 {
+        0 => Endianness::LittleEndian,
+        1 => Endianness::BigEndian,
+        _ => return Err("Invalid endianness".to_string()),
+    };
+    fn_call_with_input!(
+        hash,
+        "could not generate hash",
+        &input.to_vec()[..],
+        endianness
+    )
+}
+
+#[wasm_bindgen(js_name = poseidonHash)]
+pub fn wasm_poseidon_hash(input: Uint8Array, endianness: Number) -> Result<Uint8Array, String> {
+    let endianness = match endianness.as_f64().unwrap_or(0.0) as i32 {
+        0 => Endianness::LittleEndian,
+        1 => Endianness::BigEndian,
+        _ => return Err("Invalid endianness".to_string()),
+    };
+    fn_call_with_input!(
+        poseidon_hash,
+        "could not generate poseidon hash",
+        &input.to_vec()[..],
+        endianness
     )
 }

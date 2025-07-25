@@ -10,9 +10,9 @@ use color_eyre::{eyre::eyre, Report, Result};
 use rln::{
     circuit::Fr,
     hashers::{hash_to_field_le, poseidon_hash},
-    protocol::{keygen, prepare_prove_input, prepare_verify_input},
-    public::RLN,
-    utils::{fr_to_bytes_le, generate_input_buffer, IdSecret},
+    protocol::{keygen, prepare_prove_input, prepare_verify_input_le},
+    public::{Endianness, RLN},
+    utils::{fr_to_bytes_le, generate_input_buffer},
 };
 
 const MESSAGE_LIMIT: u32 = 1;
@@ -82,6 +82,7 @@ impl RLNSystem {
             resources[0].clone(),
             resources[1].clone(),
             generate_input_buffer(),
+            Endianness::LittleEndian,
         )?;
         println!("RLN instance initialized successfully");
         Ok(RLNSystem {
@@ -161,7 +162,7 @@ impl RLNSystem {
     }
 
     fn verify_proof(&mut self, proof_data: Vec<u8>, signal: &str) -> Result<()> {
-        let proof_with_signal = prepare_verify_input(proof_data.clone(), signal.as_bytes());
+        let proof_with_signal = prepare_verify_input_le(proof_data.clone(), signal.as_bytes());
         let mut input_buffer = Cursor::new(proof_with_signal);
 
         match self.rln.verify_rln_proof(&mut input_buffer) {

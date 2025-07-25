@@ -10,9 +10,9 @@ use color_eyre::{eyre::eyre, Result};
 use rln::{
     circuit::{Fr, TEST_TREE_HEIGHT},
     hashers::{hash_to_field_le, poseidon_hash, PoseidonHash},
-    protocol::{keygen, prepare_verify_input, rln_witness_from_values, serialize_witness},
-    public::RLN,
-    utils::{fr_to_bytes_le, IdSecret},
+    protocol::{keygen, prepare_verify_input_le, rln_witness_from_values, serialize_witness_le},
+    public::{Endianness, RLN},
+    utils::fr_to_bytes_le,
 };
 use zerokit_utils::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
@@ -68,7 +68,7 @@ struct RLNSystem {
 
 impl RLNSystem {
     fn new() -> Result<Self> {
-        let rln = RLN::new()?;
+        let rln = RLN::new(Endianness::LittleEndian)?;
         let default_leaf = Fr::from(0);
         let tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
             TEST_TREE_HEIGHT,

@@ -1,9 +1,9 @@
 use crate::circuit::TEST_TREE_HEIGHT;
 use crate::protocol::{
-    proof_values_from_witness, random_rln_witness, serialize_proof_values, serialize_witness,
+    proof_values_from_witness, random_rln_witness, serialize_proof_values_le, serialize_witness_le,
     verify_proof, RLNProofValues,
 };
-use crate::public::RLN;
+use crate::public::{Endianness, RLN};
 use crate::utils::str_to_fr;
 use ark_groth16::Proof as ArkProof;
 use ark_serialize::CanonicalDeserialize;
@@ -53,9 +53,14 @@ fn value_to_string_vec(value: &Value) -> Vec<String> {
 #[test]
 fn test_groth16_proof_hardcoded() {
     #[cfg(not(feature = "stateless"))]
-    let rln = RLN::new(TEST_TREE_HEIGHT, generate_input_buffer()).unwrap();
+    let rln = RLN::new(
+        TEST_TREE_HEIGHT,
+        generate_input_buffer(),
+        Endianness::LittleEndian,
+    )
+    .unwrap();
     #[cfg(feature = "stateless")]
-    let rln = RLN::new().unwrap();
+    let rln = RLN::new(Endianness::LittleEndian).unwrap();
 
     let valid_snarkjs_proof = json!({
      "pi_a": [
@@ -136,16 +141,21 @@ fn test_groth16_proof() {
     let tree_height = TEST_TREE_HEIGHT;
 
     #[cfg(not(feature = "stateless"))]
-    let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+    let mut rln = RLN::new(
+        tree_height,
+        generate_input_buffer(),
+        Endianness::LittleEndian,
+    )
+    .unwrap();
     #[cfg(feature = "stateless")]
-    let mut rln = RLN::new().unwrap();
+    let mut rln = RLN::new(Endianness::LittleEndian).unwrap();
 
     // Note: we only test Groth16 proof generation, so we ignore setting the tree in the RLN object
     let rln_witness = random_rln_witness(tree_height);
     let proof_values = proof_values_from_witness(&rln_witness).unwrap();
 
     // We compute a Groth16 proof
-    let mut input_buffer = Cursor::new(serialize_witness(&rln_witness).unwrap());
+    let mut input_buffer = Cursor::new(serialize_witness_le(&rln_witness).unwrap());
     let mut output_buffer = Cursor::new(Vec::<u8>::new());
     rln.prove(&mut input_buffer, &mut output_buffer).unwrap();
     let serialized_proof = output_buffer.into_inner();
@@ -157,7 +167,7 @@ fn test_groth16_proof() {
     assert!(verified.unwrap());
 
     // We prepare the input to prove API, consisting of serialized_proof (compressed, 4*32 bytes) || serialized_proof_values (6*32 bytes)
-    let serialized_proof_values = serialize_proof_values(&proof_values);
+    let serialized_proof_values = serialize_proof_values_le(&proof_values);
     let mut verify_data = Vec::<u8>::new();
     verify_data.extend(&serialized_proof);
     verify_data.extend(&serialized_proof_values);
@@ -174,7 +184,7 @@ mod tree_test {
     use crate::circuit::{Fr, TEST_TREE_HEIGHT};
     use crate::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
     use crate::protocol::*;
-    use crate::public::RLN;
+    use crate::public::{Endianness, RLN};
     use crate::utils::*;
     use ark_serialize::Read;
     use std::io::Cursor;
@@ -197,7 +207,12 @@ mod tree_test {
         }
 
         // We create a new tree
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(
+            tree_height,
+            generate_input_buffer(),
+            Endianness::LittleEndian,
+        )
+        .unwrap();
 
         // We first add leaves one by one specifying the index
         for (i, leaf) in leaves.iter().enumerate() {
@@ -291,7 +306,12 @@ mod tree_test {
         let set_index = rng.gen_range(0..no_of_leaves) as usize;
 
         // We create a new tree
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(
+            tree_height,
+            generate_input_buffer(),
+            Endianness::LittleEndian,
+        )
+        .unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -361,7 +381,12 @@ mod tree_test {
         }
 
         // We create a new tree
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(
+            tree_height,
+            generate_input_buffer(),
+            Endianness::LittleEndian,
+        )
+        .unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -410,7 +435,12 @@ mod tree_test {
         }
 
         // We create a new tree
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(
+            tree_height,
+            generate_input_buffer(),
+            Endianness::LittleEndian,
+        )
+        .unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -454,7 +484,12 @@ mod tree_test {
         }
 
         // We create a new tree
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(
+            tree_height,
+            generate_input_buffer(),
+            Endianness::LittleEndian,
+        )
+        .unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -506,7 +541,12 @@ mod tree_test {
         let bad_index = (1 << tree_height) - rng.gen_range(0..no_of_leaves) as usize;
 
         // We create a new tree
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(
+            tree_height,
+            generate_input_buffer(),
+            Endianness::LittleEndian,
+        )
+        .unwrap();
 
         // Get root of empty tree
         let mut buffer = Cursor::new(Vec::<u8>::new());
@@ -536,7 +576,12 @@ mod tree_test {
         // We generate a random tree
         let tree_height = 10;
         let mut rng = thread_rng();
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(
+            tree_height,
+            generate_input_buffer(),
+            Endianness::LittleEndian,
+        )
+        .unwrap();
 
         // We generate a random leaf
         let leaf = Fr::rand(&mut rng);
@@ -561,7 +606,12 @@ mod tree_test {
     fn test_valid_metadata() {
         let tree_height = TEST_TREE_HEIGHT;
 
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(
+            tree_height,
+            generate_input_buffer(),
+            Endianness::LittleEndian,
+        )
+        .unwrap();
 
         let arbitrary_metadata: &[u8] = b"block_number:200000";
         rln.set_metadata(arbitrary_metadata).unwrap();
@@ -577,7 +627,12 @@ mod tree_test {
     fn test_empty_metadata() {
         let tree_height = TEST_TREE_HEIGHT;
 
-        let rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let rln = RLN::new(
+            tree_height,
+            generate_input_buffer(),
+            Endianness::LittleEndian,
+        )
+        .unwrap();
 
         let mut buffer = Cursor::new(Vec::<u8>::new());
         rln.get_metadata(&mut buffer).unwrap();
@@ -601,7 +656,12 @@ mod tree_test {
         }
 
         // We create a new RLN instance
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(
+            tree_height,
+            generate_input_buffer(),
+            Endianness::LittleEndian,
+        )
+        .unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -652,7 +712,7 @@ mod tree_test {
         // We prepare input for verify_rln_proof API
         // input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
         // that is [ proof_data || signal_len<8> | signal<var> ]
-        let verify_input = prepare_verify_input(proof_data, &signal);
+        let verify_input = prepare_verify_input_le(proof_data, &signal);
 
         let mut input_buffer = Cursor::new(verify_input);
         let verified = rln.verify_rln_proof(&mut input_buffer).unwrap();
@@ -673,7 +733,12 @@ mod tree_test {
         }
 
         // We create a new RLN instance
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(
+            tree_height,
+            generate_input_buffer(),
+            Endianness::LittleEndian,
+        )
+        .unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -718,9 +783,10 @@ mod tree_test {
         // We read input RLN witness and we serialize_compressed it
         let mut witness_byte: Vec<u8> = Vec::new();
         input_buffer.read_to_end(&mut witness_byte).unwrap();
-        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut rln.tree, &witness_byte).unwrap();
+        let (rln_witness, _) =
+            proof_inputs_to_rln_witness_le(&mut rln.tree, &witness_byte).unwrap();
 
-        let serialized_witness = serialize_witness(&rln_witness).unwrap();
+        let serialized_witness = serialize_witness_le(&rln_witness).unwrap();
 
         // Generating the proof
         let mut input_buffer = Cursor::new(serialized_witness);
@@ -734,7 +800,7 @@ mod tree_test {
         // We prepare input for verify_rln_proof API
         // input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
         // that is [ proof_data || signal_len<8> | signal<var> ]
-        let verify_input = prepare_verify_input(proof_data, &signal);
+        let verify_input = prepare_verify_input_le(proof_data, &signal);
 
         let mut input_buffer = Cursor::new(verify_input);
         let verified = rln.verify_rln_proof(&mut input_buffer).unwrap();
@@ -756,7 +822,12 @@ mod tree_test {
         }
 
         // We create a new RLN instance
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(
+            tree_height,
+            generate_input_buffer(),
+            Endianness::LittleEndian,
+        )
+        .unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -806,7 +877,7 @@ mod tree_test {
 
         // input_data is  [ proof<128> |// We prepare input for verify_rln_proof API root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
         // that is [ proof_data || signal_len<8> | signal<var> ]
-        let verify_input = prepare_verify_input(proof_data, &signal);
+        let verify_input = prepare_verify_input_le(proof_data, &signal);
 
         let mut input_buffer = Cursor::new(verify_input);
 
@@ -850,7 +921,12 @@ mod tree_test {
         let tree_height = TEST_TREE_HEIGHT;
 
         // We create a new RLN instance
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(
+            tree_height,
+            generate_input_buffer(),
+            Endianness::LittleEndian,
+        )
+        .unwrap();
 
         // Generate identity pair
         let (identity_secret_hash, id_commitment) = keygen();
@@ -996,7 +1072,7 @@ mod stateless_test {
     use crate::circuit::{Fr, TEST_TREE_HEIGHT};
     use crate::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash, PoseidonHash};
     use crate::protocol::*;
-    use crate::public::RLN;
+    use crate::public::{Endianness, RLN};
     use crate::utils::*;
     use std::io::Cursor;
     use utils::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
@@ -1009,7 +1085,7 @@ mod stateless_test {
     #[test]
     fn test_stateless_rln_proof() {
         // We create a new RLN instance
-        let mut rln = RLN::new().unwrap();
+        let mut rln = RLN::new(Endianness::LittleEndian).unwrap();
 
         let default_leaf = Fr::from(0);
         let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
@@ -1055,7 +1131,7 @@ mod stateless_test {
         )
         .unwrap();
 
-        let serialized = serialize_witness(&rln_witness).unwrap();
+        let serialized = serialize_witness_le(&rln_witness).unwrap();
         let mut input_buffer = Cursor::new(serialized);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.generate_rln_proof_with_witness(&mut input_buffer, &mut output_buffer)
@@ -1067,7 +1143,7 @@ mod stateless_test {
         // We prepare input for verify_rln_proof API
         // input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
         // that is [ proof_data || signal_len<8> | signal<var> ]
-        let verify_input = prepare_verify_input(proof_data, &signal);
+        let verify_input = prepare_verify_input_le(proof_data, &signal);
 
         let mut input_buffer = Cursor::new(verify_input);
 
@@ -1107,7 +1183,7 @@ mod stateless_test {
     #[test]
     fn test_stateless_recover_id_secret() {
         // We create a new RLN instance
-        let mut rln = RLN::new().unwrap();
+        let mut rln = RLN::new(Endianness::LittleEndian).unwrap();
 
         let default_leaf = Fr::from(0);
         let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
@@ -1162,14 +1238,14 @@ mod stateless_test {
         )
         .unwrap();
 
-        let serialized = serialize_witness(&rln_witness1).unwrap();
+        let serialized = serialize_witness_le(&rln_witness1).unwrap();
         let mut input_buffer = Cursor::new(serialized);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.generate_rln_proof_with_witness(&mut input_buffer, &mut output_buffer)
             .unwrap();
         let proof_data_1 = output_buffer.into_inner();
 
-        let serialized = serialize_witness(&rln_witness2).unwrap();
+        let serialized = serialize_witness_le(&rln_witness2).unwrap();
         let mut input_buffer = Cursor::new(serialized);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.generate_rln_proof_with_witness(&mut input_buffer, &mut output_buffer)
@@ -1219,7 +1295,7 @@ mod stateless_test {
         )
         .unwrap();
 
-        let serialized = serialize_witness(&rln_witness3).unwrap();
+        let serialized = serialize_witness_le(&rln_witness3).unwrap();
         let mut input_buffer = Cursor::new(serialized);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.generate_rln_proof_with_witness(&mut input_buffer, &mut output_buffer)

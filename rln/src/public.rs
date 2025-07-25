@@ -1,13 +1,17 @@
 use crate::circuit::{zkey_from_raw, Curve, Fr};
 use crate::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
 use crate::protocol::{
-    compute_id_secret, deserialize_proof_values, deserialize_witness, extended_keygen,
-    extended_seeded_keygen, keygen, proof_values_from_witness, rln_witness_to_bigint_json,
-    rln_witness_to_json, seeded_keygen, serialize_proof_values, verify_proof,
+    compute_id_secret, deserialize_proof_values_be, deserialize_proof_values_le,
+    deserialize_witness_be, deserialize_witness_le, extended_keygen, extended_seeded_keygen,
+    generate_proof, keygen, proof_inputs_to_rln_witness_be, proof_inputs_to_rln_witness_le,
+    proof_values_from_witness, rln_witness_to_bigint_json, rln_witness_to_json, seeded_keygen,
+    serialize_proof_values_be, serialize_proof_values_le, serialize_witness_be,
+    serialize_witness_le, verify_proof,
 };
 use crate::utils::{
-    bytes_be_to_vec_fr, bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size,
-    fr_to_bytes_be, fr_to_bytes_le, vec_fr_to_bytes_le, vec_u8_to_bytes_le,
+    bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_le_to_fr, bytes_le_to_vec_fr,
+    bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_be, fr_to_bytes_le, vec_fr_to_bytes_be,
+    vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use {
@@ -47,12 +51,20 @@ use std::io::Cursor;
 /// Prevents a RLN ZK proof generated for one application to be re-used in another one.
 pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(C)]
+pub enum Endianness {
+    LittleEndian = 0,
+    BigEndian = 1,
+}
+
 /// The RLN object.
 ///
 /// It implements the methods required to update the internal Merkle Tree, generate and verify RLN ZK proofs.
 ///
 /// I/O is mostly done using writers and readers implementing `std::io::Write` and `std::io::Read`, respectively.
 pub struct RLN {
+    endianness: Endianness,
     proving_key: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
     pub(crate) verification_key: VerifyingKey<Curve>,
     #[cfg(not(target_arch = "wasm32"))]
@@ -79,7 +91,11 @@ impl RLN {
     /// let mut rln = RLN::new(tree_height, input);
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
-    pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> Result<RLN, RLNError> {
+    pub fn new<R: Read>(
+        tree_height: usize,
+        mut input_data: R,
+        endianness: Endianness,
+    ) -> Result<RLN, RLNError> {
         // We read input
         let mut input: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input)?;
@@ -105,6 +121,7 @@ impl RLN {
         )?;
 
         Ok(RLN {
+            endianness,
             proving_key,
             verification_key,
             graph_data,
@@ -122,12 +139,13 @@ impl RLN {
     /// let mut rln = RLN::new();
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
-    pub fn new() -> Result<RLN, RLNError> {
+    pub fn new(endianness: Endianness) -> Result<RLN, RLNError> {
         let proving_key = zkey_from_folder().to_owned();
         let verification_key = proving_key.0.vk.to_owned();
         let graph_data = graph_from_folder().to_owned();
 
         Ok(RLN {
+            endianness,
             proving_key,
             verification_key,
             graph_data,
@@ -176,6 +194,7 @@ impl RLN {
         zkey_vec: Vec<u8>,
         graph_data: Vec<u8>,
         mut tree_config_input: R,
+        endianness: Endianness,
     ) -> Result<RLN, RLNError> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = proving_key.0.vk.to_owned();
@@ -198,6 +217,7 @@ impl RLN {
         )?;
 
         Ok(RLN {
+            endianness,
             proving_key,
             verification_key,
             graph_data,
@@ -235,11 +255,16 @@ impl RLN {
     /// );
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
-    pub fn new_with_params(zkey_vec: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN, RLNError> {
+    pub fn new_with_params(
+        zkey_vec: Vec<u8>,
+        graph_data: Vec<u8>,
+        endianness: Endianness,
+    ) -> Result<RLN, RLNError> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = proving_key.0.vk.to_owned();
 
         Ok(RLN {
+            endianness,
             proving_key,
             verification_key,
             graph_data,
@@ -266,11 +291,12 @@ impl RLN {
     /// let mut rln = RLN::new_with_params(zkey_vec)?;
     /// ```
     #[cfg(all(target_arch = "wasm32", feature = "stateless"))]
-    pub fn new_with_params(zkey_vec: Vec<u8>) -> Result<RLN, RLNError> {
+    pub fn new_with_params(zkey_vec: Vec<u8>, endianness: Endianness) -> Result<RLN, RLNError> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = proving_key.0.vk.to_owned();
 
         Ok(RLN {
+            endianness,
             proving_key,
             verification_key,
         })
@@ -323,9 +349,17 @@ impl RLN {
         input_data.read_to_end(&mut leaf_byte)?;
 
         // We set the leaf at input index
-        let (leaf, _) = bytes_le_to_fr(&leaf_byte);
+        let leaf = match self.endianness {
+            Endianness::LittleEndian => {
+                let (leaf, _) = bytes_le_to_fr(&leaf_byte);
+                leaf
+            }
+            Endianness::BigEndian => {
+                let (leaf, _) = bytes_be_to_fr(&leaf_byte);
+                leaf
+            }
+        };
         self.tree.set(index, leaf)?;
-
         Ok(())
     }
 
@@ -352,7 +386,10 @@ impl RLN {
         let leaf = self.tree.get(index)?;
 
         // We serialize the leaf and write it to output
-        let leaf_byte = fr_to_bytes_le(&leaf);
+        let leaf_byte = match self.endianness {
+            Endianness::LittleEndian => fr_to_bytes_le(&leaf),
+            Endianness::BigEndian => fr_to_bytes_be(&leaf),
+        };
         output_data.write_all(&leaf_byte)?;
 
         Ok(())
@@ -399,7 +436,10 @@ impl RLN {
         let mut leaves_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut leaves_byte)?;
 
-        let (leaves, _) = bytes_le_to_vec_fr(&leaves_byte)?;
+        let (leaves, _) = match self.endianness {
+            Endianness::LittleEndian => bytes_le_to_vec_fr(&leaves_byte)?,
+            Endianness::BigEndian => bytes_be_to_vec_fr(&leaves_byte)?,
+        };
 
         // We set the leaves
         self.tree
@@ -475,12 +515,18 @@ impl RLN {
         let mut leaves_byte: Vec<u8> = Vec::new();
         input_leaves.read_to_end(&mut leaves_byte)?;
 
-        let (leaves, _) = bytes_le_to_vec_fr(&leaves_byte)?;
+        let (leaves, _) = match self.endianness {
+            Endianness::LittleEndian => bytes_le_to_vec_fr(&leaves_byte)?,
+            Endianness::BigEndian => bytes_be_to_vec_fr(&leaves_byte)?,
+        };
 
         let mut indices_byte: Vec<u8> = Vec::new();
         input_indices.read_to_end(&mut indices_byte)?;
 
-        let (indices, _) = bytes_le_to_vec_u8(&indices_byte)?;
+        let (indices, _) = match self.endianness {
+            Endianness::LittleEndian => bytes_le_to_vec_u8(&indices_byte)?,
+            Endianness::BigEndian => bytes_be_to_vec_u8(&indices_byte)?,
+        };
         let indices: Vec<usize> = indices.iter().map(|x| *x as usize).collect();
 
         // We set the leaves
@@ -544,7 +590,16 @@ impl RLN {
         input_data.read_to_end(&mut leaf_byte)?;
 
         // We set the leaf at input index
-        let (leaf, _) = bytes_le_to_fr(&leaf_byte);
+        let leaf = match self.endianness {
+            Endianness::LittleEndian => {
+                let (leaf, _) = bytes_le_to_fr(&leaf_byte);
+                leaf
+            }
+            Endianness::BigEndian => {
+                let (leaf, _) = bytes_be_to_fr(&leaf_byte);
+                leaf
+            }
+        };
         self.tree.update_next(leaf)?;
 
         Ok(())
@@ -624,7 +679,11 @@ impl RLN {
     #[cfg(not(feature = "stateless"))]
     pub fn get_root<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
         let root = self.tree.root();
-        output_data.write_all(&fr_to_bytes_le(&root))?;
+        let root_byte = match self.endianness {
+            Endianness::LittleEndian => fr_to_bytes_le(&root),
+            Endianness::BigEndian => fr_to_bytes_be(&root),
+        };
+        output_data.write_all(&root_byte)?;
         Ok(())
     }
 
@@ -651,7 +710,11 @@ impl RLN {
         mut output_data: W,
     ) -> Result<(), RLNError> {
         let subroot = self.tree.get_subtree_root(level, index)?;
-        output_data.write_all(&fr_to_bytes_le(&subroot))?;
+        let subroot_byte = match self.endianness {
+            Endianness::LittleEndian => fr_to_bytes_le(&subroot),
+            Endianness::BigEndian => fr_to_bytes_be(&subroot),
+        };
+        output_data.write_all(&subroot_byte)?;
 
         Ok(())
     }
@@ -684,8 +747,16 @@ impl RLN {
         let identity_path_index = merkle_proof.get_path_index();
 
         // Note: unwrap safe - vec_fr_to_bytes_le & vec_u8_to_bytes_le are infallible
-        output_data.write_all(&vec_fr_to_bytes_le(&path_elements))?;
-        output_data.write_all(&vec_u8_to_bytes_le(&identity_path_index))?;
+        match self.endianness {
+            Endianness::LittleEndian => {
+                output_data.write_all(&vec_fr_to_bytes_le(&path_elements))?;
+                output_data.write_all(&vec_u8_to_bytes_le(&identity_path_index))?;
+            }
+            Endianness::BigEndian => {
+                output_data.write_all(&vec_fr_to_bytes_be(&path_elements))?;
+                output_data.write_all(&vec_u8_to_bytes_be(&identity_path_index))?;
+            }
+        }
 
         Ok(())
     }
@@ -725,7 +796,14 @@ impl RLN {
     #[cfg(not(feature = "stateless"))]
     pub fn get_empty_leaves_indices<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
         let idxs = self.tree.get_empty_leaves_indices();
-        idxs.serialize_compressed(&mut output_data)?;
+        match self.endianness {
+            Endianness::LittleEndian => {
+                idxs.serialize_compressed(&mut output_data)?;
+            }
+            Endianness::BigEndian => {
+                // TODO: implement
+            }
+        }
         Ok(())
     }
 
@@ -764,7 +842,10 @@ impl RLN {
         // We read input RLN witness and we serialize_compressed it
         let mut serialized_witness: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized_witness)?;
-        let (rln_witness, _) = deserialize_witness(&serialized_witness)?;
+        let (rln_witness, _) = match self.endianness {
+            Endianness::LittleEndian => deserialize_witness_le(&serialized_witness)?,
+            Endianness::BigEndian => deserialize_witness_be(&serialized_witness)?,
+        };
 
         let proof = generate_proof(&self.proving_key, &rln_witness, &self.graph_data)?;
 
@@ -816,9 +897,14 @@ impl RLN {
         // [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
         let mut input_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input_byte)?;
-        let proof = ArkProof::deserialize_compressed(&mut Cursor::new(&input_byte[..128]))?;
+        // TODO: looks like in nwaku they just store proof as compressed
+        let proof =
+            ArkProof::deserialize_compressed(&mut Cursor::new(&input_byte[..128].to_vec()))?;
 
-        let (proof_values, _) = deserialize_proof_values(&input_byte[128..]);
+        let (proof_values, _) = match self.endianness {
+            Endianness::LittleEndian => deserialize_proof_values_le(&input_byte[128..]),
+            Endianness::BigEndian => deserialize_proof_values_be(&input_byte[128..]),
+        };
 
         let verified = verify_proof(&self.verification_key, &proof, &proof_values)?;
 
@@ -883,9 +969,15 @@ impl RLN {
         mut output_data: W,
     ) -> Result<(), RLNError> {
         // We read input RLN witness and we serialize_compressed it
+
         let mut witness_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut witness_byte)?;
-        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
+        let (rln_witness, _) = match self.endianness {
+            Endianness::LittleEndian => {
+                proof_inputs_to_rln_witness_le(&mut self.tree, &witness_byte)?
+            }
+            Endianness::BigEndian => proof_inputs_to_rln_witness_be(&mut self.tree, &witness_byte)?,
+        };
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
         let proof = generate_proof(&self.proving_key, &rln_witness, &self.graph_data)?;
@@ -893,7 +985,11 @@ impl RLN {
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
         proof.serialize_compressed(&mut output_data)?;
-        output_data.write_all(&serialize_proof_values(&proof_values))?;
+
+        output_data.write_all(&match self.endianness {
+            Endianness::LittleEndian => serialize_proof_values_le(&proof_values),
+            Endianness::BigEndian => serialize_proof_values_be(&proof_values),
+        })?;
 
         Ok(())
     }
@@ -909,7 +1005,10 @@ impl RLN {
     ) -> Result<(), RLNError> {
         let mut serialized_witness: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized_witness)?;
-        let (rln_witness, _) = deserialize_witness(&serialized_witness)?;
+        let (rln_witness, _) = match self.endianness {
+            Endianness::LittleEndian => deserialize_witness_le(&serialized_witness)?,
+            Endianness::BigEndian => deserialize_witness_be(&serialized_witness)?,
+        };
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
         let proof = generate_proof(&self.proving_key, &rln_witness, &self.graph_data)?;
@@ -917,7 +1016,11 @@ impl RLN {
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
         proof.serialize_compressed(&mut output_data)?;
-        output_data.write_all(&serialize_proof_values(&proof_values))?;
+
+        output_data.write_all(&match self.endianness {
+            Endianness::LittleEndian => serialize_proof_values_le(&proof_values),
+            Endianness::BigEndian => serialize_proof_values_be(&proof_values),
+        })?;
         Ok(())
     }
 
@@ -931,7 +1034,10 @@ impl RLN {
         serialized_witness: Vec<u8>,
         mut output_data: W,
     ) -> Result<(), RLNError> {
-        let (rln_witness, _) = deserialize_witness(&serialized_witness[..])?;
+        let (rln_witness, _) = match self.endianness {
+            Endianness::LittleEndian => deserialize_witness_le(&serialized_witness[..])?,
+            Endianness::BigEndian => deserialize_witness_be(&serialized_witness[..])?,
+        };
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
         let proof = generate_proof_with_witness(calculated_witness, &self.proving_key).unwrap();
@@ -939,7 +1045,11 @@ impl RLN {
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
         proof.serialize_compressed(&mut output_data)?;
-        output_data.write_all(&serialize_proof_values(&proof_values))?;
+
+        output_data.write_all(&match self.endianness {
+            Endianness::LittleEndian => serialize_proof_values_le(&proof_values),
+            Endianness::BigEndian => serialize_proof_values_be(&proof_values),
+        })?;
         Ok(())
     }
 
@@ -975,24 +1085,47 @@ impl RLN {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
+        // TODO: looks like in nwaku they just store proof as compressed
         let proof =
             ArkProof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
-        let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
+        let (proof_values, read) = match self.endianness {
+            Endianness::LittleEndian => deserialize_proof_values_le(&serialized[all_read..]),
+            Endianness::BigEndian => deserialize_proof_values_be(&serialized[all_read..]),
+        };
         all_read += read;
 
-        let signal_len = usize::try_from(u64::from_le_bytes(
-            serialized[all_read..all_read + 8]
-                .try_into()
-                .map_err(ConversionError::FromSlice)?,
-        ))
-        .map_err(ConversionError::from)?;
-        all_read += 8;
+        // Read signal length
+        let signal_len = match self.endianness {
+            Endianness::LittleEndian => {
+                let signal_len = usize::try_from(u64::from_le_bytes(
+                    serialized[all_read..all_read + 8]
+                        .try_into()
+                        .map_err(ConversionError::FromSlice)?,
+                ))
+                .map_err(ConversionError::ToUsize)?;
+                all_read += 8;
+                signal_len
+            }
+            Endianness::BigEndian => {
+                let signal_len = usize::try_from(u64::from_be_bytes(
+                    serialized[all_read..all_read + 8]
+                        .try_into()
+                        .map_err(ConversionError::FromSlice)?,
+                ))
+                .map_err(ConversionError::ToUsize)?;
+                all_read += 8;
+                signal_len
+            }
+        };
 
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
 
         let verified = verify_proof(&self.verification_key, &proof, &proof_values)?;
-        let x = hash_to_field_le(&signal);
+        let x = match self.endianness {
+            Endianness::LittleEndian => hash_to_field_le(&signal),
+            Endianness::BigEndian => hash_to_field_be(&signal),
+        };
 
         // Consistency checks to counter proof tampering
         Ok(verified && (self.tree.root() == proof_values.root) && (x == proof_values.x))
@@ -1057,26 +1190,50 @@ impl RLN {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
+        // TODO: looks like in nwaku they just store proof as compressed
         let proof =
             ArkProof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
-        let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
+
+        let (proof_values, read) = match self.endianness {
+            Endianness::LittleEndian => deserialize_proof_values_le(&serialized[all_read..]),
+            Endianness::BigEndian => deserialize_proof_values_be(&serialized[all_read..]),
+        };
         all_read += read;
 
-        let signal_len = usize::try_from(u64::from_le_bytes(
-            serialized[all_read..all_read + 8]
-                .try_into()
-                .map_err(ConversionError::FromSlice)?,
-        ))
-        .map_err(ConversionError::ToUsize)?;
-        all_read += 8;
+        // Read signal length
+        let signal_len = match self.endianness {
+            Endianness::LittleEndian => {
+                let signal_len = usize::try_from(u64::from_le_bytes(
+                    serialized[all_read..all_read + 8]
+                        .try_into()
+                        .map_err(ConversionError::FromSlice)?,
+                ))
+                .map_err(ConversionError::ToUsize)?;
+                all_read += 8;
+                signal_len
+            }
+            Endianness::BigEndian => {
+                let signal_len = usize::try_from(u64::from_be_bytes(
+                    serialized[all_read..all_read + 8]
+                        .try_into()
+                        .map_err(ConversionError::FromSlice)?,
+                ))
+                .map_err(ConversionError::ToUsize)?;
+                all_read += 8;
+                signal_len
+            }
+        };
 
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
 
         let verified = verify_proof(&self.verification_key, &proof, &proof_values)?;
 
         // First consistency checks to counter proof tampering
-        let x = hash_to_field_le(&signal);
+        let x = match self.endianness {
+            Endianness::LittleEndian => hash_to_field_le(&signal),
+            Endianness::BigEndian => hash_to_field_be(&signal),
+        };
         let partial_result = verified && (x == proof_values.x);
 
         // We skip root validation if proof is already invalid
@@ -1096,11 +1253,22 @@ impl RLN {
 
         // We read the buffer and convert to Fr as much as we can
         all_read = 0;
-        while all_read + fr_size <= roots_serialized.len() {
-            let (root, read) = bytes_le_to_fr(&roots_serialized[all_read..]);
-            all_read += read;
-            roots.push(root);
-        }
+        match self.endianness {
+            Endianness::LittleEndian => {
+                while all_read + fr_size <= roots_serialized.len() {
+                    let (root, read) = bytes_le_to_fr(&roots_serialized[all_read..]);
+                    all_read += read;
+                    roots.push(root);
+                }
+            }
+            Endianness::BigEndian => {
+                while all_read + fr_size <= roots_serialized.len() {
+                    let (root, read) = bytes_be_to_fr(&roots_serialized[all_read..]);
+                    all_read += read;
+                    roots.push(root);
+                }
+            }
+        };
 
         // We validate the root
         let roots_verified: bool = if roots.is_empty() {
@@ -1118,206 +1286,6 @@ impl RLN {
     ////////////////////////////////////////////////////////
     // Utils
     ////////////////////////////////////////////////////////
-
-    /// Returns an identity secret and identity commitment pair.
-    ///
-    /// The identity commitment is the Poseidon hash of the identity secret.
-    ///
-    /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
-    ///
-    /// Example
-    /// ```
-    /// use rln::protocol::*;
-    ///
-    /// // We generate an identity pair
-    /// let mut buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.key_gen(&mut buffer).unwrap();
-    ///
-    /// // We serialize_compressed the keygen output
-    /// let (identity_secret_hash, id_commitment) = deserialize_identity_pair(buffer.into_inner());
-    /// ```
-    pub fn key_gen<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
-        let (identity_secret_hash, id_commitment) = keygen();
-        output_data.write_all(&identity_secret_hash.to_bytes_le())?;
-        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
-
-        Ok(())
-    }
-
-    /// Same as key_gen but serialized in BE format
-    pub fn key_gen_be<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
-        let (identity_secret_hash, id_commitment) = keygen();
-        output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
-        output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
-
-        Ok(())
-    }
-
-    /// Returns an identity trapdoor, nullifier, secret and commitment tuple.
-    ///
-    /// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
-    ///
-    /// The identity commitment is the Poseidon hash of the identity secret.
-    ///
-    /// Generated credentials are compatible with [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
-    ///
-    /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the identity trapdoor, identity nullifier, identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
-    ///
-    /// Example
-    /// ```
-    /// use rln::protocol::*;
-    ///
-    /// // We generate an identity tuple
-    /// let mut buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.extended_key_gen(&mut buffer).unwrap();
-    ///
-    /// // We serialize_compressed the keygen output
-    /// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
-    /// ```
-    pub fn extended_key_gen<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
-        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
-            extended_keygen();
-        output_data.write_all(&fr_to_bytes_le(&identity_trapdoor))?;
-        output_data.write_all(&fr_to_bytes_le(&identity_nullifier))?;
-        output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
-        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
-
-        Ok(())
-    }
-
-    /// Same as extend_key_gen but serialized in BE format.
-    pub fn extended_key_gen_be<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
-        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
-            extended_keygen();
-        output_data.write_all(&fr_to_bytes_be(&identity_trapdoor))?;
-        output_data.write_all(&fr_to_bytes_be(&identity_nullifier))?;
-        output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
-        output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
-
-        Ok(())
-    }
-
-    /// Returns an identity secret and identity commitment pair generated using a seed.
-    ///
-    /// The identity commitment is the Poseidon hash of the identity secret.
-    ///
-    /// Input values are:
-    /// - `input_data`: a reader for the byte vector containing the seed
-    ///
-    /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the identity secret and identity commitment (serialization done with [`rln::utils::fr_to_bytes_le`](crate::utils::fr_to_bytes_le))
-    ///
-    /// Example
-    /// ```
-    /// use rln::protocol::*;
-    ///
-    /// let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    ///
-    /// let mut input_buffer = Cursor::new(&seed_bytes);
-    /// let mut output_buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.seeded_key_gen(&mut input_buffer, &mut output_buffer)
-    ///     .unwrap();
-    ///
-    /// // We serialize_compressed the keygen output
-    /// let (identity_secret_hash, id_commitment) = deserialize_identity_pair(output_buffer.into_inner());
-    /// ```
-    pub fn seeded_key_gen<R: Read, W: Write>(
-        &self,
-        mut input_data: R,
-        mut output_data: W,
-    ) -> Result<(), RLNError> {
-        let mut serialized: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut serialized)?;
-
-        let (identity_secret_hash, id_commitment) = seeded_keygen(&serialized);
-        output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
-        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
-
-        Ok(())
-    }
-
-    /// Same as seeded_key_gen but in BE format
-    pub fn seeded_key_gen_be<R: Read, W: Write>(
-        &self,
-        mut input_data: R,
-        mut output_data: W,
-    ) -> Result<(), RLNError> {
-        let mut serialized: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut serialized)?;
-
-        let (identity_secret_hash, id_commitment) = seeded_keygen(&serialized);
-        output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
-        output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
-
-        Ok(())
-    }
-
-    /// Returns an identity trapdoor, nullifier, secret and commitment tuple generated using a seed.
-    ///
-    /// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
-    ///
-    /// The identity commitment is the Poseidon hash of the identity secret.
-    ///
-    /// Generated credentials are compatible with [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
-    ///
-    /// Input values are:
-    /// - `input_data`: a reader for the byte vector containing the seed
-    ///
-    /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the identity trapdoor, identity nullifier, identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
-    ///
-    /// Example
-    /// ```
-    /// use rln::protocol::*;
-    ///
-    /// let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    ///
-    /// let mut input_buffer = Cursor::new(&seed_bytes);
-    /// let mut output_buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.seeded_key_gen(&mut input_buffer, &mut output_buffer)
-    ///     .unwrap();
-    ///
-    /// // We serialize_compressed the keygen output
-    /// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
-    /// ```
-    pub fn seeded_extended_key_gen<R: Read, W: Write>(
-        &self,
-        mut input_data: R,
-        mut output_data: W,
-    ) -> Result<(), RLNError> {
-        let mut serialized: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut serialized)?;
-
-        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
-            extended_seeded_keygen(&serialized);
-        output_data.write_all(&fr_to_bytes_le(&identity_trapdoor))?;
-        output_data.write_all(&fr_to_bytes_le(&identity_nullifier))?;
-        output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
-        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
-
-        Ok(())
-    }
-
-    /// same as seeded_extended_key_gen but in BE format
-    pub fn seeded_extended_key_gen_be<R: Read, W: Write>(
-        &self,
-        mut input_data: R,
-        mut output_data: W,
-    ) -> Result<(), RLNError> {
-        let mut serialized: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut serialized)?;
-
-        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
-            extended_seeded_keygen(&serialized);
-        output_data.write_all(&fr_to_bytes_be(&identity_trapdoor))?;
-        output_data.write_all(&fr_to_bytes_be(&identity_nullifier))?;
-        output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
-        output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
-
-        Ok(())
-    }
 
     /// Recovers the identity secret from two set of proof values computed for same secret in same epoch with same rln identifier.
     ///
@@ -1363,13 +1331,19 @@ impl RLN {
         let mut serialized: Vec<u8> = Vec::new();
         input_proof_data_1.read_to_end(&mut serialized)?;
         // We skip deserialization of the zk-proof at the beginning
-        let (proof_values_1, _) = deserialize_proof_values(&serialized[128..]);
+        let (proof_values_1, _) = match self.endianness {
+            Endianness::LittleEndian => deserialize_proof_values_le(&serialized[128..]),
+            Endianness::BigEndian => deserialize_proof_values_be(&serialized[128..]),
+        };
         let external_nullifier_1 = proof_values_1.external_nullifier;
 
         let mut serialized: Vec<u8> = Vec::new();
         input_proof_data_2.read_to_end(&mut serialized)?;
         // We skip deserialization of the zk-proof at the beginning
-        let (proof_values_2, _) = deserialize_proof_values(&serialized[128..]);
+        let (proof_values_2, _) = match self.endianness {
+            Endianness::LittleEndian => deserialize_proof_values_le(&serialized[128..]),
+            Endianness::BigEndian => deserialize_proof_values_be(&serialized[128..]),
+        };
         let external_nullifier_2 = proof_values_2.external_nullifier;
 
         // We continue only if the proof values are for the same external nullifier (which includes epoch and rln identifier)
@@ -1386,7 +1360,10 @@ impl RLN {
                 compute_id_secret(share1, share2).map_err(RLNError::RecoverSecret)?;
 
             // If an identity secret hash is recovered, we write it to output_data, otherwise nothing will be written.
-            output_data.write_all(&recovered_identity_secret_hash.to_bytes_le())?;
+            output_data.write_all(&match self.endianness {
+                Endianness::LittleEndian => fr_to_bytes_le(&recovered_identity_secret_hash),
+                Endianness::BigEndian => fr_to_bytes_be(&recovered_identity_secret_hash),
+            })?;
         }
 
         Ok(())
@@ -1406,9 +1383,19 @@ impl RLN {
         // We read input RLN witness and we serialize_compressed it
         let mut witness_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut witness_byte)?;
-        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
+        let (rln_witness, _) = match self.endianness {
+            Endianness::LittleEndian => {
+                proof_inputs_to_rln_witness_le(&mut self.tree, &witness_byte)?
+            }
+            Endianness::BigEndian => proof_inputs_to_rln_witness_be(&mut self.tree, &witness_byte)?,
+        };
 
-        serialize_witness(&rln_witness).map_err(RLNError::Protocol)
+        match self.endianness {
+            Endianness::LittleEndian => {
+                serialize_witness_le(&rln_witness).map_err(RLNError::Protocol)
+            }
+            Endianness::BigEndian => serialize_witness_be(&rln_witness).map_err(RLNError::Protocol),
+        }
     }
 
     /// Converts a byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object to the corresponding JSON serialization.
@@ -1422,7 +1409,10 @@ impl RLN {
         &mut self,
         serialized_witness: &[u8],
     ) -> Result<serde_json::Value, ProtocolError> {
-        let (rln_witness, _) = deserialize_witness(serialized_witness)?;
+        let (rln_witness, _) = match self.endianness {
+            Endianness::LittleEndian => deserialize_witness_le(serialized_witness)?,
+            Endianness::BigEndian => deserialize_witness_be(serialized_witness)?,
+        };
         rln_witness_to_json(&rln_witness)
     }
 
@@ -1439,7 +1429,10 @@ impl RLN {
         &mut self,
         serialized_witness: &[u8],
     ) -> Result<serde_json::Value, ProtocolError> {
-        let (rln_witness, _) = deserialize_witness(serialized_witness)?;
+        let (rln_witness, _) = match self.endianness {
+            Endianness::LittleEndian => deserialize_witness_le(serialized_witness)?,
+            Endianness::BigEndian => deserialize_witness_be(serialized_witness)?,
+        };
         rln_witness_to_bigint_json(&rln_witness)
     }
 
@@ -1460,10 +1453,10 @@ impl Default for RLN {
         {
             let tree_height = TEST_TREE_HEIGHT;
             let buffer = Cursor::new(json!({}).to_string());
-            Self::new(tree_height, buffer).unwrap()
+            Self::new(tree_height, buffer, Endianness::LittleEndian).unwrap()
         }
         #[cfg(feature = "stateless")]
-        Self::new().unwrap()
+        Self::new(Endianness::LittleEndian).unwrap()
     }
 }
 
@@ -1504,20 +1497,6 @@ pub fn hash<R: Read, W: Write>(
         let hash = hash_to_field_le(&serialized);
         output_data.write_all(&fr_to_bytes_be(&hash))?;
     }
-
-    Ok(())
-}
-
-/// same as hash function but in BE format
-pub fn hash_be<R: Read, W: Write>(
-    mut input_data: R,
-    mut output_data: W,
-) -> Result<(), std::io::Error> {
-    let mut serialized: Vec<u8> = Vec::new();
-    input_data.read_to_end(&mut serialized)?;
-
-    let hash = hash_to_field(&serialized);
-    output_data.write_all(&fr_to_bytes_be(&hash))?;
 
     Ok(())
 }
@@ -1754,17 +1733,186 @@ pub fn seeded_extended_key_gen<R: Read, W: Write>(
     Ok(())
 }
 
-/// same as poseidon_hash function but in BE format. Note that input is expected in BE format too.
-pub fn poseidon_hash_be<R: Read, W: Write>(
+/// Returns an identity secret and identity commitment pair.
+///
+/// The identity commitment is the Poseidon hash of the identity secret.
+///
+/// Output values are:
+/// - `output_data`: a writer receiving the serialization of the identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
+///
+/// Example
+/// ```
+/// use rln::protocol::*;
+///
+/// // We generate an identity pair
+/// let mut buffer = Cursor::new(Vec::<u8>::new());
+/// rln.key_gen(&mut buffer).unwrap();
+///
+/// // We serialize_compressed the keygen output
+/// let (identity_secret_hash, id_commitment) = deserialize_identity_pair(buffer.into_inner());
+/// ```
+pub fn key_gen<W: Write>(mut output_data: W, endianness: Endianness) -> Result<(), RLNError> {
+    let (identity_secret_hash, id_commitment) = keygen();
+
+    match endianness {
+        Endianness::LittleEndian => {
+            output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
+            output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
+        }
+        Endianness::BigEndian => {
+            output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
+            output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
+        }
+    };
+
+    Ok(())
+}
+
+/// Returns an identity trapdoor, nullifier, secret and commitment tuple.
+///
+/// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
+///
+/// The identity commitment is the Poseidon hash of the identity secret.
+///
+/// Generated credentials are compatible with [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
+///
+/// Output values are:
+/// - `output_data`: a writer receiving the serialization of the identity trapdoor, identity nullifier, identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
+///
+/// Example
+/// ```
+/// use rln::protocol::*;
+///
+/// // We generate an identity tuple
+/// let mut buffer = Cursor::new(Vec::<u8>::new());
+/// rln.extended_key_gen(&mut buffer).unwrap();
+///
+/// // We serialize_compressed the keygen output
+/// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
+/// ```
+pub fn extended_key_gen<W: Write>(
+    mut output_data: W,
+    endianness: Endianness,
+) -> Result<(), RLNError> {
+    let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
+        extended_keygen();
+    match endianness {
+        Endianness::LittleEndian => {
+            output_data.write_all(&fr_to_bytes_le(&identity_trapdoor))?;
+            output_data.write_all(&fr_to_bytes_le(&identity_nullifier))?;
+            output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
+            output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
+        }
+        Endianness::BigEndian => {
+            output_data.write_all(&fr_to_bytes_be(&identity_trapdoor))?;
+            output_data.write_all(&fr_to_bytes_be(&identity_nullifier))?;
+            output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
+            output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
+        }
+    };
+
+    Ok(())
+}
+
+/// Returns an identity secret and identity commitment pair generated using a seed.
+///
+/// The identity commitment is the Poseidon hash of the identity secret.
+///
+/// Input values are:
+/// - `input_data`: a reader for the byte vector containing the seed
+///
+/// Output values are:
+/// - `output_data`: a writer receiving the serialization of the identity secret and identity commitment (serialization done with [`rln::utils::fr_to_bytes_le`](crate::utils::fr_to_bytes_le))
+///
+/// Example
+/// ```
+/// use rln::protocol::*;
+///
+/// let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+///
+/// let mut input_buffer = Cursor::new(&seed_bytes);
+/// let mut output_buffer = Cursor::new(Vec::<u8>::new());
+/// rln.seeded_key_gen(&mut input_buffer, &mut output_buffer)
+///     .unwrap();
+///
+/// // We serialize_compressed the keygen output
+/// let (identity_secret_hash, id_commitment) = deserialize_identity_pair(output_buffer.into_inner());
+/// ```
+pub fn seeded_key_gen<R: Read, W: Write>(
     mut input_data: R,
     mut output_data: W,
+    endianness: Endianness,
 ) -> Result<(), RLNError> {
     let mut serialized: Vec<u8> = Vec::new();
     input_data.read_to_end(&mut serialized)?;
 
-    let (inputs, _) = bytes_be_to_vec_fr(&serialized)?;
-    let hash = utils_poseidon_hash(inputs.as_ref());
-    output_data.write_all(&fr_to_bytes_be(&hash))?;
+    let (identity_secret_hash, id_commitment) = seeded_keygen(&serialized);
+    match endianness {
+        Endianness::LittleEndian => {
+            output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
+            output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
+        }
+        Endianness::BigEndian => {
+            output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
+            output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
+        }
+    };
+
+    Ok(())
+}
+
+/// Returns an identity trapdoor, nullifier, secret and commitment tuple generated using a seed.
+///
+/// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
+///
+/// The identity commitment is the Poseidon hash of the identity secret.
+///
+/// Generated credentials are compatible with [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
+///
+/// Input values are:
+/// - `input_data`: a reader for the byte vector containing the seed
+///
+/// Output values are:
+/// - `output_data`: a writer receiving the serialization of the identity trapdoor, identity nullifier, identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
+///
+/// Example
+/// ```
+/// use rln::protocol::*;
+///
+/// let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+///
+/// let mut input_buffer = Cursor::new(&seed_bytes);
+/// let mut output_buffer = Cursor::new(Vec::<u8>::new());
+/// rln.seeded_key_gen(&mut input_buffer, &mut output_buffer)
+///     .unwrap();
+///
+/// // We serialize_compressed the keygen output
+/// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
+/// ```
+pub fn seeded_extended_key_gen<R: Read, W: Write>(
+    mut input_data: R,
+    mut output_data: W,
+    endianness: Endianness,
+) -> Result<(), RLNError> {
+    let mut serialized: Vec<u8> = Vec::new();
+    input_data.read_to_end(&mut serialized)?;
+
+    let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
+        extended_seeded_keygen(&serialized);
+    match endianness {
+        Endianness::LittleEndian => {
+            output_data.write_all(&fr_to_bytes_le(&identity_trapdoor))?;
+            output_data.write_all(&fr_to_bytes_le(&identity_nullifier))?;
+            output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
+            output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
+        }
+        Endianness::BigEndian => {
+            output_data.write_all(&fr_to_bytes_be(&identity_trapdoor))?;
+            output_data.write_all(&fr_to_bytes_be(&identity_nullifier))?;
+            output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
+            output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
+        }
+    };
 
     Ok(())
 }

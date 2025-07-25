@@ -41,7 +41,12 @@ mod test {
         let leaf_index = 3;
         let user_message_limit = 1;
 
-        let mut rln = RLN::new(TEST_TREE_HEIGHT, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(
+            TEST_TREE_HEIGHT,
+            generate_input_buffer(),
+            Endianness::LittleEndian,
+        )
+        .unwrap();
 
         // generate identity
         let mut identity_secret_hash_ = hash_to_field_le(b"test-merkle-proof");
