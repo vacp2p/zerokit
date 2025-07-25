@@ -119,7 +119,8 @@ mod test {
 
         rln_witness_from_values(
             identity_secret_hash,
-            &merkle_proof,
+            merkle_proof.get_path_elements(),
+            merkle_proof.get_path_index(),
             x,
             external_nullifier,
             user_message_limit,

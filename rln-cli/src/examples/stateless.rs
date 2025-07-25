@@ -132,7 +132,8 @@ impl RLNSystem {
 
         let rln_witness = rln_witness_from_values(
             identity.identity_secret_hash.clone(),
-            &merkle_proof,
+            merkle_proof.get_path_elements(),
+            merkle_proof.get_path_index(),
             x,
             external_nullifier,
             Fr::from(MESSAGE_LIMIT),

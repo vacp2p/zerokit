@@ -1,7 +1,7 @@
 // This crate defines the RLN module default Merkle tree implementation and its Hasher
-
 // Implementation inspired by https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/poseidon_tree.rs (no differences)
 
+#![cfg(not(feature = "stateless"))]
 use cfg_if::cfg_if;
 
 // The zerokit RLN default Merkle tree implementation is the PMTree from the vacp2p_pmtree crate
