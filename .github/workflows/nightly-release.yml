@@ -34,13 +34,7 @@ jobs:
         run: make installdeps
       - name: Cross build
         run: |
-          FEATURES="${{ matrix.feature }}"
-          if [[ "$FEATURES" == *"stateless"* ]]; then
-            NO_DEFAULT="--no-default-features"
-          else
-            NO_DEFAULT=""
-          fi
-          cross build --release --target ${{ matrix.target }} $NO_DEFAULT --features $FEATURES --workspace --exclude rln-cli
+          cross build --release --target ${{ matrix.target }} --no-default-features --features $FEATURES --workspace --exclude rln-cli
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
@@ -80,13 +74,7 @@ jobs:
         run: make installdeps
       - name: Cross build
         run: |
-          FEATURES="${{ matrix.feature }}"
-          if [[ "$FEATURES" == *"stateless"* ]]; then
-            NO_DEFAULT="--no-default-features"
-          else
-            NO_DEFAULT=""
-          fi
-          cross build --release --target ${{ matrix.target }} $NO_DEFAULT --features $FEATURES --workspace --exclude rln-cli
+          cross build --release --target ${{ matrix.target }} --no-default-features --features $FEATURES --workspace --exclude rln-cli
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
