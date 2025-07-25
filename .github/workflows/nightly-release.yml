@@ -121,7 +121,7 @@ jobs:
           if [[ ${{ matrix.feature }} == *parallel* ]]; then
             env RUSTFLAGS="-C target-feature=+atomics,+bulk-memory,+mutable-globals" \
             rustup run nightly wasm-pack build --release --target web --scope waku \
-            --features {{ matrix.feature }} -Z build-std=panic_abort,std
+            --features ${{ matrix.feature }} -Z build-std=panic_abort,std
 
             wasm-bindgen --target web --split-linked-modules --out-dir ./pkg \
             ./target/wasm32-unknown-unknown/release/rln_wasm.wasm
