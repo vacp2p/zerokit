@@ -1,3 +1,5 @@
+#![cfg(not(feature = "stateless"))]
+
 #[cfg(test)]
 mod test {
     use ark_ff::BigInt;

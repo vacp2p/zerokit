@@ -990,14 +990,15 @@ mod stateless_test {
     use rln::circuit::*;
     use rln::ffi::generate_rln_proof_with_witness;
     use rln::ffi::{hash as ffi_hash, poseidon_hash as ffi_poseidon_hash, *};
-    use rln::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash, ROUND_PARAMS};
-    use rln::poseidon_tree::PoseidonTree;
+    use rln::hashers::{
+        hash_to_field, poseidon_hash as utils_poseidon_hash, PoseidonHash, ROUND_PARAMS,
+    };
     use rln::protocol::*;
     use rln::public::RLN;
     use rln::utils::*;
     use std::mem::MaybeUninit;
     use std::time::{Duration, Instant};
-    use utils::ZerokitMerkleTree;
+    use utils::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
     type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
 
@@ -1032,10 +1033,10 @@ mod stateless_test {
     #[test]
     fn test_recover_id_secret_stateless_ffi() {
         let default_leaf = Fr::from(0);
-        let mut tree = PoseidonTree::new(
+        let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
             TEST_TREE_HEIGHT,
             default_leaf,
-            ConfigOf::<PoseidonTree>::default(),
+            ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
         )
         .unwrap();
 
@@ -1068,7 +1069,8 @@ mod stateless_test {
         // We prepare input for generate_rln_proof API
         let rln_witness1 = rln_witness_from_values(
             identity_secret_hash.clone(),
-            &merkle_proof,
+            merkle_proof.get_path_elements(),
+            merkle_proof.get_path_index(),
             x1,
             external_nullifier,
             user_message_limit,
@@ -1079,7 +1081,8 @@ mod stateless_test {
 
         let rln_witness2 = rln_witness_from_values(
             identity_secret_hash.clone(),
-            &merkle_proof,
+            merkle_proof.get_path_elements(),
+            merkle_proof.get_path_index(),
             x2,
             external_nullifier,
             user_message_limit,
@@ -1134,7 +1137,8 @@ mod stateless_test {
 
         let rln_witness3 = rln_witness_from_values(
             identity_secret_hash_new.clone(),
-            &merkle_proof_new,
+            merkle_proof_new.get_path_elements(),
+            merkle_proof_new.get_path_index(),
             x3,
             external_nullifier,
             user_message_limit,
@@ -1175,10 +1179,10 @@ mod stateless_test {
     #[test]
     fn test_verify_with_roots_stateless_ffi() {
         let default_leaf = Fr::from(0);
-        let mut tree = PoseidonTree::new(
+        let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
             TEST_TREE_HEIGHT,
             default_leaf,
-            ConfigOf::<PoseidonTree>::default(),
+            ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
         )
         .unwrap();
 
@@ -1208,7 +1212,8 @@ mod stateless_test {
         // We prepare input for generate_rln_proof API
         let rln_witness = rln_witness_from_values(
             identity_secret_hash,
-            &merkle_proof,
+            merkle_proof.get_path_elements(),
+            merkle_proof.get_path_index(),
             x,
             external_nullifier,
             user_message_limit,

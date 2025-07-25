@@ -50,7 +50,7 @@ This example function similarly to the [Relay Example](#relay-example) but uses 
 You can run the example using the following command:
 
 ```bash
-cargo run --example stateless --features stateless
+cargo run --example stateless --no-default-features --features stateless
 ```
 
 ## CLI Commands

@@ -994,12 +994,12 @@ mod tree_test {
 #[cfg(feature = "stateless")]
 mod stateless_test {
     use crate::circuit::{Fr, TEST_TREE_HEIGHT};
-    use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
+    use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash, PoseidonHash};
     use crate::protocol::*;
     use crate::public::RLN;
     use crate::utils::*;
     use std::io::Cursor;
-    use utils::{OptimalMerkleProof, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
+    use utils::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
@@ -1012,10 +1012,10 @@ mod stateless_test {
         let mut rln = RLN::new().unwrap();
 
         let default_leaf = Fr::from(0);
-        let mut tree = PoseidonTree::new(
+        let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
             TEST_TREE_HEIGHT,
             default_leaf,
-            ConfigOf::<PoseidonTree>::default(),
+            ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
         )
         .unwrap();
 
@@ -1110,10 +1110,10 @@ mod stateless_test {
         let mut rln = RLN::new().unwrap();
 
         let default_leaf = Fr::from(0);
-        let mut tree = PoseidonTree::new(
+        let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
             TEST_TREE_HEIGHT,
             default_leaf,
-            ConfigOf::<PoseidonTree>::default(),
+            ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
         )
         .unwrap();
 
@@ -1210,8 +1210,8 @@ mod stateless_test {
 
         let rln_witness3 = rln_witness_from_values(
             identity_secret_hash_new.clone(),
-            merkle_proof.get_path_elements(),
-            merkle_proof.get_path_index(),
+            merkle_proof_new.get_path_elements(),
+            merkle_proof_new.get_path_index(),
             x3,
             external_nullifier,
             user_message_limit,

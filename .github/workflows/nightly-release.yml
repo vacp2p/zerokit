@@ -35,8 +35,12 @@ jobs:
       - name: Cross build
         run: |
           FEATURES="${{ matrix.feature }}"
-
-          cross build --release --target ${{ matrix.target }} --features $FEATURES --workspace --exclude rln-cli
+          if [[ "$FEATURES" == *"stateless"* ]]; then
+            NO_DEFAULT="--no-default-features"
+          else
+            NO_DEFAULT=""
+          fi
+          cross build --release --target ${{ matrix.target }} $NO_DEFAULT --features $FEATURES --workspace --exclude rln-cli
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
@@ -77,8 +81,12 @@ jobs:
       - name: Cross build
         run: |
           FEATURES="${{ matrix.feature }}"
-
-          cross build --release --target ${{ matrix.target }} --features $FEATURES --workspace --exclude rln-cli
+          if [[ "$FEATURES" == *"stateless"* ]]; then
+            NO_DEFAULT="--no-default-features"
+          else
+            NO_DEFAULT=""
+          fi
+          cross build --release --target ${{ matrix.target }} $NO_DEFAULT --features $FEATURES --workspace --exclude rln-cli
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
