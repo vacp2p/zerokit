@@ -29,4 +29,4 @@ compile_error!("Only one of `fullmerkletree`, `optimalmerkletree`, or `pmtree-ft
         feature = "pmtree-ft"
     )
 ))]
-compile_error!("Cannot enable any merkletree features with stateless");
+compile_error!("Cannot enable any Merkle tree features with stateless");
