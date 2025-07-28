@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RLN WASM Benchmark</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        max-width: 700px;
+        margin: 0 auto;
+        padding: 20px;
+        color: #333;
+      }
+
+      h1 {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .panel {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+
+      .file-input {
+        margin-bottom: 15px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+      }
+
+      button {
+        background: #4361ee;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        font-size: 16px;
+        cursor: pointer;
+        margin-top: 10px;
+        width: 100%;
+      }
+
+      button:hover {
+        background: #3a56d4;
+      }
+
+      button:disabled {
+        background: #cccccc;
+        cursor: not-allowed;
+      }
+
+      .results-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+      }
+
+      .results-table th,
+      .results-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+      }
+
+      .results-table th {
+        font-weight: 600;
+        background-color: #f1f3f5;
+      }
+
+      .operation {
+        font-weight: 500;
+      }
+
+      .time {
+        font-family: monospace;
+        text-align: right;
+      }
+
+      .status {
+        padding: 10px;
+        margin-top: 15px;
+        border-radius: 4px;
+        text-align: center;
+      }
+
+      .success {
+        background-color: #d4edda;
+        color: #155724;
+      }
+
+      .error {
+        background-color: #f8d7da;
+        color: #721c24;
+      }
+
+      .running {
+        background-color: #cce5ff;
+        color: #004085;
+      }
+
+      /* Download button style */
+      .download-btn {
+        background: #28a745;
+        margin-top: 15px;
+      }
+
+      .download-btn:hover {
+        background: #218838;
+      }
+
+      /* Summary section */
+      .summary {
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #ddd;
+      }
+
+      .summary h3 {
+        margin-top: 0;
+      }
+
+      /* Thread info */
+      .thread-info {
+        margin-bottom: 15px;
+        padding: 10px;
+        background-color: #f1f3f5;
+        border-radius: 4px;
+        font-weight: 500;
+      }
+    </style>
+    <script>
+      // Check if cross-origin isolation is available for SharedArrayBuffer
+      document.addEventListener("DOMContentLoaded", () => {
+        if (!crossOriginIsolated) {
+          const statusElement = document.getElementById("status");
+          if (statusElement) {
+            statusElement.innerHTML =
+              '<strong style="color: #721c24;">Error:</strong> ' +
+              "Cross-Origin Isolation is not enabled. Please run the server.js script with:<br>" +
+              "<code>node server.js</code><br>" +
+              'Then access this page via <a href="http://localhost:8000">http://localhost:8000</a>';
+            statusElement.className = "status error";
+          }
+        }
+      });
+    </script>
+  </head>
+
+  <body>
+    <h1>RLN WASM Benchmark</h1>
+
+    <div class="panel">
+      <div class="thread-info" id="threadInfo">Detecting CPU cores...</div>
+
+      <div
+        class="thread-mode-selector"
+        style="display: flex; gap: 10px; margin-bottom: 15px"
+      >
+        <button id="singleThreaded" class="thread-btn" style="flex: 1">
+          Single-Threaded Mode
+        </button>
+        <button
+          id="multiThreaded"
+          class="thread-btn"
+          style="flex: 1; background: #4361ee"
+        >
+          Multi-Threaded Mode
+        </button>
+      </div>
+
+      <button id="initThreads" class="init-btn">Initialize Thread Pool</button>
+
+      <div class="file-input">
+        <label for="zkeyFile">zKey File:</label>
+        <input type="file" id="zkeyFile" />
+      </div>
+      <div class="file-input">
+        <label for="rootFile">Root File:</label>
+        <input type="file" id="rootFile" />
+      </div>
+      <div class="file-input">
+        <label for="witnessFile">Witness File:</label>
+        <input type="file" id="witnessFile" />
+      </div>
+      <div class="file-input">
+        <label for="messageFile">Message File:</label>
+        <input type="file" id="messageFile" />
+      </div>
+      <div class="file-input">
+        <label for="proofFile">Proof File:</label>
+        <input type="file" id="proofFile" />
+      </div>
+
+      <button id="runBenchmark" disabled>Run Benchmark</button>
+
+      <div id="status" class="status">Please initialize thread pool first</div>
+    </div>
+
+    <div class="panel">
+      <h2>Results</h2>
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th>Operation</th>
+            <th>Time (ms)</th>
+          </tr>
+        </thead>
+        <tbody id="results">
+          <!-- Results will be populated here -->
+        </tbody>
+      </table>
+
+      <div id="summarySection" class="summary" style="display: none">
+        <h3>Summary</h3>
+        <div id="summaryContent"></div>
+        <button id="downloadResults" class="download-btn">
+          Download Results
+        </button>
+      </div>
+    </div>
+
+    <script type="module">
+      import init, * as RLN from "../pkg/rln_wasm.js";
+
+      // Get DOM elements
+      const initThreadsBtn = document.getElementById("initThreads");
+      const runBtn = document.getElementById("runBenchmark");
+      const results = document.getElementById("results");
+      const status = document.getElementById("status");
+      const summarySection = document.getElementById("summarySection");
+      const summaryContent = document.getElementById("summaryContent");
+      const downloadBtn = document.getElementById("downloadResults");
+      const threadInfo = document.getElementById("threadInfo");
+
+      // Track benchmark operations
+      const benchmarks = [];
+      let threadPoolInitialized = false;
+      let cpuCount = navigator.hardwareConcurrency || 4; // Default to 4 if detection fails
+      let useMultiThreaded = true; // Default to multi-threaded mode
+
+      // Update the thread info display
+      updateThreadInfo();
+
+      // Function to update thread info display
+      function updateThreadInfo() {
+        if (useMultiThreaded) {
+          threadInfo.textContent = `Automatically detected ${cpuCount} CPU cores for optimal performance`;
+        } else {
+          threadInfo.textContent = `Using single-threaded mode (1 CPU core)`;
+        }
+      }
+
+      // Thread mode selection
+      document
+        .getElementById("singleThreaded")
+        .addEventListener("click", () => {
+          if (!threadPoolInitialized) {
+            useMultiThreaded = false;
+            document.getElementById("singleThreaded").style.background =
+              "#4361ee";
+            document.getElementById("multiThreaded").style.background =
+              "#6c757d";
+            updateThreadInfo();
+          } else {
+            updateStatus(
+              "Thread pool already initialized. Please refresh page to change mode.",
+              "error"
+            );
+          }
+        });
+
+      document.getElementById("multiThreaded").addEventListener("click", () => {
+        if (!threadPoolInitialized) {
+          useMultiThreaded = true;
+          document.getElementById("multiThreaded").style.background = "#4361ee";
+          document.getElementById("singleThreaded").style.background =
+            "#6c757d";
+          updateThreadInfo();
+        } else {
+          updateStatus(
+            "Thread pool already initialized. Please refresh page to change mode.",
+            "error"
+          );
+        }
+      });
+
+      // Initialize thread pool
+      initThreadsBtn.addEventListener("click", async () => {
+        if (!crossOriginIsolated) {
+          updateStatus(
+            "Cross-Origin Isolation is required. Please run with server.js",
+            "error"
+          );
+          return;
+        }
+
+        if (threadPoolInitialized) {
+          updateStatus("Thread pool already initialized.", "error");
+          return;
+        }
+
+        updateStatus(
+          `Initializing thread pool with ${cpuCount} cores...`,
+          "running"
+        );
+        initThreadsBtn.disabled = true;
+
+        try {
+          const start = performance.now();
+          await init();
+          await RLN.initThreadPool(useMultiThreaded ? cpuCount : 1);
+          const duration = performance.now() - start;
+
+          benchmarks.push({
+            name: "Initialize WASM Module",
+            duration: duration,
+            success: true,
+          });
+
+          updateResults();
+          threadPoolInitialized = true;
+          updateStatus(
+            `Thread pool initialized with ${
+              useMultiThreaded ? cpuCount : 1
+            } cores`,
+            "success"
+          );
+          runBtn.disabled = false;
+        } catch (error) {
+          console.error("Thread pool initialization error:", error);
+          updateStatus(
+            `Error initializing thread pool: ${error.message}`,
+            "error"
+          );
+        } finally {
+          initThreadsBtn.disabled = false;
+        }
+      });
+
+      // Measure operation time
+      async function benchmark(name, fn) {
+        updateStatus(`Running: ${name}...`, "running");
+
+        const start = performance.now();
+        try {
+          const result = await fn();
+          const duration = performance.now() - start;
+
+          // Record result
+          benchmarks.push({ name, duration, success: true });
+          updateResults();
+
+          return { result, duration };
+        } catch (error) {
+          const duration = performance.now() - start;
+          benchmarks.push({
+            name: `${name} (FAILED)`,
+            duration,
+            success: false,
+            error: error.message,
+          });
+          updateResults();
+          throw error;
+        }
+      }
+
+      // Update results table
+      function updateResults() {
+        results.innerHTML = "";
+        benchmarks.forEach((b) => {
+          const row = document.createElement("tr");
+
+          const nameCell = document.createElement("td");
+          nameCell.className = "operation";
+          nameCell.textContent = b.name;
+
+          const timeCell = document.createElement("td");
+          timeCell.className = "time";
+          timeCell.textContent = b.duration.toFixed(2);
+
+          row.appendChild(nameCell);
+          row.appendChild(timeCell);
+
+          if (!b.success) {
+            row.style.color = "#dc3545";
+          }
+
+          results.appendChild(row);
+        });
+      }
+
+      // Update status message
+      function updateStatus(message, type = "") {
+        status.textContent = message;
+        status.className = `status ${type}`;
+      }
+
+      // Show benchmark summary
+      function showSummary() {
+        if (benchmarks.length === 0) return;
+
+        const successfulOps = benchmarks.filter((b) => b.success).length;
+
+        let summaryHTML = `
+                <p><strong>Operations:</strong> ${successfulOps}/${
+          benchmarks.length
+        } successful</p>
+                <p><strong>CPU cores used:</strong> ${
+                  useMultiThreaded ? cpuCount : 1
+                }</p>
+                <p><strong>Mode:</strong> ${
+                  useMultiThreaded ? "Multi-threaded" : "Single-threaded"
+                }</p>
+            `;
+
+        summaryContent.innerHTML = summaryHTML;
+        summarySection.style.display = "block";
+      }
+
+      // Download results as JSON
+      downloadBtn.addEventListener("click", () => {
+        const dataStr = JSON.stringify(
+          {
+            timestamp: new Date().toISOString(),
+            mode: useMultiThreaded ? "multi-threaded" : "single-threaded",
+            cpuCount: useMultiThreaded ? cpuCount : 1,
+            operations: benchmarks,
+          },
+          null,
+          2
+        );
+
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `rln-benchmark-${new Date()
+          .toISOString()
+          .slice(0, 19)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+
+      // Read file as Uint8Array
+      async function readFile(file) {
+        const buffer = await file.arrayBuffer();
+        return new Uint8Array(buffer);
+      }
+
+      // Parse witness JSON
+      async function parseWitness(file) {
+        const text = await file.text();
+        try {
+          const data = JSON.parse(text);
+
+          if (!Array.isArray(data)) {
+            throw new Error("Witness JSON must be an array");
+          }
+
+          return data.map((value) => BigInt(value));
+        } catch (e) {
+          throw new Error(`Failed to parse witness JSON: ${e.message}`);
+        }
+      }
+
+      // Main benchmark runner
+      runBtn.addEventListener("click", async () => {
+        if (!threadPoolInitialized) {
+          updateStatus("Please initialize thread pool first", "error");
+          return;
+        }
+
+        const files = {
+          zkey: document.getElementById("zkeyFile").files[0],
+          root: document.getElementById("rootFile").files[0],
+          witness: document.getElementById("witnessFile").files[0],
+          message: document.getElementById("messageFile").files[0],
+          proof: document.getElementById("proofFile").files[0],
+        };
+
+        // Validation
+        if (!files.zkey || !files.root || !files.proof) {
+          updateStatus("Please select zKey, Root, and Proof files", "error");
+          return;
+        }
+
+        const canGenerate = files.witness && files.message;
+
+        try {
+          // Keep file references but clear previous benchmark results except initialization
+          const initBenchmark = benchmarks.find(
+            (b) => b.name === "Initialize WASM Module"
+          );
+          benchmarks.length = 0;
+          if (initBenchmark) {
+            benchmarks.push(initBenchmark);
+          }
+          updateResults();
+          summarySection.style.display = "none";
+          runBtn.disabled = true;
+          initThreadsBtn.disabled = true;
+
+          // Load files
+          const zkeyData = await readFile(files.zkey);
+          const rootData = await readFile(files.root);
+
+          // Create RLN instance
+          const { result: instance } = await benchmark(
+            "Create RLN Instance",
+            async () => {
+              return RLN.newRLN(zkeyData);
+            }
+          );
+
+          // Handle proof generation (if witness and message files provided)
+          if (canGenerate) {
+            const witnessData = await parseWitness(files.witness);
+            const messageData = await readFile(files.message);
+
+            await benchmark("Generate RLN Proof", async () => {
+              return RLN.generateRLNProofWithWitness(
+                instance,
+                witnessData,
+                messageData
+              );
+            });
+          }
+
+          // Verify uploaded proof (required)
+          const proofData = await readFile(files.proof);
+
+          await benchmark("Verify Proof", async () => {
+            return RLN.verifyWithRoots(instance, proofData, rootData);
+          });
+
+          updateStatus("Benchmark completed successfully!", "success");
+          showSummary();
+        } catch (error) {
+          console.error(error);
+          updateStatus(`Error: ${error.message}`, "error");
+          showSummary();
+        } finally {
+          runBtn.disabled = false;
+          initThreadsBtn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
