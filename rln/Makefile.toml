@@ -8,7 +8,7 @@ args = ["test", "--release", "--", "--nocapture"]
 
 [tasks.test_stateless]
 command = "cargo"
-args = ["test", "--release", "--features", "stateless"]
+args = ["test", "--release", "--no-default-features", "--features", "stateless"]
 
 [tasks.bench]
 command = "cargo"

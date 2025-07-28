@@ -1,16 +1,22 @@
 // This crate collects all the underlying primitives used to implement RLN
 
+#[cfg(not(feature = "stateless"))]
+use {
+    crate::error::ConversionError,
+    crate::poseidon_tree::PoseidonTree,
+    utils::{ZerokitMerkleProof, ZerokitMerkleTree},
+};
+
 use crate::circuit::{calculate_rln_witness, qap::CircomReduction, Curve};
-use crate::error::{ComputeIdSecretError, ConversionError, ProofError, ProtocolError};
+use crate::error::{ComputeIdSecretError, ProofError, ProtocolError};
 use crate::hashers::{hash_to_field, poseidon_hash};
-use crate::poseidon_tree::{MerkleProof, PoseidonTree};
 use crate::public::RLN_IDENTIFIER;
 use crate::utils::{
     bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_le,
     normalize_usize, to_bigint, vec_fr_to_bytes_le, vec_u8_to_bytes_le, FrOrSecret, IdSecret,
 };
-use ark_bn254::Fr;
-use ark_ff::AdditiveGroup;
+use ark_bn254::{Fr, FrConfig};
+use ark_ff::{AdditiveGroup, Fp, MontBackend};
 use ark_groth16::{prepare_verifying_key, Groth16, Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -22,7 +28,6 @@ use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use std::time::Instant;
 use tiny_keccak::{Hasher as _, Keccak};
-use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 use zeroize::Zeroize;
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
@@ -177,6 +182,7 @@ pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)
 // https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L148
 // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
 // return value is a rln witness populated according to this information
+#[cfg(not(feature = "stateless"))]
 pub fn proof_inputs_to_rln_witness(
     tree: &mut PoseidonTree,
     serialized: &[u8],
@@ -240,16 +246,14 @@ pub fn proof_inputs_to_rln_witness(
 /// Returns an error if `message_id` is not within `user_message_limit`.
 pub fn rln_witness_from_values(
     identity_secret: IdSecret,
-    merkle_proof: &MerkleProof,
+    path_elements: Vec<Fp<MontBackend<FrConfig, 4>, 4>>,
+    identity_path_index: Vec<u8>,
     x: Fr,
     external_nullifier: Fr,
     user_message_limit: Fr,
     message_id: Fr,
 ) -> Result<RLNWitnessInput, ProtocolError> {
     message_id_range_check(&message_id, &user_message_limit)?;
-
-    let path_elements = merkle_proof.get_path_elements();
-    let identity_path_index = merkle_proof.get_path_index();
 
     Ok(RLNWitnessInput {
         identity_secret,

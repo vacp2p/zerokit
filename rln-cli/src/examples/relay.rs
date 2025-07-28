@@ -7,13 +7,12 @@ use std::{
 
 use clap::{Parser, Subcommand};
 use color_eyre::{eyre::eyre, Report, Result};
-use rln::utils::IdSecret;
 use rln::{
     circuit::Fr,
     hashers::{hash_to_field, poseidon_hash},
     protocol::{keygen, prepare_prove_input, prepare_verify_input},
     public::RLN,
-    utils::{fr_to_bytes_le, generate_input_buffer},
+    utils::{fr_to_bytes_le, generate_input_buffer, IdSecret},
 };
 
 const MESSAGE_LIMIT: u32 = 1;

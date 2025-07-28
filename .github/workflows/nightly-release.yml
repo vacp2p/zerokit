@@ -34,9 +34,7 @@ jobs:
         run: make installdeps
       - name: Cross build
         run: |
-          FEATURES="${{ matrix.feature }}"
-
-          cross build --release --target ${{ matrix.target }} --features $FEATURES --workspace --exclude rln-cli
+          cross build --release --target ${{ matrix.target }} --no-default-features --features ${{ matrix.feature }} --workspace --exclude rln-cli
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
@@ -76,9 +74,7 @@ jobs:
         run: make installdeps
       - name: Cross build
         run: |
-          FEATURES="${{ matrix.feature }}"
-
-          cross build --release --target ${{ matrix.target }} --features $FEATURES --workspace --exclude rln-cli
+          cross build --release --target ${{ matrix.target }} --no-default-features --features ${{ matrix.feature }} --workspace --exclude rln-cli
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
@@ -122,12 +118,10 @@ jobs:
           sudo apt-get install -y binaryen
       - name: Build wasm package
         run: |
-          FEATURES="${{ matrix.feature }}"
-
-          if [[ "$FEATURES" == *"parallel"* ]]; then
+          if [[ ${{ matrix.feature }} == *parallel* ]]; then
             env RUSTFLAGS="-C target-feature=+atomics,+bulk-memory,+mutable-globals" \
             rustup run nightly wasm-pack build --release --target web --scope waku \
-            --features $FEATURES -Z build-std=panic_abort,std
+            --features ${{ matrix.feature }} -Z build-std=panic_abort,std
 
             wasm-bindgen --target web --split-linked-modules --out-dir ./pkg \
             ./target/wasm32-unknown-unknown/release/rln_wasm.wasm
@@ -140,7 +134,7 @@ jobs:
             -exec sed -i.bak 's|await initWbg(module, memory);|await initWbg({ module, memory });|g' {} \; \
             -exec rm -f {}.bak \;
           else
-            wasm-pack build --release --target web --scope waku --features $FEATURES
+            wasm-pack build --release --target web --scope waku --features ${{ matrix.feature }}
           fi
 
           sed -i.bak 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json && rm pkg/package.json.bak

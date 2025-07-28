@@ -2,6 +2,8 @@
 // Tests
 ////////////////////////////////////////////////////////////
 
+#![cfg(not(feature = "stateless"))]
+
 #[cfg(test)]
 mod test {
     use rln::hashers::{poseidon_hash, PoseidonHash};
