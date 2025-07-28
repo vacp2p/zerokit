@@ -15,10 +15,7 @@ use crate::utils::{
 };
 #[cfg(not(target_arch = "wasm32"))]
 use {
-    crate::{
-        circuit::{graph_from_folder, zkey_from_folder},
-        protocol::generate_proof,
-    },
+    crate::circuit::{graph_from_folder, zkey_from_folder},
     std::default::Default,
 };
 
@@ -29,8 +26,6 @@ use crate::protocol::generate_proof_with_witness;
 /// used by tests etc. as well
 #[cfg(not(feature = "stateless"))]
 use {
-    crate::protocol::{proof_inputs_to_rln_witness, serialize_witness},
-    crate::utils::{bytes_le_to_vec_u8, vec_fr_to_bytes_le, vec_u8_to_bytes_le},
     crate::{circuit::TEST_TREE_HEIGHT, poseidon_tree::PoseidonTree},
     serde_json::{json, Value},
     std::str::FromStr,

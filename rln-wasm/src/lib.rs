@@ -6,7 +6,6 @@ use rln::public::{
     extended_key_gen, hash, key_gen, poseidon_hash, seeded_extended_key_gen, seeded_key_gen,
     Endianness, RLN,
 };
-use std::vec::Vec;
 use wasm_bindgen::prelude::*;
 
 #[cfg(feature = "parallel")]

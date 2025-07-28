@@ -5,7 +5,6 @@ use crate::error::ConversionError;
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
-use ark_std::vec::Vec;
 use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use rand::Rng;

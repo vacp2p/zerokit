@@ -31,6 +31,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use tiny_keccak::{Hasher as _, Keccak};
 use zeroize::Zeroize;
+
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
 ///////////////////////////////////////////////////////
@@ -189,8 +190,8 @@ pub fn serialize_witness_be(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>, Pr
     serialized.extend_from_slice(&fr_to_bytes_be(&rln_witness.identity_secret));
     serialized.extend_from_slice(&fr_to_bytes_be(&rln_witness.user_message_limit));
     serialized.extend_from_slice(&fr_to_bytes_be(&rln_witness.message_id));
-    serialized.extend_from_slice(&vec_fr_to_bytes_be(&rln_witness.path_elements));
-    serialized.extend_from_slice(&vec_u8_to_bytes_be(&rln_witness.identity_path_index));
+    serialized.extend_from_slice(&vec_fr_to_bytes_le(&rln_witness.path_elements));
+    serialized.extend_from_slice(&vec_u8_to_bytes_le(&rln_witness.identity_path_index));
     serialized.extend_from_slice(&fr_to_bytes_be(&rln_witness.x));
     serialized.extend_from_slice(&fr_to_bytes_be(&rln_witness.external_nullifier));
 
@@ -258,7 +259,9 @@ pub fn deserialize_witness_be(
 ) -> Result<(RLNWitnessInput, usize), ProtocolError> {
     let mut all_read: usize = 0;
 
-    let (identity_secret, read) = bytes_be_to_fr(&serialized[all_read..]);
+    let mut reversed_serialized = serialized[all_read..].to_vec();
+    reversed_serialized.reverse();
+    let (identity_secret, read) = IdSecret::from_bytes_le(&reversed_serialized);
     all_read += read;
 
     let (user_message_limit, read) = bytes_be_to_fr(&serialized[all_read..]);
@@ -269,10 +272,10 @@ pub fn deserialize_witness_be(
 
     message_id_range_check(&message_id, &user_message_limit)?;
 
-    let (path_elements, read) = bytes_be_to_vec_fr(&serialized[all_read..])?;
+    let (path_elements, read) = bytes_le_to_vec_fr(&serialized[all_read..])?;
     all_read += read;
 
-    let (identity_path_index, read) = bytes_be_to_vec_u8(&serialized[all_read..])?;
+    let (identity_path_index, read) = bytes_le_to_vec_u8(&serialized[all_read..])?;
     all_read += read;
 
     let (x, read) = bytes_be_to_fr(&serialized[all_read..]);
@@ -344,6 +347,68 @@ pub fn proof_inputs_to_rln_witness_le(
     let identity_path_index = merkle_proof.get_path_index();
 
     let x = hash_to_field_le(&signal);
+
+    Ok((
+        RLNWitnessInput {
+            identity_secret,
+            path_elements,
+            identity_path_index,
+            user_message_limit,
+            message_id,
+            x,
+            external_nullifier,
+        },
+        all_read,
+    ))
+}
+
+// This function deserializes input for kilic's rln generate_proof public API
+// https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L148
+// input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
+// return value is a rln witness populated according to this information
+pub fn proof_inputs_to_rln_witness_be(
+    tree: &mut PoseidonTree,
+    serialized: &[u8],
+) -> Result<(RLNWitnessInput, usize), ProtocolError> {
+    let mut all_read: usize = 0;
+
+    let mut reversed_serialized = serialized[all_read..].to_vec();
+    reversed_serialized.reverse();
+    let (identity_secret, read) = IdSecret::from_bytes_le(&reversed_serialized);
+    all_read += read;
+
+    let id_index = usize::try_from(u64::from_be_bytes(
+        serialized[all_read..all_read + 8]
+            .try_into()
+            .map_err(ConversionError::FromSlice)?,
+    ))
+    .map_err(ConversionError::ToUsize)?;
+    all_read += 8;
+
+    let (user_message_limit, read) = bytes_be_to_fr(&serialized[all_read..]);
+    all_read += read;
+
+    let (message_id, read) = bytes_be_to_fr(&serialized[all_read..]);
+    all_read += read;
+
+    let (external_nullifier, read) = bytes_be_to_fr(&serialized[all_read..]);
+    all_read += read;
+
+    let signal_len = usize::try_from(u64::from_be_bytes(
+        serialized[all_read..all_read + 8]
+            .try_into()
+            .map_err(ConversionError::FromSlice)?,
+    ))
+    .map_err(ConversionError::ToUsize)?;
+    all_read += 8;
+
+    let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
+
+    let merkle_proof = tree.proof(id_index).expect("proof should exist");
+    let path_elements = merkle_proof.get_path_elements();
+    let identity_path_index = merkle_proof.get_path_index();
+
+    let x = hash_to_field_be(&signal);
 
     Ok((
         RLNWitnessInput {
