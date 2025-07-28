@@ -13,15 +13,13 @@ pub mod public;
 pub mod public_api_tests;
 pub mod utils;
 
-// Feature validation for incompatible combinations
-#[cfg(all(feature = "fullmerkletree", feature = "optimalmerkletree"))]
-compile_error!("Cannot enable both fullmerkletree and optimalmerkletree");
-
-#[cfg(all(feature = "fullmerkletree", feature = "pmtree-ft"))]
-compile_error!("Cannot enable both fullmerkletree and pmtree-ft");
-
-#[cfg(all(feature = "optimalmerkletree", feature = "pmtree-ft"))]
-compile_error!("Cannot enable both optimalmerkletree and pmtree-ft");
+// Ensure that only one Merkle tree feature is enabled at a time
+#[cfg(any(
+    all(feature = "fullmerkletree", feature = "optimalmerkletree"),
+    all(feature = "fullmerkletree", feature = "pmtree-ft"),
+    all(feature = "optimalmerkletree", feature = "pmtree-ft"),
+))]
+compile_error!("Only one of `fullmerkletree`, `optimalmerkletree`, or `pmtree-ft` can be enabled at a time.");
 
 #[cfg(all(
     feature = "stateless",
