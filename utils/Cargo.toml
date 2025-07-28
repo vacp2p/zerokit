@@ -15,7 +15,7 @@ bench = false
 ark-ff = { version = "0.5.0", default-features = false }
 num-bigint = { version = "0.4.6", default-features = false }
 # pmtree = { package = "vacp2p_pmtree", version = "2.0.2", optional = true }
-pmtree = { path = "../../pmtree", package = "vacp2p_pmtree", version = "2.0.2", optional = true }
+pmtree = { git = "https://github.com/vacp2p/pmtree", branch = "upgrade-rayon-version", package = "vacp2p_pmtree", optional = true }
 sled = "0.34.7"
 serde_json = "1.0.141"
 lazy_static = "1.5.0"
