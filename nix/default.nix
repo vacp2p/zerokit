@@ -4,7 +4,6 @@
   project,
   src ? ../.,
   release ? true,
-  features ? "arkzkey",
   target-platform ? null,
   rust-target ? null,
 }:

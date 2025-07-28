@@ -29,7 +29,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
-    name: test - ${{ matrix.crate }} - ${{ matrix.platform }}
+    name: Test - ${{ matrix.crate }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -48,11 +48,11 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest]
         crate: [rln]
-        feature: ["default", "arkzkey", "stateless"]
+        feature: ["default", "stateless"]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
-    name: test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
+    name: Test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -75,11 +75,11 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest]
         crate: [rln-wasm]
-        feature: ["default", "arkzkey"]
+        feature: ["default"]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
-    name: test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
+    name: Test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
     steps:
       - uses: actions/checkout@v4
       - name: Install stable toolchain
@@ -117,11 +117,11 @@ jobs:
   #     matrix:
   #       platform: [ubuntu-latest, macos-latest]
   #       crate: [rln-wasm]
-  #       feature: ["parallel", "parallel_arkzkey"]
+  #       feature: ["parallel"]
   #   runs-on: ${{ matrix.platform }}
   #   timeout-minutes: 60
 
-  #   name: test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
+  #   name: Test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
   #   steps:
   #     - uses: actions/checkout@v4
   #     - name: Install nightly toolchain
@@ -208,7 +208,7 @@ jobs:
         # we run benchmark tests only on ubuntu
         platform: [ubuntu-latest]
         crate: [rln]
-        feature: ["default", "arkzkey"]
+        feature: ["default"]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 

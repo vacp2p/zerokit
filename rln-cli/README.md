@@ -27,16 +27,6 @@ If the configuration file is empty, default settings will be used, but the tree 
 
 We recommend using the example config, as all commands (except `new` and `create-with-params`) require an initialized RLN instance.
 
-## Feature Flags
-
-The CLI supports optional features. To enable the **arkzkey** feature, run:
-
-```bash
-cargo run --features arkzkey -- <SUBCOMMAND> [OPTIONS]
-```
-
-For more details, refer to the [Zerokit RLN Module](../rln/README.md) documentation.
-
 ## Relay Example
 
 The following [Example](src/examples/relay.rs) demonstrates how RLN enables spam prevention in anonymous environments for multple users.
@@ -45,12 +35,6 @@ You can run the example using the following command:
 
 ```bash
 cargo run --example relay
-```
-
-or with the **arkzkey** feature flag:
-
-```bash
-cargo run --example relay --features arkzkey
 ```
 
 You can also change **MESSAGE_LIMIT** and **TREEE_HEIGHT** in the [relay.rs](src/examples/relay.rs) file to see how the RLN instance behaves with different parameters.
@@ -67,12 +51,6 @@ You can run the example using the following command:
 
 ```bash
 cargo run --example stateless --features stateless
-```
-
-or with the **arkzkey** feature flag:
-
-```bash
-cargo run --example stateless --features stateless,arkzkey
 ```
 
 ## CLI Commands

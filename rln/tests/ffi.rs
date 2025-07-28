@@ -414,10 +414,7 @@ mod test {
         // We obtain the root from the RLN instance
         let root_rln_folder = get_tree_root(rln_pointer);
 
-        #[cfg(feature = "arkzkey")]
         let zkey_path = "./resources/tree_height_20/rln_final.arkzkey";
-        #[cfg(not(feature = "arkzkey"))]
-        let zkey_path = "./resources/tree_height_20/rln_final.zkey";
         let mut zkey_file = File::open(zkey_path).expect("no file found");
         let metadata = std::fs::metadata(zkey_path).expect("unable to read metadata");
         let mut zkey_buffer = vec![0; metadata.len() as usize];

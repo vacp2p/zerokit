@@ -2,10 +2,6 @@
 clear = true
 dependencies = ["pack_build", "pack_rename", "pack_resize"]
 
-[tasks.build_arkzkey]
-clear = true
-dependencies = ["pack_build_arkzkey", "pack_rename", "pack_resize"]
-
 [tasks.build_parallel]
 clear = true
 dependencies = [
@@ -15,31 +11,9 @@ dependencies = [
     "pack_resize",
 ]
 
-[tasks.build_parallel_arkzkey]
-clear = true
-dependencies = [
-    "pack_build_parallel_arkzkey",
-    "post_build_parallel",
-    "pack_rename",
-    "pack_resize",
-]
-
 [tasks.pack_build]
 command = "wasm-pack"
 args = ["build", "--release", "--target", "web", "--scope", "waku"]
-
-[tasks.pack_build_arkzkey]
-command = "wasm-pack"
-args = [
-    "build",
-    "--release",
-    "--target",
-    "web",
-    "--scope",
-    "waku",
-    "--features",
-    "arkzkey",
-]
 
 [tasks.pack_build_parallel]
 command = "env"
@@ -57,26 +31,6 @@ args = [
     "waku",
     "--features",
     "parallel",
-    "-Z",
-    "build-std=panic_abort,std",
-]
-
-[tasks.pack_build_parallel_arkzkey]
-command = "env"
-args = [
-    "RUSTFLAGS=-C target-feature=+atomics,+bulk-memory,+mutable-globals",
-    "rustup",
-    "run",
-    "nightly",
-    "wasm-pack",
-    "build",
-    "--release",
-    "--target",
-    "web",
-    "--scope",
-    "waku",
-    "--features",
-    "parallel,arkzkey",
     "-Z",
     "build-std=panic_abort,std",
 ]
@@ -117,21 +71,6 @@ args = [
 ]
 dependencies = ["build"]
 
-[tasks.test_arkzkey]
-command = "wasm-pack"
-args = [
-    "test",
-    "--release",
-    "--node",
-    "--target",
-    "wasm32-unknown-unknown",
-    "--features",
-    "arkzkey",
-    "--",
-    "--nocapture",
-]
-dependencies = ["build_arkzkey"]
-
 [tasks.test_browser]
 command = "wasm-pack"
 args = [
@@ -147,24 +86,6 @@ args = [
     "--nocapture",
 ]
 dependencies = ["build"]
-
-[tasks.test_browser_arkzkey]
-command = "wasm-pack"
-args = [
-    "test",
-    "--release",
-    "--chrome",
-    # "--firefox",
-    # "--safari",
-    "--headless",
-    "--target",
-    "wasm32-unknown-unknown",
-    "--features",
-    "arkzkey",
-    "--",
-    "--nocapture",
-]
-dependencies = ["build_arkzkey"]
 
 [tasks.test_parallel]
 command = "env"
@@ -190,31 +111,6 @@ args = [
     "--nocapture",
 ]
 dependencies = ["build_parallel"]
-
-[tasks.test_parallel_arkzkey]
-command = "env"
-args = [
-    "RUSTFLAGS=-C target-feature=+atomics,+bulk-memory,+mutable-globals",
-    "rustup",
-    "run",
-    "nightly",
-    "wasm-pack",
-    "test",
-    "--release",
-    "--chrome",
-    # "--firefox",
-    # "--safari",
-    "--headless",
-    "--target",
-    "wasm32-unknown-unknown",
-    "--features",
-    "parallel,arkzkey",
-    "-Z",
-    "build-std=panic_abort,std",
-    "--",
-    "--nocapture",
-]
-dependencies = ["build_parallel_arkzkey"]
 
 [tasks.bench]
 disabled = true

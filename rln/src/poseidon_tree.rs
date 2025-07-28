@@ -4,34 +4,26 @@
 
 use cfg_if::cfg_if;
 
-// The zerokit RLN default Merkle tree implementation is the OptimalMerkleTree.
-// To switch to FullMerkleTree implementation, it is enough to enable the fullmerkletree feature
+// The zerokit RLN default Merkle tree implementation is the PMTree from the vacp2p_pmtree crate
+// To switch to FullMerkleTree or OptimalMerkleTree, enable the corresponding feature in the Cargo.toml file
 
 cfg_if! {
     if #[cfg(feature = "fullmerkletree")] {
-
-        use utils::{
-            FullMerkleTree,
-            FullMerkleProof,
-        };
+        use utils::{FullMerkleTree, FullMerkleProof};
         use crate::hashers::PoseidonHash;
 
         pub type PoseidonTree = FullMerkleTree<PoseidonHash>;
         pub type MerkleProof = FullMerkleProof<PoseidonHash>;
-    } else if #[cfg(feature = "pmtree-ft")] {
-        use crate::pm_tree_adapter::{PmTree, PmTreeProof};
-
-        pub type PoseidonTree =  PmTree;
-        pub type MerkleProof = PmTreeProof;
-    } else {
-
-        use crate::hashers::{PoseidonHash};
-        use utils::{
-            OptimalMerkleTree,
-            OptimalMerkleProof,
-        };
+    } else if #[cfg(feature = "optimalmerkletree")] {
+        use utils::{OptimalMerkleTree, OptimalMerkleProof};
+        use crate::hashers::PoseidonHash;
 
         pub type PoseidonTree = OptimalMerkleTree<PoseidonHash>;
         pub type MerkleProof = OptimalMerkleProof<PoseidonHash>;
+    } else {
+        use crate::pm_tree_adapter::{PmTree, PmTreeProof};
+
+        pub type PoseidonTree = PmTree;
+        pub type MerkleProof = PmTreeProof;
     }
 }

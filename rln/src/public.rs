@@ -135,7 +135,7 @@ impl RLN {
     ///
     /// Input parameters are
     /// - `tree_height`: the height of the internal Merkle tree
-    /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`)  or (`rln_final.arkzkey`) as binary file
+    /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.arkzkey`) as binary file
     /// - `graph_data`: a byte vector containing the graph data (`graph.bin`) as binary file
     /// - `tree_config_input`: a reader for a string containing a json with the merkle tree configuration
     ///
@@ -148,7 +148,7 @@ impl RLN {
     /// let resources_folder = "./resources/tree_height_20/";
     ///
     /// let mut resources: Vec<Vec<u8>> = Vec::new();
-    /// for filename in ["rln_final.zkey", "graph.bin"] {
+    /// for filename in ["rln_final.arkzkey", "graph.bin"] {
     ///     let fullpath = format!("{resources_folder}{filename}");
     ///     let mut file = File::open(&fullpath).expect("no file found");
     ///     let metadata = std::fs::metadata(&fullpath).expect("unable to read metadata");
@@ -206,7 +206,7 @@ impl RLN {
     /// Creates a new stateless RLN object by passing circuit resources as byte vectors.
     ///
     /// Input parameters are
-    /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.zkey`)  or (`rln_final.arkzkey`) as binary file
+    /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.arkzkey`) as binary file
     /// - `graph_data`: a byte vector containing the graph data (`graph.bin`) as binary file
     ///
     /// Example:
@@ -217,7 +217,7 @@ impl RLN {
     /// let resources_folder = "./resources/tree_height_20/";
     ///
     /// let mut resources: Vec<Vec<u8>> = Vec::new();
-    /// for filename in ["rln_final.zkey", "graph.bin"] {
+    /// for filename in ["rln_final.arkzkey", "graph.bin"] {
     ///     let fullpath = format!("{resources_folder}{filename}");
     ///     let mut file = File::open(&fullpath).expect("no file found");
     ///     let metadata = std::fs::metadata(&fullpath).expect("unable to read metadata");
@@ -246,14 +246,14 @@ impl RLN {
     /// Creates a new stateless RLN object by passing circuit resources as a byte vector.
     ///
     /// Input parameters are
-    /// - `zkey_vec`: a byte vector containing the proving key (`rln_final.zkey`) or (`rln_final.arkzkey`) as binary file
+    /// - `zkey_vec`: a byte vector containing the proving key (`rln_final.arkzkey`) as binary file
     ///
     /// Example:
     /// ```
     /// use std::fs::File;
     /// use std::io::Read;
     ///
-    /// let zkey_path = "./resources/tree_height_20/rln_final.zkey";
+    /// let zkey_path = "./resources/tree_height_20/rln_final.arkzkey";
     ///
     /// let mut file = File::open(zkey_path).expect("Failed to open file");
     /// let metadata = std::fs::metadata(zkey_path).expect("Failed to read metadata");

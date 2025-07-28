@@ -31,9 +31,8 @@ rln = { git = "https://github.com/vacp2p/zerokit" }
 
 The RLN object constructor requires the following files:
 
+- `rln_final.arkzkey`: The proving key in arkzkey format.
 - `graph.bin`: The graph file built for the input tree size
-- `rln_final.zkey` or `rln_final_uncompr.arkzkey`: The proving key
-- `verification_key.arkvkey`: The verification key (optional)
 
 Additionally, `rln.wasm` is used for testing in the rln-wasm module.
 
@@ -86,7 +85,7 @@ fn main() {
     let signal = b"RLN is awesome";
 
     // 6. Prepare input for generate_rln_proof API
-    // input_data is [ identity_secret<32> | id_index<8> | external_nullifier<32> 
+    // input_data is [ identity_secret<32> | id_index<8> | external_nullifier<32>
     //    | user_message_limit<32> | message_id<32> | signal_len<8> | signal<var> ]
     let prove_input = prepare_prove_input(
         identity_secret_hash,
@@ -105,7 +104,7 @@ fn main() {
         .unwrap();
 
     // We get the public outputs returned by the circuit evaluation
-    // The byte vector `proof_data` is serialized as 
+    // The byte vector `proof_data` is serialized as
     //  `[ zk-proof | tree_root | external_nullifier | share_x | share_y | nullifier ]`.
     let proof_data = output_buffer.into_inner();
 
@@ -136,13 +135,11 @@ for one application to be re-used in another one.
 
 ### Features
 
-- **Multiple Backend Support**: Choose between different zkey formats with feature flags
-  - `arkzkey`: Use the optimized Arkworks-compatible zkey format (faster loading)
-  - `stateless`: For stateless proof verification
+- **Stateless Mode**: Allows the use of RLN without maintaining state of the Merkle tree.
 - **Pre-compiled Circuits**: Ready-to-use circuits with Merkle tree depth of 20
 - **Wasm Support**: WebAssembly bindings via rln-wasm crate with features like:
   - Browser and Node.js compatibility
-  - Optional multi-threading support using wasm-bindgen-rayon
+  - Optional parallel feature support using [wasm-bindgen-rayon](https://github.com/RReverser/wasm-bindgen-rayon)
   - Headless browser testing capabilities
 
 ## Building and Testing
@@ -164,9 +161,8 @@ cargo make build
 # Test with default features
 cargo make test
 
-# Test with specific features
-cargo make test_arkzkey    # For arkzkey feature
-cargo make test_stateless  # For stateless feature
+# Test with stateless features
+cargo make test_stateless
 ```
 
 ## Advanced: Custom Circuit Compilation
@@ -175,9 +171,9 @@ The `rln` (<https://github.com/rate-limiting-nullifier/circom-rln>) repository,
 which contains the RLN circuit implementation is using for pre-compiled RLN circuit for zerokit RLN.
 If you want to compile your own RLN circuit, you can follow the instructions below.
 
-### 1. Compile ZK Circuits for getting the zkey and verification key files
+### 1. Compile ZK Circuits for getting the zkey file
 
-This script actually generates not only the zkey and verification key files for the RLN circuit,
+This script actually generates not only the zkey file for the RLN circuit,
 but also the execution wasm file used for witness calculation.
 However, the wasm file is not needed for the `rln` module,
 because current implementation uses the iden3 graph file for witness calculation.
@@ -271,11 +267,11 @@ cargo run --package circom_witnesscalc --bin build-circuit ../circom-rln/circuit
 The `rln` module comes with [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources)
 execution graph files for the RLN circuit.
 
-### 3. Generate Arkzkey Representation for zkey and verification key files
+### 3. Generate Arkzkey Representation for zkey file
 
 For faster loading, compile the zkey file into the arkzkey format using
 [ark-zkey](https://github.com/seemenkina/ark-zkey).
-This is fork of the [original](https://github.com/zkmopro/ark-zkey) repository with the uncompressed zkey support.
+This is fork of the [original](https://github.com/zkmopro/ark-zkey) repository with the uncompressed arkzkey support.
 
 ```sh
 # Clone the ark-zkey repository
@@ -288,8 +284,21 @@ cd ark-zkey && cargo build
 cargo run --bin arkzkey-util <path_to_rln_final.zkey>
 ```
 
+This will generate the `rln_final.arkzkey` file, which is used by the `rln` module.
+
 Currently, the `rln` module comes with
 [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) arkzkey keys for the RLN circuit.
+
+> [!NOTE]
+> You can use this [convert_zkey.sh](./convert_zkey.sh) script
+> to automate the process of generating the arkzkey file from any zkey file
+
+Run the script as follows:
+
+```sh
+chmod +x ./convert_zkey.sh
+./convert_zkey.sh <path_to_rln_final.zkey>
+```
 
 ## Get involved
 

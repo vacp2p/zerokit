@@ -46,7 +46,7 @@ utils = { package = "zerokit_utils", version = "0.6.0", path = "../utils", defau
 
 # serialization
 prost = "0.14.1"
-serde_json = "1.0"
+serde_json = "1.0.141"
 serde = { version = "1.0", features = ["derive"] }
 
 document-features = { version = "0.2.11", optional = true }
@@ -56,6 +56,7 @@ criterion = { version = "0.6.0", features = ["html_reports"] }
 
 [features]
 default = ["parallel", "pmtree-ft"]
+stateless = []
 parallel = [
     "utils/parallel",
     "ark-ff/parallel",
@@ -66,20 +67,9 @@ parallel = [
     "ark-serialize/parallel",
 ]
 fullmerkletree = []
-stateless = []
-arkzkey = []
-
+optimalmerkletree = []
 # Note: pmtree feature is still experimental
 pmtree-ft = ["utils/pmtree-ft"]
-
-[[bench]]
-name = "circuit_loading_arkzkey_benchmark"
-harness = false
-required-features = ["arkzkey"]
-
-[[bench]]
-name = "circuit_loading_benchmark"
-harness = false
 
 [[bench]]
 name = "pmtree_benchmark"

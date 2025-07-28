@@ -6,17 +6,22 @@ on:
 
 jobs:
   linux:
+    name: Linux build
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        feature: ["default", "arkzkey", "stateless"]
+        feature:
+          - "stateless"
+          - "stateless,parallel"
+          - "pmtree-ft"
+          - "pmtree-ft,parallel"
+          - "fullmerkletree"
+          - "fullmerkletree,parallel"
+          - "optimalmerkletree"
+          - "optimalmerkletree,parallel"
         target:
           - x86_64-unknown-linux-gnu
           - aarch64-unknown-linux-gnu
-        include:
-          - feature: stateless
-            cargo_args: --exclude rln-cli
-    name: Linux build
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -27,13 +32,14 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
         run: make installdeps
-      - name: cross build
+      - name: Cross build
         run: |
-          cross build --release --target ${{ matrix.target }} --features ${{ matrix.feature }} --workspace ${{ matrix.cargo_args }}
+          FEATURES="${{ matrix.feature }}"
+
+          cross build --release --target ${{ matrix.target }} --features $FEATURES --workspace --exclude rln-cli
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
-
       - name: Upload archive artifact
         uses: actions/upload-artifact@v4
         with:
@@ -46,13 +52,18 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        feature: ["default", "arkzkey", "stateless"]
+        feature:
+          - "stateless"
+          - "stateless,parallel"
+          - "pmtree-ft"
+          - "pmtree-ft,parallel"
+          - "fullmerkletree"
+          - "fullmerkletree,parallel"
+          - "optimalmerkletree"
+          - "optimalmerkletree,parallel"
         target:
           - x86_64-apple-darwin
           - aarch64-apple-darwin
-        include:
-          - feature: stateless
-            cargo_args: --exclude rln-cli
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -63,13 +74,14 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
         run: make installdeps
-      - name: cross build
+      - name: Cross build
         run: |
-          cross build --release --target ${{ matrix.target }} --features ${{ matrix.feature }} --workspace ${{ matrix.cargo_args }}
+          FEATURES="${{ matrix.feature }}"
+
+          cross build --release --target ${{ matrix.target }} --features $FEATURES --workspace --exclude rln-cli
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
-
       - name: Upload archive artifact
         uses: actions/upload-artifact@v4
         with:
@@ -78,29 +90,73 @@ jobs:
           retention-days: 2
 
   browser-rln-wasm:
-    name: Browser build (RLN WASM)
+    name: Browser build
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        feature:
+          - "default"
+          - "parallel"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: wasm32-unknown-unknown
+          components: rust-src
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: wasm-${{ matrix.feature }}
       - name: Install dependencies
         run: make installdeps
-      - name: cross make build
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Install binaryen
         run: |
-          cross make build
-          mkdir release
-          cp pkg/** release/
-          tar -czvf browser-rln-wasm.tar.gz release/
-        working-directory: rln-wasm
+          sudo apt-get update
+          sudo apt-get install -y binaryen
+      - name: Build wasm package
+        run: |
+          FEATURES="${{ matrix.feature }}"
 
+          if [[ "$FEATURES" == *"parallel"* ]]; then
+            env RUSTFLAGS="-C target-feature=+atomics,+bulk-memory,+mutable-globals" \
+            rustup run nightly wasm-pack build --release --target web --scope waku \
+            --features $FEATURES -Z build-std=panic_abort,std
+
+            wasm-bindgen --target web --split-linked-modules --out-dir ./pkg \
+            ./target/wasm32-unknown-unknown/release/rln_wasm.wasm
+
+            find ./pkg/snippets -name "workerHelpers.worker.js" \
+            -exec sed -i.bak 's|from '\''\.\.\/\.\.\/\.\.\/'\'';|from "../../../rln_wasm.js";|g' {} \; \
+            -exec rm -f {}.bak \;
+
+            find ./pkg/snippets -name "workerHelpers.worker.js" \
+            -exec sed -i.bak 's|await initWbg(module, memory);|await initWbg({ module, memory });|g' {} \; \
+            -exec rm -f {}.bak \;
+          else
+            wasm-pack build --release --target web --scope waku --features $FEATURES
+          fi
+
+          sed -i.bak 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json && rm pkg/package.json.bak
+
+          wasm-opt pkg/rln_wasm_bg.wasm -Oz --strip-debug --strip-dwarf \
+          --remove-unused-module-elements --vacuum -o pkg/rln_wasm_bg.wasm
+
+          mkdir release
+          cp -r pkg/* release/
+          tar -czvf browser-rln-wasm-${{ matrix.feature }}.tar.gz release/
+        working-directory: rln-wasm
       - name: Upload archive artifact
         uses: actions/upload-artifact@v4
         with:
-          name: browser-rln-wasm-archive
-          path: rln-wasm/browser-rln-wasm.tar.gz
+          name: Browser-${{ matrix.feature }}-rln-wasm-archive
+          path: rln-wasm/browser-${{ matrix.feature }}-rln-wasm.tar.gz
           retention-days: 2
 
   prepare-prerelease:
@@ -114,7 +170,6 @@ jobs:
           ref: master
       - name: Download artifacts
         uses: actions/download-artifact@v4
-
       - name: Delete tag
         uses: dev-drprasad/delete-tag-and-release@v0.2.1
         with:
@@ -122,7 +177,6 @@ jobs:
           tag_name: nightly
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Create prerelease
         run: |
           start_tag=$(gh release list -L 2 --exclude-drafts | grep -v nightly | cut -d$'\t' -f3 | sed -n '1p')
@@ -134,7 +188,6 @@ jobs:
             *-archive/*.tar.gz \
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Delete artifacts
         uses: geekyeggo/delete-artifact@v5
         with:

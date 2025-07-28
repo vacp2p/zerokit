@@ -3,7 +3,6 @@
 pub mod error;
 pub mod iden3calc;
 pub mod qap;
-pub mod zkey;
 
 use ::lazy_static::lazy_static;
 use ark_bn254::{
@@ -12,37 +11,22 @@ use ark_bn254::{
 };
 use ark_groth16::ProvingKey;
 use ark_relations::r1cs::ConstraintMatrices;
-use cfg_if::cfg_if;
 
 use crate::circuit::error::ZKeyReadError;
 use crate::circuit::iden3calc::calc_witness;
 
-#[cfg(feature = "arkzkey")]
 use {ark_ff::Field, ark_serialize::CanonicalDeserialize, ark_serialize::CanonicalSerialize};
 
 use crate::utils::FrOrSecret;
-#[cfg(not(feature = "arkzkey"))]
-use {crate::circuit::zkey::read_zkey, std::io::Cursor};
 
-#[cfg(feature = "arkzkey")]
 pub const ARKZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_height_20/rln_final.arkzkey");
-
-pub const ZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_height_20/rln_final.zkey");
 
 #[cfg(not(target_arch = "wasm32"))]
 const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_height_20/graph.bin");
 
 lazy_static! {
-    static ref ZKEY: (ProvingKey<Curve>, ConstraintMatrices<Fr>) = {
-        cfg_if! {
-                if #[cfg(feature = "arkzkey")] {
-                    read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES).expect("Failed to read arkzkey")
-                } else {
-                    let mut reader = Cursor::new(ZKEY_BYTES);
-                    read_zkey(&mut reader).expect("Failed to read zkey")
-                }
-        }
-    };
+    static ref ARKZKEY: (ProvingKey<Curve>, ConstraintMatrices<Fr>) =
+        read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES).expect("Failed to read arkzkey");
 }
 
 pub const TEST_TREE_HEIGHT: usize = 20;
@@ -66,15 +50,7 @@ pub fn zkey_from_raw(
         return Err(ZKeyReadError::EmptyBytes);
     }
 
-    let proving_key_and_matrices = match () {
-        #[cfg(feature = "arkzkey")]
-        () => read_arkzkey_from_bytes_uncompressed(zkey_data)?,
-        #[cfg(not(feature = "arkzkey"))]
-        () => {
-            let mut reader = Cursor::new(zkey_data);
-            read_zkey(&mut reader)?
-        }
-    };
+    let proving_key_and_matrices = read_arkzkey_from_bytes_uncompressed(zkey_data)?;
 
     Ok(proving_key_and_matrices)
 }
@@ -82,7 +58,7 @@ pub fn zkey_from_raw(
 // Loads the proving key
 #[cfg(not(target_arch = "wasm32"))]
 pub fn zkey_from_folder() -> &'static (ProvingKey<Curve>, ConstraintMatrices<Fr>) {
-    &ZKEY
+    &ARKZKEY
 }
 
 pub fn calculate_rln_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
@@ -102,11 +78,9 @@ pub fn graph_from_folder() -> &'static [u8] {
 // without print and allow to choose between compressed and uncompressed arkzkey
 ////////////////////////////////////////////////////////
 
-#[cfg(feature = "arkzkey")]
 #[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq)]
 pub struct SerializableProvingKey(pub ProvingKey<Bn254>);
 
-#[cfg(feature = "arkzkey")]
 #[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq)]
 pub struct SerializableConstraintMatrices<F: Field> {
     pub num_instance_variables: usize,
@@ -120,13 +94,11 @@ pub struct SerializableConstraintMatrices<F: Field> {
     pub c: SerializableMatrix<F>,
 }
 
-#[cfg(feature = "arkzkey")]
 #[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq)]
 pub struct SerializableMatrix<F: Field> {
     pub data: Vec<Vec<(F, usize)>>,
 }
 
-#[cfg(feature = "arkzkey")]
 pub fn read_arkzkey_from_bytes_uncompressed(
     arkzkey_data: &[u8],
 ) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>), ZKeyReadError> {
