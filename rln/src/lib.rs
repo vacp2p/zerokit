@@ -19,8 +19,11 @@ pub mod utils;
     all(feature = "fullmerkletree", feature = "pmtree-ft"),
     all(feature = "optimalmerkletree", feature = "pmtree-ft"),
 ))]
-compile_error!("Only one of `fullmerkletree`, `optimalmerkletree`, or `pmtree-ft` can be enabled at a time.");
+compile_error!(
+    "Only one of `fullmerkletree`, `optimalmerkletree`, or `pmtree-ft` can be enabled at a time."
+);
 
+// Ensure that the `stateless` feature is not enabled with any Merkle tree features
 #[cfg(all(
     feature = "stateless",
     any(
