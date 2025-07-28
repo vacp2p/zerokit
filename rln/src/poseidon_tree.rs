@@ -27,9 +27,6 @@ cfg_if! {
         pub type PoseidonTree = PmTree;
         pub type MerkleProof = PmTreeProof;
     } else {
-        use crate::pm_tree_adapter::{PmTree, PmTreeProof};
-
-        pub type PoseidonTree = PmTree;
-        pub type MerkleProof = PmTreeProof;
+        compile_error!("One of the features `fullmerkletree`, `optimalmerkletree`, or `pmtree-ft` must be enabled.");
     }
 }
