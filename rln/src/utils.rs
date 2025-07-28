@@ -361,6 +361,14 @@ impl IdSecret {
         Zeroizing::new(res)
     }
 
+    pub fn from_bytes_be(input: &[u8]) -> (Self, usize) {
+        let el_size = fr_byte_size();
+        let b_uint = BigUint::from_bytes_be(&input[0..el_size]);
+        let mut fr = Fr::from(b_uint);
+        let res = IdSecret::from(&mut fr);
+        (res, el_size)
+    }
+
     pub(crate) fn to_bytes_be(&self) -> Zeroizing<Vec<u8>> {
         let input_biguint: BigUint = self.0.into();
         let mut res = input_biguint.to_bytes_be();

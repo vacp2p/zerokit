@@ -10,9 +10,9 @@ use color_eyre::{eyre::eyre, Report, Result};
 use rln::{
     circuit::Fr,
     hashers::{hash_to_field_le, poseidon_hash},
-    protocol::{keygen, prepare_prove_input, prepare_verify_input_le},
+    protocol::{keygen, prepare_prove_input_le, prepare_verify_input_le},
     public::{Endianness, RLN},
-    utils::{fr_to_bytes_le, generate_input_buffer},
+    utils::{fr_to_bytes_le, generate_input_buffer, IdSecret},
 };
 
 const MESSAGE_LIMIT: u32 = 1;
@@ -140,7 +140,7 @@ impl RLNSystem {
             None => return Err(eyre!("user index {user_index} not found")),
         };
 
-        let serialized = prepare_prove_input(
+        let serialized = prepare_prove_input_le(
             identity.identity_secret_hash.clone(),
             user_index,
             Fr::from(MESSAGE_LIMIT),

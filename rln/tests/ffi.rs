@@ -61,9 +61,7 @@ mod test {
         assert!(success, "key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret_hash, read) = IdSecret::from_bytes_le(&result_data);
-        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..]);
-        (identity_secret_hash, id_commitment)
+        deserialize_identity_pair(result_data)
     }
 
     fn rln_proof_gen(rln_pointer: &mut RLN, serialized: &[u8]) -> Vec<u8> {
@@ -504,7 +502,7 @@ mod test {
 
         // We prepare input for generate_rln_proof API
         // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
-        let prove_input = prepare_prove_input(
+        let prove_input = prepare_prove_input_le(
             identity_secret_hash,
             identity_index,
             user_message_limit,
@@ -570,7 +568,7 @@ mod test {
 
         // We prepare input for generate_rln_proof API
         // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
-        let prove_input = prepare_prove_input(
+        let prove_input = prepare_prove_input_le(
             identity_secret_hash,
             identity_index,
             user_message_limit,
@@ -675,7 +673,7 @@ mod test {
 
         // We prepare input for generate_rln_proof API
         // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
-        let prove_input1 = prepare_prove_input(
+        let prove_input1 = prepare_prove_input_le(
             identity_secret_hash.clone(),
             identity_index,
             user_message_limit,
@@ -684,7 +682,7 @@ mod test {
             &signal1,
         );
 
-        let prove_input2 = prepare_prove_input(
+        let prove_input2 = prepare_prove_input_le(
             identity_secret_hash.clone(),
             identity_index,
             user_message_limit,
@@ -742,7 +740,7 @@ mod test {
         // We prepare input for generate_rln_proof API
         // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
         // Note that epoch is the same as before
-        let prove_input3 = prepare_prove_input(
+        let prove_input3 = prepare_prove_input_le(
             identity_secret_hash,
             identity_index_new,
             user_message_limit,
@@ -861,8 +859,10 @@ mod stateless_test {
     use rand::Rng;
     use rln::circuit::*;
     use rln::ffi::generate_rln_proof_with_witness;
-    use rln::ffi::*;
-    use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash, PoseidonHash};
+    use rln::ffi::{hash as ffi_hash, poseidon_hash as ffi_poseidon_hash, *};
+    use rln::hashers::{
+        hash_to_field_le, poseidon_hash as utils_poseidon_hash, PoseidonHash, ROUND_PARAMS,
+    };
     use rln::protocol::*;
     use rln::public::{Endianness, RLN};
     use rln::utils::*;
@@ -885,9 +885,7 @@ mod stateless_test {
         assert!(success, "key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret_hash, read) = IdSecret::from_bytes_le(&result_data);
-        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..]);
-        (identity_secret_hash, id_commitment)
+        deserialize_identity_pair(result_data)
     }
 
     fn rln_proof_gen_with_witness(rln_pointer: &mut RLN, serialized: &[u8]) -> Vec<u8> {
@@ -1457,14 +1455,15 @@ mod stateless_big_endian_test {
     use rln::circuit::*;
     use rln::ffi::generate_rln_proof_with_witness;
     use rln::ffi::{hash as ffi_hash, poseidon_hash as ffi_poseidon_hash, *};
-    use rln::hashers::{hash_to_field_be, poseidon_hash as utils_poseidon_hash, ROUND_PARAMS};
-    use rln::poseidon_tree::PoseidonTree;
+    use rln::hashers::{
+        hash_to_field_be, poseidon_hash as utils_poseidon_hash, PoseidonHash, ROUND_PARAMS,
+    };
     use rln::protocol::*;
     use rln::public::{Endianness, RLN};
     use rln::utils::*;
     use std::mem::MaybeUninit;
     use std::time::{Duration, Instant};
-    use utils::ZerokitMerkleTree;
+    use utils::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
     type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
 
@@ -1475,15 +1474,13 @@ mod stateless_big_endian_test {
         unsafe { &mut *rln_pointer.assume_init() }
     }
 
-    fn identity_pair_gen() -> (Fr, Fr) {
+    fn identity_pair_gen() -> (IdSecret, Fr) {
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
         let success = key_gen(output_buffer.as_mut_ptr(), Endianness::BigEndian);
         assert!(success, "key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret_hash, read) = bytes_be_to_fr(&result_data);
-        let (id_commitment, _) = bytes_be_to_fr(&result_data[read..].to_vec());
-        (identity_secret_hash, id_commitment)
+        deserialize_identity_pair_be(result_data)
     }
 
     fn rln_proof_gen_with_witness(rln_pointer: &mut RLN, serialized: &[u8]) -> Vec<u8> {
@@ -1499,10 +1496,10 @@ mod stateless_big_endian_test {
     #[test]
     fn test_recover_id_secret_stateless_big_endian_ffi() {
         let default_leaf = Fr::from(0);
-        let mut tree = PoseidonTree::new(
+        let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
             TEST_TREE_HEIGHT,
             default_leaf,
-            ConfigOf::<PoseidonTree>::default(),
+            ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
         )
         .unwrap();
 
@@ -1534,19 +1531,22 @@ mod stateless_big_endian_test {
 
         // We prepare input for generate_rln_proof API
         let rln_witness1 = rln_witness_from_values(
-            identity_secret_hash,
-            &merkle_proof,
+            identity_secret_hash.clone(),
+            merkle_proof.get_path_elements(),
+            merkle_proof.get_path_index(),
             x1,
             external_nullifier,
             user_message_limit,
             Fr::from(1),
         )
         .unwrap();
+
         let serialized1 = serialize_witness_be(&rln_witness1).unwrap();
 
         let rln_witness2 = rln_witness_from_values(
-            identity_secret_hash,
-            &merkle_proof,
+            identity_secret_hash.clone(),
+            merkle_proof.get_path_elements(),
+            merkle_proof.get_path_index(),
             x2,
             external_nullifier,
             user_message_limit,
@@ -1581,7 +1581,8 @@ mod stateless_big_endian_test {
         assert!(!serialized_identity_secret_hash.is_empty());
 
         // We check if the recovered identity secret hash corresponds to the original one
-        let (recovered_identity_secret_hash, _) = bytes_be_to_fr(&serialized_identity_secret_hash);
+        let (recovered_identity_secret_hash, _) =
+            IdSecret::from_bytes_be(&serialized_identity_secret_hash);
         assert_eq!(recovered_identity_secret_hash, identity_secret_hash);
 
         // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
@@ -1599,8 +1600,9 @@ mod stateless_big_endian_test {
         let merkle_proof_new = tree.proof(identity_index_new).expect("proof should exist");
 
         let rln_witness3 = rln_witness_from_values(
-            identity_secret_hash_new,
-            &merkle_proof_new,
+            identity_secret_hash_new.clone(),
+            merkle_proof_new.get_path_elements(),
+            merkle_proof_new.get_path_index(),
             x3,
             external_nullifier,
             user_message_limit,
@@ -1628,20 +1630,23 @@ mod stateless_big_endian_test {
         let output_buffer = unsafe { output_buffer.assume_init() };
         let serialized_identity_secret_hash = <&[u8]>::from(&output_buffer).to_vec();
         let (recovered_identity_secret_hash_new, _) =
-            bytes_be_to_fr(&serialized_identity_secret_hash);
+            IdSecret::from_bytes_be(&serialized_identity_secret_hash);
 
         // ensure that the recovered secret does not match with either of the
         // used secrets in proof generation
-        assert_ne!(recovered_identity_secret_hash_new, identity_secret_hash_new);
+        assert_ne!(
+            recovered_identity_secret_hash_new.clone(),
+            identity_secret_hash_new.clone()
+        );
     }
 
     #[test]
     fn test_verify_with_roots_stateless_big_endian_ffi() {
         let default_leaf = Fr::from(0);
-        let mut tree = PoseidonTree::new(
+        let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
             TEST_TREE_HEIGHT,
             default_leaf,
-            ConfigOf::<PoseidonTree>::default(),
+            ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
         )
         .unwrap();
 
@@ -1671,7 +1676,8 @@ mod stateless_big_endian_test {
         // We prepare input for generate_rln_proof API
         let rln_witness = rln_witness_from_values(
             identity_secret_hash,
-            &merkle_proof,
+            merkle_proof.get_path_elements(),
+            merkle_proof.get_path_index(),
             x,
             external_nullifier,
             user_message_limit,
@@ -1727,10 +1733,11 @@ mod stateless_big_endian_test {
         assert_eq!(proof_is_valid, true);
     }
 
+    // TODO: strange unstability in this test
     #[test]
     fn test_groth16_proofs_performance_stateless_big_endian_ffi() {
         // We create a RLN instance
-        let rln_pointer = create_rln_instance();
+        // let rln_pointer = create_rln_instance();
 
         // We compute some benchmarks regarding proof and verify API calls
         // Note that circuit loading requires some initial overhead.
@@ -1739,9 +1746,11 @@ mod stateless_big_endian_test {
         let mut prove_time: u128 = 0;
         let mut verify_time: u128 = 0;
 
-        for _ in 0..sample_size {
+        for i in 0..sample_size {
+            let rln_pointer = create_rln_instance();
+            println!("sample_size: {}", i);
             // We generate random witness instances and relative proof values
-            let rln_witness = random_rln_witness(TEST_TREE_HEIGHT);
+            let rln_witness = random_rln_witness_be(TEST_TREE_HEIGHT);
             let proof_values = proof_values_from_witness(&rln_witness).unwrap();
 
             // We prepare id_commitment and we set the leaf at provided index

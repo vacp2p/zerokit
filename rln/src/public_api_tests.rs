@@ -692,7 +692,7 @@ mod tree_test {
 
         // We prepare input for generate_rln_proof API
         // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
-        let prove_input = prepare_prove_input(
+        let prove_input = prepare_prove_input_le(
             identity_secret_hash,
             identity_index,
             user_message_limit,
@@ -769,7 +769,7 @@ mod tree_test {
 
         // We prepare input for generate_rln_proof API
         // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
-        let prove_input = prepare_prove_input(
+        let prove_input = prepare_prove_input_le(
             identity_secret_hash,
             identity_index,
             user_message_limit,
@@ -858,7 +858,7 @@ mod tree_test {
 
         // We prepare input for generate_rln_proof API
         // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
-        let prove_input = prepare_prove_input(
+        let prove_input = prepare_prove_input_le(
             identity_secret_hash,
             identity_index,
             user_message_limit,
@@ -957,7 +957,7 @@ mod tree_test {
 
         // We prepare input for generate_rln_proof API
         // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
-        let prove_input1 = prepare_prove_input(
+        let prove_input1 = prepare_prove_input_le(
             identity_secret_hash.clone(),
             identity_index,
             user_message_limit,
@@ -966,7 +966,7 @@ mod tree_test {
             &signal1,
         );
 
-        let prove_input2 = prepare_prove_input(
+        let prove_input2 = prepare_prove_input_le(
             identity_secret_hash.clone(),
             identity_index,
             user_message_limit,
@@ -1027,7 +1027,7 @@ mod tree_test {
         let signal3: [u8; 32] = rng.gen();
 
         // We prepare proof input. Note that epoch is the same as before
-        let prove_input3 = prepare_prove_input(
+        let prove_input3 = prepare_prove_input_le(
             identity_secret_hash,
             identity_index_new,
             user_message_limit,

@@ -1,17 +1,16 @@
 use crate::circuit::{zkey_from_raw, Curve, Fr};
+use crate::error::{ConversionError, ProtocolError, RLNError};
 use crate::hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash as utils_poseidon_hash};
 use crate::protocol::{
     compute_id_secret, deserialize_proof_values_be, deserialize_proof_values_le,
     deserialize_witness_be, deserialize_witness_le, extended_keygen, extended_seeded_keygen,
-    generate_proof, keygen, proof_inputs_to_rln_witness_be, proof_inputs_to_rln_witness_le,
-    proof_values_from_witness, rln_witness_to_bigint_json, rln_witness_to_json, seeded_keygen,
-    serialize_proof_values_be, serialize_proof_values_le, serialize_witness_be,
-    serialize_witness_le, verify_proof,
+    generate_proof, keygen, proof_values_from_witness, rln_witness_to_bigint_json,
+    rln_witness_to_json, seeded_keygen, serialize_proof_values_be, serialize_proof_values_le,
+    verify_proof,
 };
 use crate::utils::{
-    bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_le_to_fr, bytes_le_to_vec_fr,
-    bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_be, fr_to_bytes_le, vec_fr_to_bytes_be,
-    vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le,
+    bytes_be_to_fr, bytes_be_to_vec_fr, bytes_le_to_fr, bytes_le_to_vec_fr, fr_byte_size,
+    fr_to_bytes_be, fr_to_bytes_le,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use {
@@ -26,14 +25,24 @@ use crate::protocol::generate_proof_with_witness;
 /// used by tests etc. as well
 #[cfg(not(feature = "stateless"))]
 use {
-    crate::{circuit::TEST_TREE_HEIGHT, poseidon_tree::PoseidonTree},
+    crate::{
+        circuit::TEST_TREE_HEIGHT,
+        poseidon_tree::PoseidonTree,
+        protocol::{
+            proof_inputs_to_rln_witness_be, proof_inputs_to_rln_witness_le, serialize_witness_be,
+            serialize_witness_le,
+        },
+        utils::{
+            bytes_be_to_vec_u8, bytes_le_to_vec_u8, vec_fr_to_bytes_be, vec_fr_to_bytes_le,
+            vec_u8_to_bytes_be, vec_u8_to_bytes_le,
+        },
+    },
     serde_json::{json, Value},
     std::str::FromStr,
     utils::error::ZerokitMerkleTreeError,
     utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
 };
 
-use crate::error::{ConversionError, ProtocolError, RLNError};
 use ark_groth16::{Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
@@ -805,12 +814,13 @@ impl RLN {
     ////////////////////////////////////////////////////////
     // zkSNARK APIs
     ////////////////////////////////////////////////////////
-    /// Computes a zkSNARK RLN proof using a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
+    /// Computes a zkSNARK RLN proof using a `RLNWitnessInput`.
     ///
     /// Input values are:
-    /// - `input_data`: a reader for the serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput)
-    ///   object, containing the public and private inputs to the ZK circuits (serialization done using
-    ///   [`serialize_witness`])
+    /// - `input_data`: a reader for the serialization of a `RLNWitnessInput` object,
+    ///   containing the public and private inputs to the ZK circuits.
+    ///   Serialization can be done using [`rln::protocol::serialize_witness_le`](crate::protocol::serialize_witness_le)
+    ///   or [`rln::protocol::serialize_witness_be`](crate::protocol::serialize_witness_be).
     ///
     /// Output values are:
     /// - `output_data`: a writer receiving the serialization of the zkSNARK proof
@@ -1366,12 +1376,17 @@ impl RLN {
         Ok(())
     }
 
-    /// Returns the serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) populated from the identity secret, the Merkle tree index, the user message limit, the message id, the external nullifier (which include epoch and rln identifier) and signal.
+    /// Returns the serialization of a `RLNWitnessInput` populated from the identity secret, the Merkle tree index, the user message limit, the message id, the external nullifier (which include epoch and rln identifier) and signal.
     ///
     /// Input values are:
     /// - `input_data`: a reader for the serialization of `[ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]`
     ///
-    /// The function returns the corresponding [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object serialized using [`serialize_witness`].
+    /// The function returns the corresponding `RLNWitnessInput` object serialized using
+    /// [`rln::protocol::serialize_witness_le`](crate::protocol::serialize_witness_le)
+    /// or [`rln::protocol::serialize_witness_be`](crate::protocol::serialize_witness_be).
+    ///
+    /// # Errors
+    /// - [`RLNError::Protocol`] if serializing the `RLNWitnessInput` object fails.
     #[cfg(not(feature = "stateless"))]
     pub fn get_serialized_rln_witness<R: Read>(
         &mut self,
@@ -1395,13 +1410,14 @@ impl RLN {
         }
     }
 
-    /// Converts a byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object to the corresponding JSON serialization.
+    /// Converts a byte serialization of a `RLNWitnessInput` object to the corresponding JSON serialization.
     ///
     /// Input values are:
-    /// - `serialized_witness`: the byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput)
-    ///   object (serialization done with  [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
+    /// - `serialized_witness`: the byte serialization of a `RLNWitnessInput` object.
+    ///   Serialization can be done using [`rln::protocol::serialize_witness_le`](crate::protocol::serialize_witness_le)
+    ///   or [`rln::protocol::serialize_witness_be`](crate::protocol::serialize_witness_be).
     ///
-    /// The function returns the corresponding JSON encoding of the input.
+    /// The function returns the corresponding JSON encoding of the input `RLNWitnessInput` object.
     pub fn get_rln_witness_json(
         &mut self,
         serialized_witness: &[u8],
@@ -1413,15 +1429,15 @@ impl RLN {
         rln_witness_to_json(&rln_witness)
     }
 
-    /// Converts a byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object
-    ///   to the corresponding JSON serialization.
+    /// Converts a byte serialization of a `RLNWitnessInput` object to the corresponding JSON serialization.
     /// Before serialization the data will be translated into big int for further calculation in the witness calculator.
     ///
     /// Input values are:
-    /// - `serialized_witness`: the byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput)
-    ///   object (serialization done with  [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
+    /// - `serialized_witness`: the byte serialization of a `RLNWitnessInput` object.
+    ///   Serialization can be done using [`rln::protocol::serialize_witness_le`](crate::protocol::serialize_witness_le)
+    ///   or [`rln::protocol::serialize_witness_be`](crate::protocol::serialize_witness_be).
     ///
-    /// The function returns the corresponding JSON encoding of the input [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
+    /// The function returns the corresponding JSON encoding of the input `RLNWitnessInput` object.
     pub fn get_rln_witness_bigint_json(
         &mut self,
         serialized_witness: &[u8],
