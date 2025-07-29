@@ -805,7 +805,14 @@ impl RLN {
                 idxs.serialize_compressed(&mut output_data)?;
             }
             Endianness::BigEndian => {
-                // TODO: implement
+                let mut bytes = Vec::new();
+                // Serialize compressed set in first 8 bytes number of elements, then the elements
+                idxs.serialize_compressed(&mut bytes)?;
+                let mut reversed_bytes = bytes[8..].to_vec();
+                reversed_bytes.reverse();
+
+                output_data.write_all(&bytes[..8])?;
+                output_data.write_all(&reversed_bytes)?;
             }
         }
         Ok(())
@@ -1092,7 +1099,6 @@ impl RLN {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
-        // TODO: looks like in nwaku they just store proof as compressed
         let proof =
             ArkProof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
@@ -1197,7 +1203,6 @@ impl RLN {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
-        // TODO: looks like in nwaku they just store proof as compressed
         let proof =
             ArkProof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;

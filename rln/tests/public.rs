@@ -386,4 +386,24 @@ mod test {
 
         assert_eq!(hash, expected_hash);
     }
+
+    #[test]
+    fn test_get_empty_leaves_indices_be() {
+        let mut rln = RLN::new(
+            TEST_TREE_HEIGHT,
+            generate_input_buffer(),
+            Endianness::BigEndian,
+        )
+        .unwrap();
+
+        let index = 3;
+        let element = Fr::rand(&mut thread_rng());
+        rln.set_leaf(index, &mut Cursor::new(fr_to_bytes_be(&element)))
+            .unwrap();
+
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_empty_leaves_indices(&mut buffer).unwrap();
+        let idxs = bytes_be_to_vec_usize(&buffer.into_inner()).unwrap();
+        assert_eq!(idxs, [0, 1, 2]);
+    }
 }
