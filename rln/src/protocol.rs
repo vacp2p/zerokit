@@ -8,10 +8,13 @@ use {
 
 use crate::circuit::{calculate_rln_witness, qap::CircomReduction, Curve};
 use crate::error::{ComputeIdSecretError, ProofError, ProtocolError};
-use crate::hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash};
+use crate::hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash, PoseidonHash};
 use crate::public::RLN_IDENTIFIER;
 use crate::utils::{
-    bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_be, fr_to_bytes_le, normalize_usize_be, normalize_usize_le, to_bigint, vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, FrOrSecret, IdSecret
+    bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_le_to_fr, bytes_le_to_vec_fr,
+    bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_be, fr_to_bytes_le, normalize_usize_be,
+    normalize_usize_le, to_bigint, vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be,
+    vec_u8_to_bytes_le, FrOrSecret, IdSecret,
 };
 use ark_bn254::{Fr, FrConfig};
 use ark_ff::{AdditiveGroup, Fp, MontBackend};
@@ -26,8 +29,8 @@ use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use std::time::Instant;
 use tiny_keccak::{Hasher as _, Keccak};
+use utils::OptimalMerkleTree;
 use zeroize::Zeroize;
-
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
 ///////////////////////////////////////////////////////
@@ -1203,64 +1206,85 @@ pub fn rln_witness_from_values(
 
 /// Generates a random RLN witness for testing purposes.
 pub fn random_rln_witness(tree_height: usize) -> RLNWitnessInput {
-    let mut rng = thread_rng();
+    type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
+    let default_leaf = Fr::from(0);
+    let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
+        tree_height,
+        default_leaf,
+        ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
+    )
+    .unwrap();
 
-    let identity_secret = IdSecret::rand(&mut rng);
-    let x = hash_to_field_le(&rng.gen::<[u8; 32]>());
-    let epoch = hash_to_field_le(&rng.gen::<[u8; 32]>());
-    let rln_identifier = hash_to_field_le(RLN_IDENTIFIER); //hash_to_field(&rng.gen::<[u8; 32]>());
+    // We generate a new identity pair
+    let (identity_secret_hash, id_commitment) = keygen();
 
-    let mut path_elements: Vec<Fr> = Vec::new();
-    let mut identity_path_index: Vec<u8> = Vec::new();
-
-    for _ in 0..tree_height {
-        path_elements.push(hash_to_field_le(&rng.gen::<[u8; 32]>()));
-        identity_path_index.push(rng.gen_range(0..2) as u8);
-    }
-
+    let identity_index = tree.leaves_set();
     let user_message_limit = Fr::from(100);
-    let message_id = Fr::from(1);
+    let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
+    tree.update_next(rate_commitment).unwrap();
 
+    // We generate a random epoch
+    let epoch = hash_to_field_le(b"test-epoch");
+    let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+    let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+
+    // We generate two proofs using same epoch but different signals.
+    // We generate a random signal
+    let mut rng = thread_rng();
+    let signal: [u8; 32] = rng.gen();
+    let x = hash_to_field_le(&signal);
+
+    let merkle_proof = tree.proof(identity_index).expect("proof should exist");
     RLNWitnessInput {
-        identity_secret,
-        path_elements,
-        identity_path_index,
+        identity_secret: identity_secret_hash,
+        path_elements: merkle_proof.get_path_elements(),
+        identity_path_index: merkle_proof.get_path_index(),
         x,
-        external_nullifier: poseidon_hash(&[epoch, rln_identifier]),
+        external_nullifier,
         user_message_limit,
-        message_id,
+        message_id: Fr::from(1),
     }
 }
 
 /// Generates a random RLN witness for testing purposes in big endian format.
 pub fn random_rln_witness_be(tree_height: usize) -> RLNWitnessInput {
-    let mut rng = thread_rng();
+    type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
+    let default_leaf = Fr::from(0);
+    let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
+        tree_height,
+        default_leaf,
+        ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
+    )
+    .unwrap();
 
-    let identity_secret = IdSecret::rand(&mut rng);
-    let x = hash_to_field_be(&rng.gen::<[u8; 32]>());
-    let epoch = hash_to_field_be(&rng.gen::<[u8; 32]>());
-    let rln_identifier = hash_to_field_be(RLN_IDENTIFIER); //hash_to_field(&rng.gen::<[u8; 32]>());
+    // We generate a new identity pair
+    let (identity_secret_hash, id_commitment) = keygen();
 
-    let mut path_elements: Vec<Fr> = Vec::new();
-    let mut identity_path_index: Vec<u8> = Vec::new();
-
-    for _ in 0..tree_height {
-        path_elements.push(hash_to_field_be(&rng.gen::<[u8; 32]>()));
-        // Use deterministic values for testing
-        identity_path_index.push(rng.gen_range(0..2) as u8);
-    }
-
+    let identity_index = tree.leaves_set();
     let user_message_limit = Fr::from(100);
-    let message_id = Fr::from(1);
+    let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
+    tree.update_next(rate_commitment).unwrap();
 
+    // We generate a random epoch
+    let epoch = hash_to_field_be(b"test-epoch");
+    let rln_identifier = hash_to_field_be(b"test-rln-identifier");
+    let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+
+    // We generate two proofs using same epoch but different signals.
+    // We generate a random signal
+    let mut rng = thread_rng();
+    let signal: [u8; 32] = rng.gen();
+    let x = hash_to_field_be(&signal);
+
+    let merkle_proof = tree.proof(identity_index).expect("proof should exist");
     RLNWitnessInput {
-        identity_secret,
-        path_elements,
-        identity_path_index,
+        identity_secret: identity_secret_hash,
+        path_elements: merkle_proof.get_path_elements(),
+        identity_path_index: merkle_proof.get_path_index(),
         x,
-        external_nullifier: poseidon_hash(&[epoch, rln_identifier]),
+        external_nullifier,
         user_message_limit,
-        message_id,
+        message_id: Fr::from(1),
     }
 }
 

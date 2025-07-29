@@ -1450,19 +1450,32 @@ mod general_tests {
 #[cfg(test)]
 #[cfg(feature = "stateless")]
 mod stateless_big_endian_test {
+    use ark_bn254::Fr;
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
-    use rln::circuit::*;
-    use rln::ffi::generate_rln_proof_with_witness;
-    use rln::ffi::{hash as ffi_hash, poseidon_hash as ffi_poseidon_hash, *};
-    use rln::hashers::{
-        hash_to_field_be, poseidon_hash as utils_poseidon_hash, PoseidonHash, ROUND_PARAMS,
-    };
-    use rln::protocol::*;
-    use rln::public::{Endianness, RLN};
-    use rln::utils::*;
     use std::mem::MaybeUninit;
     use std::time::{Duration, Instant};
+
+    use rln::{
+        circuit::TEST_TREE_HEIGHT,
+        ffi::{
+            generate_rln_proof_with_witness, hash as ffi_hash, key_gen, new,
+            poseidon_hash as ffi_poseidon_hash, prove, recover_id_secret, seeded_extended_key_gen,
+            seeded_key_gen, verify, verify_with_roots, Buffer,
+        },
+        hashers::{
+            hash_to_field_be, poseidon_hash as utils_poseidon_hash, PoseidonHash, ROUND_PARAMS,
+        },
+        protocol::{
+            deserialize_identity_pair_be, deserialize_identity_tuple_be, prepare_verify_input_be,
+            proof_values_from_witness, random_rln_witness_be, rln_witness_from_values,
+            serialize_proof_values_be, serialize_witness_be,
+        },
+        public::{Endianness, RLN},
+        utils::{
+            bytes_be_to_fr, bytes_le_to_fr, fr_to_bytes_be, str_to_fr, vec_fr_to_bytes_be, IdSecret,
+        },
+    };
     use utils::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
     type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
@@ -1491,6 +1504,26 @@ mod stateless_big_endian_test {
         assert!(success, "generate rln proof call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         <&[u8]>::from(&output_buffer).to_vec()
+    }
+
+    fn zk_proof_gen(rln_pointer: &mut RLN, serialized: &[u8]) -> Vec<u8> {
+        let input_buffer = &Buffer::from(serialized);
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = prove(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
+        assert!(success, "generate zk-proof call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        <&[u8]>::from(&output_buffer).to_vec()
+    }
+
+    fn zk_proof_verify(rln_pointer: &mut RLN, serialized: &[u8]) -> bool {
+        let input_buffer = &Buffer::from(serialized);
+        let mut proof_is_valid: bool = false;
+        let proof_is_valid_ptr = &mut proof_is_valid as *mut bool;
+        println!("input_buffer: {:?}", input_buffer);
+        println!("proof_is_valid_ptr: {:?}", proof_is_valid_ptr);
+        let success = verify(rln_pointer, input_buffer, proof_is_valid_ptr);
+        assert!(success, "verify call failed");
+        proof_is_valid
     }
 
     #[test]
@@ -1630,13 +1663,13 @@ mod stateless_big_endian_test {
         let output_buffer = unsafe { output_buffer.assume_init() };
         let serialized_identity_secret_hash = <&[u8]>::from(&output_buffer).to_vec();
         let (recovered_identity_secret_hash_new, _) =
-            IdSecret::from_bytes_be(&serialized_identity_secret_hash);
+            bytes_le_to_fr(&serialized_identity_secret_hash);
 
         // ensure that the recovered secret does not match with either of the
         // used secrets in proof generation
         assert_ne!(
-            recovered_identity_secret_hash_new.clone(),
-            identity_secret_hash_new.clone()
+            recovered_identity_secret_hash_new,
+            *identity_secret_hash_new
         );
     }
 
@@ -1733,11 +1766,10 @@ mod stateless_big_endian_test {
         assert_eq!(proof_is_valid, true);
     }
 
-    // TODO: strange unstability in this test
     #[test]
     fn test_groth16_proofs_performance_stateless_big_endian_ffi() {
         // We create a RLN instance
-        // let rln_pointer = create_rln_instance();
+        let rln_pointer = create_rln_instance();
 
         // We compute some benchmarks regarding proof and verify API calls
         // Note that circuit loading requires some initial overhead.
@@ -1746,41 +1778,28 @@ mod stateless_big_endian_test {
         let mut prove_time: u128 = 0;
         let mut verify_time: u128 = 0;
 
-        for i in 0..sample_size {
-            let rln_pointer = create_rln_instance();
-            println!("sample_size: {}", i);
+        for _ in 0..sample_size {
             // We generate random witness instances and relative proof values
             let rln_witness = random_rln_witness_be(TEST_TREE_HEIGHT);
-            let proof_values = proof_values_from_witness(&rln_witness).unwrap();
-
-            // We prepare id_commitment and we set the leaf at provided index
             let rln_witness_ser = serialize_witness_be(&rln_witness).unwrap();
-            let input_buffer = &Buffer::from(rln_witness_ser.as_ref());
-            let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+
+            let proof_values = proof_values_from_witness(&rln_witness).unwrap();
+            let proof_values_ser = serialize_proof_values_be(&proof_values);
+
             let now = Instant::now();
-            let success = prove(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
+            let zk_proof = zk_proof_gen(rln_pointer, rln_witness_ser.as_ref());
             prove_time += now.elapsed().as_nanos();
-            assert!(success, "prove call failed");
-            let output_buffer = unsafe { output_buffer.assume_init() };
 
-            // We read the returned proof and we append proof values for verify
-            let serialized_proof = <&[u8]>::from(&output_buffer).to_vec();
-            let serialized_proof_values = serialize_proof_values_be(&proof_values);
+            // Prepare verify data by concatenating proof and proof values
             let mut verify_data = Vec::<u8>::new();
-            verify_data.extend(&serialized_proof);
-            verify_data.extend(&serialized_proof_values);
+            verify_data.extend(zk_proof.clone());
+            verify_data.extend(proof_values_ser.clone());
 
-            // We prepare input proof values and we call verify
-            let input_buffer = &Buffer::from(verify_data.as_ref());
-            let mut proof_is_valid: bool = false;
-            let proof_is_valid_ptr = &mut proof_is_valid as *mut bool;
             let now = Instant::now();
-            let success = verify(rln_pointer, input_buffer, proof_is_valid_ptr);
+            let proof_is_valid = zk_proof_verify(rln_pointer, verify_data.as_ref());
             verify_time += now.elapsed().as_nanos();
-            assert!(success, "verify call failed");
-            assert_eq!(proof_is_valid, true);
+            assert!(proof_is_valid, "proof verification failed");
         }
-
         println!(
             "Average prove API call time: {:?}",
             Duration::from_nanos((prove_time / sample_size).try_into().unwrap())

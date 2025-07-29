@@ -5,7 +5,6 @@ mod tests {
     use js_sys::{BigInt as JsBigInt, Date, Number, Object, Uint8Array};
     use rln::circuit::{Fr, TEST_TREE_HEIGHT};
     use rln::hashers::{hash_to_field_le, poseidon_hash, PoseidonHash};
-    use rln::poseidon_tree::PoseidonTree;
     use rln::protocol::{prepare_verify_input_le, rln_witness_from_values, serialize_witness_le};
     use rln::utils::{bytes_le_to_fr, fr_to_bytes_le, IdSecret};
     use rln_wasm::{

@@ -4,9 +4,8 @@ use crate::hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash as utils_
 use crate::protocol::{
     compute_id_secret, deserialize_proof_values_be, deserialize_proof_values_le,
     deserialize_witness_be, deserialize_witness_le, extended_keygen, extended_seeded_keygen,
-    generate_proof, keygen, proof_values_from_witness, rln_witness_to_bigint_json,
-    rln_witness_to_json, seeded_keygen, serialize_proof_values_be, serialize_proof_values_le,
-    verify_proof,
+    keygen, proof_values_from_witness, rln_witness_to_bigint_json, rln_witness_to_json,
+    seeded_keygen, serialize_proof_values_be, serialize_proof_values_le, verify_proof,
 };
 use crate::utils::{
     bytes_be_to_fr, bytes_be_to_vec_fr, bytes_le_to_fr, bytes_le_to_vec_fr, fr_byte_size,
@@ -15,11 +14,12 @@ use crate::utils::{
 #[cfg(not(target_arch = "wasm32"))]
 use {
     crate::circuit::{graph_from_folder, zkey_from_folder},
+    crate::protocol::generate_proof,
     std::default::Default,
 };
 
 #[cfg(target_arch = "wasm32")]
-use crate::protocol::generate_proof_with_witness;
+use crate::protocol::generate_proof_with_calculated_witness;
 
 /// This is the main public API for RLN module. It is used by the FFI, and should be
 /// used by tests etc. as well
@@ -902,7 +902,6 @@ impl RLN {
         // [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
         let mut input_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input_byte)?;
-        // TODO: looks like in nwaku they just store proof as compressed
         let proof =
             ArkProof::deserialize_compressed(&mut Cursor::new(&input_byte[..128].to_vec()))?;
 
@@ -1045,7 +1044,8 @@ impl RLN {
         };
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
-        let proof = generate_proof_with_witness(calculated_witness, &self.proving_key).unwrap();
+        let proof =
+            generate_proof_with_calculated_witness(calculated_witness, &self.proving_key).unwrap();
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long

@@ -1,6 +1,5 @@
-#![cfg(not(feature = "stateless"))]
-
 #[cfg(test)]
+#[cfg(not(feature = "stateless"))]
 mod test {
     use ark_ff::BigInt;
     use rln::circuit::{graph_from_folder, zkey_from_folder};
@@ -254,5 +253,27 @@ mod test {
             expected_identity_secret_hash_seed_phrase
         );
         assert_eq!(id_commitment, expected_id_commitment_seed_phrase);
+    }
+}
+#[cfg(test)]
+#[cfg(feature = "stateless")]
+mod stateless_be_tests {
+    use rln::circuit::TEST_TREE_HEIGHT;
+    use rln::protocol::{
+        deserialize_proof_values_be, deserialize_witness_be, proof_values_from_witness,
+        random_rln_witness_be, serialize_proof_values_be, serialize_witness_be,
+    };
+
+    #[test]
+    fn test_random_rln_witness_be() {
+        let rln_witness = random_rln_witness_be(TEST_TREE_HEIGHT);
+        let ser = serialize_witness_be(&rln_witness).unwrap();
+        let (deser, _) = deserialize_witness_be(&ser).unwrap();
+        assert_eq!(rln_witness, deser);
+
+        let proof_values = proof_values_from_witness(&rln_witness).unwrap();
+        let ser = serialize_proof_values_be(&proof_values);
+        let (deser, _) = deserialize_proof_values_be(&ser);
+        assert_eq!(proof_values, deser);
     }
 }
