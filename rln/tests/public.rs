@@ -8,8 +8,9 @@ mod test {
             protocol::compute_tree_root,
             public::RLN,
             utils::{
-                bytes_le_to_vec_fr, bytes_le_to_vec_u8, bytes_le_to_vec_usize, fr_to_bytes_le,
-                generate_input_buffer, IdSecret,
+                bytes_be_to_vec_usize, bytes_le_to_vec_fr, bytes_le_to_vec_u8,
+                bytes_le_to_vec_usize, fr_to_bytes_be, fr_to_bytes_le, generate_input_buffer,
+                IdSecret,
             },
         },
         zeroize::Zeroize,
@@ -367,6 +368,7 @@ mod test {
         assert_eq!(hash, expected_hash);
     }
 
+    #[cfg(not(feature = "stateless"))]
     #[test]
     fn test_poseidon_hash_big_endian() {
         let mut rng = thread_rng();
