@@ -1,5 +1,8 @@
-// Node.js module compatible witness calculator
-module.exports = async function builder(code, options) {
+// File generated with https://github.com/iden3/circom
+// following the instructions from:
+// https://github.com/vacp2p/zerokit/tree/master/rln#advanced-custom-circuit-compilation
+
+export async function builder(code, options) {
   options = options || {};
 
   let wasmModule;
@@ -102,7 +105,7 @@ module.exports = async function builder(code, options) {
     // Then append the value to the message we are creating
     msgStr += fromArray32(arr).toString();
   }
-};
+}
 
 class WitnessCalculator {
   constructor(instance, sanityCheck) {

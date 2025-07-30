@@ -125,16 +125,8 @@ jobs:
 
             wasm-bindgen --target web --split-linked-modules --out-dir ./pkg \
             ./target/wasm32-unknown-unknown/release/rln_wasm.wasm
-
-            find ./pkg/snippets -name "workerHelpers.worker.js" \
-            -exec sed -i.bak 's|from '\''\.\.\/\.\.\/\.\.\/'\'';|from "../../../rln_wasm.js";|g' {} \; \
-            -exec rm -f {}.bak \;
-
-            find ./pkg/snippets -name "workerHelpers.worker.js" \
-            -exec sed -i.bak 's|await initWbg(module, memory);|await initWbg({ module, memory });|g' {} \; \
-            -exec rm -f {}.bak \;
           else
-            wasm-pack build --release --target web --scope waku --features ${{ matrix.feature }}
+            wasm-pack build --release --target web --scope waku
           fi
 
           sed -i.bak 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json && rm pkg/package.json.bak

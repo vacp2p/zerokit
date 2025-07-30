@@ -30,7 +30,7 @@ ark-serialize = { version = "0.5.0", default-features = false }
 thiserror = "2.0.12"
 
 # utilities
-rayon = { version = "1.7.0" }
+rayon = { version = "1.10.0", optional = true }
 byteorder = "1.5.0"
 cfg-if = "1.0"
 num-bigint = { version = "0.4.6", default-features = false, features = ["std"] }
@@ -58,6 +58,7 @@ criterion = { version = "0.7.0", features = ["html_reports"] }
 default = ["parallel", "pmtree-ft"]
 stateless = []
 parallel = [
+    "rayon",
     "utils/parallel",
     "ark-ff/parallel",
     "ark-ec/parallel",

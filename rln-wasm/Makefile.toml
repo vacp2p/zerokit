@@ -37,9 +37,7 @@ args = [
 
 [tasks.post_build_parallel]
 script = '''
-wasm-bindgen --target web --split-linked-modules --out-dir ./pkg ./target/wasm32-unknown-unknown/release/rln_wasm.wasm && \
-find ./pkg/snippets -name "workerHelpers.worker.js" -exec sed -i.bak 's|from '\''\.\.\/\.\.\/\.\.\/'\'';|from "../../../rln_wasm.js";|g' {} \; -exec rm -f {}.bak \; && \
-find ./pkg/snippets -name "workerHelpers.worker.js" -exec sed -i.bak 's|await initWbg(module, memory);|await initWbg({ module, memory });|g' {} \; -exec rm -f {}.bak \;
+wasm-bindgen --target web --split-linked-modules --out-dir ./pkg ./target/wasm32-unknown-unknown/release/rln_wasm.wasm
 '''
 
 [tasks.pack_rename]
@@ -77,8 +75,6 @@ args = [
     "test",
     "--release",
     "--chrome",
-    # "--firefox",
-    # "--safari",
     "--headless",
     "--target",
     "wasm32-unknown-unknown",
@@ -98,8 +94,6 @@ args = [
     "test",
     "--release",
     "--chrome",
-    # "--firefox",
-    # "--safari",
     "--headless",
     "--target",
     "wasm32-unknown-unknown",
