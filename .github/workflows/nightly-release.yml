@@ -85,8 +85,8 @@ jobs:
           path: ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz
           retention-days: 2
 
-  browser-rln-wasm:
-    name: Browser build
+  rln-wasm:
+    name: Build rln-wasm
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -107,7 +107,7 @@ jobs:
           components: rust-src
       - uses: Swatinem/rust-cache@v2
         with:
-          key: wasm-${{ matrix.feature }}
+          key: rln-wasm-${{ matrix.feature }}
       - name: Install dependencies
         run: make installdeps
       - name: Install wasm-pack
@@ -116,7 +116,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y binaryen
-      - name: Build wasm package
+      - name: Build rln-wasm package
         run: |
           if [[ ${{ matrix.feature }} == *parallel* ]]; then
             env RUSTFLAGS="-C target-feature=+atomics,+bulk-memory,+mutable-globals" \
@@ -136,22 +136,18 @@ jobs:
 
           mkdir release
           cp -r pkg/* release/
-          tar -czvf browser-rln-wasm-${{ matrix.feature }}.tar.gz release/
+          tar -czvf rln-wasm-${{ matrix.feature }}.tar.gz release/
         working-directory: rln-wasm
       - name: Upload archive artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Browser-${{ matrix.feature }}-rln-wasm-archive
-          path: rln-wasm/browser-${{ matrix.feature }}-rln-wasm.tar.gz
+          name: rln-wasm-${{ matrix.feature }}-archive
+          path: rln-wasm/rln-wasm-${{ matrix.feature }}.tar.gz
           retention-days: 2
 
   rln-wasm-utils:
-    name: Browser build
+    name: Build rln-wasm-utils
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        feature:
-          - "default"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -166,7 +162,7 @@ jobs:
           components: rust-src
       - uses: Swatinem/rust-cache@v2
         with:
-          key: wasm-${{ matrix.feature }}
+          key: rln-wasm-utils
       - name: Install dependencies
         run: make installdeps
       - name: Install wasm-pack
@@ -175,29 +171,29 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y binaryen
-      - name: Build wasm package
+      - name: Build rln-wasm-utils package
         run: |
-          wasm-pack build --release --target web --scope waku --features ${{ matrix.feature }}
-          
+          wasm-pack build --release --target web --scope waku
+
           sed -i.bak 's/rln-wasm-utils/zerokit-rln-wasm-utils/g' pkg/package.json && rm pkg/package.json.bak
-          
+
           wasm-opt pkg/rln_wasm_utils_bg.wasm -Oz --strip-debug --strip-dwarf \
           --remove-unused-module-elements --vacuum -o pkg/rln_wasm_utils_bg.wasm
-          
+
           mkdir release
           cp -r pkg/* release/
-          tar -czvf browser-rln-wasm-utils-${{ matrix.feature }}.tar.gz release/
+          tar -czvf rln-wasm-utils.tar.gz release/
         working-directory: rln-wasm-utils
       - name: Upload archive artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Browser-${{ matrix.feature }}-rln-wasm-utils-archive
-          path: rln-wasm-utils/browser-rln-wasm-utils-${{ matrix.feature }}.tar.gz
+          name: rln-wasm-utils-archive
+          path: rln-wasm-utils/rln-wasm-utils.tar.gz
           retention-days: 2
 
   prepare-prerelease:
     name: Prepare pre-release
-    needs: [linux, macos, browser-rln-wasm, rln-wasm-utils]
+    needs: [linux, macos, rln-wasm, rln-wasm-utils]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

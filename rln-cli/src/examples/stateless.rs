@@ -128,7 +128,7 @@ impl RLNSystem {
         };
 
         let merkle_proof = self.tree.proof(user_index)?;
-        let x = hash_to_field(signal.as_bytes());
+        let x = hash_to_field_le(signal.as_bytes());
 
         let rln_witness = rln_witness_from_values(
             identity.identity_secret_hash.clone(),
@@ -244,8 +244,8 @@ fn main() -> Result<()> {
     println!("Initializing RLN instance...");
     print!("\x1B[2J\x1B[1;1H");
     let mut rln_system = RLNSystem::new()?;
-    let rln_epoch = hash_to_field(b"epoch");
-    let rln_identifier = hash_to_field(b"rln-identifier");
+    let rln_epoch = hash_to_field_le(b"epoch");
+    let rln_identifier = hash_to_field_le(b"rln-identifier");
     let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]);
     println!("RLN Stateless Relay Example:");
     println!("Message Limit: {MESSAGE_LIMIT}");

@@ -108,11 +108,3 @@ dependencies = ["build_parallel"]
 
 [tasks.bench]
 disabled = true
-
-[tasks.login]
-command = "wasm-pack"
-args = ["login"]
-
-[tasks.publish]
-command = "wasm-pack"
-args = ["publish", "--access", "public", "--target", "web"]
