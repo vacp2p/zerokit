@@ -83,13 +83,12 @@ docs: update RLN protocol flow documentation
 
 #### Types
 
-- `feat:` - A new feature (shows up in Changelog)
-- `fix:` - A bug fix (shows up in Changelog)  
-- `docs:` - Documentation changes
-- `chore:` - Maintenance tasks (not in Changelog unless breaking)
-- `test:` - Adding or updating tests
-- `refactor:` - Code refactoring without functionality changes
-- `perf:` - Performance improvements
+Follow the [Conventional Commits specification](https://www.conventionalcommits.org/en/v1.0.0/) for commit types. Common examples:
+
+```
+feat(rln): add parallel witness calculation support
+fix(rln-wasm): resolve memory leak in browser threading
+```
 
 #### Scopes
 
