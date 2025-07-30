@@ -78,8 +78,7 @@ mod test {
             // For non-zero values, LE and BE should be different
             assert_ne!(
                 le_result, be_result,
-                "LE and BE should differ for value {}",
-                value
+                "LE and BE should differ for value {value}"
             );
 
             // Both should be 8 bytes
@@ -114,16 +113,14 @@ mod test {
             let reconstructed_le = usize::from_le_bytes(le_bytes);
             assert_eq!(
                 reconstructed_le, value,
-                "LE roundtrip failed for value {}",
-                value
+                "LE roundtrip failed for value {value}"
             );
 
             // Reconstruct from big-endian bytes
             let reconstructed_be = usize::from_be_bytes(be_bytes);
             assert_eq!(
                 reconstructed_be, value,
-                "BE roundtrip failed for value {}",
-                value
+                "BE roundtrip failed for value {value}"
             );
         }
     }
