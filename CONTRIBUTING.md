@@ -11,7 +11,7 @@ This guide will discuss how the Zerokit team handles [Commits](#commits), [Pull 
 2. Create a feature branch: `git checkout -b fix/your-bug-fix` or `git checkout -b feat/your-feature-name`
 3. Make your changes following our guidelines
 4. Ensure all tests pass: `make test`
-5. Commit your changes with a signed commit
+5. Commit your changes (signed commits are highly encouraged  - see [commit guidelines](#commits))
 6. Push and create a Pull Request
 
 ## Development Setup
