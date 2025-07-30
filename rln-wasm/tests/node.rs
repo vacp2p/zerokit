@@ -5,13 +5,14 @@
 mod tests {
     use js_sys::{BigInt as JsBigInt, Date, Object, Uint8Array};
     use rln::circuit::{Fr, TEST_TREE_HEIGHT};
-    use rln::hashers::{hash_to_field, poseidon_hash, PoseidonHash};
+    use rln::hashers::{hash_to_field_le, poseidon_hash, PoseidonHash};
     use rln::protocol::{prepare_verify_input, rln_witness_from_values, serialize_witness};
     use rln::utils::{bytes_le_to_fr, fr_to_bytes_le, IdSecret};
     use rln_wasm::{
-        wasm_generate_rln_proof_with_witness, wasm_key_gen, wasm_new, wasm_rln_witness_to_json,
+        wasm_generate_rln_proof_with_witness, wasm_new, wasm_rln_witness_to_json,
         wasm_verify_with_roots,
     };
+    use rln_wasm_utils::wasm_key_gen;
     use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
     use wasm_bindgen_test::{console_log, wasm_bindgen_test};
     use zerokit_utils::{
@@ -102,18 +103,18 @@ mod tests {
         // Benchmark wasm_key_gen
         let start_wasm_key_gen = Date::now();
         for _ in 0..iterations {
-            let _ = wasm_key_gen(rln_instance).expect("Failed to generate keys");
+            let _ = wasm_key_gen(true).expect("Failed to generate keys");
         }
         let wasm_key_gen_result = Date::now() - start_wasm_key_gen;
 
         // Generate identity pair for other benchmarks
-        let mem_keys = wasm_key_gen(rln_instance).expect("Failed to generate keys");
+        let mem_keys = wasm_key_gen(true).expect("Failed to generate keys");
         let id_key = mem_keys.subarray(0, 32);
         let (identity_secret_hash, _) = IdSecret::from_bytes_le(&id_key.to_vec());
         let (id_commitment, _) = bytes_le_to_fr(&mem_keys.subarray(32, 64).to_vec());
 
-        let epoch = hash_to_field(b"test-epoch");
-        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let epoch = hash_to_field_le(b"test-epoch");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
 
         let identity_index = tree.leaves_set();
@@ -126,7 +127,7 @@ mod tests {
 
         let message_id = Fr::from(0);
         let signal: [u8; 32] = [0; 32];
-        let x = hash_to_field(&signal);
+        let x = hash_to_field_le(&signal);
 
         let merkle_proof: OptimalMerkleProof<PoseidonHash> = tree
             .proof(identity_index)

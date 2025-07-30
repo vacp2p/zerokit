@@ -2,7 +2,7 @@
 
 use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
 use num_bigint::BigInt;
-use rln::public::{hash, poseidon_hash, RLN};
+use rln::public::RLN;
 use std::vec::Vec;
 use wasm_bindgen::prelude::*;
 
@@ -76,40 +76,6 @@ macro_rules! call_bool_method_with_error_msg {
             new_instance.instance.$method($($arg.process()),*).map_err(|err| format!("Msg: {:#?}, Error: {:#?}", $error_msg, err))
         }
     }
-}
-
-// Macro to execute a function with arbitrary amount of arguments,
-// First argument is the function to execute
-// Rest are all other arguments to the method
-macro_rules! fn_call_with_output_and_error_msg {
-    // this variant is needed for the case when
-    // there are zero other arguments
-    ($func:ident, $error_msg:expr) => {
-        {
-            let mut output_data: Vec<u8> = Vec::new();
-            if let Err(err) = $func(&mut output_data) {
-                std::mem::forget(output_data);
-                Err(format!("Msg: {:#?}, Error: {:#?}", $error_msg, err))
-            } else {
-                let result = Uint8Array::from(&output_data[..]);
-                std::mem::forget(output_data);
-                Ok(result)
-            }
-        }
-    };
-    ($func:ident, $error_msg:expr, $( $arg:expr ),* ) => {
-        {
-            let mut output_data: Vec<u8> = Vec::new();
-            if let Err(err) = $func($($arg.process()),*, &mut output_data) {
-                std::mem::forget(output_data);
-                Err(format!("Msg: {:#?}, Error: {:#?}", $error_msg, err))
-            } else {
-                let result = Uint8Array::from(&output_data[..]);
-                std::mem::forget(output_data);
-                Ok(result)
-            }
-        }
-    };
 }
 
 trait ProcessArg {
@@ -214,43 +180,6 @@ pub fn wasm_generate_rln_proof_with_witness(
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = generateMembershipKey)]
-pub fn wasm_key_gen(ctx: *const RLNWrapper) -> Result<Uint8Array, String> {
-    call_with_output_and_error_msg!(ctx, key_gen, "could not generate membership keys")
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = generateExtendedMembershipKey)]
-pub fn wasm_extended_key_gen(ctx: *const RLNWrapper) -> Result<Uint8Array, String> {
-    call_with_output_and_error_msg!(ctx, extended_key_gen, "could not generate membership keys")
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = generateSeededMembershipKey)]
-pub fn wasm_seeded_key_gen(ctx: *const RLNWrapper, seed: Uint8Array) -> Result<Uint8Array, String> {
-    call_with_output_and_error_msg!(
-        ctx,
-        seeded_key_gen,
-        "could not generate membership key",
-        &seed.to_vec()[..]
-    )
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = generateSeededExtendedMembershipKey)]
-pub fn wasm_seeded_extended_key_gen(
-    ctx: *const RLNWrapper,
-    seed: Uint8Array,
-) -> Result<Uint8Array, String> {
-    call_with_output_and_error_msg!(
-        ctx,
-        seeded_extended_key_gen,
-        "could not generate membership key",
-        &seed.to_vec()[..]
-    )
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = recovedIDSecret)]
 pub fn wasm_recover_id_secret(
     ctx: *const RLNWrapper,
@@ -279,19 +208,5 @@ pub fn wasm_verify_with_roots(
         "error while verifying proof with roots".to_string(),
         &proof.to_vec()[..],
         &roots.to_vec()[..]
-    )
-}
-
-#[wasm_bindgen(js_name = hash)]
-pub fn wasm_hash(input: Uint8Array) -> Result<Uint8Array, String> {
-    fn_call_with_output_and_error_msg!(hash, "could not generate hash", &input.to_vec()[..])
-}
-
-#[wasm_bindgen(js_name = poseidonHash)]
-pub fn wasm_poseidon_hash(input: Uint8Array) -> Result<Uint8Array, String> {
-    fn_call_with_output_and_error_msg!(
-        poseidon_hash,
-        "could not generate poseidon hash",
-        &input.to_vec()[..]
     )
 }
