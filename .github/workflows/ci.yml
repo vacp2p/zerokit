@@ -9,6 +9,7 @@ on:
       - "!rln/src/**"
       - "!rln/resources/**"
       - "!utils/src/**"
+      - "!rln-wasm-utils/**"
   pull_request:
     paths-ignore:
       - "**.md"
@@ -17,6 +18,7 @@ on:
       - "!rln/src/**"
       - "!rln/resources/**"
       - "!utils/src/**"
+      - "!rln-wasm-utils/**"
 
 name: Tests
 
@@ -124,12 +126,32 @@ jobs:
         run: cargo make test_parallel --release
         working-directory: ${{ matrix.crate }}
 
+  rln-wasm-utils-test:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+        crate: [rln-wasm-utils]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+
+    name: Test - ${{ matrix.crate }} - ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install dependencies
+        run: make installdeps
+      - name: Test rln-wasm-utils
+        run: cargo make test --release
+        working-directory: ${{ matrix.crate }}
+
   lint:
     strategy:
       matrix:
         # we run lint tests only on ubuntu
         platform: [ubuntu-latest]
-        crate: [rln, rln-wasm, utils]
+        crate: [rln, rln-wasm, rln-wasm-utils, utils]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
