@@ -6,6 +6,7 @@ mod test {
         rln::{
             circuit::TEST_TREE_HEIGHT,
             protocol::compute_tree_root,
+            public::RLN,
             utils::{
                 bytes_le_to_vec_fr, bytes_le_to_vec_u8, bytes_le_to_vec_usize, fr_to_bytes_le,
                 generate_input_buffer, IdSecret,
@@ -17,10 +18,20 @@ mod test {
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use rln::circuit::Fr;
-    use rln::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash, ROUND_PARAMS};
-    use rln::protocol::deserialize_identity_tuple;
-    use rln::public::{hash as public_hash, poseidon_hash as public_poseidon_hash, RLN};
-    use rln::utils::{bytes_le_to_fr, str_to_fr, vec_fr_to_bytes_le};
+    use rln::hashers::{
+        hash_to_field_be, hash_to_field_le, poseidon_hash as utils_poseidon_hash, ROUND_PARAMS,
+    };
+    use rln::protocol::{
+        deserialize_identity_pair_be, deserialize_identity_pair_le, deserialize_identity_tuple_be,
+        deserialize_identity_tuple_le,
+    };
+    use rln::public::{
+        hash as public_hash, poseidon_hash as public_poseidon_hash, seeded_extended_key_gen,
+        seeded_key_gen,
+    };
+    use rln::utils::{
+        bytes_be_to_fr, bytes_le_to_fr, str_to_fr, vec_fr_to_bytes_be, vec_fr_to_bytes_le,
+    };
     use std::io::Cursor;
 
     #[test]
@@ -33,7 +44,7 @@ mod test {
         let mut rln = RLN::new(TEST_TREE_HEIGHT, generate_input_buffer()).unwrap();
 
         // generate identity
-        let mut identity_secret_hash_ = hash_to_field(b"test-merkle-proof");
+        let mut identity_secret_hash_ = hash_to_field_le(b"test-merkle-proof");
         let identity_secret_hash = IdSecret::from(&mut identity_secret_hash_);
 
         let mut to_hash = [*identity_secret_hash.clone()];
@@ -149,19 +160,46 @@ mod test {
 
     #[test]
     fn test_seeded_keygen() {
-        let rln = RLN::default();
-
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
         let mut input_buffer = Cursor::new(&seed_bytes);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
 
-        rln.seeded_key_gen(&mut input_buffer, &mut output_buffer)
-            .unwrap();
+        seeded_key_gen(&mut input_buffer, &mut output_buffer, true).unwrap();
         let serialized_output = output_buffer.into_inner();
 
-        let (identity_secret_hash, read) = bytes_le_to_fr(&serialized_output);
-        let (id_commitment, _) = bytes_le_to_fr(&serialized_output[read..]);
+        let (identity_secret_hash, id_commitment) = deserialize_identity_pair_le(serialized_output);
+
+        // We check against expected values
+        let expected_identity_secret_hash_seed_bytes = str_to_fr(
+            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
+            16,
+        )
+        .unwrap();
+        let expected_id_commitment_seed_bytes = str_to_fr(
+            "0xbf16d2b5c0d6f9d9d561e05bfca16a81b4b873bb063508fae360d8c74cef51f",
+            16,
+        )
+        .unwrap();
+
+        assert_eq!(
+            identity_secret_hash,
+            expected_identity_secret_hash_seed_bytes
+        );
+        assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
+    }
+
+    #[test]
+    fn test_seeded_keygen_big_endian() {
+        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+        let mut input_buffer = Cursor::new(&seed_bytes);
+        let mut output_buffer = Cursor::new(Vec::<u8>::new());
+
+        seeded_key_gen(&mut input_buffer, &mut output_buffer, false).unwrap();
+        let serialized_output = output_buffer.into_inner();
+
+        let (identity_secret_hash, id_commitment) = deserialize_identity_pair_be(serialized_output);
 
         // We check against expected values
         let expected_identity_secret_hash_seed_bytes = str_to_fr(
@@ -184,19 +222,60 @@ mod test {
 
     #[test]
     fn test_seeded_extended_keygen() {
-        let rln = RLN::default();
-
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
         let mut input_buffer = Cursor::new(&seed_bytes);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
 
-        rln.seeded_extended_key_gen(&mut input_buffer, &mut output_buffer)
-            .unwrap();
+        seeded_extended_key_gen(&mut input_buffer, &mut output_buffer, true).unwrap();
         let serialized_output = output_buffer.into_inner();
 
         let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
-            deserialize_identity_tuple(serialized_output);
+            deserialize_identity_tuple_le(serialized_output);
+
+        // We check against expected values
+        let expected_identity_trapdoor_seed_bytes = str_to_fr(
+            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
+            16,
+        )
+        .unwrap();
+        let expected_identity_nullifier_seed_bytes = str_to_fr(
+            "0x1f18714c7bc83b5bca9e89d404cf6f2f585bc4c0f7ed8b53742b7e2b298f50b4",
+            16,
+        )
+        .unwrap();
+        let expected_identity_secret_hash_seed_bytes = str_to_fr(
+            "0x2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521",
+            16,
+        )
+        .unwrap();
+        let expected_id_commitment_seed_bytes = str_to_fr(
+            "0x68b66aa0a8320d2e56842581553285393188714c48f9b17acd198b4f1734c5c",
+            16,
+        )
+        .unwrap();
+
+        assert_eq!(identity_trapdoor, expected_identity_trapdoor_seed_bytes);
+        assert_eq!(identity_nullifier, expected_identity_nullifier_seed_bytes);
+        assert_eq!(
+            identity_secret_hash,
+            expected_identity_secret_hash_seed_bytes
+        );
+        assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
+    }
+
+    #[test]
+    fn test_seeded_extended_keygen_big_endian() {
+        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+        let mut input_buffer = Cursor::new(&seed_bytes);
+        let mut output_buffer = Cursor::new(Vec::<u8>::new());
+
+        seeded_extended_key_gen(&mut input_buffer, &mut output_buffer, false).unwrap();
+        let serialized_output = output_buffer.into_inner();
+
+        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
+            deserialize_identity_tuple_be(serialized_output);
 
         // We check against expected values
         let expected_identity_trapdoor_seed_bytes = str_to_fr(
@@ -237,11 +316,28 @@ mod test {
         let mut input_buffer = Cursor::new(&signal);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
 
-        public_hash(&mut input_buffer, &mut output_buffer).unwrap();
+        public_hash(&mut input_buffer, &mut output_buffer, true).unwrap();
         let serialized_hash = output_buffer.into_inner();
         let (hash1, _) = bytes_le_to_fr(&serialized_hash);
 
-        let hash2 = hash_to_field(&signal);
+        let hash2 = hash_to_field_le(&signal);
+
+        assert_eq!(hash1, hash2);
+    }
+
+    #[test]
+    fn test_hash_to_field_big_endian() {
+        let mut rng = thread_rng();
+        let signal: [u8; 32] = rng.gen();
+
+        let mut input_buffer = Cursor::new(&signal);
+        let mut output_buffer = Cursor::new(Vec::<u8>::new());
+
+        public_hash(&mut input_buffer, &mut output_buffer, false).unwrap();
+        let serialized_hash = output_buffer.into_inner();
+        let (hash1, _) = bytes_be_to_fr(&serialized_hash);
+
+        let hash2 = hash_to_field_be(&signal);
 
         assert_eq!(hash1, hash2);
     }
@@ -259,9 +355,29 @@ mod test {
         let mut input_buffer = Cursor::new(vec_fr_to_bytes_le(&inputs));
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
 
-        public_poseidon_hash(&mut input_buffer, &mut output_buffer).unwrap();
+        public_poseidon_hash(&mut input_buffer, &mut output_buffer, true).unwrap();
         let serialized_hash = output_buffer.into_inner();
         let (hash, _) = bytes_le_to_fr(&serialized_hash);
+
+        assert_eq!(hash, expected_hash);
+    }
+
+    #[test]
+    fn test_poseidon_hash_big_endian() {
+        let mut rng = thread_rng();
+        let number_of_inputs = rng.gen_range(1..ROUND_PARAMS.len());
+        let mut inputs = Vec::with_capacity(number_of_inputs);
+        for _ in 0..number_of_inputs {
+            inputs.push(Fr::rand(&mut rng));
+        }
+        let expected_hash = utils_poseidon_hash(&inputs);
+
+        let mut input_buffer = Cursor::new(vec_fr_to_bytes_be(&inputs));
+        let mut output_buffer = Cursor::new(Vec::<u8>::new());
+
+        public_poseidon_hash(&mut input_buffer, &mut output_buffer, false).unwrap();
+        let serialized_hash = output_buffer.into_inner();
+        let (hash, _) = bytes_be_to_fr(&serialized_hash);
 
         assert_eq!(hash, expected_hash);
     }

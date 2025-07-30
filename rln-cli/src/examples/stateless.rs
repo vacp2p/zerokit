@@ -9,7 +9,7 @@ use clap::{Parser, Subcommand};
 use color_eyre::{eyre::eyre, Result};
 use rln::{
     circuit::{Fr, TEST_TREE_HEIGHT},
-    hashers::{hash_to_field, poseidon_hash, PoseidonHash},
+    hashers::{hash_to_field_le, poseidon_hash, PoseidonHash},
     protocol::{keygen, prepare_verify_input, rln_witness_from_values, serialize_witness},
     public::RLN,
     utils::{fr_to_bytes_le, IdSecret},

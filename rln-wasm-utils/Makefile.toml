@@ -1,0 +1,44 @@
+[tasks.build]
+clear = true
+dependencies = ["pack_build", "pack_rename", "pack_resize"]
+
+[tasks.pack_build]
+command = "wasm-pack"
+args = ["build", "--release", "--target", "web", "--scope", "waku"]
+
+[tasks.pack_rename]
+script = "sed -i.bak 's/rln-wasm-utils/zerokit-rln-wasm-utils/g' pkg/package.json && rm pkg/package.json.bak"
+
+[tasks.pack_resize]
+command = "wasm-opt"
+args = [
+    "pkg/rln_wasm_utils_bg.wasm",
+    "-Oz",
+    "--strip-debug",
+    "--strip-dwarf",
+    "--remove-unused-module-elements",
+    "--vacuum",
+    "-o",
+    "pkg/rln_wasm_utils_bg.wasm",
+]
+
+[tasks.test]
+command = "wasm-pack"
+args = [
+    "test",
+    "--release",
+    "--node",
+    "--target",
+    "wasm32-unknown-unknown",
+    "--",
+    "--nocapture",
+]
+dependencies = ["build"]
+
+[tasks.login]
+command = "wasm-pack"
+args = ["login"]
+
+[tasks.publish]
+command = "wasm-pack"
+args = ["publish", "--access", "public", "--target", "web"]

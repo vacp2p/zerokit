@@ -19,6 +19,8 @@ pub enum ConversionError {
     ToUsize(#[from] TryFromIntError),
     #[error("{0}")]
     FromSlice(#[from] TryFromSliceError),
+    #[error("Input data too short: expected at least {expected} bytes, got {actual} bytes")]
+    InsufficientData { expected: usize, actual: usize },
 }
 
 #[derive(Error, Debug)]

@@ -9,11 +9,12 @@ use {
 
 use crate::circuit::{calculate_rln_witness, qap::CircomReduction, Curve};
 use crate::error::{ComputeIdSecretError, ProofError, ProtocolError};
-use crate::hashers::{hash_to_field, poseidon_hash};
+use crate::hashers::{hash_to_field_le, poseidon_hash};
 use crate::public::RLN_IDENTIFIER;
 use crate::utils::{
-    bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_le,
-    normalize_usize, to_bigint, vec_fr_to_bytes_le, vec_u8_to_bytes_le, FrOrSecret, IdSecret,
+    bytes_be_to_fr, bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size,
+    fr_to_bytes_le, normalize_usize_le, to_bigint, vec_fr_to_bytes_le, vec_u8_to_bytes_le,
+    FrOrSecret, IdSecret,
 };
 use ark_bn254::{Fr, FrConfig};
 use ark_ff::{AdditiveGroup, Fp, MontBackend};
@@ -71,14 +72,21 @@ pub fn deserialize_field_element(serialized: Vec<u8>) -> Fr {
     element
 }
 
-pub fn deserialize_identity_pair(serialized: Vec<u8>) -> (Fr, Fr) {
+pub fn deserialize_identity_pair_le(serialized: Vec<u8>) -> (Fr, Fr) {
     let (identity_secret_hash, read) = bytes_le_to_fr(&serialized);
     let (id_commitment, _) = bytes_le_to_fr(&serialized[read..]);
 
     (identity_secret_hash, id_commitment)
 }
 
-pub fn deserialize_identity_tuple(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
+pub fn deserialize_identity_pair_be(serialized: Vec<u8>) -> (Fr, Fr) {
+    let (identity_secret_hash, read) = bytes_be_to_fr(&serialized);
+    let (id_commitment, _) = bytes_be_to_fr(&serialized[read..]);
+
+    (identity_secret_hash, id_commitment)
+}
+
+pub fn deserialize_identity_tuple_le(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
     let mut all_read = 0;
 
     let (identity_trapdoor, read) = bytes_le_to_fr(&serialized[all_read..]);
@@ -91,6 +99,28 @@ pub fn deserialize_identity_tuple(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
     all_read += read;
 
     let (identity_commitment, _) = bytes_le_to_fr(&serialized[all_read..]);
+
+    (
+        identity_trapdoor,
+        identity_nullifier,
+        identity_secret_hash,
+        identity_commitment,
+    )
+}
+
+pub fn deserialize_identity_tuple_be(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
+    let mut all_read = 0;
+
+    let (identity_trapdoor, read) = bytes_be_to_fr(&serialized[all_read..]);
+    all_read += read;
+
+    let (identity_nullifier, read) = bytes_be_to_fr(&serialized[all_read..]);
+    all_read += read;
+
+    let (identity_secret_hash, read) = bytes_be_to_fr(&serialized[all_read..]);
+    all_read += read;
+
+    let (identity_commitment, _) = bytes_be_to_fr(&serialized[all_read..]);
 
     (
         identity_trapdoor,
@@ -223,7 +253,7 @@ pub fn proof_inputs_to_rln_witness(
     let path_elements = merkle_proof.get_path_elements();
     let identity_path_index = merkle_proof.get_path_index();
 
-    let x = hash_to_field(&signal);
+    let x = hash_to_field_le(&signal);
 
     Ok((
         RLNWitnessInput {
@@ -270,15 +300,15 @@ pub fn random_rln_witness(tree_height: usize) -> RLNWitnessInput {
     let mut rng = thread_rng();
 
     let identity_secret = IdSecret::rand(&mut rng);
-    let x = hash_to_field(&rng.gen::<[u8; 32]>());
-    let epoch = hash_to_field(&rng.gen::<[u8; 32]>());
-    let rln_identifier = hash_to_field(RLN_IDENTIFIER); //hash_to_field(&rng.gen::<[u8; 32]>());
+    let x = hash_to_field_le(&rng.gen::<[u8; 32]>());
+    let epoch = hash_to_field_le(&rng.gen::<[u8; 32]>());
+    let rln_identifier = hash_to_field_le(RLN_IDENTIFIER); //hash_to_field(&rng.gen::<[u8; 32]>());
 
     let mut path_elements: Vec<Fr> = Vec::new();
     let mut identity_path_index: Vec<u8> = Vec::new();
 
     for _ in 0..tree_height {
-        path_elements.push(hash_to_field(&rng.gen::<[u8; 32]>()));
+        path_elements.push(hash_to_field_le(&rng.gen::<[u8; 32]>()));
         identity_path_index.push(rng.gen_range(0..2) as u8);
     }
 
@@ -395,11 +425,11 @@ pub fn prepare_prove_input(
     let mut serialized = Vec::with_capacity(fr_byte_size() * 4 + 16 + signal.len()); // length of 4 fr elements + 16 bytes (id_index + len) + signal length
 
     serialized.extend_from_slice(&identity_secret.to_bytes_le());
-    serialized.extend_from_slice(&normalize_usize(id_index));
+    serialized.extend_from_slice(&normalize_usize_le(id_index));
     serialized.extend_from_slice(&fr_to_bytes_le(&user_message_limit));
     serialized.extend_from_slice(&fr_to_bytes_le(&message_id));
     serialized.extend_from_slice(&fr_to_bytes_le(&external_nullifier));
-    serialized.extend_from_slice(&normalize_usize(signal.len()));
+    serialized.extend_from_slice(&normalize_usize_le(signal.len()));
     serialized.extend_from_slice(signal);
 
     serialized
@@ -414,7 +444,7 @@ pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Vec<u8> {
     let mut serialized = Vec::with_capacity(proof_data.len() + 8 + signal.len());
 
     serialized.extend(proof_data);
-    serialized.extend_from_slice(&normalize_usize(signal.len()));
+    serialized.extend_from_slice(&normalize_usize_le(signal.len()));
     serialized.extend_from_slice(signal);
 
     serialized

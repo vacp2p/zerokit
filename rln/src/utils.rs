@@ -54,11 +54,33 @@ pub fn bytes_le_to_fr(input: &[u8]) -> (Fr, usize) {
 }
 
 #[inline(always)]
+pub fn bytes_be_to_fr(input: &[u8]) -> (Fr, usize) {
+    let el_size = fr_byte_size();
+    (
+        Fr::from(BigUint::from_bytes_be(&input[0..el_size])),
+        el_size,
+    )
+}
+
+#[inline(always)]
 pub fn fr_to_bytes_le(input: &Fr) -> Vec<u8> {
     let input_biguint: BigUint = (*input).into();
     let mut res = input_biguint.to_bytes_le();
     //BigUint conversion ignores most significant zero bytes. We restore them otherwise serialization will fail (length % 8 != 0)
     res.resize(fr_byte_size(), 0);
+    res
+}
+
+#[inline(always)]
+pub fn fr_to_bytes_be(input: &Fr) -> Vec<u8> {
+    let input_biguint: BigUint = (*input).into();
+    let mut res = input_biguint.to_bytes_be();
+    // For BE, insert 0 at the start of the Vec (see also fr_to_bytes_le comments)
+    let to_insert_count = fr_byte_size().saturating_sub(res.len());
+    if to_insert_count > 0 {
+        // Insert multi 0 at index 0
+        res.splice(0..0, std::iter::repeat_n(0, to_insert_count));
+    }
     res
 }
 
@@ -70,11 +92,29 @@ pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(8 + input.len() * fr_byte_size());
 
     // We store the vector length
-    bytes.extend_from_slice(&normalize_usize(input.len()));
+    bytes.extend_from_slice(&normalize_usize_le(input.len()));
 
     // We store each element
     for el in input {
         bytes.extend_from_slice(&fr_to_bytes_le(el));
+    }
+
+    bytes
+}
+
+#[inline(always)]
+pub fn vec_fr_to_bytes_be(input: &[Fr]) -> Vec<u8> {
+    // Calculate capacity for Vec:
+    // - 8 bytes for normalized vector length (usize)
+    // - each Fr element requires fr_byte_size() bytes (typically 32 bytes)
+    let mut bytes = Vec::with_capacity(8 + input.len() * fr_byte_size());
+
+    // We store the vector length
+    bytes.extend_from_slice(&normalize_usize_be(input.len()));
+
+    // We store each element
+    for el in input {
+        bytes.extend_from_slice(&fr_to_bytes_be(el));
     }
 
     bytes
@@ -88,7 +128,23 @@ pub fn vec_u8_to_bytes_le(input: &[u8]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(8 + input.len());
 
     // We store the vector length
-    bytes.extend_from_slice(&normalize_usize(input.len()));
+    bytes.extend_from_slice(&normalize_usize_le(input.len()));
+
+    // We store the input
+    bytes.extend_from_slice(input);
+
+    bytes
+}
+
+#[inline(always)]
+pub fn vec_u8_to_bytes_be(input: &[u8]) -> Vec<u8> {
+    // Calculate capacity for Vec:
+    // - 8 bytes for normalized vector length (usize)
+    // - variable length input data
+    let mut bytes = Vec::with_capacity(8 + input.len());
+
+    // We store the vector length
+    bytes.extend_from_slice(&normalize_usize_be(input.len()));
 
     // We store the input
     bytes.extend_from_slice(input);
@@ -99,42 +155,150 @@ pub fn vec_u8_to_bytes_le(input: &[u8]) -> Vec<u8> {
 #[inline(always)]
 pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), ConversionError> {
     let mut read: usize = 0;
-
+    if input.len() < 8 {
+        return Err(ConversionError::InsufficientData {
+            expected: 8,
+            actual: input.len(),
+        });
+    }
     let len = usize::try_from(u64::from_le_bytes(input[0..8].try_into()?))?;
     read += 8;
-
+    if input.len() < 8 + len {
+        return Err(ConversionError::InsufficientData {
+            expected: 8 + len,
+            actual: input.len(),
+        });
+    }
     let res = input[8..8 + len].to_vec();
     read += res.len();
+    Ok((res, read))
+}
 
+#[inline(always)]
+pub fn bytes_be_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), ConversionError> {
+    let mut read: usize = 0;
+    if input.len() < 8 {
+        return Err(ConversionError::InsufficientData {
+            expected: 8,
+            actual: input.len(),
+        });
+    }
+    let len = usize::try_from(u64::from_be_bytes(input[0..8].try_into()?))?;
+    read += 8;
+    if input.len() < 8 + len {
+        return Err(ConversionError::InsufficientData {
+            expected: 8 + len,
+            actual: input.len(),
+        });
+    }
+    let res = input[8..8 + len].to_vec();
+    read += res.len();
     Ok((res, read))
 }
 
 #[inline(always)]
 pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), ConversionError> {
     let mut read: usize = 0;
+    if input.len() < 8 {
+        return Err(ConversionError::InsufficientData {
+            expected: 8,
+            actual: input.len(),
+        });
+    }
     let len = usize::try_from(u64::from_le_bytes(input[0..8].try_into()?))?;
     read += 8;
-    let mut res: Vec<Fr> = Vec::with_capacity(len);
-
     let el_size = fr_byte_size();
+    if input.len() < 8 + len * el_size {
+        return Err(ConversionError::InsufficientData {
+            expected: 8 + len * el_size,
+            actual: input.len(),
+        });
+    }
+    let mut res: Vec<Fr> = Vec::with_capacity(len);
     for i in 0..len {
         let (curr_el, _) = bytes_le_to_fr(&input[8 + el_size * i..8 + el_size * (i + 1)]);
         res.push(curr_el);
         read += el_size;
     }
+    Ok((res, read))
+}
 
+#[inline(always)]
+pub fn bytes_be_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), ConversionError> {
+    let mut read: usize = 0;
+    if input.len() < 8 {
+        return Err(ConversionError::InsufficientData {
+            expected: 8,
+            actual: input.len(),
+        });
+    }
+    let len = usize::try_from(u64::from_be_bytes(input[0..8].try_into()?))?;
+    read += 8;
+    let el_size = fr_byte_size();
+    if input.len() < 8 + len * el_size {
+        return Err(ConversionError::InsufficientData {
+            expected: 8 + len * el_size,
+            actual: input.len(),
+        });
+    }
+    let mut res: Vec<Fr> = Vec::with_capacity(len);
+    for i in 0..len {
+        let (curr_el, _) = bytes_be_to_fr(&input[8 + el_size * i..8 + el_size * (i + 1)]);
+        res.push(curr_el);
+        read += el_size;
+    }
     Ok((res, read))
 }
 
 #[inline(always)]
 pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, ConversionError> {
+    if input.len() < 8 {
+        return Err(ConversionError::InsufficientData {
+            expected: 8,
+            actual: input.len(),
+        });
+    }
     let nof_elem = usize::try_from(u64::from_le_bytes(input[0..8].try_into()?))?;
     if nof_elem == 0 {
         Ok(vec![])
     } else {
+        if input.len() < 8 + nof_elem * 8 {
+            return Err(ConversionError::InsufficientData {
+                expected: 8 + nof_elem * 8,
+                actual: input.len(),
+            });
+        }
         let elements: Vec<usize> = input[8..]
             .chunks(8)
+            .take(nof_elem)
             .map(|ch| usize::from_le_bytes(ch[0..8].try_into().unwrap()))
+            .collect();
+        Ok(elements)
+    }
+}
+
+#[inline(always)]
+pub fn bytes_be_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, ConversionError> {
+    if input.len() < 8 {
+        return Err(ConversionError::InsufficientData {
+            expected: 8,
+            actual: input.len(),
+        });
+    }
+    let nof_elem = usize::try_from(u64::from_be_bytes(input[0..8].try_into()?))?;
+    if nof_elem == 0 {
+        Ok(vec![])
+    } else {
+        if input.len() < 8 + nof_elem * 8 {
+            return Err(ConversionError::InsufficientData {
+                expected: 8 + nof_elem * 8,
+                actual: input.len(),
+            });
+        }
+        let elements: Vec<usize> = input[8..]
+            .chunks(8)
+            .take(nof_elem)
+            .map(|ch| usize::from_be_bytes(ch[0..8].try_into().unwrap()))
             .collect();
         Ok(elements)
     }
@@ -144,9 +308,20 @@ pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, ConversionError
 /// On 32-bit systems, the result is zero-padded to 8 bytes.
 /// On 64-bit systems, it directly represents the `usize` value.
 #[inline(always)]
-pub fn normalize_usize(input: usize) -> [u8; 8] {
+pub fn normalize_usize_le(input: usize) -> [u8; 8] {
     let mut bytes = [0u8; 8];
     let input_bytes = input.to_le_bytes();
+    bytes[..input_bytes.len()].copy_from_slice(&input_bytes);
+    bytes
+}
+
+/// Normalizes a `usize` into an 8-byte array, ensuring consistency across architectures.
+/// On 32-bit systems, the result is zero-padded to 8 bytes.
+/// On 64-bit systems, it directly represents the `usize` value.
+#[inline(always)]
+pub fn normalize_usize_be(input: usize) -> [u8; 8] {
+    let mut bytes = [0u8; 8];
+    let input_bytes = input.to_be_bytes();
     bytes[..input_bytes.len()].copy_from_slice(&input_bytes);
     bytes
 }
@@ -183,6 +358,17 @@ impl IdSecret {
         let input_biguint: BigUint = self.0.into();
         let mut res = input_biguint.to_bytes_le();
         res.resize(fr_byte_size(), 0);
+        Zeroizing::new(res)
+    }
+
+    pub(crate) fn to_bytes_be(&self) -> Zeroizing<Vec<u8>> {
+        let input_biguint: BigUint = self.0.into();
+        let mut res = input_biguint.to_bytes_be();
+        let to_insert_count = fr_byte_size().saturating_sub(res.len());
+        if to_insert_count > 0 {
+            // Insert multi 0 at index 0
+            res.splice(0..0, std::iter::repeat_n(0, to_insert_count));
+        }
         Zeroizing::new(res)
     }
 

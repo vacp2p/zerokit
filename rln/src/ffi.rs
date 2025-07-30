@@ -2,7 +2,12 @@
 
 use std::slice;
 
-use crate::public::{hash as public_hash, poseidon_hash as public_poseidon_hash, RLN};
+use crate::public::{
+    extended_key_gen as public_extended_key_gen, hash as public_hash, key_gen as public_key_gen,
+    poseidon_hash as public_poseidon_hash,
+    seeded_extended_key_gen as public_seeded_extended_key_gen,
+    seeded_key_gen as public_seeded_key_gen, RLN,
+};
 
 // Macro to call methods with arbitrary amount of arguments,
 // First argument to the macro is context,
@@ -80,23 +85,48 @@ macro_rules! call_with_output_arg {
 // Second argument is the output buffer argument
 // The remaining arguments are all other inputs to the method
 macro_rules! no_ctx_call_with_output_arg {
-    ($method:ident, $output_arg:expr, $( $arg:expr ),* ) => {
-        {
-            let mut output_data: Vec<u8> = Vec::new();
-            match $method($($arg.process()),*, &mut output_data) {
-                Ok(()) => {
-                    unsafe { *$output_arg = Buffer::from(&output_data[..]) };
-                    std::mem::forget(output_data);
-                    true
-                }
-                Err(err) => {
-                    std::mem::forget(output_data);
-                    eprintln!("execution error: {err}");
-                    false
-                }
+    ($method:ident, $output_arg:expr, $input_arg:expr, $endianness_arg:expr) => {{
+        let mut output_data: Vec<u8> = Vec::new();
+        match $method(
+            $input_arg.process(),
+            &mut output_data,
+            $endianness_arg.process(),
+        ) {
+            Ok(()) => {
+                unsafe { *$output_arg = Buffer::from(&output_data[..]) };
+                std::mem::forget(output_data);
+                true
+            }
+            Err(err) => {
+                std::mem::forget(output_data);
+                eprintln!("execution error: {err}");
+                false
             }
         }
-    }
+    }};
+}
+
+// Macro to call methods with arbitrary amount of arguments,
+// which are not implemented in a ctx RLN object
+// First argument is the method to call
+// Second argument is the output buffer argument
+// The remaining arguments are all other inputs to the method
+macro_rules! no_ctx_call_with_output_arg_and_endianness {
+    ($method:ident, $output_arg:expr, $endianness_arg:expr) => {{
+        let mut output_data: Vec<u8> = Vec::new();
+        match $method(&mut output_data, $endianness_arg.process()) {
+            Ok(()) => {
+                unsafe { *$output_arg = Buffer::from(&output_data[..]) };
+                std::mem::forget(output_data);
+                true
+            }
+            Err(err) => {
+                std::mem::forget(output_data);
+                eprintln!("execution error: {err}");
+                false
+            }
+        }
+    }};
 }
 
 // Macro to call methods with arbitrary amount of arguments,
@@ -155,6 +185,13 @@ impl ProcessArg for *mut RLN {
     type ReturnType = &'static mut RLN;
     fn process(self) -> Self::ReturnType {
         unsafe { &mut *self }
+    }
+}
+
+impl ProcessArg for bool {
+    type ReturnType = bool;
+    fn process(self) -> Self::ReturnType {
+        self
     }
 }
 
@@ -462,38 +499,6 @@ pub extern "C" fn verify_with_roots(
 ////////////////////////////////////////////////////////
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn key_gen(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
-    call_with_output_arg!(ctx, key_gen, output_buffer)
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[no_mangle]
-pub extern "C" fn seeded_key_gen(
-    ctx: *const RLN,
-    input_buffer: *const Buffer,
-    output_buffer: *mut Buffer,
-) -> bool {
-    call_with_output_arg!(ctx, seeded_key_gen, output_buffer, input_buffer)
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[no_mangle]
-pub extern "C" fn extended_key_gen(ctx: *const RLN, output_buffer: *mut Buffer) -> bool {
-    call_with_output_arg!(ctx, extended_key_gen, output_buffer)
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[no_mangle]
-pub extern "C" fn seeded_extended_key_gen(
-    ctx: *const RLN,
-    input_buffer: *const Buffer,
-    output_buffer: *mut Buffer,
-) -> bool {
-    call_with_output_arg!(ctx, seeded_extended_key_gen, output_buffer, input_buffer)
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[no_mangle]
 pub extern "C" fn recover_id_secret(
     ctx: *const RLN,
     input_proof_buffer_1: *const Buffer,
@@ -534,14 +539,77 @@ pub extern "C" fn flush(ctx: *mut RLN) -> bool {
     call!(ctx, flush)
 }
 
+////////////////////////////////////////////////////////
+// Utils APIs
+////////////////////////////////////////////////////////
+
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn hash(input_buffer: *const Buffer, output_buffer: *mut Buffer) -> bool {
-    no_ctx_call_with_output_arg!(public_hash, output_buffer, input_buffer)
+pub extern "C" fn hash(
+    input_buffer: *const Buffer,
+    output_buffer: *mut Buffer,
+    is_little_endian: bool,
+) -> bool {
+    no_ctx_call_with_output_arg!(public_hash, output_buffer, input_buffer, is_little_endian)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn poseidon_hash(input_buffer: *const Buffer, output_buffer: *mut Buffer) -> bool {
-    no_ctx_call_with_output_arg!(public_poseidon_hash, output_buffer, input_buffer)
+pub extern "C" fn poseidon_hash(
+    input_buffer: *const Buffer,
+    output_buffer: *mut Buffer,
+    is_little_endian: bool,
+) -> bool {
+    no_ctx_call_with_output_arg!(
+        public_poseidon_hash,
+        output_buffer,
+        input_buffer,
+        is_little_endian
+    )
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn key_gen(output_buffer: *mut Buffer, is_little_endian: bool) -> bool {
+    no_ctx_call_with_output_arg_and_endianness!(public_key_gen, output_buffer, is_little_endian)
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn seeded_key_gen(
+    input_buffer: *const Buffer,
+    output_buffer: *mut Buffer,
+    is_little_endian: bool,
+) -> bool {
+    no_ctx_call_with_output_arg!(
+        public_seeded_key_gen,
+        output_buffer,
+        input_buffer,
+        is_little_endian
+    )
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn extended_key_gen(output_buffer: *mut Buffer, is_little_endian: bool) -> bool {
+    no_ctx_call_with_output_arg_and_endianness!(
+        public_extended_key_gen,
+        output_buffer,
+        is_little_endian
+    )
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn seeded_extended_key_gen(
+    input_buffer: *const Buffer,
+    output_buffer: *mut Buffer,
+    is_little_endian: bool,
+) -> bool {
+    no_ctx_call_with_output_arg!(
+        public_seeded_extended_key_gen,
+        output_buffer,
+        input_buffer,
+        is_little_endian
+    )
 }
