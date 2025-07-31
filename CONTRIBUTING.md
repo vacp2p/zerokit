@@ -10,7 +10,7 @@ This guide will discuss how the Zerokit team handles [Commits](#commits), [Pull 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b fix/your-bug-fix` or `git checkout -b feat/your-feature-name`
 3. Make your changes following our guidelines
-4. Ensure all tests pass: `make test`
+4. Ensure all tests pass (see [testing guidelines](#building-and-testing))
 5. Commit your changes (signed commits are highly encouraged  - see [commit guidelines](#commits))
 6. Push and create a Pull Request
 
@@ -35,12 +35,13 @@ nix develop
 # Build all crates
 make build
 
-# Run tests
+# Run standard tests
 make test
 
-# Build specific components
-cd rln && cargo make build
-cd rln-wasm && cargo make build
+# Module-specific testing
+cd rln && cargo make test_stateless        # Test stateless features
+cd rln-wasm && cargo make test_browser     # Test in browser headless mode
+cd rln-wasm && cargo make test_parallel    # Test parallel features
 ```
 
 ### Tools
@@ -117,7 +118,7 @@ Before creating a pull request, search for related issues. If none exist, create
 Our continuous integration automatically runs when you create a Pull Request:
 
 - **Build verification**: All crates compile successfully
-- **Test execution**: Unit tests, integration tests, and WASM tests
+- **Test execution**: Comprehensive testing across all modules and feature combinations
 - **Code formatting**: `cargo fmt` compliance
 - **Linting**: `cargo clippy` checks
 - **Cross-platform builds**: Testing on multiple platforms
