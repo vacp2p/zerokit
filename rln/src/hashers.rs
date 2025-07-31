@@ -1,5 +1,8 @@
 /// This crate instantiates the Poseidon hash algorithm.
-use crate::{circuit::Fr, utils::bytes_le_to_fr};
+use crate::{
+    circuit::Fr,
+    utils::{bytes_be_to_fr, bytes_le_to_fr},
+};
 use once_cell::sync::Lazy;
 use tiny_keccak::{Hasher, Keccak};
 use utils::poseidon::Poseidon;
@@ -45,7 +48,7 @@ impl utils::merkle_tree::Hasher for PoseidonHash {
 }
 
 /// Hashes arbitrary signal to the underlying prime field.
-pub fn hash_to_field(signal: &[u8]) -> Fr {
+pub fn hash_to_field_le(signal: &[u8]) -> Fr {
     // We hash the input signal using Keccak256
     let mut hash = [0; 32];
     let mut hasher = Keccak::v256();
@@ -54,5 +57,21 @@ pub fn hash_to_field(signal: &[u8]) -> Fr {
 
     // We export the hash as a field element
     let (el, _) = bytes_le_to_fr(hash.as_ref());
+    el
+}
+
+/// Hashes arbitrary signal to the underlying prime field.
+pub fn hash_to_field_be(signal: &[u8]) -> Fr {
+    // We hash the input signal using Keccak256
+    let mut hash = [0; 32];
+    let mut hasher = Keccak::v256();
+    hasher.update(signal);
+    hasher.finalize(&mut hash);
+
+    // Reverse the bytes to get big endian representation
+    hash.reverse();
+
+    // We export the hash as a field element
+    let (el, _) = bytes_be_to_fr(hash.as_ref());
     el
 }

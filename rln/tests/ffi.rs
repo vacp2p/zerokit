@@ -4,9 +4,9 @@ mod test {
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use rln::circuit::{Fr, TEST_TREE_HEIGHT};
-    use rln::ffi::{hash as ffi_hash, poseidon_hash as ffi_poseidon_hash, *};
-    use rln::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash, ROUND_PARAMS};
-    use rln::protocol::*;
+    use rln::ffi::*;
+    use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
+    use rln::protocol::{deserialize_identity_tuple_le, *};
     use rln::public::RLN;
     use rln::utils::*;
     use serde_json::json;
@@ -50,9 +50,9 @@ mod test {
         root
     }
 
-    fn identity_pair_gen(rln_pointer: &mut RLN) -> (IdSecret, Fr) {
+    fn identity_pair_gen() -> (IdSecret, Fr) {
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = key_gen(rln_pointer, output_buffer.as_mut_ptr());
+        let success = key_gen(output_buffer.as_mut_ptr(), true);
         assert!(success, "key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
@@ -267,7 +267,7 @@ mod test {
         let rln_pointer = create_rln_instance();
 
         // generate identity
-        let mut identity_secret_hash_ = hash_to_field(b"test-merkle-proof");
+        let mut identity_secret_hash_ = hash_to_field_le(b"test-merkle-proof");
         let identity_secret_hash = IdSecret::from(&mut identity_secret_hash_);
         let mut to_hash = [*identity_secret_hash.clone()];
         let id_commitment = utils_poseidon_hash(&to_hash);
@@ -472,7 +472,7 @@ mod test {
         set_leaves_init(rln_pointer, &leaves);
 
         // We generate a new identity pair
-        let (identity_secret_hash, id_commitment) = identity_pair_gen(rln_pointer);
+        let (identity_secret_hash, id_commitment) = identity_pair_gen();
         let identity_index: usize = NO_OF_LEAVES;
 
         // We generate a random signal
@@ -480,9 +480,9 @@ mod test {
         let signal: [u8; 32] = rng.gen();
 
         // We generate a random epoch
-        let epoch = hash_to_field(b"test-epoch");
+        let epoch = hash_to_field_le(b"test-epoch");
         // We generate a random rln_identifier
-        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         // We generate a external nullifier
         let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
         // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
@@ -539,7 +539,7 @@ mod test {
         set_leaves_init(rln_pointer, &leaves);
 
         // We generate a new identity pair
-        let (identity_secret_hash, id_commitment) = identity_pair_gen(rln_pointer);
+        let (identity_secret_hash, id_commitment) = identity_pair_gen();
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
         let identity_index: usize = NO_OF_LEAVES;
 
@@ -548,9 +548,9 @@ mod test {
         let signal: [u8; 32] = rng.gen();
 
         // We generate a random epoch
-        let epoch = hash_to_field(b"test-epoch");
+        let epoch = hash_to_field_le(b"test-epoch");
         // We generate a random rln_identifier
-        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         // We generate a external nullifier
         let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
         // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
@@ -636,7 +636,7 @@ mod test {
         let rln_pointer = create_rln_instance();
 
         // We generate a new identity pair
-        let (identity_secret_hash, id_commitment) = identity_pair_gen(rln_pointer);
+        let (identity_secret_hash, id_commitment) = identity_pair_gen();
 
         let user_message_limit = Fr::from(100);
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
@@ -659,9 +659,9 @@ mod test {
         let signal2: [u8; 32] = rng.gen();
 
         // We generate a random epoch
-        let epoch = hash_to_field(b"test-epoch");
+        let epoch = hash_to_field_le(b"test-epoch");
         // We generate a random rln_identifier
-        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         // We generate a external nullifier
         let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
         // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
@@ -719,7 +719,7 @@ mod test {
         // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
 
         // We generate a new identity pair
-        let (identity_secret_hash_new, id_commitment_new) = identity_pair_gen(rln_pointer);
+        let (identity_secret_hash_new, id_commitment_new) = identity_pair_gen();
         let rate_commitment_new = utils_poseidon_hash(&[id_commitment_new, user_message_limit]);
 
         // We set as leaf id_commitment, its index would be equal to 1 since at 0 there is id_commitment
@@ -775,139 +775,6 @@ mod test {
     }
 
     #[test]
-    // Tests hash to field using FFI APIs
-    fn test_seeded_keygen_ffi() {
-        // We create a RLN instance
-        let rln_pointer = create_rln_instance();
-
-        // We generate a new identity pair from an input seed
-        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let input_buffer = &Buffer::from(seed_bytes);
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = seeded_key_gen(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
-        assert!(success, "seeded key gen call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
-        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..]);
-
-        // We check against expected values
-        let expected_identity_secret_hash_seed_bytes = str_to_fr(
-            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
-            16,
-        );
-        let expected_id_commitment_seed_bytes = str_to_fr(
-            "0xbf16d2b5c0d6f9d9d561e05bfca16a81b4b873bb063508fae360d8c74cef51f",
-            16,
-        );
-
-        assert_eq!(
-            identity_secret_hash,
-            expected_identity_secret_hash_seed_bytes.unwrap()
-        );
-        assert_eq!(id_commitment, expected_id_commitment_seed_bytes.unwrap());
-    }
-
-    #[test]
-    // Tests hash to field using FFI APIs
-    fn test_seeded_extended_keygen_ffi() {
-        // We create a RLN instance
-        let rln_pointer = create_rln_instance();
-
-        // We generate a new identity tuple from an input seed
-        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let input_buffer = &Buffer::from(seed_bytes);
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success =
-            seeded_extended_key_gen(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
-        assert!(success, "seeded key gen call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
-            deserialize_identity_tuple(result_data);
-
-        // We check against expected values
-        let expected_identity_trapdoor_seed_bytes = str_to_fr(
-            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
-            16,
-        );
-        let expected_identity_nullifier_seed_bytes = str_to_fr(
-            "0x1f18714c7bc83b5bca9e89d404cf6f2f585bc4c0f7ed8b53742b7e2b298f50b4",
-            16,
-        );
-        let expected_identity_secret_hash_seed_bytes = str_to_fr(
-            "0x2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521",
-            16,
-        );
-        let expected_id_commitment_seed_bytes = str_to_fr(
-            "0x68b66aa0a8320d2e56842581553285393188714c48f9b17acd198b4f1734c5c",
-            16,
-        );
-
-        assert_eq!(
-            identity_trapdoor,
-            expected_identity_trapdoor_seed_bytes.unwrap()
-        );
-        assert_eq!(
-            identity_nullifier,
-            expected_identity_nullifier_seed_bytes.unwrap()
-        );
-        assert_eq!(
-            identity_secret_hash,
-            expected_identity_secret_hash_seed_bytes.unwrap()
-        );
-        assert_eq!(id_commitment, expected_id_commitment_seed_bytes.unwrap());
-    }
-
-    #[test]
-    // Tests hash to field using FFI APIs
-    fn test_hash_to_field_ffi() {
-        let mut rng = rand::thread_rng();
-        let signal: [u8; 32] = rng.gen();
-
-        // We prepare id_commitment and we set the leaf at provided index
-        let input_buffer = &Buffer::from(signal.as_ref());
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = ffi_hash(input_buffer, output_buffer.as_mut_ptr());
-        assert!(success, "hash call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-
-        // We read the returned proof and we append proof values for verify
-        let serialized_hash = <&[u8]>::from(&output_buffer).to_vec();
-        let (hash1, _) = bytes_le_to_fr(&serialized_hash);
-
-        let hash2 = hash_to_field(&signal);
-
-        assert_eq!(hash1, hash2);
-    }
-
-    #[test]
-    // Test Poseidon hash FFI
-    fn test_poseidon_hash_ffi() {
-        // generate random number between 1..ROUND_PARAMS.len()
-        let mut rng = thread_rng();
-        let number_of_inputs = rng.gen_range(1..ROUND_PARAMS.len());
-        let mut inputs = Vec::with_capacity(number_of_inputs);
-        for _ in 0..number_of_inputs {
-            inputs.push(Fr::rand(&mut rng));
-        }
-        let inputs_ser = vec_fr_to_bytes_le(&inputs);
-        let input_buffer = &Buffer::from(inputs_ser.as_ref());
-
-        let expected_hash = utils_poseidon_hash(inputs.as_ref());
-
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = ffi_poseidon_hash(input_buffer, output_buffer.as_mut_ptr());
-        assert!(success, "poseidon hash call failed");
-
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (received_hash, _) = bytes_le_to_fr(&result_data);
-
-        assert_eq!(received_hash, expected_hash);
-    }
-
-    #[test]
     fn test_get_leaf_ffi() {
         // We create a RLN instance
         let no_of_leaves = 1 << TEST_TREE_HEIGHT;
@@ -919,13 +786,12 @@ mod test {
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         let input_buffer = &Buffer::from(seed_bytes);
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success =
-            seeded_extended_key_gen(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
+        let success = seeded_extended_key_gen(input_buffer, output_buffer.as_mut_ptr(), true);
         assert!(success, "seeded key gen call failed");
 
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (_, _, _, id_commitment) = deserialize_identity_tuple(result_data);
+        let (_, _, _, id_commitment) = deserialize_identity_tuple_le(result_data);
 
         // We insert the id_commitment into the tree at a random index
         let mut rng = thread_rng();
@@ -989,10 +855,8 @@ mod stateless_test {
     use rand::Rng;
     use rln::circuit::*;
     use rln::ffi::generate_rln_proof_with_witness;
-    use rln::ffi::{hash as ffi_hash, poseidon_hash as ffi_poseidon_hash, *};
-    use rln::hashers::{
-        hash_to_field, poseidon_hash as utils_poseidon_hash, PoseidonHash, ROUND_PARAMS,
-    };
+    use rln::ffi::*;
+    use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash, PoseidonHash};
     use rln::protocol::*;
     use rln::public::RLN;
     use rln::utils::*;
@@ -1009,9 +873,9 @@ mod stateless_test {
         unsafe { &mut *rln_pointer.assume_init() }
     }
 
-    fn identity_pair_gen(rln_pointer: &mut RLN) -> (IdSecret, Fr) {
+    fn identity_pair_gen() -> (IdSecret, Fr) {
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = key_gen(rln_pointer, output_buffer.as_mut_ptr());
+        let success = key_gen(output_buffer.as_mut_ptr(), true);
         assert!(success, "key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
@@ -1043,25 +907,25 @@ mod stateless_test {
         let rln_pointer = create_rln_instance();
 
         // We generate a new identity pair
-        let (identity_secret_hash, id_commitment) = identity_pair_gen(rln_pointer);
+        let (identity_secret_hash, id_commitment) = identity_pair_gen();
 
         let user_message_limit = Fr::from(100);
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
         tree.update_next(rate_commitment).unwrap();
 
         // We generate a random epoch
-        let epoch = hash_to_field(b"test-epoch");
-        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let epoch = hash_to_field_le(b"test-epoch");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
 
         // We generate two proofs using same epoch but different signals.
         // We generate a random signal
         let mut rng = thread_rng();
         let signal1: [u8; 32] = rng.gen();
-        let x1 = hash_to_field(&signal1);
+        let x1 = hash_to_field_le(&signal1);
 
         let signal2: [u8; 32] = rng.gen();
-        let x2 = hash_to_field(&signal2);
+        let x2 = hash_to_field_le(&signal2);
 
         let identity_index = tree.leaves_set();
         let merkle_proof = tree.proof(identity_index).expect("proof should exist");
@@ -1124,13 +988,13 @@ mod stateless_test {
         // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
 
         // We generate a new identity pair
-        let (identity_secret_hash_new, id_commitment_new) = identity_pair_gen(rln_pointer);
+        let (identity_secret_hash_new, id_commitment_new) = identity_pair_gen();
         let rate_commitment_new = utils_poseidon_hash(&[id_commitment_new, user_message_limit]);
         tree.update_next(rate_commitment_new).unwrap();
 
         // We generate a random signals
         let signal3: [u8; 32] = rng.gen();
-        let x3 = hash_to_field(&signal3);
+        let x3 = hash_to_field_le(&signal3);
 
         let identity_index_new = tree.leaves_set();
         let merkle_proof_new = tree.proof(identity_index_new).expect("proof should exist");
@@ -1189,7 +1053,7 @@ mod stateless_test {
         let rln_pointer = create_rln_instance();
 
         // We generate a new identity pair
-        let (identity_secret_hash, id_commitment) = identity_pair_gen(rln_pointer);
+        let (identity_secret_hash, id_commitment) = identity_pair_gen();
 
         let identity_index = tree.leaves_set();
         let user_message_limit = Fr::from(100);
@@ -1197,15 +1061,15 @@ mod stateless_test {
         tree.update_next(rate_commitment).unwrap();
 
         // We generate a random epoch
-        let epoch = hash_to_field(b"test-epoch");
-        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let epoch = hash_to_field_le(b"test-epoch");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
 
         // We generate two proofs using same epoch but different signals.
         // We generate a random signal
         let mut rng = thread_rng();
         let signal: [u8; 32] = rng.gen();
-        let x = hash_to_field(&signal);
+        let x = hash_to_field_le(&signal);
 
         let merkle_proof = tree.proof(identity_index).expect("proof should exist");
 
@@ -1323,18 +1187,29 @@ mod stateless_test {
             Duration::from_nanos((verify_time / sample_size).try_into().unwrap())
         );
     }
+}
+
+#[cfg(test)]
+mod general_tests {
+    use ark_std::{rand::thread_rng, UniformRand};
+    use rand::Rng;
+    use rln::circuit::*;
+    use rln::ffi::{hash as ffi_hash, poseidon_hash as ffi_poseidon_hash, *};
+    use rln::hashers::{
+        hash_to_field_be, hash_to_field_le, poseidon_hash as utils_poseidon_hash, ROUND_PARAMS,
+    };
+    use rln::protocol::*;
+    use rln::utils::*;
+    use std::mem::MaybeUninit;
 
     #[test]
     // Tests hash to field using FFI APIs
     fn test_seeded_keygen_stateless_ffi() {
-        // We create a RLN instance
-        let rln_pointer = create_rln_instance();
-
         // We generate a new identity pair from an input seed
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         let input_buffer = &Buffer::from(seed_bytes);
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = seeded_key_gen(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
+        let success = seeded_key_gen(input_buffer, output_buffer.as_mut_ptr(), true);
         assert!(success, "seeded key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
@@ -1359,24 +1234,92 @@ mod stateless_test {
     }
 
     #[test]
+    fn test_seeded_keygen_big_endian_ffi() {
+        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let input_buffer = &Buffer::from(seed_bytes);
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = seeded_key_gen(input_buffer, output_buffer.as_mut_ptr(), false);
+        assert!(success, "seeded key gen call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (identity_secret_hash, read) = bytes_be_to_fr(&result_data);
+        let (id_commitment, _) = bytes_be_to_fr(&result_data[read..]);
+
+        let expected_identity_secret_hash_seed_bytes = str_to_fr(
+            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
+            16,
+        );
+        let expected_id_commitment_seed_bytes = str_to_fr(
+            "0xbf16d2b5c0d6f9d9d561e05bfca16a81b4b873bb063508fae360d8c74cef51f",
+            16,
+        );
+
+        assert_eq!(
+            identity_secret_hash,
+            expected_identity_secret_hash_seed_bytes.unwrap()
+        );
+        assert_eq!(id_commitment, expected_id_commitment_seed_bytes.unwrap());
+    }
+
+    #[test]
     // Tests hash to field using FFI APIs
     fn test_seeded_extended_keygen_stateless_ffi() {
-        // We create a RLN instance
-        let rln_pointer = create_rln_instance();
-
         // We generate a new identity tuple from an input seed
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         let input_buffer = &Buffer::from(seed_bytes);
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success =
-            seeded_extended_key_gen(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
+        let success = seeded_extended_key_gen(input_buffer, output_buffer.as_mut_ptr(), true);
         assert!(success, "seeded key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
         let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
-            deserialize_identity_tuple(result_data);
+            deserialize_identity_tuple_le(result_data);
 
         // We check against expected values
+        let expected_identity_trapdoor_seed_bytes = str_to_fr(
+            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
+            16,
+        );
+        let expected_identity_nullifier_seed_bytes = str_to_fr(
+            "0x1f18714c7bc83b5bca9e89d404cf6f2f585bc4c0f7ed8b53742b7e2b298f50b4",
+            16,
+        );
+        let expected_identity_secret_hash_seed_bytes = str_to_fr(
+            "0x2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521",
+            16,
+        );
+        let expected_id_commitment_seed_bytes = str_to_fr(
+            "0x68b66aa0a8320d2e56842581553285393188714c48f9b17acd198b4f1734c5c",
+            16,
+        );
+
+        assert_eq!(
+            identity_trapdoor,
+            expected_identity_trapdoor_seed_bytes.unwrap()
+        );
+        assert_eq!(
+            identity_nullifier,
+            expected_identity_nullifier_seed_bytes.unwrap()
+        );
+        assert_eq!(
+            identity_secret_hash,
+            expected_identity_secret_hash_seed_bytes.unwrap()
+        );
+        assert_eq!(id_commitment, expected_id_commitment_seed_bytes.unwrap());
+    }
+
+    #[test]
+    fn test_seeded_extended_keygen_big_endian_ffi() {
+        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let input_buffer = &Buffer::from(seed_bytes);
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = seeded_extended_key_gen(input_buffer, output_buffer.as_mut_ptr(), false);
+        assert!(success, "seeded key gen call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
+            deserialize_identity_tuple_be(result_data);
+
         let expected_identity_trapdoor_seed_bytes = str_to_fr(
             "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
             16,
@@ -1418,7 +1361,7 @@ mod stateless_test {
         // We prepare id_commitment and we set the leaf at provided index
         let input_buffer = &Buffer::from(signal.as_ref());
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = ffi_hash(input_buffer, output_buffer.as_mut_ptr());
+        let success = ffi_hash(input_buffer, output_buffer.as_mut_ptr(), true);
         assert!(success, "hash call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
 
@@ -1426,7 +1369,25 @@ mod stateless_test {
         let serialized_hash = <&[u8]>::from(&output_buffer).to_vec();
         let (hash1, _) = bytes_le_to_fr(&serialized_hash);
 
-        let hash2 = hash_to_field(&signal);
+        let hash2 = hash_to_field_le(&signal);
+
+        assert_eq!(hash1, hash2);
+    }
+
+    #[test]
+    fn test_hash_to_field_big_endian_ffi() {
+        let mut rng = rand::thread_rng();
+        let signal: [u8; 32] = rng.gen();
+
+        let input_buffer = &Buffer::from(signal.as_ref());
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = ffi_hash(input_buffer, output_buffer.as_mut_ptr(), false);
+        assert!(success, "hash call failed");
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let serialized_hash = <&[u8]>::from(&output_buffer).to_vec();
+        let (hash1, _) = bytes_be_to_fr(&serialized_hash);
+
+        let hash2 = hash_to_field_be(&signal);
 
         assert_eq!(hash1, hash2);
     }
@@ -1447,12 +1408,36 @@ mod stateless_test {
         let expected_hash = utils_poseidon_hash(inputs.as_ref());
 
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = ffi_poseidon_hash(input_buffer, output_buffer.as_mut_ptr());
+        let success = ffi_poseidon_hash(input_buffer, output_buffer.as_mut_ptr(), true);
         assert!(success, "poseidon hash call failed");
 
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
         let (received_hash, _) = bytes_le_to_fr(&result_data);
+
+        assert_eq!(received_hash, expected_hash);
+    }
+
+    #[test]
+    fn test_poseidon_hash_big_endian_ffi() {
+        let mut rng = thread_rng();
+        let number_of_inputs = rng.gen_range(1..ROUND_PARAMS.len());
+        let mut inputs = Vec::with_capacity(number_of_inputs);
+        for _ in 0..number_of_inputs {
+            inputs.push(Fr::rand(&mut rng));
+        }
+        let inputs_ser = vec_fr_to_bytes_be(&inputs);
+        let input_buffer = &Buffer::from(inputs_ser.as_ref());
+
+        let expected_hash = utils_poseidon_hash(inputs.as_ref());
+
+        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
+        let success = ffi_poseidon_hash(input_buffer, output_buffer.as_mut_ptr(), false);
+        assert!(success, "poseidon hash call failed");
+
+        let output_buffer = unsafe { output_buffer.assume_init() };
+        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        let (received_hash, _) = bytes_be_to_fr(&result_data);
 
         assert_eq!(received_hash, expected_hash);
     }

@@ -12,7 +12,8 @@ A collection of Zero Knowledge modules written in Rust and designed to be used i
 Zerokit provides zero-knowledge cryptographic primitives with a focus on performance, security, and usability.
 The current focus is on Rate-Limiting Nullifier [RLN](https://github.com/Rate-Limiting-Nullifier) implementation.
 
-Current implementation is based on the following [specification](https://github.com/vacp2p/rfc-index/blob/main/vac/raw/rln-v2.md)
+Current implementation is based on the following
+[specification](https://github.com/vacp2p/rfc-index/blob/main/vac/raw/rln-v2.md)
 and focused on RLNv2 which allows to set a rate limit for the number of messages that can be sent by a user.
 
 ## Features
@@ -24,7 +25,8 @@ and focused on RLNv2 which allows to set a rate limit for the number of messages
 
 ## Architecture
 
-Zerokit currently focuses on RLN (Rate-Limiting Nullifier) implementation using [Circom](https://iden3.io/circom) circuits through ark-circom, providing an alternative to existing native Rust implementations.
+Zerokit currently focuses on RLN (Rate-Limiting Nullifier) implementation using [Circom](https://iden3.io/circom)
+circuits through ark-circom, providing an alternative to existing native Rust implementations.
 
 ## Build and Test
 
