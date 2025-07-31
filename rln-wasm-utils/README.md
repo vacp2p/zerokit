@@ -15,6 +15,7 @@ This module offers comprehensive functionality for identity generation and hashi
 - **Seeded Identity Generation**: Generate deterministic identities from seeds
 - **Extended Identity Generation**: Generate extended identities with additional parameters
 - **Seeded Extended Identity Generation**: Generate deterministic extended identities from seeds
+- **Endianness Support**: Both little-endian and big-endian serialization support
 
 ### Hashing
 
@@ -30,43 +31,43 @@ This module offers comprehensive functionality for identity generation and hashi
 
 Generates a random membership key pair (identity secret and commitment).
 
-**Parameters:**
+**Inputs:**
 
 - `isLittleEndian`: Boolean indicating endianness for serialization
 
-**Returns:** Serialized identity pair as `Uint8Array`
+**Outputs:** Serialized identity pair as `Uint8Array` in corresponding endianness
 
 #### `generateExtendedMembershipKey(isLittleEndian: boolean): Uint8Array`
 
 Generates an extended membership key with additional parameters.
 
-**Parameters:**
+**Inputs:**
 
 - `isLittleEndian`: Boolean indicating endianness for serialization
 
-**Returns:** Serialized extended identity tuple as `Uint8Array`
+**Outputs:** Serialized extended identity tuple as `Uint8Array` in corresponding endianness
 
 #### `generateSeededMembershipKey(seed: Uint8Array, isLittleEndian: boolean): Uint8Array`
 
 Generates a deterministic membership key from a seed.
 
-**Parameters:**
+**Inputs:**
 
 - `seed`: Seed data as `Uint8Array`
 - `isLittleEndian`: Boolean indicating endianness for serialization
 
-**Returns:** Serialized identity pair as `Uint8Array`
+**Outputs:** Serialized identity pair as `Uint8Array` in corresponding endianness
 
 #### `generateSeededExtendedMembershipKey(seed: Uint8Array, isLittleEndian: boolean): Uint8Array`
 
 Generates a deterministic extended membership key from a seed.
 
-**Parameters:**
+**Inputs:**
 
 - `seed`: Seed data as `Uint8Array`
 - `isLittleEndian`: Boolean indicating endianness for serialization
 
-**Returns:** Serialized extended identity tuple as `Uint8Array`
+**Outputs:** Serialized extended identity tuple as `Uint8Array` in corresponding endianness
 
 ### Hashing Functions
 
@@ -74,23 +75,23 @@ Generates a deterministic extended membership key from a seed.
 
 Hashes input data to a field element.
 
-**Parameters:**
+**Inputs:**
 
 - `input`: Input data as `Uint8Array`
 - `isLittleEndian`: Boolean indicating endianness for serialization
 
-**Returns:** Serialized hash result as `Uint8Array`
+**Outputs:** Serialized hash result as `Uint8Array` in corresponding endianness
 
 #### `poseidonHash(input: Uint8Array, isLittleEndian: boolean): Uint8Array`
 
 Computes Poseidon hash of input field elements.
 
-**Parameters:**
+**Inputs:**
 
 - `input`: Serialized field elements as `Uint8Array` (format: length + field elements)
 - `isLittleEndian`: Boolean indicating endianness for serialization
 
-**Returns:** Serialized hash result as `Uint8Array`
+**Outputs:** Serialized hash result as `Uint8Array` in corresponding endianness
 
 ## Usage Examples
 
@@ -102,7 +103,7 @@ import init, {
   generateSeededMembershipKey,
   hash,
   poseidonHash 
-} from '@waku/zerokit-rln-wasm';
+} from '@waku/zerokit-rln-wasm-utils';
 
 // Initialize the WASM module
 await init();
@@ -129,30 +130,6 @@ const fieldElements = new Uint8Array([
 ]);
 const poseidonResult = poseidonHash(fieldElements, true);
 console.log('Poseidon hash:', poseidonResult);
-```
-
-### Node.js
-
-```javascript
-const { 
-  generateMembershipKey, 
-  generateSeededMembershipKey,
-  hash 
-} = require('@waku/zerokit-rln-wasm');
-
-// Generate random membership key
-const membershipKey = generateMembershipKey(false); // big-endian
-console.log('Membership key:', membershipKey);
-
-// Generate seeded membership key
-const seed = Buffer.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-const seededKey = generateSeededMembershipKey(seed, false);
-console.log('Seeded key:', seededKey);
-
-// Hash data
-const input = Buffer.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-const hashResult = hash(input, false);
-console.log('Hash result:', hashResult);
 ```
 
 ## Install Dependencies
@@ -212,7 +189,7 @@ First, navigate to the rln-wasm-utils directory:
 cd rln-wasm-utils
 ```
 
-Compile zerokit for `wasm32-unknown-unknown`:
+Compile rln-wasm-utils for `wasm32-unknown-unknown`:
 
 ```bash
 cargo make build
