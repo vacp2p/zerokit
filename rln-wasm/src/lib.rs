@@ -3,7 +3,6 @@
 use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
 use num_bigint::BigInt;
 use rln::public::RLN;
-use std::vec::Vec;
 use wasm_bindgen::prelude::*;
 
 #[cfg(feature = "parallel")]
@@ -126,10 +125,19 @@ impl<'a> ProcessArg for &'a [u8] {
     }
 }
 
+impl ProcessArg for bool {
+    type ReturnType = bool;
+
+    fn process(self) -> Self::ReturnType {
+        self
+    }
+}
+
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = newRLN)]
-pub fn wasm_new(zkey: Uint8Array) -> Result<*mut RLNWrapper, String> {
-    let instance = RLN::new_with_params(zkey.to_vec()).map_err(|err| format!("{:#?}", err))?;
+pub fn wasm_new(zkey: Uint8Array, is_little_endian: bool) -> Result<*mut RLNWrapper, String> {
+    let instance = RLN::new_with_params(zkey.to_vec(), is_little_endian)
+        .map_err(|err| format!("{:#?}", err))?;
     let wrapper = RLNWrapper { instance };
     Ok(Box::into_raw(Box::new(wrapper)))
 }

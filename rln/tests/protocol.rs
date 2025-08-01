@@ -1,6 +1,5 @@
-#![cfg(not(feature = "stateless"))]
-
 #[cfg(test)]
+#[cfg(not(feature = "stateless"))]
 mod test {
     use ark_ff::BigInt;
     use rln::circuit::{graph_from_folder, zkey_from_folder};
@@ -8,9 +7,9 @@ mod test {
     use rln::hashers::{hash_to_field_le, poseidon_hash};
     use rln::poseidon_tree::PoseidonTree;
     use rln::protocol::{
-        deserialize_proof_values, deserialize_witness, generate_proof, keygen,
+        deserialize_proof_values_le, deserialize_witness_le, generate_proof, keygen,
         proof_values_from_witness, rln_witness_from_json, rln_witness_from_values,
-        rln_witness_to_json, seeded_keygen, serialize_proof_values, serialize_witness,
+        rln_witness_to_json, seeded_keygen, serialize_proof_values_le, serialize_witness_le,
         verify_proof, RLNWitnessInput,
     };
     use rln::utils::str_to_fr;
@@ -187,14 +186,14 @@ mod test {
         assert_eq!(rln_witness_deser, rln_witness);
 
         // We test witness serialization
-        let ser = serialize_witness(&rln_witness).unwrap();
-        let (deser, _) = deserialize_witness(&ser).unwrap();
+        let ser = serialize_witness_le(&rln_witness).unwrap();
+        let (deser, _) = deserialize_witness_le(&ser).unwrap();
         assert_eq!(rln_witness, deser);
 
         // We test Proof values serialization
         let proof_values = proof_values_from_witness(&rln_witness).unwrap();
-        let ser = serialize_proof_values(&proof_values);
-        let (deser, _) = deserialize_proof_values(&ser);
+        let ser = serialize_proof_values_le(&proof_values);
+        let (deser, _) = deserialize_proof_values_le(&ser);
         assert_eq!(proof_values, deser);
     }
 
@@ -254,5 +253,27 @@ mod test {
             expected_identity_secret_hash_seed_phrase
         );
         assert_eq!(id_commitment, expected_id_commitment_seed_phrase);
+    }
+}
+#[cfg(test)]
+#[cfg(feature = "stateless")]
+mod stateless_be_tests {
+    use rln::circuit::TEST_TREE_HEIGHT;
+    use rln::protocol::{
+        deserialize_proof_values_be, deserialize_witness_be, proof_values_from_witness,
+        random_rln_witness_be, serialize_proof_values_be, serialize_witness_be,
+    };
+
+    #[test]
+    fn test_random_rln_witness_be() {
+        let rln_witness = random_rln_witness_be(TEST_TREE_HEIGHT);
+        let ser = serialize_witness_be(&rln_witness).unwrap();
+        let (deser, _) = deserialize_witness_be(&ser).unwrap();
+        assert_eq!(rln_witness, deser);
+
+        let proof_values = proof_values_from_witness(&rln_witness).unwrap();
+        let ser = serialize_proof_values_be(&proof_values);
+        let (deser, _) = deserialize_proof_values_be(&ser);
+        assert_eq!(proof_values, deser);
     }
 }

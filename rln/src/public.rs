@@ -1,40 +1,48 @@
 use crate::circuit::{zkey_from_raw, Curve, Fr};
-use crate::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
+use crate::error::{ConversionError, ProtocolError, RLNError};
+use crate::hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash as utils_poseidon_hash};
 use crate::protocol::{
-    compute_id_secret, deserialize_proof_values, deserialize_witness, extended_keygen,
-    extended_seeded_keygen, keygen, proof_values_from_witness, rln_witness_to_bigint_json,
-    rln_witness_to_json, seeded_keygen, serialize_proof_values, verify_proof,
+    compute_id_secret, deserialize_proof_values_be, deserialize_proof_values_le,
+    deserialize_witness_be, deserialize_witness_le, extended_keygen, extended_seeded_keygen,
+    keygen, proof_values_from_witness, rln_witness_to_bigint_json, rln_witness_to_json,
+    seeded_keygen, serialize_proof_values_be, serialize_proof_values_le, verify_proof,
 };
 use crate::utils::{
-    bytes_be_to_vec_fr, bytes_le_to_fr, bytes_le_to_vec_fr, fr_byte_size, fr_to_bytes_be,
-    fr_to_bytes_le,
+    bytes_be_to_fr, bytes_be_to_vec_fr, bytes_le_to_fr, bytes_le_to_vec_fr, fr_byte_size,
+    fr_to_bytes_be, fr_to_bytes_le,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use {
-    crate::{
-        circuit::{graph_from_folder, zkey_from_folder},
-        protocol::generate_proof,
-    },
+    crate::circuit::{graph_from_folder, zkey_from_folder},
+    crate::protocol::generate_proof,
     std::default::Default,
 };
 
 #[cfg(target_arch = "wasm32")]
-use crate::protocol::generate_proof_with_witness;
+use crate::protocol::generate_proof_with_calculated_witness;
 
 /// This is the main public API for RLN module. It is used by the FFI, and should be
 /// used by tests etc. as well
 #[cfg(not(feature = "stateless"))]
 use {
-    crate::protocol::{proof_inputs_to_rln_witness, serialize_witness},
-    crate::utils::{bytes_le_to_vec_u8, vec_fr_to_bytes_le, vec_u8_to_bytes_le},
-    crate::{circuit::TEST_TREE_HEIGHT, poseidon_tree::PoseidonTree},
+    crate::{
+        circuit::TEST_TREE_HEIGHT,
+        poseidon_tree::PoseidonTree,
+        protocol::{
+            proof_inputs_to_rln_witness_be, proof_inputs_to_rln_witness_le, serialize_witness_be,
+            serialize_witness_le,
+        },
+        utils::{
+            bytes_be_to_vec_u8, bytes_le_to_vec_u8, vec_fr_to_bytes_be, vec_fr_to_bytes_le,
+            vec_u8_to_bytes_be, vec_u8_to_bytes_le, vec_usize_to_bytes_be,
+        },
+    },
     serde_json::{json, Value},
     std::str::FromStr,
     utils::error::ZerokitMerkleTreeError,
     utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
 };
 
-use crate::error::{ConversionError, ProtocolError, RLNError};
 use ark_groth16::{Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
@@ -53,6 +61,7 @@ pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
 ///
 /// I/O is mostly done using writers and readers implementing `std::io::Write` and `std::io::Read`, respectively.
 pub struct RLN {
+    is_little_endian: bool,
     proving_key: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
     pub(crate) verification_key: VerifyingKey<Curve>,
     #[cfg(not(target_arch = "wasm32"))]
@@ -79,7 +88,11 @@ impl RLN {
     /// let mut rln = RLN::new(tree_height, input);
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
-    pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> Result<RLN, RLNError> {
+    pub fn new<R: Read>(
+        tree_height: usize,
+        mut input_data: R,
+        is_little_endian: bool,
+    ) -> Result<RLN, RLNError> {
         // We read input
         let mut input: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input)?;
@@ -105,6 +118,7 @@ impl RLN {
         )?;
 
         Ok(RLN {
+            is_little_endian,
             proving_key,
             verification_key,
             graph_data,
@@ -122,12 +136,13 @@ impl RLN {
     /// let mut rln = RLN::new();
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
-    pub fn new() -> Result<RLN, RLNError> {
+    pub fn new(is_little_endian: bool) -> Result<RLN, RLNError> {
         let proving_key = zkey_from_folder().to_owned();
         let verification_key = proving_key.0.vk.to_owned();
         let graph_data = graph_from_folder().to_owned();
 
         Ok(RLN {
+            is_little_endian,
             proving_key,
             verification_key,
             graph_data,
@@ -176,6 +191,7 @@ impl RLN {
         zkey_vec: Vec<u8>,
         graph_data: Vec<u8>,
         mut tree_config_input: R,
+        is_little_endian: bool,
     ) -> Result<RLN, RLNError> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = proving_key.0.vk.to_owned();
@@ -198,6 +214,7 @@ impl RLN {
         )?;
 
         Ok(RLN {
+            is_little_endian,
             proving_key,
             verification_key,
             graph_data,
@@ -235,11 +252,16 @@ impl RLN {
     /// );
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
-    pub fn new_with_params(zkey_vec: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN, RLNError> {
+    pub fn new_with_params(
+        zkey_vec: Vec<u8>,
+        graph_data: Vec<u8>,
+        is_little_endian: bool,
+    ) -> Result<RLN, RLNError> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = proving_key.0.vk.to_owned();
 
         Ok(RLN {
+            is_little_endian,
             proving_key,
             verification_key,
             graph_data,
@@ -266,11 +288,12 @@ impl RLN {
     /// let mut rln = RLN::new_with_params(zkey_vec)?;
     /// ```
     #[cfg(all(target_arch = "wasm32", feature = "stateless"))]
-    pub fn new_with_params(zkey_vec: Vec<u8>) -> Result<RLN, RLNError> {
+    pub fn new_with_params(zkey_vec: Vec<u8>, is_little_endian: bool) -> Result<RLN, RLNError> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = proving_key.0.vk.to_owned();
 
         Ok(RLN {
+            is_little_endian,
             proving_key,
             verification_key,
         })
@@ -323,9 +346,14 @@ impl RLN {
         input_data.read_to_end(&mut leaf_byte)?;
 
         // We set the leaf at input index
-        let (leaf, _) = bytes_le_to_fr(&leaf_byte);
+        let leaf = if self.is_little_endian {
+            let (leaf, _) = bytes_le_to_fr(&leaf_byte);
+            leaf
+        } else {
+            let (leaf, _) = bytes_be_to_fr(&leaf_byte);
+            leaf
+        };
         self.tree.set(index, leaf)?;
-
         Ok(())
     }
 
@@ -352,8 +380,11 @@ impl RLN {
         let leaf = self.tree.get(index)?;
 
         // We serialize the leaf and write it to output
-        let leaf_byte = fr_to_bytes_le(&leaf);
-        output_data.write_all(&leaf_byte)?;
+        if self.is_little_endian {
+            output_data.write_all(&fr_to_bytes_le(&leaf))?;
+        } else {
+            output_data.write_all(&fr_to_bytes_be(&leaf))?;
+        };
 
         Ok(())
     }
@@ -399,7 +430,11 @@ impl RLN {
         let mut leaves_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut leaves_byte)?;
 
-        let (leaves, _) = bytes_le_to_vec_fr(&leaves_byte)?;
+        let (leaves, _) = if self.is_little_endian {
+            bytes_le_to_vec_fr(&leaves_byte)?
+        } else {
+            bytes_be_to_vec_fr(&leaves_byte)?
+        };
 
         // We set the leaves
         self.tree
@@ -475,12 +510,20 @@ impl RLN {
         let mut leaves_byte: Vec<u8> = Vec::new();
         input_leaves.read_to_end(&mut leaves_byte)?;
 
-        let (leaves, _) = bytes_le_to_vec_fr(&leaves_byte)?;
+        let (leaves, _) = if self.is_little_endian {
+            bytes_le_to_vec_fr(&leaves_byte)?
+        } else {
+            bytes_be_to_vec_fr(&leaves_byte)?
+        };
 
         let mut indices_byte: Vec<u8> = Vec::new();
         input_indices.read_to_end(&mut indices_byte)?;
 
-        let (indices, _) = bytes_le_to_vec_u8(&indices_byte)?;
+        let (indices, _) = if self.is_little_endian {
+            bytes_le_to_vec_u8(&indices_byte)?
+        } else {
+            bytes_be_to_vec_u8(&indices_byte)?
+        };
         let indices: Vec<usize> = indices.iter().map(|x| *x as usize).collect();
 
         // We set the leaves
@@ -544,9 +587,13 @@ impl RLN {
         input_data.read_to_end(&mut leaf_byte)?;
 
         // We set the leaf at input index
-        let (leaf, _) = bytes_le_to_fr(&leaf_byte);
-        self.tree.update_next(leaf)?;
-
+        if self.is_little_endian {
+            let (leaf, _) = bytes_le_to_fr(&leaf_byte);
+            self.tree.update_next(leaf)?;
+        } else {
+            let (leaf, _) = bytes_be_to_fr(&leaf_byte);
+            self.tree.update_next(leaf)?;
+        }
         Ok(())
     }
 
@@ -624,7 +671,11 @@ impl RLN {
     #[cfg(not(feature = "stateless"))]
     pub fn get_root<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
         let root = self.tree.root();
-        output_data.write_all(&fr_to_bytes_le(&root))?;
+        if self.is_little_endian {
+            output_data.write_all(&fr_to_bytes_le(&root))?;
+        } else {
+            output_data.write_all(&fr_to_bytes_be(&root))?;
+        }
         Ok(())
     }
 
@@ -651,7 +702,11 @@ impl RLN {
         mut output_data: W,
     ) -> Result<(), RLNError> {
         let subroot = self.tree.get_subtree_root(level, index)?;
-        output_data.write_all(&fr_to_bytes_le(&subroot))?;
+        if self.is_little_endian {
+            output_data.write_all(&fr_to_bytes_le(&subroot))?;
+        } else {
+            output_data.write_all(&fr_to_bytes_be(&subroot))?;
+        }
 
         Ok(())
     }
@@ -684,8 +739,13 @@ impl RLN {
         let identity_path_index = merkle_proof.get_path_index();
 
         // Note: unwrap safe - vec_fr_to_bytes_le & vec_u8_to_bytes_le are infallible
-        output_data.write_all(&vec_fr_to_bytes_le(&path_elements))?;
-        output_data.write_all(&vec_u8_to_bytes_le(&identity_path_index))?;
+        if self.is_little_endian {
+            output_data.write_all(&vec_fr_to_bytes_le(&path_elements))?;
+            output_data.write_all(&vec_u8_to_bytes_le(&identity_path_index))?;
+        } else {
+            output_data.write_all(&vec_fr_to_bytes_be(&path_elements))?;
+            output_data.write_all(&vec_u8_to_bytes_be(&identity_path_index))?;
+        }
 
         Ok(())
     }
@@ -725,19 +785,25 @@ impl RLN {
     #[cfg(not(feature = "stateless"))]
     pub fn get_empty_leaves_indices<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
         let idxs = self.tree.get_empty_leaves_indices();
-        idxs.serialize_compressed(&mut output_data)?;
+        if self.is_little_endian {
+            idxs.serialize_compressed(&mut output_data)?;
+        } else {
+            let bytes = vec_usize_to_bytes_be(&idxs);
+            output_data.write_all(&bytes)?;
+        }
         Ok(())
     }
 
     ////////////////////////////////////////////////////////
     // zkSNARK APIs
     ////////////////////////////////////////////////////////
-    /// Computes a zkSNARK RLN proof using a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
+    /// Computes a zkSNARK RLN proof using a `RLNWitnessInput`.
     ///
     /// Input values are:
-    /// - `input_data`: a reader for the serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput)
-    ///   object, containing the public and private inputs to the ZK circuits (serialization done using
-    ///   [`serialize_witness`])
+    /// - `input_data`: a reader for the serialization of a `RLNWitnessInput` object,
+    ///   containing the public and private inputs to the ZK circuits.
+    ///   Serialization can be done using [`rln::protocol::serialize_witness_le`](crate::protocol::serialize_witness_le)
+    ///   or [`rln::protocol::serialize_witness_be`](crate::protocol::serialize_witness_be).
     ///
     /// Output values are:
     /// - `output_data`: a writer receiving the serialization of the zkSNARK proof
@@ -764,7 +830,11 @@ impl RLN {
         // We read input RLN witness and we serialize_compressed it
         let mut serialized_witness: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized_witness)?;
-        let (rln_witness, _) = deserialize_witness(&serialized_witness)?;
+        let (rln_witness, _) = if self.is_little_endian {
+            deserialize_witness_le(&serialized_witness)?
+        } else {
+            deserialize_witness_be(&serialized_witness)?
+        };
 
         let proof = generate_proof(&self.proving_key, &rln_witness, &self.graph_data)?;
 
@@ -816,9 +886,20 @@ impl RLN {
         // [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
         let mut input_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input_byte)?;
-        let proof = ArkProof::deserialize_compressed(&mut Cursor::new(&input_byte[..128]))?;
+        // Arkproof only supports compressed serialization in little endian.
+        // However, this data is not converted back to Arkproof on the end user's side,
+        //   but is simply stored as bytes and then sent for verification.
+        // This means that the end user can use the same data for verification
+        //   regardless of the endianness of the machine.
+        // This is why we deserialize the proof in little endian, even if the data is serialized in big endian.
+        let proof =
+            ArkProof::deserialize_compressed(&mut Cursor::new(&input_byte[..128].to_vec()))?;
 
-        let (proof_values, _) = deserialize_proof_values(&input_byte[128..]);
+        let (proof_values, _) = if self.is_little_endian {
+            deserialize_proof_values_le(&input_byte[128..])
+        } else {
+            deserialize_proof_values_be(&input_byte[128..])
+        };
 
         let verified = verify_proof(&self.verification_key, &proof, &proof_values)?;
 
@@ -883,9 +964,14 @@ impl RLN {
         mut output_data: W,
     ) -> Result<(), RLNError> {
         // We read input RLN witness and we serialize_compressed it
+
         let mut witness_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut witness_byte)?;
-        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
+        let (rln_witness, _) = if self.is_little_endian {
+            proof_inputs_to_rln_witness_le(&mut self.tree, &witness_byte)?
+        } else {
+            proof_inputs_to_rln_witness_be(&mut self.tree, &witness_byte)?
+        };
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
         let proof = generate_proof(&self.proving_key, &rln_witness, &self.graph_data)?;
@@ -893,7 +979,12 @@ impl RLN {
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
         proof.serialize_compressed(&mut output_data)?;
-        output_data.write_all(&serialize_proof_values(&proof_values))?;
+
+        if self.is_little_endian {
+            output_data.write_all(&serialize_proof_values_le(&proof_values))?;
+        } else {
+            output_data.write_all(&serialize_proof_values_be(&proof_values))?;
+        }
 
         Ok(())
     }
@@ -909,7 +1000,11 @@ impl RLN {
     ) -> Result<(), RLNError> {
         let mut serialized_witness: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized_witness)?;
-        let (rln_witness, _) = deserialize_witness(&serialized_witness)?;
+        let (rln_witness, _) = if self.is_little_endian {
+            deserialize_witness_le(&serialized_witness)?
+        } else {
+            deserialize_witness_be(&serialized_witness)?
+        };
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
         let proof = generate_proof(&self.proving_key, &rln_witness, &self.graph_data)?;
@@ -917,7 +1012,12 @@ impl RLN {
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
         proof.serialize_compressed(&mut output_data)?;
-        output_data.write_all(&serialize_proof_values(&proof_values))?;
+
+        if self.is_little_endian {
+            output_data.write_all(&serialize_proof_values_le(&proof_values))?;
+        } else {
+            output_data.write_all(&serialize_proof_values_be(&proof_values))?;
+        }
         Ok(())
     }
 
@@ -931,15 +1031,25 @@ impl RLN {
         serialized_witness: Vec<u8>,
         mut output_data: W,
     ) -> Result<(), RLNError> {
-        let (rln_witness, _) = deserialize_witness(&serialized_witness[..])?;
+        let (rln_witness, _) = if self.is_little_endian {
+            deserialize_witness_le(&serialized_witness[..])?
+        } else {
+            deserialize_witness_be(&serialized_witness[..])?
+        };
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
-        let proof = generate_proof_with_witness(calculated_witness, &self.proving_key).unwrap();
+        let proof =
+            generate_proof_with_calculated_witness(calculated_witness, &self.proving_key).unwrap();
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
         proof.serialize_compressed(&mut output_data)?;
-        output_data.write_all(&serialize_proof_values(&proof_values))?;
+
+        if self.is_little_endian {
+            output_data.write_all(&serialize_proof_values_le(&proof_values))?;
+        } else {
+            output_data.write_all(&serialize_proof_values_be(&proof_values))?;
+        }
         Ok(())
     }
 
@@ -972,27 +1082,56 @@ impl RLN {
     /// ```
     #[cfg(not(feature = "stateless"))]
     pub fn verify_rln_proof<R: Read>(&self, mut input_data: R) -> Result<bool, RLNError> {
+        use crate::hashers::hash_to_field_be;
+
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
+        // Arkproof only supports compressed serialization in little endian.
+        // However, this data is not converted back to Arkproof on the end user's side,
+        //   but is simply stored as bytes and then sent for verification.
+        // This means that the end user can use the same data for verification
+        //   regardless of the endianness of the machine.
+        // This is why we deserialize the proof in little endian, even if the data is serialized in big endian.
         let proof =
             ArkProof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
-        let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
+        let (proof_values, read) = if self.is_little_endian {
+            deserialize_proof_values_le(&serialized[all_read..])
+        } else {
+            deserialize_proof_values_be(&serialized[all_read..])
+        };
         all_read += read;
 
-        let signal_len = usize::try_from(u64::from_le_bytes(
-            serialized[all_read..all_read + 8]
-                .try_into()
-                .map_err(ConversionError::FromSlice)?,
-        ))
-        .map_err(ConversionError::from)?;
-        all_read += 8;
+        // Read signal length
+        let signal_len = if self.is_little_endian {
+            let signal_len = usize::try_from(u64::from_le_bytes(
+                serialized[all_read..all_read + 8]
+                    .try_into()
+                    .map_err(ConversionError::FromSlice)?,
+            ))
+            .map_err(ConversionError::ToUsize)?;
+            all_read += 8;
+            signal_len
+        } else {
+            let signal_len = usize::try_from(u64::from_be_bytes(
+                serialized[all_read..all_read + 8]
+                    .try_into()
+                    .map_err(ConversionError::FromSlice)?,
+            ))
+            .map_err(ConversionError::ToUsize)?;
+            all_read += 8;
+            signal_len
+        };
 
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
 
         let verified = verify_proof(&self.verification_key, &proof, &proof_values)?;
-        let x = hash_to_field_le(&signal);
+        let x = if self.is_little_endian {
+            hash_to_field_le(&signal)
+        } else {
+            hash_to_field_be(&signal)
+        };
 
         // Consistency checks to counter proof tampering
         Ok(verified && (self.tree.root() == proof_values.root) && (x == proof_values.x))
@@ -1006,7 +1145,7 @@ impl RLN {
     ///
     /// The function returns true if the zkSNARK proof is valid with respect to the provided circuit output values, signal and roots. Returns false otherwise.
     ///
-    /// Note that contrary to [`verify_rln_proof`](crate::public::RLN::verify_rln_proof), this function does not check if the internal Merkle tree root corresponds to the root provided as input, but rather checks if the root provided as input in `input_data` corresponds to one of the roots serialized in `roots_data`.
+    /// Note that contrary to [`verify_rln_proof`](crate::protocol::verify_proof), this function does not check if the internal Merkle tree root corresponds to the root provided as input, but rather checks if the root provided as input in `input_data` corresponds to one of the roots serialized in `roots_data`.
     ///
     /// If `roots_data` contains no root (is empty), root validation is skipped and the proof will be correctly verified only if the other proof values results valid (i.e., zk-proof, signal, x-coordinate, RLN identifier)
     ///
@@ -1057,26 +1196,54 @@ impl RLN {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
+        // Arkproof only supports compressed serialization in little endian.
+        // However, this data is not converted back to Arkproof on the end user's side,
+        //   but is simply stored as bytes and then sent for verification.
+        // This means that the end user can use the same data for verification
+        //   regardless of the endianness of the machine.
+        // This is why we deserialize the proof in little endian, even if the data is serialized in big endian.
         let proof =
             ArkProof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
-        let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
+
+        let (proof_values, read) = if self.is_little_endian {
+            deserialize_proof_values_le(&serialized[all_read..])
+        } else {
+            deserialize_proof_values_be(&serialized[all_read..])
+        };
         all_read += read;
 
-        let signal_len = usize::try_from(u64::from_le_bytes(
-            serialized[all_read..all_read + 8]
-                .try_into()
-                .map_err(ConversionError::FromSlice)?,
-        ))
-        .map_err(ConversionError::ToUsize)?;
-        all_read += 8;
+        // Read signal length
+        let signal_len = if self.is_little_endian {
+            let signal_len = usize::try_from(u64::from_le_bytes(
+                serialized[all_read..all_read + 8]
+                    .try_into()
+                    .map_err(ConversionError::FromSlice)?,
+            ))
+            .map_err(ConversionError::ToUsize)?;
+            all_read += 8;
+            signal_len
+        } else {
+            let signal_len = usize::try_from(u64::from_be_bytes(
+                serialized[all_read..all_read + 8]
+                    .try_into()
+                    .map_err(ConversionError::FromSlice)?,
+            ))
+            .map_err(ConversionError::ToUsize)?;
+            all_read += 8;
+            signal_len
+        };
 
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
 
         let verified = verify_proof(&self.verification_key, &proof, &proof_values)?;
 
         // First consistency checks to counter proof tampering
-        let x = hash_to_field_le(&signal);
+        let x = if self.is_little_endian {
+            hash_to_field_le(&signal)
+        } else {
+            hash_to_field_be(&signal)
+        };
         let partial_result = verified && (x == proof_values.x);
 
         // We skip root validation if proof is already invalid
@@ -1096,11 +1263,19 @@ impl RLN {
 
         // We read the buffer and convert to Fr as much as we can
         all_read = 0;
-        while all_read + fr_size <= roots_serialized.len() {
-            let (root, read) = bytes_le_to_fr(&roots_serialized[all_read..]);
-            all_read += read;
-            roots.push(root);
-        }
+        if self.is_little_endian {
+            while all_read + fr_size <= roots_serialized.len() {
+                let (root, read) = bytes_le_to_fr(&roots_serialized[all_read..]);
+                all_read += read;
+                roots.push(root);
+            }
+        } else {
+            while all_read + fr_size <= roots_serialized.len() {
+                let (root, read) = bytes_be_to_fr(&roots_serialized[all_read..]);
+                all_read += read;
+                roots.push(root);
+            }
+        };
 
         // We validate the root
         let roots_verified: bool = if roots.is_empty() {
@@ -1118,6 +1293,7 @@ impl RLN {
     ////////////////////////////////////////////////////////
     // Utils
     ////////////////////////////////////////////////////////
+
     /// Recovers the identity secret from two set of proof values computed for same secret in same epoch with same rln identifier.
     ///
     /// Input values are:
@@ -1162,13 +1338,21 @@ impl RLN {
         let mut serialized: Vec<u8> = Vec::new();
         input_proof_data_1.read_to_end(&mut serialized)?;
         // We skip deserialization of the zk-proof at the beginning
-        let (proof_values_1, _) = deserialize_proof_values(&serialized[128..]);
+        let (proof_values_1, _) = if self.is_little_endian {
+            deserialize_proof_values_le(&serialized[128..])
+        } else {
+            deserialize_proof_values_be(&serialized[128..])
+        };
         let external_nullifier_1 = proof_values_1.external_nullifier;
 
         let mut serialized: Vec<u8> = Vec::new();
         input_proof_data_2.read_to_end(&mut serialized)?;
         // We skip deserialization of the zk-proof at the beginning
-        let (proof_values_2, _) = deserialize_proof_values(&serialized[128..]);
+        let (proof_values_2, _) = if self.is_little_endian {
+            deserialize_proof_values_le(&serialized[128..])
+        } else {
+            deserialize_proof_values_be(&serialized[128..])
+        };
         let external_nullifier_2 = proof_values_2.external_nullifier;
 
         // We continue only if the proof values are for the same external nullifier (which includes epoch and rln identifier)
@@ -1185,18 +1369,27 @@ impl RLN {
                 compute_id_secret(share1, share2).map_err(RLNError::RecoverSecret)?;
 
             // If an identity secret hash is recovered, we write it to output_data, otherwise nothing will be written.
-            output_data.write_all(&recovered_identity_secret_hash.to_bytes_le())?;
+            if self.is_little_endian {
+                output_data.write_all(&fr_to_bytes_le(&recovered_identity_secret_hash))?;
+            } else {
+                output_data.write_all(&fr_to_bytes_be(&recovered_identity_secret_hash))?;
+            }
         }
 
         Ok(())
     }
 
-    /// Returns the serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) populated from the identity secret, the Merkle tree index, the user message limit, the message id, the external nullifier (which include epoch and rln identifier) and signal.
+    /// Returns the serialization of a `RLNWitnessInput` populated from the identity secret, the Merkle tree index, the user message limit, the message id, the external nullifier (which include epoch and rln identifier) and signal.
     ///
     /// Input values are:
     /// - `input_data`: a reader for the serialization of `[ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]`
     ///
-    /// The function returns the corresponding [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object serialized using [`serialize_witness`].
+    /// The function returns the corresponding `RLNWitnessInput` object serialized using
+    /// [`rln::protocol::serialize_witness_le`](crate::protocol::serialize_witness_le)
+    /// or [`rln::protocol::serialize_witness_be`](crate::protocol::serialize_witness_be).
+    ///
+    /// # Errors
+    /// - [`RLNError::Protocol`] if serializing the `RLNWitnessInput` object fails.
     #[cfg(not(feature = "stateless"))]
     pub fn get_serialized_rln_witness<R: Read>(
         &mut self,
@@ -1205,40 +1398,53 @@ impl RLN {
         // We read input RLN witness and we serialize_compressed it
         let mut witness_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut witness_byte)?;
-        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
-
-        serialize_witness(&rln_witness).map_err(RLNError::Protocol)
+        if self.is_little_endian {
+            let (rln_witness, _) = proof_inputs_to_rln_witness_le(&mut self.tree, &witness_byte)?;
+            serialize_witness_le(&rln_witness).map_err(RLNError::Protocol)
+        } else {
+            let (rln_witness, _) = proof_inputs_to_rln_witness_be(&mut self.tree, &witness_byte)?;
+            serialize_witness_be(&rln_witness).map_err(RLNError::Protocol)
+        }
     }
 
-    /// Converts a byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object to the corresponding JSON serialization.
+    /// Converts a byte serialization of a `RLNWitnessInput` object to the corresponding JSON serialization.
     ///
     /// Input values are:
-    /// - `serialized_witness`: the byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput)
-    ///   object (serialization done with  [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
+    /// - `serialized_witness`: the byte serialization of a `RLNWitnessInput` object.
+    ///   Serialization can be done using [`rln::protocol::serialize_witness_le`](crate::protocol::serialize_witness_le)
+    ///   or [`rln::protocol::serialize_witness_be`](crate::protocol::serialize_witness_be).
     ///
-    /// The function returns the corresponding JSON encoding of the input.
+    /// The function returns the corresponding JSON encoding of the input `RLNWitnessInput` object.
     pub fn get_rln_witness_json(
         &mut self,
         serialized_witness: &[u8],
     ) -> Result<serde_json::Value, ProtocolError> {
-        let (rln_witness, _) = deserialize_witness(serialized_witness)?;
+        let (rln_witness, _) = if self.is_little_endian {
+            deserialize_witness_le(serialized_witness)?
+        } else {
+            deserialize_witness_be(serialized_witness)?
+        };
         rln_witness_to_json(&rln_witness)
     }
 
-    /// Converts a byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object
-    ///   to the corresponding JSON serialization.
+    /// Converts a byte serialization of a `RLNWitnessInput` object to the corresponding JSON serialization.
     /// Before serialization the data will be translated into big int for further calculation in the witness calculator.
     ///
     /// Input values are:
-    /// - `serialized_witness`: the byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput)
-    ///   object (serialization done with  [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
+    /// - `serialized_witness`: the byte serialization of a `RLNWitnessInput` object.
+    ///   Serialization can be done using [`rln::protocol::serialize_witness_le`](crate::protocol::serialize_witness_le)
+    ///   or [`rln::protocol::serialize_witness_be`](crate::protocol::serialize_witness_be).
     ///
-    /// The function returns the corresponding JSON encoding of the input [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
+    /// The function returns the corresponding JSON encoding of the input `RLNWitnessInput` object.
     pub fn get_rln_witness_bigint_json(
         &mut self,
         serialized_witness: &[u8],
     ) -> Result<serde_json::Value, ProtocolError> {
-        let (rln_witness, _) = deserialize_witness(serialized_witness)?;
+        let (rln_witness, _) = if self.is_little_endian {
+            deserialize_witness_le(serialized_witness)?
+        } else {
+            deserialize_witness_be(serialized_witness)?
+        };
         rln_witness_to_bigint_json(&rln_witness)
     }
 
@@ -1259,10 +1465,10 @@ impl Default for RLN {
         {
             let tree_height = TEST_TREE_HEIGHT;
             let buffer = Cursor::new(json!({}).to_string());
-            Self::new(tree_height, buffer).unwrap()
+            Self::new(tree_height, buffer, true).unwrap()
         }
         #[cfg(feature = "stateless")]
-        Self::new().unwrap()
+        Self::new(true).unwrap()
     }
 }
 
@@ -1535,6 +1741,21 @@ pub fn seeded_extended_key_gen<R: Read, W: Write>(
         output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
         output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
     }
+
+    Ok(())
+}
+
+/// same as poseidon_hash function but in BE format. Note that input is expected in BE format too.
+pub fn poseidon_hash_be<R: Read, W: Write>(
+    mut input_data: R,
+    mut output_data: W,
+) -> Result<(), RLNError> {
+    let mut serialized: Vec<u8> = Vec::new();
+    input_data.read_to_end(&mut serialized)?;
+
+    let (inputs, _) = bytes_be_to_vec_fr(&serialized)?;
+    let hash = utils_poseidon_hash(inputs.as_ref());
+    output_data.write_all(&fr_to_bytes_be(&hash))?;
 
     Ok(())
 }

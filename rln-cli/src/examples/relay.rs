@@ -10,7 +10,7 @@ use color_eyre::{eyre::eyre, Report, Result};
 use rln::{
     circuit::Fr,
     hashers::{hash_to_field_le, poseidon_hash},
-    protocol::{keygen, prepare_prove_input, prepare_verify_input},
+    protocol::{keygen, prepare_prove_input_le, prepare_verify_input_le},
     public::RLN,
     utils::{fr_to_bytes_le, generate_input_buffer, IdSecret},
 };
@@ -82,6 +82,7 @@ impl RLNSystem {
             resources[0].clone(),
             resources[1].clone(),
             generate_input_buffer(),
+            true,
         )?;
         println!("RLN instance initialized successfully");
         Ok(RLNSystem {
@@ -139,7 +140,7 @@ impl RLNSystem {
             None => return Err(eyre!("user index {user_index} not found")),
         };
 
-        let serialized = prepare_prove_input(
+        let serialized = prepare_prove_input_le(
             identity.identity_secret_hash.clone(),
             user_index,
             Fr::from(MESSAGE_LIMIT),
@@ -161,7 +162,7 @@ impl RLNSystem {
     }
 
     fn verify_proof(&mut self, proof_data: Vec<u8>, signal: &str) -> Result<()> {
-        let proof_with_signal = prepare_verify_input(proof_data.clone(), signal.as_bytes());
+        let proof_with_signal = prepare_verify_input_le(proof_data.clone(), signal.as_bytes());
         let mut input_buffer = Cursor::new(proof_with_signal);
 
         match self.rln.verify_rln_proof(&mut input_buffer) {

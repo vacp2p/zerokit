@@ -39,10 +39,14 @@ fn main() -> Result<()> {
             let config = Config::load_config()?;
             state.rln = if let Some(InnerConfig { tree_height, .. }) = config.inner {
                 println!("Initializing RLN with custom config");
-                Some(RLN::new(tree_height, Cursor::new(config.as_bytes()))?)
+                Some(RLN::new(tree_height, Cursor::new(config.as_bytes()), true)?)
             } else {
                 println!("Initializing RLN with default config");
-                Some(RLN::new(tree_height, Cursor::new(json!({}).to_string()))?)
+                Some(RLN::new(
+                    tree_height,
+                    Cursor::new(json!({}).to_string()),
+                    true,
+                )?)
             };
             Ok(())
         }
@@ -72,6 +76,7 @@ fn main() -> Result<()> {
                     resources[0].clone(),
                     resources[1].clone(),
                     Cursor::new(tree_config.to_string().as_bytes()),
+                    true,
                 )?)
             } else {
                 println!("Initializing RLN with default config");
@@ -80,6 +85,7 @@ fn main() -> Result<()> {
                     resources[0].clone(),
                     resources[1].clone(),
                     Cursor::new(json!({}).to_string()),
+                    true,
                 )?)
             };
             Ok(())

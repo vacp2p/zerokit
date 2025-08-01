@@ -8,8 +8,8 @@ mod test {
             protocol::compute_tree_root,
             public::RLN,
             utils::{
-                bytes_le_to_vec_fr, bytes_le_to_vec_u8, bytes_le_to_vec_usize, fr_to_bytes_le,
-                generate_input_buffer, IdSecret,
+                bytes_be_to_vec_usize, bytes_le_to_vec_fr, bytes_le_to_vec_u8,
+                bytes_le_to_vec_usize, fr_to_bytes_be, fr_to_bytes_le, generate_input_buffer,
             },
         },
         zeroize::Zeroize,
@@ -30,7 +30,7 @@ mod test {
         seeded_key_gen,
     };
     use rln::utils::{
-        bytes_be_to_fr, bytes_le_to_fr, str_to_fr, vec_fr_to_bytes_be, vec_fr_to_bytes_le,
+        bytes_be_to_fr, bytes_le_to_fr, str_to_fr, vec_fr_to_bytes_be, vec_fr_to_bytes_le, IdSecret,
     };
     use std::io::Cursor;
 
@@ -41,7 +41,7 @@ mod test {
         let leaf_index = 3;
         let user_message_limit = 1;
 
-        let mut rln = RLN::new(TEST_TREE_HEIGHT, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(TEST_TREE_HEIGHT, generate_input_buffer(), true).unwrap();
 
         // generate identity
         let mut identity_secret_hash_ = hash_to_field_le(b"test-merkle-proof");
@@ -171,7 +171,7 @@ mod test {
         let (identity_secret_hash, id_commitment) = deserialize_identity_pair_le(serialized_output);
 
         // We check against expected values
-        let expected_identity_secret_hash_seed_bytes = str_to_fr(
+        let mut expected_identity_secret_hash_seed_bytes = str_to_fr(
             "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
             16,
         )
@@ -184,7 +184,7 @@ mod test {
 
         assert_eq!(
             identity_secret_hash,
-            expected_identity_secret_hash_seed_bytes
+            IdSecret::from(&mut expected_identity_secret_hash_seed_bytes)
         );
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
     }
@@ -202,7 +202,7 @@ mod test {
         let (identity_secret_hash, id_commitment) = deserialize_identity_pair_be(serialized_output);
 
         // We check against expected values
-        let expected_identity_secret_hash_seed_bytes = str_to_fr(
+        let mut expected_identity_secret_hash_seed_bytes = str_to_fr(
             "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
             16,
         )
@@ -215,7 +215,7 @@ mod test {
 
         assert_eq!(
             identity_secret_hash,
-            expected_identity_secret_hash_seed_bytes
+            IdSecret::from(&mut expected_identity_secret_hash_seed_bytes)
         );
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
     }
@@ -362,6 +362,7 @@ mod test {
         assert_eq!(hash, expected_hash);
     }
 
+    #[cfg(not(feature = "stateless"))]
     #[test]
     fn test_poseidon_hash_big_endian() {
         let mut rng = thread_rng();
@@ -380,5 +381,21 @@ mod test {
         let (hash, _) = bytes_be_to_fr(&serialized_hash);
 
         assert_eq!(hash, expected_hash);
+    }
+
+    #[cfg(not(feature = "stateless"))]
+    #[test]
+    fn test_get_empty_leaves_indices_be() {
+        let mut rln = RLN::new(TEST_TREE_HEIGHT, generate_input_buffer(), false).unwrap();
+
+        let index = 3;
+        let element = Fr::rand(&mut thread_rng());
+        rln.set_leaf(index, &mut Cursor::new(fr_to_bytes_be(&element)))
+            .unwrap();
+
+        let mut buffer = Cursor::new(Vec::<u8>::new());
+        rln.get_empty_leaves_indices(&mut buffer).unwrap();
+        let idxs = bytes_be_to_vec_usize(&buffer.into_inner()).unwrap();
+        assert_eq!(idxs, [0, 1, 2]);
     }
 }

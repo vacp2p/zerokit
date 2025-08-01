@@ -43,6 +43,8 @@ pub enum ProtocolError {
     JsonError(#[from] serde_json::Error),
     #[error("Message id ({0}) is not within user_message_limit ({1})")]
     InvalidMessageId(Fr, Fr),
+    #[error("Merkle tree error: {0}")]
+    MerkleTree(#[from] ZerokitMerkleTreeError),
 }
 
 #[derive(Debug, thiserror::Error)]

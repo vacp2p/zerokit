@@ -85,13 +85,9 @@ macro_rules! call_with_output_arg {
 // Second argument is the output buffer argument
 // The remaining arguments are all other inputs to the method
 macro_rules! no_ctx_call_with_output_arg {
-    ($method:ident, $output_arg:expr, $input_arg:expr, $endianness_arg:expr) => {{
+    ($method:ident, $output_arg:expr, $input_arg:expr, $bool_arg:expr) => {{
         let mut output_data: Vec<u8> = Vec::new();
-        match $method(
-            $input_arg.process(),
-            &mut output_data,
-            $endianness_arg.process(),
-        ) {
+        match $method($input_arg.process(), &mut output_data, $bool_arg.process()) {
             Ok(()) => {
                 unsafe { *$output_arg = Buffer::from(&output_data[..]) };
                 std::mem::forget(output_data);
@@ -112,9 +108,9 @@ macro_rules! no_ctx_call_with_output_arg {
 // Second argument is the output buffer argument
 // The remaining arguments are all other inputs to the method
 macro_rules! no_ctx_call_with_output_arg_and_endianness {
-    ($method:ident, $output_arg:expr, $endianness_arg:expr) => {{
+    ($method:ident, $output_arg:expr, $bool_arg:expr) => {{
         let mut output_data: Vec<u8> = Vec::new();
-        match $method(&mut output_data, $endianness_arg.process()) {
+        match $method(&mut output_data, $bool_arg.process()) {
             Ok(()) => {
                 unsafe { *$output_arg = Buffer::from(&output_data[..]) };
                 std::mem::forget(output_data);
@@ -232,8 +228,13 @@ impl<'a> From<&Buffer> for &'a [u8] {
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[cfg(not(feature = "stateless"))]
 #[no_mangle]
-pub extern "C" fn new(tree_height: usize, input_buffer: *const Buffer, ctx: *mut *mut RLN) -> bool {
-    match RLN::new(tree_height, input_buffer.process()) {
+pub extern "C" fn new(
+    tree_height: usize,
+    is_little_endian: bool,
+    input_buffer: *const Buffer,
+    ctx: *mut *mut RLN,
+) -> bool {
+    match RLN::new(tree_height, input_buffer.process(), is_little_endian) {
         Ok(rln) => {
             unsafe { *ctx = Box::into_raw(Box::new(rln)) };
             true
@@ -248,8 +249,8 @@ pub extern "C" fn new(tree_height: usize, input_buffer: *const Buffer, ctx: *mut
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[cfg(feature = "stateless")]
 #[no_mangle]
-pub extern "C" fn new(ctx: *mut *mut RLN) -> bool {
-    match RLN::new() {
+pub extern "C" fn new(ctx: *mut *mut RLN, is_little_endian: bool) -> bool {
+    match RLN::new(is_little_endian) {
         Ok(rln) => {
             unsafe { *ctx = Box::into_raw(Box::new(rln)) };
             true
@@ -269,6 +270,7 @@ pub extern "C" fn new_with_params(
     zkey_buffer: *const Buffer,
     graph_data: *const Buffer,
     tree_config: *const Buffer,
+    is_little_endian: bool,
     ctx: *mut *mut RLN,
 ) -> bool {
     match RLN::new_with_params(
@@ -276,6 +278,7 @@ pub extern "C" fn new_with_params(
         zkey_buffer.process().to_vec(),
         graph_data.process().to_vec(),
         tree_config.process(),
+        is_little_endian,
     ) {
         Ok(rln) => {
             unsafe { *ctx = Box::into_raw(Box::new(rln)) };
@@ -295,10 +298,12 @@ pub extern "C" fn new_with_params(
     zkey_buffer: *const Buffer,
     graph_buffer: *const Buffer,
     ctx: *mut *mut RLN,
+    is_little_endian: bool,
 ) -> bool {
     match RLN::new_with_params(
         zkey_buffer.process().to_vec(),
         graph_buffer.process().to_vec(),
+        is_little_endian,
     ) {
         Ok(rln) => {
             unsafe { *ctx = Box::into_raw(Box::new(rln)) };

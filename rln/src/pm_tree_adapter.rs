@@ -15,7 +15,7 @@ const METADATA_KEY: [u8; 8] = *b"metadata";
 
 pub struct PmTree {
     tree: pmtree::MerkleTree<SledDB, PoseidonHash>,
-    /// The indices of leaves which are set into zero upto next_index.
+    /// The indices of leaves which are set into zero up to next_index.
     /// Set to 0 if the leaf is empty and set to 1 in otherwise.
     cached_leaves_indices: Vec<u8>,
     // metadata that an application may use to store additional information

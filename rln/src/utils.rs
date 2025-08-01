@@ -304,6 +304,16 @@ pub fn bytes_be_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, ConversionError
     }
 }
 
+#[inline(always)]
+pub fn vec_usize_to_bytes_be(input: &[usize]) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(8 + input.len() * 8);
+    bytes.extend_from_slice(&normalize_usize_be(input.len()));
+    for el in input {
+        bytes.extend_from_slice(&normalize_usize_be(*el));
+    }
+    bytes
+}
+
 /// Normalizes a `usize` into an 8-byte array, ensuring consistency across architectures.
 /// On 32-bit systems, the result is zero-padded to 8 bytes.
 /// On 64-bit systems, it directly represents the `usize` value.
@@ -359,6 +369,14 @@ impl IdSecret {
         let mut res = input_biguint.to_bytes_le();
         res.resize(fr_byte_size(), 0);
         Zeroizing::new(res)
+    }
+
+    pub fn from_bytes_be(input: &[u8]) -> (Self, usize) {
+        let el_size = fr_byte_size();
+        let b_uint = BigUint::from_bytes_be(&input[0..el_size]);
+        let mut fr = Fr::from(b_uint);
+        let res = IdSecret::from(&mut fr);
+        (res, el_size)
     }
 
     pub(crate) fn to_bytes_be(&self) -> Zeroizing<Vec<u8>> {
@@ -417,5 +435,18 @@ impl From<Fr> for FrOrSecret {
 impl From<IdSecret> for FrOrSecret {
     fn from(value: IdSecret) -> Self {
         FrOrSecret::IdSecret(value)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_fr_be() {
+        let fr_1 = Fr::from(255);
+        let b = fr_to_bytes_be(&fr_1);
+        let fr_1_de = bytes_be_to_fr(&b).0;
+        assert_eq!(fr_1, fr_1_de);
     }
 }
