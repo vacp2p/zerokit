@@ -135,9 +135,9 @@ impl ProcessArg for bool {
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = newRLN)]
-pub fn wasm_new(zkey: Uint8Array, endianness: bool) -> Result<*mut RLNWrapper, String> {
-    let instance =
-        RLN::new_with_params(zkey.to_vec(), endianness).map_err(|err| format!("{:#?}", err))?;
+pub fn wasm_new(zkey: Uint8Array, is_little_endian: bool) -> Result<*mut RLNWrapper, String> {
+    let instance = RLN::new_with_params(zkey.to_vec(), is_little_endian)
+        .map_err(|err| format!("{:#?}", err))?;
     let wrapper = RLNWrapper { instance };
     Ok(Box::into_raw(Box::new(wrapper)))
 }

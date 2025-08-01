@@ -230,11 +230,11 @@ impl<'a> From<&Buffer> for &'a [u8] {
 #[no_mangle]
 pub extern "C" fn new(
     tree_height: usize,
-    endianness: bool,
+    is_little_endian: bool,
     input_buffer: *const Buffer,
     ctx: *mut *mut RLN,
 ) -> bool {
-    match RLN::new(tree_height, input_buffer.process(), endianness) {
+    match RLN::new(tree_height, input_buffer.process(), is_little_endian) {
         Ok(rln) => {
             unsafe { *ctx = Box::into_raw(Box::new(rln)) };
             true
@@ -249,8 +249,8 @@ pub extern "C" fn new(
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[cfg(feature = "stateless")]
 #[no_mangle]
-pub extern "C" fn new(ctx: *mut *mut RLN, endianness: bool) -> bool {
-    match RLN::new(endianness) {
+pub extern "C" fn new(ctx: *mut *mut RLN, is_little_endian: bool) -> bool {
+    match RLN::new(is_little_endian) {
         Ok(rln) => {
             unsafe { *ctx = Box::into_raw(Box::new(rln)) };
             true
@@ -270,7 +270,7 @@ pub extern "C" fn new_with_params(
     zkey_buffer: *const Buffer,
     graph_data: *const Buffer,
     tree_config: *const Buffer,
-    endianness: bool,
+    is_little_endian: bool,
     ctx: *mut *mut RLN,
 ) -> bool {
     match RLN::new_with_params(
@@ -278,7 +278,7 @@ pub extern "C" fn new_with_params(
         zkey_buffer.process().to_vec(),
         graph_data.process().to_vec(),
         tree_config.process(),
-        endianness,
+        is_little_endian,
     ) {
         Ok(rln) => {
             unsafe { *ctx = Box::into_raw(Box::new(rln)) };
@@ -298,12 +298,12 @@ pub extern "C" fn new_with_params(
     zkey_buffer: *const Buffer,
     graph_buffer: *const Buffer,
     ctx: *mut *mut RLN,
-    endianness: bool,
+    is_little_endian: bool,
 ) -> bool {
     match RLN::new_with_params(
         zkey_buffer.process().to_vec(),
         graph_buffer.process().to_vec(),
-        endianness,
+        is_little_endian,
     ) {
         Ok(rln) => {
             unsafe { *ctx = Box::into_raw(Box::new(rln)) };

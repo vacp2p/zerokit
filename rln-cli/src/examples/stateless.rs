@@ -11,7 +11,7 @@ use rln::{
     circuit::{Fr, TEST_TREE_HEIGHT},
     hashers::{hash_to_field_le, poseidon_hash, PoseidonHash},
     protocol::{keygen, prepare_verify_input_le, rln_witness_from_values, serialize_witness_le},
-    public::{Endianness, RLN},
+    public::RLN,
     utils::fr_to_bytes_le,
 };
 use zerokit_utils::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
@@ -68,7 +68,7 @@ struct RLNSystem {
 
 impl RLNSystem {
     fn new() -> Result<Self> {
-        let rln = RLN::new(Endianness::LittleEndian)?;
+        let rln = RLN::new(true)?;
         let default_leaf = Fr::from(0);
         let tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
             TEST_TREE_HEIGHT,
