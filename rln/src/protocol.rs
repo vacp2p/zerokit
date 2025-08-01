@@ -1,18 +1,15 @@
 // This crate collects all the underlying primitives used to implement RLN
 #[cfg(not(feature = "stateless"))]
-use {
-    crate::circuit::calculate_rln_witness, crate::error::ConversionError,
-    crate::poseidon_tree::PoseidonTree, crate::utils::FrOrSecret,
-};
+use {crate::error::ConversionError, crate::poseidon_tree::PoseidonTree};
 
-use crate::circuit::{qap::CircomReduction, Curve};
+use crate::circuit::{calculate_rln_witness, qap::CircomReduction, Curve};
 use crate::error::{ComputeIdSecretError, ProofError, ProtocolError};
 use crate::hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash, PoseidonHash};
 use crate::utils::{
     bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_le_to_fr, bytes_le_to_vec_fr,
     bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_be, fr_to_bytes_le, normalize_usize_be,
     normalize_usize_le, to_bigint, vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be,
-    vec_u8_to_bytes_le, IdSecret,
+    vec_u8_to_bytes_le, FrOrSecret, IdSecret,
 };
 use ark_bn254::{Fr, FrConfig};
 use ark_ff::{AdditiveGroup, Fp, MontBackend};
