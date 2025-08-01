@@ -304,6 +304,16 @@ pub fn bytes_be_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, ConversionError
     }
 }
 
+#[inline(always)]
+pub fn vec_usize_to_bytes_be(input: &[usize]) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(8 + input.len() * 8);
+    bytes.extend_from_slice(&normalize_usize_be(input.len()));
+    for el in input {
+        bytes.extend_from_slice(&normalize_usize_be(*el));
+    }
+    bytes
+}
+
 /// Normalizes a `usize` into an 8-byte array, ensuring consistency across architectures.
 /// On 32-bit systems, the result is zero-padded to 8 bytes.
 /// On 64-bit systems, it directly represents the `usize` value.

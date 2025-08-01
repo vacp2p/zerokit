@@ -34,7 +34,7 @@ use {
         },
         utils::{
             bytes_be_to_vec_u8, bytes_le_to_vec_u8, vec_fr_to_bytes_be, vec_fr_to_bytes_le,
-            vec_u8_to_bytes_be, vec_u8_to_bytes_le,
+            vec_u8_to_bytes_be, vec_u8_to_bytes_le, vec_usize_to_bytes_be,
         },
     },
     serde_json::{json, Value},
@@ -55,20 +55,13 @@ use std::io::Cursor;
 /// Prevents a RLN ZK proof generated for one application to be re-used in another one.
 pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(C)]
-pub enum Endianness {
-    LittleEndian = 0,
-    BigEndian = 1,
-}
-
 /// The RLN object.
 ///
 /// It implements the methods required to update the internal Merkle Tree, generate and verify RLN ZK proofs.
 ///
 /// I/O is mostly done using writers and readers implementing `std::io::Write` and `std::io::Read`, respectively.
 pub struct RLN {
-    endianness: Endianness,
+    is_little_endian: bool,
     proving_key: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
     pub(crate) verification_key: VerifyingKey<Curve>,
     #[cfg(not(target_arch = "wasm32"))]
@@ -98,7 +91,7 @@ impl RLN {
     pub fn new<R: Read>(
         tree_height: usize,
         mut input_data: R,
-        endianness: Endianness,
+        is_little_endian: bool,
     ) -> Result<RLN, RLNError> {
         // We read input
         let mut input: Vec<u8> = Vec::new();
@@ -125,7 +118,7 @@ impl RLN {
         )?;
 
         Ok(RLN {
-            endianness,
+            is_little_endian,
             proving_key,
             verification_key,
             graph_data,
@@ -143,13 +136,13 @@ impl RLN {
     /// let mut rln = RLN::new();
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
-    pub fn new(endianness: Endianness) -> Result<RLN, RLNError> {
+    pub fn new(is_little_endian: bool) -> Result<RLN, RLNError> {
         let proving_key = zkey_from_folder().to_owned();
         let verification_key = proving_key.0.vk.to_owned();
         let graph_data = graph_from_folder().to_owned();
 
         Ok(RLN {
-            endianness,
+            is_little_endian,
             proving_key,
             verification_key,
             graph_data,
@@ -198,7 +191,7 @@ impl RLN {
         zkey_vec: Vec<u8>,
         graph_data: Vec<u8>,
         mut tree_config_input: R,
-        endianness: Endianness,
+        is_little_endian: bool,
     ) -> Result<RLN, RLNError> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = proving_key.0.vk.to_owned();
@@ -221,7 +214,7 @@ impl RLN {
         )?;
 
         Ok(RLN {
-            endianness,
+            is_little_endian,
             proving_key,
             verification_key,
             graph_data,
@@ -262,13 +255,13 @@ impl RLN {
     pub fn new_with_params(
         zkey_vec: Vec<u8>,
         graph_data: Vec<u8>,
-        endianness: Endianness,
+        is_little_endian: bool,
     ) -> Result<RLN, RLNError> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = proving_key.0.vk.to_owned();
 
         Ok(RLN {
-            endianness,
+            is_little_endian,
             proving_key,
             verification_key,
             graph_data,
@@ -295,12 +288,12 @@ impl RLN {
     /// let mut rln = RLN::new_with_params(zkey_vec)?;
     /// ```
     #[cfg(all(target_arch = "wasm32", feature = "stateless"))]
-    pub fn new_with_params(zkey_vec: Vec<u8>, endianness: Endianness) -> Result<RLN, RLNError> {
+    pub fn new_with_params(zkey_vec: Vec<u8>, is_little_endian: bool) -> Result<RLN, RLNError> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = proving_key.0.vk.to_owned();
 
         Ok(RLN {
-            endianness,
+            is_little_endian,
             proving_key,
             verification_key,
         })
@@ -353,15 +346,12 @@ impl RLN {
         input_data.read_to_end(&mut leaf_byte)?;
 
         // We set the leaf at input index
-        let leaf = match self.endianness {
-            Endianness::LittleEndian => {
-                let (leaf, _) = bytes_le_to_fr(&leaf_byte);
-                leaf
-            }
-            Endianness::BigEndian => {
-                let (leaf, _) = bytes_be_to_fr(&leaf_byte);
-                leaf
-            }
+        let leaf = if self.is_little_endian {
+            let (leaf, _) = bytes_le_to_fr(&leaf_byte);
+            leaf
+        } else {
+            let (leaf, _) = bytes_be_to_fr(&leaf_byte);
+            leaf
         };
         self.tree.set(index, leaf)?;
         Ok(())
@@ -390,11 +380,11 @@ impl RLN {
         let leaf = self.tree.get(index)?;
 
         // We serialize the leaf and write it to output
-        let leaf_byte = match self.endianness {
-            Endianness::LittleEndian => fr_to_bytes_le(&leaf),
-            Endianness::BigEndian => fr_to_bytes_be(&leaf),
+        if self.is_little_endian {
+            output_data.write_all(&fr_to_bytes_le(&leaf))?;
+        } else {
+            output_data.write_all(&fr_to_bytes_be(&leaf))?;
         };
-        output_data.write_all(&leaf_byte)?;
 
         Ok(())
     }
@@ -440,9 +430,10 @@ impl RLN {
         let mut leaves_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut leaves_byte)?;
 
-        let (leaves, _) = match self.endianness {
-            Endianness::LittleEndian => bytes_le_to_vec_fr(&leaves_byte)?,
-            Endianness::BigEndian => bytes_be_to_vec_fr(&leaves_byte)?,
+        let (leaves, _) = if self.is_little_endian {
+            bytes_le_to_vec_fr(&leaves_byte)?
+        } else {
+            bytes_be_to_vec_fr(&leaves_byte)?
         };
 
         // We set the leaves
@@ -519,17 +510,19 @@ impl RLN {
         let mut leaves_byte: Vec<u8> = Vec::new();
         input_leaves.read_to_end(&mut leaves_byte)?;
 
-        let (leaves, _) = match self.endianness {
-            Endianness::LittleEndian => bytes_le_to_vec_fr(&leaves_byte)?,
-            Endianness::BigEndian => bytes_be_to_vec_fr(&leaves_byte)?,
+        let (leaves, _) = if self.is_little_endian {
+            bytes_le_to_vec_fr(&leaves_byte)?
+        } else {
+            bytes_be_to_vec_fr(&leaves_byte)?
         };
 
         let mut indices_byte: Vec<u8> = Vec::new();
         input_indices.read_to_end(&mut indices_byte)?;
 
-        let (indices, _) = match self.endianness {
-            Endianness::LittleEndian => bytes_le_to_vec_u8(&indices_byte)?,
-            Endianness::BigEndian => bytes_be_to_vec_u8(&indices_byte)?,
+        let (indices, _) = if self.is_little_endian {
+            bytes_le_to_vec_u8(&indices_byte)?
+        } else {
+            bytes_be_to_vec_u8(&indices_byte)?
         };
         let indices: Vec<usize> = indices.iter().map(|x| *x as usize).collect();
 
@@ -594,18 +587,13 @@ impl RLN {
         input_data.read_to_end(&mut leaf_byte)?;
 
         // We set the leaf at input index
-        let leaf = match self.endianness {
-            Endianness::LittleEndian => {
-                let (leaf, _) = bytes_le_to_fr(&leaf_byte);
-                leaf
-            }
-            Endianness::BigEndian => {
-                let (leaf, _) = bytes_be_to_fr(&leaf_byte);
-                leaf
-            }
-        };
-        self.tree.update_next(leaf)?;
-
+        if self.is_little_endian {
+            let (leaf, _) = bytes_le_to_fr(&leaf_byte);
+            self.tree.update_next(leaf)?;
+        } else {
+            let (leaf, _) = bytes_be_to_fr(&leaf_byte);
+            self.tree.update_next(leaf)?;
+        }
         Ok(())
     }
 
@@ -683,11 +671,11 @@ impl RLN {
     #[cfg(not(feature = "stateless"))]
     pub fn get_root<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
         let root = self.tree.root();
-        let root_byte = match self.endianness {
-            Endianness::LittleEndian => fr_to_bytes_le(&root),
-            Endianness::BigEndian => fr_to_bytes_be(&root),
-        };
-        output_data.write_all(&root_byte)?;
+        if self.is_little_endian {
+            output_data.write_all(&fr_to_bytes_le(&root))?;
+        } else {
+            output_data.write_all(&fr_to_bytes_be(&root))?;
+        }
         Ok(())
     }
 
@@ -714,11 +702,11 @@ impl RLN {
         mut output_data: W,
     ) -> Result<(), RLNError> {
         let subroot = self.tree.get_subtree_root(level, index)?;
-        let subroot_byte = match self.endianness {
-            Endianness::LittleEndian => fr_to_bytes_le(&subroot),
-            Endianness::BigEndian => fr_to_bytes_be(&subroot),
-        };
-        output_data.write_all(&subroot_byte)?;
+        if self.is_little_endian {
+            output_data.write_all(&fr_to_bytes_le(&subroot))?;
+        } else {
+            output_data.write_all(&fr_to_bytes_be(&subroot))?;
+        }
 
         Ok(())
     }
@@ -751,15 +739,12 @@ impl RLN {
         let identity_path_index = merkle_proof.get_path_index();
 
         // Note: unwrap safe - vec_fr_to_bytes_le & vec_u8_to_bytes_le are infallible
-        match self.endianness {
-            Endianness::LittleEndian => {
-                output_data.write_all(&vec_fr_to_bytes_le(&path_elements))?;
-                output_data.write_all(&vec_u8_to_bytes_le(&identity_path_index))?;
-            }
-            Endianness::BigEndian => {
-                output_data.write_all(&vec_fr_to_bytes_be(&path_elements))?;
-                output_data.write_all(&vec_u8_to_bytes_be(&identity_path_index))?;
-            }
+        if self.is_little_endian {
+            output_data.write_all(&vec_fr_to_bytes_le(&path_elements))?;
+            output_data.write_all(&vec_u8_to_bytes_le(&identity_path_index))?;
+        } else {
+            output_data.write_all(&vec_fr_to_bytes_be(&path_elements))?;
+            output_data.write_all(&vec_u8_to_bytes_be(&identity_path_index))?;
         }
 
         Ok(())
@@ -800,20 +785,11 @@ impl RLN {
     #[cfg(not(feature = "stateless"))]
     pub fn get_empty_leaves_indices<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
         let idxs = self.tree.get_empty_leaves_indices();
-        match self.endianness {
-            Endianness::LittleEndian => {
-                idxs.serialize_compressed(&mut output_data)?;
-            }
-            Endianness::BigEndian => {
-                let mut bytes = Vec::new();
-                // Serialize compressed set in first 8 bytes number of elements, then the elements
-                idxs.serialize_compressed(&mut bytes)?;
-                let mut reversed_bytes = bytes[8..].to_vec();
-                reversed_bytes.reverse();
-
-                output_data.write_all(&bytes[..8])?;
-                output_data.write_all(&reversed_bytes)?;
-            }
+        if self.is_little_endian {
+            idxs.serialize_compressed(&mut output_data)?;
+        } else {
+            let bytes = vec_usize_to_bytes_be(&idxs);
+            output_data.write_all(&bytes)?;
         }
         Ok(())
     }
@@ -854,9 +830,10 @@ impl RLN {
         // We read input RLN witness and we serialize_compressed it
         let mut serialized_witness: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized_witness)?;
-        let (rln_witness, _) = match self.endianness {
-            Endianness::LittleEndian => deserialize_witness_le(&serialized_witness)?,
-            Endianness::BigEndian => deserialize_witness_be(&serialized_witness)?,
+        let (rln_witness, _) = if self.is_little_endian {
+            deserialize_witness_le(&serialized_witness)?
+        } else {
+            deserialize_witness_be(&serialized_witness)?
         };
 
         let proof = generate_proof(&self.proving_key, &rln_witness, &self.graph_data)?;
@@ -912,9 +889,10 @@ impl RLN {
         let proof =
             ArkProof::deserialize_compressed(&mut Cursor::new(&input_byte[..128].to_vec()))?;
 
-        let (proof_values, _) = match self.endianness {
-            Endianness::LittleEndian => deserialize_proof_values_le(&input_byte[128..]),
-            Endianness::BigEndian => deserialize_proof_values_be(&input_byte[128..]),
+        let (proof_values, _) = if self.is_little_endian {
+            deserialize_proof_values_le(&input_byte[128..])
+        } else {
+            deserialize_proof_values_be(&input_byte[128..])
         };
 
         let verified = verify_proof(&self.verification_key, &proof, &proof_values)?;
@@ -983,11 +961,10 @@ impl RLN {
 
         let mut witness_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut witness_byte)?;
-        let (rln_witness, _) = match self.endianness {
-            Endianness::LittleEndian => {
-                proof_inputs_to_rln_witness_le(&mut self.tree, &witness_byte)?
-            }
-            Endianness::BigEndian => proof_inputs_to_rln_witness_be(&mut self.tree, &witness_byte)?,
+        let (rln_witness, _) = if self.is_little_endian {
+            proof_inputs_to_rln_witness_le(&mut self.tree, &witness_byte)?
+        } else {
+            proof_inputs_to_rln_witness_be(&mut self.tree, &witness_byte)?
         };
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
@@ -997,10 +974,11 @@ impl RLN {
         // This proof is compressed, i.e. 128 bytes long
         proof.serialize_compressed(&mut output_data)?;
 
-        output_data.write_all(&match self.endianness {
-            Endianness::LittleEndian => serialize_proof_values_le(&proof_values),
-            Endianness::BigEndian => serialize_proof_values_be(&proof_values),
-        })?;
+        if self.is_little_endian {
+            output_data.write_all(&serialize_proof_values_le(&proof_values))?;
+        } else {
+            output_data.write_all(&serialize_proof_values_be(&proof_values))?;
+        }
 
         Ok(())
     }
@@ -1016,9 +994,10 @@ impl RLN {
     ) -> Result<(), RLNError> {
         let mut serialized_witness: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized_witness)?;
-        let (rln_witness, _) = match self.endianness {
-            Endianness::LittleEndian => deserialize_witness_le(&serialized_witness)?,
-            Endianness::BigEndian => deserialize_witness_be(&serialized_witness)?,
+        let (rln_witness, _) = if self.is_little_endian {
+            deserialize_witness_le(&serialized_witness)?
+        } else {
+            deserialize_witness_be(&serialized_witness)?
         };
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
@@ -1028,10 +1007,11 @@ impl RLN {
         // This proof is compressed, i.e. 128 bytes long
         proof.serialize_compressed(&mut output_data)?;
 
-        output_data.write_all(&match self.endianness {
-            Endianness::LittleEndian => serialize_proof_values_le(&proof_values),
-            Endianness::BigEndian => serialize_proof_values_be(&proof_values),
-        })?;
+        if self.is_little_endian {
+            output_data.write_all(&serialize_proof_values_le(&proof_values))?;
+        } else {
+            output_data.write_all(&serialize_proof_values_be(&proof_values))?;
+        }
         Ok(())
     }
 
@@ -1045,9 +1025,10 @@ impl RLN {
         serialized_witness: Vec<u8>,
         mut output_data: W,
     ) -> Result<(), RLNError> {
-        let (rln_witness, _) = match self.endianness {
-            Endianness::LittleEndian => deserialize_witness_le(&serialized_witness[..])?,
-            Endianness::BigEndian => deserialize_witness_be(&serialized_witness[..])?,
+        let (rln_witness, _) = if self.is_little_endian {
+            deserialize_witness_le(&serialized_witness[..])?
+        } else {
+            deserialize_witness_be(&serialized_witness[..])?
         };
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
@@ -1058,10 +1039,11 @@ impl RLN {
         // This proof is compressed, i.e. 128 bytes long
         proof.serialize_compressed(&mut output_data)?;
 
-        output_data.write_all(&match self.endianness {
-            Endianness::LittleEndian => serialize_proof_values_le(&proof_values),
-            Endianness::BigEndian => serialize_proof_values_be(&proof_values),
-        })?;
+        if self.is_little_endian {
+            output_data.write_all(&serialize_proof_values_le(&proof_values))?;
+        } else {
+            output_data.write_all(&serialize_proof_values_be(&proof_values))?;
+        }
         Ok(())
     }
 
@@ -1102,42 +1084,41 @@ impl RLN {
         let proof =
             ArkProof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
-        let (proof_values, read) = match self.endianness {
-            Endianness::LittleEndian => deserialize_proof_values_le(&serialized[all_read..]),
-            Endianness::BigEndian => deserialize_proof_values_be(&serialized[all_read..]),
+        let (proof_values, read) = if self.is_little_endian {
+            deserialize_proof_values_le(&serialized[all_read..])
+        } else {
+            deserialize_proof_values_be(&serialized[all_read..])
         };
         all_read += read;
 
         // Read signal length
-        let signal_len = match self.endianness {
-            Endianness::LittleEndian => {
-                let signal_len = usize::try_from(u64::from_le_bytes(
-                    serialized[all_read..all_read + 8]
-                        .try_into()
-                        .map_err(ConversionError::FromSlice)?,
-                ))
-                .map_err(ConversionError::ToUsize)?;
-                all_read += 8;
-                signal_len
-            }
-            Endianness::BigEndian => {
-                let signal_len = usize::try_from(u64::from_be_bytes(
-                    serialized[all_read..all_read + 8]
-                        .try_into()
-                        .map_err(ConversionError::FromSlice)?,
-                ))
-                .map_err(ConversionError::ToUsize)?;
-                all_read += 8;
-                signal_len
-            }
+        let signal_len = if self.is_little_endian {
+            let signal_len = usize::try_from(u64::from_le_bytes(
+                serialized[all_read..all_read + 8]
+                    .try_into()
+                    .map_err(ConversionError::FromSlice)?,
+            ))
+            .map_err(ConversionError::ToUsize)?;
+            all_read += 8;
+            signal_len
+        } else {
+            let signal_len = usize::try_from(u64::from_be_bytes(
+                serialized[all_read..all_read + 8]
+                    .try_into()
+                    .map_err(ConversionError::FromSlice)?,
+            ))
+            .map_err(ConversionError::ToUsize)?;
+            all_read += 8;
+            signal_len
         };
 
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
 
         let verified = verify_proof(&self.verification_key, &proof, &proof_values)?;
-        let x = match self.endianness {
-            Endianness::LittleEndian => hash_to_field_le(&signal),
-            Endianness::BigEndian => hash_to_field_be(&signal),
+        let x = if self.is_little_endian {
+            hash_to_field_le(&signal)
+        } else {
+            hash_to_field_be(&signal)
         };
 
         // Consistency checks to counter proof tampering
@@ -1207,34 +1188,32 @@ impl RLN {
             ArkProof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
 
-        let (proof_values, read) = match self.endianness {
-            Endianness::LittleEndian => deserialize_proof_values_le(&serialized[all_read..]),
-            Endianness::BigEndian => deserialize_proof_values_be(&serialized[all_read..]),
+        let (proof_values, read) = if self.is_little_endian {
+            deserialize_proof_values_le(&serialized[all_read..])
+        } else {
+            deserialize_proof_values_be(&serialized[all_read..])
         };
         all_read += read;
 
         // Read signal length
-        let signal_len = match self.endianness {
-            Endianness::LittleEndian => {
-                let signal_len = usize::try_from(u64::from_le_bytes(
-                    serialized[all_read..all_read + 8]
-                        .try_into()
-                        .map_err(ConversionError::FromSlice)?,
-                ))
-                .map_err(ConversionError::ToUsize)?;
-                all_read += 8;
-                signal_len
-            }
-            Endianness::BigEndian => {
-                let signal_len = usize::try_from(u64::from_be_bytes(
-                    serialized[all_read..all_read + 8]
-                        .try_into()
-                        .map_err(ConversionError::FromSlice)?,
-                ))
-                .map_err(ConversionError::ToUsize)?;
-                all_read += 8;
-                signal_len
-            }
+        let signal_len = if self.is_little_endian {
+            let signal_len = usize::try_from(u64::from_le_bytes(
+                serialized[all_read..all_read + 8]
+                    .try_into()
+                    .map_err(ConversionError::FromSlice)?,
+            ))
+            .map_err(ConversionError::ToUsize)?;
+            all_read += 8;
+            signal_len
+        } else {
+            let signal_len = usize::try_from(u64::from_be_bytes(
+                serialized[all_read..all_read + 8]
+                    .try_into()
+                    .map_err(ConversionError::FromSlice)?,
+            ))
+            .map_err(ConversionError::ToUsize)?;
+            all_read += 8;
+            signal_len
         };
 
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
@@ -1242,9 +1221,10 @@ impl RLN {
         let verified = verify_proof(&self.verification_key, &proof, &proof_values)?;
 
         // First consistency checks to counter proof tampering
-        let x = match self.endianness {
-            Endianness::LittleEndian => hash_to_field_le(&signal),
-            Endianness::BigEndian => hash_to_field_be(&signal),
+        let x = if self.is_little_endian {
+            hash_to_field_le(&signal)
+        } else {
+            hash_to_field_be(&signal)
         };
         let partial_result = verified && (x == proof_values.x);
 
@@ -1265,20 +1245,17 @@ impl RLN {
 
         // We read the buffer and convert to Fr as much as we can
         all_read = 0;
-        match self.endianness {
-            Endianness::LittleEndian => {
-                while all_read + fr_size <= roots_serialized.len() {
-                    let (root, read) = bytes_le_to_fr(&roots_serialized[all_read..]);
-                    all_read += read;
-                    roots.push(root);
-                }
+        if self.is_little_endian {
+            while all_read + fr_size <= roots_serialized.len() {
+                let (root, read) = bytes_le_to_fr(&roots_serialized[all_read..]);
+                all_read += read;
+                roots.push(root);
             }
-            Endianness::BigEndian => {
-                while all_read + fr_size <= roots_serialized.len() {
-                    let (root, read) = bytes_be_to_fr(&roots_serialized[all_read..]);
-                    all_read += read;
-                    roots.push(root);
-                }
+        } else {
+            while all_read + fr_size <= roots_serialized.len() {
+                let (root, read) = bytes_be_to_fr(&roots_serialized[all_read..]);
+                all_read += read;
+                roots.push(root);
             }
         };
 
@@ -1343,18 +1320,20 @@ impl RLN {
         let mut serialized: Vec<u8> = Vec::new();
         input_proof_data_1.read_to_end(&mut serialized)?;
         // We skip deserialization of the zk-proof at the beginning
-        let (proof_values_1, _) = match self.endianness {
-            Endianness::LittleEndian => deserialize_proof_values_le(&serialized[128..]),
-            Endianness::BigEndian => deserialize_proof_values_be(&serialized[128..]),
+        let (proof_values_1, _) = if self.is_little_endian {
+            deserialize_proof_values_le(&serialized[128..])
+        } else {
+            deserialize_proof_values_be(&serialized[128..])
         };
         let external_nullifier_1 = proof_values_1.external_nullifier;
 
         let mut serialized: Vec<u8> = Vec::new();
         input_proof_data_2.read_to_end(&mut serialized)?;
         // We skip deserialization of the zk-proof at the beginning
-        let (proof_values_2, _) = match self.endianness {
-            Endianness::LittleEndian => deserialize_proof_values_le(&serialized[128..]),
-            Endianness::BigEndian => deserialize_proof_values_be(&serialized[128..]),
+        let (proof_values_2, _) = if self.is_little_endian {
+            deserialize_proof_values_le(&serialized[128..])
+        } else {
+            deserialize_proof_values_be(&serialized[128..])
         };
         let external_nullifier_2 = proof_values_2.external_nullifier;
 
@@ -1372,10 +1351,11 @@ impl RLN {
                 compute_id_secret(share1, share2).map_err(RLNError::RecoverSecret)?;
 
             // If an identity secret hash is recovered, we write it to output_data, otherwise nothing will be written.
-            output_data.write_all(&match self.endianness {
-                Endianness::LittleEndian => fr_to_bytes_le(&recovered_identity_secret_hash),
-                Endianness::BigEndian => fr_to_bytes_be(&recovered_identity_secret_hash),
-            })?;
+            if self.is_little_endian {
+                output_data.write_all(&fr_to_bytes_le(&recovered_identity_secret_hash))?;
+            } else {
+                output_data.write_all(&fr_to_bytes_be(&recovered_identity_secret_hash))?;
+            }
         }
 
         Ok(())
@@ -1400,18 +1380,12 @@ impl RLN {
         // We read input RLN witness and we serialize_compressed it
         let mut witness_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut witness_byte)?;
-        let (rln_witness, _) = match self.endianness {
-            Endianness::LittleEndian => {
-                proof_inputs_to_rln_witness_le(&mut self.tree, &witness_byte)?
-            }
-            Endianness::BigEndian => proof_inputs_to_rln_witness_be(&mut self.tree, &witness_byte)?,
-        };
-
-        match self.endianness {
-            Endianness::LittleEndian => {
-                serialize_witness_le(&rln_witness).map_err(RLNError::Protocol)
-            }
-            Endianness::BigEndian => serialize_witness_be(&rln_witness).map_err(RLNError::Protocol),
+        if self.is_little_endian {
+            let (rln_witness, _) = proof_inputs_to_rln_witness_le(&mut self.tree, &witness_byte)?;
+            serialize_witness_le(&rln_witness).map_err(RLNError::Protocol)
+        } else {
+            let (rln_witness, _) = proof_inputs_to_rln_witness_be(&mut self.tree, &witness_byte)?;
+            serialize_witness_be(&rln_witness).map_err(RLNError::Protocol)
         }
     }
 
@@ -1427,9 +1401,10 @@ impl RLN {
         &mut self,
         serialized_witness: &[u8],
     ) -> Result<serde_json::Value, ProtocolError> {
-        let (rln_witness, _) = match self.endianness {
-            Endianness::LittleEndian => deserialize_witness_le(serialized_witness)?,
-            Endianness::BigEndian => deserialize_witness_be(serialized_witness)?,
+        let (rln_witness, _) = if self.is_little_endian {
+            deserialize_witness_le(serialized_witness)?
+        } else {
+            deserialize_witness_be(serialized_witness)?
         };
         rln_witness_to_json(&rln_witness)
     }
@@ -1447,9 +1422,10 @@ impl RLN {
         &mut self,
         serialized_witness: &[u8],
     ) -> Result<serde_json::Value, ProtocolError> {
-        let (rln_witness, _) = match self.endianness {
-            Endianness::LittleEndian => deserialize_witness_le(serialized_witness)?,
-            Endianness::BigEndian => deserialize_witness_be(serialized_witness)?,
+        let (rln_witness, _) = if self.is_little_endian {
+            deserialize_witness_le(serialized_witness)?
+        } else {
+            deserialize_witness_be(serialized_witness)?
         };
         rln_witness_to_bigint_json(&rln_witness)
     }
@@ -1471,10 +1447,10 @@ impl Default for RLN {
         {
             let tree_height = TEST_TREE_HEIGHT;
             let buffer = Cursor::new(json!({}).to_string());
-            Self::new(tree_height, buffer, Endianness::LittleEndian).unwrap()
+            Self::new(tree_height, buffer, true).unwrap()
         }
         #[cfg(feature = "stateless")]
-        Self::new(Endianness::LittleEndian).unwrap()
+        Self::new(true).unwrap()
     }
 }
 

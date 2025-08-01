@@ -11,7 +11,7 @@ use rln::{
     circuit::Fr,
     hashers::{hash_to_field_le, poseidon_hash},
     protocol::{keygen, prepare_prove_input_le, prepare_verify_input_le},
-    public::{Endianness, RLN},
+    public::RLN,
     utils::{fr_to_bytes_le, generate_input_buffer, IdSecret},
 };
 
@@ -82,7 +82,7 @@ impl RLNSystem {
             resources[0].clone(),
             resources[1].clone(),
             generate_input_buffer(),
-            Endianness::LittleEndian,
+            true,
         )?;
         println!("RLN instance initialized successfully");
         Ok(RLNSystem {

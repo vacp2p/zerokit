@@ -24,7 +24,7 @@ mod test {
         let input_buffer = &Buffer::from(input_config.as_bytes());
         let success = new(
             TEST_TREE_HEIGHT,
-            Endianness::LittleEndian,
+            true,
             input_buffer,
             rln_pointer.as_mut_ptr(),
         );
@@ -61,7 +61,7 @@ mod test {
         assert!(success, "key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        deserialize_identity_pair(result_data)
+        deserialize_identity_pair_le(result_data)
     }
 
     fn rln_proof_gen(rln_pointer: &mut RLN, serialized: &[u8]) -> Vec<u8> {
@@ -446,7 +446,7 @@ mod test {
             zkey_data,
             graph_data,
             tree_config_buffer,
-            Endianness::LittleEndian,
+            true,
             rln_pointer_raw_bytes.as_mut_ptr(),
         );
         assert!(success, "RLN object creation failed");
@@ -864,7 +864,7 @@ mod stateless_test {
         hash_to_field_le, poseidon_hash as utils_poseidon_hash, PoseidonHash, ROUND_PARAMS,
     };
     use rln::protocol::*;
-    use rln::public::{Endianness, RLN};
+    use rln::public::RLN;
     use rln::utils::*;
     use std::mem::MaybeUninit;
     use std::time::{Duration, Instant};
@@ -874,7 +874,7 @@ mod stateless_test {
 
     fn create_rln_instance() -> &'static mut RLN {
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let success = new(rln_pointer.as_mut_ptr(), Endianness::LittleEndian);
+        let success = new(rln_pointer.as_mut_ptr(), true);
         assert!(success, "RLN object creation failed");
         unsafe { &mut *rln_pointer.assume_init() }
     }
@@ -885,7 +885,7 @@ mod stateless_test {
         assert!(success, "key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        deserialize_identity_pair(result_data)
+        deserialize_identity_pair_le(result_data)
     }
 
     fn rln_proof_gen_with_witness(rln_pointer: &mut RLN, serialized: &[u8]) -> Vec<u8> {
@@ -1471,7 +1471,7 @@ mod stateless_big_endian_test {
             proof_values_from_witness, random_rln_witness_be, rln_witness_from_values,
             serialize_proof_values_be, serialize_witness_be,
         },
-        public::{Endianness, RLN},
+        public::RLN,
         utils::{
             bytes_be_to_fr, bytes_le_to_fr, fr_to_bytes_be, str_to_fr, vec_fr_to_bytes_be, IdSecret,
         },
@@ -1482,14 +1482,14 @@ mod stateless_big_endian_test {
 
     fn create_rln_instance() -> &'static mut RLN {
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let success = new(rln_pointer.as_mut_ptr(), Endianness::BigEndian);
+        let success = new(rln_pointer.as_mut_ptr(), false);
         assert!(success, "RLN object creation failed");
         unsafe { &mut *rln_pointer.assume_init() }
     }
 
     fn identity_pair_gen() -> (IdSecret, Fr) {
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = key_gen(output_buffer.as_mut_ptr(), Endianness::BigEndian);
+        let success = key_gen(output_buffer.as_mut_ptr(), false);
         assert!(success, "key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
@@ -1817,11 +1817,7 @@ mod stateless_big_endian_test {
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         let input_buffer = &Buffer::from(seed_bytes);
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = seeded_key_gen(
-            input_buffer,
-            output_buffer.as_mut_ptr(),
-            Endianness::BigEndian,
-        );
+        let success = seeded_key_gen(input_buffer, output_buffer.as_mut_ptr(), false);
         assert!(success, "seeded key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
@@ -1852,11 +1848,7 @@ mod stateless_big_endian_test {
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         let input_buffer = &Buffer::from(seed_bytes);
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = seeded_extended_key_gen(
-            input_buffer,
-            output_buffer.as_mut_ptr(),
-            Endianness::BigEndian,
-        );
+        let success = seeded_extended_key_gen(input_buffer, output_buffer.as_mut_ptr(), false);
         assert!(success, "seeded key gen call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
         let result_data = <&[u8]>::from(&output_buffer).to_vec();
@@ -1905,11 +1897,7 @@ mod stateless_big_endian_test {
         // We prepare id_commitment and we set the leaf at provided index
         let input_buffer = &Buffer::from(signal.as_ref());
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = ffi_hash(
-            input_buffer,
-            output_buffer.as_mut_ptr(),
-            Endianness::BigEndian,
-        );
+        let success = ffi_hash(input_buffer, output_buffer.as_mut_ptr(), false);
         assert!(success, "hash call failed");
         let output_buffer = unsafe { output_buffer.assume_init() };
 
@@ -1938,11 +1926,7 @@ mod stateless_big_endian_test {
         let expected_hash = utils_poseidon_hash(inputs.as_ref());
 
         let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = ffi_poseidon_hash(
-            input_buffer,
-            output_buffer.as_mut_ptr(),
-            Endianness::BigEndian,
-        );
+        let success = ffi_poseidon_hash(input_buffer, output_buffer.as_mut_ptr(), false);
         assert!(success, "poseidon hash call failed");
 
         let output_buffer = unsafe { output_buffer.assume_init() };

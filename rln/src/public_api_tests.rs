@@ -3,7 +3,7 @@ use crate::protocol::{
     proof_values_from_witness, random_rln_witness, serialize_proof_values_le, serialize_witness_le,
     verify_proof, RLNProofValues,
 };
-use crate::public::{Endianness, RLN};
+use crate::public::RLN;
 use crate::utils::str_to_fr;
 use ark_groth16::Proof as ArkProof;
 use ark_serialize::CanonicalDeserialize;
@@ -53,14 +53,9 @@ fn value_to_string_vec(value: &Value) -> Vec<String> {
 #[test]
 fn test_groth16_proof_hardcoded() {
     #[cfg(not(feature = "stateless"))]
-    let rln = RLN::new(
-        TEST_TREE_HEIGHT,
-        generate_input_buffer(),
-        Endianness::LittleEndian,
-    )
-    .unwrap();
+    let rln = RLN::new(TEST_TREE_HEIGHT, generate_input_buffer(), true).unwrap();
     #[cfg(feature = "stateless")]
-    let rln = RLN::new(Endianness::LittleEndian).unwrap();
+    let rln = RLN::new(true).unwrap();
 
     let valid_snarkjs_proof = json!({
      "pi_a": [
@@ -141,14 +136,9 @@ fn test_groth16_proof() {
     let tree_height = TEST_TREE_HEIGHT;
 
     #[cfg(not(feature = "stateless"))]
-    let mut rln = RLN::new(
-        tree_height,
-        generate_input_buffer(),
-        Endianness::LittleEndian,
-    )
-    .unwrap();
+    let mut rln = RLN::new(tree_height, generate_input_buffer(), true).unwrap();
     #[cfg(feature = "stateless")]
-    let mut rln = RLN::new(Endianness::LittleEndian).unwrap();
+    let mut rln = RLN::new(true).unwrap();
 
     // Note: we only test Groth16 proof generation, so we ignore setting the tree in the RLN object
     let rln_witness = random_rln_witness(tree_height);
@@ -184,7 +174,7 @@ mod tree_test {
     use crate::circuit::{Fr, TEST_TREE_HEIGHT};
     use crate::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
     use crate::protocol::*;
-    use crate::public::{Endianness, RLN};
+    use crate::public::RLN;
     use crate::utils::*;
     use ark_serialize::Read;
     use std::io::Cursor;
@@ -207,12 +197,7 @@ mod tree_test {
         }
 
         // We create a new tree
-        let mut rln = RLN::new(
-            tree_height,
-            generate_input_buffer(),
-            Endianness::LittleEndian,
-        )
-        .unwrap();
+        let mut rln = RLN::new(tree_height, generate_input_buffer(), true).unwrap();
 
         // We first add leaves one by one specifying the index
         for (i, leaf) in leaves.iter().enumerate() {
@@ -306,12 +291,7 @@ mod tree_test {
         let set_index = rng.gen_range(0..no_of_leaves) as usize;
 
         // We create a new tree
-        let mut rln = RLN::new(
-            tree_height,
-            generate_input_buffer(),
-            Endianness::LittleEndian,
-        )
-        .unwrap();
+        let mut rln = RLN::new(tree_height, generate_input_buffer(), true).unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -381,12 +361,7 @@ mod tree_test {
         }
 
         // We create a new tree
-        let mut rln = RLN::new(
-            tree_height,
-            generate_input_buffer(),
-            Endianness::LittleEndian,
-        )
-        .unwrap();
+        let mut rln = RLN::new(tree_height, generate_input_buffer(), true).unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -435,12 +410,7 @@ mod tree_test {
         }
 
         // We create a new tree
-        let mut rln = RLN::new(
-            tree_height,
-            generate_input_buffer(),
-            Endianness::LittleEndian,
-        )
-        .unwrap();
+        let mut rln = RLN::new(tree_height, generate_input_buffer(), true).unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -484,12 +454,7 @@ mod tree_test {
         }
 
         // We create a new tree
-        let mut rln = RLN::new(
-            tree_height,
-            generate_input_buffer(),
-            Endianness::LittleEndian,
-        )
-        .unwrap();
+        let mut rln = RLN::new(tree_height, generate_input_buffer(), true).unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -541,12 +506,7 @@ mod tree_test {
         let bad_index = (1 << tree_height) - rng.gen_range(0..no_of_leaves) as usize;
 
         // We create a new tree
-        let mut rln = RLN::new(
-            tree_height,
-            generate_input_buffer(),
-            Endianness::LittleEndian,
-        )
-        .unwrap();
+        let mut rln = RLN::new(tree_height, generate_input_buffer(), true).unwrap();
 
         // Get root of empty tree
         let mut buffer = Cursor::new(Vec::<u8>::new());
@@ -576,12 +536,7 @@ mod tree_test {
         // We generate a random tree
         let tree_height = 10;
         let mut rng = thread_rng();
-        let mut rln = RLN::new(
-            tree_height,
-            generate_input_buffer(),
-            Endianness::LittleEndian,
-        )
-        .unwrap();
+        let mut rln = RLN::new(tree_height, generate_input_buffer(), true).unwrap();
 
         // We generate a random leaf
         let leaf = Fr::rand(&mut rng);
@@ -606,12 +561,7 @@ mod tree_test {
     fn test_valid_metadata() {
         let tree_height = TEST_TREE_HEIGHT;
 
-        let mut rln = RLN::new(
-            tree_height,
-            generate_input_buffer(),
-            Endianness::LittleEndian,
-        )
-        .unwrap();
+        let mut rln = RLN::new(tree_height, generate_input_buffer(), true).unwrap();
 
         let arbitrary_metadata: &[u8] = b"block_number:200000";
         rln.set_metadata(arbitrary_metadata).unwrap();
@@ -627,12 +577,7 @@ mod tree_test {
     fn test_empty_metadata() {
         let tree_height = TEST_TREE_HEIGHT;
 
-        let rln = RLN::new(
-            tree_height,
-            generate_input_buffer(),
-            Endianness::LittleEndian,
-        )
-        .unwrap();
+        let rln = RLN::new(tree_height, generate_input_buffer(), true).unwrap();
 
         let mut buffer = Cursor::new(Vec::<u8>::new());
         rln.get_metadata(&mut buffer).unwrap();
@@ -656,12 +601,7 @@ mod tree_test {
         }
 
         // We create a new RLN instance
-        let mut rln = RLN::new(
-            tree_height,
-            generate_input_buffer(),
-            Endianness::LittleEndian,
-        )
-        .unwrap();
+        let mut rln = RLN::new(tree_height, generate_input_buffer(), true).unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -733,12 +673,7 @@ mod tree_test {
         }
 
         // We create a new RLN instance
-        let mut rln = RLN::new(
-            tree_height,
-            generate_input_buffer(),
-            Endianness::LittleEndian,
-        )
-        .unwrap();
+        let mut rln = RLN::new(tree_height, generate_input_buffer(), true).unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -822,12 +757,7 @@ mod tree_test {
         }
 
         // We create a new RLN instance
-        let mut rln = RLN::new(
-            tree_height,
-            generate_input_buffer(),
-            Endianness::LittleEndian,
-        )
-        .unwrap();
+        let mut rln = RLN::new(tree_height, generate_input_buffer(), true).unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -921,12 +851,7 @@ mod tree_test {
         let tree_height = TEST_TREE_HEIGHT;
 
         // We create a new RLN instance
-        let mut rln = RLN::new(
-            tree_height,
-            generate_input_buffer(),
-            Endianness::LittleEndian,
-        )
-        .unwrap();
+        let mut rln = RLN::new(tree_height, generate_input_buffer(), true).unwrap();
 
         // Generate identity pair
         let (identity_secret_hash, id_commitment) = keygen();
@@ -1072,7 +997,7 @@ mod stateless_test {
     use crate::circuit::{Fr, TEST_TREE_HEIGHT};
     use crate::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash, PoseidonHash};
     use crate::protocol::*;
-    use crate::public::{Endianness, RLN};
+    use crate::public::RLN;
     use crate::utils::*;
     use std::io::Cursor;
     use utils::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
@@ -1085,7 +1010,7 @@ mod stateless_test {
     #[test]
     fn test_stateless_rln_proof() {
         // We create a new RLN instance
-        let mut rln = RLN::new(Endianness::LittleEndian).unwrap();
+        let mut rln = RLN::new(true).unwrap();
 
         let default_leaf = Fr::from(0);
         let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
@@ -1183,7 +1108,7 @@ mod stateless_test {
     #[test]
     fn test_stateless_recover_id_secret() {
         // We create a new RLN instance
-        let mut rln = RLN::new(Endianness::LittleEndian).unwrap();
+        let mut rln = RLN::new(true).unwrap();
 
         let default_leaf = Fr::from(0);
         let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(

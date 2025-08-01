@@ -2,7 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use js_sys::{BigInt as JsBigInt, Date, Number, Object, Uint8Array};
+    use js_sys::{BigInt as JsBigInt, Date, Object, Uint8Array};
     use rln::circuit::{Fr, TEST_TREE_HEIGHT};
     use rln::hashers::{hash_to_field_le, poseidon_hash, PoseidonHash};
     use rln::protocol::{prepare_verify_input_le, rln_witness_from_values, serialize_witness_le};
@@ -110,12 +110,12 @@ mod tests {
         // Benchmark wasm_new
         let start_wasm_new = Date::now();
         for _ in 0..iterations {
-            let _ = wasm_new(zkey.clone(), Number::from(0)).expect("Failed to create RLN instance");
+            let _ = wasm_new(zkey.clone(), true).expect("Failed to create RLN instance");
         }
         let wasm_new_result = Date::now() - start_wasm_new;
 
         // Create RLN instance for other benchmarks
-        let rln_instance = wasm_new(zkey, Number::from(0)).expect("Failed to create RLN instance");
+        let rln_instance = wasm_new(zkey, true).expect("Failed to create RLN instance");
         let mut tree: OptimalMerkleTree<PoseidonHash> =
             OptimalMerkleTree::default(TEST_TREE_HEIGHT).expect("Failed to create tree");
 
