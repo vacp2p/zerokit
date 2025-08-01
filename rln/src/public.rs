@@ -886,6 +886,12 @@ impl RLN {
         // [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
         let mut input_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input_byte)?;
+        // Arkproof only supports compressed serialization in little endian.
+        // However, this data is not converted back to Arkproof on the end user's side,
+        //   but is simply stored as bytes and then sent for verification.
+        // This means that the end user can use the same data for verification
+        //   regardless of the endianness of the machine.
+        // This is why we deserialize the proof in little endian, even if the data is serialized in big endian.
         let proof =
             ArkProof::deserialize_compressed(&mut Cursor::new(&input_byte[..128].to_vec()))?;
 
@@ -1081,6 +1087,12 @@ impl RLN {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
+        // Arkproof only supports compressed serialization in little endian.
+        // However, this data is not converted back to Arkproof on the end user's side,
+        //   but is simply stored as bytes and then sent for verification.
+        // This means that the end user can use the same data for verification
+        //   regardless of the endianness of the machine.
+        // This is why we deserialize the proof in little endian, even if the data is serialized in big endian.
         let proof =
             ArkProof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
@@ -1133,7 +1145,7 @@ impl RLN {
     ///
     /// The function returns true if the zkSNARK proof is valid with respect to the provided circuit output values, signal and roots. Returns false otherwise.
     ///
-    /// Note that contrary to [`verify_rln_proof`](crate::public::RLN::verify_rln_proof), this function does not check if the internal Merkle tree root corresponds to the root provided as input, but rather checks if the root provided as input in `input_data` corresponds to one of the roots serialized in `roots_data`.
+    /// Note that contrary to [`verify_rln_proof`](crate::protocol::verify_proof), this function does not check if the internal Merkle tree root corresponds to the root provided as input, but rather checks if the root provided as input in `input_data` corresponds to one of the roots serialized in `roots_data`.
     ///
     /// If `roots_data` contains no root (is empty), root validation is skipped and the proof will be correctly verified only if the other proof values results valid (i.e., zk-proof, signal, x-coordinate, RLN identifier)
     ///
@@ -1184,6 +1196,12 @@ impl RLN {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
+        // Arkproof only supports compressed serialization in little endian.
+        // However, this data is not converted back to Arkproof on the end user's side,
+        //   but is simply stored as bytes and then sent for verification.
+        // This means that the end user can use the same data for verification
+        //   regardless of the endianness of the machine.
+        // This is why we deserialize the proof in little endian, even if the data is serialized in big endian.
         let proof =
             ArkProof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
