@@ -141,6 +141,10 @@ for one application to be re-used in another one.
   - Browser and Node.js compatibility
   - Optional parallel feature support using [wasm-bindgen-rayon](https://github.com/RReverser/wasm-bindgen-rayon)
   - Headless browser testing capabilities
+- **Merkle Tree Implementations**: Multiple tree variants optimized for different use cases:
+  - **Full Merkle Tree**: Fastest access with complete pre-allocated tree in memory. Best for frequent random access (enable with `fullmerkletree` feature).
+  - **Optimal Merkle Tree**: Memory-efficient sparse storage using HashMap. Ideal for partially populated trees (enable with `optimalmerkletree` feature).
+  - **Persistent Merkle Tree**: Disk-based storage with [sled](https://github.com/spacejam/sled) for persistence across application restarts and large datasets (enable with `pmtree-ft` feature).
 
 ## Building and Testing
 
