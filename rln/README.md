@@ -53,11 +53,11 @@ use serde_json::json;
 
 fn main() {
     // 1. Initialize RLN with parameters:
-    // - the tree height;
+    // - the tree depth;
     // - the tree config, if it is not defined, the default value will be set
-    let tree_height = 20;
+    let tree_depth = 20;
     let input = Cursor::new(json!({}).to_string());
-    let mut rln = RLN::new(tree_height, input).unwrap();
+    let mut rln = RLN::new(tree_depth, input).unwrap();
 
     // 2. Generate an identity keypair
     let (identity_secret_hash, id_commitment) = keygen();

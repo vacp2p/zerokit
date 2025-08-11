@@ -13,7 +13,7 @@ pub(crate) struct Config {
 
 #[derive(Default, Serialize, Deserialize)]
 pub(crate) struct InnerConfig {
-    pub tree_height: usize,
+    pub tree_depth: usize,
     pub tree_config: Value,
 }
 

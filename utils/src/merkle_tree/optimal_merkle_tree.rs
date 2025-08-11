@@ -70,7 +70,7 @@ where
     }
 
     /// Creates a new `MerkleTree`
-    /// depth - the height of the tree made only of hash nodes. 2^depth is the maximum number of leaves hash nodes
+    /// depth - the depth of the tree made only of hash nodes. 2^depth is the maximum number of leaves hash nodes
     fn new(
         depth: usize,
         default_leaf: H::Fr,
