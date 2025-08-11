@@ -8,7 +8,7 @@ use std::{
 use clap::{Parser, Subcommand};
 use color_eyre::{eyre::eyre, Result};
 use rln::{
-    circuit::{Fr, TEST_TREE_HEIGHT},
+    circuit::{Fr, TEST_TREE_DEPTH},
     hashers::{hash_to_field_le, poseidon_hash, PoseidonHash},
     protocol::{keygen, prepare_verify_input, rln_witness_from_values, serialize_witness},
     public::RLN,
@@ -71,7 +71,7 @@ impl RLNSystem {
         let rln = RLN::new()?;
         let default_leaf = Fr::from(0);
         let tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
-            TEST_TREE_HEIGHT,
+            TEST_TREE_DEPTH,
             default_leaf,
             ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
         )

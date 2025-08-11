@@ -19,17 +19,17 @@ use {ark_ff::Field, ark_serialize::CanonicalDeserialize, ark_serialize::Canonica
 
 use crate::utils::FrOrSecret;
 
-pub const ARKZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_height_20/rln_final.arkzkey");
+pub const ARKZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/rln_final.arkzkey");
 
 #[cfg(not(target_arch = "wasm32"))]
-const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_height_20/graph.bin");
+const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
 
 lazy_static! {
     static ref ARKZKEY: (ProvingKey<Curve>, ConstraintMatrices<Fr>) =
         read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES).expect("Failed to read arkzkey");
 }
 
-pub const TEST_TREE_HEIGHT: usize = 20;
+pub const TEST_TREE_DEPTH: usize = 20;
 
 // The following types define the pairing friendly elliptic curve, the underlying finite fields and groups default to this module
 // Note that proofs are serialized assuming Fr to be 4x8 = 32 bytes in size. Hence, changing to a curve with different encoding will make proof verification to fail

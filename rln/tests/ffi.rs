@@ -3,7 +3,7 @@
 mod test {
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
-    use rln::circuit::{Fr, TEST_TREE_HEIGHT};
+    use rln::circuit::{Fr, TEST_TREE_DEPTH};
     use rln::ffi::*;
     use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
     use rln::protocol::{deserialize_identity_tuple_le, *};
@@ -22,7 +22,7 @@ mod test {
         let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
         let input_config = json!({}).to_string();
         let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(TEST_TREE_HEIGHT, input_buffer, rln_pointer.as_mut_ptr());
+        let success = new(TEST_TREE_DEPTH, input_buffer, rln_pointer.as_mut_ptr());
         assert!(success, "RLN object creation failed");
         unsafe { &mut *rln_pointer.assume_init() }
     }
@@ -91,7 +91,7 @@ mod test {
         let root_single = get_tree_root(rln_pointer);
 
         // We reset the tree to default
-        let success = set_tree(rln_pointer, TEST_TREE_HEIGHT);
+        let success = set_tree(rln_pointer, TEST_TREE_DEPTH);
         assert!(success, "set tree call failed");
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
@@ -109,7 +109,7 @@ mod test {
         assert_eq!(root_single, root_next);
 
         // We reset the tree to default
-        let success = set_tree(rln_pointer, TEST_TREE_HEIGHT);
+        let success = set_tree(rln_pointer, TEST_TREE_DEPTH);
         assert!(success, "set tree call failed");
 
         // We add leaves in a batch into the tree
@@ -132,7 +132,7 @@ mod test {
         let root_delete = get_tree_root(rln_pointer);
 
         // We reset the tree to default
-        let success = set_tree(rln_pointer, TEST_TREE_HEIGHT);
+        let success = set_tree(rln_pointer, TEST_TREE_DEPTH);
         assert!(success, "set tree call failed");
 
         // We get the root of the empty tree
@@ -165,7 +165,7 @@ mod test {
         // We get the root of the tree obtained adding leaves in batch
         let root_batch_with_init = get_tree_root(rln_pointer);
 
-        // `init_tree_with_leaves` resets the tree to the height it was initialized with, using `set_tree`
+        // `init_tree_with_leaves` resets the tree to the depth it was initialized with, using `set_tree`
 
         // We add leaves in a batch starting from index 0..set_index
         set_leaves_init(rln_pointer, &leaves[0..set_index]);
@@ -184,7 +184,7 @@ mod test {
         );
 
         // We reset the tree to default
-        let success = set_tree(rln_pointer, TEST_TREE_HEIGHT);
+        let success = set_tree(rln_pointer, TEST_TREE_DEPTH);
         assert!(success, "set tree call failed");
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
@@ -243,7 +243,7 @@ mod test {
         let rln_pointer = create_rln_instance();
 
         let mut rng = thread_rng();
-        let bad_index = (1 << TEST_TREE_HEIGHT) - rng.gen_range(0..NO_OF_LEAVES) as usize;
+        let bad_index = (1 << TEST_TREE_DEPTH) - rng.gen_range(0..NO_OF_LEAVES) as usize;
 
         // Get root of empty tree
         let root_empty = get_tree_root(rln_pointer);
@@ -364,7 +364,7 @@ mod test {
 
         for _ in 0..sample_size {
             // We generate random witness instances and relative proof values
-            let rln_witness = random_rln_witness(TEST_TREE_HEIGHT);
+            let rln_witness = random_rln_witness(TEST_TREE_DEPTH);
             let proof_values = proof_values_from_witness(&rln_witness).unwrap();
 
             // We prepare id_commitment and we set the leaf at provided index
@@ -414,7 +414,7 @@ mod test {
         // We obtain the root from the RLN instance
         let root_rln_folder = get_tree_root(rln_pointer);
 
-        let zkey_path = "./resources/tree_height_20/rln_final.arkzkey";
+        let zkey_path = "./resources/tree_depth_20/rln_final.arkzkey";
         let mut zkey_file = File::open(zkey_path).expect("no file found");
         let metadata = std::fs::metadata(zkey_path).expect("unable to read metadata");
         let mut zkey_buffer = vec![0; metadata.len() as usize];
@@ -424,7 +424,7 @@ mod test {
 
         let zkey_data = &Buffer::from(&zkey_buffer[..]);
 
-        let graph_data = "./resources/tree_height_20/graph.bin";
+        let graph_data = "./resources/tree_depth_20/graph.bin";
         let mut graph_file = File::open(graph_data).expect("no file found");
         let metadata = std::fs::metadata(graph_data).expect("unable to read metadata");
         let mut graph_buffer = vec![0; metadata.len() as usize];
@@ -439,7 +439,7 @@ mod test {
         let tree_config = "".to_string();
         let tree_config_buffer = &Buffer::from(tree_config.as_bytes());
         let success = new_with_params(
-            TEST_TREE_HEIGHT,
+            TEST_TREE_DEPTH,
             zkey_data,
             graph_data,
             tree_config_buffer,
@@ -777,7 +777,7 @@ mod test {
     #[test]
     fn test_get_leaf_ffi() {
         // We create a RLN instance
-        let no_of_leaves = 1 << TEST_TREE_HEIGHT;
+        let no_of_leaves = 1 << TEST_TREE_DEPTH;
 
         // We create a RLN instance
         let rln_pointer = create_rln_instance();
@@ -898,7 +898,7 @@ mod stateless_test {
     fn test_recover_id_secret_stateless_ffi() {
         let default_leaf = Fr::from(0);
         let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
-            TEST_TREE_HEIGHT,
+            TEST_TREE_DEPTH,
             default_leaf,
             ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
         )
@@ -1044,7 +1044,7 @@ mod stateless_test {
     fn test_verify_with_roots_stateless_ffi() {
         let default_leaf = Fr::from(0);
         let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
-            TEST_TREE_HEIGHT,
+            TEST_TREE_DEPTH,
             default_leaf,
             ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
         )
@@ -1147,7 +1147,7 @@ mod stateless_test {
 
         for _ in 0..sample_size {
             // We generate random witness instances and relative proof values
-            let rln_witness = random_rln_witness(TEST_TREE_HEIGHT);
+            let rln_witness = random_rln_witness(TEST_TREE_DEPTH);
             let proof_values = proof_values_from_witness(&rln_witness).unwrap();
 
             // We prepare id_commitment and we set the leaf at provided index

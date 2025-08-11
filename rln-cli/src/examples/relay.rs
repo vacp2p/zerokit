@@ -17,7 +17,7 @@ use rln::{
 
 const MESSAGE_LIMIT: u32 = 1;
 
-const TREEE_HEIGHT: usize = 20;
+const TREE_DEPTH: usize = 20;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -67,7 +67,7 @@ struct RLNSystem {
 impl RLNSystem {
     fn new() -> Result<Self> {
         let mut resources: Vec<Vec<u8>> = Vec::new();
-        let resources_path: PathBuf = format!("../rln/resources/tree_height_{TREEE_HEIGHT}").into();
+        let resources_path: PathBuf = format!("../rln/resources/tree_depth_{TREE_DEPTH}").into();
         let filenames = ["rln_final.arkzkey", "graph.bin"];
         for filename in filenames {
             let fullpath = resources_path.join(Path::new(filename));
@@ -78,7 +78,7 @@ impl RLNSystem {
             resources.push(output_buffer);
         }
         let rln = RLN::new_with_params(
-            TREEE_HEIGHT,
+            TREE_DEPTH,
             resources[0].clone(),
             resources[1].clone(),
             generate_input_buffer(),
@@ -120,7 +120,7 @@ impl RLNSystem {
                 self.local_identities.insert(index, identity);
             }
             Err(_) => {
-                println!("Maximum user limit reached: 2^{TREEE_HEIGHT}");
+                println!("Maximum user limit reached: 2^{TREE_DEPTH}");
             }
         };
 

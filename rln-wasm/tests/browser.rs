@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use js_sys::{BigInt as JsBigInt, Date, Object, Uint8Array};
-    use rln::circuit::{Fr, TEST_TREE_HEIGHT};
+    use rln::circuit::{Fr, TEST_TREE_DEPTH};
     use rln::hashers::{hash_to_field_le, poseidon_hash, PoseidonHash};
     use rln::protocol::{prepare_verify_input, rln_witness_from_values, serialize_witness};
     use rln::utils::{bytes_le_to_fr, fr_to_bytes_le, IdSecret};
@@ -75,9 +75,9 @@ mod tests {
     const WITNESS_CALCULATOR_JS: &str = include_str!("../resources/witness_calculator.js");
 
     const ARKZKEY_BYTES: &[u8] =
-        include_bytes!("../../rln/resources/tree_height_20/rln_final.arkzkey");
+        include_bytes!("../../rln/resources/tree_depth_20/rln_final.arkzkey");
 
-    const CIRCOM_BYTES: &[u8] = include_bytes!("../../rln/resources/tree_height_20/rln.wasm");
+    const CIRCOM_BYTES: &[u8] = include_bytes!("../../rln/resources/tree_depth_20/rln.wasm");
 
     wasm_bindgen_test_configure!(run_in_browser);
 
@@ -117,7 +117,7 @@ mod tests {
         // Create RLN instance for other benchmarks
         let rln_instance = wasm_new(zkey).expect("Failed to create RLN instance");
         let mut tree: OptimalMerkleTree<PoseidonHash> =
-            OptimalMerkleTree::default(TEST_TREE_HEIGHT).expect("Failed to create tree");
+            OptimalMerkleTree::default(TEST_TREE_DEPTH).expect("Failed to create tree");
 
         // Benchmark wasm_key_gen
         let start_wasm_key_gen = Date::now();

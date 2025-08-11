@@ -37,9 +37,9 @@ You can run the example using the following command:
 cargo run --example relay
 ```
 
-You can also change **MESSAGE_LIMIT** and **TREEE_HEIGHT** in the [relay.rs](src/examples/relay.rs) file to see how the RLN instance behaves with different parameters.
+You can also change **MESSAGE_LIMIT** and **TREE_DEPTH** in the [relay.rs](src/examples/relay.rs) file to see how the RLN instance behaves with different parameters.
 
-The customize **TREEE_HEIGHT** constant differs from the default value of `20` should follow [Custom Circuit Compilation](../rln/README.md#advanced-custom-circuit-compilation) instructions.
+The customize **TREE_DEPTH** constant differs from the default value of `20` should follow [Custom Circuit Compilation](../rln/README.md#advanced-custom-circuit-compilation) instructions.
 
 ## Stateless Example
 
@@ -60,19 +60,19 @@ cargo run --example stateless --no-default-features --features stateless
 To initialize a new RLN instance:
 
 ```bash
-cargo run new --tree-height <HEIGHT>
+cargo run new --tree-depth <DEPTH>
 ```
 
 To initialize an RLN instance with custom parameters:
 
 ```bash
-cargo run new-with-params --resources-path <PATH> --tree-height <HEIGHT>
+cargo run new-with-params --resources-path <PATH> --tree-depth <DEPTH>
 ```
 
-To update the Merkle tree height:
+To update the Merkle tree depth:
 
 ```bash
-cargo run set-tree --tree-height <HEIGHT>
+cargo run set-tree --tree-depth <DEPTH>
 ```
 
 ### Leaf Operations

@@ -296,18 +296,18 @@ pub fn rln_witness_from_values(
     })
 }
 
-pub fn random_rln_witness(tree_height: usize) -> RLNWitnessInput {
+pub fn random_rln_witness(tree_depth: usize) -> RLNWitnessInput {
     let mut rng = thread_rng();
 
     let identity_secret = IdSecret::rand(&mut rng);
     let x = hash_to_field_le(&rng.gen::<[u8; 32]>());
     let epoch = hash_to_field_le(&rng.gen::<[u8; 32]>());
-    let rln_identifier = hash_to_field_le(RLN_IDENTIFIER); //hash_to_field(&rng.gen::<[u8; 32]>());
+    let rln_identifier = hash_to_field_le(RLN_IDENTIFIER);
 
     let mut path_elements: Vec<Fr> = Vec::new();
     let mut identity_path_index: Vec<u8> = Vec::new();
 
-    for _ in 0..tree_height {
+    for _ in 0..tree_depth {
         path_elements.push(hash_to_field_le(&rng.gen::<[u8; 32]>()));
         identity_path_index.push(rng.gen_range(0..2) as u8);
     }

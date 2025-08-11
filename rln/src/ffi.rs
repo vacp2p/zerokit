@@ -232,8 +232,8 @@ impl<'a> From<&Buffer> for &'a [u8] {
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[cfg(not(feature = "stateless"))]
 #[no_mangle]
-pub extern "C" fn new(tree_height: usize, input_buffer: *const Buffer, ctx: *mut *mut RLN) -> bool {
-    match RLN::new(tree_height, input_buffer.process()) {
+pub extern "C" fn new(tree_depth: usize, input_buffer: *const Buffer, ctx: *mut *mut RLN) -> bool {
+    match RLN::new(tree_depth, input_buffer.process()) {
         Ok(rln) => {
             unsafe { *ctx = Box::into_raw(Box::new(rln)) };
             true
@@ -265,14 +265,14 @@ pub extern "C" fn new(ctx: *mut *mut RLN) -> bool {
 #[cfg(not(feature = "stateless"))]
 #[no_mangle]
 pub extern "C" fn new_with_params(
-    tree_height: usize,
+    tree_depth: usize,
     zkey_buffer: *const Buffer,
     graph_data: *const Buffer,
     tree_config: *const Buffer,
     ctx: *mut *mut RLN,
 ) -> bool {
     match RLN::new_with_params(
-        tree_height,
+        tree_depth,
         zkey_buffer.process().to_vec(),
         graph_data.process().to_vec(),
         tree_config.process(),
@@ -317,8 +317,8 @@ pub extern "C" fn new_with_params(
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 #[cfg(not(feature = "stateless"))]
-pub extern "C" fn set_tree(ctx: *mut RLN, tree_height: usize) -> bool {
-    call!(ctx, set_tree, tree_height)
+pub extern "C" fn set_tree(ctx: *mut RLN, tree_depth: usize) -> bool {
+    call!(ctx, set_tree, tree_depth)
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]

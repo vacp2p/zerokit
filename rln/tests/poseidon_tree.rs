@@ -8,7 +8,7 @@
 mod test {
     use rln::hashers::{poseidon_hash, PoseidonHash};
     use rln::{
-        circuit::{Fr, TEST_TREE_HEIGHT},
+        circuit::{Fr, TEST_TREE_DEPTH},
         poseidon_tree::PoseidonTree,
     };
     use utils::{FullMerkleTree, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
@@ -19,8 +19,8 @@ mod test {
         let sample_size = 100;
         let leaves: Vec<Fr> = (0..sample_size).map(Fr::from).collect();
 
-        let mut tree_full = FullMerkleTree::<PoseidonHash>::default(TEST_TREE_HEIGHT).unwrap();
-        let mut tree_opt = OptimalMerkleTree::<PoseidonHash>::default(TEST_TREE_HEIGHT).unwrap();
+        let mut tree_full = FullMerkleTree::<PoseidonHash>::default(TEST_TREE_DEPTH).unwrap();
+        let mut tree_opt = OptimalMerkleTree::<PoseidonHash>::default(TEST_TREE_DEPTH).unwrap();
 
         for (i, leave) in leaves
             .into_iter()
