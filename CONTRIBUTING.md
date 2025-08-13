@@ -62,7 +62,8 @@ for VS Code to maintain consistent documentation formatting.
 ## Commits
 
 We want to keep our commits small and focused.
-This allows for easily reviewing individual commits and/or splitting up pull requests when they grow too big.
+This allows for easily reviewing individual commits and/or
+splitting up pull requests when they grow too big.
 Additionally, this allows us to merge smaller changes quicker and release more often.
 
 **All commits must be GPG signed.**
