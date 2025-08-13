@@ -60,6 +60,89 @@ fn get_tmp() -> bool {
 
 pub struct PmtreeConfig(Config);
 
+pub struct PmtreeConfigBuilder {
+    path: Option<PathBuf>,
+    temporary: Option<bool>,
+    cache_capacity: Option<u64>,
+    flush_every_ms: Option<u64>,
+    mode: Option<Mode>,
+    use_compression: Option<bool>,
+}
+
+impl PmtreeConfigBuilder {
+    pub fn new() -> Self {
+        Self {
+            path: None,
+            temporary: None,
+            cache_capacity: None,
+            flush_every_ms: None,
+            mode: None,
+            use_compression: None,
+        }
+    }
+
+    pub fn path<P: Into<PathBuf>>(mut self, path: P) -> Self {
+        self.path = Some(path.into());
+        self
+    }
+
+    pub fn temporary(mut self, temporary: bool) -> Self {
+        self.temporary = Some(temporary);
+        self
+    }
+
+    pub fn cache_capacity(mut self, capacity: u64) -> Self {
+        self.cache_capacity = Some(capacity);
+        self
+    }
+
+    pub fn flush_every_ms(mut self, ms: u64) -> Self {
+        self.flush_every_ms = Some(ms);
+        self
+    }
+
+    pub fn mode(mut self, mode: Mode) -> Self {
+        self.mode = Some(mode);
+        self
+    }
+
+    pub fn use_compression(mut self, compression: bool) -> Self {
+        self.use_compression = Some(compression);
+        self
+    }
+
+    pub fn build(self) -> Result<PmtreeConfig, FromConfigError> {
+        let path = self.path.unwrap_or_else(get_tmp_path);
+        let temporary = self.temporary.unwrap_or_else(get_tmp);
+
+        if temporary && path.exists() {
+            return Err(FromConfigError::PathExists);
+        }
+
+        let config = Config::new()
+            .temporary(temporary)
+            .path(path)
+            .cache_capacity(self.cache_capacity.unwrap_or(1024 * 1024 * 1024))
+            .flush_every_ms(self.flush_every_ms)
+            .mode(self.mode.unwrap_or(Mode::HighThroughput))
+            .use_compression(self.use_compression.unwrap_or(false));
+
+        Ok(PmtreeConfig(config))
+    }
+}
+
+impl Default for PmtreeConfigBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl PmtreeConfig {
+    pub fn builder() -> PmtreeConfigBuilder {
+        PmtreeConfigBuilder::new()
+    }
+}
+
 impl FromStr for PmtreeConfig {
     type Err = FromConfigError;
 
@@ -396,5 +479,34 @@ impl ZerokitMerkleProof for PmTreeProof {
     }
     fn compute_root_from(&self, leaf: &FrOf<Self::Hasher>) -> FrOf<Self::Hasher> {
         self.proof.compute_root_from(leaf)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pmtree_config() {
+        let json = r#"
+        {
+            "path": "pmtree-123456",
+            "temporary": false,
+            "cache_capacity": 150000,
+            "flush_every_ms": 12000,
+            "mode": "HighThroughput",
+            "use_compression": false
+        }"#;
+
+        let _json_config: PmtreeConfig = json.parse().expect("Failed to parse JSON config");
+
+        let _builder_config = PmtreeConfig::builder()
+            .path(get_tmp_path())
+            .temporary(false)
+            .cache_capacity(150_000)
+            .mode(Mode::HighThroughput)
+            .use_compression(false)
+            .build()
+            .expect("Failed to build config");
     }
 }
