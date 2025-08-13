@@ -71,8 +71,10 @@ This ensures the authenticity and integrity of contributions.
 
 ### Conventional Commits
 
-When making the commit, write the commit message following the [Conventional Commits (v1.0.0)](https://www.conventionalcommits.org/en/v1.0.0/) specification.
-Following this convention allows us to provide an automated release process that also generates a detailed Changelog.
+When making the commit, write the commit message
+following the [Conventional Commits (v1.0.0)](https://www.conventionalcommits.org/en/v1.0.0/) specification.
+Following this convention allows us to provide an automated release process
+that also generates a detailed Changelog.
 
 As described by the specification, our commit messages should be written as:
 
@@ -170,7 +172,8 @@ This combines all commits into one commit, so keep pull requests small and focus
 
 ### Squash Guidelines
 
-When squashing, update the commit title to be a proper Conventional Commit and include any other relevant commits in the body:
+When squashing, update the commit title to be a proper Conventional Commit and
+include any other relevant commits in the body:
 
 ```markdown
 feat(rln): implement parallel witness calculation (#123)
@@ -192,7 +195,8 @@ Consider how your changes align with these strategic goals, when contributing.
 
 ## License
 
-By contributing to Zerokit, you agree that your contributions will be licensed under both MIT and Apache 2.0 licenses, consistent with the project's dual licensing.
+By contributing to Zerokit, you agree that your contributions will be licensed under both MIT and
+Apache 2.0 licenses, consistent with the project's dual licensing.
 
 ## Additional Resources
 
