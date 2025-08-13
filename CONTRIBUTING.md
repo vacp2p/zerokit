@@ -1,7 +1,8 @@
 # Contributing to Zerokit
 
 Thank you for your interest in contributing to Zerokit!
-This guide will discuss how the Zerokit team handles [Commits](#commits), [Pull Requests](#pull-requests) and [Merging](#merging).
+This guide will discuss how the Zerokit team handles [Commits](#commits),
+[Pull Requests](#pull-requests) and [Merging](#merging).
 
 **Note:** We won't force external contributors to follow this verbatim.
 Following these guidelines definitely helps us in accepting your contributions.
