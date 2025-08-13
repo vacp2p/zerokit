@@ -56,7 +56,8 @@ Choose the appropriate test commands based on your changes:
 
 ### Tools
 
-We recommend using the [markdownlint extension](https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint) for VS Code to maintain consistent documentation formatting.
+We recommend using the [markdownlint extension](https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint)
+for VS Code to maintain consistent documentation formatting.
 
 ## Commits
 
