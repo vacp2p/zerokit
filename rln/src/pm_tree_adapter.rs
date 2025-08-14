@@ -498,9 +498,9 @@ mod tests {
             "use_compression": false
         }"#;
 
-        let _json_config: PmtreeConfig = json.parse().expect("Failed to parse JSON config");
+        let _: PmtreeConfig = json.parse().expect("Failed to parse JSON config");
 
-        let _builder_config = PmtreeConfig::builder()
+        let _ = PmtreeConfig::builder()
             .path(get_tmp_path())
             .temporary(false)
             .cache_capacity(150_000)
