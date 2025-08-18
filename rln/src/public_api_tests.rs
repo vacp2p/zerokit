@@ -1,4 +1,4 @@
-use crate::circuit::TEST_TREE_HEIGHT;
+use crate::circuit::TEST_TREE_DEPTH;
 use crate::protocol::{
     proof_values_from_witness, random_rln_witness, serialize_proof_values, serialize_witness,
     verify_proof, RLNProofValues,
@@ -53,7 +53,7 @@ fn value_to_string_vec(value: &Value) -> Vec<String> {
 #[test]
 fn test_groth16_proof_hardcoded() {
     #[cfg(not(feature = "stateless"))]
-    let rln = RLN::new(TEST_TREE_HEIGHT, generate_input_buffer()).unwrap();
+    let rln = RLN::new(TEST_TREE_DEPTH, generate_input_buffer()).unwrap();
     #[cfg(feature = "stateless")]
     let rln = RLN::new().unwrap();
 
@@ -133,15 +133,15 @@ fn test_groth16_proof_hardcoded() {
 #[test]
 // This test is similar to the one in lib, but uses only public API
 fn test_groth16_proof() {
-    let tree_height = TEST_TREE_HEIGHT;
+    let tree_depth = TEST_TREE_DEPTH;
 
     #[cfg(not(feature = "stateless"))]
-    let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+    let mut rln = RLN::new(tree_depth, generate_input_buffer()).unwrap();
     #[cfg(feature = "stateless")]
     let mut rln = RLN::new().unwrap();
 
     // Note: we only test Groth16 proof generation, so we ignore setting the tree in the RLN object
-    let rln_witness = random_rln_witness(tree_height);
+    let rln_witness = random_rln_witness(tree_depth);
     let proof_values = proof_values_from_witness(&rln_witness).unwrap();
 
     // We compute a Groth16 proof
@@ -171,7 +171,7 @@ fn test_groth16_proof() {
 
 #[cfg(not(feature = "stateless"))]
 mod tree_test {
-    use crate::circuit::{Fr, TEST_TREE_HEIGHT};
+    use crate::circuit::{Fr, TEST_TREE_DEPTH};
     use crate::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
     use crate::pm_tree_adapter::{get_tmp_path, PmtreeConfig};
     use crate::protocol::*;
@@ -188,7 +188,7 @@ mod tree_test {
     #[test]
     // We test merkle batch Merkle tree additions
     fn test_merkle_operations() {
-        let tree_height = TEST_TREE_HEIGHT;
+        let tree_depth = TEST_TREE_DEPTH;
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
@@ -199,7 +199,7 @@ mod tree_test {
         }
 
         // We create a new tree
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(tree_depth, generate_input_buffer()).unwrap();
 
         // We first add leaves one by one specifying the index
         for (i, leaf) in leaves.iter().enumerate() {
@@ -216,7 +216,7 @@ mod tree_test {
         let (root_single, _) = bytes_le_to_fr(&buffer.into_inner());
 
         // We reset the tree to default
-        rln.set_tree(tree_height).unwrap();
+        rln.set_tree(tree_depth).unwrap();
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
         for leaf in &leaves {
@@ -235,7 +235,7 @@ mod tree_test {
         assert_eq!(root_single, root_next);
 
         // We reset the tree to default
-        rln.set_tree(tree_height).unwrap();
+        rln.set_tree(tree_depth).unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -265,7 +265,7 @@ mod tree_test {
         let (root_delete, _) = bytes_le_to_fr(&buffer.into_inner());
 
         // We reset the tree to default
-        rln.set_tree(tree_height).unwrap();
+        rln.set_tree(tree_depth).unwrap();
 
         let mut buffer = Cursor::new(Vec::<u8>::new());
         rln.get_root(&mut buffer).unwrap();
@@ -278,7 +278,7 @@ mod tree_test {
     // We test leaf setting with a custom index, to enable batch updates to the root
     // Uses `set_leaves_from` to set leaves in a batch, from index `start_index`
     fn test_leaf_setting_with_index() {
-        let tree_height = TEST_TREE_HEIGHT;
+        let tree_depth = TEST_TREE_DEPTH;
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
@@ -293,7 +293,7 @@ mod tree_test {
         let set_index = rng.gen_range(0..no_of_leaves) as usize;
 
         // We create a new tree
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(tree_depth, generate_input_buffer()).unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -307,7 +307,7 @@ mod tree_test {
         rln.get_root(&mut buffer).unwrap();
         let (root_batch_with_init, _) = bytes_le_to_fr(&buffer.into_inner());
 
-        // `init_tree_with_leaves` resets the tree to the height it was initialized with, using `set_tree`
+        // `init_tree_with_leaves` resets the tree to the depth it was initialized with, using `set_tree`
 
         // We add leaves in a batch starting from index 0..set_index
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves[0..set_index]));
@@ -328,7 +328,7 @@ mod tree_test {
         assert_eq!(root_batch_with_init, root_batch_with_custom_index);
 
         // We reset the tree to default
-        rln.set_tree(tree_height).unwrap();
+        rln.set_tree(tree_depth).unwrap();
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
         for leaf in &leaves {
@@ -352,7 +352,7 @@ mod tree_test {
     #[test]
     // Tests the atomic_operation fn, which set_leaves_from uses internally
     fn test_atomic_operation() {
-        let tree_height = TEST_TREE_HEIGHT;
+        let tree_depth = TEST_TREE_DEPTH;
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
@@ -363,7 +363,7 @@ mod tree_test {
         }
 
         // We create a new tree
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(tree_depth, generate_input_buffer()).unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -401,7 +401,7 @@ mod tree_test {
     #[test]
     fn test_atomic_operation_zero_indexed() {
         // Test duplicated from https://github.com/waku-org/go-zerokit-rln/pull/12/files
-        let tree_height = TEST_TREE_HEIGHT;
+        let tree_depth = TEST_TREE_DEPTH;
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
@@ -412,7 +412,7 @@ mod tree_test {
         }
 
         // We create a new tree
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(tree_depth, generate_input_buffer()).unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -445,7 +445,7 @@ mod tree_test {
     #[test]
     fn test_atomic_operation_consistency() {
         // Test duplicated from https://github.com/waku-org/go-zerokit-rln/pull/12/files
-        let tree_height = TEST_TREE_HEIGHT;
+        let tree_depth = TEST_TREE_DEPTH;
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
@@ -456,7 +456,7 @@ mod tree_test {
         }
 
         // We create a new tree
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(tree_depth, generate_input_buffer()).unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -496,7 +496,7 @@ mod tree_test {
     #[test]
     // This test checks if `set_leaves_from` throws an error when the index is out of bounds
     fn test_set_leaves_bad_index() {
-        let tree_height = TEST_TREE_HEIGHT;
+        let tree_depth = TEST_TREE_DEPTH;
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
@@ -505,10 +505,10 @@ mod tree_test {
         for _ in 0..no_of_leaves {
             leaves.push(Fr::rand(&mut rng));
         }
-        let bad_index = (1 << tree_height) - rng.gen_range(0..no_of_leaves) as usize;
+        let bad_index = (1 << tree_depth) - rng.gen_range(0..no_of_leaves) as usize;
 
         // We create a new tree
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(tree_depth, generate_input_buffer()).unwrap();
 
         // Get root of empty tree
         let mut buffer = Cursor::new(Vec::<u8>::new());
@@ -536,9 +536,9 @@ mod tree_test {
     #[test]
     fn test_get_leaf() {
         // We generate a random tree
-        let tree_height = 10;
+        let tree_depth = 10;
         let mut rng = thread_rng();
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(tree_depth, generate_input_buffer()).unwrap();
 
         // We generate a random leaf
         let leaf = Fr::rand(&mut rng);
@@ -561,9 +561,9 @@ mod tree_test {
 
     #[test]
     fn test_valid_metadata() {
-        let tree_height = TEST_TREE_HEIGHT;
+        let tree_depth = TEST_TREE_DEPTH;
 
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(tree_depth, generate_input_buffer()).unwrap();
 
         let arbitrary_metadata: &[u8] = b"block_number:200000";
         rln.set_metadata(arbitrary_metadata).unwrap();
@@ -577,9 +577,9 @@ mod tree_test {
 
     #[test]
     fn test_empty_metadata() {
-        let tree_height = TEST_TREE_HEIGHT;
+        let tree_depth = TEST_TREE_DEPTH;
 
-        let rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let rln = RLN::new(tree_depth, generate_input_buffer()).unwrap();
 
         let mut buffer = Cursor::new(Vec::<u8>::new());
         rln.get_metadata(&mut buffer).unwrap();
@@ -590,7 +590,7 @@ mod tree_test {
 
     #[test]
     fn test_rln_proof() {
-        let tree_height = TEST_TREE_HEIGHT;
+        let tree_depth = TEST_TREE_DEPTH;
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
@@ -603,7 +603,7 @@ mod tree_test {
         }
 
         // We create a new RLN instance
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(tree_depth, generate_input_buffer()).unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -664,7 +664,7 @@ mod tree_test {
 
     #[test]
     fn test_rln_with_witness() {
-        let tree_height = TEST_TREE_HEIGHT;
+        let tree_depth = TEST_TREE_DEPTH;
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
@@ -675,7 +675,7 @@ mod tree_test {
         }
 
         // We create a new RLN instance
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(tree_depth, generate_input_buffer()).unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -747,7 +747,7 @@ mod tree_test {
     #[test]
     fn proof_verification_with_roots() {
         // The first part is similar to test_rln_with_witness
-        let tree_height = TEST_TREE_HEIGHT;
+        let tree_depth = TEST_TREE_DEPTH;
         let no_of_leaves = 256;
 
         // We generate a vector of random leaves
@@ -758,7 +758,7 @@ mod tree_test {
         }
 
         // We create a new RLN instance
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(tree_depth, generate_input_buffer()).unwrap();
 
         // We add leaves in a batch into the tree
         let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
@@ -849,10 +849,10 @@ mod tree_test {
 
     #[test]
     fn test_recover_id_secret() {
-        let tree_height = TEST_TREE_HEIGHT;
+        let tree_depth = TEST_TREE_DEPTH;
 
         // We create a new RLN instance
-        let mut rln = RLN::new(tree_height, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(tree_depth, generate_input_buffer()).unwrap();
 
         // Generate identity pair
         let (identity_secret_hash, id_commitment) = keygen();
@@ -1033,7 +1033,7 @@ mod tree_test {
 
 #[cfg(feature = "stateless")]
 mod stateless_test {
-    use crate::circuit::{Fr, TEST_TREE_HEIGHT};
+    use crate::circuit::{Fr, TEST_TREE_DEPTH};
     use crate::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash, PoseidonHash};
     use crate::protocol::*;
     use crate::public::RLN;
@@ -1053,7 +1053,7 @@ mod stateless_test {
 
         let default_leaf = Fr::from(0);
         let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
-            TEST_TREE_HEIGHT,
+            TEST_TREE_DEPTH,
             default_leaf,
             ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
         )
@@ -1151,7 +1151,7 @@ mod stateless_test {
 
         let default_leaf = Fr::from(0);
         let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
-            TEST_TREE_HEIGHT,
+            TEST_TREE_DEPTH,
             default_leaf,
             ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
         )

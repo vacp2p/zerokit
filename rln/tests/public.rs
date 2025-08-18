@@ -4,7 +4,7 @@ mod test {
     use {
         ark_ff::BigInt,
         rln::{
-            circuit::TEST_TREE_HEIGHT,
+            circuit::TEST_TREE_DEPTH,
             protocol::compute_tree_root,
             public::RLN,
             utils::{
@@ -41,7 +41,7 @@ mod test {
         let leaf_index = 3;
         let user_message_limit = 1;
 
-        let mut rln = RLN::new(TEST_TREE_HEIGHT, generate_input_buffer()).unwrap();
+        let mut rln = RLN::new(TEST_TREE_DEPTH, generate_input_buffer()).unwrap();
 
         // generate identity
         let mut identity_secret_hash_ = hash_to_field_le(b"test-merkle-proof");
@@ -126,9 +126,9 @@ mod test {
 
         // check subtree root computation for leaf 0 for all corresponding node until the root
         let l_idx = 0;
-        for n in (1..=TEST_TREE_HEIGHT).rev() {
-            let idx_l = l_idx * (1 << (TEST_TREE_HEIGHT - n));
-            let idx_r = (l_idx + 1) * (1 << (TEST_TREE_HEIGHT - n));
+        for n in (1..=TEST_TREE_DEPTH).rev() {
+            let idx_l = l_idx * (1 << (TEST_TREE_DEPTH - n));
+            let idx_r = (l_idx + 1) * (1 << (TEST_TREE_DEPTH - n));
             let idx_sr = idx_l;
 
             let mut buffer = Cursor::new(Vec::<u8>::new());

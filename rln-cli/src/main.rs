@@ -35,19 +35,19 @@ fn main() -> Result<()> {
     };
 
     match cli.command {
-        Some(Commands::New { tree_height }) => {
+        Some(Commands::New { tree_depth }) => {
             let config = Config::load_config()?;
             state.rln = if let Some(tree_config) = config.tree_config {
                 println!("Initializing RLN with custom config");
                 Some(RLN::new(tree_height, Cursor::new(tree_config.as_bytes()))?)
             } else {
                 println!("Initializing RLN with default config");
-                Some(RLN::new(tree_height, Cursor::new(json!({}).to_string()))?)
+                Some(RLN::new(tree_depth, Cursor::new(json!({}).to_string()))?)
             };
             Ok(())
         }
         Some(Commands::NewWithParams {
-            tree_height,
+            tree_depth,
             resources_path,
         }) => {
             let mut resources: Vec<Vec<u8>> = Vec::new();
@@ -64,7 +64,7 @@ fn main() -> Result<()> {
             if let Some(tree_config) = config.tree_config {
                 println!("Initializing RLN with custom config");
                 state.rln = Some(RLN::new_with_params(
-                    tree_height,
+                    tree_depth,
                     resources[0].clone(),
                     resources[1].clone(),
                     Cursor::new(tree_config.to_string().as_bytes()),
@@ -72,7 +72,7 @@ fn main() -> Result<()> {
             } else {
                 println!("Initializing RLN with default config");
                 state.rln = Some(RLN::new_with_params(
-                    tree_height,
+                    tree_depth,
                     resources[0].clone(),
                     resources[1].clone(),
                     Cursor::new(json!({}).to_string()),
@@ -80,11 +80,11 @@ fn main() -> Result<()> {
             };
             Ok(())
         }
-        Some(Commands::SetTree { tree_height }) => {
+        Some(Commands::SetTree { tree_depth }) => {
             state
                 .rln
                 .ok_or(Report::msg("no RLN instance initialized"))?
-                .set_tree(tree_height)?;
+                .set_tree(tree_depth)?;
             Ok(())
         }
         Some(Commands::SetLeaf { index, input }) => {
