@@ -13,8 +13,8 @@ pub(crate) struct State {
 impl State {
     pub(crate) fn load_state() -> Result<State> {
         let config = Config::load_config()?;
-        let rln = if let Some(InnerConfig { tree_height, .. }) = config.inner {
-            Some(RLN::new(tree_height, Cursor::new(config.as_bytes()))?)
+        let rln = if let Some(InnerConfig { tree_depth, .. }) = config.inner {
+            Some(RLN::new(tree_depth, Cursor::new(config.as_bytes()))?)
         } else {
             None
         };

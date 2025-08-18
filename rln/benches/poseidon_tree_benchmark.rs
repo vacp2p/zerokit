@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use rln::{
-    circuit::{Fr, TEST_TREE_HEIGHT},
+    circuit::{Fr, TEST_TREE_DEPTH},
     hashers::PoseidonHash,
 };
 use utils::{FullMerkleTree, OptimalMerkleTree, ZerokitMerkleTree};
@@ -10,9 +10,9 @@ pub fn get_leaves(n: u32) -> Vec<Fr> {
 }
 
 pub fn optimal_merkle_tree_poseidon_benchmark(c: &mut Criterion) {
-    c.bench_function("OptimalMerkleTree::<Poseidon>::full_height_gen", |b| {
+    c.bench_function("OptimalMerkleTree::<Poseidon>::full_depth_gen", |b| {
         b.iter(|| {
-            OptimalMerkleTree::<PoseidonHash>::default(TEST_TREE_HEIGHT).unwrap();
+            OptimalMerkleTree::<PoseidonHash>::default(TEST_TREE_DEPTH).unwrap();
         })
     });
 
@@ -20,7 +20,7 @@ pub fn optimal_merkle_tree_poseidon_benchmark(c: &mut Criterion) {
     for &n in [1u32, 10, 100].iter() {
         let leaves = get_leaves(n);
 
-        let mut tree = OptimalMerkleTree::<PoseidonHash>::default(TEST_TREE_HEIGHT).unwrap();
+        let mut tree = OptimalMerkleTree::<PoseidonHash>::default(TEST_TREE_DEPTH).unwrap();
         group.bench_function(
             BenchmarkId::new("OptimalMerkleTree::<Poseidon>::set", n),
             |b| {
@@ -41,9 +41,9 @@ pub fn optimal_merkle_tree_poseidon_benchmark(c: &mut Criterion) {
 }
 
 pub fn full_merkle_tree_poseidon_benchmark(c: &mut Criterion) {
-    c.bench_function("FullMerkleTree::<Poseidon>::full_height_gen", |b| {
+    c.bench_function("FullMerkleTree::<Poseidon>::full_depth_gen", |b| {
         b.iter(|| {
-            FullMerkleTree::<PoseidonHash>::default(TEST_TREE_HEIGHT).unwrap();
+            FullMerkleTree::<PoseidonHash>::default(TEST_TREE_DEPTH).unwrap();
         })
     });
 
@@ -51,7 +51,7 @@ pub fn full_merkle_tree_poseidon_benchmark(c: &mut Criterion) {
     for &n in [1u32, 10, 100].iter() {
         let leaves = get_leaves(n);
 
-        let mut tree = FullMerkleTree::<PoseidonHash>::default(TEST_TREE_HEIGHT).unwrap();
+        let mut tree = FullMerkleTree::<PoseidonHash>::default(TEST_TREE_DEPTH).unwrap();
         group.bench_function(
             BenchmarkId::new("FullMerkleTree::<Poseidon>::set", n),
             |b| {

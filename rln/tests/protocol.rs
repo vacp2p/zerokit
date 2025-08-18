@@ -4,7 +4,7 @@
 mod test {
     use ark_ff::BigInt;
     use rln::circuit::{graph_from_folder, zkey_from_folder};
-    use rln::circuit::{Fr, TEST_TREE_HEIGHT};
+    use rln::circuit::{Fr, TEST_TREE_DEPTH};
     use rln::hashers::{hash_to_field_le, poseidon_hash};
     use rln::poseidon_tree::PoseidonTree;
     use rln::protocol::{
@@ -31,7 +31,7 @@ mod test {
         // generate merkle tree
         let default_leaf = Fr::from(0);
         let mut tree = PoseidonTree::new(
-            TEST_TREE_HEIGHT,
+            TEST_TREE_DEPTH,
             default_leaf,
             ConfigOf::<PoseidonTree>::default(),
         )
@@ -102,7 +102,7 @@ mod test {
         //// generate merkle tree
         let default_leaf = Fr::from(0);
         let mut tree = PoseidonTree::new(
-            TEST_TREE_HEIGHT,
+            TEST_TREE_DEPTH,
             default_leaf,
             ConfigOf::<PoseidonTree>::default(),
         )

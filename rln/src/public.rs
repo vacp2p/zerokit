@@ -27,7 +27,7 @@ use crate::protocol::generate_proof_with_witness;
 use {
     crate::protocol::{proof_inputs_to_rln_witness, serialize_witness},
     crate::utils::{bytes_le_to_vec_u8, vec_fr_to_bytes_le, vec_u8_to_bytes_le},
-    crate::{circuit::TEST_TREE_HEIGHT, poseidon_tree::PoseidonTree},
+    crate::{circuit::TEST_TREE_DEPTH, poseidon_tree::PoseidonTree},
     serde_json::{json, Value},
     std::str::FromStr,
     utils::error::ZerokitMerkleTreeError,
@@ -65,21 +65,21 @@ impl RLN {
     /// Creates a new RLN object by loading circuit resources from a folder.
     ///
     /// Input parameters are
-    /// - `tree_height`: the height of the internal Merkle tree
+    /// - `tree_depth`: the depth of the internal Merkle tree
     /// - `input_data`: include `tree_config` a reader for a string containing a json with the merkle tree configuration
     ///
     /// Example:
     /// ```
     /// use std::io::Cursor;
     ///
-    /// let tree_height = 20;
+    /// let tree_depth = 20;
     /// let input = Cursor::new(json!({}).to_string());
     ///
     /// // We create a new RLN instance
-    /// let mut rln = RLN::new(tree_height, input);
+    /// let mut rln = RLN::new(tree_depth, input);
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
-    pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> Result<RLN, RLNError> {
+    pub fn new<R: Read>(tree_depth: usize, mut input_data: R) -> Result<RLN, RLNError> {
         // We read input
         let mut input: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input)?;
@@ -99,7 +99,7 @@ impl RLN {
 
         // We compute a default empty tree
         let tree = PoseidonTree::new(
-            tree_height,
+            tree_depth,
             <PoseidonTree as ZerokitMerkleTree>::Hasher::default_leaf(),
             tree_config,
         )?;
@@ -137,7 +137,7 @@ impl RLN {
     /// Creates a new RLN object by passing circuit resources as byte vectors.
     ///
     /// Input parameters are
-    /// - `tree_height`: the height of the internal Merkle tree
+    /// - `tree_depth`: the depth of the internal Merkle tree
     /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.arkzkey`) as binary file
     /// - `graph_data`: a byte vector containing the graph data (`graph.bin`) as binary file
     /// - `tree_config_input`: a reader for a string containing a json with the merkle tree configuration
@@ -147,8 +147,8 @@ impl RLN {
     /// use std::fs::File;
     /// use std::io::Read;
     ///
-    /// let tree_height = 20;
-    /// let resources_folder = "./resources/tree_height_20/";
+    /// let tree_depth = 20;
+    /// let resources_folder = "./resources/tree_depth_20/";
     ///
     /// let mut resources: Vec<Vec<u8>> = Vec::new();
     /// for filename in ["rln_final.arkzkey", "graph.bin"] {
@@ -164,7 +164,7 @@ impl RLN {
     /// let tree_config_buffer = &Buffer::from(tree_config.as_bytes());
     ///
     /// let mut rln = RLN::new_with_params(
-    ///     tree_height,
+    ///     tree_depth,
     ///     resources[0].clone(),
     ///     resources[1].clone(),
     ///     tree_config_buffer,
@@ -172,7 +172,7 @@ impl RLN {
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn new_with_params<R: Read>(
-        tree_height: usize,
+        tree_depth: usize,
         zkey_vec: Vec<u8>,
         graph_data: Vec<u8>,
         mut tree_config_input: R,
@@ -192,7 +192,7 @@ impl RLN {
 
         // We compute a default empty tree
         let tree = PoseidonTree::new(
-            tree_height,
+            tree_depth,
             <PoseidonTree as ZerokitMerkleTree>::Hasher::default_leaf(),
             tree_config,
         )?;
@@ -217,7 +217,7 @@ impl RLN {
     /// use std::fs::File;
     /// use std::io::Read;
     ///
-    /// let resources_folder = "./resources/tree_height_20/";
+    /// let resources_folder = "./resources/tree_depth_20/";
     ///
     /// let mut resources: Vec<Vec<u8>> = Vec::new();
     /// for filename in ["rln_final.arkzkey", "graph.bin"] {
@@ -256,7 +256,7 @@ impl RLN {
     /// use std::fs::File;
     /// use std::io::Read;
     ///
-    /// let zkey_path = "./resources/tree_height_20/rln_final.arkzkey";
+    /// let zkey_path = "./resources/tree_depth_20/rln_final.arkzkey";
     ///
     /// let mut file = File::open(zkey_path).expect("Failed to open file");
     /// let metadata = std::fs::metadata(zkey_path).expect("Failed to read metadata");
@@ -284,11 +284,11 @@ impl RLN {
     /// Leaves are set to the default value implemented in PoseidonTree implementation.
     ///
     /// Input values are:
-    /// - `tree_height`: the height of the Merkle tree.
+    /// - `tree_depth`: the depth of the Merkle tree.
     #[cfg(not(feature = "stateless"))]
-    pub fn set_tree(&mut self, tree_height: usize) -> Result<(), RLNError> {
-        // We compute a default empty tree of desired height
-        self.tree = PoseidonTree::default(tree_height)?;
+    pub fn set_tree(&mut self, tree_depth: usize) -> Result<(), RLNError> {
+        // We compute a default empty tree of desired depth
+        self.tree = PoseidonTree::default(tree_depth)?;
 
         Ok(())
     }
@@ -416,8 +416,8 @@ impl RLN {
     #[cfg(not(feature = "stateless"))]
     pub fn init_tree_with_leaves<R: Read>(&mut self, input_data: R) -> Result<(), RLNError> {
         // reset the tree
-        // NOTE: this requires the tree to be initialized with the correct height initially
-        // TODO: accept tree_height as a parameter and initialize the tree with that height
+        // NOTE: this requires the tree to be initialized with the correct depth initially
+        // TODO: accept tree_depth as a parameter and initialize the tree with that depth
         self.set_tree(self.tree.depth())?;
         self.set_leaves_from(0, input_data)
     }
@@ -506,12 +506,12 @@ impl RLN {
     /// use rln::circuit::Fr;
     /// use rln::utils::*;
     ///
-    /// let tree_height = 20;
+    /// let tree_depth = 20;
     /// let start_index = 10;
     /// let no_of_leaves = 256;
     ///
     /// // We reset the tree
-    /// rln.set_tree(tree_height).unwrap();
+    /// rln.set_tree(tree_depth).unwrap();
     ///
     /// // Internal Merkle tree next_index value is now 0
     ///
@@ -746,7 +746,7 @@ impl RLN {
     /// ```
     /// use rln::protocol::*;
     ///
-    /// let rln_witness = random_rln_witness(tree_height);
+    /// let rln_witness = random_rln_witness(tree_depth);
     /// let proof_values = proof_values_from_witness(&rln_witness);
     ///
     /// // We compute a Groth16 proof
@@ -786,7 +786,7 @@ impl RLN {
     /// ```
     /// use rln::protocol::*;
     ///
-    /// let rln_witness = random_rln_witness(tree_height);
+    /// let rln_witness = random_rln_witness(tree_depth);
     ///
     /// // We compute a Groth16 proof
     /// let mut input_buffer = Cursor::new(serialize_witness(&rln_witness));
@@ -1257,9 +1257,9 @@ impl Default for RLN {
     fn default() -> Self {
         #[cfg(not(feature = "stateless"))]
         {
-            let tree_height = TEST_TREE_HEIGHT;
+            let tree_depth = TEST_TREE_DEPTH;
             let buffer = Cursor::new(json!({}).to_string());
-            Self::new(tree_height, buffer).unwrap()
+            Self::new(tree_depth, buffer).unwrap()
         }
         #[cfg(feature = "stateless")]
         Self::new().unwrap()
