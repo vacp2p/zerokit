@@ -172,7 +172,7 @@ fn test_groth16_proof() {
 #[cfg(not(feature = "stateless"))]
 mod tree_test {
     use crate::circuit::{Fr, TEST_TREE_HEIGHT};
-    use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
+    use crate::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
     use crate::protocol::*;
     use crate::public::RLN;
     use crate::utils::*;
@@ -622,9 +622,9 @@ mod tree_test {
         let signal: [u8; 32] = rng.gen();
 
         // We generate a random epoch
-        let epoch = hash_to_field(b"test-epoch");
+        let epoch = hash_to_field_le(b"test-epoch");
         // We generate a random rln_identifier
-        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         // We generate a external nullifier
         let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
         // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
@@ -694,9 +694,9 @@ mod tree_test {
         let signal: [u8; 32] = rng.gen();
 
         // We generate a random epoch
-        let epoch = hash_to_field(b"test-epoch");
+        let epoch = hash_to_field_le(b"test-epoch");
         // We generate a random rln_identifier
-        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         // We generate a external nullifier
         let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
         // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
@@ -777,9 +777,9 @@ mod tree_test {
         let signal: [u8; 32] = rng.gen();
 
         // We generate a random epoch
-        let epoch = hash_to_field(b"test-epoch");
+        let epoch = hash_to_field_le(b"test-epoch");
         // We generate a random rln_identifier
-        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         // We generate a external nullifier
         let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
         // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
@@ -869,9 +869,9 @@ mod tree_test {
         let signal2: [u8; 32] = rng.gen();
 
         // We generate a random epoch
-        let epoch = hash_to_field(b"test-epoch");
+        let epoch = hash_to_field_le(b"test-epoch");
         // We generate a random rln_identifier
-        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         // We generate a external nullifier
         let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
         // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
@@ -994,7 +994,7 @@ mod tree_test {
 #[cfg(feature = "stateless")]
 mod stateless_test {
     use crate::circuit::{Fr, TEST_TREE_HEIGHT};
-    use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash, PoseidonHash};
+    use crate::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash, PoseidonHash};
     use crate::protocol::*;
     use crate::public::RLN;
     use crate::utils::*;
@@ -1033,15 +1033,15 @@ mod stateless_test {
         let signal: [u8; 32] = rng.gen();
 
         // We generate a random epoch
-        let epoch = hash_to_field(b"test-epoch");
+        let epoch = hash_to_field_le(b"test-epoch");
         // We generate a random rln_identifier
-        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
 
         // We prepare input for generate_rln_proof API
         // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
 
-        let x = hash_to_field(&signal);
+        let x = hash_to_field_le(&signal);
         let merkle_proof = tree.proof(identity_index).expect("proof should exist");
 
         let rln_witness = rln_witness_from_values(
@@ -1124,18 +1124,18 @@ mod stateless_test {
         tree.update_next(rate_commitment).unwrap();
 
         // We generate a random epoch
-        let epoch = hash_to_field(b"test-epoch");
+        let epoch = hash_to_field_le(b"test-epoch");
         // We generate a random rln_identifier
-        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
 
         // We generate a random signal
         let mut rng = thread_rng();
         let signal1: [u8; 32] = rng.gen();
-        let x1 = hash_to_field(&signal1);
+        let x1 = hash_to_field_le(&signal1);
 
         let signal2: [u8; 32] = rng.gen();
-        let x2 = hash_to_field(&signal2);
+        let x2 = hash_to_field_le(&signal2);
 
         let identity_index = tree.leaves_set();
         let merkle_proof = tree.proof(identity_index).expect("proof should exist");
@@ -1203,7 +1203,7 @@ mod stateless_test {
         tree.update_next(rate_commitment_new).unwrap();
 
         let signal3: [u8; 32] = rng.gen();
-        let x3 = hash_to_field(&signal3);
+        let x3 = hash_to_field_le(&signal3);
 
         let identity_index_new = tree.leaves_set();
         let merkle_proof_new = tree.proof(identity_index_new).expect("proof should exist");

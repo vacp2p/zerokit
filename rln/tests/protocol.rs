@@ -5,7 +5,7 @@ mod test {
     use ark_ff::BigInt;
     use rln::circuit::{graph_from_folder, zkey_from_folder};
     use rln::circuit::{Fr, TEST_TREE_HEIGHT};
-    use rln::hashers::{hash_to_field, poseidon_hash};
+    use rln::hashers::{hash_to_field_le, poseidon_hash};
     use rln::poseidon_tree::PoseidonTree;
     use rln::protocol::{
         deserialize_proof_values, deserialize_witness, generate_proof, keygen,
@@ -24,7 +24,7 @@ mod test {
         let leaf_index = 3;
 
         // generate identity
-        let identity_secret_hash = hash_to_field(b"test-merkle-proof");
+        let identity_secret_hash = hash_to_field_le(b"test-merkle-proof");
         let id_commitment = poseidon_hash(&[identity_secret_hash]);
         let rate_commitment = poseidon_hash(&[id_commitment, 100.into()]);
 
@@ -112,11 +112,11 @@ mod test {
         let merkle_proof = tree.proof(leaf_index).expect("proof should exist");
 
         let signal = b"hey hey";
-        let x = hash_to_field(signal);
+        let x = hash_to_field_le(signal);
 
         // We set the remaining values to random ones
-        let epoch = hash_to_field(b"test-epoch");
-        let rln_identifier = hash_to_field(b"test-rln-identifier");
+        let epoch = hash_to_field_le(b"test-epoch");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
 
         rln_witness_from_values(

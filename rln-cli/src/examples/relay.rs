@@ -9,7 +9,7 @@ use clap::{Parser, Subcommand};
 use color_eyre::{eyre::eyre, Report, Result};
 use rln::{
     circuit::Fr,
-    hashers::{hash_to_field, poseidon_hash},
+    hashers::{hash_to_field_le, poseidon_hash},
     protocol::{keygen, prepare_prove_input, prepare_verify_input},
     public::RLN,
     utils::{fr_to_bytes_le, generate_input_buffer, IdSecret},
@@ -244,8 +244,8 @@ fn main() -> Result<()> {
     println!("Initializing RLN instance...");
     print!("\x1B[2J\x1B[1;1H");
     let mut rln_system = RLNSystem::new()?;
-    let rln_epoch = hash_to_field(b"epoch");
-    let rln_identifier = hash_to_field(b"rln-identifier");
+    let rln_epoch = hash_to_field_le(b"epoch");
+    let rln_identifier = hash_to_field_le(b"rln-identifier");
     let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]);
     println!("RLN Relay Example:");
     println!("Message Limit: {MESSAGE_LIMIT}");

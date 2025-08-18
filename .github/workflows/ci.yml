@@ -9,6 +9,7 @@ on:
       - "!rln/src/**"
       - "!rln/resources/**"
       - "!utils/src/**"
+      - "!rln-wasm-utils/**"
   pull_request:
     paths-ignore:
       - "**.md"
@@ -17,6 +18,7 @@ on:
       - "!rln/src/**"
       - "!rln/resources/**"
       - "!utils/src/**"
+      - "!rln-wasm-utils/**"
 
 name: Tests
 
@@ -88,73 +90,68 @@ jobs:
       - name: Install dependencies
         run: make installdeps
       - name: Build rln-wasm
-        run: |
-          if [ ${{ matrix.feature }} == default ]; then
-            cargo make build
-          else
-            cargo make build_${{ matrix.feature }}
-          fi
+        run: cargo make build
         working-directory: ${{ matrix.crate }}
-      - name: Test rln-wasm
-        run: |
-          if [ ${{ matrix.feature }} == default ]; then
-            cargo make test --release
-          else
-            cargo make test_${{ matrix.feature }} --release
-          fi
+      - name: Test rln-wasm on node
+        run: cargo make test --release
         working-directory: ${{ matrix.crate }}
       - name: Test rln-wasm on browser
-        run: |
-          if [ ${{ matrix.feature }} == default ]; then
-            cargo make test_browser --release
-          else
-            cargo make test_browser_${{ matrix.feature }} --release
-          fi
+        run: cargo make test_browser --release
         working-directory: ${{ matrix.crate }}
 
-  # rln-wasm-parallel-test:
-  #   strategy:
-  #     matrix:
-  #       platform: [ubuntu-latest, macos-latest]
-  #       crate: [rln-wasm]
-  #       feature: ["parallel"]
-  #   runs-on: ${{ matrix.platform }}
-  #   timeout-minutes: 60
+  rln-wasm-parallel-test:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+        crate: [rln-wasm]
+        feature: ["parallel"]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
 
-  #   name: Test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Install nightly toolchain
-  #       uses: dtolnay/rust-toolchain@nightly
-  #       with:
-  #         components: rust-src
-  #         targets: wasm32-unknown-unknown
-  #     - uses: Swatinem/rust-cache@v2
-  #     - name:  Install dependencies
-  #       run: make installdeps
-  #     - name: Build rln-wasm in parallel mode
-  #       run: |
-  #         if [ ${{ matrix.feature }} == default ]; then
-  #           cargo make build
-  #         else
-  #           cargo make build_${{ matrix.feature }}
-  #         fi
-  #       working-directory: ${{ matrix.crate }}
-  #     - name: Test rln-wasm in parallel mode
-  #       run: |
-  #         if [ ${{ matrix.feature }} == default ]; then
-  #           cargo make test --release
-  #         else
-  #           cargo make test_${{ matrix.feature }} --release
-  #         fi
-  #       working-directory: ${{ matrix.crate }}
+    name: Test - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Install dependencies
+        run: make installdeps
+      - name: Build rln-wasm in parallel mode
+        run: cargo make build_parallel
+        working-directory: ${{ matrix.crate }}
+      - name: Test rln-wasm in parallel mode on browser
+        run: cargo make test_parallel --release
+        working-directory: ${{ matrix.crate }}
+
+  rln-wasm-utils-test:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+        crate: [rln-wasm-utils]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+
+    name: Test - ${{ matrix.crate }} - ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install dependencies
+        run: make installdeps
+      - name: Test rln-wasm-utils
+        run: cargo make test --release
+        working-directory: ${{ matrix.crate }}
 
   lint:
     strategy:
       matrix:
         # we run lint tests only on ubuntu
         platform: [ubuntu-latest]
-        crate: [rln, rln-wasm, utils]
+        crate: [rln, rln-wasm, rln-wasm-utils, utils]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 

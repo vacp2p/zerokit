@@ -1,11 +1,14 @@
 use crate::circuit::{zkey_from_raw, Curve, Fr};
-use crate::hashers::{hash_to_field, poseidon_hash as utils_poseidon_hash};
+use crate::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
 use crate::protocol::{
     compute_id_secret, deserialize_proof_values, deserialize_witness, extended_keygen,
     extended_seeded_keygen, keygen, proof_values_from_witness, rln_witness_to_bigint_json,
     rln_witness_to_json, seeded_keygen, serialize_proof_values, verify_proof,
 };
-use crate::utils::{bytes_le_to_fr, bytes_le_to_vec_fr, fr_byte_size, fr_to_bytes_le};
+use crate::utils::{
+    bytes_be_to_vec_fr, bytes_le_to_fr, bytes_le_to_vec_fr, fr_byte_size, fr_to_bytes_be,
+    fr_to_bytes_le,
+};
 #[cfg(not(target_arch = "wasm32"))]
 use {
     crate::{
@@ -729,10 +732,12 @@ impl RLN {
     ////////////////////////////////////////////////////////
     // zkSNARK APIs
     ////////////////////////////////////////////////////////
-    /// Computes a zkSNARK RLN proof using a [`RLNWitnessInput`].
+    /// Computes a zkSNARK RLN proof using a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
     ///
     /// Input values are:
-    /// - `input_data`: a reader for the serialization of a [`RLNWitnessInput`] object, containing the public and private inputs to the ZK circuits (serialization done using [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness))
+    /// - `input_data`: a reader for the serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput)
+    ///   object, containing the public and private inputs to the ZK circuits (serialization done using
+    ///   [`serialize_witness`])
     ///
     /// Output values are:
     /// - `output_data`: a writer receiving the serialization of the zkSNARK proof
@@ -987,7 +992,7 @@ impl RLN {
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
 
         let verified = verify_proof(&self.verification_key, &proof, &proof_values)?;
-        let x = hash_to_field(&signal);
+        let x = hash_to_field_le(&signal);
 
         // Consistency checks to counter proof tampering
         Ok(verified && (self.tree.root() == proof_values.root) && (x == proof_values.x))
@@ -1071,7 +1076,7 @@ impl RLN {
         let verified = verify_proof(&self.verification_key, &proof, &proof_values)?;
 
         // First consistency checks to counter proof tampering
-        let x = hash_to_field(&signal);
+        let x = hash_to_field_le(&signal);
         let partial_result = verified && (x == proof_values.x);
 
         // We skip root validation if proof is already invalid
@@ -1113,151 +1118,6 @@ impl RLN {
     ////////////////////////////////////////////////////////
     // Utils
     ////////////////////////////////////////////////////////
-
-    /// Returns an identity secret and identity commitment pair.
-    ///
-    /// The identity commitment is the Poseidon hash of the identity secret.
-    ///
-    /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
-    ///
-    /// Example
-    /// ```
-    /// use rln::protocol::*;
-    ///
-    /// // We generate an identity pair
-    /// let mut buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.key_gen(&mut buffer).unwrap();
-    ///
-    /// // We serialize_compressed the keygen output
-    /// let (identity_secret_hash, id_commitment) = deserialize_identity_pair(buffer.into_inner());
-    /// ```
-    pub fn key_gen<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
-        let (identity_secret_hash, id_commitment) = keygen();
-        output_data.write_all(&identity_secret_hash.to_bytes_le())?;
-        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
-
-        Ok(())
-    }
-
-    /// Returns an identity trapdoor, nullifier, secret and commitment tuple.
-    ///
-    /// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
-    ///
-    /// The identity commitment is the Poseidon hash of the identity secret.
-    ///
-    /// Generated credentials are compatible with [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
-    ///
-    /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the identity trapdoor, identity nullifier, identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
-    ///
-    /// Example
-    /// ```
-    /// use rln::protocol::*;
-    ///
-    /// // We generate an identity tuple
-    /// let mut buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.extended_key_gen(&mut buffer).unwrap();
-    ///
-    /// // We serialize_compressed the keygen output
-    /// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
-    /// ```
-    pub fn extended_key_gen<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
-        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
-            extended_keygen();
-        output_data.write_all(&fr_to_bytes_le(&identity_trapdoor))?;
-        output_data.write_all(&fr_to_bytes_le(&identity_nullifier))?;
-        output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
-        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
-
-        Ok(())
-    }
-
-    /// Returns an identity secret and identity commitment pair generated using a seed.
-    ///
-    /// The identity commitment is the Poseidon hash of the identity secret.
-    ///
-    /// Input values are:
-    /// - `input_data`: a reader for the byte vector containing the seed
-    ///
-    /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the identity secret and identity commitment (serialization done with [`rln::utils::fr_to_bytes_le`](crate::utils::fr_to_bytes_le))
-    ///
-    /// Example
-    /// ```
-    /// use rln::protocol::*;
-    ///
-    /// let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    ///
-    /// let mut input_buffer = Cursor::new(&seed_bytes);
-    /// let mut output_buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.seeded_key_gen(&mut input_buffer, &mut output_buffer)
-    ///     .unwrap();
-    ///
-    /// // We serialize_compressed the keygen output
-    /// let (identity_secret_hash, id_commitment) = deserialize_identity_pair(output_buffer.into_inner());
-    /// ```
-    pub fn seeded_key_gen<R: Read, W: Write>(
-        &self,
-        mut input_data: R,
-        mut output_data: W,
-    ) -> Result<(), RLNError> {
-        let mut serialized: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut serialized)?;
-
-        let (identity_secret_hash, id_commitment) = seeded_keygen(&serialized);
-        output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
-        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
-
-        Ok(())
-    }
-
-    /// Returns an identity trapdoor, nullifier, secret and commitment tuple generated using a seed.
-    ///
-    /// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
-    ///
-    /// The identity commitment is the Poseidon hash of the identity secret.
-    ///
-    /// Generated credentials are compatible with [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
-    ///
-    /// Input values are:
-    /// - `input_data`: a reader for the byte vector containing the seed
-    ///
-    /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the identity trapdoor, identity nullifier, identity secret and identity commitment (serialization done with `rln::utils::fr_to_bytes_le`)
-    ///
-    /// Example
-    /// ```
-    /// use rln::protocol::*;
-    ///
-    /// let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    ///
-    /// let mut input_buffer = Cursor::new(&seed_bytes);
-    /// let mut output_buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.seeded_key_gen(&mut input_buffer, &mut output_buffer)
-    ///     .unwrap();
-    ///
-    /// // We serialize_compressed the keygen output
-    /// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
-    /// ```
-    pub fn seeded_extended_key_gen<R: Read, W: Write>(
-        &self,
-        mut input_data: R,
-        mut output_data: W,
-    ) -> Result<(), RLNError> {
-        let mut serialized: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut serialized)?;
-
-        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
-            extended_seeded_keygen(&serialized);
-        output_data.write_all(&fr_to_bytes_le(&identity_trapdoor))?;
-        output_data.write_all(&fr_to_bytes_le(&identity_nullifier))?;
-        output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
-        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
-
-        Ok(())
-    }
-
     /// Recovers the identity secret from two set of proof values computed for same secret in same epoch with same rln identifier.
     ///
     /// Input values are:
@@ -1331,12 +1191,12 @@ impl RLN {
         Ok(())
     }
 
-    /// Returns the serialization of a [`RLNWitnessInput`] populated from the identity secret, the Merkle tree index, the user message limit, the message id, the external nullifier (which include epoch and rln identifier) and signal.
+    /// Returns the serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) populated from the identity secret, the Merkle tree index, the user message limit, the message id, the external nullifier (which include epoch and rln identifier) and signal.
     ///
     /// Input values are:
     /// - `input_data`: a reader for the serialization of `[ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]`
     ///
-    /// The function returns the corresponding [`RLNWitnessInput`] object serialized using [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness).
+    /// The function returns the corresponding [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object serialized using [`serialize_witness`].
     #[cfg(not(feature = "stateless"))]
     pub fn get_serialized_rln_witness<R: Read>(
         &mut self,
@@ -1350,12 +1210,13 @@ impl RLN {
         serialize_witness(&rln_witness).map_err(RLNError::Protocol)
     }
 
-    /// Converts a byte serialization of a [`RLNWitnessInput`] object to the corresponding JSON serialization.
+    /// Converts a byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object to the corresponding JSON serialization.
     ///
     /// Input values are:
-    /// - `serialized_witness`: the byte serialization of a [`RLNWitnessInput`] object (serialization done with  [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
+    /// - `serialized_witness`: the byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput)
+    ///   object (serialization done with  [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
     ///
-    /// The function returns the corresponding JSON encoding of the input [`RLNWitnessInput`] object.
+    /// The function returns the corresponding JSON encoding of the input.
     pub fn get_rln_witness_json(
         &mut self,
         serialized_witness: &[u8],
@@ -1364,13 +1225,15 @@ impl RLN {
         rln_witness_to_json(&rln_witness)
     }
 
-    /// Converts a byte serialization of a [`RLNWitnessInput`] object to the corresponding JSON serialization.
+    /// Converts a byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object
+    ///   to the corresponding JSON serialization.
     /// Before serialization the data will be translated into big int for further calculation in the witness calculator.
     ///
     /// Input values are:
-    /// - `serialized_witness`: the byte serialization of a [`RLNWitnessInput`] object (serialization done with  [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
+    /// - `serialized_witness`: the byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput)
+    ///   object (serialization done with  [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
     ///
-    /// The function returns the corresponding JSON encoding of the input [`RLNWitnessInput`] object.
+    /// The function returns the corresponding JSON encoding of the input [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
     pub fn get_rln_witness_bigint_json(
         &mut self,
         serialized_witness: &[u8],
@@ -1428,12 +1291,18 @@ impl Default for RLN {
 pub fn hash<R: Read, W: Write>(
     mut input_data: R,
     mut output_data: W,
+    is_little_endian: bool,
 ) -> Result<(), std::io::Error> {
     let mut serialized: Vec<u8> = Vec::new();
     input_data.read_to_end(&mut serialized)?;
 
-    let hash = hash_to_field(&serialized);
-    output_data.write_all(&fr_to_bytes_le(&hash))?;
+    if is_little_endian {
+        let hash = hash_to_field_le(&serialized);
+        output_data.write_all(&fr_to_bytes_le(&hash))?;
+    } else {
+        let hash = hash_to_field_le(&serialized);
+        output_data.write_all(&fr_to_bytes_be(&hash))?;
+    }
 
     Ok(())
 }
@@ -1464,13 +1333,208 @@ pub fn hash<R: Read, W: Write>(
 pub fn poseidon_hash<R: Read, W: Write>(
     mut input_data: R,
     mut output_data: W,
+    is_little_endian: bool,
 ) -> Result<(), RLNError> {
     let mut serialized: Vec<u8> = Vec::new();
     input_data.read_to_end(&mut serialized)?;
 
-    let (inputs, _) = bytes_le_to_vec_fr(&serialized)?;
-    let hash = utils_poseidon_hash(inputs.as_ref());
-    output_data.write_all(&fr_to_bytes_le(&hash))?;
+    if is_little_endian {
+        let (inputs, _) = bytes_le_to_vec_fr(&serialized)?;
+        let hash = utils_poseidon_hash(inputs.as_ref());
+        output_data.write_all(&fr_to_bytes_le(&hash))?;
+    } else {
+        let (inputs, _) = bytes_be_to_vec_fr(&serialized)?;
+        let hash = utils_poseidon_hash(inputs.as_ref());
+        output_data.write_all(&fr_to_bytes_be(&hash))?;
+    }
+
+    Ok(())
+}
+
+/// Generate an identity which is composed of an identity secret and identity commitment.
+/// The identity secret is a random field element.
+/// The identity commitment is the Poseidon hash of the identity secret.
+///
+/// # Inputs
+///
+/// - `output_data`: a writer receiving the serialization of
+///   the identity secret and identity commitment in correct endianness.
+/// - `is_little_endian`: a boolean indicating whether the identity secret and identity commitment
+///   should be serialized in little endian or big endian.
+///
+/// # Example
+/// ```
+/// use rln::protocol::*;
+///
+/// // We generate an identity pair
+/// let mut buffer = Cursor::new(Vec::<u8>::new());
+/// let is_little_endian = true;
+/// key_gen(&mut buffer, is_little_endian).unwrap();
+///
+/// // We serialize_compressed the keygen output
+/// let (identity_secret_hash, id_commitment) = deserialize_identity_pair_le(buffer.into_inner());
+/// ```
+pub fn key_gen<W: Write>(mut output_data: W, is_little_endian: bool) -> Result<(), RLNError> {
+    let (identity_secret_hash, id_commitment) = keygen();
+    if is_little_endian {
+        output_data.write_all(&identity_secret_hash.to_bytes_le())?;
+        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
+    } else {
+        output_data.write_all(&identity_secret_hash.to_bytes_be())?;
+        output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
+    }
+
+    Ok(())
+}
+
+/// Generate an identity which is composed of an identity trapdoor, nullifier, secret and commitment.
+/// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
+/// The identity commitment is the Poseidon hash of the identity secret.
+///
+/// # Inputs
+///
+/// - `output_data`: a writer receiving the serialization of
+///   the identity trapdoor, nullifier, secret and commitment in correct endianness.
+/// - `is_little_endian`: a boolean indicating whether the identity trapdoor, nullifier, secret and commitment
+///   should be serialized in little endian or big endian.
+///
+/// Generated credentials are compatible with
+/// [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
+///
+/// # Example
+/// ```
+/// use rln::protocol::*;
+///
+/// // We generate an identity tuple
+/// let mut buffer = Cursor::new(Vec::<u8>::new());
+/// let is_little_endian = true;
+/// extended_key_gen(&mut buffer, is_little_endian).unwrap();
+///
+/// // We serialize_compressed the keygen output
+/// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment)
+///     = deserialize_identity_tuple_le(buffer.into_inner());
+/// ```
+pub fn extended_key_gen<W: Write>(
+    mut output_data: W,
+    is_little_endian: bool,
+) -> Result<(), RLNError> {
+    let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
+        extended_keygen();
+    if is_little_endian {
+        output_data.write_all(&fr_to_bytes_le(&identity_trapdoor))?;
+        output_data.write_all(&fr_to_bytes_le(&identity_nullifier))?;
+        output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
+        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
+    } else {
+        output_data.write_all(&fr_to_bytes_be(&identity_trapdoor))?;
+        output_data.write_all(&fr_to_bytes_be(&identity_nullifier))?;
+        output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
+        output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
+    }
+
+    Ok(())
+}
+
+/// Generate an identity which is composed of an identity secret and identity commitment using a seed.
+/// The identity secret is a random field element,
+///   where RNG is instantiated using 20 rounds of ChaCha seeded with the hash of the input.
+/// The identity commitment is the Poseidon hash of the identity secret.
+///
+/// # Inputs
+///
+/// - `input_data`: a reader for the byte vector containing the seed
+/// - `output_data`: a writer receiving the serialization of
+///   the identity secret and identity commitment in correct endianness.
+/// - `is_little_endian`: a boolean indicating whether the identity secret and identity commitment
+///   should be serialized in little endian or big endian.
+///
+/// # Example
+/// ```
+/// use rln::protocol::*;
+///
+/// let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+///
+/// let mut input_buffer = Cursor::new(&seed_bytes);
+/// let mut output_buffer = Cursor::new(Vec::<u8>::new());
+/// let is_little_endian = true;
+/// seeded_key_gen(&mut input_buffer, &mut output_buffer, is_little_endian).unwrap();
+///
+///
+/// // We serialize_compressed the keygen output
+/// let (identity_secret_hash, id_commitment) = deserialize_identity_pair_le(output_buffer.into_inner());
+/// ```
+pub fn seeded_key_gen<R: Read, W: Write>(
+    mut input_data: R,
+    mut output_data: W,
+    is_little_endian: bool,
+) -> Result<(), RLNError> {
+    let mut serialized: Vec<u8> = Vec::new();
+    input_data.read_to_end(&mut serialized)?;
+
+    let (identity_secret_hash, id_commitment) = seeded_keygen(&serialized);
+    if is_little_endian {
+        output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
+        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
+    } else {
+        output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
+        output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
+    }
+
+    Ok(())
+}
+
+/// Generate an identity which is composed of an identity trapdoor, nullifier, secret and commitment using a seed.
+/// The identity trapdoor and nullifier are random field elements,
+///   where RNG is instantiated using 20 rounds of ChaCha seeded with the hash of the input.
+/// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
+/// The identity commitment is the Poseidon hash of the identity secret.
+///
+/// # Inputs
+///
+/// - `input_data`: a reader for the byte vector containing the seed
+/// - `output_data`: a writer receiving the serialization of
+///   the identity trapdoor, nullifier, secret and commitment in correct endianness.
+/// - `is_little_endian`: a boolean indicating whether the identity trapdoor, nullifier, secret and commitment
+///   should be serialized in little endian or big endian.
+///
+/// Generated credentials are compatible with
+/// [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
+///
+/// # Example
+/// ```
+/// use rln::protocol::*;
+///
+/// let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+///
+/// let mut input_buffer = Cursor::new(&seed_bytes);
+/// let mut output_buffer = Cursor::new(Vec::<u8>::new());
+/// let is_little_endian = true;
+/// seeded_extended_key_gen(&mut input_buffer, &mut output_buffer, is_little_endian).unwrap();
+///
+/// // We serialize_compressed the keygen output
+/// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
+/// ```
+pub fn seeded_extended_key_gen<R: Read, W: Write>(
+    mut input_data: R,
+    mut output_data: W,
+    is_little_endian: bool,
+) -> Result<(), RLNError> {
+    let mut serialized: Vec<u8> = Vec::new();
+    input_data.read_to_end(&mut serialized)?;
+
+    let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
+        extended_seeded_keygen(&serialized);
+    if is_little_endian {
+        output_data.write_all(&fr_to_bytes_le(&identity_trapdoor))?;
+        output_data.write_all(&fr_to_bytes_le(&identity_nullifier))?;
+        output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
+        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
+    } else {
+        output_data.write_all(&fr_to_bytes_be(&identity_trapdoor))?;
+        output_data.write_all(&fr_to_bytes_be(&identity_nullifier))?;
+        output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
+        output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
+    }
 
     Ok(())
 }
