@@ -995,7 +995,7 @@ mod tree_test {
     #[test]
     fn test_tree_config_input_trait() {
         let empty_json_input = generate_input_buffer();
-        let rln_with_empty_json_config = RLN::new(TEST_TREE_HEIGHT, empty_json_input);
+        let rln_with_empty_json_config = RLN::new(TEST_TREE_DEPTH, empty_json_input);
         assert!(rln_with_empty_json_config.is_ok());
 
         let json_config = json!({
@@ -1009,12 +1009,12 @@ mod tree_test {
             }
         });
         let json_input = Cursor::new(json_config.to_string());
-        let rln_with_json_config = RLN::new(TEST_TREE_HEIGHT, json_input.clone());
+        let rln_with_json_config = RLN::new(TEST_TREE_DEPTH, json_input.clone());
         assert!(rln_with_json_config.is_ok());
 
         let json_to_tree_config = json_input.into_tree_config();
         assert!(json_to_tree_config.is_ok());
-        let rln_with_json_to_tree_config = RLN::new(TEST_TREE_HEIGHT, json_to_tree_config.unwrap());
+        let rln_with_json_to_tree_config = RLN::new(TEST_TREE_DEPTH, json_to_tree_config.unwrap());
         assert!(rln_with_json_to_tree_config.is_ok());
 
         let pmtree_config = PmtreeConfig::builder()
