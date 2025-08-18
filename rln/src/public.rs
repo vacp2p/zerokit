@@ -27,7 +27,7 @@ use crate::protocol::generate_proof_with_witness;
 use {
     crate::protocol::{proof_inputs_to_rln_witness, serialize_witness},
     crate::utils::{bytes_le_to_vec_u8, vec_fr_to_bytes_le, vec_u8_to_bytes_le},
-    crate::{circuit::TEST_TREE_HEIGHT, poseidon_tree::PoseidonTree},
+    crate::{circuit::TEST_TREE_DEPTH, poseidon_tree::PoseidonTree},
     serde_json::json,
     std::str::FromStr,
     utils::error::ZerokitMerkleTreeError,
@@ -98,21 +98,21 @@ impl RLN {
     /// Creates a new RLN object by loading circuit resources from a folder.
     ///
     /// Input parameters are
-    /// - `tree_height`: the height of the internal Merkle tree
+    /// - `tree_depth`: the depth of the internal Merkle tree
     /// - `input_buffer`: a reader containing JSON configuration or a direct tree configuration struct
     ///
     /// Example:
     /// ```
     /// use std::io::Cursor;
     ///
-    /// let tree_height = 20;
+    /// let tree_depth = 20;
     /// let input_buffer = Cursor::new(json!({}).to_string());
     ///
     /// // We create a new RLN instance
-    /// let mut rln = RLN::new(tree_height, input_buffer);
+    /// let mut rln = RLN::new(tree_depth, input_buffer);
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
-    pub fn new<T: TreeConfigInput>(tree_height: usize, input_buffer: T) -> Result<RLN, RLNError> {
+    pub fn new<T: TreeConfigInput>(tree_depth: usize, input_buffer: T) -> Result<RLN, RLNError> {
         let proving_key = zkey_from_folder().to_owned();
         let verification_key = proving_key.0.vk.to_owned();
         let graph_data = graph_from_folder().to_owned();
@@ -192,7 +192,7 @@ impl RLN {
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn new_with_params<T: TreeConfigInput>(
-        tree_height: usize,
+        tree_depth: usize,
         zkey_vec: Vec<u8>,
         graph_data: Vec<u8>,
         input_buffer: T,
