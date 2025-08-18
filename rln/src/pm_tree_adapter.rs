@@ -50,7 +50,7 @@ impl Hasher for PoseidonHash {
     }
 }
 
-fn get_tmp_path() -> PathBuf {
+pub fn get_tmp_path() -> PathBuf {
     std::env::temp_dir().join(format!("pmtree-{}", rand::random::<u64>()))
 }
 
