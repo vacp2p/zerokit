@@ -7,7 +7,7 @@ use std::{
 use clap::Parser;
 use color_eyre::{eyre::Report, Result};
 use commands::Commands;
-use config::{Config, InnerConfig};
+use config::Config;
 use rln::{
     public::RLN,
     utils::{bytes_le_to_fr, bytes_le_to_vec_fr},
@@ -37,9 +37,9 @@ fn main() -> Result<()> {
     match cli.command {
         Some(Commands::New { tree_height }) => {
             let config = Config::load_config()?;
-            state.rln = if let Some(InnerConfig { tree_height, .. }) = config.inner {
+            state.rln = if let Some(tree_config) = config.tree_config {
                 println!("Initializing RLN with custom config");
-                Some(RLN::new(tree_height, Cursor::new(config.as_bytes()))?)
+                Some(RLN::new(tree_height, Cursor::new(tree_config.as_bytes()))?)
             } else {
                 println!("Initializing RLN with default config");
                 Some(RLN::new(tree_height, Cursor::new(json!({}).to_string()))?)
@@ -56,16 +56,12 @@ fn main() -> Result<()> {
                 let fullpath = resources_path.join(Path::new(filename));
                 let mut file = File::open(&fullpath)?;
                 let metadata = std::fs::metadata(&fullpath)?;
-                let mut output_buffer = vec![0; metadata.len() as usize];
-                file.read_exact(&mut output_buffer)?;
-                resources.push(output_buffer);
+                let mut buffer = vec![0; metadata.len() as usize];
+                file.read_exact(&mut buffer)?;
+                resources.push(buffer);
             }
             let config = Config::load_config()?;
-            if let Some(InnerConfig {
-                tree_height,
-                tree_config,
-            }) = config.inner
-            {
+            if let Some(tree_config) = config.tree_config {
                 println!("Initializing RLN with custom config");
                 state.rln = Some(RLN::new_with_params(
                     tree_height,
