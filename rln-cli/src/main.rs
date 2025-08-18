@@ -39,7 +39,7 @@ fn main() -> Result<()> {
             let config = Config::load_config()?;
             state.rln = if let Some(tree_config) = config.tree_config {
                 println!("Initializing RLN with custom config");
-                Some(RLN::new(tree_height, Cursor::new(tree_config.as_bytes()))?)
+                Some(RLN::new(tree_depth, Cursor::new(tree_config.as_bytes()))?)
             } else {
                 println!("Initializing RLN with default config");
                 Some(RLN::new(tree_depth, Cursor::new(json!({}).to_string()))?)
