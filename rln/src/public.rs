@@ -28,7 +28,7 @@ use {
     crate::protocol::{proof_inputs_to_rln_witness, serialize_witness},
     crate::utils::{bytes_le_to_vec_u8, vec_fr_to_bytes_le, vec_u8_to_bytes_le},
     crate::{circuit::TEST_TREE_HEIGHT, poseidon_tree::PoseidonTree},
-    serde_json::{json, Value},
+    serde_json::json,
     std::str::FromStr,
     utils::error::ZerokitMerkleTreeError,
     utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
@@ -46,6 +46,39 @@ use std::io::Cursor;
 ///
 /// Prevents a RLN ZK proof generated for one application to be re-used in another one.
 pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
+
+/// Trait for inputs that can be converted to a tree configuration.
+/// This allows accepting both JSON/string and direct config structs.
+#[cfg(not(feature = "stateless"))]
+pub trait TreeConfigInput {
+    /// Convert the input to a tree configuration struct.
+    fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError>;
+}
+
+#[cfg(not(feature = "stateless"))]
+impl<R: Read> TreeConfigInput for R {
+    /// Convert the input reader into a tree configuration.
+    fn into_tree_config(mut self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError> {
+        let mut input_buffer: Vec<u8> = Vec::new();
+        self.read_to_end(&mut input_buffer)?;
+        let config_string = String::from_utf8(input_buffer)?;
+
+        if config_string.is_empty() {
+            Ok(<PoseidonTree as ZerokitMerkleTree>::Config::default())
+        } else {
+            Ok(<PoseidonTree as ZerokitMerkleTree>::Config::from_str(
+                &config_string,
+            )?)
+        }
+    }
+}
+
+#[cfg(not(feature = "stateless"))]
+impl TreeConfigInput for <PoseidonTree as ZerokitMerkleTree>::Config {
+    fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError> {
+        Ok(self)
+    }
+}
 
 /// The RLN object.
 ///
@@ -66,36 +99,24 @@ impl RLN {
     ///
     /// Input parameters are
     /// - `tree_height`: the height of the internal Merkle tree
-    /// - `input_data`: include `tree_config` a reader for a string containing a json with the merkle tree configuration
+    /// - `input_buffer`: a reader containing JSON configuration or a direct tree configuration struct
     ///
     /// Example:
     /// ```
     /// use std::io::Cursor;
     ///
     /// let tree_height = 20;
-    /// let input = Cursor::new(json!({}).to_string());
+    /// let input_buffer = Cursor::new(json!({}).to_string());
     ///
     /// // We create a new RLN instance
-    /// let mut rln = RLN::new(tree_height, input);
+    /// let mut rln = RLN::new(tree_height, input_buffer);
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
-    pub fn new<R: Read>(tree_height: usize, mut input_data: R) -> Result<RLN, RLNError> {
-        // We read input
-        let mut input: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut input)?;
-
-        let rln_config: Value = serde_json::from_str(&String::from_utf8(input)?)?;
-        let tree_config = rln_config["tree_config"].to_string();
-
+    pub fn new<T: TreeConfigInput>(tree_height: usize, input_buffer: T) -> Result<RLN, RLNError> {
         let proving_key = zkey_from_folder().to_owned();
         let verification_key = proving_key.0.vk.to_owned();
         let graph_data = graph_from_folder().to_owned();
-
-        let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = if tree_config.is_empty() {
-            <PoseidonTree as ZerokitMerkleTree>::Config::default()
-        } else {
-            <PoseidonTree as ZerokitMerkleTree>::Config::from_str(&tree_config)?
-        };
+        let tree_config = input_buffer.into_tree_config()?;
 
         // We compute a default empty tree
         let tree = PoseidonTree::new(
@@ -116,7 +137,6 @@ impl RLN {
     /// Creates a new stateless RLN object by loading circuit resources from a folder.
     ///
     /// Example:
-    ///
     /// ```
     /// // We create a new RLN instance
     /// let mut rln = RLN::new();
@@ -140,7 +160,7 @@ impl RLN {
     /// - `tree_height`: the height of the internal Merkle tree
     /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.arkzkey`) as binary file
     /// - `graph_data`: a byte vector containing the graph data (`graph.bin`) as binary file
-    /// - `tree_config_input`: a reader for a string containing a json with the merkle tree configuration
+    /// - `input_buffer`: a reader containing JSON configuration or a direct tree configuration struct
     ///
     /// Example:
     /// ```
@@ -161,34 +181,25 @@ impl RLN {
     /// }
     ///
     /// let tree_config = "".to_string();
-    /// let tree_config_buffer = &Buffer::from(tree_config.as_bytes());
+    /// let input_buffer = &Buffer::from(tree_config.as_bytes());
     ///
     /// let mut rln = RLN::new_with_params(
     ///     tree_height,
     ///     resources[0].clone(),
     ///     resources[1].clone(),
-    ///     tree_config_buffer,
+    ///     input_buffer,
     /// );
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
-    pub fn new_with_params<R: Read>(
+    pub fn new_with_params<T: TreeConfigInput>(
         tree_height: usize,
         zkey_vec: Vec<u8>,
         graph_data: Vec<u8>,
-        mut tree_config_input: R,
+        input_buffer: T,
     ) -> Result<RLN, RLNError> {
         let proving_key = zkey_from_raw(&zkey_vec)?;
         let verification_key = proving_key.0.vk.to_owned();
-
-        let mut tree_config_vec: Vec<u8> = Vec::new();
-        tree_config_input.read_to_end(&mut tree_config_vec)?;
-        let tree_config_str = String::from_utf8(tree_config_vec)?;
-        let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config = if tree_config_str.is_empty()
-        {
-            <PoseidonTree as ZerokitMerkleTree>::Config::default()
-        } else {
-            <PoseidonTree as ZerokitMerkleTree>::Config::from_str(&tree_config_str)?
-        };
+        let tree_config = input_buffer.into_tree_config()?;
 
         // We compute a default empty tree
         let tree = PoseidonTree::new(
