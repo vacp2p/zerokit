@@ -67,10 +67,9 @@ parallel = [
     "ark-groth16/parallel",
     "ark-serialize/parallel",
 ]
-fullmerkletree = []
-optimalmerkletree = []
-# Note: pmtree feature is still experimental
-pmtree-ft = ["utils/pmtree-ft"]
+fullmerkletree = [] # Pre-allocated tree, fastest access
+optimalmerkletree = [] # Sparse storage, memory efficient
+pmtree-ft = ["utils/pmtree-ft"] # Persistent storage, disk-based
 
 [[bench]]
 name = "pmtree_benchmark"

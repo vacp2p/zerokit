@@ -7,5 +7,5 @@
     "mode": "HighThroughput",
     "use_compression": false
   },
-  "tree_height": 20
+  "tree_depth": 20
 }
