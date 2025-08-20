@@ -173,14 +173,14 @@ fn test_groth16_proof() {
 mod tree_test {
     use crate::circuit::{Fr, TEST_TREE_DEPTH};
     use crate::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
-    use crate::pm_tree_adapter::{get_tmp_path, PmtreeConfig};
+    use crate::pm_tree_adapter::PmtreeConfig;
     use crate::protocol::*;
     use crate::public::{TreeConfigInput, RLN};
     use crate::utils::*;
     use ark_serialize::Read;
     use serde_json::json;
     use std::io::Cursor;
-    use utils::{Mode, ZerokitMerkleTree};
+    use utils::ZerokitMerkleTree;
 
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
@@ -1017,17 +1017,16 @@ mod tree_test {
         let rln_with_json_to_tree_config = RLN::new(TEST_TREE_DEPTH, json_to_tree_config.unwrap());
         assert!(rln_with_json_to_tree_config.is_ok());
 
-        let pmtree_config = PmtreeConfig::builder()
-            .path(get_tmp_path())
-            .temporary(false)
-            .cache_capacity(150_000)
-            .mode(Mode::HighThroughput)
-            .use_compression(false)
-            .build()
-            .unwrap();
+        let default_pmtree_config = PmtreeConfig::default();
+        let rln_with_default_tree_config = RLN::new(TEST_TREE_DEPTH, default_pmtree_config);
+        assert!(rln_with_default_tree_config.is_ok());
 
-        let rln_with_direct_tree_config = pmtree_config.into_tree_config();
-        assert!(rln_with_direct_tree_config.is_ok());
+        let custom_pmtree_config = PmtreeConfig::builder()
+            .temporary(true)
+            .use_compression(false)
+            .build();
+        let rln_with_custom_tree_config = RLN::new(TEST_TREE_DEPTH, custom_pmtree_config.unwrap());
+        assert!(rln_with_custom_tree_config.is_ok());
     }
 }
 

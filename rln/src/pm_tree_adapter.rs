@@ -2,6 +2,7 @@ use serde_json::Value;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::str::FromStr;
+use tempfile::Builder;
 
 use crate::circuit::Fr;
 use crate::hashers::{poseidon_hash, PoseidonHash};
@@ -50,34 +51,39 @@ impl Hasher for PoseidonHash {
     }
 }
 
-pub fn get_tmp_path() -> PathBuf {
-    std::env::temp_dir().join(format!("pmtree-{}", rand::random::<u64>()))
+fn default_tmp_path() -> PathBuf {
+    Builder::new()
+        .prefix("pmtree-")
+        .tempfile()
+        .expect("Failed to create temp file")
+        .into_temp_path()
+        .to_path_buf()
 }
 
-fn get_tmp() -> bool {
-    true
-}
-
-pub struct PmtreeConfig(Config);
+const DEFAULT_TEMPORARY: bool = true;
+const DEFAULT_CACHE_CAPACITY: u64 = 150_000;
+const DEFAULT_FLUSH_EVERY_MS: u64 = 12_000;
+const DEFAULT_MODE: Mode = Mode::HighThroughput;
+const DEFAULT_USE_COMPRESSION: bool = false;
 
 pub struct PmtreeConfigBuilder {
     path: Option<PathBuf>,
-    temporary: Option<bool>,
-    cache_capacity: Option<u64>,
-    flush_every_ms: Option<u64>,
-    mode: Option<Mode>,
-    use_compression: Option<bool>,
+    temporary: bool,
+    cache_capacity: u64,
+    flush_every_ms: u64,
+    mode: Mode,
+    use_compression: bool,
 }
 
 impl PmtreeConfigBuilder {
-    pub fn new() -> Self {
-        Self {
+    fn new() -> Self {
+        PmtreeConfigBuilder {
             path: None,
-            temporary: None,
-            cache_capacity: None,
-            flush_every_ms: None,
-            mode: None,
-            use_compression: None,
+            temporary: DEFAULT_TEMPORARY,
+            cache_capacity: DEFAULT_CACHE_CAPACITY,
+            flush_every_ms: DEFAULT_FLUSH_EVERY_MS,
+            mode: DEFAULT_MODE,
+            use_compression: DEFAULT_USE_COMPRESSION,
         }
     }
 
@@ -87,55 +93,51 @@ impl PmtreeConfigBuilder {
     }
 
     pub fn temporary(mut self, temporary: bool) -> Self {
-        self.temporary = Some(temporary);
+        self.temporary = temporary;
         self
     }
 
     pub fn cache_capacity(mut self, capacity: u64) -> Self {
-        self.cache_capacity = Some(capacity);
+        self.cache_capacity = capacity;
         self
     }
 
     pub fn flush_every_ms(mut self, ms: u64) -> Self {
-        self.flush_every_ms = Some(ms);
+        self.flush_every_ms = ms;
         self
     }
 
     pub fn mode(mut self, mode: Mode) -> Self {
-        self.mode = Some(mode);
+        self.mode = mode;
         self
     }
 
     pub fn use_compression(mut self, compression: bool) -> Self {
-        self.use_compression = Some(compression);
+        self.use_compression = compression;
         self
     }
 
     pub fn build(self) -> Result<PmtreeConfig, FromConfigError> {
-        let path = self.path.unwrap_or_else(get_tmp_path);
-        let temporary = self.temporary.unwrap_or_else(get_tmp);
-
-        if temporary && path.exists() {
-            return Err(FromConfigError::PathExists);
-        }
+        let path = match (self.temporary, self.path) {
+            (true, None) => default_tmp_path(),
+            (false, None) => return Err(FromConfigError::MissingPath),
+            (true, Some(path)) if path.exists() => return Err(FromConfigError::PathExists),
+            (_, Some(path)) => path,
+        };
 
         let config = Config::new()
-            .temporary(temporary)
+            .temporary(self.temporary)
             .path(path)
-            .cache_capacity(self.cache_capacity.unwrap_or(1024 * 1024 * 1024))
-            .flush_every_ms(self.flush_every_ms)
-            .mode(self.mode.unwrap_or(Mode::HighThroughput))
-            .use_compression(self.use_compression.unwrap_or(false));
+            .cache_capacity(self.cache_capacity)
+            .flush_every_ms(Some(self.flush_every_ms))
+            .mode(self.mode)
+            .use_compression(self.use_compression);
 
         Ok(PmtreeConfig(config))
     }
 }
 
-impl Default for PmtreeConfigBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+pub struct PmtreeConfig(Config);
 
 impl PmtreeConfig {
     pub fn builder() -> PmtreeConfigBuilder {
@@ -161,18 +163,16 @@ impl FromStr for PmtreeConfig {
         };
         let use_compression = config["use_compression"].as_bool();
 
-        if temporary.is_some()
-            && path.is_some()
-            && temporary.unwrap()
-            && path.as_ref().unwrap().exists()
-        {
-            return Err(FromConfigError::PathExists);
+        if let (Some(true), Some(path)) = (temporary, path.as_ref()) {
+            if path.exists() {
+                return Err(FromConfigError::PathExists);
+            }
         }
 
         let config = Config::new()
-            .temporary(temporary.unwrap_or(get_tmp()))
-            .path(path.unwrap_or(get_tmp_path()))
-            .cache_capacity(cache_capacity.unwrap_or(1024 * 1024 * 1024))
+            .temporary(temporary.unwrap_or(DEFAULT_TEMPORARY))
+            .path(path.unwrap_or(default_tmp_path()))
+            .cache_capacity(cache_capacity.unwrap_or(DEFAULT_CACHE_CAPACITY))
             .flush_every_ms(flush_every_ms)
             .mode(mode)
             .use_compression(use_compression.unwrap_or(false));
@@ -182,16 +182,9 @@ impl FromStr for PmtreeConfig {
 
 impl Default for PmtreeConfig {
     fn default() -> Self {
-        let tmp_path = get_tmp_path();
-        PmtreeConfig(
-            Config::new()
-                .temporary(true)
-                .path(tmp_path)
-                .cache_capacity(150_000)
-                .mode(Mode::HighThroughput)
-                .use_compression(false)
-                .flush_every_ms(Some(12_000)),
-        )
+        Self::builder()
+            .build()
+            .expect("Default configuration should never fail")
     }
 }
 impl Debug for PmtreeConfig {
@@ -487,7 +480,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_pmtree_config() {
+    fn test_pmtree_json_config() {
         let json = r#"
         {
             "path": "pmtree-123456",
@@ -501,11 +494,11 @@ mod tests {
         let _: PmtreeConfig = json.parse().expect("Failed to parse JSON config");
 
         let _ = PmtreeConfig::builder()
-            .path(get_tmp_path())
-            .temporary(false)
-            .cache_capacity(150_000)
-            .mode(Mode::HighThroughput)
-            .use_compression(false)
+            .path(default_tmp_path())
+            .temporary(DEFAULT_TEMPORARY)
+            .cache_capacity(DEFAULT_CACHE_CAPACITY)
+            .mode(DEFAULT_MODE)
+            .use_compression(DEFAULT_USE_COMPRESSION)
             .build()
             .expect("Failed to build config");
     }
