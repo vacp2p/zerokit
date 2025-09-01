@@ -61,8 +61,8 @@ fn default_tmp_path() -> PathBuf {
 }
 
 const DEFAULT_TEMPORARY: bool = true;
-const DEFAULT_CACHE_CAPACITY: u64 = 150_000;
-const DEFAULT_FLUSH_EVERY_MS: u64 = 12_000;
+const DEFAULT_CACHE_CAPACITY: u64 = 1073741824; // 1 Gigabyte
+const DEFAULT_FLUSH_EVERY_MS: u64 = 500; // 500 Milliseconds
 const DEFAULT_MODE: Mode = Mode::HighThroughput;
 const DEFAULT_USE_COMPRESSION: bool = false;
 
