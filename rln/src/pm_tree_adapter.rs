@@ -485,8 +485,8 @@ mod tests {
         {
             "path": "pmtree-123456",
             "temporary": false,
-            "cache_capacity": 150000,
-            "flush_every_ms": 12000,
+            "cache_capacity": 1073741824,
+            "flush_every_ms": 500,
             "mode": "HighThroughput",
             "use_compression": false
         }"#;
