@@ -24,6 +24,8 @@ name: Tests
 
 jobs:
   utils-test:
+    # skip tests on draft PRs
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
@@ -46,6 +48,8 @@ jobs:
         working-directory: ${{ matrix.crate }}
 
   rln-test:
+    # skip tests on draft PRs
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
@@ -73,6 +77,8 @@ jobs:
         working-directory: ${{ matrix.crate }}
 
   rln-wasm-test:
+    # skip tests on draft PRs
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
@@ -100,6 +106,8 @@ jobs:
         working-directory: ${{ matrix.crate }}
 
   rln-wasm-parallel-test:
+    # skip tests on draft PRs
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
@@ -127,6 +135,8 @@ jobs:
         working-directory: ${{ matrix.crate }}
 
   rln-wasm-utils-test:
+    # skip tests on draft PRs
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
@@ -147,6 +157,8 @@ jobs:
         working-directory: ${{ matrix.crate }}
 
   lint:
+    # run on both ready and draft PRs
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
     strategy:
       matrix:
         # we run lint tests only on ubuntu
@@ -177,8 +189,8 @@ jobs:
         working-directory: ${{ matrix.crate }}
 
   benchmark-utils:
-    # run only in pull requests
-    if: github.event_name == 'pull_request'
+    # run only on ready pull requests
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     strategy:
       matrix:
         # we run benchmark tests only on ubuntu
@@ -198,8 +210,8 @@ jobs:
           cwd: ${{ matrix.crate }}
 
   benchmark-rln:
-    # run only in pull requests
-    if: github.event_name == 'pull_request'
+    # run only on ready pull requests
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     strategy:
       matrix:
         # we run benchmark tests only on ubuntu
