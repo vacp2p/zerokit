@@ -21,7 +21,7 @@ on:
       - "!utils/src/**"
       - "!rln-wasm-utils/**"
 
-name: Tests
+name: CI
 
 jobs:
   utils-test:
@@ -168,7 +168,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
-    name: lint - ${{ matrix.crate }} - ${{ matrix.platform }}
+    name: Lint - ${{ matrix.crate }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -200,7 +200,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
-    name: benchmark - ${{ matrix.crate }} - ${{ matrix.platform }}
+    name: Benchmark - ${{ matrix.crate }} - ${{ matrix.platform }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -222,7 +222,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
-    name: benchmark - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
+    name: Benchmark - ${{ matrix.crate }} - ${{ matrix.platform }} - ${{ matrix.feature }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
