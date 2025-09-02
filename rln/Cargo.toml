@@ -45,6 +45,10 @@ zeroize = "1.8"
 tempfile = "3.21.0"
 utils = { package = "zerokit_utils", version = "0.7.0", path = "../utils", default-features = false }
 
+# FFI
+safer-ffi.version = "0.1"
+safer-ffi.features = [] # you may add some later on.
+
 # serialization
 prost = "0.14.1"
 serde_json = "1.0.141"
