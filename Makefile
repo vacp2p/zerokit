@@ -13,7 +13,7 @@ endif
 
 installdeps: .pre-build
 ifeq ($(shell uname),Darwin)
-	@brew install cmake ninja binaryen
+	@brew install ninja binaryen
 else ifeq ($(shell uname),Linux)
 	@if [ -f /etc/os-release ] && grep -q "ID=nixos" /etc/os-release; then \
 		echo "Detected NixOS, skipping apt-get installation."; \
