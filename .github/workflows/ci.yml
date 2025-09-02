@@ -11,6 +11,7 @@ on:
       - "!utils/src/**"
       - "!rln-wasm-utils/**"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore:
       - "**.md"
       - "!.github/workflows/*.yml"
