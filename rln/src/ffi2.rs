@@ -12,7 +12,7 @@ use safer_ffi::{
     },
 };
 // internal
-use crate::protocol::{keygen, seeded_keygen};
+use crate::protocol::{extended_keygen, extended_seeded_keygen, keygen, seeded_keygen};
 
 #[derive_ReprC]
 #[repr(opaque)]
@@ -55,20 +55,65 @@ fn vec_cfr_free(v: repr_c::Vec<CFr>) {
 
 // End Vec<CFr>
 
+/// Generate an identity which is composed of an identity secret and identity commitment.
+/// The identity secret is a random field element.
+/// The identity commitment is the Poseidon hash of the identity secret.
 #[ffi_export]
 pub fn ffi2_key_gen() -> repr_c::Vec<CFr> {
     let (identity_secret_hash, id_commitment) = keygen();
     vec![CFr(identity_secret_hash.deref().clone()), CFr(id_commitment)].into()
 }
 
+/// Generate an identity which is composed of an identity trapdoor, nullifier, secret and commitment.
+/// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
+/// The identity commitment is the Poseidon hash of the identity secret.
+///
+/// Generated credentials are compatible with
+/// [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
+///
 #[ffi_export]
+pub fn ffi2_extended_key_gen() -> repr_c::Vec<CFr> {
+    let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
+        extended_keygen();
+    vec![
+        CFr(identity_trapdoor),
+        CFr(identity_nullifier),
+        CFr(identity_secret_hash),
+        CFr(id_commitment)
+    ].into()
+}
+
 /// Generate an identity which is composed of an identity secret and identity commitment using a seed.
 /// The identity secret is a random field element,
 /// where RNG is instantiated using 20 rounds of ChaCha seeded with the hash of the input.
 /// The identity commitment is the Poseidon hash of the identity secret.
+#[ffi_export]
 pub fn ffi2_seeded_key_gen(seed: c_slice::Ref<'_, u8>) -> repr_c::Vec<CFr> {
     let (identity_secret_hash, id_commitment) = seeded_keygen(&seed);
     vec![CFr(identity_secret_hash), CFr(id_commitment)].into()
 }
+
+/// Generate an identity which is composed of an identity trapdoor, nullifier, secret and commitment using a seed.
+/// The identity trapdoor and nullifier are random field elements,
+///   where RNG is instantiated using 20 rounds of ChaCha seeded with the hash of the input.
+/// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
+/// The identity commitment is the Poseidon hash of the identity secret.
+///
+/// Generated credentials are compatible with
+/// [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
+///
+#[ffi_export]
+pub fn ffi2_seeded_extended_key_gen(seed: c_slice::Ref<'_, u8>) -> repr_c::Vec<CFr> {
+    let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
+        extended_seeded_keygen(&seed);
+    vec![
+        CFr(identity_trapdoor),
+        CFr(identity_nullifier),
+        CFr(identity_secret_hash),
+        CFr(id_commitment)
+    ].into()
+}
+
+
 
 
