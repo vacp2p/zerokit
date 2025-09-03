@@ -191,6 +191,8 @@ pub struct FFI2_RLNWitnessInput {
 }
 
 // RLNProofValues
+
+/*
 #[derive_ReprC]
 #[repr(C)]
 #[derive(Debug)]
@@ -201,6 +203,7 @@ pub struct FFI2_RLNProofValues {
     pub x: repr_c::Box<CFr>,
     pub external_nullifier: repr_c::Box<CFr>,
 }
+*/
 
 /*
 impl From<RLNProofValues> for FFI2_RLNProofValues {
@@ -224,13 +227,15 @@ fn ffi2_rln_proof_free(rln: Option<repr_c::Box<FFI2_RLNProof>>) {
 
 // Merkle tree functions
 
+#[ffi_export]
+pub fn ffi2_set_next_leaf(rln: &mut repr_c::Box<FFI2_RLN>, value: repr_c::Box<CFr>) {
+    rln.tree.update_next(value.0).unwrap()
+}
+
 // ZK functions
 
 #[ffi_export]
-pub fn ffi2_generate_rln_proof(rln: &repr_c::Box<FFI2_RLN>, witness_input: repr_c::Box<FFI2_RLNWitnessInput>) -> Option<repr_c::Box<FFI2_RLNProof>> {
-
-    // FIXME
-    let mut id_s = Fr::from(0);
+pub fn ffi2_generate_rln_proof(rln: &repr_c::Box<FFI2_RLN>, witness_input: &mut repr_c::Box<FFI2_RLNWitnessInput>) -> Option<repr_c::Box<FFI2_RLNProof>> {
 
     let witness_input_ = {
         let merkle_proof = rln.tree.proof(witness_input.tree_index as usize).expect("proof should exist");
@@ -240,7 +245,7 @@ pub fn ffi2_generate_rln_proof(rln: &repr_c::Box<FFI2_RLN>, witness_input: repr_
         let x = hash_to_field_le(&witness_input.signal);
 
         RLNWitnessInput {
-            identity_secret: IdSecret::from(&mut id_s),
+            identity_secret: IdSecret::from(&mut witness_input.identity_secret.0),
             user_message_limit: witness_input.user_message_limit.0,
             message_id: witness_input.message_id.0,
             path_elements,
