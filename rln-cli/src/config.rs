@@ -6,15 +6,9 @@ use serde_json::Value;
 
 pub const RLN_CONFIG_PATH: &str = "RLN_CONFIG_PATH";
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub(crate) struct Config {
-    pub inner: Option<InnerConfig>,
-}
-
-#[derive(Default, Serialize, Deserialize)]
-pub(crate) struct InnerConfig {
-    pub tree_depth: usize,
-    pub tree_config: Value,
+    pub tree_config: Option<String>,
 }
 
 impl Config {
@@ -25,14 +19,13 @@ impl Config {
                 let mut file = File::open(path)?;
                 let mut contents = String::new();
                 file.read_to_string(&mut contents)?;
-                let inner: InnerConfig = serde_json::from_str(&contents)?;
-                Ok(Config { inner: Some(inner) })
+                let tree_config: Value = serde_json::from_str(&contents)?;
+                println!("Initializing RLN with custom config");
+                Ok(Config {
+                    tree_config: Some(tree_config.to_string()),
+                })
             }
-            Err(_) => Ok(Config::default()),
+            Err(_) => Ok(Config { tree_config: None }),
         }
-    }
-
-    pub(crate) fn as_bytes(&self) -> Vec<u8> {
-        serde_json::to_string(&self.inner).unwrap().into_bytes()
     }
 }

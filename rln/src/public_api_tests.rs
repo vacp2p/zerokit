@@ -173,10 +173,12 @@ fn test_groth16_proof() {
 mod tree_test {
     use crate::circuit::{Fr, TEST_TREE_DEPTH};
     use crate::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
+    use crate::pm_tree_adapter::PmtreeConfig;
     use crate::protocol::*;
-    use crate::public::RLN;
+    use crate::public::{TreeConfigInput, RLN};
     use crate::utils::*;
     use ark_serialize::Read;
+    use serde_json::json;
     use std::io::Cursor;
     use utils::ZerokitMerkleTree;
 
@@ -988,6 +990,43 @@ mod tree_test {
             recovered_identity_secret_hash_new,
             *identity_secret_hash_new
         );
+    }
+
+    #[test]
+    fn test_tree_config_input_trait() {
+        let empty_json_input = generate_input_buffer();
+        let rln_with_empty_json_config = RLN::new(TEST_TREE_DEPTH, empty_json_input);
+        assert!(rln_with_empty_json_config.is_ok());
+
+        let json_config = json!({
+            "tree_config": {
+                "path": "pmtree-123456",
+                "temporary": false,
+                "cache_capacity": 1073741824,
+                "flush_every_ms": 500,
+                "mode": "HighThroughput",
+                "use_compression": false
+            }
+        });
+        let json_input = Cursor::new(json_config.to_string());
+        let rln_with_json_config = RLN::new(TEST_TREE_DEPTH, json_input.clone());
+        assert!(rln_with_json_config.is_ok());
+
+        let json_to_tree_config = json_input.into_tree_config();
+        assert!(json_to_tree_config.is_ok());
+        let rln_with_json_to_tree_config = RLN::new(TEST_TREE_DEPTH, json_to_tree_config.unwrap());
+        assert!(rln_with_json_to_tree_config.is_ok());
+
+        let default_pmtree_config = PmtreeConfig::default();
+        let rln_with_default_tree_config = RLN::new(TEST_TREE_DEPTH, default_pmtree_config);
+        assert!(rln_with_default_tree_config.is_ok());
+
+        let custom_pmtree_config = PmtreeConfig::builder()
+            .temporary(true)
+            .use_compression(false)
+            .build();
+        let rln_with_custom_tree_config = RLN::new(TEST_TREE_DEPTH, custom_pmtree_config.unwrap());
+        assert!(rln_with_custom_tree_config.is_ok());
     }
 }
 

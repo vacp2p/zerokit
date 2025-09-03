@@ -296,7 +296,7 @@ where
         *self
             .nodes
             .get(&(depth, index))
-            .unwrap_or_else(|| &self.cached_nodes[depth])
+            .unwrap_or(&self.cached_nodes[depth])
     }
 
     /// Computes the hash of a node’s two children at the given depth.

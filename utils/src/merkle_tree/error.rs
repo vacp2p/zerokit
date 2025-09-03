@@ -26,6 +26,8 @@ pub enum ZerokitMerkleTreeError {
 pub enum FromConfigError {
     #[error("Error while reading pmtree config: {0}")]
     JsonError(#[from] serde_json::Error),
+    #[error("Error while creating pmtree config: missing path")]
+    MissingPath,
     #[error("Error while creating pmtree config: path already exists")]
     PathExists,
 }
