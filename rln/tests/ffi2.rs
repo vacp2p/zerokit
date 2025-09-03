@@ -8,13 +8,12 @@ mod test {
     use safer_ffi::boxed::Box_;
     // internal
     use rln::circuit::{Fr, TEST_TREE_DEPTH};
-    use rln::ffi2::{ffi2_generate_rln_proof, ffi2_key_gen, ffi2_rln_try_new, ffi2_verify_rln_proof, CFr, FFI2_RLNWitnessInput};
+    use rln::ffi2::{ffi2_generate_rln_proof, ffi2_key_gen, ffi2_rln_try_new, ffi2_set_next_leaf, ffi2_verify_rln_proof, CFr, FFI2_RLNWitnessInput};
+    use rln::ffi::set_next_leaf;
     use rln::hashers::{
         hash_to_field_le,
         poseidon_hash as utils_poseidon_hash,
     };
-
-    const NO_OF_LEAVES: usize = 256;
 
     #[test]
     // Computes and verifies an RLN ZK proof using FFI APIs
@@ -22,13 +21,11 @@ mod test {
 
         let user_message_limit = Fr::from(100);
 
-        let rln = ffi2_rln_try_new(TEST_TREE_DEPTH).unwrap();
 
         // We generate a new identity pair
         let key_gen = ffi2_key_gen();
         let id_secret_hash = &key_gen[0];
         let id_commitment = &key_gen[1];
-        let identity_index: usize = NO_OF_LEAVES;
 
         // We generate a random signal
         let mut rng = rand::thread_rng();
@@ -45,7 +42,14 @@ mod test {
 
         let rate_commitment = utils_poseidon_hash(&[*id_commitment.deref(), user_message_limit]);
 
-        let witness_input = Box_::new(FFI2_RLNWitnessInput {
+        // Create RLN & update its tree
+        let mut rln = ffi2_rln_try_new(TEST_TREE_DEPTH).unwrap();
+        ffi2_set_next_leaf(&mut rln, CFr::from(rate_commitment).into());
+        // set_next_leaf has just updated the tree index 0
+        let identity_index: usize = 0;
+        //
+
+        let mut witness_input = Box_::new(FFI2_RLNWitnessInput {
             identity_secret: id_secret_hash.into(),
             user_message_limit: CFr::from(user_message_limit).into(),
             message_id: CFr::from(message_id).into(),
@@ -53,7 +57,7 @@ mod test {
             tree_index: identity_index as u64,
             signal: signal.to_vec().into_boxed_slice().into(),
         });
-        let rln_proof = ffi2_generate_rln_proof(&rln, witness_input).unwrap();
+        let rln_proof = ffi2_generate_rln_proof(&rln, &mut witness_input).unwrap();
 
         let success = ffi2_verify_rln_proof(&rln, rln_proof, signal.as_slice().into());
         assert!(success);
