@@ -10,7 +10,6 @@ use safer_ffi::{
     prelude::{
         c_slice,
         repr_c,
-        // Out
     },
 };
 use utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
@@ -18,7 +17,7 @@ use crate::circuit::{graph_from_folder, zkey_from_folder, Curve};
 use crate::hashers::hash_to_field_le;
 use crate::poseidon_tree::PoseidonTree;
 // internal
-use crate::protocol::{extended_keygen, extended_seeded_keygen, generate_proof, keygen, proof_values_from_witness, seeded_keygen, RLNProofValues, RLNWitnessInput};
+use crate::protocol::{extended_keygen, extended_seeded_keygen, generate_proof, keygen, proof_values_from_witness, seeded_keygen, verify_proof, RLNProofValues, RLNWitnessInput};
 use crate::utils::IdSecret;
 
 #[derive_ReprC]
@@ -35,6 +34,31 @@ impl Default for CFr {
 impl PartialEq<Fr> for CFr {
     fn eq(&self, other: &Fr) -> bool {
         self.0 == *other
+    }
+}
+
+impl Deref for CFr {
+    type Target = Fr;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<&CFr> for repr_c::Box<CFr> {
+    fn from(cfr: &CFr) -> Self {
+        Box_::new(CFr(cfr.0))
+    }
+}
+
+impl From<Fr> for CFr {
+    fn from(fr: Fr) -> Self {
+        Self(fr)
+    }
+}
+
+impl From<CFr> for repr_c::Box<CFr> {
+    fn from(cfr: CFr) -> Self {
+        Box_::new(cfr)
     }
 }
 
@@ -81,7 +105,7 @@ pub struct FFI2_RLN {
 // RLN functions
 
 #[ffi_export]
-fn ffi2_rln_try_new(tree_depth: usize) -> Option<repr_c::Box<FFI2_RLN>> {
+pub fn ffi2_rln_try_new(tree_depth: usize) -> Option<repr_c::Box<FFI2_RLN>> {
 
     // TODO: return an Option but would be nice if it can return a Result
     // TODO: tree config
@@ -118,6 +142,7 @@ fn ffi2_rln_free(rln: Option<repr_c::Box<FFI2_RLN>>) {
     drop(rln);
 }
 
+/*
 #[ffi_export]
 fn ffi_init_witness_input<'a>(rln: &FFI2_RLN,
                               tree_index: usize,
@@ -150,31 +175,19 @@ fn ffi_init_witness_input<'a>(rln: &FFI2_RLN,
 
     Some(Box_::new(witness))
 }
+*/
 
 // RLNWitnessInput
 
 #[derive_ReprC]
 #[repr(C)]
 pub struct FFI2_RLNWitnessInput {
-    identity_secret: repr_c::Box<CFr>,
-    user_message_limit: repr_c::Box<CFr>,
-    message_id: repr_c::Box<CFr>,
-    path_elements: repr_c::Vec<CFr>,
-    identity_path_index: repr_c::Box<[u8]>,
-    x: repr_c::Box<CFr>,
-    external_nullifier: repr_c::Box<CFr>,
-}
-
-impl From<RLNWitnessInput> for FFI2_RLNWitnessInput {
-    fn from(value: RLNWitnessInput) -> Self {
-        todo!()
-    }
-}
-
-impl From<&FFI2_RLNWitnessInput> for RLNWitnessInput {
-    fn from(value: &FFI2_RLNWitnessInput) -> Self {
-        todo!()
-    }
+    pub identity_secret: repr_c::Box<CFr>,
+    pub user_message_limit: repr_c::Box<CFr>,
+    pub message_id: repr_c::Box<CFr>,
+    pub external_nullifier: repr_c::Box<CFr>,
+    pub tree_index: u64,
+    pub signal: repr_c::Box<[u8]>
 }
 
 // RLNProofValues
@@ -189,11 +202,13 @@ pub struct FFI2_RLNProofValues {
     pub external_nullifier: repr_c::Box<CFr>,
 }
 
+/*
 impl From<RLNProofValues> for FFI2_RLNProofValues {
     fn from(value: RLNProofValues) -> Self {
         todo!()
     }
 }
+*/
 
 #[derive_ReprC]
 #[repr(opaque)]
@@ -211,35 +226,47 @@ fn ffi2_rln_proof_free(rln: Option<repr_c::Box<FFI2_RLNProof>>) {
 
 // ZK functions
 
-pub fn generate_rln_proof(rln: &FFI2_RLN, witness_input: &FFI2_RLNWitnessInput) -> Option<repr_c::Box<FFI2_RLNProof>> {
+#[ffi_export]
+pub fn ffi2_generate_rln_proof(rln: &repr_c::Box<FFI2_RLN>, witness_input: repr_c::Box<FFI2_RLNWitnessInput>) -> Option<repr_c::Box<FFI2_RLNProof>> {
 
+    // FIXME
     let mut id_s = Fr::from(0);
 
-    // TODO: Do we need to define FFI2_RLNWitnessInput? Maybe just ask for ffi_init_witness_input arguments
-    let witness_input_ = RLNWitnessInput::from(witness_input);
-    /*
-    let witness_input_ = RLNWitnessInput {
-        identity_secret: IdSecret::from(&mut id_s), // FIXME
-        user_message_limit: witness_input.user_message_limit.0,
-        message_id: witness_input.message_id.0,
-        path_elements: Vec<Fr>,
-        identity_path_index: Vec<u8>,
-        x: witness_input.x.0,
-        external_nullifier: witness_input.external_nullifier.0,
+    let witness_input_ = {
+        let merkle_proof = rln.tree.proof(witness_input.tree_index as usize).expect("proof should exist");
+        let path_elements = merkle_proof.get_path_elements();
+        let identity_path_index = merkle_proof.get_path_index();
+
+        let x = hash_to_field_le(&witness_input.signal);
+
+        RLNWitnessInput {
+            identity_secret: IdSecret::from(&mut id_s),
+            user_message_limit: witness_input.user_message_limit.0,
+            message_id: witness_input.message_id.0,
+            path_elements,
+            identity_path_index,
+            x,
+            external_nullifier: witness_input.external_nullifier.0,
+        }
     };
-    */
+
     let proof_values = proof_values_from_witness(&witness_input_).unwrap();
     let proof = generate_proof(&rln.proving_key, &witness_input_, &rln.graph_data).unwrap();
 
-    // TODO: Do we need to define FFI2_RLNProofValues? Use opaque type here?
-    // let proof_values_: FFI2_RLNProofValues = proof_values.into();
-
-    // TODO: return proof as well
     let res = FFI2_RLNProof {
         proof_values,
         proof,
     };
     Some(Box_::new(res))
+}
+
+#[ffi_export]
+pub fn ffi2_verify_rln_proof(rln: &repr_c::Box<FFI2_RLN>, proof: repr_c::Box<FFI2_RLNProof>, signal: c_slice::Ref<'_, u8>) -> bool {
+    let verified = verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values).unwrap();
+    let x = hash_to_field_le(&signal);
+    // TODO: should this check be in verify_proof?
+    // Consistency checks to counter proof tampering
+    verified && (rln.tree.root() == proof.proof_values.root) && (x == proof.proof_values.x)
 }
 
 // Hash functions
