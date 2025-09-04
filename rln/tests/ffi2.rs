@@ -8,7 +8,7 @@ mod test {
     use safer_ffi::boxed::Box_;
     // internal
     use rln::circuit::{Fr, TEST_TREE_DEPTH};
-    use rln::ffi2::{ffi2_generate_rln_proof, ffi2_key_gen, ffi2_rln_try_new, ffi2_set_next_leaf, ffi2_verify_rln_proof, CFr, FFI2_RLNWitnessInput};
+    use rln::ffi2::{ffi2_generate_rln_proof, ffi2_key_gen, ffi2_rln_try_new, ffi2_set_next_leaf, ffi2_verify_rln_proof, CFr, CResult, FFI2_RLNProof, FFI2_RLNWitnessInput};
     use rln::ffi::set_next_leaf;
     use rln::hashers::{
         hash_to_field_le,
@@ -57,7 +57,15 @@ mod test {
             tree_index: identity_index as u64,
             signal: signal.to_vec().into_boxed_slice().into(),
         });
-        let rln_proof = ffi2_generate_rln_proof(&rln, &mut witness_input).unwrap();
+
+        // FIXME
+        // let rln_proof = if let Some(rln_proof) = ffi2_generate_rln_proof(&rln, &mut witness_input);
+
+        let rln_proof = match ffi2_generate_rln_proof(&rln, &mut witness_input) {
+            CResult { ok: Some(rln_proof), err: None } => rln_proof,
+            CResult { ok: None, err: Some(err) } => panic!("Error: {err}"),
+            _ => unreachable!(),
+        };
 
         let success = ffi2_verify_rln_proof(&rln, rln_proof, signal.as_slice().into());
         assert!(success);
