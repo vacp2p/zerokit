@@ -37,18 +37,18 @@ use zeroize::Zeroize;
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct RLNWitnessInput {
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    identity_secret: IdSecret,
+    pub identity_secret: IdSecret,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    user_message_limit: Fr,
+    pub user_message_limit: Fr,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    message_id: Fr,
+    pub message_id: Fr,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    path_elements: Vec<Fr>,
-    identity_path_index: Vec<u8>,
+    pub path_elements: Vec<Fr>,
+    pub identity_path_index: Vec<u8>,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    x: Fr,
+    pub x: Fr,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    external_nullifier: Fr,
+    pub external_nullifier: Fr,
 }
 
 #[derive(Debug, PartialEq)]
