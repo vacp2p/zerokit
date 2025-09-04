@@ -1,6 +1,8 @@
+#![allow(non_camel_case_types)]
+
 use std::ops::Deref;
 use ark_bn254::Fr;
-use ark_groth16::{Proof, ProvingKey, VerifyingKey};
+use ark_groth16::{Proof, ProvingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use num_traits::Zero;
 use safer_ffi::{
@@ -12,6 +14,7 @@ use safer_ffi::{
         repr_c,
     },
 };
+use safer_ffi::prelude::ReprC;
 use utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
 use crate::circuit::{graph_from_folder, zkey_from_folder, Curve};
 use crate::hashers::hash_to_field_le;
@@ -19,6 +22,17 @@ use crate::poseidon_tree::PoseidonTree;
 // internal
 use crate::protocol::{extended_keygen, extended_seeded_keygen, generate_proof, keygen, proof_values_from_witness, seeded_keygen, verify_proof, RLNProofValues, RLNWitnessInput};
 use crate::utils::IdSecret;
+
+// safer_ffi Result
+
+#[derive_ReprC]
+#[repr(C)]
+pub struct CResult<T : ReprC, Err: ReprC> {
+    pub ok: Option<T>,
+    pub err: Option<Err>,
+}
+
+// Fr wrapper
 
 #[derive_ReprC]
 #[repr(opaque)]
@@ -60,6 +74,11 @@ impl From<CFr> for repr_c::Box<CFr> {
     fn from(cfr: CFr) -> Self {
         Box_::new(cfr)
     }
+}
+
+#[ffi_export]
+fn cfr_zero<'a>() -> repr_c::Box<CFr> {
+    Box_::new(CFr::default())
 }
 
 #[ffi_export]
@@ -235,7 +254,7 @@ pub fn ffi2_set_next_leaf(rln: &mut repr_c::Box<FFI2_RLN>, value: repr_c::Box<CF
 // ZK functions
 
 #[ffi_export]
-pub fn ffi2_generate_rln_proof(rln: &repr_c::Box<FFI2_RLN>, witness_input: &mut repr_c::Box<FFI2_RLNWitnessInput>) -> Option<repr_c::Box<FFI2_RLNProof>> {
+pub fn ffi2_generate_rln_proof(rln: &repr_c::Box<FFI2_RLN>, witness_input: &mut repr_c::Box<FFI2_RLNWitnessInput>) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
 
     let witness_input_ = {
         let merkle_proof = rln.tree.proof(witness_input.tree_index as usize).expect("proof should exist");
@@ -256,13 +275,27 @@ pub fn ffi2_generate_rln_proof(rln: &repr_c::Box<FFI2_RLN>, witness_input: &mut 
     };
 
     let proof_values = proof_values_from_witness(&witness_input_).unwrap();
-    let proof = generate_proof(&rln.proving_key, &witness_input_, &rln.graph_data).unwrap();
+    let proof = match generate_proof(&rln.proving_key, &witness_input_, &rln.graph_data) {
+        Ok(proof) => proof,
+        Err(e) => {
+            return CResult {
+                ok: None,
+                err: Some(e.to_string().into())
+            };
+        }
+    };
+
+    //    .map_err(|err| CString::new(format!("Error: {err}")).unwrap())?;
 
     let res = FFI2_RLNProof {
         proof_values,
         proof,
     };
-    Some(Box_::new(res))
+
+    CResult {
+        ok: Some(Box_::new(res)),
+        err: None
+    }
 }
 
 #[ffi_export]
@@ -339,6 +372,14 @@ pub fn ffi2_seeded_extended_key_gen(seed: c_slice::Ref<'_, u8>) -> repr_c::Vec<C
     ].into()
 }
 
+// headers
 
+// The following function is only necessary for the header generation.
+#[cfg(feature = "headers")] // c.f. the `Cargo.toml` section
+pub fn generate_headers() -> ::std::io::Result<()> {
+    ::safer_ffi::headers::builder()
+        .to_file("rln.h")?
+        .generate()
+}
 
 
