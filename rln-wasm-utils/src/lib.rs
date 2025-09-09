@@ -7,6 +7,8 @@ use rln::public::{
 use std::vec::Vec;
 use wasm_bindgen::prelude::*;
 
+pub mod ffi2;
+
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[wasm_bindgen(js_name = generateMembershipKey)]
 pub fn wasm_key_gen(is_little_endian: bool) -> Result<Uint8Array, String> {
