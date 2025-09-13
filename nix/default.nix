@@ -34,6 +34,8 @@ in rustPlatform.buildRustPackage {
     allowBuiltinFetchGit = true;
   };
 
+  nativeBuildInputs = [ pkgs.rust-cbindgen ];
+
   doCheck = false;
 
   CARGO_HOME = "/tmp";
@@ -47,11 +49,11 @@ in rustPlatform.buildRustPackage {
   '';
 
   installPhase = ''
-    mkdir -p $out/
-    for file in $(find target -name 'librln.*' | grep -v deps/); do
-      mkdir -p $out/$(dirname $file)
-      cp -r $file $out/$file
-    done
+    set -eu
+    mkdir -p $out/lib
+    find target -type f -name 'librln.*' -not -path '*/deps/*' -exec cp -v '{}' "$out/lib/" \;
+    mkdir -p $out/include
+    cbindgen ${src}/rln -l c > "$out/include/rln.h"
   '';
 
 
