@@ -6,6 +6,7 @@
   release ? true,
   target-platform ? null,
   rust-target ? null,
+  features ? null,
 }:
 
 let
@@ -29,7 +30,7 @@ in rustPlatform.buildRustPackage {
   src = builtins.path { path = src; name = "zerokit"; };
 
   cargoLock = {
-    lockFile = ../Cargo.lock;
+    lockFile = src + "/Cargo.lock";
     allowBuiltinFetchGit = true;
   };
 
