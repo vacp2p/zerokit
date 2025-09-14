@@ -73,7 +73,7 @@ impl<R: Read> TreeConfigInput for R {
     }
 }
 
-#[cfg(not(feature = "stateless"))]
+#[cfg(feature = "pmtree-ft")]
 impl TreeConfigInput for <PoseidonTree as ZerokitMerkleTree>::Config {
     fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError> {
         Ok(self)
