@@ -24,7 +24,7 @@ console_error_panic_hook = { version = "0.1.7", optional = true }
 getrandom = { version = "0.2.16", features = ["js"] }
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.37"
+wasm-bindgen-test = "0.3.50"
 web-sys = { version = "0.3.77", features = ["console"] }
 ark-std = { version = "0.5.0", default-features = false }
 
