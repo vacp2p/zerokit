@@ -22,7 +22,6 @@ else ifeq ($(shell uname),Linux)
 	fi
 endif
 	@which wasm-pack > /dev/null && wasm-pack --version | grep -q "0.13.1" || cargo install wasm-pack --version=0.13.1
-	@which wasm-bindgen > /dev/null && wasm-bindgen --version | grep -q "0.2.100" || cargo install wasm-bindgen-cli --version=0.2.100
 	@test -s "$$HOME/.nvm/nvm.sh" || curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash
 	@bash -c '. "$$HOME/.nvm/nvm.sh"; [ "$$(node -v 2>/dev/null)" = "v22.14.0" ] || nvm install 22.14.0; nvm use 22.14.0; nvm alias default 22.14.0'
 

@@ -91,7 +91,7 @@ enabling multi-threaded execution in the browser.
 
 > [!NOTE]
 > Parallel support is not enabled by default due to WebAssembly and browser limitations. \
-> Compiling this feature requires `nightly` Rust and the `wasm-bindgen-cli` tool.
+> Compiling this feature requires `nightly` Rust.
 
 ### Build Setup
 
@@ -99,12 +99,6 @@ enabling multi-threaded execution in the browser.
 
 ```bash
 rustup install nightly
-```
-
-#### Install `wasm-bindgen-cli`
-
-```bash
-cargo install wasm-bindgen-cli --version=0.2.100
 ```
 
 ### Build Commands
