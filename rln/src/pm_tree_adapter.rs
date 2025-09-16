@@ -1,5 +1,3 @@
-#![cfg(feature = "pmtree-ft")]
-
 use serde_json::Value;
 use std::fmt::Debug;
 use std::path::PathBuf;
