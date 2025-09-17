@@ -4,12 +4,7 @@ dependencies = ["pack_build", "pack_rename", "pack_resize"]
 
 [tasks.build_parallel]
 clear = true
-dependencies = [
-    "pack_build_parallel",
-    "post_build_parallel",
-    "pack_rename",
-    "pack_resize",
-]
+dependencies = ["pack_build_parallel", "pack_rename", "pack_resize"]
 
 [tasks.pack_build]
 command = "wasm-pack"
@@ -34,12 +29,6 @@ args = [
     "-Z",
     "build-std=panic_abort,std",
 ]
-
-[tasks.post_build_parallel]
-script = '''
-wasm-bindgen --target web --split-linked-modules --out-dir ./pkg ./target/wasm32-unknown-unknown/release/rln_wasm.wasm
-'''
-
 [tasks.pack_rename]
 script = "sed -i.bak 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json && rm pkg/package.json.bak"
 
