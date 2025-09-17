@@ -31,7 +31,7 @@
         buildPackage = pkgs.callPackage ./nix/default.nix;
         buildRln = (buildPackage { src = self; project = "rln"; }).override;
       in rec {
-        rln = buildRln
+        rln = buildRln { };
 
         rln-linux-arm64 = buildRln {
           target-platform = "aarch64-multiplatform";

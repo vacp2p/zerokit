@@ -6,6 +6,7 @@
   release ? true,
   target-platform ? null,
   rust-target ? null,
+  features ? null,
 }:
 
 let
@@ -29,9 +30,11 @@ in rustPlatform.buildRustPackage {
   src = builtins.path { path = src; name = "zerokit"; };
 
   cargoLock = {
-    lockFile = ../Cargo.lock;
+    lockFile = src + "/Cargo.lock";
     allowBuiltinFetchGit = true;
   };
+
+  nativeBuildInputs = [ pkgs.rust-cbindgen ];
 
   doCheck = false;
 
@@ -46,11 +49,11 @@ in rustPlatform.buildRustPackage {
   '';
 
   installPhase = ''
-    mkdir -p $out/
-    for file in $(find target -name 'librln.*' | grep -v deps/); do
-      mkdir -p $out/$(dirname $file)
-      cp -r $file $out/$file
-    done
+    set -eu
+    mkdir -p $out/lib
+    find target -type f -name 'librln.*' -not -path '*/deps/*' -exec cp -v '{}' "$out/lib/" \;
+    mkdir -p $out/include
+    cbindgen ${src}/rln -l c > "$out/include/rln.h"
   '';
 
 
