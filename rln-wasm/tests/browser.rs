@@ -75,9 +75,9 @@ mod tests {
     const WITNESS_CALCULATOR_JS: &str = include_str!("../resources/witness_calculator.js");
 
     const ARKZKEY_BYTES: &[u8] =
-        include_bytes!("../../rln/resources/tree_depth_30/rln_final.arkzkey");
+        include_bytes!("../../rln/resources/tree_depth_10/rln_final.arkzkey");
 
-    const CIRCOM_BYTES: &[u8] = include_bytes!("../../rln/resources/tree_depth_30/rln.wasm");
+    const CIRCOM_BYTES: &[u8] = include_bytes!("../../rln/resources/tree_depth_10/rln.wasm");
 
     wasm_bindgen_test_configure!(run_in_browser);
 

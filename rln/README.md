@@ -55,7 +55,7 @@ fn main() {
     // 1. Initialize RLN with parameters:
     // - the tree depth;
     // - the tree config, if it is not defined, the default value will be set
-    let tree_depth = 30;
+    let tree_depth = 10;
     let input = Cursor::new(json!({}).to_string());
     let mut rln = RLN::new(tree_depth, input).unwrap();
 
