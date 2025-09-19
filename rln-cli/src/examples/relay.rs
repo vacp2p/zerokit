@@ -17,7 +17,7 @@ use rln::{
 
 const MESSAGE_LIMIT: u32 = 1;
 
-const TREE_DEPTH: usize = 20;
+const TREE_DEPTH: usize = 30;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]

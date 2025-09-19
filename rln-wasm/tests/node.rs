@@ -73,9 +73,9 @@ mod tests {
         async fn calculateWitness(circom_path: &str, input: Object) -> Result<JsValue, JsValue>;
     }
 
-    const ARKZKEY_PATH: &str = "../rln/resources/tree_depth_20/rln_final.arkzkey";
+    const ARKZKEY_PATH: &str = "../rln/resources/tree_depth_30/rln_final.arkzkey";
 
-    const CIRCOM_PATH: &str = "../rln/resources/tree_depth_20/rln.wasm";
+    const CIRCOM_PATH: &str = "../rln/resources/tree_depth_30/rln.wasm";
 
     #[wasm_bindgen_test]
     pub async fn rln_wasm_benchmark() {

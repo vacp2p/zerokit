@@ -12,7 +12,7 @@ pub(crate) enum Commands {
     NewWithParams {
         #[arg(short, long, default_value_t = TEST_TREE_DEPTH)]
         tree_depth: usize,
-        #[arg(short, long, default_value = "../rln/resources/tree_depth_20")]
+        #[arg(short, long, default_value = "../rln/resources/tree_depth_30")]
         resources_path: PathBuf,
     },
     SetTree {

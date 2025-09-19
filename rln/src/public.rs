@@ -105,7 +105,7 @@ impl RLN {
     /// ```
     /// use std::io::Cursor;
     ///
-    /// let tree_depth = 20;
+    /// let tree_depth = 30;
     /// let input_buffer = Cursor::new(json!({}).to_string());
     ///
     /// // We create a new RLN instance
@@ -167,8 +167,8 @@ impl RLN {
     /// use std::fs::File;
     /// use std::io::Read;
     ///
-    /// let tree_depth = 20;
-    /// let resources_folder = "./resources/tree_depth_20/";
+    /// let tree_depth = 30;
+    /// let resources_folder = "./resources/tree_depth_30/";
     ///
     /// let mut resources: Vec<Vec<u8>> = Vec::new();
     /// for filename in ["rln_final.arkzkey", "graph.bin"] {
@@ -228,7 +228,7 @@ impl RLN {
     /// use std::fs::File;
     /// use std::io::Read;
     ///
-    /// let resources_folder = "./resources/tree_depth_20/";
+    /// let resources_folder = "./resources/tree_depth_30/";
     ///
     /// let mut resources: Vec<Vec<u8>> = Vec::new();
     /// for filename in ["rln_final.arkzkey", "graph.bin"] {
@@ -267,7 +267,7 @@ impl RLN {
     /// use std::fs::File;
     /// use std::io::Read;
     ///
-    /// let zkey_path = "./resources/tree_depth_20/rln_final.arkzkey";
+    /// let zkey_path = "./resources/tree_depth_30/rln_final.arkzkey";
     ///
     /// let mut file = File::open(zkey_path).expect("Failed to open file");
     /// let metadata = std::fs::metadata(zkey_path).expect("Failed to read metadata");
@@ -517,7 +517,7 @@ impl RLN {
     /// use rln::circuit::Fr;
     /// use rln::utils::*;
     ///
-    /// let tree_depth = 20;
+    /// let tree_depth = 30;
     /// let start_index = 10;
     /// let no_of_leaves = 256;
     ///

@@ -414,7 +414,7 @@ mod test {
         // We obtain the root from the RLN instance
         let root_rln_folder = get_tree_root(rln_pointer);
 
-        let zkey_path = "./resources/tree_depth_20/rln_final.arkzkey";
+        let zkey_path = "./resources/tree_depth_30/rln_final.arkzkey";
         let mut zkey_file = File::open(zkey_path).expect("no file found");
         let metadata = std::fs::metadata(zkey_path).expect("unable to read metadata");
         let mut zkey_buffer = vec![0; metadata.len() as usize];
@@ -424,7 +424,7 @@ mod test {
 
         let zkey_data = &Buffer::from(&zkey_buffer[..]);
 
-        let graph_data = "./resources/tree_depth_20/graph.bin";
+        let graph_data = "./resources/tree_depth_30/graph.bin";
         let mut graph_file = File::open(graph_data).expect("no file found");
         let metadata = std::fs::metadata(graph_data).expect("unable to read metadata");
         let mut graph_buffer = vec![0; metadata.len() as usize];
