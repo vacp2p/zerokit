@@ -111,7 +111,7 @@ jobs:
       - name: Install dependencies
         run: make installdeps
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh -s -- --version 0.13.1
+        run: npm install -g wasm-pack@0.13.1
       - name: Install binaryen
         run: |
           sudo apt-get update
@@ -163,7 +163,7 @@ jobs:
       - name: Install dependencies
         run: make installdeps
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh -s -- --version 0.13.1
+        run: npm install -g wasm-pack@0.13.1
       - name: Install binaryen
         run: |
           sudo apt-get update
