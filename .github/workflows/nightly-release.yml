@@ -34,7 +34,7 @@ jobs:
         run: make installdeps
       - name: Cross build
         run: |
-          cross build --release --target ${{ matrix.target }} --no-default-features --features ${{ matrix.feature }} --workspace --exclude rln-cli
+          cross build --release --target ${{ matrix.target }} --no-default-features --features ${{ matrix.feature }} --workspace
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
@@ -74,7 +74,7 @@ jobs:
         run: make installdeps
       - name: Cross build
         run: |
-          cross build --release --target ${{ matrix.target }} --no-default-features --features ${{ matrix.feature }} --workspace --exclude rln-cli
+          cross build --release --target ${{ matrix.target }} --no-default-features --features ${{ matrix.feature }} --workspace
           mkdir release
           cp target/${{ matrix.target }}/release/librln* release/
           tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
@@ -111,7 +111,7 @@ jobs:
       - name: Install dependencies
         run: make installdeps
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        run: npm install -g wasm-pack@0.13.1
       - name: Install binaryen
         run: |
           sudo apt-get update
@@ -163,7 +163,7 @@ jobs:
       - name: Install dependencies
         run: make installdeps
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        run: npm install -g wasm-pack@0.13.1
       - name: Install binaryen
         run: |
           sudo apt-get update

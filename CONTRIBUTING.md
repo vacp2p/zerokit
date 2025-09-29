@@ -105,8 +105,9 @@ docs: update RLN protocol flow documentation
 Use scopes to improve the Changelog:
 
 - `rln` - Core RLN implementation
-- `rln-wasm` - WebAssembly bindings
 - `rln-cli` - Command-line interface
+- `rln-wasm` - WebAssembly bindings
+- `rln-wasm-utils` - WebAssembly utilities
 - `utils` - Cryptographic utilities (Merkle trees, Poseidon hash)
 - `ci` - Continuous integration
 
@@ -139,8 +140,8 @@ Ensure the following commands pass before submitting:
 # Format code
 cargo fmt --all
 
-# Check for common mistakes  
-cargo clippy --all-targets --all-features
+# Check for common mistakes
+cargo clippy --all-targets
 
 # Run all tests
 make test
