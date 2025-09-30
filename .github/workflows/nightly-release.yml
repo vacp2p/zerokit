@@ -10,18 +10,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        feature:
-          - "stateless"
-          - "stateless,parallel"
-          - "pmtree-ft"
-          - "pmtree-ft,parallel"
-          - "fullmerkletree"
-          - "fullmerkletree,parallel"
-          - "optimalmerkletree"
-          - "optimalmerkletree,parallel"
-        target:
-          - x86_64-unknown-linux-gnu
-          - aarch64-unknown-linux-gnu
+        features:
+          - ["stateless"]
+          - ["stateless", "parallel"]
+          - ["pmtree-ft"]
+          - ["pmtree-ft", "parallel"]
+          - ["fullmerkletree"]
+          - ["fullmerkletree", "parallel"]
+          - ["optimalmerkletree"]
+          - ["optimalmerkletree", "parallel"]
+        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
     env:
       FEATURES_CARGO: ${{ join(matrix.features, ',') }}
       FEATURES_TAG: ${{ join(matrix.features, '-') }}
@@ -32,7 +30,7 @@ jobs:
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          target: ${{ matrix.target }}
+          target: ${{ env.TARGET }}
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
         run: make installdeps
@@ -54,18 +52,16 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        feature:
-          - "stateless"
-          - "stateless,parallel"
-          - "pmtree-ft"
-          - "pmtree-ft,parallel"
-          - "fullmerkletree"
-          - "fullmerkletree,parallel"
-          - "optimalmerkletree"
-          - "optimalmerkletree,parallel"
-        target:
-          - x86_64-apple-darwin
-          - aarch64-apple-darwin
+        features:
+          - ["stateless"]
+          - ["stateless", "parallel"]
+          - ["pmtree-ft"]
+          - ["pmtree-ft", "parallel"]
+          - ["fullmerkletree"]
+          - ["fullmerkletree", "parallel"]
+          - ["optimalmerkletree"]
+          - ["optimalmerkletree", "parallel"]
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
     env:
       FEATURES_CARGO: ${{ join(matrix.features, ',') }}
       FEATURES_TAG: ${{ join(matrix.features, '-') }}
@@ -76,7 +72,7 @@ jobs:
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          target: $TARGET
+          target: ${{ env.TARGET }}
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
         run: make installdeps
