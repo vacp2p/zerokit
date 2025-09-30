@@ -108,18 +108,9 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           targets: wasm32-unknown-unknown
-          components: rust-src
       - uses: Swatinem/rust-cache@v2
-        with:
-          key: rln-wasm-${{ matrix.feature }}
       - name: Install dependencies
         run: make installdeps
-      - name: Install wasm-pack
-        run: npm install -g wasm-pack@0.13.1
-      - name: Install binaryen
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y binaryen
       - name: Build rln-wasm package
         run: |
           if [[ ${{ matrix.feature }} == *parallel* ]]; then
@@ -156,22 +147,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - name: Install nightly toolchain
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          targets: wasm32-unknown-unknown
-          components: rust-src
       - uses: Swatinem/rust-cache@v2
-        with:
-          key: rln-wasm-utils
       - name: Install dependencies
         run: make installdeps
-      - name: Install wasm-pack
-        run: npm install -g wasm-pack@0.13.1
-      - name: Install binaryen
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y binaryen
       - name: Build rln-wasm-utils package
         run: |
           wasm-pack build --release --target web --scope waku
