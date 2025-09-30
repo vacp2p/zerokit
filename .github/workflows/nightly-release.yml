@@ -10,39 +10,41 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        feature:
-          - "stateless"
-          - "stateless,parallel"
-          - "pmtree-ft"
-          - "pmtree-ft,parallel"
-          - "fullmerkletree"
-          - "fullmerkletree,parallel"
-          - "optimalmerkletree"
-          - "optimalmerkletree,parallel"
-        target:
-          - x86_64-unknown-linux-gnu
-          - aarch64-unknown-linux-gnu
+        features:
+          - ["stateless"]
+          - ["stateless", "parallel"]
+          - ["pmtree-ft"]
+          - ["pmtree-ft", "parallel"]
+          - ["fullmerkletree"]
+          - ["fullmerkletree", "parallel"]
+          - ["optimalmerkletree"]
+          - ["optimalmerkletree", "parallel"]
+        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
+    env:
+      FEATURES_CARGO: ${{ join(matrix.features, ',') }}
+      FEATURES_TAG: ${{ join(matrix.features, '-') }}
+      TARGET: ${{ matrix.target }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          target: ${{ matrix.target }}
+          target: ${{ env.TARGET }}
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
         run: make installdeps
       - name: Cross build
         run: |
-          cross build --release --target ${{ matrix.target }} --no-default-features --features ${{ matrix.feature }} --workspace
+          cross build --release --target $TARGET --no-default-features --features "$FEATURES_CARGO" --workspace
           mkdir release
-          cp target/${{ matrix.target }}/release/librln* release/
-          tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
+          cp target/$TARGET/release/librln* release/
+          tar -czvf $TARGET-$FEATURES_TAG-rln.tar.gz release/
       - name: Upload archive artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.target }}-${{ matrix.feature }}-archive
-          path: ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz
+          name: ${{ env.TARGET }}-${{ env.FEATURES_TAG }}-archive
+          path: ${{ env.TARGET }}-${{ env.FEATURES_TAG }}-rln.tar.gz
           retention-days: 2
 
   macos:
@@ -50,39 +52,41 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        feature:
-          - "stateless"
-          - "stateless,parallel"
-          - "pmtree-ft"
-          - "pmtree-ft,parallel"
-          - "fullmerkletree"
-          - "fullmerkletree,parallel"
-          - "optimalmerkletree"
-          - "optimalmerkletree,parallel"
-        target:
-          - x86_64-apple-darwin
-          - aarch64-apple-darwin
+        features:
+          - ["stateless"]
+          - ["stateless", "parallel"]
+          - ["pmtree-ft"]
+          - ["pmtree-ft", "parallel"]
+          - ["fullmerkletree"]
+          - ["fullmerkletree", "parallel"]
+          - ["optimalmerkletree"]
+          - ["optimalmerkletree", "parallel"]
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
+    env:
+      FEATURES_CARGO: ${{ join(matrix.features, ',') }}
+      FEATURES_TAG: ${{ join(matrix.features, '-') }}
+      TARGET: ${{ matrix.target }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          target: ${{ matrix.target }}
+          target: ${{ env.TARGET }}
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
         run: make installdeps
       - name: Cross build
         run: |
-          cross build --release --target ${{ matrix.target }} --no-default-features --features ${{ matrix.feature }} --workspace
+          cross build --release --target $TARGET --no-default-features --features "$FEATURES_CARGO" --workspace
           mkdir release
-          cp target/${{ matrix.target }}/release/librln* release/
-          tar -czvf ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz release/
+          cp target/$TARGET/release/librln* release/
+          tar -czvf $TARGET-$FEATURES_TAG-rln.tar.gz release/
       - name: Upload archive artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.target }}-${{ matrix.feature }}-archive
-          path: ${{ matrix.target }}-${{ matrix.feature }}-rln.tar.gz
+          name: ${{ env.TARGET }}-${{ env.FEATURES_TAG }}-archive
+          path: ${{ env.TARGET }}-${{ env.FEATURES_TAG }}-rln.tar.gz
           retention-days: 2
 
   rln-wasm:
@@ -103,19 +107,11 @@ jobs:
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@nightly
         with:
-          targets: wasm32-unknown-unknown
           components: rust-src
+          targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-        with:
-          key: rln-wasm-${{ matrix.feature }}
       - name: Install dependencies
         run: make installdeps
-      - name: Install wasm-pack
-        run: npm install -g wasm-pack@0.13.1
-      - name: Install binaryen
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y binaryen
       - name: Build rln-wasm package
         run: |
           if [[ ${{ matrix.feature }} == *parallel* ]]; then
@@ -152,22 +148,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - name: Install nightly toolchain
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          targets: wasm32-unknown-unknown
-          components: rust-src
       - uses: Swatinem/rust-cache@v2
-        with:
-          key: rln-wasm-utils
       - name: Install dependencies
         run: make installdeps
-      - name: Install wasm-pack
-        run: npm install -g wasm-pack@0.13.1
-      - name: Install binaryen
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y binaryen
       - name: Build rln-wasm-utils package
         run: |
           wasm-pack build --release --target web --scope waku
