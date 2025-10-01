@@ -16,6 +16,11 @@ mod test {
         wasm_seeded_extended_key_gen, wasm_seeded_key_gen,
     };
     use wasm_bindgen_test::*;
+    use rln_wasm_utils::ffi2::{
+        ffi2_wasm_key_gen,
+        WasmFr
+    };
+
 
     #[wasm_bindgen_test]
     fn test_wasm_key_gen() {
@@ -110,5 +115,16 @@ mod test {
         let (received_hash, _) = bytes_le_to_fr(&serialized_hash);
 
         assert_eq!(received_hash, expected_hash);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_ffi2_wasm_key_gen() {
+        let result = ffi2_wasm_key_gen();
+        assert!(result.is_ok());
+        let id: Vec<WasmFr> = result.unwrap();
+        let id_s = id[0];
+        let id_co = id[1];
+        console_log!("id_s: {:?}", id_s.debug());
+        console_log!("id_co: {:?}", id_co.debug());
     }
 }
