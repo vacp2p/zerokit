@@ -1,10 +1,8 @@
-// std
-use std::ops::Deref;
-// third-party
 use ark_bn254::Fr;
 use js_sys::{BigInt, Uint8Array};
+use std::ops::Deref;
 use wasm_bindgen::prelude::wasm_bindgen;
-// internal
+
 use rln::protocol::keygen;
 
 #[wasm_bindgen]
@@ -13,7 +11,6 @@ pub struct WasmFr(Fr);
 
 #[wasm_bindgen]
 impl WasmFr {
-
     pub fn zero() -> Self {
         Self(Fr::from(0))
     }
@@ -40,16 +37,9 @@ impl From<BigInt> for WasmFr {
 
 #[wasm_bindgen(js_name = ffi2GenerateMembershipKey)]
 pub fn ffi2_wasm_key_gen() -> Result<Vec<WasmFr>, String> {
-
     let (identity_secret_hash, id_commitment) = keygen();
-    Ok(
-        vec![
-            WasmFr(identity_secret_hash.deref().clone()),
-            WasmFr(id_commitment)
-        ]
-    )
+    Ok(vec![
+        WasmFr(identity_secret_hash.deref().clone()),
+        WasmFr(id_commitment),
+    ])
 }
-
-
-
-

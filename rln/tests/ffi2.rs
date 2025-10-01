@@ -1,26 +1,41 @@
 #[cfg(test)]
 #[cfg(not(feature = "stateless"))]
 mod test {
-    // std
-    use std::ops::Deref;
-    // third-party
     use rand::Rng;
-    use safer_ffi::boxed::Box_;
-    // internal
     use rln::circuit::{Fr, TEST_TREE_DEPTH};
-    use rln::ffi2::{ffi2_generate_rln_proof, ffi2_key_gen, ffi2_rln_try_new, ffi2_set_next_leaf, ffi2_verify_rln_proof, CFr, CResult, FFI2_RLNProof, FFI2_RLNWitnessInput};
-    use rln::ffi::set_next_leaf;
-    use rln::hashers::{
-        hash_to_field_le,
-        poseidon_hash as utils_poseidon_hash,
+    use rln::ffi2::{
+        ffi2_generate_rln_proof, ffi2_key_gen, ffi2_new, ffi2_set_next_leaf, ffi2_verify_rln_proof,
+        CFr, CResult, FFI2_RLNWitnessInput, FFI2_RLN,
     };
+    use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
+    use safer_ffi::boxed::Box_;
+    use safer_ffi::prelude::repr_c;
+    use serde_json::json;
+    use std::ops::Deref;
+
+    const NO_OF_LEAVES: usize = 256;
+
+    fn create_rln_instance() -> repr_c::Box<FFI2_RLN> {
+        let input_config = json!({}).to_string();
+        let c_str = std::ffi::CString::new(input_config).unwrap();
+        let result = ffi2_new(TEST_TREE_DEPTH, c_str.as_c_str().into());
+        match result {
+            CResult {
+                ok: Some(rln),
+                err: None,
+            } => rln,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("RLN object creation failed: {}", err),
+            _ => unreachable!(),
+        }
+    }
 
     #[test]
     // Computes and verifies an RLN ZK proof using FFI APIs
-    fn ffi2_test_rln_proof_ffi() {
-
+    fn test_rln_proof_ffi() {
         let user_message_limit = Fr::from(100);
-
 
         // We generate a new identity pair
         let key_gen = ffi2_key_gen();
@@ -43,7 +58,7 @@ mod test {
         let rate_commitment = utils_poseidon_hash(&[*id_commitment.deref(), user_message_limit]);
 
         // Create RLN & update its tree
-        let mut rln = ffi2_rln_try_new(TEST_TREE_DEPTH).unwrap();
+        let mut rln = create_rln_instance();
         ffi2_set_next_leaf(&mut rln, CFr::from(rate_commitment).into());
         // set_next_leaf has just updated the tree index 0
         let identity_index: usize = 0;
@@ -58,12 +73,15 @@ mod test {
             signal: signal.to_vec().into_boxed_slice().into(),
         });
 
-        // FIXME
-        // let rln_proof = if let Some(rln_proof) = ffi2_generate_rln_proof(&rln, &mut witness_input);
-
         let rln_proof = match ffi2_generate_rln_proof(&rln, &mut witness_input) {
-            CResult { ok: Some(rln_proof), err: None } => rln_proof,
-            CResult { ok: None, err: Some(err) } => panic!("Error: {err}"),
+            CResult {
+                ok: Some(rln_proof),
+                err: None,
+            } => rln_proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("Error: {err}"),
             _ => unreachable!(),
         };
 
@@ -79,9 +97,7 @@ mod general_tests {
     // use rand::Rng;
     // use rln::circuit::*;
     // use rln::ffi::{hash as ffi_hash, poseidon_hash as ffi_poseidon_hash, *};
-    use rln::ffi2::{
-        ffi2_seeded_key_gen
-    };
+    use rln::ffi2::ffi2_seeded_key_gen;
     use rln::utils::str_to_fr;
     // use rln::hashers::{
     //     hash_to_field_be, hash_to_field_le, poseidon_hash as utils_poseidon_hash, ROUND_PARAMS,
@@ -92,14 +108,13 @@ mod general_tests {
 
     #[test]
     // Tests hash to field using FFI APIs
-    fn ffi2_test_seeded_keygen_stateless_ffi() {
-
+    fn test_seeded_keygen_stateless_ffi() {
         // We generate a new identity pair from an input seed
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         let res = ffi2_seeded_key_gen(seed_bytes.into());
 
         assert_eq!(res.len(), 2, "seeded key gen call failed");
-        let identity_secret_hash = res.get(0).unwrap();
+        let identity_secret_hash = res.first().unwrap();
         let id_commitment = res.get(1).unwrap();
 
         // We check against expected values
