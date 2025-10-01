@@ -1,38 +1,39 @@
 #![allow(non_camel_case_types)]
 
-use std::ops::Deref;
+use crate::{
+    circuit::{graph_from_folder, zkey_from_folder, Curve},
+    hashers::hash_to_field_le,
+    poseidon_tree::PoseidonTree,
+    protocol::{
+        extended_keygen, extended_seeded_keygen, generate_proof, keygen, proof_values_from_witness,
+        seeded_keygen, verify_proof, RLNProofValues, RLNWitnessInput,
+    },
+    utils::IdSecret,
+};
 use ark_bn254::Fr;
-use ark_groth16::{Proof, ProvingKey};
+use ark_groth16::{Proof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use num_traits::Zero;
-use safer_ffi::{
-    derive_ReprC,
-    ffi_export,
-    boxed::Box_,
-    prelude::{
-        c_slice,
-        repr_c,
-    },
-};
 use safer_ffi::prelude::ReprC;
+use safer_ffi::{
+    boxed::Box_,
+    derive_ReprC, ffi_export,
+    prelude::{c_slice, char_p, repr_c},
+};
+use std::ops::Deref;
+use std::str::FromStr;
 use utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
-use crate::circuit::{graph_from_folder, zkey_from_folder, Curve};
-use crate::hashers::hash_to_field_le;
-use crate::poseidon_tree::PoseidonTree;
-// internal
-use crate::protocol::{extended_keygen, extended_seeded_keygen, generate_proof, keygen, proof_values_from_witness, seeded_keygen, verify_proof, RLNProofValues, RLNWitnessInput};
-use crate::utils::IdSecret;
 
-// safer_ffi Result
+// CResult
 
 #[derive_ReprC]
 #[repr(C)]
-pub struct CResult<T : ReprC, Err: ReprC> {
+pub struct CResult<T: ReprC, Err: ReprC> {
     pub ok: Option<T>,
     pub err: Option<Err>,
 }
 
-// Fr wrapper
+// CFr
 
 #[derive_ReprC]
 #[repr(opaque)]
@@ -103,8 +104,6 @@ fn vec_cfr_free(v: repr_c::Vec<CFr>) {
     drop(v);
 }
 
-// End Vec<CFr>
-
 // RLN
 
 /// The RLN object.
@@ -113,8 +112,8 @@ fn vec_cfr_free(v: repr_c::Vec<CFr>) {
 #[derive_ReprC]
 #[repr(opaque)]
 pub struct FFI2_RLN {
-    proving_key: (ProvingKey<Curve>, ConstraintMatrices<crate::circuit::Fr>),
-    // pub(crate) verification_key: VerifyingKey<Curve>,
+    proving_key: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
+    pub(crate) verification_key: VerifyingKey<Curve>,
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) graph_data: Vec<u8>,
     #[cfg(not(feature = "stateless"))]
@@ -124,36 +123,57 @@ pub struct FFI2_RLN {
 // RLN functions
 
 #[ffi_export]
-pub fn ffi2_rln_try_new(tree_depth: usize) -> Option<repr_c::Box<FFI2_RLN>> {
-
-    // TODO: return an Option but would be nice if it can return a Result
-    // TODO: tree config
-
-    let proving_key = zkey_from_folder();
-    // let verification_key = &proving_key.0.vk;
-    let graph_data = graph_from_folder();
+pub fn ffi2_new(
+    tree_depth: usize,
+    config: char_p::Ref<'_>,
+) -> CResult<repr_c::Box<FFI2_RLN>, repr_c::String> {
+    let proving_key = zkey_from_folder().to_owned();
+    let verification_key = proving_key.0.vk.to_owned();
+    let graph_data = graph_from_folder().to_owned();
+    let tree_config = {
+        let config_str = config.to_str();
+        if config_str.is_empty() {
+            <PoseidonTree as ZerokitMerkleTree>::Config::default()
+        } else {
+            match <PoseidonTree as ZerokitMerkleTree>::Config::from_str(config_str) {
+                Ok(config) => config,
+                Err(err) => {
+                    return CResult {
+                        ok: None,
+                        err: Some(err.to_string().into()),
+                    };
+                }
+            }
+        }
+    };
 
     // We compute a default empty tree
-    let tree_config: <PoseidonTree as ZerokitMerkleTree>::Config =
-        <PoseidonTree as ZerokitMerkleTree>::Config::default();
-
-    let tree = match PoseidonTree::new(tree_depth, <PoseidonTree as ZerokitMerkleTree>::Hasher::default_leaf(), tree_config) {
+    let tree = match PoseidonTree::new(
+        tree_depth,
+        <PoseidonTree as ZerokitMerkleTree>::Hasher::default_leaf(),
+        tree_config,
+    ) {
         Ok(tree) => tree,
         Err(err) => {
-            println!("Error: {err}");
-            return None;
+            return CResult {
+                ok: None,
+                err: Some(err.to_string().into()),
+            };
         }
     };
 
     let rln = FFI2_RLN {
         proving_key: proving_key.to_owned(),
-        // verification_key: verification_key.to_owned(),
+        verification_key: verification_key.to_owned(),
         graph_data: graph_data.to_vec(),
         #[cfg(not(feature = "stateless"))]
         tree,
     };
 
-    Some(Box_::new(rln))
+    CResult {
+        ok: Some(Box_::new(rln)),
+        err: None,
+    }
 }
 
 #[ffi_export]
@@ -206,7 +226,7 @@ pub struct FFI2_RLNWitnessInput {
     pub message_id: repr_c::Box<CFr>,
     pub external_nullifier: repr_c::Box<CFr>,
     pub tree_index: u64,
-    pub signal: repr_c::Box<[u8]>
+    pub signal: repr_c::Box<[u8]>,
 }
 
 // RLNProofValues
@@ -236,7 +256,7 @@ impl From<RLNProofValues> for FFI2_RLNProofValues {
 #[repr(opaque)]
 pub struct FFI2_RLNProof {
     proof_values: RLNProofValues,
-    proof: Proof<Curve>
+    proof: Proof<Curve>,
 }
 
 #[ffi_export]
@@ -254,10 +274,15 @@ pub fn ffi2_set_next_leaf(rln: &mut repr_c::Box<FFI2_RLN>, value: repr_c::Box<CF
 // ZK functions
 
 #[ffi_export]
-pub fn ffi2_generate_rln_proof(rln: &repr_c::Box<FFI2_RLN>, witness_input: &mut repr_c::Box<FFI2_RLNWitnessInput>) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
-
+pub fn ffi2_generate_rln_proof(
+    rln: &repr_c::Box<FFI2_RLN>,
+    witness_input: &mut repr_c::Box<FFI2_RLNWitnessInput>,
+) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
     let witness_input_ = {
-        let merkle_proof = rln.tree.proof(witness_input.tree_index as usize).expect("proof should exist");
+        let merkle_proof = rln
+            .tree
+            .proof(witness_input.tree_index as usize)
+            .expect("proof should exist");
         let path_elements = merkle_proof.get_path_elements();
         let identity_path_index = merkle_proof.get_path_index();
 
@@ -280,7 +305,7 @@ pub fn ffi2_generate_rln_proof(rln: &repr_c::Box<FFI2_RLN>, witness_input: &mut 
         Err(e) => {
             return CResult {
                 ok: None,
-                err: Some(e.to_string().into())
+                err: Some(e.to_string().into()),
             };
         }
     };
@@ -294,12 +319,16 @@ pub fn ffi2_generate_rln_proof(rln: &repr_c::Box<FFI2_RLN>, witness_input: &mut 
 
     CResult {
         ok: Some(Box_::new(res)),
-        err: None
+        err: None,
     }
 }
 
 #[ffi_export]
-pub fn ffi2_verify_rln_proof(rln: &repr_c::Box<FFI2_RLN>, proof: repr_c::Box<FFI2_RLNProof>, signal: c_slice::Ref<'_, u8>) -> bool {
+pub fn ffi2_verify_rln_proof(
+    rln: &repr_c::Box<FFI2_RLN>,
+    proof: repr_c::Box<FFI2_RLNProof>,
+    signal: c_slice::Ref<'_, u8>,
+) -> bool {
     let verified = verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values).unwrap();
     let x = hash_to_field_le(&signal);
     // TODO: should this check be in verify_proof?
@@ -309,8 +338,6 @@ pub fn ffi2_verify_rln_proof(rln: &repr_c::Box<FFI2_RLN>, proof: repr_c::Box<FFI
 
 // Hash functions
 
-
-
 // Keygen functions
 
 /// Generate an identity which is composed of an identity secret and identity commitment.
@@ -319,7 +346,7 @@ pub fn ffi2_verify_rln_proof(rln: &repr_c::Box<FFI2_RLN>, proof: repr_c::Box<FFI
 #[ffi_export]
 pub fn ffi2_key_gen() -> repr_c::Vec<CFr> {
     let (identity_secret_hash, id_commitment) = keygen();
-    vec![CFr(identity_secret_hash.deref().clone()), CFr(id_commitment)].into()
+    vec![CFr(*identity_secret_hash), CFr(id_commitment)].into()
 }
 
 /// Generate an identity which is composed of an identity trapdoor, nullifier, secret and commitment.
@@ -337,8 +364,9 @@ pub fn ffi2_extended_key_gen() -> repr_c::Vec<CFr> {
         CFr(identity_trapdoor),
         CFr(identity_nullifier),
         CFr(identity_secret_hash),
-        CFr(id_commitment)
-    ].into()
+        CFr(id_commitment),
+    ]
+    .into()
 }
 
 /// Generate an identity which is composed of an identity secret and identity commitment using a seed.
@@ -368,8 +396,9 @@ pub fn ffi2_seeded_extended_key_gen(seed: c_slice::Ref<'_, u8>) -> repr_c::Vec<C
         CFr(identity_trapdoor),
         CFr(identity_nullifier),
         CFr(identity_secret_hash),
-        CFr(id_commitment)
-    ].into()
+        CFr(id_commitment),
+    ]
+    .into()
 }
 
 // headers
@@ -377,9 +406,5 @@ pub fn ffi2_seeded_extended_key_gen(seed: c_slice::Ref<'_, u8>) -> repr_c::Vec<C
 // The following function is only necessary for the header generation.
 #[cfg(feature = "headers")] // c.f. the `Cargo.toml` section
 pub fn generate_headers() -> ::std::io::Result<()> {
-    ::safer_ffi::headers::builder()
-        .to_file("rln.h")?
-        .generate()
+    ::safer_ffi::headers::builder().to_file("rln.h")?.generate()
 }
-
-
