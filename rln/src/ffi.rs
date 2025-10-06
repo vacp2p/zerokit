@@ -314,6 +314,7 @@ pub extern "C" fn new_with_params(
 ////////////////////////////////////////////////////////
 // Merkle tree APIs
 ////////////////////////////////////////////////////////
+
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 #[cfg(not(feature = "stateless"))]
@@ -420,6 +421,7 @@ pub extern "C" fn get_proof(ctx: *const RLN, index: usize, output_buffer: *mut B
 ////////////////////////////////////////////////////////
 // zkSNARKs APIs
 ////////////////////////////////////////////////////////
+
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn prove(
@@ -497,6 +499,7 @@ pub extern "C" fn verify_with_roots(
 ////////////////////////////////////////////////////////
 // Utils
 ////////////////////////////////////////////////////////
+
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn recover_id_secret(

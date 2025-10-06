@@ -5,14 +5,16 @@ use crate::{
     hashers::{hash_to_field_le, poseidon_hash},
     poseidon_tree::PoseidonTree,
     protocol::{
-        extended_keygen, extended_seeded_keygen, generate_proof, keygen, proof_values_from_witness,
-        seeded_keygen, verify_proof, RLNProofValues, RLNWitnessInput,
+        compute_id_secret, deserialize_proof_values, deserialize_witness, extended_keygen,
+        extended_seeded_keygen, generate_proof, keygen, proof_values_from_witness, seeded_keygen,
+        verify_proof, RLNProofValues, RLNWitnessInput,
     },
     utils::IdSecret,
 };
 use ark_bn254::Fr;
-use ark_groth16::{Proof, ProvingKey, VerifyingKey};
+use ark_groth16::{Proof as ArkProof, ProvingKey};
 use ark_relations::r1cs::ConstraintMatrices;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use num_traits::Zero;
 use safer_ffi::prelude::ReprC;
 use safer_ffi::{
@@ -113,14 +115,15 @@ fn vec_cfr_free(v: repr_c::Vec<CFr>) {
 #[repr(opaque)]
 pub struct FFI2_RLN {
     proving_key: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
-    pub(crate) verification_key: VerifyingKey<Curve>,
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) graph_data: Vec<u8>,
     #[cfg(not(feature = "stateless"))]
     pub(crate) tree: PoseidonTree,
 }
 
-// RLN functions
+////////////////////////////////////////////////////////
+// RLN APIs
+////////////////////////////////////////////////////////
 
 #[ffi_export]
 pub fn ffi2_new(
@@ -128,7 +131,6 @@ pub fn ffi2_new(
     config: char_p::Ref<'_>,
 ) -> CResult<repr_c::Box<FFI2_RLN>, repr_c::String> {
     let proving_key = zkey_from_folder().to_owned();
-    let verification_key = proving_key.0.vk.to_owned();
     let graph_data = graph_from_folder().to_owned();
     let tree_config = {
         let config_str = config.to_str();
@@ -164,7 +166,6 @@ pub fn ffi2_new(
 
     let rln = FFI2_RLN {
         proving_key: proving_key.to_owned(),
-        verification_key: verification_key.to_owned(),
         graph_data: graph_data.to_vec(),
         #[cfg(not(feature = "stateless"))]
         tree,
@@ -211,7 +212,6 @@ pub fn ffi2_new_with_params(
             };
         }
     };
-    let verification_key = proving_key.0.vk.to_owned();
     let graph_data_vec = graph_data.to_vec();
 
     let tree_config = {
@@ -248,7 +248,6 @@ pub fn ffi2_new_with_params(
 
     let rln = FFI2_RLN {
         proving_key,
-        verification_key,
         graph_data: graph_data_vec,
         #[cfg(not(feature = "stateless"))]
         tree,
@@ -295,41 +294,6 @@ fn ffi2_rln_free(rln: Option<repr_c::Box<FFI2_RLN>>) {
     drop(rln);
 }
 
-/*
-#[ffi_export]
-fn ffi_init_witness_input<'a>(rln: &FFI2_RLN,
-                              tree_index: usize,
-                              identity_secret: &CFr,
-                              user_message_limit: &CFr,
-                              message_id: &CFr,
-                              external_nullifier: &CFr,
-                              signal: c_slice::Ref<'_, u8>
-) -> Option<repr_c::Box<FFI2_RLNWitnessInput>> {
-
-    let merkle_proof = rln.tree.proof(tree_index).expect("proof should exist");
-    let path_elements = merkle_proof.get_path_elements();
-    let identity_path_index = merkle_proof.get_path_index();
-
-    let x = hash_to_field_le(&signal);
-
-    let witness = FFI2_RLNWitnessInput {
-        identity_secret: Box_::new(identity_secret.clone()),
-        user_message_limit: Box_::new(user_message_limit.clone()),
-        message_id: Box_::new(message_id.clone()),
-        // TODO / FIXME
-        // path_elements: path_elements.into_iter().map(|fr| CFr(fr)).collect(),
-        path_elements: repr_c::Vec::EMPTY,
-        identity_path_index: identity_path_index
-            .into_boxed_slice()
-            .into(),
-        x: Box_::new(CFr(x)),
-        external_nullifier: Box_::new(external_nullifier.clone()),
-    };
-
-    Some(Box_::new(witness))
-}
-*/
-
 // MerkleProof
 
 #[derive_ReprC]
@@ -357,34 +321,11 @@ pub struct FFI2_RLNWitnessInput {
     pub signal: repr_c::Box<[u8]>,
 }
 
-// RLNProofValues
-
-/*
-#[derive_ReprC]
-#[repr(C)]
-#[derive(Debug)]
-pub struct FFI2_RLNProofValues {
-    pub y: repr_c::Box<CFr>,
-    pub nullifier: repr_c::Box<CFr>,
-    pub root: repr_c::Box<CFr>,
-    pub x: repr_c::Box<CFr>,
-    pub external_nullifier: repr_c::Box<CFr>,
-}
-*/
-
-/*
-impl From<RLNProofValues> for FFI2_RLNProofValues {
-    fn from(value: RLNProofValues) -> Self {
-        todo!()
-    }
-}
-*/
-
 #[derive_ReprC]
 #[repr(opaque)]
 pub struct FFI2_RLNProof {
     proof_values: RLNProofValues,
-    proof: Proof<Curve>,
+    proof: ArkProof<Curve>,
 }
 
 #[ffi_export]
@@ -392,33 +333,46 @@ fn ffi2_rln_proof_free(rln: Option<repr_c::Box<FFI2_RLNProof>>) {
     drop(rln);
 }
 
-// Merkle tree functions
+////////////////////////////////////////////////////////
+// Merkle tree APIs
+////////////////////////////////////////////////////////
 
 #[ffi_export]
-pub fn ffi2_set_next_leaf(rln: &mut repr_c::Box<FFI2_RLN>, value: repr_c::Box<CFr>) -> bool {
-    rln.tree.update_next(value.0).is_ok()
-}
-
-#[ffi_export]
-pub fn ffi2_get_root(rln: &repr_c::Box<FFI2_RLN>) -> repr_c::Box<CFr> {
-    CFr::from(rln.tree.root()).into()
-}
-
-#[ffi_export]
-pub fn ffi2_set_tree(rln: &mut repr_c::Box<FFI2_RLN>, tree_depth: usize) -> bool {
+pub fn ffi2_set_tree(
+    rln: &mut repr_c::Box<FFI2_RLN>,
+    tree_depth: usize,
+) -> CResult<repr_c::Box<bool>, repr_c::String> {
     // We compute a default empty tree of desired depth
     match PoseidonTree::default(tree_depth) {
         Ok(tree) => {
             rln.tree = tree;
-            true
+            CResult {
+                ok: Some(Box_::new(true)),
+                err: None,
+            }
         }
-        Err(_) => false,
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
     }
 }
 
 #[ffi_export]
-pub fn ffi2_delete_leaf(rln: &mut repr_c::Box<FFI2_RLN>, index: usize) -> bool {
-    rln.tree.delete(index).is_ok()
+pub fn ffi2_delete_leaf(
+    rln: &mut repr_c::Box<FFI2_RLN>,
+    index: usize,
+) -> CResult<repr_c::Box<bool>, repr_c::String> {
+    match rln.tree.delete(index) {
+        Ok(_) => CResult {
+            ok: Some(Box_::new(true)),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 #[ffi_export]
@@ -426,8 +380,17 @@ pub fn ffi2_set_leaf(
     rln: &mut repr_c::Box<FFI2_RLN>,
     index: usize,
     value: repr_c::Box<CFr>,
-) -> bool {
-    rln.tree.set(index, value.0).is_ok()
+) -> CResult<repr_c::Box<bool>, repr_c::String> {
+    match rln.tree.set(index, value.0) {
+        Ok(_) => CResult {
+            ok: Some(Box_::new(true)),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 #[ffi_export]
@@ -453,36 +416,128 @@ pub fn ffi2_leaves_set(rln: &repr_c::Box<FFI2_RLN>) -> usize {
 }
 
 #[ffi_export]
+pub fn ffi2_set_next_leaf(
+    rln: &mut repr_c::Box<FFI2_RLN>,
+    value: repr_c::Box<CFr>,
+) -> CResult<repr_c::Box<bool>, repr_c::String> {
+    match rln.tree.update_next(value.0) {
+        Ok(_) => CResult {
+            ok: Some(Box_::new(true)),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
 pub fn ffi2_set_leaves_from(
     rln: &mut repr_c::Box<FFI2_RLN>,
     index: usize,
     leaves: repr_c::Vec<CFr>,
-) -> bool {
-    let leaves_iter = leaves.iter().map(|cfr| cfr.0);
-    rln.tree
-        .override_range(index, leaves_iter, [].into_iter())
-        .is_ok()
+) -> CResult<repr_c::Box<bool>, repr_c::String> {
+    match rln
+        .tree
+        .override_range(index, leaves.iter().map(|cfr| cfr.0), [].into_iter())
+    {
+        Ok(_) => CResult {
+            ok: Some(Box_::new(true)),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 #[ffi_export]
 pub fn ffi2_init_tree_with_leaves(
     rln: &mut repr_c::Box<FFI2_RLN>,
     leaves: repr_c::Vec<CFr>,
-) -> bool {
+) -> CResult<repr_c::Box<bool>, repr_c::String> {
     // Reset tree to default
     let tree_depth = rln.tree.depth();
     match PoseidonTree::default(tree_depth) {
         Ok(tree) => {
             rln.tree = tree;
         }
-        Err(_) => return false,
+        Err(err) => {
+            return CResult {
+                ok: None,
+                err: Some(err.to_string().into()),
+            }
+        }
     }
 
-    // Set all leaves from index 0
-    let leaves_iter = leaves.iter().map(|cfr| cfr.0);
-    rln.tree
-        .override_range(0, leaves_iter, [].into_iter())
-        .is_ok()
+    match rln
+        .tree
+        .override_range(0, leaves.iter().map(|cfr| cfr.0), [].into_iter())
+    {
+        Ok(_) => CResult {
+            ok: Some(Box_::new(true)),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[cfg(not(feature = "stateless"))]
+#[ffi_export]
+pub fn ffi2_atomic_operation(
+    rln: &mut repr_c::Box<FFI2_RLN>,
+    index: usize,
+    leaves: repr_c::Vec<CFr>,
+    indices: repr_c::Vec<usize>,
+) -> CResult<repr_c::Box<bool>, repr_c::String> {
+    match rln.tree.override_range(
+        index,
+        leaves.iter().map(|cfr| cfr.0),
+        indices.iter().map(|x| *x),
+    ) {
+        Ok(_) => CResult {
+            ok: Some(Box_::new(true)),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[cfg(not(feature = "stateless"))]
+#[ffi_export]
+pub fn ffi2_seq_atomic_operation(
+    rln: &mut repr_c::Box<FFI2_RLN>,
+    leaves: repr_c::Vec<CFr>,
+    indices: repr_c::Vec<u8>,
+) -> CResult<repr_c::Box<bool>, repr_c::String> {
+    let index = rln.tree.leaves_set();
+    match rln.tree.override_range(
+        index,
+        leaves.iter().map(|cfr| cfr.0),
+        indices.iter().map(|x| *x as usize),
+    ) {
+        Ok(_) => CResult {
+            ok: Some(Box_::new(true)),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi2_get_root(rln: &repr_c::Box<FFI2_RLN>) -> repr_c::Box<CFr> {
+    CFr::from(rln.tree.root()).into()
 }
 
 #[ffi_export]
@@ -518,7 +573,81 @@ pub fn ffi2_get_proof(
     }
 }
 
-// ZK functions
+////////////////////////////////////////////////////////
+// zkSNARKs APIs
+////////////////////////////////////////////////////////
+
+#[ffi_export]
+pub fn ffi2_prove(
+    rln: &repr_c::Box<FFI2_RLN>,
+    witness: c_slice::Ref<'_, u8>,
+) -> CResult<repr_c::Box<[u8]>, repr_c::String> {
+    // We read input RLN witness and we serialize_compressed it
+    let (rln_witness, _) = match deserialize_witness(&witness) {
+        Ok(w) => w,
+        Err(e) => {
+            return CResult {
+                ok: None,
+                err: Some(e.to_string().into()),
+            };
+        }
+    };
+
+    let proof = match generate_proof(&rln.proving_key, &rln_witness, &rln.graph_data) {
+        Ok(proof) => proof,
+        Err(e) => {
+            return CResult {
+                ok: None,
+                err: Some(e.to_string().into()),
+            };
+        }
+    };
+
+    // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
+    let mut proof_bytes = Vec::new();
+    if let Err(e) = proof.serialize_compressed(&mut proof_bytes) {
+        return CResult {
+            ok: None,
+            err: Some(e.to_string().into()),
+        };
+    }
+
+    CResult {
+        ok: Some(proof_bytes.into_boxed_slice().into()),
+        err: None,
+    }
+}
+
+#[ffi_export]
+pub fn ffi2_verify(
+    rln: &repr_c::Box<FFI2_RLN>,
+    proof_data: c_slice::Ref<'_, u8>,
+) -> CResult<repr_c::Box<bool>, repr_c::String> {
+    // Input data is serialized for Curve as:
+    // serialized_proof (compressed, 4*32 bytes) || serialized_proof_values (6*32 bytes), i.e.
+    // [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
+    let proof = match ArkProof::deserialize_compressed(&proof_data[..128]) {
+        Ok(proof) => proof,
+        Err(e) => {
+            return CResult {
+                ok: None,
+                err: Some(e.to_string().into()),
+            };
+        }
+    };
+    let (proof_values, _) = deserialize_proof_values(&proof_data[128..]);
+
+    match verify_proof(&rln.proving_key.0.vk, &proof, &proof_values) {
+        Ok(verified) => CResult {
+            ok: Some(Box_::new(verified)),
+            err: None,
+        },
+        Err(e) => CResult {
+            ok: None,
+            err: Some(e.to_string().into()),
+        },
+    }
+}
 
 #[ffi_export]
 pub fn ffi2_generate_rln_proof(
@@ -557,7 +686,54 @@ pub fn ffi2_generate_rln_proof(
         }
     };
 
-    //    .map_err(|err| CString::new(format!("Error: {err}")).unwrap())?;
+    let res = FFI2_RLNProof {
+        proof_values,
+        proof,
+    };
+
+    CResult {
+        ok: Some(Box_::new(res)),
+        err: None,
+    }
+}
+
+#[ffi_export]
+pub fn ffi2_generate_rln_proof_with_witness(
+    rln: &repr_c::Box<FFI2_RLN>,
+    witness: c_slice::Ref<'_, u8>,
+) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
+    // Deserialize the witness
+    let (rln_witness, _) = match deserialize_witness(&witness) {
+        Ok(w) => w,
+        Err(e) => {
+            return CResult {
+                ok: None,
+                err: Some(e.to_string().into()),
+            };
+        }
+    };
+
+    // Generate proof values from witness
+    let proof_values = match proof_values_from_witness(&rln_witness) {
+        Ok(pv) => pv,
+        Err(e) => {
+            return CResult {
+                ok: None,
+                err: Some(e.to_string().into()),
+            };
+        }
+    };
+
+    // Generate the proof
+    let proof = match generate_proof(&rln.proving_key, &rln_witness, &rln.graph_data) {
+        Ok(proof) => proof,
+        Err(e) => {
+            return CResult {
+                ok: None,
+                err: Some(e.to_string().into()),
+            };
+        }
+    };
 
     let res = FFI2_RLNProof {
         proof_values,
@@ -578,7 +754,6 @@ pub fn ffi2_verify_rln_proof(
 ) -> bool {
     let verified = verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values).unwrap();
     let x = hash_to_field_le(&signal);
-    // TODO: should this check be in verify_proof?
     // Consistency checks to counter proof tampering
     verified && (rln.tree.root() == proof.proof_values.root) && (x == proof.proof_values.x)
 }
@@ -616,7 +791,115 @@ pub fn ffi2_verify_with_roots(
     verified && roots_verified
 }
 
-// Hash functions
+////////////////////////////////////////////////////////
+// Utils
+////////////////////////////////////////////////////////
+
+#[ffi_export]
+pub fn ffi2_recover_id_secret(
+    proof_data_1: c_slice::Ref<'_, u8>,
+    proof_data_2: c_slice::Ref<'_, u8>,
+) -> CResult<repr_c::Box<CFr>, repr_c::String> {
+    // We skip deserialization of the zk-proof at the beginning (first 128 bytes)
+    if proof_data_1.len() < 128 || proof_data_2.len() < 128 {
+        return CResult {
+            ok: None,
+            err: Some("Invalid proof data length".to_string().into()),
+        };
+    }
+
+    let (proof_values_1, _) = deserialize_proof_values(&proof_data_1[128..]);
+    let external_nullifier_1 = proof_values_1.external_nullifier;
+
+    let (proof_values_2, _) = deserialize_proof_values(&proof_data_2[128..]);
+    let external_nullifier_2 = proof_values_2.external_nullifier;
+
+    // We continue only if the proof values are for the same external nullifier
+    if external_nullifier_1 != external_nullifier_2 {
+        return CResult {
+            ok: None,
+            err: Some("External nullifiers do not match".to_string().into()),
+        };
+    }
+
+    // We extract the two shares
+    let share1 = (proof_values_1.x, proof_values_1.y);
+    let share2 = (proof_values_2.x, proof_values_2.y);
+
+    // We recover the secret
+    let recovered_identity_secret_hash = match compute_id_secret(share1, share2) {
+        Ok(secret) => secret,
+        Err(e) => {
+            return CResult {
+                ok: None,
+                err: Some(e.to_string().into()),
+            };
+        }
+    };
+
+    CResult {
+        ok: Some(CFr::from(*recovered_identity_secret_hash).into()),
+        err: None,
+    }
+}
+
+////////////////////////////////////////////////////////
+// Persistent metadata APIs
+////////////////////////////////////////////////////////
+
+#[cfg(not(feature = "stateless"))]
+#[ffi_export]
+pub fn ffi2_set_metadata(
+    rln: &mut repr_c::Box<FFI2_RLN>,
+    metadata: c_slice::Ref<'_, u8>,
+) -> CResult<repr_c::Box<bool>, repr_c::String> {
+    match rln.tree.set_metadata(&metadata) {
+        Ok(_) => CResult {
+            ok: Some(Box_::new(true)),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[cfg(not(feature = "stateless"))]
+#[ffi_export]
+pub fn ffi2_get_metadata(
+    rln: &repr_c::Box<FFI2_RLN>,
+) -> CResult<repr_c::Box<[u8]>, repr_c::String> {
+    match rln.tree.metadata() {
+        Ok(metadata) => CResult {
+            ok: Some(metadata.into_boxed_slice().into()),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[cfg(not(feature = "stateless"))]
+#[ffi_export]
+pub fn ffi2_flush(rln: &mut repr_c::Box<FFI2_RLN>) -> CResult<repr_c::Box<bool>, repr_c::String> {
+    match rln.tree.close_db_connection() {
+        Ok(_) => CResult {
+            ok: Some(Box_::new(true)),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+/// ////////////////////////////////////////////////////////
+// Utils APIs
+////////////////////////////////////////////////////////
 
 #[ffi_export]
 pub fn ffi2_hash(input: c_slice::Ref<'_, u8>) -> repr_c::Box<CFr> {
@@ -642,6 +925,16 @@ pub fn ffi2_key_gen() -> repr_c::Vec<CFr> {
     vec![CFr(*identity_secret_hash), CFr(id_commitment)].into()
 }
 
+/// Generate an identity which is composed of an identity secret and identity commitment using a seed.
+/// The identity secret is a random field element,
+/// where RNG is instantiated using 20 rounds of ChaCha seeded with the hash of the input.
+/// The identity commitment is the Poseidon hash of the identity secret.
+#[ffi_export]
+pub fn ffi2_seeded_key_gen(seed: c_slice::Ref<'_, u8>) -> repr_c::Vec<CFr> {
+    let (identity_secret_hash, id_commitment) = seeded_keygen(&seed);
+    vec![CFr(identity_secret_hash), CFr(id_commitment)].into()
+}
+
 /// Generate an identity which is composed of an identity trapdoor, nullifier, secret and commitment.
 /// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
 /// The identity commitment is the Poseidon hash of the identity secret.
@@ -660,16 +953,6 @@ pub fn ffi2_extended_key_gen() -> repr_c::Vec<CFr> {
         CFr(id_commitment),
     ]
     .into()
-}
-
-/// Generate an identity which is composed of an identity secret and identity commitment using a seed.
-/// The identity secret is a random field element,
-/// where RNG is instantiated using 20 rounds of ChaCha seeded with the hash of the input.
-/// The identity commitment is the Poseidon hash of the identity secret.
-#[ffi_export]
-pub fn ffi2_seeded_key_gen(seed: c_slice::Ref<'_, u8>) -> repr_c::Vec<CFr> {
-    let (identity_secret_hash, id_commitment) = seeded_keygen(&seed);
-    vec![CFr(identity_secret_hash), CFr(id_commitment)].into()
 }
 
 /// Generate an identity which is composed of an identity trapdoor, nullifier, secret and commitment using a seed.
