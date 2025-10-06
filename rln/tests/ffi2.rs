@@ -4,8 +4,8 @@ mod test {
     use rand::Rng;
     use rln::circuit::{Fr, TEST_TREE_DEPTH};
     use rln::ffi2::{
-        ffi2_generate_rln_proof, ffi2_key_gen, ffi2_new, ffi2_set_next_leaf, ffi2_verify_rln_proof,
-        CFr, CResult, FFI2_RLNWitnessInput, FFI2_RLN,
+        ffi2_generate_rln_proof, ffi2_get_root, ffi2_key_gen, ffi2_new, ffi2_new_with_params,
+        ffi2_set_next_leaf, ffi2_verify_rln_proof, CFr, CResult, FFI2_RLNWitnessInput, FFI2_RLN,
     };
     use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
     use safer_ffi::boxed::Box_;
@@ -88,23 +88,72 @@ mod test {
         let success = ffi2_verify_rln_proof(&rln, rln_proof, signal.as_slice().into());
         assert!(success);
     }
+
+    fn get_tree_root(rln_pointer: &repr_c::Box<FFI2_RLN>) -> Fr {
+        let root_cfr = ffi2_get_root(rln_pointer);
+        **root_cfr.deref()
+    }
+
+    #[test]
+    // Creating a RLN with raw data should generate same results as using a path to resources
+    fn test_rln_raw_ffi() {
+        use std::fs::File;
+        use std::io::Read;
+
+        // We create a RLN instance
+        let rln_pointer = create_rln_instance();
+
+        // We obtain the root from the RLN instance
+        let root_rln_folder = get_tree_root(&rln_pointer);
+
+        let zkey_path = "./resources/tree_depth_20/rln_final.arkzkey";
+        let mut zkey_file = File::open(zkey_path).expect("no file found");
+        let metadata = std::fs::metadata(zkey_path).expect("unable to read metadata");
+        let mut zkey_buffer = vec![0; metadata.len() as usize];
+        zkey_file
+            .read_exact(&mut zkey_buffer)
+            .expect("buffer overflow");
+
+        let graph_data = "./resources/tree_depth_20/graph.bin";
+        let mut graph_file = File::open(graph_data).expect("no file found");
+        let metadata = std::fs::metadata(graph_data).expect("unable to read metadata");
+        let mut graph_buffer = vec![0; metadata.len() as usize];
+        graph_file
+            .read_exact(&mut graph_buffer)
+            .expect("buffer overflow");
+
+        // Creating a RLN instance passing the raw data
+        let tree_config = "".to_string();
+        let c_str = std::ffi::CString::new(tree_config).unwrap();
+        let result = ffi2_new_with_params(
+            TEST_TREE_DEPTH,
+            zkey_buffer.as_slice().into(),
+            graph_buffer.as_slice().into(),
+            c_str.as_c_str().into(),
+        );
+        let rln_pointer2 = match result {
+            CResult {
+                ok: Some(rln),
+                err: None,
+            } => rln,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("RLN object creation failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // We obtain the root from the RLN instance containing raw data
+        // And compare that the same root was generated
+        let root_rln_raw = get_tree_root(&rln_pointer2);
+        assert_eq!(root_rln_folder, root_rln_raw);
+    }
 }
 
 #[cfg(test)]
 mod general_tests {
-
-    // use ark_std::{rand::thread_rng, UniformRand};
-    // use rand::Rng;
-    // use rln::circuit::*;
-    // use rln::ffi::{hash as ffi_hash, poseidon_hash as ffi_poseidon_hash, *};
     use rln::ffi2::ffi2_seeded_key_gen;
     use rln::utils::str_to_fr;
-    // use rln::hashers::{
-    //     hash_to_field_be, hash_to_field_le, poseidon_hash as utils_poseidon_hash, ROUND_PARAMS,
-    // };
-    // use rln::protocol::*;
-    // use rln::utils::*;
-    // use std::mem::MaybeUninit;
 
     #[test]
     // Tests hash to field using FFI APIs
@@ -112,7 +161,6 @@ mod general_tests {
         // We generate a new identity pair from an input seed
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         let res = ffi2_seeded_key_gen(seed_bytes.into());
-
         assert_eq!(res.len(), 2, "seeded key gen call failed");
         let identity_secret_hash = res.first().unwrap();
         let id_commitment = res.get(1).unwrap();
