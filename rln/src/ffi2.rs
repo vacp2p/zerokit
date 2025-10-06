@@ -1,7 +1,7 @@
 #![allow(non_camel_case_types)]
 
 use crate::{
-    circuit::{graph_from_folder, zkey_from_folder, Curve},
+    circuit::{graph_from_folder, zkey_from_folder, zkey_from_raw, Curve},
     hashers::hash_to_field_le,
     poseidon_tree::PoseidonTree,
     protocol::{
@@ -176,6 +176,120 @@ pub fn ffi2_new(
     }
 }
 
+#[cfg(feature = "stateless")]
+pub fn ffi2_new() {
+    let proving_key = zkey_from_folder().to_owned();
+    let verification_key = proving_key.0.vk.to_owned();
+    let graph_data = graph_from_folder().to_owned();
+
+    let rln = FFI2_RLN {
+        proving_key: proving_key.to_owned(),
+        verification_key: verification_key.to_owned(),
+        graph_data: graph_data.to_vec(),
+    };
+
+    CResult {
+        ok: Some(Box_::new(rln)),
+        err: None,
+    }
+}
+
+#[cfg(not(feature = "stateless"))]
+#[ffi_export]
+pub fn ffi2_new_with_params(
+    tree_depth: usize,
+    zkey_buffer: c_slice::Ref<'_, u8>,
+    graph_data: c_slice::Ref<'_, u8>,
+    config: char_p::Ref<'_>,
+) -> CResult<repr_c::Box<FFI2_RLN>, repr_c::String> {
+    let proving_key = match zkey_from_raw(&zkey_buffer) {
+        Ok(pk) => pk,
+        Err(err) => {
+            return CResult {
+                ok: None,
+                err: Some(err.to_string().into()),
+            };
+        }
+    };
+    let verification_key = proving_key.0.vk.to_owned();
+    let graph_data_vec = graph_data.to_vec();
+
+    let tree_config = {
+        let config_str = config.to_str();
+        if config_str.is_empty() {
+            <PoseidonTree as ZerokitMerkleTree>::Config::default()
+        } else {
+            match <PoseidonTree as ZerokitMerkleTree>::Config::from_str(config_str) {
+                Ok(config) => config,
+                Err(err) => {
+                    return CResult {
+                        ok: None,
+                        err: Some(err.to_string().into()),
+                    };
+                }
+            }
+        }
+    };
+
+    // We compute a default empty tree
+    let tree = match PoseidonTree::new(
+        tree_depth,
+        <PoseidonTree as ZerokitMerkleTree>::Hasher::default_leaf(),
+        tree_config,
+    ) {
+        Ok(tree) => tree,
+        Err(err) => {
+            return CResult {
+                ok: None,
+                err: Some(err.to_string().into()),
+            };
+        }
+    };
+
+    let rln = FFI2_RLN {
+        proving_key,
+        verification_key,
+        graph_data: graph_data_vec,
+        #[cfg(not(feature = "stateless"))]
+        tree,
+    };
+
+    CResult {
+        ok: Some(Box_::new(rln)),
+        err: None,
+    }
+}
+
+#[cfg(feature = "stateless")]
+#[ffi_export]
+pub fn ffi2_new_with_params(
+    zkey_buffer: c_slice::Ref<'_, u8>,
+    graph_data: c_slice::Ref<'_, u8>,
+) -> CResult<repr_c::Box<FFI2_RLN>, repr_c::String> {
+    let proving_key = match zkey_from_raw(&zkey_buffer) {
+        Ok(pk) => pk,
+        Err(err) => {
+            return CResult {
+                ok: None,
+                err: Some(err.to_string().into()),
+            };
+        }
+    };
+    let verification_key = proving_key.0.vk.to_owned();
+    let graph_data_vec = graph_data.to_vec();
+
+    let rln = FFI2_RLN {
+        proving_key,
+        verification_key,
+        graph_data: graph_data_vec,
+    };
+
+    CResult {
+        ok: Some(Box_::new(rln)),
+        err: None,
+    }
+}
+
 #[ffi_export]
 fn ffi2_rln_free(rln: Option<repr_c::Box<FFI2_RLN>>) {
     drop(rln);
@@ -269,6 +383,11 @@ fn ffi2_rln_proof_free(rln: Option<repr_c::Box<FFI2_RLNProof>>) {
 #[ffi_export]
 pub fn ffi2_set_next_leaf(rln: &mut repr_c::Box<FFI2_RLN>, value: repr_c::Box<CFr>) {
     rln.tree.update_next(value.0).unwrap()
+}
+
+#[ffi_export]
+pub fn ffi2_get_root(rln: &repr_c::Box<FFI2_RLN>) -> repr_c::Box<CFr> {
+    CFr::from(rln.tree.root()).into()
 }
 
 // ZK functions
