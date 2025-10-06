@@ -8,7 +8,8 @@ mod test {
         ffi2_delete_leaf, ffi2_generate_rln_proof, ffi2_get_leaf, ffi2_get_root,
         ffi2_init_tree_with_leaves, ffi2_key_gen, ffi2_leaves_set, ffi2_new, ffi2_new_with_params,
         ffi2_set_leaf, ffi2_set_leaves_from, ffi2_set_next_leaf, ffi2_set_tree,
-        ffi2_verify_rln_proof, CFr, CResult, FFI2_RLNWitnessInput, FFI2_RLN,
+        ffi2_verify_rln_proof, ffi2_verify_with_roots, CFr, CResult, FFI2_RLNWitnessInput,
+        FFI2_RLN,
     };
     use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
     use safer_ffi::boxed::Box_;
@@ -302,6 +303,131 @@ mod test {
         };
 
         assert_eq!(leaf, rate_commitment);
+    }
+
+    #[test]
+    // Computes and verifies an RLN ZK proof by checking proof's root against an input roots buffer
+    fn test_verify_with_roots_ffi() {
+        // First part similar to test_rln_proof_ffi
+        let user_message_limit = Fr::from(100);
+
+        // We generate a vector of random leaves
+        let leaves = get_random_leaves();
+        // We create a RLN instance
+        let mut rln = create_rln_instance();
+
+        // We add leaves in a batch into the tree
+        set_leaves_init(&mut rln, &leaves);
+
+        // We generate a new identity pair
+        let key_gen = ffi2_key_gen();
+        let id_secret_hash = &key_gen[0];
+        let id_commitment = &key_gen[1];
+        let rate_commitment = utils_poseidon_hash(&[*id_commitment.deref(), user_message_limit]);
+        let identity_index: usize = NO_OF_LEAVES;
+
+        // We generate a random signal
+        let mut rng = rand::thread_rng();
+        let signal: [u8; 32] = rng.gen();
+
+        // We generate a random epoch
+        let epoch = hash_to_field_le(b"test-epoch");
+        // We generate a random rln_identifier
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+        // We generate a external nullifier
+        let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
+        // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
+        let message_id = Fr::from(1);
+
+        // We set as leaf rate_commitment, its index would be equal to no_of_leaves
+        let success = ffi2_set_next_leaf(&mut rln, CFr::from(rate_commitment).into());
+        assert!(success, "set next leaf call failed");
+
+        // We test verify_with_roots
+
+        // We first try to verify against an empty buffer of roots.
+        // In this case, since no root is provided, proof's root check is skipped and proof is verified if other proof values are valid
+        let roots_empty: repr_c::Vec<CFr> = Vec::new().into();
+        let mut witness_input_1 = Box_::new(FFI2_RLNWitnessInput {
+            identity_secret: id_secret_hash.into(),
+            user_message_limit: CFr::from(user_message_limit).into(),
+            message_id: CFr::from(message_id).into(),
+            external_nullifier: CFr::from(external_nullifier).into(),
+            tree_index: identity_index as u64,
+            signal: signal.to_vec().into_boxed_slice().into(),
+        });
+        let rln_proof_1 = match ffi2_generate_rln_proof(&rln, &mut witness_input_1) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            _ => panic!("Failed to generate proof"),
+        };
+        let success =
+            ffi2_verify_with_roots(&rln, rln_proof_1, signal.as_slice().into(), roots_empty);
+        // Proof should be valid
+        assert!(success);
+
+        // We then try to verify against some random values not containing the correct one.
+        let mut roots_wrong: Vec<CFr> = Vec::new();
+        for _ in 0..5 {
+            roots_wrong.push(CFr::from(Fr::rand(&mut rng)));
+        }
+        let roots_wrong_vec: repr_c::Vec<CFr> = roots_wrong.into();
+        let mut witness_input_2 = Box_::new(FFI2_RLNWitnessInput {
+            identity_secret: id_secret_hash.into(),
+            user_message_limit: CFr::from(user_message_limit).into(),
+            message_id: CFr::from(message_id).into(),
+            external_nullifier: CFr::from(external_nullifier).into(),
+            tree_index: identity_index as u64,
+            signal: signal.to_vec().into_boxed_slice().into(),
+        });
+        let rln_proof_2 = match ffi2_generate_rln_proof(&rln, &mut witness_input_2) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            _ => panic!("Failed to generate proof"),
+        };
+        let success =
+            ffi2_verify_with_roots(&rln, rln_proof_2, signal.as_slice().into(), roots_wrong_vec);
+        // Proof should be invalid.
+        assert!(!success);
+
+        // We finally include the correct root
+        // We get the root of the tree obtained adding one leaf per time
+        let root = get_tree_root(&rln);
+
+        // We include the root and verify the proof
+        let mut roots_correct: Vec<CFr> = Vec::new();
+        for _ in 0..3 {
+            roots_correct.push(CFr::from(Fr::rand(&mut rng)));
+        }
+        roots_correct.push(CFr::from(root));
+        let roots_correct_vec: repr_c::Vec<CFr> = roots_correct.into();
+        let mut witness_input_3 = Box_::new(FFI2_RLNWitnessInput {
+            identity_secret: id_secret_hash.into(),
+            user_message_limit: CFr::from(user_message_limit).into(),
+            message_id: CFr::from(message_id).into(),
+            external_nullifier: CFr::from(external_nullifier).into(),
+            tree_index: identity_index as u64,
+            signal: signal.to_vec().into_boxed_slice().into(),
+        });
+        let rln_proof_3 = match ffi2_generate_rln_proof(&rln, &mut witness_input_3) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            _ => panic!("Failed to generate proof"),
+        };
+        let success = ffi2_verify_with_roots(
+            &rln,
+            rln_proof_3,
+            signal.as_slice().into(),
+            roots_correct_vec,
+        );
+        // Proof should be valid.
+        assert!(success);
     }
 
     #[test]

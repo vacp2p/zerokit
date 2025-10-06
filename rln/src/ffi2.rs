@@ -2,7 +2,7 @@
 
 use crate::{
     circuit::{graph_from_folder, zkey_from_folder, zkey_from_raw, Curve},
-    hashers::hash_to_field_le,
+    hashers::{hash_to_field_le, poseidon_hash},
     poseidon_tree::PoseidonTree,
     protocol::{
         extended_keygen, extended_seeded_keygen, generate_proof, keygen, proof_values_from_witness,
@@ -583,7 +583,53 @@ pub fn ffi2_verify_rln_proof(
     verified && (rln.tree.root() == proof.proof_values.root) && (x == proof.proof_values.x)
 }
 
+#[ffi_export]
+pub fn ffi2_verify_with_roots(
+    rln: &repr_c::Box<FFI2_RLN>,
+    proof: repr_c::Box<FFI2_RLNProof>,
+    signal: c_slice::Ref<'_, u8>,
+    roots: repr_c::Vec<CFr>,
+) -> bool {
+    let verified = match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+
+    // First consistency checks to counter proof tampering
+    let x = hash_to_field_le(&signal);
+    let partial_result = verified && (x == proof.proof_values.x);
+
+    // We skip root validation if proof is already invalid
+    if !partial_result {
+        return partial_result;
+    }
+
+    // We validate the root
+    let roots_verified: bool = if roots.is_empty() {
+        // If no root is passed in roots_buffer, we skip proof's root check
+        true
+    } else {
+        // We check if the proof's root is in roots
+        roots.iter().any(|root| root.0 == proof.proof_values.root)
+    };
+
+    verified && roots_verified
+}
+
 // Hash functions
+
+#[ffi_export]
+pub fn ffi2_hash(input: c_slice::Ref<'_, u8>) -> repr_c::Box<CFr> {
+    let hash_result = hash_to_field_le(&input);
+    CFr::from(hash_result).into()
+}
+
+#[ffi_export]
+pub fn ffi2_poseidon_hash(inputs: repr_c::Vec<CFr>) -> repr_c::Box<CFr> {
+    let inputs_vec: Vec<Fr> = inputs.iter().map(|cfr| cfr.0).collect();
+    let hash_result = poseidon_hash(&inputs_vec);
+    CFr::from(hash_result).into()
+}
 
 // Keygen functions
 
