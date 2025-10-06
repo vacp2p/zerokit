@@ -1,11 +1,14 @@
 #[cfg(test)]
 #[cfg(not(feature = "stateless"))]
 mod test {
+    use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use rln::circuit::{Fr, TEST_TREE_DEPTH};
     use rln::ffi2::{
-        ffi2_generate_rln_proof, ffi2_get_root, ffi2_key_gen, ffi2_new, ffi2_new_with_params,
-        ffi2_set_next_leaf, ffi2_verify_rln_proof, CFr, CResult, FFI2_RLNWitnessInput, FFI2_RLN,
+        ffi2_delete_leaf, ffi2_generate_rln_proof, ffi2_get_leaf, ffi2_get_root,
+        ffi2_init_tree_with_leaves, ffi2_key_gen, ffi2_leaves_set, ffi2_new, ffi2_new_with_params,
+        ffi2_set_leaf, ffi2_set_leaves_from, ffi2_set_next_leaf, ffi2_set_tree,
+        ffi2_verify_rln_proof, CFr, CResult, FFI2_RLNWitnessInput, FFI2_RLN,
     };
     use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
     use safer_ffi::boxed::Box_;
@@ -89,9 +92,216 @@ mod test {
         assert!(success);
     }
 
+    fn set_leaves_init(rln: &mut repr_c::Box<FFI2_RLN>, leaves: &[Fr]) {
+        let leaves_cfr: repr_c::Vec<CFr> = leaves
+            .iter()
+            .map(|fr| CFr::from(*fr))
+            .collect::<Vec<_>>()
+            .into();
+        let success = ffi2_init_tree_with_leaves(rln, leaves_cfr);
+        assert!(success, "init tree with leaves call failed");
+        assert_eq!(ffi2_leaves_set(rln), leaves.len());
+    }
+
+    fn get_random_leaves() -> Vec<Fr> {
+        let mut rng = thread_rng();
+        (0..NO_OF_LEAVES).map(|_| Fr::rand(&mut rng)).collect()
+    }
+
     fn get_tree_root(rln_pointer: &repr_c::Box<FFI2_RLN>) -> Fr {
         let root_cfr = ffi2_get_root(rln_pointer);
         **root_cfr.deref()
+    }
+
+    #[test]
+    // We test merkle batch Merkle tree additions
+    fn test_merkle_operations_ffi() {
+        // We generate a vector of random leaves
+        let leaves = get_random_leaves();
+        // We create a RLN instance
+        let mut rln = create_rln_instance();
+
+        // We first add leaves one by one specifying the index
+        for (i, leaf) in leaves.iter().enumerate() {
+            // We prepare the rate_commitment and we set the leaf at provided index
+            let success = ffi2_set_leaf(&mut rln, i, CFr::from(*leaf).into());
+            assert!(success, "set leaf call failed");
+        }
+
+        // We get the root of the tree obtained adding one leaf per time
+        let root_single = get_tree_root(&rln);
+
+        // We reset the tree to default
+        let success = ffi2_set_tree(&mut rln, TEST_TREE_DEPTH);
+        assert!(success, "set tree call failed");
+
+        // We add leaves one by one using the internal index (new leaves goes in next available position)
+        for leaf in &leaves {
+            let success = ffi2_set_next_leaf(&mut rln, CFr::from(*leaf).into());
+            assert!(success, "set next leaf call failed");
+        }
+
+        // We get the root of the tree obtained adding leaves using the internal index
+        let root_next = get_tree_root(&rln);
+
+        // We check if roots are the same
+        assert_eq!(root_single, root_next);
+
+        // We reset the tree to default
+        let success = ffi2_set_tree(&mut rln, TEST_TREE_DEPTH);
+        assert!(success, "set tree call failed");
+
+        // We add leaves in a batch into the tree
+        set_leaves_init(&mut rln, &leaves);
+
+        // We get the root of the tree obtained adding leaves in batch
+        let root_batch = get_tree_root(&rln);
+
+        // We check if roots are the same
+        assert_eq!(root_single, root_batch);
+
+        // We now delete all leaves set and check if the root corresponds to the empty tree root
+        // delete calls over indexes higher than no_of_leaves are ignored and will not increase self.tree.next_index
+        for i in 0..NO_OF_LEAVES {
+            let success = ffi2_delete_leaf(&mut rln, i);
+            assert!(success, "delete leaf call failed");
+        }
+
+        // We get the root of the tree obtained deleting all leaves
+        let root_delete = get_tree_root(&rln);
+
+        // We reset the tree to default
+        let success = ffi2_set_tree(&mut rln, TEST_TREE_DEPTH);
+        assert!(success, "set tree call failed");
+
+        // We get the root of the empty tree
+        let root_empty = get_tree_root(&rln);
+
+        // We check if roots are the same
+        assert_eq!(root_delete, root_empty);
+    }
+
+    #[test]
+    // This test is similar to the one in public.rs but it uses the RLN object as a pointer
+    // Uses `set_leaves_from` to set leaves in a batch
+    fn test_leaf_setting_with_index_ffi() {
+        // We create a RLN instance
+        let mut rln = create_rln_instance();
+        assert_eq!(ffi2_leaves_set(&rln), 0);
+
+        // We generate a vector of random leaves
+        let leaves = get_random_leaves();
+
+        // set_index is the index from which we start setting leaves
+        // random number between 0..no_of_leaves
+        let mut rng = thread_rng();
+        let set_index = rng.gen_range(0..NO_OF_LEAVES) as usize;
+        println!("set_index: {set_index}");
+
+        // We add leaves in a batch into the tree
+        set_leaves_init(&mut rln, &leaves);
+
+        // We get the root of the tree obtained adding leaves in batch
+        let root_batch_with_init = get_tree_root(&rln);
+
+        // `init_tree_with_leaves` resets the tree to the depth it was initialized with, using `set_tree`
+
+        // We add leaves in a batch starting from index 0..set_index
+        set_leaves_init(&mut rln, &leaves[0..set_index]);
+
+        // We add the remaining n leaves in a batch starting from index set_index
+        let leaves_n: repr_c::Vec<CFr> = leaves[set_index..]
+            .iter()
+            .map(|fr| CFr::from(*fr))
+            .collect::<Vec<_>>()
+            .into();
+        let success = ffi2_set_leaves_from(&mut rln, set_index, leaves_n);
+        assert!(success, "set leaves from call failed");
+
+        // We get the root of the tree obtained adding leaves in batch
+        let root_batch_with_custom_index = get_tree_root(&rln);
+        assert_eq!(
+            root_batch_with_init, root_batch_with_custom_index,
+            "root batch !="
+        );
+
+        // We reset the tree to default
+        let success = ffi2_set_tree(&mut rln, TEST_TREE_DEPTH);
+        assert!(success, "set tree call failed");
+
+        // We add leaves one by one using the internal index (new leaves goes in next available position)
+        for leaf in &leaves {
+            let success = ffi2_set_next_leaf(&mut rln, CFr::from(*leaf).into());
+            assert!(success, "set next leaf call failed");
+        }
+
+        // We get the root of the tree obtained adding leaves using the internal index
+        let root_single_additions = get_tree_root(&rln);
+        assert_eq!(
+            root_batch_with_init, root_single_additions,
+            "root single additions !="
+        );
+    }
+
+    #[test]
+    // This test is similar to the one in public.rs but it uses the RLN object as a pointer
+    fn test_set_leaves_bad_index_ffi() {
+        // We generate a vector of random leaves
+        let leaves = get_random_leaves();
+        // We create a RLN instance
+        let mut rln = create_rln_instance();
+
+        let mut rng = thread_rng();
+        let bad_index = (1 << TEST_TREE_DEPTH) - rng.gen_range(0..NO_OF_LEAVES) as usize;
+
+        // Get root of empty tree
+        let root_empty = get_tree_root(&rln);
+
+        // We add leaves in a batch into the tree
+        let leaves_cfr: repr_c::Vec<CFr> = leaves
+            .iter()
+            .map(|fr| CFr::from(*fr))
+            .collect::<Vec<_>>()
+            .into();
+        let success = ffi2_set_leaves_from(&mut rln, bad_index, leaves_cfr);
+        assert!(!success, "set leaves from call succeeded");
+
+        // Get root of tree after attempted set
+        let root_after_bad_set = get_tree_root(&rln);
+        assert_eq!(root_empty, root_after_bad_set);
+    }
+
+    #[test]
+    fn test_get_leaf_ffi() {
+        let leaf_index = 3;
+        // We create a RLN instance
+        let mut rln = create_rln_instance();
+
+        // generate identity
+        let user_message_limit = Fr::from(100);
+        let key_gen = ffi2_key_gen();
+        let id_commitment = &key_gen[1];
+        let rate_commitment = utils_poseidon_hash(&[*id_commitment.deref(), user_message_limit]);
+
+        // We set the leaf at provided index
+        let success = ffi2_set_leaf(&mut rln, leaf_index, CFr::from(rate_commitment).into());
+        assert!(success, "set leaf call failed");
+
+        // We get the leaf at provided index
+        let result = ffi2_get_leaf(&rln, leaf_index);
+        let leaf = match result {
+            CResult {
+                ok: Some(leaf),
+                err: None,
+            } => **leaf.deref(),
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("get leaf call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        assert_eq!(leaf, rate_commitment);
     }
 
     #[test]
