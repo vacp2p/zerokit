@@ -330,6 +330,20 @@ fn ffi_init_witness_input<'a>(rln: &FFI2_RLN,
 }
 */
 
+// MerkleProof
+
+#[derive_ReprC]
+#[repr(C)]
+pub struct FFI2_MerkleProof {
+    pub path_elements: repr_c::Vec<CFr>,
+    pub path_index: repr_c::Vec<u8>,
+}
+
+#[ffi_export]
+fn ffi2_merkle_proof_free(proof: Option<repr_c::Box<FFI2_MerkleProof>>) {
+    drop(proof);
+}
+
 // RLNWitnessInput
 
 #[derive_ReprC]
@@ -381,13 +395,127 @@ fn ffi2_rln_proof_free(rln: Option<repr_c::Box<FFI2_RLNProof>>) {
 // Merkle tree functions
 
 #[ffi_export]
-pub fn ffi2_set_next_leaf(rln: &mut repr_c::Box<FFI2_RLN>, value: repr_c::Box<CFr>) {
-    rln.tree.update_next(value.0).unwrap()
+pub fn ffi2_set_next_leaf(rln: &mut repr_c::Box<FFI2_RLN>, value: repr_c::Box<CFr>) -> bool {
+    rln.tree.update_next(value.0).is_ok()
 }
 
 #[ffi_export]
 pub fn ffi2_get_root(rln: &repr_c::Box<FFI2_RLN>) -> repr_c::Box<CFr> {
     CFr::from(rln.tree.root()).into()
+}
+
+#[ffi_export]
+pub fn ffi2_set_tree(rln: &mut repr_c::Box<FFI2_RLN>, tree_depth: usize) -> bool {
+    // We compute a default empty tree of desired depth
+    match PoseidonTree::default(tree_depth) {
+        Ok(tree) => {
+            rln.tree = tree;
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+#[ffi_export]
+pub fn ffi2_delete_leaf(rln: &mut repr_c::Box<FFI2_RLN>, index: usize) -> bool {
+    rln.tree.delete(index).is_ok()
+}
+
+#[ffi_export]
+pub fn ffi2_set_leaf(
+    rln: &mut repr_c::Box<FFI2_RLN>,
+    index: usize,
+    value: repr_c::Box<CFr>,
+) -> bool {
+    rln.tree.set(index, value.0).is_ok()
+}
+
+#[ffi_export]
+pub fn ffi2_get_leaf(
+    rln: &repr_c::Box<FFI2_RLN>,
+    index: usize,
+) -> CResult<repr_c::Box<CFr>, repr_c::String> {
+    match rln.tree.get(index) {
+        Ok(leaf) => CResult {
+            ok: Some(CFr::from(leaf).into()),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi2_leaves_set(rln: &repr_c::Box<FFI2_RLN>) -> usize {
+    rln.tree.leaves_set()
+}
+
+#[ffi_export]
+pub fn ffi2_set_leaves_from(
+    rln: &mut repr_c::Box<FFI2_RLN>,
+    index: usize,
+    leaves: repr_c::Vec<CFr>,
+) -> bool {
+    let leaves_iter = leaves.iter().map(|cfr| cfr.0);
+    rln.tree
+        .override_range(index, leaves_iter, [].into_iter())
+        .is_ok()
+}
+
+#[ffi_export]
+pub fn ffi2_init_tree_with_leaves(
+    rln: &mut repr_c::Box<FFI2_RLN>,
+    leaves: repr_c::Vec<CFr>,
+) -> bool {
+    // Reset tree to default
+    let tree_depth = rln.tree.depth();
+    match PoseidonTree::default(tree_depth) {
+        Ok(tree) => {
+            rln.tree = tree;
+        }
+        Err(_) => return false,
+    }
+
+    // Set all leaves from index 0
+    let leaves_iter = leaves.iter().map(|cfr| cfr.0);
+    rln.tree
+        .override_range(0, leaves_iter, [].into_iter())
+        .is_ok()
+}
+
+#[ffi_export]
+pub fn ffi2_get_proof(
+    rln: &repr_c::Box<FFI2_RLN>,
+    index: usize,
+) -> CResult<repr_c::Box<FFI2_MerkleProof>, repr_c::String> {
+    match rln.tree.proof(index) {
+        Ok(proof) => {
+            let path_elements: repr_c::Vec<CFr> = proof
+                .get_path_elements()
+                .iter()
+                .map(|fr| CFr::from(*fr))
+                .collect::<Vec<_>>()
+                .into();
+
+            let path_index: repr_c::Vec<u8> = proof.get_path_index().into();
+
+            let merkle_proof = FFI2_MerkleProof {
+                path_elements,
+                path_index,
+            };
+
+            CResult {
+                ok: Some(Box_::new(merkle_proof)),
+                err: None,
+            }
+        }
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 // ZK functions
