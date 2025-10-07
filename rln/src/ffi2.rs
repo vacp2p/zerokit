@@ -88,8 +88,13 @@ fn cfr_zero() -> repr_c::Box<CFr> {
 }
 
 #[ffi_export]
-fn cfr_debug(cfr: Option<&CFr>) {
-    println!("{:?}", cfr);
+fn cfr_from_uint(value: u32) -> repr_c::Box<CFr> {
+    Box_::new(CFr::from(Fr::from(value)))
+}
+
+#[ffi_export]
+fn cfr_debug(cfr: Option<&CFr>) -> repr_c::String {
+    format!("{:?}", cfr.map(|c| c.to_string())).into()
 }
 
 #[ffi_export]
@@ -317,6 +322,35 @@ pub struct FFI2_RLNWitnessInput {
     pub identity_path_index: repr_c::Vec<u8>,
     pub x: CFr,
     pub external_nullifier: CFr,
+}
+
+#[ffi_export]
+fn ffi2_rln_witness_input_new(
+    identity_secret: &CFr,
+    user_message_limit: &CFr,
+    message_id: &CFr,
+    path_elements: &repr_c::Vec<CFr>,
+    identity_path_index: &repr_c::Vec<u8>,
+    x: &CFr,
+    external_nullifier: &CFr,
+) -> repr_c::Box<FFI2_RLNWitnessInput> {
+    let path_elements_vec: Vec<CFr> = path_elements.iter().cloned().collect();
+    let identity_path_index_vec: Vec<u8> = identity_path_index.iter().copied().collect();
+
+    Box_::new(FFI2_RLNWitnessInput {
+        identity_secret: identity_secret.clone(),
+        user_message_limit: user_message_limit.clone(),
+        message_id: message_id.clone(),
+        path_elements: path_elements_vec.into(),
+        identity_path_index: identity_path_index_vec.into(),
+        x: x.clone(),
+        external_nullifier: external_nullifier.clone(),
+    })
+}
+
+#[ffi_export]
+fn ffi2_rln_witness_input_free(witness: Option<repr_c::Box<FFI2_RLNWitnessInput>>) {
+    drop(witness);
 }
 
 // RLNProof
@@ -934,7 +968,7 @@ pub fn ffi2_hash(input: c_slice::Ref<'_, u8>) -> repr_c::Box<CFr> {
 }
 
 #[ffi_export]
-pub fn ffi2_poseidon_hash(inputs: repr_c::Vec<CFr>) -> repr_c::Box<CFr> {
+pub fn ffi2_poseidon_hash(inputs: &repr_c::Vec<CFr>) -> repr_c::Box<CFr> {
     let inputs_vec: Vec<Fr> = inputs.iter().map(|cfr| cfr.0).collect();
     let hash_result = poseidon_hash(&inputs_vec);
     CFr::from(hash_result).into()
