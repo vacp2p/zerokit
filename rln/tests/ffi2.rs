@@ -583,59 +583,6 @@ mod test {
     }
 
     #[test]
-    fn test_get_leaf_ffi() {
-        // We create a RLN instance
-        let no_of_leaves = 1 << TEST_TREE_DEPTH;
-
-        // We create a RLN instance
-        let mut rln_pointer = create_rln_instance();
-
-        // We generate a new identity tuple from an input seed
-        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let key_gen = ffi2_seeded_extended_key_gen(seed_bytes.into());
-        assert_eq!(key_gen.len(), 4, "seeded extended key gen call failed");
-        let id_commitment = *key_gen[3];
-
-        // We insert the id_commitment into the tree at a random index
-        let mut rng = thread_rng();
-        let index = rng.gen_range(0..no_of_leaves) as usize;
-        let result = ffi2_set_leaf(
-            &mut rln_pointer,
-            index,
-            &Box_::new(CFr::from(id_commitment)),
-        );
-        match result {
-            CResult {
-                ok: Some(_),
-                err: None,
-            } => {}
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("set leaf call failed: {}", err),
-            _ => unreachable!(),
-        }
-
-        // We get the leaf at the same index
-        let result = ffi2_get_leaf(&rln_pointer, index);
-        let received_id_commitment_cfr = match result {
-            CResult {
-                ok: Some(leaf),
-                err: None,
-            } => leaf,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("get leaf call failed: {}", err),
-            _ => unreachable!(),
-        };
-        let received_id_commitment = **received_id_commitment_cfr;
-
-        // We check that the received id_commitment is the same as the one we inserted
-        assert_eq!(received_id_commitment, id_commitment);
-    }
-
-    #[test]
     // Creating a RLN with raw data should generate same results as using a path to resources
     fn test_rln_raw_ffi() {
         use std::fs::File;
@@ -805,6 +752,469 @@ mod test {
     }
 
     #[test]
+    // Computes and verifies an RLN ZK proof by checking proof's root against an input roots buffer
+    fn test_verify_with_roots_ffi() {
+        let user_message_limit = Fr::from(100);
+
+        // We generate a vector of random leaves
+        let leaves = get_random_leaves();
+        // We create a RLN instance
+        let mut rln_pointer = create_rln_instance();
+
+        // We add leaves in a batch into the tree
+        set_leaves_init(&mut rln_pointer, &leaves);
+
+        // We generate a new identity pair
+        let (identity_secret_hash, id_commitment) = identity_pair_gen();
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
+        let identity_index: usize = NO_OF_LEAVES;
+
+        // We generate a random signal
+        let mut rng = rand::thread_rng();
+        let signal: [u8; 32] = rng.gen();
+
+        // We generate a random epoch
+        let epoch = hash_to_field_le(b"test-epoch");
+        // We generate a random rln_identifier
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+        // We generate a external nullifier
+        let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
+        // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
+        let message_id = Fr::from(1);
+
+        // We set as leaf rate_commitment, its index would be equal to no_of_leaves
+        let result = ffi2_set_next_leaf(&mut rln_pointer, &Box_::new(CFr::from(rate_commitment)));
+        match result {
+            CResult {
+                ok: Some(_),
+                err: None,
+            } => {}
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("set next leaf call failed: {}", err),
+            _ => unreachable!(),
+        }
+
+        // Get the merkle proof for the identity
+        let merkle_proof = match ffi2_get_proof(&rln_pointer, identity_index) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("get merkle proof call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // Hash the signal to get x
+        let x = hash_to_field_le(&signal);
+
+        let witness_input = Box_::new(FFI2_RLNWitnessInput {
+            identity_secret: Box_::new(CFr::from(*identity_secret_hash)),
+            user_message_limit: CFr::from(user_message_limit).into(),
+            message_id: CFr::from(message_id).into(),
+            path_elements: merkle_proof
+                .path_elements
+                .iter()
+                .map(|cfr| cfr.clone())
+                .collect::<Vec<_>>()
+                .into(),
+            identity_path_index: merkle_proof
+                .path_index
+                .iter()
+                .copied()
+                .collect::<Vec<_>>()
+                .into_boxed_slice()
+                .into(),
+            x: CFr::from(x).into(),
+            external_nullifier: CFr::from(external_nullifier).into(),
+        });
+
+        let rln_proof = match ffi2_generate_rln_proof(&rln_pointer, &witness_input) {
+            CResult {
+                ok: Some(rln_proof),
+                err: None,
+            } => rln_proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("generate rln proof call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // We test verify_with_roots
+
+        // We first try to verify against an empty buffer of roots.
+        // In this case, since no root is provided, proof's root check is skipped and proof is verified if other proof values are valid
+        let roots_empty: repr_c::Vec<CFr> = vec![].into();
+
+        let result = ffi2_verify_with_roots(&rln_pointer, &rln_proof, roots_empty);
+        let proof_is_valid = match result {
+            CResult {
+                ok: Some(valid),
+                err: None,
+            } => *valid,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("verify with roots call failed: {}", err),
+            _ => unreachable!(),
+        };
+        // Proof should be valid
+        assert!(proof_is_valid);
+
+        // We then try to verify against some random values not containing the correct one.
+        let mut roots_random: Vec<CFr> = Vec::new();
+        for _ in 0..5 {
+            roots_random.push(CFr::from(Fr::rand(&mut rng)));
+        }
+        let roots_random_vec: repr_c::Vec<CFr> = roots_random.into();
+
+        let result = ffi2_verify_with_roots(&rln_pointer, &rln_proof, roots_random_vec);
+        let proof_is_valid = match result {
+            CResult {
+                ok: Some(valid),
+                err: None,
+            } => *valid,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("verify with roots call failed: {}", err),
+            _ => unreachable!(),
+        };
+        // Proof should be invalid.
+        assert!(!proof_is_valid);
+
+        // We finally include the correct root
+        // We get the root of the tree obtained adding one leaf per time
+        let root = get_tree_root(&rln_pointer);
+
+        // We include the root and verify the proof
+        let mut roots_with_correct: Vec<CFr> = Vec::new();
+        for _ in 0..5 {
+            roots_with_correct.push(CFr::from(Fr::rand(&mut rng)));
+        }
+        roots_with_correct.push(CFr::from(root));
+        let roots_correct_vec: repr_c::Vec<CFr> = roots_with_correct.into();
+
+        let result = ffi2_verify_with_roots(&rln_pointer, &rln_proof, roots_correct_vec);
+        let proof_is_valid = match result {
+            CResult {
+                ok: Some(valid),
+                err: None,
+            } => *valid,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("verify with roots call failed: {}", err),
+            _ => unreachable!(),
+        };
+        // Proof should be valid.
+        assert!(proof_is_valid);
+    }
+
+    #[test]
+    // Computes and verifies an RLN ZK proof using FFI APIs and recovers identity secret
+    fn test_recover_id_secret_ffi() {
+        // We create a RLN instance
+        let mut rln_pointer = create_rln_instance();
+
+        // We generate a new identity pair
+        let (identity_secret_hash, id_commitment) = identity_pair_gen();
+
+        let user_message_limit = Fr::from(100);
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
+
+        // We set as leaf rate_commitment, its index would be equal to 0 since tree is empty
+        let result = ffi2_set_next_leaf(&mut rln_pointer, &Box_::new(CFr::from(rate_commitment)));
+        match result {
+            CResult {
+                ok: Some(_),
+                err: None,
+            } => {}
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("set next leaf call failed: {}", err),
+            _ => unreachable!(),
+        }
+
+        let identity_index: usize = 0;
+
+        // We generate two proofs using same epoch but different signals.
+
+        // We generate two random signals
+        let mut rng = rand::thread_rng();
+        let signal1: [u8; 32] = rng.gen();
+        let signal2: [u8; 32] = rng.gen();
+
+        // We generate a random epoch
+        let epoch = hash_to_field_le(b"test-epoch");
+        // We generate a random rln_identifier
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+        // We generate a external nullifier
+        let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
+        // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
+        let message_id = Fr::from(1);
+
+        // Get the merkle proof for the identity
+        let merkle_proof = match ffi2_get_proof(&rln_pointer, identity_index) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("get merkle proof call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // Hash the signals to get x
+        let x1 = hash_to_field_le(&signal1);
+        let x2 = hash_to_field_le(&signal2);
+
+        let witness_input1 = Box_::new(FFI2_RLNWitnessInput {
+            identity_secret: Box_::new(CFr::from(*identity_secret_hash.clone())),
+            user_message_limit: CFr::from(user_message_limit).into(),
+            message_id: CFr::from(message_id).into(),
+            path_elements: merkle_proof
+                .path_elements
+                .iter()
+                .map(|cfr| cfr.clone())
+                .collect::<Vec<_>>()
+                .into(),
+            identity_path_index: merkle_proof
+                .path_index
+                .iter()
+                .copied()
+                .collect::<Vec<_>>()
+                .into_boxed_slice()
+                .into(),
+            x: CFr::from(x1).into(),
+            external_nullifier: CFr::from(external_nullifier).into(),
+        });
+
+        let witness_input2 = Box_::new(FFI2_RLNWitnessInput {
+            identity_secret: Box_::new(CFr::from(*identity_secret_hash.clone())),
+            user_message_limit: CFr::from(user_message_limit).into(),
+            message_id: CFr::from(message_id).into(),
+            path_elements: merkle_proof
+                .path_elements
+                .iter()
+                .map(|cfr| cfr.clone())
+                .collect::<Vec<_>>()
+                .into(),
+            identity_path_index: merkle_proof
+                .path_index
+                .iter()
+                .copied()
+                .collect::<Vec<_>>()
+                .into_boxed_slice()
+                .into(),
+            x: CFr::from(x2).into(),
+            external_nullifier: CFr::from(external_nullifier).into(),
+        });
+
+        // We call generate_rln_proof for first proof values
+        let rln_proof1 = match ffi2_generate_rln_proof(&rln_pointer, &witness_input1) {
+            CResult {
+                ok: Some(rln_proof),
+                err: None,
+            } => rln_proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("generate rln proof call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // We call generate_rln_proof for second proof values
+        let rln_proof2 = match ffi2_generate_rln_proof(&rln_pointer, &witness_input2) {
+            CResult {
+                ok: Some(rln_proof),
+                err: None,
+            } => rln_proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("generate rln proof call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        let result = ffi2_recover_id_secret(&rln_proof1, &rln_proof2);
+        let recovered_id_secret_cfr = match result {
+            CResult {
+                ok: Some(secret),
+                err: None,
+            } => secret,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("recover id secret call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // We check if the recovered identity secret hash corresponds to the original one
+        let recovered_identity_secret_hash = **recovered_id_secret_cfr;
+        assert_eq!(recovered_identity_secret_hash, *identity_secret_hash);
+
+        // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
+
+        // We generate a new identity pair
+        let (identity_secret_hash_new, id_commitment_new) = identity_pair_gen();
+        let rate_commitment_new = utils_poseidon_hash(&[id_commitment_new, user_message_limit]);
+
+        // We set as leaf id_commitment, its index would be equal to 1 since at 0 there is id_commitment
+        let result =
+            ffi2_set_next_leaf(&mut rln_pointer, &Box_::new(CFr::from(rate_commitment_new)));
+        match result {
+            CResult {
+                ok: Some(_),
+                err: None,
+            } => {}
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("set next leaf call failed: {}", err),
+            _ => unreachable!(),
+        }
+
+        let identity_index_new: usize = 1;
+
+        // We generate a random signal
+        let signal3: [u8; 32] = rng.gen();
+        let x3 = hash_to_field_le(&signal3);
+
+        // Get the merkle proof for the new identity
+        let merkle_proof_new = match ffi2_get_proof(&rln_pointer, identity_index_new) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("get merkle proof call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        let witness_input3 = Box_::new(FFI2_RLNWitnessInput {
+            identity_secret: Box_::new(CFr::from(*identity_secret_hash_new.clone())),
+            user_message_limit: CFr::from(user_message_limit).into(),
+            message_id: CFr::from(message_id).into(),
+            path_elements: merkle_proof_new
+                .path_elements
+                .iter()
+                .map(|cfr| cfr.clone())
+                .collect::<Vec<_>>()
+                .into(),
+            identity_path_index: merkle_proof_new
+                .path_index
+                .iter()
+                .copied()
+                .collect::<Vec<_>>()
+                .into_boxed_slice()
+                .into(),
+            x: CFr::from(x3).into(),
+            external_nullifier: CFr::from(external_nullifier).into(),
+        });
+
+        // We call generate_rln_proof
+        let rln_proof3 = match ffi2_generate_rln_proof(&rln_pointer, &witness_input3) {
+            CResult {
+                ok: Some(rln_proof),
+                err: None,
+            } => rln_proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("generate rln proof call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // We attempt to recover the secret using share1 (coming from identity_secret_hash) and share3 (coming from identity_secret_hash_new)
+
+        let result = ffi2_recover_id_secret(&rln_proof1, &rln_proof3);
+        let recovered_id_secret_new_cfr = match result {
+            CResult {
+                ok: Some(secret),
+                err: None,
+            } => secret,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("recover id secret call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        let recovered_identity_secret_hash_new = **recovered_id_secret_new_cfr;
+
+        // ensure that the recovered secret does not match with either of the
+        // used secrets in proof generation
+        assert_ne!(
+            recovered_identity_secret_hash_new,
+            *identity_secret_hash_new
+        );
+    }
+
+    #[test]
+    fn test_get_leaf_ffi() {
+        // We create a RLN instance
+        let no_of_leaves = 1 << TEST_TREE_DEPTH;
+
+        // We create a RLN instance
+        let mut rln_pointer = create_rln_instance();
+
+        // We generate a new identity tuple from an input seed
+        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let key_gen = ffi2_seeded_extended_key_gen(seed_bytes.into());
+        assert_eq!(key_gen.len(), 4, "seeded extended key gen call failed");
+        let id_commitment = *key_gen[3];
+
+        // We insert the id_commitment into the tree at a random index
+        let mut rng = thread_rng();
+        let index = rng.gen_range(0..no_of_leaves) as usize;
+        let result = ffi2_set_leaf(
+            &mut rln_pointer,
+            index,
+            &Box_::new(CFr::from(id_commitment)),
+        );
+        match result {
+            CResult {
+                ok: Some(_),
+                err: None,
+            } => {}
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("set leaf call failed: {}", err),
+            _ => unreachable!(),
+        }
+
+        // We get the leaf at the same index
+        let result = ffi2_get_leaf(&rln_pointer, index);
+        let received_id_commitment_cfr = match result {
+            CResult {
+                ok: Some(leaf),
+                err: None,
+            } => leaf,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("get leaf call failed: {}", err),
+            _ => unreachable!(),
+        };
+        let received_id_commitment = **received_id_commitment_cfr;
+
+        // We check that the received id_commitment is the same as the one we inserted
+        assert_eq!(received_id_commitment, id_commitment);
+    }
+
+    #[test]
     fn test_valid_metadata_ffi() {
         // We create a RLN instance
         let mut rln_pointer = create_rln_instance();
@@ -866,8 +1276,445 @@ mod test {
 }
 
 #[cfg(test)]
+#[cfg(feature = "stateless")]
+mod stateless_test {
+    use ark_std::{rand::thread_rng, UniformRand};
+    use rand::Rng;
+    use rln::circuit::{Fr, TEST_TREE_DEPTH};
+    use rln::ffi2::*;
+    use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash, PoseidonHash};
+    use rln::protocol::*;
+    use rln::utils::*;
+    use safer_ffi::boxed::Box_;
+    use safer_ffi::prelude::repr_c;
+    use std::ops::Deref;
+    use std::time::{Duration, Instant};
+    use utils::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
+
+    type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
+
+    fn create_rln_instance() -> repr_c::Box<FFI2_RLN> {
+        let result = ffi2_new();
+        match result {
+            CResult {
+                ok: Some(rln),
+                err: None,
+            } => rln,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("RLN object creation failed: {}", err),
+            _ => unreachable!(),
+        }
+    }
+
+    fn identity_pair_gen() -> (IdSecret, Fr) {
+        let key_gen = ffi2_key_gen();
+        let mut id_secret_fr = (*key_gen[0]).clone();
+        let id_secret_hash = IdSecret::from(&mut id_secret_fr);
+        let id_commitment = (*key_gen[1]).clone();
+        (id_secret_hash, id_commitment)
+    }
+
+    fn rln_proof_gen_with_witness(
+        rln_pointer: &repr_c::Box<FFI2_RLN>,
+        witness_input: &repr_c::Box<FFI2_RLNWitnessInput>,
+    ) -> repr_c::Box<FFI2_RLNProof> {
+        let result = ffi2_generate_rln_proof_with_witness(rln_pointer, witness_input);
+        match result {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("generate rln proof with witness call failed: {}", err),
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn test_recover_id_secret_stateless_ffi() {
+        let default_leaf = Fr::from(0);
+        let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
+            TEST_TREE_DEPTH,
+            default_leaf,
+            ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
+        )
+        .unwrap();
+
+        let rln_pointer = create_rln_instance();
+
+        // We generate a new identity pair
+        let (identity_secret_hash, id_commitment) = identity_pair_gen();
+
+        let user_message_limit = Fr::from(100);
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
+        tree.update_next(rate_commitment).unwrap();
+
+        // We generate a random epoch
+        let epoch = hash_to_field_le(b"test-epoch");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+        let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
+
+        // We generate two proofs using same epoch but different signals.
+        // We generate a random signal
+        let mut rng = thread_rng();
+        let signal1: [u8; 32] = rng.gen();
+        let x1 = hash_to_field_le(&signal1);
+
+        let signal2: [u8; 32] = rng.gen();
+        let x2 = hash_to_field_le(&signal2);
+
+        let identity_index = tree.leaves_set();
+        let merkle_proof = tree.proof(identity_index).expect("proof should exist");
+
+        // We prepare input for generate_rln_proof API
+        let path_elements: repr_c::Vec<CFr> = merkle_proof
+            .get_path_elements()
+            .iter()
+            .map(|fr| CFr::from(*fr))
+            .collect::<Vec<_>>()
+            .into();
+
+        let identity_path_index: repr_c::Box<[u8]> = merkle_proof
+            .get_path_index()
+            .iter()
+            .copied()
+            .collect::<Vec<_>>()
+            .into_boxed_slice()
+            .into();
+
+        let witness_input1 = Box_::new(FFI2_RLNWitnessInput {
+            identity_secret: Box_::new(CFr::from(*identity_secret_hash.clone())),
+            user_message_limit: CFr::from(user_message_limit).into(),
+            message_id: CFr::from(Fr::from(1)).into(),
+            path_elements: path_elements.clone(),
+            identity_path_index: identity_path_index.clone(),
+            x: CFr::from(x1).into(),
+            external_nullifier: CFr::from(external_nullifier).into(),
+        });
+
+        let witness_input2 = Box_::new(FFI2_RLNWitnessInput {
+            identity_secret: Box_::new(CFr::from(*identity_secret_hash.clone())),
+            user_message_limit: CFr::from(user_message_limit).into(),
+            message_id: CFr::from(Fr::from(1)).into(),
+            path_elements: path_elements.clone(),
+            identity_path_index: identity_path_index.clone(),
+            x: CFr::from(x2).into(),
+            external_nullifier: CFr::from(external_nullifier).into(),
+        });
+
+        // We call generate_rln_proof for first proof values
+        let rln_proof1 = rln_proof_gen_with_witness(&rln_pointer, &witness_input1);
+
+        // We call generate_rln_proof for second proof values
+        let rln_proof2 = rln_proof_gen_with_witness(&rln_pointer, &witness_input2);
+
+        let result = ffi2_recover_id_secret(&rln_proof1, &rln_proof2);
+        let recovered_id_secret_cfr = match result {
+            CResult {
+                ok: Some(secret),
+                err: None,
+            } => secret,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("recover id secret call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // We check if the recovered identity secret hash corresponds to the original one
+        let recovered_identity_secret_hash = **recovered_id_secret_cfr;
+        assert_eq!(recovered_identity_secret_hash, *identity_secret_hash);
+
+        // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
+
+        // We generate a new identity pair
+        let (identity_secret_hash_new, id_commitment_new) = identity_pair_gen();
+        let rate_commitment_new = utils_poseidon_hash(&[id_commitment_new, user_message_limit]);
+        tree.update_next(rate_commitment_new).unwrap();
+
+        // We generate a random signal
+        let signal3: [u8; 32] = rng.gen();
+        let x3 = hash_to_field_le(&signal3);
+
+        let identity_index_new = tree.leaves_set();
+        let merkle_proof_new = tree.proof(identity_index_new).expect("proof should exist");
+
+        let path_elements_new: repr_c::Vec<CFr> = merkle_proof_new
+            .get_path_elements()
+            .iter()
+            .map(|fr| CFr::from(*fr))
+            .collect::<Vec<_>>()
+            .into();
+
+        let identity_path_index_new: repr_c::Box<[u8]> = merkle_proof_new
+            .get_path_index()
+            .iter()
+            .copied()
+            .collect::<Vec<_>>()
+            .into_boxed_slice()
+            .into();
+
+        let witness_input3 = Box_::new(FFI2_RLNWitnessInput {
+            identity_secret: Box_::new(CFr::from(*identity_secret_hash_new.clone())),
+            user_message_limit: CFr::from(user_message_limit).into(),
+            message_id: CFr::from(Fr::from(1)).into(),
+            path_elements: path_elements_new,
+            identity_path_index: identity_path_index_new,
+            x: CFr::from(x3).into(),
+            external_nullifier: CFr::from(external_nullifier).into(),
+        });
+
+        // We call generate_rln_proof
+        let rln_proof3 = rln_proof_gen_with_witness(&rln_pointer, &witness_input3);
+
+        // We attempt to recover the secret using share1 (coming from identity_secret_hash) and share3 (coming from identity_secret_hash_new)
+
+        let result = ffi2_recover_id_secret(&rln_proof1, &rln_proof3);
+        let recovered_id_secret_new_cfr = match result {
+            CResult {
+                ok: Some(secret),
+                err: None,
+            } => secret,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("recover id secret call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        let recovered_identity_secret_hash_new = **recovered_id_secret_new_cfr;
+
+        // ensure that the recovered secret does not match with either of the
+        // used secrets in proof generation
+        assert_ne!(
+            recovered_identity_secret_hash_new,
+            *identity_secret_hash_new
+        );
+    }
+
+    #[test]
+    fn test_verify_with_roots_stateless_ffi() {
+        let default_leaf = Fr::from(0);
+        let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
+            TEST_TREE_DEPTH,
+            default_leaf,
+            ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
+        )
+        .unwrap();
+
+        let rln_pointer = create_rln_instance();
+
+        // We generate a new identity pair
+        let (identity_secret_hash, id_commitment) = identity_pair_gen();
+
+        let identity_index = tree.leaves_set();
+        let user_message_limit = Fr::from(100);
+        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
+        tree.update_next(rate_commitment).unwrap();
+
+        // We generate a random epoch
+        let epoch = hash_to_field_le(b"test-epoch");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+        let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
+
+        // We generate a random signal
+        let mut rng = thread_rng();
+        let signal: [u8; 32] = rng.gen();
+        let x = hash_to_field_le(&signal);
+
+        let merkle_proof = tree.proof(identity_index).expect("proof should exist");
+
+        // We prepare input for generate_rln_proof API
+        let path_elements: repr_c::Vec<CFr> = merkle_proof
+            .get_path_elements()
+            .iter()
+            .map(|fr| CFr::from(*fr))
+            .collect::<Vec<_>>()
+            .into();
+
+        let identity_path_index: repr_c::Box<[u8]> = merkle_proof
+            .get_path_index()
+            .iter()
+            .copied()
+            .collect::<Vec<_>>()
+            .into_boxed_slice()
+            .into();
+
+        let witness_input = Box_::new(FFI2_RLNWitnessInput {
+            identity_secret: Box_::new(CFr::from(*identity_secret_hash.clone())),
+            user_message_limit: CFr::from(user_message_limit).into(),
+            message_id: CFr::from(Fr::from(1)).into(),
+            path_elements,
+            identity_path_index,
+            x: CFr::from(x).into(),
+            external_nullifier: CFr::from(external_nullifier).into(),
+        });
+
+        let rln_proof = rln_proof_gen_with_witness(&rln_pointer, &witness_input);
+
+        // If no roots is provided, proof validation is skipped and if the remaining proof values are valid, the proof will be correctly verified
+        let roots_empty: repr_c::Vec<CFr> = vec![].into();
+
+        let result = ffi2_verify_with_roots(&rln_pointer, &rln_proof, roots_empty);
+        let proof_is_valid = match result {
+            CResult {
+                ok: Some(valid),
+                err: None,
+            } => *valid,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("verify with roots call failed: {}", err),
+            _ => unreachable!(),
+        };
+        // Proof should be valid
+        assert!(proof_is_valid);
+
+        // We serialize in the roots buffer some random values and we check that the proof is not verified since doesn't contain the correct root the proof refers to
+        let mut roots_random: Vec<CFr> = Vec::new();
+        for _ in 0..5 {
+            roots_random.push(CFr::from(Fr::rand(&mut rng)));
+        }
+        let roots_random_vec: repr_c::Vec<CFr> = roots_random.into();
+
+        let result = ffi2_verify_with_roots(&rln_pointer, &rln_proof, roots_random_vec);
+        let proof_is_valid = match result {
+            CResult {
+                ok: Some(valid),
+                err: None,
+            } => *valid,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("verify with roots call failed: {}", err),
+            _ => unreachable!(),
+        };
+        // Proof should be invalid.
+        assert!(!proof_is_valid);
+
+        // We get the root of the tree obtained adding one leaf per time
+        let root = tree.root();
+
+        // We add the real root and we check if now the proof is verified
+        let mut roots_with_correct: Vec<CFr> = Vec::new();
+        for _ in 0..5 {
+            roots_with_correct.push(CFr::from(Fr::rand(&mut rng)));
+        }
+        roots_with_correct.push(CFr::from(root));
+        let roots_correct_vec: repr_c::Vec<CFr> = roots_with_correct.into();
+
+        let result = ffi2_verify_with_roots(&rln_pointer, &rln_proof, roots_correct_vec);
+        let proof_is_valid = match result {
+            CResult {
+                ok: Some(valid),
+                err: None,
+            } => *valid,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("verify with roots call failed: {}", err),
+            _ => unreachable!(),
+        };
+        // Proof should be valid.
+        assert!(proof_is_valid);
+    }
+
+    #[test]
+    fn test_groth16_proofs_performance_stateless_ffi() {
+        // We create a RLN instance
+        let rln_pointer = create_rln_instance();
+
+        // We compute some benchmarks regarding proof and verify API calls
+        // Note that circuit loading requires some initial overhead.
+        // Once the circuit is loaded (i.e., when the RLN object is created), proof generation and verification times should be similar at each call.
+        let sample_size = 100;
+        let mut prove_time: u128 = 0;
+        let mut verify_time: u128 = 0;
+
+        for _ in 0..sample_size {
+            // We generate random witness instances
+            let rln_witness = random_rln_witness(TEST_TREE_DEPTH);
+
+            // Convert path_elements and identity_path_index to FFI types
+            let path_elements: repr_c::Vec<CFr> = rln_witness
+                .path_elements
+                .iter()
+                .map(|fr| CFr::from(*fr))
+                .collect::<Vec<_>>()
+                .into();
+
+            let identity_path_index: repr_c::Box<[u8]> = rln_witness
+                .identity_path_index
+                .iter()
+                .copied()
+                .collect::<Vec<_>>()
+                .into_boxed_slice()
+                .into();
+
+            // We prepare witness input with the hashed signal
+            let witness_input = Box_::new(FFI2_RLNWitnessInput {
+                identity_secret: CFr::from(*rln_witness.identity_secret).into(),
+                user_message_limit: CFr::from(rln_witness.user_message_limit).into(),
+                message_id: CFr::from(rln_witness.message_id).into(),
+                path_elements,
+                identity_path_index,
+                x: CFr::from(rln_witness.x).into(),
+                external_nullifier: CFr::from(rln_witness.external_nullifier).into(),
+            });
+
+            let now = Instant::now();
+            let result = ffi2_prove(&rln_pointer, &witness_input);
+            prove_time += now.elapsed().as_nanos();
+
+            let proof = match result {
+                CResult {
+                    ok: Some(proof),
+                    err: None,
+                } => proof,
+                CResult {
+                    ok: None,
+                    err: Some(err),
+                } => panic!("prove call failed: {}", err),
+                _ => unreachable!(),
+            };
+
+            let now = Instant::now();
+            let result = ffi2_verify(&rln_pointer, &proof);
+            verify_time += now.elapsed().as_nanos();
+
+            let verified = match result {
+                CResult {
+                    ok: Some(verified),
+                    err: None,
+                } => *verified,
+                CResult {
+                    ok: None,
+                    err: Some(err),
+                } => panic!("verify call failed: {}", err),
+                _ => unreachable!(),
+            };
+
+            assert!(verified, "verification failed");
+        }
+
+        println!(
+            "Average prove API call time: {:?}",
+            Duration::from_nanos((prove_time / sample_size).try_into().unwrap())
+        );
+        println!(
+            "Average verify API call time: {:?}",
+            Duration::from_nanos((verify_time / sample_size).try_into().unwrap())
+        );
+    }
+}
+
+#[cfg(test)]
 mod general_tests {
-    use rln::ffi2::ffi2_seeded_key_gen;
+    use rln::ffi2::*;
     use rln::utils::str_to_fr;
 
     #[test]
@@ -895,5 +1742,95 @@ mod general_tests {
             expected_identity_secret_hash_seed_bytes.unwrap()
         );
         assert_eq!(*id_commitment, expected_id_commitment_seed_bytes.unwrap());
+    }
+
+    #[test]
+    // Tests hash to field using FFI APIs
+    fn test_seeded_extended_keygen_stateless_ffi() {
+        // We generate a new identity tuple from an input seed
+        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let key_gen = ffi2_seeded_extended_key_gen(seed_bytes.into());
+        assert_eq!(key_gen.len(), 4, "seeded extended key gen call failed");
+        let identity_trapdoor = *key_gen[0];
+        let identity_nullifier = *key_gen[1];
+        let identity_secret_hash = *key_gen[2];
+        let id_commitment = *key_gen[3];
+
+        // We check against expected values
+        let expected_identity_trapdoor_seed_bytes = str_to_fr(
+            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
+            16,
+        );
+        let expected_identity_nullifier_seed_bytes = str_to_fr(
+            "0x1f18714c7bc83b5bca9e89d404cf6f2f585bc4c0f7ed8b53742b7e2b298f50b4",
+            16,
+        );
+        let expected_identity_secret_hash_seed_bytes = str_to_fr(
+            "0x2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521",
+            16,
+        );
+        let expected_id_commitment_seed_bytes = str_to_fr(
+            "0x68b66aa0a8320d2e56842581553285393188714c48f9b17acd198b4f1734c5c",
+            16,
+        );
+
+        assert_eq!(
+            identity_trapdoor,
+            expected_identity_trapdoor_seed_bytes.unwrap()
+        );
+        assert_eq!(
+            identity_nullifier,
+            expected_identity_nullifier_seed_bytes.unwrap()
+        );
+        assert_eq!(
+            identity_secret_hash,
+            expected_identity_secret_hash_seed_bytes.unwrap()
+        );
+        assert_eq!(id_commitment, expected_id_commitment_seed_bytes.unwrap());
+    }
+
+    #[test]
+    // Tests hash to field using FFI APIs
+    fn test_hash_to_field_stateless_ffi() {
+        use rand::Rng;
+
+        let mut rng = rand::thread_rng();
+        let signal: [u8; 32] = rng.gen();
+
+        let hash1 = ffi2_hash(signal.as_ref().into());
+
+        let hash2 = rln::hashers::hash_to_field_le(&signal);
+
+        assert_eq!(**hash1, hash2);
+    }
+
+    #[test]
+    // Test Poseidon hash FFI
+    fn test_poseidon_hash_stateless_ffi() {
+        use ark_std::UniformRand;
+        use rand::Rng;
+        use rln::circuit::Fr;
+        use rln::hashers::{poseidon_hash as utils_poseidon_hash, ROUND_PARAMS};
+        use safer_ffi::prelude::repr_c;
+
+        // generate random number between 1..ROUND_PARAMS.len()
+        let mut rng = rand::thread_rng();
+        let number_of_inputs = rng.gen_range(1..ROUND_PARAMS.len());
+        let mut inputs = Vec::with_capacity(number_of_inputs);
+        for _ in 0..number_of_inputs {
+            inputs.push(Fr::rand(&mut rng));
+        }
+
+        let expected_hash = utils_poseidon_hash(inputs.as_ref());
+
+        let inputs_cfr: repr_c::Vec<CFr> = inputs
+            .iter()
+            .map(|fr| CFr::from(*fr))
+            .collect::<Vec<_>>()
+            .into();
+
+        let received_hash_cfr = ffi2_poseidon_hash(inputs_cfr);
+
+        assert_eq!(**received_hash_cfr, expected_hash);
     }
 }
