@@ -2,25 +2,21 @@
 
 #[cfg(test)]
 mod test {
-    use ark_std::{UniformRand, rand::thread_rng};
+    use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use rln::circuit::Fr;
-    use rln::hashers::{ROUND_PARAMS, hash_to_field_le, poseidon_hash};
+    use rln::hashers::{hash_to_field_le, poseidon_hash, ROUND_PARAMS};
     use rln::protocol::{
         deserialize_identity_pair_be, deserialize_identity_pair_le, deserialize_identity_tuple_be,
         deserialize_identity_tuple_le,
     };
     use rln::utils::{bytes_le_to_fr, vec_fr_to_bytes_le};
+    use rln_wasm_utils::ffi2::{ffi2_wasm_key_gen, WasmFr};
     use rln_wasm_utils::{
         wasm_extended_key_gen, wasm_hash, wasm_key_gen, wasm_poseidon_hash,
         wasm_seeded_extended_key_gen, wasm_seeded_key_gen,
     };
     use wasm_bindgen_test::*;
-    use rln_wasm_utils::ffi2::{
-        ffi2_wasm_key_gen,
-        WasmFr
-    };
-
 
     #[wasm_bindgen_test]
     fn test_wasm_key_gen() {
