@@ -5,16 +5,15 @@ use crate::{
     hashers::{hash_to_field_le, poseidon_hash},
     poseidon_tree::PoseidonTree,
     protocol::{
-        compute_id_secret, deserialize_proof_values, deserialize_witness, extended_keygen,
-        extended_seeded_keygen, generate_proof, keygen, proof_values_from_witness, seeded_keygen,
-        verify_proof, RLNProofValues, RLNWitnessInput,
+        compute_id_secret, extended_keygen, extended_seeded_keygen, generate_proof, keygen,
+        proof_values_from_witness, seeded_keygen, verify_proof, RLNProofValues, RLNWitnessInput,
     },
     utils::IdSecret,
 };
 use ark_bn254::Fr;
 use ark_groth16::{Proof as ArkProof, ProvingKey};
 use ark_relations::r1cs::ConstraintMatrices;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_serialize::CanonicalSerialize;
 use num_traits::Zero;
 use safer_ffi::prelude::ReprC;
 use safer_ffi::{
@@ -116,9 +115,9 @@ fn vec_cfr_free(v: repr_c::Vec<CFr>) {
 pub struct FFI2_RLN {
     proving_key: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
     #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) graph_data: Vec<u8>,
+    graph_data: Vec<u8>,
     #[cfg(not(feature = "stateless"))]
-    pub(crate) tree: PoseidonTree,
+    tree: PoseidonTree,
 }
 
 ////////////////////////////////////////////////////////
@@ -316,10 +315,13 @@ pub struct FFI2_RLNWitnessInput {
     pub identity_secret: repr_c::Box<CFr>,
     pub user_message_limit: repr_c::Box<CFr>,
     pub message_id: repr_c::Box<CFr>,
+    pub path_elements: repr_c::Vec<CFr>,
+    pub identity_path_index: repr_c::Box<[u8]>,
+    pub x: repr_c::Box<CFr>,
     pub external_nullifier: repr_c::Box<CFr>,
-    pub tree_index: u64,
-    pub signal: repr_c::Box<[u8]>,
 }
+
+// RLNProof
 
 #[derive_ReprC]
 #[repr(opaque)]
@@ -379,7 +381,7 @@ pub fn ffi2_delete_leaf(
 pub fn ffi2_set_leaf(
     rln: &mut repr_c::Box<FFI2_RLN>,
     index: usize,
-    value: repr_c::Box<CFr>,
+    value: &repr_c::Box<CFr>,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
     match rln.tree.set(index, value.0) {
         Ok(_) => CResult {
@@ -418,7 +420,7 @@ pub fn ffi2_leaves_set(rln: &repr_c::Box<FFI2_RLN>) -> usize {
 #[ffi_export]
 pub fn ffi2_set_next_leaf(
     rln: &mut repr_c::Box<FFI2_RLN>,
-    value: repr_c::Box<CFr>,
+    value: &repr_c::Box<CFr>,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
     match rln.tree.update_next(value.0) {
         Ok(_) => CResult {
@@ -580,16 +582,26 @@ pub fn ffi2_get_proof(
 #[ffi_export]
 pub fn ffi2_prove(
     rln: &repr_c::Box<FFI2_RLN>,
-    witness: c_slice::Ref<'_, u8>,
+    witness_input: &repr_c::Box<FFI2_RLNWitnessInput>,
 ) -> CResult<repr_c::Box<[u8]>, repr_c::String> {
-    // We read input RLN witness and we serialize_compressed it
-    let (rln_witness, _) = match deserialize_witness(&witness) {
-        Ok(w) => w,
-        Err(e) => {
-            return CResult {
-                ok: None,
-                err: Some(e.to_string().into()),
-            };
+    // Build RLNWitnessInput from FFI2_RLNWitnessInput
+    let rln_witness = {
+        let mut identity_secret = witness_input.identity_secret.0.clone();
+        let path_elements: Vec<Fr> = witness_input
+            .path_elements
+            .iter()
+            .map(|cfr| cfr.0)
+            .collect();
+        let identity_path_index: Vec<u8> = witness_input.identity_path_index.to_vec();
+
+        RLNWitnessInput {
+            identity_secret: IdSecret::from(&mut identity_secret),
+            user_message_limit: witness_input.user_message_limit.0,
+            message_id: witness_input.message_id.0,
+            path_elements,
+            identity_path_index,
+            x: witness_input.x.0,
+            external_nullifier: witness_input.external_nullifier.0,
         }
     };
 
@@ -621,23 +633,9 @@ pub fn ffi2_prove(
 #[ffi_export]
 pub fn ffi2_verify(
     rln: &repr_c::Box<FFI2_RLN>,
-    proof_data: c_slice::Ref<'_, u8>,
+    proof: &repr_c::Box<FFI2_RLNProof>,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
-    // Input data is serialized for Curve as:
-    // serialized_proof (compressed, 4*32 bytes) || serialized_proof_values (6*32 bytes), i.e.
-    // [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-    let proof = match ArkProof::deserialize_compressed(&proof_data[..128]) {
-        Ok(proof) => proof,
-        Err(e) => {
-            return CResult {
-                ok: None,
-                err: Some(e.to_string().into()),
-            };
-        }
-    };
-    let (proof_values, _) = deserialize_proof_values(&proof_data[128..]);
-
-    match verify_proof(&rln.proving_key.0.vk, &proof, &proof_values) {
+    match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
         Ok(verified) => CResult {
             ok: Some(Box_::new(verified)),
             err: None,
@@ -652,31 +650,38 @@ pub fn ffi2_verify(
 #[ffi_export]
 pub fn ffi2_generate_rln_proof(
     rln: &repr_c::Box<FFI2_RLN>,
-    witness_input: &mut repr_c::Box<FFI2_RLNWitnessInput>,
+    witness_input: &repr_c::Box<FFI2_RLNWitnessInput>,
 ) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
-    let witness_input_ = {
-        let merkle_proof = rln
-            .tree
-            .proof(witness_input.tree_index as usize)
-            .expect("proof should exist");
-        let path_elements = merkle_proof.get_path_elements();
-        let identity_path_index = merkle_proof.get_path_index();
-
-        let x = hash_to_field_le(&witness_input.signal);
+    let rln_witness = {
+        let mut identity_secret = witness_input.identity_secret.0.clone();
+        let path_elements: Vec<Fr> = witness_input
+            .path_elements
+            .iter()
+            .map(|cfr| cfr.0)
+            .collect();
+        let identity_path_index: Vec<u8> = witness_input.identity_path_index.to_vec();
 
         RLNWitnessInput {
-            identity_secret: IdSecret::from(&mut witness_input.identity_secret.0),
+            identity_secret: IdSecret::from(&mut identity_secret),
             user_message_limit: witness_input.user_message_limit.0,
             message_id: witness_input.message_id.0,
             path_elements,
             identity_path_index,
-            x,
+            x: witness_input.x.0,
             external_nullifier: witness_input.external_nullifier.0,
         }
     };
 
-    let proof_values = proof_values_from_witness(&witness_input_).unwrap();
-    let proof = match generate_proof(&rln.proving_key, &witness_input_, &rln.graph_data) {
+    let proof_values = match proof_values_from_witness(&rln_witness) {
+        Ok(pv) => pv,
+        Err(e) => {
+            return CResult {
+                ok: None,
+                err: Some(e.to_string().into()),
+            };
+        }
+    };
+    let proof = match generate_proof(&rln.proving_key, &rln_witness, &rln.graph_data) {
         Ok(proof) => proof,
         Err(e) => {
             return CResult {
@@ -700,16 +705,26 @@ pub fn ffi2_generate_rln_proof(
 #[ffi_export]
 pub fn ffi2_generate_rln_proof_with_witness(
     rln: &repr_c::Box<FFI2_RLN>,
-    witness: c_slice::Ref<'_, u8>,
+    witness_input: &repr_c::Box<FFI2_RLNWitnessInput>,
 ) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
-    // Deserialize the witness
-    let (rln_witness, _) = match deserialize_witness(&witness) {
-        Ok(w) => w,
-        Err(e) => {
-            return CResult {
-                ok: None,
-                err: Some(e.to_string().into()),
-            };
+    // Build RLNWitnessInput from FFI2_RLNWitnessInput
+    let rln_witness = {
+        let mut identity_secret = witness_input.identity_secret.0.clone();
+        let path_elements: Vec<Fr> = witness_input
+            .path_elements
+            .iter()
+            .map(|cfr| cfr.0)
+            .collect();
+        let identity_path_index: Vec<u8> = witness_input.identity_path_index.to_vec();
+
+        RLNWitnessInput {
+            identity_secret: IdSecret::from(&mut identity_secret),
+            user_message_limit: witness_input.user_message_limit.0,
+            message_id: witness_input.message_id.0,
+            path_elements,
+            identity_path_index,
+            x: witness_input.x.0,
+            external_nullifier: witness_input.external_nullifier.0,
         }
     };
 
@@ -749,37 +764,46 @@ pub fn ffi2_generate_rln_proof_with_witness(
 #[ffi_export]
 pub fn ffi2_verify_rln_proof(
     rln: &repr_c::Box<FFI2_RLN>,
-    proof: repr_c::Box<FFI2_RLNProof>,
-    signal: c_slice::Ref<'_, u8>,
-) -> bool {
-    let verified = verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values).unwrap();
-    let x = hash_to_field_le(&signal);
-    // Consistency checks to counter proof tampering
-    verified && (rln.tree.root() == proof.proof_values.root) && (x == proof.proof_values.x)
+    proof: &repr_c::Box<FFI2_RLNProof>,
+) -> CResult<repr_c::Box<bool>, repr_c::String> {
+    match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
+        Ok(verified) => CResult {
+            ok: Some(Box_::new(verified)),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 #[ffi_export]
 pub fn ffi2_verify_with_roots(
     rln: &repr_c::Box<FFI2_RLN>,
-    proof: repr_c::Box<FFI2_RLNProof>,
-    signal: c_slice::Ref<'_, u8>,
+    proof: &repr_c::Box<FFI2_RLNProof>,
     roots: repr_c::Vec<CFr>,
-) -> bool {
+) -> CResult<repr_c::Box<bool>, repr_c::String> {
+    // Verify the proof
     let verified = match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
         Ok(v) => v,
-        Err(_) => return false,
+        Err(e) => {
+            return CResult {
+                ok: None,
+                err: Some(e.to_string().into()),
+            };
+        }
     };
 
-    // First consistency checks to counter proof tampering
-    let x = hash_to_field_le(&signal);
-    let partial_result = verified && (x == proof.proof_values.x);
-
-    // We skip root validation if proof is already invalid
-    if !partial_result {
-        return partial_result;
+    // If proof verification failed, return early
+    if !verified {
+        return CResult {
+            ok: Some(Box_::new(false)),
+            err: None,
+        };
     }
 
-    // We validate the root
+    // Validate the root
     let roots_verified: bool = if roots.is_empty() {
         // If no root is passed in roots_buffer, we skip proof's root check
         true
@@ -788,7 +812,10 @@ pub fn ffi2_verify_with_roots(
         roots.iter().any(|root| root.0 == proof.proof_values.root)
     };
 
-    verified && roots_verified
+    CResult {
+        ok: Some(Box_::new(verified && roots_verified)),
+        err: None,
+    }
 }
 
 ////////////////////////////////////////////////////////
@@ -797,22 +824,11 @@ pub fn ffi2_verify_with_roots(
 
 #[ffi_export]
 pub fn ffi2_recover_id_secret(
-    proof_data_1: c_slice::Ref<'_, u8>,
-    proof_data_2: c_slice::Ref<'_, u8>,
+    proof_1: &repr_c::Box<FFI2_RLNProof>,
+    proof_2: &repr_c::Box<FFI2_RLNProof>,
 ) -> CResult<repr_c::Box<CFr>, repr_c::String> {
-    // We skip deserialization of the zk-proof at the beginning (first 128 bytes)
-    if proof_data_1.len() < 128 || proof_data_2.len() < 128 {
-        return CResult {
-            ok: None,
-            err: Some("Invalid proof data length".to_string().into()),
-        };
-    }
-
-    let (proof_values_1, _) = deserialize_proof_values(&proof_data_1[128..]);
-    let external_nullifier_1 = proof_values_1.external_nullifier;
-
-    let (proof_values_2, _) = deserialize_proof_values(&proof_data_2[128..]);
-    let external_nullifier_2 = proof_values_2.external_nullifier;
+    let external_nullifier_1 = proof_1.proof_values.external_nullifier;
+    let external_nullifier_2 = proof_2.proof_values.external_nullifier;
 
     // We continue only if the proof values are for the same external nullifier
     if external_nullifier_1 != external_nullifier_2 {
@@ -823,8 +839,8 @@ pub fn ffi2_recover_id_secret(
     }
 
     // We extract the two shares
-    let share1 = (proof_values_1.x, proof_values_1.y);
-    let share2 = (proof_values_2.x, proof_values_2.y);
+    let share1 = (proof_1.proof_values.x, proof_1.proof_values.y);
+    let share2 = (proof_2.proof_values.x, proof_2.proof_values.y);
 
     // We recover the secret
     let recovered_identity_secret_hash = match compute_id_secret(share1, share2) {
