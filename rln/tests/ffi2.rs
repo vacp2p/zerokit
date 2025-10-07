@@ -36,12 +36,14 @@ mod test {
     }
 
     fn set_leaves_init(ffi2_rln_pointer: &mut repr_c::Box<FFI2_RLN>, leaves: &[Fr]) {
-        let leaves_cfr: repr_c::Vec<CFr> = leaves
-            .iter()
-            .map(|fr| CFr::from(*fr))
-            .collect::<Vec<_>>()
-            .into();
-        match ffi2_init_tree_with_leaves(ffi2_rln_pointer, leaves_cfr) {
+        match ffi2_init_tree_with_leaves(
+            ffi2_rln_pointer,
+            leaves
+                .iter()
+                .map(|fr| CFr::from(*fr))
+                .collect::<Vec<_>>()
+                .into(),
+        ) {
             CResult {
                 ok: Some(_),
                 err: None,
@@ -68,9 +70,9 @@ mod test {
 
     fn identity_pair_gen() -> (IdSecret, Fr) {
         let key_gen = ffi2_key_gen();
-        let mut id_secret_fr = (*key_gen[0]).clone();
+        let mut id_secret_fr = *key_gen[0];
         let id_secret_hash = IdSecret::from(&mut id_secret_fr);
-        let id_commitment = (*key_gen[1]).clone();
+        let id_commitment = *key_gen[1];
         (id_secret_hash, id_commitment)
     }
 
@@ -242,12 +244,15 @@ mod test {
         set_leaves_init(&mut ffi2_rln_pointer, &leaves[0..set_index]);
 
         // We add the remaining n leaves in a batch starting from index set_index
-        let leaves_n: repr_c::Vec<CFr> = leaves[set_index..]
-            .iter()
-            .map(|fr| CFr::from(*fr))
-            .collect::<Vec<_>>()
-            .into();
-        match ffi2_set_leaves_from(&mut ffi2_rln_pointer, set_index, leaves_n) {
+        match ffi2_set_leaves_from(
+            &mut ffi2_rln_pointer,
+            set_index,
+            leaves[set_index..]
+                .iter()
+                .map(|fr| CFr::from(*fr))
+                .collect::<Vec<_>>()
+                .into(),
+        ) {
             CResult {
                 ok: Some(_),
                 err: None,
@@ -358,12 +363,15 @@ mod test {
         let root_empty = get_tree_root(&ffi2_rln_pointer);
 
         // We add leaves in a batch into the tree
-        let leaves_cfr: repr_c::Vec<CFr> = leaves
-            .iter()
-            .map(|fr| CFr::from(*fr))
-            .collect::<Vec<_>>()
-            .into();
-        match ffi2_set_leaves_from(&mut ffi2_rln_pointer, bad_index, leaves_cfr) {
+        match ffi2_set_leaves_from(
+            &mut ffi2_rln_pointer,
+            bad_index,
+            leaves
+                .iter()
+                .map(|fr| CFr::from(*fr))
+                .collect::<Vec<_>>()
+                .into(),
+        ) {
             CResult {
                 ok: None,
                 err: Some(_),
@@ -500,31 +508,20 @@ mod test {
             // We generate random witness instances
             let rln_witness = random_rln_witness(TEST_TREE_DEPTH);
 
-            // Convert path_elements and identity_path_index to FFI types
-            let path_elements: repr_c::Vec<CFr> = rln_witness
-                .path_elements
-                .iter()
-                .map(|fr| CFr::from(*fr))
-                .collect::<Vec<_>>()
-                .into();
-
-            let identity_path_index: repr_c::Box<[u8]> = rln_witness
-                .identity_path_index
-                .iter()
-                .copied()
-                .collect::<Vec<_>>()
-                .into_boxed_slice()
-                .into();
-
             // We prepare witness input with the hashed signal
             let witness_input = Box_::new(FFI2_RLNWitnessInput {
-                identity_secret: CFr::from(*rln_witness.identity_secret).into(),
-                user_message_limit: CFr::from(rln_witness.user_message_limit).into(),
-                message_id: CFr::from(rln_witness.message_id).into(),
-                path_elements,
-                identity_path_index,
-                x: CFr::from(rln_witness.x).into(),
-                external_nullifier: CFr::from(rln_witness.external_nullifier).into(),
+                identity_secret: CFr::from(*rln_witness.identity_secret),
+                user_message_limit: CFr::from(rln_witness.user_message_limit),
+                message_id: CFr::from(rln_witness.message_id),
+                path_elements: rln_witness
+                    .path_elements
+                    .iter()
+                    .map(|fr| CFr::from(*fr))
+                    .collect::<Vec<_>>()
+                    .into(),
+                identity_path_index: rln_witness.identity_path_index.to_vec().into(),
+                x: CFr::from(rln_witness.x),
+                external_nullifier: CFr::from(rln_witness.external_nullifier),
             });
 
             let now = Instant::now();
@@ -692,13 +689,13 @@ mod test {
         let x = hash_to_field_le(&signal);
 
         let witness_input = Box_::new(FFI2_RLNWitnessInput {
-            identity_secret: Box_::new(CFr::from(*identity_secret_hash)),
-            user_message_limit: CFr::from(user_message_limit).into(),
-            message_id: CFr::from(message_id).into(),
+            identity_secret: CFr::from(*identity_secret_hash),
+            user_message_limit: CFr::from(user_message_limit),
+            message_id: CFr::from(message_id),
             path_elements: merkle_proof
                 .path_elements
                 .iter()
-                .map(|cfr| cfr.clone())
+                .cloned()
                 .collect::<Vec<_>>()
                 .into(),
             identity_path_index: merkle_proof
@@ -706,10 +703,9 @@ mod test {
                 .iter()
                 .copied()
                 .collect::<Vec<_>>()
-                .into_boxed_slice()
                 .into(),
-            x: CFr::from(x).into(),
-            external_nullifier: CFr::from(external_nullifier).into(),
+            x: CFr::from(x),
+            external_nullifier: CFr::from(external_nullifier),
         });
 
         let rln_proof = rln_proof_gen(&ffi2_rln_pointer, &witness_input);
@@ -793,13 +789,13 @@ mod test {
         let x = hash_to_field_le(&signal);
 
         let witness_input = Box_::new(FFI2_RLNWitnessInput {
-            identity_secret: Box_::new(CFr::from(*identity_secret_hash)),
-            user_message_limit: CFr::from(user_message_limit).into(),
-            message_id: CFr::from(message_id).into(),
+            identity_secret: CFr::from(*identity_secret_hash),
+            user_message_limit: CFr::from(user_message_limit),
+            message_id: CFr::from(message_id),
             path_elements: merkle_proof
                 .path_elements
                 .iter()
-                .map(|cfr| cfr.clone())
+                .cloned()
                 .collect::<Vec<_>>()
                 .into(),
             identity_path_index: merkle_proof
@@ -807,10 +803,9 @@ mod test {
                 .iter()
                 .copied()
                 .collect::<Vec<_>>()
-                .into_boxed_slice()
                 .into(),
-            x: CFr::from(x).into(),
-            external_nullifier: CFr::from(external_nullifier).into(),
+            x: CFr::from(x),
+            external_nullifier: CFr::from(external_nullifier),
         });
 
         let rln_proof = rln_proof_gen(&ffi2_rln_pointer, &witness_input);
@@ -950,13 +945,13 @@ mod test {
         let x2 = hash_to_field_le(&signal2);
 
         let witness_input1 = Box_::new(FFI2_RLNWitnessInput {
-            identity_secret: Box_::new(CFr::from(*identity_secret_hash.clone())),
-            user_message_limit: CFr::from(user_message_limit).into(),
-            message_id: CFr::from(message_id).into(),
+            identity_secret: CFr::from(*identity_secret_hash.clone()),
+            user_message_limit: CFr::from(user_message_limit),
+            message_id: CFr::from(message_id),
             path_elements: merkle_proof
                 .path_elements
                 .iter()
-                .map(|cfr| cfr.clone())
+                .cloned()
                 .collect::<Vec<_>>()
                 .into(),
             identity_path_index: merkle_proof
@@ -964,20 +959,19 @@ mod test {
                 .iter()
                 .copied()
                 .collect::<Vec<_>>()
-                .into_boxed_slice()
                 .into(),
-            x: CFr::from(x1).into(),
-            external_nullifier: CFr::from(external_nullifier).into(),
+            x: CFr::from(x1),
+            external_nullifier: CFr::from(external_nullifier),
         });
 
         let witness_input2 = Box_::new(FFI2_RLNWitnessInput {
-            identity_secret: Box_::new(CFr::from(*identity_secret_hash.clone())),
-            user_message_limit: CFr::from(user_message_limit).into(),
-            message_id: CFr::from(message_id).into(),
+            identity_secret: CFr::from(*identity_secret_hash.clone()),
+            user_message_limit: CFr::from(user_message_limit),
+            message_id: CFr::from(message_id),
             path_elements: merkle_proof
                 .path_elements
                 .iter()
-                .map(|cfr| cfr.clone())
+                .cloned()
                 .collect::<Vec<_>>()
                 .into(),
             identity_path_index: merkle_proof
@@ -985,10 +979,9 @@ mod test {
                 .iter()
                 .copied()
                 .collect::<Vec<_>>()
-                .into_boxed_slice()
                 .into(),
-            x: CFr::from(x2).into(),
-            external_nullifier: CFr::from(external_nullifier).into(),
+            x: CFr::from(x2),
+            external_nullifier: CFr::from(external_nullifier),
         });
 
         // We call generate_rln_proof for first proof values
@@ -1055,13 +1048,13 @@ mod test {
         };
 
         let witness_input3 = Box_::new(FFI2_RLNWitnessInput {
-            identity_secret: Box_::new(CFr::from(*identity_secret_hash_new.clone())),
-            user_message_limit: CFr::from(user_message_limit).into(),
-            message_id: CFr::from(message_id).into(),
+            identity_secret: CFr::from(*identity_secret_hash_new.clone()),
+            user_message_limit: CFr::from(user_message_limit),
+            message_id: CFr::from(message_id),
             path_elements: merkle_proof_new
                 .path_elements
                 .iter()
-                .map(|cfr| cfr.clone())
+                .cloned()
                 .collect::<Vec<_>>()
                 .into(),
             identity_path_index: merkle_proof_new
@@ -1069,10 +1062,9 @@ mod test {
                 .iter()
                 .copied()
                 .collect::<Vec<_>>()
-                .into_boxed_slice()
                 .into(),
-            x: CFr::from(x3).into(),
-            external_nullifier: CFr::from(external_nullifier).into(),
+            x: CFr::from(x3),
+            external_nullifier: CFr::from(external_nullifier),
         });
 
         // We call generate_rln_proof
@@ -1244,9 +1236,9 @@ mod stateless_test {
 
     fn identity_pair_gen() -> (IdSecret, Fr) {
         let key_gen = ffi2_key_gen();
-        let mut id_secret_fr = (*key_gen[0]).clone();
+        let mut id_secret_fr = *key_gen[0];
         let id_secret_hash = IdSecret::from(&mut id_secret_fr);
-        let id_commitment = (*key_gen[1]).clone();
+        let id_commitment = *key_gen[1];
         (id_secret_hash, id_commitment)
     }
 
@@ -1303,40 +1295,34 @@ mod stateless_test {
         let identity_index = tree.leaves_set();
         let merkle_proof = tree.proof(identity_index).expect("proof should exist");
 
-        // We prepare input for generate_rln_proof API
-        let path_elements: repr_c::Vec<CFr> = merkle_proof
-            .get_path_elements()
-            .iter()
-            .map(|fr| CFr::from(*fr))
-            .collect::<Vec<_>>()
-            .into();
-
-        let identity_path_index: repr_c::Box<[u8]> = merkle_proof
-            .get_path_index()
-            .iter()
-            .copied()
-            .collect::<Vec<_>>()
-            .into_boxed_slice()
-            .into();
-
         let witness_input1 = Box_::new(FFI2_RLNWitnessInput {
-            identity_secret: Box_::new(CFr::from(*identity_secret_hash.clone())),
-            user_message_limit: CFr::from(user_message_limit).into(),
-            message_id: CFr::from(Fr::from(1)).into(),
-            path_elements: path_elements.clone(),
-            identity_path_index: identity_path_index.clone(),
-            x: CFr::from(x1).into(),
-            external_nullifier: CFr::from(external_nullifier).into(),
+            identity_secret: CFr::from(*identity_secret_hash.clone()),
+            user_message_limit: CFr::from(user_message_limit),
+            message_id: CFr::from(Fr::from(1)),
+            path_elements: merkle_proof
+                .get_path_elements()
+                .iter()
+                .map(|fr| CFr::from(*fr))
+                .collect::<Vec<_>>()
+                .into(),
+            identity_path_index: merkle_proof.get_path_index().to_vec().into(),
+            x: CFr::from(x1),
+            external_nullifier: CFr::from(external_nullifier),
         });
 
         let witness_input2 = Box_::new(FFI2_RLNWitnessInput {
-            identity_secret: Box_::new(CFr::from(*identity_secret_hash.clone())),
-            user_message_limit: CFr::from(user_message_limit).into(),
-            message_id: CFr::from(Fr::from(1)).into(),
-            path_elements: path_elements.clone(),
-            identity_path_index: identity_path_index.clone(),
-            x: CFr::from(x2).into(),
-            external_nullifier: CFr::from(external_nullifier).into(),
+            identity_secret: CFr::from(*identity_secret_hash.clone()),
+            user_message_limit: CFr::from(user_message_limit),
+            message_id: CFr::from(Fr::from(1)),
+            path_elements: merkle_proof
+                .get_path_elements()
+                .iter()
+                .map(|fr| CFr::from(*fr))
+                .collect::<Vec<_>>()
+                .into(),
+            identity_path_index: merkle_proof.get_path_index().to_vec().into(),
+            x: CFr::from(x2),
+            external_nullifier: CFr::from(external_nullifier),
         });
 
         // We call generate_rln_proof for first proof values
@@ -1375,29 +1361,19 @@ mod stateless_test {
         let identity_index_new = tree.leaves_set();
         let merkle_proof_new = tree.proof(identity_index_new).expect("proof should exist");
 
-        let path_elements_new: repr_c::Vec<CFr> = merkle_proof_new
-            .get_path_elements()
-            .iter()
-            .map(|fr| CFr::from(*fr))
-            .collect::<Vec<_>>()
-            .into();
-
-        let identity_path_index_new: repr_c::Box<[u8]> = merkle_proof_new
-            .get_path_index()
-            .iter()
-            .copied()
-            .collect::<Vec<_>>()
-            .into_boxed_slice()
-            .into();
-
         let witness_input3 = Box_::new(FFI2_RLNWitnessInput {
-            identity_secret: Box_::new(CFr::from(*identity_secret_hash_new.clone())),
-            user_message_limit: CFr::from(user_message_limit).into(),
-            message_id: CFr::from(Fr::from(1)).into(),
-            path_elements: path_elements_new,
-            identity_path_index: identity_path_index_new,
-            x: CFr::from(x3).into(),
-            external_nullifier: CFr::from(external_nullifier).into(),
+            identity_secret: CFr::from(*identity_secret_hash_new.clone()),
+            user_message_limit: CFr::from(user_message_limit),
+            message_id: CFr::from(Fr::from(1)),
+            path_elements: merkle_proof_new
+                .get_path_elements()
+                .iter()
+                .map(|fr| CFr::from(*fr))
+                .collect::<Vec<_>>()
+                .into(),
+            identity_path_index: merkle_proof_new.get_path_index().to_vec().into(),
+            x: CFr::from(x3),
+            external_nullifier: CFr::from(external_nullifier),
         });
 
         // We call generate_rln_proof
@@ -1460,29 +1436,19 @@ mod stateless_test {
         let merkle_proof = tree.proof(identity_index).expect("proof should exist");
 
         // We prepare input for generate_rln_proof API
-        let path_elements: repr_c::Vec<CFr> = merkle_proof
-            .get_path_elements()
-            .iter()
-            .map(|fr| CFr::from(*fr))
-            .collect::<Vec<_>>()
-            .into();
-
-        let identity_path_index: repr_c::Box<[u8]> = merkle_proof
-            .get_path_index()
-            .iter()
-            .copied()
-            .collect::<Vec<_>>()
-            .into_boxed_slice()
-            .into();
-
         let witness_input = Box_::new(FFI2_RLNWitnessInput {
-            identity_secret: Box_::new(CFr::from(*identity_secret_hash.clone())),
-            user_message_limit: CFr::from(user_message_limit).into(),
-            message_id: CFr::from(Fr::from(1)).into(),
-            path_elements,
-            identity_path_index,
-            x: CFr::from(x).into(),
-            external_nullifier: CFr::from(external_nullifier).into(),
+            identity_secret: CFr::from(*identity_secret_hash.clone()),
+            user_message_limit: CFr::from(user_message_limit),
+            message_id: CFr::from(Fr::from(1)),
+            path_elements: merkle_proof
+                .get_path_elements()
+                .iter()
+                .map(|fr| CFr::from(*fr))
+                .collect::<Vec<_>>()
+                .into(),
+            identity_path_index: merkle_proof.get_path_index().to_vec().into(),
+            x: CFr::from(x),
+            external_nullifier: CFr::from(external_nullifier),
         });
 
         let rln_proof = rln_proof_gen_with_witness(&ffi2_rln_pointer, &witness_input);
@@ -1570,31 +1536,20 @@ mod stateless_test {
             // We generate random witness instances
             let rln_witness = random_rln_witness(TEST_TREE_DEPTH);
 
-            // Convert path_elements and identity_path_index to FFI types
-            let path_elements: repr_c::Vec<CFr> = rln_witness
-                .path_elements
-                .iter()
-                .map(|fr| CFr::from(*fr))
-                .collect::<Vec<_>>()
-                .into();
-
-            let identity_path_index: repr_c::Box<[u8]> = rln_witness
-                .identity_path_index
-                .iter()
-                .copied()
-                .collect::<Vec<_>>()
-                .into_boxed_slice()
-                .into();
-
             // We prepare witness input with the hashed signal
             let witness_input = Box_::new(FFI2_RLNWitnessInput {
-                identity_secret: CFr::from(*rln_witness.identity_secret).into(),
-                user_message_limit: CFr::from(rln_witness.user_message_limit).into(),
-                message_id: CFr::from(rln_witness.message_id).into(),
-                path_elements,
-                identity_path_index,
-                x: CFr::from(rln_witness.x).into(),
-                external_nullifier: CFr::from(rln_witness.external_nullifier).into(),
+                identity_secret: CFr::from(*rln_witness.identity_secret),
+                user_message_limit: CFr::from(rln_witness.user_message_limit),
+                message_id: CFr::from(rln_witness.message_id),
+                path_elements: rln_witness
+                    .path_elements
+                    .iter()
+                    .map(|fr| CFr::from(*fr))
+                    .collect::<Vec<_>>()
+                    .into(),
+                identity_path_index: rln_witness.identity_path_index.to_vec().into(),
+                x: CFr::from(rln_witness.x),
+                external_nullifier: CFr::from(rln_witness.external_nullifier),
             });
 
             let now = Instant::now();
