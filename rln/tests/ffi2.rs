@@ -1715,7 +1715,7 @@ mod general_tests {
             .collect::<Vec<_>>()
             .into();
 
-        let received_hash_cfr = ffi2_poseidon_hash(inputs_cfr);
+        let received_hash_cfr = ffi2_poseidon_hash(&inputs_cfr);
 
         assert_eq!(**received_hash_cfr, expected_hash);
     }
