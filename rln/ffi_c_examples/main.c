@@ -71,9 +71,9 @@ int main (int argc, char const * const argv[])
         return EXIT_FAILURE;
     }
     FFI2_MerkleProof_t* merkle_proof = proof_result.ok;
-    printf("  - proof obtained (depth: %zu)\n\n", merkle_proof->path_elements.len);
+    printf("  - proof obtained (depth: %zu)\n", merkle_proof->path_elements.len);
 
-    printf("Hashing signal\n");
+    printf("\nHashing signal\n");
     uint8_t signal[32] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     slice_ref_uint8_t signal_slice = {signal, 32};
     CFr_t* x = ffi2_hash(signal_slice);
