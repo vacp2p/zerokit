@@ -308,15 +308,15 @@ fn ffi2_merkle_proof_free(proof: Option<repr_c::Box<FFI2_MerkleProof>>) {
 // RLNWitnessInput
 
 #[derive_ReprC]
-#[repr(C)]
+#[repr(opaque)]
 pub struct FFI2_RLNWitnessInput {
-    pub identity_secret: repr_c::Box<CFr>,
-    pub user_message_limit: repr_c::Box<CFr>,
-    pub message_id: repr_c::Box<CFr>,
+    pub identity_secret: CFr,
+    pub user_message_limit: CFr,
+    pub message_id: CFr,
     pub path_elements: repr_c::Vec<CFr>,
-    pub identity_path_index: repr_c::Box<[u8]>,
-    pub x: repr_c::Box<CFr>,
-    pub external_nullifier: repr_c::Box<CFr>,
+    pub identity_path_index: repr_c::Vec<u8>,
+    pub x: CFr,
+    pub external_nullifier: CFr,
 }
 
 // RLNProof
@@ -506,7 +506,7 @@ pub fn ffi2_atomic_operation(
     match rln.tree.override_range(
         index,
         leaves.iter().map(|cfr| cfr.0),
-        indices.iter().map(|x| *x),
+        indices.iter().copied(),
     ) {
         Ok(_) => CResult {
             ok: Some(Box_::new(true)),
@@ -594,7 +594,7 @@ pub fn ffi2_prove(
 ) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
     // Build RLNWitnessInput from FFI2_RLNWitnessInput
     let rln_witness = {
-        let mut identity_secret = witness_input.identity_secret.0.clone();
+        let mut identity_secret = witness_input.identity_secret.0;
         let path_elements: Vec<Fr> = witness_input
             .path_elements
             .iter()
@@ -666,7 +666,7 @@ pub fn ffi2_generate_rln_proof(
     witness_input: &repr_c::Box<FFI2_RLNWitnessInput>,
 ) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
     let rln_witness = {
-        let mut identity_secret = witness_input.identity_secret.0.clone();
+        let mut identity_secret = witness_input.identity_secret.0;
         let path_elements: Vec<Fr> = witness_input
             .path_elements
             .iter()
@@ -720,7 +720,7 @@ pub fn ffi2_generate_rln_proof_with_witness(
 ) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
     // Build RLNWitnessInput from FFI2_RLNWitnessInput
     let rln_witness = {
-        let mut identity_secret = witness_input.identity_secret.0.clone();
+        let mut identity_secret = witness_input.identity_secret.0;
         let path_elements: Vec<Fr> = witness_input
             .path_elements
             .iter()
