@@ -3,7 +3,6 @@
 use crate::{
     circuit::{graph_from_folder, zkey_from_folder, zkey_from_raw, Curve},
     hashers::{hash_to_field_le, poseidon_hash},
-    poseidon_tree::PoseidonTree,
     protocol::{
         compute_id_secret, extended_keygen, extended_seeded_keygen, generate_proof, keygen,
         proof_values_from_witness, seeded_keygen, verify_proof, RLNProofValues, RLNWitnessInput,
@@ -18,11 +17,17 @@ use safer_ffi::prelude::ReprC;
 use safer_ffi::{
     boxed::Box_,
     derive_ReprC, ffi_export,
-    prelude::{c_slice, char_p, repr_c},
+    prelude::{c_slice, repr_c},
 };
 use std::ops::Deref;
-use std::str::FromStr;
-use utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
+
+#[cfg(not(feature = "stateless"))]
+use {
+    crate::poseidon_tree::PoseidonTree,
+    safer_ffi::prelude::char_p,
+    std::str::FromStr,
+    utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
+};
 
 // CResult
 
@@ -106,9 +111,6 @@ fn vec_cfr_free(v: repr_c::Vec<CFr>) {
 
 // RLN
 
-/// The RLN object.
-///
-/// It implements the methods required to update the internal Merkle Tree, generate and verify RLN ZK proofs.
 #[derive_ReprC]
 #[repr(opaque)]
 pub struct FFI2_RLN {
@@ -123,6 +125,7 @@ pub struct FFI2_RLN {
 // RLN APIs
 ////////////////////////////////////////////////////////
 
+#[cfg(not(feature = "stateless"))]
 #[ffi_export]
 pub fn ffi2_new(
     tree_depth: usize,
@@ -176,14 +179,12 @@ pub fn ffi2_new(
 }
 
 #[cfg(feature = "stateless")]
-pub fn ffi2_new() {
+pub fn ffi2_new() -> CResult<repr_c::Box<FFI2_RLN>, repr_c::String> {
     let proving_key = zkey_from_folder().to_owned();
-    let verification_key = proving_key.0.vk.to_owned();
     let graph_data = graph_from_folder().to_owned();
 
     let rln = FFI2_RLN {
         proving_key: proving_key.to_owned(),
-        verification_key: verification_key.to_owned(),
         graph_data: graph_data.to_vec(),
     };
 
@@ -272,12 +273,10 @@ pub fn ffi2_new_with_params(
             };
         }
     };
-    let verification_key = proving_key.0.vk.to_owned();
     let graph_data_vec = graph_data.to_vec();
 
     let rln = FFI2_RLN {
         proving_key,
-        verification_key,
         graph_data: graph_data_vec,
     };
 
@@ -338,6 +337,7 @@ fn ffi2_rln_proof_free(rln: Option<repr_c::Box<FFI2_RLNProof>>) {
 // Merkle tree APIs
 ////////////////////////////////////////////////////////
 
+#[cfg(not(feature = "stateless"))]
 #[ffi_export]
 pub fn ffi2_set_tree(
     rln: &mut repr_c::Box<FFI2_RLN>,
@@ -359,6 +359,7 @@ pub fn ffi2_set_tree(
     }
 }
 
+#[cfg(not(feature = "stateless"))]
 #[ffi_export]
 pub fn ffi2_delete_leaf(
     rln: &mut repr_c::Box<FFI2_RLN>,
@@ -376,6 +377,7 @@ pub fn ffi2_delete_leaf(
     }
 }
 
+#[cfg(not(feature = "stateless"))]
 #[ffi_export]
 pub fn ffi2_set_leaf(
     rln: &mut repr_c::Box<FFI2_RLN>,
@@ -394,6 +396,7 @@ pub fn ffi2_set_leaf(
     }
 }
 
+#[cfg(not(feature = "stateless"))]
 #[ffi_export]
 pub fn ffi2_get_leaf(
     rln: &repr_c::Box<FFI2_RLN>,
@@ -411,11 +414,13 @@ pub fn ffi2_get_leaf(
     }
 }
 
+#[cfg(not(feature = "stateless"))]
 #[ffi_export]
 pub fn ffi2_leaves_set(rln: &repr_c::Box<FFI2_RLN>) -> usize {
     rln.tree.leaves_set()
 }
 
+#[cfg(not(feature = "stateless"))]
 #[ffi_export]
 pub fn ffi2_set_next_leaf(
     rln: &mut repr_c::Box<FFI2_RLN>,
@@ -433,6 +438,7 @@ pub fn ffi2_set_next_leaf(
     }
 }
 
+#[cfg(not(feature = "stateless"))]
 #[ffi_export]
 pub fn ffi2_set_leaves_from(
     rln: &mut repr_c::Box<FFI2_RLN>,
@@ -454,6 +460,7 @@ pub fn ffi2_set_leaves_from(
     }
 }
 
+#[cfg(not(feature = "stateless"))]
 #[ffi_export]
 pub fn ffi2_init_tree_with_leaves(
     rln: &mut repr_c::Box<FFI2_RLN>,
@@ -536,11 +543,13 @@ pub fn ffi2_seq_atomic_operation(
     }
 }
 
+#[cfg(not(feature = "stateless"))]
 #[ffi_export]
 pub fn ffi2_get_root(rln: &repr_c::Box<FFI2_RLN>) -> repr_c::Box<CFr> {
     CFr::from(rln.tree.root()).into()
 }
 
+#[cfg(not(feature = "stateless"))]
 #[ffi_export]
 pub fn ffi2_get_proof(
     rln: &repr_c::Box<FFI2_RLN>,
@@ -650,6 +659,7 @@ pub fn ffi2_verify(
     }
 }
 
+#[cfg(not(feature = "stateless"))]
 #[ffi_export]
 pub fn ffi2_generate_rln_proof(
     rln: &repr_c::Box<FFI2_RLN>,
@@ -760,6 +770,7 @@ pub fn ffi2_generate_rln_proof_with_witness(
     }
 }
 
+#[cfg(not(feature = "stateless"))]
 #[ffi_export]
 pub fn ffi2_verify_rln_proof(
     rln: &repr_c::Box<FFI2_RLN>,
@@ -929,34 +940,18 @@ pub fn ffi2_poseidon_hash(inputs: repr_c::Vec<CFr>) -> repr_c::Box<CFr> {
     CFr::from(hash_result).into()
 }
 
-// Keygen functions
-
-/// Generate an identity which is composed of an identity secret and identity commitment.
-/// The identity secret is a random field element.
-/// The identity commitment is the Poseidon hash of the identity secret.
 #[ffi_export]
 pub fn ffi2_key_gen() -> repr_c::Vec<CFr> {
     let (identity_secret_hash, id_commitment) = keygen();
     vec![CFr(*identity_secret_hash), CFr(id_commitment)].into()
 }
 
-/// Generate an identity which is composed of an identity secret and identity commitment using a seed.
-/// The identity secret is a random field element,
-/// where RNG is instantiated using 20 rounds of ChaCha seeded with the hash of the input.
-/// The identity commitment is the Poseidon hash of the identity secret.
 #[ffi_export]
 pub fn ffi2_seeded_key_gen(seed: c_slice::Ref<'_, u8>) -> repr_c::Vec<CFr> {
     let (identity_secret_hash, id_commitment) = seeded_keygen(&seed);
     vec![CFr(identity_secret_hash), CFr(id_commitment)].into()
 }
 
-/// Generate an identity which is composed of an identity trapdoor, nullifier, secret and commitment.
-/// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
-/// The identity commitment is the Poseidon hash of the identity secret.
-///
-/// Generated credentials are compatible with
-/// [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
-///
 #[ffi_export]
 pub fn ffi2_extended_key_gen() -> repr_c::Vec<CFr> {
     let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
@@ -970,15 +965,6 @@ pub fn ffi2_extended_key_gen() -> repr_c::Vec<CFr> {
     .into()
 }
 
-/// Generate an identity which is composed of an identity trapdoor, nullifier, secret and commitment using a seed.
-/// The identity trapdoor and nullifier are random field elements,
-///   where RNG is instantiated using 20 rounds of ChaCha seeded with the hash of the input.
-/// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
-/// The identity commitment is the Poseidon hash of the identity secret.
-///
-/// Generated credentials are compatible with
-/// [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
-///
 #[ffi_export]
 pub fn ffi2_seeded_extended_key_gen(seed: c_slice::Ref<'_, u8>) -> repr_c::Vec<CFr> {
     let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
@@ -991,8 +977,6 @@ pub fn ffi2_seeded_extended_key_gen(seed: c_slice::Ref<'_, u8>) -> repr_c::Vec<C
     ]
     .into()
 }
-
-// headers
 
 // The following function is only necessary for the header generation.
 #[cfg(feature = "headers")] // c.f. the `Cargo.toml` section
