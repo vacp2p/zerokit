@@ -724,17 +724,7 @@ mod test {
             external_nullifier: CFr::from(external_nullifier).into(),
         });
 
-        let rln_proof = match ffi2_generate_rln_proof(&rln_pointer, &witness_input) {
-            CResult {
-                ok: Some(rln_proof),
-                err: None,
-            } => rln_proof,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("generate rln proof call failed: {}", err),
-            _ => unreachable!(),
-        };
+        let rln_proof = rln_proof_gen(&rln_pointer, &witness_input);
 
         let success = match ffi2_verify_rln_proof(&rln_pointer, &rln_proof) {
             CResult {
@@ -833,17 +823,7 @@ mod test {
             external_nullifier: CFr::from(external_nullifier).into(),
         });
 
-        let rln_proof = match ffi2_generate_rln_proof(&rln_pointer, &witness_input) {
-            CResult {
-                ok: Some(rln_proof),
-                err: None,
-            } => rln_proof,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("generate rln proof call failed: {}", err),
-            _ => unreachable!(),
-        };
+        let rln_proof = rln_proof_gen(&rln_pointer, &witness_input);
 
         // We test verify_with_roots
 
@@ -1020,30 +1000,10 @@ mod test {
         });
 
         // We call generate_rln_proof for first proof values
-        let rln_proof1 = match ffi2_generate_rln_proof(&rln_pointer, &witness_input1) {
-            CResult {
-                ok: Some(rln_proof),
-                err: None,
-            } => rln_proof,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("generate rln proof call failed: {}", err),
-            _ => unreachable!(),
-        };
+        let rln_proof1 = rln_proof_gen(&rln_pointer, &witness_input1);
 
         // We call generate_rln_proof for second proof values
-        let rln_proof2 = match ffi2_generate_rln_proof(&rln_pointer, &witness_input2) {
-            CResult {
-                ok: Some(rln_proof),
-                err: None,
-            } => rln_proof,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("generate rln proof call failed: {}", err),
-            _ => unreachable!(),
-        };
+        let rln_proof2 = rln_proof_gen(&rln_pointer, &witness_input2);
 
         let result = ffi2_recover_id_secret(&rln_proof1, &rln_proof2);
         let recovered_id_secret_cfr = match result {
@@ -1124,17 +1084,7 @@ mod test {
         });
 
         // We call generate_rln_proof
-        let rln_proof3 = match ffi2_generate_rln_proof(&rln_pointer, &witness_input3) {
-            CResult {
-                ok: Some(rln_proof),
-                err: None,
-            } => rln_proof,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("generate rln proof call failed: {}", err),
-            _ => unreachable!(),
-        };
+        let rln_proof3 = rln_proof_gen(&rln_pointer, &witness_input3);
 
         // We attempt to recover the secret using share1 (coming from identity_secret_hash) and share3 (coming from identity_secret_hash_new)
 
@@ -1287,7 +1237,6 @@ mod stateless_test {
     use rln::utils::*;
     use safer_ffi::boxed::Box_;
     use safer_ffi::prelude::repr_c;
-    use std::ops::Deref;
     use std::time::{Duration, Instant};
     use utils::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
