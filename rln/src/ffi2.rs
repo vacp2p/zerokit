@@ -83,7 +83,7 @@ impl From<CFr> for repr_c::Box<CFr> {
 }
 
 #[ffi_export]
-fn cfr_zero<'a>() -> repr_c::Box<CFr> {
+fn cfr_zero() -> repr_c::Box<CFr> {
     Box_::new(CFr::default())
 }
 
