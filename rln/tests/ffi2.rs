@@ -74,6 +74,24 @@ mod test {
         (id_secret_hash, id_commitment)
     }
 
+    fn rln_proof_gen(
+        rln_pointer: &repr_c::Box<FFI2_RLN>,
+        witness_input: &repr_c::Box<FFI2_RLNWitnessInput>,
+    ) -> repr_c::Box<FFI2_RLNProof> {
+        let result = ffi2_generate_rln_proof(rln_pointer, witness_input);
+        match result {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("generate rln proof call failed: {}", err),
+            _ => unreachable!(),
+        }
+    }
+
     #[test]
     // We test merkle batch Merkle tree additions
     fn test_merkle_operations_ffi() {
@@ -520,7 +538,7 @@ mod test {
             });
 
             let now = Instant::now();
-            let result = ffi2_generate_rln_proof(&rln_pointer, &witness_input);
+            let result = ffi2_prove(&rln_pointer, &witness_input);
             prove_time += now.elapsed().as_nanos();
 
             let proof = match result {

@@ -13,7 +13,6 @@ use crate::{
 use ark_bn254::Fr;
 use ark_groth16::{Proof as ArkProof, ProvingKey};
 use ark_relations::r1cs::ConstraintMatrices;
-use ark_serialize::CanonicalSerialize;
 use num_traits::Zero;
 use safer_ffi::prelude::ReprC;
 use safer_ffi::{
@@ -583,7 +582,7 @@ pub fn ffi2_get_proof(
 pub fn ffi2_prove(
     rln: &repr_c::Box<FFI2_RLN>,
     witness_input: &repr_c::Box<FFI2_RLNWitnessInput>,
-) -> CResult<repr_c::Box<[u8]>, repr_c::String> {
+) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
     // Build RLNWitnessInput from FFI2_RLNWitnessInput
     let rln_witness = {
         let mut identity_secret = witness_input.identity_secret.0.clone();
@@ -605,6 +604,16 @@ pub fn ffi2_prove(
         }
     };
 
+    let proof_values = match proof_values_from_witness(&rln_witness) {
+        Ok(pv) => pv,
+        Err(e) => {
+            return CResult {
+                ok: None,
+                err: Some(e.to_string().into()),
+            };
+        }
+    };
+
     let proof = match generate_proof(&rln.proving_key, &rln_witness, &rln.graph_data) {
         Ok(proof) => proof,
         Err(e) => {
@@ -615,17 +624,11 @@ pub fn ffi2_prove(
         }
     };
 
-    // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
-    let mut proof_bytes = Vec::new();
-    if let Err(e) = proof.serialize_compressed(&mut proof_bytes) {
-        return CResult {
-            ok: None,
-            err: Some(e.to_string().into()),
-        };
-    }
-
     CResult {
-        ok: Some(proof_bytes.into_boxed_slice().into()),
+        ok: Some(Box_::new(FFI2_RLNProof {
+            proof_values,
+            proof,
+        })),
         err: None,
     }
 }
@@ -691,13 +694,11 @@ pub fn ffi2_generate_rln_proof(
         }
     };
 
-    let res = FFI2_RLNProof {
-        proof_values,
-        proof,
-    };
-
     CResult {
-        ok: Some(Box_::new(res)),
+        ok: Some(Box_::new(FFI2_RLNProof {
+            proof_values,
+            proof,
+        })),
         err: None,
     }
 }
@@ -750,13 +751,11 @@ pub fn ffi2_generate_rln_proof_with_witness(
         }
     };
 
-    let res = FFI2_RLNProof {
-        proof_values,
-        proof,
-    };
-
     CResult {
-        ok: Some(Box_::new(res)),
+        ok: Some(Box_::new(FFI2_RLNProof {
+            proof_values,
+            proof,
+        })),
         err: None,
     }
 }
