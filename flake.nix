@@ -1,6 +1,11 @@
 {
   description = "A flake for building zerokit";
 
+  nixConfig = {
+    extra-substituters = [ "https://nix-cache.status.im/" ];
+    extra-trusted-public-keys = [ "nix-cache.status.im-1:x/93lOfLU+duPplwMSBR+OlY4+mo+dCN7n0mr4oPwgY=" ];
+  };
+
   inputs = {
     # Version 24.11
     nixpkgs.url = "github:NixOS/nixpkgs?rev=0ef228213045d2cdb5a169a95d63ded38670b293";
