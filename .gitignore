@@ -22,3 +22,4 @@ result
 # FFI C examples
 rln/ffi_c_examples/main
 rln/ffi_c_examples/rln.h
+rln/ffi_nim_examples/main
