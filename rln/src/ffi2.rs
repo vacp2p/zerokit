@@ -293,7 +293,7 @@ pub fn ffi2_new_with_params(
 }
 
 #[ffi_export]
-fn ffi2_rln_free(rln: Option<repr_c::Box<FFI2_RLN>>) {
+pub fn ffi2_rln_free(rln: Option<repr_c::Box<FFI2_RLN>>) {
     drop(rln);
 }
 
@@ -307,7 +307,7 @@ pub struct FFI2_MerkleProof {
 }
 
 #[ffi_export]
-fn ffi2_merkle_proof_free(proof: Option<repr_c::Box<FFI2_MerkleProof>>) {
+pub fn ffi2_merkle_proof_free(proof: Option<repr_c::Box<FFI2_MerkleProof>>) {
     drop(proof);
 }
 
@@ -316,17 +316,17 @@ fn ffi2_merkle_proof_free(proof: Option<repr_c::Box<FFI2_MerkleProof>>) {
 #[derive_ReprC]
 #[repr(opaque)]
 pub struct FFI2_RLNWitnessInput {
-    pub identity_secret: CFr,
-    pub user_message_limit: CFr,
-    pub message_id: CFr,
-    pub path_elements: repr_c::Vec<CFr>,
-    pub identity_path_index: repr_c::Vec<u8>,
-    pub x: CFr,
-    pub external_nullifier: CFr,
+    identity_secret: CFr,
+    user_message_limit: CFr,
+    message_id: CFr,
+    path_elements: repr_c::Vec<CFr>,
+    identity_path_index: repr_c::Vec<u8>,
+    x: CFr,
+    external_nullifier: CFr,
 }
 
 #[ffi_export]
-fn ffi2_rln_witness_input_new(
+pub fn ffi2_rln_witness_input_new(
     identity_secret: &CFr,
     user_message_limit: &CFr,
     message_id: &CFr,
@@ -350,7 +350,7 @@ fn ffi2_rln_witness_input_new(
 }
 
 #[ffi_export]
-fn ffi2_rln_witness_input_free(witness: Option<repr_c::Box<FFI2_RLNWitnessInput>>) {
+pub fn ffi2_rln_witness_input_free(witness: Option<repr_c::Box<FFI2_RLNWitnessInput>>) {
     drop(witness);
 }
 
@@ -364,7 +364,7 @@ pub struct FFI2_RLNProof {
 }
 
 #[ffi_export]
-fn ffi2_rln_proof_free(rln: Option<repr_c::Box<FFI2_RLNProof>>) {
+pub fn ffi2_rln_proof_free(rln: Option<repr_c::Box<FFI2_RLNProof>>) {
     drop(rln);
 }
 
