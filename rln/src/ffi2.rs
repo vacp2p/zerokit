@@ -184,6 +184,7 @@ pub fn ffi2_new(
 }
 
 #[cfg(feature = "stateless")]
+#[ffi_export]
 pub fn ffi2_new() -> CResult<repr_c::Box<FFI2_RLN>, repr_c::String> {
     let proving_key = zkey_from_folder().to_owned();
     let graph_data = graph_from_folder().to_owned();
