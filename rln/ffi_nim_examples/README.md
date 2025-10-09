@@ -30,10 +30,10 @@ From this directory:
 
 ```bash
 # Stateless (uses local mock path, no tree exports)
-nim c -d:release -d:ffiStateless rln_example.nim
+nim c -d:release -d:ffiStateless main.nim
 
 # Non-stateless (uses exported tree APIs to insert leaf and fetch proof)
-nim c -d:release rln_example.nim
+nim c -d:release main.nim
 ```
 
 Notes:
@@ -50,20 +50,20 @@ Ensure the dynamic loader can find the RLN library, then run the binary.
 macOS:
 
 ```bash
-DYLD_LIBRARY_PATH=../../target/release ./rln_example
+DYLD_LIBRARY_PATH=../../target/release ./main
 ```
 
 Linux:
 
 ```bash
-LD_LIBRARY_PATH=../../target/release ./rln_example
+LD_LIBRARY_PATH=../../target/release ./main
 ```
 
 Windows (PowerShell):
 
 ```powershell
 $env:PATH = "$PWD\..\..\target\release;$env:PATH"
-./rln_example.exe
+./main.exe
 ```
 
 You should see output similar to:

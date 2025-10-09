@@ -16,9 +16,9 @@ else:
 
 type
   CSize* = csize_t
-  CFr* = object        
-  FFI2_RLN* = object   
-  FFI2_RLNProof* = object 
+  CFr* = object
+  FFI2_RLN* = object
+  FFI2_RLNProof* = object
 
   Vec_CFr* = object
     dataPtr*: ptr CFr
@@ -76,40 +76,55 @@ type
 proc cfr_zero*(): ptr CFr {.importc: "cfr_zero", cdecl, dynlib: RLN_LIB.}
 proc cfr_free*(x: ptr CFr) {.importc: "cfr_free", cdecl, dynlib: RLN_LIB.}
 proc cfr_debug*(x: ptr CFr) {.importc: "cfr_debug", cdecl, dynlib: RLN_LIB.}
-proc cfr_from_uint*(value: uint32): ptr CFr {.importc: "cfr_from_uint", cdecl, dynlib: RLN_LIB.}
+proc cfr_from_uint*(value: uint32): ptr CFr {.importc: "cfr_from_uint", cdecl,
+    dynlib: RLN_LIB.}
 
 # Vectors
-proc vec_cfr_get*(v: ptr Vec_CFr, i: CSize): ptr CFr {.importc: "vec_cfr_get", cdecl, dynlib: RLN_LIB.}
-proc vec_cfr_free*(v: Vec_CFr) {.importc: "vec_cfr_free", cdecl, dynlib: RLN_LIB.}
+proc vec_cfr_get*(v: ptr Vec_CFr, i: CSize): ptr CFr {.importc: "vec_cfr_get",
+    cdecl, dynlib: RLN_LIB.}
+proc vec_cfr_free*(v: Vec_CFr) {.importc: "vec_cfr_free", cdecl,
+    dynlib: RLN_LIB.}
 
 # Hashing
-proc ffi2_hash*(input: SliceRefU8): ptr CFr {.importc: "ffi2_hash", cdecl, dynlib: RLN_LIB.}
-proc ffi2_poseidon_hash*(inputs: Vec_CFr): ptr CFr {.importc: "ffi2_poseidon_hash", cdecl, dynlib: RLN_LIB.}
+proc ffi2_hash*(input: SliceRefU8): ptr CFr {.importc: "ffi2_hash", cdecl,
+    dynlib: RLN_LIB.}
+proc ffi2_poseidon_hash*(inputs: Vec_CFr): ptr CFr {.importc: "ffi2_poseidon_hash",
+    cdecl, dynlib: RLN_LIB.}
 
 # Keygen
-proc ffi2_key_gen*(): Vec_CFr {.importc: "ffi2_key_gen", cdecl, dynlib: RLN_LIB.}
+proc ffi2_key_gen*(): Vec_CFr {.importc: "ffi2_key_gen", cdecl,
+    dynlib: RLN_LIB.}
 
-# Helper: Poseidon(a, b) -> CFr*
-proc poseidon(a, b: ptr CFr): ptr CFr =
-  var in2: array[2, ptr CFr]
-  in2[0] = a
-  in2[1] = b
-  var v: Vec_CFr
-  v.dataPtr = cast[ptr CFr](addr in2[0])
-  v.len = CSize(2)
-  v.cap = CSize(2)
-  result = ffi2_poseidon_hash(v)
+# Helper: Poseidon(a, b) -> CFr* (only used in stateless mode)
+when defined(ffiStateless):
+  proc poseidon(a, b: ptr CFr): ptr CFr =
+    var in2: array[2, ptr CFr]
+    in2[0] = a
+    in2[1] = b
+    var v: Vec_CFr
+    v.dataPtr = cast[ptr CFr](addr in2[0])
+    v.len = CSize(2)
+    v.cap = CSize(2)
+    result = ffi2_poseidon_hash(v)
 
-# RLN instance: default to non-stateless ABI. 
+# RLN instance: default to non-stateless ABI.
 # Use -d:ffiStateless only if the Rust lib was built with the stateless feature.
 when defined(ffiStateless):
-  proc ffi2_new*(): CResultRLNPtrVecU8 {.importc: "ffi2_new", cdecl, dynlib: RLN_LIB.}
-  proc ffi2_new_with_params*(zkey: SliceRefU8, graph: SliceRefU8): CResultRLNPtrVecU8 {.importc: "ffi2_new_with_params", cdecl, dynlib: RLN_LIB.}
+  proc ffi2_new*(): CResultRLNPtrVecU8 {.importc: "ffi2_new", cdecl,
+      dynlib: RLN_LIB.}
+  proc ffi2_new_with_params*(zkey: SliceRefU8,
+      graph: SliceRefU8): CResultRLNPtrVecU8 {.importc: "ffi2_new_with_params",
+      cdecl, dynlib: RLN_LIB.}
 else:
-  proc ffi2_new*(treeDepth: CSize, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi2_new", cdecl, dynlib: RLN_LIB.}
-  proc ffi2_new_with_params*(treeDepth: CSize, zkey: SliceRefU8, graph: SliceRefU8, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi2_new_with_params", cdecl, dynlib: RLN_LIB.}
+  proc ffi2_new*(treeDepth: CSize, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi2_new",
+      cdecl, dynlib: RLN_LIB.}
+  proc ffi2_new_with_params*(treeDepth: CSize, zkey: SliceRefU8,
+      graph: SliceRefU8,
+      config: cstring): CResultRLNPtrVecU8 {.importc: "ffi2_new_with_params",
+      cdecl, dynlib: RLN_LIB.}
 
-proc ffi2_rln_free*(rln: ptr FFI2_RLN) {.importc: "ffi2_rln_free", cdecl, dynlib: RLN_LIB.}
+proc ffi2_rln_free*(rln: ptr FFI2_RLN) {.importc: "ffi2_rln_free", cdecl,
+    dynlib: RLN_LIB.}
 
 # Witness builder
 proc ffi2_rln_witness_input_new*(
@@ -120,26 +135,44 @@ proc ffi2_rln_witness_input_new*(
   identity_path_index: ptr Vec_uint8,
   x: ptr CFr,
   external_nullifier: ptr CFr
-): ptr FFI2_RLNWitnessInput {.importc: "ffi2_rln_witness_input_new", cdecl, dynlib: RLN_LIB.}
+): ptr FFI2_RLNWitnessInput {.importc: "ffi2_rln_witness_input_new", cdecl,
+    dynlib: RLN_LIB.}
 
-proc ffi2_rln_witness_input_free*(w: ptr FFI2_RLNWitnessInput) {.importc: "ffi2_rln_witness_input_free", cdecl, dynlib: RLN_LIB.}
+proc ffi2_rln_witness_input_free*(w: ptr FFI2_RLNWitnessInput) {.importc: "ffi2_rln_witness_input_free",
+    cdecl, dynlib: RLN_LIB.}
 
 # ZK Proof generation / verification
-proc ffi2_generate_rln_proof_with_witness*(rln: ptr ptr FFI2_RLN, witness: ptr ptr FFI2_RLNWitnessInput): CResultProofPtrVecU8 {.importc: "ffi2_generate_rln_proof_with_witness", cdecl, dynlib: RLN_LIB.}
+proc ffi2_generate_rln_proof_with_witness*(rln: ptr ptr FFI2_RLN,
+    witness: ptr ptr FFI2_RLNWitnessInput): CResultProofPtrVecU8 {.importc: "ffi2_generate_rln_proof_with_witness",
+    cdecl, dynlib: RLN_LIB.}
 
 when not defined(ffiStateless):
-  proc ffi2_generate_rln_proof*(rln: ptr ptr FFI2_RLN, witness: ptr ptr FFI2_RLNWitnessInput): CResultProofPtrVecU8 {.importc: "ffi2_generate_rln_proof", cdecl, dynlib: RLN_LIB.}
-  proc ffi2_verify_rln_proof*(rln: ptr ptr FFI2_RLN, proof: ptr ptr FFI2_RLNProof): CResultBoolPtrVecU8 {.importc: "ffi2_verify_rln_proof", cdecl, dynlib: RLN_LIB.}
+  proc ffi2_generate_rln_proof*(rln: ptr ptr FFI2_RLN,
+      witness: ptr ptr FFI2_RLNWitnessInput): CResultProofPtrVecU8 {.importc: "ffi2_generate_rln_proof",
+      cdecl, dynlib: RLN_LIB.}
+  proc ffi2_verify_rln_proof*(rln: ptr ptr FFI2_RLN,
+      proof: ptr ptr FFI2_RLNProof): CResultBoolPtrVecU8 {.importc: "ffi2_verify_rln_proof",
+      cdecl, dynlib: RLN_LIB.}
 
-proc ffi2_verify_with_roots*(rln: ptr ptr FFI2_RLN, proof: ptr ptr FFI2_RLNProof, roots: Vec_CFr): CResultBoolPtrVecU8 {.importc: "ffi2_verify_with_roots", cdecl, dynlib: RLN_LIB.}
-proc ffi2_rln_proof_free*(p: ptr FFI2_RLNProof) {.importc: "ffi2_rln_proof_free", cdecl, dynlib: RLN_LIB.}
+proc ffi2_verify_with_roots*(rln: ptr ptr FFI2_RLN,
+    proof: ptr ptr FFI2_RLNProof,
+    roots: Vec_CFr): CResultBoolPtrVecU8 {.importc: "ffi2_verify_with_roots",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi2_rln_proof_free*(p: ptr FFI2_RLNProof) {.importc: "ffi2_rln_proof_free",
+    cdecl, dynlib: RLN_LIB.}
 
 # Merkle tree helpers (non-stateless only)
 when not defined(ffiStateless):
-  proc ffi2_set_next_leaf*(rln: ptr ptr FFI2_RLN, value: ptr ptr CFr): CResultBoolPtrVecU8 {.importc: "ffi2_set_next_leaf", cdecl, dynlib: RLN_LIB.}
-  proc ffi2_get_proof*(rln: ptr ptr FFI2_RLN, index: CSize): CResultMerkleProofPtrVecU8 {.importc: "ffi2_get_proof", cdecl, dynlib: RLN_LIB.}
-  proc ffi2_merkle_proof_free*(p: ptr FFI2_MerkleProof) {.importc: "ffi2_merkle_proof_free", cdecl, dynlib: RLN_LIB.}
-  proc ffi2_get_root*(rln: ptr ptr FFI2_RLN): ptr CFr {.importc: "ffi2_get_root", cdecl, dynlib: RLN_LIB.}
+  proc ffi2_set_next_leaf*(rln: ptr ptr FFI2_RLN,
+      value: ptr ptr CFr): CResultBoolPtrVecU8 {.importc: "ffi2_set_next_leaf",
+      cdecl, dynlib: RLN_LIB.}
+  proc ffi2_get_proof*(rln: ptr ptr FFI2_RLN,
+      index: CSize): CResultMerkleProofPtrVecU8 {.importc: "ffi2_get_proof",
+      cdecl, dynlib: RLN_LIB.}
+  proc ffi2_merkle_proof_free*(p: ptr FFI2_MerkleProof) {.importc: "ffi2_merkle_proof_free",
+      cdecl, dynlib: RLN_LIB.}
+  proc ffi2_get_root*(rln: ptr ptr FFI2_RLN): ptr CFr {.importc: "ffi2_get_root",
+      cdecl, dynlib: RLN_LIB.}
 
 # Utility to read a file fully into a buffer
 proc readAllBytes*(p: string): seq[uint8] =
@@ -193,8 +226,8 @@ when isMainModule:
 
   # 2) Generate identity keys
   var keys = ffi2_key_gen()
-  let identitySecret = keys.dataPtr             # element 0
-  let idCommitment = vec_cfr_get(addr keys, CSize(1)) # element 1
+  let identitySecret = keys.dataPtr # element 0
+  let idCommitment = vec_cfr_get(addr keys, CSize(1))             # element 1
 
   # 3) User message limit and message id
   let userMessageLimit = cfr_from_uint(1'u32)
@@ -208,7 +241,7 @@ when isMainModule:
   signalSlice.len = CSize(signal.len)
   let x = ffi2_hash(signalSlice)
 
-  # External nullifier 
+  # External nullifier
   let enStr = "test-epoch|test-rln-id"
   var enBytes = newSeq[uint8](enStr.len)
   for i in 0..<enStr.len: enBytes[i] = uint8(enStr[i])
@@ -266,7 +299,8 @@ when isMainModule:
     # Prove
     var rlnPtr = rln
     var witnessPtr = witness
-    let proveRes = ffi2_generate_rln_proof_with_witness(addr rlnPtr, addr witnessPtr)
+    let proveRes = ffi2_generate_rln_proof_with_witness(addr rlnPtr,
+        addr witnessPtr)
     if proveRes.ok.isNil:
       stderr.writeLine "prove error: ", asString(proveRes.err)
       ffi2_rln_witness_input_free(witness)
@@ -289,7 +323,7 @@ when isMainModule:
     var roots: Vec_CFr
     roots.dataPtr = computedRoot
     roots.len = CSize(1)
-    roots.cap = CSize(0)
+    roots.cap = CSize(1)
     let verifyRes = ffi2_verify_with_roots(addr rlnPtr, addr proof, roots)
     if verifyRes.ok.isNil:
       stderr.writeLine "verify error: ", asString(verifyRes.err)
@@ -361,7 +395,7 @@ when isMainModule:
       externalNullifier
     )
     echo "Witness built"
-    
+
     # 8) Prove
     var rlnPtr = rln
     var witnessPtr = witness
