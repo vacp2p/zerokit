@@ -478,7 +478,7 @@ pub fn ffi2_set_next_leaf(
 pub fn ffi2_set_leaves_from(
     rln: &mut repr_c::Box<FFI2_RLN>,
     index: usize,
-    leaves: repr_c::Vec<CFr>,
+    leaves: &repr_c::Vec<CFr>,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
     match rln
         .tree
@@ -499,7 +499,7 @@ pub fn ffi2_set_leaves_from(
 #[ffi_export]
 pub fn ffi2_init_tree_with_leaves(
     rln: &mut repr_c::Box<FFI2_RLN>,
-    leaves: repr_c::Vec<CFr>,
+    leaves: &repr_c::Vec<CFr>,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
     // Reset tree to default
     let tree_depth = rln.tree.depth();
@@ -535,8 +535,8 @@ pub fn ffi2_init_tree_with_leaves(
 pub fn ffi2_atomic_operation(
     rln: &mut repr_c::Box<FFI2_RLN>,
     index: usize,
-    leaves: repr_c::Vec<CFr>,
-    indices: repr_c::Vec<usize>,
+    leaves: &repr_c::Vec<CFr>,
+    indices: &repr_c::Vec<usize>,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
     match rln.tree.override_range(
         index,
@@ -558,8 +558,8 @@ pub fn ffi2_atomic_operation(
 #[ffi_export]
 pub fn ffi2_seq_atomic_operation(
     rln: &mut repr_c::Box<FFI2_RLN>,
-    leaves: repr_c::Vec<CFr>,
-    indices: repr_c::Vec<u8>,
+    leaves: &repr_c::Vec<CFr>,
+    indices: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
     let index = rln.tree.leaves_set();
     match rln.tree.override_range(
@@ -729,6 +729,7 @@ pub fn ffi2_generate_rln_proof(
             };
         }
     };
+
     let proof = match generate_proof(&rln.proving_key, &rln_witness, &rln.graph_data) {
         Ok(proof) => proof,
         Err(e) => {
@@ -753,7 +754,6 @@ pub fn ffi2_generate_rln_proof_with_witness(
     rln: &repr_c::Box<FFI2_RLN>,
     witness_input: &repr_c::Box<FFI2_RLNWitnessInput>,
 ) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
-    // Build RLNWitnessInput from FFI2_RLNWitnessInput
     let rln_witness = {
         let mut identity_secret = witness_input.identity_secret.0;
         let path_elements: Vec<Fr> = witness_input
@@ -774,7 +774,6 @@ pub fn ffi2_generate_rln_proof_with_witness(
         }
     };
 
-    // Generate proof values from witness
     let proof_values = match proof_values_from_witness(&rln_witness) {
         Ok(pv) => pv,
         Err(e) => {
@@ -785,7 +784,6 @@ pub fn ffi2_generate_rln_proof_with_witness(
         }
     };
 
-    // Generate the proof
     let proof = match generate_proof(&rln.proving_key, &rln_witness, &rln.graph_data) {
         Ok(proof) => proof,
         Err(e) => {
@@ -827,7 +825,7 @@ pub fn ffi2_verify_rln_proof(
 pub fn ffi2_verify_with_roots(
     rln: &repr_c::Box<FFI2_RLN>,
     proof: &repr_c::Box<FFI2_RLNProof>,
-    roots: repr_c::Vec<CFr>,
+    roots: &repr_c::Vec<CFr>,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
     // Verify the proof
     let verified = match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
