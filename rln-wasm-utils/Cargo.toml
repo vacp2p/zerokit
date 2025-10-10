@@ -13,6 +13,7 @@ rln = { path = "../rln", version = "0.9.0", default-features = false, features =
 js-sys = "0.3.77"
 wasm-bindgen = "0.2.100"
 rand = "0.8.5"
+ark-bn254 = { version = "0.5.0", features = ["std"] }
 
 # The `console_error_panic_xhook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
