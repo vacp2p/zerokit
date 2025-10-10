@@ -88,7 +88,7 @@ proc vec_cfr_free*(v: Vec_CFr) {.importc: "vec_cfr_free", cdecl,
 # Hashing
 proc ffi2_hash*(input: SliceRefU8): ptr CFr {.importc: "ffi2_hash", cdecl,
     dynlib: RLN_LIB.}
-proc ffi2_poseidon_hash*(inputs: Vec_CFr): ptr CFr {.importc: "ffi2_poseidon_hash",
+proc ffi2_poseidon_hash*(inputs: ptr Vec_CFr): ptr CFr {.importc: "ffi2_poseidon_hash",
     cdecl, dynlib: RLN_LIB.}
 
 # Keygen
@@ -105,7 +105,7 @@ when defined(ffiStateless):
     v.dataPtr = cast[ptr CFr](addr in2[0])
     v.len = CSize(2)
     v.cap = CSize(2)
-    result = ffi2_poseidon_hash(v)
+    result = ffi2_poseidon_hash(addr v)
 
 # RLN instance: default to non-stateless ABI.
 # Use -d:ffiStateless only if the Rust lib was built with the stateless feature.
@@ -156,7 +156,7 @@ when not defined(ffiStateless):
 
 proc ffi2_verify_with_roots*(rln: ptr ptr FFI2_RLN,
     proof: ptr ptr FFI2_RLNProof,
-    roots: Vec_CFr): CResultBoolPtrVecU8 {.importc: "ffi2_verify_with_roots",
+    roots: ptr Vec_CFr): CResultBoolPtrVecU8 {.importc: "ffi2_verify_with_roots",
     cdecl, dynlib: RLN_LIB.}
 proc ffi2_rln_proof_free*(p: ptr FFI2_RLNProof) {.importc: "ffi2_rln_proof_free",
     cdecl, dynlib: RLN_LIB.}
@@ -324,7 +324,7 @@ when isMainModule:
     roots.dataPtr = computedRoot
     roots.len = CSize(1)
     roots.cap = CSize(1)
-    let verifyRes = ffi2_verify_with_roots(addr rlnPtr, addr proof, roots)
+    let verifyRes = ffi2_verify_with_roots(addr rlnPtr, addr proof, addr roots)
     if verifyRes.ok.isNil:
       stderr.writeLine "verify error: ", asString(verifyRes.err)
     else:
@@ -353,7 +353,7 @@ when isMainModule:
     rcInputs.dataPtr = cast[ptr CFr](addr rcArr[0])
     rcInputs.len = CSize(2)
     rcInputs.cap = CSize(2)
-    let rateCommitment = ffi2_poseidon_hash(rcInputs)
+    let rateCommitment = ffi2_poseidon_hash(addr rcInputs)
 
     # Add rate commitment to the tree at next index (0)
     var rlnPtr2 = rln
@@ -404,11 +404,11 @@ when isMainModule:
       stderr.writeLine "prove error: ", asString(proveRes.err)
       if merkleProof != nil: ffi2_merkle_proof_free(merkleProof)
       if witness != nil: ffi2_rln_witness_input_free(witness)
+      cfr_free(rateCommitment)
       cfr_free(externalNullifier)
       cfr_free(x)
       cfr_free(messageId)
       cfr_free(userMessageLimit)
-      cfr_free(rateCommitment)
       vec_cfr_free(keys)
       ffi2_rln_free(rln)
       quit 2

@@ -36,14 +36,12 @@ mod test {
     }
 
     fn set_leaves_init(ffi2_rln_pointer: &mut repr_c::Box<FFI2_RLN>, leaves: &[Fr]) {
-        match ffi2_init_tree_with_leaves(
-            ffi2_rln_pointer,
-            leaves
-                .iter()
-                .map(|fr| CFr::from(*fr))
-                .collect::<Vec<_>>()
-                .into(),
-        ) {
+        let leaves_vec: repr_c::Vec<CFr> = leaves
+            .iter()
+            .map(|fr| CFr::from(*fr))
+            .collect::<Vec<_>>()
+            .into();
+        match ffi2_init_tree_with_leaves(ffi2_rln_pointer, &leaves_vec) {
             CResult {
                 ok: Some(_),
                 err: None,
@@ -244,15 +242,12 @@ mod test {
         set_leaves_init(&mut ffi2_rln_pointer, &leaves[0..set_index]);
 
         // We add the remaining n leaves in a batch starting from index set_index
-        match ffi2_set_leaves_from(
-            &mut ffi2_rln_pointer,
-            set_index,
-            leaves[set_index..]
-                .iter()
-                .map(|fr| CFr::from(*fr))
-                .collect::<Vec<_>>()
-                .into(),
-        ) {
+        let leaves_vec: repr_c::Vec<CFr> = leaves[set_index..]
+            .iter()
+            .map(|fr| CFr::from(*fr))
+            .collect::<Vec<_>>()
+            .into();
+        match ffi2_set_leaves_from(&mut ffi2_rln_pointer, set_index, &leaves_vec) {
             CResult {
                 ok: Some(_),
                 err: None,
@@ -329,8 +324,8 @@ mod test {
         match ffi2_atomic_operation(
             &mut ffi2_rln_pointer,
             last_leaf_index,
-            last_leaf_vec,
-            indices,
+            &last_leaf_vec,
+            &indices,
         ) {
             CResult {
                 ok: Some(_),
@@ -363,15 +358,12 @@ mod test {
         let root_empty = get_tree_root(&ffi2_rln_pointer);
 
         // We add leaves in a batch into the tree
-        match ffi2_set_leaves_from(
-            &mut ffi2_rln_pointer,
-            bad_index,
-            leaves
-                .iter()
-                .map(|fr| CFr::from(*fr))
-                .collect::<Vec<_>>()
-                .into(),
-        ) {
+        let leaves_vec: repr_c::Vec<CFr> = leaves
+            .iter()
+            .map(|fr| CFr::from(*fr))
+            .collect::<Vec<_>>()
+            .into();
+        match ffi2_set_leaves_from(&mut ffi2_rln_pointer, bad_index, &leaves_vec) {
             CResult {
                 ok: None,
                 err: Some(_),
@@ -824,7 +816,7 @@ mod test {
         let roots_empty: repr_c::Vec<CFr> = vec![].into();
 
         let proof_is_valid =
-            match ffi2_verify_with_roots(&ffi2_rln_pointer, &rln_proof, roots_empty) {
+            match ffi2_verify_with_roots(&ffi2_rln_pointer, &rln_proof, &roots_empty) {
                 CResult {
                     ok: Some(valid),
                     err: None,
@@ -846,7 +838,7 @@ mod test {
         let roots_random_vec: repr_c::Vec<CFr> = roots_random.into();
 
         let proof_is_valid =
-            match ffi2_verify_with_roots(&ffi2_rln_pointer, &rln_proof, roots_random_vec) {
+            match ffi2_verify_with_roots(&ffi2_rln_pointer, &rln_proof, &roots_random_vec) {
                 CResult {
                     ok: Some(valid),
                     err: None,
@@ -873,7 +865,7 @@ mod test {
         let roots_correct_vec: repr_c::Vec<CFr> = roots_with_correct.into();
 
         let proof_is_valid =
-            match ffi2_verify_with_roots(&ffi2_rln_pointer, &rln_proof, roots_correct_vec) {
+            match ffi2_verify_with_roots(&ffi2_rln_pointer, &rln_proof, &roots_correct_vec) {
                 CResult {
                     ok: Some(valid),
                     err: None,
@@ -1462,7 +1454,7 @@ mod stateless_test {
         let roots_empty: repr_c::Vec<CFr> = vec![].into();
 
         let proof_is_valid =
-            match ffi2_verify_with_roots(&ffi2_rln_pointer, &rln_proof, roots_empty) {
+            match ffi2_verify_with_roots(&ffi2_rln_pointer, &rln_proof, &roots_empty) {
                 CResult {
                     ok: Some(valid),
                     err: None,
@@ -1484,7 +1476,7 @@ mod stateless_test {
         let roots_random_vec: repr_c::Vec<CFr> = roots_random.into();
 
         let proof_is_valid =
-            match ffi2_verify_with_roots(&ffi2_rln_pointer, &rln_proof, roots_random_vec) {
+            match ffi2_verify_with_roots(&ffi2_rln_pointer, &rln_proof, &roots_random_vec) {
                 CResult {
                     ok: Some(valid),
                     err: None,
@@ -1510,7 +1502,7 @@ mod stateless_test {
         let roots_correct_vec: repr_c::Vec<CFr> = roots_with_correct.into();
 
         let proof_is_valid =
-            match ffi2_verify_with_roots(&ffi2_rln_pointer, &rln_proof, roots_correct_vec) {
+            match ffi2_verify_with_roots(&ffi2_rln_pointer, &rln_proof, &roots_correct_vec) {
                 CResult {
                     ok: Some(valid),
                     err: None,
