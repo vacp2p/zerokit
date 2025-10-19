@@ -763,10 +763,13 @@ pub fn ffi2_verify_rln_proof(
     proof: &repr_c::Box<FFI2_RLNProof>,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
     match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
-        Ok(verified) => CResult {
-            ok: Some(Box_::new(verified)),
-            err: None,
-        },
+        Ok(proof_verified) => {
+            let roots_verified = rln.tree.root() == proof.proof_values.root;
+            CResult {
+                ok: Some(Box_::new(proof_verified && roots_verified)),
+                err: None,
+            }
+        }
         Err(err) => CResult {
             ok: None,
             err: Some(err.to_string().into()),
@@ -781,18 +784,19 @@ pub fn ffi2_verify_with_roots(
     roots: &repr_c::Vec<CFr>,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
     // Verify the proof
-    let verified = match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
-        Ok(v) => v,
-        Err(e) => {
-            return CResult {
-                ok: None,
-                err: Some(e.to_string().into()),
-            };
-        }
-    };
+    let proof_verified =
+        match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
+            Ok(v) => v,
+            Err(e) => {
+                return CResult {
+                    ok: None,
+                    err: Some(e.to_string().into()),
+                };
+            }
+        };
 
     // If proof verification failed, return early
-    if !verified {
+    if !proof_verified {
         return CResult {
             ok: Some(Box_::new(false)),
             err: None,
@@ -809,7 +813,7 @@ pub fn ffi2_verify_with_roots(
     };
 
     CResult {
-        ok: Some(Box_::new(verified && roots_verified)),
+        ok: Some(Box_::new(proof_verified && roots_verified)),
         err: None,
     }
 }
