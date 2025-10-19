@@ -520,7 +520,7 @@ mod test {
             );
 
             let now = Instant::now();
-            let success = ffi2_prove(&ffi2_rln_pointer, &witness_input);
+            let success = ffi2_generate_rln_proof_with_witness(&ffi2_rln_pointer, &witness_input);
             prove_time += now.elapsed().as_nanos();
 
             let proof = match success {
@@ -1553,7 +1553,7 @@ mod stateless_test {
             );
 
             let now = Instant::now();
-            let success = ffi2_prove(&ffi2_rln_pointer, &witness_input);
+            let success = ffi2_generate_rln_proof_with_witness(&ffi2_rln_pointer, &witness_input);
             prove_time += now.elapsed().as_nanos();
 
             let proof = match success {

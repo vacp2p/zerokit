@@ -621,62 +621,6 @@ pub fn ffi2_get_proof(
 ////////////////////////////////////////////////////////
 // zkSNARKs APIs
 ////////////////////////////////////////////////////////
-
-#[ffi_export]
-pub fn ffi2_prove(
-    rln: &repr_c::Box<FFI2_RLN>,
-    witness_input: &repr_c::Box<FFI2_RLNWitnessInput>,
-) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
-    // Build RLNWitnessInput from FFI2_RLNWitnessInput
-    let rln_witness = {
-        let mut identity_secret = witness_input.identity_secret.0;
-        let path_elements: Vec<Fr> = witness_input
-            .path_elements
-            .iter()
-            .map(|cfr| cfr.0)
-            .collect();
-        let identity_path_index: Vec<u8> = witness_input.identity_path_index.to_vec();
-
-        RLNWitnessInput {
-            identity_secret: IdSecret::from(&mut identity_secret),
-            user_message_limit: witness_input.user_message_limit.0,
-            message_id: witness_input.message_id.0,
-            path_elements,
-            identity_path_index,
-            x: witness_input.x.0,
-            external_nullifier: witness_input.external_nullifier.0,
-        }
-    };
-
-    let proof_values = match proof_values_from_witness(&rln_witness) {
-        Ok(pv) => pv,
-        Err(e) => {
-            return CResult {
-                ok: None,
-                err: Some(e.to_string().into()),
-            };
-        }
-    };
-
-    let proof = match generate_proof(&rln.proving_key, &rln_witness, &rln.graph_data) {
-        Ok(proof) => proof,
-        Err(e) => {
-            return CResult {
-                ok: None,
-                err: Some(e.to_string().into()),
-            };
-        }
-    };
-
-    CResult {
-        ok: Some(Box_::new(FFI2_RLNProof {
-            proof_values,
-            proof,
-        })),
-        err: None,
-    }
-}
-
 #[ffi_export]
 pub fn ffi2_verify(
     rln: &repr_c::Box<FFI2_RLN>,
