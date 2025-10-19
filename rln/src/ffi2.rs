@@ -698,26 +698,35 @@ pub fn ffi2_verify(
 #[ffi_export]
 pub fn ffi2_generate_rln_proof(
     rln: &repr_c::Box<FFI2_RLN>,
-    witness_input: &repr_c::Box<FFI2_RLNWitnessInput>,
+    identity_secret: &CFr,
+    user_message_limit: &CFr,
+    message_id: &CFr,
+    x: &CFr,
+    external_nullifier: &CFr,
+    leaf_index: usize,
 ) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
-    let rln_witness = {
-        let mut identity_secret = witness_input.identity_secret.0;
-        let path_elements: Vec<Fr> = witness_input
-            .path_elements
-            .iter()
-            .map(|cfr| cfr.0)
-            .collect();
-        let identity_path_index: Vec<u8> = witness_input.identity_path_index.to_vec();
-
-        RLNWitnessInput {
-            identity_secret: IdSecret::from(&mut identity_secret),
-            user_message_limit: witness_input.user_message_limit.0,
-            message_id: witness_input.message_id.0,
-            path_elements,
-            identity_path_index,
-            x: witness_input.x.0,
-            external_nullifier: witness_input.external_nullifier.0,
+    let proof = match rln.tree.proof(leaf_index) {
+        Ok(proof) => proof,
+        Err(e) => {
+            return CResult {
+                ok: None,
+                err: Some(e.to_string().into()),
+            };
         }
+    };
+
+    let path_elements: Vec<Fr> = proof.get_path_elements();
+    let identity_path_index: Vec<u8> = proof.get_path_index();
+
+    let mut identity_secret_fr = identity_secret.0;
+    let rln_witness = RLNWitnessInput {
+        identity_secret: IdSecret::from(&mut identity_secret_fr),
+        user_message_limit: user_message_limit.0,
+        message_id: message_id.0,
+        path_elements,
+        identity_path_index,
+        x: x.0,
+        external_nullifier: external_nullifier.0,
     };
 
     let proof_values = match proof_values_from_witness(&rln_witness) {

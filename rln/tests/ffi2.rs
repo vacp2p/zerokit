@@ -78,7 +78,7 @@ mod test {
         ffi2_rln_pointer: &repr_c::Box<FFI2_RLN>,
         witness_input: &repr_c::Box<FFI2_RLNWitnessInput>,
     ) -> repr_c::Box<FFI2_RLNProof> {
-        match ffi2_generate_rln_proof(ffi2_rln_pointer, witness_input) {
+        match ffi2_generate_rln_proof_with_witness(ffi2_rln_pointer, witness_input) {
             CResult {
                 ok: Some(proof),
                 err: None,
