@@ -14,7 +14,6 @@ mod test {
     use std::fs::File;
     use std::io::Read;
     use std::ops::Deref;
-    use std::time::{Duration, Instant};
     use zeroize::Zeroize;
 
     const NO_OF_LEAVES: usize = 256;
@@ -481,87 +480,6 @@ mod test {
         );
 
         assert_eq!(root, root_from_proof);
-    }
-
-    #[test]
-    // Benchmarks proof generation and verification
-    fn test_groth16_proofs_performance_ffi() {
-        // We create a RLN instance
-        let ffi2_rln_pointer = create_rln_instance();
-
-        // We compute some benchmarks regarding proof and verify API calls
-        // Note that circuit loading requires some initial overhead.
-        // Once the circuit is loaded (i.e., when the RLN object is created), proof generation and verification times should be similar at each call.
-        let sample_size = 100;
-        let mut prove_time: u128 = 0;
-        let mut verify_time: u128 = 0;
-
-        for _ in 0..sample_size {
-            // We generate random witness instances
-            let rln_witness = random_rln_witness(TEST_TREE_DEPTH);
-
-            // We prepare witness input with the hashed signal
-            let path_elements: repr_c::Vec<CFr> = rln_witness
-                .path_elements
-                .iter()
-                .map(|fr| CFr::from(*fr))
-                .collect::<Vec<_>>()
-                .into();
-            let identity_path_index: repr_c::Vec<u8> =
-                rln_witness.identity_path_index.to_vec().into();
-            let witness_input = ffi2_rln_witness_input_new(
-                &CFr::from(*rln_witness.identity_secret),
-                &CFr::from(rln_witness.user_message_limit),
-                &CFr::from(rln_witness.message_id),
-                &path_elements,
-                &identity_path_index,
-                &CFr::from(rln_witness.x),
-                &CFr::from(rln_witness.external_nullifier),
-            );
-
-            let now = Instant::now();
-            let success = ffi2_generate_rln_proof_with_witness(&ffi2_rln_pointer, &witness_input);
-            prove_time += now.elapsed().as_nanos();
-
-            let proof = match success {
-                CResult {
-                    ok: Some(proof),
-                    err: None,
-                } => proof,
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("prove call failed: {}", err),
-                _ => unreachable!(),
-            };
-
-            let now = Instant::now();
-            let success = ffi2_verify(&ffi2_rln_pointer, &proof);
-            verify_time += now.elapsed().as_nanos();
-
-            let proof_is_valid = match success {
-                CResult {
-                    ok: Some(verified),
-                    err: None,
-                } => *verified,
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("verify call failed: {}", err),
-                _ => unreachable!(),
-            };
-
-            assert!(proof_is_valid, "verification failed");
-        }
-
-        println!(
-            "Average prove API call time: {:?}",
-            Duration::from_nanos((prove_time / sample_size).try_into().unwrap())
-        );
-        println!(
-            "Average verify API call time: {:?}",
-            Duration::from_nanos((verify_time / sample_size).try_into().unwrap())
-        );
     }
 
     #[test]
@@ -1204,10 +1122,8 @@ mod stateless_test {
     use rln::circuit::{Fr, TEST_TREE_DEPTH};
     use rln::ffi2::*;
     use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash, PoseidonHash};
-    use rln::protocol::*;
     use rln::utils::*;
     use safer_ffi::prelude::repr_c;
-    use std::time::{Duration, Instant};
     use utils::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
     type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
@@ -1515,86 +1431,6 @@ mod stateless_test {
             };
         // Proof should be valid.
         assert!(proof_is_valid);
-    }
-
-    #[test]
-    fn test_groth16_proofs_performance_stateless_ffi() {
-        // We create a RLN instance
-        let ffi2_rln_pointer = create_rln_instance();
-
-        // We compute some benchmarks regarding proof and verify API calls
-        // Note that circuit loading requires some initial overhead.
-        // Once the circuit is loaded (i.e., when the RLN object is created), proof generation and verification times should be similar at each call.
-        let sample_size = 100;
-        let mut prove_time: u128 = 0;
-        let mut verify_time: u128 = 0;
-
-        for _ in 0..sample_size {
-            // We generate random witness instances
-            let rln_witness = random_rln_witness(TEST_TREE_DEPTH);
-
-            // We prepare witness input with the hashed signal
-            let path_elements: repr_c::Vec<CFr> = rln_witness
-                .path_elements
-                .iter()
-                .map(|fr| CFr::from(*fr))
-                .collect::<Vec<_>>()
-                .into();
-            let identity_path_index: repr_c::Vec<u8> =
-                rln_witness.identity_path_index.to_vec().into();
-            let witness_input = ffi2_rln_witness_input_new(
-                &CFr::from(*rln_witness.identity_secret),
-                &CFr::from(rln_witness.user_message_limit),
-                &CFr::from(rln_witness.message_id),
-                &path_elements,
-                &identity_path_index,
-                &CFr::from(rln_witness.x),
-                &CFr::from(rln_witness.external_nullifier),
-            );
-
-            let now = Instant::now();
-            let success = ffi2_generate_rln_proof_with_witness(&ffi2_rln_pointer, &witness_input);
-            prove_time += now.elapsed().as_nanos();
-
-            let proof = match success {
-                CResult {
-                    ok: Some(proof),
-                    err: None,
-                } => proof,
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("prove call failed: {}", err),
-                _ => unreachable!(),
-            };
-
-            let now = Instant::now();
-            let success = ffi2_verify(&ffi2_rln_pointer, &proof);
-            verify_time += now.elapsed().as_nanos();
-
-            let proof_is_valid = match success {
-                CResult {
-                    ok: Some(verified),
-                    err: None,
-                } => *verified,
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("verify call failed: {}", err),
-                _ => unreachable!(),
-            };
-
-            assert!(proof_is_valid, "verification failed");
-        }
-
-        println!(
-            "Average prove API call time: {:?}",
-            Duration::from_nanos((prove_time / sample_size).try_into().unwrap())
-        );
-        println!(
-            "Average verify API call time: {:?}",
-            Duration::from_nanos((verify_time / sample_size).try_into().unwrap())
-        );
     }
 }
 
