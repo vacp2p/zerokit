@@ -75,9 +75,22 @@ mod test {
 
     fn rln_proof_gen(
         ffi2_rln_pointer: &repr_c::Box<FFI2_RLN>,
-        witness_input: &repr_c::Box<FFI2_RLNWitnessInput>,
+        identity_secret: &CFr,
+        user_message_limit: &CFr,
+        message_id: &CFr,
+        x: &CFr,
+        external_nullifier: &CFr,
+        leaf_index: usize,
     ) -> repr_c::Box<FFI2_RLNProof> {
-        match ffi2_generate_rln_proof_with_witness(ffi2_rln_pointer, witness_input) {
+        match ffi2_generate_rln_proof_with_witness(
+            ffi2_rln_pointer,
+            identity_secret,
+            user_message_limit,
+            message_id,
+            x,
+            external_nullifier,
+            leaf_index,
+        ) {
             CResult {
                 ok: Some(proof),
                 err: None,
@@ -586,7 +599,7 @@ mod test {
         }
 
         // Get the merkle proof for the identity
-        let merkle_proof = match ffi2_get_proof(&ffi2_rln_pointer, identity_index) {
+        let _merkle_proof = match ffi2_get_proof(&ffi2_rln_pointer, identity_index) {
             CResult {
                 ok: Some(proof),
                 err: None,
@@ -601,29 +614,16 @@ mod test {
         // Hash the signal to get x
         let x = hash_to_field_le(&signal);
 
-        let path_elements: repr_c::Vec<CFr> = merkle_proof
-            .path_elements
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>()
-            .into();
-        let identity_path_index: repr_c::Vec<u8> = merkle_proof
-            .path_index
-            .iter()
-            .copied()
-            .collect::<Vec<_>>()
-            .into();
-        let witness_input = ffi2_rln_witness_input_new(
+        // path_elements and identity_path_index are not needed in non-stateless mode
+        let rln_proof = rln_proof_gen(
+            &ffi2_rln_pointer,
             &CFr::from(*identity_secret_hash),
             &CFr::from(user_message_limit),
             &CFr::from(message_id),
-            &path_elements,
-            &identity_path_index,
             &CFr::from(x),
             &CFr::from(external_nullifier),
+            identity_index,
         );
-
-        let rln_proof = rln_proof_gen(&ffi2_rln_pointer, &witness_input);
 
         let proof_is_valid = match ffi2_verify_rln_proof(&ffi2_rln_pointer, &rln_proof) {
             CResult {
@@ -688,7 +688,7 @@ mod test {
         }
 
         // Get the merkle proof for the identity
-        let merkle_proof = match ffi2_get_proof(&ffi2_rln_pointer, identity_index) {
+        let _merkle_proof = match ffi2_get_proof(&ffi2_rln_pointer, identity_index) {
             CResult {
                 ok: Some(proof),
                 err: None,
@@ -703,29 +703,18 @@ mod test {
         // Hash the signal to get x
         let x = hash_to_field_le(&signal);
 
-        let path_elements: repr_c::Vec<CFr> = merkle_proof
-            .path_elements
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>()
-            .into();
-        let identity_path_index: repr_c::Vec<u8> = merkle_proof
-            .path_index
-            .iter()
-            .copied()
-            .collect::<Vec<_>>()
-            .into();
-        let witness_input = ffi2_rln_witness_input_new(
+        // path_elements and identity_path_index are not needed in non-stateless mode
+        // witness input is now passed directly as parameters
+
+        let rln_proof = rln_proof_gen(
+            &ffi2_rln_pointer,
             &CFr::from(*identity_secret_hash),
             &CFr::from(user_message_limit),
             &CFr::from(message_id),
-            &path_elements,
-            &identity_path_index,
             &CFr::from(x),
             &CFr::from(external_nullifier),
+            identity_index,
         );
-
-        let rln_proof = rln_proof_gen(&ffi2_rln_pointer, &witness_input);
 
         // We test verify_with_roots
 
@@ -845,7 +834,7 @@ mod test {
         let message_id = Fr::from(1);
 
         // Get the merkle proof for the identity
-        let merkle_proof = match ffi2_get_proof(&ffi2_rln_pointer, identity_index) {
+        let _merkle_proof = match ffi2_get_proof(&ffi2_rln_pointer, identity_index) {
             CResult {
                 ok: Some(proof),
                 err: None,
@@ -861,43 +850,30 @@ mod test {
         let x1 = hash_to_field_le(&signal1);
         let x2 = hash_to_field_le(&signal2);
 
-        let path_elements: repr_c::Vec<CFr> = merkle_proof
-            .path_elements
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>()
-            .into();
-        let identity_path_index: repr_c::Vec<u8> = merkle_proof
-            .path_index
-            .iter()
-            .copied()
-            .collect::<Vec<_>>()
-            .into();
-        let witness_input1 = ffi2_rln_witness_input_new(
-            &CFr::from(*identity_secret_hash.clone()),
-            &CFr::from(user_message_limit),
-            &CFr::from(message_id),
-            &path_elements,
-            &identity_path_index,
-            &CFr::from(x1),
-            &CFr::from(external_nullifier),
-        );
-
-        let witness_input2 = ffi2_rln_witness_input_new(
-            &CFr::from(*identity_secret_hash.clone()),
-            &CFr::from(user_message_limit),
-            &CFr::from(message_id),
-            &path_elements,
-            &identity_path_index,
-            &CFr::from(x2),
-            &CFr::from(external_nullifier),
-        );
+        // path_elements and identity_path_index are not needed in non-stateless mode
+        // witness input is now passed directly as parameters
 
         // We call generate_rln_proof for first proof values
-        let rln_proof1 = rln_proof_gen(&ffi2_rln_pointer, &witness_input1);
+        let rln_proof1 = rln_proof_gen(
+            &ffi2_rln_pointer,
+            &CFr::from(*identity_secret_hash.clone()),
+            &CFr::from(user_message_limit),
+            &CFr::from(message_id),
+            &CFr::from(x1),
+            &CFr::from(external_nullifier),
+            identity_index,
+        );
 
         // We call generate_rln_proof for second proof values
-        let rln_proof2 = rln_proof_gen(&ffi2_rln_pointer, &witness_input2);
+        let rln_proof2 = rln_proof_gen(
+            &ffi2_rln_pointer,
+            &CFr::from(*identity_secret_hash.clone()),
+            &CFr::from(user_message_limit),
+            &CFr::from(message_id),
+            &CFr::from(x2),
+            &CFr::from(external_nullifier),
+            identity_index,
+        );
 
         let recovered_id_secret_cfr = match ffi2_recover_id_secret(&rln_proof1, &rln_proof2) {
             CResult {
@@ -944,7 +920,7 @@ mod test {
         let x3 = hash_to_field_le(&signal3);
 
         // Get the merkle proof for the new identity
-        let merkle_proof_new = match ffi2_get_proof(&ffi2_rln_pointer, identity_index_new) {
+        let _merkle_proof_new = match ffi2_get_proof(&ffi2_rln_pointer, identity_index_new) {
             CResult {
                 ok: Some(proof),
                 err: None,
@@ -956,30 +932,19 @@ mod test {
             _ => unreachable!(),
         };
 
-        let path_elements_new: repr_c::Vec<CFr> = merkle_proof_new
-            .path_elements
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>()
-            .into();
-        let identity_path_index_new: repr_c::Vec<u8> = merkle_proof_new
-            .path_index
-            .iter()
-            .copied()
-            .collect::<Vec<_>>()
-            .into();
-        let witness_input3 = ffi2_rln_witness_input_new(
+        // path_elements_new and identity_path_index_new are not needed in non-stateless mode
+        // witness input is now passed directly as parameters
+
+        // We call generate_rln_proof
+        let rln_proof3 = rln_proof_gen(
+            &ffi2_rln_pointer,
             &CFr::from(*identity_secret_hash_new.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(message_id),
-            &path_elements_new,
-            &identity_path_index_new,
             &CFr::from(x3),
             &CFr::from(external_nullifier),
+            identity_index_new,
         );
-
-        // We call generate_rln_proof
-        let rln_proof3 = rln_proof_gen(&ffi2_rln_pointer, &witness_input3);
 
         // We attempt to recover the secret using share1 (coming from identity_secret_hash) and share3 (coming from identity_secret_hash_new)
 
@@ -1150,22 +1115,7 @@ mod stateless_test {
         (id_secret_hash, id_commitment)
     }
 
-    fn rln_proof_gen_with_witness(
-        ffi2_rln_pointer: &repr_c::Box<FFI2_RLN>,
-        witness_input: &repr_c::Box<FFI2_RLNWitnessInput>,
-    ) -> repr_c::Box<FFI2_RLNProof> {
-        match ffi2_generate_rln_proof_with_witness(ffi2_rln_pointer, witness_input) {
-            CResult {
-                ok: Some(proof),
-                err: None,
-            } => proof,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("generate rln proof with witness call failed: {}", err),
-            _ => unreachable!(),
-        }
-    }
+    // ...existing code...
 
     #[test]
     fn test_recover_id_secret_stateless_ffi() {
@@ -1211,7 +1161,9 @@ mod stateless_test {
             .into();
         let identity_path_index: repr_c::Vec<u8> = merkle_proof.get_path_index().to_vec().into();
 
-        let witness_input1 = ffi2_rln_witness_input_new(
+        // We call generate_rln_proof for first proof values
+        let rln_proof1 = match ffi2_generate_rln_proof_with_witness(
+            &ffi2_rln_pointer,
             &CFr::from(*identity_secret_hash.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
@@ -1219,9 +1171,21 @@ mod stateless_test {
             &identity_path_index,
             &CFr::from(x1),
             &CFr::from(external_nullifier),
-        );
+        ) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("generate rln proof with witness call failed: {}", err),
+            _ => unreachable!(),
+        };
 
-        let witness_input2 = ffi2_rln_witness_input_new(
+        // We call generate_rln_proof for second proof values
+        let rln_proof2 = match ffi2_generate_rln_proof_with_witness(
+            &ffi2_rln_pointer,
             &CFr::from(*identity_secret_hash.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
@@ -1229,13 +1193,17 @@ mod stateless_test {
             &identity_path_index,
             &CFr::from(x2),
             &CFr::from(external_nullifier),
-        );
-
-        // We call generate_rln_proof for first proof values
-        let rln_proof1 = rln_proof_gen_with_witness(&ffi2_rln_pointer, &witness_input1);
-
-        // We call generate_rln_proof for second proof values
-        let rln_proof2 = rln_proof_gen_with_witness(&ffi2_rln_pointer, &witness_input2);
+        ) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("generate rln proof with witness call failed: {}", err),
+            _ => unreachable!(),
+        };
 
         let recovered_id_secret_cfr = match ffi2_recover_id_secret(&rln_proof1, &rln_proof2) {
             CResult {
@@ -1276,7 +1244,9 @@ mod stateless_test {
         let identity_path_index_new: repr_c::Vec<u8> =
             merkle_proof_new.get_path_index().to_vec().into();
 
-        let witness_input3 = ffi2_rln_witness_input_new(
+        // We call generate_rln_proof
+        let rln_proof3 = match ffi2_generate_rln_proof_with_witness(
+            &ffi2_rln_pointer,
             &CFr::from(*identity_secret_hash_new.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
@@ -1284,10 +1254,17 @@ mod stateless_test {
             &identity_path_index_new,
             &CFr::from(x3),
             &CFr::from(external_nullifier),
-        );
-
-        // We call generate_rln_proof
-        let rln_proof3 = rln_proof_gen_with_witness(&ffi2_rln_pointer, &witness_input3);
+        ) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("generate rln proof with witness call failed: {}", err),
+            _ => unreachable!(),
+        };
 
         // We attempt to recover the secret using share1 (coming from identity_secret_hash) and share3 (coming from identity_secret_hash_new)
 
@@ -1354,7 +1331,8 @@ mod stateless_test {
             .into();
         let identity_path_index: repr_c::Vec<u8> = merkle_proof.get_path_index().to_vec().into();
 
-        let witness_input = ffi2_rln_witness_input_new(
+        let rln_proof = match ffi2_generate_rln_proof_with_witness(
+            &ffi2_rln_pointer,
             &CFr::from(*identity_secret_hash.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
@@ -1362,9 +1340,17 @@ mod stateless_test {
             &identity_path_index,
             &CFr::from(x),
             &CFr::from(external_nullifier),
-        );
-
-        let rln_proof = rln_proof_gen_with_witness(&ffi2_rln_pointer, &witness_input);
+        ) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("generate rln proof with witness call failed: {}", err),
+            _ => unreachable!(),
+        };
 
         // If no roots is provided, proof validation is skipped and if the remaining proof values are valid, the proof will be correctly verified
         let roots_empty: repr_c::Vec<CFr> = vec![].into();
