@@ -621,22 +621,6 @@ pub fn ffi2_get_proof(
 ////////////////////////////////////////////////////////
 // zkSNARKs APIs
 ////////////////////////////////////////////////////////
-#[ffi_export]
-pub fn ffi2_verify(
-    rln: &repr_c::Box<FFI2_RLN>,
-    proof: &repr_c::Box<FFI2_RLNProof>,
-) -> CResult<repr_c::Box<bool>, repr_c::String> {
-    match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
-        Ok(verified) => CResult {
-            ok: Some(Box_::new(verified)),
-            err: None,
-        },
-        Err(e) => CResult {
-            ok: None,
-            err: Some(e.to_string().into()),
-        },
-    }
-}
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
@@ -762,8 +746,10 @@ pub fn ffi2_verify_rln_proof(
     rln: &repr_c::Box<FFI2_RLN>,
     proof: &repr_c::Box<FFI2_RLNProof>,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
+    // Verify the proof
     match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
         Ok(proof_verified) => {
+            // Verify the root
             let roots_verified = rln.tree.root() == proof.proof_values.root;
             CResult {
                 ok: Some(Box_::new(proof_verified && roots_verified)),
@@ -803,7 +789,7 @@ pub fn ffi2_verify_with_roots(
         };
     }
 
-    // Validate the root
+    // Verify the root
     let roots_verified: bool = if roots.is_empty() {
         // If no root is passed in roots_buffer, we skip proof's root check
         true
