@@ -311,22 +311,10 @@ pub fn ffi2_merkle_proof_free(proof: Option<repr_c::Box<FFI2_MerkleProof>>) {
     drop(proof);
 }
 
-// RLNWitnessInput
-
-#[derive_ReprC]
-#[repr(opaque)]
-pub struct FFI2_RLNWitnessInput {
-    identity_secret: CFr,
-    user_message_limit: CFr,
-    message_id: CFr,
-    path_elements: repr_c::Vec<CFr>,
-    identity_path_index: repr_c::Vec<u8>,
-    x: CFr,
-    external_nullifier: CFr,
-}
-
+#[cfg(feature = "stateless")]
 #[ffi_export]
-pub fn ffi2_rln_witness_input_new(
+pub fn ffi2_generate_rln_proof_with_witness(
+    rln: &repr_c::Box<FFI2_RLN>,
     identity_secret: &CFr,
     user_message_limit: &CFr,
     message_id: &CFr,
@@ -334,24 +322,112 @@ pub fn ffi2_rln_witness_input_new(
     identity_path_index: &repr_c::Vec<u8>,
     x: &CFr,
     external_nullifier: &CFr,
-) -> repr_c::Box<FFI2_RLNWitnessInput> {
-    let path_elements_vec: Vec<CFr> = path_elements.iter().cloned().collect();
+) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
+    let mut identity_secret_fr = identity_secret.0;
+    let path_elements_vec: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
     let identity_path_index_vec: Vec<u8> = identity_path_index.iter().copied().collect();
+    let rln_witness = RLNWitnessInput {
+        identity_secret: IdSecret::from(&mut identity_secret_fr),
+        user_message_limit: user_message_limit.0,
+        message_id: message_id.0,
+        path_elements: path_elements_vec,
+        identity_path_index: identity_path_index_vec,
+        x: x.0,
+        external_nullifier: external_nullifier.0,
+    };
 
-    Box_::new(FFI2_RLNWitnessInput {
-        identity_secret: identity_secret.clone(),
-        user_message_limit: user_message_limit.clone(),
-        message_id: message_id.clone(),
-        path_elements: path_elements_vec.into(),
-        identity_path_index: identity_path_index_vec.into(),
-        x: x.clone(),
-        external_nullifier: external_nullifier.clone(),
-    })
+    let proof_values = match proof_values_from_witness(&rln_witness) {
+        Ok(pv) => pv,
+        Err(e) => {
+            return CResult {
+                ok: None,
+                err: Some(e.to_string().into()),
+            };
+        }
+    };
+
+    let proof = match generate_proof(&rln.proving_key, &rln_witness, &rln.graph_data) {
+        Ok(proof) => proof,
+        Err(e) => {
+            return CResult {
+                ok: None,
+                err: Some(e.to_string().into()),
+            };
+        }
+    };
+
+    CResult {
+        ok: Some(Box_::new(FFI2_RLNProof {
+            proof_values,
+            proof,
+        })),
+        err: None,
+    }
 }
 
+#[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_rln_witness_input_free(witness: Option<repr_c::Box<FFI2_RLNWitnessInput>>) {
-    drop(witness);
+pub fn ffi2_generate_rln_proof_with_witness(
+    rln: &repr_c::Box<FFI2_RLN>,
+    identity_secret: &CFr,
+    user_message_limit: &CFr,
+    message_id: &CFr,
+    x: &CFr,
+    external_nullifier: &CFr,
+    leaf_index: usize,
+) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
+    // Get Merkle proof from the tree
+    let proof = match rln.tree.proof(leaf_index) {
+        Ok(proof) => proof,
+        Err(e) => {
+            return CResult {
+                ok: None,
+                err: Some(e.to_string().into()),
+            };
+        }
+    };
+
+    let path_elements: Vec<Fr> = proof.get_path_elements();
+    let identity_path_index: Vec<u8> = proof.get_path_index();
+
+    let mut identity_secret_fr = identity_secret.0;
+    let rln_witness = RLNWitnessInput {
+        identity_secret: IdSecret::from(&mut identity_secret_fr),
+        user_message_limit: user_message_limit.0,
+        message_id: message_id.0,
+        path_elements,
+        identity_path_index,
+        x: x.0,
+        external_nullifier: external_nullifier.0,
+    };
+
+    let proof_values = match proof_values_from_witness(&rln_witness) {
+        Ok(pv) => pv,
+        Err(e) => {
+            return CResult {
+                ok: None,
+                err: Some(e.to_string().into()),
+            };
+        }
+    };
+
+    let proof = match generate_proof(&rln.proving_key, &rln_witness, &rln.graph_data) {
+        Ok(proof) => proof,
+        Err(e) => {
+            return CResult {
+                ok: None,
+                err: Some(e.to_string().into()),
+            };
+        }
+    };
+
+    CResult {
+        ok: Some(Box_::new(FFI2_RLNProof {
+            proof_values,
+            proof,
+        })),
+        err: None,
+    }
 }
 
 // RLNProof
@@ -655,60 +731,6 @@ pub fn ffi2_generate_rln_proof(
         identity_path_index,
         x: x.0,
         external_nullifier: external_nullifier.0,
-    };
-
-    let proof_values = match proof_values_from_witness(&rln_witness) {
-        Ok(pv) => pv,
-        Err(e) => {
-            return CResult {
-                ok: None,
-                err: Some(e.to_string().into()),
-            };
-        }
-    };
-
-    let proof = match generate_proof(&rln.proving_key, &rln_witness, &rln.graph_data) {
-        Ok(proof) => proof,
-        Err(e) => {
-            return CResult {
-                ok: None,
-                err: Some(e.to_string().into()),
-            };
-        }
-    };
-
-    CResult {
-        ok: Some(Box_::new(FFI2_RLNProof {
-            proof_values,
-            proof,
-        })),
-        err: None,
-    }
-}
-
-#[ffi_export]
-pub fn ffi2_generate_rln_proof_with_witness(
-    rln: &repr_c::Box<FFI2_RLN>,
-    witness_input: &repr_c::Box<FFI2_RLNWitnessInput>,
-) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
-    let rln_witness = {
-        let mut identity_secret = witness_input.identity_secret.0;
-        let path_elements: Vec<Fr> = witness_input
-            .path_elements
-            .iter()
-            .map(|cfr| cfr.0)
-            .collect();
-        let identity_path_index: Vec<u8> = witness_input.identity_path_index.to_vec();
-
-        RLNWitnessInput {
-            identity_secret: IdSecret::from(&mut identity_secret),
-            user_message_limit: witness_input.user_message_limit.0,
-            message_id: witness_input.message_id.0,
-            path_elements,
-            identity_path_index,
-            x: witness_input.x.0,
-            external_nullifier: witness_input.external_nullifier.0,
-        }
     };
 
     let proof_values = match proof_values_from_witness(&rln_witness) {
