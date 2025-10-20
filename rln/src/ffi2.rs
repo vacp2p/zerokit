@@ -7,11 +7,13 @@ use crate::{
         compute_id_secret, extended_keygen, extended_seeded_keygen, generate_proof, keygen,
         proof_values_from_witness, seeded_keygen, verify_proof, RLNProofValues, RLNWitnessInput,
     },
-    utils::IdSecret,
+    utils::{bytes_be_to_fr, bytes_le_to_fr, IdSecret},
 };
 use ark_bn254::Fr;
+use ark_ff::{BigInteger, PrimeField};
 use ark_groth16::{Proof as ArkProof, ProvingKey};
 use ark_relations::r1cs::ConstraintMatrices;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use num_traits::Zero;
 use safer_ffi::prelude::ReprC;
 use safer_ffi::{
@@ -82,9 +84,69 @@ impl From<CFr> for repr_c::Box<CFr> {
     }
 }
 
+impl CFr {
+    pub fn to_bytes_le(&self) -> Vec<u8> {
+        self.0.into_bigint().to_bytes_le()
+    }
+
+    pub fn to_bytes_be(&self) -> Vec<u8> {
+        self.0.into_bigint().to_bytes_be()
+    }
+
+    pub fn from_bytes_le(bytes: &[u8]) -> Option<Self> {
+        let (fr, _) = bytes_le_to_fr(bytes);
+        Some(CFr(fr))
+    }
+
+    pub fn from_bytes_be(bytes: &[u8]) -> Option<Self> {
+        let (fr, _) = bytes_be_to_fr(bytes);
+        Some(CFr(fr))
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        self.0.serialize_compressed(&mut buf).unwrap();
+        buf
+    }
+
+    pub fn deserialize(bytes: &[u8]) -> Option<Self> {
+        Fr::deserialize_compressed(bytes).ok().map(CFr)
+    }
+}
+
 #[ffi_export]
 fn cfr_zero() -> repr_c::Box<CFr> {
     Box_::new(CFr::default())
+}
+
+#[ffi_export]
+fn cfr_to_bytes_le(cfr: &CFr) -> safer_ffi::Vec<u8> {
+    cfr.to_bytes_le().into()
+}
+
+#[ffi_export]
+fn cfr_to_bytes_be(cfr: &CFr) -> safer_ffi::Vec<u8> {
+    cfr.to_bytes_be().into()
+}
+
+#[ffi_export]
+fn cfr_from_bytes_le(bytes: safer_ffi::prelude::c_slice::Ref<'_, u8>) -> Option<repr_c::Box<CFr>> {
+    CFr::from_bytes_le(bytes.as_ref()).map(Box_::new).into()
+}
+
+#[ffi_export]
+fn cfr_from_bytes_be(bytes: safer_ffi::prelude::c_slice::Ref<'_, u8>) -> Option<repr_c::Box<CFr>> {
+    CFr::from_bytes_be(bytes.as_ref()).map(Box_::new).into()
+}
+
+#[ffi_export]
+fn cfr_serialize(cfr: &CFr) -> safer_ffi::Vec<u8> {
+    cfr.serialize().into()
+}
+
+#[ffi_export]
+fn cfr_deserialize(bytes: safer_ffi::prelude::c_slice::Ref<'_, u8>) -> Option<repr_c::Box<CFr>> {
+    CFr::deserialize(bytes.as_ref()).map(Box_::new).into()
 }
 
 #[ffi_export]
