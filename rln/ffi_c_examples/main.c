@@ -40,17 +40,19 @@ int main (int argc, char const * const argv[])
     printf("   - user_message_limit = %s\n",cfr_debug(user_message_limit).ptr);
 
     printf("\nComputing rate commitment\n");
-    CFr_t* rate_array[2];
-    rate_array[0] = id_commitment;
-    rate_array[1] = user_message_limit;
+    const size_t CFR_SIZE = 32;
+    void* rate_buffer = malloc(CFR_SIZE * 2);
+    memcpy(rate_buffer, id_commitment, CFR_SIZE);
+    memcpy((char*)rate_buffer + CFR_SIZE, user_message_limit, CFR_SIZE);
     Vec_CFr_t rate_inputs = {
-        .ptr = (CFr_t*)rate_array,
+        .ptr = (CFr_t*)rate_buffer,
         .len = 2,
         .cap = 2
     };
     CFr_t* rate_commitment = ffi2_poseidon_hash(&rate_inputs);
     printf("  - rate_commitment = %s\n", cfr_debug(rate_commitment).ptr);
     cfr_debug(rate_commitment);
+    free(rate_buffer);
 
     printf("\nAdding rate_commitment to tree\n");
     CResult_bool_ptr_Vec_uint8_t set_result = ffi2_set_next_leaf(&rln, &rate_commitment);
@@ -60,10 +62,16 @@ int main (int argc, char const * const argv[])
         ffi2_rln_free(rln);
         return EXIT_FAILURE;
     }
-    printf("  - added to tree at index 0\n");
+
+    size_t leaf_index = ffi2_leaves_set(&rln) - 1;
+    printf("  - added to tree at index %zu\n", leaf_index);
+
+    printf("\nRetrieving current Merkle roots\n");
+    CFr_t* roots = ffi2_get_root(&rln);
+    printf("  - roots = %s\n", cfr_debug(roots).ptr);
 
     printf("\nGetting Merkle proof\n");
-    CResult_FFI2_MerkleProof_ptr_Vec_uint8_t proof_result = ffi2_get_proof(&rln, 0);
+    CResult_FFI2_MerkleProof_ptr_Vec_uint8_t proof_result = ffi2_get_proof(&rln, leaf_index);
     if (!proof_result.ok) {
         fprintf(stderr, "%s", proof_result.err.ptr);
         vec_cfr_free(keys);
@@ -92,35 +100,32 @@ int main (int argc, char const * const argv[])
     printf("  - rln_identifier = %s\n", cfr_debug(rln_identifier).ptr);
 
     printf("\nComputing Poseidon hash for external nullifier\n");
-    CFr_t* nullifier_array[2];
-    nullifier_array[0] = epoch;
-    nullifier_array[1] = rln_identifier;
+    void* nullifier_buffer = malloc(CFR_SIZE * 2);
+    memcpy(nullifier_buffer, epoch, CFR_SIZE);
+    memcpy((char*)nullifier_buffer + CFR_SIZE, rln_identifier, CFR_SIZE);
     Vec_CFr_t nullifier_inputs = {
-        .ptr = (CFr_t*)nullifier_array,
+        .ptr = (CFr_t*)nullifier_buffer,
         .len = 2,
         .cap = 2
     };
     CFr_t* external_nullifier = ffi2_poseidon_hash(&nullifier_inputs);
     printf("  - external_nullifier = %s\n", cfr_debug(external_nullifier).ptr);
+    free(nullifier_buffer);
 
     printf("\nCreating message_id\n");
     CFr_t* message_id = cfr_from_uint(0);
     printf("  - message_id = %s\n", cfr_debug(message_id).ptr);
 
-    printf("\nCreating witness input\n");
-    FFI2_RLNWitnessInput_t* witness_input = ffi2_rln_witness_input_new(
+    printf("\nGenerating RLN Proof\n");
+    CResult_FFI2_RLNProof_ptr_Vec_uint8_t proof_gen_result = ffi2_generate_rln_proof(
+        &rln,
         identity_secret_ptr,
         user_message_limit,
         message_id,
-        &merkle_proof->path_elements,
-        &merkle_proof->path_index,
         x,
-        external_nullifier
+        external_nullifier,
+        leaf_index
     );
-    printf("Witness input created successfully\n");
-
-    printf("\nGenerating RLN Proof\n");
-    CResult_FFI2_RLNProof_ptr_Vec_uint8_t proof_gen_result = ffi2_prove(&rln, &witness_input);
     FFI2_RLNProof_t* rln_proof = NULL;
     int exit_code = EXIT_SUCCESS;
 
@@ -132,7 +137,7 @@ int main (int argc, char const * const argv[])
         printf("Proof generated successfully\n");
 
         printf("\nVerifying Proof\n");
-        CResult_bool_ptr_Vec_uint8_t verify_result = ffi2_verify(&rln, &rln_proof);
+        CResult_bool_ptr_Vec_uint8_t verify_result = ffi2_verify_rln_proof(&rln, &rln_proof);
         if (!verify_result.ok) {
             fprintf(stderr, "Proof verification error: %s\n", verify_result.err.ptr);
             exit_code = EXIT_FAILURE;
@@ -155,20 +160,16 @@ int main (int argc, char const * const argv[])
         CFr_t* message_id2 = cfr_from_uint(0);
         printf("  - message_id2 = %s\n", cfr_debug(message_id2).ptr);
 
-        printf("\nCreating second witness input\n");
-        FFI2_RLNWitnessInput_t* witness_input2 = ffi2_rln_witness_input_new(
+        printf("\nGenerating second RLN Proof\n");
+        CResult_FFI2_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi2_generate_rln_proof(
+            &rln,
             identity_secret_ptr,
             user_message_limit,
             message_id2,
-            &merkle_proof->path_elements,
-            &merkle_proof->path_index,
             x2,
-            external_nullifier
+            external_nullifier,
+            leaf_index
         );
-        printf("Second witness input created successfully\n");
-
-        printf("\nGenerating second RLN Proof\n");
-        CResult_FFI2_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi2_prove(&rln, &witness_input2);
         FFI2_RLNProof_t* rln_proof2 = NULL;
 
         if (!proof_gen_result2.ok) {
@@ -179,7 +180,7 @@ int main (int argc, char const * const argv[])
             printf("Second proof generated successfully\n");
 
             printf("\nVerifying second proof\n");
-            CResult_bool_ptr_Vec_uint8_t verify_result2 = ffi2_verify(&rln, &rln_proof2);
+            CResult_bool_ptr_Vec_uint8_t verify_result2 = ffi2_verify_rln_proof(&rln, &rln_proof2);
             if (!verify_result2.ok) {
                 fprintf(stderr, "Second proof verification error: %s\n", verify_result2.err.ptr);
                 exit_code = EXIT_FAILURE;
@@ -209,7 +210,6 @@ int main (int argc, char const * const argv[])
         if (rln_proof2) {
             ffi2_rln_proof_free(rln_proof2);
         }
-        ffi2_rln_witness_input_free(witness_input2);
         cfr_free(x2);
         cfr_free(message_id2);
     }
@@ -217,9 +217,9 @@ int main (int argc, char const * const argv[])
     if (rln_proof) {
         ffi2_rln_proof_free(rln_proof);
     }
-    ffi2_rln_witness_input_free(witness_input);
     ffi2_merkle_proof_free(merkle_proof);
     cfr_free(rate_commitment);
+    cfr_free(roots);
     cfr_free(x);
     cfr_free(epoch);
     cfr_free(rln_identifier);
