@@ -19,17 +19,17 @@ impl SledDB {
         }
         match config.open() {
             Ok(db) => Ok(SledDB(db)),
-            Err(e) if e.to_string().contains("WouldBlock") => {
+            Err(err) if err.to_string().contains("WouldBlock") => {
                 // try till the fd is freed
                 // sleep for 10^tries milliseconds, then recursively try again
                 thread::sleep(Duration::from_millis(10u64.pow(tries)));
                 Self::new_with_tries(config, tries + 1)
             }
-            Err(e) => {
+            Err(err) => {
                 // On any other error, we return immediately.
                 Err(PmtreeErrorKind::DatabaseError(
                     DatabaseErrorKind::CustomError(format!(
-                        "Cannot create database: {e} {config:#?}"
+                        "Cannot create database: {err} {config:#?}"
                     )),
                 ))
             }
@@ -48,9 +48,9 @@ impl Database for SledDB {
     fn load(config: Self::Config) -> PmtreeResult<Self> {
         let db = match config.open() {
             Ok(db) => db,
-            Err(e) => {
+            Err(err) => {
                 return Err(PmtreeErrorKind::DatabaseError(
-                    DatabaseErrorKind::CustomError(format!("Cannot load database: {e}")),
+                    DatabaseErrorKind::CustomError(format!("Cannot load database: {err}")),
                 ))
             }
         };

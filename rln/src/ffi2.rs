@@ -338,20 +338,20 @@ pub fn ffi2_generate_rln_proof_with_witness(
 
     let proof_values = match proof_values_from_witness(&rln_witness) {
         Ok(pv) => pv,
-        Err(e) => {
+        Err(err) => {
             return CResult {
                 ok: None,
-                err: Some(e.to_string().into()),
+                err: Some(err.to_string().into()),
             };
         }
     };
 
     let proof = match generate_proof(&rln.proving_key, &rln_witness, &rln.graph_data) {
         Ok(proof) => proof,
-        Err(e) => {
+        Err(err) => {
             return CResult {
                 ok: None,
-                err: Some(e.to_string().into()),
+                err: Some(err.to_string().into()),
             };
         }
     };
@@ -379,10 +379,10 @@ pub fn ffi2_generate_rln_proof_with_witness(
     // Get Merkle proof from the tree
     let proof = match rln.tree.proof(leaf_index) {
         Ok(proof) => proof,
-        Err(e) => {
+        Err(err) => {
             return CResult {
                 ok: None,
-                err: Some(e.to_string().into()),
+                err: Some(err.to_string().into()),
             };
         }
     };
@@ -403,20 +403,20 @@ pub fn ffi2_generate_rln_proof_with_witness(
 
     let proof_values = match proof_values_from_witness(&rln_witness) {
         Ok(pv) => pv,
-        Err(e) => {
+        Err(err) => {
             return CResult {
                 ok: None,
-                err: Some(e.to_string().into()),
+                err: Some(err.to_string().into()),
             };
         }
     };
 
     let proof = match generate_proof(&rln.proving_key, &rln_witness, &rln.graph_data) {
         Ok(proof) => proof,
-        Err(e) => {
+        Err(err) => {
             return CResult {
                 ok: None,
-                err: Some(e.to_string().into()),
+                err: Some(err.to_string().into()),
             };
         }
     };
@@ -435,8 +435,8 @@ pub fn ffi2_generate_rln_proof_with_witness(
 #[derive_ReprC]
 #[repr(opaque)]
 pub struct FFI2_RLNProof {
-    proof_values: RLNProofValues,
     proof: ArkProof<Curve>,
+    proof_values: RLNProofValues,
 }
 
 #[ffi_export]
@@ -711,10 +711,10 @@ pub fn ffi2_generate_rln_proof(
 ) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
     let proof = match rln.tree.proof(leaf_index) {
         Ok(proof) => proof,
-        Err(e) => {
+        Err(err) => {
             return CResult {
                 ok: None,
-                err: Some(e.to_string().into()),
+                err: Some(err.to_string().into()),
             };
         }
     };
@@ -722,9 +722,9 @@ pub fn ffi2_generate_rln_proof(
     let path_elements: Vec<Fr> = proof.get_path_elements();
     let identity_path_index: Vec<u8> = proof.get_path_index();
 
-    let mut identity_secret_fr = identity_secret.0;
+    let mut identity_secret = identity_secret.0;
     let rln_witness = RLNWitnessInput {
-        identity_secret: IdSecret::from(&mut identity_secret_fr),
+        identity_secret: IdSecret::from(&mut identity_secret),
         user_message_limit: user_message_limit.0,
         message_id: message_id.0,
         path_elements,
@@ -735,20 +735,20 @@ pub fn ffi2_generate_rln_proof(
 
     let proof_values = match proof_values_from_witness(&rln_witness) {
         Ok(pv) => pv,
-        Err(e) => {
+        Err(err) => {
             return CResult {
                 ok: None,
-                err: Some(e.to_string().into()),
+                err: Some(err.to_string().into()),
             };
         }
     };
 
     let proof = match generate_proof(&rln.proving_key, &rln_witness, &rln.graph_data) {
         Ok(proof) => proof,
-        Err(e) => {
+        Err(err) => {
             return CResult {
                 ok: None,
-                err: Some(e.to_string().into()),
+                err: Some(err.to_string().into()),
             };
         }
     };
@@ -795,10 +795,10 @@ pub fn ffi2_verify_with_roots(
     let proof_verified =
         match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
             Ok(v) => v,
-            Err(e) => {
+            Err(err) => {
                 return CResult {
                     ok: None,
-                    err: Some(e.to_string().into()),
+                    err: Some(err.to_string().into()),
                 };
             }
         };
@@ -853,10 +853,10 @@ pub fn ffi2_recover_id_secret(
     // We recover the secret
     let recovered_identity_secret_hash = match compute_id_secret(share1, share2) {
         Ok(secret) => secret,
-        Err(e) => {
+        Err(err) => {
             return CResult {
                 ok: None,
-                err: Some(e.to_string().into()),
+                err: Some(err.to_string().into()),
             };
         }
     };
