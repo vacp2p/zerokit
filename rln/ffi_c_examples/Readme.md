@@ -24,7 +24,7 @@ gcc -Wall main.c -o main -lrln -L../../target/debug
 
 ```bash
 cargo build -p rln --no-default-features --features stateless
-cargo run --features headers --bin generate-headers
+cargo run  --no-default-features --features stateless,headers --bin generate-headers
 mv -v rln.h rln/ffi_c_examples/
 ```
 

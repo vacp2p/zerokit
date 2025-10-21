@@ -199,11 +199,10 @@ int main (int argc, char const * const argv[])
     );
 #endif
     FFI2_RLNProof_t* rln_proof = NULL;
-    int exit_code = EXIT_SUCCESS;
 
     if (!proof_gen_result.ok) {
         fprintf(stderr, "Proof generation failed: %s\n", proof_gen_result.err.ptr);
-        exit_code = EXIT_FAILURE;
+        return EXIT_FAILURE;
     } else {
         rln_proof = proof_gen_result.ok;
         printf("Proof generated successfully\n");
@@ -221,12 +220,12 @@ int main (int argc, char const * const argv[])
 #endif
         if (!verify_result.ok) {
             fprintf(stderr, "Proof verification error: %s\n", verify_result.err.ptr);
-            exit_code = EXIT_FAILURE;
+            return EXIT_FAILURE;
         } else if (*verify_result.ok) {
             printf("Proof verified successfully\n");
         } else {
             printf("Proof verification failed\n");
-            exit_code = EXIT_FAILURE;
+            return EXIT_FAILURE;
         }
 
         printf("\nSimulating double-signaling attack (same epoch, different message)\n");
@@ -268,7 +267,7 @@ int main (int argc, char const * const argv[])
 
         if (!proof_gen_result2.ok) {
             fprintf(stderr, "Second proof generation failed: %s\n", proof_gen_result2.err.ptr);
-            exit_code = EXIT_FAILURE;
+            return EXIT_FAILURE;
         } else {
             rln_proof2 = proof_gen_result2.ok;
             printf("Second proof generated successfully\n");
@@ -281,7 +280,7 @@ int main (int argc, char const * const argv[])
 #endif
             if (!verify_result2.ok) {
                 fprintf(stderr, "Second proof verification error: %s\n", verify_result2.err.ptr);
-                exit_code = EXIT_FAILURE;
+                return EXIT_FAILURE;
             } else if (*verify_result2.ok) {
                 printf("Second proof verified successfully\n");
 
@@ -289,7 +288,7 @@ int main (int argc, char const * const argv[])
                 CResult_CFr_ptr_Vec_uint8_t recover_result = ffi2_recover_id_secret(&rln_proof, &rln_proof2);
                 if (!recover_result.ok) {
                     fprintf(stderr, "Identity recovery error: %s\n", recover_result.err.ptr);
-                    exit_code = EXIT_FAILURE;
+                    return EXIT_FAILURE;
                 } else {
                     CFr_t* recovered_secret = recover_result.ok;
                     printf("  - recovered_secret = %s\n", cfr_debug(recovered_secret).ptr);
@@ -301,7 +300,7 @@ int main (int argc, char const * const argv[])
                 }
             } else {
                 printf("Second proof verification failed\n");
-                exit_code = EXIT_FAILURE;
+                return EXIT_FAILURE;
             }
         }
 
@@ -338,5 +337,5 @@ int main (int argc, char const * const argv[])
     cfr_free(message_id);
     vec_cfr_free(keys);
     ffi2_rln_free(rln);
-    return exit_code;
+    return EXIT_SUCCESS;
 }
