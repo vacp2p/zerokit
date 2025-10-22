@@ -1,5 +1,5 @@
 use crate::circuit::{zkey_from_raw, Curve, Fr};
-use crate::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
+use crate::hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash as utils_poseidon_hash};
 use crate::protocol::{
     compute_id_secret, deserialize_proof_values, deserialize_witness, extended_keygen,
     extended_seeded_keygen, keygen, proof_values_from_witness, rln_witness_to_bigint_json,
@@ -1311,7 +1311,7 @@ pub fn hash<R: Read, W: Write>(
         let hash = hash_to_field_le(&serialized);
         output_data.write_all(&fr_to_bytes_le(&hash))?;
     } else {
-        let hash = hash_to_field_le(&serialized);
+        let hash = hash_to_field_be(&serialized);
         output_data.write_all(&fr_to_bytes_be(&hash))?;
     }
 

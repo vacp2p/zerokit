@@ -625,17 +625,18 @@ mod test {
             identity_index,
         );
 
-        let proof_is_valid = match ffi2_verify_rln_proof(&ffi2_rln_pointer, &rln_proof) {
-            CResult {
-                ok: Some(success),
-                err: None,
-            } => *success,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("verify rln proof call failed: {}", err),
-            _ => unreachable!(),
-        };
+        let proof_is_valid =
+            match ffi2_verify_rln_proof(&ffi2_rln_pointer, &rln_proof, &CFr::from(x)) {
+                CResult {
+                    ok: Some(success),
+                    err: None,
+                } => *success,
+                CResult {
+                    ok: None,
+                    err: Some(err),
+                } => panic!("verify rln proof call failed: {}", err),
+                _ => unreachable!(),
+            };
 
         assert!(proof_is_valid);
     }
@@ -722,18 +723,22 @@ mod test {
         // In this case, since no root is provided, proof's root check is skipped and proof is verified if other proof values are valid
         let roots_empty: repr_c::Vec<CFr> = vec![].into();
 
-        let proof_is_valid =
-            match ffi2_verify_with_roots(&ffi2_rln_pointer, &rln_proof, &roots_empty) {
-                CResult {
-                    ok: Some(valid),
-                    err: None,
-                } => *valid,
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("verify with roots call failed: {}", err),
-                _ => unreachable!(),
-            };
+        let proof_is_valid = match ffi2_verify_with_roots(
+            &ffi2_rln_pointer,
+            &rln_proof,
+            &roots_empty,
+            &CFr::from(x),
+        ) {
+            CResult {
+                ok: Some(valid),
+                err: None,
+            } => *valid,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("verify with roots call failed: {}", err),
+            _ => unreachable!(),
+        };
         // Proof should be valid
         assert!(proof_is_valid);
 
@@ -744,18 +749,22 @@ mod test {
         }
         let roots_random_vec: repr_c::Vec<CFr> = roots_random.into();
 
-        let proof_is_valid =
-            match ffi2_verify_with_roots(&ffi2_rln_pointer, &rln_proof, &roots_random_vec) {
-                CResult {
-                    ok: Some(valid),
-                    err: None,
-                } => *valid,
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("verify with roots call failed: {}", err),
-                _ => unreachable!(),
-            };
+        let proof_is_valid = match ffi2_verify_with_roots(
+            &ffi2_rln_pointer,
+            &rln_proof,
+            &roots_random_vec,
+            &CFr::from(x),
+        ) {
+            CResult {
+                ok: Some(valid),
+                err: None,
+            } => *valid,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("verify with roots call failed: {}", err),
+            _ => unreachable!(),
+        };
         // Proof should be invalid.
         assert!(!proof_is_valid);
 
@@ -771,18 +780,22 @@ mod test {
         roots_with_correct.push(CFr::from(root));
         let roots_correct_vec: repr_c::Vec<CFr> = roots_with_correct.into();
 
-        let proof_is_valid =
-            match ffi2_verify_with_roots(&ffi2_rln_pointer, &rln_proof, &roots_correct_vec) {
-                CResult {
-                    ok: Some(valid),
-                    err: None,
-                } => *valid,
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("verify with roots call failed: {}", err),
-                _ => unreachable!(),
-            };
+        let proof_is_valid = match ffi2_verify_with_roots(
+            &ffi2_rln_pointer,
+            &rln_proof,
+            &roots_correct_vec,
+            &CFr::from(x),
+        ) {
+            CResult {
+                ok: Some(valid),
+                err: None,
+            } => *valid,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("verify with roots call failed: {}", err),
+            _ => unreachable!(),
+        };
         // Proof should be valid.
         assert!(proof_is_valid);
     }
@@ -1355,18 +1368,22 @@ mod stateless_test {
         // If no roots is provided, proof validation is skipped and if the remaining proof values are valid, the proof will be correctly verified
         let roots_empty: repr_c::Vec<CFr> = vec![].into();
 
-        let proof_is_valid =
-            match ffi2_verify_with_roots(&ffi2_rln_pointer, &rln_proof, &roots_empty) {
-                CResult {
-                    ok: Some(valid),
-                    err: None,
-                } => *valid,
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("verify with roots call failed: {}", err),
-                _ => unreachable!(),
-            };
+        let proof_is_valid = match ffi2_verify_with_roots(
+            &ffi2_rln_pointer,
+            &rln_proof,
+            &roots_empty,
+            &CFr::from(x),
+        ) {
+            CResult {
+                ok: Some(valid),
+                err: None,
+            } => *valid,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("verify with roots call failed: {}", err),
+            _ => unreachable!(),
+        };
         // Proof should be valid
         assert!(proof_is_valid);
 
@@ -1377,18 +1394,22 @@ mod stateless_test {
         }
         let roots_random_vec: repr_c::Vec<CFr> = roots_random.into();
 
-        let proof_is_valid =
-            match ffi2_verify_with_roots(&ffi2_rln_pointer, &rln_proof, &roots_random_vec) {
-                CResult {
-                    ok: Some(valid),
-                    err: None,
-                } => *valid,
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("verify with roots call failed: {}", err),
-                _ => unreachable!(),
-            };
+        let proof_is_valid = match ffi2_verify_with_roots(
+            &ffi2_rln_pointer,
+            &rln_proof,
+            &roots_random_vec,
+            &CFr::from(x),
+        ) {
+            CResult {
+                ok: Some(valid),
+                err: None,
+            } => *valid,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("verify with roots call failed: {}", err),
+            _ => unreachable!(),
+        };
         // Proof should be invalid.
         assert!(!proof_is_valid);
 
@@ -1403,18 +1424,22 @@ mod stateless_test {
         roots_with_correct.push(CFr::from(root));
         let roots_correct_vec: repr_c::Vec<CFr> = roots_with_correct.into();
 
-        let proof_is_valid =
-            match ffi2_verify_with_roots(&ffi2_rln_pointer, &rln_proof, &roots_correct_vec) {
-                CResult {
-                    ok: Some(valid),
-                    err: None,
-                } => *valid,
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("verify with roots call failed: {}", err),
-                _ => unreachable!(),
-            };
+        let proof_is_valid = match ffi2_verify_with_roots(
+            &ffi2_rln_pointer,
+            &rln_proof,
+            &roots_correct_vec,
+            &CFr::from(x),
+        ) {
+            CResult {
+                ok: Some(valid),
+                err: None,
+            } => *valid,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("verify with roots call failed: {}", err),
+            _ => unreachable!(),
+        };
         // Proof should be valid.
         assert!(proof_is_valid);
     }
