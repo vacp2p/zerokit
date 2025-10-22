@@ -9,23 +9,23 @@ It also contain:
 
 ## Configuration
 
-The CLI can be configured using a JSON configuration file (see the [example](example.config.json)).
+The CLI can be configured using a JSON configuration file (see the [example](../rln/resources/tree_depth_20/config.json)).
 
 You can specify the configuration file path using the `RLN_CONFIG_PATH` environment variable:
 
 ```bash
-export RLN_CONFIG_PATH=example.config.json
+export RLN_CONFIG_PATH=../rln/resources/tree_depth_20/config.json
 ```
 
 Alternatively, you can provide the configuration file path as an argument for each command:
 
 ```bash
-RLN_CONFIG_PATH=example.config.json cargo run -- <SUBCOMMAND> [OPTIONS]
+RLN_CONFIG_PATH=../rln/resources/tree_depth_20/config.json cargo run -- <SUBCOMMAND> [OPTIONS]
 ```
 
 If the configuration file is empty, default settings will be used, but the tree data folder will be temporary and not saved to the preconfigured path.
 
-We recommend using the example config, as all commands (except `new` and `create-with-params`) require an initialized RLN instance.
+We recommend using the default config, as all commands (except `new` and `create-with-params`) require an initialized RLN instance.
 
 ## Relay Example
 

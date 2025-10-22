@@ -193,17 +193,8 @@ when isMainModule:
   when defined(ffiStateless):
     rlnRes = ffi2_new()
   else:
-    let config = """{
-      "tree_config": {
-        "path": "pmtree-123456",
-        "temporary": false,
-        "cache_capacity": 1073741824,
-        "flush_every_ms": 500,
-        "mode": "HighThroughput",
-        "use_compression": false
-      }
-    }""".cstring
-    rlnRes = ffi2_new(CSize(20), config)
+    let config_path = """../resources/tree_depth_20/config.json""".cstring
+    rlnRes = ffi2_new(CSize(20), config_path)
 
   if rlnRes.ok.isNil:
     stderr.writeLine "ffi2_new error: ", asString(rlnRes.err)

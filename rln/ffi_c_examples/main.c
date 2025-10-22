@@ -30,17 +30,8 @@ int main (int argc, char const * const argv[])
 #ifdef STATELESS
     CResult_FFI2_RLN_ptr_Vec_uint8_t result = ffi2_new();
 #else
-    const char* config = "{"
-        "\"tree_config\": {"
-            "\"path\": \"pmtree-123456\","
-            "\"temporary\": false,"
-            "\"cache_capacity\": 1073741824,"
-            "\"flush_every_ms\": 500,"
-            "\"mode\": \"HighThroughput\","
-            "\"use_compression\": false"
-        "}"
-    "}";
-    CResult_FFI2_RLN_ptr_Vec_uint8_t result = ffi2_new(20, config);
+    const char* config_path = "../resources/tree_depth_20/config.json";
+    CResult_FFI2_RLN_ptr_Vec_uint8_t result = ffi2_new(20, config_path);
 #endif
 
     if (!result.ok) {
