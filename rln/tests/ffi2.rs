@@ -82,7 +82,7 @@ mod test {
         external_nullifier: &CFr,
         leaf_index: usize,
     ) -> repr_c::Box<FFI2_RLNProof> {
-        match ffi2_generate_rln_proof_with_witness(
+        match ffi2_generate_rln_proof(
             ffi2_rln_pointer,
             identity_secret,
             user_message_limit,
