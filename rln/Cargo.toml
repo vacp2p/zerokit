@@ -47,7 +47,7 @@ utils = { package = "zerokit_utils", version = "0.7.0", path = "../utils", defau
 
 # FFI
 safer-ffi.version = "0.1"
-safer-ffi.features = [] # you may add some later on.
+safer-ffi.features = []   # you may add some later on.
 
 # serialization
 prost = "0.14.1"
@@ -91,4 +91,4 @@ all-features = true
 
 [[bin]]
 name = "generate-headers"
-required-features = ["headers"]  # Do not build unless generating headers.
+required-features = ["headers"] # Do not build unless generating headers.

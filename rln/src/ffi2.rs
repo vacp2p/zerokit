@@ -27,7 +27,7 @@ use std::ops::Deref;
 use {
     crate::poseidon_tree::PoseidonTree,
     safer_ffi::prelude::char_p,
-    std::str::FromStr,
+    std::{fs::File, io::Read, str::FromStr},
     utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
 };
 
@@ -196,16 +196,29 @@ pub struct FFI2_RLN {
 #[ffi_export]
 pub fn ffi2_new(
     tree_depth: usize,
-    config: char_p::Ref<'_>,
+    config_path: char_p::Ref<'_>,
 ) -> CResult<repr_c::Box<FFI2_RLN>, repr_c::String> {
-    let proving_key = zkey_from_folder().to_owned();
-    let graph_data = graph_from_folder().to_owned();
     let tree_config = {
-        let config_str = config.to_str();
+        let mut file = match File::open(config_path.to_str()) {
+            Ok(file) => file,
+            Err(err) => {
+                return CResult {
+                    ok: None,
+                    err: Some(err.to_string().into()),
+                };
+            }
+        };
+        let mut config_str = String::new();
+        if let Err(err) = file.read_to_string(&mut config_str) {
+            return CResult {
+                ok: None,
+                err: Some(err.to_string().into()),
+            };
+        }
         if config_str.is_empty() {
             <PoseidonTree as ZerokitMerkleTree>::Config::default()
         } else {
-            match <PoseidonTree as ZerokitMerkleTree>::Config::from_str(config_str) {
+            match <PoseidonTree as ZerokitMerkleTree>::Config::from_str(&config_str) {
                 Ok(config) => config,
                 Err(err) => {
                     return CResult {
@@ -216,6 +229,9 @@ pub fn ffi2_new(
             }
         }
     };
+
+    let proving_key = zkey_from_folder().to_owned();
+    let graph_data = graph_from_folder().to_owned();
 
     // We compute a default empty tree
     let tree = match PoseidonTree::new(
@@ -268,25 +284,29 @@ pub fn ffi2_new_with_params(
     tree_depth: usize,
     zkey_buffer: c_slice::Ref<'_, u8>,
     graph_data: c_slice::Ref<'_, u8>,
-    config: char_p::Ref<'_>,
+    config_path: char_p::Ref<'_>,
 ) -> CResult<repr_c::Box<FFI2_RLN>, repr_c::String> {
-    let proving_key = match zkey_from_raw(&zkey_buffer) {
-        Ok(pk) => pk,
-        Err(err) => {
+    let tree_config = {
+        let mut file = match File::open(config_path.to_str()) {
+            Ok(file) => file,
+            Err(err) => {
+                return CResult {
+                    ok: None,
+                    err: Some(err.to_string().into()),
+                };
+            }
+        };
+        let mut config_str = String::new();
+        if let Err(err) = file.read_to_string(&mut config_str) {
             return CResult {
                 ok: None,
                 err: Some(err.to_string().into()),
             };
         }
-    };
-    let graph_data_vec = graph_data.to_vec();
-
-    let tree_config = {
-        let config_str = config.to_str();
         if config_str.is_empty() {
             <PoseidonTree as ZerokitMerkleTree>::Config::default()
         } else {
-            match <PoseidonTree as ZerokitMerkleTree>::Config::from_str(config_str) {
+            match <PoseidonTree as ZerokitMerkleTree>::Config::from_str(&config_str) {
                 Ok(config) => config,
                 Err(err) => {
                     return CResult {
@@ -297,6 +317,17 @@ pub fn ffi2_new_with_params(
             }
         }
     };
+
+    let proving_key = match zkey_from_raw(&zkey_buffer) {
+        Ok(pk) => pk,
+        Err(err) => {
+            return CResult {
+                ok: None,
+                err: Some(err.to_string().into()),
+            };
+        }
+    };
+    let graph_data_vec = graph_data.to_vec();
 
     // We compute a default empty tree
     let tree = match PoseidonTree::new(
