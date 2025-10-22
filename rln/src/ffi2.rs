@@ -795,14 +795,18 @@ pub fn ffi2_generate_rln_proof(
 pub fn ffi2_verify_rln_proof(
     rln: &repr_c::Box<FFI2_RLN>,
     proof: &repr_c::Box<FFI2_RLNProof>,
+    x: &CFr,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
     // Verify the proof
     match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
         Ok(proof_verified) => {
-            // Verify the root
+            // Verify the root and signal
             let roots_verified = rln.tree.root() == proof.proof_values.root;
+            let signal_verified = *x == proof.proof_values.x;
             CResult {
-                ok: Some(Box_::new(proof_verified && roots_verified)),
+                ok: Some(Box_::new(
+                    proof_verified && roots_verified && signal_verified,
+                )),
                 err: None,
             }
         }
@@ -818,6 +822,7 @@ pub fn ffi2_verify_with_roots(
     rln: &repr_c::Box<FFI2_RLN>,
     proof: &repr_c::Box<FFI2_RLNProof>,
     roots: &repr_c::Vec<CFr>,
+    x: &CFr,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
     // Verify the proof
     let proof_verified =
@@ -848,8 +853,13 @@ pub fn ffi2_verify_with_roots(
         roots.iter().any(|root| root.0 == proof.proof_values.root)
     };
 
+    // Verify the signal
+    let signal_verified = *x == proof.proof_values.x;
+
     CResult {
-        ok: Some(Box_::new(proof_verified && roots_verified)),
+        ok: Some(Box_::new(
+            proof_verified && roots_verified && signal_verified,
+        )),
         err: None,
     }
 }
