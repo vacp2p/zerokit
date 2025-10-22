@@ -198,26 +198,12 @@ pub fn ffi2_new(
     tree_depth: usize,
     config_path: char_p::Ref<'_>,
 ) -> CResult<repr_c::Box<FFI2_RLN>, repr_c::String> {
-    let tree_config = {
-        let mut file = match File::open(config_path.to_str()) {
-            Ok(file) => file,
-            Err(err) => {
-                return CResult {
-                    ok: None,
-                    err: Some(err.to_string().into()),
-                };
-            }
-        };
+    let tree_config = match File::open(config_path.to_str()).and_then(|mut file| {
         let mut config_str = String::new();
-        if let Err(err) = file.read_to_string(&mut config_str) {
-            return CResult {
-                ok: None,
-                err: Some(err.to_string().into()),
-            };
-        }
-        if config_str.is_empty() {
-            <PoseidonTree as ZerokitMerkleTree>::Config::default()
-        } else {
+        file.read_to_string(&mut config_str)?;
+        Ok(config_str)
+    }) {
+        Ok(config_str) if !config_str.is_empty() => {
             match <PoseidonTree as ZerokitMerkleTree>::Config::from_str(&config_str) {
                 Ok(config) => config,
                 Err(err) => {
@@ -228,6 +214,7 @@ pub fn ffi2_new(
                 }
             }
         }
+        _ => <PoseidonTree as ZerokitMerkleTree>::Config::default(),
     };
 
     let proving_key = zkey_from_folder().to_owned();
@@ -286,26 +273,12 @@ pub fn ffi2_new_with_params(
     graph_data: c_slice::Ref<'_, u8>,
     config_path: char_p::Ref<'_>,
 ) -> CResult<repr_c::Box<FFI2_RLN>, repr_c::String> {
-    let tree_config = {
-        let mut file = match File::open(config_path.to_str()) {
-            Ok(file) => file,
-            Err(err) => {
-                return CResult {
-                    ok: None,
-                    err: Some(err.to_string().into()),
-                };
-            }
-        };
+    let tree_config = match File::open(config_path.to_str()).and_then(|mut file| {
         let mut config_str = String::new();
-        if let Err(err) = file.read_to_string(&mut config_str) {
-            return CResult {
-                ok: None,
-                err: Some(err.to_string().into()),
-            };
-        }
-        if config_str.is_empty() {
-            <PoseidonTree as ZerokitMerkleTree>::Config::default()
-        } else {
+        file.read_to_string(&mut config_str)?;
+        Ok(config_str)
+    }) {
+        Ok(config_str) if !config_str.is_empty() => {
             match <PoseidonTree as ZerokitMerkleTree>::Config::from_str(&config_str) {
                 Ok(config) => config,
                 Err(err) => {
@@ -316,6 +289,7 @@ pub fn ffi2_new_with_params(
                 }
             }
         }
+        _ => <PoseidonTree as ZerokitMerkleTree>::Config::default(),
     };
 
     let proving_key = match zkey_from_raw(&zkey_buffer) {
