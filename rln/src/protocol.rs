@@ -889,7 +889,7 @@ pub fn rln_witness_to_bigint_json(
     Ok(inputs)
 }
 
-pub fn merkle_proof_len_check(
+fn merkle_proof_len_check(
     path_elements: &[Fr],
     identity_path_index: &[u8],
 ) -> Result<(), ProtocolError> {
@@ -904,10 +904,7 @@ pub fn merkle_proof_len_check(
     Ok(())
 }
 
-pub fn message_id_range_check(
-    message_id: &Fr,
-    user_message_limit: &Fr,
-) -> Result<(), ProtocolError> {
+fn message_id_range_check(message_id: &Fr, user_message_limit: &Fr) -> Result<(), ProtocolError> {
     if message_id > user_message_limit {
         return Err(ProtocolError::InvalidMessageId(
             *message_id,
