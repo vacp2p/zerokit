@@ -400,14 +400,22 @@ pub fn ffi2_generate_rln_proof_stateless(
     let mut identity_secret_fr = identity_secret.0;
     let path_elements_vec: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
     let identity_path_index_vec: Vec<u8> = identity_path_index.iter().copied().collect();
-    let rln_witness = RLNWitnessInput {
-        identity_secret: IdSecret::from(&mut identity_secret_fr),
-        user_message_limit: user_message_limit.0,
-        message_id: message_id.0,
-        path_elements: path_elements_vec,
-        identity_path_index: identity_path_index_vec,
-        x: x.0,
-        external_nullifier: external_nullifier.0,
+    let rln_witness = match RLNWitnessInput::new(
+        IdSecret::from(&mut identity_secret_fr),
+        user_message_limit.0,
+        message_id.0,
+        path_elements_vec,
+        identity_path_index_vec,
+        x.0,
+        external_nullifier.0,
+    ) {
+        Ok(witness) => witness,
+        Err(err) => {
+            return CResult {
+                ok: None,
+                err: Some(err.to_string().into()),
+            };
+        }
     };
 
     let proof_values = match proof_values_from_witness(&rln_witness) {
@@ -728,18 +736,26 @@ pub fn ffi2_generate_rln_proof(
         }
     };
 
-    let path_elements: Vec<Fr> = proof.get_path_elements();
-    let identity_path_index: Vec<u8> = proof.get_path_index();
+    let path_elements_vec: Vec<Fr> = proof.get_path_elements();
+    let identity_path_index_vec: Vec<u8> = proof.get_path_index();
 
-    let mut identity_secret = identity_secret.0;
-    let rln_witness = RLNWitnessInput {
-        identity_secret: IdSecret::from(&mut identity_secret),
-        user_message_limit: user_message_limit.0,
-        message_id: message_id.0,
-        path_elements,
-        identity_path_index,
-        x: x.0,
-        external_nullifier: external_nullifier.0,
+    let mut identity_secret_fr = identity_secret.0;
+    let rln_witness = match RLNWitnessInput::new(
+        IdSecret::from(&mut identity_secret_fr),
+        user_message_limit.0,
+        message_id.0,
+        path_elements_vec,
+        identity_path_index_vec,
+        x.0,
+        external_nullifier.0,
+    ) {
+        Ok(witness) => witness,
+        Err(err) => {
+            return CResult {
+                ok: None,
+                err: Some(err.to_string().into()),
+            };
+        }
     };
 
     let proof_values = match proof_values_from_witness(&rln_witness) {
