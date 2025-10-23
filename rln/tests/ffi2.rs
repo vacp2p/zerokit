@@ -1448,6 +1448,7 @@ mod stateless_test {
 #[cfg(test)]
 mod general_tests {
     use rand::Rng;
+    use rln::circuit::Fr;
     use rln::ffi2::*;
     use rln::utils::{fr_to_bytes_be, fr_to_bytes_le, str_to_fr, IdSecret};
 
@@ -1524,6 +1525,7 @@ mod general_tests {
     }
 
     #[test]
+    // Test CFr FFI functions
     fn test_cfr_ffi() {
         let cfr_zero = cfr_zero();
         let fr_zero = rln::circuit::Fr::from(0u8);
@@ -1551,6 +1553,7 @@ mod general_tests {
     }
 
     #[test]
+    // Test Vec<u8> FFI functions
     fn test_vec_u8_ffi() {
         let mut rng = rand::thread_rng();
         let signal: [u8; 32] = rng.gen();
@@ -1563,7 +1566,7 @@ mod general_tests {
         let expected_be = rln::utils::vec_u8_to_bytes_be(&signal);
         assert_eq!(bytes_be.iter().copied().collect::<Vec<_>>(), expected_be);
 
-        let signal_from_le = match bytes_le_to_vec_u8(bytes_le.as_ref().into()) {
+        let signal_from_le = match bytes_le_to_vec_u8(bytes_le.as_ref()) {
             CResult {
                 ok: Some(vec_u8),
                 err: None,
@@ -1576,7 +1579,7 @@ mod general_tests {
         };
         assert_eq!(signal_from_le.iter().copied().collect::<Vec<_>>(), signal);
 
-        let signal_from_be = match bytes_be_to_vec_u8(bytes_be.as_ref().into()) {
+        let signal_from_be = match bytes_be_to_vec_u8(bytes_be.as_ref()) {
             CResult {
                 ok: Some(vec_u8),
                 err: None,
@@ -1588,6 +1591,47 @@ mod general_tests {
             _ => unreachable!(),
         };
         assert_eq!(signal_from_be.iter().copied().collect::<Vec<_>>(), signal);
+    }
+
+    #[test]
+    // Test Vec<CFr> FFI functions
+    fn test_vec_cfr_ffi() {
+        let vec_fr = [Fr::from(1u8), Fr::from(2u8), Fr::from(3u8), Fr::from(4u8)];
+        let vec_cfr: Vec<CFr> = vec_fr.iter().map(|fr| CFr::from(*fr)).collect::<Vec<_>>();
+
+        let bytes_le = vec_cfr_to_bytes_le(vec_cfr.as_slice().into());
+        let expected_le = rln::utils::vec_fr_to_bytes_le(&vec_fr);
+        assert_eq!(bytes_le.iter().copied().collect::<Vec<_>>(), expected_le);
+
+        let bytes_be = vec_cfr_to_bytes_be(vec_cfr.as_slice().into());
+        let expected_be = rln::utils::vec_fr_to_bytes_be(&vec_fr);
+        assert_eq!(bytes_be.iter().copied().collect::<Vec<_>>(), expected_be);
+
+        let vec_cfr_from_le = match bytes_le_to_vec_cfr(bytes_le.as_ref()) {
+            CResult {
+                ok: Some(vec_cfr),
+                err: None,
+            } => vec_cfr,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("bytes_le_to_vec_cfr call failed: {}", err),
+            _ => unreachable!(),
+        };
+        assert_eq!(vec_cfr_from_le.iter().copied().collect::<Vec<_>>(), vec_cfr);
+
+        let vec_cfr_from_be = match bytes_be_to_vec_cfr(bytes_be.as_ref()) {
+            CResult {
+                ok: Some(vec_cfr),
+                err: None,
+            } => vec_cfr,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("bytes_be_to_vec_cfr call failed: {}", err),
+            _ => unreachable!(),
+        };
+        assert_eq!(vec_cfr_from_be.iter().copied().collect::<Vec<_>>(), vec_cfr);
     }
 
     #[test]
