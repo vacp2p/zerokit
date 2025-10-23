@@ -890,8 +890,8 @@ pub fn rln_witness_to_bigint_json(
 }
 
 pub fn merkle_proof_len_check(
-    path_elements: &Vec<Fr>,
-    identity_path_index: &Vec<u8>,
+    path_elements: &[Fr],
+    identity_path_index: &[u8],
 ) -> Result<(), ProtocolError> {
     let path_elements_len = path_elements.len();
     let identity_path_index_len = identity_path_index.len();

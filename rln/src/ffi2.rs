@@ -42,7 +42,7 @@ pub struct CResult<T: ReprC, Err: ReprC> {
 
 #[derive_ReprC]
 #[repr(opaque)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CFr(Fr);
 
 impl Default for CFr {
@@ -139,6 +139,54 @@ pub fn vec_cfr_get(v: Option<&repr_c::Vec<CFr>>, i: usize) -> Option<&CFr> {
 #[ffi_export]
 pub fn vec_cfr_free(v: repr_c::Vec<CFr>) {
     drop(v);
+}
+
+pub fn vec_cfr_to_bytes_le(vec: c_slice::Ref<'_, CFr>) -> repr_c::Vec<u8> {
+    let fr_vec: Vec<Fr> = vec.iter().map(|cfr| cfr.0).collect();
+    crate::utils::vec_fr_to_bytes_le(&fr_vec).into()
+}
+
+pub fn vec_cfr_to_bytes_be(vec: c_slice::Ref<'_, CFr>) -> repr_c::Vec<u8> {
+    let fr_vec: Vec<Fr> = vec.iter().map(|cfr| cfr.0).collect();
+    crate::utils::vec_fr_to_bytes_be(&fr_vec).into()
+}
+
+pub fn bytes_le_to_vec_cfr(
+    bytes: c_slice::Ref<'_, u8>,
+) -> CResult<repr_c::Vec<CFr>, repr_c::String> {
+    match crate::utils::bytes_le_to_vec_fr(bytes.as_ref()) {
+        Ok((fr_vec, _)) => {
+            let cfr_vec: repr_c::Vec<CFr> =
+                fr_vec.into_iter().map(CFr).collect::<Vec<CFr>>().into();
+            CResult {
+                ok: Some(cfr_vec),
+                err: None,
+            }
+        }
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+pub fn bytes_be_to_vec_cfr(
+    bytes: c_slice::Ref<'_, u8>,
+) -> CResult<repr_c::Vec<CFr>, repr_c::String> {
+    match crate::utils::bytes_be_to_vec_fr(bytes.as_ref()) {
+        Ok((fr_vec, _)) => {
+            let cfr_vec: repr_c::Vec<CFr> =
+                fr_vec.into_iter().map(CFr).collect::<Vec<CFr>>().into();
+            CResult {
+                ok: Some(cfr_vec),
+                err: None,
+            }
+        }
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 // Vec<u8>
