@@ -95,7 +95,7 @@ proc ffi2_rln_free*(rln: ptr FFI2_RLN) {.importc: "ffi2_rln_free", cdecl,
 
 # Proof generation/verification
 when defined(ffiStateless):
-  proc ffi2_generate_rln_proof_with_witness*(
+  proc ffi2_generate_rln_proof_stateless*(
     rln: ptr ptr FFI2_RLN,
     identity_secret: ptr CFr,
     user_message_limit: ptr CFr,
@@ -104,7 +104,7 @@ when defined(ffiStateless):
     identity_path_index: ptr Vec_uint8,
     x: ptr CFr,
     external_nullifier: ptr CFr
-  ): CResultProofPtrVecU8 {.importc: "ffi2_generate_rln_proof_with_witness",
+  ): CResultProofPtrVecU8 {.importc: "ffi2_generate_rln_proof_stateless",
       cdecl, dynlib: RLN_LIB.}
 else:
   proc ffi2_generate_rln_proof*(
@@ -308,7 +308,7 @@ when isMainModule:
   echo "\nGenerating RLN Proof"
   var proofRes: CResultProofPtrVecU8
   when defined(ffiStateless):
-    proofRes = ffi2_generate_rln_proof_with_witness(
+    proofRes = ffi2_generate_rln_proof_stateless(
       addr rln, identitySecret, userMessageLimit, messageId,
       addr pathElements, addr identityPathIndex, x, externalNullifier)
   else:
@@ -359,7 +359,7 @@ when isMainModule:
   echo "\nGenerating second RLN Proof"
   var proofRes2: CResultProofPtrVecU8
   when defined(ffiStateless):
-    proofRes2 = ffi2_generate_rln_proof_with_witness(
+    proofRes2 = ffi2_generate_rln_proof_stateless(
       addr rln, identitySecret, userMessageLimit, messageId2,
       addr pathElements, addr identityPathIndex, x2, externalNullifier)
   else:

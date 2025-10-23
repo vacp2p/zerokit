@@ -168,7 +168,7 @@ int main (int argc, char const * const argv[])
 
     printf("\nGenerating RLN Proof\n");
 #ifdef STATELESS
-    CResult_FFI2_RLNProof_ptr_Vec_uint8_t proof_gen_result = ffi2_generate_rln_proof_with_witness(
+    CResult_FFI2_RLNProof_ptr_Vec_uint8_t proof_gen_result = ffi2_generate_rln_proof_stateless(
         &rln,
         identity_secret_ptr,
         user_message_limit,
@@ -233,7 +233,7 @@ int main (int argc, char const * const argv[])
 
         printf("\nGenerating second RLN Proof\n");
 #ifdef STATELESS
-        CResult_FFI2_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi2_generate_rln_proof_with_witness(
+        CResult_FFI2_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi2_generate_rln_proof_stateless(
             &rln,
             identity_secret_ptr,
             user_message_limit,
