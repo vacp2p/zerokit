@@ -380,7 +380,7 @@ pub fn ffi2_merkle_proof_free(proof: Option<repr_c::Box<FFI2_MerkleProof>>) {
 
 #[cfg(feature = "stateless")]
 #[ffi_export]
-pub fn ffi2_generate_rln_proof_with_witness(
+pub fn ffi2_generate_rln_proof_stateless(
     rln: &repr_c::Box<FFI2_RLN>,
     identity_secret: &CFr,
     user_message_limit: &CFr,

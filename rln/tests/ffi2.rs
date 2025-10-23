@@ -1175,7 +1175,7 @@ mod stateless_test {
         let identity_path_index: repr_c::Vec<u8> = merkle_proof.get_path_index().to_vec().into();
 
         // We call generate_rln_proof for first proof values
-        let rln_proof1 = match ffi2_generate_rln_proof_with_witness(
+        let rln_proof1 = match ffi2_generate_rln_proof_stateless(
             &ffi2_rln_pointer,
             &CFr::from(*identity_secret_hash.clone()),
             &CFr::from(user_message_limit),
@@ -1197,7 +1197,7 @@ mod stateless_test {
         };
 
         // We call generate_rln_proof for second proof values
-        let rln_proof2 = match ffi2_generate_rln_proof_with_witness(
+        let rln_proof2 = match ffi2_generate_rln_proof_stateless(
             &ffi2_rln_pointer,
             &CFr::from(*identity_secret_hash.clone()),
             &CFr::from(user_message_limit),
@@ -1258,7 +1258,7 @@ mod stateless_test {
             merkle_proof_new.get_path_index().to_vec().into();
 
         // We call generate_rln_proof
-        let rln_proof3 = match ffi2_generate_rln_proof_with_witness(
+        let rln_proof3 = match ffi2_generate_rln_proof_stateless(
             &ffi2_rln_pointer,
             &CFr::from(*identity_secret_hash_new.clone()),
             &CFr::from(user_message_limit),
@@ -1344,7 +1344,7 @@ mod stateless_test {
             .into();
         let identity_path_index: repr_c::Vec<u8> = merkle_proof.get_path_index().to_vec().into();
 
-        let rln_proof = match ffi2_generate_rln_proof_with_witness(
+        let rln_proof = match ffi2_generate_rln_proof_stateless(
             &ffi2_rln_pointer,
             &CFr::from(*identity_secret_hash.clone()),
             &CFr::from(user_message_limit),
