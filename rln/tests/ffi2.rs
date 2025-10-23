@@ -1614,14 +1614,14 @@ mod general_tests {
         let hash_fr_le_2 = fr_to_bytes_le(&fr_le_2);
         assert_eq!(hash_cfr_le_1, hash_fr_le_2);
 
-        let hash_cfr_le_2 = cfr_to_bytes_be(&cfr_be_1)
+        let hash_cfr_be_1 = cfr_to_bytes_be(&cfr_be_1)
             .iter()
             .copied()
             .collect::<Vec<_>>();
         let hash_fr_be_2 = fr_to_bytes_be(&fr_be_2);
-        assert_eq!(hash_cfr_le_2, hash_fr_be_2);
+        assert_eq!(hash_cfr_be_1, hash_fr_be_2);
 
-        assert_ne!(hash_cfr_le_1, hash_cfr_le_2);
+        assert_ne!(hash_cfr_le_1, hash_cfr_be_1);
         assert_ne!(hash_fr_le_2, hash_fr_be_2);
     }
 
