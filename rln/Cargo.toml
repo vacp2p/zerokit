@@ -75,7 +75,7 @@ parallel = [
 fullmerkletree = [] # Pre-allocated tree, fastest access
 optimalmerkletree = [] # Sparse storage, memory efficient
 pmtree-ft = ["utils/pmtree-ft"] # Persistent storage, disk-based
-headers = ["safer-ffi/headers"] # safer_ffi generate C headers (FFI)
+headers = ["safer-ffi/headers"] # Generate C header file with safer-ffi
 
 [[bench]]
 name = "pmtree_benchmark"
