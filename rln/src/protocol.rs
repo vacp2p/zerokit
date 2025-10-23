@@ -37,18 +37,43 @@ use zeroize::Zeroize;
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct RLNWitnessInput {
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    pub identity_secret: IdSecret,
+    identity_secret: IdSecret,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    pub user_message_limit: Fr,
+    user_message_limit: Fr,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    pub message_id: Fr,
+    message_id: Fr,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    pub path_elements: Vec<Fr>,
-    pub identity_path_index: Vec<u8>,
+    path_elements: Vec<Fr>,
+    identity_path_index: Vec<u8>,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    pub x: Fr,
+    x: Fr,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    pub external_nullifier: Fr,
+    external_nullifier: Fr,
+}
+
+impl RLNWitnessInput {
+    pub fn new(
+        identity_secret: IdSecret,
+        user_message_limit: Fr,
+        message_id: Fr,
+        path_elements: Vec<Fr>,
+        identity_path_index: Vec<u8>,
+        x: Fr,
+        external_nullifier: Fr,
+    ) -> Result<Self, ProtocolError> {
+        merkle_proof_len_check(&path_elements, &identity_path_index)?;
+        message_id_range_check(&message_id, &user_message_limit)?;
+
+        Ok(Self {
+            identity_secret,
+            user_message_limit,
+            message_id,
+            path_elements,
+            identity_path_index,
+            x,
+            external_nullifier,
+        })
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -862,6 +887,21 @@ pub fn rln_witness_to_bigint_json(
     });
 
     Ok(inputs)
+}
+
+pub fn merkle_proof_len_check(
+    path_elements: &Vec<Fr>,
+    identity_path_index: &Vec<u8>,
+) -> Result<(), ProtocolError> {
+    let path_elements_len = path_elements.len();
+    let identity_path_index_len = identity_path_index.len();
+    if path_elements_len != identity_path_index_len {
+        return Err(ProtocolError::InvalidMerkleProofLength(
+            path_elements_len,
+            identity_path_index_len,
+        ));
+    }
+    Ok(())
 }
 
 pub fn message_id_range_check(
