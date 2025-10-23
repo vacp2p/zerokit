@@ -134,19 +134,19 @@ int main (int argc, char const * const argv[])
     printf("\nHashing signal\n");
     uint8_t signal[32] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     slice_ref_uint8_t signal_slice = {signal, 32};
-    CFr_t* x = ffi2_hash(signal_slice);
+    CFr_t* x = ffi2_hash_to_field_le(signal_slice);
     printf("  - x = %s\n", cfr_debug(x).ptr);
 
     printf("\nHashing epoch\n");
     const char* epoch_str = "test-epoch";
     slice_ref_uint8_t epoch_slice = {(const uint8_t*)epoch_str, strlen(epoch_str)};
-    CFr_t* epoch = ffi2_hash(epoch_slice);
+    CFr_t* epoch = ffi2_hash_to_field_le(epoch_slice);
     printf("  - epoch = %s\n", cfr_debug(epoch).ptr);
 
     printf("\nHashing RLN identifier\n");
     const char* rln_id_str = "test-rln-identifier";
     slice_ref_uint8_t rln_id_slice = {(const uint8_t*)rln_id_str, strlen(rln_id_str)};
-    CFr_t* rln_identifier = ffi2_hash(rln_id_slice);
+    CFr_t* rln_identifier = ffi2_hash_to_field_le(rln_id_slice);
     printf("  - rln_identifier = %s\n", cfr_debug(rln_identifier).ptr);
 
     printf("\nComputing Poseidon hash for external nullifier\n");
@@ -205,9 +205,9 @@ int main (int argc, char const * const argv[])
             .len = 1,
             .cap = 1
         };
-        CResult_bool_ptr_Vec_uint8_t verify_result = ffi2_verify_with_roots(&rln, &rln_proof, &roots);
+        CResult_bool_ptr_Vec_uint8_t verify_result = ffi2_verify_with_roots(&rln, &rln_proof, &roots, x);
 #else
-        CResult_bool_ptr_Vec_uint8_t verify_result = ffi2_verify_rln_proof(&rln, &rln_proof);
+        CResult_bool_ptr_Vec_uint8_t verify_result = ffi2_verify_rln_proof(&rln, &rln_proof, x);
 #endif
         if (!verify_result.ok) {
             fprintf(stderr, "Proof verification error: %s\n", verify_result.err.ptr);
@@ -224,7 +224,7 @@ int main (int argc, char const * const argv[])
         printf("\nHashing second signal\n");
         uint8_t signal2[32] = {11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
         slice_ref_uint8_t signal2_slice = {signal2, 32};
-        CFr_t* x2 = ffi2_hash(signal2_slice);
+        CFr_t* x2 = ffi2_hash_to_field_le(signal2_slice);
         printf("  - x2 = %s\n", cfr_debug(x2).ptr);
 
         printf("\nCreating second message with the same id\n");
@@ -265,9 +265,9 @@ int main (int argc, char const * const argv[])
 
             printf("\nVerifying second proof\n");
 #ifdef STATELESS
-            CResult_bool_ptr_Vec_uint8_t verify_result2 = ffi2_verify_with_roots(&rln, &rln_proof2, &roots);
+            CResult_bool_ptr_Vec_uint8_t verify_result2 = ffi2_verify_with_roots(&rln, &rln_proof2, &roots, x2);
 #else
-            CResult_bool_ptr_Vec_uint8_t verify_result2 = ffi2_verify_rln_proof(&rln, &rln_proof2);
+            CResult_bool_ptr_Vec_uint8_t verify_result2 = ffi2_verify_rln_proof(&rln, &rln_proof2, x2);
 #endif
             if (!verify_result2.ok) {
                 fprintf(stderr, "Second proof verification error: %s\n", verify_result2.err.ptr);

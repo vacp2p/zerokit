@@ -73,8 +73,8 @@ proc vec_cfr_free*(v: Vec_CFr) {.importc: "vec_cfr_free", cdecl,
     dynlib: RLN_LIB.}
 
 # Hashing
-proc ffi2_hash*(input: SliceRefU8): ptr CFr {.importc: "ffi2_hash", cdecl,
-    dynlib: RLN_LIB.}
+proc ffi2_hash_to_field_le*(input: SliceRefU8): ptr CFr {.importc: "ffi2_hash_to_field_le",
+    cdecl, dynlib: RLN_LIB.}
 proc ffi2_poseidon_hash*(inputs: ptr Vec_CFr): ptr CFr {.importc: "ffi2_poseidon_hash",
     cdecl, dynlib: RLN_LIB.}
 
@@ -122,13 +122,15 @@ when defined(ffiStateless):
   proc ffi2_verify_with_roots*(
     rln: ptr ptr FFI2_RLN,
     proof: ptr ptr FFI2_RLNProof,
-    roots: ptr Vec_CFr
+    roots: ptr Vec_CFr,
+    x: ptr CFr
   ): CResultBoolPtrVecU8 {.importc: "ffi2_verify_with_roots", cdecl,
       dynlib: RLN_LIB.}
 else:
   proc ffi2_verify_rln_proof*(
     rln: ptr ptr FFI2_RLN,
-    proof: ptr ptr FFI2_RLNProof
+    proof: ptr ptr FFI2_RLNProof,
+    x: ptr CFr
   ): CResultBoolPtrVecU8 {.importc: "ffi2_verify_rln_proof", cdecl,
       dynlib: RLN_LIB.}
 
@@ -279,7 +281,7 @@ when isMainModule:
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   var signalSlice = SliceRefU8(dataPtr: cast[ptr uint8](addr signal[0]),
       len: CSize(signal.len))
-  let x = ffi2_hash(signalSlice)
+  let x = ffi2_hash_to_field_le(signalSlice)
   echo "  - x = ", cfrToString(x)
 
   echo "\nHashing epoch"
@@ -287,14 +289,14 @@ when isMainModule:
   var epochBytes = newSeq[uint8](epochStr.len)
   for i in 0..<epochStr.len: epochBytes[i] = uint8(epochStr[i])
   var epochSlice = asSliceRef(epochBytes)
-  let epoch = ffi2_hash(epochSlice)
+  let epoch = ffi2_hash_to_field_le(epochSlice)
   echo "  - epoch = ", cfrToString(epoch)
 
   echo "\nHashing RLN identifier"
   let rlnIdStr = "test-rln-identifier"
   var rlnIdBytes = newSeq[uint8](rlnIdStr.len)
   for i in 0..<rlnIdStr.len: rlnIdBytes[i] = uint8(rlnIdStr[i])
-  let rlnIdentifier = ffi2_hash(asSliceRef(rlnIdBytes))
+  let rlnIdentifier = ffi2_hash_to_field_le(asSliceRef(rlnIdBytes))
   echo "  - rln_identifier = ", cfrToString(rlnIdentifier)
 
   echo "\nComputing Poseidon hash for external nullifier"
@@ -329,9 +331,9 @@ when isMainModule:
     roots.dataPtr = computedRoot
     roots.len = CSize(1)
     roots.cap = CSize(1)
-    let verifyRes = ffi2_verify_with_roots(addr rln, addr proof, addr roots)
+    let verifyRes = ffi2_verify_with_roots(addr rln, addr proof, addr roots, x)
   else:
-    let verifyRes = ffi2_verify_rln_proof(addr rln, addr proof)
+    let verifyRes = ffi2_verify_rln_proof(addr rln, addr proof, x)
 
   if verifyRes.ok.isNil:
     stderr.writeLine "Proof verification error: ", asString(verifyRes.err)
@@ -349,7 +351,7 @@ when isMainModule:
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   var signal2Slice = SliceRefU8(dataPtr: cast[ptr uint8](addr signal2[0]),
       len: CSize(signal2.len))
-  let x2 = ffi2_hash(signal2Slice)
+  let x2 = ffi2_hash_to_field_le(signal2Slice)
   echo "  - x2 = ", cfrToString(x2)
 
   echo "\nCreating second message with the same id"
@@ -376,9 +378,9 @@ when isMainModule:
 
   echo "\nVerifying second proof"
   when defined(ffiStateless):
-    let verifyRes2 = ffi2_verify_with_roots(addr rln, addr proof2, addr roots)
+    let verifyRes2 = ffi2_verify_with_roots(addr rln, addr proof2, addr roots, x2)
   else:
-    let verifyRes2 = ffi2_verify_rln_proof(addr rln, addr proof2)
+    let verifyRes2 = ffi2_verify_rln_proof(addr rln, addr proof2, x2)
 
   if verifyRes2.ok.isNil:
     stderr.writeLine "Second proof verification error: ", asString(verifyRes2.err)
