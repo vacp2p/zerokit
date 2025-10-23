@@ -137,7 +137,7 @@ pub fn vec_cfr_get(v: Option<&repr_c::Vec<CFr>>, i: usize) -> Option<&CFr> {
 }
 
 #[ffi_export]
-fn ffi2_vec_cfr_free(v: repr_c::Vec<CFr>) {
+pub fn vec_cfr_free(v: repr_c::Vec<CFr>) {
     drop(v);
 }
 
@@ -379,6 +379,7 @@ pub struct FFI2_MerkleProof {
     pub path_index: repr_c::Vec<u8>,
 }
 
+#[cfg(not(feature = "stateless"))]
 #[ffi_export]
 pub fn ffi2_merkle_proof_free(proof: Option<repr_c::Box<FFI2_MerkleProof>>) {
     drop(proof);
