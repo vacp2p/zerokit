@@ -2,19 +2,17 @@
 
 use crate::{
     circuit::{graph_from_folder, zkey_from_folder, zkey_from_raw, Curve},
-    hashers::{hash_to_field_le, poseidon_hash},
+    hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash},
     protocol::{
         compute_id_secret, extended_keygen, extended_seeded_keygen, generate_proof, keygen,
         proof_values_from_witness, seeded_keygen, verify_proof, RLNProofValues, RLNWitnessInput,
     },
-    utils::{bytes_be_to_fr, bytes_le_to_fr, IdSecret},
+    utils::{bytes_be_to_fr, bytes_le_to_fr, fr_to_bytes_be, fr_to_bytes_le, IdSecret},
 };
 use ark_bn254::Fr;
-use ark_ff::{BigInteger, PrimeField};
+use ark_ff::{AdditiveGroup, Field};
 use ark_groth16::{Proof as ArkProof, ProvingKey};
 use ark_relations::r1cs::ConstraintMatrices;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use num_traits::Zero;
 use safer_ffi::prelude::ReprC;
 use safer_ffi::{
     boxed::Box_,
@@ -49,7 +47,7 @@ pub struct CFr(Fr);
 
 impl Default for CFr {
     fn default() -> Self {
-        Self(Fr::zero())
+        Self(Fr::ZERO)
     }
 }
 
@@ -84,96 +82,103 @@ impl From<CFr> for repr_c::Box<CFr> {
     }
 }
 
-impl CFr {
-    pub fn to_bytes_le(&self) -> Vec<u8> {
-        self.0.into_bigint().to_bytes_le()
-    }
-
-    pub fn to_bytes_be(&self) -> Vec<u8> {
-        self.0.into_bigint().to_bytes_be()
-    }
-
-    pub fn from_bytes_le(bytes: &[u8]) -> Option<Self> {
-        let (fr, _) = bytes_le_to_fr(bytes);
-        Some(CFr(fr))
-    }
-
-    pub fn from_bytes_be(bytes: &[u8]) -> Option<Self> {
-        let (fr, _) = bytes_be_to_fr(bytes);
-        Some(CFr(fr))
-    }
-
-    pub fn serialize(&self) -> Vec<u8> {
-        let mut buf = Vec::new();
-        self.0.serialize_compressed(&mut buf).unwrap();
-        buf
-    }
-
-    pub fn deserialize(bytes: &[u8]) -> Option<Self> {
-        Fr::deserialize_compressed(bytes).ok().map(CFr)
-    }
-}
-
 #[ffi_export]
-fn cfr_zero() -> repr_c::Box<CFr> {
+pub fn cfr_zero() -> repr_c::Box<CFr> {
     Box_::new(CFr::default())
 }
 
 #[ffi_export]
-fn cfr_to_bytes_le(cfr: &CFr) -> safer_ffi::Vec<u8> {
-    cfr.to_bytes_le().into()
+pub fn cfr_one() -> repr_c::Box<CFr> {
+    Box_::new(CFr::from(Fr::ONE))
 }
 
 #[ffi_export]
-fn cfr_to_bytes_be(cfr: &CFr) -> safer_ffi::Vec<u8> {
-    cfr.to_bytes_be().into()
+pub fn cfr_to_bytes_le(cfr: &CFr) -> safer_ffi::Vec<u8> {
+    fr_to_bytes_le(&cfr.0).into()
 }
 
 #[ffi_export]
-fn cfr_from_bytes_le(bytes: safer_ffi::prelude::c_slice::Ref<'_, u8>) -> Option<repr_c::Box<CFr>> {
-    CFr::from_bytes_le(bytes.as_ref()).map(Box_::new).into()
+pub fn cfr_to_bytes_be(cfr: &CFr) -> safer_ffi::Vec<u8> {
+    fr_to_bytes_be(&cfr.0).into()
 }
 
 #[ffi_export]
-fn cfr_from_bytes_be(bytes: safer_ffi::prelude::c_slice::Ref<'_, u8>) -> Option<repr_c::Box<CFr>> {
-    CFr::from_bytes_be(bytes.as_ref()).map(Box_::new).into()
+pub fn cfr_from_bytes_le(bytes: safer_ffi::prelude::c_slice::Ref<'_, u8>) -> repr_c::Box<CFr> {
+    let (cfr, _) = bytes_le_to_fr(bytes.as_ref());
+    Box_::new(CFr(cfr))
 }
 
 #[ffi_export]
-fn cfr_serialize(cfr: &CFr) -> safer_ffi::Vec<u8> {
-    cfr.serialize().into()
+pub fn cfr_from_bytes_be(bytes: safer_ffi::prelude::c_slice::Ref<'_, u8>) -> repr_c::Box<CFr> {
+    let (cfr, _) = bytes_be_to_fr(bytes.as_ref());
+    Box_::new(CFr(cfr))
 }
 
 #[ffi_export]
-fn cfr_deserialize(bytes: safer_ffi::prelude::c_slice::Ref<'_, u8>) -> Option<repr_c::Box<CFr>> {
-    CFr::deserialize(bytes.as_ref()).map(Box_::new).into()
-}
-
-#[ffi_export]
-fn cfr_from_uint(value: u32) -> repr_c::Box<CFr> {
+pub fn cfr_from_uint(value: u32) -> repr_c::Box<CFr> {
     Box_::new(CFr::from(Fr::from(value)))
 }
 
 #[ffi_export]
-fn cfr_debug(cfr: Option<&CFr>) -> repr_c::String {
+pub fn cfr_debug(cfr: Option<&CFr>) -> repr_c::String {
     format!("{:?}", cfr.map(|c| c.to_string())).into()
 }
 
 #[ffi_export]
-fn cfr_free(cfr: Option<repr_c::Box<CFr>>) {
+pub fn cfr_free(cfr: Option<repr_c::Box<CFr>>) {
     drop(cfr);
 }
 
 // Vec<CFr>
 
 #[ffi_export]
-fn vec_cfr_get(v: Option<&repr_c::Vec<CFr>>, i: usize) -> Option<&CFr> {
+pub fn vec_cfr_get(v: Option<&repr_c::Vec<CFr>>, i: usize) -> Option<&CFr> {
     v.and_then(|v| v.get(i))
 }
 
 #[ffi_export]
-fn vec_cfr_free(v: repr_c::Vec<CFr>) {
+fn ffi2_vec_cfr_free(v: repr_c::Vec<CFr>) {
     drop(v);
+}
+
+// Vec<u8>
+
+#[ffi_export]
+pub fn vec_u8_to_bytes_le(vec: c_slice::Ref<'_, u8>) -> repr_c::Vec<u8> {
+    crate::utils::vec_u8_to_bytes_le(&vec).into()
+}
+
+#[ffi_export]
+pub fn vec_u8_to_bytes_be(vec: c_slice::Ref<'_, u8>) -> repr_c::Vec<u8> {
+    crate::utils::vec_u8_to_bytes_be(&vec).into()
+}
+
+#[ffi_export]
+pub fn bytes_le_to_vec_u8(bytes: c_slice::Ref<'_, u8>) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+    match crate::utils::bytes_le_to_vec_u8(bytes.as_ref()) {
+        Ok((vec, _)) => CResult {
+            ok: Some(vec.into()),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn bytes_be_to_vec_u8(bytes: c_slice::Ref<'_, u8>) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+    match crate::utils::bytes_be_to_vec_u8(bytes.as_ref()) {
+        Ok((vec, _)) => CResult {
+            ok: Some(vec.into()),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 // RLN
@@ -366,6 +371,7 @@ pub fn ffi2_rln_free(rln: Option<repr_c::Box<FFI2_RLN>>) {
 
 // MerkleProof
 
+#[cfg(not(feature = "stateless"))]
 #[derive_ReprC]
 #[repr(C)]
 pub struct FFI2_MerkleProof {
@@ -938,8 +944,14 @@ pub fn ffi2_flush(rln: &mut repr_c::Box<FFI2_RLN>) -> CResult<repr_c::Box<bool>,
 ////////////////////////////////////////////////////////
 
 #[ffi_export]
-pub fn ffi2_hash(input: c_slice::Ref<'_, u8>) -> repr_c::Box<CFr> {
+pub fn ffi2_hash_to_field_le(input: c_slice::Ref<'_, u8>) -> repr_c::Box<CFr> {
     let hash_result = hash_to_field_le(&input);
+    CFr::from(hash_result).into()
+}
+
+#[ffi_export]
+pub fn ffi2_hash_to_field_be(input: c_slice::Ref<'_, u8>) -> repr_c::Box<CFr> {
+    let hash_result = hash_to_field_be(&input);
     CFr::from(hash_result).into()
 }
 
