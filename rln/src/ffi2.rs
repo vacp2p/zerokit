@@ -14,11 +14,7 @@ use ark_ff::{AdditiveGroup, Field};
 use ark_groth16::{Proof as ArkProof, ProvingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use safer_ffi::prelude::ReprC;
-use safer_ffi::{
-    boxed::Box_,
-    derive_ReprC, ffi_export,
-    prelude::{c_slice, repr_c},
-};
+use safer_ffi::{boxed::Box_, derive_ReprC, ffi_export, prelude::repr_c};
 use std::ops::Deref;
 
 #[cfg(not(feature = "stateless"))]
@@ -93,29 +89,29 @@ pub fn cfr_one() -> repr_c::Box<CFr> {
 }
 
 #[ffi_export]
-pub fn cfr_to_bytes_le(cfr: &CFr) -> safer_ffi::Vec<u8> {
+pub fn cfr_to_bytes_le(cfr: &CFr) -> repr_c::Vec<u8> {
     fr_to_bytes_le(&cfr.0).into()
 }
 
 #[ffi_export]
-pub fn cfr_to_bytes_be(cfr: &CFr) -> safer_ffi::Vec<u8> {
+pub fn cfr_to_bytes_be(cfr: &CFr) -> repr_c::Vec<u8> {
     fr_to_bytes_be(&cfr.0).into()
 }
 
 #[ffi_export]
-pub fn cfr_from_bytes_le(bytes: safer_ffi::prelude::c_slice::Ref<'_, u8>) -> repr_c::Box<CFr> {
-    let (cfr, _) = bytes_le_to_fr(bytes.as_ref());
+pub fn bytes_le_to_cfr(bytes: &repr_c::Vec<u8>) -> repr_c::Box<CFr> {
+    let (cfr, _) = bytes_le_to_fr(bytes);
     Box_::new(CFr(cfr))
 }
 
 #[ffi_export]
-pub fn cfr_from_bytes_be(bytes: safer_ffi::prelude::c_slice::Ref<'_, u8>) -> repr_c::Box<CFr> {
-    let (cfr, _) = bytes_be_to_fr(bytes.as_ref());
+pub fn bytes_be_to_cfr(bytes: &repr_c::Vec<u8>) -> repr_c::Box<CFr> {
+    let (cfr, _) = bytes_be_to_fr(bytes);
     Box_::new(CFr(cfr))
 }
 
 #[ffi_export]
-pub fn cfr_from_uint(value: u32) -> repr_c::Box<CFr> {
+pub fn uint_to_cfr(value: u32) -> repr_c::Box<CFr> {
     Box_::new(CFr::from(Fr::from(value)))
 }
 
@@ -132,8 +128,63 @@ pub fn cfr_free(cfr: Option<repr_c::Box<CFr>>) {
 // Vec<CFr>
 
 #[ffi_export]
-pub fn vec_cfr_get(v: Option<&repr_c::Vec<CFr>>, i: usize) -> Option<&CFr> {
-    v.and_then(|v| v.get(i))
+pub fn vec_cfr_get(v: &repr_c::Vec<CFr>, i: usize) -> Option<&CFr> {
+    v.get(i)
+}
+
+#[ffi_export]
+pub fn vec_cfr_to_bytes_le(vec: &repr_c::Vec<CFr>) -> repr_c::Vec<u8> {
+    let vec_fr: Vec<Fr> = vec.iter().map(|cfr| cfr.0).collect();
+    crate::utils::vec_fr_to_bytes_le(&vec_fr).into()
+}
+
+#[ffi_export]
+pub fn vec_cfr_to_bytes_be(vec: &repr_c::Vec<CFr>) -> repr_c::Vec<u8> {
+    let vec_fr: Vec<Fr> = vec.iter().map(|cfr| cfr.0).collect();
+    crate::utils::vec_fr_to_bytes_be(&vec_fr).into()
+}
+
+#[ffi_export]
+pub fn bytes_le_to_vec_cfr(
+    bytes: &repr_c::Vec<u8>,
+) -> CResult<repr_c::Box<repr_c::Vec<CFr>>, repr_c::String> {
+    match crate::utils::bytes_le_to_vec_fr(bytes) {
+        Ok((vec_fr, _)) => {
+            let vec_cfr: Vec<CFr> = vec_fr.into_iter().map(CFr).collect();
+            CResult {
+                ok: Some(Box_::new(vec_cfr.into())),
+                err: None,
+            }
+        }
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn bytes_be_to_vec_cfr(
+    bytes: &repr_c::Vec<u8>,
+) -> CResult<repr_c::Box<repr_c::Vec<CFr>>, repr_c::String> {
+    match crate::utils::bytes_be_to_vec_fr(bytes) {
+        Ok((vec_fr, _)) => {
+            let vec_cfr: Vec<CFr> = vec_fr.into_iter().map(CFr).collect();
+            CResult {
+                ok: Some(Box_::new(vec_cfr.into())),
+                err: None,
+            }
+        }
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn vec_cfr_debug(v: &repr_c::Vec<CFr>) -> repr_c::String {
+    format!("{:?}", v.iter().map(|cfr| cfr.0).collect::<Vec<Fr>>()).into()
 }
 
 #[ffi_export]
@@ -141,71 +192,25 @@ pub fn vec_cfr_free(v: repr_c::Vec<CFr>) {
     drop(v);
 }
 
-pub fn vec_cfr_to_bytes_le(vec: c_slice::Ref<'_, CFr>) -> repr_c::Vec<u8> {
-    let fr_vec: Vec<Fr> = vec.iter().map(|cfr| cfr.0).collect();
-    crate::utils::vec_fr_to_bytes_le(&fr_vec).into()
-}
-
-pub fn vec_cfr_to_bytes_be(vec: c_slice::Ref<'_, CFr>) -> repr_c::Vec<u8> {
-    let fr_vec: Vec<Fr> = vec.iter().map(|cfr| cfr.0).collect();
-    crate::utils::vec_fr_to_bytes_be(&fr_vec).into()
-}
-
-pub fn bytes_le_to_vec_cfr(
-    bytes: c_slice::Ref<'_, u8>,
-) -> CResult<repr_c::Vec<CFr>, repr_c::String> {
-    match crate::utils::bytes_le_to_vec_fr(bytes.as_ref()) {
-        Ok((fr_vec, _)) => {
-            let cfr_vec: repr_c::Vec<CFr> =
-                fr_vec.into_iter().map(CFr).collect::<Vec<CFr>>().into();
-            CResult {
-                ok: Some(cfr_vec),
-                err: None,
-            }
-        }
-        Err(err) => CResult {
-            ok: None,
-            err: Some(err.to_string().into()),
-        },
-    }
-}
-
-pub fn bytes_be_to_vec_cfr(
-    bytes: c_slice::Ref<'_, u8>,
-) -> CResult<repr_c::Vec<CFr>, repr_c::String> {
-    match crate::utils::bytes_be_to_vec_fr(bytes.as_ref()) {
-        Ok((fr_vec, _)) => {
-            let cfr_vec: repr_c::Vec<CFr> =
-                fr_vec.into_iter().map(CFr).collect::<Vec<CFr>>().into();
-            CResult {
-                ok: Some(cfr_vec),
-                err: None,
-            }
-        }
-        Err(err) => CResult {
-            ok: None,
-            err: Some(err.to_string().into()),
-        },
-    }
-}
-
 // Vec<u8>
 
 #[ffi_export]
-pub fn vec_u8_to_bytes_le(vec: c_slice::Ref<'_, u8>) -> repr_c::Vec<u8> {
-    crate::utils::vec_u8_to_bytes_le(&vec).into()
+pub fn vec_u8_to_bytes_le(vec: &repr_c::Vec<u8>) -> repr_c::Vec<u8> {
+    crate::utils::vec_u8_to_bytes_le(vec).into()
 }
 
 #[ffi_export]
-pub fn vec_u8_to_bytes_be(vec: c_slice::Ref<'_, u8>) -> repr_c::Vec<u8> {
-    crate::utils::vec_u8_to_bytes_be(&vec).into()
+pub fn vec_u8_to_bytes_be(vec: &repr_c::Vec<u8>) -> repr_c::Vec<u8> {
+    crate::utils::vec_u8_to_bytes_be(vec).into()
 }
 
 #[ffi_export]
-pub fn bytes_le_to_vec_u8(bytes: c_slice::Ref<'_, u8>) -> CResult<repr_c::Vec<u8>, repr_c::String> {
-    match crate::utils::bytes_le_to_vec_u8(bytes.as_ref()) {
+pub fn bytes_le_to_vec_u8(
+    bytes: &repr_c::Vec<u8>,
+) -> CResult<repr_c::Box<repr_c::Vec<u8>>, repr_c::String> {
+    match crate::utils::bytes_le_to_vec_u8(bytes) {
         Ok((vec, _)) => CResult {
-            ok: Some(vec.into()),
+            ok: Some(Box_::new(vec.into())),
             err: None,
         },
         Err(err) => CResult {
@@ -216,10 +221,12 @@ pub fn bytes_le_to_vec_u8(bytes: c_slice::Ref<'_, u8>) -> CResult<repr_c::Vec<u8
 }
 
 #[ffi_export]
-pub fn bytes_be_to_vec_u8(bytes: c_slice::Ref<'_, u8>) -> CResult<repr_c::Vec<u8>, repr_c::String> {
-    match crate::utils::bytes_be_to_vec_u8(bytes.as_ref()) {
+pub fn bytes_be_to_vec_u8(
+    bytes: &repr_c::Vec<u8>,
+) -> CResult<repr_c::Box<repr_c::Vec<u8>>, repr_c::String> {
+    match crate::utils::bytes_be_to_vec_u8(bytes) {
         Ok((vec, _)) => CResult {
-            ok: Some(vec.into()),
+            ok: Some(Box_::new(vec.into())),
             err: None,
         },
         Err(err) => CResult {
@@ -227,6 +234,16 @@ pub fn bytes_be_to_vec_u8(bytes: c_slice::Ref<'_, u8>) -> CResult<repr_c::Vec<u8
             err: Some(err.to_string().into()),
         },
     }
+}
+
+#[ffi_export]
+pub fn vec_u8_debug(v: &repr_c::Vec<u8>) -> repr_c::String {
+    format!("{:?}", v.iter().copied().collect::<Vec<u8>>()).into()
+}
+
+#[ffi_export]
+pub fn vec_u8_free(v: repr_c::Vec<u8>) {
+    drop(v);
 }
 
 // RLN
@@ -322,8 +339,8 @@ pub fn ffi2_new() -> CResult<repr_c::Box<FFI2_RLN>, repr_c::String> {
 #[ffi_export]
 pub fn ffi2_new_with_params(
     tree_depth: usize,
-    zkey_buffer: c_slice::Ref<'_, u8>,
-    graph_data: c_slice::Ref<'_, u8>,
+    zkey_buffer: &repr_c::Vec<u8>,
+    graph_data: &repr_c::Vec<u8>,
     config_path: char_p::Ref<'_>,
 ) -> CResult<repr_c::Box<FFI2_RLN>, repr_c::String> {
     let tree_config = match File::open(config_path.to_str()).and_then(|mut file| {
@@ -345,7 +362,7 @@ pub fn ffi2_new_with_params(
         _ => <PoseidonTree as ZerokitMerkleTree>::Config::default(),
     };
 
-    let proving_key = match zkey_from_raw(&zkey_buffer) {
+    let proving_key = match zkey_from_raw(zkey_buffer) {
         Ok(pk) => pk,
         Err(err) => {
             return CResult {
@@ -354,7 +371,6 @@ pub fn ffi2_new_with_params(
             };
         }
     };
-    let graph_data_vec = graph_data.to_vec();
 
     // We compute a default empty tree
     let tree = match PoseidonTree::new(
@@ -373,7 +389,7 @@ pub fn ffi2_new_with_params(
 
     let rln = FFI2_RLN {
         proving_key,
-        graph_data: graph_data_vec,
+        graph_data: graph_data.to_vec(),
         #[cfg(not(feature = "stateless"))]
         tree,
     };
@@ -387,10 +403,10 @@ pub fn ffi2_new_with_params(
 #[cfg(feature = "stateless")]
 #[ffi_export]
 pub fn ffi2_new_with_params(
-    zkey_buffer: c_slice::Ref<'_, u8>,
-    graph_data: c_slice::Ref<'_, u8>,
+    zkey_buffer: &repr_c::Vec<u8>,
+    graph_data: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI2_RLN>, repr_c::String> {
-    let proving_key = match zkey_from_raw(&zkey_buffer) {
+    let proving_key = match zkey_from_raw(zkey_buffer) {
         Ok(pk) => pk,
         Err(err) => {
             return CResult {
@@ -399,11 +415,10 @@ pub fn ffi2_new_with_params(
             };
         }
     };
-    let graph_data_vec = graph_data.to_vec();
 
     let rln = FFI2_RLN {
         proving_key,
-        graph_data: graph_data_vec,
+        graph_data: graph_data.to_vec(),
     };
 
     CResult {
@@ -446,14 +461,14 @@ pub fn ffi2_generate_rln_proof_stateless(
     external_nullifier: &CFr,
 ) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
     let mut identity_secret_fr = identity_secret.0;
-    let path_elements_vec: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
-    let identity_path_index_vec: Vec<u8> = identity_path_index.iter().copied().collect();
+    let path_elements: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
+    let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
     let rln_witness = match RLNWitnessInput::new(
         IdSecret::from(&mut identity_secret_fr),
         user_message_limit.0,
         message_id.0,
-        path_elements_vec,
-        identity_path_index_vec,
+        path_elements,
+        identity_path_index,
         x.0,
         external_nullifier.0,
     ) {
@@ -784,16 +799,16 @@ pub fn ffi2_generate_rln_proof(
         }
     };
 
-    let path_elements_vec: Vec<Fr> = proof.get_path_elements();
-    let identity_path_index_vec: Vec<u8> = proof.get_path_index();
+    let path_elements: Vec<Fr> = proof.get_path_elements();
+    let identity_path_index: Vec<u8> = proof.get_path_index();
 
     let mut identity_secret_fr = identity_secret.0;
     let rln_witness = match RLNWitnessInput::new(
         IdSecret::from(&mut identity_secret_fr),
         user_message_limit.0,
         message_id.0,
-        path_elements_vec,
-        identity_path_index_vec,
+        path_elements,
+        identity_path_index,
         x.0,
         external_nullifier.0,
     ) {
@@ -958,9 +973,9 @@ pub fn ffi2_recover_id_secret(
 #[ffi_export]
 pub fn ffi2_set_metadata(
     rln: &mut repr_c::Box<FFI2_RLN>,
-    metadata: c_slice::Ref<'_, u8>,
+    metadata: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
-    match rln.tree.set_metadata(&metadata) {
+    match rln.tree.set_metadata(metadata) {
         Ok(_) => CResult {
             ok: Some(Box_::new(true)),
             err: None,
@@ -974,12 +989,10 @@ pub fn ffi2_set_metadata(
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_get_metadata(
-    rln: &repr_c::Box<FFI2_RLN>,
-) -> CResult<repr_c::Box<[u8]>, repr_c::String> {
+pub fn ffi2_get_metadata(rln: &repr_c::Box<FFI2_RLN>) -> CResult<repr_c::Vec<u8>, repr_c::String> {
     match rln.tree.metadata() {
         Ok(metadata) => CResult {
-            ok: Some(metadata.into_boxed_slice().into()),
+            ok: Some(metadata.into()),
             err: None,
         },
         Err(err) => CResult {
@@ -1009,21 +1022,20 @@ pub fn ffi2_flush(rln: &mut repr_c::Box<FFI2_RLN>) -> CResult<repr_c::Box<bool>,
 ////////////////////////////////////////////////////////
 
 #[ffi_export]
-pub fn ffi2_hash_to_field_le(input: c_slice::Ref<'_, u8>) -> repr_c::Box<CFr> {
-    let hash_result = hash_to_field_le(&input);
+pub fn ffi2_hash_to_field_le(input: &repr_c::Vec<u8>) -> repr_c::Box<CFr> {
+    let hash_result = hash_to_field_le(input);
     CFr::from(hash_result).into()
 }
 
 #[ffi_export]
-pub fn ffi2_hash_to_field_be(input: c_slice::Ref<'_, u8>) -> repr_c::Box<CFr> {
-    let hash_result = hash_to_field_be(&input);
+pub fn ffi2_hash_to_field_be(input: &repr_c::Vec<u8>) -> repr_c::Box<CFr> {
+    let hash_result = hash_to_field_be(input);
     CFr::from(hash_result).into()
 }
 
 #[ffi_export]
-pub fn ffi2_poseidon_hash(inputs: &repr_c::Vec<CFr>) -> repr_c::Box<CFr> {
-    let inputs_vec: Vec<Fr> = inputs.iter().map(|cfr| cfr.0).collect();
-    let hash_result = poseidon_hash(&inputs_vec);
+pub fn ffi2_poseidon_hash_pair(a: &CFr, b: &CFr) -> repr_c::Box<CFr> {
+    let hash_result = poseidon_hash(&[a.0, b.0]);
     CFr::from(hash_result).into()
 }
 
@@ -1034,8 +1046,8 @@ pub fn ffi2_key_gen() -> repr_c::Vec<CFr> {
 }
 
 #[ffi_export]
-pub fn ffi2_seeded_key_gen(seed: c_slice::Ref<'_, u8>) -> repr_c::Vec<CFr> {
-    let (identity_secret_hash, id_commitment) = seeded_keygen(&seed);
+pub fn ffi2_seeded_key_gen(seed: &repr_c::Vec<u8>) -> repr_c::Vec<CFr> {
+    let (identity_secret_hash, id_commitment) = seeded_keygen(seed);
     vec![CFr(identity_secret_hash), CFr(id_commitment)].into()
 }
 
@@ -1053,9 +1065,9 @@ pub fn ffi2_extended_key_gen() -> repr_c::Vec<CFr> {
 }
 
 #[ffi_export]
-pub fn ffi2_seeded_extended_key_gen(seed: c_slice::Ref<'_, u8>) -> repr_c::Vec<CFr> {
+pub fn ffi2_seeded_extended_key_gen(seed: &repr_c::Vec<u8>) -> repr_c::Vec<CFr> {
     let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
-        extended_seeded_keygen(&seed);
+        extended_seeded_keygen(seed);
     vec![
         CFr(identity_trapdoor),
         CFr(identity_nullifier),

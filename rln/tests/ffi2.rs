@@ -525,8 +525,8 @@ mod test {
         let c_str = std::ffi::CString::new(tree_config).unwrap();
         let ffi2_rln_pointer2 = match ffi2_new_with_params(
             TEST_TREE_DEPTH,
-            zkey_buffer.as_slice().into(),
-            graph_buffer.as_slice().into(),
+            &zkey_buffer.into(),
+            &graph_buffer.into(),
             c_str.as_c_str().into(),
         ) {
             CResult {
@@ -992,8 +992,8 @@ mod test {
         let mut ffi2_rln_pointer = create_rln_instance();
 
         // We generate a new identity tuple from an input seed
-        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let key_gen = ffi2_seeded_extended_key_gen(seed_bytes.into());
+        let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let key_gen = ffi2_seeded_extended_key_gen(&seed_bytes.into());
         assert_eq!(key_gen.len(), 4, "seeded extended key gen call failed");
         let id_commitment = *key_gen[3];
 
@@ -1039,9 +1039,9 @@ mod test {
         // We create a RLN instance
         let mut ffi2_rln_pointer = create_rln_instance();
 
-        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-        match ffi2_set_metadata(&mut ffi2_rln_pointer, seed_bytes.into()) {
+        match ffi2_set_metadata(&mut ffi2_rln_pointer, &seed_bytes.clone().into()) {
             CResult {
                 ok: Some(_),
                 err: None,
@@ -1065,10 +1065,7 @@ mod test {
             _ => unreachable!(),
         };
 
-        assert_eq!(
-            metadata.iter().copied().collect::<Vec<u8>>(),
-            seed_bytes.to_vec()
-        );
+        assert_eq!(metadata.iter().copied().collect::<Vec<u8>>(), seed_bytes);
     }
 
     #[test]
@@ -1450,14 +1447,15 @@ mod general_tests {
     use rand::Rng;
     use rln::circuit::Fr;
     use rln::ffi2::*;
+    use rln::hashers::poseidon_hash;
     use rln::utils::{fr_to_bytes_be, fr_to_bytes_le, str_to_fr, IdSecret};
 
     #[test]
     // Tests hash to field using FFI APIs
     fn test_seeded_keygen_stateless_ffi() {
         // We generate a new identity pair from an input seed
-        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let res = ffi2_seeded_key_gen(seed_bytes.into());
+        let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let res = ffi2_seeded_key_gen(&seed_bytes.into());
         assert_eq!(res.len(), 2, "seeded key gen call failed");
         let identity_secret_hash = res.first().unwrap();
         let id_commitment = res.get(1).unwrap();
@@ -1483,8 +1481,8 @@ mod general_tests {
     // Tests hash to field using FFI APIs
     fn test_seeded_extended_keygen_stateless_ffi() {
         // We generate a new identity tuple from an input seed
-        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let key_gen = ffi2_seeded_extended_key_gen(seed_bytes.into());
+        let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let key_gen = ffi2_seeded_extended_key_gen(&seed_bytes.into());
         assert_eq!(key_gen.len(), 4, "seeded extended key gen call failed");
         let identity_trapdoor = *key_gen[0];
         let identity_nullifier = *key_gen[1];
@@ -1535,7 +1533,7 @@ mod general_tests {
         let fr_one = rln::circuit::Fr::from(1u8);
         assert_eq!(*cfr_one, fr_one);
 
-        let cfr_int = cfr_from_uint(42);
+        let cfr_int = uint_to_cfr(42);
         let fr_int = rln::circuit::Fr::from(42u8);
         assert_eq!(*cfr_int, fr_int);
 
@@ -1546,9 +1544,9 @@ mod general_tests {
         let mut id_secret_fr = *key_gen[0];
         let id_secret_hash = IdSecret::from(&mut id_secret_fr);
         let id_commitment = *key_gen[1];
-        let cfr_id_secret_hash = vec_cfr_get(Some(&key_gen), 0).unwrap();
+        let cfr_id_secret_hash = vec_cfr_get(&key_gen, 0).unwrap();
         assert_eq!(*cfr_id_secret_hash, *id_secret_hash);
-        let cfr_id_commitment = vec_cfr_get(Some(&key_gen), 1).unwrap();
+        let cfr_id_commitment = vec_cfr_get(&key_gen, 1).unwrap();
         assert_eq!(*cfr_id_commitment, id_commitment);
     }
 
@@ -1556,17 +1554,18 @@ mod general_tests {
     // Test Vec<u8> FFI functions
     fn test_vec_u8_ffi() {
         let mut rng = rand::thread_rng();
-        let signal: [u8; 32] = rng.gen();
+        let signal_gen: [u8; 32] = rng.gen();
+        let signal: Vec<u8> = signal_gen.to_vec();
 
-        let bytes_le = vec_u8_to_bytes_le(signal.as_ref().into());
+        let bytes_le = vec_u8_to_bytes_le(&signal.clone().into());
         let expected_le = rln::utils::vec_u8_to_bytes_le(&signal);
         assert_eq!(bytes_le.iter().copied().collect::<Vec<_>>(), expected_le);
 
-        let bytes_be = vec_u8_to_bytes_be(signal.as_ref().into());
+        let bytes_be = vec_u8_to_bytes_be(&signal.clone().into());
         let expected_be = rln::utils::vec_u8_to_bytes_be(&signal);
         assert_eq!(bytes_be.iter().copied().collect::<Vec<_>>(), expected_be);
 
-        let signal_from_le = match bytes_le_to_vec_u8(bytes_le.as_ref()) {
+        let signal_from_le = match bytes_le_to_vec_u8(&bytes_le) {
             CResult {
                 ok: Some(vec_u8),
                 err: None,
@@ -1579,7 +1578,7 @@ mod general_tests {
         };
         assert_eq!(signal_from_le.iter().copied().collect::<Vec<_>>(), signal);
 
-        let signal_from_be = match bytes_be_to_vec_u8(bytes_be.as_ref()) {
+        let signal_from_be = match bytes_be_to_vec_u8(&bytes_be) {
             CResult {
                 ok: Some(vec_u8),
                 err: None,
@@ -1597,17 +1596,17 @@ mod general_tests {
     // Test Vec<CFr> FFI functions
     fn test_vec_cfr_ffi() {
         let vec_fr = [Fr::from(1u8), Fr::from(2u8), Fr::from(3u8), Fr::from(4u8)];
-        let vec_cfr: Vec<CFr> = vec_fr.iter().map(|fr| CFr::from(*fr)).collect::<Vec<_>>();
+        let vec_cfr: Vec<CFr> = vec_fr.iter().map(|fr| CFr::from(*fr)).collect();
 
-        let bytes_le = vec_cfr_to_bytes_le(vec_cfr.as_slice().into());
+        let bytes_le = vec_cfr_to_bytes_le(&vec_cfr.clone().into());
         let expected_le = rln::utils::vec_fr_to_bytes_le(&vec_fr);
         assert_eq!(bytes_le.iter().copied().collect::<Vec<_>>(), expected_le);
 
-        let bytes_be = vec_cfr_to_bytes_be(vec_cfr.as_slice().into());
+        let bytes_be = vec_cfr_to_bytes_be(&vec_cfr.clone().into());
         let expected_be = rln::utils::vec_fr_to_bytes_be(&vec_fr);
         assert_eq!(bytes_be.iter().copied().collect::<Vec<_>>(), expected_be);
 
-        let vec_cfr_from_le = match bytes_le_to_vec_cfr(bytes_le.as_ref()) {
+        let vec_cfr_from_le = match bytes_le_to_vec_cfr(&bytes_le) {
             CResult {
                 ok: Some(vec_cfr),
                 err: None,
@@ -1620,7 +1619,7 @@ mod general_tests {
         };
         assert_eq!(vec_cfr_from_le.iter().copied().collect::<Vec<_>>(), vec_cfr);
 
-        let vec_cfr_from_be = match bytes_be_to_vec_cfr(bytes_be.as_ref()) {
+        let vec_cfr_from_be = match bytes_be_to_vec_cfr(&bytes_be) {
             CResult {
                 ok: Some(vec_cfr),
                 err: None,
@@ -1638,13 +1637,14 @@ mod general_tests {
     // Tests hash to field using FFI APIs
     fn test_hash_to_field_ffi() {
         let mut rng = rand::thread_rng();
-        let signal: [u8; 32] = rng.gen();
+        let signal_gen: [u8; 32] = rng.gen();
+        let signal: Vec<u8> = signal_gen.to_vec();
 
-        let cfr_le_1 = ffi2_hash_to_field_le(signal.as_ref().into());
+        let cfr_le_1 = ffi2_hash_to_field_le(&signal.clone().into());
         let fr_le_2 = rln::hashers::hash_to_field_le(&signal);
         assert_eq!(**cfr_le_1, fr_le_2);
 
-        let cfr_be_1 = ffi2_hash_to_field_be(signal.as_ref().into());
+        let cfr_be_1 = ffi2_hash_to_field_be(&signal.clone().into());
         let fr_be_2 = rln::hashers::hash_to_field_be(&signal);
         assert_eq!(**cfr_be_1, fr_be_2);
 
@@ -1671,31 +1671,12 @@ mod general_tests {
 
     #[test]
     // Test Poseidon hash FFI
-    fn test_poseidon_hash_ffi() {
-        use ark_std::UniformRand;
-        use rand::Rng;
-        use rln::circuit::Fr;
-        use rln::hashers::{poseidon_hash as utils_poseidon_hash, ROUND_PARAMS};
-        use safer_ffi::prelude::repr_c;
+    fn test_poseidon_hash_pair_ffi() {
+        let input_1 = Fr::from(42u8);
+        let input_2 = Fr::from(99u8);
 
-        // generate random number between 1..ROUND_PARAMS.len()
-        let mut rng = rand::thread_rng();
-        let number_of_inputs = rng.gen_range(1..ROUND_PARAMS.len());
-        let mut inputs = Vec::with_capacity(number_of_inputs);
-        for _ in 0..number_of_inputs {
-            inputs.push(Fr::rand(&mut rng));
-        }
-
-        let expected_hash = utils_poseidon_hash(inputs.as_ref());
-
-        let inputs_cfr: repr_c::Vec<CFr> = inputs
-            .iter()
-            .map(|fr| CFr::from(*fr))
-            .collect::<Vec<_>>()
-            .into();
-
-        let received_hash_cfr = ffi2_poseidon_hash(&inputs_cfr);
-
+        let expected_hash = poseidon_hash(&[input_1, input_2]);
+        let received_hash_cfr = ffi2_poseidon_hash_pair(&CFr::from(input_1), &CFr::from(input_2));
         assert_eq!(**received_hash_cfr, expected_hash);
     }
 }
