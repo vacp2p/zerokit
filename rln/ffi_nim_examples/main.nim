@@ -14,6 +14,7 @@ elif defined(windows):
 else:
   const RLN_LIB* {.strdefine.} = "rln"
 
+# FFI objects
 type
   CSize* = csize_t
   CFr* = object
@@ -58,31 +59,74 @@ type
     ok*: ptr FFI2_MerkleProof
     err*: Vec_uint8
 
-# Fr helpers
+  CResultVecCFrPtrVecU8* = object
+    ok*: ptr Vec_CFr
+    err*: Vec_uint8
+
+  CResultVecU8PtrVecU8* = object
+    ok*: ptr Vec_uint8
+    err*: Vec_uint8
+
+# CFr functions
 proc cfr_zero*(): ptr CFr {.importc: "cfr_zero", cdecl, dynlib: RLN_LIB.}
 proc cfr_free*(x: ptr CFr) {.importc: "cfr_free", cdecl, dynlib: RLN_LIB.}
-proc cfr_from_uint*(value: uint32): ptr CFr {.importc: "cfr_from_uint", cdecl,
+proc uint_to_cfr*(value: uint32): ptr CFr {.importc: "uint_to_cfr", cdecl,
     dynlib: RLN_LIB.}
 proc cfr_debug*(cfr: ptr CFr): Vec_uint8 {.importc: "cfr_debug", cdecl,
     dynlib: RLN_LIB.}
+proc cfr_to_bytes_le*(cfr: ptr CFr): Vec_uint8 {.importc: "cfr_to_bytes_le",
+    cdecl, dynlib: RLN_LIB.}
+proc cfr_to_bytes_be*(cfr: ptr CFr): Vec_uint8 {.importc: "cfr_to_bytes_be",
+    cdecl, dynlib: RLN_LIB.}
+proc bytes_le_to_cfr*(bytes: ptr Vec_uint8): ptr CFr {.importc: "bytes_le_to_cfr",
+    cdecl, dynlib: RLN_LIB.}
+proc bytes_be_to_cfr*(bytes: ptr Vec_uint8): ptr CFr {.importc: "bytes_be_to_cfr",
+    cdecl, dynlib: RLN_LIB.}
 
-# Vectors
+# Vec<CFr> functions
 proc vec_cfr_get*(v: ptr Vec_CFr, i: CSize): ptr CFr {.importc: "vec_cfr_get",
+    cdecl, dynlib: RLN_LIB.}
+proc vec_cfr_to_bytes_le*(v: ptr Vec_CFr): Vec_uint8 {.importc: "vec_cfr_to_bytes_le",
+    cdecl, dynlib: RLN_LIB.}
+proc vec_cfr_to_bytes_be*(v: ptr Vec_CFr): Vec_uint8 {.importc: "vec_cfr_to_bytes_be",
+    cdecl, dynlib: RLN_LIB.}
+proc bytes_le_to_vec_cfr*(bytes: ptr Vec_uint8): CResultVecCFrPtrVecU8 {.importc: "bytes_le_to_vec_cfr",
+    cdecl, dynlib: RLN_LIB.}
+proc bytes_be_to_vec_cfr*(bytes: ptr Vec_uint8): CResultVecCFrPtrVecU8 {.importc: "bytes_be_to_vec_cfr",
+    cdecl, dynlib: RLN_LIB.}
+proc vec_cfr_debug*(v: ptr Vec_CFr): Vec_uint8 {.importc: "vec_cfr_debug",
     cdecl, dynlib: RLN_LIB.}
 proc vec_cfr_free*(v: Vec_CFr) {.importc: "vec_cfr_free", cdecl,
     dynlib: RLN_LIB.}
 
-# Hashing
-proc ffi2_hash_to_field_le*(input: SliceRefU8): ptr CFr {.importc: "ffi2_hash_to_field_le",
+# Vec<u8> functions
+proc vec_u8_to_bytes_le*(v: ptr Vec_uint8): Vec_uint8 {.importc: "vec_u8_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi2_poseidon_hash*(inputs: ptr Vec_CFr): ptr CFr {.importc: "ffi2_poseidon_hash",
+proc vec_u8_to_bytes_be*(v: ptr Vec_uint8): Vec_uint8 {.importc: "vec_u8_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
+proc bytes_le_to_vec_u8*(bytes: ptr Vec_uint8): CResultVecU8PtrVecU8 {.importc: "bytes_le_to_vec_u8",
+    cdecl, dynlib: RLN_LIB.}
+proc bytes_be_to_vec_u8*(bytes: ptr Vec_uint8): CResultVecU8PtrVecU8 {.importc: "bytes_be_to_vec_u8",
+    cdecl, dynlib: RLN_LIB.}
+proc vec_u8_debug*(v: ptr Vec_uint8): Vec_uint8 {.importc: "vec_u8_debug",
+    cdecl, dynlib: RLN_LIB.}
+proc vec_u8_free*(v: Vec_uint8) {.importc: "vec_u8_free", cdecl,
+    dynlib: RLN_LIB.}
 
-# Keygen
+# Hashing functions
+proc ffi2_hash_to_field_le*(input: ptr Vec_uint8): ptr CFr {.importc: "ffi2_hash_to_field_le",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi2_hash_to_field_be*(input: ptr Vec_uint8): ptr CFr {.importc: "ffi2_hash_to_field_be",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi2_poseidon_hash_pair*(a: ptr CFr,
+    b: ptr CFr): ptr CFr {.importc: "ffi2_poseidon_hash_pair", cdecl,
+    dynlib: RLN_LIB.}
+
+# Keygen function
 proc ffi2_key_gen*(): Vec_CFr {.importc: "ffi2_key_gen", cdecl,
     dynlib: RLN_LIB.}
 
-# RLN instance
+# RLN instance functions
 when defined(ffiStateless):
   proc ffi2_new*(): CResultRLNPtrVecU8 {.importc: "ffi2_new", cdecl,
       dynlib: RLN_LIB.}
@@ -93,7 +137,7 @@ else:
 proc ffi2_rln_free*(rln: ptr FFI2_RLN) {.importc: "ffi2_rln_free", cdecl,
     dynlib: RLN_LIB.}
 
-# Proof generation/verification
+# Proof generation/verification functions
 when defined(ffiStateless):
   proc ffi2_generate_rln_proof_stateless*(
     rln: ptr ptr FFI2_RLN,
@@ -104,8 +148,8 @@ when defined(ffiStateless):
     identity_path_index: ptr Vec_uint8,
     x: ptr CFr,
     external_nullifier: ptr CFr
-  ): CResultProofPtrVecU8 {.importc: "ffi2_generate_rln_proof_stateless",
-      cdecl, dynlib: RLN_LIB.}
+  ): CResultProofPtrVecU8 {.importc: "ffi2_generate_rln_proof_stateless", cdecl,
+      dynlib: RLN_LIB.}
 else:
   proc ffi2_generate_rln_proof*(
     rln: ptr ptr FFI2_RLN,
@@ -156,10 +200,6 @@ proc ffi2_recover_id_secret*(proof1: ptr ptr FFI2_RLNProof,
     cdecl, dynlib: RLN_LIB.}
 
 # Helpers
-proc asSliceRef*(buf: var seq[uint8]): SliceRefU8 =
-  result.dataPtr = if buf.len == 0: nil else: addr buf[0]
-  result.len = CSize(buf.len)
-
 proc asVecU8*(buf: var seq[uint8]): Vec_uint8 =
   result.dataPtr = if buf.len == 0: nil else: addr buf[0]
   result.len = CSize(buf.len)
@@ -169,24 +209,6 @@ proc asString*(v: Vec_uint8): string =
   if v.dataPtr.isNil or v.len == 0: return ""
   result = newString(v.len.int)
   copyMem(addr result[0], v.dataPtr, v.len.int)
-
-proc cfrToString*(cfr: ptr CFr): string =
-  let debugVec = cfr_debug(cfr)
-  result = asString(debugVec)
-
-proc poseidon_pair(a, b: ptr CFr): ptr CFr =
-  const CFR_SIZE = 32
-  var buffer = alloc(CFR_SIZE * 2)
-  copyMem(buffer, a, CFR_SIZE)
-  copyMem(cast[pointer](cast[int](buffer) + CFR_SIZE), b, CFR_SIZE)
-
-  var vec: Vec_CFr
-  vec.dataPtr = cast[ptr CFr](buffer)
-  vec.len = CSize(2)
-  vec.cap = CSize(2)
-  result = ffi2_poseidon_hash(addr vec)
-
-  dealloc(buffer)
 
 when isMainModule:
   echo "Creating RLN instance"
@@ -207,52 +229,159 @@ when isMainModule:
 
   echo "\nGenerating identity keys"
   var keys = ffi2_key_gen()
-  let identitySecret = keys.dataPtr
+  let identitySecret = vec_cfr_get(addr keys, CSize(0))
   let idCommitment = vec_cfr_get(addr keys, CSize(1))
   echo "Identity generated"
-  echo "  - identity_secret = ", cfrToString(identitySecret)
-  echo "  - id_commitment = ", cfrToString(idCommitment)
+
+  block:
+    let debug = cfr_debug(identitySecret)
+    echo "  - identity_secret = ", asString(debug)
+    vec_u8_free(debug)
+
+  block:
+    let debug = cfr_debug(idCommitment)
+    echo "  - id_commitment = ", asString(debug)
+    vec_u8_free(debug)
 
   echo "\nCreating message limit"
-  let userMessageLimit = cfr_from_uint(1'u32)
-  echo "  - user_message_limit = ", cfrToString(userMessageLimit)
+  let userMessageLimit = uint_to_cfr(1'u32)
+
+  block:
+    let debug = cfr_debug(userMessageLimit)
+    echo "  - user_message_limit = ", asString(debug)
+    vec_u8_free(debug)
 
   echo "\nComputing rate commitment"
-  let rateCommitment = poseidon_pair(idCommitment, userMessageLimit)
-  echo "  - rate_commitment = ", cfrToString(rateCommitment)
+  let rateCommitment = ffi2_poseidon_hash_pair(idCommitment, userMessageLimit)
+
+  block:
+    let debug = cfr_debug(rateCommitment)
+    echo "  - rate_commitment = ", asString(debug)
+    vec_u8_free(debug)
+
+  echo "\nCFr serialization: CFr <-> bytes"
+  var serRateCommitment = cfr_to_bytes_be(rateCommitment)
+
+  block:
+    let debug = vec_u8_debug(addr serRateCommitment)
+    echo "  - serialized rate_commitment = ", asString(debug)
+    vec_u8_free(debug)
+
+  let deserRateCommitment = bytes_be_to_cfr(addr serRateCommitment)
+
+  block:
+    let debug = cfr_debug(deserRateCommitment)
+    echo "  - deserialized rate_commitment = ", asString(debug)
+    vec_u8_free(debug)
+
+  vec_u8_free(serRateCommitment)
+  cfr_free(deserRateCommitment)
+
+  echo "\nVec<CFr> serialization: Vec<CFr> <-> bytes"
+  var serKeys = vec_cfr_to_bytes_be(addr keys)
+
+  block:
+    let debug = vec_u8_debug(addr serKeys)
+    echo "  - serialized keys = ", asString(debug)
+    vec_u8_free(debug)
+
+  let deserKeysResult = bytes_be_to_vec_cfr(addr serKeys)
+  if deserKeysResult.ok.isNil:
+    stderr.writeLine "bytes_be_to_vec_cfr error: ", asString(
+        deserKeysResult.err)
+    quit 1
+
+  block:
+    let debug = vec_cfr_debug(deserKeysResult.ok)
+    echo "  - deserialized identity_secret = ", asString(debug)
+    vec_u8_free(debug)
+
+  vec_u8_free(serKeys)
+  vec_cfr_free(deserKeysResult.ok[])
 
   when defined(ffiStateless):
     const treeDepth = 20
+    const CFR_SIZE = 32
+
     echo "\nBuilding Merkle path for stateless mode"
 
     let defaultLeaf = cfr_zero()
     var defaultHashes: array[treeDepth-1, ptr CFr]
-    defaultHashes[0] = poseidon_pair(defaultLeaf, defaultLeaf)
+    defaultHashes[0] = ffi2_poseidon_hash_pair(defaultLeaf, defaultLeaf)
     for i in 1..treeDepth-2:
-      defaultHashes[i] = poseidon_pair(defaultHashes[i-1], defaultHashes[i-1])
+      defaultHashes[i] = ffi2_poseidon_hash_pair(defaultHashes[i-1],
+          defaultHashes[i-1])
 
-    const CFR_SIZE = 32
     var pathElemsBuffer = alloc(CFR_SIZE * treeDepth)
     copyMem(pathElemsBuffer, defaultLeaf, CFR_SIZE)
     for i in 1..treeDepth-1:
       copyMem(cast[pointer](cast[int](pathElemsBuffer) + i * CFR_SIZE),
-              defaultHashes[i-1], CFR_SIZE)
+          defaultHashes[i-1], CFR_SIZE)
 
     var pathElements: Vec_CFr
     pathElements.dataPtr = cast[ptr CFr](pathElemsBuffer)
     pathElements.len = CSize(treeDepth)
     pathElements.cap = CSize(treeDepth)
 
+    echo "\nVec<CFr> serialization: Vec<CFr> <-> bytes"
+    var serPathElements = vec_cfr_to_bytes_be(addr pathElements)
+
+    block:
+      let debug = vec_u8_debug(addr serPathElements)
+      echo "  - serialized path_elements = ", asString(debug)
+      vec_u8_free(debug)
+
+    let deserPathElements = bytes_be_to_vec_cfr(addr serPathElements)
+    if deserPathElements.ok.isNil:
+      stderr.writeLine "bytes_be_to_vec_cfr error: ", asString(
+          deserPathElements.err)
+      quit 1
+
+    block:
+      let debug = vec_cfr_debug(deserPathElements.ok)
+      echo "  - deserialized path_elements = ", asString(debug)
+      vec_u8_free(debug)
+
+    vec_cfr_free(deserPathElements.ok[])
+    vec_u8_free(serPathElements)
+
     var pathIndexSeq = newSeq[uint8](treeDepth)
     var identityPathIndex = asVecU8(pathIndexSeq)
 
+    echo "\nVec<uint8> serialization: Vec<uint8> <-> bytes"
+    var serPathIndex = vec_u8_to_bytes_be(addr identityPathIndex)
+
+    block:
+      let debug = vec_u8_debug(addr serPathIndex)
+      echo "  - serialized path_index = ", asString(debug)
+      vec_u8_free(debug)
+
+    let deserPathIndex = bytes_be_to_vec_u8(addr serPathIndex)
+    if deserPathIndex.ok.isNil:
+      stderr.writeLine "bytes_be_to_vec_u8 error: ", asString(
+          deserPathIndex.err)
+      quit 1
+
+    block:
+      let debug = vec_u8_debug(deserPathIndex.ok)
+      echo "  - deserialized path_index = ", asString(debug)
+      vec_u8_free(debug)
+
+    vec_u8_free(deserPathIndex.ok[])
+    vec_u8_free(serPathIndex)
+
+    echo "\nComputing Merkle root for stateless mode"
     echo "  - computing root for index 0 with rate_commitment"
-    var computedRoot = poseidon_pair(rateCommitment, defaultLeaf)
+    var computedRoot = ffi2_poseidon_hash_pair(rateCommitment, defaultLeaf)
     for i in 1..treeDepth-1:
-      let next = poseidon_pair(computedRoot, defaultHashes[i-1])
+      let next = ffi2_poseidon_hash_pair(computedRoot, defaultHashes[i-1])
       cfr_free(computedRoot)
       computedRoot = next
-    echo "  - computed_root = ", cfrToString(computedRoot)
+
+    block:
+      let debug = cfr_debug(computedRoot)
+      echo "  - computed_root = ", asString(debug)
+      vec_u8_free(debug)
   else:
     echo "\nAdding rate_commitment to tree"
     var rcPtr = rateCommitment
@@ -279,44 +408,64 @@ when isMainModule:
   echo "\nHashing signal"
   var signal: array[32, uint8] = [1'u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-  var signalSlice = SliceRefU8(dataPtr: cast[ptr uint8](addr signal[0]),
-      len: CSize(signal.len))
-  let x = ffi2_hash_to_field_le(signalSlice)
-  echo "  - x = ", cfrToString(x)
+  var signalVec = Vec_uint8(dataPtr: cast[ptr uint8](addr signal[0]),
+      len: CSize(signal.len), cap: CSize(signal.len))
+  let x = ffi2_hash_to_field_le(addr signalVec)
+
+  block:
+    let debug = cfr_debug(x)
+    echo "  - x = ", asString(debug)
+    vec_u8_free(debug)
 
   echo "\nHashing epoch"
   let epochStr = "test-epoch"
   var epochBytes = newSeq[uint8](epochStr.len)
   for i in 0..<epochStr.len: epochBytes[i] = uint8(epochStr[i])
-  var epochSlice = asSliceRef(epochBytes)
-  let epoch = ffi2_hash_to_field_le(epochSlice)
-  echo "  - epoch = ", cfrToString(epoch)
+  var epochVec = asVecU8(epochBytes)
+  let epoch = ffi2_hash_to_field_le(addr epochVec)
+
+  block:
+    let debug = cfr_debug(epoch)
+    echo "  - epoch = ", asString(debug)
+    vec_u8_free(debug)
 
   echo "\nHashing RLN identifier"
   let rlnIdStr = "test-rln-identifier"
   var rlnIdBytes = newSeq[uint8](rlnIdStr.len)
   for i in 0..<rlnIdStr.len: rlnIdBytes[i] = uint8(rlnIdStr[i])
-  let rlnIdentifier = ffi2_hash_to_field_le(asSliceRef(rlnIdBytes))
-  echo "  - rln_identifier = ", cfrToString(rlnIdentifier)
+  var rlnIdVec = asVecU8(rlnIdBytes)
+  let rlnIdentifier = ffi2_hash_to_field_le(addr rlnIdVec)
+
+  block:
+    let debug = cfr_debug(rlnIdentifier)
+    echo "  - rln_identifier = ", asString(debug)
+    vec_u8_free(debug)
 
   echo "\nComputing Poseidon hash for external nullifier"
-  let externalNullifier = poseidon_pair(epoch, rlnIdentifier)
-  echo "  - external_nullifier = ", cfrToString(externalNullifier)
+  let externalNullifier = ffi2_poseidon_hash_pair(epoch, rlnIdentifier)
+
+  block:
+    let debug = cfr_debug(externalNullifier)
+    echo "  - external_nullifier = ", asString(debug)
+    vec_u8_free(debug)
 
   echo "\nCreating message_id"
-  let messageId = cfr_from_uint(0'u32)
-  echo "  - message_id = ", cfrToString(messageId)
+  let messageId = uint_to_cfr(0'u32)
+
+  block:
+    let debug = cfr_debug(messageId)
+    echo "  - message_id = ", asString(debug)
+    vec_u8_free(debug)
 
   echo "\nGenerating RLN Proof"
   var proofRes: CResultProofPtrVecU8
   when defined(ffiStateless):
-    proofRes = ffi2_generate_rln_proof_stateless(
-      addr rln, identitySecret, userMessageLimit, messageId,
-      addr pathElements, addr identityPathIndex, x, externalNullifier)
+    proofRes = ffi2_generate_rln_proof_stateless(addr rln, identitySecret,
+        userMessageLimit, messageId, addr pathElements, addr identityPathIndex,
+        x, externalNullifier)
   else:
-    proofRes = ffi2_generate_rln_proof(
-      addr rln, identitySecret, userMessageLimit, messageId,
-      x, externalNullifier, leafIndex)
+    proofRes = ffi2_generate_rln_proof(addr rln, identitySecret,
+        userMessageLimit, messageId, x, externalNullifier, leafIndex)
 
   if proofRes.ok.isNil:
     stderr.writeLine "Proof generation failed: ", asString(proofRes.err)
@@ -349,25 +498,32 @@ when isMainModule:
   echo "\nHashing second signal"
   var signal2: array[32, uint8] = [11'u8, 12, 13, 14, 15, 16, 17, 18, 19, 20, 0,
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-  var signal2Slice = SliceRefU8(dataPtr: cast[ptr uint8](addr signal2[0]),
-      len: CSize(signal2.len))
-  let x2 = ffi2_hash_to_field_le(signal2Slice)
-  echo "  - x2 = ", cfrToString(x2)
+  var signal2Vec = Vec_uint8(dataPtr: cast[ptr uint8](addr signal2[0]),
+      len: CSize(signal2.len), cap: CSize(signal2.len))
+  let x2 = ffi2_hash_to_field_le(addr signal2Vec)
+
+  block:
+    let debug = cfr_debug(x2)
+    echo "  - x2 = ", asString(debug)
+    vec_u8_free(debug)
 
   echo "\nCreating second message with the same id"
-  let messageId2 = cfr_from_uint(0'u32)
-  echo "  - message_id2 = ", cfrToString(messageId2)
+  let messageId2 = uint_to_cfr(0'u32)
+
+  block:
+    let debug = cfr_debug(messageId2)
+    echo "  - message_id2 = ", asString(debug)
+    vec_u8_free(debug)
 
   echo "\nGenerating second RLN Proof"
   var proofRes2: CResultProofPtrVecU8
   when defined(ffiStateless):
-    proofRes2 = ffi2_generate_rln_proof_stateless(
-      addr rln, identitySecret, userMessageLimit, messageId2,
-      addr pathElements, addr identityPathIndex, x2, externalNullifier)
+    proofRes2 = ffi2_generate_rln_proof_stateless(addr rln, identitySecret,
+        userMessageLimit, messageId2, addr pathElements, addr identityPathIndex,
+        x2, externalNullifier)
   else:
-    proofRes2 = ffi2_generate_rln_proof(
-      addr rln, identitySecret, userMessageLimit, messageId2,
-      x2, externalNullifier, leafIndex)
+    proofRes2 = ffi2_generate_rln_proof(addr rln, identitySecret,
+        userMessageLimit, messageId2, x2, externalNullifier, leafIndex)
 
   if proofRes2.ok.isNil:
     stderr.writeLine "Second proof generation failed: ", asString(proofRes2.err)
@@ -395,9 +551,18 @@ when isMainModule:
       quit 1
     else:
       let recoveredSecret = recoverRes.ok
-      echo "  - recovered_secret = ", cfrToString(recoveredSecret)
-      echo "  - original_secret  = ", cfrToString(identitySecret)
-      echo "\nSlashing successful: Identity is recovered!"
+
+      block:
+        let debug = cfr_debug(recoveredSecret)
+        echo "  - recovered_secret = ", asString(debug)
+        vec_u8_free(debug)
+
+      block:
+        let debug = cfr_debug(identitySecret)
+        echo "  - original_secret  = ", asString(debug)
+        vec_u8_free(debug)
+
+      echo "Slashing successful: Identity is recovered!"
       cfr_free(recoveredSecret)
   else:
     echo "Second proof verification failed"
@@ -407,6 +572,7 @@ when isMainModule:
   cfr_free(x2)
   cfr_free(messageId2)
   ffi2_rln_proof_free(proof)
+
   when defined(ffiStateless):
     cfr_free(computedRoot)
     cfr_free(defaultLeaf)
@@ -414,6 +580,7 @@ when isMainModule:
     dealloc(pathElemsBuffer)
   else:
     ffi2_merkle_proof_free(merkleProof)
+
   cfr_free(rateCommitment)
   cfr_free(x)
   cfr_free(epoch)
