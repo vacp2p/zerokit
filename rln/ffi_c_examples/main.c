@@ -4,80 +4,100 @@
 
 #include "rln.h"
 
-#ifdef STATELESS
-
-CFr_t* poseidon_pair(CFr_t* a, CFr_t* b) {
-    const size_t CFR_SIZE = 32;
-    void* buffer = malloc(CFR_SIZE * 2);
-    memcpy(buffer, a, CFR_SIZE);
-    memcpy((char*)buffer + CFR_SIZE, b, CFR_SIZE);
-    Vec_CFr_t inputs = {
-        .ptr = (CFr_t*)buffer,
-        .len = 2,
-        .cap = 2
-    };
-    CFr_t* result = ffi2_poseidon_hash(&inputs);
-    free(buffer);
-    return result;
-}
-
-#endif
-
 int main (int argc, char const * const argv[])
 {
     printf("Creating RLN instance\n");
 
 #ifdef STATELESS
-    CResult_FFI2_RLN_ptr_Vec_uint8_t result = ffi2_new();
+    CResult_FFI2_RLN_ptr_Vec_uint8_t ffi2_new_result = ffi2_new();
 #else
     const char* config_path = "../resources/tree_depth_20/config.json";
-    CResult_FFI2_RLN_ptr_Vec_uint8_t result = ffi2_new(20, config_path);
+    CResult_FFI2_RLN_ptr_Vec_uint8_t ffi2_new_result = ffi2_new(20, config_path);
 #endif
 
-    if (!result.ok) {
-        fprintf(stderr, "%s", result.err.ptr);
+    if (!ffi2_new_result.ok) {
+        fprintf(stderr, "%s", ffi2_new_result.err.ptr);
         return EXIT_FAILURE;
     }
 
-    FFI2_RLN_t* rln = result.ok;
+    FFI2_RLN_t* rln = ffi2_new_result.ok;
     printf("RLN instance created successfully\n");
 
     printf("\nGenerating identity keys\n");
     Vec_CFr_t keys = ffi2_key_gen();
-    CFr_t* identity_secret_ptr = keys.ptr;
+    CFr_t* identity_secret = (CFr_t*)vec_cfr_get(&keys, 0);
     CFr_t* id_commitment = (CFr_t*)vec_cfr_get(&keys, 1);
     printf("Identity generated\n");
-    printf("  - identity_secret = %s\n",cfr_debug(identity_secret_ptr).ptr);
-    printf("  - id_commitment = %s\n",cfr_debug(id_commitment).ptr);
+
+    Vec_uint8_t debug = cfr_debug(identity_secret);
+    printf("  - identity_secret = %s\n", debug.ptr);
+    vec_u8_free(debug);
+
+    debug = cfr_debug(id_commitment);
+    printf("  - id_commitment = %s\n", debug.ptr);
+    vec_u8_free(debug);
 
     printf("\nCreating message limit\n");
-    CFr_t* user_message_limit = cfr_from_uint(1);
-    printf("  - user_message_limit = %s\n",cfr_debug(user_message_limit).ptr);
+    CFr_t* user_message_limit = uint_to_cfr(1);
+
+    debug = cfr_debug(user_message_limit);
+    printf("  - user_message_limit = %s\n", debug.ptr);
+    vec_u8_free(debug);
 
     printf("\nComputing rate commitment\n");
-    const size_t CFR_SIZE = 32;
-    void* rate_buffer = malloc(CFR_SIZE * 2);
-    memcpy(rate_buffer, id_commitment, CFR_SIZE);
-    memcpy((char*)rate_buffer + CFR_SIZE, user_message_limit, CFR_SIZE);
-    Vec_CFr_t rate_inputs = {
-        .ptr = (CFr_t*)rate_buffer,
-        .len = 2,
-        .cap = 2
-    };
-    CFr_t* rate_commitment = ffi2_poseidon_hash(&rate_inputs);
-    printf("  - rate_commitment = %s\n", cfr_debug(rate_commitment).ptr);
-    free(rate_buffer);
+    CFr_t* rate_commitment = ffi2_poseidon_hash_pair(id_commitment, user_message_limit);
+
+    debug = cfr_debug(rate_commitment);
+    printf("  - rate_commitment = %s\n", debug.ptr);
+    vec_u8_free(debug);
+
+    printf("\nCFr serialization: CFr <-> bytes\n");
+    Vec_uint8_t ser_rate_commitment = cfr_to_bytes_le(rate_commitment);
+
+    debug = vec_u8_debug(&ser_rate_commitment);
+    printf("  - serialized rate_commitment = %s\n", debug.ptr);
+    vec_u8_free(debug);
+
+    CFr_t* deser_rate_commitment = bytes_le_to_cfr(&ser_rate_commitment);
+
+    debug = cfr_debug(deser_rate_commitment);
+    printf("  - deserialized rate_commitment = %s\n", debug.ptr);
+    vec_u8_free(debug);
+
+    vec_u8_free(ser_rate_commitment);
+    cfr_free(deser_rate_commitment);
+
+    printf("\nVec<CFr> serialization: Vec<CFr> <-> bytes\n");
+    Vec_uint8_t ser_keys = vec_cfr_to_bytes_le(&keys);
+
+    debug = vec_u8_debug(&ser_keys);
+    printf("  - serialized keys = %s\n", debug.ptr);
+    vec_u8_free(debug);
+
+    CResult_Vec_CFr_ptr_Vec_uint8_t deser_keys_result = bytes_le_to_vec_cfr(&ser_keys);
+    if (!deser_keys_result.ok) {
+        fprintf(stderr, "%s", deser_keys_result.err.ptr);
+        return EXIT_FAILURE;
+    }
+
+    debug = vec_cfr_debug(deser_keys_result.ok);
+    printf("  - deserialized identity_secret = %s\n", debug.ptr);
+    vec_u8_free(debug);
+
+    vec_u8_free(ser_keys);
+    vec_cfr_free(*deser_keys_result.ok);
 
 #ifdef STATELESS
     const size_t TREE_DEPTH = 20;
+    const size_t CFR_SIZE = 32;
 
     printf("\nBuilding Merkle path for stateless mode\n");
     CFr_t* default_leaf = cfr_zero();
 
     CFr_t** default_hashes = malloc(sizeof(CFr_t*) * (TREE_DEPTH - 1));
-    default_hashes[0] = poseidon_pair(default_leaf, default_leaf);
+    default_hashes[0] = ffi2_poseidon_hash_pair(default_leaf, default_leaf);
     for (size_t i = 1; i < TREE_DEPTH - 1; i++) {
-        default_hashes[i] = poseidon_pair(default_hashes[i-1], default_hashes[i-1]);
+        default_hashes[i] = ffi2_poseidon_hash_pair(default_hashes[i-1], default_hashes[i-1]);
     }
 
     void* path_elements_buffer = malloc(CFR_SIZE * TREE_DEPTH);
@@ -91,6 +111,26 @@ int main (int argc, char const * const argv[])
         .cap = TREE_DEPTH
     };
 
+    printf("\nVec<CFr> serialization: Vec<CFr> <-> bytes\n");
+    Vec_uint8_t ser_path_elements = vec_cfr_to_bytes_le(&path_elements);
+
+    debug = vec_u8_debug(&ser_path_elements);
+    printf("  - serialized path_elements = %s\n", debug.ptr);
+    vec_u8_free(debug);
+
+    CResult_Vec_CFr_ptr_Vec_uint8_t deser_path_elements = bytes_le_to_vec_cfr(&ser_path_elements);
+    if (!deser_path_elements.ok) {
+        fprintf(stderr, "%s", deser_path_elements.err.ptr);
+        return EXIT_FAILURE;
+    }
+
+    debug = vec_cfr_debug(deser_path_elements.ok);
+    printf("  - deserialized path_elements = %s\n", debug.ptr);
+    vec_u8_free(debug);
+
+    vec_cfr_free(*deser_path_elements.ok);
+    vec_u8_free(ser_path_elements);
+
     uint8_t* path_index_arr = calloc(TREE_DEPTH, sizeof(uint8_t));
     Vec_uint8_t identity_path_index = {
         .ptr = path_index_arr,
@@ -98,21 +138,43 @@ int main (int argc, char const * const argv[])
         .cap = TREE_DEPTH
     };
 
+    printf("\nVec<uint8> serialization: Vec<uint8> <-> bytes\n");
+    Vec_uint8_t ser_path_index = vec_u8_to_bytes_le(&identity_path_index);
+
+    debug = vec_u8_debug(&ser_path_index);
+    printf("  - serialized path_index = %s\n", debug.ptr);
+    vec_u8_free(debug);
+
+    CResult_Vec_uint8_ptr_Vec_uint8_t deser_path_index = bytes_le_to_vec_u8(&ser_path_index);
+    if (!deser_path_index.ok) {
+        fprintf(stderr, "%s", deser_path_index.err.ptr);
+        return EXIT_FAILURE;
+    }
+
+    debug = vec_u8_debug(deser_path_index.ok);
+    printf("  - deserialized path_index = %s\n", debug.ptr);
+    vec_u8_free(debug);
+
+    vec_u8_free(*deser_path_index.ok);
+    vec_u8_free(ser_path_index);
+
+    printf("\nComputing Merkle root for stateless mode\n");
     printf("  - computing root for index 0 with rate_commitment\n");
-    CFr_t* computed_root = poseidon_pair(rate_commitment, default_leaf);
+    CFr_t* computed_root = ffi2_poseidon_hash_pair(rate_commitment, default_leaf);
     for (size_t i = 1; i < TREE_DEPTH; i++) {
-        CFr_t* next_root = poseidon_pair(computed_root, default_hashes[i-1]);
+        CFr_t* next_root = ffi2_poseidon_hash_pair(computed_root, default_hashes[i-1]);
         cfr_free(computed_root);
         computed_root = next_root;
     }
-    printf("  - computed_root = %s\n", cfr_debug(computed_root).ptr);
+
+    debug = cfr_debug(computed_root);
+    printf("  - computed_root = %s\n", debug.ptr);
+    vec_u8_free(debug);
 #else
     printf("\nAdding rate_commitment to tree\n");
     CResult_bool_ptr_Vec_uint8_t set_result = ffi2_set_next_leaf(&rln, &rate_commitment);
     if (!set_result.ok) {
         fprintf(stderr, "%s", set_result.err.ptr);
-        vec_cfr_free(keys);
-        ffi2_rln_free(rln);
         return EXIT_FAILURE;
     }
 
@@ -123,8 +185,6 @@ int main (int argc, char const * const argv[])
     CResult_FFI2_MerkleProof_ptr_Vec_uint8_t proof_result = ffi2_get_proof(&rln, leaf_index);
     if (!proof_result.ok) {
         fprintf(stderr, "%s", proof_result.err.ptr);
-        vec_cfr_free(keys);
-        ffi2_rln_free(rln);
         return EXIT_FAILURE;
     }
     FFI2_MerkleProof_t* merkle_proof = proof_result.ok;
@@ -133,44 +193,50 @@ int main (int argc, char const * const argv[])
 
     printf("\nHashing signal\n");
     uint8_t signal[32] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-    slice_ref_uint8_t signal_slice = {signal, 32};
-    CFr_t* x = ffi2_hash_to_field_le(signal_slice);
-    printf("  - x = %s\n", cfr_debug(x).ptr);
+    Vec_uint8_t signal_vec = {signal, 32, 32};
+    CFr_t* x = ffi2_hash_to_field_le(&signal_vec);
+
+    debug = cfr_debug(x);
+    printf("  - x = %s\n", debug.ptr);
+    vec_u8_free(debug);
 
     printf("\nHashing epoch\n");
     const char* epoch_str = "test-epoch";
-    slice_ref_uint8_t epoch_slice = {(const uint8_t*)epoch_str, strlen(epoch_str)};
-    CFr_t* epoch = ffi2_hash_to_field_le(epoch_slice);
-    printf("  - epoch = %s\n", cfr_debug(epoch).ptr);
+    Vec_uint8_t epoch_vec = {(uint8_t*)epoch_str, strlen(epoch_str), strlen(epoch_str)};
+    CFr_t* epoch = ffi2_hash_to_field_le(&epoch_vec);
+
+    debug = cfr_debug(epoch);
+    printf("  - epoch = %s\n", debug.ptr);
+    vec_u8_free(debug);
 
     printf("\nHashing RLN identifier\n");
     const char* rln_id_str = "test-rln-identifier";
-    slice_ref_uint8_t rln_id_slice = {(const uint8_t*)rln_id_str, strlen(rln_id_str)};
-    CFr_t* rln_identifier = ffi2_hash_to_field_le(rln_id_slice);
-    printf("  - rln_identifier = %s\n", cfr_debug(rln_identifier).ptr);
+    Vec_uint8_t rln_id_vec = {(uint8_t*)rln_id_str, strlen(rln_id_str), strlen(rln_id_str)};
+    CFr_t* rln_identifier = ffi2_hash_to_field_le(&rln_id_vec);
+
+    debug = cfr_debug(rln_identifier);
+    printf("  - rln_identifier = %s\n", debug.ptr);
+    vec_u8_free(debug);
 
     printf("\nComputing Poseidon hash for external nullifier\n");
-    void* nullifier_buffer = malloc(CFR_SIZE * 2);
-    memcpy(nullifier_buffer, epoch, CFR_SIZE);
-    memcpy((char*)nullifier_buffer + CFR_SIZE, rln_identifier, CFR_SIZE);
-    Vec_CFr_t nullifier_inputs = {
-        .ptr = (CFr_t*)nullifier_buffer,
-        .len = 2,
-        .cap = 2
-    };
-    CFr_t* external_nullifier = ffi2_poseidon_hash(&nullifier_inputs);
-    printf("  - external_nullifier = %s\n", cfr_debug(external_nullifier).ptr);
-    free(nullifier_buffer);
+    CFr_t* external_nullifier = ffi2_poseidon_hash_pair(epoch, rln_identifier);
+
+    debug = cfr_debug(external_nullifier);
+    printf("  - external_nullifier = %s\n", debug.ptr);
+    vec_u8_free(debug);
 
     printf("\nCreating message_id\n");
-    CFr_t* message_id = cfr_from_uint(0);
-    printf("  - message_id = %s\n", cfr_debug(message_id).ptr);
+    CFr_t* message_id = uint_to_cfr(0);
+
+    debug = cfr_debug(message_id);
+    printf("  - message_id = %s\n", debug.ptr);
+    vec_u8_free(debug);
 
     printf("\nGenerating RLN Proof\n");
 #ifdef STATELESS
     CResult_FFI2_RLNProof_ptr_Vec_uint8_t proof_gen_result = ffi2_generate_rln_proof_stateless(
         &rln,
-        identity_secret_ptr,
+        identity_secret,
         user_message_limit,
         message_id,
         &path_elements,
@@ -181,7 +247,7 @@ int main (int argc, char const * const argv[])
 #else
     CResult_FFI2_RLNProof_ptr_Vec_uint8_t proof_gen_result = ffi2_generate_rln_proof(
         &rln,
-        identity_secret_ptr,
+        identity_secret,
         user_message_limit,
         message_id,
         x,
@@ -223,19 +289,25 @@ int main (int argc, char const * const argv[])
 
         printf("\nHashing second signal\n");
         uint8_t signal2[32] = {11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
-        slice_ref_uint8_t signal2_slice = {signal2, 32};
-        CFr_t* x2 = ffi2_hash_to_field_le(signal2_slice);
-        printf("  - x2 = %s\n", cfr_debug(x2).ptr);
+        Vec_uint8_t signal2_vec = {signal2, 32, 32};
+        CFr_t* x2 = ffi2_hash_to_field_le(&signal2_vec);
+
+        debug = cfr_debug(x2);
+        printf("  - x2 = %s\n", debug.ptr);
+        vec_u8_free(debug);
 
         printf("\nCreating second message with the same id\n");
-        CFr_t* message_id2 = cfr_from_uint(0);
-        printf("  - message_id2 = %s\n", cfr_debug(message_id2).ptr);
+        CFr_t* message_id2 = uint_to_cfr(0);
+
+        debug = cfr_debug(message_id2);
+        printf("  - message_id2 = %s\n", debug.ptr);
+        vec_u8_free(debug);
 
         printf("\nGenerating second RLN Proof\n");
 #ifdef STATELESS
         CResult_FFI2_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi2_generate_rln_proof_stateless(
             &rln,
-            identity_secret_ptr,
+            identity_secret,
             user_message_limit,
             message_id2,
             &path_elements,
@@ -246,7 +318,7 @@ int main (int argc, char const * const argv[])
 #else
         CResult_FFI2_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi2_generate_rln_proof(
             &rln,
-            identity_secret_ptr,
+            identity_secret,
             user_message_limit,
             message_id2,
             x2,
@@ -282,8 +354,14 @@ int main (int argc, char const * const argv[])
                     return EXIT_FAILURE;
                 } else {
                     CFr_t* recovered_secret = recover_result.ok;
-                    printf("  - recovered_secret = %s\n", cfr_debug(recovered_secret).ptr);
-                    printf("  - original_secret  = %s\n", cfr_debug(identity_secret_ptr).ptr);
+
+                    debug = cfr_debug(recovered_secret);
+                    printf("  - recovered_secret = %s\n", debug.ptr);
+                    vec_u8_free(debug);
+
+                    debug = cfr_debug(identity_secret);
+                    printf("  - original_secret  = %s\n", debug.ptr);
+                    vec_u8_free(debug);
 
                     printf("Slashing successful: Identity is recovered!\n");
 
