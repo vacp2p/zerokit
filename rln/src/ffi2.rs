@@ -258,9 +258,7 @@ pub struct FFI2_RLN {
     tree: PoseidonTree,
 }
 
-////////////////////////////////////////////////////////
 // RLN APIs
-////////////////////////////////////////////////////////
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
@@ -448,68 +446,6 @@ pub fn ffi2_merkle_proof_free(proof: Option<repr_c::Box<FFI2_MerkleProof>>) {
     drop(proof);
 }
 
-#[cfg(feature = "stateless")]
-#[ffi_export]
-pub fn ffi2_generate_rln_proof_stateless(
-    rln: &repr_c::Box<FFI2_RLN>,
-    identity_secret: &CFr,
-    user_message_limit: &CFr,
-    message_id: &CFr,
-    path_elements: &repr_c::Vec<CFr>,
-    identity_path_index: &repr_c::Vec<u8>,
-    x: &CFr,
-    external_nullifier: &CFr,
-) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
-    let mut identity_secret_fr = identity_secret.0;
-    let path_elements: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
-    let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
-    let rln_witness = match RLNWitnessInput::new(
-        IdSecret::from(&mut identity_secret_fr),
-        user_message_limit.0,
-        message_id.0,
-        path_elements,
-        identity_path_index,
-        x.0,
-        external_nullifier.0,
-    ) {
-        Ok(witness) => witness,
-        Err(err) => {
-            return CResult {
-                ok: None,
-                err: Some(err.to_string().into()),
-            };
-        }
-    };
-
-    let proof_values = match proof_values_from_witness(&rln_witness) {
-        Ok(pv) => pv,
-        Err(err) => {
-            return CResult {
-                ok: None,
-                err: Some(err.to_string().into()),
-            };
-        }
-    };
-
-    let proof = match generate_proof(&rln.proving_key, &rln_witness, &rln.graph_data) {
-        Ok(proof) => proof,
-        Err(err) => {
-            return CResult {
-                ok: None,
-                err: Some(err.to_string().into()),
-            };
-        }
-    };
-
-    CResult {
-        ok: Some(Box_::new(FFI2_RLNProof {
-            proof_values,
-            proof,
-        })),
-        err: None,
-    }
-}
-
 // RLNProof
 
 #[derive_ReprC]
@@ -524,9 +460,7 @@ pub fn ffi2_rln_proof_free(rln: Option<repr_c::Box<FFI2_RLNProof>>) {
     drop(rln);
 }
 
-////////////////////////////////////////////////////////
 // Merkle tree APIs
-////////////////////////////////////////////////////////
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
@@ -774,9 +708,7 @@ pub fn ffi2_get_proof(
     }
 }
 
-////////////////////////////////////////////////////////
 // zkSNARKs APIs
-////////////////////////////////////////////////////////
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
@@ -803,6 +735,68 @@ pub fn ffi2_generate_rln_proof(
     let identity_path_index: Vec<u8> = proof.get_path_index();
 
     let mut identity_secret_fr = identity_secret.0;
+    let rln_witness = match RLNWitnessInput::new(
+        IdSecret::from(&mut identity_secret_fr),
+        user_message_limit.0,
+        message_id.0,
+        path_elements,
+        identity_path_index,
+        x.0,
+        external_nullifier.0,
+    ) {
+        Ok(witness) => witness,
+        Err(err) => {
+            return CResult {
+                ok: None,
+                err: Some(err.to_string().into()),
+            };
+        }
+    };
+
+    let proof_values = match proof_values_from_witness(&rln_witness) {
+        Ok(pv) => pv,
+        Err(err) => {
+            return CResult {
+                ok: None,
+                err: Some(err.to_string().into()),
+            };
+        }
+    };
+
+    let proof = match generate_proof(&rln.proving_key, &rln_witness, &rln.graph_data) {
+        Ok(proof) => proof,
+        Err(err) => {
+            return CResult {
+                ok: None,
+                err: Some(err.to_string().into()),
+            };
+        }
+    };
+
+    CResult {
+        ok: Some(Box_::new(FFI2_RLNProof {
+            proof_values,
+            proof,
+        })),
+        err: None,
+    }
+}
+
+#[cfg(feature = "stateless")]
+#[ffi_export]
+pub fn ffi2_generate_rln_proof_stateless(
+    rln: &repr_c::Box<FFI2_RLN>,
+    identity_secret: &CFr,
+    user_message_limit: &CFr,
+    message_id: &CFr,
+    path_elements: &repr_c::Vec<CFr>,
+    identity_path_index: &repr_c::Vec<u8>,
+    x: &CFr,
+    external_nullifier: &CFr,
+) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
+    let mut identity_secret_fr = identity_secret.0;
+    let path_elements: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
+    let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
     let rln_witness = match RLNWitnessInput::new(
         IdSecret::from(&mut identity_secret_fr),
         user_message_limit.0,
@@ -924,9 +918,7 @@ pub fn ffi2_verify_with_roots(
     }
 }
 
-////////////////////////////////////////////////////////
 // Utils
-////////////////////////////////////////////////////////
 
 #[ffi_export]
 pub fn ffi2_recover_id_secret(
@@ -965,9 +957,7 @@ pub fn ffi2_recover_id_secret(
     }
 }
 
-////////////////////////////////////////////////////////
 // Persistent metadata APIs
-////////////////////////////////////////////////////////
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
@@ -1017,9 +1007,7 @@ pub fn ffi2_flush(rln: &mut repr_c::Box<FFI2_RLN>) -> CResult<repr_c::Box<bool>,
     }
 }
 
-/// ////////////////////////////////////////////////////////
 // Utils APIs
-////////////////////////////////////////////////////////
 
 #[ffi_export]
 pub fn ffi2_hash_to_field_le(input: &repr_c::Vec<u8>) -> repr_c::Box<CFr> {
@@ -1078,7 +1066,7 @@ pub fn ffi2_seeded_extended_key_gen(seed: &repr_c::Vec<u8>) -> repr_c::Vec<CFr> 
 }
 
 // The following function is only necessary for the header generation.
-#[cfg(feature = "headers")] // c.f. the `Cargo.toml` section
+#[cfg(feature = "headers")]
 pub fn generate_headers() -> ::std::io::Result<()> {
     ::safer_ffi::headers::builder().to_file("rln.h")?.generate()
 }
