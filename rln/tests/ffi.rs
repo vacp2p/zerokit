@@ -1190,7 +1190,7 @@ mod stateless_test {
 }
 
 #[cfg(test)]
-mod general_tests {
+mod general_test {
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use rln::circuit::*;

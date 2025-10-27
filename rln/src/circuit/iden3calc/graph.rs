@@ -816,7 +816,7 @@ fn u_lt(a: &U256, b: &U256) -> U256 {
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::*;
     use ruint::uint;
     use std::ops::Div;
