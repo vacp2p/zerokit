@@ -105,7 +105,7 @@ fn main() {
 
     // We get the public outputs returned by the circuit evaluation
     // The byte vector `proof_data` is serialized as
-    //  `[ zk-proof | tree_root | external_nullifier | share_x | share_y | nullifier ]`.
+    //  `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]`.
     let proof_data = output_buffer.into_inner();
 
     // 8. Verify a RLN proof
