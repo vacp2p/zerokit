@@ -4,7 +4,7 @@ mod test {
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use rln::circuit::{Fr, TEST_TREE_DEPTH};
-    use rln::ffi2::*;
+    use rln::ffi2::{ffi_rln::*, ffi_tree::*, ffi_utils::*};
     use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
     use rln::protocol::*;
     use rln::utils::*;
@@ -1095,7 +1095,7 @@ mod stateless_test {
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use rln::circuit::{Fr, TEST_TREE_DEPTH};
-    use rln::ffi2::*;
+    use rln::ffi2::{ffi_rln::*, ffi_utils::*};
     use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash, PoseidonHash};
     use rln::utils::*;
     use safer_ffi::prelude::repr_c;
@@ -1446,7 +1446,7 @@ mod stateless_test {
 mod general_tests {
     use rand::Rng;
     use rln::circuit::Fr;
-    use rln::ffi2::*;
+    use rln::ffi2::ffi_utils::*;
     use rln::hashers::poseidon_hash;
     use rln::utils::{fr_to_bytes_be, fr_to_bytes_le, str_to_fr, IdSecret};
 
