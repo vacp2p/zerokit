@@ -41,12 +41,6 @@ pub struct CResult<T: ReprC, Err: ReprC> {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CFr(Fr);
 
-impl Default for CFr {
-    fn default() -> Self {
-        Self(Fr::ZERO)
-    }
-}
-
 impl PartialEq<Fr> for CFr {
     fn eq(&self, other: &Fr) -> bool {
         self.0 == *other
@@ -80,7 +74,7 @@ impl From<CFr> for repr_c::Box<CFr> {
 
 #[ffi_export]
 pub fn cfr_zero() -> repr_c::Box<CFr> {
-    Box_::new(CFr::default())
+    Box_::new(CFr::from(Fr::ZERO))
 }
 
 #[ffi_export]
