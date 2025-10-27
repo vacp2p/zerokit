@@ -331,7 +331,7 @@ impl<R: Read> Write for WriteBackReader<R> {
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::*;
     use byteorder::ByteOrder;
     use core::str::FromStr;

@@ -1443,7 +1443,7 @@ mod stateless_test {
 }
 
 #[cfg(test)]
-mod general_tests {
+mod utils_test {
     use rand::Rng;
     use rln::circuit::Fr;
     use rln::ffi2::ffi_utils::*;
