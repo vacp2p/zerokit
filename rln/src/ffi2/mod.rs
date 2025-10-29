@@ -1,5 +1,3 @@
-#![allow(non_camel_case_types)]
-
 pub mod ffi_rln;
 pub mod ffi_tree;
 pub mod ffi_utils;
