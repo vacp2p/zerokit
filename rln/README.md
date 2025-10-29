@@ -304,6 +304,27 @@ chmod +x ./convert_zkey.sh
 ./convert_zkey.sh <path_to_rln_final.zkey>
 ```
 
+## FFI Interface
+
+RLN provides C-compatible bindings for integration with C, C++, Nim, and other languages through [safer_ffi](https://getditto.github.io/safer_ffi/).
+
+The FFI layer is organized into several modules:
+
+- [`ffi_rln.rs`](./src/ffi2/ffi_rln.rs) – Implements core RLN functionality, including initialization functions, proof generation, and proof verification.
+- [`ffi_tree.rs`](./src/ffi2/ffi_tree.rs) – Provides all tree-related operations and helper functions for Merkle tree management.
+- [`ffi_utils.rs`](./src/ffi2/ffi_utils.rs) – Contains all utility functions and structure definitions used across the FFI layer.
+
+### Examples
+
+Working examples demonstrating proof generation, proof verification and slashing in C and Nim:
+
+- [C example](./ffi_c_examples/main.c) and [README](./ffi_c_examples/Readme.md)
+- [Nim example](./ffi_nim_examples/main.nim) and [README](./ffi_nim_examples/Readme.md)
+
+### Memory Management
+
+All heap-allocated objects must be explicitly freed using their corresponding `_free` functions to prevent memory leaks.
+
 ## Get involved
 
 Zerokit RLN public and FFI APIs allow interaction with many more features than what briefly showcased above.
