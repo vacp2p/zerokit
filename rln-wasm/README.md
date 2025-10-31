@@ -98,7 +98,7 @@ enabling multi-threaded execution in the browser.
 #### Install `nightly` Rust
 
 ```bash
-rustup install nightly
+rustup install nightly-2025-09-24
 ```
 
 ### Build Commands

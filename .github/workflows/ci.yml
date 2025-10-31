@@ -124,6 +124,7 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
+          toolchain: nightly-2025-09-24
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
