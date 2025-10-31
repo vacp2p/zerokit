@@ -121,9 +121,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install nightly toolchain
-        uses: dtolnay/rust-toolchain@nightly-2025-09-24
+        uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
+          toolchain: nightly-2025-09-24
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
