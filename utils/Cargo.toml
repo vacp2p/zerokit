@@ -15,6 +15,7 @@ bench = false
 ark-ff = { version = "0.5.0", default-features = false }
 num-bigint = { version = "0.4.6", default-features = false }
 pmtree = { package = "vacp2p_pmtree", version = "2.0.3", optional = true }
+rocksdb = { git = "https://github.com/tillrohrmann/rust-rocksdb", branch = "issues/836", optional = true }
 sled = "0.34.7"
 serde_json = "1.0.141"
 lazy_static = "1.5.0"
@@ -32,7 +33,8 @@ criterion = { version = "0.7.0", features = ["html_reports"] }
 [features]
 default = []
 parallel = ["ark-ff/parallel"]
-pmtree-ft = ["pmtree"]
+pmtree-ft = ["pmtree", "rocksdb"]
+# pmtree-ft-rocksdb = ["pmtree", "rocksdb"]
 
 [[bench]]
 name = "merkle_tree_benchmark"
