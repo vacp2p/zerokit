@@ -121,7 +121,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install nightly toolchain
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@nightly-2025-09-24
         with:
           components: rust-src
           targets: wasm32-unknown-unknown
