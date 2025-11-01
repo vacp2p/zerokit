@@ -1,0 +1,9 @@
+{
+  "rust-analyzer.linkedProjects": [
+    "./rln/Cargo.toml",
+    "./rln-cli/Cargo.toml",
+    "./rln-wasm/Cargo.toml",
+    "./rln-wasm-utils/Cargo.toml",
+    "./utils/Cargo.toml"
+  ]
+}
