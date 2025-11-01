@@ -2,7 +2,7 @@
 name = "rln-wasm"
 version = "0.3.0"
 edition = "2021"
-license = "MIT or Apache2"
+license = "MIT OR Apache-2.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
