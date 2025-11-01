@@ -8,6 +8,7 @@ edition = "2024"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+# TODO: remove this once we have a proper release
 rln = { path = "../rln", version = "0.9.0", default-features = false, features = [
 	"stateless",
 ] }
