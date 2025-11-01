@@ -11,7 +11,6 @@ mod test {
         deserialize_identity_tuple_le,
     };
     use rln::utils::{bytes_le_to_fr, vec_fr_to_bytes_le};
-    use rln_wasm_utils::ffi2::{WasmFr, ffi2_wasm_key_gen};
     use rln_wasm_utils::{
         wasm_extended_key_gen, wasm_hash, wasm_key_gen, wasm_poseidon_hash,
         wasm_seeded_extended_key_gen, wasm_seeded_key_gen,
@@ -111,16 +110,5 @@ mod test {
         let (received_hash, _) = bytes_le_to_fr(&serialized_hash);
 
         assert_eq!(received_hash, expected_hash);
-    }
-
-    #[wasm_bindgen_test]
-    fn test_ffi2_wasm_key_gen() {
-        let result = ffi2_wasm_key_gen();
-        assert!(result.is_ok());
-        let id: Vec<WasmFr> = result.unwrap();
-        let id_s = id[0];
-        let id_co = id[1];
-        console_log!("id_s: {:?}", id_s.debug());
-        console_log!("id_co: {:?}", id_co.debug());
     }
 }
