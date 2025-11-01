@@ -2,7 +2,7 @@
 #![cfg(target_arch = "wasm32")]
 
 #[cfg(test)]
-mod tests {
+mod test {
     use js_sys::{BigInt as JsBigInt, Date, Object, Uint8Array};
     use rln::circuit::{Fr, TEST_TREE_DEPTH};
     use rln::hashers::{hash_to_field_le, poseidon_hash, PoseidonHash};
