@@ -1,9 +1,14 @@
 {
   description = "A flake for building zerokit";
 
+  nixConfig = {
+    extra-substituters = [ "https://nix-cache.status.im/" ];
+    extra-trusted-public-keys = [ "nix-cache.status.im-1:x/93lOfLU+duPplwMSBR+OlY4+mo+dCN7n0mr4oPwgY=" ];
+  };
+
   inputs = {
     # Version 24.11
-    nixpkgs.url = "github:NixOS/nixpkgs?rev=f44bd8ca21e026135061a0a57dcf3d0775b67a49";
+    nixpkgs.url = "github:NixOS/nixpkgs?rev=0ef228213045d2cdb5a169a95d63ded38670b293";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -19,11 +24,20 @@
         "i686-windows"
       ];
       forAllSystems = nixpkgs.lib.genAttrs stableSystems;
-      overlays = [
-        (import rust-overlay)
-        (f: p: { inherit rust-overlay; })
-      ];
-      pkgsFor = forAllSystems (system: import nixpkgs { inherit system overlays; });
+
+      pkgsFor = forAllSystems (
+        system: import nixpkgs {
+          inherit system;
+          config = {
+            android_sdk.accept_license = true;
+            allowUnfree = true;
+          };
+          overlays = [
+            (import rust-overlay)
+            (f: p: { inherit rust-overlay; })
+          ];
+        }
+      );
     in rec
     {
       packages = forAllSystems (system: let
