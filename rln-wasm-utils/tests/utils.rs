@@ -2,6 +2,8 @@
 
 #[cfg(test)]
 mod test {
+    use std::assert_eq;
+
     use ark_std::rand::thread_rng;
     use js_sys::Uint8Array;
     use rand::Rng;
@@ -12,13 +14,33 @@ mod test {
     use wasm_bindgen_test::*;
 
     #[wasm_bindgen_test]
-    fn bad_test() {
-        let x = get_value();
-        assert_eq!(x, 42);
+    // Test key generation WASM
+    fn test_keygen_wasm() {
+        let key_gen = wasm_key_gen();
+        assert_eq!(key_gen.len(), 2);
+
+        let identity_secret_hash = *key_gen[0];
+        let id_commitment = *key_gen[1];
+
+        assert_ne!(identity_secret_hash, Fr::from(0u8));
+        assert_ne!(id_commitment, Fr::from(0u8));
     }
 
-    fn get_value() -> i32 {
-        return 42;
+    #[wasm_bindgen_test]
+    // Test extended key generation WASM
+    fn test_extended_keygen_wasm() {
+        let key_gen = wasm_extended_key_gen();
+        assert_eq!(key_gen.len(), 4);
+
+        let identity_trapdoor = *key_gen[0];
+        let identity_nullifier = *key_gen[1];
+        let identity_secret_hash = *key_gen[2];
+        let id_commitment = *key_gen[3];
+
+        assert_ne!(identity_trapdoor, Fr::from(0u8));
+        assert_ne!(identity_nullifier, Fr::from(0u8));
+        assert_ne!(identity_secret_hash, Fr::from(0u8));
+        assert_ne!(id_commitment, Fr::from(0u8));
     }
 
     #[wasm_bindgen_test]
@@ -121,7 +143,6 @@ mod test {
         let mut id_secret_fr = *key_gen[0];
         let id_secret_hash = IdSecret::from(&mut id_secret_fr);
         let id_commitment = *key_gen[1];
-
         let wasmfr_id_secret_hash = *key_gen[0];
         assert_eq!(wasmfr_id_secret_hash, *id_secret_hash);
         let wasmfr_id_commitment = *key_gen[1];
@@ -132,42 +153,27 @@ mod test {
     // Test Vec<WasmFr> functions
     fn test_vec_wasmfr() {
         let vec_fr = vec![Fr::from(1u8), Fr::from(2u8), Fr::from(3u8), Fr::from(4u8)];
+        let vec_wasmfr: Vec<WasmFr> = vec_fr.iter().map(|&fr| WasmFr::from(fr)).collect();
 
-        let bytes_le = rln::utils::vec_fr_to_bytes_le(&vec_fr);
-        let bytes_le_array = Uint8Array::from(&bytes_le[..]);
+        let bytes_le = vec_wasmfr_to_bytes_le(vec_wasmfr.clone());
+        let expected_le = rln::utils::vec_fr_to_bytes_le(&vec_fr);
+        assert_eq!(bytes_le.to_vec(), expected_le);
 
-        let vec_wasmfr_from_le = match bytes_le_to_vec_wasmfr(&bytes_le_array) {
+        let bytes_be = vec_wasmfr_to_bytes_be(vec_wasmfr.clone());
+        let expected_be = rln::utils::vec_fr_to_bytes_be(&vec_fr);
+        assert_eq!(bytes_be.to_vec(), expected_be);
+
+        let vec_wasmfr_from_le = match bytes_le_to_vec_wasmfr(&bytes_le) {
             Ok(v) => v,
             Err(err) => panic!("bytes_le_to_vec_wasmfr call failed: {}", err),
         };
-        assert_eq!(vec_wasmfr_from_le.len(), 4);
+        assert_eq!(vec_wasmfr_from_le.to_vec(), vec_wasmfr);
 
-        for i in 0..4 {
-            let fr = *vec_wasmfr_from_le[i];
-            assert_eq!(fr, vec_fr[i]);
-        }
-
-        let vec_wasmfr_from_le_clone = vec_wasmfr_from_le.clone();
-        let bytes_le_out = vec_wasmfr_to_bytes_le(vec_wasmfr_from_le_clone);
-        assert_eq!(bytes_le_out.to_vec(), bytes_le);
-
-        // let bytes_be = rln::utils::vec_fr_to_bytes_be(&vec_fr);
-        // let bytes_be_array = Uint8Array::from(&bytes_be[..]);
-
-        // let vec_wasmfr_from_be = match bytes_be_to_vec_wasmfr(&bytes_be_array) {
+        // let vec_wasmfr_from_be = match bytes_be_to_vec_wasmfr(&bytes_be) {
         //     Ok(v) => v,
         //     Err(err) => panic!("bytes_be_to_vec_wasmfr call failed: {}", err),
         // };
-        // assert_eq!(vec_wasmfr_from_be.len(), 4);
-
-        // for i in 0..4 {
-        //     let fr = *vec_wasmfr_from_be[i];
-        //     assert_eq!(fr, vec_fr[i]);
-        // }
-
-        // let vec_wasmfr_from_be_clone = vec_wasmfr_from_be.clone();
-        // let bytes_be_out = vec_wasmfr_to_bytes_be(vec_wasmfr_from_be_clone);
-        // assert_eq!(bytes_be_out.to_vec(), bytes_be);
+        // assert_eq!(vec_wasmfr_from_be.to_vec(), vec_wasmfr);
     }
 
     #[wasm_bindgen_test]
@@ -177,27 +183,27 @@ mod test {
         let signal_gen: [u8; 32] = rng.gen();
         let signal = Uint8Array::from(&signal_gen[..]);
 
-        let wasmfr_le = wasm_hash_to_field_le(&signal);
-        let fr_le_native = rln::hashers::hash_to_field_le(&signal_gen);
-        assert_eq!(*wasmfr_le, fr_le_native);
+        let wasmfr_le_1 = wasm_hash_to_field_le(&signal);
+        let fr_le_2 = rln::hashers::hash_to_field_le(&signal_gen);
+        assert_eq!(*wasmfr_le_1, fr_le_2);
 
-        let wasmfr_be = wasm_hash_to_field_be(&signal);
-        let fr_be_native = rln::hashers::hash_to_field_be(&signal_gen);
-        assert_eq!(*wasmfr_be, fr_be_native);
+        let wasmfr_be_1 = wasm_hash_to_field_be(&signal);
+        let fr_be_2 = rln::hashers::hash_to_field_be(&signal_gen);
+        assert_eq!(*wasmfr_be_1, fr_be_2);
 
-        assert_eq!(*wasmfr_le, *wasmfr_be);
-        assert_eq!(fr_le_native, fr_be_native);
+        assert_eq!(*wasmfr_le_1, *wasmfr_be_1);
+        assert_eq!(fr_le_2, fr_be_2);
 
-        let hash_wasmfr_le = wasmfr_to_bytes_le(&wasmfr_le);
-        let hash_fr_le_native = fr_to_bytes_le(&fr_le_native);
-        assert_eq!(hash_wasmfr_le.to_vec(), hash_fr_le_native);
+        let hash_wasmfr_le_1 = wasmfr_to_bytes_le(&wasmfr_le_1);
+        let hash_fr_le_2 = fr_to_bytes_le(&fr_le_2);
+        assert_eq!(hash_wasmfr_le_1.to_vec(), hash_fr_le_2);
 
-        let hash_wasmfr_be = wasmfr_to_bytes_be(&wasmfr_be);
-        let hash_fr_be_native = fr_to_bytes_be(&fr_be_native);
-        assert_eq!(hash_wasmfr_be.to_vec(), hash_fr_be_native);
+        let hash_wasmfr_be_1 = wasmfr_to_bytes_be(&wasmfr_be_1);
+        let hash_fr_be_2 = fr_to_bytes_be(&fr_be_2);
+        assert_eq!(hash_wasmfr_be_1.to_vec(), hash_fr_be_2);
 
-        assert_ne!(hash_wasmfr_le.to_vec(), hash_wasmfr_be.to_vec());
-        assert_ne!(hash_fr_le_native, hash_fr_be_native);
+        assert_ne!(hash_wasmfr_le_1.to_vec(), hash_wasmfr_be_1.to_vec());
+        assert_ne!(hash_fr_le_2, hash_fr_be_2);
     }
 
     #[wasm_bindgen_test]
@@ -212,45 +218,5 @@ mod test {
         let received_hash = wasm_poseidon_hash_pair(&wasmfr_1, &wasmfr_2);
 
         assert_eq!(*received_hash, expected_hash);
-    }
-
-    #[wasm_bindgen_test]
-    // Test Poseidon hash vec WASM
-    fn test_poseidon_hash_vec_wasm() {
-        let inputs = vec![Fr::from(1u8), Fr::from(2u8), Fr::from(3u8)];
-        let expected_hash = poseidon_hash(&inputs);
-
-        let received_hash = wasm_poseidon_hash(inputs.iter().map(|&fr| WasmFr::from(fr)).collect());
-        assert_eq!(*received_hash, expected_hash);
-    }
-
-    #[wasm_bindgen_test]
-    // Test key generation WASM
-    fn test_keygen_wasm() {
-        let key_gen = wasm_key_gen();
-        assert_eq!(key_gen.len(), 2);
-
-        let identity_secret_hash = *key_gen[0];
-        let id_commitment = *key_gen[1];
-
-        assert_ne!(identity_secret_hash, Fr::from(0u8));
-        assert_ne!(id_commitment, Fr::from(0u8));
-    }
-
-    #[wasm_bindgen_test]
-    // Test extended key generation WASM
-    fn test_extended_keygen_wasm() {
-        let key_gen = wasm_extended_key_gen();
-        assert_eq!(key_gen.len(), 4);
-
-        let identity_trapdoor = *key_gen[0];
-        let identity_nullifier = *key_gen[1];
-        let identity_secret_hash = *key_gen[2];
-        let id_commitment = *key_gen[3];
-
-        assert_ne!(identity_trapdoor, Fr::from(0u8));
-        assert_ne!(identity_nullifier, Fr::from(0u8));
-        assert_ne!(identity_secret_hash, Fr::from(0u8));
-        assert_ne!(id_commitment, Fr::from(0u8));
     }
 }

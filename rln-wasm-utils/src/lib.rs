@@ -22,7 +22,7 @@ pub fn init_panic_hook() {
 // WasmFr
 
 #[wasm_bindgen]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct WasmFr(Fr);
 
 impl From<Fr> for WasmFr {
@@ -131,12 +131,6 @@ pub fn wasm_hash_to_field_be(input: &Uint8Array) -> WasmFr {
 #[wasm_bindgen]
 pub fn wasm_poseidon_hash_pair(a: &WasmFr, b: &WasmFr) -> WasmFr {
     WasmFr::from(poseidon_hash(&[a.0, b.0]))
-}
-
-#[wasm_bindgen]
-pub fn wasm_poseidon_hash(inputs: Vec<WasmFr>) -> WasmFr {
-    let fr_vec: Vec<Fr> = inputs.iter().map(|w| w.0).collect();
-    WasmFr::from(poseidon_hash(&fr_vec))
 }
 
 #[wasm_bindgen]
