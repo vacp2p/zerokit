@@ -13,10 +13,13 @@ use rln::{
 use std::ops::Deref;
 use wasm_bindgen::prelude::*;
 
+#[cfg(feature = "panic_hook")]
 #[wasm_bindgen(js_name = initPanicHook)]
 pub fn init_panic_hook() {
     console_error_panic_hook::set_once();
 }
+
+// WasmFr
 
 #[wasm_bindgen]
 #[derive(Clone, Debug, PartialEq)]
@@ -36,128 +39,93 @@ impl Deref for WasmFr {
 }
 
 #[wasm_bindgen]
-pub fn wasm_fr_zero() -> WasmFr {
+pub fn wasmfr_zero() -> WasmFr {
     WasmFr::from(Fr::from(0u32))
 }
 
 #[wasm_bindgen]
-pub fn wasm_fr_one() -> WasmFr {
+pub fn wasmfr_one() -> WasmFr {
     WasmFr::from(Fr::from(1u32))
 }
 
 #[wasm_bindgen]
-pub fn wasm_fr_from_uint(value: u32) -> WasmFr {
+pub fn uint_to_wasmfr(value: u32) -> WasmFr {
     WasmFr::from(Fr::from(value))
 }
 
 #[wasm_bindgen]
-pub fn wasm_fr_from_bytes_le(bytes: &Uint8Array) -> WasmFr {
+pub fn bytes_le_to_wasmfr(bytes: &Uint8Array) -> WasmFr {
     let bytes_vec = bytes.to_vec();
     let (fr, _) = bytes_le_to_fr(&bytes_vec);
     WasmFr::from(fr)
 }
 
 #[wasm_bindgen]
-pub fn wasm_fr_from_bytes_be(bytes: &Uint8Array) -> WasmFr {
+pub fn bytes_be_to_wasmfr(bytes: &Uint8Array) -> WasmFr {
     let bytes_vec = bytes.to_vec();
     let (fr, _) = bytes_be_to_fr(&bytes_vec);
     WasmFr::from(fr)
 }
 
 #[wasm_bindgen]
-pub fn wasm_fr_to_bytes_le(fr: &WasmFr) -> Vec<u8> {
-    fr_to_bytes_le(&fr.0)
+pub fn wasmfr_to_bytes_le(fr: &WasmFr) -> Uint8Array {
+    let bytes = fr_to_bytes_le(&fr.0);
+    Uint8Array::from(&bytes[..])
 }
 
 #[wasm_bindgen]
-pub fn wasm_fr_to_bytes_be(fr: &WasmFr) -> Vec<u8> {
-    fr_to_bytes_be(&fr.0)
+pub fn wasmfr_to_bytes_be(fr: &WasmFr) -> Uint8Array {
+    let bytes = fr_to_bytes_be(&fr.0);
+    Uint8Array::from(&bytes[..])
 }
 
 #[wasm_bindgen]
-pub fn wasm_fr_debug(fr: &WasmFr) -> String {
+pub fn wasmfr_debug(fr: &WasmFr) -> String {
     format!("{:?}", fr.0)
 }
 
-#[wasm_bindgen]
-pub struct WasmVecFr(Vec<Fr>);
+// Vec<WasmFr>
 
 #[wasm_bindgen]
-pub fn wasm_vec_fr_new() -> WasmVecFr {
-    WasmVecFr(Vec::new())
-}
-
-#[wasm_bindgen]
-pub fn wasm_vec_fr_with_capacity(capacity: usize) -> WasmVecFr {
-    WasmVecFr(Vec::with_capacity(capacity))
-}
-
-#[wasm_bindgen]
-pub fn wasm_vec_fr_from_bytes_le(bytes: &Uint8Array) -> Result<WasmVecFr, String> {
+pub fn bytes_le_to_vec_wasmfr(bytes: &Uint8Array) -> Result<Vec<WasmFr>, String> {
     let bytes_vec = bytes.to_vec();
     bytes_le_to_vec_fr(&bytes_vec)
-        .map(|(vec_fr, _)| WasmVecFr(vec_fr))
+        .map(|(vec_fr, _)| vec_fr.into_iter().map(WasmFr::from).collect())
         .map_err(|e| format!("{:?}", e))
 }
 
 #[wasm_bindgen]
-pub fn wasm_vec_fr_from_bytes_be(bytes: &Uint8Array) -> Result<WasmVecFr, String> {
+pub fn bytes_be_to_vec_wasmfr(bytes: &Uint8Array) -> Result<Vec<WasmFr>, String> {
     let bytes_vec = bytes.to_vec();
     bytes_be_to_vec_fr(&bytes_vec)
-        .map(|(vec_fr, _)| WasmVecFr(vec_fr))
+        .map(|(vec_fr, _)| vec_fr.into_iter().map(WasmFr::from).collect())
         .map_err(|e| format!("{:?}", e))
 }
 
 #[wasm_bindgen]
-pub fn wasm_vec_fr_len(vec: &WasmVecFr) -> usize {
-    vec.0.len()
+pub fn vec_wasmfr_to_bytes_le(vec: Vec<WasmFr>) -> Uint8Array {
+    let fr_vec: Vec<Fr> = vec.iter().map(|w| w.0).collect();
+    let bytes = vec_fr_to_bytes_le(&fr_vec);
+    Uint8Array::from(&bytes[..])
 }
 
 #[wasm_bindgen]
-pub fn wasm_vec_fr_is_empty(vec: &WasmVecFr) -> bool {
-    vec.0.is_empty()
+pub fn vec_wasmfr_to_bytes_be(vec: Vec<WasmFr>) -> Uint8Array {
+    let fr_vec: Vec<Fr> = vec.iter().map(|w| w.0).collect();
+    let bytes = vec_fr_to_bytes_be(&fr_vec);
+    Uint8Array::from(&bytes[..])
 }
 
-#[wasm_bindgen]
-pub fn wasm_vec_fr_get(vec: &WasmVecFr, index: usize) -> Option<WasmFr> {
-    vec.0.get(index).map(|&fr| WasmFr::from(fr))
-}
-
-#[wasm_bindgen]
-pub fn wasm_vec_fr_push(vec: &mut WasmVecFr, element: &WasmFr) {
-    vec.0.push(element.0);
-}
-
-#[wasm_bindgen]
-pub fn wasm_vec_fr_pop(vec: &mut WasmVecFr) -> Option<WasmFr> {
-    vec.0.pop().map(WasmFr::from)
-}
-
-#[wasm_bindgen]
-pub fn wasm_vec_fr_to_bytes_le(vec: &WasmVecFr) -> Vec<u8> {
-    vec_fr_to_bytes_le(&vec.0)
-}
-
-#[wasm_bindgen]
-pub fn wasm_vec_fr_to_bytes_be(vec: &WasmVecFr) -> Vec<u8> {
-    vec_fr_to_bytes_be(&vec.0)
-}
-
-#[wasm_bindgen]
-pub fn wasm_vec_fr_debug(vec: &WasmVecFr) -> String {
-    format!("WasmVecFr(len={})", vec.0.len())
-}
+// Utility APIs
 
 #[wasm_bindgen]
 pub fn wasm_hash_to_field_le(input: &Uint8Array) -> WasmFr {
-    let input_vec = input.to_vec();
-    WasmFr::from(hash_to_field_le(&input_vec))
+    WasmFr::from(hash_to_field_le(&input.to_vec()))
 }
 
 #[wasm_bindgen]
 pub fn wasm_hash_to_field_be(input: &Uint8Array) -> WasmFr {
-    let input_vec = input.to_vec();
-    WasmFr::from(hash_to_field_be(&input_vec))
+    WasmFr::from(hash_to_field_be(&input.to_vec()))
 }
 
 #[wasm_bindgen]
@@ -166,44 +134,51 @@ pub fn wasm_poseidon_hash_pair(a: &WasmFr, b: &WasmFr) -> WasmFr {
 }
 
 #[wasm_bindgen]
-pub fn wasm_poseidon_hash_vec(inputs: &WasmVecFr) -> WasmFr {
-    WasmFr::from(poseidon_hash(&inputs.0))
+pub fn wasm_poseidon_hash(inputs: Vec<WasmFr>) -> WasmFr {
+    let fr_vec: Vec<Fr> = inputs.iter().map(|w| w.0).collect();
+    WasmFr::from(poseidon_hash(&fr_vec))
 }
 
 #[wasm_bindgen]
-pub fn wasm_key_gen() -> WasmVecFr {
+pub fn wasm_key_gen() -> Vec<WasmFr> {
     let (identity_secret_hash, id_commitment) = keygen();
-    WasmVecFr(vec![*identity_secret_hash, id_commitment])
+    vec![
+        WasmFr::from(*identity_secret_hash),
+        WasmFr::from(id_commitment),
+    ]
 }
 
 #[wasm_bindgen]
-pub fn wasm_seeded_key_gen(seed: &Uint8Array) -> WasmVecFr {
+pub fn wasm_seeded_key_gen(seed: &Uint8Array) -> Vec<WasmFr> {
     let seed_vec = seed.to_vec();
     let (identity_secret_hash, id_commitment) = seeded_keygen(&seed_vec);
-    WasmVecFr(vec![identity_secret_hash, id_commitment])
+    vec![
+        WasmFr::from(identity_secret_hash),
+        WasmFr::from(id_commitment),
+    ]
 }
 
 #[wasm_bindgen]
-pub fn wasm_extended_key_gen() -> WasmVecFr {
+pub fn wasm_extended_key_gen() -> Vec<WasmFr> {
     let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
         extended_keygen();
-    WasmVecFr(vec![
-        identity_trapdoor,
-        identity_nullifier,
-        identity_secret_hash,
-        id_commitment,
-    ])
+    vec![
+        WasmFr::from(identity_trapdoor),
+        WasmFr::from(identity_nullifier),
+        WasmFr::from(identity_secret_hash),
+        WasmFr::from(id_commitment),
+    ]
 }
 
 #[wasm_bindgen]
-pub fn wasm_seeded_extended_key_gen(seed: &Uint8Array) -> WasmVecFr {
+pub fn wasm_seeded_extended_key_gen(seed: &Uint8Array) -> Vec<WasmFr> {
     let seed_vec = seed.to_vec();
     let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
         extended_seeded_keygen(&seed_vec);
-    WasmVecFr(vec![
-        identity_trapdoor,
-        identity_nullifier,
-        identity_secret_hash,
-        id_commitment,
-    ])
+    vec![
+        WasmFr::from(identity_trapdoor),
+        WasmFr::from(identity_nullifier),
+        WasmFr::from(identity_secret_hash),
+        WasmFr::from(id_commitment),
+    ]
 }

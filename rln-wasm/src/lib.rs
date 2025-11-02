@@ -9,6 +9,7 @@ use rln::utils::{bytes_be_to_fr, bytes_le_to_fr, fr_to_bytes_be, fr_to_bytes_le}
 use std::vec::Vec;
 use wasm_bindgen::prelude::*;
 
+#[cfg(feature = "panic_hook")]
 #[wasm_bindgen(js_name = initPanicHook)]
 pub fn init_panic_hook() {
     console_error_panic_hook::set_once();
