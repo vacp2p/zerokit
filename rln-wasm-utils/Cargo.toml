@@ -30,7 +30,8 @@ web-sys = { version = "0.3.77", features = ["console"] }
 ark-std = { version = "0.5.0", default-features = false }
 
 [features]
-default = ["console_error_panic_hook"]
+default = []
+panic_hook = ["console_error_panic_hook"]
 
 [package.metadata.docs.rs]
 all-features = true

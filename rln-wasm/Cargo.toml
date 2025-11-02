@@ -40,7 +40,8 @@ version = "0.3.77"
 features = ["Window", "Navigator"]
 
 [features]
-default = ["console_error_panic_hook"]
+default = []
+panic_hook = ["console_error_panic_hook"]
 parallel = ["rln/parallel", "wasm-bindgen-rayon"]
 
 [package.metadata.docs.rs]
