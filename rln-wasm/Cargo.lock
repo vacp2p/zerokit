@@ -1043,6 +1043,9 @@ dependencies = [
 name = "rln-wasm"
 version = "0.3.0"
 dependencies = [
+ "ark-bn254",
+ "ark-groth16",
+ "ark-relations",
  "console_error_panic_hook",
  "getrandom 0.2.16",
  "js-sys",
