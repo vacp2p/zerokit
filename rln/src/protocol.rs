@@ -51,6 +51,31 @@ pub struct RLNWitnessInput {
     external_nullifier: Fr,
 }
 
+impl RLNWitnessInput {
+    pub fn new(
+        identity_secret: IdSecret,
+        user_message_limit: Fr,
+        message_id: Fr,
+        path_elements: Vec<Fr>,
+        identity_path_index: Vec<u8>,
+        x: Fr,
+        external_nullifier: Fr,
+    ) -> Result<Self, ProtocolError> {
+        merkle_proof_len_check(&path_elements, &identity_path_index)?;
+        message_id_range_check(&message_id, &user_message_limit)?;
+
+        Ok(Self {
+            identity_secret,
+            user_message_limit,
+            message_id,
+            path_elements,
+            identity_path_index,
+            x,
+            external_nullifier,
+        })
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct RLNProofValues {
     // Public outputs:
@@ -864,10 +889,22 @@ pub fn rln_witness_to_bigint_json(
     Ok(inputs)
 }
 
-pub fn message_id_range_check(
-    message_id: &Fr,
-    user_message_limit: &Fr,
+fn merkle_proof_len_check(
+    path_elements: &[Fr],
+    identity_path_index: &[u8],
 ) -> Result<(), ProtocolError> {
+    let path_elements_len = path_elements.len();
+    let identity_path_index_len = identity_path_index.len();
+    if path_elements_len != identity_path_index_len {
+        return Err(ProtocolError::InvalidMerkleProofLength(
+            path_elements_len,
+            identity_path_index_len,
+        ));
+    }
+    Ok(())
+}
+
+fn message_id_range_check(message_id: &Fr, user_message_limit: &Fr) -> Result<(), ProtocolError> {
     if message_id > user_message_limit {
         return Err(ProtocolError::InvalidMessageId(
             *message_id,

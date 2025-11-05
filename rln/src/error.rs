@@ -43,6 +43,8 @@ pub enum ProtocolError {
     JsonError(#[from] serde_json::Error),
     #[error("Message id ({0}) is not within user_message_limit ({1})")]
     InvalidMessageId(Fr, Fr),
+    #[error("Merkle proof length mismatch: expected {0}, got {1}")]
+    InvalidMerkleProofLength(usize, usize),
 }
 
 #[derive(Debug, thiserror::Error)]

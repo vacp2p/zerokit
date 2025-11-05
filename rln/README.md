@@ -105,7 +105,7 @@ fn main() {
 
     // We get the public outputs returned by the circuit evaluation
     // The byte vector `proof_data` is serialized as
-    //  `[ zk-proof | tree_root | external_nullifier | share_x | share_y | nullifier ]`.
+    //  `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]`.
     let proof_data = output_buffer.into_inner();
 
     // 8. Verify a RLN proof
@@ -303,6 +303,27 @@ Run the script as follows:
 chmod +x ./convert_zkey.sh
 ./convert_zkey.sh <path_to_rln_final.zkey>
 ```
+
+## FFI Interface
+
+RLN provides C-compatible bindings for integration with C, C++, Nim, and other languages through [safer_ffi](https://getditto.github.io/safer_ffi/).
+
+The FFI layer is organized into several modules:
+
+- [`ffi_rln.rs`](./src/ffi/ffi_rln.rs) – Implements core RLN functionality, including initialization functions, proof generation, and proof verification.
+- [`ffi_tree.rs`](./src/ffi/ffi_tree.rs) – Provides all tree-related operations and helper functions for Merkle tree management.
+- [`ffi_utils.rs`](./src/ffi/ffi_utils.rs) – Contains all utility functions and structure definitions used across the FFI layer.
+
+### Examples
+
+Working examples demonstrating proof generation, proof verification and slashing in C and Nim:
+
+- [C example](./ffi_c_examples/main.c) and [README](./ffi_c_examples/Readme.md)
+- [Nim example](./ffi_nim_examples/main.nim) and [README](./ffi_nim_examples/Readme.md)
+
+### Memory Management
+
+All heap-allocated objects must be explicitly freed using their corresponding `_free` functions to prevent memory leaks.
 
 ## Get involved
 

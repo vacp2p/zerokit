@@ -1,6 +1,6 @@
 // Tests adapted from https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/merkle_tree.rs
 #[cfg(test)]
-pub mod test {
+mod test {
     use hex_literal::hex;
     use std::{fmt::Display, str::FromStr};
     use tiny_keccak::{Hasher as _, Keccak};

@@ -1,5 +1,5 @@
 use crate::circuit::{zkey_from_raw, Curve, Fr};
-use crate::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
+use crate::hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash as utils_poseidon_hash};
 use crate::protocol::{
     compute_id_secret, deserialize_proof_values, deserialize_witness, extended_keygen,
     extended_seeded_keygen, keygen, proof_values_from_witness, rln_witness_to_bigint_json,
@@ -789,7 +789,7 @@ impl RLN {
     ///
     /// Input values are:
     /// - `input_data`: a reader for the serialization of the RLN zkSNARK proof concatenated with a serialization of the circuit output values,
-    ///   i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]`, where <_> indicates the byte length.
+    ///   i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]`, where <_> indicates the byte length.
     ///
     /// The function returns true if the zkSNARK proof is valid with respect to the provided circuit output values, false otherwise.
     ///
@@ -842,7 +842,7 @@ impl RLN {
     /// - `input_data`: a reader for the serialization of `[ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]`
     ///
     /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the zkSNARK proof and the circuit evaluations outputs, i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]`
+    /// - `output_data`: a writer receiving the serialization of the zkSNARK proof and the circuit evaluations outputs, i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]`
     ///
     /// Example
     /// ```
@@ -884,7 +884,7 @@ impl RLN {
     /// rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
     ///     .unwrap();
     ///
-    /// // proof_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
+    /// // proof_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
     /// let mut proof_data = output_buffer.into_inner();
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
@@ -911,7 +911,7 @@ impl RLN {
 
     /// Generate RLN Proof using a witness calculated from outside zerokit
     ///
-    /// output_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
+    /// output_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
     #[cfg(not(target_arch = "wasm32"))]
     pub fn generate_rln_proof_with_witness<R: Read, W: Write>(
         &mut self,
@@ -934,7 +934,7 @@ impl RLN {
 
     /// Generate RLN Proof using a witness calculated from outside zerokit
     ///
-    /// output_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]
+    /// output_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
     #[cfg(target_arch = "wasm32")]
     pub fn generate_rln_proof_with_witness<W: Write>(
         &mut self,
@@ -958,7 +958,7 @@ impl RLN {
     ///
     /// Input values are:
     /// - `input_data`: a reader for the serialization of the RLN zkSNARK proof concatenated with a serialization of the circuit output values and the signal information,
-    ///   i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var>]`, where <_> indicates the byte length.
+    ///   i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]`, where <_> indicates the byte length.
     ///
     /// The function returns true if the zkSNARK proof is valid with respect to the provided circuit output values and signal. Returns false otherwise.
     ///
@@ -972,7 +972,7 @@ impl RLN {
     /// // proof_data is computed as in the example code snippet provided for rln::public::RLN::generate_rln_proof
     ///
     /// // We prepare input for verify_rln_proof API
-    /// // input_data is  `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var>]`
+    /// // input_data is  `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]`
     /// // that is [ proof_data || signal_len<8> | signal<var> ]
     /// let verify_input = prepare_verify_input(proof_data, &signal);
     ///
@@ -1012,7 +1012,7 @@ impl RLN {
     /// Verifies a zkSNARK RLN proof against the provided proof values and a set of allowed Merkle tree roots.
     ///
     /// Input values are:
-    /// - `input_data`: a reader for the serialization of the RLN zkSNARK proof concatenated with a serialization of the circuit output values and the signal information, i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var>]`
+    /// - `input_data`: a reader for the serialization of the RLN zkSNARK proof concatenated with a serialization of the circuit output values and the signal information, i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]`
     /// - `roots_data`: a reader for the serialization of a vector of roots, i.e. `[ number_of_roots<8> | root_1<32> | ... | root_n<32> ]` (number_of_roots is an uint64 in little-endian, roots are serialized using `rln::utils::fr_to_bytes_le`)
     ///
     /// The function returns true if the zkSNARK proof is valid with respect to the provided circuit output values, signal and roots. Returns false otherwise.
@@ -1133,7 +1133,7 @@ impl RLN {
     ///
     /// Input values are:
     /// - `input_proof_data_1`: a reader for the serialization of a RLN zkSNARK proof concatenated with a serialization of the circuit output values and -optionally- the signal information,
-    ///   i.e. either `[proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32>]`
+    ///   i.e. either `[proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]`
     ///   or `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]` (to maintain compatibility with both output of [`generate_rln_proof`](crate::public::RLN::generate_rln_proof) and input of [`verify_rln_proof`](crate::public::RLN::verify_rln_proof))
     /// - `input_proof_data_2`: same as `input_proof_data_1`
     ///
@@ -1311,7 +1311,7 @@ pub fn hash<R: Read, W: Write>(
         let hash = hash_to_field_le(&serialized);
         output_data.write_all(&fr_to_bytes_le(&hash))?;
     } else {
-        let hash = hash_to_field_le(&serialized);
+        let hash = hash_to_field_be(&serialized);
         output_data.write_all(&fr_to_bytes_be(&hash))?;
     }
 

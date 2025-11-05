@@ -476,7 +476,7 @@ impl ZerokitMerkleProof for PmTreeProof {
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::*;
 
     #[test]
