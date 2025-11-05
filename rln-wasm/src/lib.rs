@@ -1,10 +1,11 @@
 #![cfg(target_arch = "wasm32")]
 
+use ark_bn254::Fr;
 use ark_groth16::{Proof as ArkProof, ProvingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use js_sys::Uint8Array;
 use rln::{
-    circuit::{zkey_from_raw, Curve, Fr},
+    circuit::{zkey_from_raw, Curve},
     protocol::{
         compute_id_secret, generate_proof, proof_values_from_witness, verify_proof, RLNProofValues,
         RLNWitnessInput,
@@ -57,21 +58,21 @@ impl WasmRLN {
         x: &WasmFr,
         external_nullifier: &WasmFr,
     ) -> Result<WasmRLNProof, String> {
-        let mut identity_secret_fr = identity_secret.0;
+        let mut identity_secret_fr = **identity_secret;
         let path_elements_fr: Vec<Fr> = (0..path_elements.length())
             .filter_map(|i| path_elements.get(i))
-            .map(|w| Fr::from(w.0))
+            .map(|w| *w)
             .collect();
-        let identity_path_index_vec = identity_path_index.to_vec();
+        let identity_path_index = identity_path_index.to_vec();
 
         let rln_witness = RLNWitnessInput::new(
             IdSecret::from(&mut identity_secret_fr),
-            user_message_limit.0,
-            message_id.0,
+            **user_message_limit,
+            **message_id,
             path_elements_fr,
-            &identity_path_index_vec,
-            x.0,
-            external_nullifier.0,
+            identity_path_index,
+            **x,
+            **external_nullifier,
         )
         .map_err(|err| err.to_string())?;
 
@@ -85,16 +86,6 @@ impl WasmRLN {
             proof,
             proof_values,
         })
-    }
-
-    #[wasm_bindgen(js_name = verifyProof)]
-    pub fn verify_proof(
-        &self,
-        proof: &WasmRLNProof,
-        root: &WasmFr,
-        x: &WasmFr,
-    ) -> Result<bool, String> {
-        self.verify_with_roots(proof, &VecWasmFr::from_single(*root), x)
     }
 
     #[wasm_bindgen(js_name = verifyWithRoots)]
@@ -117,10 +108,10 @@ impl WasmRLN {
         } else {
             (0..roots.length())
                 .filter_map(|i| roots.get(i))
-                .any(|root| root.0 == proof.proof_values.root)
+                .any(|root| *root == proof.proof_values.root)
         };
 
-        let signal_verified = x.0 == proof.proof_values.x;
+        let signal_verified = **x == proof.proof_values.x;
 
         Ok(proof_verified && roots_verified && signal_verified)
     }

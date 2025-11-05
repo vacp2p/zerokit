@@ -223,7 +223,7 @@ mod test {
         let expected_hash = poseidon_hash(&[input_1, input_2]);
         let wasmfr_1 = WasmFr::new(42);
         let wasmfr_2 = WasmFr::new(99);
-        let received_hash = Hasher::poseidon(&wasmfr_1, &wasmfr_2);
+        let received_hash = Hasher::poseidon_hash_pair(&wasmfr_1, &wasmfr_2);
 
         assert_eq!(*received_hash, expected_hash);
     }

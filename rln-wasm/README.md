@@ -109,7 +109,15 @@ To enable parallel computation for WebAssembly threads, you can use the followin
 cargo make build_parallel
 ```
 
-### WebAssembly Threading Support
+### Running parallel tests and benchmarks
+
+If you want to run the parallel tests in browser headless mode, you can use the following command:
+
+```bash
+cargo make test_parallel
+```
+
+### WebAssembly Threads Support
 
 Most modern browsers support WebAssembly threads,
 but they require the following headers to enable `SharedArrayBuffer`, which is necessary for multithreading:
@@ -122,7 +130,7 @@ Without these, the application will fall back to single-threaded mode.
 ## Feature detection
 
 If you're targeting [older browser versions that didn't support WebAssembly threads yet](https://webassembly.org/roadmap/),
-you'll likely want to create two builds - one with thread support and one without -
+you'll likely want to create two builds - one with threads support and one without -
 and use feature detection to choose the right one on the JavaScript side.
 
 You can use [wasm-feature-detect](https://github.com/GoogleChromeLabs/wasm-feature-detect) library for this purpose.

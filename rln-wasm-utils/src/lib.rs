@@ -19,9 +19,11 @@ pub fn init_panic_hook() {
     console_error_panic_hook::set_once();
 }
 
+// WasmFr
+
 #[wasm_bindgen]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct WasmFr(Fr);
+pub struct WasmFr(pub(crate) Fr);
 
 impl From<Fr> for WasmFr {
     fn from(fr: Fr) -> Self {
@@ -85,6 +87,8 @@ impl WasmFr {
     }
 }
 
+// VecWasmFr
+
 #[wasm_bindgen]
 pub struct VecWasmFr {
     elements: Vec<Fr>,
@@ -141,14 +145,9 @@ impl VecWasmFr {
     pub fn push(&mut self, element: &WasmFr) {
         self.elements.push(element.0);
     }
-
-    #[wasm_bindgen(js_name = toArray)]
-    pub fn to_array(&self) -> VecWasmFr {
-        VecWasmFr {
-            elements: self.elements.clone(),
-        }
-    }
 }
+
+// Utility APIs
 
 #[wasm_bindgen]
 pub struct Hasher;
@@ -165,8 +164,8 @@ impl Hasher {
         WasmFr(hash_to_field_be(&input.to_vec()))
     }
 
-    #[wasm_bindgen(js_name = poseidon)]
-    pub fn poseidon(a: &WasmFr, b: &WasmFr) -> WasmFr {
+    #[wasm_bindgen(js_name = poseidonHashPair)]
+    pub fn poseidon_hash_pair(a: &WasmFr, b: &WasmFr) -> WasmFr {
         WasmFr(poseidon_hash(&[a.0, b.0]))
     }
 }
