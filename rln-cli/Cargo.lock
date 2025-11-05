@@ -1172,7 +1172,6 @@ dependencies = [
  "ark-std",
  "byteorder",
  "cfg-if",
- "lazy_static",
  "num-bigint",
  "num-traits",
  "once_cell",
@@ -1875,7 +1874,6 @@ version = "0.7.0"
 dependencies = [
  "ark-ff",
  "hex",
- "lazy_static",
  "num-bigint",
  "rayon",
  "serde_json",

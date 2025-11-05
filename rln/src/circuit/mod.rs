@@ -4,13 +4,13 @@ pub mod error;
 pub mod iden3calc;
 pub mod qap;
 
-use ::lazy_static::lazy_static;
 use ark_bn254::{
     Bn254, Fq as ArkFq, Fq2 as ArkFq2, Fr as ArkFr, G1Affine as ArkG1Affine,
     G1Projective as ArkG1Projective, G2Affine as ArkG2Affine, G2Projective as ArkG2Projective,
 };
 use ark_groth16::ProvingKey;
 use ark_relations::r1cs::ConstraintMatrices;
+use std::sync::LazyLock;
 
 use crate::circuit::error::ZKeyReadError;
 use crate::circuit::iden3calc::calc_witness;
@@ -24,10 +24,9 @@ pub const ARKZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/r
 #[cfg(not(target_arch = "wasm32"))]
 const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
 
-lazy_static! {
-    static ref ARKZKEY: (ProvingKey<Curve>, ConstraintMatrices<Fr>) =
-        read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES).expect("Failed to read arkzkey");
-}
+static ARKZKEY: LazyLock<(ProvingKey<Curve>, ConstraintMatrices<Fr>)> = LazyLock::new(|| {
+    read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES).expect("Failed to read arkzkey")
+});
 
 pub const TEST_TREE_DEPTH: usize = 20;
 

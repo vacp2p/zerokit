@@ -17,7 +17,6 @@ num-bigint = { version = "0.4.6", default-features = false }
 pmtree = { package = "vacp2p_pmtree", version = "2.0.3", optional = true }
 sled = "0.34.7"
 serde_json = "1.0.141"
-lazy_static = "1.5.0"
 hex = "0.4.3"
 rayon = "1.10.0"
 thiserror = "2.0"
