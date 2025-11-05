@@ -81,9 +81,9 @@ Verify: OK
 
 2) Generates identity keys and sets a `user_message_limit` and `message_id`.
 
-3) Hashes a signal and external nullifier (`ffi2_hash`).
+3) Hashes a signal and external nullifier (`ffi_hash`).
 
-4) Computes `rateCommitment = Poseidon(id_commitment, user_message_limit)` using `ffi2_poseidon_hash`.
+4) Computes `rateCommitment = Poseidon(id_commitment, user_message_limit)` using `ffi_poseidon_hash`.
 
 5) Builds a mock Merkle path for an empty depth-20 tree at index 0 (no exported tree APIs):
 
@@ -92,7 +92,7 @@ Verify: OK
    - Path indices: all zeros (left at every level)
    - Root: folds the path upwards with `rateCommitment` at index 0
 
-6) Builds the witness, generates the proof, and verifies it with `ffi2_verify_with_roots`,
+6) Builds the witness, generates the proof, and verifies it with `ffi_verify_with_roots`,
    passing a one-element roots vector containing the computed root (length must be 1).
 
 ## What the example does (non-stateless mode)
@@ -101,6 +101,6 @@ Verify: OK
 
 2) Generates identity keys and computes `rateCommitment = Poseidon(id_commitment, user_message_limit)`.
 
-3) Inserts the leaf with `ffi2_set_next_leaf` and fetches a real Merkle path for index 0 via `ffi2_get_proof`.
+3) Inserts the leaf with `ffi_set_next_leaf` and fetches a real Merkle path for index 0 via `ffi_get_proof`.
 
-4) Builds the witness from the exported proof, generates the proof, and verifies with `ffi2_verify_rln_proof` using the current tree root.
+4) Builds the witness from the exported proof, generates the proof, and verifies with `ffi_verify_rln_proof` using the current tree root.

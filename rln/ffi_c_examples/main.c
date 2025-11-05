@@ -9,22 +9,22 @@ int main (int argc, char const * const argv[])
     printf("Creating RLN instance\n");
 
 #ifdef STATELESS
-    CResult_FFI2_RLN_ptr_Vec_uint8_t ffi2_new_result = ffi2_new();
+    CResult_FFI_RLN_ptr_Vec_uint8_t ffi_new_result = ffi_new();
 #else
     const char* config_path = "../resources/tree_depth_20/config.json";
-    CResult_FFI2_RLN_ptr_Vec_uint8_t ffi2_new_result = ffi2_new(20, config_path);
+    CResult_FFI_RLN_ptr_Vec_uint8_t ffi_new_result = ffi_new(20, config_path);
 #endif
 
-    if (!ffi2_new_result.ok) {
-        fprintf(stderr, "%s", ffi2_new_result.err.ptr);
+    if (!ffi_new_result.ok) {
+        fprintf(stderr, "%s", ffi_new_result.err.ptr);
         return EXIT_FAILURE;
     }
 
-    FFI2_RLN_t* rln = ffi2_new_result.ok;
+    FFI_RLN_t* rln = ffi_new_result.ok;
     printf("RLN instance created successfully\n");
 
     printf("\nGenerating identity keys\n");
-    Vec_CFr_t keys = ffi2_key_gen();
+    Vec_CFr_t keys = ffi_key_gen();
     CFr_t* identity_secret = (CFr_t*)vec_cfr_get(&keys, 0);
     CFr_t* id_commitment = (CFr_t*)vec_cfr_get(&keys, 1);
     printf("Identity generated\n");
@@ -45,7 +45,7 @@ int main (int argc, char const * const argv[])
     vec_u8_free(debug);
 
     printf("\nComputing rate commitment\n");
-    CFr_t* rate_commitment = ffi2_poseidon_hash_pair(id_commitment, user_message_limit);
+    CFr_t* rate_commitment = ffi_poseidon_hash_pair(id_commitment, user_message_limit);
 
     debug = cfr_debug(rate_commitment);
     printf("  - rate_commitment = %s\n", debug.ptr);
@@ -95,9 +95,9 @@ int main (int argc, char const * const argv[])
     CFr_t* default_leaf = cfr_zero();
 
     CFr_t* default_hashes[TREE_DEPTH - 1];
-    default_hashes[0] = ffi2_poseidon_hash_pair(default_leaf, default_leaf);
+    default_hashes[0] = ffi_poseidon_hash_pair(default_leaf, default_leaf);
     for (size_t i = 1; i < TREE_DEPTH - 1; i++) {
-        default_hashes[i] = ffi2_poseidon_hash_pair(default_hashes[i-1], default_hashes[i-1]);
+        default_hashes[i] = ffi_poseidon_hash_pair(default_hashes[i-1], default_hashes[i-1]);
     }
 
     void* path_elements_buffer = malloc(CFR_SIZE * TREE_DEPTH);
@@ -160,9 +160,9 @@ int main (int argc, char const * const argv[])
 
     printf("\nComputing Merkle root for stateless mode\n");
     printf("  - computing root for index 0 with rate_commitment\n");
-    CFr_t* computed_root = ffi2_poseidon_hash_pair(rate_commitment, default_leaf);
+    CFr_t* computed_root = ffi_poseidon_hash_pair(rate_commitment, default_leaf);
     for (size_t i = 1; i < TREE_DEPTH; i++) {
-        CFr_t* next_root = ffi2_poseidon_hash_pair(computed_root, default_hashes[i-1]);
+        CFr_t* next_root = ffi_poseidon_hash_pair(computed_root, default_hashes[i-1]);
         cfr_free(computed_root);
         computed_root = next_root;
     }
@@ -172,29 +172,29 @@ int main (int argc, char const * const argv[])
     vec_u8_free(debug);
 #else
     printf("\nAdding rate_commitment to tree\n");
-    CResult_bool_ptr_Vec_uint8_t set_result = ffi2_set_next_leaf(&rln, &rate_commitment);
+    CResult_bool_ptr_Vec_uint8_t set_result = ffi_set_next_leaf(&rln, &rate_commitment);
     if (!set_result.ok) {
         fprintf(stderr, "%s", set_result.err.ptr);
         return EXIT_FAILURE;
     }
 
-    size_t leaf_index = ffi2_leaves_set(&rln) - 1;
+    size_t leaf_index = ffi_leaves_set(&rln) - 1;
     printf("  - added to tree at index %zu\n", leaf_index);
 
     printf("\nGetting Merkle proof\n");
-    CResult_FFI2_MerkleProof_ptr_Vec_uint8_t proof_result = ffi2_get_proof(&rln, leaf_index);
+    CResult_FFI_MerkleProof_ptr_Vec_uint8_t proof_result = ffi_get_proof(&rln, leaf_index);
     if (!proof_result.ok) {
         fprintf(stderr, "%s", proof_result.err.ptr);
         return EXIT_FAILURE;
     }
-    FFI2_MerkleProof_t* merkle_proof = proof_result.ok;
+    FFI_MerkleProof_t* merkle_proof = proof_result.ok;
     printf("  - proof obtained (depth: %zu)\n", merkle_proof->path_elements.len);
 #endif
 
     printf("\nHashing signal\n");
     uint8_t signal[32] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     Vec_uint8_t signal_vec = {signal, 32, 32};
-    CFr_t* x = ffi2_hash_to_field_le(&signal_vec);
+    CFr_t* x = ffi_hash_to_field_le(&signal_vec);
 
     debug = cfr_debug(x);
     printf("  - x = %s\n", debug.ptr);
@@ -203,7 +203,7 @@ int main (int argc, char const * const argv[])
     printf("\nHashing epoch\n");
     const char* epoch_str = "test-epoch";
     Vec_uint8_t epoch_vec = {(uint8_t*)epoch_str, strlen(epoch_str), strlen(epoch_str)};
-    CFr_t* epoch = ffi2_hash_to_field_le(&epoch_vec);
+    CFr_t* epoch = ffi_hash_to_field_le(&epoch_vec);
 
     debug = cfr_debug(epoch);
     printf("  - epoch = %s\n", debug.ptr);
@@ -212,14 +212,14 @@ int main (int argc, char const * const argv[])
     printf("\nHashing RLN identifier\n");
     const char* rln_id_str = "test-rln-identifier";
     Vec_uint8_t rln_id_vec = {(uint8_t*)rln_id_str, strlen(rln_id_str), strlen(rln_id_str)};
-    CFr_t* rln_identifier = ffi2_hash_to_field_le(&rln_id_vec);
+    CFr_t* rln_identifier = ffi_hash_to_field_le(&rln_id_vec);
 
     debug = cfr_debug(rln_identifier);
     printf("  - rln_identifier = %s\n", debug.ptr);
     vec_u8_free(debug);
 
     printf("\nComputing Poseidon hash for external nullifier\n");
-    CFr_t* external_nullifier = ffi2_poseidon_hash_pair(epoch, rln_identifier);
+    CFr_t* external_nullifier = ffi_poseidon_hash_pair(epoch, rln_identifier);
 
     debug = cfr_debug(external_nullifier);
     printf("  - external_nullifier = %s\n", debug.ptr);
@@ -234,7 +234,7 @@ int main (int argc, char const * const argv[])
 
     printf("\nGenerating RLN Proof\n");
 #ifdef STATELESS
-    CResult_FFI2_RLNProof_ptr_Vec_uint8_t proof_gen_result = ffi2_generate_rln_proof_stateless(
+    CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result = ffi_generate_rln_proof_stateless(
         &rln,
         identity_secret,
         user_message_limit,
@@ -245,7 +245,7 @@ int main (int argc, char const * const argv[])
         external_nullifier
     );
 #else
-    CResult_FFI2_RLNProof_ptr_Vec_uint8_t proof_gen_result = ffi2_generate_rln_proof(
+    CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result = ffi_generate_rln_proof(
         &rln,
         identity_secret,
         user_message_limit,
@@ -255,7 +255,7 @@ int main (int argc, char const * const argv[])
         leaf_index
     );
 #endif
-    FFI2_RLNProof_t* rln_proof = NULL;
+    FFI_RLNProof_t* rln_proof = NULL;
 
     if (!proof_gen_result.ok) {
         fprintf(stderr, "Proof generation failed: %s\n", proof_gen_result.err.ptr);
@@ -271,9 +271,9 @@ int main (int argc, char const * const argv[])
             .len = 1,
             .cap = 1
         };
-        CResult_bool_ptr_Vec_uint8_t verify_result = ffi2_verify_with_roots(&rln, &rln_proof, &roots, x);
+        CResult_bool_ptr_Vec_uint8_t verify_result = ffi_verify_with_roots(&rln, &rln_proof, &roots, x);
 #else
-        CResult_bool_ptr_Vec_uint8_t verify_result = ffi2_verify_rln_proof(&rln, &rln_proof, x);
+        CResult_bool_ptr_Vec_uint8_t verify_result = ffi_verify_rln_proof(&rln, &rln_proof, x);
 #endif
         if (!verify_result.ok) {
             fprintf(stderr, "Proof verification error: %s\n", verify_result.err.ptr);
@@ -290,7 +290,7 @@ int main (int argc, char const * const argv[])
         printf("\nHashing second signal\n");
         uint8_t signal2[32] = {11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
         Vec_uint8_t signal2_vec = {signal2, 32, 32};
-        CFr_t* x2 = ffi2_hash_to_field_le(&signal2_vec);
+        CFr_t* x2 = ffi_hash_to_field_le(&signal2_vec);
 
         debug = cfr_debug(x2);
         printf("  - x2 = %s\n", debug.ptr);
@@ -305,7 +305,7 @@ int main (int argc, char const * const argv[])
 
         printf("\nGenerating second RLN Proof\n");
 #ifdef STATELESS
-        CResult_FFI2_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi2_generate_rln_proof_stateless(
+        CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi_generate_rln_proof_stateless(
             &rln,
             identity_secret,
             user_message_limit,
@@ -316,7 +316,7 @@ int main (int argc, char const * const argv[])
             external_nullifier
         );
 #else
-        CResult_FFI2_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi2_generate_rln_proof(
+        CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi_generate_rln_proof(
             &rln,
             identity_secret,
             user_message_limit,
@@ -326,7 +326,7 @@ int main (int argc, char const * const argv[])
             leaf_index
         );
 #endif
-        FFI2_RLNProof_t* rln_proof2 = NULL;
+        FFI_RLNProof_t* rln_proof2 = NULL;
 
         if (!proof_gen_result2.ok) {
             fprintf(stderr, "Second proof generation failed: %s\n", proof_gen_result2.err.ptr);
@@ -337,9 +337,9 @@ int main (int argc, char const * const argv[])
 
             printf("\nVerifying second proof\n");
 #ifdef STATELESS
-            CResult_bool_ptr_Vec_uint8_t verify_result2 = ffi2_verify_with_roots(&rln, &rln_proof2, &roots, x2);
+            CResult_bool_ptr_Vec_uint8_t verify_result2 = ffi_verify_with_roots(&rln, &rln_proof2, &roots, x2);
 #else
-            CResult_bool_ptr_Vec_uint8_t verify_result2 = ffi2_verify_rln_proof(&rln, &rln_proof2, x2);
+            CResult_bool_ptr_Vec_uint8_t verify_result2 = ffi_verify_rln_proof(&rln, &rln_proof2, x2);
 #endif
             if (!verify_result2.ok) {
                 fprintf(stderr, "Second proof verification error: %s\n", verify_result2.err.ptr);
@@ -348,7 +348,7 @@ int main (int argc, char const * const argv[])
                 printf("Second proof verified successfully\n");
 
                 printf("\nRecovering identity secret\n");
-                CResult_CFr_ptr_Vec_uint8_t recover_result = ffi2_recover_id_secret(&rln_proof, &rln_proof2);
+                CResult_CFr_ptr_Vec_uint8_t recover_result = ffi_recover_id_secret(&rln_proof, &rln_proof2);
                 if (!recover_result.ok) {
                     fprintf(stderr, "Identity recovery error: %s\n", recover_result.err.ptr);
                     return EXIT_FAILURE;
@@ -374,14 +374,14 @@ int main (int argc, char const * const argv[])
         }
 
         if (rln_proof2) {
-            ffi2_rln_proof_free(rln_proof2);
+            ffi_rln_proof_free(rln_proof2);
         }
         cfr_free(x2);
         cfr_free(message_id2);
     }
 
     if (rln_proof) {
-        ffi2_rln_proof_free(rln_proof);
+        ffi_rln_proof_free(rln_proof);
     }
 
 #ifdef STATELESS
@@ -393,7 +393,7 @@ int main (int argc, char const * const argv[])
     cfr_free(default_leaf);
     cfr_free(computed_root);
 #else
-    ffi2_merkle_proof_free(merkle_proof);
+    ffi_merkle_proof_free(merkle_proof);
 #endif
 
     cfr_free(rate_commitment);
@@ -404,6 +404,6 @@ int main (int argc, char const * const argv[])
     cfr_free(user_message_limit);
     cfr_free(message_id);
     vec_cfr_free(keys);
-    ffi2_rln_free(rln);
+    ffi_rln_free(rln);
     return EXIT_SUCCESS;
 }

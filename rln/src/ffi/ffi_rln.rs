@@ -22,11 +22,11 @@ use {
     utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
 };
 
-// FFI2_RLN
+// FFI_RLN
 
 #[derive_ReprC]
 #[repr(opaque)]
-pub struct FFI2_RLN {
+pub struct FFI_RLN {
     pub(crate) proving_key: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) graph_data: Vec<u8>,
@@ -38,10 +38,10 @@ pub struct FFI2_RLN {
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_new(
+pub fn ffi_new(
     tree_depth: usize,
     config_path: char_p::Ref<'_>,
-) -> CResult<repr_c::Box<FFI2_RLN>, repr_c::String> {
+) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
     let tree_config = match File::open(config_path.to_str()).and_then(|mut file| {
         let mut config_str = String::new();
         file.read_to_string(&mut config_str)?;
@@ -79,7 +79,7 @@ pub fn ffi2_new(
         }
     };
 
-    let rln = FFI2_RLN {
+    let rln = FFI_RLN {
         proving_key: proving_key.to_owned(),
         graph_data: graph_data.to_vec(),
         #[cfg(not(feature = "stateless"))]
@@ -94,11 +94,11 @@ pub fn ffi2_new(
 
 #[cfg(feature = "stateless")]
 #[ffi_export]
-pub fn ffi2_new() -> CResult<repr_c::Box<FFI2_RLN>, repr_c::String> {
+pub fn ffi_new() -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
     let proving_key = zkey_from_folder().to_owned();
     let graph_data = graph_from_folder().to_owned();
 
-    let rln = FFI2_RLN {
+    let rln = FFI_RLN {
         proving_key: proving_key.to_owned(),
         graph_data: graph_data.to_vec(),
     };
@@ -111,12 +111,12 @@ pub fn ffi2_new() -> CResult<repr_c::Box<FFI2_RLN>, repr_c::String> {
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_new_with_params(
+pub fn ffi_new_with_params(
     tree_depth: usize,
     zkey_buffer: &repr_c::Vec<u8>,
     graph_data: &repr_c::Vec<u8>,
     config_path: char_p::Ref<'_>,
-) -> CResult<repr_c::Box<FFI2_RLN>, repr_c::String> {
+) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
     let tree_config = match File::open(config_path.to_str()).and_then(|mut file| {
         let mut config_str = String::new();
         file.read_to_string(&mut config_str)?;
@@ -161,7 +161,7 @@ pub fn ffi2_new_with_params(
         }
     };
 
-    let rln = FFI2_RLN {
+    let rln = FFI_RLN {
         proving_key,
         graph_data: graph_data.to_vec(),
         #[cfg(not(feature = "stateless"))]
@@ -176,10 +176,10 @@ pub fn ffi2_new_with_params(
 
 #[cfg(feature = "stateless")]
 #[ffi_export]
-pub fn ffi2_new_with_params(
+pub fn ffi_new_with_params(
     zkey_buffer: &repr_c::Vec<u8>,
     graph_data: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Box<FFI2_RLN>, repr_c::String> {
+) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
     let proving_key = match zkey_from_raw(zkey_buffer) {
         Ok(pk) => pk,
         Err(err) => {
@@ -190,7 +190,7 @@ pub fn ffi2_new_with_params(
         }
     };
 
-    let rln = FFI2_RLN {
+    let rln = FFI_RLN {
         proving_key,
         graph_data: graph_data.to_vec(),
     };
@@ -202,7 +202,7 @@ pub fn ffi2_new_with_params(
 }
 
 #[ffi_export]
-pub fn ffi2_rln_free(rln: Option<repr_c::Box<FFI2_RLN>>) {
+pub fn ffi_rln_free(rln: Option<repr_c::Box<FFI_RLN>>) {
     drop(rln);
 }
 
@@ -210,13 +210,13 @@ pub fn ffi2_rln_free(rln: Option<repr_c::Box<FFI2_RLN>>) {
 
 #[derive_ReprC]
 #[repr(opaque)]
-pub struct FFI2_RLNProof {
+pub struct FFI_RLNProof {
     pub(crate) proof: ArkProof<Curve>,
     pub(crate) proof_values: RLNProofValues,
 }
 
 #[ffi_export]
-pub fn ffi2_rln_proof_free(rln: Option<repr_c::Box<FFI2_RLNProof>>) {
+pub fn ffi_rln_proof_free(rln: Option<repr_c::Box<FFI_RLNProof>>) {
     drop(rln);
 }
 
@@ -224,15 +224,15 @@ pub fn ffi2_rln_proof_free(rln: Option<repr_c::Box<FFI2_RLNProof>>) {
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_generate_rln_proof(
-    rln: &repr_c::Box<FFI2_RLN>,
+pub fn ffi_generate_rln_proof(
+    rln: &repr_c::Box<FFI_RLN>,
     identity_secret: &CFr,
     user_message_limit: &CFr,
     message_id: &CFr,
     x: &CFr,
     external_nullifier: &CFr,
     leaf_index: usize,
-) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
+) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
     let proof = match rln.tree.proof(leaf_index) {
         Ok(proof) => proof,
         Err(err) => {
@@ -286,7 +286,7 @@ pub fn ffi2_generate_rln_proof(
     };
 
     CResult {
-        ok: Some(Box_::new(FFI2_RLNProof {
+        ok: Some(Box_::new(FFI_RLNProof {
             proof_values,
             proof,
         })),
@@ -296,8 +296,8 @@ pub fn ffi2_generate_rln_proof(
 
 #[cfg(feature = "stateless")]
 #[ffi_export]
-pub fn ffi2_generate_rln_proof_stateless(
-    rln: &repr_c::Box<FFI2_RLN>,
+pub fn ffi_generate_rln_proof_stateless(
+    rln: &repr_c::Box<FFI_RLN>,
     identity_secret: &CFr,
     user_message_limit: &CFr,
     message_id: &CFr,
@@ -305,7 +305,7 @@ pub fn ffi2_generate_rln_proof_stateless(
     identity_path_index: &repr_c::Vec<u8>,
     x: &CFr,
     external_nullifier: &CFr,
-) -> CResult<repr_c::Box<FFI2_RLNProof>, repr_c::String> {
+) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
     let mut identity_secret_fr = identity_secret.0;
     let path_elements: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
     let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
@@ -348,7 +348,7 @@ pub fn ffi2_generate_rln_proof_stateless(
     };
 
     CResult {
-        ok: Some(Box_::new(FFI2_RLNProof {
+        ok: Some(Box_::new(FFI_RLNProof {
             proof_values,
             proof,
         })),
@@ -360,9 +360,9 @@ pub fn ffi2_generate_rln_proof_stateless(
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_verify_rln_proof(
-    rln: &repr_c::Box<FFI2_RLN>,
-    proof: &repr_c::Box<FFI2_RLNProof>,
+pub fn ffi_verify_rln_proof(
+    rln: &repr_c::Box<FFI_RLN>,
+    proof: &repr_c::Box<FFI_RLNProof>,
     x: &CFr,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
     // Verify the proof
@@ -386,9 +386,9 @@ pub fn ffi2_verify_rln_proof(
 }
 
 #[ffi_export]
-pub fn ffi2_verify_with_roots(
-    rln: &repr_c::Box<FFI2_RLN>,
-    proof: &repr_c::Box<FFI2_RLNProof>,
+pub fn ffi_verify_with_roots(
+    rln: &repr_c::Box<FFI_RLN>,
+    proof: &repr_c::Box<FFI_RLNProof>,
     roots: &repr_c::Vec<CFr>,
     x: &CFr,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
@@ -435,9 +435,9 @@ pub fn ffi2_verify_with_roots(
 // Identity secret recovery API
 
 #[ffi_export]
-pub fn ffi2_recover_id_secret(
-    proof_1: &repr_c::Box<FFI2_RLNProof>,
-    proof_2: &repr_c::Box<FFI2_RLNProof>,
+pub fn ffi_recover_id_secret(
+    proof_1: &repr_c::Box<FFI_RLNProof>,
+    proof_2: &repr_c::Box<FFI_RLNProof>,
 ) -> CResult<repr_c::Box<CFr>, repr_c::String> {
     let external_nullifier_1 = proof_1.proof_values.external_nullifier;
     let external_nullifier_2 = proof_2.proof_values.external_nullifier;

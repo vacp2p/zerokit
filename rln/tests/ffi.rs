@@ -4,35 +4,54 @@ mod test {
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use rln::circuit::{Fr, TEST_TREE_DEPTH};
-    use rln::ffi::*;
+    use rln::ffi::{ffi_rln::*, ffi_tree::*, ffi_utils::*};
     use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
-    use rln::protocol::{deserialize_identity_tuple_le, *};
-    use rln::public::RLN;
+    use rln::protocol::*;
     use rln::utils::*;
+    use safer_ffi::boxed::Box_;
+    use safer_ffi::prelude::repr_c;
     use serde_json::json;
     use std::fs::File;
     use std::io::Read;
-    use std::mem::MaybeUninit;
-    use std::time::{Duration, Instant};
     use zeroize::Zeroize;
 
     const NO_OF_LEAVES: usize = 256;
 
-    fn create_rln_instance() -> &'static mut RLN {
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
+    fn create_rln_instance() -> repr_c::Box<FFI_RLN> {
         let input_config = json!({}).to_string();
-        let input_buffer = &Buffer::from(input_config.as_bytes());
-        let success = new(TEST_TREE_DEPTH, input_buffer, rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        unsafe { &mut *rln_pointer.assume_init() }
+        let c_str = std::ffi::CString::new(input_config).unwrap();
+        match ffi_new(TEST_TREE_DEPTH, c_str.as_c_str().into()) {
+            CResult {
+                ok: Some(rln),
+                err: None,
+            } => rln,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("RLN object creation failed: {}", err),
+            _ => unreachable!(),
+        }
     }
 
-    fn set_leaves_init(rln_pointer: &mut RLN, leaves: &[Fr]) {
-        let leaves_ser = vec_fr_to_bytes_le(leaves);
-        let input_buffer = &Buffer::from(leaves_ser.as_ref());
-        let success = init_tree_with_leaves(rln_pointer, input_buffer);
-        assert!(success, "init tree with leaves call failed");
-        assert_eq!(rln_pointer.leaves_set(), leaves.len());
+    fn set_leaves_init(ffi_rln_instance: &mut repr_c::Box<FFI_RLN>, leaves: &[Fr]) {
+        let leaves_vec: repr_c::Vec<CFr> = leaves
+            .iter()
+            .map(|fr| CFr::from(*fr))
+            .collect::<Vec<_>>()
+            .into();
+        match ffi_init_tree_with_leaves(ffi_rln_instance, &leaves_vec) {
+            CResult {
+                ok: Some(_),
+                err: None,
+            } => {
+                assert_eq!(ffi_leaves_set(ffi_rln_instance), leaves.len());
+            }
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("init tree with leaves call failed: {}", err),
+            _ => unreachable!(),
+        }
     }
 
     fn get_random_leaves() -> Vec<Fr> {
@@ -40,34 +59,47 @@ mod test {
         (0..NO_OF_LEAVES).map(|_| Fr::rand(&mut rng)).collect()
     }
 
-    fn get_tree_root(rln_pointer: &mut RLN) -> Fr {
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_root(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "get root call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (root, _) = bytes_le_to_fr(&result_data);
-        root
+    fn get_tree_root(ffi_rln_instance: &repr_c::Box<FFI_RLN>) -> Fr {
+        let root_cfr = ffi_get_root(ffi_rln_instance);
+        **root_cfr
     }
 
     fn identity_pair_gen() -> (IdSecret, Fr) {
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = key_gen(output_buffer.as_mut_ptr(), true);
-        assert!(success, "key gen call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret_hash, read) = IdSecret::from_bytes_le(&result_data);
-        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..]);
-        (identity_secret_hash, id_commitment)
+        let key_gen = ffi_key_gen();
+        let mut id_secret_fr = *key_gen[0];
+        let id_secret_hash = IdSecret::from(&mut id_secret_fr);
+        let id_commitment = *key_gen[1];
+        (id_secret_hash, id_commitment)
     }
 
-    fn rln_proof_gen(rln_pointer: &mut RLN, serialized: &[u8]) -> Vec<u8> {
-        let input_buffer = &Buffer::from(serialized);
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = generate_rln_proof(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
-        assert!(success, "generate rln proof call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        <&[u8]>::from(&output_buffer).to_vec()
+    fn rln_proof_gen(
+        ffi_rln_instance: &repr_c::Box<FFI_RLN>,
+        identity_secret: &CFr,
+        user_message_limit: &CFr,
+        message_id: &CFr,
+        x: &CFr,
+        external_nullifier: &CFr,
+        leaf_index: usize,
+    ) -> repr_c::Box<FFI_RLNProof> {
+        match ffi_generate_rln_proof(
+            ffi_rln_instance,
+            identity_secret,
+            user_message_limit,
+            message_id,
+            x,
+            external_nullifier,
+            leaf_index,
+        ) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("generate rln proof call failed: {}", err),
+            _ => unreachable!(),
+        }
     }
 
     #[test]
@@ -76,47 +108,79 @@ mod test {
         // We generate a vector of random leaves
         let leaves = get_random_leaves();
         // We create a RLN instance
-        let rln_pointer = create_rln_instance();
+        let mut ffi_rln_instance = create_rln_instance();
 
         // We first add leaves one by one specifying the index
         for (i, leaf) in leaves.iter().enumerate() {
             // We prepare the rate_commitment and we set the leaf at provided index
-            let leaf_ser = fr_to_bytes_le(leaf);
-            let input_buffer = &Buffer::from(leaf_ser.as_ref());
-            let success = set_leaf(rln_pointer, i, input_buffer);
-            assert!(success, "set leaf call failed");
+            match ffi_set_leaf(&mut ffi_rln_instance, i, &Box_::new(CFr::from(*leaf))) {
+                CResult {
+                    ok: Some(_),
+                    err: None,
+                } => {}
+                CResult {
+                    ok: None,
+                    err: Some(err),
+                } => panic!("set leaf call failed: {}", err),
+                _ => unreachable!(),
+            }
         }
 
         // We get the root of the tree obtained adding one leaf per time
-        let root_single = get_tree_root(rln_pointer);
+        let root_single = get_tree_root(&ffi_rln_instance);
 
         // We reset the tree to default
-        let success = set_tree(rln_pointer, TEST_TREE_DEPTH);
-        assert!(success, "set tree call failed");
+        match ffi_set_tree(&mut ffi_rln_instance, TEST_TREE_DEPTH) {
+            CResult {
+                ok: Some(_),
+                err: None,
+            } => {}
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("set tree call failed: {}", err),
+            _ => unreachable!(),
+        }
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
         for leaf in &leaves {
-            let leaf_ser = fr_to_bytes_le(leaf);
-            let input_buffer = &Buffer::from(leaf_ser.as_ref());
-            let success = set_next_leaf(rln_pointer, input_buffer);
-            assert!(success, "set next leaf call failed");
+            match ffi_set_next_leaf(&mut ffi_rln_instance, &Box_::new(CFr::from(*leaf))) {
+                CResult {
+                    ok: Some(_),
+                    err: None,
+                } => {}
+                CResult {
+                    ok: None,
+                    err: Some(err),
+                } => panic!("set next leaf call failed: {}", err),
+                _ => unreachable!(),
+            }
         }
 
         // We get the root of the tree obtained adding leaves using the internal index
-        let root_next = get_tree_root(rln_pointer);
+        let root_next = get_tree_root(&ffi_rln_instance);
 
         // We check if roots are the same
         assert_eq!(root_single, root_next);
 
         // We reset the tree to default
-        let success = set_tree(rln_pointer, TEST_TREE_DEPTH);
-        assert!(success, "set tree call failed");
+        match ffi_set_tree(&mut ffi_rln_instance, TEST_TREE_DEPTH) {
+            CResult {
+                ok: Some(_),
+                err: None,
+            } => {}
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("set tree call failed: {}", err),
+            _ => unreachable!(),
+        }
 
         // We add leaves in a batch into the tree
-        set_leaves_init(rln_pointer, &leaves);
+        set_leaves_init(&mut ffi_rln_instance, &leaves);
 
         // We get the root of the tree obtained adding leaves in batch
-        let root_batch = get_tree_root(rln_pointer);
+        let root_batch = get_tree_root(&ffi_rln_instance);
 
         // We check if roots are the same
         assert_eq!(root_single, root_batch);
@@ -124,19 +188,37 @@ mod test {
         // We now delete all leaves set and check if the root corresponds to the empty tree root
         // delete calls over indexes higher than no_of_leaves are ignored and will not increase self.tree.next_index
         for i in 0..NO_OF_LEAVES {
-            let success = delete_leaf(rln_pointer, i);
-            assert!(success, "delete leaf call failed");
+            match ffi_delete_leaf(&mut ffi_rln_instance, i) {
+                CResult {
+                    ok: Some(_),
+                    err: None,
+                } => {}
+                CResult {
+                    ok: None,
+                    err: Some(err),
+                } => panic!("delete leaf call failed: {}", err),
+                _ => unreachable!(),
+            }
         }
 
         // We get the root of the tree obtained deleting all leaves
-        let root_delete = get_tree_root(rln_pointer);
+        let root_delete = get_tree_root(&ffi_rln_instance);
 
         // We reset the tree to default
-        let success = set_tree(rln_pointer, TEST_TREE_DEPTH);
-        assert!(success, "set tree call failed");
+        match ffi_set_tree(&mut ffi_rln_instance, TEST_TREE_DEPTH) {
+            CResult {
+                ok: Some(_),
+                err: None,
+            } => {}
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("set tree call failed: {}", err),
+            _ => unreachable!(),
+        }
 
         // We get the root of the empty tree
-        let root_empty = get_tree_root(rln_pointer);
+        let root_empty = get_tree_root(&ffi_rln_instance);
 
         // We check if roots are the same
         assert_eq!(root_delete, root_empty);
@@ -147,8 +229,8 @@ mod test {
     // Uses `set_leaves_from` to set leaves in a batch
     fn test_leaf_setting_with_index_ffi() {
         // We create a RLN instance
-        let rln_pointer = create_rln_instance();
-        assert_eq!(rln_pointer.leaves_set(), 0);
+        let mut ffi_rln_instance = create_rln_instance();
+        assert_eq!(ffi_leaves_set(&ffi_rln_instance), 0);
 
         // We generate a vector of random leaves
         let leaves = get_random_leaves();
@@ -160,43 +242,71 @@ mod test {
         println!("set_index: {set_index}");
 
         // We add leaves in a batch into the tree
-        set_leaves_init(rln_pointer, &leaves);
+        set_leaves_init(&mut ffi_rln_instance, &leaves);
 
         // We get the root of the tree obtained adding leaves in batch
-        let root_batch_with_init = get_tree_root(rln_pointer);
+        let root_batch_with_init = get_tree_root(&ffi_rln_instance);
 
         // `init_tree_with_leaves` resets the tree to the depth it was initialized with, using `set_tree`
 
         // We add leaves in a batch starting from index 0..set_index
-        set_leaves_init(rln_pointer, &leaves[0..set_index]);
+        set_leaves_init(&mut ffi_rln_instance, &leaves[0..set_index]);
 
         // We add the remaining n leaves in a batch starting from index set_index
-        let leaves_n = vec_fr_to_bytes_le(&leaves[set_index..]);
-        let buffer = &Buffer::from(leaves_n.as_ref());
-        let success = set_leaves_from(rln_pointer, set_index, buffer);
-        assert!(success, "set leaves from call failed");
+        let leaves_vec: repr_c::Vec<CFr> = leaves[set_index..]
+            .iter()
+            .map(|fr| CFr::from(*fr))
+            .collect::<Vec<_>>()
+            .into();
+        match ffi_set_leaves_from(&mut ffi_rln_instance, set_index, &leaves_vec) {
+            CResult {
+                ok: Some(_),
+                err: None,
+            } => {}
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("set leaves from call failed: {}", err),
+            _ => unreachable!(),
+        }
 
         // We get the root of the tree obtained adding leaves in batch
-        let root_batch_with_custom_index = get_tree_root(rln_pointer);
+        let root_batch_with_custom_index = get_tree_root(&ffi_rln_instance);
         assert_eq!(
             root_batch_with_init, root_batch_with_custom_index,
             "root batch !="
         );
 
         // We reset the tree to default
-        let success = set_tree(rln_pointer, TEST_TREE_DEPTH);
-        assert!(success, "set tree call failed");
+        match ffi_set_tree(&mut ffi_rln_instance, TEST_TREE_DEPTH) {
+            CResult {
+                ok: Some(_),
+                err: None,
+            } => {}
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("set tree call failed: {}", err),
+            _ => unreachable!(),
+        }
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
         for leaf in &leaves {
-            let leaf_ser = fr_to_bytes_le(leaf);
-            let input_buffer = &Buffer::from(leaf_ser.as_ref());
-            let success = set_next_leaf(rln_pointer, input_buffer);
-            assert!(success, "set next leaf call failed");
+            match ffi_set_next_leaf(&mut ffi_rln_instance, &Box_::new(CFr::from(*leaf))) {
+                CResult {
+                    ok: Some(_),
+                    err: None,
+                } => {}
+                CResult {
+                    ok: None,
+                    err: Some(err),
+                } => panic!("set next leaf call failed: {}", err),
+                _ => unreachable!(),
+            }
         }
 
         // We get the root of the tree obtained adding leaves using the internal index
-        let root_single_additions = get_tree_root(rln_pointer);
+        let root_single_additions = get_tree_root(&ffi_rln_instance);
         assert_eq!(
             root_batch_with_init, root_single_additions,
             "root single additions !="
@@ -209,28 +319,38 @@ mod test {
         // We generate a vector of random leaves
         let leaves = get_random_leaves();
         // We create a RLN instance
-        let rln_pointer = create_rln_instance();
+        let mut ffi_rln_instance = create_rln_instance();
 
         // We add leaves in a batch into the tree
-        set_leaves_init(rln_pointer, &leaves);
+        set_leaves_init(&mut ffi_rln_instance, &leaves);
 
         // We get the root of the tree obtained adding leaves in batch
-        let root_after_insertion = get_tree_root(rln_pointer);
+        let root_after_insertion = get_tree_root(&ffi_rln_instance);
 
         let last_leaf = leaves.last().unwrap();
         let last_leaf_index = NO_OF_LEAVES - 1;
-        let indices = vec![last_leaf_index as u8];
-        let last_leaf = vec![*last_leaf];
-        let indices = vec_u8_to_bytes_le(&indices);
-        let indices_buffer = &Buffer::from(indices.as_ref());
-        let leaves = vec_fr_to_bytes_le(&last_leaf);
-        let leaves_buffer = &Buffer::from(leaves.as_ref());
+        let indices: repr_c::Vec<usize> = vec![last_leaf_index].into();
+        let last_leaf_vec: repr_c::Vec<CFr> = vec![CFr::from(*last_leaf)].into();
 
-        let success = atomic_operation(rln_pointer, last_leaf_index, leaves_buffer, indices_buffer);
-        assert!(success, "atomic operation call failed");
+        match ffi_atomic_operation(
+            &mut ffi_rln_instance,
+            last_leaf_index,
+            &last_leaf_vec,
+            &indices,
+        ) {
+            CResult {
+                ok: Some(_),
+                err: None,
+            } => {}
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("atomic operation call failed: {}", err),
+            _ => unreachable!(),
+        }
 
         // We get the root of the tree obtained after a no-op
-        let root_after_noop = get_tree_root(rln_pointer);
+        let root_after_noop = get_tree_root(&ffi_rln_instance);
         assert_eq!(root_after_insertion, root_after_noop);
     }
 
@@ -240,22 +360,30 @@ mod test {
         // We generate a vector of random leaves
         let leaves = get_random_leaves();
         // We create a RLN instance
-        let rln_pointer = create_rln_instance();
+        let mut ffi_rln_instance = create_rln_instance();
 
         let mut rng = thread_rng();
         let bad_index = (1 << TEST_TREE_DEPTH) - rng.gen_range(0..NO_OF_LEAVES) as usize;
 
         // Get root of empty tree
-        let root_empty = get_tree_root(rln_pointer);
+        let root_empty = get_tree_root(&ffi_rln_instance);
 
         // We add leaves in a batch into the tree
-        let leaves = vec_fr_to_bytes_le(&leaves);
-        let buffer = &Buffer::from(leaves.as_ref());
-        let success = set_leaves_from(rln_pointer, bad_index, buffer);
-        assert!(!success, "set leaves from call succeeded");
+        let leaves_vec: repr_c::Vec<CFr> = leaves
+            .iter()
+            .map(|fr| CFr::from(*fr))
+            .collect::<Vec<_>>()
+            .into();
+        match ffi_set_leaves_from(&mut ffi_rln_instance, bad_index, &leaves_vec) {
+            CResult {
+                ok: None,
+                err: Some(_),
+            } => {}
+            _ => panic!("set leaves from call should have failed"),
+        }
 
         // Get root of tree after attempted set
-        let root_after_bad_set = get_tree_root(rln_pointer);
+        let root_after_bad_set = get_tree_root(&ffi_rln_instance);
         assert_eq!(root_empty, root_after_bad_set);
     }
 
@@ -264,7 +392,7 @@ mod test {
     fn test_merkle_proof_ffi() {
         let leaf_index = 3;
         // We create a RLN instance
-        let rln_pointer = create_rln_instance();
+        let mut ffi_rln_instance = create_rln_instance();
 
         // generate identity
         let mut identity_secret_hash_ = hash_to_field_le(b"test-merkle-proof");
@@ -276,13 +404,24 @@ mod test {
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
         // We prepare id_commitment and we set the leaf at provided index
-        let leaf_ser = fr_to_bytes_le(&rate_commitment);
-        let input_buffer = &Buffer::from(leaf_ser.as_ref());
-        let success = set_leaf(rln_pointer, leaf_index, input_buffer);
-        assert!(success, "set leaf call failed");
+        match ffi_set_leaf(
+            &mut ffi_rln_instance,
+            leaf_index,
+            &Box_::new(CFr::from(rate_commitment)),
+        ) {
+            CResult {
+                ok: Some(_),
+                err: None,
+            } => {}
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("set leaf call failed: {}", err),
+            _ => unreachable!(),
+        }
 
         // We obtain the Merkle tree root
-        let root = get_tree_root(rln_pointer);
+        let root = get_tree_root(&ffi_rln_instance);
 
         use ark_ff::BigInt;
         assert_eq!(
@@ -296,15 +435,21 @@ mod test {
             .into()
         );
 
-        // We obtain the Merkle tree root
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_proof(rln_pointer, leaf_index, output_buffer.as_mut_ptr());
-        assert!(success, "get merkle proof call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
+        // We obtain the Merkle proof
+        let proof = match ffi_get_proof(&ffi_rln_instance, leaf_index) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("get merkle proof call failed: {}", err),
+            _ => unreachable!(),
+        };
 
-        let (path_elements, read) = bytes_le_to_vec_fr(&result_data).unwrap();
-        let (identity_path_index, _) = bytes_le_to_vec_u8(&result_data[read..]).unwrap();
+        let path_elements: Vec<Fr> = proof.path_elements.iter().map(|cfr| **cfr).collect();
+        let identity_path_index: Vec<u8> = proof.path_index.iter().copied().collect();
 
         // We check correct computation of the path and indexes
         let expected_path_elements: Vec<Fr> = [
@@ -350,69 +495,13 @@ mod test {
     }
 
     #[test]
-    // Benchmarks proof generation and verification
-    fn test_groth16_proofs_performance_ffi() {
-        // We create a RLN instance
-        let rln_pointer = create_rln_instance();
-
-        // We compute some benchmarks regarding proof and verify API calls
-        // Note that circuit loading requires some initial overhead.
-        // Once the circuit is loaded (i.e., when the RLN object is created), proof generation and verification times should be similar at each call.
-        let sample_size = 100;
-        let mut prove_time: u128 = 0;
-        let mut verify_time: u128 = 0;
-
-        for _ in 0..sample_size {
-            // We generate random witness instances and relative proof values
-            let rln_witness = random_rln_witness(TEST_TREE_DEPTH);
-            let proof_values = proof_values_from_witness(&rln_witness).unwrap();
-
-            // We prepare id_commitment and we set the leaf at provided index
-            let rln_witness_ser = serialize_witness(&rln_witness).unwrap();
-            let input_buffer = &Buffer::from(rln_witness_ser.as_ref());
-            let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-            let now = Instant::now();
-            let success = prove(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
-            prove_time += now.elapsed().as_nanos();
-            assert!(success, "prove call failed");
-            let output_buffer = unsafe { output_buffer.assume_init() };
-
-            // We read the returned proof and we append proof values for verify
-            let serialized_proof = <&[u8]>::from(&output_buffer).to_vec();
-            let serialized_proof_values = serialize_proof_values(&proof_values);
-            let mut verify_data = Vec::<u8>::new();
-            verify_data.extend(&serialized_proof);
-            verify_data.extend(&serialized_proof_values);
-
-            // We prepare input proof values and we call verify
-            let input_buffer = &Buffer::from(verify_data.as_ref());
-            let mut proof_is_valid: bool = false;
-            let proof_is_valid_ptr = &mut proof_is_valid as *mut bool;
-            let now = Instant::now();
-            let success = verify(rln_pointer, input_buffer, proof_is_valid_ptr);
-            verify_time += now.elapsed().as_nanos();
-            assert!(success, "verify call failed");
-            assert!(proof_is_valid);
-        }
-
-        println!(
-            "Average prove API call time: {:?}",
-            Duration::from_nanos((prove_time / sample_size).try_into().unwrap())
-        );
-        println!(
-            "Average verify API call time: {:?}",
-            Duration::from_nanos((verify_time / sample_size).try_into().unwrap())
-        );
-    }
-
-    #[test]
     // Creating a RLN with raw data should generate same results as using a path to resources
     fn test_rln_raw_ffi() {
         // We create a RLN instance
-        let rln_pointer = create_rln_instance();
+        let ffi_rln_instance = create_rln_instance();
 
         // We obtain the root from the RLN instance
-        let root_rln_folder = get_tree_root(rln_pointer);
+        let root_rln_folder = get_tree_root(&ffi_rln_instance);
 
         let zkey_path = "./resources/tree_depth_20/rln_final.arkzkey";
         let mut zkey_file = File::open(zkey_path).expect("no file found");
@@ -422,8 +511,6 @@ mod test {
             .read_exact(&mut zkey_buffer)
             .expect("buffer overflow");
 
-        let zkey_data = &Buffer::from(&zkey_buffer[..]);
-
         let graph_data = "./resources/tree_depth_20/graph.bin";
         let mut graph_file = File::open(graph_data).expect("no file found");
         let metadata = std::fs::metadata(graph_data).expect("unable to read metadata");
@@ -432,25 +519,29 @@ mod test {
             .read_exact(&mut graph_buffer)
             .expect("buffer overflow");
 
-        let graph_data = &Buffer::from(&graph_buffer[..]);
-
         // Creating a RLN instance passing the raw data
-        let mut rln_pointer_raw_bytes = MaybeUninit::<*mut RLN>::uninit();
         let tree_config = "".to_string();
-        let tree_config_buffer = &Buffer::from(tree_config.as_bytes());
-        let success = new_with_params(
+        let c_str = std::ffi::CString::new(tree_config).unwrap();
+        let ffi_rln_instance2 = match ffi_new_with_params(
             TEST_TREE_DEPTH,
-            zkey_data,
-            graph_data,
-            tree_config_buffer,
-            rln_pointer_raw_bytes.as_mut_ptr(),
-        );
-        assert!(success, "RLN object creation failed");
-        let rln_pointer2 = unsafe { &mut *rln_pointer_raw_bytes.assume_init() };
+            &zkey_buffer.into(),
+            &graph_buffer.into(),
+            c_str.as_c_str().into(),
+        ) {
+            CResult {
+                ok: Some(rln),
+                err: None,
+            } => rln,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("RLN object creation failed: {}", err),
+            _ => unreachable!(),
+        };
 
         // We obtain the root from the RLN instance containing raw data
         // And compare that the same root was generated
-        let root_rln_raw = get_tree_root(rln_pointer2);
+        let root_rln_raw = get_tree_root(&ffi_rln_instance2);
         assert_eq!(root_rln_folder, root_rln_raw);
     }
 
@@ -466,10 +557,10 @@ mod test {
             .collect();
 
         // We create a RLN instance
-        let rln_pointer = create_rln_instance();
+        let mut ffi_rln_instance = create_rln_instance();
 
         // We add leaves in a batch into the tree
-        set_leaves_init(rln_pointer, &leaves);
+        set_leaves_init(&mut ffi_rln_instance, &leaves);
 
         // We generate a new identity pair
         let (identity_secret_hash, id_commitment) = identity_pair_gen();
@@ -491,52 +582,76 @@ mod test {
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
         // We set as leaf rate_commitment, its index would be equal to no_of_leaves
-        let leaf_ser = fr_to_bytes_le(&rate_commitment);
-        let input_buffer = &Buffer::from(leaf_ser.as_ref());
-        let success = set_next_leaf(rln_pointer, input_buffer);
-        assert!(success, "set next leaf call failed");
+        match ffi_set_next_leaf(
+            &mut ffi_rln_instance,
+            &Box_::new(CFr::from(rate_commitment)),
+        ) {
+            CResult {
+                ok: Some(_),
+                err: None,
+            } => {}
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("set next leaf call failed: {}", err),
+            _ => unreachable!(),
+        }
 
-        // We prepare input for generate_rln_proof API
-        // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
-        let prove_input = prepare_prove_input(
-            identity_secret_hash,
+        // Get the merkle proof for the identity
+        let _merkle_proof = match ffi_get_proof(&ffi_rln_instance, identity_index) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("get merkle proof call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // Hash the signal to get x
+        let x = hash_to_field_le(&signal);
+
+        // path_elements and identity_path_index are not needed in non-stateless mode
+        let rln_proof = rln_proof_gen(
+            &ffi_rln_instance,
+            &CFr::from(*identity_secret_hash),
+            &CFr::from(user_message_limit),
+            &CFr::from(message_id),
+            &CFr::from(x),
+            &CFr::from(external_nullifier),
             identity_index,
-            user_message_limit,
-            message_id,
-            external_nullifier,
-            &signal,
         );
-        // We call generate_rln_proof
-        // result_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-        let proof_data = rln_proof_gen(rln_pointer, prove_input.as_ref());
 
-        // We prepare input for verify_rln_proof API
-        // input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
-        // that is [ proof_data || signal_len<8> | signal<var> ]
-        let verify_input = prepare_verify_input(proof_data, &signal);
+        let proof_is_valid =
+            match ffi_verify_rln_proof(&ffi_rln_instance, &rln_proof, &CFr::from(x)) {
+                CResult {
+                    ok: Some(success),
+                    err: None,
+                } => *success,
+                CResult {
+                    ok: None,
+                    err: Some(err),
+                } => panic!("verify rln proof call failed: {}", err),
+                _ => unreachable!(),
+            };
 
-        // We call verify_rln_proof
-        let input_buffer = &Buffer::from(verify_input.as_ref());
-        let mut proof_is_valid: bool = false;
-        let proof_is_valid_ptr = &mut proof_is_valid as *mut bool;
-        let success = verify_rln_proof(rln_pointer, input_buffer, proof_is_valid_ptr);
-        assert!(success, "verify call failed");
         assert!(proof_is_valid);
     }
 
     #[test]
     // Computes and verifies an RLN ZK proof by checking proof's root against an input roots buffer
     fn test_verify_with_roots_ffi() {
-        // First part similar to test_rln_proof_ffi
         let user_message_limit = Fr::from(100);
 
         // We generate a vector of random leaves
         let leaves = get_random_leaves();
         // We create a RLN instance
-        let rln_pointer = create_rln_instance();
+        let mut ffi_rln_instance = create_rln_instance();
 
         // We add leaves in a batch into the tree
-        set_leaves_init(rln_pointer, &leaves);
+        set_leaves_init(&mut ffi_rln_instance, &leaves);
 
         // We generate a new identity pair
         let (identity_secret_hash, id_commitment) = identity_pair_gen();
@@ -557,83 +672,135 @@ mod test {
         let message_id = Fr::from(1);
 
         // We set as leaf rate_commitment, its index would be equal to no_of_leaves
-        let leaf_ser = fr_to_bytes_le(&rate_commitment);
-        let input_buffer = &Buffer::from(leaf_ser.as_ref());
-        let success = set_next_leaf(rln_pointer, input_buffer);
-        assert!(success, "set next leaf call failed");
+        match ffi_set_next_leaf(
+            &mut ffi_rln_instance,
+            &Box_::new(CFr::from(rate_commitment)),
+        ) {
+            CResult {
+                ok: Some(_),
+                err: None,
+            } => {}
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("set next leaf call failed: {}", err),
+            _ => unreachable!(),
+        }
 
-        // We prepare input for generate_rln_proof API
-        // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
-        let prove_input = prepare_prove_input(
-            identity_secret_hash,
+        // Get the merkle proof for the identity
+        let _merkle_proof = match ffi_get_proof(&ffi_rln_instance, identity_index) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("get merkle proof call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // Hash the signal to get x
+        let x = hash_to_field_le(&signal);
+
+        // path_elements and identity_path_index are not needed in non-stateless mode
+        // witness input is now passed directly as parameters
+
+        let rln_proof = rln_proof_gen(
+            &ffi_rln_instance,
+            &CFr::from(*identity_secret_hash),
+            &CFr::from(user_message_limit),
+            &CFr::from(message_id),
+            &CFr::from(x),
+            &CFr::from(external_nullifier),
             identity_index,
-            user_message_limit,
-            message_id,
-            external_nullifier,
-            &signal,
         );
-
-        // We call generate_rln_proof
-        // result_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-        let proof_data = rln_proof_gen(rln_pointer, prove_input.as_ref());
-
-        // We prepare input for verify_rln_proof API
-        // input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
-        // that is [ proof_data || signal_len<8> | signal<var> ]
-        let verify_input = prepare_verify_input(proof_data.clone(), &signal);
 
         // We test verify_with_roots
 
         // We first try to verify against an empty buffer of roots.
         // In this case, since no root is provided, proof's root check is skipped and proof is verified if other proof values are valid
-        let mut roots_data: Vec<u8> = Vec::new();
+        let roots_empty: repr_c::Vec<CFr> = vec![].into();
 
-        let input_buffer = &Buffer::from(verify_input.as_ref());
-        let roots_buffer = &Buffer::from(roots_data.as_ref());
-        let mut proof_is_valid: bool = false;
-        let proof_is_valid_ptr = &mut proof_is_valid as *mut bool;
-        let success =
-            verify_with_roots(rln_pointer, input_buffer, roots_buffer, proof_is_valid_ptr);
-        assert!(success, "verify call failed");
+        let proof_is_valid =
+            match ffi_verify_with_roots(&ffi_rln_instance, &rln_proof, &roots_empty, &CFr::from(x))
+            {
+                CResult {
+                    ok: Some(valid),
+                    err: None,
+                } => *valid,
+                CResult {
+                    ok: None,
+                    err: Some(err),
+                } => panic!("verify with roots call failed: {}", err),
+                _ => unreachable!(),
+            };
         // Proof should be valid
         assert!(proof_is_valid);
 
         // We then try to verify against some random values not containing the correct one.
+        let mut roots_random: Vec<CFr> = Vec::new();
         for _ in 0..5 {
-            roots_data.append(&mut fr_to_bytes_le(&Fr::rand(&mut rng)));
+            roots_random.push(CFr::from(Fr::rand(&mut rng)));
         }
-        let input_buffer = &Buffer::from(verify_input.as_ref());
-        let roots_buffer = &Buffer::from(roots_data.as_ref());
-        let mut proof_is_valid: bool = false;
-        let proof_is_valid_ptr = &mut proof_is_valid as *mut bool;
-        let success =
-            verify_with_roots(rln_pointer, input_buffer, roots_buffer, proof_is_valid_ptr);
-        assert!(success, "verify call failed");
+        let roots_random_vec: repr_c::Vec<CFr> = roots_random.into();
+
+        let proof_is_valid = match ffi_verify_with_roots(
+            &ffi_rln_instance,
+            &rln_proof,
+            &roots_random_vec,
+            &CFr::from(x),
+        ) {
+            CResult {
+                ok: Some(valid),
+                err: None,
+            } => *valid,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("verify with roots call failed: {}", err),
+            _ => unreachable!(),
+        };
         // Proof should be invalid.
         assert!(!proof_is_valid);
 
         // We finally include the correct root
         // We get the root of the tree obtained adding one leaf per time
-        let root = get_tree_root(rln_pointer);
+        let root = get_tree_root(&ffi_rln_instance);
 
         // We include the root and verify the proof
-        roots_data.append(&mut fr_to_bytes_le(&root));
-        let input_buffer = &Buffer::from(verify_input.as_ref());
-        let roots_buffer = &Buffer::from(roots_data.as_ref());
-        let mut proof_is_valid: bool = false;
-        let proof_is_valid_ptr = &mut proof_is_valid as *mut bool;
-        let success =
-            verify_with_roots(rln_pointer, input_buffer, roots_buffer, proof_is_valid_ptr);
-        assert!(success, "verify call failed");
+        let mut roots_with_correct: Vec<CFr> = Vec::new();
+        for _ in 0..5 {
+            roots_with_correct.push(CFr::from(Fr::rand(&mut rng)));
+        }
+        roots_with_correct.push(CFr::from(root));
+        let roots_correct_vec: repr_c::Vec<CFr> = roots_with_correct.into();
+
+        let proof_is_valid = match ffi_verify_with_roots(
+            &ffi_rln_instance,
+            &rln_proof,
+            &roots_correct_vec,
+            &CFr::from(x),
+        ) {
+            CResult {
+                ok: Some(valid),
+                err: None,
+            } => *valid,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("verify with roots call failed: {}", err),
+            _ => unreachable!(),
+        };
         // Proof should be valid.
         assert!(proof_is_valid);
     }
 
     #[test]
-    // Computes and verifies an RLN ZK proof using FFI APIs
+    // Computes and verifies an RLN ZK proof using FFI APIs and recovers identity secret
     fn test_recover_id_secret_ffi() {
         // We create a RLN instance
-        let rln_pointer = create_rln_instance();
+        let mut ffi_rln_instance = create_rln_instance();
 
         // We generate a new identity pair
         let (identity_secret_hash, id_commitment) = identity_pair_gen();
@@ -642,10 +809,20 @@ mod test {
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
         // We set as leaf rate_commitment, its index would be equal to 0 since tree is empty
-        let leaf_ser = fr_to_bytes_le(&rate_commitment);
-        let input_buffer = &Buffer::from(leaf_ser.as_ref());
-        let success = set_next_leaf(rln_pointer, input_buffer);
-        assert!(success, "set next leaf call failed");
+        match ffi_set_next_leaf(
+            &mut ffi_rln_instance,
+            &Box_::new(CFr::from(rate_commitment)),
+        ) {
+            CResult {
+                ok: Some(_),
+                err: None,
+            } => {}
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("set next leaf call failed: {}", err),
+            _ => unreachable!(),
+        }
 
         let identity_index: usize = 0;
 
@@ -654,8 +831,6 @@ mod test {
         // We generate two random signals
         let mut rng = rand::thread_rng();
         let signal1: [u8; 32] = rng.gen();
-
-        // We generate two random signals
         let signal2: [u8; 32] = rng.gen();
 
         // We generate a random epoch
@@ -667,53 +842,62 @@ mod test {
         // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
         let message_id = Fr::from(1);
 
-        // We prepare input for generate_rln_proof API
-        // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
-        let prove_input1 = prepare_prove_input(
-            identity_secret_hash.clone(),
-            identity_index,
-            user_message_limit,
-            message_id,
-            external_nullifier,
-            &signal1,
-        );
+        // Get the merkle proof for the identity
+        let _merkle_proof = match ffi_get_proof(&ffi_rln_instance, identity_index) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("get merkle proof call failed: {}", err),
+            _ => unreachable!(),
+        };
 
-        let prove_input2 = prepare_prove_input(
-            identity_secret_hash.clone(),
-            identity_index,
-            user_message_limit,
-            message_id,
-            external_nullifier,
-            &signal2,
-        );
+        // Hash the signals to get x
+        let x1 = hash_to_field_le(&signal1);
+        let x2 = hash_to_field_le(&signal2);
+
+        // path_elements and identity_path_index are not needed in non-stateless mode
+        // witness input is now passed directly as parameters
 
         // We call generate_rln_proof for first proof values
-        // result_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-        let proof_data_1 = rln_proof_gen(rln_pointer, prove_input1.as_ref());
-
-        // We call generate_rln_proof
-        // result_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-        let proof_data_2 = rln_proof_gen(rln_pointer, prove_input2.as_ref());
-
-        let input_proof_buffer_1 = &Buffer::from(proof_data_1.as_ref());
-        let input_proof_buffer_2 = &Buffer::from(proof_data_2.as_ref());
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = recover_id_secret(
-            rln_pointer,
-            input_proof_buffer_1,
-            input_proof_buffer_2,
-            output_buffer.as_mut_ptr(),
+        let rln_proof1 = rln_proof_gen(
+            &ffi_rln_instance,
+            &CFr::from(*identity_secret_hash.clone()),
+            &CFr::from(user_message_limit),
+            &CFr::from(message_id),
+            &CFr::from(x1),
+            &CFr::from(external_nullifier),
+            identity_index,
         );
-        assert!(success, "recover id secret call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let serialized_identity_secret_hash = <&[u8]>::from(&output_buffer).to_vec();
 
-        // We passed two shares for the same secret, so recovery should be successful
-        // To check it, we ensure that recovered identity secret hash is empty
-        assert!(!serialized_identity_secret_hash.is_empty());
+        // We call generate_rln_proof for second proof values
+        let rln_proof2 = rln_proof_gen(
+            &ffi_rln_instance,
+            &CFr::from(*identity_secret_hash.clone()),
+            &CFr::from(user_message_limit),
+            &CFr::from(message_id),
+            &CFr::from(x2),
+            &CFr::from(external_nullifier),
+            identity_index,
+        );
+
+        let recovered_id_secret_cfr = match ffi_recover_id_secret(&rln_proof1, &rln_proof2) {
+            CResult {
+                ok: Some(secret),
+                err: None,
+            } => secret,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("recover id secret call failed: {}", err),
+            _ => unreachable!(),
+        };
 
         // We check if the recovered identity secret hash corresponds to the original one
-        let (recovered_identity_secret_hash, _) = bytes_le_to_fr(&serialized_identity_secret_hash);
+        let recovered_identity_secret_hash = *recovered_id_secret_cfr;
         assert_eq!(recovered_identity_secret_hash, *identity_secret_hash);
 
         // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
@@ -723,53 +907,74 @@ mod test {
         let rate_commitment_new = utils_poseidon_hash(&[id_commitment_new, user_message_limit]);
 
         // We set as leaf id_commitment, its index would be equal to 1 since at 0 there is id_commitment
-        let leaf_ser = fr_to_bytes_le(&rate_commitment_new);
-        let input_buffer = &Buffer::from(leaf_ser.as_ref());
-        let success = set_next_leaf(rln_pointer, input_buffer);
-        assert!(success, "set next leaf call failed");
+        match ffi_set_next_leaf(
+            &mut ffi_rln_instance,
+            &Box_::new(CFr::from(rate_commitment_new)),
+        ) {
+            CResult {
+                ok: Some(_),
+                err: None,
+            } => {}
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("set next leaf call failed: {}", err),
+            _ => unreachable!(),
+        }
 
         let identity_index_new: usize = 1;
 
-        // We generate a random signals
+        // We generate a random signal
         let signal3: [u8; 32] = rng.gen();
+        let x3 = hash_to_field_le(&signal3);
 
-        // We prepare input for generate_rln_proof API
-        // input_data is [ identity_secret<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
-        // Note that epoch is the same as before
-        let prove_input3 = prepare_prove_input(
-            identity_secret_hash,
-            identity_index_new,
-            user_message_limit,
-            message_id,
-            external_nullifier,
-            &signal3,
-        );
+        // Get the merkle proof for the new identity
+        let _merkle_proof_new = match ffi_get_proof(&ffi_rln_instance, identity_index_new) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("get merkle proof call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // path_elements_new and identity_path_index_new are not needed in non-stateless mode
+        // witness input is now passed directly as parameters
 
         // We call generate_rln_proof
-        // result_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-        let proof_data_3 = rln_proof_gen(rln_pointer, prove_input3.as_ref());
+        let rln_proof3 = rln_proof_gen(
+            &ffi_rln_instance,
+            &CFr::from(*identity_secret_hash_new.clone()),
+            &CFr::from(user_message_limit),
+            &CFr::from(message_id),
+            &CFr::from(x3),
+            &CFr::from(external_nullifier),
+            identity_index_new,
+        );
 
         // We attempt to recover the secret using share1 (coming from identity_secret_hash) and share3 (coming from identity_secret_hash_new)
 
-        let input_proof_buffer_1 = &Buffer::from(proof_data_1.as_ref());
-        let input_proof_buffer_3 = &Buffer::from(proof_data_3.as_ref());
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = recover_id_secret(
-            rln_pointer,
-            input_proof_buffer_1,
-            input_proof_buffer_3,
-            output_buffer.as_mut_ptr(),
-        );
-        assert!(success, "recover id secret call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let serialized_identity_secret_hash = <&[u8]>::from(&output_buffer).to_vec();
-        let (recovered_identity_secret_hash_new, _) =
-            bytes_le_to_fr(&serialized_identity_secret_hash);
+        let recovered_id_secret_new_cfr = match ffi_recover_id_secret(&rln_proof1, &rln_proof3) {
+            CResult {
+                ok: Some(secret),
+                err: None,
+            } => secret,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("recover id secret call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        let recovered_identity_secret_hash_new = recovered_id_secret_new_cfr;
 
         // ensure that the recovered secret does not match with either of the
         // used secrets in proof generation
         assert_ne!(
-            recovered_identity_secret_hash_new,
+            *recovered_identity_secret_hash_new,
             *identity_secret_hash_new
         );
     }
@@ -780,34 +985,46 @@ mod test {
         let no_of_leaves = 1 << TEST_TREE_DEPTH;
 
         // We create a RLN instance
-        let rln_pointer = create_rln_instance();
+        let mut ffi_rln_instance = create_rln_instance();
 
         // We generate a new identity tuple from an input seed
-        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let input_buffer = &Buffer::from(seed_bytes);
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = seeded_extended_key_gen(input_buffer, output_buffer.as_mut_ptr(), true);
-        assert!(success, "seeded key gen call failed");
-
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (_, _, _, id_commitment) = deserialize_identity_tuple_le(result_data);
+        let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let key_gen = ffi_seeded_extended_key_gen(&seed_bytes.into());
+        assert_eq!(key_gen.len(), 4, "seeded extended key gen call failed");
+        let id_commitment = *key_gen[3];
 
         // We insert the id_commitment into the tree at a random index
         let mut rng = thread_rng();
         let index = rng.gen_range(0..no_of_leaves) as usize;
-        let leaf = fr_to_bytes_le(&id_commitment);
-        let input_buffer = &Buffer::from(leaf.as_ref());
-        let success = set_leaf(rln_pointer, index, input_buffer);
-        assert!(success, "set leaf call failed");
+        match ffi_set_leaf(
+            &mut ffi_rln_instance,
+            index,
+            &Box_::new(CFr::from(id_commitment)),
+        ) {
+            CResult {
+                ok: Some(_),
+                err: None,
+            } => {}
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("set leaf call failed: {}", err),
+            _ => unreachable!(),
+        }
 
         // We get the leaf at the same index
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_leaf(rln_pointer, index, output_buffer.as_mut_ptr());
-        assert!(success, "get leaf call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (received_id_commitment, _) = bytes_le_to_fr(&result_data);
+        let received_id_commitment_cfr = match ffi_get_leaf(&ffi_rln_instance, index) {
+            CResult {
+                ok: Some(leaf),
+                err: None,
+            } => leaf,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("get leaf call failed: {}", err),
+            _ => unreachable!(),
+        };
+        let received_id_commitment = *received_id_commitment_cfr;
 
         // We check that the received id_commitment is the same as the one we inserted
         assert_eq!(received_id_commitment, id_commitment);
@@ -816,629 +1033,54 @@ mod test {
     #[test]
     fn test_valid_metadata_ffi() {
         // We create a RLN instance
-        let rln_pointer = create_rln_instance();
+        let mut ffi_rln_instance = create_rln_instance();
 
-        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let input_buffer = &Buffer::from(seed_bytes);
+        let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-        let success = set_metadata(rln_pointer, input_buffer);
-        assert!(success, "set_metadata call failed");
+        match ffi_set_metadata(&mut ffi_rln_instance, &seed_bytes.clone().into()) {
+            CResult {
+                ok: Some(_),
+                err: None,
+            } => {}
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("set_metadata call failed: {}", err),
+            _ => unreachable!(),
+        }
 
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_metadata(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "get_metadata call failed");
+        let metadata = match ffi_get_metadata(&ffi_rln_instance) {
+            CResult {
+                ok: Some(data),
+                err: None,
+            } => data,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("get_metadata call failed: {}", err),
+            _ => unreachable!(),
+        };
 
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-
-        assert_eq!(result_data, seed_bytes.to_vec());
+        assert_eq!(metadata.iter().copied().collect::<Vec<u8>>(), seed_bytes);
     }
 
     #[test]
     fn test_empty_metadata_ffi() {
         // We create a RLN instance
-        let rln_pointer = create_rln_instance();
-
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = get_metadata(rln_pointer, output_buffer.as_mut_ptr());
-        assert!(success, "get_metadata call failed");
-
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        assert_eq!(output_buffer.len, 0);
-    }
-}
-
-#[cfg(test)]
-#[cfg(feature = "stateless")]
-mod stateless_test {
-    use ark_std::{rand::thread_rng, UniformRand};
-    use rand::Rng;
-    use rln::circuit::*;
-    use rln::ffi::generate_rln_proof_with_witness;
-    use rln::ffi::*;
-    use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash, PoseidonHash};
-    use rln::protocol::*;
-    use rln::public::RLN;
-    use rln::utils::*;
-    use std::mem::MaybeUninit;
-    use std::time::{Duration, Instant};
-    use utils::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
-
-    type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
-
-    fn create_rln_instance() -> &'static mut RLN {
-        let mut rln_pointer = MaybeUninit::<*mut RLN>::uninit();
-        let success = new(rln_pointer.as_mut_ptr());
-        assert!(success, "RLN object creation failed");
-        unsafe { &mut *rln_pointer.assume_init() }
-    }
-
-    fn identity_pair_gen() -> (IdSecret, Fr) {
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = key_gen(output_buffer.as_mut_ptr(), true);
-        assert!(success, "key gen call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret_hash, read) = IdSecret::from_bytes_le(&result_data);
-        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..]);
-        (identity_secret_hash, id_commitment)
-    }
-
-    fn rln_proof_gen_with_witness(rln_pointer: &mut RLN, serialized: &[u8]) -> Vec<u8> {
-        let input_buffer = &Buffer::from(serialized);
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success =
-            generate_rln_proof_with_witness(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
-        assert!(success, "generate rln proof call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        <&[u8]>::from(&output_buffer).to_vec()
-    }
-
-    #[test]
-    fn test_recover_id_secret_stateless_ffi() {
-        let default_leaf = Fr::from(0);
-        let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
-            TEST_TREE_DEPTH,
-            default_leaf,
-            ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
-        )
-        .unwrap();
-
-        let rln_pointer = create_rln_instance();
-
-        // We generate a new identity pair
-        let (identity_secret_hash, id_commitment) = identity_pair_gen();
-
-        let user_message_limit = Fr::from(100);
-        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
-        tree.update_next(rate_commitment).unwrap();
-
-        // We generate a random epoch
-        let epoch = hash_to_field_le(b"test-epoch");
-        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-        let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
-
-        // We generate two proofs using same epoch but different signals.
-        // We generate a random signal
-        let mut rng = thread_rng();
-        let signal1: [u8; 32] = rng.gen();
-        let x1 = hash_to_field_le(&signal1);
-
-        let signal2: [u8; 32] = rng.gen();
-        let x2 = hash_to_field_le(&signal2);
-
-        let identity_index = tree.leaves_set();
-        let merkle_proof = tree.proof(identity_index).expect("proof should exist");
-
-        // We prepare input for generate_rln_proof API
-        let rln_witness1 = rln_witness_from_values(
-            identity_secret_hash.clone(),
-            merkle_proof.get_path_elements(),
-            merkle_proof.get_path_index(),
-            x1,
-            external_nullifier,
-            user_message_limit,
-            Fr::from(1),
-        )
-        .unwrap();
-        let serialized1 = serialize_witness(&rln_witness1).unwrap();
-
-        let rln_witness2 = rln_witness_from_values(
-            identity_secret_hash.clone(),
-            merkle_proof.get_path_elements(),
-            merkle_proof.get_path_index(),
-            x2,
-            external_nullifier,
-            user_message_limit,
-            Fr::from(1),
-        )
-        .unwrap();
-        let serialized2 = serialize_witness(&rln_witness2).unwrap();
-
-        // We call generate_rln_proof for first proof values
-        // result_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-        let proof_data_1 = rln_proof_gen_with_witness(rln_pointer, serialized1.as_ref());
-
-        // We call generate_rln_proof
-        // result_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-        let proof_data_2 = rln_proof_gen_with_witness(rln_pointer, serialized2.as_ref());
-
-        let input_proof_buffer_1 = &Buffer::from(proof_data_1.as_ref());
-        let input_proof_buffer_2 = &Buffer::from(proof_data_2.as_ref());
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = recover_id_secret(
-            rln_pointer,
-            input_proof_buffer_1,
-            input_proof_buffer_2,
-            output_buffer.as_mut_ptr(),
-        );
-        assert!(success, "recover id secret call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let serialized_identity_secret_hash = <&[u8]>::from(&output_buffer).to_vec();
-
-        // We passed two shares for the same secret, so recovery should be successful
-        // To check it, we ensure that recovered identity secret hash is empty
-        assert!(!serialized_identity_secret_hash.is_empty());
-
-        // We check if the recovered identity secret hash corresponds to the original one
-        let (recovered_identity_secret_hash, _) =
-            IdSecret::from_bytes_le(&serialized_identity_secret_hash);
-        assert_eq!(recovered_identity_secret_hash, identity_secret_hash);
-
-        // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
-
-        // We generate a new identity pair
-        let (identity_secret_hash_new, id_commitment_new) = identity_pair_gen();
-        let rate_commitment_new = utils_poseidon_hash(&[id_commitment_new, user_message_limit]);
-        tree.update_next(rate_commitment_new).unwrap();
-
-        // We generate a random signals
-        let signal3: [u8; 32] = rng.gen();
-        let x3 = hash_to_field_le(&signal3);
-
-        let identity_index_new = tree.leaves_set();
-        let merkle_proof_new = tree.proof(identity_index_new).expect("proof should exist");
-
-        let rln_witness3 = rln_witness_from_values(
-            identity_secret_hash_new.clone(),
-            merkle_proof_new.get_path_elements(),
-            merkle_proof_new.get_path_index(),
-            x3,
-            external_nullifier,
-            user_message_limit,
-            Fr::from(1),
-        )
-        .unwrap();
-        let serialized3 = serialize_witness(&rln_witness3).unwrap();
-
-        // We call generate_rln_proof
-        // result_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-        let proof_data_3 = rln_proof_gen_with_witness(rln_pointer, serialized3.as_ref());
-
-        // We attempt to recover the secret using share1 (coming from identity_secret_hash) and share3 (coming from identity_secret_hash_new)
-
-        let input_proof_buffer_1 = &Buffer::from(proof_data_1.as_ref());
-        let input_proof_buffer_3 = &Buffer::from(proof_data_3.as_ref());
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = recover_id_secret(
-            rln_pointer,
-            input_proof_buffer_1,
-            input_proof_buffer_3,
-            output_buffer.as_mut_ptr(),
-        );
-        assert!(success, "recover id secret call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let serialized_identity_secret_hash = <&[u8]>::from(&output_buffer).to_vec();
-        let (recovered_identity_secret_hash_new, _) =
-            bytes_le_to_fr(&serialized_identity_secret_hash);
-
-        // ensure that the recovered secret does not match with either of the
-        // used secrets in proof generation
-        assert_ne!(
-            recovered_identity_secret_hash_new,
-            *identity_secret_hash_new
-        );
-    }
-
-    #[test]
-    fn test_verify_with_roots_stateless_ffi() {
-        let default_leaf = Fr::from(0);
-        let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
-            TEST_TREE_DEPTH,
-            default_leaf,
-            ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
-        )
-        .unwrap();
-
-        let rln_pointer = create_rln_instance();
-
-        // We generate a new identity pair
-        let (identity_secret_hash, id_commitment) = identity_pair_gen();
-
-        let identity_index = tree.leaves_set();
-        let user_message_limit = Fr::from(100);
-        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
-        tree.update_next(rate_commitment).unwrap();
-
-        // We generate a random epoch
-        let epoch = hash_to_field_le(b"test-epoch");
-        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-        let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
-
-        // We generate two proofs using same epoch but different signals.
-        // We generate a random signal
-        let mut rng = thread_rng();
-        let signal: [u8; 32] = rng.gen();
-        let x = hash_to_field_le(&signal);
-
-        let merkle_proof = tree.proof(identity_index).expect("proof should exist");
-
-        // We prepare input for generate_rln_proof API
-        let rln_witness = rln_witness_from_values(
-            identity_secret_hash,
-            merkle_proof.get_path_elements(),
-            merkle_proof.get_path_index(),
-            x,
-            external_nullifier,
-            user_message_limit,
-            Fr::from(1),
-        )
-        .unwrap();
-
-        let serialized = serialize_witness(&rln_witness).unwrap();
-        let proof_data = rln_proof_gen_with_witness(rln_pointer, serialized.as_ref());
-
-        let verify_input = prepare_verify_input(proof_data.clone(), &signal);
-
-        // If no roots is provided, proof validation is skipped and if the remaining proof values are valid, the proof will be correctly verified
-        let mut roots_data: Vec<u8> = Vec::new();
-
-        let input_buffer = &Buffer::from(verify_input.as_ref());
-        let roots_buffer = &Buffer::from(roots_data.as_ref());
-        let mut proof_is_valid: bool = false;
-        let proof_is_valid_ptr = &mut proof_is_valid as *mut bool;
-        let success =
-            verify_with_roots(rln_pointer, input_buffer, roots_buffer, proof_is_valid_ptr);
-        assert!(success, "verify call failed");
-        // Proof should be valid
-        assert!(proof_is_valid);
-
-        // We serialize in the roots buffer some random values and we check that the proof is not verified since doesn't contain the correct root the proof refers to
-        for _ in 0..5 {
-            roots_data.append(&mut fr_to_bytes_le(&Fr::rand(&mut rng)));
-        }
-        let input_buffer = &Buffer::from(verify_input.as_ref());
-        let roots_buffer = &Buffer::from(roots_data.as_ref());
-        let mut proof_is_valid: bool = false;
-        let proof_is_valid_ptr = &mut proof_is_valid as *mut bool;
-        let success =
-            verify_with_roots(rln_pointer, input_buffer, roots_buffer, proof_is_valid_ptr);
-        assert!(success, "verify call failed");
-        // Proof should be invalid.
-        assert!(!proof_is_valid);
-
-        // We get the root of the tree obtained adding one leaf per time
-        let root = tree.root();
-
-        // We add the real root and we check if now the proof is verified
-        roots_data.append(&mut fr_to_bytes_le(&root));
-        let input_buffer = &Buffer::from(verify_input.as_ref());
-        let roots_buffer = &Buffer::from(roots_data.as_ref());
-        let mut proof_is_valid: bool = false;
-        let proof_is_valid_ptr = &mut proof_is_valid as *mut bool;
-        let success =
-            verify_with_roots(rln_pointer, input_buffer, roots_buffer, proof_is_valid_ptr);
-        assert!(success, "verify call failed");
-        // Proof should be valid.
-        assert!(proof_is_valid);
-    }
-
-    #[test]
-    fn test_groth16_proofs_performance_stateless_ffi() {
-        // We create a RLN instance
-        let rln_pointer = create_rln_instance();
-
-        // We compute some benchmarks regarding proof and verify API calls
-        // Note that circuit loading requires some initial overhead.
-        // Once the circuit is loaded (i.e., when the RLN object is created), proof generation and verification times should be similar at each call.
-        let sample_size = 100;
-        let mut prove_time: u128 = 0;
-        let mut verify_time: u128 = 0;
-
-        for _ in 0..sample_size {
-            // We generate random witness instances and relative proof values
-            let rln_witness = random_rln_witness(TEST_TREE_DEPTH);
-            let proof_values = proof_values_from_witness(&rln_witness).unwrap();
-
-            // We prepare id_commitment and we set the leaf at provided index
-            let rln_witness_ser = serialize_witness(&rln_witness).unwrap();
-            let input_buffer = &Buffer::from(rln_witness_ser.as_ref());
-            let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-            let now = Instant::now();
-            let success = prove(rln_pointer, input_buffer, output_buffer.as_mut_ptr());
-            prove_time += now.elapsed().as_nanos();
-            assert!(success, "prove call failed");
-            let output_buffer = unsafe { output_buffer.assume_init() };
-
-            // We read the returned proof and we append proof values for verify
-            let serialized_proof = <&[u8]>::from(&output_buffer).to_vec();
-            let serialized_proof_values = serialize_proof_values(&proof_values);
-            let mut verify_data = Vec::<u8>::new();
-            verify_data.extend(&serialized_proof);
-            verify_data.extend(&serialized_proof_values);
-
-            // We prepare input proof values and we call verify
-            let input_buffer = &Buffer::from(verify_data.as_ref());
-            let mut proof_is_valid: bool = false;
-            let proof_is_valid_ptr = &mut proof_is_valid as *mut bool;
-            let now = Instant::now();
-            let success = verify(rln_pointer, input_buffer, proof_is_valid_ptr);
-            verify_time += now.elapsed().as_nanos();
-            assert!(success, "verify call failed");
-            assert!(proof_is_valid);
-        }
-
-        println!(
-            "Average prove API call time: {:?}",
-            Duration::from_nanos((prove_time / sample_size).try_into().unwrap())
-        );
-        println!(
-            "Average verify API call time: {:?}",
-            Duration::from_nanos((verify_time / sample_size).try_into().unwrap())
-        );
-    }
-}
-
-#[cfg(test)]
-mod general_test {
-    use ark_std::{rand::thread_rng, UniformRand};
-    use rand::Rng;
-    use rln::circuit::*;
-    use rln::ffi::{hash as ffi_hash, poseidon_hash as ffi_poseidon_hash, *};
-    use rln::hashers::{
-        hash_to_field_be, hash_to_field_le, poseidon_hash as utils_poseidon_hash, ROUND_PARAMS,
-    };
-    use rln::protocol::*;
-    use rln::utils::*;
-    use std::mem::MaybeUninit;
-
-    #[test]
-    // Tests hash to field using FFI APIs
-    fn test_seeded_keygen_stateless_ffi() {
-        // We generate a new identity pair from an input seed
-        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let input_buffer = &Buffer::from(seed_bytes);
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = seeded_key_gen(input_buffer, output_buffer.as_mut_ptr(), true);
-        assert!(success, "seeded key gen call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret_hash, read) = bytes_le_to_fr(&result_data);
-        let (id_commitment, _) = bytes_le_to_fr(&result_data[read..]);
-
-        // We check against expected values
-        let expected_identity_secret_hash_seed_bytes = str_to_fr(
-            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
-            16,
-        );
-        let expected_id_commitment_seed_bytes = str_to_fr(
-            "0xbf16d2b5c0d6f9d9d561e05bfca16a81b4b873bb063508fae360d8c74cef51f",
-            16,
-        );
-
-        assert_eq!(
-            identity_secret_hash,
-            expected_identity_secret_hash_seed_bytes.unwrap()
-        );
-        assert_eq!(id_commitment, expected_id_commitment_seed_bytes.unwrap());
-    }
-
-    #[test]
-    fn test_seeded_keygen_big_endian_ffi() {
-        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let input_buffer = &Buffer::from(seed_bytes);
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = seeded_key_gen(input_buffer, output_buffer.as_mut_ptr(), false);
-        assert!(success, "seeded key gen call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_secret_hash, read) = bytes_be_to_fr(&result_data);
-        let (id_commitment, _) = bytes_be_to_fr(&result_data[read..]);
-
-        let expected_identity_secret_hash_seed_bytes = str_to_fr(
-            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
-            16,
-        );
-        let expected_id_commitment_seed_bytes = str_to_fr(
-            "0xbf16d2b5c0d6f9d9d561e05bfca16a81b4b873bb063508fae360d8c74cef51f",
-            16,
-        );
-
-        assert_eq!(
-            identity_secret_hash,
-            expected_identity_secret_hash_seed_bytes.unwrap()
-        );
-        assert_eq!(id_commitment, expected_id_commitment_seed_bytes.unwrap());
-    }
-
-    #[test]
-    // Tests hash to field using FFI APIs
-    fn test_seeded_extended_keygen_stateless_ffi() {
-        // We generate a new identity tuple from an input seed
-        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let input_buffer = &Buffer::from(seed_bytes);
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = seeded_extended_key_gen(input_buffer, output_buffer.as_mut_ptr(), true);
-        assert!(success, "seeded key gen call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
-            deserialize_identity_tuple_le(result_data);
-
-        // We check against expected values
-        let expected_identity_trapdoor_seed_bytes = str_to_fr(
-            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
-            16,
-        );
-        let expected_identity_nullifier_seed_bytes = str_to_fr(
-            "0x1f18714c7bc83b5bca9e89d404cf6f2f585bc4c0f7ed8b53742b7e2b298f50b4",
-            16,
-        );
-        let expected_identity_secret_hash_seed_bytes = str_to_fr(
-            "0x2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521",
-            16,
-        );
-        let expected_id_commitment_seed_bytes = str_to_fr(
-            "0x68b66aa0a8320d2e56842581553285393188714c48f9b17acd198b4f1734c5c",
-            16,
-        );
-
-        assert_eq!(
-            identity_trapdoor,
-            expected_identity_trapdoor_seed_bytes.unwrap()
-        );
-        assert_eq!(
-            identity_nullifier,
-            expected_identity_nullifier_seed_bytes.unwrap()
-        );
-        assert_eq!(
-            identity_secret_hash,
-            expected_identity_secret_hash_seed_bytes.unwrap()
-        );
-        assert_eq!(id_commitment, expected_id_commitment_seed_bytes.unwrap());
-    }
-
-    #[test]
-    fn test_seeded_extended_keygen_big_endian_ffi() {
-        let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let input_buffer = &Buffer::from(seed_bytes);
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = seeded_extended_key_gen(input_buffer, output_buffer.as_mut_ptr(), false);
-        assert!(success, "seeded key gen call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
-            deserialize_identity_tuple_be(result_data);
-
-        let expected_identity_trapdoor_seed_bytes = str_to_fr(
-            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
-            16,
-        );
-        let expected_identity_nullifier_seed_bytes = str_to_fr(
-            "0x1f18714c7bc83b5bca9e89d404cf6f2f585bc4c0f7ed8b53742b7e2b298f50b4",
-            16,
-        );
-        let expected_identity_secret_hash_seed_bytes = str_to_fr(
-            "0x2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521",
-            16,
-        );
-        let expected_id_commitment_seed_bytes = str_to_fr(
-            "0x68b66aa0a8320d2e56842581553285393188714c48f9b17acd198b4f1734c5c",
-            16,
-        );
-
-        assert_eq!(
-            identity_trapdoor,
-            expected_identity_trapdoor_seed_bytes.unwrap()
-        );
-        assert_eq!(
-            identity_nullifier,
-            expected_identity_nullifier_seed_bytes.unwrap()
-        );
-        assert_eq!(
-            identity_secret_hash,
-            expected_identity_secret_hash_seed_bytes.unwrap()
-        );
-        assert_eq!(id_commitment, expected_id_commitment_seed_bytes.unwrap());
-    }
-
-    #[test]
-    // Tests hash to field using FFI APIs
-    fn test_hash_to_field_stateless_ffi() {
-        let mut rng = rand::thread_rng();
-        let signal: [u8; 32] = rng.gen();
-
-        // We prepare id_commitment and we set the leaf at provided index
-        let input_buffer = &Buffer::from(signal.as_ref());
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = ffi_hash(input_buffer, output_buffer.as_mut_ptr(), true);
-        assert!(success, "hash call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-
-        // We read the returned proof and we append proof values for verify
-        let serialized_hash = <&[u8]>::from(&output_buffer).to_vec();
-        let (hash1, _) = bytes_le_to_fr(&serialized_hash);
-
-        let hash2 = hash_to_field_le(&signal);
-
-        assert_eq!(hash1, hash2);
-    }
-
-    #[test]
-    fn test_hash_to_field_big_endian_ffi() {
-        let mut rng = rand::thread_rng();
-        let signal: [u8; 32] = rng.gen();
-
-        let input_buffer = &Buffer::from(signal.as_ref());
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = ffi_hash(input_buffer, output_buffer.as_mut_ptr(), false);
-        assert!(success, "hash call failed");
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let serialized_hash = <&[u8]>::from(&output_buffer).to_vec();
-        let (hash1, _) = bytes_be_to_fr(&serialized_hash);
-
-        let hash2 = hash_to_field_be(&signal);
-
-        assert_eq!(hash1, hash2);
-    }
-
-    #[test]
-    // Test Poseidon hash FFI
-    fn test_poseidon_hash_stateless_ffi() {
-        // generate random number between 1..ROUND_PARAMS.len()
-        let mut rng = thread_rng();
-        let number_of_inputs = rng.gen_range(1..ROUND_PARAMS.len());
-        let mut inputs = Vec::with_capacity(number_of_inputs);
-        for _ in 0..number_of_inputs {
-            inputs.push(Fr::rand(&mut rng));
-        }
-        let inputs_ser = vec_fr_to_bytes_le(&inputs);
-        let input_buffer = &Buffer::from(inputs_ser.as_ref());
-
-        let expected_hash = utils_poseidon_hash(inputs.as_ref());
-
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = ffi_poseidon_hash(input_buffer, output_buffer.as_mut_ptr(), true);
-        assert!(success, "poseidon hash call failed");
-
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (received_hash, _) = bytes_le_to_fr(&result_data);
-
-        assert_eq!(received_hash, expected_hash);
-    }
-
-    #[test]
-    fn test_poseidon_hash_big_endian_ffi() {
-        let mut rng = thread_rng();
-        let number_of_inputs = rng.gen_range(1..ROUND_PARAMS.len());
-        let mut inputs = Vec::with_capacity(number_of_inputs);
-        for _ in 0..number_of_inputs {
-            inputs.push(Fr::rand(&mut rng));
-        }
-        let inputs_ser = vec_fr_to_bytes_be(&inputs);
-        let input_buffer = &Buffer::from(inputs_ser.as_ref());
-
-        let expected_hash = utils_poseidon_hash(inputs.as_ref());
-
-        let mut output_buffer = MaybeUninit::<Buffer>::uninit();
-        let success = ffi_poseidon_hash(input_buffer, output_buffer.as_mut_ptr(), false);
-        assert!(success, "poseidon hash call failed");
-
-        let output_buffer = unsafe { output_buffer.assume_init() };
-        let result_data = <&[u8]>::from(&output_buffer).to_vec();
-        let (received_hash, _) = bytes_be_to_fr(&result_data);
-
-        assert_eq!(received_hash, expected_hash);
+        let ffi_rln_instance = create_rln_instance();
+
+        let metadata = match ffi_get_metadata(&ffi_rln_instance) {
+            CResult {
+                ok: Some(data),
+                err: None,
+            } => data,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("get_metadata call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        assert_eq!(metadata.len(), 0);
     }
 }

@@ -18,8 +18,8 @@ else:
 type
   CSize* = csize_t
   CFr* = object
-  FFI2_RLN* = object
-  FFI2_RLNProof* = object
+  FFI_RLN* = object
+  FFI_RLNProof* = object
 
   Vec_CFr* = object
     dataPtr*: ptr CFr
@@ -35,7 +35,7 @@ type
     dataPtr*: ptr uint8
     len*: CSize
 
-  FFI2_MerkleProof* = object
+  FFI_MerkleProof* = object
     path_elements*: Vec_CFr
     path_index*: Vec_uint8
 
@@ -44,11 +44,11 @@ type
     err*: Vec_uint8
 
   CResultRLNPtrVecU8* = object
-    ok*: ptr FFI2_RLN
+    ok*: ptr FFI_RLN
     err*: Vec_uint8
 
   CResultProofPtrVecU8* = object
-    ok*: ptr FFI2_RLNProof
+    ok*: ptr FFI_RLNProof
     err*: Vec_uint8
 
   CResultCFrPtrVecU8* = object
@@ -56,7 +56,7 @@ type
     err*: Vec_uint8
 
   CResultMerkleProofPtrVecU8* = object
-    ok*: ptr FFI2_MerkleProof
+    ok*: ptr FFI_MerkleProof
     err*: Vec_uint8
 
   CResultVecCFrPtrVecU8* = object
@@ -114,33 +114,33 @@ proc vec_u8_free*(v: Vec_uint8) {.importc: "vec_u8_free", cdecl,
     dynlib: RLN_LIB.}
 
 # Hashing functions
-proc ffi2_hash_to_field_le*(input: ptr Vec_uint8): ptr CFr {.importc: "ffi2_hash_to_field_le",
+proc ffi_hash_to_field_le*(input: ptr Vec_uint8): ptr CFr {.importc: "ffi_hash_to_field_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi2_hash_to_field_be*(input: ptr Vec_uint8): ptr CFr {.importc: "ffi2_hash_to_field_be",
+proc ffi_hash_to_field_be*(input: ptr Vec_uint8): ptr CFr {.importc: "ffi_hash_to_field_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi2_poseidon_hash_pair*(a: ptr CFr,
-    b: ptr CFr): ptr CFr {.importc: "ffi2_poseidon_hash_pair", cdecl,
+proc ffi_poseidon_hash_pair*(a: ptr CFr,
+    b: ptr CFr): ptr CFr {.importc: "ffi_poseidon_hash_pair", cdecl,
     dynlib: RLN_LIB.}
 
 # Keygen function
-proc ffi2_key_gen*(): Vec_CFr {.importc: "ffi2_key_gen", cdecl,
+proc ffi_key_gen*(): Vec_CFr {.importc: "ffi_key_gen", cdecl,
     dynlib: RLN_LIB.}
 
 # RLN instance functions
 when defined(ffiStateless):
-  proc ffi2_new*(): CResultRLNPtrVecU8 {.importc: "ffi2_new", cdecl,
+  proc ffi_new*(): CResultRLNPtrVecU8 {.importc: "ffi_new", cdecl,
       dynlib: RLN_LIB.}
 else:
-  proc ffi2_new*(treeDepth: CSize, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi2_new",
+  proc ffi_new*(treeDepth: CSize, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_new",
       cdecl, dynlib: RLN_LIB.}
 
-proc ffi2_rln_free*(rln: ptr FFI2_RLN) {.importc: "ffi2_rln_free", cdecl,
+proc ffi_rln_free*(rln: ptr FFI_RLN) {.importc: "ffi_rln_free", cdecl,
     dynlib: RLN_LIB.}
 
 # Proof generation/verification functions
 when defined(ffiStateless):
-  proc ffi2_generate_rln_proof_stateless*(
-    rln: ptr ptr FFI2_RLN,
+  proc ffi_generate_rln_proof_stateless*(
+    rln: ptr ptr FFI_RLN,
     identity_secret: ptr CFr,
     user_message_limit: ptr CFr,
     message_id: ptr CFr,
@@ -148,55 +148,55 @@ when defined(ffiStateless):
     identity_path_index: ptr Vec_uint8,
     x: ptr CFr,
     external_nullifier: ptr CFr
-  ): CResultProofPtrVecU8 {.importc: "ffi2_generate_rln_proof_stateless", cdecl,
+  ): CResultProofPtrVecU8 {.importc: "ffi_generate_rln_proof_stateless", cdecl,
       dynlib: RLN_LIB.}
 else:
-  proc ffi2_generate_rln_proof*(
-    rln: ptr ptr FFI2_RLN,
+  proc ffi_generate_rln_proof*(
+    rln: ptr ptr FFI_RLN,
     identity_secret: ptr CFr,
     user_message_limit: ptr CFr,
     message_id: ptr CFr,
     x: ptr CFr,
     external_nullifier: ptr CFr,
     leaf_index: CSize
-  ): CResultProofPtrVecU8 {.importc: "ffi2_generate_rln_proof", cdecl,
+  ): CResultProofPtrVecU8 {.importc: "ffi_generate_rln_proof", cdecl,
       dynlib: RLN_LIB.}
 
 when defined(ffiStateless):
-  proc ffi2_verify_with_roots*(
-    rln: ptr ptr FFI2_RLN,
-    proof: ptr ptr FFI2_RLNProof,
+  proc ffi_verify_with_roots*(
+    rln: ptr ptr FFI_RLN,
+    proof: ptr ptr FFI_RLNProof,
     roots: ptr Vec_CFr,
     x: ptr CFr
-  ): CResultBoolPtrVecU8 {.importc: "ffi2_verify_with_roots", cdecl,
+  ): CResultBoolPtrVecU8 {.importc: "ffi_verify_with_roots", cdecl,
       dynlib: RLN_LIB.}
 else:
-  proc ffi2_verify_rln_proof*(
-    rln: ptr ptr FFI2_RLN,
-    proof: ptr ptr FFI2_RLNProof,
+  proc ffi_verify_rln_proof*(
+    rln: ptr ptr FFI_RLN,
+    proof: ptr ptr FFI_RLNProof,
     x: ptr CFr
-  ): CResultBoolPtrVecU8 {.importc: "ffi2_verify_rln_proof", cdecl,
+  ): CResultBoolPtrVecU8 {.importc: "ffi_verify_rln_proof", cdecl,
       dynlib: RLN_LIB.}
 
-proc ffi2_rln_proof_free*(p: ptr FFI2_RLNProof) {.importc: "ffi2_rln_proof_free",
+proc ffi_rln_proof_free*(p: ptr FFI_RLNProof) {.importc: "ffi_rln_proof_free",
     cdecl, dynlib: RLN_LIB.}
 
 # Merkle tree operations (non-stateless mode)
 when not defined(ffiStateless):
-  proc ffi2_set_next_leaf*(rln: ptr ptr FFI2_RLN,
-      value: ptr ptr CFr): CResultBoolPtrVecU8 {.importc: "ffi2_set_next_leaf",
+  proc ffi_set_next_leaf*(rln: ptr ptr FFI_RLN,
+      value: ptr ptr CFr): CResultBoolPtrVecU8 {.importc: "ffi_set_next_leaf",
       cdecl, dynlib: RLN_LIB.}
-  proc ffi2_leaves_set*(rln: ptr ptr FFI2_RLN): CSize {.importc: "ffi2_leaves_set",
+  proc ffi_leaves_set*(rln: ptr ptr FFI_RLN): CSize {.importc: "ffi_leaves_set",
       cdecl, dynlib: RLN_LIB.}
-  proc ffi2_get_proof*(rln: ptr ptr FFI2_RLN,
-      index: CSize): CResultMerkleProofPtrVecU8 {.importc: "ffi2_get_proof",
+  proc ffi_get_proof*(rln: ptr ptr FFI_RLN,
+      index: CSize): CResultMerkleProofPtrVecU8 {.importc: "ffi_get_proof",
       cdecl, dynlib: RLN_LIB.}
-  proc ffi2_merkle_proof_free*(p: ptr FFI2_MerkleProof) {.importc: "ffi2_merkle_proof_free",
+  proc ffi_merkle_proof_free*(p: ptr FFI_MerkleProof) {.importc: "ffi_merkle_proof_free",
       cdecl, dynlib: RLN_LIB.}
 
 # Secret recovery
-proc ffi2_recover_id_secret*(proof1: ptr ptr FFI2_RLNProof,
-    proof2: ptr ptr FFI2_RLNProof): CResultCFrPtrVecU8 {.importc: "ffi2_recover_id_secret",
+proc ffi_recover_id_secret*(proof1: ptr ptr FFI_RLNProof,
+    proof2: ptr ptr FFI_RLNProof): CResultCFrPtrVecU8 {.importc: "ffi_recover_id_secret",
     cdecl, dynlib: RLN_LIB.}
 
 # Helpers
@@ -215,20 +215,20 @@ when isMainModule:
 
   var rlnRes: CResultRLNPtrVecU8
   when defined(ffiStateless):
-    rlnRes = ffi2_new()
+    rlnRes = ffi_new()
   else:
     let config_path = """../resources/tree_depth_20/config.json""".cstring
-    rlnRes = ffi2_new(CSize(20), config_path)
+    rlnRes = ffi_new(CSize(20), config_path)
 
   if rlnRes.ok.isNil:
-    stderr.writeLine "ffi2_new error: ", asString(rlnRes.err)
+    stderr.writeLine "ffi_new error: ", asString(rlnRes.err)
     quit 1
 
   var rln = rlnRes.ok
   echo "RLN instance created successfully"
 
   echo "\nGenerating identity keys"
-  var keys = ffi2_key_gen()
+  var keys = ffi_key_gen()
   let identitySecret = vec_cfr_get(addr keys, CSize(0))
   let idCommitment = vec_cfr_get(addr keys, CSize(1))
   echo "Identity generated"
@@ -252,7 +252,7 @@ when isMainModule:
     vec_u8_free(debug)
 
   echo "\nComputing rate commitment"
-  let rateCommitment = ffi2_poseidon_hash_pair(idCommitment, userMessageLimit)
+  let rateCommitment = ffi_poseidon_hash_pair(idCommitment, userMessageLimit)
 
   block:
     let debug = cfr_debug(rateCommitment)
@@ -307,9 +307,9 @@ when isMainModule:
 
     let defaultLeaf = cfr_zero()
     var defaultHashes: array[treeDepth-1, ptr CFr]
-    defaultHashes[0] = ffi2_poseidon_hash_pair(defaultLeaf, defaultLeaf)
+    defaultHashes[0] = ffi_poseidon_hash_pair(defaultLeaf, defaultLeaf)
     for i in 1..treeDepth-2:
-      defaultHashes[i] = ffi2_poseidon_hash_pair(defaultHashes[i-1],
+      defaultHashes[i] = ffi_poseidon_hash_pair(defaultHashes[i-1],
           defaultHashes[i-1])
 
     var pathElemsBuffer = alloc(CFR_SIZE * treeDepth)
@@ -372,9 +372,9 @@ when isMainModule:
 
     echo "\nComputing Merkle root for stateless mode"
     echo "  - computing root for index 0 with rate_commitment"
-    var computedRoot = ffi2_poseidon_hash_pair(rateCommitment, defaultLeaf)
+    var computedRoot = ffi_poseidon_hash_pair(rateCommitment, defaultLeaf)
     for i in 1..treeDepth-1:
-      let next = ffi2_poseidon_hash_pair(computedRoot, defaultHashes[i-1])
+      let next = ffi_poseidon_hash_pair(computedRoot, defaultHashes[i-1])
       cfr_free(computedRoot)
       computedRoot = next
 
@@ -385,22 +385,22 @@ when isMainModule:
   else:
     echo "\nAdding rate_commitment to tree"
     var rcPtr = rateCommitment
-    let setRes = ffi2_set_next_leaf(addr rln, addr rcPtr)
+    let setRes = ffi_set_next_leaf(addr rln, addr rcPtr)
     if setRes.ok.isNil or not setRes.ok[]:
       stderr.writeLine "set_next_leaf error: ", asString(setRes.err)
       vec_cfr_free(keys)
-      ffi2_rln_free(rln)
+      ffi_rln_free(rln)
       quit 1
 
-    let leafIndex = ffi2_leaves_set(addr rln) - 1
+    let leafIndex = ffi_leaves_set(addr rln) - 1
     echo "  - added to tree at index ", leafIndex
 
     echo "\nGetting Merkle proof"
-    let proofResult = ffi2_get_proof(addr rln, leafIndex)
+    let proofResult = ffi_get_proof(addr rln, leafIndex)
     if proofResult.ok.isNil:
       stderr.writeLine "get_proof error: ", asString(proofResult.err)
       vec_cfr_free(keys)
-      ffi2_rln_free(rln)
+      ffi_rln_free(rln)
       quit 1
     let merkleProof = proofResult.ok
     echo "  - proof obtained (depth: ", merkleProof.path_elements.len, ")"
@@ -410,7 +410,7 @@ when isMainModule:
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   var signalVec = Vec_uint8(dataPtr: cast[ptr uint8](addr signal[0]),
       len: CSize(signal.len), cap: CSize(signal.len))
-  let x = ffi2_hash_to_field_le(addr signalVec)
+  let x = ffi_hash_to_field_le(addr signalVec)
 
   block:
     let debug = cfr_debug(x)
@@ -422,7 +422,7 @@ when isMainModule:
   var epochBytes = newSeq[uint8](epochStr.len)
   for i in 0..<epochStr.len: epochBytes[i] = uint8(epochStr[i])
   var epochVec = asVecU8(epochBytes)
-  let epoch = ffi2_hash_to_field_le(addr epochVec)
+  let epoch = ffi_hash_to_field_le(addr epochVec)
 
   block:
     let debug = cfr_debug(epoch)
@@ -434,7 +434,7 @@ when isMainModule:
   var rlnIdBytes = newSeq[uint8](rlnIdStr.len)
   for i in 0..<rlnIdStr.len: rlnIdBytes[i] = uint8(rlnIdStr[i])
   var rlnIdVec = asVecU8(rlnIdBytes)
-  let rlnIdentifier = ffi2_hash_to_field_le(addr rlnIdVec)
+  let rlnIdentifier = ffi_hash_to_field_le(addr rlnIdVec)
 
   block:
     let debug = cfr_debug(rlnIdentifier)
@@ -442,7 +442,7 @@ when isMainModule:
     vec_u8_free(debug)
 
   echo "\nComputing Poseidon hash for external nullifier"
-  let externalNullifier = ffi2_poseidon_hash_pair(epoch, rlnIdentifier)
+  let externalNullifier = ffi_poseidon_hash_pair(epoch, rlnIdentifier)
 
   block:
     let debug = cfr_debug(externalNullifier)
@@ -460,11 +460,11 @@ when isMainModule:
   echo "\nGenerating RLN Proof"
   var proofRes: CResultProofPtrVecU8
   when defined(ffiStateless):
-    proofRes = ffi2_generate_rln_proof_stateless(addr rln, identitySecret,
+    proofRes = ffi_generate_rln_proof_stateless(addr rln, identitySecret,
         userMessageLimit, messageId, addr pathElements, addr identityPathIndex,
         x, externalNullifier)
   else:
-    proofRes = ffi2_generate_rln_proof(addr rln, identitySecret,
+    proofRes = ffi_generate_rln_proof(addr rln, identitySecret,
         userMessageLimit, messageId, x, externalNullifier, leafIndex)
 
   if proofRes.ok.isNil:
@@ -480,9 +480,9 @@ when isMainModule:
     roots.dataPtr = computedRoot
     roots.len = CSize(1)
     roots.cap = CSize(1)
-    let verifyRes = ffi2_verify_with_roots(addr rln, addr proof, addr roots, x)
+    let verifyRes = ffi_verify_with_roots(addr rln, addr proof, addr roots, x)
   else:
-    let verifyRes = ffi2_verify_rln_proof(addr rln, addr proof, x)
+    let verifyRes = ffi_verify_rln_proof(addr rln, addr proof, x)
 
   if verifyRes.ok.isNil:
     stderr.writeLine "Proof verification error: ", asString(verifyRes.err)
@@ -500,7 +500,7 @@ when isMainModule:
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   var signal2Vec = Vec_uint8(dataPtr: cast[ptr uint8](addr signal2[0]),
       len: CSize(signal2.len), cap: CSize(signal2.len))
-  let x2 = ffi2_hash_to_field_le(addr signal2Vec)
+  let x2 = ffi_hash_to_field_le(addr signal2Vec)
 
   block:
     let debug = cfr_debug(x2)
@@ -518,11 +518,11 @@ when isMainModule:
   echo "\nGenerating second RLN Proof"
   var proofRes2: CResultProofPtrVecU8
   when defined(ffiStateless):
-    proofRes2 = ffi2_generate_rln_proof_stateless(addr rln, identitySecret,
+    proofRes2 = ffi_generate_rln_proof_stateless(addr rln, identitySecret,
         userMessageLimit, messageId2, addr pathElements, addr identityPathIndex,
         x2, externalNullifier)
   else:
-    proofRes2 = ffi2_generate_rln_proof(addr rln, identitySecret,
+    proofRes2 = ffi_generate_rln_proof(addr rln, identitySecret,
         userMessageLimit, messageId2, x2, externalNullifier, leafIndex)
 
   if proofRes2.ok.isNil:
@@ -534,9 +534,9 @@ when isMainModule:
 
   echo "\nVerifying second proof"
   when defined(ffiStateless):
-    let verifyRes2 = ffi2_verify_with_roots(addr rln, addr proof2, addr roots, x2)
+    let verifyRes2 = ffi_verify_with_roots(addr rln, addr proof2, addr roots, x2)
   else:
-    let verifyRes2 = ffi2_verify_rln_proof(addr rln, addr proof2, x2)
+    let verifyRes2 = ffi_verify_rln_proof(addr rln, addr proof2, x2)
 
   if verifyRes2.ok.isNil:
     stderr.writeLine "Second proof verification error: ", asString(verifyRes2.err)
@@ -545,7 +545,7 @@ when isMainModule:
     echo "Second proof verified successfully"
 
     echo "\nRecovering identity secret"
-    let recoverRes = ffi2_recover_id_secret(addr proof, addr proof2)
+    let recoverRes = ffi_recover_id_secret(addr proof, addr proof2)
     if recoverRes.ok.isNil:
       stderr.writeLine "Identity recovery error: ", asString(recoverRes.err)
       quit 1
@@ -568,10 +568,10 @@ when isMainModule:
     echo "Second proof verification failed"
     quit 1
 
-  ffi2_rln_proof_free(proof2)
+  ffi_rln_proof_free(proof2)
   cfr_free(x2)
   cfr_free(messageId2)
-  ffi2_rln_proof_free(proof)
+  ffi_rln_proof_free(proof)
 
   when defined(ffiStateless):
     cfr_free(computedRoot)
@@ -579,7 +579,7 @@ when isMainModule:
     for i in 0..treeDepth-2: cfr_free(defaultHashes[i])
     dealloc(pathElemsBuffer)
   else:
-    ffi2_merkle_proof_free(merkleProof)
+    ffi_merkle_proof_free(merkleProof)
 
   cfr_free(rateCommitment)
   cfr_free(x)
@@ -589,4 +589,4 @@ when isMainModule:
   cfr_free(userMessageLimit)
   cfr_free(messageId)
   vec_cfr_free(keys)
-  ffi2_rln_free(rln)
+  ffi_rln_free(rln)

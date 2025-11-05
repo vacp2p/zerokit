@@ -228,37 +228,37 @@ pub fn vec_u8_free(v: repr_c::Vec<u8>) {
 // Utility APIs
 
 #[ffi_export]
-pub fn ffi2_hash_to_field_le(input: &repr_c::Vec<u8>) -> repr_c::Box<CFr> {
+pub fn ffi_hash_to_field_le(input: &repr_c::Vec<u8>) -> repr_c::Box<CFr> {
     let hash_result = hash_to_field_le(input);
     CFr::from(hash_result).into()
 }
 
 #[ffi_export]
-pub fn ffi2_hash_to_field_be(input: &repr_c::Vec<u8>) -> repr_c::Box<CFr> {
+pub fn ffi_hash_to_field_be(input: &repr_c::Vec<u8>) -> repr_c::Box<CFr> {
     let hash_result = hash_to_field_be(input);
     CFr::from(hash_result).into()
 }
 
 #[ffi_export]
-pub fn ffi2_poseidon_hash_pair(a: &CFr, b: &CFr) -> repr_c::Box<CFr> {
+pub fn ffi_poseidon_hash_pair(a: &CFr, b: &CFr) -> repr_c::Box<CFr> {
     let hash_result = poseidon_hash(&[a.0, b.0]);
     CFr::from(hash_result).into()
 }
 
 #[ffi_export]
-pub fn ffi2_key_gen() -> repr_c::Vec<CFr> {
+pub fn ffi_key_gen() -> repr_c::Vec<CFr> {
     let (identity_secret_hash, id_commitment) = keygen();
     vec![CFr(*identity_secret_hash), CFr(id_commitment)].into()
 }
 
 #[ffi_export]
-pub fn ffi2_seeded_key_gen(seed: &repr_c::Vec<u8>) -> repr_c::Vec<CFr> {
+pub fn ffi_seeded_key_gen(seed: &repr_c::Vec<u8>) -> repr_c::Vec<CFr> {
     let (identity_secret_hash, id_commitment) = seeded_keygen(seed);
     vec![CFr(identity_secret_hash), CFr(id_commitment)].into()
 }
 
 #[ffi_export]
-pub fn ffi2_extended_key_gen() -> repr_c::Vec<CFr> {
+pub fn ffi_extended_key_gen() -> repr_c::Vec<CFr> {
     let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
         extended_keygen();
     vec![
@@ -271,7 +271,7 @@ pub fn ffi2_extended_key_gen() -> repr_c::Vec<CFr> {
 }
 
 #[ffi_export]
-pub fn ffi2_seeded_extended_key_gen(seed: &repr_c::Vec<u8>) -> repr_c::Vec<CFr> {
+pub fn ffi_seeded_extended_key_gen(seed: &repr_c::Vec<u8>) -> repr_c::Vec<CFr> {
     let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
         extended_seeded_keygen(seed);
     vec![

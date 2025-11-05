@@ -1,5 +1,5 @@
-use rln::ffi2;
+use rln::ffi;
 
 fn main() -> ::std::io::Result<()> {
-    ffi2::generate_headers()
+    ffi::generate_headers()
 }

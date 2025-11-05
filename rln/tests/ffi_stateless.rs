@@ -4,7 +4,7 @@ mod test {
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use rln::circuit::{Fr, TEST_TREE_DEPTH};
-    use rln::ffi2::{ffi_rln::*, ffi_utils::*};
+    use rln::ffi::{ffi_rln::*, ffi_utils::*};
     use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash, PoseidonHash};
     use rln::utils::*;
     use safer_ffi::prelude::repr_c;
@@ -12,8 +12,8 @@ mod test {
 
     type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
 
-    fn create_rln_instance() -> repr_c::Box<FFI2_RLN> {
-        match ffi2_new() {
+    fn create_rln_instance() -> repr_c::Box<FFI_RLN> {
+        match ffi_new() {
             CResult {
                 ok: Some(rln),
                 err: None,
@@ -27,7 +27,7 @@ mod test {
     }
 
     fn identity_pair_gen() -> (IdSecret, Fr) {
-        let key_gen = ffi2_key_gen();
+        let key_gen = ffi_key_gen();
         let mut id_secret_fr = *key_gen[0];
         let id_secret_hash = IdSecret::from(&mut id_secret_fr);
         let id_commitment = *key_gen[1];
@@ -46,7 +46,7 @@ mod test {
         )
         .unwrap();
 
-        let ffi2_rln_instance = create_rln_instance();
+        let ffi_rln_instance = create_rln_instance();
 
         // We generate a new identity pair
         let (identity_secret_hash, id_commitment) = identity_pair_gen();
@@ -81,8 +81,8 @@ mod test {
         let identity_path_index: repr_c::Vec<u8> = merkle_proof.get_path_index().to_vec().into();
 
         // We call generate_rln_proof for first proof values
-        let rln_proof1 = match ffi2_generate_rln_proof_stateless(
-            &ffi2_rln_instance,
+        let rln_proof1 = match ffi_generate_rln_proof_stateless(
+            &ffi_rln_instance,
             &CFr::from(*identity_secret_hash.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
@@ -103,8 +103,8 @@ mod test {
         };
 
         // We call generate_rln_proof for second proof values
-        let rln_proof2 = match ffi2_generate_rln_proof_stateless(
-            &ffi2_rln_instance,
+        let rln_proof2 = match ffi_generate_rln_proof_stateless(
+            &ffi_rln_instance,
             &CFr::from(*identity_secret_hash.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
@@ -124,7 +124,7 @@ mod test {
             _ => unreachable!(),
         };
 
-        let recovered_id_secret_cfr = match ffi2_recover_id_secret(&rln_proof1, &rln_proof2) {
+        let recovered_id_secret_cfr = match ffi_recover_id_secret(&rln_proof1, &rln_proof2) {
             CResult {
                 ok: Some(secret),
                 err: None,
@@ -164,8 +164,8 @@ mod test {
             merkle_proof_new.get_path_index().to_vec().into();
 
         // We call generate_rln_proof
-        let rln_proof3 = match ffi2_generate_rln_proof_stateless(
-            &ffi2_rln_instance,
+        let rln_proof3 = match ffi_generate_rln_proof_stateless(
+            &ffi_rln_instance,
             &CFr::from(*identity_secret_hash_new.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
@@ -187,7 +187,7 @@ mod test {
 
         // We attempt to recover the secret using share1 (coming from identity_secret_hash) and share3 (coming from identity_secret_hash_new)
 
-        let recovered_id_secret_new_cfr = match ffi2_recover_id_secret(&rln_proof1, &rln_proof3) {
+        let recovered_id_secret_new_cfr = match ffi_recover_id_secret(&rln_proof1, &rln_proof3) {
             CResult {
                 ok: Some(secret),
                 err: None,
@@ -219,7 +219,7 @@ mod test {
         )
         .unwrap();
 
-        let ffi2_rln_instance = create_rln_instance();
+        let ffi_rln_instance = create_rln_instance();
 
         // We generate a new identity pair
         let (identity_secret_hash, id_commitment) = identity_pair_gen();
@@ -250,8 +250,8 @@ mod test {
             .into();
         let identity_path_index: repr_c::Vec<u8> = merkle_proof.get_path_index().to_vec().into();
 
-        let rln_proof = match ffi2_generate_rln_proof_stateless(
-            &ffi2_rln_instance,
+        let rln_proof = match ffi_generate_rln_proof_stateless(
+            &ffi_rln_instance,
             &CFr::from(*identity_secret_hash.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
@@ -274,22 +274,19 @@ mod test {
         // If no roots is provided, proof validation is skipped and if the remaining proof values are valid, the proof will be correctly verified
         let roots_empty: repr_c::Vec<CFr> = vec![].into();
 
-        let proof_is_valid = match ffi2_verify_with_roots(
-            &ffi2_rln_instance,
-            &rln_proof,
-            &roots_empty,
-            &CFr::from(x),
-        ) {
-            CResult {
-                ok: Some(valid),
-                err: None,
-            } => *valid,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("verify with roots call failed: {}", err),
-            _ => unreachable!(),
-        };
+        let proof_is_valid =
+            match ffi_verify_with_roots(&ffi_rln_instance, &rln_proof, &roots_empty, &CFr::from(x))
+            {
+                CResult {
+                    ok: Some(valid),
+                    err: None,
+                } => *valid,
+                CResult {
+                    ok: None,
+                    err: Some(err),
+                } => panic!("verify with roots call failed: {}", err),
+                _ => unreachable!(),
+            };
         // Proof should be valid
         assert!(proof_is_valid);
 
@@ -300,8 +297,8 @@ mod test {
         }
         let roots_random_vec: repr_c::Vec<CFr> = roots_random.into();
 
-        let proof_is_valid = match ffi2_verify_with_roots(
-            &ffi2_rln_instance,
+        let proof_is_valid = match ffi_verify_with_roots(
+            &ffi_rln_instance,
             &rln_proof,
             &roots_random_vec,
             &CFr::from(x),
@@ -330,8 +327,8 @@ mod test {
         roots_with_correct.push(CFr::from(root));
         let roots_correct_vec: repr_c::Vec<CFr> = roots_with_correct.into();
 
-        let proof_is_valid = match ffi2_verify_with_roots(
-            &ffi2_rln_instance,
+        let proof_is_valid = match ffi_verify_with_roots(
+            &ffi_rln_instance,
             &rln_proof,
             &roots_correct_vec,
             &CFr::from(x),

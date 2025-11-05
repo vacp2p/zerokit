@@ -310,9 +310,9 @@ RLN provides C-compatible bindings for integration with C, C++, Nim, and other l
 
 The FFI layer is organized into several modules:
 
-- [`ffi_rln.rs`](./src/ffi2/ffi_rln.rs) – Implements core RLN functionality, including initialization functions, proof generation, and proof verification.
-- [`ffi_tree.rs`](./src/ffi2/ffi_tree.rs) – Provides all tree-related operations and helper functions for Merkle tree management.
-- [`ffi_utils.rs`](./src/ffi2/ffi_utils.rs) – Contains all utility functions and structure definitions used across the FFI layer.
+- [`ffi_rln.rs`](./src/ffi/ffi_rln.rs) – Implements core RLN functionality, including initialization functions, proof generation, and proof verification.
+- [`ffi_tree.rs`](./src/ffi/ffi_tree.rs) – Provides all tree-related operations and helper functions for Merkle tree management.
+- [`ffi_utils.rs`](./src/ffi/ffi_utils.rs) – Contains all utility functions and structure definitions used across the FFI layer.
 
 ### Examples
 

@@ -1,9 +1,6 @@
 pub mod circuit;
 pub mod error;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod ffi;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod ffi2;
 pub mod hashers;
 #[cfg(feature = "pmtree-ft")]
 pub mod pm_tree_adapter;

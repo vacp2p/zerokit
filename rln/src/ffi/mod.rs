@@ -1,3 +1,5 @@
+#![cfg(not(target_arch = "wasm32"))]
+
 pub mod ffi_rln;
 pub mod ffi_tree;
 pub mod ffi_utils;

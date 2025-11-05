@@ -2,7 +2,7 @@
 
 #[cfg(not(feature = "stateless"))]
 use {
-    super::ffi_rln::FFI2_RLN,
+    super::ffi_rln::FFI_RLN,
     super::ffi_utils::{CFr, CResult},
     crate::poseidon_tree::PoseidonTree,
     safer_ffi::{boxed::Box_, derive_ReprC, ffi_export, prelude::repr_c},
@@ -14,14 +14,14 @@ use {
 #[cfg(not(feature = "stateless"))]
 #[derive_ReprC]
 #[repr(C)]
-pub struct FFI2_MerkleProof {
+pub struct FFI_MerkleProof {
     pub path_elements: repr_c::Vec<CFr>,
     pub path_index: repr_c::Vec<u8>,
 }
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_merkle_proof_free(proof: Option<repr_c::Box<FFI2_MerkleProof>>) {
+pub fn ffi_merkle_proof_free(proof: Option<repr_c::Box<FFI_MerkleProof>>) {
     drop(proof);
 }
 
@@ -29,8 +29,8 @@ pub fn ffi2_merkle_proof_free(proof: Option<repr_c::Box<FFI2_MerkleProof>>) {
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_set_tree(
-    rln: &mut repr_c::Box<FFI2_RLN>,
+pub fn ffi_set_tree(
+    rln: &mut repr_c::Box<FFI_RLN>,
     tree_depth: usize,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
     // We compute a default empty tree of desired depth
@@ -53,8 +53,8 @@ pub fn ffi2_set_tree(
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_delete_leaf(
-    rln: &mut repr_c::Box<FFI2_RLN>,
+pub fn ffi_delete_leaf(
+    rln: &mut repr_c::Box<FFI_RLN>,
     index: usize,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
     match rln.tree.delete(index) {
@@ -71,8 +71,8 @@ pub fn ffi2_delete_leaf(
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_set_leaf(
-    rln: &mut repr_c::Box<FFI2_RLN>,
+pub fn ffi_set_leaf(
+    rln: &mut repr_c::Box<FFI_RLN>,
     index: usize,
     value: &repr_c::Box<CFr>,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
@@ -90,8 +90,8 @@ pub fn ffi2_set_leaf(
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_get_leaf(
-    rln: &repr_c::Box<FFI2_RLN>,
+pub fn ffi_get_leaf(
+    rln: &repr_c::Box<FFI_RLN>,
     index: usize,
 ) -> CResult<repr_c::Box<CFr>, repr_c::String> {
     match rln.tree.get(index) {
@@ -108,14 +108,14 @@ pub fn ffi2_get_leaf(
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_leaves_set(rln: &repr_c::Box<FFI2_RLN>) -> usize {
+pub fn ffi_leaves_set(rln: &repr_c::Box<FFI_RLN>) -> usize {
     rln.tree.leaves_set()
 }
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_set_next_leaf(
-    rln: &mut repr_c::Box<FFI2_RLN>,
+pub fn ffi_set_next_leaf(
+    rln: &mut repr_c::Box<FFI_RLN>,
     value: &repr_c::Box<CFr>,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
     match rln.tree.update_next(value.0) {
@@ -132,8 +132,8 @@ pub fn ffi2_set_next_leaf(
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_set_leaves_from(
-    rln: &mut repr_c::Box<FFI2_RLN>,
+pub fn ffi_set_leaves_from(
+    rln: &mut repr_c::Box<FFI_RLN>,
     index: usize,
     leaves: &repr_c::Vec<CFr>,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
@@ -154,8 +154,8 @@ pub fn ffi2_set_leaves_from(
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_init_tree_with_leaves(
-    rln: &mut repr_c::Box<FFI2_RLN>,
+pub fn ffi_init_tree_with_leaves(
+    rln: &mut repr_c::Box<FFI_RLN>,
     leaves: &repr_c::Vec<CFr>,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
     // Reset tree to default
@@ -191,8 +191,8 @@ pub fn ffi2_init_tree_with_leaves(
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_atomic_operation(
-    rln: &mut repr_c::Box<FFI2_RLN>,
+pub fn ffi_atomic_operation(
+    rln: &mut repr_c::Box<FFI_RLN>,
     index: usize,
     leaves: &repr_c::Vec<CFr>,
     indices: &repr_c::Vec<usize>,
@@ -215,8 +215,8 @@ pub fn ffi2_atomic_operation(
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_seq_atomic_operation(
-    rln: &mut repr_c::Box<FFI2_RLN>,
+pub fn ffi_seq_atomic_operation(
+    rln: &mut repr_c::Box<FFI_RLN>,
     leaves: &repr_c::Vec<CFr>,
     indices: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
@@ -241,16 +241,16 @@ pub fn ffi2_seq_atomic_operation(
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_get_root(rln: &repr_c::Box<FFI2_RLN>) -> repr_c::Box<CFr> {
+pub fn ffi_get_root(rln: &repr_c::Box<FFI_RLN>) -> repr_c::Box<CFr> {
     CFr::from(rln.tree.root()).into()
 }
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_get_proof(
-    rln: &repr_c::Box<FFI2_RLN>,
+pub fn ffi_get_proof(
+    rln: &repr_c::Box<FFI_RLN>,
     index: usize,
-) -> CResult<repr_c::Box<FFI2_MerkleProof>, repr_c::String> {
+) -> CResult<repr_c::Box<FFI_MerkleProof>, repr_c::String> {
     match rln.tree.proof(index) {
         Ok(proof) => {
             let path_elements: repr_c::Vec<CFr> = proof
@@ -262,7 +262,7 @@ pub fn ffi2_get_proof(
 
             let path_index: repr_c::Vec<u8> = proof.get_path_index().into();
 
-            let merkle_proof = FFI2_MerkleProof {
+            let merkle_proof = FFI_MerkleProof {
                 path_elements,
                 path_index,
             };
@@ -283,8 +283,8 @@ pub fn ffi2_get_proof(
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_set_metadata(
-    rln: &mut repr_c::Box<FFI2_RLN>,
+pub fn ffi_set_metadata(
+    rln: &mut repr_c::Box<FFI_RLN>,
     metadata: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<bool>, repr_c::String> {
     match rln.tree.set_metadata(metadata) {
@@ -301,7 +301,7 @@ pub fn ffi2_set_metadata(
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_get_metadata(rln: &repr_c::Box<FFI2_RLN>) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+pub fn ffi_get_metadata(rln: &repr_c::Box<FFI_RLN>) -> CResult<repr_c::Vec<u8>, repr_c::String> {
     match rln.tree.metadata() {
         Ok(metadata) => CResult {
             ok: Some(metadata.into()),
@@ -316,7 +316,7 @@ pub fn ffi2_get_metadata(rln: &repr_c::Box<FFI2_RLN>) -> CResult<repr_c::Vec<u8>
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi2_flush(rln: &mut repr_c::Box<FFI2_RLN>) -> CResult<repr_c::Box<bool>, repr_c::String> {
+pub fn ffi_flush(rln: &mut repr_c::Box<FFI_RLN>) -> CResult<repr_c::Box<bool>, repr_c::String> {
     match rln.tree.close_db_connection() {
         Ok(_) => CResult {
             ok: Some(Box_::new(true)),
