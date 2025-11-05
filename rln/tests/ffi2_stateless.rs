@@ -46,7 +46,7 @@ mod test {
         )
         .unwrap();
 
-        let ffi2_rln_pointer = create_rln_instance();
+        let ffi2_rln_instance = create_rln_instance();
 
         // We generate a new identity pair
         let (identity_secret_hash, id_commitment) = identity_pair_gen();
@@ -82,7 +82,7 @@ mod test {
 
         // We call generate_rln_proof for first proof values
         let rln_proof1 = match ffi2_generate_rln_proof_stateless(
-            &ffi2_rln_pointer,
+            &ffi2_rln_instance,
             &CFr::from(*identity_secret_hash.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
@@ -104,7 +104,7 @@ mod test {
 
         // We call generate_rln_proof for second proof values
         let rln_proof2 = match ffi2_generate_rln_proof_stateless(
-            &ffi2_rln_pointer,
+            &ffi2_rln_instance,
             &CFr::from(*identity_secret_hash.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
@@ -137,7 +137,7 @@ mod test {
         };
 
         // We check if the recovered identity secret hash corresponds to the original one
-        let recovered_identity_secret_hash = **recovered_id_secret_cfr;
+        let recovered_identity_secret_hash = *recovered_id_secret_cfr;
         assert_eq!(recovered_identity_secret_hash, *identity_secret_hash);
 
         // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
@@ -165,7 +165,7 @@ mod test {
 
         // We call generate_rln_proof
         let rln_proof3 = match ffi2_generate_rln_proof_stateless(
-            &ffi2_rln_pointer,
+            &ffi2_rln_instance,
             &CFr::from(*identity_secret_hash_new.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
@@ -199,12 +199,12 @@ mod test {
             _ => unreachable!(),
         };
 
-        let recovered_identity_secret_hash_new = **recovered_id_secret_new_cfr;
+        let recovered_identity_secret_hash_new = recovered_id_secret_new_cfr;
 
         // ensure that the recovered secret does not match with either of the
         // used secrets in proof generation
         assert_ne!(
-            recovered_identity_secret_hash_new,
+            *recovered_identity_secret_hash_new,
             *identity_secret_hash_new
         );
     }
@@ -219,7 +219,7 @@ mod test {
         )
         .unwrap();
 
-        let ffi2_rln_pointer = create_rln_instance();
+        let ffi2_rln_instance = create_rln_instance();
 
         // We generate a new identity pair
         let (identity_secret_hash, id_commitment) = identity_pair_gen();
@@ -251,7 +251,7 @@ mod test {
         let identity_path_index: repr_c::Vec<u8> = merkle_proof.get_path_index().to_vec().into();
 
         let rln_proof = match ffi2_generate_rln_proof_stateless(
-            &ffi2_rln_pointer,
+            &ffi2_rln_instance,
             &CFr::from(*identity_secret_hash.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
@@ -275,7 +275,7 @@ mod test {
         let roots_empty: repr_c::Vec<CFr> = vec![].into();
 
         let proof_is_valid = match ffi2_verify_with_roots(
-            &ffi2_rln_pointer,
+            &ffi2_rln_instance,
             &rln_proof,
             &roots_empty,
             &CFr::from(x),
@@ -301,7 +301,7 @@ mod test {
         let roots_random_vec: repr_c::Vec<CFr> = roots_random.into();
 
         let proof_is_valid = match ffi2_verify_with_roots(
-            &ffi2_rln_pointer,
+            &ffi2_rln_instance,
             &rln_proof,
             &roots_random_vec,
             &CFr::from(x),
@@ -331,7 +331,7 @@ mod test {
         let roots_correct_vec: repr_c::Vec<CFr> = roots_with_correct.into();
 
         let proof_is_valid = match ffi2_verify_with_roots(
-            &ffi2_rln_pointer,
+            &ffi2_rln_instance,
             &rln_proof,
             &roots_correct_vec,
             &CFr::from(x),

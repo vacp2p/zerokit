@@ -8,7 +8,7 @@ mod test {
 
     #[test]
     // Tests hash to field using FFI APIs
-    fn test_seeded_keygen_stateless_ffi() {
+    fn test_seeded_keygen_ffi() {
         // We generate a new identity pair from an input seed
         let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         let res = ffi2_seeded_key_gen(&seed_bytes.into());
@@ -20,22 +20,24 @@ mod test {
         let expected_identity_secret_hash_seed_bytes = str_to_fr(
             "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
             16,
-        );
+        )
+        .unwrap();
         let expected_id_commitment_seed_bytes = str_to_fr(
             "0xbf16d2b5c0d6f9d9d561e05bfca16a81b4b873bb063508fae360d8c74cef51f",
             16,
-        );
+        )
+        .unwrap();
 
         assert_eq!(
             *identity_secret_hash,
-            expected_identity_secret_hash_seed_bytes.unwrap()
+            expected_identity_secret_hash_seed_bytes
         );
-        assert_eq!(*id_commitment, expected_id_commitment_seed_bytes.unwrap());
+        assert_eq!(*id_commitment, expected_id_commitment_seed_bytes);
     }
 
     #[test]
     // Tests hash to field using FFI APIs
-    fn test_seeded_extended_keygen_stateless_ffi() {
+    fn test_seeded_extended_keygen_ffi() {
         // We generate a new identity tuple from an input seed
         let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         let key_gen = ffi2_seeded_extended_key_gen(&seed_bytes.into());
@@ -49,33 +51,31 @@ mod test {
         let expected_identity_trapdoor_seed_bytes = str_to_fr(
             "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
             16,
-        );
+        )
+        .unwrap();
         let expected_identity_nullifier_seed_bytes = str_to_fr(
             "0x1f18714c7bc83b5bca9e89d404cf6f2f585bc4c0f7ed8b53742b7e2b298f50b4",
             16,
-        );
+        )
+        .unwrap();
         let expected_identity_secret_hash_seed_bytes = str_to_fr(
             "0x2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521",
             16,
-        );
+        )
+        .unwrap();
         let expected_id_commitment_seed_bytes = str_to_fr(
             "0x68b66aa0a8320d2e56842581553285393188714c48f9b17acd198b4f1734c5c",
             16,
-        );
+        )
+        .unwrap();
 
-        assert_eq!(
-            identity_trapdoor,
-            expected_identity_trapdoor_seed_bytes.unwrap()
-        );
-        assert_eq!(
-            identity_nullifier,
-            expected_identity_nullifier_seed_bytes.unwrap()
-        );
+        assert_eq!(identity_trapdoor, expected_identity_trapdoor_seed_bytes);
+        assert_eq!(identity_nullifier, expected_identity_nullifier_seed_bytes);
         assert_eq!(
             identity_secret_hash,
-            expected_identity_secret_hash_seed_bytes.unwrap()
+            expected_identity_secret_hash_seed_bytes
         );
-        assert_eq!(id_commitment, expected_id_commitment_seed_bytes.unwrap());
+        assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
     }
 
     #[test]
@@ -198,13 +198,13 @@ mod test {
 
         let cfr_le_1 = ffi2_hash_to_field_le(&signal.clone().into());
         let fr_le_2 = rln::hashers::hash_to_field_le(&signal);
-        assert_eq!(**cfr_le_1, fr_le_2);
+        assert_eq!(*cfr_le_1, fr_le_2);
 
         let cfr_be_1 = ffi2_hash_to_field_be(&signal.clone().into());
         let fr_be_2 = rln::hashers::hash_to_field_be(&signal);
-        assert_eq!(**cfr_be_1, fr_be_2);
+        assert_eq!(*cfr_be_1, fr_be_2);
 
-        assert_eq!(*cfr_le_1, **cfr_be_1);
+        assert_eq!(*cfr_le_1, *cfr_be_1);
         assert_eq!(fr_le_2, fr_be_2);
 
         let hash_cfr_le_1 = cfr_to_bytes_le(&cfr_le_1)
@@ -233,6 +233,6 @@ mod test {
 
         let expected_hash = poseidon_hash(&[input_1, input_2]);
         let received_hash_cfr = ffi2_poseidon_hash_pair(&CFr::from(input_1), &CFr::from(input_2));
-        assert_eq!(**received_hash_cfr, expected_hash);
+        assert_eq!(*received_hash_cfr, expected_hash);
     }
 }

@@ -1,12 +1,11 @@
 #![allow(non_camel_case_types)]
 
 use crate::{
+    circuit::Fr,
     hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash},
     protocol::{extended_keygen, extended_seeded_keygen, keygen, seeded_keygen},
     utils::{bytes_be_to_fr, bytes_le_to_fr, fr_to_bytes_be, fr_to_bytes_le},
 };
-use ark_bn254::Fr;
-use ark_ff::{AdditiveGroup, Field};
 use safer_ffi::prelude::ReprC;
 use safer_ffi::{boxed::Box_, derive_ReprC, ffi_export, prelude::repr_c};
 use std::ops::Deref;
@@ -27,22 +26,10 @@ pub struct CResult<T: ReprC, Err: ReprC> {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CFr(pub(crate) Fr);
 
-impl PartialEq<Fr> for CFr {
-    fn eq(&self, other: &Fr) -> bool {
-        self.0 == *other
-    }
-}
-
 impl Deref for CFr {
     type Target = Fr;
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl From<&CFr> for repr_c::Box<CFr> {
-    fn from(cfr: &CFr) -> Self {
-        Box_::new(CFr(cfr.0))
     }
 }
 
@@ -58,14 +45,26 @@ impl From<CFr> for repr_c::Box<CFr> {
     }
 }
 
+impl From<&CFr> for repr_c::Box<CFr> {
+    fn from(cfr: &CFr) -> Self {
+        Box_::new(CFr(cfr.0))
+    }
+}
+
+impl PartialEq<Fr> for CFr {
+    fn eq(&self, other: &Fr) -> bool {
+        self.0 == *other
+    }
+}
+
 #[ffi_export]
 pub fn cfr_zero() -> repr_c::Box<CFr> {
-    Box_::new(CFr::from(Fr::ZERO))
+    Box_::new(CFr::from(Fr::from(0)))
 }
 
 #[ffi_export]
 pub fn cfr_one() -> repr_c::Box<CFr> {
-    Box_::new(CFr::from(Fr::ONE))
+    Box_::new(CFr::from(Fr::from(1)))
 }
 
 #[ffi_export]
@@ -97,7 +96,7 @@ pub fn uint_to_cfr(value: u32) -> repr_c::Box<CFr> {
 
 #[ffi_export]
 pub fn cfr_debug(cfr: Option<&CFr>) -> repr_c::String {
-    format!("{:?}", cfr.map(|c| c.to_string())).into()
+    format!("{:?}", cfr.map(|c| c.0.to_string())).into()
 }
 
 #[ffi_export]

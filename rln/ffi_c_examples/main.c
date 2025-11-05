@@ -94,7 +94,7 @@ int main (int argc, char const * const argv[])
     printf("\nBuilding Merkle path for stateless mode\n");
     CFr_t* default_leaf = cfr_zero();
 
-    CFr_t** default_hashes = malloc(sizeof(CFr_t*) * (TREE_DEPTH - 1));
+    CFr_t* default_hashes[TREE_DEPTH - 1];
     default_hashes[0] = ffi2_poseidon_hash_pair(default_leaf, default_leaf);
     for (size_t i = 1; i < TREE_DEPTH - 1; i++) {
         default_hashes[i] = ffi2_poseidon_hash_pair(default_hashes[i-1], default_hashes[i-1]);
@@ -390,7 +390,6 @@ int main (int argc, char const * const argv[])
     for (size_t i = 0; i < TREE_DEPTH - 1; i++) {
         cfr_free(default_hashes[i]);
     }
-    free(default_hashes);
     cfr_free(default_leaf);
     cfr_free(computed_root);
 #else

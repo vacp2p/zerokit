@@ -13,7 +13,6 @@ mod test {
     use serde_json::json;
     use std::fs::File;
     use std::io::Read;
-    use std::ops::Deref;
     use zeroize::Zeroize;
 
     const NO_OF_LEAVES: usize = 256;
@@ -34,18 +33,18 @@ mod test {
         }
     }
 
-    fn set_leaves_init(ffi2_rln_pointer: &mut repr_c::Box<FFI2_RLN>, leaves: &[Fr]) {
+    fn set_leaves_init(ffi2_rln_instance: &mut repr_c::Box<FFI2_RLN>, leaves: &[Fr]) {
         let leaves_vec: repr_c::Vec<CFr> = leaves
             .iter()
             .map(|fr| CFr::from(*fr))
             .collect::<Vec<_>>()
             .into();
-        match ffi2_init_tree_with_leaves(ffi2_rln_pointer, &leaves_vec) {
+        match ffi2_init_tree_with_leaves(ffi2_rln_instance, &leaves_vec) {
             CResult {
                 ok: Some(_),
                 err: None,
             } => {
-                assert_eq!(ffi2_leaves_set(ffi2_rln_pointer), leaves.len());
+                assert_eq!(ffi2_leaves_set(ffi2_rln_instance), leaves.len());
             }
             CResult {
                 ok: None,
@@ -60,9 +59,9 @@ mod test {
         (0..NO_OF_LEAVES).map(|_| Fr::rand(&mut rng)).collect()
     }
 
-    fn get_tree_root(ffi2_rln_pointer: &repr_c::Box<FFI2_RLN>) -> Fr {
-        let root_cfr = ffi2_get_root(ffi2_rln_pointer);
-        **root_cfr.deref()
+    fn get_tree_root(ffi2_rln_instance: &repr_c::Box<FFI2_RLN>) -> Fr {
+        let root_cfr = ffi2_get_root(ffi2_rln_instance);
+        **root_cfr
     }
 
     fn identity_pair_gen() -> (IdSecret, Fr) {
@@ -74,7 +73,7 @@ mod test {
     }
 
     fn rln_proof_gen(
-        ffi2_rln_pointer: &repr_c::Box<FFI2_RLN>,
+        ffi2_rln_instance: &repr_c::Box<FFI2_RLN>,
         identity_secret: &CFr,
         user_message_limit: &CFr,
         message_id: &CFr,
@@ -83,7 +82,7 @@ mod test {
         leaf_index: usize,
     ) -> repr_c::Box<FFI2_RLNProof> {
         match ffi2_generate_rln_proof(
-            ffi2_rln_pointer,
+            ffi2_rln_instance,
             identity_secret,
             user_message_limit,
             message_id,
@@ -109,12 +108,12 @@ mod test {
         // We generate a vector of random leaves
         let leaves = get_random_leaves();
         // We create a RLN instance
-        let mut ffi2_rln_pointer = create_rln_instance();
+        let mut ffi2_rln_instance = create_rln_instance();
 
         // We first add leaves one by one specifying the index
         for (i, leaf) in leaves.iter().enumerate() {
             // We prepare the rate_commitment and we set the leaf at provided index
-            match ffi2_set_leaf(&mut ffi2_rln_pointer, i, &Box_::new(CFr::from(*leaf))) {
+            match ffi2_set_leaf(&mut ffi2_rln_instance, i, &Box_::new(CFr::from(*leaf))) {
                 CResult {
                     ok: Some(_),
                     err: None,
@@ -128,10 +127,10 @@ mod test {
         }
 
         // We get the root of the tree obtained adding one leaf per time
-        let root_single = get_tree_root(&ffi2_rln_pointer);
+        let root_single = get_tree_root(&ffi2_rln_instance);
 
         // We reset the tree to default
-        match ffi2_set_tree(&mut ffi2_rln_pointer, TEST_TREE_DEPTH) {
+        match ffi2_set_tree(&mut ffi2_rln_instance, TEST_TREE_DEPTH) {
             CResult {
                 ok: Some(_),
                 err: None,
@@ -145,7 +144,7 @@ mod test {
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
         for leaf in &leaves {
-            match ffi2_set_next_leaf(&mut ffi2_rln_pointer, &Box_::new(CFr::from(*leaf))) {
+            match ffi2_set_next_leaf(&mut ffi2_rln_instance, &Box_::new(CFr::from(*leaf))) {
                 CResult {
                     ok: Some(_),
                     err: None,
@@ -159,13 +158,13 @@ mod test {
         }
 
         // We get the root of the tree obtained adding leaves using the internal index
-        let root_next = get_tree_root(&ffi2_rln_pointer);
+        let root_next = get_tree_root(&ffi2_rln_instance);
 
         // We check if roots are the same
         assert_eq!(root_single, root_next);
 
         // We reset the tree to default
-        match ffi2_set_tree(&mut ffi2_rln_pointer, TEST_TREE_DEPTH) {
+        match ffi2_set_tree(&mut ffi2_rln_instance, TEST_TREE_DEPTH) {
             CResult {
                 ok: Some(_),
                 err: None,
@@ -178,10 +177,10 @@ mod test {
         }
 
         // We add leaves in a batch into the tree
-        set_leaves_init(&mut ffi2_rln_pointer, &leaves);
+        set_leaves_init(&mut ffi2_rln_instance, &leaves);
 
         // We get the root of the tree obtained adding leaves in batch
-        let root_batch = get_tree_root(&ffi2_rln_pointer);
+        let root_batch = get_tree_root(&ffi2_rln_instance);
 
         // We check if roots are the same
         assert_eq!(root_single, root_batch);
@@ -189,7 +188,7 @@ mod test {
         // We now delete all leaves set and check if the root corresponds to the empty tree root
         // delete calls over indexes higher than no_of_leaves are ignored and will not increase self.tree.next_index
         for i in 0..NO_OF_LEAVES {
-            match ffi2_delete_leaf(&mut ffi2_rln_pointer, i) {
+            match ffi2_delete_leaf(&mut ffi2_rln_instance, i) {
                 CResult {
                     ok: Some(_),
                     err: None,
@@ -203,10 +202,10 @@ mod test {
         }
 
         // We get the root of the tree obtained deleting all leaves
-        let root_delete = get_tree_root(&ffi2_rln_pointer);
+        let root_delete = get_tree_root(&ffi2_rln_instance);
 
         // We reset the tree to default
-        match ffi2_set_tree(&mut ffi2_rln_pointer, TEST_TREE_DEPTH) {
+        match ffi2_set_tree(&mut ffi2_rln_instance, TEST_TREE_DEPTH) {
             CResult {
                 ok: Some(_),
                 err: None,
@@ -219,7 +218,7 @@ mod test {
         }
 
         // We get the root of the empty tree
-        let root_empty = get_tree_root(&ffi2_rln_pointer);
+        let root_empty = get_tree_root(&ffi2_rln_instance);
 
         // We check if roots are the same
         assert_eq!(root_delete, root_empty);
@@ -230,8 +229,8 @@ mod test {
     // Uses `set_leaves_from` to set leaves in a batch
     fn test_leaf_setting_with_index_ffi() {
         // We create a RLN instance
-        let mut ffi2_rln_pointer = create_rln_instance();
-        assert_eq!(ffi2_leaves_set(&ffi2_rln_pointer), 0);
+        let mut ffi2_rln_instance = create_rln_instance();
+        assert_eq!(ffi2_leaves_set(&ffi2_rln_instance), 0);
 
         // We generate a vector of random leaves
         let leaves = get_random_leaves();
@@ -243,15 +242,15 @@ mod test {
         println!("set_index: {set_index}");
 
         // We add leaves in a batch into the tree
-        set_leaves_init(&mut ffi2_rln_pointer, &leaves);
+        set_leaves_init(&mut ffi2_rln_instance, &leaves);
 
         // We get the root of the tree obtained adding leaves in batch
-        let root_batch_with_init = get_tree_root(&ffi2_rln_pointer);
+        let root_batch_with_init = get_tree_root(&ffi2_rln_instance);
 
         // `init_tree_with_leaves` resets the tree to the depth it was initialized with, using `set_tree`
 
         // We add leaves in a batch starting from index 0..set_index
-        set_leaves_init(&mut ffi2_rln_pointer, &leaves[0..set_index]);
+        set_leaves_init(&mut ffi2_rln_instance, &leaves[0..set_index]);
 
         // We add the remaining n leaves in a batch starting from index set_index
         let leaves_vec: repr_c::Vec<CFr> = leaves[set_index..]
@@ -259,7 +258,7 @@ mod test {
             .map(|fr| CFr::from(*fr))
             .collect::<Vec<_>>()
             .into();
-        match ffi2_set_leaves_from(&mut ffi2_rln_pointer, set_index, &leaves_vec) {
+        match ffi2_set_leaves_from(&mut ffi2_rln_instance, set_index, &leaves_vec) {
             CResult {
                 ok: Some(_),
                 err: None,
@@ -272,14 +271,14 @@ mod test {
         }
 
         // We get the root of the tree obtained adding leaves in batch
-        let root_batch_with_custom_index = get_tree_root(&ffi2_rln_pointer);
+        let root_batch_with_custom_index = get_tree_root(&ffi2_rln_instance);
         assert_eq!(
             root_batch_with_init, root_batch_with_custom_index,
             "root batch !="
         );
 
         // We reset the tree to default
-        match ffi2_set_tree(&mut ffi2_rln_pointer, TEST_TREE_DEPTH) {
+        match ffi2_set_tree(&mut ffi2_rln_instance, TEST_TREE_DEPTH) {
             CResult {
                 ok: Some(_),
                 err: None,
@@ -293,7 +292,7 @@ mod test {
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
         for leaf in &leaves {
-            match ffi2_set_next_leaf(&mut ffi2_rln_pointer, &Box_::new(CFr::from(*leaf))) {
+            match ffi2_set_next_leaf(&mut ffi2_rln_instance, &Box_::new(CFr::from(*leaf))) {
                 CResult {
                     ok: Some(_),
                     err: None,
@@ -307,7 +306,7 @@ mod test {
         }
 
         // We get the root of the tree obtained adding leaves using the internal index
-        let root_single_additions = get_tree_root(&ffi2_rln_pointer);
+        let root_single_additions = get_tree_root(&ffi2_rln_instance);
         assert_eq!(
             root_batch_with_init, root_single_additions,
             "root single additions !="
@@ -320,13 +319,13 @@ mod test {
         // We generate a vector of random leaves
         let leaves = get_random_leaves();
         // We create a RLN instance
-        let mut ffi2_rln_pointer = create_rln_instance();
+        let mut ffi2_rln_instance = create_rln_instance();
 
         // We add leaves in a batch into the tree
-        set_leaves_init(&mut ffi2_rln_pointer, &leaves);
+        set_leaves_init(&mut ffi2_rln_instance, &leaves);
 
         // We get the root of the tree obtained adding leaves in batch
-        let root_after_insertion = get_tree_root(&ffi2_rln_pointer);
+        let root_after_insertion = get_tree_root(&ffi2_rln_instance);
 
         let last_leaf = leaves.last().unwrap();
         let last_leaf_index = NO_OF_LEAVES - 1;
@@ -334,7 +333,7 @@ mod test {
         let last_leaf_vec: repr_c::Vec<CFr> = vec![CFr::from(*last_leaf)].into();
 
         match ffi2_atomic_operation(
-            &mut ffi2_rln_pointer,
+            &mut ffi2_rln_instance,
             last_leaf_index,
             &last_leaf_vec,
             &indices,
@@ -351,7 +350,7 @@ mod test {
         }
 
         // We get the root of the tree obtained after a no-op
-        let root_after_noop = get_tree_root(&ffi2_rln_pointer);
+        let root_after_noop = get_tree_root(&ffi2_rln_instance);
         assert_eq!(root_after_insertion, root_after_noop);
     }
 
@@ -361,13 +360,13 @@ mod test {
         // We generate a vector of random leaves
         let leaves = get_random_leaves();
         // We create a RLN instance
-        let mut ffi2_rln_pointer = create_rln_instance();
+        let mut ffi2_rln_instance = create_rln_instance();
 
         let mut rng = thread_rng();
         let bad_index = (1 << TEST_TREE_DEPTH) - rng.gen_range(0..NO_OF_LEAVES) as usize;
 
         // Get root of empty tree
-        let root_empty = get_tree_root(&ffi2_rln_pointer);
+        let root_empty = get_tree_root(&ffi2_rln_instance);
 
         // We add leaves in a batch into the tree
         let leaves_vec: repr_c::Vec<CFr> = leaves
@@ -375,7 +374,7 @@ mod test {
             .map(|fr| CFr::from(*fr))
             .collect::<Vec<_>>()
             .into();
-        match ffi2_set_leaves_from(&mut ffi2_rln_pointer, bad_index, &leaves_vec) {
+        match ffi2_set_leaves_from(&mut ffi2_rln_instance, bad_index, &leaves_vec) {
             CResult {
                 ok: None,
                 err: Some(_),
@@ -384,7 +383,7 @@ mod test {
         }
 
         // Get root of tree after attempted set
-        let root_after_bad_set = get_tree_root(&ffi2_rln_pointer);
+        let root_after_bad_set = get_tree_root(&ffi2_rln_instance);
         assert_eq!(root_empty, root_after_bad_set);
     }
 
@@ -393,7 +392,7 @@ mod test {
     fn test_merkle_proof_ffi() {
         let leaf_index = 3;
         // We create a RLN instance
-        let mut ffi2_rln_pointer = create_rln_instance();
+        let mut ffi2_rln_instance = create_rln_instance();
 
         // generate identity
         let mut identity_secret_hash_ = hash_to_field_le(b"test-merkle-proof");
@@ -406,7 +405,7 @@ mod test {
 
         // We prepare id_commitment and we set the leaf at provided index
         match ffi2_set_leaf(
-            &mut ffi2_rln_pointer,
+            &mut ffi2_rln_instance,
             leaf_index,
             &Box_::new(CFr::from(rate_commitment)),
         ) {
@@ -422,7 +421,7 @@ mod test {
         }
 
         // We obtain the Merkle tree root
-        let root = get_tree_root(&ffi2_rln_pointer);
+        let root = get_tree_root(&ffi2_rln_instance);
 
         use ark_ff::BigInt;
         assert_eq!(
@@ -437,7 +436,7 @@ mod test {
         );
 
         // We obtain the Merkle proof
-        let proof = match ffi2_get_proof(&ffi2_rln_pointer, leaf_index) {
+        let proof = match ffi2_get_proof(&ffi2_rln_instance, leaf_index) {
             CResult {
                 ok: Some(proof),
                 err: None,
@@ -499,10 +498,10 @@ mod test {
     // Creating a RLN with raw data should generate same results as using a path to resources
     fn test_rln_raw_ffi() {
         // We create a RLN instance
-        let ffi2_rln_pointer = create_rln_instance();
+        let ffi2_rln_instance = create_rln_instance();
 
         // We obtain the root from the RLN instance
-        let root_rln_folder = get_tree_root(&ffi2_rln_pointer);
+        let root_rln_folder = get_tree_root(&ffi2_rln_instance);
 
         let zkey_path = "./resources/tree_depth_20/rln_final.arkzkey";
         let mut zkey_file = File::open(zkey_path).expect("no file found");
@@ -523,7 +522,7 @@ mod test {
         // Creating a RLN instance passing the raw data
         let tree_config = "".to_string();
         let c_str = std::ffi::CString::new(tree_config).unwrap();
-        let ffi2_rln_pointer2 = match ffi2_new_with_params(
+        let ffi2_rln_instance2 = match ffi2_new_with_params(
             TEST_TREE_DEPTH,
             &zkey_buffer.into(),
             &graph_buffer.into(),
@@ -542,7 +541,7 @@ mod test {
 
         // We obtain the root from the RLN instance containing raw data
         // And compare that the same root was generated
-        let root_rln_raw = get_tree_root(&ffi2_rln_pointer2);
+        let root_rln_raw = get_tree_root(&ffi2_rln_instance2);
         assert_eq!(root_rln_folder, root_rln_raw);
     }
 
@@ -558,10 +557,10 @@ mod test {
             .collect();
 
         // We create a RLN instance
-        let mut ffi2_rln_pointer = create_rln_instance();
+        let mut ffi2_rln_instance = create_rln_instance();
 
         // We add leaves in a batch into the tree
-        set_leaves_init(&mut ffi2_rln_pointer, &leaves);
+        set_leaves_init(&mut ffi2_rln_instance, &leaves);
 
         // We generate a new identity pair
         let (identity_secret_hash, id_commitment) = identity_pair_gen();
@@ -584,7 +583,7 @@ mod test {
 
         // We set as leaf rate_commitment, its index would be equal to no_of_leaves
         match ffi2_set_next_leaf(
-            &mut ffi2_rln_pointer,
+            &mut ffi2_rln_instance,
             &Box_::new(CFr::from(rate_commitment)),
         ) {
             CResult {
@@ -599,7 +598,7 @@ mod test {
         }
 
         // Get the merkle proof for the identity
-        let _merkle_proof = match ffi2_get_proof(&ffi2_rln_pointer, identity_index) {
+        let _merkle_proof = match ffi2_get_proof(&ffi2_rln_instance, identity_index) {
             CResult {
                 ok: Some(proof),
                 err: None,
@@ -616,7 +615,7 @@ mod test {
 
         // path_elements and identity_path_index are not needed in non-stateless mode
         let rln_proof = rln_proof_gen(
-            &ffi2_rln_pointer,
+            &ffi2_rln_instance,
             &CFr::from(*identity_secret_hash),
             &CFr::from(user_message_limit),
             &CFr::from(message_id),
@@ -626,7 +625,7 @@ mod test {
         );
 
         let proof_is_valid =
-            match ffi2_verify_rln_proof(&ffi2_rln_pointer, &rln_proof, &CFr::from(x)) {
+            match ffi2_verify_rln_proof(&ffi2_rln_instance, &rln_proof, &CFr::from(x)) {
                 CResult {
                     ok: Some(success),
                     err: None,
@@ -649,10 +648,10 @@ mod test {
         // We generate a vector of random leaves
         let leaves = get_random_leaves();
         // We create a RLN instance
-        let mut ffi2_rln_pointer = create_rln_instance();
+        let mut ffi2_rln_instance = create_rln_instance();
 
         // We add leaves in a batch into the tree
-        set_leaves_init(&mut ffi2_rln_pointer, &leaves);
+        set_leaves_init(&mut ffi2_rln_instance, &leaves);
 
         // We generate a new identity pair
         let (identity_secret_hash, id_commitment) = identity_pair_gen();
@@ -674,7 +673,7 @@ mod test {
 
         // We set as leaf rate_commitment, its index would be equal to no_of_leaves
         match ffi2_set_next_leaf(
-            &mut ffi2_rln_pointer,
+            &mut ffi2_rln_instance,
             &Box_::new(CFr::from(rate_commitment)),
         ) {
             CResult {
@@ -689,7 +688,7 @@ mod test {
         }
 
         // Get the merkle proof for the identity
-        let _merkle_proof = match ffi2_get_proof(&ffi2_rln_pointer, identity_index) {
+        let _merkle_proof = match ffi2_get_proof(&ffi2_rln_instance, identity_index) {
             CResult {
                 ok: Some(proof),
                 err: None,
@@ -708,7 +707,7 @@ mod test {
         // witness input is now passed directly as parameters
 
         let rln_proof = rln_proof_gen(
-            &ffi2_rln_pointer,
+            &ffi2_rln_instance,
             &CFr::from(*identity_secret_hash),
             &CFr::from(user_message_limit),
             &CFr::from(message_id),
@@ -724,7 +723,7 @@ mod test {
         let roots_empty: repr_c::Vec<CFr> = vec![].into();
 
         let proof_is_valid = match ffi2_verify_with_roots(
-            &ffi2_rln_pointer,
+            &ffi2_rln_instance,
             &rln_proof,
             &roots_empty,
             &CFr::from(x),
@@ -750,7 +749,7 @@ mod test {
         let roots_random_vec: repr_c::Vec<CFr> = roots_random.into();
 
         let proof_is_valid = match ffi2_verify_with_roots(
-            &ffi2_rln_pointer,
+            &ffi2_rln_instance,
             &rln_proof,
             &roots_random_vec,
             &CFr::from(x),
@@ -770,7 +769,7 @@ mod test {
 
         // We finally include the correct root
         // We get the root of the tree obtained adding one leaf per time
-        let root = get_tree_root(&ffi2_rln_pointer);
+        let root = get_tree_root(&ffi2_rln_instance);
 
         // We include the root and verify the proof
         let mut roots_with_correct: Vec<CFr> = Vec::new();
@@ -781,7 +780,7 @@ mod test {
         let roots_correct_vec: repr_c::Vec<CFr> = roots_with_correct.into();
 
         let proof_is_valid = match ffi2_verify_with_roots(
-            &ffi2_rln_pointer,
+            &ffi2_rln_instance,
             &rln_proof,
             &roots_correct_vec,
             &CFr::from(x),
@@ -804,7 +803,7 @@ mod test {
     // Computes and verifies an RLN ZK proof using FFI APIs and recovers identity secret
     fn test_recover_id_secret_ffi() {
         // We create a RLN instance
-        let mut ffi2_rln_pointer = create_rln_instance();
+        let mut ffi2_rln_instance = create_rln_instance();
 
         // We generate a new identity pair
         let (identity_secret_hash, id_commitment) = identity_pair_gen();
@@ -814,7 +813,7 @@ mod test {
 
         // We set as leaf rate_commitment, its index would be equal to 0 since tree is empty
         match ffi2_set_next_leaf(
-            &mut ffi2_rln_pointer,
+            &mut ffi2_rln_instance,
             &Box_::new(CFr::from(rate_commitment)),
         ) {
             CResult {
@@ -847,7 +846,7 @@ mod test {
         let message_id = Fr::from(1);
 
         // Get the merkle proof for the identity
-        let _merkle_proof = match ffi2_get_proof(&ffi2_rln_pointer, identity_index) {
+        let _merkle_proof = match ffi2_get_proof(&ffi2_rln_instance, identity_index) {
             CResult {
                 ok: Some(proof),
                 err: None,
@@ -868,7 +867,7 @@ mod test {
 
         // We call generate_rln_proof for first proof values
         let rln_proof1 = rln_proof_gen(
-            &ffi2_rln_pointer,
+            &ffi2_rln_instance,
             &CFr::from(*identity_secret_hash.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(message_id),
@@ -879,7 +878,7 @@ mod test {
 
         // We call generate_rln_proof for second proof values
         let rln_proof2 = rln_proof_gen(
-            &ffi2_rln_pointer,
+            &ffi2_rln_instance,
             &CFr::from(*identity_secret_hash.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(message_id),
@@ -901,7 +900,7 @@ mod test {
         };
 
         // We check if the recovered identity secret hash corresponds to the original one
-        let recovered_identity_secret_hash = **recovered_id_secret_cfr;
+        let recovered_identity_secret_hash = *recovered_id_secret_cfr;
         assert_eq!(recovered_identity_secret_hash, *identity_secret_hash);
 
         // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
@@ -912,7 +911,7 @@ mod test {
 
         // We set as leaf id_commitment, its index would be equal to 1 since at 0 there is id_commitment
         match ffi2_set_next_leaf(
-            &mut ffi2_rln_pointer,
+            &mut ffi2_rln_instance,
             &Box_::new(CFr::from(rate_commitment_new)),
         ) {
             CResult {
@@ -933,7 +932,7 @@ mod test {
         let x3 = hash_to_field_le(&signal3);
 
         // Get the merkle proof for the new identity
-        let _merkle_proof_new = match ffi2_get_proof(&ffi2_rln_pointer, identity_index_new) {
+        let _merkle_proof_new = match ffi2_get_proof(&ffi2_rln_instance, identity_index_new) {
             CResult {
                 ok: Some(proof),
                 err: None,
@@ -950,7 +949,7 @@ mod test {
 
         // We call generate_rln_proof
         let rln_proof3 = rln_proof_gen(
-            &ffi2_rln_pointer,
+            &ffi2_rln_instance,
             &CFr::from(*identity_secret_hash_new.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(message_id),
@@ -973,12 +972,12 @@ mod test {
             _ => unreachable!(),
         };
 
-        let recovered_identity_secret_hash_new = **recovered_id_secret_new_cfr;
+        let recovered_identity_secret_hash_new = recovered_id_secret_new_cfr;
 
         // ensure that the recovered secret does not match with either of the
         // used secrets in proof generation
         assert_ne!(
-            recovered_identity_secret_hash_new,
+            *recovered_identity_secret_hash_new,
             *identity_secret_hash_new
         );
     }
@@ -989,7 +988,7 @@ mod test {
         let no_of_leaves = 1 << TEST_TREE_DEPTH;
 
         // We create a RLN instance
-        let mut ffi2_rln_pointer = create_rln_instance();
+        let mut ffi2_rln_instance = create_rln_instance();
 
         // We generate a new identity tuple from an input seed
         let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -1001,7 +1000,7 @@ mod test {
         let mut rng = thread_rng();
         let index = rng.gen_range(0..no_of_leaves) as usize;
         match ffi2_set_leaf(
-            &mut ffi2_rln_pointer,
+            &mut ffi2_rln_instance,
             index,
             &Box_::new(CFr::from(id_commitment)),
         ) {
@@ -1017,7 +1016,7 @@ mod test {
         }
 
         // We get the leaf at the same index
-        let received_id_commitment_cfr = match ffi2_get_leaf(&ffi2_rln_pointer, index) {
+        let received_id_commitment_cfr = match ffi2_get_leaf(&ffi2_rln_instance, index) {
             CResult {
                 ok: Some(leaf),
                 err: None,
@@ -1028,7 +1027,7 @@ mod test {
             } => panic!("get leaf call failed: {}", err),
             _ => unreachable!(),
         };
-        let received_id_commitment = **received_id_commitment_cfr;
+        let received_id_commitment = *received_id_commitment_cfr;
 
         // We check that the received id_commitment is the same as the one we inserted
         assert_eq!(received_id_commitment, id_commitment);
@@ -1037,11 +1036,11 @@ mod test {
     #[test]
     fn test_valid_metadata_ffi() {
         // We create a RLN instance
-        let mut ffi2_rln_pointer = create_rln_instance();
+        let mut ffi2_rln_instance = create_rln_instance();
 
         let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-        match ffi2_set_metadata(&mut ffi2_rln_pointer, &seed_bytes.clone().into()) {
+        match ffi2_set_metadata(&mut ffi2_rln_instance, &seed_bytes.clone().into()) {
             CResult {
                 ok: Some(_),
                 err: None,
@@ -1053,7 +1052,7 @@ mod test {
             _ => unreachable!(),
         }
 
-        let metadata = match ffi2_get_metadata(&ffi2_rln_pointer) {
+        let metadata = match ffi2_get_metadata(&ffi2_rln_instance) {
             CResult {
                 ok: Some(data),
                 err: None,
@@ -1071,9 +1070,9 @@ mod test {
     #[test]
     fn test_empty_metadata_ffi() {
         // We create a RLN instance
-        let ffi2_rln_pointer = create_rln_instance();
+        let ffi2_rln_instance = create_rln_instance();
 
-        let metadata = match ffi2_get_metadata(&ffi2_rln_pointer) {
+        let metadata = match ffi2_get_metadata(&ffi2_rln_instance) {
             CResult {
                 ok: Some(data),
                 err: None,
