@@ -1059,6 +1059,7 @@ dependencies = [
 name = "rln-wasm-utils"
 version = "0.1.0"
 dependencies = [
+ "ark-bn254",
  "getrandom 0.2.16",
  "js-sys",
  "rand 0.8.5",

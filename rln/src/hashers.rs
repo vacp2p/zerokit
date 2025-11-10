@@ -1,4 +1,5 @@
-/// This crate instantiates the Poseidon hash algorithm.
+// This crate instantiates the Poseidon hash algorithm.
+
 use crate::{
     circuit::Fr,
     utils::{bytes_be_to_fr, bytes_le_to_fr},

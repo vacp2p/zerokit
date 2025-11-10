@@ -1017,6 +1017,7 @@ dependencies = [
 name = "rln-wasm-utils"
 version = "0.1.0"
 dependencies = [
+ "ark-bn254",
  "ark-std",
  "console_error_panic_hook",
  "getrandom 0.2.16",
