@@ -16,7 +16,8 @@ int main (int argc, char const * const argv[])
 #endif
 
     if (!ffi_new_result.ok) {
-        fprintf(stderr, "%s", ffi_new_result.err.ptr);
+        fprintf(stderr, "Initial RLN instance creation error: %s\n", ffi_new_result.err.ptr);
+        vec_u8_free(ffi_new_result.err);
         return EXIT_FAILURE;
     }
 
@@ -76,7 +77,8 @@ int main (int argc, char const * const argv[])
 
     CResult_Vec_CFr_ptr_Vec_uint8_t deser_keys_result = bytes_le_to_vec_cfr(&ser_keys);
     if (!deser_keys_result.ok) {
-        fprintf(stderr, "%s", deser_keys_result.err.ptr);
+        fprintf(stderr, "Keys deserialization error: %s\n", deser_keys_result.err.ptr);
+        vec_u8_free(deser_keys_result.err);
         return EXIT_FAILURE;
     }
 
@@ -84,11 +86,14 @@ int main (int argc, char const * const argv[])
     printf("  - deserialized identity_secret = %s\n", debug.ptr);
     vec_u8_free(debug);
 
+    Vec_CFr_t deser_keys = *deser_keys_result.ok;
+    vec_cfr_free(deser_keys);
+    free(deser_keys_result.ok);
+
     vec_u8_free(ser_keys);
-    vec_cfr_free(*deser_keys_result.ok);
 
 #ifdef STATELESS
-    const size_t TREE_DEPTH = 20;
+    #define TREE_DEPTH 20
     const size_t CFR_SIZE = 32;
 
     printf("\nBuilding Merkle path for stateless mode\n");
@@ -103,7 +108,7 @@ int main (int argc, char const * const argv[])
     void* path_elements_buffer = malloc(CFR_SIZE * TREE_DEPTH);
     memcpy(path_elements_buffer, default_leaf, CFR_SIZE);
     for (size_t i = 1; i < TREE_DEPTH; i++) {
-        memcpy((char*)path_elements_buffer + (i * CFR_SIZE), default_hashes[i-1], CFR_SIZE);
+        memcpy(path_elements_buffer + (i * CFR_SIZE), default_hashes[i-1], CFR_SIZE);
     }
     Vec_CFr_t path_elements = {
         .ptr = (CFr_t*)path_elements_buffer,
@@ -118,17 +123,21 @@ int main (int argc, char const * const argv[])
     printf("  - serialized path_elements = %s\n", debug.ptr);
     vec_u8_free(debug);
 
-    CResult_Vec_CFr_ptr_Vec_uint8_t deser_path_elements = bytes_le_to_vec_cfr(&ser_path_elements);
-    if (!deser_path_elements.ok) {
-        fprintf(stderr, "%s", deser_path_elements.err.ptr);
+    CResult_Vec_CFr_ptr_Vec_uint8_t deser_path_elements_result = bytes_le_to_vec_cfr(&ser_path_elements);
+    if (!deser_path_elements_result.ok) {
+        fprintf(stderr, "Path elements deserialization error: %s\n", deser_path_elements_result.err.ptr);
+        vec_u8_free(deser_path_elements_result.err);
         return EXIT_FAILURE;
     }
 
-    debug = vec_cfr_debug(deser_path_elements.ok);
+    debug = vec_cfr_debug(deser_path_elements_result.ok);
     printf("  - deserialized path_elements = %s\n", debug.ptr);
     vec_u8_free(debug);
 
-    vec_cfr_free(*deser_path_elements.ok);
+    Vec_CFr_t deser_path_elements = *deser_path_elements_result.ok;
+    vec_cfr_free(deser_path_elements);
+    free(deser_path_elements_result.ok);
+
     vec_u8_free(ser_path_elements);
 
     uint8_t* path_index_arr = calloc(TREE_DEPTH, sizeof(uint8_t));
@@ -145,17 +154,21 @@ int main (int argc, char const * const argv[])
     printf("  - serialized path_index = %s\n", debug.ptr);
     vec_u8_free(debug);
 
-    CResult_Vec_uint8_ptr_Vec_uint8_t deser_path_index = bytes_le_to_vec_u8(&ser_path_index);
-    if (!deser_path_index.ok) {
-        fprintf(stderr, "%s", deser_path_index.err.ptr);
+    CResult_Vec_uint8_ptr_Vec_uint8_t deser_path_index_result = bytes_le_to_vec_u8(&ser_path_index);
+    if (!deser_path_index_result.ok) {
+        fprintf(stderr, "Path index deserialization error: %s\n", deser_path_index_result.err.ptr);
+        vec_u8_free(deser_path_index_result.err);
         return EXIT_FAILURE;
     }
 
-    debug = vec_u8_debug(deser_path_index.ok);
+    debug = vec_u8_debug(deser_path_index_result.ok);
     printf("  - deserialized path_index = %s\n", debug.ptr);
     vec_u8_free(debug);
 
-    vec_u8_free(*deser_path_index.ok);
+    Vec_uint8_t deser_path_index = *deser_path_index_result.ok;
+    vec_u8_free(deser_path_index);
+    free(deser_path_index_result.ok);
+
     vec_u8_free(ser_path_index);
 
     printf("\nComputing Merkle root for stateless mode\n");
@@ -174,9 +187,11 @@ int main (int argc, char const * const argv[])
     printf("\nAdding rate_commitment to tree\n");
     CResult_bool_ptr_Vec_uint8_t set_result = ffi_set_next_leaf(&rln, &rate_commitment);
     if (!set_result.ok) {
-        fprintf(stderr, "%s", set_result.err.ptr);
+        fprintf(stderr, "Set next leaf error: %s\n", set_result.err.ptr);
+        vec_u8_free(set_result.err);
         return EXIT_FAILURE;
     }
+    free(set_result.ok);
 
     size_t leaf_index = ffi_leaves_set(&rln) - 1;
     printf("  - added to tree at index %zu\n", leaf_index);
@@ -184,7 +199,8 @@ int main (int argc, char const * const argv[])
     printf("\nGetting Merkle proof\n");
     CResult_FFI_MerkleProof_ptr_Vec_uint8_t proof_result = ffi_get_proof(&rln, leaf_index);
     if (!proof_result.ok) {
-        fprintf(stderr, "%s", proof_result.err.ptr);
+        fprintf(stderr, "Get proof error: %s\n", proof_result.err.ptr);
+        vec_u8_free(proof_result.err);
         return EXIT_FAILURE;
     }
     FFI_MerkleProof_t* merkle_proof = proof_result.ok;
@@ -255,134 +271,140 @@ int main (int argc, char const * const argv[])
         leaf_index
     );
 #endif
-    FFI_RLNProof_t* rln_proof = NULL;
 
     if (!proof_gen_result.ok) {
-        fprintf(stderr, "Proof generation failed: %s\n", proof_gen_result.err.ptr);
+        fprintf(stderr, "Proof generation error: %s\n", proof_gen_result.err.ptr);
+        vec_u8_free(proof_gen_result.err);
         return EXIT_FAILURE;
+    }
+
+    FFI_RLNProof_t* rln_proof = proof_gen_result.ok;
+    printf("Proof generated successfully\n");
+
+    printf("\nVerifying Proof\n");
+#ifdef STATELESS
+    Vec_CFr_t roots = {
+        .ptr = computed_root,
+        .len = 1,
+        .cap = 1
+    };
+    CResult_bool_ptr_Vec_uint8_t verify_result = ffi_verify_with_roots(&rln, &rln_proof, &roots, x);
+#else
+    CResult_bool_ptr_Vec_uint8_t verify_result = ffi_verify_rln_proof(&rln, &rln_proof, x);
+#endif
+    if (!verify_result.ok) {
+        fprintf(stderr, "Proof verification error: %s\n", verify_result.err.ptr);
+        vec_u8_free(verify_result.err);
+        return EXIT_FAILURE;
+    }
+
+    if (*verify_result.ok) {
+        printf("Proof verified successfully\n");
     } else {
-        rln_proof = proof_gen_result.ok;
-        printf("Proof generated successfully\n");
+        printf("Proof verification failed\n");
+        free(verify_result.ok);
+        return EXIT_FAILURE;
+    }
+    free(verify_result.ok);
 
-        printf("\nVerifying Proof\n");
+    printf("\nSimulating double-signaling attack (same epoch, different message)\n");
+
+    printf("\nHashing second signal\n");
+    uint8_t signal2[32] = {11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
+    Vec_uint8_t signal2_vec = {signal2, 32, 32};
+    CFr_t* x2 = ffi_hash_to_field_le(&signal2_vec);
+
+    debug = cfr_debug(x2);
+    printf("  - x2 = %s\n", debug.ptr);
+    vec_u8_free(debug);
+
+    printf("\nCreating second message with the same id\n");
+    CFr_t* message_id2 = uint_to_cfr(0);
+
+    debug = cfr_debug(message_id2);
+    printf("  - message_id2 = %s\n", debug.ptr);
+    vec_u8_free(debug);
+
+    printf("\nGenerating second RLN Proof\n");
 #ifdef STATELESS
-        Vec_CFr_t roots = {
-            .ptr = computed_root,
-            .len = 1,
-            .cap = 1
-        };
-        CResult_bool_ptr_Vec_uint8_t verify_result = ffi_verify_with_roots(&rln, &rln_proof, &roots, x);
+    CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi_generate_rln_proof_stateless(
+        &rln,
+        identity_secret,
+        user_message_limit,
+        message_id2,
+        &path_elements,
+        &identity_path_index,
+        x2,
+        external_nullifier
+    );
 #else
-        CResult_bool_ptr_Vec_uint8_t verify_result = ffi_verify_rln_proof(&rln, &rln_proof, x);
+    CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi_generate_rln_proof(
+        &rln,
+        identity_secret,
+        user_message_limit,
+        message_id2,
+        x2,
+        external_nullifier,
+        leaf_index
+    );
 #endif
-        if (!verify_result.ok) {
-            fprintf(stderr, "Proof verification error: %s\n", verify_result.err.ptr);
-            return EXIT_FAILURE;
-        } else if (*verify_result.ok) {
-            printf("Proof verified successfully\n");
-        } else {
-            printf("Proof verification failed\n");
-            return EXIT_FAILURE;
-        }
 
-        printf("\nSimulating double-signaling attack (same epoch, different message)\n");
-
-        printf("\nHashing second signal\n");
-        uint8_t signal2[32] = {11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
-        Vec_uint8_t signal2_vec = {signal2, 32, 32};
-        CFr_t* x2 = ffi_hash_to_field_le(&signal2_vec);
-
-        debug = cfr_debug(x2);
-        printf("  - x2 = %s\n", debug.ptr);
-        vec_u8_free(debug);
-
-        printf("\nCreating second message with the same id\n");
-        CFr_t* message_id2 = uint_to_cfr(0);
-
-        debug = cfr_debug(message_id2);
-        printf("  - message_id2 = %s\n", debug.ptr);
-        vec_u8_free(debug);
-
-        printf("\nGenerating second RLN Proof\n");
-#ifdef STATELESS
-        CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi_generate_rln_proof_stateless(
-            &rln,
-            identity_secret,
-            user_message_limit,
-            message_id2,
-            &path_elements,
-            &identity_path_index,
-            x2,
-            external_nullifier
-        );
-#else
-        CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi_generate_rln_proof(
-            &rln,
-            identity_secret,
-            user_message_limit,
-            message_id2,
-            x2,
-            external_nullifier,
-            leaf_index
-        );
-#endif
-        FFI_RLNProof_t* rln_proof2 = NULL;
-
-        if (!proof_gen_result2.ok) {
-            fprintf(stderr, "Second proof generation failed: %s\n", proof_gen_result2.err.ptr);
-            return EXIT_FAILURE;
-        } else {
-            rln_proof2 = proof_gen_result2.ok;
-            printf("Second proof generated successfully\n");
-
-            printf("\nVerifying second proof\n");
-#ifdef STATELESS
-            CResult_bool_ptr_Vec_uint8_t verify_result2 = ffi_verify_with_roots(&rln, &rln_proof2, &roots, x2);
-#else
-            CResult_bool_ptr_Vec_uint8_t verify_result2 = ffi_verify_rln_proof(&rln, &rln_proof2, x2);
-#endif
-            if (!verify_result2.ok) {
-                fprintf(stderr, "Second proof verification error: %s\n", verify_result2.err.ptr);
-                return EXIT_FAILURE;
-            } else if (*verify_result2.ok) {
-                printf("Second proof verified successfully\n");
-
-                printf("\nRecovering identity secret\n");
-                CResult_CFr_ptr_Vec_uint8_t recover_result = ffi_recover_id_secret(&rln_proof, &rln_proof2);
-                if (!recover_result.ok) {
-                    fprintf(stderr, "Identity recovery error: %s\n", recover_result.err.ptr);
-                    return EXIT_FAILURE;
-                } else {
-                    CFr_t* recovered_secret = recover_result.ok;
-
-                    debug = cfr_debug(recovered_secret);
-                    printf("  - recovered_secret = %s\n", debug.ptr);
-                    vec_u8_free(debug);
-
-                    debug = cfr_debug(identity_secret);
-                    printf("  - original_secret  = %s\n", debug.ptr);
-                    vec_u8_free(debug);
-
-                    printf("Slashing successful: Identity is recovered!\n");
-
-                    cfr_free(recovered_secret);
-                }
-            } else {
-                printf("Second proof verification failed\n");
-                return EXIT_FAILURE;
-            }
-        }
-
-        if (rln_proof2) {
-            ffi_rln_proof_free(rln_proof2);
-        }
-        cfr_free(x2);
-        cfr_free(message_id2);
+    if (!proof_gen_result2.ok) {
+        fprintf(stderr, "Second proof generation error: %s\n", proof_gen_result2.err.ptr);
+        vec_u8_free(proof_gen_result2.err);
+        return EXIT_FAILURE;
     }
 
-    if (rln_proof) {
-        ffi_rln_proof_free(rln_proof);
+    FFI_RLNProof_t* rln_proof2 = proof_gen_result2.ok;
+    printf("Second proof generated successfully\n");
+
+    printf("\nVerifying second proof\n");
+#ifdef STATELESS
+    CResult_bool_ptr_Vec_uint8_t verify_result2 = ffi_verify_with_roots(&rln, &rln_proof2, &roots, x2);
+#else
+    CResult_bool_ptr_Vec_uint8_t verify_result2 = ffi_verify_rln_proof(&rln, &rln_proof2, x2);
+#endif
+    if (!verify_result2.ok) {
+        fprintf(stderr, "Second proof verification error: %s\n", verify_result2.err.ptr);
+        vec_u8_free(verify_result2.err);
+        return EXIT_FAILURE;
     }
+
+    if (*verify_result2.ok) {
+        printf("Second proof verified successfully\n");
+
+        printf("\nRecovering identity secret\n");
+        CResult_CFr_ptr_Vec_uint8_t recover_result = ffi_recover_id_secret(&rln_proof, &rln_proof2);
+        if (!recover_result.ok) {
+            fprintf(stderr, "Identity recovery error: %s\n", recover_result.err.ptr);
+            vec_u8_free(recover_result.err);
+            return EXIT_FAILURE;
+        }
+
+        CFr_t* recovered_secret = recover_result.ok;
+
+        debug = cfr_debug(recovered_secret);
+        printf("  - recovered_secret = %s\n", debug.ptr);
+        vec_u8_free(debug);
+
+        debug = cfr_debug(identity_secret);
+        printf("  - original_secret  = %s\n", debug.ptr);
+        vec_u8_free(debug);
+
+        printf("Slashing successful: Identity is recovered!\n");
+
+        cfr_free(recovered_secret);
+    } else {
+        printf("Second proof verification failed\n");
+        free(verify_result2.ok);
+        return EXIT_FAILURE;
+    }
+    free(verify_result2.ok);
+
+    ffi_rln_proof_free(rln_proof2);
+    cfr_free(x2);
+    cfr_free(message_id2);
+    ffi_rln_proof_free(rln_proof);
 
 #ifdef STATELESS
     free(path_index_arr);
@@ -405,5 +427,6 @@ int main (int argc, char const * const argv[])
     cfr_free(message_id);
     vec_cfr_free(keys);
     ffi_rln_free(rln);
+
     return EXIT_SUCCESS;
 }
