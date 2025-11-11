@@ -100,7 +100,7 @@ pub fn cfr_debug(cfr: Option<&CFr>) -> repr_c::String {
 }
 
 #[ffi_export]
-pub fn cfr_free(cfr: Option<repr_c::Box<CFr>>) {
+pub fn cfr_free(cfr: repr_c::Box<CFr>) {
     drop(cfr);
 }
 

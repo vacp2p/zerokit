@@ -21,7 +21,7 @@ pub struct FFI_MerkleProof {
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi_merkle_proof_free(proof: Option<repr_c::Box<FFI_MerkleProof>>) {
+pub fn ffi_merkle_proof_free(proof: repr_c::Box<FFI_MerkleProof>) {
     drop(proof);
 }
 

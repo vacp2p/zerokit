@@ -202,7 +202,7 @@ pub fn ffi_new_with_params(
 }
 
 #[ffi_export]
-pub fn ffi_rln_free(rln: Option<repr_c::Box<FFI_RLN>>) {
+pub fn ffi_rln_free(rln: repr_c::Box<FFI_RLN>) {
     drop(rln);
 }
 
@@ -216,7 +216,7 @@ pub struct FFI_RLNProof {
 }
 
 #[ffi_export]
-pub fn ffi_rln_proof_free(rln: Option<repr_c::Box<FFI_RLNProof>>) {
+pub fn ffi_rln_proof_free(rln: repr_c::Box<FFI_RLNProof>) {
     drop(rln);
 }
 
