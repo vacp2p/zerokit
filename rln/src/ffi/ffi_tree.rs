@@ -301,10 +301,12 @@ pub fn ffi_set_metadata(
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi_get_metadata(rln: &repr_c::Box<FFI_RLN>) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+pub fn ffi_get_metadata(
+    rln: &repr_c::Box<FFI_RLN>,
+) -> CResult<repr_c::Box<repr_c::Vec<u8>>, repr_c::String> {
     match rln.tree.metadata() {
         Ok(metadata) => CResult {
-            ok: Some(metadata.into()),
+            ok: Some(Box_::new(metadata.into())),
             err: None,
         },
         Err(err) => CResult {
