@@ -8,7 +8,7 @@ pub mod storage;
 use ruint::aliases::U256;
 use std::collections::HashMap;
 use storage::deserialize_witnesscalc_graph;
-// use zeroize::zeroize_flat_type;
+use zeroize::zeroize_flat_type;
 
 use crate::circuit::iden3calc::graph::fr_to_u256;
 use crate::circuit::Fr;
@@ -41,18 +41,21 @@ pub fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
         deserialize_witnesscalc_graph(std::io::Cursor::new(graph_data)).unwrap();
 
     let mut inputs_buffer = get_inputs_buffer(get_inputs_size(&nodes));
+
     populate_inputs(&inputs, &input_mapping, &mut inputs_buffer);
+
     if let Some(v) = inputs.get_mut("identitySecret") {
-        // ~== v[0] = U256::ZERO;
-        // unsafe { zeroize_flat_type(v) };
-        v[0] = U256::ZERO
+        for val in v.iter_mut() {
+            unsafe { zeroize_flat_type(val) };
+        }
     }
+
     let res = graph::evaluate(&nodes, inputs_buffer.as_slice(), &signals);
-    inputs_buffer.iter_mut().for_each(|i| {
-        // ~== *i = U256::ZERO;
-        // unsafe { zeroize_flat_type(i) };
-        *i = U256::ZERO
-    });
+
+    for val in inputs_buffer.iter_mut() {
+        unsafe { zeroize_flat_type(val) };
+    }
+
     res
 }
 
