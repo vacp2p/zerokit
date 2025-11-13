@@ -216,8 +216,8 @@ pub struct FFI_RLNProof {
 }
 
 #[ffi_export]
-pub fn ffi_rln_proof_free(rln: repr_c::Box<FFI_RLNProof>) {
-    drop(rln);
+pub fn ffi_rln_proof_free(rln_proof: repr_c::Box<FFI_RLNProof>) {
+    drop(rln_proof);
 }
 
 // Proof generation APIs
@@ -364,25 +364,31 @@ pub fn ffi_verify_rln_proof(
     rln: &repr_c::Box<FFI_RLN>,
     proof: &repr_c::Box<FFI_RLNProof>,
     x: &CFr,
-) -> CResult<repr_c::Box<bool>, repr_c::String> {
+) -> Option<repr_c::String> {
+    // Verify the root
+    if rln.tree.root() != proof.proof_values.root {
+        return Some("Invalid root".to_string().into());
+    }
+
+    // Verify the signal
+    if *x != proof.proof_values.x {
+        return Some("Invalid signal".to_string().into());
+    }
+
     // Verify the proof
     match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
         Ok(proof_verified) => {
-            // Verify the root and signal
-            let roots_verified = rln.tree.root() == proof.proof_values.root;
-            let signal_verified = *x == proof.proof_values.x;
-            CResult {
-                ok: Some(Box_::new(
-                    proof_verified && roots_verified && signal_verified,
-                )),
-                err: None,
+            if !proof_verified {
+                return Some("Invalid proof".to_string().into());
             }
         }
-        Err(err) => CResult {
-            ok: None,
-            err: Some(err.to_string().into()),
-        },
-    }
+        Err(err) => {
+            return Some(err.to_string().into());
+        }
+    };
+
+    // All verifications passed
+    None
 }
 
 #[ffi_export]
@@ -391,45 +397,33 @@ pub fn ffi_verify_with_roots(
     proof: &repr_c::Box<FFI_RLNProof>,
     roots: &repr_c::Vec<CFr>,
     x: &CFr,
-) -> CResult<repr_c::Box<bool>, repr_c::String> {
-    // Verify the proof
-    let proof_verified =
-        match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
-            Ok(v) => v,
-            Err(err) => {
-                return CResult {
-                    ok: None,
-                    err: Some(err.to_string().into()),
-                };
-            }
-        };
-
-    // If proof verification failed, return early
-    if !proof_verified {
-        return CResult {
-            ok: Some(Box_::new(false)),
-            err: None,
-        };
-    }
-
+) -> Option<repr_c::String> {
     // Verify the root
-    let roots_verified: bool = if roots.is_empty() {
-        // If no root is passed in roots_buffer, we skip proof's root check
-        true
-    } else {
-        // We check if the proof's root is in roots
-        roots.iter().any(|root| root.0 == proof.proof_values.root)
-    };
+    if !roots.is_empty() {
+        if !roots.iter().any(|root| root.0 == proof.proof_values.root) {
+            return Some("Invalid root".to_string().into());
+        }
+    }
 
     // Verify the signal
-    let signal_verified = *x == proof.proof_values.x;
-
-    CResult {
-        ok: Some(Box_::new(
-            proof_verified && roots_verified && signal_verified,
-        )),
-        err: None,
+    if *x != proof.proof_values.x {
+        return Some("Invalid signal".to_string().into());
     }
+
+    // Verify the proof
+    match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
+        Ok(proof_verified) => {
+            if !proof_verified {
+                return Some("Invalid proof".to_string().into());
+            }
+        }
+        Err(err) => {
+            return Some(err.to_string().into());
+        }
+    };
+
+    // All verifications passed
+    None
 }
 
 // Identity secret recovery API

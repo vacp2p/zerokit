@@ -323,9 +323,7 @@ Working examples demonstrating proof generation, proof verification and slashing
 
 ### Memory Management
 
-- All **heap-allocated** objects returned from Rust FFI (e.g., `repr_c::Box`, `repr_c::Vec`) **must** be freed using their corresponding FFI `_free` functions.
-
-- All types `T` returned via `CResult` are **heap-allocated** to allow safe `NULL` checks in C. After using a `.ok` value, it **must** be freed using the `free()` function.
+- All **heap-allocated** objects returned from Rust FFI **must** be freed using their corresponding FFI `_free` functions.
 
 ## Get involved
 
