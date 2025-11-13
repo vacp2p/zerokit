@@ -522,12 +522,7 @@ mod test {
             identity_index,
         );
 
-        assert!(
-            match ffi_verify_rln_proof(&ffi_rln_instance, &rln_proof, &CFr::from(x)) {
-                None => true,
-                Some(_) => false,
-            }
-        );
+        assert!(ffi_verify_rln_proof(&ffi_rln_instance, &rln_proof, &CFr::from(x)).is_none());
     }
 
     #[test]
@@ -605,15 +600,10 @@ mod test {
         // In this case, since no root is provided, proof's root check is skipped and proof is verified if other proof values are valid
         let roots_empty: repr_c::Vec<CFr> = vec![].into();
 
-        assert!(match ffi_verify_with_roots(
-            &ffi_rln_instance,
-            &rln_proof,
-            &roots_empty,
-            &CFr::from(x)
-        ) {
-            None => true,
-            Some(_) => false,
-        });
+        assert!(
+            ffi_verify_with_roots(&ffi_rln_instance, &rln_proof, &roots_empty, &CFr::from(x))
+                .is_none()
+        );
 
         // We then try to verify against some random values not containing the correct one.
         let mut roots_random: Vec<CFr> = Vec::new();
@@ -622,15 +612,13 @@ mod test {
         }
         let roots_random_vec: repr_c::Vec<CFr> = roots_random.into();
 
-        assert!(!match ffi_verify_with_roots(
+        assert!(ffi_verify_with_roots(
             &ffi_rln_instance,
             &rln_proof,
             &roots_random_vec,
             &CFr::from(x),
-        ) {
-            None => true,
-            Some(_) => false,
-        });
+        )
+        .is_some());
 
         // We finally include the correct root
         // We get the root of the tree obtained adding one leaf per time
@@ -644,15 +632,13 @@ mod test {
         roots_with_correct.push(CFr::from(root));
         let roots_correct_vec: repr_c::Vec<CFr> = roots_with_correct.into();
 
-        assert!(match ffi_verify_with_roots(
+        assert!(ffi_verify_with_roots(
             &ffi_rln_instance,
             &rln_proof,
             &roots_correct_vec,
             &CFr::from(x),
-        ) {
-            None => true,
-            Some(_) => false,
-        });
+        )
+        .is_none());
     }
 
     #[test]

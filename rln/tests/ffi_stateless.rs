@@ -274,21 +274,10 @@ mod test {
         // If no roots is provided, proof validation is skipped and if the remaining proof values are valid, the proof will be correctly verified
         let roots_empty: repr_c::Vec<CFr> = vec![].into();
 
-        let proof_is_valid =
-            match ffi_verify_with_roots(&ffi_rln_instance, &rln_proof, &roots_empty, &CFr::from(x))
-            {
-                CResult {
-                    ok: Some(valid),
-                    err: None,
-                } => *valid,
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("verify with roots call failed: {}", err),
-                _ => unreachable!(),
-            };
-        // Proof should be valid
-        assert!(proof_is_valid);
+        assert!(
+            ffi_verify_with_roots(&ffi_rln_instance, &rln_proof, &roots_empty, &CFr::from(x))
+                .is_none()
+        );
 
         // We serialize in the roots buffer some random values and we check that the proof is not verified since doesn't contain the correct root the proof refers to
         let mut roots_random: Vec<CFr> = Vec::new();
@@ -297,24 +286,13 @@ mod test {
         }
         let roots_random_vec: repr_c::Vec<CFr> = roots_random.into();
 
-        let proof_is_valid = match ffi_verify_with_roots(
+        assert!(ffi_verify_with_roots(
             &ffi_rln_instance,
             &rln_proof,
             &roots_random_vec,
             &CFr::from(x),
-        ) {
-            CResult {
-                ok: Some(valid),
-                err: None,
-            } => *valid,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("verify with roots call failed: {}", err),
-            _ => unreachable!(),
-        };
-        // Proof should be invalid.
-        assert!(!proof_is_valid);
+        )
+        .is_some());
 
         // We get the root of the tree obtained adding one leaf per time
         let root = tree.root();
@@ -327,23 +305,12 @@ mod test {
         roots_with_correct.push(CFr::from(root));
         let roots_correct_vec: repr_c::Vec<CFr> = roots_with_correct.into();
 
-        let proof_is_valid = match ffi_verify_with_roots(
+        assert!(ffi_verify_with_roots(
             &ffi_rln_instance,
             &rln_proof,
             &roots_correct_vec,
-            &CFr::from(x),
-        ) {
-            CResult {
-                ok: Some(valid),
-                err: None,
-            } => *valid,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("verify with roots call failed: {}", err),
-            _ => unreachable!(),
-        };
-        // Proof should be valid.
-        assert!(proof_is_valid);
+            &CFr::from(x)
+        )
+        .is_none());
     }
 }

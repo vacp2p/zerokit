@@ -399,10 +399,8 @@ pub fn ffi_verify_with_roots(
     x: &CFr,
 ) -> Option<repr_c::String> {
     // Verify the root
-    if !roots.is_empty() {
-        if !roots.iter().any(|root| root.0 == proof.proof_values.root) {
-            return Some("Invalid root".to_string().into());
-        }
+    if !roots.is_empty() && !roots.iter().any(|root| root.0 == proof.proof_values.root) {
+        return Some("Invalid root".to_string().into());
     }
 
     // Verify the signal
