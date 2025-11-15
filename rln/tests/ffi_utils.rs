@@ -94,7 +94,7 @@ mod test {
         assert_eq!(*cfr_int, fr_int);
 
         let cfr_debug_str = cfr_debug(Some(&cfr_int));
-        assert_eq!(cfr_debug_str.to_string(), "Some(\"42\")");
+        assert_eq!(cfr_debug_str.to_string(), "42");
 
         let key_gen = ffi_key_gen();
         let mut id_secret_fr = *key_gen[0];

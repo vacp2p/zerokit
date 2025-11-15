@@ -39,10 +39,6 @@ type
     path_elements*: Vec_CFr
     path_index*: Vec_uint8
 
-  CResultBoolPtrVecU8* = object
-    ok*: ptr bool
-    err*: Vec_uint8
-
   CResultRLNPtrVecU8* = object
     ok*: ptr FFI_RLN
     err*: Vec_uint8
@@ -74,9 +70,9 @@ proc uint_to_cfr*(value: uint32): ptr CFr {.importc: "uint_to_cfr", cdecl,
     dynlib: RLN_LIB.}
 proc cfr_debug*(cfr: ptr CFr): Vec_uint8 {.importc: "cfr_debug", cdecl,
     dynlib: RLN_LIB.}
-proc cfr_to_bytes_le*(cfr: ptr CFr): Vec_uint8 {.importc: "cfr_to_bytes_le",
+proc cfr_to_bytes_le*(cfr: ptr CFr): ptr Vec_uint8 {.importc: "cfr_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc cfr_to_bytes_be*(cfr: ptr CFr): Vec_uint8 {.importc: "cfr_to_bytes_be",
+proc cfr_to_bytes_be*(cfr: ptr CFr): ptr Vec_uint8 {.importc: "cfr_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
 proc bytes_le_to_cfr*(bytes: ptr Vec_uint8): ptr CFr {.importc: "bytes_le_to_cfr",
     cdecl, dynlib: RLN_LIB.}
@@ -86,9 +82,9 @@ proc bytes_be_to_cfr*(bytes: ptr Vec_uint8): ptr CFr {.importc: "bytes_be_to_cfr
 # Vec<CFr> functions
 proc vec_cfr_get*(v: ptr Vec_CFr, i: CSize): ptr CFr {.importc: "vec_cfr_get",
     cdecl, dynlib: RLN_LIB.}
-proc vec_cfr_to_bytes_le*(v: ptr Vec_CFr): Vec_uint8 {.importc: "vec_cfr_to_bytes_le",
+proc vec_cfr_to_bytes_le*(v: ptr Vec_CFr): ptr Vec_uint8 {.importc: "vec_cfr_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc vec_cfr_to_bytes_be*(v: ptr Vec_CFr): Vec_uint8 {.importc: "vec_cfr_to_bytes_be",
+proc vec_cfr_to_bytes_be*(v: ptr Vec_CFr): ptr Vec_uint8 {.importc: "vec_cfr_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
 proc bytes_le_to_vec_cfr*(bytes: ptr Vec_uint8): CResultVecCFrPtrVecU8 {.importc: "bytes_le_to_vec_cfr",
     cdecl, dynlib: RLN_LIB.}
@@ -96,13 +92,13 @@ proc bytes_be_to_vec_cfr*(bytes: ptr Vec_uint8): CResultVecCFrPtrVecU8 {.importc
     cdecl, dynlib: RLN_LIB.}
 proc vec_cfr_debug*(v: ptr Vec_CFr): Vec_uint8 {.importc: "vec_cfr_debug",
     cdecl, dynlib: RLN_LIB.}
-proc vec_cfr_free*(v: Vec_CFr) {.importc: "vec_cfr_free", cdecl,
+proc vec_cfr_free*(v: ptr Vec_CFr) {.importc: "vec_cfr_free", cdecl,
     dynlib: RLN_LIB.}
 
 # Vec<u8> functions
-proc vec_u8_to_bytes_le*(v: ptr Vec_uint8): Vec_uint8 {.importc: "vec_u8_to_bytes_le",
+proc vec_u8_to_bytes_le*(v: ptr Vec_uint8): ptr Vec_uint8 {.importc: "vec_u8_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc vec_u8_to_bytes_be*(v: ptr Vec_uint8): Vec_uint8 {.importc: "vec_u8_to_bytes_be",
+proc vec_u8_to_bytes_be*(v: ptr Vec_uint8): ptr Vec_uint8 {.importc: "vec_u8_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
 proc bytes_le_to_vec_u8*(bytes: ptr Vec_uint8): CResultVecU8PtrVecU8 {.importc: "bytes_le_to_vec_u8",
     cdecl, dynlib: RLN_LIB.}
@@ -110,7 +106,7 @@ proc bytes_be_to_vec_u8*(bytes: ptr Vec_uint8): CResultVecU8PtrVecU8 {.importc: 
     cdecl, dynlib: RLN_LIB.}
 proc vec_u8_debug*(v: ptr Vec_uint8): Vec_uint8 {.importc: "vec_u8_debug",
     cdecl, dynlib: RLN_LIB.}
-proc vec_u8_free*(v: Vec_uint8) {.importc: "vec_u8_free", cdecl,
+proc vec_u8_free*(v: ptr Vec_uint8) {.importc: "vec_u8_free", cdecl,
     dynlib: RLN_LIB.}
 
 # Hashing functions
@@ -123,7 +119,7 @@ proc ffi_poseidon_hash_pair*(a: ptr CFr,
     dynlib: RLN_LIB.}
 
 # Keygen function
-proc ffi_key_gen*(): Vec_CFr {.importc: "ffi_key_gen", cdecl,
+proc ffi_key_gen*(): ptr Vec_CFr {.importc: "ffi_key_gen", cdecl,
     dynlib: RLN_LIB.}
 
 # RLN instance functions
@@ -168,14 +164,14 @@ when defined(ffiStateless):
     proof: ptr ptr FFI_RLNProof,
     roots: ptr Vec_CFr,
     x: ptr CFr
-  ): CResultBoolPtrVecU8 {.importc: "ffi_verify_with_roots", cdecl,
+  ): Vec_uint8 {.importc: "ffi_verify_with_roots", cdecl,
       dynlib: RLN_LIB.}
 else:
   proc ffi_verify_rln_proof*(
     rln: ptr ptr FFI_RLN,
     proof: ptr ptr FFI_RLNProof,
     x: ptr CFr
-  ): CResultBoolPtrVecU8 {.importc: "ffi_verify_rln_proof", cdecl,
+  ): Vec_uint8 {.importc: "ffi_verify_rln_proof", cdecl,
       dynlib: RLN_LIB.}
 
 proc ffi_rln_proof_free*(p: ptr FFI_RLNProof) {.importc: "ffi_rln_proof_free",
@@ -184,7 +180,7 @@ proc ffi_rln_proof_free*(p: ptr FFI_RLNProof) {.importc: "ffi_rln_proof_free",
 # Merkle tree operations (non-stateless mode)
 when not defined(ffiStateless):
   proc ffi_set_next_leaf*(rln: ptr ptr FFI_RLN,
-      value: ptr ptr CFr): CResultBoolPtrVecU8 {.importc: "ffi_set_next_leaf",
+      value: ptr ptr CFr): Vec_uint8 {.importc: "ffi_set_next_leaf",
       cdecl, dynlib: RLN_LIB.}
   proc ffi_leaves_set*(rln: ptr ptr FFI_RLN): CSize {.importc: "ffi_leaves_set",
       cdecl, dynlib: RLN_LIB.}
@@ -199,7 +195,7 @@ proc ffi_recover_id_secret*(proof1: ptr ptr FFI_RLNProof,
     proof2: ptr ptr FFI_RLNProof): CResultCFrPtrVecU8 {.importc: "ffi_recover_id_secret",
     cdecl, dynlib: RLN_LIB.}
 
-# Helpers
+# Helpers functions
 proc asVecU8*(buf: var seq[uint8]): Vec_uint8 =
   result.dataPtr = if buf.len == 0: nil else: addr buf[0]
   result.len = CSize(buf.len)
@@ -209,6 +205,9 @@ proc asString*(v: Vec_uint8): string =
   if v.dataPtr.isNil or v.len == 0: return ""
   result = newString(v.len.int)
   copyMem(addr result[0], v.dataPtr, v.len.int)
+
+proc c_string_free*(s: Vec_uint8) {.importc: "c_string_free", cdecl,
+    dynlib: RLN_LIB.}
 
 when isMainModule:
   echo "Creating RLN instance"
@@ -221,7 +220,8 @@ when isMainModule:
     rlnRes = ffi_new(CSize(20), config_path)
 
   if rlnRes.ok.isNil:
-    stderr.writeLine "ffi_new error: ", asString(rlnRes.err)
+    stderr.writeLine "Initial RLN instance creation error: ", asString(rlnRes.err)
+    c_string_free(rlnRes.err)
     quit 1
 
   var rln = rlnRes.ok
@@ -229,19 +229,19 @@ when isMainModule:
 
   echo "\nGenerating identity keys"
   var keys = ffi_key_gen()
-  let identitySecret = vec_cfr_get(addr keys, CSize(0))
-  let idCommitment = vec_cfr_get(addr keys, CSize(1))
+  let identitySecret = vec_cfr_get(keys, CSize(0))
+  let idCommitment = vec_cfr_get(keys, CSize(1))
   echo "Identity generated"
 
   block:
     let debug = cfr_debug(identitySecret)
     echo "  - identity_secret = ", asString(debug)
-    vec_u8_free(debug)
+    c_string_free(debug)
 
   block:
     let debug = cfr_debug(idCommitment)
     echo "  - id_commitment = ", asString(debug)
-    vec_u8_free(debug)
+    c_string_free(debug)
 
   echo "\nCreating message limit"
   let userMessageLimit = uint_to_cfr(1'u32)
@@ -249,7 +249,7 @@ when isMainModule:
   block:
     let debug = cfr_debug(userMessageLimit)
     echo "  - user_message_limit = ", asString(debug)
-    vec_u8_free(debug)
+    c_string_free(debug)
 
   echo "\nComputing rate commitment"
   let rateCommitment = ffi_poseidon_hash_pair(idCommitment, userMessageLimit)
@@ -257,47 +257,48 @@ when isMainModule:
   block:
     let debug = cfr_debug(rateCommitment)
     echo "  - rate_commitment = ", asString(debug)
-    vec_u8_free(debug)
+    c_string_free(debug)
 
   echo "\nCFr serialization: CFr <-> bytes"
   var serRateCommitment = cfr_to_bytes_be(rateCommitment)
 
   block:
-    let debug = vec_u8_debug(addr serRateCommitment)
+    let debug = vec_u8_debug(serRateCommitment)
     echo "  - serialized rate_commitment = ", asString(debug)
-    vec_u8_free(debug)
+    c_string_free(debug)
 
-  let deserRateCommitment = bytes_be_to_cfr(addr serRateCommitment)
+  let deserRateCommitment = bytes_be_to_cfr(serRateCommitment)
 
   block:
     let debug = cfr_debug(deserRateCommitment)
     echo "  - deserialized rate_commitment = ", asString(debug)
-    vec_u8_free(debug)
+    c_string_free(debug)
 
   vec_u8_free(serRateCommitment)
   cfr_free(deserRateCommitment)
 
   echo "\nVec<CFr> serialization: Vec<CFr> <-> bytes"
-  var serKeys = vec_cfr_to_bytes_be(addr keys)
+  var serKeys = vec_cfr_to_bytes_be(keys)
 
   block:
-    let debug = vec_u8_debug(addr serKeys)
+    let debug = vec_u8_debug(serKeys)
     echo "  - serialized keys = ", asString(debug)
-    vec_u8_free(debug)
+    c_string_free(debug)
 
-  let deserKeysResult = bytes_be_to_vec_cfr(addr serKeys)
+  let deserKeysResult = bytes_be_to_vec_cfr(serKeys)
   if deserKeysResult.ok.isNil:
-    stderr.writeLine "bytes_be_to_vec_cfr error: ", asString(
+    stderr.writeLine "Keys deserialization error: ", asString(
         deserKeysResult.err)
+    c_string_free(deserKeysResult.err)
     quit 1
 
   block:
     let debug = vec_cfr_debug(deserKeysResult.ok)
     echo "  - deserialized identity_secret = ", asString(debug)
-    vec_u8_free(debug)
+    c_string_free(debug)
 
+  vec_cfr_free(deserKeysResult.ok)
   vec_u8_free(serKeys)
-  vec_cfr_free(deserKeysResult.ok[])
 
   when defined(ffiStateless):
     const treeDepth = 20
@@ -327,22 +328,23 @@ when isMainModule:
     var serPathElements = vec_cfr_to_bytes_be(addr pathElements)
 
     block:
-      let debug = vec_u8_debug(addr serPathElements)
+      let debug = vec_u8_debug(serPathElements)
       echo "  - serialized path_elements = ", asString(debug)
-      vec_u8_free(debug)
+      c_string_free(debug)
 
-    let deserPathElements = bytes_be_to_vec_cfr(addr serPathElements)
+    let deserPathElements = bytes_be_to_vec_cfr(serPathElements)
     if deserPathElements.ok.isNil:
-      stderr.writeLine "bytes_be_to_vec_cfr error: ", asString(
+      stderr.writeLine "Path elements deserialization error: ", asString(
           deserPathElements.err)
+      c_string_free(deserPathElements.err)
       quit 1
 
     block:
       let debug = vec_cfr_debug(deserPathElements.ok)
       echo "  - deserialized path_elements = ", asString(debug)
-      vec_u8_free(debug)
+      c_string_free(debug)
 
-    vec_cfr_free(deserPathElements.ok[])
+    vec_cfr_free(deserPathElements.ok)
     vec_u8_free(serPathElements)
 
     var pathIndexSeq = newSeq[uint8](treeDepth)
@@ -352,22 +354,23 @@ when isMainModule:
     var serPathIndex = vec_u8_to_bytes_be(addr identityPathIndex)
 
     block:
-      let debug = vec_u8_debug(addr serPathIndex)
+      let debug = vec_u8_debug(serPathIndex)
       echo "  - serialized path_index = ", asString(debug)
-      vec_u8_free(debug)
+      c_string_free(debug)
 
-    let deserPathIndex = bytes_be_to_vec_u8(addr serPathIndex)
+    let deserPathIndex = bytes_be_to_vec_u8(serPathIndex)
     if deserPathIndex.ok.isNil:
-      stderr.writeLine "bytes_be_to_vec_u8 error: ", asString(
+      stderr.writeLine "Path index deserialization error: ", asString(
           deserPathIndex.err)
+      c_string_free(deserPathIndex.err)
       quit 1
 
     block:
       let debug = vec_u8_debug(deserPathIndex.ok)
       echo "  - deserialized path_index = ", asString(debug)
-      vec_u8_free(debug)
+      c_string_free(debug)
 
-    vec_u8_free(deserPathIndex.ok[])
+    vec_u8_free(deserPathIndex.ok)
     vec_u8_free(serPathIndex)
 
     echo "\nComputing Merkle root for stateless mode"
@@ -381,15 +384,14 @@ when isMainModule:
     block:
       let debug = cfr_debug(computedRoot)
       echo "  - computed_root = ", asString(debug)
-      vec_u8_free(debug)
+      c_string_free(debug)
   else:
     echo "\nAdding rate_commitment to tree"
     var rcPtr = rateCommitment
-    let setRes = ffi_set_next_leaf(addr rln, addr rcPtr)
-    if setRes.ok.isNil or not setRes.ok[]:
-      stderr.writeLine "set_next_leaf error: ", asString(setRes.err)
-      vec_cfr_free(keys)
-      ffi_rln_free(rln)
+    let setErr = ffi_set_next_leaf(addr rln, addr rcPtr)
+    if not setErr.dataPtr.isNil:
+      stderr.writeLine "Set next leaf error: ", asString(setErr)
+      c_string_free(setErr)
       quit 1
 
     let leafIndex = ffi_leaves_set(addr rln) - 1
@@ -398,9 +400,8 @@ when isMainModule:
     echo "\nGetting Merkle proof"
     let proofResult = ffi_get_proof(addr rln, leafIndex)
     if proofResult.ok.isNil:
-      stderr.writeLine "get_proof error: ", asString(proofResult.err)
-      vec_cfr_free(keys)
-      ffi_rln_free(rln)
+      stderr.writeLine "Get proof error: ", asString(proofResult.err)
+      c_string_free(proofResult.err)
       quit 1
     let merkleProof = proofResult.ok
     echo "  - proof obtained (depth: ", merkleProof.path_elements.len, ")"
@@ -410,36 +411,36 @@ when isMainModule:
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   var signalVec = Vec_uint8(dataPtr: cast[ptr uint8](addr signal[0]),
       len: CSize(signal.len), cap: CSize(signal.len))
-  let x = ffi_hash_to_field_le(addr signalVec)
+  let x = ffi_hash_to_field_be(addr signalVec)
 
   block:
     let debug = cfr_debug(x)
     echo "  - x = ", asString(debug)
-    vec_u8_free(debug)
+    c_string_free(debug)
 
   echo "\nHashing epoch"
   let epochStr = "test-epoch"
   var epochBytes = newSeq[uint8](epochStr.len)
   for i in 0..<epochStr.len: epochBytes[i] = uint8(epochStr[i])
   var epochVec = asVecU8(epochBytes)
-  let epoch = ffi_hash_to_field_le(addr epochVec)
+  let epoch = ffi_hash_to_field_be(addr epochVec)
 
   block:
     let debug = cfr_debug(epoch)
     echo "  - epoch = ", asString(debug)
-    vec_u8_free(debug)
+    c_string_free(debug)
 
   echo "\nHashing RLN identifier"
   let rlnIdStr = "test-rln-identifier"
   var rlnIdBytes = newSeq[uint8](rlnIdStr.len)
   for i in 0..<rlnIdStr.len: rlnIdBytes[i] = uint8(rlnIdStr[i])
   var rlnIdVec = asVecU8(rlnIdBytes)
-  let rlnIdentifier = ffi_hash_to_field_le(addr rlnIdVec)
+  let rlnIdentifier = ffi_hash_to_field_be(addr rlnIdVec)
 
   block:
     let debug = cfr_debug(rlnIdentifier)
     echo "  - rln_identifier = ", asString(debug)
-    vec_u8_free(debug)
+    c_string_free(debug)
 
   echo "\nComputing Poseidon hash for external nullifier"
   let externalNullifier = ffi_poseidon_hash_pair(epoch, rlnIdentifier)
@@ -447,7 +448,7 @@ when isMainModule:
   block:
     let debug = cfr_debug(externalNullifier)
     echo "  - external_nullifier = ", asString(debug)
-    vec_u8_free(debug)
+    c_string_free(debug)
 
   echo "\nCreating message_id"
   let messageId = uint_to_cfr(0'u32)
@@ -455,7 +456,7 @@ when isMainModule:
   block:
     let debug = cfr_debug(messageId)
     echo "  - message_id = ", asString(debug)
-    vec_u8_free(debug)
+    c_string_free(debug)
 
   echo "\nGenerating RLN Proof"
   var proofRes: CResultProofPtrVecU8
@@ -468,7 +469,8 @@ when isMainModule:
         userMessageLimit, messageId, x, externalNullifier, leafIndex)
 
   if proofRes.ok.isNil:
-    stderr.writeLine "Proof generation failed: ", asString(proofRes.err)
+    stderr.writeLine "Proof generation error: ", asString(proofRes.err)
+    c_string_free(proofRes.err)
     quit 1
 
   var proof = proofRes.ok
@@ -480,18 +482,16 @@ when isMainModule:
     roots.dataPtr = computedRoot
     roots.len = CSize(1)
     roots.cap = CSize(1)
-    let verifyRes = ffi_verify_with_roots(addr rln, addr proof, addr roots, x)
+    let verifyErr = ffi_verify_with_roots(addr rln, addr proof, addr roots, x)
   else:
-    let verifyRes = ffi_verify_rln_proof(addr rln, addr proof, x)
+    let verifyErr = ffi_verify_rln_proof(addr rln, addr proof, x)
 
-  if verifyRes.ok.isNil:
-    stderr.writeLine "Proof verification error: ", asString(verifyRes.err)
+  if not verifyErr.dataPtr.isNil:
+    stderr.writeLine "Proof verification error: ", asString(verifyErr)
+    c_string_free(verifyErr)
     quit 1
-  elif verifyRes.ok[]:
-    echo "Proof verified successfully"
-  else:
-    echo "Proof verification failed"
-    quit 1
+
+  echo "Proof verified successfully"
 
   echo "\nSimulating double-signaling attack (same epoch, different message)"
 
@@ -500,12 +500,12 @@ when isMainModule:
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   var signal2Vec = Vec_uint8(dataPtr: cast[ptr uint8](addr signal2[0]),
       len: CSize(signal2.len), cap: CSize(signal2.len))
-  let x2 = ffi_hash_to_field_le(addr signal2Vec)
+  let x2 = ffi_hash_to_field_be(addr signal2Vec)
 
   block:
     let debug = cfr_debug(x2)
     echo "  - x2 = ", asString(debug)
-    vec_u8_free(debug)
+    c_string_free(debug)
 
   echo "\nCreating second message with the same id"
   let messageId2 = uint_to_cfr(0'u32)
@@ -513,7 +513,7 @@ when isMainModule:
   block:
     let debug = cfr_debug(messageId2)
     echo "  - message_id2 = ", asString(debug)
-    vec_u8_free(debug)
+    c_string_free(debug)
 
   echo "\nGenerating second RLN Proof"
   var proofRes2: CResultProofPtrVecU8
@@ -526,7 +526,8 @@ when isMainModule:
         userMessageLimit, messageId2, x2, externalNullifier, leafIndex)
 
   if proofRes2.ok.isNil:
-    stderr.writeLine "Second proof generation failed: ", asString(proofRes2.err)
+    stderr.writeLine "Second proof generation error: ", asString(proofRes2.err)
+    c_string_free(proofRes2.err)
     quit 1
 
   var proof2 = proofRes2.ok
@@ -534,39 +535,38 @@ when isMainModule:
 
   echo "\nVerifying second proof"
   when defined(ffiStateless):
-    let verifyRes2 = ffi_verify_with_roots(addr rln, addr proof2, addr roots, x2)
+    let verifyErr2 = ffi_verify_with_roots(addr rln, addr proof2, addr roots, x2)
   else:
-    let verifyRes2 = ffi_verify_rln_proof(addr rln, addr proof2, x2)
+    let verifyErr2 = ffi_verify_rln_proof(addr rln, addr proof2, x2)
 
-  if verifyRes2.ok.isNil:
-    stderr.writeLine "Second proof verification error: ", asString(verifyRes2.err)
+  if not verifyErr2.dataPtr.isNil:
+    stderr.writeLine "Second proof verification error: ", asString(verifyErr2)
+    c_string_free(verifyErr2)
     quit 1
-  elif verifyRes2.ok[]:
-    echo "Second proof verified successfully"
 
-    echo "\nRecovering identity secret"
-    let recoverRes = ffi_recover_id_secret(addr proof, addr proof2)
-    if recoverRes.ok.isNil:
-      stderr.writeLine "Identity recovery error: ", asString(recoverRes.err)
-      quit 1
-    else:
-      let recoveredSecret = recoverRes.ok
+  echo "Second proof verified successfully"
 
-      block:
-        let debug = cfr_debug(recoveredSecret)
-        echo "  - recovered_secret = ", asString(debug)
-        vec_u8_free(debug)
-
-      block:
-        let debug = cfr_debug(identitySecret)
-        echo "  - original_secret  = ", asString(debug)
-        vec_u8_free(debug)
-
-      echo "Slashing successful: Identity is recovered!"
-      cfr_free(recoveredSecret)
-  else:
-    echo "Second proof verification failed"
+  echo "\nRecovering identity secret"
+  let recoverRes = ffi_recover_id_secret(addr proof, addr proof2)
+  if recoverRes.ok.isNil:
+    stderr.writeLine "Identity recovery error: ", asString(recoverRes.err)
+    c_string_free(recoverRes.err)
     quit 1
+
+  let recoveredSecret = recoverRes.ok
+
+  block:
+    let debug = cfr_debug(recoveredSecret)
+    echo "  - recovered_secret = ", asString(debug)
+    c_string_free(debug)
+
+  block:
+    let debug = cfr_debug(identitySecret)
+    echo "  - original_secret  = ", asString(debug)
+    c_string_free(debug)
+
+  echo "Slashing successful: Identity is recovered!"
+  cfr_free(recoveredSecret)
 
   ffi_rln_proof_free(proof2)
   cfr_free(x2)
@@ -574,10 +574,11 @@ when isMainModule:
   ffi_rln_proof_free(proof)
 
   when defined(ffiStateless):
-    cfr_free(computedRoot)
-    cfr_free(defaultLeaf)
-    for i in 0..treeDepth-2: cfr_free(defaultHashes[i])
     dealloc(pathElemsBuffer)
+    for i in 0..treeDepth-2:
+      cfr_free(defaultHashes[i])
+    cfr_free(defaultLeaf)
+    cfr_free(computedRoot)
   else:
     ffi_merkle_proof_free(merkleProof)
 
