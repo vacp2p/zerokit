@@ -82,7 +82,7 @@ jobs:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
     strategy:
       matrix:
-        platform: [ubuntu-latest, macos-latest]
+        platform: [macos-latest]
         crate: [rln-wasm]
         feature: ["default"]
     runs-on: ${{ matrix.platform }}
@@ -111,7 +111,7 @@ jobs:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
     strategy:
       matrix:
-        platform: [ubuntu-latest, macos-latest]
+        platform: [macos-latest]
         crate: [rln-wasm]
         feature: ["parallel"]
     runs-on: ${{ matrix.platform }}
@@ -141,7 +141,7 @@ jobs:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
     strategy:
       matrix:
-        platform: [ubuntu-latest, macos-latest]
+        platform: [macos-latest]
         crate: [rln-wasm-utils]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
