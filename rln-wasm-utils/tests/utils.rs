@@ -133,6 +133,9 @@ mod test {
         let fr_int = Fr::from(42u8);
         assert_eq!(*wasmfr_int, fr_int);
 
+        let wasmfr_debug_str = wasmfr_int.debug();
+        assert_eq!(wasmfr_debug_str.to_string(), "42");
+
         let identity = Identity::generate();
         let mut id_secret_fr = *identity.get_secret_hash();
         let id_secret_hash = IdSecret::from(&mut id_secret_fr);
@@ -146,7 +149,10 @@ mod test {
     #[wasm_bindgen_test]
     fn test_vec_wasmfr() {
         let vec_fr = vec![Fr::from(1u8), Fr::from(2u8), Fr::from(3u8), Fr::from(4u8)];
-        let vec_wasmfr = VecWasmFr::from_array(vec_fr.iter().map(|f| WasmFr::from(*f)).collect());
+        let mut vec_wasmfr = VecWasmFr::new();
+        for fr in &vec_fr {
+            vec_wasmfr.push(&WasmFr::from(*fr));
+        }
 
         let bytes_le = vec_wasmfr.to_bytes_le();
         let expected_le = rln::utils::vec_fr_to_bytes_le(&vec_fr);
@@ -217,7 +223,7 @@ mod test {
         let expected_hash = poseidon_hash(&[input_1, input_2]);
         let wasmfr_1 = WasmFr::from_uint(42);
         let wasmfr_2 = WasmFr::from_uint(99);
-        let received_hash = Hasher::poseidon_hash_pair(wasmfr_1, wasmfr_2);
+        let received_hash = Hasher::poseidon_hash_pair(&wasmfr_1, &wasmfr_2);
 
         assert_eq!(*received_hash, expected_hash);
     }

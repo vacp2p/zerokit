@@ -50,7 +50,7 @@ impl WasmFr {
         Self(Fr::from(1u32))
     }
 
-    #[wasm_bindgen(constructor)]
+    #[wasm_bindgen(js_name = fromUint)]
     pub fn from_uint(value: u32) -> Self {
         Self(Fr::from(value))
     }
@@ -80,6 +80,11 @@ impl WasmFr {
         let bytes = fr_to_bytes_be(&self.0);
         Uint8Array::from(&bytes[..])
     }
+
+    #[wasm_bindgen(js_name = debug)]
+    pub fn debug(&self) -> String {
+        format!("{:?}", self.0)
+    }
 }
 
 impl WasmFr {
@@ -96,6 +101,11 @@ pub struct VecWasmFr(Vec<Fr>);
 
 #[wasm_bindgen]
 impl VecWasmFr {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
     #[wasm_bindgen(js_name = fromBytesLE)]
     pub fn from_bytes_le(bytes: &Uint8Array) -> Result<VecWasmFr, String> {
         let bytes_vec = bytes.to_vec();
@@ -135,13 +145,13 @@ impl VecWasmFr {
     }
 
     #[wasm_bindgen(js_name = push)]
-    pub fn push(&mut self, element: WasmFr) {
+    pub fn push(&mut self, element: &WasmFr) {
         self.0.push(element.0);
     }
 
-    #[wasm_bindgen(js_name = fromArray)]
-    pub fn from_array(elements: Vec<WasmFr>) -> Self {
-        Self(elements.iter().map(|e| e.0).collect())
+    #[wasm_bindgen(js_name = debug)]
+    pub fn debug(&self) -> String {
+        format!("{:?}", self.0)
     }
 }
 
@@ -169,7 +179,7 @@ impl Hasher {
     }
 
     #[wasm_bindgen(js_name = poseidonHashPair)]
-    pub fn poseidon_hash_pair(a: WasmFr, b: WasmFr) -> WasmFr {
+    pub fn poseidon_hash_pair(a: &WasmFr, b: &WasmFr) -> WasmFr {
         WasmFr(poseidon_hash(&[a.0, b.0]))
     }
 }

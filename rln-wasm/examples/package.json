@@ -1,0 +1,13 @@
+{
+  "name": "rln-wasm-node-example",
+  "version": "1.0.0",
+  "description": "Node.js example for RLN WASM",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@waku/zerokit-rln-wasm": "file:../../pkg"
+  }
+}

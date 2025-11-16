@@ -12,9 +12,10 @@ use rln::{
     },
     utils::IdSecret,
 };
-use rln_wasm_utils::{VecWasmFr, WasmFr};
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
+
+pub use rln_wasm_utils::{ExtendedIdentity, Hasher, Identity, VecWasmFr, WasmFr};
 
 #[cfg(feature = "panic_hook")]
 #[wasm_bindgen(js_name = initPanicHook)]
@@ -32,9 +33,9 @@ pub struct WasmRLN {
 
 #[wasm_bindgen]
 impl WasmRLN {
-    #[wasm_bindgen(js_name = new)]
-    pub fn new(zkey_buffer: &Uint8Array) -> Result<WasmRLN, String> {
-        let zkey_vec = zkey_buffer.to_vec();
+    #[wasm_bindgen(constructor)]
+    pub fn new(zkey: &Uint8Array) -> Result<WasmRLN, String> {
+        let zkey_vec = zkey.to_vec();
         let proving_key = zkey_from_raw(&zkey_vec).map_err(|err| err.to_string())?;
 
         Ok(WasmRLN { proving_key })
@@ -49,7 +50,6 @@ impl WasmRLN {
         let proof_values =
             proof_values_from_witness(&rln_witness.0).map_err(|err| err.to_string())?;
 
-        // Convert js_sys::BigInt to num_bigint::BigInt
         let calculated_witness_bigint: Vec<BigInt> = calculated_witness
             .iter()
             .map(|js_bigint| {
@@ -72,7 +72,7 @@ impl WasmRLN {
         &self,
         proof: &WasmRLNProof,
         roots: &VecWasmFr,
-        x: WasmFr,
+        x: &WasmFr,
     ) -> Result<bool, String> {
         let proof_verified =
             verify_proof(&self.proving_key.0.vk, &proof.proof, &proof.proof_values)
@@ -90,7 +90,7 @@ impl WasmRLN {
                 .any(|root| *root == proof.proof_values.root)
         };
 
-        let signal_verified = *x == proof.proof_values.x;
+        let signal_verified = **x == proof.proof_values.x;
 
         Ok(proof_verified && roots_verified && signal_verified)
     }
@@ -158,13 +158,13 @@ pub struct WasmRLNWitnessInput(RLNWitnessInput);
 impl WasmRLNWitnessInput {
     #[wasm_bindgen(constructor)]
     pub fn new(
-        identity_secret: WasmFr,
-        user_message_limit: WasmFr,
-        message_id: WasmFr,
+        identity_secret: &WasmFr,
+        user_message_limit: &WasmFr,
+        message_id: &WasmFr,
         path_elements: &VecWasmFr,
         identity_path_index: &Uint8Array,
-        x: WasmFr,
-        external_nullifier: WasmFr,
+        x: &WasmFr,
+        external_nullifier: &WasmFr,
     ) -> Result<WasmRLNWitnessInput, String> {
         let mut identity_secret_fr = identity_secret.inner();
         let path_elements: Vec<Fr> = path_elements.inner();

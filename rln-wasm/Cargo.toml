@@ -48,5 +48,8 @@ default = []
 panic_hook = ["console_error_panic_hook"]
 parallel = ["rln/parallel", "wasm-bindgen-rayon", "ark-groth16/parallel"]
 
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-O", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
+
 [package.metadata.docs.rs]
 all-features = true

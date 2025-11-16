@@ -129,13 +129,13 @@ mod test {
         let epoch = Hasher::hash_to_field_le(&Uint8Array::from(b"test-epoch" as &[u8]));
         let rln_identifier =
             Hasher::hash_to_field_le(&Uint8Array::from(b"test-rln-identifier" as &[u8]));
-        let external_nullifier = Hasher::poseidon_hash_pair(epoch, rln_identifier);
+        let external_nullifier = Hasher::poseidon_hash_pair(&epoch, &rln_identifier);
 
         let identity_index = tree.leaves_set();
 
         let user_message_limit = WasmFr::from_uint(100);
 
-        let rate_commitment = Hasher::poseidon_hash_pair(id_commitment, user_message_limit);
+        let rate_commitment = Hasher::poseidon_hash_pair(&id_commitment, &user_message_limit);
         tree.update_next(*rate_commitment)
             .expect("Failed to update tree");
 
@@ -147,23 +147,20 @@ mod test {
             .proof(identity_index)
             .expect("Failed to generate merkle proof");
 
-        let path_elements = VecWasmFr::from_array(
-            merkle_proof
-                .get_path_elements()
-                .iter()
-                .map(|&e| WasmFr::from(e))
-                .collect(),
-        );
+        let mut path_elements = VecWasmFr::new();
+        for path_element in merkle_proof.get_path_elements() {
+            path_elements.push(&WasmFr::from(path_element));
+        }
         let path_index = Uint8Array::from(&merkle_proof.get_path_index()[..]);
 
         let rln_witness_input = WasmRLNWitnessInput::new(
-            identity_secret_hash,
-            user_message_limit,
-            message_id,
+            &identity_secret_hash,
+            &user_message_limit,
+            &message_id,
             &path_elements,
             &path_index,
-            x,
-            external_nullifier,
+            &x,
+            &external_nullifier,
         )
         .expect("Failed to create WasmRLNWitnessInput");
 
@@ -209,20 +206,21 @@ mod test {
             .expect("Failed to generate proof");
 
         let root = WasmFr::from(tree.root());
-        let roots = VecWasmFr::from_array(vec![root]);
+        let mut roots = VecWasmFr::new();
+        roots.push(&root);
 
         // Benchmark proof verification with the root
         let start_verify_with_roots = Date::now();
         for _ in 0..iterations {
             let _ = rln_instance
-                .verify_with_roots(&proof, &roots, x)
+                .verify_with_roots(&proof, &roots, &x)
                 .expect("Failed to verify proof");
         }
         let verify_with_roots_result = Date::now() - start_verify_with_roots;
 
         // Verify proof with the root for other benchmarks
         let is_proof_valid = rln_instance
-            .verify_with_roots(&proof, &roots, x)
+            .verify_with_roots(&proof, &roots, &x)
             .expect("Failed to verify proof");
         assert!(is_proof_valid, "verification failed");
 
