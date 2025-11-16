@@ -163,7 +163,7 @@ jobs:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
     strategy:
       matrix:
-        # we run lint tests only on ubuntu
+        # run lint tests only on ubuntu
         platform: [ubuntu-latest]
         crate: [rln, rln-wasm, rln-wasm-utils, utils]
     runs-on: ${{ matrix.platform }}
@@ -177,6 +177,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Install wasm32 target
+        if: matrix.crate == 'rln-wasm' || matrix.crate == 'rln-wasm-utils'
+        run: rustup target add wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
         run: make installdeps
@@ -184,18 +187,23 @@ jobs:
         if: success() || failure()
         run: cargo fmt -- --check
         working-directory: ${{ matrix.crate }}
-      - name: Check clippy
-        if: success() || failure()
+      - name: Check clippy (wasm)
+        if: (success() || failure()) && (matrix.crate == 'rln-wasm' || matrix.crate == 'rln-wasm-utils')
         run: |
-          cargo clippy --all-targets --release -- -D warnings
+          cargo clippy --target wasm32-unknown-unknown --tests --release -- -D warnings
+        working-directory: ${{ matrix.crate }}
+      - name: Check clippy (native)
+        if: (success() || failure()) && (matrix.crate != 'rln-wasm' && matrix.crate != 'rln-wasm-utils')
+        run: |
+          cargo clippy --all-targets --tests --release -- -D warnings
         working-directory: ${{ matrix.crate }}
 
   benchmark-utils:
-    # run only on ready pull requests
+    # run only on ready PRs
     if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     strategy:
       matrix:
-        # we run benchmark tests only on ubuntu
+        # run benchmark tests only on ubuntu
         platform: [ubuntu-latest]
         crate: [utils]
     runs-on: ${{ matrix.platform }}
@@ -212,11 +220,11 @@ jobs:
           cwd: ${{ matrix.crate }}
 
   benchmark-rln:
-    # run only on ready pull requests
+    # run only on ready PRs
     if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     strategy:
       matrix:
-        # we run benchmark tests only on ubuntu
+        # run benchmark tests only on ubuntu
         platform: [ubuntu-latest]
         crate: [rln]
         feature: ["default"]

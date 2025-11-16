@@ -1,212 +1,200 @@
 #![cfg(target_arch = "wasm32")]
 
+use ark_groth16::{Proof as ArkProof, ProvingKey};
+use ark_relations::r1cs::ConstraintMatrices;
 use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
 use num_bigint::BigInt;
-use rln::public::RLN;
-use std::vec::Vec;
+use rln::{
+    circuit::{zkey_from_raw, Curve, Fr},
+    protocol::{
+        compute_id_secret, generate_proof_with_witness, proof_values_from_witness,
+        rln_witness_to_bigint_json, verify_proof, RLNProofValues, RLNWitnessInput,
+    },
+    utils::IdSecret,
+};
+use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
-#[cfg(feature = "parallel")]
-pub use wasm_bindgen_rayon::init_thread_pool;
+pub use rln_wasm_utils::{ExtendedIdentity, Hasher, Identity, VecWasmFr, WasmFr};
 
+#[cfg(feature = "panic_hook")]
 #[wasm_bindgen(js_name = initPanicHook)]
 pub fn init_panic_hook() {
     console_error_panic_hook::set_once();
 }
 
-#[wasm_bindgen(js_name = RLN)]
-pub struct RLNWrapper {
-    // The purpose of this wrapper is to hold a RLN instance with the 'static lifetime
-    // because wasm_bindgen does not allow returning elements with lifetimes
-    instance: RLN,
+#[cfg(feature = "parallel")]
+pub use wasm_bindgen_rayon::init_thread_pool;
+
+#[wasm_bindgen]
+pub struct WasmRLN {
+    proving_key: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
 }
 
-// Macro to call methods with arbitrary amount of arguments,
-// which have the last argument is output buffer pointer
-// First argument to the macro is context,
-// second is the actual method on `RLN`
-// third is the aforementioned output buffer argument
-// rest are all other arguments to the method
-macro_rules! call_with_output_and_error_msg {
-    // this variant is needed for the case when
-    // there are zero other arguments
-    ($instance:expr, $method:ident, $error_msg:expr) => {
-        {
-            let mut output_data: Vec<u8> = Vec::new();
-            let new_instance = $instance.process();
-            if let Err(err) = new_instance.instance.$method(&mut output_data) {
-                std::mem::forget(output_data);
-                Err(format!("Msg: {:#?}, Error: {:#?}", $error_msg, err))
-            } else {
-                let result = Uint8Array::from(&output_data[..]);
-                std::mem::forget(output_data);
-                Ok(result)
-            }
+#[wasm_bindgen]
+impl WasmRLN {
+    #[wasm_bindgen(constructor)]
+    pub fn new(zkey: &Uint8Array) -> Result<WasmRLN, String> {
+        let zkey_vec = zkey.to_vec();
+        let proving_key = zkey_from_raw(&zkey_vec).map_err(|err| err.to_string())?;
+
+        Ok(WasmRLN { proving_key })
+    }
+
+    #[wasm_bindgen(js_name = generateProofWithWitness)]
+    pub fn generate_proof_with_witness(
+        &self,
+        calculated_witness: Vec<JsBigInt>,
+        rln_witness: &WasmRLNWitnessInput,
+    ) -> Result<WasmRLNProof, String> {
+        let proof_values =
+            proof_values_from_witness(&rln_witness.0).map_err(|err| err.to_string())?;
+
+        let calculated_witness_bigint: Vec<BigInt> = calculated_witness
+            .iter()
+            .map(|js_bigint| {
+                let str_val = js_bigint.to_string(10).unwrap().as_string().unwrap();
+                str_val.parse::<BigInt>().unwrap()
+            })
+            .collect();
+
+        let proof = generate_proof_with_witness(calculated_witness_bigint, &self.proving_key)
+            .map_err(|err| err.to_string())?;
+
+        Ok(WasmRLNProof {
+            proof_values,
+            proof,
+        })
+    }
+
+    #[wasm_bindgen(js_name = verifyWithRoots)]
+    pub fn verify_with_roots(
+        &self,
+        proof: &WasmRLNProof,
+        roots: &VecWasmFr,
+        x: &WasmFr,
+    ) -> Result<bool, String> {
+        let proof_verified =
+            verify_proof(&self.proving_key.0.vk, &proof.proof, &proof.proof_values)
+                .map_err(|err| err.to_string())?;
+
+        if !proof_verified {
+            return Ok(false);
         }
-    };
-    ($instance:expr, $method:ident, $error_msg:expr, $( $arg:expr ),* ) => {
-        {
-            let mut output_data: Vec<u8> = Vec::new();
-            let new_instance = $instance.process();
-            if let Err(err) = new_instance.instance.$method($($arg.process()),*, &mut output_data) {
-                std::mem::forget(output_data);
-                Err(format!("Msg: {:#?}, Error: {:#?}", $error_msg, err))
-            } else {
-                let result = Uint8Array::from(&output_data[..]);
-                std::mem::forget(output_data);
-                Ok(result)
-            }
+
+        let roots_verified = if roots.length() == 0 {
+            true
+        } else {
+            (0..roots.length())
+                .filter_map(|i| roots.get(i))
+                .any(|root| *root == proof.proof_values.root)
+        };
+
+        let signal_verified = **x == proof.proof_values.x;
+
+        Ok(proof_verified && roots_verified && signal_verified)
+    }
+}
+
+#[wasm_bindgen]
+pub struct WasmRLNProof {
+    proof: ArkProof<Curve>,
+    proof_values: RLNProofValues,
+}
+
+#[wasm_bindgen]
+impl WasmRLNProof {
+    #[wasm_bindgen(getter)]
+    pub fn y(&self) -> WasmFr {
+        WasmFr::from(self.proof_values.y)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn nullifier(&self) -> WasmFr {
+        WasmFr::from(self.proof_values.nullifier)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn root(&self) -> WasmFr {
+        WasmFr::from(self.proof_values.root)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn x(&self) -> WasmFr {
+        WasmFr::from(self.proof_values.x)
+    }
+
+    #[wasm_bindgen(getter, js_name = externalNullifier)]
+    pub fn external_nullifier(&self) -> WasmFr {
+        WasmFr::from(self.proof_values.external_nullifier)
+    }
+
+    #[wasm_bindgen(js_name = recoverIdSecret)]
+    pub fn recover_id_secret(
+        proof_1: &WasmRLNProof,
+        proof_2: &WasmRLNProof,
+    ) -> Result<WasmFr, String> {
+        let external_nullifier_1 = proof_1.proof_values.external_nullifier;
+        let external_nullifier_2 = proof_2.proof_values.external_nullifier;
+
+        if external_nullifier_1 != external_nullifier_2 {
+            return Err("External nullifiers do not match".to_string());
         }
-    };
-}
 
-macro_rules! call {
-    ($instance:expr, $method:ident $(, $arg:expr)*) => {
-        {
-            let new_instance: &mut RLNWrapper = $instance.process();
-            new_instance.instance.$method($($arg.process()),*)
-        }
+        let share1 = (proof_1.proof_values.x, proof_1.proof_values.y);
+        let share2 = (proof_2.proof_values.x, proof_2.proof_values.y);
+
+        let recovered_identity_secret_hash =
+            compute_id_secret(share1, share2).map_err(|err| err.to_string())?;
+
+        Ok(WasmFr::from(*recovered_identity_secret_hash))
     }
 }
 
-macro_rules! call_bool_method_with_error_msg {
-    ($instance:expr, $method:ident, $error_msg:expr $(, $arg:expr)*) => {
-        {
-            let new_instance: &RLNWrapper = $instance.process();
-            new_instance.instance.$method($($arg.process()),*).map_err(|err| format!("Msg: {:#?}, Error: {:#?}", $error_msg, err))
-        }
-    }
-}
+#[wasm_bindgen]
+pub struct WasmRLNWitnessInput(RLNWitnessInput);
 
-trait ProcessArg {
-    type ReturnType;
-    fn process(self) -> Self::ReturnType;
-}
+#[wasm_bindgen]
+impl WasmRLNWitnessInput {
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        identity_secret: &WasmFr,
+        user_message_limit: &WasmFr,
+        message_id: &WasmFr,
+        path_elements: &VecWasmFr,
+        identity_path_index: &Uint8Array,
+        x: &WasmFr,
+        external_nullifier: &WasmFr,
+    ) -> Result<WasmRLNWitnessInput, String> {
+        let mut identity_secret_fr = identity_secret.inner();
+        let path_elements: Vec<Fr> = path_elements.inner();
+        let identity_path_index: Vec<u8> = identity_path_index.to_vec();
 
-impl ProcessArg for usize {
-    type ReturnType = usize;
-    fn process(self) -> Self::ReturnType {
-        self
-    }
-}
+        let rln_witness = RLNWitnessInput::new(
+            IdSecret::from(&mut identity_secret_fr),
+            user_message_limit.inner(),
+            message_id.inner(),
+            path_elements,
+            identity_path_index,
+            x.inner(),
+            external_nullifier.inner(),
+        )
+        .map_err(|err| err.to_string())?;
 
-impl<T> ProcessArg for Vec<T> {
-    type ReturnType = Vec<T>;
-    fn process(self) -> Self::ReturnType {
-        self
-    }
-}
-
-impl ProcessArg for *const RLN {
-    type ReturnType = &'static RLN;
-    fn process(self) -> Self::ReturnType {
-        unsafe { &*self }
-    }
-}
-
-impl ProcessArg for *const RLNWrapper {
-    type ReturnType = &'static RLNWrapper;
-    fn process(self) -> Self::ReturnType {
-        unsafe { &*self }
-    }
-}
-
-impl ProcessArg for *mut RLNWrapper {
-    type ReturnType = &'static mut RLNWrapper;
-    fn process(self) -> Self::ReturnType {
-        unsafe { &mut *self }
-    }
-}
-
-impl<'a> ProcessArg for &'a [u8] {
-    type ReturnType = &'a [u8];
-
-    fn process(self) -> Self::ReturnType {
-        self
-    }
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = newRLN)]
-pub fn wasm_new(zkey: Uint8Array) -> Result<*mut RLNWrapper, String> {
-    let instance = RLN::new_with_params(zkey.to_vec()).map_err(|err| format!("{:#?}", err))?;
-    let wrapper = RLNWrapper { instance };
-    Ok(Box::into_raw(Box::new(wrapper)))
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = rlnWitnessToJson)]
-pub fn wasm_rln_witness_to_json(
-    ctx: *mut RLNWrapper,
-    serialized_witness: Uint8Array,
-) -> Result<Object, String> {
-    let inputs = call!(
-        ctx,
-        get_rln_witness_bigint_json,
-        &serialized_witness.to_vec()[..]
-    )
-    .map_err(|err| err.to_string())?;
-    let js_value = serde_wasm_bindgen::to_value(&inputs).map_err(|err| err.to_string())?;
-    Object::from_entries(&js_value).map_err(|err| format!("{:#?}", err))
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = generateRLNProofWithWitness)]
-pub fn wasm_generate_rln_proof_with_witness(
-    ctx: *mut RLNWrapper,
-    calculated_witness: Vec<JsBigInt>,
-    serialized_witness: Uint8Array,
-) -> Result<Uint8Array, String> {
-    let mut witness_vec: Vec<BigInt> = vec![];
-
-    for v in calculated_witness {
-        witness_vec.push(
-            v.to_string(10)
-                .map_err(|err| format!("{:#?}", err))?
-                .as_string()
-                .ok_or("not a string error")?
-                .parse::<BigInt>()
-                .map_err(|err| format!("{:#?}", err))?,
-        );
+        Ok(WasmRLNWitnessInput(rln_witness))
     }
 
-    call_with_output_and_error_msg!(
-        ctx,
-        generate_rln_proof_with_witness,
-        "could not generate proof",
-        witness_vec,
-        serialized_witness.to_vec()
-    )
-}
+    #[wasm_bindgen(js_name = toBigIntJson)]
+    pub fn to_bigint_json(&self) -> Result<Object, String> {
+        let inputs = rln_witness_to_bigint_json(&self.0).map_err(|err| err.to_string())?;
 
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = recovedIDSecret)]
-pub fn wasm_recover_id_secret(
-    ctx: *const RLNWrapper,
-    input_proof_data_1: Uint8Array,
-    input_proof_data_2: Uint8Array,
-) -> Result<Uint8Array, String> {
-    call_with_output_and_error_msg!(
-        ctx,
-        recover_id_secret,
-        "could not recover id secret",
-        &input_proof_data_1.to_vec()[..],
-        &input_proof_data_2.to_vec()[..]
-    )
-}
+        let serializer = serde_wasm_bindgen::Serializer::json_compatible();
+        let js_value = inputs
+            .serialize(&serializer)
+            .map_err(|err| err.to_string())?;
 
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[wasm_bindgen(js_name = verifyWithRoots)]
-pub fn wasm_verify_with_roots(
-    ctx: *const RLNWrapper,
-    proof: Uint8Array,
-    roots: Uint8Array,
-) -> Result<bool, String> {
-    call_bool_method_with_error_msg!(
-        ctx,
-        verify_with_roots,
-        "error while verifying proof with roots".to_string(),
-        &proof.to_vec()[..],
-        &roots.to_vec()[..]
-    )
+        js_value
+            .dyn_into::<Object>()
+            .map_err(|err| format!("{:#?}", err))
+    }
 }
