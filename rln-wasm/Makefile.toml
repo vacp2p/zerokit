@@ -37,6 +37,7 @@ command = "wasm-opt"
 args = [
     "pkg/rln_wasm_bg.wasm",
     "-Oz",
+    "--enable-bulk-memory",
     "--strip-debug",
     "--strip-dwarf",
     "--remove-unused-module-elements",

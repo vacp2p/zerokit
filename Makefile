@@ -18,6 +18,7 @@ else ifeq ($(shell uname),Linux)
 	@if [ -f /etc/os-release ] && grep -q "ID=nixos" /etc/os-release; then \
 		echo "Detected NixOS, skipping apt-get installation."; \
 	else \
+		sudo apt update
 		sudo apt-get install -y cmake ninja-build binaryen; \
 	fi
 endif
