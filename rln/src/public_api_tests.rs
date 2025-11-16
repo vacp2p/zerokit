@@ -1119,15 +1119,16 @@ mod stateless_test {
 
         let x = hash_to_field_le(&signal);
         let merkle_proof = tree.proof(identity_index).expect("proof should exist");
+        let message_id = Fr::from(1);
 
-        let rln_witness = rln_witness_from_values(
+        let rln_witness = RLNWitnessInput::new(
             identity_secret_hash,
+            user_message_limit,
+            message_id,
             merkle_proof.get_path_elements(),
             merkle_proof.get_path_index(),
             x,
             external_nullifier,
-            user_message_limit,
-            Fr::from(1),
         )
         .unwrap();
 
@@ -1215,26 +1216,27 @@ mod stateless_test {
 
         let identity_index = tree.leaves_set();
         let merkle_proof = tree.proof(identity_index).expect("proof should exist");
+        let message_id = Fr::from(1);
 
-        let rln_witness1 = rln_witness_from_values(
+        let rln_witness1 = RLNWitnessInput::new(
             identity_secret_hash.clone(),
+            user_message_limit,
+            message_id,
             merkle_proof.get_path_elements(),
             merkle_proof.get_path_index(),
             x1,
             external_nullifier,
-            user_message_limit,
-            Fr::from(1),
         )
         .unwrap();
 
-        let rln_witness2 = rln_witness_from_values(
+        let rln_witness2 = RLNWitnessInput::new(
             identity_secret_hash.clone(),
+            user_message_limit,
+            message_id,
             merkle_proof.get_path_elements(),
             merkle_proof.get_path_index(),
             x2,
             external_nullifier,
-            user_message_limit,
-            Fr::from(1),
         )
         .unwrap();
 
@@ -1284,14 +1286,14 @@ mod stateless_test {
         let identity_index_new = tree.leaves_set();
         let merkle_proof_new = tree.proof(identity_index_new).expect("proof should exist");
 
-        let rln_witness3 = rln_witness_from_values(
+        let rln_witness3 = RLNWitnessInput::new(
             identity_secret_hash_new.clone(),
+            user_message_limit,
+            message_id,
             merkle_proof_new.get_path_elements(),
             merkle_proof_new.get_path_index(),
             x3,
             external_nullifier,
-            user_message_limit,
-            Fr::from(1),
         )
         .unwrap();
 

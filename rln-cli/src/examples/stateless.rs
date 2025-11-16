@@ -10,7 +10,7 @@ use color_eyre::{eyre::eyre, Result};
 use rln::{
     circuit::{Fr, TEST_TREE_DEPTH},
     hashers::{hash_to_field_le, poseidon_hash, PoseidonHash},
-    protocol::{keygen, prepare_verify_input, rln_witness_from_values, serialize_witness},
+    protocol::{keygen, prepare_verify_input, serialize_witness},
     public::RLN,
     utils::{fr_to_bytes_le, IdSecret},
 };
@@ -130,15 +130,16 @@ impl RLNSystem {
         let merkle_proof = self.tree.proof(user_index)?;
         let x = hash_to_field_le(signal.as_bytes());
 
-        let rln_witness = rln_witness_from_values(
+        let rln_witness = RLNWitnessInput::new(
             identity.identity_secret_hash.clone(),
+            Fr::from(MESSAGE_LIMIT),
+            Fr::from(message_id),
             merkle_proof.get_path_elements(),
             merkle_proof.get_path_index(),
             x,
             external_nullifier,
-            Fr::from(MESSAGE_LIMIT),
-            Fr::from(message_id),
-        )?;
+        )
+        .unwrap();
 
         let serialized = serialize_witness(&rln_witness)?;
         let mut input_buffer = Cursor::new(serialized);
