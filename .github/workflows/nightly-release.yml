@@ -125,9 +125,6 @@ jobs:
 
           sed -i.bak 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json && rm pkg/package.json.bak
 
-          wasm-opt pkg/rln_wasm_bg.wasm -Oz --enable-bulk-memory --strip-debug --strip-dwarf \
-          --remove-unused-module-elements --vacuum -o pkg/rln_wasm_bg.wasm
-
           mkdir release
           cp -r pkg/* release/
           tar -czvf rln-wasm-${{ matrix.feature }}.tar.gz release/
@@ -157,9 +154,6 @@ jobs:
           wasm-pack build --release --target web --scope waku
 
           sed -i.bak 's/rln-wasm-utils/zerokit-rln-wasm-utils/g' pkg/package.json && rm pkg/package.json.bak
-
-          wasm-opt pkg/rln_wasm_utils_bg.wasm -Oz --enable-bulk-memory --strip-debug --strip-dwarf \
-          --remove-unused-module-elements --vacuum -o pkg/rln_wasm_utils_bg.wasm
 
           mkdir release
           cp -r pkg/* release/

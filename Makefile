@@ -13,13 +13,13 @@ endif
 
 installdeps: .pre-build
 ifeq ($(shell uname),Darwin)
-	@brew install ninja binaryen
+	@brew install ninja
 else ifeq ($(shell uname),Linux)
 	@if [ -f /etc/os-release ] && grep -q "ID=nixos" /etc/os-release; then \
-		echo "Detected NixOS, skipping apt-get installation."; \
+		echo "Detected NixOS, skipping apt installation."; \
 	else \
 		sudo apt update; \
-		sudo apt-get install -y cmake ninja-build binaryen; \
+		sudo apt install -y cmake ninja-build; \
 	fi
 endif
 	@which wasm-pack > /dev/null && wasm-pack --version | grep -q "0.13.1" || cargo install wasm-pack --version=0.13.1
