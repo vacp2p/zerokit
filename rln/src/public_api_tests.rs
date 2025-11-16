@@ -1,12 +1,18 @@
+use crate::circuit::Fr;
 use crate::circuit::TEST_TREE_DEPTH;
+use crate::error::ProtocolError;
+use crate::hashers::{hash_to_field_le, poseidon_hash};
 use crate::protocol::{
-    proof_values_from_witness, random_rln_witness, serialize_proof_values, serialize_witness,
-    verify_proof, RLNProofValues,
+    proof_values_from_witness, serialize_proof_values, serialize_witness, verify_proof,
+    RLNProofValues, RLNWitnessInput,
 };
 use crate::public::RLN;
-use crate::utils::str_to_fr;
+use crate::public::RLN_IDENTIFIER;
+use crate::utils::{str_to_fr, IdSecret};
 use ark_groth16::Proof as ArkProof;
 use ark_serialize::CanonicalDeserialize;
+use rand::thread_rng;
+use rand::Rng;
 use serde_json::{json, Value};
 use std::io::Cursor;
 use std::str::FromStr;
@@ -48,6 +54,37 @@ fn value_to_string_vec(value: &Value) -> Vec<String> {
         .iter()
         .map(|val| val.as_str().unwrap().to_string())
         .collect()
+}
+
+fn random_rln_witness(tree_depth: usize) -> Result<RLNWitnessInput, ProtocolError> {
+    let mut rng = thread_rng();
+
+    let identity_secret = IdSecret::rand(&mut rng);
+    let x = hash_to_field_le(&rng.gen::<[u8; 32]>());
+    let epoch = hash_to_field_le(&rng.gen::<[u8; 32]>());
+    let rln_identifier = hash_to_field_le(RLN_IDENTIFIER);
+
+    let mut path_elements: Vec<Fr> = Vec::new();
+    let mut identity_path_index: Vec<u8> = Vec::new();
+
+    for _ in 0..tree_depth {
+        path_elements.push(hash_to_field_le(&rng.gen::<[u8; 32]>()));
+        identity_path_index.push(rng.gen_range(0..2) as u8);
+    }
+
+    let user_message_limit = Fr::from(100);
+    let message_id = Fr::from(1);
+    let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+
+    RLNWitnessInput::new(
+        identity_secret,
+        user_message_limit,
+        message_id,
+        path_elements,
+        identity_path_index,
+        x,
+        external_nullifier,
+    )
 }
 
 #[test]
@@ -141,7 +178,7 @@ fn test_groth16_proof() {
     let mut rln = RLN::new().unwrap();
 
     // Note: we only test Groth16 proof generation, so we ignore setting the tree in the RLN object
-    let rln_witness = random_rln_witness(tree_depth);
+    let rln_witness = random_rln_witness(tree_depth).unwrap();
     let proof_values = proof_values_from_witness(&rln_witness).unwrap();
 
     // We compute a Groth16 proof

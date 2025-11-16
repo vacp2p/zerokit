@@ -22,8 +22,8 @@ pub fn init_panic_hook() {
 // WasmFr
 
 #[wasm_bindgen]
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct WasmFr(pub(crate) Fr);
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct WasmFr(Fr);
 
 impl From<Fr> for WasmFr {
     fn from(fr: Fr) -> Self {
@@ -40,11 +40,6 @@ impl Deref for WasmFr {
 
 #[wasm_bindgen]
 impl WasmFr {
-    #[wasm_bindgen(constructor)]
-    pub fn new(value: u32) -> Self {
-        Self(Fr::from(value))
-    }
-
     #[wasm_bindgen(js_name = zero)]
     pub fn zero() -> Self {
         Self(Fr::from(0u32))
@@ -53,6 +48,11 @@ impl WasmFr {
     #[wasm_bindgen(js_name = one)]
     pub fn one() -> Self {
         Self(Fr::from(1u32))
+    }
+
+    #[wasm_bindgen(constructor)]
+    pub fn from_uint(value: u32) -> Self {
+        Self(Fr::from(value))
     }
 
     #[wasm_bindgen(js_name = fromBytesLE)]
@@ -80,34 +80,27 @@ impl WasmFr {
         let bytes = fr_to_bytes_be(&self.0);
         Uint8Array::from(&bytes[..])
     }
+}
 
-    #[wasm_bindgen(js_name = toDebugString)]
-    pub fn to_debug_string(&self) -> String {
-        format!("{:?}", self.0)
+impl WasmFr {
+    pub fn inner(&self) -> Fr {
+        self.0
     }
 }
 
 // VecWasmFr
 
 #[wasm_bindgen]
-pub struct VecWasmFr {
-    elements: Vec<Fr>,
-}
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct VecWasmFr(Vec<Fr>);
 
 #[wasm_bindgen]
 impl VecWasmFr {
-    #[wasm_bindgen(constructor)]
-    pub fn new() -> Self {
-        Self {
-            elements: Vec::new(),
-        }
-    }
-
     #[wasm_bindgen(js_name = fromBytesLE)]
     pub fn from_bytes_le(bytes: &Uint8Array) -> Result<VecWasmFr, String> {
         let bytes_vec = bytes.to_vec();
         bytes_le_to_vec_fr(&bytes_vec)
-            .map(|(vec_fr, _)| VecWasmFr { elements: vec_fr })
+            .map(|(vec_fr, _)| VecWasmFr(vec_fr))
             .map_err(|err| err.to_string())
     }
 
@@ -115,35 +108,46 @@ impl VecWasmFr {
     pub fn from_bytes_be(bytes: &Uint8Array) -> Result<VecWasmFr, String> {
         let bytes_vec = bytes.to_vec();
         bytes_be_to_vec_fr(&bytes_vec)
-            .map(|(vec_fr, _)| VecWasmFr { elements: vec_fr })
+            .map(|(vec_fr, _)| VecWasmFr(vec_fr))
             .map_err(|err| err.to_string())
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]
     pub fn to_bytes_le(&self) -> Uint8Array {
-        let bytes = vec_fr_to_bytes_le(&self.elements);
+        let bytes = vec_fr_to_bytes_le(&self.0);
         Uint8Array::from(&bytes[..])
     }
 
     #[wasm_bindgen(js_name = toBytesBE)]
     pub fn to_bytes_be(&self) -> Uint8Array {
-        let bytes = vec_fr_to_bytes_be(&self.elements);
+        let bytes = vec_fr_to_bytes_be(&self.0);
         Uint8Array::from(&bytes[..])
     }
 
     #[wasm_bindgen(js_name = get)]
     pub fn get(&self, index: usize) -> Option<WasmFr> {
-        self.elements.get(index).map(|&fr| WasmFr(fr))
+        self.0.get(index).map(|&fr| WasmFr(fr))
     }
 
     #[wasm_bindgen(js_name = length)]
     pub fn length(&self) -> usize {
-        self.elements.len()
+        self.0.len()
     }
 
     #[wasm_bindgen(js_name = push)]
-    pub fn push(&mut self, element: &WasmFr) {
-        self.elements.push(element.0);
+    pub fn push(&mut self, element: WasmFr) {
+        self.0.push(element.0);
+    }
+
+    #[wasm_bindgen(js_name = fromArray)]
+    pub fn from_array(elements: Vec<WasmFr>) -> Self {
+        Self(elements.iter().map(|e| e.0).collect())
+    }
+}
+
+impl VecWasmFr {
+    pub fn inner(&self) -> Vec<Fr> {
+        self.0.clone()
     }
 }
 
@@ -165,7 +169,7 @@ impl Hasher {
     }
 
     #[wasm_bindgen(js_name = poseidonHashPair)]
-    pub fn poseidon_hash_pair(a: &WasmFr, b: &WasmFr) -> WasmFr {
+    pub fn poseidon_hash_pair(a: WasmFr, b: WasmFr) -> WasmFr {
         WasmFr(poseidon_hash(&[a.0, b.0]))
     }
 }
@@ -209,9 +213,7 @@ impl Identity {
 
     #[wasm_bindgen(js_name = toArray)]
     pub fn to_array(&self) -> VecWasmFr {
-        VecWasmFr {
-            elements: vec![self.identity_secret_hash, self.id_commitment],
-        }
+        VecWasmFr(vec![self.identity_secret_hash, self.id_commitment])
     }
 }
 
@@ -272,13 +274,11 @@ impl ExtendedIdentity {
 
     #[wasm_bindgen(js_name = toArray)]
     pub fn to_array(&self) -> VecWasmFr {
-        VecWasmFr {
-            elements: vec![
-                self.identity_trapdoor,
-                self.identity_nullifier,
-                self.identity_secret_hash,
-                self.id_commitment,
-            ],
-        }
+        VecWasmFr(vec![
+            self.identity_trapdoor,
+            self.identity_nullifier,
+            self.identity_secret_hash,
+            self.id_commitment,
+        ])
     }
 }

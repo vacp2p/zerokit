@@ -1045,6 +1045,7 @@ dependencies = [
  "num-bigint",
  "rln",
  "rln-wasm-utils",
+ "serde",
  "serde-wasm-bindgen",
  "serde_json",
  "wasm-bindgen",

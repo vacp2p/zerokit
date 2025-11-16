@@ -12,11 +12,8 @@ use ark_groth16::ProvingKey;
 use ark_relations::r1cs::ConstraintMatrices;
 
 use crate::circuit::error::ZKeyReadError;
-use crate::circuit::iden3calc::calc_witness;
 
 use {ark_ff::Field, ark_serialize::CanonicalDeserialize, ark_serialize::CanonicalSerialize};
-
-use crate::utils::FrOrSecret;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::LazyLock;
@@ -68,14 +65,6 @@ pub fn zkey_from_folder() -> &'static (ProvingKey<Curve>, ConstraintMatrices<Fr>
 #[cfg(not(target_arch = "wasm32"))]
 pub fn graph_from_folder() -> &'static [u8] {
     GRAPH_BYTES
-}
-
-// Calculates the RLN witness given the inputs and graph data
-pub fn calculate_rln_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
-    inputs: I,
-    graph_data: &[u8],
-) -> Vec<Fr> {
-    calc_witness(inputs, graph_data)
 }
 
 ////////////////////////////////////////////////////////

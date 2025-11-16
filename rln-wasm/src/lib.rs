@@ -1,18 +1,19 @@
 #![cfg(target_arch = "wasm32")]
 
-use ark_bn254::Fr;
 use ark_groth16::{Proof as ArkProof, ProvingKey};
 use ark_relations::r1cs::ConstraintMatrices;
-use js_sys::Uint8Array;
+use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
+use num_bigint::BigInt;
 use rln::{
-    circuit::{zkey_from_raw, Curve},
+    circuit::{zkey_from_raw, Curve, Fr},
     protocol::{
-        compute_id_secret, generate_proof, proof_values_from_witness, verify_proof, RLNProofValues,
-        RLNWitnessInput,
+        compute_id_secret, generate_proof_with_witness, proof_values_from_witness,
+        rln_witness_to_bigint_json, verify_proof, RLNProofValues, RLNWitnessInput,
     },
     utils::IdSecret,
 };
 use rln_wasm_utils::{VecWasmFr, WasmFr};
+use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 #[cfg(feature = "panic_hook")]
@@ -26,65 +27,43 @@ pub use wasm_bindgen_rayon::init_thread_pool;
 
 #[wasm_bindgen]
 pub struct WasmRLN {
-    pub(crate) proving_key: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
-    pub(crate) graph_data: Vec<u8>,
+    proving_key: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
 }
 
 #[wasm_bindgen]
 impl WasmRLN {
-    #[wasm_bindgen(js_name = newWithParams)]
-    pub fn new_with_params(
-        zkey_buffer: &Uint8Array,
-        graph_data: &Uint8Array,
-    ) -> Result<WasmRLN, String> {
+    #[wasm_bindgen(js_name = new)]
+    pub fn new(zkey_buffer: &Uint8Array) -> Result<WasmRLN, String> {
         let zkey_vec = zkey_buffer.to_vec();
         let proving_key = zkey_from_raw(&zkey_vec).map_err(|err| err.to_string())?;
-        let graph_data = graph_data.to_vec();
 
-        Ok(WasmRLN {
-            proving_key,
-            graph_data,
-        })
+        Ok(WasmRLN { proving_key })
     }
 
-    #[wasm_bindgen(js_name = generateProof)]
-    pub fn generate_proof(
+    #[wasm_bindgen(js_name = generateProofWithWitness)]
+    pub fn generate_proof_with_witness(
         &self,
-        identity_secret: &WasmFr,
-        user_message_limit: &WasmFr,
-        message_id: &WasmFr,
-        path_elements: &VecWasmFr,
-        identity_path_index: &Uint8Array,
-        x: &WasmFr,
-        external_nullifier: &WasmFr,
+        calculated_witness: Vec<JsBigInt>,
+        rln_witness: &WasmRLNWitnessInput,
     ) -> Result<WasmRLNProof, String> {
-        let mut identity_secret_fr = **identity_secret;
-        let path_elements_fr: Vec<Fr> = (0..path_elements.length())
-            .filter_map(|i| path_elements.get(i))
-            .map(|w| *w)
-            .collect();
-        let identity_path_index = identity_path_index.to_vec();
-
-        let rln_witness = RLNWitnessInput::new(
-            IdSecret::from(&mut identity_secret_fr),
-            **user_message_limit,
-            **message_id,
-            path_elements_fr,
-            identity_path_index,
-            **x,
-            **external_nullifier,
-        )
-        .map_err(|err| err.to_string())?;
-
         let proof_values =
-            proof_values_from_witness(&rln_witness).map_err(|err| err.to_string())?;
+            proof_values_from_witness(&rln_witness.0).map_err(|err| err.to_string())?;
 
-        let proof = generate_proof(&self.proving_key, &rln_witness, &self.graph_data)
+        // Convert js_sys::BigInt to num_bigint::BigInt
+        let calculated_witness_bigint: Vec<BigInt> = calculated_witness
+            .iter()
+            .map(|js_bigint| {
+                let str_val = js_bigint.to_string(10).unwrap().as_string().unwrap();
+                str_val.parse::<BigInt>().unwrap()
+            })
+            .collect();
+
+        let proof = generate_proof_with_witness(calculated_witness_bigint, &self.proving_key)
             .map_err(|err| err.to_string())?;
 
         Ok(WasmRLNProof {
-            proof,
             proof_values,
+            proof,
         })
     }
 
@@ -93,7 +72,7 @@ impl WasmRLN {
         &self,
         proof: &WasmRLNProof,
         roots: &VecWasmFr,
-        x: &WasmFr,
+        x: WasmFr,
     ) -> Result<bool, String> {
         let proof_verified =
             verify_proof(&self.proving_key.0.vk, &proof.proof, &proof.proof_values)
@@ -111,7 +90,7 @@ impl WasmRLN {
                 .any(|root| *root == proof.proof_values.root)
         };
 
-        let signal_verified = **x == proof.proof_values.x;
+        let signal_verified = *x == proof.proof_values.x;
 
         Ok(proof_verified && roots_verified && signal_verified)
     }
@@ -169,5 +148,53 @@ impl WasmRLNProof {
             compute_id_secret(share1, share2).map_err(|err| err.to_string())?;
 
         Ok(WasmFr::from(*recovered_identity_secret_hash))
+    }
+}
+
+#[wasm_bindgen]
+pub struct WasmRLNWitnessInput(RLNWitnessInput);
+
+#[wasm_bindgen]
+impl WasmRLNWitnessInput {
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        identity_secret: WasmFr,
+        user_message_limit: WasmFr,
+        message_id: WasmFr,
+        path_elements: &VecWasmFr,
+        identity_path_index: &Uint8Array,
+        x: WasmFr,
+        external_nullifier: WasmFr,
+    ) -> Result<WasmRLNWitnessInput, String> {
+        let mut identity_secret_fr = identity_secret.inner();
+        let path_elements: Vec<Fr> = path_elements.inner();
+        let identity_path_index: Vec<u8> = identity_path_index.to_vec();
+
+        let rln_witness = RLNWitnessInput::new(
+            IdSecret::from(&mut identity_secret_fr),
+            user_message_limit.inner(),
+            message_id.inner(),
+            path_elements,
+            identity_path_index,
+            x.inner(),
+            external_nullifier.inner(),
+        )
+        .map_err(|err| err.to_string())?;
+
+        Ok(WasmRLNWitnessInput(rln_witness))
+    }
+
+    #[wasm_bindgen(js_name = toBigIntJson)]
+    pub fn to_bigint_json(&self) -> Result<Object, String> {
+        let inputs = rln_witness_to_bigint_json(&self.0).map_err(|err| err.to_string())?;
+
+        let serializer = serde_wasm_bindgen::Serializer::json_compatible();
+        let js_value = inputs
+            .serialize(&serializer)
+            .map_err(|err| err.to_string())?;
+
+        js_value
+            .dyn_into::<Object>()
+            .map_err(|err| format!("{:#?}", err))
     }
 }
