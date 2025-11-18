@@ -107,16 +107,12 @@ int main(int argc, char const *const argv[])
         default_hashes[i] = ffi_poseidon_hash_pair(default_hashes[i - 1], default_hashes[i - 1]);
     }
 
-    uint8_t path_elements_buffer[CFR_SIZE * TREE_DEPTH];
-    memcpy(path_elements_buffer, default_leaf, CFR_SIZE);
-    for (size_t i = 1; i < TREE_DEPTH; i++)
+    Vec_CFr_t path_elements = vec_cfr_new(TREE_DEPTH);
+    vec_cfr_push(&path_elements, default_leaf);
+    for (size_t i = 0; i < TREE_DEPTH - 1; i++)
     {
-        memcpy(path_elements_buffer + (i * CFR_SIZE), default_hashes[i - 1], CFR_SIZE);
+        vec_cfr_push(&path_elements, default_hashes[i]);
     }
-    Vec_CFr_t path_elements = {
-        .ptr = (CFr_t *)path_elements_buffer,
-        .len = TREE_DEPTH,
-        .cap = TREE_DEPTH};
 
     printf("\nVec<CFr> serialization: Vec<CFr> <-> bytes\n");
     Vec_uint8_t ser_path_elements = vec_cfr_to_bytes_le(&path_elements);
@@ -285,10 +281,7 @@ int main(int argc, char const *const argv[])
 
     printf("\nVerifying Proof\n");
 #ifdef STATELESS
-    Vec_CFr_t roots = {
-        .ptr = computed_root,
-        .len = 1,
-        .cap = 1};
+    Vec_CFr_t roots = vec_cfr_from_cfr(computed_root);
     Vec_uint8_t verify_err = ffi_verify_with_roots(&rln, &rln_proof, &roots, x);
 #else
     Vec_uint8_t verify_err = ffi_verify_rln_proof(&rln, &rln_proof, x);
@@ -398,6 +391,8 @@ int main(int argc, char const *const argv[])
     ffi_rln_proof_free(rln_proof);
 
 #ifdef STATELESS
+    vec_cfr_free(roots);
+    vec_cfr_free(path_elements);
     for (size_t i = 0; i < TREE_DEPTH - 1; i++)
     {
         cfr_free(default_hashes[i]);

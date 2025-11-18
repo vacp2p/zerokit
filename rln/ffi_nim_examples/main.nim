@@ -80,6 +80,14 @@ proc bytes_be_to_cfr*(bytes: ptr Vec_uint8): ptr CFr {.importc: "bytes_be_to_cfr
     cdecl, dynlib: RLN_LIB.}
 
 # Vec<CFr> functions
+proc vec_cfr_new*(capacity: CSize): Vec_CFr {.importc: "vec_cfr_new", cdecl,
+    dynlib: RLN_LIB.}
+proc vec_cfr_from_cfr*(cfr: ptr CFr): Vec_CFr {.importc: "vec_cfr_from_cfr",
+    cdecl, dynlib: RLN_LIB.}
+proc vec_cfr_push*(v: ptr Vec_CFr, cfr: ptr CFr) {.importc: "vec_cfr_push",
+    cdecl, dynlib: RLN_LIB.}
+proc vec_cfr_len*(v: ptr Vec_CFr): CSize {.importc: "vec_cfr_len", cdecl,
+    dynlib: RLN_LIB.}
 proc vec_cfr_get*(v: ptr Vec_CFr, i: CSize): ptr CFr {.importc: "vec_cfr_get",
     cdecl, dynlib: RLN_LIB.}
 proc vec_cfr_to_bytes_le*(v: ptr Vec_CFr): Vec_uint8 {.importc: "vec_cfr_to_bytes_le",
@@ -314,16 +322,10 @@ when isMainModule:
       defaultHashes[i] = ffi_poseidon_hash_pair(defaultHashes[i-1],
           defaultHashes[i-1])
 
-    var pathElemsBuffer = alloc(CFR_SIZE * treeDepth)
-    copyMem(pathElemsBuffer, defaultLeaf, CFR_SIZE)
-    for i in 1..treeDepth-1:
-      copyMem(cast[pointer](cast[int](pathElemsBuffer) + i * CFR_SIZE),
-          defaultHashes[i-1], CFR_SIZE)
-
-    var pathElements: Vec_CFr
-    pathElements.dataPtr = cast[ptr CFr](pathElemsBuffer)
-    pathElements.len = CSize(treeDepth)
-    pathElements.cap = CSize(treeDepth)
+    var pathElements = vec_cfr_new(CSize(treeDepth))
+    vec_cfr_push(addr pathElements, defaultLeaf)
+    for i in 0..treeDepth-2:
+      vec_cfr_push(addr pathElements, defaultHashes[i])
 
     echo "\nVec<CFr> serialization: Vec<CFr> <-> bytes"
     var serPathElements = vec_cfr_to_bytes_be(addr pathElements)
@@ -481,10 +483,7 @@ when isMainModule:
 
   echo "\nVerifying Proof"
   when defined(ffiStateless):
-    var roots: Vec_CFr
-    roots.dataPtr = computedRoot
-    roots.len = CSize(1)
-    roots.cap = CSize(1)
+    var roots = vec_cfr_from_cfr(computedRoot)
     let verifyErr = ffi_verify_with_roots(addr rln, addr proof, addr roots, x)
   else:
     let verifyErr = ffi_verify_rln_proof(addr rln, addr proof, x)
@@ -577,7 +576,8 @@ when isMainModule:
   ffi_rln_proof_free(proof)
 
   when defined(ffiStateless):
-    dealloc(pathElemsBuffer)
+    vec_cfr_free(roots)
+    vec_cfr_free(pathElements)
     for i in 0..treeDepth-2:
       cfr_free(defaultHashes[i])
     cfr_free(defaultLeaf)

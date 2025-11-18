@@ -110,6 +110,35 @@ pub fn cfr_free(cfr: repr_c::Box<CFr>) {
 // Vec<CFr>
 
 #[ffi_export]
+pub fn vec_cfr_new(capacity: usize) -> repr_c::Vec<CFr> {
+    Vec::with_capacity(capacity).into()
+}
+
+#[ffi_export]
+pub fn vec_cfr_from_cfr(cfr: &CFr) -> repr_c::Vec<CFr> {
+    vec![*cfr].into()
+}
+
+#[ffi_export]
+pub fn vec_cfr_push(v: &mut repr_c::Vec<CFr>, cfr: &CFr) {
+    let ptr = v.as_mut_ptr();
+    let len = v.len();
+
+    let cap = unsafe { std::ptr::read((v as *const _ as *const usize).add(2)) };
+
+    let mut rust_vec = unsafe { Vec::from_raw_parts(ptr, len, cap) };
+    rust_vec.push(*cfr);
+
+    let new_repr_vec: repr_c::Vec<CFr> = rust_vec.into();
+    unsafe { std::ptr::write(v, new_repr_vec) };
+}
+
+#[ffi_export]
+pub fn vec_cfr_len(v: &repr_c::Vec<CFr>) -> usize {
+    v.len()
+}
+
+#[ffi_export]
 pub fn vec_cfr_get(v: &repr_c::Vec<CFr>, i: usize) -> Option<&CFr> {
     v.get(i)
 }
