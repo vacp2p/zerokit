@@ -20,7 +20,7 @@ mod test {
     fn create_rln_instance() -> repr_c::Box<FFI_RLN> {
         let input_config = json!({}).to_string();
         let c_str = std::ffi::CString::new(input_config).unwrap();
-        match ffi_new(TEST_TREE_DEPTH, c_str.as_c_str().into()) {
+        match ffi_rln_new(TEST_TREE_DEPTH, c_str.as_c_str().into()) {
             CResult {
                 ok: Some(rln),
                 err: None,
@@ -427,7 +427,7 @@ mod test {
         // Creating a RLN instance passing the raw data
         let tree_config = "".to_string();
         let c_str = std::ffi::CString::new(tree_config).unwrap();
-        let ffi_rln_instance2 = match ffi_new_with_params(
+        let ffi_rln_instance2 = match ffi_rln_new_with_params(
             TEST_TREE_DEPTH,
             &zkey_buffer.into(),
             &graph_buffer.into(),

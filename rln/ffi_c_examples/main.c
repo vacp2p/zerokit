@@ -9,26 +9,26 @@ int main(int argc, char const *const argv[])
     printf("Creating RLN instance\n");
 
 #ifdef STATELESS
-    CResult_FFI_RLN_ptr_Vec_uint8_t ffi_new_result = ffi_new();
+    CResult_FFI_RLN_ptr_Vec_uint8_t ffi_rln_new_result = ffi_rln_new();
 #else
     const char *config_path = "../resources/tree_depth_20/config.json";
-    CResult_FFI_RLN_ptr_Vec_uint8_t ffi_new_result = ffi_new(20, config_path);
+    CResult_FFI_RLN_ptr_Vec_uint8_t ffi_rln_new_result = ffi_rln_new(20, config_path);
 #endif
 
-    if (!ffi_new_result.ok)
+    if (!ffi_rln_new_result.ok)
     {
-        fprintf(stderr, "Initial RLN instance creation error: %s\n", ffi_new_result.err.ptr);
-        c_string_free(ffi_new_result.err);
+        fprintf(stderr, "Initial RLN instance creation error: %s\n", ffi_rln_new_result.err.ptr);
+        c_string_free(ffi_rln_new_result.err);
         return EXIT_FAILURE;
     }
 
-    FFI_RLN_t *rln = ffi_new_result.ok;
+    FFI_RLN_t *rln = ffi_rln_new_result.ok;
     printf("RLN instance created successfully\n");
 
     printf("\nGenerating identity keys\n");
-    Vec_CFr_t *keys = ffi_key_gen();
-    const CFr_t *identity_secret = vec_cfr_get(keys, 0);
-    const CFr_t *id_commitment = vec_cfr_get(keys, 1);
+    Vec_CFr_t keys = ffi_key_gen();
+    const CFr_t *identity_secret = vec_cfr_get(&keys, 0);
+    const CFr_t *id_commitment = vec_cfr_get(&keys, 1);
     printf("Identity generated\n");
 
     Vec_uint8_t debug = cfr_debug(identity_secret);
@@ -54,13 +54,13 @@ int main(int argc, char const *const argv[])
     c_string_free(debug);
 
     printf("\nCFr serialization: CFr <-> bytes\n");
-    Vec_uint8_t *ser_rate_commitment = cfr_to_bytes_le(rate_commitment);
+    Vec_uint8_t ser_rate_commitment = cfr_to_bytes_le(rate_commitment);
 
-    debug = vec_u8_debug(ser_rate_commitment);
+    debug = vec_u8_debug(&ser_rate_commitment);
     printf("  - serialized rate_commitment = %s\n", debug.ptr);
     c_string_free(debug);
 
-    CFr_t *deser_rate_commitment = bytes_le_to_cfr(ser_rate_commitment);
+    CFr_t *deser_rate_commitment = bytes_le_to_cfr(&ser_rate_commitment);
 
     debug = cfr_debug(deser_rate_commitment);
     printf("  - deserialized rate_commitment = %s\n", debug.ptr);
@@ -70,25 +70,25 @@ int main(int argc, char const *const argv[])
     cfr_free(deser_rate_commitment);
 
     printf("\nVec<CFr> serialization: Vec<CFr> <-> bytes\n");
-    Vec_uint8_t *ser_keys = vec_cfr_to_bytes_le(keys);
+    Vec_uint8_t ser_keys = vec_cfr_to_bytes_le(&keys);
 
-    debug = vec_u8_debug(ser_keys);
+    debug = vec_u8_debug(&ser_keys);
     printf("  - serialized keys = %s\n", debug.ptr);
     c_string_free(debug);
 
-    CResult_Vec_CFr_ptr_Vec_uint8_t deser_keys_result = bytes_le_to_vec_cfr(ser_keys);
-    if (!deser_keys_result.ok)
+    CResult_Vec_CFr_Vec_uint8_t deser_keys_result = bytes_le_to_vec_cfr(&ser_keys);
+    if (deser_keys_result.err.ptr)
     {
         fprintf(stderr, "Keys deserialization error: %s\n", deser_keys_result.err.ptr);
         c_string_free(deser_keys_result.err);
         return EXIT_FAILURE;
     }
 
-    debug = vec_cfr_debug(deser_keys_result.ok);
+    debug = vec_cfr_debug(&deser_keys_result.ok);
     printf("  - deserialized identity_secret = %s\n", debug.ptr);
     c_string_free(debug);
 
-    Vec_CFr_t *deser_keys = deser_keys_result.ok;
+    Vec_CFr_t deser_keys = deser_keys_result.ok;
     vec_cfr_free(deser_keys);
 
     vec_u8_free(ser_keys);
@@ -119,25 +119,25 @@ int main(int argc, char const *const argv[])
         .cap = TREE_DEPTH};
 
     printf("\nVec<CFr> serialization: Vec<CFr> <-> bytes\n");
-    Vec_uint8_t *ser_path_elements = vec_cfr_to_bytes_le(&path_elements);
+    Vec_uint8_t ser_path_elements = vec_cfr_to_bytes_le(&path_elements);
 
-    debug = vec_u8_debug(ser_path_elements);
+    debug = vec_u8_debug(&ser_path_elements);
     printf("  - serialized path_elements = %s\n", debug.ptr);
     c_string_free(debug);
 
-    CResult_Vec_CFr_ptr_Vec_uint8_t deser_path_elements_result = bytes_le_to_vec_cfr(ser_path_elements);
-    if (!deser_path_elements_result.ok)
+    CResult_Vec_CFr_Vec_uint8_t deser_path_elements_result = bytes_le_to_vec_cfr(&ser_path_elements);
+    if (deser_path_elements_result.err.ptr)
     {
         fprintf(stderr, "Path elements deserialization error: %s\n", deser_path_elements_result.err.ptr);
         c_string_free(deser_path_elements_result.err);
         return EXIT_FAILURE;
     }
 
-    debug = vec_cfr_debug(deser_path_elements_result.ok);
+    debug = vec_cfr_debug(&deser_path_elements_result.ok);
     printf("  - deserialized path_elements = %s\n", debug.ptr);
     c_string_free(debug);
 
-    Vec_CFr_t *deser_path_elements = deser_path_elements_result.ok;
+    Vec_CFr_t deser_path_elements = deser_path_elements_result.ok;
     vec_cfr_free(deser_path_elements);
 
     vec_u8_free(ser_path_elements);
@@ -149,25 +149,25 @@ int main(int argc, char const *const argv[])
         .cap = TREE_DEPTH};
 
     printf("\nVec<uint8> serialization: Vec<uint8> <-> bytes\n");
-    Vec_uint8_t *ser_path_index = vec_u8_to_bytes_le(&identity_path_index);
+    Vec_uint8_t ser_path_index = vec_u8_to_bytes_le(&identity_path_index);
 
-    debug = vec_u8_debug(ser_path_index);
+    debug = vec_u8_debug(&ser_path_index);
     printf("  - serialized path_index = %s\n", debug.ptr);
     c_string_free(debug);
 
-    CResult_Vec_uint8_ptr_Vec_uint8_t deser_path_index_result = bytes_le_to_vec_u8(ser_path_index);
-    if (!deser_path_index_result.ok)
+    CResult_Vec_uint8_Vec_uint8_t deser_path_index_result = bytes_le_to_vec_u8(&ser_path_index);
+    if (deser_path_index_result.err.ptr)
     {
         fprintf(stderr, "Path index deserialization error: %s\n", deser_path_index_result.err.ptr);
         c_string_free(deser_path_index_result.err);
         return EXIT_FAILURE;
     }
 
-    debug = vec_u8_debug(deser_path_index_result.ok);
+    debug = vec_u8_debug(&deser_path_index_result.ok);
     printf("  - deserialized path_index = %s\n", debug.ptr);
     c_string_free(debug);
 
-    Vec_uint8_t *deser_path_index = deser_path_index_result.ok;
+    Vec_uint8_t deser_path_index = deser_path_index_result.ok;
     vec_u8_free(deser_path_index);
 
     vec_u8_free(ser_path_index);

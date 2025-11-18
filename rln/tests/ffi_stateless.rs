@@ -13,7 +13,7 @@ mod test {
     type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
 
     fn create_rln_instance() -> repr_c::Box<FFI_RLN> {
-        match ffi_new() {
+        match ffi_rln_new() {
             CResult {
                 ok: Some(rln),
                 err: None,

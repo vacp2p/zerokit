@@ -55,12 +55,12 @@ type
     ok*: ptr FFI_MerkleProof
     err*: Vec_uint8
 
-  CResultVecCFrPtrVecU8* = object
-    ok*: ptr Vec_CFr
+  CResultVecCFrVecU8* = object
+    ok*: Vec_CFr
     err*: Vec_uint8
 
-  CResultVecU8PtrVecU8* = object
-    ok*: ptr Vec_uint8
+  CResultVecU8VecU8* = object
+    ok*: Vec_uint8
     err*: Vec_uint8
 
 # CFr functions
@@ -70,9 +70,9 @@ proc uint_to_cfr*(value: uint32): ptr CFr {.importc: "uint_to_cfr", cdecl,
     dynlib: RLN_LIB.}
 proc cfr_debug*(cfr: ptr CFr): Vec_uint8 {.importc: "cfr_debug", cdecl,
     dynlib: RLN_LIB.}
-proc cfr_to_bytes_le*(cfr: ptr CFr): ptr Vec_uint8 {.importc: "cfr_to_bytes_le",
+proc cfr_to_bytes_le*(cfr: ptr CFr): Vec_uint8 {.importc: "cfr_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc cfr_to_bytes_be*(cfr: ptr CFr): ptr Vec_uint8 {.importc: "cfr_to_bytes_be",
+proc cfr_to_bytes_be*(cfr: ptr CFr): Vec_uint8 {.importc: "cfr_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
 proc bytes_le_to_cfr*(bytes: ptr Vec_uint8): ptr CFr {.importc: "bytes_le_to_cfr",
     cdecl, dynlib: RLN_LIB.}
@@ -82,31 +82,31 @@ proc bytes_be_to_cfr*(bytes: ptr Vec_uint8): ptr CFr {.importc: "bytes_be_to_cfr
 # Vec<CFr> functions
 proc vec_cfr_get*(v: ptr Vec_CFr, i: CSize): ptr CFr {.importc: "vec_cfr_get",
     cdecl, dynlib: RLN_LIB.}
-proc vec_cfr_to_bytes_le*(v: ptr Vec_CFr): ptr Vec_uint8 {.importc: "vec_cfr_to_bytes_le",
+proc vec_cfr_to_bytes_le*(v: ptr Vec_CFr): Vec_uint8 {.importc: "vec_cfr_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc vec_cfr_to_bytes_be*(v: ptr Vec_CFr): ptr Vec_uint8 {.importc: "vec_cfr_to_bytes_be",
+proc vec_cfr_to_bytes_be*(v: ptr Vec_CFr): Vec_uint8 {.importc: "vec_cfr_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc bytes_le_to_vec_cfr*(bytes: ptr Vec_uint8): CResultVecCFrPtrVecU8 {.importc: "bytes_le_to_vec_cfr",
+proc bytes_le_to_vec_cfr*(bytes: ptr Vec_uint8): CResultVecCFrVecU8 {.importc: "bytes_le_to_vec_cfr",
     cdecl, dynlib: RLN_LIB.}
-proc bytes_be_to_vec_cfr*(bytes: ptr Vec_uint8): CResultVecCFrPtrVecU8 {.importc: "bytes_be_to_vec_cfr",
+proc bytes_be_to_vec_cfr*(bytes: ptr Vec_uint8): CResultVecCFrVecU8 {.importc: "bytes_be_to_vec_cfr",
     cdecl, dynlib: RLN_LIB.}
 proc vec_cfr_debug*(v: ptr Vec_CFr): Vec_uint8 {.importc: "vec_cfr_debug",
     cdecl, dynlib: RLN_LIB.}
-proc vec_cfr_free*(v: ptr Vec_CFr) {.importc: "vec_cfr_free", cdecl,
+proc vec_cfr_free*(v: Vec_CFr) {.importc: "vec_cfr_free", cdecl,
     dynlib: RLN_LIB.}
 
 # Vec<u8> functions
-proc vec_u8_to_bytes_le*(v: ptr Vec_uint8): ptr Vec_uint8 {.importc: "vec_u8_to_bytes_le",
+proc vec_u8_to_bytes_le*(v: ptr Vec_uint8): Vec_uint8 {.importc: "vec_u8_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc vec_u8_to_bytes_be*(v: ptr Vec_uint8): ptr Vec_uint8 {.importc: "vec_u8_to_bytes_be",
+proc vec_u8_to_bytes_be*(v: ptr Vec_uint8): Vec_uint8 {.importc: "vec_u8_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc bytes_le_to_vec_u8*(bytes: ptr Vec_uint8): CResultVecU8PtrVecU8 {.importc: "bytes_le_to_vec_u8",
+proc bytes_le_to_vec_u8*(bytes: ptr Vec_uint8): CResultVecU8VecU8 {.importc: "bytes_le_to_vec_u8",
     cdecl, dynlib: RLN_LIB.}
-proc bytes_be_to_vec_u8*(bytes: ptr Vec_uint8): CResultVecU8PtrVecU8 {.importc: "bytes_be_to_vec_u8",
+proc bytes_be_to_vec_u8*(bytes: ptr Vec_uint8): CResultVecU8VecU8 {.importc: "bytes_be_to_vec_u8",
     cdecl, dynlib: RLN_LIB.}
 proc vec_u8_debug*(v: ptr Vec_uint8): Vec_uint8 {.importc: "vec_u8_debug",
     cdecl, dynlib: RLN_LIB.}
-proc vec_u8_free*(v: ptr Vec_uint8) {.importc: "vec_u8_free", cdecl,
+proc vec_u8_free*(v: Vec_uint8) {.importc: "vec_u8_free", cdecl,
     dynlib: RLN_LIB.}
 
 # Hashing functions
@@ -119,15 +119,15 @@ proc ffi_poseidon_hash_pair*(a: ptr CFr,
     dynlib: RLN_LIB.}
 
 # Keygen function
-proc ffi_key_gen*(): ptr Vec_CFr {.importc: "ffi_key_gen", cdecl,
+proc ffi_key_gen*(): Vec_CFr {.importc: "ffi_key_gen", cdecl,
     dynlib: RLN_LIB.}
 
 # RLN instance functions
 when defined(ffiStateless):
-  proc ffi_new*(): CResultRLNPtrVecU8 {.importc: "ffi_new", cdecl,
+  proc ffi_rln_new*(): CResultRLNPtrVecU8 {.importc: "ffi_rln_new", cdecl,
       dynlib: RLN_LIB.}
 else:
-  proc ffi_new*(treeDepth: CSize, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_new",
+  proc ffi_rln_new*(treeDepth: CSize, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new",
       cdecl, dynlib: RLN_LIB.}
 
 proc ffi_rln_free*(rln: ptr FFI_RLN) {.importc: "ffi_rln_free", cdecl,
@@ -214,10 +214,10 @@ when isMainModule:
 
   var rlnRes: CResultRLNPtrVecU8
   when defined(ffiStateless):
-    rlnRes = ffi_new()
+    rlnRes = ffi_rln_new()
   else:
     let config_path = """../resources/tree_depth_20/config.json""".cstring
-    rlnRes = ffi_new(CSize(20), config_path)
+    rlnRes = ffi_rln_new(CSize(20), config_path)
 
   if rlnRes.ok.isNil:
     stderr.writeLine "Initial RLN instance creation error: ", asString(rlnRes.err)
@@ -229,8 +229,8 @@ when isMainModule:
 
   echo "\nGenerating identity keys"
   var keys = ffi_key_gen()
-  let identitySecret = vec_cfr_get(keys, CSize(0))
-  let idCommitment = vec_cfr_get(keys, CSize(1))
+  let identitySecret = vec_cfr_get(addr keys, CSize(0))
+  let idCommitment = vec_cfr_get(addr keys, CSize(1))
   echo "Identity generated"
 
   block:
@@ -263,11 +263,11 @@ when isMainModule:
   var serRateCommitment = cfr_to_bytes_be(rateCommitment)
 
   block:
-    let debug = vec_u8_debug(serRateCommitment)
+    let debug = vec_u8_debug(addr serRateCommitment)
     echo "  - serialized rate_commitment = ", asString(debug)
     c_string_free(debug)
 
-  let deserRateCommitment = bytes_be_to_cfr(serRateCommitment)
+  let deserRateCommitment = bytes_be_to_cfr(addr serRateCommitment)
 
   block:
     let debug = cfr_debug(deserRateCommitment)
@@ -278,22 +278,23 @@ when isMainModule:
   cfr_free(deserRateCommitment)
 
   echo "\nVec<CFr> serialization: Vec<CFr> <-> bytes"
-  var serKeys = vec_cfr_to_bytes_be(keys)
+  var serKeys = vec_cfr_to_bytes_be(addr keys)
 
   block:
-    let debug = vec_u8_debug(serKeys)
+    let debug = vec_u8_debug(addr serKeys)
     echo "  - serialized keys = ", asString(debug)
     c_string_free(debug)
 
-  let deserKeysResult = bytes_be_to_vec_cfr(serKeys)
-  if deserKeysResult.ok.isNil:
+  let deserKeysResult = bytes_be_to_vec_cfr(addr serKeys)
+  if deserKeysResult.err.dataPtr != nil:
     stderr.writeLine "Keys deserialization error: ", asString(
         deserKeysResult.err)
     c_string_free(deserKeysResult.err)
     quit 1
 
   block:
-    let debug = vec_cfr_debug(deserKeysResult.ok)
+    var okKeys = deserKeysResult.ok
+    let debug = vec_cfr_debug(addr okKeys)
     echo "  - deserialized identity_secret = ", asString(debug)
     c_string_free(debug)
 
@@ -328,19 +329,20 @@ when isMainModule:
     var serPathElements = vec_cfr_to_bytes_be(addr pathElements)
 
     block:
-      let debug = vec_u8_debug(serPathElements)
+      let debug = vec_u8_debug(addr serPathElements)
       echo "  - serialized path_elements = ", asString(debug)
       c_string_free(debug)
 
-    let deserPathElements = bytes_be_to_vec_cfr(serPathElements)
-    if deserPathElements.ok.isNil:
+    let deserPathElements = bytes_be_to_vec_cfr(addr serPathElements)
+    if deserPathElements.err.dataPtr != nil:
       stderr.writeLine "Path elements deserialization error: ", asString(
           deserPathElements.err)
       c_string_free(deserPathElements.err)
       quit 1
 
     block:
-      let debug = vec_cfr_debug(deserPathElements.ok)
+      var okPathElems = deserPathElements.ok
+      let debug = vec_cfr_debug(addr okPathElems)
       echo "  - deserialized path_elements = ", asString(debug)
       c_string_free(debug)
 
@@ -354,19 +356,20 @@ when isMainModule:
     var serPathIndex = vec_u8_to_bytes_be(addr identityPathIndex)
 
     block:
-      let debug = vec_u8_debug(serPathIndex)
+      let debug = vec_u8_debug(addr serPathIndex)
       echo "  - serialized path_index = ", asString(debug)
       c_string_free(debug)
 
-    let deserPathIndex = bytes_be_to_vec_u8(serPathIndex)
-    if deserPathIndex.ok.isNil:
+    let deserPathIndex = bytes_be_to_vec_u8(addr serPathIndex)
+    if deserPathIndex.err.dataPtr != nil:
       stderr.writeLine "Path index deserialization error: ", asString(
           deserPathIndex.err)
       c_string_free(deserPathIndex.err)
       quit 1
 
     block:
-      let debug = vec_u8_debug(deserPathIndex.ok)
+      var okPathIdx = deserPathIndex.ok
+      let debug = vec_u8_debug(addr okPathIdx)
       echo "  - deserialized path_index = ", asString(debug)
       c_string_free(debug)
 
