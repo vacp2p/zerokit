@@ -38,7 +38,7 @@ pub struct FFI_RLN {
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi_new(
+pub fn ffi_rln_new(
     tree_depth: usize,
     config_path: char_p::Ref<'_>,
 ) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
@@ -94,7 +94,7 @@ pub fn ffi_new(
 
 #[cfg(feature = "stateless")]
 #[ffi_export]
-pub fn ffi_new() -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
+pub fn ffi_rln_new() -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
     let proving_key = zkey_from_folder().to_owned();
     let graph_data = graph_from_folder().to_owned();
 
@@ -111,7 +111,7 @@ pub fn ffi_new() -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi_new_with_params(
+pub fn ffi_rln_new_with_params(
     tree_depth: usize,
     zkey_buffer: &repr_c::Vec<u8>,
     graph_data: &repr_c::Vec<u8>,
