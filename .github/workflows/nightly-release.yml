@@ -97,6 +97,7 @@ jobs:
         feature:
           - "default"
           - "parallel"
+          - "utils"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -123,7 +124,11 @@ jobs:
             wasm-pack build --release --target web --scope waku
           fi
 
-          sed -i.bak 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json && rm pkg/package.json.bak
+          if [[ ${{ matrix.feature }} == "utils" ]]; then
+            sed -i.bak 's/rln-wasm/zerokit-rln-wasm-utils/g' pkg/package.json && rm pkg/package.json.bak
+          else
+            sed -i.bak 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json && rm pkg/package.json.bak
+          fi
 
           mkdir release
           cp -r pkg/* release/
