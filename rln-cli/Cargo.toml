@@ -23,3 +23,6 @@ serde = { version = "1.0", features = ["derive"] }
 [features]
 default = ["rln/pmtree-ft", "rln/parallel"]
 stateless = ["rln/stateless", "rln/parallel"]
+
+[package.metadata.docs.rs]
+all-features = true

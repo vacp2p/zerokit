@@ -72,6 +72,12 @@ Compile zerokit for `wasm32-unknown-unknown`:
 cargo make build
 ```
 
+Or you can build the utility functions only without RLN proof generation and verification:
+
+```bash
+cargo make build_utils
+```
+
 ## Running tests and benchmarks
 
 ```bash
@@ -83,6 +89,12 @@ If you want to run the tests in browser headless mode, you can use the following
 ```bash
 cargo make test_browser
 ```
+
+## Examples
+
+Working examples demonstrating proof generation, proof verification and slashing:
+
+- [Node example](./examples/index.js) and [README](./examples/Readme.md)
 
 ## Parallel computation
 

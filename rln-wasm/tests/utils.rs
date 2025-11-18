@@ -2,16 +2,15 @@
 
 #[cfg(test)]
 mod test {
-    use std::assert_eq;
-
     use ark_std::rand::thread_rng;
     use js_sys::Uint8Array;
     use rand::Rng;
     use rln::circuit::Fr;
     use rln::hashers::poseidon_hash;
     use rln::utils::{fr_to_bytes_be, fr_to_bytes_le, str_to_fr, IdSecret};
-    use rln_wasm_utils::*;
-    use wasm_bindgen_test::*;
+    use rln_wasm::{ExtendedIdentity, Hasher, Identity, VecWasmFr, WasmFr};
+    use std::assert_eq;
+    use wasm_bindgen_test::wasm_bindgen_test;
 
     #[wasm_bindgen_test]
     fn test_keygen_wasm() {

@@ -5,8 +5,9 @@ mod test {
     use js_sys::{BigInt as JsBigInt, Date, Object, Uint8Array};
     use rln::circuit::TEST_TREE_DEPTH;
     use rln::hashers::PoseidonHash;
-    use rln_wasm::{WasmRLN, WasmRLNProof, WasmRLNWitnessInput};
-    use rln_wasm_utils::{Hasher, Identity, VecWasmFr, WasmFr};
+    use rln_wasm::{
+        Hasher, Identity, VecWasmFr, WasmFr, WasmRLN, WasmRLNProof, WasmRLNWitnessInput,
+    };
     use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
     use wasm_bindgen_test::{console_log, wasm_bindgen_test};
     use zerokit_utils::{

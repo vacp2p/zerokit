@@ -100,7 +100,6 @@ Use scopes to improve the Changelog:
 - `rln` - Core RLN implementation
 - `rln-cli` - Command-line interface
 - `rln-wasm` - WebAssembly bindings
-- `rln-wasm-utils` - WebAssembly utilities
 - `utils` - Cryptographic utilities (Merkle trees, Poseidon hash)
 - `ci` - Continuous integration
 

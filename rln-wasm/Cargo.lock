@@ -1036,15 +1036,15 @@ dependencies = [
 name = "rln-wasm"
 version = "0.3.0"
 dependencies = [
- "ark-bn254",
  "ark-groth16",
  "ark-relations",
+ "ark-std",
  "console_error_panic_hook",
  "getrandom 0.2.16",
  "js-sys",
  "num-bigint",
+ "rand 0.8.5",
  "rln",
- "rln-wasm-utils",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -1054,18 +1054,6 @@ dependencies = [
  "wasm-bindgen-test",
  "web-sys",
  "zerokit_utils",
-]
-
-[[package]]
-name = "rln-wasm-utils"
-version = "0.1.0"
-dependencies = [
- "ark-bn254",
- "getrandom 0.2.16",
- "js-sys",
- "rand 0.8.5",
- "rln",
- "wasm-bindgen",
 ]
 
 [[package]]

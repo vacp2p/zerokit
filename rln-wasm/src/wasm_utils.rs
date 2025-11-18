@@ -1,8 +1,8 @@
 #![cfg(target_arch = "wasm32")]
 
-use ark_bn254::Fr;
 use js_sys::Uint8Array;
 use rln::{
+    circuit::Fr,
     hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash},
     protocol::{extended_keygen, extended_seeded_keygen, keygen, seeded_keygen},
     utils::{
@@ -12,12 +12,6 @@ use rln::{
 };
 use std::ops::Deref;
 use wasm_bindgen::prelude::*;
-
-#[cfg(feature = "panic_hook")]
-#[wasm_bindgen(js_name = initPanicHook)]
-pub fn init_panic_hook() {
-    console_error_panic_hook::set_once();
-}
 
 // WasmFr
 
