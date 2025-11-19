@@ -1,6 +1,6 @@
 #![allow(non_camel_case_types)]
 
-use super::ffi_utils::{CFr, CResult};
+use super::ffi_utils::{CBoolResult, CFr, CResult};
 use crate::{
     circuit::{graph_from_folder, zkey_from_folder, zkey_from_raw, Curve},
     protocol::{
@@ -364,31 +364,46 @@ pub fn ffi_verify_rln_proof(
     rln: &repr_c::Box<FFI_RLN>,
     proof: &repr_c::Box<FFI_RLNProof>,
     x: &CFr,
-) -> Option<repr_c::String> {
+) -> CBoolResult {
     // Verify the root
     if rln.tree.root() != proof.proof_values.root {
-        return Some("Invalid root".to_string().into());
+        return CBoolResult {
+            ok: false,
+            error: Some("Invalid root".to_string().into()),
+        };
     }
 
     // Verify the signal
     if *x != proof.proof_values.x {
-        return Some("Invalid signal".to_string().into());
+        return CBoolResult {
+            ok: false,
+            error: Some("Invalid signal".to_string().into()),
+        };
     }
 
     // Verify the proof
     match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
         Ok(proof_verified) => {
             if !proof_verified {
-                return Some("Invalid proof".to_string().into());
+                return CBoolResult {
+                    ok: false,
+                    error: Some("Invalid proof".to_string().into()),
+                };
             }
         }
         Err(err) => {
-            return Some(err.to_string().into());
+            return CBoolResult {
+                ok: false,
+                error: Some(err.to_string().into()),
+            };
         }
     };
 
     // All verifications passed
-    None
+    CBoolResult {
+        ok: true,
+        error: None,
+    }
 }
 
 #[ffi_export]
@@ -397,31 +412,46 @@ pub fn ffi_verify_with_roots(
     proof: &repr_c::Box<FFI_RLNProof>,
     roots: &repr_c::Vec<CFr>,
     x: &CFr,
-) -> Option<repr_c::String> {
+) -> CBoolResult {
     // Verify the root
     if !roots.is_empty() && !roots.iter().any(|root| root.0 == proof.proof_values.root) {
-        return Some("Invalid root".to_string().into());
+        return CBoolResult {
+            ok: false,
+            error: Some("Invalid root".to_string().into()),
+        };
     }
 
     // Verify the signal
     if *x != proof.proof_values.x {
-        return Some("Invalid signal".to_string().into());
+        return CBoolResult {
+            ok: false,
+            error: Some("Invalid signal".to_string().into()),
+        };
     }
 
     // Verify the proof
     match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
         Ok(proof_verified) => {
             if !proof_verified {
-                return Some("Invalid proof".to_string().into());
+                return CBoolResult {
+                    ok: false,
+                    error: Some("Invalid proof".to_string().into()),
+                };
             }
         }
         Err(err) => {
-            return Some(err.to_string().into());
+            return CBoolResult {
+                ok: false,
+                error: Some(err.to_string().into()),
+            };
         }
     };
 
     // All verifications passed
-    None
+    CBoolResult {
+        ok: true,
+        error: None,
+    }
 }
 
 // Identity secret recovery API

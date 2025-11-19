@@ -19,6 +19,15 @@ pub struct CResult<T: ReprC, Err: ReprC> {
     pub err: Option<Err>,
 }
 
+// CBoolResult
+
+#[derive_ReprC]
+#[repr(C)]
+pub struct CBoolResult {
+    pub ok: bool,
+    pub error: Option<repr_c::String>,
+}
+
 // CFr
 
 #[derive_ReprC]

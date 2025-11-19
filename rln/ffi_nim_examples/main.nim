@@ -63,6 +63,10 @@ type
     ok*: Vec_uint8
     err*: Vec_uint8
 
+  CBoolResult* = object
+    ok*: bool
+    error*: Vec_uint8
+
 # CFr functions
 proc cfr_zero*(): ptr CFr {.importc: "cfr_zero", cdecl, dynlib: RLN_LIB.}
 proc cfr_free*(x: ptr CFr) {.importc: "cfr_free", cdecl, dynlib: RLN_LIB.}
@@ -172,14 +176,14 @@ when defined(ffiStateless):
     proof: ptr ptr FFI_RLNProof,
     roots: ptr Vec_CFr,
     x: ptr CFr
-  ): Vec_uint8 {.importc: "ffi_verify_with_roots", cdecl,
+  ): CBoolResult {.importc: "ffi_verify_with_roots", cdecl,
       dynlib: RLN_LIB.}
 else:
   proc ffi_verify_rln_proof*(
     rln: ptr ptr FFI_RLN,
     proof: ptr ptr FFI_RLNProof,
     x: ptr CFr
-  ): Vec_uint8 {.importc: "ffi_verify_rln_proof", cdecl,
+  ): CBoolResult {.importc: "ffi_verify_rln_proof", cdecl,
       dynlib: RLN_LIB.}
 
 proc ffi_rln_proof_free*(p: ptr FFI_RLNProof) {.importc: "ffi_rln_proof_free",
@@ -188,7 +192,7 @@ proc ffi_rln_proof_free*(p: ptr FFI_RLNProof) {.importc: "ffi_rln_proof_free",
 # Merkle tree operations (non-stateless mode)
 when not defined(ffiStateless):
   proc ffi_set_next_leaf*(rln: ptr ptr FFI_RLN,
-      value: ptr ptr CFr): Vec_uint8 {.importc: "ffi_set_next_leaf",
+      leaf: ptr ptr CFr): CBoolResult {.importc: "ffi_set_next_leaf",
       cdecl, dynlib: RLN_LIB.}
   proc ffi_leaves_set*(rln: ptr ptr FFI_RLN): CSize {.importc: "ffi_leaves_set",
       cdecl, dynlib: RLN_LIB.}
@@ -394,9 +398,9 @@ when isMainModule:
     echo "\nAdding rate_commitment to tree"
     var rcPtr = rateCommitment
     let setErr = ffi_set_next_leaf(addr rln, addr rcPtr)
-    if not setErr.dataPtr.isNil:
-      stderr.writeLine "Set next leaf error: ", asString(setErr)
-      c_string_free(setErr)
+    if not setErr.ok:
+      stderr.writeLine "Set next leaf error: ", asString(setErr.error)
+      c_string_free(setErr.error)
       quit 1
 
     let leafIndex = ffi_leaves_set(addr rln) - 1
@@ -488,9 +492,9 @@ when isMainModule:
   else:
     let verifyErr = ffi_verify_rln_proof(addr rln, addr proof, x)
 
-  if not verifyErr.dataPtr.isNil:
-    stderr.writeLine "Proof verification error: ", asString(verifyErr)
-    c_string_free(verifyErr)
+  if not verifyErr.ok:
+    stderr.writeLine "Proof verification error: ", asString(verifyErr.error)
+    c_string_free(verifyErr.error)
     quit 1
 
   echo "Proof verified successfully"
@@ -541,9 +545,10 @@ when isMainModule:
   else:
     let verifyErr2 = ffi_verify_rln_proof(addr rln, addr proof2, x2)
 
-  if not verifyErr2.dataPtr.isNil:
-    stderr.writeLine "Second proof verification error: ", asString(verifyErr2)
-    c_string_free(verifyErr2)
+  if not verifyErr2.ok:
+    stderr.writeLine "Second proof verification error: ", asString(
+        verifyErr2.error)
+    c_string_free(verifyErr2.error)
     quit 1
 
   echo "Second proof verified successfully"

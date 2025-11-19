@@ -3,7 +3,7 @@
 
 use {
     super::ffi_rln::FFI_RLN,
-    super::ffi_utils::{CFr, CResult},
+    super::ffi_utils::{CBoolResult, CFr, CResult},
     crate::poseidon_tree::PoseidonTree,
     safer_ffi::{boxed::Box_, derive_ReprC, ffi_export, prelude::repr_c},
     utils::{ZerokitMerkleProof, ZerokitMerkleTree},
@@ -26,24 +26,36 @@ pub fn ffi_merkle_proof_free(merkle_proof: repr_c::Box<FFI_MerkleProof>) {
 // Merkle tree management APIs
 
 #[ffi_export]
-pub fn ffi_set_tree(rln: &mut repr_c::Box<FFI_RLN>, tree_depth: usize) -> Option<repr_c::String> {
+pub fn ffi_set_tree(rln: &mut repr_c::Box<FFI_RLN>, tree_depth: usize) -> CBoolResult {
     // We compute a default empty tree of desired depth
     match PoseidonTree::default(tree_depth) {
         Ok(tree) => {
             rln.tree = tree;
-            None
+            CBoolResult {
+                ok: true,
+                error: None,
+            }
         }
-        Err(err) => Some(err.to_string().into()),
+        Err(err) => CBoolResult {
+            ok: false,
+            error: Some(err.to_string().into()),
+        },
     }
 }
 
 // Merkle tree leaf operations
 
 #[ffi_export]
-pub fn ffi_delete_leaf(rln: &mut repr_c::Box<FFI_RLN>, index: usize) -> Option<repr_c::String> {
+pub fn ffi_delete_leaf(rln: &mut repr_c::Box<FFI_RLN>, index: usize) -> CBoolResult {
     match rln.tree.delete(index) {
-        Ok(_) => None,
-        Err(err) => Some(err.to_string().into()),
+        Ok(_) => CBoolResult {
+            ok: true,
+            error: None,
+        },
+        Err(err) => CBoolResult {
+            ok: false,
+            error: Some(err.to_string().into()),
+        },
     }
 }
 
@@ -51,11 +63,17 @@ pub fn ffi_delete_leaf(rln: &mut repr_c::Box<FFI_RLN>, index: usize) -> Option<r
 pub fn ffi_set_leaf(
     rln: &mut repr_c::Box<FFI_RLN>,
     index: usize,
-    value: &repr_c::Box<CFr>,
-) -> Option<repr_c::String> {
-    match rln.tree.set(index, value.0) {
-        Ok(_) => None,
-        Err(err) => Some(err.to_string().into()),
+    leaf: &repr_c::Box<CFr>,
+) -> CBoolResult {
+    match rln.tree.set(index, leaf.0) {
+        Ok(_) => CBoolResult {
+            ok: true,
+            error: None,
+        },
+        Err(err) => CBoolResult {
+            ok: false,
+            error: Some(err.to_string().into()),
+        },
     }
 }
 
@@ -82,13 +100,16 @@ pub fn ffi_leaves_set(rln: &repr_c::Box<FFI_RLN>) -> usize {
 }
 
 #[ffi_export]
-pub fn ffi_set_next_leaf(
-    rln: &mut repr_c::Box<FFI_RLN>,
-    value: &repr_c::Box<CFr>,
-) -> Option<repr_c::String> {
-    match rln.tree.update_next(value.0) {
-        Ok(_) => None,
-        Err(err) => Some(err.to_string().into()),
+pub fn ffi_set_next_leaf(rln: &mut repr_c::Box<FFI_RLN>, leaf: &repr_c::Box<CFr>) -> CBoolResult {
+    match rln.tree.update_next(leaf.0) {
+        Ok(_) => CBoolResult {
+            ok: true,
+            error: None,
+        },
+        Err(err) => CBoolResult {
+            ok: false,
+            error: Some(err.to_string().into()),
+        },
     }
 }
 
@@ -97,13 +118,19 @@ pub fn ffi_set_leaves_from(
     rln: &mut repr_c::Box<FFI_RLN>,
     index: usize,
     leaves: &repr_c::Vec<CFr>,
-) -> Option<repr_c::String> {
+) -> CBoolResult {
     match rln
         .tree
         .override_range(index, leaves.iter().map(|cfr| cfr.0), [].into_iter())
     {
-        Ok(_) => None,
-        Err(err) => Some(err.to_string().into()),
+        Ok(_) => CBoolResult {
+            ok: true,
+            error: None,
+        },
+        Err(err) => CBoolResult {
+            ok: false,
+            error: Some(err.to_string().into()),
+        },
     }
 }
 
@@ -111,19 +138,28 @@ pub fn ffi_set_leaves_from(
 pub fn ffi_init_tree_with_leaves(
     rln: &mut repr_c::Box<FFI_RLN>,
     leaves: &repr_c::Vec<CFr>,
-) -> Option<repr_c::String> {
+) -> CBoolResult {
     // Reset tree to default
     let tree_depth = rln.tree.depth();
     if let Err(err) = PoseidonTree::default(tree_depth) {
-        return Some(err.to_string().into());
+        return CBoolResult {
+            ok: false,
+            error: Some(err.to_string().into()),
+        };
     };
 
     match rln
         .tree
         .override_range(0, leaves.iter().map(|cfr| cfr.0), [].into_iter())
     {
-        Ok(_) => None,
-        Err(err) => Some(err.to_string().into()),
+        Ok(_) => CBoolResult {
+            ok: true,
+            error: None,
+        },
+        Err(err) => CBoolResult {
+            ok: false,
+            error: Some(err.to_string().into()),
+        },
     }
 }
 
@@ -135,14 +171,20 @@ pub fn ffi_atomic_operation(
     index: usize,
     leaves: &repr_c::Vec<CFr>,
     indices: &repr_c::Vec<usize>,
-) -> Option<repr_c::String> {
+) -> CBoolResult {
     match rln.tree.override_range(
         index,
         leaves.iter().map(|cfr| cfr.0),
         indices.iter().copied(),
     ) {
-        Ok(_) => None,
-        Err(err) => Some(err.to_string().into()),
+        Ok(_) => CBoolResult {
+            ok: true,
+            error: None,
+        },
+        Err(err) => CBoolResult {
+            ok: false,
+            error: Some(err.to_string().into()),
+        },
     }
 }
 
@@ -151,15 +193,21 @@ pub fn ffi_seq_atomic_operation(
     rln: &mut repr_c::Box<FFI_RLN>,
     leaves: &repr_c::Vec<CFr>,
     indices: &repr_c::Vec<u8>,
-) -> Option<repr_c::String> {
+) -> CBoolResult {
     let index = rln.tree.leaves_set();
     match rln.tree.override_range(
         index,
         leaves.iter().map(|cfr| cfr.0),
         indices.iter().map(|x| *x as usize),
     ) {
-        Ok(_) => None,
-        Err(err) => Some(err.to_string().into()),
+        Ok(_) => CBoolResult {
+            ok: true,
+            error: None,
+        },
+        Err(err) => CBoolResult {
+            ok: false,
+            error: Some(err.to_string().into()),
+        },
     }
 }
 
@@ -206,13 +254,16 @@ pub fn ffi_get_proof(
 // Persistent metadata APIs
 
 #[ffi_export]
-pub fn ffi_set_metadata(
-    rln: &mut repr_c::Box<FFI_RLN>,
-    metadata: &repr_c::Vec<u8>,
-) -> Option<repr_c::String> {
+pub fn ffi_set_metadata(rln: &mut repr_c::Box<FFI_RLN>, metadata: &repr_c::Vec<u8>) -> CBoolResult {
     match rln.tree.set_metadata(metadata) {
-        Ok(_) => None,
-        Err(err) => Some(err.to_string().into()),
+        Ok(_) => CBoolResult {
+            ok: true,
+            error: None,
+        },
+        Err(err) => CBoolResult {
+            ok: false,
+            error: Some(err.to_string().into()),
+        },
     }
 }
 
@@ -231,9 +282,15 @@ pub fn ffi_get_metadata(rln: &repr_c::Box<FFI_RLN>) -> CResult<repr_c::Vec<u8>, 
 }
 
 #[ffi_export]
-pub fn ffi_flush(rln: &mut repr_c::Box<FFI_RLN>) -> Option<repr_c::String> {
+pub fn ffi_flush(rln: &mut repr_c::Box<FFI_RLN>) -> CBoolResult {
     match rln.tree.close_db_connection() {
-        Ok(_) => None,
-        Err(err) => Some(err.to_string().into()),
+        Ok(_) => CBoolResult {
+            ok: true,
+            error: None,
+        },
+        Err(err) => CBoolResult {
+            ok: false,
+            error: Some(err.to_string().into()),
+        },
     }
 }

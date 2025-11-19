@@ -275,8 +275,7 @@ mod test {
         let roots_empty: repr_c::Vec<CFr> = vec![].into();
 
         assert!(
-            ffi_verify_with_roots(&ffi_rln_instance, &rln_proof, &roots_empty, &CFr::from(x))
-                .is_none()
+            ffi_verify_with_roots(&ffi_rln_instance, &rln_proof, &roots_empty, &CFr::from(x)).ok
         );
 
         // We serialize in the roots buffer some random values and we check that the proof is not verified since doesn't contain the correct root the proof refers to
@@ -286,13 +285,15 @@ mod test {
         }
         let roots_random_vec: repr_c::Vec<CFr> = roots_random.into();
 
-        assert!(ffi_verify_with_roots(
-            &ffi_rln_instance,
-            &rln_proof,
-            &roots_random_vec,
-            &CFr::from(x),
-        )
-        .is_some());
+        assert!(
+            !ffi_verify_with_roots(
+                &ffi_rln_instance,
+                &rln_proof,
+                &roots_random_vec,
+                &CFr::from(x),
+            )
+            .ok
+        );
 
         // We get the root of the tree obtained adding one leaf per time
         let root = tree.root();
@@ -305,12 +306,14 @@ mod test {
         roots_with_correct.push(CFr::from(root));
         let roots_correct_vec: repr_c::Vec<CFr> = roots_with_correct.into();
 
-        assert!(ffi_verify_with_roots(
-            &ffi_rln_instance,
-            &rln_proof,
-            &roots_correct_vec,
-            &CFr::from(x)
-        )
-        .is_none());
+        assert!(
+            ffi_verify_with_roots(
+                &ffi_rln_instance,
+                &rln_proof,
+                &roots_correct_vec,
+                &CFr::from(x)
+            )
+            .ok
+        );
     }
 }

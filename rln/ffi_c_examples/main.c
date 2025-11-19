@@ -183,11 +183,11 @@ int main(int argc, char const *const argv[])
     c_string_free(debug);
 #else
     printf("\nAdding rate_commitment to tree\n");
-    Vec_uint8_t set_err = ffi_set_next_leaf(&rln, &rate_commitment);
-    if (set_err.ptr)
+    CBoolResult_t set_err = ffi_set_next_leaf(&rln, &rate_commitment);
+    if (!set_err.ok)
     {
-        fprintf(stderr, "Set next leaf error: %s\n", set_err.ptr);
-        c_string_free(set_err);
+        fprintf(stderr, "Set next leaf error: %s\n", set_err.error.ptr);
+        c_string_free(set_err.error);
         return EXIT_FAILURE;
     }
 
@@ -282,15 +282,15 @@ int main(int argc, char const *const argv[])
     printf("\nVerifying Proof\n");
 #ifdef STATELESS
     Vec_CFr_t roots = vec_cfr_from_cfr(computed_root);
-    Vec_uint8_t verify_err = ffi_verify_with_roots(&rln, &rln_proof, &roots, x);
+    CBoolResult_t verify_err = ffi_verify_with_roots(&rln, &rln_proof, &roots, x);
 #else
-    Vec_uint8_t verify_err = ffi_verify_rln_proof(&rln, &rln_proof, x);
+    CBoolResult_t verify_err = ffi_verify_rln_proof(&rln, &rln_proof, x);
 #endif
 
-    if (verify_err.ptr)
+    if (!verify_err.ok)
     {
-        fprintf(stderr, "Proof verification error: %s\n", verify_err.ptr);
-        c_string_free(verify_err);
+        fprintf(stderr, "Proof verification error: %s\n", verify_err.error.ptr);
+        c_string_free(verify_err.error);
         return EXIT_FAILURE;
     }
 
@@ -348,15 +348,15 @@ int main(int argc, char const *const argv[])
 
     printf("\nVerifying second proof\n");
 #ifdef STATELESS
-    Vec_uint8_t verify_err2 = ffi_verify_with_roots(&rln, &rln_proof2, &roots, x2);
+    CBoolResult_t verify_err2 = ffi_verify_with_roots(&rln, &rln_proof2, &roots, x2);
 #else
-    Vec_uint8_t verify_err2 = ffi_verify_rln_proof(&rln, &rln_proof2, x2);
+    CBoolResult_t verify_err2 = ffi_verify_rln_proof(&rln, &rln_proof2, x2);
 #endif
 
-    if (verify_err2.ptr)
+    if (!verify_err2.ok)
     {
-        fprintf(stderr, "Proof verification error: %s\n", verify_err2.ptr);
-        c_string_free(verify_err2);
+        fprintf(stderr, "Proof verification error: %s\n", verify_err2.error.ptr);
+        c_string_free(verify_err2.error);
         return EXIT_FAILURE;
     }
 
