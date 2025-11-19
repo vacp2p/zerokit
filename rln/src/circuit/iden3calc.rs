@@ -45,8 +45,7 @@ pub fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
     populate_inputs(&inputs, &input_mapping, &mut inputs_buffer);
 
     if let Some(v) = inputs.get_mut("identitySecret") {
-        // unsafe { zeroize_flat_type(v) };
-        // this code only zeroized the Vec pointer, not the data itself, causing memory leaks
+        // DO NOT USE: unsafe { zeroize_flat_type(v) } only clears the Vec pointer, not the data—can cause memory leaks
 
         for val in v.iter_mut() {
             unsafe { zeroize_flat_type(val) };
