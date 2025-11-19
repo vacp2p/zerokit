@@ -24,7 +24,7 @@ ark-relations = { version = "0.5.1", features = ["std"] }
 ark-groth16 = { version = "0.5.0", default-features = false }
 rand = "0.8.5"
 
-# The `console_error_panic_xhook` crate provides better debugging of panics by
+# The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
 # all the `std::fmt` and `std::panicking` infrastructure, so isn't great for
 # code size when deploying.
