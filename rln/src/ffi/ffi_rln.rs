@@ -369,7 +369,7 @@ pub fn ffi_verify_rln_proof(
     if rln.tree.root() != proof.proof_values.root {
         return CBoolResult {
             ok: false,
-            error: Some("Invalid root".to_string().into()),
+            err: Some("Invalid root".to_string().into()),
         };
     }
 
@@ -377,7 +377,7 @@ pub fn ffi_verify_rln_proof(
     if *x != proof.proof_values.x {
         return CBoolResult {
             ok: false,
-            error: Some("Invalid signal".to_string().into()),
+            err: Some("Invalid signal".to_string().into()),
         };
     }
 
@@ -387,14 +387,14 @@ pub fn ffi_verify_rln_proof(
             if !proof_verified {
                 return CBoolResult {
                     ok: false,
-                    error: Some("Invalid proof".to_string().into()),
+                    err: Some("Invalid proof".to_string().into()),
                 };
             }
         }
         Err(err) => {
             return CBoolResult {
                 ok: false,
-                error: Some(err.to_string().into()),
+                err: Some(err.to_string().into()),
             };
         }
     };
@@ -402,7 +402,7 @@ pub fn ffi_verify_rln_proof(
     // All verifications passed
     CBoolResult {
         ok: true,
-        error: None,
+        err: None,
     }
 }
 
@@ -417,7 +417,7 @@ pub fn ffi_verify_with_roots(
     if !roots.is_empty() && !roots.iter().any(|root| root.0 == proof.proof_values.root) {
         return CBoolResult {
             ok: false,
-            error: Some("Invalid root".to_string().into()),
+            err: Some("Invalid root".to_string().into()),
         };
     }
 
@@ -425,7 +425,7 @@ pub fn ffi_verify_with_roots(
     if *x != proof.proof_values.x {
         return CBoolResult {
             ok: false,
-            error: Some("Invalid signal".to_string().into()),
+            err: Some("Invalid signal".to_string().into()),
         };
     }
 
@@ -435,14 +435,14 @@ pub fn ffi_verify_with_roots(
             if !proof_verified {
                 return CBoolResult {
                     ok: false,
-                    error: Some("Invalid proof".to_string().into()),
+                    err: Some("Invalid proof".to_string().into()),
                 };
             }
         }
         Err(err) => {
             return CBoolResult {
                 ok: false,
-                error: Some(err.to_string().into()),
+                err: Some(err.to_string().into()),
             };
         }
     };
@@ -450,7 +450,7 @@ pub fn ffi_verify_with_roots(
     // All verifications passed
     CBoolResult {
         ok: true,
-        error: None,
+        err: None,
     }
 }
 

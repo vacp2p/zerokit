@@ -186,8 +186,8 @@ int main(int argc, char const *const argv[])
     CBoolResult_t set_err = ffi_set_next_leaf(&rln, &rate_commitment);
     if (!set_err.ok)
     {
-        fprintf(stderr, "Set next leaf error: %s\n", set_err.error.ptr);
-        c_string_free(set_err.error);
+        fprintf(stderr, "Set next leaf error: %s\n", set_err.err.ptr);
+        c_string_free(set_err.err);
         return EXIT_FAILURE;
     }
 
@@ -289,8 +289,8 @@ int main(int argc, char const *const argv[])
 
     if (!verify_err.ok)
     {
-        fprintf(stderr, "Proof verification error: %s\n", verify_err.error.ptr);
-        c_string_free(verify_err.error);
+        fprintf(stderr, "Proof verification error: %s\n", verify_err.err.ptr);
+        c_string_free(verify_err.err);
         return EXIT_FAILURE;
     }
 
@@ -355,8 +355,8 @@ int main(int argc, char const *const argv[])
 
     if (!verify_err2.ok)
     {
-        fprintf(stderr, "Proof verification error: %s\n", verify_err2.error.ptr);
-        c_string_free(verify_err2.error);
+        fprintf(stderr, "Proof verification error: %s\n", verify_err2.err.ptr);
+        c_string_free(verify_err2.err);
         return EXIT_FAILURE;
     }
 

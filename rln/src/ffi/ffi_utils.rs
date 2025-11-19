@@ -25,7 +25,7 @@ pub struct CResult<T: ReprC, Err: ReprC> {
 #[repr(C)]
 pub struct CBoolResult {
     pub ok: bool,
-    pub error: Option<repr_c::String>,
+    pub err: Option<repr_c::String>,
 }
 
 // CFr

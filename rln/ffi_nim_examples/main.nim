@@ -65,7 +65,7 @@ type
 
   CBoolResult* = object
     ok*: bool
-    error*: Vec_uint8
+    err*: Vec_uint8
 
 # CFr functions
 proc cfr_zero*(): ptr CFr {.importc: "cfr_zero", cdecl, dynlib: RLN_LIB.}
@@ -399,8 +399,8 @@ when isMainModule:
     var rcPtr = rateCommitment
     let setErr = ffi_set_next_leaf(addr rln, addr rcPtr)
     if not setErr.ok:
-      stderr.writeLine "Set next leaf error: ", asString(setErr.error)
-      c_string_free(setErr.error)
+      stderr.writeLine "Set next leaf error: ", asString(setErr.err)
+      c_string_free(setErr.err)
       quit 1
 
     let leafIndex = ffi_leaves_set(addr rln) - 1
@@ -493,8 +493,8 @@ when isMainModule:
     let verifyErr = ffi_verify_rln_proof(addr rln, addr proof, x)
 
   if not verifyErr.ok:
-    stderr.writeLine "Proof verification error: ", asString(verifyErr.error)
-    c_string_free(verifyErr.error)
+    stderr.writeLine "Proof verification error: ", asString(verifyErr.err)
+    c_string_free(verifyErr.err)
     quit 1
 
   echo "Proof verified successfully"
@@ -547,8 +547,8 @@ when isMainModule:
 
   if not verifyErr2.ok:
     stderr.writeLine "Second proof verification error: ", asString(
-        verifyErr2.error)
-    c_string_free(verifyErr2.error)
+        verifyErr2.err)
+    c_string_free(verifyErr2.err)
     quit 1
 
   echo "Second proof verified successfully"

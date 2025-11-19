@@ -33,12 +33,12 @@ pub fn ffi_set_tree(rln: &mut repr_c::Box<FFI_RLN>, tree_depth: usize) -> CBoolR
             rln.tree = tree;
             CBoolResult {
                 ok: true,
-                error: None,
+                err: None,
             }
         }
         Err(err) => CBoolResult {
             ok: false,
-            error: Some(err.to_string().into()),
+            err: Some(err.to_string().into()),
         },
     }
 }
@@ -50,11 +50,11 @@ pub fn ffi_delete_leaf(rln: &mut repr_c::Box<FFI_RLN>, index: usize) -> CBoolRes
     match rln.tree.delete(index) {
         Ok(_) => CBoolResult {
             ok: true,
-            error: None,
+            err: None,
         },
         Err(err) => CBoolResult {
             ok: false,
-            error: Some(err.to_string().into()),
+            err: Some(err.to_string().into()),
         },
     }
 }
@@ -68,11 +68,11 @@ pub fn ffi_set_leaf(
     match rln.tree.set(index, leaf.0) {
         Ok(_) => CBoolResult {
             ok: true,
-            error: None,
+            err: None,
         },
         Err(err) => CBoolResult {
             ok: false,
-            error: Some(err.to_string().into()),
+            err: Some(err.to_string().into()),
         },
     }
 }
@@ -104,11 +104,11 @@ pub fn ffi_set_next_leaf(rln: &mut repr_c::Box<FFI_RLN>, leaf: &repr_c::Box<CFr>
     match rln.tree.update_next(leaf.0) {
         Ok(_) => CBoolResult {
             ok: true,
-            error: None,
+            err: None,
         },
         Err(err) => CBoolResult {
             ok: false,
-            error: Some(err.to_string().into()),
+            err: Some(err.to_string().into()),
         },
     }
 }
@@ -125,11 +125,11 @@ pub fn ffi_set_leaves_from(
     {
         Ok(_) => CBoolResult {
             ok: true,
-            error: None,
+            err: None,
         },
         Err(err) => CBoolResult {
             ok: false,
-            error: Some(err.to_string().into()),
+            err: Some(err.to_string().into()),
         },
     }
 }
@@ -144,7 +144,7 @@ pub fn ffi_init_tree_with_leaves(
     if let Err(err) = PoseidonTree::default(tree_depth) {
         return CBoolResult {
             ok: false,
-            error: Some(err.to_string().into()),
+            err: Some(err.to_string().into()),
         };
     };
 
@@ -154,11 +154,11 @@ pub fn ffi_init_tree_with_leaves(
     {
         Ok(_) => CBoolResult {
             ok: true,
-            error: None,
+            err: None,
         },
         Err(err) => CBoolResult {
             ok: false,
-            error: Some(err.to_string().into()),
+            err: Some(err.to_string().into()),
         },
     }
 }
@@ -179,11 +179,11 @@ pub fn ffi_atomic_operation(
     ) {
         Ok(_) => CBoolResult {
             ok: true,
-            error: None,
+            err: None,
         },
         Err(err) => CBoolResult {
             ok: false,
-            error: Some(err.to_string().into()),
+            err: Some(err.to_string().into()),
         },
     }
 }
@@ -202,11 +202,11 @@ pub fn ffi_seq_atomic_operation(
     ) {
         Ok(_) => CBoolResult {
             ok: true,
-            error: None,
+            err: None,
         },
         Err(err) => CBoolResult {
             ok: false,
-            error: Some(err.to_string().into()),
+            err: Some(err.to_string().into()),
         },
     }
 }
@@ -258,11 +258,11 @@ pub fn ffi_set_metadata(rln: &mut repr_c::Box<FFI_RLN>, metadata: &repr_c::Vec<u
     match rln.tree.set_metadata(metadata) {
         Ok(_) => CBoolResult {
             ok: true,
-            error: None,
+            err: None,
         },
         Err(err) => CBoolResult {
             ok: false,
-            error: Some(err.to_string().into()),
+            err: Some(err.to_string().into()),
         },
     }
 }
@@ -286,11 +286,11 @@ pub fn ffi_flush(rln: &mut repr_c::Box<FFI_RLN>) -> CBoolResult {
     match rln.tree.close_db_connection() {
         Ok(_) => CBoolResult {
             ok: true,
-            error: None,
+            err: None,
         },
         Err(err) => CBoolResult {
             ok: false,
-            error: Some(err.to_string().into()),
+            err: Some(err.to_string().into()),
         },
     }
 }
