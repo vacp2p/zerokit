@@ -129,17 +129,13 @@ pub fn vec_cfr_from_cfr(cfr: &CFr) -> repr_c::Vec<CFr> {
 }
 
 #[ffi_export]
-pub fn vec_cfr_push(v: &mut repr_c::Vec<CFr>, cfr: &CFr) {
-    let ptr = v.as_mut_ptr();
-    let len = v.len();
-
-    let cap = unsafe { std::ptr::read((v as *const _ as *const usize).add(2)) };
-
-    let mut rust_vec = unsafe { Vec::from_raw_parts(ptr, len, cap) };
-    rust_vec.push(*cfr);
-
-    let new_repr_vec: repr_c::Vec<CFr> = rust_vec.into();
-    unsafe { std::ptr::write(v, new_repr_vec) };
+pub fn vec_cfr_push(v: &mut safer_ffi::Vec<CFr>, cfr: &CFr) {
+    let mut new: Vec<CFr> = std::mem::replace(v, Vec::new().into()).into();
+    if new.len() == new.capacity() {
+        new.reserve_exact(1);
+    }
+    new.push(*cfr);
+    *v = new.into();
 }
 
 #[ffi_export]
