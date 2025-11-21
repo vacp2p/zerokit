@@ -101,7 +101,12 @@ async function main() {
   const deserPathElements = rlnWasm.VecWasmFr.fromBytesLE(serPathElements);
   console.log("  - deserialized path_elements = ", deserPathElements.debug());
 
-  // console.log("\nIdentity path index serialization: Uint8Array <-> bytes");
+  console.log("\nUint8Array serialization: Uint8Array <-> bytes");
+  const serPathIndex = rlnWasm.Uint8ArrayUtils.toBytesLE(identityPathIndex);
+  console.log("  - serialized path_index =", serPathIndex);
+
+  const deserPathIndex = rlnWasm.Uint8ArrayUtils.fromBytesLE(serPathIndex);
+  console.log("  - deserialized path_index =", deserPathIndex);
 
   console.log("\nComputing Merkle root for stateless mode");
   console.log("  - computing root for index 0 with rate_commitment");

@@ -6,8 +6,9 @@ use rln::{
     hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash},
     protocol::{extended_keygen, extended_seeded_keygen, keygen, seeded_keygen},
     utils::{
-        bytes_be_to_fr, bytes_be_to_vec_fr, bytes_le_to_fr, bytes_le_to_vec_fr, fr_to_bytes_be,
-        fr_to_bytes_le, vec_fr_to_bytes_be, vec_fr_to_bytes_le,
+        bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_le_to_fr, bytes_le_to_vec_fr,
+        bytes_le_to_vec_u8, fr_to_bytes_be, fr_to_bytes_le, vec_fr_to_bytes_be, vec_fr_to_bytes_le,
+        vec_u8_to_bytes_be, vec_u8_to_bytes_le,
     },
 };
 use std::ops::Deref;
@@ -152,6 +153,44 @@ impl VecWasmFr {
 impl VecWasmFr {
     pub fn inner(&self) -> Vec<Fr> {
         self.0.clone()
+    }
+}
+
+// Uint8Array
+
+#[wasm_bindgen]
+pub struct Uint8ArrayUtils;
+
+#[wasm_bindgen]
+impl Uint8ArrayUtils {
+    #[wasm_bindgen(js_name = toBytesLE)]
+    pub fn to_bytes_le(input: &Uint8Array) -> Uint8Array {
+        let input_vec = input.to_vec();
+        let bytes = vec_u8_to_bytes_le(&input_vec);
+        Uint8Array::from(&bytes[..])
+    }
+
+    #[wasm_bindgen(js_name = toBytesBE)]
+    pub fn to_bytes_be(input: &Uint8Array) -> Uint8Array {
+        let input_vec = input.to_vec();
+        let bytes = vec_u8_to_bytes_be(&input_vec);
+        Uint8Array::from(&bytes[..])
+    }
+
+    #[wasm_bindgen(js_name = fromBytesLE)]
+    pub fn from_bytes_le(bytes: &Uint8Array) -> Result<Uint8Array, String> {
+        let bytes_vec = bytes.to_vec();
+        bytes_le_to_vec_u8(&bytes_vec)
+            .map(|(vec_u8, _)| Uint8Array::from(&vec_u8[..]))
+            .map_err(|err| err.to_string())
+    }
+
+    #[wasm_bindgen(js_name = fromBytesBE)]
+    pub fn from_bytes_be(bytes: &Uint8Array) -> Result<Uint8Array, String> {
+        let bytes_vec = bytes.to_vec();
+        bytes_be_to_vec_u8(&bytes_vec)
+            .map(|(vec_u8, _)| Uint8Array::from(&vec_u8[..]))
+            .map_err(|err| err.to_string())
     }
 }
 
