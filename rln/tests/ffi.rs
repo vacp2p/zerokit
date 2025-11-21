@@ -20,7 +20,7 @@ mod test {
     fn create_rln_instance() -> repr_c::Box<FFI_RLN> {
         let input_config = json!({}).to_string();
         let c_str = std::ffi::CString::new(input_config).unwrap();
-        match ffi_new(TEST_TREE_DEPTH, c_str.as_c_str().into()) {
+        match ffi_rln_new(TEST_TREE_DEPTH, c_str.as_c_str().into()) {
             CResult {
                 ok: Some(rln),
                 err: None,
@@ -39,19 +39,7 @@ mod test {
             .map(|fr| CFr::from(*fr))
             .collect::<Vec<_>>()
             .into();
-        match ffi_init_tree_with_leaves(ffi_rln_instance, &leaves_vec) {
-            CResult {
-                ok: Some(_),
-                err: None,
-            } => {
-                assert_eq!(ffi_leaves_set(ffi_rln_instance), leaves.len());
-            }
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("init tree with leaves call failed: {}", err),
-            _ => unreachable!(),
-        }
+        ffi_init_tree_with_leaves(ffi_rln_instance, &leaves_vec);
     }
 
     fn get_random_leaves() -> Vec<Fr> {
@@ -113,16 +101,9 @@ mod test {
         // We first add leaves one by one specifying the index
         for (i, leaf) in leaves.iter().enumerate() {
             // We prepare the rate_commitment and we set the leaf at provided index
-            match ffi_set_leaf(&mut ffi_rln_instance, i, &Box_::new(CFr::from(*leaf))) {
-                CResult {
-                    ok: Some(_),
-                    err: None,
-                } => {}
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("set leaf call failed: {}", err),
-                _ => unreachable!(),
+            let result = ffi_set_leaf(&mut ffi_rln_instance, i, &Box_::new(CFr::from(*leaf)));
+            if !result.ok {
+                panic!("set leaf call failed: {:?}", result.err);
             }
         }
 
@@ -130,30 +111,16 @@ mod test {
         let root_single = get_tree_root(&ffi_rln_instance);
 
         // We reset the tree to default
-        match ffi_set_tree(&mut ffi_rln_instance, TEST_TREE_DEPTH) {
-            CResult {
-                ok: Some(_),
-                err: None,
-            } => {}
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("set tree call failed: {}", err),
-            _ => unreachable!(),
+        let result = ffi_set_tree(&mut ffi_rln_instance, TEST_TREE_DEPTH);
+        if !result.ok {
+            panic!("set tree call failed: {:?}", result.err);
         }
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
         for leaf in &leaves {
-            match ffi_set_next_leaf(&mut ffi_rln_instance, &Box_::new(CFr::from(*leaf))) {
-                CResult {
-                    ok: Some(_),
-                    err: None,
-                } => {}
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("set next leaf call failed: {}", err),
-                _ => unreachable!(),
+            let result = ffi_set_next_leaf(&mut ffi_rln_instance, &Box_::new(CFr::from(*leaf)));
+            if !result.ok {
+                panic!("set next leaf call failed: {:?}", result.err);
             }
         }
 
@@ -164,16 +131,9 @@ mod test {
         assert_eq!(root_single, root_next);
 
         // We reset the tree to default
-        match ffi_set_tree(&mut ffi_rln_instance, TEST_TREE_DEPTH) {
-            CResult {
-                ok: Some(_),
-                err: None,
-            } => {}
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("set tree call failed: {}", err),
-            _ => unreachable!(),
+        let result = ffi_set_tree(&mut ffi_rln_instance, TEST_TREE_DEPTH);
+        if !result.ok {
+            panic!("set tree call failed: {:?}", result.err);
         }
 
         // We add leaves in a batch into the tree
@@ -188,16 +148,9 @@ mod test {
         // We now delete all leaves set and check if the root corresponds to the empty tree root
         // delete calls over indexes higher than no_of_leaves are ignored and will not increase self.tree.next_index
         for i in 0..NO_OF_LEAVES {
-            match ffi_delete_leaf(&mut ffi_rln_instance, i) {
-                CResult {
-                    ok: Some(_),
-                    err: None,
-                } => {}
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("delete leaf call failed: {}", err),
-                _ => unreachable!(),
+            let result = ffi_delete_leaf(&mut ffi_rln_instance, i);
+            if !result.ok {
+                panic!("delete leaf call failed: {:?}", result.err);
             }
         }
 
@@ -205,16 +158,9 @@ mod test {
         let root_delete = get_tree_root(&ffi_rln_instance);
 
         // We reset the tree to default
-        match ffi_set_tree(&mut ffi_rln_instance, TEST_TREE_DEPTH) {
-            CResult {
-                ok: Some(_),
-                err: None,
-            } => {}
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("set tree call failed: {}", err),
-            _ => unreachable!(),
+        let result = ffi_set_tree(&mut ffi_rln_instance, TEST_TREE_DEPTH);
+        if !result.ok {
+            panic!("set tree call failed: {:?}", result.err);
         }
 
         // We get the root of the empty tree
@@ -258,16 +204,9 @@ mod test {
             .map(|fr| CFr::from(*fr))
             .collect::<Vec<_>>()
             .into();
-        match ffi_set_leaves_from(&mut ffi_rln_instance, set_index, &leaves_vec) {
-            CResult {
-                ok: Some(_),
-                err: None,
-            } => {}
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("set leaves from call failed: {}", err),
-            _ => unreachable!(),
+        let result = ffi_set_leaves_from(&mut ffi_rln_instance, set_index, &leaves_vec);
+        if !result.ok {
+            panic!("set leaves from call failed: {:?}", result.err);
         }
 
         // We get the root of the tree obtained adding leaves in batch
@@ -278,30 +217,16 @@ mod test {
         );
 
         // We reset the tree to default
-        match ffi_set_tree(&mut ffi_rln_instance, TEST_TREE_DEPTH) {
-            CResult {
-                ok: Some(_),
-                err: None,
-            } => {}
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("set tree call failed: {}", err),
-            _ => unreachable!(),
+        let result = ffi_set_tree(&mut ffi_rln_instance, TEST_TREE_DEPTH);
+        if !result.ok {
+            panic!("set tree call failed: {:?}", result.err);
         }
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
         for leaf in &leaves {
-            match ffi_set_next_leaf(&mut ffi_rln_instance, &Box_::new(CFr::from(*leaf))) {
-                CResult {
-                    ok: Some(_),
-                    err: None,
-                } => {}
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("set next leaf call failed: {}", err),
-                _ => unreachable!(),
+            let result = ffi_set_next_leaf(&mut ffi_rln_instance, &Box_::new(CFr::from(*leaf)));
+            if !result.ok {
+                panic!("set next leaf call failed: {:?}", result.err);
             }
         }
 
@@ -332,21 +257,14 @@ mod test {
         let indices: repr_c::Vec<usize> = vec![last_leaf_index].into();
         let last_leaf_vec: repr_c::Vec<CFr> = vec![CFr::from(*last_leaf)].into();
 
-        match ffi_atomic_operation(
+        let result = ffi_atomic_operation(
             &mut ffi_rln_instance,
             last_leaf_index,
             &last_leaf_vec,
             &indices,
-        ) {
-            CResult {
-                ok: Some(_),
-                err: None,
-            } => {}
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("atomic operation call failed: {}", err),
-            _ => unreachable!(),
+        );
+        if !result.ok {
+            panic!("atomic operation call failed: {:?}", result.err);
         }
 
         // We get the root of the tree obtained after a no-op
@@ -374,13 +292,7 @@ mod test {
             .map(|fr| CFr::from(*fr))
             .collect::<Vec<_>>()
             .into();
-        match ffi_set_leaves_from(&mut ffi_rln_instance, bad_index, &leaves_vec) {
-            CResult {
-                ok: None,
-                err: Some(_),
-            } => {}
-            _ => panic!("set leaves from call should have failed"),
-        }
+        ffi_set_leaves_from(&mut ffi_rln_instance, bad_index, &leaves_vec);
 
         // Get root of tree after attempted set
         let root_after_bad_set = get_tree_root(&ffi_rln_instance);
@@ -404,20 +316,13 @@ mod test {
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
         // We prepare id_commitment and we set the leaf at provided index
-        match ffi_set_leaf(
+        let result = ffi_set_leaf(
             &mut ffi_rln_instance,
             leaf_index,
             &Box_::new(CFr::from(rate_commitment)),
-        ) {
-            CResult {
-                ok: Some(_),
-                err: None,
-            } => {}
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("set leaf call failed: {}", err),
-            _ => unreachable!(),
+        );
+        if !result.ok {
+            panic!("set leaf call failed: {:?}", result.err);
         }
 
         // We obtain the Merkle tree root
@@ -522,7 +427,7 @@ mod test {
         // Creating a RLN instance passing the raw data
         let tree_config = "".to_string();
         let c_str = std::ffi::CString::new(tree_config).unwrap();
-        let ffi_rln_instance2 = match ffi_new_with_params(
+        let ffi_rln_instance2 = match ffi_rln_new_with_params(
             TEST_TREE_DEPTH,
             &zkey_buffer.into(),
             &graph_buffer.into(),
@@ -582,19 +487,12 @@ mod test {
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
         // We set as leaf rate_commitment, its index would be equal to no_of_leaves
-        match ffi_set_next_leaf(
+        let result = ffi_set_next_leaf(
             &mut ffi_rln_instance,
             &Box_::new(CFr::from(rate_commitment)),
-        ) {
-            CResult {
-                ok: Some(_),
-                err: None,
-            } => {}
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("set next leaf call failed: {}", err),
-            _ => unreachable!(),
+        );
+        if !result.ok {
+            panic!("set next leaf call failed: {:?}", result.err);
         }
 
         // Get the merkle proof for the identity
@@ -624,20 +522,7 @@ mod test {
             identity_index,
         );
 
-        let proof_is_valid =
-            match ffi_verify_rln_proof(&ffi_rln_instance, &rln_proof, &CFr::from(x)) {
-                CResult {
-                    ok: Some(success),
-                    err: None,
-                } => *success,
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("verify rln proof call failed: {}", err),
-                _ => unreachable!(),
-            };
-
-        assert!(proof_is_valid);
+        assert!(ffi_verify_rln_proof(&ffi_rln_instance, &rln_proof, &CFr::from(x)).ok);
     }
 
     #[test]
@@ -672,19 +557,12 @@ mod test {
         let message_id = Fr::from(1);
 
         // We set as leaf rate_commitment, its index would be equal to no_of_leaves
-        match ffi_set_next_leaf(
+        let result = ffi_set_next_leaf(
             &mut ffi_rln_instance,
             &Box_::new(CFr::from(rate_commitment)),
-        ) {
-            CResult {
-                ok: Some(_),
-                err: None,
-            } => {}
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("set next leaf call failed: {}", err),
-            _ => unreachable!(),
+        );
+        if !result.ok {
+            panic!("set next leaf call failed: {:?}", result.err);
         }
 
         // Get the merkle proof for the identity
@@ -722,21 +600,9 @@ mod test {
         // In this case, since no root is provided, proof's root check is skipped and proof is verified if other proof values are valid
         let roots_empty: repr_c::Vec<CFr> = vec![].into();
 
-        let proof_is_valid =
-            match ffi_verify_with_roots(&ffi_rln_instance, &rln_proof, &roots_empty, &CFr::from(x))
-            {
-                CResult {
-                    ok: Some(valid),
-                    err: None,
-                } => *valid,
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("verify with roots call failed: {}", err),
-                _ => unreachable!(),
-            };
-        // Proof should be valid
-        assert!(proof_is_valid);
+        assert!(
+            ffi_verify_with_roots(&ffi_rln_instance, &rln_proof, &roots_empty, &CFr::from(x)).ok
+        );
 
         // We then try to verify against some random values not containing the correct one.
         let mut roots_random: Vec<CFr> = Vec::new();
@@ -745,24 +611,15 @@ mod test {
         }
         let roots_random_vec: repr_c::Vec<CFr> = roots_random.into();
 
-        let proof_is_valid = match ffi_verify_with_roots(
-            &ffi_rln_instance,
-            &rln_proof,
-            &roots_random_vec,
-            &CFr::from(x),
-        ) {
-            CResult {
-                ok: Some(valid),
-                err: None,
-            } => *valid,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("verify with roots call failed: {}", err),
-            _ => unreachable!(),
-        };
-        // Proof should be invalid.
-        assert!(!proof_is_valid);
+        assert!(
+            !ffi_verify_with_roots(
+                &ffi_rln_instance,
+                &rln_proof,
+                &roots_random_vec,
+                &CFr::from(x),
+            )
+            .ok
+        );
 
         // We finally include the correct root
         // We get the root of the tree obtained adding one leaf per time
@@ -776,24 +633,15 @@ mod test {
         roots_with_correct.push(CFr::from(root));
         let roots_correct_vec: repr_c::Vec<CFr> = roots_with_correct.into();
 
-        let proof_is_valid = match ffi_verify_with_roots(
-            &ffi_rln_instance,
-            &rln_proof,
-            &roots_correct_vec,
-            &CFr::from(x),
-        ) {
-            CResult {
-                ok: Some(valid),
-                err: None,
-            } => *valid,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("verify with roots call failed: {}", err),
-            _ => unreachable!(),
-        };
-        // Proof should be valid.
-        assert!(proof_is_valid);
+        assert!(
+            ffi_verify_with_roots(
+                &ffi_rln_instance,
+                &rln_proof,
+                &roots_correct_vec,
+                &CFr::from(x),
+            )
+            .ok
+        );
     }
 
     #[test]
@@ -809,19 +657,12 @@ mod test {
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
         // We set as leaf rate_commitment, its index would be equal to 0 since tree is empty
-        match ffi_set_next_leaf(
+        let result = ffi_set_next_leaf(
             &mut ffi_rln_instance,
             &Box_::new(CFr::from(rate_commitment)),
-        ) {
-            CResult {
-                ok: Some(_),
-                err: None,
-            } => {}
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("set next leaf call failed: {}", err),
-            _ => unreachable!(),
+        );
+        if !result.ok {
+            panic!("set next leaf call failed: {:?}", result.err);
         }
 
         let identity_index: usize = 0;
@@ -907,19 +748,12 @@ mod test {
         let rate_commitment_new = utils_poseidon_hash(&[id_commitment_new, user_message_limit]);
 
         // We set as leaf id_commitment, its index would be equal to 1 since at 0 there is id_commitment
-        match ffi_set_next_leaf(
+        let result = ffi_set_next_leaf(
             &mut ffi_rln_instance,
             &Box_::new(CFr::from(rate_commitment_new)),
-        ) {
-            CResult {
-                ok: Some(_),
-                err: None,
-            } => {}
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("set next leaf call failed: {}", err),
-            _ => unreachable!(),
+        );
+        if !result.ok {
+            panic!("set next leaf call failed: {:?}", result.err);
         }
 
         let identity_index_new: usize = 1;
@@ -996,20 +830,13 @@ mod test {
         // We insert the id_commitment into the tree at a random index
         let mut rng = thread_rng();
         let index = rng.gen_range(0..no_of_leaves) as usize;
-        match ffi_set_leaf(
+        let result = ffi_set_leaf(
             &mut ffi_rln_instance,
             index,
             &Box_::new(CFr::from(id_commitment)),
-        ) {
-            CResult {
-                ok: Some(_),
-                err: None,
-            } => {}
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("set leaf call failed: {}", err),
-            _ => unreachable!(),
+        );
+        if !result.ok {
+            panic!("set leaf call failed: {:?}", result.err);
         }
 
         // We get the leaf at the same index
@@ -1037,16 +864,9 @@ mod test {
 
         let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-        match ffi_set_metadata(&mut ffi_rln_instance, &seed_bytes.clone().into()) {
-            CResult {
-                ok: Some(_),
-                err: None,
-            } => {}
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("set_metadata call failed: {}", err),
-            _ => unreachable!(),
+        let result = ffi_set_metadata(&mut ffi_rln_instance, &seed_bytes.clone().into());
+        if !result.ok {
+            panic!("set_metadata call failed: {:?}", result.err);
         }
 
         let metadata = match ffi_get_metadata(&ffi_rln_instance) {

@@ -41,15 +41,23 @@ pub(crate) fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
         deserialize_witnesscalc_graph(std::io::Cursor::new(graph_data)).unwrap();
 
     let mut inputs_buffer = get_inputs_buffer(get_inputs_size(&nodes));
+
     populate_inputs(&inputs, &input_mapping, &mut inputs_buffer);
+
     if let Some(v) = inputs.get_mut("identitySecret") {
-        // ~== v[0] = U256::ZERO;
-        unsafe { zeroize_flat_type(v) };
+        // DO NOT USE: unsafe { zeroize_flat_type(v) } only clears the Vec pointer, not the data—can cause memory leaks
+
+        for val in v.iter_mut() {
+            unsafe { zeroize_flat_type(val) };
+        }
     }
+
     let res = graph::evaluate(&nodes, inputs_buffer.as_slice(), &signals);
-    inputs_buffer.iter_mut().for_each(|i| {
-        unsafe { zeroize_flat_type(i) };
-    });
+
+    for val in inputs_buffer.iter_mut() {
+        unsafe { zeroize_flat_type(val) };
+    }
+
     res
 }
 

@@ -44,13 +44,12 @@ ruint = { version = "1.17.0", default-features = false, features = [
     "ark-ff-05",
 ] }
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
-zeroize = "1.8"
+zeroize = "1.8.2"
 tempfile = "3.21.0"
 utils = { package = "zerokit_utils", version = "0.7.0", path = "../utils", default-features = false }
 
 # FFI
 safer-ffi.version = "0.1"
-safer-ffi.features = []   # you may add some later on.
 
 # serialization
 prost = "0.14.1"

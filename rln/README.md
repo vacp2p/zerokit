@@ -323,7 +323,7 @@ Working examples demonstrating proof generation, proof verification and slashing
 
 ### Memory Management
 
-All heap-allocated objects must be explicitly freed using their corresponding `_free` functions to prevent memory leaks.
+- All **heap-allocated** objects returned from Rust FFI **must** be freed using their corresponding FFI `_free` functions.
 
 ## Get involved
 

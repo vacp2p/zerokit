@@ -1,6 +1,6 @@
 #![allow(non_camel_case_types)]
 
-use super::ffi_utils::{CFr, CResult};
+use super::ffi_utils::{CBoolResult, CFr, CResult};
 use crate::{
     circuit::{graph_from_folder, zkey_from_folder, zkey_from_raw, Curve},
     protocol::{
@@ -38,7 +38,7 @@ pub struct FFI_RLN {
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi_new(
+pub fn ffi_rln_new(
     tree_depth: usize,
     config_path: char_p::Ref<'_>,
 ) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
@@ -94,7 +94,7 @@ pub fn ffi_new(
 
 #[cfg(feature = "stateless")]
 #[ffi_export]
-pub fn ffi_new() -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
+pub fn ffi_rln_new() -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
     let proving_key = zkey_from_folder().to_owned();
     let graph_data = graph_from_folder().to_owned();
 
@@ -111,7 +111,7 @@ pub fn ffi_new() -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
 
 #[cfg(not(feature = "stateless"))]
 #[ffi_export]
-pub fn ffi_new_with_params(
+pub fn ffi_rln_new_with_params(
     tree_depth: usize,
     zkey_buffer: &repr_c::Vec<u8>,
     graph_data: &repr_c::Vec<u8>,
@@ -202,7 +202,7 @@ pub fn ffi_new_with_params(
 }
 
 #[ffi_export]
-pub fn ffi_rln_free(rln: Option<repr_c::Box<FFI_RLN>>) {
+pub fn ffi_rln_free(rln: repr_c::Box<FFI_RLN>) {
     drop(rln);
 }
 
@@ -216,8 +216,8 @@ pub struct FFI_RLNProof {
 }
 
 #[ffi_export]
-pub fn ffi_rln_proof_free(rln: Option<repr_c::Box<FFI_RLNProof>>) {
-    drop(rln);
+pub fn ffi_rln_proof_free(rln_proof: repr_c::Box<FFI_RLNProof>) {
+    drop(rln_proof);
 }
 
 // Proof generation APIs
@@ -364,24 +364,45 @@ pub fn ffi_verify_rln_proof(
     rln: &repr_c::Box<FFI_RLN>,
     proof: &repr_c::Box<FFI_RLNProof>,
     x: &CFr,
-) -> CResult<repr_c::Box<bool>, repr_c::String> {
+) -> CBoolResult {
+    // Verify the root
+    if rln.tree.root() != proof.proof_values.root {
+        return CBoolResult {
+            ok: false,
+            err: Some("Invalid root".to_string().into()),
+        };
+    }
+
+    // Verify the signal
+    if *x != proof.proof_values.x {
+        return CBoolResult {
+            ok: false,
+            err: Some("Invalid signal".to_string().into()),
+        };
+    }
+
     // Verify the proof
     match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
         Ok(proof_verified) => {
-            // Verify the root and signal
-            let roots_verified = rln.tree.root() == proof.proof_values.root;
-            let signal_verified = *x == proof.proof_values.x;
-            CResult {
-                ok: Some(Box_::new(
-                    proof_verified && roots_verified && signal_verified,
-                )),
-                err: None,
+            if !proof_verified {
+                return CBoolResult {
+                    ok: false,
+                    err: Some("Invalid proof".to_string().into()),
+                };
             }
         }
-        Err(err) => CResult {
-            ok: None,
-            err: Some(err.to_string().into()),
-        },
+        Err(err) => {
+            return CBoolResult {
+                ok: false,
+                err: Some(err.to_string().into()),
+            };
+        }
+    };
+
+    // All verifications passed
+    CBoolResult {
+        ok: true,
+        err: None,
     }
 }
 
@@ -391,43 +412,44 @@ pub fn ffi_verify_with_roots(
     proof: &repr_c::Box<FFI_RLNProof>,
     roots: &repr_c::Vec<CFr>,
     x: &CFr,
-) -> CResult<repr_c::Box<bool>, repr_c::String> {
-    // Verify the proof
-    let proof_verified =
-        match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
-            Ok(v) => v,
-            Err(err) => {
-                return CResult {
-                    ok: None,
-                    err: Some(err.to_string().into()),
-                };
-            }
-        };
-
-    // If proof verification failed, return early
-    if !proof_verified {
-        return CResult {
-            ok: Some(Box_::new(false)),
-            err: None,
+) -> CBoolResult {
+    // Verify the root
+    if !roots.is_empty() && !roots.iter().any(|root| root.0 == proof.proof_values.root) {
+        return CBoolResult {
+            ok: false,
+            err: Some("Invalid root".to_string().into()),
         };
     }
 
-    // Verify the root
-    let roots_verified: bool = if roots.is_empty() {
-        // If no root is passed in roots_buffer, we skip proof's root check
-        true
-    } else {
-        // We check if the proof's root is in roots
-        roots.iter().any(|root| root.0 == proof.proof_values.root)
+    // Verify the signal
+    if *x != proof.proof_values.x {
+        return CBoolResult {
+            ok: false,
+            err: Some("Invalid signal".to_string().into()),
+        };
+    }
+
+    // Verify the proof
+    match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
+        Ok(proof_verified) => {
+            if !proof_verified {
+                return CBoolResult {
+                    ok: false,
+                    err: Some("Invalid proof".to_string().into()),
+                };
+            }
+        }
+        Err(err) => {
+            return CBoolResult {
+                ok: false,
+                err: Some(err.to_string().into()),
+            };
+        }
     };
 
-    // Verify the signal
-    let signal_verified = *x == proof.proof_values.x;
-
-    CResult {
-        ok: Some(Box_::new(
-            proof_verified && roots_verified && signal_verified,
-        )),
+    // All verifications passed
+    CBoolResult {
+        ok: true,
         err: None,
     }
 }

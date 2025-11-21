@@ -19,6 +19,15 @@ pub struct CResult<T: ReprC, Err: ReprC> {
     pub err: Option<Err>,
 }
 
+// CBoolResult
+
+#[derive_ReprC]
+#[repr(C)]
+pub struct CBoolResult {
+    pub ok: bool,
+    pub err: Option<repr_c::String>,
+}
+
 // CFr
 
 #[derive_ReprC]
@@ -96,15 +105,43 @@ pub fn uint_to_cfr(value: u32) -> repr_c::Box<CFr> {
 
 #[ffi_export]
 pub fn cfr_debug(cfr: Option<&CFr>) -> repr_c::String {
-    format!("{:?}", cfr.map(|c| c.0.to_string())).into()
+    match cfr {
+        Some(cfr) => format!("{:?}", cfr.0).into(),
+        None => "None".into(),
+    }
 }
 
 #[ffi_export]
-pub fn cfr_free(cfr: Option<repr_c::Box<CFr>>) {
+pub fn cfr_free(cfr: repr_c::Box<CFr>) {
     drop(cfr);
 }
 
 // Vec<CFr>
+
+#[ffi_export]
+pub fn vec_cfr_new(capacity: usize) -> repr_c::Vec<CFr> {
+    Vec::with_capacity(capacity).into()
+}
+
+#[ffi_export]
+pub fn vec_cfr_from_cfr(cfr: &CFr) -> repr_c::Vec<CFr> {
+    vec![*cfr].into()
+}
+
+#[ffi_export]
+pub fn vec_cfr_push(v: &mut safer_ffi::Vec<CFr>, cfr: &CFr) {
+    let mut new: Vec<CFr> = std::mem::replace(v, Vec::new().into()).into();
+    if new.len() == new.capacity() {
+        new.reserve_exact(1);
+    }
+    new.push(*cfr);
+    *v = new.into();
+}
+
+#[ffi_export]
+pub fn vec_cfr_len(v: &repr_c::Vec<CFr>) -> usize {
+    v.len()
+}
 
 #[ffi_export]
 pub fn vec_cfr_get(v: &repr_c::Vec<CFr>, i: usize) -> Option<&CFr> {
@@ -124,14 +161,12 @@ pub fn vec_cfr_to_bytes_be(vec: &repr_c::Vec<CFr>) -> repr_c::Vec<u8> {
 }
 
 #[ffi_export]
-pub fn bytes_le_to_vec_cfr(
-    bytes: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Box<repr_c::Vec<CFr>>, repr_c::String> {
+pub fn bytes_le_to_vec_cfr(bytes: &repr_c::Vec<u8>) -> CResult<repr_c::Vec<CFr>, repr_c::String> {
     match crate::utils::bytes_le_to_vec_fr(bytes) {
         Ok((vec_fr, _)) => {
             let vec_cfr: Vec<CFr> = vec_fr.into_iter().map(CFr).collect();
             CResult {
-                ok: Some(Box_::new(vec_cfr.into())),
+                ok: Some(vec_cfr.into()),
                 err: None,
             }
         }
@@ -143,14 +178,12 @@ pub fn bytes_le_to_vec_cfr(
 }
 
 #[ffi_export]
-pub fn bytes_be_to_vec_cfr(
-    bytes: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Box<repr_c::Vec<CFr>>, repr_c::String> {
+pub fn bytes_be_to_vec_cfr(bytes: &repr_c::Vec<u8>) -> CResult<repr_c::Vec<CFr>, repr_c::String> {
     match crate::utils::bytes_be_to_vec_fr(bytes) {
         Ok((vec_fr, _)) => {
             let vec_cfr: Vec<CFr> = vec_fr.into_iter().map(CFr).collect();
             CResult {
-                ok: Some(Box_::new(vec_cfr.into())),
+                ok: Some(vec_cfr.into()),
                 err: None,
             }
         }
@@ -162,8 +195,14 @@ pub fn bytes_be_to_vec_cfr(
 }
 
 #[ffi_export]
-pub fn vec_cfr_debug(v: &repr_c::Vec<CFr>) -> repr_c::String {
-    format!("{:?}", v.iter().map(|cfr| cfr.0).collect::<Vec<Fr>>()).into()
+pub fn vec_cfr_debug(v: Option<&repr_c::Vec<CFr>>) -> repr_c::String {
+    match v {
+        Some(v) => {
+            let vec_fr: Vec<Fr> = v.iter().map(|cfr| cfr.0).collect();
+            format!("{:?}", vec_fr).into()
+        }
+        None => "None".into(),
+    }
 }
 
 #[ffi_export]
@@ -184,12 +223,10 @@ pub fn vec_u8_to_bytes_be(vec: &repr_c::Vec<u8>) -> repr_c::Vec<u8> {
 }
 
 #[ffi_export]
-pub fn bytes_le_to_vec_u8(
-    bytes: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Box<repr_c::Vec<u8>>, repr_c::String> {
+pub fn bytes_le_to_vec_u8(bytes: &repr_c::Vec<u8>) -> CResult<repr_c::Vec<u8>, repr_c::String> {
     match crate::utils::bytes_le_to_vec_u8(bytes) {
         Ok((vec, _)) => CResult {
-            ok: Some(Box_::new(vec.into())),
+            ok: Some(vec.into()),
             err: None,
         },
         Err(err) => CResult {
@@ -200,12 +237,10 @@ pub fn bytes_le_to_vec_u8(
 }
 
 #[ffi_export]
-pub fn bytes_be_to_vec_u8(
-    bytes: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Box<repr_c::Vec<u8>>, repr_c::String> {
+pub fn bytes_be_to_vec_u8(bytes: &repr_c::Vec<u8>) -> CResult<repr_c::Vec<u8>, repr_c::String> {
     match crate::utils::bytes_be_to_vec_u8(bytes) {
         Ok((vec, _)) => CResult {
-            ok: Some(Box_::new(vec.into())),
+            ok: Some(vec.into()),
             err: None,
         },
         Err(err) => CResult {
@@ -216,8 +251,11 @@ pub fn bytes_be_to_vec_u8(
 }
 
 #[ffi_export]
-pub fn vec_u8_debug(v: &repr_c::Vec<u8>) -> repr_c::String {
-    format!("{:?}", v.iter().copied().collect::<Vec<u8>>()).into()
+pub fn vec_u8_debug(v: Option<&repr_c::Vec<u8>>) -> repr_c::String {
+    match v {
+        Some(v) => format!("{:?}", v.deref()).into(),
+        None => "None".into(),
+    }
 }
 
 #[ffi_export]
@@ -281,4 +319,9 @@ pub fn ffi_seeded_extended_key_gen(seed: &repr_c::Vec<u8>) -> repr_c::Vec<CFr> {
         CFr(id_commitment),
     ]
     .into()
+}
+
+#[ffi_export]
+pub fn c_string_free(s: repr_c::String) {
+    drop(s);
 }
