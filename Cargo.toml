@@ -1,6 +1,6 @@
 [workspace]
 members = ["rln", "utils"]
-exclude = ["rln-cli", "rln-wasm", "rln-wasm-utils"]
+exclude = ["rln-cli", "rln-wasm"]
 resolver = "2"
 
 # Compilation profile for any non-workspace member.

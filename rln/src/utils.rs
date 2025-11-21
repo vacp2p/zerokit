@@ -322,7 +322,8 @@ pub fn normalize_usize_le(input: usize) -> [u8; 8] {
 pub fn normalize_usize_be(input: usize) -> [u8; 8] {
     let mut bytes = [0u8; 8];
     let input_bytes = input.to_be_bytes();
-    bytes[..input_bytes.len()].copy_from_slice(&input_bytes);
+    let offset = 8 - input_bytes.len();
+    bytes[offset..].copy_from_slice(&input_bytes);
     bytes
 }
 

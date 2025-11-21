@@ -17,7 +17,7 @@ use graph::Node;
 
 pub type InputSignalsInfo = HashMap<String, (usize, usize)>;
 
-pub fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
+pub(crate) fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
     inputs: I,
     graph_data: &[u8],
 ) -> Vec<Fr> {
