@@ -173,16 +173,16 @@ mod test {
             );
         }
 
-        // let vec_wasmfr_from_be = match VecWasmFr::from_bytes_be(&bytes_be) {
-        //     Ok(v) => v,
-        //     Err(err) => panic!("VecWasmFr::from_bytes_be call failed: {}", err),
-        // };
-        // for i in 0..vec_wasmfr.length() {
-        //     assert_eq!(
-        //         *vec_wasmfr_from_be.get(i).unwrap(),
-        //         *vec_wasmfr.get(i).unwrap()
-        //     );
-        // }
+        let vec_wasmfr_from_be = match VecWasmFr::from_bytes_be(&bytes_be) {
+            Ok(v) => v,
+            Err(err) => panic!("VecWasmFr::from_bytes_be call failed: {}", err),
+        };
+        for i in 0..vec_wasmfr.length() {
+            assert_eq!(
+                *vec_wasmfr_from_be.get(i).unwrap(),
+                *vec_wasmfr.get(i).unwrap()
+            );
+        }
     }
 
     #[wasm_bindgen_test]

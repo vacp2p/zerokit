@@ -1,4 +1,5 @@
 #![cfg(target_arch = "wasm32")]
+#![cfg(not(feature = "utils"))]
 
 #[cfg(test)]
 mod test {

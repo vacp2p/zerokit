@@ -90,6 +90,12 @@ If you want to run the tests in browser headless mode, you can use the following
 cargo make test_browser
 ```
 
+If you want to test only the utility functions after running `cargo make build_utils`, you can use the following command:
+
+```bash
+cargo make test_utils
+```
+
 ## Examples
 
 Working examples demonstrating proof generation, proof verification and slashing:

@@ -105,5 +105,21 @@ args = [
 ]
 dependencies = ["build_parallel"]
 
+[tasks.test_utils]
+command = "wasm-pack"
+args = [
+    "test",
+    "--release",
+    "--node",
+    "--target",
+    "wasm32-unknown-unknown",
+    "--no-default-features",
+    "--features",
+    "utils",
+    "--",
+    "--nocapture",
+]
+dependencies = ["build_utils"]
+
 [tasks.bench]
 disabled = true
