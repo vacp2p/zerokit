@@ -18,7 +18,7 @@ use rayon::iter::{
 /// coefficients domain. snarkjs instead precomputes the Lagrange form of the powers of tau bases
 /// in a domain twice as large and the witness map is computed as the odd coefficients of (AB-C)
 /// in that domain. This serves as HZ when computing the C proof element.
-pub struct CircomReduction;
+pub(crate) struct CircomReduction;
 
 impl R1CSToQAP for CircomReduction {
     #[allow(clippy::type_complexity)]

@@ -8,7 +8,6 @@ mod test {
     use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
     use rln::protocol::*;
     use rln::utils::*;
-    use safer_ffi::boxed::Box_;
     use safer_ffi::prelude::repr_c;
     use serde_json::json;
     use std::fs::File;
@@ -101,7 +100,7 @@ mod test {
         // We first add leaves one by one specifying the index
         for (i, leaf) in leaves.iter().enumerate() {
             // We prepare the rate_commitment and we set the leaf at provided index
-            let result = ffi_set_leaf(&mut ffi_rln_instance, i, &Box_::new(CFr::from(*leaf)));
+            let result = ffi_set_leaf(&mut ffi_rln_instance, i, &CFr::from(*leaf).into());
             if !result.ok {
                 panic!("set leaf call failed: {:?}", result.err);
             }
@@ -118,7 +117,7 @@ mod test {
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
         for leaf in &leaves {
-            let result = ffi_set_next_leaf(&mut ffi_rln_instance, &Box_::new(CFr::from(*leaf)));
+            let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(*leaf).into());
             if !result.ok {
                 panic!("set next leaf call failed: {:?}", result.err);
             }
@@ -224,7 +223,7 @@ mod test {
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
         for leaf in &leaves {
-            let result = ffi_set_next_leaf(&mut ffi_rln_instance, &Box_::new(CFr::from(*leaf)));
+            let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(*leaf).into());
             if !result.ok {
                 panic!("set next leaf call failed: {:?}", result.err);
             }
@@ -319,7 +318,7 @@ mod test {
         let result = ffi_set_leaf(
             &mut ffi_rln_instance,
             leaf_index,
-            &Box_::new(CFr::from(rate_commitment)),
+            &CFr::from(rate_commitment).into(),
         );
         if !result.ok {
             panic!("set leaf call failed: {:?}", result.err);
@@ -487,10 +486,7 @@ mod test {
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
         // We set as leaf rate_commitment, its index would be equal to no_of_leaves
-        let result = ffi_set_next_leaf(
-            &mut ffi_rln_instance,
-            &Box_::new(CFr::from(rate_commitment)),
-        );
+        let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(rate_commitment).into());
         if !result.ok {
             panic!("set next leaf call failed: {:?}", result.err);
         }
@@ -557,10 +553,7 @@ mod test {
         let message_id = Fr::from(1);
 
         // We set as leaf rate_commitment, its index would be equal to no_of_leaves
-        let result = ffi_set_next_leaf(
-            &mut ffi_rln_instance,
-            &Box_::new(CFr::from(rate_commitment)),
-        );
+        let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(rate_commitment).into());
         if !result.ok {
             panic!("set next leaf call failed: {:?}", result.err);
         }
@@ -657,10 +650,7 @@ mod test {
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
         // We set as leaf rate_commitment, its index would be equal to 0 since tree is empty
-        let result = ffi_set_next_leaf(
-            &mut ffi_rln_instance,
-            &Box_::new(CFr::from(rate_commitment)),
-        );
+        let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(rate_commitment).into());
         if !result.ok {
             panic!("set next leaf call failed: {:?}", result.err);
         }
@@ -750,7 +740,7 @@ mod test {
         // We set as leaf id_commitment, its index would be equal to 1 since at 0 there is id_commitment
         let result = ffi_set_next_leaf(
             &mut ffi_rln_instance,
-            &Box_::new(CFr::from(rate_commitment_new)),
+            &CFr::from(rate_commitment_new).into(),
         );
         if !result.ok {
             panic!("set next leaf call failed: {:?}", result.err);
@@ -833,7 +823,7 @@ mod test {
         let result = ffi_set_leaf(
             &mut ffi_rln_instance,
             index,
-            &Box_::new(CFr::from(id_commitment)),
+            &CFr::from(id_commitment).into(),
         );
         if !result.ok {
             panic!("set leaf call failed: {:?}", result.err);

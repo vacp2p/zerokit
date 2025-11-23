@@ -7,7 +7,7 @@ use crate::{
     utils::{bytes_be_to_fr, bytes_le_to_fr, fr_to_bytes_be, fr_to_bytes_le},
 };
 use safer_ffi::prelude::ReprC;
-use safer_ffi::{boxed::Box_, derive_ReprC, ffi_export, prelude::repr_c};
+use safer_ffi::{derive_ReprC, ffi_export, prelude::repr_c};
 use std::ops::Deref;
 
 // CResult
@@ -50,13 +50,13 @@ impl From<Fr> for CFr {
 
 impl From<CFr> for repr_c::Box<CFr> {
     fn from(cfr: CFr) -> Self {
-        Box_::new(cfr)
+        cfr.into()
     }
 }
 
 impl From<&CFr> for repr_c::Box<CFr> {
     fn from(cfr: &CFr) -> Self {
-        Box_::new(CFr(cfr.0))
+        CFr(cfr.0).into()
     }
 }
 
@@ -68,12 +68,12 @@ impl PartialEq<Fr> for CFr {
 
 #[ffi_export]
 pub fn cfr_zero() -> repr_c::Box<CFr> {
-    Box_::new(CFr::from(Fr::from(0)))
+    CFr::from(Fr::from(0)).into()
 }
 
 #[ffi_export]
 pub fn cfr_one() -> repr_c::Box<CFr> {
-    Box_::new(CFr::from(Fr::from(1)))
+    CFr::from(Fr::from(1)).into()
 }
 
 #[ffi_export]
@@ -89,18 +89,18 @@ pub fn cfr_to_bytes_be(cfr: &CFr) -> repr_c::Vec<u8> {
 #[ffi_export]
 pub fn bytes_le_to_cfr(bytes: &repr_c::Vec<u8>) -> repr_c::Box<CFr> {
     let (cfr, _) = bytes_le_to_fr(bytes);
-    Box_::new(CFr(cfr))
+    CFr(cfr).into()
 }
 
 #[ffi_export]
 pub fn bytes_be_to_cfr(bytes: &repr_c::Vec<u8>) -> repr_c::Box<CFr> {
     let (cfr, _) = bytes_be_to_fr(bytes);
-    Box_::new(CFr(cfr))
+    CFr(cfr).into()
 }
 
 #[ffi_export]
 pub fn uint_to_cfr(value: u32) -> repr_c::Box<CFr> {
-    Box_::new(CFr::from(Fr::from(value)))
+    CFr::from(Fr::from(value)).into()
 }
 
 #[ffi_export]
