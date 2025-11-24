@@ -109,7 +109,7 @@ fn read_arkzkey_from_bytes_uncompressed(
 
     // Get on right form for API
     let proving_key: ProvingKey<Bn254> = serialized_proving_key.0;
-    let constraint_matrices: ConstraintMatrices<ark_bn254::Fr> = ConstraintMatrices {
+    let constraint_matrices: ConstraintMatrices<Fr> = ConstraintMatrices {
         num_instance_variables: serialized_constraint_matrices.num_instance_variables,
         num_witness_variables: serialized_constraint_matrices.num_witness_variables,
         num_constraints: serialized_constraint_matrices.num_constraints,

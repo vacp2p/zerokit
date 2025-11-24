@@ -7,7 +7,7 @@ use {
     utils::{ZerokitMerkleProof, ZerokitMerkleTree},
 };
 
-use crate::circuit::{iden3calc::calc_witness, qap::CircomReduction, Curve};
+use crate::circuit::{iden3calc::calc_witness, qap::CircomReduction, Curve, Fr};
 use crate::error::{ComputeIdSecretError, ProofError, ProtocolError};
 use crate::hashers::poseidon_hash;
 use crate::utils::{
@@ -15,7 +15,6 @@ use crate::utils::{
     fr_to_bytes_le, normalize_usize_le, to_bigint, vec_fr_to_bytes_le, vec_u8_to_bytes_le,
     FrOrSecret, IdSecret,
 };
-use ark_bn254::Fr;
 use ark_ff::AdditiveGroup;
 use ark_groth16::{prepare_verifying_key, Groth16, Proof as ArkProof, ProvingKey, VerifyingKey};
 use ark_relations::r1cs::ConstraintMatrices;

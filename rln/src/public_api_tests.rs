@@ -1,5 +1,6 @@
-use crate::circuit::Fr;
-use crate::circuit::TEST_TREE_DEPTH;
+use crate::circuit::{
+    Fq, Fq2, Fr, G1Affine, G1Projective, G2Affine, G2Projective, TEST_TREE_DEPTH,
+};
 use crate::error::ProtocolError;
 use crate::hashers::{hash_to_field_le, poseidon_hash};
 use crate::protocol::{
@@ -20,31 +21,31 @@ use std::str::FromStr;
 #[cfg(not(feature = "stateless"))]
 use crate::utils::generate_input_buffer;
 
-fn fq_from_str(s: &str) -> ark_bn254::Fq {
-    ark_bn254::Fq::from_str(s).unwrap()
+fn fq_from_str(s: &str) -> Fq {
+    Fq::from_str(s).unwrap()
 }
 
-fn g1_from_str(g1: &[String]) -> ark_bn254::G1Affine {
+fn g1_from_str(g1: &[String]) -> G1Affine {
     let x = fq_from_str(&g1[0]);
     let y = fq_from_str(&g1[1]);
     let z = fq_from_str(&g1[2]);
-    ark_bn254::G1Affine::from(ark_bn254::G1Projective::new(x, y, z))
+    G1Affine::from(G1Projective::new(x, y, z))
 }
 
-fn g2_from_str(g2: &[Vec<String>]) -> ark_bn254::G2Affine {
+fn g2_from_str(g2: &[Vec<String>]) -> G2Affine {
     let c0 = fq_from_str(&g2[0][0]);
     let c1 = fq_from_str(&g2[0][1]);
-    let x = ark_bn254::Fq2::new(c0, c1);
+    let x = Fq2::new(c0, c1);
 
     let c0 = fq_from_str(&g2[1][0]);
     let c1 = fq_from_str(&g2[1][1]);
-    let y = ark_bn254::Fq2::new(c0, c1);
+    let y = Fq2::new(c0, c1);
 
     let c0 = fq_from_str(&g2[2][0]);
     let c1 = fq_from_str(&g2[2][1]);
-    let z = ark_bn254::Fq2::new(c0, c1);
+    let z = Fq2::new(c0, c1);
 
-    ark_bn254::G2Affine::from(ark_bn254::G2Projective::new(x, y, z))
+    G2Affine::from(G2Projective::new(x, y, z))
 }
 
 fn value_to_string_vec(value: &Value) -> Vec<String> {

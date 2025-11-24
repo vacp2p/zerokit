@@ -2,14 +2,13 @@
 
 use super::ffi_utils::{CBoolResult, CFr, CResult};
 use crate::{
-    circuit::{graph_from_folder, zkey_from_folder, zkey_from_raw, Curve},
+    circuit::{graph_from_folder, zkey_from_folder, zkey_from_raw, Curve, Fr},
     protocol::{
         compute_id_secret, generate_proof, proof_values_from_witness, verify_proof, RLNProofValues,
         RLNWitnessInput,
     },
     utils::IdSecret,
 };
-use ark_bn254::Fr;
 use ark_groth16::{Proof as ArkProof, ProvingKey};
 use ark_relations::r1cs::ConstraintMatrices;
 use safer_ffi::{boxed::Box_, derive_ReprC, ffi_export, prelude::repr_c};

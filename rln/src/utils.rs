@@ -335,7 +335,7 @@ pub fn generate_input_buffer() -> Cursor<String> {
 #[derive(
     Debug, Zeroize, ZeroizeOnDrop, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize,
 )]
-pub struct IdSecret(ark_bn254::Fr);
+pub struct IdSecret(Fr);
 
 impl IdSecret {
     pub fn rand<R: Rng + ?Sized>(rng: &mut R) -> Self {
