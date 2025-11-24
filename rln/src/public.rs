@@ -1,4 +1,4 @@
-use crate::circuit::{zkey_from_raw, Curve, Fr};
+use crate::circuit::{zkey_from_raw, Fr, Proof, VerifyingKey, Zkey};
 use crate::hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash as utils_poseidon_hash};
 use crate::protocol::{
     compute_id_secret, deserialize_proof_values, deserialize_witness, extended_keygen,
@@ -35,8 +35,6 @@ use {
 };
 
 use crate::error::{ConversionError, ProtocolError, RLNError};
-use ark_groth16::{Proof as ArkProof, ProvingKey, VerifyingKey};
-use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
 #[cfg(target_arch = "wasm32")]
 use num_bigint::BigInt;
@@ -86,8 +84,8 @@ impl TreeConfigInput for <PoseidonTree as ZerokitMerkleTree>::Config {
 ///
 /// I/O is mostly done using writers and readers implementing `std::io::Write` and `std::io::Read`, respectively.
 pub struct RLN {
-    proving_key: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
-    pub(crate) verification_key: VerifyingKey<Curve>,
+    pub(crate) zkey: Zkey,
+    pub(crate) verifying_key: VerifyingKey,
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) graph_data: Vec<u8>,
     #[cfg(not(feature = "stateless"))]
@@ -113,8 +111,8 @@ impl RLN {
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn new<T: TreeConfigInput>(tree_depth: usize, input_buffer: T) -> Result<RLN, RLNError> {
-        let proving_key = zkey_from_folder().to_owned();
-        let verification_key = proving_key.0.vk.to_owned();
+        let zkey = zkey_from_folder().to_owned();
+        let verifying_key = zkey.0.vk.to_owned();
         let graph_data = graph_from_folder().to_owned();
         let tree_config = input_buffer.into_tree_config()?;
 
@@ -126,8 +124,8 @@ impl RLN {
         )?;
 
         Ok(RLN {
-            proving_key,
-            verification_key,
+            zkey,
+            verifying_key,
             graph_data,
             #[cfg(not(feature = "stateless"))]
             tree,
@@ -143,13 +141,13 @@ impl RLN {
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
     pub fn new() -> Result<RLN, RLNError> {
-        let proving_key = zkey_from_folder().to_owned();
-        let verification_key = proving_key.0.vk.to_owned();
+        let zkey = zkey_from_folder().to_owned();
+        let verifying_key = zkey.0.vk.to_owned();
         let graph_data = graph_from_folder().to_owned();
 
         Ok(RLN {
-            proving_key,
-            verification_key,
+            zkey,
+            verifying_key,
             graph_data,
         })
     }
@@ -197,8 +195,8 @@ impl RLN {
         graph_data: Vec<u8>,
         input_buffer: T,
     ) -> Result<RLN, RLNError> {
-        let proving_key = zkey_from_raw(&zkey_vec)?;
-        let verification_key = proving_key.0.vk.to_owned();
+        let zkey = zkey_from_raw(&zkey_vec)?;
+        let verifying_key = zkey.0.vk.to_owned();
         let tree_config = input_buffer.into_tree_config()?;
 
         // We compute a default empty tree
@@ -209,8 +207,8 @@ impl RLN {
         )?;
 
         Ok(RLN {
-            proving_key,
-            verification_key,
+            zkey,
+            verifying_key,
             graph_data,
             #[cfg(not(feature = "stateless"))]
             tree,
@@ -247,12 +245,12 @@ impl RLN {
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
     pub fn new_with_params(zkey_vec: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN, RLNError> {
-        let proving_key = zkey_from_raw(&zkey_vec)?;
-        let verification_key = proving_key.0.vk.to_owned();
+        let zkey = zkey_from_raw(&zkey_vec)?;
+        let verifying_key = zkey.0.vk.to_owned();
 
         Ok(RLN {
-            proving_key,
-            verification_key,
+            zkey,
+            verifying_key,
             graph_data,
         })
     }
@@ -278,12 +276,12 @@ impl RLN {
     /// ```
     #[cfg(all(target_arch = "wasm32", feature = "stateless"))]
     pub fn new_with_params(zkey_vec: Vec<u8>) -> Result<RLN, RLNError> {
-        let proving_key = zkey_from_raw(&zkey_vec)?;
-        let verification_key = proving_key.0.vk.to_owned();
+        let zkey = zkey_from_raw(&zkey_vec)?;
+        let verifying_key = zkey.0.vk.to_owned();
 
         Ok(RLN {
-            proving_key,
-            verification_key,
+            zkey,
+            verifying_key,
         })
     }
 
@@ -777,7 +775,7 @@ impl RLN {
         input_data.read_to_end(&mut serialized_witness)?;
         let (rln_witness, _) = deserialize_witness(&serialized_witness)?;
 
-        let proof = generate_proof(&self.proving_key, &rln_witness, &self.graph_data)?;
+        let proof = generate_proof(&self.zkey, &rln_witness, &self.graph_data)?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         proof.serialize_compressed(&mut output_data)?;
@@ -827,11 +825,11 @@ impl RLN {
         // [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
         let mut input_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut input_byte)?;
-        let proof = ArkProof::deserialize_compressed(&mut Cursor::new(&input_byte[..128]))?;
+        let proof = Proof::deserialize_compressed(&mut Cursor::new(&input_byte[..128]))?;
 
         let (proof_values, _) = deserialize_proof_values(&input_byte[128..]);
 
-        let verified = verify_proof(&self.verification_key, &proof, &proof_values)?;
+        let verified = verify_proof(&self.verifying_key, &proof, &proof_values)?;
 
         Ok(verified)
     }
@@ -899,7 +897,7 @@ impl RLN {
         let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
-        let proof = generate_proof(&self.proving_key, &rln_witness, &self.graph_data)?;
+        let proof = generate_proof(&self.zkey, &rln_witness, &self.graph_data)?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
@@ -923,7 +921,7 @@ impl RLN {
         let (rln_witness, _) = deserialize_witness(&serialized_witness)?;
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
-        let proof = generate_proof(&self.proving_key, &rln_witness, &self.graph_data)?;
+        let proof = generate_proof(&self.zkey, &rln_witness, &self.graph_data)?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
@@ -945,7 +943,7 @@ impl RLN {
         let (rln_witness, _) = deserialize_witness(&serialized_witness[..])?;
         let proof_values = proof_values_from_witness(&rln_witness)?;
 
-        let proof = generate_proof_with_witness(calculated_witness, &self.proving_key).unwrap();
+        let proof = generate_proof_with_witness(calculated_witness, &self.zkey).unwrap();
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
@@ -986,8 +984,7 @@ impl RLN {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
-        let proof =
-            ArkProof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
+        let proof = Proof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
         let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
         all_read += read;
@@ -1002,7 +999,7 @@ impl RLN {
 
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
 
-        let verified = verify_proof(&self.verification_key, &proof, &proof_values)?;
+        let verified = verify_proof(&self.verifying_key, &proof, &proof_values)?;
         let x = hash_to_field_le(&signal);
 
         // Consistency checks to counter proof tampering
@@ -1068,8 +1065,7 @@ impl RLN {
         let mut serialized: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized)?;
         let mut all_read = 0;
-        let proof =
-            ArkProof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
+        let proof = Proof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
         let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
         all_read += read;
@@ -1084,7 +1080,7 @@ impl RLN {
 
         let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
 
-        let verified = verify_proof(&self.verification_key, &proof, &proof_values)?;
+        let verified = verify_proof(&self.verifying_key, &proof, &proof_values)?;
 
         // First consistency checks to counter proof tampering
         let x = hash_to_field_le(&signal);

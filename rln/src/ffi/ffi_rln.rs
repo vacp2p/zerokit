@@ -2,15 +2,13 @@
 
 use super::ffi_utils::{CBoolResult, CFr, CResult};
 use crate::{
-    circuit::{graph_from_folder, zkey_from_folder, zkey_from_raw, Curve, Fr},
+    circuit::{graph_from_folder, zkey_from_folder, zkey_from_raw, Fr, Proof},
     protocol::{
         compute_id_secret, generate_proof, proof_values_from_witness, verify_proof, RLNProofValues,
-        RLNWitnessInput,
+        RLNWitnessInput, RLN,
     },
     utils::IdSecret,
 };
-use ark_groth16::{Proof as ArkProof, ProvingKey};
-use ark_relations::r1cs::ConstraintMatrices;
 use safer_ffi::{boxed::Box_, derive_ReprC, ffi_export, prelude::repr_c};
 
 #[cfg(not(feature = "stateless"))]
@@ -25,13 +23,7 @@ use {
 
 #[derive_ReprC]
 #[repr(opaque)]
-pub struct FFI_RLN {
-    pub(crate) proving_key: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
-    #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) graph_data: Vec<u8>,
-    #[cfg(not(feature = "stateless"))]
-    pub(crate) tree: PoseidonTree,
-}
+pub struct FFI_RLN(pub(crate) RLN);
 
 // RLN initialization APIs
 
@@ -60,7 +52,7 @@ pub fn ffi_rln_new(
         _ => <PoseidonTree as ZerokitMerkleTree>::Config::default(),
     };
 
-    let proving_key = zkey_from_folder().to_owned();
+    let zkey = zkey_from_folder().to_owned();
     let graph_data = graph_from_folder().to_owned();
 
     // We compute a default empty tree
@@ -78,15 +70,15 @@ pub fn ffi_rln_new(
         }
     };
 
-    let rln = FFI_RLN {
-        proving_key: proving_key.to_owned(),
-        graph_data: graph_data.to_vec(),
+    let rln = RLN {
+        zkey,
+        graph_data,
         #[cfg(not(feature = "stateless"))]
         tree,
     };
 
     CResult {
-        ok: Some(Box_::new(rln)),
+        ok: Some(Box_::new(FFI_RLN(rln))),
         err: None,
     }
 }
@@ -94,16 +86,13 @@ pub fn ffi_rln_new(
 #[cfg(feature = "stateless")]
 #[ffi_export]
 pub fn ffi_rln_new() -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
-    let proving_key = zkey_from_folder().to_owned();
+    let zkey = zkey_from_folder().to_owned();
     let graph_data = graph_from_folder().to_owned();
 
-    let rln = FFI_RLN {
-        proving_key: proving_key.to_owned(),
-        graph_data: graph_data.to_vec(),
-    };
+    let rln = RLN { zkey, graph_data };
 
     CResult {
-        ok: Some(Box_::new(rln)),
+        ok: Some(Box_::new(FFI_RLN(rln))),
         err: None,
     }
 }
@@ -135,7 +124,7 @@ pub fn ffi_rln_new_with_params(
         _ => <PoseidonTree as ZerokitMerkleTree>::Config::default(),
     };
 
-    let proving_key = match zkey_from_raw(zkey_buffer) {
+    let zkey = match zkey_from_raw(zkey_buffer) {
         Ok(pk) => pk,
         Err(err) => {
             return CResult {
@@ -144,6 +133,7 @@ pub fn ffi_rln_new_with_params(
             };
         }
     };
+    let graph_data = graph_data.to_vec();
 
     // We compute a default empty tree
     let tree = match PoseidonTree::new(
@@ -160,15 +150,15 @@ pub fn ffi_rln_new_with_params(
         }
     };
 
-    let rln = FFI_RLN {
-        proving_key,
-        graph_data: graph_data.to_vec(),
+    let rln = RLN {
+        zkey,
+        graph_data,
         #[cfg(not(feature = "stateless"))]
         tree,
     };
 
     CResult {
-        ok: Some(Box_::new(rln)),
+        ok: Some(Box_::new(FFI_RLN(rln))),
         err: None,
     }
 }
@@ -179,7 +169,7 @@ pub fn ffi_new_with_params(
     zkey_buffer: &repr_c::Vec<u8>,
     graph_data: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
-    let proving_key = match zkey_from_raw(zkey_buffer) {
+    let zkey = match zkey_from_raw(zkey_buffer) {
         Ok(pk) => pk,
         Err(err) => {
             return CResult {
@@ -188,14 +178,12 @@ pub fn ffi_new_with_params(
             };
         }
     };
+    let graph_data = graph_data.to_vec();
 
-    let rln = FFI_RLN {
-        proving_key,
-        graph_data: graph_data.to_vec(),
-    };
+    let rln = RLN { zkey, graph_data };
 
     CResult {
-        ok: Some(Box_::new(rln)),
+        ok: Some(Box_::new(FFI_RLN(rln))),
         err: None,
     }
 }
@@ -210,8 +198,8 @@ pub fn ffi_rln_free(rln: repr_c::Box<FFI_RLN>) {
 #[derive_ReprC]
 #[repr(opaque)]
 pub struct FFI_RLNProof {
-    pub(crate) proof: ArkProof<Curve>,
-    pub(crate) proof_values: RLNProofValues,
+    pub proof: Proof,
+    pub proof_values: RLNProofValues,
 }
 
 #[ffi_export]
@@ -232,7 +220,7 @@ pub fn ffi_generate_rln_proof(
     external_nullifier: &CFr,
     leaf_index: usize,
 ) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
-    let proof = match rln.tree.proof(leaf_index) {
+    let proof = match rln.0.tree.proof(leaf_index) {
         Ok(proof) => proof,
         Err(err) => {
             return CResult {
@@ -274,7 +262,7 @@ pub fn ffi_generate_rln_proof(
         }
     };
 
-    let proof = match generate_proof(&rln.proving_key, &rln_witness, &rln.graph_data) {
+    let proof = match generate_proof(&rln.0.zkey, &rln_witness, &rln.0.graph_data) {
         Ok(proof) => proof,
         Err(err) => {
             return CResult {
@@ -336,7 +324,7 @@ pub fn ffi_generate_rln_proof_stateless(
         }
     };
 
-    let proof = match generate_proof(&rln.proving_key, &rln_witness, &rln.graph_data) {
+    let proof = match generate_proof(&rln.0.zkey, &rln_witness, &rln.0.graph_data) {
         Ok(proof) => proof,
         Err(err) => {
             return CResult {
@@ -365,7 +353,7 @@ pub fn ffi_verify_rln_proof(
     x: &CFr,
 ) -> CBoolResult {
     // Verify the root
-    if rln.tree.root() != proof.proof_values.root {
+    if rln.0.tree.root() != proof.proof_values.root {
         return CBoolResult {
             ok: false,
             err: Some("Invalid root".to_string().into()),
@@ -381,7 +369,7 @@ pub fn ffi_verify_rln_proof(
     }
 
     // Verify the proof
-    match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
+    match verify_proof(&rln.0.zkey.0.vk, &proof.proof, &proof.proof_values) {
         Ok(proof_verified) => {
             if !proof_verified {
                 return CBoolResult {
@@ -429,7 +417,7 @@ pub fn ffi_verify_with_roots(
     }
 
     // Verify the proof
-    match verify_proof(&rln.proving_key.0.vk, &proof.proof, &proof.proof_values) {
+    match verify_proof(&rln.0.zkey.0.vk, &proof.proof, &proof.proof_values) {
         Ok(proof_verified) => {
             if !proof_verified {
                 return CBoolResult {

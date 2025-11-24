@@ -6,7 +6,7 @@ use crate::{
     protocol::{extended_keygen, extended_seeded_keygen, keygen, seeded_keygen},
     utils::{bytes_be_to_fr, bytes_le_to_fr, fr_to_bytes_be, fr_to_bytes_le},
 };
-use safer_ffi::prelude::ReprC;
+use safer_ffi::{boxed::Box_, prelude::ReprC};
 use safer_ffi::{derive_ReprC, ffi_export, prelude::repr_c};
 use std::ops::Deref;
 
@@ -50,7 +50,7 @@ impl From<Fr> for CFr {
 
 impl From<CFr> for repr_c::Box<CFr> {
     fn from(cfr: CFr) -> Self {
-        cfr.into()
+        Box_::new(cfr)
     }
 }
 

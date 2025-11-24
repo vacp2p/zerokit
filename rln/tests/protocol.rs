@@ -137,7 +137,7 @@ mod test {
     fn test_witness_from_json() {
         // We generate all relevant keys
         let proving_key = zkey_from_folder();
-        let verification_key = &proving_key.0.vk;
+        let verifying_key = &proving_key.0.vk;
         let graph_data = graph_from_folder();
         // We compute witness from the json input
         let rln_witness = get_test_witness();
@@ -150,7 +150,7 @@ mod test {
         let proof_values = proof_values_from_witness(&rln_witness_deser).unwrap();
 
         // Let's verify the proof
-        let verified = verify_proof(verification_key, &proof, &proof_values);
+        let verified = verify_proof(verifying_key, &proof, &proof_values);
 
         assert!(verified.unwrap());
     }
@@ -165,7 +165,7 @@ mod test {
 
         // We generate all relevant keys
         let proving_key = zkey_from_folder();
-        let verification_key = &proving_key.0.vk;
+        let verifying_key = &proving_key.0.vk;
         let graph_data = graph_from_folder();
 
         // Let's generate a zkSNARK proof
@@ -174,7 +174,7 @@ mod test {
         let proof_values = proof_values_from_witness(&rln_witness_deser).unwrap();
 
         // Let's verify the proof
-        let success = verify_proof(verification_key, &proof, &proof_values).unwrap();
+        let success = verify_proof(verifying_key, &proof, &proof_values).unwrap();
 
         assert!(success);
     }

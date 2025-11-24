@@ -7,7 +7,9 @@ use {
     utils::{ZerokitMerkleProof, ZerokitMerkleTree},
 };
 
-use crate::circuit::{iden3calc::calc_witness, qap::CircomReduction, Curve, Fr};
+use crate::circuit::{
+    iden3calc::calc_witness, qap::CircomReduction, Curve, Fr, Proof, VerifyingKey, Zkey,
+};
 use crate::error::{ComputeIdSecretError, ProofError, ProtocolError};
 use crate::hashers::poseidon_hash;
 use crate::utils::{
@@ -16,8 +18,7 @@ use crate::utils::{
     FrOrSecret, IdSecret,
 };
 use ark_ff::AdditiveGroup;
-use ark_groth16::{prepare_verifying_key, Groth16, Proof as ArkProof, ProvingKey, VerifyingKey};
-use ark_relations::r1cs::ConstraintMatrices;
+use ark_groth16::{prepare_verifying_key, Groth16};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
@@ -28,6 +29,14 @@ use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use tiny_keccak::{Hasher as _, Keccak};
 use zeroize::Zeroize;
+
+pub struct RLN {
+    pub zkey: Zkey,
+    #[cfg(not(target_arch = "wasm32"))]
+    pub graph_data: Vec<u8>,
+    #[cfg(not(feature = "stateless"))]
+    pub tree: PoseidonTree,
+}
 
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
@@ -591,8 +600,8 @@ fn calculate_witness_element<E: ark_ec::pairing::Pairing>(
 
 pub fn generate_proof_with_witness(
     calculated_witness: Vec<BigInt>,
-    proving_key: &(ProvingKey<Curve>, ConstraintMatrices<Fr>),
-) -> Result<ArkProof<Curve>, ProofError> {
+    zkey: &Zkey,
+) -> Result<Proof, ProofError> {
     // If in debug mode, we measure and later print time take to compute witness
     #[cfg(test)]
     let now = Instant::now();
@@ -612,12 +621,12 @@ pub fn generate_proof_with_witness(
     let now = Instant::now();
 
     let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
-        &proving_key.0,
+        &zkey.0,
         r,
         s,
-        &proving_key.1,
-        proving_key.1.num_instance_variables,
-        proving_key.1.num_constraints,
+        &zkey.1,
+        zkey.1.num_instance_variables,
+        zkey.1.num_constraints,
         full_assignment.as_slice(),
     )?;
 
@@ -678,10 +687,10 @@ pub fn inputs_for_witness_calculation(
 ///
 /// Returns a [`ProofError`] if proving fails.
 pub fn generate_proof(
-    proving_key: &(ProvingKey<Curve>, ConstraintMatrices<Fr>),
+    zkey: &Zkey,
     rln_witness: &RLNWitnessInput,
     graph_data: &[u8],
-) -> Result<ArkProof<Curve>, ProofError> {
+) -> Result<Proof, ProofError> {
     let inputs = inputs_for_witness_calculation(rln_witness)?
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));
@@ -703,12 +712,12 @@ pub fn generate_proof(
     #[cfg(test)]
     let now = Instant::now();
     let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
-        &proving_key.0,
+        &zkey.0,
         r,
         s,
-        &proving_key.1,
-        proving_key.1.num_instance_variables,
-        proving_key.1.num_constraints,
+        &zkey.1,
+        zkey.1.num_instance_variables,
+        zkey.1.num_constraints,
         full_assignment.as_slice(),
     )?;
 
@@ -725,8 +734,8 @@ pub fn generate_proof(
 /// Returns a [`ProofError`] if verifying fails. Verification failure does not
 /// necessarily mean the proof is incorrect.
 pub fn verify_proof(
-    verifying_key: &VerifyingKey<Curve>,
-    proof: &ArkProof<Curve>,
+    verifying_key: &VerifyingKey,
+    proof: &Proof,
     proof_values: &RLNProofValues,
 ) -> Result<bool, ProofError> {
     // We re-arrange proof-values according to the circuit specification
@@ -740,7 +749,6 @@ pub fn verify_proof(
 
     // Check that the proof is valid
     let pvk = prepare_verifying_key(verifying_key);
-    //let pr: ArkProof<Curve> = (*proof).into();
 
     // If in debug mode, we measure and later print time take to verify proof
     #[cfg(test)]

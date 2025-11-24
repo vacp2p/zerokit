@@ -2,15 +2,13 @@
 #![cfg(not(feature = "utils"))]
 
 use crate::wasm_utils::{VecWasmFr, WasmFr};
-use ark_groth16::{Proof as ArkProof, ProvingKey};
-use ark_relations::r1cs::ConstraintMatrices;
 use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
 use num_bigint::BigInt;
 use rln::{
-    circuit::{zkey_from_raw, Curve, Fr},
+    circuit::{zkey_from_raw, Fr, Proof},
     protocol::{
         compute_id_secret, generate_proof_with_witness, proof_values_from_witness,
-        rln_witness_to_bigint_json, verify_proof, RLNProofValues, RLNWitnessInput,
+        rln_witness_to_bigint_json, verify_proof, RLNProofValues, RLNWitnessInput, RLN,
     },
     utils::IdSecret,
 };
@@ -18,18 +16,16 @@ use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub struct WasmRLN {
-    proving_key: (ProvingKey<Curve>, ConstraintMatrices<Fr>),
-}
+pub struct WasmRLN(RLN);
 
 #[wasm_bindgen]
 impl WasmRLN {
     #[wasm_bindgen(constructor)]
-    pub fn new(zkey: &Uint8Array) -> Result<WasmRLN, String> {
-        let zkey_vec = zkey.to_vec();
-        let proving_key = zkey_from_raw(&zkey_vec).map_err(|err| err.to_string())?;
+    pub fn new(zkey_buffer: &Uint8Array) -> Result<WasmRLN, String> {
+        let zkey = zkey_from_raw(&zkey_buffer.to_vec()).map_err(|err| err.to_string())?;
+        let rln = RLN { zkey };
 
-        Ok(WasmRLN { proving_key })
+        Ok(WasmRLN(rln))
     }
 
     #[wasm_bindgen(js_name = generateProofWithWitness)]
@@ -49,7 +45,7 @@ impl WasmRLN {
             })
             .collect();
 
-        let proof = generate_proof_with_witness(calculated_witness_bigint, &self.proving_key)
+        let proof = generate_proof_with_witness(calculated_witness_bigint, &self.0.zkey)
             .map_err(|err| err.to_string())?;
 
         Ok(WasmRLNProof {
@@ -65,9 +61,8 @@ impl WasmRLN {
         roots: &VecWasmFr,
         x: &WasmFr,
     ) -> Result<bool, String> {
-        let proof_verified =
-            verify_proof(&self.proving_key.0.vk, &proof.proof, &proof.proof_values)
-                .map_err(|err| err.to_string())?;
+        let proof_verified = verify_proof(&self.0.zkey.0.vk, &proof.proof, &proof.proof_values)
+            .map_err(|err| err.to_string())?;
 
         if !proof_verified {
             return Ok(false);
@@ -89,7 +84,7 @@ impl WasmRLN {
 
 #[wasm_bindgen]
 pub struct WasmRLNProof {
-    proof: ArkProof<Curve>,
+    proof: Proof,
     proof_values: RLNProofValues,
 }
 
