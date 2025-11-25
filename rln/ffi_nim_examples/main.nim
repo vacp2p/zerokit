@@ -522,15 +522,54 @@ when isMainModule:
   var proof = proofRes.ok
   echo "Proof generated successfully"
 
+  echo "\nGetting proof values"
+  var proofValues = ffi_rln_proof_get_values(addr proof)
+
+  block:
+    let y = ffi_rln_proof_values_get_y(addr proofValues)
+    let debug = cfr_debug(y)
+    echo "  - y = ", asString(debug)
+    c_string_free(debug)
+    cfr_free(y)
+
+  block:
+    let nullifier = ffi_rln_proof_values_get_nullifier(addr proofValues)
+    let debug = cfr_debug(nullifier)
+    echo "  - nullifier = ", asString(debug)
+    c_string_free(debug)
+    cfr_free(nullifier)
+
+  block:
+    let root = ffi_rln_proof_values_get_root(addr proofValues)
+    let debug = cfr_debug(root)
+    echo "  - root = ", asString(debug)
+    c_string_free(debug)
+    cfr_free(root)
+
+  block:
+    let xVal = ffi_rln_proof_values_get_x(addr proofValues)
+    let debug = cfr_debug(xVal)
+    echo "  - x = ", asString(debug)
+    c_string_free(debug)
+    cfr_free(xVal)
+
+  block:
+    let extNullifier = ffi_rln_proof_values_get_external_nullifier(
+        addr proofValues)
+    let debug = cfr_debug(extNullifier)
+    echo "  - external_nullifier = ", asString(debug)
+    c_string_free(debug)
+    cfr_free(extNullifier)
+
   echo "\nRLNProof serialization: RLNProof <-> bytes"
-  var serProof = ffi_rln_proof_to_bytes_le(addr proof)
+  var serProof = ffi_rln_proof_to_bytes_be(addr proof)
 
   block:
     let debug = vec_u8_debug(addr serProof)
     echo "  - serialized proof = ", asString(debug)
     c_string_free(debug)
 
-  let deserProofResult = ffi_bytes_le_to_rln_proof(addr serProof)
+  let deserProofResult = ffi_bytes_be_to_rln_proof(addr serProof)
   if deserProofResult.ok.isNil:
     stderr.writeLine "Proof deserialization error: ", asString(
         deserProofResult.err)
@@ -541,15 +580,14 @@ when isMainModule:
   echo "  - proof deserialized successfully"
 
   echo "\nRLNProofValues serialization: RLNProofValues <-> bytes"
-  var proofValues = ffi_rln_proof_get_values(addr proof)
-  var serProofValues = ffi_rln_proof_values_to_bytes_le(addr proofValues)
+  var serProofValues = ffi_rln_proof_values_to_bytes_be(addr proofValues)
 
   block:
     let debug = vec_u8_debug(addr serProofValues)
     echo "  - serialized proof_values = ", asString(debug)
     c_string_free(debug)
 
-  var deserProofValues = ffi_bytes_le_to_rln_proof_values(addr serProofValues)
+  var deserProofValues = ffi_bytes_be_to_rln_proof_values(addr serProofValues)
   echo "  - proof_values deserialized successfully"
 
   block:

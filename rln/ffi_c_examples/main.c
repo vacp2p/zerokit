@@ -54,13 +54,13 @@ int main(int argc, char const *const argv[])
     c_string_free(debug);
 
     printf("\nCFr serialization: CFr <-> bytes\n");
-    Vec_uint8_t ser_rate_commitment = cfr_to_bytes_be(rate_commitment);
+    Vec_uint8_t ser_rate_commitment = cfr_to_bytes_le(rate_commitment);
 
     debug = vec_u8_debug(&ser_rate_commitment);
     printf("  - serialized rate_commitment = %s\n", debug.ptr);
     c_string_free(debug);
 
-    CFr_t *deser_rate_commitment = bytes_be_to_cfr(&ser_rate_commitment);
+    CFr_t *deser_rate_commitment = bytes_le_to_cfr(&ser_rate_commitment);
 
     debug = cfr_debug(deser_rate_commitment);
     printf("  - deserialized rate_commitment = %s\n", debug.ptr);
@@ -70,13 +70,13 @@ int main(int argc, char const *const argv[])
     cfr_free(deser_rate_commitment);
 
     printf("\nVec<CFr> serialization: Vec<CFr> <-> bytes\n");
-    Vec_uint8_t ser_keys = vec_cfr_to_bytes_be(&keys);
+    Vec_uint8_t ser_keys = vec_cfr_to_bytes_le(&keys);
 
     debug = vec_u8_debug(&ser_keys);
     printf("  - serialized keys = %s\n", debug.ptr);
     c_string_free(debug);
 
-    CResult_Vec_CFr_Vec_uint8_t deser_keys_result = bytes_be_to_vec_cfr(&ser_keys);
+    CResult_Vec_CFr_Vec_uint8_t deser_keys_result = bytes_le_to_vec_cfr(&ser_keys);
     if (deser_keys_result.err.ptr)
     {
         fprintf(stderr, "Keys deserialization error: %s\n", deser_keys_result.err.ptr);
@@ -98,30 +98,30 @@ int main(int argc, char const *const argv[])
 #define CFR_SIZE 32
 
     printf("\nBuilding Merkle path for stateless mode\n");
-    CFr_t *default_beaf = cfr_zero();
+    CFr_t *default_leaf = cfr_zero();
 
     CFr_t *default_hashes[TREE_DEPTH - 1];
-    default_hashes[0] = ffi_poseidon_hash_pair(default_beaf, default_beaf);
+    default_hashes[0] = ffi_poseidon_hash_pair(default_leaf, default_leaf);
     for (size_t i = 1; i < TREE_DEPTH - 1; i++)
     {
         default_hashes[i] = ffi_poseidon_hash_pair(default_hashes[i - 1], default_hashes[i - 1]);
     }
 
     Vec_CFr_t path_elements = vec_cfr_new(TREE_DEPTH);
-    vec_cfr_push(&path_elements, default_beaf);
+    vec_cfr_push(&path_elements, default_leaf);
     for (size_t i = 0; i < TREE_DEPTH - 1; i++)
     {
         vec_cfr_push(&path_elements, default_hashes[i]);
     }
 
     printf("\nVec<CFr> serialization: Vec<CFr> <-> bytes\n");
-    Vec_uint8_t ser_path_elements = vec_cfr_to_bytes_be(&path_elements);
+    Vec_uint8_t ser_path_elements = vec_cfr_to_bytes_le(&path_elements);
 
     debug = vec_u8_debug(&ser_path_elements);
     printf("  - serialized path_elements = %s\n", debug.ptr);
     c_string_free(debug);
 
-    CResult_Vec_CFr_Vec_uint8_t deser_path_elements_result = bytes_be_to_vec_cfr(&ser_path_elements);
+    CResult_Vec_CFr_Vec_uint8_t deser_path_elements_result = bytes_le_to_vec_cfr(&ser_path_elements);
     if (deser_path_elements_result.err.ptr)
     {
         fprintf(stderr, "Path elements deserialization error: %s\n", deser_path_elements_result.err.ptr);
@@ -145,13 +145,13 @@ int main(int argc, char const *const argv[])
         .cap = TREE_DEPTH};
 
     printf("\nVec<uint8> serialization: Vec<uint8> <-> bytes\n");
-    Vec_uint8_t ser_path_index = vec_u8_to_bytes_be(&identity_path_index);
+    Vec_uint8_t ser_path_index = vec_u8_to_bytes_le(&identity_path_index);
 
     debug = vec_u8_debug(&ser_path_index);
     printf("  - serialized path_index = %s\n", debug.ptr);
     c_string_free(debug);
 
-    CResult_Vec_uint8_Vec_uint8_t deser_path_index_result = bytes_be_to_vec_u8(&ser_path_index);
+    CResult_Vec_uint8_Vec_uint8_t deser_path_index_result = bytes_le_to_vec_u8(&ser_path_index);
     if (deser_path_index_result.err.ptr)
     {
         fprintf(stderr, "Path index deserialization error: %s\n", deser_path_index_result.err.ptr);
@@ -170,7 +170,7 @@ int main(int argc, char const *const argv[])
 
     printf("\nComputing Merkle root for stateless mode\n");
     printf("  - computing root for index 0 with rate_commitment\n");
-    CFr_t *computed_root = ffi_poseidon_hash_pair(rate_commitment, default_beaf);
+    CFr_t *computed_root = ffi_poseidon_hash_pair(rate_commitment, default_leaf);
     for (size_t i = 1; i < TREE_DEPTH; i++)
     {
         CFr_t *next_root = ffi_poseidon_hash_pair(computed_root, default_hashes[i - 1]);
@@ -209,7 +209,7 @@ int main(int argc, char const *const argv[])
     printf("\nHashing signal\n");
     uint8_t signal[32] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     Vec_uint8_t signal_vec = {signal, 32, 32};
-    CFr_t *x = ffi_hash_to_field_be(&signal_vec);
+    CFr_t *x = ffi_hash_to_field_le(&signal_vec);
 
     debug = cfr_debug(x);
     printf("  - x = %s\n", debug.ptr);
@@ -218,7 +218,7 @@ int main(int argc, char const *const argv[])
     printf("\nHashing epoch\n");
     const char *epoch_str = "test-epoch";
     Vec_uint8_t epoch_vec = {(uint8_t *)epoch_str, strlen(epoch_str), strlen(epoch_str)};
-    CFr_t *epoch = ffi_hash_to_field_be(&epoch_vec);
+    CFr_t *epoch = ffi_hash_to_field_le(&epoch_vec);
 
     debug = cfr_debug(epoch);
     printf("  - epoch = %s\n", debug.ptr);
@@ -227,7 +227,7 @@ int main(int argc, char const *const argv[])
     printf("\nHashing RLN identifier\n");
     const char *rln_id_str = "test-rln-identifier";
     Vec_uint8_t rln_id_vec = {(uint8_t *)rln_id_str, strlen(rln_id_str), strlen(rln_id_str)};
-    CFr_t *rln_identifier = ffi_hash_to_field_be(&rln_id_vec);
+    CFr_t *rln_identifier = ffi_hash_to_field_le(&rln_id_vec);
 
     debug = cfr_debug(rln_identifier);
     printf("  - rln_identifier = %s\n", debug.ptr);
@@ -279,14 +279,47 @@ int main(int argc, char const *const argv[])
     FFI_RLNProof_t *rln_proof = proof_gen_result.ok;
     printf("Proof generated successfully\n");
 
+    printf("\nGetting proof values\n");
+    FFI_RLNProofValues_t *proof_values = ffi_rln_proof_get_values(&rln_proof);
+
+    CFr_t *y = ffi_rln_proof_values_get_y(&proof_values);
+    debug = cfr_debug(y);
+    printf("  - y = %s\n", debug.ptr);
+    c_string_free(debug);
+    cfr_free(y);
+
+    CFr_t *nullifier = ffi_rln_proof_values_get_nullifier(&proof_values);
+    debug = cfr_debug(nullifier);
+    printf("  - nullifier = %s\n", debug.ptr);
+    c_string_free(debug);
+    cfr_free(nullifier);
+
+    CFr_t *root = ffi_rln_proof_values_get_root(&proof_values);
+    debug = cfr_debug(root);
+    printf("  - root = %s\n", debug.ptr);
+    c_string_free(debug);
+    cfr_free(root);
+
+    CFr_t *x_val = ffi_rln_proof_values_get_x(&proof_values);
+    debug = cfr_debug(x_val);
+    printf("  - x = %s\n", debug.ptr);
+    c_string_free(debug);
+    cfr_free(x_val);
+
+    CFr_t *ext_nullifier = ffi_rln_proof_values_get_external_nullifier(&proof_values);
+    debug = cfr_debug(ext_nullifier);
+    printf("  - external_nullifier = %s\n", debug.ptr);
+    c_string_free(debug);
+    cfr_free(ext_nullifier);
+
     printf("\nRLNProof serialization: RLNProof <-> bytes\n");
-    Vec_uint8_t ser_proof = ffi_rln_proof_to_bytes_be(&rln_proof);
+    Vec_uint8_t ser_proof = ffi_rln_proof_to_bytes_le(&rln_proof);
 
     debug = vec_u8_debug(&ser_proof);
     printf("  - serialized proof = %s\n", debug.ptr);
     c_string_free(debug);
 
-    CResult_FFI_RLNProof_ptr_Vec_uint8_t deser_proof_result = ffi_bytes_be_to_rln_proof(&ser_proof);
+    CResult_FFI_RLNProof_ptr_Vec_uint8_t deser_proof_result = ffi_bytes_le_to_rln_proof(&ser_proof);
     if (!deser_proof_result.ok)
     {
         fprintf(stderr, "Proof deserialization error: %s\n", deser_proof_result.err.ptr);
@@ -298,14 +331,13 @@ int main(int argc, char const *const argv[])
     printf("  - proof deserialized successfully\n");
 
     printf("\nRLNProofValues serialization: RLNProofValues <-> bytes\n");
-    FFI_RLNProofValues_t *proof_values = ffi_rln_proof_get_values(&rln_proof);
-    Vec_uint8_t ser_proof_values = ffi_rln_proof_values_to_bytes_be(&proof_values);
+    Vec_uint8_t ser_proof_values = ffi_rln_proof_values_to_bytes_le(&proof_values);
 
     debug = vec_u8_debug(&ser_proof_values);
     printf("  - serialized proof_values = %s\n", debug.ptr);
     c_string_free(debug);
 
-    FFI_RLNProofValues_t *deser_proof_values = ffi_bytes_be_to_rln_proof_values(&ser_proof_values);
+    FFI_RLNProofValues_t *deser_proof_values = ffi_bytes_le_to_rln_proof_values(&ser_proof_values);
     printf("  - proof_values deserialized successfully\n");
 
     CFr_t *deser_external_nullifier = ffi_rln_proof_values_get_external_nullifier(&deser_proof_values);
@@ -343,7 +375,7 @@ int main(int argc, char const *const argv[])
     printf("\nHashing second signal\n");
     uint8_t signal2[32] = {11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
     Vec_uint8_t signal2_vec = {signal2, 32, 32};
-    CFr_t *x2 = ffi_hash_to_field_be(&signal2_vec);
+    CFr_t *x2 = ffi_hash_to_field_le(&signal2_vec);
 
     debug = cfr_debug(x2);
     printf("  - x2 = %s\n", debug.ptr);
@@ -443,7 +475,7 @@ int main(int argc, char const *const argv[])
     {
         cfr_free(default_hashes[i]);
     }
-    cfr_free(default_beaf);
+    cfr_free(default_leaf);
     cfr_free(computed_root);
 #else
     ffi_merkle_proof_free(merkle_proof);
