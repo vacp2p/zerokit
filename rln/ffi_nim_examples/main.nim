@@ -47,6 +47,8 @@ type
     ok*: ptr FFI_RLNProof
     err*: Vec_uint8
 
+  FFI_RLNProofValues* = object
+
   CResultCFrPtrVecU8* = object
     ok*: ptr CFr
     err*: Vec_uint8
@@ -203,8 +205,43 @@ when not defined(ffiStateless):
       cdecl, dynlib: RLN_LIB.}
 
 # Secret recovery
-proc ffi_recover_id_secret*(proof1: ptr ptr FFI_RLNProof,
-    proof2: ptr ptr FFI_RLNProof): CResultCFrPtrVecU8 {.importc: "ffi_recover_id_secret",
+# Identity secret recovery
+proc ffi_recover_id_secret*(proof_values_1: ptr ptr FFI_RLNProofValues,
+    proof_values_2: ptr ptr FFI_RLNProofValues): CResultCFrPtrVecU8 {.importc: "ffi_recover_id_secret",
+    cdecl, dynlib: RLN_LIB.}
+
+# RLNProof serialization
+proc ffi_rln_proof_to_bytes_le*(proof: ptr ptr FFI_RLNProof): Vec_uint8 {.importc: "ffi_rln_proof_to_bytes_le",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_proof_to_bytes_be*(proof: ptr ptr FFI_RLNProof): Vec_uint8 {.importc: "ffi_rln_proof_to_bytes_be",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_bytes_le_to_rln_proof*(bytes: ptr Vec_uint8): CResultProofPtrVecU8 {.importc: "ffi_bytes_le_to_rln_proof",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_bytes_be_to_rln_proof*(bytes: ptr Vec_uint8): CResultProofPtrVecU8 {.importc: "ffi_bytes_be_to_rln_proof",
+    cdecl, dynlib: RLN_LIB.}
+
+# RLNProofValues functions
+proc ffi_rln_proof_get_values*(proof: ptr ptr FFI_RLNProof): ptr FFI_RLNProofValues {.importc: "ffi_rln_proof_get_values",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_proof_values_get_y*(pv: ptr ptr FFI_RLNProofValues): ptr CFr {.importc: "ffi_rln_proof_values_get_y",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_proof_values_get_nullifier*(pv: ptr ptr FFI_RLNProofValues): ptr CFr {.importc: "ffi_rln_proof_values_get_nullifier",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_proof_values_get_root*(pv: ptr ptr FFI_RLNProofValues): ptr CFr {.importc: "ffi_rln_proof_values_get_root",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_proof_values_get_x*(pv: ptr ptr FFI_RLNProofValues): ptr CFr {.importc: "ffi_rln_proof_values_get_x",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_proof_values_get_external_nullifier*(pv: ptr ptr FFI_RLNProofValues): ptr CFr {.importc: "ffi_rln_proof_values_get_external_nullifier",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_proof_values_to_bytes_le*(pv: ptr ptr FFI_RLNProofValues): Vec_uint8 {.importc: "ffi_rln_proof_values_to_bytes_le",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_proof_values_to_bytes_be*(pv: ptr ptr FFI_RLNProofValues): Vec_uint8 {.importc: "ffi_rln_proof_values_to_bytes_be",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_bytes_le_to_rln_proof_values*(bytes: ptr Vec_uint8): ptr FFI_RLNProofValues {.importc: "ffi_bytes_le_to_rln_proof_values",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_bytes_be_to_rln_proof_values*(bytes: ptr Vec_uint8): ptr FFI_RLNProofValues {.importc: "ffi_bytes_be_to_rln_proof_values",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_proof_values_free*(pv: ptr FFI_RLNProofValues) {.importc: "ffi_rln_proof_values_free",
     cdecl, dynlib: RLN_LIB.}
 
 # Helpers functions
@@ -485,6 +522,49 @@ when isMainModule:
   var proof = proofRes.ok
   echo "Proof generated successfully"
 
+  echo "\nRLNProof serialization: RLNProof <-> bytes"
+  var serProof = ffi_rln_proof_to_bytes_le(addr proof)
+
+  block:
+    let debug = vec_u8_debug(addr serProof)
+    echo "  - serialized proof = ", asString(debug)
+    c_string_free(debug)
+
+  let deserProofResult = ffi_bytes_le_to_rln_proof(addr serProof)
+  if deserProofResult.ok.isNil:
+    stderr.writeLine "Proof deserialization error: ", asString(
+        deserProofResult.err)
+    c_string_free(deserProofResult.err)
+    quit 1
+
+  var deserProof = deserProofResult.ok
+  echo "  - proof deserialized successfully"
+
+  echo "\nRLNProofValues serialization: RLNProofValues <-> bytes"
+  var proofValues = ffi_rln_proof_get_values(addr proof)
+  var serProofValues = ffi_rln_proof_values_to_bytes_le(addr proofValues)
+
+  block:
+    let debug = vec_u8_debug(addr serProofValues)
+    echo "  - serialized proof_values = ", asString(debug)
+    c_string_free(debug)
+
+  var deserProofValues = ffi_bytes_le_to_rln_proof_values(addr serProofValues)
+  echo "  - proof_values deserialized successfully"
+
+  block:
+    let deserExternalNullifier = ffi_rln_proof_values_get_external_nullifier(
+        addr deserProofValues)
+    let debug = cfr_debug(deserExternalNullifier)
+    echo "  - deserialized external_nullifier = ", asString(debug)
+    c_string_free(debug)
+    cfr_free(deserExternalNullifier)
+
+  ffi_rln_proof_values_free(deserProofValues)
+  vec_u8_free(serProofValues)
+  ffi_rln_proof_free(deserProof)
+  vec_u8_free(serProof)
+
   echo "\nVerifying Proof"
   when defined(ffiStateless):
     var roots = vec_cfr_from_cfr(computedRoot)
@@ -498,6 +578,8 @@ when isMainModule:
     quit 1
 
   echo "Proof verified successfully"
+
+  ffi_rln_proof_free(proof)
 
   echo "\nSimulating double-signaling attack (same epoch, different message)"
 
@@ -539,6 +621,8 @@ when isMainModule:
   var proof2 = proofRes2.ok
   echo "Second proof generated successfully"
 
+  var proofValues2 = ffi_rln_proof_get_values(addr proof2)
+
   echo "\nVerifying second proof"
   when defined(ffiStateless):
     let verifyErr2 = ffi_verify_with_roots(addr rln, addr proof2, addr roots, x2)
@@ -554,7 +638,7 @@ when isMainModule:
   echo "Second proof verified successfully"
 
   echo "\nRecovering identity secret"
-  let recoverRes = ffi_recover_id_secret(addr proof, addr proof2)
+  let recoverRes = ffi_recover_id_secret(addr proofValues, addr proofValues2)
   if recoverRes.ok.isNil:
     stderr.writeLine "Identity recovery error: ", asString(recoverRes.err)
     c_string_free(recoverRes.err)
@@ -575,10 +659,11 @@ when isMainModule:
   echo "Slashing successful: Identity is recovered!"
   cfr_free(recoveredSecret)
 
+  ffi_rln_proof_values_free(proofValues2)
+  ffi_rln_proof_values_free(proofValues)
   ffi_rln_proof_free(proof2)
   cfr_free(x2)
   cfr_free(messageId2)
-  ffi_rln_proof_free(proof)
 
   when defined(ffiStateless):
     vec_cfr_free(roots)
