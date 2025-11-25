@@ -124,7 +124,10 @@ mod test {
             _ => unreachable!(),
         };
 
-        let recovered_id_secret_cfr = match ffi_recover_id_secret(&rln_proof1, &rln_proof2) {
+        let recovered_id_secret_cfr = match ffi_recover_id_secret(
+            &ffi_rln_proof_get_values(&rln_proof1),
+            &ffi_rln_proof_get_values(&rln_proof2),
+        ) {
             CResult {
                 ok: Some(secret),
                 err: None,
@@ -187,7 +190,10 @@ mod test {
 
         // We attempt to recover the secret using share1 (coming from identity_secret_hash) and share3 (coming from identity_secret_hash_new)
 
-        let recovered_id_secret_new_cfr = match ffi_recover_id_secret(&rln_proof1, &rln_proof3) {
+        let recovered_id_secret_new_cfr = match ffi_recover_id_secret(
+            &ffi_rln_proof_get_values(&rln_proof1),
+            &ffi_rln_proof_get_values(&rln_proof3),
+        ) {
             CResult {
                 ok: Some(secret),
                 err: None,

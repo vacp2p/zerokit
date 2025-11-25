@@ -2,10 +2,12 @@
 
 use super::ffi_utils::{CBoolResult, CFr, CResult};
 use crate::{
-    circuit::{graph_from_folder, zkey_from_folder, zkey_from_raw, Fr, Proof},
+    circuit::{graph_from_folder, zkey_from_folder, zkey_from_raw, Fr},
     protocol::{
-        compute_id_secret, generate_proof, proof_values_from_witness, verify_proof, RLNProofValues,
-        RLNWitnessInput, RLN,
+        bytes_be_to_rln_proof, bytes_be_to_rln_proof_values, bytes_le_to_rln_proof,
+        bytes_le_to_rln_proof_values, compute_id_secret, generate_proof, proof_values_from_witness,
+        rln_proof_to_bytes_be, rln_proof_to_bytes_le, rln_proof_values_to_bytes_be,
+        rln_proof_values_to_bytes_le, verify_proof, RLNProof, RLNProofValues, RLNWitnessInput, RLN,
     },
     utils::IdSecret,
 };
@@ -197,14 +199,126 @@ pub fn ffi_rln_free(rln: repr_c::Box<FFI_RLN>) {
 
 #[derive_ReprC]
 #[repr(opaque)]
-pub struct FFI_RLNProof {
-    pub proof: Proof,
-    pub proof_values: RLNProofValues,
+pub struct FFI_RLNProof(pub(crate) RLNProof);
+
+#[ffi_export]
+pub fn ffi_rln_proof_get_values(
+    rln_proof: &repr_c::Box<FFI_RLNProof>,
+) -> repr_c::Box<FFI_RLNProofValues> {
+    Box_::new(FFI_RLNProofValues(rln_proof.0.proof_values))
+}
+
+#[ffi_export]
+pub fn ffi_rln_proof_to_bytes_le(rln_proof: &repr_c::Box<FFI_RLNProof>) -> repr_c::Vec<u8> {
+    rln_proof_to_bytes_le(&rln_proof.0).into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_proof_to_bytes_be(rln_proof: &repr_c::Box<FFI_RLNProof>) -> repr_c::Vec<u8> {
+    rln_proof_to_bytes_be(&rln_proof.0).into()
+}
+
+#[ffi_export]
+pub fn ffi_bytes_le_to_rln_proof(
+    bytes: &repr_c::Vec<u8>,
+) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
+    match bytes_le_to_rln_proof(bytes) {
+        Ok((rln_proof, _)) => CResult {
+            ok: Some(Box_::new(FFI_RLNProof(rln_proof))),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_bytes_be_to_rln_proof(
+    bytes: &repr_c::Vec<u8>,
+) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
+    match bytes_be_to_rln_proof(bytes) {
+        Ok((rln_proof, _)) => CResult {
+            ok: Some(Box_::new(FFI_RLNProof(rln_proof))),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 #[ffi_export]
 pub fn ffi_rln_proof_free(rln_proof: repr_c::Box<FFI_RLNProof>) {
     drop(rln_proof);
+}
+
+// RLNProofValues
+
+#[derive_ReprC]
+#[repr(opaque)]
+pub struct FFI_RLNProofValues(pub(crate) RLNProofValues);
+
+#[ffi_export]
+pub fn ffi_rln_proof_values_get_y(pv: &repr_c::Box<FFI_RLNProofValues>) -> repr_c::Box<CFr> {
+    CFr::from(pv.0.y).into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_proof_values_get_nullifier(
+    pv: &repr_c::Box<FFI_RLNProofValues>,
+) -> repr_c::Box<CFr> {
+    CFr::from(pv.0.nullifier).into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_proof_values_get_root(pv: &repr_c::Box<FFI_RLNProofValues>) -> repr_c::Box<CFr> {
+    CFr::from(pv.0.root).into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_proof_values_get_x(pv: &repr_c::Box<FFI_RLNProofValues>) -> repr_c::Box<CFr> {
+    CFr::from(pv.0.x).into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_proof_values_get_external_nullifier(
+    pv: &repr_c::Box<FFI_RLNProofValues>,
+) -> repr_c::Box<CFr> {
+    CFr::from(pv.0.external_nullifier).into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_proof_values_to_bytes_le(pv: &repr_c::Box<FFI_RLNProofValues>) -> repr_c::Vec<u8> {
+    rln_proof_values_to_bytes_le(&pv.0).into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_proof_values_to_bytes_be(pv: &repr_c::Box<FFI_RLNProofValues>) -> repr_c::Vec<u8> {
+    rln_proof_values_to_bytes_be(&pv.0).into()
+}
+
+#[ffi_export]
+pub fn ffi_bytes_le_to_rln_proof_values(
+    bytes: &repr_c::Vec<u8>,
+) -> repr_c::Box<FFI_RLNProofValues> {
+    let (pv, _) = bytes_le_to_rln_proof_values(bytes);
+    Box_::new(FFI_RLNProofValues(pv))
+}
+
+#[ffi_export]
+pub fn ffi_bytes_be_to_rln_proof_values(
+    bytes: &repr_c::Vec<u8>,
+) -> repr_c::Box<FFI_RLNProofValues> {
+    let (pv, _) = bytes_be_to_rln_proof_values(bytes);
+    Box_::new(FFI_RLNProofValues(pv))
+}
+
+#[ffi_export]
+pub fn ffi_rln_proof_values_free(proof_values: repr_c::Box<FFI_RLNProofValues>) {
+    drop(proof_values);
 }
 
 // Proof generation APIs
@@ -220,8 +334,8 @@ pub fn ffi_generate_rln_proof(
     external_nullifier: &CFr,
     leaf_index: usize,
 ) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
-    let proof = match rln.0.tree.proof(leaf_index) {
-        Ok(proof) => proof,
+    let merkle_proof = match rln.0.tree.proof(leaf_index) {
+        Ok(merkle_proof) => merkle_proof,
         Err(err) => {
             return CResult {
                 ok: None,
@@ -230,8 +344,8 @@ pub fn ffi_generate_rln_proof(
         }
     };
 
-    let path_elements: Vec<Fr> = proof.get_path_elements();
-    let identity_path_index: Vec<u8> = proof.get_path_index();
+    let path_elements: Vec<Fr> = merkle_proof.get_path_elements();
+    let identity_path_index: Vec<u8> = merkle_proof.get_path_index();
 
     let mut identity_secret_fr = identity_secret.0;
     let rln_witness = match RLNWitnessInput::new(
@@ -272,11 +386,13 @@ pub fn ffi_generate_rln_proof(
         }
     };
 
+    let rln_proof = RLNProof {
+        proof_values,
+        proof,
+    };
+
     CResult {
-        ok: Some(Box_::new(FFI_RLNProof {
-            proof_values,
-            proof,
-        })),
+        ok: Some(Box_::new(FFI_RLNProof(rln_proof))),
         err: None,
     }
 }
@@ -334,11 +450,13 @@ pub fn ffi_generate_rln_proof_stateless(
         }
     };
 
+    let rln_proof = RLNProof {
+        proof_values,
+        proof,
+    };
+
     CResult {
-        ok: Some(Box_::new(FFI_RLNProof {
-            proof_values,
-            proof,
-        })),
+        ok: Some(Box_::new(FFI_RLNProof(rln_proof))),
         err: None,
     }
 }
@@ -349,11 +467,11 @@ pub fn ffi_generate_rln_proof_stateless(
 #[ffi_export]
 pub fn ffi_verify_rln_proof(
     rln: &repr_c::Box<FFI_RLN>,
-    proof: &repr_c::Box<FFI_RLNProof>,
+    rln_proof: &repr_c::Box<FFI_RLNProof>,
     x: &CFr,
 ) -> CBoolResult {
     // Verify the root
-    if rln.0.tree.root() != proof.proof_values.root {
+    if rln.0.tree.root() != rln_proof.0.proof_values.root {
         return CBoolResult {
             ok: false,
             err: Some("Invalid root".to_string().into()),
@@ -361,7 +479,7 @@ pub fn ffi_verify_rln_proof(
     }
 
     // Verify the signal
-    if *x != proof.proof_values.x {
+    if *x != rln_proof.0.proof_values.x {
         return CBoolResult {
             ok: false,
             err: Some("Invalid signal".to_string().into()),
@@ -369,7 +487,11 @@ pub fn ffi_verify_rln_proof(
     }
 
     // Verify the proof
-    match verify_proof(&rln.0.zkey.0.vk, &proof.proof, &proof.proof_values) {
+    match verify_proof(
+        &rln.0.zkey.0.vk,
+        &rln_proof.0.proof,
+        &rln_proof.0.proof_values,
+    ) {
         Ok(proof_verified) => {
             if !proof_verified {
                 return CBoolResult {
@@ -396,12 +518,16 @@ pub fn ffi_verify_rln_proof(
 #[ffi_export]
 pub fn ffi_verify_with_roots(
     rln: &repr_c::Box<FFI_RLN>,
-    proof: &repr_c::Box<FFI_RLNProof>,
+    rln_proof: &repr_c::Box<FFI_RLNProof>,
     roots: &repr_c::Vec<CFr>,
     x: &CFr,
 ) -> CBoolResult {
     // Verify the root
-    if !roots.is_empty() && !roots.iter().any(|root| root.0 == proof.proof_values.root) {
+    if !roots.is_empty()
+        && !roots
+            .iter()
+            .any(|root| root.0 == rln_proof.0.proof_values.root)
+    {
         return CBoolResult {
             ok: false,
             err: Some("Invalid root".to_string().into()),
@@ -409,7 +535,7 @@ pub fn ffi_verify_with_roots(
     }
 
     // Verify the signal
-    if *x != proof.proof_values.x {
+    if *x != rln_proof.0.proof_values.x {
         return CBoolResult {
             ok: false,
             err: Some("Invalid signal".to_string().into()),
@@ -417,7 +543,11 @@ pub fn ffi_verify_with_roots(
     }
 
     // Verify the proof
-    match verify_proof(&rln.0.zkey.0.vk, &proof.proof, &proof.proof_values) {
+    match verify_proof(
+        &rln.0.zkey.0.vk,
+        &rln_proof.0.proof,
+        &rln_proof.0.proof_values,
+    ) {
         Ok(proof_verified) => {
             if !proof_verified {
                 return CBoolResult {
@@ -445,11 +575,11 @@ pub fn ffi_verify_with_roots(
 
 #[ffi_export]
 pub fn ffi_recover_id_secret(
-    proof_1: &repr_c::Box<FFI_RLNProof>,
-    proof_2: &repr_c::Box<FFI_RLNProof>,
+    proof_values_1: &repr_c::Box<FFI_RLNProofValues>,
+    proof_values_2: &repr_c::Box<FFI_RLNProofValues>,
 ) -> CResult<repr_c::Box<CFr>, repr_c::String> {
-    let external_nullifier_1 = proof_1.proof_values.external_nullifier;
-    let external_nullifier_2 = proof_2.proof_values.external_nullifier;
+    let external_nullifier_1 = proof_values_1.0.external_nullifier;
+    let external_nullifier_2 = proof_values_2.0.external_nullifier;
 
     // We continue only if the proof values are for the same external nullifier
     if external_nullifier_1 != external_nullifier_2 {
@@ -460,8 +590,8 @@ pub fn ffi_recover_id_secret(
     }
 
     // We extract the two shares
-    let share1 = (proof_1.proof_values.x, proof_1.proof_values.y);
-    let share2 = (proof_2.proof_values.x, proof_2.proof_values.y);
+    let share1 = (proof_values_1.0.x, proof_values_1.0.y);
+    let share2 = (proof_values_2.0.x, proof_values_2.0.y);
 
     // We recover the secret
     let recovered_identity_secret_hash = match compute_id_secret(share1, share2) {

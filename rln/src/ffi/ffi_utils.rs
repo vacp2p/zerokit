@@ -253,7 +253,7 @@ pub fn bytes_be_to_vec_u8(bytes: &repr_c::Vec<u8>) -> CResult<repr_c::Vec<u8>, r
 #[ffi_export]
 pub fn vec_u8_debug(v: Option<&repr_c::Vec<u8>>) -> repr_c::String {
     match v {
-        Some(v) => format!("{:?}", v.deref()).into(),
+        Some(v) => format!("{:x?}", v.deref()).into(),
         None => "None".into(),
     }
 }
