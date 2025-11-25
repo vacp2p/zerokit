@@ -7,6 +7,7 @@ use {
     utils::{ZerokitMerkleProof, ZerokitMerkleTree},
 };
 
+use crate::circuit::COMPRESS_PROOF_SIZE;
 use crate::circuit::{
     iden3calc::calc_witness, qap::CircomReduction, Curve, Fr, Proof, VerifyingKey, Zkey,
 };
@@ -14,8 +15,8 @@ use crate::error::{ComputeIdSecretError, ProofError, ProtocolError};
 use crate::hashers::poseidon_hash;
 use crate::utils::{
     bytes_be_to_fr, bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size,
-    fr_to_bytes_le, normalize_usize_le, to_bigint, vec_fr_to_bytes_le, vec_u8_to_bytes_le,
-    FrOrSecret, IdSecret,
+    fr_to_bytes_be, fr_to_bytes_le, normalize_usize_le, to_bigint, vec_fr_to_bytes_le,
+    vec_u8_to_bytes_le, FrOrSecret, IdSecret,
 };
 use ark_ff::AdditiveGroup;
 use ark_groth16::{prepare_verifying_key, Groth16};
@@ -99,7 +100,7 @@ impl RLNWitnessInput {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct RLNProofValues {
     // Public outputs:
     pub y: Fr,
@@ -108,6 +109,12 @@ pub struct RLNProofValues {
     // Public Inputs:
     pub x: Fr,
     pub external_nullifier: Fr,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct RLNProof {
+    pub proof: Proof,
+    pub proof_values: RLNProofValues,
 }
 
 pub fn serialize_field_element(element: Fr) -> Vec<u8> {
@@ -121,32 +128,32 @@ pub fn deserialize_field_element(serialized: Vec<u8>) -> Fr {
 }
 
 pub fn deserialize_identity_pair_le(serialized: Vec<u8>) -> (Fr, Fr) {
-    let (identity_secret_hash, read) = bytes_le_to_fr(&serialized);
-    let (id_commitment, _) = bytes_le_to_fr(&serialized[read..]);
+    let (identity_secret_hash, el_size) = bytes_le_to_fr(&serialized);
+    let (id_commitment, _) = bytes_le_to_fr(&serialized[el_size..]);
 
     (identity_secret_hash, id_commitment)
 }
 
 pub fn deserialize_identity_pair_be(serialized: Vec<u8>) -> (Fr, Fr) {
-    let (identity_secret_hash, read) = bytes_be_to_fr(&serialized);
-    let (id_commitment, _) = bytes_be_to_fr(&serialized[read..]);
+    let (identity_secret_hash, el_size) = bytes_be_to_fr(&serialized);
+    let (id_commitment, _) = bytes_be_to_fr(&serialized[el_size..]);
 
     (identity_secret_hash, id_commitment)
 }
 
 pub fn deserialize_identity_tuple_le(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
-    let mut all_read = 0;
+    let mut read = 0;
 
-    let (identity_trapdoor, read) = bytes_le_to_fr(&serialized[all_read..]);
-    all_read += read;
+    let (identity_trapdoor, el_size) = bytes_le_to_fr(&serialized[read..]);
+    read += el_size;
 
-    let (identity_nullifier, read) = bytes_le_to_fr(&serialized[all_read..]);
-    all_read += read;
+    let (identity_nullifier, el_size) = bytes_le_to_fr(&serialized[read..]);
+    read += el_size;
 
-    let (identity_secret_hash, read) = bytes_le_to_fr(&serialized[all_read..]);
-    all_read += read;
+    let (identity_secret_hash, el_size) = bytes_le_to_fr(&serialized[read..]);
+    read += el_size;
 
-    let (identity_commitment, _) = bytes_le_to_fr(&serialized[all_read..]);
+    let (identity_commitment, _) = bytes_le_to_fr(&serialized[read..]);
 
     (
         identity_trapdoor,
@@ -157,18 +164,18 @@ pub fn deserialize_identity_tuple_le(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
 }
 
 pub fn deserialize_identity_tuple_be(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
-    let mut all_read = 0;
+    let mut read = 0;
 
-    let (identity_trapdoor, read) = bytes_be_to_fr(&serialized[all_read..]);
-    all_read += read;
+    let (identity_trapdoor, el_size) = bytes_be_to_fr(&serialized[read..]);
+    read += el_size;
 
-    let (identity_nullifier, read) = bytes_be_to_fr(&serialized[all_read..]);
-    all_read += read;
+    let (identity_nullifier, el_size) = bytes_be_to_fr(&serialized[read..]);
+    read += el_size;
 
-    let (identity_secret_hash, read) = bytes_be_to_fr(&serialized[all_read..]);
-    all_read += read;
+    let (identity_secret_hash, el_size) = bytes_be_to_fr(&serialized[read..]);
+    read += el_size;
 
-    let (identity_commitment, _) = bytes_be_to_fr(&serialized[all_read..]);
+    let (identity_commitment, _) = bytes_be_to_fr(&serialized[read..]);
 
     (
         identity_trapdoor,
@@ -210,31 +217,31 @@ pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>, Proto
 ///
 /// Returns an error if `message_id` is not within `user_message_limit`.
 pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize), ProtocolError> {
-    let mut all_read: usize = 0;
+    let mut read: usize = 0;
 
-    let (identity_secret, read) = IdSecret::from_bytes_le(&serialized[all_read..]);
-    all_read += read;
+    let (identity_secret, el_size) = IdSecret::from_bytes_le(&serialized[read..]);
+    read += el_size;
 
-    let (user_message_limit, read) = bytes_le_to_fr(&serialized[all_read..]);
-    all_read += read;
+    let (user_message_limit, el_size) = bytes_le_to_fr(&serialized[read..]);
+    read += el_size;
 
-    let (message_id, read) = bytes_le_to_fr(&serialized[all_read..]);
-    all_read += read;
+    let (message_id, el_size) = bytes_le_to_fr(&serialized[read..]);
+    read += el_size;
 
-    let (path_elements, read) = bytes_le_to_vec_fr(&serialized[all_read..])?;
-    all_read += read;
+    let (path_elements, el_size) = bytes_le_to_vec_fr(&serialized[read..])?;
+    read += el_size;
 
-    let (identity_path_index, read) = bytes_le_to_vec_u8(&serialized[all_read..])?;
-    all_read += read;
+    let (identity_path_index, el_size) = bytes_le_to_vec_u8(&serialized[read..])?;
+    read += el_size;
 
-    let (x, read) = bytes_le_to_fr(&serialized[all_read..]);
-    all_read += read;
+    let (x, el_size) = bytes_le_to_fr(&serialized[read..]);
+    read += el_size;
 
-    let (external_nullifier, read) = bytes_le_to_fr(&serialized[all_read..]);
-    all_read += read;
+    let (external_nullifier, el_size) = bytes_le_to_fr(&serialized[read..]);
+    read += el_size;
 
-    if serialized.len() != all_read {
-        return Err(ProtocolError::InvalidReadLen(serialized.len(), all_read));
+    if serialized.len() != read {
+        return Err(ProtocolError::InvalidReadLen(serialized.len(), read));
     }
 
     Ok((
@@ -247,7 +254,7 @@ pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)
             x,
             external_nullifier,
         )?,
-        all_read,
+        read,
     ))
 }
 
@@ -262,37 +269,37 @@ pub fn proof_inputs_to_rln_witness(
 ) -> Result<(RLNWitnessInput, usize), ProtocolError> {
     use crate::hashers::hash_to_field_le;
 
-    let mut all_read: usize = 0;
+    let mut read: usize = 0;
 
-    let (identity_secret, read) = IdSecret::from_bytes_le(&serialized[all_read..]);
-    all_read += read;
+    let (identity_secret, el_size) = IdSecret::from_bytes_le(&serialized[read..]);
+    read += el_size;
 
     let id_index = usize::try_from(u64::from_le_bytes(
-        serialized[all_read..all_read + 8]
+        serialized[read..read + 8]
             .try_into()
             .map_err(ConversionError::FromSlice)?,
     ))
     .map_err(ConversionError::ToUsize)?;
-    all_read += 8;
+    read += 8;
 
-    let (user_message_limit, read) = bytes_le_to_fr(&serialized[all_read..]);
-    all_read += read;
+    let (user_message_limit, el_size) = bytes_le_to_fr(&serialized[read..]);
+    read += el_size;
 
-    let (message_id, read) = bytes_le_to_fr(&serialized[all_read..]);
-    all_read += read;
+    let (message_id, el_size) = bytes_le_to_fr(&serialized[read..]);
+    read += el_size;
 
-    let (external_nullifier, read) = bytes_le_to_fr(&serialized[all_read..]);
-    all_read += read;
+    let (external_nullifier, el_size) = bytes_le_to_fr(&serialized[read..]);
+    read += el_size;
 
     let signal_len = usize::try_from(u64::from_le_bytes(
-        serialized[all_read..all_read + 8]
+        serialized[read..read + 8]
             .try_into()
             .map_err(ConversionError::FromSlice)?,
     ))
     .map_err(ConversionError::ToUsize)?;
-    all_read += 8;
+    read += 8;
 
-    let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
+    let signal: Vec<u8> = serialized[read..read + signal_len].to_vec();
 
     let merkle_proof = tree.proof(id_index).expect("proof should exist");
     let path_elements = merkle_proof.get_path_elements();
@@ -310,7 +317,7 @@ pub fn proof_inputs_to_rln_witness(
             x,
             external_nullifier,
         )?,
-        all_read,
+        read,
     ))
 }
 
@@ -348,40 +355,52 @@ pub fn proof_values_from_witness(
     })
 }
 
-/// input_data is [ root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-pub fn serialize_proof_values(rln_proof_values: &RLNProofValues) -> Vec<u8> {
+pub fn rln_proof_values_to_bytes_le(rln_proof_values: &RLNProofValues) -> Vec<u8> {
     // Calculate capacity for Vec:
     // 5 field elements: root, external_nullifier, x, y, nullifier
-    let mut serialized = Vec::with_capacity(fr_byte_size() * 5);
+    let mut bytes = Vec::with_capacity(fr_byte_size() * 5);
 
-    serialized.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.root));
-    serialized.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.external_nullifier));
-    serialized.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.x));
-    serialized.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.y));
-    serialized.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.nullifier));
+    bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.root));
+    bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.external_nullifier));
+    bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.x));
+    bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.y));
+    bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.nullifier));
 
-    serialized
+    bytes
 }
 
-// Note: don't forget to skip the 128 bytes ZK proof, if serialized contains it.
-// This proc deserialzies only proof _values_, i.e. circuit outputs, not the zk proof.
-pub fn deserialize_proof_values(serialized: &[u8]) -> (RLNProofValues, usize) {
-    let mut all_read: usize = 0;
+pub fn rln_proof_values_to_bytes_be(rln_proof_values: &RLNProofValues) -> Vec<u8> {
+    // Calculate capacity for Vec:
+    // 5 field elements: root, external_nullifier, x, y, nullifier
+    let mut bytes = Vec::with_capacity(fr_byte_size() * 5);
 
-    let (root, read) = bytes_le_to_fr(&serialized[all_read..]);
-    all_read += read;
+    bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.root));
+    bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.external_nullifier));
+    bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.x));
+    bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.y));
+    bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.nullifier));
 
-    let (external_nullifier, read) = bytes_le_to_fr(&serialized[all_read..]);
-    all_read += read;
+    bytes
+}
 
-    let (x, read) = bytes_le_to_fr(&serialized[all_read..]);
-    all_read += read;
+// input_data is [ root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
+pub fn bytes_le_to_rln_proof_values(bytes: &[u8]) -> (RLNProofValues, usize) {
+    let mut read: usize = 0;
 
-    let (y, read) = bytes_le_to_fr(&serialized[all_read..]);
-    all_read += read;
+    let (root, el_size) = bytes_le_to_fr(&bytes[read..]);
+    read += el_size;
 
-    let (nullifier, read) = bytes_le_to_fr(&serialized[all_read..]);
-    all_read += read;
+    let (external_nullifier, el_size) = bytes_le_to_fr(&bytes[read..]);
+    read += el_size;
+
+    let (x, el_size) = bytes_le_to_fr(&bytes[read..]);
+    read += el_size;
+
+    let (y, el_size) = bytes_le_to_fr(&bytes[read..]);
+    read += el_size;
+
+    let (nullifier, el_size) = bytes_le_to_fr(&bytes[read..]);
+    read += el_size;
 
     (
         RLNProofValues {
@@ -391,8 +410,121 @@ pub fn deserialize_proof_values(serialized: &[u8]) -> (RLNProofValues, usize) {
             x,
             external_nullifier,
         },
-        all_read,
+        read,
     )
+}
+
+// input_data is [ root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
+pub fn bytes_be_to_rln_proof_values(bytes: &[u8]) -> (RLNProofValues, usize) {
+    let mut read: usize = 0;
+
+    let (root, el_size) = bytes_be_to_fr(&bytes[read..]);
+    read += el_size;
+
+    let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..]);
+    read += el_size;
+
+    let (x, el_size) = bytes_be_to_fr(&bytes[read..]);
+    read += el_size;
+
+    let (y, el_size) = bytes_be_to_fr(&bytes[read..]);
+    read += el_size;
+
+    let (nullifier, el_size) = bytes_be_to_fr(&bytes[read..]);
+    read += el_size;
+
+    (
+        RLNProofValues {
+            y,
+            nullifier,
+            root,
+            x,
+            external_nullifier,
+        },
+        read,
+    )
+}
+
+pub fn rln_proof_to_bytes_le(rln_proof: &RLNProof) -> Vec<u8> {
+    // Calculate capacity for Vec:
+    // - 128 bytes for compressed Groth16 proof
+    // - 5 field elements for proof values (root, external_nullifier, x, y, nullifier)
+    let mut bytes = Vec::with_capacity(COMPRESS_PROOF_SIZE + fr_byte_size() * 5);
+
+    // Serialize proof (LE format from arkworks)
+    rln_proof
+        .proof
+        .serialize_compressed(&mut bytes)
+        .expect("serialization should not fail");
+
+    // Serialize proof values
+    let proof_values_bytes = rln_proof_values_to_bytes_le(&rln_proof.proof_values);
+    bytes.extend_from_slice(&proof_values_bytes);
+
+    bytes
+}
+
+pub fn rln_proof_to_bytes_be(rln_proof: &RLNProof) -> Vec<u8> {
+    // Calculate capacity for Vec:
+    // - 128 bytes for compressed Groth16 proof
+    // - 5 field elements for proof values (root, external_nullifier, x, y, nullifier)
+    let mut bytes = Vec::with_capacity(COMPRESS_PROOF_SIZE + fr_byte_size() * 5);
+
+    // Serialize proof (LE format from arkworks)
+    rln_proof
+        .proof
+        .serialize_compressed(&mut bytes)
+        .expect("serialization should not fail");
+
+    // Serialize proof values
+    let proof_values_bytes = rln_proof_values_to_bytes_be(&rln_proof.proof_values);
+    bytes.extend_from_slice(&proof_values_bytes);
+
+    bytes
+}
+
+// input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
+pub fn bytes_le_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), ProtocolError> {
+    let mut read: usize = 0;
+
+    // Deserialize proof
+    let proof = Proof::deserialize_compressed(&bytes[read..read + COMPRESS_PROOF_SIZE])
+        .map_err(|_| ProtocolError::InvalidReadLen(bytes.len(), read + COMPRESS_PROOF_SIZE))?;
+    read += COMPRESS_PROOF_SIZE;
+
+    // Deserialize proof values
+    let (values, el_size) = bytes_le_to_rln_proof_values(&bytes[read..]);
+    read += el_size;
+
+    Ok((
+        RLNProof {
+            proof,
+            proof_values: values,
+        },
+        read,
+    ))
+}
+
+// input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
+pub fn bytes_be_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), ProtocolError> {
+    let mut read: usize = 0;
+
+    // Deserialize proof
+    let proof = Proof::deserialize_compressed(&bytes[read..read + COMPRESS_PROOF_SIZE])
+        .map_err(|_| ProtocolError::InvalidReadLen(bytes.len(), read + COMPRESS_PROOF_SIZE))?;
+    read += COMPRESS_PROOF_SIZE;
+
+    // Deserialize proof values
+    let (values, el_size) = bytes_be_to_rln_proof_values(&bytes[read..]);
+    read += el_size;
+
+    Ok((
+        RLNProof {
+            proof,
+            proof_values: values,
+        },
+        read,
+    ))
 }
 
 // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]

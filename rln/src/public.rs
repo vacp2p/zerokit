@@ -1,9 +1,9 @@
 use crate::circuit::{zkey_from_raw, Fr, Proof, VerifyingKey, Zkey};
 use crate::hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash as utils_poseidon_hash};
 use crate::protocol::{
-    compute_id_secret, deserialize_proof_values, deserialize_witness, extended_keygen,
-    extended_seeded_keygen, keygen, proof_values_from_witness, rln_witness_to_bigint_json,
-    rln_witness_to_json, seeded_keygen, serialize_proof_values, verify_proof,
+    bytes_le_to_rln_proof_values, compute_id_secret, deserialize_witness, extended_keygen,
+    extended_seeded_keygen, keygen, proof_values_from_witness, rln_proof_values_to_bytes_le,
+    rln_witness_to_bigint_json, rln_witness_to_json, seeded_keygen, verify_proof,
 };
 use crate::utils::{
     bytes_be_to_vec_fr, bytes_le_to_fr, bytes_le_to_vec_fr, fr_byte_size, fr_to_bytes_be,
@@ -806,7 +806,7 @@ impl RLN {
     /// // We prepare the input to prove API, consisting of zk_proof (compressed, 4*32 bytes) || proof_values (6*32 bytes)
     /// // In this example, we compute proof values directly from witness using the utility proof_values_from_witness
     /// let proof_values = proof_values_from_witness(&rln_witness);
-    /// let serialized_proof_values = serialize_proof_values(&proof_values);
+    /// let serialized_proof_values = rln_proof_values_to_bytes_le(&proof_values);
     ///
     /// // We build the input to the verify method
     /// let mut verify_data = Vec::<u8>::new();
@@ -827,7 +827,7 @@ impl RLN {
         input_data.read_to_end(&mut input_byte)?;
         let proof = Proof::deserialize_compressed(&mut Cursor::new(&input_byte[..128]))?;
 
-        let (proof_values, _) = deserialize_proof_values(&input_byte[128..]);
+        let (proof_values, _) = bytes_le_to_rln_proof_values(&input_byte[128..]);
 
         let verified = verify_proof(&self.verifying_key, &proof, &proof_values)?;
 
@@ -902,7 +902,7 @@ impl RLN {
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
         proof.serialize_compressed(&mut output_data)?;
-        output_data.write_all(&serialize_proof_values(&proof_values))?;
+        output_data.write_all(&rln_proof_values_to_bytes_le(&proof_values))?;
 
         Ok(())
     }
@@ -926,7 +926,7 @@ impl RLN {
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
         proof.serialize_compressed(&mut output_data)?;
-        output_data.write_all(&serialize_proof_values(&proof_values))?;
+        output_data.write_all(&rln_proof_values_to_bytes_le(&proof_values))?;
         Ok(())
     }
 
@@ -948,7 +948,7 @@ impl RLN {
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
         proof.serialize_compressed(&mut output_data)?;
-        output_data.write_all(&serialize_proof_values(&proof_values))?;
+        output_data.write_all(&rln_proof_values_to_bytes_le(&proof_values))?;
         Ok(())
     }
 
@@ -986,7 +986,7 @@ impl RLN {
         let mut all_read = 0;
         let proof = Proof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
-        let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
+        let (proof_values, read) = bytes_le_to_rln_proof_values(&serialized[all_read..]);
         all_read += read;
 
         let signal_len = usize::try_from(u64::from_le_bytes(
@@ -1067,7 +1067,7 @@ impl RLN {
         let mut all_read = 0;
         let proof = Proof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
         all_read += 128;
-        let (proof_values, read) = deserialize_proof_values(&serialized[all_read..]);
+        let (proof_values, read) = bytes_le_to_rln_proof_values(&serialized[all_read..]);
         all_read += read;
 
         let signal_len = usize::try_from(u64::from_le_bytes(
@@ -1169,13 +1169,13 @@ impl RLN {
         let mut serialized: Vec<u8> = Vec::new();
         input_proof_data_1.read_to_end(&mut serialized)?;
         // We skip deserialization of the zk-proof at the beginning
-        let (proof_values_1, _) = deserialize_proof_values(&serialized[128..]);
+        let (proof_values_1, _) = bytes_le_to_rln_proof_values(&serialized[128..]);
         let external_nullifier_1 = proof_values_1.external_nullifier;
 
         let mut serialized: Vec<u8> = Vec::new();
         input_proof_data_2.read_to_end(&mut serialized)?;
         // We skip deserialization of the zk-proof at the beginning
-        let (proof_values_2, _) = deserialize_proof_values(&serialized[128..]);
+        let (proof_values_2, _) = bytes_le_to_rln_proof_values(&serialized[128..]);
         let external_nullifier_2 = proof_values_2.external_nullifier;
 
         // We continue only if the proof values are for the same external nullifier (which includes epoch and rln identifier)

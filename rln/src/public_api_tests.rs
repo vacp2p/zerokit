@@ -4,7 +4,7 @@ use crate::circuit::{
 use crate::error::ProtocolError;
 use crate::hashers::{hash_to_field_le, poseidon_hash};
 use crate::protocol::{
-    proof_values_from_witness, serialize_proof_values, serialize_witness, verify_proof,
+    proof_values_from_witness, rln_proof_values_to_bytes_le, serialize_witness, verify_proof,
     RLNProofValues, RLNWitnessInput,
 };
 use crate::public::RLN;
@@ -194,7 +194,7 @@ fn test_groth16_proof() {
     assert!(verified.unwrap());
 
     // We prepare the input to prove API, consisting of serialized_proof (compressed, 4*32 bytes) || serialized_proof_values (6*32 bytes)
-    let serialized_proof_values = serialize_proof_values(&proof_values);
+    let serialized_proof_values = rln_proof_values_to_bytes_le(&proof_values);
     let mut verify_data = Vec::<u8>::new();
     verify_data.extend(&serialized_proof);
     verify_data.extend(&serialized_proof_values);
