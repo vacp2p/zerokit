@@ -5,10 +5,13 @@ use crate::wasm_utils::{VecWasmFr, WasmFr};
 use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
 use num_bigint::BigInt;
 use rln::{
-    circuit::{zkey_from_raw, Fr, Proof},
+    circuit::{zkey_from_raw, Fr},
     protocol::{
-        compute_id_secret, generate_proof_with_witness, proof_values_from_witness,
-        rln_witness_to_bigint_json, verify_proof, RLNProofValues, RLNWitnessInput, RLN,
+        bytes_be_to_rln_proof, bytes_be_to_rln_proof_values, bytes_le_to_rln_proof,
+        bytes_le_to_rln_proof_values, compute_id_secret, generate_proof_with_witness,
+        proof_values_from_witness, rln_proof_to_bytes_be, rln_proof_to_bytes_le,
+        rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le, rln_witness_to_bigint_json,
+        verify_proof, RLNProof, RLNProofValues, RLNWitnessInput, RLN,
     },
     utils::IdSecret,
 };
@@ -28,8 +31,8 @@ impl WasmRLN {
         Ok(WasmRLN(rln))
     }
 
-    #[wasm_bindgen(js_name = generateProofWithWitness)]
-    pub fn generate_proof_with_witness(
+    #[wasm_bindgen(js_name = generateRLNProofWithWitness)]
+    pub fn generate_rln_proof_with_witness(
         &self,
         calculated_witness: Vec<JsBigInt>,
         rln_witness: &WasmRLNWitnessInput,
@@ -48,21 +51,27 @@ impl WasmRLN {
         let proof = generate_proof_with_witness(calculated_witness_bigint, &self.0.zkey)
             .map_err(|err| err.to_string())?;
 
-        Ok(WasmRLNProof {
+        let rln_proof = RLNProof {
             proof_values,
             proof,
-        })
+        };
+
+        Ok(WasmRLNProof(rln_proof))
     }
 
     #[wasm_bindgen(js_name = verifyWithRoots)]
     pub fn verify_with_roots(
         &self,
-        proof: &WasmRLNProof,
+        rln_proof: &WasmRLNProof,
         roots: &VecWasmFr,
         x: &WasmFr,
     ) -> Result<bool, String> {
-        let proof_verified = verify_proof(&self.0.zkey.0.vk, &proof.proof, &proof.proof_values)
-            .map_err(|err| err.to_string())?;
+        let proof_verified = verify_proof(
+            &self.0.zkey.0.vk,
+            &rln_proof.0.proof,
+            &rln_proof.0.proof_values,
+        )
+        .map_err(|err| err.to_string())?;
 
         if !proof_verified {
             return Ok(false);
@@ -73,62 +82,118 @@ impl WasmRLN {
         } else {
             (0..roots.length())
                 .filter_map(|i| roots.get(i))
-                .any(|root| *root == proof.proof_values.root)
+                .any(|root| *root == rln_proof.0.proof_values.root)
         };
 
-        let signal_verified = **x == proof.proof_values.x;
+        let signal_verified = **x == rln_proof.0.proof_values.x;
 
         Ok(proof_verified && roots_verified && signal_verified)
     }
 }
 
 #[wasm_bindgen]
-pub struct WasmRLNProof {
-    proof: Proof,
-    proof_values: RLNProofValues,
-}
+pub struct WasmRLNProof(RLNProof);
 
 #[wasm_bindgen]
 impl WasmRLNProof {
+    #[wasm_bindgen(js_name = getValues)]
+    pub fn get_values(&self) -> WasmRLNProofValues {
+        WasmRLNProofValues(self.0.proof_values)
+    }
+
+    #[wasm_bindgen(js_name = toBytesLE)]
+    pub fn to_bytes_le(&self) -> Uint8Array {
+        Uint8Array::from(&rln_proof_to_bytes_le(&self.0)[..])
+    }
+
+    #[wasm_bindgen(js_name = toBytesBE)]
+    pub fn to_bytes_be(&self) -> Uint8Array {
+        Uint8Array::from(&rln_proof_to_bytes_be(&self.0)[..])
+    }
+
+    #[wasm_bindgen(js_name = fromBytesLE)]
+    pub fn from_bytes_le(bytes: &Uint8Array) -> Result<WasmRLNProof, String> {
+        let bytes_vec = bytes.to_vec();
+        let (proof, _) = bytes_le_to_rln_proof(&bytes_vec).map_err(|e| e.to_string())?;
+        Ok(WasmRLNProof(proof))
+    }
+
+    #[wasm_bindgen(js_name = fromBytesBE)]
+    pub fn from_bytes_be(bytes: &Uint8Array) -> Result<WasmRLNProof, String> {
+        let bytes_vec = bytes.to_vec();
+        let (proof, _) = bytes_be_to_rln_proof(&bytes_vec).map_err(|e| e.to_string())?;
+        Ok(WasmRLNProof(proof))
+    }
+}
+
+#[wasm_bindgen]
+pub struct WasmRLNProofValues(RLNProofValues);
+
+#[wasm_bindgen]
+impl WasmRLNProofValues {
     #[wasm_bindgen(getter)]
     pub fn y(&self) -> WasmFr {
-        WasmFr::from(self.proof_values.y)
+        WasmFr::from(self.0.y)
     }
 
     #[wasm_bindgen(getter)]
     pub fn nullifier(&self) -> WasmFr {
-        WasmFr::from(self.proof_values.nullifier)
+        WasmFr::from(self.0.nullifier)
     }
 
     #[wasm_bindgen(getter)]
     pub fn root(&self) -> WasmFr {
-        WasmFr::from(self.proof_values.root)
+        WasmFr::from(self.0.root)
     }
 
     #[wasm_bindgen(getter)]
     pub fn x(&self) -> WasmFr {
-        WasmFr::from(self.proof_values.x)
+        WasmFr::from(self.0.x)
     }
 
     #[wasm_bindgen(getter, js_name = externalNullifier)]
     pub fn external_nullifier(&self) -> WasmFr {
-        WasmFr::from(self.proof_values.external_nullifier)
+        WasmFr::from(self.0.external_nullifier)
+    }
+
+    #[wasm_bindgen(js_name = toBytesLE)]
+    pub fn to_bytes_le(&self) -> Uint8Array {
+        Uint8Array::from(&rln_proof_values_to_bytes_le(&self.0)[..])
+    }
+
+    #[wasm_bindgen(js_name = toBytesBE)]
+    pub fn to_bytes_be(&self) -> Uint8Array {
+        Uint8Array::from(&rln_proof_values_to_bytes_be(&self.0)[..])
+    }
+
+    #[wasm_bindgen(js_name = fromBytesLE)]
+    pub fn from_bytes_le(bytes: &Uint8Array) -> WasmRLNProofValues {
+        let bytes_vec = bytes.to_vec();
+        let (proof_values, _) = bytes_le_to_rln_proof_values(&bytes_vec);
+        WasmRLNProofValues(proof_values)
+    }
+
+    #[wasm_bindgen(js_name = fromBytesBE)]
+    pub fn from_bytes_be(bytes: &Uint8Array) -> WasmRLNProofValues {
+        let bytes_vec = bytes.to_vec();
+        let (proof_values, _) = bytes_be_to_rln_proof_values(&bytes_vec);
+        WasmRLNProofValues(proof_values)
     }
 
     #[wasm_bindgen(js_name = recoverIdSecret)]
     pub fn recover_id_secret(
-        proof_1: &WasmRLNProof,
-        proof_2: &WasmRLNProof,
+        proof_values_1: &WasmRLNProofValues,
+        proof_values_2: &WasmRLNProofValues,
     ) -> Result<WasmFr, String> {
-        let external_nullifier_1 = proof_1.proof_values.external_nullifier;
-        let external_nullifier_2 = proof_2.proof_values.external_nullifier;
+        let external_nullifier_1 = proof_values_1.0.external_nullifier;
+        let external_nullifier_2 = proof_values_2.0.external_nullifier;
 
         if external_nullifier_1 != external_nullifier_2 {
             return Err("External nullifiers do not match".to_string());
         }
 
-        let share1 = (proof_1.proof_values.x, proof_1.proof_values.y);
-        let share2 = (proof_2.proof_values.x, proof_2.proof_values.y);
+        let share1 = (proof_values_1.0.x, proof_values_1.0.y);
+        let share2 = (proof_values_2.0.x, proof_values_2.0.y);
 
         let recovered_identity_secret_hash =
             compute_id_secret(share1, share2).map_err(|err| err.to_string())?;

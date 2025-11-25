@@ -4,7 +4,7 @@ mod wasm_rln;
 mod wasm_utils;
 
 #[cfg(not(feature = "utils"))]
-pub use wasm_rln::{WasmRLN, WasmRLNProof, WasmRLNWitnessInput};
+pub use wasm_rln::{WasmRLN, WasmRLNProof, WasmRLNProofValues, WasmRLNWitnessInput};
 
 pub use wasm_utils::{ExtendedIdentity, Hasher, Identity, VecWasmFr, WasmFr};
 
