@@ -194,17 +194,18 @@ mod test {
             .collect();
 
         // Benchmark proof generation with witness
-        let start_generate_proof_with_witness = Date::now();
+        let start_generate_rln_proof_with_witness = Date::now();
         for _ in 0..iterations {
             let _ = rln_instance
-                .generate_proof_with_witness(calculated_witness.clone(), &rln_witness_input)
+                .generate_rln_proof_with_witness(calculated_witness.clone(), &rln_witness_input)
                 .expect("Failed to generate proof");
         }
-        let generate_proof_with_witness_result = Date::now() - start_generate_proof_with_witness;
+        let generate_rln_proof_with_witness_result =
+            Date::now() - start_generate_rln_proof_with_witness;
 
         // Generate proof with witness for other benchmarks
         let proof: WasmRLNProof = rln_instance
-            .generate_proof_with_witness(calculated_witness, &rln_witness_input)
+            .generate_rln_proof_with_witness(calculated_witness, &rln_witness_input)
             .expect("Failed to generate proof");
 
         let root = WasmFr::from(tree.root());
@@ -250,7 +251,7 @@ mod test {
         ));
         results.push_str(&format!(
             "Proof generation with witness: {}\n",
-            format_duration(generate_proof_with_witness_result)
+            format_duration(generate_rln_proof_with_witness_result)
         ));
         results.push_str(&format!(
             "Proof verification with roots: {}\n",
