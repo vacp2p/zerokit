@@ -15,8 +15,8 @@ pub enum ZerokitMerkleTreeError {
     TooManySet,
     #[error("Unknown error while computing merkle proof")]
     ComputingProofError,
-    #[error("Invalid witness length (!= tree depth)")]
-    InvalidWitness,
+    #[error("Invalid merkle proof length (!= tree depth)")]
+    InvalidMerkleProof,
     #[cfg(feature = "pmtree-ft")]
     #[error("Pmtree error: {0}")]
     PmtreeErrorKind(#[from] pmtree::PmtreeErrorKind),

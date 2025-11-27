@@ -130,7 +130,7 @@ impl RLNSystem {
         let merkle_proof = self.tree.proof(user_index)?;
         let x = hash_to_field_le(signal.as_bytes());
 
-        let rln_witness = RLNWitnessInput::new(
+        let witness = RLNWitnessInput::new(
             identity.identity_secret_hash.clone(),
             Fr::from(MESSAGE_LIMIT),
             Fr::from(message_id),
@@ -141,7 +141,7 @@ impl RLNSystem {
         )
         .unwrap();
 
-        let serialized = serialize_witness(&rln_witness)?;
+        let serialized = serialize_witness(&witness)?;
         let mut input_buffer = Cursor::new(serialized);
         let mut output_buffer = Cursor::new(Vec::new());
 

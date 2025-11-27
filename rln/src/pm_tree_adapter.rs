@@ -360,12 +360,12 @@ impl ZerokitMerkleTree for PmTree {
     fn verify(
         &self,
         leaf: &FrOf<Self::Hasher>,
-        witness: &Self::Proof,
+        merkle_proof: &Self::Proof,
     ) -> Result<bool, ZerokitMerkleTreeError> {
-        if self.tree.verify(leaf, &witness.proof) {
+        if self.tree.verify(leaf, &merkle_proof.proof) {
             Ok(true)
         } else {
-            Err(ZerokitMerkleTreeError::InvalidWitness)
+            Err(ZerokitMerkleTreeError::InvalidMerkleProof)
         }
     }
 

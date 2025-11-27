@@ -25,7 +25,6 @@ use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
-use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use std::time::Instant;
 use tiny_keccak::{Hasher as _, Keccak};
@@ -43,20 +42,14 @@ pub struct RLN {
 // RLN Witness data structure and utility functions
 ///////////////////////////////////////////////////////
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq)]
 pub struct RLNWitnessInput {
-    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     identity_secret: IdSecret,
-    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     user_message_limit: Fr,
-    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     message_id: Fr,
-    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     path_elements: Vec<Fr>,
     identity_path_index: Vec<u8>,
-    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     x: Fr,
-    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     external_nullifier: Fr,
 }
 
@@ -189,24 +182,23 @@ pub fn deserialize_identity_tuple_be(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
 ///
 /// # Errors
 ///
-/// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
+/// Returns an error if `witness.message_id` is not within `witness.user_message_limit`.
 /// input data is [ identity_secret<32> | user_message_limit<32> | message_id<32> | path_elements<32> | identity_path_index<8> | x<32> | external_nullifier<32> ]
-pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>, ProtocolError> {
+pub fn serialize_witness(witness: &RLNWitnessInput) -> Result<Vec<u8>, ProtocolError> {
     // Calculate capacity for Vec:
     // - 5 fixed field elements: identity_secret, user_message_limit, message_id, x, external_nullifier
     // - variable number of path elements
     // - identity_path_index (variable size)
     let mut serialized: Vec<u8> = Vec::with_capacity(
-        fr_byte_size() * (5 + rln_witness.path_elements.len())
-            + rln_witness.identity_path_index.len(),
+        fr_byte_size() * (5 + witness.path_elements.len()) + witness.identity_path_index.len(),
     );
-    serialized.extend_from_slice(&rln_witness.identity_secret.to_bytes_le());
-    serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.user_message_limit));
-    serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.message_id));
-    serialized.extend_from_slice(&vec_fr_to_bytes_le(&rln_witness.path_elements));
-    serialized.extend_from_slice(&vec_u8_to_bytes_le(&rln_witness.identity_path_index));
-    serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.x));
-    serialized.extend_from_slice(&fr_to_bytes_le(&rln_witness.external_nullifier));
+    serialized.extend_from_slice(&witness.identity_secret.to_bytes_le());
+    serialized.extend_from_slice(&fr_to_bytes_le(&witness.user_message_limit));
+    serialized.extend_from_slice(&fr_to_bytes_le(&witness.message_id));
+    serialized.extend_from_slice(&vec_fr_to_bytes_le(&witness.path_elements));
+    serialized.extend_from_slice(&vec_u8_to_bytes_le(&witness.identity_path_index));
+    serialized.extend_from_slice(&fr_to_bytes_le(&witness.x));
+    serialized.extend_from_slice(&fr_to_bytes_le(&witness.external_nullifier));
 
     Ok(serialized)
 }
@@ -322,17 +314,17 @@ pub fn proof_inputs_to_rln_witness(
 }
 
 pub fn proof_values_from_witness(
-    rln_witness: &RLNWitnessInput,
+    witness: &RLNWitnessInput,
 ) -> Result<RLNProofValues, ProtocolError> {
     // y share
-    let a_0 = &rln_witness.identity_secret;
+    let a_0 = &witness.identity_secret;
     let mut to_hash = [
         *(a_0.clone()),
-        rln_witness.external_nullifier,
-        rln_witness.message_id,
+        witness.external_nullifier,
+        witness.message_id,
     ];
     let a_1 = poseidon_hash(&to_hash);
-    let y = *(a_0.clone()) + rln_witness.x * a_1;
+    let y = *(a_0.clone()) + witness.x * a_1;
 
     // Nullifier
     let nullifier = poseidon_hash(&[a_1]);
@@ -340,18 +332,18 @@ pub fn proof_values_from_witness(
 
     // Merkle tree root computations
     let root = compute_tree_root(
-        &rln_witness.identity_secret,
-        &rln_witness.user_message_limit,
-        &rln_witness.path_elements,
-        &rln_witness.identity_path_index,
+        &witness.identity_secret,
+        &witness.user_message_limit,
+        &witness.path_elements,
+        &witness.identity_path_index,
     );
 
     Ok(RLNProofValues {
         y,
         nullifier,
         root,
-        x: rln_witness.x,
-        external_nullifier: rln_witness.external_nullifier,
+        x: witness.x,
+        external_nullifier: witness.external_nullifier,
     })
 }
 
@@ -705,16 +697,16 @@ pub fn compute_id_secret(
 // zkSNARK utility functions
 ///////////////////////////////////////////////////////
 
-fn calculate_witness_element<E: ark_ec::pairing::Pairing>(
-    witness: Vec<BigInt>,
+fn calculated_witness_to_field_elements<E: ark_ec::pairing::Pairing>(
+    calculated_witness: Vec<BigInt>,
 ) -> Result<Vec<E::ScalarField>, ProtocolError> {
     use ark_ff::PrimeField;
     let modulus = <E::ScalarField as PrimeField>::MODULUS;
 
     // convert it to field elements
     use num_traits::Signed;
-    let mut witness_vec = vec![];
-    for w in witness.into_iter() {
+    let mut field_elements = vec![];
+    for w in calculated_witness.into_iter() {
         let w = if w.sign() == num_bigint::Sign::Minus {
             // Need to negate the witness element if negative
             modulus.into()
@@ -724,10 +716,10 @@ fn calculate_witness_element<E: ark_ec::pairing::Pairing>(
         } else {
             w.to_biguint().ok_or(ProtocolError::BigUintConversion(w))?
         };
-        witness_vec.push(E::ScalarField::from(w))
+        field_elements.push(E::ScalarField::from(w))
     }
 
-    Ok(witness_vec)
+    Ok(field_elements)
 }
 
 pub fn generate_proof_with_witness(
@@ -738,7 +730,7 @@ pub fn generate_proof_with_witness(
     #[cfg(test)]
     let now = Instant::now();
 
-    let full_assignment = calculate_witness_element::<Curve>(calculated_witness)?;
+    let full_assignment = calculated_witness_to_field_elements::<Curve>(calculated_witness)?;
 
     #[cfg(test)]
     println!("witness generation took: {:.2?}", now.elapsed());
@@ -772,12 +764,12 @@ pub fn generate_proof_with_witness(
 ///
 /// # Errors
 ///
-/// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
-pub fn inputs_for_witness_calculation(
-    rln_witness: &RLNWitnessInput,
+/// Returns an error if `witness.message_id` is not within `witness.user_message_limit`.
+fn inputs_for_witness_calculation(
+    witness: &RLNWitnessInput,
 ) -> Result<[(&str, Vec<FrOrSecret>); 7], ProtocolError> {
-    let mut identity_path_index = Vec::with_capacity(rln_witness.identity_path_index.len());
-    rln_witness
+    let mut identity_path_index = Vec::with_capacity(witness.identity_path_index.len());
+    witness
         .identity_path_index
         .iter()
         .for_each(|v| identity_path_index.push(Fr::from(*v)));
@@ -785,16 +777,13 @@ pub fn inputs_for_witness_calculation(
     Ok([
         (
             "identitySecret",
-            vec![rln_witness.identity_secret.clone().into()],
+            vec![witness.identity_secret.clone().into()],
         ),
-        (
-            "userMessageLimit",
-            vec![rln_witness.user_message_limit.into()],
-        ),
-        ("messageId", vec![rln_witness.message_id.into()]),
+        ("userMessageLimit", vec![witness.user_message_limit.into()]),
+        ("messageId", vec![witness.message_id.into()]),
         (
             "pathElements",
-            rln_witness
+            witness
                 .path_elements
                 .iter()
                 .cloned()
@@ -805,11 +794,8 @@ pub fn inputs_for_witness_calculation(
             "identityPathIndex",
             identity_path_index.into_iter().map(Into::into).collect(),
         ),
-        ("x", vec![rln_witness.x.into()]),
-        (
-            "externalNullifier",
-            vec![rln_witness.external_nullifier.into()],
-        ),
+        ("x", vec![witness.x.into()]),
+        ("externalNullifier", vec![witness.external_nullifier.into()]),
     ])
 }
 
@@ -820,10 +806,10 @@ pub fn inputs_for_witness_calculation(
 /// Returns a [`ProofError`] if proving fails.
 pub fn generate_proof(
     zkey: &Zkey,
-    rln_witness: &RLNWitnessInput,
+    witness: &RLNWitnessInput,
     graph_data: &[u8],
 ) -> Result<Proof, ProofError> {
-    let inputs = inputs_for_witness_calculation(rln_witness)?
+    let inputs = inputs_for_witness_calculation(witness)?
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));
 
@@ -894,49 +880,6 @@ pub fn verify_proof(
     Ok(verified)
 }
 
-// auxiliary function for serialisation Fr to json using ark serilize
-fn ark_se<S, A: CanonicalSerialize>(a: &A, s: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    let mut bytes = vec![];
-    a.serialize_compressed(&mut bytes)
-        .map_err(serde::ser::Error::custom)?;
-    s.serialize_bytes(&bytes)
-}
-
-// auxiliary function for deserialisation Fr to json using ark serilize
-fn ark_de<'de, D, A: CanonicalDeserialize>(data: D) -> Result<A, D::Error>
-where
-    D: serde::de::Deserializer<'de>,
-{
-    let s: Vec<u8> = serde::de::Deserialize::deserialize(data)?;
-    let a = A::deserialize_compressed_unchecked(s.as_slice());
-    a.map_err(serde::de::Error::custom)
-}
-
-/// Converts a JSON value into [`RLNWitnessInput`] object.
-///
-/// # Errors
-///
-/// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
-pub fn rln_witness_from_json(
-    input_json: serde_json::Value,
-) -> Result<RLNWitnessInput, ProtocolError> {
-    Ok(serde_json::from_value(input_json)?)
-}
-
-/// Converts a [`RLNWitnessInput`] object to the corresponding JSON serialization.
-///
-/// # Errors
-///
-/// Returns an error if `message_id` is not within `user_message_limit`.
-pub fn rln_witness_to_json(
-    rln_witness: &RLNWitnessInput,
-) -> Result<serde_json::Value, ProtocolError> {
-    Ok(serde_json::to_value(rln_witness)?)
-}
-
 /// Converts a [`RLNWitnessInput`] object to the corresponding JSON serialization.
 /// Before serialisation the data should be translated into big int for further calculation in the witness calculator.
 ///
@@ -944,28 +887,28 @@ pub fn rln_witness_to_json(
 ///
 /// Returns an error if `message_id` is not within `user_message_limit`.
 pub fn rln_witness_to_bigint_json(
-    rln_witness: &RLNWitnessInput,
+    witness: &RLNWitnessInput,
 ) -> Result<serde_json::Value, ProtocolError> {
     let mut path_elements = Vec::new();
 
-    for v in rln_witness.path_elements.iter() {
+    for v in witness.path_elements.iter() {
         path_elements.push(to_bigint(v).to_str_radix(10));
     }
 
     let mut identity_path_index = Vec::new();
-    rln_witness
+    witness
         .identity_path_index
         .iter()
         .for_each(|v| identity_path_index.push(BigInt::from(*v).to_str_radix(10)));
 
     let inputs = serde_json::json!({
-        "identitySecret": to_bigint(&rln_witness.identity_secret).to_str_radix(10),
-        "userMessageLimit": to_bigint(&rln_witness.user_message_limit).to_str_radix(10),
-        "messageId": to_bigint(&rln_witness.message_id).to_str_radix(10),
+        "identitySecret": to_bigint(&witness.identity_secret).to_str_radix(10),
+        "userMessageLimit": to_bigint(&witness.user_message_limit).to_str_radix(10),
+        "messageId": to_bigint(&witness.message_id).to_str_radix(10),
         "pathElements": path_elements,
         "identityPathIndex": identity_path_index,
-        "x": to_bigint(&rln_witness.x).to_str_radix(10),
-        "externalNullifier":  to_bigint(&rln_witness.external_nullifier).to_str_radix(10),
+        "x": to_bigint(&witness.x).to_str_radix(10),
+        "externalNullifier":  to_bigint(&witness.external_nullifier).to_str_radix(10),
     });
 
     Ok(inputs)

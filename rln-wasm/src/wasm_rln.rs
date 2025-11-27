@@ -35,10 +35,9 @@ impl WasmRLN {
     pub fn generate_rln_proof_with_witness(
         &self,
         calculated_witness: Vec<JsBigInt>,
-        rln_witness: &WasmRLNWitnessInput,
+        witness: &WasmRLNWitnessInput,
     ) -> Result<WasmRLNProof, String> {
-        let proof_values =
-            proof_values_from_witness(&rln_witness.0).map_err(|err| err.to_string())?;
+        let proof_values = proof_values_from_witness(&witness.0).map_err(|err| err.to_string())?;
 
         let calculated_witness_bigint: Vec<BigInt> = calculated_witness
             .iter()
@@ -221,7 +220,7 @@ impl WasmRLNWitnessInput {
         let path_elements: Vec<Fr> = path_elements.inner();
         let identity_path_index: Vec<u8> = identity_path_index.to_vec();
 
-        let rln_witness = RLNWitnessInput::new(
+        let witness = RLNWitnessInput::new(
             IdSecret::from(&mut identity_secret_fr),
             user_message_limit.inner(),
             message_id.inner(),
@@ -232,15 +231,15 @@ impl WasmRLNWitnessInput {
         )
         .map_err(|err| err.to_string())?;
 
-        Ok(WasmRLNWitnessInput(rln_witness))
+        Ok(WasmRLNWitnessInput(witness))
     }
 
     #[wasm_bindgen(js_name = toBigIntJson)]
     pub fn to_bigint_json(&self) -> Result<Object, String> {
-        let inputs = rln_witness_to_bigint_json(&self.0).map_err(|err| err.to_string())?;
+        let bigint_json = rln_witness_to_bigint_json(&self.0).map_err(|err| err.to_string())?;
 
         let serializer = serde_wasm_bindgen::Serializer::json_compatible();
-        let js_value = inputs
+        let js_value = bigint_json
             .serialize(&serializer)
             .map_err(|err| err.to_string())?;
 

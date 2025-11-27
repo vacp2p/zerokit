@@ -85,7 +85,7 @@ pub trait ZerokitMerkleTree {
     fn verify(
         &self,
         leaf: &FrOf<Self::Hasher>,
-        witness: &Self::Proof,
+        merkle_proof: &Self::Proof,
     ) -> Result<bool, ZerokitMerkleTreeError>;
     fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), ZerokitMerkleTreeError>;
     fn metadata(&self) -> Result<Vec<u8>, ZerokitMerkleTreeError>;

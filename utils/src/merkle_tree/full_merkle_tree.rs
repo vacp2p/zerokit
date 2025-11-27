@@ -290,9 +290,9 @@ where
     fn verify(
         &self,
         hash: &FrOf<Self::Hasher>,
-        proof: &FullMerkleProof<H>,
+        merkle_proof: &FullMerkleProof<H>,
     ) -> Result<bool, ZerokitMerkleTreeError> {
-        Ok(proof.compute_root_from(hash) == self.root())
+        Ok(merkle_proof.compute_root_from(hash) == self.root())
     }
 
     fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), ZerokitMerkleTreeError> {

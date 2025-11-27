@@ -9,8 +9,8 @@ mod test {
     use rln::poseidon_tree::PoseidonTree;
     use rln::protocol::{
         bytes_le_to_rln_proof_values, deserialize_witness, generate_proof, keygen,
-        proof_values_from_witness, rln_proof_values_to_bytes_le, rln_witness_from_json,
-        rln_witness_to_json, seeded_keygen, serialize_witness, verify_proof, RLNWitnessInput,
+        proof_values_from_witness, rln_proof_values_to_bytes_le, seeded_keygen, serialize_witness,
+        verify_proof, RLNWitnessInput,
     };
     use rln::utils::str_to_fr;
     use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
@@ -134,34 +134,8 @@ mod test {
 
     #[test]
     // We test a RLN proof generation and verification
-    fn test_witness_from_json() {
-        // We generate all relevant keys
-        let proving_key = zkey_from_folder();
-        let verification_key = &proving_key.0.vk;
-        let graph_data = graph_from_folder();
-        // We compute witness from the json input
-        let rln_witness = get_test_witness();
-        let rln_witness_json = rln_witness_to_json(&rln_witness).unwrap();
-        let rln_witness_deser = rln_witness_from_json(rln_witness_json).unwrap();
-        assert_eq!(rln_witness_deser, rln_witness);
-
-        // Let's generate a zkSNARK proof
-        let proof = generate_proof(proving_key, &rln_witness_deser, graph_data).unwrap();
-        let proof_values = proof_values_from_witness(&rln_witness_deser).unwrap();
-
-        // Let's verify the proof
-        let verified = verify_proof(verification_key, &proof, &proof_values);
-
-        assert!(verified.unwrap());
-    }
-
-    #[test]
-    // We test a RLN proof generation and verification
     fn test_end_to_end() {
-        let rln_witness = get_test_witness();
-        let rln_witness_json = rln_witness_to_json(&rln_witness).unwrap();
-        let rln_witness_deser = rln_witness_from_json(rln_witness_json).unwrap();
-        assert_eq!(rln_witness_deser, rln_witness);
+        let witness = get_test_witness();
 
         // We generate all relevant keys
         let proving_key = zkey_from_folder();
@@ -169,9 +143,9 @@ mod test {
         let graph_data = graph_from_folder();
 
         // Let's generate a zkSNARK proof
-        let proof = generate_proof(proving_key, &rln_witness_deser, graph_data).unwrap();
+        let proof = generate_proof(proving_key, &witness, graph_data).unwrap();
 
-        let proof_values = proof_values_from_witness(&rln_witness_deser).unwrap();
+        let proof_values = proof_values_from_witness(&witness).unwrap();
 
         // Let's verify the proof
         let success = verify_proof(verification_key, &proof, &proof_values).unwrap();
@@ -181,19 +155,15 @@ mod test {
 
     #[test]
     fn test_witness_serialization() {
-        // We test witness JSON serialization
-        let rln_witness = get_test_witness();
-        let rln_witness_json = rln_witness_to_json(&rln_witness).unwrap();
-        let rln_witness_deser = rln_witness_from_json(rln_witness_json).unwrap();
-        assert_eq!(rln_witness_deser, rln_witness);
+        let witness = get_test_witness();
 
         // We test witness serialization
-        let ser = serialize_witness(&rln_witness).unwrap();
+        let ser = serialize_witness(&witness).unwrap();
         let (deser, _) = deserialize_witness(&ser).unwrap();
-        assert_eq!(rln_witness, deser);
+        assert_eq!(witness, deser);
 
         // We test Proof values serialization
-        let proof_values = proof_values_from_witness(&rln_witness).unwrap();
+        let proof_values = proof_values_from_witness(&witness).unwrap();
         let ser = rln_proof_values_to_bytes_le(&proof_values);
         let (deser, _) = bytes_le_to_rln_proof_values(&ser);
         assert_eq!(proof_values, deser);

@@ -348,7 +348,7 @@ pub fn ffi_generate_rln_proof(
     let identity_path_index: Vec<u8> = merkle_proof.get_path_index();
 
     let mut identity_secret_fr = identity_secret.0;
-    let rln_witness = match RLNWitnessInput::new(
+    let witness = match RLNWitnessInput::new(
         IdSecret::from(&mut identity_secret_fr),
         user_message_limit.0,
         message_id.0,
@@ -366,7 +366,7 @@ pub fn ffi_generate_rln_proof(
         }
     };
 
-    let proof_values = match proof_values_from_witness(&rln_witness) {
+    let proof_values = match proof_values_from_witness(&witness) {
         Ok(pv) => pv,
         Err(err) => {
             return CResult {
@@ -376,7 +376,7 @@ pub fn ffi_generate_rln_proof(
         }
     };
 
-    let proof = match generate_proof(&rln.0.zkey, &rln_witness, &rln.0.graph_data) {
+    let proof = match generate_proof(&rln.0.zkey, &witness, &rln.0.graph_data) {
         Ok(proof) => proof,
         Err(err) => {
             return CResult {
@@ -412,7 +412,7 @@ pub fn ffi_generate_rln_proof_stateless(
     let mut identity_secret_fr = identity_secret.0;
     let path_elements: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
     let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
-    let rln_witness = match RLNWitnessInput::new(
+    let witness = match RLNWitnessInput::new(
         IdSecret::from(&mut identity_secret_fr),
         user_message_limit.0,
         message_id.0,
@@ -430,7 +430,7 @@ pub fn ffi_generate_rln_proof_stateless(
         }
     };
 
-    let proof_values = match proof_values_from_witness(&rln_witness) {
+    let proof_values = match proof_values_from_witness(&witness) {
         Ok(pv) => pv,
         Err(err) => {
             return CResult {
@@ -440,7 +440,7 @@ pub fn ffi_generate_rln_proof_stateless(
         }
     };
 
-    let proof = match generate_proof(&rln.0.zkey, &rln_witness, &rln.0.graph_data) {
+    let proof = match generate_proof(&rln.0.zkey, &witness, &rln.0.graph_data) {
         Ok(proof) => proof,
         Err(err) => {
             return CResult {

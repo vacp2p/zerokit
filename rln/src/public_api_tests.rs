@@ -178,11 +178,11 @@ fn test_groth16_proof() {
     let mut rln = RLN::new().unwrap();
 
     // Note: we only test Groth16 proof generation, so we ignore setting the tree in the RLN object
-    let rln_witness = random_rln_witness(tree_depth).unwrap();
-    let proof_values = proof_values_from_witness(&rln_witness).unwrap();
+    let witness = random_rln_witness(tree_depth).unwrap();
+    let proof_values = proof_values_from_witness(&witness).unwrap();
 
     // We compute a Groth16 proof
-    let mut input_buffer = Cursor::new(serialize_witness(&rln_witness).unwrap());
+    let mut input_buffer = Cursor::new(serialize_witness(&witness).unwrap());
     let mut output_buffer = Cursor::new(Vec::<u8>::new());
     rln.prove(&mut input_buffer, &mut output_buffer).unwrap();
     let serialized_proof = output_buffer.into_inner();
@@ -757,9 +757,9 @@ mod tree_test {
         // We read input RLN witness and we serialize_compressed it
         let mut witness_byte: Vec<u8> = Vec::new();
         input_buffer.read_to_end(&mut witness_byte).unwrap();
-        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut rln.tree, &witness_byte).unwrap();
+        let (witness, _) = proof_inputs_to_rln_witness(&mut rln.tree, &witness_byte).unwrap();
 
-        let serialized_witness = serialize_witness(&rln_witness).unwrap();
+        let serialized_witness = serialize_witness(&witness).unwrap();
 
         // Generating the proof
         let mut input_buffer = Cursor::new(serialized_witness);
@@ -1121,7 +1121,7 @@ mod stateless_test {
         let merkle_proof = tree.proof(identity_index).expect("proof should exist");
         let message_id = Fr::from(1);
 
-        let rln_witness = RLNWitnessInput::new(
+        let witness = RLNWitnessInput::new(
             identity_secret_hash,
             user_message_limit,
             message_id,
@@ -1132,7 +1132,7 @@ mod stateless_test {
         )
         .unwrap();
 
-        let serialized = serialize_witness(&rln_witness).unwrap();
+        let serialized = serialize_witness(&witness).unwrap();
         let mut input_buffer = Cursor::new(serialized);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.generate_rln_proof_with_witness(&mut input_buffer, &mut output_buffer)
@@ -1218,7 +1218,7 @@ mod stateless_test {
         let merkle_proof = tree.proof(identity_index).expect("proof should exist");
         let message_id = Fr::from(1);
 
-        let rln_witness1 = RLNWitnessInput::new(
+        let witness1 = RLNWitnessInput::new(
             identity_secret_hash.clone(),
             user_message_limit,
             message_id,
@@ -1229,7 +1229,7 @@ mod stateless_test {
         )
         .unwrap();
 
-        let rln_witness2 = RLNWitnessInput::new(
+        let witness2 = RLNWitnessInput::new(
             identity_secret_hash.clone(),
             user_message_limit,
             message_id,
@@ -1240,14 +1240,14 @@ mod stateless_test {
         )
         .unwrap();
 
-        let serialized = serialize_witness(&rln_witness1).unwrap();
+        let serialized = serialize_witness(&witness1).unwrap();
         let mut input_buffer = Cursor::new(serialized);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.generate_rln_proof_with_witness(&mut input_buffer, &mut output_buffer)
             .unwrap();
         let proof_data_1 = output_buffer.into_inner();
 
-        let serialized = serialize_witness(&rln_witness2).unwrap();
+        let serialized = serialize_witness(&witness2).unwrap();
         let mut input_buffer = Cursor::new(serialized);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.generate_rln_proof_with_witness(&mut input_buffer, &mut output_buffer)
@@ -1286,7 +1286,7 @@ mod stateless_test {
         let identity_index_new = tree.leaves_set();
         let merkle_proof_new = tree.proof(identity_index_new).expect("proof should exist");
 
-        let rln_witness3 = RLNWitnessInput::new(
+        let witness3 = RLNWitnessInput::new(
             identity_secret_hash_new.clone(),
             user_message_limit,
             message_id,
@@ -1297,7 +1297,7 @@ mod stateless_test {
         )
         .unwrap();
 
-        let serialized = serialize_witness(&rln_witness3).unwrap();
+        let serialized = serialize_witness(&witness3).unwrap();
         let mut input_buffer = Cursor::new(serialized);
         let mut output_buffer = Cursor::new(Vec::<u8>::new());
         rln.generate_rln_proof_with_witness(&mut input_buffer, &mut output_buffer)

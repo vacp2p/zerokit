@@ -267,11 +267,15 @@ where
     }
 
     /// Verifies a Merkle proof with respect to the input leaf and the tree root
-    fn verify(&self, leaf: &H::Fr, witness: &Self::Proof) -> Result<bool, ZerokitMerkleTreeError> {
-        if witness.length() != self.depth {
-            return Err(ZerokitMerkleTreeError::InvalidWitness);
+    fn verify(
+        &self,
+        leaf: &H::Fr,
+        merkle_proof: &Self::Proof,
+    ) -> Result<bool, ZerokitMerkleTreeError> {
+        if merkle_proof.length() != self.depth {
+            return Err(ZerokitMerkleTreeError::InvalidMerkleProof);
         }
-        let expected_root = witness.compute_root_from(leaf);
+        let expected_root = merkle_proof.compute_root_from(leaf);
         Ok(expected_root.eq(&self.root()))
     }
 

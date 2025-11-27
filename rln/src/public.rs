@@ -3,7 +3,7 @@ use crate::hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash as utils_
 use crate::protocol::{
     bytes_le_to_rln_proof_values, compute_id_secret, deserialize_witness, extended_keygen,
     extended_seeded_keygen, keygen, proof_values_from_witness, rln_proof_values_to_bytes_le,
-    rln_witness_to_bigint_json, rln_witness_to_json, seeded_keygen, verify_proof,
+    rln_witness_to_bigint_json, seeded_keygen, verify_proof,
 };
 use crate::utils::{
     bytes_be_to_vec_fr, bytes_le_to_fr, bytes_le_to_vec_fr, fr_byte_size, fr_to_bytes_be,
@@ -755,11 +755,11 @@ impl RLN {
     /// ```
     /// use rln::protocol::*;
     ///
-    /// let rln_witness = random_rln_witness(tree_depth);
-    /// let proof_values = proof_values_from_witness(&rln_witness);
+    /// let witness = random_rln_witness(tree_depth);
+    /// let proof_values = proof_values_from_witness(&witness);
     ///
     /// // We compute a Groth16 proof
-    /// let mut input_buffer = Cursor::new(serialize_witness(&rln_witness));
+    /// let mut input_buffer = Cursor::new(serialize_witness(&witness));
     /// let mut output_buffer = Cursor::new(Vec::<u8>::new());
     /// rln.prove(&mut input_buffer, &mut output_buffer).unwrap();
     /// let zk_proof = output_buffer.into_inner();
@@ -773,9 +773,9 @@ impl RLN {
         // We read input RLN witness and we serialize_compressed it
         let mut serialized_witness: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized_witness)?;
-        let (rln_witness, _) = deserialize_witness(&serialized_witness)?;
+        let (witness, _) = deserialize_witness(&serialized_witness)?;
 
-        let proof = generate_proof(&self.zkey, &rln_witness, &self.graph_data)?;
+        let proof = generate_proof(&self.zkey, &witness, &self.graph_data)?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         proof.serialize_compressed(&mut output_data)?;
@@ -795,17 +795,17 @@ impl RLN {
     /// ```
     /// use rln::protocol::*;
     ///
-    /// let rln_witness = random_rln_witness(tree_depth);
+    /// let witness = random_rln_witness(tree_depth);
     ///
     /// // We compute a Groth16 proof
-    /// let mut input_buffer = Cursor::new(serialize_witness(&rln_witness));
+    /// let mut input_buffer = Cursor::new(serialize_witness(&witness));
     /// let mut output_buffer = Cursor::new(Vec::<u8>::new());
     /// rln.prove(&mut input_buffer, &mut output_buffer).unwrap();
     /// let zk_proof = output_buffer.into_inner();
     ///
     /// // We prepare the input to prove API, consisting of zk_proof (compressed, 4*32 bytes) || proof_values (6*32 bytes)
     /// // In this example, we compute proof values directly from witness using the utility proof_values_from_witness
-    /// let proof_values = proof_values_from_witness(&rln_witness);
+    /// let proof_values = proof_values_from_witness(&witness);
     /// let serialized_proof_values = rln_proof_values_to_bytes_le(&proof_values);
     ///
     /// // We build the input to the verify method
@@ -894,10 +894,10 @@ impl RLN {
         // We read input RLN witness and we serialize_compressed it
         let mut witness_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut witness_byte)?;
-        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
-        let proof_values = proof_values_from_witness(&rln_witness)?;
+        let (witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
+        let proof_values = proof_values_from_witness(&witness)?;
 
-        let proof = generate_proof(&self.zkey, &rln_witness, &self.graph_data)?;
+        let proof = generate_proof(&self.zkey, &witness, &self.graph_data)?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
@@ -918,10 +918,10 @@ impl RLN {
     ) -> Result<(), RLNError> {
         let mut serialized_witness: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut serialized_witness)?;
-        let (rln_witness, _) = deserialize_witness(&serialized_witness)?;
-        let proof_values = proof_values_from_witness(&rln_witness)?;
+        let (witness, _) = deserialize_witness(&serialized_witness)?;
+        let proof_values = proof_values_from_witness(&witness)?;
 
-        let proof = generate_proof(&self.zkey, &rln_witness, &self.graph_data)?;
+        let proof = generate_proof(&self.zkey, &witness, &self.graph_data)?;
 
         // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
         // This proof is compressed, i.e. 128 bytes long
@@ -940,8 +940,8 @@ impl RLN {
         serialized_witness: Vec<u8>,
         mut output_data: W,
     ) -> Result<(), RLNError> {
-        let (rln_witness, _) = deserialize_witness(&serialized_witness[..])?;
-        let proof_values = proof_values_from_witness(&rln_witness)?;
+        let (witness, _) = deserialize_witness(&serialized_witness[..])?;
+        let proof_values = proof_values_from_witness(&witness)?;
 
         let proof = generate_proof_with_witness(calculated_witness, &self.zkey).unwrap();
 
@@ -1212,24 +1212,9 @@ impl RLN {
         // We read input RLN witness and we serialize_compressed it
         let mut witness_byte: Vec<u8> = Vec::new();
         input_data.read_to_end(&mut witness_byte)?;
-        let (rln_witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
+        let (witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
 
-        serialize_witness(&rln_witness).map_err(RLNError::Protocol)
-    }
-
-    /// Converts a byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object to the corresponding JSON serialization.
-    ///
-    /// Input values are:
-    /// - `serialized_witness`: the byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput)
-    ///   object (serialization done with  [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
-    ///
-    /// The function returns the corresponding JSON encoding of the input.
-    pub fn get_rln_witness_json(
-        &mut self,
-        serialized_witness: &[u8],
-    ) -> Result<serde_json::Value, ProtocolError> {
-        let (rln_witness, _) = deserialize_witness(serialized_witness)?;
-        rln_witness_to_json(&rln_witness)
+        serialize_witness(&witness).map_err(RLNError::Protocol)
     }
 
     /// Converts a byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object
@@ -1245,8 +1230,8 @@ impl RLN {
         &mut self,
         serialized_witness: &[u8],
     ) -> Result<serde_json::Value, ProtocolError> {
-        let (rln_witness, _) = deserialize_witness(serialized_witness)?;
-        rln_witness_to_bigint_json(&rln_witness)
+        let (witness, _) = deserialize_witness(serialized_witness)?;
+        rln_witness_to_bigint_json(&witness)
     }
 
     /// Closes the connection to the Merkle tree database.

@@ -155,7 +155,7 @@ mod test {
         }
         let path_index = Uint8Array::from(&merkle_proof.get_path_index()[..]);
 
-        let rln_witness_input = WasmRLNWitnessInput::new(
+        let witness = WasmRLNWitnessInput::new(
             &identity_secret_hash,
             &user_message_limit,
             &message_id,
@@ -166,26 +166,25 @@ mod test {
         )
         .expect("Failed to create WasmRLNWitnessInput");
 
-        let rln_witness_input_bigint_json = rln_witness_input
+        let bigint_json = witness
             .to_bigint_json()
             .expect("Failed to convert witness to BigInt JSON");
 
         // Benchmark witness calculation
         let start_calculate_witness = Date::now();
         for _ in 0..iterations {
-            let _ = calculateWitness(CIRCOM_BYTES, rln_witness_input_bigint_json.clone())
+            let _ = calculateWitness(CIRCOM_BYTES, bigint_json.clone())
                 .await
                 .expect("Failed to calculate witness");
         }
         let calculate_witness_result = Date::now() - start_calculate_witness;
 
         // Calculate witness for other benchmarks
-        let calculated_witness_str =
-            calculateWitness(CIRCOM_BYTES, rln_witness_input_bigint_json.clone())
-                .await
-                .expect("Failed to calculate witness")
-                .as_string()
-                .expect("Failed to convert calculated witness to string");
+        let calculated_witness_str = calculateWitness(CIRCOM_BYTES, bigint_json.clone())
+            .await
+            .expect("Failed to calculate witness")
+            .as_string()
+            .expect("Failed to convert calculated witness to string");
         let calculated_witness_vec_str: Vec<String> =
             serde_json::from_str(&calculated_witness_str).expect("Failed to parse JSON");
         let calculated_witness: Vec<JsBigInt> = calculated_witness_vec_str
@@ -197,7 +196,7 @@ mod test {
         let start_generate_rln_proof_with_witness = Date::now();
         for _ in 0..iterations {
             let _ = rln_instance
-                .generate_rln_proof_with_witness(calculated_witness.clone(), &rln_witness_input)
+                .generate_rln_proof_with_witness(calculated_witness.clone(), &witness)
                 .expect("Failed to generate proof");
         }
         let generate_rln_proof_with_witness_result =
@@ -205,7 +204,7 @@ mod test {
 
         // Generate proof with witness for other benchmarks
         let proof: WasmRLNProof = rln_instance
-            .generate_rln_proof_with_witness(calculated_witness, &rln_witness_input)
+            .generate_rln_proof_with_witness(calculated_witness, &witness)
             .expect("Failed to generate proof");
 
         let root = WasmFr::from(tree.root());
