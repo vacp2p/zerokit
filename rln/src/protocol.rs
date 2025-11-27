@@ -1,11 +1,7 @@
 // This crate collects all the underlying primitives used to implement RLN
 
 #[cfg(not(feature = "stateless"))]
-use {
-    crate::error::ConversionError,
-    crate::poseidon_tree::PoseidonTree,
-    utils::{ZerokitMerkleProof, ZerokitMerkleTree},
-};
+use crate::poseidon_tree::PoseidonTree;
 
 use crate::circuit::COMPRESS_PROOF_SIZE;
 use crate::circuit::{
@@ -15,18 +11,17 @@ use crate::error::{ComputeIdSecretError, ProofError, ProtocolError};
 use crate::hashers::poseidon_hash;
 use crate::utils::{
     bytes_be_to_fr, bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size,
-    fr_to_bytes_be, fr_to_bytes_le, normalize_usize_le, to_bigint, vec_fr_to_bytes_le,
-    vec_u8_to_bytes_le, FrOrSecret, IdSecret,
+    fr_to_bytes_be, fr_to_bytes_le, to_bigint, vec_fr_to_bytes_be, vec_fr_to_bytes_le,
+    vec_u8_to_bytes_be, vec_u8_to_bytes_le, FrOrSecret, IdSecret,
 };
-use ark_ff::AdditiveGroup;
+use ark_ff::{AdditiveGroup, PrimeField};
 use ark_groth16::{prepare_verifying_key, Groth16};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
+use num_traits::Signed;
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
-#[cfg(test)]
-use std::time::Instant;
 use tiny_keccak::{Hasher as _, Keccak};
 use zeroize::Zeroize;
 
@@ -38,11 +33,11 @@ pub struct RLN {
     pub tree: PoseidonTree,
 }
 
-///////////////////////////////////////////////////////
-// RLN Witness data structure and utility functions
-///////////////////////////////////////////////////////
-
-#[derive(Debug, PartialEq)]
+/// Witness input for RLN proof generation.
+///
+/// Contains the identity credentials, merkle proof, rate-limiting parameters,
+/// and signal binding data required to generate a Groth16 proof for the RLN protocol.
+#[derive(Debug, PartialEq, Clone)]
 pub struct RLNWitnessInput {
     identity_secret: IdSecret,
     user_message_limit: Fr,
@@ -93,147 +88,77 @@ impl RLNWitnessInput {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct RLNProofValues {
-    // Public outputs:
-    pub y: Fr,
-    pub nullifier: Fr,
-    pub root: Fr,
-    // Public Inputs:
-    pub x: Fr,
-    pub external_nullifier: Fr,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct RLNProof {
-    pub proof: Proof,
-    pub proof_values: RLNProofValues,
-}
-
-pub fn serialize_field_element(element: Fr) -> Vec<u8> {
-    fr_to_bytes_le(&element)
-}
-
-pub fn deserialize_field_element(serialized: Vec<u8>) -> Fr {
-    let (element, _) = bytes_le_to_fr(&serialized);
-
-    element
-}
-
-pub fn deserialize_identity_pair_le(serialized: Vec<u8>) -> (Fr, Fr) {
-    let (identity_secret_hash, el_size) = bytes_le_to_fr(&serialized);
-    let (id_commitment, _) = bytes_le_to_fr(&serialized[el_size..]);
-
-    (identity_secret_hash, id_commitment)
-}
-
-pub fn deserialize_identity_pair_be(serialized: Vec<u8>) -> (Fr, Fr) {
-    let (identity_secret_hash, el_size) = bytes_be_to_fr(&serialized);
-    let (id_commitment, _) = bytes_be_to_fr(&serialized[el_size..]);
-
-    (identity_secret_hash, id_commitment)
-}
-
-pub fn deserialize_identity_tuple_le(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
-    let mut read = 0;
-
-    let (identity_trapdoor, el_size) = bytes_le_to_fr(&serialized[read..]);
-    read += el_size;
-
-    let (identity_nullifier, el_size) = bytes_le_to_fr(&serialized[read..]);
-    read += el_size;
-
-    let (identity_secret_hash, el_size) = bytes_le_to_fr(&serialized[read..]);
-    read += el_size;
-
-    let (identity_commitment, _) = bytes_le_to_fr(&serialized[read..]);
-
-    (
-        identity_trapdoor,
-        identity_nullifier,
-        identity_secret_hash,
-        identity_commitment,
-    )
-}
-
-pub fn deserialize_identity_tuple_be(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
-    let mut read = 0;
-
-    let (identity_trapdoor, el_size) = bytes_be_to_fr(&serialized[read..]);
-    read += el_size;
-
-    let (identity_nullifier, el_size) = bytes_be_to_fr(&serialized[read..]);
-    read += el_size;
-
-    let (identity_secret_hash, el_size) = bytes_be_to_fr(&serialized[read..]);
-    read += el_size;
-
-    let (identity_commitment, _) = bytes_be_to_fr(&serialized[read..]);
-
-    (
-        identity_trapdoor,
-        identity_nullifier,
-        identity_secret_hash,
-        identity_commitment,
-    )
-}
-
-/// Serializes witness
-///
-/// # Errors
-///
-/// Returns an error if `witness.message_id` is not within `witness.user_message_limit`.
-/// input data is [ identity_secret<32> | user_message_limit<32> | message_id<32> | path_elements<32> | identity_path_index<8> | x<32> | external_nullifier<32> ]
-pub fn serialize_witness(witness: &RLNWitnessInput) -> Result<Vec<u8>, ProtocolError> {
+/// Serializes an RLN witness to little-endian bytes.
+pub fn rln_witness_to_bytes_le(witness: &RLNWitnessInput) -> Result<Vec<u8>, ProtocolError> {
     // Calculate capacity for Vec:
     // - 5 fixed field elements: identity_secret, user_message_limit, message_id, x, external_nullifier
     // - variable number of path elements
     // - identity_path_index (variable size)
-    let mut serialized: Vec<u8> = Vec::with_capacity(
+    let mut bytes: Vec<u8> = Vec::with_capacity(
         fr_byte_size() * (5 + witness.path_elements.len()) + witness.identity_path_index.len(),
     );
-    serialized.extend_from_slice(&witness.identity_secret.to_bytes_le());
-    serialized.extend_from_slice(&fr_to_bytes_le(&witness.user_message_limit));
-    serialized.extend_from_slice(&fr_to_bytes_le(&witness.message_id));
-    serialized.extend_from_slice(&vec_fr_to_bytes_le(&witness.path_elements));
-    serialized.extend_from_slice(&vec_u8_to_bytes_le(&witness.identity_path_index));
-    serialized.extend_from_slice(&fr_to_bytes_le(&witness.x));
-    serialized.extend_from_slice(&fr_to_bytes_le(&witness.external_nullifier));
+    bytes.extend_from_slice(&witness.identity_secret.to_bytes_le());
+    bytes.extend_from_slice(&fr_to_bytes_le(&witness.user_message_limit));
+    bytes.extend_from_slice(&fr_to_bytes_le(&witness.message_id));
+    bytes.extend_from_slice(&vec_fr_to_bytes_le(&witness.path_elements));
+    bytes.extend_from_slice(&vec_u8_to_bytes_le(&witness.identity_path_index));
+    bytes.extend_from_slice(&fr_to_bytes_le(&witness.x));
+    bytes.extend_from_slice(&fr_to_bytes_le(&witness.external_nullifier));
 
-    Ok(serialized)
+    Ok(bytes)
 }
 
-/// Deserializes witness
+/// Serializes an RLN witness to big-endian bytes.
+pub fn rln_witness_to_bytes_be(witness: &RLNWitnessInput) -> Result<Vec<u8>, ProtocolError> {
+    // Calculate capacity for Vec:
+    // - 5 fixed field elements: identity_secret, user_message_limit, message_id, x, external_nullifier
+    // - variable number of path elements
+    // - identity_path_index (variable size)
+    let mut bytes: Vec<u8> = Vec::with_capacity(
+        fr_byte_size() * (5 + witness.path_elements.len()) + witness.identity_path_index.len(),
+    );
+    bytes.extend_from_slice(&witness.identity_secret.to_bytes_be());
+    bytes.extend_from_slice(&fr_to_bytes_be(&witness.user_message_limit));
+    bytes.extend_from_slice(&fr_to_bytes_be(&witness.message_id));
+    bytes.extend_from_slice(&vec_fr_to_bytes_be(&witness.path_elements));
+    bytes.extend_from_slice(&vec_u8_to_bytes_be(&witness.identity_path_index));
+    bytes.extend_from_slice(&fr_to_bytes_be(&witness.x));
+    bytes.extend_from_slice(&fr_to_bytes_be(&witness.external_nullifier));
+
+    Ok(bytes)
+}
+
+/// Deserializes an RLN witness from little-endian bytes.
 ///
-/// # Errors
+/// Format: `[ identity_secret<32> | user_message_limit<32> | message_id<32> | path_elements<var> | identity_path_index<var> | x<32> | external_nullifier<32> ]`
 ///
-/// Returns an error if `message_id` is not within `user_message_limit`.
-pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize), ProtocolError> {
+/// Returns the deserialized witness and the number of bytes read.
+pub fn bytes_le_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize), ProtocolError> {
     let mut read: usize = 0;
 
-    let (identity_secret, el_size) = IdSecret::from_bytes_le(&serialized[read..]);
+    let (identity_secret, el_size) = IdSecret::from_bytes_le(&bytes[read..]);
     read += el_size;
 
-    let (user_message_limit, el_size) = bytes_le_to_fr(&serialized[read..]);
+    let (user_message_limit, el_size) = bytes_le_to_fr(&bytes[read..]);
     read += el_size;
 
-    let (message_id, el_size) = bytes_le_to_fr(&serialized[read..]);
+    let (message_id, el_size) = bytes_le_to_fr(&bytes[read..]);
     read += el_size;
 
-    let (path_elements, el_size) = bytes_le_to_vec_fr(&serialized[read..])?;
+    let (path_elements, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
     read += el_size;
 
-    let (identity_path_index, el_size) = bytes_le_to_vec_u8(&serialized[read..])?;
+    let (identity_path_index, el_size) = bytes_le_to_vec_u8(&bytes[read..])?;
     read += el_size;
 
-    let (x, el_size) = bytes_le_to_fr(&serialized[read..]);
+    let (x, el_size) = bytes_le_to_fr(&bytes[read..]);
     read += el_size;
 
-    let (external_nullifier, el_size) = bytes_le_to_fr(&serialized[read..]);
+    let (external_nullifier, el_size) = bytes_le_to_fr(&bytes[read..]);
     read += el_size;
 
-    if serialized.len() != read {
-        return Err(ProtocolError::InvalidReadLen(serialized.len(), read));
+    if bytes.len() != read {
+        return Err(ProtocolError::InvalidReadLen(bytes.len(), read));
     }
 
     Ok((
@@ -250,54 +175,38 @@ pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)
     ))
 }
 
-// This function deserializes input for kilic's rln generate_proof public API
-// https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L148
-// input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
-// return value is a rln witness populated according to this information
-#[cfg(not(feature = "stateless"))]
-pub fn proof_inputs_to_rln_witness(
-    tree: &mut PoseidonTree,
-    serialized: &[u8],
-) -> Result<(RLNWitnessInput, usize), ProtocolError> {
-    use crate::hashers::hash_to_field_le;
-
+/// Deserializes an RLN witness from big-endian bytes.
+///
+/// Format: `[ identity_secret<32> | user_message_limit<32> | message_id<32> | path_elements<var> | identity_path_index<var> | x<32> | external_nullifier<32> ]`
+///
+/// Returns the deserialized witness and the number of bytes read.
+pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize), ProtocolError> {
     let mut read: usize = 0;
 
-    let (identity_secret, el_size) = IdSecret::from_bytes_le(&serialized[read..]);
+    let (identity_secret, el_size) = IdSecret::from_bytes_be(&bytes[read..]);
     read += el_size;
 
-    let id_index = usize::try_from(u64::from_le_bytes(
-        serialized[read..read + 8]
-            .try_into()
-            .map_err(ConversionError::FromSlice)?,
-    ))
-    .map_err(ConversionError::ToUsize)?;
-    read += 8;
-
-    let (user_message_limit, el_size) = bytes_le_to_fr(&serialized[read..]);
+    let (user_message_limit, el_size) = bytes_be_to_fr(&bytes[read..]);
     read += el_size;
 
-    let (message_id, el_size) = bytes_le_to_fr(&serialized[read..]);
+    let (message_id, el_size) = bytes_be_to_fr(&bytes[read..]);
     read += el_size;
 
-    let (external_nullifier, el_size) = bytes_le_to_fr(&serialized[read..]);
+    let (path_elements, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
     read += el_size;
 
-    let signal_len = usize::try_from(u64::from_le_bytes(
-        serialized[read..read + 8]
-            .try_into()
-            .map_err(ConversionError::FromSlice)?,
-    ))
-    .map_err(ConversionError::ToUsize)?;
-    read += 8;
+    let (identity_path_index, el_size) = bytes_le_to_vec_u8(&bytes[read..])?;
+    read += el_size;
 
-    let signal: Vec<u8> = serialized[read..read + signal_len].to_vec();
+    let (x, el_size) = bytes_be_to_fr(&bytes[read..]);
+    read += el_size;
 
-    let merkle_proof = tree.proof(id_index).expect("proof should exist");
-    let path_elements = merkle_proof.get_path_elements();
-    let identity_path_index = merkle_proof.get_path_index();
+    let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..]);
+    read += el_size;
 
-    let x = hash_to_field_le(&signal);
+    if bytes.len() != read {
+        return Err(ProtocolError::InvalidReadLen(bytes.len(), read));
+    }
 
     Ok((
         RLNWitnessInput::new(
@@ -313,6 +222,62 @@ pub fn proof_inputs_to_rln_witness(
     ))
 }
 
+/// Converts RLN witness to JSON with BigInt string representation for witness calculator.
+pub fn rln_witness_to_bigint_json(
+    witness: &RLNWitnessInput,
+) -> Result<serde_json::Value, ProtocolError> {
+    let mut path_elements = Vec::new();
+
+    for v in witness.path_elements.iter() {
+        path_elements.push(to_bigint(v).to_str_radix(10));
+    }
+
+    let mut identity_path_index = Vec::new();
+    witness
+        .identity_path_index
+        .iter()
+        .for_each(|v| identity_path_index.push(BigInt::from(*v).to_str_radix(10)));
+
+    let inputs = serde_json::json!({
+        "identitySecret": to_bigint(&witness.identity_secret).to_str_radix(10),
+        "userMessageLimit": to_bigint(&witness.user_message_limit).to_str_radix(10),
+        "messageId": to_bigint(&witness.message_id).to_str_radix(10),
+        "pathElements": path_elements,
+        "identityPathIndex": identity_path_index,
+        "x": to_bigint(&witness.x).to_str_radix(10),
+        "externalNullifier":  to_bigint(&witness.external_nullifier).to_str_radix(10),
+    });
+
+    Ok(inputs)
+}
+
+/// Complete RLN proof.
+///
+/// Combines the Groth16 proof with its public values.
+#[derive(Debug, PartialEq, Clone)]
+pub struct RLNProof {
+    pub proof: Proof,
+    pub proof_values: RLNProofValues,
+}
+
+/// Public values for RLN proof verification.
+///
+/// Contains the circuit's public inputs and outputs. Used in proof verification
+/// and identity secret recovery when rate limit violations are detected.
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct RLNProofValues {
+    // Public outputs:
+    pub y: Fr,
+    pub nullifier: Fr,
+    pub root: Fr,
+    // Public Inputs:
+    pub x: Fr,
+    pub external_nullifier: Fr,
+}
+
+/// Computes RLN proof values from witness input.
+///
+/// Calculates the public outputs (y, nullifier, root) that will be part of the proof.
 pub fn proof_values_from_witness(
     witness: &RLNWitnessInput,
 ) -> Result<RLNProofValues, ProtocolError> {
@@ -347,6 +312,7 @@ pub fn proof_values_from_witness(
     })
 }
 
+/// Serializes RLN proof values to little-endian bytes.
 pub fn rln_proof_values_to_bytes_le(rln_proof_values: &RLNProofValues) -> Vec<u8> {
     // Calculate capacity for Vec:
     // 5 field elements: root, external_nullifier, x, y, nullifier
@@ -361,6 +327,7 @@ pub fn rln_proof_values_to_bytes_le(rln_proof_values: &RLNProofValues) -> Vec<u8
     bytes
 }
 
+/// Serializes RLN proof values to big-endian bytes.
 pub fn rln_proof_values_to_bytes_be(rln_proof_values: &RLNProofValues) -> Vec<u8> {
     // Calculate capacity for Vec:
     // 5 field elements: root, external_nullifier, x, y, nullifier
@@ -375,7 +342,11 @@ pub fn rln_proof_values_to_bytes_be(rln_proof_values: &RLNProofValues) -> Vec<u8
     bytes
 }
 
-// input_data is [ root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
+/// Deserializes RLN proof values from little-endian bytes.
+///
+/// Format: `[ root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]`
+///
+/// Returns the deserialized proof values and the number of bytes read.
 pub fn bytes_le_to_rln_proof_values(bytes: &[u8]) -> (RLNProofValues, usize) {
     let mut read: usize = 0;
 
@@ -406,7 +377,11 @@ pub fn bytes_le_to_rln_proof_values(bytes: &[u8]) -> (RLNProofValues, usize) {
     )
 }
 
-// input_data is [ root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
+/// Deserializes RLN proof values from big-endian bytes.
+///
+/// Format: `[ root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]`
+///
+/// Returns the deserialized proof values and the number of bytes read.
 pub fn bytes_be_to_rln_proof_values(bytes: &[u8]) -> (RLNProofValues, usize) {
     let mut read: usize = 0;
 
@@ -437,6 +412,7 @@ pub fn bytes_be_to_rln_proof_values(bytes: &[u8]) -> (RLNProofValues, usize) {
     )
 }
 
+/// Serializes RLN proof to little-endian bytes.
 pub fn rln_proof_to_bytes_le(rln_proof: &RLNProof) -> Vec<u8> {
     // Calculate capacity for Vec:
     // - 128 bytes for compressed Groth16 proof
@@ -456,6 +432,7 @@ pub fn rln_proof_to_bytes_le(rln_proof: &RLNProof) -> Vec<u8> {
     bytes
 }
 
+/// Serializes RLN proof to big-endian bytes.
 pub fn rln_proof_to_bytes_be(rln_proof: &RLNProof) -> Vec<u8> {
     // Calculate capacity for Vec:
     // - 128 bytes for compressed Groth16 proof
@@ -475,7 +452,11 @@ pub fn rln_proof_to_bytes_be(rln_proof: &RLNProof) -> Vec<u8> {
     bytes
 }
 
-// input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
+/// Deserializes RLN proof from little-endian bytes.
+///
+/// Format: `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]`
+///
+/// Returns the deserialized proof and the number of bytes read.
 pub fn bytes_le_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), ProtocolError> {
     let mut read: usize = 0;
 
@@ -497,7 +478,11 @@ pub fn bytes_le_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), Protocol
     ))
 }
 
-// input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
+/// Deserializes RLN proof from big-endian bytes.
+///
+/// Format: `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]`
+///
+/// Returns the deserialized proof and the number of bytes read.
 pub fn bytes_be_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), ProtocolError> {
     let mut read: usize = 0;
 
@@ -519,81 +504,11 @@ pub fn bytes_be_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), Protocol
     ))
 }
 
-// input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
-pub fn prepare_prove_input(
-    identity_secret: IdSecret,
-    id_index: usize,
-    user_message_limit: Fr,
-    message_id: Fr,
-    external_nullifier: Fr,
-    signal: &[u8],
-) -> Vec<u8> {
-    // Calculate capacity for Vec:
-    // - 4 field elements: identity_secret, user_message_limit, message_id, external_nullifier
-    // - 16 bytes for two normalized usize values (id_index<8> + signal_len<8>)
-    // - variable length signal data
-    let mut serialized = Vec::with_capacity(fr_byte_size() * 4 + 16 + signal.len()); // length of 4 fr elements + 16 bytes (id_index + len) + signal length
-
-    serialized.extend_from_slice(&identity_secret.to_bytes_le());
-    serialized.extend_from_slice(&normalize_usize_le(id_index));
-    serialized.extend_from_slice(&fr_to_bytes_le(&user_message_limit));
-    serialized.extend_from_slice(&fr_to_bytes_le(&message_id));
-    serialized.extend_from_slice(&fr_to_bytes_le(&external_nullifier));
-    serialized.extend_from_slice(&normalize_usize_le(signal.len()));
-    serialized.extend_from_slice(signal);
-
-    serialized
-}
-
-// input_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]
-pub fn prepare_verify_input(proof_data: Vec<u8>, signal: &[u8]) -> Vec<u8> {
-    // Calculate capacity for Vec:
-    // - proof_data contains the proof and proof values (proof<128> + root<32> + external_nullifier<32> + x<32> + y<32> + nullifier<32>)
-    // - 8 bytes for normalized signal length value (signal_len<8>)
-    // - variable length signal data
-    let mut serialized = Vec::with_capacity(proof_data.len() + 8 + signal.len());
-
-    serialized.extend(proof_data);
-    serialized.extend_from_slice(&normalize_usize_le(signal.len()));
-    serialized.extend_from_slice(signal);
-
-    serialized
-}
-
-///////////////////////////////////////////////////////
-// Merkle tree utility functions
-///////////////////////////////////////////////////////
-
-pub fn compute_tree_root(
-    identity_secret: &IdSecret,
-    user_message_limit: &Fr,
-    path_elements: &[Fr],
-    identity_path_index: &[u8],
-) -> Fr {
-    let mut to_hash = [*identity_secret.clone()];
-    let id_commitment = poseidon_hash(&to_hash);
-    to_hash[0].zeroize();
-
-    let mut root = poseidon_hash(&[id_commitment, *user_message_limit]);
-
-    for i in 0..identity_path_index.len() {
-        if identity_path_index[i] == 0 {
-            root = poseidon_hash(&[root, path_elements[i]]);
-        } else {
-            root = poseidon_hash(&[path_elements[i], root]);
-        }
-    }
-
-    root
-}
-
-///////////////////////////////////////////////////////
 // Protocol utility functions
-///////////////////////////////////////////////////////
 
-// Generates a tuple (identity_secret_hash, id_commitment) where
-// identity_secret_hash is random and id_commitment = PoseidonHash(identity_secret_hash)
-// RNG is instantiated using thread_rng()
+/// Generates a random RLN identity using a cryptographically secure RNG.
+///
+/// Returns `(identity_secret, id_commitment)` where the commitment is `PoseidonHash(identity_secret)`.
 pub fn keygen() -> (IdSecret, Fr) {
     let mut rng = thread_rng();
     let identity_secret_hash = IdSecret::rand(&mut rng);
@@ -603,12 +518,11 @@ pub fn keygen() -> (IdSecret, Fr) {
     (identity_secret_hash, id_commitment)
 }
 
-// Generates a tuple (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) where
-// identity_trapdoor and identity_nullifier are random,
-// identity_secret_hash = PoseidonHash(identity_trapdoor, identity_nullifier),
-// id_commitment = PoseidonHash(identity_secret_hash),
-// RNG is instantiated using thread_rng()
-// Generated credentials are compatible with Semaphore credentials
+/// Generates an extended RLN identity compatible with Semaphore.
+///
+/// Returns `(identity_trapdoor, identity_nullifier, identity_secret, id_commitment)` where:
+/// - `identity_secret = PoseidonHash(identity_trapdoor, identity_nullifier)`
+/// - `id_commitment = PoseidonHash(identity_secret)`
 pub fn extended_keygen() -> (Fr, Fr, Fr, Fr) {
     let mut rng = thread_rng();
     let identity_trapdoor = Fr::rand(&mut rng);
@@ -623,9 +537,10 @@ pub fn extended_keygen() -> (Fr, Fr, Fr, Fr) {
     )
 }
 
-// Generates a tuple (identity_secret_hash, id_commitment) where
-// identity_secret_hash is random and id_commitment = PoseidonHash(identity_secret_hash)
-// RNG is instantiated using 20 rounds of ChaCha seeded with the hash of the input
+/// Generates a deterministic RLN identity from a seed.
+///
+/// Uses ChaCha20 RNG seeded with Keccak-256 hash of the input.
+/// Returns `(identity_secret, id_commitment)`. Same input always produces the same identity.
 pub fn seeded_keygen(signal: &[u8]) -> (Fr, Fr) {
     // ChaCha20 requires a seed of exactly 32 bytes.
     // We first hash the input seed signal to a 32 bytes array and pass this as seed to ChaCha20
@@ -640,12 +555,11 @@ pub fn seeded_keygen(signal: &[u8]) -> (Fr, Fr) {
     (identity_secret_hash, id_commitment)
 }
 
-// Generates a tuple (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) where
-// identity_trapdoor and identity_nullifier are random,
-// identity_secret_hash = PoseidonHash(identity_trapdoor, identity_nullifier),
-// id_commitment = PoseidonHash(identity_secret_hash),
-// RNG is instantiated using 20 rounds of ChaCha seeded with the hash of the input
-// Generated credentials are compatible with Semaphore credentials
+/// Generates a deterministic extended RLN identity from a seed, compatible with Semaphore.
+///
+/// Uses ChaCha20 RNG seeded with Keccak-256 hash of the input.
+/// Returns `(identity_trapdoor, identity_nullifier, identity_secret, id_commitment)`.
+/// Same input always produces the same identity.
 pub fn extended_seeded_keygen(signal: &[u8]) -> (Fr, Fr, Fr, Fr) {
     // ChaCha20 requires a seed of exactly 32 bytes.
     // We first hash the input seed signal to a 32 bytes array and pass this as seed to ChaCha20
@@ -667,6 +581,10 @@ pub fn extended_seeded_keygen(signal: &[u8]) -> (Fr, Fr, Fr, Fr) {
     )
 }
 
+/// Recovers identity secret from two proof shares with the same external nullifier.
+///
+/// When a user violates rate limits by generating multiple proofs in the same epoch,
+/// their shares can be used to recover their identity secret through polynomial interpolation.
 pub fn compute_id_secret(
     share1: (Fr, Fr),
     share2: (Fr, Fr),
@@ -693,18 +611,15 @@ pub fn compute_id_secret(
     }
 }
 
-///////////////////////////////////////////////////////
 // zkSNARK utility functions
-///////////////////////////////////////////////////////
 
+/// Converts calculated witness (BigInt) to field elements.
 fn calculated_witness_to_field_elements<E: ark_ec::pairing::Pairing>(
     calculated_witness: Vec<BigInt>,
 ) -> Result<Vec<E::ScalarField>, ProtocolError> {
-    use ark_ff::PrimeField;
     let modulus = <E::ScalarField as PrimeField>::MODULUS;
 
     // convert it to field elements
-    use num_traits::Signed;
     let mut field_elements = vec![];
     for w in calculated_witness.into_iter() {
         let w = if w.sign() == num_bigint::Sign::Minus {
@@ -722,27 +637,19 @@ fn calculated_witness_to_field_elements<E: ark_ec::pairing::Pairing>(
     Ok(field_elements)
 }
 
+/// Generates a RLN proof from pre-calculated witness values.
+///
+/// Use this when witness calculation is performed externally.
 pub fn generate_proof_with_witness(
     calculated_witness: Vec<BigInt>,
     zkey: &Zkey,
 ) -> Result<Proof, ProofError> {
-    // If in debug mode, we measure and later print time take to compute witness
-    #[cfg(test)]
-    let now = Instant::now();
-
     let full_assignment = calculated_witness_to_field_elements::<Curve>(calculated_witness)?;
-
-    #[cfg(test)]
-    println!("witness generation took: {:.2?}", now.elapsed());
 
     // Random Values
     let mut rng = thread_rng();
     let r = Fr::rand(&mut rng);
     let s = Fr::rand(&mut rng);
-
-    // If in debug mode, we measure and later print time take to compute proof
-    #[cfg(test)]
-    let now = Instant::now();
 
     let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
         &zkey.0,
@@ -754,17 +661,10 @@ pub fn generate_proof_with_witness(
         full_assignment.as_slice(),
     )?;
 
-    #[cfg(test)]
-    println!("proof generation took: {:.2?}", now.elapsed());
-
     Ok(proof)
 }
 
-/// Formats inputs for witness calculation
-///
-/// # Errors
-///
-/// Returns an error if `witness.message_id` is not within `witness.user_message_limit`.
+/// Prepares inputs for witness calculation from RLN witness input.
 fn inputs_for_witness_calculation(
     witness: &RLNWitnessInput,
 ) -> Result<[(&str, Vec<FrOrSecret>); 7], ProtocolError> {
@@ -799,11 +699,7 @@ fn inputs_for_witness_calculation(
     ])
 }
 
-/// Generates a RLN proof
-///
-/// # Errors
-///
-/// Returns a [`ProofError`] if proving fails.
+/// Generates a RLN proof from witness input using the provided circuit data.
 pub fn generate_proof(
     zkey: &Zkey,
     witness: &RLNWitnessInput,
@@ -813,22 +709,13 @@ pub fn generate_proof(
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));
 
-    // If in debug mode, we measure and later print time take to compute witness
-    #[cfg(test)]
-    let now = Instant::now();
     let full_assignment = calc_witness(inputs, graph_data);
-
-    #[cfg(test)]
-    println!("witness generation took: {:.2?}", now.elapsed());
 
     // Random Values
     let mut rng = thread_rng();
     let r = Fr::rand(&mut rng);
     let s = Fr::rand(&mut rng);
 
-    // If in debug mode, we measure and later print time take to compute proof
-    #[cfg(test)]
-    let now = Instant::now();
     let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
         &zkey.0,
         r,
@@ -839,18 +726,13 @@ pub fn generate_proof(
         full_assignment.as_slice(),
     )?;
 
-    #[cfg(test)]
-    println!("proof generation took: {:.2?}", now.elapsed());
-
     Ok(proof)
 }
 
-/// Verifies a given RLN proof
+/// Verifies a RLN proof against the verifying key and public values.
 ///
-/// # Errors
-///
-/// Returns a [`ProofError`] if verifying fails. Verification failure does not
-/// necessarily mean the proof is incorrect.
+/// Returns `true` if the proof is cryptographically valid, `false` if verification fails.
+/// Note: Verification failure may occur due to proof computation errors, not necessarily malicious proofs.
 pub fn verify_proof(
     verifying_key: &VerifyingKey,
     proof: &Proof,
@@ -868,48 +750,31 @@ pub fn verify_proof(
     // Check that the proof is valid
     let pvk = prepare_verifying_key(verifying_key);
 
-    // If in debug mode, we measure and later print time take to verify proof
-    #[cfg(test)]
-    let now = Instant::now();
-
     let verified = Groth16::<_, CircomReduction>::verify_proof(&pvk, proof, &inputs)?;
-
-    #[cfg(test)]
-    println!("verify took: {:.2?}", now.elapsed());
 
     Ok(verified)
 }
 
-/// Converts a [`RLNWitnessInput`] object to the corresponding JSON serialization.
-/// Before serialisation the data should be translated into big int for further calculation in the witness calculator.
-///
-/// # Errors
-///
-/// Returns an error if `message_id` is not within `user_message_limit`.
-pub fn rln_witness_to_bigint_json(
-    witness: &RLNWitnessInput,
-) -> Result<serde_json::Value, ProtocolError> {
-    let mut path_elements = Vec::new();
+/// Computes the Merkle tree root from identity credentials and Merkle membership proof.
+pub fn compute_tree_root(
+    identity_secret: &IdSecret,
+    user_message_limit: &Fr,
+    path_elements: &[Fr],
+    identity_path_index: &[u8],
+) -> Fr {
+    let mut to_hash = [*identity_secret.clone()];
+    let id_commitment = poseidon_hash(&to_hash);
+    to_hash[0].zeroize();
 
-    for v in witness.path_elements.iter() {
-        path_elements.push(to_bigint(v).to_str_radix(10));
+    let mut root = poseidon_hash(&[id_commitment, *user_message_limit]);
+
+    for i in 0..identity_path_index.len() {
+        if identity_path_index[i] == 0 {
+            root = poseidon_hash(&[root, path_elements[i]]);
+        } else {
+            root = poseidon_hash(&[path_elements[i], root]);
+        }
     }
 
-    let mut identity_path_index = Vec::new();
-    witness
-        .identity_path_index
-        .iter()
-        .for_each(|v| identity_path_index.push(BigInt::from(*v).to_str_radix(10)));
-
-    let inputs = serde_json::json!({
-        "identitySecret": to_bigint(&witness.identity_secret).to_str_radix(10),
-        "userMessageLimit": to_bigint(&witness.user_message_limit).to_str_radix(10),
-        "messageId": to_bigint(&witness.message_id).to_str_radix(10),
-        "pathElements": path_elements,
-        "identityPathIndex": identity_path_index,
-        "x": to_bigint(&witness.x).to_str_radix(10),
-        "externalNullifier":  to_bigint(&witness.external_nullifier).to_str_radix(10),
-    });
-
-    Ok(inputs)
+    root
 }
