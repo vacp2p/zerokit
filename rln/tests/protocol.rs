@@ -8,9 +8,9 @@ mod test {
     use rln::hashers::{hash_to_field_le, poseidon_hash};
     use rln::poseidon_tree::PoseidonTree;
     use rln::protocol::{
-        bytes_le_to_rln_proof_values, deserialize_witness, generate_proof, keygen,
-        proof_values_from_witness, rln_proof_values_to_bytes_le, seeded_keygen, serialize_witness,
-        verify_proof, RLNWitnessInput,
+        bytes_le_to_rln_proof_values, bytes_le_to_rln_witness, generate_proof, keygen,
+        proof_values_from_witness, rln_proof_values_to_bytes_le, rln_witness_to_bytes_le,
+        seeded_keygen, verify_proof, RLNWitnessInput,
     };
     use rln::utils::str_to_fr;
     use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
@@ -158,8 +158,8 @@ mod test {
         let witness = get_test_witness();
 
         // We test witness serialization
-        let ser = serialize_witness(&witness).unwrap();
-        let (deser, _) = deserialize_witness(&ser).unwrap();
+        let ser = rln_witness_to_bytes_le(&witness).unwrap();
+        let (deser, _) = bytes_le_to_rln_witness(&ser).unwrap();
         assert_eq!(witness, deser);
 
         // We test Proof values serialization

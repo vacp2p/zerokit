@@ -6,9 +6,8 @@ use crate::merkle_tree::{
     error::{FromConfigError, ZerokitMerkleTreeError},
     FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES,
 };
-////////////////////////////////////////////////////////////
-///// Optimal Merkle Tree Implementation
-////////////////////////////////////////////////////////////
+
+// Optimal Merkle Tree Implementation
 
 /// The Merkle tree structure
 #[derive(Clone, PartialEq, Eq, Debug)]

@@ -11,9 +11,8 @@ use crate::merkle_tree::{
     error::{FromConfigError, ZerokitMerkleTreeError},
     FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES,
 };
-////////////////////////////////////////////////////////////
-///// Full Merkle Tree Implementation
-////////////////////////////////////////////////////////////
+
+// Full Merkle Tree Implementation
 
 /// Merkle tree with all leaf and intermediate hashes stored
 #[derive(Clone, PartialEq, Eq, Debug)]
