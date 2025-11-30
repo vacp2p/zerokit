@@ -247,10 +247,9 @@ int main(int argc, char const *const argv[])
     printf("  - message_id = %s\n", debug.ptr);
     c_string_free(debug);
 
-    printf("\nGenerating RLN Proof\n");
+    printf("\nCreating RLN Witness\n");
 #ifdef STATELESS
-    CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result = ffi_generate_rln_proof_stateless(
-        &rln,
+    CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result = ffi_rln_witness_input_new(
         identity_secret,
         user_message_limit,
         message_id,
@@ -258,15 +257,42 @@ int main(int argc, char const *const argv[])
         &identity_path_index,
         x,
         external_nullifier);
-#else
-    CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result = ffi_generate_rln_proof(
+
+    if (!witness_result.ok)
+    {
+        fprintf(stderr, "RLN Witness creation error: %s\n", witness_result.err.ptr);
+        c_string_free(witness_result.err);
+        return EXIT_FAILURE;
+    }
+    FFI_RLNWitnessInput_t *witness = witness_result.ok;
+    printf("RLN Witness created successfully\n");
+    printf("\nGenerating RLN Proof\n");
+    CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result = ffi_generate_rln_proof_stateless(
         &rln,
+        &witness);
+#else
+    CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result = ffi_rln_witness_input_new(
         identity_secret,
         user_message_limit,
         message_id,
+        &merkle_proof->path_elements,
+        &merkle_proof->path_index,
         x,
-        external_nullifier,
-        leaf_index);
+        external_nullifier);
+
+    if (!witness_result.ok)
+    {
+        fprintf(stderr, "RLN Witness creation error: %s\n", witness_result.err.ptr);
+        c_string_free(witness_result.err);
+        return EXIT_FAILURE;
+    }
+    FFI_RLNWitnessInput_t *witness = witness_result.ok;
+    printf("RLN Witness created successfully\n");
+
+    printf("\nGenerating RLN Proof\n");
+    CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result = ffi_generate_rln_proof(
+        &rln,
+        &witness);
 #endif
 
     if (!proof_gen_result.ok)
@@ -388,10 +414,9 @@ int main(int argc, char const *const argv[])
     printf("  - message_id2 = %s\n", debug.ptr);
     c_string_free(debug);
 
-    printf("\nGenerating second RLN Proof\n");
+    printf("\nCreating second RLN Witness\n");
 #ifdef STATELESS
-    CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi_generate_rln_proof_stateless(
-        &rln,
+    CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result2 = ffi_rln_witness_input_new(
         identity_secret,
         user_message_limit,
         message_id2,
@@ -399,15 +424,41 @@ int main(int argc, char const *const argv[])
         &identity_path_index,
         x2,
         external_nullifier);
-#else
-    CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi_generate_rln_proof(
+
+    if (!witness_result2.ok)
+    {
+        fprintf(stderr, "Second RLN Witness creation error: %s\n", witness_result2.err.ptr);
+        c_string_free(witness_result2.err);
+        return EXIT_FAILURE;
+    }
+    FFI_RLNWitnessInput_t *witness2 = witness_result2.ok;
+    printf("Second RLN Witness created successfully\n");
+    printf("\nGenerating second RLN Proof\n");
+    CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi_generate_rln_proof_stateless(
         &rln,
+        &witness2);
+#else
+    CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result2 = ffi_rln_witness_input_new(
         identity_secret,
         user_message_limit,
         message_id2,
+        &merkle_proof->path_elements,
+        &merkle_proof->path_index,
         x2,
-        external_nullifier,
-        leaf_index);
+        external_nullifier);
+
+    if (!witness_result2.ok)
+    {
+        fprintf(stderr, "Second RLN Witness creation error: %s\n", witness_result2.err.ptr);
+        c_string_free(witness_result2.err);
+        return EXIT_FAILURE;
+    }
+    FFI_RLNWitnessInput_t *witness2 = witness_result2.ok;
+    printf("Second RLN Witness created successfully\n");
+    printf("\nGenerating second RLN Proof\n");
+    CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi_generate_rln_proof(
+        &rln,
+        &witness2);
 #endif
 
     if (!proof_gen_result2.ok)
@@ -469,6 +520,8 @@ int main(int argc, char const *const argv[])
     cfr_free(message_id2);
 
 #ifdef STATELESS
+    ffi_rln_witness_input_free(witness2);
+    ffi_rln_witness_input_free(witness);
     vec_cfr_free(roots);
     vec_cfr_free(path_elements);
     for (size_t i = 0; i < TREE_DEPTH - 1; i++)
@@ -478,6 +531,8 @@ int main(int argc, char const *const argv[])
     cfr_free(default_leaf);
     cfr_free(computed_root);
 #else
+    ffi_rln_witness_input_free(witness2);
+    ffi_rln_witness_input_free(witness);
     ffi_merkle_proof_free(merkle_proof);
 #endif
 

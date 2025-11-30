@@ -25,7 +25,6 @@ use crate::protocol::generate_proof_with_witness;
 /// used by tests etc. as well
 #[cfg(not(feature = "stateless"))]
 use {
-    crate::protocol::rln_witness_to_bytes_le,
     crate::utils::{bytes_le_to_vec_u8, vec_fr_to_bytes_le, vec_u8_to_bytes_le},
     crate::{circuit::TEST_TREE_DEPTH, poseidon_tree::PoseidonTree},
     serde_json::json,

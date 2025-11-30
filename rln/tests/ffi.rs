@@ -68,15 +68,42 @@ mod test {
         external_nullifier: &CFr,
         leaf_index: usize,
     ) -> repr_c::Box<FFI_RLNProof> {
-        match ffi_generate_rln_proof(
-            ffi_rln_instance,
+        // Get merkle proof for the leaf index
+        let merkle_proof = match ffi_get_proof(ffi_rln_instance, leaf_index) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("get merkle proof call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // Create witness input
+        let witness = match ffi_rln_witness_input_new(
             identity_secret,
             user_message_limit,
             message_id,
+            &merkle_proof.path_elements,
+            &merkle_proof.path_index,
             x,
             external_nullifier,
-            leaf_index,
         ) {
+            CResult {
+                ok: Some(witness),
+                err: None,
+            } => witness,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("witness creation call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // Generate proof from witness
+        let proof = match ffi_generate_rln_proof(ffi_rln_instance, &witness) {
             CResult {
                 ok: Some(proof),
                 err: None,
@@ -86,7 +113,9 @@ mod test {
                 err: Some(err),
             } => panic!("generate rln proof call failed: {}", err),
             _ => unreachable!(),
-        }
+        };
+
+        proof
     }
 
     #[test]
@@ -491,23 +520,9 @@ mod test {
             panic!("set next leaf call failed: {:?}", result.err);
         }
 
-        // Get the merkle proof for the identity
-        let _merkle_proof = match ffi_get_proof(&ffi_rln_instance, identity_index) {
-            CResult {
-                ok: Some(proof),
-                err: None,
-            } => proof,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("get merkle proof call failed: {}", err),
-            _ => unreachable!(),
-        };
-
         // Hash the signal to get x
         let x = hash_to_field_le(&signal);
 
-        // path_elements and identity_path_index are not needed in non-stateless mode
         let rln_proof = rln_proof_gen(
             &ffi_rln_instance,
             &CFr::from(*identity_secret_hash),
@@ -558,24 +573,8 @@ mod test {
             panic!("set next leaf call failed: {:?}", result.err);
         }
 
-        // Get the merkle proof for the identity
-        let _merkle_proof = match ffi_get_proof(&ffi_rln_instance, identity_index) {
-            CResult {
-                ok: Some(proof),
-                err: None,
-            } => proof,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("get merkle proof call failed: {}", err),
-            _ => unreachable!(),
-        };
-
         // Hash the signal to get x
         let x = hash_to_field_le(&signal);
-
-        // path_elements and identity_path_index are not needed in non-stateless mode
-        // witness input is now passed directly as parameters
 
         let rln_proof = rln_proof_gen(
             &ffi_rln_instance,
@@ -673,26 +672,11 @@ mod test {
         // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
         let message_id = Fr::from(1);
 
-        // Get the merkle proof for the identity
-        let _merkle_proof = match ffi_get_proof(&ffi_rln_instance, identity_index) {
-            CResult {
-                ok: Some(proof),
-                err: None,
-            } => proof,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("get merkle proof call failed: {}", err),
-            _ => unreachable!(),
-        };
-
         // Hash the signals to get x
         let x1 = hash_to_field_le(&signal1);
         let x2 = hash_to_field_le(&signal2);
 
-        // path_elements and identity_path_index are not needed in non-stateless mode
-        // witness input is now passed directly as parameters
-
+        // Generate proofs using witness-based API
         // We call generate_rln_proof for first proof values
         let rln_proof1 = rln_proof_gen(
             &ffi_rln_instance,
@@ -755,23 +739,6 @@ mod test {
         let signal3: [u8; 32] = rng.gen();
         let x3 = hash_to_field_le(&signal3);
 
-        // Get the merkle proof for the new identity
-        let _merkle_proof_new = match ffi_get_proof(&ffi_rln_instance, identity_index_new) {
-            CResult {
-                ok: Some(proof),
-                err: None,
-            } => proof,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("get merkle proof call failed: {}", err),
-            _ => unreachable!(),
-        };
-
-        // path_elements_new and identity_path_index_new are not needed in non-stateless mode
-        // witness input is now passed directly as parameters
-
-        // We call generate_rln_proof
         let rln_proof3 = rln_proof_gen(
             &ffi_rln_instance,
             &CFr::from(*identity_secret_hash_new.clone()),

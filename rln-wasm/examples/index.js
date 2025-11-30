@@ -170,7 +170,7 @@ async function main() {
   const messageId = rlnWasm.WasmFr.fromUint(0);
   console.log("  - message_id = " + messageId.debug());
 
-  console.log("\nGenerating RLN Proof");
+  console.log("\nCreating RLN Witness");
   const witness = new rlnWasm.WasmRLNWitnessInput(
     identitySecret,
     userMessageLimit,
@@ -180,12 +180,18 @@ async function main() {
     x,
     externalNullifier
   );
+  console.log("RLN Witness created successfully");
+
+  console.log("\nCalculating witness");
   const witnessJson = witness.toBigIntJson();
   const calculatedWitness = await calculateWitness(
     circomPath,
     witnessJson,
     witnessCalculatorFile
   );
+  console.log("Witness calculated successfully");
+
+  console.log("\nGenerating RLN Proof");
   const rln_proof = rlnInstance.generateRLNProofWithWitness(
     calculatedWitness,
     witness
@@ -250,7 +256,7 @@ async function main() {
   const messageId2 = rlnWasm.WasmFr.fromUint(0);
   console.log("  - message_id2 = " + messageId2.debug());
 
-  console.log("\nGenerating second RLN Proof");
+  console.log("\nCreating second RLN Witness");
   const witness2 = new rlnWasm.WasmRLNWitnessInput(
     identitySecret,
     userMessageLimit,
@@ -260,12 +266,18 @@ async function main() {
     x2,
     externalNullifier
   );
+  console.log("Second RLN Witness created successfully");
+
+  console.log("\nCalculating second witness");
   const witnessJson2 = witness2.toBigIntJson();
   const calculatedWitness2 = await calculateWitness(
     circomPath,
     witnessJson2,
     witnessCalculatorFile
   );
+  console.log("Second witness calculated successfully");
+
+  console.log("\nGenerating second RLN Proof");
   const rln_proof2 = rlnInstance.generateRLNProofWithWitness(
     calculatedWitness2,
     witness2

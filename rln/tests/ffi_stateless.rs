@@ -80,9 +80,8 @@ mod test {
             .into();
         let identity_path_index: repr_c::Vec<u8> = merkle_proof.get_path_index().to_vec().into();
 
-        // We call generate_rln_proof for first proof values
-        let rln_proof1 = match ffi_generate_rln_proof_stateless(
-            &ffi_rln_instance,
+        // Create witness for first proof
+        let witness1 = match ffi_rln_witness_input_new(
             &CFr::from(*identity_secret_hash.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
@@ -91,6 +90,19 @@ mod test {
             &CFr::from(x1),
             &CFr::from(external_nullifier),
         ) {
+            CResult {
+                ok: Some(witness),
+                err: None,
+            } => witness,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("witness creation call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // We call generate_rln_proof for first proof values
+        let rln_proof1 = match ffi_generate_rln_proof_stateless(&ffi_rln_instance, &witness1) {
             CResult {
                 ok: Some(proof),
                 err: None,
@@ -102,9 +114,8 @@ mod test {
             _ => unreachable!(),
         };
 
-        // We call generate_rln_proof for second proof values
-        let rln_proof2 = match ffi_generate_rln_proof_stateless(
-            &ffi_rln_instance,
+        // Create witness for second proof
+        let witness2 = match ffi_rln_witness_input_new(
             &CFr::from(*identity_secret_hash.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
@@ -113,6 +124,19 @@ mod test {
             &CFr::from(x2),
             &CFr::from(external_nullifier),
         ) {
+            CResult {
+                ok: Some(witness),
+                err: None,
+            } => witness,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("witness creation call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // We call generate_rln_proof for second proof values
+        let rln_proof2 = match ffi_generate_rln_proof_stateless(&ffi_rln_instance, &witness2) {
             CResult {
                 ok: Some(proof),
                 err: None,
@@ -166,9 +190,8 @@ mod test {
         let identity_path_index_new: repr_c::Vec<u8> =
             merkle_proof_new.get_path_index().to_vec().into();
 
-        // We call generate_rln_proof
-        let rln_proof3 = match ffi_generate_rln_proof_stateless(
-            &ffi_rln_instance,
+        // Create witness for third proof
+        let witness3 = match ffi_rln_witness_input_new(
             &CFr::from(*identity_secret_hash_new.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
@@ -177,6 +200,19 @@ mod test {
             &CFr::from(x3),
             &CFr::from(external_nullifier),
         ) {
+            CResult {
+                ok: Some(witness),
+                err: None,
+            } => witness,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("witness creation call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // We call generate_rln_proof
+        let rln_proof3 = match ffi_generate_rln_proof_stateless(&ffi_rln_instance, &witness3) {
             CResult {
                 ok: Some(proof),
                 err: None,
@@ -256,8 +292,8 @@ mod test {
             .into();
         let identity_path_index: repr_c::Vec<u8> = merkle_proof.get_path_index().to_vec().into();
 
-        let rln_proof = match ffi_generate_rln_proof_stateless(
-            &ffi_rln_instance,
+        // Create witness
+        let witness = match ffi_rln_witness_input_new(
             &CFr::from(*identity_secret_hash.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
@@ -266,6 +302,18 @@ mod test {
             &CFr::from(x),
             &CFr::from(external_nullifier),
         ) {
+            CResult {
+                ok: Some(witness),
+                err: None,
+            } => witness,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("witness creation call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        let rln_proof = match ffi_generate_rln_proof_stateless(&ffi_rln_instance, &witness) {
             CResult {
                 ok: Some(proof),
                 err: None,

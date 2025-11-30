@@ -20,6 +20,7 @@ type
   CFr* = object
   FFI_RLN* = object
   FFI_RLNProof* = object
+  FFI_RLNWitnessInput* = object
 
   Vec_CFr* = object
     dataPtr*: ptr CFr
@@ -45,6 +46,10 @@ type
 
   CResultProofPtrVecU8* = object
     ok*: ptr FFI_RLNProof
+    err*: Vec_uint8
+
+  CResultWitnessInputPtrVecU8* = object
+    ok*: ptr FFI_RLNWitnessInput
     err*: Vec_uint8
 
   FFI_RLNProofValues* = object
@@ -147,28 +152,40 @@ else:
 proc ffi_rln_free*(rln: ptr FFI_RLN) {.importc: "ffi_rln_free", cdecl,
     dynlib: RLN_LIB.}
 
+# Witness input functions
+proc ffi_rln_witness_input_new*(
+  identity_secret: ptr CFr,
+  user_message_limit: ptr CFr,
+  message_id: ptr CFr,
+  path_elements: ptr Vec_CFr,
+  identity_path_index: ptr Vec_uint8,
+  x: ptr CFr,
+  external_nullifier: ptr CFr
+): CResultWitnessInputPtrVecU8 {.importc: "ffi_rln_witness_input_new", cdecl,
+    dynlib: RLN_LIB.}
+proc ffi_rln_witness_to_bytes_le*(witness: ptr ptr FFI_RLNWitnessInput): Vec_uint8 {.importc: "ffi_rln_witness_to_bytes_le",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_witness_to_bytes_be*(witness: ptr ptr FFI_RLNWitnessInput): Vec_uint8 {.importc: "ffi_rln_witness_to_bytes_be",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_bytes_le_to_rln_witness*(bytes: ptr Vec_uint8): CResultWitnessInputPtrVecU8 {.importc: "ffi_bytes_le_to_rln_witness",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_bytes_be_to_rln_witness*(bytes: ptr Vec_uint8): CResultWitnessInputPtrVecU8 {.importc: "ffi_bytes_be_to_rln_witness",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_witness_input_free*(witness: ptr FFI_RLNWitnessInput) {.importc: "ffi_rln_witness_input_free",
+    cdecl, dynlib: RLN_LIB.}
+
 # Proof generation/verification functions
 when defined(ffiStateless):
   proc ffi_generate_rln_proof_stateless*(
     rln: ptr ptr FFI_RLN,
-    identity_secret: ptr CFr,
-    user_message_limit: ptr CFr,
-    message_id: ptr CFr,
-    path_elements: ptr Vec_CFr,
-    identity_path_index: ptr Vec_uint8,
-    x: ptr CFr,
-    external_nullifier: ptr CFr
+    witness: ptr ptr FFI_RLNWitnessInput
   ): CResultProofPtrVecU8 {.importc: "ffi_generate_rln_proof_stateless", cdecl,
       dynlib: RLN_LIB.}
-else:
+
+when not defined(ffiStateless):
   proc ffi_generate_rln_proof*(
     rln: ptr ptr FFI_RLN,
-    identity_secret: ptr CFr,
-    user_message_limit: ptr CFr,
-    message_id: ptr CFr,
-    x: ptr CFr,
-    external_nullifier: ptr CFr,
-    leaf_index: CSize
+    witness: ptr ptr FFI_RLNWitnessInput
   ): CResultProofPtrVecU8 {.importc: "ffi_generate_rln_proof", cdecl,
       dynlib: RLN_LIB.}
 
@@ -504,15 +521,53 @@ when isMainModule:
     echo "  - message_id = ", asString(debug)
     c_string_free(debug)
 
+  echo "\nCreating RLN Witness"
+  when defined(ffiStateless):
+    var witnessRes = ffi_rln_witness_input_new(identitySecret,
+        userMessageLimit, messageId, addr pathElements, addr identityPathIndex,
+        x, externalNullifier)
+    if witnessRes.ok.isNil:
+      stderr.writeLine "RLN Witness creation error: ", asString(witnessRes.err)
+      c_string_free(witnessRes.err)
+      quit 1
+    var witness = witnessRes.ok
+    echo "RLN Witness created successfully"
+  else:
+    var witnessRes = ffi_rln_witness_input_new(identitySecret,
+        userMessageLimit, messageId, addr merkleProof.path_elements,
+        addr merkleProof.path_index, x, externalNullifier)
+    if witnessRes.ok.isNil:
+      stderr.writeLine "RLN Witness creation error: ", asString(witnessRes.err)
+      c_string_free(witnessRes.err)
+      quit 1
+    var witness = witnessRes.ok
+    echo "RLN Witness created successfully"
+
+  echo "\nRLNWitnessInput serialization: RLNWitnessInput <-> bytes"
+  var serWitness = ffi_rln_witness_to_bytes_be(addr witness)
+
+  block:
+    let debug = vec_u8_debug(addr serWitness)
+    echo "  - serialized witness = ", asString(debug)
+    c_string_free(debug)
+
+  let deserWitnessResult = ffi_bytes_be_to_rln_witness(addr serWitness)
+  if deserWitnessResult.ok.isNil:
+    stderr.writeLine "Witness deserialization error: ", asString(
+        deserWitnessResult.err)
+    c_string_free(deserWitnessResult.err)
+    quit 1
+
+  echo "  - witness deserialized successfully"
+  ffi_rln_witness_input_free(deserWitnessResult.ok)
+  vec_u8_free(serWitness)
+
   echo "\nGenerating RLN Proof"
   var proofRes: CResultProofPtrVecU8
   when defined(ffiStateless):
-    proofRes = ffi_generate_rln_proof_stateless(addr rln, identitySecret,
-        userMessageLimit, messageId, addr pathElements, addr identityPathIndex,
-        x, externalNullifier)
+    proofRes = ffi_generate_rln_proof_stateless(addr rln, addr witness)
   else:
-    proofRes = ffi_generate_rln_proof(addr rln, identitySecret,
-        userMessageLimit, messageId, x, externalNullifier, leafIndex)
+    proofRes = ffi_generate_rln_proof(addr rln, addr witness)
 
   if proofRes.ok.isNil:
     stderr.writeLine "Proof generation error: ", asString(proofRes.err)
@@ -641,15 +696,36 @@ when isMainModule:
     echo "  - message_id2 = ", asString(debug)
     c_string_free(debug)
 
+  echo "\nCreating second RLN Witness"
+  when defined(ffiStateless):
+    var witnessRes2 = ffi_rln_witness_input_new(identitySecret,
+        userMessageLimit, messageId2, addr pathElements, addr identityPathIndex,
+        x2, externalNullifier)
+    if witnessRes2.ok.isNil:
+      stderr.writeLine "Second RLN Witness creation error: ", asString(
+          witnessRes2.err)
+      c_string_free(witnessRes2.err)
+      quit 1
+    var witness2 = witnessRes2.ok
+    echo "Second RLN Witness created successfully"
+  else:
+    var witnessRes2 = ffi_rln_witness_input_new(identitySecret,
+        userMessageLimit, messageId2, addr merkleProof.path_elements,
+        addr merkleProof.path_index, x2, externalNullifier)
+    if witnessRes2.ok.isNil:
+      stderr.writeLine "Second RLN Witness creation error: ", asString(
+          witnessRes2.err)
+      c_string_free(witnessRes2.err)
+      quit 1
+    var witness2 = witnessRes2.ok
+    echo "Second RLN Witness created successfully"
+
   echo "\nGenerating second RLN Proof"
   var proofRes2: CResultProofPtrVecU8
   when defined(ffiStateless):
-    proofRes2 = ffi_generate_rln_proof_stateless(addr rln, identitySecret,
-        userMessageLimit, messageId2, addr pathElements, addr identityPathIndex,
-        x2, externalNullifier)
+    proofRes2 = ffi_generate_rln_proof_stateless(addr rln, addr witness2)
   else:
-    proofRes2 = ffi_generate_rln_proof(addr rln, identitySecret,
-        userMessageLimit, messageId2, x2, externalNullifier, leafIndex)
+    proofRes2 = ffi_generate_rln_proof(addr rln, addr witness2)
 
   if proofRes2.ok.isNil:
     stderr.writeLine "Second proof generation error: ", asString(proofRes2.err)
@@ -704,6 +780,8 @@ when isMainModule:
   cfr_free(messageId2)
 
   when defined(ffiStateless):
+    ffi_rln_witness_input_free(witness2)
+    ffi_rln_witness_input_free(witness)
     vec_cfr_free(roots)
     vec_cfr_free(pathElements)
     for i in 0..treeDepth-2:
@@ -711,6 +789,8 @@ when isMainModule:
     cfr_free(defaultLeaf)
     cfr_free(computedRoot)
   else:
+    ffi_rln_witness_input_free(witness2)
+    ffi_rln_witness_input_free(witness)
     ffi_merkle_proof_free(merkleProof)
 
   cfr_free(rateCommitment)

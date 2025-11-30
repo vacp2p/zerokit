@@ -4,10 +4,12 @@ use super::ffi_utils::{CBoolResult, CFr, CResult};
 use crate::{
     circuit::{graph_from_folder, zkey_from_folder, zkey_from_raw, Fr},
     protocol::{
-        bytes_be_to_rln_proof, bytes_be_to_rln_proof_values, bytes_le_to_rln_proof,
-        bytes_le_to_rln_proof_values, compute_id_secret, generate_proof, proof_values_from_witness,
-        rln_proof_to_bytes_be, rln_proof_to_bytes_le, rln_proof_values_to_bytes_be,
-        rln_proof_values_to_bytes_le, verify_proof, RLNProof, RLNProofValues, RLNWitnessInput, RLN,
+        bytes_be_to_rln_proof, bytes_be_to_rln_proof_values, bytes_be_to_rln_witness,
+        bytes_le_to_rln_proof, bytes_le_to_rln_proof_values, bytes_le_to_rln_witness,
+        compute_id_secret, generate_proof, proof_values_from_witness, rln_proof_to_bytes_be,
+        rln_proof_to_bytes_le, rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le,
+        rln_witness_to_bytes_be, rln_witness_to_bytes_le, verify_proof, RLNProof, RLNProofValues,
+        RLNWitnessInput, RLN,
     },
     utils::IdSecret,
 };
@@ -18,7 +20,7 @@ use {
     crate::poseidon_tree::PoseidonTree,
     safer_ffi::prelude::char_p,
     std::{fs::File, io::Read, str::FromStr},
-    utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
+    utils::{Hasher, ZerokitMerkleTree},
 };
 
 // FFI_RLN
@@ -255,6 +257,114 @@ pub fn ffi_rln_proof_free(rln_proof: repr_c::Box<FFI_RLNProof>) {
     drop(rln_proof);
 }
 
+// RLNWitnessInput
+
+#[derive_ReprC]
+#[repr(opaque)]
+pub struct FFI_RLNWitnessInput(pub(crate) RLNWitnessInput);
+
+#[ffi_export]
+pub fn ffi_rln_witness_input_new(
+    identity_secret: &CFr,
+    user_message_limit: &CFr,
+    message_id: &CFr,
+    path_elements: &repr_c::Vec<CFr>,
+    identity_path_index: &repr_c::Vec<u8>,
+    x: &CFr,
+    external_nullifier: &CFr,
+) -> CResult<repr_c::Box<FFI_RLNWitnessInput>, repr_c::String> {
+    let mut identity_secret_fr = identity_secret.0;
+    let path_elements: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
+    let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
+    match RLNWitnessInput::new(
+        IdSecret::from(&mut identity_secret_fr),
+        user_message_limit.0,
+        message_id.0,
+        path_elements,
+        identity_path_index,
+        x.0,
+        external_nullifier.0,
+    ) {
+        Ok(witness) => CResult {
+            ok: Some(Box_::new(FFI_RLNWitnessInput(witness))),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffn_rln_witness_to_bytes_le(
+    witness: &repr_c::Box<FFI_RLNWitnessInput>,
+) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+    match rln_witness_to_bytes_le(&witness.0) {
+        Ok(bytes) => CResult {
+            ok: Some(bytes.into()),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_rln_witness_to_bytes_be(
+    witness: &repr_c::Box<FFI_RLNWitnessInput>,
+) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+    match rln_witness_to_bytes_be(&witness.0) {
+        Ok(bytes) => CResult {
+            ok: Some(bytes.into()),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_bytes_le_to_rln_witness(
+    bytes: &repr_c::Vec<u8>,
+) -> CResult<repr_c::Box<FFI_RLNWitnessInput>, repr_c::String> {
+    match bytes_le_to_rln_witness(bytes) {
+        Ok((witness, _)) => CResult {
+            ok: Some(Box_::new(FFI_RLNWitnessInput(witness))),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_bytes_be_to_rln_witness(
+    bytes: &repr_c::Vec<u8>,
+) -> CResult<repr_c::Box<FFI_RLNWitnessInput>, repr_c::String> {
+    match bytes_be_to_rln_witness(bytes) {
+        Ok((witness, _)) => CResult {
+            ok: Some(Box_::new(FFI_RLNWitnessInput(witness))),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_rln_witness_input_free(witness: repr_c::Box<FFI_RLNWitnessInput>) {
+    drop(witness);
+}
+
 // RLNProofValues
 
 #[derive_ReprC]
@@ -327,46 +437,9 @@ pub fn ffi_rln_proof_values_free(proof_values: repr_c::Box<FFI_RLNProofValues>) 
 #[ffi_export]
 pub fn ffi_generate_rln_proof(
     rln: &repr_c::Box<FFI_RLN>,
-    identity_secret: &CFr,
-    user_message_limit: &CFr,
-    message_id: &CFr,
-    x: &CFr,
-    external_nullifier: &CFr,
-    leaf_index: usize,
+    witness: &repr_c::Box<FFI_RLNWitnessInput>,
 ) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
-    let merkle_proof = match rln.0.tree.proof(leaf_index) {
-        Ok(merkle_proof) => merkle_proof,
-        Err(err) => {
-            return CResult {
-                ok: None,
-                err: Some(err.to_string().into()),
-            };
-        }
-    };
-
-    let path_elements: Vec<Fr> = merkle_proof.get_path_elements();
-    let identity_path_index: Vec<u8> = merkle_proof.get_path_index();
-
-    let mut identity_secret_fr = identity_secret.0;
-    let witness = match RLNWitnessInput::new(
-        IdSecret::from(&mut identity_secret_fr),
-        user_message_limit.0,
-        message_id.0,
-        path_elements,
-        identity_path_index,
-        x.0,
-        external_nullifier.0,
-    ) {
-        Ok(witness) => witness,
-        Err(err) => {
-            return CResult {
-                ok: None,
-                err: Some(err.to_string().into()),
-            };
-        }
-    };
-
-    let proof_values = match proof_values_from_witness(&witness) {
+    let proof_values = match proof_values_from_witness(&witness.0) {
         Ok(pv) => pv,
         Err(err) => {
             return CResult {
@@ -376,7 +449,7 @@ pub fn ffi_generate_rln_proof(
         }
     };
 
-    let proof = match generate_proof(&rln.0.zkey, &witness, &rln.0.graph_data) {
+    let proof = match generate_proof(&rln.0.zkey, &witness.0, &rln.0.graph_data) {
         Ok(proof) => proof,
         Err(err) => {
             return CResult {
@@ -401,36 +474,9 @@ pub fn ffi_generate_rln_proof(
 #[ffi_export]
 pub fn ffi_generate_rln_proof_stateless(
     rln: &repr_c::Box<FFI_RLN>,
-    identity_secret: &CFr,
-    user_message_limit: &CFr,
-    message_id: &CFr,
-    path_elements: &repr_c::Vec<CFr>,
-    identity_path_index: &repr_c::Vec<u8>,
-    x: &CFr,
-    external_nullifier: &CFr,
+    witness: &repr_c::Box<FFI_RLNWitnessInput>,
 ) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
-    let mut identity_secret_fr = identity_secret.0;
-    let path_elements: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
-    let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
-    let witness = match RLNWitnessInput::new(
-        IdSecret::from(&mut identity_secret_fr),
-        user_message_limit.0,
-        message_id.0,
-        path_elements,
-        identity_path_index,
-        x.0,
-        external_nullifier.0,
-    ) {
-        Ok(witness) => witness,
-        Err(err) => {
-            return CResult {
-                ok: None,
-                err: Some(err.to_string().into()),
-            };
-        }
-    };
-
-    let proof_values = match proof_values_from_witness(&witness) {
+    let proof_values = match proof_values_from_witness(&witness.0) {
         Ok(pv) => pv,
         Err(err) => {
             return CResult {
@@ -440,7 +486,7 @@ pub fn ffi_generate_rln_proof_stateless(
         }
     };
 
-    let proof = match generate_proof(&rln.0.zkey, &witness, &rln.0.graph_data) {
+    let proof = match generate_proof(&rln.0.zkey, &witness.0, &rln.0.graph_data) {
         Ok(proof) => proof,
         Err(err) => {
             return CResult {
