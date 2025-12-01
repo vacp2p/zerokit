@@ -1,23 +1,26 @@
 use std::{
     collections::HashMap,
     fs::File,
-    io::{stdin, stdout, Cursor, Read, Write},
+    io::{stdin, stdout, Read, Write},
     path::{Path, PathBuf},
 };
 
 use clap::{Parser, Subcommand};
-use color_eyre::{eyre::eyre, Report, Result};
 use rln::{
     circuit::Fr,
     hashers::{hash_to_field_le, poseidon_hash},
-    protocol::{keygen, prepare_prove_input, prepare_verify_input},
+    pm_tree_adapter::PmtreeConfigBuilder,
+    protocol::{keygen, recover_id_secret, RLNProofValues, RLNWitnessInput},
     public::RLN,
-    utils::{fr_to_bytes_le, generate_input_buffer, IdSecret},
+    utils::IdSecret,
 };
+use zerokit_utils::Mode;
 
 const MESSAGE_LIMIT: u32 = 1;
 
 const TREE_DEPTH: usize = 20;
+
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -60,7 +63,7 @@ impl Identity {
 
 struct RLNSystem {
     rln: RLN,
-    used_nullifiers: HashMap<[u8; 32], Vec<u8>>,
+    used_nullifiers: HashMap<Fr, RLNProofValues>,
     local_identities: HashMap<usize, Identity>,
 }
 
@@ -77,11 +80,19 @@ impl RLNSystem {
             file.read_exact(&mut output_buffer)?;
             resources.push(output_buffer);
         }
+        let tree_config = PmtreeConfigBuilder::new()
+            .path("./database")
+            .temporary(false)
+            .cache_capacity(1073741824)
+            .flush_every_ms(500)
+            .mode(Mode::HighThroughput)
+            .use_compression(false)
+            .build()?;
         let rln = RLN::new_with_params(
             TREE_DEPTH,
             resources[0].clone(),
             resources[1].clone(),
-            generate_input_buffer(),
+            tree_config,
         )?;
         println!("RLN instance initialized successfully");
         Ok(RLNSystem {
@@ -111,8 +122,7 @@ impl RLNSystem {
         let identity = Identity::new();
 
         let rate_commitment = poseidon_hash(&[identity.id_commitment, Fr::from(MESSAGE_LIMIT)]);
-        let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
-        match self.rln.set_next_leaf(&mut buffer) {
+        match self.rln.set_next_leaf(rate_commitment) {
             Ok(_) => {
                 println!("Registered User Index: {index}");
                 println!("+ Identity secret: {}", *identity.identity_secret);
@@ -133,83 +143,60 @@ impl RLNSystem {
         message_id: u32,
         signal: &str,
         external_nullifier: Fr,
-    ) -> Result<Vec<u8>> {
+    ) -> Result<RLNProofValues> {
         let identity = match self.local_identities.get(&user_index) {
             Some(identity) => identity,
-            None => return Err(eyre!("user index {user_index} not found")),
+            None => return Err(format!("user index {user_index} not found").into()),
         };
 
-        let serialized = prepare_prove_input(
+        let (path_elements, identity_path_index) = self.rln.get_proof(user_index)?;
+        let x = hash_to_field_le(signal.as_bytes());
+
+        let witness = RLNWitnessInput::new(
             identity.identity_secret.clone(),
-            user_index,
             Fr::from(MESSAGE_LIMIT),
             Fr::from(message_id),
+            path_elements,
+            identity_path_index,
+            x,
             external_nullifier,
-            signal.as_bytes(),
-        );
-        let mut input_buffer = Cursor::new(serialized);
-        let mut output_buffer = Cursor::new(Vec::new());
-        self.rln
-            .generate_rln_proof(&mut input_buffer, &mut output_buffer)?;
+        )?;
+
+        let (_proof, proof_values) = self.rln.generate_rln_proof(&witness)?;
 
         println!("Proof generated successfully:");
         println!("+ User Index: {user_index}");
         println!("+ Message ID: {message_id}");
         println!("+ Signal: {signal}");
 
-        Ok(output_buffer.into_inner())
+        Ok(proof_values)
     }
 
-    fn verify_proof(&mut self, proof_data: Vec<u8>, signal: &str) -> Result<()> {
-        let proof_with_signal = prepare_verify_input(proof_data.clone(), signal.as_bytes());
-        let mut input_buffer = Cursor::new(proof_with_signal);
-
-        match self.rln.verify_rln_proof(&mut input_buffer) {
-            Ok(true) => {
-                let nullifier = &proof_data[256..288];
-                let nullifier_key: [u8; 32] = nullifier.try_into()?;
-
-                if let Some(previous_proof) = self.used_nullifiers.get(&nullifier_key) {
-                    self.handle_duplicate_message_id(previous_proof.clone(), proof_data)?;
-                    return Ok(());
-                }
-                self.used_nullifiers.insert(nullifier_key, proof_data);
-                println!("Message verified and accepted");
-            }
-            Ok(false) => {
-                println!("Verification failed: message_id must be unique within the epoch and satisfy 0 <= message_id < MESSAGE_LIMIT: {MESSAGE_LIMIT}");
-            }
-            Err(err) => return Err(Report::new(err)),
+    fn verify_proof(&mut self, proof_values: RLNProofValues) -> Result<()> {
+        if let Some(&previous_proof_values) = self.used_nullifiers.get(&proof_values.nullifier) {
+            self.handle_duplicate_message_id(previous_proof_values, proof_values)?;
+            return Ok(());
         }
+
+        self.used_nullifiers
+            .insert(proof_values.nullifier, proof_values);
+        println!("Message verified and accepted");
         Ok(())
     }
 
     fn handle_duplicate_message_id(
         &mut self,
-        previous_proof: Vec<u8>,
-        current_proof: Vec<u8>,
+        previous_proof_values: RLNProofValues,
+        current_proof_values: RLNProofValues,
     ) -> Result<()> {
-        let x = &current_proof[192..224];
-        let y = &current_proof[224..256];
-
-        let prev_x = &previous_proof[192..224];
-        let prev_y = &previous_proof[224..256];
-        if x == prev_x && y == prev_y {
-            return Err(eyre!("this exact message and signal has already been sent"));
+        if previous_proof_values.x == current_proof_values.x
+            && previous_proof_values.y == current_proof_values.y
+        {
+            return Err("this exact message and signal has already been sent".into());
         }
 
-        let mut proof1 = Cursor::new(previous_proof);
-        let mut proof2 = Cursor::new(current_proof);
-        let mut output = Cursor::new(Vec::new());
-
-        match self
-            .rln
-            .recover_id_secret(&mut proof1, &mut proof2, &mut output)
-        {
-            Ok(_) => {
-                let output_data = output.into_inner();
-                let (leaked_identity_secret, _) = IdSecret::from_bytes_le(&output_data);
-
+        match recover_id_secret(&previous_proof_values, &current_proof_values) {
+            Ok(leaked_identity_secret) => {
                 if let Some((user_index, identity)) = self
                     .local_identities
                     .iter()
@@ -218,7 +205,7 @@ impl RLNSystem {
                 {
                     let real_identity_secret = identity.identity_secret.clone();
                     if leaked_identity_secret != real_identity_secret {
-                        Err(eyre!("Identity secret mismatch: leaked_identity_secret != real_identity_secret"))
+                        Err("Identity secret mismatch: leaked_identity_secret != real_identity_secret".into())
                     } else {
                         println!(
                             "DUPLICATE message ID detected! Reveal identity secret: {}",
@@ -230,10 +217,10 @@ impl RLNSystem {
                         Ok(())
                     }
                 } else {
-                    Err(eyre!("user identity secret ******** not found"))
+                    Err("user identity secret ******** not found".into())
                 }
             }
-            Err(err) => Err(eyre!("Failed to recover identity secret: {err}")),
+            Err(err) => Err(format!("Failed to recover identity secret: {err}").into()),
         }
     }
 }
@@ -277,8 +264,8 @@ fn main() -> Result<()> {
                         &signal,
                         external_nullifier,
                     ) {
-                        Ok(proof) => {
-                            if let Err(err) = rln_system.verify_proof(proof, &signal) {
+                        Ok(proof_values) => {
+                            if let Err(err) = rln_system.verify_proof(proof_values) {
                                 println!("Verification error: {err}");
                             };
                         }

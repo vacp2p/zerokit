@@ -81,7 +81,7 @@ pub struct PmtreeConfigBuilder {
 }
 
 impl PmtreeConfigBuilder {
-    fn new() -> Self {
+    pub fn new() -> Self {
         PmtreeConfigBuilder {
             path: None,
             temporary: DEFAULT_TEMPORARY,

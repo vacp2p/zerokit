@@ -85,9 +85,9 @@ impl RLN {
     /// - `tree_config`: configuration for the Merkle tree (accepts multiple types via TreeConfigInput trait)
     ///
     /// The `tree_config` parameter accepts:
-    /// - JSON string: `"{\"path\": \"/database\"}"`
+    /// - JSON string: `"{\"path\": \"./database\"}"`
     /// - Empty string for defaults: `""`
-    /// - Direct config (with pmtree feature): `PmtreeConfig::builder().path("/database").build()?`
+    /// - Direct config (with pmtree feature): `PmtreeConfig::builder().path("./database").build()?`
     /// - Option: `Some(config)` or `None` for defaults
     ///
     /// Examples:
@@ -96,7 +96,7 @@ impl RLN {
     /// let rln = RLN::new(20, "").unwrap();
     ///
     /// // Using JSON string
-    /// let config_json = r#"{"path": "/database", "cache_capacity": 1073741824}"#;
+    /// let config_json = r#"{"path": "./database", "cache_capacity": 1073741824}"#;
     /// let rln = RLN::new(20, config_json).unwrap();
     ///
     /// // Using None for defaults
@@ -106,7 +106,7 @@ impl RLN {
     /// For advanced usage with builder pattern (pmtree feature):
     /// ```
     /// let config = PmtreeConfig::builder()
-    ///     .path("/database")
+    ///     .path("./database")
     ///     .cache_capacity(1073741824)
     ///     .mode(Mode::HighThroughput)
     ///     .build()?;
@@ -176,11 +176,11 @@ impl RLN {
     /// let rln = RLN::new_with_params(tree_depth, resources[0].clone(), resources[1].clone(), "").unwrap();
     ///
     /// // Using JSON config
-    /// let config_json = r#"{"path": "/database"}"#;
+    /// let config_json = r#"{"path": "./database"}"#;
     /// let rln = RLN::new_with_params(tree_depth, resources[0].clone(), resources[1].clone(), config_json).unwrap();
     ///
     /// // Using builder pattern (with pmtree feature)
-    /// let config = PmtreeConfig::builder().path("/database").build()?;
+    /// let config = PmtreeConfig::builder().path("./database").build()?;
     /// let rln = RLN::new_with_params(tree_depth, resources[0].clone(), resources[1].clone(), config)?;
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
