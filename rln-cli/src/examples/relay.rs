@@ -137,7 +137,7 @@ impl RLNSystem {
         Ok(index)
     }
 
-    fn generate_proof(
+    fn generate_and_verify_proof(
         &mut self,
         user_index: usize,
         message_id: u32,
@@ -177,7 +177,7 @@ impl RLNSystem {
         Ok(proof_values)
     }
 
-    fn verify_proof(&mut self, proof_values: RLNProofValues) -> Result<()> {
+    fn check_nullifier(&mut self, proof_values: RLNProofValues) -> Result<()> {
         if let Some(&previous_proof_values) = self.used_nullifiers.get(&proof_values.nullifier) {
             self.handle_duplicate_message_id(previous_proof_values, proof_values)?;
             return Ok(());
@@ -263,15 +263,15 @@ fn main() -> Result<()> {
                     message_id,
                     signal,
                 } => {
-                    match rln_system.generate_proof(
+                    match rln_system.generate_and_verify_proof(
                         user_index,
                         message_id,
                         &signal,
                         external_nullifier,
                     ) {
                         Ok(proof_values) => {
-                            if let Err(err) = rln_system.verify_proof(proof_values) {
-                                println!("Verification error: {err}");
+                            if let Err(err) = rln_system.check_nullifier(proof_values) {
+                                println!("Check nullifier error: {err}");
                             };
                         }
                         Err(err) => {
