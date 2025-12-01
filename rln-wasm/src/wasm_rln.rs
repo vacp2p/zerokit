@@ -6,10 +6,12 @@ use num_bigint::BigInt;
 use rln::{
     circuit::Fr,
     protocol::{
-        bytes_be_to_rln_proof, bytes_be_to_rln_proof_values, bytes_le_to_rln_proof,
-        bytes_le_to_rln_proof_values, recover_id_secret, rln_proof_to_bytes_be,
-        rln_proof_to_bytes_le, rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le,
-        rln_witness_to_bigint_json, RLNProof, RLNProofValues, RLNWitnessInput,
+        bytes_be_to_rln_proof, bytes_be_to_rln_proof_values, bytes_be_to_rln_witness,
+        bytes_le_to_rln_proof, bytes_le_to_rln_proof_values, bytes_le_to_rln_witness,
+        recover_id_secret, rln_proof_to_bytes_be, rln_proof_to_bytes_le,
+        rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le, rln_witness_to_bigint_json,
+        rln_witness_to_bytes_be, rln_witness_to_bytes_le, RLNProof, RLNProofValues,
+        RLNWitnessInput,
     },
     public::RLN,
     utils::IdSecret,
@@ -221,5 +223,31 @@ impl WasmRLNWitnessInput {
         js_value
             .dyn_into::<Object>()
             .map_err(|err| format!("{:#?}", err))
+    }
+
+    #[wasm_bindgen(js_name = toBytesLE)]
+    pub fn to_bytes_le(&self) -> Result<Uint8Array, String> {
+        let bytes = rln_witness_to_bytes_le(&self.0).map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
+    }
+
+    #[wasm_bindgen(js_name = toBytesBE)]
+    pub fn to_bytes_be(&self) -> Result<Uint8Array, String> {
+        let bytes = rln_witness_to_bytes_be(&self.0).map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
+    }
+
+    #[wasm_bindgen(js_name = fromBytesLE)]
+    pub fn from_bytes_le(bytes: &Uint8Array) -> Result<WasmRLNWitnessInput, String> {
+        let bytes_vec = bytes.to_vec();
+        let (witness, _) = bytes_le_to_rln_witness(&bytes_vec).map_err(|err| err.to_string())?;
+        Ok(WasmRLNWitnessInput(witness))
+    }
+
+    #[wasm_bindgen(js_name = fromBytesBE)]
+    pub fn from_bytes_be(bytes: &Uint8Array) -> Result<WasmRLNWitnessInput, String> {
+        let bytes_vec = bytes.to_vec();
+        let (witness, _) = bytes_be_to_rln_witness(&bytes_vec).map_err(|err| err.to_string())?;
+        Ok(WasmRLNWitnessInput(witness))
     }
 }

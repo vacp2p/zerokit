@@ -266,10 +266,6 @@ int main(int argc, char const *const argv[])
     }
     FFI_RLNWitnessInput_t *witness = witness_result.ok;
     printf("RLN Witness created successfully\n");
-    printf("\nGenerating RLN Proof\n");
-    CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result = ffi_generate_rln_proof_stateless(
-        &rln,
-        &witness);
 #else
     CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result = ffi_rln_witness_input_new(
         identity_secret,
@@ -288,12 +284,12 @@ int main(int argc, char const *const argv[])
     }
     FFI_RLNWitnessInput_t *witness = witness_result.ok;
     printf("RLN Witness created successfully\n");
+#endif
 
     printf("\nGenerating RLN Proof\n");
     CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result = ffi_generate_rln_proof(
         &rln,
         &witness);
-#endif
 
     if (!proof_gen_result.ok)
     {
@@ -433,10 +429,6 @@ int main(int argc, char const *const argv[])
     }
     FFI_RLNWitnessInput_t *witness2 = witness_result2.ok;
     printf("Second RLN Witness created successfully\n");
-    printf("\nGenerating second RLN Proof\n");
-    CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi_generate_rln_proof_stateless(
-        &rln,
-        &witness2);
 #else
     CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result2 = ffi_rln_witness_input_new(
         identity_secret,
@@ -455,11 +447,11 @@ int main(int argc, char const *const argv[])
     }
     FFI_RLNWitnessInput_t *witness2 = witness_result2.ok;
     printf("Second RLN Witness created successfully\n");
+#endif
     printf("\nGenerating second RLN Proof\n");
     CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi_generate_rln_proof(
         &rln,
         &witness2);
-#endif
 
     if (!proof_gen_result2.ok)
     {

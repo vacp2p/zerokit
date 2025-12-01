@@ -70,12 +70,17 @@ type
     ok*: Vec_uint8
     err*: Vec_uint8
 
+  CResultBigIntJsonVecU8* = object
+    ok*: Vec_uint8
+    err*: Vec_uint8
+
   CBoolResult* = object
     ok*: bool
     err*: Vec_uint8
 
 # CFr functions
 proc cfr_zero*(): ptr CFr {.importc: "cfr_zero", cdecl, dynlib: RLN_LIB.}
+proc cfr_one*(): ptr CFr {.importc: "cfr_one", cdecl, dynlib: RLN_LIB.}
 proc cfr_free*(x: ptr CFr) {.importc: "cfr_free", cdecl, dynlib: RLN_LIB.}
 proc uint_to_cfr*(value: uint32): ptr CFr {.importc: "uint_to_cfr", cdecl,
     dynlib: RLN_LIB.}
@@ -140,13 +145,25 @@ proc ffi_poseidon_hash_pair*(a: ptr CFr,
 # Keygen function
 proc ffi_key_gen*(): Vec_CFr {.importc: "ffi_key_gen", cdecl,
     dynlib: RLN_LIB.}
+proc ffi_seeded_key_gen*(seed: ptr Vec_uint8): Vec_CFr {.importc: "ffi_seeded_key_gen",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_extended_key_gen*(): Vec_CFr {.importc: "ffi_extended_key_gen",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_seeded_extended_key_gen*(seed: ptr Vec_uint8): Vec_CFr {.importc: "ffi_seeded_extended_key_gen",
+    cdecl, dynlib: RLN_LIB.}
 
 # RLN instance functions
 when defined(ffiStateless):
   proc ffi_rln_new*(): CResultRLNPtrVecU8 {.importc: "ffi_rln_new", cdecl,
       dynlib: RLN_LIB.}
+  proc ffi_rln_new_with_params*(zkey_data: ptr Vec_uint8,
+      graph_data: ptr Vec_uint8): CResultRLNPtrVecU8 {.importc: "ffi_rln_new_with_params",
+      cdecl, dynlib: RLN_LIB.}
 else:
   proc ffi_rln_new*(treeDepth: CSize, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new",
+      cdecl, dynlib: RLN_LIB.}
+  proc ffi_rln_new_with_params*(treeDepth: CSize, zkey_data: ptr Vec_uint8,
+      graph_data: ptr Vec_uint8, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new_with_params",
       cdecl, dynlib: RLN_LIB.}
 
 proc ffi_rln_free*(rln: ptr FFI_RLN) {.importc: "ffi_rln_free", cdecl,
@@ -171,33 +188,26 @@ proc ffi_bytes_le_to_rln_witness*(bytes: ptr Vec_uint8): CResultWitnessInputPtrV
     cdecl, dynlib: RLN_LIB.}
 proc ffi_bytes_be_to_rln_witness*(bytes: ptr Vec_uint8): CResultWitnessInputPtrVecU8 {.importc: "ffi_bytes_be_to_rln_witness",
     cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_witness_to_bigint_json*(witness: ptr ptr FFI_RLNWitnessInput): CResultBigIntJsonVecU8 {.importc: "ffi_rln_witness_to_bigint_json",
+    cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_witness_input_free*(witness: ptr FFI_RLNWitnessInput) {.importc: "ffi_rln_witness_input_free",
     cdecl, dynlib: RLN_LIB.}
 
 # Proof generation/verification functions
-when defined(ffiStateless):
-  proc ffi_generate_rln_proof_stateless*(
-    rln: ptr ptr FFI_RLN,
-    witness: ptr ptr FFI_RLNWitnessInput
-  ): CResultProofPtrVecU8 {.importc: "ffi_generate_rln_proof_stateless", cdecl,
-      dynlib: RLN_LIB.}
+proc ffi_generate_rln_proof*(
+  rln: ptr ptr FFI_RLN,
+  witness: ptr ptr FFI_RLNWitnessInput
+): CResultProofPtrVecU8 {.importc: "ffi_generate_rln_proof", cdecl,
+    dynlib: RLN_LIB.}
+
+proc ffi_generate_rln_proof_with_witness*(
+  rln: ptr ptr FFI_RLN,
+  calculated_witness: ptr Vec_uint8,
+  witness: ptr ptr FFI_RLNWitnessInput
+): CResultProofPtrVecU8 {.importc: "ffi_generate_rln_proof_with_witness",
+    cdecl, dynlib: RLN_LIB.}
 
 when not defined(ffiStateless):
-  proc ffi_generate_rln_proof*(
-    rln: ptr ptr FFI_RLN,
-    witness: ptr ptr FFI_RLNWitnessInput
-  ): CResultProofPtrVecU8 {.importc: "ffi_generate_rln_proof", cdecl,
-      dynlib: RLN_LIB.}
-
-when defined(ffiStateless):
-  proc ffi_verify_with_roots*(
-    rln: ptr ptr FFI_RLN,
-    proof: ptr ptr FFI_RLNProof,
-    roots: ptr Vec_CFr,
-    x: ptr CFr
-  ): CBoolResult {.importc: "ffi_verify_with_roots", cdecl,
-      dynlib: RLN_LIB.}
-else:
   proc ffi_verify_rln_proof*(
     rln: ptr ptr FFI_RLN,
     proof: ptr ptr FFI_RLNProof,
@@ -205,23 +215,72 @@ else:
   ): CBoolResult {.importc: "ffi_verify_rln_proof", cdecl,
       dynlib: RLN_LIB.}
 
+proc ffi_verify_with_roots*(
+  rln: ptr ptr FFI_RLN,
+  proof: ptr ptr FFI_RLNProof,
+  roots: ptr Vec_CFr,
+  x: ptr CFr
+): CBoolResult {.importc: "ffi_verify_with_roots", cdecl,
+    dynlib: RLN_LIB.}
+
 proc ffi_rln_proof_free*(p: ptr FFI_RLNProof) {.importc: "ffi_rln_proof_free",
     cdecl, dynlib: RLN_LIB.}
 
 # Merkle tree operations (non-stateless mode)
 when not defined(ffiStateless):
+  proc ffi_set_tree*(rln: ptr ptr FFI_RLN,
+      tree_depth: CSize): CBoolResult {.importc: "ffi_set_tree",
+
+cdecl, dynlib: RLN_LIB.}
+  proc ffi_delete_leaf*(rln: ptr ptr FFI_RLN,
+      index: CSize): CBoolResult {.importc: "ffi_delete_leaf",
+
+cdecl, dynlib: RLN_LIB.}
+  proc ffi_set_leaf*(rln: ptr ptr FFI_RLN, index: CSize,
+      leaf: ptr CFr): CBoolResult {.importc: "ffi_set_leaf",
+
+cdecl, dynlib: RLN_LIB.}
+  proc ffi_get_leaf*(rln: ptr ptr FFI_RLN,
+      index: CSize): CResultCFrPtrVecU8 {.importc: "ffi_get_leaf",
+
+cdecl, dynlib: RLN_LIB.}
   proc ffi_set_next_leaf*(rln: ptr ptr FFI_RLN,
       leaf: ptr CFr): CBoolResult {.importc: "ffi_set_next_leaf",
+      cdecl, dynlib: RLN_LIB.}
+  proc ffi_set_leaves_from*(rln: ptr ptr FFI_RLN, index: CSize,
+      leaves: ptr Vec_CFr): CBoolResult {.importc: "ffi_set_leaves_from",
+
+cdecl, dynlib: RLN_LIB.}
+  proc ffi_init_tree_with_leaves*(rln: ptr ptr FFI_RLN,
+      leaves: ptr Vec_CFr): CBoolResult {.importc: "ffi_init_tree_with_leaves",
+
+cdecl, dynlib: RLN_LIB.}
+  proc ffi_atomic_operation*(rln: ptr ptr FFI_RLN, index: CSize,
+      leaves: ptr Vec_CFr,
+      indices: ptr Vec_uint8): CBoolResult {.importc: "ffi_atomic_operation",
+
+cdecl, dynlib: RLN_LIB.}
+  proc ffi_seq_atomic_operation*(rln: ptr ptr FFI_RLN, leaves: ptr Vec_CFr,
+      indices: ptr Vec_uint8): CBoolResult {.importc: "ffi_seq_atomic_operation",
+       cdecl, dynlib: RLN_LIB.}
+  proc ffi_get_root*(rln: ptr ptr FFI_RLN): ptr CFr {.importc: "ffi_get_root",
       cdecl, dynlib: RLN_LIB.}
   proc ffi_leaves_set*(rln: ptr ptr FFI_RLN): CSize {.importc: "ffi_leaves_set",
       cdecl, dynlib: RLN_LIB.}
   proc ffi_get_proof*(rln: ptr ptr FFI_RLN,
       index: CSize): CResultMerkleProofPtrVecU8 {.importc: "ffi_get_proof",
       cdecl, dynlib: RLN_LIB.}
+  proc ffi_set_metadata*(rln: ptr ptr FFI_RLN,
+      metadata: ptr Vec_uint8): CBoolResult {.importc: "ffi_set_metadata",
+
+cdecl, dynlib: RLN_LIB.}
+  proc ffi_get_metadata*(rln: ptr ptr FFI_RLN): CResultVecU8VecU8 {.importc: "ffi_get_metadata",
+      cdecl, dynlib: RLN_LIB.}
+  proc ffi_flush*(rln: ptr ptr FFI_RLN): CBoolResult {.importc: "ffi_flush",
+      cdecl, dynlib: RLN_LIB.}
   proc ffi_merkle_proof_free*(p: ptr FFI_MerkleProof) {.importc: "ffi_merkle_proof_free",
       cdecl, dynlib: RLN_LIB.}
 
-# Secret recovery
 # Identity secret recovery
 proc ffi_recover_id_secret*(proof_values_1: ptr ptr FFI_RLNProofValues,
     proof_values_2: ptr ptr FFI_RLNProofValues): CResultCFrPtrVecU8 {.importc: "ffi_recover_id_secret",
@@ -563,11 +622,7 @@ when isMainModule:
   vec_u8_free(serWitness)
 
   echo "\nGenerating RLN Proof"
-  var proofRes: CResultProofPtrVecU8
-  when defined(ffiStateless):
-    proofRes = ffi_generate_rln_proof_stateless(addr rln, addr witness)
-  else:
-    proofRes = ffi_generate_rln_proof(addr rln, addr witness)
+  var proofRes = ffi_generate_rln_proof(addr rln, addr witness)
 
   if proofRes.ok.isNil:
     stderr.writeLine "Proof generation error: ", asString(proofRes.err)
@@ -721,11 +776,7 @@ when isMainModule:
     echo "Second RLN Witness created successfully"
 
   echo "\nGenerating second RLN Proof"
-  var proofRes2: CResultProofPtrVecU8
-  when defined(ffiStateless):
-    proofRes2 = ffi_generate_rln_proof_stateless(addr rln, addr witness2)
-  else:
-    proofRes2 = ffi_generate_rln_proof(addr rln, addr witness2)
+  var proofRes2 = ffi_generate_rln_proof(addr rln, addr witness2)
 
   if proofRes2.ok.isNil:
     stderr.writeLine "Second proof generation error: ", asString(proofRes2.err)

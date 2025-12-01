@@ -1,5 +1,6 @@
 #![allow(non_camel_case_types)]
 
+use num_bigint::BigInt;
 use safer_ffi::{boxed::Box_, derive_ReprC, ffi_export, prelude::repr_c};
 #[cfg(not(feature = "stateless"))]
 use {safer_ffi::prelude::char_p, std::fs::File, std::io::Read};
@@ -11,8 +12,9 @@ use crate::{
         bytes_be_to_rln_proof, bytes_be_to_rln_proof_values, bytes_be_to_rln_witness,
         bytes_le_to_rln_proof, bytes_le_to_rln_proof_values, bytes_le_to_rln_witness,
         recover_id_secret, rln_proof_to_bytes_be, rln_proof_to_bytes_le,
-        rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le, rln_witness_to_bytes_be,
-        rln_witness_to_bytes_le, RLNProof, RLNProofValues, RLNWitnessInput,
+        rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le, rln_witness_to_bigint_json,
+        rln_witness_to_bytes_be, rln_witness_to_bytes_le, RLNProof, RLNProofValues,
+        RLNWitnessInput,
     },
     public::RLN,
     utils::IdSecret,
@@ -287,6 +289,22 @@ pub fn ffi_bytes_be_to_rln_witness(
 }
 
 #[ffi_export]
+pub fn ffi_rln_witness_to_bigint_json(
+    witness: &repr_c::Box<FFI_RLNWitnessInput>,
+) -> CResult<repr_c::String, repr_c::String> {
+    match rln_witness_to_bigint_json(&witness.0) {
+        Ok(json) => CResult {
+            ok: Some(json.to_string().into()),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
 pub fn ffi_rln_witness_input_free(witness: repr_c::Box<FFI_RLNWitnessInput>) {
     drop(witness);
 }
@@ -359,7 +377,6 @@ pub fn ffi_rln_proof_values_free(proof_values: repr_c::Box<FFI_RLNProofValues>) 
 
 // Proof generation APIs
 
-#[cfg(not(feature = "stateless"))]
 #[ffi_export]
 pub fn ffi_generate_rln_proof(
     rln: &repr_c::Box<FFI_RLN>,
@@ -383,13 +400,34 @@ pub fn ffi_generate_rln_proof(
     }
 }
 
-#[cfg(feature = "stateless")]
 #[ffi_export]
-pub fn ffi_generate_rln_proof_stateless(
+pub fn ffi_generate_rln_proof_with_witness(
     rln: &repr_c::Box<FFI_RLN>,
+    calculated_witness: &repr_c::Vec<repr_c::String>,
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
 ) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
-    match rln.0.generate_rln_proof(&witness.0) {
+    let calculated_witness_bigint: Result<Vec<BigInt>, _> = calculated_witness
+        .iter()
+        .map(|s| {
+            let s_str = unsafe { std::str::from_utf8_unchecked(s.as_bytes()) };
+            s_str.parse::<BigInt>()
+        })
+        .collect();
+
+    let calculated_witness_bigint = match calculated_witness_bigint {
+        Ok(w) => w,
+        Err(err) => {
+            return CResult {
+                ok: None,
+                err: Some(format!("Failed to parse witness: {}", err).into()),
+            }
+        }
+    };
+
+    match rln
+        .0
+        .generate_rln_proof_with_witness(calculated_witness_bigint, &witness.0)
+    {
         Ok((proof, proof_values)) => {
             let rln_proof = RLNProof {
                 proof_values,

@@ -1,7 +1,6 @@
 // This crate is the main public API for RLN module.
 // It is used by the FFI, WASM and should be used by tests as well
 
-#[cfg(target_arch = "wasm32")]
 use num_bigint::BigInt;
 #[cfg(not(feature = "stateless"))]
 use {
@@ -11,7 +10,6 @@ use {
     utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
 };
 
-#[cfg(target_arch = "wasm32")]
 use crate::protocol::generate_proof_with_witness;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
@@ -676,10 +674,16 @@ impl RLN {
         Ok((proof, proof_values))
     }
 
-    /// Generate RLN Proof using a pre-calculated witness from witness calculator (WASM).
+    /// Generate RLN Proof using a pre-calculated witness from witness calculator.
     ///
     /// This is used when the witness has been calculated externally using a witness calculator.
-    #[cfg(target_arch = "wasm32")]
+    ///
+    /// Example:
+    /// ```
+    /// let calculated_witness: Vec<BigInt> = ...; // From external witness calculator
+    /// let witness = RLNWitnessInput::new(...);
+    /// let (proof, proof_values) = rln.generate_rln_proof_with_witness(calculated_witness, &witness).unwrap();
+    /// ```
     pub fn generate_rln_proof_with_witness(
         &self,
         calculated_witness: Vec<BigInt>,
