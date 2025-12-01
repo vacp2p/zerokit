@@ -280,7 +280,7 @@ impl RLN {
     ///
     /// Example:
     /// ```
-    /// // We generate a random identity secret hash and commitment pair
+    /// // We generate a random identity secret and commitment pair
     /// let (identity_secret, id_commitment) = keygen();
     ///
     /// // We define the tree index where rate_commitment will be added

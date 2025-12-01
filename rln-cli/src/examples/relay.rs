@@ -100,8 +100,8 @@ impl RLNSystem {
         println!("Registered users:");
         for (index, identity) in &self.local_identities {
             println!("User Index: {index}");
-            println!("+ Identity Secret Hash: {}", *identity.identity_secret);
-            println!("+ Identity Commitment: {}", identity.id_commitment);
+            println!("+ Identity secret: {}", *identity.identity_secret);
+            println!("+ Identity commitment: {}", identity.id_commitment);
             println!();
         }
     }
@@ -115,7 +115,7 @@ impl RLNSystem {
         match self.rln.set_next_leaf(&mut buffer) {
             Ok(_) => {
                 println!("Registered User Index: {index}");
-                println!("+ Identity secret hash: {}", *identity.identity_secret);
+                println!("+ Identity secret: {}", *identity.identity_secret);
                 println!("+ Identity commitment: {},", identity.id_commitment);
                 self.local_identities.insert(index, identity);
             }
@@ -218,10 +218,10 @@ impl RLNSystem {
                 {
                     let real_identity_secret = identity.identity_secret.clone();
                     if leaked_identity_secret != real_identity_secret {
-                        Err(eyre!("identity secret hash mismatch: leaked_identity_secret != real_identity_secret"))
+                        Err(eyre!("Identity secret mismatch: leaked_identity_secret != real_identity_secret"))
                     } else {
                         println!(
-                            "DUPLICATE message ID detected! Reveal identity secret hash: {}",
+                            "DUPLICATE message ID detected! Reveal identity secret: {}",
                             *leaked_identity_secret
                         );
                         self.local_identities.remove(&user_index);
@@ -230,7 +230,7 @@ impl RLNSystem {
                         Ok(())
                     }
                 } else {
-                    Err(eyre!("user identity secret hash ******** not found"))
+                    Err(eyre!("user identity secret ******** not found"))
                 }
             }
             Err(err) => Err(eyre!("Failed to recover identity secret: {err}")),

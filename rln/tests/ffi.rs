@@ -716,11 +716,11 @@ mod test {
             _ => unreachable!(),
         };
 
-        // We check if the recovered identity secret hash corresponds to the original one
+        // We check if the recovered identity secret corresponds to the original one
         let recovered_identity_secret = *recovered_id_secret_cfr;
         assert_eq!(recovered_identity_secret, *identity_secret);
 
-        // We now test that computing identity_secret is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
+        // We now test that computing identity_secret is unsuccessful if shares computed from two different identity secretes but within same epoch are passed
 
         // We generate a new identity pair
         let (identity_secret_new, id_commitment_new) = identity_pair_gen();
