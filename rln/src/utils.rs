@@ -322,7 +322,8 @@ pub fn normalize_usize_le(input: usize) -> [u8; 8] {
 pub fn normalize_usize_be(input: usize) -> [u8; 8] {
     let mut bytes = [0u8; 8];
     let input_bytes = input.to_be_bytes();
-    bytes[..input_bytes.len()].copy_from_slice(&input_bytes);
+    let offset = 8 - input_bytes.len();
+    bytes[offset..].copy_from_slice(&input_bytes);
     bytes
 }
 
@@ -334,7 +335,7 @@ pub fn generate_input_buffer() -> Cursor<String> {
 #[derive(
     Debug, Zeroize, ZeroizeOnDrop, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize,
 )]
-pub struct IdSecret(ark_bn254::Fr);
+pub struct IdSecret(Fr);
 
 impl IdSecret {
     pub fn rand<R: Rng + ?Sized>(rng: &mut R) -> Self {

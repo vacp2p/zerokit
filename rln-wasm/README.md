@@ -72,6 +72,12 @@ Compile zerokit for `wasm32-unknown-unknown`:
 cargo make build
 ```
 
+Or you can build the utility functions only without RLN proof generation and verification:
+
+```bash
+cargo make build_utils
+```
+
 ## Running tests and benchmarks
 
 ```bash
@@ -83,6 +89,18 @@ If you want to run the tests in browser headless mode, you can use the following
 ```bash
 cargo make test_browser
 ```
+
+If you want to test only the utility functions after running `cargo make build_utils`, you can use the following command:
+
+```bash
+cargo make test_utils
+```
+
+## Examples
+
+Working examples demonstrating proof generation, proof verification and slashing:
+
+- [Node example](./examples/index.js) and [README](./examples/Readme.md)
 
 ## Parallel computation
 
@@ -109,7 +127,15 @@ To enable parallel computation for WebAssembly threads, you can use the followin
 cargo make build_parallel
 ```
 
-### WebAssembly Threading Support
+### Running parallel tests and benchmarks
+
+If you want to run the parallel tests in browser headless mode, you can use the following command:
+
+```bash
+cargo make test_parallel
+```
+
+### WebAssembly Threads Support
 
 Most modern browsers support WebAssembly threads,
 but they require the following headers to enable `SharedArrayBuffer`, which is necessary for multithreading:
@@ -122,7 +148,7 @@ Without these, the application will fall back to single-threaded mode.
 ## Feature detection
 
 If you're targeting [older browser versions that didn't support WebAssembly threads yet](https://webassembly.org/roadmap/),
-you'll likely want to create two builds - one with thread support and one without -
+you'll likely want to create two builds - one with threads support and one without -
 and use feature detection to choose the right one on the JavaScript side.
 
 You can use [wasm-feature-detect](https://github.com/GoogleChromeLabs/wasm-feature-detect) library for this purpose.

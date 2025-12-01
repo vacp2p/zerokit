@@ -47,13 +47,6 @@ cd rln-wasm && cargo make test_browser     # Test in browser headless mode
 cd rln-wasm && cargo make test_parallel    # Test parallel features
 ```
 
-Choose the appropriate test commands based on your changes:
-
-- Core RLN changes: `make test`
-- Stateless features: `cargo make test_stateless`
-- WASM/browser features: `cargo make test_browser`
-- Parallel computation: `cargo make test_parallel`
-
 ### Tools
 
 We recommend using the [markdownlint extension](https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint)
@@ -107,7 +100,6 @@ Use scopes to improve the Changelog:
 - `rln` - Core RLN implementation
 - `rln-cli` - Command-line interface
 - `rln-wasm` - WebAssembly bindings
-- `rln-wasm-utils` - WebAssembly utilities
 - `utils` - Cryptographic utilities (Merkle trees, Poseidon hash)
 - `ci` - Continuous integration
 

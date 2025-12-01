@@ -97,6 +97,7 @@ jobs:
         feature:
           - "default"
           - "parallel"
+          - "utils"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -123,10 +124,11 @@ jobs:
             wasm-pack build --release --target web --scope waku
           fi
 
-          sed -i.bak 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json && rm pkg/package.json.bak
-
-          wasm-opt pkg/rln_wasm_bg.wasm -Oz --strip-debug --strip-dwarf \
-          --remove-unused-module-elements --vacuum -o pkg/rln_wasm_bg.wasm
+          if [[ ${{ matrix.feature }} == "utils" ]]; then
+            sed -i.bak 's/rln-wasm/zerokit-rln-wasm-utils/g' pkg/package.json && rm pkg/package.json.bak
+          else
+            sed -i.bak 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json && rm pkg/package.json.bak
+          fi
 
           mkdir release
           cp -r pkg/* release/
@@ -139,42 +141,9 @@ jobs:
           path: rln-wasm/rln-wasm-${{ matrix.feature }}.tar.gz
           retention-days: 2
 
-  rln-wasm-utils:
-    name: Build rln-wasm-utils
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-      - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-      - name: Install dependencies
-        run: make installdeps
-      - name: Build rln-wasm-utils package
-        run: |
-          wasm-pack build --release --target web --scope waku
-
-          sed -i.bak 's/rln-wasm-utils/zerokit-rln-wasm-utils/g' pkg/package.json && rm pkg/package.json.bak
-
-          wasm-opt pkg/rln_wasm_utils_bg.wasm -Oz --strip-debug --strip-dwarf \
-          --remove-unused-module-elements --vacuum -o pkg/rln_wasm_utils_bg.wasm
-
-          mkdir release
-          cp -r pkg/* release/
-          tar -czvf rln-wasm-utils.tar.gz release/
-        working-directory: rln-wasm-utils
-      - name: Upload archive artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: rln-wasm-utils-archive
-          path: rln-wasm-utils/rln-wasm-utils.tar.gz
-          retention-days: 2
-
   prepare-prerelease:
     name: Prepare pre-release
-    needs: [linux, macos, rln-wasm, rln-wasm-utils]
+    needs: [linux, macos, rln-wasm]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

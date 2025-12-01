@@ -1,10 +1,14 @@
 [tasks.build]
 clear = true
-dependencies = ["pack_build", "pack_rename", "pack_resize"]
+dependencies = ["pack_build", "pack_rename"]
 
 [tasks.build_parallel]
 clear = true
-dependencies = ["pack_build_parallel", "pack_rename", "pack_resize"]
+dependencies = ["pack_build_parallel", "pack_rename"]
+
+[tasks.build_utils]
+clear = true
+dependencies = ["pack_build_utils", "pack_rename_utils"]
 
 [tasks.pack_build]
 command = "wasm-pack"
@@ -29,21 +33,27 @@ args = [
     "-Z",
     "build-std=panic_abort,std",
 ]
+
 [tasks.pack_rename]
 script = "sed -i.bak 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json && rm pkg/package.json.bak"
 
-[tasks.pack_resize]
-command = "wasm-opt"
+[tasks.pack_build_utils]
+command = "wasm-pack"
 args = [
-    "pkg/rln_wasm_bg.wasm",
-    "-Oz",
-    "--strip-debug",
-    "--strip-dwarf",
-    "--remove-unused-module-elements",
-    "--vacuum",
-    "-o",
-    "pkg/rln_wasm_bg.wasm",
+    "build",
+    "--release",
+    "--target",
+    "web",
+    "--scope",
+    "waku",
+    "--no-default-features",
+    "--features",
+    "utils",
 ]
+
+[tasks.pack_rename_utils]
+script = "sed -i.bak 's/rln-wasm/zerokit-rln-wasm-utils/g' pkg/package.json && rm pkg/package.json.bak"
+
 
 [tasks.test]
 command = "wasm-pack"
@@ -94,6 +104,22 @@ args = [
     "--nocapture",
 ]
 dependencies = ["build_parallel"]
+
+[tasks.test_utils]
+command = "wasm-pack"
+args = [
+    "test",
+    "--release",
+    "--node",
+    "--target",
+    "wasm32-unknown-unknown",
+    "--no-default-features",
+    "--features",
+    "utils",
+    "--",
+    "--nocapture",
+]
+dependencies = ["build_utils"]
 
 [tasks.bench]
 disabled = true

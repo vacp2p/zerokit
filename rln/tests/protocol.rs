@@ -9,9 +9,8 @@ mod test {
     use rln::poseidon_tree::PoseidonTree;
     use rln::protocol::{
         deserialize_proof_values, deserialize_witness, generate_proof, keygen,
-        proof_values_from_witness, rln_witness_from_json, rln_witness_from_values,
-        rln_witness_to_json, seeded_keygen, serialize_proof_values, serialize_witness,
-        verify_proof, RLNWitnessInput,
+        proof_values_from_witness, rln_witness_from_json, rln_witness_to_json, seeded_keygen,
+        serialize_proof_values, serialize_witness, verify_proof, RLNWitnessInput,
     };
     use rln::utils::str_to_fr;
     use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
@@ -119,14 +118,16 @@ mod test {
         let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
 
-        rln_witness_from_values(
+        let message_id = Fr::from(1);
+
+        RLNWitnessInput::new(
             identity_secret_hash,
+            user_message_limit,
+            message_id,
             merkle_proof.get_path_elements(),
             merkle_proof.get_path_index(),
             x,
             external_nullifier,
-            user_message_limit,
-            Fr::from(1),
         )
         .unwrap()
     }
@@ -136,7 +137,7 @@ mod test {
     fn test_witness_from_json() {
         // We generate all relevant keys
         let proving_key = zkey_from_folder();
-        let verification_key = &proving_key.0.vk;
+        let verifying_key = &proving_key.0.vk;
         let graph_data = graph_from_folder();
         // We compute witness from the json input
         let rln_witness = get_test_witness();
@@ -149,7 +150,7 @@ mod test {
         let proof_values = proof_values_from_witness(&rln_witness_deser).unwrap();
 
         // Let's verify the proof
-        let verified = verify_proof(verification_key, &proof, &proof_values);
+        let verified = verify_proof(verifying_key, &proof, &proof_values);
 
         assert!(verified.unwrap());
     }
@@ -164,7 +165,7 @@ mod test {
 
         // We generate all relevant keys
         let proving_key = zkey_from_folder();
-        let verification_key = &proving_key.0.vk;
+        let verifying_key = &proving_key.0.vk;
         let graph_data = graph_from_folder();
 
         // Let's generate a zkSNARK proof
@@ -173,7 +174,7 @@ mod test {
         let proof_values = proof_values_from_witness(&rln_witness_deser).unwrap();
 
         // Let's verify the proof
-        let success = verify_proof(verification_key, &proof, &proof_values).unwrap();
+        let success = verify_proof(verifying_key, &proof, &proof_values).unwrap();
 
         assert!(success);
     }

@@ -7,29 +7,37 @@ use {
     utils::{ZerokitMerkleProof, ZerokitMerkleTree},
 };
 
-use crate::circuit::{calculate_rln_witness, qap::CircomReduction, Curve};
+use crate::circuit::{
+    iden3calc::calc_witness, qap::CircomReduction, Curve, Fr, Proof, VerifyingKey, Zkey,
+};
 use crate::error::{ComputeIdSecretError, ProofError, ProtocolError};
-use crate::hashers::{hash_to_field_le, poseidon_hash};
-use crate::public::RLN_IDENTIFIER;
+use crate::hashers::poseidon_hash;
 use crate::utils::{
     bytes_be_to_fr, bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size,
     fr_to_bytes_le, normalize_usize_le, to_bigint, vec_fr_to_bytes_le, vec_u8_to_bytes_le,
     FrOrSecret, IdSecret,
 };
-use ark_bn254::{Fr, FrConfig};
-use ark_ff::{AdditiveGroup, Fp, MontBackend};
-use ark_groth16::{prepare_verifying_key, Groth16, Proof as ArkProof, ProvingKey, VerifyingKey};
-use ark_relations::r1cs::ConstraintMatrices;
+use ark_ff::AdditiveGroup;
+use ark_groth16::{prepare_verifying_key, Groth16};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
-use rand::{Rng, SeedableRng};
+use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use std::time::Instant;
 use tiny_keccak::{Hasher as _, Keccak};
 use zeroize::Zeroize;
+
+pub struct RLN {
+    pub zkey: Zkey,
+    #[cfg(not(target_arch = "wasm32"))]
+    pub graph_data: Vec<u8>,
+    #[cfg(not(feature = "stateless"))]
+    pub tree: PoseidonTree,
+}
+
 ///////////////////////////////////////////////////////
 // RLN Witness data structure and utility functions
 ///////////////////////////////////////////////////////
@@ -61,8 +69,23 @@ impl RLNWitnessInput {
         x: Fr,
         external_nullifier: Fr,
     ) -> Result<Self, ProtocolError> {
-        merkle_proof_len_check(&path_elements, &identity_path_index)?;
-        message_id_range_check(&message_id, &user_message_limit)?;
+        // Message ID range check
+        if message_id > user_message_limit {
+            return Err(ProtocolError::InvalidMessageId(
+                message_id,
+                user_message_limit,
+            ));
+        }
+
+        // Merkle proof length check
+        let path_elements_len = path_elements.len();
+        let identity_path_index_len = identity_path_index.len();
+        if path_elements_len != identity_path_index_len {
+            return Err(ProtocolError::InvalidMerkleProofLength(
+                path_elements_len,
+                identity_path_index_len,
+            ));
+        }
 
         Ok(Self {
             identity_secret,
@@ -162,9 +185,6 @@ pub fn deserialize_identity_tuple_be(serialized: Vec<u8>) -> (Fr, Fr, Fr, Fr) {
 /// Returns an error if `rln_witness.message_id` is not within `rln_witness.user_message_limit`.
 /// input data is [ identity_secret<32> | user_message_limit<32> | message_id<32> | path_elements<32> | identity_path_index<8> | x<32> | external_nullifier<32> ]
 pub fn serialize_witness(rln_witness: &RLNWitnessInput) -> Result<Vec<u8>, ProtocolError> {
-    // Check if message_id is within user_message_limit
-    message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
-
     // Calculate capacity for Vec:
     // - 5 fixed field elements: identity_secret, user_message_limit, message_id, x, external_nullifier
     // - variable number of path elements
@@ -201,8 +221,6 @@ pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)
     let (message_id, read) = bytes_le_to_fr(&serialized[all_read..]);
     all_read += read;
 
-    message_id_range_check(&message_id, &user_message_limit)?;
-
     let (path_elements, read) = bytes_le_to_vec_fr(&serialized[all_read..])?;
     all_read += read;
 
@@ -220,15 +238,15 @@ pub fn deserialize_witness(serialized: &[u8]) -> Result<(RLNWitnessInput, usize)
     }
 
     Ok((
-        RLNWitnessInput {
+        RLNWitnessInput::new(
             identity_secret,
+            user_message_limit,
+            message_id,
             path_elements,
             identity_path_index,
             x,
             external_nullifier,
-            user_message_limit,
-            message_id,
-        },
+        )?,
         all_read,
     ))
 }
@@ -242,6 +260,8 @@ pub fn proof_inputs_to_rln_witness(
     tree: &mut PoseidonTree,
     serialized: &[u8],
 ) -> Result<(RLNWitnessInput, usize), ProtocolError> {
+    use crate::hashers::hash_to_field_le;
+
     let mut all_read: usize = 0;
 
     let (identity_secret, read) = IdSecret::from_bytes_le(&serialized[all_read..]);
@@ -281,81 +301,22 @@ pub fn proof_inputs_to_rln_witness(
     let x = hash_to_field_le(&signal);
 
     Ok((
-        RLNWitnessInput {
+        RLNWitnessInput::new(
             identity_secret,
-            path_elements,
-            identity_path_index,
             user_message_limit,
             message_id,
+            path_elements,
+            identity_path_index,
             x,
             external_nullifier,
-        },
+        )?,
         all_read,
     ))
-}
-
-/// Creates [`RLNWitnessInput`] from it's fields.
-///
-/// # Errors
-///
-/// Returns an error if `message_id` is not within `user_message_limit`.
-pub fn rln_witness_from_values(
-    identity_secret: IdSecret,
-    path_elements: Vec<Fp<MontBackend<FrConfig, 4>, 4>>,
-    identity_path_index: Vec<u8>,
-    x: Fr,
-    external_nullifier: Fr,
-    user_message_limit: Fr,
-    message_id: Fr,
-) -> Result<RLNWitnessInput, ProtocolError> {
-    message_id_range_check(&message_id, &user_message_limit)?;
-
-    Ok(RLNWitnessInput {
-        identity_secret,
-        path_elements,
-        identity_path_index,
-        x,
-        external_nullifier,
-        user_message_limit,
-        message_id,
-    })
-}
-
-pub fn random_rln_witness(tree_depth: usize) -> RLNWitnessInput {
-    let mut rng = thread_rng();
-
-    let identity_secret = IdSecret::rand(&mut rng);
-    let x = hash_to_field_le(&rng.gen::<[u8; 32]>());
-    let epoch = hash_to_field_le(&rng.gen::<[u8; 32]>());
-    let rln_identifier = hash_to_field_le(RLN_IDENTIFIER);
-
-    let mut path_elements: Vec<Fr> = Vec::new();
-    let mut identity_path_index: Vec<u8> = Vec::new();
-
-    for _ in 0..tree_depth {
-        path_elements.push(hash_to_field_le(&rng.gen::<[u8; 32]>()));
-        identity_path_index.push(rng.gen_range(0..2) as u8);
-    }
-
-    let user_message_limit = Fr::from(100);
-    let message_id = Fr::from(1);
-
-    RLNWitnessInput {
-        identity_secret,
-        path_elements,
-        identity_path_index,
-        x,
-        external_nullifier: poseidon_hash(&[epoch, rln_identifier]),
-        user_message_limit,
-        message_id,
-    }
 }
 
 pub fn proof_values_from_witness(
     rln_witness: &RLNWitnessInput,
 ) -> Result<RLNProofValues, ProtocolError> {
-    message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
-
     // y share
     let a_0 = &rln_witness.identity_secret;
     let mut to_hash = [
@@ -638,14 +599,14 @@ fn calculate_witness_element<E: ark_ec::pairing::Pairing>(
 }
 
 pub fn generate_proof_with_witness(
-    witness: Vec<BigInt>,
-    proving_key: &(ProvingKey<Curve>, ConstraintMatrices<Fr>),
-) -> Result<ArkProof<Curve>, ProofError> {
+    calculated_witness: Vec<BigInt>,
+    zkey: &Zkey,
+) -> Result<Proof, ProofError> {
     // If in debug mode, we measure and later print time take to compute witness
     #[cfg(test)]
     let now = Instant::now();
 
-    let full_assignment = calculate_witness_element::<Curve>(witness)?;
+    let full_assignment = calculate_witness_element::<Curve>(calculated_witness)?;
 
     #[cfg(test)]
     println!("witness generation took: {:.2?}", now.elapsed());
@@ -660,12 +621,12 @@ pub fn generate_proof_with_witness(
     let now = Instant::now();
 
     let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
-        &proving_key.0,
+        &zkey.0,
         r,
         s,
-        &proving_key.1,
-        proving_key.1.num_instance_variables,
-        proving_key.1.num_constraints,
+        &zkey.1,
+        zkey.1.num_instance_variables,
+        zkey.1.num_constraints,
         full_assignment.as_slice(),
     )?;
 
@@ -683,8 +644,6 @@ pub fn generate_proof_with_witness(
 pub fn inputs_for_witness_calculation(
     rln_witness: &RLNWitnessInput,
 ) -> Result<[(&str, Vec<FrOrSecret>); 7], ProtocolError> {
-    message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
-
     let mut identity_path_index = Vec::with_capacity(rln_witness.identity_path_index.len());
     rln_witness
         .identity_path_index
@@ -728,10 +687,10 @@ pub fn inputs_for_witness_calculation(
 ///
 /// Returns a [`ProofError`] if proving fails.
 pub fn generate_proof(
-    proving_key: &(ProvingKey<Curve>, ConstraintMatrices<Fr>),
+    zkey: &Zkey,
     rln_witness: &RLNWitnessInput,
     graph_data: &[u8],
-) -> Result<ArkProof<Curve>, ProofError> {
+) -> Result<Proof, ProofError> {
     let inputs = inputs_for_witness_calculation(rln_witness)?
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));
@@ -739,7 +698,7 @@ pub fn generate_proof(
     // If in debug mode, we measure and later print time take to compute witness
     #[cfg(test)]
     let now = Instant::now();
-    let full_assignment = calculate_rln_witness(inputs, graph_data);
+    let full_assignment = calc_witness(inputs, graph_data);
 
     #[cfg(test)]
     println!("witness generation took: {:.2?}", now.elapsed());
@@ -753,12 +712,12 @@ pub fn generate_proof(
     #[cfg(test)]
     let now = Instant::now();
     let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
-        &proving_key.0,
+        &zkey.0,
         r,
         s,
-        &proving_key.1,
-        proving_key.1.num_instance_variables,
-        proving_key.1.num_constraints,
+        &zkey.1,
+        zkey.1.num_instance_variables,
+        zkey.1.num_constraints,
         full_assignment.as_slice(),
     )?;
 
@@ -775,8 +734,8 @@ pub fn generate_proof(
 /// Returns a [`ProofError`] if verifying fails. Verification failure does not
 /// necessarily mean the proof is incorrect.
 pub fn verify_proof(
-    verifying_key: &VerifyingKey<Curve>,
-    proof: &ArkProof<Curve>,
+    verifying_key: &VerifyingKey,
+    proof: &Proof,
     proof_values: &RLNProofValues,
 ) -> Result<bool, ProofError> {
     // We re-arrange proof-values according to the circuit specification
@@ -790,7 +749,6 @@ pub fn verify_proof(
 
     // Check that the proof is valid
     let pvk = prepare_verifying_key(verifying_key);
-    //let pr: ArkProof<Curve> = (*proof).into();
 
     // If in debug mode, we measure and later print time take to verify proof
     #[cfg(test)]
@@ -833,10 +791,7 @@ where
 pub fn rln_witness_from_json(
     input_json: serde_json::Value,
 ) -> Result<RLNWitnessInput, ProtocolError> {
-    let rln_witness: RLNWitnessInput = serde_json::from_value(input_json).unwrap();
-    message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
-
-    Ok(rln_witness)
+    Ok(serde_json::from_value(input_json)?)
 }
 
 /// Converts a [`RLNWitnessInput`] object to the corresponding JSON serialization.
@@ -847,10 +802,7 @@ pub fn rln_witness_from_json(
 pub fn rln_witness_to_json(
     rln_witness: &RLNWitnessInput,
 ) -> Result<serde_json::Value, ProtocolError> {
-    message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
-
-    let rln_witness_json = serde_json::to_value(rln_witness)?;
-    Ok(rln_witness_json)
+    Ok(serde_json::to_value(rln_witness)?)
 }
 
 /// Converts a [`RLNWitnessInput`] object to the corresponding JSON serialization.
@@ -862,8 +814,6 @@ pub fn rln_witness_to_json(
 pub fn rln_witness_to_bigint_json(
     rln_witness: &RLNWitnessInput,
 ) -> Result<serde_json::Value, ProtocolError> {
-    message_id_range_check(&rln_witness.message_id, &rln_witness.user_message_limit)?;
-
     let mut path_elements = Vec::new();
 
     for v in rln_witness.path_elements.iter() {
@@ -887,29 +837,4 @@ pub fn rln_witness_to_bigint_json(
     });
 
     Ok(inputs)
-}
-
-fn merkle_proof_len_check(
-    path_elements: &[Fr],
-    identity_path_index: &[u8],
-) -> Result<(), ProtocolError> {
-    let path_elements_len = path_elements.len();
-    let identity_path_index_len = identity_path_index.len();
-    if path_elements_len != identity_path_index_len {
-        return Err(ProtocolError::InvalidMerkleProofLength(
-            path_elements_len,
-            identity_path_index_len,
-        ));
-    }
-    Ok(())
-}
-
-fn message_id_range_check(message_id: &Fr, user_message_limit: &Fr) -> Result<(), ProtocolError> {
-    if message_id > user_message_limit {
-        return Err(ProtocolError::InvalidMessageId(
-            *message_id,
-            *user_message_limit,
-        ));
-    }
-    Ok(())
 }

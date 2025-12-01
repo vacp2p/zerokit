@@ -1,5 +1,3 @@
-use crate::circuit::error::ZKeyReadError;
-use ark_bn254::Fr;
 use ark_relations::r1cs::SynthesisError;
 use ark_serialize::SerializationError;
 use num_bigint::{BigInt, ParseBigIntError};
@@ -8,6 +6,8 @@ use std::num::TryFromIntError;
 use std::string::FromUtf8Error;
 use thiserror::Error;
 use utils::error::{FromConfigError, ZerokitMerkleTreeError};
+
+use crate::circuit::{error::ZKeyReadError, Fr};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConversionError {
