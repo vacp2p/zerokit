@@ -139,7 +139,6 @@ mod test {
 
         // We generate all relevant keys
         let proving_key = zkey_from_folder();
-        let verification_key = &proving_key.0.vk;
         let graph_data = graph_from_folder();
 
         // Let's generate a zkSNARK proof
@@ -148,7 +147,7 @@ mod test {
         let proof_values = proof_values_from_witness(&witness).unwrap();
 
         // Let's verify the proof
-        let success = verify_proof(verification_key, &proof, &proof_values).unwrap();
+        let success = verify_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
 
         assert!(success);
     }

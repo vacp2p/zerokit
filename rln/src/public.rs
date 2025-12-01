@@ -2,7 +2,7 @@
 // It is used by the FFI, WASM and should be used by tests as well
 
 use crate::circuit::{zkey_from_raw, Fr, Proof, Zkey};
-use crate::error::{VerifyError};
+use crate::error::VerifyError;
 use crate::protocol::{proof_values_from_witness, verify_proof, RLNProofValues, RLNWitnessInput};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
