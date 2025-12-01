@@ -80,6 +80,12 @@ pub struct PmtreeConfigBuilder {
     use_compression: bool,
 }
 
+impl Default for PmtreeConfigBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PmtreeConfigBuilder {
     pub fn new() -> Self {
         PmtreeConfigBuilder {
