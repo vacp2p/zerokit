@@ -1,5 +1,7 @@
 #![cfg(target_arch = "wasm32")]
 
+use std::ops::Deref;
+
 use js_sys::Uint8Array;
 use rln::{
     circuit::Fr,
@@ -11,7 +13,6 @@ use rln::{
         vec_u8_to_bytes_be, vec_u8_to_bytes_le,
     },
 };
-use std::ops::Deref;
 use wasm_bindgen::prelude::*;
 
 // WasmFr
@@ -219,7 +220,7 @@ impl Hasher {
 
 #[wasm_bindgen]
 pub struct Identity {
-    identity_secret_hash: Fr,
+    identity_secret: Fr,
     id_commitment: Fr,
 }
 
@@ -227,9 +228,9 @@ pub struct Identity {
 impl Identity {
     #[wasm_bindgen(js_name = generate)]
     pub fn generate() -> Identity {
-        let (identity_secret_hash, id_commitment) = keygen();
+        let (identity_secret, id_commitment) = keygen();
         Identity {
-            identity_secret_hash: *identity_secret_hash,
+            identity_secret: *identity_secret,
             id_commitment,
         }
     }
@@ -237,16 +238,16 @@ impl Identity {
     #[wasm_bindgen(js_name = generateSeeded)]
     pub fn generate_seeded(seed: &Uint8Array) -> Identity {
         let seed_vec = seed.to_vec();
-        let (identity_secret_hash, id_commitment) = seeded_keygen(&seed_vec);
+        let (identity_secret, id_commitment) = seeded_keygen(&seed_vec);
         Identity {
-            identity_secret_hash,
+            identity_secret,
             id_commitment,
         }
     }
 
     #[wasm_bindgen(js_name = getSecretHash)]
     pub fn get_secret_hash(&self) -> WasmFr {
-        WasmFr(self.identity_secret_hash)
+        WasmFr(self.identity_secret)
     }
 
     #[wasm_bindgen(js_name = getCommitment)]
@@ -256,7 +257,7 @@ impl Identity {
 
     #[wasm_bindgen(js_name = toArray)]
     pub fn to_array(&self) -> VecWasmFr {
-        VecWasmFr(vec![self.identity_secret_hash, self.id_commitment])
+        VecWasmFr(vec![self.identity_secret, self.id_commitment])
     }
 }
 
@@ -264,7 +265,7 @@ impl Identity {
 pub struct ExtendedIdentity {
     identity_trapdoor: Fr,
     identity_nullifier: Fr,
-    identity_secret_hash: Fr,
+    identity_secret: Fr,
     id_commitment: Fr,
 }
 
@@ -272,12 +273,12 @@ pub struct ExtendedIdentity {
 impl ExtendedIdentity {
     #[wasm_bindgen(js_name = generate)]
     pub fn generate() -> ExtendedIdentity {
-        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
+        let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) =
             extended_keygen();
         ExtendedIdentity {
             identity_trapdoor,
             identity_nullifier,
-            identity_secret_hash,
+            identity_secret,
             id_commitment,
         }
     }
@@ -285,12 +286,12 @@ impl ExtendedIdentity {
     #[wasm_bindgen(js_name = generateSeeded)]
     pub fn generate_seeded(seed: &Uint8Array) -> ExtendedIdentity {
         let seed_vec = seed.to_vec();
-        let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
+        let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) =
             extended_seeded_keygen(&seed_vec);
         ExtendedIdentity {
             identity_trapdoor,
             identity_nullifier,
-            identity_secret_hash,
+            identity_secret,
             id_commitment,
         }
     }
@@ -307,7 +308,7 @@ impl ExtendedIdentity {
 
     #[wasm_bindgen(js_name = getSecretHash)]
     pub fn get_secret_hash(&self) -> WasmFr {
-        WasmFr(self.identity_secret_hash)
+        WasmFr(self.identity_secret)
     }
 
     #[wasm_bindgen(js_name = getCommitment)]
@@ -320,7 +321,7 @@ impl ExtendedIdentity {
         VecWasmFr(vec![
             self.identity_trapdoor,
             self.identity_nullifier,
-            self.identity_secret_hash,
+            self.identity_secret,
             self.id_commitment,
         ])
     }

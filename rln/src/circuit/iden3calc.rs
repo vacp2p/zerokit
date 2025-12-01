@@ -5,15 +5,17 @@ pub mod graph;
 pub mod proto;
 pub mod storage;
 
-use ruint::aliases::U256;
 use std::collections::HashMap;
+
+use graph::Node;
+use ruint::aliases::U256;
 use storage::deserialize_witnesscalc_graph;
 use zeroize::zeroize_flat_type;
 
-use crate::circuit::iden3calc::graph::fr_to_u256;
-use crate::circuit::Fr;
-use crate::utils::FrOrSecret;
-use graph::Node;
+use crate::{
+    circuit::{iden3calc::graph::fr_to_u256, Fr},
+    utils::FrOrSecret,
+};
 
 pub type InputSignalsInfo = HashMap<String, (usize, usize)>;
 

@@ -1,12 +1,13 @@
 // This crate instantiates the Poseidon hash algorithm.
 
+use once_cell::sync::Lazy;
+use tiny_keccak::{Hasher, Keccak};
+use utils::poseidon::Poseidon;
+
 use crate::{
     circuit::Fr,
     utils::{bytes_be_to_fr, bytes_le_to_fr},
 };
-use once_cell::sync::Lazy;
-use tiny_keccak::{Hasher, Keccak};
-use utils::poseidon::Poseidon;
 
 /// These indexed constants hardcode the supported round parameters tuples (t, RF, RN, SKIP_MATRICES) for the Bn254 scalar field.
 /// SKIP_MATRICES is the index of the randomly generated secure MDS matrix.

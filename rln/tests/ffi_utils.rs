@@ -1,10 +1,12 @@
 #[cfg(test)]
 mod test {
     use rand::Rng;
-    use rln::circuit::Fr;
-    use rln::ffi::ffi_utils::*;
-    use rln::hashers::poseidon_hash;
-    use rln::utils::{fr_to_bytes_be, fr_to_bytes_le, str_to_fr, IdSecret};
+    use rln::{
+        circuit::Fr,
+        ffi::ffi_utils::*,
+        hashers::poseidon_hash,
+        utils::{fr_to_bytes_be, fr_to_bytes_le, str_to_fr, IdSecret},
+    };
 
     #[test]
     // Tests hash to field using FFI APIs
@@ -13,11 +15,11 @@ mod test {
         let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         let res = ffi_seeded_key_gen(&seed_bytes.into());
         assert_eq!(res.len(), 2, "seeded key gen call failed");
-        let identity_secret_hash = res.first().unwrap();
+        let identity_secret = res.first().unwrap();
         let id_commitment = res.get(1).unwrap();
 
         // We check against expected values
-        let expected_identity_secret_hash_seed_bytes = str_to_fr(
+        let expected_identity_secret_seed_bytes = str_to_fr(
             "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
             16,
         )
@@ -28,10 +30,7 @@ mod test {
         )
         .unwrap();
 
-        assert_eq!(
-            *identity_secret_hash,
-            expected_identity_secret_hash_seed_bytes
-        );
+        assert_eq!(*identity_secret, expected_identity_secret_seed_bytes);
         assert_eq!(*id_commitment, expected_id_commitment_seed_bytes);
     }
 
@@ -44,7 +43,7 @@ mod test {
         assert_eq!(key_gen.len(), 4, "seeded extended key gen call failed");
         let identity_trapdoor = *key_gen[0];
         let identity_nullifier = *key_gen[1];
-        let identity_secret_hash = *key_gen[2];
+        let identity_secret = *key_gen[2];
         let id_commitment = *key_gen[3];
 
         // We check against expected values
@@ -58,7 +57,7 @@ mod test {
             16,
         )
         .unwrap();
-        let expected_identity_secret_hash_seed_bytes = str_to_fr(
+        let expected_identity_secret_seed_bytes = str_to_fr(
             "0x2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521",
             16,
         )
@@ -71,10 +70,7 @@ mod test {
 
         assert_eq!(identity_trapdoor, expected_identity_trapdoor_seed_bytes);
         assert_eq!(identity_nullifier, expected_identity_nullifier_seed_bytes);
-        assert_eq!(
-            identity_secret_hash,
-            expected_identity_secret_hash_seed_bytes
-        );
+        assert_eq!(identity_secret, expected_identity_secret_seed_bytes);
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
     }
 

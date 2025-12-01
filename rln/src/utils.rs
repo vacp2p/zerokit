@@ -1,33 +1,18 @@
 // This crate provides cross-module useful utilities (mainly type conversions) not necessarily specific to RLN
 
-use crate::circuit::Fr;
+use std::{io::Cursor, ops::Deref};
+
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
-use num_bigint::{BigInt, BigUint, ParseBigIntError};
+use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use rand::Rng;
 use ruint::aliases::U256;
 use serde_json::json;
-use std::array::TryFromSliceError;
-use std::io::Cursor;
-use std::num::TryFromIntError;
-use std::ops::Deref;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-#[derive(Debug, thiserror::Error)]
-pub enum UtilsError {
-    #[error("Expected radix 10 or 16")]
-    WrongRadix,
-    #[error("{0}")]
-    ParseBigInt(#[from] ParseBigIntError),
-    #[error("{0}")]
-    ToUsize(#[from] TryFromIntError),
-    #[error("{0}")]
-    FromSlice(#[from] TryFromSliceError),
-    #[error("Input data too short: expected at least {expected} bytes, got {actual} bytes")]
-    InsufficientData { expected: usize, actual: usize },
-}
+use crate::{circuit::Fr, error::UtilsError};
 
 #[inline(always)]
 pub fn to_bigint(el: &Fr) -> BigInt {

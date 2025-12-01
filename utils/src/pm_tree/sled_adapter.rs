@@ -1,9 +1,7 @@
-use pmtree::*;
+use std::{collections::HashMap, thread, time::Duration};
 
+use pmtree::*;
 use sled::Db as Sled;
-use std::collections::HashMap;
-use std::thread;
-use std::time::Duration;
 
 pub struct SledDB(Sled);
 

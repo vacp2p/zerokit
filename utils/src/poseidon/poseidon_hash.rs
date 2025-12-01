@@ -3,8 +3,9 @@
 // Implementation partially taken from https://github.com/arnaucube/poseidon-rs/blob/233027d6075a637c29ad84a8a44f5653b81f0410/src/lib.rs
 // and adapted to work over arkworks field traits and custom data structures
 
-use crate::poseidon_constants::find_poseidon_ark_and_mds;
 use ark_ff::PrimeField;
+
+use crate::poseidon_constants::find_poseidon_ark_and_mds;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RoundParameters<F: PrimeField> {

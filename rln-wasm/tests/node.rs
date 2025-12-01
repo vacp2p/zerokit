@@ -4,8 +4,7 @@
 #[cfg(test)]
 mod test {
     use js_sys::{BigInt as JsBigInt, Date, Object, Uint8Array};
-    use rln::circuit::DEFAULT_TREE_DEPTH;
-    use rln::hashers::PoseidonHash;
+    use rln::{circuit::DEFAULT_TREE_DEPTH, hashers::PoseidonHash};
     use rln_wasm::{
         Hasher, Identity, VecWasmFr, WasmFr, WasmRLN, WasmRLNProof, WasmRLNWitnessInput,
     };
@@ -105,7 +104,7 @@ mod test {
 
         // Generate identity for other benchmarks
         let identity_pair = Identity::generate();
-        let identity_secret_hash = identity_pair.get_secret_hash();
+        let identity_secret = identity_pair.get_secret_hash();
         let id_commitment = identity_pair.get_commitment();
 
         let epoch = Hasher::hash_to_field_le(&Uint8Array::from(b"test-epoch" as &[u8]));
@@ -136,7 +135,7 @@ mod test {
         let path_index = Uint8Array::from(&merkle_proof.get_path_index()[..]);
 
         let witness = WasmRLNWitnessInput::new(
-            &identity_secret_hash,
+            &identity_secret,
             &user_message_limit,
             &message_id,
             &path_elements,

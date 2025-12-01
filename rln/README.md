@@ -60,7 +60,7 @@ fn main() {
     let mut rln = RLN::new(tree_depth, input).unwrap();
 
     // 2. Generate an identity keypair
-    let (identity_secret_hash, id_commitment) = keygen();
+    let (identity_secret, id_commitment) = keygen();
 
     // 3. Add a rate commitment to the Merkle tree
     let id_index = 10;
@@ -88,7 +88,7 @@ fn main() {
     // input_data is [ identity_secret<32> | id_index<8> | external_nullifier<32>
     //    | user_message_limit<32> | message_id<32> | signal_len<8> | signal<var> ]
     let prove_input = prepare_prove_input(
-        identity_secret_hash,
+        identity_secret,
         id_index,
         user_message_limit,
         message_id,

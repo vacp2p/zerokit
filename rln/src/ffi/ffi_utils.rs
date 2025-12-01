@@ -1,14 +1,19 @@
 #![allow(non_camel_case_types)]
 
+use std::ops::Deref;
+
+use safer_ffi::{
+    boxed::Box_,
+    derive_ReprC, ffi_export,
+    prelude::{repr_c, ReprC},
+};
+
 use crate::{
     circuit::Fr,
     hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash},
     protocol::{extended_keygen, extended_seeded_keygen, keygen, seeded_keygen},
     utils::{bytes_be_to_fr, bytes_le_to_fr, fr_to_bytes_be, fr_to_bytes_le},
 };
-use safer_ffi::{boxed::Box_, prelude::ReprC};
-use safer_ffi::{derive_ReprC, ffi_export, prelude::repr_c};
-use std::ops::Deref;
 
 // CResult
 
@@ -285,24 +290,23 @@ pub fn ffi_poseidon_hash_pair(a: &CFr, b: &CFr) -> repr_c::Box<CFr> {
 
 #[ffi_export]
 pub fn ffi_key_gen() -> repr_c::Vec<CFr> {
-    let (identity_secret_hash, id_commitment) = keygen();
-    vec![CFr(*identity_secret_hash), CFr(id_commitment)].into()
+    let (identity_secret, id_commitment) = keygen();
+    vec![CFr(*identity_secret), CFr(id_commitment)].into()
 }
 
 #[ffi_export]
 pub fn ffi_seeded_key_gen(seed: &repr_c::Vec<u8>) -> repr_c::Vec<CFr> {
-    let (identity_secret_hash, id_commitment) = seeded_keygen(seed);
-    vec![CFr(identity_secret_hash), CFr(id_commitment)].into()
+    let (identity_secret, id_commitment) = seeded_keygen(seed);
+    vec![CFr(identity_secret), CFr(id_commitment)].into()
 }
 
 #[ffi_export]
 pub fn ffi_extended_key_gen() -> repr_c::Vec<CFr> {
-    let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
-        extended_keygen();
+    let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) = extended_keygen();
     vec![
         CFr(identity_trapdoor),
         CFr(identity_nullifier),
-        CFr(identity_secret_hash),
+        CFr(identity_secret),
         CFr(id_commitment),
     ]
     .into()
@@ -310,12 +314,12 @@ pub fn ffi_extended_key_gen() -> repr_c::Vec<CFr> {
 
 #[ffi_export]
 pub fn ffi_seeded_extended_key_gen(seed: &repr_c::Vec<u8>) -> repr_c::Vec<CFr> {
-    let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
+    let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) =
         extended_seeded_keygen(seed);
     vec![
         CFr(identity_trapdoor),
         CFr(identity_nullifier),
-        CFr(identity_secret_hash),
+        CFr(identity_secret),
         CFr(id_commitment),
     ]
     .into()

@@ -2,28 +2,31 @@
 
 #[cfg(test)]
 mod test {
+    use std::assert_eq;
+
     use ark_std::rand::thread_rng;
     use js_sys::Uint8Array;
     use rand::Rng;
-    use rln::circuit::Fr;
-    use rln::hashers::poseidon_hash;
-    use rln::utils::{fr_to_bytes_be, fr_to_bytes_le, str_to_fr, IdSecret};
+    use rln::{
+        circuit::Fr,
+        hashers::poseidon_hash,
+        utils::{fr_to_bytes_be, fr_to_bytes_le, str_to_fr, IdSecret},
+    };
     use rln_wasm::{ExtendedIdentity, Hasher, Identity, VecWasmFr, WasmFr};
-    use std::assert_eq;
     use wasm_bindgen_test::wasm_bindgen_test;
 
     #[wasm_bindgen_test]
     fn test_keygen_wasm() {
         let identity = Identity::generate();
-        let identity_secret_hash = *identity.get_secret_hash();
+        let identity_secret = *identity.get_secret_hash();
         let id_commitment = *identity.get_commitment();
 
-        assert_ne!(identity_secret_hash, Fr::from(0u8));
+        assert_ne!(identity_secret, Fr::from(0u8));
         assert_ne!(id_commitment, Fr::from(0u8));
 
         let arr = identity.to_array();
         assert_eq!(arr.length(), 2);
-        assert_eq!(*arr.get(0).unwrap(), identity_secret_hash);
+        assert_eq!(*arr.get(0).unwrap(), identity_secret);
         assert_eq!(*arr.get(1).unwrap(), id_commitment);
     }
 
@@ -33,19 +36,19 @@ mod test {
 
         let identity_trapdoor = *identity.get_trapdoor();
         let identity_nullifier = *identity.get_nullifier();
-        let identity_secret_hash = *identity.get_secret_hash();
+        let identity_secret = *identity.get_secret_hash();
         let id_commitment = *identity.get_commitment();
 
         assert_ne!(identity_trapdoor, Fr::from(0u8));
         assert_ne!(identity_nullifier, Fr::from(0u8));
-        assert_ne!(identity_secret_hash, Fr::from(0u8));
+        assert_ne!(identity_secret, Fr::from(0u8));
         assert_ne!(id_commitment, Fr::from(0u8));
 
         let arr = identity.to_array();
         assert_eq!(arr.length(), 4);
         assert_eq!(*arr.get(0).unwrap(), identity_trapdoor);
         assert_eq!(*arr.get(1).unwrap(), identity_nullifier);
-        assert_eq!(*arr.get(2).unwrap(), identity_secret_hash);
+        assert_eq!(*arr.get(2).unwrap(), identity_secret);
         assert_eq!(*arr.get(3).unwrap(), id_commitment);
     }
 
@@ -55,10 +58,10 @@ mod test {
         let seed = Uint8Array::from(&seed_bytes[..]);
 
         let identity = Identity::generate_seeded(&seed);
-        let identity_secret_hash = *identity.get_secret_hash();
+        let identity_secret = *identity.get_secret_hash();
         let id_commitment = *identity.get_commitment();
 
-        let expected_identity_secret_hash_seed_bytes = str_to_fr(
+        let expected_identity_secret_seed_bytes = str_to_fr(
             "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
             16,
         )
@@ -69,10 +72,7 @@ mod test {
         )
         .unwrap();
 
-        assert_eq!(
-            identity_secret_hash,
-            expected_identity_secret_hash_seed_bytes
-        );
+        assert_eq!(identity_secret, expected_identity_secret_seed_bytes);
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
     }
 
@@ -85,7 +85,7 @@ mod test {
 
         let identity_trapdoor = *identity.get_trapdoor();
         let identity_nullifier = *identity.get_nullifier();
-        let identity_secret_hash = *identity.get_secret_hash();
+        let identity_secret = *identity.get_secret_hash();
         let id_commitment = *identity.get_commitment();
 
         let expected_identity_trapdoor_seed_bytes = str_to_fr(
@@ -98,7 +98,7 @@ mod test {
             16,
         )
         .unwrap();
-        let expected_identity_secret_hash_seed_bytes = str_to_fr(
+        let expected_identity_secret_seed_bytes = str_to_fr(
             "0x2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521",
             16,
         )
@@ -111,10 +111,7 @@ mod test {
 
         assert_eq!(identity_trapdoor, expected_identity_trapdoor_seed_bytes);
         assert_eq!(identity_nullifier, expected_identity_nullifier_seed_bytes);
-        assert_eq!(
-            identity_secret_hash,
-            expected_identity_secret_hash_seed_bytes
-        );
+        assert_eq!(identity_secret, expected_identity_secret_seed_bytes);
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
     }
 

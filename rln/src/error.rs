@@ -1,12 +1,25 @@
+use std::{array::TryFromSliceError, num::TryFromIntError};
+
 use ark_relations::r1cs::SynthesisError;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, ParseBigIntError};
 use thiserror::Error;
 use utils::error::{FromConfigError, ZerokitMerkleTreeError};
 
-use crate::{
-    circuit::{error::ZKeyReadError, Fr},
-    utils::UtilsError,
-};
+use crate::circuit::{error::ZKeyReadError, Fr};
+
+#[derive(Debug, thiserror::Error)]
+pub enum UtilsError {
+    #[error("Expected radix 10 or 16")]
+    WrongRadix,
+    #[error("{0}")]
+    ParseBigInt(#[from] ParseBigIntError),
+    #[error("{0}")]
+    ToUsize(#[from] TryFromIntError),
+    #[error("{0}")]
+    FromSlice(#[from] TryFromSliceError),
+    #[error("Input data too short: expected at least {expected} bytes, got {actual} bytes")]
+    InsufficientData { expected: usize, actual: usize },
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum ProtocolError {

@@ -4,9 +4,9 @@
 
 #[cfg(test)]
 mod test {
-    use rln::hashers::{poseidon_hash, PoseidonHash};
     use rln::{
         circuit::{Fr, DEFAULT_TREE_DEPTH},
+        hashers::{poseidon_hash, PoseidonHash},
         poseidon_tree::PoseidonTree,
     };
     use utils::{FullMerkleTree, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};

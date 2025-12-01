@@ -1,5 +1,9 @@
 #![allow(non_camel_case_types)]
 
+use safer_ffi::{boxed::Box_, derive_ReprC, ffi_export, prelude::repr_c};
+#[cfg(not(feature = "stateless"))]
+use {safer_ffi::prelude::char_p, std::fs::File, std::io::Read};
+
 use super::ffi_utils::{CBoolResult, CFr, CResult};
 use crate::{
     circuit::Fr,
@@ -13,10 +17,6 @@ use crate::{
     public::RLN,
     utils::IdSecret,
 };
-use safer_ffi::{boxed::Box_, derive_ReprC, ffi_export, prelude::repr_c};
-
-#[cfg(not(feature = "stateless"))]
-use {safer_ffi::prelude::char_p, std::fs::File, std::io::Read};
 
 // FFI_RLN
 
@@ -102,7 +102,7 @@ pub fn ffi_rln_new_with_params(
 
 #[cfg(feature = "stateless")]
 #[ffi_export]
-pub fn ffi_new_with_params(
+pub fn ffi_rln_new_with_params(
     zkey_data: &repr_c::Vec<u8>,
     graph_data: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
@@ -223,7 +223,7 @@ pub fn ffi_rln_witness_input_new(
 }
 
 #[ffi_export]
-pub fn ffn_rln_witness_to_bytes_le(
+pub fn ffi_rln_witness_to_bytes_le(
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
 ) -> CResult<repr_c::Vec<u8>, repr_c::String> {
     match rln_witness_to_bytes_le(&witness.0) {
@@ -418,7 +418,7 @@ pub fn ffi_verify_rln_proof(
 ) -> CBoolResult {
     match rln
         .0
-        .verify_rln_roof(&rln_proof.0.proof, &rln_proof.0.proof_values, &x.0)
+        .verify_rln_proof(&rln_proof.0.proof, &rln_proof.0.proof_values, &x.0)
     {
         Ok(verified) => CBoolResult {
             ok: verified,

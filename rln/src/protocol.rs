@@ -1,17 +1,5 @@
 // This crate collects all the underlying primitives used to implement RLN
 
-use crate::circuit::COMPRESS_PROOF_SIZE;
-use crate::circuit::{
-    iden3calc::calc_witness, qap::CircomReduction, Curve, Fr, Proof, VerifyingKey, Zkey,
-};
-use crate::error::ProtocolError;
-use crate::hashers::poseidon_hash;
-use crate::utils::{
-    bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_le_to_fr, bytes_le_to_vec_fr,
-    bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_be, fr_to_bytes_le, to_bigint,
-    vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, FrOrSecret,
-    IdSecret,
-};
 use ark_ff::{AdditiveGroup, PrimeField};
 use ark_groth16::{prepare_verifying_key, Groth16};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -22,6 +10,21 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use tiny_keccak::{Hasher as _, Keccak};
 use zeroize::Zeroize;
+
+use crate::{
+    circuit::{
+        iden3calc::calc_witness, qap::CircomReduction, Curve, Fr, Proof, VerifyingKey, Zkey,
+        COMPRESS_PROOF_SIZE,
+    },
+    error::ProtocolError,
+    hashers::poseidon_hash,
+    utils::{
+        bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_le_to_fr, bytes_le_to_vec_fr,
+        bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_be, fr_to_bytes_le, to_bigint,
+        vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, FrOrSecret,
+        IdSecret,
+    },
+};
 
 /// Witness input for RLN proof generation.
 ///
@@ -273,11 +276,7 @@ pub fn proof_values_from_witness(
 ) -> Result<RLNProofValues, ProtocolError> {
     // y share
     let a_0 = &witness.identity_secret;
-    let mut to_hash = [
-        *(a_0.clone()),
-        witness.external_nullifier,
-        witness.message_id,
-    ];
+    let mut to_hash = [**a_0, witness.external_nullifier, witness.message_id];
     let a_1 = poseidon_hash(&to_hash);
     let y = *(a_0.clone()) + witness.x * a_1;
 
@@ -509,11 +508,11 @@ pub fn bytes_be_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), Protocol
 /// Returns `(identity_secret, id_commitment)` where the commitment is `PoseidonHash(identity_secret)`.
 pub fn keygen() -> (IdSecret, Fr) {
     let mut rng = thread_rng();
-    let identity_secret_hash = IdSecret::rand(&mut rng);
-    let mut to_hash = [*identity_secret_hash.clone()];
+    let identity_secret = IdSecret::rand(&mut rng);
+    let mut to_hash = [*identity_secret.clone()];
     let id_commitment = poseidon_hash(&to_hash);
     to_hash[0].zeroize();
-    (identity_secret_hash, id_commitment)
+    (identity_secret, id_commitment)
 }
 
 /// Generates an extended RLN identity compatible with Semaphore.
@@ -525,12 +524,12 @@ pub fn extended_keygen() -> (Fr, Fr, Fr, Fr) {
     let mut rng = thread_rng();
     let identity_trapdoor = Fr::rand(&mut rng);
     let identity_nullifier = Fr::rand(&mut rng);
-    let identity_secret_hash = poseidon_hash(&[identity_trapdoor, identity_nullifier]);
-    let id_commitment = poseidon_hash(&[identity_secret_hash]);
+    let identity_secret = poseidon_hash(&[identity_trapdoor, identity_nullifier]);
+    let id_commitment = poseidon_hash(&[identity_secret]);
     (
         identity_trapdoor,
         identity_nullifier,
-        identity_secret_hash,
+        identity_secret,
         id_commitment,
     )
 }
@@ -548,9 +547,9 @@ pub fn seeded_keygen(signal: &[u8]) -> (Fr, Fr) {
     hasher.finalize(&mut seed);
 
     let mut rng = ChaCha20Rng::from_seed(seed);
-    let identity_secret_hash = Fr::rand(&mut rng);
-    let id_commitment = poseidon_hash(&[identity_secret_hash]);
-    (identity_secret_hash, id_commitment)
+    let identity_secret = Fr::rand(&mut rng);
+    let id_commitment = poseidon_hash(&[identity_secret]);
+    (identity_secret, id_commitment)
 }
 
 /// Generates a deterministic extended RLN identity from a seed, compatible with Semaphore.
@@ -569,12 +568,12 @@ pub fn extended_seeded_keygen(signal: &[u8]) -> (Fr, Fr, Fr, Fr) {
     let mut rng = ChaCha20Rng::from_seed(seed);
     let identity_trapdoor = Fr::rand(&mut rng);
     let identity_nullifier = Fr::rand(&mut rng);
-    let identity_secret_hash = poseidon_hash(&[identity_trapdoor, identity_nullifier]);
-    let id_commitment = poseidon_hash(&[identity_secret_hash]);
+    let identity_secret = poseidon_hash(&[identity_trapdoor, identity_nullifier]);
+    let id_commitment = poseidon_hash(&[identity_secret]);
     (
         identity_trapdoor,
         identity_nullifier,
-        identity_secret_hash,
+        identity_secret,
         id_commitment,
     )
 }

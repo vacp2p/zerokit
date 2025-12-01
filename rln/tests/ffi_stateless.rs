@@ -3,10 +3,12 @@
 mod test {
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
-    use rln::circuit::{Fr, DEFAULT_TREE_DEPTH};
-    use rln::ffi::{ffi_rln::*, ffi_utils::*};
-    use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash, PoseidonHash};
-    use rln::utils::*;
+    use rln::{
+        circuit::{Fr, DEFAULT_TREE_DEPTH},
+        ffi::{ffi_rln::*, ffi_utils::*},
+        hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash, PoseidonHash},
+        utils::*,
+    };
     use safer_ffi::prelude::repr_c;
     use utils::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
@@ -49,7 +51,7 @@ mod test {
         let ffi_rln_instance = create_rln_instance();
 
         // We generate a new identity pair
-        let (identity_secret_hash, id_commitment) = identity_pair_gen();
+        let (identity_secret, id_commitment) = identity_pair_gen();
 
         let user_message_limit = Fr::from(100);
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
@@ -82,7 +84,7 @@ mod test {
 
         // Create witness for first proof
         let witness1 = match ffi_rln_witness_input_new(
-            &CFr::from(*identity_secret_hash.clone()),
+            &CFr::from(*identity_secret.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
             &path_elements,
@@ -116,7 +118,7 @@ mod test {
 
         // Create witness for second proof
         let witness2 = match ffi_rln_witness_input_new(
-            &CFr::from(*identity_secret_hash.clone()),
+            &CFr::from(*identity_secret.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
             &path_elements,
@@ -164,13 +166,13 @@ mod test {
         };
 
         // We check if the recovered identity secret hash corresponds to the original one
-        let recovered_identity_secret_hash = *recovered_id_secret_cfr;
-        assert_eq!(recovered_identity_secret_hash, *identity_secret_hash);
+        let recovered_identity_secret = *recovered_id_secret_cfr;
+        assert_eq!(recovered_identity_secret, *identity_secret);
 
-        // We now test that computing identity_secret_hash is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
+        // We now test that computing identity_secret is unsuccessful if shares computed from two different identity secret hashes but within same epoch are passed
 
         // We generate a new identity pair
-        let (identity_secret_hash_new, id_commitment_new) = identity_pair_gen();
+        let (identity_secret_new, id_commitment_new) = identity_pair_gen();
         let rate_commitment_new = utils_poseidon_hash(&[id_commitment_new, user_message_limit]);
         tree.update_next(rate_commitment_new).unwrap();
 
@@ -192,7 +194,7 @@ mod test {
 
         // Create witness for third proof
         let witness3 = match ffi_rln_witness_input_new(
-            &CFr::from(*identity_secret_hash_new.clone()),
+            &CFr::from(*identity_secret_new.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
             &path_elements_new,
@@ -224,7 +226,7 @@ mod test {
             _ => unreachable!(),
         };
 
-        // We attempt to recover the secret using share1 (coming from identity_secret_hash) and share3 (coming from identity_secret_hash_new)
+        // We attempt to recover the secret using share1 (coming from identity_secret) and share3 (coming from identity_secret_new)
 
         let recovered_id_secret_new_cfr = match ffi_recover_id_secret(
             &ffi_rln_proof_get_values(&rln_proof1),
@@ -241,14 +243,11 @@ mod test {
             _ => unreachable!(),
         };
 
-        let recovered_identity_secret_hash_new = recovered_id_secret_new_cfr;
+        let recovered_identity_secret_new = recovered_id_secret_new_cfr;
 
         // ensure that the recovered secret does not match with either of the
         // used secrets in proof generation
-        assert_ne!(
-            *recovered_identity_secret_hash_new,
-            *identity_secret_hash_new
-        );
+        assert_ne!(*recovered_identity_secret_new, *identity_secret_new);
     }
 
     #[test]
@@ -264,7 +263,7 @@ mod test {
         let ffi_rln_instance = create_rln_instance();
 
         // We generate a new identity pair
-        let (identity_secret_hash, id_commitment) = identity_pair_gen();
+        let (identity_secret, id_commitment) = identity_pair_gen();
 
         let identity_index = tree.leaves_set();
         let user_message_limit = Fr::from(100);
@@ -294,7 +293,7 @@ mod test {
 
         // Create witness
         let witness = match ffi_rln_witness_input_new(
-            &CFr::from(*identity_secret_hash.clone()),
+            &CFr::from(*identity_secret.clone()),
             &CFr::from(user_message_limit),
             &CFr::from(Fr::from(1)),
             &path_elements,

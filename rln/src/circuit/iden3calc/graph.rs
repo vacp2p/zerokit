@@ -1,11 +1,6 @@
 // This crate is based on the code by iden3. Its preimage can be found here:
 // https://github.com/iden3/circom-witnesscalc/blob/5cb365b6e4d9052ecc69d4567fcf5bc061c20e94/src/graph.rs
 
-use ark_ff::{BigInt, BigInteger, One, PrimeField, Zero};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate};
-use rand::Rng;
-use ruint::{aliases::U256, uint};
-use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     collections::HashMap,
@@ -13,8 +8,13 @@ use std::{
     ops::{Deref, Shl, Shr},
 };
 
-use crate::circuit::iden3calc::proto;
-use crate::circuit::Fr;
+use ark_ff::{BigInt, BigInteger, One, PrimeField, Zero};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate};
+use rand::Rng;
+use ruint::{aliases::U256, uint};
+use serde::{Deserialize, Serialize};
+
+use crate::circuit::{iden3calc::proto, Fr};
 
 pub const M: U256 =
     uint!(21888242871839275222246405745257275088548364400416034343698204186575808495617_U256);
@@ -817,10 +817,11 @@ fn u_lt(a: &U256, b: &U256) -> U256 {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use std::{ops::Div, str::FromStr};
+
     use ruint::uint;
-    use std::ops::Div;
-    use std::str::FromStr;
+
+    use super::*;
 
     #[test]
     fn test_ok() {

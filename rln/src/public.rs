@@ -1,18 +1,8 @@
 // This crate is the main public API for RLN module.
 // It is used by the FFI, WASM and should be used by tests as well
 
-use crate::circuit::{zkey_from_raw, Fr, Proof, Zkey};
-use crate::error::VerifyError;
-use crate::protocol::{proof_values_from_witness, verify_proof, RLNProofValues, RLNWitnessInput};
-#[cfg(not(target_arch = "wasm32"))]
-use crate::{
-    circuit::{graph_from_folder, zkey_from_folder},
-    protocol::generate_proof,
-};
-
 #[cfg(target_arch = "wasm32")]
-use crate::protocol::generate_proof_with_witness;
-
+use num_bigint::BigInt;
 #[cfg(not(feature = "stateless"))]
 use {
     crate::poseidon_tree::PoseidonTree,
@@ -21,9 +11,18 @@ use {
     utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
 };
 
-use crate::error::RLNError;
 #[cfg(target_arch = "wasm32")]
-use num_bigint::BigInt;
+use crate::protocol::generate_proof_with_witness;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::{
+    circuit::{graph_from_folder, zkey_from_folder},
+    protocol::generate_proof,
+};
+use crate::{
+    circuit::{zkey_from_raw, Fr, Proof, Zkey},
+    error::{RLNError, VerifyError},
+    protocol::{proof_values_from_witness, verify_proof, RLNProofValues, RLNWitnessInput},
+};
 
 /// The application-specific RLN identifier.
 ///
@@ -232,7 +231,7 @@ impl RLN {
     /// let mut rln = RLN::new_with_params(
     ///     resources[0].clone(),
     ///     resources[1].clone(),
-    /// );
+    /// )?;
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
     pub fn new_with_params(zkey_data: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN, RLNError> {
@@ -282,7 +281,7 @@ impl RLN {
     /// Example:
     /// ```
     /// // We generate a random identity secret hash and commitment pair
-    /// let (identity_secret_hash, id_commitment) = keygen();
+    /// let (identity_secret, id_commitment) = keygen();
     ///
     /// // We define the tree index where rate_commitment will be added
     /// let id_index = 10;
@@ -609,7 +608,7 @@ impl RLN {
 
     /// Verifies a zkSNARK RLN proof with x coordinate check (stateful - checks internal tree root).
     #[cfg(not(feature = "stateless"))]
-    pub fn verify_rln_roof(
+    pub fn verify_rln_proof(
         &self,
         proof: &Proof,
         proof_values: &RLNProofValues,

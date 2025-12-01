@@ -1,18 +1,21 @@
 #![cfg(feature = "pmtree-ft")]
 
-use serde_json::Value;
-use std::fmt::Debug;
-use std::path::PathBuf;
-use std::str::FromStr;
-use tempfile::Builder;
+use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
-use crate::circuit::Fr;
-use crate::hashers::{poseidon_hash, PoseidonHash};
-use crate::utils::{bytes_le_to_fr, fr_to_bytes_le};
-use utils::error::{FromConfigError, ZerokitMerkleTreeError};
-use utils::pmtree::tree::Key;
-use utils::pmtree::{Database, Hasher, PmtreeErrorKind};
-use utils::{pmtree, Config, Mode, SledDB, ZerokitMerkleProof, ZerokitMerkleTree};
+use serde_json::Value;
+use tempfile::Builder;
+use utils::{
+    error::{FromConfigError, ZerokitMerkleTreeError},
+    pmtree,
+    pmtree::{tree::Key, Database, Hasher, PmtreeErrorKind},
+    Config, Mode, SledDB, ZerokitMerkleProof, ZerokitMerkleTree,
+};
+
+use crate::{
+    circuit::Fr,
+    hashers::{poseidon_hash, PoseidonHash},
+    utils::{bytes_le_to_fr, fr_to_bytes_le},
+};
 
 const METADATA_KEY: [u8; 8] = *b"metadata";
 

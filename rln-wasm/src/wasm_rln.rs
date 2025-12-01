@@ -1,7 +1,6 @@
 #![cfg(target_arch = "wasm32")]
 #![cfg(not(feature = "utils"))]
 
-use crate::wasm_utils::{VecWasmFr, WasmFr};
 use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
 use num_bigint::BigInt;
 use rln::{
@@ -17,6 +16,8 @@ use rln::{
 };
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
+
+use crate::wasm_utils::{VecWasmFr, WasmFr};
 
 #[wasm_bindgen]
 pub struct WasmRLN(RLN);
@@ -69,7 +70,7 @@ impl WasmRLN {
             .collect();
 
         self.0
-            .verify_with_roots_and_x(&rln_proof.0.proof, &rln_proof.0.proof_values, x, &roots_fr)
+            .verify_with_roots(&rln_proof.0.proof, &rln_proof.0.proof_values, x, &roots_fr)
             .map_err(|err| err.to_string())
     }
 }
@@ -168,11 +169,10 @@ impl WasmRLNProofValues {
         proof_values_1: &WasmRLNProofValues,
         proof_values_2: &WasmRLNProofValues,
     ) -> Result<WasmFr, String> {
-        let recovered_identity_secret_hash =
-            recover_id_secret(&proof_values_1.0, &proof_values_2.0)
-                .map_err(|err| err.to_string())?;
+        let recovered_identity_secret = recover_id_secret(&proof_values_1.0, &proof_values_2.0)
+            .map_err(|err| err.to_string())?;
 
-        Ok(WasmFr::from(*recovered_identity_secret_hash))
+        Ok(WasmFr::from(*recovered_identity_secret))
     }
 }
 

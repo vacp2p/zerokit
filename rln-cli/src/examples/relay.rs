@@ -44,15 +44,15 @@ enum Commands {
 
 #[derive(Debug, Clone)]
 struct Identity {
-    identity_secret_hash: IdSecret,
+    identity_secret: IdSecret,
     id_commitment: Fr,
 }
 
 impl Identity {
     fn new() -> Self {
-        let (identity_secret_hash, id_commitment) = keygen();
+        let (identity_secret, id_commitment) = keygen();
         Identity {
-            identity_secret_hash,
+            identity_secret,
             id_commitment,
         }
     }
@@ -100,7 +100,7 @@ impl RLNSystem {
         println!("Registered users:");
         for (index, identity) in &self.local_identities {
             println!("User Index: {index}");
-            println!("+ Identity Secret Hash: {}", *identity.identity_secret_hash);
+            println!("+ Identity Secret Hash: {}", *identity.identity_secret);
             println!("+ Identity Commitment: {}", identity.id_commitment);
             println!();
         }
@@ -115,7 +115,7 @@ impl RLNSystem {
         match self.rln.set_next_leaf(&mut buffer) {
             Ok(_) => {
                 println!("Registered User Index: {index}");
-                println!("+ Identity secret hash: {}", *identity.identity_secret_hash);
+                println!("+ Identity secret hash: {}", *identity.identity_secret);
                 println!("+ Identity commitment: {},", identity.id_commitment);
                 self.local_identities.insert(index, identity);
             }
@@ -140,7 +140,7 @@ impl RLNSystem {
         };
 
         let serialized = prepare_prove_input(
-            identity.identity_secret_hash.clone(),
+            identity.identity_secret.clone(),
             user_index,
             Fr::from(MESSAGE_LIMIT),
             Fr::from(message_id),
@@ -208,23 +208,21 @@ impl RLNSystem {
         {
             Ok(_) => {
                 let output_data = output.into_inner();
-                let (leaked_identity_secret_hash, _) = IdSecret::from_bytes_le(&output_data);
+                let (leaked_identity_secret, _) = IdSecret::from_bytes_le(&output_data);
 
                 if let Some((user_index, identity)) = self
                     .local_identities
                     .iter()
-                    .find(|(_, identity)| {
-                        identity.identity_secret_hash == leaked_identity_secret_hash
-                    })
+                    .find(|(_, identity)| identity.identity_secret == leaked_identity_secret)
                     .map(|(index, identity)| (*index, identity))
                 {
-                    let real_identity_secret_hash = identity.identity_secret_hash.clone();
-                    if leaked_identity_secret_hash != real_identity_secret_hash {
-                        Err(eyre!("identity secret hash mismatch: leaked_identity_secret_hash != real_identity_secret_hash"))
+                    let real_identity_secret = identity.identity_secret.clone();
+                    if leaked_identity_secret != real_identity_secret {
+                        Err(eyre!("identity secret hash mismatch: leaked_identity_secret != real_identity_secret"))
                     } else {
                         println!(
                             "DUPLICATE message ID detected! Reveal identity secret hash: {}",
-                            *leaked_identity_secret_hash
+                            *leaked_identity_secret
                         );
                         self.local_identities.remove(&user_index);
                         self.rln.delete_leaf(user_index)?;

@@ -1,10 +1,11 @@
 #![allow(non_camel_case_types)]
 #![cfg(not(feature = "stateless"))]
 
-use {
-    super::ffi_rln::FFI_RLN,
-    super::ffi_utils::{CBoolResult, CFr, CResult},
-    safer_ffi::{boxed::Box_, derive_ReprC, ffi_export, prelude::repr_c},
+use safer_ffi::{boxed::Box_, derive_ReprC, ffi_export, prelude::repr_c};
+
+use super::{
+    ffi_rln::FFI_RLN,
+    ffi_utils::{CBoolResult, CFr, CResult},
 };
 
 // MerkleProof

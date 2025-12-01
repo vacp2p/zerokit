@@ -3,16 +3,17 @@
 #[cfg(test)]
 mod test {
     use ark_ff::BigInt;
-    use rln::circuit::{graph_from_folder, zkey_from_folder};
-    use rln::circuit::{Fr, DEFAULT_TREE_DEPTH};
-    use rln::hashers::{hash_to_field_le, poseidon_hash};
-    use rln::poseidon_tree::PoseidonTree;
-    use rln::protocol::{
-        bytes_le_to_rln_proof_values, bytes_le_to_rln_witness, generate_proof, keygen,
-        proof_values_from_witness, rln_proof_values_to_bytes_le, rln_witness_to_bytes_le,
-        seeded_keygen, verify_proof, RLNWitnessInput,
+    use rln::{
+        circuit::{graph_from_folder, zkey_from_folder, Fr, DEFAULT_TREE_DEPTH},
+        hashers::{hash_to_field_le, poseidon_hash},
+        poseidon_tree::PoseidonTree,
+        protocol::{
+            bytes_le_to_rln_proof_values, bytes_le_to_rln_witness, generate_proof, keygen,
+            proof_values_from_witness, rln_proof_values_to_bytes_le, rln_witness_to_bytes_le,
+            seeded_keygen, verify_proof, RLNWitnessInput,
+        },
+        utils::str_to_fr,
     };
-    use rln::utils::str_to_fr;
     use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 
     type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
@@ -23,8 +24,8 @@ mod test {
         let leaf_index = 3;
 
         // generate identity
-        let identity_secret_hash = hash_to_field_le(b"test-merkle-proof");
-        let id_commitment = poseidon_hash(&[identity_secret_hash]);
+        let identity_secret = hash_to_field_le(b"test-merkle-proof");
+        let id_commitment = poseidon_hash(&[identity_secret]);
         let rate_commitment = poseidon_hash(&[id_commitment, 100.into()]);
 
         // generate merkle tree
@@ -94,7 +95,7 @@ mod test {
     fn get_test_witness() -> RLNWitnessInput {
         let leaf_index = 3;
         // Generate identity pair
-        let (identity_secret_hash, id_commitment) = keygen();
+        let (identity_secret, id_commitment) = keygen();
         let user_message_limit = Fr::from(100);
         let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
 
@@ -121,7 +122,7 @@ mod test {
         let message_id = Fr::from(1);
 
         RLNWitnessInput::new(
-            identity_secret_hash,
+            identity_secret,
             user_message_limit,
             message_id,
             merkle_proof.get_path_elements(),
@@ -174,10 +175,10 @@ mod test {
     fn test_seeded_keygen() {
         // Generate identity pair using a seed phrase
         let seed_phrase: &str = "A seed phrase example";
-        let (identity_secret_hash, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
+        let (identity_secret, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
 
         // We check against expected values
-        let expected_identity_secret_hash_seed_phrase = str_to_fr(
+        let expected_identity_secret_seed_phrase = str_to_fr(
             "0x20df38f3f00496f19fe7c6535492543b21798ed7cb91aebe4af8012db884eda3",
             16,
         )
@@ -188,18 +189,15 @@ mod test {
         )
         .unwrap();
 
-        assert_eq!(
-            identity_secret_hash,
-            expected_identity_secret_hash_seed_phrase
-        );
+        assert_eq!(identity_secret, expected_identity_secret_seed_phrase);
         assert_eq!(id_commitment, expected_id_commitment_seed_phrase);
 
         // Generate identity pair using an byte array
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let (identity_secret_hash, id_commitment) = seeded_keygen(seed_bytes);
+        let (identity_secret, id_commitment) = seeded_keygen(seed_bytes);
 
         // We check against expected values
-        let expected_identity_secret_hash_seed_bytes = str_to_fr(
+        let expected_identity_secret_seed_bytes = str_to_fr(
             "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
             16,
         )
@@ -210,19 +208,13 @@ mod test {
         )
         .unwrap();
 
-        assert_eq!(
-            identity_secret_hash,
-            expected_identity_secret_hash_seed_bytes
-        );
+        assert_eq!(identity_secret, expected_identity_secret_seed_bytes);
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
 
         // We check again if the identity pair generated with the same seed phrase corresponds to the previously generated one
-        let (identity_secret_hash, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
+        let (identity_secret, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
 
-        assert_eq!(
-            identity_secret_hash,
-            expected_identity_secret_hash_seed_phrase
-        );
+        assert_eq!(identity_secret, expected_identity_secret_seed_phrase);
         assert_eq!(id_commitment, expected_id_commitment_seed_phrase);
     }
 }
