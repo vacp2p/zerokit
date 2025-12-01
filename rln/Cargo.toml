@@ -27,12 +27,12 @@ ark-groth16 = { version = "0.5.0", default-features = false }
 ark-serialize = { version = "0.5.0", default-features = false }
 
 # error handling
-thiserror = "2.0.12"
+thiserror = "2.0.17"
 
 # utilities
-rayon = { version = "1.10.0", optional = true }
+rayon = { version = "1.11.0", optional = true }
 byteorder = "1.5.0"
-cfg-if = "1.0"
+cfg-if = "1.0.4"
 num-bigint = { version = "0.4.6", default-features = false, features = ["std"] }
 num-traits = "0.2.19"
 once_cell = "1.21.3"
@@ -45,7 +45,7 @@ ruint = { version = "1.17.0", default-features = false, features = [
 ] }
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 zeroize = "1.8.2"
-tempfile = "3.21.0"
+tempfile = "3.23.0"
 utils = { package = "zerokit_utils", version = "0.7.0", path = "../utils", default-features = false }
 
 # FFI
@@ -53,10 +53,10 @@ safer-ffi.version = "0.1"
 
 # serialization
 prost = "0.14.1"
-serde_json = "1.0.141"
-serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.145"
+serde = { version = "1.0.228", features = ["derive"] }
 
-document-features = { version = "0.2.11", optional = true }
+document-features = { version = "0.2.12", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.7.0", features = ["html_reports"] }
