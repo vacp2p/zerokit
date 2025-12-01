@@ -126,7 +126,7 @@ impl RLNSystem {
             Ok(_) => {
                 println!("Registered User Index: {index}");
                 println!("+ Identity secret: {}", *identity.identity_secret);
-                println!("+ Identity commitment: {},", identity.id_commitment);
+                println!("+ Identity commitment: {}", identity.id_commitment);
                 self.local_identities.insert(index, identity);
             }
             Err(_) => {
@@ -162,12 +162,17 @@ impl RLNSystem {
             external_nullifier,
         )?;
 
-        let (_proof, proof_values) = self.rln.generate_rln_proof(&witness)?;
+        let (proof, proof_values) = self.rln.generate_rln_proof(&witness)?;
 
         println!("Proof generated successfully:");
         println!("+ User Index: {user_index}");
         println!("+ Message ID: {message_id}");
         println!("+ Signal: {signal}");
+
+        let verified = self.rln.verify_rln_proof(&proof, &proof_values, &x)?;
+        if verified {
+            println!("Proof verified successfully");
+        }
 
         Ok(proof_values)
     }
