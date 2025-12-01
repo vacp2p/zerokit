@@ -50,7 +50,6 @@ impl TreeConfigInput for &str {
 }
 
 /// Implementation for Option<T> where T implements TreeConfigInput.
-/// None defaults to the default configuration.
 #[cfg(not(feature = "stateless"))]
 impl<T: TreeConfigInput> TreeConfigInput for Option<T> {
     fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError> {
@@ -83,7 +82,6 @@ pub struct RLN {
 impl RLN {
     /// Creates a new RLN object by loading circuit resources from a folder.
     ///
-    /// Input parameters are:
     /// - `tree_depth`: the depth of the internal Merkle tree
     /// - `tree_config`: configuration for the Merkle tree (accepts multiple types via TreeConfigInput trait)
     ///
@@ -108,11 +106,9 @@ impl RLN {
     ///
     /// For advanced usage with builder pattern (pmtree feature):
     /// ```
-    /// use rln::pm_tree_adapter::PmtreeConfig;
-    ///
     /// let config = PmtreeConfig::builder()
     ///     .path("/database")
-    ///     .cache_capacity(2_000_000_000)
+    ///     .cache_capacity(1073741824)
     ///     .mode(Mode::HighThroughput)
     ///     .build()?;
     ///
@@ -164,9 +160,6 @@ impl RLN {
     ///
     /// Examples:
     /// ```
-    /// use std::fs::File;
-    /// use std::io::Read;
-    ///
     /// let tree_depth = 20;
     /// let resources_folder = "./resources/tree_depth_20/";
     ///
@@ -218,15 +211,12 @@ impl RLN {
 
     /// Creates a new stateless RLN object by passing circuit resources as byte vectors.
     ///
-    /// Input parameters are
+    /// Input parameters are:
     /// - `zkey_data`: a byte vector containing to the proving key (`rln_final.arkzkey`) as binary file
     /// - `graph_data`: a byte vector containing the graph data (`graph.bin`) as binary file
     ///
     /// Example:
     /// ```
-    /// use std::fs::File;
-    /// use std::io::Read;
-    ///
     /// let resources_folder = "./resources/tree_depth_20/";
     ///
     /// let mut resources: Vec<Vec<u8>> = Vec::new();
@@ -253,14 +243,11 @@ impl RLN {
 
     /// Creates a new stateless RLN object by passing circuit resources as a byte vector.
     ///
-    /// Input parameters are
+    /// Input parameters are:
     /// - `zkey_data`: a byte vector containing the proving key (`rln_final.arkzkey`) as binary file
     ///
     /// Example:
     /// ```
-    /// use std::fs::File;
-    /// use std::io::Read;
-    ///
     /// let zkey_path = "./resources/tree_depth_20/rln_final.arkzkey";
     ///
     /// let mut file = File::open(zkey_path).expect("Failed to open file");
@@ -282,9 +269,6 @@ impl RLN {
     /// Initializes the internal Merkle tree.
     ///
     /// Leaves are set to the default value implemented in PoseidonTree implementation.
-    ///
-    /// Input values are:
-    /// - `tree_depth`: the depth of the Merkle tree.
     #[cfg(not(feature = "stateless"))]
     pub fn set_tree(&mut self, tree_depth: usize) -> Result<(), RLNError> {
         // We compute a default empty tree of desired depth
@@ -295,14 +279,8 @@ impl RLN {
 
     /// Sets a leaf value at position index in the internal Merkle tree.
     ///
-    /// Input values are:
-    /// - `index`: the index of the leaf
-    /// - `leaf`: the field element value to set
-    ///
     /// Example:
     /// ```
-    /// use crate::protocol::*;
-    ///
     /// // We generate a random identity secret hash and commitment pair
     /// let (identity_secret_hash, id_commitment) = keygen();
     ///
@@ -323,15 +301,8 @@ impl RLN {
 
     /// Gets a leaf value at position index in the internal Merkle tree.
     ///
-    /// Input values are:
-    /// - `index`: the index of the leaf
-    ///
-    /// Returns the field element at the specified index.
-    ///
     /// Example:
     /// ```
-    /// use crate::protocol::*;
-    ///
     /// let id_index = 10;
     /// let rate_commitment = rln.get_leaf(id_index).unwrap();
     /// ```
@@ -345,17 +316,10 @@ impl RLN {
     ///
     /// If n leaves are passed as input, these will be set at positions `index`, `index+1`, ..., `index+n-1` respectively.
     ///
-    /// This function updates the internal Merkle tree `next_index value indicating the next available index corresponding to a never-set leaf as `next_index = max(next_index, index + n)`.
-    ///
-    /// Input values are:
-    /// - `index`: the index of the first leaf to be set
-    /// - `leaves`: a vector of field elements to set
+    /// This function updates the internal Merkle tree `next_index` value indicating the next available index corresponding to a never-set leaf as `next_index = max(next_index, index + n)`.
     ///
     /// Example:
     /// ```
-    /// use rln::circuit::Fr;
-    /// use rln::utils::*;
-    ///
     /// let start_index = 10;
     /// let no_of_leaves = 256;
     ///
@@ -381,9 +345,6 @@ impl RLN {
     /// Resets the tree state to default and sets multiple leaves starting from index 0.
     ///
     /// In contrast to [`set_leaves_from`](crate::public::RLN::set_leaves_from), this function resets to 0 the internal `next_index` value, before setting the input leaves values.
-    ///
-    /// Input values are:
-    /// - `leaves`: a vector of field elements to set
     #[cfg(not(feature = "stateless"))]
     pub fn init_tree_with_leaves(&mut self, leaves: Vec<Fr>) -> Result<(), RLNError> {
         // NOTE: this requires the tree to be initialized with the correct depth initially
@@ -398,18 +359,10 @@ impl RLN {
     /// If n leaves are passed as input, these will be set at positions `index`, `index+1`, ..., `index+n-1` respectively.
     /// If m indices are passed as input, these will be removed from the tree.
     ///
-    /// This function updates the internal Merkle tree `next_index value indicating the next available index corresponding to a never-set leaf as `next_index = max(next_index, index + n)`.
-    ///
-    /// Input values are:
-    /// - `index`: the index of the first leaf to be set
-    /// - `leaves`: a vector of field elements to set
-    /// - `indices`: a vector of indices to remove from the tree
+    /// This function updates the internal Merkle tree `next_index` value indicating the next available index corresponding to a never-set leaf as `next_index = max(next_index, index + n)`.
     ///
     /// Example:
     /// ```
-    /// use rln::circuit::Fr;
-    /// use rln::utils::*;
-    ///
     /// let start_index = 10;
     /// let no_of_leaves = 256;
     ///
@@ -444,6 +397,7 @@ impl RLN {
         Ok(())
     }
 
+    /// Returns the number of leaves that have been set in the internal Merkle tree.
     #[cfg(not(feature = "stateless"))]
     pub fn leaves_set(&self) -> usize {
         self.tree.leaves_set()
@@ -453,14 +407,8 @@ impl RLN {
     ///
     /// This function updates the internal Merkle tree `next_index` value indicating the next available index corresponding to a never-set leaf as `next_index = next_index + 1`.
     ///
-    /// Input values are:
-    /// - `leaf`: the field element to set at the next available index
-    ///
     /// Example:
     /// ```
-    /// use rln::circuit::Fr;
-    /// use rln::utils::*;
-    ///
     /// let tree_depth = 20;
     /// let start_index = 10;
     /// let no_of_leaves = 256;
@@ -500,9 +448,6 @@ impl RLN {
     ///
     /// This function does not change the internal Merkle tree `next_index` value.
     ///
-    /// Input values are:
-    /// - `index`: the index of the leaf whose value will be reset
-    ///
     /// Example
     /// ```
     ///
@@ -516,10 +461,8 @@ impl RLN {
     }
 
     /// Sets some metadata that a consuming application may want to store in the RLN object.
-    /// This metadata is not used by the RLN module.
     ///
-    /// Input values are:
-    /// - `metadata`: a byte vector containing the metadata
+    /// This metadata is not used by the RLN module.
     ///
     /// Example
     ///
@@ -535,8 +478,6 @@ impl RLN {
 
     /// Returns the metadata stored in the RLN object.
     ///
-    /// Returns the metadata as a byte vector.
-    ///
     /// Example
     ///
     /// ```
@@ -550,12 +491,8 @@ impl RLN {
 
     /// Returns the Merkle tree root
     ///
-    /// Returns the root as a field element.
-    ///
     /// Example
     /// ```
-    /// use rln::utils::*;
-    ///
     /// let root = rln.get_root();
     /// ```
     #[cfg(not(feature = "stateless"))]
@@ -565,12 +502,8 @@ impl RLN {
 
     /// Returns the root of subtree in the Merkle tree
     ///
-    /// Returns the subtree root as a field element.
-    ///
     /// Example
     /// ```
-    /// use rln::utils::*;
-    ///
     /// let level = 1;
     /// let index = 2;
     /// let subroot = rln.get_subtree_root(level, index).unwrap();
@@ -583,15 +516,8 @@ impl RLN {
 
     /// Returns the Merkle proof of the leaf at position index
     ///
-    /// Input values are:
-    /// - `index`: the index of the leaf
-    ///
-    /// Returns a tuple of (path_elements, identity_path_index)
-    ///
     /// Example
     /// ```
-    /// use rln::utils::*;
-    ///
     /// let index = 10;
     /// let (path_elements, identity_path_index) = rln.get_proof(index).unwrap();
     /// ```
@@ -606,13 +532,8 @@ impl RLN {
 
     /// Returns indices of leaves in the tree are set to zero (upto the final leaf that was set).
     ///
-    /// Returns a vector of indices.
-    ///
     /// Example
     /// ```
-    /// use rln::circuit::Fr;
-    /// use rln::utils::*;
-    ///
     /// let start_index = 5;
     /// let no_of_leaves = 256;
     ///
@@ -650,15 +571,8 @@ impl RLN {
 
     /// Computes a zkSNARK RLN proof using a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
     ///
-    /// Input values are:
-    /// - `witness`: a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object containing the public and private inputs to the ZK circuits
-    ///
-    /// Returns the zkSNARK proof.
-    ///
     /// Example:
     /// ```
-    /// use rln::protocol::*;
-    ///
     /// let witness = random_rln_witness(tree_depth);
     /// let proof_values = proof_values_from_witness(&witness);
     ///
@@ -673,16 +587,8 @@ impl RLN {
 
     /// Verifies a zkSNARK RLN proof.
     ///
-    /// Input values are:
-    /// - `proof`: the zkSNARK proof
-    /// - `proof_values`: the circuit output values (root, external_nullifier, x, y, nullifier)
-    ///
-    /// Returns true if the zkSNARK proof is valid with respect to the provided circuit output values, false otherwise.
-    ///
     /// Example:
     /// ```
-    /// use rln::protocol::*;
-    ///
     /// let witness = random_rln_witness(tree_depth);
     ///
     /// // We compute a Groth16 proof
@@ -702,13 +608,6 @@ impl RLN {
     }
 
     /// Verifies a zkSNARK RLN proof with x coordinate check (stateful - checks internal tree root).
-    ///
-    /// Input values are:
-    /// - `proof`: the zkSNARK proof
-    /// - `proof_values`: the circuit output values
-    /// - `x`: the x coordinate (hash of signal)
-    ///
-    /// Returns Ok(true) if valid, Err(ProtocolError) with specific error if validation fails.
     #[cfg(not(feature = "stateless"))]
     pub fn verify_rln_roof(
         &self,
@@ -734,13 +633,7 @@ impl RLN {
 
     /// Verifies a zkSNARK RLN proof against provided roots with x coordinate check.
     ///
-    /// Input values are:
-    /// - `proof`: the zkSNARK proof
-    /// - `proof_values`: the circuit output values
-    /// - `x`: the x coordinate (hash of signal)
-    /// - `roots`: vector of acceptable roots (empty means skip root check)
-    ///
-    /// Returns Ok(true) if valid, Err(ProtocolError) with specific error if validation fails.
+    /// If the roots slice is empty, root verification is skipped.
     pub fn verify_with_roots(
         &self,
         proof: &Proof,
@@ -769,8 +662,6 @@ impl RLN {
     /// This is a convenience method that combines proof generation and proof values extraction.
     /// For WASM usage with pre-calculated witness from witness calculator.
     ///
-    /// Returns a tuple of (Proof, RLNProofValues).
-    ///
     /// Example:
     /// ```
     /// let witness = RLNWitnessInput::new(...);
@@ -789,8 +680,6 @@ impl RLN {
     /// Generate RLN Proof using a pre-calculated witness from witness calculator (WASM).
     ///
     /// This is used when the witness has been calculated externally using a witness calculator.
-    ///
-    /// Returns a tuple of (Proof, RLNProofValues).
     #[cfg(target_arch = "wasm32")]
     pub fn generate_rln_proof_with_witness(
         &self,
