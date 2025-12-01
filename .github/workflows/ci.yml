@@ -163,15 +163,18 @@ jobs:
         if: success() || failure()
         run: cargo fmt -- --check
         working-directory: ${{ matrix.crate }}
-      - name: Check clippy (wasm)
+      - name: Check clippy wasm target
         if: (success() || failure()) && (matrix.crate == 'rln-wasm')
         run: |
           cargo clippy --target wasm32-unknown-unknown --tests --release -- -D warnings
         working-directory: ${{ matrix.crate }}
-      - name: Check clippy (native)
+      - name: Check clippy default feature
         if: (success() || failure()) && (matrix.crate != 'rln-wasm')
         run: |
           cargo clippy --all-targets --tests --release -- -D warnings
+      - name: Check clippy stateless feature
+        if: (success() || failure()) && (matrix.crate == 'rln')
+        run: |
           cargo clippy --all-targets --tests --release --features=stateless --no-default-features -- -D warnings
         working-directory: ${{ matrix.crate }}
 
