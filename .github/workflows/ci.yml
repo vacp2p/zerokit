@@ -172,6 +172,7 @@ jobs:
         if: (success() || failure()) && (matrix.crate != 'rln-wasm')
         run: |
           cargo clippy --all-targets --tests --release -- -D warnings
+          cargo clippy --all-targets --tests --release --features=stateless --no-default-features -- -D warnings
         working-directory: ${{ matrix.crate }}
 
   benchmark-utils:

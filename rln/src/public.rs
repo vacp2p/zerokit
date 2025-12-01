@@ -10,7 +10,6 @@ use {
     utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
 };
 
-use crate::protocol::generate_proof_with_witness;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
     circuit::{graph_from_folder, zkey_from_folder},
@@ -19,7 +18,10 @@ use crate::{
 use crate::{
     circuit::{zkey_from_raw, Fr, Proof, Zkey},
     error::{RLNError, VerifyError},
-    protocol::{proof_values_from_witness, verify_proof, RLNProofValues, RLNWitnessInput},
+    protocol::{
+        generate_proof_with_witness, proof_values_from_witness, verify_proof, RLNProofValues,
+        RLNWitnessInput,
+    },
 };
 
 /// The application-specific RLN identifier.
