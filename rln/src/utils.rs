@@ -1,18 +1,33 @@
 // This crate provides cross-module useful utilities (mainly type conversions) not necessarily specific to RLN
 
 use crate::circuit::Fr;
-use crate::error::ConversionError;
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
-use num_bigint::{BigInt, BigUint};
+use num_bigint::{BigInt, BigUint, ParseBigIntError};
 use num_traits::Num;
 use rand::Rng;
 use ruint::aliases::U256;
 use serde_json::json;
+use std::array::TryFromSliceError;
 use std::io::Cursor;
+use std::num::TryFromIntError;
 use std::ops::Deref;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
+
+#[derive(Debug, thiserror::Error)]
+pub enum UtilsError {
+    #[error("Expected radix 10 or 16")]
+    WrongRadix,
+    #[error("{0}")]
+    ParseBigInt(#[from] ParseBigIntError),
+    #[error("{0}")]
+    ToUsize(#[from] TryFromIntError),
+    #[error("{0}")]
+    FromSlice(#[from] TryFromSliceError),
+    #[error("Input data too short: expected at least {expected} bytes, got {actual} bytes")]
+    InsufficientData { expected: usize, actual: usize },
+}
 
 #[inline(always)]
 pub fn to_bigint(el: &Fr) -> BigInt {
@@ -26,9 +41,9 @@ pub const fn fr_byte_size() -> usize {
 }
 
 #[inline(always)]
-pub fn str_to_fr(input: &str, radix: u32) -> Result<Fr, ConversionError> {
+pub fn str_to_fr(input: &str, radix: u32) -> Result<Fr, UtilsError> {
     if !(radix == 10 || radix == 16) {
-        return Err(ConversionError::WrongRadix);
+        return Err(UtilsError::WrongRadix);
     }
 
     // We remove any quote present and we trim
@@ -153,10 +168,10 @@ pub fn vec_u8_to_bytes_be(input: &[u8]) -> Vec<u8> {
 }
 
 #[inline(always)]
-pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), ConversionError> {
+pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), UtilsError> {
     let mut read: usize = 0;
     if input.len() < 8 {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8,
             actual: input.len(),
         });
@@ -164,7 +179,7 @@ pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), ConversionEr
     let len = usize::try_from(u64::from_le_bytes(input[0..8].try_into()?))?;
     read += 8;
     if input.len() < 8 + len {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8 + len,
             actual: input.len(),
         });
@@ -175,10 +190,10 @@ pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), ConversionEr
 }
 
 #[inline(always)]
-pub fn bytes_be_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), ConversionError> {
+pub fn bytes_be_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), UtilsError> {
     let mut read: usize = 0;
     if input.len() < 8 {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8,
             actual: input.len(),
         });
@@ -186,7 +201,7 @@ pub fn bytes_be_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), ConversionEr
     let len = usize::try_from(u64::from_be_bytes(input[0..8].try_into()?))?;
     read += 8;
     if input.len() < 8 + len {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8 + len,
             actual: input.len(),
         });
@@ -197,10 +212,10 @@ pub fn bytes_be_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), ConversionEr
 }
 
 #[inline(always)]
-pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), ConversionError> {
+pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), UtilsError> {
     let mut read: usize = 0;
     if input.len() < 8 {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8,
             actual: input.len(),
         });
@@ -209,7 +224,7 @@ pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), ConversionEr
     read += 8;
     let el_size = fr_byte_size();
     if input.len() < 8 + len * el_size {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8 + len * el_size,
             actual: input.len(),
         });
@@ -224,10 +239,10 @@ pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), ConversionEr
 }
 
 #[inline(always)]
-pub fn bytes_be_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), ConversionError> {
+pub fn bytes_be_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), UtilsError> {
     let mut read: usize = 0;
     if input.len() < 8 {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8,
             actual: input.len(),
         });
@@ -236,7 +251,7 @@ pub fn bytes_be_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), ConversionEr
     read += 8;
     let el_size = fr_byte_size();
     if input.len() < 8 + len * el_size {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8 + len * el_size,
             actual: input.len(),
         });
@@ -251,9 +266,9 @@ pub fn bytes_be_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), ConversionEr
 }
 
 #[inline(always)]
-pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, ConversionError> {
+pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, UtilsError> {
     if input.len() < 8 {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8,
             actual: input.len(),
         });
@@ -263,7 +278,7 @@ pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, ConversionError
         Ok(vec![])
     } else {
         if input.len() < 8 + nof_elem * 8 {
-            return Err(ConversionError::InsufficientData {
+            return Err(UtilsError::InsufficientData {
                 expected: 8 + nof_elem * 8,
                 actual: input.len(),
             });
@@ -278,9 +293,9 @@ pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, ConversionError
 }
 
 #[inline(always)]
-pub fn bytes_be_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, ConversionError> {
+pub fn bytes_be_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, UtilsError> {
     if input.len() < 8 {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8,
             actual: input.len(),
         });
@@ -290,7 +305,7 @@ pub fn bytes_be_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, ConversionError
         Ok(vec![])
     } else {
         if input.len() < 8 + nof_elem * 8 {
-            return Err(ConversionError::InsufficientData {
+            return Err(UtilsError::InsufficientData {
                 expected: 8 + nof_elem * 8,
                 actual: input.len(),
             });

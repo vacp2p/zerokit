@@ -30,12 +30,7 @@ use num_bigint::BigInt;
 /// Prevents a RLN ZK proof generated for one application to be re-used in another one.
 pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
 
-/// Trait for inputs that can be converted to a tree configuration.
-///
-/// This allows accepting different config input types for tree configuration:
-/// - JSON strings (for FFI/WASM compatibility)
-/// - Direct Config structs (for Rust API with builder pattern)
-/// - File paths via wrapper types
+/// This trait allows accepting different config input types for tree configuration.
 #[cfg(not(feature = "stateless"))]
 pub trait TreeConfigInput {
     /// Convert the input to a tree configuration struct.
@@ -54,37 +49,6 @@ impl TreeConfigInput for &str {
     }
 }
 
-/// Implementation for owned strings containing JSON configuration
-#[cfg(not(feature = "stateless"))]
-impl TreeConfigInput for String {
-    fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError> {
-        if self.is_empty() {
-            Ok(<PoseidonTree as ZerokitMerkleTree>::Config::default())
-        } else {
-            Ok(<PoseidonTree as ZerokitMerkleTree>::Config::from_str(
-                &self,
-            )?)
-        }
-    }
-}
-
-/// Implementation for direct builder pattern Config struct
-#[cfg(feature = "pmtree-ft")]
-impl TreeConfigInput for <PoseidonTree as ZerokitMerkleTree>::Config {
-    fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError> {
-        Ok(self)
-    }
-}
-
-/// Implementation for byte slices containing JSON configuration
-#[cfg(not(feature = "stateless"))]
-impl TreeConfigInput for &[u8] {
-    fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError> {
-        let config_string = String::from_utf8(self.to_vec())?;
-        config_string.into_tree_config()
-    }
-}
-
 /// Implementation for Option<T> where T implements TreeConfigInput.
 /// None defaults to the default configuration.
 #[cfg(not(feature = "stateless"))]
@@ -94,6 +58,14 @@ impl<T: TreeConfigInput> TreeConfigInput for Option<T> {
             Some(config) => config.into_tree_config(),
             None => Ok(<PoseidonTree as ZerokitMerkleTree>::Config::default()),
         }
+    }
+}
+
+/// Implementation for direct builder pattern Config struct
+#[cfg(feature = "pmtree-ft")]
+impl TreeConfigInput for <PoseidonTree as ZerokitMerkleTree>::Config {
+    fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError> {
+        Ok(self)
     }
 }
 

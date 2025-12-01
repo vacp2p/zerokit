@@ -1,33 +1,19 @@
 use ark_relations::r1cs::SynthesisError;
-use num_bigint::{BigInt, ParseBigIntError};
-use std::array::TryFromSliceError;
-use std::num::TryFromIntError;
-use std::string::FromUtf8Error;
+use num_bigint::BigInt;
 use thiserror::Error;
 use utils::error::{FromConfigError, ZerokitMerkleTreeError};
 
-use crate::circuit::{error::ZKeyReadError, Fr};
-
-#[derive(Debug, thiserror::Error)]
-pub enum ConversionError {
-    #[error("Expected radix 10 or 16")]
-    WrongRadix,
-    #[error("{0}")]
-    ParseBigInt(#[from] ParseBigIntError),
-    #[error("{0}")]
-    ToUsize(#[from] TryFromIntError),
-    #[error("{0}")]
-    FromSlice(#[from] TryFromSliceError),
-    #[error("Input data too short: expected at least {expected} bytes, got {actual} bytes")]
-    InsufficientData { expected: usize, actual: usize },
-}
+use crate::{
+    circuit::{error::ZKeyReadError, Fr},
+    utils::UtilsError,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ProtocolError {
     #[error("Error producing proof: {0}")]
-    SynthesisError(#[from] SynthesisError),
+    Synthesis(#[from] SynthesisError),
     #[error("{0}")]
-    Conversion(#[from] ConversionError),
+    Utils(#[from] UtilsError),
     #[error("Expected to read {0} bytes but read only {1} bytes")]
     InvalidReadLen(usize, usize),
     #[error("Cannot convert bigint {0:?} to biguint")]
@@ -54,8 +40,6 @@ pub enum VerifyError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RLNError {
-    #[error("Utf8 error: {0}")]
-    Utf8(#[from] FromUtf8Error),
     #[error("Config error: {0}")]
     Config(#[from] FromConfigError),
     #[error("Merkle tree error: {0}")]
@@ -64,6 +48,6 @@ pub enum RLNError {
     ZKey(#[from] ZKeyReadError),
     #[error("Protocol error: {0}")]
     Protocol(#[from] ProtocolError),
-    #[error("Verification error: {0}")]
+    #[error("Verify error: {0}")]
     Verify(#[from] VerifyError),
 }
