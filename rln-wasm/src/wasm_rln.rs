@@ -5,14 +5,14 @@ use crate::wasm_utils::{VecWasmFr, WasmFr};
 use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
 use num_bigint::BigInt;
 use rln::{
-    circuit::{zkey_from_raw, Fr},
+    circuit::Fr,
     protocol::{
         bytes_be_to_rln_proof, bytes_be_to_rln_proof_values, bytes_le_to_rln_proof,
-        bytes_le_to_rln_proof_values, compute_id_secret, generate_proof_with_witness,
-        proof_values_from_witness, rln_proof_to_bytes_be, rln_proof_to_bytes_le,
-        rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le, rln_witness_to_bigint_json,
-        verify_proof, RLNProof, RLNProofValues, RLNWitnessInput, RLN,
+        bytes_le_to_rln_proof_values, recover_id_secret, rln_proof_to_bytes_be,
+        rln_proof_to_bytes_le, rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le,
+        rln_witness_to_bigint_json, RLNProof, RLNProofValues, RLNWitnessInput,
     },
+    public::RLN,
     utils::IdSecret,
 };
 use serde::Serialize;
@@ -24,10 +24,8 @@ pub struct WasmRLN(RLN);
 #[wasm_bindgen]
 impl WasmRLN {
     #[wasm_bindgen(constructor)]
-    pub fn new(zkey_buffer: &Uint8Array) -> Result<WasmRLN, String> {
-        let zkey = zkey_from_raw(&zkey_buffer.to_vec()).map_err(|err| err.to_string())?;
-        let rln = RLN { zkey };
-
+    pub fn new(zkey_data: &Uint8Array) -> Result<WasmRLN, String> {
+        let rln = RLN::new_with_params(zkey_data.to_vec()).map_err(|err| err.to_string())?;
         Ok(WasmRLN(rln))
     }
 
@@ -37,8 +35,6 @@ impl WasmRLN {
         calculated_witness: Vec<JsBigInt>,
         witness: &WasmRLNWitnessInput,
     ) -> Result<WasmRLNProof, String> {
-        let proof_values = proof_values_from_witness(&witness.0).map_err(|err| err.to_string())?;
-
         let calculated_witness_bigint: Vec<BigInt> = calculated_witness
             .iter()
             .map(|js_bigint| {
@@ -47,7 +43,9 @@ impl WasmRLN {
             })
             .collect();
 
-        let proof = generate_proof_with_witness(calculated_witness_bigint, &self.0.zkey)
+        let (proof, proof_values) = self
+            .0
+            .generate_rln_proof_with_witness(calculated_witness_bigint, &witness.0)
             .map_err(|err| err.to_string())?;
 
         let rln_proof = RLNProof {
@@ -65,28 +63,14 @@ impl WasmRLN {
         roots: &VecWasmFr,
         x: &WasmFr,
     ) -> Result<bool, String> {
-        let proof_verified = verify_proof(
-            &self.0.zkey.0.vk,
-            &rln_proof.0.proof,
-            &rln_proof.0.proof_values,
-        )
-        .map_err(|err| err.to_string())?;
+        let roots_fr: Vec<Fr> = (0..roots.length())
+            .filter_map(|i| roots.get(i))
+            .map(|root| *root)
+            .collect();
 
-        if !proof_verified {
-            return Ok(false);
-        }
-
-        let roots_verified = if roots.length() == 0 {
-            true
-        } else {
-            (0..roots.length())
-                .filter_map(|i| roots.get(i))
-                .any(|root| *root == rln_proof.0.proof_values.root)
-        };
-
-        let signal_verified = **x == rln_proof.0.proof_values.x;
-
-        Ok(proof_verified && roots_verified && signal_verified)
+        self.0
+            .verify_with_roots_and_x(&rln_proof.0.proof, &rln_proof.0.proof_values, x, &roots_fr)
+            .map_err(|err| err.to_string())
     }
 }
 
@@ -184,18 +168,9 @@ impl WasmRLNProofValues {
         proof_values_1: &WasmRLNProofValues,
         proof_values_2: &WasmRLNProofValues,
     ) -> Result<WasmFr, String> {
-        let external_nullifier_1 = proof_values_1.0.external_nullifier;
-        let external_nullifier_2 = proof_values_2.0.external_nullifier;
-
-        if external_nullifier_1 != external_nullifier_2 {
-            return Err("External nullifiers do not match".to_string());
-        }
-
-        let share1 = (proof_values_1.0.x, proof_values_1.0.y);
-        let share2 = (proof_values_2.0.x, proof_values_2.0.y);
-
         let recovered_identity_secret_hash =
-            compute_id_secret(share1, share2).map_err(|err| err.to_string())?;
+            recover_id_secret(&proof_values_1.0, &proof_values_2.0)
+                .map_err(|err| err.to_string())?;
 
         Ok(WasmFr::from(*recovered_identity_secret_hash))
     }

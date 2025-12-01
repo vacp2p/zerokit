@@ -1,18 +1,16 @@
 // This crate collects all the underlying primitives used to implement RLN
 
-#[cfg(not(feature = "stateless"))]
-use crate::poseidon_tree::PoseidonTree;
-
 use crate::circuit::COMPRESS_PROOF_SIZE;
 use crate::circuit::{
     iden3calc::calc_witness, qap::CircomReduction, Curve, Fr, Proof, VerifyingKey, Zkey,
 };
-use crate::error::{ComputeIdSecretError, ProofError, ProtocolError};
+use crate::error::ProtocolError;
 use crate::hashers::poseidon_hash;
 use crate::utils::{
-    bytes_be_to_fr, bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, fr_byte_size,
-    fr_to_bytes_be, fr_to_bytes_le, to_bigint, vec_fr_to_bytes_be, vec_fr_to_bytes_le,
-    vec_u8_to_bytes_be, vec_u8_to_bytes_le, FrOrSecret, IdSecret,
+    bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_le_to_fr, bytes_le_to_vec_fr,
+    bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_be, fr_to_bytes_le, to_bigint,
+    vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, FrOrSecret,
+    IdSecret,
 };
 use ark_ff::{AdditiveGroup, PrimeField};
 use ark_groth16::{prepare_verifying_key, Groth16};
@@ -24,14 +22,6 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use tiny_keccak::{Hasher as _, Keccak};
 use zeroize::Zeroize;
-
-pub struct RLN {
-    pub zkey: Zkey,
-    #[cfg(not(target_arch = "wasm32"))]
-    pub graph_data: Vec<u8>,
-    #[cfg(not(feature = "stateless"))]
-    pub tree: PoseidonTree,
-}
 
 /// Witness input for RLN proof generation.
 ///
@@ -192,10 +182,10 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
     let (message_id, el_size) = bytes_be_to_fr(&bytes[read..]);
     read += el_size;
 
-    let (path_elements, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
+    let (path_elements, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
     read += el_size;
 
-    let (identity_path_index, el_size) = bytes_le_to_vec_u8(&bytes[read..])?;
+    let (identity_path_index, el_size) = bytes_be_to_vec_u8(&bytes[read..])?;
     read += el_size;
 
     let (x, el_size) = bytes_be_to_fr(&bytes[read..]);
@@ -413,19 +403,22 @@ pub fn bytes_be_to_rln_proof_values(bytes: &[u8]) -> (RLNProofValues, usize) {
 }
 
 /// Serializes RLN proof to little-endian bytes.
+///
+/// Note: The Groth16 proof is always serialized in LE format (arkworks behavior),
+/// while proof_values are serialized in LE format.
 pub fn rln_proof_to_bytes_le(rln_proof: &RLNProof) -> Vec<u8> {
     // Calculate capacity for Vec:
     // - 128 bytes for compressed Groth16 proof
     // - 5 field elements for proof values (root, external_nullifier, x, y, nullifier)
     let mut bytes = Vec::with_capacity(COMPRESS_PROOF_SIZE + fr_byte_size() * 5);
 
-    // Serialize proof (LE format from arkworks)
+    // Serialize proof (always LE format from arkworks)
     rln_proof
         .proof
         .serialize_compressed(&mut bytes)
         .expect("serialization should not fail");
 
-    // Serialize proof values
+    // Serialize proof values in LE
     let proof_values_bytes = rln_proof_values_to_bytes_le(&rln_proof.proof_values);
     bytes.extend_from_slice(&proof_values_bytes);
 
@@ -433,19 +426,22 @@ pub fn rln_proof_to_bytes_le(rln_proof: &RLNProof) -> Vec<u8> {
 }
 
 /// Serializes RLN proof to big-endian bytes.
+///
+/// Note: The Groth16 proof is always serialized in LE format (arkworks behavior),
+/// while proof_values are serialized in BE format. This creates a mixed-endian format.
 pub fn rln_proof_to_bytes_be(rln_proof: &RLNProof) -> Vec<u8> {
     // Calculate capacity for Vec:
     // - 128 bytes for compressed Groth16 proof
     // - 5 field elements for proof values (root, external_nullifier, x, y, nullifier)
     let mut bytes = Vec::with_capacity(COMPRESS_PROOF_SIZE + fr_byte_size() * 5);
 
-    // Serialize proof (LE format from arkworks)
+    // Serialize proof (always LE format from arkworks)
     rln_proof
         .proof
         .serialize_compressed(&mut bytes)
         .expect("serialization should not fail");
 
-    // Serialize proof values
+    // Serialize proof values in BE
     let proof_values_bytes = rln_proof_values_to_bytes_be(&rln_proof.proof_values);
     bytes.extend_from_slice(&proof_values_bytes);
 
@@ -454,13 +450,13 @@ pub fn rln_proof_to_bytes_be(rln_proof: &RLNProof) -> Vec<u8> {
 
 /// Deserializes RLN proof from little-endian bytes.
 ///
-/// Format: `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]`
+/// Format: `[ proof<128,LE> | root<32,LE> | external_nullifier<32,LE> | x<32,LE> | y<32,LE> | nullifier<32,LE> ]`
 ///
 /// Returns the deserialized proof and the number of bytes read.
 pub fn bytes_le_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), ProtocolError> {
     let mut read: usize = 0;
 
-    // Deserialize proof
+    // Deserialize proof (always LE from arkworks)
     let proof = Proof::deserialize_compressed(&bytes[read..read + COMPRESS_PROOF_SIZE])
         .map_err(|_| ProtocolError::InvalidReadLen(bytes.len(), read + COMPRESS_PROOF_SIZE))?;
     read += COMPRESS_PROOF_SIZE;
@@ -480,13 +476,15 @@ pub fn bytes_le_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), Protocol
 
 /// Deserializes RLN proof from big-endian bytes.
 ///
-/// Format: `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]`
+/// Format: `[ proof<128,LE> | root<32,BE> | external_nullifier<32,BE> | x<32,BE> | y<32,BE> | nullifier<32,BE> ]`
+///
+/// Note: Mixed-endian format - proof is LE (arkworks), proof_values are BE.
 ///
 /// Returns the deserialized proof and the number of bytes read.
 pub fn bytes_be_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), ProtocolError> {
     let mut read: usize = 0;
 
-    // Deserialize proof
+    // Deserialize proof (always LE from arkworks)
     let proof = Proof::deserialize_compressed(&bytes[read..read + COMPRESS_PROOF_SIZE])
         .map_err(|_| ProtocolError::InvalidReadLen(bytes.len(), read + COMPRESS_PROOF_SIZE))?;
     read += COMPRESS_PROOF_SIZE;
@@ -585,10 +583,31 @@ pub fn extended_seeded_keygen(signal: &[u8]) -> (Fr, Fr, Fr, Fr) {
 ///
 /// When a user violates rate limits by generating multiple proofs in the same epoch,
 /// their shares can be used to recover their identity secret through polynomial interpolation.
-pub fn compute_id_secret(
-    share1: (Fr, Fr),
-    share2: (Fr, Fr),
-) -> Result<IdSecret, ComputeIdSecretError> {
+pub fn recover_id_secret(
+    rln_proof_values1: &RLNProofValues,
+    rln_proof_values2: &RLNProofValues,
+) -> Result<IdSecret, ProtocolError> {
+    let external_nullifier_1 = rln_proof_values1.external_nullifier;
+    let external_nullifier_2 = rln_proof_values2.external_nullifier;
+
+    // We continue only if the proof values are for the same external nullifier
+    if external_nullifier_1 != external_nullifier_2 {
+        return Err(ProtocolError::ExternalNullifierMismatch(
+            external_nullifier_1,
+            external_nullifier_2,
+        ));
+    }
+
+    // We extract the two shares
+    let share1 = (rln_proof_values1.x, rln_proof_values1.y);
+    let share2 = (rln_proof_values2.x, rln_proof_values2.y);
+
+    // We recover the secret
+    compute_id_secret(share1, share2)
+}
+
+/// Computes identity secret from two (x, y) shares.
+pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<IdSecret, ProtocolError> {
     // Assuming a0 is the identity secret and a1 = poseidonHash([a0, external_nullifier]),
     // a (x,y) share satisfies the following relation
     // y = a_0 + x * a_1
@@ -607,7 +626,7 @@ pub fn compute_id_secret(
         let id_secret = IdSecret::from(&mut a_0);
         Ok(id_secret)
     } else {
-        Err(ComputeIdSecretError::DivisionByZero)
+        Err(ProtocolError::DivisionByZero)
     }
 }
 
@@ -643,7 +662,7 @@ fn calculated_witness_to_field_elements<E: ark_ec::pairing::Pairing>(
 pub fn generate_proof_with_witness(
     calculated_witness: Vec<BigInt>,
     zkey: &Zkey,
-) -> Result<Proof, ProofError> {
+) -> Result<Proof, ProtocolError> {
     let full_assignment = calculated_witness_to_field_elements::<Curve>(calculated_witness)?;
 
     // Random Values
@@ -704,7 +723,7 @@ pub fn generate_proof(
     zkey: &Zkey,
     witness: &RLNWitnessInput,
     graph_data: &[u8],
-) -> Result<Proof, ProofError> {
+) -> Result<Proof, ProtocolError> {
     let inputs = inputs_for_witness_calculation(witness)?
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));
@@ -737,7 +756,7 @@ pub fn verify_proof(
     verifying_key: &VerifyingKey,
     proof: &Proof,
     proof_values: &RLNProofValues,
-) -> Result<bool, ProofError> {
+) -> Result<bool, ProtocolError> {
     // We re-arrange proof-values according to the circuit specification
     let inputs = vec![
         proof_values.y,

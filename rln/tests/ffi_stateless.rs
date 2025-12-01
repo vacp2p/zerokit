@@ -3,7 +3,7 @@
 mod test {
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
-    use rln::circuit::{Fr, TEST_TREE_DEPTH};
+    use rln::circuit::{Fr, DEFAULT_TREE_DEPTH};
     use rln::ffi::{ffi_rln::*, ffi_utils::*};
     use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash, PoseidonHash};
     use rln::utils::*;
@@ -40,7 +40,7 @@ mod test {
     fn test_recover_id_secret_stateless_ffi() {
         let default_leaf = Fr::from(0);
         let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
-            TEST_TREE_DEPTH,
+            DEFAULT_TREE_DEPTH,
             default_leaf,
             ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
         )
@@ -255,7 +255,7 @@ mod test {
     fn test_verify_with_roots_stateless_ffi() {
         let default_leaf = Fr::from(0);
         let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
-            TEST_TREE_DEPTH,
+            DEFAULT_TREE_DEPTH,
             default_leaf,
             ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
         )

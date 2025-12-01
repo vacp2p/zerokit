@@ -4,7 +4,7 @@
 #[cfg(test)]
 mod test {
     use js_sys::{BigInt as JsBigInt, Date, Object, Uint8Array};
-    use rln::circuit::TEST_TREE_DEPTH;
+    use rln::circuit::DEFAULT_TREE_DEPTH;
     use rln::hashers::PoseidonHash;
     use rln_wasm::{
         Hasher, Identity, VecWasmFr, WasmFr, WasmRLN, WasmRLNProof, WasmRLNWitnessInput,
@@ -94,7 +94,7 @@ mod test {
         // Create RLN instance for other benchmarks
         let rln_instance = WasmRLN::new(&zkey).expect("Failed to create RLN instance");
         let mut tree: OptimalMerkleTree<PoseidonHash> =
-            OptimalMerkleTree::default(TEST_TREE_DEPTH).expect("Failed to create tree");
+            OptimalMerkleTree::default(DEFAULT_TREE_DEPTH).expect("Failed to create tree");
 
         // Benchmark generate identity
         let start_identity_gen = Date::now();

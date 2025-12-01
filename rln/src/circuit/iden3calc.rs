@@ -1,4 +1,4 @@
-// This file is based on the code by iden3. Its preimage can be found here:
+// This crate is based on the code by iden3. Its preimage can be found here:
 // https://github.com/iden3/circom-witnesscalc/blob/5cb365b6e4d9052ecc69d4567fcf5bc061c20e94/src/lib.rs
 
 pub mod graph;

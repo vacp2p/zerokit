@@ -31,7 +31,7 @@ static ARKZKEY: LazyLock<Zkey> = LazyLock::new(|| {
     read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES).expect("Failed to read arkzkey")
 });
 
-pub const TEST_TREE_DEPTH: usize = 20;
+pub const DEFAULT_TREE_DEPTH: usize = 20;
 pub const COMPRESS_PROOF_SIZE: usize = 128;
 
 // The following types define the pairing friendly elliptic curve, the underlying finite fields and groups default to this module

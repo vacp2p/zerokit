@@ -1,43 +1,29 @@
-use crate::circuit::{zkey_from_raw, Fr, Proof, VerifyingKey, Zkey};
-use crate::hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash as utils_poseidon_hash};
-use crate::protocol::{
-    bytes_le_to_rln_proof_values, bytes_le_to_rln_witness, compute_id_secret, extended_keygen,
-    extended_seeded_keygen, keygen, proof_values_from_witness, rln_proof_values_to_bytes_le,
-    rln_witness_to_bigint_json, seeded_keygen, verify_proof,
-};
-use crate::utils::{
-    bytes_be_to_vec_fr, bytes_le_to_fr, bytes_le_to_vec_fr, fr_byte_size, fr_to_bytes_be,
-    fr_to_bytes_le,
-};
+// This crate is the main public API for RLN module.
+// It is used by the FFI, WASM and should be used by tests as well
+
+use crate::circuit::{zkey_from_raw, Fr, Proof, Zkey};
+use crate::error::{VerifyError};
+use crate::protocol::{proof_values_from_witness, verify_proof, RLNProofValues, RLNWitnessInput};
 #[cfg(not(target_arch = "wasm32"))]
-use {
-    crate::{
-        circuit::{graph_from_folder, zkey_from_folder},
-        protocol::generate_proof,
-    },
-    std::default::Default,
+use crate::{
+    circuit::{graph_from_folder, zkey_from_folder},
+    protocol::generate_proof,
 };
 
 #[cfg(target_arch = "wasm32")]
 use crate::protocol::generate_proof_with_witness;
 
-/// This is the main public API for RLN module. It is used by the FFI, and should be
-/// used by tests etc. as well
 #[cfg(not(feature = "stateless"))]
 use {
-    crate::utils::{bytes_le_to_vec_u8, vec_fr_to_bytes_le, vec_u8_to_bytes_le},
-    crate::{circuit::TEST_TREE_DEPTH, poseidon_tree::PoseidonTree},
-    serde_json::json,
+    crate::poseidon_tree::PoseidonTree,
     std::str::FromStr,
     utils::error::ZerokitMerkleTreeError,
     utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
 };
 
-use crate::error::{ConversionError, ProtocolError, RLNError};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Write};
+use crate::error::RLNError;
 #[cfg(target_arch = "wasm32")]
 use num_bigint::BigInt;
-use std::io::Cursor;
 
 /// The application-specific RLN identifier.
 ///
@@ -45,31 +31,44 @@ use std::io::Cursor;
 pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
 
 /// Trait for inputs that can be converted to a tree configuration.
-/// This allows accepting both JSON/string and direct config structs.
+///
+/// This allows accepting different config input types for tree configuration:
+/// - JSON strings (for FFI/WASM compatibility)
+/// - Direct Config structs (for Rust API with builder pattern)
+/// - File paths via wrapper types
 #[cfg(not(feature = "stateless"))]
 pub trait TreeConfigInput {
     /// Convert the input to a tree configuration struct.
     fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError>;
 }
 
+/// Implementation for string slices containing JSON configuration
 #[cfg(not(feature = "stateless"))]
-impl<R: Read> TreeConfigInput for R {
-    /// Convert the input reader into a tree configuration.
-    fn into_tree_config(mut self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError> {
-        let mut input_buffer: Vec<u8> = Vec::new();
-        self.read_to_end(&mut input_buffer)?;
-        let config_string = String::from_utf8(input_buffer)?;
+impl TreeConfigInput for &str {
+    fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError> {
+        if self.is_empty() {
+            Ok(<PoseidonTree as ZerokitMerkleTree>::Config::default())
+        } else {
+            Ok(<PoseidonTree as ZerokitMerkleTree>::Config::from_str(self)?)
+        }
+    }
+}
 
-        if config_string.is_empty() {
+/// Implementation for owned strings containing JSON configuration
+#[cfg(not(feature = "stateless"))]
+impl TreeConfigInput for String {
+    fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError> {
+        if self.is_empty() {
             Ok(<PoseidonTree as ZerokitMerkleTree>::Config::default())
         } else {
             Ok(<PoseidonTree as ZerokitMerkleTree>::Config::from_str(
-                &config_string,
+                &self,
             )?)
         }
     }
 }
 
+/// Implementation for direct builder pattern Config struct
 #[cfg(feature = "pmtree-ft")]
 impl TreeConfigInput for <PoseidonTree as ZerokitMerkleTree>::Config {
     fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError> {
@@ -77,14 +76,32 @@ impl TreeConfigInput for <PoseidonTree as ZerokitMerkleTree>::Config {
     }
 }
 
+/// Implementation for byte slices containing JSON configuration
+#[cfg(not(feature = "stateless"))]
+impl TreeConfigInput for &[u8] {
+    fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError> {
+        let config_string = String::from_utf8(self.to_vec())?;
+        config_string.into_tree_config()
+    }
+}
+
+/// Implementation for Option<T> where T implements TreeConfigInput.
+/// None defaults to the default configuration.
+#[cfg(not(feature = "stateless"))]
+impl<T: TreeConfigInput> TreeConfigInput for Option<T> {
+    fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError> {
+        match self {
+            Some(config) => config.into_tree_config(),
+            None => Ok(<PoseidonTree as ZerokitMerkleTree>::Config::default()),
+        }
+    }
+}
+
 /// The RLN object.
 ///
 /// It implements the methods required to update the internal Merkle Tree, generate and verify RLN ZK proofs.
-///
-/// I/O is mostly done using writers and readers implementing `std::io::Write` and `std::io::Read`, respectively.
 pub struct RLN {
     pub(crate) zkey: Zkey,
-    pub(crate) verifying_key: VerifyingKey,
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) graph_data: Vec<u8>,
     #[cfg(not(feature = "stateless"))]
@@ -94,37 +111,56 @@ pub struct RLN {
 impl RLN {
     /// Creates a new RLN object by loading circuit resources from a folder.
     ///
-    /// Input parameters are
+    /// Input parameters are:
     /// - `tree_depth`: the depth of the internal Merkle tree
-    /// - `input_buffer`: a reader containing JSON configuration or a direct tree configuration struct
+    /// - `tree_config`: configuration for the Merkle tree (accepts multiple types via TreeConfigInput trait)
     ///
-    /// Example:
+    /// The `tree_config` parameter accepts:
+    /// - JSON string: `"{\"path\": \"/database\"}"`
+    /// - Empty string for defaults: `""`
+    /// - Direct config (with pmtree feature): `PmtreeConfig::builder().path("/database").build()?`
+    /// - Option: `Some(config)` or `None` for defaults
+    ///
+    /// Examples:
     /// ```
-    /// use std::io::Cursor;
+    /// // Using default config
+    /// let rln = RLN::new(20, "").unwrap();
     ///
-    /// let tree_depth = 20;
-    /// let input_buffer = Cursor::new(json!({}).to_string());
+    /// // Using JSON string
+    /// let config_json = r#"{"path": "/database", "cache_capacity": 1073741824}"#;
+    /// let rln = RLN::new(20, config_json).unwrap();
     ///
-    /// // We create a new RLN instance
-    /// let mut rln = RLN::new(tree_depth, input_buffer);
+    /// // Using None for defaults
+    /// let rln = RLN::new(20, None::<String>).unwrap();
+    /// ```
+    ///
+    /// For advanced usage with builder pattern (pmtree feature):
+    /// ```
+    /// use rln::pm_tree_adapter::PmtreeConfig;
+    ///
+    /// let config = PmtreeConfig::builder()
+    ///     .path("/database")
+    ///     .cache_capacity(2_000_000_000)
+    ///     .mode(Mode::HighThroughput)
+    ///     .build()?;
+    ///
+    /// let rln = RLN::new(20, config)?;
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
-    pub fn new<T: TreeConfigInput>(tree_depth: usize, input_buffer: T) -> Result<RLN, RLNError> {
+    pub fn new<T: TreeConfigInput>(tree_depth: usize, tree_config: T) -> Result<RLN, RLNError> {
         let zkey = zkey_from_folder().to_owned();
-        let verifying_key = zkey.0.vk.to_owned();
         let graph_data = graph_from_folder().to_owned();
-        let tree_config = input_buffer.into_tree_config()?;
+        let config = tree_config.into_tree_config()?;
 
         // We compute a default empty tree
         let tree = PoseidonTree::new(
             tree_depth,
             <PoseidonTree as ZerokitMerkleTree>::Hasher::default_leaf(),
-            tree_config,
+            config,
         )?;
 
         Ok(RLN {
             zkey,
-            verifying_key,
             graph_data,
             #[cfg(not(feature = "stateless"))]
             tree,
@@ -141,25 +177,20 @@ impl RLN {
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
     pub fn new() -> Result<RLN, RLNError> {
         let zkey = zkey_from_folder().to_owned();
-        let verifying_key = zkey.0.vk.to_owned();
         let graph_data = graph_from_folder().to_owned();
 
-        Ok(RLN {
-            zkey,
-            verifying_key,
-            graph_data,
-        })
+        Ok(RLN { zkey, graph_data })
     }
 
     /// Creates a new RLN object by passing circuit resources as byte vectors.
     ///
-    /// Input parameters are
+    /// Input parameters are:
     /// - `tree_depth`: the depth of the internal Merkle tree
-    /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.arkzkey`) as binary file
+    /// - `zkey_data`: a byte vector containing the proving key (`rln_final.arkzkey`) as binary file
     /// - `graph_data`: a byte vector containing the graph data (`graph.bin`) as binary file
-    /// - `input_buffer`: a reader containing JSON configuration or a direct tree configuration struct
+    /// - `tree_config`: configuration for the Merkle tree (accepts multiple types via TreeConfigInput trait)
     ///
-    /// Example:
+    /// Examples:
     /// ```
     /// use std::fs::File;
     /// use std::io::Read;
@@ -177,37 +208,36 @@ impl RLN {
     ///     resources.push(buffer);
     /// }
     ///
-    /// let tree_config = "".to_string();
-    /// let input_buffer = &Buffer::from(tree_config.as_bytes());
+    /// // Using default config
+    /// let rln = RLN::new_with_params(tree_depth, resources[0].clone(), resources[1].clone(), "").unwrap();
     ///
-    /// let mut rln = RLN::new_with_params(
-    ///     tree_depth,
-    ///     resources[0].clone(),
-    ///     resources[1].clone(),
-    ///     input_buffer,
-    /// );
+    /// // Using JSON config
+    /// let config_json = r#"{"path": "/database"}"#;
+    /// let rln = RLN::new_with_params(tree_depth, resources[0].clone(), resources[1].clone(), config_json).unwrap();
+    ///
+    /// // Using builder pattern (with pmtree feature)
+    /// let config = PmtreeConfig::builder().path("/database").build()?;
+    /// let rln = RLN::new_with_params(tree_depth, resources[0].clone(), resources[1].clone(), config)?;
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn new_with_params<T: TreeConfigInput>(
         tree_depth: usize,
-        zkey_vec: Vec<u8>,
+        zkey_data: Vec<u8>,
         graph_data: Vec<u8>,
-        input_buffer: T,
+        tree_config: T,
     ) -> Result<RLN, RLNError> {
-        let zkey = zkey_from_raw(&zkey_vec)?;
-        let verifying_key = zkey.0.vk.to_owned();
-        let tree_config = input_buffer.into_tree_config()?;
+        let zkey = zkey_from_raw(&zkey_data)?;
+        let config = tree_config.into_tree_config()?;
 
         // We compute a default empty tree
         let tree = PoseidonTree::new(
             tree_depth,
             <PoseidonTree as ZerokitMerkleTree>::Hasher::default_leaf(),
-            tree_config,
+            config,
         )?;
 
         Ok(RLN {
             zkey,
-            verifying_key,
             graph_data,
             #[cfg(not(feature = "stateless"))]
             tree,
@@ -217,7 +247,7 @@ impl RLN {
     /// Creates a new stateless RLN object by passing circuit resources as byte vectors.
     ///
     /// Input parameters are
-    /// - `zkey_vec`: a byte vector containing to the proving key (`rln_final.arkzkey`) as binary file
+    /// - `zkey_data`: a byte vector containing to the proving key (`rln_final.arkzkey`) as binary file
     /// - `graph_data`: a byte vector containing the graph data (`graph.bin`) as binary file
     ///
     /// Example:
@@ -243,21 +273,16 @@ impl RLN {
     /// );
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
-    pub fn new_with_params(zkey_vec: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN, RLNError> {
-        let zkey = zkey_from_raw(&zkey_vec)?;
-        let verifying_key = zkey.0.vk.to_owned();
+    pub fn new_with_params(zkey_data: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN, RLNError> {
+        let zkey = zkey_from_raw(&zkey_data)?;
 
-        Ok(RLN {
-            zkey,
-            verifying_key,
-            graph_data,
-        })
+        Ok(RLN { zkey, graph_data })
     }
 
     /// Creates a new stateless RLN object by passing circuit resources as a byte vector.
     ///
     /// Input parameters are
-    /// - `zkey_vec`: a byte vector containing the proving key (`rln_final.arkzkey`) as binary file
+    /// - `zkey_data`: a byte vector containing the proving key (`rln_final.arkzkey`) as binary file
     ///
     /// Example:
     /// ```
@@ -268,20 +293,16 @@ impl RLN {
     ///
     /// let mut file = File::open(zkey_path).expect("Failed to open file");
     /// let metadata = std::fs::metadata(zkey_path).expect("Failed to read metadata");
-    /// let mut zkey_vec = vec![0; metadata.len() as usize];
-    /// file.read_exact(&mut zkey_vec).expect("Failed to read file");
+    /// let mut zkey_data = vec![0; metadata.len() as usize];
+    /// file.read_exact(&mut zkey_data).expect("Failed to read file");
     ///
-    /// let mut rln = RLN::new_with_params(zkey_vec)?;
+    /// let mut rln = RLN::new_with_params(zkey_data)?;
     /// ```
     #[cfg(all(target_arch = "wasm32", feature = "stateless"))]
-    pub fn new_with_params(zkey_vec: Vec<u8>) -> Result<RLN, RLNError> {
-        let zkey = zkey_from_raw(&zkey_vec)?;
-        let verifying_key = zkey.0.vk.to_owned();
+    pub fn new_with_params(zkey_data: Vec<u8>) -> Result<RLN, RLNError> {
+        let zkey = zkey_from_raw(&zkey_data)?;
 
-        Ok(RLN {
-            zkey,
-            verifying_key,
-        })
+        Ok(RLN { zkey })
     }
 
     // Merkle-tree APIs
@@ -304,7 +325,7 @@ impl RLN {
     ///
     /// Input values are:
     /// - `index`: the index of the leaf
-    /// - `input_data`: a reader for the serialization of the leaf value (serialization done with [`rln::utils::fr_to_bytes_le`](crate::utils::fr_to_bytes_le))
+    /// - `leaf`: the field element value to set
     ///
     /// Example:
     /// ```
@@ -319,50 +340,33 @@ impl RLN {
     ///
     /// let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
     ///
-    /// // We serialize rate_commitment and pass it to set_leaf
-    /// let mut buffer = Cursor::new(serialize_field_element(rate_commitment));
-    /// rln.set_leaf(id_index, &mut buffer).unwrap();
+    /// // Set the leaf directly
+    /// rln.set_leaf(id_index, rate_commitment).unwrap();
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn set_leaf<R: Read>(&mut self, index: usize, mut input_data: R) -> Result<(), RLNError> {
-        // We read input
-        let mut leaf_byte: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut leaf_byte)?;
-
-        // We set the leaf at input index
-        let (leaf, _) = bytes_le_to_fr(&leaf_byte);
+    pub fn set_leaf(&mut self, index: usize, leaf: Fr) -> Result<(), RLNError> {
         self.tree.set(index, leaf)?;
-
         Ok(())
     }
 
     /// Gets a leaf value at position index in the internal Merkle tree.
-    /// The leaf value is written to output_data.
+    ///
     /// Input values are:
     /// - `index`: the index of the leaf
     ///
-    /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the metadata
+    /// Returns the field element at the specified index.
     ///
     /// Example:
     /// ```
     /// use crate::protocol::*;
-    /// use std::io::Cursor;
     ///
     /// let id_index = 10;
-    /// let mut buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.get_leaf(id_index, &mut buffer).unwrap();
-    /// let rate_commitment = deserialize_field_element(&buffer.into_inner()).unwrap();
+    /// let rate_commitment = rln.get_leaf(id_index).unwrap();
+    /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn get_leaf<W: Write>(&self, index: usize, mut output_data: W) -> Result<(), RLNError> {
-        // We get the leaf at input index
+    pub fn get_leaf(&self, index: usize) -> Result<Fr, RLNError> {
         let leaf = self.tree.get(index)?;
-
-        // We serialize the leaf and write it to output
-        let leaf_byte = fr_to_bytes_le(&leaf);
-        output_data.write_all(&leaf_byte)?;
-
-        Ok(())
+        Ok(leaf)
     }
 
     /// Sets multiple leaves starting from position index in the internal Merkle tree.
@@ -373,7 +377,7 @@ impl RLN {
     ///
     /// Input values are:
     /// - `index`: the index of the first leaf to be set
-    /// - `input_data`: a reader for the serialization of multiple leaf values (serialization done with [`rln::utils::vec_fr_to_bytes_le`](crate::utils::vec_fr_to_bytes_le))
+    /// - `leaves`: a vector of field elements to set
     ///
     /// Example:
     /// ```
@@ -393,22 +397,10 @@ impl RLN {
     /// }
     ///
     /// // We add leaves in a batch into the tree
-    /// let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
-    /// rln.set_leaves_from(index, &mut buffer).unwrap();
+    /// rln.set_leaves_from(index, leaves).unwrap();
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn set_leaves_from<R: Read>(
-        &mut self,
-        index: usize,
-        mut input_data: R,
-    ) -> Result<(), RLNError> {
-        // We read input
-        let mut leaves_byte: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut leaves_byte)?;
-
-        let (leaves, _) = bytes_le_to_vec_fr(&leaves_byte)?;
-
-        // We set the leaves
+    pub fn set_leaves_from(&mut self, index: usize, leaves: Vec<Fr>) -> Result<(), RLNError> {
         self.tree
             .override_range(index, leaves.into_iter(), [].into_iter())?;
         Ok(())
@@ -419,14 +411,13 @@ impl RLN {
     /// In contrast to [`set_leaves_from`](crate::public::RLN::set_leaves_from), this function resets to 0 the internal `next_index` value, before setting the input leaves values.
     ///
     /// Input values are:
-    /// - `input_data`: a reader for the serialization of multiple leaf values (serialization done with [`rln::utils::vec_fr_to_bytes_le`](crate::utils::vec_fr_to_bytes_le))
+    /// - `leaves`: a vector of field elements to set
     #[cfg(not(feature = "stateless"))]
-    pub fn init_tree_with_leaves<R: Read>(&mut self, input_data: R) -> Result<(), RLNError> {
-        // reset the tree
+    pub fn init_tree_with_leaves(&mut self, leaves: Vec<Fr>) -> Result<(), RLNError> {
         // NOTE: this requires the tree to be initialized with the correct depth initially
         // TODO: accept tree_depth as a parameter and initialize the tree with that depth
         self.set_tree(self.tree.depth())?;
-        self.set_leaves_from(0, input_data)
+        self.set_leaves_from(0, leaves)
     }
 
     /// Sets multiple leaves starting from position index in the internal Merkle tree.
@@ -439,8 +430,8 @@ impl RLN {
     ///
     /// Input values are:
     /// - `index`: the index of the first leaf to be set
-    /// - `input_leaves`: a reader for the serialization of multiple leaf values (serialization done with [`rln::utils::vec_fr_to_bytes_le`](crate::utils::vec_fr_to_bytes_le))
-    /// - `input_indices`: a reader for the serialization of multiple indices to remove (serialization done with [`rln::utils::vec_u8_to_bytes_le`](crate::utils::vec_u8_to_bytes_le))
+    /// - `leaves`: a vector of field elements to set
+    /// - `indices`: a vector of indices to remove from the tree
     ///
     /// Example:
     /// ```
@@ -459,45 +450,30 @@ impl RLN {
     ///     leaves.push(rate_commitment);
     /// }
     ///
-    /// let mut indices: Vec<u8> = Vec::new();
+    /// let mut indices: Vec<usize> = Vec::new();
     /// for i in 0..no_of_leaves {
     ///    if i % 2 == 0 {
-    ///       indices.push(i as u8);
+    ///       indices.push(i);
     ///   }
     /// }
     ///
     /// // We atomically add leaves and remove indices from the tree
-    /// let mut leaves_buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
-    /// let mut indices_buffer = Cursor::new(vec_u8_to_bytes_le(&indices));
-    /// rln.atomic_operation(index, &mut leaves_buffer, indices_buffer).unwrap();
+    /// rln.atomic_operation(index, leaves, indices).unwrap();
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn atomic_operation<R: Read>(
+    pub fn atomic_operation(
         &mut self,
         index: usize,
-        mut input_leaves: R,
-        mut input_indices: R,
+        leaves: Vec<Fr>,
+        indices: Vec<usize>,
     ) -> Result<(), RLNError> {
-        // We read input
-        let mut leaves_byte: Vec<u8> = Vec::new();
-        input_leaves.read_to_end(&mut leaves_byte)?;
-
-        let (leaves, _) = bytes_le_to_vec_fr(&leaves_byte)?;
-
-        let mut indices_byte: Vec<u8> = Vec::new();
-        input_indices.read_to_end(&mut indices_byte)?;
-
-        let (indices, _) = bytes_le_to_vec_u8(&indices_byte)?;
-        let indices: Vec<usize> = indices.iter().map(|x| *x as usize).collect();
-
-        // We set the leaves
         self.tree
             .override_range(index, leaves.into_iter(), indices.into_iter())?;
         Ok(())
     }
 
     #[cfg(not(feature = "stateless"))]
-    pub fn leaves_set(&mut self) -> usize {
+    pub fn leaves_set(&self) -> usize {
         self.tree.leaves_set()
     }
 
@@ -506,7 +482,7 @@ impl RLN {
     /// This function updates the internal Merkle tree `next_index` value indicating the next available index corresponding to a never-set leaf as `next_index = next_index + 1`.
     ///
     /// Input values are:
-    /// - `input_data`: a reader for the serialization of multiple leaf values (serialization done with [`rln::utils::vec_fr_to_bytes_le`](crate::utils::vec_fr_to_bytes_le))
+    /// - `leaf`: the field element to set at the next available index
     ///
     /// Example:
     /// ```
@@ -532,8 +508,7 @@ impl RLN {
     /// }
     ///
     /// // We add leaves in a batch into the tree
-    /// let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
-    /// rln.set_leaves_from(index, &mut buffer).unwrap();
+    /// rln.set_leaves_from(index, leaves).unwrap();
     ///
     /// // We set 256 leaves starting from index 10: next_index value is now max(0, 256+10) = 266
     ///
@@ -541,19 +516,11 @@ impl RLN {
     /// // rate_commitment will be set at index 266
     /// let (_, id_commitment) = keygen();
     /// let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
-    /// let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
-    /// rln.set_next_leaf(&mut buffer).unwrap();
+    /// rln.set_next_leaf(rate_commitment).unwrap();
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn set_next_leaf<R: Read>(&mut self, mut input_data: R) -> Result<(), RLNError> {
-        // We read input
-        let mut leaf_byte: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut leaf_byte)?;
-
-        // We set the leaf at input index
-        let (leaf, _) = bytes_le_to_fr(&leaf_byte);
+    pub fn set_next_leaf(&mut self, leaf: Fr) -> Result<(), RLNError> {
         self.tree.update_next(leaf)?;
-
         Ok(())
     }
 
@@ -596,71 +563,50 @@ impl RLN {
 
     /// Returns the metadata stored in the RLN object.
     ///
-    /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the metadata
+    /// Returns the metadata as a byte vector.
     ///
     /// Example
     ///
     /// ```
-    /// use std::io::Cursor;
-    ///
-    /// let mut buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.get_metadata(&mut buffer).unwrap();
-    /// let metadata = buffer.into_inner();
+    /// let metadata = rln.get_metadata().unwrap();
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn get_metadata<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
+    pub fn get_metadata(&self) -> Result<Vec<u8>, RLNError> {
         let metadata = self.tree.metadata()?;
-        output_data.write_all(&metadata)?;
-        Ok(())
+        Ok(metadata)
     }
 
     /// Returns the Merkle tree root
     ///
-    /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the root value (serialization done with [`rln::utils::fr_to_bytes_le`](crate::utils::fr_to_bytes_le))
+    /// Returns the root as a field element.
     ///
     /// Example
     /// ```
     /// use rln::utils::*;
     ///
-    /// let mut buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.get_root(&mut buffer).unwrap();
-    /// let (root, _) = bytes_le_to_fr(&buffer.into_inner());
+    /// let root = rln.get_root();
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn get_root<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
-        let root = self.tree.root();
-        output_data.write_all(&fr_to_bytes_le(&root))?;
-        Ok(())
+    pub fn get_root(&self) -> Fr {
+        self.tree.root()
     }
 
     /// Returns the root of subtree in the Merkle tree
     ///
-    /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the node value (serialization done with [`rln::utils::fr_to_bytes_le`](crate::utils::fr_to_bytes_le))
+    /// Returns the subtree root as a field element.
     ///
     /// Example
     /// ```
     /// use rln::utils::*;
     ///
-    /// let mut buffer = Cursor::new(Vec::<u8>::new());
     /// let level = 1;
     /// let index = 2;
-    /// rln.get_subtree_root(level, index, &mut buffer).unwrap();
-    /// let (subroot, _) = bytes_le_to_fr(&buffer.into_inner());
+    /// let subroot = rln.get_subtree_root(level, index).unwrap();
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn get_subtree_root<W: Write>(
-        &self,
-        level: usize,
-        index: usize,
-        mut output_data: W,
-    ) -> Result<(), RLNError> {
+    pub fn get_subtree_root(&self, level: usize, index: usize) -> Result<Fr, RLNError> {
         let subroot = self.tree.get_subtree_root(level, index)?;
-        output_data.write_all(&fr_to_bytes_le(&subroot))?;
-
-        Ok(())
+        Ok(subroot)
     }
 
     /// Returns the Merkle proof of the leaf at position index
@@ -668,39 +614,27 @@ impl RLN {
     /// Input values are:
     /// - `index`: the index of the leaf
     ///
-    /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the path elements and path indexes (serialization done with [`rln::utils::vec_fr_to_bytes_le`](crate::utils::vec_fr_to_bytes_le) and [`rln::utils::vec_u8_to_bytes_le`](crate::utils::vec_u8_to_bytes_le), respectively)
+    /// Returns a tuple of (path_elements, identity_path_index)
     ///
     /// Example
     /// ```
     /// use rln::utils::*;
     ///
     /// let index = 10;
-    ///
-    /// let mut buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.get_proof(index, &mut buffer).unwrap();
-    ///
-    /// let buffer_inner = buffer.into_inner();
-    /// let (path_elements, read) = bytes_le_to_vec_fr(&buffer_inner);
-    /// let (identity_path_index, _) = bytes_le_to_vec_u8(&buffer_inner[read..].to_vec());
+    /// let (path_elements, identity_path_index) = rln.get_proof(index).unwrap();
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn get_proof<W: Write>(&self, index: usize, mut output_data: W) -> Result<(), RLNError> {
+    pub fn get_proof(&self, index: usize) -> Result<(Vec<Fr>, Vec<u8>), RLNError> {
         let merkle_proof = self.tree.proof(index).expect("proof should exist");
         let path_elements = merkle_proof.get_path_elements();
         let identity_path_index = merkle_proof.get_path_index();
 
-        // Note: unwrap safe - vec_fr_to_bytes_le & vec_u8_to_bytes_le are infallible
-        output_data.write_all(&vec_fr_to_bytes_le(&path_elements))?;
-        output_data.write_all(&vec_u8_to_bytes_le(&identity_path_index))?;
-
-        Ok(())
+        Ok((path_elements, identity_path_index))
     }
 
     /// Returns indices of leaves in the tree are set to zero (upto the final leaf that was set).
     ///
-    /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the indices of leaves.
+    /// Returns a vector of indices.
     ///
     /// Example
     /// ```
@@ -720,20 +654,24 @@ impl RLN {
     /// }
     ///
     /// // We add leaves in a batch into the tree
-    /// let mut buffer = Cursor::new(vec_fr_to_bytes_le(&leaves));
-    /// rln.set_leaves_from(index, &mut buffer).unwrap();
+    /// rln.set_leaves_from(index, leaves).unwrap();
     ///
     /// // Get indices of first empty leaves upto start_index
-    /// let mut buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.get_empty_leaves_indices(&mut buffer).unwrap();
-    /// let idxs = bytes_le_to_vec_usize(&buffer.into_inner()).unwrap();
+    /// let idxs = rln.get_empty_leaves_indices();
     /// assert_eq!(idxs, [0, 1, 2, 3, 4]);
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn get_empty_leaves_indices<W: Write>(&self, mut output_data: W) -> Result<(), RLNError> {
-        let idxs = self.tree.get_empty_leaves_indices();
-        idxs.serialize_compressed(&mut output_data)?;
-        Ok(())
+    pub fn get_empty_leaves_indices(&self) -> Vec<usize> {
+        self.tree.get_empty_leaves_indices()
+    }
+
+    /// Closes the connection to the Merkle tree database.
+    ///
+    /// This function should be called before the RLN object is dropped.
+    /// If not called, the connection will be closed when the RLN object is dropped.
+    #[cfg(not(feature = "stateless"))]
+    pub fn flush(&mut self) -> Result<(), ZerokitMerkleTreeError> {
+        self.tree.close_db_connection()
     }
 
     // zkSNARK APIs
@@ -741,12 +679,9 @@ impl RLN {
     /// Computes a zkSNARK RLN proof using a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
     ///
     /// Input values are:
-    /// - `input_data`: a reader for the serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput)
-    ///   object, containing the public and private inputs to the ZK circuits (serialization done using
-    ///   [`serialize_witness`])
+    /// - `witness`: a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object containing the public and private inputs to the ZK circuits
     ///
-    /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the zkSNARK proof
+    /// Returns the zkSNARK proof.
     ///
     /// Example:
     /// ```
@@ -756,37 +691,21 @@ impl RLN {
     /// let proof_values = proof_values_from_witness(&witness);
     ///
     /// // We compute a Groth16 proof
-    /// let mut input_buffer = Cursor::new(serialize_witness(&witness));
-    /// let mut output_buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.prove(&mut input_buffer, &mut output_buffer).unwrap();
-    /// let zk_proof = output_buffer.into_inner();
+    /// let zk_proof = rln.generate_proof(&witness).unwrap();
     /// ```
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn prove<R: Read, W: Write>(
-        &mut self,
-        mut input_data: R,
-        mut output_data: W,
-    ) -> Result<(), RLNError> {
-        // We read input RLN witness and we serialize_compressed it
-        let mut serialized_witness: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut serialized_witness)?;
-        let (witness, _) = bytes_le_to_rln_witness(&serialized_witness)?;
-
-        let proof = generate_proof(&self.zkey, &witness, &self.graph_data)?;
-
-        // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
-        proof.serialize_compressed(&mut output_data)?;
-
-        Ok(())
+    pub fn generate_proof(&self, witness: &RLNWitnessInput) -> Result<Proof, RLNError> {
+        let proof = generate_proof(&self.zkey, witness, &self.graph_data)?;
+        Ok(proof)
     }
 
     /// Verifies a zkSNARK RLN proof.
     ///
     /// Input values are:
-    /// - `input_data`: a reader for the serialization of the RLN zkSNARK proof concatenated with a serialization of the circuit output values,
-    ///   i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]`, where <_> indicates the byte length.
+    /// - `proof`: the zkSNARK proof
+    /// - `proof_values`: the circuit output values (root, external_nullifier, x, y, nullifier)
     ///
-    /// The function returns true if the zkSNARK proof is valid with respect to the provided circuit output values, false otherwise.
+    /// Returns true if the zkSNARK proof is valid with respect to the provided circuit output values, false otherwise.
     ///
     /// Example:
     /// ```
@@ -795,734 +714,119 @@ impl RLN {
     /// let witness = random_rln_witness(tree_depth);
     ///
     /// // We compute a Groth16 proof
-    /// let mut input_buffer = Cursor::new(serialize_witness(&witness));
-    /// let mut output_buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.prove(&mut input_buffer, &mut output_buffer).unwrap();
-    /// let zk_proof = output_buffer.into_inner();
+    /// let zk_proof = rln.prove(&witness).unwrap();
     ///
-    /// // We prepare the input to prove API, consisting of zk_proof (compressed, 4*32 bytes) || proof_values (6*32 bytes)
-    /// // In this example, we compute proof values directly from witness using the utility proof_values_from_witness
+    /// // We compute proof values directly from witness
     /// let proof_values = proof_values_from_witness(&witness);
-    /// let serialized_proof_values = rln_proof_values_to_bytes_le(&proof_values);
-    ///
-    /// // We build the input to the verify method
-    /// let mut verify_data = Vec::<u8>::new();
-    /// verify_data.extend(&zk_proof);
-    /// verify_data.extend(&proof_values);
-    /// let mut input_buffer = Cursor::new(verify_data);
     ///
     /// // We verify the Groth16 proof against the provided zk-proof and proof values
-    /// let verified = rln.verify(&mut input_buffer).unwrap();
+    /// let verified = rln.verify(&zk_proof, &proof_values).unwrap();
     ///
     /// assert!(verified);
     /// ```
-    pub fn verify<R: Read>(&self, mut input_data: R) -> Result<bool, RLNError> {
-        // Input data is serialized for Curve as:
-        // serialized_proof (compressed, 4*32 bytes) || serialized_proof_values (6*32 bytes), i.e.
-        // [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-        let mut input_byte: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut input_byte)?;
-        let proof = Proof::deserialize_compressed(&mut Cursor::new(&input_byte[..128]))?;
-
-        let (proof_values, _) = bytes_le_to_rln_proof_values(&input_byte[128..]);
-
-        let verified = verify_proof(&self.verifying_key, &proof, &proof_values)?;
-
+    pub fn verify(&self, proof: &Proof, proof_values: &RLNProofValues) -> Result<bool, RLNError> {
+        let verified = verify_proof(&self.zkey.0.vk, proof, proof_values)?;
         Ok(verified)
     }
 
-    /// Computes a zkSNARK RLN proof from the identity secret, the Merkle tree index, the user message limit, the message id, the external nullifier (which include epoch and rln identifier) and signal.
+    /// Verifies a zkSNARK RLN proof with x coordinate check (stateful - checks internal tree root).
     ///
     /// Input values are:
-    /// - `input_data`: a reader for the serialization of `[ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]`
+    /// - `proof`: the zkSNARK proof
+    /// - `proof_values`: the circuit output values
+    /// - `x`: the x coordinate (hash of signal)
     ///
-    /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the zkSNARK proof and the circuit evaluations outputs, i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]`
-    ///
-    /// Example
-    /// ```
-    /// use rln::protocol::*:
-    /// use rln::utils::*;
-    /// use rln::hashers::*;
-    ///
-    /// // Generate identity pair
-    /// let (identity_secret_hash, id_commitment) = keygen();
-    ///
-    /// // We set as leaf rate_commitment after storing its index
-    /// let identity_index = 10;
-    /// let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
-    /// let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
-    /// rln.set_leaf(identity_index, &mut buffer).unwrap();
-    ///
-    /// // We generate a random epoch
-    /// let epoch = hash_to_field(b"test-epoch");
-    /// // We generate a random rln_identifier
-    /// let rln_identifier = hash_to_field(b"test-rln-identifier");
-    /// // We generate a external nullifier
-    /// let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
-    /// // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
-    /// let message_id = Fr::from(1);
-    ///
-    /// // We prepare input for generate_rln_proof API
-    /// // input_data is [ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
-    /// let prove_input = prepare_prove_input(
-    ///     identity_secret_hash,
-    ///     identity_index,
-    ///     user_message_limit,
-    ///     message_id,
-    ///     external_nullifier,
-    ///     &signal,
-    /// );
-    ///
-    /// let mut input_buffer = Cursor::new(serialized);
-    /// let mut output_buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
-    ///     .unwrap();
-    ///
-    /// // proof_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-    /// let mut proof_data = output_buffer.into_inner();
-    /// ```
-    // #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
-    // pub fn generate_rln_proof<R: Read, W: Write>(
-    //     &mut self,
-    //     mut input_data: R,
-    //     mut output_data: W,
-    // ) -> Result<(), RLNError> {
-    //     // We read input RLN witness and we serialize_compressed it
-    //     let mut witness_byte: Vec<u8> = Vec::new();
-    //     input_data.read_to_end(&mut witness_byte)?;
-    //     let (witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
-    //     let proof_values = proof_values_from_witness(&witness)?;
-
-    //     let proof = generate_proof(&self.zkey, &witness, &self.graph_data)?;
-
-    //     // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
-    //     // This proof is compressed, i.e. 128 bytes long
-    //     proof.serialize_compressed(&mut output_data)?;
-    //     output_data.write_all(&rln_proof_values_to_bytes_le(&proof_values))?;
-
-    //     Ok(())
-    // }
-
-    /// Generate RLN Proof using a witness calculated from outside zerokit
-    ///
-    /// output_data is  [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn generate_rln_proof_with_witness<R: Read, W: Write>(
-        &mut self,
-        mut input_data: R,
-        mut output_data: W,
-    ) -> Result<(), RLNError> {
-        let mut serialized_witness: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut serialized_witness)?;
-        let (witness, _) = bytes_le_to_rln_witness(&serialized_witness)?;
-        let proof_values = proof_values_from_witness(&witness)?;
-
-        let proof = generate_proof(&self.zkey, &witness, &self.graph_data)?;
-
-        // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
-        // This proof is compressed, i.e. 128 bytes long
-        proof.serialize_compressed(&mut output_data)?;
-        output_data.write_all(&rln_proof_values_to_bytes_le(&proof_values))?;
-        Ok(())
-    }
-
-    /// Generate RLN Proof using a witness calculated from outside zerokit
-    ///
-    /// output_data is [ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-    #[cfg(target_arch = "wasm32")]
-    pub fn generate_rln_proof_with_witness<W: Write>(
-        &mut self,
-        calculated_witness: Vec<BigInt>,
-        serialized_witness: Vec<u8>,
-        mut output_data: W,
-    ) -> Result<(), RLNError> {
-        let (witness, _) = bytes_le_to_rln_witness(&serialized_witness[..])?;
-        let proof_values = proof_values_from_witness(&witness)?;
-
-        let proof = generate_proof_with_witness(calculated_witness, &self.zkey).unwrap();
-
-        // Note: we export a serialization of ark-groth16::Proof not semaphore::Proof
-        // This proof is compressed, i.e. 128 bytes long
-        proof.serialize_compressed(&mut output_data)?;
-        output_data.write_all(&rln_proof_values_to_bytes_le(&proof_values))?;
-        Ok(())
-    }
-
-    /// Verifies a zkSNARK RLN proof against the provided proof values and the state of the internal Merkle tree.
-    ///
-    /// Input values are:
-    /// - `input_data`: a reader for the serialization of the RLN zkSNARK proof concatenated with a serialization of the circuit output values and the signal information,
-    ///   i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]`, where <_> indicates the byte length.
-    ///
-    /// The function returns true if the zkSNARK proof is valid with respect to the provided circuit output values and signal. Returns false otherwise.
-    ///
-    /// Note that contrary to [`verify`](crate::public::RLN::verify), this function takes additionally as input the signal and further verifies if
-    /// - the Merkle tree root corresponds to the root provided as input;
-    /// - the input signal corresponds to the Shamir's x coordinate provided as input
-    /// - the hardcoded application [RLN identifier](crate::public::RLN_IDENTIFIER) corresponds to the RLN identifier provided as input
-    ///
-    /// Example
-    /// ```
-    /// // proof_data is computed as in the example code snippet provided for rln::public::RLN::generate_rln_proof
-    ///
-    /// // We prepare input for verify_rln_proof API
-    /// // input_data is  `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]`
-    /// // that is [ proof_data || signal_len<8> | signal<var> ]
-    /// let verify_input = prepare_verify_input(proof_data, &signal);
-    ///
-    /// let mut input_buffer = Cursor::new(verify_input);
-    /// let verified = rln.verify_rln_proof(&mut input_buffer).unwrap();
-    ///
-    /// assert!(verified);
-    /// ```
+    /// Returns Ok(true) if valid, Err(ProtocolError) with specific error if validation fails.
     #[cfg(not(feature = "stateless"))]
-    pub fn verify_rln_proof<R: Read>(&self, mut input_data: R) -> Result<bool, RLNError> {
-        let mut serialized: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut serialized)?;
-        let mut all_read = 0;
-        let proof = Proof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
-        all_read += 128;
-        let (proof_values, read) = bytes_le_to_rln_proof_values(&serialized[all_read..]);
-        all_read += read;
-
-        let signal_len = usize::try_from(u64::from_le_bytes(
-            serialized[all_read..all_read + 8]
-                .try_into()
-                .map_err(ConversionError::FromSlice)?,
-        ))
-        .map_err(ConversionError::from)?;
-        all_read += 8;
-
-        let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
-
-        let verified = verify_proof(&self.verifying_key, &proof, &proof_values)?;
-        let x = hash_to_field_le(&signal);
-
-        // Consistency checks to counter proof tampering
-        Ok(verified && (self.tree.root() == proof_values.root) && (x == proof_values.x))
-    }
-
-    /// Verifies a zkSNARK RLN proof against the provided proof values and a set of allowed Merkle tree roots.
-    ///
-    /// Input values are:
-    /// - `input_data`: a reader for the serialization of the RLN zkSNARK proof concatenated with a serialization of the circuit output values and the signal information, i.e. `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]`
-    /// - `roots_data`: a reader for the serialization of a vector of roots, i.e. `[ number_of_roots<8> | root_1<32> | ... | root_n<32> ]` (number_of_roots is an uint64 in little-endian, roots are serialized using `rln::utils::fr_to_bytes_le`)
-    ///
-    /// The function returns true if the zkSNARK proof is valid with respect to the provided circuit output values, signal and roots. Returns false otherwise.
-    ///
-    /// Note that contrary to [`verify_rln_proof`](crate::public::RLN::verify_rln_proof), this function does not check if the internal Merkle tree root corresponds to the root provided as input, but rather checks if the root provided as input in `input_data` corresponds to one of the roots serialized in `roots_data`.
-    ///
-    /// If `roots_data` contains no root (is empty), root validation is skipped and the proof will be correctly verified only if the other proof values results valid (i.e., zk-proof, signal, x-coordinate, RLN identifier)
-    ///
-    /// Example
-    /// ```
-    /// // proof_data is computed as in the example code snippet provided for rln::public::RLN::generate_rln_proof
-    ///
-    /// // If no roots is provided, proof validation is skipped and if the remaining proof values are valid, the proof will be correctly verified
-    /// let mut input_buffer = Cursor::new(proof_data);
-    /// let mut roots_serialized: Vec<u8> = Vec::new();
-    /// let mut roots_buffer = Cursor::new(roots_serialized.clone());
-    /// let verified = rln
-    ///     .verify_with_roots(&mut input_buffer.clone(), &mut roots_buffer)
-    ///     .unwrap();
-    ///
-    /// assert!(verified);
-    ///
-    /// // We serialize in the roots buffer some random values and we check that the proof is not verified since doesn't contain the correct root the proof refers to
-    /// for _ in 0..5 {
-    ///     roots_serialized.append(&mut fr_to_bytes_le(&Fr::rand(&mut rng)));
-    /// }
-    /// roots_buffer = Cursor::new(roots_serialized.clone());
-    /// let verified = rln
-    ///     .verify_with_roots(&mut input_buffer.clone(), &mut roots_buffer)
-    ///     .unwrap();
-    ///
-    /// assert!(verified == false);
-    ///
-    /// // We get the root of the tree obtained adding one leaf per time
-    /// let mut buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.get_root(&mut buffer).unwrap();
-    /// let (root, _) = bytes_le_to_fr(&buffer.into_inner());
-    ///
-    /// // We add the real root and we check if now the proof is verified
-    /// roots_serialized.append(&mut fr_to_bytes_le(&root));
-    /// roots_buffer = Cursor::new(roots_serialized.clone());
-    /// let verified = rln
-    ///     .verify_with_roots(&mut input_buffer, &mut roots_buffer)
-    ///     .unwrap();
-    ///
-    /// assert!(verified);
-    /// ```
-    pub fn verify_with_roots<R: Read>(
+    pub fn verify_rln_roof(
         &self,
-        mut input_data: R,
-        mut roots_data: R,
+        proof: &Proof,
+        proof_values: &RLNProofValues,
+        x: &Fr,
     ) -> Result<bool, RLNError> {
-        let mut serialized: Vec<u8> = Vec::new();
-        input_data.read_to_end(&mut serialized)?;
-        let mut all_read = 0;
-        let proof = Proof::deserialize_compressed(&mut Cursor::new(&serialized[..128].to_vec()))?;
-        all_read += 128;
-        let (proof_values, read) = bytes_le_to_rln_proof_values(&serialized[all_read..]);
-        all_read += read;
-
-        let signal_len = usize::try_from(u64::from_le_bytes(
-            serialized[all_read..all_read + 8]
-                .try_into()
-                .map_err(ConversionError::FromSlice)?,
-        ))
-        .map_err(ConversionError::ToUsize)?;
-        all_read += 8;
-
-        let signal: Vec<u8> = serialized[all_read..all_read + signal_len].to_vec();
-
-        let verified = verify_proof(&self.verifying_key, &proof, &proof_values)?;
-
-        // First consistency checks to counter proof tampering
-        let x = hash_to_field_le(&signal);
-        let partial_result = verified && (x == proof_values.x);
-
-        // We skip root validation if proof is already invalid
-        if !partial_result {
-            return Ok(partial_result);
+        let verified = verify_proof(&self.zkey.0.vk, proof, proof_values)?;
+        if !verified {
+            return Err(VerifyError::InvalidProof.into());
         }
 
-        // We read passed roots
-        let mut roots_serialized: Vec<u8> = Vec::new();
-        roots_data.read_to_end(&mut roots_serialized)?;
-
-        // The vector where we'll store read roots
-        let mut roots: Vec<Fr> = Vec::new();
-
-        // We expect each root to be fr_byte_size() bytes long.
-        let fr_size = fr_byte_size();
-
-        // We read the buffer and convert to Fr as much as we can
-        all_read = 0;
-        while all_read + fr_size <= roots_serialized.len() {
-            let (root, read) = bytes_le_to_fr(&roots_serialized[all_read..]);
-            all_read += read;
-            roots.push(root);
+        if self.tree.root() != proof_values.root {
+            return Err(VerifyError::InvalidRoot.into());
         }
 
-        // We validate the root
-        let roots_verified: bool = if roots.is_empty() {
-            // If no root is passed in roots_buffer, we skip proof's root check
-            true
-        } else {
-            // Otherwise we check if proof's root is contained in the passed buffer
-            roots.contains(&proof_values.root)
-        };
+        if *x != proof_values.x {
+            return Err(VerifyError::InvalidSignal.into());
+        }
 
-        // We combine all checks
-        Ok(partial_result && roots_verified)
+        Ok(true)
     }
 
-    // Utils
-
-    /// Recovers the identity secret from two set of proof values computed for same secret in same epoch with same rln identifier.
+    /// Verifies a zkSNARK RLN proof against provided roots with x coordinate check.
     ///
     /// Input values are:
-    /// - `input_proof_data_1`: a reader for the serialization of a RLN zkSNARK proof concatenated with a serialization of the circuit output values and -optionally- the signal information,
-    ///   i.e. either `[proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]`
-    ///   or `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> | signal_len<8> | signal<var> ]` (to maintain compatibility with both output of [`generate_rln_proof`](crate::public::RLN::generate_rln_proof) and input of [`verify_rln_proof`](crate::public::RLN::verify_rln_proof))
-    /// - `input_proof_data_2`: same as `input_proof_data_1`
+    /// - `proof`: the zkSNARK proof
+    /// - `proof_values`: the circuit output values
+    /// - `x`: the x coordinate (hash of signal)
+    /// - `roots`: vector of acceptable roots (empty means skip root check)
     ///
-    /// Output values are:
-    /// - `output_data`: a writer receiving the serialization of the recovered identity secret hash field element if correctly recovered (serialization done with [`rln::utils::fr_to_bytes_le`](crate::utils::fr_to_bytes_le)), a writer receiving an empty byte vector if not.
-    ///
-    /// Example
-    /// ```
-    /// // identity_secret_hash, proof_data_1 and proof_data_2 are computed as in the example code snippet provided for rln::public::RLN::generate_rln_proof using same identity secret, epoch and rln identifier (but not necessarily same signal)
-    ///
-    /// let mut input_proof_data_1 = Cursor::new(proof_data_1);
-    /// let mut input_proof_data_2 = Cursor::new(proof_data_2);
-    /// let mut output_buffer = Cursor::new(Vec::<u8>::new());
-    /// rln.recover_id_secret(
-    ///     &mut input_proof_data_1,
-    ///     &mut input_proof_data_2,
-    ///     &mut output_buffer,
-    /// )
-    /// .unwrap();
-    ///
-    /// let serialized_identity_secret_hash = output_buffer.into_inner();
-    ///
-    /// // We ensure that a non-empty value is written to output_buffer
-    /// assert!(!serialized_identity_secret_hash.is_empty());
-    ///
-    /// // We check if the recovered identity secret hash corresponds to the original one
-    /// let (recovered_identity_secret_hash, _) = bytes_le_to_fr(&serialized_identity_secret_hash);
-    /// assert_eq!(recovered_identity_secret_hash, identity_secret_hash);
-    /// ```
-    pub fn recover_id_secret<R: Read, W: Write>(
+    /// Returns Ok(true) if valid, Err(ProtocolError) with specific error if validation fails.
+    pub fn verify_with_roots(
         &self,
-        mut input_proof_data_1: R,
-        mut input_proof_data_2: R,
-        mut output_data: W,
-    ) -> Result<(), RLNError> {
-        // We serialize_compressed the two proofs, and we get the corresponding RLNProofValues objects
-        let mut serialized: Vec<u8> = Vec::new();
-        input_proof_data_1.read_to_end(&mut serialized)?;
-        // We skip deserialization of the zk-proof at the beginning
-        let (proof_values_1, _) = bytes_le_to_rln_proof_values(&serialized[128..]);
-        let external_nullifier_1 = proof_values_1.external_nullifier;
-
-        let mut serialized: Vec<u8> = Vec::new();
-        input_proof_data_2.read_to_end(&mut serialized)?;
-        // We skip deserialization of the zk-proof at the beginning
-        let (proof_values_2, _) = bytes_le_to_rln_proof_values(&serialized[128..]);
-        let external_nullifier_2 = proof_values_2.external_nullifier;
-
-        // We continue only if the proof values are for the same external nullifier (which includes epoch and rln identifier)
-        // The idea is that proof values that go as input to this function are verified first (with zk-proof verify), hence ensuring validity of external nullifier and other fields.
-        // Only in case all fields are valid, an external_nullifier for the message will be stored (otherwise signal/proof will be simply discarded)
-        // If the nullifier matches one already seen, we can recover of identity secret.
-        if external_nullifier_1 == external_nullifier_2 {
-            // We extract the two shares
-            let share1 = (proof_values_1.x, proof_values_1.y);
-            let share2 = (proof_values_2.x, proof_values_2.y);
-
-            // We recover the secret
-            let recovered_identity_secret_hash =
-                compute_id_secret(share1, share2).map_err(RLNError::RecoverSecret)?;
-
-            // If an identity secret hash is recovered, we write it to output_data, otherwise nothing will be written.
-            output_data.write_all(&recovered_identity_secret_hash.to_bytes_le())?;
+        proof: &Proof,
+        proof_values: &RLNProofValues,
+        x: &Fr,
+        roots: &[Fr],
+    ) -> Result<bool, RLNError> {
+        let verified = verify_proof(&self.zkey.0.vk, proof, proof_values)?;
+        if !verified {
+            return Err(VerifyError::InvalidProof.into());
         }
 
-        Ok(())
-    }
-
-    /// Returns the serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) populated from the identity secret, the Merkle tree index, the user message limit, the message id, the external nullifier (which include epoch and rln identifier) and signal.
-    ///
-    /// Input values are:
-    /// - `input_data`: a reader for the serialization of `[ identity_secret<32> | id_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]`
-    ///
-    /// The function returns the corresponding [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object serialized using [`serialize_witness`].
-    // #[cfg(not(feature = "stateless"))]
-    // pub fn get_serialized_rln_witness<R: Read>(
-    //     &mut self,
-    //     mut input_data: R,
-    // ) -> Result<Vec<u8>, RLNError> {
-    //     // We read input RLN witness and we serialize_compressed it
-    //     let mut witness_byte: Vec<u8> = Vec::new();
-    //     input_data.read_to_end(&mut witness_byte)?;
-    //     let (witness, _) = proof_inputs_to_rln_witness(&mut self.tree, &witness_byte)?;
-
-    //     rln_witness_to_bytes_le(&witness).map_err(RLNError::Protocol)
-    // }
-
-    /// Converts a byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object
-    ///   to the corresponding JSON serialization.
-    /// Before serialization the data will be translated into big int for further calculation in the witness calculator.
-    ///
-    /// Input values are:
-    /// - `serialized_witness`: the byte serialization of a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput)
-    ///   object (serialization done with  [`rln::protocol::serialize_witness`](crate::protocol::serialize_witness)).
-    ///
-    /// The function returns the corresponding JSON encoding of the input [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
-    pub fn get_rln_witness_bigint_json(
-        &mut self,
-        serialized_witness: &[u8],
-    ) -> Result<serde_json::Value, ProtocolError> {
-        let (witness, _) = bytes_le_to_rln_witness(serialized_witness)?;
-        rln_witness_to_bigint_json(&witness)
-    }
-
-    /// Closes the connection to the Merkle tree database.
-    /// This function should be called before the RLN object is dropped.
-    /// If not called, the connection will be closed when the RLN object is dropped.
-    /// This improves robustness of the tree.
-    #[cfg(not(feature = "stateless"))]
-    pub fn flush(&mut self) -> Result<(), ZerokitMerkleTreeError> {
-        self.tree.close_db_connection()
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl Default for RLN {
-    fn default() -> Self {
-        #[cfg(not(feature = "stateless"))]
-        {
-            let tree_depth = TEST_TREE_DEPTH;
-            let buffer = Cursor::new(json!({}).to_string());
-            Self::new(tree_depth, buffer).unwrap()
+        if !roots.is_empty() && !roots.contains(&proof_values.root) {
+            return Err(VerifyError::InvalidRoot.into());
         }
-        #[cfg(feature = "stateless")]
-        Self::new().unwrap()
-    }
-}
 
-/// Hashes an input signal to an element in the working prime field.
-///
-/// The result is computed as the Keccak256 of the input signal modulo the prime field characteristic.
-///
-/// Input values are:
-/// - `input_data`: a reader for the byte vector containing the input signal.
-///
-/// Output values are:
-/// - `output_data`: a writer receiving the serialization of the resulting field element (serialization done with [`rln::utils::fr_to_bytes_le`](crate::utils::fr_to_bytes_le))
-///
-/// Example
-/// ```
-/// let signal: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-///
-/// let mut input_buffer = Cursor::new(&signal);
-/// let mut output_buffer = Cursor::new(Vec::<u8>::new());
-/// hash(&mut input_buffer, &mut output_buffer)
-///     .unwrap();
-///
-/// // We serialize_compressed the keygen output
-/// let field_element = deserialize_field_element(output_buffer.into_inner());
-/// ```
-pub fn hash<R: Read, W: Write>(
-    mut input_data: R,
-    mut output_data: W,
-    is_little_endian: bool,
-) -> Result<(), std::io::Error> {
-    let mut serialized: Vec<u8> = Vec::new();
-    input_data.read_to_end(&mut serialized)?;
+        if *x != proof_values.x {
+            return Err(VerifyError::InvalidSignal.into());
+        }
 
-    if is_little_endian {
-        let hash = hash_to_field_le(&serialized);
-        output_data.write_all(&fr_to_bytes_le(&hash))?;
-    } else {
-        let hash = hash_to_field_be(&serialized);
-        output_data.write_all(&fr_to_bytes_be(&hash))?;
+        Ok(true)
     }
 
-    Ok(())
-}
-
-/// Hashes a set of elements to a single element in the working prime field, using Poseidon.
-///
-/// The result is computed as the Poseidon Hash of the input signal.
-///
-/// Input values are:
-/// - `input_data`: a reader for the byte vector containing the input signal.
-///
-/// Output values are:
-/// - `output_data`: a writer receiving the serialization of the resulting field element (serialization done with [`rln::utils::fr_to_bytes_le`](crate::utils::fr_to_bytes_le))
-///
-/// Example
-/// ```
-/// let data = vec![hash_to_field(b"foo")];
-/// let signal = vec_fr_to_bytes_le(&data);
-///
-/// let mut input_buffer = Cursor::new(&signal);
-/// let mut output_buffer = Cursor::new(Vec::<u8>::new());
-/// poseidon_hash(&mut input_buffer, &mut output_buffer)
-///     .unwrap();
-///
-/// // We serialize_compressed the hash output
-/// let hash_result = deserialize_field_element(output_buffer.into_inner());
-/// ```
-pub fn poseidon_hash<R: Read, W: Write>(
-    mut input_data: R,
-    mut output_data: W,
-    is_little_endian: bool,
-) -> Result<(), RLNError> {
-    let mut serialized: Vec<u8> = Vec::new();
-    input_data.read_to_end(&mut serialized)?;
-
-    if is_little_endian {
-        let (inputs, _) = bytes_le_to_vec_fr(&serialized)?;
-        let hash = utils_poseidon_hash(inputs.as_ref());
-        output_data.write_all(&fr_to_bytes_le(&hash))?;
-    } else {
-        let (inputs, _) = bytes_be_to_vec_fr(&serialized)?;
-        let hash = utils_poseidon_hash(inputs.as_ref());
-        output_data.write_all(&fr_to_bytes_be(&hash))?;
+    /// Generate RLN Proof using a witness and returns both proof and proof values.
+    ///
+    /// This is a convenience method that combines proof generation and proof values extraction.
+    /// For WASM usage with pre-calculated witness from witness calculator.
+    ///
+    /// Returns a tuple of (Proof, RLNProofValues).
+    ///
+    /// Example:
+    /// ```
+    /// let witness = RLNWitnessInput::new(...);
+    /// let (proof, proof_values) = rln.generate_rln_proof(&witness).unwrap();
+    /// ```
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn generate_rln_proof(
+        &self,
+        witness: &RLNWitnessInput,
+    ) -> Result<(Proof, RLNProofValues), RLNError> {
+        let proof_values = proof_values_from_witness(witness)?;
+        let proof = generate_proof(&self.zkey, witness, &self.graph_data)?;
+        Ok((proof, proof_values))
     }
 
-    Ok(())
-}
-
-/// Generate an identity which is composed of an identity secret and identity commitment.
-/// The identity secret is a random field element.
-/// The identity commitment is the Poseidon hash of the identity secret.
-///
-/// # Inputs
-///
-/// - `output_data`: a writer receiving the serialization of
-///   the identity secret and identity commitment in correct endianness.
-/// - `is_little_endian`: a boolean indicating whether the identity secret and identity commitment
-///   should be serialized in little endian or big endian.
-///
-/// # Example
-/// ```
-/// use rln::protocol::*;
-///
-/// // We generate an identity pair
-/// let mut buffer = Cursor::new(Vec::<u8>::new());
-/// let is_little_endian = true;
-/// key_gen(&mut buffer, is_little_endian).unwrap();
-///
-/// // We serialize_compressed the keygen output
-/// let (identity_secret_hash, id_commitment) = deserialize_identity_pair_le(buffer.into_inner());
-/// ```
-pub fn key_gen<W: Write>(mut output_data: W, is_little_endian: bool) -> Result<(), RLNError> {
-    let (identity_secret_hash, id_commitment) = keygen();
-    if is_little_endian {
-        output_data.write_all(&identity_secret_hash.to_bytes_le())?;
-        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
-    } else {
-        output_data.write_all(&identity_secret_hash.to_bytes_be())?;
-        output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
+    /// Generate RLN Proof using a pre-calculated witness from witness calculator (WASM).
+    ///
+    /// This is used when the witness has been calculated externally using a witness calculator.
+    ///
+    /// Returns a tuple of (Proof, RLNProofValues).
+    #[cfg(target_arch = "wasm32")]
+    pub fn generate_rln_proof_with_witness(
+        &self,
+        calculated_witness: Vec<BigInt>,
+        witness: &RLNWitnessInput,
+    ) -> Result<(Proof, RLNProofValues), RLNError> {
+        let proof_values = proof_values_from_witness(witness)?;
+        let proof = generate_proof_with_witness(calculated_witness, &self.zkey)?;
+        Ok((proof, proof_values))
     }
-
-    Ok(())
-}
-
-/// Generate an identity which is composed of an identity trapdoor, nullifier, secret and commitment.
-/// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
-/// The identity commitment is the Poseidon hash of the identity secret.
-///
-/// # Inputs
-///
-/// - `output_data`: a writer receiving the serialization of
-///   the identity trapdoor, nullifier, secret and commitment in correct endianness.
-/// - `is_little_endian`: a boolean indicating whether the identity trapdoor, nullifier, secret and commitment
-///   should be serialized in little endian or big endian.
-///
-/// Generated credentials are compatible with
-/// [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
-///
-/// # Example
-/// ```
-/// use rln::protocol::*;
-///
-/// // We generate an identity tuple
-/// let mut buffer = Cursor::new(Vec::<u8>::new());
-/// let is_little_endian = true;
-/// extended_key_gen(&mut buffer, is_little_endian).unwrap();
-///
-/// // We serialize_compressed the keygen output
-/// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment)
-///     = deserialize_identity_tuple_le(buffer.into_inner());
-/// ```
-pub fn extended_key_gen<W: Write>(
-    mut output_data: W,
-    is_little_endian: bool,
-) -> Result<(), RLNError> {
-    let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
-        extended_keygen();
-    if is_little_endian {
-        output_data.write_all(&fr_to_bytes_le(&identity_trapdoor))?;
-        output_data.write_all(&fr_to_bytes_le(&identity_nullifier))?;
-        output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
-        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
-    } else {
-        output_data.write_all(&fr_to_bytes_be(&identity_trapdoor))?;
-        output_data.write_all(&fr_to_bytes_be(&identity_nullifier))?;
-        output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
-        output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
-    }
-
-    Ok(())
-}
-
-/// Generate an identity which is composed of an identity secret and identity commitment using a seed.
-/// The identity secret is a random field element,
-///   where RNG is instantiated using 20 rounds of ChaCha seeded with the hash of the input.
-/// The identity commitment is the Poseidon hash of the identity secret.
-///
-/// # Inputs
-///
-/// - `input_data`: a reader for the byte vector containing the seed
-/// - `output_data`: a writer receiving the serialization of
-///   the identity secret and identity commitment in correct endianness.
-/// - `is_little_endian`: a boolean indicating whether the identity secret and identity commitment
-///   should be serialized in little endian or big endian.
-///
-/// # Example
-/// ```
-/// use rln::protocol::*;
-///
-/// let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-///
-/// let mut input_buffer = Cursor::new(&seed_bytes);
-/// let mut output_buffer = Cursor::new(Vec::<u8>::new());
-/// let is_little_endian = true;
-/// seeded_key_gen(&mut input_buffer, &mut output_buffer, is_little_endian).unwrap();
-///
-///
-/// // We serialize_compressed the keygen output
-/// let (identity_secret_hash, id_commitment) = deserialize_identity_pair_le(output_buffer.into_inner());
-/// ```
-pub fn seeded_key_gen<R: Read, W: Write>(
-    mut input_data: R,
-    mut output_data: W,
-    is_little_endian: bool,
-) -> Result<(), RLNError> {
-    let mut serialized: Vec<u8> = Vec::new();
-    input_data.read_to_end(&mut serialized)?;
-
-    let (identity_secret_hash, id_commitment) = seeded_keygen(&serialized);
-    if is_little_endian {
-        output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
-        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
-    } else {
-        output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
-        output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
-    }
-
-    Ok(())
-}
-
-/// Generate an identity which is composed of an identity trapdoor, nullifier, secret and commitment using a seed.
-/// The identity trapdoor and nullifier are random field elements,
-///   where RNG is instantiated using 20 rounds of ChaCha seeded with the hash of the input.
-/// The identity secret is the Poseidon hash of the identity trapdoor and identity nullifier.
-/// The identity commitment is the Poseidon hash of the identity secret.
-///
-/// # Inputs
-///
-/// - `input_data`: a reader for the byte vector containing the seed
-/// - `output_data`: a writer receiving the serialization of
-///   the identity trapdoor, nullifier, secret and commitment in correct endianness.
-/// - `is_little_endian`: a boolean indicating whether the identity trapdoor, nullifier, secret and commitment
-///   should be serialized in little endian or big endian.
-///
-/// Generated credentials are compatible with
-/// [Semaphore](https://semaphore.appliedzkp.org/docs/guides/identities)'s credentials.
-///
-/// # Example
-/// ```
-/// use rln::protocol::*;
-///
-/// let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-///
-/// let mut input_buffer = Cursor::new(&seed_bytes);
-/// let mut output_buffer = Cursor::new(Vec::<u8>::new());
-/// let is_little_endian = true;
-/// seeded_extended_key_gen(&mut input_buffer, &mut output_buffer, is_little_endian).unwrap();
-///
-/// // We serialize_compressed the keygen output
-/// let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) = deserialize_identity_tuple(buffer.into_inner());
-/// ```
-pub fn seeded_extended_key_gen<R: Read, W: Write>(
-    mut input_data: R,
-    mut output_data: W,
-    is_little_endian: bool,
-) -> Result<(), RLNError> {
-    let mut serialized: Vec<u8> = Vec::new();
-    input_data.read_to_end(&mut serialized)?;
-
-    let (identity_trapdoor, identity_nullifier, identity_secret_hash, id_commitment) =
-        extended_seeded_keygen(&serialized);
-    if is_little_endian {
-        output_data.write_all(&fr_to_bytes_le(&identity_trapdoor))?;
-        output_data.write_all(&fr_to_bytes_le(&identity_nullifier))?;
-        output_data.write_all(&fr_to_bytes_le(&identity_secret_hash))?;
-        output_data.write_all(&fr_to_bytes_le(&id_commitment))?;
-    } else {
-        output_data.write_all(&fr_to_bytes_be(&identity_trapdoor))?;
-        output_data.write_all(&fr_to_bytes_be(&identity_nullifier))?;
-        output_data.write_all(&fr_to_bytes_be(&identity_secret_hash))?;
-        output_data.write_all(&fr_to_bytes_be(&id_commitment))?;
-    }
-
-    Ok(())
 }

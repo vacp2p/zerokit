@@ -1,4 +1,4 @@
-// This file is based on the code by arkworks. Its preimage can be found here:
+// This crate is based on the code by arkworks. Its preimage can be found here:
 // https://github.com/arkworks-rs/circom-compat/blob/3c95ed98e23a408b4d99a53e483a9bba39685a4e/src/circom/qap.rs
 
 use ark_ff::PrimeField;

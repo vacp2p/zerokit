@@ -1,7 +1,7 @@
 use std::io::Cursor;
 
 use color_eyre::Result;
-use rln::{circuit::TEST_TREE_DEPTH, public::RLN};
+use rln::{circuit::DEFAULT_TREE_DEPTH, public::RLN};
 use serde_json::Value;
 
 use crate::config::Config;
@@ -18,7 +18,7 @@ impl State {
             let config_json: Value = serde_json::from_str(&tree_config)?;
             let tree_depth = config_json["tree_depth"]
                 .as_u64()
-                .unwrap_or(TEST_TREE_DEPTH as u64);
+                .unwrap_or(DEFAULT_TREE_DEPTH as u64);
             Some(RLN::new(
                 tree_depth as usize,
                 Cursor::new(tree_config.as_bytes()),

@@ -3,7 +3,7 @@
 mod test {
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
-    use rln::circuit::{Fr, TEST_TREE_DEPTH};
+    use rln::circuit::{Fr, DEFAULT_TREE_DEPTH};
     use rln::ffi::{ffi_rln::*, ffi_tree::*, ffi_utils::*};
     use rln::hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash};
     use rln::protocol::*;
@@ -19,7 +19,7 @@ mod test {
     fn create_rln_instance() -> repr_c::Box<FFI_RLN> {
         let input_config = json!({}).to_string();
         let c_str = std::ffi::CString::new(input_config).unwrap();
-        match ffi_rln_new(TEST_TREE_DEPTH, c_str.as_c_str().into()) {
+        match ffi_rln_new(DEFAULT_TREE_DEPTH, c_str.as_c_str().into()) {
             CResult {
                 ok: Some(rln),
                 err: None,
@@ -129,7 +129,7 @@ mod test {
         // We first add leaves one by one specifying the index
         for (i, leaf) in leaves.iter().enumerate() {
             // We prepare the rate_commitment and we set the leaf at provided index
-            let result = ffi_set_leaf(&mut ffi_rln_instance, i, &CFr::from(*leaf).into());
+            let result = ffi_set_leaf(&mut ffi_rln_instance, i, &CFr::from(*leaf));
             if !result.ok {
                 panic!("set leaf call failed: {:?}", result.err);
             }
@@ -139,14 +139,14 @@ mod test {
         let root_single = get_tree_root(&ffi_rln_instance);
 
         // We reset the tree to default
-        let result = ffi_set_tree(&mut ffi_rln_instance, TEST_TREE_DEPTH);
+        let result = ffi_set_tree(&mut ffi_rln_instance, DEFAULT_TREE_DEPTH);
         if !result.ok {
             panic!("set tree call failed: {:?}", result.err);
         }
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
         for leaf in &leaves {
-            let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(*leaf).into());
+            let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(*leaf));
             if !result.ok {
                 panic!("set next leaf call failed: {:?}", result.err);
             }
@@ -159,7 +159,7 @@ mod test {
         assert_eq!(root_single, root_next);
 
         // We reset the tree to default
-        let result = ffi_set_tree(&mut ffi_rln_instance, TEST_TREE_DEPTH);
+        let result = ffi_set_tree(&mut ffi_rln_instance, DEFAULT_TREE_DEPTH);
         if !result.ok {
             panic!("set tree call failed: {:?}", result.err);
         }
@@ -186,7 +186,7 @@ mod test {
         let root_delete = get_tree_root(&ffi_rln_instance);
 
         // We reset the tree to default
-        let result = ffi_set_tree(&mut ffi_rln_instance, TEST_TREE_DEPTH);
+        let result = ffi_set_tree(&mut ffi_rln_instance, DEFAULT_TREE_DEPTH);
         if !result.ok {
             panic!("set tree call failed: {:?}", result.err);
         }
@@ -245,14 +245,14 @@ mod test {
         );
 
         // We reset the tree to default
-        let result = ffi_set_tree(&mut ffi_rln_instance, TEST_TREE_DEPTH);
+        let result = ffi_set_tree(&mut ffi_rln_instance, DEFAULT_TREE_DEPTH);
         if !result.ok {
             panic!("set tree call failed: {:?}", result.err);
         }
 
         // We add leaves one by one using the internal index (new leaves goes in next available position)
         for leaf in &leaves {
-            let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(*leaf).into());
+            let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(*leaf));
             if !result.ok {
                 panic!("set next leaf call failed: {:?}", result.err);
             }
@@ -309,7 +309,7 @@ mod test {
         let mut ffi_rln_instance = create_rln_instance();
 
         let mut rng = thread_rng();
-        let bad_index = (1 << TEST_TREE_DEPTH) - rng.gen_range(0..NO_OF_LEAVES) as usize;
+        let bad_index = (1 << DEFAULT_TREE_DEPTH) - rng.gen_range(0..NO_OF_LEAVES) as usize;
 
         // Get root of empty tree
         let root_empty = get_tree_root(&ffi_rln_instance);
@@ -347,7 +347,7 @@ mod test {
         let result = ffi_set_leaf(
             &mut ffi_rln_instance,
             leaf_index,
-            &CFr::from(rate_commitment).into(),
+            &CFr::from(rate_commitment),
         );
         if !result.ok {
             panic!("set leaf call failed: {:?}", result.err);
@@ -439,9 +439,9 @@ mod test {
         let zkey_path = "./resources/tree_depth_20/rln_final.arkzkey";
         let mut zkey_file = File::open(zkey_path).expect("no file found");
         let metadata = std::fs::metadata(zkey_path).expect("unable to read metadata");
-        let mut zkey_buffer = vec![0; metadata.len() as usize];
+        let mut zkey_data = vec![0; metadata.len() as usize];
         zkey_file
-            .read_exact(&mut zkey_buffer)
+            .read_exact(&mut zkey_data)
             .expect("buffer overflow");
 
         let graph_data = "./resources/tree_depth_20/graph.bin";
@@ -456,8 +456,8 @@ mod test {
         let tree_config = "".to_string();
         let c_str = std::ffi::CString::new(tree_config).unwrap();
         let ffi_rln_instance2 = match ffi_rln_new_with_params(
-            TEST_TREE_DEPTH,
-            &zkey_buffer.into(),
+            DEFAULT_TREE_DEPTH,
+            &zkey_data.into(),
             &graph_buffer.into(),
             c_str.as_c_str().into(),
         ) {
@@ -515,7 +515,7 @@ mod test {
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
         // We set as leaf rate_commitment, its index would be equal to no_of_leaves
-        let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(rate_commitment).into());
+        let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(rate_commitment));
         if !result.ok {
             panic!("set next leaf call failed: {:?}", result.err);
         }
@@ -568,7 +568,7 @@ mod test {
         let message_id = Fr::from(1);
 
         // We set as leaf rate_commitment, its index would be equal to no_of_leaves
-        let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(rate_commitment).into());
+        let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(rate_commitment));
         if !result.ok {
             panic!("set next leaf call failed: {:?}", result.err);
         }
@@ -649,7 +649,7 @@ mod test {
         let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
 
         // We set as leaf rate_commitment, its index would be equal to 0 since tree is empty
-        let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(rate_commitment).into());
+        let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(rate_commitment));
         if !result.ok {
             panic!("set next leaf call failed: {:?}", result.err);
         }
@@ -725,10 +725,7 @@ mod test {
         let rate_commitment_new = utils_poseidon_hash(&[id_commitment_new, user_message_limit]);
 
         // We set as leaf id_commitment, its index would be equal to 1 since at 0 there is id_commitment
-        let result = ffi_set_next_leaf(
-            &mut ffi_rln_instance,
-            &CFr::from(rate_commitment_new).into(),
-        );
+        let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(rate_commitment_new));
         if !result.ok {
             panic!("set next leaf call failed: {:?}", result.err);
         }
@@ -779,7 +776,7 @@ mod test {
     #[test]
     fn test_get_leaf_ffi() {
         // We create a RLN instance
-        let no_of_leaves = 1 << TEST_TREE_DEPTH;
+        let no_of_leaves = 1 << DEFAULT_TREE_DEPTH;
 
         // We create a RLN instance
         let mut ffi_rln_instance = create_rln_instance();
@@ -793,11 +790,7 @@ mod test {
         // We insert the id_commitment into the tree at a random index
         let mut rng = thread_rng();
         let index = rng.gen_range(0..no_of_leaves) as usize;
-        let result = ffi_set_leaf(
-            &mut ffi_rln_instance,
-            index,
-            &CFr::from(id_commitment).into(),
-        );
+        let result = ffi_set_leaf(&mut ffi_rln_instance, index, &CFr::from(id_commitment));
         if !result.ok {
             panic!("set leaf call failed: {:?}", result.err);
         }

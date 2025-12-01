@@ -1,22 +1,22 @@
 use std::path::PathBuf;
 
 use clap::Subcommand;
-use rln::circuit::TEST_TREE_DEPTH;
+use rln::circuit::DEFAULT_TREE_DEPTH;
 
 #[derive(Subcommand)]
 pub(crate) enum Commands {
     New {
-        #[arg(short, long, default_value_t = TEST_TREE_DEPTH)]
+        #[arg(short, long, default_value_t = DEFAULT_TREE_DEPTH)]
         tree_depth: usize,
     },
     NewWithParams {
-        #[arg(short, long, default_value_t = TEST_TREE_DEPTH)]
+        #[arg(short, long, default_value_t = DEFAULT_TREE_DEPTH)]
         tree_depth: usize,
         #[arg(short, long, default_value = "../rln/resources/tree_depth_20")]
         resources_path: PathBuf,
     },
     SetTree {
-        #[arg(short, long, default_value_t = TEST_TREE_DEPTH)]
+        #[arg(short, long, default_value_t = DEFAULT_TREE_DEPTH)]
         tree_depth: usize,
     },
     SetLeaf {

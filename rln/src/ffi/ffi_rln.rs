@@ -2,26 +2,21 @@
 
 use super::ffi_utils::{CBoolResult, CFr, CResult};
 use crate::{
-    circuit::{graph_from_folder, zkey_from_folder, zkey_from_raw, Fr},
+    circuit::Fr,
     protocol::{
         bytes_be_to_rln_proof, bytes_be_to_rln_proof_values, bytes_be_to_rln_witness,
         bytes_le_to_rln_proof, bytes_le_to_rln_proof_values, bytes_le_to_rln_witness,
-        compute_id_secret, generate_proof, proof_values_from_witness, rln_proof_to_bytes_be,
-        rln_proof_to_bytes_le, rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le,
-        rln_witness_to_bytes_be, rln_witness_to_bytes_le, verify_proof, RLNProof, RLNProofValues,
-        RLNWitnessInput, RLN,
+        recover_id_secret, rln_proof_to_bytes_be, rln_proof_to_bytes_le,
+        rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le, rln_witness_to_bytes_be,
+        rln_witness_to_bytes_le, RLNProof, RLNProofValues, RLNWitnessInput,
     },
+    public::RLN,
     utils::IdSecret,
 };
 use safer_ffi::{boxed::Box_, derive_ReprC, ffi_export, prelude::repr_c};
 
 #[cfg(not(feature = "stateless"))]
-use {
-    crate::poseidon_tree::PoseidonTree,
-    safer_ffi::prelude::char_p,
-    std::{fs::File, io::Read, str::FromStr},
-    utils::{Hasher, ZerokitMerkleTree},
-};
+use {safer_ffi::prelude::char_p, std::fs::File, std::io::Read};
 
 // FFI_RLN
 
@@ -37,67 +32,38 @@ pub fn ffi_rln_new(
     tree_depth: usize,
     config_path: char_p::Ref<'_>,
 ) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
-    let tree_config = match File::open(config_path.to_str()).and_then(|mut file| {
-        let mut config_str = String::new();
-        file.read_to_string(&mut config_str)?;
-        Ok(config_str)
-    }) {
-        Ok(config_str) if !config_str.is_empty() => {
-            match <PoseidonTree as ZerokitMerkleTree>::Config::from_str(&config_str) {
-                Ok(config) => config,
-                Err(err) => {
-                    return CResult {
-                        ok: None,
-                        err: Some(err.to_string().into()),
-                    };
-                }
-            }
-        }
-        _ => <PoseidonTree as ZerokitMerkleTree>::Config::default(),
-    };
+    let config_str = File::open(config_path.to_str())
+        .and_then(|mut file| {
+            let mut s = String::new();
+            file.read_to_string(&mut s)?;
+            Ok(s)
+        })
+        .unwrap_or_default();
 
-    let zkey = zkey_from_folder().to_owned();
-    let graph_data = graph_from_folder().to_owned();
-
-    // We compute a default empty tree
-    let tree = match PoseidonTree::new(
-        tree_depth,
-        <PoseidonTree as ZerokitMerkleTree>::Hasher::default_leaf(),
-        tree_config,
-    ) {
-        Ok(tree) => tree,
-        Err(err) => {
-            return CResult {
-                ok: None,
-                err: Some(err.to_string().into()),
-            };
-        }
-    };
-
-    let rln = RLN {
-        zkey,
-        graph_data,
-        #[cfg(not(feature = "stateless"))]
-        tree,
-    };
-
-    CResult {
-        ok: Some(Box_::new(FFI_RLN(rln))),
-        err: None,
+    match RLN::new(tree_depth, config_str.as_str()) {
+        Ok(rln) => CResult {
+            ok: Some(Box_::new(FFI_RLN(rln))),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
     }
 }
 
 #[cfg(feature = "stateless")]
 #[ffi_export]
 pub fn ffi_rln_new() -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
-    let zkey = zkey_from_folder().to_owned();
-    let graph_data = graph_from_folder().to_owned();
-
-    let rln = RLN { zkey, graph_data };
-
-    CResult {
-        ok: Some(Box_::new(FFI_RLN(rln))),
-        err: None,
+    match RLN::new() {
+        Ok(rln) => CResult {
+            ok: Some(Box_::new(FFI_RLN(rln))),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
     }
 }
 
@@ -105,90 +71,50 @@ pub fn ffi_rln_new() -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
 #[ffi_export]
 pub fn ffi_rln_new_with_params(
     tree_depth: usize,
-    zkey_buffer: &repr_c::Vec<u8>,
+    zkey_data: &repr_c::Vec<u8>,
     graph_data: &repr_c::Vec<u8>,
     config_path: char_p::Ref<'_>,
 ) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
-    let tree_config = match File::open(config_path.to_str()).and_then(|mut file| {
-        let mut config_str = String::new();
-        file.read_to_string(&mut config_str)?;
-        Ok(config_str)
-    }) {
-        Ok(config_str) if !config_str.is_empty() => {
-            match <PoseidonTree as ZerokitMerkleTree>::Config::from_str(&config_str) {
-                Ok(config) => config,
-                Err(err) => {
-                    return CResult {
-                        ok: None,
-                        err: Some(err.to_string().into()),
-                    };
-                }
-            }
-        }
-        _ => <PoseidonTree as ZerokitMerkleTree>::Config::default(),
-    };
+    let config_str = File::open(config_path.to_str())
+        .and_then(|mut file| {
+            let mut s = String::new();
+            file.read_to_string(&mut s)?;
+            Ok(s)
+        })
+        .unwrap_or_default();
 
-    let zkey = match zkey_from_raw(zkey_buffer) {
-        Ok(pk) => pk,
-        Err(err) => {
-            return CResult {
-                ok: None,
-                err: Some(err.to_string().into()),
-            };
-        }
-    };
-    let graph_data = graph_data.to_vec();
-
-    // We compute a default empty tree
-    let tree = match PoseidonTree::new(
+    match RLN::new_with_params(
         tree_depth,
-        <PoseidonTree as ZerokitMerkleTree>::Hasher::default_leaf(),
-        tree_config,
+        zkey_data.to_vec(),
+        graph_data.to_vec(),
+        config_str.as_str(),
     ) {
-        Ok(tree) => tree,
-        Err(err) => {
-            return CResult {
-                ok: None,
-                err: Some(err.to_string().into()),
-            };
-        }
-    };
-
-    let rln = RLN {
-        zkey,
-        graph_data,
-        #[cfg(not(feature = "stateless"))]
-        tree,
-    };
-
-    CResult {
-        ok: Some(Box_::new(FFI_RLN(rln))),
-        err: None,
+        Ok(rln) => CResult {
+            ok: Some(Box_::new(FFI_RLN(rln))),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
     }
 }
 
 #[cfg(feature = "stateless")]
 #[ffi_export]
 pub fn ffi_new_with_params(
-    zkey_buffer: &repr_c::Vec<u8>,
+    zkey_data: &repr_c::Vec<u8>,
     graph_data: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
-    let zkey = match zkey_from_raw(zkey_buffer) {
-        Ok(pk) => pk,
-        Err(err) => {
-            return CResult {
-                ok: None,
-                err: Some(err.to_string().into()),
-            };
-        }
-    };
-    let graph_data = graph_data.to_vec();
-
-    let rln = RLN { zkey, graph_data };
-
-    CResult {
-        ok: Some(Box_::new(FFI_RLN(rln))),
-        err: None,
+    match RLN::new_with_params(zkey_data.to_vec(), graph_data.to_vec()) {
+        Ok(rln) => CResult {
+            ok: Some(Box_::new(FFI_RLN(rln))),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
     }
 }
 
@@ -439,34 +365,21 @@ pub fn ffi_generate_rln_proof(
     rln: &repr_c::Box<FFI_RLN>,
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
 ) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
-    let proof_values = match proof_values_from_witness(&witness.0) {
-        Ok(pv) => pv,
-        Err(err) => {
-            return CResult {
-                ok: None,
-                err: Some(err.to_string().into()),
+    match rln.0.generate_rln_proof(&witness.0) {
+        Ok((proof, proof_values)) => {
+            let rln_proof = RLNProof {
+                proof_values,
+                proof,
             };
+            CResult {
+                ok: Some(Box_::new(FFI_RLNProof(rln_proof))),
+                err: None,
+            }
         }
-    };
-
-    let proof = match generate_proof(&rln.0.zkey, &witness.0, &rln.0.graph_data) {
-        Ok(proof) => proof,
-        Err(err) => {
-            return CResult {
-                ok: None,
-                err: Some(err.to_string().into()),
-            };
-        }
-    };
-
-    let rln_proof = RLNProof {
-        proof_values,
-        proof,
-    };
-
-    CResult {
-        ok: Some(Box_::new(FFI_RLNProof(rln_proof))),
-        err: None,
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
     }
 }
 
@@ -476,34 +389,21 @@ pub fn ffi_generate_rln_proof_stateless(
     rln: &repr_c::Box<FFI_RLN>,
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
 ) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
-    let proof_values = match proof_values_from_witness(&witness.0) {
-        Ok(pv) => pv,
-        Err(err) => {
-            return CResult {
-                ok: None,
-                err: Some(err.to_string().into()),
+    match rln.0.generate_rln_proof(&witness.0) {
+        Ok((proof, proof_values)) => {
+            let rln_proof = RLNProof {
+                proof_values,
+                proof,
             };
+            CResult {
+                ok: Some(Box_::new(FFI_RLNProof(rln_proof))),
+                err: None,
+            }
         }
-    };
-
-    let proof = match generate_proof(&rln.0.zkey, &witness.0, &rln.0.graph_data) {
-        Ok(proof) => proof,
-        Err(err) => {
-            return CResult {
-                ok: None,
-                err: Some(err.to_string().into()),
-            };
-        }
-    };
-
-    let rln_proof = RLNProof {
-        proof_values,
-        proof,
-    };
-
-    CResult {
-        ok: Some(Box_::new(FFI_RLNProof(rln_proof))),
-        err: None,
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
     }
 }
 
@@ -516,48 +416,18 @@ pub fn ffi_verify_rln_proof(
     rln_proof: &repr_c::Box<FFI_RLNProof>,
     x: &CFr,
 ) -> CBoolResult {
-    // Verify the root
-    if rln.0.tree.root() != rln_proof.0.proof_values.root {
-        return CBoolResult {
+    match rln
+        .0
+        .verify_rln_roof(&rln_proof.0.proof, &rln_proof.0.proof_values, &x.0)
+    {
+        Ok(verified) => CBoolResult {
+            ok: verified,
+            err: None,
+        },
+        Err(err) => CBoolResult {
             ok: false,
-            err: Some("Invalid root".to_string().into()),
-        };
-    }
-
-    // Verify the signal
-    if *x != rln_proof.0.proof_values.x {
-        return CBoolResult {
-            ok: false,
-            err: Some("Invalid signal".to_string().into()),
-        };
-    }
-
-    // Verify the proof
-    match verify_proof(
-        &rln.0.zkey.0.vk,
-        &rln_proof.0.proof,
-        &rln_proof.0.proof_values,
-    ) {
-        Ok(proof_verified) => {
-            if !proof_verified {
-                return CBoolResult {
-                    ok: false,
-                    err: Some("Invalid proof".to_string().into()),
-                };
-            }
-        }
-        Err(err) => {
-            return CBoolResult {
-                ok: false,
-                err: Some(err.to_string().into()),
-            };
-        }
-    };
-
-    // All verifications passed
-    CBoolResult {
-        ok: true,
-        err: None,
+            err: Some(err.to_string().into()),
+        },
     }
 }
 
@@ -568,52 +438,22 @@ pub fn ffi_verify_with_roots(
     roots: &repr_c::Vec<CFr>,
     x: &CFr,
 ) -> CBoolResult {
-    // Verify the root
-    if !roots.is_empty()
-        && !roots
-            .iter()
-            .any(|root| root.0 == rln_proof.0.proof_values.root)
-    {
-        return CBoolResult {
-            ok: false,
-            err: Some("Invalid root".to_string().into()),
-        };
-    }
+    let roots_fr: Vec<Fr> = roots.iter().map(|cfr| cfr.0).collect();
 
-    // Verify the signal
-    if *x != rln_proof.0.proof_values.x {
-        return CBoolResult {
-            ok: false,
-            err: Some("Invalid signal".to_string().into()),
-        };
-    }
-
-    // Verify the proof
-    match verify_proof(
-        &rln.0.zkey.0.vk,
+    match rln.0.verify_with_roots(
         &rln_proof.0.proof,
         &rln_proof.0.proof_values,
+        &x.0,
+        &roots_fr,
     ) {
-        Ok(proof_verified) => {
-            if !proof_verified {
-                return CBoolResult {
-                    ok: false,
-                    err: Some("Invalid proof".to_string().into()),
-                };
-            }
-        }
-        Err(err) => {
-            return CBoolResult {
-                ok: false,
-                err: Some(err.to_string().into()),
-            };
-        }
-    };
-
-    // All verifications passed
-    CBoolResult {
-        ok: true,
-        err: None,
+        Ok(verified) => CBoolResult {
+            ok: verified,
+            err: None,
+        },
+        Err(err) => CBoolResult {
+            ok: false,
+            err: Some(err.to_string().into()),
+        },
     }
 }
 
@@ -624,34 +464,14 @@ pub fn ffi_recover_id_secret(
     proof_values_1: &repr_c::Box<FFI_RLNProofValues>,
     proof_values_2: &repr_c::Box<FFI_RLNProofValues>,
 ) -> CResult<repr_c::Box<CFr>, repr_c::String> {
-    let external_nullifier_1 = proof_values_1.0.external_nullifier;
-    let external_nullifier_2 = proof_values_2.0.external_nullifier;
-
-    // We continue only if the proof values are for the same external nullifier
-    if external_nullifier_1 != external_nullifier_2 {
-        return CResult {
+    match recover_id_secret(&proof_values_1.0, &proof_values_2.0) {
+        Ok(secret) => CResult {
+            ok: Some(Box_::new(CFr::from(*secret))),
+            err: None,
+        },
+        Err(err) => CResult {
             ok: None,
-            err: Some("External nullifiers do not match".to_string().into()),
-        };
-    }
-
-    // We extract the two shares
-    let share1 = (proof_values_1.0.x, proof_values_1.0.y);
-    let share2 = (proof_values_2.0.x, proof_values_2.0.y);
-
-    // We recover the secret
-    let recovered_identity_secret_hash = match compute_id_secret(share1, share2) {
-        Ok(secret) => secret,
-        Err(err) => {
-            return CResult {
-                ok: None,
-                err: Some(err.to_string().into()),
-            };
-        }
-    };
-
-    CResult {
-        ok: Some(CFr::from(*recovered_identity_secret_hash).into()),
-        err: None,
+            err: Some(err.to_string().into()),
+        },
     }
 }

@@ -211,7 +211,7 @@ proc ffi_rln_proof_free*(p: ptr FFI_RLNProof) {.importc: "ffi_rln_proof_free",
 # Merkle tree operations (non-stateless mode)
 when not defined(ffiStateless):
   proc ffi_set_next_leaf*(rln: ptr ptr FFI_RLN,
-      leaf: ptr ptr CFr): CBoolResult {.importc: "ffi_set_next_leaf",
+      leaf: ptr CFr): CBoolResult {.importc: "ffi_set_next_leaf",
       cdecl, dynlib: RLN_LIB.}
   proc ffi_leaves_set*(rln: ptr ptr FFI_RLN): CSize {.importc: "ffi_leaves_set",
       cdecl, dynlib: RLN_LIB.}
@@ -451,7 +451,7 @@ when isMainModule:
   else:
     echo "\nAdding rate_commitment to tree"
     var rcPtr = rateCommitment
-    let setErr = ffi_set_next_leaf(addr rln, addr rcPtr)
+    let setErr = ffi_set_next_leaf(addr rln, rcPtr)
     if not setErr.ok:
       stderr.writeLine "Set next leaf error: ", asString(setErr.err)
       c_string_free(setErr.err)

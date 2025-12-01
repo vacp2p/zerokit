@@ -183,7 +183,7 @@ int main(int argc, char const *const argv[])
     c_string_free(debug);
 #else
     printf("\nAdding rate_commitment to tree\n");
-    CBoolResult_t set_err = ffi_set_next_leaf(&rln, &rate_commitment);
+    CBoolResult_t set_err = ffi_set_next_leaf(&rln, rate_commitment);
     if (!set_err.ok)
     {
         fprintf(stderr, "Set next leaf error: %s\n", set_err.err.ptr);
