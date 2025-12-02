@@ -8,20 +8,17 @@ mod test {
     use rln::{
         circuit::{Fr, DEFAULT_TREE_DEPTH},
         ffi::{ffi_rln::*, ffi_tree::*, ffi_utils::*},
-        hashers::{hash_to_field_le, poseidon_hash as utils_poseidon_hash},
+        hashers::{hash_to_field_le, poseidon_hash},
         protocol::*,
         utils::*,
     };
     use safer_ffi::prelude::repr_c;
-    use serde_json::json;
     use zeroize::Zeroize;
 
     const NO_OF_LEAVES: usize = 256;
 
     fn create_rln_instance() -> repr_c::Box<FFI_RLN> {
-        let input_config = json!({}).to_string();
-        let c_str = std::ffi::CString::new(input_config).unwrap();
-        match ffi_rln_new(DEFAULT_TREE_DEPTH, c_str.as_c_str().into()) {
+        match ffi_rln_new(DEFAULT_TREE_DEPTH, c"".into()) {
             CResult {
                 ok: Some(rln),
                 err: None,
@@ -340,10 +337,10 @@ mod test {
         let mut identity_secret_ = hash_to_field_le(b"test-merkle-proof");
         let identity_secret = IdSecret::from(&mut identity_secret_);
         let mut to_hash = [*identity_secret.clone()];
-        let id_commitment = utils_poseidon_hash(&to_hash);
+        let id_commitment = poseidon_hash(&to_hash);
         to_hash[0].zeroize();
         let user_message_limit = Fr::from(100);
-        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
+        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
 
         // We prepare id_commitment and we set the leaf at provided index
         let result = ffi_set_leaf(
@@ -488,7 +485,7 @@ mod test {
         // We generate a vector of random leaves
         let mut rng = thread_rng();
         let leaves: Vec<Fr> = (0..NO_OF_LEAVES)
-            .map(|_| utils_poseidon_hash(&[Fr::rand(&mut rng), Fr::from(100)]))
+            .map(|_| poseidon_hash(&[Fr::rand(&mut rng), Fr::from(100)]))
             .collect();
 
         // We create a RLN instance
@@ -510,11 +507,11 @@ mod test {
         // We generate a random rln_identifier
         let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         // We generate a external nullifier
-        let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
+        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
         // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
         let message_id = Fr::from(1);
 
-        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
+        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
 
         // We set as leaf rate_commitment, its index would be equal to no_of_leaves
         let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(rate_commitment));
@@ -553,7 +550,7 @@ mod test {
 
         // We generate a new identity pair
         let (identity_secret, id_commitment) = identity_pair_gen();
-        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
+        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
         let identity_index: usize = NO_OF_LEAVES;
 
         // We generate a random signal
@@ -565,7 +562,7 @@ mod test {
         // We generate a random rln_identifier
         let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         // We generate a external nullifier
-        let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
+        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
         // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
         let message_id = Fr::from(1);
 
@@ -648,7 +645,7 @@ mod test {
         let (identity_secret, id_commitment) = identity_pair_gen();
 
         let user_message_limit = Fr::from(100);
-        let rate_commitment = utils_poseidon_hash(&[id_commitment, user_message_limit]);
+        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
 
         // We set as leaf rate_commitment, its index would be equal to 0 since tree is empty
         let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(rate_commitment));
@@ -670,7 +667,7 @@ mod test {
         // We generate a random rln_identifier
         let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         // We generate a external nullifier
-        let external_nullifier = utils_poseidon_hash(&[epoch, rln_identifier]);
+        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
         // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
         let message_id = Fr::from(1);
 
@@ -720,11 +717,11 @@ mod test {
         let recovered_identity_secret = *recovered_id_secret_cfr;
         assert_eq!(recovered_identity_secret, *identity_secret);
 
-        // We now test that computing identity_secret is unsuccessful if shares computed from two different identity secretes but within same epoch are passed
+        // We now test that computing identity_secret is unsuccessful if shares computed from two different identity secret but within same epoch are passed
 
         // We generate a new identity pair
         let (identity_secret_new, id_commitment_new) = identity_pair_gen();
-        let rate_commitment_new = utils_poseidon_hash(&[id_commitment_new, user_message_limit]);
+        let rate_commitment_new = poseidon_hash(&[id_commitment_new, user_message_limit]);
 
         // We set as leaf id_commitment, its index would be equal to 1 since at 0 there is id_commitment
         let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(rate_commitment_new));

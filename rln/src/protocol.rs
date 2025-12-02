@@ -607,11 +607,11 @@ fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<IdSecret, Pro
 /// When a user violates rate limits by generating multiple proofs in the same epoch,
 /// their shares can be used to recover their identity secret through polynomial interpolation.
 pub fn recover_id_secret(
-    rln_proof_values1: &RLNProofValues,
-    rln_proof_values2: &RLNProofValues,
+    rln_proof_values_1: &RLNProofValues,
+    rln_proof_values_2: &RLNProofValues,
 ) -> Result<IdSecret, ProtocolError> {
-    let external_nullifier_1 = rln_proof_values1.external_nullifier;
-    let external_nullifier_2 = rln_proof_values2.external_nullifier;
+    let external_nullifier_1 = rln_proof_values_1.external_nullifier;
+    let external_nullifier_2 = rln_proof_values_2.external_nullifier;
 
     // We continue only if the proof values are for the same external nullifier
     if external_nullifier_1 != external_nullifier_2 {
@@ -622,8 +622,8 @@ pub fn recover_id_secret(
     }
 
     // We extract the two shares
-    let share1 = (rln_proof_values1.x, rln_proof_values1.y);
-    let share2 = (rln_proof_values2.x, rln_proof_values2.y);
+    let share1 = (rln_proof_values_1.x, rln_proof_values_1.y);
+    let share2 = (rln_proof_values_2.x, rln_proof_values_2.y);
 
     // We recover the secret
     compute_id_secret(share1, share2)

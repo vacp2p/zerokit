@@ -81,7 +81,7 @@ fn main() {
     // 6. Generate and verify a proof for a message
     let signal = b"RLN is awesome";
 
-    // 7. Compute x coordinate from the signal
+    // 7. Compute x from the signal
     let x = hash_to_field_le(signal);
 
     // 8. Create witness input for RLN proof generation

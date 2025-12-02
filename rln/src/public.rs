@@ -558,9 +558,10 @@ impl RLN {
 
     /// Computes a zkSNARK RLN proof using a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
     ///
+    /// Extract proof values separately using [`proof_values_from_witness`](crate::protocol::proof_values_from_witness).
+    ///
     /// Example:
     /// ```
-    /// let witness = random_rln_witness(tree_depth);
     /// let proof_values = proof_values_from_witness(&witness);
     ///
     /// // We compute a Groth16 proof
@@ -572,12 +573,49 @@ impl RLN {
         Ok(proof)
     }
 
-    /// Verifies a zkSNARK RLN proof.
+    /// Computes a zkSNARK RLN proof using a witness and returns both proof and proof values.
+    ///
+    /// This is a convenience method that combines proof generation and proof values extraction.
     ///
     /// Example:
     /// ```
-    /// let witness = random_rln_witness(tree_depth);
+    /// let witness = RLNWitnessInput::new(...);
+    /// let (proof, proof_values) = rln.generate_rln_proof(&witness).unwrap();
+    /// ```
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn generate_rln_proof(
+        &self,
+        witness: &RLNWitnessInput,
+    ) -> Result<(Proof, RLNProofValues), RLNError> {
+        let proof_values = proof_values_from_witness(witness)?;
+        let proof = generate_proof(&self.zkey, witness, &self.graph_data)?;
+        Ok((proof, proof_values))
+    }
+
+    /// Generate RLN Proof using a pre-calculated witness from witness calculator.
     ///
+    /// This is used when the witness has been calculated externally using a witness calculator.
+    ///
+    /// Example:
+    /// ```
+    /// let witness = RLNWitnessInput::new(...);
+    /// let calculated_witness: Vec<BigInt> = ...; // obtained from external witness calculator
+    /// let (proof, proof_values) = rln.generate_rln_proof_with_witness(calculated_witness, &witness).unwrap();
+    /// ```
+    pub fn generate_rln_proof_with_witness(
+        &self,
+        calculated_witness: Vec<BigInt>,
+        witness: &RLNWitnessInput,
+    ) -> Result<(Proof, RLNProofValues), RLNError> {
+        let proof_values = proof_values_from_witness(witness)?;
+        let proof = generate_proof_with_witness(calculated_witness, &self.zkey)?;
+        Ok((proof, proof_values))
+    }
+
+    /// Verifies a zkSNARK proof only.
+    ///
+    /// Example:
+    /// ```
     /// // We compute a Groth16 proof
     /// let zk_proof = rln.prove(&witness).unwrap();
     ///
@@ -594,7 +632,7 @@ impl RLN {
         Ok(verified)
     }
 
-    /// Verifies a zkSNARK RLN proof with x coordinate check (stateful - checks internal tree root).
+    /// Verifies a zkSNARK RLN proof against the internal Merkle tree root with x check.
     #[cfg(not(feature = "stateless"))]
     pub fn verify_rln_proof(
         &self,
@@ -618,7 +656,7 @@ impl RLN {
         Ok(true)
     }
 
-    /// Verifies a zkSNARK RLN proof against provided roots with x coordinate check.
+    /// Verifies a zkSNARK RLN proof against provided roots with x check.
     ///
     /// If the roots slice is empty, root verification is skipped.
     pub fn verify_with_roots(
@@ -642,45 +680,5 @@ impl RLN {
         }
 
         Ok(true)
-    }
-
-    /// Generate RLN Proof using a witness and returns both proof and proof values.
-    ///
-    /// This is a convenience method that combines proof generation and proof values extraction.
-    /// For WASM usage with pre-calculated witness from witness calculator.
-    ///
-    /// Example:
-    /// ```
-    /// let witness = RLNWitnessInput::new(...);
-    /// let (proof, proof_values) = rln.generate_rln_proof(&witness).unwrap();
-    /// ```
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn generate_rln_proof(
-        &self,
-        witness: &RLNWitnessInput,
-    ) -> Result<(Proof, RLNProofValues), RLNError> {
-        let proof_values = proof_values_from_witness(witness)?;
-        let proof = generate_proof(&self.zkey, witness, &self.graph_data)?;
-        Ok((proof, proof_values))
-    }
-
-    /// Generate RLN Proof using a pre-calculated witness from witness calculator.
-    ///
-    /// This is used when the witness has been calculated externally using a witness calculator.
-    ///
-    /// Example:
-    /// ```
-    /// let calculated_witness: Vec<BigInt> = ...; // From external witness calculator
-    /// let witness = RLNWitnessInput::new(...);
-    /// let (proof, proof_values) = rln.generate_rln_proof_with_witness(calculated_witness, &witness).unwrap();
-    /// ```
-    pub fn generate_rln_proof_with_witness(
-        &self,
-        calculated_witness: Vec<BigInt>,
-        witness: &RLNWitnessInput,
-    ) -> Result<(Proof, RLNProofValues), RLNError> {
-        let proof_values = proof_values_from_witness(witness)?;
-        let proof = generate_proof_with_witness(calculated_witness, &self.zkey)?;
-        Ok((proof, proof_values))
     }
 }

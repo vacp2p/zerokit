@@ -43,7 +43,7 @@ pub enum ProtocolError {
 
 #[derive(Error, Debug)]
 pub enum VerifyError {
-    #[error("Proof verification failed")]
+    #[error("Invalid proof provided")]
     InvalidProof,
     #[error("Expected one of the provided roots")]
     InvalidRoot,
