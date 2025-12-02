@@ -1,4 +1,4 @@
-// This crate is the main public API for RLN module.
+// This crate is the main public API for RLN module
 // It is used by the FFI, WASM and should be used by tests as well
 
 use num_bigint::BigInt;
@@ -435,7 +435,7 @@ impl RLN {
     ///
     /// This function does not change the internal Merkle tree `next_index` value.
     ///
-    /// Example
+    /// Example:
     /// ```
     ///
     /// let index = 10;
@@ -451,7 +451,7 @@ impl RLN {
     ///
     /// This metadata is not used by the RLN module.
     ///
-    /// Example
+    /// Example:
     ///
     /// ```
     /// let metadata = b"some metadata";
@@ -465,7 +465,7 @@ impl RLN {
 
     /// Returns the metadata stored in the RLN object.
     ///
-    /// Example
+    /// Example:
     ///
     /// ```
     /// let metadata = rln.get_metadata().unwrap();
@@ -478,7 +478,7 @@ impl RLN {
 
     /// Returns the Merkle tree root
     ///
-    /// Example
+    /// Example:
     /// ```
     /// let root = rln.get_root();
     /// ```
@@ -489,7 +489,7 @@ impl RLN {
 
     /// Returns the root of subtree in the Merkle tree
     ///
-    /// Example
+    /// Example:
     /// ```
     /// let level = 1;
     /// let index = 2;
@@ -503,7 +503,7 @@ impl RLN {
 
     /// Returns the Merkle proof of the leaf at position index
     ///
-    /// Example
+    /// Example:
     /// ```
     /// let index = 10;
     /// let (path_elements, identity_path_index) = rln.get_proof(index).unwrap();
@@ -519,7 +519,7 @@ impl RLN {
 
     /// Returns indices of leaves in the tree are set to zero (upto the final leaf that was set).
     ///
-    /// Example
+    /// Example:
     /// ```
     /// let start_index = 5;
     /// let no_of_leaves = 256;
@@ -617,17 +617,21 @@ impl RLN {
     /// Example:
     /// ```
     /// // We compute a Groth16 proof
-    /// let zk_proof = rln.prove(&witness).unwrap();
+    /// let zk_proof = rln.generate_proof(&witness).unwrap();
     ///
     /// // We compute proof values directly from witness
     /// let proof_values = proof_values_from_witness(&witness);
     ///
     /// // We verify the Groth16 proof against the provided zk-proof and proof values
-    /// let verified = rln.verify(&zk_proof, &proof_values).unwrap();
+    /// let verified = rln.verify_proof(&zk_proof, &proof_values).unwrap();
     ///
     /// assert!(verified);
     /// ```
-    pub fn verify(&self, proof: &Proof, proof_values: &RLNProofValues) -> Result<bool, RLNError> {
+    pub fn verify_proof(
+        &self,
+        proof: &Proof,
+        proof_values: &RLNProofValues,
+    ) -> Result<bool, RLNError> {
         let verified = verify_proof(&self.zkey.0.vk, proof, proof_values)?;
         Ok(verified)
     }

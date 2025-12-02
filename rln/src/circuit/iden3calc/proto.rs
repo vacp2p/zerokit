@@ -4,29 +4,29 @@
 
 use std::collections::HashMap;
 
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, prost::Message)]
 pub struct BigUInt {
     #[prost(bytes = "vec", tag = "1")]
     pub value_le: Vec<u8>,
 }
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, Copy, PartialEq, prost::Message)]
 pub struct InputNode {
     #[prost(uint32, tag = "1")]
     pub idx: u32,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, prost::Message)]
 pub struct ConstantNode {
     #[prost(message, optional, tag = "1")]
     pub value: Option<BigUInt>,
 }
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, Copy, PartialEq, prost::Message)]
 pub struct UnoOpNode {
     #[prost(enumeration = "UnoOp", tag = "1")]
     pub op: i32,
     #[prost(uint32, tag = "2")]
     pub a_idx: u32,
 }
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, Copy, PartialEq, prost::Message)]
 pub struct DuoOpNode {
     #[prost(enumeration = "DuoOp", tag = "1")]
     pub op: i32,
@@ -35,7 +35,7 @@ pub struct DuoOpNode {
     #[prost(uint32, tag = "3")]
     pub b_idx: u32,
 }
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, Copy, PartialEq, prost::Message)]
 pub struct TresOpNode {
     #[prost(enumeration = "TresOp", tag = "1")]
     pub op: i32,
@@ -46,14 +46,14 @@ pub struct TresOpNode {
     #[prost(uint32, tag = "4")]
     pub c_idx: u32,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, prost::Message)]
 pub struct Node {
     #[prost(oneof = "node::Node", tags = "1, 2, 3, 4, 5")]
     pub node: Option<node::Node>,
 }
 /// Nested message and enum types in `Node`.
 pub mod node {
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    #[derive(Clone, PartialEq, prost::Oneof)]
     pub enum Node {
         #[prost(message, tag = "1")]
         Input(super::InputNode),
@@ -67,21 +67,21 @@ pub mod node {
         TresOp(super::TresOpNode),
     }
 }
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, Copy, PartialEq, prost::Message)]
 pub struct SignalDescription {
     #[prost(uint32, tag = "1")]
     pub offset: u32,
     #[prost(uint32, tag = "2")]
     pub len: u32,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, prost::Message)]
 pub struct GraphMetadata {
     #[prost(uint32, repeated, tag = "1")]
     pub witness_signals: Vec<u32>,
     #[prost(map = "string, message", tag = "2")]
     pub inputs: HashMap<String, SignalDescription>,
 }
-#[derive(Clone, Copy, Debug, PartialEq, ::prost::Enumeration)]
+#[derive(Clone, Copy, Debug, PartialEq, prost::Enumeration)]
 pub enum DuoOp {
     Mul = 0,
     Div = 1,
@@ -105,13 +105,13 @@ pub enum DuoOp {
     Bxor = 19,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, ::prost::Enumeration)]
+#[derive(Clone, Copy, Debug, PartialEq, prost::Enumeration)]
 pub enum UnoOp {
     Neg = 0,
     Id = 1,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, ::prost::Enumeration)]
+#[derive(Clone, Copy, Debug, PartialEq, prost::Enumeration)]
 pub enum TresOp {
     TernCond = 0,
 }

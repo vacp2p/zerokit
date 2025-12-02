@@ -183,7 +183,7 @@ mod test {
         let (proof, proof_values) = rln.generate_rln_proof(&rln_witness).unwrap();
 
         // We verify the Groth16 proof against the provided proof values
-        let verified = rln.verify(&proof, &proof_values).is_ok();
+        let verified = rln.verify_proof(&proof, &proof_values).is_ok();
 
         assert!(verified);
     }

@@ -108,7 +108,7 @@ fn main() {
 }
 ```
 
-### Comments for the code above for point 4
+### Comments for the code above for point 5
 
 The `external nullifier` includes two parameters.
 
@@ -158,7 +158,7 @@ cargo make test_stateless
 ## Advanced: Custom Circuit Compilation
 
 The `rln` (<https://github.com/rate-limiting-nullifier/circom-rln>) repository,
-which contains the RLN circuit implementation is using for pre-compiled RLN circuit for zerokit RLN.
+which contains the RLN circuit implementation used for pre-compiled RLN circuit for zerokit RLN.
 If you want to compile your own RLN circuit, you can follow the instructions below.
 
 ### 1. Compile ZK Circuits for getting the zkey file
@@ -198,8 +198,8 @@ Where:
 #### Install circom compiler
 
 You can follow the instructions below or refer to the
-[installing Circom](https://docs.circom.io/getting-started/installation/#installing-circom) guide for more details,
-but make sure to use the specific version `v2.1.0`.
+[installing Circom](https://docs.circom.io/getting-started/installation/#installing-circom) guide for more details.
+Make sure to use the specific version `v2.1.0`.
 
 ```sh
 # Clone the circom repository
@@ -311,7 +311,7 @@ Working examples demonstrating proof generation, proof verification and slashing
 
 - All **heap-allocated** objects returned from Rust FFI **must** be freed using their corresponding FFI `_free` functions.
 
-## Get involved
+## Getting Involved
 
 Zerokit RLN public and FFI APIs allow interaction with many more features than what briefly showcased above.
 
@@ -323,6 +323,10 @@ cargo doc --no-deps
 
 and look at unit tests to have an hint on how to interface and use them.
 
+- Check the [unit tests](https://github.com/vacp2p/zerokit/tree/master/rln/tests) for more usage examples
+- [RFC specification](https://rfc.vac.dev/vac/raw/rln-v2) for the Rate-Limiting Nullifier protocol
+- [GitHub repository](https://github.com/vacp2p/zerokit) for the latest updates
+
 ## Detailed Protocol Flow
 
 1. **Identity Creation**: Generate a secret key and commitment
@@ -333,9 +337,4 @@ and look at unit tests to have an hint on how to interface and use them.
    - Ensures rate-limiting constraints are satisfied
    - Generates a nullifier to prevent double-usage
 5. **Proof Verification**: Verify the proof without revealing the prover's identity
-
-## Getting Involved
-
-- Check the [unit tests](https://github.com/vacp2p/zerokit/tree/master/rln/tests) for more usage examples
-- [RFC specification](https://rfc.vac.dev/vac/raw/rln-v2) for the Rate-Limiting Nullifier protocol
-- [GitHub repository](https://github.com/vacp2p/zerokit) for the latest updates
+6. **Slashing Mechanism**: Detect and penalize double-usage attempts

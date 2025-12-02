@@ -230,39 +230,32 @@ proc ffi_rln_proof_free*(p: ptr FFI_RLNProof) {.importc: "ffi_rln_proof_free",
 when not defined(ffiStateless):
   proc ffi_set_tree*(rln: ptr ptr FFI_RLN,
       tree_depth: CSize): CBoolResult {.importc: "ffi_set_tree",
-
-cdecl, dynlib: RLN_LIB.}
+      cdecl, dynlib: RLN_LIB.}
   proc ffi_delete_leaf*(rln: ptr ptr FFI_RLN,
       index: CSize): CBoolResult {.importc: "ffi_delete_leaf",
-
-cdecl, dynlib: RLN_LIB.}
+      cdecl, dynlib: RLN_LIB.}
   proc ffi_set_leaf*(rln: ptr ptr FFI_RLN, index: CSize,
       leaf: ptr CFr): CBoolResult {.importc: "ffi_set_leaf",
-
-cdecl, dynlib: RLN_LIB.}
+      cdecl, dynlib: RLN_LIB.}
   proc ffi_get_leaf*(rln: ptr ptr FFI_RLN,
       index: CSize): CResultCFrPtrVecU8 {.importc: "ffi_get_leaf",
-
-cdecl, dynlib: RLN_LIB.}
+      cdecl, dynlib: RLN_LIB.}
   proc ffi_set_next_leaf*(rln: ptr ptr FFI_RLN,
       leaf: ptr CFr): CBoolResult {.importc: "ffi_set_next_leaf",
       cdecl, dynlib: RLN_LIB.}
   proc ffi_set_leaves_from*(rln: ptr ptr FFI_RLN, index: CSize,
       leaves: ptr Vec_CFr): CBoolResult {.importc: "ffi_set_leaves_from",
-
-cdecl, dynlib: RLN_LIB.}
+      cdecl, dynlib: RLN_LIB.}
   proc ffi_init_tree_with_leaves*(rln: ptr ptr FFI_RLN,
       leaves: ptr Vec_CFr): CBoolResult {.importc: "ffi_init_tree_with_leaves",
-
-cdecl, dynlib: RLN_LIB.}
+      cdecl, dynlib: RLN_LIB.}
   proc ffi_atomic_operation*(rln: ptr ptr FFI_RLN, index: CSize,
       leaves: ptr Vec_CFr,
       indices: ptr Vec_uint8): CBoolResult {.importc: "ffi_atomic_operation",
-
-cdecl, dynlib: RLN_LIB.}
+      cdecl, dynlib: RLN_LIB.}
   proc ffi_seq_atomic_operation*(rln: ptr ptr FFI_RLN, leaves: ptr Vec_CFr,
       indices: ptr Vec_uint8): CBoolResult {.importc: "ffi_seq_atomic_operation",
-       cdecl, dynlib: RLN_LIB.}
+      cdecl, dynlib: RLN_LIB.}
   proc ffi_get_root*(rln: ptr ptr FFI_RLN): ptr CFr {.importc: "ffi_get_root",
       cdecl, dynlib: RLN_LIB.}
   proc ffi_leaves_set*(rln: ptr ptr FFI_RLN): CSize {.importc: "ffi_leaves_set",
@@ -272,8 +265,7 @@ cdecl, dynlib: RLN_LIB.}
       cdecl, dynlib: RLN_LIB.}
   proc ffi_set_metadata*(rln: ptr ptr FFI_RLN,
       metadata: ptr Vec_uint8): CBoolResult {.importc: "ffi_set_metadata",
-
-cdecl, dynlib: RLN_LIB.}
+      cdecl, dynlib: RLN_LIB.}
   proc ffi_get_metadata*(rln: ptr ptr FFI_RLN): CResultVecU8VecU8 {.importc: "ffi_get_metadata",
       cdecl, dynlib: RLN_LIB.}
   proc ffi_flush*(rln: ptr ptr FFI_RLN): CBoolResult {.importc: "ffi_flush",

@@ -13,7 +13,7 @@ pub fn pmtree_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("Pmtree:delete", |b| {
+    c.bench_function("Pmtree::delete", |b| {
         b.iter(|| {
             tree.delete(0).unwrap();
         })
