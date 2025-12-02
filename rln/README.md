@@ -5,7 +5,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 The Zerokit RLN Module provides a Rust implementation for working with
-Rate-Limiting Nullifier [RLN](https://rfc.vac.dev/spec/32/) zkSNARK proofs and primitives.
+Rate-Limiting Nullifier [RLN](https://rfc.vac.dev/vac/raw/rln-v2) zkSNARK proofs and primitives.
 This module allows you to:
 
 - Generate and verify RLN proofs
@@ -337,5 +337,5 @@ and look at unit tests to have an hint on how to interface and use them.
 ## Getting Involved
 
 - Check the [unit tests](https://github.com/vacp2p/zerokit/tree/master/rln/tests) for more usage examples
-- [RFC specification](https://rfc.vac.dev/spec/32/) for the Rate-Limiting Nullifier protocol
+- [RFC specification](https://rfc.vac.dev/vac/raw/rln-v2) for the Rate-Limiting Nullifier protocol
 - [GitHub repository](https://github.com/vacp2p/zerokit) for the latest updates

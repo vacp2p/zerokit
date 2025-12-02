@@ -13,7 +13,7 @@ Zerokit provides zero-knowledge cryptographic primitives with a focus on perform
 The current focus is on Rate-Limiting Nullifier [RLN](https://github.com/Rate-Limiting-Nullifier) implementation.
 
 Current implementation is based on the following
-[specification](https://github.com/vacp2p/rfc-index/blob/main/vac/raw/rln-v2.md)
+[specification](https://rfc.vac.dev/vac/raw/rln-v2)
 and focused on RLNv2 which allows to set a rate limit for the number of messages that can be sent by a user.
 
 ## Features
