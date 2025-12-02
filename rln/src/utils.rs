@@ -1,6 +1,6 @@
 // This crate provides cross-module useful utilities (mainly type conversions) not necessarily specific to RLN
 
-use std::{io::Cursor, ops::Deref};
+use std::ops::Deref;
 
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -9,7 +9,6 @@ use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use rand::Rng;
 use ruint::aliases::U256;
-use serde_json::json;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use crate::{circuit::Fr, error::UtilsError};
@@ -325,11 +324,6 @@ pub fn normalize_usize_be(input: usize) -> [u8; 8] {
     let offset = 8 - input_bytes.len();
     bytes[offset..].copy_from_slice(&input_bytes);
     bytes
-}
-
-#[inline(always)] // using for test
-pub fn generate_input_buffer() -> Cursor<String> {
-    Cursor::new(json!({}).to_string())
 }
 
 #[derive(

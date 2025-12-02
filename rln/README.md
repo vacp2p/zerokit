@@ -40,83 +40,69 @@ In the following we will use [cursors](https://doc.rust-lang.org/std/io/struct.C
 as readers/writers for interfacing with RLN public APIs.
 
 ```rust
-use std::io::Cursor;
-
 use rln::{
     circuit::Fr,
-    hashers::{hash_to_field, poseidon_hash},
-    protocol::{keygen, prepare_prove_input, prepare_verify_input},
+    hashers::{hash_to_field_le, poseidon_hash},
+    protocol::{keygen, RLNWitnessInput},
     public::RLN,
-    utils::fr_to_bytes_le,
 };
-use serde_json::json;
 
 fn main() {
     // 1. Initialize RLN with parameters:
     // - the tree depth;
     // - the tree config, if it is not defined, the default value will be set
     let tree_depth = 20;
-    let input = Cursor::new(json!({}).to_string());
-    let mut rln = RLN::new(tree_depth, input).unwrap();
+    let mut rln = RLN::new(tree_depth, "").unwrap();
 
     // 2. Generate an identity keypair
     let (identity_secret, id_commitment) = keygen();
 
     // 3. Add a rate commitment to the Merkle tree
-    let id_index = 10;
+    let leaf_index = 10;
     let user_message_limit = Fr::from(10);
     let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
-    let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
-    rln.set_leaf(id_index, &mut buffer).unwrap();
+    rln.set_leaf(leaf_index, rate_commitment).unwrap();
 
-    // 4. Set up external nullifier (epoch + app identifier)
+    // 4. Get the Merkle proof for the added commitment
+    let (path_elements, identity_path_index) = rln.get_proof(leaf_index).unwrap();
+
+    // 5. Set up external nullifier (epoch + app identifier)
     // We generate epoch from a date seed and we ensure is
     // mapped to a field element by hashing-to-field its content
-    let epoch = hash_to_field(b"Today at noon, this year");
+    let epoch = hash_to_field_le(b"Today at noon, this year");
     // We generate rln_identifier from a date seed and we ensure is
     // mapped to a field element by hashing-to-field its content
-    let rln_identifier = hash_to_field(b"test-rln-identifier");
+    let rln_identifier = hash_to_field_le(b"test-rln-identifier");
     // We generate a external nullifier
     let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
     // We choose a message_id satisfy 0 <= message_id < user_message_limit
     let message_id = Fr::from(1);
 
-    // 5. Generate and verify a proof for a message
+    // 6. Generate and verify a proof for a message
     let signal = b"RLN is awesome";
 
-    // 6. Prepare input for generate_rln_proof API
-    // input_data is [ identity_secret<32> | id_index<8> | external_nullifier<32>
-    //    | user_message_limit<32> | message_id<32> | signal_len<8> | signal<var> ]
-    let prove_input = prepare_prove_input(
+    // 7. Compute x coordinate from the signal
+    let x = hash_to_field_le(signal);
+
+    // 8. Create witness input for RLN proof generation
+    let witness = RLNWitnessInput::new(
         identity_secret,
-        id_index,
         user_message_limit,
         message_id,
+        path_elements,
+        identity_path_index,
+        x,
         external_nullifier,
-        signal,
-    );
+    )
+    .unwrap();
 
-    // 7. Generate a RLN proof
-    // We generate a RLN proof for proof_input
-    let mut input_buffer = Cursor::new(prove_input);
-    let mut output_buffer = Cursor::new(Vec::<u8>::new());
-    rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
-        .unwrap();
+    // 9. Generate a RLN proof
+    // We generate a RLN proof and proof values from the witness
+    let (proof, proof_values) = rln.generate_rln_proof(&witness).unwrap();
 
-    // We get the public outputs returned by the circuit evaluation
-    // The byte vector `proof_data` is serialized as
-    //  `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]`.
-    let proof_data = output_buffer.into_inner();
-
-    // 8. Verify a RLN proof
-    // Input buffer is serialized as `[proof_data | signal_len | signal ]`,
-    //   where `proof_data` is (computed as) the output obtained by `generate_rln_proof`.
-    let verify_data = prepare_verify_input(proof_data, signal);
-
-    // We verify the zk-proof against the provided proof values
-    let mut input_buffer = Cursor::new(verify_data);
-    let verified = rln.verify_rln_proof(&mut input_buffer).unwrap();
-
+    // 10. Verify a RLN proof
+    // We verify the zk-proof against the provided proof and proof values
+    let verified = rln.verify_rln_proof(&proof, &proof_values, &x).unwrap();
     // We ensure the proof is valid
     assert!(verified);
 }
@@ -331,7 +317,7 @@ Zerokit RLN public and FFI APIs allow interaction with many more features than w
 
 We invite you to check our API documentation by running
 
-```rust
+```bash
 cargo doc --no-deps
 ```
 

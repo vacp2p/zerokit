@@ -48,17 +48,6 @@ impl TreeConfigInput for &str {
     }
 }
 
-/// Implementation for Option<T> where T implements TreeConfigInput.
-#[cfg(not(feature = "stateless"))]
-impl<T: TreeConfigInput> TreeConfigInput for Option<T> {
-    fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError> {
-        match self {
-            Some(config) => config.into_tree_config(),
-            None => Ok(<PoseidonTree as ZerokitMerkleTree>::Config::default()),
-        }
-    }
-}
-
 /// Implementation for direct builder pattern Config struct
 #[cfg(feature = "pmtree-ft")]
 impl TreeConfigInput for <PoseidonTree as ZerokitMerkleTree>::Config {
@@ -86,9 +75,8 @@ impl RLN {
     ///
     /// The `tree_config` parameter accepts:
     /// - JSON string: `"{\"path\": \"./database\"}"`
-    /// - Empty string for defaults: `""`
     /// - Direct config (with pmtree feature): `PmtreeConfig::builder().path("./database").build()?`
-    /// - Option: `Some(config)` or `None` for defaults
+    /// - Empty config for defaults: `""`
     ///
     /// Examples:
     /// ```
@@ -99,8 +87,8 @@ impl RLN {
     /// let config_json = r#"{"path": "./database", "cache_capacity": 1073741824}"#;
     /// let rln = RLN::new(20, config_json).unwrap();
     ///
-    /// // Using None for defaults
-    /// let rln = RLN::new(20, None::<String>).unwrap();
+    /// // Using `"` for defaults
+    /// let rln = RLN::new(20, "").unwrap();
     /// ```
     ///
     /// For advanced usage with builder pattern (pmtree feature):
@@ -284,13 +272,13 @@ impl RLN {
     /// let (identity_secret, id_commitment) = keygen();
     ///
     /// // We define the tree index where rate_commitment will be added
-    /// let id_index = 10;
+    /// let leaf_index = 10;
     /// let user_message_limit = 1;
     ///
     /// let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
     ///
     /// // Set the leaf directly
-    /// rln.set_leaf(id_index, rate_commitment).unwrap();
+    /// rln.set_leaf(leaf_index, rate_commitment).unwrap();
     /// ```
     #[cfg(not(feature = "stateless"))]
     pub fn set_leaf(&mut self, index: usize, leaf: Fr) -> Result<(), RLNError> {
@@ -302,8 +290,8 @@ impl RLN {
     ///
     /// Example:
     /// ```
-    /// let id_index = 10;
-    /// let rate_commitment = rln.get_leaf(id_index).unwrap();
+    /// let leaf_index = 10;
+    /// let rate_commitment = rln.get_leaf(leaf_index).unwrap();
     /// ```
     #[cfg(not(feature = "stateless"))]
     pub fn get_leaf(&self, index: usize) -> Result<Fr, RLNError> {
