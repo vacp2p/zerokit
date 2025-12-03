@@ -36,8 +36,8 @@ The RLN object constructor requires the following files:
 
 Additionally, `rln.wasm` is used for testing in the rln-wasm module.
 
-In the following we will use [cursors](https://doc.rust-lang.org/std/io/struct.Cursor.html)
-as readers/writers for interfacing with RLN public APIs.
+> [!TIP]
+> For convenience, you can use `use rln::prelude::*;` to import all commonly used types and functions.
 
 ```rust
 use rln::prelude::*;
