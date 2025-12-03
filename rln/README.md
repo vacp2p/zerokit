@@ -152,7 +152,7 @@ cargo make test_stateless
 ## Advanced: Custom Circuit Compilation
 
 The `circom-rln` (<https://github.com/rate-limiting-nullifier/circom-rln>) repository,
-which contains the RLN circuit implementation used for pre-compiled RLN circuit for zerokit RLN.
+which contains the RLN circuit implementation used for [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources/tree_depth_20) RLN circuit for zerokit RLN.
 If you want to compile your own RLN circuit, you can follow the instructions below.
 
 ### 1. Compile ZK Circuits for getting the zkey file
@@ -185,7 +185,7 @@ Where:
 > for instructions on how to run an appropriate Powers of Tau ceremony and Phase 2 in order to compile the desired circuit. \
 > Additionally, while `M` sets an upper bound on the number of messages per epoch (`2^M`),
 > you can configure lower message limit for your use case, as long as it satisfies `user_message_limit ≤ 2^M`. \
-> Currently, the `rln` module comes with a [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources)
+> Currently, the `rln` module comes with a [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources/tree_depth_20)
 > RLN circuit with a Merkle tree of depth `20` and a bit size of `16`,
 > allowing up to `2^20` registered members and a `2^16` message limit per epoch.
 
@@ -248,7 +248,7 @@ cargo build
 cargo run --package circom_witnesscalc --bin build-circuit ../circom-rln/circuits/rln.circom <path_to_graph.bin>
 ```
 
-The `rln` module comes with [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources)
+The `rln` module comes with [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources/tree_depth_20)
 execution graph files for the RLN circuit.
 
 ### 3. Generate Arkzkey Representation for zkey file
@@ -271,7 +271,7 @@ cargo run --bin arkzkey-util <path_to_rln_final.zkey>
 This will generate the `rln_final.arkzkey` file, which is used by the `rln` module.
 
 Currently, the `rln` module comes with
-[pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) arkzkey keys for the RLN circuit.
+[pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources/tree_depth_20) arkzkey keys for the RLN circuit.
 
 > [!NOTE]
 > You can use this [convert_zkey.sh](./convert_zkey.sh) script
