@@ -37,7 +37,7 @@ The RLN object constructor requires the following files:
 Additionally, `rln.wasm` is used for testing in the rln-wasm module.
 
 > [!TIP]
-> For convenience, you can use `use rln::prelude::*;` to import all commonly used types and functions.
+> For convenience, you can use `rln::prelude::*` to import all commonly used types and functions.
 
 ```rust
 use rln::prelude::*;
@@ -65,15 +65,15 @@ fn main() {
     // We generate epoch from a date seed and we ensure is
     // mapped to a field element by hashing-to-field its content
     let epoch = hash_to_field_le(b"Today at noon, this year");
-    // We generate rln_identifier from a date seed and we ensure is
-    // mapped to a field element by hashing-to-field its content
+    // We generate rln_identifier from an application identifier and
+    // we ensure is mapped to a field element by hashing-to-field its content
     let rln_identifier = hash_to_field_le(b"test-rln-identifier");
     // We generate a external nullifier
     let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
     // We choose a message_id satisfy 0 <= message_id < user_message_limit
     let message_id = Fr::from(1);
 
-    // 6. Generate and verify a proof for a message
+    // 6. Define the message signal
     let signal = b"RLN is awesome";
 
     // 7. Compute x from the signal
@@ -92,13 +92,12 @@ fn main() {
     .unwrap();
 
     // 9. Generate a RLN proof
-    // We generate a RLN proof and proof values from the witness
+    // We generate proof and proof values from the witness
     let (proof, proof_values) = rln.generate_rln_proof(&witness).unwrap();
 
-    // 10. Verify a RLN proof
-    // We verify the zk-proof against the provided proof and proof values
+    // 10. Verify the RLN proof
+    // We verify the proof using the proof and proof values and the hashed signal x
     let verified = rln.verify_rln_proof(&proof, &proof_values, &x).unwrap();
-    // We ensure the proof is valid
     assert!(verified);
 }
 ```
@@ -152,7 +151,7 @@ cargo make test_stateless
 
 ## Advanced: Custom Circuit Compilation
 
-The `rln` (<https://github.com/rate-limiting-nullifier/circom-rln>) repository,
+The `circom-rln` (<https://github.com/rate-limiting-nullifier/circom-rln>) repository,
 which contains the RLN circuit implementation used for pre-compiled RLN circuit for zerokit RLN.
 If you want to compile your own RLN circuit, you can follow the instructions below.
 
@@ -306,6 +305,18 @@ Working examples demonstrating proof generation, proof verification and slashing
 
 - All **heap-allocated** objects returned from Rust FFI **must** be freed using their corresponding FFI `_free` functions.
 
+## Detailed Protocol Flow
+
+1. **Identity Creation**: Generate a secret key and commitment
+2. **Rate Commitment**: Add commitment to a Merkle tree
+3. **External Nullifier Setup**: Combine epoch and application identifier
+4. **Proof Generation**: Create a zkSNARK proof that:
+   - Proves membership in the Merkle tree
+   - Ensures rate-limiting constraints are satisfied
+   - Generates a nullifier to prevent double-usage
+5. **Proof Verification**: Verify the proof without revealing the prover's identity
+6. **Slashing Mechanism**: Detect and penalize double-usage attempts
+
 ## Getting Involved
 
 Zerokit RLN public and FFI APIs allow interaction with many more features than what briefly showcased above.
@@ -321,15 +332,3 @@ and look at unit tests to have an hint on how to interface and use them.
 - Check the [unit tests](https://github.com/vacp2p/zerokit/tree/master/rln/tests) for more usage examples
 - [RFC specification](https://rfc.vac.dev/vac/raw/rln-v2) for the Rate-Limiting Nullifier protocol
 - [GitHub repository](https://github.com/vacp2p/zerokit) for the latest updates
-
-## Detailed Protocol Flow
-
-1. **Identity Creation**: Generate a secret key and commitment
-2. **Rate Commitment**: Add commitment to a Merkle tree
-3. **External Nullifier Setup**: Combine epoch and application identifier
-4. **Proof Generation**: Create a zkSNARK proof that:
-   - Proves membership in the Merkle tree
-   - Ensures rate-limiting constraints are satisfied
-   - Generates a nullifier to prevent double-usage
-5. **Proof Verification**: Verify the proof without revealing the prover's identity
-6. **Slashing Mechanism**: Detect and penalize double-usage attempts

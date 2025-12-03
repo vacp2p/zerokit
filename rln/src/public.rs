@@ -568,7 +568,7 @@ impl RLN {
         Ok(proof)
     }
 
-    /// Computes a zkSNARK RLN proof using a witness and returns both proof and proof values.
+    /// Generates a RLN proof and proof values from a witness.
     ///
     /// This is a convenience method that combines proof generation and proof values extraction.
     ///
@@ -617,7 +617,7 @@ impl RLN {
     /// // We compute proof values directly from witness
     /// let proof_values = proof_values_from_witness(&witness);
     ///
-    /// // We verify the Groth16 proof against the provided zk-proof and proof values
+    /// // We verify the proof
     /// let verified = rln.verify_proof(&zk_proof, &proof_values).unwrap();
     ///
     /// assert!(verified);

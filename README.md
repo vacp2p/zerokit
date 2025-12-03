@@ -20,8 +20,9 @@ and focused on RLNv2 which allows to set a rate limit for the number of messages
 
 - **RLN Implementation**: Efficient Rate-Limiting Nullifier using zkSNARKs
 - **Circom Compatibility**: Uses Circom-based circuits for RLN
-- **Cross-Platform**: Support for multiple architectures (see compatibility note below)
+- **Cross-Platform**: Support for multiple architectures with cross-compilation
 - **FFI-Friendly**: Easy to integrate with other languages
+- **WASM Support**: Can be compiled to WebAssembly for web applications
 
 ## Architecture
 
