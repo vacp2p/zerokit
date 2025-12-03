@@ -3,19 +3,7 @@
 
 use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
 use num_bigint::BigInt;
-use rln::{
-    circuit::Fr,
-    protocol::{
-        bytes_be_to_rln_proof, bytes_be_to_rln_proof_values, bytes_be_to_rln_witness,
-        bytes_le_to_rln_proof, bytes_le_to_rln_proof_values, bytes_le_to_rln_witness,
-        recover_id_secret, rln_proof_to_bytes_be, rln_proof_to_bytes_le,
-        rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le, rln_witness_to_bigint_json,
-        rln_witness_to_bytes_be, rln_witness_to_bytes_le, RLNProof, RLNProofValues,
-        RLNWitnessInput,
-    },
-    public::RLN,
-    utils::IdSecret,
-};
+use rln::prelude::*;
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 

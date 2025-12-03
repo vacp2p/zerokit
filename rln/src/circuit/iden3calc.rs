@@ -17,7 +17,7 @@ use crate::{
     utils::FrOrSecret,
 };
 
-pub type InputSignalsInfo = HashMap<String, (usize, usize)>;
+pub(crate) type InputSignalsInfo = HashMap<String, (usize, usize)>;
 
 pub(crate) fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
     inputs: I,

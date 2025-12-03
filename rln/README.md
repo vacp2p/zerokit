@@ -40,12 +40,7 @@ In the following we will use [cursors](https://doc.rust-lang.org/std/io/struct.C
 as readers/writers for interfacing with RLN public APIs.
 
 ```rust
-use rln::{
-    circuit::Fr,
-    hashers::{hash_to_field_le, poseidon_hash},
-    protocol::{keygen, RLNWitnessInput},
-    public::RLN,
-};
+use rln::prelude::*;
 
 fn main() {
     // 1. Initialize RLN with parameters:

@@ -6,19 +6,7 @@ use safer_ffi::{boxed::Box_, derive_ReprC, ffi_export, prelude::repr_c};
 use {safer_ffi::prelude::char_p, std::fs::File, std::io::Read};
 
 use super::ffi_utils::{CBoolResult, CFr, CResult};
-use crate::{
-    circuit::Fr,
-    protocol::{
-        bytes_be_to_rln_proof, bytes_be_to_rln_proof_values, bytes_be_to_rln_witness,
-        bytes_le_to_rln_proof, bytes_le_to_rln_proof_values, bytes_le_to_rln_witness,
-        recover_id_secret, rln_proof_to_bytes_be, rln_proof_to_bytes_le,
-        rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le, rln_witness_to_bigint_json,
-        rln_witness_to_bytes_be, rln_witness_to_bytes_le, RLNProof, RLNProofValues,
-        RLNWitnessInput,
-    },
-    public::RLN,
-    utils::IdSecret,
-};
+use crate::prelude::*;
 
 // FFI_RLN
 

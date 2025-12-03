@@ -1,8 +1,5 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use rln::{
-    circuit::{Fr, DEFAULT_TREE_DEPTH},
-    hashers::PoseidonHash,
-};
+use rln::prelude::*;
 use utils::{FullMerkleTree, OptimalMerkleTree, ZerokitMerkleTree};
 
 pub fn get_leaves(n: u32) -> Vec<Fr> {

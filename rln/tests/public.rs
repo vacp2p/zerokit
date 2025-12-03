@@ -3,16 +3,7 @@ mod test {
     use std::str::FromStr;
 
     use rand::{thread_rng, Rng};
-    use rln::{
-        circuit::{
-            Fq, Fq2, Fr, G1Affine, G1Projective, G2Affine, G2Projective, Proof, DEFAULT_TREE_DEPTH,
-        },
-        error::ProtocolError,
-        hashers::{hash_to_field_le, poseidon_hash},
-        protocol::{RLNProofValues, RLNWitnessInput},
-        public::{RLN, RLN_IDENTIFIER},
-        utils::{str_to_fr, IdSecret},
-    };
+    use rln::prelude::*;
     use serde_json::{json, Value};
 
     fn fq_from_str(s: &str) -> Fq {
@@ -57,7 +48,7 @@ mod test {
         let identity_secret = IdSecret::rand(&mut rng);
         let x = hash_to_field_le(&rng.gen::<[u8; 32]>());
         let epoch = hash_to_field_le(&rng.gen::<[u8; 32]>());
-        let rln_identifier = hash_to_field_le(RLN_IDENTIFIER);
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
 
         let mut path_elements: Vec<Fr> = Vec::new();
         let mut identity_path_index: Vec<u8> = Vec::new();

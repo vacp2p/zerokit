@@ -6,14 +6,7 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
-use rln::{
-    circuit::Fr,
-    hashers::{hash_to_field_le, poseidon_hash},
-    pm_tree_adapter::PmtreeConfigBuilder,
-    protocol::{keygen, recover_id_secret, RLNProofValues, RLNWitnessInput},
-    public::RLN,
-    utils::IdSecret,
-};
+use rln::prelude::*;
 use zerokit_utils::Mode;
 
 const MESSAGE_LIMIT: u32 = 1;

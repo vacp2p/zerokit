@@ -407,7 +407,7 @@ impl Deref for IdSecret {
 }
 
 #[derive(Debug, Zeroize, ZeroizeOnDrop)]
-pub enum FrOrSecret {
+pub(crate) enum FrOrSecret {
     IdSecret(IdSecret),
     Fr(Fr),
 }

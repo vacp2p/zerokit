@@ -3,17 +3,7 @@
 #[cfg(test)]
 mod test {
     use ark_ff::BigInt;
-    use rln::{
-        circuit::{graph_from_folder, zkey_from_folder, Fr, DEFAULT_TREE_DEPTH},
-        hashers::{hash_to_field_le, poseidon_hash},
-        poseidon_tree::PoseidonTree,
-        protocol::{
-            bytes_le_to_rln_proof_values, bytes_le_to_rln_witness, generate_proof, keygen,
-            proof_values_from_witness, rln_proof_values_to_bytes_le, rln_witness_to_bytes_le,
-            seeded_keygen, verify_proof, RLNWitnessInput,
-        },
-        utils::str_to_fr,
-    };
+    use rln::prelude::*;
     use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 
     type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;

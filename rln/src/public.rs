@@ -24,11 +24,6 @@ use crate::{
     },
 };
 
-/// The application-specific RLN identifier.
-///
-/// Prevents a RLN ZK proof generated for one application to be re-used in another one.
-pub const RLN_IDENTIFIER: &[u8] = b"zerokit/rln/010203040506070809";
-
 /// This trait allows accepting different config input types for tree configuration.
 #[cfg(not(feature = "stateless"))]
 pub trait TreeConfigInput {

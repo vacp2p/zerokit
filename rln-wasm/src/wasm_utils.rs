@@ -3,16 +3,7 @@
 use std::ops::Deref;
 
 use js_sys::Uint8Array;
-use rln::{
-    circuit::Fr,
-    hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash},
-    protocol::{extended_keygen, extended_seeded_keygen, keygen, seeded_keygen},
-    utils::{
-        bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_le_to_fr, bytes_le_to_vec_fr,
-        bytes_le_to_vec_u8, fr_to_bytes_be, fr_to_bytes_le, vec_fr_to_bytes_be, vec_fr_to_bytes_le,
-        vec_u8_to_bytes_be, vec_u8_to_bytes_le,
-    },
-};
+use rln::prelude::*;
 use wasm_bindgen::prelude::*;
 
 // WasmFr

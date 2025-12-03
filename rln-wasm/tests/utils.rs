@@ -7,11 +7,7 @@ mod test {
     use ark_std::rand::thread_rng;
     use js_sys::Uint8Array;
     use rand::Rng;
-    use rln::{
-        circuit::Fr,
-        hashers::poseidon_hash,
-        utils::{fr_to_bytes_be, fr_to_bytes_le, str_to_fr, IdSecret},
-    };
+    use rln::prelude::*;
     use rln_wasm::{ExtendedIdentity, Hasher, Identity, VecWasmFr, WasmFr};
     use wasm_bindgen_test::wasm_bindgen_test;
 

@@ -6,11 +6,8 @@ mod test {
     use ark_std::{rand::thread_rng, UniformRand};
     use rand::Rng;
     use rln::{
-        circuit::{Fr, DEFAULT_TREE_DEPTH},
         ffi::{ffi_rln::*, ffi_tree::*, ffi_utils::*},
-        hashers::{hash_to_field_le, poseidon_hash},
-        protocol::*,
-        utils::*,
+        prelude::*,
     };
     use safer_ffi::prelude::repr_c;
     use zeroize::Zeroize;
@@ -198,7 +195,6 @@ mod test {
     }
 
     #[test]
-    // This test is similar to the one in public.rs but it uses the RLN object as a pointer
     // Uses `set_leaves_from` to set leaves in a batch
     fn test_leaf_setting_with_index_ffi() {
         // We create a RLN instance
@@ -266,7 +262,6 @@ mod test {
     }
 
     #[test]
-    // This test is similar to the one in public.rs but it uses the RLN object as a pointer
     fn test_atomic_operation_ffi() {
         // We generate a vector of random leaves
         let leaves = get_random_leaves();
@@ -300,7 +295,6 @@ mod test {
     }
 
     #[test]
-    // This test is similar to the one in public.rs but it uses the RLN object as a pointer
     fn test_set_leaves_bad_index_ffi() {
         // We generate a vector of random leaves
         let leaves = get_random_leaves();

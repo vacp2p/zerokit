@@ -6,13 +6,7 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
-use rln::{
-    circuit::{Fr, DEFAULT_TREE_DEPTH},
-    hashers::{hash_to_field_le, poseidon_hash, PoseidonHash},
-    protocol::{keygen, recover_id_secret, RLNProofValues, RLNWitnessInput},
-    public::RLN,
-    utils::IdSecret,
-};
+use rln::prelude::*;
 use zerokit_utils::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
 const MESSAGE_LIMIT: u32 = 1;
@@ -147,7 +141,11 @@ impl RLNSystem {
         println!("+ Message ID: {message_id}");
         println!("+ Signal: {signal}");
 
-        let verified = self.rln.verify_rln_proof(&proof, &proof_values, &x)?;
+        let tree_root = self.tree.root();
+
+        let verified = self
+            .rln
+            .verify_with_roots(&proof, &proof_values, &x, &[tree_root])?;
         if verified {
             println!("Proof verified successfully");
         }

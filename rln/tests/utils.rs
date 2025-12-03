@@ -1,15 +1,7 @@
 #[cfg(test)]
 mod test {
     use ark_std::{rand::thread_rng, UniformRand};
-    use rln::{
-        circuit::Fr,
-        utils::{
-            bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_be_to_vec_usize,
-            bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, bytes_le_to_vec_usize,
-            fr_to_bytes_be, fr_to_bytes_le, normalize_usize_be, normalize_usize_le, str_to_fr,
-            vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le,
-        },
-    };
+    use rln::prelude::*;
 
     #[test]
     fn test_normalize_usize_le() {

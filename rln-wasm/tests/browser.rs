@@ -4,7 +4,7 @@
 #[cfg(test)]
 mod test {
     use js_sys::{BigInt as JsBigInt, Date, Object, Uint8Array};
-    use rln::{circuit::DEFAULT_TREE_DEPTH, hashers::PoseidonHash};
+    use rln::prelude::*;
     use rln_wasm::{
         Hasher, Identity, VecWasmFr, WasmFr, WasmRLN, WasmRLNProof, WasmRLNWitnessInput,
     };
