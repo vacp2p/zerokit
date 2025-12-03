@@ -152,7 +152,7 @@ cargo make test_stateless
 ## Advanced: Custom Circuit Compilation
 
 The `circom-rln` (<https://github.com/rate-limiting-nullifier/circom-rln>) repository,
-which contains the RLN circuit implementation used for [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources/tree_depth_20) RLN circuit for zerokit RLN.
+which contains the RLN circuit implementation used for pre-compiled RLN circuit for zerokit RLN.
 If you want to compile your own RLN circuit, you can follow the instructions below.
 
 ### 1. Compile ZK Circuits for getting the zkey file
