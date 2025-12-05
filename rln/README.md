@@ -36,11 +36,8 @@ The RLN object constructor requires the following files:
 
 Additionally, `rln.wasm` is used for testing in the rln-wasm module.
 
-> [!TIP]
-> For convenience, you can use `rln::prelude::*` to import all commonly used types and functions.
-
 ```rust
-use rln::prelude::*;
+use rln::prelude::{keygen, poseidon_hash, hash_to_field_le, RLN, RLNWitnessInput, Fr, IdSecret};
 
 fn main() {
     // 1. Initialize RLN with parameters:
