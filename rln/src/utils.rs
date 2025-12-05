@@ -13,20 +13,20 @@ use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use crate::{circuit::Fr, error::UtilsError};
 
+/// Byte size of a field element aligned to 64-bit boundary, computed once at compile time.
+pub const FR_BYTE_SIZE: usize = {
+    // Get the modulus bit size of the field
+    let modulus_bits: u32 = Fr::MODULUS_BIT_SIZE;
+    // Alignment boundary in bits for field element serialization
+    let alignment_bits: u32 = 64;
+    // Align to the next multiple of alignment_bits and convert to bytes
+    ((modulus_bits + alignment_bits - (modulus_bits % alignment_bits)) / 8) as usize
+};
+
 #[inline(always)]
 pub fn to_bigint(el: &Fr) -> BigInt {
     BigUint::from(*el).into()
 }
-
-/// Alignment boundary in bits for field element serialization (64-bit aligned)
-const ALIGNMENT_BITS: u32 = 64;
-
-/// Byte size of a field element aligned to 64-bit boundary, computed once at compile time.
-pub const FR_BYTE_SIZE: usize = {
-    let modulus_bits = <Fr as PrimeField>::MODULUS_BIT_SIZE;
-    // Align to the next multiple of ALIGNMENT_BITS and convert to bytes
-    ((modulus_bits + ALIGNMENT_BITS - (modulus_bits % ALIGNMENT_BITS)) / 8) as usize
-};
 
 #[inline(always)]
 pub fn str_to_fr(input: &str, radix: u32) -> Result<Fr, UtilsError> {
