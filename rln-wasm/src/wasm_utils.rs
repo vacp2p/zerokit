@@ -43,17 +43,17 @@ impl WasmFr {
     }
 
     #[wasm_bindgen(js_name = fromBytesLE)]
-    pub fn from_bytes_le(bytes: &Uint8Array) -> Self {
+    pub fn from_bytes_le(bytes: &Uint8Array) -> Result<Self, String> {
         let bytes_vec = bytes.to_vec();
-        let (fr, _) = bytes_le_to_fr(&bytes_vec);
-        Self(fr)
+        let (fr, _) = bytes_le_to_fr(&bytes_vec).map_err(|e| e.to_string())?;
+        Ok(Self(fr))
     }
 
     #[wasm_bindgen(js_name = fromBytesBE)]
-    pub fn from_bytes_be(bytes: &Uint8Array) -> Self {
+    pub fn from_bytes_be(bytes: &Uint8Array) -> Result<Self, String> {
         let bytes_vec = bytes.to_vec();
-        let (fr, _) = bytes_be_to_fr(&bytes_vec);
-        Self(fr)
+        let (fr, _) = bytes_be_to_fr(&bytes_vec).map_err(|e| e.to_string())?;
+        Ok(Self(fr))
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]

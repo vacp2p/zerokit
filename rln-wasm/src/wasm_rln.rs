@@ -141,17 +141,19 @@ impl WasmRLNProofValues {
     }
 
     #[wasm_bindgen(js_name = fromBytesLE)]
-    pub fn from_bytes_le(bytes: &Uint8Array) -> WasmRLNProofValues {
+    pub fn from_bytes_le(bytes: &Uint8Array) -> Result<WasmRLNProofValues, String> {
         let bytes_vec = bytes.to_vec();
-        let (proof_values, _) = bytes_le_to_rln_proof_values(&bytes_vec);
-        WasmRLNProofValues(proof_values)
+        let (proof_values, _) =
+            bytes_le_to_rln_proof_values(&bytes_vec).map_err(|e| e.to_string())?;
+        Ok(WasmRLNProofValues(proof_values))
     }
 
     #[wasm_bindgen(js_name = fromBytesBE)]
-    pub fn from_bytes_be(bytes: &Uint8Array) -> WasmRLNProofValues {
+    pub fn from_bytes_be(bytes: &Uint8Array) -> Result<WasmRLNProofValues, String> {
         let bytes_vec = bytes.to_vec();
-        let (proof_values, _) = bytes_be_to_rln_proof_values(&bytes_vec);
-        WasmRLNProofValues(proof_values)
+        let (proof_values, _) =
+            bytes_be_to_rln_proof_values(&bytes_vec).map_err(|e| e.to_string())?;
+        Ok(WasmRLNProofValues(proof_values))
     }
 
     #[wasm_bindgen(js_name = recoverIdSecret)]
