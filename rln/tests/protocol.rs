@@ -155,7 +155,7 @@ mod test {
         // We test Proof values serialization
         let proof_values = proof_values_from_witness(&witness).unwrap();
         let ser = rln_proof_values_to_bytes_le(&proof_values);
-        let (deser, _) = bytes_le_to_rln_proof_values(&ser);
+        let (deser, _) = bytes_le_to_rln_proof_values(&ser).unwrap();
         assert_eq!(proof_values, deser);
     }
 

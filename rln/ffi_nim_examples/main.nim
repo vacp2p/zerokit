@@ -58,6 +58,10 @@ type
     ok*: ptr CFr
     err*: Vec_uint8
 
+  CResultRLNProofValuesPtrVecU8* = object
+    ok*: ptr FFI_RLNProofValues
+    err*: Vec_uint8
+
   CResultMerkleProofPtrVecU8* = object
     ok*: ptr FFI_MerkleProof
     err*: Vec_uint8
@@ -92,9 +96,9 @@ proc ffi_cfr_to_bytes_le*(cfr: ptr CFr): Vec_uint8 {.importc: "ffi_cfr_to_bytes_
     cdecl, dynlib: RLN_LIB.}
 proc ffi_cfr_to_bytes_be*(cfr: ptr CFr): Vec_uint8 {.importc: "ffi_cfr_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_le_to_cfr*(bytes: ptr Vec_uint8): ptr CFr {.importc: "ffi_bytes_le_to_cfr",
+proc ffi_bytes_le_to_cfr*(bytes: ptr Vec_uint8): CResultCFrPtrVecU8 {.importc: "ffi_bytes_le_to_cfr",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_be_to_cfr*(bytes: ptr Vec_uint8): ptr CFr {.importc: "ffi_bytes_be_to_cfr",
+proc ffi_bytes_be_to_cfr*(bytes: ptr Vec_uint8): CResultCFrPtrVecU8 {.importc: "ffi_bytes_be_to_cfr",
     cdecl, dynlib: RLN_LIB.}
 
 # Vec<CFr> functions
@@ -307,9 +311,9 @@ proc ffi_rln_proof_values_to_bytes_le*(pv: ptr ptr FFI_RLNProofValues): Vec_uint
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_proof_values_to_bytes_be*(pv: ptr ptr FFI_RLNProofValues): Vec_uint8 {.importc: "ffi_rln_proof_values_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_le_to_rln_proof_values*(bytes: ptr Vec_uint8): ptr FFI_RLNProofValues {.importc: "ffi_bytes_le_to_rln_proof_values",
+proc ffi_bytes_le_to_rln_proof_values*(bytes: ptr Vec_uint8): CResultRLNProofValuesPtrVecU8 {.importc: "ffi_bytes_le_to_rln_proof_values",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_be_to_rln_proof_values*(bytes: ptr Vec_uint8): ptr FFI_RLNProofValues {.importc: "ffi_bytes_be_to_rln_proof_values",
+proc ffi_bytes_be_to_rln_proof_values*(bytes: ptr Vec_uint8): CResultRLNProofValuesPtrVecU8 {.importc: "ffi_bytes_be_to_rln_proof_values",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_proof_values_free*(pv: ptr FFI_RLNProofValues) {.importc: "ffi_rln_proof_values_free",
     cdecl, dynlib: RLN_LIB.}
@@ -386,7 +390,13 @@ when isMainModule:
     echo "  - serialized rate_commitment = ", asString(debug)
     ffi_c_string_free(debug)
 
-  let deserRateCommitment = ffi_bytes_be_to_cfr(addr serRateCommitment)
+  let deserRateCommitmentResult = ffi_bytes_be_to_cfr(addr serRateCommitment)
+  if deserRateCommitmentResult.ok.isNil:
+    stderr.writeLine "Rate commitment deserialization error: ", asString(
+        deserRateCommitmentResult.err)
+    ffi_c_string_free(deserRateCommitmentResult.err)
+    quit 1
+  let deserRateCommitment = deserRateCommitmentResult.ok
 
   block:
     let debug = ffi_cfr_debug(deserRateCommitment)
@@ -691,7 +701,14 @@ when isMainModule:
     echo "  - serialized proof_values = ", asString(debug)
     ffi_c_string_free(debug)
 
-  var deserProofValues = ffi_bytes_be_to_rln_proof_values(addr serProofValues)
+  let deserProofValuesResult = ffi_bytes_be_to_rln_proof_values(
+      addr serProofValues)
+  if deserProofValuesResult.ok.isNil:
+    stderr.writeLine "Proof values deserialization error: ", asString(
+        deserProofValuesResult.err)
+    ffi_c_string_free(deserProofValuesResult.err)
+    quit 1
+  var deserProofValues = deserProofValuesResult.ok
   echo "  - proof_values deserialized successfully"
 
   block:

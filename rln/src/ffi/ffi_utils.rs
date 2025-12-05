@@ -87,15 +87,31 @@ pub fn ffi_cfr_to_bytes_be(cfr: &CFr) -> repr_c::Vec<u8> {
 }
 
 #[ffi_export]
-pub fn ffi_bytes_le_to_cfr(bytes: &repr_c::Vec<u8>) -> repr_c::Box<CFr> {
-    let (cfr, _) = bytes_le_to_fr(bytes);
-    CFr(cfr).into()
+pub fn ffi_bytes_le_to_cfr(bytes: &repr_c::Vec<u8>) -> CResult<repr_c::Box<CFr>, repr_c::String> {
+    match bytes_le_to_fr(bytes) {
+        Ok((cfr, _)) => CResult {
+            ok: Some(CFr(cfr).into()),
+            err: None,
+        },
+        Err(e) => CResult {
+            ok: None,
+            err: Some(format!("{:?}", e).into()),
+        },
+    }
 }
 
 #[ffi_export]
-pub fn ffi_bytes_be_to_cfr(bytes: &repr_c::Vec<u8>) -> repr_c::Box<CFr> {
-    let (cfr, _) = bytes_be_to_fr(bytes);
-    CFr(cfr).into()
+pub fn ffi_bytes_be_to_cfr(bytes: &repr_c::Vec<u8>) -> CResult<repr_c::Box<CFr>, repr_c::String> {
+    match bytes_be_to_fr(bytes) {
+        Ok((cfr, _)) => CResult {
+            ok: Some(CFr(cfr).into()),
+            err: None,
+        },
+        Err(e) => CResult {
+            ok: None,
+            err: Some(format!("{:?}", e).into()),
+        },
+    }
 }
 
 #[ffi_export]

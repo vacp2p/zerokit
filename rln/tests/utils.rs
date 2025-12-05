@@ -187,12 +187,12 @@ mod test {
 
             // Test little-endian roundtrip
             let le_bytes = fr_to_bytes_le(&fr);
-            let (reconstructed_le, _) = bytes_le_to_fr(&le_bytes);
+            let (reconstructed_le, _) = bytes_le_to_fr(&le_bytes).unwrap();
             assert_eq!(fr, reconstructed_le);
 
             // Test big-endian roundtrip
             let be_bytes = fr_to_bytes_be(&fr);
-            let (reconstructed_be, _) = bytes_be_to_fr(&be_bytes);
+            let (reconstructed_be, _) = bytes_be_to_fr(&be_bytes).unwrap();
             assert_eq!(fr, reconstructed_be);
         }
     }
@@ -313,8 +313,8 @@ mod test {
         // They should be different (unless the value is symmetric)
         if le_bytes != be_bytes {
             // Verify they can both be reconstructed correctly
-            let (reconstructed_le, _) = bytes_le_to_fr(&le_bytes);
-            let (reconstructed_be, _) = bytes_be_to_fr(&be_bytes);
+            let (reconstructed_le, _) = bytes_le_to_fr(&le_bytes).unwrap();
+            let (reconstructed_be, _) = bytes_be_to_fr(&be_bytes).unwrap();
             assert_eq!(fr, reconstructed_le);
             assert_eq!(fr, reconstructed_be);
         }
@@ -322,7 +322,27 @@ mod test {
 
     #[test]
     fn test_error_handling() {
-        // Test with valid length but insufficient data
+        // Test bytes_le_to_fr and bytes_be_to_fr with insufficient data
+        let short_bytes = vec![0u8; 10]; // Less than FR_BYTE_SIZE (32 bytes)
+        assert!(bytes_le_to_fr(&short_bytes).is_err());
+        assert!(bytes_be_to_fr(&short_bytes).is_err());
+
+        // Test with empty bytes
+        let empty_bytes = vec![];
+        assert!(bytes_le_to_fr(&empty_bytes).is_err());
+        assert!(bytes_be_to_fr(&empty_bytes).is_err());
+
+        // Test with exact size - should succeed
+        let exact_bytes = vec![0u8; FR_BYTE_SIZE];
+        assert!(bytes_le_to_fr(&exact_bytes).is_ok());
+        assert!(bytes_be_to_fr(&exact_bytes).is_ok());
+
+        // Test with more than enough data - should succeed
+        let extra_bytes = vec![0u8; FR_BYTE_SIZE + 10];
+        assert!(bytes_le_to_fr(&extra_bytes).is_ok());
+        assert!(bytes_be_to_fr(&extra_bytes).is_ok());
+
+        // Test with valid length but insufficient data for vector deserialization
         let valid_length_invalid_data = vec![0u8; 8]; // Length 0, but no data
         assert!(bytes_le_to_vec_u8(&valid_length_invalid_data).is_ok());
         assert!(bytes_be_to_vec_u8(&valid_length_invalid_data).is_ok());

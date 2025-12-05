@@ -48,21 +48,33 @@ pub fn str_to_fr(input: &str, radix: u32) -> Result<Fr, UtilsError> {
 }
 
 #[inline(always)]
-pub fn bytes_le_to_fr(input: &[u8]) -> (Fr, usize) {
+pub fn bytes_le_to_fr(input: &[u8]) -> Result<(Fr, usize), UtilsError> {
     let el_size = FR_BYTE_SIZE;
-    (
+    if input.len() < el_size {
+        return Err(UtilsError::InsufficientData {
+            expected: el_size,
+            actual: input.len(),
+        });
+    }
+    Ok((
         Fr::from(BigUint::from_bytes_le(&input[0..el_size])),
         el_size,
-    )
+    ))
 }
 
 #[inline(always)]
-pub fn bytes_be_to_fr(input: &[u8]) -> (Fr, usize) {
+pub fn bytes_be_to_fr(input: &[u8]) -> Result<(Fr, usize), UtilsError> {
     let el_size = FR_BYTE_SIZE;
-    (
+    if input.len() < el_size {
+        return Err(UtilsError::InsufficientData {
+            expected: el_size,
+            actual: input.len(),
+        });
+    }
+    Ok((
         Fr::from(BigUint::from_bytes_be(&input[0..el_size])),
         el_size,
-    )
+    ))
 }
 
 #[inline(always)]
@@ -219,7 +231,7 @@ pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), UtilsError> 
     }
     let mut res: Vec<Fr> = Vec::with_capacity(len);
     for i in 0..len {
-        let (curr_el, _) = bytes_le_to_fr(&input[8 + el_size * i..8 + el_size * (i + 1)]);
+        let (curr_el, _) = bytes_le_to_fr(&input[8 + el_size * i..8 + el_size * (i + 1)])?;
         res.push(curr_el);
         read += el_size;
     }
@@ -246,7 +258,7 @@ pub fn bytes_be_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), UtilsError> 
     }
     let mut res: Vec<Fr> = Vec::with_capacity(len);
     for i in 0..len {
-        let (curr_el, _) = bytes_be_to_fr(&input[8 + el_size * i..8 + el_size * (i + 1)]);
+        let (curr_el, _) = bytes_be_to_fr(&input[8 + el_size * i..8 + el_size * (i + 1)])?;
         res.push(curr_el);
         read += el_size;
     }
@@ -344,22 +356,34 @@ impl IdSecret {
         res
     }
 
-    pub fn from_bytes_le(input: &[u8]) -> (Self, usize) {
+    pub fn from_bytes_le(input: &[u8]) -> Result<(Self, usize), UtilsError> {
         let el_size = FR_BYTE_SIZE;
+        if input.len() < el_size {
+            return Err(UtilsError::InsufficientData {
+                expected: el_size,
+                actual: input.len(),
+            });
+        }
         let b_uint = BigUint::from_bytes_le(&input[0..el_size]);
         let mut fr = Fr::from(b_uint);
         let res = IdSecret::from(&mut fr);
         // Note: no zeroize on b_uint as it has been moved
-        (res, el_size)
+        Ok((res, el_size))
     }
 
-    pub fn from_bytes_be(input: &[u8]) -> (Self, usize) {
+    pub fn from_bytes_be(input: &[u8]) -> Result<(Self, usize), UtilsError> {
         let el_size = FR_BYTE_SIZE;
+        if input.len() < el_size {
+            return Err(UtilsError::InsufficientData {
+                expected: el_size,
+                actual: input.len(),
+            });
+        }
         let b_uint = BigUint::from_bytes_be(&input[0..el_size]);
         let mut fr = Fr::from(b_uint);
         let res = IdSecret::from(&mut fr);
         // Note: no zeroize on b_uint as it has been moved
-        (res, el_size)
+        Ok((res, el_size))
     }
 
     pub(crate) fn to_bytes_le(&self) -> Zeroizing<Vec<u8>> {

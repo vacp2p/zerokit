@@ -60,7 +60,14 @@ int main(int argc, char const *const argv[])
     printf("  - serialized rate_commitment = %s\n", debug.ptr);
     ffi_c_string_free(debug);
 
-    CFr_t *deser_rate_commitment = ffi_bytes_le_to_cfr(&ser_rate_commitment);
+    CResult_CFr_ptr_Vec_uint8_t deser_rate_commitment_result = ffi_bytes_le_to_cfr(&ser_rate_commitment);
+    if (!deser_rate_commitment_result.ok)
+    {
+        fprintf(stderr, "Rate commitment deserialization error: %s\n", deser_rate_commitment_result.err.ptr);
+        ffi_c_string_free(deser_rate_commitment_result.err);
+        return EXIT_FAILURE;
+    }
+    CFr_t *deser_rate_commitment = deser_rate_commitment_result.ok;
 
     debug = ffi_cfr_debug(deser_rate_commitment);
     printf("  - deserialized rate_commitment = %s\n", debug.ptr);
@@ -359,7 +366,14 @@ int main(int argc, char const *const argv[])
     printf("  - serialized proof_values = %s\n", debug.ptr);
     ffi_c_string_free(debug);
 
-    FFI_RLNProofValues_t *deser_proof_values = ffi_bytes_le_to_rln_proof_values(&ser_proof_values);
+    CResult_FFI_RLNProofValues_ptr_Vec_uint8_t deser_proof_values_result = ffi_bytes_le_to_rln_proof_values(&ser_proof_values);
+    if (!deser_proof_values_result.ok)
+    {
+        fprintf(stderr, "Proof values deserialization error: %s\n", deser_proof_values_result.err.ptr);
+        ffi_c_string_free(deser_proof_values_result.err);
+        return EXIT_FAILURE;
+    }
+    FFI_RLNProofValues_t *deser_proof_values = deser_proof_values_result.ok;
     printf("  - proof_values deserialized successfully\n");
 
     CFr_t *deser_external_nullifier = ffi_rln_proof_values_get_external_nullifier(&deser_proof_values);

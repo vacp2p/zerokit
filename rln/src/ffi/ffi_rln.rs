@@ -370,17 +370,33 @@ pub fn ffi_rln_proof_values_to_bytes_be(pv: &repr_c::Box<FFI_RLNProofValues>) ->
 #[ffi_export]
 pub fn ffi_bytes_le_to_rln_proof_values(
     bytes: &repr_c::Vec<u8>,
-) -> repr_c::Box<FFI_RLNProofValues> {
-    let (pv, _) = bytes_le_to_rln_proof_values(bytes);
-    Box_::new(FFI_RLNProofValues(pv))
+) -> CResult<repr_c::Box<FFI_RLNProofValues>, repr_c::String> {
+    match bytes_le_to_rln_proof_values(bytes) {
+        Ok((pv, _)) => CResult {
+            ok: Some(Box_::new(FFI_RLNProofValues(pv))),
+            err: None,
+        },
+        Err(e) => CResult {
+            ok: None,
+            err: Some(format!("{:?}", e).into()),
+        },
+    }
 }
 
 #[ffi_export]
 pub fn ffi_bytes_be_to_rln_proof_values(
     bytes: &repr_c::Vec<u8>,
-) -> repr_c::Box<FFI_RLNProofValues> {
-    let (pv, _) = bytes_be_to_rln_proof_values(bytes);
-    Box_::new(FFI_RLNProofValues(pv))
+) -> CResult<repr_c::Box<FFI_RLNProofValues>, repr_c::String> {
+    match bytes_be_to_rln_proof_values(bytes) {
+        Ok((pv, _)) => CResult {
+            ok: Some(Box_::new(FFI_RLNProofValues(pv))),
+            err: None,
+        },
+        Err(e) => CResult {
+            ok: None,
+            err: Some(format!("{:?}", e).into()),
+        },
+    }
 }
 
 #[ffi_export]

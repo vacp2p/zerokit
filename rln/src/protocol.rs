@@ -129,13 +129,13 @@ pub fn rln_witness_to_bytes_be(witness: &RLNWitnessInput) -> Result<Vec<u8>, Pro
 pub fn bytes_le_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize), ProtocolError> {
     let mut read: usize = 0;
 
-    let (identity_secret, el_size) = IdSecret::from_bytes_le(&bytes[read..]);
+    let (identity_secret, el_size) = IdSecret::from_bytes_le(&bytes[read..])?;
     read += el_size;
 
-    let (user_message_limit, el_size) = bytes_le_to_fr(&bytes[read..]);
+    let (user_message_limit, el_size) = bytes_le_to_fr(&bytes[read..])?;
     read += el_size;
 
-    let (message_id, el_size) = bytes_le_to_fr(&bytes[read..]);
+    let (message_id, el_size) = bytes_le_to_fr(&bytes[read..])?;
     read += el_size;
 
     let (path_elements, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
@@ -144,10 +144,10 @@ pub fn bytes_le_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
     let (identity_path_index, el_size) = bytes_le_to_vec_u8(&bytes[read..])?;
     read += el_size;
 
-    let (x, el_size) = bytes_le_to_fr(&bytes[read..]);
+    let (x, el_size) = bytes_le_to_fr(&bytes[read..])?;
     read += el_size;
 
-    let (external_nullifier, el_size) = bytes_le_to_fr(&bytes[read..]);
+    let (external_nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
     read += el_size;
 
     if bytes.len() != read {
@@ -176,13 +176,13 @@ pub fn bytes_le_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
 pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize), ProtocolError> {
     let mut read: usize = 0;
 
-    let (identity_secret, el_size) = IdSecret::from_bytes_be(&bytes[read..]);
+    let (identity_secret, el_size) = IdSecret::from_bytes_be(&bytes[read..])?;
     read += el_size;
 
-    let (user_message_limit, el_size) = bytes_be_to_fr(&bytes[read..]);
+    let (user_message_limit, el_size) = bytes_be_to_fr(&bytes[read..])?;
     read += el_size;
 
-    let (message_id, el_size) = bytes_be_to_fr(&bytes[read..]);
+    let (message_id, el_size) = bytes_be_to_fr(&bytes[read..])?;
     read += el_size;
 
     let (path_elements, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
@@ -191,10 +191,10 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
     let (identity_path_index, el_size) = bytes_be_to_vec_u8(&bytes[read..])?;
     read += el_size;
 
-    let (x, el_size) = bytes_be_to_fr(&bytes[read..]);
+    let (x, el_size) = bytes_be_to_fr(&bytes[read..])?;
     read += el_size;
 
-    let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..]);
+    let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
     read += el_size;
 
     if bytes.len() != read {
@@ -336,25 +336,27 @@ pub fn rln_proof_values_to_bytes_be(rln_proof_values: &RLNProofValues) -> Vec<u8
 /// Format: `[ root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]`
 ///
 /// Returns the deserialized proof values and the number of bytes read.
-pub fn bytes_le_to_rln_proof_values(bytes: &[u8]) -> (RLNProofValues, usize) {
+pub fn bytes_le_to_rln_proof_values(
+    bytes: &[u8],
+) -> Result<(RLNProofValues, usize), ProtocolError> {
     let mut read: usize = 0;
 
-    let (root, el_size) = bytes_le_to_fr(&bytes[read..]);
+    let (root, el_size) = bytes_le_to_fr(&bytes[read..])?;
     read += el_size;
 
-    let (external_nullifier, el_size) = bytes_le_to_fr(&bytes[read..]);
+    let (external_nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
     read += el_size;
 
-    let (x, el_size) = bytes_le_to_fr(&bytes[read..]);
+    let (x, el_size) = bytes_le_to_fr(&bytes[read..])?;
     read += el_size;
 
-    let (y, el_size) = bytes_le_to_fr(&bytes[read..]);
+    let (y, el_size) = bytes_le_to_fr(&bytes[read..])?;
     read += el_size;
 
-    let (nullifier, el_size) = bytes_le_to_fr(&bytes[read..]);
+    let (nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
     read += el_size;
 
-    (
+    Ok((
         RLNProofValues {
             y,
             nullifier,
@@ -363,7 +365,7 @@ pub fn bytes_le_to_rln_proof_values(bytes: &[u8]) -> (RLNProofValues, usize) {
             external_nullifier,
         },
         read,
-    )
+    ))
 }
 
 /// Deserializes RLN proof values from big-endian bytes.
@@ -371,25 +373,27 @@ pub fn bytes_le_to_rln_proof_values(bytes: &[u8]) -> (RLNProofValues, usize) {
 /// Format: `[ root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]`
 ///
 /// Returns the deserialized proof values and the number of bytes read.
-pub fn bytes_be_to_rln_proof_values(bytes: &[u8]) -> (RLNProofValues, usize) {
+pub fn bytes_be_to_rln_proof_values(
+    bytes: &[u8],
+) -> Result<(RLNProofValues, usize), ProtocolError> {
     let mut read: usize = 0;
 
-    let (root, el_size) = bytes_be_to_fr(&bytes[read..]);
+    let (root, el_size) = bytes_be_to_fr(&bytes[read..])?;
     read += el_size;
 
-    let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..]);
+    let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
     read += el_size;
 
-    let (x, el_size) = bytes_be_to_fr(&bytes[read..]);
+    let (x, el_size) = bytes_be_to_fr(&bytes[read..])?;
     read += el_size;
 
-    let (y, el_size) = bytes_be_to_fr(&bytes[read..]);
+    let (y, el_size) = bytes_be_to_fr(&bytes[read..])?;
     read += el_size;
 
-    let (nullifier, el_size) = bytes_be_to_fr(&bytes[read..]);
+    let (nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
     read += el_size;
 
-    (
+    Ok((
         RLNProofValues {
             y,
             nullifier,
@@ -398,7 +402,7 @@ pub fn bytes_be_to_rln_proof_values(bytes: &[u8]) -> (RLNProofValues, usize) {
             external_nullifier,
         },
         read,
-    )
+    ))
 }
 
 /// Serializes RLN proof to little-endian bytes.
@@ -461,7 +465,7 @@ pub fn bytes_le_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), Protocol
     read += COMPRESS_PROOF_SIZE;
 
     // Deserialize proof values
-    let (values, el_size) = bytes_le_to_rln_proof_values(&bytes[read..]);
+    let (values, el_size) = bytes_le_to_rln_proof_values(&bytes[read..])?;
     read += el_size;
 
     Ok((
@@ -489,7 +493,7 @@ pub fn bytes_be_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), Protocol
     read += COMPRESS_PROOF_SIZE;
 
     // Deserialize proof values
-    let (values, el_size) = bytes_be_to_rln_proof_values(&bytes[read..]);
+    let (values, el_size) = bytes_be_to_rln_proof_values(&bytes[read..])?;
     read += el_size;
 
     Ok((

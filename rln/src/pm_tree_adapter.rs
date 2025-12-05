@@ -43,7 +43,7 @@ impl Hasher for PoseidonHash {
     }
 
     fn deserialize(value: pmtree::Value) -> Self::Fr {
-        let (fr, _) = bytes_le_to_fr(&value);
+        let (fr, _) = bytes_le_to_fr(&value).expect("pmtree value should be valid Fr bytes");
         fr
     }
 

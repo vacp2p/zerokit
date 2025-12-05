@@ -58,7 +58,7 @@ pub fn hash_to_field_le(signal: &[u8]) -> Fr {
     hasher.finalize(&mut hash);
 
     // We export the hash as a field element
-    let (el, _) = bytes_le_to_fr(hash.as_ref());
+    let (el, _) = bytes_le_to_fr(hash.as_ref()).expect("Keccak256 hash is always 32 bytes");
     el
 }
 
@@ -74,6 +74,6 @@ pub fn hash_to_field_be(signal: &[u8]) -> Fr {
     hash.reverse();
 
     // We export the hash as a field element
-    let (el, _) = bytes_be_to_fr(hash.as_ref());
+    let (el, _) = bytes_be_to_fr(hash.as_ref()).expect("Keccak256 hash is always 32 bytes");
     el
 }
