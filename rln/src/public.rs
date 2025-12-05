@@ -505,7 +505,7 @@ impl RLN {
     /// ```
     #[cfg(not(feature = "stateless"))]
     pub fn get_merkle_proof(&self, index: usize) -> Result<(Vec<Fr>, Vec<u8>), RLNError> {
-        let merkle_proof = self.tree.proof(index).expect("proof should exist");
+        let merkle_proof = self.tree.proof(index)?;
         let path_elements = merkle_proof.get_path_elements();
         let identity_path_index = merkle_proof.get_path_index();
 

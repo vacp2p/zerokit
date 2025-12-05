@@ -299,11 +299,10 @@ impl ZerokitMerkleTree for PmTree {
         } else if n == self.depth() {
             self.get(index)
         } else {
-            let node = self
-                .tree
-                .get_elem(Key::new(n, index >> (self.depth() - n)))
-                .unwrap();
-            Ok(node)
+            match self.tree.get_elem(Key::new(n, index >> (self.depth() - n))) {
+                Ok(value) => Ok(value),
+                Err(_) => Err(ZerokitMerkleTreeError::InvalidSubTreeIndex),
+            }
         }
     }
 
