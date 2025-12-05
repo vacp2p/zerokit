@@ -8,6 +8,9 @@ use {safer_ffi::prelude::char_p, std::fs::File, std::io::Read};
 use super::ffi_utils::{CBoolResult, CFr, CResult};
 use crate::prelude::*;
 
+#[cfg(not(feature = "stateless"))]
+const MAX_CONFIG_SIZE: u64 = 1024 * 1024; // 1MB
+
 // FFI_RLN
 
 #[derive_ReprC]
@@ -24,6 +27,17 @@ pub fn ffi_rln_new(
 ) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
     let config_str = File::open(config_path.to_str())
         .and_then(|mut file| {
+            let metadata = file.metadata()?;
+            if metadata.len() > MAX_CONFIG_SIZE {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!(
+                        "Config file too large: {} bytes (max {} bytes)",
+                        metadata.len(),
+                        MAX_CONFIG_SIZE
+                    ),
+                ));
+            }
             let mut s = String::new();
             file.read_to_string(&mut s)?;
             Ok(s)
@@ -67,6 +81,17 @@ pub fn ffi_rln_new_with_params(
 ) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
     let config_str = File::open(config_path.to_str())
         .and_then(|mut file| {
+            let metadata = file.metadata()?;
+            if metadata.len() > MAX_CONFIG_SIZE {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!(
+                        "Config file too large: {} bytes (max {} bytes)",
+                        metadata.len(),
+                        MAX_CONFIG_SIZE
+                    ),
+                ));
+            }
             let mut s = String::new();
             file.read_to_string(&mut s)?;
             Ok(s)
