@@ -18,11 +18,15 @@ pub fn to_bigint(el: &Fr) -> BigInt {
     BigUint::from(*el).into()
 }
 
-#[inline(always)]
-pub const fn fr_byte_size() -> usize {
-    let mbs = <Fr as PrimeField>::MODULUS_BIT_SIZE;
-    ((mbs + 64 - (mbs % 64)) / 8) as usize
-}
+/// Alignment boundary in bits for field element serialization (64-bit aligned)
+const ALIGNMENT_BITS: u32 = 64;
+
+/// Byte size of a field element aligned to 64-bit boundary, computed once at compile time.
+pub const FR_BYTE_SIZE: usize = {
+    let modulus_bits = <Fr as PrimeField>::MODULUS_BIT_SIZE;
+    // Align to the next multiple of ALIGNMENT_BITS and convert to bytes
+    ((modulus_bits + ALIGNMENT_BITS - (modulus_bits % ALIGNMENT_BITS)) / 8) as usize
+};
 
 #[inline(always)]
 pub fn str_to_fr(input: &str, radix: u32) -> Result<Fr, UtilsError> {
@@ -45,7 +49,7 @@ pub fn str_to_fr(input: &str, radix: u32) -> Result<Fr, UtilsError> {
 
 #[inline(always)]
 pub fn bytes_le_to_fr(input: &[u8]) -> (Fr, usize) {
-    let el_size = fr_byte_size();
+    let el_size = FR_BYTE_SIZE;
     (
         Fr::from(BigUint::from_bytes_le(&input[0..el_size])),
         el_size,
@@ -54,7 +58,7 @@ pub fn bytes_le_to_fr(input: &[u8]) -> (Fr, usize) {
 
 #[inline(always)]
 pub fn bytes_be_to_fr(input: &[u8]) -> (Fr, usize) {
-    let el_size = fr_byte_size();
+    let el_size = FR_BYTE_SIZE;
     (
         Fr::from(BigUint::from_bytes_be(&input[0..el_size])),
         el_size,
@@ -66,7 +70,7 @@ pub fn fr_to_bytes_le(input: &Fr) -> Vec<u8> {
     let input_biguint: BigUint = (*input).into();
     let mut res = input_biguint.to_bytes_le();
     //BigUint conversion ignores most significant zero bytes. We restore them otherwise serialization will fail (length % 8 != 0)
-    res.resize(fr_byte_size(), 0);
+    res.resize(FR_BYTE_SIZE, 0);
     res
 }
 
@@ -75,7 +79,7 @@ pub fn fr_to_bytes_be(input: &Fr) -> Vec<u8> {
     let input_biguint: BigUint = (*input).into();
     let mut res = input_biguint.to_bytes_be();
     // For BE, insert 0 at the start of the Vec (see also fr_to_bytes_le comments)
-    let to_insert_count = fr_byte_size().saturating_sub(res.len());
+    let to_insert_count = FR_BYTE_SIZE.saturating_sub(res.len());
     if to_insert_count > 0 {
         // Insert multi 0 at index 0
         res.splice(0..0, std::iter::repeat_n(0, to_insert_count));
@@ -87,8 +91,8 @@ pub fn fr_to_bytes_be(input: &Fr) -> Vec<u8> {
 pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Vec<u8> {
     // Calculate capacity for Vec:
     // - 8 bytes for normalized vector length (usize)
-    // - each Fr element requires fr_byte_size() bytes (typically 32 bytes)
-    let mut bytes = Vec::with_capacity(8 + input.len() * fr_byte_size());
+    // - each Fr element requires FR_BYTE_SIZE bytes (typically 32 bytes)
+    let mut bytes = Vec::with_capacity(8 + input.len() * FR_BYTE_SIZE);
 
     // We store the vector length
     bytes.extend_from_slice(&normalize_usize_le(input.len()));
@@ -105,8 +109,8 @@ pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Vec<u8> {
 pub fn vec_fr_to_bytes_be(input: &[Fr]) -> Vec<u8> {
     // Calculate capacity for Vec:
     // - 8 bytes for normalized vector length (usize)
-    // - each Fr element requires fr_byte_size() bytes (typically 32 bytes)
-    let mut bytes = Vec::with_capacity(8 + input.len() * fr_byte_size());
+    // - each Fr element requires FR_BYTE_SIZE bytes (typically 32 bytes)
+    let mut bytes = Vec::with_capacity(8 + input.len() * FR_BYTE_SIZE);
 
     // We store the vector length
     bytes.extend_from_slice(&normalize_usize_be(input.len()));
@@ -206,7 +210,7 @@ pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), UtilsError> 
     }
     let len = usize::try_from(u64::from_le_bytes(input[0..8].try_into()?))?;
     read += 8;
-    let el_size = fr_byte_size();
+    let el_size = FR_BYTE_SIZE;
     if input.len() < 8 + len * el_size {
         return Err(UtilsError::InsufficientData {
             expected: 8 + len * el_size,
@@ -233,7 +237,7 @@ pub fn bytes_be_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), UtilsError> 
     }
     let len = usize::try_from(u64::from_be_bytes(input[0..8].try_into()?))?;
     read += 8;
-    let el_size = fr_byte_size();
+    let el_size = FR_BYTE_SIZE;
     if input.len() < 8 + len * el_size {
         return Err(UtilsError::InsufficientData {
             expected: 8 + len * el_size,
@@ -341,7 +345,7 @@ impl IdSecret {
     }
 
     pub fn from_bytes_le(input: &[u8]) -> (Self, usize) {
-        let el_size = fr_byte_size();
+        let el_size = FR_BYTE_SIZE;
         let b_uint = BigUint::from_bytes_le(&input[0..el_size]);
         let mut fr = Fr::from(b_uint);
         let res = IdSecret::from(&mut fr);
@@ -350,7 +354,7 @@ impl IdSecret {
     }
 
     pub fn from_bytes_be(input: &[u8]) -> (Self, usize) {
-        let el_size = fr_byte_size();
+        let el_size = FR_BYTE_SIZE;
         let b_uint = BigUint::from_bytes_be(&input[0..el_size]);
         let mut fr = Fr::from(b_uint);
         let res = IdSecret::from(&mut fr);
@@ -361,14 +365,14 @@ impl IdSecret {
     pub(crate) fn to_bytes_le(&self) -> Zeroizing<Vec<u8>> {
         let input_biguint: BigUint = self.0.into();
         let mut res = input_biguint.to_bytes_le();
-        res.resize(fr_byte_size(), 0);
+        res.resize(FR_BYTE_SIZE, 0);
         Zeroizing::new(res)
     }
 
     pub(crate) fn to_bytes_be(&self) -> Zeroizing<Vec<u8>> {
         let input_biguint: BigUint = self.0.into();
         let mut res = input_biguint.to_bytes_be();
-        let to_insert_count = fr_byte_size().saturating_sub(res.len());
+        let to_insert_count = FR_BYTE_SIZE.saturating_sub(res.len());
         if to_insert_count > 0 {
             // Insert multi 0 at index 0
             res.splice(0..0, std::iter::repeat_n(0, to_insert_count));

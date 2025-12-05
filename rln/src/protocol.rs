@@ -20,9 +20,9 @@ use crate::{
     hashers::poseidon_hash,
     utils::{
         bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_le_to_fr, bytes_le_to_vec_fr,
-        bytes_le_to_vec_u8, fr_byte_size, fr_to_bytes_be, fr_to_bytes_le, to_bigint,
-        vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, FrOrSecret,
-        IdSecret,
+        bytes_le_to_vec_u8, fr_to_bytes_be, fr_to_bytes_le, to_bigint, vec_fr_to_bytes_be,
+        vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, FrOrSecret, IdSecret,
+        FR_BYTE_SIZE,
     },
 };
 
@@ -88,7 +88,7 @@ pub fn rln_witness_to_bytes_le(witness: &RLNWitnessInput) -> Result<Vec<u8>, Pro
     // - variable number of path elements
     // - identity_path_index (variable size)
     let mut bytes: Vec<u8> = Vec::with_capacity(
-        fr_byte_size() * (5 + witness.path_elements.len()) + witness.identity_path_index.len(),
+        FR_BYTE_SIZE * (5 + witness.path_elements.len()) + witness.identity_path_index.len(),
     );
     bytes.extend_from_slice(&witness.identity_secret.to_bytes_le());
     bytes.extend_from_slice(&fr_to_bytes_le(&witness.user_message_limit));
@@ -108,7 +108,7 @@ pub fn rln_witness_to_bytes_be(witness: &RLNWitnessInput) -> Result<Vec<u8>, Pro
     // - variable number of path elements
     // - identity_path_index (variable size)
     let mut bytes: Vec<u8> = Vec::with_capacity(
-        fr_byte_size() * (5 + witness.path_elements.len()) + witness.identity_path_index.len(),
+        FR_BYTE_SIZE * (5 + witness.path_elements.len()) + witness.identity_path_index.len(),
     );
     bytes.extend_from_slice(&witness.identity_secret.to_bytes_be());
     bytes.extend_from_slice(&fr_to_bytes_be(&witness.user_message_limit));
@@ -305,7 +305,7 @@ pub fn proof_values_from_witness(
 pub fn rln_proof_values_to_bytes_le(rln_proof_values: &RLNProofValues) -> Vec<u8> {
     // Calculate capacity for Vec:
     // 5 field elements: root, external_nullifier, x, y, nullifier
-    let mut bytes = Vec::with_capacity(fr_byte_size() * 5);
+    let mut bytes = Vec::with_capacity(FR_BYTE_SIZE * 5);
 
     bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.root));
     bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.external_nullifier));
@@ -320,7 +320,7 @@ pub fn rln_proof_values_to_bytes_le(rln_proof_values: &RLNProofValues) -> Vec<u8
 pub fn rln_proof_values_to_bytes_be(rln_proof_values: &RLNProofValues) -> Vec<u8> {
     // Calculate capacity for Vec:
     // 5 field elements: root, external_nullifier, x, y, nullifier
-    let mut bytes = Vec::with_capacity(fr_byte_size() * 5);
+    let mut bytes = Vec::with_capacity(FR_BYTE_SIZE * 5);
 
     bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.root));
     bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.external_nullifier));
@@ -409,7 +409,7 @@ pub fn rln_proof_to_bytes_le(rln_proof: &RLNProof) -> Vec<u8> {
     // Calculate capacity for Vec:
     // - 128 bytes for compressed Groth16 proof
     // - 5 field elements for proof values (root, external_nullifier, x, y, nullifier)
-    let mut bytes = Vec::with_capacity(COMPRESS_PROOF_SIZE + fr_byte_size() * 5);
+    let mut bytes = Vec::with_capacity(COMPRESS_PROOF_SIZE + FR_BYTE_SIZE * 5);
 
     // Serialize proof (always LE format from arkworks)
     rln_proof
@@ -432,7 +432,7 @@ pub fn rln_proof_to_bytes_be(rln_proof: &RLNProof) -> Vec<u8> {
     // Calculate capacity for Vec:
     // - 128 bytes for compressed Groth16 proof
     // - 5 field elements for proof values (root, external_nullifier, x, y, nullifier)
-    let mut bytes = Vec::with_capacity(COMPRESS_PROOF_SIZE + fr_byte_size() * 5);
+    let mut bytes = Vec::with_capacity(COMPRESS_PROOF_SIZE + FR_BYTE_SIZE * 5);
 
     // Serialize proof (always LE format from arkworks)
     rln_proof
