@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Convert zkey to arkzkey using /tmp directory
-# Usage: ./convert.sh <path_to_zkey_file>
+# Usage: ./convert_zkey.sh <path_to_zkey_file>
 
 set -e
 
@@ -51,3 +51,6 @@ if [ ! -f "$ARKZKEY_FILE" ]; then
     echo "Could not find generated .arkzkey file at $ARKZKEY_FILE"
     exit 1
 fi
+
+echo "Conversion successful!"
+echo "Output file: $ARKZKEY_FILE"

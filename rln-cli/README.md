@@ -1,35 +1,10 @@
 # Zerokit RLN-CLI
 
-The Zerokit RLN-CLI provides a command-line interface for interacting with the public API of the [Zerokit RLN Module](../rln/README.md).
-
-It also contain:
-
-+ [Relay Example](#relay-example) to demonstrate the use of the RLN module for spam prevention.
-+ [Stateless Example](#stateless-example) to demonstrate the use of the RLN module for stateless features.
-
-## Configuration
-
-The CLI can be configured using a JSON configuration file (see the [example](../rln/resources/tree_depth_20/config.json)).
-
-You can specify the configuration file path using the `RLN_CONFIG_PATH` environment variable:
-
-```bash
-export RLN_CONFIG_PATH=../rln/resources/tree_depth_20/config.json
-```
-
-Alternatively, you can provide the configuration file path as an argument for each command:
-
-```bash
-RLN_CONFIG_PATH=../rln/resources/tree_depth_20/config.json cargo run -- <SUBCOMMAND> [OPTIONS]
-```
-
-If the configuration file is empty, default settings will be used, but the tree data folder will be temporary and not saved to the preconfigured path.
-
-We recommend using the default config, as all commands (except `new` and `create-with-params`) require an initialized RLN instance.
+The Zerokit RLN-CLI provides a command-line interface examples on how to use public API of the [Zerokit RLN Module](../rln/README.md).
 
 ## Relay Example
 
-The following [Example](src/examples/relay.rs) demonstrates how RLN enables spam prevention in anonymous environments for multple users.
+The following [Relay Example](src/examples/relay.rs) demonstrates how RLN enables spam prevention in anonymous environments for multple users.
 
 You can run the example using the following command:
 
@@ -43,7 +18,7 @@ The customize **TREE_DEPTH** constant differs from the default value of `20` sho
 
 ## Stateless Example
 
-The following [Example](src/examples/stateless.rs) demonstrates how RLN can be used for stateless features by creating the Merkle tree outside of RLN instance.
+The following [Stateless Example](src/examples/stateless.rs) demonstrates how RLN can be used for stateless features by creating the Merkle tree outside of RLN instance.
 
 This example function similarly to the [Relay Example](#relay-example) but uses a stateless RLN and seperate Merkle tree.
 
@@ -51,98 +26,4 @@ You can run the example using the following command:
 
 ```bash
 cargo run --example stateless --no-default-features --features stateless
-```
-
-## CLI Commands
-
-### Instance Management
-
-To initialize a new RLN instance:
-
-```bash
-cargo run new --tree-depth <DEPTH>
-```
-
-To initialize an RLN instance with custom parameters:
-
-```bash
-cargo run new-with-params --resources-path <PATH> --tree-depth <DEPTH>
-```
-
-To update the Merkle tree depth:
-
-```bash
-cargo run set-tree --tree-depth <DEPTH>
-```
-
-### Leaf Operations
-
-To set a single leaf:
-
-```bash
-cargo run set-leaf --index <INDEX> --input <INPUT_PATH>
-```
-
-To set multiple leaves:
-
-```bash
-cargo run set-multiple-leaves --index <START_INDEX> --input <INPUT_PATH>
-```
-
-To reset multiple leaves:
-
-```bash
-cargo run reset-multiple-leaves --input <INPUT_PATH>
-```
-
-To set the next available leaf:
-
-```bash
-cargo run set-next-leaf --input <INPUT_PATH>
-```
-
-To delete a specific leaf:
-
-```bash
-cargo run delete-leaf --index <INDEX>
-```
-
-### Proof Operations
-
-To generate a proof:
-
-```bash
-cargo run prove --input <INPUT_PATH>
-```
-
-To generate an RLN proof:
-
-```bash
-cargo run generate-proof --input <INPUT_PATH>
-```
-
-To verify a proof:
-
-```bash
-cargo run verify --input <PROOF_PATH>
-```
-
-To verify a proof with multiple Merkle roots:
-
-```bash
-cargo run verify-with-roots --input <INPUT_PATH> --roots <ROOTS_PATH>
-```
-
-### Tree Information
-
-To retrieve the current Merkle root:
-
-```bash
-cargo run get-root
-```
-
-To obtain a Merkle proof for a specific index:
-
-```bash
-cargo run get-proof --index <INDEX>
 ```

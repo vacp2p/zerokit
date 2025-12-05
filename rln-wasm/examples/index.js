@@ -5,6 +5,12 @@ import { dirname, join } from "path";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+function debugUint8Array(uint8Array) {
+  return Array.from(uint8Array, (byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join(", ");
+}
+
 async function calculateWitness(circomPath, inputs, witnessCalculatorFile) {
   const wasmFile = readFileSync(circomPath);
   const wasmFileBuffer = wasmFile.slice(
@@ -67,7 +73,11 @@ async function main() {
 
   console.log("\nWasmFr serialization: WasmFr <-> bytes");
   const serRateCommitment = rateCommitment.toBytesLE();
-  console.log("  - serialized rate_commitment =", serRateCommitment);
+  console.log(
+    "  - serialized rate_commitment = [" +
+      debugUint8Array(serRateCommitment) +
+      "]"
+  );
 
   const deserRateCommitment = rlnWasm.WasmFr.fromBytesLE(serRateCommitment);
   console.log(
@@ -96,14 +106,18 @@ async function main() {
 
   console.log("\nVecWasmFr serialization: VecWasmFr <-> bytes");
   const serPathElements = pathElements.toBytesLE();
-  console.log("  - serialized path_elements = ", serPathElements);
+  console.log(
+    "  - serialized path_elements = [" + debugUint8Array(serPathElements) + "]"
+  );
 
   const deserPathElements = rlnWasm.VecWasmFr.fromBytesLE(serPathElements);
   console.log("  - deserialized path_elements = ", deserPathElements.debug());
 
   console.log("\nUint8Array serialization: Uint8Array <-> bytes");
   const serPathIndex = rlnWasm.Uint8ArrayUtils.toBytesLE(identityPathIndex);
-  console.log("  - serialized path_index =", serPathIndex);
+  console.log(
+    "  - serialized path_index = [" + debugUint8Array(serPathIndex) + "]"
+  );
 
   const deserPathIndex = rlnWasm.Uint8ArrayUtils.fromBytesLE(serPathIndex);
   console.log("  - deserialized path_index =", deserPathIndex);
@@ -156,7 +170,7 @@ async function main() {
   const messageId = rlnWasm.WasmFr.fromUint(0);
   console.log("  - message_id = " + messageId.debug());
 
-  console.log("\nGenerating RLN Proof");
+  console.log("\nCreating RLN Witness");
   const witness = new rlnWasm.WasmRLNWitnessInput(
     identitySecret,
     userMessageLimit,
@@ -166,22 +180,59 @@ async function main() {
     x,
     externalNullifier
   );
+  console.log("RLN Witness created successfully");
+
+  console.log("\nCalculating witness");
   const witnessJson = witness.toBigIntJson();
   const calculatedWitness = await calculateWitness(
     circomPath,
     witnessJson,
     witnessCalculatorFile
   );
-  const proof = rlnInstance.generateProofWithWitness(
+  console.log("Witness calculated successfully");
+
+  console.log("\nGenerating RLN Proof");
+  const rln_proof = rlnInstance.generateRLNProofWithWitness(
     calculatedWitness,
     witness
   );
   console.log("Proof generated successfully");
 
+  console.log("\nGetting proof values");
+  const proofValues = rln_proof.getValues();
+  console.log("  - y = " + proofValues.y.debug());
+  console.log("  - nullifier = " + proofValues.nullifier.debug());
+  console.log("  - root = " + proofValues.root.debug());
+  console.log("  - x = " + proofValues.x.debug());
+  console.log(
+    "  - external_nullifier = " + proofValues.externalNullifier.debug()
+  );
+
+  console.log("\nRLNProof serialization: RLNProof <-> bytes");
+  const serProof = rln_proof.toBytesLE();
+  console.log("  - serialized proof = [" + debugUint8Array(serProof) + " ]");
+
+  const deserProof = rlnWasm.WasmRLNProof.fromBytesLE(serProof);
+  console.log("  - proof deserialized successfully");
+
+  console.log("\nRLNProofValues serialization: RLNProofValues <-> bytes");
+  const serProofValues = proofValues.toBytesLE();
+  console.log(
+    "  - serialized proof_values = [" + debugUint8Array(serProofValues) + " ]"
+  );
+
+  const deserProofValues2 =
+    rlnWasm.WasmRLNProofValues.fromBytesLE(serProofValues);
+  console.log("  - proof_values deserialized successfully");
+  console.log(
+    "  - deserialized external_nullifier = " +
+      deserProofValues2.externalNullifier.debug()
+  );
+
   console.log("\nVerifying Proof");
   const roots = new rlnWasm.VecWasmFr();
   roots.push(computedRoot);
-  const isValid = rlnInstance.verifyWithRoots(proof, roots, x);
+  const isValid = rlnInstance.verifyWithRoots(rln_proof, roots, x);
   if (isValid) {
     console.log("Proof verified successfully");
   } else {
@@ -205,7 +256,7 @@ async function main() {
   const messageId2 = rlnWasm.WasmFr.fromUint(0);
   console.log("  - message_id2 = " + messageId2.debug());
 
-  console.log("\nGenerating second RLN Proof");
+  console.log("\nCreating second RLN Witness");
   const witness2 = new rlnWasm.WasmRLNWitnessInput(
     identitySecret,
     userMessageLimit,
@@ -215,25 +266,36 @@ async function main() {
     x2,
     externalNullifier
   );
+  console.log("Second RLN Witness created successfully");
+
+  console.log("\nCalculating second witness");
   const witnessJson2 = witness2.toBigIntJson();
   const calculatedWitness2 = await calculateWitness(
     circomPath,
     witnessJson2,
     witnessCalculatorFile
   );
-  const proof2 = rlnInstance.generateProofWithWitness(
+  console.log("Second witness calculated successfully");
+
+  console.log("\nGenerating second RLN Proof");
+  const rln_proof2 = rlnInstance.generateRLNProofWithWitness(
     calculatedWitness2,
     witness2
   );
   console.log("Second proof generated successfully");
 
   console.log("\nVerifying second proof");
-  const isValid2 = rlnInstance.verifyWithRoots(proof2, roots, x2);
+  const isValid2 = rlnInstance.verifyWithRoots(rln_proof2, roots, x2);
   if (isValid2) {
     console.log("Second proof verified successfully");
 
     console.log("\nRecovering identity secret");
-    const recoveredSecret = rlnWasm.WasmRLNProof.recoverIdSecret(proof, proof2);
+    const proofValues1 = rln_proof.getValues();
+    const proofValues2 = rln_proof2.getValues();
+    const recoveredSecret = rlnWasm.WasmRLNProofValues.recoverIdSecret(
+      proofValues1,
+      proofValues2
+    );
     console.log("  - recovered_secret = " + recoveredSecret.debug());
     console.log("  - original_secret  = " + identitySecret.debug());
     console.log("Slashing successful: Identity is recovered!");

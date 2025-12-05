@@ -5,7 +5,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 The Zerokit RLN WASM Module provides WebAssembly bindings for working with
-Rate-Limiting Nullifier [RLN](https://rfc.vac.dev/spec/32/) zkSNARK proofs and primitives.
+Rate-Limiting Nullifier [RLN](https://rfc.vac.dev/vac/raw/rln-v2) zkSNARK proofs and primitives.
 This module is used by [waku-org/js-rln](https://github.com/waku-org/js-rln/) to enable
 RLN functionality in JavaScript/TypeScript applications.
 
@@ -116,7 +116,7 @@ enabling multi-threaded execution in the browser.
 #### Install `nightly` Rust
 
 ```bash
-rustup install nightly-2025-09-24
+rustup install nightly
 ```
 
 ### Build Commands

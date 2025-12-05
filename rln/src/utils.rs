@@ -1,7 +1,7 @@
 // This crate provides cross-module useful utilities (mainly type conversions) not necessarily specific to RLN
 
-use crate::circuit::Fr;
-use crate::error::ConversionError;
+use std::ops::Deref;
+
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
@@ -9,10 +9,19 @@ use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use rand::Rng;
 use ruint::aliases::U256;
-use serde_json::json;
-use std::io::Cursor;
-use std::ops::Deref;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
+
+use crate::{circuit::Fr, error::UtilsError};
+
+/// Byte size of a field element aligned to 64-bit boundary, computed once at compile time.
+pub const FR_BYTE_SIZE: usize = {
+    // Get the modulus bit size of the field
+    let modulus_bits: u32 = Fr::MODULUS_BIT_SIZE;
+    // Alignment boundary in bits for field element serialization
+    let alignment_bits: u32 = 64;
+    // Align to the next multiple of alignment_bits and convert to bytes
+    ((modulus_bits + alignment_bits - (modulus_bits % alignment_bits)) / 8) as usize
+};
 
 #[inline(always)]
 pub fn to_bigint(el: &Fr) -> BigInt {
@@ -20,15 +29,9 @@ pub fn to_bigint(el: &Fr) -> BigInt {
 }
 
 #[inline(always)]
-pub const fn fr_byte_size() -> usize {
-    let mbs = <Fr as PrimeField>::MODULUS_BIT_SIZE;
-    ((mbs + 64 - (mbs % 64)) / 8) as usize
-}
-
-#[inline(always)]
-pub fn str_to_fr(input: &str, radix: u32) -> Result<Fr, ConversionError> {
+pub fn str_to_fr(input: &str, radix: u32) -> Result<Fr, UtilsError> {
     if !(radix == 10 || radix == 16) {
-        return Err(ConversionError::WrongRadix);
+        return Err(UtilsError::WrongRadix);
     }
 
     // We remove any quote present and we trim
@@ -45,21 +48,33 @@ pub fn str_to_fr(input: &str, radix: u32) -> Result<Fr, ConversionError> {
 }
 
 #[inline(always)]
-pub fn bytes_le_to_fr(input: &[u8]) -> (Fr, usize) {
-    let el_size = fr_byte_size();
-    (
+pub fn bytes_le_to_fr(input: &[u8]) -> Result<(Fr, usize), UtilsError> {
+    let el_size = FR_BYTE_SIZE;
+    if input.len() < el_size {
+        return Err(UtilsError::InsufficientData {
+            expected: el_size,
+            actual: input.len(),
+        });
+    }
+    Ok((
         Fr::from(BigUint::from_bytes_le(&input[0..el_size])),
         el_size,
-    )
+    ))
 }
 
 #[inline(always)]
-pub fn bytes_be_to_fr(input: &[u8]) -> (Fr, usize) {
-    let el_size = fr_byte_size();
-    (
+pub fn bytes_be_to_fr(input: &[u8]) -> Result<(Fr, usize), UtilsError> {
+    let el_size = FR_BYTE_SIZE;
+    if input.len() < el_size {
+        return Err(UtilsError::InsufficientData {
+            expected: el_size,
+            actual: input.len(),
+        });
+    }
+    Ok((
         Fr::from(BigUint::from_bytes_be(&input[0..el_size])),
         el_size,
-    )
+    ))
 }
 
 #[inline(always)]
@@ -67,7 +82,7 @@ pub fn fr_to_bytes_le(input: &Fr) -> Vec<u8> {
     let input_biguint: BigUint = (*input).into();
     let mut res = input_biguint.to_bytes_le();
     //BigUint conversion ignores most significant zero bytes. We restore them otherwise serialization will fail (length % 8 != 0)
-    res.resize(fr_byte_size(), 0);
+    res.resize(FR_BYTE_SIZE, 0);
     res
 }
 
@@ -76,7 +91,7 @@ pub fn fr_to_bytes_be(input: &Fr) -> Vec<u8> {
     let input_biguint: BigUint = (*input).into();
     let mut res = input_biguint.to_bytes_be();
     // For BE, insert 0 at the start of the Vec (see also fr_to_bytes_le comments)
-    let to_insert_count = fr_byte_size().saturating_sub(res.len());
+    let to_insert_count = FR_BYTE_SIZE.saturating_sub(res.len());
     if to_insert_count > 0 {
         // Insert multi 0 at index 0
         res.splice(0..0, std::iter::repeat_n(0, to_insert_count));
@@ -88,8 +103,8 @@ pub fn fr_to_bytes_be(input: &Fr) -> Vec<u8> {
 pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Vec<u8> {
     // Calculate capacity for Vec:
     // - 8 bytes for normalized vector length (usize)
-    // - each Fr element requires fr_byte_size() bytes (typically 32 bytes)
-    let mut bytes = Vec::with_capacity(8 + input.len() * fr_byte_size());
+    // - each Fr element requires FR_BYTE_SIZE bytes (typically 32 bytes)
+    let mut bytes = Vec::with_capacity(8 + input.len() * FR_BYTE_SIZE);
 
     // We store the vector length
     bytes.extend_from_slice(&normalize_usize_le(input.len()));
@@ -106,8 +121,8 @@ pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Vec<u8> {
 pub fn vec_fr_to_bytes_be(input: &[Fr]) -> Vec<u8> {
     // Calculate capacity for Vec:
     // - 8 bytes for normalized vector length (usize)
-    // - each Fr element requires fr_byte_size() bytes (typically 32 bytes)
-    let mut bytes = Vec::with_capacity(8 + input.len() * fr_byte_size());
+    // - each Fr element requires FR_BYTE_SIZE bytes (typically 32 bytes)
+    let mut bytes = Vec::with_capacity(8 + input.len() * FR_BYTE_SIZE);
 
     // We store the vector length
     bytes.extend_from_slice(&normalize_usize_be(input.len()));
@@ -153,10 +168,10 @@ pub fn vec_u8_to_bytes_be(input: &[u8]) -> Vec<u8> {
 }
 
 #[inline(always)]
-pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), ConversionError> {
+pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), UtilsError> {
     let mut read: usize = 0;
     if input.len() < 8 {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8,
             actual: input.len(),
         });
@@ -164,7 +179,7 @@ pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), ConversionEr
     let len = usize::try_from(u64::from_le_bytes(input[0..8].try_into()?))?;
     read += 8;
     if input.len() < 8 + len {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8 + len,
             actual: input.len(),
         });
@@ -175,10 +190,10 @@ pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), ConversionEr
 }
 
 #[inline(always)]
-pub fn bytes_be_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), ConversionError> {
+pub fn bytes_be_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), UtilsError> {
     let mut read: usize = 0;
     if input.len() < 8 {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8,
             actual: input.len(),
         });
@@ -186,7 +201,7 @@ pub fn bytes_be_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), ConversionEr
     let len = usize::try_from(u64::from_be_bytes(input[0..8].try_into()?))?;
     read += 8;
     if input.len() < 8 + len {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8 + len,
             actual: input.len(),
         });
@@ -197,26 +212,26 @@ pub fn bytes_be_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), ConversionEr
 }
 
 #[inline(always)]
-pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), ConversionError> {
+pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), UtilsError> {
     let mut read: usize = 0;
     if input.len() < 8 {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8,
             actual: input.len(),
         });
     }
     let len = usize::try_from(u64::from_le_bytes(input[0..8].try_into()?))?;
     read += 8;
-    let el_size = fr_byte_size();
+    let el_size = FR_BYTE_SIZE;
     if input.len() < 8 + len * el_size {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8 + len * el_size,
             actual: input.len(),
         });
     }
     let mut res: Vec<Fr> = Vec::with_capacity(len);
     for i in 0..len {
-        let (curr_el, _) = bytes_le_to_fr(&input[8 + el_size * i..8 + el_size * (i + 1)]);
+        let (curr_el, _) = bytes_le_to_fr(&input[8 + el_size * i..8 + el_size * (i + 1)])?;
         res.push(curr_el);
         read += el_size;
     }
@@ -224,26 +239,26 @@ pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), ConversionEr
 }
 
 #[inline(always)]
-pub fn bytes_be_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), ConversionError> {
+pub fn bytes_be_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), UtilsError> {
     let mut read: usize = 0;
     if input.len() < 8 {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8,
             actual: input.len(),
         });
     }
     let len = usize::try_from(u64::from_be_bytes(input[0..8].try_into()?))?;
     read += 8;
-    let el_size = fr_byte_size();
+    let el_size = FR_BYTE_SIZE;
     if input.len() < 8 + len * el_size {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8 + len * el_size,
             actual: input.len(),
         });
     }
     let mut res: Vec<Fr> = Vec::with_capacity(len);
     for i in 0..len {
-        let (curr_el, _) = bytes_be_to_fr(&input[8 + el_size * i..8 + el_size * (i + 1)]);
+        let (curr_el, _) = bytes_be_to_fr(&input[8 + el_size * i..8 + el_size * (i + 1)])?;
         res.push(curr_el);
         read += el_size;
     }
@@ -251,9 +266,9 @@ pub fn bytes_be_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), ConversionEr
 }
 
 #[inline(always)]
-pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, ConversionError> {
+pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, UtilsError> {
     if input.len() < 8 {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8,
             actual: input.len(),
         });
@@ -263,7 +278,7 @@ pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, ConversionError
         Ok(vec![])
     } else {
         if input.len() < 8 + nof_elem * 8 {
-            return Err(ConversionError::InsufficientData {
+            return Err(UtilsError::InsufficientData {
                 expected: 8 + nof_elem * 8,
                 actual: input.len(),
             });
@@ -278,9 +293,9 @@ pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, ConversionError
 }
 
 #[inline(always)]
-pub fn bytes_be_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, ConversionError> {
+pub fn bytes_be_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, UtilsError> {
     if input.len() < 8 {
-        return Err(ConversionError::InsufficientData {
+        return Err(UtilsError::InsufficientData {
             expected: 8,
             actual: input.len(),
         });
@@ -290,7 +305,7 @@ pub fn bytes_be_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, ConversionError
         Ok(vec![])
     } else {
         if input.len() < 8 + nof_elem * 8 {
-            return Err(ConversionError::InsufficientData {
+            return Err(UtilsError::InsufficientData {
                 expected: 8 + nof_elem * 8,
                 actual: input.len(),
             });
@@ -327,11 +342,6 @@ pub fn normalize_usize_be(input: usize) -> [u8; 8] {
     bytes
 }
 
-#[inline(always)] // using for test
-pub fn generate_input_buffer() -> Cursor<String> {
-    Cursor::new(json!({}).to_string())
-}
-
 #[derive(
     Debug, Zeroize, ZeroizeOnDrop, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize,
 )]
@@ -346,26 +356,47 @@ impl IdSecret {
         res
     }
 
-    pub fn from_bytes_le(input: &[u8]) -> (Self, usize) {
-        let el_size = fr_byte_size();
+    pub fn from_bytes_le(input: &[u8]) -> Result<(Self, usize), UtilsError> {
+        let el_size = FR_BYTE_SIZE;
+        if input.len() < el_size {
+            return Err(UtilsError::InsufficientData {
+                expected: el_size,
+                actual: input.len(),
+            });
+        }
         let b_uint = BigUint::from_bytes_le(&input[0..el_size]);
         let mut fr = Fr::from(b_uint);
         let res = IdSecret::from(&mut fr);
         // Note: no zeroize on b_uint as it has been moved
-        (res, el_size)
+        Ok((res, el_size))
+    }
+
+    pub fn from_bytes_be(input: &[u8]) -> Result<(Self, usize), UtilsError> {
+        let el_size = FR_BYTE_SIZE;
+        if input.len() < el_size {
+            return Err(UtilsError::InsufficientData {
+                expected: el_size,
+                actual: input.len(),
+            });
+        }
+        let b_uint = BigUint::from_bytes_be(&input[0..el_size]);
+        let mut fr = Fr::from(b_uint);
+        let res = IdSecret::from(&mut fr);
+        // Note: no zeroize on b_uint as it has been moved
+        Ok((res, el_size))
     }
 
     pub(crate) fn to_bytes_le(&self) -> Zeroizing<Vec<u8>> {
         let input_biguint: BigUint = self.0.into();
         let mut res = input_biguint.to_bytes_le();
-        res.resize(fr_byte_size(), 0);
+        res.resize(FR_BYTE_SIZE, 0);
         Zeroizing::new(res)
     }
 
     pub(crate) fn to_bytes_be(&self) -> Zeroizing<Vec<u8>> {
         let input_biguint: BigUint = self.0.into();
         let mut res = input_biguint.to_bytes_be();
-        let to_insert_count = fr_byte_size().saturating_sub(res.len());
+        let to_insert_count = FR_BYTE_SIZE.saturating_sub(res.len());
         if to_insert_count > 0 {
             // Insert multi 0 at index 0
             res.splice(0..0, std::iter::repeat_n(0, to_insert_count));
@@ -404,7 +435,7 @@ impl Deref for IdSecret {
 }
 
 #[derive(Debug, Zeroize, ZeroizeOnDrop)]
-pub enum FrOrSecret {
+pub(crate) enum FrOrSecret {
     IdSecret(IdSecret),
     Fr(Fr),
 }

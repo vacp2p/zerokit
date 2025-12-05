@@ -101,6 +101,6 @@ Verify: OK
 
 2) Generates identity keys and computes `rateCommitment = Poseidon(id_commitment, user_message_limit)`.
 
-3) Inserts the leaf with `ffi_set_next_leaf` and fetches a real Merkle path for index 0 via `ffi_get_proof`.
+3) Inserts the leaf with `ffi_set_next_leaf` and fetches a real Merkle path for index 0 via `ffi_get_merkle_proof`.
 
 4) Builds the witness from the exported proof, generates the proof, and verifies with `ffi_verify_rln_proof` using the current tree root.

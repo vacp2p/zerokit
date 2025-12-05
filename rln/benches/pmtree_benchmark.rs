@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use rln::{circuit::Fr, pm_tree_adapter::PmTree};
+use rln::prelude::*;
 use utils::ZerokitMerkleTree;
 
 pub fn pmtree_benchmark(c: &mut Criterion) {
@@ -13,7 +13,7 @@ pub fn pmtree_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("Pmtree:delete", |b| {
+    c.bench_function("Pmtree::delete", |b| {
         b.iter(|| {
             tree.delete(0).unwrap();
         })

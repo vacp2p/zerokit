@@ -1,10 +1,11 @@
-// This file is based on the code by iden3. Its preimage can be found here:
+// This crate is based on the code by iden3. Its preimage can be found here:
 // https://github.com/iden3/circom-witnesscalc/blob/5cb365b6e4d9052ecc69d4567fcf5bc061c20e94/src/storage.rs
+
+use std::io::{Read, Write};
 
 use ark_ff::PrimeField;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use prost::Message;
-use std::io::{Read, Write};
 
 use crate::circuit::{
     iden3calc::{
@@ -334,11 +335,13 @@ impl<R: Read> Write for WriteBackReader<R> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use byteorder::ByteOrder;
     use core::str::FromStr;
-    use graph::{Operation, TresOperation, UnoOperation};
     use std::collections::HashMap;
+
+    use byteorder::ByteOrder;
+    use graph::{Operation, TresOperation, UnoOperation};
+
+    use super::*;
 
     #[test]
     fn test_read_message() {

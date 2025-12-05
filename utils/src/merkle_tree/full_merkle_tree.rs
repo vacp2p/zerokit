@@ -11,9 +11,8 @@ use crate::merkle_tree::{
     error::{FromConfigError, ZerokitMerkleTreeError},
     FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES,
 };
-////////////////////////////////////////////////////////////
-///// Full Merkle Tree Implementation
-////////////////////////////////////////////////////////////
+
+// Full Merkle Tree Implementation
 
 /// Merkle tree with all leaf and intermediate hashes stored
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -290,9 +289,9 @@ where
     fn verify(
         &self,
         hash: &FrOf<Self::Hasher>,
-        proof: &FullMerkleProof<H>,
+        merkle_proof: &FullMerkleProof<H>,
     ) -> Result<bool, ZerokitMerkleTreeError> {
-        Ok(proof.compute_root_from(hash) == self.root())
+        Ok(merkle_proof.compute_root_from(hash) == self.root())
     }
 
     fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), ZerokitMerkleTreeError> {

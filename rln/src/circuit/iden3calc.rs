@@ -1,21 +1,23 @@
-// This file is based on the code by iden3. Its preimage can be found here:
+// This crate is based on the code by iden3. Its preimage can be found here:
 // https://github.com/iden3/circom-witnesscalc/blob/5cb365b6e4d9052ecc69d4567fcf5bc061c20e94/src/lib.rs
 
 pub mod graph;
 pub mod proto;
 pub mod storage;
 
-use ruint::aliases::U256;
 use std::collections::HashMap;
+
+use graph::Node;
+use ruint::aliases::U256;
 use storage::deserialize_witnesscalc_graph;
 use zeroize::zeroize_flat_type;
 
-use crate::circuit::iden3calc::graph::fr_to_u256;
-use crate::circuit::Fr;
-use crate::utils::FrOrSecret;
-use graph::Node;
+use crate::{
+    circuit::{iden3calc::graph::fr_to_u256, Fr},
+    utils::FrOrSecret,
+};
 
-pub type InputSignalsInfo = HashMap<String, (usize, usize)>;
+pub(crate) type InputSignalsInfo = HashMap<String, (usize, usize)>;
 
 pub(crate) fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
     inputs: I,

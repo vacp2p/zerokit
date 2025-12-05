@@ -5,7 +5,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 The Zerokit RLN Module provides a Rust implementation for working with
-Rate-Limiting Nullifier [RLN](https://rfc.vac.dev/spec/32/) zkSNARK proofs and primitives.
+Rate-Limiting Nullifier [RLN](https://rfc.vac.dev/vac/raw/rln-v2) zkSNARK proofs and primitives.
 This module allows you to:
 
 - Generate and verify RLN proofs
@@ -24,7 +24,7 @@ We start by adding zerokit RLN to our `Cargo.toml`
 
 ```toml
 [dependencies]
-rln = { git = "https://github.com/vacp2p/zerokit" }
+rln = "0.9.0"
 ```
 
 ## Basic Usage Example
@@ -36,93 +36,70 @@ The RLN object constructor requires the following files:
 
 Additionally, `rln.wasm` is used for testing in the rln-wasm module.
 
-In the following we will use [cursors](https://doc.rust-lang.org/std/io/struct.Cursor.html)
-as readers/writers for interfacing with RLN public APIs.
-
 ```rust
-use std::io::Cursor;
-
-use rln::{
-    circuit::Fr,
-    hashers::{hash_to_field, poseidon_hash},
-    protocol::{keygen, prepare_prove_input, prepare_verify_input},
-    public::RLN,
-    utils::fr_to_bytes_le,
-};
-use serde_json::json;
+use rln::prelude::{keygen, poseidon_hash, hash_to_field_le, RLN, RLNWitnessInput, Fr, IdSecret};
 
 fn main() {
     // 1. Initialize RLN with parameters:
     // - the tree depth;
     // - the tree config, if it is not defined, the default value will be set
     let tree_depth = 20;
-    let input = Cursor::new(json!({}).to_string());
-    let mut rln = RLN::new(tree_depth, input).unwrap();
+    let mut rln = RLN::new(tree_depth, "").unwrap();
 
     // 2. Generate an identity keypair
-    let (identity_secret_hash, id_commitment) = keygen();
+    let (identity_secret, id_commitment) = keygen();
 
     // 3. Add a rate commitment to the Merkle tree
-    let id_index = 10;
+    let leaf_index = 10;
     let user_message_limit = Fr::from(10);
     let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
-    let mut buffer = Cursor::new(fr_to_bytes_le(&rate_commitment));
-    rln.set_leaf(id_index, &mut buffer).unwrap();
+    rln.set_leaf(leaf_index, rate_commitment).unwrap();
 
-    // 4. Set up external nullifier (epoch + app identifier)
+    // 4. Get the Merkle proof for the added commitment
+    let (path_elements, identity_path_index) = rln.get_merkle_proof(leaf_index).unwrap();
+
+    // 5. Set up external nullifier (epoch + app identifier)
     // We generate epoch from a date seed and we ensure is
     // mapped to a field element by hashing-to-field its content
-    let epoch = hash_to_field(b"Today at noon, this year");
-    // We generate rln_identifier from a date seed and we ensure is
-    // mapped to a field element by hashing-to-field its content
-    let rln_identifier = hash_to_field(b"test-rln-identifier");
+    let epoch = hash_to_field_le(b"Today at noon, this year");
+    // We generate rln_identifier from an application identifier and
+    // we ensure is mapped to a field element by hashing-to-field its content
+    let rln_identifier = hash_to_field_le(b"test-rln-identifier");
     // We generate a external nullifier
     let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
     // We choose a message_id satisfy 0 <= message_id < user_message_limit
     let message_id = Fr::from(1);
 
-    // 5. Generate and verify a proof for a message
+    // 6. Define the message signal
     let signal = b"RLN is awesome";
 
-    // 6. Prepare input for generate_rln_proof API
-    // input_data is [ identity_secret<32> | id_index<8> | external_nullifier<32>
-    //    | user_message_limit<32> | message_id<32> | signal_len<8> | signal<var> ]
-    let prove_input = prepare_prove_input(
-        identity_secret_hash,
-        id_index,
+    // 7. Compute x from the signal
+    let x = hash_to_field_le(signal);
+
+    // 8. Create witness input for RLN proof generation
+    let witness = RLNWitnessInput::new(
+        identity_secret,
         user_message_limit,
         message_id,
+        path_elements,
+        identity_path_index,
+        x,
         external_nullifier,
-        signal,
-    );
+    )
+    .unwrap();
 
-    // 7. Generate a RLN proof
-    // We generate a RLN proof for proof_input
-    let mut input_buffer = Cursor::new(prove_input);
-    let mut output_buffer = Cursor::new(Vec::<u8>::new());
-    rln.generate_rln_proof(&mut input_buffer, &mut output_buffer)
-        .unwrap();
+    // 9. Generate a RLN proof
+    // We generate proof and proof values from the witness
+    let (proof, proof_values) = rln.generate_rln_proof(&witness).unwrap();
 
-    // We get the public outputs returned by the circuit evaluation
-    // The byte vector `proof_data` is serialized as
-    //  `[ proof<128> | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]`.
-    let proof_data = output_buffer.into_inner();
-
-    // 8. Verify a RLN proof
-    // Input buffer is serialized as `[proof_data | signal_len | signal ]`,
-    //   where `proof_data` is (computed as) the output obtained by `generate_rln_proof`.
-    let verify_data = prepare_verify_input(proof_data, signal);
-
-    // We verify the zk-proof against the provided proof values
-    let mut input_buffer = Cursor::new(verify_data);
-    let verified = rln.verify_rln_proof(&mut input_buffer).unwrap();
-
-    // We ensure the proof is valid
+    // 10. Verify the RLN proof
+    // We verify the proof using the proof and proof values and the hashed signal x
+    let verified = rln.verify_rln_proof(&proof, &proof_values, &x).unwrap();
     assert!(verified);
 }
 ```
 
-### Comments for the code above for point 4
+### Comments for the code above for point 5
 
 The `external nullifier` includes two parameters.
 
@@ -171,8 +148,8 @@ cargo make test_stateless
 
 ## Advanced: Custom Circuit Compilation
 
-The `rln` (<https://github.com/rate-limiting-nullifier/circom-rln>) repository,
-which contains the RLN circuit implementation is using for pre-compiled RLN circuit for zerokit RLN.
+The `circom-rln` (<https://github.com/rate-limiting-nullifier/circom-rln>) repository,
+which contains the RLN circuit implementation used for pre-compiled RLN circuit for zerokit RLN.
 If you want to compile your own RLN circuit, you can follow the instructions below.
 
 ### 1. Compile ZK Circuits for getting the zkey file
@@ -205,15 +182,15 @@ Where:
 > for instructions on how to run an appropriate Powers of Tau ceremony and Phase 2 in order to compile the desired circuit. \
 > Additionally, while `M` sets an upper bound on the number of messages per epoch (`2^M`),
 > you can configure lower message limit for your use case, as long as it satisfies `user_message_limit ≤ 2^M`. \
-> Currently, the `rln` module comes with a [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources)
+> Currently, the `rln` module comes with a [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources/tree_depth_20)
 > RLN circuit with a Merkle tree of depth `20` and a bit size of `16`,
 > allowing up to `2^20` registered members and a `2^16` message limit per epoch.
 
 #### Install circom compiler
 
 You can follow the instructions below or refer to the
-[installing Circom](https://docs.circom.io/getting-started/installation/#installing-circom) guide for more details,
-but make sure to use the specific version `v2.1.0`.
+[installing Circom](https://docs.circom.io/getting-started/installation/#installing-circom) guide for more details.
+Make sure to use the specific version `v2.1.0`.
 
 ```sh
 # Clone the circom repository
@@ -268,7 +245,7 @@ cargo build
 cargo run --package circom_witnesscalc --bin build-circuit ../circom-rln/circuits/rln.circom <path_to_graph.bin>
 ```
 
-The `rln` module comes with [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources)
+The `rln` module comes with [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources/tree_depth_20)
 execution graph files for the RLN circuit.
 
 ### 3. Generate Arkzkey Representation for zkey file
@@ -291,7 +268,7 @@ cargo run --bin arkzkey-util <path_to_rln_final.zkey>
 This will generate the `rln_final.arkzkey` file, which is used by the `rln` module.
 
 Currently, the `rln` module comes with
-[pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources) arkzkey keys for the RLN circuit.
+[pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources/tree_depth_20) arkzkey keys for the RLN circuit.
 
 > [!NOTE]
 > You can use this [convert_zkey.sh](./convert_zkey.sh) script
@@ -325,18 +302,6 @@ Working examples demonstrating proof generation, proof verification and slashing
 
 - All **heap-allocated** objects returned from Rust FFI **must** be freed using their corresponding FFI `_free` functions.
 
-## Get involved
-
-Zerokit RLN public and FFI APIs allow interaction with many more features than what briefly showcased above.
-
-We invite you to check our API documentation by running
-
-```rust
-cargo doc --no-deps
-```
-
-and look at unit tests to have an hint on how to interface and use them.
-
 ## Detailed Protocol Flow
 
 1. **Identity Creation**: Generate a secret key and commitment
@@ -347,9 +312,20 @@ and look at unit tests to have an hint on how to interface and use them.
    - Ensures rate-limiting constraints are satisfied
    - Generates a nullifier to prevent double-usage
 5. **Proof Verification**: Verify the proof without revealing the prover's identity
+6. **Slashing Mechanism**: Detect and penalize double-usage attempts
 
 ## Getting Involved
 
+Zerokit RLN public and FFI APIs allow interaction with many more features than what briefly showcased above.
+
+We invite you to check our API documentation by running
+
+```bash
+cargo doc --no-deps
+```
+
+and look at unit tests to have an hint on how to interface and use them.
+
 - Check the [unit tests](https://github.com/vacp2p/zerokit/tree/master/rln/tests) for more usage examples
-- [RFC specification](https://rfc.vac.dev/spec/32/) for the Rate-Limiting Nullifier protocol
+- [RFC specification](https://rfc.vac.dev/vac/raw/rln-v2) for the Rate-Limiting Nullifier protocol
 - [GitHub repository](https://github.com/vacp2p/zerokit) for the latest updates
