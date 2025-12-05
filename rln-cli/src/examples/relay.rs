@@ -145,7 +145,7 @@ impl RLNSystem {
             None => return Err(format!("user index {user_index} not found").into()),
         };
 
-        let (path_elements, identity_path_index) = self.rln.get_proof(user_index)?;
+        let (path_elements, identity_path_index) = self.rln.get_merkle_proof(user_index)?;
         let x = hash_to_field_le(signal.as_bytes());
 
         let witness = RLNWitnessInput::new(

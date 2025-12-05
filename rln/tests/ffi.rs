@@ -65,7 +65,7 @@ mod test {
         leaf_index: usize,
     ) -> repr_c::Box<FFI_RLNProof> {
         // Get merkle proof for the leaf index
-        let merkle_proof = match ffi_get_proof(ffi_rln_instance, leaf_index) {
+        let merkle_proof = match ffi_get_merkle_proof(ffi_rln_instance, leaf_index) {
             CResult {
                 ok: Some(proof),
                 err: None,
@@ -362,7 +362,7 @@ mod test {
         );
 
         // We obtain the Merkle proof
-        let proof = match ffi_get_proof(&ffi_rln_instance, leaf_index) {
+        let proof = match ffi_get_merkle_proof(&ffi_rln_instance, leaf_index) {
             CResult {
                 ok: Some(proof),
                 err: None,

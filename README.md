@@ -18,7 +18,7 @@ and focused on RLNv2 which allows to set a rate limit for the number of messages
 
 ## Features
 
-- **RLN Implementation**: Efficient Rate-Limiting Nullifier using zkSNARKs
+- **RLN Implementation**: Efficient Rate-Limiting Nullifier using zkSNARK
 - **Circom Compatibility**: Uses Circom-based circuits for RLN
 - **Cross-Platform**: Support for multiple architectures with cross-compilation
 - **FFI-Friendly**: Easy to integrate with other languages

@@ -13,13 +13,13 @@ use {
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
     circuit::{graph_from_folder, zkey_from_folder},
-    protocol::generate_proof,
+    protocol::generate_zk_proof,
 };
 use crate::{
     circuit::{zkey_from_raw, Fr, Proof, Zkey},
     error::{RLNError, VerifyError},
     protocol::{
-        generate_proof_with_witness, proof_values_from_witness, verify_proof, RLNProofValues,
+        generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof, RLNProofValues,
         RLNWitnessInput,
     },
 };
@@ -501,10 +501,10 @@ impl RLN {
     /// Example:
     /// ```
     /// let index = 10;
-    /// let (path_elements, identity_path_index) = rln.get_proof(index).unwrap();
+    /// let (path_elements, identity_path_index) = rln.get_merkle_proof(index).unwrap();
     /// ```
     #[cfg(not(feature = "stateless"))]
-    pub fn get_proof(&self, index: usize) -> Result<(Vec<Fr>, Vec<u8>), RLNError> {
+    pub fn get_merkle_proof(&self, index: usize) -> Result<(Vec<Fr>, Vec<u8>), RLNError> {
         let merkle_proof = self.tree.proof(index).expect("proof should exist");
         let path_elements = merkle_proof.get_path_elements();
         let identity_path_index = merkle_proof.get_path_index();
@@ -551,7 +551,7 @@ impl RLN {
 
     // zkSNARK APIs
 
-    /// Computes a zkSNARK RLN proof using a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput) object.
+    /// Generates a zkSNARK proof component of an RLN proof from a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput).
     ///
     /// Extract proof values separately using [`proof_values_from_witness`](crate::protocol::proof_values_from_witness).
     ///
@@ -560,11 +560,11 @@ impl RLN {
     /// let proof_values = proof_values_from_witness(&witness);
     ///
     /// // We compute a Groth16 proof
-    /// let zk_proof = rln.generate_proof(&witness).unwrap();
+    /// let zk_proof = rln.generate_zk_proof(&witness).unwrap();
     /// ```
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn generate_proof(&self, witness: &RLNWitnessInput) -> Result<Proof, RLNError> {
-        let proof = generate_proof(&self.zkey, witness, &self.graph_data)?;
+    pub fn generate_zk_proof(&self, witness: &RLNWitnessInput) -> Result<Proof, RLNError> {
+        let proof = generate_zk_proof(&self.zkey, witness, &self.graph_data)?;
         Ok(proof)
     }
 
@@ -583,7 +583,7 @@ impl RLN {
         witness: &RLNWitnessInput,
     ) -> Result<(Proof, RLNProofValues), RLNError> {
         let proof_values = proof_values_from_witness(witness)?;
-        let proof = generate_proof(&self.zkey, witness, &self.graph_data)?;
+        let proof = generate_zk_proof(&self.zkey, witness, &self.graph_data)?;
         Ok((proof, proof_values))
     }
 
@@ -603,7 +603,7 @@ impl RLN {
         witness: &RLNWitnessInput,
     ) -> Result<(Proof, RLNProofValues), RLNError> {
         let proof_values = proof_values_from_witness(witness)?;
-        let proof = generate_proof_with_witness(calculated_witness, &self.zkey)?;
+        let proof = generate_zk_proof_with_witness(calculated_witness, &self.zkey)?;
         Ok((proof, proof_values))
     }
 
@@ -612,22 +612,22 @@ impl RLN {
     /// Example:
     /// ```
     /// // We compute a Groth16 proof
-    /// let zk_proof = rln.generate_proof(&witness).unwrap();
+    /// let zk_proof = rln.generate_zk_proof(&witness).unwrap();
     ///
     /// // We compute proof values directly from witness
     /// let proof_values = proof_values_from_witness(&witness);
     ///
     /// // We verify the proof
-    /// let verified = rln.verify_proof(&zk_proof, &proof_values).unwrap();
+    /// let verified = rln.verify_zk_proof(&zk_proof, &proof_values).unwrap();
     ///
     /// assert!(verified);
     /// ```
-    pub fn verify_proof(
+    pub fn verify_zk_proof(
         &self,
         proof: &Proof,
         proof_values: &RLNProofValues,
     ) -> Result<bool, RLNError> {
-        let verified = verify_proof(&self.zkey.0.vk, proof, proof_values)?;
+        let verified = verify_zk_proof(&self.zkey.0.vk, proof, proof_values)?;
         Ok(verified)
     }
 
@@ -639,7 +639,7 @@ impl RLN {
         proof_values: &RLNProofValues,
         x: &Fr,
     ) -> Result<bool, RLNError> {
-        let verified = verify_proof(&self.zkey.0.vk, proof, proof_values)?;
+        let verified = verify_zk_proof(&self.zkey.0.vk, proof, proof_values)?;
         if !verified {
             return Err(VerifyError::InvalidProof.into());
         }
@@ -665,7 +665,7 @@ impl RLN {
         x: &Fr,
         roots: &[Fr],
     ) -> Result<bool, RLNError> {
-        let verified = verify_proof(&self.zkey.0.vk, proof, proof_values)?;
+        let verified = verify_zk_proof(&self.zkey.0.vk, proof, proof_values)?;
         if !verified {
             return Err(VerifyError::InvalidProof.into());
         }

@@ -24,7 +24,7 @@ We start by adding zerokit RLN to our `Cargo.toml`
 
 ```toml
 [dependencies]
-rln = { git = "https://github.com/vacp2p/zerokit" }
+rln = "0.9.0"
 ```
 
 ## Basic Usage Example
@@ -56,7 +56,7 @@ fn main() {
     rln.set_leaf(leaf_index, rate_commitment).unwrap();
 
     // 4. Get the Merkle proof for the added commitment
-    let (path_elements, identity_path_index) = rln.get_proof(leaf_index).unwrap();
+    let (path_elements, identity_path_index) = rln.get_merkle_proof(leaf_index).unwrap();
 
     // 5. Set up external nullifier (epoch + app identifier)
     // We generate epoch from a date seed and we ensure is

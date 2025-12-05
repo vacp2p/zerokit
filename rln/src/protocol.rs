@@ -655,10 +655,10 @@ fn calculated_witness_to_field_elements<E: ark_ec::pairing::Pairing>(
     Ok(field_elements)
 }
 
-/// Generates a RLN proof from pre-calculated witness values.
+/// Generates a zkSNARK proof from pre-calculated witness values.
 ///
 /// Use this when witness calculation is performed externally.
-pub fn generate_proof_with_witness(
+pub fn generate_zk_proof_with_witness(
     calculated_witness: Vec<BigInt>,
     zkey: &Zkey,
 ) -> Result<Proof, ProtocolError> {
@@ -717,8 +717,8 @@ fn inputs_for_witness_calculation(
     ])
 }
 
-/// Generates a RLN proof from witness input using the provided circuit data.
-pub fn generate_proof(
+/// Generates a zkSNARK proof from witness input using the provided circuit data.
+pub fn generate_zk_proof(
     zkey: &Zkey,
     witness: &RLNWitnessInput,
     graph_data: &[u8],
@@ -747,11 +747,11 @@ pub fn generate_proof(
     Ok(proof)
 }
 
-/// Verifies a RLN proof against the verifying key and public values.
+/// Verifies a zkSNARK proof against the verifying key and public values.
 ///
 /// Returns `true` if the proof is cryptographically valid, `false` if verification fails.
 /// Note: Verification failure may occur due to proof computation errors, not necessarily malicious proofs.
-pub fn verify_proof(
+pub fn verify_zk_proof(
     verifying_key: &VerifyingKey,
     proof: &Proof,
     proof_values: &RLNProofValues,

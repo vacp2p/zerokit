@@ -193,11 +193,11 @@ pub fn ffi_get_root(rln: &repr_c::Box<FFI_RLN>) -> repr_c::Box<CFr> {
 }
 
 #[ffi_export]
-pub fn ffi_get_proof(
+pub fn ffi_get_merkle_proof(
     rln: &repr_c::Box<FFI_RLN>,
     index: usize,
 ) -> CResult<repr_c::Box<FFI_MerkleProof>, repr_c::String> {
-    match rln.0.get_proof(index) {
+    match rln.0.get_merkle_proof(index) {
         Ok((path_elements, path_index)) => {
             let path_elements: repr_c::Vec<CFr> = path_elements
                 .iter()

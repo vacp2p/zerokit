@@ -174,7 +174,7 @@ mod test {
         let (proof, proof_values) = rln.generate_rln_proof(&rln_witness).unwrap();
 
         // We verify the Groth16 proof against the provided proof values
-        let verified = rln.verify_proof(&proof, &proof_values).is_ok();
+        let verified = rln.verify_zk_proof(&proof, &proof_values).is_ok();
 
         assert!(verified);
     }
@@ -584,7 +584,8 @@ mod test {
             let x = hash_to_field_le(&signal);
 
             // Get merkle proof for the identity
-            let (path_elements, identity_path_index) = rln.get_proof(identity_index).unwrap();
+            let (path_elements, identity_path_index) =
+                rln.get_merkle_proof(identity_index).unwrap();
 
             // Create RLN witness
             let rln_witness = RLNWitnessInput::new(
@@ -650,7 +651,8 @@ mod test {
             let x = hash_to_field_le(&signal);
 
             // Get merkle proof for the identity
-            let (path_elements, identity_path_index) = rln.get_proof(identity_index).unwrap();
+            let (path_elements, identity_path_index) =
+                rln.get_merkle_proof(identity_index).unwrap();
 
             // Create RLN witness
             let rln_witness = RLNWitnessInput::new(
@@ -717,7 +719,8 @@ mod test {
             let x = hash_to_field_le(&signal);
 
             // Get merkle proof for the identity
-            let (path_elements, identity_path_index) = rln.get_proof(identity_index).unwrap();
+            let (path_elements, identity_path_index) =
+                rln.get_merkle_proof(identity_index).unwrap();
 
             // Create RLN witness
             let rln_witness = RLNWitnessInput::new(
@@ -802,7 +805,8 @@ mod test {
             let x2 = hash_to_field_le(&signal2);
 
             // Get merkle proof for the identity
-            let (path_elements, identity_path_index) = rln.get_proof(identity_index).unwrap();
+            let (path_elements, identity_path_index) =
+                rln.get_merkle_proof(identity_index).unwrap();
 
             // Create RLN witnesses for both signals
             let rln_witness1 = RLNWitnessInput::new(
@@ -856,7 +860,7 @@ mod test {
 
             // Get merkle proof for the new identity
             let (path_elements_new, identity_path_index_new) =
-                rln.get_proof(identity_index_new).unwrap();
+                rln.get_merkle_proof(identity_index_new).unwrap();
 
             // We prepare proof input. Note that epoch is the same as before
             let rln_witness3 = RLNWitnessInput::new(

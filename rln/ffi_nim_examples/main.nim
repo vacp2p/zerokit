@@ -262,8 +262,8 @@ when not defined(ffiStateless):
       cdecl, dynlib: RLN_LIB.}
   proc ffi_leaves_set*(rln: ptr ptr FFI_RLN): CSize {.importc: "ffi_leaves_set",
       cdecl, dynlib: RLN_LIB.}
-  proc ffi_get_proof*(rln: ptr ptr FFI_RLN,
-      index: CSize): CResultMerkleProofPtrVecU8 {.importc: "ffi_get_proof",
+  proc ffi_get_merkle_proof*(rln: ptr ptr FFI_RLN,
+      index: CSize): CResultMerkleProofPtrVecU8 {.importc: "ffi_get_merkle_proof",
       cdecl, dynlib: RLN_LIB.}
   proc ffi_set_metadata*(rln: ptr ptr FFI_RLN,
       metadata: ptr Vec_uint8): CBoolResult {.importc: "ffi_set_metadata",
@@ -514,7 +514,7 @@ when isMainModule:
     echo "  - added to tree at index ", leafIndex
 
     echo "\nGetting Merkle proof"
-    let proofResult = ffi_get_proof(addr rln, leafIndex)
+    let proofResult = ffi_get_merkle_proof(addr rln, leafIndex)
     if proofResult.ok.isNil:
       stderr.writeLine "Get proof error: ", asString(proofResult.err)
       ffi_c_string_free(proofResult.err)

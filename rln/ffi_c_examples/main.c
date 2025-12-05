@@ -195,7 +195,7 @@ int main(int argc, char const *const argv[])
     printf("  - added to tree at index %zu\n", leaf_index);
 
     printf("\nGetting Merkle proof\n");
-    CResult_FFI_MerkleProof_ptr_Vec_uint8_t proof_result = ffi_get_proof(&rln, leaf_index);
+    CResult_FFI_MerkleProof_ptr_Vec_uint8_t proof_result = ffi_get_merkle_proof(&rln, leaf_index);
     if (!proof_result.ok)
     {
         fprintf(stderr, "Get proof error: %s\n", proof_result.err.ptr);

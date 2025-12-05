@@ -133,12 +133,12 @@ mod test {
         let graph_data = graph_from_folder();
 
         // Let's generate a zkSNARK proof
-        let proof = generate_proof(proving_key, &witness, graph_data).unwrap();
+        let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
 
         let proof_values = proof_values_from_witness(&witness).unwrap();
 
         // Let's verify the proof
-        let success = verify_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
+        let success = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
 
         assert!(success);
     }
