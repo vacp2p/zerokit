@@ -306,7 +306,7 @@ pub fn generate_zk_proof(
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));
 
-    let full_assignment = calc_witness(inputs, graph_data);
+    let full_assignment = calc_witness(inputs, graph_data)?;
 
     // Random Values
     let mut rng = thread_rng();

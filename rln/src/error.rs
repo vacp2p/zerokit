@@ -5,7 +5,10 @@ use num_bigint::{BigInt, ParseBigIntError};
 use thiserror::Error;
 use utils::error::{FromConfigError, ZerokitMerkleTreeError};
 
-use crate::circuit::{error::ZKeyReadError, Fr};
+use crate::circuit::{
+    error::{WitnessCalcError, ZKeyReadError},
+    Fr,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum UtilsError {
@@ -27,6 +30,8 @@ pub enum ProtocolError {
     Synthesis(#[from] SynthesisError),
     #[error("{0}")]
     Utils(#[from] UtilsError),
+    #[error("Error calculating witness: {0}")]
+    WitnessCalc(#[from] WitnessCalcError),
     #[error("Expected to read {0} bytes but read only {1} bytes")]
     InvalidReadLen(usize, usize),
     #[error("Cannot convert bigint {0:?} to biguint")]

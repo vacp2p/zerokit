@@ -13,7 +13,7 @@ use storage::deserialize_witnesscalc_graph;
 use zeroize::zeroize_flat_type;
 
 use crate::{
-    circuit::{iden3calc::graph::fr_to_u256, Fr},
+    circuit::{error::WitnessCalcError, iden3calc::graph::fr_to_u256, Fr},
     utils::FrOrSecret,
 };
 
@@ -22,7 +22,7 @@ pub(crate) type InputSignalsInfo = HashMap<String, (usize, usize)>;
 pub(crate) fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
     inputs: I,
     graph_data: &[u8],
-) -> Vec<Fr> {
+) -> Result<Vec<Fr>, WitnessCalcError> {
     let mut inputs: HashMap<String, Vec<U256>> = inputs
         .into_iter()
         .map(|(key, value)| {
@@ -40,11 +40,11 @@ pub(crate) fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
         .collect();
 
     let (nodes, signals, input_mapping): (Vec<Node>, Vec<usize>, InputSignalsInfo) =
-        deserialize_witnesscalc_graph(std::io::Cursor::new(graph_data)).unwrap();
+        deserialize_witnesscalc_graph(std::io::Cursor::new(graph_data))?;
 
     let mut inputs_buffer = get_inputs_buffer(get_inputs_size(&nodes));
 
-    populate_inputs(&inputs, &input_mapping, &mut inputs_buffer);
+    populate_inputs(&inputs, &input_mapping, &mut inputs_buffer)?;
 
     if let Some(v) = inputs.get_mut("identitySecret") {
         // DO NOT USE: unsafe { zeroize_flat_type(v) } only clears the Vec pointer, not the data—can cause memory leaks
@@ -60,7 +60,7 @@ pub(crate) fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
         unsafe { zeroize_flat_type(val) };
     }
 
-    res
+    Ok(res)
 }
 
 fn get_inputs_size(nodes: &[Node]) -> usize {
@@ -83,17 +83,26 @@ fn populate_inputs(
     input_list: &HashMap<String, Vec<U256>>,
     inputs_info: &InputSignalsInfo,
     input_buffer: &mut [U256],
-) {
+) -> Result<(), WitnessCalcError> {
     for (key, value) in input_list {
-        let (offset, len) = inputs_info[key];
-        if len != value.len() {
-            panic!("Invalid input length for {key}");
+        let (offset, len) = inputs_info
+            .get(key)
+            .ok_or_else(|| WitnessCalcError::MissingInput(key.clone()))?;
+
+        if *len != value.len() {
+            return Err(WitnessCalcError::InvalidInputLength {
+                name: key.clone(),
+                expected: *len,
+                actual: value.len(),
+            });
         }
 
         for (i, v) in value.iter().enumerate() {
             input_buffer[offset + i] = *v;
         }
     }
+
+    Ok(())
 }
 
 /// Allocates inputs vec with position 0 set to 1
