@@ -5,7 +5,7 @@ pub use utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::circuit::{graph_from_folder, zkey_from_folder};
-#[cfg(not(feature = "stateless"))]
+#[cfg(feature = "pmtree-ft")]
 pub use crate::pm_tree_adapter::{FrOf, PmTree, PmTreeProof, PmtreeConfig, PmtreeConfigBuilder};
 #[cfg(not(feature = "stateless"))]
 pub use crate::poseidon_tree::{MerkleProof, PoseidonTree};
