@@ -1,4 +1,4 @@
-// This file is based on the code by arkworks. Its preimage can be found here:
+// This crate is based on the code by arkworks. Its preimage can be found here:
 // https://github.com/arkworks-rs/circom-compat/blob/3c95ed98e23a408b4d99a53e483a9bba39685a4e/src/circom/qap.rs
 
 use ark_ff::PrimeField;
@@ -6,7 +6,6 @@ use ark_groth16::r1cs_to_qap::{evaluate_constraint, LibsnarkReduction, R1CSToQAP
 use ark_poly::EvaluationDomain;
 use ark_relations::r1cs::{ConstraintMatrices, ConstraintSystemRef, SynthesisError};
 use ark_std::{cfg_into_iter, cfg_iter, cfg_iter_mut, vec};
-
 #[cfg(feature = "parallel")]
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator,

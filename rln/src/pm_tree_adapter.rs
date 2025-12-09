@@ -1,18 +1,21 @@
 #![cfg(feature = "pmtree-ft")]
 
-use serde_json::Value;
-use std::fmt::Debug;
-use std::path::PathBuf;
-use std::str::FromStr;
-use tempfile::Builder;
+use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
-use crate::circuit::Fr;
-use crate::hashers::{poseidon_hash, PoseidonHash};
-use crate::utils::{bytes_le_to_fr, fr_to_bytes_le};
-use utils::error::{FromConfigError, ZerokitMerkleTreeError};
-use utils::pmtree::tree::Key;
-use utils::pmtree::{Database, Hasher, PmtreeErrorKind};
-use utils::{pmtree, Config, Mode, SledDB, ZerokitMerkleProof, ZerokitMerkleTree};
+use serde_json::Value;
+use tempfile::Builder;
+use utils::{
+    error::{FromConfigError, ZerokitMerkleTreeError},
+    pmtree,
+    pmtree::{tree::Key, Database, Hasher, PmtreeErrorKind},
+    Config, Mode, SledDB, ZerokitMerkleProof, ZerokitMerkleTree,
+};
+
+use crate::{
+    circuit::Fr,
+    hashers::{poseidon_hash, PoseidonHash},
+    utils::{bytes_le_to_fr, fr_to_bytes_le},
+};
 
 const METADATA_KEY: [u8; 8] = *b"metadata";
 
@@ -40,7 +43,7 @@ impl Hasher for PoseidonHash {
     }
 
     fn deserialize(value: pmtree::Value) -> Self::Fr {
-        let (fr, _) = bytes_le_to_fr(&value);
+        let (fr, _) = bytes_le_to_fr(&value).expect("pmtree value should be valid Fr bytes");
         fr
     }
 
@@ -77,8 +80,14 @@ pub struct PmtreeConfigBuilder {
     use_compression: bool,
 }
 
+impl Default for PmtreeConfigBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PmtreeConfigBuilder {
-    fn new() -> Self {
+    pub fn new() -> Self {
         PmtreeConfigBuilder {
             path: None,
             temporary: DEFAULT_TEMPORARY,
@@ -290,11 +299,10 @@ impl ZerokitMerkleTree for PmTree {
         } else if n == self.depth() {
             self.get(index)
         } else {
-            let node = self
-                .tree
-                .get_elem(Key::new(n, index >> (self.depth() - n)))
-                .unwrap();
-            Ok(node)
+            match self.tree.get_elem(Key::new(n, index >> (self.depth() - n))) {
+                Ok(value) => Ok(value),
+                Err(_) => Err(ZerokitMerkleTreeError::InvalidSubTreeIndex),
+            }
         }
     }
 
@@ -360,12 +368,12 @@ impl ZerokitMerkleTree for PmTree {
     fn verify(
         &self,
         leaf: &FrOf<Self::Hasher>,
-        witness: &Self::Proof,
+        merkle_proof: &Self::Proof,
     ) -> Result<bool, ZerokitMerkleTreeError> {
-        if self.tree.verify(leaf, &witness.proof) {
+        if self.tree.verify(leaf, &merkle_proof.proof) {
             Ok(true)
         } else {
-            Err(ZerokitMerkleTreeError::InvalidWitness)
+            Err(ZerokitMerkleTreeError::InvalidMerkleProof)
         }
     }
 

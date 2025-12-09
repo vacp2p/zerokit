@@ -4,21 +4,21 @@ pub mod error;
 pub mod iden3calc;
 pub mod qap;
 
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::LazyLock;
+
 use ark_bn254::{
     Bn254, Fq as ArkFq, Fq2 as ArkFq2, Fr as ArkFr, G1Affine as ArkG1Affine,
     G1Projective as ArkG1Projective, G2Affine as ArkG2Affine, G2Projective as ArkG2Projective,
 };
+use ark_ff::Field;
 use ark_groth16::{
     Proof as ArkProof, ProvingKey as ArkProvingKey, VerifyingKey as ArkVerifyingKey,
 };
 use ark_relations::r1cs::ConstraintMatrices;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use crate::circuit::error::ZKeyReadError;
-
-use {ark_ff::Field, ark_serialize::CanonicalDeserialize, ark_serialize::CanonicalSerialize};
-
-#[cfg(not(target_arch = "wasm32"))]
-use std::sync::LazyLock;
 
 #[cfg(not(target_arch = "wasm32"))]
 const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
@@ -31,25 +31,49 @@ static ARKZKEY: LazyLock<Zkey> = LazyLock::new(|| {
     read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES).expect("Failed to read arkzkey")
 });
 
-pub const TEST_TREE_DEPTH: usize = 20;
+pub const DEFAULT_TREE_DEPTH: usize = 20;
+pub const COMPRESS_PROOF_SIZE: usize = 128;
 
 // The following types define the pairing friendly elliptic curve, the underlying finite fields and groups default to this module
 // Note that proofs are serialized assuming Fr to be 4x8 = 32 bytes in size. Hence, changing to a curve with different encoding will make proof verification to fail
+
+/// BN254 pairing-friendly elliptic curve.
 pub type Curve = Bn254;
+
+/// Scalar field Fr of the BN254 curve.
 pub type Fr = ArkFr;
+
+/// Base field Fq of the BN254 curve.
 pub type Fq = ArkFq;
+
+/// Quadratic extension field element for the BN254 curve.
 pub type Fq2 = ArkFq2;
+
+/// Affine representation of a G1 group element on the BN254 curve.
 pub type G1Affine = ArkG1Affine;
+
+/// Projective representation of a G1 group element on the BN254 curve.
 pub type G1Projective = ArkG1Projective;
+
+/// Affine representation of a G2 group element on the BN254 curve.
 pub type G2Affine = ArkG2Affine;
+
+/// Projective representation of a G2 group element on the BN254 curve.
 pub type G2Projective = ArkG2Projective;
 
+/// Groth16 proof for the BN254 curve.
 pub type Proof = ArkProof<Curve>;
+
+/// Proving key for the Groth16 proof system.
 pub type ProvingKey = ArkProvingKey<Curve>;
+
+/// Combining the proving key and constraint matrices.
 pub type Zkey = (ArkProvingKey<Curve>, ConstraintMatrices<Fr>);
+
+/// Verifying key for the Groth16 proof system.
 pub type VerifyingKey = ArkVerifyingKey<Curve>;
 
-// Loads the zkey using a bytes vector
+/// Loads the zkey from raw bytes
 pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<Zkey, ZKeyReadError> {
     if zkey_data.is_empty() {
         return Err(ZKeyReadError::EmptyBytes);
@@ -60,21 +84,20 @@ pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<Zkey, ZKeyReadError> {
     Ok(proving_key_and_matrices)
 }
 
-// Loads the proving key
+// Loads default zkey from folder
 #[cfg(not(target_arch = "wasm32"))]
 pub fn zkey_from_folder() -> &'static Zkey {
     &ARKZKEY
 }
 
-// Loads the graph data
+// Loads default graph from folder
 #[cfg(not(target_arch = "wasm32"))]
 pub fn graph_from_folder() -> &'static [u8] {
     GRAPH_BYTES
 }
 
-////////////////////////////////////////////////////////
-// Functions and structs from [arkz-key](https://github.com/zkmopro/ark-zkey/blob/main/src/lib.rs#L106)
-////////////////////////////////////////////////////////
+// The following functions and structs are based on code from ark-zkey:
+// https://github.com/zkmopro/ark-zkey/blob/main/src/lib.rs#L106
 
 #[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq)]
 struct SerializableProvingKey(ArkProvingKey<Curve>);
@@ -110,7 +133,6 @@ fn read_arkzkey_from_bytes_uncompressed(arkzkey_data: &[u8]) -> Result<Zkey, ZKe
     let serialized_constraint_matrices =
         SerializableConstraintMatrices::deserialize_uncompressed_unchecked(&mut cursor)?;
 
-    // Get on right form for API
     let proving_key: ProvingKey = serialized_proving_key.0;
     let constraint_matrices: ConstraintMatrices<Fr> = ConstraintMatrices {
         num_instance_variables: serialized_constraint_matrices.num_instance_variables,

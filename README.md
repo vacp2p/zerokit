@@ -13,15 +13,16 @@ Zerokit provides zero-knowledge cryptographic primitives with a focus on perform
 The current focus is on Rate-Limiting Nullifier [RLN](https://github.com/Rate-Limiting-Nullifier) implementation.
 
 Current implementation is based on the following
-[specification](https://github.com/vacp2p/rfc-index/blob/main/vac/raw/rln-v2.md)
+[specification](https://rfc.vac.dev/vac/raw/rln-v2)
 and focused on RLNv2 which allows to set a rate limit for the number of messages that can be sent by a user.
 
 ## Features
 
-- **RLN Implementation**: Efficient Rate-Limiting Nullifier using zkSNARKs
+- **RLN Implementation**: Efficient Rate-Limiting Nullifier using zkSNARK
 - **Circom Compatibility**: Uses Circom-based circuits for RLN
-- **Cross-Platform**: Support for multiple architectures (see compatibility note below)
+- **Cross-Platform**: Support for multiple architectures with cross-compilation
 - **FFI-Friendly**: Easy to integrate with other languages
+- **WASM Support**: Can be compiled to WebAssembly for web applications
 
 ## Architecture
 

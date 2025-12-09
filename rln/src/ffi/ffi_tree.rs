@@ -1,12 +1,11 @@
 #![allow(non_camel_case_types)]
 #![cfg(not(feature = "stateless"))]
 
-use {
-    super::ffi_rln::FFI_RLN,
-    super::ffi_utils::{CBoolResult, CFr, CResult},
-    crate::poseidon_tree::PoseidonTree,
-    safer_ffi::{boxed::Box_, derive_ReprC, ffi_export, prelude::repr_c},
-    utils::{ZerokitMerkleProof, ZerokitMerkleTree},
+use safer_ffi::{boxed::Box_, derive_ReprC, ffi_export, prelude::repr_c};
+
+use super::{
+    ffi_rln::FFI_RLN,
+    ffi_utils::{CBoolResult, CFr, CResult},
 };
 
 // MerkleProof
@@ -27,15 +26,11 @@ pub fn ffi_merkle_proof_free(merkle_proof: repr_c::Box<FFI_MerkleProof>) {
 
 #[ffi_export]
 pub fn ffi_set_tree(rln: &mut repr_c::Box<FFI_RLN>, tree_depth: usize) -> CBoolResult {
-    // We compute a default empty tree of desired depth
-    match PoseidonTree::default(tree_depth) {
-        Ok(tree) => {
-            rln.0.tree = tree;
-            CBoolResult {
-                ok: true,
-                err: None,
-            }
-        }
+    match rln.0.set_tree(tree_depth) {
+        Ok(_) => CBoolResult {
+            ok: true,
+            err: None,
+        },
         Err(err) => CBoolResult {
             ok: false,
             err: Some(err.to_string().into()),
@@ -47,7 +42,7 @@ pub fn ffi_set_tree(rln: &mut repr_c::Box<FFI_RLN>, tree_depth: usize) -> CBoolR
 
 #[ffi_export]
 pub fn ffi_delete_leaf(rln: &mut repr_c::Box<FFI_RLN>, index: usize) -> CBoolResult {
-    match rln.0.tree.delete(index) {
+    match rln.0.delete_leaf(index) {
         Ok(_) => CBoolResult {
             ok: true,
             err: None,
@@ -60,12 +55,8 @@ pub fn ffi_delete_leaf(rln: &mut repr_c::Box<FFI_RLN>, index: usize) -> CBoolRes
 }
 
 #[ffi_export]
-pub fn ffi_set_leaf(
-    rln: &mut repr_c::Box<FFI_RLN>,
-    index: usize,
-    leaf: &repr_c::Box<CFr>,
-) -> CBoolResult {
-    match rln.0.tree.set(index, leaf.0) {
+pub fn ffi_set_leaf(rln: &mut repr_c::Box<FFI_RLN>, index: usize, leaf: &CFr) -> CBoolResult {
+    match rln.0.set_leaf(index, leaf.0) {
         Ok(_) => CBoolResult {
             ok: true,
             err: None,
@@ -82,7 +73,7 @@ pub fn ffi_get_leaf(
     rln: &repr_c::Box<FFI_RLN>,
     index: usize,
 ) -> CResult<repr_c::Box<CFr>, repr_c::String> {
-    match rln.0.tree.get(index) {
+    match rln.0.get_leaf(index) {
         Ok(leaf) => CResult {
             ok: Some(CFr::from(leaf).into()),
             err: None,
@@ -96,12 +87,12 @@ pub fn ffi_get_leaf(
 
 #[ffi_export]
 pub fn ffi_leaves_set(rln: &repr_c::Box<FFI_RLN>) -> usize {
-    rln.0.tree.leaves_set()
+    rln.0.leaves_set()
 }
 
 #[ffi_export]
-pub fn ffi_set_next_leaf(rln: &mut repr_c::Box<FFI_RLN>, leaf: &repr_c::Box<CFr>) -> CBoolResult {
-    match rln.0.tree.update_next(leaf.0) {
+pub fn ffi_set_next_leaf(rln: &mut repr_c::Box<FFI_RLN>, leaf: &CFr) -> CBoolResult {
+    match rln.0.set_next_leaf(leaf.0) {
         Ok(_) => CBoolResult {
             ok: true,
             err: None,
@@ -119,11 +110,8 @@ pub fn ffi_set_leaves_from(
     index: usize,
     leaves: &repr_c::Vec<CFr>,
 ) -> CBoolResult {
-    match rln
-        .0
-        .tree
-        .override_range(index, leaves.iter().map(|cfr| cfr.0), [].into_iter())
-    {
+    let leaves_vec: Vec<_> = leaves.iter().map(|cfr| cfr.0).collect();
+    match rln.0.set_leaves_from(index, leaves_vec) {
         Ok(_) => CBoolResult {
             ok: true,
             err: None,
@@ -140,20 +128,8 @@ pub fn ffi_init_tree_with_leaves(
     rln: &mut repr_c::Box<FFI_RLN>,
     leaves: &repr_c::Vec<CFr>,
 ) -> CBoolResult {
-    // Reset tree to default
-    let tree_depth = rln.0.tree.depth();
-    if let Err(err) = PoseidonTree::default(tree_depth) {
-        return CBoolResult {
-            ok: false,
-            err: Some(err.to_string().into()),
-        };
-    };
-
-    match rln
-        .0
-        .tree
-        .override_range(0, leaves.iter().map(|cfr| cfr.0), [].into_iter())
-    {
+    let leaves_vec: Vec<_> = leaves.iter().map(|cfr| cfr.0).collect();
+    match rln.0.init_tree_with_leaves(leaves_vec) {
         Ok(_) => CBoolResult {
             ok: true,
             err: None,
@@ -174,11 +150,9 @@ pub fn ffi_atomic_operation(
     leaves: &repr_c::Vec<CFr>,
     indices: &repr_c::Vec<usize>,
 ) -> CBoolResult {
-    match rln.0.tree.override_range(
-        index,
-        leaves.iter().map(|cfr| cfr.0),
-        indices.iter().copied(),
-    ) {
+    let leaves_vec: Vec<_> = leaves.iter().map(|cfr| cfr.0).collect();
+    let indices_vec: Vec<_> = indices.iter().copied().collect();
+    match rln.0.atomic_operation(index, leaves_vec, indices_vec) {
         Ok(_) => CBoolResult {
             ok: true,
             err: None,
@@ -196,12 +170,10 @@ pub fn ffi_seq_atomic_operation(
     leaves: &repr_c::Vec<CFr>,
     indices: &repr_c::Vec<u8>,
 ) -> CBoolResult {
-    let index = rln.0.tree.leaves_set();
-    match rln.0.tree.override_range(
-        index,
-        leaves.iter().map(|cfr| cfr.0),
-        indices.iter().map(|x| *x as usize),
-    ) {
+    let index = rln.0.leaves_set();
+    let leaves_vec: Vec<_> = leaves.iter().map(|cfr| cfr.0).collect();
+    let indices_vec: Vec<_> = indices.iter().map(|x| *x as usize).collect();
+    match rln.0.atomic_operation(index, leaves_vec, indices_vec) {
         Ok(_) => CBoolResult {
             ok: true,
             err: None,
@@ -217,24 +189,23 @@ pub fn ffi_seq_atomic_operation(
 
 #[ffi_export]
 pub fn ffi_get_root(rln: &repr_c::Box<FFI_RLN>) -> repr_c::Box<CFr> {
-    CFr::from(rln.0.tree.root()).into()
+    CFr::from(rln.0.get_root()).into()
 }
 
 #[ffi_export]
-pub fn ffi_get_proof(
+pub fn ffi_get_merkle_proof(
     rln: &repr_c::Box<FFI_RLN>,
     index: usize,
 ) -> CResult<repr_c::Box<FFI_MerkleProof>, repr_c::String> {
-    match rln.0.tree.proof(index) {
-        Ok(proof) => {
-            let path_elements: repr_c::Vec<CFr> = proof
-                .get_path_elements()
+    match rln.0.get_merkle_proof(index) {
+        Ok((path_elements, path_index)) => {
+            let path_elements: repr_c::Vec<CFr> = path_elements
                 .iter()
                 .map(|fr| CFr::from(*fr))
                 .collect::<Vec<_>>()
                 .into();
 
-            let path_index: repr_c::Vec<u8> = proof.get_path_index().into();
+            let path_index: repr_c::Vec<u8> = path_index.into();
 
             let merkle_proof = FFI_MerkleProof {
                 path_elements,
@@ -257,7 +228,7 @@ pub fn ffi_get_proof(
 
 #[ffi_export]
 pub fn ffi_set_metadata(rln: &mut repr_c::Box<FFI_RLN>, metadata: &repr_c::Vec<u8>) -> CBoolResult {
-    match rln.0.tree.set_metadata(metadata) {
+    match rln.0.set_metadata(metadata) {
         Ok(_) => CBoolResult {
             ok: true,
             err: None,
@@ -271,7 +242,7 @@ pub fn ffi_set_metadata(rln: &mut repr_c::Box<FFI_RLN>, metadata: &repr_c::Vec<u
 
 #[ffi_export]
 pub fn ffi_get_metadata(rln: &repr_c::Box<FFI_RLN>) -> CResult<repr_c::Vec<u8>, repr_c::String> {
-    match rln.0.tree.metadata() {
+    match rln.0.get_metadata() {
         Ok(metadata) => CResult {
             ok: Some(metadata.into()),
             err: None,
@@ -285,7 +256,7 @@ pub fn ffi_get_metadata(rln: &repr_c::Box<FFI_RLN>) -> CResult<repr_c::Vec<u8>, 
 
 #[ffi_export]
 pub fn ffi_flush(rln: &mut repr_c::Box<FFI_RLN>) -> CBoolResult {
-    match rln.0.tree.close_db_connection() {
+    match rln.0.flush() {
         Ok(_) => CBoolResult {
             ok: true,
             err: None,

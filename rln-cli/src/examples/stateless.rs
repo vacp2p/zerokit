@@ -2,22 +2,19 @@
 
 use std::{
     collections::HashMap,
-    io::{stdin, stdout, Cursor, Write},
+    io::{stdin, stdout, Write},
 };
 
 use clap::{Parser, Subcommand};
-use color_eyre::{eyre::eyre, Result};
-use rln::{
-    circuit::{Fr, TEST_TREE_DEPTH},
-    hashers::{hash_to_field_le, poseidon_hash, PoseidonHash},
-    protocol::{keygen, prepare_verify_input, serialize_witness},
-    public::RLN,
-    utils::{fr_to_bytes_le, IdSecret},
+use rln::prelude::{
+    hash_to_field_le, keygen, poseidon_hash, recover_id_secret, Fr, IdSecret, PoseidonHash,
+    RLNProofValues, RLNWitnessInput, DEFAULT_TREE_DEPTH, RLN,
 };
 use zerokit_utils::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
 const MESSAGE_LIMIT: u32 = 1;
 
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
 
 #[derive(Parser)]
@@ -45,15 +42,15 @@ enum Commands {
 
 #[derive(Debug, Clone)]
 struct Identity {
-    identity_secret_hash: IdSecret,
+    identity_secret: IdSecret,
     id_commitment: Fr,
 }
 
 impl Identity {
     fn new() -> Self {
-        let (identity_secret_hash, id_commitment) = keygen();
+        let (identity_secret, id_commitment) = keygen();
         Identity {
-            identity_secret_hash,
+            identity_secret,
             id_commitment,
         }
     }
@@ -62,7 +59,7 @@ impl Identity {
 struct RLNSystem {
     rln: RLN,
     tree: OptimalMerkleTree<PoseidonHash>,
-    used_nullifiers: HashMap<[u8; 32], Vec<u8>>,
+    used_nullifiers: HashMap<Fr, RLNProofValues>,
     local_identities: HashMap<usize, Identity>,
 }
 
@@ -71,7 +68,7 @@ impl RLNSystem {
         let rln = RLN::new()?;
         let default_leaf = Fr::from(0);
         let tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
-            TEST_TREE_DEPTH,
+            DEFAULT_TREE_DEPTH,
             default_leaf,
             ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
         )
@@ -94,8 +91,8 @@ impl RLNSystem {
         println!("Registered users:");
         for (index, identity) in &self.local_identities {
             println!("User Index: {index}");
-            println!("+ Identity Secret Hash: {}", *identity.identity_secret_hash);
-            println!("+ Identity Commitment: {}", identity.id_commitment);
+            println!("+ Identity secret: {}", *identity.identity_secret);
+            println!("+ Identity commitment: {}", identity.id_commitment);
             println!();
         }
     }
@@ -108,135 +105,112 @@ impl RLNSystem {
         self.tree.update_next(rate_commitment)?;
 
         println!("Registered User Index: {index}");
-        println!("+ Identity secret hash: {}", *identity.identity_secret_hash);
+        println!("+ Identity secret: {}", *identity.identity_secret);
         println!("+ Identity commitment: {}", identity.id_commitment);
 
         self.local_identities.insert(index, identity);
         Ok(index)
     }
 
-    fn generate_proof(
+    fn generate_and_verify_proof(
         &mut self,
         user_index: usize,
         message_id: u32,
         signal: &str,
         external_nullifier: Fr,
-    ) -> Result<Vec<u8>> {
+    ) -> Result<RLNProofValues> {
         let identity = match self.local_identities.get(&user_index) {
             Some(identity) => identity,
-            None => return Err(eyre!("user index {user_index} not found")),
+            None => return Err(format!("user index {user_index} not found").into()),
         };
 
         let merkle_proof = self.tree.proof(user_index)?;
         let x = hash_to_field_le(signal.as_bytes());
 
-        let rln_witness = RLNWitnessInput::new(
-            identity.identity_secret_hash.clone(),
+        let witness = RLNWitnessInput::new(
+            identity.identity_secret.clone(),
             Fr::from(MESSAGE_LIMIT),
             Fr::from(message_id),
             merkle_proof.get_path_elements(),
             merkle_proof.get_path_index(),
             x,
             external_nullifier,
-        )
-        .unwrap();
+        )?;
 
-        let serialized = serialize_witness(&rln_witness)?;
-        let mut input_buffer = Cursor::new(serialized);
-        let mut output_buffer = Cursor::new(Vec::new());
-
-        self.rln
-            .generate_rln_proof_with_witness(&mut input_buffer, &mut output_buffer)?;
+        let (proof, proof_values) = self.rln.generate_rln_proof(&witness)?;
 
         println!("Proof generated successfully:");
         println!("+ User Index: {user_index}");
         println!("+ Message ID: {message_id}");
         println!("+ Signal: {signal}");
 
-        Ok(output_buffer.into_inner())
+        let tree_root = self.tree.root();
+
+        let verified = self
+            .rln
+            .verify_with_roots(&proof, &proof_values, &x, &[tree_root])?;
+        if verified {
+            println!("Proof verified successfully");
+        }
+
+        Ok(proof_values)
     }
 
-    fn verify_proof(&mut self, proof_data: Vec<u8>, signal: &str) -> Result<()> {
-        let proof_with_signal = prepare_verify_input(proof_data.clone(), signal.as_bytes());
-        let mut input_buffer = Cursor::new(proof_with_signal);
+    fn check_nullifier(&mut self, proof_values: RLNProofValues) -> Result<()> {
+        let tree_root = self.tree.root();
 
-        let root = self.tree.root();
-        let roots_serialized = fr_to_bytes_le(&root);
-        let mut roots_buffer = Cursor::new(roots_serialized);
-
-        match self
-            .rln
-            .verify_with_roots(&mut input_buffer, &mut roots_buffer)
-        {
-            Ok(true) => {
-                let nullifier = &proof_data[256..288];
-                let nullifier_key: [u8; 32] = nullifier.try_into()?;
-
-                if let Some(previous_proof) = self.used_nullifiers.get(&nullifier_key) {
-                    self.handle_duplicate_message_id(previous_proof.clone(), proof_data)?;
-                    return Ok(());
-                }
-                self.used_nullifiers.insert(nullifier_key, proof_data);
-                println!("Message verified and accepted");
-            }
-            Ok(false) => {
-                println!("Verification failed: message_id must be unique within the epoch and satisfy 0 <= message_id < MESSAGE_LIMIT: {MESSAGE_LIMIT}");
-            }
-            Err(err) => return Err(err.into()),
+        if proof_values.root != tree_root {
+            println!("Check nullifier failed: invalid root");
+            return Ok(());
         }
+
+        if let Some(&previous_proof_values) = self.used_nullifiers.get(&proof_values.nullifier) {
+            self.handle_duplicate_message_id(previous_proof_values, proof_values)?;
+            return Ok(());
+        }
+
+        self.used_nullifiers
+            .insert(proof_values.nullifier, proof_values);
+        println!("Message verified and accepted");
         Ok(())
     }
 
     fn handle_duplicate_message_id(
         &mut self,
-        previous_proof: Vec<u8>,
-        current_proof: Vec<u8>,
+        previous_proof_values: RLNProofValues,
+        current_proof_values: RLNProofValues,
     ) -> Result<()> {
-        let x = &current_proof[192..224];
-        let y = &current_proof[224..256];
-
-        let prev_x = &previous_proof[192..224];
-        let prev_y = &previous_proof[224..256];
-        if x == prev_x && y == prev_y {
-            return Err(eyre!("this exact message and signal has already been sent"));
+        if previous_proof_values.x == current_proof_values.x
+            && previous_proof_values.y == current_proof_values.y
+        {
+            return Err("this exact message and signal has already been sent".into());
         }
 
-        let mut proof1 = Cursor::new(previous_proof);
-        let mut proof2 = Cursor::new(current_proof);
-        let mut output = Cursor::new(Vec::new());
-
-        match self
-            .rln
-            .recover_id_secret(&mut proof1, &mut proof2, &mut output)
-        {
-            Ok(_) => {
-                let output_data = output.into_inner();
-                let (leaked_identity_secret_hash, _) = IdSecret::from_bytes_le(&output_data);
-
+        match recover_id_secret(&previous_proof_values, &current_proof_values) {
+            Ok(leaked_identity_secret) => {
                 if let Some((user_index, identity)) = self
                     .local_identities
                     .iter()
-                    .find(|(_, identity)| {
-                        identity.identity_secret_hash == leaked_identity_secret_hash
-                    })
+                    .find(|(_, identity)| identity.identity_secret == leaked_identity_secret)
                     .map(|(index, identity)| (*index, identity))
                 {
-                    let real_identity_secret_hash = identity.identity_secret_hash.clone();
-                    if leaked_identity_secret_hash != real_identity_secret_hash {
-                        Err(eyre!("identity secret hash mismatch: leaked_identity_secret_hash != real_identity_secret_hash"))
+                    let real_identity_secret = identity.identity_secret.clone();
+                    if leaked_identity_secret != real_identity_secret {
+                        Err("Identity secret mismatch: leaked_identity_secret != real_identity_secret".into())
                     } else {
                         println!(
-                            "DUPLICATE message ID detected! Reveal identity secret hash: ********"
+                            "DUPLICATE message ID detected! Reveal identity secret: {}",
+                            *leaked_identity_secret
                         );
                         self.local_identities.remove(&user_index);
                         println!("User index {user_index} has been SLASHED");
                         Ok(())
                     }
                 } else {
-                    Err(eyre!("user identity secret hash ******** not found"))
+                    Err("user identity secret ******** not found".into())
                 }
             }
-            Err(err) => Err(eyre!("Failed to recover identity secret: {err}")),
+            Err(err) => Err(format!("Failed to recover identity secret: {err}").into()),
         }
     }
 }
@@ -275,15 +249,15 @@ fn main() -> Result<()> {
                     message_id,
                     signal,
                 } => {
-                    match rln_system.generate_proof(
+                    match rln_system.generate_and_verify_proof(
                         user_index,
                         message_id,
                         &signal,
                         external_nullifier,
                     ) {
-                        Ok(proof) => {
-                            if let Err(err) = rln_system.verify_proof(proof, &signal) {
-                                println!("Verification error: {err}");
+                        Ok(proof_values) => {
+                            if let Err(err) = rln_system.check_nullifier(proof_values) {
+                                println!("Check nullifier error: {err}");
                             };
                         }
                         Err(err) => {

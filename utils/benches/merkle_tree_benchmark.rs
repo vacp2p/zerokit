@@ -1,5 +1,6 @@
-use criterion::{criterion_group, criterion_main, Criterion};
 use std::{fmt::Display, str::FromStr, sync::LazyLock};
+
+use criterion::{criterion_group, criterion_main, Criterion};
 use tiny_keccak::{Hasher as _, Keccak};
 use zerokit_utils::{
     FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree,

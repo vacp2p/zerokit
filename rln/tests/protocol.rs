@@ -3,16 +3,7 @@
 #[cfg(test)]
 mod test {
     use ark_ff::BigInt;
-    use rln::circuit::{graph_from_folder, zkey_from_folder};
-    use rln::circuit::{Fr, TEST_TREE_DEPTH};
-    use rln::hashers::{hash_to_field_le, poseidon_hash};
-    use rln::poseidon_tree::PoseidonTree;
-    use rln::protocol::{
-        deserialize_proof_values, deserialize_witness, generate_proof, keygen,
-        proof_values_from_witness, rln_witness_from_json, rln_witness_to_json, seeded_keygen,
-        serialize_proof_values, serialize_witness, verify_proof, RLNWitnessInput,
-    };
-    use rln::utils::str_to_fr;
+    use rln::prelude::*;
     use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
 
     type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
@@ -23,14 +14,14 @@ mod test {
         let leaf_index = 3;
 
         // generate identity
-        let identity_secret_hash = hash_to_field_le(b"test-merkle-proof");
-        let id_commitment = poseidon_hash(&[identity_secret_hash]);
+        let identity_secret = hash_to_field_le(b"test-merkle-proof");
+        let id_commitment = poseidon_hash(&[identity_secret]);
         let rate_commitment = poseidon_hash(&[id_commitment, 100.into()]);
 
         // generate merkle tree
         let default_leaf = Fr::from(0);
         let mut tree = PoseidonTree::new(
-            TEST_TREE_DEPTH,
+            DEFAULT_TREE_DEPTH,
             default_leaf,
             ConfigOf::<PoseidonTree>::default(),
         )
@@ -94,14 +85,14 @@ mod test {
     fn get_test_witness() -> RLNWitnessInput {
         let leaf_index = 3;
         // Generate identity pair
-        let (identity_secret_hash, id_commitment) = keygen();
+        let (identity_secret, id_commitment) = keygen();
         let user_message_limit = Fr::from(100);
         let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
 
         //// generate merkle tree
         let default_leaf = Fr::from(0);
         let mut tree = PoseidonTree::new(
-            TEST_TREE_DEPTH,
+            DEFAULT_TREE_DEPTH,
             default_leaf,
             ConfigOf::<PoseidonTree>::default(),
         )
@@ -121,7 +112,7 @@ mod test {
         let message_id = Fr::from(1);
 
         RLNWitnessInput::new(
-            identity_secret_hash,
+            identity_secret,
             user_message_limit,
             message_id,
             merkle_proof.get_path_elements(),
@@ -134,68 +125,37 @@ mod test {
 
     #[test]
     // We test a RLN proof generation and verification
-    fn test_witness_from_json() {
-        // We generate all relevant keys
-        let proving_key = zkey_from_folder();
-        let verifying_key = &proving_key.0.vk;
-        let graph_data = graph_from_folder();
-        // We compute witness from the json input
-        let rln_witness = get_test_witness();
-        let rln_witness_json = rln_witness_to_json(&rln_witness).unwrap();
-        let rln_witness_deser = rln_witness_from_json(rln_witness_json).unwrap();
-        assert_eq!(rln_witness_deser, rln_witness);
-
-        // Let's generate a zkSNARK proof
-        let proof = generate_proof(proving_key, &rln_witness_deser, graph_data).unwrap();
-        let proof_values = proof_values_from_witness(&rln_witness_deser).unwrap();
-
-        // Let's verify the proof
-        let verified = verify_proof(verifying_key, &proof, &proof_values);
-
-        assert!(verified.unwrap());
-    }
-
-    #[test]
-    // We test a RLN proof generation and verification
     fn test_end_to_end() {
-        let rln_witness = get_test_witness();
-        let rln_witness_json = rln_witness_to_json(&rln_witness).unwrap();
-        let rln_witness_deser = rln_witness_from_json(rln_witness_json).unwrap();
-        assert_eq!(rln_witness_deser, rln_witness);
+        let witness = get_test_witness();
 
         // We generate all relevant keys
         let proving_key = zkey_from_folder();
-        let verifying_key = &proving_key.0.vk;
         let graph_data = graph_from_folder();
 
         // Let's generate a zkSNARK proof
-        let proof = generate_proof(proving_key, &rln_witness_deser, graph_data).unwrap();
+        let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
 
-        let proof_values = proof_values_from_witness(&rln_witness_deser).unwrap();
+        let proof_values = proof_values_from_witness(&witness).unwrap();
 
         // Let's verify the proof
-        let success = verify_proof(verifying_key, &proof, &proof_values).unwrap();
+        let success = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
 
         assert!(success);
     }
 
     #[test]
     fn test_witness_serialization() {
-        // We test witness JSON serialization
-        let rln_witness = get_test_witness();
-        let rln_witness_json = rln_witness_to_json(&rln_witness).unwrap();
-        let rln_witness_deser = rln_witness_from_json(rln_witness_json).unwrap();
-        assert_eq!(rln_witness_deser, rln_witness);
+        let witness = get_test_witness();
 
         // We test witness serialization
-        let ser = serialize_witness(&rln_witness).unwrap();
-        let (deser, _) = deserialize_witness(&ser).unwrap();
-        assert_eq!(rln_witness, deser);
+        let ser = rln_witness_to_bytes_le(&witness).unwrap();
+        let (deser, _) = bytes_le_to_rln_witness(&ser).unwrap();
+        assert_eq!(witness, deser);
 
         // We test Proof values serialization
-        let proof_values = proof_values_from_witness(&rln_witness).unwrap();
-        let ser = serialize_proof_values(&proof_values);
-        let (deser, _) = deserialize_proof_values(&ser);
+        let proof_values = proof_values_from_witness(&witness).unwrap();
+        let ser = rln_proof_values_to_bytes_le(&proof_values);
+        let (deser, _) = bytes_le_to_rln_proof_values(&ser).unwrap();
         assert_eq!(proof_values, deser);
     }
 
@@ -205,10 +165,10 @@ mod test {
     fn test_seeded_keygen() {
         // Generate identity pair using a seed phrase
         let seed_phrase: &str = "A seed phrase example";
-        let (identity_secret_hash, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
+        let (identity_secret, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
 
         // We check against expected values
-        let expected_identity_secret_hash_seed_phrase = str_to_fr(
+        let expected_identity_secret_seed_phrase = str_to_fr(
             "0x20df38f3f00496f19fe7c6535492543b21798ed7cb91aebe4af8012db884eda3",
             16,
         )
@@ -219,18 +179,15 @@ mod test {
         )
         .unwrap();
 
-        assert_eq!(
-            identity_secret_hash,
-            expected_identity_secret_hash_seed_phrase
-        );
+        assert_eq!(identity_secret, expected_identity_secret_seed_phrase);
         assert_eq!(id_commitment, expected_id_commitment_seed_phrase);
 
         // Generate identity pair using an byte array
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let (identity_secret_hash, id_commitment) = seeded_keygen(seed_bytes);
+        let (identity_secret, id_commitment) = seeded_keygen(seed_bytes);
 
         // We check against expected values
-        let expected_identity_secret_hash_seed_bytes = str_to_fr(
+        let expected_identity_secret_seed_bytes = str_to_fr(
             "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
             16,
         )
@@ -241,19 +198,13 @@ mod test {
         )
         .unwrap();
 
-        assert_eq!(
-            identity_secret_hash,
-            expected_identity_secret_hash_seed_bytes
-        );
+        assert_eq!(identity_secret, expected_identity_secret_seed_bytes);
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
 
         // We check again if the identity pair generated with the same seed phrase corresponds to the previously generated one
-        let (identity_secret_hash, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
+        let (identity_secret, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
 
-        assert_eq!(
-            identity_secret_hash,
-            expected_identity_secret_hash_seed_phrase
-        );
+        assert_eq!(identity_secret, expected_identity_secret_seed_phrase);
         assert_eq!(id_commitment, expected_id_commitment_seed_phrase);
     }
 }

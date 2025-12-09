@@ -13,7 +13,7 @@ Following these guidelines definitely helps us in accepting your contributions.
 2. Create a feature branch: `git checkout -b fix/your-bug-fix` or `git checkout -b feat/your-feature-name`
 3. Make your changes following our guidelines
 4. Ensure relevant tests pass (see [testing guidelines](#building-and-testing))
-5. Commit your changes (signed commits are highly encouraged  - see [commit guidelines](#commits))
+5. Commit your changes (signed commits are highly encouraged - see [commit guidelines](#commits))
 6. Push and create a Pull Request
 
 ## Development Setup
@@ -178,7 +178,7 @@ chore(ci): update rust toolchain version
 ## Roadmap Alignment
 
 Please refer to our [project roadmap](https://roadmap.vac.dev/) for current development priorities.
-Consider how your changes align with these strategic goals, when contributing.
+Consider how your changes align with these strategic goals when contributing.
 
 ## Getting Help
 
