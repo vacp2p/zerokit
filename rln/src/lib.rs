@@ -2,7 +2,6 @@ pub mod circuit;
 pub mod error;
 pub mod ffi;
 pub mod hashers;
-#[cfg(feature = "pmtree-ft")]
 pub mod pm_tree_adapter;
 pub mod poseidon_tree;
 pub mod prelude;
