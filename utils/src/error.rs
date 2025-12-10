@@ -1,5 +1,5 @@
+use super::poseidon::error::PoseidonError;
 pub use crate::merkle_tree::{FromConfigError, ZerokitMerkleTreeError};
-use crate::poseidon::error::PoseidonError;
 
 /// Errors that can occur during hashing operations.
 #[derive(Debug, thiserror::Error)]

@@ -12,10 +12,9 @@ use ruint::aliases::U256;
 use storage::deserialize_witnesscalc_graph;
 use zeroize::zeroize_flat_type;
 
-use crate::{
-    circuit::{error::WitnessCalcError, iden3calc::graph::fr_to_u256, Fr},
-    utils::FrOrSecret,
-};
+use self::graph::fr_to_u256;
+use super::{error::WitnessCalcError, Fr};
+use crate::utils::FrOrSecret;
 
 pub(crate) type InputSignalsInfo = HashMap<String, (usize, usize)>;
 

@@ -6,8 +6,10 @@ use num_bigint::BigInt;
 use {
     crate::poseidon_tree::PoseidonTree,
     std::str::FromStr,
-    utils::error::ZerokitMerkleTreeError,
-    utils::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
+    utils::{
+        error::ZerokitMerkleTreeError,
+        merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
+    },
 };
 
 #[cfg(not(target_arch = "wasm32"))]

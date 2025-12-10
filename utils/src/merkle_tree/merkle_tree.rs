@@ -12,7 +12,7 @@ use std::{
     str::FromStr,
 };
 
-use crate::merkle_tree::error::ZerokitMerkleTreeError;
+use super::error::ZerokitMerkleTreeError;
 
 /// Enables parallel hashing when there are at least 8 nodes (4 pairs to hash), justifying the overhead.
 pub const MIN_PARALLEL_NODES: usize = 8;

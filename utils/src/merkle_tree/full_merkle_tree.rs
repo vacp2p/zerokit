@@ -7,7 +7,7 @@ use std::{
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-use crate::merkle_tree::{
+use super::{
     error::{FromConfigError, ZerokitMerkleTreeError},
     merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES},
 };

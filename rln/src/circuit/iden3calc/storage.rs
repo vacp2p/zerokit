@@ -7,14 +7,11 @@ use ark_ff::PrimeField;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use prost::Message;
 
-use crate::circuit::{
-    iden3calc::{
-        graph,
-        graph::{Operation, TresOperation, UnoOperation},
-        proto, InputSignalsInfo,
-    },
-    Fr,
+use super::{
+    graph::{self, Operation, TresOperation, UnoOperation},
+    proto, InputSignalsInfo,
 };
+use crate::circuit::Fr;
 
 // format of the wtns.graph file:
 // + magic line: wtns.graph.001

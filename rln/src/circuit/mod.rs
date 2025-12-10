@@ -18,7 +18,7 @@ use ark_groth16::{
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use crate::circuit::error::ZKeyReadError;
+use self::error::ZKeyReadError;
 
 #[cfg(not(target_arch = "wasm32"))]
 const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");

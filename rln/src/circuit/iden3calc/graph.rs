@@ -14,7 +14,8 @@ use rand::Rng;
 use ruint::{aliases::U256, uint};
 use serde::{Deserialize, Serialize};
 
-use crate::circuit::{iden3calc::proto, Fr};
+use super::proto;
+use crate::circuit::Fr;
 
 pub const M: U256 =
     uint!(21888242871839275222246405745257275088548364400416034343698204186575808495617_U256);
