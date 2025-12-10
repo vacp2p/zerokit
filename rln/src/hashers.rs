@@ -2,7 +2,7 @@
 
 use once_cell::sync::Lazy;
 use tiny_keccak::{Hasher, Keccak};
-use utils::{error::ZerokitMerkleTreeError, poseidon::Poseidon};
+use utils::{error::HashError, poseidon::Poseidon};
 
 use crate::{
     circuit::Fr,
@@ -27,7 +27,7 @@ const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
 /// Poseidon Hash wrapper over above implementation.
 static POSEIDON: Lazy<Poseidon<Fr>> = Lazy::new(|| Poseidon::<Fr>::from(&ROUND_PARAMS));
 
-pub fn poseidon_hash(input: &[Fr]) -> Result<Fr, ZerokitMerkleTreeError> {
+pub fn poseidon_hash(input: &[Fr]) -> Result<Fr, HashError> {
     let hash = POSEIDON.hash(input)?;
     Ok(hash)
 }
@@ -39,12 +39,13 @@ pub struct PoseidonHash;
 /// The default Hasher trait used by Merkle tree implementation in utils.
 impl utils::merkle_tree::Hasher for PoseidonHash {
     type Fr = Fr;
+    type Error = HashError;
 
     fn default_leaf() -> Self::Fr {
         Self::Fr::from(0)
     }
 
-    fn hash(inputs: &[Self::Fr]) -> Result<Self::Fr, ZerokitMerkleTreeError> {
+    fn hash(inputs: &[Self::Fr]) -> Result<Self::Fr, Self::Error> {
         poseidon_hash(inputs)
     }
 }

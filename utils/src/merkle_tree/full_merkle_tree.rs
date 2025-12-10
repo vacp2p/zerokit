@@ -87,7 +87,7 @@ where
         let mut cached_nodes: Vec<H::Fr> = Vec::with_capacity(depth + 1);
         cached_nodes.push(default_leaf);
         for i in 0..depth {
-            cached_nodes.push(H::hash(&[cached_nodes[i]; 2])?);
+            cached_nodes.push(H::hash(&[cached_nodes[i]; 2]).map_err(Into::into)?);
         }
         cached_nodes.reverse();
 
@@ -358,7 +358,8 @@ where
                     .map(|parent| {
                         let left_child = self.first_child(parent);
                         let right_child = left_child + 1;
-                        let hash = H::hash(&[self.nodes[left_child], self.nodes[right_child]])?;
+                        let hash = H::hash(&[self.nodes[left_child], self.nodes[right_child]])
+                            .map_err(Into::into)?;
                         Ok((parent, hash))
                     })
                     .collect();
@@ -372,7 +373,8 @@ where
                     let left_child = self.first_child(parent);
                     let right_child = left_child + 1;
                     self.nodes[parent] =
-                        H::hash(&[self.nodes[left_child], self.nodes[right_child]])?;
+                        H::hash(&[self.nodes[left_child], self.nodes[right_child]])
+                            .map_err(Into::into)?;
                 }
             }
 
@@ -428,8 +430,8 @@ impl<H: Hasher> ZerokitMerkleProof for FullMerkleProof<H> {
         hash: &FrOf<Self::Hasher>,
     ) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError> {
         self.0.iter().try_fold(*hash, |hash, branch| match branch {
-            FullMerkleBranch::Left(sibling) => H::hash(&[hash, *sibling]),
-            FullMerkleBranch::Right(sibling) => H::hash(&[*sibling, hash]),
+            FullMerkleBranch::Left(sibling) => H::hash(&[hash, *sibling]).map_err(Into::into),
+            FullMerkleBranch::Right(sibling) => H::hash(&[*sibling, hash]).map_err(Into::into),
         })
     }
 }

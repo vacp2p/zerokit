@@ -17,17 +17,20 @@ use crate::merkle_tree::error::ZerokitMerkleTreeError;
 /// Enables parallel hashing when there are at least 8 nodes (4 pairs to hash), justifying the overhead.
 pub const MIN_PARALLEL_NODES: usize = 8;
 
-/// In the Hasher trait we define the node type, the default leaf
-/// and the hash function used to initialize a Merkle Tree implementation
+/// In the Hasher trait we define the node type, the default leaf,
+/// and the hash function used to initialize a Merkle Tree implementation.
 pub trait Hasher {
     /// Type of the leaf and tree node
     type Fr: Clone + Copy + Eq + Default + Debug + Display + FromStr + Send + Sync;
+
+    /// Error type for hash operations - must be convertible to ZerokitMerkleTreeError
+    type Error: Into<ZerokitMerkleTreeError> + std::error::Error + Send + Sync + 'static;
 
     /// Returns the default tree leaf
     fn default_leaf() -> Self::Fr;
 
     /// Utility to compute the hash of an intermediate node
-    fn hash(input: &[Self::Fr]) -> Result<Self::Fr, ZerokitMerkleTreeError>;
+    fn hash(input: &[Self::Fr]) -> Result<Self::Fr, Self::Error>;
 }
 
 pub type FrOf<H> = <H as Hasher>::Fr;

@@ -235,7 +235,7 @@ fn read_message<R: Read, M: Message + std::default::Default>(
     Ok(msg)
 }
 
-pub fn deserialize_witnesscalc_graph(
+pub(crate) fn deserialize_witnesscalc_graph(
     r: impl Read,
 ) -> std::io::Result<(Vec<graph::Node>, Vec<usize>, InputSignalsInfo)> {
     let mut br = WriteBackReader::new(r);

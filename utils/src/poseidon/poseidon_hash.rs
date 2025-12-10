@@ -5,9 +5,7 @@
 
 use ark_ff::PrimeField;
 
-use super::poseidon_constants::find_poseidon_ark_and_mds;
-
-use super::error::PoseidonError;
+use super::{error::PoseidonError, poseidon_constants::find_poseidon_ark_and_mds};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RoundParameters<F: PrimeField> {

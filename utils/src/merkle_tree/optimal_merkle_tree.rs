@@ -79,7 +79,7 @@ where
         let mut cached_nodes: Vec<H::Fr> = Vec::with_capacity(depth + 1);
         cached_nodes.push(default_leaf);
         for i in 0..depth {
-            cached_nodes.push(H::hash(&[cached_nodes[i]; 2])?);
+            cached_nodes.push(H::hash(&[cached_nodes[i]; 2]).map_err(Into::into)?);
         }
         cached_nodes.reverse();
 
@@ -306,7 +306,7 @@ where
     /// If the index is odd, it is rounded down to the nearest even index.
     fn hash_couple(&self, depth: usize, index: usize) -> Result<H::Fr, ZerokitMerkleTreeError> {
         let b = index & !1;
-        H::hash(&[self.get_node(depth, b), self.get_node(depth, b + 1)])
+        H::hash(&[self.get_node(depth, b), self.get_node(depth, b + 1)]).map_err(Into::into)
     }
 
     /// Updates parent hashes after modifying a range of leaf nodes.
@@ -404,9 +404,9 @@ where
         let mut acc: H::Fr = *leaf;
         for w in self.0.iter() {
             if w.1 == 0 {
-                acc = H::hash(&[acc, w.0])?;
+                acc = H::hash(&[acc, w.0]).map_err(Into::into)?;
             } else {
-                acc = H::hash(&[w.0, acc])?;
+                acc = H::hash(&[w.0, acc]).map_err(Into::into)?;
             }
         }
         Ok(acc)

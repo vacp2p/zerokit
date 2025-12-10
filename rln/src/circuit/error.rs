@@ -1,3 +1,4 @@
+/// Errors that can occur during zkey reading operations
 #[derive(Debug, thiserror::Error)]
 pub enum ZKeyReadError {
     #[error("Empty zkey bytes provided")]
@@ -6,6 +7,7 @@ pub enum ZKeyReadError {
     SerializationError(#[from] ark_serialize::SerializationError),
 }
 
+/// Errors that can occur during witness calculation
 #[derive(Debug, thiserror::Error)]
 pub enum WitnessCalcError {
     #[error("Failed to deserialize witness calculation graph: {0}")]

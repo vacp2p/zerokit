@@ -1,6 +1,7 @@
-use crate::poseidon::error::PoseidonError;
+use crate::error::HashError;
 
-#[derive(thiserror::Error, Debug)]
+/// Errors that can occur during Merkle tree operations
+#[derive(Debug, thiserror::Error)]
 pub enum ZerokitMerkleTreeError {
     #[error("Invalid index")]
     InvalidIndex,
@@ -21,10 +22,11 @@ pub enum ZerokitMerkleTreeError {
     #[cfg(feature = "pmtree-ft")]
     #[error("Pmtree error: {0}")]
     PmtreeErrorKind(#[from] pmtree::PmtreeErrorKind),
-    #[error("Poseidon error: {0}")]
-    PoseidonError(#[from] PoseidonError),
+    #[error("Hash error: {0}")]
+    HashError(#[from] HashError),
 }
 
+/// Errors that can occur while creating Merkle tree from config
 #[derive(Debug, thiserror::Error)]
 pub enum FromConfigError {
     #[error("Error while reading pmtree config: {0}")]

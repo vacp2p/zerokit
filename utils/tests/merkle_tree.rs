@@ -6,7 +6,7 @@ mod test {
     use hex_literal::hex;
     use tiny_keccak::{Hasher as _, Keccak};
     use zerokit_utils::{
-        error::ZerokitMerkleTreeError,
+        error::HashError,
         merkle_tree::{
             FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree,
             ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES,
@@ -20,12 +20,13 @@ mod test {
 
     impl Hasher for Keccak256 {
         type Fr = TestFr;
+        type Error = HashError;
 
         fn default_leaf() -> Self::Fr {
             TestFr([0; 32])
         }
 
-        fn hash(inputs: &[Self::Fr]) -> Result<Self::Fr, ZerokitMerkleTreeError> {
+        fn hash(inputs: &[Self::Fr]) -> Result<Self::Fr, HashError> {
             let mut output = [0; 32];
             let mut hasher = Keccak::v256();
             for element in inputs {
