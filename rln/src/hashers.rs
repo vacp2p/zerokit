@@ -2,10 +2,11 @@
 
 use once_cell::sync::Lazy;
 use tiny_keccak::{Hasher, Keccak};
-use utils::poseidon::Poseidon;
+use utils::{error::ZerokitMerkleTreeError, poseidon::Poseidon};
 
 use crate::{
     circuit::Fr,
+    error::UtilsError,
     utils::{bytes_be_to_fr, bytes_le_to_fr},
 };
 
@@ -26,10 +27,9 @@ const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
 /// Poseidon Hash wrapper over above implementation.
 static POSEIDON: Lazy<Poseidon<Fr>> = Lazy::new(|| Poseidon::<Fr>::from(&ROUND_PARAMS));
 
-pub fn poseidon_hash(input: &[Fr]) -> Fr {
-    POSEIDON
-        .hash(input)
-        .expect("hash with fixed input size can't fail")
+pub fn poseidon_hash(input: &[Fr]) -> Result<Fr, ZerokitMerkleTreeError> {
+    let hash = POSEIDON.hash(input)?;
+    Ok(hash)
 }
 
 /// The zerokit RLN Merkle tree Hasher.
@@ -44,13 +44,13 @@ impl utils::merkle_tree::Hasher for PoseidonHash {
         Self::Fr::from(0)
     }
 
-    fn hash(inputs: &[Self::Fr]) -> Self::Fr {
+    fn hash(inputs: &[Self::Fr]) -> Result<Self::Fr, ZerokitMerkleTreeError> {
         poseidon_hash(inputs)
     }
 }
 
 /// Hashes arbitrary signal to the underlying prime field.
-pub fn hash_to_field_le(signal: &[u8]) -> Fr {
+pub fn hash_to_field_le(signal: &[u8]) -> Result<Fr, UtilsError> {
     // We hash the input signal using Keccak256
     let mut hash = [0; 32];
     let mut hasher = Keccak::v256();
@@ -58,12 +58,13 @@ pub fn hash_to_field_le(signal: &[u8]) -> Fr {
     hasher.finalize(&mut hash);
 
     // We export the hash as a field element
-    let (el, _) = bytes_le_to_fr(hash.as_ref()).expect("Keccak256 hash is always 32 bytes");
-    el
+    let (el, _) = bytes_le_to_fr(hash.as_ref())?;
+
+    Ok(el)
 }
 
 /// Hashes arbitrary signal to the underlying prime field.
-pub fn hash_to_field_be(signal: &[u8]) -> Fr {
+pub fn hash_to_field_be(signal: &[u8]) -> Result<Fr, UtilsError> {
     // We hash the input signal using Keccak256
     let mut hash = [0; 32];
     let mut hasher = Keccak::v256();
@@ -74,6 +75,7 @@ pub fn hash_to_field_be(signal: &[u8]) -> Fr {
     hash.reverse();
 
     // We export the hash as a field element
-    let (el, _) = bytes_be_to_fr(hash.as_ref()).expect("Keccak256 hash is always 32 bytes");
-    el
+    let (el, _) = bytes_be_to_fr(hash.as_ref())?;
+
+    Ok(el)
 }

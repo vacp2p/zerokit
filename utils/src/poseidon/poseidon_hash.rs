@@ -5,7 +5,9 @@
 
 use ark_ff::PrimeField;
 
-use crate::poseidon_constants::find_poseidon_ark_and_mds;
+use super::poseidon_constants::find_poseidon_ark_and_mds;
+
+use super::error::PoseidonError;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RoundParameters<F: PrimeField> {
@@ -20,6 +22,7 @@ pub struct RoundParameters<F: PrimeField> {
 pub struct Poseidon<F: PrimeField> {
     round_params: Vec<RoundParameters<F>>,
 }
+
 impl<F: PrimeField> Poseidon<F> {
     // Loads round parameters and generates round constants
     // poseidon_params is a vector containing tuples (t, RF, RP, skip_matrices)
@@ -93,18 +96,20 @@ impl<F: PrimeField> Poseidon<F> {
         }
     }
 
-    pub fn hash(&self, inp: &[F]) -> Result<F, String> {
+    pub fn hash(&self, inp: &[F]) -> Result<F, PoseidonError> {
         // Note that the rate t becomes input length + 1; hence for length N we pick parameters with T = N + 1
         let t = inp.len() + 1;
 
-        // We seek the index (Poseidon's round_params is an ordered vector) for the parameters corresponding to t
-        let param_index = self.round_params.iter().position(|el| el.t == t);
-
-        if inp.is_empty() || param_index.is_none() {
-            return Err("No parameters found for inputs length".to_string());
+        if inp.is_empty() {
+            return Err(PoseidonError::EmptyInput);
         }
 
-        let param_index = param_index.unwrap();
+        // We seek the index (Poseidon's round_params is an ordered vector) for the parameters corresponding to t
+        let param_index = self
+            .round_params
+            .iter()
+            .position(|el| el.t == t)
+            .ok_or(PoseidonError::NoParametersForInputLength(inp.len()))?;
 
         let mut state = vec![F::ZERO; t];
         let mut state_2 = state.clone();

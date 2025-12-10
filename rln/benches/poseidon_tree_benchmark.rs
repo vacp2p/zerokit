@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use rln::prelude::*;
-use utils::{FullMerkleTree, OptimalMerkleTree, ZerokitMerkleTree};
+use utils::merkle_tree::{FullMerkleTree, OptimalMerkleTree, ZerokitMerkleTree};
 
 pub fn get_leaves(n: u32) -> Vec<Fr> {
     (0..n).map(Fr::from).collect()

@@ -7,12 +7,6 @@
 // Merkle tree implementations are adapted from https://github.com/kilic/rln/blob/master/src/merkle.rs
 // and https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/merkle_tree.rs
 
-//!
-//! # TODO
-//!
-//! * Disk based storage backend (using mmaped files should be easy)
-//! * Implement serialization for tree and Merkle proof
-
 use std::{
     fmt::{Debug, Display},
     str::FromStr,
@@ -33,7 +27,7 @@ pub trait Hasher {
     fn default_leaf() -> Self::Fr;
 
     /// Utility to compute the hash of an intermediate node
-    fn hash(input: &[Self::Fr]) -> Self::Fr;
+    fn hash(input: &[Self::Fr]) -> Result<Self::Fr, ZerokitMerkleTreeError>;
 }
 
 pub type FrOf<H> = <H as Hasher>::Fr;
@@ -101,5 +95,8 @@ pub trait ZerokitMerkleProof {
     fn leaf_index(&self) -> usize;
     fn get_path_elements(&self) -> Vec<FrOf<Self::Hasher>>;
     fn get_path_index(&self) -> Vec<Self::Index>;
-    fn compute_root_from(&self, leaf: &FrOf<Self::Hasher>) -> FrOf<Self::Hasher>;
+    fn compute_root_from(
+        &self,
+        leaf: &FrOf<Self::Hasher>,
+    ) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError>;
 }

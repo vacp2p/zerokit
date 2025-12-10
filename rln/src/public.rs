@@ -7,7 +7,7 @@ use {
     crate::poseidon_tree::PoseidonTree,
     std::str::FromStr,
     utils::error::ZerokitMerkleTreeError,
-    utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
+    utils::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -148,10 +148,10 @@ impl RLN {
     /// let mut resources: Vec<Vec<u8>> = Vec::new();
     /// for filename in ["rln_final.arkzkey", "graph.bin"] {
     ///     let fullpath = format!("{resources_folder}{filename}");
-    ///     let mut file = File::open(&fullpath).expect("no file found");
-    ///     let metadata = std::fs::metadata(&fullpath).expect("unable to read metadata");
+    ///     let mut file = File::open(&fullpath).expect("No file found");
+    ///     let metadata = std::fs::metadata(&fullpath).expect("Unable to read metadata");
     ///     let mut buffer = vec![0; metadata.len() as usize];
-    ///     file.read_exact(&mut buffer).expect("buffer overflow");
+    ///     file.read_exact(&mut buffer).expect("Buffer overflow");
     ///     resources.push(buffer);
     /// }
     ///
@@ -204,10 +204,10 @@ impl RLN {
     /// let mut resources: Vec<Vec<u8>> = Vec::new();
     /// for filename in ["rln_final.arkzkey", "graph.bin"] {
     ///     let fullpath = format!("{resources_folder}{filename}");
-    ///     let mut file = File::open(&fullpath).expect("no file found");
-    ///     let metadata = std::fs::metadata(&fullpath).expect("unable to read metadata");
+    ///     let mut file = File::open(&fullpath).expect("No file found");
+    ///     let metadata = std::fs::metadata(&fullpath).expect("Unable to read metadata");
     ///     let mut buffer = vec![0; metadata.len() as usize];
-    ///     file.read_exact(&mut buffer).expect("buffer overflow");
+    ///     file.read_exact(&mut buffer).expect("Buffer overflow");
     ///     resources.push(buffer);
     /// }
     ///
@@ -327,10 +327,10 @@ impl RLN {
     /// Resets the tree state to default and sets multiple leaves starting from index 0.
     ///
     /// In contrast to [`set_leaves_from`](crate::public::RLN::set_leaves_from), this function resets to 0 the internal `next_index` value, before setting the input leaves values.
+    ///
+    /// This requires the tree to be initialized with the correct depth initially.
     #[cfg(not(feature = "stateless"))]
     pub fn init_tree_with_leaves(&mut self, leaves: Vec<Fr>) -> Result<(), RLNError> {
-        // NOTE: this requires the tree to be initialized with the correct depth initially
-        // TODO: accept tree_depth as a parameter and initialize the tree with that depth
         self.set_tree(self.tree.depth())?;
         self.set_leaves_from(0, leaves)
     }

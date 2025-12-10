@@ -26,7 +26,14 @@ int main(int argc, char const *const argv[])
     printf("RLN instance created successfully\n");
 
     printf("\nGenerating identity keys\n");
-    Vec_CFr_t keys = ffi_key_gen();
+    CResult_Vec_CFr_Vec_uint8_t keys_result = ffi_key_gen();
+    if (keys_result.err.ptr)
+    {
+        fprintf(stderr, "Key generation error: %s\n", keys_result.err.ptr);
+        ffi_c_string_free(keys_result.err);
+        return EXIT_FAILURE;
+    }
+    Vec_CFr_t keys = keys_result.ok;
     const CFr_t *identity_secret = ffi_vec_cfr_get(&keys, 0);
     const CFr_t *id_commitment = ffi_vec_cfr_get(&keys, 1);
     printf("Identity generated\n");
@@ -47,7 +54,14 @@ int main(int argc, char const *const argv[])
     ffi_c_string_free(debug);
 
     printf("\nComputing rate commitment\n");
-    CFr_t *rate_commitment = ffi_poseidon_hash_pair(id_commitment, user_message_limit);
+    CResult_CFr_ptr_Vec_uint8_t rate_commitment_result = ffi_poseidon_hash_pair(id_commitment, user_message_limit);
+    if (!rate_commitment_result.ok)
+    {
+        fprintf(stderr, "Rate commitment hash error: %s\n", rate_commitment_result.err.ptr);
+        ffi_c_string_free(rate_commitment_result.err);
+        return EXIT_FAILURE;
+    }
+    CFr_t *rate_commitment = rate_commitment_result.ok;
 
     debug = ffi_cfr_debug(rate_commitment);
     printf("  - rate_commitment = %s\n", debug.ptr);
@@ -108,10 +122,24 @@ int main(int argc, char const *const argv[])
     CFr_t *default_leaf = ffi_cfr_zero();
 
     CFr_t *default_hashes[TREE_DEPTH - 1];
-    default_hashes[0] = ffi_poseidon_hash_pair(default_leaf, default_leaf);
+    CResult_CFr_ptr_Vec_uint8_t hash_result = ffi_poseidon_hash_pair(default_leaf, default_leaf);
+    if (!hash_result.ok)
+    {
+        fprintf(stderr, "Poseidon hash error: %s\n", hash_result.err.ptr);
+        ffi_c_string_free(hash_result.err);
+        return EXIT_FAILURE;
+    }
+    default_hashes[0] = hash_result.ok;
     for (size_t i = 1; i < TREE_DEPTH - 1; i++)
     {
-        default_hashes[i] = ffi_poseidon_hash_pair(default_hashes[i - 1], default_hashes[i - 1]);
+        hash_result = ffi_poseidon_hash_pair(default_hashes[i - 1], default_hashes[i - 1]);
+        if (!hash_result.ok)
+        {
+            fprintf(stderr, "Poseidon hash error: %s\n", hash_result.err.ptr);
+            ffi_c_string_free(hash_result.err);
+            return EXIT_FAILURE;
+        }
+        default_hashes[i] = hash_result.ok;
     }
 
     Vec_CFr_t path_elements = ffi_vec_cfr_new(TREE_DEPTH);
@@ -177,10 +205,24 @@ int main(int argc, char const *const argv[])
 
     printf("\nComputing Merkle root for stateless mode\n");
     printf("  - computing root for index 0 with rate_commitment\n");
-    CFr_t *computed_root = ffi_poseidon_hash_pair(rate_commitment, default_leaf);
+    CResult_CFr_ptr_Vec_uint8_t root_result = ffi_poseidon_hash_pair(rate_commitment, default_leaf);
+    if (!root_result.ok)
+    {
+        fprintf(stderr, "Poseidon hash error: %s\n", root_result.err.ptr);
+        ffi_c_string_free(root_result.err);
+        return EXIT_FAILURE;
+    }
+    CFr_t *computed_root = root_result.ok;
     for (size_t i = 1; i < TREE_DEPTH; i++)
     {
-        CFr_t *next_root = ffi_poseidon_hash_pair(computed_root, default_hashes[i - 1]);
+        root_result = ffi_poseidon_hash_pair(computed_root, default_hashes[i - 1]);
+        if (!root_result.ok)
+        {
+            fprintf(stderr, "Poseidon hash error: %s\n", root_result.err.ptr);
+            ffi_c_string_free(root_result.err);
+            return EXIT_FAILURE;
+        }
+        CFr_t *next_root = root_result.ok;
         ffi_cfr_free(computed_root);
         computed_root = next_root;
     }
@@ -216,7 +258,14 @@ int main(int argc, char const *const argv[])
     printf("\nHashing signal\n");
     uint8_t signal[32] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     Vec_uint8_t signal_vec = {signal, 32, 32};
-    CFr_t *x = ffi_hash_to_field_le(&signal_vec);
+    CResult_CFr_ptr_Vec_uint8_t x_result = ffi_hash_to_field_le(&signal_vec);
+    if (!x_result.ok)
+    {
+        fprintf(stderr, "Hash signal error: %s\n", x_result.err.ptr);
+        ffi_c_string_free(x_result.err);
+        return EXIT_FAILURE;
+    }
+    CFr_t *x = x_result.ok;
 
     debug = ffi_cfr_debug(x);
     printf("  - x = %s\n", debug.ptr);
@@ -225,7 +274,14 @@ int main(int argc, char const *const argv[])
     printf("\nHashing epoch\n");
     const char *epoch_str = "test-epoch";
     Vec_uint8_t epoch_vec = {(uint8_t *)epoch_str, strlen(epoch_str), strlen(epoch_str)};
-    CFr_t *epoch = ffi_hash_to_field_le(&epoch_vec);
+    CResult_CFr_ptr_Vec_uint8_t epoch_result = ffi_hash_to_field_le(&epoch_vec);
+    if (!epoch_result.ok)
+    {
+        fprintf(stderr, "Hash epoch error: %s\n", epoch_result.err.ptr);
+        ffi_c_string_free(epoch_result.err);
+        return EXIT_FAILURE;
+    }
+    CFr_t *epoch = epoch_result.ok;
 
     debug = ffi_cfr_debug(epoch);
     printf("  - epoch = %s\n", debug.ptr);
@@ -234,14 +290,28 @@ int main(int argc, char const *const argv[])
     printf("\nHashing RLN identifier\n");
     const char *rln_id_str = "test-rln-identifier";
     Vec_uint8_t rln_id_vec = {(uint8_t *)rln_id_str, strlen(rln_id_str), strlen(rln_id_str)};
-    CFr_t *rln_identifier = ffi_hash_to_field_le(&rln_id_vec);
+    CResult_CFr_ptr_Vec_uint8_t rln_identifier_result = ffi_hash_to_field_le(&rln_id_vec);
+    if (!rln_identifier_result.ok)
+    {
+        fprintf(stderr, "Hash RLN identifier error: %s\n", rln_identifier_result.err.ptr);
+        ffi_c_string_free(rln_identifier_result.err);
+        return EXIT_FAILURE;
+    }
+    CFr_t *rln_identifier = rln_identifier_result.ok;
 
     debug = ffi_cfr_debug(rln_identifier);
     printf("  - rln_identifier = %s\n", debug.ptr);
     ffi_c_string_free(debug);
 
     printf("\nComputing Poseidon hash for external nullifier\n");
-    CFr_t *external_nullifier = ffi_poseidon_hash_pair(epoch, rln_identifier);
+    CResult_CFr_ptr_Vec_uint8_t external_nullifier_result = ffi_poseidon_hash_pair(epoch, rln_identifier);
+    if (!external_nullifier_result.ok)
+    {
+        fprintf(stderr, "External nullifier hash error: %s\n", external_nullifier_result.err.ptr);
+        ffi_c_string_free(external_nullifier_result.err);
+        return EXIT_FAILURE;
+    }
+    CFr_t *external_nullifier = external_nullifier_result.ok;
 
     debug = ffi_cfr_debug(external_nullifier);
     printf("  - external_nullifier = %s\n", debug.ptr);
@@ -411,7 +481,14 @@ int main(int argc, char const *const argv[])
     printf("\nHashing second signal\n");
     uint8_t signal2[32] = {11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
     Vec_uint8_t signal2_vec = {signal2, 32, 32};
-    CFr_t *x2 = ffi_hash_to_field_le(&signal2_vec);
+    CResult_CFr_ptr_Vec_uint8_t x2_result = ffi_hash_to_field_le(&signal2_vec);
+    if (!x2_result.ok)
+    {
+        fprintf(stderr, "Hash second signal error: %s\n", x2_result.err.ptr);
+        ffi_c_string_free(x2_result.err);
+        return EXIT_FAILURE;
+    }
+    CFr_t *x2 = x2_result.ok;
 
     debug = ffi_cfr_debug(x2);
     printf("  - x2 = %s\n", debug.ptr);

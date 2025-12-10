@@ -194,18 +194,24 @@ pub struct Hasher;
 #[wasm_bindgen]
 impl Hasher {
     #[wasm_bindgen(js_name = hashToFieldLE)]
-    pub fn hash_to_field_le(input: &Uint8Array) -> WasmFr {
-        WasmFr(hash_to_field_le(&input.to_vec()))
+    pub fn hash_to_field_le(input: &Uint8Array) -> Result<WasmFr, String> {
+        hash_to_field_le(&input.to_vec())
+            .map(WasmFr)
+            .map_err(|e| e.to_string())
     }
 
     #[wasm_bindgen(js_name = hashToFieldBE)]
-    pub fn hash_to_field_be(input: &Uint8Array) -> WasmFr {
-        WasmFr(hash_to_field_be(&input.to_vec()))
+    pub fn hash_to_field_be(input: &Uint8Array) -> Result<WasmFr, String> {
+        hash_to_field_be(&input.to_vec())
+            .map(WasmFr)
+            .map_err(|e| e.to_string())
     }
 
     #[wasm_bindgen(js_name = poseidonHashPair)]
-    pub fn poseidon_hash_pair(a: &WasmFr, b: &WasmFr) -> WasmFr {
-        WasmFr(poseidon_hash(&[a.0, b.0]))
+    pub fn poseidon_hash_pair(a: &WasmFr, b: &WasmFr) -> Result<WasmFr, String> {
+        poseidon_hash(&[a.0, b.0])
+            .map(WasmFr)
+            .map_err(|e| e.to_string())
     }
 }
 
@@ -218,22 +224,23 @@ pub struct Identity {
 #[wasm_bindgen]
 impl Identity {
     #[wasm_bindgen(js_name = generate)]
-    pub fn generate() -> Identity {
-        let (identity_secret, id_commitment) = keygen();
-        Identity {
+    pub fn generate() -> Result<Identity, String> {
+        let (identity_secret, id_commitment) = keygen().map_err(|e| e.to_string())?;
+        Ok(Identity {
             identity_secret: *identity_secret,
             id_commitment,
-        }
+        })
     }
 
     #[wasm_bindgen(js_name = generateSeeded)]
-    pub fn generate_seeded(seed: &Uint8Array) -> Identity {
+    pub fn generate_seeded(seed: &Uint8Array) -> Result<Identity, String> {
         let seed_vec = seed.to_vec();
-        let (identity_secret, id_commitment) = seeded_keygen(&seed_vec);
-        Identity {
+        let (identity_secret, id_commitment) =
+            seeded_keygen(&seed_vec).map_err(|e| e.to_string())?;
+        Ok(Identity {
             identity_secret,
             id_commitment,
-        }
+        })
     }
 
     #[wasm_bindgen(js_name = getSecretHash)]
@@ -263,28 +270,28 @@ pub struct ExtendedIdentity {
 #[wasm_bindgen]
 impl ExtendedIdentity {
     #[wasm_bindgen(js_name = generate)]
-    pub fn generate() -> ExtendedIdentity {
+    pub fn generate() -> Result<ExtendedIdentity, String> {
         let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) =
-            extended_keygen();
-        ExtendedIdentity {
+            extended_keygen().map_err(|e| e.to_string())?;
+        Ok(ExtendedIdentity {
             identity_trapdoor,
             identity_nullifier,
             identity_secret,
             id_commitment,
-        }
+        })
     }
 
     #[wasm_bindgen(js_name = generateSeeded)]
-    pub fn generate_seeded(seed: &Uint8Array) -> ExtendedIdentity {
+    pub fn generate_seeded(seed: &Uint8Array) -> Result<ExtendedIdentity, String> {
         let seed_vec = seed.to_vec();
         let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) =
-            extended_seeded_keygen(&seed_vec);
-        ExtendedIdentity {
+            extended_seeded_keygen(&seed_vec).map_err(|e| e.to_string())?;
+        Ok(ExtendedIdentity {
             identity_trapdoor,
             identity_nullifier,
             identity_secret,
             id_commitment,
-        }
+        })
     }
 
     #[wasm_bindgen(js_name = getTrapdoor)]

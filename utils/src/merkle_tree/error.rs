@@ -1,8 +1,9 @@
+use crate::poseidon::error::PoseidonError;
+
 #[derive(thiserror::Error, Debug)]
 pub enum ZerokitMerkleTreeError {
     #[error("Invalid index")]
     InvalidIndex,
-    // InvalidProof,
     #[error("Leaf index out of bounds")]
     InvalidLeaf,
     #[error("Level exceeds tree depth")]
@@ -20,6 +21,8 @@ pub enum ZerokitMerkleTreeError {
     #[cfg(feature = "pmtree-ft")]
     #[error("Pmtree error: {0}")]
     PmtreeErrorKind(#[from] pmtree::PmtreeErrorKind),
+    #[error("Poseidon error: {0}")]
+    PoseidonError(#[from] PoseidonError),
 }
 
 #[derive(Debug, thiserror::Error)]

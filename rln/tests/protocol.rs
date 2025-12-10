@@ -4,7 +4,7 @@
 mod test {
     use ark_ff::BigInt;
     use rln::prelude::*;
-    use utils::{ZerokitMerkleProof, ZerokitMerkleTree};
+    use utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
 
     type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
 
@@ -14,9 +14,9 @@ mod test {
         let leaf_index = 3;
 
         // generate identity
-        let identity_secret = hash_to_field_le(b"test-merkle-proof");
-        let id_commitment = poseidon_hash(&[identity_secret]);
-        let rate_commitment = poseidon_hash(&[id_commitment, 100.into()]);
+        let identity_secret = hash_to_field_le(b"test-merkle-proof").unwrap();
+        let id_commitment = poseidon_hash(&[identity_secret]).unwrap();
+        let rate_commitment = poseidon_hash(&[id_commitment, 100.into()]).unwrap();
 
         // generate merkle tree
         let default_leaf = Fr::from(0);
@@ -42,7 +42,7 @@ mod test {
             .into()
         );
 
-        let merkle_proof = tree.proof(leaf_index).expect("proof should exist");
+        let merkle_proof = tree.proof(leaf_index).expect("Proof should exist");
         let path_elements = merkle_proof.get_path_elements();
         let identity_path_index = merkle_proof.get_path_index();
 
@@ -85,9 +85,9 @@ mod test {
     fn get_test_witness() -> RLNWitnessInput {
         let leaf_index = 3;
         // Generate identity pair
-        let (identity_secret, id_commitment) = keygen();
+        let (identity_secret, id_commitment) = keygen().unwrap();
         let user_message_limit = Fr::from(100);
-        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
+        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
 
         //// generate merkle tree
         let default_leaf = Fr::from(0);
@@ -99,15 +99,15 @@ mod test {
         .unwrap();
         tree.set(leaf_index, rate_commitment).unwrap();
 
-        let merkle_proof = tree.proof(leaf_index).expect("proof should exist");
+        let merkle_proof = tree.proof(leaf_index).expect("Proof should exist");
 
         let signal = b"hey hey";
-        let x = hash_to_field_le(signal);
+        let x = hash_to_field_le(signal).unwrap();
 
         // We set the remaining values to random ones
-        let epoch = hash_to_field_le(b"test-epoch");
-        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+        let epoch = hash_to_field_le(b"test-epoch").unwrap();
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
 
         let message_id = Fr::from(1);
 
@@ -165,7 +165,7 @@ mod test {
     fn test_seeded_keygen() {
         // Generate identity pair using a seed phrase
         let seed_phrase: &str = "A seed phrase example";
-        let (identity_secret, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
+        let (identity_secret, id_commitment) = seeded_keygen(seed_phrase.as_bytes()).unwrap();
 
         // We check against expected values
         let expected_identity_secret_seed_phrase = str_to_fr(
@@ -184,7 +184,7 @@ mod test {
 
         // Generate identity pair using an byte array
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let (identity_secret, id_commitment) = seeded_keygen(seed_bytes);
+        let (identity_secret, id_commitment) = seeded_keygen(seed_bytes).unwrap();
 
         // We check against expected values
         let expected_identity_secret_seed_bytes = str_to_fr(
@@ -202,7 +202,7 @@ mod test {
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
 
         // We check again if the identity pair generated with the same seed phrase corresponds to the previously generated one
-        let (identity_secret, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
+        let (identity_secret, id_commitment) = seeded_keygen(seed_phrase.as_bytes()).unwrap();
 
         assert_eq!(identity_secret, expected_identity_secret_seed_phrase);
         assert_eq!(id_commitment, expected_id_commitment_seed_phrase);

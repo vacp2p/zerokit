@@ -157,7 +157,7 @@ pub fn rln_proof_to_bytes_le(rln_proof: &RLNProof) -> Vec<u8> {
     rln_proof
         .proof
         .serialize_compressed(&mut bytes)
-        .expect("serialization should not fail");
+        .expect("Serialization should not fail");
 
     // Serialize proof values in LE
     let proof_values_bytes = rln_proof_values_to_bytes_le(&rln_proof.proof_values);
@@ -180,7 +180,7 @@ pub fn rln_proof_to_bytes_be(rln_proof: &RLNProof) -> Vec<u8> {
     rln_proof
         .proof
         .serialize_compressed(&mut bytes)
-        .expect("serialization should not fail");
+        .expect("Serialization should not fail");
 
     // Serialize proof values in BE
     let proof_values_bytes = rln_proof_values_to_bytes_be(&rln_proof.proof_values);

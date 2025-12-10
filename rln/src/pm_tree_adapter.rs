@@ -6,9 +6,12 @@ use serde_json::Value;
 use tempfile::Builder;
 use utils::{
     error::{FromConfigError, ZerokitMerkleTreeError},
-    pmtree,
-    pmtree::{tree::Key, Database, Hasher, PmtreeErrorKind},
-    Config, Mode, SledDB, ZerokitMerkleProof, ZerokitMerkleTree,
+    merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree},
+    pm_tree::{
+        pmtree,
+        pmtree::{tree::Key, Database, Hasher, PmtreeErrorKind},
+        Config, Mode, SledDB,
+    },
 };
 
 use crate::{
@@ -43,7 +46,7 @@ impl Hasher for PoseidonHash {
     }
 
     fn deserialize(value: pmtree::Value) -> Self::Fr {
-        let (fr, _) = bytes_le_to_fr(&value).expect("pmtree value should be valid Fr bytes");
+        let (fr, _) = bytes_le_to_fr(&value).expect("Pmtree value must be valid Fr bytes");
         fr
     }
 
@@ -52,7 +55,7 @@ impl Hasher for PoseidonHash {
     }
 
     fn hash(inputs: &[Self::Fr]) -> Self::Fr {
-        poseidon_hash(inputs)
+        poseidon_hash(inputs).expect("Poseidon hash in pmtree cannot fail")
     }
 }
 
@@ -60,7 +63,7 @@ fn default_tmp_path() -> PathBuf {
     Builder::new()
         .prefix("pmtree-")
         .tempfile()
-        .expect("Failed to create temp file")
+        .expect("Failed to create temporary file")
         .into_temp_path()
         .to_path_buf()
 }
@@ -195,7 +198,7 @@ impl Default for PmtreeConfig {
     fn default() -> Self {
         Self::builder()
             .build()
-            .expect("Default configuration should never fail")
+            .expect("Default configuration cannot fail")
     }
 }
 impl Debug for PmtreeConfig {
@@ -480,8 +483,12 @@ impl ZerokitMerkleProof for PmTreeProof {
     fn get_path_index(&self) -> Vec<Self::Index> {
         self.proof.get_path_index()
     }
-    fn compute_root_from(&self, leaf: &FrOf<Self::Hasher>) -> FrOf<Self::Hasher> {
-        self.proof.compute_root_from(leaf)
+
+    fn compute_root_from(
+        &self,
+        leaf: &FrOf<Self::Hasher>,
+    ) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError> {
+        Ok(self.proof.compute_root_from(leaf))
     }
 }
 

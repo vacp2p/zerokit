@@ -10,7 +10,7 @@ mod test {
     };
     use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
     use wasm_bindgen_test::{console_log, wasm_bindgen_test, wasm_bindgen_test_configure};
-    use zerokit_utils::{
+    use zerokit_utils::merkle_tree::{
         OptimalMerkleProof, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
     };
     #[cfg(feature = "parallel")]
@@ -117,31 +117,36 @@ mod test {
         // Benchmark generate identity
         let start_identity_gen = Date::now();
         for _ in 0..iterations {
-            let _ = Identity::generate();
+            let _ = Identity::generate().expect("Failed to generate identity");
         }
         let identity_gen_result = Date::now() - start_identity_gen;
 
         // Generate identity for other benchmarks
-        let identity_pair = Identity::generate();
+        let identity_pair = Identity::generate().expect("Failed to generate identity");
         let identity_secret = identity_pair.get_secret_hash();
         let id_commitment = identity_pair.get_commitment();
 
-        let epoch = Hasher::hash_to_field_le(&Uint8Array::from(b"test-epoch" as &[u8]));
+        let epoch = Hasher::hash_to_field_le(&Uint8Array::from(b"test-epoch" as &[u8]))
+            .expect("Failed to hash epoch");
         let rln_identifier =
-            Hasher::hash_to_field_le(&Uint8Array::from(b"test-rln-identifier" as &[u8]));
-        let external_nullifier = Hasher::poseidon_hash_pair(&epoch, &rln_identifier);
+            Hasher::hash_to_field_le(&Uint8Array::from(b"test-rln-identifier" as &[u8]))
+                .expect("Failed to hash rln_identifier");
+        let external_nullifier = Hasher::poseidon_hash_pair(&epoch, &rln_identifier)
+            .expect("Failed to hash external nullifier");
 
         let identity_index = tree.leaves_set();
 
         let user_message_limit = WasmFr::from_uint(100);
 
-        let rate_commitment = Hasher::poseidon_hash_pair(&id_commitment, &user_message_limit);
+        let rate_commitment = Hasher::poseidon_hash_pair(&id_commitment, &user_message_limit)
+            .expect("Failed to hash rate commitment");
         tree.update_next(*rate_commitment)
             .expect("Failed to update tree");
 
         let message_id = WasmFr::from_uint(0);
         let signal: [u8; 32] = [0; 32];
-        let x = Hasher::hash_to_field_le(&Uint8Array::from(&signal[..]));
+        let x = Hasher::hash_to_field_le(&Uint8Array::from(&signal[..]))
+            .expect("Failed to hash signal");
 
         let merkle_proof: OptimalMerkleProof<PoseidonHash> = tree
             .proof(identity_index)

@@ -48,7 +48,17 @@ mod test {
     }
 
     fn identity_pair_gen() -> (IdSecret, Fr) {
-        let key_gen = ffi_key_gen();
+        let key_gen = match ffi_key_gen() {
+            CResult {
+                ok: Some(keys),
+                err: None,
+            } => keys,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("key gen call failed: {}", err),
+            _ => unreachable!(),
+        };
         let mut id_secret_fr = *key_gen[0];
         let id_secret_hash = IdSecret::from(&mut id_secret_fr);
         let id_commitment = *key_gen[1];
@@ -328,13 +338,13 @@ mod test {
         let mut ffi_rln_instance = create_rln_instance();
 
         // generate identity
-        let mut identity_secret_ = hash_to_field_le(b"test-merkle-proof");
+        let mut identity_secret_ = hash_to_field_le(b"test-merkle-proof").unwrap();
         let identity_secret = IdSecret::from(&mut identity_secret_);
         let mut to_hash = [*identity_secret.clone()];
-        let id_commitment = poseidon_hash(&to_hash);
+        let id_commitment = poseidon_hash(&to_hash).unwrap();
         to_hash[0].zeroize();
         let user_message_limit = Fr::from(100);
-        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
+        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
 
         // We prepare id_commitment and we set the leaf at provided index
         let result = ffi_set_leaf(
@@ -415,7 +425,8 @@ mod test {
             &user_message_limit,
             &path_elements,
             &identity_path_index,
-        );
+        )
+        .unwrap();
 
         assert_eq!(root, root_from_proof);
     }
@@ -430,20 +441,20 @@ mod test {
         let root_rln_folder = get_tree_root(&ffi_rln_instance);
 
         let zkey_path = "./resources/tree_depth_20/rln_final.arkzkey";
-        let mut zkey_file = File::open(zkey_path).expect("no file found");
-        let metadata = std::fs::metadata(zkey_path).expect("unable to read metadata");
+        let mut zkey_file = File::open(zkey_path).expect("No file found");
+        let metadata = std::fs::metadata(zkey_path).expect("Unable to read metadata");
         let mut zkey_data = vec![0; metadata.len() as usize];
         zkey_file
             .read_exact(&mut zkey_data)
-            .expect("buffer overflow");
+            .expect("Buffer overflow");
 
         let graph_data = "./resources/tree_depth_20/graph.bin";
-        let mut graph_file = File::open(graph_data).expect("no file found");
-        let metadata = std::fs::metadata(graph_data).expect("unable to read metadata");
+        let mut graph_file = File::open(graph_data).expect("No file found");
+        let metadata = std::fs::metadata(graph_data).expect("Unable to read metadata");
         let mut graph_buffer = vec![0; metadata.len() as usize];
         graph_file
             .read_exact(&mut graph_buffer)
-            .expect("buffer overflow");
+            .expect("Buffer overflow");
 
         // Creating a RLN instance passing the raw data
         let tree_config = "".to_string();
@@ -479,7 +490,7 @@ mod test {
         // We generate a vector of random leaves
         let mut rng = thread_rng();
         let leaves: Vec<Fr> = (0..NO_OF_LEAVES)
-            .map(|_| poseidon_hash(&[Fr::rand(&mut rng), Fr::from(100)]))
+            .map(|_| poseidon_hash(&[Fr::rand(&mut rng), Fr::from(100)]).unwrap())
             .collect();
 
         // We create a RLN instance
@@ -497,15 +508,15 @@ mod test {
         let signal: [u8; 32] = rng.gen();
 
         // We generate a random epoch
-        let epoch = hash_to_field_le(b"test-epoch");
+        let epoch = hash_to_field_le(b"test-epoch").unwrap();
         // We generate a random rln_identifier
-        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
         // We generate a external nullifier
-        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
         // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
         let message_id = Fr::from(1);
 
-        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
+        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
 
         // We set as leaf rate_commitment, its index would be equal to no_of_leaves
         let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(rate_commitment));
@@ -514,7 +525,7 @@ mod test {
         }
 
         // Hash the signal to get x
-        let x = hash_to_field_le(&signal);
+        let x = hash_to_field_le(&signal).unwrap();
 
         let rln_proof = rln_proof_gen(
             &ffi_rln_instance,
@@ -544,7 +555,7 @@ mod test {
 
         // We generate a new identity pair
         let (identity_secret, id_commitment) = identity_pair_gen();
-        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
+        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
         let identity_index: usize = NO_OF_LEAVES;
 
         // We generate a random signal
@@ -552,11 +563,11 @@ mod test {
         let signal: [u8; 32] = rng.gen();
 
         // We generate a random epoch
-        let epoch = hash_to_field_le(b"test-epoch");
+        let epoch = hash_to_field_le(b"test-epoch").unwrap();
         // We generate a random rln_identifier
-        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
         // We generate a external nullifier
-        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
         // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
         let message_id = Fr::from(1);
 
@@ -567,7 +578,7 @@ mod test {
         }
 
         // Hash the signal to get x
-        let x = hash_to_field_le(&signal);
+        let x = hash_to_field_le(&signal).unwrap();
 
         let rln_proof = rln_proof_gen(
             &ffi_rln_instance,
@@ -639,7 +650,7 @@ mod test {
         let (identity_secret, id_commitment) = identity_pair_gen();
 
         let user_message_limit = Fr::from(100);
-        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
+        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
 
         // We set as leaf rate_commitment, its index would be equal to 0 since tree is empty
         let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(rate_commitment));
@@ -657,17 +668,17 @@ mod test {
         let signal2: [u8; 32] = rng.gen();
 
         // We generate a random epoch
-        let epoch = hash_to_field_le(b"test-epoch");
+        let epoch = hash_to_field_le(b"test-epoch").unwrap();
         // We generate a random rln_identifier
-        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
         // We generate a external nullifier
-        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
         // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
         let message_id = Fr::from(1);
 
         // Hash the signals to get x
-        let x1 = hash_to_field_le(&signal1);
-        let x2 = hash_to_field_le(&signal2);
+        let x1 = hash_to_field_le(&signal1).unwrap();
+        let x2 = hash_to_field_le(&signal2).unwrap();
 
         // Generate proofs using witness-based API
         // We call generate_rln_proof for first proof values
@@ -715,7 +726,7 @@ mod test {
 
         // We generate a new identity pair
         let (identity_secret_new, id_commitment_new) = identity_pair_gen();
-        let rate_commitment_new = poseidon_hash(&[id_commitment_new, user_message_limit]);
+        let rate_commitment_new = poseidon_hash(&[id_commitment_new, user_message_limit]).unwrap();
 
         // We set as leaf id_commitment, its index would be equal to 1 since at 0 there is id_commitment
         let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(rate_commitment_new));
@@ -727,7 +738,7 @@ mod test {
 
         // We generate a random signal
         let signal3: [u8; 32] = rng.gen();
-        let x3 = hash_to_field_le(&signal3);
+        let x3 = hash_to_field_le(&signal3).unwrap();
 
         let rln_proof3 = rln_proof_gen(
             &ffi_rln_instance,
@@ -773,8 +784,17 @@ mod test {
 
         // We generate a new identity tuple from an input seed
         let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let key_gen = ffi_seeded_extended_key_gen(&seed_bytes.into());
-        assert_eq!(key_gen.len(), 4, "seeded extended key gen call failed");
+        let key_gen = match ffi_seeded_extended_key_gen(&seed_bytes.into()) {
+            CResult {
+                ok: Some(keys),
+                err: None,
+            } => keys,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("seeded extended key gen call failed: {}", err),
+            _ => unreachable!(),
+        };
         let id_commitment = *key_gen[3];
 
         // We insert the id_commitment into the tree at a random index

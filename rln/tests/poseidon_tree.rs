@@ -5,7 +5,9 @@
 #[cfg(test)]
 mod test {
     use rln::prelude::*;
-    use utils::{FullMerkleTree, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
+    use utils::merkle_tree::{
+        FullMerkleTree, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
+    };
 
     #[test]
     // The test checked correctness for `FullMerkleTree` and `OptimalMerkleTree` with Poseidon hash
@@ -22,12 +24,12 @@ mod test {
             .take(sample_size.try_into().unwrap())
         {
             tree_full.set(i, leave).unwrap();
-            let proof = tree_full.proof(i).expect("index should be set");
+            let proof = tree_full.proof(i).expect("Index should be set");
             assert_eq!(proof.leaf_index(), i);
 
             tree_opt.set(i, leave).unwrap();
             assert_eq!(tree_opt.root(), tree_full.root());
-            let proof = tree_opt.proof(i).expect("index should be set");
+            let proof = tree_opt.proof(i).expect("Index should be set");
             assert_eq!(proof.leaf_index(), i);
         }
 
@@ -68,7 +70,7 @@ mod test {
                 let prev_r = tree.get_subtree_root(n, idx_r).unwrap();
                 let subroot = tree.get_subtree_root(n - 1, idx_sr).unwrap();
 
-                assert_eq!(poseidon_hash(&[prev_l, prev_r]), subroot);
+                assert_eq!(poseidon_hash(&[prev_l, prev_r]).unwrap(), subroot);
             }
         }
     }

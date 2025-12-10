@@ -45,7 +45,7 @@ pub fn fr_to_u256(x: &Fr) -> U256 {
 
 #[inline(always)]
 pub fn u256_to_fr(x: &U256) -> Fr {
-    Fr::from_bigint(BigInt::new(x.into_limbs())).expect("Failed to convert U256 to Fr")
+    Fr::from_bigint(BigInt::new(x.into_limbs())).expect("U256 value must fit in field modulus")
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]

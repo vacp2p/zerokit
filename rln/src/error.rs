@@ -44,6 +44,8 @@ pub enum ProtocolError {
     ExternalNullifierMismatch(Fr, Fr),
     #[error("Cannot recover secret: division by zero")]
     DivisionByZero,
+    #[error("Merkle tree error: {0}")]
+    MerkleTree(#[from] ZerokitMerkleTreeError),
 }
 
 #[derive(Error, Debug)]

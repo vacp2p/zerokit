@@ -6,8 +6,11 @@ mod test {
     use hex_literal::hex;
     use tiny_keccak::{Hasher as _, Keccak};
     use zerokit_utils::{
-        FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree,
-        ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES,
+        error::ZerokitMerkleTreeError,
+        merkle_tree::{
+            FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree,
+            ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES,
+        },
     };
     #[derive(Clone, Copy, Eq, PartialEq)]
     struct Keccak256;
@@ -22,14 +25,14 @@ mod test {
             TestFr([0; 32])
         }
 
-        fn hash(inputs: &[Self::Fr]) -> Self::Fr {
+        fn hash(inputs: &[Self::Fr]) -> Result<Self::Fr, ZerokitMerkleTreeError> {
             let mut output = [0; 32];
             let mut hasher = Keccak::v256();
             for element in inputs {
                 hasher.update(element.0.as_slice());
             }
             hasher.finalize(&mut output);
-            TestFr(output)
+            Ok(TestFr(output))
         }
     }
 
@@ -312,7 +315,10 @@ mod test {
                     .expect("Failed to get subtree root");
 
                 // check intermediate nodes
-                assert_eq!(Keccak256::hash(&[prev_l, prev_r]), subroot);
+                assert_eq!(
+                    Keccak256::hash(&[prev_l, prev_r]).expect("Failed to hash"),
+                    subroot
+                );
             }
         }
 
@@ -354,7 +360,10 @@ mod test {
                     .expect("Failed to get subtree root");
 
                 // check intermediate nodes
-                assert_eq!(Keccak256::hash(&[prev_l, prev_r]), subroot);
+                assert_eq!(
+                    Keccak256::hash(&[prev_l, prev_r]).expect("Failed to hash"),
+                    subroot
+                );
             }
         }
     }
@@ -382,7 +391,12 @@ mod test {
                 .expect("Failed to verify proof"));
 
             // We ensure that the Merkle proof and the leaf generate the same root as the tree
-            assert_eq!(proof.compute_root_from(&leaves[i]), tree_full.root());
+            assert_eq!(
+                proof
+                    .compute_root_from(&leaves[i])
+                    .expect("Failed to compute root"),
+                tree_full.root()
+            );
 
             // We check that the proof is not valid for another leaf
             assert!(!tree_full
@@ -408,7 +422,12 @@ mod test {
                 .expect("Failed to verify proof"));
 
             // We ensure that the Merkle proof and the leaf generate the same root as the tree
-            assert_eq!(proof.compute_root_from(&leaves[i]), tree_opt.root());
+            assert_eq!(
+                proof
+                    .compute_root_from(&leaves[i])
+                    .expect("Failed to compute root"),
+                tree_opt.root()
+            );
 
             // We check that the proof is not valid for another leaf
             assert!(!tree_opt

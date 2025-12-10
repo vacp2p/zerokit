@@ -4,7 +4,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::merkle_tree::{
     error::{FromConfigError, ZerokitMerkleTreeError},
-    FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES,
+    merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES},
 };
 
 // Optimal Merkle Tree Implementation
@@ -79,7 +79,7 @@ where
         let mut cached_nodes: Vec<H::Fr> = Vec::with_capacity(depth + 1);
         cached_nodes.push(default_leaf);
         for i in 0..depth {
-            cached_nodes.push(H::hash(&[cached_nodes[i]; 2]));
+            cached_nodes.push(H::hash(&[cached_nodes[i]; 2])?);
         }
         cached_nodes.reverse();
 
@@ -197,7 +197,7 @@ where
         J: ExactSizeIterator<Item = usize>,
     {
         let indices = indices.into_iter().collect::<Vec<_>>();
-        let min_index = *indices.first().expect("indices should not be empty");
+        let min_index = *indices.first().expect("Indices should not be empty");
         let leaves_vec = leaves.into_iter().collect::<Vec<_>>();
 
         let max_index = start + leaves_vec.len();
@@ -274,7 +274,7 @@ where
         if merkle_proof.length() != self.depth {
             return Err(ZerokitMerkleTreeError::InvalidMerkleProof);
         }
-        let expected_root = merkle_proof.compute_root_from(leaf);
+        let expected_root = merkle_proof.compute_root_from(leaf)?;
         Ok(expected_root.eq(&self.root()))
     }
 
@@ -304,7 +304,7 @@ where
 
     /// Computes the hash of a node’s two children at the given depth.
     /// If the index is odd, it is rounded down to the nearest even index.
-    fn hash_couple(&self, depth: usize, index: usize) -> H::Fr {
+    fn hash_couple(&self, depth: usize, index: usize) -> Result<H::Fr, ZerokitMerkleTreeError> {
         let b = index & !1;
         H::hash(&[self.get_node(depth, b), self.get_node(depth, b + 1)])
     }
@@ -330,25 +330,29 @@ where
 
             // Use parallel processing when the number of pairs exceeds the threshold
             if current_index_max - current_index >= MIN_PARALLEL_NODES {
-                let updates: Vec<((usize, usize), H::Fr)> = (current_index..current_index_max)
+                #[allow(clippy::type_complexity)]
+                let updates: Result<
+                    Vec<((usize, usize), H::Fr)>,
+                    ZerokitMerkleTreeError,
+                > = (current_index..current_index_max)
                     .step_by(2)
                     .collect::<Vec<_>>()
                     .into_par_iter()
                     .map(|index| {
                         // Hash two child nodes at positions (current_depth, index) and (current_depth, index + 1)
-                        let hash = self.hash_couple(current_depth, index);
+                        let hash = self.hash_couple(current_depth, index)?;
                         // Return the computed parent hash and its position at
-                        ((parent_depth, index >> 1), hash)
+                        Ok(((parent_depth, index >> 1), hash))
                     })
                     .collect();
 
-                for (parent, hash) in updates {
+                for (parent, hash) in updates? {
                     self.nodes.insert(parent, hash);
                 }
             } else {
                 // Otherwise, fallback to sequential update for small ranges
                 for index in (current_index..current_index_max).step_by(2) {
-                    let hash = self.hash_couple(current_depth, index);
+                    let hash = self.hash_couple(current_depth, index)?;
                     self.nodes.insert((parent_depth, index >> 1), hash);
                 }
             }
@@ -396,16 +400,16 @@ where
     }
 
     /// Computes the Merkle root corresponding by iteratively hashing a Merkle proof with a given input leaf
-    fn compute_root_from(&self, leaf: &H::Fr) -> H::Fr {
+    fn compute_root_from(&self, leaf: &H::Fr) -> Result<H::Fr, ZerokitMerkleTreeError> {
         let mut acc: H::Fr = *leaf;
         for w in self.0.iter() {
             if w.1 == 0 {
-                acc = H::hash(&[acc, w.0]);
+                acc = H::hash(&[acc, w.0])?;
             } else {
-                acc = H::hash(&[w.0, acc]);
+                acc = H::hash(&[w.0, acc])?;
             }
         }
-        acc
+        Ok(acc)
     }
 }
 
