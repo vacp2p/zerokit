@@ -25,8 +25,7 @@ pub fn extended_keygen() -> Result<(Fr, Fr, Fr, Fr), ZerokitMerkleTreeError> {
     let mut rng = thread_rng();
     let identity_trapdoor = Fr::rand(&mut rng);
     let identity_nullifier = Fr::rand(&mut rng);
-    let identity_secret = poseidon_hash(&[identity_trapdoor, identity_nullifier])
-        .expect("Poseidon hash with pair input cannot fail");
+    let identity_secret = poseidon_hash(&[identity_trapdoor, identity_nullifier])?;
     let id_commitment = poseidon_hash(&[identity_secret])?;
     Ok((
         identity_trapdoor,
@@ -70,8 +69,7 @@ pub fn extended_seeded_keygen(signal: &[u8]) -> Result<(Fr, Fr, Fr, Fr), Zerokit
     let mut rng = ChaCha20Rng::from_seed(seed);
     let identity_trapdoor = Fr::rand(&mut rng);
     let identity_nullifier = Fr::rand(&mut rng);
-    let identity_secret = poseidon_hash(&[identity_trapdoor, identity_nullifier])
-        .expect("Poseidon hash with pair input cannot fail");
+    let identity_secret = poseidon_hash(&[identity_trapdoor, identity_nullifier])?;
     let id_commitment = poseidon_hash(&[identity_secret])?;
     Ok((
         identity_trapdoor,

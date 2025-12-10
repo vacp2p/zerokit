@@ -46,6 +46,7 @@ impl Hasher for PoseidonHash {
     }
 
     fn deserialize(value: pmtree::Value) -> Self::Fr {
+        // TODO: allow to handle error properly in pmtree Hasher trait
         let (fr, _) = bytes_le_to_fr(&value).expect("Pmtree value must be valid Fr bytes");
         fr
     }
@@ -55,6 +56,7 @@ impl Hasher for PoseidonHash {
     }
 
     fn hash(inputs: &[Self::Fr]) -> Self::Fr {
+        // TODO: allow to handle error properly in pmtree Hasher trait
         poseidon_hash(inputs).expect("Poseidon hash in pmtree cannot fail")
     }
 }
