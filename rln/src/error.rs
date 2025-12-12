@@ -50,6 +50,8 @@ pub enum ProtocolError {
     MerkleTree(#[from] ZerokitMerkleTreeError),
     #[error("Hash computation error: {0}")]
     Hash(#[from] HashError),
+    #[error("Proof serialization error: {0}")]
+    SerializationError(#[from] ark_serialize::SerializationError),
 }
 
 /// Errors that can occur during proof verification

@@ -24,39 +24,64 @@ const WITNESSCALC_GRAPH_MAGIC: &[u8] = b"wtns.graph.001";
 
 const MAX_VARINT_LENGTH: usize = 10;
 
-impl From<proto::Node> for graph::Node {
-    fn from(value: proto::Node) -> Self {
-        match value.node.expect("Proto::Node must have a node field") {
-            proto::node::Node::Input(input_node) => graph::Node::Input(input_node.idx as usize),
+impl TryFrom<proto::Node> for graph::Node {
+    type Error = std::io::Error;
+
+    fn try_from(value: proto::Node) -> Result<Self, Self::Error> {
+        let node = value.node.ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Proto::Node must have a node field",
+            )
+        })?;
+        match node {
+            proto::node::Node::Input(input_node) => Ok(graph::Node::Input(input_node.idx as usize)),
             proto::node::Node::Constant(constant_node) => {
-                let i = constant_node
-                    .value
-                    .expect("Constant node must have a value");
-                graph::Node::MontConstant(Fr::from_le_bytes_mod_order(i.value_le.as_slice()))
+                let i = constant_node.value.ok_or_else(|| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "Constant node must have a value",
+                    )
+                })?;
+                Ok(graph::Node::MontConstant(Fr::from_le_bytes_mod_order(
+                    i.value_le.as_slice(),
+                )))
             }
             proto::node::Node::UnoOp(uno_op_node) => {
-                let op =
-                    proto::UnoOp::try_from(uno_op_node.op).expect("UnoOp must be valid enum value");
-                graph::Node::UnoOp(op.into(), uno_op_node.a_idx as usize)
+                let op = proto::UnoOp::try_from(uno_op_node.op).map_err(|_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "UnoOp must be valid enum value",
+                    )
+                })?;
+                Ok(graph::Node::UnoOp(op.into(), uno_op_node.a_idx as usize))
             }
             proto::node::Node::DuoOp(duo_op_node) => {
-                let op =
-                    proto::DuoOp::try_from(duo_op_node.op).expect("DuoOp must be valid enum value");
-                graph::Node::Op(
+                let op = proto::DuoOp::try_from(duo_op_node.op).map_err(|_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "DuoOp must be valid enum value",
+                    )
+                })?;
+                Ok(graph::Node::Op(
                     op.into(),
                     duo_op_node.a_idx as usize,
                     duo_op_node.b_idx as usize,
-                )
+                ))
             }
             proto::node::Node::TresOp(tres_op_node) => {
-                let op = proto::TresOp::try_from(tres_op_node.op)
-                    .expect("TresOp must be valid enum value");
-                graph::Node::TresOp(
+                let op = proto::TresOp::try_from(tres_op_node.op).map_err(|_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "TresOp must be valid enum value",
+                    )
+                })?;
+                Ok(graph::Node::TresOp(
                     op.into(),
                     tres_op_node.a_idx as usize,
                     tres_op_node.b_idx as usize,
                     tres_op_node.c_idx as usize,
-                )
+                ))
             }
         }
     }
@@ -256,8 +281,7 @@ pub(crate) fn deserialize_witnesscalc_graph(
     let mut nodes = Vec::with_capacity(nodes_num as usize);
     for _ in 0..nodes_num {
         let n: proto::Node = read_message(&mut br)?;
-        let n2: graph::Node = n.into();
-        nodes.push(n2);
+        nodes.push(n.try_into()?);
     }
 
     let md: proto::GraphMetadata = read_message(&mut br)?;

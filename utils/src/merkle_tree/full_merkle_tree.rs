@@ -164,13 +164,14 @@ where
             let mut idx = self.capacity() + index - 1;
             let mut nd = self.depth;
             loop {
-                let parent = self.parent(idx).expect("Parent should exist");
+                let parent = self
+                    .parent(idx)
+                    .ok_or(ZerokitMerkleTreeError::InvalidIndex)?;
                 nd -= 1;
                 if nd == n {
                     return Ok(self.nodes[parent]);
                 } else {
                     idx = parent;
-                    continue;
                 }
             }
         }
@@ -225,7 +226,10 @@ where
         J: ExactSizeIterator<Item = usize>,
     {
         let indices = indices.into_iter().collect::<Vec<_>>();
-        let min_index = *indices.first().expect("Indices should not be empty");
+        if indices.is_empty() {
+            return Err(ZerokitMerkleTreeError::InvalidIndices);
+        }
+        let min_index = indices[0];
         let leaves_vec = leaves.into_iter().collect::<Vec<_>>();
 
         let max_index = start + leaves_vec.len();

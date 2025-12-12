@@ -147,46 +147,40 @@ pub fn bytes_be_to_rln_proof_values(
 ///
 /// Note: The Groth16 proof is always serialized in LE format (arkworks behavior),
 /// while proof_values are serialized in LE format.
-pub fn rln_proof_to_bytes_le(rln_proof: &RLNProof) -> Vec<u8> {
+pub fn rln_proof_to_bytes_le(rln_proof: &RLNProof) -> Result<Vec<u8>, ProtocolError> {
     // Calculate capacity for Vec:
     // - 128 bytes for compressed Groth16 proof
     // - 5 field elements for proof values (root, external_nullifier, x, y, nullifier)
     let mut bytes = Vec::with_capacity(COMPRESS_PROOF_SIZE + FR_BYTE_SIZE * 5);
 
     // Serialize proof (always LE format from arkworks)
-    rln_proof
-        .proof
-        .serialize_compressed(&mut bytes)
-        .expect("Serialization should not fail");
+    rln_proof.proof.serialize_compressed(&mut bytes)?;
 
     // Serialize proof values in LE
     let proof_values_bytes = rln_proof_values_to_bytes_le(&rln_proof.proof_values);
     bytes.extend_from_slice(&proof_values_bytes);
 
-    bytes
+    Ok(bytes)
 }
 
 /// Serializes RLN proof to big-endian bytes.
 ///
 /// Note: The Groth16 proof is always serialized in LE format (arkworks behavior),
 /// while proof_values are serialized in BE format. This creates a mixed-endian format.
-pub fn rln_proof_to_bytes_be(rln_proof: &RLNProof) -> Vec<u8> {
+pub fn rln_proof_to_bytes_be(rln_proof: &RLNProof) -> Result<Vec<u8>, ProtocolError> {
     // Calculate capacity for Vec:
     // - 128 bytes for compressed Groth16 proof
     // - 5 field elements for proof values (root, external_nullifier, x, y, nullifier)
     let mut bytes = Vec::with_capacity(COMPRESS_PROOF_SIZE + FR_BYTE_SIZE * 5);
 
     // Serialize proof (always LE format from arkworks)
-    rln_proof
-        .proof
-        .serialize_compressed(&mut bytes)
-        .expect("Serialization should not fail");
+    rln_proof.proof.serialize_compressed(&mut bytes)?;
 
     // Serialize proof values in BE
     let proof_values_bytes = rln_proof_values_to_bytes_be(&rln_proof.proof_values);
     bytes.extend_from_slice(&proof_values_bytes);
 
-    bytes
+    Ok(bytes)
 }
 
 /// Deserializes RLN proof from little-endian bytes.
@@ -198,8 +192,7 @@ pub fn bytes_le_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), Protocol
     let mut read: usize = 0;
 
     // Deserialize proof (always LE from arkworks)
-    let proof = Proof::deserialize_compressed(&bytes[read..read + COMPRESS_PROOF_SIZE])
-        .map_err(|_| ProtocolError::InvalidReadLen(bytes.len(), read + COMPRESS_PROOF_SIZE))?;
+    let proof = Proof::deserialize_compressed(&bytes[read..read + COMPRESS_PROOF_SIZE])?;
     read += COMPRESS_PROOF_SIZE;
 
     // Deserialize proof values
@@ -226,8 +219,7 @@ pub fn bytes_be_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), Protocol
     let mut read: usize = 0;
 
     // Deserialize proof (always LE from arkworks)
-    let proof = Proof::deserialize_compressed(&bytes[read..read + COMPRESS_PROOF_SIZE])
-        .map_err(|_| ProtocolError::InvalidReadLen(bytes.len(), read + COMPRESS_PROOF_SIZE))?;
+    let proof = Proof::deserialize_compressed(&bytes[read..read + COMPRESS_PROOF_SIZE])?;
     read += COMPRESS_PROOF_SIZE;
 
     // Deserialize proof values

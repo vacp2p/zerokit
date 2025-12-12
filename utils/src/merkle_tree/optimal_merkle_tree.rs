@@ -197,7 +197,10 @@ where
         J: ExactSizeIterator<Item = usize>,
     {
         let indices = indices.into_iter().collect::<Vec<_>>();
-        let min_index = *indices.first().expect("Indices should not be empty");
+        if indices.is_empty() {
+            return Err(ZerokitMerkleTreeError::InvalidIndices);
+        }
+        let min_index = indices[0];
         let leaves_vec = leaves.into_iter().collect::<Vec<_>>();
 
         let max_index = start + leaves_vec.len();
@@ -248,10 +251,7 @@ where
         let mut depth = self.depth;
         loop {
             i ^= 1;
-            witness.push((
-                self.get_node(depth, i),
-                (1 - (i & 1)).try_into().expect("0 or 1 expected"),
-            ));
+            witness.push((self.get_node(depth, i), (1 - (i & 1)) as u8));
             i >>= 1;
             depth -= 1;
             if depth == 0 {

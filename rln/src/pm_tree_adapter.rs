@@ -47,7 +47,7 @@ impl Hasher for PoseidonHash {
 
     fn deserialize(value: pmtree::Value) -> Self::Fr {
         // TODO: allow to handle error properly in pmtree Hasher trait
-        let (fr, _) = bytes_le_to_fr(&value).expect("Pmtree value must be valid Fr bytes");
+        let (fr, _) = bytes_le_to_fr(&value).expect("Fr deserialization must be valid");
         fr
     }
 
@@ -57,17 +57,16 @@ impl Hasher for PoseidonHash {
 
     fn hash(inputs: &[Self::Fr]) -> Self::Fr {
         // TODO: allow to handle error properly in pmtree Hasher trait
-        poseidon_hash(inputs).expect("Poseidon hash in pmtree cannot fail")
+        poseidon_hash(inputs).expect("Poseidon hash must be valid")
     }
 }
 
-fn default_tmp_path() -> PathBuf {
-    Builder::new()
+fn default_tmp_path() -> Result<PathBuf, std::io::Error> {
+    Ok(Builder::new()
         .prefix("pmtree-")
-        .tempfile()
-        .expect("Failed to create temporary file")
+        .tempfile()?
         .into_temp_path()
-        .to_path_buf()
+        .to_path_buf())
 }
 
 const DEFAULT_TEMPORARY: bool = true;
@@ -135,7 +134,7 @@ impl PmtreeConfigBuilder {
 
     pub fn build(self) -> Result<PmtreeConfig, FromConfigError> {
         let path = match (self.temporary, self.path) {
-            (true, None) => default_tmp_path(),
+            (true, None) => default_tmp_path()?,
             (false, None) => return Err(FromConfigError::MissingPath),
             (true, Some(path)) if path.exists() => return Err(FromConfigError::PathExists),
             (_, Some(path)) => path,
@@ -185,9 +184,10 @@ impl FromStr for PmtreeConfig {
             }
         }
 
+        let default_tmp_path = default_tmp_path()?;
         let config = Config::new()
             .temporary(temporary.unwrap_or(DEFAULT_TEMPORARY))
-            .path(path.unwrap_or(default_tmp_path()))
+            .path(path.unwrap_or(default_tmp_path))
             .cache_capacity(cache_capacity.unwrap_or(DEFAULT_CACHE_CAPACITY))
             .flush_every_ms(flush_every_ms)
             .mode(mode)
@@ -200,9 +200,10 @@ impl Default for PmtreeConfig {
     fn default() -> Self {
         Self::builder()
             .build()
-            .expect("Default configuration cannot fail")
+            .expect("Default PmtreeConfig must be valid")
     }
 }
+
 impl Debug for PmtreeConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
@@ -520,7 +521,7 @@ mod test {
         let _: PmtreeConfig = json.parse().unwrap();
 
         let _ = PmtreeConfig::builder()
-            .path(default_tmp_path())
+            .path(default_tmp_path().unwrap())
             .temporary(DEFAULT_TEMPORARY)
             .cache_capacity(DEFAULT_CACHE_CAPACITY)
             .mode(DEFAULT_MODE)

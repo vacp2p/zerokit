@@ -5,6 +5,8 @@ use crate::error::HashError;
 pub enum ZerokitMerkleTreeError {
     #[error("Invalid index")]
     InvalidIndex,
+    #[error("Invalid indices")]
+    InvalidIndices,
     #[error("Leaf index out of bounds")]
     InvalidLeaf,
     #[error("Level exceeds tree depth")]
@@ -35,4 +37,6 @@ pub enum FromConfigError {
     MissingPath,
     #[error("Error while creating pmtree config: path already exists")]
     PathExists,
+    #[error("Error while creating pmtree default temp path: {0}")]
+    IoError(#[from] std::io::Error),
 }

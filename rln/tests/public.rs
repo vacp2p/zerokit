@@ -478,9 +478,7 @@ mod test {
             let root_empty = rln.get_root();
 
             // We add leaves in a batch into the tree
-            #[allow(unused_must_use)]
-            rln.set_leaves_from(bad_index, leaves)
-                .expect_err("Should throw an error");
+            assert!(rln.set_leaves_from(bad_index, leaves).is_err());
 
             // We check if number of leaves set is consistent
             assert_eq!(rln.leaves_set(), 0);
