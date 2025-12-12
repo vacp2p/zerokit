@@ -517,7 +517,7 @@ mod test {
             "use_compression": false
         }"#;
 
-        let _: PmtreeConfig = json.parse().expect("Failed to parse JSON config");
+        let _: PmtreeConfig = json.parse().unwrap();
 
         let _ = PmtreeConfig::builder()
             .path(default_tmp_path())
@@ -526,6 +526,6 @@ mod test {
             .mode(DEFAULT_MODE)
             .use_compression(DEFAULT_USE_COMPRESSION)
             .build()
-            .expect("Failed to build config");
+            .unwrap();
     }
 }
