@@ -29,10 +29,18 @@ impl WasmRLN {
         let calculated_witness_bigint: Vec<BigInt> = calculated_witness
             .iter()
             .map(|js_bigint| {
-                let str_val = js_bigint.to_string(10).unwrap().as_string().unwrap();
-                str_val.parse::<BigInt>().unwrap()
+                js_bigint
+                    .to_string(10)
+                    .ok()
+                    .and_then(|js_str| js_str.as_string())
+                    .ok_or_else(|| "Failed to convert JsBigInt to string".to_string())
+                    .and_then(|str_val| {
+                        str_val
+                            .parse::<BigInt>()
+                            .map_err(|e| format!("Failed to parse BigInt: {}", e))
+                    })
             })
-            .collect();
+            .collect::<Result<Vec<_>, _>>()?;
 
         let (proof, proof_values) = self
             .0

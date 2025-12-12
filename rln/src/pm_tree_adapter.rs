@@ -398,11 +398,8 @@ impl ZerokitMerkleTree for PmTree {
         // if empty, try searching the db
         let data = self.tree.db.get(METADATA_KEY)?;
 
-        if data.is_none() {
-            // send empty Metadata
-            return Ok(Vec::new());
-        }
-        Ok(data.unwrap())
+        // Return empty metadata if not found, otherwise return the data
+        Ok(data.unwrap_or_default())
     }
 
     fn close_db_connection(&mut self) -> Result<(), ZerokitMerkleTreeError> {
@@ -418,8 +415,13 @@ type FrOfPmTreeHasher = FrOf<PmTreeHasher>;
 
 impl PmTree {
     fn remove_indices(&mut self, indices: &[usize]) -> Result<(), PmtreeErrorKind> {
+        if indices.is_empty() {
+            return Err(PmtreeErrorKind::TreeError(
+                pmtree::TreeErrorKind::InvalidKey,
+            ));
+        }
         let start = indices[0];
-        let end = indices.last().unwrap() + 1;
+        let end = indices[indices.len() - 1] + 1;
 
         let new_leaves = (start..end).map(|_| PmTreeHasher::default_leaf());
 
@@ -437,7 +439,12 @@ impl PmTree {
         leaves: Vec<FrOfPmTreeHasher>,
         indices: &[usize],
     ) -> Result<(), PmtreeErrorKind> {
-        let min_index = *indices.first().unwrap();
+        if indices.is_empty() {
+            return Err(PmtreeErrorKind::TreeError(
+                pmtree::TreeErrorKind::InvalidKey,
+            ));
+        }
+        let min_index = indices[0];
         let max_index = start + leaves.len();
 
         let mut set_values = vec![PmTreeHasher::default_leaf(); max_index - min_index];

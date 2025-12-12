@@ -86,7 +86,11 @@ impl Operation {
                     // division by zero
                     U256::ZERO
                 } else {
-                    a.mul_mod(b.inv_mod(M).unwrap(), M)
+                    a.mul_mod(
+                        b.inv_mod(M)
+                            .expect("Modular inverse exists for non-zero values"),
+                        M,
+                    )
                 }
             }
             Add => a.add_mod(b, M),
@@ -240,7 +244,7 @@ impl UnoOperation {
                 } else {
                     let mut x = Fr::MODULUS;
                     x.sub_with_borrow(&a.into_bigint());
-                    Fr::from_bigint(x).unwrap()
+                    Fr::from_bigint(x).expect("Bigint within field modulus after subtraction")
                 }
             }
             _ => unimplemented!("uno operator {:?} not implemented for Montgomery", self),
@@ -510,7 +514,7 @@ pub fn tree_shake(nodes: &mut Vec<Node>, outputs: &mut [usize]) {
     // Remove unused nodes
     let n = nodes.len();
     let mut retain = used.iter();
-    nodes.retain(|_| *retain.next().unwrap());
+    nodes.retain(|_| *retain.next().expect("Retain iterator matches nodes length"));
 
     // Renumber references.
     let mut renumber = vec![None; n];
@@ -529,20 +533,20 @@ pub fn tree_shake(nodes: &mut Vec<Node>, outputs: &mut [usize]) {
     // Renumber references.
     for node in nodes.iter_mut() {
         if let Node::Op(_, a, b) = node {
-            *a = renumber[*a].unwrap();
-            *b = renumber[*b].unwrap();
+            *a = renumber[*a].expect("renumber array validated for all used indices");
+            *b = renumber[*b].expect("renumber array validated for all used indices");
         }
         if let Node::UnoOp(_, a) = node {
-            *a = renumber[*a].unwrap();
+            *a = renumber[*a].expect("Renumber array validated for all used indices");
         }
         if let Node::TresOp(_, a, b, c) = node {
-            *a = renumber[*a].unwrap();
-            *b = renumber[*b].unwrap();
-            *c = renumber[*c].unwrap();
+            *a = renumber[*a].expect("Renumber array validated for all used indices");
+            *b = renumber[*b].expect("Renumber array validated for all used indices");
+            *c = renumber[*c].expect("Renumber array validated for all used indices");
         }
     }
     for output in outputs.iter_mut() {
-        *output = renumber[*output].unwrap();
+        *output = renumber[*output].expect("Renumber array validated for all output indices");
     }
 }
 
@@ -673,7 +677,7 @@ fn shl(a: Fr, b: Fr) -> Fr {
 
     let n = b.into_bigint().0[0] as u32;
     let a = a.into_bigint();
-    Fr::from_bigint(a << n).unwrap()
+    Fr::from_bigint(a << n).expect("Left shift result within field modulus")
 }
 
 fn shr(a: Fr, b: Fr) -> Fr {
@@ -699,7 +703,7 @@ fn shr(a: Fr, b: Fr) -> Fr {
     }
 
     if n == 0 {
-        return Fr::from_bigint(result).unwrap();
+        return Fr::from_bigint(result).expect("Right shift result within field modulus");
     }
 
     let mask: u64 = (1 << n) - 1;
@@ -710,7 +714,7 @@ fn shr(a: Fr, b: Fr) -> Fr {
         c[i] = (c[i] >> n) | (carrier << (64 - n));
         carrier = new_carrier;
     }
-    Fr::from_bigint(result).unwrap()
+    Fr::from_bigint(result).expect("Right shift result within field modulus")
 }
 
 fn bit_and(a: Fr, b: Fr) -> Fr {
@@ -727,7 +731,7 @@ fn bit_and(a: Fr, b: Fr) -> Fr {
         d.sub_with_borrow(&Fr::MODULUS);
     }
 
-    Fr::from_bigint(d).unwrap()
+    Fr::from_bigint(d).expect("Bitwise AND result within field modulus")
 }
 
 fn bit_or(a: Fr, b: Fr) -> Fr {
@@ -744,7 +748,7 @@ fn bit_or(a: Fr, b: Fr) -> Fr {
         d.sub_with_borrow(&Fr::MODULUS);
     }
 
-    Fr::from_bigint(d).unwrap()
+    Fr::from_bigint(d).expect("Bitwise OR result within field modulus")
 }
 
 fn bit_xor(a: Fr, b: Fr) -> Fr {
@@ -761,7 +765,7 @@ fn bit_xor(a: Fr, b: Fr) -> Fr {
         d.sub_with_borrow(&Fr::MODULUS);
     }
 
-    Fr::from_bigint(d).unwrap()
+    Fr::from_bigint(d).expect("Bitwise XOR result within field modulus")
 }
 
 // M / 2

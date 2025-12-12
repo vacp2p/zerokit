@@ -26,18 +26,22 @@ const MAX_VARINT_LENGTH: usize = 10;
 
 impl From<proto::Node> for graph::Node {
     fn from(value: proto::Node) -> Self {
-        match value.node.unwrap() {
+        match value.node.expect("Proto::Node must have a node field") {
             proto::node::Node::Input(input_node) => graph::Node::Input(input_node.idx as usize),
             proto::node::Node::Constant(constant_node) => {
-                let i = constant_node.value.unwrap();
+                let i = constant_node
+                    .value
+                    .expect("Constant node must have a value");
                 graph::Node::MontConstant(Fr::from_le_bytes_mod_order(i.value_le.as_slice()))
             }
             proto::node::Node::UnoOp(uno_op_node) => {
-                let op = proto::UnoOp::try_from(uno_op_node.op).unwrap();
+                let op =
+                    proto::UnoOp::try_from(uno_op_node.op).expect("UnoOp must be valid enum value");
                 graph::Node::UnoOp(op.into(), uno_op_node.a_idx as usize)
             }
             proto::node::Node::DuoOp(duo_op_node) => {
-                let op = proto::DuoOp::try_from(duo_op_node.op).unwrap();
+                let op =
+                    proto::DuoOp::try_from(duo_op_node.op).expect("DuoOp must be valid enum value");
                 graph::Node::Op(
                     op.into(),
                     duo_op_node.a_idx as usize,
@@ -45,7 +49,8 @@ impl From<proto::Node> for graph::Node {
                 )
             }
             proto::node::Node::TresOp(tres_op_node) => {
-                let op = proto::TresOp::try_from(tres_op_node.op).unwrap();
+                let op = proto::TresOp::try_from(tres_op_node.op)
+                    .expect("TresOp must be valid enum value");
                 graph::Node::TresOp(
                     op.into(),
                     tres_op_node.a_idx as usize,
@@ -144,7 +149,7 @@ pub fn serialize_witnesscalc_graph<T: Write>(
     input_signals: &InputSignalsInfo,
 ) -> std::io::Result<()> {
     let mut ptr = 0usize;
-    w.write_all(WITNESSCALC_GRAPH_MAGIC).unwrap();
+    w.write_all(WITNESSCALC_GRAPH_MAGIC)?;
     ptr += WITNESSCALC_GRAPH_MAGIC.len();
 
     w.write_u64::<LittleEndian>(nodes.len() as u64)?;
