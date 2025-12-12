@@ -186,9 +186,9 @@ proc ffi_rln_witness_input_new*(
   external_nullifier: ptr CFr
 ): CResultWitnessInputPtrVecU8 {.importc: "ffi_rln_witness_input_new", cdecl,
     dynlib: RLN_LIB.}
-proc ffi_rln_witness_to_bytes_le*(witness: ptr ptr FFI_RLNWitnessInput): Vec_uint8 {.importc: "ffi_rln_witness_to_bytes_le",
+proc ffi_rln_witness_to_bytes_le*(witness: ptr ptr FFI_RLNWitnessInput): CResultVecU8VecU8 {.importc: "ffi_rln_witness_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_witness_to_bytes_be*(witness: ptr ptr FFI_RLNWitnessInput): Vec_uint8 {.importc: "ffi_rln_witness_to_bytes_be",
+proc ffi_rln_witness_to_bytes_be*(witness: ptr ptr FFI_RLNWitnessInput): CResultVecU8VecU8 {.importc: "ffi_rln_witness_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_bytes_le_to_rln_witness*(bytes: ptr Vec_uint8): CResultWitnessInputPtrVecU8 {.importc: "ffi_bytes_le_to_rln_witness",
     cdecl, dynlib: RLN_LIB.}
@@ -285,9 +285,9 @@ proc ffi_recover_id_secret*(proof_values_1: ptr ptr FFI_RLNProofValues,
     cdecl, dynlib: RLN_LIB.}
 
 # RLNProof serialization
-proc ffi_rln_proof_to_bytes_le*(proof: ptr ptr FFI_RLNProof): Vec_uint8 {.importc: "ffi_rln_proof_to_bytes_le",
+proc ffi_rln_proof_to_bytes_le*(proof: ptr ptr FFI_RLNProof): CResultVecU8VecU8 {.importc: "ffi_rln_proof_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_proof_to_bytes_be*(proof: ptr ptr FFI_RLNProof): Vec_uint8 {.importc: "ffi_rln_proof_to_bytes_be",
+proc ffi_rln_proof_to_bytes_be*(proof: ptr ptr FFI_RLNProof): CResultVecU8VecU8 {.importc: "ffi_rln_proof_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_bytes_le_to_rln_proof*(bytes: ptr Vec_uint8): CResultProofPtrVecU8 {.importc: "ffi_bytes_le_to_rln_proof",
     cdecl, dynlib: RLN_LIB.}
@@ -436,7 +436,7 @@ when isMainModule:
   block:
     var okKeys = deserKeysResult.ok
     let debug = ffi_vec_cfr_debug(addr okKeys)
-    echo "  - deserialized identity_secret = ", asString(debug)
+    echo "  - deserialized keys = ", asString(debug)
     ffi_c_string_free(debug)
 
   ffi_vec_cfr_free(deserKeysResult.ok)
@@ -665,7 +665,13 @@ when isMainModule:
     echo "RLN Witness created successfully"
 
   echo "\nRLNWitnessInput serialization: RLNWitnessInput <-> bytes"
-  var serWitness = ffi_rln_witness_to_bytes_be(addr witness)
+  let serWitnessResult = ffi_rln_witness_to_bytes_be(addr witness)
+  if serWitnessResult.err.dataPtr != nil:
+    stderr.writeLine "Witness serialization error: ", asString(
+        serWitnessResult.err)
+    ffi_c_string_free(serWitnessResult.err)
+    quit 1
+  var serWitness = serWitnessResult.ok
 
   block:
     let debug = ffi_vec_u8_debug(addr serWitness)
@@ -734,7 +740,12 @@ when isMainModule:
     ffi_cfr_free(extNullifier)
 
   echo "\nRLNProof serialization: RLNProof <-> bytes"
-  var serProof = ffi_rln_proof_to_bytes_be(addr proof)
+  let serProofResult = ffi_rln_proof_to_bytes_be(addr proof)
+  if serProofResult.err.dataPtr != nil:
+    stderr.writeLine "Proof serialization error: ", asString(serProofResult.err)
+    ffi_c_string_free(serProofResult.err)
+    quit 1
+  var serProof = serProofResult.ok
 
   block:
     let debug = ffi_vec_u8_debug(addr serProof)

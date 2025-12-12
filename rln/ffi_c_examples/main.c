@@ -106,7 +106,7 @@ int main(int argc, char const *const argv[])
     }
 
     debug = ffi_vec_cfr_debug(&deser_keys_result.ok);
-    printf("  - deserialized identity_secret = %s\n", debug.ptr);
+    printf("  - deserialized keys = %s\n", debug.ptr);
     ffi_c_string_free(debug);
 
     Vec_CFr_t deser_keys = deser_keys_result.ok;
@@ -363,6 +363,34 @@ int main(int argc, char const *const argv[])
     printf("RLN Witness created successfully\n");
 #endif
 
+    printf("\nRLNWitnessInput serialization: RLNWitnessInput <-> bytes\n");
+    CResult_Vec_uint8_Vec_uint8_t ser_witness_result = ffi_rln_witness_to_bytes_le(&witness);
+    if (ser_witness_result.err.ptr)
+    {
+        fprintf(stderr, "Witness serialization error: %s\n", ser_witness_result.err.ptr);
+        ffi_c_string_free(ser_witness_result.err);
+        return EXIT_FAILURE;
+    }
+    Vec_uint8_t ser_witness = ser_witness_result.ok;
+
+    debug = ffi_vec_u8_debug(&ser_witness);
+    printf("  - serialized witness = %s\n", debug.ptr);
+    ffi_c_string_free(debug);
+
+    CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t deser_witness_result = ffi_bytes_le_to_rln_witness(&ser_witness);
+    if (!deser_witness_result.ok)
+    {
+        fprintf(stderr, "Witness deserialization error: %s\n", deser_witness_result.err.ptr);
+        ffi_c_string_free(deser_witness_result.err);
+        return EXIT_FAILURE;
+    }
+
+    FFI_RLNWitnessInput_t *deser_witness = deser_witness_result.ok;
+    printf("  - witness deserialized successfully\n");
+
+    ffi_rln_witness_input_free(deser_witness);
+    ffi_vec_u8_free(ser_witness);
+
     printf("\nGenerating RLN Proof\n");
     CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result = ffi_generate_rln_proof(
         &rln,
@@ -412,7 +440,14 @@ int main(int argc, char const *const argv[])
     ffi_cfr_free(ext_nullifier);
 
     printf("\nRLNProof serialization: RLNProof <-> bytes\n");
-    Vec_uint8_t ser_proof = ffi_rln_proof_to_bytes_le(&rln_proof);
+    CResult_Vec_uint8_Vec_uint8_t ser_proof_result = ffi_rln_proof_to_bytes_le(&rln_proof);
+    if (ser_proof_result.err.ptr)
+    {
+        fprintf(stderr, "Proof serialization error: %s\n", ser_proof_result.err.ptr);
+        ffi_c_string_free(ser_proof_result.err);
+        return EXIT_FAILURE;
+    }
+    Vec_uint8_t ser_proof = ser_proof_result.ok;
 
     debug = ffi_vec_u8_debug(&ser_proof);
     printf("  - serialized proof = %s\n", debug.ptr);
