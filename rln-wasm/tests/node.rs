@@ -75,8 +75,7 @@ mod test {
     #[wasm_bindgen_test]
     pub async fn rln_wasm_benchmark() {
         // Initialize witness calculator
-        initWitnessCalculator(WITNESS_CALCULATOR_JS)
-            .unwrap();
+        initWitnessCalculator(WITNESS_CALCULATOR_JS).unwrap();
 
         let mut results = String::from("\nbenchmarks:\n");
         let iterations = 10;
@@ -107,31 +106,24 @@ mod test {
         let identity_secret = identity_pair.get_secret_hash();
         let id_commitment = identity_pair.get_commitment();
 
-        let epoch = Hasher::hash_to_field_le(&Uint8Array::from(b"test-epoch" as &[u8]))
-            .unwrap();
+        let epoch = Hasher::hash_to_field_le(&Uint8Array::from(b"test-epoch" as &[u8])).unwrap();
         let rln_identifier =
-            Hasher::hash_to_field_le(&Uint8Array::from(b"test-rln-identifier" as &[u8]))
-                .unwrap();
-        let external_nullifier = Hasher::poseidon_hash_pair(&epoch, &rln_identifier)
-            .unwrap();
+            Hasher::hash_to_field_le(&Uint8Array::from(b"test-rln-identifier" as &[u8])).unwrap();
+        let external_nullifier = Hasher::poseidon_hash_pair(&epoch, &rln_identifier).unwrap();
 
         let identity_index = tree.leaves_set();
 
         let user_message_limit = WasmFr::from_uint(100);
 
-        let rate_commitment = Hasher::poseidon_hash_pair(&id_commitment, &user_message_limit)
-            .unwrap();
-        tree.update_next(*rate_commitment)
-            .unwrap();
+        let rate_commitment =
+            Hasher::poseidon_hash_pair(&id_commitment, &user_message_limit).unwrap();
+        tree.update_next(*rate_commitment).unwrap();
 
         let message_id = WasmFr::from_uint(0);
         let signal: [u8; 32] = [0; 32];
-        let x = Hasher::hash_to_field_le(&Uint8Array::from(&signal[..]))
-            .unwrap();
+        let x = Hasher::hash_to_field_le(&Uint8Array::from(&signal[..])).unwrap();
 
-        let merkle_proof: OptimalMerkleProof<PoseidonHash> = tree
-            .proof(identity_index)
-            .unwrap();
+        let merkle_proof: OptimalMerkleProof<PoseidonHash> = tree.proof(identity_index).unwrap();
 
         let mut path_elements = VecWasmFr::new();
         for path_element in merkle_proof.get_path_elements() {
@@ -150,9 +142,7 @@ mod test {
         )
         .unwrap();
 
-        let bigint_json = witness
-            .to_bigint_json()
-            .unwrap();
+        let bigint_json = witness.to_bigint_json().unwrap();
 
         // Benchmark witness calculation
         let start_calculate_witness = Date::now();
@@ -198,16 +188,12 @@ mod test {
         // Benchmark proof verification with the root
         let start_verify_with_roots = Date::now();
         for _ in 0..iterations {
-            let _ = rln_instance
-                .verify_with_roots(&proof, &roots, &x)
-                .unwrap();
+            let _ = rln_instance.verify_with_roots(&proof, &roots, &x).unwrap();
         }
         let verify_with_roots_result = Date::now() - start_verify_with_roots;
 
         // Verify proof with the root for other benchmarks
-        let is_proof_valid = rln_instance
-            .verify_with_roots(&proof, &roots, &x)
-            .unwrap();
+        let is_proof_valid = rln_instance.verify_with_roots(&proof, &roots, &x).unwrap();
         assert!(is_proof_valid, "verification failed");
 
         // Format and display the benchmark results
