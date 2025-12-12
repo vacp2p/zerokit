@@ -24,12 +24,12 @@ mod test {
             .take(sample_size.try_into().unwrap())
         {
             tree_full.set(i, leave).unwrap();
-            let proof = tree_full.proof(i).expect("Index should be set");
+            let proof = tree_full.proof(i).unwrap();
             assert_eq!(proof.leaf_index(), i);
 
             tree_opt.set(i, leave).unwrap();
             assert_eq!(tree_opt.root(), tree_full.root());
-            let proof = tree_opt.proof(i).expect("Index should be set");
+            let proof = tree_opt.proof(i).unwrap();
             assert_eq!(proof.leaf_index(), i);
         }
 

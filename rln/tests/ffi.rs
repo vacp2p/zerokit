@@ -441,20 +441,16 @@ mod test {
         let root_rln_folder = get_tree_root(&ffi_rln_instance);
 
         let zkey_path = "./resources/tree_depth_20/rln_final.arkzkey";
-        let mut zkey_file = File::open(zkey_path).expect("No file found");
-        let metadata = std::fs::metadata(zkey_path).expect("Unable to read metadata");
+        let mut zkey_file = File::open(zkey_path).unwrap();
+        let metadata = std::fs::metadata(zkey_path).unwrap();
         let mut zkey_data = vec![0; metadata.len() as usize];
-        zkey_file
-            .read_exact(&mut zkey_data)
-            .expect("Buffer overflow");
+        zkey_file.read_exact(&mut zkey_data).unwrap();
 
         let graph_data = "./resources/tree_depth_20/graph.bin";
-        let mut graph_file = File::open(graph_data).expect("No file found");
-        let metadata = std::fs::metadata(graph_data).expect("Unable to read metadata");
+        let mut graph_file = File::open(graph_data).unwrap();
+        let metadata = std::fs::metadata(graph_data).unwrap();
         let mut graph_buffer = vec![0; metadata.len() as usize];
-        graph_file
-            .read_exact(&mut graph_buffer)
-            .expect("Buffer overflow");
+        graph_file.read_exact(&mut graph_buffer).unwrap();
 
         // Creating a RLN instance passing the raw data
         let tree_config = "".to_string();

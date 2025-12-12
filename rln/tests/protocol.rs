@@ -42,7 +42,7 @@ mod test {
             .into()
         );
 
-        let merkle_proof = tree.proof(leaf_index).expect("Proof should exist");
+        let merkle_proof = tree.proof(leaf_index).unwrap();
         let path_elements = merkle_proof.get_path_elements();
         let identity_path_index = merkle_proof.get_path_index();
 
@@ -99,7 +99,7 @@ mod test {
         .unwrap();
         tree.set(leaf_index, rate_commitment).unwrap();
 
-        let merkle_proof = tree.proof(leaf_index).expect("Proof should exist");
+        let merkle_proof = tree.proof(leaf_index).unwrap();
 
         let signal = b"hey hey";
         let x = hash_to_field_le(signal).unwrap();

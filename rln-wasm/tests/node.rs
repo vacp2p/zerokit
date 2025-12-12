@@ -76,62 +76,62 @@ mod test {
     pub async fn rln_wasm_benchmark() {
         // Initialize witness calculator
         initWitnessCalculator(WITNESS_CALCULATOR_JS)
-            .expect("Failed to initialize witness calculator");
+            .unwrap();
 
         let mut results = String::from("\nbenchmarks:\n");
         let iterations = 10;
 
-        let zkey = readFile(ARKZKEY_PATH).expect("Failed to read zkey file");
+        let zkey = readFile(ARKZKEY_PATH).unwrap();
 
         // Benchmark RLN instance creation
         let start_rln_new = Date::now();
         for _ in 0..iterations {
-            let _ = WasmRLN::new(&zkey).expect("Failed to create RLN instance");
+            let _ = WasmRLN::new(&zkey).unwrap();
         }
         let rln_new_result = Date::now() - start_rln_new;
 
         // Create RLN instance for other benchmarks
-        let rln_instance = WasmRLN::new(&zkey).expect("Failed to create RLN instance");
+        let rln_instance = WasmRLN::new(&zkey).unwrap();
         let mut tree: OptimalMerkleTree<PoseidonHash> =
-            OptimalMerkleTree::default(DEFAULT_TREE_DEPTH).expect("Failed to create tree");
+            OptimalMerkleTree::default(DEFAULT_TREE_DEPTH).unwrap();
 
         // Benchmark generate identity
         let start_identity_gen = Date::now();
         for _ in 0..iterations {
-            let _ = Identity::generate().expect("Failed to generate identity");
+            let _ = Identity::generate().unwrap();
         }
         let identity_gen_result = Date::now() - start_identity_gen;
 
         // Generate identity for other benchmarks
-        let identity_pair = Identity::generate().expect("Failed to generate identity");
+        let identity_pair = Identity::generate().unwrap();
         let identity_secret = identity_pair.get_secret_hash();
         let id_commitment = identity_pair.get_commitment();
 
         let epoch = Hasher::hash_to_field_le(&Uint8Array::from(b"test-epoch" as &[u8]))
-            .expect("Failed to hash epoch");
+            .unwrap();
         let rln_identifier =
             Hasher::hash_to_field_le(&Uint8Array::from(b"test-rln-identifier" as &[u8]))
-                .expect("Failed to hash rln_identifier");
+                .unwrap();
         let external_nullifier = Hasher::poseidon_hash_pair(&epoch, &rln_identifier)
-            .expect("Failed to hash external nullifier");
+            .unwrap();
 
         let identity_index = tree.leaves_set();
 
         let user_message_limit = WasmFr::from_uint(100);
 
         let rate_commitment = Hasher::poseidon_hash_pair(&id_commitment, &user_message_limit)
-            .expect("Failed to hash rate commitment");
+            .unwrap();
         tree.update_next(*rate_commitment)
-            .expect("Failed to update tree");
+            .unwrap();
 
         let message_id = WasmFr::from_uint(0);
         let signal: [u8; 32] = [0; 32];
         let x = Hasher::hash_to_field_le(&Uint8Array::from(&signal[..]))
-            .expect("Failed to hash signal");
+            .unwrap();
 
         let merkle_proof: OptimalMerkleProof<PoseidonHash> = tree
             .proof(identity_index)
-            .expect("Failed to generate merkle proof");
+            .unwrap();
 
         let mut path_elements = VecWasmFr::new();
         for path_element in merkle_proof.get_path_elements() {
@@ -148,32 +148,32 @@ mod test {
             &x,
             &external_nullifier,
         )
-        .expect("Failed to create WasmRLNWitnessInput");
+        .unwrap();
 
         let bigint_json = witness
             .to_bigint_json()
-            .expect("Failed to convert witness to BigInt JSON");
+            .unwrap();
 
         // Benchmark witness calculation
         let start_calculate_witness = Date::now();
         for _ in 0..iterations {
             let _ = calculateWitness(CIRCOM_PATH, bigint_json.clone())
                 .await
-                .expect("Failed to calculate witness");
+                .unwrap();
         }
         let calculate_witness_result = Date::now() - start_calculate_witness;
 
         // Calculate witness for other benchmarks
         let calculated_witness_str = calculateWitness(CIRCOM_PATH, bigint_json.clone())
             .await
-            .expect("Failed to calculate witness")
+            .unwrap()
             .as_string()
-            .expect("Failed to convert calculated witness to string");
+            .unwrap();
         let calculated_witness_vec_str: Vec<String> =
-            serde_json::from_str(&calculated_witness_str).expect("Failed to parse JSON");
+            serde_json::from_str(&calculated_witness_str).unwrap();
         let calculated_witness: Vec<JsBigInt> = calculated_witness_vec_str
             .iter()
-            .map(|x| JsBigInt::new(&x.into()).expect("Failed to create JsBigInt"))
+            .map(|x| JsBigInt::new(&x.into()).unwrap())
             .collect();
 
         // Benchmark proof generation with witness
@@ -181,7 +181,7 @@ mod test {
         for _ in 0..iterations {
             let _ = rln_instance
                 .generate_rln_proof_with_witness(calculated_witness.clone(), &witness)
-                .expect("Failed to generate proof");
+                .unwrap();
         }
         let generate_rln_proof_with_witness_result =
             Date::now() - start_generate_rln_proof_with_witness;
@@ -189,7 +189,7 @@ mod test {
         // Generate proof with witness for other benchmarks
         let proof: WasmRLNProof = rln_instance
             .generate_rln_proof_with_witness(calculated_witness, &witness)
-            .expect("Failed to generate proof");
+            .unwrap();
 
         let root = WasmFr::from(tree.root());
         let mut roots = VecWasmFr::new();
@@ -200,14 +200,14 @@ mod test {
         for _ in 0..iterations {
             let _ = rln_instance
                 .verify_with_roots(&proof, &roots, &x)
-                .expect("Failed to verify proof");
+                .unwrap();
         }
         let verify_with_roots_result = Date::now() - start_verify_with_roots;
 
         // Verify proof with the root for other benchmarks
         let is_proof_valid = rln_instance
             .verify_with_roots(&proof, &roots, &x)
-            .expect("Failed to verify proof");
+            .unwrap();
         assert!(is_proof_valid, "verification failed");
 
         // Format and display the benchmark results

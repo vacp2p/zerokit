@@ -971,7 +971,7 @@ mod test {
 
             // Hash the signal to get x
             let x = hash_to_field_le(&signal).unwrap();
-            let merkle_proof = tree.proof(identity_index).expect("Proof should exist");
+            let merkle_proof = tree.proof(identity_index).unwrap();
             let message_id = Fr::from(1);
 
             let rln_witness = RLNWitnessInput::new(
@@ -1053,7 +1053,7 @@ mod test {
             let x2 = hash_to_field_le(&signal2).unwrap();
 
             let identity_index = tree.leaves_set();
-            let merkle_proof = tree.proof(identity_index).expect("Proof should exist");
+            let merkle_proof = tree.proof(identity_index).unwrap();
             let message_id = Fr::from(1);
 
             let rln_witness1 = RLNWitnessInput::new(
@@ -1101,7 +1101,7 @@ mod test {
             let x3 = hash_to_field_le(&signal3).unwrap();
 
             let identity_index_new = tree.leaves_set();
-            let merkle_proof_new = tree.proof(identity_index_new).expect("Proof should exist");
+            let merkle_proof_new = tree.proof(identity_index_new).unwrap();
 
             let rln_witness3 = RLNWitnessInput::new(
                 identity_secret_new.clone(),
