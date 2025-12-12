@@ -72,25 +72,25 @@ impl RLN {
     ///
     /// The `tree_config` parameter accepts:
     /// - JSON string: `"{\"path\": \"./database\"}"`
-    /// - Direct config (with pmtree feature): `PmtreeConfig::builder().path("./database").build()?`
+    /// - Direct config (with pmtree feature): `PmtreeConfigBuilder::new().path("./database").build()?`
     /// - Empty config for defaults: `""`
     ///
     /// Examples:
     /// ```
     /// // Using default config
-    /// let rln = RLN::new(20, "").unwrap();
+    /// let rln = RLN::new(20, "")?;
     ///
     /// // Using JSON string
     /// let config_json = r#"{"path": "./database", "cache_capacity": 1073741824}"#;
-    /// let rln = RLN::new(20, config_json).unwrap();
+    /// let rln = RLN::new(20, config_json)?;
     ///
     /// // Using `"` for defaults
-    /// let rln = RLN::new(20, "").unwrap();
+    /// let rln = RLN::new(20, "")?;
     /// ```
     ///
     /// For advanced usage with builder pattern (pmtree feature):
     /// ```
-    /// let config = PmtreeConfig::builder()
+    /// let config = PmtreeConfigBuilder::new()
     ///     .path("./database")
     ///     .cache_capacity(1073741824)
     ///     .mode(Mode::HighThroughput)
@@ -150,22 +150,22 @@ impl RLN {
     /// let mut resources: Vec<Vec<u8>> = Vec::new();
     /// for filename in ["rln_final.arkzkey", "graph.bin"] {
     ///     let fullpath = format!("{resources_folder}{filename}");
-    ///     let mut file = File::open(&fullpath).expect("No file found");
-    ///     let metadata = std::fs::metadata(&fullpath).expect("Unable to read metadata");
+    ///     let mut file = File::open(&fullpath)?;
+    ///     let metadata = std::fs::metadata(&fullpath)?;
     ///     let mut buffer = vec![0; metadata.len() as usize];
-    ///     file.read_exact(&mut buffer).expect("Buffer overflow");
+    ///     file.read_exact(&mut buffer)?;
     ///     resources.push(buffer);
     /// }
     ///
     /// // Using default config
-    /// let rln = RLN::new_with_params(tree_depth, resources[0].clone(), resources[1].clone(), "").unwrap();
+    /// let rln = RLN::new_with_params(tree_depth, resources[0].clone(), resources[1].clone(), "")?;
     ///
     /// // Using JSON config
     /// let config_json = r#"{"path": "./database"}"#;
-    /// let rln = RLN::new_with_params(tree_depth, resources[0].clone(), resources[1].clone(), config_json).unwrap();
+    /// let rln = RLN::new_with_params(tree_depth, resources[0].clone(), resources[1].clone(), config_json)?;
     ///
     /// // Using builder pattern (with pmtree feature)
-    /// let config = PmtreeConfig::builder().path("./database").build()?;
+    /// let config = PmtreeConfigBuilder::new().path("./database").build()?;
     /// let rln = RLN::new_with_params(tree_depth, resources[0].clone(), resources[1].clone(), config)?;
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
@@ -206,10 +206,10 @@ impl RLN {
     /// let mut resources: Vec<Vec<u8>> = Vec::new();
     /// for filename in ["rln_final.arkzkey", "graph.bin"] {
     ///     let fullpath = format!("{resources_folder}{filename}");
-    ///     let mut file = File::open(&fullpath).expect("No file found");
-    ///     let metadata = std::fs::metadata(&fullpath).expect("Unable to read metadata");
+    ///     let mut file = File::open(&fullpath)?;
+    ///     let metadata = std::fs::metadata(&fullpath)?;
     ///     let mut buffer = vec![0; metadata.len() as usize];
-    ///     file.read_exact(&mut buffer).expect("Buffer overflow");
+    ///     file.read_exact(&mut buffer)?;
     ///     resources.push(buffer);
     /// }
     ///
@@ -234,10 +234,10 @@ impl RLN {
     /// ```
     /// let zkey_path = "./resources/tree_depth_20/rln_final.arkzkey";
     ///
-    /// let mut file = File::open(zkey_path).expect("Failed to open file");
-    /// let metadata = std::fs::metadata(zkey_path).expect("Failed to read metadata");
+    /// let mut file = File::open(zkey_path)?;
+    /// let metadata = std::fs::metadata(zkey_path)?;
     /// let mut zkey_data = vec![0; metadata.len() as usize];
-    /// file.read_exact(&mut zkey_data).expect("Failed to read file");
+    /// file.read_exact(&mut zkey_data)?;
     ///
     /// let mut rln = RLN::new_with_params(zkey_data)?;
     /// ```
@@ -275,7 +275,7 @@ impl RLN {
     /// let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
     ///
     /// // Set the leaf directly
-    /// rln.set_leaf(leaf_index, rate_commitment).unwrap();
+    /// rln.set_leaf(leaf_index, rate_commitment)?;
     /// ```
     #[cfg(not(feature = "stateless"))]
     pub fn set_leaf(&mut self, index: usize, leaf: Fr) -> Result<(), RLNError> {
@@ -288,7 +288,7 @@ impl RLN {
     /// Example:
     /// ```
     /// let leaf_index = 10;
-    /// let rate_commitment = rln.get_leaf(leaf_index).unwrap();
+    /// let rate_commitment = rln.get_leaf(leaf_index)?;
     /// ```
     #[cfg(not(feature = "stateless"))]
     pub fn get_leaf(&self, index: usize) -> Result<Fr, RLNError> {
@@ -317,7 +317,7 @@ impl RLN {
     /// }
     ///
     /// // We add leaves in a batch into the tree
-    /// rln.set_leaves_from(index, leaves).unwrap();
+    /// rln.set_leaves_from(start_index, leaves)?;
     /// ```
     #[cfg(not(feature = "stateless"))]
     pub fn set_leaves_from(&mut self, index: usize, leaves: Vec<Fr>) -> Result<(), RLNError> {
@@ -367,7 +367,7 @@ impl RLN {
     /// }
     ///
     /// // We atomically add leaves and remove indices from the tree
-    /// rln.atomic_operation(index, leaves, indices).unwrap();
+    /// rln.atomic_operation(start_index, leaves, indices)?;
     /// ```
     #[cfg(not(feature = "stateless"))]
     pub fn atomic_operation(
@@ -398,7 +398,7 @@ impl RLN {
     /// let no_of_leaves = 256;
     ///
     /// // We reset the tree
-    /// rln.set_tree(tree_depth).unwrap();
+    /// rln.set_tree(tree_depth)?;
     ///
     /// // Internal Merkle tree next_index value is now 0
     ///
@@ -412,7 +412,7 @@ impl RLN {
     /// }
     ///
     /// // We add leaves in a batch into the tree
-    /// rln.set_leaves_from(index, leaves).unwrap();
+    /// rln.set_leaves_from(start_index, leaves)?;
     ///
     /// // We set 256 leaves starting from index 10: next_index value is now max(0, 256+10) = 266
     ///
@@ -420,7 +420,7 @@ impl RLN {
     /// // rate_commitment will be set at index 266
     /// let (_, id_commitment) = keygen();
     /// let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
-    /// rln.set_next_leaf(rate_commitment).unwrap();
+    /// rln.set_next_leaf(rate_commitment)?;
     /// ```
     #[cfg(not(feature = "stateless"))]
     pub fn set_next_leaf(&mut self, leaf: Fr) -> Result<(), RLNError> {
@@ -436,7 +436,7 @@ impl RLN {
     /// ```
     ///
     /// let index = 10;
-    /// rln.delete_leaf(index).unwrap();
+    /// rln.delete_leaf(index)?;
     /// ```
     #[cfg(not(feature = "stateless"))]
     pub fn delete_leaf(&mut self, index: usize) -> Result<(), RLNError> {
@@ -452,7 +452,7 @@ impl RLN {
     ///
     /// ```
     /// let metadata = b"some metadata";
-    /// rln.set_metadata(metadata).unwrap();
+    /// rln.set_metadata(metadata)?;
     /// ```
     #[cfg(not(feature = "stateless"))]
     pub fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), RLNError> {
@@ -465,7 +465,7 @@ impl RLN {
     /// Example:
     ///
     /// ```
-    /// let metadata = rln.get_metadata().unwrap();
+    /// let metadata = rln.get_metadata()?;
     /// ```
     #[cfg(not(feature = "stateless"))]
     pub fn get_metadata(&self) -> Result<Vec<u8>, RLNError> {
@@ -490,7 +490,7 @@ impl RLN {
     /// ```
     /// let level = 1;
     /// let index = 2;
-    /// let subroot = rln.get_subtree_root(level, index).unwrap();
+    /// let subroot = rln.get_subtree_root(level, index)?;
     /// ```
     #[cfg(not(feature = "stateless"))]
     pub fn get_subtree_root(&self, level: usize, index: usize) -> Result<Fr, RLNError> {
@@ -503,7 +503,7 @@ impl RLN {
     /// Example:
     /// ```
     /// let index = 10;
-    /// let (path_elements, identity_path_index) = rln.get_merkle_proof(index).unwrap();
+    /// let (path_elements, identity_path_index) = rln.get_merkle_proof(index)?;
     /// ```
     #[cfg(not(feature = "stateless"))]
     pub fn get_merkle_proof(&self, index: usize) -> Result<(Vec<Fr>, Vec<u8>), RLNError> {
@@ -531,7 +531,7 @@ impl RLN {
     /// }
     ///
     /// // We add leaves in a batch into the tree
-    /// rln.set_leaves_from(index, leaves).unwrap();
+    /// rln.set_leaves_from(start_index, leaves)?;
     ///
     /// // Get indices of first empty leaves upto start_index
     /// let idxs = rln.get_empty_leaves_indices();
@@ -562,7 +562,7 @@ impl RLN {
     /// let proof_values = proof_values_from_witness(&witness);
     ///
     /// // We compute a Groth16 proof
-    /// let zk_proof = rln.generate_zk_proof(&witness).unwrap();
+    /// let zk_proof = rln.generate_zk_proof(&witness)?;
     /// ```
     #[cfg(not(target_arch = "wasm32"))]
     pub fn generate_zk_proof(&self, witness: &RLNWitnessInput) -> Result<Proof, RLNError> {
@@ -577,7 +577,7 @@ impl RLN {
     /// Example:
     /// ```
     /// let witness = RLNWitnessInput::new(...);
-    /// let (proof, proof_values) = rln.generate_rln_proof(&witness).unwrap();
+    /// let (proof, proof_values) = rln.generate_rln_proof(&witness)?;
     /// ```
     #[cfg(not(target_arch = "wasm32"))]
     pub fn generate_rln_proof(
@@ -597,7 +597,7 @@ impl RLN {
     /// ```
     /// let witness = RLNWitnessInput::new(...);
     /// let calculated_witness: Vec<BigInt> = ...; // obtained from external witness calculator
-    /// let (proof, proof_values) = rln.generate_rln_proof_with_witness(calculated_witness, &witness).unwrap();
+    /// let (proof, proof_values) = rln.generate_rln_proof_with_witness(calculated_witness, &witness)?;
     /// ```
     pub fn generate_rln_proof_with_witness(
         &self,
@@ -614,13 +614,13 @@ impl RLN {
     /// Example:
     /// ```
     /// // We compute a Groth16 proof
-    /// let zk_proof = rln.generate_zk_proof(&witness).unwrap();
+    /// let zk_proof = rln.generate_zk_proof(&witness)?;
     ///
     /// // We compute proof values directly from witness
     /// let proof_values = proof_values_from_witness(&witness);
     ///
     /// // We verify the proof
-    /// let verified = rln.verify_zk_proof(&zk_proof, &proof_values).unwrap();
+    /// let verified = rln.verify_zk_proof(&zk_proof, &proof_values)?;
     ///
     /// assert!(verified);
     /// ```
