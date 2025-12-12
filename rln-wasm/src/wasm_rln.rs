@@ -84,13 +84,15 @@ impl WasmRLNProof {
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]
-    pub fn to_bytes_le(&self) -> Uint8Array {
-        Uint8Array::from(&rln_proof_to_bytes_le(&self.0)[..])
+    pub fn to_bytes_le(&self) -> Result<Uint8Array, String> {
+        let bytes = rln_proof_to_bytes_le(&self.0).map_err(|e| e.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
     }
 
     #[wasm_bindgen(js_name = toBytesBE)]
-    pub fn to_bytes_be(&self) -> Uint8Array {
-        Uint8Array::from(&rln_proof_to_bytes_be(&self.0)[..])
+    pub fn to_bytes_be(&self) -> Result<Uint8Array, String> {
+        let bytes = rln_proof_to_bytes_be(&self.0).map_err(|e| e.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
     }
 
     #[wasm_bindgen(js_name = fromBytesLE)]

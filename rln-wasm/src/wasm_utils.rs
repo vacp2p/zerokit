@@ -257,6 +257,46 @@ impl Identity {
     pub fn to_array(&self) -> VecWasmFr {
         VecWasmFr(vec![self.identity_secret, self.id_commitment])
     }
+
+    #[wasm_bindgen(js_name = toBytesLE)]
+    pub fn to_bytes_le(&self) -> Uint8Array {
+        let vec_fr = vec![self.identity_secret, self.id_commitment];
+        let bytes = vec_fr_to_bytes_le(&vec_fr);
+        Uint8Array::from(&bytes[..])
+    }
+
+    #[wasm_bindgen(js_name = toBytesBE)]
+    pub fn to_bytes_be(&self) -> Uint8Array {
+        let vec_fr = vec![self.identity_secret, self.id_commitment];
+        let bytes = vec_fr_to_bytes_be(&vec_fr);
+        Uint8Array::from(&bytes[..])
+    }
+
+    #[wasm_bindgen(js_name = fromBytesLE)]
+    pub fn from_bytes_le(bytes: &Uint8Array) -> Result<Identity, String> {
+        let bytes_vec = bytes.to_vec();
+        let (vec_fr, _) = bytes_le_to_vec_fr(&bytes_vec).map_err(|e| e.to_string())?;
+        if vec_fr.len() != 2 {
+            return Err(format!("Expected 2 elements, got {}", vec_fr.len()));
+        }
+        Ok(Identity {
+            identity_secret: vec_fr[0],
+            id_commitment: vec_fr[1],
+        })
+    }
+
+    #[wasm_bindgen(js_name = fromBytesBE)]
+    pub fn from_bytes_be(bytes: &Uint8Array) -> Result<Identity, String> {
+        let bytes_vec = bytes.to_vec();
+        let (vec_fr, _) = bytes_be_to_vec_fr(&bytes_vec).map_err(|e| e.to_string())?;
+        if vec_fr.len() != 2 {
+            return Err(format!("Expected 2 elements, got {}", vec_fr.len()));
+        }
+        Ok(Identity {
+            identity_secret: vec_fr[0],
+            id_commitment: vec_fr[1],
+        })
+    }
 }
 
 #[wasm_bindgen]
@@ -322,5 +362,59 @@ impl ExtendedIdentity {
             self.identity_secret,
             self.id_commitment,
         ])
+    }
+
+    #[wasm_bindgen(js_name = toBytesLE)]
+    pub fn to_bytes_le(&self) -> Uint8Array {
+        let vec_fr = vec![
+            self.identity_trapdoor,
+            self.identity_nullifier,
+            self.identity_secret,
+            self.id_commitment,
+        ];
+        let bytes = vec_fr_to_bytes_le(&vec_fr);
+        Uint8Array::from(&bytes[..])
+    }
+
+    #[wasm_bindgen(js_name = toBytesBE)]
+    pub fn to_bytes_be(&self) -> Uint8Array {
+        let vec_fr = vec![
+            self.identity_trapdoor,
+            self.identity_nullifier,
+            self.identity_secret,
+            self.id_commitment,
+        ];
+        let bytes = vec_fr_to_bytes_be(&vec_fr);
+        Uint8Array::from(&bytes[..])
+    }
+
+    #[wasm_bindgen(js_name = fromBytesLE)]
+    pub fn from_bytes_le(bytes: &Uint8Array) -> Result<ExtendedIdentity, String> {
+        let bytes_vec = bytes.to_vec();
+        let (vec_fr, _) = bytes_le_to_vec_fr(&bytes_vec).map_err(|e| e.to_string())?;
+        if vec_fr.len() != 4 {
+            return Err(format!("Expected 4 elements, got {}", vec_fr.len()));
+        }
+        Ok(ExtendedIdentity {
+            identity_trapdoor: vec_fr[0],
+            identity_nullifier: vec_fr[1],
+            identity_secret: vec_fr[2],
+            id_commitment: vec_fr[3],
+        })
+    }
+
+    #[wasm_bindgen(js_name = fromBytesBE)]
+    pub fn from_bytes_be(bytes: &Uint8Array) -> Result<ExtendedIdentity, String> {
+        let bytes_vec = bytes.to_vec();
+        let (vec_fr, _) = bytes_be_to_vec_fr(&bytes_vec).map_err(|e| e.to_string())?;
+        if vec_fr.len() != 4 {
+            return Err(format!("Expected 4 elements, got {}", vec_fr.len()));
+        }
+        Ok(ExtendedIdentity {
+            identity_trapdoor: vec_fr[0],
+            identity_nullifier: vec_fr[1],
+            identity_secret: vec_fr[2],
+            id_commitment: vec_fr[3],
+        })
     }
 }

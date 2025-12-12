@@ -108,6 +108,29 @@ async function main() {
     "  - deserialized rate_commitment = " + deserRateCommitment.debug()
   );
 
+  console.log("\nIdentity serialization: Identity <-> bytes");
+  const serIdentity = identity.toBytesLE();
+  console.log(
+    "  - serialized identity = [" + debugUint8Array(serIdentity) + "]"
+  );
+
+  let deserIdentity;
+  try {
+    deserIdentity = rlnWasm.Identity.fromBytesLE(serIdentity);
+  } catch (error) {
+    console.error("Identity deserialization error:", error);
+    return;
+  }
+  const deserIdentitySecret = deserIdentity.getSecretHash();
+  const deserIdCommitment = deserIdentity.getCommitment();
+  console.log(
+    "  - deserialized identity = [" +
+      deserIdentitySecret.debug() +
+      ", " +
+      deserIdCommitment.debug() +
+      "]"
+  );
+
   console.log("\nBuilding Merkle path for stateless mode");
   const treeDepth = 20;
   const defaultLeaf = rlnWasm.WasmFr.zero();
@@ -248,6 +271,29 @@ async function main() {
   );
   console.log("RLN Witness created successfully");
 
+  console.log(
+    "\nWasmRLNWitnessInput serialization: WasmRLNWitnessInput <-> bytes"
+  );
+  let serWitness;
+  try {
+    serWitness = witness.toBytesLE();
+  } catch (error) {
+    console.error("Witness serialization error:", error);
+    return;
+  }
+  console.log(
+    "  - serialized witness = [" + debugUint8Array(serWitness) + " ]"
+  );
+
+  let deserWitness;
+  try {
+    deserWitness = rlnWasm.WasmRLNWitnessInput.fromBytesLE(serWitness);
+  } catch (error) {
+    console.error("Witness deserialization error:", error);
+    return;
+  }
+  console.log("  - witness deserialized successfully");
+
   console.log("\nCalculating witness");
   let witnessJson;
   try {
@@ -287,7 +333,13 @@ async function main() {
   );
 
   console.log("\nRLNProof serialization: RLNProof <-> bytes");
-  const serProof = rln_proof.toBytesLE();
+  let serProof;
+  try {
+    serProof = rln_proof.toBytesLE();
+  } catch (error) {
+    console.error("Proof serialization error:", error);
+    return;
+  }
   console.log("  - serialized proof = [" + debugUint8Array(serProof) + " ]");
 
   let deserProof;
