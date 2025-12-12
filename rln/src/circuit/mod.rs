@@ -18,7 +18,7 @@ use ark_groth16::{
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use crate::circuit::error::ZKeyReadError;
+use self::error::ZKeyReadError;
 
 #[cfg(not(target_arch = "wasm32"))]
 const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
@@ -28,7 +28,7 @@ const ARKZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/rln_f
 
 #[cfg(not(target_arch = "wasm32"))]
 static ARKZKEY: LazyLock<Zkey> = LazyLock::new(|| {
-    read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES).expect("Failed to read arkzkey")
+    read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES).expect("Default zkey must be valid")
 });
 
 pub const DEFAULT_TREE_DEPTH: usize = 20;

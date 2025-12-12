@@ -1,7 +1,7 @@
 // This module re-exports the most commonly used types and functions from the RLN library
 
 #[cfg(not(feature = "stateless"))]
-pub use utils::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
+pub use utils::*;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::circuit::{graph_from_folder, zkey_from_folder};

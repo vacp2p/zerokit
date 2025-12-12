@@ -1,9 +1,9 @@
 // This crate collects all the underlying primitives used to implement RLN
 
-mod keygen;
-mod proof;
-mod slashing;
-mod witness;
+pub mod keygen;
+pub mod proof;
+pub mod slashing;
+pub mod witness;
 
 pub use keygen::{extended_keygen, extended_seeded_keygen, keygen, seeded_keygen};
 pub use proof::{

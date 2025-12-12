@@ -13,7 +13,7 @@ mod test {
 
     #[wasm_bindgen_test]
     fn test_keygen_wasm() {
-        let identity = Identity::generate();
+        let identity = Identity::generate().unwrap();
         let identity_secret = *identity.get_secret_hash();
         let id_commitment = *identity.get_commitment();
 
@@ -28,7 +28,7 @@ mod test {
 
     #[wasm_bindgen_test]
     fn test_extended_keygen_wasm() {
-        let identity = ExtendedIdentity::generate();
+        let identity = ExtendedIdentity::generate().unwrap();
 
         let identity_trapdoor = *identity.get_trapdoor();
         let identity_nullifier = *identity.get_nullifier();
@@ -53,7 +53,7 @@ mod test {
         let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         let seed = Uint8Array::from(&seed_bytes[..]);
 
-        let identity = Identity::generate_seeded(&seed);
+        let identity = Identity::generate_seeded(&seed).unwrap();
         let identity_secret = *identity.get_secret_hash();
         let id_commitment = *identity.get_commitment();
 
@@ -77,7 +77,7 @@ mod test {
         let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         let seed = Uint8Array::from(&seed_bytes[..]);
 
-        let identity = ExtendedIdentity::generate_seeded(&seed);
+        let identity = ExtendedIdentity::generate_seeded(&seed).unwrap();
 
         let identity_trapdoor = *identity.get_trapdoor();
         let identity_nullifier = *identity.get_nullifier();
@@ -128,7 +128,7 @@ mod test {
         let wasmfr_debug_str = wasmfr_int.debug();
         assert_eq!(wasmfr_debug_str.to_string(), "42");
 
-        let identity = Identity::generate();
+        let identity = Identity::generate().unwrap();
         let mut id_secret_fr = *identity.get_secret_hash();
         let id_secret_hash = IdSecret::from(&mut id_secret_fr);
         let id_commitment = *identity.get_commitment();
@@ -184,12 +184,12 @@ mod test {
         let signal_gen: [u8; 32] = rng.gen();
         let signal = Uint8Array::from(&signal_gen[..]);
 
-        let wasmfr_le_1 = Hasher::hash_to_field_le(&signal);
-        let fr_le_2 = rln::hashers::hash_to_field_le(&signal_gen);
+        let wasmfr_le_1 = Hasher::hash_to_field_le(&signal).unwrap();
+        let fr_le_2 = hash_to_field_le(&signal_gen).unwrap();
         assert_eq!(*wasmfr_le_1, fr_le_2);
 
-        let wasmfr_be_1 = Hasher::hash_to_field_be(&signal);
-        let fr_be_2 = rln::hashers::hash_to_field_be(&signal_gen);
+        let wasmfr_be_1 = Hasher::hash_to_field_be(&signal).unwrap();
+        let fr_be_2 = hash_to_field_be(&signal_gen).unwrap();
         assert_eq!(*wasmfr_be_1, fr_be_2);
 
         assert_eq!(*wasmfr_le_1, *wasmfr_be_1);
@@ -212,10 +212,10 @@ mod test {
         let input_1 = Fr::from(42u8);
         let input_2 = Fr::from(99u8);
 
-        let expected_hash = poseidon_hash(&[input_1, input_2]);
+        let expected_hash = poseidon_hash(&[input_1, input_2]).unwrap();
         let wasmfr_1 = WasmFr::from_uint(42);
         let wasmfr_2 = WasmFr::from_uint(99);
-        let received_hash = Hasher::poseidon_hash_pair(&wasmfr_1, &wasmfr_2);
+        let received_hash = Hasher::poseidon_hash_pair(&wasmfr_1, &wasmfr_2).unwrap();
 
         assert_eq!(*received_hash, expected_hash);
     }

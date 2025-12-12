@@ -253,7 +253,10 @@ pub fn find_poseidon_ark_and_mds<F: PrimeField>(
 
     for i in 0..(rate) {
         for (j, ys_item) in ys.iter().enumerate().take(rate) {
-            mds[i][j] = (xs[i] + ys_item).inverse().unwrap();
+            // Poseidon algorithm guarantees xs[i] + ys[j] != 0
+            mds[i][j] = (xs[i] + ys_item)
+                .inverse()
+                .expect("MDS matrix inverse must be valid");
         }
     }
 

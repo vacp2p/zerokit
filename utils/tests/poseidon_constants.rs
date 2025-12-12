@@ -3,7 +3,7 @@ mod test {
     use ark_bn254::Fr;
     use num_bigint::BigUint;
     use num_traits::Num;
-    use zerokit_utils::poseidon_hash::Poseidon;
+    use zerokit_utils::poseidon::Poseidon;
 
     const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
         (2, 8, 56, 0),
