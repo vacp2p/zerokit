@@ -284,11 +284,10 @@ pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, UtilsError> {
             });
         }
         input[8..]
-            .chunks(8)
+            .chunks_exact(8)
             .take(nof_elem)
             .map(|ch| {
-                ch[0..8]
-                    .try_into()
+                ch.try_into()
                     .map(usize::from_le_bytes)
                     .map_err(UtilsError::FromSlice)
             })
@@ -315,11 +314,10 @@ pub fn bytes_be_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, UtilsError> {
             });
         }
         input[8..]
-            .chunks(8)
+            .chunks_exact(8)
             .take(nof_elem)
             .map(|ch| {
-                ch[0..8]
-                    .try_into()
+                ch.try_into()
                     .map(usize::from_be_bytes)
                     .map_err(UtilsError::FromSlice)
             })
