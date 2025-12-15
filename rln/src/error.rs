@@ -3,7 +3,7 @@ use std::{array::TryFromSliceError, num::TryFromIntError};
 use ark_relations::r1cs::SynthesisError;
 use num_bigint::{BigInt, ParseBigIntError};
 use thiserror::Error;
-use utils::error::{FromConfigError, HashError, ZerokitMerkleTreeError};
+use zerokit_utils::error::{FromConfigError, HashError, ZerokitMerkleTreeError};
 
 use crate::circuit::{
     error::{WitnessCalcError, ZKeyReadError},

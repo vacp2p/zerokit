@@ -929,7 +929,9 @@ mod test {
             protocol::*,
             public::RLN,
         };
-        use utils::merkle_tree::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
+        use zerokit_utils::merkle_tree::{
+            OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
+        };
 
         use super::DEFAULT_TREE_DEPTH;
 

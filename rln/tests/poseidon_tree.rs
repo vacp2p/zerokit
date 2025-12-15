@@ -5,7 +5,7 @@
 #[cfg(test)]
 mod test {
     use rln::prelude::*;
-    use utils::merkle_tree::{
+    use zerokit_utils::merkle_tree::{
         FullMerkleTree, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
     };
 

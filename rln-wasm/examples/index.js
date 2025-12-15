@@ -13,7 +13,7 @@ function debugUint8Array(uint8Array) {
 
 async function calculateWitness(circomPath, inputs, witnessCalculatorFile) {
   const wasmFile = readFileSync(circomPath);
-  const wasmFileBuffer = wasmFile.slice(
+  const wasmFileBuffer = wasmFile.buffer.slice(
     wasmFile.byteOffset,
     wasmFile.byteOffset + wasmFile.byteLength
   );

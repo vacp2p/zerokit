@@ -2,7 +2,7 @@ use ark_std::{rand::thread_rng, UniformRand};
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use tiny_keccak::{Hasher as _, Keccak};
-use utils::error::ZerokitMerkleTreeError;
+use zerokit_utils::error::ZerokitMerkleTreeError;
 
 use crate::{circuit::Fr, hashers::poseidon_hash, utils::IdSecret};
 

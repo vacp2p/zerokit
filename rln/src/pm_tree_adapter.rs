@@ -4,7 +4,7 @@ use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
 use serde_json::Value;
 use tempfile::Builder;
-use utils::{
+use zerokit_utils::{
     error::{FromConfigError, ZerokitMerkleTreeError},
     merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree},
     pm_tree::{

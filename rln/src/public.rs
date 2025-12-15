@@ -6,7 +6,7 @@ use num_bigint::BigInt;
 use {
     crate::poseidon_tree::PoseidonTree,
     std::str::FromStr,
-    utils::{
+    zerokit_utils::{
         error::ZerokitMerkleTreeError,
         merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
     },

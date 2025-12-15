@@ -4,7 +4,7 @@
 mod test {
     use ark_ff::BigInt;
     use rln::prelude::*;
-    use utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
+    use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
 
     type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
 

@@ -2,7 +2,7 @@
 
 use once_cell::sync::Lazy;
 use tiny_keccak::{Hasher, Keccak};
-use utils::{error::HashError, poseidon::Poseidon};
+use zerokit_utils::{error::HashError, poseidon::Poseidon};
 
 use crate::{
     circuit::Fr,
@@ -37,7 +37,7 @@ pub fn poseidon_hash(input: &[Fr]) -> Result<Fr, HashError> {
 pub struct PoseidonHash;
 
 /// The default Hasher trait used by Merkle tree implementation in utils.
-impl utils::merkle_tree::Hasher for PoseidonHash {
+impl zerokit_utils::merkle_tree::Hasher for PoseidonHash {
     type Fr = Fr;
     type Error = HashError;
 

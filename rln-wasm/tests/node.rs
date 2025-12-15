@@ -40,7 +40,7 @@ mod test {
 
       calculateWitness: async function (circom_path, inputs) {
         const wasmFile = fs.readFileSync(circom_path);
-        const wasmFileBuffer = wasmFile.slice(
+        const wasmFileBuffer = wasmFile.buffer.slice(
           wasmFile.byteOffset,
           wasmFile.byteOffset + wasmFile.byteLength
         );

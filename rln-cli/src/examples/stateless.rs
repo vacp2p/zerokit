@@ -7,10 +7,10 @@ use std::{
 
 use clap::{Parser, Subcommand};
 use rln::prelude::{
-    hash_to_field_le, keygen, poseidon_hash, recover_id_secret, Fr, IdSecret, PoseidonHash,
-    RLNProofValues, RLNWitnessInput, DEFAULT_TREE_DEPTH, RLN,
+    hash_to_field_le, keygen, poseidon_hash, recover_id_secret, Fr, IdSecret, OptimalMerkleTree,
+    PoseidonHash, RLNProofValues, RLNWitnessInput, ZerokitMerkleProof, ZerokitMerkleTree,
+    DEFAULT_TREE_DEPTH, RLN,
 };
-use zerokit_utils::merkle_tree::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
 const MESSAGE_LIMIT: u32 = 1;
 
