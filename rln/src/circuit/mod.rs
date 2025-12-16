@@ -1,8 +1,8 @@
 // This crate provides interfaces for the zero-knowledge circuit and keys
 
-pub mod error;
-pub mod iden3calc;
-pub mod qap;
+pub(crate) mod error;
+pub(crate) mod iden3calc;
+pub(crate) mod qap;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::LazyLock;

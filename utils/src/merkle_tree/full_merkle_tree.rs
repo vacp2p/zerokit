@@ -40,7 +40,7 @@ where
 
 /// Element of a Merkle proof
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum FullMerkleBranch<H: Hasher> {
+pub(crate) enum FullMerkleBranch<H: Hasher> {
     /// Left branch taken, value is the right sibling hash.
     Left(H::Fr),
 
@@ -50,7 +50,7 @@ pub enum FullMerkleBranch<H: Hasher> {
 
 /// Merkle proof path, bottom to top.
 #[derive(Clone, PartialEq, Eq)]
-pub struct FullMerkleProof<H: Hasher>(pub Vec<FullMerkleBranch<H>>);
+pub struct FullMerkleProof<H: Hasher>(Vec<FullMerkleBranch<H>>);
 
 #[derive(Default)]
 pub struct FullMerkleConfig(());

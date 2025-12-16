@@ -1,7 +1,7 @@
 // This crate is based on the code by iden3. Its preimage can be found here:
 // https://github.com/iden3/circom-witnesscalc/blob/5cb365b6e4d9052ecc69d4567fcf5bc061c20e94/src/graph.rs
 
-use std::{cmp::Ordering, error::Error};
+use std::cmp::Ordering;
 
 use ark_ff::{BigInt, BigInteger, One, PrimeField, Zero};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate};
@@ -10,9 +10,6 @@ use serde::{Deserialize, Serialize};
 
 use super::proto;
 use crate::circuit::Fr;
-
-pub const M: U256 =
-    uint!(21888242871839275222246405745257275088548364400416034343698204186575808495617_U256);
 
 fn ark_se<S, A: CanonicalSerialize>(a: &A, s: S) -> Result<S::Ok, S::Error>
 where
@@ -44,7 +41,7 @@ pub(crate) fn u256_to_fr(x: &U256) -> Fr {
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum Operation {
+pub(crate) enum Operation {
     Mul,
     Div,
     Add,
@@ -167,7 +164,7 @@ impl From<&Operation> for proto::DuoOp {
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum UnoOperation {
+pub(crate) enum UnoOperation {
     Neg,
     Id, // identity - just return self
 }
@@ -199,7 +196,7 @@ impl From<&UnoOperation> for proto::UnoOp {
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum TresOperation {
+pub(crate) enum TresOperation {
     TernCond,
 }
 
@@ -226,7 +223,7 @@ impl From<&TresOperation> for proto::TresOp {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Node {
+pub(crate) enum Node {
     Input(usize),
     Constant(U256),
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
@@ -236,37 +233,7 @@ pub enum Node {
     TresOp(TresOperation, usize, usize, usize),
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct NodeIdx(pub usize);
-
-impl From<usize> for NodeIdx {
-    fn from(v: usize) -> Self {
-        NodeIdx(v)
-    }
-}
-
-#[derive(Debug)]
-pub enum NodeConstErr {
-    EmptyNode(NodeIdx),
-    InputSignal,
-}
-
-impl std::fmt::Display for NodeConstErr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            NodeConstErr::EmptyNode(idx) => {
-                write!(f, "empty node at index {}", idx.0)
-            }
-            NodeConstErr::InputSignal => {
-                write!(f, "input signal is not a constant")
-            }
-        }
-    }
-}
-
-impl Error for NodeConstErr {}
-
-pub fn evaluate(nodes: &[Node], inputs: &[U256], outputs: &[usize]) -> Vec<Fr> {
+pub(crate) fn evaluate(nodes: &[Node], inputs: &[U256], outputs: &[usize]) -> Vec<Fr> {
     // Evaluate the graph.
     let mut values = Vec::with_capacity(nodes.len());
     for &node in nodes.iter() {
@@ -451,6 +418,9 @@ mod test {
     use ruint::uint;
 
     use super::*;
+
+    const M: U256 =
+        uint!(21888242871839275222246405745257275088548364400416034343698204186575808495617_U256);
 
     #[test]
     fn test_ok() {

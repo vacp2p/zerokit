@@ -12,14 +12,14 @@
 use ark_ff::PrimeField;
 use num_bigint::BigUint;
 
-pub struct PoseidonGrainLFSR {
+struct PoseidonGrainLFSR {
     pub prime_num_bits: u64,
     pub state: [bool; 80],
     pub head: usize,
 }
 
 impl PoseidonGrainLFSR {
-    pub fn new(
+    fn new(
         is_field: u64,
         is_sbox_an_inverse: u64,
         prime_num_bits: u64,
@@ -92,7 +92,7 @@ impl PoseidonGrainLFSR {
         res
     }
 
-    pub fn get_bits(&mut self, num_bits: usize) -> Vec<bool> {
+    fn get_bits(&mut self, num_bits: usize) -> Vec<bool> {
         let mut res = Vec::new();
 
         for _ in 0..num_bits {
@@ -114,10 +114,7 @@ impl PoseidonGrainLFSR {
         res
     }
 
-    pub fn get_field_elements_rejection_sampling<F: PrimeField>(
-        &mut self,
-        num_elems: usize,
-    ) -> Vec<F> {
+    fn get_field_elements_rejection_sampling<F: PrimeField>(&mut self, num_elems: usize) -> Vec<F> {
         assert_eq!(F::MODULUS_BIT_SIZE as u64, self.prime_num_bits);
         let modulus: BigUint = F::MODULUS.into();
 
@@ -151,7 +148,7 @@ impl PoseidonGrainLFSR {
         res
     }
 
-    pub fn get_field_elements_mod_p<F: PrimeField>(&mut self, num_elems: usize) -> Vec<F> {
+    fn get_field_elements_mod_p<F: PrimeField>(&mut self, num_elems: usize) -> Vec<F> {
         assert_eq!(F::MODULUS_BIT_SIZE as u64, self.prime_num_bits);
 
         let mut res = Vec::new();

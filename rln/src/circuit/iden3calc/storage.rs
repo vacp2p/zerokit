@@ -166,7 +166,8 @@ impl From<proto::TresOp> for graph::TresOperation {
     }
 }
 
-pub fn serialize_witnesscalc_graph<T: Write>(
+#[allow(dead_code)]
+pub(crate) fn serialize_witnesscalc_graph<T: Write>(
     mut w: T,
     nodes: &Vec<graph::Node>,
     witness_signals: &[usize],
