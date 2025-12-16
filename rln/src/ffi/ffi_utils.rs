@@ -93,9 +93,9 @@ pub fn ffi_bytes_le_to_cfr(bytes: &repr_c::Vec<u8>) -> CResult<repr_c::Box<CFr>,
             ok: Some(CFr(cfr).into()),
             err: None,
         },
-        Err(e) => CResult {
+        Err(err) => CResult {
             ok: None,
-            err: Some(format!("{:?}", e).into()),
+            err: Some(format!("{:?}", err).into()),
         },
     }
 }
@@ -107,9 +107,9 @@ pub fn ffi_bytes_be_to_cfr(bytes: &repr_c::Vec<u8>) -> CResult<repr_c::Box<CFr>,
             ok: Some(CFr(cfr).into()),
             err: None,
         },
-        Err(e) => CResult {
+        Err(err) => CResult {
             ok: None,
-            err: Some(format!("{:?}", e).into()),
+            err: Some(format!("{:?}", err).into()),
         },
     }
 }
@@ -292,9 +292,9 @@ pub fn ffi_hash_to_field_le(input: &repr_c::Vec<u8>) -> CResult<repr_c::Box<CFr>
             ok: Some(CFr::from(hash_result).into()),
             err: None,
         },
-        Err(e) => CResult {
+        Err(err) => CResult {
             ok: None,
-            err: Some(format!("{:?}", e).into()),
+            err: Some(format!("{:?}", err).into()),
         },
     }
 }
@@ -306,9 +306,9 @@ pub fn ffi_hash_to_field_be(input: &repr_c::Vec<u8>) -> CResult<repr_c::Box<CFr>
             ok: Some(CFr::from(hash_result).into()),
             err: None,
         },
-        Err(e) => CResult {
+        Err(err) => CResult {
             ok: None,
-            err: Some(format!("{:?}", e).into()),
+            err: Some(format!("{:?}", err).into()),
         },
     }
 }
@@ -320,9 +320,9 @@ pub fn ffi_poseidon_hash_pair(a: &CFr, b: &CFr) -> CResult<repr_c::Box<CFr>, rep
             ok: Some(CFr::from(hash_result).into()),
             err: None,
         },
-        Err(e) => CResult {
+        Err(err) => CResult {
             ok: None,
-            err: Some(format!("{:?}", e).into()),
+            err: Some(format!("{:?}", err).into()),
         },
     }
 }
@@ -334,9 +334,9 @@ pub fn ffi_key_gen() -> CResult<repr_c::Vec<CFr>, repr_c::String> {
             ok: Some(vec![CFr(*identity_secret), CFr(id_commitment)].into()),
             err: None,
         },
-        Err(e) => CResult {
+        Err(err) => CResult {
             ok: None,
-            err: Some(format!("{:?}", e).into()),
+            err: Some(format!("{:?}", err).into()),
         },
     }
 }
@@ -348,9 +348,9 @@ pub fn ffi_seeded_key_gen(seed: &repr_c::Vec<u8>) -> CResult<repr_c::Vec<CFr>, r
             ok: Some(vec![CFr(identity_secret), CFr(id_commitment)].into()),
             err: None,
         },
-        Err(e) => CResult {
+        Err(err) => CResult {
             ok: None,
-            err: Some(format!("{:?}", e).into()),
+            err: Some(format!("{:?}", err).into()),
         },
     }
 }
@@ -370,9 +370,9 @@ pub fn ffi_extended_key_gen() -> CResult<repr_c::Vec<CFr>, repr_c::String> {
             ),
             err: None,
         },
-        Err(e) => CResult {
+        Err(err) => CResult {
             ok: None,
-            err: Some(format!("{:?}", e).into()),
+            err: Some(format!("{:?}", err).into()),
         },
     }
 }
@@ -394,9 +394,9 @@ pub fn ffi_seeded_extended_key_gen(
             ),
             err: None,
         },
-        Err(e) => CResult {
+        Err(err) => CResult {
             ok: None,
-            err: Some(format!("{:?}", e).into()),
+            err: Some(format!("{:?}", err).into()),
         },
     }
 }

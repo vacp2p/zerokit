@@ -12,6 +12,8 @@ pub enum ZKeyReadError {
 pub enum WitnessCalcError {
     #[error("Failed to deserialize witness calculation graph: {0}")]
     GraphDeserialization(#[from] std::io::Error),
+    #[error("Failed to evaluate witness calculation graph: {0}")]
+    GraphEvaluation(String),
     #[error("Invalid input length for '{name}': expected {expected}, got {actual}")]
     InvalidInputLength {
         name: String,

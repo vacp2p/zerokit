@@ -39,8 +39,9 @@ pub(crate) fn fr_to_u256(x: &Fr) -> U256 {
 }
 
 #[inline(always)]
-pub(crate) fn u256_to_fr(x: &U256) -> Fr {
-    Fr::from_bigint(BigInt::new(x.into_limbs())).expect("U256 to Fr conversion must be valid")
+pub(crate) fn u256_to_fr(x: &U256) -> Result<Fr, String> {
+    Fr::from_bigint(BigInt::new(x.into_limbs()))
+        .ok_or_else(|| "Failed to convert U256 to Fr".to_string())
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
@@ -68,22 +69,22 @@ pub(crate) enum Operation {
 }
 
 impl Operation {
-    fn eval_fr(&self, a: Fr, b: Fr) -> Fr {
+    fn eval_fr(&self, a: Fr, b: Fr) -> Result<Fr, String> {
         use Operation::*;
         match self {
-            Mul => a * b,
+            Mul => Ok(a * b),
             // We always should return something on the circuit execution.
             // So in case of division by 0 we would return 0. And the proof
             // should be invalid in the end.
             Div => {
                 if b.is_zero() {
-                    Fr::zero()
+                    Ok(Fr::zero())
                 } else {
-                    a / b
+                    Ok(a / b)
                 }
             }
-            Add => a + b,
-            Sub => a - b,
+            Add => Ok(a + b),
+            Sub => Ok(a - b),
             // Modular exponentiation to prevent overflow and keep result in field
             Pow => {
                 let a_u256 = fr_to_u256(&a);
@@ -94,7 +95,7 @@ impl Operation {
             // Integer division (not field division)
             Idiv => {
                 if b.is_zero() {
-                    Fr::zero()
+                    Ok(Fr::zero())
                 } else {
                     let a_u256 = fr_to_u256(&a);
                     let b_u256 = fr_to_u256(&b);
@@ -104,39 +105,35 @@ impl Operation {
             // Integer modulo (not field arithmetic)
             Mod => {
                 if b.is_zero() {
-                    Fr::zero()
+                    Ok(Fr::zero())
                 } else {
                     let a_u256 = fr_to_u256(&a);
                     let b_u256 = fr_to_u256(&b);
                     u256_to_fr(&(a_u256 % b_u256))
                 }
             }
-            Eq => match a.cmp(&b) {
+            Eq => Ok(match a.cmp(&b) {
                 Ordering::Equal => Fr::one(),
                 _ => Fr::zero(),
-            },
-            Neq => match a.cmp(&b) {
+            }),
+            Neq => Ok(match a.cmp(&b) {
                 Ordering::Equal => Fr::zero(),
                 _ => Fr::one(),
-            },
+            }),
             Lt => u256_to_fr(&u_lt(&fr_to_u256(&a), &fr_to_u256(&b))),
             Gt => u256_to_fr(&u_gt(&fr_to_u256(&a), &fr_to_u256(&b))),
             Leq => u256_to_fr(&u_lte(&fr_to_u256(&a), &fr_to_u256(&b))),
             Geq => u256_to_fr(&u_gte(&fr_to_u256(&a), &fr_to_u256(&b))),
-            Land => {
-                if a.is_zero() || b.is_zero() {
-                    Fr::zero()
-                } else {
-                    Fr::one()
-                }
-            }
-            Lor => {
-                if a.is_zero() && b.is_zero() {
-                    Fr::zero()
-                } else {
-                    Fr::one()
-                }
-            }
+            Land => Ok(if a.is_zero() || b.is_zero() {
+                Fr::zero()
+            } else {
+                Fr::one()
+            }),
+            Lor => Ok(if a.is_zero() && b.is_zero() {
+                Fr::zero()
+            } else {
+                Fr::one()
+            }),
             Shl => shl(a, b),
             Shr => shr(a, b),
             Bor => bit_or(a, b),
@@ -180,18 +177,21 @@ pub(crate) enum UnoOperation {
 }
 
 impl UnoOperation {
-    fn eval_fr(&self, a: Fr) -> Fr {
+    fn eval_fr(&self, a: Fr) -> Result<Fr, String> {
         match self {
             UnoOperation::Neg => {
                 if a.is_zero() {
-                    Fr::zero()
+                    Ok(Fr::zero())
                 } else {
                     let mut x = Fr::MODULUS;
                     x.sub_with_borrow(&a.into_bigint());
-                    Fr::from_bigint(x).expect("Negation result must be valid")
+                    Fr::from_bigint(x).ok_or_else(|| "Failed to compute negation".to_string())
                 }
             }
-            _ => unimplemented!("uno operator {:?} not implemented for Montgomery", self),
+            _ => Err(format!(
+                "uno operator {:?} not implemented for Montgomery",
+                self
+            )),
         }
     }
 }
@@ -211,13 +211,13 @@ pub(crate) enum TresOperation {
 }
 
 impl TresOperation {
-    fn eval_fr(&self, a: Fr, b: Fr, c: Fr) -> Fr {
+    fn eval_fr(&self, a: Fr, b: Fr, c: Fr) -> Result<Fr, String> {
         match self {
             TresOperation::TernCond => {
                 if a.is_zero() {
-                    c
+                    Ok(c)
                 } else {
-                    b
+                    Ok(b)
                 }
             }
         }
@@ -243,17 +243,21 @@ pub(crate) enum Node {
     TresOp(TresOperation, usize, usize, usize),
 }
 
-pub(crate) fn evaluate(nodes: &[Node], inputs: &[U256], outputs: &[usize]) -> Vec<Fr> {
+pub(crate) fn evaluate(
+    nodes: &[Node],
+    inputs: &[U256],
+    outputs: &[usize],
+) -> Result<Vec<Fr>, String> {
     // Evaluate the graph.
     let mut values = Vec::with_capacity(nodes.len());
     for &node in nodes.iter() {
         let value = match node {
-            Node::Constant(c) => u256_to_fr(&c),
+            Node::Constant(c) => u256_to_fr(&c)?,
             Node::MontConstant(c) => c,
-            Node::Input(i) => u256_to_fr(&inputs[i]),
-            Node::Op(op, a, b) => op.eval_fr(values[a], values[b]),
-            Node::UnoOp(op, a) => op.eval_fr(values[a]),
-            Node::TresOp(op, a, b, c) => op.eval_fr(values[a], values[b], values[c]),
+            Node::Input(i) => u256_to_fr(&inputs[i])?,
+            Node::Op(op, a, b) => op.eval_fr(values[a], values[b])?,
+            Node::UnoOp(op, a) => op.eval_fr(values[a])?,
+            Node::TresOp(op, a, b, c) => op.eval_fr(values[a], values[b], values[c])?,
         };
         values.push(value);
     }
@@ -264,31 +268,31 @@ pub(crate) fn evaluate(nodes: &[Node], inputs: &[U256], outputs: &[usize]) -> Ve
         out[i] = values[outputs[i]];
     }
 
-    out
+    Ok(out)
 }
 
-fn shl(a: Fr, b: Fr) -> Fr {
+fn shl(a: Fr, b: Fr) -> Result<Fr, String> {
     if b.is_zero() {
-        return a;
+        return Ok(a);
     }
 
     if b.cmp(&Fr::from(Fr::MODULUS_BIT_SIZE)).is_ge() {
-        return Fr::zero();
+        return Ok(Fr::zero());
     }
 
     let n = b.into_bigint().0[0] as u32;
     let a = a.into_bigint();
-    Fr::from_bigint(a << n).expect("Left shift result must be valid")
+    Fr::from_bigint(a << n).ok_or_else(|| "Failed to compute left shift".to_string())
 }
 
-fn shr(a: Fr, b: Fr) -> Fr {
+fn shr(a: Fr, b: Fr) -> Result<Fr, String> {
     if b.is_zero() {
-        return a;
+        return Ok(a);
     }
 
     match b.cmp(&Fr::from(254u64)) {
-        Ordering::Equal => return Fr::zero(),
-        Ordering::Greater => return Fr::zero(),
+        Ordering::Equal => return Ok(Fr::zero()),
+        Ordering::Greater => return Ok(Fr::zero()),
         _ => (),
     };
 
@@ -304,7 +308,7 @@ fn shr(a: Fr, b: Fr) -> Fr {
     }
 
     if n == 0 {
-        return Fr::from_bigint(result).expect("Right shift result must be valid");
+        return Fr::from_bigint(result).ok_or_else(|| "Failed to compute right shift".to_string());
     }
 
     let mask: u64 = (1 << n) - 1;
@@ -315,10 +319,10 @@ fn shr(a: Fr, b: Fr) -> Fr {
         c[i] = (c[i] >> n) | (carrier << (64 - n));
         carrier = new_carrier;
     }
-    Fr::from_bigint(result).expect("Right shift result must be valid")
+    Fr::from_bigint(result).ok_or_else(|| "Failed to compute right shift".to_string())
 }
 
-fn bit_and(a: Fr, b: Fr) -> Fr {
+fn bit_and(a: Fr, b: Fr) -> Result<Fr, String> {
     let a = a.into_bigint();
     let b = b.into_bigint();
     let c: [u64; 4] = [
@@ -332,10 +336,10 @@ fn bit_and(a: Fr, b: Fr) -> Fr {
         d.sub_with_borrow(&Fr::MODULUS);
     }
 
-    Fr::from_bigint(d).expect("Bitwise AND result must be valid")
+    Fr::from_bigint(d).ok_or_else(|| "Failed to compute bitwise AND".to_string())
 }
 
-fn bit_or(a: Fr, b: Fr) -> Fr {
+fn bit_or(a: Fr, b: Fr) -> Result<Fr, String> {
     let a = a.into_bigint();
     let b = b.into_bigint();
     let c: [u64; 4] = [
@@ -349,10 +353,10 @@ fn bit_or(a: Fr, b: Fr) -> Fr {
         d.sub_with_borrow(&Fr::MODULUS);
     }
 
-    Fr::from_bigint(d).expect("Bitwise OR result must be valid")
+    Fr::from_bigint(d).ok_or_else(|| "Failed to compute bitwise OR".to_string())
 }
 
-fn bit_xor(a: Fr, b: Fr) -> Fr {
+fn bit_xor(a: Fr, b: Fr) -> Result<Fr, String> {
     let a = a.into_bigint();
     let b = b.into_bigint();
     let c: [u64; 4] = [
@@ -366,7 +370,7 @@ fn bit_xor(a: Fr, b: Fr) -> Fr {
         d.sub_with_borrow(&Fr::MODULUS);
     }
 
-    Fr::from_bigint(d).expect("Bitwise XOR result must be valid")
+    Fr::from_bigint(d).ok_or_else(|| "Failed to compute bitwise XOR".to_string())
 }
 
 // M / 2
@@ -433,14 +437,16 @@ mod test {
     fn test_ok() {
         let a = Fr::from(4u64);
         let b = Fr::from(2u64);
-        let c = shl(a, b);
+        let c = shl(a, b).unwrap();
         assert_eq!(c.cmp(&Fr::from(16u64)), Ordering::Equal)
     }
 
     #[test]
     fn test_div() {
         assert_eq!(
-            Operation::Div.eval_fr(Fr::from(2u64), Fr::from(3u64)),
+            Operation::Div
+                .eval_fr(Fr::from(2u64), Fr::from(3u64))
+                .unwrap(),
             Fr::from_str(
                 "7296080957279758407415468581752425029516121466805344781232734728858602831873"
             )
@@ -448,12 +454,16 @@ mod test {
         );
 
         assert_eq!(
-            Operation::Div.eval_fr(Fr::from(6u64), Fr::from(2u64)),
+            Operation::Div
+                .eval_fr(Fr::from(6u64), Fr::from(2u64))
+                .unwrap(),
             Fr::from_str("3").unwrap()
         );
 
         assert_eq!(
-            Operation::Div.eval_fr(Fr::from(7u64), Fr::from(2u64)),
+            Operation::Div
+                .eval_fr(Fr::from(7u64), Fr::from(2u64))
+                .unwrap(),
             Fr::from_str(
                 "10944121435919637611123202872628637544274182200208017171849102093287904247812"
             )
@@ -464,17 +474,23 @@ mod test {
     #[test]
     fn test_idiv() {
         assert_eq!(
-            Operation::Idiv.eval_fr(Fr::from(2u64), Fr::from(3u64)),
+            Operation::Idiv
+                .eval_fr(Fr::from(2u64), Fr::from(3u64))
+                .unwrap(),
             Fr::from_str("0").unwrap()
         );
 
         assert_eq!(
-            Operation::Idiv.eval_fr(Fr::from(6u64), Fr::from(2u64)),
+            Operation::Idiv
+                .eval_fr(Fr::from(6u64), Fr::from(2u64))
+                .unwrap(),
             Fr::from_str("3").unwrap()
         );
 
         assert_eq!(
-            Operation::Idiv.eval_fr(Fr::from(7u64), Fr::from(2u64)),
+            Operation::Idiv
+                .eval_fr(Fr::from(7u64), Fr::from(2u64))
+                .unwrap(),
             Fr::from_str("3").unwrap()
         );
     }
@@ -482,12 +498,16 @@ mod test {
     #[test]
     fn test_fr_mod() {
         assert_eq!(
-            Operation::Mod.eval_fr(Fr::from(7u64), Fr::from(2u64)),
+            Operation::Mod
+                .eval_fr(Fr::from(7u64), Fr::from(2u64))
+                .unwrap(),
             Fr::from_str("1").unwrap()
         );
 
         assert_eq!(
-            Operation::Mod.eval_fr(Fr::from(7u64), Fr::from(9u64)),
+            Operation::Mod
+                .eval_fr(Fr::from(7u64), Fr::from(9u64))
+                .unwrap(),
             Fr::from_str("7").unwrap()
         );
     }

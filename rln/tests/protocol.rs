@@ -69,7 +69,7 @@ mod test {
             "0x0f57c5571e9a4eab49e2c8cf050dae948aef6ead647392273546249d1c1ff10f",
             "0x1830ee67b5fb554ad5f63d4388800e1cfe78e310697d46e43c9ce36134f72cca",
         ]
-        .map(|e| str_to_fr(e, 16).unwrap())
+        .map(|str| str_to_fr(str, 16).unwrap())
         .to_vec();
 
         let expected_identity_path_index: Vec<u8> =

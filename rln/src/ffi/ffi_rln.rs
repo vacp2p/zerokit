@@ -398,9 +398,9 @@ pub fn ffi_bytes_le_to_rln_proof_values(
             ok: Some(Box_::new(FFI_RLNProofValues(pv))),
             err: None,
         },
-        Err(e) => CResult {
+        Err(err) => CResult {
             ok: None,
-            err: Some(format!("{:?}", e).into()),
+            err: Some(format!("{:?}", err).into()),
         },
     }
 }
@@ -414,9 +414,9 @@ pub fn ffi_bytes_be_to_rln_proof_values(
             ok: Some(Box_::new(FFI_RLNProofValues(pv))),
             err: None,
         },
-        Err(e) => CResult {
+        Err(err) => CResult {
             ok: None,
-            err: Some(format!("{:?}", e).into()),
+            err: Some(format!("{:?}", err).into()),
         },
     }
 }
