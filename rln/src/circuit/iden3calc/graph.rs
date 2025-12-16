@@ -11,6 +11,9 @@ use serde::{Deserialize, Serialize};
 use super::proto;
 use crate::circuit::Fr;
 
+const M: U256 =
+    uint!(21888242871839275222246405745257275088548364400416034343698204186575808495617_U256);
+
 fn ark_se<S, A: CanonicalSerialize>(a: &A, s: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
@@ -81,6 +84,14 @@ impl Operation {
             }
             Add => a + b,
             Sub => a - b,
+            // Modular exponentiation to prevent overflow and keep result in field
+            Pow => {
+                let a_u256 = fr_to_u256(&a);
+                let b_u256 = fr_to_u256(&b);
+                let result = a_u256.pow_mod(b_u256, M);
+                u256_to_fr(&result)
+            }
+            // Integer division (not field division)
             Idiv => {
                 if b.is_zero() {
                     Fr::zero()
@@ -90,6 +101,7 @@ impl Operation {
                     u256_to_fr(&(a_u256 / b_u256))
                 }
             }
+            // Integer modulo (not field arithmetic)
             Mod => {
                 if b.is_zero() {
                     Fr::zero()
@@ -130,8 +142,6 @@ impl Operation {
             Bor => bit_or(a, b),
             Band => bit_and(a, b),
             Bxor => bit_xor(a, b),
-            // TODO implement other operators
-            _ => unimplemented!("operator {:?} not implemented for Montgomery", self),
         }
     }
 }
@@ -418,9 +428,6 @@ mod test {
     use ruint::uint;
 
     use super::*;
-
-    const M: U256 =
-        uint!(21888242871839275222246405745257275088548364400416034343698204186575808495617_U256);
 
     #[test]
     fn test_ok() {
