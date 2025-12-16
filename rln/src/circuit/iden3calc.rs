@@ -54,7 +54,7 @@ pub(crate) fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
     }
 
     let res = graph::evaluate(&nodes, inputs_buffer.as_slice(), &signals)
-        .map_err(|err| WitnessCalcError::GraphEvaluation(err))?;
+        .map_err(WitnessCalcError::GraphEvaluation)?;
 
     for val in inputs_buffer.iter_mut() {
         unsafe { zeroize_flat_type(val) };
