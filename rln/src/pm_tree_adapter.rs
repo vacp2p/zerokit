@@ -4,11 +4,14 @@ use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
 use serde_json::Value;
 use tempfile::Builder;
-use utils::{
+use zerokit_utils::{
     error::{FromConfigError, ZerokitMerkleTreeError},
-    pmtree,
-    pmtree::{tree::Key, Database, Hasher, PmtreeErrorKind},
-    Config, Mode, SledDB, ZerokitMerkleProof, ZerokitMerkleTree,
+    merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree},
+    pm_tree::{
+        pmtree,
+        pmtree::{tree::Key, Database, Hasher, PmtreeErrorKind},
+        Config, Mode, SledDB,
+    },
 };
 
 use crate::{
@@ -43,7 +46,8 @@ impl Hasher for PoseidonHash {
     }
 
     fn deserialize(value: pmtree::Value) -> Self::Fr {
-        let (fr, _) = bytes_le_to_fr(&value).expect("pmtree value should be valid Fr bytes");
+        // TODO: allow to handle error properly in pmtree Hasher trait
+        let (fr, _) = bytes_le_to_fr(&value).expect("Fr deserialization must be valid");
         fr
     }
 
@@ -52,17 +56,17 @@ impl Hasher for PoseidonHash {
     }
 
     fn hash(inputs: &[Self::Fr]) -> Self::Fr {
-        poseidon_hash(inputs)
+        // TODO: allow to handle error properly in pmtree Hasher trait
+        poseidon_hash(inputs).expect("Poseidon hash must be valid")
     }
 }
 
-fn default_tmp_path() -> PathBuf {
-    Builder::new()
+fn default_tmp_path() -> Result<PathBuf, std::io::Error> {
+    Ok(Builder::new()
         .prefix("pmtree-")
-        .tempfile()
-        .expect("Failed to create temp file")
+        .tempfile()?
         .into_temp_path()
-        .to_path_buf()
+        .to_path_buf())
 }
 
 const DEFAULT_TEMPORARY: bool = true;
@@ -130,7 +134,7 @@ impl PmtreeConfigBuilder {
 
     pub fn build(self) -> Result<PmtreeConfig, FromConfigError> {
         let path = match (self.temporary, self.path) {
-            (true, None) => default_tmp_path(),
+            (true, None) => default_tmp_path()?,
             (false, None) => return Err(FromConfigError::MissingPath),
             (true, Some(path)) if path.exists() => return Err(FromConfigError::PathExists),
             (_, Some(path)) => path,
@@ -180,9 +184,10 @@ impl FromStr for PmtreeConfig {
             }
         }
 
+        let default_tmp_path = default_tmp_path()?;
         let config = Config::new()
             .temporary(temporary.unwrap_or(DEFAULT_TEMPORARY))
-            .path(path.unwrap_or(default_tmp_path()))
+            .path(path.unwrap_or(default_tmp_path))
             .cache_capacity(cache_capacity.unwrap_or(DEFAULT_CACHE_CAPACITY))
             .flush_every_ms(flush_every_ms)
             .mode(mode)
@@ -195,9 +200,10 @@ impl Default for PmtreeConfig {
     fn default() -> Self {
         Self::builder()
             .build()
-            .expect("Default configuration should never fail")
+            .expect("Default PmtreeConfig must be valid")
     }
 }
+
 impl Debug for PmtreeConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
@@ -393,11 +399,8 @@ impl ZerokitMerkleTree for PmTree {
         // if empty, try searching the db
         let data = self.tree.db.get(METADATA_KEY)?;
 
-        if data.is_none() {
-            // send empty Metadata
-            return Ok(Vec::new());
-        }
-        Ok(data.unwrap())
+        // Return empty metadata if not found, otherwise return the data
+        Ok(data.unwrap_or_default())
     }
 
     fn close_db_connection(&mut self) -> Result<(), ZerokitMerkleTreeError> {
@@ -413,8 +416,13 @@ type FrOfPmTreeHasher = FrOf<PmTreeHasher>;
 
 impl PmTree {
     fn remove_indices(&mut self, indices: &[usize]) -> Result<(), PmtreeErrorKind> {
+        if indices.is_empty() {
+            return Err(PmtreeErrorKind::TreeError(
+                pmtree::TreeErrorKind::InvalidKey,
+            ));
+        }
         let start = indices[0];
-        let end = indices.last().unwrap() + 1;
+        let end = indices[indices.len() - 1] + 1;
 
         let new_leaves = (start..end).map(|_| PmTreeHasher::default_leaf());
 
@@ -432,7 +440,12 @@ impl PmTree {
         leaves: Vec<FrOfPmTreeHasher>,
         indices: &[usize],
     ) -> Result<(), PmtreeErrorKind> {
-        let min_index = *indices.first().unwrap();
+        if indices.is_empty() {
+            return Err(PmtreeErrorKind::TreeError(
+                pmtree::TreeErrorKind::InvalidKey,
+            ));
+        }
+        let min_index = indices[0];
         let max_index = start + leaves.len();
 
         let mut set_values = vec![PmTreeHasher::default_leaf(); max_index - min_index];
@@ -480,8 +493,12 @@ impl ZerokitMerkleProof for PmTreeProof {
     fn get_path_index(&self) -> Vec<Self::Index> {
         self.proof.get_path_index()
     }
-    fn compute_root_from(&self, leaf: &FrOf<Self::Hasher>) -> FrOf<Self::Hasher> {
-        self.proof.compute_root_from(leaf)
+
+    fn compute_root_from(
+        &self,
+        leaf: &FrOf<Self::Hasher>,
+    ) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError> {
+        Ok(self.proof.compute_root_from(leaf))
     }
 }
 
@@ -501,15 +518,15 @@ mod test {
             "use_compression": false
         }"#;
 
-        let _: PmtreeConfig = json.parse().expect("Failed to parse JSON config");
+        let _: PmtreeConfig = json.parse().unwrap();
 
         let _ = PmtreeConfig::builder()
-            .path(default_tmp_path())
+            .path(default_tmp_path().unwrap())
             .temporary(DEFAULT_TEMPORARY)
             .cache_capacity(DEFAULT_CACHE_CAPACITY)
             .mode(DEFAULT_MODE)
             .use_compression(DEFAULT_USE_COMPRESSION)
             .build()
-            .expect("Failed to build config");
+            .unwrap();
     }
 }

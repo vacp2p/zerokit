@@ -7,54 +7,80 @@ use ark_ff::PrimeField;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use prost::Message;
 
-use crate::circuit::{
-    iden3calc::{
-        graph,
-        graph::{Operation, TresOperation, UnoOperation},
-        proto, InputSignalsInfo,
-    },
-    Fr,
+use super::{
+    graph::{self, Operation, TresOperation, UnoOperation},
+    proto, InputSignalsInfo,
 };
+use crate::circuit::Fr;
 
-// format of the wtns.graph file:
-// + magic line: wtns.graph.001
-// + 4 bytes unsigned LE 32-bit integer: number of nodes
-// + series of protobuf serialized nodes. Each node prefixed by varint length
-// + protobuf serialized GraphMetadata
-// + 8 bytes unsigned LE 64-bit integer: offset of GraphMetadata message
-
+/// Format of the wtns.graph file:
+/// + magic line: wtns.graph.001
+/// + 4 bytes unsigned LE 32-bit integer: number of nodes
+/// + series of protobuf serialized nodes. Each node prefixed by varint length
+/// + protobuf serialized GraphMetadata
+/// + 8 bytes unsigned LE 64-bit integer: offset of GraphMetadata message
 const WITNESSCALC_GRAPH_MAGIC: &[u8] = b"wtns.graph.001";
 
 const MAX_VARINT_LENGTH: usize = 10;
 
-impl From<proto::Node> for graph::Node {
-    fn from(value: proto::Node) -> Self {
-        match value.node.unwrap() {
-            proto::node::Node::Input(input_node) => graph::Node::Input(input_node.idx as usize),
+impl TryFrom<proto::Node> for graph::Node {
+    type Error = std::io::Error;
+
+    fn try_from(value: proto::Node) -> Result<Self, Self::Error> {
+        let node = value.node.ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Proto::Node must have a node field",
+            )
+        })?;
+        match node {
+            proto::node::Node::Input(input_node) => Ok(graph::Node::Input(input_node.idx as usize)),
             proto::node::Node::Constant(constant_node) => {
-                let i = constant_node.value.unwrap();
-                graph::Node::MontConstant(Fr::from_le_bytes_mod_order(i.value_le.as_slice()))
+                let i = constant_node.value.ok_or_else(|| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "Constant node must have a value",
+                    )
+                })?;
+                Ok(graph::Node::MontConstant(Fr::from_le_bytes_mod_order(
+                    i.value_le.as_slice(),
+                )))
             }
             proto::node::Node::UnoOp(uno_op_node) => {
-                let op = proto::UnoOp::try_from(uno_op_node.op).unwrap();
-                graph::Node::UnoOp(op.into(), uno_op_node.a_idx as usize)
+                let op = proto::UnoOp::try_from(uno_op_node.op).map_err(|_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "UnoOp must be valid enum value",
+                    )
+                })?;
+                Ok(graph::Node::UnoOp(op.into(), uno_op_node.a_idx as usize))
             }
             proto::node::Node::DuoOp(duo_op_node) => {
-                let op = proto::DuoOp::try_from(duo_op_node.op).unwrap();
-                graph::Node::Op(
+                let op = proto::DuoOp::try_from(duo_op_node.op).map_err(|_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "DuoOp must be valid enum value",
+                    )
+                })?;
+                Ok(graph::Node::Op(
                     op.into(),
                     duo_op_node.a_idx as usize,
                     duo_op_node.b_idx as usize,
-                )
+                ))
             }
             proto::node::Node::TresOp(tres_op_node) => {
-                let op = proto::TresOp::try_from(tres_op_node.op).unwrap();
-                graph::Node::TresOp(
+                let op = proto::TresOp::try_from(tres_op_node.op).map_err(|_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "TresOp must be valid enum value",
+                    )
+                })?;
+                Ok(graph::Node::TresOp(
                     op.into(),
                     tres_op_node.a_idx as usize,
                     tres_op_node.b_idx as usize,
                     tres_op_node.c_idx as usize,
-                )
+                ))
             }
         }
     }
@@ -140,14 +166,15 @@ impl From<proto::TresOp> for graph::TresOperation {
     }
 }
 
-pub fn serialize_witnesscalc_graph<T: Write>(
+#[allow(dead_code)]
+pub(crate) fn serialize_witnesscalc_graph<T: Write>(
     mut w: T,
     nodes: &Vec<graph::Node>,
     witness_signals: &[usize],
     input_signals: &InputSignalsInfo,
 ) -> std::io::Result<()> {
     let mut ptr = 0usize;
-    w.write_all(WITNESSCALC_GRAPH_MAGIC).unwrap();
+    w.write_all(WITNESSCALC_GRAPH_MAGIC)?;
     ptr += WITNESSCALC_GRAPH_MAGIC.len();
 
     w.write_u64::<LittleEndian>(nodes.len() as u64)?;
@@ -235,7 +262,7 @@ fn read_message<R: Read, M: Message + std::default::Default>(
     Ok(msg)
 }
 
-pub fn deserialize_witnesscalc_graph(
+pub(crate) fn deserialize_witnesscalc_graph(
     r: impl Read,
 ) -> std::io::Result<(Vec<graph::Node>, Vec<usize>, InputSignalsInfo)> {
     let mut br = WriteBackReader::new(r);
@@ -254,8 +281,7 @@ pub fn deserialize_witnesscalc_graph(
     let mut nodes = Vec::with_capacity(nodes_num as usize);
     for _ in 0..nodes_num {
         let n: proto::Node = read_message(&mut br)?;
-        let n2: graph::Node = n.into();
-        nodes.push(n2);
+        nodes.push(n.try_into()?);
     }
 
     let md: proto::GraphMetadata = read_message(&mut br)?;

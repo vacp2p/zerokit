@@ -29,10 +29,18 @@ impl WasmRLN {
         let calculated_witness_bigint: Vec<BigInt> = calculated_witness
             .iter()
             .map(|js_bigint| {
-                let str_val = js_bigint.to_string(10).unwrap().as_string().unwrap();
-                str_val.parse::<BigInt>().unwrap()
+                js_bigint
+                    .to_string(10)
+                    .ok()
+                    .and_then(|js_str| js_str.as_string())
+                    .ok_or_else(|| "Failed to convert JsBigInt to string".to_string())
+                    .and_then(|str_val| {
+                        str_val
+                            .parse::<BigInt>()
+                            .map_err(|err| format!("Failed to parse BigInt: {}", err))
+                    })
             })
-            .collect();
+            .collect::<Result<Vec<_>, _>>()?;
 
         let (proof, proof_values) = self
             .0
@@ -76,26 +84,28 @@ impl WasmRLNProof {
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]
-    pub fn to_bytes_le(&self) -> Uint8Array {
-        Uint8Array::from(&rln_proof_to_bytes_le(&self.0)[..])
+    pub fn to_bytes_le(&self) -> Result<Uint8Array, String> {
+        let bytes = rln_proof_to_bytes_le(&self.0).map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
     }
 
     #[wasm_bindgen(js_name = toBytesBE)]
-    pub fn to_bytes_be(&self) -> Uint8Array {
-        Uint8Array::from(&rln_proof_to_bytes_be(&self.0)[..])
+    pub fn to_bytes_be(&self) -> Result<Uint8Array, String> {
+        let bytes = rln_proof_to_bytes_be(&self.0).map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
     }
 
     #[wasm_bindgen(js_name = fromBytesLE)]
     pub fn from_bytes_le(bytes: &Uint8Array) -> Result<WasmRLNProof, String> {
         let bytes_vec = bytes.to_vec();
-        let (proof, _) = bytes_le_to_rln_proof(&bytes_vec).map_err(|e| e.to_string())?;
+        let (proof, _) = bytes_le_to_rln_proof(&bytes_vec).map_err(|err| err.to_string())?;
         Ok(WasmRLNProof(proof))
     }
 
     #[wasm_bindgen(js_name = fromBytesBE)]
     pub fn from_bytes_be(bytes: &Uint8Array) -> Result<WasmRLNProof, String> {
         let bytes_vec = bytes.to_vec();
-        let (proof, _) = bytes_be_to_rln_proof(&bytes_vec).map_err(|e| e.to_string())?;
+        let (proof, _) = bytes_be_to_rln_proof(&bytes_vec).map_err(|err| err.to_string())?;
         Ok(WasmRLNProof(proof))
     }
 }
@@ -144,7 +154,7 @@ impl WasmRLNProofValues {
     pub fn from_bytes_le(bytes: &Uint8Array) -> Result<WasmRLNProofValues, String> {
         let bytes_vec = bytes.to_vec();
         let (proof_values, _) =
-            bytes_le_to_rln_proof_values(&bytes_vec).map_err(|e| e.to_string())?;
+            bytes_le_to_rln_proof_values(&bytes_vec).map_err(|err| err.to_string())?;
         Ok(WasmRLNProofValues(proof_values))
     }
 
@@ -152,7 +162,7 @@ impl WasmRLNProofValues {
     pub fn from_bytes_be(bytes: &Uint8Array) -> Result<WasmRLNProofValues, String> {
         let bytes_vec = bytes.to_vec();
         let (proof_values, _) =
-            bytes_be_to_rln_proof_values(&bytes_vec).map_err(|e| e.to_string())?;
+            bytes_be_to_rln_proof_values(&bytes_vec).map_err(|err| err.to_string())?;
         Ok(WasmRLNProofValues(proof_values))
     }
 

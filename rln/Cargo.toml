@@ -46,7 +46,7 @@ ruint = { version = "1.17.0", default-features = false, features = [
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 zeroize = "1.8.2"
 tempfile = "3.23.0"
-utils = { package = "zerokit_utils", version = "0.7.0", path = "../utils", default-features = false }
+zerokit_utils = { version = "0.7.0", path = "../utils", default-features = false }
 
 # FFI
 safer-ffi.version = "0.1"
@@ -67,17 +67,17 @@ default = ["parallel", "pmtree-ft"]
 stateless = []
 parallel = [
     "rayon",
-    "utils/parallel",
     "ark-ff/parallel",
     "ark-ec/parallel",
     "ark-std/parallel",
     "ark-poly/parallel",
     "ark-groth16/parallel",
     "ark-serialize/parallel",
+    "zerokit_utils/parallel",
 ]
 fullmerkletree = [] # Pre-allocated tree, fastest access
 optimalmerkletree = [] # Sparse storage, memory efficient
-pmtree-ft = ["utils/pmtree-ft"] # Persistent storage, disk-based
+pmtree-ft = ["zerokit_utils/pmtree-ft"] # Persistent storage, disk-based
 headers = ["safer-ffi/headers"] # Generate C header file with safer-ffi
 
 [[bench]]

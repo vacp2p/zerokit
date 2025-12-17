@@ -46,21 +46,21 @@ mod test {
         let mut rng = thread_rng();
 
         let identity_secret = IdSecret::rand(&mut rng);
-        let x = hash_to_field_le(&rng.gen::<[u8; 32]>());
-        let epoch = hash_to_field_le(&rng.gen::<[u8; 32]>());
-        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+        let x = hash_to_field_le(&rng.gen::<[u8; 32]>()).unwrap();
+        let epoch = hash_to_field_le(&rng.gen::<[u8; 32]>()).unwrap();
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
 
         let mut path_elements: Vec<Fr> = Vec::new();
         let mut identity_path_index: Vec<u8> = Vec::new();
 
         for _ in 0..tree_depth {
-            path_elements.push(hash_to_field_le(&rng.gen::<[u8; 32]>()));
+            path_elements.push(hash_to_field_le(&rng.gen::<[u8; 32]>()).unwrap());
             identity_path_index.push(rng.gen_range(0..2) as u8);
         }
 
         let user_message_limit = Fr::from(100);
         let message_id = Fr::from(1);
-        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
 
         RLNWitnessInput::new(
             identity_secret,
@@ -478,9 +478,7 @@ mod test {
             let root_empty = rln.get_root();
 
             // We add leaves in a batch into the tree
-            #[allow(unused_must_use)]
-            rln.set_leaves_from(bad_index, leaves)
-                .expect_err("Should throw an error");
+            assert!(rln.set_leaves_from(bad_index, leaves).is_err());
 
             // We check if number of leaves set is consistent
             assert_eq!(rln.leaves_set(), 0);
@@ -548,7 +546,7 @@ mod test {
             let mut rng = thread_rng();
             for _ in 0..NO_OF_LEAVES {
                 let id_commitment = Fr::rand(&mut rng);
-                let rate_commitment = poseidon_hash(&[id_commitment, Fr::from(100)]);
+                let rate_commitment = poseidon_hash(&[id_commitment, Fr::from(100)]).unwrap();
                 leaves.push(rate_commitment);
             }
 
@@ -559,12 +557,12 @@ mod test {
             rln.init_tree_with_leaves(leaves.clone()).unwrap();
 
             // Generate identity pair
-            let (identity_secret, id_commitment) = keygen();
+            let (identity_secret, id_commitment) = keygen().unwrap();
 
             // We set as leaf rate_commitment after storing its index
             let identity_index = rln.leaves_set();
             let user_message_limit = Fr::from(65535);
-            let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
+            let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
             rln.set_next_leaf(rate_commitment).unwrap();
 
             // We generate a random signal
@@ -572,16 +570,16 @@ mod test {
             let signal: [u8; 32] = rng.gen();
 
             // We generate a random epoch
-            let epoch = hash_to_field_le(b"test-epoch");
+            let epoch = hash_to_field_le(b"test-epoch").unwrap();
             // We generate a random rln_identifier
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
             // We generate a external nullifier
-            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
             // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
             let message_id = Fr::from(1);
 
             // Hash the signal to get x
-            let x = hash_to_field_le(&signal);
+            let x = hash_to_field_le(&signal).unwrap();
 
             // Get merkle proof for the identity
             let (path_elements, identity_path_index) =
@@ -626,12 +624,12 @@ mod test {
             rln.init_tree_with_leaves(leaves.clone()).unwrap();
 
             // Generate identity pair
-            let (identity_secret, id_commitment) = keygen();
+            let (identity_secret, id_commitment) = keygen().unwrap();
 
             // We set as leaf rate_commitment after storing its index
             let identity_index = rln.leaves_set();
             let user_message_limit = Fr::from(100);
-            let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
+            let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
             rln.set_next_leaf(rate_commitment).unwrap();
 
             // We generate a random signal
@@ -639,16 +637,16 @@ mod test {
             let signal: [u8; 32] = rng.gen();
 
             // We generate a random epoch
-            let epoch = hash_to_field_le(b"test-epoch");
+            let epoch = hash_to_field_le(b"test-epoch").unwrap();
             // We generate a random rln_identifier
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
             // We generate a external nullifier
-            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
             // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
             let message_id = Fr::from(1);
 
             // Hash the signal to get x
-            let x = hash_to_field_le(&signal);
+            let x = hash_to_field_le(&signal).unwrap();
 
             // Get merkle proof for the identity
             let (path_elements, identity_path_index) =
@@ -694,12 +692,12 @@ mod test {
             rln.init_tree_with_leaves(leaves.clone()).unwrap();
 
             // Generate identity pair
-            let (identity_secret, id_commitment) = keygen();
+            let (identity_secret, id_commitment) = keygen().unwrap();
 
             // We set as leaf rate_commitment after storing its index
             let identity_index = rln.leaves_set();
             let user_message_limit = Fr::from(100);
-            let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
+            let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
             rln.set_next_leaf(rate_commitment).unwrap();
 
             // We generate a random signal
@@ -707,16 +705,16 @@ mod test {
             let signal: [u8; 32] = rng.gen();
 
             // We generate a random epoch
-            let epoch = hash_to_field_le(b"test-epoch");
+            let epoch = hash_to_field_le(b"test-epoch").unwrap();
             // We generate a random rln_identifier
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
             // We generate a external nullifier
-            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
             // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
             let message_id = Fr::from(1);
 
             // Hash the signal to get x
-            let x = hash_to_field_le(&signal);
+            let x = hash_to_field_le(&signal).unwrap();
 
             // Get merkle proof for the identity
             let (path_elements, identity_path_index) =
@@ -776,9 +774,9 @@ mod test {
             let mut rln = RLN::new(tree_depth, "").unwrap();
 
             // Generate identity pair
-            let (identity_secret, id_commitment) = keygen();
+            let (identity_secret, id_commitment) = keygen().unwrap();
             let user_message_limit = Fr::from(100);
-            let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
+            let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
 
             // We set as leaf rate_commitment, its index would be equal to 0 since tree is empty
             let identity_index = rln.leaves_set();
@@ -792,17 +790,17 @@ mod test {
             let signal2: [u8; 32] = rng.gen();
 
             // We generate a random epoch
-            let epoch = hash_to_field_le(b"test-epoch");
+            let epoch = hash_to_field_le(b"test-epoch").unwrap();
             // We generate a random rln_identifier
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
             // We generate a external nullifier
-            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
             // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
             let message_id = Fr::from(1);
 
             // Hash the signals to get x values
-            let x1 = hash_to_field_le(&signal1);
-            let x2 = hash_to_field_le(&signal2);
+            let x1 = hash_to_field_le(&signal1).unwrap();
+            let x2 = hash_to_field_le(&signal2).unwrap();
 
             // Get merkle proof for the identity
             let (path_elements, identity_path_index) =
@@ -847,8 +845,9 @@ mod test {
             // We now test that computing identity_secret is unsuccessful if shares computed from two different identity secret but within same epoch are passed
 
             // We generate a new identity pair
-            let (identity_secret_new, id_commitment_new) = keygen();
-            let rate_commitment_new = poseidon_hash(&[id_commitment_new, user_message_limit]);
+            let (identity_secret_new, id_commitment_new) = keygen().unwrap();
+            let rate_commitment_new =
+                poseidon_hash(&[id_commitment_new, user_message_limit]).unwrap();
 
             // We add it to the tree
             let identity_index_new = rln.leaves_set();
@@ -856,7 +855,7 @@ mod test {
 
             // We generate a random signal
             let signal3: [u8; 32] = rng.gen();
-            let x3 = hash_to_field_le(&signal3);
+            let x3 = hash_to_field_le(&signal3).unwrap();
 
             // Get merkle proof for the new identity
             let (path_elements_new, identity_path_index_new) =
@@ -930,7 +929,9 @@ mod test {
             protocol::*,
             public::RLN,
         };
-        use utils::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
+        use zerokit_utils::merkle_tree::{
+            OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
+        };
 
         use super::DEFAULT_TREE_DEPTH;
 
@@ -950,12 +951,12 @@ mod test {
             .unwrap();
 
             // Generate identity pair
-            let (identity_secret, id_commitment) = keygen();
+            let (identity_secret, id_commitment) = keygen().unwrap();
 
             // We set as leaf rate_commitment after storing its index
             let identity_index = tree.leaves_set();
             let user_message_limit = Fr::from(100);
-            let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
+            let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
             tree.update_next(rate_commitment).unwrap();
 
             // We generate a random signal
@@ -963,14 +964,14 @@ mod test {
             let signal: [u8; 32] = rng.gen();
 
             // We generate a random epoch
-            let epoch = hash_to_field_le(b"test-epoch");
+            let epoch = hash_to_field_le(b"test-epoch").unwrap();
             // We generate a random rln_identifier
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
 
             // Hash the signal to get x
-            let x = hash_to_field_le(&signal);
-            let merkle_proof = tree.proof(identity_index).expect("proof should exist");
+            let x = hash_to_field_le(&signal).unwrap();
+            let merkle_proof = tree.proof(identity_index).unwrap();
             let message_id = Fr::from(1);
 
             let rln_witness = RLNWitnessInput::new(
@@ -1032,27 +1033,27 @@ mod test {
             .unwrap();
 
             // Generate identity pair
-            let (identity_secret, id_commitment) = keygen();
+            let (identity_secret, id_commitment) = keygen().unwrap();
             let user_message_limit = Fr::from(100);
-            let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
+            let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
             tree.update_next(rate_commitment).unwrap();
 
             // We generate a random epoch
-            let epoch = hash_to_field_le(b"test-epoch");
+            let epoch = hash_to_field_le(b"test-epoch").unwrap();
             // We generate a random rln_identifier
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
 
             // We generate a random signal
             let mut rng = thread_rng();
             let signal1: [u8; 32] = rng.gen();
-            let x1 = hash_to_field_le(&signal1);
+            let x1 = hash_to_field_le(&signal1).unwrap();
 
             let signal2: [u8; 32] = rng.gen();
-            let x2 = hash_to_field_le(&signal2);
+            let x2 = hash_to_field_le(&signal2).unwrap();
 
             let identity_index = tree.leaves_set();
-            let merkle_proof = tree.proof(identity_index).expect("proof should exist");
+            let merkle_proof = tree.proof(identity_index).unwrap();
             let message_id = Fr::from(1);
 
             let rln_witness1 = RLNWitnessInput::new(
@@ -1091,15 +1092,16 @@ mod test {
             // We now test that computing identity_secret is unsuccessful if shares computed from two different identity secret but within same epoch are passed
 
             // We generate a new identity pair
-            let (identity_secret_new, id_commitment_new) = keygen();
-            let rate_commitment_new = poseidon_hash(&[id_commitment_new, user_message_limit]);
+            let (identity_secret_new, id_commitment_new) = keygen().unwrap();
+            let rate_commitment_new =
+                poseidon_hash(&[id_commitment_new, user_message_limit]).unwrap();
             tree.update_next(rate_commitment_new).unwrap();
 
             let signal3: [u8; 32] = rng.gen();
-            let x3 = hash_to_field_le(&signal3);
+            let x3 = hash_to_field_le(&signal3).unwrap();
 
             let identity_index_new = tree.leaves_set();
-            let merkle_proof_new = tree.proof(identity_index_new).expect("proof should exist");
+            let merkle_proof_new = tree.proof(identity_index_new).unwrap();
 
             let rln_witness3 = RLNWitnessInput::new(
                 identity_secret_new.clone(),

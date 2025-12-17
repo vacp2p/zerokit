@@ -1,8 +1,12 @@
-#[derive(thiserror::Error, Debug)]
+use crate::error::HashError;
+
+/// Errors that can occur during Merkle tree operations
+#[derive(Debug, thiserror::Error)]
 pub enum ZerokitMerkleTreeError {
     #[error("Invalid index")]
     InvalidIndex,
-    // InvalidProof,
+    #[error("Invalid indices")]
+    InvalidIndices,
     #[error("Leaf index out of bounds")]
     InvalidLeaf,
     #[error("Level exceeds tree depth")]
@@ -20,8 +24,11 @@ pub enum ZerokitMerkleTreeError {
     #[cfg(feature = "pmtree-ft")]
     #[error("Pmtree error: {0}")]
     PmtreeErrorKind(#[from] pmtree::PmtreeErrorKind),
+    #[error("Hash error: {0}")]
+    HashError(#[from] HashError),
 }
 
+/// Errors that can occur while creating Merkle tree from config
 #[derive(Debug, thiserror::Error)]
 pub enum FromConfigError {
     #[error("Error while reading pmtree config: {0}")]
@@ -30,4 +37,6 @@ pub enum FromConfigError {
     MissingPath,
     #[error("Error while creating pmtree config: path already exists")]
     PathExists,
+    #[error("Error while creating pmtree default temp path: {0}")]
+    IoError(#[from] std::io::Error),
 }

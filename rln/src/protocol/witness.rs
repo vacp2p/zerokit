@@ -270,11 +270,11 @@ pub fn proof_values_from_witness(
     // y share
     let a_0 = &witness.identity_secret;
     let mut to_hash = [**a_0, witness.external_nullifier, witness.message_id];
-    let a_1 = poseidon_hash(&to_hash);
+    let a_1 = poseidon_hash(&to_hash)?;
     let y = *(a_0.clone()) + witness.x * a_1;
 
     // Nullifier
-    let nullifier = poseidon_hash(&[a_1]);
+    let nullifier = poseidon_hash(&[a_1])?;
     to_hash[0].zeroize();
 
     // Merkle tree root computations
@@ -283,7 +283,7 @@ pub fn proof_values_from_witness(
         &witness.user_message_limit,
         &witness.path_elements,
         &witness.identity_path_index,
-    );
+    )?;
 
     Ok(RLNProofValues {
         y,
@@ -300,22 +300,22 @@ pub fn compute_tree_root(
     user_message_limit: &Fr,
     path_elements: &[Fr],
     identity_path_index: &[u8],
-) -> Fr {
+) -> Result<Fr, ProtocolError> {
     let mut to_hash = [*identity_secret.clone()];
-    let id_commitment = poseidon_hash(&to_hash);
+    let id_commitment = poseidon_hash(&to_hash)?;
     to_hash[0].zeroize();
 
-    let mut root = poseidon_hash(&[id_commitment, *user_message_limit]);
+    let mut root = poseidon_hash(&[id_commitment, *user_message_limit])?;
 
     for i in 0..identity_path_index.len() {
         if identity_path_index[i] == 0 {
-            root = poseidon_hash(&[root, path_elements[i]]);
+            root = poseidon_hash(&[root, path_elements[i]])?;
         } else {
-            root = poseidon_hash(&[path_elements[i], root]);
+            root = poseidon_hash(&[path_elements[i], root])?;
         }
     }
 
-    root
+    Ok(root)
 }
 
 /// Prepares inputs for witness calculation from RLN witness input.

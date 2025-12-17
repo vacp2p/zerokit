@@ -4,8 +4,7 @@ pub mod full_merkle_tree;
 pub mod merkle_tree;
 pub mod optimal_merkle_tree;
 
-pub use self::{
-    full_merkle_tree::{FullMerkleConfig, FullMerkleProof, FullMerkleTree},
-    merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES},
-    optimal_merkle_tree::{OptimalMerkleConfig, OptimalMerkleProof, OptimalMerkleTree},
-};
+pub use error::{FromConfigError, ZerokitMerkleTreeError};
+pub use full_merkle_tree::{FullMerkleConfig, FullMerkleProof, FullMerkleTree};
+pub use merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES};
+pub use optimal_merkle_tree::{OptimalMerkleConfig, OptimalMerkleProof, OptimalMerkleTree};

@@ -45,14 +45,14 @@ impl WasmFr {
     #[wasm_bindgen(js_name = fromBytesLE)]
     pub fn from_bytes_le(bytes: &Uint8Array) -> Result<Self, String> {
         let bytes_vec = bytes.to_vec();
-        let (fr, _) = bytes_le_to_fr(&bytes_vec).map_err(|e| e.to_string())?;
+        let (fr, _) = bytes_le_to_fr(&bytes_vec).map_err(|err| err.to_string())?;
         Ok(Self(fr))
     }
 
     #[wasm_bindgen(js_name = fromBytesBE)]
     pub fn from_bytes_be(bytes: &Uint8Array) -> Result<Self, String> {
         let bytes_vec = bytes.to_vec();
-        let (fr, _) = bytes_be_to_fr(&bytes_vec).map_err(|e| e.to_string())?;
+        let (fr, _) = bytes_be_to_fr(&bytes_vec).map_err(|err| err.to_string())?;
         Ok(Self(fr))
     }
 
@@ -194,18 +194,24 @@ pub struct Hasher;
 #[wasm_bindgen]
 impl Hasher {
     #[wasm_bindgen(js_name = hashToFieldLE)]
-    pub fn hash_to_field_le(input: &Uint8Array) -> WasmFr {
-        WasmFr(hash_to_field_le(&input.to_vec()))
+    pub fn hash_to_field_le(input: &Uint8Array) -> Result<WasmFr, String> {
+        hash_to_field_le(&input.to_vec())
+            .map(WasmFr)
+            .map_err(|err| err.to_string())
     }
 
     #[wasm_bindgen(js_name = hashToFieldBE)]
-    pub fn hash_to_field_be(input: &Uint8Array) -> WasmFr {
-        WasmFr(hash_to_field_be(&input.to_vec()))
+    pub fn hash_to_field_be(input: &Uint8Array) -> Result<WasmFr, String> {
+        hash_to_field_be(&input.to_vec())
+            .map(WasmFr)
+            .map_err(|err| err.to_string())
     }
 
     #[wasm_bindgen(js_name = poseidonHashPair)]
-    pub fn poseidon_hash_pair(a: &WasmFr, b: &WasmFr) -> WasmFr {
-        WasmFr(poseidon_hash(&[a.0, b.0]))
+    pub fn poseidon_hash_pair(a: &WasmFr, b: &WasmFr) -> Result<WasmFr, String> {
+        poseidon_hash(&[a.0, b.0])
+            .map(WasmFr)
+            .map_err(|err| err.to_string())
     }
 }
 
@@ -218,22 +224,23 @@ pub struct Identity {
 #[wasm_bindgen]
 impl Identity {
     #[wasm_bindgen(js_name = generate)]
-    pub fn generate() -> Identity {
-        let (identity_secret, id_commitment) = keygen();
-        Identity {
+    pub fn generate() -> Result<Identity, String> {
+        let (identity_secret, id_commitment) = keygen().map_err(|err| err.to_string())?;
+        Ok(Identity {
             identity_secret: *identity_secret,
             id_commitment,
-        }
+        })
     }
 
     #[wasm_bindgen(js_name = generateSeeded)]
-    pub fn generate_seeded(seed: &Uint8Array) -> Identity {
+    pub fn generate_seeded(seed: &Uint8Array) -> Result<Identity, String> {
         let seed_vec = seed.to_vec();
-        let (identity_secret, id_commitment) = seeded_keygen(&seed_vec);
-        Identity {
+        let (identity_secret, id_commitment) =
+            seeded_keygen(&seed_vec).map_err(|err| err.to_string())?;
+        Ok(Identity {
             identity_secret,
             id_commitment,
-        }
+        })
     }
 
     #[wasm_bindgen(js_name = getSecretHash)]
@@ -250,6 +257,46 @@ impl Identity {
     pub fn to_array(&self) -> VecWasmFr {
         VecWasmFr(vec![self.identity_secret, self.id_commitment])
     }
+
+    #[wasm_bindgen(js_name = toBytesLE)]
+    pub fn to_bytes_le(&self) -> Uint8Array {
+        let vec_fr = vec![self.identity_secret, self.id_commitment];
+        let bytes = vec_fr_to_bytes_le(&vec_fr);
+        Uint8Array::from(&bytes[..])
+    }
+
+    #[wasm_bindgen(js_name = toBytesBE)]
+    pub fn to_bytes_be(&self) -> Uint8Array {
+        let vec_fr = vec![self.identity_secret, self.id_commitment];
+        let bytes = vec_fr_to_bytes_be(&vec_fr);
+        Uint8Array::from(&bytes[..])
+    }
+
+    #[wasm_bindgen(js_name = fromBytesLE)]
+    pub fn from_bytes_le(bytes: &Uint8Array) -> Result<Identity, String> {
+        let bytes_vec = bytes.to_vec();
+        let (vec_fr, _) = bytes_le_to_vec_fr(&bytes_vec).map_err(|err| err.to_string())?;
+        if vec_fr.len() != 2 {
+            return Err(format!("Expected 2 elements, got {}", vec_fr.len()));
+        }
+        Ok(Identity {
+            identity_secret: vec_fr[0],
+            id_commitment: vec_fr[1],
+        })
+    }
+
+    #[wasm_bindgen(js_name = fromBytesBE)]
+    pub fn from_bytes_be(bytes: &Uint8Array) -> Result<Identity, String> {
+        let bytes_vec = bytes.to_vec();
+        let (vec_fr, _) = bytes_be_to_vec_fr(&bytes_vec).map_err(|err| err.to_string())?;
+        if vec_fr.len() != 2 {
+            return Err(format!("Expected 2 elements, got {}", vec_fr.len()));
+        }
+        Ok(Identity {
+            identity_secret: vec_fr[0],
+            id_commitment: vec_fr[1],
+        })
+    }
 }
 
 #[wasm_bindgen]
@@ -263,28 +310,28 @@ pub struct ExtendedIdentity {
 #[wasm_bindgen]
 impl ExtendedIdentity {
     #[wasm_bindgen(js_name = generate)]
-    pub fn generate() -> ExtendedIdentity {
+    pub fn generate() -> Result<ExtendedIdentity, String> {
         let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) =
-            extended_keygen();
-        ExtendedIdentity {
+            extended_keygen().map_err(|err| err.to_string())?;
+        Ok(ExtendedIdentity {
             identity_trapdoor,
             identity_nullifier,
             identity_secret,
             id_commitment,
-        }
+        })
     }
 
     #[wasm_bindgen(js_name = generateSeeded)]
-    pub fn generate_seeded(seed: &Uint8Array) -> ExtendedIdentity {
+    pub fn generate_seeded(seed: &Uint8Array) -> Result<ExtendedIdentity, String> {
         let seed_vec = seed.to_vec();
         let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) =
-            extended_seeded_keygen(&seed_vec);
-        ExtendedIdentity {
+            extended_seeded_keygen(&seed_vec).map_err(|err| err.to_string())?;
+        Ok(ExtendedIdentity {
             identity_trapdoor,
             identity_nullifier,
             identity_secret,
             id_commitment,
-        }
+        })
     }
 
     #[wasm_bindgen(js_name = getTrapdoor)]
@@ -315,5 +362,59 @@ impl ExtendedIdentity {
             self.identity_secret,
             self.id_commitment,
         ])
+    }
+
+    #[wasm_bindgen(js_name = toBytesLE)]
+    pub fn to_bytes_le(&self) -> Uint8Array {
+        let vec_fr = vec![
+            self.identity_trapdoor,
+            self.identity_nullifier,
+            self.identity_secret,
+            self.id_commitment,
+        ];
+        let bytes = vec_fr_to_bytes_le(&vec_fr);
+        Uint8Array::from(&bytes[..])
+    }
+
+    #[wasm_bindgen(js_name = toBytesBE)]
+    pub fn to_bytes_be(&self) -> Uint8Array {
+        let vec_fr = vec![
+            self.identity_trapdoor,
+            self.identity_nullifier,
+            self.identity_secret,
+            self.id_commitment,
+        ];
+        let bytes = vec_fr_to_bytes_be(&vec_fr);
+        Uint8Array::from(&bytes[..])
+    }
+
+    #[wasm_bindgen(js_name = fromBytesLE)]
+    pub fn from_bytes_le(bytes: &Uint8Array) -> Result<ExtendedIdentity, String> {
+        let bytes_vec = bytes.to_vec();
+        let (vec_fr, _) = bytes_le_to_vec_fr(&bytes_vec).map_err(|err| err.to_string())?;
+        if vec_fr.len() != 4 {
+            return Err(format!("Expected 4 elements, got {}", vec_fr.len()));
+        }
+        Ok(ExtendedIdentity {
+            identity_trapdoor: vec_fr[0],
+            identity_nullifier: vec_fr[1],
+            identity_secret: vec_fr[2],
+            id_commitment: vec_fr[3],
+        })
+    }
+
+    #[wasm_bindgen(js_name = fromBytesBE)]
+    pub fn from_bytes_be(bytes: &Uint8Array) -> Result<ExtendedIdentity, String> {
+        let bytes_vec = bytes.to_vec();
+        let (vec_fr, _) = bytes_be_to_vec_fr(&bytes_vec).map_err(|err| err.to_string())?;
+        if vec_fr.len() != 4 {
+            return Err(format!("Expected 4 elements, got {}", vec_fr.len()));
+        }
+        Ok(ExtendedIdentity {
+            identity_trapdoor: vec_fr[0],
+            identity_nullifier: vec_fr[1],
+            identity_secret: vec_fr[2],
+            id_commitment: vec_fr[3],
+        })
     }
 }

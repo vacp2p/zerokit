@@ -7,10 +7,10 @@ use std::{
 
 use clap::{Parser, Subcommand};
 use rln::prelude::{
-    hash_to_field_le, keygen, poseidon_hash, recover_id_secret, Fr, IdSecret, PoseidonHash,
-    RLNProofValues, RLNWitnessInput, DEFAULT_TREE_DEPTH, RLN,
+    hash_to_field_le, keygen, poseidon_hash, recover_id_secret, Fr, IdSecret, OptimalMerkleTree,
+    PoseidonHash, RLNProofValues, RLNWitnessInput, ZerokitMerkleProof, ZerokitMerkleTree,
+    DEFAULT_TREE_DEPTH, RLN,
 };
-use zerokit_utils::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
 const MESSAGE_LIMIT: u32 = 1;
 
@@ -48,7 +48,7 @@ struct Identity {
 
 impl Identity {
     fn new() -> Self {
-        let (identity_secret, id_commitment) = keygen();
+        let (identity_secret, id_commitment) = keygen().unwrap();
         Identity {
             identity_secret,
             id_commitment,
@@ -101,7 +101,8 @@ impl RLNSystem {
         let index = self.tree.leaves_set();
         let identity = Identity::new();
 
-        let rate_commitment = poseidon_hash(&[identity.id_commitment, Fr::from(MESSAGE_LIMIT)]);
+        let rate_commitment =
+            poseidon_hash(&[identity.id_commitment, Fr::from(MESSAGE_LIMIT)]).unwrap();
         self.tree.update_next(rate_commitment)?;
 
         println!("Registered User Index: {index}");
@@ -125,7 +126,7 @@ impl RLNSystem {
         };
 
         let merkle_proof = self.tree.proof(user_index)?;
-        let x = hash_to_field_le(signal.as_bytes());
+        let x = hash_to_field_le(signal.as_bytes())?;
 
         let witness = RLNWitnessInput::new(
             identity.identity_secret.clone(),
@@ -219,9 +220,9 @@ fn main() -> Result<()> {
     println!("Initializing RLN instance...");
     print!("\x1B[2J\x1B[1;1H");
     let mut rln_system = RLNSystem::new()?;
-    let rln_epoch = hash_to_field_le(b"epoch");
-    let rln_identifier = hash_to_field_le(b"rln-identifier");
-    let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]);
+    let rln_epoch = hash_to_field_le(b"epoch")?;
+    let rln_identifier = hash_to_field_le(b"rln-identifier")?;
+    let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]).unwrap();
     println!("RLN Stateless Relay Example:");
     println!("Message Limit: {MESSAGE_LIMIT}");
     println!("----------------------------------");

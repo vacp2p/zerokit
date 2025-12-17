@@ -4,7 +4,7 @@ mod test {
 
     use ark_bn254::Fr;
     use ark_ff::{AdditiveGroup, Field};
-    use zerokit_utils::poseidon_hash::Poseidon;
+    use zerokit_utils::poseidon::Poseidon;
 
     const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
         (2, 8, 56, 0),
