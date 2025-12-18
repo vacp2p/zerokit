@@ -76,6 +76,7 @@ Enables multi-threaded browser execution using `wasm-bindgen-rayon`.
 
 > [!NOTE]
 >
+> - Parallel support is not enabled by default due to WebAssembly and browser limitations.
 > - Requires `nightly` Rust: `rustup install nightly`
 > - Browser-only (not compatible with Node.js)
 > - Requires HTTP headers for `SharedArrayBuffer`:
