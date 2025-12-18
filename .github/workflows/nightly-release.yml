@@ -115,17 +115,16 @@ jobs:
         run: make installdeps
       - name: Build rln-wasm package
         run: |
-          if [[ ${{ matrix.feature }} == *parallel* ]]; then
+          if [[ ${{ matrix.feature }} == "parallel" ]]; then
             env CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS="-C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--shared-memory -C link-arg=--max-memory=1073741824 -C link-arg=--import-memory -C link-arg=--export=__wasm_init_tls -C link-arg=--export=__tls_size -C link-arg=--export=__tls_align -C link-arg=--export=__tls_base" \
             rustup run nightly wasm-pack build --release --target web --scope waku \
-            --features ${{ matrix.feature }} -Z build-std=panic_abort,std
-          else
-            wasm-pack build --release --target web --scope waku
-          fi
-
-          if [[ ${{ matrix.feature }} == "utils" ]]; then
+            --features parallel -Z build-std=panic_abort,std
+            sed -i.bak 's/rln-wasm/zerokit-rln-wasm-parallel/g' pkg/package.json && rm pkg/package.json.bak
+          elif [[ ${{ matrix.feature }} == "utils" ]]; then
+            wasm-pack build --release --target web --scope waku --no-default-features --features utils
             sed -i.bak 's/rln-wasm/zerokit-rln-wasm-utils/g' pkg/package.json && rm pkg/package.json.bak
           else
+            wasm-pack build --release --target web --scope waku
             sed -i.bak 's/rln-wasm/zerokit-rln-wasm/g' pkg/package.json && rm pkg/package.json.bak
           fi
 
