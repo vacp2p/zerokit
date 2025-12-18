@@ -57,7 +57,7 @@ cargo make build_utils    # Utils only → @waku/zerokit-rln-wasm-utils
 
 All packages output to `pkg/` directory.
 
-## Running Tests nad Benchmarks
+## Running Tests and Benchmarks
 
 ```bash
 cargo make test           # Standard tests
