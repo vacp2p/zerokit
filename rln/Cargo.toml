@@ -1,6 +1,6 @@
 [package]
 name = "rln"
-version = "0.9.0"
+version = "1.0.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "APIs to manage, compute and verify zkSNARK proofs and RLN primitives"
@@ -46,7 +46,7 @@ ruint = { version = "1.17.0", default-features = false, features = [
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 zeroize = "1.8.2"
 tempfile = "3.23.0"
-zerokit_utils = { version = "0.7.0", path = "../utils", default-features = false }
+zerokit_utils = { version = "1.0.0", path = "../utils", default-features = false }
 
 # FFI
 safer-ffi.version = "0.1"
