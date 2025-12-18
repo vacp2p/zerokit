@@ -14,145 +14,92 @@ RLN functionality in JavaScript/TypeScript applications.
 > [!NOTE]
 > This project requires the following tools:
 >
-> - `wasm-pack` - for compiling Rust to WebAssembly
+> - `wasm-pack` (v0.13.1) - for compiling Rust to WebAssembly
 > - `cargo-make` - for running build commands
-> - `nvm` - to install and manage Node.js
->
-> Ensure all dependencies are installed before proceeding.
+> - `nvm` - to install and manage Node.js (v22.14.0+)
 
-### Manually
-
-#### Install `wasm-pack`
-
-```bash
-cargo install wasm-pack --version=0.13.1
-```
-
-#### Install `cargo-make`
-
-```bash
-cargo install cargo-make
-```
-
-#### Install `Node.js`
-
-If you don't have `nvm` (Node Version Manager), install it by following
-the [installation instructions](https://github.com/nvm-sh/nvm?tab=readme-ov-file#install--update-script).
-
-After installing `nvm`, install and use Node.js `v22.14.0`:
-
-```bash
-nvm install 22.14.0
-nvm use 22.14.0
-nvm alias default 22.14.0
-```
-
-If you already have Node.js installed,
-check your version with `node -v` command — the version must be strictly greater than 22.
-
-### Or install everything
-
-You can run the following command from the root of the repository to install all required dependencies for `zerokit`
+### Quick Install
 
 ```bash
 make installdeps
 ```
 
-## Building the library
+### Manual Installation
 
-First, navigate to the rln-wasm directory:
+```bash
+# Install wasm-pack
+cargo install wasm-pack --version=0.13.1
+
+# Install cargo-make
+cargo install cargo-make
+
+# Install Node.js via nvm
+nvm install 22.14.0
+nvm use 22.14.0
+nvm alias default 22.14.0
+```
+
+## Building the Library
+
+Navigate to the rln-wasm directory:
 
 ```bash
 cd rln-wasm
 ```
 
-Compile zerokit for `wasm32-unknown-unknown`:
+Build commands:
 
 ```bash
-cargo make build
+cargo make build          # Default → @waku/zerokit-rln-wasm
+cargo make build_parallel # Parallel → @waku/zerokit-rln-wasm-parallel (requires nightly Rust)
+cargo make build_utils    # Utils only → @waku/zerokit-rln-wasm-utils
 ```
 
-Or you can build the utility functions only without RLN proof generation and verification:
+All packages output to `pkg/` directory.
+
+## Running Tests and Benchmarks
 
 ```bash
-cargo make build_utils
-```
-
-## Running tests and benchmarks
-
-```bash
-cargo make test
-```
-
-If you want to run the tests in browser headless mode, you can use the following command:
-
-```bash
-cargo make test_browser
-```
-
-If you want to test only the utility functions after running `cargo make build_utils`, you can use the following command:
-
-```bash
-cargo make test_utils
+cargo make test           # Standard tests
+cargo make test_browser   # Browser headless mode
+cargo make test_utils     # Utils-only tests
+cargo make test_parallel  # Parallel tests
 ```
 
 ## Examples
 
-Working examples demonstrating proof generation, proof verification and slashing:
+See [Node example](./examples/index.js) and [README](./examples/Readme.md) for proof generation, verification, and slashing.
 
-- [Node example](./examples/index.js) and [README](./examples/Readme.md)
+## Parallel Computation
 
-## Parallel computation
-
-The library supports parallel computation using the `wasm-bindgen-rayon` crate,
-enabling multi-threaded execution in the browser.
+Enables multi-threaded browser execution using `wasm-bindgen-rayon`.
 
 > [!NOTE]
-> Parallel support is not enabled by default due to WebAssembly and browser limitations. \
-> Compiling this feature requires `nightly` Rust.
+>
+> - Parallel support is not enabled by default due to WebAssembly and browser limitations.
+> - Requires `nightly` Rust: `rustup install nightly`
+> - Browser-only (not compatible with Node.js)
+> - Requires HTTP headers for `SharedArrayBuffer`:
+>   - `Cross-Origin-Opener-Policy: same-origin`
+>   - `Cross-Origin-Embedder-Policy: require-corp`
 
-### Build Setup
+### Usage
 
-#### Install `nightly` Rust
+Direct usage (modern browsers with WebAssembly threads support):
 
-```bash
-rustup install nightly
+```js
+import * as wasmPkg from '@waku/zerokit-rln-wasm-parallel';
+
+await wasmPkg.default();
+await wasmPkg.initThreadPool(navigator.hardwareConcurrency);
+wasmPkg.nowCallAnyExportedFuncs();
 ```
 
-### Build Commands
+### Feature Detection for Older Browsers
 
-To enable parallel computation for WebAssembly threads, you can use the following command:
+If you're targeting [older browser versions that didn't support WebAssembly threads yet](https://webassembly.org/roadmap/), you'll want to use both builds - the parallel version for modern browsers and the default version as a fallback. Use feature detection to choose the appropriate build on the JavaScript side.
 
-```bash
-cargo make build_parallel
-```
-
-### Running parallel tests and benchmarks
-
-If you want to run the parallel tests in browser headless mode, you can use the following command:
-
-```bash
-cargo make test_parallel
-```
-
-### WebAssembly Threads Support
-
-Most modern browsers support WebAssembly threads,
-but they require the following headers to enable `SharedArrayBuffer`, which is necessary for multithreading:
-
-- Cross-Origin-Opener-Policy: same-origin
-- Cross-Origin-Embedder-Policy: require-corp
-
-Without these, the application will fall back to single-threaded mode.
-
-## Feature detection
-
-If you're targeting [older browser versions that didn't support WebAssembly threads yet](https://webassembly.org/roadmap/),
-you'll likely want to create two builds - one with threads support and one without -
-and use feature detection to choose the right one on the JavaScript side.
-
-You can use [wasm-feature-detect](https://github.com/GoogleChromeLabs/wasm-feature-detect) library for this purpose.
-For example, your code might look like this:
+You can use the [wasm-feature-detect](https://github.com/GoogleChromeLabs/wasm-feature-detect) library for this purpose:
 
 ```js
 import { threads } from 'wasm-feature-detect';
@@ -160,11 +107,11 @@ import { threads } from 'wasm-feature-detect';
 let wasmPkg;
 
 if (await threads()) {
-  wasmPkg = await import('./pkg-with-threads/index.js');
+  wasmPkg = await import('@waku/zerokit-rln-wasm-parallel');
   await wasmPkg.default();
   await wasmPkg.initThreadPool(navigator.hardwareConcurrency);
 } else {
-  wasmPkg = await import('./pkg-without-threads/index.js');
+  wasmPkg = await import('@waku/zerokit-rln-wasm');
   await wasmPkg.default();
 }
 

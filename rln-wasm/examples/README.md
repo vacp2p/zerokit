@@ -1,6 +1,8 @@
-# Compile and Run
+# RLN WASM Node Examples
 
-## Build the rln-wasm package at the root of rln-wasm
+This example demonstrates how to use the RLN WASM package in a Node.js environment.
+
+## Build the @waku/zerokit-rln-wasm package at the root of rln-wasm module
 
 ```bash
 cargo make build
