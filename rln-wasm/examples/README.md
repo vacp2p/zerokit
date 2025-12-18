@@ -1,4 +1,6 @@
-# Compile and Run
+# RLN WASM Node Examples
+
+This example demonstrates how to use the RLN WASM package in a Node.js environment.
 
 ## Build the rln-wasm package at the root of rln-wasm
 

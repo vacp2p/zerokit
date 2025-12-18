@@ -1,4 +1,6 @@
-# Compile and Run
+# RLN FFI C example
+
+This example demonstrates how to use the RLN C FFI in both stateless and non-stateless modes.
 
 ## Non-stateless mode
 
