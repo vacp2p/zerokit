@@ -1206,7 +1206,7 @@ checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
 
 [[package]]
 name = "rln"
-version = "0.9.0"
+version = "1.0.0"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -1875,7 +1875,7 @@ dependencies = [
 
 [[package]]
 name = "zerokit_utils"
-version = "0.7.0"
+version = "1.0.0"
 dependencies = [
  "ark-bn254",
  "ark-ff",

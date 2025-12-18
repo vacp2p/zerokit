@@ -1,6 +1,6 @@
 [package]
 name = "rln-wasm"
-version = "0.3.0"
+version = "1.0.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 
@@ -8,10 +8,10 @@ license = "MIT OR Apache-2.0"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-rln = { path = "../rln", version = "0.9.0", default-features = false, features = [
+rln = { path = "../rln", version = "1.0.0", default-features = false, features = [
     "stateless",
 ] }
-zerokit_utils = { path = "../utils", version = "0.7.0", default-features = false }
+zerokit_utils = { path = "../utils", version = "1.0.0", default-features = false }
 num-bigint = { version = "0.4.6", default-features = false }
 js-sys = "0.3.83"
 wasm-bindgen = "0.2.106"
