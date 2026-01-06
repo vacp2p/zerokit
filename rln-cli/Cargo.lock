@@ -1045,7 +1045,7 @@ dependencies = [
 
 [[package]]
 name = "rln"
-version = "0.9.0"
+version = "1.0.0"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -1635,7 +1635,7 @@ dependencies = [
 
 [[package]]
 name = "zerokit_utils"
-version = "0.7.0"
+version = "1.0.0"
 dependencies = [
  "ark-ff",
  "num-bigint",
