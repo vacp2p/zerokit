@@ -917,6 +917,56 @@ mod test {
                 RLN::new(DEFAULT_TREE_DEPTH, custom_pmtree_config.unwrap());
             assert!(rln_with_custom_tree_config.is_ok());
         }
+
+        #[test]
+        fn test_verify_rln_proof_failure_mutated_external_nullifier() {
+            let tree_depth = DEFAULT_TREE_DEPTH;
+
+            let mut leaves: Vec<Fr> = Vec::new();
+            let mut rng = thread_rng();
+            for _ in 0..NO_OF_LEAVES {
+                leaves.push(Fr::rand(&mut rng));
+            }
+
+            let mut rln = RLN::new(tree_depth, "").unwrap();
+            rln.init_tree_with_leaves(leaves.clone()).unwrap();
+
+            let (identity_secret, id_commitment) = keygen().unwrap();
+            let identity_index = rln.leaves_set();
+            let user_message_limit = Fr::from(100);
+            let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
+            rln.set_next_leaf(rate_commitment).unwrap();
+
+            let signal: [u8; 32] = rng.gen();
+            let epoch = hash_to_field_le(b"test-epoch").unwrap();
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
+            let message_id = Fr::from(1);
+            let x = hash_to_field_le(&signal).unwrap();
+
+            let (path_elements, identity_path_index) =
+                rln.get_merkle_proof(identity_index).unwrap();
+
+            let rln_witness = RLNWitnessInput::new(
+                identity_secret,
+                user_message_limit,
+                message_id,
+                path_elements,
+                identity_path_index,
+                x,
+                external_nullifier,
+            )
+            .unwrap();
+
+            let (proof, mut proof_values) = rln.generate_rln_proof(&rln_witness).unwrap();
+
+            // Mutate external_nullifier by adding 1
+            proof_values.external_nullifier = proof_values.external_nullifier + Fr::from(1);
+
+            // Verification should fail
+            let verified = rln.verify_rln_proof(&proof, &proof_values, &x).is_ok();
+            assert!(!verified);
+        }
     }
 
     #[cfg(feature = "stateless")]
