@@ -182,9 +182,9 @@ mod test {
     #[cfg(not(feature = "stateless"))]
     mod tree_test {
         use ark_std::{rand::thread_rng, UniformRand};
-        use rand::Rng;
+        use rand::{rngs::ThreadRng, Rng};
         use rln::{
-            circuit::{Fr, DEFAULT_TREE_DEPTH},
+            circuit::{Fr, Proof, DEFAULT_TREE_DEPTH},
             hashers::{hash_to_field_le, poseidon_hash},
             pm_tree_adapter::PmtreeConfig,
             protocol::*,
@@ -193,6 +193,57 @@ mod test {
         use serde_json::json;
 
         const NO_OF_LEAVES: usize = 256;
+
+        fn setup_rln_proof(
+            mutate_path_elements: bool,
+        ) -> (RLN, Proof, RLNProofValues, Fr, ThreadRng) {
+            let tree_depth = DEFAULT_TREE_DEPTH;
+
+            let mut leaves: Vec<Fr> = Vec::new();
+            let mut rng = thread_rng();
+            for _ in 0..NO_OF_LEAVES {
+                leaves.push(Fr::rand(&mut rng));
+            }
+
+            let mut rln = RLN::new(tree_depth, "").unwrap();
+            rln.init_tree_with_leaves(leaves.clone()).unwrap();
+
+            let (identity_secret, id_commitment) = keygen().unwrap();
+            let identity_index = rln.leaves_set();
+            let user_message_limit = Fr::from(100);
+            let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
+            rln.set_next_leaf(rate_commitment).unwrap();
+
+            let signal: [u8; 32] = rng.gen();
+            let epoch = hash_to_field_le(b"test-epoch").unwrap();
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
+            let message_id = Fr::from(1);
+            let x = hash_to_field_le(&signal).unwrap();
+
+            let (mut path_elements, identity_path_index) =
+                rln.get_merkle_proof(identity_index).unwrap();
+
+            // Mutate path_elements if requested (simulating mutated path_element)
+            if mutate_path_elements && !path_elements.is_empty() {
+                path_elements[0] = Fr::rand(&mut rng);
+            }
+
+            let rln_witness = RLNWitnessInput::new(
+                identity_secret,
+                user_message_limit,
+                message_id,
+                path_elements,
+                identity_path_index,
+                x,
+                external_nullifier,
+            )
+            .unwrap();
+
+            let (proof, proof_values) = rln.generate_rln_proof(&rln_witness).unwrap();
+
+            (rln, proof, proof_values, x, rng)
+        }
 
         #[test]
         // We test merkle batch Merkle tree additions
@@ -920,45 +971,7 @@ mod test {
 
         #[test]
         fn test_verify_rln_proof_failure_mutated_external_nullifier() {
-            let tree_depth = DEFAULT_TREE_DEPTH;
-
-            let mut leaves: Vec<Fr> = Vec::new();
-            let mut rng = thread_rng();
-            for _ in 0..NO_OF_LEAVES {
-                leaves.push(Fr::rand(&mut rng));
-            }
-
-            let mut rln = RLN::new(tree_depth, "").unwrap();
-            rln.init_tree_with_leaves(leaves.clone()).unwrap();
-
-            let (identity_secret, id_commitment) = keygen().unwrap();
-            let identity_index = rln.leaves_set();
-            let user_message_limit = Fr::from(100);
-            let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
-            rln.set_next_leaf(rate_commitment).unwrap();
-
-            let signal: [u8; 32] = rng.gen();
-            let epoch = hash_to_field_le(b"test-epoch").unwrap();
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
-            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
-            let message_id = Fr::from(1);
-            let x = hash_to_field_le(&signal).unwrap();
-
-            let (path_elements, identity_path_index) =
-                rln.get_merkle_proof(identity_index).unwrap();
-
-            let rln_witness = RLNWitnessInput::new(
-                identity_secret,
-                user_message_limit,
-                message_id,
-                path_elements,
-                identity_path_index,
-                x,
-                external_nullifier,
-            )
-            .unwrap();
-
-            let (proof, mut proof_values) = rln.generate_rln_proof(&rln_witness).unwrap();
+            let (rln, proof, mut proof_values, x, _rng) = setup_rln_proof(false);
 
             // Mutate external_nullifier by adding 1
             proof_values.external_nullifier = proof_values.external_nullifier + Fr::from(1);
@@ -967,11 +980,107 @@ mod test {
             let verified = rln.verify_rln_proof(&proof, &proof_values, &x).is_ok();
             assert!(!verified);
         }
+
+        #[test]
+        fn test_verify_rln_proof_failure_mutated_x() {
+            let (rln, proof, proof_values, _, mut rng) = setup_rln_proof(false);
+
+            // Generate unrelated x
+            let mutated_x = Fr::rand(&mut rng);
+
+            // Verification should fail
+            let verified = rln
+                .verify_rln_proof(&proof, &proof_values, &mutated_x)
+                .is_ok();
+            assert!(!verified);
+        }
+
+        #[test]
+        fn test_verify_rln_proof_failure_mutated_nullifier() {
+            let (rln, proof, mut proof_values, x, mut rng) = setup_rln_proof(false);
+
+            // Mutate nullifier (simulating mutated message_id)
+            proof_values.nullifier = Fr::rand(&mut rng);
+
+            // Verification should fail
+            let verified = rln.verify_rln_proof(&proof, &proof_values, &x).is_ok();
+            assert!(!verified);
+        }
+
+        #[test]
+        fn test_verify_rln_proof_failure_mutated_root() {
+            let (rln, proof, mut proof_values, x, mut rng) = setup_rln_proof(false);
+
+            // Mutate root (simulating mutated path_element)
+            proof_values.root = Fr::rand(&mut rng);
+
+            // Verification should fail
+            let verified = rln.verify_rln_proof(&proof, &proof_values, &x).is_ok();
+            assert!(!verified);
+        }
+
+        #[test]
+        fn test_verify_with_roots_failure_mutated_external_nullifier() {
+            let (rln, proof, mut proof_values, x, _rng) = setup_rln_proof(false);
+            let roots = vec![rln.get_root()];
+
+            // Mutate external_nullifier by adding 1
+            proof_values.external_nullifier = proof_values.external_nullifier + Fr::from(1);
+
+            // Verification should fail
+            let verified = rln
+                .verify_with_roots(&proof, &proof_values, &x, &roots)
+                .is_ok();
+            assert!(!verified);
+        }
+
+        #[test]
+        fn test_verify_with_roots_failure_mutated_x() {
+            let (rln, proof, proof_values, _, mut rng) = setup_rln_proof(false);
+            let roots = vec![rln.get_root()];
+
+            // Mutate x
+            let mutated_x = Fr::rand(&mut rng);
+
+            // Verification should fail
+            let verified = rln
+                .verify_with_roots(&proof, &proof_values, &mutated_x, &roots)
+                .is_ok();
+            assert!(!verified);
+        }
+
+        #[test]
+        fn test_verify_with_roots_failure_mutated_nullifier() {
+            let (rln, proof, mut proof_values, x, mut rng) = setup_rln_proof(false);
+            let roots = vec![rln.get_root()];
+
+            // Mutate nullifier (simulating mutated message_id)
+            proof_values.nullifier = Fr::rand(&mut rng);
+
+            // Verification should fail
+            let verified = rln
+                .verify_with_roots(&proof, &proof_values, &x, &roots)
+                .is_ok();
+            assert!(!verified);
+        }
+
+        #[test]
+        fn test_verify_with_roots_failure_mutated_root() {
+            let (rln, proof, proof_values, x, _rng) = setup_rln_proof(true);
+            let roots = vec![rln.get_root()];
+
+            // Verification should fail due to mutated path_elements leading to wrong root
+            let verified = rln
+                .verify_with_roots(&proof, &proof_values, &x, &roots)
+                .is_ok();
+            assert!(!verified);
+        }
     }
 
     #[cfg(feature = "stateless")]
     mod stateless_test {
         use ark_std::{rand::thread_rng, UniformRand};
+        use rand::rngs::ThreadRng;
         use rand::Rng;
         use rln::{
             circuit::Fr,
