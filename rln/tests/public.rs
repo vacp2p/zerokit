@@ -974,7 +974,7 @@ mod test {
             let (rln, proof, mut proof_values, x, _rng) = setup_rln_proof(false);
 
             // Mutate external_nullifier by adding 1
-            proof_values.external_nullifier = proof_values.external_nullifier + Fr::from(1);
+            proof_values.external_nullifier += Fr::from(1);
 
             // Verification should fail
             let verified = rln.verify_rln_proof(&proof, &proof_values, &x).is_ok();
@@ -1025,7 +1025,7 @@ mod test {
             let roots = vec![rln.get_root()];
 
             // Mutate external_nullifier by adding 1
-            proof_values.external_nullifier = proof_values.external_nullifier + Fr::from(1);
+            proof_values.external_nullifier += Fr::from(1);
 
             // Verification should fail
             let verified = rln
