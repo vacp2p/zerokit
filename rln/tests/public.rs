@@ -1080,7 +1080,6 @@ mod test {
     #[cfg(feature = "stateless")]
     mod stateless_test {
         use ark_std::{rand::thread_rng, UniformRand};
-        use rand::rngs::ThreadRng;
         use rand::Rng;
         use rln::{
             circuit::Fr,
