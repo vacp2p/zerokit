@@ -12,6 +12,8 @@ use {
     },
 };
 
+#[cfg(feature = "stateless")]
+use crate::prelude::DEFAULT_TREE_DEPTH;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
     circuit::{graph_from_folder, zkey_from_folder},
@@ -100,8 +102,8 @@ impl RLN {
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn new<T: TreeConfigInput>(tree_depth: usize, tree_config: T) -> Result<RLN, RLNError> {
-        let zkey = zkey_from_folder().to_owned();
-        let graph_data = graph_from_folder().to_owned();
+        let zkey = zkey_from_folder(tree_depth).to_owned();
+        let graph_data = graph_from_folder(tree_depth).to_owned();
         let config = tree_config.into_tree_config()?;
 
         // We compute a default empty tree
@@ -128,8 +130,8 @@ impl RLN {
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
     pub fn new() -> Result<RLN, RLNError> {
-        let zkey = zkey_from_folder().to_owned();
-        let graph_data = graph_from_folder().to_owned();
+        let zkey = zkey_from_folder(DEFAULT_TREE_DEPTH).to_owned();
+        let graph_data = graph_from_folder(DEFAULT_TREE_DEPTH).to_owned();
 
         Ok(RLN { zkey, graph_data })
     }

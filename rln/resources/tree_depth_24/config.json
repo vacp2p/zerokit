@@ -1,0 +1,9 @@
+{
+  "path": "./database",
+  "temporary": false,
+  "cache_capacity": 1073741824,
+  "flush_every_ms": 500,
+  "mode": "HighThroughput",
+  "use_compression": false,
+  "tree_depth": 24
+}

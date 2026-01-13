@@ -21,15 +21,51 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use self::error::ZKeyReadError;
 
 #[cfg(not(target_arch = "wasm32"))]
-const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
+fn load_graph_bytes(tree_depth: usize) -> &'static [u8] {
+    match tree_depth {
+        10 => include_bytes!("../../resources/tree_depth_10/graph.bin"),
+        16 => include_bytes!("../../resources/tree_depth_16/graph.bin"),
+        20 => include_bytes!("../../resources/tree_depth_20/graph.bin"),
+        24 => include_bytes!("../../resources/tree_depth_24/graph.bin"),
+        _ => panic!("Unsupported tree depth: {}", tree_depth),
+    }
+}
 
 #[cfg(not(target_arch = "wasm32"))]
-const ARKZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/rln_final.arkzkey");
+fn load_zkey(tree_depth: usize) -> &'static Zkey {
+    static ZKEY_10: LazyLock<Zkey> = LazyLock::new(|| {
+        read_arkzkey_from_bytes_uncompressed(include_bytes!(
+            "../../resources/tree_depth_10/rln_final.arkzkey"
+        ))
+        .expect("Zkey for depth 10 must be valid")
+    });
+    static ZKEY_16: LazyLock<Zkey> = LazyLock::new(|| {
+        read_arkzkey_from_bytes_uncompressed(include_bytes!(
+            "../../resources/tree_depth_16/rln_final.arkzkey"
+        ))
+        .expect("Zkey for depth 16 must be valid")
+    });
+    static ZKEY_20: LazyLock<Zkey> = LazyLock::new(|| {
+        read_arkzkey_from_bytes_uncompressed(include_bytes!(
+            "../../resources/tree_depth_20/rln_final.arkzkey"
+        ))
+        .expect("Zkey for depth 20 must be valid")
+    });
+    static ZKEY_24: LazyLock<Zkey> = LazyLock::new(|| {
+        read_arkzkey_from_bytes_uncompressed(include_bytes!(
+            "../../resources/tree_depth_24/rln_final.arkzkey"
+        ))
+        .expect("Zkey for depth 24 must be valid")
+    });
 
-#[cfg(not(target_arch = "wasm32"))]
-static ARKZKEY: LazyLock<Zkey> = LazyLock::new(|| {
-    read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES).expect("Default zkey must be valid")
-});
+    match tree_depth {
+        10 => &ZKEY_10,
+        16 => &ZKEY_16,
+        20 => &ZKEY_20,
+        24 => &ZKEY_24,
+        _ => panic!("Unsupported tree depth: {}", tree_depth),
+    }
+}
 
 pub const DEFAULT_TREE_DEPTH: usize = 20;
 pub const COMPRESS_PROOF_SIZE: usize = 128;
@@ -84,16 +120,16 @@ pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<Zkey, ZKeyReadError> {
     Ok(proving_key_and_matrices)
 }
 
-// Loads default zkey from folder
+// Loads zkey from folder based on tree depth
 #[cfg(not(target_arch = "wasm32"))]
-pub fn zkey_from_folder() -> &'static Zkey {
-    &ARKZKEY
+pub fn zkey_from_folder(tree_depth: usize) -> &'static Zkey {
+    load_zkey(tree_depth)
 }
 
-// Loads default graph from folder
+// Loads graph from folder based on tree depth
 #[cfg(not(target_arch = "wasm32"))]
-pub fn graph_from_folder() -> &'static [u8] {
-    GRAPH_BYTES
+pub fn graph_from_folder(tree_depth: usize) -> &'static [u8] {
+    load_graph_bytes(tree_depth)
 }
 
 // The following functions and structs are based on code from ark-zkey:
