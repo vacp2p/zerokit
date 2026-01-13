@@ -184,7 +184,7 @@ mod test {
         use ark_std::{rand::thread_rng, UniformRand};
         use rand::{rngs::ThreadRng, Rng};
         use rln::{
-            circuit::{Fr, Proof, DEFAULT_TREE_DEPTH},
+            circuit::{Fq, Fr, Proof, DEFAULT_TREE_DEPTH},
             hashers::{hash_to_field_le, poseidon_hash},
             pm_tree_adapter::PmtreeConfig,
             protocol::*,
@@ -1063,7 +1063,6 @@ mod test {
                 .is_ok();
             assert!(!verified);
         }
-
         #[test]
         fn test_verify_with_roots_failure_mutated_root() {
             let (rln, proof, proof_values, x, _rng) = setup_rln_proof(true);
@@ -1072,6 +1071,52 @@ mod test {
             // Verification should fail due to mutated path_elements leading to wrong root
             let verified = rln
                 .verify_with_roots(&proof, &proof_values, &x, &roots)
+                .is_ok();
+
+            assert!(!verified);
+        }
+
+        #[test]
+        fn test_verify_rln_proof_failure_mutated_proof_a() {
+            let (rln, proof, proof_values, x, _rng) = setup_rln_proof(false);
+
+            // Mutate proof.a by changing its x coordinate
+            let mut mutated_proof = proof.clone();
+            mutated_proof.a.x += Fq::from(1);
+
+            // Verification should fail
+            let verified = rln
+                .verify_rln_proof(&mutated_proof, &proof_values, &x)
+                .is_ok();
+            assert!(!verified);
+        }
+
+        #[test]
+        fn test_verify_rln_proof_failure_mutated_proof_b() {
+            let (rln, proof, proof_values, x, _rng) = setup_rln_proof(false);
+
+            // Mutate proof.b by changing its x.c0 coordinate
+            let mut mutated_proof = proof.clone();
+            mutated_proof.b.x.c0 += Fq::from(1);
+
+            // Verification should fail
+            let verified = rln
+                .verify_rln_proof(&mutated_proof, &proof_values, &x)
+                .is_ok();
+            assert!(!verified);
+        }
+
+        #[test]
+        fn test_verify_rln_proof_failure_mutated_proof_c() {
+            let (rln, proof, proof_values, x, _rng) = setup_rln_proof(false);
+
+            // Mutate proof.c by changing its x coordinate
+            let mut mutated_proof = proof.clone();
+            mutated_proof.c.x += Fq::from(1);
+
+            // Verification should fail
+            let verified = rln
+                .verify_rln_proof(&mutated_proof, &proof_values, &x)
                 .is_ok();
             assert!(!verified);
         }
