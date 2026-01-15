@@ -235,8 +235,10 @@ As mentioned in step 1, we should use `rln.circom` file from `circom-rln` reposi
 # Clone the circom-witnesscalc repository
 git clone https://github.com/iden3/circom-witnesscalc
 
-# Load the submodules
-cd circom-witnesscalc && git submodule update --init --recursive
+# Checkout the specific version and load submodules
+cd circom-witnesscalc \
+&& git checkout build-circuit/v0.1.1 \
+&& git submodule update --init --recursive
 
 # Build the circom-witnesscalc tool
 cargo build
