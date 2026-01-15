@@ -244,7 +244,7 @@ cd circom-witnesscalc \
 cargo build
 
 # Generate the witness calculation graph
-cargo run --package circom_witnesscalc --bin build-circuit ../circom-rln/circuits/rln.circom <path_to_graph.bin>
+cargo run -p build-circuit ../circom-rln/circuits/rln.circom <path_to_graph.bin>
 ```
 
 The `rln` module comes with [pre-compiled](https://github.com/vacp2p/zerokit/tree/master/rln/resources/tree_depth_20)
