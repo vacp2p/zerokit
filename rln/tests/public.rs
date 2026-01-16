@@ -1368,10 +1368,7 @@ mod test {
             let graph_depth_20 = include_bytes!("../resources/tree_depth_20/graph.bin");
             let result = RLN::new_with_params(zkey_depth_16.to_vec(), graph_depth_20.to_vec());
             // This should fail because zkey is for depth 16 but tree is initialized for depth 20
-            // Note: Currently the zkey files are identical placeholders, so this may not fail
-            // In practice, with proper different zkeys, this would fail during proof generation
-            // For now, we just check that RLN can be created (since files are identical)
-            assert!(result.is_ok());
+            assert!(result.is_err());
         }
     }
 }
