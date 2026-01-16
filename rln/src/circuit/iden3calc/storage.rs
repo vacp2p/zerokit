@@ -14,12 +14,12 @@ use super::{
 use crate::circuit::Fr;
 
 /// Format of the wtns.graph file:
-/// + magic line: wtns.graph.002
+/// + magic line: wtns.graph.001
 /// + 4 bytes unsigned LE 32-bit integer: number of nodes
 /// + series of protobuf serialized nodes. Each node prefixed by varint length
 /// + protobuf serialized GraphMetadata
 /// + 8 bytes unsigned LE 64-bit integer: offset of GraphMetadata message
-const WITNESSCALC_GRAPH_MAGIC: &[u8] = b"wtns.graph.002";
+const WITNESSCALC_GRAPH_MAGIC: &[u8] = b"wtns.graph.001";
 
 const MAX_VARINT_LENGTH: usize = 10;
 
