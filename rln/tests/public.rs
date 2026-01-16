@@ -1369,6 +1369,15 @@ mod test {
             let result = RLN::new_with_params(zkey_depth_16.to_vec(), graph_depth_20.to_vec());
             // This should fail because zkey is for depth 16 but tree is initialized for depth 20
             assert!(result.is_err());
+
+            // Temporarily - continue with proof generation failure with witness for wrong tree depth
+            let rln = result.unwrap();
+
+            // Create witness with wrong tree depth (16 instead of 20)
+            let rln_witness_wrong_depth = random_rln_witness(16).unwrap();
+            let proof_result = rln.generate_rln_proof(&rln_witness_wrong_depth);
+            // Proof generation should fail due to depth mismatch between witness and circuit
+            assert!(proof_result.is_err());
         }
     }
 }
