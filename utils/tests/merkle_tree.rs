@@ -9,7 +9,7 @@ mod test {
         error::HashError,
         merkle_tree::{
             FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree,
-            ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES,
+            ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError, MIN_PARALLEL_NODES,
         },
     };
     #[derive(Clone, Copy, Eq, PartialEq)]
@@ -478,5 +478,94 @@ mod test {
         for (i, &leaf) in leaves.iter().enumerate() {
             assert_eq!(tree_opt.get(i).unwrap(), leaf);
         }
+    }
+
+    #[test]
+    fn test_proof_invalid_index() {
+        let tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
+        let tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
+        let invalid_index = tree_full.capacity();
+
+        assert!(matches!(
+            tree_full.proof(invalid_index),
+            Err(ZerokitMerkleTreeError::InvalidLeaf)
+        ));
+        assert!(matches!(
+            tree_opt.proof(invalid_index),
+            Err(ZerokitMerkleTreeError::InvalidLeaf)
+        ));
+    }
+
+    #[test]
+    fn test_verify_proof_length_mismatch() {
+        let tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
+        let leaf = TestFr::from(1u32);
+        let proof = tree_opt.proof(0).unwrap();
+        let mut short_proof = proof.clone();
+        short_proof.0.truncate(proof.length() - 1); // Shorten
+
+        assert!(matches!(
+            tree_opt.verify(&leaf, &short_proof),
+            Err(ZerokitMerkleTreeError::InvalidMerkleProof)
+        ));
+    }
+
+    #[test]
+    fn test_verify_tampered_sibling() {
+        let nof_leaves = 4;
+        let leaves: Vec<TestFr> = (0..nof_leaves as u32).map(TestFr::from).collect();
+
+        let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
+        tree_opt.set_range(0, leaves.iter().cloned()).unwrap();
+
+        let index = 1;
+        let leaf = leaves[index];
+        let mut proof_opt = tree_opt.proof(index).unwrap();
+
+        // Tamper first sibling
+        proof_opt.0[0].0 = TestFr::from(999u32);
+
+        assert!(!tree_opt.verify(&leaf, &proof_opt).unwrap());
+    }
+
+    #[test]
+    fn test_verify_tampered_direction() {
+        let nof_leaves = 4;
+        let leaves: Vec<TestFr> = (0..nof_leaves as u32).map(TestFr::from).collect();
+
+        let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
+        tree_opt.set_range(0, leaves.iter().cloned()).unwrap();
+
+        let index = 1;
+        let leaf = leaves[index];
+        let mut proof_opt = tree_opt.proof(index).unwrap();
+
+        // Flip first direction
+        proof_opt.0[0].1 = 1 - proof_opt.0[0].1;
+
+        assert!(!tree_opt.verify(&leaf, &proof_opt).unwrap());
+    }
+
+    #[test]
+    fn test_verify_mismatched_root() {
+        let nof_leaves = 4;
+        let leaves: Vec<TestFr> = (0..nof_leaves as u32).map(TestFr::from).collect();
+
+        let mut tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
+        let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
+        tree_full.set_range(0, leaves.iter().cloned()).unwrap();
+        tree_opt.set_range(0, leaves.iter().cloned()).unwrap();
+
+        let index = 0;
+        let leaf = leaves[index];
+        let proof_full = tree_full.proof(index).unwrap();
+        let proof_opt = tree_opt.proof(index).unwrap();
+
+        // Modify another leaf to change root
+        tree_full.set(1, TestFr::from(999u32)).unwrap();
+        tree_opt.set(1, TestFr::from(999u32)).unwrap();
+
+        assert!(!tree_full.verify(&leaf, &proof_full).unwrap());
+        assert!(!tree_opt.verify(&leaf, &proof_opt).unwrap());
     }
 }
