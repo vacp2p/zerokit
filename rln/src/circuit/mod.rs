@@ -25,15 +25,7 @@ use self::{
 use crate::circuit::iden3calc::{graph::Node, storage::deserialize_witnesscalc_graph};
 
 #[cfg(not(target_arch = "wasm32"))]
-fn load_graph_bytes(tree_depth: usize) -> &'static [u8] {
-    match tree_depth {
-        10 => include_bytes!("../../resources/tree_depth_10/graph.bin"),
-        16 => include_bytes!("../../resources/tree_depth_16/graph.bin"),
-        20 => include_bytes!("../../resources/tree_depth_20/graph.bin"),
-        24 => include_bytes!("../../resources/tree_depth_24/graph.bin"),
-        _ => panic!("Unsupported tree depth: {}", tree_depth),
-    }
-}
+const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
 
 #[cfg(not(target_arch = "wasm32"))]
 const ARKZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/rln_final.arkzkey");
