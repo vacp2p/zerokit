@@ -129,8 +129,8 @@ mod test {
         let witness = get_test_witness();
 
         // We generate all relevant keys
-        let proving_key = zkey_from_folder(DEFAULT_TREE_DEPTH);
-        let graph_data = graph_from_folder(DEFAULT_TREE_DEPTH);
+        let proving_key = zkey_from_folder();
+        let graph_data = graph_from_folder();
 
         // Let's generate a zkSNARK proof
         let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
