@@ -91,15 +91,15 @@ mod test {
     // Test CFr FFI functions
     fn test_cfr_ffi() {
         let cfr_zero = ffi_cfr_zero();
-        let fr_zero = rln::circuit::Fr::from(0u8);
+        let fr_zero = Fr::from(0u8);
         assert_eq!(*cfr_zero, fr_zero);
 
         let cfr_one = ffi_cfr_one();
-        let fr_one = rln::circuit::Fr::from(1u8);
+        let fr_one = Fr::from(1u8);
         assert_eq!(*cfr_one, fr_one);
 
         let cfr_int = ffi_uint_to_cfr(42);
-        let fr_int = rln::circuit::Fr::from(42u8);
+        let fr_int = Fr::from(42u8);
         assert_eq!(*cfr_int, fr_int);
 
         let cfr_debug_str = ffi_cfr_debug(Some(&cfr_int));
