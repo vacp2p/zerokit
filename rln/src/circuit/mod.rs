@@ -32,40 +32,12 @@ fn load_graph_bytes(tree_depth: usize) -> &'static [u8] {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn load_zkey(tree_depth: usize) -> &'static Zkey {
-    static ZKEY_10: LazyLock<Zkey> = LazyLock::new(|| {
-        read_arkzkey_from_bytes_uncompressed(include_bytes!(
-            "../../resources/tree_depth_10/rln_final.arkzkey"
-        ))
-        .expect("Zkey for depth 10 must be valid")
-    });
-    static ZKEY_16: LazyLock<Zkey> = LazyLock::new(|| {
-        read_arkzkey_from_bytes_uncompressed(include_bytes!(
-            "../../resources/tree_depth_16/rln_final.arkzkey"
-        ))
-        .expect("Zkey for depth 16 must be valid")
-    });
-    static ZKEY_20: LazyLock<Zkey> = LazyLock::new(|| {
-        read_arkzkey_from_bytes_uncompressed(include_bytes!(
-            "../../resources/tree_depth_20/rln_final.arkzkey"
-        ))
-        .expect("Zkey for depth 20 must be valid")
-    });
-    static ZKEY_24: LazyLock<Zkey> = LazyLock::new(|| {
-        read_arkzkey_from_bytes_uncompressed(include_bytes!(
-            "../../resources/tree_depth_24/rln_final.arkzkey"
-        ))
-        .expect("Zkey for depth 24 must be valid")
-    });
+const ARKZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/rln_final.arkzkey");
 
-    match tree_depth {
-        10 => &ZKEY_10,
-        16 => &ZKEY_16,
-        20 => &ZKEY_20,
-        24 => &ZKEY_24,
-        _ => panic!("Unsupported tree depth: {}", tree_depth),
-    }
-}
+#[cfg(not(target_arch = "wasm32"))]
+static ARKZKEY: LazyLock<Zkey> = LazyLock::new(|| {
+    read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES).expect("Default zkey must be valid")
+});
 
 pub const DEFAULT_TREE_DEPTH: usize = 20;
 pub const COMPRESS_PROOF_SIZE: usize = 128;
@@ -120,10 +92,10 @@ pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<Zkey, ZKeyReadError> {
     Ok(proving_key_and_matrices)
 }
 
-// Loads zkey from folder based on tree depth
+// Loads default zkey from folder
 #[cfg(not(target_arch = "wasm32"))]
-pub fn zkey_from_folder(tree_depth: usize) -> &'static Zkey {
-    load_zkey(tree_depth)
+pub fn zkey_from_folder() -> &'static Zkey {
+    &ARKZKEY
 }
 
 // Loads graph from folder based on tree depth
