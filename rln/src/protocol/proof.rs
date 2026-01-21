@@ -8,7 +8,7 @@ use num_traits::Signed;
 use super::witness::{inputs_for_witness_calculation, RLNWitnessInput};
 use crate::{
     circuit::{
-        iden3calc::calc_witness, qap::CircomReduction, Curve, Fr, Proof, VerifyingKey, Zkey,
+        iden3calc::calc_witness, qap::CircomReduction, Curve, Fr, Graph, Proof, VerifyingKey, Zkey,
         COMPRESS_PROOF_SIZE,
     },
     error::ProtocolError,
@@ -292,13 +292,13 @@ pub fn generate_zk_proof_with_witness(
 pub fn generate_zk_proof(
     zkey: &Zkey,
     witness: &RLNWitnessInput,
-    graph_data: &[u8],
+    graph: &Graph,
 ) -> Result<Proof, ProtocolError> {
     let inputs = inputs_for_witness_calculation(witness)?
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));
 
-    let full_assignment = calc_witness(inputs, graph_data)?;
+    let full_assignment = calc_witness(inputs, graph)?;
 
     // Random Values
     let mut rng = thread_rng();
