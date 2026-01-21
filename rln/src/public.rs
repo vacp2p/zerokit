@@ -130,7 +130,7 @@ impl RLN {
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
     pub fn new() -> Result<RLN, RLNError> {
-        let zkey = zkey_from_folder(DEFAULT_TREE_DEPTH).to_owned();
+        let zkey = zkey_from_folder().to_owned();
         let graph_data = graph_from_folder(DEFAULT_TREE_DEPTH).to_owned();
 
         Ok(RLN { zkey, graph_data })
