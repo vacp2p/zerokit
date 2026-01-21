@@ -12,8 +12,6 @@ use {
     },
 };
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
-use crate::prelude::DEFAULT_TREE_DEPTH;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
     circuit::{graph_from_folder, graph_from_raw, zkey_from_folder, Graph},

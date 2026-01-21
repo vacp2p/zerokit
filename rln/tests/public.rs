@@ -4,6 +4,7 @@ mod test {
 
     use rand::{thread_rng, Rng};
     use rln::prelude::*;
+
     use serde_json::{json, Value};
 
     fn fq_from_str(s: &str) -> Fq {
@@ -1337,48 +1338,34 @@ mod test {
             let invalid_zkey_data = vec![];
             let result = RLN::new_with_params(invalid_zkey_data, vec![1, 2, 3]);
             assert!(result.is_err());
-            assert!(matches!(
-                result.err().unwrap(),
-                rln::prelude::RLNError::ZKey(_)
-            ));
+            assert!(matches!(result.err().unwrap(), RLNError::ZKey(_)));
 
             // Test invalid rln_final.arkzkey
             let invalid_zkey_data = vec![0u8; 100]; // Invalid zkey data
             let result = RLN::new_with_params(invalid_zkey_data, vec![1, 2, 3]);
             assert!(result.is_err());
-            assert!(matches!(
-                result.err().unwrap(),
-                rln::prelude::RLNError::ZKey(_)
-            ));
+            assert!(matches!(result.err().unwrap(), RLNError::ZKey(_)));
 
             // Test missing/invalid graph.bin - this would typically fail during proof generation
-            // Test that RLN can be created with invalid graph data
             let valid_zkey_data = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey");
             let invalid_graph_data = vec![];
             let result = RLN::new_with_params(valid_zkey_data.to_vec(), invalid_graph_data);
-            assert!(result.is_ok()); // RLN creation succeeds, error occurs during proof generation
-
-            // Now test that proof generation fails with invalid graph
-            let rln = result.unwrap();
-            let rln_witness = random_rln_witness(DEFAULT_TREE_DEPTH).unwrap();
-            let proof_result = rln.generate_rln_proof(&rln_witness);
-            assert!(proof_result.is_err()); // Proof generation should fail due to invalid graph.bin
+            assert!(matches!(result.err().unwrap(), RLNError::Graph(_)));
 
             // Test mismatched tree depth - using zkey from different depth
             let zkey_depth_16 = include_bytes!("../resources/tree_depth_16/rln_final.arkzkey");
             let graph_depth_20 = include_bytes!("../resources/tree_depth_20/graph.bin");
-            let result = RLN::new_with_params(zkey_depth_16.to_vec(), graph_depth_20.to_vec());
-            // This should fail because zkey is for depth 16 but tree is initialized for depth 20
-            assert!(result.is_err());
-
-            // Temporarily - continue with proof generation failure with witness for wrong tree depth
-            let rln = result.unwrap();
+            let rln =
+                RLN::new_with_params(zkey_depth_16.to_vec(), graph_depth_20.to_vec()).unwrap();
 
             // Create witness with wrong tree depth (16 instead of 20)
             let rln_witness_wrong_depth = random_rln_witness(16).unwrap();
             let proof_result = rln.generate_rln_proof(&rln_witness_wrong_depth);
             // Proof generation should fail due to depth mismatch between witness and circuit
-            assert!(proof_result.is_err());
+            assert!(matches!(
+                proof_result.err().unwrap(),
+                RLNError::Protocol(ProtocolError::WitnessCalc(_))
+            ));
         }
     }
 }
