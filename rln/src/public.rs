@@ -14,7 +14,7 @@ use {
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
-    circuit::{graph_from_folder, zkey_from_folder},
+    circuit::{graph_from_folder, graph_from_raw, zkey_from_folder, Graph},
     protocol::generate_zk_proof,
 };
 use crate::{
@@ -59,7 +59,7 @@ impl TreeConfigInput for <PoseidonTree as ZerokitMerkleTree>::Config {
 pub struct RLN {
     pub(crate) zkey: Zkey,
     #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) graph_data: Vec<u8>,
+    pub(crate) graph: Graph,
     #[cfg(not(feature = "stateless"))]
     pub(crate) tree: PoseidonTree,
 }
@@ -101,7 +101,7 @@ impl RLN {
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn new<T: TreeConfigInput>(tree_depth: usize, tree_config: T) -> Result<RLN, RLNError> {
         let zkey = zkey_from_folder().to_owned();
-        let graph_data = graph_from_folder().to_owned();
+        let graph = graph_from_folder().to_owned();
         let config = tree_config.into_tree_config()?;
 
         // We compute a default empty tree
@@ -113,7 +113,7 @@ impl RLN {
 
         Ok(RLN {
             zkey,
-            graph_data,
+            graph,
             #[cfg(not(feature = "stateless"))]
             tree,
         })
@@ -129,9 +129,9 @@ impl RLN {
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
     pub fn new() -> Result<RLN, RLNError> {
         let zkey = zkey_from_folder().to_owned();
-        let graph_data = graph_from_folder().to_owned();
+        let graph = graph_from_folder().clone();
 
-        Ok(RLN { zkey, graph_data })
+        Ok(RLN { zkey, graph })
     }
 
     /// Creates a new RLN object by passing circuit resources as byte vectors.
@@ -176,6 +176,8 @@ impl RLN {
         tree_config: T,
     ) -> Result<RLN, RLNError> {
         let zkey = zkey_from_raw(&zkey_data)?;
+        let graph = graph_from_raw(&graph_data, Some(tree_depth))?;
+
         let config = tree_config.into_tree_config()?;
 
         // We compute a default empty tree
@@ -187,7 +189,7 @@ impl RLN {
 
         Ok(RLN {
             zkey,
-            graph_data,
+            graph,
             #[cfg(not(feature = "stateless"))]
             tree,
         })
@@ -221,8 +223,9 @@ impl RLN {
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
     pub fn new_with_params(zkey_data: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN, RLNError> {
         let zkey = zkey_from_raw(&zkey_data)?;
+        let graph = graph_from_raw(&graph_data, None)?;
 
-        Ok(RLN { zkey, graph_data })
+        Ok(RLN { zkey, graph })
     }
 
     /// Creates a new stateless RLN object by passing circuit resources as a byte vector.
@@ -566,7 +569,7 @@ impl RLN {
     /// ```
     #[cfg(not(target_arch = "wasm32"))]
     pub fn generate_zk_proof(&self, witness: &RLNWitnessInput) -> Result<Proof, RLNError> {
-        let proof = generate_zk_proof(&self.zkey, witness, &self.graph_data)?;
+        let proof = generate_zk_proof(&self.zkey, witness, &self.graph)?;
         Ok(proof)
     }
 
@@ -585,7 +588,7 @@ impl RLN {
         witness: &RLNWitnessInput,
     ) -> Result<(Proof, RLNProofValues), RLNError> {
         let proof_values = proof_values_from_witness(witness)?;
-        let proof = generate_zk_proof(&self.zkey, witness, &self.graph_data)?;
+        let proof = generate_zk_proof(&self.zkey, witness, &self.graph)?;
         Ok((proof, proof_values))
     }
 

@@ -6,7 +6,7 @@ use thiserror::Error;
 use zerokit_utils::error::{FromConfigError, HashError, ZerokitMerkleTreeError};
 
 use crate::circuit::{
-    error::{WitnessCalcError, ZKeyReadError},
+    error::{GraphReadError, WitnessCalcError, ZKeyReadError},
     Fr,
 };
 
@@ -76,6 +76,8 @@ pub enum RLNError {
     Hash(#[from] HashError),
     #[error("ZKey error: {0}")]
     ZKey(#[from] ZKeyReadError),
+    #[error("Graph error: {0}")]
+    Graph(#[from] GraphReadError),
     #[error("Protocol error: {0}")]
     Protocol(#[from] ProtocolError),
     #[error("Verification error: {0}")]
