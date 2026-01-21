@@ -160,6 +160,89 @@ mod test {
     }
 
     #[test]
+    fn test_rln_witness_input_validation() {
+        let leaf_index = 3;
+
+        // generate identity
+        let identity_secret_fr = hash_to_field_le(b"test-witness-validation").unwrap();
+        let identity_secret = IdSecret::from(&mut identity_secret_fr.clone());
+        let id_commitment = poseidon_hash(&[identity_secret_fr]).unwrap();
+        let user_message_limit = Fr::from(100);
+        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
+
+        // generate merkle tree
+        let default_leaf = Fr::from(0);
+        let mut tree = PoseidonTree::new(
+            DEFAULT_TREE_DEPTH,
+            default_leaf,
+            ConfigOf::<PoseidonTree>::default(),
+        )
+        .unwrap();
+        tree.set(leaf_index, rate_commitment).unwrap();
+
+        let merkle_proof = tree.proof(leaf_index).unwrap();
+        let path_elements = merkle_proof.get_path_elements();
+        let identity_path_index = merkle_proof.get_path_index();
+
+        let signal = b"hey hey";
+        let x = hash_to_field_le(signal).unwrap();
+        let epoch = hash_to_field_le(b"test-epoch").unwrap();
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
+
+        // Test valid witness input
+        let valid_message_id = Fr::from(50);
+        let result = RLNWitnessInput::new(
+            identity_secret.clone(),
+            user_message_limit,
+            valid_message_id,
+            path_elements.clone(),
+            identity_path_index.clone(),
+            x,
+            external_nullifier,
+        );
+        assert!(result.is_ok());
+
+        // Test message_id >= user_message_limit (should fail)
+        let invalid_message_id = Fr::from(100); // equal to limit
+        let result = RLNWitnessInput::new(
+            identity_secret.clone(),
+            user_message_limit,
+            invalid_message_id,
+            path_elements.clone(),
+            identity_path_index.clone(),
+            x,
+            external_nullifier,
+        );
+        assert!(matches!(result, Err(ProtocolError::InvalidMessageId(_, _))));
+
+        let invalid_message_id = Fr::from(150); // greater than limit
+        let result = RLNWitnessInput::new(
+            identity_secret.clone(),
+            user_message_limit,
+            invalid_message_id,
+            path_elements.clone(),
+            identity_path_index.clone(),
+            x,
+            external_nullifier,
+        );
+        assert!(matches!(result, Err(ProtocolError::InvalidMessageId(_, _))));
+
+        // Test user_message_limit = 0 (should fail)
+        let zero_limit = Fr::from(0);
+        let result = RLNWitnessInput::new(
+            identity_secret,
+            zero_limit,
+            Fr::from(0),
+            path_elements.clone(),
+            identity_path_index.clone(),
+            x,
+            external_nullifier,
+        );
+        assert!(matches!(result, Err(ProtocolError::ZeroUserMessageLimit)));
+    }
+
+    #[test]
     // Tests seeded keygen
     // Note that hardcoded values are only valid for Bn254
     fn test_seeded_keygen() {

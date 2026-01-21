@@ -38,8 +38,13 @@ impl RLNWitnessInput {
         x: Fr,
         external_nullifier: Fr,
     ) -> Result<Self, ProtocolError> {
+        // User message limit check
+        if user_message_limit == Fr::from(0) {
+            return Err(ProtocolError::ZeroUserMessageLimit);
+        }
+
         // Message ID range check
-        if message_id > user_message_limit {
+        if message_id >= user_message_limit {
             return Err(ProtocolError::InvalidMessageId(
                 message_id,
                 user_message_limit,

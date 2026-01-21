@@ -4,6 +4,7 @@ mod test {
 
     use rand::{thread_rng, Rng};
     use rln::prelude::*;
+
     use serde_json::{json, Value};
 
     fn fq_from_str(s: &str) -> Fq {
@@ -1138,6 +1139,7 @@ mod test {
         };
 
         use super::DEFAULT_TREE_DEPTH;
+        use crate::test::random_rln_witness;
 
         type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
 
@@ -1328,6 +1330,42 @@ mod test {
             // ensure that the recovered secret does not match with either of the
             // used secrets in proof generation
             assert_ne!(*recovered_identity_secret_new, *identity_secret_new);
+        }
+
+        #[test]
+        fn test_rln_resource_errors() {
+            // Test missing rln_final.arkzkey
+            let invalid_zkey_data = vec![];
+            let result = RLN::new_with_params(invalid_zkey_data, vec![1, 2, 3]);
+            assert!(result.is_err());
+            assert!(matches!(result.err().unwrap(), RLNError::ZKey(_)));
+
+            // Test invalid rln_final.arkzkey
+            let invalid_zkey_data = vec![0u8; 100]; // Invalid zkey data
+            let result = RLN::new_with_params(invalid_zkey_data, vec![1, 2, 3]);
+            assert!(result.is_err());
+            assert!(matches!(result.err().unwrap(), RLNError::ZKey(_)));
+
+            // Test missing/invalid graph.bin - this would typically fail during proof generation
+            let valid_zkey_data = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey");
+            let invalid_graph_data = vec![];
+            let result = RLN::new_with_params(valid_zkey_data.to_vec(), invalid_graph_data);
+            assert!(matches!(result.err().unwrap(), RLNError::Graph(_)));
+
+            // Test mismatched tree depth - using zkey from different depth
+            let zkey_depth_16 = include_bytes!("../resources/tree_depth_16/rln_final.arkzkey");
+            let graph_depth_20 = include_bytes!("../resources/tree_depth_20/graph.bin");
+            let rln =
+                RLN::new_with_params(zkey_depth_16.to_vec(), graph_depth_20.to_vec()).unwrap();
+
+            // Create witness with wrong tree depth (16 instead of 20)
+            let rln_witness_wrong_depth = random_rln_witness(16).unwrap();
+            let proof_result = rln.generate_rln_proof(&rln_witness_wrong_depth);
+            // Proof generation should fail due to depth mismatch between witness and circuit
+            assert!(matches!(
+                proof_result.err().unwrap(),
+                RLNError::Protocol(ProtocolError::WitnessCalc(_))
+            ));
         }
     }
 }

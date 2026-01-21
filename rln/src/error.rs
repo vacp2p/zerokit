@@ -40,6 +40,8 @@ pub enum ProtocolError {
     BigUintConversion(BigInt),
     #[error("Message id ({0}) is not within user_message_limit ({1})")]
     InvalidMessageId(Fr, Fr),
+    #[error("User message limit cannot be zero")]
+    ZeroUserMessageLimit,
     #[error("Merkle proof length mismatch: expected {0}, got {1}")]
     InvalidMerkleProofLength(usize, usize),
     #[error("External nullifiers mismatch: {0} != {1}")]
