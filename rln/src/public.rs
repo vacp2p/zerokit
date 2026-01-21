@@ -12,7 +12,7 @@ use {
     },
 };
 
-#[cfg(feature = "stateless")]
+#[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
 use crate::prelude::DEFAULT_TREE_DEPTH;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
