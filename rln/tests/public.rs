@@ -179,17 +179,23 @@ mod test {
         assert!(verified);
     }
 
+    #[test]
+    fn test_initialization_with_params() {
+        let zkey_data = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey").to_vec();
+        let graph_data = include_bytes!("../resources/tree_depth_20/graph.bin").to_vec();
+
+        #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
+        assert!(RLN::new_with_params(DEFAULT_TREE_DEPTH, zkey_data, graph_data, "").is_ok());
+
+        #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
+        assert!(RLN::new_with_params(zkey_data, graph_data).is_ok());
+    }
+
     #[cfg(not(feature = "stateless"))]
     mod tree_test {
         use ark_std::{rand::thread_rng, UniformRand};
         use rand::{rngs::ThreadRng, Rng};
-        use rln::{
-            circuit::{Fq, Fr, Proof, DEFAULT_TREE_DEPTH},
-            hashers::{hash_to_field_le, poseidon_hash},
-            pm_tree_adapter::PmtreeConfig,
-            protocol::*,
-            public::RLN,
-        };
+        use rln::prelude::*;
         use serde_json::json;
 
         const NO_OF_LEAVES: usize = 256;
@@ -1126,12 +1132,7 @@ mod test {
     mod stateless_test {
         use ark_std::{rand::thread_rng, UniformRand};
         use rand::Rng;
-        use rln::{
-            circuit::Fr,
-            hashers::{hash_to_field_le, poseidon_hash, PoseidonHash},
-            protocol::*,
-            public::RLN,
-        };
+        use rln::prelude::*;
         use zerokit_utils::merkle_tree::{
             OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
         };

@@ -18,7 +18,11 @@ use ark_groth16::{
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use self::error::ZKeyReadError;
+use self::{
+    error::{GraphReadError, ZKeyReadError},
+    iden3calc::InputSignalsInfo,
+};
+use crate::circuit::iden3calc::{graph::Node, storage::deserialize_witnesscalc_graph};
 
 #[cfg(not(target_arch = "wasm32"))]
 fn load_graph_bytes(tree_depth: usize) -> &'static [u8] {
@@ -37,6 +41,11 @@ const ARKZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/rln_f
 #[cfg(not(target_arch = "wasm32"))]
 static ARKZKEY: LazyLock<Zkey> = LazyLock::new(|| {
     read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES).expect("Default zkey must be valid")
+});
+
+#[cfg(not(target_arch = "wasm32"))]
+static GRAPH: LazyLock<Graph> = LazyLock::new(|| {
+    graph_from_raw(GRAPH_BYTES, Some(DEFAULT_TREE_DEPTH)).expect("Default graph must be valid")
 });
 
 pub const DEFAULT_TREE_DEPTH: usize = 20;
@@ -81,6 +90,17 @@ pub type Zkey = (ArkProvingKey<Curve>, ConstraintMatrices<Fr>);
 /// Verifying key for the Groth16 proof system.
 pub type VerifyingKey = ArkVerifyingKey<Curve>;
 
+/// Parsed witness calculator graph.
+///
+/// Contains the deserialized computation graph used for witness calculation.
+/// Parsing this once and reusing it avoids repeated deserialization overhead.
+#[derive(Clone)]
+pub struct Graph {
+    pub(crate) nodes: Vec<Node>,
+    pub(crate) signals: Vec<usize>,
+    pub(crate) input_mapping: InputSignalsInfo,
+}
+
 /// Loads the zkey from raw bytes
 pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<Zkey, ZKeyReadError> {
     if zkey_data.is_empty() {
@@ -92,16 +112,47 @@ pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<Zkey, ZKeyReadError> {
     Ok(proving_key_and_matrices)
 }
 
+/// Parses the witness calculator graph from raw bytes
+pub fn graph_from_raw(
+    graph_data: &[u8],
+    expected_tree_depth: Option<usize>,
+) -> Result<Graph, GraphReadError> {
+    if graph_data.is_empty() {
+        return Err(GraphReadError::EmptyBytes);
+    }
+
+    let (nodes, signals, input_mapping) =
+        deserialize_witnesscalc_graph(std::io::Cursor::new(graph_data))
+            .map_err(GraphReadError::GraphDeserialization)?;
+
+    if let Some(expected) = expected_tree_depth {
+        let actual = input_mapping
+            .get("pathElements")
+            .map(|(_, len)| *len)
+            .unwrap_or(0);
+
+        if expected != actual {
+            return Err(GraphReadError::TreeDepthMismatch { expected, actual });
+        }
+    }
+
+    Ok(Graph {
+        nodes,
+        signals,
+        input_mapping,
+    })
+}
+
 // Loads default zkey from folder
 #[cfg(not(target_arch = "wasm32"))]
 pub fn zkey_from_folder() -> &'static Zkey {
     &ARKZKEY
 }
 
-// Loads graph from folder based on tree depth
+// Loads default parsed graph from folder
 #[cfg(not(target_arch = "wasm32"))]
-pub fn graph_from_folder(tree_depth: usize) -> &'static [u8] {
-    load_graph_bytes(tree_depth)
+pub fn graph_from_folder() -> &'static Graph {
+    &GRAPH
 }
 
 // The following functions and structs are based on code from ark-zkey:

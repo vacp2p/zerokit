@@ -1,15 +1,14 @@
 // This crate is based on the code by iden3. Its preimage can be found here:
 // https://github.com/iden3/circom-witnesscalc/blob/5cb365b6e4d9052ecc69d4567fcf5bc061c20e94/src/lib.rs
 
-mod graph;
+pub(crate) mod graph;
 mod proto;
-mod storage;
+pub(crate) mod storage;
 
 use std::collections::HashMap;
 
 use graph::Node;
 use ruint::aliases::U256;
-use storage::deserialize_witnesscalc_graph;
 use zeroize::zeroize_flat_type;
 
 use self::graph::fr_to_u256;
@@ -20,7 +19,7 @@ pub(crate) type InputSignalsInfo = HashMap<String, (usize, usize)>;
 
 pub(crate) fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
     inputs: I,
-    graph_data: &[u8],
+    graph: &super::Graph,
 ) -> Result<Vec<Fr>, WitnessCalcError> {
     let mut inputs: HashMap<String, Vec<U256>> = inputs
         .into_iter()
@@ -38,12 +37,9 @@ pub(crate) fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
         })
         .collect();
 
-    let (nodes, signals, input_mapping): (Vec<Node>, Vec<usize>, InputSignalsInfo) =
-        deserialize_witnesscalc_graph(std::io::Cursor::new(graph_data))?;
+    let mut inputs_buffer = get_inputs_buffer(get_inputs_size(&graph.nodes));
 
-    let mut inputs_buffer = get_inputs_buffer(get_inputs_size(&nodes));
-
-    populate_inputs(&inputs, &input_mapping, &mut inputs_buffer)?;
+    populate_inputs(&inputs, &graph.input_mapping, &mut inputs_buffer)?;
 
     if let Some(v) = inputs.get_mut("identitySecret") {
         // DO NOT USE: unsafe { zeroize_flat_type(v) } only clears the Vec pointer, not the data—can cause memory leaks
@@ -53,7 +49,7 @@ pub(crate) fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
         }
     }
 
-    let res = graph::evaluate(&nodes, inputs_buffer.as_slice(), &signals)
+    let res = graph::evaluate(&graph.nodes, inputs_buffer.as_slice(), &graph.signals)
         .map_err(WitnessCalcError::GraphEvaluation)?;
 
     for val in inputs_buffer.iter_mut() {

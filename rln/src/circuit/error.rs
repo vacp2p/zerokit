@@ -7,11 +7,20 @@ pub enum ZKeyReadError {
     SerializationError(#[from] ark_serialize::SerializationError),
 }
 
+/// Errors that can occur during witness calculation graph reading operations
+#[derive(Debug, thiserror::Error)]
+pub enum GraphReadError {
+    #[error("Empty graph bytes provided")]
+    EmptyBytes,
+    #[error("Failed to deserialize witness calculation graph: {0}")]
+    GraphDeserialization(#[from] std::io::Error),
+    #[error("Tree depth mismatch: circuit expects depth {expected}, but {actual} was provided")]
+    TreeDepthMismatch { expected: usize, actual: usize },
+}
+
 /// Errors that can occur during witness calculation
 #[derive(Debug, thiserror::Error)]
 pub enum WitnessCalcError {
-    #[error("Failed to deserialize witness calculation graph: {0}")]
-    GraphDeserialization(#[from] std::io::Error),
     #[error("Failed to evaluate witness calculation graph: {0}")]
     GraphEvaluation(String),
     #[error("Invalid input length for '{name}': expected {expected}, got {actual}")]

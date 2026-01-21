@@ -12,8 +12,8 @@ pub use crate::protocol::compute_tree_root;
 pub use crate::protocol::{generate_zk_proof, verify_zk_proof};
 pub use crate::{
     circuit::{
-        zkey_from_raw, Curve, Fq, Fq2, Fr, G1Affine, G1Projective, G2Affine, G2Projective, Proof,
-        VerifyingKey, Zkey, COMPRESS_PROOF_SIZE, DEFAULT_TREE_DEPTH,
+        graph_from_raw, zkey_from_raw, Curve, Fq, Fq2, Fr, G1Affine, G1Projective, G2Affine,
+        G2Projective, Graph, Proof, VerifyingKey, Zkey, COMPRESS_PROOF_SIZE, DEFAULT_TREE_DEPTH,
     },
     error::{ProtocolError, RLNError, UtilsError, VerifyError},
     hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash, PoseidonHash},
