@@ -316,4 +316,85 @@ mod test {
         let proof = tree.proof(50).unwrap();
         assert!(tree.verify(&Fr::from(50), &proof).unwrap());
     }
+
+    #[test]
+    fn test_pmtree_full_tree() {
+        let mut tree = PmTree::default(4).unwrap(); // 16 capacity
+        for i in 0..16 {
+            tree.set(i, Fr::from(i as u64)).unwrap();
+        }
+        assert_eq!(tree.leaves_set(), 16);
+        assert_eq!(tree.capacity(), 16);
+        // Try overflow
+        assert!(matches!(
+            tree.update_next(Fr::from(16)),
+            Err(ZerokitMerkleTreeError::PmtreeErrorKind(_))
+        ));
+        assert!(matches!(
+            tree.set(16, Fr::from(16)),
+            Err(ZerokitMerkleTreeError::PmtreeErrorKind(_))
+        ));
+    }
+
+    #[test]
+    fn test_pmtree_large_batch() {
+        let mut tree = PmTree::default(TEST_DEPTH).unwrap();
+        let leaves: Vec<Fr> = (0..100).map(|i| Fr::from(i as u64)).collect();
+        tree.set_range(0, leaves.into_iter()).unwrap();
+        assert_eq!(tree.leaves_set(), 100);
+        for i in 0..100 {
+            assert_eq!(tree.get(i).unwrap(), Fr::from(i as u64));
+        }
+    }
+
+    #[test]
+    fn test_pmtree_multiple_reopen() {
+        const DEPTH: usize = 2;
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("test.db");
+        let config = persistent_config(db_path.clone());
+        let mut tree1 = PmTree::new(DEPTH, Fr::zero(), config.clone()).unwrap();
+        tree1.set(0, Fr::from(1)).unwrap();
+        tree1.close_db_connection().unwrap();
+        // Reopen
+        let mut tree2 = PmTree::new(DEPTH, Fr::zero(), config.clone()).unwrap();
+        assert_eq!(tree2.get(0).unwrap(), Fr::from(1));
+        tree2.close_db_connection().unwrap();
+        // Reopen again
+        let tree3 = PmTree::new(DEPTH, Fr::zero(), config).unwrap();
+        assert_eq!(tree3.get(0).unwrap(), Fr::from(1));
+    }
+
+    #[test]
+    fn test_pmtree_depth_extremes() {
+        // Depth 0 (minimal valid depth)
+        let result = PmTree::default(0);
+        assert!(result.is_ok());
+        if let Ok(tree) = result {
+            assert_eq!(tree.depth(), 0);
+            assert_eq!(tree.capacity(), 1);
+        }
+        // Depth 32
+        let result = PmTree::default(32);
+        if let Ok(tree) = result {
+            assert_eq!(tree.depth(), 32);
+            assert_eq!(tree.capacity(), 1usize << 32);
+        }
+    }
+
+    #[test]
+    fn test_pmtree_compaction() {
+        let mut tree = PmTree::default(TEST_DEPTH).unwrap();
+        for i in 0..50 {
+            tree.set(i, Fr::from(i as u64)).unwrap();
+        }
+        assert_eq!(tree.leaves_set(), 50);
+        for i in 0..25 {
+            tree.delete(i).unwrap();
+        }
+        assert_eq!(tree.leaves_set(), 50); // Unchanged
+        let empty = tree.get_empty_leaves_indices();
+        assert_eq!(empty.len(), 25);
+        assert!(empty.iter().all(|&i| i < 25));
+    }
 }
