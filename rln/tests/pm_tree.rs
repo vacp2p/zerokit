@@ -198,7 +198,10 @@ mod test {
         let proof: PmTreeProof = tree.proof(3).unwrap();
         assert_eq!(proof.leaf_index(), 3);
         assert!(tree.verify(&leaf, &proof).unwrap());
-        assert!(!tree.verify(&Fr::from(43), &proof).unwrap());
+        assert!(matches!(
+            tree.verify(&Fr::from(43), &proof),
+            Err(ZerokitMerkleTreeError::InvalidMerkleProof)
+        ));
     }
 
     #[test]
@@ -255,14 +258,12 @@ mod test {
         let mut tree = PmTree::default(TEST_DEPTH).unwrap();
         let leaf = Fr::from(42);
         tree.set(0, leaf).unwrap();
-        let proof: PmTreeProof = tree.proof(0).unwrap();
-        // Tamper path
-        if !proof.get_path_elements().is_empty() {
-            let mut path = proof.get_path_elements();
-            path[0] = Fr::from(999);
-            // Can't directly modify, but assume verify fails for wrong leaf
-        }
-        assert!(!tree.verify(&Fr::from(999), &proof).unwrap());
+        let proof = tree.proof(0).unwrap();
+        // Verify that using a wrong leaf with the proof fails verification
+        assert!(matches!(
+            tree.verify(&Fr::from(999), &proof),
+            Err(ZerokitMerkleTreeError::InvalidMerkleProof)
+        ));
     }
 
     #[test]
