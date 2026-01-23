@@ -349,42 +349,39 @@ mod test {
 
     #[test]
     fn test_pmtree_multiple_reopen() {
-        use std::time::Instant;
-        const DEPTH: usize = 2;
-        let start = Instant::now();
+
         let temp_dir = TempDir::new().unwrap();
-        eprintln!("TempDir creation: {:?}", start.elapsed());
         let db_path = temp_dir.path().join("test.db");
-        let config_start = Instant::now();
-        let config = persistent_config(db_path.clone());
-        eprintln!("Config creation: {:?}", config_start.elapsed());
-        let tree1_start = Instant::now();
-        let mut tree1 = PmTree::new(DEPTH, Fr::zero(), config.clone()).unwrap();
-        eprintln!("Tree1 creation: {:?}", tree1_start.elapsed());
-        let set_start = Instant::now();
-        tree1.set(0, Fr::from(1)).unwrap();
-        eprintln!("Set operation: {:?}", set_start.elapsed());
-        let close1_start = Instant::now();
-        tree1.close_db_connection().unwrap();
-        eprintln!("Close1: {:?}", close1_start.elapsed());
-        // Reopen
-        let tree2_start = Instant::now();
-        let mut tree2 = PmTree::new(DEPTH, Fr::zero(), config.clone()).unwrap();
-        eprintln!("Tree2 reopen: {:?}", tree2_start.elapsed());
-        let get_start = Instant::now();
-        assert_eq!(tree2.get(0).unwrap(), Fr::from(1));
-        eprintln!("Get operation: {:?}", get_start.elapsed());
-        let close2_start = Instant::now();
-        tree2.close_db_connection().unwrap();
-        eprintln!("Close2: {:?}", close2_start.elapsed());
-        // Reopen again
-        let tree3_start = Instant::now();
-        let tree3 = PmTree::new(DEPTH, Fr::zero(), config).unwrap();
-        eprintln!("Tree3 reopen: {:?}", tree3_start.elapsed());
-        let get2_start = Instant::now();
-        assert_eq!(tree3.get(0).unwrap(), Fr::from(1));
-        eprintln!("Get2 operation: {:?}", get2_start.elapsed());
-        eprintln!("Total test time: {:?}", start.elapsed());
+        let config = persistent_config(db_path);
+
+        // First open: write data, close, and fully drop the tree.
+        {
+            let mut tree1 = PmTree::new(TEST_DEPTH, Fr::zero(), config.clone()).unwrap();
+            tree1.set(0, Fr::from(1)).unwrap();
+
+            // Optional stronger signal than just leaf persistence:
+            assert_ne!(tree1.root(), Fr::zero());
+
+            tree1.close_db_connection().unwrap();
+        }
+
+        // Second open: verify data, close, and drop.
+        {
+            let mut tree2 = PmTree::new(TEST_DEPTH, Fr::zero(), config.clone()).unwrap();
+            assert_eq!(tree2.get(0).unwrap(), Fr::from(1));
+
+            // Optional: verify tree is still non-empty (depending on semantics).
+            assert_ne!(tree2.root(), Fr::zero());
+
+            tree2.close_db_connection().unwrap();
+        }
+
+        // Third open: verify again.
+        {
+            let tree3 = PmTree::new(TEST_DEPTH, Fr::zero(), config).unwrap();
+            assert_eq!(tree3.get(0).unwrap(), Fr::from(1));
+            assert_ne!(tree3.root(), Fr::zero());
+        }
     }
 
     #[test]
