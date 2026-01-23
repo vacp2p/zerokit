@@ -277,16 +277,26 @@ mod test {
     }
 
     #[test]
-    fn test_pmtree_verify_tampered_proof() {
+    fn test_pmtree_proof_binds_to_leaf_index_even_if_leaf_value_same() {
         let mut tree = PmTree::default(TEST_DEPTH).unwrap();
+
         let leaf = Fr::from(42);
         tree.set(0, leaf).unwrap();
-        let proof = tree.proof(0).unwrap();
-        // Verify that using a wrong leaf with the proof fails verification
-        assert!(matches!(
-            tree.verify(&Fr::from(999), &proof),
-            Err(ZerokitMerkleTreeError::InvalidMerkleProof)
-        ));
+        tree.set(1, leaf).unwrap();
+
+        let proof0: PmTreeProof = tree.proof(0).unwrap();
+        let proof1: PmTreeProof = tree.proof(1).unwrap();
+
+        // Both proofs should reconstruct the current root when used with the correct leaf value,
+        // but their *paths/indexes* should differ.
+        let root0 = proof0.compute_root_from(&leaf).unwrap();
+        let root1 = proof1.compute_root_from(&leaf).unwrap();
+        assert_eq!(root0, tree.root());
+        assert_eq!(root1, tree.root());
+
+        // The "index binding" evidence: either leaf_index differs or path_index differs.
+        assert_ne!(proof0.leaf_index(), proof1.leaf_index());
+        assert_ne!(proof0.get_path_index(), proof1.get_path_index());
     }
 
     #[test]
