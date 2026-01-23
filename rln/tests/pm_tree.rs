@@ -122,7 +122,7 @@ mod test {
 
     #[test]
     fn test_pmtree_load_nonexistent() {
-        let config = persistent_config(PathBuf::from("/nonexistent/path"));
+        let config = persistent_config(PathBuf::from("\0invalid"));
         let result = PmTree::new(TEST_DEPTH, Fr::zero(), config);
         assert!(matches!(
             result,
