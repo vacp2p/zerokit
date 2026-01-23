@@ -42,8 +42,7 @@ mod test {
             .build()
             .unwrap();
 
-        // Verify config is built (internal check)
-        assert!(true); // Placeholder, as config internals not exposed
+        // Config built successfully with specified parameters
     }
 
     #[test]
@@ -58,8 +57,20 @@ mod test {
             "use_compression": false
         }"#;
 
-        let _config: PmtreeConfig = json.parse().unwrap();
-        assert!(true); // Parsed successfully
+        let config: PmtreeConfig = json.parse().unwrap();
+
+        // Verify the config by creating a persistent tree
+        let mut tree1 = PmTree::new(TEST_DEPTH, Fr::zero(), config.clone()).unwrap();
+        let leaf = Fr::from(42);
+        tree1.set(0, leaf).unwrap();
+        let root1 = tree1.root();
+        tree1.close_db_connection().unwrap();
+        drop(tree1);
+
+        // Reopen and verify persistence
+        let tree2 = PmTree::new(TEST_DEPTH, Fr::zero(), config).unwrap();
+        assert_eq!(tree2.get(0).unwrap(), leaf);
+        assert_eq!(tree2.root(), root1);
     }
 
     #[test]
