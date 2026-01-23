@@ -245,7 +245,10 @@ mod test {
     fn test_pmtree_close_db() {
         let mut tree = PmTree::default(TEST_DEPTH).unwrap();
         tree.close_db_connection().unwrap();
-        // Further ops might fail, but close is idempotent
+        // Verify idempotence: calling close again should succeed
+        tree.close_db_connection().unwrap();
+        // Verify that the tree still works after close (close is a no-op)
+        assert_eq!(tree.get(0).unwrap(), Fr::zero());
     }
 
     #[test]
