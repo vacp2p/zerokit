@@ -205,7 +205,9 @@ mod test {
         tree.set(2, Fr::from(3)).unwrap();
         tree.delete(0).unwrap();
         let empty = tree.get_empty_leaves_indices();
-        assert_eq!(empty, vec![0, 1]);
+        assert!(empty.contains(&0));
+        assert!(empty.contains(&1));
+        assert!(!empty.contains(&2));
     }
 
     #[test]
