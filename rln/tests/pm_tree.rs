@@ -349,7 +349,6 @@ mod test {
 
     #[test]
     fn test_pmtree_multiple_reopen() {
-
         let temp_dir = TempDir::new().unwrap();
         let db_path = temp_dir.path().join("test.db");
         let config = persistent_config(db_path);
