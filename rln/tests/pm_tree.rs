@@ -33,16 +33,23 @@ mod test {
 
     #[test]
     fn test_pmtree_config_builder() {
-        let _config = PmtreeConfig::builder()
+        let config = PmtreeConfig::builder()
             .temporary(true)
             .cache_capacity(1 << 30)
             .flush_every_ms(1000)
             .mode(Mode::LowSpace)
-            .use_compression(true)
+            .use_compression(false)
             .build()
             .unwrap();
 
-        // Config built successfully with specified parameters
+        // Indirect confirmation: create a tree with the config and verify operations work
+        let mut tree = PmTree::new(TEST_DEPTH, Fr::zero(), config).unwrap();
+        let leaf = Fr::from(42);
+        tree.set(0, leaf).unwrap();
+        assert_eq!(tree.get(0).unwrap(), leaf);
+        assert_eq!(tree.leaves_set(), 1);
+        let root = tree.root();
+        assert_ne!(root, Fr::zero());
     }
 
     #[test]
