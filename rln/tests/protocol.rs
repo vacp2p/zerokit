@@ -4,6 +4,8 @@
 mod test {
     use ark_ff::BigInt;
     use rln::prelude::*;
+    #[cfg(feature = "icicle")]
+    use rln::protocol::generate_zk_proof_icicle;
     use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
 
     type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
@@ -289,5 +291,29 @@ mod test {
 
         assert_eq!(identity_secret, expected_identity_secret_seed_phrase);
         assert_eq!(id_commitment, expected_id_commitment_seed_phrase);
+    }
+
+    #[test]
+    #[cfg(feature = "icicle")]
+    // We test that normal and ICICLE proofs both verify correctly
+    fn test_end_to_end_icicle() {
+        let witness = get_test_witness();
+
+        let proving_key = zkey_from_folder();
+        let graph_data = graph_from_folder();
+
+        let normal_proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
+
+        let icicle_proof = generate_zk_proof_icicle(proving_key, &witness, graph_data).unwrap();
+
+        let proof_values = proof_values_from_witness(&witness).unwrap();
+
+        let normal_success =
+            verify_zk_proof(&proving_key.0.vk, &normal_proof, &proof_values).unwrap();
+        let icicle_success =
+            verify_zk_proof(&proving_key.0.vk, &icicle_proof, &proof_values).unwrap();
+
+        assert!(normal_success, "Normal proof should verify");
+        assert!(icicle_success, "ICICLE proof should verify");
     }
 }

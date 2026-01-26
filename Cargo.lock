@@ -414,6 +414,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1d728cc89cf3aee9ff92b05e62b19ee65a02b5702cff7d5a377e32c6ae29d8d"
 
 [[package]]
+name = "cmake"
+version = "0.1.57"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75443c44cd6b379beb8c5b45d85d0773baf31cce901fe7bb252f4eff3008ef7d"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -734,6 +743,52 @@ name = "hex-literal"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e712f64ec3850b98572bffac52e2c6f282b29fe6c5fa6d42334b30be438d95c1"
+
+[[package]]
+name = "icicle-bn254"
+version = "4.0.0"
+source = "git+https://github.com/ingonyama-zk/icicle.git?branch=main#625532a624e5aaa6e9d31a1c92587f1fcc30dc76"
+dependencies = [
+ "cmake",
+ "icicle-core",
+ "icicle-hash",
+ "icicle-runtime",
+ "serde",
+]
+
+[[package]]
+name = "icicle-core"
+version = "4.0.0"
+source = "git+https://github.com/ingonyama-zk/icicle.git?branch=main#625532a624e5aaa6e9d31a1c92587f1fcc30dc76"
+dependencies = [
+ "cmake",
+ "hex",
+ "icicle-runtime",
+ "once_cell",
+ "rand 0.8.5",
+ "rayon",
+ "serde",
+]
+
+[[package]]
+name = "icicle-hash"
+version = "4.0.0"
+source = "git+https://github.com/ingonyama-zk/icicle.git?branch=main#625532a624e5aaa6e9d31a1c92587f1fcc30dc76"
+dependencies = [
+ "cmake",
+ "icicle-core",
+ "icicle-runtime",
+ "rand 0.8.5",
+]
+
+[[package]]
+name = "icicle-runtime"
+version = "4.0.0"
+source = "git+https://github.com/ingonyama-zk/icicle.git?branch=main#625532a624e5aaa6e9d31a1c92587f1fcc30dc76"
+dependencies = [
+ "cmake",
+ "once_cell",
+]
 
 [[package]]
 name = "indexmap"
@@ -1232,6 +1287,9 @@ dependencies = [
  "cfg-if",
  "criterion",
  "document-features",
+ "icicle-bn254",
+ "icicle-core",
+ "icicle-runtime",
  "num-bigint",
  "num-traits",
  "once_cell",
