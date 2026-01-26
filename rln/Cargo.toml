@@ -68,7 +68,7 @@ icicle-bn254 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v4.0
 criterion = { version = "0.8.0", features = ["html_reports"] }
 
 [features]
-default = ["parallel", "pmtree-ft", "icicle"]
+default = ["parallel", "pmtree-ft"]
 stateless = []
 parallel = [
     "rayon",
