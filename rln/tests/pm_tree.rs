@@ -327,12 +327,7 @@ mod test {
             .use_compression(false)
             .build()
             .unwrap();
-        let tree_comp = PmTree::new(TEST_DEPTH, Fr::zero(), config_comp);
-        if tree_comp.is_err() {
-            // Compression not supported, skip test
-            return;
-        }
-        let mut tree_comp = tree_comp.unwrap();
+        let mut tree_comp = PmTree::new(TEST_DEPTH, Fr::zero(), config_comp).unwrap();
         let mut tree_no_comp = PmTree::new(TEST_DEPTH, Fr::zero(), config_no_comp).unwrap();
         tree_comp.set(0, Fr::from(1)).unwrap();
         tree_no_comp.set(0, Fr::from(1)).unwrap();
