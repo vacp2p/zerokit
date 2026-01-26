@@ -6,7 +6,7 @@ use ark_ff::Zero;
 use crate::{
     circuit::{
         icicle::msm::{icicle_msm_g1, icicle_msm_g2},
-        ArkG2Affine, Fr, G1Affine, G1Projective, G2Projective, Proof, ProvingKey,
+        Fr, G1Affine, G1Projective, G2Affine, G2Projective, Proof, ProvingKey,
     },
     error::ProtocolError,
 };
@@ -38,8 +38,8 @@ fn calculate_coeff_g1_icicle(
 /// Calculate coefficient for G2 proof element using ICICLE MSM
 fn calculate_coeff_g2_icicle(
     initial: G2Projective,
-    query: &[ArkG2Affine],
-    vk_param: ArkG2Affine,
+    query: &[G2Affine],
+    vk_param: G2Affine,
     assignment: &[Fr],
 ) -> Result<G2Projective, ProtocolError> {
     let el = query[0];

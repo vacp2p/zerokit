@@ -1,9 +1,8 @@
 // This crate is based on the code by Ingonyama. Its preimage can be found here:
 // https://github.com/ingonyama-zk/icicle/blob/main/examples/rust/arkworks-icicle-conversions
 
-use ark_bn254::{Fr as ArkFr, G1Affine as ArkG1Affine, G2Affine as ArkG2Affine};
 use ark_ec::AffineRepr;
-use ark_ff::{BigInteger, Field as ArkField, PrimeField};
+use ark_ff::{BigInteger, Field, PrimeField};
 use icicle_bn254::curve::{
     BaseField as IcicleBaseField, G1Affine as IcicleG1Affine, G1Projective as IcicleG1Projective,
     G2Affine as IcicleG2Affine, G2BaseField as IcicleG2BaseField,
@@ -13,10 +12,12 @@ use icicle_core::{
     affine::Affine as IcicleAffineTrait, bignum::BigNum, projective::Projective as IcicleProjective,
 };
 
+use crate::circuit::{Fr, G1Affine, G2Affine};
+
 #[inline]
 fn from_ark<T, I>(ark: &T) -> I
 where
-    T: ArkField,
+    T: Field,
     I: BigNum,
 {
     let mut ark_bytes = vec![];
@@ -28,31 +29,31 @@ where
 
 /// Convert arkworks Fr scalar to ICICLE scalar
 #[inline]
-pub(crate) fn ark_fr_to_icicle(scalar: &ArkFr) -> IcicleScalar {
+pub(crate) fn ark_fr_to_icicle(scalar: &Fr) -> IcicleScalar {
     from_ark(scalar)
 }
 
 /// Convert slice of arkworks Fr scalars to ICICLE scalars
-pub(crate) fn ark_frs_to_icicle(scalars: &[ArkFr]) -> Vec<IcicleScalar> {
+pub(crate) fn ark_frs_to_icicle(scalars: &[Fr]) -> Vec<IcicleScalar> {
     scalars.iter().map(ark_fr_to_icicle).collect()
 }
 
 /// Convert ICICLE scalar to arkworks Fr
 #[inline]
-pub(crate) fn icicle_to_ark_fr(scalar: &IcicleScalar) -> ArkFr {
+pub(crate) fn icicle_to_ark_fr(scalar: &IcicleScalar) -> Fr {
     let bytes = scalar.to_bytes_le();
-    ArkFr::from_le_bytes_mod_order(&bytes)
+    Fr::from_le_bytes_mod_order(&bytes)
 }
 
 /// Convert slice of ICICLE scalars to arkworks Fr
 #[allow(dead_code)]
-pub(crate) fn icicle_to_ark_frs(scalars: &[IcicleScalar]) -> Vec<ArkFr> {
+pub(crate) fn icicle_to_ark_frs(scalars: &[IcicleScalar]) -> Vec<Fr> {
     scalars.iter().map(icicle_to_ark_fr).collect()
 }
 
 /// Convert arkworks G1Affine point to ICICLE G1Affine
 #[inline]
-pub(crate) fn ark_g1_to_icicle(point: &ArkG1Affine) -> IcicleG1Affine {
+pub(crate) fn ark_g1_to_icicle(point: &G1Affine) -> IcicleG1Affine {
     if point.is_zero() {
         return IcicleG1Affine::zero();
     }
@@ -64,7 +65,7 @@ pub(crate) fn ark_g1_to_icicle(point: &ArkG1Affine) -> IcicleG1Affine {
 }
 
 /// Convert slice of arkworks G1Affine points to ICICLE G1Affine
-pub(crate) fn ark_g1s_to_icicle(points: &[ArkG1Affine]) -> Vec<IcicleG1Affine> {
+pub(crate) fn ark_g1s_to_icicle(points: &[G1Affine]) -> Vec<IcicleG1Affine> {
     points.iter().map(ark_g1_to_icicle).collect()
 }
 
@@ -92,7 +93,7 @@ pub(crate) fn icicle_g1_proj_to_ark(point: &IcicleG1Projective) -> ark_bn254::G1
 
 /// Convert arkworks G2Affine point to ICICLE G2Affine
 #[inline]
-pub(crate) fn ark_g2_to_icicle(point: &ArkG2Affine) -> IcicleG2Affine {
+pub(crate) fn ark_g2_to_icicle(point: &G2Affine) -> IcicleG2Affine {
     if point.is_zero() {
         return IcicleG2Affine::zero();
     }
@@ -126,13 +127,13 @@ pub(crate) fn ark_g2_to_icicle(point: &ArkG2Affine) -> IcicleG2Affine {
 }
 
 /// Convert slice of arkworks G2Affine points to ICICLE G2Affine
-pub(crate) fn ark_g2s_to_icicle(points: &[ArkG2Affine]) -> Vec<IcicleG2Affine> {
+pub(crate) fn ark_g2s_to_icicle(points: &[G2Affine]) -> Vec<IcicleG2Affine> {
     points.iter().map(ark_g2_to_icicle).collect()
 }
 
 /// Convert ICICLE G2Projective to arkworks G2Affine
 #[inline]
-pub(crate) fn icicle_g2_proj_to_ark(point: &IcicleG2Projective) -> ArkG2Affine {
+pub(crate) fn icicle_g2_proj_to_ark(point: &IcicleG2Projective) -> G2Affine {
     use ark_bn254::{Fq, Fq2, G2Affine};
 
     let affine: IcicleG2Affine = point.to_affine();
@@ -166,7 +167,7 @@ mod tests {
     fn test_scalar_roundtrip() {
         let mut rng = ark_std::test_rng();
         for _ in 0..100 {
-            let ark_scalar = ArkFr::rand(&mut rng);
+            let ark_scalar = Fr::rand(&mut rng);
             let icicle_scalar = ark_fr_to_icicle(&ark_scalar);
             let back = icicle_to_ark_fr(&icicle_scalar);
             assert_eq!(ark_scalar, back);
