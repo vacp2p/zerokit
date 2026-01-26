@@ -70,7 +70,6 @@ fn proof_generation_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
-#[cfg(feature = "icicle")]
 fn proof_generation_icicle_benchmark(c: &mut Criterion) {
     // let _ = init_icicle_backend();
 
@@ -94,14 +93,10 @@ fn proof_generation_icicle_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
-#[cfg(feature = "icicle")]
 criterion_group!(
     benches,
     proof_generation_benchmark,
     proof_generation_icicle_benchmark
 );
-
-#[cfg(not(feature = "icicle"))]
-criterion_group!(benches, proof_generation_benchmark);
 
 criterion_main!(benches);
