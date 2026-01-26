@@ -6,9 +6,8 @@ use num_bigint::BigInt;
 use num_traits::Signed;
 #[cfg(feature = "icicle")]
 use {
-    crate::circuit::icicle::{init_icicle, proof::create_proof_with_icicle_msm},
-    ark_groth16::r1cs_to_qap::R1CSToQAP,
-    ark_poly::GeneralEvaluationDomain,
+    crate::circuit::icicle::proof::create_proof_with_icicle_msm,
+    ark_groth16::r1cs_to_qap::R1CSToQAP, ark_poly::GeneralEvaluationDomain,
 };
 
 use super::witness::{inputs_for_witness_calculation, RLNWitnessInput};
@@ -360,9 +359,6 @@ pub fn generate_zk_proof_with_witness_icicle(
     calculated_witness: Vec<BigInt>,
     zkey: &Zkey,
 ) -> Result<Proof, ProtocolError> {
-    // Initialize ICICLE
-    init_icicle()?;
-
     let full_assignment = calculated_witness_to_field_elements::<Curve>(calculated_witness)?;
 
     // Compute witness polynomial h using CircomReduction (same as before)
@@ -397,9 +393,6 @@ pub fn generate_zk_proof_icicle(
     witness: &RLNWitnessInput,
     graph: &Graph,
 ) -> Result<Proof, ProtocolError> {
-    // Initialize ICICLE
-    init_icicle()?;
-
     // Calculate witness using the standard method
     let inputs = inputs_for_witness_calculation(witness)?
         .into_iter()
