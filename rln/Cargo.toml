@@ -98,6 +98,7 @@ harness = false
 [[bench]]
 name = "proof_benchmark"
 harness = false
+required-features = ["pmtree-ft", "icicle"]
 
 [package.metadata.docs.rs]
 all-features = true
