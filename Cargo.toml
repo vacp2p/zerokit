@@ -10,4 +10,4 @@ resolver = "2"
 opt-level = 3
 
 [patch.crates-io]
-zstd = "0.13.2"
+zstd = "0.13.3"
