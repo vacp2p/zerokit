@@ -5,7 +5,7 @@ pub(crate) mod iden3calc;
 pub(crate) mod qap;
 
 #[cfg(feature = "icicle")]
-pub(crate) mod icicle;
+pub mod icicle;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::LazyLock;
