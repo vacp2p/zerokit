@@ -8,3 +8,6 @@ resolver = "2"
 # This improves dev performance while having negligible impact on incremental build times.
 [profile.dev.package."*"]
 opt-level = 3
+
+[patch.crates-io]
+zstd = "0.13.2"
