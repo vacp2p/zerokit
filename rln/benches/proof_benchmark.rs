@@ -72,7 +72,7 @@ fn proof_generation_benchmark(c: &mut Criterion) {
 
 #[cfg(feature = "icicle")]
 fn proof_generation_icicle_benchmark(c: &mut Criterion) {
-    let _ = init_icicle_backend();
+    // let _ = init_icicle_backend();
 
     let witness = get_test_witness();
     let proving_key = zkey_from_folder();
