@@ -1,6 +1,8 @@
 use std::{array::TryFromSliceError, num::TryFromIntError};
 
 use ark_relations::r1cs::SynthesisError;
+#[cfg(feature = "icicle")]
+use icicle_runtime::IcicleError;
 use num_bigint::{BigInt, ParseBigIntError};
 use zerokit_utils::error::{FromConfigError, HashError, ZerokitMerkleTreeError};
 
@@ -27,6 +29,9 @@ pub enum UtilsError {
 /// Errors that can occur during RLN protocol operations (proof generation, verification, etc.)
 #[derive(Debug, thiserror::Error)]
 pub enum ProtocolError {
+    #[cfg(feature = "icicle")]
+    #[error("Icicle error: {0}")]
+    Icicle(#[from] IcicleError),
     #[error("Error producing proof: {0}")]
     Synthesis(#[from] SynthesisError),
     #[error("RLN utility error: {0}")]

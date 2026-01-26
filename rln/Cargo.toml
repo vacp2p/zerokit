@@ -59,11 +59,16 @@ serde = { version = "1.0.228", features = ["derive"] }
 # Documentation
 document-features = { version = "0.2.12", optional = true }
 
+# GPU Acceleration (optional)
+icicle-runtime = { git = "https://github.com/ingonyama-zk/icicle.git", branch = "main", optional = true }
+icicle-core = { git = "https://github.com/ingonyama-zk/icicle.git", branch = "main", optional = true }
+icicle-bn254 = { git = "https://github.com/ingonyama-zk/icicle.git", branch = "main", optional = true }
+
 [dev-dependencies]
 criterion = { version = "0.8.0", features = ["html_reports"] }
 
 [features]
-default = ["parallel", "pmtree-ft"]
+default = ["parallel", "pmtree-ft", "icicle"]
 stateless = []
 parallel = [
     "rayon",
@@ -79,6 +84,7 @@ fullmerkletree = [] # Pre-allocated tree, fastest access
 optimalmerkletree = [] # Sparse storage, memory efficient
 pmtree-ft = ["zerokit_utils/pmtree-ft"] # Persistent storage, disk-based
 headers = ["safer-ffi/headers"] # Generate C header file with safer-ffi
+icicle = ["icicle-runtime", "icicle-core", "icicle-bn254"] # GPU acceleration
 
 [[bench]]
 name = "pmtree_benchmark"
