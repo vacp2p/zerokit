@@ -1,6 +1,6 @@
 #![cfg(feature = "pmtree-ft")]
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(test)]
 mod test {
     use std::path::PathBuf;
 
@@ -317,6 +317,7 @@ mod test {
         assert_eq!(tree_ht.root(), tree_ls.root());
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn test_pmtree_compression() {
         let config_comp = PmtreeConfig::builder()
