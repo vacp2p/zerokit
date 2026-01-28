@@ -4,7 +4,6 @@ mod test {
 
     use rand::{thread_rng, Rng};
     use rln::prelude::*;
-
     use serde_json::{json, Value};
 
     fn fq_from_str(s: &str) -> Fq {

@@ -147,11 +147,11 @@ mod test {
         }
 
         let bytes_le = vec_wasmfr.to_bytes_le();
-        let expected_le = rln::utils::vec_fr_to_bytes_le(&vec_fr);
+        let expected_le = vec_fr_to_bytes_le(&vec_fr);
         assert_eq!(bytes_le.to_vec(), expected_le);
 
         let bytes_be = vec_wasmfr.to_bytes_be();
-        let expected_be = rln::utils::vec_fr_to_bytes_be(&vec_fr);
+        let expected_be = vec_fr_to_bytes_be(&vec_fr);
         assert_eq!(bytes_be.to_vec(), expected_be);
 
         let vec_wasmfr_from_le = match VecWasmFr::from_bytes_le(&bytes_le) {
