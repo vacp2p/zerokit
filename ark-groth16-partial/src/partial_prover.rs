@@ -56,7 +56,7 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16Partial<E, QAP> {
 
     /// Finish a proof using precomputed matrices and full assignment (public/instance || witness).
     #[inline]
-    pub fn finish_proof_with_reduction_and_matrices(
+    pub fn finish_proof_with_matrices(
         pk: &ProvingKey<E>,
         partial: &PartialProof<E>,
         r: E::ScalarField,
