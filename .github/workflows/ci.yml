@@ -256,11 +256,11 @@ jobs:
             });
             const coverageArtifact = artifacts.data.artifacts.find(art => art.name === 'coverage-reports');
             if (coverageArtifact) {
-              const downloadUrl = coverageArtifact.archive_download_url;
+              const artifactUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}/artifacts/${coverageArtifact.id}`;
               await github.rest.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `Coverage report uploaded. [Download HTML Report](${downloadUrl})`
+                body: `Coverage report uploaded. [Download HTML Report](${artifactUrl})`
               });
             }
