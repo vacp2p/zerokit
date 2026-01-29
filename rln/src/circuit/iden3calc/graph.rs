@@ -271,6 +271,46 @@ pub(crate) fn evaluate(
     Ok(out)
 }
 
+pub(crate) fn evaluate_partial(
+    nodes: &[Node],
+    inputs: &[Option<U256>],
+    outputs: &[usize],
+) -> Result<Vec<Option<Fr>>, String> {
+    let mut values = Vec::with_capacity(nodes.len());
+    for &node in nodes.iter() {
+        let value = match node {
+            Node::Constant(c) => Some(u256_to_fr(&c)?),
+            Node::MontConstant(c) => Some(c),
+            Node::Input(i) => inputs
+                .get(i)
+                .cloned()
+                .unwrap_or(None)
+                .map(|x| u256_to_fr(&x))
+                .transpose()?,
+            Node::Op(op, a, b) => match (values[a], values[b]) {
+                (Some(va), Some(vb)) => Some(op.eval_fr(va, vb)?),
+                _ => None,
+            },
+            Node::UnoOp(op, a) => match values[a] {
+                Some(va) => Some(op.eval_fr(va)?),
+                None => None,
+            },
+            Node::TresOp(op, a, b, c) => match (values[a], values[b], values[c]) {
+                (Some(va), Some(vb), Some(vc)) => Some(op.eval_fr(va, vb, vc)?),
+                _ => None,
+            },
+        };
+        values.push(value);
+    }
+
+    let mut out = vec![None; outputs.len()];
+    for i in 0..outputs.len() {
+        out[i] = values[outputs[i]];
+    }
+
+    Ok(out)
+}
+
 fn shl(a: Fr, b: Fr) -> Result<Fr, String> {
     if b.is_zero() {
         return Ok(a);
