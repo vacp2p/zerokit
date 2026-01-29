@@ -4,8 +4,8 @@ use ark_ff::{PrimeField, Zero};
 use ark_groth16::{Proof, ProvingKey};
 use ark_groth16::r1cs_to_qap::R1CSToQAP;
 use ark_groth16::r1cs_to_qap::LibsnarkReduction;
-use ark_relations::r1cs::{ConstraintMatrices, ConstraintSynthesizer, SynthesisError, Result as R1CSResult};
-use ark_std::iterable::Iterable;
+use ark_poly::GeneralEvaluationDomain;
+use ark_relations::r1cs::{ConstraintMatrices, ConstraintSynthesizer, SynthesisError, Result as R1CSResult, ConstraintSystem, OptimizationGoal, SynthesisMode};
 use ark_std::rand::RngCore;
 use ark_std::{marker::PhantomData, ops::Mul, vec::Vec, UniformRand};
 
@@ -51,7 +51,7 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16Partial<E, QAP> {
         pk: &ProvingKey<E>,
         partial_assignment: &PartialAssignment<E::ScalarField>,
     ) -> PartialProof<E> {
-        todo!()
+        create_partial_proof_from_assignment(pk, partial_assignment)
     }
 
     /// Finish a proof using precomputed matrices and full assignment (public/instance || witness).
@@ -66,10 +66,19 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16Partial<E, QAP> {
         num_constraints: usize,
         full_assignment_qap: &[E::ScalarField],
     ) -> R1CSResult<Proof<E>> {
-        todo!()
+        finish_proof_with_reduction_and_matrices::<E, QAP>(
+            pk,
+            partial,
+            r,
+            s,
+            matrices,
+            num_inputs,
+            num_constraints,
+            full_assignment_qap,
+        )
     }
 
-    /// Finish a proof from a circuit and a partial proof, sampling randomness via `rng`.
+    /// Finish a proof from a circuit and a partial proof, sampling blinding/randomness with `rng`.
     #[inline]
     pub fn finish_proof<C: ConstraintSynthesizer<E::ScalarField>, R: RngCore>(
         pk: &ProvingKey<E>,
@@ -77,7 +86,7 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16Partial<E, QAP> {
         rng: &mut R,
         partial: &PartialProof<E>,
     ) -> Result<Proof<E>, SynthesisError> {
-        todo!()
+        finish_proof::<E, QAP, C, R>(pk, circuit, rng, partial).map_err(Into::into)
     }
 }
 
@@ -95,7 +104,7 @@ fn msm<G: CurveGroup>(points: &[G::Affine], scalars: &[G::ScalarField]) -> G {
 
 /// Precompute MSMs for a given partial assignment (witnesses).
 /// `partial_assignment` is ordered as (public inputs excluding 1) || (witness/aux).
-pub fn create_partial_proof_from_assignment<E: Pairing>(
+fn create_partial_proof_from_assignment<E: Pairing>(
     pk: &ProvingKey<E>,
     partial_assignment: &PartialAssignment<E::ScalarField>,
 ) -> PartialProof<E> {
@@ -169,8 +178,8 @@ pub fn create_partial_proof_from_assignment<E: Pairing>(
     }
 }
 
-// Finish a partial proof once the full witness/assignment and QAP `h` are known.
-pub fn finish_partial_proof_with_assignment<E: Pairing>(
+/// Finish a partial proof once the full witness/assignment and QAP `h` are known.
+fn finish_partial_proof_with_assignment<E: Pairing>(
     pk: &ProvingKey<E>,
     partial: &PartialProof<E>,
     full_assignment: &[E::ScalarField],
@@ -260,4 +269,72 @@ pub fn finish_partial_proof_with_assignment<E: Pairing>(
         b: g2_b.into_affine(),
         c: g_c.into_affine(),
     })
+}
+
+/// Finish a proof using precomputed matrices and full assignment (public inputs || witness).
+fn finish_proof_with_reduction_and_matrices<E, QAP>(
+    pk: &ProvingKey<E>,
+    partial: &PartialProof<E>,
+    r: E::ScalarField,
+    s: E::ScalarField,
+    matrices: &ConstraintMatrices<E::ScalarField>,
+    num_inputs: usize,
+    num_constraints: usize,
+    full_assignment_qap: &[E::ScalarField],
+) -> R1CSResult<Proof<E>>
+where
+    E: Pairing,
+    QAP: R1CSToQAP,
+{
+    let h = QAP::witness_map_from_matrices::<E::ScalarField, GeneralEvaluationDomain<E::ScalarField>>(
+        matrices,
+        num_inputs,
+        num_constraints,
+        full_assignment_qap,
+    )?;
+
+    // take (instance excluding "1" || witness)
+    let full_assignment = full_assignment_qap[1..].to_vec();
+
+    finish_partial_proof_with_assignment(pk, partial, &full_assignment, &h, r, s)
+}
+
+/// Finish a proof from a circuit and a partial proof, sampling blinding/randomness using `rng`
+/// this is similar API to `prove(...)` ark-Groth16
+fn finish_proof<E, QAP, C, R>(
+    pk: &ProvingKey<E>,
+    circuit: C,
+    rng: &mut R,
+    partial: &PartialProof<E>,
+) -> R1CSResult<Proof<E>>
+where
+    E: Pairing,
+    QAP: R1CSToQAP,
+    C: ConstraintSynthesizer<E::ScalarField>,
+    R: RngCore,
+{
+    let r = E::ScalarField::rand(rng);
+    let s = E::ScalarField::rand(rng);
+
+    let cs = ConstraintSystem::new_ref();
+    cs.set_optimization_goal(OptimizationGoal::Constraints);
+    cs.set_mode(SynthesisMode::Prove {
+        construct_matrices: true,
+    });
+
+    circuit.generate_constraints(cs.clone())?;
+    cs.finalize();
+
+    debug_assert!(cs.is_satisfied().unwrap());
+
+    let h = QAP::witness_map::<E::ScalarField, GeneralEvaluationDomain<E::ScalarField>>(cs.clone())?;
+
+    let prover = cs.borrow().unwrap();
+    let full_assignment = [
+        prover.instance_assignment.as_slice()[1..].to_vec(),
+        prover.witness_assignment.as_slice().to_vec(),
+    ]
+        .concat();
+
+    finish_partial_proof_with_assignment(pk, partial, &full_assignment, &h, r, s)
 }
