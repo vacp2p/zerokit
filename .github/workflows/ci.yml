@@ -249,9 +249,18 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `Coverage report uploaded. View and download the HTML report from [this workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) under the 'coverage-reports' artifact.`
-            })
+              run_id: context.runId,
+            });
+            const coverageArtifact = artifacts.data.artifacts.find(art => art.name === 'coverage-reports');
+            if (coverageArtifact) {
+              const downloadUrl = coverageArtifact.archive_download_url;
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `Coverage report uploaded. [Download HTML Report](${downloadUrl})`
+              });
+            }
