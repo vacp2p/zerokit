@@ -143,6 +143,69 @@ mod test {
         assert!(success);
     }
 
+        #[test]
+    // We test partial proof generation and finishing
+    fn test_partial_end_to_end() {
+        let witness = get_test_witness();
+
+        let partial_witness = RLNPartialWitnessInput::new(
+            witness.identity_secret().clone(),
+            *witness.user_message_limit(),
+            witness.path_elements().to_vec(),
+            witness.identity_path_index().to_vec(),
+        ).unwrap();
+
+        let proving_key = zkey_from_folder();
+        let graph_data = graph_from_folder();
+
+        let partial_proof = generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
+        let proof = finish_zk_proof(proving_key, &partial_proof, &witness, graph_data).unwrap();
+
+        let proof_values = proof_values_from_witness(&witness).unwrap();
+        let success = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
+
+        assert!(success);
+    }
+
+    #[test]
+    // We test that finished partial proof equals full proof (with fixed r,s blinding)
+    fn test_partial_equals_full_proof() {
+        let witness = get_test_witness();
+
+        let partial_witness = RLNPartialWitnessInput::new(
+            witness.identity_secret().clone(),
+            *witness.user_message_limit(),
+            witness.path_elements().to_vec(),
+            witness.identity_path_index().to_vec(),
+        ).unwrap();
+
+        let proving_key = zkey_from_folder();
+        let graph_data = graph_from_folder();
+
+        let partial_proof = generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
+
+        let r = Fr::from(44u64);
+        let s = Fr::from(77u64);
+
+        let full_proof = generate_zk_proof_with_rs(proving_key, &witness, graph_data, r, s).unwrap();
+        let finished_proof = finish_zk_proof_with_rs(
+            proving_key,
+            &partial_proof,
+            &witness,
+            graph_data,
+            r,
+            s,
+        ).unwrap();
+
+        let proof_values = proof_values_from_witness(&witness).unwrap();
+        assert_eq!(full_proof, finished_proof);
+        let success1 = verify_zk_proof(&proving_key.0.vk, &full_proof, &proof_values).unwrap();
+        assert!(success1);
+        let success2 = verify_zk_proof(&proving_key.0.vk, &finished_proof, &proof_values).unwrap();
+        assert!(success2);
+    }
+
+
     #[test]
     fn test_witness_serialization() {
         let witness = get_test_witness();

@@ -15,6 +15,7 @@ use ark_ff::Field;
 use ark_groth16::{
     Proof as ArkProof, ProvingKey as ArkProvingKey, VerifyingKey as ArkVerifyingKey,
 };
+use ark_groth16_partial::PartialProof as ArkPartialProof;
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
@@ -72,6 +73,8 @@ pub type G2Projective = ArkG2Projective;
 
 /// Groth16 proof for the BN254 curve.
 pub type Proof = ArkProof<Curve>;
+/// Partial Groth16 proof for the BN254 curve.
+pub type PartialProof = ArkPartialProof<Curve>;
 
 /// Proving key for the Groth16 proof system.
 pub type ProvingKey = ArkProvingKey<Curve>;
