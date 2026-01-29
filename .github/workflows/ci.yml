@@ -245,3 +245,13 @@ jobs:
         with:
           name: coverage-reports
           path: ./coverage/
+      - name: Comment on PR with coverage link
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Coverage report uploaded. View and download the HTML report from [this workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) under the 'coverage-reports' artifact.`
+            })
