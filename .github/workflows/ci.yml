@@ -222,7 +222,7 @@ jobs:
           features: ${{ matrix.feature }}
 
   coverage:
-    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && contains(github.event.pull_request.labels.*.name, 'run-coverage')
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-coverage')
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
