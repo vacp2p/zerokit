@@ -222,58 +222,30 @@ jobs:
           features: ${{ matrix.feature }}
 
   coverage:
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-coverage')
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
     name: Coverage Report
-    permissions:
-      checks: write
-    env:
-      SHOULD_RUN_COVERAGE: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-coverage') }}
     steps:
-      - name: Report coverage skipped in checks
-        if: env.SHOULD_RUN_COVERAGE == 'false' && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.checks.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              name: 'Coverage Report',
-              head_sha: context.payload.pull_request.head.sha,
-              status: 'completed',
-              conclusion: 'neutral',
-              output: {
-                title: 'Coverage report skipped',
-                summary: "Add 'run-coverage' label to the pull request to generate coverage report."
-              }
-            });
       - name: Checkout sources
-        if: env.SHOULD_RUN_COVERAGE
         uses: actions/checkout@v4
       - name: Install stable toolchain
-        if: env.SHOULD_RUN_COVERAGE
         uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-        if: env.SHOULD_RUN_COVERAGE
       - name: Install dependencies
-        if: env.SHOULD_RUN_COVERAGE
         run: make installdeps
       - name: Install cargo-tarpaulin
-        if: env.SHOULD_RUN_COVERAGE
         run: cargo install cargo-tarpaulin
       - name: Run coverage
-        if: env.SHOULD_RUN_COVERAGE
         run: |
           cargo tarpaulin --out Html --output-dir ./coverage -- --test-threads 1
       - name: Upload coverage reports
-        if: env.SHOULD_RUN_COVERAGE
         uses: actions/upload-artifact@v4
         with:
           name: coverage-reports
           path: ./coverage/
       - name: Comment on PR with coverage link
-        if: env.SHOULD_RUN_COVERAGE
         uses: actions/github-script@v7
         with:
           script: |
