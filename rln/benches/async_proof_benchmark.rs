@@ -81,6 +81,8 @@ fn async_proof_generation_benchmark(c: &mut Criterion) {
 }
 
 fn async_proof_generation_icicle_benchmark(c: &mut Criterion) {
+    // let _ = init_icicle_backend();
+
     let rt = Builder::new_multi_thread().enable_all().build().unwrap();
 
     let witness = get_test_witness();
