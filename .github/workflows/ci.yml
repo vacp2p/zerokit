@@ -10,7 +10,7 @@ on:
       - "!rln/resources/**"
       - "!utils/src/**"
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
     paths-ignore:
       - "**.md"
       - "!.github/workflows/*.yml"
@@ -220,3 +220,47 @@ jobs:
           branchName: ${{ github.base_ref }}
           cwd: ${{ matrix.crate }}
           features: ${{ matrix.feature }}
+
+  coverage:
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-coverage')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    name: Coverage Report
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install dependencies
+        run: make installdeps
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
+      - name: Run coverage
+        run: |
+          cargo tarpaulin --out Html --output-dir ./coverage -- --test-threads 1
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: ./coverage/
+      - name: Comment on PR with coverage link
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId,
+            });
+            const coverageArtifact = artifacts.data.artifacts.find(art => art.name === 'coverage-reports');
+            if (coverageArtifact) {
+              const artifactUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}/artifacts/${coverageArtifact.id}`;
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `Coverage report uploaded. [Download HTML Report](${artifactUrl})`
+              });
+            }
