@@ -225,7 +225,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
-    name: Coverage Report
+    name: Coverage Report 
     permissions:
       checks: write
     env:
