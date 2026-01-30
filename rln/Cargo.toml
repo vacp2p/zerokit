@@ -65,7 +65,9 @@ icicle-core = { git = "https://github.com/ingonyama-zk/icicle.git", optional = t
 icicle-bn254 = { git = "https://github.com/ingonyama-zk/icicle.git", optional = true }
 
 [dev-dependencies]
-criterion = { version = "0.8.0", features = ["html_reports"] }
+criterion = { version = "0.8.0", features = ["html_reports", "async_tokio"] }
+tokio = { version = "1.44", features = ["rt-multi-thread", "macros", "sync"] }
+futures = "0.3"
 
 [features]
 default = ["parallel", "pmtree-ft"]
@@ -97,6 +99,11 @@ harness = false
 
 [[bench]]
 name = "proof_benchmark"
+harness = false
+required-features = ["pmtree-ft", "icicle"]
+
+[[bench]]
+name = "async_proof_benchmark"
 harness = false
 required-features = ["pmtree-ft", "icicle"]
 
