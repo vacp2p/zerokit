@@ -21,3 +21,14 @@ args = [
 [tasks.bench]
 command = "cargo"
 args = ["bench"]
+
+[tasks.bench_icicle]
+command = "cargo"
+args = [
+	"bench",
+	"--bench",
+	"proof_benchmark",
+	"--no-default-features",
+	"--features",
+	"pmtree-ft,icicle",
+]
