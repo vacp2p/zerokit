@@ -1,6 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use rln::prelude::*;
-#[cfg(feature = "icicle")]
 use rln::protocol::generate_zk_proof_icicle;
 use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
 

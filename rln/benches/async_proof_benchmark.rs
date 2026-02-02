@@ -2,7 +2,6 @@ use std::{thread::available_parallelism, time::Duration};
 
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use rln::prelude::*;
-#[cfg(feature = "icicle")]
 use rln::protocol::generate_zk_proof_icicle;
 use tokio::{runtime::Builder, task::JoinSet};
 use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
