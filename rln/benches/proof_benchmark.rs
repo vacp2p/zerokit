@@ -55,7 +55,7 @@ fn proof_generation_benchmark(c: &mut Criterion) {
 
     group.bench_function("standard", |b| {
         b.iter(|| {
-            let _ = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
+            let _ = generate_zk_proof(&proving_key, &witness, &graph_data).unwrap();
         })
     });
 
@@ -63,7 +63,7 @@ fn proof_generation_benchmark(c: &mut Criterion) {
 }
 
 fn proof_generation_icicle_benchmark(c: &mut Criterion) {
-    // let _ = init_icicle_backend();
+    let _ = init_icicle_backend();
 
     let witness = get_test_witness();
     let proving_key = zkey_from_folder();
@@ -76,7 +76,7 @@ fn proof_generation_icicle_benchmark(c: &mut Criterion) {
 
     group.bench_function("icicle", |b| {
         b.iter(|| {
-            let _ = generate_zk_proof_icicle(proving_key, &witness, graph_data).unwrap();
+            let _ = generate_zk_proof_icicle(&proving_key, &witness, &graph_data).unwrap();
         })
     });
 

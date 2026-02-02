@@ -1,4 +1,11 @@
-use std::{thread::available_parallelism, time::Duration};
+use std::{
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+    thread::available_parallelism,
+    time::Duration,
+};
 
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use rln::prelude::*;
@@ -54,6 +61,8 @@ fn async_proof_generation_benchmark(c: &mut Criterion) {
     let rt = Builder::new_multi_thread().enable_all().build().unwrap();
 
     let witness = get_test_witness();
+    let proving_key = zkey_from_folder();
+    let graph_data = graph_from_folder();
     let proof_count = get_proof_count();
 
     let mut group = c.benchmark_group("async_proof_generation");
@@ -67,9 +76,7 @@ fn async_proof_generation_benchmark(c: &mut Criterion) {
             for _ in 0..proof_count {
                 let witness = witness.clone();
                 set.spawn_blocking(move || {
-                    let proving_key = zkey_from_folder();
-                    let graph_data = graph_from_folder();
-                    generate_zk_proof(proving_key, &witness, graph_data).unwrap()
+                    let _ = generate_zk_proof(&proving_key, &witness, &graph_data).unwrap();
                 });
             }
             set.join_all().await
@@ -80,12 +87,15 @@ fn async_proof_generation_benchmark(c: &mut Criterion) {
 }
 
 fn async_proof_generation_icicle_benchmark(c: &mut Criterion) {
-    // let _ = init_icicle_backend();
+    let _ = init_icicle_backend();
 
     let rt = Builder::new_multi_thread().enable_all().build().unwrap();
 
     let witness = get_test_witness();
+    let proving_key = zkey_from_folder();
+    let graph_data = graph_from_folder();
     let proof_count = get_proof_count();
+    let cpu_workers = available_parallelism().map(|p| p.get()).unwrap_or(4);
 
     let mut group = c.benchmark_group("async_proof_generation_icicle");
     group.sample_size(10);
@@ -93,17 +103,44 @@ fn async_proof_generation_icicle_benchmark(c: &mut Criterion) {
     group.throughput(Throughput::Elements(proof_count as u64));
 
     group.bench_function("icicle", |b| {
-        b.to_async(&rt).iter(|| async {
-            let mut set = JoinSet::new();
-            for _ in 0..proof_count {
-                let witness = witness.clone();
-                set.spawn_blocking(move || {
-                    let proving_key = zkey_from_folder();
-                    let graph_data = graph_from_folder();
-                    generate_zk_proof_icicle(proving_key, &witness, graph_data).unwrap()
-                });
+        let witness = witness.clone();
+
+        b.to_async(&rt).iter(|| {
+            let witness = witness.clone();
+
+            async move {
+                let remaining = Arc::new(AtomicUsize::new(proof_count));
+                let mut set = JoinSet::new();
+
+                {
+                    let remaining = remaining.clone();
+                    let witness = witness.clone();
+                    set.spawn_blocking(move || loop {
+                        let prev = remaining.fetch_sub(1, Ordering::Relaxed);
+                        if prev == 0 || prev > proof_count {
+                            break;
+                        }
+                        let _ =
+                            generate_zk_proof_icicle(&proving_key, &witness, &graph_data).unwrap();
+                    })
+                };
+
+                let mut cpu_handles = Vec::new();
+                for _ in 0..cpu_workers {
+                    let remaining = remaining.clone();
+                    let witness = witness.clone();
+                    let handle = set.spawn_blocking(move || loop {
+                        let prev = remaining.fetch_sub(1, Ordering::Relaxed);
+                        if prev == 0 || prev > proof_count {
+                            break;
+                        }
+                        let _ = generate_zk_proof(&proving_key, &witness, &graph_data).unwrap();
+                    });
+                    cpu_handles.push(handle);
+                }
+
+                set.join_all().await;
             }
-            set.join_all().await
         });
     });
 
