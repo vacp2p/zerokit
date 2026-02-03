@@ -2,7 +2,11 @@
 
 <!-- Describe the changes made in this PR -->
 
-## Coverage Report
+## Testing
 
-To run the CI coverage report, add the `run-coverage` label to this PR. The coverage job will only execute when this label is present.
+<!-- Describe the testing done for this PR -->
 
+
+## Checklist
+
+- [ ] I have run the CI coverage report. Add the `run-coverage` label to this PR to enable it.
