@@ -295,28 +295,13 @@ pub fn generate_zk_proof(
     witness: &RLNWitnessInput,
     graph: &Graph,
 ) -> Result<Proof, ProtocolError> {
-    let inputs = inputs_for_witness_calculation(witness)?
-        .into_iter()
-        .map(|(name, values)| (name.to_string(), values));
-
-    let full_assignment = calc_witness(inputs, graph)?;
 
     // Random Values
     let mut rng = thread_rng();
     let r = Fr::rand(&mut rng);
     let s = Fr::rand(&mut rng);
 
-    let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
-        &zkey.0,
-        r,
-        s,
-        &zkey.1,
-        zkey.1.num_instance_variables,
-        zkey.1.num_constraints,
-        full_assignment.as_slice(),
-    )?;
-
-    Ok(proof)
+    generate_zk_proof_with_rs(zkey, witness, graph, r, s)
 }
 
 /// Generates a zkSNARK proof from witness input using the provided circuit data.
@@ -375,28 +360,12 @@ pub fn finish_zk_proof(
     witness: &RLNWitnessInput,
     graph: &Graph,
 ) -> Result<Proof, ProtocolError> {
-    let inputs = inputs_for_witness_calculation(witness)?
-        .into_iter()
-        .map(|(name, values)| (name.to_string(), values));
-
-    let full_assignment = calc_witness(inputs, graph)?;
 
     let mut rng = thread_rng();
     let r = Fr::rand(&mut rng);
     let s = Fr::rand(&mut rng);
 
-    let proof = Groth16Partial::<_, CircomReduction>::finish_proof_with_matrices(
-        &zkey.0,
-        partial_proof,
-        r,
-        s,
-        &zkey.1,
-        zkey.1.num_instance_variables,
-        zkey.1.num_constraints,
-        full_assignment.as_slice(),
-    )?;
-
-    Ok(proof)
+    finish_zk_proof_with_rs(zkey, partial_proof, witness, graph, r, s)
 }
 
 /// Finish the proof using a precomputed partial proof and full witness inputs.
