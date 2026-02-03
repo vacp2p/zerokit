@@ -2,7 +2,6 @@ use std::{array::TryFromSliceError, num::TryFromIntError};
 
 use ark_relations::r1cs::SynthesisError;
 use num_bigint::{BigInt, ParseBigIntError};
-use thiserror::Error;
 use zerokit_utils::error::{FromConfigError, HashError, ZerokitMerkleTreeError};
 
 use crate::circuit::{
@@ -57,7 +56,7 @@ pub enum ProtocolError {
 }
 
 /// Errors that can occur during proof verification
-#[derive(Error, Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum VerifyError {
     #[error("Invalid proof provided")]
     InvalidProof,
