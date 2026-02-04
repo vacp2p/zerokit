@@ -14,12 +14,6 @@ use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
 
 type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
 
-fn get_proof_count() -> usize {
-    available_parallelism().map(|p| p.get() * 2).unwrap_or(8)
-}
-
-fn get_test_witness() -> RLNWitnessInput {
-    let leaf_index = 3;
     let (identity_secret, id_commitment) = keygen().unwrap();
     let user_message_limit = Fr::from(100);
     let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
@@ -62,7 +56,7 @@ fn async_proof_generation_benchmark(c: &mut Criterion) {
     let witness = get_test_witness();
     let proving_key = zkey_from_folder();
     let graph_data = graph_from_folder();
-    let proof_count = get_proof_count();
+    let proof_count = available_parallelism().map(|p| p.get() * 2).unwrap_or(8);
 
     let mut group = c.benchmark_group("async_proof_generation");
     group.sample_size(10);
@@ -86,15 +80,14 @@ fn async_proof_generation_benchmark(c: &mut Criterion) {
 }
 
 fn async_proof_generation_icicle_benchmark(c: &mut Criterion) {
-    let _ = init_icicle_backend();
+    // let _ = init_icicle_backend();
 
     let rt = Builder::new_multi_thread().enable_all().build().unwrap();
 
     let witness = get_test_witness();
     let proving_key = zkey_from_folder();
     let graph_data = graph_from_folder();
-    let proof_count = get_proof_count();
-    let cpu_workers = available_parallelism().map(|p| p.get()).unwrap_or(4);
+    let proof_count = available_parallelism().map(|p| p.get() * 2).unwrap_or(8);
 
     let mut group = c.benchmark_group("async_proof_generation_icicle");
     group.sample_size(10);
@@ -125,7 +118,7 @@ fn async_proof_generation_icicle_benchmark(c: &mut Criterion) {
                 };
 
                 let mut cpu_handles = Vec::new();
-                for _ in 0..cpu_workers {
+                for _ in 0..proof_count {
                     let remaining = remaining.clone();
                     let witness = witness.clone();
                     let handle = set.spawn_blocking(move || loop {
