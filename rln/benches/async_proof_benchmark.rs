@@ -8,8 +8,7 @@ use std::{
 };
 
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
-use rln::prelude::*;
-use rln::protocol::generate_zk_proof_icicle;
+use rln::{prelude::*, protocol::generate_zk_proof_icicle};
 use tokio::{runtime::Builder, task::JoinSet};
 use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
 
