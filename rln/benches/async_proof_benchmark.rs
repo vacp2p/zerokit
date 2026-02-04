@@ -14,6 +14,7 @@ use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
 
 type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
 
+fn get_test_witness() -> RLNWitnessInput {
     let (identity_secret, id_commitment) = keygen().unwrap();
     let user_message_limit = Fr::from(100);
     let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
