@@ -16,6 +16,9 @@ result
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
 
+# Rust examples
+rln/examples/database
+
 # FFI C examples
 rln/ffi_c_examples/main
 rln/ffi_c_examples/rln.h
