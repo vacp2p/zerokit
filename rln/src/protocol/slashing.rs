@@ -46,10 +46,64 @@ pub fn recover_id_secret(
         ));
     }
 
-    // We extract the two shares
-    let share1 = (rln_proof_values_1.x, rln_proof_values_1.y);
-    let share2 = (rln_proof_values_2.x, rln_proof_values_2.y);
+    #[cfg(not(feature = "multi-message-id"))]
+    {
+        let share1 = (rln_proof_values_1.x, rln_proof_values_1.y);
+        let share2 = (rln_proof_values_2.x, rln_proof_values_2.y);
+        compute_id_secret(share1, share2)
+    }
 
-    // We recover the secret
-    compute_id_secret(share1, share2)
+    #[cfg(feature = "multi-message-id")]
+    {
+        match (
+            (&rln_proof_values_1.y, &rln_proof_values_1.ys),
+            (&rln_proof_values_2.y, &rln_proof_values_2.ys),
+        ) {
+            ((Some(y1), None), (Some(y2), None)) => {
+                let share1 = (rln_proof_values_1.x, *y1);
+                let share2 = (rln_proof_values_2.x, *y2);
+                compute_id_secret(share1, share2)
+            }
+            ((None, Some(ys1)), (None, Some(ys2))) => {
+                let nullifiers1 = rln_proof_values_1
+                    .nullifiers
+                    .as_ref()
+                    .ok_or(ProtocolError::InvalidProofValues)?;
+                let nullifiers2 = rln_proof_values_2
+                    .nullifiers
+                    .as_ref()
+                    .ok_or(ProtocolError::InvalidProofValues)?;
+                let selector_used1 = rln_proof_values_1
+                    .selector_used
+                    .as_ref()
+                    .ok_or(ProtocolError::InvalidSelectorUsed)?;
+                let selector_used2 = rln_proof_values_2
+                    .selector_used
+                    .as_ref()
+                    .ok_or(ProtocolError::InvalidSelectorUsed)?;
+
+                for (i, (nullifier_i, &used_i)) in
+                    nullifiers1.iter().zip(selector_used1.iter()).enumerate()
+                {
+                    if used_i == 0 {
+                        continue;
+                    }
+                    for (j, (nullifier_j, &used_j)) in
+                        nullifiers2.iter().zip(selector_used2.iter()).enumerate()
+                    {
+                        if used_j == 0 {
+                            continue;
+                        }
+                        if nullifier_i == nullifier_j {
+                            let share1 = (rln_proof_values_1.x, ys1[i]);
+                            let share2 = (rln_proof_values_2.x, ys2[j]);
+                            return compute_id_secret(share1, share2);
+                        }
+                    }
+                }
+                Err(ProtocolError::IdSecretRecovery)
+            }
+            _ => Err(ProtocolError::IdSecretRecovery),
+        }
+    }
 }
