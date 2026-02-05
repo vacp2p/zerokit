@@ -175,8 +175,8 @@ impl RLNSystem {
     }
 
     fn check_nullifier(&mut self, proof_values: RLNProofValues) -> Result<()> {
-        if let Some(&previous_proof_values) = self.used_nullifiers.get(&proof_values.nullifier) {
-            self.handle_duplicate_message_id(previous_proof_values, proof_values)?;
+        if let Some(previous_proof_values) = self.used_nullifiers.get(&proof_values.nullifier) {
+            self.handle_duplicate_message_id(previous_proof_values.clone(), proof_values)?;
             return Ok(());
         }
 
