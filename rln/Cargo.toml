@@ -63,7 +63,7 @@ document-features = { version = "0.2.12", optional = true }
 criterion = { version = "0.8.0", features = ["html_reports"] }
 
 [features]
-default = ["parallel", "pmtree-ft"]
+default = ["parallel", "pmtree-ft", "multi-message-id"]
 stateless = []
 parallel = [
     "rayon",
@@ -79,6 +79,7 @@ fullmerkletree = [] # Pre-allocated tree, fastest access
 optimalmerkletree = [] # Sparse storage, memory efficient
 pmtree-ft = ["zerokit_utils/pmtree-ft"] # Persistent storage, disk-based
 headers = ["safer-ffi/headers"] # Generate C header file with safer-ffi
+multi-message-id = [] # Support multiple message IDs in single RLN proof
 
 [[bench]]
 name = "pmtree_benchmark"
