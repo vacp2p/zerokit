@@ -144,6 +144,9 @@ cargo make test
 
 # Test with stateless features
 cargo make test_stateless
+
+# Test with multi_message_id features
+cargo make test_multi_message_id
 ```
 
 ## Advanced: Custom Circuit Compilation

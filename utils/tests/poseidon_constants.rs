@@ -33,7 +33,7 @@ mod test {
     }
     // The following constants were taken from https://github.com/arnaucube/poseidon-rs/blob/233027d6075a637c29ad84a8a44f5653b81f0410/src/constants.rs
     // Constants were generated from the Poseidon reference implementation as
-    // generate_parameters_grain.sage 1 0 254 T RF RP 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
+    // Generate_parameters_grain.sage 1 0 254 T RF RP 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
     // with T in [2, 3, 4, 5, 6, 7, 8, 9], RF in [8, 8, 8, 8, 8, 8, 8, 8] and RP in [56, 57, 56, 60, 60, 63, 64, 63], respectively.
     // (in implementation, if we want to hash N elements we use parameters for T = N+1)
     // The constants were generated and are valid only for Bn254 scalar field characteristic, i.e. 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
