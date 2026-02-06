@@ -85,13 +85,13 @@ pub fn recover_id_secret(
                 for (i, (nullifier_i, &used_i)) in
                     nullifiers1.iter().zip(selector_used1.iter()).enumerate()
                 {
-                    if used_i == 0 {
+                    if !used_i {
                         continue;
                     }
                     for (j, (nullifier_j, &used_j)) in
                         nullifiers2.iter().zip(selector_used2.iter()).enumerate()
                     {
-                        if used_j == 0 {
+                        if !used_j {
                             continue;
                         }
                         if nullifier_i == nullifier_j {

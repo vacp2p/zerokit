@@ -8,8 +8,8 @@ use num_traits::Signed;
 use super::witness::{inputs_for_witness_calculation, RLNWitnessInput};
 #[cfg(feature = "multi-message-id")]
 use crate::utils::{
-    bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_le_to_vec_fr, bytes_le_to_vec_u8,
-    vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le,
+    bytes_be_to_vec_bool, bytes_be_to_vec_fr, bytes_le_to_vec_bool, bytes_le_to_vec_fr,
+    vec_bool_to_bytes_be, vec_bool_to_bytes_le, vec_fr_to_bytes_be, vec_fr_to_bytes_le,
 };
 use crate::{
     circuit::{
@@ -53,7 +53,7 @@ pub struct RLNProofValues {
     pub x: Fr,
     pub external_nullifier: Fr,
     #[cfg(feature = "multi-message-id")]
-    pub selector_used: Option<Vec<u8>>,
+    pub selector_used: Option<Vec<bool>>,
 }
 
 /// Serializes RLN proof values to little-endian bytes.
@@ -102,7 +102,7 @@ pub fn rln_proof_values_to_bytes_le(rln_proof_values: &RLNProofValues) -> Vec<u8
             bytes.extend_from_slice(&vec_fr_to_bytes_le(nullifiers));
         }
         if let Some(selector_used) = &rln_proof_values.selector_used {
-            bytes.extend_from_slice(&vec_u8_to_bytes_le(selector_used));
+            bytes.extend_from_slice(&vec_bool_to_bytes_le(selector_used));
         }
 
         bytes
@@ -155,7 +155,7 @@ pub fn rln_proof_values_to_bytes_be(rln_proof_values: &RLNProofValues) -> Vec<u8
             bytes.extend_from_slice(&vec_fr_to_bytes_be(nullifiers));
         }
         if let Some(selector_used) = &rln_proof_values.selector_used {
-            bytes.extend_from_slice(&vec_u8_to_bytes_be(selector_used));
+            bytes.extend_from_slice(&vec_bool_to_bytes_be(selector_used));
         }
 
         bytes
@@ -214,7 +214,7 @@ pub fn bytes_le_to_rln_proof_values(
                 read += el_size;
 
                 let selector_used = if read < bytes.len() {
-                    let (selector_used, el_size) = bytes_le_to_vec_u8(&bytes[read..])?;
+                    let (selector_used, el_size) = bytes_le_to_vec_bool(&bytes[read..])?;
                     read += el_size;
                     selector_used
                 } else {
@@ -299,7 +299,7 @@ pub fn bytes_be_to_rln_proof_values(
                 read += el_size;
 
                 let selector_used = if read < bytes.len() {
-                    let (selector_used, el_size) = bytes_be_to_vec_u8(&bytes[read..])?;
+                    let (selector_used, el_size) = bytes_be_to_vec_bool(&bytes[read..])?;
                     read += el_size;
                     selector_used
                 } else {

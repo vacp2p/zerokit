@@ -1,7 +1,12 @@
 #[cfg(test)]
 mod test {
     use ark_std::{rand::thread_rng, UniformRand};
-    use rln::prelude::*;
+    use rln::{
+        prelude::*,
+        utils::{
+            bytes_be_to_vec_bool, bytes_le_to_vec_bool, vec_bool_to_bytes_be, vec_bool_to_bytes_le,
+        },
+    };
 
     #[test]
     fn test_normalize_usize_le() {
@@ -277,6 +282,31 @@ mod test {
                 bytes
             };
             let reconstructed_be = bytes_be_to_vec_usize(&be_bytes).unwrap();
+            assert_eq!(test_case, reconstructed_be);
+        }
+    }
+
+    #[test]
+    fn test_vec_bool_serialization_roundtrip() {
+        // Test with different vector sizes and content
+        let test_cases = vec![
+            vec![],
+            vec![true],
+            vec![false],
+            vec![true, false, true, false, true],
+            vec![true; 50],
+            (0..50).map(|i| i % 2 == 0).collect::<Vec<bool>>(),
+        ];
+
+        for test_case in test_cases {
+            // Test little-endian roundtrip
+            let le_bytes = vec_bool_to_bytes_le(&test_case);
+            let (reconstructed_le, _) = bytes_le_to_vec_bool(&le_bytes).unwrap();
+            assert_eq!(test_case, reconstructed_le);
+
+            // Test big-endian roundtrip
+            let be_bytes = vec_bool_to_bytes_be(&test_case);
+            let (reconstructed_be, _) = bytes_be_to_vec_bool(&be_bytes).unwrap();
             assert_eq!(test_case, reconstructed_be);
         }
     }

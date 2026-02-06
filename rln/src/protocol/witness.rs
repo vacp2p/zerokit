@@ -2,6 +2,10 @@ use num_bigint::BigInt;
 use zeroize::Zeroize;
 
 use super::proof::RLNProofValues;
+#[cfg(feature = "multi-message-id")]
+use crate::utils::{
+    bytes_be_to_vec_bool, bytes_le_to_vec_bool, vec_bool_to_bytes_be, vec_bool_to_bytes_le,
+};
 use crate::{
     circuit::Fr,
     error::ProtocolError,
@@ -35,10 +39,11 @@ pub struct RLNWitnessInput {
     x: Fr,
     external_nullifier: Fr,
     #[cfg(feature = "multi-message-id")]
-    selector_used: Option<Vec<u8>>,
+    selector_used: Option<Vec<bool>>,
 }
 
 impl RLNWitnessInput {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         identity_secret: IdSecret,
         user_message_limit: Fr,
@@ -49,7 +54,7 @@ impl RLNWitnessInput {
         identity_path_index: Vec<u8>,
         x: Fr,
         external_nullifier: Fr,
-        #[cfg(feature = "multi-message-id")] selector_used: Option<Vec<u8>>,
+        #[cfg(feature = "multi-message-id")] selector_used: Option<Vec<bool>>,
     ) -> Result<Self, ProtocolError> {
         // User message limit check
         if user_message_limit == Fr::from(0) {
@@ -92,14 +97,8 @@ impl RLNWitnessInput {
                         return Err(ProtocolError::InvalidSelectorUsed);
                     }
 
-                    for &used in selector_used.iter() {
-                        if used > 1 {
-                            return Err(ProtocolError::InvalidSelectorUsed);
-                        }
-                    }
-
                     for (message_id, used) in message_ids.iter().zip(selector_used) {
-                        if *used != 0 && *message_id >= user_message_limit {
+                        if *used && *message_id >= user_message_limit {
                             return Err(ProtocolError::InvalidMessageId(
                                 *message_id,
                                 user_message_limit,
@@ -178,7 +177,7 @@ impl RLNWitnessInput {
     }
 
     #[cfg(feature = "multi-message-id")]
-    pub fn selector_used(&self) -> Option<&Vec<u8>> {
+    pub fn selector_used(&self) -> Option<&Vec<bool>> {
         self.selector_used.as_ref()
     }
 }
@@ -219,7 +218,7 @@ pub fn rln_witness_to_bytes_le(witness: &RLNWitnessInput) -> Result<Vec<u8>, Pro
             bytes.extend_from_slice(&vec_fr_to_bytes_le(message_ids));
         }
         if let Some(selector_used) = &witness.selector_used {
-            bytes.extend_from_slice(&vec_u8_to_bytes_le(selector_used));
+            bytes.extend_from_slice(&vec_bool_to_bytes_le(selector_used));
         }
     }
 
@@ -262,7 +261,7 @@ pub fn rln_witness_to_bytes_be(witness: &RLNWitnessInput) -> Result<Vec<u8>, Pro
             bytes.extend_from_slice(&vec_fr_to_bytes_be(message_ids));
         }
         if let Some(selector_used) = &witness.selector_used {
-            bytes.extend_from_slice(&vec_u8_to_bytes_be(selector_used));
+            bytes.extend_from_slice(&vec_bool_to_bytes_be(selector_used));
         }
     }
 
@@ -305,8 +304,8 @@ pub fn bytes_le_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
         if message_ids.is_empty() {
             (Some(message_id), None, None)
         } else {
-            let selector_used: Vec<u8> = if read < bytes.len() {
-                let (selector_used, el_size) = bytes_le_to_vec_u8(&bytes[read..])?;
+            let selector_used = if read < bytes.len() {
+                let (selector_used, el_size) = bytes_le_to_vec_bool(&bytes[read..])?;
                 read += el_size;
                 selector_used
             } else {
@@ -379,8 +378,8 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
         if message_ids.is_empty() {
             (Some(message_id), None, None)
         } else {
-            let selector_used: Vec<u8> = if read < bytes.len() {
-                let (selector_used, el_size) = bytes_be_to_vec_u8(&bytes[read..])?;
+            let selector_used = if read < bytes.len() {
+                let (selector_used, el_size) = bytes_be_to_vec_bool(&bytes[read..])?;
                 read += el_size;
                 selector_used
             } else {
