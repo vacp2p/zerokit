@@ -63,7 +63,7 @@ document-features = { version = "0.2.12", optional = true }
 criterion = { version = "0.8.0", features = ["html_reports"] }
 
 [features]
-default = ["parallel", "pmtree-ft"]
+default = ["parallel", "pmtree-ft", "multi-message-id"]
 stateless = []
 parallel = [
     "rayon",
