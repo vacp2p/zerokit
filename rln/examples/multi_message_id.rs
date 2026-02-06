@@ -1,3 +1,5 @@
+#![cfg(feature = "multi-message-id")]
+
 use std::{
     fs::File,
     io::Read,
