@@ -1,11 +1,12 @@
-use rln::prelude::{
-    hash_to_field_le, keygen, poseidon_hash, Fr, PmtreeConfigBuilder, RLNWitnessInput,
-    DEFAULT_TREE_DEPTH, RLN,
-};
 use std::{
     fs::File,
     io::Read,
     path::{Path, PathBuf},
+};
+
+use rln::prelude::{
+    hash_to_field_le, keygen, poseidon_hash, Fr, PmtreeConfigBuilder, RLNWitnessInput,
+    DEFAULT_TREE_DEPTH, RLN,
 };
 use zerokit_utils::pm_tree::Mode;
 
@@ -68,7 +69,7 @@ fn main() {
     // We choose message_ids that satisfy 0 <= message_ids < user_message_limit
     let message_ids = vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)];
     // We set selector to indicate which message slots are (2 active, 2 unused)
-    let selector_used = vec![0, 1, 1, 0];
+    let selector_used = vec![false, true, true, false];
 
     // 6. Define the message signal
     let signal = b"RLN is awesome";
