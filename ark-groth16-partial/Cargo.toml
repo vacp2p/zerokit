@@ -1,0 +1,37 @@
+[package]
+name = "ark-groth16-partial"
+version = "0.5.1"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Partial proof generation utilities for ark-groth16"
+
+[dependencies]
+ark-ff = { version = "0.5.0", default-features = false }
+ark-ec = { version = "0.5.0", default-features = false }
+ark-std = { version = "0.5.0", default-features = false }
+ark-poly = { version = "0.5.0", default-features = false }
+ark-relations = { version = "0.5.1", default-features = false }
+ark-groth16 = { version = "0.5.0", default-features = false }
+
+[dev-dependencies]
+ark-crypto-primitives = { version = "0.5.0", default-features = false, features = ["snark", "sponge"] }
+ark-bn254 = { version = "0.5.0", default-features = false, features = ["curve"] }
+
+[features]
+default = ["std"]
+std = [
+    "ark-ff/std",
+    "ark-ec/std",
+    "ark-poly/std",
+    "ark-relations/std",
+    "ark-std/std",
+    "ark-groth16/std",
+]
+parallel = [
+    "std",
+    "ark-ff/parallel",
+    "ark-ec/parallel",
+    "ark-std/parallel",
+    "ark-poly/parallel",
+    "ark-groth16/parallel",
+]

@@ -28,6 +28,16 @@ pub struct RLNWitnessInput {
     external_nullifier: Fr,
 }
 
+/// Partial witness input for RLN proof precalculation.
+/// Contains the non-changing inputs used to precompute a partial proof:
+#[derive(Debug, PartialEq, Clone)]
+pub struct RLNPartialWitnessInput {
+    identity_secret: IdSecret,
+    user_message_limit: Fr,
+    path_elements: Vec<Fr>,
+    identity_path_index: Vec<u8>,
+}
+
 impl RLNWitnessInput {
     pub fn new(
         identity_secret: IdSecret,
@@ -98,6 +108,48 @@ impl RLNWitnessInput {
 
     pub fn external_nullifier(&self) -> &Fr {
         &self.external_nullifier
+    }
+}
+
+impl RLNPartialWitnessInput {
+    pub fn new(
+        identity_secret: IdSecret,
+        user_message_limit: Fr,
+        path_elements: Vec<Fr>,
+        identity_path_index: Vec<u8>,
+    ) -> Result<Self, ProtocolError> {
+        // Merkle proof length check
+        let path_elements_len = path_elements.len();
+        let identity_path_index_len = identity_path_index.len();
+        if path_elements_len != identity_path_index_len {
+            return Err(ProtocolError::InvalidMerkleProofLength(
+                path_elements_len,
+                identity_path_index_len,
+            ));
+        }
+
+        Ok(Self {
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+        })
+    }
+
+    pub fn identity_secret(&self) -> &IdSecret {
+        &self.identity_secret
+    }
+
+    pub fn user_message_limit(&self) -> &Fr {
+        &self.user_message_limit
+    }
+
+    pub fn path_elements(&self) -> &[Fr] {
+        &self.path_elements
+    }
+
+    pub fn identity_path_index(&self) -> &[u8] {
+        &self.identity_path_index
     }
 }
 
@@ -355,5 +407,49 @@ pub(super) fn inputs_for_witness_calculation(
         ),
         ("x", vec![witness.x.into()]),
         ("externalNullifier", vec![witness.external_nullifier.into()]),
+    ])
+}
+
+/// Prepares known inputs for partial witness calculation from RLN witness input.
+/// unknowns are `None`
+pub(super) fn inputs_for_partial_witness_calculation(
+    witness: &RLNPartialWitnessInput,
+) -> Result<[(&str, Vec<Option<FrOrSecret>>); 7], ProtocolError> {
+    let mut identity_path_index = Vec::with_capacity(witness.identity_path_index.len());
+    witness
+        .identity_path_index
+        .iter()
+        .for_each(|v| identity_path_index.push(Fr::from(*v)));
+
+    Ok([
+        (
+            "identitySecret",
+            vec![Some(witness.identity_secret.clone().into())],
+        ),
+        (
+            "userMessageLimit",
+            vec![Some(witness.user_message_limit.into())],
+        ),
+        ("messageId", vec![None]),
+        (
+            "pathElements",
+            witness
+                .path_elements
+                .iter()
+                .cloned()
+                .map(Into::into)
+                .map(Some)
+                .collect(),
+        ),
+        (
+            "identityPathIndex",
+            identity_path_index
+                .into_iter()
+                .map(Into::into)
+                .map(Some)
+                .collect(),
+        ),
+        ("x", vec![None]),
+        ("externalNullifier", vec![None]),
     ])
 }

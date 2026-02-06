@@ -4,8 +4,8 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
 use num_traits::Signed;
-
-use super::witness::{inputs_for_witness_calculation, RLNWitnessInput};
+use ark_groth16_partial::partial_prover::{Groth16Partial, PartialAssignment};
+use super::witness::{inputs_for_partial_witness_calculation, inputs_for_witness_calculation, RLNPartialWitnessInput, RLNWitnessInput};
 use crate::{
     circuit::{
         iden3calc::calc_witness, qap::CircomReduction, Curve, Fr, Graph, Proof, VerifyingKey, Zkey,
@@ -14,6 +14,7 @@ use crate::{
     error::ProtocolError,
     utils::{bytes_be_to_fr, bytes_le_to_fr, fr_to_bytes_be, fr_to_bytes_le, FR_BYTE_SIZE},
 };
+use crate::circuit::{iden3calc::calc_witness_partial, PartialProof};
 
 /// Complete RLN proof.
 ///
@@ -294,19 +295,97 @@ pub fn generate_zk_proof(
     witness: &RLNWitnessInput,
     graph: &Graph,
 ) -> Result<Proof, ProtocolError> {
-    let inputs = inputs_for_witness_calculation(witness)?
-        .into_iter()
-        .map(|(name, values)| (name.to_string(), values));
-
-    let full_assignment = calc_witness(inputs, graph)?;
 
     // Random Values
     let mut rng = thread_rng();
     let r = Fr::rand(&mut rng);
     let s = Fr::rand(&mut rng);
 
+    generate_zk_proof_with_rs(zkey, witness, graph, r, s)
+}
+
+/// Generates a zkSNARK proof from witness input using the provided circuit data.
+/// this version takes the blinding `r` and `s`
+pub fn generate_zk_proof_with_rs(
+    zkey: &Zkey,
+    witness: &RLNWitnessInput,
+    graph: &Graph,
+    r: Fr,
+    s: Fr,
+) -> Result<Proof, ProtocolError> {
+    let inputs = inputs_for_witness_calculation(witness)?
+        .into_iter()
+        .map(|(name, values)| (name.to_string(), values));
+
+    let full_assignment = calc_witness(inputs, graph)?;
+
     let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
         &zkey.0,
+        r,
+        s,
+        &zkey.1,
+        zkey.1.num_instance_variables,
+        zkey.1.num_constraints,
+        full_assignment.as_slice(),
+    )?;
+
+    Ok(proof)
+}
+
+/// generate partial proof
+/// this includes the partial witness generation
+pub fn generate_partial_zk_proof(
+    zkey: &Zkey,
+    partial_witness: &RLNPartialWitnessInput,
+    graph: &Graph,
+) -> Result<PartialProof, ProtocolError> {
+    let inputs = inputs_for_partial_witness_calculation(partial_witness)?
+        .into_iter()
+        .map(|(name, values)| (name.to_string(), values));
+
+    let full_assignment = calc_witness_partial(inputs, graph)?;
+    let mut partial_values = Vec::with_capacity(full_assignment.len()-1);
+    partial_values.extend_from_slice(&full_assignment[1..]);
+
+    let partial_assignment = PartialAssignment::new(partial_values);
+    let partial_proof = Groth16Partial::<_, CircomReduction>::prove_partial(&zkey.0, &partial_assignment);
+
+    Ok(partial_proof)
+}
+
+/// Finish the proof using a precomputed partial proof and full witness inputs.
+pub fn finish_zk_proof(
+    zkey: &Zkey,
+    partial_proof: &PartialProof,
+    witness: &RLNWitnessInput,
+    graph: &Graph,
+) -> Result<Proof, ProtocolError> {
+
+    let mut rng = thread_rng();
+    let r = Fr::rand(&mut rng);
+    let s = Fr::rand(&mut rng);
+
+    finish_zk_proof_with_rs(zkey, partial_proof, witness, graph, r, s)
+}
+
+/// Finish the proof using a precomputed partial proof and full witness inputs.
+pub fn finish_zk_proof_with_rs(
+    zkey: &Zkey,
+    partial_proof: &PartialProof,
+    witness: &RLNWitnessInput,
+    graph: &Graph,
+    r: Fr,
+    s: Fr,
+) -> Result<Proof, ProtocolError> {
+    let inputs = inputs_for_witness_calculation(witness)?
+        .into_iter()
+        .map(|(name, values)| (name.to_string(), values));
+
+    let full_assignment = calc_witness(inputs, graph)?;
+
+    let proof = Groth16Partial::<_, CircomReduction>::finish_proof_with_matrices(
+        &zkey.0,
+        partial_proof,
         r,
         s,
         &zkey.1,

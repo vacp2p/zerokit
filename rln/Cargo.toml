@@ -24,6 +24,7 @@ ark-ec = { version = "0.5.0", default-features = false }
 ark-std = { version = "0.5.0", default-features = false }
 ark-poly = { version = "0.5.0", default-features = false }
 ark-groth16 = { version = "0.5.0", default-features = false }
+ark-groth16-partial = { path = "../ark-groth16-partial", version = "0.5.1", default-features = false, features = ["std"] }
 ark-serialize = { version = "0.5.0", default-features = false }
 
 # Error Handling
@@ -87,6 +88,10 @@ required-features = ["pmtree-ft"]
 
 [[bench]]
 name = "poseidon_tree_benchmark"
+harness = false
+
+[[bench]]
+name = "partial_proof"
 harness = false
 
 [package.metadata.docs.rs]
