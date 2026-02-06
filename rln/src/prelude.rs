@@ -1,5 +1,7 @@
 // This module re-exports the most commonly used types and functions from the RLN library
 
+#[cfg(feature = "icicle")]
+pub use crate::circuit::icicle::init_icicle_backend;
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::circuit::{graph_from_folder, zkey_from_folder};
 #[cfg(feature = "pmtree-ft")]

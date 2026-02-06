@@ -4,6 +4,11 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
 use num_traits::Signed;
+#[cfg(feature = "icicle")]
+use {
+    crate::circuit::icicle::proof::create_proof_with_icicle_msm,
+    ark_groth16::r1cs_to_qap::R1CSToQAP, ark_poly::GeneralEvaluationDomain,
+};
 
 use super::witness::{inputs_for_witness_calculation, RLNWitnessInput};
 use crate::{
@@ -342,4 +347,76 @@ pub fn verify_zk_proof(
     let verified = Groth16::<_, CircomReduction>::verify_proof(&pvk, proof, &inputs)?;
 
     Ok(verified)
+}
+
+/// Generates a zkSNARK proof from pre-calculated witness using ICICLE GPU acceleration.
+///
+/// This is a drop-in replacement for `generate_zk_proof_with_witness` that uses
+/// GPU-accelerated MSM operations via the ICICLE library.
+/// Falls back to CPU if GPU is not available.
+#[cfg(feature = "icicle")]
+pub fn generate_zk_proof_with_witness_icicle(
+    calculated_witness: Vec<BigInt>,
+    zkey: &Zkey,
+) -> Result<Proof, ProtocolError> {
+    let full_assignment = calculated_witness_to_field_elements::<Curve>(calculated_witness)?;
+
+    // Compute witness polynomial h using CircomReduction (same as before)
+    let h = CircomReduction::witness_map_from_matrices::<Fr, GeneralEvaluationDomain<Fr>>(
+        &zkey.1,
+        zkey.1.num_instance_variables,
+        zkey.1.num_constraints,
+        &full_assignment,
+    )?;
+
+    // Random Values
+    let mut rng = thread_rng();
+    let r = Fr::rand(&mut rng);
+    let s = Fr::rand(&mut rng);
+
+    // Split assignment into input and auxiliary
+    let input_assignment = &full_assignment[1..zkey.1.num_instance_variables];
+    let aux_assignment = &full_assignment[zkey.1.num_instance_variables..];
+
+    // Generate proof using ICICLE
+    create_proof_with_icicle_msm(&zkey.0, r, s, &h, input_assignment, aux_assignment)
+}
+
+/// Generates a zkSNARK proof using ICICLE GPU acceleration.
+///
+/// This is a drop-in replacement for `generate_zk_proof` that uses
+/// GPU-accelerated MSM operations via the ICICLE library.
+/// Falls back to CPU if GPU is not available.
+#[cfg(feature = "icicle")]
+pub fn generate_zk_proof_icicle(
+    zkey: &Zkey,
+    witness: &RLNWitnessInput,
+    graph: &Graph,
+) -> Result<Proof, ProtocolError> {
+    // Calculate witness using the standard method
+    let inputs = inputs_for_witness_calculation(witness)?
+        .into_iter()
+        .map(|(name, values)| (name.to_string(), values));
+
+    let full_assignment = calc_witness(inputs, graph)?;
+
+    // Compute witness polynomial h using CircomReduction (same as before)
+    let h = CircomReduction::witness_map_from_matrices::<Fr, GeneralEvaluationDomain<Fr>>(
+        &zkey.1,
+        zkey.1.num_instance_variables,
+        zkey.1.num_constraints,
+        &full_assignment,
+    )?;
+
+    // Random Values
+    let mut rng = thread_rng();
+    let r = Fr::rand(&mut rng);
+    let s = Fr::rand(&mut rng);
+
+    // Split assignment into input and auxiliary
+    let input_assignment = &full_assignment[1..zkey.1.num_instance_variables];
+    let aux_assignment = &full_assignment[zkey.1.num_instance_variables..];
+
+    // Generate proof using ICICLE
+    create_proof_with_icicle_msm(&zkey.0, r, s, &h, input_assignment, aux_assignment)
 }
