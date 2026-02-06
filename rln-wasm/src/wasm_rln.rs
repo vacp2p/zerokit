@@ -80,7 +80,7 @@ pub struct WasmRLNProof(RLNProof);
 impl WasmRLNProof {
     #[wasm_bindgen(js_name = getValues)]
     pub fn get_values(&self) -> WasmRLNProofValues {
-        WasmRLNProofValues(self.0.proof_values)
+        WasmRLNProofValues(self.0.proof_values.clone())
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]
