@@ -272,7 +272,7 @@ pub fn ffi_rln_witness_input_new(
     identity_path_index: &repr_c::Vec<u8>,
     x: &CFr,
     external_nullifier: &CFr,
-    selector_used: &repr_c::Vec<u8>,
+    selector_used: &repr_c::Vec<bool>,
 ) -> CResult<repr_c::Box<FFI_RLNWitnessInput>, repr_c::String> {
     let mut identity_secret_fr = identity_secret.0;
     let path_elements: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
@@ -291,8 +291,8 @@ pub fn ffi_rln_witness_input_new(
             None,
         )
     } else {
-        let message_ids: Vec<Fr> = message_ids.iter().map(|cfr| cfr.0).collect();
-        let selector_used: Vec<u8> = selector_used.iter().copied().collect();
+        let message_ids = message_ids.iter().map(|cfr| cfr.0).collect();
+        let selector_used = selector_used.iter().copied().collect();
 
         RLNWitnessInput::new(
             IdSecret::from(&mut identity_secret_fr),
@@ -535,7 +535,7 @@ pub fn ffi_rln_proof_values_get_nullifiers(
 #[ffi_export]
 pub fn ffi_rln_proof_values_get_selector_used(
     pv: &repr_c::Box<FFI_RLNProofValues>,
-) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+) -> CResult<repr_c::Vec<bool>, repr_c::String> {
     match &pv.0.selector_used {
         Some(selector_used) => CResult {
             ok: Some(selector_used.clone().into()),
