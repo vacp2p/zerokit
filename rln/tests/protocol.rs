@@ -82,7 +82,7 @@ mod test {
         assert!(tree.verify(&rate_commitment, &merkle_proof).unwrap());
     }
 
-    fn get_test_witness() -> RLNWitnessInput {
+    fn get_test_witness_and_root() -> (RLNWitnessInput, Fr) {
         let leaf_index = 3;
         // Generate identity pair
         let (identity_secret, id_commitment) = keygen().unwrap();
@@ -98,6 +98,7 @@ mod test {
         )
         .unwrap();
         tree.set(leaf_index, rate_commitment).unwrap();
+        let root = tree.root();
 
         let merkle_proof = tree.proof(leaf_index).unwrap();
 
@@ -110,6 +111,57 @@ mod test {
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
 
         let message_id = Fr::from(1);
+
+        RLNWitnessInput::new(
+            identity_secret,
+            user_message_limit,
+            message_id,
+            merkle_proof.get_path_elements(),
+            merkle_proof.get_path_index(),
+            x,
+            external_nullifier,
+        )
+        .map(|witness| (witness, root))
+        .unwrap()
+    }
+
+    fn get_test_witness() -> RLNWitnessInput {
+        get_test_witness_and_root().0
+    }
+
+    fn get_test_witness_with_params(
+        signal: &[u8],
+        epoch: &[u8],
+        rln_identifier: &[u8],
+        message_id: u64,
+        user_message_limit: u64,
+    ) -> RLNWitnessInput {
+        let leaf_index = 3;
+        // Generate identity pair
+        let (identity_secret, id_commitment) = keygen().unwrap();
+        let user_message_limit = Fr::from(user_message_limit);
+        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
+
+        //// generate merkle tree
+        let default_leaf = Fr::from(0);
+        let mut tree = PoseidonTree::new(
+            DEFAULT_TREE_DEPTH,
+            default_leaf,
+            ConfigOf::<PoseidonTree>::default(),
+        )
+        .unwrap();
+        tree.set(leaf_index, rate_commitment).unwrap();
+
+        let merkle_proof = tree.proof(leaf_index).unwrap();
+
+        let x = hash_to_field_le(signal).unwrap();
+
+        // We set the remaining values to random ones
+        let epoch = hash_to_field_le(epoch).unwrap();
+        let rln_identifier = hash_to_field_le(rln_identifier).unwrap();
+        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
+
+        let message_id = Fr::from(message_id);
 
         RLNWitnessInput::new(
             identity_secret,
@@ -289,5 +341,242 @@ mod test {
 
         assert_eq!(identity_secret, expected_identity_secret_seed_phrase);
         assert_eq!(id_commitment, expected_id_commitment_seed_phrase);
+    }
+
+    #[test]
+    fn test_extended_keygen_relations() {
+        let (trapdoor, nullifier, identity_secret, id_commitment) = extended_keygen().unwrap();
+
+        let expected_identity_secret = poseidon_hash(&[trapdoor, nullifier]).unwrap();
+        let expected_id_commitment = poseidon_hash(&[identity_secret]).unwrap();
+
+        assert_eq!(identity_secret, expected_identity_secret);
+        assert_eq!(id_commitment, expected_id_commitment);
+    }
+
+    #[test]
+    fn test_extended_seeded_keygen_determinism() {
+        let seed = b"test-seed-extended";
+        let first = extended_seeded_keygen(seed).unwrap();
+        let second = extended_seeded_keygen(seed).unwrap();
+
+        assert_eq!(first, second);
+
+        let (trapdoor, nullifier, identity_secret, id_commitment) = first;
+        let expected_identity_secret = poseidon_hash(&[trapdoor, nullifier]).unwrap();
+        let expected_id_commitment = poseidon_hash(&[identity_secret]).unwrap();
+
+        assert_eq!(identity_secret, expected_identity_secret);
+        assert_eq!(id_commitment, expected_id_commitment);
+    }
+
+    #[test]
+    fn test_witness_serialization_be_roundtrip_and_length_check() {
+        // Test with default witness
+        let witness = get_test_witness();
+        let ser = rln_witness_to_bytes_be(&witness).unwrap();
+        let (deser, _) = bytes_be_to_rln_witness(&ser).unwrap();
+        assert_eq!(witness, deser);
+
+        // Test with varied witness
+        let witness2 = get_test_witness_with_params(
+            b"different signal",
+            b"another epoch",
+            b"alt rln id",
+            42,
+            200,
+        );
+        let ser2 = rln_witness_to_bytes_be(&witness2).unwrap();
+        let (deser2, _) = bytes_be_to_rln_witness(&ser2).unwrap();
+        assert_eq!(witness2, deser2);
+
+        // Test with extreme values (large message_id and limit)
+        let witness3 = get_test_witness_with_params(
+            b"extreme signal",
+            b"extreme epoch",
+            b"extreme id",
+            1000000,
+            2000000,
+        );
+        let ser3 = rln_witness_to_bytes_be(&witness3).unwrap();
+        let (deser3, _) = bytes_be_to_rln_witness(&ser3).unwrap();
+        assert_eq!(witness3, deser3);
+
+        let mut bad = ser.clone();
+        bad.push(0);
+        assert!(matches!(
+            bytes_be_to_rln_witness(&bad),
+            Err(ProtocolError::InvalidReadLen(_, _))
+        ));
+    }
+
+    #[test]
+    fn test_proof_values_serialization_be_roundtrip() {
+        // Test with default witness
+        let witness = get_test_witness();
+        let proof_values = proof_values_from_witness(&witness).unwrap();
+
+        let ser = rln_proof_values_to_bytes_be(&proof_values);
+        let (deser, _) = bytes_be_to_rln_proof_values(&ser).unwrap();
+
+        assert_eq!(proof_values, deser);
+
+        // Test with varied witness
+        let witness2 = get_test_witness_with_params(b"another signal", b"epoch2", b"id2", 10, 150);
+        let proof_values2 = proof_values_from_witness(&witness2).unwrap();
+
+        let ser2 = rln_proof_values_to_bytes_be(&proof_values2);
+        let (deser2, _) = bytes_be_to_rln_proof_values(&ser2).unwrap();
+
+        assert_eq!(proof_values2, deser2);
+    }
+
+    #[test]
+    fn test_rln_proof_serialization_be_roundtrip() {
+        let witness = get_test_witness();
+        let proving_key = zkey_from_folder();
+        let graph_data = graph_from_folder();
+        let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
+        let proof_values = proof_values_from_witness(&witness).unwrap();
+
+        let rln_proof = RLNProof {
+            proof: proof.clone(),
+            proof_values,
+        };
+
+        let ser = rln_proof_to_bytes_be(&rln_proof).unwrap();
+        let (deser, _) = bytes_be_to_rln_proof(&ser).unwrap();
+
+        assert_eq!(rln_proof.proof, deser.proof);
+        assert_eq!(rln_proof.proof_values, deser.proof_values);
+    }
+
+    #[test]
+    fn test_verify_zk_proof_with_modified_public_value_fails() {
+        let witness = get_test_witness();
+        let proving_key = zkey_from_folder();
+        let graph_data = graph_from_folder();
+        let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
+        let mut proof_values = proof_values_from_witness(&witness).unwrap();
+
+        proof_values.root += Fr::from(1u64);
+
+        let verified = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
+        assert!(!verified);
+    }
+
+    #[test]
+    fn test_compute_tree_root_matches_merkle_tree_root() {
+        // Test with default witness
+        let (witness, root) = get_test_witness_and_root();
+
+        let computed_root = compute_tree_root(
+            witness.identity_secret(),
+            witness.user_message_limit(),
+            witness.path_elements(),
+            witness.identity_path_index(),
+        )
+        .unwrap();
+
+        assert_eq!(computed_root, root);
+
+        // Test with varied witness
+        let witness2 =
+            get_test_witness_with_params(b"root test signal", b"root epoch", b"root id", 25, 300);
+        let leaf_index = 3;
+        let id_commitment = poseidon_hash(&[**witness2.identity_secret()]).unwrap();
+        let rate_commitment =
+            poseidon_hash(&[id_commitment, *witness2.user_message_limit()]).unwrap();
+        let default_leaf = Fr::from(0);
+        let mut tree = PoseidonTree::new(
+            DEFAULT_TREE_DEPTH,
+            default_leaf,
+            ConfigOf::<PoseidonTree>::default(),
+        )
+        .unwrap();
+        tree.set(leaf_index, rate_commitment).unwrap();
+        let root2 = tree.root();
+
+        let computed_root2 = compute_tree_root(
+            witness2.identity_secret(),
+            witness2.user_message_limit(),
+            witness2.path_elements(),
+            witness2.identity_path_index(),
+        )
+        .unwrap();
+
+        assert_eq!(computed_root2, root2);
+    }
+
+    #[test]
+    fn test_rln_witness_to_bigint_json_fields() {
+        // Test with default witness
+        let witness = get_test_witness();
+        let json = rln_witness_to_bigint_json(&witness).unwrap();
+
+        assert_eq!(
+            json["identitySecret"].as_str().unwrap(),
+            to_bigint(witness.identity_secret()).to_str_radix(10)
+        );
+        assert_eq!(
+            json["userMessageLimit"].as_str().unwrap(),
+            to_bigint(witness.user_message_limit()).to_str_radix(10)
+        );
+        assert_eq!(
+            json["messageId"].as_str().unwrap(),
+            to_bigint(witness.message_id()).to_str_radix(10)
+        );
+        assert_eq!(
+            json["x"].as_str().unwrap(),
+            to_bigint(witness.x()).to_str_radix(10)
+        );
+        assert_eq!(
+            json["externalNullifier"].as_str().unwrap(),
+            to_bigint(witness.external_nullifier()).to_str_radix(10)
+        );
+
+        assert_eq!(
+            json["pathElements"].as_array().unwrap().len(),
+            witness.path_elements().len()
+        );
+        assert_eq!(
+            json["identityPathIndex"].as_array().unwrap().len(),
+            witness.identity_path_index().len()
+        );
+
+        // Test with varied witness
+        let witness2 =
+            get_test_witness_with_params(b"json test signal", b"json epoch", b"json id", 99, 500);
+        let json2 = rln_witness_to_bigint_json(&witness2).unwrap();
+
+        assert_eq!(
+            json2["identitySecret"].as_str().unwrap(),
+            to_bigint(witness2.identity_secret()).to_str_radix(10)
+        );
+        assert_eq!(
+            json2["userMessageLimit"].as_str().unwrap(),
+            to_bigint(witness2.user_message_limit()).to_str_radix(10)
+        );
+        assert_eq!(
+            json2["messageId"].as_str().unwrap(),
+            to_bigint(witness2.message_id()).to_str_radix(10)
+        );
+        assert_eq!(
+            json2["x"].as_str().unwrap(),
+            to_bigint(witness2.x()).to_str_radix(10)
+        );
+        assert_eq!(
+            json2["externalNullifier"].as_str().unwrap(),
+            to_bigint(witness2.external_nullifier()).to_str_radix(10)
+        );
+
+        assert_eq!(
+            json2["pathElements"].as_array().unwrap().len(),
+            witness2.path_elements().len()
+        );
+        assert_eq!(
+            json2["identityPathIndex"].as_array().unwrap().len(),
+            witness2.identity_path_index().len()
+        );
     }
 }

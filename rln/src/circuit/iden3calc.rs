@@ -107,3 +107,34 @@ fn get_inputs_buffer(size: usize) -> Vec<U256> {
     inputs[0] = U256::from(1);
     inputs
 }
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashMap;
+
+    use super::*;
+
+    #[test]
+    fn test_populate_inputs_missing() {
+        let mut input_list: HashMap<String, Vec<U256>> = HashMap::new();
+        input_list.insert("missing".to_string(), vec![U256::from(1u64)]);
+
+        let input_info: InputSignalsInfo = HashMap::new();
+        let mut buffer = vec![U256::ZERO; 2];
+        let err = populate_inputs(&input_list, &input_info, &mut buffer).unwrap_err();
+        assert!(matches!(err, WitnessCalcError::MissingInput(_)));
+    }
+
+    #[test]
+    fn test_populate_inputs_length_mismatch() {
+        let mut input_list: HashMap<String, Vec<U256>> = HashMap::new();
+        input_list.insert("sig".to_string(), vec![U256::from(1u64)]);
+
+        let mut input_info: InputSignalsInfo = HashMap::new();
+        input_info.insert("sig".to_string(), (0, 2));
+
+        let mut buffer = vec![U256::ZERO; 2];
+        let err = populate_inputs(&input_list, &input_info, &mut buffer).unwrap_err();
+        assert!(matches!(err, WitnessCalcError::InvalidInputLength { .. }));
+    }
+}
