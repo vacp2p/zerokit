@@ -53,7 +53,7 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest]
         crate: [rln]
-        feature: ["default", "stateless"]
+        feature: ["default", "stateless", "multi_message_id"]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 

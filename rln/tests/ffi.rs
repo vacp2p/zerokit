@@ -88,6 +88,7 @@ mod test {
         };
 
         // Create witness input
+        #[cfg(not(feature = "multi-message-id"))]
         let witness = match ffi_rln_witness_input_new(
             identity_secret,
             user_message_limit,
@@ -106,6 +107,32 @@ mod test {
                 err: Some(err),
             } => panic!("witness creation call failed: {}", err),
             _ => unreachable!(),
+        };
+        #[cfg(feature = "multi-message-id")]
+        let witness = {
+            let empty_message_ids: repr_c::Vec<CFr> = Vec::new().into();
+            let empty_selector_used: repr_c::Vec<bool> = Vec::new().into();
+            match ffi_rln_witness_input_new(
+                identity_secret,
+                user_message_limit,
+                message_id,
+                &empty_message_ids,
+                &merkle_proof.path_elements,
+                &merkle_proof.path_index,
+                x,
+                external_nullifier,
+                &empty_selector_used,
+            ) {
+                CResult {
+                    ok: Some(witness),
+                    err: None,
+                } => witness,
+                CResult {
+                    ok: None,
+                    err: Some(err),
+                } => panic!("witness creation call failed: {}", err),
+                _ => unreachable!(),
+            }
         };
 
         // Generate proof from witness
@@ -337,7 +364,7 @@ mod test {
         // We create a RLN instance
         let mut ffi_rln_instance = create_rln_instance();
 
-        // generate identity
+        // Generate identity
         let mut identity_secret_ = hash_to_field_le(b"test-merkle-proof").unwrap();
         let identity_secret = IdSecret::from(&mut identity_secret_);
         let mut to_hash = [*identity_secret.clone()];
