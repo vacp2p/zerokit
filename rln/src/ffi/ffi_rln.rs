@@ -148,7 +148,7 @@ pub struct FFI_RLNProof(pub(crate) RLNProof);
 pub fn ffi_rln_proof_get_values(
     rln_proof: &repr_c::Box<FFI_RLNProof>,
 ) -> repr_c::Box<FFI_RLNProofValues> {
-    Box_::new(FFI_RLNProofValues(rln_proof.0.proof_values))
+    Box_::new(FFI_RLNProofValues(rln_proof.0.proof_values.clone()))
 }
 
 #[ffi_export]
@@ -226,6 +226,7 @@ pub fn ffi_rln_proof_free(rln_proof: repr_c::Box<FFI_RLNProof>) {
 #[repr(opaque)]
 pub struct FFI_RLNWitnessInput(pub(crate) RLNWitnessInput);
 
+#[cfg(not(feature = "multi-message-id"))]
 #[ffi_export]
 pub fn ffi_rln_witness_input_new(
     identity_secret: &CFr,
@@ -239,6 +240,7 @@ pub fn ffi_rln_witness_input_new(
     let mut identity_secret_fr = identity_secret.0;
     let path_elements: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
     let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
+
     match RLNWitnessInput::new(
         IdSecret::from(&mut identity_secret_fr),
         user_message_limit.0,
@@ -248,6 +250,64 @@ pub fn ffi_rln_witness_input_new(
         x.0,
         external_nullifier.0,
     ) {
+        Ok(witness) => CResult {
+            ok: Some(Box_::new(FFI_RLNWitnessInput(witness))),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[cfg(feature = "multi-message-id")]
+#[ffi_export]
+pub fn ffi_rln_witness_input_new(
+    identity_secret: &CFr,
+    user_message_limit: &CFr,
+    message_id: &CFr,
+    message_ids: &repr_c::Vec<CFr>,
+    path_elements: &repr_c::Vec<CFr>,
+    identity_path_index: &repr_c::Vec<u8>,
+    x: &CFr,
+    external_nullifier: &CFr,
+    selector_used: &repr_c::Vec<bool>,
+) -> CResult<repr_c::Box<FFI_RLNWitnessInput>, repr_c::String> {
+    let mut identity_secret_fr = identity_secret.0;
+    let path_elements: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
+    let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
+
+    let result = if message_ids.is_empty() {
+        RLNWitnessInput::new(
+            IdSecret::from(&mut identity_secret_fr),
+            user_message_limit.0,
+            Some(message_id.0),
+            None,
+            path_elements,
+            identity_path_index,
+            x.0,
+            external_nullifier.0,
+            None,
+        )
+    } else {
+        let message_ids = message_ids.iter().map(|cfr| cfr.0).collect();
+        let selector_used = selector_used.iter().copied().collect();
+
+        RLNWitnessInput::new(
+            IdSecret::from(&mut identity_secret_fr),
+            user_message_limit.0,
+            None,
+            Some(message_ids),
+            path_elements,
+            identity_path_index,
+            x.0,
+            external_nullifier.0,
+            Some(selector_used),
+        )
+    };
+
+    match result {
         Ok(witness) => CResult {
             ok: Some(Box_::new(FFI_RLNWitnessInput(witness))),
             err: None,
@@ -351,15 +411,60 @@ pub fn ffi_rln_witness_input_free(witness: repr_c::Box<FFI_RLNWitnessInput>) {
 pub struct FFI_RLNProofValues(pub(crate) RLNProofValues);
 
 #[ffi_export]
-pub fn ffi_rln_proof_values_get_y(pv: &repr_c::Box<FFI_RLNProofValues>) -> repr_c::Box<CFr> {
-    CFr::from(pv.0.y).into()
+pub fn ffi_rln_proof_values_get_y(
+    pv: &repr_c::Box<FFI_RLNProofValues>,
+) -> CResult<repr_c::Box<CFr>, repr_c::String> {
+    #[cfg(not(feature = "multi-message-id"))]
+    {
+        CResult {
+            ok: Some(CFr::from(pv.0.y).into()),
+            err: None,
+        }
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    {
+        match pv.0.y {
+            Some(y) => CResult {
+                ok: Some(CFr::from(y).into()),
+                err: None,
+            },
+            None => CResult {
+                ok: None,
+                err: Some("y field is None, use ffi_rln_proof_values_get_ys instead".into()),
+            },
+        }
+    }
 }
 
 #[ffi_export]
 pub fn ffi_rln_proof_values_get_nullifier(
     pv: &repr_c::Box<FFI_RLNProofValues>,
-) -> repr_c::Box<CFr> {
-    CFr::from(pv.0.nullifier).into()
+) -> CResult<repr_c::Box<CFr>, repr_c::String> {
+    #[cfg(not(feature = "multi-message-id"))]
+    {
+        CResult {
+            ok: Some(CFr::from(pv.0.nullifier).into()),
+            err: None,
+        }
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    {
+        match pv.0.nullifier {
+            Some(nullifier) => CResult {
+                ok: Some(CFr::from(nullifier).into()),
+                err: None,
+            },
+            None => CResult {
+                ok: None,
+                err: Some(
+                    "nullifier field is None, use ffi_rln_proof_values_get_nullifiers instead"
+                        .into(),
+                ),
+            },
+        }
+    }
 }
 
 #[ffi_export]
@@ -377,6 +482,70 @@ pub fn ffi_rln_proof_values_get_external_nullifier(
     pv: &repr_c::Box<FFI_RLNProofValues>,
 ) -> repr_c::Box<CFr> {
     CFr::from(pv.0.external_nullifier).into()
+}
+
+#[cfg(feature = "multi-message-id")]
+#[ffi_export]
+pub fn ffi_rln_proof_values_get_ys(
+    pv: &repr_c::Box<FFI_RLNProofValues>,
+) -> CResult<repr_c::Vec<CFr>, repr_c::String> {
+    match &pv.0.ys {
+        Some(ys) => CResult {
+            ok: Some(
+                ys.iter()
+                    .map(|fr| CFr::from(*fr))
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+            err: None,
+        },
+        None => CResult {
+            ok: None,
+            err: Some("ys field is None, use ffi_rln_proof_values_get_ys instead".into()),
+        },
+    }
+}
+
+#[cfg(feature = "multi-message-id")]
+#[ffi_export]
+pub fn ffi_rln_proof_values_get_nullifiers(
+    pv: &repr_c::Box<FFI_RLNProofValues>,
+) -> CResult<repr_c::Vec<CFr>, repr_c::String> {
+    match &pv.0.nullifiers {
+        Some(nullifiers) => CResult {
+            ok: Some(
+                nullifiers
+                    .iter()
+                    .map(|fr| CFr::from(*fr))
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+            err: None,
+        },
+        None => CResult {
+            ok: None,
+            err: Some(
+                "nullifiers field is None, use ffi_rln_proof_values_get_nullifiers instead".into(),
+            ),
+        },
+    }
+}
+
+#[cfg(feature = "multi-message-id")]
+#[ffi_export]
+pub fn ffi_rln_proof_values_get_selector_used(
+    pv: &repr_c::Box<FFI_RLNProofValues>,
+) -> CResult<repr_c::Vec<bool>, repr_c::String> {
+    match &pv.0.selector_used {
+        Some(selector_used) => CResult {
+            ok: Some(selector_used.clone().into()),
+            err: None,
+        },
+        None => CResult {
+            ok: None,
+            err: Some("selector_used field is None (single-message mode)".into()),
+        },
+    }
 }
 
 #[ffi_export]
