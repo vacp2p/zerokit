@@ -7,7 +7,7 @@ This example demonstrates how to use the RLN C FFI in both stateless and non-sta
 ### Compile lib non-stateless
 
 ```bash
-cargo build -p rln
+cargo build -p rln --release
 cargo run --features headers --bin generate-headers
 mv -v rln.h rln/ffi_c_examples/
 ```
@@ -25,7 +25,7 @@ gcc -Wall main.c -o main -lrln -L../../target/debug
 ### Compile lib stateless
 
 ```bash
-cargo build -p rln --no-default-features --features stateless
+cargo build -p rln --release --no-default-features --features stateless
 cargo run  --no-default-features --features stateless,headers --bin generate-headers
 mv -v rln.h rln/ffi_c_examples/
 ```
