@@ -254,11 +254,12 @@ mod test {
 
     #[cfg(not(feature = "stateless"))]
     mod tree_test {
-        use super::new_single_message_witness;
         use ark_std::{rand::thread_rng, UniformRand};
         use rand::{rngs::ThreadRng, Rng};
         use rln::prelude::*;
         use serde_json::json;
+
+        use super::new_single_message_witness;
 
         const NO_OF_LEAVES: usize = 256;
 
