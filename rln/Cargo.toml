@@ -63,7 +63,7 @@ document-features = { version = "0.2.12", optional = true }
 criterion = { version = "0.8.0", features = ["html_reports"] }
 
 [features]
-default = ["parallel", "pmtree-ft", "multi-message-id"]
+default = ["parallel", "pmtree-ft"]
 stateless = []
 parallel = [
     "rayon",
@@ -89,6 +89,16 @@ required-features = ["pmtree-ft"]
 [[bench]]
 name = "poseidon_tree_benchmark"
 harness = false
+
+
+[[example]]
+name = "multi_message_id"
+path = "examples/multi_message_id.rs"
+required-features = ["multi-message-id"]
+
+[[example]]
+name = "standard"
+path = "examples/standard.rs"
 
 [package.metadata.docs.rs]
 all-features = true

@@ -2,16 +2,23 @@
 
 This example demonstrates how to use RLN .
 
-## Standard rln example
+## Standard example with default features
 
 ```bash
 cd rln/examples
 cargo run --example standard
 ```
 
-## Multi-message-id feature enable example
+## Standard example with multi-message-id feature enabled for backward compatibility
 
 ```bash
 cd rln/examples
-cargo run --example multi_message_id
+cargo run --example standard --features multi-message-id
+```
+
+## Example with multi-message-id feature enabled
+
+```bash
+cd rln/examples
+cargo run --example multi_message_id --features multi-message-id
 ```

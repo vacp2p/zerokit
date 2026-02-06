@@ -38,6 +38,19 @@ fn main() {
     let x = hash_to_field_le(signal).unwrap();
 
     // 8. Create witness input for RLN proof generation
+    #[cfg(not(feature = "multi-message-id"))]
+    let witness = RLNWitnessInput::new(
+        identity_secret,
+        user_message_limit,
+        message_id,
+        path_elements,
+        identity_path_index,
+        x,
+        external_nullifier,
+    )
+    .unwrap();
+
+    #[cfg(feature = "multi-message-id")]
     let witness = RLNWitnessInput::new(
         identity_secret,
         user_message_limit,
