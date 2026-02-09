@@ -242,17 +242,11 @@ mod test {
 
     #[test]
     fn test_initialization_with_params() {
-        let zkey_data = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey");
-        let graph_data = include_bytes!("../resources/tree_depth_20/graph.bin");
+        let zkey_data = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey").to_vec();
+        let graph_data = include_bytes!("../resources/tree_depth_20/graph.bin").to_vec();
 
         #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
-        assert!(RLN::new_with_params(
-            DEFAULT_TREE_DEPTH,
-            zkey_data.to_vec(),
-            graph_data.to_vec(),
-            ""
-        )
-        .is_ok());
+        assert!(RLN::new_with_params(DEFAULT_TREE_DEPTH, zkey_data, graph_data, "").is_ok());
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
         assert!(RLN::new_with_params(zkey_data, graph_data).is_ok());
@@ -1429,16 +1423,17 @@ mod test {
             assert!(matches!(result.err().unwrap(), RLNError::ZKey(_)));
 
             // Test missing/invalid graph.bin - this would typically fail during proof generation
-            let valid_zkey_data = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey");
+            let valid_zkey_data =
+                include_bytes!("../resources/tree_depth_20/rln_final.arkzkey").to_vec();
             let invalid_graph_data = vec![];
-            let result = RLN::new_with_params(valid_zkey_data.to_vec(), invalid_graph_data);
+            let result = RLN::new_with_params(valid_zkey_data, invalid_graph_data);
             assert!(matches!(result.err().unwrap(), RLNError::Graph(_)));
 
             // Test mismatched tree depth - using zkey from different depth
-            let zkey_depth_16 = include_bytes!("../resources/tree_depth_16/rln_final.arkzkey");
-            let graph_depth_20 = include_bytes!("../resources/tree_depth_20/graph.bin");
-            let rln =
-                RLN::new_with_params(zkey_depth_16.to_vec(), graph_depth_20.to_vec()).unwrap();
+            let zkey_depth_16 =
+                include_bytes!("../resources/tree_depth_16/rln_final.arkzkey").to_vec();
+            let graph_depth_20 = include_bytes!("../resources/tree_depth_20/graph.bin").to_vec();
+            let rln = RLN::new_with_params(zkey_depth_16, graph_depth_20).unwrap();
 
             // Create witness with wrong tree depth (16 instead of 20)
             let rln_witness_wrong_depth = random_rln_witness(16).unwrap();
@@ -1627,17 +1622,12 @@ mod test {
         #[test]
         fn test_multi_message_rln_proof() {
             let zkey_data =
-                include_bytes!("../resources/tree_depth_20/multi_message_id/rln_final.arkzkey");
+                include_bytes!("../resources/tree_depth_20/multi_message_id/rln_final.arkzkey")
+                    .to_vec();
             let graph_data =
-                include_bytes!("../resources/tree_depth_20/multi_message_id/graph.bin");
+                include_bytes!("../resources/tree_depth_20/multi_message_id/graph.bin").to_vec();
 
-            let rln = RLN::new_with_params(
-                DEFAULT_TREE_DEPTH,
-                zkey_data.to_vec(),
-                graph_data.to_vec(),
-                "",
-            )
-            .unwrap();
+            let rln = RLN::new_with_params(DEFAULT_TREE_DEPTH, zkey_data, graph_data, "").unwrap();
 
             let mut rng = thread_rng();
             let (identity_secret, _) = keygen().unwrap();
@@ -1703,17 +1693,12 @@ mod test {
         #[test]
         fn test_multi_message_recover_id_secret() {
             let zkey_data =
-                include_bytes!("../resources/tree_depth_20/multi_message_id/rln_final.arkzkey");
+                include_bytes!("../resources/tree_depth_20/multi_message_id/rln_final.arkzkey")
+                    .to_vec();
             let graph_data =
-                include_bytes!("../resources/tree_depth_20/multi_message_id/graph.bin");
+                include_bytes!("../resources/tree_depth_20/multi_message_id/graph.bin").to_vec();
 
-            let rln = RLN::new_with_params(
-                DEFAULT_TREE_DEPTH,
-                zkey_data.to_vec(),
-                graph_data.to_vec(),
-                "",
-            )
-            .unwrap();
+            let rln = RLN::new_with_params(DEFAULT_TREE_DEPTH, zkey_data, graph_data, "").unwrap();
 
             let mut rng = thread_rng();
             let (identity_secret, _) = keygen().unwrap();
