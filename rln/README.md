@@ -332,5 +332,6 @@ cargo doc --no-deps
 and look at unit tests to have an hint on how to interface and use them.
 
 - Check the [unit tests](https://github.com/vacp2p/zerokit/tree/master/rln/tests) for more usage examples
+- Check the [rln-cli examples](https://github.com/vacp2p/zerokit/tree/master/rln-cli/src/examples) for complete interactive Rust examples of RLN features (relay, stateless, multi-message-id)
 - [RFC specification](https://rfc.vac.dev/vac/raw/rln-v2) for the Rate-Limiting Nullifier protocol
 - [GitHub repository](https://github.com/vacp2p/zerokit) for the latest updates
