@@ -13,12 +13,20 @@ jobs:
         features:
           - ["stateless"]
           - ["stateless", "parallel"]
+          - ["stateless", "multi_message_id"]
+          - ["stateless", "parallel", "multi_message_id"]
           - ["pmtree-ft"]
           - ["pmtree-ft", "parallel"]
+          - ["pmtree-ft", "multi_message_id"]
+          - ["pmtree-ft", "parallel", "multi_message_id"]
           - ["fullmerkletree"]
           - ["fullmerkletree", "parallel"]
+          - ["fullmerkletree", "multi_message_id"]
+          - ["fullmerkletree", "parallel", "multi_message_id"]
           - ["optimalmerkletree"]
           - ["optimalmerkletree", "parallel"]
+          - ["optimalmerkletree", "multi_message_id"]
+          - ["optimalmerkletree", "parallel", "multi_message_id"]
         target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
     env:
       FEATURES_CARGO: ${{ join(matrix.features, ',') }}
@@ -55,12 +63,20 @@ jobs:
         features:
           - ["stateless"]
           - ["stateless", "parallel"]
+          - ["stateless", "multi_message_id"]
+          - ["stateless", "parallel", "multi_message_id"]
           - ["pmtree-ft"]
           - ["pmtree-ft", "parallel"]
+          - ["pmtree-ft", "multi_message_id"]
+          - ["pmtree-ft", "parallel", "multi_message_id"]
           - ["fullmerkletree"]
           - ["fullmerkletree", "parallel"]
+          - ["fullmerkletree", "multi_message_id"]
+          - ["fullmerkletree", "parallel", "multi_message_id"]
           - ["optimalmerkletree"]
           - ["optimalmerkletree", "parallel"]
+          - ["optimalmerkletree", "multi_message_id"]
+          - ["optimalmerkletree", "parallel", "multi_message_id"]
         target: [x86_64-apple-darwin, aarch64-apple-darwin]
     env:
       FEATURES_CARGO: ${{ join(matrix.features, ',') }}
