@@ -525,4 +525,87 @@ mod test {
 
         assert_eq!(metadata, metadata_want);
     }
+
+    #[test]
+    fn test_try_from_errors() {
+        let node = proto::Node { node: None };
+        let err = graph::Node::try_from(node).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+
+        let node = proto::Node {
+            node: Some(proto::node::Node::Constant(proto::ConstantNode {
+                value: None,
+            })),
+        };
+        let err = graph::Node::try_from(node).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+
+        let node = proto::Node {
+            node: Some(proto::node::Node::UnoOp(proto::UnoOpNode {
+                op: 999,
+                a_idx: 0,
+            })),
+        };
+        let err = graph::Node::try_from(node).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+
+        let node = proto::Node {
+            node: Some(proto::node::Node::DuoOp(proto::DuoOpNode {
+                op: 999,
+                a_idx: 0,
+                b_idx: 1,
+            })),
+        };
+        let err = graph::Node::try_from(node).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+
+        let node = proto::Node {
+            node: Some(proto::node::Node::TresOp(proto::TresOpNode {
+                op: 999,
+                a_idx: 0,
+                b_idx: 1,
+                c_idx: 2,
+            })),
+        };
+        let err = graph::Node::try_from(node).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "We are not supposed to write Constant to the witnesscalc graph. All Constant should be converted to MontConstant."
+    )]
+    fn test_proto_node_from_constant_panics() {
+        let _ = proto::node::Node::from(&graph::Node::Constant(ruint::aliases::U256::from(1u64)));
+    }
+
+    #[test]
+    fn test_read_message_errors() {
+        let mut rw = WriteBackReader::new(std::io::Cursor::new(&[]));
+        let err = read_message_length(&mut rw).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::UnexpectedEof);
+
+        let mut buf = Vec::new();
+        prost::encode_length_delimiter(5, &mut buf).unwrap();
+        buf.extend_from_slice(&[1u8, 2]);
+        let mut rw = WriteBackReader::new(std::io::Cursor::new(&buf));
+        let err = read_message::<_, proto::Node>(&mut rw).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::UnexpectedEof);
+    }
+
+    #[test]
+    fn test_deserialize_invalid_magic() {
+        let bad = vec![b'x'; WITNESSCALC_GRAPH_MAGIC.len()];
+        let err = deserialize_witnesscalc_graph(std::io::Cursor::new(&bad)).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_write_back_reader_empty_read_and_flush() {
+        let mut rw = WriteBackReader::new(std::io::Cursor::new(&[]));
+        let mut buf = [];
+        let n = rw.read(&mut buf).unwrap();
+        assert_eq!(n, 0);
+        rw.flush().unwrap();
+    }
 }

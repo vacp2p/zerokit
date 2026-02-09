@@ -200,3 +200,28 @@ fn read_arkzkey_from_bytes_uncompressed(arkzkey_data: &[u8]) -> Result<Zkey, ZKe
 
     Ok(zkey)
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_empty_zkey_and_graph() {
+        let err = zkey_from_raw(&[]).unwrap_err();
+        assert!(matches!(err, ZKeyReadError::EmptyBytes));
+
+        let err = graph_from_raw(&[], None).err().unwrap();
+        assert!(matches!(err, GraphReadError::EmptyBytes));
+
+        let err = read_arkzkey_from_bytes_uncompressed(&[]).unwrap_err();
+        assert!(matches!(err, ZKeyReadError::EmptyBytes));
+    }
+
+    #[test]
+    fn test_tree_depth_mismatch() {
+        let err = graph_from_raw(GRAPH_BYTES, Some(DEFAULT_TREE_DEPTH + 1))
+            .err()
+            .unwrap();
+        assert!(matches!(err, GraphReadError::TreeDepthMismatch { .. }));
+    }
+}

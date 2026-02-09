@@ -117,3 +117,55 @@ impl R1CSToQAP for CircomReduction {
         Ok(cfg_into_iter!(scalars).skip(1).step_by(2).collect())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use ark_ff::{One, Zero};
+    use ark_poly::GeneralEvaluationDomain;
+    use ark_relations::r1cs::ConstraintMatrices;
+
+    use super::*;
+    use crate::circuit::Fr;
+
+    #[test]
+    fn test_witness_map_from_matrices() {
+        let matrices = ConstraintMatrices::<Fr> {
+            num_instance_variables: 1,
+            num_witness_variables: 1,
+            num_constraints: 1,
+            a_num_non_zero: 1,
+            b_num_non_zero: 1,
+            c_num_non_zero: 0,
+            a: vec![vec![(Fr::one(), 0)]],
+            b: vec![vec![(Fr::one(), 1)]],
+            c: vec![vec![]],
+        };
+
+        let full_assignment = vec![Fr::one(), Fr::from(3u64)];
+        let res = CircomReduction::witness_map_from_matrices::<Fr, GeneralEvaluationDomain<Fr>>(
+            &matrices,
+            1,
+            1,
+            &full_assignment,
+        )
+        .unwrap();
+
+        assert_eq!(res.len(), 2);
+        assert!(res.iter().all(|v| v.is_zero()));
+    }
+
+    #[test]
+    fn test_h_query_scalars_length() {
+        let max_power = 2usize;
+        let domain = GeneralEvaluationDomain::<Fr>::new(2 * max_power + 1).expect("valid domain");
+        let res = CircomReduction::h_query_scalars::<Fr, GeneralEvaluationDomain<Fr>>(
+            2,
+            Fr::from(5u64),
+            Fr::from(1u64),
+            Fr::from(3u64),
+        )
+        .unwrap();
+
+        assert_eq!(res.len(), domain.size() / 2);
+    }
+}

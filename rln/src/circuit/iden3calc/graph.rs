@@ -430,6 +430,7 @@ mod test {
     use std::{ops::Div, str::FromStr};
 
     use ruint::uint;
+    use serde_json;
 
     use super::*;
 
@@ -564,6 +565,105 @@ mod test {
             ),
         );
         assert_eq!(result, uint!(1_U256));
+    }
+
+    #[test]
+    fn test_serde_mont_constant_roundtrip() {
+        let node = Node::MontConstant(Fr::from(42u64));
+        let encoded = serde_json::to_vec(&node).unwrap();
+        let decoded: Node = serde_json::from_slice(&encoded).unwrap();
+        assert_eq!(node, decoded);
+    }
+
+    #[test]
+    fn test_eval_zero_divisors() {
+        let zero = Fr::zero();
+        let a = Fr::from(7u64);
+        assert_eq!(Operation::Div.eval_fr(a, zero).unwrap(), Fr::zero());
+        assert_eq!(Operation::Idiv.eval_fr(a, zero).unwrap(), Fr::zero());
+        assert_eq!(Operation::Mod.eval_fr(a, zero).unwrap(), Fr::zero());
+    }
+
+    #[test]
+    fn test_eval_pow_and_comparisons() {
+        let a = Fr::from(2u64);
+        let b = Fr::from(5u64);
+        assert_eq!(Operation::Pow.eval_fr(a, b).unwrap(), Fr::from(32u64));
+
+        let a = Fr::from(2u64);
+        let b = Fr::from(3u64);
+        assert_eq!(Operation::Eq.eval_fr(a, b).unwrap(), Fr::zero());
+        assert_eq!(Operation::Neq.eval_fr(a, b).unwrap(), Fr::one());
+        assert_eq!(Operation::Lt.eval_fr(a, b).unwrap(), Fr::one());
+        assert_eq!(Operation::Gt.eval_fr(a, b).unwrap(), Fr::zero());
+        assert_eq!(Operation::Leq.eval_fr(a, b).unwrap(), Fr::one());
+        assert_eq!(Operation::Geq.eval_fr(a, b).unwrap(), Fr::zero());
+
+        let zero = Fr::zero();
+        let one = Fr::one();
+        assert_eq!(Operation::Land.eval_fr(zero, one).unwrap(), Fr::zero());
+        assert_eq!(Operation::Lor.eval_fr(zero, one).unwrap(), Fr::one());
+    }
+
+    #[test]
+    fn test_shifts_edges() {
+        let a = Fr::from(5u64);
+        let b = Fr::zero();
+        assert_eq!(shl(a, b).unwrap(), a);
+        assert_eq!(
+            shl(a, Fr::from(Fr::MODULUS_BIT_SIZE as u64)).unwrap(),
+            Fr::zero()
+        );
+
+        let b = Fr::zero();
+        assert_eq!(shr(a, b).unwrap(), a);
+        assert_eq!(shr(a, Fr::from(254u64)).unwrap(), Fr::zero());
+
+        let a = Fr::from(1u64);
+        assert_eq!(shr(a, Fr::from(64u64)).unwrap(), Fr::zero());
+    }
+
+    #[test]
+    fn test_uno_id_error() {
+        let err = UnoOperation::Id.eval_fr(Fr::from(1u64)).unwrap_err();
+        assert!(err.contains("not implemented"));
+    }
+
+    #[test]
+    fn test_evaluate_u256_to_fr_error() {
+        let nodes = vec![Node::Input(0)];
+        let bad = U256::from_limbs(Fr::MODULUS.0);
+        let inputs = vec![bad];
+        let outputs = vec![0usize];
+        let err = evaluate(&nodes, &inputs, &outputs).unwrap_err();
+        assert!(err.contains("Failed to convert U256 to Fr"));
+    }
+
+    #[test]
+    fn test_u_comparisons_sign() {
+        let pos = uint!(1_U256);
+        let neg = HALF_M + uint!(1_U256);
+        let neg2 = HALF_M + uint!(2_U256);
+
+        assert_eq!(u_lt(&pos, &neg), uint!(0_U256));
+        assert_eq!(u_gt(&pos, &neg), uint!(1_U256));
+        assert_eq!(u_lte(&pos, &neg), uint!(0_U256));
+        assert_eq!(u_gte(&pos, &neg), uint!(1_U256));
+
+        assert_eq!(u_lt(&neg, &pos), uint!(1_U256));
+        assert_eq!(u_gt(&neg, &pos), uint!(0_U256));
+
+        assert_eq!(u_lt(&neg2, &neg), uint!(0_U256));
+        assert_eq!(u_gt(&neg2, &neg), uint!(1_U256));
+    }
+
+    #[test]
+    fn test_bitwise_ops_basic() {
+        let a = Fr::from(5u64);
+        let b = Fr::from(3u64);
+        assert_eq!(bit_or(a, b).unwrap(), Fr::from(7u64));
+        assert_eq!(bit_xor(a, b).unwrap(), Fr::from(6u64));
+        assert_eq!(bit_and(a, b).unwrap(), Fr::from(1u64));
     }
 
     #[test]
