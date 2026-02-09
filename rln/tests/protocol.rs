@@ -200,7 +200,7 @@ mod test {
 
         let message_id = Fr::from(message_id);
 
-        RLNWitnessInput::new(
+        new_single_message_witness(
             identity_secret,
             user_message_limit,
             message_id,
@@ -568,9 +568,15 @@ mod test {
             json["userMessageLimit"].as_str().unwrap(),
             to_bigint(witness.user_message_limit()).to_str_radix(10)
         );
+        #[cfg(not(feature = "multi-message-id"))]
         assert_eq!(
             json["messageId"].as_str().unwrap(),
             to_bigint(witness.message_id()).to_str_radix(10)
+        );
+        #[cfg(feature = "multi-message-id")]
+        assert_eq!(
+            json["messageId"].as_str().unwrap(),
+            to_bigint(witness.message_id().unwrap()).to_str_radix(10)
         );
         assert_eq!(
             json["x"].as_str().unwrap(),
@@ -603,9 +609,15 @@ mod test {
             json2["userMessageLimit"].as_str().unwrap(),
             to_bigint(witness2.user_message_limit()).to_str_radix(10)
         );
+        #[cfg(not(feature = "multi-message-id"))]
         assert_eq!(
             json2["messageId"].as_str().unwrap(),
             to_bigint(witness2.message_id()).to_str_radix(10)
+        );
+        #[cfg(feature = "multi-message-id")]
+        assert_eq!(
+            json2["messageId"].as_str().unwrap(),
+            to_bigint(witness2.message_id().unwrap()).to_str_radix(10)
         );
         assert_eq!(
             json2["x"].as_str().unwrap(),
