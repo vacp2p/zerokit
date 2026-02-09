@@ -242,11 +242,17 @@ mod test {
 
     #[test]
     fn test_initialization_with_params() {
-        let zkey_data = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey").to_vec();
-        let graph_data = include_bytes!("../resources/tree_depth_20/graph.bin").to_vec();
+        let zkey_data = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey");
+        let graph_data = include_bytes!("../resources/tree_depth_20/graph.bin");
 
         #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
-        assert!(RLN::new_with_params(DEFAULT_TREE_DEPTH, zkey_data, graph_data, "").is_ok());
+        assert!(RLN::new_with_params(
+            DEFAULT_TREE_DEPTH,
+            zkey_data.to_vec(),
+            graph_data.to_vec(),
+            ""
+        )
+        .is_ok());
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
         assert!(RLN::new_with_params(zkey_data, graph_data).is_ok());
@@ -1013,7 +1019,7 @@ mod test {
 
             let json_config = json!({
                 "tree_config": {
-                    "path": "pmtree-123456",
+                    "path": "/tmp/test-path",
                     "temporary": false,
                     "cache_capacity": 1073741824,
                     "flush_every_ms": 500,
@@ -1441,6 +1447,350 @@ mod test {
             assert!(matches!(
                 proof_result.err().unwrap(),
                 RLNError::Protocol(ProtocolError::WitnessCalc(_))
+            ));
+        }
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    mod multi_message_id_test {
+        use rand::{thread_rng, Rng};
+        use rln::prelude::*;
+
+        fn random_path(depth: usize) -> (Vec<Fr>, Vec<u8>) {
+            let mut rng = thread_rng();
+            let mut path_elements = Vec::new();
+            let mut identity_path_index = Vec::new();
+            for _ in 0..depth {
+                path_elements.push(hash_to_field_le(&rng.gen::<[u8; 32]>()).unwrap());
+                identity_path_index.push(rng.gen_range(0..2) as u8);
+            }
+            (path_elements, identity_path_index)
+        }
+
+        #[test]
+        fn test_multi_message_witness_validation() {
+            let mut rng = thread_rng();
+            let identity_secret = IdSecret::rand(&mut rng);
+            let user_message_limit = Fr::from(10);
+            let (path_elements, identity_path_index) = random_path(DEFAULT_TREE_DEPTH);
+            let x = hash_to_field_le(&rng.gen::<[u8; 32]>()).unwrap();
+            let external_nullifier = hash_to_field_le(&rng.gen::<[u8; 32]>()).unwrap();
+
+            // Both message_id and message_ids set → BothMessageIdSet
+            assert!(matches!(
+                RLNWitnessInput::new(
+                    identity_secret.clone(),
+                    user_message_limit,
+                    Some(Fr::from(1)),
+                    Some(vec![Fr::from(0), Fr::from(1)]),
+                    path_elements.clone(),
+                    identity_path_index.clone(),
+                    x,
+                    external_nullifier,
+                    Some(vec![true, true]),
+                )
+                .unwrap_err(),
+                ProtocolError::BothMessageIdSet
+            ));
+
+            // Neither set → NoMessageIdSet
+            assert!(matches!(
+                RLNWitnessInput::new(
+                    identity_secret.clone(),
+                    user_message_limit,
+                    None,
+                    None,
+                    path_elements.clone(),
+                    identity_path_index.clone(),
+                    x,
+                    external_nullifier,
+                    None,
+                )
+                .unwrap_err(),
+                ProtocolError::NoMessageIdSet
+            ));
+
+            // Empty message_ids → NoMessageIdSet
+            assert!(matches!(
+                RLNWitnessInput::new(
+                    identity_secret.clone(),
+                    user_message_limit,
+                    None,
+                    Some(vec![]),
+                    path_elements.clone(),
+                    identity_path_index.clone(),
+                    x,
+                    external_nullifier,
+                    Some(vec![]),
+                )
+                .unwrap_err(),
+                ProtocolError::NoMessageIdSet
+            ));
+
+            // message_ids without selector_used → InvalidSelectorUsed
+            assert!(matches!(
+                RLNWitnessInput::new(
+                    identity_secret.clone(),
+                    user_message_limit,
+                    None,
+                    Some(vec![Fr::from(0), Fr::from(1)]),
+                    path_elements.clone(),
+                    identity_path_index.clone(),
+                    x,
+                    external_nullifier,
+                    None,
+                )
+                .unwrap_err(),
+                ProtocolError::InvalidSelectorUsed
+            ));
+
+            // Mismatched selector_used length → InvalidSelectorUsed
+            assert!(matches!(
+                RLNWitnessInput::new(
+                    identity_secret.clone(),
+                    user_message_limit,
+                    None,
+                    Some(vec![Fr::from(0), Fr::from(1)]),
+                    path_elements.clone(),
+                    identity_path_index.clone(),
+                    x,
+                    external_nullifier,
+                    Some(vec![true]),
+                )
+                .unwrap_err(),
+                ProtocolError::InvalidSelectorUsed
+            ));
+
+            // Active message_id >= limit → InvalidMessageId
+            assert!(matches!(
+                RLNWitnessInput::new(
+                    identity_secret.clone(),
+                    user_message_limit,
+                    None,
+                    Some(vec![Fr::from(0), Fr::from(10)]),
+                    path_elements.clone(),
+                    identity_path_index.clone(),
+                    x,
+                    external_nullifier,
+                    Some(vec![true, true]),
+                )
+                .unwrap_err(),
+                ProtocolError::InvalidMessageId(_, _)
+            ));
+
+            // Inactive message_id >= limit → OK
+            assert!(RLNWitnessInput::new(
+                identity_secret.clone(),
+                user_message_limit,
+                None,
+                Some(vec![Fr::from(0), Fr::from(10)]),
+                path_elements.clone(),
+                identity_path_index.clone(),
+                x,
+                external_nullifier,
+                Some(vec![true, false]),
+            )
+            .is_ok());
+
+            // Zero user_message_limit → ZeroUserMessageLimit
+            assert!(matches!(
+                RLNWitnessInput::new(
+                    identity_secret.clone(),
+                    Fr::from(0),
+                    None,
+                    Some(vec![Fr::from(0)]),
+                    path_elements.clone(),
+                    identity_path_index.clone(),
+                    x,
+                    external_nullifier,
+                    Some(vec![true]),
+                )
+                .unwrap_err(),
+                ProtocolError::ZeroUserMessageLimit
+            ));
+
+            // Valid multi-message witness
+            assert!(RLNWitnessInput::new(
+                identity_secret,
+                user_message_limit,
+                None,
+                Some(vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)]),
+                path_elements,
+                identity_path_index,
+                x,
+                external_nullifier,
+                Some(vec![true, true, false, false]),
+            )
+            .is_ok());
+        }
+
+        #[test]
+        fn test_multi_message_rln_proof() {
+            let zkey_data =
+                include_bytes!("../resources/tree_depth_20/multi_message_id/rln_final.arkzkey");
+            let graph_data =
+                include_bytes!("../resources/tree_depth_20/multi_message_id/graph.bin");
+
+            let rln = RLN::new_with_params(
+                DEFAULT_TREE_DEPTH,
+                zkey_data.to_vec(),
+                graph_data.to_vec(),
+                "",
+            )
+            .unwrap();
+
+            let mut rng = thread_rng();
+            let (identity_secret, _) = keygen().unwrap();
+            let user_message_limit = Fr::from(10);
+            let (path_elements, identity_path_index) = random_path(DEFAULT_TREE_DEPTH);
+
+            let epoch = hash_to_field_le(b"test-epoch").unwrap();
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
+
+            let signal: [u8; 32] = rng.gen();
+            let x = hash_to_field_le(&signal).unwrap();
+
+            let message_ids = vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)];
+            let selector_used = vec![false, true, true, false];
+
+            let witness = RLNWitnessInput::new(
+                identity_secret,
+                user_message_limit,
+                None,
+                Some(message_ids),
+                path_elements,
+                identity_path_index,
+                x,
+                external_nullifier,
+                Some(selector_used.clone()),
+            )
+            .unwrap();
+
+            let (proof, proof_values) = rln.generate_rln_proof(&witness).unwrap();
+
+            // Verify proof values structure
+            assert!(proof_values.y.is_none());
+            assert!(proof_values.ys.is_some());
+            assert!(proof_values.nullifier.is_none());
+            assert!(proof_values.nullifiers.is_some());
+            assert!(proof_values.selector_used.is_some());
+
+            let ys = proof_values.ys.as_ref().unwrap();
+            let nullifiers = proof_values.nullifiers.as_ref().unwrap();
+            let selector = proof_values.selector_used.as_ref().unwrap();
+            assert_eq!(ys.len(), 4);
+            assert_eq!(nullifiers.len(), 4);
+            assert_eq!(*selector, selector_used);
+
+            // Inactive slots should have zero values
+            assert_eq!(ys[0], Fr::from(0));
+            assert_eq!(ys[3], Fr::from(0));
+            assert_eq!(nullifiers[0], Fr::from(0));
+            assert_eq!(nullifiers[3], Fr::from(0));
+
+            // Active slots should have non-zero values
+            assert_ne!(ys[1], Fr::from(0));
+            assert_ne!(ys[2], Fr::from(0));
+            assert_ne!(nullifiers[1], Fr::from(0));
+            assert_ne!(nullifiers[2], Fr::from(0));
+
+            // Verify zk proof
+            let verified = rln.verify_zk_proof(&proof, &proof_values).unwrap();
+            assert!(verified);
+        }
+
+        #[test]
+        fn test_multi_message_recover_id_secret() {
+            let zkey_data =
+                include_bytes!("../resources/tree_depth_20/multi_message_id/rln_final.arkzkey");
+            let graph_data =
+                include_bytes!("../resources/tree_depth_20/multi_message_id/graph.bin");
+
+            let rln = RLN::new_with_params(
+                DEFAULT_TREE_DEPTH,
+                zkey_data.to_vec(),
+                graph_data.to_vec(),
+                "",
+            )
+            .unwrap();
+
+            let mut rng = thread_rng();
+            let (identity_secret, _) = keygen().unwrap();
+            let user_message_limit = Fr::from(10);
+            let (path_elements, identity_path_index) = random_path(DEFAULT_TREE_DEPTH);
+
+            let epoch = hash_to_field_le(b"test-epoch").unwrap();
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
+
+            let signal1: [u8; 32] = rng.gen();
+            let x1 = hash_to_field_le(&signal1).unwrap();
+            let signal2: [u8; 32] = rng.gen();
+            let x2 = hash_to_field_le(&signal2).unwrap();
+
+            // Both witnesses use the same active message slots
+            let message_ids = vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)];
+            let selector_used = vec![true, true, false, false];
+
+            let witness1 = RLNWitnessInput::new(
+                identity_secret.clone(),
+                user_message_limit,
+                None,
+                Some(message_ids.clone()),
+                path_elements.clone(),
+                identity_path_index.clone(),
+                x1,
+                external_nullifier,
+                Some(selector_used.clone()),
+            )
+            .unwrap();
+
+            let witness2 = RLNWitnessInput::new(
+                identity_secret.clone(),
+                user_message_limit,
+                None,
+                Some(message_ids),
+                path_elements.clone(),
+                identity_path_index.clone(),
+                x2,
+                external_nullifier,
+                Some(selector_used),
+            )
+            .unwrap();
+
+            let (_, proof_values_1) = rln.generate_rln_proof(&witness1).unwrap();
+            let (_, proof_values_2) = rln.generate_rln_proof(&witness2).unwrap();
+
+            // Recovery should succeed with matching nullifiers
+            let recovered = recover_id_secret(&proof_values_1, &proof_values_2).unwrap();
+            assert_eq!(*recovered, *identity_secret);
+
+            // Test recovery fails with different identities (no matching nullifiers)
+            let (identity_secret_new, _) = keygen().unwrap();
+            let signal3: [u8; 32] = rng.gen();
+            let x3 = hash_to_field_le(&signal3).unwrap();
+
+            let witness3 = RLNWitnessInput::new(
+                identity_secret_new,
+                user_message_limit,
+                None,
+                Some(vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)]),
+                path_elements,
+                identity_path_index,
+                x3,
+                external_nullifier,
+                Some(vec![true, true, false, false]),
+            )
+            .unwrap();
+
+            let (_, proof_values_3) = rln.generate_rln_proof(&witness3).unwrap();
+
+            // Different identities produce different nullifiers, so no matching nullifier
+            let recovered_result = recover_id_secret(&proof_values_1, &proof_values_3);
+            assert!(matches!(
+                recovered_result.unwrap_err(),
+                ProtocolError::IdSecretRecovery
             ));
         }
     }
