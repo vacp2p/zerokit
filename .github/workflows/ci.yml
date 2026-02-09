@@ -176,6 +176,11 @@ jobs:
         run: |
           cargo clippy --all-targets --tests --release --features=stateless --no-default-features -- -D warnings
         working-directory: ${{ matrix.crate }}
+      - name: Check clippy multi-message-id feature
+        if: (success() || failure()) && (matrix.crate == 'rln')
+        run: |
+          cargo clippy --all-targets --tests --release --features=multi-message-id -- -D warnings
+        working-directory: ${{ matrix.crate }}
 
   benchmark-utils:
     # run only on ready PRs
