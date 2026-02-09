@@ -44,7 +44,7 @@ version = "0.3.85"
 features = ["Window", "Navigator"]
 
 [features]
-default = ["multi-message-id"]
+default = []
 utils = []
 panic_hook = ["console_error_panic_hook"]
 parallel = ["rln/parallel", "wasm-bindgen-rayon", "ark-groth16/parallel"]
