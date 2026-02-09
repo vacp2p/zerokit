@@ -37,7 +37,7 @@ The RLN object constructor requires the following files:
 Additionally, `rln.wasm` is used for testing in the rln-wasm module.
 
 ```rust
-use rln::prelude::{keygen, poseidon_hash, hash_to_field_le, RLN, RLNWitnessInput, Fr, IdSecret};
+use rln::prelude::{hash_to_field_le, keygen, poseidon_hash, Fr, RLNWitnessInput, RLN};
 
 fn main() {
     // 1. Initialize RLN with parameters:
@@ -47,12 +47,12 @@ fn main() {
     let mut rln = RLN::new(tree_depth, "").unwrap();
 
     // 2. Generate an identity keypair
-    let (identity_secret, id_commitment) = keygen();
+    let (identity_secret, id_commitment) = keygen().unwrap();
 
     // 3. Add a rate commitment to the Merkle tree
     let leaf_index = 10;
     let user_message_limit = Fr::from(10);
-    let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
+    let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
     rln.set_leaf(leaf_index, rate_commitment).unwrap();
 
     // 4. Get the Merkle proof for the added commitment
@@ -61,12 +61,12 @@ fn main() {
     // 5. Set up external nullifier (epoch + app identifier)
     // We generate epoch from a date seed and we ensure is
     // mapped to a field element by hashing-to-field its content
-    let epoch = hash_to_field_le(b"Today at noon, this year");
+    let epoch = hash_to_field_le(b"Today at noon, this year").unwrap();
     // We generate rln_identifier from an application identifier and
     // we ensure is mapped to a field element by hashing-to-field its content
-    let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+    let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
     // We generate a external nullifier
-    let external_nullifier = poseidon_hash(&[epoch, rln_identifier]);
+    let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
     // We choose a message_id satisfy 0 <= message_id < user_message_limit
     let message_id = Fr::from(1);
 
@@ -74,7 +74,7 @@ fn main() {
     let signal = b"RLN is awesome";
 
     // 7. Compute x from the signal
-    let x = hash_to_field_le(signal);
+    let x = hash_to_field_le(signal).unwrap();
 
     // 8. Create witness input for RLN proof generation
     let witness = RLNWitnessInput::new(

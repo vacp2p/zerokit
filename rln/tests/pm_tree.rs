@@ -5,13 +5,15 @@ mod test {
     use std::path::PathBuf;
 
     use num_traits::identities::Zero;
-    use rln::pm_tree_adapter::{PmTree, PmTreeProof, PmtreeConfig};
-    use rln::prelude::*;
-    use tempfile::TempDir;
-    use zerokit_utils::merkle_tree::{
-        ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError,
+    use rln::{
+        pm_tree_adapter::{PmTree, PmTreeProof, PmtreeConfig},
+        prelude::*,
     };
-    use zerokit_utils::pm_tree::Mode;
+    use tempfile::TempDir;
+    use zerokit_utils::{
+        merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError},
+        pm_tree::Mode,
+    };
 
     const TEST_DEPTH: usize = 10;
 
