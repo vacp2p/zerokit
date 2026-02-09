@@ -374,11 +374,15 @@ fn main() -> Result<()> {
 fn show_commands() {
     println!("Available commands:");
     println!(
-        "  list                                                          - List registered users"
+        "  list                                                            - List registered users"
     );
-    println!("  register                                                      - Register a new user index");
-    println!("  send -u <index> -m <ids> --selector <bools> -s <signal>       - Send a message with proof");
+    println!("  register                                                        - Register a new user index");
+    println!("  send -u <index> -m <message_ids> --selector <bools> -s <signal> - Send a message with proof");
     println!("  (example: send -u 0 -m 0,1,2,3 --selector 1,1,0,0 -s \"hello\")");
-    println!("  clear                                                         - Clear the screen");
-    println!("  exit                                                          - Exit the program");
+    println!(
+        "  clear                                                           - Clear the screen"
+    );
+    println!(
+        "  exit                                                            - Exit the program"
+    );
 }
