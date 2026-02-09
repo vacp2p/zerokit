@@ -179,7 +179,7 @@ mod test {
         let user_message_limit = Fr::from(user_message_limit);
         let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
 
-        //// generate merkle tree
+        // Generate merkle tree
         let default_leaf = Fr::from(0);
         let mut tree = PoseidonTree::new(
             DEFAULT_TREE_DEPTH,
