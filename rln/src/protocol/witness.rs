@@ -299,22 +299,28 @@ pub fn bytes_le_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
 
     #[cfg(feature = "multi-message-id")]
     let (message_id, message_ids, selector_used) = if read < bytes.len() {
-        let (message_ids, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
-        read += el_size;
-        if message_ids.is_empty() {
-            (Some(message_id), None, None)
-        } else {
-            let selector_used = if read < bytes.len() {
-                let (selector_used, el_size) = bytes_le_to_vec_bool(&bytes[read..])?;
+        match bytes_le_to_vec_fr(&bytes[read..]) {
+            Ok((message_ids, el_size)) => {
                 read += el_size;
-                selector_used
-            } else {
-                return Err(ProtocolError::InvalidSelectorUsed);
-            };
-            if selector_used.len() != message_ids.len() {
-                return Err(ProtocolError::InvalidSelectorUsed);
+                if message_ids.is_empty() {
+                    (Some(message_id), None, None)
+                } else {
+                    let selector_used = if read < bytes.len() {
+                        let (selector_used, el_size) = bytes_le_to_vec_bool(&bytes[read..])?;
+                        read += el_size;
+                        selector_used
+                    } else {
+                        return Err(ProtocolError::InvalidSelectorUsed);
+                    };
+                    if selector_used.len() != message_ids.len() {
+                        return Err(ProtocolError::InvalidSelectorUsed);
+                    }
+                    (None, Some(message_ids), Some(selector_used))
+                }
             }
-            (None, Some(message_ids), Some(selector_used))
+            Err(_) => {
+                return Err(ProtocolError::InvalidReadLen(bytes.len(), read));
+            }
         }
     } else {
         (Some(message_id), None, None)
@@ -373,22 +379,28 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
 
     #[cfg(feature = "multi-message-id")]
     let (message_id, message_ids, selector_used) = if read < bytes.len() {
-        let (message_ids, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
-        read += el_size;
-        if message_ids.is_empty() {
-            (Some(message_id), None, None)
-        } else {
-            let selector_used = if read < bytes.len() {
-                let (selector_used, el_size) = bytes_be_to_vec_bool(&bytes[read..])?;
+        match bytes_be_to_vec_fr(&bytes[read..]) {
+            Ok((message_ids, el_size)) => {
                 read += el_size;
-                selector_used
-            } else {
-                return Err(ProtocolError::InvalidSelectorUsed);
-            };
-            if selector_used.len() != message_ids.len() {
-                return Err(ProtocolError::InvalidSelectorUsed);
+                if message_ids.is_empty() {
+                    (Some(message_id), None, None)
+                } else {
+                    let selector_used = if read < bytes.len() {
+                        let (selector_used, el_size) = bytes_be_to_vec_bool(&bytes[read..])?;
+                        read += el_size;
+                        selector_used
+                    } else {
+                        return Err(ProtocolError::InvalidSelectorUsed);
+                    };
+                    if selector_used.len() != message_ids.len() {
+                        return Err(ProtocolError::InvalidSelectorUsed);
+                    }
+                    (None, Some(message_ids), Some(selector_used))
+                }
             }
-            (None, Some(message_ids), Some(selector_used))
+            Err(_) => {
+                return Err(ProtocolError::InvalidReadLen(bytes.len(), read));
+            }
         }
     } else {
         (Some(message_id), None, None)
