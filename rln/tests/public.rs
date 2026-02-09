@@ -1019,7 +1019,7 @@ mod test {
 
             let json_config = json!({
                 "tree_config": {
-                    "path": "/tmp/test-path",
+                    "path": "/tmp/pmtree-test-path",
                     "temporary": false,
                     "cache_capacity": 1073741824,
                     "flush_every_ms": 500,
