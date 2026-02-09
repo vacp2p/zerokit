@@ -297,6 +297,7 @@ fn show_commands() {
     println!("  list                                        - List registered users");
     println!("  register                                    - Register a new user index");
     println!("  send -u <index> -m <message_id> -s <signal> - Send a message with proof");
+    println!("  (example: send -u 0 -m 0 -s \"hello\")");
     println!("  clear                                       - Clear the screen");
     println!("  exit                                        - Exit the program");
 }

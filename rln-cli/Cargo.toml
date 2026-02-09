@@ -12,6 +12,11 @@ name = "stateless"
 path = "src/examples/stateless.rs"
 required-features = ["stateless"]
 
+[[example]]
+name = "multi_message_id"
+path = "src/examples/multi_message_id.rs"
+required-features = ["multi-message-id"]
+
 [dependencies]
 rln = { path = "../rln", version = "1.0.0", default-features = false }
 zerokit_utils = { path = "../utils", version = "1.0.0", default-features = false }
@@ -22,6 +27,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 [features]
 default = ["rln/pmtree-ft", "rln/parallel"]
 stateless = ["rln/stateless", "rln/parallel"]
+multi-message-id = ["rln/pmtree-ft", "rln/parallel", "rln/multi-message-id"]
 
 [package.metadata.docs.rs]
 all-features = true
