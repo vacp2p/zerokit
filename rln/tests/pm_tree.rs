@@ -58,7 +58,7 @@ mod test {
     fn test_pmtree_config_from_str() {
         let json = r#"
         {
-            "path": "/tmp/test-path",
+            "path": "/tmp/pmtree-test-path",
             "temporary": false,
             "cache_capacity": 1073741824,
             "flush_every_ms": 500,
