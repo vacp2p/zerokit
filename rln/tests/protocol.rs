@@ -204,11 +204,30 @@ mod test {
         let (deser, _) = bytes_le_to_rln_witness(&ser).unwrap();
         assert_eq!(witness, deser);
 
+        // Test truncated witness bytes rejection
+        let truncated = &ser[..ser.len() - 1];
+        assert!(bytes_le_to_rln_witness(truncated).is_err());
+
+        // Test extra witness bytes rejection
+        let mut extra = ser.clone();
+        extra.push(0);
+        assert!(matches!(
+            bytes_le_to_rln_witness(&extra),
+            Err(ProtocolError::InvalidReadLen(_, _))
+        ));
+
         // We test Proof values serialization
         let proof_values = proof_values_from_witness(&witness).unwrap();
         let ser = rln_proof_values_to_bytes_le(&proof_values);
         let (deser, _) = bytes_le_to_rln_proof_values(&ser).unwrap();
         assert_eq!(proof_values, deser);
+
+        // Test truncated proof values bytes rejection
+        let truncated_pv = &ser[..ser.len() - 1];
+        assert!(bytes_le_to_rln_proof_values(truncated_pv).is_err());
+
+        // Test extra proof values bytes rejection (note: proof values deserialization doesn't check extra bytes)
+        // But since it's fixed size, extra bytes would be ignored -> we can test truncated
     }
 
     #[test]
@@ -402,12 +421,17 @@ mod test {
         let (deser3, _) = bytes_be_to_rln_witness(&ser3).unwrap();
         assert_eq!(witness3, deser3);
 
+        // Test extra bytes rejection
         let mut bad = ser.clone();
         bad.push(0);
         assert!(matches!(
             bytes_be_to_rln_witness(&bad),
             Err(ProtocolError::InvalidReadLen(_, _))
         ));
+
+        // Test truncated bytes rejection
+        let truncated = &ser[..ser.len() - 1];
+        assert!(bytes_be_to_rln_witness(truncated).is_err());
     }
 
     #[test]
@@ -420,6 +444,10 @@ mod test {
         let (deser, _) = bytes_be_to_rln_proof_values(&ser).unwrap();
 
         assert_eq!(proof_values, deser);
+
+        // Test truncated proof values bytes rejection
+        let truncated = &ser[..ser.len() - 1];
+        assert!(bytes_be_to_rln_proof_values(truncated).is_err());
 
         // Test with varied witness
         let witness2 = get_test_witness_with_params(b"another signal", b"epoch2", b"id2", 10, 150);
