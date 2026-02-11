@@ -9,6 +9,7 @@ mod test {
         ffi::{ffi_rln::*, ffi_tree::*, ffi_utils::*},
         prelude::*,
     };
+
     use safer_ffi::prelude::repr_c;
     use zeroize::Zeroize;
 
@@ -864,5 +865,180 @@ mod test {
         };
 
         assert_eq!(metadata.len(), 0);
+    }
+
+    fn setup_rln_with_witness() -> (repr_c::Box<FFI_RLN>, repr_c::Box<FFI_RLNWitnessInput>) {
+        let mut ffi_rln_instance = create_rln_instance();
+        let (identity_secret, id_commitment) = identity_pair_gen();
+        let user_message_limit = Fr::from(100);
+        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
+
+        let leaf_index = 3;
+        let result = ffi_set_leaf(
+            &mut ffi_rln_instance,
+            leaf_index,
+            &CFr::from(rate_commitment),
+        );
+        assert!(result.ok);
+
+        let signal = b"hey hey";
+        let x = hash_to_field_le(signal).unwrap();
+        let epoch = hash_to_field_le(b"test-epoch").unwrap();
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
+        let message_id = Fr::from(1);
+
+        let merkle_proof = match ffi_get_merkle_proof(&ffi_rln_instance, leaf_index) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            _ => panic!("get merkle proof failed"),
+        };
+
+        let witness = match ffi_rln_witness_input_new(
+            &CFr::from(*identity_secret),
+            &CFr::from(user_message_limit),
+            &CFr::from(message_id),
+            &merkle_proof.path_elements,
+            &merkle_proof.path_index,
+            &CFr::from(x),
+            &CFr::from(external_nullifier),
+        ) {
+            CResult {
+                ok: Some(w),
+                err: None,
+            } => w,
+            _ => panic!("witness creation failed"),
+        };
+
+        (ffi_rln_instance, witness)
+    }
+
+    fn test_serialization_errors<T: safer_ffi::layout::ReprC>(
+        serialize_le: impl Fn(&T) -> repr_c::Vec<u8>,
+        serialize_be: impl Fn(&T) -> repr_c::Vec<u8>,
+        deserialize_le: impl Fn(&repr_c::Vec<u8>) -> CResult<T, repr_c::String>,
+        deserialize_be: impl Fn(&repr_c::Vec<u8>) -> CResult<T, repr_c::String>,
+        item: &T,
+    ) {
+        // Test LE serialization
+        let ser = serialize_le(item);
+
+        // Test truncated LE bytes
+        let truncated_vec: Vec<u8> = ser.iter().take(ser.len() - 1).cloned().collect();
+        let truncated = truncated_vec.into();
+        let deser_truncated = deserialize_le(&truncated);
+        assert!(deser_truncated.ok.is_none());
+
+        // Test extra LE bytes
+        let mut extra_vec: Vec<u8> = ser.iter().cloned().collect();
+        extra_vec.push(0);
+        let extra = extra_vec.into();
+        let deser_extra = deserialize_le(&extra);
+        assert!(deser_extra.ok.is_none());
+
+        // Test BE serialization
+        let ser_be = serialize_be(item);
+
+        // Test truncated BE bytes
+        let truncated_be_vec: Vec<u8> = ser_be.iter().take(ser_be.len() - 1).cloned().collect();
+        let truncated_be = truncated_be_vec.into();
+        let deser_truncated_be = deserialize_be(&truncated_be);
+        assert!(deser_truncated_be.ok.is_none());
+
+        // Test extra BE bytes
+        let mut extra_be_vec: Vec<u8> = ser_be.iter().cloned().collect();
+        extra_be_vec.push(0);
+        let extra_be = extra_be_vec.into();
+        let deser_extra_be = deserialize_be(&extra_be);
+        assert!(deser_extra_be.ok.is_none());
+    }
+
+    #[test]
+    fn test_witness_serialization_truncated_extra_bytes_ffi() {
+        let (_, witness) = setup_rln_with_witness();
+        test_serialization_errors(
+            |w| ffi_rln_witness_to_bytes_le(w).ok.unwrap(),
+            |w| ffi_rln_witness_to_bytes_be(w).ok.unwrap(),
+            |bytes| ffi_bytes_le_to_rln_witness(bytes),
+            |bytes| ffi_bytes_be_to_rln_witness(bytes),
+            &witness,
+        );
+    }
+
+    #[test]
+    fn test_proof_values_serialization_truncated_bytes_ffi() {
+        let (ffi_rln_instance, witness) = setup_rln_with_witness();
+
+        // Create proof using the witness
+        let rln_proof = match ffi_generate_rln_proof(&ffi_rln_instance, &witness) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            _ => panic!("generate rln proof failed"),
+        };
+
+        let proof_values = ffi_rln_proof_get_values(&rln_proof);
+
+        // Test LE serialization
+        let ser = ffi_rln_proof_values_to_bytes_le(&proof_values);
+
+        // Test truncated LE bytes (should fail)
+        let truncated_vec: Vec<u8> = ser.iter().take(ser.len() - 1).cloned().collect();
+        let truncated = truncated_vec.into();
+        let deser_truncated = ffi_bytes_le_to_rln_proof_values(&truncated);
+        assert!(deser_truncated.ok.is_none());
+
+        // Test BE serialization
+        let ser_be = ffi_rln_proof_values_to_bytes_be(&proof_values);
+
+        // Test truncated BE bytes (should fail)
+        let truncated_be_vec: Vec<u8> = ser_be.iter().take(ser_be.len() - 1).cloned().collect();
+        let truncated_be = truncated_be_vec.into();
+        let deser_truncated_be = ffi_bytes_be_to_rln_proof_values(&truncated_be);
+        assert!(deser_truncated_be.ok.is_none());
+
+        // Note: Extra bytes are not checked for proof values (fixed size), unlike witnesses
+    }
+
+    #[test]
+    fn test_rln_invalid_witness_input_ffi() {
+        let (ffi_rln_instance, _) = setup_rln_with_witness();
+
+        // Get merkle proof for invalid witness test
+        let merkle_proof = match ffi_get_merkle_proof(&ffi_rln_instance, 3) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            _ => panic!("get merkle proof failed"),
+        };
+
+        // Generate valid components
+        let signal = b"hey hey";
+        let x = hash_to_field_le(signal).unwrap();
+        let epoch = hash_to_field_le(b"test-epoch").unwrap();
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
+
+        // Test invalid witness input (message_id >= limit)
+        let invalid_message_id = CFr::from(Fr::from(100)); // equal to limit
+        let user_message_limit_cfr = CFr::from(Fr::from(100));
+        let identity_secret_cfr = CFr::from(*identity_pair_gen().0); // dummy identity
+        let x_cfr = CFr::from(x);
+        let external_nullifier_cfr = CFr::from(external_nullifier);
+
+        let result = ffi_rln_witness_input_new(
+            &identity_secret_cfr,
+            &user_message_limit_cfr,
+            &invalid_message_id,
+            &merkle_proof.path_elements,
+            &merkle_proof.path_index,
+            &x_cfr,
+            &external_nullifier_cfr,
+        );
+        assert!(result.ok.is_none()); // should fail due to InvalidMessageId
     }
 }
