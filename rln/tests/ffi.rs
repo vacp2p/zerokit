@@ -1041,4 +1041,23 @@ mod test {
         );
         assert!(result.ok.is_none()); // should fail due to InvalidMessageId
     }
+
+    #[test]
+    fn test_rln_out_of_bounds_ffi() {
+        let mut ffi_rln_instance = create_rln_instance();
+
+        // Test out-of-bounds leaf index
+        let out_of_bounds_index = (1 << DEFAULT_TREE_DEPTH) + 10; // beyond tree capacity
+        let leaf_value = CFr::from(Fr::from(123));
+        let result = ffi_set_leaf(&mut ffi_rln_instance, out_of_bounds_index, &leaf_value);
+        assert!(!result.ok); // should fail
+
+        // Test out-of-bounds merkle proof request
+        let result = ffi_get_merkle_proof(&ffi_rln_instance, out_of_bounds_index);
+        assert!(result.ok.is_none()); // should fail
+
+        // Test out-of-bounds leaf get
+        let result = ffi_get_leaf(&ffi_rln_instance, out_of_bounds_index);
+        assert!(result.ok.is_none()); // should fail
+    }
 }
