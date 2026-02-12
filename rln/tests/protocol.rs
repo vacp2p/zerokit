@@ -195,7 +195,7 @@ mod test {
         assert!(success);
     }
 
-        #[test]
+    #[test]
     // We test partial proof generation and finishing
     fn test_partial_end_to_end() {
         let witness = get_test_witness();
@@ -291,6 +291,28 @@ mod test {
 
         // Test extra proof values bytes rejection (note: proof values deserialization doesn't check extra bytes)
         // But since it's fixed size, extra bytes would be ignored -> we can test truncated
+    }
+
+    #[test]
+    fn test_partial_witness_serialization() {
+        let witness = get_test_witness();
+
+        let partial_witness = RLNPartialWitnessInput::new(
+            witness.identity_secret().clone(),
+            *witness.user_message_limit(),
+            witness.path_elements().to_vec(),
+            witness.identity_path_index().to_vec(),
+        ).unwrap();
+
+        // Test partial witness serialization le
+        let ser = rln_partial_witness_to_bytes_le(&partial_witness).unwrap();
+        let (deser, _) = bytes_le_to_rln_partial_witness(&ser).unwrap();
+        assert_eq!(partial_witness, deser);
+
+        // Test partial witness serialization be
+        let ser = rln_partial_witness_to_bytes_be(&partial_witness).unwrap();
+        let (deser, _) = bytes_be_to_rln_partial_witness(&ser).unwrap();
+        assert_eq!(partial_witness, deser);
     }
 
     #[test]
