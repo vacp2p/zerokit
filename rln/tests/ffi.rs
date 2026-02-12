@@ -1040,6 +1040,51 @@ mod test {
             &external_nullifier_cfr,
         );
         assert!(result.ok.is_none()); // should fail due to InvalidMessageId
+
+        // Test invalid witness input (zero user_message_limit)
+        let zero_limit = CFr::from(Fr::from(0));
+        let valid_message_id = CFr::from(Fr::from(0));
+        let result = ffi_rln_witness_input_new(
+            &identity_secret_cfr,
+            &zero_limit,
+            &valid_message_id,
+            &merkle_proof.path_elements,
+            &merkle_proof.path_index,
+            &x_cfr,
+            &external_nullifier_cfr,
+        );
+        assert!(result.ok.is_none()); // should fail due to ZeroUserMessageLimit
+
+        // Test invalid witness input (path elements length mismatch)
+        let mut bad_path_elements_vec: Vec<CFr> =
+            merkle_proof.path_elements.iter().cloned().collect();
+        bad_path_elements_vec.pop();
+        let bad_path_elements: repr_c::Vec<CFr> = bad_path_elements_vec.into();
+        let result = ffi_rln_witness_input_new(
+            &identity_secret_cfr,
+            &user_message_limit_cfr,
+            &valid_message_id,
+            &bad_path_elements,
+            &merkle_proof.path_index,
+            &x_cfr,
+            &external_nullifier_cfr,
+        );
+        assert!(result.ok.is_none()); // should fail due to invalid path elements length
+
+        // Test invalid witness input (path index length mismatch)
+        let mut bad_path_index_vec: Vec<u8> = merkle_proof.path_index.iter().copied().collect();
+        bad_path_index_vec.pop();
+        let bad_path_index: repr_c::Vec<u8> = bad_path_index_vec.into();
+        let result = ffi_rln_witness_input_new(
+            &identity_secret_cfr,
+            &user_message_limit_cfr,
+            &valid_message_id,
+            &merkle_proof.path_elements,
+            &bad_path_index,
+            &x_cfr,
+            &external_nullifier_cfr,
+        );
+        assert!(result.ok.is_none()); // should fail due to invalid path index length
     }
 
     #[test]
