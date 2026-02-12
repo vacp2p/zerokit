@@ -227,6 +227,38 @@ pub fn ffi_rln_proof_free(rln_proof: repr_c::Box<FFI_RLNProof>) {
 pub struct FFI_RLNPartialProof(pub(crate) PartialProof);
 
 #[ffi_export]
+pub fn ffi_rln_partial_proof_to_bytes_le(
+    partial_proof: &repr_c::Box<FFI_RLNPartialProof>,
+) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+    match rln_partial_proof_to_bytes_le(&partial_proof.0) {
+        Ok(bytes) => CResult {
+            ok: Some(bytes.into()),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_bytes_le_to_rln_partial_proof(
+    bytes: &repr_c::Vec<u8>,
+) -> CResult<repr_c::Box<FFI_RLNPartialProof>, repr_c::String> {
+    match bytes_le_to_rln_partial_proof(bytes) {
+        Ok((partial_proof, _)) => CResult {
+            ok: Some(Box_::new(FFI_RLNPartialProof(partial_proof))),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
 pub fn ffi_rln_partial_proof_free(partial_proof: repr_c::Box<FFI_RLNPartialProof>) {
     drop(partial_proof);
 }

@@ -8,7 +8,7 @@ use ark_poly::GeneralEvaluationDomain;
 use ark_relations::r1cs::{ConstraintMatrices, ConstraintSynthesizer, SynthesisError, Result as R1CSResult, ConstraintSystem, OptimizationGoal, SynthesisMode};
 use ark_std::rand::RngCore;
 use ark_std::{marker::PhantomData, ops::Mul, vec::Vec, UniformRand};
-
+use ark_serialize::*;
 
 /// A partial assignment (witness)
 /// `None` means "unknown" or changing part of the witness, `Some` means fixed and can be precomputed.
@@ -24,7 +24,7 @@ impl<F: PrimeField> PartialAssignment<F> {
 }
 
 /// Precomputed partial proof elements for a given `PartialAssignment`
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct PartialProof<E: Pairing> {
     /// For each entry in `PartialAssignment::values`.
     pub mask: Vec<bool>,

@@ -245,6 +245,28 @@ mod test {
     }
 
     #[test]
+    fn test_partial_proof_serialization() {
+        let witness = get_test_witness();
+        let partial_witness = RLNPartialWitnessInput::new(
+            witness.identity_secret().clone(),
+            *witness.user_message_limit(),
+            witness.path_elements().to_vec(),
+            witness.identity_path_index().to_vec(),
+        )
+        .unwrap();
+
+        let proving_key = zkey_from_folder();
+        let graph_data = graph_from_folder();
+        let partial_proof =
+            generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
+
+        let ser = rln_partial_proof_to_bytes_le(&partial_proof).unwrap();
+        let (deser, read) = bytes_le_to_rln_partial_proof(&ser).unwrap();
+        assert_eq!(read, ser.len());
+        assert_eq!(partial_proof, deser);
+    }
+
+    #[test]
     fn test_rln_witness_input_validation() {
         let leaf_index = 3;
 
