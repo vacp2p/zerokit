@@ -143,7 +143,7 @@ mod test {
         assert!(success);
     }
 
-        #[test]
+    #[test]
     // We test partial proof generation and finishing
     fn test_partial_end_to_end() {
         let witness = get_test_witness();
@@ -220,6 +220,28 @@ mod test {
         let ser = rln_proof_values_to_bytes_le(&proof_values);
         let (deser, _) = bytes_le_to_rln_proof_values(&ser).unwrap();
         assert_eq!(proof_values, deser);
+    }
+
+    #[test]
+    fn test_partial_witness_serialization() {
+        let witness = get_test_witness();
+
+        let partial_witness = RLNPartialWitnessInput::new(
+            witness.identity_secret().clone(),
+            *witness.user_message_limit(),
+            witness.path_elements().to_vec(),
+            witness.identity_path_index().to_vec(),
+        ).unwrap();
+
+        // Test partial witness serialization le
+        let ser = rln_partial_witness_to_bytes_le(&partial_witness).unwrap();
+        let (deser, _) = bytes_le_to_rln_partial_witness(&ser).unwrap();
+        assert_eq!(partial_witness, deser);
+
+        // Test partial witness serialization be
+        let ser = rln_partial_witness_to_bytes_be(&partial_witness).unwrap();
+        let (deser, _) = bytes_be_to_rln_partial_witness(&ser).unwrap();
+        assert_eq!(partial_witness, deser);
     }
 
     #[test]

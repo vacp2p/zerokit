@@ -25,7 +25,8 @@ pub use crate::{
         proof_values_from_witness, recover_id_secret, rln_proof_to_bytes_be, rln_proof_to_bytes_le,
         rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le, rln_witness_to_bigint_json,
         rln_witness_to_bytes_be, rln_witness_to_bytes_le, seeded_keygen, RLNProof, RLNProofValues,
-        RLNWitnessInput, RLNPartialWitnessInput,
+        RLNWitnessInput, RLNPartialWitnessInput, bytes_le_to_rln_partial_witness, bytes_be_to_rln_partial_witness,
+        rln_partial_witness_to_bytes_be, rln_partial_witness_to_bytes_le,
     },
     public::RLN,
     utils::{

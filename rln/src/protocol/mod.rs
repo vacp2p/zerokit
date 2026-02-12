@@ -17,5 +17,6 @@ pub use slashing::recover_id_secret;
 pub use witness::{
     bytes_be_to_rln_witness, bytes_le_to_rln_witness, compute_tree_root, proof_values_from_witness,
     rln_witness_to_bigint_json, rln_witness_to_bytes_be, rln_witness_to_bytes_le, RLNWitnessInput,
-    RLNPartialWitnessInput
+    RLNPartialWitnessInput, bytes_be_to_rln_partial_witness, bytes_le_to_rln_partial_witness,
+    rln_partial_witness_to_bytes_le, rln_partial_witness_to_bytes_be
 };
