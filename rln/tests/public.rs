@@ -181,6 +181,32 @@ mod test {
     }
 
     #[test]
+    fn test_partial_and_finish_proof_generation() {
+        let tree_depth = DEFAULT_TREE_DEPTH;
+        #[cfg(not(feature = "stateless"))]
+        let rln = RLN::new(tree_depth, "").unwrap();
+        #[cfg(feature = "stateless")]
+        let rln = RLN::new().unwrap();
+
+        let rln_witness = random_rln_witness(tree_depth).unwrap();
+        let partial_witness = RLNPartialWitnessInput::new(
+            rln_witness.identity_secret().clone(),
+            *rln_witness.user_message_limit(),
+            rln_witness.path_elements().to_vec(),
+            rln_witness.identity_path_index().to_vec(),
+        )
+        .unwrap();
+
+        // first step: compute partial proof
+        let partial_proof = rln.generate_partial_zk_proof(&partial_witness).unwrap();
+        // second step: finish proof
+        let (proof, proof_values) = rln.finish_rln_proof(&partial_proof, &rln_witness).unwrap();
+
+        let verified = rln.verify_zk_proof(&proof, &proof_values).is_ok();
+        assert!(verified);
+    }
+
+    #[test]
     fn test_initialization_with_params() {
         let zkey_data = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey").to_vec();
         let graph_data = include_bytes!("../resources/tree_depth_20/graph.bin").to_vec();
