@@ -236,6 +236,29 @@ pub fn bytes_be_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), Protocol
     ))
 }
 
+// partial proof serialization
+
+/// Serializes RLN partial proof to little-endian bytes.
+/// Note: The Groth16 partial proof is serialized ONLY in LE format.
+pub fn rln_partial_proof_to_bytes_le(
+    partial_proof: &PartialProof,
+) -> Result<Vec<u8>, ProtocolError> {
+    let mut bytes = Vec::new();
+    partial_proof.serialize_compressed(&mut bytes)?;
+    Ok(bytes)
+}
+
+/// Deserializes RLN partial proof from little-endian bytes.
+/// Returns the deserialized partial proof and the number of bytes read.
+pub fn bytes_le_to_rln_partial_proof(bytes: &[u8]) -> Result<(PartialProof, usize), ProtocolError> {
+    let mut bytes_ref = bytes;
+    let initial_len = bytes_ref.len();
+    let partial_proof = PartialProof::deserialize_compressed(&mut bytes_ref)?;
+    let read = initial_len - bytes_ref.len();
+
+    Ok((partial_proof, read))
+}
+
 // zkSNARK proof generation and verification
 
 /// Converts calculated witness (BigInt) to field elements.

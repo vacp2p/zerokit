@@ -12,6 +12,7 @@ pub use proof::{
     generate_partial_zk_proof, generate_zk_proof_with_rs, finish_zk_proof, finish_zk_proof_with_rs,
     rln_proof_to_bytes_be, rln_proof_to_bytes_le, rln_proof_values_to_bytes_be,
     rln_proof_values_to_bytes_le, verify_zk_proof, RLNProof, RLNProofValues,
+    rln_partial_proof_to_bytes_le, bytes_le_to_rln_partial_proof,
 };
 pub use slashing::recover_id_secret;
 pub use witness::{
