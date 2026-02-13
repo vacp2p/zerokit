@@ -111,7 +111,7 @@ impl R1CSToQAP for CircomReduction {
             .collect::<Vec<_>>();
         let domain_size = scalars.len();
         let domain = D::new(domain_size).ok_or(SynthesisError::PolynomialDegreeTooLarge)?;
-        // generate the lagrange coefficients
+        // Generate the lagrange coefficients
         domain.ifft_in_place(&mut scalars);
         #[allow(unexpected_cfgs)]
         Ok(cfg_into_iter!(scalars).skip(1).step_by(2).collect())

@@ -18,6 +18,17 @@ args = [
 	"--nocapture",
 ]
 
+[tasks.test_multi_message_id]
+command = "cargo"
+args = [
+	"test",
+	"--release",
+	"--features",
+	"multi-message-id",
+	"--",
+	"--nocapture",
+]
+
 [tasks.bench]
 command = "cargo"
 args = ["bench"]

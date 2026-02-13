@@ -38,11 +38,12 @@ nix develop
 # Build all crates
 make build
 
-# Run standard tests
+# Run default tests
 make test
 
 # Module-specific testing
 cd rln && cargo make test_stateless        # Test stateless features
+cd rln && cargo make test_multi_message_id # Test multi_message_id features
 cd rln-wasm && cargo make test_browser     # Test in browser headless mode
 cd rln-wasm && cargo make test_parallel    # Test parallel features
 ```

@@ -50,9 +50,11 @@ cd rln-wasm
 Build commands:
 
 ```bash
-cargo make build          # Default → @waku/zerokit-rln-wasm
-cargo make build_parallel # Parallel → @waku/zerokit-rln-wasm-parallel (requires nightly Rust)
-cargo make build_utils    # Utils only → @waku/zerokit-rln-wasm-utils
+cargo make build                           # Default → @waku/zerokit-rln-wasm
+cargo make build_parallel                  # Parallel → @waku/zerokit-rln-wasm-parallel (requires nightly Rust)
+cargo make build_multi_message_id          # Multi-message-id → @waku/zerokit-rln-wasm-multi-message-id
+cargo make build_parallel_multi_message_id # Parallel + Multi-message-id → @waku/zerokit-rln-wasm-parallel-multi-message-id (requires nightly Rust)
+cargo make build_utils                     # Utils only → @waku/zerokit-rln-wasm-utils
 ```
 
 All packages output to `pkg/` directory.
@@ -60,10 +62,11 @@ All packages output to `pkg/` directory.
 ## Running Tests and Benchmarks
 
 ```bash
-cargo make test           # Standard tests
-cargo make test_browser   # Browser headless mode
-cargo make test_utils     # Utils-only tests
-cargo make test_parallel  # Parallel tests
+cargo make test                   # Deafault tests
+cargo make test_browser           # Browser headless mode
+cargo make test_utils             # Utils-only tests
+cargo make test_parallel          # Parallel tests
+cargo make test_multi_message_id  # Multi-message-id feature tests
 ```
 
 ## Examples

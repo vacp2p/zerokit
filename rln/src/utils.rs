@@ -168,6 +168,42 @@ pub fn vec_u8_to_bytes_be(input: &[u8]) -> Vec<u8> {
 }
 
 #[inline(always)]
+pub fn vec_bool_to_bytes_le(input: &[bool]) -> Vec<u8> {
+    // Calculate capacity for Vec:
+    // - 8 bytes for normalized vector length (usize)
+    // - each bool requires 1 byte
+    let mut bytes = Vec::with_capacity(8 + input.len());
+
+    // We store the vector length
+    bytes.extend_from_slice(&normalize_usize_le(input.len()));
+
+    // We store each bool as a single byte (0 or 1)
+    for &b in input {
+        bytes.push(b as u8);
+    }
+
+    bytes
+}
+
+#[inline(always)]
+pub fn vec_bool_to_bytes_be(input: &[bool]) -> Vec<u8> {
+    // Calculate capacity for Vec:
+    // - 8 bytes for normalized vector length (usize)
+    // - each bool requires 1 byte
+    let mut bytes = Vec::with_capacity(8 + input.len());
+
+    // We store the vector length
+    bytes.extend_from_slice(&normalize_usize_be(input.len()));
+
+    // We store each bool as a single byte (0 or 1)
+    for &b in input {
+        bytes.push(b as u8);
+    }
+
+    bytes
+}
+
+#[inline(always)]
 pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), UtilsError> {
     let mut read: usize = 0;
     if input.len() < 8 {
@@ -323,6 +359,50 @@ pub fn bytes_be_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, UtilsError> {
             })
             .collect()
     }
+}
+
+#[inline(always)]
+pub fn bytes_le_to_vec_bool(input: &[u8]) -> Result<(Vec<bool>, usize), UtilsError> {
+    let mut read: usize = 0;
+    if input.len() < 8 {
+        return Err(UtilsError::InsufficientData {
+            expected: 8,
+            actual: input.len(),
+        });
+    }
+    let len = usize::try_from(u64::from_le_bytes(input[0..8].try_into()?))?;
+    read += 8;
+    if input.len() < 8 + len {
+        return Err(UtilsError::InsufficientData {
+            expected: 8 + len,
+            actual: input.len(),
+        });
+    }
+    let res: Vec<bool> = input[8..8 + len].iter().map(|&b| b != 0).collect();
+    read += len;
+    Ok((res, read))
+}
+
+#[inline(always)]
+pub fn bytes_be_to_vec_bool(input: &[u8]) -> Result<(Vec<bool>, usize), UtilsError> {
+    let mut read: usize = 0;
+    if input.len() < 8 {
+        return Err(UtilsError::InsufficientData {
+            expected: 8,
+            actual: input.len(),
+        });
+    }
+    let len = usize::try_from(u64::from_be_bytes(input[0..8].try_into()?))?;
+    read += 8;
+    if input.len() < 8 + len {
+        return Err(UtilsError::InsufficientData {
+            expected: 8 + len,
+            actual: input.len(),
+        });
+    }
+    let res: Vec<bool> = input[8..8 + len].iter().map(|&b| b != 0).collect();
+    read += len;
+    Ok((res, read))
 }
 
 /// Normalizes a `usize` into an 8-byte array, ensuring consistency across architectures.

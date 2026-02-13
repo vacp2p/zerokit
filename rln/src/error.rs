@@ -47,6 +47,21 @@ pub enum ProtocolError {
     ExternalNullifierMismatch(Fr, Fr),
     #[error("Cannot recover secret: division by zero")]
     DivisionByZero,
+    #[cfg(feature = "multi-message-id")]
+    #[error("Only one of message_id or message_ids can be set")]
+    BothMessageIdSet,
+    #[cfg(feature = "multi-message-id")]
+    #[error("One of message_id or message_ids must be set")]
+    NoMessageIdSet,
+    #[cfg(feature = "multi-message-id")]
+    #[error("Invalid selector used for multi-message-id")]
+    InvalidSelectorUsed,
+    #[cfg(feature = "multi-message-id")]
+    #[error("Invalid proof values for multi-message-id")]
+    InvalidProofValues,
+    #[cfg(feature = "multi-message-id")]
+    #[error("No IdSecret could be recovered from the provided proof values")]
+    IdSecretRecovery,
     #[error("Merkle tree operation error: {0}")]
     MerkleTree(#[from] ZerokitMerkleTreeError),
     #[error("Hash computation error: {0}")]

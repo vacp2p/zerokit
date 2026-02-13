@@ -53,7 +53,7 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest]
         crate: [rln]
-        feature: ["default", "stateless"]
+        feature: ["default", "stateless", "multi-message-id"]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
@@ -71,7 +71,8 @@ jobs:
           if [ ${{ matrix.feature }} == default ]; then
             cargo make test --release
           else
-            cargo make test_${{ matrix.feature }} --release
+            FEATURE=$(echo "${{ matrix.feature }}" | tr '-' '_')
+            cargo make test_${FEATURE} --release
           fi
         working-directory: ${{ matrix.crate }}
 
@@ -82,7 +83,7 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest]
         crate: [rln-wasm]
-        feature: ["default"]
+        feature: ["default", "multi-message-id"]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
@@ -95,13 +96,26 @@ jobs:
       - name: Install dependencies
         run: make installdeps
       - name: Build rln-wasm
-        run: cargo make build
+        run: |
+          if [ ${{ matrix.feature }} == default ]; then
+            cargo make build
+          else
+            FEATURE=$(echo "${{ matrix.feature }}" | tr '-' '_')
+            cargo make build_${FEATURE}
+          fi
         working-directory: ${{ matrix.crate }}
       - name: Test rln-wasm on node
+        if: matrix.feature == 'default'
         run: cargo make test --release
         working-directory: ${{ matrix.crate }}
       - name: Test rln-wasm on browser
-        run: cargo make test_browser --release
+        run: |
+          if [ ${{ matrix.feature }} == default ]; then
+            cargo make test_browser --release
+          else
+            FEATURE=$(echo "${{ matrix.feature }}" | tr '-' '_')
+            cargo make test_${FEATURE} --release
+          fi
         working-directory: ${{ matrix.crate }}
 
   rln-wasm-parallel-test:
@@ -175,6 +189,11 @@ jobs:
         if: (success() || failure()) && (matrix.crate == 'rln')
         run: |
           cargo clippy --all-targets --tests --release --features=stateless --no-default-features -- -D warnings
+        working-directory: ${{ matrix.crate }}
+      - name: Check clippy multi-message-id feature
+        if: (success() || failure()) && (matrix.crate == 'rln')
+        run: |
+          cargo clippy --all-targets --tests --release --features=multi-message-id -- -D warnings
         working-directory: ${{ matrix.crate }}
 
   benchmark-utils:

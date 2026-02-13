@@ -1,3 +1,5 @@
+#![cfg(feature = "multi-message-id")]
+
 use std::{
     collections::HashMap,
     fs::File,
@@ -8,13 +10,15 @@ use std::{
 use clap::{Parser, Subcommand};
 use rln::prelude::{
     hash_to_field_le, keygen, poseidon_hash, recover_id_secret, Fr, IdSecret, PmtreeConfigBuilder,
-    RLNProofValues, RLNWitnessInput, RLN,
+    RLNProofValues, RLNWitnessInput, DEFAULT_TREE_DEPTH, RLN,
 };
 use zerokit_utils::pm_tree::Mode;
 
-const MESSAGE_LIMIT: u32 = 1;
+const MESSAGE_LIMIT: u32 = 10;
 
-const TREE_DEPTH: usize = 20;
+const TREE_DEPTH: usize = DEFAULT_TREE_DEPTH;
+
+const MESSAGE_ID_NUMBER: usize = 4;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -33,7 +37,9 @@ enum Commands {
         #[arg(short, long)]
         user_index: usize,
         #[arg(short, long)]
-        message_id: u32,
+        message_ids: String,
+        #[arg(long)]
+        selector: String,
         #[arg(short, long)]
         signal: String,
     },
@@ -66,7 +72,8 @@ struct RLNSystem {
 impl RLNSystem {
     fn new() -> Result<Self> {
         let mut resources: Vec<Vec<u8>> = Vec::new();
-        let resources_path: PathBuf = format!("../rln/resources/tree_depth_{TREE_DEPTH}").into();
+        let resources_path: PathBuf =
+            format!("../rln/resources/tree_depth_{TREE_DEPTH}/multi_message_id").into();
         let filenames = ["rln_final.arkzkey", "graph.bin"];
         for filename in filenames {
             let fullpath = resources_path.join(Path::new(filename));
@@ -90,7 +97,7 @@ impl RLNSystem {
             resources[1].clone(),
             tree_config,
         )?;
-        println!("RLN instance initialized successfully");
+        println!("RLN multi-message-id instance initialized successfully");
         Ok(RLNSystem {
             rln,
             used_nullifiers: HashMap::new(),
@@ -134,10 +141,48 @@ impl RLNSystem {
         Ok(index)
     }
 
+    fn parse_message_ids(input: &str) -> Result<Vec<Fr>> {
+        let ids: Vec<Fr> = input
+            .split(',')
+            .map(|s| {
+                let id: u32 = s.trim().parse()?;
+                Ok(Fr::from(id))
+            })
+            .collect::<Result<Vec<Fr>>>()?;
+        if ids.len() != MESSAGE_ID_NUMBER as usize {
+            return Err(format!(
+                "expected {MESSAGE_ID_NUMBER} message IDs, got {}",
+                ids.len()
+            )
+            .into());
+        }
+        Ok(ids)
+    }
+
+    fn parse_selector(input: &str) -> Result<Vec<bool>> {
+        let selector: Vec<bool> = input
+            .split(',')
+            .map(|s| match s.trim() {
+                "true" | "1" => Ok(true),
+                "false" | "0" => Ok(false),
+                other => Err(format!("invalid selector value: '{other}'")),
+            })
+            .collect::<std::result::Result<Vec<bool>, String>>()?;
+        if selector.len() != MESSAGE_ID_NUMBER {
+            return Err(format!(
+                "expected {MESSAGE_ID_NUMBER} selector values, got {}",
+                selector.len()
+            )
+            .into());
+        }
+        Ok(selector)
+    }
+
     fn generate_and_verify_proof(
         &mut self,
         user_index: usize,
-        message_id: u32,
+        message_ids: Vec<Fr>,
+        selector_used: Vec<bool>,
         signal: &str,
         external_nullifier: Fr,
     ) -> Result<RLNProofValues> {
@@ -152,18 +197,21 @@ impl RLNSystem {
         let witness = RLNWitnessInput::new(
             identity.identity_secret.clone(),
             Fr::from(MESSAGE_LIMIT),
-            Fr::from(message_id),
+            None,
+            Some(message_ids.clone()),
             path_elements,
             identity_path_index,
             x,
             external_nullifier,
+            Some(selector_used.clone()),
         )?;
 
         let (proof, proof_values) = self.rln.generate_rln_proof(&witness)?;
 
+        let active_count = selector_used.iter().filter(|&&s| s).count();
         println!("Proof generated successfully:");
         println!("+ User Index: {user_index}");
-        println!("+ Message ID: {message_id}");
+        println!("+ Active message slots: {active_count}/{MESSAGE_ID_NUMBER}");
         println!("+ Signal: {signal}");
 
         let verified = self.rln.verify_rln_proof(&proof, &proof_values, &x)?;
@@ -174,29 +222,43 @@ impl RLNSystem {
         Ok(proof_values)
     }
 
-    fn check_nullifier(&mut self, proof_values: RLNProofValues) -> Result<()> {
-        if let Some(previous_proof_values) = self.used_nullifiers.get(&proof_values.nullifier) {
-            self.handle_duplicate_message_id(previous_proof_values.clone(), proof_values)?;
-            return Ok(());
+    fn check_nullifiers(&mut self, proof_values: RLNProofValues) -> Result<()> {
+        let nullifiers = match &proof_values.nullifiers {
+            Some(nullifiers) => nullifiers.clone(),
+            None => return Err("no nullifiers in proof values".into()),
+        };
+        let selector = match &proof_values.selector_used {
+            Some(selector) => selector.clone(),
+            None => return Err("no selector_used in proof values".into()),
+        };
+
+        for (i, (nullifier, active)) in nullifiers.iter().zip(selector.iter()).enumerate() {
+            if !active {
+                continue;
+            }
+
+            if let Some(previous_proof_values) = self.used_nullifiers.get(nullifier) {
+                self.handle_duplicate_nullifier(previous_proof_values.clone(), proof_values, i)?;
+                return Ok(());
+            }
         }
 
-        self.used_nullifiers
-            .insert(proof_values.nullifier, proof_values);
+        for (nullifier, active) in nullifiers.iter().zip(selector.iter()) {
+            if *active {
+                self.used_nullifiers
+                    .insert(*nullifier, proof_values.clone());
+            }
+        }
         println!("Message verified and accepted");
         Ok(())
     }
 
-    fn handle_duplicate_message_id(
+    fn handle_duplicate_nullifier(
         &mut self,
         previous_proof_values: RLNProofValues,
         current_proof_values: RLNProofValues,
+        duplicated_slot: usize,
     ) -> Result<()> {
-        if previous_proof_values.x == current_proof_values.x
-            && previous_proof_values.y == current_proof_values.y
-        {
-            return Err("this exact message and signal has already been sent".into());
-        }
-
         match recover_id_secret(&previous_proof_values, &current_proof_values) {
             Ok(leaked_identity_secret) => {
                 if let Some((user_index, identity)) = self
@@ -210,8 +272,8 @@ impl RLNSystem {
                         Err("Identity secret mismatch: leaked_identity_secret != real_identity_secret".into())
                     } else {
                         println!(
-                            "DUPLICATE message ID detected! Reveal identity secret: {}",
-                            *leaked_identity_secret
+                            "DUPLICATE nullifier detected at slot {}! Reveal identity secret: {}",
+                            duplicated_slot, *leaked_identity_secret
                         );
                         self.local_identities.remove(&user_index);
                         self.rln.delete_leaf(user_index)?;
@@ -228,14 +290,15 @@ impl RLNSystem {
 }
 
 fn main() -> Result<()> {
-    println!("Initializing RLN instance...");
+    println!("Initializing RLN multi-message-id instance...");
     print!("\x1B[2J\x1B[1;1H");
     let mut rln_system = RLNSystem::new()?;
     let rln_epoch = hash_to_field_le(b"epoch")?;
     let rln_identifier = hash_to_field_le(b"rln-identifier")?;
     let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]).unwrap();
-    println!("RLN Relay Example:");
+    println!("RLN Multi-Message-ID Relay Example:");
     println!("Message Limit: {MESSAGE_LIMIT}");
+    println!("Message Slots: {MESSAGE_ID_NUMBER}");
     println!("----------------------------------");
     println!();
     show_commands();
@@ -257,17 +320,33 @@ fn main() -> Result<()> {
                 }
                 Commands::Send {
                     user_index,
-                    message_id,
+                    message_ids,
+                    selector,
                     signal,
                 } => {
+                    let message_ids = match RLNSystem::parse_message_ids(&message_ids) {
+                        Ok(ids) => ids,
+                        Err(err) => {
+                            println!("Invalid message_ids: {err}");
+                            continue;
+                        }
+                    };
+                    let selector_used = match RLNSystem::parse_selector(&selector) {
+                        Ok(sel) => sel,
+                        Err(err) => {
+                            println!("Invalid selector: {err}");
+                            continue;
+                        }
+                    };
                     match rln_system.generate_and_verify_proof(
                         user_index,
-                        message_id,
+                        message_ids,
+                        selector_used,
                         &signal,
                         external_nullifier,
                     ) {
                         Ok(proof_values) => {
-                            if let Err(err) = rln_system.check_nullifier(proof_values) {
+                            if let Err(err) = rln_system.check_nullifiers(proof_values) {
                                 println!("Check nullifier error: {err}");
                             };
                         }
@@ -294,10 +373,16 @@ fn main() -> Result<()> {
 
 fn show_commands() {
     println!("Available commands:");
-    println!("  list                                        - List registered users");
-    println!("  register                                    - Register a new user index");
-    println!("  send -u <index> -m <message_id> -s <signal> - Send a message with proof");
-    println!("  (example: send -u 0 -m 0 -s \"hello\")");
-    println!("  clear                                       - Clear the screen");
-    println!("  exit                                        - Exit the program");
+    println!(
+        "  list                                                            - List registered users"
+    );
+    println!("  register                                                        - Register a new user index");
+    println!("  send -u <index> -m <message_ids> --selector <bools> -s <signal> - Send a message with proof");
+    println!("  (example: send -u 0 -m 0,1,2,3 --selector 1,1,0,0 -s \"hello\")");
+    println!(
+        "  clear                                                           - Clear the screen"
+    );
+    println!(
+        "  exit                                                            - Exit the program"
+    );
 }

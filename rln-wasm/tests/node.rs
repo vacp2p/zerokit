@@ -1,5 +1,6 @@
 #![cfg(target_arch = "wasm32")]
 #![cfg(not(feature = "utils"))]
+#![cfg(not(feature = "multi-message-id"))]
 
 #[cfg(test)]
 mod test {
@@ -77,7 +78,7 @@ mod test {
         // Initialize witness calculator
         initWitnessCalculator(WITNESS_CALCULATOR_JS).unwrap();
 
-        let mut results = String::from("\nbenchmarks:\n");
+        let mut results = String::from("\nBenchmarks:\n");
         let iterations = 10;
 
         let zkey = readFile(ARKZKEY_PATH).unwrap();
@@ -113,7 +114,7 @@ mod test {
 
         let identity_index = tree.leaves_set();
 
-        let user_message_limit = WasmFr::from_uint(100);
+        let user_message_limit = WasmFr::from_uint(10);
 
         let rate_commitment =
             Hasher::poseidon_hash_pair(&id_commitment, &user_message_limit).unwrap();

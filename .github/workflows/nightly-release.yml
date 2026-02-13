@@ -13,12 +13,20 @@ jobs:
         features:
           - ["stateless"]
           - ["stateless", "parallel"]
+          - ["stateless", "multi-message-id"]
+          - ["stateless", "parallel", "multi-message-id"]
           - ["pmtree-ft"]
           - ["pmtree-ft", "parallel"]
+          - ["pmtree-ft", "multi-message-id"]
+          - ["pmtree-ft", "parallel", "multi-message-id"]
           - ["fullmerkletree"]
           - ["fullmerkletree", "parallel"]
+          - ["fullmerkletree", "multi-message-id"]
+          - ["fullmerkletree", "parallel", "multi-message-id"]
           - ["optimalmerkletree"]
           - ["optimalmerkletree", "parallel"]
+          - ["optimalmerkletree", "multi-message-id"]
+          - ["optimalmerkletree", "parallel", "multi-message-id"]
         target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
     env:
       FEATURES_CARGO: ${{ join(matrix.features, ',') }}
@@ -55,12 +63,20 @@ jobs:
         features:
           - ["stateless"]
           - ["stateless", "parallel"]
+          - ["stateless", "multi-message-id"]
+          - ["stateless", "parallel", "multi-message-id"]
           - ["pmtree-ft"]
           - ["pmtree-ft", "parallel"]
+          - ["pmtree-ft", "multi-message-id"]
+          - ["pmtree-ft", "parallel", "multi-message-id"]
           - ["fullmerkletree"]
           - ["fullmerkletree", "parallel"]
+          - ["fullmerkletree", "multi-message-id"]
+          - ["fullmerkletree", "parallel", "multi-message-id"]
           - ["optimalmerkletree"]
           - ["optimalmerkletree", "parallel"]
+          - ["optimalmerkletree", "multi-message-id"]
+          - ["optimalmerkletree", "parallel", "multi-message-id"]
         target: [x86_64-apple-darwin, aarch64-apple-darwin]
     env:
       FEATURES_CARGO: ${{ join(matrix.features, ',') }}
@@ -97,6 +113,8 @@ jobs:
         feature:
           - "default"
           - "parallel"
+          - "multi-message-id"
+          - "parallel-multi-message-id"
           - "utils"
     steps:
       - name: Checkout sources
@@ -120,6 +138,14 @@ jobs:
             rustup run nightly wasm-pack build --release --target web --scope waku \
             --features parallel -Z build-std=panic_abort,std
             sed -i.bak 's/rln-wasm/zerokit-rln-wasm-parallel/g' pkg/package.json && rm pkg/package.json.bak
+          elif [[ ${{ matrix.feature }} == "parallel-multi-message-id" ]]; then
+            env CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS="-C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--shared-memory -C link-arg=--max-memory=1073741824 -C link-arg=--import-memory -C link-arg=--export=__wasm_init_tls -C link-arg=--export=__tls_size -C link-arg=--export=__tls_align -C link-arg=--export=__tls_base" \
+            rustup run nightly wasm-pack build --release --target web --scope waku \
+            --features parallel,multi-message-id -Z build-std=panic_abort,std
+            sed -i.bak 's/rln-wasm/zerokit-rln-wasm-parallel-multi-message-id/g' pkg/package.json && rm pkg/package.json.bak
+          elif [[ ${{ matrix.feature }} == "multi-message-id" ]]; then
+            wasm-pack build --release --target web --scope waku --features multi-message-id
+            sed -i.bak 's/rln-wasm/zerokit-rln-wasm-multi-message-id/g' pkg/package.json && rm pkg/package.json.bak
           elif [[ ${{ matrix.feature }} == "utils" ]]; then
             wasm-pack build --release --target web --scope waku --no-default-features --features utils
             sed -i.bak 's/rln-wasm/zerokit-rln-wasm-utils/g' pkg/package.json && rm pkg/package.json.bak
