@@ -53,7 +53,7 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest]
         crate: [rln]
-        feature: ["default", "stateless", "multi_message_id"]
+        feature: ["default", "stateless", "multi-message-id"]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
@@ -71,6 +71,7 @@ jobs:
           if [ ${{ matrix.feature }} == default ]; then
             cargo make test --release
           else
+            FEATURE=$(echo "${{ matrix.feature }}" | tr '-' '_')
             cargo make test_${{ matrix.feature }} --release
           fi
         working-directory: ${{ matrix.crate }}
