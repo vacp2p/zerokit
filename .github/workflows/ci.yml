@@ -72,7 +72,7 @@ jobs:
             cargo make test --release
           else
             FEATURE=$(echo "${{ matrix.feature }}" | tr '-' '_')
-            cargo make test_${{ matrix.feature }} --release
+            cargo make test_${FEATURE} --release
           fi
         working-directory: ${{ matrix.crate }}
 
