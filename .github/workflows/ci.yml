@@ -99,7 +99,8 @@ jobs:
           if [ ${{ matrix.feature }} == default ]; then
             cargo make build
           else
-            cargo make build_${{ matrix.feature }}
+            FEATURE=$(echo "${{ matrix.feature }}" | tr '-' '_')
+            cargo make build_${FEATURE}
           fi
         working-directory: ${{ matrix.crate }}
       - name: Test rln-wasm on node
@@ -111,7 +112,8 @@ jobs:
           if [ ${{ matrix.feature }} == default ]; then
             cargo make test_browser --release
           else
-            cargo make test_${{ matrix.feature }} --release
+            FEATURE=$(echo "${{ matrix.feature }}" | tr '-' '_')
+            cargo make test_${FEATURE} --release
           fi
         working-directory: ${{ matrix.crate }}
 
