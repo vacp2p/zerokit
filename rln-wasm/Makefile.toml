@@ -172,6 +172,22 @@ args = [
 ]
 dependencies = ["build_parallel"]
 
+[tasks.test_multi_message_id]
+command = "wasm-pack"
+args = [
+    "test",
+    "--release",
+    "--chrome",
+    "--headless",
+    "--target",
+    "wasm32-unknown-unknown",
+    "--features",
+    "multi-message-id",
+    "--",
+    "--nocapture",
+]
+dependencies = ["build_multi_message_id"]
+
 [tasks.test_utils]
 command = "wasm-pack"
 args = [

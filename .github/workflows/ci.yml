@@ -82,7 +82,7 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest]
         crate: [rln-wasm]
-        feature: ["default"]
+        feature: ["default", "multi-message-id"]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
@@ -95,13 +95,24 @@ jobs:
       - name: Install dependencies
         run: make installdeps
       - name: Build rln-wasm
-        run: cargo make build
+        run: |
+          if [ ${{ matrix.feature }} == default ]; then
+            cargo make build
+          else
+            cargo make build_${{ matrix.feature }}
+          fi
         working-directory: ${{ matrix.crate }}
       - name: Test rln-wasm on node
+        if: matrix.feature == 'default'
         run: cargo make test --release
         working-directory: ${{ matrix.crate }}
       - name: Test rln-wasm on browser
-        run: cargo make test_browser --release
+        run: |
+          if [ ${{ matrix.feature }} == default ]; then
+            cargo make test_browser --release
+          else
+            cargo make test_${{ matrix.feature }} --release
+          fi
         working-directory: ${{ matrix.crate }}
 
   rln-wasm-parallel-test:
