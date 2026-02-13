@@ -14,6 +14,22 @@ dependencies = [
 clear = true
 dependencies = ["pack_build_utils", "pack_rename_utils", "pack_add_keywords"]
 
+[tasks.build_multi_message_id]
+clear = true
+dependencies = [
+    "pack_build_multi_message_id",
+    "pack_rename_multi_message_id",
+    "pack_add_keywords",
+]
+
+[tasks.build_parallel_multi_message_id]
+clear = true
+dependencies = [
+    "pack_build_parallel_multi_message_id",
+    "pack_rename_parallel_multi_message_id",
+    "pack_add_keywords",
+]
+
 [tasks.pack_build]
 command = "wasm-pack"
 args = ["build", "--release", "--target", "web", "--scope", "waku"]
@@ -43,6 +59,45 @@ args = [
 
 [tasks.pack_rename_parallel]
 script = "sed -i.bak 's/rln-wasm/zerokit-rln-wasm-parallel/g' pkg/package.json && rm pkg/package.json.bak"
+
+[tasks.pack_build_multi_message_id]
+command = "wasm-pack"
+args = [
+    "build",
+    "--release",
+    "--target",
+    "web",
+    "--scope",
+    "waku",
+    "--features",
+    "multi-message-id",
+]
+
+[tasks.pack_rename_multi_message_id]
+script = "sed -i.bak 's/rln-wasm/zerokit-rln-wasm-multi-message-id/g' pkg/package.json && rm pkg/package.json.bak"
+
+[tasks.pack_build_parallel_multi_message_id]
+command = "env"
+args = [
+    "CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS=-C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--shared-memory -C link-arg=--max-memory=1073741824 -C link-arg=--import-memory -C link-arg=--export=__wasm_init_tls -C link-arg=--export=__tls_size -C link-arg=--export=__tls_align -C link-arg=--export=__tls_base",
+    "rustup",
+    "run",
+    "nightly",
+    "wasm-pack",
+    "build",
+    "--release",
+    "--target",
+    "web",
+    "--scope",
+    "waku",
+    "--features",
+    "parallel,multi_message_id",
+    "-Z",
+    "build-std=panic_abort,std",
+]
+
+[tasks.pack_rename_parallel_multi_message_id]
+script = "sed -i.bak 's/rln-wasm/zerokit-rln-wasm-parallel-multi-message-id/g' pkg/package.json && rm pkg/package.json.bak"
 
 [tasks.pack_build_utils]
 command = "wasm-pack"

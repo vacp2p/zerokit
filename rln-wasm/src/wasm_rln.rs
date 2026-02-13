@@ -115,14 +115,34 @@ pub struct WasmRLNProofValues(RLNProofValues);
 
 #[wasm_bindgen]
 impl WasmRLNProofValues {
+    #[cfg(not(feature = "multi-message-id"))]
     #[wasm_bindgen(getter)]
     pub fn y(&self) -> WasmFr {
         WasmFr::from(self.0.y)
     }
 
+    #[cfg(feature = "multi-message-id")]
+    #[wasm_bindgen(getter)]
+    pub fn y(&self) -> Result<WasmFr, String> {
+        self.0
+            .y
+            .map(WasmFr::from)
+            .ok_or_else(|| "y field is None, use ys() instead".to_string())
+    }
+
+    #[cfg(not(feature = "multi-message-id"))]
     #[wasm_bindgen(getter)]
     pub fn nullifier(&self) -> WasmFr {
         WasmFr::from(self.0.nullifier)
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    #[wasm_bindgen(getter)]
+    pub fn nullifier(&self) -> Result<WasmFr, String> {
+        self.0
+            .nullifier
+            .map(WasmFr::from)
+            .ok_or_else(|| "nullifier field is None, use nullifiers() instead".to_string())
     }
 
     #[wasm_bindgen(getter)]
@@ -138,6 +158,39 @@ impl WasmRLNProofValues {
     #[wasm_bindgen(getter, js_name = externalNullifier)]
     pub fn external_nullifier(&self) -> WasmFr {
         WasmFr::from(self.0.external_nullifier)
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    #[wasm_bindgen(js_name = ys)]
+    pub fn ys(&self) -> Result<VecWasmFr, String> {
+        self.0
+            .ys
+            .as_ref()
+            .map(|ys| VecWasmFr::from(ys.clone()))
+            .ok_or_else(|| "ys field is None, use y() instead".to_string())
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    #[wasm_bindgen(js_name = nullifiers)]
+    pub fn nullifiers(&self) -> Result<VecWasmFr, String> {
+        self.0
+            .nullifiers
+            .as_ref()
+            .map(|nullifiers| VecWasmFr::from(nullifiers.clone()))
+            .ok_or_else(|| "nullifiers field is None, use nullifier() instead".to_string())
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    #[wasm_bindgen(js_name = selectorUsed)]
+    pub fn selector_used(&self) -> Result<Uint8Array, String> {
+        self.0
+            .selector_used
+            .clone()
+            .map(|bools| {
+                let bytes: Vec<u8> = bools.iter().map(|&b| if b { 1u8 } else { 0u8 }).collect();
+                Uint8Array::from(&bytes[..])
+            })
+            .ok_or_else(|| "selector_used field is None (single-message mode)".to_string())
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]
@@ -183,6 +236,7 @@ pub struct WasmRLNWitnessInput(RLNWitnessInput);
 
 #[wasm_bindgen]
 impl WasmRLNWitnessInput {
+    #[cfg(not(feature = "multi-message-id"))]
     #[wasm_bindgen(constructor)]
     pub fn new(
         identity_secret: &WasmFr,
@@ -205,6 +259,43 @@ impl WasmRLNWitnessInput {
             identity_path_index,
             x.inner(),
             external_nullifier.inner(),
+        )
+        .map_err(|err| err.to_string())?;
+
+        Ok(WasmRLNWitnessInput(witness))
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        identity_secret: &WasmFr,
+        user_message_limit: &WasmFr,
+        message_id: Option<WasmFr>,
+        message_ids: Option<VecWasmFr>,
+        path_elements: &VecWasmFr,
+        identity_path_index: &Uint8Array,
+        x: &WasmFr,
+        external_nullifier: &WasmFr,
+        selector_used: Option<Uint8Array>,
+    ) -> Result<WasmRLNWitnessInput, String> {
+        let mut identity_secret_fr = identity_secret.inner();
+        let path_elements: Vec<Fr> = path_elements.inner();
+        let identity_path_index: Vec<u8> = identity_path_index.to_vec();
+
+        let message_id = message_id.map(|id| id.inner());
+        let message_ids = message_ids.map(|ids| ids.inner());
+        let selector_used = selector_used.map(|arr| arr.to_vec().iter().map(|&b| b != 0).collect());
+
+        let witness = RLNWitnessInput::new(
+            IdSecret::from(&mut identity_secret_fr),
+            user_message_limit.inner(),
+            message_id,
+            message_ids,
+            path_elements,
+            identity_path_index,
+            x.inner(),
+            external_nullifier.inner(),
+            selector_used,
         )
         .map_err(|err| err.to_string())?;
 
