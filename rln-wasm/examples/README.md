@@ -4,7 +4,7 @@ This example demonstrates how to use the RLN WASM package in a Node.js environme
 
 ## Build the @waku/zerokit-rln-wasm package at the root of rln-wasm module
 
-### Standard mode
+### Default mode
 
 ```bash
 cargo make build

@@ -38,7 +38,7 @@ nix develop
 # Build all crates
 make build
 
-# Run standard tests
+# Run default tests
 make test
 
 # Module-specific testing

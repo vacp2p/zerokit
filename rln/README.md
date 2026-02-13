@@ -112,7 +112,10 @@ for one application to be re-used in another one.
 
 ### Features
 
+- **Stateful Mode**: Merkle tree management APIs for commitment storage and membership proofs.
 - **Stateless Mode**: Allows the use of RLN without maintaining state of the Merkle tree.
+- **[Parallel Processing](#parallel-processing)**: Optional parallel computation during proof generation for improved performance.
+- **[Multi-Message-ID](#multi-message-id)**: Consume multiple message_id units in a single proof.
 - **Pre-compiled Circuits**: Ready-to-use circuits with Merkle tree depth of 20
 - **Wasm Support**: WebAssembly bindings via rln-wasm crate with features like:
   - Browser and Node.js compatibility
@@ -296,16 +299,23 @@ The FFI layer is organized into several modules:
 - [`ffi_tree.rs`](./src/ffi/ffi_tree.rs) – Provides all tree-related operations and helper functions for Merkle tree management.
 - [`ffi_utils.rs`](./src/ffi/ffi_utils.rs) – Contains all utility functions and structure definitions used across the FFI layer.
 
-### Examples
+## Parallel Processing
 
-Working examples demonstrating proof generation, proof verification and slashing in C and Nim:
+The `parallel` feature flag should be enabled for end-user clients where fastest individual proof generation time is required. For server-side proof services handling multiple concurrent requests, this flag should be disabled and applications should use dedicated worker threads per proof instead. The worker thread approach provides significantly higher throughput for concurrent proof generation.
 
-- [C example](./ffi_c_examples/main.c) and [README](./ffi_c_examples/Readme.md)
-- [Nim example](./ffi_nim_examples/main.nim) and [README](./ffi_nim_examples/Readme.md)
+## Multi-Message-ID
 
-### Memory Management
+The `multi-message-id` feature flag enables consuming multiple message_id units in a single proof.
 
-- All **heap-allocated** objects returned from Rust FFI **must** be freed using their corresponding FFI `_free` functions.
+**Key capabilities:**
+
+- Burn multiple message_id units in one proof execution with corresponding nullifiers
+- Use selector bits to determine which message_id slots are consumed
+- Generate one proof instead of multiple for better computational efficiency
+
+When enabled, the RLN module API allows specifying multiple message_id values and selector bits during witness creation. The proof generation and verification processes are updated accordingly to handle the multi-message-id logic.
+
+For detailed specification, see the [Multi-Message-ID Burn RLN specification](https://lip.logos.co/ift-ts/raw/multi-message_id-burn-rln.html).
 
 ## Detailed Protocol Flow
 
@@ -334,4 +344,5 @@ and look at unit tests to have an hint on how to interface and use them.
 - Check the [unit tests](https://github.com/vacp2p/zerokit/tree/master/rln/tests) for more usage examples
 - Check the [rln-cli examples](https://github.com/vacp2p/zerokit/tree/master/rln-cli/src/examples) for complete interactive Rust examples of RLN features (relay, stateless, multi-message-id)
 - [RFC specification](https://rfc.vac.dev/vac/raw/rln-v2) for the Rate-Limiting Nullifier protocol
+- [Zerokit API documentation](https://lip.logos.co/ift-ts/raw/zerokit-api.html) for comprehensive API reference
 - [GitHub repository](https://github.com/vacp2p/zerokit) for the latest updates
