@@ -1431,7 +1431,7 @@ mod test {
 
             // Test mismatched tree depth - using zkey from different depth
             let zkey_depth_10 =
-                include_bytes!("../resources/zkey_depth_10/rln_final.arkzkey").to_vec();
+                include_bytes!("../resources/tree_depth_10/rln_final.arkzkey").to_vec();
             let graph_depth_20 = include_bytes!("../resources/tree_depth_20/graph.bin").to_vec();
             let rln = RLN::new_with_params(zkey_depth_10, graph_depth_20).unwrap();
 
