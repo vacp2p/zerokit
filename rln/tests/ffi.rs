@@ -1104,5 +1104,72 @@ mod test {
         // Test out-of-bounds leaf get
         let result = ffi_get_leaf(&ffi_rln_instance, out_of_bounds_index);
         assert!(result.ok.is_none()); // should fail
+
+        // Test out-of-bounds leaf delete
+        let result = ffi_delete_leaf(&mut ffi_rln_instance, out_of_bounds_index);
+        assert!(!result.ok); // should fail
+
+        // Test out-of-bounds set leaves from
+        let leaves: repr_c::Vec<CFr> =
+            vec![CFr::from(Fr::from(1u64)), CFr::from(Fr::from(2u64))].into();
+        let result = ffi_set_leaves_from(&mut ffi_rln_instance, out_of_bounds_index, &leaves);
+        assert!(!result.ok); // should fail
+
+        // Test out-of-bounds atomic operation
+        let leaves_to_set: repr_c::Vec<CFr> = vec![CFr::from(Fr::from(1u64))].into();
+        let indices_to_delete: repr_c::Vec<usize> = vec![out_of_bounds_index].into();
+        let result = ffi_atomic_operation(
+            &mut ffi_rln_instance,
+            out_of_bounds_index,
+            &leaves_to_set,
+            &indices_to_delete,
+        );
+        assert!(!result.ok); // should fail
+
+        // Test atomic operation with valid leaf_index but OOB in indices_to_delete
+        let valid_index = 0;
+        let indices_to_delete_oob: repr_c::Vec<usize> = vec![out_of_bounds_index].into();
+        let result = ffi_atomic_operation(
+            &mut ffi_rln_instance,
+            valid_index,
+            &leaves_to_set,
+            &indices_to_delete_oob,
+        );
+        assert!(!result.ok); // should fail
+
+        // Test boundary index (exactly capacity)
+        let boundary_index = 1 << DEFAULT_TREE_DEPTH;
+        let result = ffi_set_leaf(&mut ffi_rln_instance, boundary_index, &leaf_value);
+        assert!(!result.ok); // should fail
+        let result = ffi_get_merkle_proof(&ffi_rln_instance, boundary_index);
+        assert!(result.ok.is_none()); // should fail
+        let result = ffi_get_leaf(&ffi_rln_instance, boundary_index);
+        assert!(result.ok.is_none()); // should fail
+        let result = ffi_delete_leaf(&mut ffi_rln_instance, boundary_index);
+        assert!(!result.ok); // should fail
+
+        // Use a small tree depth to keep test runtime low
+        let small_depth = 4usize;
+        let result = ffi_set_tree(&mut ffi_rln_instance, small_depth);
+        assert!(result.ok);
+
+        // Test out-of-bounds init tree with too many leaves
+        let no_of_leaves = 1 << small_depth;
+        let mut too_many_leaves: Vec<CFr> = Vec::with_capacity(no_of_leaves + 1);
+        for i in 0..=no_of_leaves {
+            too_many_leaves.push(CFr::from(Fr::from((i + 1) as u64)));
+        }
+        let too_many_leaves: repr_c::Vec<CFr> = too_many_leaves.into();
+        let result = ffi_init_tree_with_leaves(&mut ffi_rln_instance, &too_many_leaves);
+        assert!(!result.ok); // should fail
+
+        // Test out-of-bounds set next leaf (tree full)
+        let leaf_value = CFr::from(Fr::from(3u64));
+        for _ in 0..no_of_leaves {
+            let result = ffi_set_next_leaf(&mut ffi_rln_instance, &leaf_value);
+            assert!(result.ok);
+        }
+        let result = ffi_set_next_leaf(&mut ffi_rln_instance, &leaf_value);
+        assert!(!result.ok); // should fail
     }
 }
