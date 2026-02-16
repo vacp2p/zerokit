@@ -1,8 +1,7 @@
 {
   pkgs,
   rust-overlay,
-  project,
-  src ? ../.,
+  src,
   release ? true,
   target-platform ? null,
   rust-target ? null,
@@ -17,33 +16,31 @@ let
 
   rustToolchain = targetPlatformPkgs.rust-bin.stable.latest.default;
 
+  tools = pkgs.callPackage ./tools.nix {};
+  version = tools.findKeyValue "^version = \"([a-f0-9.-]+)\"$" ../rln/Cargo.toml;
+
 in targetPlatformPkgs.rustPlatform.buildRustPackage {
   cargo = rustToolchain;
   rustc = rustToolchain;
 
   pname = "zerokit";
-  version = if src ? rev then src.rev else "nightly";
+  version = "${version}";
 
-  # Improve caching of sources
-  src = pkgs.fetchFromGitHub {
-    owner = "vacp2p";
-    repo = "zerokit";
-    rev  = "3160d9504d07791f2fc9b610948a6cf9a58ed488";
-    sha256 = "sha256-SbDoBElFYJ4cYebltxlO2lYnz6qOaDAVY6aNJ5bqHDE=";
-  };
+  inherit src;
 
-  cargoHash = "sha256-Kik/vqiozy0W9z+KHu0DQ+g6veYAbXvBQ8XqvdkRHOE=";
+  cargoHash = "sha256-WXxQ8mAPD/mPBSnLrunhbDyCAQ0D82t1MILbo+Vfcqk=";
 
   nativeBuildInputs = [ pkgs.rust-cbindgen pkgs.xz ];
 
   doCheck = false;
 
   buildPhase = ''
+    export CARGO_HOME=$TMPDIR/cargo
     cargo build --lib \
       ${if release             then "--release" else ""} \
       ${if rust-target != null then "--target=${rust-target}" else ""} \
       ${if features != null    then "--features=${features}" else ""} \
-      --manifest-path ${project}/Cargo.toml
+      --manifest-path rln/Cargo.toml
   '';
 
   installPhase = ''
@@ -52,7 +49,6 @@ in targetPlatformPkgs.rustPlatform.buildRustPackage {
     find target -type f -name 'librln.*' -not -path '*/deps/*' -exec cp -v '{}' "$out/lib/" \;
 
     mkdir -p $out/include
-    export CARGO_HOME=$TMPDIR/cargo
     cbindgen ./rln -l c > "$out/include/rln.h"
   '';
 

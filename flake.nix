@@ -29,11 +29,11 @@
     {
       packages = forAllSystems (system: let
         pkgs = pkgsFor.${system};
-        buildPackage = pkgs.callPackage ./nix/default.nix;
-        # Add xz and tar to fix unpacking
-        buildRln = (buildPackage { src = self; project = "rln"; }).overrideAttrs (oldAttrs: rec {
-          nativeBuildInputs = (oldAttrs.nativeBuildInputs or []) ++ [ pkgs.xz ];
-        });
+
+        buildRln = pkgs.callPackage ./nix/default.nix {
+          src = self;
+        };
+
       in rec {
         rln = buildRln;
 
