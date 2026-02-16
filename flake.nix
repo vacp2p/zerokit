@@ -2,8 +2,9 @@
   description = "A flake for building zerokit";
 
   inputs = {
-    # Version 24.11
-    nixpkgs.url = "github:NixOS/nixpkgs?rev=f44bd8ca21e026135061a0a57dcf3d0775b67a49";
+    # Pinning the commit to use same commit across different projects.
+    # A commit from nixpkgs 25.11 release : https://github.com/NixOS/nixpkgs/tree/release-25.11
+    nixpkgs.url = "github:NixOS/nixpkgs?rev=23d72dabcb3b12469f57b37170fcbc1789bd7457";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -29,9 +30,12 @@
       packages = forAllSystems (system: let
         pkgs = pkgsFor.${system};
         buildPackage = pkgs.callPackage ./nix/default.nix;
-        buildRln = (buildPackage { src = self; project = "rln"; }).override;
+        # Add xz and tar to fix unpacking
+        buildRln = (buildPackage { src = self; project = "rln"; }).overrideAttrs (oldAttrs: rec {
+          nativeBuildInputs = (oldAttrs.nativeBuildInputs or []) ++ [ pkgs.xz ];
+        });
       in rec {
-        rln = buildRln { };
+        rln = buildRln;
 
         rln-linux-arm64 = buildRln {
           target-platform = "aarch64-multiplatform";

@@ -15,30 +15,28 @@ let
     then pkgs.pkgsCross.${target-platform}
     else pkgs;
 
-  rust-bin = rust-overlay.lib.mkRustBin { } targetPlatformPkgs.buildPackages;
+  rustToolchain = targetPlatformPkgs.rust-bin.stable.latest.default;
 
-  # Use Rust and Cargo versions from rust-overlay.
-  rustPlatform = targetPlatformPkgs.makeRustPlatform {
-    cargo = rust-bin.stable.latest.minimal;
-    rustc = rust-bin.stable.latest.minimal;
-  };
-in rustPlatform.buildRustPackage {
+in targetPlatformPkgs.rustPlatform.buildRustPackage {
+  cargo = rustToolchain;
+  rustc = rustToolchain;
+
   pname = "zerokit";
   version = if src ? rev then src.rev else "nightly";
 
   # Improve caching of sources
-  src = builtins.path { path = src; name = "zerokit"; };
-
-  cargoLock = {
-    lockFile = src + "/Cargo.lock";
-    allowBuiltinFetchGit = true;
+  src = pkgs.fetchFromGitHub {
+    owner = "vacp2p";
+    repo = "zerokit";
+    rev  = "3160d9504d07791f2fc9b610948a6cf9a58ed488";
+    sha256 = "sha256-SbDoBElFYJ4cYebltxlO2lYnz6qOaDAVY6aNJ5bqHDE=";
   };
 
-  nativeBuildInputs = [ pkgs.rust-cbindgen ];
+  cargoHash = "sha256-Kik/vqiozy0W9z+KHu0DQ+g6veYAbXvBQ8XqvdkRHOE=";
+
+  nativeBuildInputs = [ pkgs.rust-cbindgen pkgs.xz ];
 
   doCheck = false;
-
-  CARGO_HOME = "/tmp";
 
   buildPhase = ''
     cargo build --lib \
@@ -52,10 +50,11 @@ in rustPlatform.buildRustPackage {
     set -eu
     mkdir -p $out/lib
     find target -type f -name 'librln.*' -not -path '*/deps/*' -exec cp -v '{}' "$out/lib/" \;
-    mkdir -p $out/include
-    cbindgen ${src}/rln -l c > "$out/include/rln.h"
-  '';
 
+    mkdir -p $out/include
+    export CARGO_HOME=$TMPDIR/cargo
+    cbindgen ./rln -l c > "$out/include/rln.h"
+  '';
 
   meta = with pkgs.lib; {
     description = "Zerokit";
