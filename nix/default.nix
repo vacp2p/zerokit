@@ -30,7 +30,7 @@ in targetPlatformPkgs.rustPlatform.buildRustPackage {
 
   cargoHash = "sha256-WXxQ8mAPD/mPBSnLrunhbDyCAQ0D82t1MILbo+Vfcqk=";
 
-  nativeBuildInputs = with pkgs; [ rust-cbindgen xz ];
+  nativeBuildInputs = with pkgs; [ rust-cbindgen ];
 
   buildPhase = ''
     export CARGO_HOME=$TMPDIR/cargo
