@@ -1137,6 +1137,25 @@ mod test {
         );
         assert!(!result.ok); // should fail
 
+        // Test atomic operation with an in-bounds delete index that starts after `start`
+        // This used to panic due subtraction underflow in mixed override arithmetic.
+        let leaves_two: repr_c::Vec<CFr> =
+            vec![CFr::from(Fr::from(1u64)), CFr::from(Fr::from(2u64))].into();
+        let indices_after_start: repr_c::Vec<usize> = vec![1usize].into();
+        let result =
+            ffi_atomic_operation(&mut ffi_rln_instance, 0, &leaves_two, &indices_after_start);
+        assert!(!result.ok); // should fail without panic
+
+        // Test atomic operation with overflowing start + leaves length
+        let valid_indices: repr_c::Vec<usize> = vec![0usize].into();
+        let result = ffi_atomic_operation(
+            &mut ffi_rln_instance,
+            usize::MAX,
+            &leaves_to_set,
+            &valid_indices,
+        );
+        assert!(!result.ok); // should fail without panic
+
         // Test boundary index (exactly capacity)
         let boundary_index = 1 << DEFAULT_TREE_DEPTH;
         let result = ffi_set_leaf(&mut ffi_rln_instance, boundary_index, &leaf_value);

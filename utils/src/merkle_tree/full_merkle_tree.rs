@@ -10,6 +10,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use super::{
     error::{FromConfigError, ZerokitMerkleTreeError},
     merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES},
+    override_range_validation::{validate_override_range_inputs, EmptyIndicesPolicy},
 };
 
 // Full Merkle Tree Implementation
@@ -194,14 +195,17 @@ where
         start: usize,
         leaves: I,
     ) -> Result<(), ZerokitMerkleTreeError> {
-        let index = self.capacity() + start - 1;
         let mut count = 0;
         // first count number of leaves, and check that they fit in the tree
         // then insert into the tree
         let leaves = leaves.into_iter().collect::<Vec<_>>();
-        if leaves.len() + start > self.capacity() {
+        let end = start
+            .checked_add(leaves.len())
+            .ok_or(ZerokitMerkleTreeError::TooManySet)?;
+        if end > self.capacity() {
             return Err(ZerokitMerkleTreeError::TooManySet);
         }
+        let index = self.capacity() + start - 1;
         leaves.into_iter().for_each(|hash| {
             self.nodes[index + count] = hash;
             self.cached_leaves_indices[start + count] = 1;
@@ -225,14 +229,20 @@ where
         I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
         J: ExactSizeIterator<Item = usize>,
     {
-        let indices = indices.into_iter().collect::<Vec<_>>();
-        if indices.is_empty() {
-            return Err(ZerokitMerkleTreeError::InvalidIndices);
-        }
-        let min_index = indices[0];
         let leaves_vec = leaves.into_iter().collect::<Vec<_>>();
-
-        let max_index = start + leaves_vec.len();
+        let validated = validate_override_range_inputs(
+            start,
+            leaves_vec.len(),
+            indices.into_iter().collect::<Vec<_>>(),
+            self.capacity(),
+            // FullMerkleTree's override path currently requires explicit delete indices.
+            EmptyIndicesPolicy::Reject,
+        )?;
+        let indices = validated.indices;
+        let min_index = validated
+            .min_index
+            .ok_or(ZerokitMerkleTreeError::InvalidIndices)?;
+        let max_index = validated.max_index.unwrap_or(start);
 
         let mut set_values = vec![Self::Hasher::default_leaf(); max_index - min_index];
 
