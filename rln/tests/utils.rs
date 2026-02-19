@@ -383,6 +383,25 @@ mod test {
     }
 
     #[test]
+    fn test_length_prefix_overflow() {
+        let mut overflow_u8 = vec![0u8; 8];
+        overflow_u8[..8].copy_from_slice(&normalize_usize_le(usize::MAX));
+        assert!(bytes_le_to_vec_u8(&overflow_u8).is_err());
+
+        let mut overflow_u8_be = vec![0u8; 8];
+        overflow_u8_be[..8].copy_from_slice(&normalize_usize_be(usize::MAX));
+        assert!(bytes_be_to_vec_u8(&overflow_u8_be).is_err());
+
+        let mut overflow_fr = vec![0u8; 8];
+        overflow_fr[..8].copy_from_slice(&normalize_usize_le(usize::MAX));
+        assert!(bytes_le_to_vec_fr(&overflow_fr).is_err());
+
+        let mut overflow_fr_be = vec![0u8; 8];
+        overflow_fr_be[..8].copy_from_slice(&normalize_usize_be(usize::MAX));
+        assert!(bytes_be_to_vec_fr(&overflow_fr_be).is_err());
+    }
+
+    #[test]
     fn test_empty_vectors() {
         // Test empty vector serialization/deserialization
         let empty_fr: Vec<Fr> = vec![];
