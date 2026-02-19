@@ -6,7 +6,8 @@ mod test {
     use js_sys::{BigInt as JsBigInt, Date, Object, Uint8Array};
     use rln::prelude::*;
     use rln_wasm::{
-        Hasher, Identity, VecWasmFr, WasmFr, WasmRLN, WasmRLNProof, WasmRLNWitnessInput,
+        Hasher, Identity, VecWasmFr, WasmFr, WasmRLN, WasmRLNProof, WasmRLNProofValues,
+        WasmRLNWitnessInput,
     };
     use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
     use wasm_bindgen_test::{console_log, wasm_bindgen_test};
@@ -71,6 +72,55 @@ mod test {
     const ARKZKEY_PATH: &str = "../rln/resources/tree_depth_20/rln_final.arkzkey";
 
     const CIRCOM_PATH: &str = "../rln/resources/tree_depth_20/rln.wasm";
+
+    fn build_witness_parts() -> (
+        WasmFr,
+        WasmFr,
+        WasmFr,
+        VecWasmFr,
+        Uint8Array,
+        WasmFr,
+        WasmFr,
+    ) {
+        let mut tree: OptimalMerkleTree<PoseidonHash> =
+            OptimalMerkleTree::default(DEFAULT_TREE_DEPTH).unwrap();
+
+        let identity_pair = Identity::generate().unwrap();
+        let identity_secret = identity_pair.get_secret_hash();
+        let id_commitment = identity_pair.get_commitment();
+
+        let epoch = Hasher::hash_to_field_le(&Uint8Array::from(b"test-epoch" as &[u8])).unwrap();
+        let rln_identifier =
+            Hasher::hash_to_field_le(&Uint8Array::from(b"test-rln-identifier" as &[u8])).unwrap();
+        let external_nullifier = Hasher::poseidon_hash_pair(&epoch, &rln_identifier).unwrap();
+
+        let identity_index = tree.leaves_set();
+        let user_message_limit = WasmFr::from_uint(10);
+        let rate_commitment =
+            Hasher::poseidon_hash_pair(&id_commitment, &user_message_limit).unwrap();
+        tree.update_next(*rate_commitment).unwrap();
+
+        let message_id = WasmFr::from_uint(0);
+        let signal: [u8; 32] = [0; 32];
+        let x = Hasher::hash_to_field_le(&Uint8Array::from(&signal[..])).unwrap();
+
+        let merkle_proof: OptimalMerkleProof<PoseidonHash> = tree.proof(identity_index).unwrap();
+        let mut path_elements = VecWasmFr::new();
+        for path_element in merkle_proof.get_path_elements() {
+            path_elements.push(&WasmFr::from(path_element));
+        }
+        let path_index = Uint8Array::from(&merkle_proof.get_path_index()[..]);
+
+        (
+            identity_secret,
+            user_message_limit,
+            message_id,
+            path_elements,
+            path_index,
+            x,
+            external_nullifier,
+        )
+    }
 
     #[wasm_bindgen_test]
     pub async fn rln_wasm_benchmark() {
@@ -229,5 +279,101 @@ mod test {
 
         // Log the results
         console_log!("{results}");
+    }
+
+    #[wasm_bindgen_test]
+    pub fn test_wasm_invalid_inputs() {
+        // Invalid zkey data
+        let invalid_zkey = Uint8Array::from(&[0u8; 16][..]);
+        assert!(WasmRLN::new(&invalid_zkey).is_err());
+
+        let (identity_secret, user_message_limit, message_id, path_elements, path_index, x, external_nullifier) =
+            build_witness_parts();
+
+        // Invalid user message limit (zero)
+        let zero_limit = WasmFr::zero();
+        let result = WasmRLNWitnessInput::new(
+            &identity_secret,
+            &zero_limit,
+            &message_id,
+            &path_elements,
+            &path_index,
+            &x,
+            &external_nullifier,
+        );
+        assert!(result.is_err());
+
+        // Invalid message id (>= limit)
+        let invalid_message_id = user_message_limit;
+        let result = WasmRLNWitnessInput::new(
+            &identity_secret,
+            &user_message_limit,
+            &invalid_message_id,
+            &path_elements,
+            &path_index,
+            &x,
+            &external_nullifier,
+        );
+        assert!(result.is_err());
+
+        // Invalid merkle proof length (path elements vs path index)
+        let mut shorter_path_elements = VecWasmFr::new();
+        for i in 0..path_elements.length().saturating_sub(1) {
+            shorter_path_elements.push(&path_elements.get(i).unwrap());
+        }
+        let result = WasmRLNWitnessInput::new(
+            &identity_secret,
+            &user_message_limit,
+            &message_id,
+            &shorter_path_elements,
+            &path_index,
+            &x,
+            &external_nullifier,
+        );
+        assert!(result.is_err());
+
+        // Witness bytes: truncated and extra data
+        let valid_witness = WasmRLNWitnessInput::new(
+            &identity_secret,
+            &user_message_limit,
+            &message_id,
+            &path_elements,
+            &path_index,
+            &x,
+            &external_nullifier,
+        )
+        .unwrap();
+
+        let witness_le = valid_witness.to_bytes_le().unwrap();
+        let witness_le_vec = witness_le.to_vec();
+        let truncated_le = Uint8Array::from(&witness_le_vec[..witness_le_vec.len() - 1]);
+        assert!(WasmRLNWitnessInput::from_bytes_le(&truncated_le).is_err());
+
+        let mut extra_le_vec = witness_le_vec.clone();
+        extra_le_vec.push(0);
+        let extra_le = Uint8Array::from(&extra_le_vec[..]);
+        assert!(WasmRLNWitnessInput::from_bytes_le(&extra_le).is_err());
+
+        let witness_be = valid_witness.to_bytes_be().unwrap();
+        let witness_be_vec = witness_be.to_vec();
+        let truncated_be = Uint8Array::from(&witness_be_vec[..witness_be_vec.len() - 1]);
+        assert!(WasmRLNWitnessInput::from_bytes_be(&truncated_be).is_err());
+
+        let mut extra_be_vec = witness_be_vec.clone();
+        extra_be_vec.push(0);
+        let extra_be = Uint8Array::from(&extra_be_vec[..]);
+        assert!(WasmRLNWitnessInput::from_bytes_be(&extra_be).is_err());
+
+        // Proof values bytes: insufficient length
+        let short_pv = vec![0u8; FR_BYTE_SIZE * 5 - 1];
+        let short_pv = Uint8Array::from(&short_pv[..]);
+        assert!(WasmRLNProofValues::from_bytes_le(&short_pv).is_err());
+        assert!(WasmRLNProofValues::from_bytes_be(&short_pv).is_err());
+
+        // Proof bytes: insufficient length (no proof values)
+        let short_proof = vec![0u8; COMPRESS_PROOF_SIZE];
+        let short_proof = Uint8Array::from(&short_proof[..]);
+        assert!(WasmRLNProof::from_bytes_le(&short_proof).is_err());
+        assert!(WasmRLNProof::from_bytes_be(&short_proof).is_err());
     }
 }
