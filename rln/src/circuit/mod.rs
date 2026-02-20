@@ -1,51 +1,100 @@
 // This crate provides interfaces for the zero-knowledge circuit and keys
 
-pub mod error;
-pub mod iden3calc;
-pub mod qap;
+pub(crate) mod error;
+pub(crate) mod iden3calc;
+pub(crate) mod qap;
 
-use ::lazy_static::lazy_static;
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::LazyLock;
+
 use ark_bn254::{
     Bn254, Fq as ArkFq, Fq2 as ArkFq2, Fr as ArkFr, G1Affine as ArkG1Affine,
     G1Projective as ArkG1Projective, G2Affine as ArkG2Affine, G2Projective as ArkG2Projective,
 };
-use ark_groth16::ProvingKey;
+use ark_ff::Field;
+use ark_groth16::{
+    Proof as ArkProof, ProvingKey as ArkProvingKey, VerifyingKey as ArkVerifyingKey,
+};
 use ark_relations::r1cs::ConstraintMatrices;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use crate::circuit::error::ZKeyReadError;
-use crate::circuit::iden3calc::calc_witness;
-
-use {ark_ff::Field, ark_serialize::CanonicalDeserialize, ark_serialize::CanonicalSerialize};
-
-use crate::utils::FrOrSecret;
-
-pub const ARKZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/rln_final.arkzkey");
+use self::{
+    error::{GraphReadError, ZKeyReadError},
+    iden3calc::InputSignalsInfo,
+};
+use crate::circuit::iden3calc::{graph::Node, storage::deserialize_witnesscalc_graph};
 
 #[cfg(not(target_arch = "wasm32"))]
 const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
 
-lazy_static! {
-    static ref ARKZKEY: (ProvingKey<Curve>, ConstraintMatrices<Fr>) =
-        read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES).expect("Failed to read arkzkey");
-}
+#[cfg(not(target_arch = "wasm32"))]
+const ARKZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/rln_final.arkzkey");
 
-pub const TEST_TREE_DEPTH: usize = 20;
+#[cfg(not(target_arch = "wasm32"))]
+static ARKZKEY: LazyLock<Zkey> = LazyLock::new(|| {
+    read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES).expect("Default zkey must be valid")
+});
+
+#[cfg(not(target_arch = "wasm32"))]
+static GRAPH: LazyLock<Graph> = LazyLock::new(|| {
+    graph_from_raw(GRAPH_BYTES, Some(DEFAULT_TREE_DEPTH)).expect("Default graph must be valid")
+});
+
+pub const DEFAULT_TREE_DEPTH: usize = 20;
+pub const COMPRESS_PROOF_SIZE: usize = 128;
 
 // The following types define the pairing friendly elliptic curve, the underlying finite fields and groups default to this module
 // Note that proofs are serialized assuming Fr to be 4x8 = 32 bytes in size. Hence, changing to a curve with different encoding will make proof verification to fail
+
+/// BN254 pairing-friendly elliptic curve.
 pub type Curve = Bn254;
+
+/// Scalar field Fr of the BN254 curve.
 pub type Fr = ArkFr;
+
+/// Base field Fq of the BN254 curve.
 pub type Fq = ArkFq;
+
+/// Quadratic extension field element for the BN254 curve.
 pub type Fq2 = ArkFq2;
+
+/// Affine representation of a G1 group element on the BN254 curve.
 pub type G1Affine = ArkG1Affine;
+
+/// Projective representation of a G1 group element on the BN254 curve.
 pub type G1Projective = ArkG1Projective;
+
+/// Affine representation of a G2 group element on the BN254 curve.
 pub type G2Affine = ArkG2Affine;
+
+/// Projective representation of a G2 group element on the BN254 curve.
 pub type G2Projective = ArkG2Projective;
 
-// Loads the proving key using a bytes vector
-pub fn zkey_from_raw(
-    zkey_data: &[u8],
-) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>), ZKeyReadError> {
+/// Groth16 proof for the BN254 curve.
+pub type Proof = ArkProof<Curve>;
+
+/// Proving key for the Groth16 proof system.
+pub type ProvingKey = ArkProvingKey<Curve>;
+
+/// Combining the proving key and constraint matrices.
+pub type Zkey = (ArkProvingKey<Curve>, ConstraintMatrices<Fr>);
+
+/// Verifying key for the Groth16 proof system.
+pub type VerifyingKey = ArkVerifyingKey<Curve>;
+
+/// Parsed witness calculator graph.
+///
+/// Contains the deserialized computation graph used for witness calculation.
+/// Parsing this once and reusing it avoids repeated deserialization overhead.
+#[derive(Clone)]
+pub struct Graph {
+    pub(crate) nodes: Vec<Node>,
+    pub(crate) signals: Vec<usize>,
+    pub(crate) input_mapping: InputSignalsInfo,
+}
+
+/// Loads the zkey from raw bytes
+pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<Zkey, ZKeyReadError> {
     if zkey_data.is_empty() {
         return Err(ZKeyReadError::EmptyBytes);
     }
@@ -55,53 +104,74 @@ pub fn zkey_from_raw(
     Ok(proving_key_and_matrices)
 }
 
-// Loads the proving key
+/// Parses the witness calculator graph from raw bytes
+pub fn graph_from_raw(
+    graph_data: &[u8],
+    expected_tree_depth: Option<usize>,
+) -> Result<Graph, GraphReadError> {
+    if graph_data.is_empty() {
+        return Err(GraphReadError::EmptyBytes);
+    }
+
+    let (nodes, signals, input_mapping) =
+        deserialize_witnesscalc_graph(std::io::Cursor::new(graph_data))
+            .map_err(GraphReadError::GraphDeserialization)?;
+
+    if let Some(expected) = expected_tree_depth {
+        let actual = input_mapping
+            .get("pathElements")
+            .map(|(_, len)| *len)
+            .unwrap_or(0);
+
+        if expected != actual {
+            return Err(GraphReadError::TreeDepthMismatch { expected, actual });
+        }
+    }
+
+    Ok(Graph {
+        nodes,
+        signals,
+        input_mapping,
+    })
+}
+
+// Loads default zkey from folder
 #[cfg(not(target_arch = "wasm32"))]
-pub fn zkey_from_folder() -> &'static (ProvingKey<Curve>, ConstraintMatrices<Fr>) {
+pub fn zkey_from_folder() -> &'static Zkey {
     &ARKZKEY
 }
 
-pub fn calculate_rln_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
-    inputs: I,
-    graph_data: &[u8],
-) -> Vec<Fr> {
-    calc_witness(inputs, graph_data)
-}
-
+// Loads default parsed graph from folder
 #[cfg(not(target_arch = "wasm32"))]
-pub fn graph_from_folder() -> &'static [u8] {
-    GRAPH_BYTES
+pub fn graph_from_folder() -> &'static Graph {
+    &GRAPH
 }
 
-////////////////////////////////////////////////////////
-// Functions and structs from [arkz-key](https://github.com/zkmopro/ark-zkey/blob/main/src/lib.rs#L106)
-// without print and allow to choose between compressed and uncompressed arkzkey
-////////////////////////////////////////////////////////
+// The following functions and structs are based on code from ark-zkey:
+// https://github.com/zkmopro/ark-zkey/blob/main/src/lib.rs#L106
 
 #[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq)]
-pub struct SerializableProvingKey(pub ProvingKey<Bn254>);
+struct SerializableProvingKey(ArkProvingKey<Curve>);
 
 #[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq)]
-pub struct SerializableConstraintMatrices<F: Field> {
-    pub num_instance_variables: usize,
-    pub num_witness_variables: usize,
-    pub num_constraints: usize,
-    pub a_num_non_zero: usize,
-    pub b_num_non_zero: usize,
-    pub c_num_non_zero: usize,
-    pub a: SerializableMatrix<F>,
-    pub b: SerializableMatrix<F>,
-    pub c: SerializableMatrix<F>,
+struct SerializableConstraintMatrices<F: Field> {
+    num_instance_variables: usize,
+    num_witness_variables: usize,
+    num_constraints: usize,
+    a_num_non_zero: usize,
+    b_num_non_zero: usize,
+    c_num_non_zero: usize,
+    a: SerializableMatrix<F>,
+    b: SerializableMatrix<F>,
+    c: SerializableMatrix<F>,
 }
 
 #[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq)]
-pub struct SerializableMatrix<F: Field> {
+struct SerializableMatrix<F: Field> {
     pub data: Vec<Vec<(F, usize)>>,
 }
 
-pub fn read_arkzkey_from_bytes_uncompressed(
-    arkzkey_data: &[u8],
-) -> Result<(ProvingKey<Curve>, ConstraintMatrices<Fr>), ZKeyReadError> {
+fn read_arkzkey_from_bytes_uncompressed(arkzkey_data: &[u8]) -> Result<Zkey, ZKeyReadError> {
     if arkzkey_data.is_empty() {
         return Err(ZKeyReadError::EmptyBytes);
     }
@@ -114,9 +184,8 @@ pub fn read_arkzkey_from_bytes_uncompressed(
     let serialized_constraint_matrices =
         SerializableConstraintMatrices::deserialize_uncompressed_unchecked(&mut cursor)?;
 
-    // Get on right form for API
-    let proving_key: ProvingKey<Bn254> = serialized_proving_key.0;
-    let constraint_matrices: ConstraintMatrices<ark_bn254::Fr> = ConstraintMatrices {
+    let proving_key: ProvingKey = serialized_proving_key.0;
+    let constraint_matrices: ConstraintMatrices<Fr> = ConstraintMatrices {
         num_instance_variables: serialized_constraint_matrices.num_instance_variables,
         num_witness_variables: serialized_constraint_matrices.num_witness_variables,
         num_constraints: serialized_constraint_matrices.num_constraints,
@@ -127,6 +196,32 @@ pub fn read_arkzkey_from_bytes_uncompressed(
         b: serialized_constraint_matrices.b.data,
         c: serialized_constraint_matrices.c.data,
     };
+    let zkey = (proving_key, constraint_matrices);
 
-    Ok((proving_key, constraint_matrices))
+    Ok(zkey)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_empty_zkey_and_graph() {
+        let err = zkey_from_raw(&[]).unwrap_err();
+        assert!(matches!(err, ZKeyReadError::EmptyBytes));
+
+        let err = graph_from_raw(&[], None).err().unwrap();
+        assert!(matches!(err, GraphReadError::EmptyBytes));
+
+        let err = read_arkzkey_from_bytes_uncompressed(&[]).unwrap_err();
+        assert!(matches!(err, ZKeyReadError::EmptyBytes));
+    }
+
+    #[test]
+    fn test_tree_depth_mismatch() {
+        let err = graph_from_raw(GRAPH_BYTES, Some(DEFAULT_TREE_DEPTH + 1))
+            .err()
+            .unwrap();
+        assert!(matches!(err, GraphReadError::TreeDepthMismatch { .. }));
+    }
 }

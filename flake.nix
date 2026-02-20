@@ -1,6 +1,11 @@
 {
   description = "A flake for building zerokit";
 
+  nixConfig = {
+    extra-substituters = [ "https://nix-cache.status.im/" ];
+    extra-trusted-public-keys = [ "nix-cache.status.im-1:x/93lOfLU+duPplwMSBR+OlY4+mo+dCN7n0mr4oPwgY=" ];
+  };
+
   inputs = {
     # Pinning the commit to use same commit across different projects.
     # A commit from nixpkgs 25.11 release : https://github.com/NixOS/nixpkgs/tree/release-25.11
@@ -20,11 +25,20 @@
         "i686-windows"
       ];
       forAllSystems = nixpkgs.lib.genAttrs stableSystems;
-      overlays = [
-        (import rust-overlay)
-        (f: p: { inherit rust-overlay; })
-      ];
-      pkgsFor = forAllSystems (system: import nixpkgs { inherit system overlays; });
+
+      pkgsFor = forAllSystems (
+        system: import nixpkgs {
+          inherit system;
+          config = {
+            android_sdk.accept_license = true;
+            allowUnfree = true;
+          };
+          overlays = [
+            (import rust-overlay)
+            (f: p: { inherit rust-overlay; })
+          ];
+        }
+      );
     in rec
     {
       packages = forAllSystems (system: let

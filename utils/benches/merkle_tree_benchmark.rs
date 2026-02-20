@@ -1,11 +1,13 @@
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Display, str::FromStr, sync::LazyLock};
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use lazy_static::lazy_static;
 use tiny_keccak::{Hasher as _, Keccak};
 use zerokit_utils::{
-    FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree,
-    ZerokitMerkleTree,
+    error::HashError,
+    merkle_tree::{
+        FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree,
+        ZerokitMerkleTree,
+    },
 };
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -16,19 +18,20 @@ struct TestFr([u8; 32]);
 
 impl Hasher for Keccak256 {
     type Fr = TestFr;
+    type Error = HashError;
 
     fn default_leaf() -> Self::Fr {
         TestFr([0; 32])
     }
 
-    fn hash(inputs: &[Self::Fr]) -> Self::Fr {
+    fn hash(inputs: &[Self::Fr]) -> Result<Self::Fr, HashError> {
         let mut output = [0; 32];
         let mut hasher = Keccak::v256();
         for element in inputs {
             hasher.update(element.0.as_slice());
         }
         hasher.finalize(&mut output);
-        TestFr(output)
+        Ok(TestFr(output))
     }
 }
 
@@ -46,18 +49,17 @@ impl FromStr for TestFr {
     }
 }
 
-lazy_static! {
-    static ref LEAVES: Vec<TestFr> = {
-        let mut leaves = Vec::with_capacity(1 << 20);
-        for i in 0..(1 << 20) {
-            let mut bytes = [0u8; 32];
-            bytes[28..].copy_from_slice(&(i as u32).to_be_bytes());
-            leaves.push(TestFr(bytes));
-        }
-        leaves
-    };
-    static ref INDICES: Vec<usize> = (0..(1 << 20)).collect();
-}
+static LEAVES: LazyLock<Vec<TestFr>> = LazyLock::new(|| {
+    let mut leaves = Vec::with_capacity(1 << 20);
+    for i in 0..(1 << 20) {
+        let mut bytes = [0u8; 32];
+        bytes[28..].copy_from_slice(&(i as u32).to_be_bytes());
+        leaves.push(TestFr(bytes));
+    }
+    leaves
+});
+
+static INDICES: LazyLock<Vec<usize>> = LazyLock::new(|| (0..(1 << 20)).collect());
 
 const NOF_LEAVES: usize = 8192;
 

@@ -1,0 +1,6 @@
+# Run cargo +nightly fmt to format with this configuration
+edition = "2021"                    # use Rust 2021 edition
+unstable_features = true            # needed for group_imports
+reorder_imports = true              # sort imports alphabetically
+imports_granularity = "Crate"       # keep items from the same crate grouped together
+group_imports = "StdExternalCrate"  # group std, external, and local imports separately

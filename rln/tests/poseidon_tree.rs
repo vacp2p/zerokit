@@ -1,17 +1,13 @@
-////////////////////////////////////////////////////////////
 // Tests
-////////////////////////////////////////////////////////////
 
 #![cfg(not(feature = "stateless"))]
 
 #[cfg(test)]
 mod test {
-    use rln::hashers::{poseidon_hash, PoseidonHash};
-    use rln::{
-        circuit::{Fr, TEST_TREE_DEPTH},
-        poseidon_tree::PoseidonTree,
+    use rln::prelude::*;
+    use zerokit_utils::merkle_tree::{
+        FullMerkleTree, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
     };
-    use utils::{FullMerkleTree, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
     #[test]
     // The test checked correctness for `FullMerkleTree` and `OptimalMerkleTree` with Poseidon hash
@@ -19,8 +15,8 @@ mod test {
         let sample_size = 100;
         let leaves: Vec<Fr> = (0..sample_size).map(Fr::from).collect();
 
-        let mut tree_full = FullMerkleTree::<PoseidonHash>::default(TEST_TREE_DEPTH).unwrap();
-        let mut tree_opt = OptimalMerkleTree::<PoseidonHash>::default(TEST_TREE_DEPTH).unwrap();
+        let mut tree_full = FullMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH).unwrap();
+        let mut tree_opt = OptimalMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH).unwrap();
 
         for (i, leave) in leaves
             .into_iter()
@@ -28,12 +24,12 @@ mod test {
             .take(sample_size.try_into().unwrap())
         {
             tree_full.set(i, leave).unwrap();
-            let proof = tree_full.proof(i).expect("index should be set");
+            let proof = tree_full.proof(i).unwrap();
             assert_eq!(proof.leaf_index(), i);
 
             tree_opt.set(i, leave).unwrap();
             assert_eq!(tree_opt.root(), tree_full.root());
-            let proof = tree_opt.proof(i).expect("index should be set");
+            let proof = tree_opt.proof(i).unwrap();
             assert_eq!(proof.leaf_index(), i);
         }
 
@@ -74,7 +70,7 @@ mod test {
                 let prev_r = tree.get_subtree_root(n, idx_r).unwrap();
                 let subroot = tree.get_subtree_root(n - 1, idx_sr).unwrap();
 
-                assert_eq!(poseidon_hash(&[prev_l, prev_r]), subroot);
+                assert_eq!(poseidon_hash(&[prev_l, prev_r]).unwrap(), subroot);
             }
         }
     }

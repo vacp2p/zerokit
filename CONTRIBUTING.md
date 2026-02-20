@@ -13,7 +13,7 @@ Following these guidelines definitely helps us in accepting your contributions.
 2. Create a feature branch: `git checkout -b fix/your-bug-fix` or `git checkout -b feat/your-feature-name`
 3. Make your changes following our guidelines
 4. Ensure relevant tests pass (see [testing guidelines](#building-and-testing))
-5. Commit your changes (signed commits are highly encouraged  - see [commit guidelines](#commits))
+5. Commit your changes (signed commits are highly encouraged - see [commit guidelines](#commits))
 6. Push and create a Pull Request
 
 ## Development Setup
@@ -46,13 +46,6 @@ cd rln && cargo make test_stateless        # Test stateless features
 cd rln-wasm && cargo make test_browser     # Test in browser headless mode
 cd rln-wasm && cargo make test_parallel    # Test parallel features
 ```
-
-Choose the appropriate test commands based on your changes:
-
-- Core RLN changes: `make test`
-- Stateless features: `cargo make test_stateless`
-- WASM/browser features: `cargo make test_browser`
-- Parallel computation: `cargo make test_parallel`
 
 ### Tools
 
@@ -107,7 +100,6 @@ Use scopes to improve the Changelog:
 - `rln` - Core RLN implementation
 - `rln-cli` - Command-line interface
 - `rln-wasm` - WebAssembly bindings
-- `rln-wasm-utils` - WebAssembly utilities
 - `utils` - Cryptographic utilities (Merkle trees, Poseidon hash)
 - `ci` - Continuous integration
 
@@ -186,7 +178,7 @@ chore(ci): update rust toolchain version
 ## Roadmap Alignment
 
 Please refer to our [project roadmap](https://roadmap.vac.dev/) for current development priorities.
-Consider how your changes align with these strategic goals, when contributing.
+Consider how your changes align with these strategic goals when contributing.
 
 ## Getting Help
 

@@ -1,79 +1,86 @@
-use crate::circuit::error::ZKeyReadError;
-use ark_bn254::Fr;
-use ark_relations::r1cs::SynthesisError;
-use ark_serialize::SerializationError;
-use num_bigint::{BigInt, ParseBigIntError};
-use std::array::TryFromSliceError;
-use std::num::TryFromIntError;
-use std::string::FromUtf8Error;
-use thiserror::Error;
-use utils::error::{FromConfigError, ZerokitMerkleTreeError};
+use std::{array::TryFromSliceError, num::TryFromIntError};
 
+use ark_relations::r1cs::SynthesisError;
+use num_bigint::{BigInt, ParseBigIntError};
+use zerokit_utils::error::{FromConfigError, HashError, ZerokitMerkleTreeError};
+
+use crate::circuit::{
+    error::{GraphReadError, WitnessCalcError, ZKeyReadError},
+    Fr,
+};
+
+/// Errors that can occur during RLN utility operations (conversions, parsing, etc.)
 #[derive(Debug, thiserror::Error)]
-pub enum ConversionError {
+pub enum UtilsError {
     #[error("Expected radix 10 or 16")]
     WrongRadix,
-    #[error("{0}")]
+    #[error("Failed to parse big integer: {0}")]
     ParseBigInt(#[from] ParseBigIntError),
-    #[error("{0}")]
+    #[error("Failed to convert to usize: {0}")]
     ToUsize(#[from] TryFromIntError),
-    #[error("{0}")]
+    #[error("Failed to convert from slice: {0}")]
     FromSlice(#[from] TryFromSliceError),
     #[error("Input data too short: expected at least {expected} bytes, got {actual} bytes")]
     InsufficientData { expected: usize, actual: usize },
 }
 
-#[derive(Error, Debug)]
-pub enum ProofError {
-    #[error("{0}")]
-    ProtocolError(#[from] ProtocolError),
-    #[error("Error producing proof: {0}")]
-    SynthesisError(#[from] SynthesisError),
-}
-
+/// Errors that can occur during RLN protocol operations (proof generation, verification, etc.)
 #[derive(Debug, thiserror::Error)]
 pub enum ProtocolError {
-    #[error("{0}")]
-    Conversion(#[from] ConversionError),
+    #[error("Error producing proof: {0}")]
+    Synthesis(#[from] SynthesisError),
+    #[error("RLN utility error: {0}")]
+    Utils(#[from] UtilsError),
+    #[error("Error calculating witness: {0}")]
+    WitnessCalc(#[from] WitnessCalcError),
     #[error("Expected to read {0} bytes but read only {1} bytes")]
     InvalidReadLen(usize, usize),
     #[error("Cannot convert bigint {0:?} to biguint")]
     BigUintConversion(BigInt),
-    #[error("{0}")]
-    JsonError(#[from] serde_json::Error),
     #[error("Message id ({0}) is not within user_message_limit ({1})")]
     InvalidMessageId(Fr, Fr),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ComputeIdSecretError {
-    /// Usually it means that the same signal is used to recover the user secret hash
+    #[error("User message limit cannot be zero")]
+    ZeroUserMessageLimit,
+    #[error("Merkle proof length mismatch: expected {0}, got {1}")]
+    InvalidMerkleProofLength(usize, usize),
+    #[error("External nullifiers mismatch: {0} != {1}")]
+    ExternalNullifierMismatch(Fr, Fr),
     #[error("Cannot recover secret: division by zero")]
     DivisionByZero,
+    #[error("Merkle tree operation error: {0}")]
+    MerkleTree(#[from] ZerokitMerkleTreeError),
+    #[error("Hash computation error: {0}")]
+    Hash(#[from] HashError),
+    #[error("Proof serialization error: {0}")]
+    SerializationError(#[from] ark_serialize::SerializationError),
 }
 
+/// Errors that can occur during proof verification
+#[derive(Debug, thiserror::Error)]
+pub enum VerifyError {
+    #[error("Invalid proof provided")]
+    InvalidProof,
+    #[error("Expected one of the provided roots")]
+    InvalidRoot,
+    #[error("Signal value does not match")]
+    InvalidSignal,
+}
+
+/// Top-level RLN error type encompassing all RLN operations
 #[derive(Debug, thiserror::Error)]
 pub enum RLNError {
-    #[error("I/O error: {0}")]
-    IO(#[from] std::io::Error),
-    #[error("Utf8 error: {0}")]
-    Utf8(#[from] FromUtf8Error),
-    #[error("Serde json error: {0}")]
-    JSON(#[from] serde_json::Error),
-    #[error("Config error: {0}")]
+    #[error("Configuration error: {0}")]
     Config(#[from] FromConfigError),
-    #[error("Serialization error: {0}")]
-    Serialization(#[from] SerializationError),
     #[error("Merkle tree error: {0}")]
     MerkleTree(#[from] ZerokitMerkleTreeError),
+    #[error("Hash error: {0}")]
+    Hash(#[from] HashError),
     #[error("ZKey error: {0}")]
     ZKey(#[from] ZKeyReadError),
-    #[error("Conversion error: {0}")]
-    Conversion(#[from] ConversionError),
+    #[error("Graph error: {0}")]
+    Graph(#[from] GraphReadError),
     #[error("Protocol error: {0}")]
     Protocol(#[from] ProtocolError),
-    #[error("Proof error: {0}")]
-    Proof(#[from] ProofError),
-    #[error("Unable to extract secret")]
-    RecoverSecret(#[from] ComputeIdSecretError),
+    #[error("Verification error: {0}")]
+    Verify(#[from] VerifyError),
 }

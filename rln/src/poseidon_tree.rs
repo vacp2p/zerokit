@@ -10,13 +10,13 @@ use cfg_if::cfg_if;
 
 cfg_if! {
     if #[cfg(feature = "fullmerkletree")] {
-        use utils::{FullMerkleTree, FullMerkleProof};
+        use zerokit_utils::merkle_tree::{FullMerkleTree, FullMerkleProof};
         use crate::hashers::PoseidonHash;
 
         pub type PoseidonTree = FullMerkleTree<PoseidonHash>;
         pub type MerkleProof = FullMerkleProof<PoseidonHash>;
     } else if #[cfg(feature = "optimalmerkletree")] {
-        use utils::{OptimalMerkleTree, OptimalMerkleProof};
+        use zerokit_utils::merkle_tree::{OptimalMerkleTree, OptimalMerkleProof};
         use crate::hashers::PoseidonHash;
 
         pub type PoseidonTree = OptimalMerkleTree<PoseidonHash>;

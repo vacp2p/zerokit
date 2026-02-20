@@ -9,9 +9,8 @@ on:
       - "!rln/src/**"
       - "!rln/resources/**"
       - "!utils/src/**"
-      - "!rln-wasm-utils/**"
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
     paths-ignore:
       - "**.md"
       - "!.github/workflows/*.yml"
@@ -19,7 +18,6 @@ on:
       - "!rln/src/**"
       - "!rln/resources/**"
       - "!utils/src/**"
-      - "!rln-wasm-utils/**"
 
 name: CI
 
@@ -135,36 +133,14 @@ jobs:
         run: cargo make test_parallel --release
         working-directory: ${{ matrix.crate }}
 
-  rln-wasm-utils-test:
-    # skip tests on draft PRs
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
-    strategy:
-      matrix:
-        platform: [ubuntu-latest, macos-latest]
-        crate: [rln-wasm-utils]
-    runs-on: ${{ matrix.platform }}
-    timeout-minutes: 60
-
-    name: Test - ${{ matrix.crate }} - ${{ matrix.platform }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Install dependencies
-        run: make installdeps
-      - name: Test rln-wasm-utils
-        run: cargo make test --release
-        working-directory: ${{ matrix.crate }}
-
   lint:
     # run on both ready and draft PRs
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
     strategy:
       matrix:
-        # we run lint tests only on ubuntu
+        # run lint tests only on ubuntu
         platform: [ubuntu-latest]
-        crate: [rln, rln-wasm, rln-wasm-utils, utils]
+        crate: [rln, rln-wasm, utils]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
 
@@ -176,6 +152,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Install wasm32 target
+        if: matrix.crate == 'rln-wasm'
+        run: rustup target add wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - name: Install dependencies
         run: make installdeps
@@ -183,18 +162,27 @@ jobs:
         if: success() || failure()
         run: cargo fmt -- --check
         working-directory: ${{ matrix.crate }}
-      - name: Check clippy
-        if: success() || failure()
+      - name: Check clippy wasm target
+        if: (success() || failure()) && (matrix.crate == 'rln-wasm')
         run: |
-          cargo clippy --all-targets --release -- -D warnings
+          cargo clippy --target wasm32-unknown-unknown --tests --release -- -D warnings
+        working-directory: ${{ matrix.crate }}
+      - name: Check clippy default feature
+        if: (success() || failure()) && (matrix.crate != 'rln-wasm')
+        run: |
+          cargo clippy --all-targets --tests --release -- -D warnings
+      - name: Check clippy stateless feature
+        if: (success() || failure()) && (matrix.crate == 'rln')
+        run: |
+          cargo clippy --all-targets --tests --release --features=stateless --no-default-features -- -D warnings
         working-directory: ${{ matrix.crate }}
 
   benchmark-utils:
-    # run only on ready pull requests
+    # run only on ready PRs
     if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     strategy:
       matrix:
-        # we run benchmark tests only on ubuntu
+        # run benchmark tests only on ubuntu
         platform: [ubuntu-latest]
         crate: [utils]
     runs-on: ${{ matrix.platform }}
@@ -211,11 +199,11 @@ jobs:
           cwd: ${{ matrix.crate }}
 
   benchmark-rln:
-    # run only on ready pull requests
+    # run only on ready PRs
     if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     strategy:
       matrix:
-        # we run benchmark tests only on ubuntu
+        # run benchmark tests only on ubuntu
         platform: [ubuntu-latest]
         crate: [rln]
         feature: ["default"]
@@ -232,3 +220,47 @@ jobs:
           branchName: ${{ github.base_ref }}
           cwd: ${{ matrix.crate }}
           features: ${{ matrix.feature }}
+
+  coverage:
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-coverage')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    name: Coverage Report
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install dependencies
+        run: make installdeps
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
+      - name: Run coverage
+        run: |
+          cargo tarpaulin --out Html --output-dir ./coverage -- --test-threads 1
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: ./coverage/
+      - name: Comment on PR with coverage link
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId,
+            });
+            const coverageArtifact = artifacts.data.artifacts.find(art => art.name === 'coverage-reports');
+            if (coverageArtifact) {
+              const artifactUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}/artifacts/${coverageArtifact.id}`;
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `Coverage report uploaded. [Download HTML Report](${artifactUrl})`
+              });
+            }

@@ -1,57 +1,86 @@
-// This file is based on the code by iden3. Its preimage can be found here:
+// This crate is based on the code by iden3. Its preimage can be found here:
 // https://github.com/iden3/circom-witnesscalc/blob/5cb365b6e4d9052ecc69d4567fcf5bc061c20e94/src/storage.rs
 
-use ark_bn254::Fr;
+use std::io::{Read, Write};
+
 use ark_ff::PrimeField;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use prost::Message;
-use std::io::{Read, Write};
 
-use crate::circuit::iden3calc::{
-    graph,
-    graph::{Operation, TresOperation, UnoOperation},
+use super::{
+    graph::{self, Operation, TresOperation, UnoOperation},
     proto, InputSignalsInfo,
 };
+use crate::circuit::Fr;
 
-// format of the wtns.graph file:
-// + magic line: wtns.graph.001
-// + 4 bytes unsigned LE 32-bit integer: number of nodes
-// + series of protobuf serialized nodes. Each node prefixed by varint length
-// + protobuf serialized GraphMetadata
-// + 8 bytes unsigned LE 64-bit integer: offset of GraphMetadata message
-
+/// Format of the wtns.graph file:
+/// + magic line: wtns.graph.001
+/// + 4 bytes unsigned LE 32-bit integer: number of nodes
+/// + series of protobuf serialized nodes. Each node prefixed by varint length
+/// + protobuf serialized GraphMetadata
+/// + 8 bytes unsigned LE 64-bit integer: offset of GraphMetadata message
 const WITNESSCALC_GRAPH_MAGIC: &[u8] = b"wtns.graph.001";
 
 const MAX_VARINT_LENGTH: usize = 10;
 
-impl From<proto::Node> for graph::Node {
-    fn from(value: proto::Node) -> Self {
-        match value.node.unwrap() {
-            proto::node::Node::Input(input_node) => graph::Node::Input(input_node.idx as usize),
+impl TryFrom<proto::Node> for graph::Node {
+    type Error = std::io::Error;
+
+    fn try_from(value: proto::Node) -> Result<Self, Self::Error> {
+        let node = value.node.ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Proto::Node must have a node field",
+            )
+        })?;
+        match node {
+            proto::node::Node::Input(input_node) => Ok(graph::Node::Input(input_node.idx as usize)),
             proto::node::Node::Constant(constant_node) => {
-                let i = constant_node.value.unwrap();
-                graph::Node::MontConstant(Fr::from_le_bytes_mod_order(i.value_le.as_slice()))
+                let i = constant_node.value.ok_or_else(|| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "Constant node must have a value",
+                    )
+                })?;
+                Ok(graph::Node::MontConstant(Fr::from_le_bytes_mod_order(
+                    i.value_le.as_slice(),
+                )))
             }
             proto::node::Node::UnoOp(uno_op_node) => {
-                let op = proto::UnoOp::try_from(uno_op_node.op).unwrap();
-                graph::Node::UnoOp(op.into(), uno_op_node.a_idx as usize)
+                let op = proto::UnoOp::try_from(uno_op_node.op).map_err(|_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "UnoOp must be valid enum value",
+                    )
+                })?;
+                Ok(graph::Node::UnoOp(op.into(), uno_op_node.a_idx as usize))
             }
             proto::node::Node::DuoOp(duo_op_node) => {
-                let op = proto::DuoOp::try_from(duo_op_node.op).unwrap();
-                graph::Node::Op(
+                let op = proto::DuoOp::try_from(duo_op_node.op).map_err(|_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "DuoOp must be valid enum value",
+                    )
+                })?;
+                Ok(graph::Node::Op(
                     op.into(),
                     duo_op_node.a_idx as usize,
                     duo_op_node.b_idx as usize,
-                )
+                ))
             }
             proto::node::Node::TresOp(tres_op_node) => {
-                let op = proto::TresOp::try_from(tres_op_node.op).unwrap();
-                graph::Node::TresOp(
+                let op = proto::TresOp::try_from(tres_op_node.op).map_err(|_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "TresOp must be valid enum value",
+                    )
+                })?;
+                Ok(graph::Node::TresOp(
                     op.into(),
                     tres_op_node.a_idx as usize,
                     tres_op_node.b_idx as usize,
                     tres_op_node.c_idx as usize,
-                )
+                ))
             }
         }
     }
@@ -137,14 +166,15 @@ impl From<proto::TresOp> for graph::TresOperation {
     }
 }
 
-pub fn serialize_witnesscalc_graph<T: Write>(
+#[allow(dead_code)]
+pub(crate) fn serialize_witnesscalc_graph<T: Write>(
     mut w: T,
     nodes: &Vec<graph::Node>,
     witness_signals: &[usize],
     input_signals: &InputSignalsInfo,
 ) -> std::io::Result<()> {
     let mut ptr = 0usize;
-    w.write_all(WITNESSCALC_GRAPH_MAGIC).unwrap();
+    w.write_all(WITNESSCALC_GRAPH_MAGIC)?;
     ptr += WITNESSCALC_GRAPH_MAGIC.len();
 
     w.write_u64::<LittleEndian>(nodes.len() as u64)?;
@@ -232,7 +262,7 @@ fn read_message<R: Read, M: Message + std::default::Default>(
     Ok(msg)
 }
 
-pub fn deserialize_witnesscalc_graph(
+pub(crate) fn deserialize_witnesscalc_graph(
     r: impl Read,
 ) -> std::io::Result<(Vec<graph::Node>, Vec<usize>, InputSignalsInfo)> {
     let mut br = WriteBackReader::new(r);
@@ -251,8 +281,7 @@ pub fn deserialize_witnesscalc_graph(
     let mut nodes = Vec::with_capacity(nodes_num as usize);
     for _ in 0..nodes_num {
         let n: proto::Node = read_message(&mut br)?;
-        let n2: graph::Node = n.into();
-        nodes.push(n2);
+        nodes.push(n.try_into()?);
     }
 
     let md: proto::GraphMetadata = read_message(&mut br)?;
@@ -331,12 +360,14 @@ impl<R: Read> Write for WriteBackReader<R> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use byteorder::ByteOrder;
+mod test {
     use core::str::FromStr;
-    use graph::{Operation, TresOperation, UnoOperation};
     use std::collections::HashMap;
+
+    use byteorder::ByteOrder;
+    use graph::{Operation, TresOperation, UnoOperation};
+
+    use super::*;
 
     #[test]
     fn test_read_message() {
@@ -493,5 +524,88 @@ mod tests {
         };
 
         assert_eq!(metadata, metadata_want);
+    }
+
+    #[test]
+    fn test_try_from_errors() {
+        let node = proto::Node { node: None };
+        let err = graph::Node::try_from(node).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+
+        let node = proto::Node {
+            node: Some(proto::node::Node::Constant(proto::ConstantNode {
+                value: None,
+            })),
+        };
+        let err = graph::Node::try_from(node).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+
+        let node = proto::Node {
+            node: Some(proto::node::Node::UnoOp(proto::UnoOpNode {
+                op: 999,
+                a_idx: 0,
+            })),
+        };
+        let err = graph::Node::try_from(node).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+
+        let node = proto::Node {
+            node: Some(proto::node::Node::DuoOp(proto::DuoOpNode {
+                op: 999,
+                a_idx: 0,
+                b_idx: 1,
+            })),
+        };
+        let err = graph::Node::try_from(node).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+
+        let node = proto::Node {
+            node: Some(proto::node::Node::TresOp(proto::TresOpNode {
+                op: 999,
+                a_idx: 0,
+                b_idx: 1,
+                c_idx: 2,
+            })),
+        };
+        let err = graph::Node::try_from(node).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "We are not supposed to write Constant to the witnesscalc graph. All Constant should be converted to MontConstant."
+    )]
+    fn test_proto_node_from_constant_panics() {
+        let _ = proto::node::Node::from(&graph::Node::Constant(ruint::aliases::U256::from(1u64)));
+    }
+
+    #[test]
+    fn test_read_message_errors() {
+        let mut rw = WriteBackReader::new(std::io::Cursor::new(&[]));
+        let err = read_message_length(&mut rw).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::UnexpectedEof);
+
+        let mut buf = Vec::new();
+        prost::encode_length_delimiter(5, &mut buf).unwrap();
+        buf.extend_from_slice(&[1u8, 2]);
+        let mut rw = WriteBackReader::new(std::io::Cursor::new(&buf));
+        let err = read_message::<_, proto::Node>(&mut rw).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::UnexpectedEof);
+    }
+
+    #[test]
+    fn test_deserialize_invalid_magic() {
+        let bad = vec![b'x'; WITNESSCALC_GRAPH_MAGIC.len()];
+        let err = deserialize_witnesscalc_graph(std::io::Cursor::new(&bad)).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_write_back_reader_empty_read_and_flush() {
+        let mut rw = WriteBackReader::new(std::io::Cursor::new(&[]));
+        let mut buf = [];
+        let n = rw.read(&mut buf).unwrap();
+        assert_eq!(n, 0);
+        rw.flush().unwrap();
     }
 }

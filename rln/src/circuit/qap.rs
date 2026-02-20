@@ -1,4 +1,4 @@
-// This file is based on the code by arkworks. Its preimage can be found here:
+// This crate is based on the code by arkworks. Its preimage can be found here:
 // https://github.com/arkworks-rs/circom-compat/blob/3c95ed98e23a408b4d99a53e483a9bba39685a4e/src/circom/qap.rs
 
 use ark_ff::PrimeField;
@@ -6,7 +6,6 @@ use ark_groth16::r1cs_to_qap::{evaluate_constraint, LibsnarkReduction, R1CSToQAP
 use ark_poly::EvaluationDomain;
 use ark_relations::r1cs::{ConstraintMatrices, ConstraintSystemRef, SynthesisError};
 use ark_std::{cfg_into_iter, cfg_iter, cfg_iter_mut, vec};
-
 #[cfg(feature = "parallel")]
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator,
@@ -18,7 +17,7 @@ use rayon::iter::{
 /// coefficients domain. snarkjs instead precomputes the Lagrange form of the powers of tau bases
 /// in a domain twice as large and the witness map is computed as the odd coefficients of (AB-C)
 /// in that domain. This serves as HZ when computing the C proof element.
-pub struct CircomReduction;
+pub(crate) struct CircomReduction;
 
 impl R1CSToQAP for CircomReduction {
     #[allow(clippy::type_complexity)]
@@ -116,5 +115,57 @@ impl R1CSToQAP for CircomReduction {
         domain.ifft_in_place(&mut scalars);
         #[allow(unexpected_cfgs)]
         Ok(cfg_into_iter!(scalars).skip(1).step_by(2).collect())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use ark_ff::{One, Zero};
+    use ark_poly::GeneralEvaluationDomain;
+    use ark_relations::r1cs::ConstraintMatrices;
+
+    use super::*;
+    use crate::circuit::Fr;
+
+    #[test]
+    fn test_witness_map_from_matrices() {
+        let matrices = ConstraintMatrices::<Fr> {
+            num_instance_variables: 1,
+            num_witness_variables: 1,
+            num_constraints: 1,
+            a_num_non_zero: 1,
+            b_num_non_zero: 1,
+            c_num_non_zero: 0,
+            a: vec![vec![(Fr::one(), 0)]],
+            b: vec![vec![(Fr::one(), 1)]],
+            c: vec![vec![]],
+        };
+
+        let full_assignment = vec![Fr::one(), Fr::from(3u64)];
+        let res = CircomReduction::witness_map_from_matrices::<Fr, GeneralEvaluationDomain<Fr>>(
+            &matrices,
+            1,
+            1,
+            &full_assignment,
+        )
+        .unwrap();
+
+        assert_eq!(res.len(), 2);
+        assert!(res.iter().all(|v| v.is_zero()));
+    }
+
+    #[test]
+    fn test_h_query_scalars_length() {
+        let max_power = 2usize;
+        let domain = GeneralEvaluationDomain::<Fr>::new(2 * max_power + 1).expect("valid domain");
+        let res = CircomReduction::h_query_scalars::<Fr, GeneralEvaluationDomain<Fr>>(
+            2,
+            Fr::from(5u64),
+            Fr::from(1u64),
+            Fr::from(3u64),
+        )
+        .unwrap();
+
+        assert_eq!(res.len(), domain.size() / 2);
     }
 }
