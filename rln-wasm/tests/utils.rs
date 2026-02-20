@@ -8,7 +8,9 @@ mod test {
     use js_sys::Uint8Array;
     use rand::Rng;
     use rln::prelude::*;
-    use rln_wasm::{wasm_utils::Uint8ArrayUtils, ExtendedIdentity, Hasher, Identity, VecWasmFr, WasmFr};
+    use rln_wasm::{
+        wasm_utils::Uint8ArrayUtils, ExtendedIdentity, Hasher, Identity, VecWasmFr, WasmFr,
+    };
     use wasm_bindgen_test::wasm_bindgen_test;
 
     #[wasm_bindgen_test]

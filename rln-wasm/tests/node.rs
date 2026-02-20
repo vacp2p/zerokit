@@ -287,8 +287,15 @@ mod test {
         let invalid_zkey = Uint8Array::from(&[0u8; 16][..]);
         assert!(WasmRLN::new(&invalid_zkey).is_err());
 
-        let (identity_secret, user_message_limit, message_id, path_elements, path_index, x, external_nullifier) =
-            build_witness_parts();
+        let (
+            identity_secret,
+            user_message_limit,
+            message_id,
+            path_elements,
+            path_index,
+            x,
+            external_nullifier,
+        ) = build_witness_parts();
 
         // Invalid user message limit (zero)
         let zero_limit = WasmFr::zero();
