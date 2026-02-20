@@ -507,7 +507,7 @@ mod test {
 
         assert_eq!(computed_root2, root2);
     }
-    
+
     #[test]
     fn test_rln_witness_to_bigint_json_fields() {
         // Test with default witness
