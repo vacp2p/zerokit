@@ -365,13 +365,13 @@ mod test {
         assert!(WasmRLNWitnessInput::from_bytes_be(&extra_be).is_err());
 
         // Proof values bytes: insufficient length
-        let short_pv = vec![0u8; FR_BYTE_SIZE * 5 - 1];
+        let short_pv = [0u8; FR_BYTE_SIZE * 5 - 1];
         let short_pv = Uint8Array::from(&short_pv[..]);
         assert!(WasmRLNProofValues::from_bytes_le(&short_pv).is_err());
         assert!(WasmRLNProofValues::from_bytes_be(&short_pv).is_err());
 
         // Proof bytes: insufficient length (no proof values)
-        let short_proof = vec![0u8; COMPRESS_PROOF_SIZE];
+        let short_proof = [0u8; COMPRESS_PROOF_SIZE];
         let short_proof = Uint8Array::from(&short_proof[..]);
         assert!(WasmRLNProof::from_bytes_le(&short_proof).is_err());
         assert!(WasmRLNProof::from_bytes_be(&short_proof).is_err());

@@ -222,7 +222,7 @@ mod test {
 
     #[wasm_bindgen_test]
     fn test_wasmfr_from_bytes_invalid() {
-        let short_bytes = vec![0u8; FR_BYTE_SIZE - 1];
+        let short_bytes = [0u8; FR_BYTE_SIZE - 1];
         let short = Uint8Array::from(&short_bytes[..]);
         assert!(WasmFr::from_bytes_le(&short).is_err());
         assert!(WasmFr::from_bytes_be(&short).is_err());
@@ -245,7 +245,7 @@ mod test {
         assert!(VecWasmFr::from_bytes_le(&wrong_len).is_err());
 
         let max_safe_len = (usize::MAX - 8) / FR_BYTE_SIZE;
-        let mut overflow_len = vec![0u8; 8];
+        let mut overflow_len = [0u8; 8];
         overflow_len[..8].copy_from_slice(&normalize_usize_le(max_safe_len));
         let overflow_len = Uint8Array::from(&overflow_len[..]);
         assert!(VecWasmFr::from_bytes_le(&overflow_len).is_err());
@@ -259,7 +259,7 @@ mod test {
         let wrong_len_be = Uint8Array::from(&wrong_len_be[..]);
         assert!(VecWasmFr::from_bytes_be(&wrong_len_be).is_err());
 
-        let mut overflow_len_be = vec![0u8; 8];
+        let mut overflow_len_be = [0u8; 8];
         overflow_len_be[..8].copy_from_slice(&normalize_usize_be(max_safe_len));
         let overflow_len_be = Uint8Array::from(&overflow_len_be[..]);
         assert!(VecWasmFr::from_bytes_be(&overflow_len_be).is_err());
