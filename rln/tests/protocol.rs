@@ -509,6 +509,30 @@ mod test {
     }
 
     #[test]
+    fn test_bytes_le_to_rln_proof_short() {
+        let bytes = vec![0u8; COMPRESS_PROOF_SIZE - 1];
+        assert!(bytes_le_to_rln_proof(&bytes).is_err());
+    }
+
+    #[test]
+    fn test_bytes_be_to_rln_proof_short() {
+        let bytes = vec![0u8; COMPRESS_PROOF_SIZE - 1];
+        assert!(bytes_be_to_rln_proof(&bytes).is_err());
+    }
+
+    #[test]
+    fn test_bytes_le_to_rln_proof_empty() {
+        let bytes = vec![];
+        assert!(bytes_le_to_rln_proof(&bytes).is_err());
+    }
+
+    #[test]
+    fn test_bytes_be_to_rln_proof_empty() {
+        let bytes = vec![];
+        assert!(bytes_be_to_rln_proof(&bytes).is_err());
+    }
+
+    #[test]
     fn test_rln_witness_to_bigint_json_fields() {
         // Test with default witness
         let witness = get_test_witness();
