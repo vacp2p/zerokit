@@ -70,6 +70,22 @@ mod tests {
     use crate::error::ZerokitMerkleTreeError;
 
     #[test]
+    fn test_validate_override_range_inputs_accepts_valid_inputs() {
+        // indices [0,1] are before start=2, leaves cover [2..=4] (indices 2,3,4), all within capacity
+        let validated = validate_override_range_inputs(
+            2,
+            3,
+            vec![1, 0],
+            1usize << 20,
+            EmptyIndicesPolicy::Allow,
+        )
+        .unwrap();
+        assert_eq!(validated.min_index, Some(0));
+        assert_eq!(validated.max_index, Some(5)); // start + leaves_len
+        assert_eq!(validated.indices, vec![0, 1]); // sorted
+    }
+
+    #[test]
     fn test_validate_override_range_inputs_rejects_start_add_overflow() {
         let err = validate_override_range_inputs(
             usize::MAX,
