@@ -7,8 +7,9 @@
   };
 
   inputs = {
-    # Version 24.11
-    nixpkgs.url = "github:NixOS/nixpkgs?rev=0ef228213045d2cdb5a169a95d63ded38670b293";
+    # Pinning the commit to use same commit across different projects.
+    # A commit from nixpkgs 25.11 release : https://github.com/NixOS/nixpkgs/tree/release-25.11
+    nixpkgs.url = "github:NixOS/nixpkgs?rev=23d72dabcb3b12469f57b37170fcbc1789bd7457";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -42,10 +43,13 @@
     {
       packages = forAllSystems (system: let
         pkgs = pkgsFor.${system};
-        buildPackage = pkgs.callPackage ./nix/default.nix;
-        buildRln = (buildPackage { src = self; project = "rln"; }).override;
+
+        buildRln = pkgs.callPackage ./nix/default.nix {
+          src = self;
+        };
+
       in rec {
-        rln = buildRln { };
+        rln = buildRln;
 
         rln-linux-arm64 = buildRln {
           target-platform = "aarch64-multiplatform";
