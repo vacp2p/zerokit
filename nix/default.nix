@@ -1,8 +1,7 @@
 {
   pkgs,
   rust-overlay,
-  project,
-  src ? ../.,
+  src,
   release ? true,
   target-platform ? null,
   rust-target ? null,
@@ -15,47 +14,41 @@ let
     then pkgs.pkgsCross.${target-platform}
     else pkgs;
 
-  rust-bin = rust-overlay.lib.mkRustBin { } targetPlatformPkgs.buildPackages;
+  rustToolchain = targetPlatformPkgs.rust-bin.stable.latest.default;
 
-  # Use Rust and Cargo versions from rust-overlay.
-  rustPlatform = targetPlatformPkgs.makeRustPlatform {
-    cargo = rust-bin.stable.latest.minimal;
-    rustc = rust-bin.stable.latest.minimal;
-  };
-in rustPlatform.buildRustPackage {
+  tools = pkgs.callPackage ./tools.nix {};
+  version = tools.findKeyValue "^version = \"([a-f0-9.-]+)\"$" ../rln/Cargo.toml;
+
+in targetPlatformPkgs.rustPlatform.buildRustPackage {
+  cargo = rustToolchain;
+  rustc = rustToolchain;
+
   pname = "zerokit";
-  version = if src ? rev then src.rev else "nightly";
+  version = "${version}";
 
-  # Improve caching of sources
-  src = builtins.path { path = src; name = "zerokit"; };
+  inherit src;
 
-  cargoLock = {
-    lockFile = src + "/Cargo.lock";
-    allowBuiltinFetchGit = true;
-  };
+  cargoHash = "sha256-WXxQ8mAPD/mPBSnLrunhbDyCAQ0D82t1MILbo+Vfcqk=";
 
-  nativeBuildInputs = [ pkgs.rust-cbindgen ];
-
-  doCheck = false;
-
-  CARGO_HOME = "/tmp";
+  nativeBuildInputs = with pkgs; [ rust-cbindgen ];
 
   buildPhase = ''
+    export CARGO_HOME=$TMPDIR/cargo
     cargo build --lib \
       ${if release             then "--release" else ""} \
       ${if rust-target != null then "--target=${rust-target}" else ""} \
       ${if features != null    then "--features=${features}" else ""} \
-      --manifest-path ${project}/Cargo.toml
+      --manifest-path rln/Cargo.toml
   '';
 
   installPhase = ''
     set -eu
     mkdir -p $out/lib
     find target -type f -name 'librln.*' -not -path '*/deps/*' -exec cp -v '{}' "$out/lib/" \;
-    mkdir -p $out/include
-    cbindgen ${src}/rln -l c > "$out/include/rln.h"
-  '';
 
+    mkdir -p $out/include
+    cbindgen ./rln -l c > "$out/include/rln.h"
+  '';
 
   meta = with pkgs.lib; {
     description = "Zerokit";
