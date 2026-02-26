@@ -91,7 +91,7 @@ args = [
     "--scope",
     "waku",
     "--features",
-    "parallel,multi_message_id",
+    "parallel,multi-message-id",
     "-Z",
     "build-std=panic_abort,std",
 ]

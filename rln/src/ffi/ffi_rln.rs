@@ -501,7 +501,7 @@ pub fn ffi_rln_proof_values_get_ys(
         },
         None => CResult {
             ok: None,
-            err: Some("ys field is None, use ffi_rln_proof_values_get_ys instead".into()),
+            err: Some("ys field is None, use ffi_rln_proof_values_get_y instead".into()),
         },
     }
 }
@@ -525,7 +525,7 @@ pub fn ffi_rln_proof_values_get_nullifiers(
         None => CResult {
             ok: None,
             err: Some(
-                "nullifiers field is None, use ffi_rln_proof_values_get_nullifiers instead".into(),
+                "nullifiers field is None, use ffi_rln_proof_values_get_nullifier instead".into(),
             ),
         },
     }

@@ -192,13 +192,23 @@ pub fn rln_witness_to_bytes_le(witness: &RLNWitnessInput) -> Result<Vec<u8>, Pro
     // - optional variable size of selector_used
 
     #[cfg(not(feature = "multi-message-id"))]
-    let capacity =
-        FR_BYTE_SIZE * (5 + witness.path_elements.len()) + witness.identity_path_index.len();
-    #[cfg(feature = "multi-message-id")]
-    let capacity = FR_BYTE_SIZE
-        * (5 + witness.path_elements.len() + witness.message_ids.as_ref().map_or(0, |v| v.len()))
+    let capacity = FR_BYTE_SIZE * (5 + witness.path_elements.len())
         + witness.identity_path_index.len()
-        + witness.selector_used.as_ref().map_or(0, |v| v.len());
+        + 8 * 2; // Extra 8 bytes length prefix per vector (path_elements, identity_path_index)
+    #[cfg(feature = "multi-message-id")]
+    let capacity = {
+        let (msg_ids_len, selector_len) = (
+            witness.message_ids.as_ref().map_or(0, |v| v.len()),
+            witness.selector_used.as_ref().map_or(0, |v| v.len()),
+        );
+        // Extra 8 bytes length prefix per vector (path_elements, identity_path_index, ys, nullifiers, selector_used)
+        let vec_headers =
+            8 * 2 + if msg_ids_len > 0 { 8 } else { 0 } + if selector_len > 0 { 8 } else { 0 };
+        FR_BYTE_SIZE * (5 + witness.path_elements.len() + msg_ids_len)
+            + witness.identity_path_index.len()
+            + selector_len
+            + vec_headers
+    };
 
     let mut bytes: Vec<u8> = Vec::with_capacity(capacity);
     bytes.extend_from_slice(&witness.identity_secret.to_bytes_le());
@@ -234,14 +244,25 @@ pub fn rln_witness_to_bytes_be(witness: &RLNWitnessInput) -> Result<Vec<u8>, Pro
     // - optional variable size of message_ids
     // - optional variable size of selector_used
 
+    // Each vector has an 8-byte length prefix
     #[cfg(not(feature = "multi-message-id"))]
-    let capacity =
-        FR_BYTE_SIZE * (5 + witness.path_elements.len()) + witness.identity_path_index.len();
-    #[cfg(feature = "multi-message-id")]
-    let capacity = FR_BYTE_SIZE
-        * (5 + witness.path_elements.len() + witness.message_ids.as_ref().map_or(0, |v| v.len()))
+    let capacity = FR_BYTE_SIZE * (5 + witness.path_elements.len())
         + witness.identity_path_index.len()
-        + witness.selector_used.as_ref().map_or(0, |v| v.len());
+        + 8 * 2; // Extra 8 bytes length prefix per vector (path_elements, identity_path_index)
+    #[cfg(feature = "multi-message-id")]
+    let capacity = {
+        let (msg_ids_len, selector_len) = (
+            witness.message_ids.as_ref().map_or(0, |v| v.len()),
+            witness.selector_used.as_ref().map_or(0, |v| v.len()),
+        );
+        // Extra 8 bytes length prefix per vector (path_elements, identity_path_index, ys, nullifiers, selector_used)
+        let vec_headers =
+            8 * 2 + if msg_ids_len > 0 { 8 } else { 0 } + if selector_len > 0 { 8 } else { 0 };
+        FR_BYTE_SIZE * (5 + witness.path_elements.len() + msg_ids_len)
+            + witness.identity_path_index.len()
+            + selector_len
+            + vec_headers
+    };
 
     let mut bytes: Vec<u8> = Vec::with_capacity(capacity);
     bytes.extend_from_slice(&witness.identity_secret.to_bytes_be());

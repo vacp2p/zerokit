@@ -82,6 +82,14 @@ pub fn recover_id_secret(
                     .as_ref()
                     .ok_or(ProtocolError::InvalidSelectorUsed)?;
 
+                if ys1.len() < nullifiers1.len()
+                    || ys1.len() < selector_used1.len()
+                    || ys2.len() < nullifiers2.len()
+                    || ys2.len() < selector_used2.len()
+                {
+                    return Err(ProtocolError::InvalidProofValues);
+                }
+
                 for (i, (nullifier_i, &used_i)) in
                     nullifiers1.iter().zip(selector_used1.iter()).enumerate()
                 {

@@ -1435,8 +1435,8 @@ mod test {
             let graph_depth_20 = include_bytes!("../resources/tree_depth_20/graph.bin").to_vec();
             let rln = RLN::new_with_params(zkey_depth_10, graph_depth_20).unwrap();
 
-            // Create witness with wrong tree depth (16 instead of 20)
-            let rln_witness_wrong_depth = random_rln_witness(16).unwrap();
+            // Create witness with wrong tree depth (10 instead of 20)
+            let rln_witness_wrong_depth = random_rln_witness(10).unwrap();
             let proof_result = rln.generate_rln_proof(&rln_witness_wrong_depth);
             // Proof generation should fail due to depth mismatch between witness and circuit
             assert!(matches!(

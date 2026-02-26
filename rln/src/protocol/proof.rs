@@ -60,41 +60,43 @@ pub struct RLNProofValues {
 pub fn rln_proof_values_to_bytes_le(rln_proof_values: &RLNProofValues) -> Vec<u8> {
     // Calculate capacity for Vec:
     // - 5 field elements: root, external_nullifier, x, y, nullifier
-    // - variable size of ys, nullifiers, selector_used
+    // - optional variable size of ys, nullifiers, selector_used
 
     #[cfg(not(feature = "multi-message-id"))]
-    {
-        let mut bytes = Vec::with_capacity(FR_BYTE_SIZE * 5);
-
-        bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.root));
-        bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.external_nullifier));
-        bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.x));
-        bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.y));
-        bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.nullifier));
-
-        bytes
-    }
-
+    let capacity = FR_BYTE_SIZE * 5;
     #[cfg(feature = "multi-message-id")]
-    {
-        let capacity = FR_BYTE_SIZE
-            * (5 + rln_proof_values.ys.as_ref().map_or(0, |v| v.len())
-                + rln_proof_values.nullifiers.as_ref().map_or(0, |v| v.len()))
-            + rln_proof_values
+    let capacity = {
+        let (ys_len, nullifiers_len, selector_len) = (
+            rln_proof_values.ys.as_ref().map_or(0, |v| v.len()),
+            rln_proof_values.nullifiers.as_ref().map_or(0, |v| v.len()),
+            rln_proof_values
                 .selector_used
                 .as_ref()
-                .map_or(0, |v| v.len());
-        let mut bytes = Vec::with_capacity(capacity);
+                .map_or(0, |v| v.len()),
+        );
+        // Extra 8 bytes length prefix per vector (ys, nullifiers, selector_used)
+        let vec_headers = if ys_len > 0 { 8 } else { 0 }
+            + if nullifiers_len > 0 { 8 } else { 0 }
+            + if selector_len > 0 { 8 } else { 0 };
+        FR_BYTE_SIZE * (5 + ys_len + nullifiers_len) + selector_len + vec_headers
+    };
 
-        bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.root));
-        bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.external_nullifier));
-        bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.x));
+    let mut bytes = Vec::with_capacity(capacity);
+    bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.root));
+    bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.external_nullifier));
+    bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.x));
+    #[cfg(not(feature = "multi-message-id"))]
+    {
+        bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.y));
+        bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.nullifier));
+    }
+    #[cfg(feature = "multi-message-id")]
+    {
         // Always serialize y and nullifier fields for backward compatibility
         bytes.extend_from_slice(&fr_to_bytes_le(&rln_proof_values.y.unwrap_or(Fr::from(0))));
         bytes.extend_from_slice(&fr_to_bytes_le(
             &rln_proof_values.nullifier.unwrap_or(Fr::from(0)),
         ));
-
         if let Some(ys) = &rln_proof_values.ys {
             bytes.extend_from_slice(&vec_fr_to_bytes_le(ys));
         }
@@ -104,50 +106,52 @@ pub fn rln_proof_values_to_bytes_le(rln_proof_values: &RLNProofValues) -> Vec<u8
         if let Some(selector_used) = &rln_proof_values.selector_used {
             bytes.extend_from_slice(&vec_bool_to_bytes_le(selector_used));
         }
-
-        bytes
     }
+
+    bytes
 }
 
 /// Serializes RLN proof values to big-endian bytes.
 pub fn rln_proof_values_to_bytes_be(rln_proof_values: &RLNProofValues) -> Vec<u8> {
     // Calculate capacity for Vec:
     // - 5 field elements: root, external_nullifier, x, y, nullifier
-    // - variable size of ys, nullifiers, selector_used
+    // - optional variable size of ys, nullifiers, selector_used
 
     #[cfg(not(feature = "multi-message-id"))]
-    {
-        let mut bytes = Vec::with_capacity(FR_BYTE_SIZE * 5);
-
-        bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.root));
-        bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.external_nullifier));
-        bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.x));
-        bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.y));
-        bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.nullifier));
-
-        bytes
-    }
-
+    let capacity = FR_BYTE_SIZE * 5;
     #[cfg(feature = "multi-message-id")]
-    {
-        let capacity = FR_BYTE_SIZE
-            * (5 + rln_proof_values.ys.as_ref().map_or(0, |v| v.len())
-                + rln_proof_values.nullifiers.as_ref().map_or(0, |v| v.len()))
-            + rln_proof_values
+    let capacity = {
+        let (ys_len, nullifiers_len, selector_len) = (
+            rln_proof_values.ys.as_ref().map_or(0, |v| v.len()),
+            rln_proof_values.nullifiers.as_ref().map_or(0, |v| v.len()),
+            rln_proof_values
                 .selector_used
                 .as_ref()
-                .map_or(0, |v| v.len());
-        let mut bytes = Vec::with_capacity(capacity);
+                .map_or(0, |v| v.len()),
+        );
+        // Extra 8 bytes length prefix per vector (ys, nullifiers, selector_used)
+        let vec_headers = if ys_len > 0 { 8 } else { 0 }
+            + if nullifiers_len > 0 { 8 } else { 0 }
+            + if selector_len > 0 { 8 } else { 0 };
+        FR_BYTE_SIZE * (5 + ys_len + nullifiers_len) + selector_len + vec_headers
+    };
 
-        bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.root));
-        bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.external_nullifier));
-        bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.x));
+    let mut bytes = Vec::with_capacity(capacity);
+    bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.root));
+    bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.external_nullifier));
+    bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.x));
+    #[cfg(not(feature = "multi-message-id"))]
+    {
+        bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.y));
+        bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.nullifier));
+    }
+    #[cfg(feature = "multi-message-id")]
+    {
         // Always serialize y and nullifier fields for backward compatibility
         bytes.extend_from_slice(&fr_to_bytes_be(&rln_proof_values.y.unwrap_or(Fr::from(0))));
         bytes.extend_from_slice(&fr_to_bytes_be(
             &rln_proof_values.nullifier.unwrap_or(Fr::from(0)),
         ));
-
         if let Some(ys) = &rln_proof_values.ys {
             bytes.extend_from_slice(&vec_fr_to_bytes_be(ys));
         }
@@ -157,9 +161,9 @@ pub fn rln_proof_values_to_bytes_be(rln_proof_values: &RLNProofValues) -> Vec<u8
         if let Some(selector_used) = &rln_proof_values.selector_used {
             bytes.extend_from_slice(&vec_bool_to_bytes_be(selector_used));
         }
-
-        bytes
     }
+
+    bytes
 }
 
 /// Deserializes RLN proof values from little-endian bytes.
@@ -338,15 +342,13 @@ pub fn bytes_be_to_rln_proof_values(
 /// while proof_values are serialized in LE format.
 pub fn rln_proof_to_bytes_le(rln_proof: &RLNProof) -> Result<Vec<u8>, ProtocolError> {
     // Calculate capacity for Vec:
-    // - 128 bytes for compressed Groth16 proof
-    // - 5 field elements for proof values (root, external_nullifier, x, y, nullifier)
-    let mut bytes = Vec::with_capacity(COMPRESS_PROOF_SIZE + FR_BYTE_SIZE * 5);
+    // - COMPRESS_PROOF_SIZE bytes for compressed Groth16 proof
+    // - variable size of proof values
+    let proof_values_bytes = rln_proof_values_to_bytes_le(&rln_proof.proof_values);
+    let mut bytes = Vec::with_capacity(COMPRESS_PROOF_SIZE + proof_values_bytes.len());
 
     // Serialize proof (always LE format from arkworks)
     rln_proof.proof.serialize_compressed(&mut bytes)?;
-
-    // Serialize proof values in LE
-    let proof_values_bytes = rln_proof_values_to_bytes_le(&rln_proof.proof_values);
     bytes.extend_from_slice(&proof_values_bytes);
 
     Ok(bytes)
@@ -358,15 +360,13 @@ pub fn rln_proof_to_bytes_le(rln_proof: &RLNProof) -> Result<Vec<u8>, ProtocolEr
 /// while proof_values are serialized in BE format. This creates a mixed-endian format.
 pub fn rln_proof_to_bytes_be(rln_proof: &RLNProof) -> Result<Vec<u8>, ProtocolError> {
     // Calculate capacity for Vec:
-    // - 128 bytes for compressed Groth16 proof
-    // - 5 field elements for proof values (root, external_nullifier, x, y, nullifier)
-    let mut bytes = Vec::with_capacity(COMPRESS_PROOF_SIZE + FR_BYTE_SIZE * 5);
+    // - COMPRESS_PROOF_SIZE bytes for compressed Groth16 proof
+    // - variable size of proof values
+    let proof_values_bytes = rln_proof_values_to_bytes_be(&rln_proof.proof_values);
+    let mut bytes = Vec::with_capacity(COMPRESS_PROOF_SIZE + proof_values_bytes.len());
 
     // Serialize proof (always LE format from arkworks)
     rln_proof.proof.serialize_compressed(&mut bytes)?;
-
-    // Serialize proof values in BE
-    let proof_values_bytes = rln_proof_values_to_bytes_be(&rln_proof.proof_values);
     bytes.extend_from_slice(&proof_values_bytes);
 
     Ok(bytes)
