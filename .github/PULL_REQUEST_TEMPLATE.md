@@ -46,8 +46,8 @@ Please keep the following in mind (see [CONTRIBUTING.md](../CONTRIBUTING.md) for
 
 ### Code Style
 
-- Run `cargo +nightly fmt --all` at the root of the repository to auto-format the entire codebase with rules defined in [`rustfmt.toml`](../rustfmt.toml).
-- Run `cargo fmt --all -- --check` to verify formatting (CI enforces this on stable).
+- Run `cargo make fmt` at the root of the repository to auto-format the entire codebase with rules defined in [`rustfmt.toml`](../rustfmt.toml).
+- Run `cargo make fmt_check` to verify formatting (CI enforces this on stable).
 - Group imports: std first, then external crates, then local modules (see `rustfmt.toml`).
 - Use `pub(crate)` for items that should not be part of the public API.
 - Apply `Zeroize` / `ZeroizeOnDrop` to any struct holding secret material.
