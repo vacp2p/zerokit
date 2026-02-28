@@ -6,7 +6,9 @@ use serde_json::Value;
 use tempfile::Builder;
 use zerokit_utils::{
     error::{FromConfigError, ZerokitMerkleTreeError},
-    merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree},
+    merkle_tree::{
+        validate_override_range_inputs, EmptyIndicesPolicy, ZerokitMerkleProof, ZerokitMerkleTree,
+    },
     pm_tree::{
         pmtree,
         pmtree::{tree::Key, Database, Hasher, PmtreeErrorKind},
@@ -330,8 +332,15 @@ impl ZerokitMerkleTree for PmTree {
         indices: J,
     ) -> Result<(), ZerokitMerkleTreeError> {
         let leaves = leaves.into_iter().collect::<Vec<_>>();
-        let mut indices = indices.into_iter().collect::<Vec<_>>();
-        indices.sort();
+        let validated = validate_override_range_inputs(
+            start,
+            leaves.len(),
+            indices.into_iter().collect::<Vec<_>>(),
+            self.capacity(),
+            // PMTree supports set-only overrides (`indices` can be empty).
+            EmptyIndicesPolicy::Allow,
+        )?;
+        let indices = validated.indices;
 
         match (leaves.len(), indices.len()) {
             (0, 0) => Err(ZerokitMerkleTreeError::InvalidLeaf),
@@ -342,7 +351,14 @@ impl ZerokitMerkleTree for PmTree {
                 .remove_indices(&indices)
                 .map_err(ZerokitMerkleTreeError::PmtreeErrorKind),
             (_, _) => self
-                .remove_indices_and_set_leaves(start, leaves, &indices)
+                .remove_indices_and_set_leaves(
+                    start,
+                    leaves,
+                    &indices,
+                    validated
+                        .max_index
+                        .ok_or(ZerokitMerkleTreeError::InvalidIndices)?,
+                )
                 .map_err(ZerokitMerkleTreeError::PmtreeErrorKind),
         }
     }
@@ -439,6 +455,7 @@ impl PmTree {
         start: usize,
         leaves: Vec<FrOfPmTreeHasher>,
         indices: &[usize],
+        max_index: usize,
     ) -> Result<(), PmtreeErrorKind> {
         if indices.is_empty() {
             return Err(PmtreeErrorKind::TreeError(
@@ -446,7 +463,11 @@ impl PmTree {
             ));
         }
         let min_index = indices[0];
-        let max_index = start + leaves.len();
+        if min_index >= max_index || min_index > start {
+            return Err(PmtreeErrorKind::TreeError(
+                pmtree::TreeErrorKind::IndexOutOfBounds,
+            ));
+        }
 
         let mut set_values = vec![PmTreeHasher::default_leaf(); max_index - min_index];
 
