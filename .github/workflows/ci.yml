@@ -162,11 +162,10 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
+      - name: Install cargo-make
+        run: cargo install cargo-make
       - name: Check formatting
-        run: |
-          cargo +nightly fmt --all -- --check
-          cargo +nightly fmt --manifest-path rln-cli/Cargo.toml --all -- --check
-          cargo +nightly fmt --manifest-path rln-wasm/Cargo.toml --all -- --check
+        run: cargo make fmt_check
 
   clippy:
     # run on both ready and draft PRs
