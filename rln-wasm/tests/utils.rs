@@ -8,7 +8,9 @@ mod test {
     use js_sys::Uint8Array;
     use rand::Rng;
     use rln::prelude::*;
-    use rln_wasm::{ExtendedIdentity, Hasher, Identity, VecWasmFr, WasmFr};
+    use rln_wasm::{
+        wasm_utils::Uint8ArrayUtils, ExtendedIdentity, Hasher, Identity, VecWasmFr, WasmFr,
+    };
     use wasm_bindgen_test::wasm_bindgen_test;
 
     #[wasm_bindgen_test]
@@ -218,5 +220,95 @@ mod test {
         let received_hash = Hasher::poseidon_hash_pair(&wasmfr_1, &wasmfr_2).unwrap();
 
         assert_eq!(*received_hash, expected_hash);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_wasmfr_from_bytes_invalid() {
+        let short_bytes = [0u8; FR_BYTE_SIZE - 1];
+        let short = Uint8Array::from(&short_bytes[..]);
+        assert!(WasmFr::from_bytes_le(&short).is_err());
+        assert!(WasmFr::from_bytes_be(&short).is_err());
+
+        let empty = Uint8Array::from(&[][..]);
+        assert!(WasmFr::from_bytes_le(&empty).is_err());
+        assert!(WasmFr::from_bytes_be(&empty).is_err());
+    }
+
+    #[wasm_bindgen_test]
+    fn test_vec_wasmfr_from_bytes_invalid() {
+        let vec_fr = vec![Fr::from(1u8)];
+        let bytes_le = vec_fr_to_bytes_le(&vec_fr);
+        let truncated = Uint8Array::from(&bytes_le[..bytes_le.len() - 1]);
+        assert!(VecWasmFr::from_bytes_le(&truncated).is_err());
+
+        let mut wrong_len = bytes_le.clone();
+        wrong_len[..8].copy_from_slice(&normalize_usize_le(2));
+        let wrong_len = Uint8Array::from(&wrong_len[..]);
+        assert!(VecWasmFr::from_bytes_le(&wrong_len).is_err());
+
+        let max_safe_len = (usize::MAX - 8) / FR_BYTE_SIZE;
+        let mut overflow_len = [0u8; 8];
+        overflow_len[..8].copy_from_slice(&normalize_usize_le(max_safe_len));
+        let overflow_len = Uint8Array::from(&overflow_len[..]);
+        assert!(VecWasmFr::from_bytes_le(&overflow_len).is_err());
+
+        let bytes_be = vec_fr_to_bytes_be(&vec_fr);
+        let truncated_be = Uint8Array::from(&bytes_be[..bytes_be.len() - 1]);
+        assert!(VecWasmFr::from_bytes_be(&truncated_be).is_err());
+
+        let mut wrong_len_be = bytes_be.clone();
+        wrong_len_be[..8].copy_from_slice(&normalize_usize_be(2));
+        let wrong_len_be = Uint8Array::from(&wrong_len_be[..]);
+        assert!(VecWasmFr::from_bytes_be(&wrong_len_be).is_err());
+
+        let mut overflow_len_be = [0u8; 8];
+        overflow_len_be[..8].copy_from_slice(&normalize_usize_be(max_safe_len));
+        let overflow_len_be = Uint8Array::from(&overflow_len_be[..]);
+        assert!(VecWasmFr::from_bytes_be(&overflow_len_be).is_err());
+    }
+
+    #[wasm_bindgen_test]
+    fn test_uint8array_utils_from_bytes_invalid() {
+        let short = Uint8Array::from(&[0u8; 7][..]);
+        assert!(Uint8ArrayUtils::from_bytes_le(&short).is_err());
+        assert!(Uint8ArrayUtils::from_bytes_be(&short).is_err());
+
+        let invalid_len_le = Vec::from(normalize_usize_le(5));
+        let invalid_len_le = Uint8Array::from(&invalid_len_le[..]);
+        assert!(Uint8ArrayUtils::from_bytes_le(&invalid_len_le).is_err());
+
+        let invalid_len_be = Vec::from(normalize_usize_be(5));
+        let invalid_len_be = Uint8Array::from(&invalid_len_be[..]);
+        assert!(Uint8ArrayUtils::from_bytes_be(&invalid_len_be).is_err());
+
+        let overflow_len_le = Vec::from(normalize_usize_le(usize::MAX - 8));
+        let overflow_len_le = Uint8Array::from(&overflow_len_le[..]);
+        assert!(Uint8ArrayUtils::from_bytes_le(&overflow_len_le).is_err());
+
+        let overflow_len_be = Vec::from(normalize_usize_be(usize::MAX - 8));
+        let overflow_len_be = Uint8Array::from(&overflow_len_be[..]);
+        assert!(Uint8ArrayUtils::from_bytes_be(&overflow_len_be).is_err());
+    }
+
+    #[wasm_bindgen_test]
+    fn test_identity_from_bytes_invalid_len() {
+        let bytes_le = vec_fr_to_bytes_le(&[Fr::from(1u8)]);
+        let bytes_le = Uint8Array::from(&bytes_le[..]);
+        assert!(Identity::from_bytes_le(&bytes_le).is_err());
+
+        let bytes_be = vec_fr_to_bytes_be(&[Fr::from(1u8)]);
+        let bytes_be = Uint8Array::from(&bytes_be[..]);
+        assert!(Identity::from_bytes_be(&bytes_be).is_err());
+    }
+
+    #[wasm_bindgen_test]
+    fn test_extended_identity_from_bytes_invalid_len() {
+        let bytes_le = vec_fr_to_bytes_le(&[Fr::from(1u8), Fr::from(2u8), Fr::from(3u8)]);
+        let bytes_le = Uint8Array::from(&bytes_le[..]);
+        assert!(ExtendedIdentity::from_bytes_le(&bytes_le).is_err());
+
+        let bytes_be = vec_fr_to_bytes_be(&[Fr::from(1u8), Fr::from(2u8), Fr::from(3u8)]);
+        let bytes_be = Uint8Array::from(&bytes_be[..]);
+        assert!(ExtendedIdentity::from_bytes_be(&bytes_be).is_err());
     }
 }

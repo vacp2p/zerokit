@@ -1,2 +1,18 @@
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+
+[tasks.fmt]
+description = "Format workspace members and excluded crates"
+command = "sh"
+args = [
+  "-c",
+  "cd .. && cargo +nightly fmt --all && cargo +nightly fmt --manifest-path rln-cli/Cargo.toml --all && cargo +nightly fmt --manifest-path rln-wasm/Cargo.toml --all",
+]
+
+[tasks.fmt_check]
+description = "Check formatting for workspace members and excluded crates"
+command = "sh"
+args = [
+  "-c",
+  "cd .. && cargo +nightly fmt --all -- --check && cargo +nightly fmt --manifest-path rln-cli/Cargo.toml --all -- --check && cargo +nightly fmt --manifest-path rln-wasm/Cargo.toml --all -- --check",
+]
