@@ -245,17 +245,6 @@ mod test {
         let (deser_be, _) = bytes_be_to_rln_witness(&ser_be).unwrap();
         assert_eq!(witness, deser_be);
 
-        // We test proof values serialization
-        let proof_values = proof_values_from_witness(&witness).unwrap();
-
-        let ser_le = rln_proof_values_to_bytes_le(&proof_values);
-        let (deser_le, _) = bytes_le_to_rln_proof_values(&ser_le).unwrap();
-        assert_eq!(proof_values, deser_le);
-
-        let ser_be = rln_proof_values_to_bytes_be(&proof_values);
-        let (deser_be, _) = bytes_be_to_rln_proof_values(&ser_be).unwrap();
-        assert_eq!(proof_values, deser_be);
-
         // Test truncated witness bytes rejection
         let truncated = &ser_le[..ser_le.len() - 1];
         assert!(bytes_le_to_rln_witness(truncated).is_err());
@@ -268,11 +257,16 @@ mod test {
             Err(ProtocolError::InvalidReadLen(_, _))
         ));
 
-        // We test Proof values serialization
+        // We test proof values serialization
         let proof_values = proof_values_from_witness(&witness).unwrap();
+
         let ser_le = rln_proof_values_to_bytes_le(&proof_values);
         let (deser_le, _) = bytes_le_to_rln_proof_values(&ser_le).unwrap();
         assert_eq!(proof_values, deser_le);
+
+        let ser_be = rln_proof_values_to_bytes_be(&proof_values);
+        let (deser_be, _) = bytes_be_to_rln_proof_values(&ser_be).unwrap();
+        assert_eq!(proof_values, deser_be);
 
         // Test truncated proof values bytes rejection
         let truncated_pv = &ser_le[..ser_le.len() - 1];
