@@ -118,14 +118,14 @@ impl WasmRLNProofValues {
     #[cfg(not(feature = "multi-message-id"))]
     #[wasm_bindgen(getter)]
     pub fn y(&self) -> WasmFr {
-        WasmFr::from(self.0.y)
+        WasmFr::from(*self.0.y())
     }
 
     #[cfg(feature = "multi-message-id")]
     #[wasm_bindgen(getter)]
     pub fn y(&self) -> Result<WasmFr, String> {
         self.0
-            .y
+            .y()
             .map(WasmFr::from)
             .ok_or_else(|| "y field is None, use ys() instead".to_string())
     }
@@ -133,31 +133,31 @@ impl WasmRLNProofValues {
     #[cfg(not(feature = "multi-message-id"))]
     #[wasm_bindgen(getter)]
     pub fn nullifier(&self) -> WasmFr {
-        WasmFr::from(self.0.nullifier)
+        WasmFr::from(*self.0.nullifier())
     }
 
     #[cfg(feature = "multi-message-id")]
     #[wasm_bindgen(getter)]
     pub fn nullifier(&self) -> Result<WasmFr, String> {
         self.0
-            .nullifier
+            .nullifier()
             .map(WasmFr::from)
             .ok_or_else(|| "nullifier field is None, use nullifiers() instead".to_string())
     }
 
     #[wasm_bindgen(getter)]
     pub fn root(&self) -> WasmFr {
-        WasmFr::from(self.0.root)
+        WasmFr::from(*self.0.root())
     }
 
     #[wasm_bindgen(getter)]
     pub fn x(&self) -> WasmFr {
-        WasmFr::from(self.0.x)
+        WasmFr::from(*self.0.x())
     }
 
     #[wasm_bindgen(getter, js_name = externalNullifier)]
     pub fn external_nullifier(&self) -> WasmFr {
-        WasmFr::from(self.0.external_nullifier)
+        WasmFr::from(*self.0.external_nullifier())
     }
 
     #[cfg(feature = "multi-message-id")]

@@ -562,6 +562,12 @@ pub fn bytes_le_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), Protocol
     let mut read: usize = VERSION_BYTE_SIZE;
 
     // Deserialize proof (always LE from arkworks)
+    if bytes.len() < read + COMPRESS_PROOF_SIZE {
+        return Err(ProtocolError::InvalidReadLen(
+            read + COMPRESS_PROOF_SIZE,
+            bytes.len(),
+        ));
+    }
     let proof = Proof::deserialize_compressed(&bytes[read..read + COMPRESS_PROOF_SIZE])?;
     read += COMPRESS_PROOF_SIZE;
 
@@ -595,6 +601,12 @@ pub fn bytes_be_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), Protocol
     let mut read: usize = VERSION_BYTE_SIZE;
 
     // Deserialize proof (always LE from arkworks)
+    if bytes.len() < read + COMPRESS_PROOF_SIZE {
+        return Err(ProtocolError::InvalidReadLen(
+            read + COMPRESS_PROOF_SIZE,
+            bytes.len(),
+        ));
+    }
     let proof = Proof::deserialize_compressed(&bytes[read..read + COMPRESS_PROOF_SIZE])?;
     read += COMPRESS_PROOF_SIZE;
 

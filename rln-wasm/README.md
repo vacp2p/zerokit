@@ -14,7 +14,7 @@ RLN functionality in JavaScript/TypeScript applications.
 > [!NOTE]
 > This project requires the following tools:
 >
-> - `wasm-pack` (v0.13.1) - for compiling Rust to WebAssembly
+> - `wasm-pack` (v0.14.0) - for compiling Rust to WebAssembly
 > - `cargo-make` - for running build commands
 > - `nvm` - to install and manage Node.js (v22.14.0+)
 
@@ -28,7 +28,7 @@ make installdeps
 
 ```bash
 # Install wasm-pack
-cargo install wasm-pack --version=0.13.1
+cargo install wasm-pack --version=0.14.0
 
 # Install cargo-make
 cargo install cargo-make
