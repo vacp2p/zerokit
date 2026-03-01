@@ -649,11 +649,11 @@ impl RLN {
             return Err(VerifyError::InvalidProof.into());
         }
 
-        if self.tree.root() != proof_values.root {
+        if self.tree.root() != *proof_values.root() {
             return Err(VerifyError::InvalidRoot.into());
         }
 
-        if *x != proof_values.x {
+        if x != proof_values.x() {
             return Err(VerifyError::InvalidSignal.into());
         }
 
@@ -675,11 +675,11 @@ impl RLN {
             return Err(VerifyError::InvalidProof.into());
         }
 
-        if !roots.is_empty() && !roots.contains(&proof_values.root) {
+        if !roots.is_empty() && !roots.contains(proof_values.root()) {
             return Err(VerifyError::InvalidRoot.into());
         }
 
-        if *x != proof_values.x {
+        if x != proof_values.x() {
             return Err(VerifyError::InvalidSignal.into());
         }
 

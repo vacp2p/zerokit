@@ -33,7 +33,7 @@ pub enum ProtocolError {
     Utils(#[from] UtilsError),
     #[error("Error calculating witness: {0}")]
     WitnessCalc(#[from] WitnessCalcError),
-    #[error("Expected to read {0} bytes but read only {1} bytes")]
+    #[error("Expected to read {0} bytes but read {1} bytes")]
     InvalidReadLen(usize, usize),
     #[error("Cannot convert bigint {0:?} to biguint")]
     BigUintConversion(BigInt),
@@ -56,10 +56,6 @@ pub enum ProtocolError {
     #[cfg(feature = "multi-message-id")]
     #[error("Invalid selector used for multi-message-id")]
     InvalidSelectorUsed,
-    #[cfg(feature = "multi-message-id")]
-    #[error("Invalid proof values for multi-message-id")]
-    InvalidProofValues,
-    #[cfg(feature = "multi-message-id")]
     #[error("No IdSecret could be recovered from the provided proof values")]
     IdSecretRecovery,
     #[error("Merkle tree operation error: {0}")]
@@ -68,6 +64,8 @@ pub enum ProtocolError {
     Hash(#[from] HashError),
     #[error("Proof serialization error: {0}")]
     SerializationError(#[from] ark_serialize::SerializationError),
+    #[error("Unknown serialization version: {0:#04x}")]
+    UnknownSerializationVersion(u8),
 }
 
 /// Errors that can occur during proof verification

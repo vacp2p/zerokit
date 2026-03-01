@@ -164,52 +164,28 @@ mod test {
         )
         .unwrap();
 
-        let valid_proof_values = RLNProofValues {
+        let valid_proof_values = RLNProofValues::SingleV1 {
             x,
             external_nullifier: str_to_fr(
                 "21074405743803627666274838159589343934394162804826017440941339048886754734203",
                 10,
             )
             .unwrap(),
-            #[cfg(not(feature = "multi-message-id"))]
             y: str_to_fr(
                 "16401008481486069296141645075505218976370369489687327284155463920202585288271",
                 10,
             )
             .unwrap(),
-            #[cfg(feature = "multi-message-id")]
-            y: Some(
-                str_to_fr(
-                    "16401008481486069296141645075505218976370369489687327284155463920202585288271",
-                    10,
-                )
-                .unwrap(),
-            ),
-            #[cfg(feature = "multi-message-id")]
-            ys: None,
             root: str_to_fr(
                 "8502402278351299594663821509741133196466235670407051417832304486953898514733",
                 10,
             )
             .unwrap(),
-            #[cfg(not(feature = "multi-message-id"))]
             nullifier: str_to_fr(
                 "9102791780887227194595604713537772536258726662792598131262022534710887343694",
                 10,
             )
             .unwrap(),
-            #[cfg(feature = "multi-message-id")]
-            nullifier: Some(
-                str_to_fr(
-                    "9102791780887227194595604713537772536258726662792598131262022534710887343694",
-                    10,
-                )
-                .unwrap(),
-            ),
-            #[cfg(feature = "multi-message-id")]
-            nullifiers: None,
-            #[cfg(feature = "multi-message-id")]
-            selector_used: None,
         };
 
         let verified = rln
@@ -1043,7 +1019,8 @@ mod test {
             let (rln, proof, mut proof_values, x, _rng) = setup_rln_proof(false);
 
             // Mutate external_nullifier by adding 1
-            proof_values.external_nullifier += Fr::from(1);
+            let new_en = *proof_values.external_nullifier() + Fr::from(1);
+            proof_values.modify_external_nullifier(new_en);
 
             // Verification should fail
             let verified = rln.verify_rln_proof(&proof, &proof_values, &x).is_ok();
@@ -1069,14 +1046,7 @@ mod test {
             let (rln, proof, mut proof_values, x, mut rng) = setup_rln_proof(false);
 
             // Mutate nullifier (simulating mutated message_id)
-            #[cfg(not(feature = "multi-message-id"))]
-            {
-                proof_values.nullifier = Fr::rand(&mut rng);
-            }
-            #[cfg(feature = "multi-message-id")]
-            {
-                proof_values.nullifier = Some(Fr::rand(&mut rng));
-            }
+            proof_values.modify_nullifier(Fr::rand(&mut rng));
 
             // Verification should fail
             let verified = rln.verify_rln_proof(&proof, &proof_values, &x).is_ok();
@@ -1088,7 +1058,7 @@ mod test {
             let (rln, proof, mut proof_values, x, mut rng) = setup_rln_proof(false);
 
             // Mutate root (simulating mutated path_element)
-            proof_values.root = Fr::rand(&mut rng);
+            proof_values.modify_root(Fr::rand(&mut rng));
 
             // Verification should fail
             let verified = rln.verify_rln_proof(&proof, &proof_values, &x).is_ok();
@@ -1101,7 +1071,8 @@ mod test {
             let roots = vec![rln.get_root()];
 
             // Mutate external_nullifier by adding 1
-            proof_values.external_nullifier += Fr::from(1);
+            let new_en = *proof_values.external_nullifier() + Fr::from(1);
+            proof_values.modify_external_nullifier(new_en);
 
             // Verification should fail
             let verified = rln
@@ -1131,14 +1102,7 @@ mod test {
             let roots = vec![rln.get_root()];
 
             // Mutate nullifier (simulating mutated message_id)
-            #[cfg(not(feature = "multi-message-id"))]
-            {
-                proof_values.nullifier = Fr::rand(&mut rng);
-            }
-            #[cfg(feature = "multi-message-id")]
-            {
-                proof_values.nullifier = Some(Fr::rand(&mut rng));
-            }
+            proof_values.modify_nullifier(Fr::rand(&mut rng));
 
             // Verification should fail
             let verified = rln
@@ -1660,15 +1624,15 @@ mod test {
             let (proof, proof_values) = rln.generate_rln_proof(&witness).unwrap();
 
             // Verify proof values structure
-            assert!(proof_values.y.is_none());
-            assert!(proof_values.ys.is_some());
-            assert!(proof_values.nullifier.is_none());
-            assert!(proof_values.nullifiers.is_some());
-            assert!(proof_values.selector_used.is_some());
+            assert!(proof_values.y().is_none());
+            assert!(proof_values.ys().is_some());
+            assert!(proof_values.nullifier().is_none());
+            assert!(proof_values.nullifiers().is_some());
+            assert!(proof_values.selector_used().is_some());
 
-            let ys = proof_values.ys.as_ref().unwrap();
-            let nullifiers = proof_values.nullifiers.as_ref().unwrap();
-            let selector = proof_values.selector_used.as_ref().unwrap();
+            let ys = proof_values.ys().unwrap();
+            let nullifiers = proof_values.nullifiers().unwrap();
+            let selector = proof_values.selector_used().unwrap();
             assert_eq!(ys.len(), 4);
             assert_eq!(nullifiers.len(), 4);
             assert_eq!(*selector, selector_used);

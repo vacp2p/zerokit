@@ -5,7 +5,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 The Zerokit RLN Module provides a Rust implementation for working with
-Rate-Limiting Nullifier [RLN](https://rfc.vac.dev/vac/raw/rln-v2) zkSNARK proofs and primitives.
+Rate-Limiting Nullifier [RLN](https://lip.logos.co/ift-ts/raw/rln-v2) zkSNARK proofs and primitives.
 This module allows you to:
 
 - Generate and verify RLN proofs
@@ -309,7 +309,7 @@ The `multi-message-id` feature flag enables consuming multiple message_id units 
 
 When enabled, the RLN module API allows specifying multiple message_id values and selector bits during witness creation. The proof generation and verification processes are updated accordingly to handle the multi-message-id logic.
 
-For detailed specification, see the [Multi-Message-ID Burn RLN specification](https://lip.logos.co/ift-ts/raw/multi-message_id-burn-rln.html).
+For detailed specification, see the [Multi-Message-ID Burn RLN specification](https://lip.logos.co/ift-ts/raw/multi-message_id-burn-rln).
 
 ## Detailed Protocol Flow
 
@@ -337,6 +337,6 @@ and look at unit tests to have an hint on how to interface and use them.
 
 - Check the [unit tests](https://github.com/vacp2p/zerokit/tree/master/rln/tests) for more usage examples
 - Check the [rln-cli examples](https://github.com/vacp2p/zerokit/tree/master/rln-cli/src/examples) for complete interactive Rust examples of RLN features (relay, stateless, multi-message-id)
-- [RFC specification](https://rfc.vac.dev/vac/raw/rln-v2) for the Rate-Limiting Nullifier protocol
+- [RFC specification](https://lip.logos.co/ift-ts/raw/rln-v2) for the Rate-Limiting Nullifier protocol
 - [Zerokit API documentation](https://lip.logos.co/ift-ts/raw/zerokit-api.html) for comprehensive API reference
 - [GitHub repository](https://github.com/vacp2p/zerokit) for the latest updates

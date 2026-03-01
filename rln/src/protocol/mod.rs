@@ -3,6 +3,7 @@
 mod keygen;
 mod proof;
 mod slashing;
+pub mod version;
 mod witness;
 
 pub use keygen::{extended_keygen, extended_seeded_keygen, keygen, seeded_keygen};
@@ -13,6 +14,7 @@ pub use proof::{
     rln_proof_values_to_bytes_le, verify_zk_proof, RLNProof, RLNProofValues,
 };
 pub use slashing::recover_id_secret;
+pub use version::SerializationVersion;
 pub use witness::{
     bytes_be_to_rln_witness, bytes_le_to_rln_witness, compute_tree_root, proof_values_from_witness,
     rln_witness_to_bigint_json, rln_witness_to_bytes_be, rln_witness_to_bytes_le, RLNWitnessInput,

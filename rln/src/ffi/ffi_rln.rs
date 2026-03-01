@@ -417,16 +417,16 @@ pub fn ffi_rln_proof_values_get_y(
     #[cfg(not(feature = "multi-message-id"))]
     {
         CResult {
-            ok: Some(CFr::from(pv.0.y).into()),
+            ok: Some(CFr::from(*pv.0.y()).into()),
             err: None,
         }
     }
 
     #[cfg(feature = "multi-message-id")]
     {
-        match pv.0.y {
+        match pv.0.y() {
             Some(y) => CResult {
-                ok: Some(CFr::from(y).into()),
+                ok: Some(CFr::from(*y).into()),
                 err: None,
             },
             None => CResult {
@@ -444,16 +444,16 @@ pub fn ffi_rln_proof_values_get_nullifier(
     #[cfg(not(feature = "multi-message-id"))]
     {
         CResult {
-            ok: Some(CFr::from(pv.0.nullifier).into()),
+            ok: Some(CFr::from(*pv.0.nullifier()).into()),
             err: None,
         }
     }
 
     #[cfg(feature = "multi-message-id")]
     {
-        match pv.0.nullifier {
+        match pv.0.nullifier() {
             Some(nullifier) => CResult {
-                ok: Some(CFr::from(nullifier).into()),
+                ok: Some(CFr::from(*nullifier).into()),
                 err: None,
             },
             None => CResult {
@@ -469,19 +469,19 @@ pub fn ffi_rln_proof_values_get_nullifier(
 
 #[ffi_export]
 pub fn ffi_rln_proof_values_get_root(pv: &repr_c::Box<FFI_RLNProofValues>) -> repr_c::Box<CFr> {
-    CFr::from(pv.0.root).into()
+    CFr::from(*pv.0.root()).into()
 }
 
 #[ffi_export]
 pub fn ffi_rln_proof_values_get_x(pv: &repr_c::Box<FFI_RLNProofValues>) -> repr_c::Box<CFr> {
-    CFr::from(pv.0.x).into()
+    CFr::from(*pv.0.x()).into()
 }
 
 #[ffi_export]
 pub fn ffi_rln_proof_values_get_external_nullifier(
     pv: &repr_c::Box<FFI_RLNProofValues>,
 ) -> repr_c::Box<CFr> {
-    CFr::from(pv.0.external_nullifier).into()
+    CFr::from(*pv.0.external_nullifier()).into()
 }
 
 #[cfg(feature = "multi-message-id")]
@@ -489,7 +489,7 @@ pub fn ffi_rln_proof_values_get_external_nullifier(
 pub fn ffi_rln_proof_values_get_ys(
     pv: &repr_c::Box<FFI_RLNProofValues>,
 ) -> CResult<repr_c::Vec<CFr>, repr_c::String> {
-    match &pv.0.ys {
+    match pv.0.ys() {
         Some(ys) => CResult {
             ok: Some(
                 ys.iter()
@@ -511,7 +511,7 @@ pub fn ffi_rln_proof_values_get_ys(
 pub fn ffi_rln_proof_values_get_nullifiers(
     pv: &repr_c::Box<FFI_RLNProofValues>,
 ) -> CResult<repr_c::Vec<CFr>, repr_c::String> {
-    match &pv.0.nullifiers {
+    match pv.0.nullifiers() {
         Some(nullifiers) => CResult {
             ok: Some(
                 nullifiers
@@ -536,9 +536,9 @@ pub fn ffi_rln_proof_values_get_nullifiers(
 pub fn ffi_rln_proof_values_get_selector_used(
     pv: &repr_c::Box<FFI_RLNProofValues>,
 ) -> CResult<repr_c::Vec<bool>, repr_c::String> {
-    match &pv.0.selector_used {
+    match pv.0.selector_used() {
         Some(selector_used) => CResult {
-            ok: Some(selector_used.clone().into()),
+            ok: Some(selector_used.to_vec().into()),
             err: None,
         },
         None => CResult {

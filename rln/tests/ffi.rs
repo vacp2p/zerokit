@@ -774,7 +774,6 @@ mod test {
         );
 
         // We attempt to recover the secret using share1 (coming from identity_secret) and share3 (coming from identity_secret_new)
-
         let recovered_id_secret_new_cfr = match ffi_recover_id_secret(
             &ffi_rln_proof_get_values(&rln_proof1),
             &ffi_rln_proof_get_values(&rln_proof3),

@@ -35,83 +35,123 @@ pub fn recover_id_secret(
     rln_proof_values_1: &RLNProofValues,
     rln_proof_values_2: &RLNProofValues,
 ) -> Result<IdSecret, ProtocolError> {
-    let external_nullifier_1 = rln_proof_values_1.external_nullifier;
-    let external_nullifier_2 = rln_proof_values_2.external_nullifier;
+    let external_nullifier_1 = rln_proof_values_1.external_nullifier();
+    let external_nullifier_2 = rln_proof_values_2.external_nullifier();
 
     // We continue only if the proof values are for the same external nullifier
     if external_nullifier_1 != external_nullifier_2 {
         return Err(ProtocolError::ExternalNullifierMismatch(
-            external_nullifier_1,
-            external_nullifier_2,
+            *external_nullifier_1,
+            *external_nullifier_2,
         ));
     }
 
-    #[cfg(not(feature = "multi-message-id"))]
-    {
-        let share1 = (rln_proof_values_1.x, rln_proof_values_1.y);
-        let share2 = (rln_proof_values_2.x, rln_proof_values_2.y);
-        compute_id_secret(share1, share2)
-    }
-
-    #[cfg(feature = "multi-message-id")]
-    {
-        match (
-            (&rln_proof_values_1.y, &rln_proof_values_1.ys),
-            (&rln_proof_values_2.y, &rln_proof_values_2.ys),
-        ) {
-            ((Some(y1), None), (Some(y2), None)) => {
-                let share1 = (rln_proof_values_1.x, *y1);
-                let share2 = (rln_proof_values_2.x, *y2);
-                compute_id_secret(share1, share2)
-            }
-            ((None, Some(ys1)), (None, Some(ys2))) => {
-                let nullifiers1 = rln_proof_values_1
-                    .nullifiers
-                    .as_ref()
-                    .ok_or(ProtocolError::InvalidProofValues)?;
-                let nullifiers2 = rln_proof_values_2
-                    .nullifiers
-                    .as_ref()
-                    .ok_or(ProtocolError::InvalidProofValues)?;
-                let selector_used1 = rln_proof_values_1
-                    .selector_used
-                    .as_ref()
-                    .ok_or(ProtocolError::InvalidSelectorUsed)?;
-                let selector_used2 = rln_proof_values_2
-                    .selector_used
-                    .as_ref()
-                    .ok_or(ProtocolError::InvalidSelectorUsed)?;
-
-                if ys1.len() < nullifiers1.len()
-                    || ys1.len() < selector_used1.len()
-                    || ys2.len() < nullifiers2.len()
-                    || ys2.len() < selector_used2.len()
-                {
-                    return Err(ProtocolError::InvalidProofValues);
+    match (rln_proof_values_1, rln_proof_values_2) {
+        (
+            RLNProofValues::SingleV1 { x: x1, y: y1, .. },
+            RLNProofValues::SingleV1 { x: x2, y: y2, .. },
+        ) => {
+            let share1 = (*x1, *y1);
+            let share2 = (*x2, *y2);
+            compute_id_secret(share1, share2)
+        }
+        #[cfg(feature = "multi-message-id")]
+        (
+            RLNProofValues::MultiV1 {
+                x: x1,
+                ys: ys1,
+                nullifiers: nullifiers1,
+                selector_used: selector_used1,
+                ..
+            },
+            RLNProofValues::MultiV1 {
+                x: x2,
+                ys: ys2,
+                nullifiers: nullifiers2,
+                selector_used: selector_used2,
+                ..
+            },
+        ) => {
+            for (i, (nullifier_i, &used_i)) in
+                nullifiers1.iter().zip(selector_used1.iter()).enumerate()
+            {
+                if !used_i {
+                    continue;
                 }
-
-                for (i, (nullifier_i, &used_i)) in
-                    nullifiers1.iter().zip(selector_used1.iter()).enumerate()
+                for (j, (nullifier_j, &used_j)) in
+                    nullifiers2.iter().zip(selector_used2.iter()).enumerate()
                 {
-                    if !used_i {
+                    if !used_j {
                         continue;
                     }
-                    for (j, (nullifier_j, &used_j)) in
-                        nullifiers2.iter().zip(selector_used2.iter()).enumerate()
-                    {
-                        if !used_j {
-                            continue;
-                        }
-                        if nullifier_i == nullifier_j {
-                            let share1 = (rln_proof_values_1.x, ys1[i]);
-                            let share2 = (rln_proof_values_2.x, ys2[j]);
-                            return compute_id_secret(share1, share2);
-                        }
+                    if nullifier_i == nullifier_j {
+                        let share1 = (*x1, ys1[i]);
+                        let share2 = (*x2, ys2[j]);
+                        return compute_id_secret(share1, share2);
                     }
                 }
-                Err(ProtocolError::IdSecretRecovery)
             }
-            _ => Err(ProtocolError::IdSecretRecovery),
+            Err(ProtocolError::IdSecretRecovery)
+        }
+        #[cfg(feature = "multi-message-id")]
+        (
+            RLNProofValues::SingleV1 {
+                x: x1,
+                y: y1,
+                nullifier: nullifier1,
+                ..
+            },
+            RLNProofValues::MultiV1 {
+                x: x2,
+                ys: ys2,
+                nullifiers: nullifiers2,
+                selector_used: selector_used2,
+                ..
+            },
+        ) => {
+            for (j, (nullifier_j, &used_j)) in
+                nullifiers2.iter().zip(selector_used2.iter()).enumerate()
+            {
+                if !used_j {
+                    continue;
+                }
+                if nullifier1 == nullifier_j {
+                    let share1 = (*x1, *y1);
+                    let share2 = (*x2, ys2[j]);
+                    return compute_id_secret(share1, share2);
+                }
+            }
+            Err(ProtocolError::IdSecretRecovery)
+        }
+        #[cfg(feature = "multi-message-id")]
+        (
+            RLNProofValues::MultiV1 {
+                x: x1,
+                ys: ys1,
+                nullifiers: nullifiers1,
+                selector_used: selector_used1,
+                ..
+            },
+            RLNProofValues::SingleV1 {
+                x: x2,
+                y: y2,
+                nullifier: nullifier2,
+                ..
+            },
+        ) => {
+            for (i, (nullifier_i, &used_i)) in
+                nullifiers1.iter().zip(selector_used1.iter()).enumerate()
+            {
+                if !used_i {
+                    continue;
+                }
+                if nullifier_i == nullifier2 {
+                    let share1 = (*x1, ys1[i]);
+                    let share2 = (*x2, *y2);
+                    return compute_id_secret(share1, share2);
+                }
+            }
+            Err(ProtocolError::IdSecretRecovery)
         }
     }
 }
