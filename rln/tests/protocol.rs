@@ -200,12 +200,7 @@ mod test {
     fn test_partial_end_to_end() {
         let witness = get_test_witness();
 
-        let partial_witness = RLNPartialWitnessInput::new(
-            witness.identity_secret().clone(),
-            *witness.user_message_limit(),
-            witness.path_elements().to_vec(),
-            witness.identity_path_index().to_vec(),
-        ).unwrap();
+        let partial_witness = RLNPartialWitnessInput::from(&witness);
 
         let proving_key = zkey_from_folder();
         let graph_data = graph_from_folder();
@@ -224,12 +219,7 @@ mod test {
     fn test_partial_equals_full_proof() {
         let witness = get_test_witness();
 
-        let partial_witness = RLNPartialWitnessInput::new(
-            witness.identity_secret().clone(),
-            *witness.user_message_limit(),
-            witness.path_elements().to_vec(),
-            witness.identity_path_index().to_vec(),
-        ).unwrap();
+        let partial_witness = RLNPartialWitnessInput::from(&witness);
 
         let proving_key = zkey_from_folder();
         let graph_data = graph_from_folder();
@@ -297,12 +287,7 @@ mod test {
     fn test_partial_witness_serialization() {
         let witness = get_test_witness();
 
-        let partial_witness = RLNPartialWitnessInput::new(
-            witness.identity_secret().clone(),
-            *witness.user_message_limit(),
-            witness.path_elements().to_vec(),
-            witness.identity_path_index().to_vec(),
-        ).unwrap();
+        let partial_witness = RLNPartialWitnessInput::from(&witness);
 
         // Test partial witness serialization le
         let ser = rln_partial_witness_to_bytes_le(&partial_witness).unwrap();
@@ -318,13 +303,7 @@ mod test {
     #[test]
     fn test_partial_proof_serialization() {
         let witness = get_test_witness();
-        let partial_witness = RLNPartialWitnessInput::new(
-            witness.identity_secret().clone(),
-            *witness.user_message_limit(),
-            witness.path_elements().to_vec(),
-            witness.identity_path_index().to_vec(),
-        )
-        .unwrap();
+        let partial_witness = RLNPartialWitnessInput::from(&witness);
 
         let proving_key = zkey_from_folder();
         let graph_data = graph_from_folder();

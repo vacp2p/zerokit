@@ -188,13 +188,7 @@ mod test {
         let rln = RLN::new().unwrap();
 
         let rln_witness = random_rln_witness(tree_depth).unwrap();
-        let partial_witness = RLNPartialWitnessInput::new(
-            rln_witness.identity_secret().clone(),
-            *rln_witness.user_message_limit(),
-            rln_witness.path_elements().to_vec(),
-            rln_witness.identity_path_index().to_vec(),
-        )
-        .unwrap();
+        let partial_witness = RLNPartialWitnessInput::from(&rln_witness);
 
         // first step: compute partial proof
         let partial_proof = rln.generate_partial_zk_proof(&partial_witness).unwrap();

@@ -153,6 +153,17 @@ impl RLNPartialWitnessInput {
     }
 }
 
+impl From<&RLNWitnessInput> for RLNPartialWitnessInput {
+    fn from(witness: &RLNWitnessInput) -> Self {
+        Self {
+            identity_secret: witness.identity_secret.clone(),
+            user_message_limit: witness.user_message_limit,
+            path_elements: witness.path_elements.clone(),
+            identity_path_index: witness.identity_path_index.clone(),
+        }
+    }
+}
+
 /// Serializes an RLN witness to little-endian bytes.
 pub fn rln_witness_to_bytes_le(witness: &RLNWitnessInput) -> Result<Vec<u8>, ProtocolError> {
     // Calculate capacity for Vec:
