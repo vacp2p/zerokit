@@ -86,7 +86,7 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16Partial<E, QAP> {
         rng: &mut R,
         partial: &PartialProof<E>,
     ) -> Result<Proof<E>, SynthesisError> {
-        finish_proof::<E, QAP, C, R>(pk, circuit, rng, partial).map_err(Into::into)
+        finish_proof::<E, QAP, C, R>(pk, circuit, rng, partial)
     }
 }
 
@@ -254,8 +254,8 @@ fn finish_partial_proof_with_assignment<E: Pairing>(
     let h_acc = E::G1::msm_bigint(&pk.h_query, &h_assignment);
 
     let r_s_delta_g1 = pk.delta_g1 * (r * s);
-    let s_g_a = g_a * &s;
-    let r_g1_b = g1_b * &r;
+    let s_g_a = g_a * s;
+    let r_g1_b = g1_b * r;
 
     // g_c = s*[A]_1 + r*[B]_1 - r*s*[delta]_1 + L + H
     let mut g_c = s_g_a;

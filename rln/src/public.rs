@@ -18,15 +18,14 @@ use crate::{
     protocol::generate_zk_proof,
 };
 use crate::{
-    circuit::{zkey_from_raw, Fr, Proof, Zkey},
+    circuit::{zkey_from_raw, Fr, PartialProof, Proof, Zkey},
     error::{RLNError, VerifyError},
+    prelude::{finish_zk_proof, generate_partial_zk_proof, RLNPartialWitnessInput},
     protocol::{
         generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof, RLNProofValues,
         RLNWitnessInput,
     },
 };
-use crate::circuit::PartialProof;
-use crate::prelude::{finish_zk_proof, generate_partial_zk_proof, RLNPartialWitnessInput};
 
 /// This trait allows accepting different config input types for tree configuration.
 #[cfg(not(feature = "stateless"))]

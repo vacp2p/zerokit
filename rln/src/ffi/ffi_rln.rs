@@ -6,7 +6,7 @@ use safer_ffi::{boxed::Box_, derive_ReprC, ffi_export, prelude::repr_c};
 use {safer_ffi::prelude::char_p, std::fs::File, std::io::Read};
 
 use super::ffi_utils::{CBoolResult, CFr, CResult};
-use crate::{circuit::PartialProof,prelude::*};
+use crate::{circuit::PartialProof, prelude::*};
 
 #[cfg(not(feature = "stateless"))]
 const MAX_CONFIG_SIZE: u64 = 1024 * 1024; // 1MB

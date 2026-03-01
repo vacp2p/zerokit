@@ -205,7 +205,8 @@ mod test {
         let proving_key = zkey_from_folder();
         let graph_data = graph_from_folder();
 
-        let partial_proof = generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
+        let partial_proof =
+            generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
         let proof = finish_zk_proof(proving_key, &partial_proof, &witness, graph_data).unwrap();
 
         let proof_values = proof_values_from_witness(&witness).unwrap();
@@ -224,20 +225,17 @@ mod test {
         let proving_key = zkey_from_folder();
         let graph_data = graph_from_folder();
 
-        let partial_proof = generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
+        let partial_proof =
+            generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
 
         let r = Fr::from(44u64);
         let s = Fr::from(77u64);
 
-        let full_proof = generate_zk_proof_with_rs(proving_key, &witness, graph_data, r, s).unwrap();
-        let finished_proof = finish_zk_proof_with_rs(
-            proving_key,
-            &partial_proof,
-            &witness,
-            graph_data,
-            r,
-            s,
-        ).unwrap();
+        let full_proof =
+            generate_zk_proof_with_rs(proving_key, &witness, graph_data, r, s).unwrap();
+        let finished_proof =
+            finish_zk_proof_with_rs(proving_key, &partial_proof, &witness, graph_data, r, s)
+                .unwrap();
 
         let proof_values = proof_values_from_witness(&witness).unwrap();
         assert_eq!(full_proof, finished_proof);
@@ -246,7 +244,6 @@ mod test {
         let success2 = verify_zk_proof(&proving_key.0.vk, &finished_proof, &proof_values).unwrap();
         assert!(success2);
     }
-
 
     #[test]
     fn test_witness_serialization() {

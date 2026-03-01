@@ -2,13 +2,13 @@ pub mod circuit;
 pub mod error;
 pub mod ffi;
 pub mod hashers;
+pub mod partial_prover;
 pub mod pm_tree_adapter;
 pub mod poseidon_tree;
 pub mod prelude;
 pub mod protocol;
 pub mod public;
 pub mod utils;
-pub mod partial_prover;
 
 // Ensure that only one Merkle tree feature is enabled at a time
 #[cfg(any(

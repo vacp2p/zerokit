@@ -88,10 +88,8 @@ pub(crate) fn calc_witness_partial<I: IntoIterator<Item = (String, Vec<Option<Fr
     if let Some(v) = inputs.get_mut("identitySecret") {
         // DO NOT USE: unsafe { zeroize_flat_type(v) } only clears the Vec pointer, not the data—can cause memory leaks
 
-        for val in v.iter_mut() {
-            if let Some(inner) = val {
-                unsafe { zeroize_flat_type(inner) };
-            }
+        for val in v.iter_mut().flatten() {
+            unsafe { zeroize_flat_type(val) };
         }
     }
 

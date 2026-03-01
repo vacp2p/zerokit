@@ -1,9 +1,8 @@
+use criterion::{criterion_group, criterion_main, Criterion};
 use rln::prelude::*;
 use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
-use criterion::{criterion_group, criterion_main, Criterion};
 
 type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
-
 
 fn get_test_witness() -> RLNWitnessInput {
     let leaf_index = 3;
@@ -19,7 +18,7 @@ fn get_test_witness() -> RLNWitnessInput {
         default_leaf,
         ConfigOf::<PoseidonTree>::default(),
     )
-        .unwrap();
+    .unwrap();
     tree.set(leaf_index, rate_commitment).unwrap();
 
     let merkle_proof = tree.proof(leaf_index).unwrap();
@@ -43,7 +42,7 @@ fn get_test_witness() -> RLNWitnessInput {
         x,
         external_nullifier,
     )
-        .unwrap()
+    .unwrap()
 }
 
 fn get_partial_witness(witness: &RLNWitnessInput) -> RLNPartialWitnessInput {
@@ -75,11 +74,11 @@ pub fn rln_proof_benchmark(c: &mut Criterion) {
         })
     });
 
-    let partial_proof = generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
+    let partial_proof =
+        generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
     c.bench_function("rln_finish_partial_proof", |b| {
         b.iter(|| {
-            let _ = finish_zk_proof(proving_key, &partial_proof, &witness, graph_data)
-                .unwrap();
+            let _ = finish_zk_proof(proving_key, &partial_proof, &witness, graph_data).unwrap();
         })
     });
 }

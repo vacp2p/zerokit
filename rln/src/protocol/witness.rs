@@ -205,13 +205,16 @@ pub fn rln_witness_to_bytes_be(witness: &RLNWitnessInput) -> Result<Vec<u8>, Pro
 }
 
 /// Serializes an RLN Partial witness to little-endian bytes.
-pub fn rln_partial_witness_to_bytes_le(partial_witness: &RLNPartialWitnessInput) -> Result<Vec<u8>, ProtocolError> {
+pub fn rln_partial_witness_to_bytes_le(
+    partial_witness: &RLNPartialWitnessInput,
+) -> Result<Vec<u8>, ProtocolError> {
     // Calculate capacity for Vec:
     // - 2 fixed field elements: identity_secret, user_message_limit
     // - variable number of path elements
     // - identity_path_index (variable size)
     let mut bytes: Vec<u8> = Vec::with_capacity(
-        FR_BYTE_SIZE * (2 + partial_witness.path_elements.len()) + partial_witness.identity_path_index.len(),
+        FR_BYTE_SIZE * (2 + partial_witness.path_elements.len())
+            + partial_witness.identity_path_index.len(),
     );
     bytes.extend_from_slice(&partial_witness.identity_secret.to_bytes_le());
     bytes.extend_from_slice(&fr_to_bytes_le(&partial_witness.user_message_limit));
@@ -339,7 +342,9 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
 /// Format: `[ identity_secret<32> | user_message_limit<32> | path_elements<var> | identity_path_index<var> ]`
 ///
 /// Returns the deserialized partial witness and the number of bytes read.
-pub fn bytes_le_to_rln_partial_witness(bytes: &[u8]) -> Result<(RLNPartialWitnessInput, usize), ProtocolError> {
+pub fn bytes_le_to_rln_partial_witness(
+    bytes: &[u8],
+) -> Result<(RLNPartialWitnessInput, usize), ProtocolError> {
     let mut read: usize = 0;
 
     let (identity_secret, el_size) = IdSecret::from_bytes_le(&bytes[read..])?;
@@ -374,7 +379,9 @@ pub fn bytes_le_to_rln_partial_witness(bytes: &[u8]) -> Result<(RLNPartialWitnes
 /// Format: `[ identity_secret<32> | user_message_limit<32> | path_elements<var> | identity_path_index<var> ]`
 ///
 /// Returns the deserialized partial witness and the number of bytes read.
-pub fn bytes_be_to_rln_partial_witness(bytes: &[u8]) -> Result<(RLNPartialWitnessInput, usize), ProtocolError> {
+pub fn bytes_be_to_rln_partial_witness(
+    bytes: &[u8],
+) -> Result<(RLNPartialWitnessInput, usize), ProtocolError> {
     let mut read: usize = 0;
 
     let (identity_secret, el_size) = IdSecret::from_bytes_be(&bytes[read..])?;

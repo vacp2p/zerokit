@@ -15,7 +15,6 @@ use ark_ff::Field;
 use ark_groth16::{
     Proof as ArkProof, ProvingKey as ArkProvingKey, VerifyingKey as ArkVerifyingKey,
 };
-use crate::partial_prover::PartialProof as ArkPartialProof;
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
@@ -23,7 +22,10 @@ use self::{
     error::{GraphReadError, ZKeyReadError},
     iden3calc::InputSignalsInfo,
 };
-use crate::circuit::iden3calc::{graph::Node, storage::deserialize_witnesscalc_graph};
+use crate::{
+    circuit::iden3calc::{graph::Node, storage::deserialize_witnesscalc_graph},
+    partial_prover::PartialProof as ArkPartialProof,
+};
 
 #[cfg(not(target_arch = "wasm32"))]
 const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
