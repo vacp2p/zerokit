@@ -4,17 +4,20 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
 use num_traits::Signed;
-use crate::partial_prover::{Groth16Partial, PartialAssignment};
-use super::witness::{inputs_for_partial_witness_calculation, inputs_for_witness_calculation, RLNPartialWitnessInput, RLNWitnessInput};
+use super::witness::{
+    inputs_for_partial_witness_calculation, inputs_for_witness_calculation, RLNPartialWitnessInput,
+    RLNWitnessInput,
+};
 use crate::{
     circuit::{
-        iden3calc::calc_witness, qap::CircomReduction, Curve, Fr, Graph, Proof, VerifyingKey, Zkey,
-        COMPRESS_PROOF_SIZE,
+        iden3calc::{calc_witness, calc_witness_partial},
+        qap::CircomReduction,
+        Curve, Fr, Graph, PartialProof, Proof, VerifyingKey, Zkey, COMPRESS_PROOF_SIZE,
     },
     error::ProtocolError,
+    partial_prover::{Groth16Partial, PartialAssignment},
     utils::{bytes_be_to_fr, bytes_le_to_fr, fr_to_bytes_be, fr_to_bytes_le, FR_BYTE_SIZE},
 };
-use crate::circuit::{iden3calc::calc_witness_partial, PartialProof};
 
 /// Complete RLN proof.
 ///
@@ -371,7 +374,8 @@ pub fn generate_partial_zk_proof(
     partial_values.extend_from_slice(&full_assignment[1..]);
 
     let partial_assignment = PartialAssignment::new(partial_values);
-    let partial_proof = Groth16Partial::<_, CircomReduction>::prove_partial(&zkey.0, &partial_assignment);
+    let partial_proof =
+        Groth16Partial::<_, CircomReduction>::prove_partial(&zkey.0, &partial_assignment)?;
 
     Ok(partial_proof)
 }
@@ -383,7 +387,6 @@ pub fn finish_zk_proof(
     witness: &RLNWitnessInput,
     graph: &Graph,
 ) -> Result<Proof, ProtocolError> {
-
     let mut rng = thread_rng();
     let r = Fr::rand(&mut rng);
     let s = Fr::rand(&mut rng);

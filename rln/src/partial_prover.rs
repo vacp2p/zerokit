@@ -1,14 +1,17 @@
-use ark_ec::{CurveGroup, VariableBaseMSM};
-use ark_ec::pairing::Pairing;
+use ark_ec::{pairing::Pairing, CurveGroup, VariableBaseMSM};
 use ark_ff::{PrimeField, Zero};
-use ark_groth16::{Proof, ProvingKey};
-use ark_groth16::r1cs_to_qap::R1CSToQAP;
-use ark_groth16::r1cs_to_qap::LibsnarkReduction;
+use ark_groth16::{
+    r1cs_to_qap::{LibsnarkReduction, R1CSToQAP},
+    Proof, ProvingKey,
+};
 use ark_poly::GeneralEvaluationDomain;
-use ark_relations::r1cs::{ConstraintMatrices, ConstraintSynthesizer, SynthesisError, Result as R1CSResult, ConstraintSystem, OptimizationGoal, SynthesisMode};
-use ark_std::rand::RngCore;
-use ark_std::{marker::PhantomData, ops::Mul, vec::Vec, UniformRand};
+use ark_relations::r1cs::{
+    ConstraintMatrices, ConstraintSynthesizer, ConstraintSystem, OptimizationGoal, SynthesisMode,
+};
 use ark_serialize::*;
+use ark_std::{marker::PhantomData, ops::Mul, rand::RngCore, vec::Vec, UniformRand};
+
+use crate::error::ProtocolError;
 
 /// A partial assignment (witness)
 /// `None` means "unknown" or changing part of the witness, `Some` means fixed and can be precomputed.
@@ -43,14 +46,13 @@ pub struct Groth16Partial<E: Pairing, QAP: R1CSToQAP = LibsnarkReduction> {
     _p: PhantomData<(E, QAP)>,
 }
 
-
 impl<E: Pairing, QAP: R1CSToQAP> Groth16Partial<E, QAP> {
     /// Precompute a partial proof from a partial assignment.
     #[inline]
     pub fn prove_partial(
         pk: &ProvingKey<E>,
         partial_assignment: &PartialAssignment<E::ScalarField>,
-    ) -> PartialProof<E> {
+    ) -> Result<PartialProof<E>, ProtocolError> {
         create_partial_proof_from_assignment(pk, partial_assignment)
     }
 
@@ -65,7 +67,7 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16Partial<E, QAP> {
         num_inputs: usize,
         num_constraints: usize,
         full_assignment_qap: &[E::ScalarField],
-    ) -> R1CSResult<Proof<E>> {
+    ) -> Result<Proof<E>, ProtocolError> {
         finish_proof_with_reduction_and_matrices::<E, QAP>(
             pk,
             partial,
@@ -85,7 +87,7 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16Partial<E, QAP> {
         circuit: C,
         rng: &mut R,
         partial: &PartialProof<E>,
-    ) -> Result<Proof<E>, SynthesisError> {
+    ) -> Result<Proof<E>, ProtocolError> {
         finish_proof::<E, QAP, C, R>(pk, circuit, rng, partial)
     }
 }
@@ -95,10 +97,7 @@ fn msm<G: CurveGroup>(points: &[G::Affine], scalars: &[G::ScalarField]) -> G {
     if points.is_empty() {
         return G::zero();
     }
-    let scalars_bigint = scalars
-        .iter()
-        .map(|s| s.into_bigint())
-        .collect::<Vec<_>>();
+    let scalars_bigint = scalars.iter().map(|s| s.into_bigint()).collect::<Vec<_>>();
     G::msm_bigint(points, &scalars_bigint)
 }
 
@@ -107,16 +106,18 @@ fn msm<G: CurveGroup>(points: &[G::Affine], scalars: &[G::ScalarField]) -> G {
 fn create_partial_proof_from_assignment<E: Pairing>(
     pk: &ProvingKey<E>,
     partial_assignment: &PartialAssignment<E::ScalarField>,
-) -> PartialProof<E> {
+) -> Result<PartialProof<E>, ProtocolError> {
     let num_inputs = pk.vk.gamma_abc_g1.len(); // this includes the "1" input
     let num_aux = pk.l_query.len();
     let expected_len = num_inputs + num_aux - 1;
 
-    assert_eq!(
-        partial_assignment.values.len(),
-        expected_len,
-        "partial assignment has wrong length"
-    );
+    if partial_assignment.values.len() != expected_len {
+        return Err(ProtocolError::InvalidLength(
+            "partial assignment",
+            expected_len,
+            partial_assignment.values.len(),
+        ));
+    }
 
     // create a boolean mask of whether each entry is known
     let mask = partial_assignment
@@ -169,13 +170,13 @@ fn create_partial_proof_from_assignment<E: Pairing>(
     partial_pi_b += &pk.b_g2_query[0];
     partial_pi_b += &b2_msm;
 
-    PartialProof {
+    Ok(PartialProof {
         mask,
         partial_pi_a,
         partial_rho,
         partial_pi_b,
         partial_pi_c: l_msm,
-    }
+    })
 }
 
 /// Finish a partial proof once the full witness/assignment and QAP `h` are known.
@@ -186,13 +187,25 @@ fn finish_partial_proof_with_assignment<E: Pairing>(
     h: &[E::ScalarField],
     r: E::ScalarField,
     s: E::ScalarField,
-) -> R1CSResult<Proof<E>> {
+) -> Result<Proof<E>, ProtocolError> {
     let num_inputs = pk.vk.gamma_abc_g1.len(); // this includes the "1" input
     let num_aux = pk.l_query.len();
     let expected_len = num_inputs + num_aux - 1;
 
-    assert_eq!(full_assignment.len(), expected_len, "assignment length mismatch");
-    assert_eq!(partial.mask.len(), expected_len, "mask length mismatch");
+    if full_assignment.len() != expected_len {
+        return Err(ProtocolError::InvalidLength(
+            "full assignment",
+            expected_len,
+            full_assignment.len(),
+        ));
+    }
+    if partial.mask.len() != expected_len {
+        return Err(ProtocolError::InvalidLength(
+            "partial mask",
+            expected_len,
+            partial.mask.len(),
+        ));
+    }
 
     let mut a1_points = Vec::new();
     let mut scalars = Vec::new(); // these are the public input + known witnesses
@@ -247,10 +260,7 @@ fn finish_partial_proof_with_assignment<E: Pairing>(
     // l_acc = partial_pi_c + remaining L MSM
     let l_acc = partial.partial_pi_c + l_msm_rem;
     // h_acc = MSM of quotient polynomial coefficients with h_query
-    let h_assignment = h
-        .iter()
-        .map(|s_i| s_i.into_bigint())
-        .collect::<Vec<_>>();
+    let h_assignment = h.iter().map(|s_i| s_i.into_bigint()).collect::<Vec<_>>();
     let h_acc = E::G1::msm_bigint(&pk.h_query, &h_assignment);
 
     let r_s_delta_g1 = pk.delta_g1 * (r * s);
@@ -281,17 +291,15 @@ fn finish_proof_with_reduction_and_matrices<E, QAP>(
     num_inputs: usize,
     num_constraints: usize,
     full_assignment_qap: &[E::ScalarField],
-) -> R1CSResult<Proof<E>>
+) -> Result<Proof<E>, ProtocolError>
 where
     E: Pairing,
     QAP: R1CSToQAP,
 {
-    let h = QAP::witness_map_from_matrices::<E::ScalarField, GeneralEvaluationDomain<E::ScalarField>>(
-        matrices,
-        num_inputs,
-        num_constraints,
-        full_assignment_qap,
-    )?;
+    let h = QAP::witness_map_from_matrices::<
+        E::ScalarField,
+        GeneralEvaluationDomain<E::ScalarField>,
+    >(matrices, num_inputs, num_constraints, full_assignment_qap)?;
 
     // take (instance excluding "1" || witness)
     let full_assignment = full_assignment_qap[1..].to_vec();
@@ -306,7 +314,7 @@ fn finish_proof<E, QAP, C, R>(
     circuit: C,
     rng: &mut R,
     partial: &PartialProof<E>,
-) -> R1CSResult<Proof<E>>
+) -> Result<Proof<E>, ProtocolError>
 where
     E: Pairing,
     QAP: R1CSToQAP,
@@ -325,16 +333,17 @@ where
     circuit.generate_constraints(cs.clone())?;
     cs.finalize();
 
-    debug_assert!(cs.is_satisfied().unwrap());
+    debug_assert!(cs.is_satisfied()?);
 
-    let h = QAP::witness_map::<E::ScalarField, GeneralEvaluationDomain<E::ScalarField>>(cs.clone())?;
+    let h =
+        QAP::witness_map::<E::ScalarField, GeneralEvaluationDomain<E::ScalarField>>(cs.clone())?;
 
     let prover = cs.borrow().unwrap();
     let full_assignment = [
         prover.instance_assignment.as_slice()[1..].to_vec(),
         prover.witness_assignment.as_slice().to_vec(),
     ]
-        .concat();
+    .concat();
 
     finish_partial_proof_with_assignment(pk, partial, &full_assignment, &h, r, s)
 }
