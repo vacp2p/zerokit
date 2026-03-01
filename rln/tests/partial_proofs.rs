@@ -7,7 +7,7 @@ use ark_std::rand::{RngCore, SeedableRng};
 use ark_std::UniformRand;
 use ark_groth16::{prepare_verifying_key, Groth16};
 use ark_groth16::r1cs_to_qap::LibsnarkReduction;
-use ark_groth16_partial::partial_prover::{Groth16Partial, PartialAssignment};
+use rln::partial_prover::{Groth16Partial, PartialAssignment};
 
 /// simple dummy multiplication circuit
 #[derive(Copy, Clone)]

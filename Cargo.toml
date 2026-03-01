@@ -1,5 +1,5 @@
 [workspace]
-members = ["rln", "utils", "ark-groth16-partial"]
+members = ["rln", "utils"]
 exclude = ["rln-cli", "rln-wasm"]
 resolver = "2"
 

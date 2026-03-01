@@ -8,6 +8,7 @@ pub mod prelude;
 pub mod protocol;
 pub mod public;
 pub mod utils;
+pub mod partial_prover;
 
 // Ensure that only one Merkle tree feature is enabled at a time
 #[cfg(any(

@@ -4,7 +4,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
 use num_traits::Signed;
-use ark_groth16_partial::partial_prover::{Groth16Partial, PartialAssignment};
+use crate::partial_prover::{Groth16Partial, PartialAssignment};
 use super::witness::{inputs_for_partial_witness_calculation, inputs_for_witness_calculation, RLNPartialWitnessInput, RLNWitnessInput};
 use crate::{
     circuit::{

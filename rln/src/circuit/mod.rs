@@ -15,7 +15,7 @@ use ark_ff::Field;
 use ark_groth16::{
     Proof as ArkProof, ProvingKey as ArkProvingKey, VerifyingKey as ArkVerifyingKey,
 };
-use ark_groth16_partial::PartialProof as ArkPartialProof;
+use crate::partial_prover::PartialProof as ArkPartialProof;
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
