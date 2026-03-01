@@ -126,7 +126,7 @@ impl WasmRLNProofValues {
     pub fn y(&self) -> Result<WasmFr, String> {
         self.0
             .y()
-            .map(WasmFr::from)
+            .map(|v| WasmFr::from(*v))
             .ok_or_else(|| "y field is None, use ys() instead".to_string())
     }
 
@@ -141,7 +141,7 @@ impl WasmRLNProofValues {
     pub fn nullifier(&self) -> Result<WasmFr, String> {
         self.0
             .nullifier()
-            .map(WasmFr::from)
+            .map(|v| WasmFr::from(*v))
             .ok_or_else(|| "nullifier field is None, use nullifiers() instead".to_string())
     }
 
@@ -164,9 +164,8 @@ impl WasmRLNProofValues {
     #[wasm_bindgen(js_name = ys)]
     pub fn ys(&self) -> Result<VecWasmFr, String> {
         self.0
-            .ys
-            .as_ref()
-            .map(|ys| VecWasmFr::from(ys.clone()))
+            .ys()
+            .map(|ys: &[Fr]| VecWasmFr::from(ys.to_vec()))
             .ok_or_else(|| "ys field is None, use y() instead".to_string())
     }
 
@@ -174,9 +173,8 @@ impl WasmRLNProofValues {
     #[wasm_bindgen(js_name = nullifiers)]
     pub fn nullifiers(&self) -> Result<VecWasmFr, String> {
         self.0
-            .nullifiers
-            .as_ref()
-            .map(|nullifiers| VecWasmFr::from(nullifiers.clone()))
+            .nullifiers()
+            .map(|nullifiers: &[Fr]| VecWasmFr::from(nullifiers.to_vec()))
             .ok_or_else(|| "nullifiers field is None, use nullifier() instead".to_string())
     }
 
@@ -184,9 +182,8 @@ impl WasmRLNProofValues {
     #[wasm_bindgen(js_name = selectorUsed)]
     pub fn selector_used(&self) -> Result<Uint8Array, String> {
         self.0
-            .selector_used
-            .clone()
-            .map(|bools| {
+            .selector_used()
+            .map(|bools: &[bool]| {
                 let bytes: Vec<u8> = bools.iter().map(|&b| if b { 1u8 } else { 0u8 }).collect();
                 Uint8Array::from(&bytes[..])
             })
