@@ -223,12 +223,12 @@ impl RLNSystem {
     }
 
     fn check_nullifiers(&mut self, proof_values: RLNProofValues) -> Result<()> {
-        let nullifiers = match &proof_values.nullifiers {
-            Some(nullifiers) => nullifiers.clone(),
+        let nullifiers: Vec<Fr> = match proof_values.nullifiers() {
+            Some(nullifiers) => nullifiers.to_vec(),
             None => return Err("no nullifiers in proof values".into()),
         };
-        let selector = match &proof_values.selector_used {
-            Some(selector) => selector.clone(),
+        let selector: Vec<bool> = match proof_values.selector_used() {
+            Some(selector) => selector.to_vec(),
             None => return Err("no selector_used in proof values".into()),
         };
 

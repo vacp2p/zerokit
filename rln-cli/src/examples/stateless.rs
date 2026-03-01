@@ -160,18 +160,18 @@ impl RLNSystem {
     fn check_nullifier(&mut self, proof_values: RLNProofValues) -> Result<()> {
         let tree_root = self.tree.root();
 
-        if proof_values.root != tree_root {
+        if *proof_values.root() != tree_root {
             println!("Check nullifier failed: invalid root");
             return Ok(());
         }
 
-        if let Some(previous_proof_values) = self.used_nullifiers.get(&proof_values.nullifier) {
+        if let Some(previous_proof_values) = self.used_nullifiers.get(proof_values.nullifier()) {
             self.handle_duplicate_message_id(previous_proof_values.clone(), proof_values)?;
             return Ok(());
         }
 
         self.used_nullifiers
-            .insert(proof_values.nullifier, proof_values);
+            .insert(*proof_values.nullifier(), proof_values);
         println!("Message verified and accepted");
         Ok(())
     }
@@ -181,8 +181,8 @@ impl RLNSystem {
         previous_proof_values: RLNProofValues,
         current_proof_values: RLNProofValues,
     ) -> Result<()> {
-        if previous_proof_values.x == current_proof_values.x
-            && previous_proof_values.y == current_proof_values.y
+        if previous_proof_values.x() == current_proof_values.x()
+            && previous_proof_values.y() == current_proof_values.y()
         {
             return Err("this exact message and signal has already been sent".into());
         }
