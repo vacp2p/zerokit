@@ -18,8 +18,6 @@ const MESSAGE_LIMIT: u32 = 10;
 
 const TREE_DEPTH: usize = DEFAULT_TREE_DEPTH;
 
-const MESSAGE_ID_NUMBER: usize = 4;
-
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[derive(Parser)]
@@ -141,7 +139,7 @@ impl RLNSystem {
         Ok(index)
     }
 
-    fn parse_message_ids(input: &str) -> Result<Vec<Fr>> {
+    fn parse_message_ids(&self, input: &str) -> Result<Vec<Fr>> {
         let ids: Vec<Fr> = input
             .split(',')
             .map(|s| {
@@ -149,9 +147,10 @@ impl RLNSystem {
                 Ok(Fr::from(id))
             })
             .collect::<Result<Vec<Fr>>>()?;
-        if ids.len() != MESSAGE_ID_NUMBER as usize {
+        if ids.len() != self.rln.max_out() {
             return Err(format!(
-                "expected {MESSAGE_ID_NUMBER} message IDs, got {}",
+                "expected {} message IDs, got {}",
+                self.rln.max_out(),
                 ids.len()
             )
             .into());
@@ -159,7 +158,7 @@ impl RLNSystem {
         Ok(ids)
     }
 
-    fn parse_selector(input: &str) -> Result<Vec<bool>> {
+    fn parse_selector(&self, input: &str) -> Result<Vec<bool>> {
         let selector: Vec<bool> = input
             .split(',')
             .map(|s| match s.trim() {
@@ -168,9 +167,10 @@ impl RLNSystem {
                 other => Err(format!("invalid selector value: '{other}'")),
             })
             .collect::<std::result::Result<Vec<bool>, String>>()?;
-        if selector.len() != MESSAGE_ID_NUMBER {
+        if selector.len() != self.rln.max_out() {
             return Err(format!(
-                "expected {MESSAGE_ID_NUMBER} selector values, got {}",
+                "expected {} selector values, got {}",
+                self.rln.max_out(),
                 selector.len()
             )
             .into());
@@ -211,7 +211,10 @@ impl RLNSystem {
         let active_count = selector_used.iter().filter(|&&s| s).count();
         println!("Proof generated successfully:");
         println!("+ User Index: {user_index}");
-        println!("+ Active message slots: {active_count}/{MESSAGE_ID_NUMBER}");
+        println!(
+            "+ Active message slots: {active_count}/{}",
+            self.rln.max_out()
+        );
         println!("+ Signal: {signal}");
 
         let verified = self.rln.verify_rln_proof(&proof, &proof_values, &x)?;
@@ -298,7 +301,7 @@ fn main() -> Result<()> {
     let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]).unwrap();
     println!("RLN Multi-Message-ID Relay Example:");
     println!("Message Limit: {MESSAGE_LIMIT}");
-    println!("Message Slots: {MESSAGE_ID_NUMBER}");
+    println!("Message Slots: {}", rln_system.rln.max_out());
     println!("----------------------------------");
     println!();
     show_commands();
@@ -324,14 +327,14 @@ fn main() -> Result<()> {
                     selector,
                     signal,
                 } => {
-                    let message_ids = match RLNSystem::parse_message_ids(&message_ids) {
+                    let message_ids = match rln_system.parse_message_ids(&message_ids) {
                         Ok(ids) => ids,
                         Err(err) => {
                             println!("Invalid message_ids: {err}");
                             continue;
                         }
                     };
-                    let selector_used = match RLNSystem::parse_selector(&selector) {
+                    let selector_used = match rln_system.parse_selector(&selector) {
                         Ok(sel) => sel,
                         Err(err) => {
                             println!("Invalid selector: {err}");

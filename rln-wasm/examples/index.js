@@ -66,6 +66,13 @@ async function main() {
   }
   console.log("RLN instance created successfully");
 
+  const treeDepth = 20;
+  console.log("  - circuit tree_depth = " + treeDepth);
+  const maxOut = 4;
+  if (MULTI_MESSAGE_ID) {
+    console.log("  - circuit max_out = " + maxOut);
+  }
+
   console.log("\nGenerating identity keys");
   let identity;
   try {
@@ -140,7 +147,6 @@ async function main() {
   );
 
   console.log("\nBuilding Merkle path for stateless mode");
-  const treeDepth = 20;
   const defaultLeaf = rlnWasm.WasmFr.zero();
 
   const defaultHashes = [];
@@ -276,7 +282,7 @@ async function main() {
     console.log(
       "\nCreating message_ids and selector_used (multi-message-id mode)",
     );
-    console.log("  - using 2 out of 4 slots");
+    console.log("  - using 2 out of " + maxOut + " slots");
 
     messageIds = new rlnWasm.VecWasmFr();
     messageIds.push(rlnWasm.WasmFr.fromUint(0));
@@ -483,7 +489,7 @@ async function main() {
     console.log(
       "\nCreating message_ids2 and selector_used2 (multi-message-id mode)",
     );
-    console.log("  - using 2 out of 4 slots");
+    console.log("  - using 2 out of " + maxOut + " slots");
     console.log("  - duplicated slot id 1");
 
     messageIds2 = new rlnWasm.VecWasmFr();

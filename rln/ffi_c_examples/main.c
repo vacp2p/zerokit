@@ -91,6 +91,13 @@ int main(int argc, char const *const argv[])
     FFI_RLN_t *rln = ffi_rln_new_result.ok;
     printf("RLN instance created successfully\n");
 
+    size_t tree_depth_actual = ffi_rln_get_tree_depth(&rln);
+    printf("  - circuit tree_depth = %zu\n", tree_depth_actual);
+#ifdef MULTI_MESSAGE_ID
+    size_t max_out = ffi_rln_get_max_out(&rln);
+    printf("  - circuit max_out = %zu\n", max_out);
+#endif
+
     printf("\nGenerating identity keys\n");
     CResult_Vec_CFr_Vec_uint8_t keys_result = ffi_key_gen();
     if (keys_result.err.ptr)
@@ -396,19 +403,32 @@ int main(int argc, char const *const argv[])
 
 #ifdef MULTI_MESSAGE_ID
     printf("\nCreating message_ids and selector_used (multi-message-id mode)\n");
-    printf("  - using 2 out of 4 slots\n");
+    printf("  - using 2 out of %zu slots\n", max_out);
 
-    Vec_CFr_t message_ids = ffi_vec_cfr_new(4);
-    ffi_vec_cfr_push(&message_ids, ffi_uint_to_cfr(0));
-    ffi_vec_cfr_push(&message_ids, ffi_uint_to_cfr(1));
-    ffi_vec_cfr_push(&message_ids, ffi_cfr_zero());
-    ffi_vec_cfr_push(&message_ids, ffi_cfr_zero());
+    Vec_CFr_t message_ids = ffi_vec_cfr_new(max_out);
+    {
+        CFr_t *tmp;
+        tmp = ffi_uint_to_cfr(0);
+        ffi_vec_cfr_push(&message_ids, tmp);
+        ffi_cfr_free(tmp);
+        tmp = ffi_uint_to_cfr(1);
+        ffi_vec_cfr_push(&message_ids, tmp);
+        ffi_cfr_free(tmp);
+        for (size_t i = 2; i < max_out; i++)
+        {
+            tmp = ffi_cfr_zero();
+            ffi_vec_cfr_push(&message_ids, tmp);
+            ffi_cfr_free(tmp);
+        }
+    }
 
-    static bool selector_arr[4] = {true, true, false, false};
+    bool *selector_arr = calloc(max_out, sizeof(bool));
+    selector_arr[0] = true;
+    selector_arr[1] = true;
     Vec_bool_t selector_used = {
         .ptr = selector_arr,
-        .len = 4,
-        .cap = 4};
+        .len = max_out,
+        .cap = max_out};
 
     debug = ffi_vec_cfr_debug(&message_ids);
     printf("  - message_ids = %s\n", debug.ptr);
@@ -703,20 +723,36 @@ int main(int argc, char const *const argv[])
 
 #ifdef MULTI_MESSAGE_ID
     printf("\nCreating message_ids2 and selector_used2 (multi-message-id mode)\n");
-    printf("  - using 2 out of 4 slots\n");
+    printf("  - using 2 out of %zu slots\n", max_out);
     printf("  - duplicated slot id 1\n");
 
-    Vec_CFr_t message_ids2 = ffi_vec_cfr_new(4);
-    ffi_vec_cfr_push(&message_ids2, ffi_uint_to_cfr(1));
-    ffi_vec_cfr_push(&message_ids2, ffi_cfr_zero());
-    ffi_vec_cfr_push(&message_ids2, ffi_uint_to_cfr(3));
-    ffi_vec_cfr_push(&message_ids2, ffi_cfr_zero());
+    Vec_CFr_t message_ids2 = ffi_vec_cfr_new(max_out);
+    {
+        CFr_t *tmp;
+        tmp = ffi_uint_to_cfr(1);
+        ffi_vec_cfr_push(&message_ids2, tmp);
+        ffi_cfr_free(tmp);
+        tmp = ffi_cfr_zero();
+        ffi_vec_cfr_push(&message_ids2, tmp);
+        ffi_cfr_free(tmp);
+        tmp = ffi_uint_to_cfr(3);
+        ffi_vec_cfr_push(&message_ids2, tmp);
+        ffi_cfr_free(tmp);
+        for (size_t i = 3; i < max_out; i++)
+        {
+            tmp = ffi_cfr_zero();
+            ffi_vec_cfr_push(&message_ids2, tmp);
+            ffi_cfr_free(tmp);
+        }
+    }
 
-    static bool selector_arr2[4] = {true, false, true, false};
+    bool *selector_arr2 = calloc(max_out, sizeof(bool));
+    selector_arr2[0] = true;
+    selector_arr2[2] = true;
     Vec_bool_t selector_used2 = {
         .ptr = selector_arr2,
-        .len = 4,
-        .cap = 4};
+        .len = max_out,
+        .cap = max_out};
 
     debug = ffi_vec_cfr_debug(&message_ids2);
     printf("  - message_ids2 = %s\n", debug.ptr);
@@ -873,6 +909,8 @@ int main(int argc, char const *const argv[])
 #ifdef MULTI_MESSAGE_ID
     ffi_vec_cfr_free(message_ids);
     ffi_vec_cfr_free(message_ids2);
+    free(selector_arr);
+    free(selector_arr2);
 #endif
 
     ffi_cfr_free(rate_commitment);

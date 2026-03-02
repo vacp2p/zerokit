@@ -48,14 +48,23 @@ pub enum ProtocolError {
     #[error("Cannot recover secret: division by zero")]
     DivisionByZero,
     #[cfg(feature = "multi-message-id")]
-    #[error("Only one of message_id or message_ids can be set")]
+    #[error("Only one of message_id or message_ids may be set")]
     BothMessageIdSet,
     #[cfg(feature = "multi-message-id")]
     #[error("One of message_id or message_ids must be set")]
     NoMessageIdSet,
     #[cfg(feature = "multi-message-id")]
-    #[error("Invalid selector used for multi-message-id")]
-    InvalidSelectorUsed,
+    #[error("Duplicate message ID found in message_ids")]
+    DuplicateMessageId,
+    #[cfg(feature = "multi-message-id")]
+    #[error("The field selector_used is required when using multi-message-id")]
+    MissingSelectorUsed,
+    #[cfg(feature = "multi-message-id")]
+    #[error("At least one selector_used value must be true")]
+    NoActiveSelectorUsed,
+    #[cfg(feature = "multi-message-id")]
+    #[error("Multi-output vector length mismatch: expected {expected}, got {actual}")]
+    MultiOutputLengthMismatch { expected: usize, actual: usize },
     #[error("No IdSecret could be recovered from the provided proof values")]
     IdSecretRecovery,
     #[error("Merkle tree operation error: {0}")]

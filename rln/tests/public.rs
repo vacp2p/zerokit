@@ -1486,7 +1486,7 @@ mod test {
                 ProtocolError::NoMessageIdSet
             ));
 
-            // message_ids without selector_used → InvalidSelectorUsed
+            // Valid message_ids without selector_used → MissingSelectorUsed
             assert!(matches!(
                 RLNWitnessInput::new(
                     identity_secret.clone(),
@@ -1500,10 +1500,10 @@ mod test {
                     None,
                 )
                 .unwrap_err(),
-                ProtocolError::InvalidSelectorUsed
+                ProtocolError::MissingSelectorUsed
             ));
 
-            // Mismatched selector_used length → InvalidSelectorUsed
+            // Mismatched selector_used length to message_ids length → MultiOutputLengthMismatch
             assert!(matches!(
                 RLNWitnessInput::new(
                     identity_secret.clone(),
@@ -1517,7 +1517,7 @@ mod test {
                     Some(vec![true]),
                 )
                 .unwrap_err(),
-                ProtocolError::InvalidSelectorUsed
+                ProtocolError::MultiOutputLengthMismatch { .. }
             ));
 
             // Active message_id >= limit → InvalidMessageId
@@ -1566,6 +1566,54 @@ mod test {
                 )
                 .unwrap_err(),
                 ProtocolError::ZeroUserMessageLimit
+            ));
+
+            // Duplicate message_ids → DuplicateMessageId
+            assert!(matches!(
+                RLNWitnessInput::new(
+                    identity_secret.clone(),
+                    user_message_limit,
+                    None,
+                    Some(vec![Fr::from(5), Fr::from(5), Fr::from(1), Fr::from(2)]),
+                    path_elements.clone(),
+                    identity_path_index.clone(),
+                    x,
+                    external_nullifier,
+                    Some(vec![true, true, false, false]),
+                )
+                .unwrap_err(),
+                ProtocolError::DuplicateMessageId
+            ));
+
+            // Duplicate message_ids when inactive → OK (only active IDs are checked)
+            assert!(RLNWitnessInput::new(
+                identity_secret.clone(),
+                user_message_limit,
+                None,
+                Some(vec![Fr::from(0), Fr::from(0), Fr::from(1), Fr::from(2)]),
+                path_elements.clone(),
+                identity_path_index.clone(),
+                x,
+                external_nullifier,
+                Some(vec![false, false, true, true]),
+            )
+            .is_ok());
+
+            // All selectors false → NoActiveSelectorUsed
+            assert!(matches!(
+                RLNWitnessInput::new(
+                    identity_secret.clone(),
+                    user_message_limit,
+                    None,
+                    Some(vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)]),
+                    path_elements.clone(),
+                    identity_path_index.clone(),
+                    x,
+                    external_nullifier,
+                    Some(vec![false, false, false, false]),
+                )
+                .unwrap_err(),
+                ProtocolError::NoActiveSelectorUsed
             ));
 
             // Valid multi-message witness

@@ -91,6 +91,10 @@ pub struct Graph {
     pub(crate) nodes: Vec<Node>,
     pub(crate) signals: Vec<usize>,
     pub(crate) input_mapping: InputSignalsInfo,
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) tree_depth: usize,
+    #[cfg(all(feature = "multi-message-id", not(target_arch = "wasm32")))]
+    pub(crate) max_out: usize,
 }
 
 /// Loads the zkey from raw bytes
@@ -107,7 +111,7 @@ pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<Zkey, ZKeyReadError> {
 /// Parses the witness calculator graph from raw bytes
 pub fn graph_from_raw(
     graph_data: &[u8],
-    expected_tree_depth: Option<usize>,
+    #[cfg(not(target_arch = "wasm32"))] expected_tree_depth: Option<usize>,
 ) -> Result<Graph, GraphReadError> {
     if graph_data.is_empty() {
         return Err(GraphReadError::EmptyBytes);
@@ -117,21 +121,39 @@ pub fn graph_from_raw(
         deserialize_witnesscalc_graph(std::io::Cursor::new(graph_data))
             .map_err(GraphReadError::GraphDeserialization)?;
 
-    if let Some(expected) = expected_tree_depth {
-        let actual = input_mapping
+    #[cfg(not(target_arch = "wasm32"))]
+    let tree_depth = {
+        let depth = input_mapping
             .get("pathElements")
             .map(|(_, len)| *len)
-            .unwrap_or(0);
+            .unwrap_or_default();
 
-        if expected != actual {
-            return Err(GraphReadError::TreeDepthMismatch { expected, actual });
+        if let Some(expected) = expected_tree_depth {
+            if expected != depth {
+                return Err(GraphReadError::TreeDepthMismatch {
+                    expected,
+                    actual: depth,
+                });
+            }
         }
-    }
+
+        depth
+    };
+
+    #[cfg(all(feature = "multi-message-id", not(target_arch = "wasm32")))]
+    let max_out = input_mapping
+        .get("messageId")
+        .map(|(_, len)| *len)
+        .unwrap_or_default();
 
     Ok(Graph {
         nodes,
         signals,
         input_mapping,
+        #[cfg(not(target_arch = "wasm32"))]
+        tree_depth,
+        #[cfg(all(feature = "multi-message-id", not(target_arch = "wasm32")))]
+        max_out,
     })
 }
 

@@ -73,7 +73,7 @@ impl RLNSystem {
             ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
         )
         .unwrap();
-
+        println!("RLN stateless instance initialized successfully");
         Ok(RLNSystem {
             rln,
             tree,

@@ -138,6 +138,19 @@ pub fn ffi_rln_free(rln: repr_c::Box<FFI_RLN>) {
     drop(rln);
 }
 
+/// Returns the Merkle tree depth of the loaded circuit.
+#[ffi_export]
+pub fn ffi_rln_get_tree_depth(rln: &repr_c::Box<FFI_RLN>) -> usize {
+    rln.0.tree_depth()
+}
+
+/// Returns the number of message ID slots (MAX_OUT) of the loaded circuit.
+#[cfg(feature = "multi-message-id")]
+#[ffi_export]
+pub fn ffi_rln_get_max_out(rln: &repr_c::Box<FFI_RLN>) -> usize {
+    rln.0.max_out()
+}
+
 // RLNProof
 
 #[derive_ReprC]

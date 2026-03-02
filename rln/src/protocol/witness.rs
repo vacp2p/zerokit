@@ -1,3 +1,6 @@
+#[cfg(feature = "multi-message-id")]
+use std::collections::HashSet;
+
 use num_bigint::BigInt;
 use zeroize::Zeroize;
 
@@ -127,10 +130,26 @@ impl RLNWitnessInput {
                 if message_ids.is_empty() {
                     return Err(ProtocolError::NoMessageIdSet);
                 }
-                let selector_used = selector_used.ok_or(ProtocolError::InvalidSelectorUsed)?;
+                let selector_used = selector_used.ok_or(ProtocolError::MissingSelectorUsed)?;
                 // Selector length must match message IDs
                 if selector_used.len() != message_ids.len() {
-                    return Err(ProtocolError::InvalidSelectorUsed);
+                    return Err(ProtocolError::MultiOutputLengthMismatch {
+                        expected: message_ids.len(),
+                        actual: selector_used.len(),
+                    });
+                }
+                // At least one selector must be active
+                if !selector_used.iter().any(|&s| s) {
+                    return Err(ProtocolError::NoActiveSelectorUsed);
+                }
+                // Active message IDs must be unique
+                {
+                    let mut seen = HashSet::with_capacity(message_ids.len());
+                    for (id, &used) in message_ids.iter().zip(&selector_used) {
+                        if used && !seen.insert(*id) {
+                            return Err(ProtocolError::DuplicateMessageId);
+                        }
+                    }
                 }
                 // Active message IDs must be within range
                 for (message_id, used) in message_ids.iter().zip(&selector_used) {
@@ -573,7 +592,10 @@ pub fn bytes_le_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
             read += el_size;
 
             if selector_used.len() != message_ids.len() {
-                return Err(ProtocolError::InvalidSelectorUsed);
+                return Err(ProtocolError::MultiOutputLengthMismatch {
+                    expected: message_ids.len(),
+                    actual: selector_used.len(),
+                });
             }
             if read != bytes.len() {
                 return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
@@ -672,7 +694,10 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
             read += el_size;
 
             if selector_used.len() != message_ids.len() {
-                return Err(ProtocolError::InvalidSelectorUsed);
+                return Err(ProtocolError::MultiOutputLengthMismatch {
+                    expected: message_ids.len(),
+                    actual: selector_used.len(),
+                });
             }
             if read != bytes.len() {
                 return Err(ProtocolError::InvalidReadLen(read, bytes.len()));

@@ -186,6 +186,11 @@ else:
 
 proc ffi_rln_free*(rln: ptr FFI_RLN) {.importc: "ffi_rln_free", cdecl,
     dynlib: RLN_LIB.}
+proc ffi_rln_get_tree_depth*(rln: ptr ptr FFI_RLN): CSize {.importc: "ffi_rln_get_tree_depth",
+    cdecl, dynlib: RLN_LIB.}
+when defined(ffiMultiMessageId):
+  proc ffi_rln_get_max_out*(rln: ptr ptr FFI_RLN): CSize {.importc: "ffi_rln_get_max_out",
+      cdecl, dynlib: RLN_LIB.}
 
 # Witness input functions
 when defined(ffiMultiMessageId):
@@ -404,6 +409,12 @@ when isMainModule:
 
   var rln = rlnRes.ok
   echo "RLN instance created successfully"
+
+  let treeDepthActual = ffi_rln_get_tree_depth(addr rln)
+  echo "  - circuit tree_depth = ", treeDepthActual
+  when defined(ffiMultiMessageId):
+    let maxOut = ffi_rln_get_max_out(addr rln)
+    echo "  - circuit max_out = ", maxOut
 
   echo "\nGenerating identity keys"
   var keysResult = ffi_key_gen()
@@ -702,22 +713,23 @@ when isMainModule:
 
   when defined(ffiMultiMessageId):
     echo "\nCreating message_ids and selector_used (multi-message-id mode)"
-    echo "  - using 2 out of 4 slots"
+    echo "  - using 2 out of ", maxOut, " slots"
 
-    var msgIdArr: array[4, ptr CFr]
+    var msgIdArr = newSeq[ptr CFr](int(maxOut))
     msgIdArr[0] = ffi_uint_to_cfr(0'u32)
     msgIdArr[1] = ffi_uint_to_cfr(1'u32)
-    msgIdArr[2] = ffi_cfr_zero()
-    msgIdArr[3] = ffi_cfr_zero()
+    for i in 2..<int(maxOut):
+      msgIdArr[i] = ffi_cfr_zero()
 
-    var messageIds = ffi_vec_cfr_new(CSize(4))
-    for i in 0..3:
+    var messageIds = ffi_vec_cfr_new(maxOut)
+    for i in 0..<int(maxOut):
       ffi_vec_cfr_push(addr messageIds, msgIdArr[i])
       ffi_cfr_free(msgIdArr[i])
 
-    var selectorArr: array[4, bool] = [true, true, false, false]
-    var selectorUsed = Vec_bool(dataPtr: addr selectorArr[0], len: CSize(4),
-        cap: CSize(4))
+    var selectorArr = newSeq[bool](int(maxOut))
+    selectorArr[0] = true; selectorArr[1] = true
+    var selectorUsed = Vec_bool(dataPtr: addr selectorArr[0], len: maxOut,
+        cap: maxOut)
 
     block:
       let debug = ffi_vec_cfr_debug(addr messageIds)
@@ -972,23 +984,25 @@ when isMainModule:
 
   when defined(ffiMultiMessageId):
     echo "\nCreating message_ids2 and selector_used2 (multi-message-id mode)"
-    echo "  - using 2 out of 4 slots"
-    echo "  - reusing slot id 1 from first message"
+    echo "  - using 2 out of ", maxOut, " slots"
+    echo "  - duplicated slot id 1"
 
-    var msgIdArr2: array[4, ptr CFr]
+    var msgIdArr2 = newSeq[ptr CFr](int(maxOut))
     msgIdArr2[0] = ffi_uint_to_cfr(1'u32)
     msgIdArr2[1] = ffi_cfr_zero()
     msgIdArr2[2] = ffi_uint_to_cfr(3'u32)
-    msgIdArr2[3] = ffi_cfr_zero()
+    for i in 3..<int(maxOut):
+      msgIdArr2[i] = ffi_cfr_zero()
 
-    var messageIds2 = ffi_vec_cfr_new(CSize(4))
-    for i in 0..3:
+    var messageIds2 = ffi_vec_cfr_new(maxOut)
+    for i in 0..<int(maxOut):
       ffi_vec_cfr_push(addr messageIds2, msgIdArr2[i])
       ffi_cfr_free(msgIdArr2[i])
 
-    var selectorArr2: array[4, bool] = [true, false, true, false]
-    var selectorUsed2 = Vec_bool(dataPtr: addr selectorArr2[0], len: CSize(4),
-        cap: CSize(4))
+    var selectorArr2 = newSeq[bool](int(maxOut))
+    selectorArr2[0] = true; selectorArr2[2] = true
+    var selectorUsed2 = Vec_bool(dataPtr: addr selectorArr2[0], len: maxOut,
+        cap: maxOut)
 
     block:
       let debug = ffi_vec_cfr_debug(addr messageIds2)

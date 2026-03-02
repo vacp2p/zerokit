@@ -409,8 +409,17 @@ pub fn bytes_le_to_rln_proof_values(
             let (selector_used, el_size) = bytes_le_to_vec_bool(&bytes[read..])?;
             read += el_size;
 
-            if selector_used.len() != ys.len() || nullifiers.len() != ys.len() {
-                return Err(ProtocolError::InvalidSelectorUsed);
+            if selector_used.len() != ys.len() {
+                return Err(ProtocolError::MultiOutputLengthMismatch {
+                    expected: ys.len(),
+                    actual: selector_used.len(),
+                });
+            }
+            if nullifiers.len() != ys.len() {
+                return Err(ProtocolError::MultiOutputLengthMismatch {
+                    expected: ys.len(),
+                    actual: nullifiers.len(),
+                });
             }
             if read != bytes.len() {
                 return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
@@ -486,8 +495,17 @@ pub fn bytes_be_to_rln_proof_values(
             let (selector_used, el_size) = bytes_be_to_vec_bool(&bytes[read..])?;
             read += el_size;
 
-            if selector_used.len() != ys.len() || nullifiers.len() != ys.len() {
-                return Err(ProtocolError::InvalidSelectorUsed);
+            if selector_used.len() != ys.len() {
+                return Err(ProtocolError::MultiOutputLengthMismatch {
+                    expected: ys.len(),
+                    actual: selector_used.len(),
+                });
+            }
+            if nullifiers.len() != ys.len() {
+                return Err(ProtocolError::MultiOutputLengthMismatch {
+                    expected: ys.len(),
+                    actual: nullifiers.len(),
+                });
             }
             if read != bytes.len() {
                 return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
