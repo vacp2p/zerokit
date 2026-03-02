@@ -873,10 +873,11 @@ mod test {
             let witness = get_test_witness_multi_message_id();
 
             // Load multi-message-id circuit resources
-            let arkzkey_bytes =
-                include_bytes!("../resources/tree_depth_20/multi_message_id/rln_final.arkzkey");
+            let arkzkey_bytes = include_bytes!(
+                "../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey"
+            );
             let graph_bytes =
-                include_bytes!("../resources/tree_depth_20/multi_message_id/graph.bin");
+                include_bytes!("../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin");
 
             let proving_key = zkey_from_raw(arkzkey_bytes).unwrap();
             let graph_data = graph_from_raw(graph_bytes, Some(DEFAULT_TREE_DEPTH)).unwrap();

@@ -1633,11 +1633,13 @@ mod test {
 
         #[test]
         fn test_multi_message_rln_proof() {
-            let zkey_data =
-                include_bytes!("../resources/tree_depth_20/multi_message_id/rln_final.arkzkey")
-                    .to_vec();
+            let zkey_data = include_bytes!(
+                "../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey"
+            )
+            .to_vec();
             let graph_data =
-                include_bytes!("../resources/tree_depth_20/multi_message_id/graph.bin").to_vec();
+                include_bytes!("../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin")
+                    .to_vec();
 
             let rln = RLN::new_with_params(DEFAULT_TREE_DEPTH, zkey_data, graph_data, "").unwrap();
 
@@ -1704,11 +1706,13 @@ mod test {
 
         #[test]
         fn test_multi_message_recover_id_secret() {
-            let zkey_data =
-                include_bytes!("../resources/tree_depth_20/multi_message_id/rln_final.arkzkey")
-                    .to_vec();
+            let zkey_data = include_bytes!(
+                "../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey"
+            )
+            .to_vec();
             let graph_data =
-                include_bytes!("../resources/tree_depth_20/multi_message_id/graph.bin").to_vec();
+                include_bytes!("../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin")
+                    .to_vec();
 
             let rln = RLN::new_with_params(DEFAULT_TREE_DEPTH, zkey_data, graph_data, "").unwrap();
 
