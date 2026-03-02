@@ -138,13 +138,11 @@ pub fn ffi_rln_free(rln: repr_c::Box<FFI_RLN>) {
     drop(rln);
 }
 
-/// Returns the Merkle tree depth of the loaded circuit.
 #[ffi_export]
 pub fn ffi_rln_get_tree_depth(rln: &repr_c::Box<FFI_RLN>) -> usize {
     rln.0.tree_depth()
 }
 
-/// Returns the number of message ID slots (MAX_OUT) of the loaded circuit.
 #[cfg(feature = "multi-message-id")]
 #[ffi_export]
 pub fn ffi_rln_get_max_out(rln: &repr_c::Box<FFI_RLN>) -> usize {
@@ -162,6 +160,11 @@ pub fn ffi_rln_proof_get_values(
     rln_proof: &repr_c::Box<FFI_RLNProof>,
 ) -> repr_c::Box<FFI_RLNProofValues> {
     Box_::new(FFI_RLNProofValues(rln_proof.0.proof_values.clone()))
+}
+
+#[ffi_export]
+pub fn ffi_rln_proof_get_version_byte(rln_proof: &repr_c::Box<FFI_RLNProof>) -> u8 {
+    rln_proof.0.version_byte()
 }
 
 #[ffi_export]
@@ -313,6 +316,166 @@ pub fn ffi_rln_witness_input_new(
             err: Some(err.to_string().into()),
         },
     }
+}
+
+#[ffi_export]
+pub fn ffi_rln_witness_input_get_version_byte(witness: &repr_c::Box<FFI_RLNWitnessInput>) -> u8 {
+    witness.0.version_byte()
+}
+
+#[ffi_export]
+pub fn ffi_rln_witness_input_get_identity_secret(
+    witness: &repr_c::Box<FFI_RLNWitnessInput>,
+) -> repr_c::Box<CFr> {
+    CFr::from(**witness.0.identity_secret()).into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_witness_input_get_user_message_limit(
+    witness: &repr_c::Box<FFI_RLNWitnessInput>,
+) -> repr_c::Box<CFr> {
+    CFr::from(*witness.0.user_message_limit()).into()
+}
+
+#[cfg(not(feature = "multi-message-id"))]
+#[ffi_export]
+pub fn ffi_rln_witness_input_get_message_id(
+    witness: &repr_c::Box<FFI_RLNWitnessInput>,
+) -> repr_c::Box<CFr> {
+    CFr::from(*witness.0.message_id()).into()
+}
+
+#[cfg(feature = "multi-message-id")]
+#[ffi_export]
+pub fn ffi_rln_witness_input_get_message_ids(
+    witness: &repr_c::Box<FFI_RLNWitnessInput>,
+) -> repr_c::Vec<CFr> {
+    witness
+        .0
+        .message_ids()
+        .iter()
+        .map(|fr| CFr::from(*fr))
+        .collect::<Vec<_>>()
+        .into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_witness_input_get_path_elements(
+    witness: &repr_c::Box<FFI_RLNWitnessInput>,
+) -> repr_c::Vec<CFr> {
+    witness
+        .0
+        .path_elements()
+        .iter()
+        .map(|fr| CFr::from(*fr))
+        .collect::<Vec<_>>()
+        .into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_witness_input_get_identity_path_index(
+    witness: &repr_c::Box<FFI_RLNWitnessInput>,
+) -> repr_c::Vec<u8> {
+    witness.0.identity_path_index().to_vec().into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_witness_input_get_x(witness: &repr_c::Box<FFI_RLNWitnessInput>) -> repr_c::Box<CFr> {
+    CFr::from(*witness.0.x()).into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_witness_input_get_external_nullifier(
+    witness: &repr_c::Box<FFI_RLNWitnessInput>,
+) -> repr_c::Box<CFr> {
+    CFr::from(*witness.0.external_nullifier()).into()
+}
+
+#[cfg(feature = "multi-message-id")]
+#[ffi_export]
+pub fn ffi_rln_witness_input_get_selector_used(
+    witness: &repr_c::Box<FFI_RLNWitnessInput>,
+) -> repr_c::Vec<bool> {
+    witness.0.selector_used().to_vec().into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_witness_input_modify_identity_secret(
+    witness: &mut repr_c::Box<FFI_RLNWitnessInput>,
+    identity_secret: &CFr,
+) {
+    let mut fr = identity_secret.0;
+    witness.0.modify_identity_secret(IdSecret::from(&mut fr));
+}
+
+#[ffi_export]
+pub fn ffi_rln_witness_input_modify_user_message_limit(
+    witness: &mut repr_c::Box<FFI_RLNWitnessInput>,
+    user_message_limit: &CFr,
+) {
+    witness.0.modify_user_message_limit(user_message_limit.0);
+}
+
+#[cfg(not(feature = "multi-message-id"))]
+#[ffi_export]
+pub fn ffi_rln_witness_input_modify_message_id(
+    witness: &mut repr_c::Box<FFI_RLNWitnessInput>,
+    message_id: &CFr,
+) {
+    witness.0.modify_message_id(message_id.0);
+}
+
+#[cfg(feature = "multi-message-id")]
+#[ffi_export]
+pub fn ffi_rln_witness_input_modify_message_ids(
+    witness: &mut repr_c::Box<FFI_RLNWitnessInput>,
+    message_ids: &repr_c::Vec<CFr>,
+) {
+    let message_ids: Vec<Fr> = message_ids.iter().map(|cfr| cfr.0).collect();
+    witness.0.modify_message_ids(message_ids);
+}
+
+#[ffi_export]
+pub fn ffi_rln_witness_input_modify_path_elements(
+    witness: &mut repr_c::Box<FFI_RLNWitnessInput>,
+    path_elements: &repr_c::Vec<CFr>,
+) {
+    let path_elements: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
+    witness.0.modify_path_elements(path_elements);
+}
+
+#[ffi_export]
+pub fn ffi_rln_witness_input_modify_identity_path_index(
+    witness: &mut repr_c::Box<FFI_RLNWitnessInput>,
+    identity_path_index: &repr_c::Vec<u8>,
+) {
+    witness
+        .0
+        .modify_identity_path_index(identity_path_index.iter().copied().collect());
+}
+
+#[ffi_export]
+pub fn ffi_rln_witness_input_modify_x(witness: &mut repr_c::Box<FFI_RLNWitnessInput>, x: &CFr) {
+    witness.0.modify_x(x.0);
+}
+
+#[ffi_export]
+pub fn ffi_rln_witness_input_modify_external_nullifier(
+    witness: &mut repr_c::Box<FFI_RLNWitnessInput>,
+    external_nullifier: &CFr,
+) {
+    witness.0.modify_external_nullifier(external_nullifier.0);
+}
+
+#[cfg(feature = "multi-message-id")]
+#[ffi_export]
+pub fn ffi_rln_witness_input_modify_selector_used(
+    witness: &mut repr_c::Box<FFI_RLNWitnessInput>,
+    selector_used: &repr_c::Vec<bool>,
+) {
+    witness
+        .0
+        .modify_selector_used(selector_used.iter().copied().collect());
 }
 
 #[ffi_export]
@@ -488,6 +651,73 @@ pub fn ffi_rln_proof_values_get_nullifiers(
         ),
         err: None,
     }
+}
+
+#[ffi_export]
+pub fn ffi_rln_proof_values_get_version_byte(pv: &repr_c::Box<FFI_RLNProofValues>) -> u8 {
+    pv.0.version_byte()
+}
+
+#[ffi_export]
+pub fn ffi_rln_proof_values_modify_root(pv: &mut repr_c::Box<FFI_RLNProofValues>, root: &CFr) {
+    pv.0.modify_root(root.0);
+}
+
+#[ffi_export]
+pub fn ffi_rln_proof_values_modify_x(pv: &mut repr_c::Box<FFI_RLNProofValues>, x: &CFr) {
+    pv.0.modify_x(x.0);
+}
+
+#[ffi_export]
+pub fn ffi_rln_proof_values_modify_external_nullifier(
+    pv: &mut repr_c::Box<FFI_RLNProofValues>,
+    external_nullifier: &CFr,
+) {
+    pv.0.modify_external_nullifier(external_nullifier.0);
+}
+
+#[cfg(not(feature = "multi-message-id"))]
+#[ffi_export]
+pub fn ffi_rln_proof_values_modify_y(pv: &mut repr_c::Box<FFI_RLNProofValues>, y: &CFr) {
+    pv.0.modify_y(y.0);
+}
+
+#[cfg(not(feature = "multi-message-id"))]
+#[ffi_export]
+pub fn ffi_rln_proof_values_modify_nullifier(
+    pv: &mut repr_c::Box<FFI_RLNProofValues>,
+    nullifier: &CFr,
+) {
+    pv.0.modify_nullifier(nullifier.0);
+}
+
+#[cfg(feature = "multi-message-id")]
+#[ffi_export]
+pub fn ffi_rln_proof_values_modify_selector_used(
+    pv: &mut repr_c::Box<FFI_RLNProofValues>,
+    selector_used: &repr_c::Vec<bool>,
+) {
+    pv.0.modify_selector_used(selector_used.iter().copied().collect());
+}
+
+#[cfg(feature = "multi-message-id")]
+#[ffi_export]
+pub fn ffi_rln_proof_values_modify_ys(
+    pv: &mut repr_c::Box<FFI_RLNProofValues>,
+    ys: &repr_c::Vec<CFr>,
+) {
+    let ys: Vec<Fr> = ys.iter().map(|cfr| cfr.0).collect();
+    pv.0.modify_ys(ys);
+}
+
+#[cfg(feature = "multi-message-id")]
+#[ffi_export]
+pub fn ffi_rln_proof_values_modify_nullifiers(
+    pv: &mut repr_c::Box<FFI_RLNProofValues>,
+    nullifiers: &repr_c::Vec<CFr>,
+) {
+    let nullifiers: Vec<Fr> = nullifiers.iter().map(|cfr| cfr.0).collect();
+    pv.0.modify_nullifiers(nullifiers);
 }
 
 #[ffi_export]

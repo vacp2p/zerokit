@@ -83,6 +83,11 @@ impl WasmRLNProof {
         WasmRLNProofValues(self.0.proof_values.clone())
     }
 
+    #[wasm_bindgen(js_name = getVersionByte)]
+    pub fn get_version_byte(&self) -> u8 {
+        self.0.version_byte()
+    }
+
     #[wasm_bindgen(js_name = toBytesLE)]
     pub fn to_bytes_le(&self) -> Result<Uint8Array, String> {
         let bytes = rln_proof_to_bytes_le(&self.0).map_err(|err| err.to_string())?;
@@ -164,6 +169,57 @@ impl WasmRLNProofValues {
     #[wasm_bindgen(js_name = nullifiers)]
     pub fn nullifiers(&self) -> VecWasmFr {
         VecWasmFr::from(self.0.nullifiers().to_vec())
+    }
+
+    #[wasm_bindgen(js_name = getVersionByte)]
+    pub fn get_version_byte(&self) -> u8 {
+        self.0.version_byte()
+    }
+
+    #[wasm_bindgen(js_name = modifyRoot)]
+    pub fn modify_root(&mut self, root: &WasmFr) {
+        self.0.modify_root(root.inner());
+    }
+
+    #[wasm_bindgen(js_name = modifyX)]
+    pub fn modify_x(&mut self, x: &WasmFr) {
+        self.0.modify_x(x.inner());
+    }
+
+    #[wasm_bindgen(js_name = modifyExternalNullifier)]
+    pub fn modify_external_nullifier(&mut self, external_nullifier: &WasmFr) {
+        self.0.modify_external_nullifier(external_nullifier.inner());
+    }
+
+    #[cfg(not(feature = "multi-message-id"))]
+    #[wasm_bindgen(js_name = modifyY)]
+    pub fn modify_y(&mut self, y: &WasmFr) {
+        self.0.modify_y(y.inner());
+    }
+
+    #[cfg(not(feature = "multi-message-id"))]
+    #[wasm_bindgen(js_name = modifyNullifier)]
+    pub fn modify_nullifier(&mut self, nullifier: &WasmFr) {
+        self.0.modify_nullifier(nullifier.inner());
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    #[wasm_bindgen(js_name = modifySelectorUsed)]
+    pub fn modify_selector_used(&mut self, selector_used: &Uint8Array) {
+        let selector_used: Vec<bool> = selector_used.to_vec().iter().map(|&b| b != 0).collect();
+        self.0.modify_selector_used(selector_used);
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    #[wasm_bindgen(js_name = modifyYs)]
+    pub fn modify_ys(&mut self, ys: &VecWasmFr) {
+        self.0.modify_ys(ys.inner());
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    #[wasm_bindgen(js_name = modifyNullifiers)]
+    pub fn modify_nullifiers(&mut self, nullifiers: &VecWasmFr) {
+        self.0.modify_nullifiers(nullifiers.inner());
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]
@@ -272,18 +328,114 @@ impl WasmRLNWitnessInput {
         Ok(WasmRLNWitnessInput(witness))
     }
 
-    #[wasm_bindgen(js_name = toBigIntJson)]
-    pub fn to_bigint_json(&self) -> Result<Object, String> {
-        let bigint_json = rln_witness_to_bigint_json(&self.0).map_err(|err| err.to_string())?;
+    #[wasm_bindgen(js_name = getVersionByte)]
+    pub fn get_version_byte(&self) -> u8 {
+        self.0.version_byte()
+    }
 
-        let serializer = serde_wasm_bindgen::Serializer::json_compatible();
-        let js_value = bigint_json
-            .serialize(&serializer)
-            .map_err(|err| err.to_string())?;
+    #[wasm_bindgen(js_name = getIdentitySecret)]
+    pub fn get_identity_secret(&self) -> WasmFr {
+        WasmFr::from(**self.0.identity_secret())
+    }
 
-        js_value
-            .dyn_into::<Object>()
-            .map_err(|err| format!("{:#?}", err))
+    #[wasm_bindgen(js_name = getUserMessageLimit)]
+    pub fn get_user_message_limit(&self) -> WasmFr {
+        WasmFr::from(*self.0.user_message_limit())
+    }
+
+    #[cfg(not(feature = "multi-message-id"))]
+    #[wasm_bindgen(js_name = getMessageId)]
+    pub fn get_message_id(&self) -> WasmFr {
+        WasmFr::from(*self.0.message_id())
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    #[wasm_bindgen(js_name = getMessageIds)]
+    pub fn get_message_ids(&self) -> VecWasmFr {
+        VecWasmFr::from(self.0.message_ids().to_vec())
+    }
+
+    #[wasm_bindgen(js_name = getPathElements)]
+    pub fn get_path_elements(&self) -> VecWasmFr {
+        VecWasmFr::from(self.0.path_elements().to_vec())
+    }
+
+    #[wasm_bindgen(js_name = getIdentityPathIndex)]
+    pub fn get_identity_path_index(&self) -> Uint8Array {
+        Uint8Array::from(self.0.identity_path_index())
+    }
+
+    #[wasm_bindgen(js_name = getX)]
+    pub fn get_x(&self) -> WasmFr {
+        WasmFr::from(*self.0.x())
+    }
+
+    #[wasm_bindgen(js_name = getExternalNullifier)]
+    pub fn get_external_nullifier(&self) -> WasmFr {
+        WasmFr::from(*self.0.external_nullifier())
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    #[wasm_bindgen(js_name = getSelectorUsed)]
+    pub fn get_selector_used(&self) -> Uint8Array {
+        let bytes: Vec<u8> = self
+            .0
+            .selector_used()
+            .iter()
+            .map(|&b| if b { 1u8 } else { 0u8 })
+            .collect();
+        Uint8Array::from(&bytes[..])
+    }
+
+    #[wasm_bindgen(js_name = modifyIdentitySecret)]
+    pub fn modify_identity_secret(&mut self, identity_secret: &WasmFr) {
+        let mut fr = identity_secret.inner();
+        self.0.modify_identity_secret(IdSecret::from(&mut fr));
+    }
+
+    #[wasm_bindgen(js_name = modifyUserMessageLimit)]
+    pub fn modify_user_message_limit(&mut self, user_message_limit: &WasmFr) {
+        self.0.modify_user_message_limit(user_message_limit.inner());
+    }
+
+    #[cfg(not(feature = "multi-message-id"))]
+    #[wasm_bindgen(js_name = modifyMessageId)]
+    pub fn modify_message_id(&mut self, message_id: &WasmFr) {
+        self.0.modify_message_id(message_id.inner());
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    #[wasm_bindgen(js_name = modifyMessageIds)]
+    pub fn modify_message_ids(&mut self, message_ids: &VecWasmFr) {
+        self.0.modify_message_ids(message_ids.inner());
+    }
+
+    #[wasm_bindgen(js_name = modifyPathElements)]
+    pub fn modify_path_elements(&mut self, path_elements: &VecWasmFr) {
+        self.0.modify_path_elements(path_elements.inner());
+    }
+
+    #[wasm_bindgen(js_name = modifyIdentityPathIndex)]
+    pub fn modify_identity_path_index(&mut self, identity_path_index: &Uint8Array) {
+        self.0
+            .modify_identity_path_index(identity_path_index.to_vec());
+    }
+
+    #[wasm_bindgen(js_name = modifyX)]
+    pub fn modify_x(&mut self, x: &WasmFr) {
+        self.0.modify_x(x.inner());
+    }
+
+    #[wasm_bindgen(js_name = modifyExternalNullifier)]
+    pub fn modify_external_nullifier(&mut self, external_nullifier: &WasmFr) {
+        self.0.modify_external_nullifier(external_nullifier.inner());
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    #[wasm_bindgen(js_name = modifySelectorUsed)]
+    pub fn modify_selector_used(&mut self, selector_used: &Uint8Array) {
+        let selector_used: Vec<bool> = selector_used.to_vec().iter().map(|&b| b != 0).collect();
+        self.0.modify_selector_used(selector_used);
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]
@@ -310,5 +462,19 @@ impl WasmRLNWitnessInput {
         let bytes_vec = bytes.to_vec();
         let (witness, _) = bytes_be_to_rln_witness(&bytes_vec).map_err(|err| err.to_string())?;
         Ok(WasmRLNWitnessInput(witness))
+    }
+
+    #[wasm_bindgen(js_name = toBigIntJson)]
+    pub fn to_bigint_json(&self) -> Result<Object, String> {
+        let bigint_json = rln_witness_to_bigint_json(&self.0).map_err(|err| err.to_string())?;
+
+        let serializer = serde_wasm_bindgen::Serializer::json_compatible();
+        let js_value = bigint_json
+            .serialize(&serializer)
+            .map_err(|err| err.to_string())?;
+
+        js_value
+            .dyn_into::<Object>()
+            .map_err(|err| format!("{:#?}", err))
     }
 }

@@ -33,6 +33,13 @@ pub struct RLNProof {
     pub proof_values: RLNProofValues,
 }
 
+impl RLNProof {
+    /// Returns the version byte corresponding to the proof values variant.
+    pub fn version_byte(&self) -> u8 {
+        self.proof_values.version_byte()
+    }
+}
+
 /// Public values for RLN proof verification.
 ///
 /// Contains the circuit's public inputs and outputs. Used in proof verification

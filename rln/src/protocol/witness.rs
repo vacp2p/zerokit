@@ -155,6 +155,16 @@ impl RLNWitnessInput {
         }
     }
 
+    /// Returns the version byte corresponding to the witness variant.
+    pub fn version_byte(&self) -> u8 {
+        match self {
+            #[cfg(not(feature = "multi-message-id"))]
+            Self::SingleV1 { .. } => SerializationVersion::SingleV1.into(),
+            #[cfg(feature = "multi-message-id")]
+            Self::MultiV1 { .. } => SerializationVersion::MultiV1.into(),
+        }
+    }
+
     /// Returns the identity secret.
     pub fn identity_secret(&self) -> &IdSecret {
         match self {
