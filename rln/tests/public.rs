@@ -110,13 +110,13 @@ mod test {
     }
 
     #[test]
-    #[cfg(not(feature = "multi-message-id"))]
     fn test_groth16_proof_hardcoded() {
         #[cfg(not(feature = "stateless"))]
         let rln = RLN::new(DEFAULT_TREE_DEPTH, "").unwrap();
         #[cfg(feature = "stateless")]
         let rln = RLN::new().unwrap();
 
+        #[cfg(not(feature = "multi-message-id"))]
         let valid_snarkjs_proof = json!({
          "pi_a": [
           "606446415626469993821291758185575230335423926365686267140465300918089871829",
@@ -145,6 +145,36 @@ mod test {
          "protocol": "groth16",
          "curve": "bn128"
         });
+        #[cfg(feature = "multi-message-id")]
+        let valid_snarkjs_proof = json!({
+         "pi_a": [
+          "5220097201402861297253888628550313355190272460448394371970145288962610744111",
+          "6363328397889566720120192766297830752779918377331309862670401726095013738272",
+          "1"
+         ],
+         "pi_b": [
+          [
+           "7253612799923354183971295530848792490468537154644048297490133520548033966439",
+           "3706125617358054928531594582958926960523602763418851571798990929690769902701"
+          ],
+          [
+           "16898588332287195473613334202989917511751413489437752330453200304652886948079",
+           "14439785953616559015356360230473533680273100775328773276449982245454795801729"
+          ],
+          [
+           "1",
+           "0"
+          ]
+         ],
+         "pi_c": [
+          "12037511882911162674274710450426625039846844641155270156130045676961545752366",
+          "378317233059871177310490643931373190027021897890864841145088405472366599783",
+          "1"
+         ],
+         "protocol": "groth16",
+         "curve": "bn128"
+        });
+
         let valid_ark_proof = Proof {
             a: g1_from_str(&value_to_string_vec(&valid_snarkjs_proof["pi_a"])),
             b: g2_from_str(
@@ -158,13 +188,26 @@ mod test {
             c: g1_from_str(&value_to_string_vec(&valid_snarkjs_proof["pi_c"])),
         };
 
+        #[cfg(not(feature = "multi-message-id"))]
         let x = str_to_fr(
             "20645213238265527935869146898028115621427162613172918400241870500502509785943",
             10,
         )
         .unwrap();
+        #[cfg(feature = "multi-message-id")]
+        let x = str_to_fr(
+            "1661810590590154013038204458540007498571077848798887383408280049624563771272",
+            10,
+        )
+        .unwrap();
 
+        #[cfg(not(feature = "multi-message-id"))]
         let valid_proof_values = RLNProofValues::SingleV1 {
+            root: str_to_fr(
+                "8502402278351299594663821509741133196466235670407051417832304486953898514733",
+                10,
+            )
+            .unwrap(),
             x,
             external_nullifier: str_to_fr(
                 "21074405743803627666274838159589343934394162804826017440941339048886754734203",
@@ -176,17 +219,46 @@ mod test {
                 10,
             )
             .unwrap(),
-            root: str_to_fr(
-                "8502402278351299594663821509741133196466235670407051417832304486953898514733",
-                10,
-            )
-            .unwrap(),
             nullifier: str_to_fr(
                 "9102791780887227194595604713537772536258726662792598131262022534710887343694",
                 10,
             )
             .unwrap(),
         };
+
+        #[cfg(feature = "multi-message-id")]
+        let valid_proof_values =
+            RLNProofValues::MultiV1 {
+                root: str_to_fr(
+                    "8452438302042461590866512780360909828933330926913289098284311629257356889665",
+                    10,
+                )
+                .unwrap(),
+                x,
+                external_nullifier: str_to_fr(
+                    "3887095545444678630683945192065809821795004241110020556375575099273501813939",
+                    10,
+                )
+                .unwrap(),
+                selector_used: vec![true, false, false, false],
+                ys: vec![
+                str_to_fr(
+                    "16712436532995081775566649764463890266932785063510623890688751206211179993920",
+                    10,
+                )
+                .unwrap(),
+                Fr::from(0),
+                Fr::from(0),
+                Fr::from(0),
+            ],
+                nullifiers: vec![str_to_fr(
+                    "2096594554054843289848967884264422896449085163836700967650592425063123136509",
+                    10,
+                ).unwrap(),
+                Fr::from(0),
+                Fr::from(0),
+                Fr::from(0)],
+            };
 
         let verified = rln
             .verify_with_roots(&valid_ark_proof, &valid_proof_values, &x, &[])
@@ -1046,7 +1118,10 @@ mod test {
             let (rln, proof, mut proof_values, x, mut rng) = setup_rln_proof(false);
 
             // Mutate nullifier (simulating mutated message_id)
+            #[cfg(not(feature = "multi-message-id"))]
             proof_values.modify_nullifier(Fr::rand(&mut rng));
+            #[cfg(feature = "multi-message-id")]
+            proof_values.modify_nullifiers(vec![Fr::rand(&mut rng)]);
 
             // Verification should fail
             let verified = rln.verify_rln_proof(&proof, &proof_values, &x).is_ok();
@@ -1102,7 +1177,10 @@ mod test {
             let roots = vec![rln.get_root()];
 
             // Mutate nullifier (simulating mutated message_id)
+            #[cfg(not(feature = "multi-message-id"))]
             proof_values.modify_nullifier(Fr::rand(&mut rng));
+            #[cfg(feature = "multi-message-id")]
+            proof_values.modify_nullifiers(vec![Fr::rand(&mut rng)]);
 
             // Verification should fail
             let verified = rln
@@ -1451,35 +1529,17 @@ mod test {
                 ProtocolError::EmptyMessageIds
             ));
 
-            // Valid message_ids without selector_used → MissingSelectorUsed
-            assert!(matches!(
-                RLNWitnessInput::new(
-                    identity_secret.clone(),
-                    user_message_limit,
-                    None,
-                    Some(vec![Fr::from(0), Fr::from(1)]),
-                    path_elements.clone(),
-                    identity_path_index.clone(),
-                    x,
-                    external_nullifier,
-                    None,
-                )
-                .unwrap_err(),
-                ProtocolError::MissingSelectorUsed
-            ));
-
             // Mismatched selector_used length to message_ids length → FieldLengthMismatch
             assert!(matches!(
                 RLNWitnessInput::new(
                     identity_secret.clone(),
                     user_message_limit,
-                    None,
-                    Some(vec![Fr::from(0), Fr::from(1)]),
+                    vec![Fr::from(0), Fr::from(1)],
                     path_elements.clone(),
                     identity_path_index.clone(),
                     x,
                     external_nullifier,
-                    Some(vec![true]),
+                    vec![true],
                 )
                 .unwrap_err(),
                 ProtocolError::FieldLengthMismatch(..)
@@ -1490,13 +1550,12 @@ mod test {
                 RLNWitnessInput::new(
                     identity_secret.clone(),
                     user_message_limit,
-                    None,
-                    Some(vec![Fr::from(0), Fr::from(10)]),
+                    vec![Fr::from(0), Fr::from(10)],
                     path_elements.clone(),
                     identity_path_index.clone(),
                     x,
                     external_nullifier,
-                    Some(vec![true, true]),
+                    vec![true, true],
                 )
                 .unwrap_err(),
                 ProtocolError::InvalidMessageId(_, _)
@@ -1506,13 +1565,12 @@ mod test {
             assert!(RLNWitnessInput::new(
                 identity_secret.clone(),
                 user_message_limit,
-                None,
-                Some(vec![Fr::from(0), Fr::from(10)]),
+                vec![Fr::from(0), Fr::from(10)],
                 path_elements.clone(),
                 identity_path_index.clone(),
                 x,
                 external_nullifier,
-                Some(vec![true, false]),
+                vec![true, false],
             )
             .is_ok());
 
@@ -1521,13 +1579,12 @@ mod test {
                 RLNWitnessInput::new(
                     identity_secret.clone(),
                     Fr::from(0),
-                    None,
-                    Some(vec![Fr::from(0)]),
+                    vec![Fr::from(0)],
                     path_elements.clone(),
                     identity_path_index.clone(),
                     x,
                     external_nullifier,
-                    Some(vec![true]),
+                    vec![true],
                 )
                 .unwrap_err(),
                 ProtocolError::ZeroUserMessageLimit
@@ -1538,13 +1595,12 @@ mod test {
                 RLNWitnessInput::new(
                     identity_secret.clone(),
                     user_message_limit,
-                    None,
-                    Some(vec![Fr::from(5), Fr::from(5), Fr::from(1), Fr::from(2)]),
+                    vec![Fr::from(5), Fr::from(5), Fr::from(1), Fr::from(2)],
                     path_elements.clone(),
                     identity_path_index.clone(),
                     x,
                     external_nullifier,
-                    Some(vec![true, true, false, false]),
+                    vec![true, true, false, false],
                 )
                 .unwrap_err(),
                 ProtocolError::DuplicateMessageIds
@@ -1554,13 +1610,12 @@ mod test {
             assert!(RLNWitnessInput::new(
                 identity_secret.clone(),
                 user_message_limit,
-                None,
-                Some(vec![Fr::from(0), Fr::from(0), Fr::from(1), Fr::from(2)]),
+                vec![Fr::from(0), Fr::from(0), Fr::from(1), Fr::from(2)],
                 path_elements.clone(),
                 identity_path_index.clone(),
                 x,
                 external_nullifier,
-                Some(vec![false, false, true, true]),
+                vec![false, false, true, true],
             )
             .is_ok());
 
@@ -1569,13 +1624,12 @@ mod test {
                 RLNWitnessInput::new(
                     identity_secret.clone(),
                     user_message_limit,
-                    None,
-                    Some(vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)]),
+                    vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)],
                     path_elements.clone(),
                     identity_path_index.clone(),
                     x,
                     external_nullifier,
-                    Some(vec![false, false, false, false]),
+                    vec![false, false, false, false],
                 )
                 .unwrap_err(),
                 ProtocolError::NoActiveSelectorUsed
@@ -1585,13 +1639,12 @@ mod test {
             assert!(RLNWitnessInput::new(
                 identity_secret,
                 user_message_limit,
-                None,
-                Some(vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)]),
+                vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)],
                 path_elements,
                 identity_path_index,
                 x,
                 external_nullifier,
-                Some(vec![true, true, false, false]),
+                vec![true, true, false, false],
             )
             .is_ok());
         }

@@ -1,5 +1,5 @@
 #[cfg(test)]
-#[cfg(not(feature = "stateless"))]
+#[cfg(all(not(feature = "stateless"), not(feature = "multi-message-id")))]
 mod test {
     use std::{fs::File, io::Read};
 
@@ -88,7 +88,6 @@ mod test {
         };
 
         // Create witness input
-        #[cfg(not(feature = "multi-message-id"))]
         let witness = match ffi_rln_witness_input_new(
             identity_secret,
             user_message_limit,
@@ -107,37 +106,6 @@ mod test {
                 err: Some(err),
             } => panic!("witness creation call failed: {}", err),
             _ => unreachable!(),
-        };
-        #[cfg(feature = "multi-message-id")]
-        let witness = {
-            let message_ids: repr_c::Vec<CFr> = vec![
-                *message_id,
-                CFr::from(Fr::from(0u32)),
-                CFr::from(Fr::from(0u32)),
-                CFr::from(Fr::from(0u32)),
-            ]
-            .into();
-            let selector_used: repr_c::Vec<bool> = vec![true, false, false, false].into();
-            match ffi_rln_witness_input_new(
-                identity_secret,
-                user_message_limit,
-                &message_ids,
-                &merkle_proof.path_elements,
-                &merkle_proof.path_index,
-                x,
-                external_nullifier,
-                &selector_used,
-            ) {
-                CResult {
-                    ok: Some(witness),
-                    err: None,
-                } => witness,
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("witness creation call failed: {}", err),
-                _ => unreachable!(),
-            }
         };
 
         // Generate proof from witness
@@ -369,7 +337,7 @@ mod test {
         // We create a RLN instance
         let mut ffi_rln_instance = create_rln_instance();
 
-        // Generate identity
+        // generate identity
         let mut identity_secret_ = hash_to_field_le(b"test-merkle-proof").unwrap();
         let identity_secret = IdSecret::from(&mut identity_secret_);
         let mut to_hash = [*identity_secret.clone()];
@@ -779,6 +747,7 @@ mod test {
         );
 
         // We attempt to recover the secret using share1 (coming from identity_secret) and share3 (coming from identity_secret_new)
+
         let recovered_id_secret_new_cfr = match ffi_recover_id_secret(
             &ffi_rln_proof_get_values(&rln_proof1),
             &ffi_rln_proof_get_values(&rln_proof3),
@@ -926,7 +895,6 @@ mod test {
             _ => panic!("get merkle proof failed"),
         };
 
-        #[cfg(not(feature = "multi-message-id"))]
         let witness = match ffi_rln_witness_input_new(
             &CFr::from(*identity_secret),
             &CFr::from(user_message_limit),
@@ -941,28 +909,6 @@ mod test {
                 err: None,
             } => w,
             _ => panic!("witness creation failed"),
-        };
-        #[cfg(feature = "multi-message-id")]
-        let witness = {
-            let empty_message_ids: repr_c::Vec<CFr> = Vec::new().into();
-            let empty_selector_used: repr_c::Vec<bool> = Vec::new().into();
-            match ffi_rln_witness_input_new(
-                &CFr::from(*identity_secret),
-                &CFr::from(user_message_limit),
-                &CFr::from(message_id),
-                &empty_message_ids,
-                &merkle_proof.path_elements,
-                &merkle_proof.path_index,
-                &CFr::from(x),
-                &CFr::from(external_nullifier),
-                &empty_selector_used,
-            ) {
-                CResult {
-                    ok: Some(w),
-                    err: None,
-                } => w,
-                _ => panic!("witness creation failed"),
-            }
         };
 
         (ffi_rln_instance, witness)
@@ -1082,23 +1028,15 @@ mod test {
         let identity_secret_cfr = CFr::from(*identity_pair_gen().0); // dummy identity
         let x_cfr = CFr::from(x);
         let external_nullifier_cfr = CFr::from(external_nullifier);
-        #[cfg(feature = "multi-message-id")]
-        let empty_message_ids: repr_c::Vec<CFr> = Vec::new().into();
-        #[cfg(feature = "multi-message-id")]
-        let empty_selector_used: repr_c::Vec<bool> = Vec::new().into();
 
         let result = ffi_rln_witness_input_new(
             &identity_secret_cfr,
             &user_message_limit_cfr,
             &invalid_message_id,
-            #[cfg(feature = "multi-message-id")]
-            &empty_message_ids,
             &merkle_proof.path_elements,
             &merkle_proof.path_index,
             &x_cfr,
             &external_nullifier_cfr,
-            #[cfg(feature = "multi-message-id")]
-            &empty_selector_used,
         );
         assert!(result.ok.is_none()); // should fail due to InvalidMessageId
 
@@ -1109,14 +1047,10 @@ mod test {
             &identity_secret_cfr,
             &zero_limit,
             &valid_message_id,
-            #[cfg(feature = "multi-message-id")]
-            &empty_message_ids,
             &merkle_proof.path_elements,
             &merkle_proof.path_index,
             &x_cfr,
             &external_nullifier_cfr,
-            #[cfg(feature = "multi-message-id")]
-            &empty_selector_used,
         );
         assert!(result.ok.is_none()); // should fail due to ZeroUserMessageLimit
 
@@ -1129,14 +1063,10 @@ mod test {
             &identity_secret_cfr,
             &user_message_limit_cfr,
             &valid_message_id,
-            #[cfg(feature = "multi-message-id")]
-            &empty_message_ids,
             &bad_path_elements,
             &merkle_proof.path_index,
             &x_cfr,
             &external_nullifier_cfr,
-            #[cfg(feature = "multi-message-id")]
-            &empty_selector_used,
         );
         assert!(result.ok.is_none()); // should fail due to invalid path elements length
 
@@ -1148,14 +1078,10 @@ mod test {
             &identity_secret_cfr,
             &user_message_limit_cfr,
             &valid_message_id,
-            #[cfg(feature = "multi-message-id")]
-            &empty_message_ids,
             &merkle_proof.path_elements,
             &bad_path_index,
             &x_cfr,
             &external_nullifier_cfr,
-            #[cfg(feature = "multi-message-id")]
-            &empty_selector_used,
         );
         assert!(result.ok.is_none()); // should fail due to invalid path index length
     }

@@ -52,7 +52,7 @@ mod test {
         // Generate identity
         let identity_secret = hash_to_field_le(b"test-merkle-proof").unwrap();
         let id_commitment = poseidon_hash(&[identity_secret]).unwrap();
-        let rate_commitment = poseidon_hash(&[id_commitment, 100.into()]).unwrap();
+        let rate_commitment = poseidon_hash(&[id_commitment, Fr::from(100)]).unwrap();
 
         // Generate merkle tree
         let default_leaf = Fr::from(0);
@@ -141,7 +141,6 @@ mod test {
         let signal = b"hey hey";
         let x = hash_to_field_le(signal).unwrap();
 
-        // We set the remaining values to random ones
         let epoch = hash_to_field_le(b"test-epoch").unwrap();
         let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
@@ -192,7 +191,6 @@ mod test {
 
         let x = hash_to_field_le(signal).unwrap();
 
-        // We set the remaining values to random ones
         let epoch = hash_to_field_le(epoch).unwrap();
         let rln_identifier = hash_to_field_le(rln_identifier).unwrap();
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
@@ -226,9 +224,9 @@ mod test {
         let proof_values = proof_values_from_witness(&witness).unwrap();
 
         // Verify the proof
-        let success = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
+        let verified = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
 
-        assert!(success);
+        assert!(verified);
     }
 
     #[test]
@@ -599,8 +597,17 @@ mod test {
         );
         #[cfg(feature = "multi-message-id")]
         assert_eq!(
-            json["messageId"].as_str().unwrap(),
-            to_bigint(witness.message_ids()).to_str_radix(10)
+            json["messageId"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_str().unwrap().to_string())
+                .collect::<Vec<_>>(),
+            witness
+                .message_ids()
+                .iter()
+                .map(|id| to_bigint(id).to_str_radix(10))
+                .collect::<Vec<_>>()
         );
         assert_eq!(
             json["x"].as_str().unwrap(),
@@ -640,8 +647,17 @@ mod test {
         );
         #[cfg(feature = "multi-message-id")]
         assert_eq!(
-            json2["messageId"].as_str().unwrap(),
-            to_bigint(witness2.message_ids()).to_str_radix(10)
+            json2["messageId"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_str().unwrap().to_string())
+                .collect::<Vec<_>>(),
+            witness2
+                .message_ids()
+                .iter()
+                .map(|id| to_bigint(id).to_str_radix(10))
+                .collect::<Vec<_>>()
         );
         assert_eq!(
             json2["x"].as_str().unwrap(),
@@ -757,9 +773,9 @@ mod test {
             let proof_values = proof_values_from_witness(&witness).unwrap();
 
             // Verify the proof
-            let success = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
+            let verified = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
 
-            assert!(success);
+            assert!(verified);
         }
     }
 }

@@ -24,11 +24,19 @@ use self::{
 };
 use crate::circuit::iden3calc::{graph::Node, storage::deserialize_witnesscalc_graph};
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "multi-message-id")))]
 const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi-message-id"))]
+const GRAPH_BYTES: &[u8] =
+    include_bytes!("../../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin");
+
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "multi-message-id")))]
 const ARKZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/rln_final.arkzkey");
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi-message-id"))]
+const ARKZKEY_BYTES: &[u8] =
+    include_bytes!("../../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey");
 
 #[cfg(not(target_arch = "wasm32"))]
 static ARKZKEY: LazyLock<Zkey> = LazyLock::new(|| {
