@@ -20,7 +20,7 @@ use crate::{
         bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_le_to_fr, bytes_le_to_vec_fr,
         bytes_le_to_vec_u8, fr_to_bytes_be, fr_to_bytes_le, to_bigint, vec_fr_to_bytes_be,
         vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, FrOrSecret, IdSecret,
-        FR_BYTE_SIZE,
+        FR_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
     },
 };
 
@@ -386,11 +386,12 @@ pub fn rln_witness_to_bytes_le(witness: &RLNWitnessInput) -> Result<Vec<u8>, Pro
             // Calculate capacity for Vec:
             // - VERSION_BYTE_SIZE byte for version tag
             // - 5 field elements: identity_secret, user_message_limit, message_id, x, external_nullifier
-            // - variable size of path_elements and identity_path_index (each with 8-byte length prefix)
+            // - variable size of path_elements, identity_path_index
+            // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (path_elements, identity_path_index)
             let capacity = VERSION_BYTE_SIZE
                 + FR_BYTE_SIZE * (5 + path_elements.len())
                 + identity_path_index.len()
-                + 8 * 2;
+                + VEC_LEN_BYTE_SIZE * 2;
             let mut bytes = Vec::with_capacity(capacity);
             bytes.push(SerializationVersion::SingleV1.into());
             bytes.extend_from_slice(&identity_secret.to_bytes_le());
@@ -417,12 +418,12 @@ pub fn rln_witness_to_bytes_le(witness: &RLNWitnessInput) -> Result<Vec<u8>, Pro
             // - VERSION_BYTE_SIZE byte for version tag
             // - 4 field elements: identity_secret, user_message_limit, x, external_nullifier
             // - variable size of path_elements, identity_path_index, message_ids, selector_used
-            // - 8-byte length prefix per vector (path_elements, identity_path_index, message_ids, selector_used)
+            // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (path_elements, identity_path_index, message_ids, selector_used)
             let capacity = VERSION_BYTE_SIZE
                 + FR_BYTE_SIZE * (4 + path_elements.len() + message_ids.len())
                 + identity_path_index.len()
                 + selector_used.len()
-                + 8 * 4;
+                + VEC_LEN_BYTE_SIZE * 4;
             let mut bytes = Vec::with_capacity(capacity);
             bytes.push(SerializationVersion::MultiV1.into());
             bytes.extend_from_slice(&identity_secret.to_bytes_le());
@@ -454,11 +455,12 @@ pub fn rln_witness_to_bytes_be(witness: &RLNWitnessInput) -> Result<Vec<u8>, Pro
             // Calculate capacity for Vec:
             // - VERSION_BYTE_SIZE byte for version tag
             // - 5 field elements: identity_secret, user_message_limit, message_id, x, external_nullifier
-            // - variable size of path_elements and identity_path_index (each with 8-byte length prefix)
+            // - variable size of path_elements, identity_path_index
+            // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (path_elements, identity_path_index)
             let capacity = VERSION_BYTE_SIZE
                 + FR_BYTE_SIZE * (5 + path_elements.len())
                 + identity_path_index.len()
-                + 8 * 2;
+                + VEC_LEN_BYTE_SIZE * 2;
             let mut bytes = Vec::with_capacity(capacity);
             bytes.push(SerializationVersion::SingleV1.into());
             bytes.extend_from_slice(&identity_secret.to_bytes_be());
@@ -485,12 +487,12 @@ pub fn rln_witness_to_bytes_be(witness: &RLNWitnessInput) -> Result<Vec<u8>, Pro
             // - VERSION_BYTE_SIZE byte for version tag
             // - 4 field elements: identity_secret, user_message_limit, x, external_nullifier
             // - variable size of path_elements, identity_path_index, message_ids, selector_used
-            // - 8-byte length prefix per vector (path_elements, identity_path_index, message_ids, selector_used)
+            // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (path_elements, identity_path_index, message_ids, selector_used)
             let capacity = VERSION_BYTE_SIZE
                 + FR_BYTE_SIZE * (4 + path_elements.len() + message_ids.len())
                 + identity_path_index.len()
                 + selector_used.len()
-                + 8 * 4;
+                + VEC_LEN_BYTE_SIZE * 4;
             let mut bytes = Vec::with_capacity(capacity);
             bytes.push(SerializationVersion::MultiV1.into());
             bytes.extend_from_slice(&identity_secret.to_bytes_be());
