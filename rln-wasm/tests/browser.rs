@@ -78,11 +78,11 @@ mod test {
 
     #[cfg(feature = "multi-message-id")]
     const ARKZKEY_BYTES: &[u8] =
-        include_bytes!("../../rln/resources/tree_depth_20/multi_message_id/rln_final.arkzkey");
+        include_bytes!("../../rln/resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey");
 
     #[cfg(feature = "multi-message-id")]
     const CIRCOM_BYTES: &[u8] =
-        include_bytes!("../../rln/resources/tree_depth_20/multi_message_id/rln.wasm");
+        include_bytes!("../../rln/resources/tree_depth_20/multi_message_id/max_out_4/rln.wasm");
 
     wasm_bindgen_test_configure!(run_in_browser);
 

@@ -36,14 +36,14 @@ async function main() {
   const zkeyPath = MULTI_MESSAGE_ID
     ? join(
         __dirname,
-        "../../rln/resources/tree_depth_20/multi_message_id/rln_final.arkzkey",
+        "../../rln/resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey",
       )
     : join(__dirname, "../../rln/resources/tree_depth_20/rln_final.arkzkey");
 
   const circomPath = MULTI_MESSAGE_ID
     ? join(
         __dirname,
-        "../../rln/resources/tree_depth_20/multi_message_id/rln.wasm",
+        "../../rln/resources/tree_depth_20/multi_message_id/max_out_4/rln.wasm",
       )
     : join(__dirname, "../../rln/resources/tree_depth_20/rln.wasm");
 

@@ -12,7 +12,7 @@ int main(int argc, char const *const argv[])
     CResult_FFI_RLN_ptr_Vec_uint8_t ffi_rln_new_result = ffi_rln_new();
 #else
 #ifdef MULTI_MESSAGE_ID
-    const char *zkey_path = "../resources/tree_depth_20/multi_message_id/rln_final.arkzkey";
+    const char *zkey_path = "../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey";
     FILE *zkey_file = fopen(zkey_path, "rb");
     if (!zkey_file)
     {
@@ -40,7 +40,7 @@ int main(int argc, char const *const argv[])
         .len = zkey_size,
         .cap = zkey_size};
 
-    const char *graph_path = "../resources/tree_depth_20/multi_message_id/graph.bin";
+    const char *graph_path = "../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin";
     FILE *graph_file = fopen(graph_path, "rb");
     if (!graph_file)
     {
@@ -70,7 +70,7 @@ int main(int argc, char const *const argv[])
         .len = graph_size,
         .cap = graph_size};
 
-    const char *config_path = "../resources/tree_depth_20/multi_message_id/config.json";
+    const char *config_path = "../resources/tree_depth_20/multi_message_id/max_out_4/config.json";
     CResult_FFI_RLN_ptr_Vec_uint8_t ffi_rln_new_result = ffi_rln_new_with_params(20, &zkey_vec, &graph_vec, config_path);
 
     free(zkey_data);

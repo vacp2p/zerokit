@@ -378,7 +378,7 @@ when isMainModule:
     rlnRes = ffi_rln_new()
   else:
     when defined(ffiMultiMessageId):
-      let zkeyPath = "../resources/tree_depth_20/multi_message_id/rln_final.arkzkey"
+      let zkeyPath = "../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey"
       var zkeyFile = open(zkeyPath, fmRead)
       let zkeySize = zkeyFile.getFileSize()
       var zkeyData = newSeq[uint8](zkeySize)
@@ -387,7 +387,7 @@ when isMainModule:
 
       var zkeyVec = asVecU8(zkeyData)
 
-      let graphPath = "../resources/tree_depth_20/multi_message_id/graph.bin"
+      let graphPath = "../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin"
       var graphFile = open(graphPath, fmRead)
       let graphSize = graphFile.getFileSize()
       var graphData = newSeq[uint8](graphSize)
@@ -396,7 +396,7 @@ when isMainModule:
 
       var graphVec = asVecU8(graphData)
 
-      let config_path = """../resources/tree_depth_20/multi_message_id/config.json""".cstring
+      let config_path = """../resources/tree_depth_20/multi_message_id/max_out_4/config.json""".cstring
       rlnRes = ffi_rln_new_with_params(CSize(20), addr zkeyVec, addr graphVec, config_path)
     else:
       let config_path = """../resources/tree_depth_20/config.json""".cstring
