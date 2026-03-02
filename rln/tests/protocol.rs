@@ -715,7 +715,7 @@ mod test {
         }
 
         #[test]
-        fn test_cross_mode_witness_and_proof_values_compatibility_hardcoded() {
+        fn test_single_v1_witness_and_proof_values_deserialization_in_multi_message_id_build() {
             let witness_bytes_le: Vec<u8> = vec![
                 0, 0, 250, 172, 130, 183, 65, 46, 58, 75, 209, 157, 122, 161, 220, 32, 215, 212,
                 36, 74, 147, 200, 229, 106, 193, 160, 5, 72, 28, 50, 2, 76, 0, 10, 0, 0, 0, 0, 0,

@@ -12,7 +12,7 @@ use {
     },
 };
 
-#[cfg(all(feature = "multi-message-id", not(target_arch = "wasm32")))]
+#[cfg(not(target_arch = "wasm32"))]
 use crate::error::ProtocolError;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
@@ -585,13 +585,60 @@ impl RLN {
     /// ```
     #[cfg(not(target_arch = "wasm32"))]
     pub fn generate_zk_proof(&self, witness: &RLNWitnessInput) -> Result<Proof, RLNError> {
+        let (path_len, index_len) = match witness {
+            RLNWitnessInput::SingleV1 {
+                path_elements,
+                identity_path_index,
+                ..
+            } => (path_elements.len(), identity_path_index.len()),
+            #[cfg(feature = "multi-message-id")]
+            RLNWitnessInput::MultiV1 {
+                path_elements,
+                identity_path_index,
+                ..
+            } => (path_elements.len(), identity_path_index.len()),
+        };
+        let expected_depth = self.graph.tree_depth;
+        if path_len != expected_depth {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "path_elements".into(),
+                path_len,
+                "tree_depth".into(),
+                expected_depth,
+            )
+            .into());
+        }
+        if index_len != expected_depth {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "identity_path_index".into(),
+                index_len,
+                "tree_depth".into(),
+                expected_depth,
+            )
+            .into());
+        }
         #[cfg(feature = "multi-message-id")]
-        if let RLNWitnessInput::MultiV1 { message_ids, .. } = witness {
-            let actual = message_ids.len();
+        if let RLNWitnessInput::MultiV1 {
+            message_ids,
+            selector_used,
+            ..
+        } = witness
+        {
             let expected = self.graph.max_out;
+            let actual = message_ids.len();
             if actual != expected {
                 return Err(ProtocolError::FieldLengthMismatch(
                     "message_ids".into(),
+                    actual,
+                    "MAX_OUT".into(),
+                    expected,
+                )
+                .into());
+            }
+            let actual = selector_used.len();
+            if actual != expected {
+                return Err(ProtocolError::FieldLengthMismatch(
+                    "selector_used".into(),
                     actual,
                     "MAX_OUT".into(),
                     expected,
@@ -617,13 +664,60 @@ impl RLN {
         &self,
         witness: &RLNWitnessInput,
     ) -> Result<(Proof, RLNProofValues), RLNError> {
+        let (path_len, index_len) = match witness {
+            RLNWitnessInput::SingleV1 {
+                path_elements,
+                identity_path_index,
+                ..
+            } => (path_elements.len(), identity_path_index.len()),
+            #[cfg(feature = "multi-message-id")]
+            RLNWitnessInput::MultiV1 {
+                path_elements,
+                identity_path_index,
+                ..
+            } => (path_elements.len(), identity_path_index.len()),
+        };
+        let expected_depth = self.graph.tree_depth;
+        if path_len != expected_depth {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "path_elements".into(),
+                path_len,
+                "tree_depth".into(),
+                expected_depth,
+            )
+            .into());
+        }
+        if index_len != expected_depth {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "identity_path_index".into(),
+                index_len,
+                "tree_depth".into(),
+                expected_depth,
+            )
+            .into());
+        }
         #[cfg(feature = "multi-message-id")]
-        if let RLNWitnessInput::MultiV1 { message_ids, .. } = witness {
-            let actual = message_ids.len();
+        if let RLNWitnessInput::MultiV1 {
+            message_ids,
+            selector_used,
+            ..
+        } = witness
+        {
             let expected = self.graph.max_out;
+            let actual = message_ids.len();
             if actual != expected {
                 return Err(ProtocolError::FieldLengthMismatch(
                     "message_ids".into(),
+                    actual,
+                    "MAX_OUT".into(),
+                    expected,
+                )
+                .into());
+            }
+            let actual = selector_used.len();
+            if actual != expected {
+                return Err(ProtocolError::FieldLengthMismatch(
+                    "selector_used".into(),
                     actual,
                     "MAX_OUT".into(),
                     expected,
