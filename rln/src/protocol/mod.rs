@@ -3,7 +3,7 @@
 mod keygen;
 mod proof;
 mod slashing;
-pub mod version;
+mod version;
 mod witness;
 
 pub use keygen::{extended_keygen, extended_seeded_keygen, keygen, seeded_keygen};
