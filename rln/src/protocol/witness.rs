@@ -30,6 +30,7 @@ use crate::{
 /// and signal binding data required to generate a Groth16 proof for the RLN protocol.
 #[derive(Debug, PartialEq, Clone)]
 pub enum RLNWitnessInput {
+    #[cfg(not(feature = "multi-message-id"))]
     SingleV1 {
         // Private inputs:
         identity_secret: IdSecret,
@@ -62,13 +63,12 @@ impl RLNWitnessInput {
         identity_secret: IdSecret,
         user_message_limit: Fr,
         #[cfg(not(feature = "multi-message-id"))] message_id: Fr,
-        #[cfg(feature = "multi-message-id")] message_id: Option<Fr>,
-        #[cfg(feature = "multi-message-id")] message_ids: Option<Vec<Fr>>,
+        #[cfg(feature = "multi-message-id")] message_ids: Vec<Fr>,
         path_elements: Vec<Fr>,
         identity_path_index: Vec<u8>,
         x: Fr,
         external_nullifier: Fr,
-        #[cfg(feature = "multi-message-id")] selector_used: Option<Vec<bool>>,
+        #[cfg(feature = "multi-message-id")] selector_used: Vec<bool>,
     ) -> Result<Self, ProtocolError> {
         // User message limit check
         if user_message_limit == Fr::from(0) {
@@ -106,81 +106,59 @@ impl RLNWitnessInput {
         }
 
         #[cfg(feature = "multi-message-id")]
-        match (message_id, message_ids) {
-            (Some(message_id), None) => {
-                // Message ID range check
-                if message_id >= user_message_limit {
+        {
+            // Message IDs must be non-empty
+            if message_ids.is_empty() {
+                return Err(ProtocolError::EmptyMessageIds);
+            }
+            // Selector length must match message IDs
+            if selector_used.len() != message_ids.len() {
+                return Err(ProtocolError::FieldLengthMismatch(
+                    "message_ids".into(),
+                    message_ids.len(),
+                    "selector_used".into(),
+                    selector_used.len(),
+                ));
+            }
+            // At least one selector must be active
+            if !selector_used.iter().any(|&s| s) {
+                return Err(ProtocolError::NoActiveSelectorUsed);
+            }
+            // Active message IDs must be unique
+            {
+                let mut seen = HashSet::with_capacity(message_ids.len());
+                for (id, &used) in message_ids.iter().zip(&selector_used) {
+                    if used && !seen.insert(*id) {
+                        return Err(ProtocolError::DuplicateMessageIds);
+                    }
+                }
+            }
+            // Active message IDs must be within range
+            for (message_id, used) in message_ids.iter().zip(&selector_used) {
+                if *used && *message_id >= user_message_limit {
                     return Err(ProtocolError::InvalidMessageId(
-                        message_id,
+                        *message_id,
                         user_message_limit,
                     ));
                 }
-                Ok(Self::SingleV1 {
-                    identity_secret,
-                    user_message_limit,
-                    message_id,
-                    path_elements,
-                    identity_path_index,
-                    x,
-                    external_nullifier,
-                })
             }
-            (None, Some(message_ids)) => {
-                // Message IDs must be non-empty
-                if message_ids.is_empty() {
-                    return Err(ProtocolError::NoMessageIdSet);
-                }
-                let selector_used = selector_used.ok_or(ProtocolError::MissingSelectorUsed)?;
-                // Selector length must match message IDs
-                if selector_used.len() != message_ids.len() {
-                    return Err(ProtocolError::FieldLengthMismatch(
-                        "message_ids".into(),
-                        message_ids.len(),
-                        "selector_used".into(),
-                        selector_used.len(),
-                    ));
-                }
-                // At least one selector must be active
-                if !selector_used.iter().any(|&s| s) {
-                    return Err(ProtocolError::NoActiveSelectorUsed);
-                }
-                // Active message IDs must be unique
-                {
-                    let mut seen = HashSet::with_capacity(message_ids.len());
-                    for (id, &used) in message_ids.iter().zip(&selector_used) {
-                        if used && !seen.insert(*id) {
-                            return Err(ProtocolError::DuplicateMessageId);
-                        }
-                    }
-                }
-                // Active message IDs must be within range
-                for (message_id, used) in message_ids.iter().zip(&selector_used) {
-                    if *used && *message_id >= user_message_limit {
-                        return Err(ProtocolError::InvalidMessageId(
-                            *message_id,
-                            user_message_limit,
-                        ));
-                    }
-                }
-                Ok(Self::MultiV1 {
-                    identity_secret,
-                    user_message_limit,
-                    message_ids,
-                    selector_used,
-                    path_elements,
-                    identity_path_index,
-                    x,
-                    external_nullifier,
-                })
-            }
-            (Some(_), Some(_)) => Err(ProtocolError::BothMessageIdSet),
-            (None, None) => Err(ProtocolError::NoMessageIdSet),
+            Ok(Self::MultiV1 {
+                identity_secret,
+                user_message_limit,
+                message_ids,
+                selector_used,
+                path_elements,
+                identity_path_index,
+                x,
+                external_nullifier,
+            })
         }
     }
 
     /// Returns the identity secret.
     pub fn identity_secret(&self) -> &IdSecret {
         match self {
+            #[cfg(not(feature = "multi-message-id"))]
             Self::SingleV1 {
                 identity_secret, ..
             } => identity_secret,
@@ -194,6 +172,7 @@ impl RLNWitnessInput {
     /// Returns the user message limit.
     pub fn user_message_limit(&self) -> &Fr {
         match self {
+            #[cfg(not(feature = "multi-message-id"))]
             Self::SingleV1 {
                 user_message_limit, ..
             } => user_message_limit,
@@ -204,9 +183,26 @@ impl RLNWitnessInput {
         }
     }
 
+    /// Returns the message ID.
+    #[cfg(not(feature = "multi-message-id"))]
+    pub fn message_id(&self) -> &Fr {
+        match self {
+            Self::SingleV1 { message_id, .. } => message_id,
+        }
+    }
+
+    /// Returns the multi message IDs.
+    #[cfg(feature = "multi-message-id")]
+    pub fn message_ids(&self) -> &[Fr] {
+        match self {
+            Self::MultiV1 { message_ids, .. } => message_ids,
+        }
+    }
+
     /// Returns the Merkle path elements.
     pub fn path_elements(&self) -> &[Fr] {
         match self {
+            #[cfg(not(feature = "multi-message-id"))]
             Self::SingleV1 { path_elements, .. } => path_elements,
             #[cfg(feature = "multi-message-id")]
             Self::MultiV1 { path_elements, .. } => path_elements,
@@ -216,6 +212,7 @@ impl RLNWitnessInput {
     /// Returns the Merkle path indices.
     pub fn identity_path_index(&self) -> &[u8] {
         match self {
+            #[cfg(not(feature = "multi-message-id"))]
             Self::SingleV1 {
                 identity_path_index,
                 ..
@@ -231,6 +228,7 @@ impl RLNWitnessInput {
     /// Returns the signal hash.
     pub fn x(&self) -> &Fr {
         match self {
+            #[cfg(not(feature = "multi-message-id"))]
             Self::SingleV1 { x, .. } => x,
             #[cfg(feature = "multi-message-id")]
             Self::MultiV1 { x, .. } => x,
@@ -240,6 +238,7 @@ impl RLNWitnessInput {
     /// Returns the external nullifier.
     pub fn external_nullifier(&self) -> &Fr {
         match self {
+            #[cfg(not(feature = "multi-message-id"))]
             Self::SingleV1 {
                 external_nullifier, ..
             } => external_nullifier,
@@ -250,9 +249,18 @@ impl RLNWitnessInput {
         }
     }
 
+    /// Returns the selector flags.
+    #[cfg(feature = "multi-message-id")]
+    pub fn selector_used(&self) -> &[bool] {
+        match self {
+            Self::MultiV1 { selector_used, .. } => selector_used,
+        }
+    }
+
     /// Modifies the identity secret.
     pub fn modify_identity_secret(&mut self, new_identity_secret: IdSecret) {
         match self {
+            #[cfg(not(feature = "multi-message-id"))]
             Self::SingleV1 {
                 identity_secret, ..
             } => *identity_secret = new_identity_secret,
@@ -266,6 +274,7 @@ impl RLNWitnessInput {
     /// Modifies the user message limit.
     pub fn modify_user_message_limit(&mut self, new_user_message_limit: Fr) {
         match self {
+            #[cfg(not(feature = "multi-message-id"))]
             Self::SingleV1 {
                 user_message_limit, ..
             } => *user_message_limit = new_user_message_limit,
@@ -276,9 +285,26 @@ impl RLNWitnessInput {
         }
     }
 
+    /// Modifies the message ID.
+    #[cfg(not(feature = "multi-message-id"))]
+    pub fn modify_message_id(&mut self, new_message_id: Fr) {
+        match self {
+            Self::SingleV1 { message_id, .. } => *message_id = new_message_id,
+        }
+    }
+
+    /// Modifies the multi message IDs.
+    #[cfg(feature = "multi-message-id")]
+    pub fn modify_message_ids(&mut self, new_message_ids: Vec<Fr>) {
+        match self {
+            Self::MultiV1 { message_ids, .. } => *message_ids = new_message_ids,
+        }
+    }
+
     /// Modifies the Merkle path elements.
     pub fn modify_path_elements(&mut self, new_path_elements: Vec<Fr>) {
         match self {
+            #[cfg(not(feature = "multi-message-id"))]
             Self::SingleV1 { path_elements, .. } => *path_elements = new_path_elements,
             #[cfg(feature = "multi-message-id")]
             Self::MultiV1 { path_elements, .. } => *path_elements = new_path_elements,
@@ -288,6 +314,7 @@ impl RLNWitnessInput {
     /// Modifies the Merkle path indices.
     pub fn modify_identity_path_index(&mut self, new_identity_path_index: Vec<u8>) {
         match self {
+            #[cfg(not(feature = "multi-message-id"))]
             Self::SingleV1 {
                 identity_path_index,
                 ..
@@ -303,6 +330,7 @@ impl RLNWitnessInput {
     /// Modifies the signal hash.
     pub fn modify_x(&mut self, new_x: Fr) {
         match self {
+            #[cfg(not(feature = "multi-message-id"))]
             Self::SingleV1 { x, .. } => *x = new_x,
             #[cfg(feature = "multi-message-id")]
             Self::MultiV1 { x, .. } => *x = new_x,
@@ -312,6 +340,7 @@ impl RLNWitnessInput {
     /// Modifies the external nullifier.
     pub fn modify_external_nullifier(&mut self, new_external_nullifier: Fr) {
         match self {
+            #[cfg(not(feature = "multi-message-id"))]
             Self::SingleV1 {
                 external_nullifier, ..
             } => *external_nullifier = new_external_nullifier,
@@ -322,64 +351,10 @@ impl RLNWitnessInput {
         }
     }
 
-    /// Returns the message ID.
-    #[cfg(not(feature = "multi-message-id"))]
-    pub fn message_id(&self) -> &Fr {
-        match self {
-            Self::SingleV1 { message_id, .. } => message_id,
-        }
-    }
-
-    /// Returns the message ID, or `None` for `MultiV1`.
-    #[cfg(feature = "multi-message-id")]
-    pub fn message_id(&self) -> Option<&Fr> {
-        match self {
-            Self::SingleV1 { message_id, .. } => Some(message_id),
-            Self::MultiV1 { .. } => None,
-        }
-    }
-
-    /// Modifies the message ID. No-op for `MultiV1`.
-    pub fn modify_message_id(&mut self, new_message_id: Fr) {
-        match self {
-            Self::SingleV1 { message_id, .. } => *message_id = new_message_id,
-            #[cfg(feature = "multi-message-id")]
-            Self::MultiV1 { .. } => {}
-        }
-    }
-
-    /// Returns the multi message IDs, or `None` for `SingleV1`.
-    #[cfg(feature = "multi-message-id")]
-    pub fn message_ids(&self) -> Option<&[Fr]> {
-        match self {
-            Self::SingleV1 { .. } => None,
-            Self::MultiV1 { message_ids, .. } => Some(message_ids),
-        }
-    }
-
-    /// Modifies the multi message IDs. No-op for `SingleV1`.
-    #[cfg(feature = "multi-message-id")]
-    pub fn modify_message_ids(&mut self, new_message_ids: Vec<Fr>) {
-        match self {
-            Self::SingleV1 { .. } => {}
-            Self::MultiV1 { message_ids, .. } => *message_ids = new_message_ids,
-        }
-    }
-
-    /// Returns the selector flags, or `None` for `SingleV1`.
-    #[cfg(feature = "multi-message-id")]
-    pub fn selector_used(&self) -> Option<&[bool]> {
-        match self {
-            Self::SingleV1 { .. } => None,
-            Self::MultiV1 { selector_used, .. } => Some(selector_used),
-        }
-    }
-
-    /// Modifies the selector flags. No-op for `SingleV1`.
+    /// Modifies the selector flags.
     #[cfg(feature = "multi-message-id")]
     pub fn modify_selector_used(&mut self, new_selector_used: Vec<bool>) {
         match self {
-            Self::SingleV1 { .. } => {}
             Self::MultiV1 { selector_used, .. } => *selector_used = new_selector_used,
         }
     }
@@ -388,6 +363,7 @@ impl RLNWitnessInput {
 /// Serializes an RLN witness to little-endian bytes.
 pub fn rln_witness_to_bytes_le(witness: &RLNWitnessInput) -> Result<Vec<u8>, ProtocolError> {
     match witness {
+        #[cfg(not(feature = "multi-message-id"))]
         RLNWitnessInput::SingleV1 {
             identity_secret,
             user_message_limit,
@@ -455,6 +431,7 @@ pub fn rln_witness_to_bytes_le(witness: &RLNWitnessInput) -> Result<Vec<u8>, Pro
 /// Serializes an RLN witness to big-endian bytes.
 pub fn rln_witness_to_bytes_be(witness: &RLNWitnessInput) -> Result<Vec<u8>, ProtocolError> {
     match witness {
+        #[cfg(not(feature = "multi-message-id"))]
         RLNWitnessInput::SingleV1 {
             identity_secret,
             user_message_limit,
@@ -531,6 +508,7 @@ pub fn bytes_le_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
     let mut read: usize = VERSION_BYTE_SIZE;
 
     match version {
+        #[cfg(not(feature = "multi-message-id"))]
         SerializationVersion::SingleV1 => {
             let (identity_secret, el_size) = IdSecret::from_bytes_le(&bytes[read..])?;
             read += el_size;
@@ -547,7 +525,6 @@ pub fn bytes_le_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
             let (external_nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
             read += el_size;
 
-            #[cfg(not(feature = "multi-message-id"))]
             let witness = RLNWitnessInput::new(
                 identity_secret,
                 user_message_limit,
@@ -556,18 +533,6 @@ pub fn bytes_le_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
                 identity_path_index,
                 x,
                 external_nullifier,
-            )?;
-            #[cfg(feature = "multi-message-id")]
-            let witness = RLNWitnessInput::new(
-                identity_secret,
-                user_message_limit,
-                Some(message_id),
-                None,
-                path_elements,
-                identity_path_index,
-                x,
-                external_nullifier,
-                None,
             )?;
             if read != bytes.len() {
                 return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
@@ -609,13 +574,12 @@ pub fn bytes_le_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
                 RLNWitnessInput::new(
                     identity_secret,
                     user_message_limit,
-                    None,
-                    Some(message_ids),
+                    message_ids,
                     path_elements,
                     identity_path_index,
                     x,
                     external_nullifier,
-                    Some(selector_used),
+                    selector_used,
                 )?,
                 read,
             ))
@@ -635,6 +599,7 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
     let mut read: usize = VERSION_BYTE_SIZE;
 
     match version {
+        #[cfg(not(feature = "multi-message-id"))]
         SerializationVersion::SingleV1 => {
             let (identity_secret, el_size) = IdSecret::from_bytes_be(&bytes[read..])?;
             read += el_size;
@@ -651,7 +616,6 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
             let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
             read += el_size;
 
-            #[cfg(not(feature = "multi-message-id"))]
             let witness = RLNWitnessInput::new(
                 identity_secret,
                 user_message_limit,
@@ -660,18 +624,6 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
                 identity_path_index,
                 x,
                 external_nullifier,
-            )?;
-            #[cfg(feature = "multi-message-id")]
-            let witness = RLNWitnessInput::new(
-                identity_secret,
-                user_message_limit,
-                Some(message_id),
-                None,
-                path_elements,
-                identity_path_index,
-                x,
-                external_nullifier,
-                None,
             )?;
             if read != bytes.len() {
                 return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
@@ -713,13 +665,12 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
                 RLNWitnessInput::new(
                     identity_secret,
                     user_message_limit,
-                    None,
-                    Some(message_ids),
+                    message_ids,
                     path_elements,
                     identity_path_index,
                     x,
                     external_nullifier,
-                    Some(selector_used),
+                    selector_used,
                 )?,
                 read,
             ))
@@ -732,6 +683,7 @@ pub fn rln_witness_to_bigint_json(
     witness: &RLNWitnessInput,
 ) -> Result<serde_json::Value, ProtocolError> {
     match witness {
+        #[cfg(not(feature = "multi-message-id"))]
         RLNWitnessInput::SingleV1 {
             identity_secret,
             user_message_limit,
@@ -809,6 +761,7 @@ pub fn proof_values_from_witness(
     witness: &RLNWitnessInput,
 ) -> Result<RLNProofValues, ProtocolError> {
     match witness {
+        #[cfg(not(feature = "multi-message-id"))]
         RLNWitnessInput::SingleV1 {
             identity_secret,
             user_message_limit,
@@ -916,6 +869,7 @@ pub(super) fn inputs_for_witness_calculation(
     witness: &RLNWitnessInput,
 ) -> Result<Vec<(&str, Vec<FrOrSecret>)>, ProtocolError> {
     match witness {
+        #[cfg(not(feature = "multi-message-id"))]
         RLNWitnessInput::SingleV1 {
             identity_secret,
             user_message_limit,

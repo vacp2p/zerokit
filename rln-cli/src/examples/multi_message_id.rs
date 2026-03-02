@@ -71,7 +71,7 @@ impl RLNSystem {
     fn new() -> Result<Self> {
         let mut resources: Vec<Vec<u8>> = Vec::new();
         let resources_path: PathBuf =
-            format!("../rln/resources/tree_depth_{TREE_DEPTH}/multi_message_id").into();
+            format!("../rln/resources/tree_depth_{TREE_DEPTH}/multi_message_id/max_out_4").into();
         let filenames = ["rln_final.arkzkey", "graph.bin"];
         for filename in filenames {
             let fullpath = resources_path.join(Path::new(filename));
@@ -197,13 +197,12 @@ impl RLNSystem {
         let witness = RLNWitnessInput::new(
             identity.identity_secret.clone(),
             Fr::from(MESSAGE_LIMIT),
-            None,
-            Some(message_ids.clone()),
+            message_ids.clone(),
             path_elements,
             identity_path_index,
             x,
             external_nullifier,
-            Some(selector_used.clone()),
+            selector_used.clone(),
         )?;
 
         let (proof, proof_values) = self.rln.generate_rln_proof(&witness)?;
@@ -226,14 +225,8 @@ impl RLNSystem {
     }
 
     fn check_nullifiers(&mut self, proof_values: RLNProofValues) -> Result<()> {
-        let nullifiers: Vec<Fr> = match proof_values.nullifiers() {
-            Some(nullifiers) => nullifiers.to_vec(),
-            None => return Err("no nullifiers in proof values".into()),
-        };
-        let selector: Vec<bool> = match proof_values.selector_used() {
-            Some(selector) => selector.to_vec(),
-            None => return Err("no selector_used in proof values".into()),
-        };
+        let nullifiers: Vec<Fr> = proof_values.nullifiers().to_vec();
+        let selector: Vec<bool> = proof_values.selector_used().to_vec();
 
         for (i, (nullifier, active)) in nullifiers.iter().zip(selector.iter()).enumerate() {
             if !active {
@@ -301,7 +294,7 @@ fn main() -> Result<()> {
     let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]).unwrap();
     println!("RLN Multi-Message-ID Relay Example:");
     println!("Message Limit: {MESSAGE_LIMIT}");
-    println!("Message Slots: {}", rln_system.rln.max_out());
+    println!("Message Slots: {} - MAX_OUT", rln_system.rln.max_out());
     println!("----------------------------------");
     println!();
     show_commands();

@@ -77,8 +77,9 @@ mod test {
     const CIRCOM_BYTES: &[u8] = include_bytes!("../../rln/resources/tree_depth_20/rln.wasm");
 
     #[cfg(feature = "multi-message-id")]
-    const ARKZKEY_BYTES: &[u8] =
-        include_bytes!("../../rln/resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey");
+    const ARKZKEY_BYTES: &[u8] = include_bytes!(
+        "../../rln/resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey"
+    );
 
     #[cfg(feature = "multi-message-id")]
     const CIRCOM_BYTES: &[u8] =
@@ -183,13 +184,12 @@ mod test {
             WasmRLNWitnessInput::new(
                 &identity_secret,
                 &user_message_limit,
-                None,
-                Some(message_ids),
+                message_ids,
                 &path_elements,
                 &path_index,
                 &x,
                 &external_nullifier,
-                Some(selector_used),
+                selector_used,
             )
             .unwrap()
         };

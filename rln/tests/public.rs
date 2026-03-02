@@ -68,13 +68,12 @@ mod test {
             RLNWitnessInput::new(
                 identity_secret,
                 user_message_limit,
-                Some(message_id),
-                None,
+                vec![message_id, Fr::from(0), Fr::from(0), Fr::from(0)],
                 path_elements,
                 identity_path_index,
                 x,
                 external_nullifier,
-                None,
+                vec![true, false, false, false],
             )
         }
     }
@@ -111,6 +110,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(not(feature = "multi-message-id"))]
     fn test_groth16_proof_hardcoded() {
         #[cfg(not(feature = "stateless"))]
         let rln = RLN::new(DEFAULT_TREE_DEPTH, "").unwrap();
@@ -1405,7 +1405,7 @@ mod test {
             // Proof generation should fail due to depth mismatch between witness and circuit
             assert!(matches!(
                 proof_result.err().unwrap(),
-                RLNError::Protocol(ProtocolError::WitnessCalc(_))
+                RLNError::Protocol(ProtocolError::FieldLengthMismatch(_, _, _, _))
             ));
         }
     }
@@ -1435,55 +1435,20 @@ mod test {
             let x = hash_to_field_le(&rng.gen::<[u8; 32]>()).unwrap();
             let external_nullifier = hash_to_field_le(&rng.gen::<[u8; 32]>()).unwrap();
 
-            // Both message_id and message_ids set → BothMessageIdSet
+            // Empty message_ids → EmptyMessageIds
             assert!(matches!(
                 RLNWitnessInput::new(
                     identity_secret.clone(),
                     user_message_limit,
-                    Some(Fr::from(1)),
-                    Some(vec![Fr::from(0), Fr::from(1)]),
+                    vec![],
                     path_elements.clone(),
                     identity_path_index.clone(),
                     x,
                     external_nullifier,
-                    Some(vec![true, true]),
+                    vec![],
                 )
                 .unwrap_err(),
-                ProtocolError::BothMessageIdSet
-            ));
-
-            // Neither set → NoMessageIdSet
-            assert!(matches!(
-                RLNWitnessInput::new(
-                    identity_secret.clone(),
-                    user_message_limit,
-                    None,
-                    None,
-                    path_elements.clone(),
-                    identity_path_index.clone(),
-                    x,
-                    external_nullifier,
-                    None,
-                )
-                .unwrap_err(),
-                ProtocolError::NoMessageIdSet
-            ));
-
-            // Empty message_ids → NoMessageIdSet
-            assert!(matches!(
-                RLNWitnessInput::new(
-                    identity_secret.clone(),
-                    user_message_limit,
-                    None,
-                    Some(vec![]),
-                    path_elements.clone(),
-                    identity_path_index.clone(),
-                    x,
-                    external_nullifier,
-                    Some(vec![]),
-                )
-                .unwrap_err(),
-                ProtocolError::NoMessageIdSet
+                ProtocolError::EmptyMessageIds
             ));
 
             // Valid message_ids without selector_used → MissingSelectorUsed
@@ -1568,7 +1533,7 @@ mod test {
                 ProtocolError::ZeroUserMessageLimit
             ));
 
-            // Duplicate message_ids → DuplicateMessageId
+            // Duplicate message_ids → DuplicateMessageIds
             assert!(matches!(
                 RLNWitnessInput::new(
                     identity_secret.clone(),
@@ -1582,7 +1547,7 @@ mod test {
                     Some(vec![true, true, false, false]),
                 )
                 .unwrap_err(),
-                ProtocolError::DuplicateMessageId
+                ProtocolError::DuplicateMessageIds
             ));
 
             // Duplicate message_ids when inactive → OK (only active IDs are checked)
@@ -1661,28 +1626,20 @@ mod test {
             let witness = RLNWitnessInput::new(
                 identity_secret,
                 user_message_limit,
-                None,
-                Some(message_ids),
+                message_ids,
                 path_elements,
                 identity_path_index,
                 x,
                 external_nullifier,
-                Some(selector_used.clone()),
+                selector_used.clone(),
             )
             .unwrap();
 
             let (proof, proof_values) = rln.generate_rln_proof(&witness).unwrap();
 
-            // Verify proof values structure
-            assert!(proof_values.y().is_none());
-            assert!(proof_values.ys().is_some());
-            assert!(proof_values.nullifier().is_none());
-            assert!(proof_values.nullifiers().is_some());
-            assert!(proof_values.selector_used().is_some());
-
-            let ys = proof_values.ys().unwrap();
-            let nullifiers = proof_values.nullifiers().unwrap();
-            let selector = proof_values.selector_used().unwrap();
+            let ys = proof_values.ys();
+            let nullifiers = proof_values.nullifiers();
+            let selector = proof_values.selector_used();
             assert_eq!(ys.len(), 4);
             assert_eq!(nullifiers.len(), 4);
             assert_eq!(*selector, selector_used);
@@ -1737,26 +1694,24 @@ mod test {
             let witness1 = RLNWitnessInput::new(
                 identity_secret.clone(),
                 user_message_limit,
-                None,
-                Some(message_ids.clone()),
+                message_ids.clone(),
                 path_elements.clone(),
                 identity_path_index.clone(),
                 x1,
                 external_nullifier,
-                Some(selector_used.clone()),
+                selector_used.clone(),
             )
             .unwrap();
 
             let witness2 = RLNWitnessInput::new(
                 identity_secret.clone(),
                 user_message_limit,
-                None,
-                Some(message_ids),
+                message_ids,
                 path_elements.clone(),
                 identity_path_index.clone(),
                 x2,
                 external_nullifier,
-                Some(selector_used),
+                selector_used,
             )
             .unwrap();
 
@@ -1775,13 +1730,12 @@ mod test {
             let witness3 = RLNWitnessInput::new(
                 identity_secret_new,
                 user_message_limit,
-                None,
-                Some(vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)]),
+                vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)],
                 path_elements,
                 identity_path_index,
                 x3,
                 external_nullifier,
-                Some(vec![true, true, false, false]),
+                vec![true, true, false, false],
             )
             .unwrap();
 

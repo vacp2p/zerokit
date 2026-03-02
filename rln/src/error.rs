@@ -48,14 +48,11 @@ pub enum ProtocolError {
     #[error("Cannot recover secret: division by zero")]
     DivisionByZero,
     #[cfg(feature = "multi-message-id")]
-    #[error("Only one of message_id or message_ids may be set")]
-    BothMessageIdSet,
-    #[cfg(feature = "multi-message-id")]
-    #[error("One of message_id or message_ids must be set")]
-    NoMessageIdSet,
+    #[error("The field message_ids must contain at least one message_id")]
+    EmptyMessageIds,
     #[cfg(feature = "multi-message-id")]
     #[error("Duplicate message ID found in message_ids")]
-    DuplicateMessageId,
+    DuplicateMessageIds,
     #[cfg(feature = "multi-message-id")]
     #[error("The field selector_used is required when using multi-message-id")]
     MissingSelectorUsed,

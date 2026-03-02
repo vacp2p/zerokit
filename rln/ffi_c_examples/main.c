@@ -390,16 +390,14 @@ int main(int argc, char const *const argv[])
     printf("  - external_nullifier = %s\n", debug.ptr);
     ffi_c_string_free(debug);
 
-#ifdef MULTI_MESSAGE_ID
-    printf("\nCreating default message_id\n");
-#else
+#ifndef MULTI_MESSAGE_ID
     printf("\nCreating message_id\n");
-#endif
     CFr_t *message_id = ffi_uint_to_cfr(0);
 
     debug = ffi_cfr_debug(message_id);
     printf("  - message_id = %s\n", debug.ptr);
     ffi_c_string_free(debug);
+#endif
 
 #ifdef MULTI_MESSAGE_ID
     printf("\nCreating message_ids and selector_used (multi-message-id mode)\n");
@@ -442,7 +440,6 @@ int main(int argc, char const *const argv[])
         ffi_rln_witness_input_new(
             identity_secret,
             user_message_limit,
-            message_id,
             &message_ids,
             &path_elements,
             &identity_path_index,
@@ -474,7 +471,6 @@ int main(int argc, char const *const argv[])
         ffi_rln_witness_input_new(
             identity_secret,
             user_message_limit,
-            message_id,
             &message_ids,
             &merkle_proof->path_elements,
             &merkle_proof->path_index,
@@ -710,16 +706,14 @@ int main(int argc, char const *const argv[])
     printf("  - x2 = %s\n", debug.ptr);
     ffi_c_string_free(debug);
 
-#ifdef MULTI_MESSAGE_ID
-    printf("\nCreating default message_id2\n");
-#else
+#ifndef MULTI_MESSAGE_ID
     printf("\nCreating second message with the same id\n");
-#endif
     CFr_t *message_id2 = ffi_uint_to_cfr(0);
 
     debug = ffi_cfr_debug(message_id2);
     printf("  - message_id2 = %s\n", debug.ptr);
     ffi_c_string_free(debug);
+#endif
 
 #ifdef MULTI_MESSAGE_ID
     printf("\nCreating message_ids2 and selector_used2 (multi-message-id mode)\n");
@@ -766,7 +760,6 @@ int main(int argc, char const *const argv[])
         ffi_rln_witness_input_new(
             identity_secret,
             user_message_limit,
-            message_id2,
             &message_ids2,
             &path_elements,
             &identity_path_index,
@@ -798,7 +791,6 @@ int main(int argc, char const *const argv[])
         ffi_rln_witness_input_new(
             identity_secret,
             user_message_limit,
-            message_id2,
             &message_ids2,
             &merkle_proof->path_elements,
             &merkle_proof->path_index,
@@ -887,7 +879,9 @@ int main(int argc, char const *const argv[])
     ffi_rln_proof_values_free(proof_values2);
     ffi_rln_proof_values_free(proof_values);
     ffi_cfr_free(x2);
+#ifndef MULTI_MESSAGE_ID
     ffi_cfr_free(message_id2);
+#endif
 
 #ifdef STATELESS
     ffi_rln_witness_input_free(witness2);
@@ -919,7 +913,9 @@ int main(int argc, char const *const argv[])
     ffi_cfr_free(rln_identifier);
     ffi_cfr_free(external_nullifier);
     ffi_cfr_free(user_message_limit);
+#ifndef MULTI_MESSAGE_ID
     ffi_cfr_free(message_id);
+#endif
     ffi_vec_cfr_free(keys);
     ffi_rln_free(rln);
 

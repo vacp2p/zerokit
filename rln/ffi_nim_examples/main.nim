@@ -197,7 +197,6 @@ when defined(ffiMultiMessageId):
   proc ffi_rln_witness_input_new*(
     identity_secret: ptr CFr,
     user_message_limit: ptr CFr,
-    message_id: ptr CFr,
     message_ids: ptr Vec_CFr,
     path_elements: ptr Vec_CFr,
     identity_path_index: ptr Vec_uint8,
@@ -700,16 +699,14 @@ when isMainModule:
     echo "  - external_nullifier = ", asString(debug)
     ffi_c_string_free(debug)
 
-  when defined(ffiMultiMessageId):
-    echo "\nCreating default message_id"
-  else:
+  when not defined(ffiMultiMessageId):
     echo "\nCreating message_id"
-  let messageId = ffi_uint_to_cfr(0'u32)
+    let messageId = ffi_uint_to_cfr(0'u32)
 
-  block:
-    let debug = ffi_cfr_debug(messageId)
-    echo "  - message_id = ", asString(debug)
-    ffi_c_string_free(debug)
+    block:
+      let debug = ffi_cfr_debug(messageId)
+      echo "  - message_id = ", asString(debug)
+      ffi_c_string_free(debug)
 
   when defined(ffiMultiMessageId):
     echo "\nCreating message_ids and selector_used (multi-message-id mode)"
@@ -740,7 +737,7 @@ when isMainModule:
   when defined(ffiStateless):
     when defined(ffiMultiMessageId):
       var witnessRes = ffi_rln_witness_input_new(identitySecret,
-          userMessageLimit, messageId, addr messageIds, addr pathElements,
+          userMessageLimit, addr messageIds, addr pathElements,
           addr identityPathIndex, x, externalNullifier, addr selectorUsed)
     else:
       var witnessRes = ffi_rln_witness_input_new(identitySecret,
@@ -756,7 +753,7 @@ when isMainModule:
   else:
     when defined(ffiMultiMessageId):
       var witnessRes = ffi_rln_witness_input_new(identitySecret,
-          userMessageLimit, messageId, addr messageIds,
+          userMessageLimit, addr messageIds,
           addr merkleProof.path_elements, addr merkleProof.path_index, x,
           externalNullifier, addr selectorUsed)
     else:
@@ -971,16 +968,14 @@ when isMainModule:
     echo "  - x2 = ", asString(debug)
     ffi_c_string_free(debug)
 
-  when defined(ffiMultiMessageId):
-    echo "\nCreating default message_id2"
-  else:
+  when not defined(ffiMultiMessageId):
     echo "\nCreating second message with the same id"
-  let messageId2 = ffi_uint_to_cfr(0'u32)
+    let messageId2 = ffi_uint_to_cfr(0'u32)
 
-  block:
-    let debug = ffi_cfr_debug(messageId2)
-    echo "  - message_id2 = ", asString(debug)
-    ffi_c_string_free(debug)
+    block:
+      let debug = ffi_cfr_debug(messageId2)
+      echo "  - message_id2 = ", asString(debug)
+      ffi_c_string_free(debug)
 
   when defined(ffiMultiMessageId):
     echo "\nCreating message_ids2 and selector_used2 (multi-message-id mode)"
@@ -1013,7 +1008,7 @@ when isMainModule:
   when defined(ffiStateless):
     when defined(ffiMultiMessageId):
       var witnessRes2 = ffi_rln_witness_input_new(identitySecret,
-          userMessageLimit, messageId2, addr messageIds2, addr pathElements,
+          userMessageLimit, addr messageIds2, addr pathElements,
           addr identityPathIndex, x2, externalNullifier, addr selectorUsed2)
     else:
       var witnessRes2 = ffi_rln_witness_input_new(identitySecret,
@@ -1030,7 +1025,7 @@ when isMainModule:
   else:
     when defined(ffiMultiMessageId):
       var witnessRes2 = ffi_rln_witness_input_new(identitySecret,
-          userMessageLimit, messageId2, addr messageIds2,
+          userMessageLimit, addr messageIds2,
           addr merkleProof.path_elements, addr merkleProof.path_index, x2,
           externalNullifier, addr selectorUsed2)
     else:
@@ -1098,7 +1093,8 @@ when isMainModule:
   ffi_rln_proof_values_free(proofValues)
   ffi_rln_proof_free(proof2)
   ffi_cfr_free(x2)
-  ffi_cfr_free(messageId2)
+  when not defined(ffiMultiMessageId):
+    ffi_cfr_free(messageId2)
 
   when defined(ffiStateless):
     ffi_rln_witness_input_free(witness2)
@@ -1124,6 +1120,7 @@ when isMainModule:
   ffi_cfr_free(rlnIdentifier)
   ffi_cfr_free(externalNullifier)
   ffi_cfr_free(userMessageLimit)
-  ffi_cfr_free(messageId)
+  when not defined(ffiMultiMessageId):
+    ffi_cfr_free(messageId)
   ffi_vec_cfr_free(keys)
   ffi_rln_free(rln)

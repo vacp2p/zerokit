@@ -586,6 +586,7 @@ impl RLN {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn generate_zk_proof(&self, witness: &RLNWitnessInput) -> Result<Proof, RLNError> {
         let (path_len, index_len) = match witness {
+            #[cfg(not(feature = "multi-message-id"))]
             RLNWitnessInput::SingleV1 {
                 path_elements,
                 identity_path_index,
@@ -618,12 +619,12 @@ impl RLN {
             .into());
         }
         #[cfg(feature = "multi-message-id")]
-        if let RLNWitnessInput::MultiV1 {
-            message_ids,
-            selector_used,
-            ..
-        } = witness
         {
+            let RLNWitnessInput::MultiV1 {
+                message_ids,
+                selector_used,
+                ..
+            } = witness;
             let expected = self.graph.max_out;
             let actual = message_ids.len();
             if actual != expected {
@@ -665,6 +666,7 @@ impl RLN {
         witness: &RLNWitnessInput,
     ) -> Result<(Proof, RLNProofValues), RLNError> {
         let (path_len, index_len) = match witness {
+            #[cfg(not(feature = "multi-message-id"))]
             RLNWitnessInput::SingleV1 {
                 path_elements,
                 identity_path_index,
@@ -697,12 +699,12 @@ impl RLN {
             .into());
         }
         #[cfg(feature = "multi-message-id")]
-        if let RLNWitnessInput::MultiV1 {
-            message_ids,
-            selector_used,
-            ..
-        } = witness
         {
+            let RLNWitnessInput::MultiV1 {
+                message_ids,
+                selector_used,
+                ..
+            } = witness;
             let expected = self.graph.max_out;
             let actual = message_ids.len();
             if actual != expected {

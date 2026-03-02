@@ -110,18 +110,23 @@ mod test {
         };
         #[cfg(feature = "multi-message-id")]
         let witness = {
-            let empty_message_ids: repr_c::Vec<CFr> = Vec::new().into();
-            let empty_selector_used: repr_c::Vec<bool> = Vec::new().into();
+            let message_ids: repr_c::Vec<CFr> = vec![
+                *message_id,
+                CFr::from(Fr::from(0u32)),
+                CFr::from(Fr::from(0u32)),
+                CFr::from(Fr::from(0u32)),
+            ]
+            .into();
+            let selector_used: repr_c::Vec<bool> = vec![true, false, false, false].into();
             match ffi_rln_witness_input_new(
                 identity_secret,
                 user_message_limit,
-                message_id,
-                &empty_message_ids,
+                &message_ids,
                 &merkle_proof.path_elements,
                 &merkle_proof.path_index,
                 x,
                 external_nullifier,
-                &empty_selector_used,
+                &selector_used,
             ) {
                 CResult {
                     ok: Some(witness),

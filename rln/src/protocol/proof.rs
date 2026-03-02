@@ -39,6 +39,7 @@ pub struct RLNProof {
 /// and identity secret recovery when rate limit violations are detected.
 #[derive(Debug, PartialEq, Clone)]
 pub enum RLNProofValues {
+    #[cfg(not(feature = "multi-message-id"))]
     SingleV1 {
         // Public inputs:
         root: Fr,
@@ -65,6 +66,7 @@ impl RLNProofValues {
     /// Returns the version byte corresponding to the proof values variant.
     pub fn version_byte(&self) -> u8 {
         match self {
+            #[cfg(not(feature = "multi-message-id"))]
             Self::SingleV1 { .. } => SerializationVersion::SingleV1.into(),
             #[cfg(feature = "multi-message-id")]
             Self::MultiV1 { .. } => SerializationVersion::MultiV1.into(),
@@ -74,24 +76,17 @@ impl RLNProofValues {
     /// Returns the Merkle tree root.
     pub fn root(&self) -> &Fr {
         match self {
+            #[cfg(not(feature = "multi-message-id"))]
             Self::SingleV1 { root, .. } => root,
             #[cfg(feature = "multi-message-id")]
             Self::MultiV1 { root, .. } => root,
         }
     }
 
-    /// Modifies the Merkle tree root.
-    pub fn modify_root(&mut self, new_root: Fr) {
-        match self {
-            Self::SingleV1 { root, .. } => *root = new_root,
-            #[cfg(feature = "multi-message-id")]
-            Self::MultiV1 { root, .. } => *root = new_root,
-        }
-    }
-
     /// Returns the signal hash.
     pub fn x(&self) -> &Fr {
         match self {
+            #[cfg(not(feature = "multi-message-id"))]
             Self::SingleV1 { x, .. } => x,
             #[cfg(feature = "multi-message-id")]
             Self::MultiV1 { x, .. } => x,
@@ -101,6 +96,7 @@ impl RLNProofValues {
     /// Returns the external nullifier.
     pub fn external_nullifier(&self) -> &Fr {
         match self {
+            #[cfg(not(feature = "multi-message-id"))]
             Self::SingleV1 {
                 external_nullifier, ..
             } => external_nullifier,
@@ -108,28 +104,6 @@ impl RLNProofValues {
             Self::MultiV1 {
                 external_nullifier, ..
             } => external_nullifier,
-        }
-    }
-
-    /// Modifies the external nullifier.
-    pub fn modify_external_nullifier(&mut self, new_external_nullifier: Fr) {
-        match self {
-            Self::SingleV1 {
-                external_nullifier, ..
-            } => *external_nullifier = new_external_nullifier,
-            #[cfg(feature = "multi-message-id")]
-            Self::MultiV1 {
-                external_nullifier, ..
-            } => *external_nullifier = new_external_nullifier,
-        }
-    }
-
-    /// Modifies the signal hash.
-    pub fn modify_x(&mut self, new_x: Fr) {
-        match self {
-            Self::SingleV1 { x, .. } => *x = new_x,
-            #[cfg(feature = "multi-message-id")]
-            Self::MultiV1 { x, .. } => *x = new_x,
         }
     }
 
@@ -141,16 +115,6 @@ impl RLNProofValues {
         }
     }
 
-    /// Returns the output `y` value, or `None` for `MultiV1`.
-    #[cfg(feature = "multi-message-id")]
-    pub fn y(&self) -> Option<&Fr> {
-        match self {
-            Self::SingleV1 { y, .. } => Some(y),
-            #[cfg(feature = "multi-message-id")]
-            Self::MultiV1 { .. } => None,
-        }
-    }
-
     /// Returns the nullifier value.
     #[cfg(not(feature = "multi-message-id"))]
     pub fn nullifier(&self) -> &Fr {
@@ -159,85 +123,101 @@ impl RLNProofValues {
         }
     }
 
-    /// Returns the nullifier, or `None` for `MultiV1`.
+    /// Returns the selector flags.
     #[cfg(feature = "multi-message-id")]
-    pub fn nullifier(&self) -> Option<&Fr> {
+    pub fn selector_used(&self) -> &[bool] {
         match self {
-            Self::SingleV1 { nullifier, .. } => Some(nullifier),
-            #[cfg(feature = "multi-message-id")]
-            Self::MultiV1 { .. } => None,
+            Self::MultiV1 { selector_used, .. } => selector_used,
         }
     }
 
-    /// Modifies the nullifier value. No-op for `MultiV1`.
-    pub fn modify_nullifier(&mut self, new_nullifier: Fr) {
+    /// Returns the per-message-id output `y` values.
+    #[cfg(feature = "multi-message-id")]
+    pub fn ys(&self) -> &[Fr] {
         match self {
-            Self::SingleV1 { nullifier, .. } => *nullifier = new_nullifier,
-            #[cfg(feature = "multi-message-id")]
-            Self::MultiV1 { .. } => {}
+            Self::MultiV1 { ys, .. } => ys,
         }
     }
 
-    /// Modifies the output `y` value. No-op for `MultiV1`.
+    /// Returns the per-message-id nullifiers.
+    #[cfg(feature = "multi-message-id")]
+    pub fn nullifiers(&self) -> &[Fr] {
+        match self {
+            Self::MultiV1 { nullifiers, .. } => nullifiers,
+        }
+    }
+
+    /// Modifies the Merkle tree root.
+    pub fn modify_root(&mut self, new_root: Fr) {
+        match self {
+            #[cfg(not(feature = "multi-message-id"))]
+            Self::SingleV1 { root, .. } => *root = new_root,
+            #[cfg(feature = "multi-message-id")]
+            Self::MultiV1 { root, .. } => *root = new_root,
+        }
+    }
+
+    /// Modifies the signal hash.
+    pub fn modify_x(&mut self, new_x: Fr) {
+        match self {
+            #[cfg(not(feature = "multi-message-id"))]
+            Self::SingleV1 { x, .. } => *x = new_x,
+            #[cfg(feature = "multi-message-id")]
+            Self::MultiV1 { x, .. } => *x = new_x,
+        }
+    }
+
+    /// Modifies the external nullifier.
+    pub fn modify_external_nullifier(&mut self, new_external_nullifier: Fr) {
+        match self {
+            #[cfg(not(feature = "multi-message-id"))]
+            Self::SingleV1 {
+                external_nullifier, ..
+            } => *external_nullifier = new_external_nullifier,
+            #[cfg(feature = "multi-message-id")]
+            Self::MultiV1 {
+                external_nullifier, ..
+            } => *external_nullifier = new_external_nullifier,
+        }
+    }
+
+    /// Modifies the output `y` value.
+    #[cfg(not(feature = "multi-message-id"))]
     pub fn modify_y(&mut self, new_y: Fr) {
         match self {
             Self::SingleV1 { y, .. } => *y = new_y,
-            #[cfg(feature = "multi-message-id")]
-            Self::MultiV1 { .. } => {}
         }
     }
 
-    /// Modifies the per-message-id output `y` values. No-op for `SingleV1`.
-    #[cfg(feature = "multi-message-id")]
-    pub fn modify_ys(&mut self, new_ys: Vec<Fr>) {
+    /// Modifies the nullifier value.
+    #[cfg(not(feature = "multi-message-id"))]
+    pub fn modify_nullifier(&mut self, new_nullifier: Fr) {
         match self {
-            Self::SingleV1 { .. } => {}
-            Self::MultiV1 { ys, .. } => *ys = new_ys,
+            Self::SingleV1 { nullifier, .. } => *nullifier = new_nullifier,
         }
     }
 
-    /// Modifies the per-message-id nullifiers. No-op for `SingleV1`.
-    #[cfg(feature = "multi-message-id")]
-    pub fn modify_nullifiers(&mut self, new_nullifiers: Vec<Fr>) {
-        match self {
-            Self::SingleV1 { .. } => {}
-            Self::MultiV1 { nullifiers, .. } => *nullifiers = new_nullifiers,
-        }
-    }
-
-    /// Modifies the selector flags. No-op for `SingleV1`.
+    /// Modifies the selector flags.
     #[cfg(feature = "multi-message-id")]
     pub fn modify_selector_used(&mut self, new_selector_used: Vec<bool>) {
         match self {
-            Self::SingleV1 { .. } => {}
             Self::MultiV1 { selector_used, .. } => *selector_used = new_selector_used,
         }
     }
 
-    /// Returns the per-message-id output `y` values, or `None` for `SingleV1`.
+    /// Modifies the per-message-id output `y` values.
     #[cfg(feature = "multi-message-id")]
-    pub fn ys(&self) -> Option<&[Fr]> {
+    pub fn modify_ys(&mut self, new_ys: Vec<Fr>) {
         match self {
-            Self::SingleV1 { .. } => None,
-            Self::MultiV1 { ys, .. } => Some(ys),
+            Self::MultiV1 { ys, .. } => *ys = new_ys,
         }
     }
 
-    /// Returns the per-message-id nullifiers, or `None` for `SingleV1`.
+    /// Modifies the per-message-id nullifiers.
     #[cfg(feature = "multi-message-id")]
-    pub fn nullifiers(&self) -> Option<&[Fr]> {
+    pub fn modify_nullifiers(&mut self, new_nullifiers: Vec<Fr>) {
         match self {
-            Self::SingleV1 { .. } => None,
-            Self::MultiV1 { nullifiers, .. } => Some(nullifiers),
-        }
-    }
-
-    /// Returns the selector flags, or `None` for `SingleV1`.
-    #[cfg(feature = "multi-message-id")]
-    pub fn selector_used(&self) -> Option<&[bool]> {
-        match self {
-            Self::SingleV1 { .. } => None,
-            Self::MultiV1 { selector_used, .. } => Some(selector_used),
+            Self::MultiV1 { nullifiers, .. } => *nullifiers = new_nullifiers,
         }
     }
 }
@@ -245,6 +225,7 @@ impl RLNProofValues {
 /// Serializes RLN proof values to little-endian bytes.
 pub fn rln_proof_values_to_bytes_le(rln_proof_values: &RLNProofValues) -> Vec<u8> {
     match rln_proof_values {
+        #[cfg(not(feature = "multi-message-id"))]
         RLNProofValues::SingleV1 {
             root,
             x,
@@ -301,6 +282,7 @@ pub fn rln_proof_values_to_bytes_le(rln_proof_values: &RLNProofValues) -> Vec<u8
 /// Serializes RLN proof values to big-endian bytes.
 pub fn rln_proof_values_to_bytes_be(rln_proof_values: &RLNProofValues) -> Vec<u8> {
     match rln_proof_values {
+        #[cfg(not(feature = "multi-message-id"))]
         RLNProofValues::SingleV1 {
             root,
             x,
@@ -368,6 +350,7 @@ pub fn bytes_le_to_rln_proof_values(
     let mut read: usize = VERSION_BYTE_SIZE;
 
     match version {
+        #[cfg(not(feature = "multi-message-id"))]
         SerializationVersion::SingleV1 => {
             let (root, el_size) = bytes_le_to_fr(&bytes[read..])?;
             read += el_size;
@@ -458,6 +441,7 @@ pub fn bytes_be_to_rln_proof_values(
     let mut read: usize = VERSION_BYTE_SIZE;
 
     match version {
+        #[cfg(not(feature = "multi-message-id"))]
         SerializationVersion::SingleV1 => {
             let (root, el_size) = bytes_be_to_fr(&bytes[read..])?;
             read += el_size;
@@ -746,6 +730,7 @@ pub fn verify_zk_proof(
 ) -> Result<bool, ProtocolError> {
     // We re-arrange proof-values according to the circuit specification
     let inputs = match proof_values {
+        #[cfg(not(feature = "multi-message-id"))]
         RLNProofValues::SingleV1 {
             y,
             root,

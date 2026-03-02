@@ -28,6 +28,7 @@ pub enum SerializationVersion {
     ///   serialized into a fixed 128-byte canonical form in little-endian format (arkworks behavior).
     ///
     /// Spec: <https://lip.logos.co/ift-ts/raw/rln-v2>
+    #[cfg(not(feature = "multi-message-id"))]
     SingleV1 = 0x00,
 
     /// Multi message-id format (RLN v2 extension).
@@ -67,6 +68,7 @@ impl TryFrom<u8> for SerializationVersion {
 
     fn try_from(byte: u8) -> Result<Self, Self::Error> {
         match byte {
+            #[cfg(not(feature = "multi-message-id"))]
             0x00 => Ok(Self::SingleV1),
             #[cfg(feature = "multi-message-id")]
             0x01 => Ok(Self::MultiV1),
