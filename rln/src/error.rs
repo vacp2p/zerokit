@@ -63,8 +63,8 @@ pub enum ProtocolError {
     #[error("At least one selector_used value must be true")]
     NoActiveSelectorUsed,
     #[cfg(feature = "multi-message-id")]
-    #[error("Multi-output vector length mismatch: expected {expected}, got {actual}")]
-    MultiOutputLengthMismatch { expected: usize, actual: usize },
+    #[error("The field {0} has length {1}, but the field {2} has length {3}")]
+    FieldLengthMismatch(String, usize, String, usize),
     #[error("No IdSecret could be recovered from the provided proof values")]
     IdSecretRecovery,
     #[error("Merkle tree operation error: {0}")]

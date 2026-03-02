@@ -12,6 +12,8 @@ use {
     },
 };
 
+#[cfg(all(feature = "multi-message-id", not(target_arch = "wasm32")))]
+use crate::error::ProtocolError;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
     circuit::{graph_from_folder, graph_from_raw, zkey_from_folder, Graph},
@@ -583,6 +585,20 @@ impl RLN {
     /// ```
     #[cfg(not(target_arch = "wasm32"))]
     pub fn generate_zk_proof(&self, witness: &RLNWitnessInput) -> Result<Proof, RLNError> {
+        #[cfg(feature = "multi-message-id")]
+        if let RLNWitnessInput::MultiV1 { message_ids, .. } = witness {
+            let actual = message_ids.len();
+            let expected = self.graph.max_out;
+            if actual != expected {
+                return Err(ProtocolError::FieldLengthMismatch(
+                    "message_ids".into(),
+                    actual,
+                    "MAX_OUT".into(),
+                    expected,
+                )
+                .into());
+            }
+        }
         let proof = generate_zk_proof(&self.zkey, witness, &self.graph)?;
         Ok(proof)
     }
@@ -601,6 +617,20 @@ impl RLN {
         &self,
         witness: &RLNWitnessInput,
     ) -> Result<(Proof, RLNProofValues), RLNError> {
+        #[cfg(feature = "multi-message-id")]
+        if let RLNWitnessInput::MultiV1 { message_ids, .. } = witness {
+            let actual = message_ids.len();
+            let expected = self.graph.max_out;
+            if actual != expected {
+                return Err(ProtocolError::FieldLengthMismatch(
+                    "message_ids".into(),
+                    actual,
+                    "MAX_OUT".into(),
+                    expected,
+                )
+                .into());
+            }
+        }
         let proof_values = proof_values_from_witness(witness)?;
         let proof = generate_zk_proof(&self.zkey, witness, &self.graph)?;
         Ok((proof, proof_values))

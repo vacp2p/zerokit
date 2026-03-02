@@ -133,10 +133,12 @@ impl RLNWitnessInput {
                 let selector_used = selector_used.ok_or(ProtocolError::MissingSelectorUsed)?;
                 // Selector length must match message IDs
                 if selector_used.len() != message_ids.len() {
-                    return Err(ProtocolError::MultiOutputLengthMismatch {
-                        expected: message_ids.len(),
-                        actual: selector_used.len(),
-                    });
+                    return Err(ProtocolError::FieldLengthMismatch(
+                        "message_ids".into(),
+                        message_ids.len(),
+                        "selector_used".into(),
+                        selector_used.len(),
+                    ));
                 }
                 // At least one selector must be active
                 if !selector_used.iter().any(|&s| s) {
@@ -592,10 +594,12 @@ pub fn bytes_le_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
             read += el_size;
 
             if selector_used.len() != message_ids.len() {
-                return Err(ProtocolError::MultiOutputLengthMismatch {
-                    expected: message_ids.len(),
-                    actual: selector_used.len(),
-                });
+                return Err(ProtocolError::FieldLengthMismatch(
+                    "message_ids".into(),
+                    message_ids.len(),
+                    "selector_used".into(),
+                    selector_used.len(),
+                ));
             }
             if read != bytes.len() {
                 return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
@@ -694,10 +698,12 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
             read += el_size;
 
             if selector_used.len() != message_ids.len() {
-                return Err(ProtocolError::MultiOutputLengthMismatch {
-                    expected: message_ids.len(),
-                    actual: selector_used.len(),
-                });
+                return Err(ProtocolError::FieldLengthMismatch(
+                    "message_ids".into(),
+                    message_ids.len(),
+                    "selector_used".into(),
+                    selector_used.len(),
+                ));
             }
             if read != bytes.len() {
                 return Err(ProtocolError::InvalidReadLen(read, bytes.len()));

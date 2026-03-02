@@ -1503,7 +1503,7 @@ mod test {
                 ProtocolError::MissingSelectorUsed
             ));
 
-            // Mismatched selector_used length to message_ids length → MultiOutputLengthMismatch
+            // Mismatched selector_used length to message_ids length → FieldLengthMismatch
             assert!(matches!(
                 RLNWitnessInput::new(
                     identity_secret.clone(),
@@ -1517,7 +1517,7 @@ mod test {
                     Some(vec![true]),
                 )
                 .unwrap_err(),
-                ProtocolError::MultiOutputLengthMismatch { .. }
+                ProtocolError::FieldLengthMismatch(..)
             ));
 
             // Active message_id >= limit → InvalidMessageId
