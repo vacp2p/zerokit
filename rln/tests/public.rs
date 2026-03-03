@@ -1769,7 +1769,8 @@ mod test {
                 include_bytes!("../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin")
                     .to_vec();
 
-            let rln = RLN::new_with_params(DEFAULT_TREE_DEPTH, 4, zkey_data, graph_data, "").unwrap();
+            let rln =
+                RLN::new_with_params(DEFAULT_TREE_DEPTH, 4, zkey_data, graph_data, "").unwrap();
 
             let mut rng = thread_rng();
             let (identity_secret, _) = keygen().unwrap();
@@ -1834,7 +1835,8 @@ mod test {
                 include_bytes!("../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin")
                     .to_vec();
 
-            let rln = RLN::new_with_params(DEFAULT_TREE_DEPTH, 4, zkey_data, graph_data, "").unwrap();
+            let rln =
+                RLN::new_with_params(DEFAULT_TREE_DEPTH, 4, zkey_data, graph_data, "").unwrap();
 
             let mut rng = thread_rng();
             let (identity_secret, _) = keygen().unwrap();
