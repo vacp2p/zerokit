@@ -244,37 +244,6 @@ when defined(ffiMultiMessageId):
   proc ffi_rln_witness_input_get_selector_used*(witness: ptr ptr FFI_RLNWitnessInput): Vec_bool {.importc: "ffi_rln_witness_input_get_selector_used",
       cdecl, dynlib: RLN_LIB.}
 
-proc ffi_rln_witness_input_modify_identity_secret*(witness: ptr ptr FFI_RLNWitnessInput,
-    identity_secret: ptr CFr) {.importc: "ffi_rln_witness_input_modify_identity_secret",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_witness_input_modify_user_message_limit*(witness: ptr ptr FFI_RLNWitnessInput,
-    user_message_limit: ptr CFr) {.importc: "ffi_rln_witness_input_modify_user_message_limit",
-    cdecl, dynlib: RLN_LIB.}
-when defined(ffiMultiMessageId):
-  proc ffi_rln_witness_input_modify_message_ids*(witness: ptr ptr FFI_RLNWitnessInput,
-      message_ids: ptr Vec_CFr) {.importc: "ffi_rln_witness_input_modify_message_ids",
-      cdecl, dynlib: RLN_LIB.}
-else:
-  proc ffi_rln_witness_input_modify_message_id*(witness: ptr ptr FFI_RLNWitnessInput,
-      message_id: ptr CFr) {.importc: "ffi_rln_witness_input_modify_message_id",
-      cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_witness_input_modify_path_elements*(witness: ptr ptr FFI_RLNWitnessInput,
-    path_elements: ptr Vec_CFr) {.importc: "ffi_rln_witness_input_modify_path_elements",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_witness_input_modify_identity_path_index*(witness: ptr ptr FFI_RLNWitnessInput,
-    identity_path_index: ptr Vec_uint8) {.importc: "ffi_rln_witness_input_modify_identity_path_index",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_witness_input_modify_x*(witness: ptr ptr FFI_RLNWitnessInput,
-    x: ptr CFr) {.importc: "ffi_rln_witness_input_modify_x",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_witness_input_modify_external_nullifier*(witness: ptr ptr FFI_RLNWitnessInput,
-    external_nullifier: ptr CFr) {.importc: "ffi_rln_witness_input_modify_external_nullifier",
-    cdecl, dynlib: RLN_LIB.}
-when defined(ffiMultiMessageId):
-  proc ffi_rln_witness_input_modify_selector_used*(witness: ptr ptr FFI_RLNWitnessInput,
-      selector_used: ptr Vec_bool) {.importc: "ffi_rln_witness_input_modify_selector_used",
-      cdecl, dynlib: RLN_LIB.}
-
 proc ffi_rln_witness_to_bytes_le*(witness: ptr ptr FFI_RLNWitnessInput): CResultVecU8VecU8 {.importc: "ffi_rln_witness_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_witness_to_bytes_be*(witness: ptr ptr FFI_RLNWitnessInput): CResultVecU8VecU8 {.importc: "ffi_rln_witness_to_bytes_be",
@@ -412,33 +381,6 @@ proc ffi_rln_proof_values_get_x*(pv: ptr ptr FFI_RLNProofValues): ptr CFr {.impo
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_proof_values_get_external_nullifier*(pv: ptr ptr FFI_RLNProofValues): ptr CFr {.importc: "ffi_rln_proof_values_get_external_nullifier",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_proof_values_modify_root*(pv: ptr ptr FFI_RLNProofValues,
-    root: ptr CFr) {.importc: "ffi_rln_proof_values_modify_root",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_proof_values_modify_x*(pv: ptr ptr FFI_RLNProofValues,
-    x: ptr CFr) {.importc: "ffi_rln_proof_values_modify_x",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_proof_values_modify_external_nullifier*(pv: ptr ptr FFI_RLNProofValues,
-    external_nullifier: ptr CFr) {.importc: "ffi_rln_proof_values_modify_external_nullifier",
-    cdecl, dynlib: RLN_LIB.}
-when defined(ffiMultiMessageId):
-  proc ffi_rln_proof_values_modify_selector_used*(pv: ptr ptr FFI_RLNProofValues,
-      selector_used: ptr Vec_bool) {.importc: "ffi_rln_proof_values_modify_selector_used",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_rln_proof_values_modify_ys*(pv: ptr ptr FFI_RLNProofValues,
-      ys: ptr Vec_CFr) {.importc: "ffi_rln_proof_values_modify_ys",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_rln_proof_values_modify_nullifiers*(pv: ptr ptr FFI_RLNProofValues,
-      nullifiers: ptr Vec_CFr) {.importc: "ffi_rln_proof_values_modify_nullifiers",
-      cdecl, dynlib: RLN_LIB.}
-else:
-  proc ffi_rln_proof_values_modify_y*(pv: ptr ptr FFI_RLNProofValues,
-      y: ptr CFr) {.importc: "ffi_rln_proof_values_modify_y",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_rln_proof_values_modify_nullifier*(pv: ptr ptr FFI_RLNProofValues,
-      nullifier: ptr CFr) {.importc: "ffi_rln_proof_values_modify_nullifier",
-      cdecl, dynlib: RLN_LIB.}
-
 proc ffi_rln_proof_values_to_bytes_le*(pv: ptr ptr FFI_RLNProofValues): Vec_uint8 {.importc: "ffi_rln_proof_values_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_proof_values_to_bytes_be*(pv: ptr ptr FFI_RLNProofValues): Vec_uint8 {.importc: "ffi_rln_proof_values_to_bytes_be",

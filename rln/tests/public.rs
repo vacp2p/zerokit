@@ -1088,14 +1088,30 @@ mod test {
 
         #[test]
         fn test_verify_rln_proof_failure_mutated_external_nullifier() {
-            let (rln, proof, mut proof_values, x, _rng) = setup_rln_proof(false);
+            let (rln, proof, proof_values, x, _rng) = setup_rln_proof(false);
 
             // Mutate external_nullifier by adding 1
             let new_en = *proof_values.external_nullifier() + Fr::from(1);
-            proof_values.modify_external_nullifier(new_en);
+            #[cfg(not(feature = "multi-message-id"))]
+            let mutated_pv = RLNProofValues::SingleV1 {
+                root: *proof_values.root(),
+                x: *proof_values.x(),
+                external_nullifier: new_en,
+                y: *proof_values.y(),
+                nullifier: *proof_values.nullifier(),
+            };
+            #[cfg(feature = "multi-message-id")]
+            let mutated_pv = RLNProofValues::MultiV1 {
+                root: *proof_values.root(),
+                x: *proof_values.x(),
+                external_nullifier: new_en,
+                selector_used: proof_values.selector_used().to_vec(),
+                ys: proof_values.ys().to_vec(),
+                nullifiers: proof_values.nullifiers().to_vec(),
+            };
 
             // Verification should fail
-            let verified = rln.verify_rln_proof(&proof, &proof_values, &x).is_ok();
+            let verified = rln.verify_rln_proof(&proof, &mutated_pv, &x).is_ok();
             assert!(!verified);
         }
 
@@ -1115,43 +1131,88 @@ mod test {
 
         #[test]
         fn test_verify_rln_proof_failure_mutated_nullifier() {
-            let (rln, proof, mut proof_values, x, mut rng) = setup_rln_proof(false);
+            let (rln, proof, proof_values, x, mut rng) = setup_rln_proof(false);
 
             // Mutate nullifier (simulating mutated message_id)
             #[cfg(not(feature = "multi-message-id"))]
-            proof_values.modify_nullifier(Fr::rand(&mut rng));
+            let mutated_pv = RLNProofValues::SingleV1 {
+                root: *proof_values.root(),
+                x: *proof_values.x(),
+                external_nullifier: *proof_values.external_nullifier(),
+                y: *proof_values.y(),
+                nullifier: Fr::rand(&mut rng),
+            };
             #[cfg(feature = "multi-message-id")]
-            proof_values.modify_nullifiers(vec![Fr::rand(&mut rng)]);
+            let mutated_pv = RLNProofValues::MultiV1 {
+                root: *proof_values.root(),
+                x: *proof_values.x(),
+                external_nullifier: *proof_values.external_nullifier(),
+                selector_used: proof_values.selector_used().to_vec(),
+                ys: proof_values.ys().to_vec(),
+                nullifiers: vec![Fr::rand(&mut rng)],
+            };
 
             // Verification should fail
-            let verified = rln.verify_rln_proof(&proof, &proof_values, &x).is_ok();
+            let verified = rln.verify_rln_proof(&proof, &mutated_pv, &x).is_ok();
             assert!(!verified);
         }
 
         #[test]
         fn test_verify_rln_proof_failure_mutated_root() {
-            let (rln, proof, mut proof_values, x, mut rng) = setup_rln_proof(false);
+            let (rln, proof, proof_values, x, mut rng) = setup_rln_proof(false);
 
             // Mutate root (simulating mutated path_element)
-            proof_values.modify_root(Fr::rand(&mut rng));
+            #[cfg(not(feature = "multi-message-id"))]
+            let mutated_pv = RLNProofValues::SingleV1 {
+                root: Fr::rand(&mut rng),
+                x: *proof_values.x(),
+                external_nullifier: *proof_values.external_nullifier(),
+                y: *proof_values.y(),
+                nullifier: *proof_values.nullifier(),
+            };
+            #[cfg(feature = "multi-message-id")]
+            let mutated_pv = RLNProofValues::MultiV1 {
+                root: Fr::rand(&mut rng),
+                x: *proof_values.x(),
+                external_nullifier: *proof_values.external_nullifier(),
+                selector_used: proof_values.selector_used().to_vec(),
+                ys: proof_values.ys().to_vec(),
+                nullifiers: proof_values.nullifiers().to_vec(),
+            };
 
             // Verification should fail
-            let verified = rln.verify_rln_proof(&proof, &proof_values, &x).is_ok();
+            let verified = rln.verify_rln_proof(&proof, &mutated_pv, &x).is_ok();
             assert!(!verified);
         }
 
         #[test]
         fn test_verify_with_roots_failure_mutated_external_nullifier() {
-            let (rln, proof, mut proof_values, x, _rng) = setup_rln_proof(false);
+            let (rln, proof, proof_values, x, _rng) = setup_rln_proof(false);
             let roots = vec![rln.get_root()];
 
             // Mutate external_nullifier by adding 1
             let new_en = *proof_values.external_nullifier() + Fr::from(1);
-            proof_values.modify_external_nullifier(new_en);
+            #[cfg(not(feature = "multi-message-id"))]
+            let mutated_pv = RLNProofValues::SingleV1 {
+                root: *proof_values.root(),
+                x: *proof_values.x(),
+                external_nullifier: new_en,
+                y: *proof_values.y(),
+                nullifier: *proof_values.nullifier(),
+            };
+            #[cfg(feature = "multi-message-id")]
+            let mutated_pv = RLNProofValues::MultiV1 {
+                root: *proof_values.root(),
+                x: *proof_values.x(),
+                external_nullifier: new_en,
+                selector_used: proof_values.selector_used().to_vec(),
+                ys: proof_values.ys().to_vec(),
+                nullifiers: proof_values.nullifiers().to_vec(),
+            };
 
             // Verification should fail
             let verified = rln
-                .verify_with_roots(&proof, &proof_values, &x, &roots)
+                .verify_with_roots(&proof, &mutated_pv, &x, &roots)
                 .is_ok();
             assert!(!verified);
         }
@@ -1173,18 +1234,31 @@ mod test {
 
         #[test]
         fn test_verify_with_roots_failure_mutated_nullifier() {
-            let (rln, proof, mut proof_values, x, mut rng) = setup_rln_proof(false);
+            let (rln, proof, proof_values, x, mut rng) = setup_rln_proof(false);
             let roots = vec![rln.get_root()];
 
             // Mutate nullifier (simulating mutated message_id)
             #[cfg(not(feature = "multi-message-id"))]
-            proof_values.modify_nullifier(Fr::rand(&mut rng));
+            let mutated_pv = RLNProofValues::SingleV1 {
+                root: *proof_values.root(),
+                x: *proof_values.x(),
+                external_nullifier: *proof_values.external_nullifier(),
+                y: *proof_values.y(),
+                nullifier: Fr::rand(&mut rng),
+            };
             #[cfg(feature = "multi-message-id")]
-            proof_values.modify_nullifiers(vec![Fr::rand(&mut rng)]);
+            let mutated_pv = RLNProofValues::MultiV1 {
+                root: *proof_values.root(),
+                x: *proof_values.x(),
+                external_nullifier: *proof_values.external_nullifier(),
+                selector_used: proof_values.selector_used().to_vec(),
+                ys: proof_values.ys().to_vec(),
+                nullifiers: vec![Fr::rand(&mut rng)],
+            };
 
             // Verification should fail
             let verified = rln
-                .verify_with_roots(&proof, &proof_values, &x, &roots)
+                .verify_with_roots(&proof, &mutated_pv, &x, &roots)
                 .is_ok();
             assert!(!verified);
         }

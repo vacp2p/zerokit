@@ -176,52 +176,6 @@ impl WasmRLNProofValues {
         self.0.version_byte()
     }
 
-    #[wasm_bindgen(js_name = modifyRoot)]
-    pub fn modify_root(&mut self, root: &WasmFr) {
-        self.0.modify_root(root.inner());
-    }
-
-    #[wasm_bindgen(js_name = modifyX)]
-    pub fn modify_x(&mut self, x: &WasmFr) {
-        self.0.modify_x(x.inner());
-    }
-
-    #[wasm_bindgen(js_name = modifyExternalNullifier)]
-    pub fn modify_external_nullifier(&mut self, external_nullifier: &WasmFr) {
-        self.0.modify_external_nullifier(external_nullifier.inner());
-    }
-
-    #[cfg(not(feature = "multi-message-id"))]
-    #[wasm_bindgen(js_name = modifyY)]
-    pub fn modify_y(&mut self, y: &WasmFr) {
-        self.0.modify_y(y.inner());
-    }
-
-    #[cfg(not(feature = "multi-message-id"))]
-    #[wasm_bindgen(js_name = modifyNullifier)]
-    pub fn modify_nullifier(&mut self, nullifier: &WasmFr) {
-        self.0.modify_nullifier(nullifier.inner());
-    }
-
-    #[cfg(feature = "multi-message-id")]
-    #[wasm_bindgen(js_name = modifySelectorUsed)]
-    pub fn modify_selector_used(&mut self, selector_used: &Uint8Array) {
-        let selector_used: Vec<bool> = selector_used.to_vec().iter().map(|&b| b != 0).collect();
-        self.0.modify_selector_used(selector_used);
-    }
-
-    #[cfg(feature = "multi-message-id")]
-    #[wasm_bindgen(js_name = modifyYs)]
-    pub fn modify_ys(&mut self, ys: &VecWasmFr) {
-        self.0.modify_ys(ys.inner());
-    }
-
-    #[cfg(feature = "multi-message-id")]
-    #[wasm_bindgen(js_name = modifyNullifiers)]
-    pub fn modify_nullifiers(&mut self, nullifiers: &VecWasmFr) {
-        self.0.modify_nullifiers(nullifiers.inner());
-    }
-
     #[wasm_bindgen(js_name = toBytesLE)]
     pub fn to_bytes_le(&self) -> Uint8Array {
         Uint8Array::from(&rln_proof_values_to_bytes_le(&self.0)[..])
@@ -398,57 +352,6 @@ impl WasmRLNWitnessInput {
             .map(|&b| if b { 1u8 } else { 0u8 })
             .collect();
         Uint8Array::from(&bytes[..])
-    }
-
-    #[wasm_bindgen(js_name = modifyIdentitySecret)]
-    pub fn modify_identity_secret(&mut self, identity_secret: &WasmFr) {
-        let mut fr = identity_secret.inner();
-        self.0.modify_identity_secret(IdSecret::from(&mut fr));
-    }
-
-    #[wasm_bindgen(js_name = modifyUserMessageLimit)]
-    pub fn modify_user_message_limit(&mut self, user_message_limit: &WasmFr) {
-        self.0.modify_user_message_limit(user_message_limit.inner());
-    }
-
-    #[cfg(not(feature = "multi-message-id"))]
-    #[wasm_bindgen(js_name = modifyMessageId)]
-    pub fn modify_message_id(&mut self, message_id: &WasmFr) {
-        self.0.modify_message_id(message_id.inner());
-    }
-
-    #[cfg(feature = "multi-message-id")]
-    #[wasm_bindgen(js_name = modifyMessageIds)]
-    pub fn modify_message_ids(&mut self, message_ids: &VecWasmFr) {
-        self.0.modify_message_ids(message_ids.inner());
-    }
-
-    #[wasm_bindgen(js_name = modifyPathElements)]
-    pub fn modify_path_elements(&mut self, path_elements: &VecWasmFr) {
-        self.0.modify_path_elements(path_elements.inner());
-    }
-
-    #[wasm_bindgen(js_name = modifyIdentityPathIndex)]
-    pub fn modify_identity_path_index(&mut self, identity_path_index: &Uint8Array) {
-        self.0
-            .modify_identity_path_index(identity_path_index.to_vec());
-    }
-
-    #[wasm_bindgen(js_name = modifyX)]
-    pub fn modify_x(&mut self, x: &WasmFr) {
-        self.0.modify_x(x.inner());
-    }
-
-    #[wasm_bindgen(js_name = modifyExternalNullifier)]
-    pub fn modify_external_nullifier(&mut self, external_nullifier: &WasmFr) {
-        self.0.modify_external_nullifier(external_nullifier.inner());
-    }
-
-    #[cfg(feature = "multi-message-id")]
-    #[wasm_bindgen(js_name = modifySelectorUsed)]
-    pub fn modify_selector_used(&mut self, selector_used: &Uint8Array) {
-        let selector_used: Vec<bool> = selector_used.to_vec().iter().map(|&b| b != 0).collect();
-        self.0.modify_selector_used(selector_used);
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]

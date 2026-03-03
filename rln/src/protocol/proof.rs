@@ -153,80 +153,6 @@ impl RLNProofValues {
             Self::MultiV1 { nullifiers, .. } => nullifiers,
         }
     }
-
-    /// Modifies the Merkle tree root.
-    pub fn modify_root(&mut self, new_root: Fr) {
-        match self {
-            #[cfg(not(feature = "multi-message-id"))]
-            Self::SingleV1 { root, .. } => *root = new_root,
-            #[cfg(feature = "multi-message-id")]
-            Self::MultiV1 { root, .. } => *root = new_root,
-        }
-    }
-
-    /// Modifies the signal hash.
-    pub fn modify_x(&mut self, new_x: Fr) {
-        match self {
-            #[cfg(not(feature = "multi-message-id"))]
-            Self::SingleV1 { x, .. } => *x = new_x,
-            #[cfg(feature = "multi-message-id")]
-            Self::MultiV1 { x, .. } => *x = new_x,
-        }
-    }
-
-    /// Modifies the external nullifier.
-    pub fn modify_external_nullifier(&mut self, new_external_nullifier: Fr) {
-        match self {
-            #[cfg(not(feature = "multi-message-id"))]
-            Self::SingleV1 {
-                external_nullifier, ..
-            } => *external_nullifier = new_external_nullifier,
-            #[cfg(feature = "multi-message-id")]
-            Self::MultiV1 {
-                external_nullifier, ..
-            } => *external_nullifier = new_external_nullifier,
-        }
-    }
-
-    /// Modifies the output `y` value.
-    #[cfg(not(feature = "multi-message-id"))]
-    pub fn modify_y(&mut self, new_y: Fr) {
-        match self {
-            Self::SingleV1 { y, .. } => *y = new_y,
-        }
-    }
-
-    /// Modifies the nullifier value.
-    #[cfg(not(feature = "multi-message-id"))]
-    pub fn modify_nullifier(&mut self, new_nullifier: Fr) {
-        match self {
-            Self::SingleV1 { nullifier, .. } => *nullifier = new_nullifier,
-        }
-    }
-
-    /// Modifies the selector flags.
-    #[cfg(feature = "multi-message-id")]
-    pub fn modify_selector_used(&mut self, new_selector_used: Vec<bool>) {
-        match self {
-            Self::MultiV1 { selector_used, .. } => *selector_used = new_selector_used,
-        }
-    }
-
-    /// Modifies the per-message-id output `y` values.
-    #[cfg(feature = "multi-message-id")]
-    pub fn modify_ys(&mut self, new_ys: Vec<Fr>) {
-        match self {
-            Self::MultiV1 { ys, .. } => *ys = new_ys,
-        }
-    }
-
-    /// Modifies the per-message-id nullifiers.
-    #[cfg(feature = "multi-message-id")]
-    pub fn modify_nullifiers(&mut self, new_nullifiers: Vec<Fr>) {
-        match self {
-            Self::MultiV1 { nullifiers, .. } => *nullifiers = new_nullifiers,
-        }
-    }
 }
 
 /// Serializes RLN proof values to little-endian bytes.
@@ -702,6 +628,75 @@ pub fn generate_zk_proof(
     witness: &RLNWitnessInput,
     graph: &Graph,
 ) -> Result<Proof, ProtocolError> {
+    let (actual_path_len, actual_index_len) = match witness {
+        #[cfg(not(feature = "multi-message-id"))]
+        RLNWitnessInput::SingleV1 {
+            path_elements,
+            identity_path_index,
+            ..
+        } => (path_elements.len(), identity_path_index.len()),
+
+        #[cfg(feature = "multi-message-id")]
+        RLNWitnessInput::MultiV1 {
+            path_elements,
+            identity_path_index,
+            ..
+        } => (path_elements.len(), identity_path_index.len()),
+    };
+
+    let expected_tree_depth = graph.tree_depth;
+    if actual_path_len != expected_tree_depth {
+        return Err(ProtocolError::FieldLengthMismatch(
+            "path_elements".into(),
+            actual_path_len,
+            "tree_depth".into(),
+            expected_tree_depth,
+        )
+        .into());
+    }
+    if actual_index_len != expected_tree_depth {
+        return Err(ProtocolError::FieldLengthMismatch(
+            "identity_path_index".into(),
+            actual_index_len,
+            "tree_depth".into(),
+            expected_tree_depth,
+        )
+        .into());
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    {
+        let RLNWitnessInput::MultiV1 {
+            message_ids,
+            selector_used,
+            ..
+        } = witness;
+
+        let expected_max_out = graph.max_out;
+
+        let actual_message_ids_len = message_ids.len();
+        if actual_message_ids_len != expected_max_out {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "message_ids".into(),
+                actual_message_ids_len,
+                "max_out".into(),
+                expected_max_out,
+            )
+            .into());
+        }
+
+        let actual_selector_used_len = selector_used.len();
+        if actual_selector_used_len != expected_max_out {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "selector_used".into(),
+                actual_selector_used_len,
+                "max_out".into(),
+                expected_max_out,
+            )
+            .into());
+        }
+    }
+
     let inputs = inputs_for_witness_calculation(witness)?
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));

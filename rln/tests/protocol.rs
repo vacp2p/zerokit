@@ -525,11 +525,28 @@ mod test {
         let proving_key = zkey_from_folder();
         let graph_data = graph_from_folder();
         let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
-        let mut proof_values = proof_values_from_witness(&witness).unwrap();
+        let proof_values = proof_values_from_witness(&witness).unwrap();
 
-        proof_values.modify_root(*proof_values.root() + Fr::from(1));
+        let new_root = *proof_values.root() + Fr::from(1);
+        #[cfg(not(feature = "multi-message-id"))]
+        let mutated_pv = RLNProofValues::SingleV1 {
+            root: new_root,
+            x: *proof_values.x(),
+            external_nullifier: *proof_values.external_nullifier(),
+            y: *proof_values.y(),
+            nullifier: *proof_values.nullifier(),
+        };
+        #[cfg(feature = "multi-message-id")]
+        let mutated_pv = RLNProofValues::MultiV1 {
+            root: new_root,
+            x: *proof_values.x(),
+            external_nullifier: *proof_values.external_nullifier(),
+            selector_used: proof_values.selector_used().to_vec(),
+            ys: proof_values.ys().to_vec(),
+            nullifiers: proof_values.nullifiers().to_vec(),
+        };
 
-        let verified = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
+        let verified = verify_zk_proof(&proving_key.0.vk, &proof, &mutated_pv).unwrap();
         assert!(!verified);
     }
 
