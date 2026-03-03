@@ -535,6 +535,7 @@ fn calculated_witness_to_field_elements<E: ark_ec::pairing::Pairing>(
 }
 
 /// Validates that a witness's dimensions match the graph's expected tree depth and max_out.
+#[cfg(not(target_arch = "wasm32"))]
 fn validate_witness_against_graph(
     witness: &RLNWitnessInput,
     graph: &Graph,
