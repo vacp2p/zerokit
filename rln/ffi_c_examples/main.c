@@ -8,6 +8,8 @@ int main(int argc, char const *const argv[])
 {
     printf("Creating RLN instance\n");
 
+#define TREE_DEPTH 20
+
 #ifdef STATELESS
     CResult_FFI_RLN_ptr_Vec_uint8_t ffi_rln_new_result = ffi_rln_new();
 #else
@@ -71,13 +73,13 @@ int main(int argc, char const *const argv[])
         .cap = graph_size};
 
     const char *config_path = "../resources/tree_depth_20/multi_message_id/max_out_4/config.json";
-    CResult_FFI_RLN_ptr_Vec_uint8_t ffi_rln_new_result = ffi_rln_new_with_params(20, &zkey_vec, &graph_vec, config_path);
+    CResult_FFI_RLN_ptr_Vec_uint8_t ffi_rln_new_result = ffi_rln_new_with_params(TREE_DEPTH, 4, &zkey_vec, &graph_vec, config_path);
 
     free(zkey_data);
     free(graph_data);
 #else
     const char *config_path = "../resources/tree_depth_20/config.json";
-    CResult_FFI_RLN_ptr_Vec_uint8_t ffi_rln_new_result = ffi_rln_new(20, config_path);
+    CResult_FFI_RLN_ptr_Vec_uint8_t ffi_rln_new_result = ffi_rln_new(TREE_DEPTH, config_path);
 #endif
 #endif
 
@@ -188,7 +190,6 @@ int main(int argc, char const *const argv[])
     ffi_vec_u8_free(ser_keys);
 
 #ifdef STATELESS
-#define TREE_DEPTH 20
 #define CFR_SIZE 32
 
     printf("\nBuilding Merkle path for stateless mode\n");

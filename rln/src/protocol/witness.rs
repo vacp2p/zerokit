@@ -359,7 +359,7 @@ pub fn bytes_le_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
             x,
             external_nullifier,
         )?;
-        return Ok((witness, read));
+        Ok((witness, read))
     }
     #[cfg(feature = "multi-message-id")]
     {
@@ -388,7 +388,7 @@ pub fn bytes_le_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
             return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
         }
 
-        return Ok((
+        Ok((
             RLNWitnessInput::new(
                 identity_secret,
                 user_message_limit,
@@ -400,7 +400,7 @@ pub fn bytes_le_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
                 selector_used,
             )?,
             read,
-        ));
+        ))
     }
 }
 
@@ -445,7 +445,7 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
             x,
             external_nullifier,
         )?;
-        return Ok((witness, read));
+        Ok((witness, read))
     }
     #[cfg(feature = "multi-message-id")]
     {
@@ -474,7 +474,7 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
             return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
         }
 
-        return Ok((
+        Ok((
             RLNWitnessInput::new(
                 identity_secret,
                 user_message_limit,
@@ -486,7 +486,7 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
                 selector_used,
             )?,
             read,
-        ));
+        ))
     }
 }
 

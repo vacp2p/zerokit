@@ -292,14 +292,48 @@ mod test {
 
     #[test]
     fn test_initialization_with_params() {
+        #[cfg(not(feature = "multi-message-id"))]
         let zkey_data = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey").to_vec();
+        #[cfg(not(feature = "multi-message-id"))]
         let graph_data = include_bytes!("../resources/tree_depth_20/graph.bin").to_vec();
 
-        #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
+        #[cfg(feature = "multi-message-id")]
+        let zkey_data = include_bytes!(
+            "../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey"
+        )
+        .to_vec();
+        #[cfg(feature = "multi-message-id")]
+        let graph_data =
+            include_bytes!("../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin")
+                .to_vec();
+
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            not(feature = "stateless"),
+            not(feature = "multi-message-id")
+        ))]
         assert!(RLN::new_with_params(DEFAULT_TREE_DEPTH, zkey_data, graph_data, "").is_ok());
 
-        #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            not(feature = "stateless"),
+            feature = "multi-message-id"
+        ))]
+        assert!(RLN::new_with_params(DEFAULT_TREE_DEPTH, 4, zkey_data, graph_data, "").is_ok());
+
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            feature = "stateless",
+            not(feature = "multi-message-id")
+        ))]
         assert!(RLN::new_with_params(zkey_data, graph_data).is_ok());
+
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            feature = "stateless",
+            feature = "multi-message-id"
+        ))]
+        assert!(RLN::new_with_params(zkey_data, graph_data, 4).is_ok());
     }
 
     #[cfg(not(feature = "stateless"))]
@@ -1735,7 +1769,7 @@ mod test {
                 include_bytes!("../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin")
                     .to_vec();
 
-            let rln = RLN::new_with_params(DEFAULT_TREE_DEPTH, zkey_data, graph_data, "").unwrap();
+            let rln = RLN::new_with_params(DEFAULT_TREE_DEPTH, 4, zkey_data, graph_data, "").unwrap();
 
             let mut rng = thread_rng();
             let (identity_secret, _) = keygen().unwrap();
@@ -1800,7 +1834,7 @@ mod test {
                 include_bytes!("../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin")
                     .to_vec();
 
-            let rln = RLN::new_with_params(DEFAULT_TREE_DEPTH, zkey_data, graph_data, "").unwrap();
+            let rln = RLN::new_with_params(DEFAULT_TREE_DEPTH, 4, zkey_data, graph_data, "").unwrap();
 
             let mut rng = thread_rng();
             let (identity_secret, _) = keygen().unwrap();

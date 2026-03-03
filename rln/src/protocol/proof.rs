@@ -534,13 +534,65 @@ fn calculated_witness_to_field_elements<E: ark_ec::pairing::Pairing>(
     Ok(field_elements)
 }
 
+/// Validates that a witness's dimensions match the graph's expected tree depth and max_out.
+fn validate_witness_against_graph(
+    witness: &RLNWitnessInput,
+    graph: &Graph,
+) -> Result<(), ProtocolError> {
+    let expected_tree_depth = graph.tree_depth;
+    if witness.path_elements().len() != expected_tree_depth {
+        return Err(ProtocolError::FieldLengthMismatch(
+            "path_elements".into(),
+            witness.path_elements().len(),
+            "tree_depth".into(),
+            expected_tree_depth,
+        ));
+    }
+    if witness.identity_path_index().len() != expected_tree_depth {
+        return Err(ProtocolError::FieldLengthMismatch(
+            "identity_path_index".into(),
+            witness.identity_path_index().len(),
+            "tree_depth".into(),
+            expected_tree_depth,
+        ));
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    {
+        let expected_max_out = graph.max_out;
+        if witness.message_ids().len() != expected_max_out {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "message_ids".into(),
+                witness.message_ids().len(),
+                "max_out".into(),
+                expected_max_out,
+            ));
+        }
+        if witness.selector_used().len() != expected_max_out {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "selector_used".into(),
+                witness.selector_used().len(),
+                "max_out".into(),
+                expected_max_out,
+            ));
+        }
+    }
+
+    Ok(())
+}
+
 /// Generates a zkSNARK proof from pre-calculated witness values.
 ///
 /// Use this when witness calculation is performed externally.
 pub fn generate_zk_proof_with_witness(
     calculated_witness: Vec<BigInt>,
     zkey: &Zkey,
+    #[cfg(not(target_arch = "wasm32"))] witness: &RLNWitnessInput,
+    #[cfg(not(target_arch = "wasm32"))] graph: &Graph,
 ) -> Result<Proof, ProtocolError> {
+    #[cfg(not(target_arch = "wasm32"))]
+    validate_witness_against_graph(witness, graph)?;
+
     let full_assignment = calculated_witness_to_field_elements::<Curve>(calculated_witness)?;
 
     // Random Values
@@ -567,55 +619,7 @@ pub fn generate_zk_proof(
     witness: &RLNWitnessInput,
     graph: &Graph,
 ) -> Result<Proof, ProtocolError> {
-    let actual_path_len = witness.path_elements().len();
-    let actual_index_len = witness.identity_path_index().len();
-
-    let expected_tree_depth = graph.tree_depth;
-    if actual_path_len != expected_tree_depth {
-        return Err(ProtocolError::FieldLengthMismatch(
-            "path_elements".into(),
-            actual_path_len,
-            "tree_depth".into(),
-            expected_tree_depth,
-        )
-        .into());
-    }
-    if actual_index_len != expected_tree_depth {
-        return Err(ProtocolError::FieldLengthMismatch(
-            "identity_path_index".into(),
-            actual_index_len,
-            "tree_depth".into(),
-            expected_tree_depth,
-        )
-        .into());
-    }
-
-    #[cfg(feature = "multi-message-id")]
-    {
-        let expected_max_out = graph.max_out;
-
-        let actual_message_ids_len = witness.message_ids().len();
-        if actual_message_ids_len != expected_max_out {
-            return Err(ProtocolError::FieldLengthMismatch(
-                "message_ids".into(),
-                actual_message_ids_len,
-                "max_out".into(),
-                expected_max_out,
-            )
-            .into());
-        }
-
-        let actual_selector_used_len = witness.selector_used().len();
-        if actual_selector_used_len != expected_max_out {
-            return Err(ProtocolError::FieldLengthMismatch(
-                "selector_used".into(),
-                actual_selector_used_len,
-                "max_out".into(),
-                expected_max_out,
-            )
-            .into());
-        }
-    }
+    validate_witness_against_graph(witness, graph)?;
 
     let inputs = inputs_for_witness_calculation(witness)?
         .into_iter()

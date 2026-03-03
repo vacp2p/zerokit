@@ -782,7 +782,11 @@ mod test {
                 include_bytes!("../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin");
 
             let proving_key = zkey_from_raw(arkzkey_bytes).unwrap();
+            #[cfg(not(feature = "multi-message-id"))]
             let graph_data = graph_from_raw(graph_bytes, Some(DEFAULT_TREE_DEPTH)).unwrap();
+            #[cfg(feature = "multi-message-id")]
+            let graph_data =
+                graph_from_raw(graph_bytes, Some(DEFAULT_TREE_DEPTH), Some(4)).unwrap();
 
             // Generate a zkSNARK proof
             let proof = generate_zk_proof(&proving_key, &witness, &graph_data).unwrap();

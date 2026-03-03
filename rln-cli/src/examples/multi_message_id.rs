@@ -10,13 +10,15 @@ use std::{
 use clap::{Parser, Subcommand};
 use rln::prelude::{
     hash_to_field_le, keygen, poseidon_hash, recover_id_secret, Fr, IdSecret, PmtreeConfigBuilder,
-    RLNProofValues, RLNWitnessInput, DEFAULT_TREE_DEPTH, RLN,
+    RLNProofValues, RLNWitnessInput, DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH, RLN,
 };
 use zerokit_utils::pm_tree::Mode;
 
 const MESSAGE_LIMIT: u32 = 10;
 
 const TREE_DEPTH: usize = DEFAULT_TREE_DEPTH;
+
+const MAX_OUT: usize = DEFAULT_MAX_OUT;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -91,6 +93,7 @@ impl RLNSystem {
             .build()?;
         let rln = RLN::new_with_params(
             TREE_DEPTH,
+            MAX_OUT,
             resources[0].clone(),
             resources[1].clone(),
             tree_config,

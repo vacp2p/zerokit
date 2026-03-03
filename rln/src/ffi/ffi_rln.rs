@@ -71,7 +71,7 @@ pub fn ffi_rln_new() -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
     }
 }
 
-#[cfg(not(feature = "stateless"))]
+#[cfg(all(not(feature = "stateless"), not(feature = "multi-message-id")))]
 #[ffi_export]
 pub fn ffi_rln_new_with_params(
     tree_depth: usize,
@@ -115,13 +115,78 @@ pub fn ffi_rln_new_with_params(
     }
 }
 
-#[cfg(feature = "stateless")]
+#[cfg(all(not(feature = "stateless"), feature = "multi-message-id"))]
+#[ffi_export]
+pub fn ffi_rln_new_with_params(
+    tree_depth: usize,
+    max_out: usize,
+    zkey_data: &repr_c::Vec<u8>,
+    graph_data: &repr_c::Vec<u8>,
+    config_path: char_p::Ref<'_>,
+) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
+    let config_str = File::open(config_path.to_str())
+        .and_then(|mut file| {
+            let metadata = file.metadata()?;
+            if metadata.len() > MAX_CONFIG_SIZE {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!(
+                        "Config file too large: {} bytes (max {} bytes)",
+                        metadata.len(),
+                        MAX_CONFIG_SIZE
+                    ),
+                ));
+            }
+            let mut s = String::new();
+            file.read_to_string(&mut s)?;
+            Ok(s)
+        })
+        .unwrap_or_default();
+
+    match RLN::new_with_params(
+        tree_depth,
+        max_out,
+        zkey_data.to_vec(),
+        graph_data.to_vec(),
+        config_str.as_str(),
+    ) {
+        Ok(rln) => CResult {
+            ok: Some(Box_::new(FFI_RLN(rln))),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[cfg(all(feature = "stateless", not(feature = "multi-message-id")))]
 #[ffi_export]
 pub fn ffi_rln_new_with_params(
     zkey_data: &repr_c::Vec<u8>,
     graph_data: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
     match RLN::new_with_params(zkey_data.to_vec(), graph_data.to_vec()) {
+        Ok(rln) => CResult {
+            ok: Some(Box_::new(FFI_RLN(rln))),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[cfg(all(feature = "stateless", feature = "multi-message-id"))]
+#[ffi_export]
+pub fn ffi_rln_new_with_params(
+    zkey_data: &repr_c::Vec<u8>,
+    graph_data: &repr_c::Vec<u8>,
+    max_out: usize,
+) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
+    match RLN::new_with_params(zkey_data.to_vec(), graph_data.to_vec(), max_out) {
         Ok(rln) => CResult {
             ok: Some(Box_::new(FFI_RLN(rln))),
             err: None,

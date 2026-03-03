@@ -178,8 +178,9 @@ else:
   when defined(ffiMultiMessageId):
     proc ffi_rln_new*(treeDepth: CSize, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new",
         cdecl, dynlib: RLN_LIB.}
-    proc ffi_rln_new_with_params*(treeDepth: CSize, zkey_data: ptr Vec_uint8,
-        graph_data: ptr Vec_uint8, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new_with_params",
+    proc ffi_rln_new_with_params*(treeDepth: CSize, maxOut: CSize,
+        zkey_data: ptr Vec_uint8, graph_data: ptr Vec_uint8,
+            config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new_with_params",
         cdecl, dynlib: RLN_LIB.}
   else:
     proc ffi_rln_new*(treeDepth: CSize, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new",
@@ -409,6 +410,8 @@ proc ffi_c_string_free*(s: Vec_uint8) {.importc: "ffi_c_string_free", cdecl,
 when isMainModule:
   echo "Creating RLN instance"
 
+  const treeDepth = 20
+
   var rlnRes: CResultRLNPtrVecU8
   when defined(ffiStateless):
     rlnRes = ffi_rln_new()
@@ -433,10 +436,11 @@ when isMainModule:
       var graphVec = asVecU8(graphData)
 
       let config_path = """../resources/tree_depth_20/multi_message_id/max_out_4/config.json""".cstring
-      rlnRes = ffi_rln_new_with_params(CSize(20), addr zkeyVec, addr graphVec, config_path)
+      rlnRes = ffi_rln_new_with_params(CSize(treeDepth), CSize(4), addr zkeyVec,
+          addr graphVec, config_path)
     else:
       let config_path = """../resources/tree_depth_20/config.json""".cstring
-      rlnRes = ffi_rln_new(CSize(20), config_path)
+      rlnRes = ffi_rln_new(CSize(treeDepth), config_path)
 
   if rlnRes.ok.isNil:
     stderr.writeLine "Initial RLN instance creation error: ", asString(rlnRes.err)
@@ -545,7 +549,6 @@ when isMainModule:
   ffi_vec_u8_free(serKeys)
 
   when defined(ffiStateless):
-    const treeDepth = 20
     const CFR_SIZE = 32
 
     echo "\nBuilding Merkle path for stateless mode"

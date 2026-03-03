@@ -43,11 +43,19 @@ static ARKZKEY: LazyLock<Zkey> = LazyLock::new(|| {
     read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES).expect("Default zkey must be valid")
 });
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "multi-message-id")))]
 static GRAPH: LazyLock<Graph> = LazyLock::new(|| {
     graph_from_raw(GRAPH_BYTES, Some(DEFAULT_TREE_DEPTH)).expect("Default graph must be valid")
 });
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi-message-id"))]
+static GRAPH: LazyLock<Graph> = LazyLock::new(|| {
+    graph_from_raw(GRAPH_BYTES, Some(DEFAULT_TREE_DEPTH), Some(DEFAULT_MAX_OUT))
+        .expect("Default graph must be valid")
+});
+
+#[cfg(feature = "multi-message-id")]
+pub const DEFAULT_MAX_OUT: usize = 4;
 pub const DEFAULT_TREE_DEPTH: usize = 20;
 pub const COMPRESS_PROOF_SIZE: usize = 128;
 
@@ -120,6 +128,9 @@ pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<Zkey, ZKeyReadError> {
 pub fn graph_from_raw(
     graph_data: &[u8],
     #[cfg(not(target_arch = "wasm32"))] expected_tree_depth: Option<usize>,
+    #[cfg(all(feature = "multi-message-id", not(target_arch = "wasm32")))] expected_max_out: Option<
+        usize,
+    >,
 ) -> Result<Graph, GraphReadError> {
     if graph_data.is_empty() {
         return Err(GraphReadError::EmptyBytes);
@@ -149,10 +160,23 @@ pub fn graph_from_raw(
     };
 
     #[cfg(all(feature = "multi-message-id", not(target_arch = "wasm32")))]
-    let max_out = input_mapping
-        .get("messageId")
-        .map(|(_, len)| *len)
-        .unwrap_or_default();
+    let max_out = {
+        let count = input_mapping
+            .get("messageId")
+            .map(|(_, len)| *len)
+            .ok_or_else(|| GraphReadError::MissingSignal("messageId".into()))?;
+
+        if let Some(expected) = expected_max_out {
+            if expected != count {
+                return Err(GraphReadError::MaxOutMismatch {
+                    expected,
+                    actual: count,
+                });
+            }
+        }
+
+        count
+    };
 
     Ok(Graph {
         nodes,
@@ -240,7 +264,10 @@ mod test {
         let err = zkey_from_raw(&[]).unwrap_err();
         assert!(matches!(err, ZKeyReadError::EmptyBytes));
 
+        #[cfg(not(feature = "multi-message-id"))]
         let err = graph_from_raw(&[], None).err().unwrap();
+        #[cfg(feature = "multi-message-id")]
+        let err = graph_from_raw(&[], None, None).err().unwrap();
         assert!(matches!(err, GraphReadError::EmptyBytes));
 
         let err = read_arkzkey_from_bytes_uncompressed(&[]).unwrap_err();
@@ -249,9 +276,27 @@ mod test {
 
     #[test]
     fn test_tree_depth_mismatch() {
+        #[cfg(not(feature = "multi-message-id"))]
         let err = graph_from_raw(GRAPH_BYTES, Some(DEFAULT_TREE_DEPTH + 1))
             .err()
             .unwrap();
+        #[cfg(feature = "multi-message-id")]
+        let err = graph_from_raw(GRAPH_BYTES, Some(DEFAULT_TREE_DEPTH + 1), None)
+            .err()
+            .unwrap();
         assert!(matches!(err, GraphReadError::TreeDepthMismatch { .. }));
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    #[test]
+    fn test_max_out_mismatch() {
+        let err = graph_from_raw(
+            GRAPH_BYTES,
+            Some(DEFAULT_TREE_DEPTH),
+            Some(DEFAULT_MAX_OUT + 1),
+        )
+        .err()
+        .unwrap();
+        assert!(matches!(err, GraphReadError::MaxOutMismatch { .. }));
     }
 }

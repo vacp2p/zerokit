@@ -140,6 +140,7 @@ impl RLN {
     /// - `tree_depth`: the depth of the internal Merkle tree
     /// - `zkey_data`: a byte vector containing the proving key (`rln_final.arkzkey`) as binary file
     /// - `graph_data`: a byte vector containing the graph data (`graph.bin`) as binary file
+    /// - `max_out` (multi-message-id feature): the maximum number of message ID slots the circuit supports
     /// - `tree_config`: configuration for the Merkle tree (accepts multiple types via TreeConfigInput trait)
     ///
     /// Examples:
@@ -171,12 +172,18 @@ impl RLN {
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn new_with_params<T: TreeConfigInput>(
         tree_depth: usize,
+        #[cfg(feature = "multi-message-id")] max_out: usize,
         zkey_data: Vec<u8>,
         graph_data: Vec<u8>,
         tree_config: T,
     ) -> Result<RLN, RLNError> {
         let zkey = zkey_from_raw(&zkey_data)?;
-        let graph = graph_from_raw(&graph_data, Some(tree_depth))?;
+        let graph = graph_from_raw(
+            &graph_data,
+            Some(tree_depth),
+            #[cfg(feature = "multi-message-id")]
+            Some(max_out),
+        )?;
 
         let config = tree_config.into_tree_config()?;
 
@@ -221,9 +228,18 @@ impl RLN {
     /// )?;
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
-    pub fn new_with_params(zkey_data: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN, RLNError> {
+    pub fn new_with_params(
+        zkey_data: Vec<u8>,
+        graph_data: Vec<u8>,
+        #[cfg(feature = "multi-message-id")] max_out: usize,
+    ) -> Result<RLN, RLNError> {
         let zkey = zkey_from_raw(&zkey_data)?;
-        let graph = graph_from_raw(&graph_data, None)?;
+        let graph = graph_from_raw(
+            &graph_data,
+            None,
+            #[cfg(feature = "multi-message-id")]
+            Some(max_out),
+        )?;
 
         Ok(RLN { zkey, graph })
     }
@@ -622,7 +638,14 @@ impl RLN {
         witness: &RLNWitnessInput,
     ) -> Result<(Proof, RLNProofValues), RLNError> {
         let proof_values = proof_values_from_witness(witness)?;
-        let proof = generate_zk_proof_with_witness(calculated_witness, &self.zkey)?;
+        let proof = generate_zk_proof_with_witness(
+            calculated_witness,
+            &self.zkey,
+            #[cfg(not(target_arch = "wasm32"))]
+            witness,
+            #[cfg(not(target_arch = "wasm32"))]
+            &self.graph,
+        )?;
         Ok((proof, proof_values))
     }
 
