@@ -615,6 +615,7 @@ pub fn generate_zk_proof_with_witness(
 }
 
 /// Generates a zkSNARK proof from witness input using the provided circuit data.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn generate_zk_proof(
     zkey: &Zkey,
     witness: &RLNWitnessInput,
