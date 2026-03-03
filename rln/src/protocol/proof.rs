@@ -527,7 +527,7 @@ pub fn bytes_be_to_rln_proof_values(
 
 /// Serializes RLN proof to little-endian bytes.
 ///
-/// Note: The Groth16 proof is always serialized in LE format (arkworks behavior),
+/// The Groth16 proof is always serialized in LE format (arkworks behavior),
 /// while proof_values are serialized in LE format.
 pub fn rln_proof_to_bytes_le(rln_proof: &RLNProof) -> Result<Vec<u8>, ProtocolError> {
     // Calculate capacity for Vec:
@@ -548,7 +548,7 @@ pub fn rln_proof_to_bytes_le(rln_proof: &RLNProof) -> Result<Vec<u8>, ProtocolEr
 
 /// Serializes RLN proof to big-endian bytes.
 ///
-/// Note: The Groth16 proof is always serialized in LE format (arkworks behavior),
+/// The Groth16 proof is always serialized in LE format (arkworks behavior),
 /// while proof_values are serialized in BE format. This creates a mixed-endian format.
 pub fn rln_proof_to_bytes_be(rln_proof: &RLNProof) -> Result<Vec<u8>, ProtocolError> {
     // Calculate capacity for Vec:
@@ -606,7 +606,7 @@ pub fn bytes_le_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), Protocol
 
 /// Deserializes RLN proof from big-endian bytes.
 ///
-/// Note: Mixed-endian format - proof is LE (arkworks), proof_values are BE.
+/// Mixed-endian format - proof is LE (arkworks), proof_values are BE.
 ///
 /// Returns the deserialized proof and the number of bytes read.
 pub fn bytes_be_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), ProtocolError> {
@@ -729,7 +729,8 @@ pub fn generate_zk_proof(
 /// Verifies a zkSNARK proof against the verifying key and public values.
 ///
 /// Returns `true` if the proof is cryptographically valid, `false` if verification fails.
-/// Note: Verification failure may occur due to proof computation errors, not necessarily malicious proofs.
+///
+/// Verification failure may occur due to proof computation errors, not necessarily malicious proofs.
 pub fn verify_zk_proof(
     verifying_key: &VerifyingKey,
     proof: &Proof,

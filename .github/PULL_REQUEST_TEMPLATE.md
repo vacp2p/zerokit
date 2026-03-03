@@ -37,8 +37,7 @@ Please keep the following in mind (see [CONTRIBUTING.md](../CONTRIBUTING.md) for
 
 - **No panics in library code.** Do not use `unwrap()`, `expect()`, or `panic!()`
   in production paths inside `rln/src/` or `utils/src/`.
-  The only acceptable exception is an internal invariant that is statically guaranteed — and even then,
-  prefer returning an error.
+  The only acceptable exception is an internal invariant that is statically guaranteed - and even then, prefer returning an error.
 - Use the project's `thiserror`-based error types (`RLNError`, `ProtocolError`, `UtilsError`, etc.)
   and propagate errors with `?`.
 - Provide context in error variants (e.g., `InsufficientData { expected, actual }`).
@@ -57,14 +56,14 @@ Please keep the following in mind (see [CONTRIBUTING.md](../CONTRIBUTING.md) for
 CI runs clippy across multiple crate/feature combinations. Run the relevant checks locally before pushing:
 
 ```bash
-# Default features — workspace root (rln + utils)
+# Default features - workspace root (rln + utils)
 cargo clippy --all-targets --tests --release -- -D warnings
 
-# Stateless feature — from rln/
+# Stateless feature - from rln/
 cd rln && cargo clippy --all-targets --tests --release \
   --features=stateless --no-default-features -- -D warnings
 
-# WASM target — from rln-wasm/
+# WASM target - from rln-wasm/
 cd rln-wasm && cargo clippy --target wasm32-unknown-unknown \
   --tests --release -- -D warnings
 ```
@@ -81,5 +80,5 @@ At minimum, run the default-features check. If your changes touch `stateless` or
 - [ ] `make test` passes locally
 - [ ] No new `unwrap()` / `expect()` / `panic!()` in library code
 - [ ] New code includes appropriate tests (unit / integration / WASM where applicable)
-- [ ] I have run the CI coverage report — add the `run-coverage` label to enable it
+- [ ] I have run the CI coverage report - add the `run-coverage` label to enable it
 - [ ] All CI checks pass and the PR is marked **Ready for review**

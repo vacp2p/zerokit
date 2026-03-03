@@ -4,7 +4,12 @@ use super::proof::RLNProofValues;
 use crate::{circuit::Fr, error::ProtocolError, utils::IdSecret};
 
 /// Computes identity secret from two (x, y) shares.
-fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<IdSecret, ProtocolError> {
+///
+/// This function is feature-agnostic: it operates on plain `(x, y)` share pairs
+/// that can be extracted from any [`RLNProofValues`] variant (`SingleV1` or `MultiV1`).
+/// By normalizing proof outputs into simple `(x, y)` pairs with a single nullifier,
+/// slashing can be performed across different prover modes without compile-time feature constraints.
+pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<IdSecret, ProtocolError> {
     // Assuming a0 is the identity secret and a1 = poseidonHash([a0, external_nullifier]),
     // a (x,y) share satisfies the following relation
     // y = a_0 + x * a_1
@@ -27,10 +32,11 @@ fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<IdSecret, Pro
     }
 }
 
-/// Recovers identity secret from two proof shares with the same external nullifier.
+/// Recovers identity secret from two [`RLNProofValues`] with the same external nullifier.
 ///
-/// When a user violates rate limits by generating multiple proofs in the same epoch,
-/// their shares can be used to recover their identity secret through polynomial interpolation.
+/// This is a convenience API that accepts two proof values of the **same** variant.
+/// For cross-feature slashing (e.g. one share from `SingleV1` and another from `MultiV1`),
+/// extract the `(x, y)` pair and nullifier from each proof value and call [`compute_id_secret`] directly.
 pub fn recover_id_secret(
     rln_proof_values_1: &RLNProofValues,
     rln_proof_values_2: &RLNProofValues,

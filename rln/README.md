@@ -312,7 +312,11 @@ The `multi-message-id` feature flag enables consuming multiple message_id units 
 
 When enabled, the RLN module API allows specifying multiple message_id values and selector bits during witness creation. The proof generation and verification processes are updated accordingly to handle the multi-message-id logic.
 
-For detailed specification, see the [Multi-Message-ID Burn RLN specification](https://lip.logos.co/ift-ts/raw/multi-message_id-burn-rln).
+**Slashing across modes:**
+
+Two services can independently run in either normal or multi-message-id mode to generate proofs. The full structured format of `RLNWitnessInput` and `RLNProofValues` is only needed for witness calculation, proof generation, and proof verification.
+
+After verification, each active nullifier and its `(x, y)` pair can be extracted individually - unused slots can be ignored. These normalized pairs are then stored separately and checked for duplicate nullifiers via `compute_id_secret` function.
 
 ## Detailed Protocol Flow
 
@@ -341,5 +345,6 @@ and look at unit tests to have an hint on how to interface and use them.
 - Check the [unit tests](https://github.com/vacp2p/zerokit/tree/master/rln/tests) for more usage examples
 - Check the [rln-cli examples](https://github.com/vacp2p/zerokit/tree/master/rln-cli/src/examples) for complete interactive Rust examples of RLN features (relay, stateless, multi-message-id)
 - [RFC specification](https://lip.logos.co/ift-ts/raw/rln-v2) for the Rate-Limiting Nullifier protocol
+- [Multi-Message-ID RLN RFC](https://lip.logos.co/ift-ts/raw/multi-message_id-burn-rln) for details on the multi-message-ID extension
 - [Zerokit API documentation](https://lip.logos.co/ift-ts/raw/zerokit-api.html) for comprehensive API reference
 - [GitHub repository](https://github.com/vacp2p/zerokit) for the latest updates
