@@ -1,5 +1,7 @@
 use ark_ff::AdditiveGroup;
 
+#[cfg(feature = "multi-message-id")]
+use super::proof::RLNOutputs;
 use super::proof::RLNProofValues;
 use crate::{circuit::Fr, error::ProtocolError, utils::IdSecret};
 
@@ -54,31 +56,24 @@ pub fn recover_id_secret(
 
     match (rln_proof_values_1, rln_proof_values_2) {
         #[cfg(not(feature = "multi-message-id"))]
-        (
-            RLNProofValues::SingleV1 { x: x1, y: y1, .. },
-            RLNProofValues::SingleV1 { x: x2, y: y2, .. },
-        ) => {
-            let share1 = (*x1, *y1);
-            let share2 = (*x2, *y2);
+        (pv1, pv2) => {
+            let share1 = (*pv1.x(), *pv1.y());
+            let share2 = (*pv2.x(), *pv2.y());
             compute_id_secret(share1, share2)
         }
         #[cfg(feature = "multi-message-id")]
-        (
-            RLNProofValues::MultiV1 {
-                x: x1,
+        (pv1, pv2) => {
+            let RLNOutputs::MultiV1 {
                 ys: ys1,
                 nullifiers: nullifiers1,
                 selector_used: selector_used1,
-                ..
-            },
-            RLNProofValues::MultiV1 {
-                x: x2,
+            } = &pv1.outputs;
+            let RLNOutputs::MultiV1 {
                 ys: ys2,
                 nullifiers: nullifiers2,
                 selector_used: selector_used2,
-                ..
-            },
-        ) => {
+            } = &pv2.outputs;
+
             for (i, (nullifier_i, &used_i)) in
                 nullifiers1.iter().zip(selector_used1.iter()).enumerate()
             {
@@ -92,8 +87,8 @@ pub fn recover_id_secret(
                         continue;
                     }
                     if nullifier_i == nullifier_j {
-                        let share1 = (*x1, ys1[i]);
-                        let share2 = (*x2, ys2[j]);
+                        let share1 = (*pv1.x(), ys1[i]);
+                        let share2 = (*pv2.x(), ys2[j]);
                         return compute_id_secret(share1, share2);
                     }
                 }

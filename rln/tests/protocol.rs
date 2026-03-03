@@ -529,22 +529,22 @@ mod test {
 
         let new_root = *proof_values.root() + Fr::from(1);
         #[cfg(not(feature = "multi-message-id"))]
-        let mutated_pv = RLNProofValues::SingleV1 {
-            root: new_root,
-            x: *proof_values.x(),
-            external_nullifier: *proof_values.external_nullifier(),
-            y: *proof_values.y(),
-            nullifier: *proof_values.nullifier(),
-        };
+        let mutated_pv = RLNProofValues::new(
+            new_root,
+            *proof_values.x(),
+            *proof_values.external_nullifier(),
+            *proof_values.y(),
+            *proof_values.nullifier(),
+        );
         #[cfg(feature = "multi-message-id")]
-        let mutated_pv = RLNProofValues::MultiV1 {
-            root: new_root,
-            x: *proof_values.x(),
-            external_nullifier: *proof_values.external_nullifier(),
-            selector_used: proof_values.selector_used().to_vec(),
-            ys: proof_values.ys().to_vec(),
-            nullifiers: proof_values.nullifiers().to_vec(),
-        };
+        let mutated_pv = RLNProofValues::new(
+            new_root,
+            *proof_values.x(),
+            *proof_values.external_nullifier(),
+            proof_values.ys().to_vec(),
+            proof_values.nullifiers().to_vec(),
+            proof_values.selector_used().to_vec(),
+        );
 
         let verified = verify_zk_proof(&proving_key.0.vk, &proof, &mutated_pv).unwrap();
         assert!(!verified);

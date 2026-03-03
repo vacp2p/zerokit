@@ -40,233 +40,230 @@ impl RLNProof {
     }
 }
 
+/// Variant-specific outputs for RLN proof verification.
+#[derive(Debug, PartialEq, Clone)]
+pub(crate) enum RLNOutputs {
+    #[cfg(not(feature = "multi-message-id"))]
+    SingleV1 { y: Fr, nullifier: Fr },
+    #[cfg(feature = "multi-message-id")]
+    MultiV1 {
+        ys: Vec<Fr>,
+        nullifiers: Vec<Fr>,
+        selector_used: Vec<bool>,
+    },
+}
+
 /// Public values for RLN proof verification.
 ///
 /// Contains the circuit's public inputs and outputs. Used in proof verification
 /// and identity secret recovery when rate limit violations are detected.
 #[derive(Debug, PartialEq, Clone)]
-pub enum RLNProofValues {
-    #[cfg(not(feature = "multi-message-id"))]
-    SingleV1 {
-        // Public inputs:
-        root: Fr,
-        x: Fr,
-        external_nullifier: Fr,
-        // Public outputs:
-        y: Fr,
-        nullifier: Fr,
-    },
-    #[cfg(feature = "multi-message-id")]
-    MultiV1 {
-        // Public inputs:
-        root: Fr,
-        x: Fr,
-        external_nullifier: Fr,
-        selector_used: Vec<bool>,
-        // Public outputs:
-        ys: Vec<Fr>,
-        nullifiers: Vec<Fr>,
-    },
+pub struct RLNProofValues {
+    root: Fr,
+    x: Fr,
+    external_nullifier: Fr,
+    pub(crate) outputs: RLNOutputs,
 }
 
 impl RLNProofValues {
+    /// Creates a new RLNProofValues instance.
+    #[cfg(not(feature = "multi-message-id"))]
+    pub fn new(root: Fr, x: Fr, external_nullifier: Fr, y: Fr, nullifier: Fr) -> Self {
+        Self {
+            root,
+            x,
+            external_nullifier,
+            outputs: RLNOutputs::SingleV1 { y, nullifier },
+        }
+    }
+
+    /// Creates a new RLNProofValues instance.
+    #[cfg(feature = "multi-message-id")]
+    pub fn new(
+        root: Fr,
+        x: Fr,
+        external_nullifier: Fr,
+        ys: Vec<Fr>,
+        nullifiers: Vec<Fr>,
+        selector_used: Vec<bool>,
+    ) -> Self {
+        Self {
+            root,
+            x,
+            external_nullifier,
+            outputs: RLNOutputs::MultiV1 {
+                ys,
+                nullifiers,
+                selector_used,
+            },
+        }
+    }
+
     /// Returns the version byte corresponding to the proof values variant.
     pub fn version_byte(&self) -> u8 {
-        match self {
+        match &self.outputs {
             #[cfg(not(feature = "multi-message-id"))]
-            Self::SingleV1 { .. } => SerializationVersion::SingleV1.into(),
+            RLNOutputs::SingleV1 { .. } => SerializationVersion::SingleV1.into(),
             #[cfg(feature = "multi-message-id")]
-            Self::MultiV1 { .. } => SerializationVersion::MultiV1.into(),
+            RLNOutputs::MultiV1 { .. } => SerializationVersion::MultiV1.into(),
         }
     }
 
     /// Returns the Merkle tree root.
     pub fn root(&self) -> &Fr {
-        match self {
-            #[cfg(not(feature = "multi-message-id"))]
-            Self::SingleV1 { root, .. } => root,
-            #[cfg(feature = "multi-message-id")]
-            Self::MultiV1 { root, .. } => root,
-        }
+        &self.root
     }
 
     /// Returns the signal hash.
     pub fn x(&self) -> &Fr {
-        match self {
-            #[cfg(not(feature = "multi-message-id"))]
-            Self::SingleV1 { x, .. } => x,
-            #[cfg(feature = "multi-message-id")]
-            Self::MultiV1 { x, .. } => x,
-        }
+        &self.x
     }
 
     /// Returns the external nullifier.
     pub fn external_nullifier(&self) -> &Fr {
-        match self {
-            #[cfg(not(feature = "multi-message-id"))]
-            Self::SingleV1 {
-                external_nullifier, ..
-            } => external_nullifier,
-            #[cfg(feature = "multi-message-id")]
-            Self::MultiV1 {
-                external_nullifier, ..
-            } => external_nullifier,
-        }
+        &self.external_nullifier
     }
 
     /// Returns the output `y` value.
     #[cfg(not(feature = "multi-message-id"))]
     pub fn y(&self) -> &Fr {
-        match self {
-            Self::SingleV1 { y, .. } => y,
-        }
+        let RLNOutputs::SingleV1 { y, .. } = &self.outputs;
+        y
     }
 
     /// Returns the nullifier value.
     #[cfg(not(feature = "multi-message-id"))]
     pub fn nullifier(&self) -> &Fr {
-        match self {
-            Self::SingleV1 { nullifier, .. } => nullifier,
-        }
+        let RLNOutputs::SingleV1 { nullifier, .. } = &self.outputs;
+        nullifier
     }
 
     /// Returns the selector flags.
     #[cfg(feature = "multi-message-id")]
     pub fn selector_used(&self) -> &[bool] {
-        match self {
-            Self::MultiV1 { selector_used, .. } => selector_used,
-        }
+        let RLNOutputs::MultiV1 { selector_used, .. } = &self.outputs;
+        selector_used
     }
 
     /// Returns the per-message-id output `y` values.
     #[cfg(feature = "multi-message-id")]
     pub fn ys(&self) -> &[Fr] {
-        match self {
-            Self::MultiV1 { ys, .. } => ys,
-        }
+        let RLNOutputs::MultiV1 { ys, .. } = &self.outputs;
+        ys
     }
 
     /// Returns the per-message-id nullifiers.
     #[cfg(feature = "multi-message-id")]
     pub fn nullifiers(&self) -> &[Fr] {
-        match self {
-            Self::MultiV1 { nullifiers, .. } => nullifiers,
-        }
+        let RLNOutputs::MultiV1 { nullifiers, .. } = &self.outputs;
+        nullifiers
     }
 }
 
 /// Serializes RLN proof values to little-endian bytes.
 pub fn rln_proof_values_to_bytes_le(rln_proof_values: &RLNProofValues) -> Vec<u8> {
-    match rln_proof_values {
-        #[cfg(not(feature = "multi-message-id"))]
-        RLNProofValues::SingleV1 {
-            root,
-            x,
-            external_nullifier,
-            y,
-            nullifier,
-        } => {
-            // Calculate capacity for Vec:
-            // - VERSION_BYTE_SIZE byte for version tag
-            // - 5 field elements: root, external_nullifier, x, y, nullifier
-            let capacity = VERSION_BYTE_SIZE + FR_BYTE_SIZE * 5;
-            let mut bytes = Vec::with_capacity(capacity);
-            bytes.push(SerializationVersion::SingleV1.into());
-            bytes.extend_from_slice(&fr_to_bytes_le(root));
-            bytes.extend_from_slice(&fr_to_bytes_le(external_nullifier));
-            bytes.extend_from_slice(&fr_to_bytes_le(x));
-            bytes.extend_from_slice(&fr_to_bytes_le(y));
-            bytes.extend_from_slice(&fr_to_bytes_le(nullifier));
-            bytes
-        }
-        #[cfg(feature = "multi-message-id")]
-        RLNProofValues::MultiV1 {
-            root,
-            x,
-            external_nullifier,
-            selector_used,
-            ys,
-            nullifiers,
-        } => {
-            // Calculate capacity for Vec:
-            // - VERSION_BYTE_SIZE byte for version tag
-            // - 3 field elements: root, external_nullifier, x
-            // - variable size of ys, nullifiers, selector_used
-            // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (ys, nullifiers, selector_used)
-            let capacity = VERSION_BYTE_SIZE
-                + FR_BYTE_SIZE * 3
-                + FR_BYTE_SIZE * ys.len()
-                + FR_BYTE_SIZE * nullifiers.len()
-                + selector_used.len()
-                + VEC_LEN_BYTE_SIZE * 3;
-            let mut bytes = Vec::with_capacity(capacity);
-            bytes.push(SerializationVersion::MultiV1.into());
-            bytes.extend_from_slice(&fr_to_bytes_le(root));
-            bytes.extend_from_slice(&fr_to_bytes_le(external_nullifier));
-            bytes.extend_from_slice(&fr_to_bytes_le(x));
-            bytes.extend_from_slice(&vec_fr_to_bytes_le(ys));
-            bytes.extend_from_slice(&vec_fr_to_bytes_le(nullifiers));
-            bytes.extend_from_slice(&vec_bool_to_bytes_le(selector_used));
-            bytes
-        }
+    let RLNProofValues {
+        root,
+        x,
+        external_nullifier,
+        outputs,
+    } = rln_proof_values;
+
+    #[cfg(not(feature = "multi-message-id"))]
+    let RLNOutputs::SingleV1 { y, nullifier } = outputs;
+    #[cfg(feature = "multi-message-id")]
+    let RLNOutputs::MultiV1 {
+        ys,
+        nullifiers,
+        selector_used,
+    } = outputs;
+
+    // Calculate capacity for Vec:
+    // - VERSION_BYTE_SIZE byte for version tag
+    // - 3 common field elements: root, external_nullifier, x
+    #[cfg(not(feature = "multi-message-id"))]
+    // - 2 field elements: y, nullifier
+    let capacity = VERSION_BYTE_SIZE + FR_BYTE_SIZE * 5;
+    #[cfg(feature = "multi-message-id")]
+    // - variable size of ys, nullifiers, selector_used
+    // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (ys, nullifiers, selector_used)
+    let capacity = VERSION_BYTE_SIZE
+        + FR_BYTE_SIZE * 3
+        + FR_BYTE_SIZE * ys.len()
+        + FR_BYTE_SIZE * nullifiers.len()
+        + selector_used.len()
+        + VEC_LEN_BYTE_SIZE * 3;
+
+    let mut bytes = Vec::with_capacity(capacity);
+    bytes.push(rln_proof_values.version_byte());
+    bytes.extend_from_slice(&fr_to_bytes_le(root));
+    bytes.extend_from_slice(&fr_to_bytes_le(external_nullifier));
+    bytes.extend_from_slice(&fr_to_bytes_le(x));
+    #[cfg(not(feature = "multi-message-id"))]
+    {
+        bytes.extend_from_slice(&fr_to_bytes_le(y));
+        bytes.extend_from_slice(&fr_to_bytes_le(nullifier));
     }
+    #[cfg(feature = "multi-message-id")]
+    {
+        bytes.extend_from_slice(&vec_fr_to_bytes_le(ys));
+        bytes.extend_from_slice(&vec_fr_to_bytes_le(nullifiers));
+        bytes.extend_from_slice(&vec_bool_to_bytes_le(selector_used));
+    }
+    bytes
 }
 
 /// Serializes RLN proof values to big-endian bytes.
 pub fn rln_proof_values_to_bytes_be(rln_proof_values: &RLNProofValues) -> Vec<u8> {
-    match rln_proof_values {
-        #[cfg(not(feature = "multi-message-id"))]
-        RLNProofValues::SingleV1 {
-            root,
-            x,
-            external_nullifier,
-            y,
-            nullifier,
-        } => {
-            // Calculate capacity for Vec:
-            // - VERSION_BYTE_SIZE byte for version tag
-            // - 5 field elements: root, external_nullifier, x, y, nullifier
-            let capacity = VERSION_BYTE_SIZE + FR_BYTE_SIZE * 5;
-            let mut bytes = Vec::with_capacity(capacity);
-            bytes.push(SerializationVersion::SingleV1.into());
-            bytes.extend_from_slice(&fr_to_bytes_be(root));
-            bytes.extend_from_slice(&fr_to_bytes_be(external_nullifier));
-            bytes.extend_from_slice(&fr_to_bytes_be(x));
-            bytes.extend_from_slice(&fr_to_bytes_be(y));
-            bytes.extend_from_slice(&fr_to_bytes_be(nullifier));
-            bytes
-        }
-        #[cfg(feature = "multi-message-id")]
-        RLNProofValues::MultiV1 {
-            root,
-            x,
-            external_nullifier,
-            selector_used,
-            ys,
-            nullifiers,
-        } => {
-            // Calculate capacity for Vec:
-            // - VERSION_BYTE_SIZE byte for version tag
-            // - 3 field elements: root, external_nullifier, x
-            // - variable size of ys, nullifiers, selector_used
-            // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (ys, nullifiers, selector_used)
-            let capacity = VERSION_BYTE_SIZE
-                + FR_BYTE_SIZE * 3
-                + FR_BYTE_SIZE * ys.len()
-                + FR_BYTE_SIZE * nullifiers.len()
-                + selector_used.len()
-                + VEC_LEN_BYTE_SIZE * 3;
-            let mut bytes = Vec::with_capacity(capacity);
-            bytes.push(SerializationVersion::MultiV1.into());
-            bytes.extend_from_slice(&fr_to_bytes_be(root));
-            bytes.extend_from_slice(&fr_to_bytes_be(external_nullifier));
-            bytes.extend_from_slice(&fr_to_bytes_be(x));
-            bytes.extend_from_slice(&vec_fr_to_bytes_be(ys));
-            bytes.extend_from_slice(&vec_fr_to_bytes_be(nullifiers));
-            bytes.extend_from_slice(&vec_bool_to_bytes_be(selector_used));
-            bytes
-        }
+    let RLNProofValues {
+        root,
+        x,
+        external_nullifier,
+        outputs,
+    } = rln_proof_values;
+
+    #[cfg(not(feature = "multi-message-id"))]
+    let RLNOutputs::SingleV1 { y, nullifier } = outputs;
+    #[cfg(feature = "multi-message-id")]
+    let RLNOutputs::MultiV1 {
+        ys,
+        nullifiers,
+        selector_used,
+    } = outputs;
+
+    // Calculate capacity for Vec:
+    // - VERSION_BYTE_SIZE byte for version tag
+    // - 3 common field elements: root, external_nullifier, x
+    #[cfg(not(feature = "multi-message-id"))]
+    // - 2 field elements: y, nullifier
+    let capacity = VERSION_BYTE_SIZE + FR_BYTE_SIZE * 5;
+    #[cfg(feature = "multi-message-id")]
+    // - variable size of ys, nullifiers, selector_used
+    // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (ys, nullifiers, selector_used)
+    let capacity = VERSION_BYTE_SIZE
+        + FR_BYTE_SIZE * 3
+        + FR_BYTE_SIZE * ys.len()
+        + FR_BYTE_SIZE * nullifiers.len()
+        + selector_used.len()
+        + VEC_LEN_BYTE_SIZE * 3;
+
+    let mut bytes = Vec::with_capacity(capacity);
+    bytes.push(rln_proof_values.version_byte());
+    bytes.extend_from_slice(&fr_to_bytes_be(root));
+    bytes.extend_from_slice(&fr_to_bytes_be(external_nullifier));
+    bytes.extend_from_slice(&fr_to_bytes_be(x));
+    #[cfg(not(feature = "multi-message-id"))]
+    {
+        bytes.extend_from_slice(&fr_to_bytes_be(y));
+        bytes.extend_from_slice(&fr_to_bytes_be(nullifier));
     }
+    #[cfg(feature = "multi-message-id")]
+    {
+        bytes.extend_from_slice(&vec_fr_to_bytes_be(ys));
+        bytes.extend_from_slice(&vec_fr_to_bytes_be(nullifiers));
+        bytes.extend_from_slice(&vec_bool_to_bytes_be(selector_used));
+    }
+    bytes
 }
 
 /// Deserializes RLN proof values from little-endian bytes.
@@ -279,85 +276,56 @@ pub fn bytes_le_to_rln_proof_values(
         return Err(ProtocolError::InvalidReadLen(1, 0));
     }
 
-    let version = SerializationVersion::try_from(bytes[0])?;
+    let _version = SerializationVersion::try_from(bytes[0])?;
     let mut read: usize = VERSION_BYTE_SIZE;
 
-    match version {
-        #[cfg(not(feature = "multi-message-id"))]
-        SerializationVersion::SingleV1 => {
-            let (root, el_size) = bytes_le_to_fr(&bytes[read..])?;
-            read += el_size;
-            let (external_nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
-            read += el_size;
-            let (x, el_size) = bytes_le_to_fr(&bytes[read..])?;
-            read += el_size;
-            let (y, el_size) = bytes_le_to_fr(&bytes[read..])?;
-            read += el_size;
-            let (nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
-            read += el_size;
+    let (root, el_size) = bytes_le_to_fr(&bytes[read..])?;
+    read += el_size;
+    let (external_nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
+    read += el_size;
+    let (x, el_size) = bytes_le_to_fr(&bytes[read..])?;
+    read += el_size;
 
-            if read != bytes.len() {
-                return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-            }
-            Ok((
-                RLNProofValues::SingleV1 {
-                    root,
-                    x,
-                    external_nullifier,
-                    y,
-                    nullifier,
-                },
-                read,
-            ))
+    #[cfg(not(feature = "multi-message-id"))]
+    let proof_values = {
+        let (y, el_size) = bytes_le_to_fr(&bytes[read..])?;
+        read += el_size;
+        let (nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
+        read += el_size;
+        RLNProofValues::new(root, x, external_nullifier, y, nullifier)
+    };
+    #[cfg(feature = "multi-message-id")]
+    let proof_values = {
+        let (ys, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
+        read += el_size;
+        let (nullifiers, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
+        read += el_size;
+        let (selector_used, el_size) = bytes_le_to_vec_bool(&bytes[read..])?;
+        read += el_size;
+
+        if selector_used.len() != ys.len() {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "ys".into(),
+                ys.len(),
+                "selector_used".into(),
+                selector_used.len(),
+            ));
         }
-        #[cfg(feature = "multi-message-id")]
-        SerializationVersion::MultiV1 => {
-            let (root, el_size) = bytes_le_to_fr(&bytes[read..])?;
-            read += el_size;
-            let (external_nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
-            read += el_size;
-            let (x, el_size) = bytes_le_to_fr(&bytes[read..])?;
-            read += el_size;
-            let (ys, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
-            read += el_size;
-            let (nullifiers, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
-            read += el_size;
-            let (selector_used, el_size) = bytes_le_to_vec_bool(&bytes[read..])?;
-            read += el_size;
-
-            if selector_used.len() != ys.len() {
-                return Err(ProtocolError::FieldLengthMismatch(
-                    "ys".into(),
-                    ys.len(),
-                    "selector_used".into(),
-                    selector_used.len(),
-                ));
-            }
-            if nullifiers.len() != ys.len() {
-                return Err(ProtocolError::FieldLengthMismatch(
-                    "ys".into(),
-                    ys.len(),
-                    "nullifiers".into(),
-                    nullifiers.len(),
-                ));
-            }
-            if read != bytes.len() {
-                return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-            }
-
-            Ok((
-                RLNProofValues::MultiV1 {
-                    root,
-                    x,
-                    external_nullifier,
-                    selector_used,
-                    ys,
-                    nullifiers,
-                },
-                read,
-            ))
+        if nullifiers.len() != ys.len() {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "ys".into(),
+                ys.len(),
+                "nullifiers".into(),
+                nullifiers.len(),
+            ));
         }
+        RLNProofValues::new(root, x, external_nullifier, ys, nullifiers, selector_used)
+    };
+
+    if read != bytes.len() {
+        return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
     }
+    Ok((proof_values, read))
 }
 
 /// Deserializes RLN proof values from big-endian bytes.
@@ -370,85 +338,56 @@ pub fn bytes_be_to_rln_proof_values(
         return Err(ProtocolError::InvalidReadLen(1, 0));
     }
 
-    let version = SerializationVersion::try_from(bytes[0])?;
+    let _version = SerializationVersion::try_from(bytes[0])?;
     let mut read: usize = VERSION_BYTE_SIZE;
 
-    match version {
-        #[cfg(not(feature = "multi-message-id"))]
-        SerializationVersion::SingleV1 => {
-            let (root, el_size) = bytes_be_to_fr(&bytes[read..])?;
-            read += el_size;
-            let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
-            read += el_size;
-            let (x, el_size) = bytes_be_to_fr(&bytes[read..])?;
-            read += el_size;
-            let (y, el_size) = bytes_be_to_fr(&bytes[read..])?;
-            read += el_size;
-            let (nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
-            read += el_size;
+    let (root, el_size) = bytes_be_to_fr(&bytes[read..])?;
+    read += el_size;
+    let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
+    read += el_size;
+    let (x, el_size) = bytes_be_to_fr(&bytes[read..])?;
+    read += el_size;
 
-            if read != bytes.len() {
-                return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-            }
-            Ok((
-                RLNProofValues::SingleV1 {
-                    root,
-                    x,
-                    external_nullifier,
-                    y,
-                    nullifier,
-                },
-                read,
-            ))
+    #[cfg(not(feature = "multi-message-id"))]
+    let proof_values = {
+        let (y, el_size) = bytes_be_to_fr(&bytes[read..])?;
+        read += el_size;
+        let (nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
+        read += el_size;
+        RLNProofValues::new(root, x, external_nullifier, y, nullifier)
+    };
+    #[cfg(feature = "multi-message-id")]
+    let proof_values = {
+        let (ys, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
+        read += el_size;
+        let (nullifiers, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
+        read += el_size;
+        let (selector_used, el_size) = bytes_be_to_vec_bool(&bytes[read..])?;
+        read += el_size;
+
+        if selector_used.len() != ys.len() {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "ys".into(),
+                ys.len(),
+                "selector_used".into(),
+                selector_used.len(),
+            ));
         }
-        #[cfg(feature = "multi-message-id")]
-        SerializationVersion::MultiV1 => {
-            let (root, el_size) = bytes_be_to_fr(&bytes[read..])?;
-            read += el_size;
-            let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
-            read += el_size;
-            let (x, el_size) = bytes_be_to_fr(&bytes[read..])?;
-            read += el_size;
-            let (ys, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
-            read += el_size;
-            let (nullifiers, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
-            read += el_size;
-            let (selector_used, el_size) = bytes_be_to_vec_bool(&bytes[read..])?;
-            read += el_size;
-
-            if selector_used.len() != ys.len() {
-                return Err(ProtocolError::FieldLengthMismatch(
-                    "ys".into(),
-                    ys.len(),
-                    "selector_used".into(),
-                    selector_used.len(),
-                ));
-            }
-            if nullifiers.len() != ys.len() {
-                return Err(ProtocolError::FieldLengthMismatch(
-                    "ys".into(),
-                    ys.len(),
-                    "nullifiers".into(),
-                    nullifiers.len(),
-                ));
-            }
-            if read != bytes.len() {
-                return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-            }
-
-            Ok((
-                RLNProofValues::MultiV1 {
-                    root,
-                    x,
-                    external_nullifier,
-                    selector_used,
-                    ys,
-                    nullifiers,
-                },
-                read,
-            ))
+        if nullifiers.len() != ys.len() {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "ys".into(),
+                ys.len(),
+                "nullifiers".into(),
+                nullifiers.len(),
+            ));
         }
+        RLNProofValues::new(root, x, external_nullifier, ys, nullifiers, selector_used)
+    };
+
+    if read != bytes.len() {
+        return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
     }
+    Ok((proof_values, read))
 }
 
 /// Serializes RLN proof to little-endian bytes.
@@ -577,7 +516,7 @@ fn calculated_witness_to_field_elements<E: ark_ec::pairing::Pairing>(
 ) -> Result<Vec<E::ScalarField>, ProtocolError> {
     let modulus = <E::ScalarField as PrimeField>::MODULUS;
 
-    // convert it to field elements
+    // Convert it to field elements
     let mut field_elements = vec![];
     for w in calculated_witness.into_iter() {
         let w = if w.sign() == num_bigint::Sign::Minus {
@@ -628,21 +567,8 @@ pub fn generate_zk_proof(
     witness: &RLNWitnessInput,
     graph: &Graph,
 ) -> Result<Proof, ProtocolError> {
-    let (actual_path_len, actual_index_len) = match witness {
-        #[cfg(not(feature = "multi-message-id"))]
-        RLNWitnessInput::SingleV1 {
-            path_elements,
-            identity_path_index,
-            ..
-        } => (path_elements.len(), identity_path_index.len()),
-
-        #[cfg(feature = "multi-message-id")]
-        RLNWitnessInput::MultiV1 {
-            path_elements,
-            identity_path_index,
-            ..
-        } => (path_elements.len(), identity_path_index.len()),
-    };
+    let actual_path_len = witness.path_elements().len();
+    let actual_index_len = witness.identity_path_index().len();
 
     let expected_tree_depth = graph.tree_depth;
     if actual_path_len != expected_tree_depth {
@@ -666,15 +592,9 @@ pub fn generate_zk_proof(
 
     #[cfg(feature = "multi-message-id")]
     {
-        let RLNWitnessInput::MultiV1 {
-            message_ids,
-            selector_used,
-            ..
-        } = witness;
-
         let expected_max_out = graph.max_out;
 
-        let actual_message_ids_len = message_ids.len();
+        let actual_message_ids_len = witness.message_ids().len();
         if actual_message_ids_len != expected_max_out {
             return Err(ProtocolError::FieldLengthMismatch(
                 "message_ids".into(),
@@ -685,7 +605,7 @@ pub fn generate_zk_proof(
             .into());
         }
 
-        let actual_selector_used_len = selector_used.len();
+        let actual_selector_used_len = witness.selector_used().len();
         if actual_selector_used_len != expected_max_out {
             return Err(ProtocolError::FieldLengthMismatch(
                 "selector_used".into(),
@@ -732,37 +652,34 @@ pub fn verify_zk_proof(
     proof_values: &RLNProofValues,
 ) -> Result<bool, ProtocolError> {
     // We re-arrange proof-values according to the circuit specification
-    let inputs = match proof_values {
-        #[cfg(not(feature = "multi-message-id"))]
-        RLNProofValues::SingleV1 {
-            y,
-            root,
-            nullifier,
-            x,
-            external_nullifier,
-        } => {
-            vec![*y, *root, *nullifier, *x, *external_nullifier]
-        }
-        #[cfg(feature = "multi-message-id")]
-        RLNProofValues::MultiV1 {
+    #[cfg(not(feature = "multi-message-id"))]
+    let inputs = {
+        let RLNOutputs::SingleV1 { y, nullifier } = &proof_values.outputs;
+        vec![
+            *y,
+            proof_values.root,
+            *nullifier,
+            proof_values.x,
+            proof_values.external_nullifier,
+        ]
+    };
+    #[cfg(feature = "multi-message-id")]
+    let inputs = {
+        let RLNOutputs::MultiV1 {
             ys,
             nullifiers,
-            root,
-            x,
-            external_nullifier,
             selector_used,
-        } => {
-            let mut inputs = Vec::with_capacity(3 * ys.len() + 3);
-            inputs.extend_from_slice(ys);
-            inputs.push(*root);
-            inputs.extend_from_slice(nullifiers);
-            inputs.push(*x);
-            inputs.push(*external_nullifier);
-            for &used in selector_used.iter() {
-                inputs.push(Fr::from(used));
-            }
-            inputs
+        } = &proof_values.outputs;
+        let mut inputs = Vec::with_capacity(3 * ys.len() + 3);
+        inputs.extend_from_slice(ys);
+        inputs.push(proof_values.root);
+        inputs.extend_from_slice(nullifiers);
+        inputs.push(proof_values.x);
+        inputs.push(proof_values.external_nullifier);
+        for &used in selector_used.iter() {
+            inputs.push(Fr::from(used));
         }
+        inputs
     };
 
     // Check that the proof is valid
