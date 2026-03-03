@@ -18,11 +18,13 @@ use ark_groth16::{
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use self::{
-    error::{GraphReadError, ZKeyReadError},
-    iden3calc::InputSignalsInfo,
+#[cfg(not(target_arch = "wasm32"))]
+use self::error::GraphReadError;
+use self::error::ZKeyReadError;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::circuit::iden3calc::{
+    graph::Node, storage::deserialize_witnesscalc_graph, InputSignalsInfo,
 };
-use crate::circuit::iden3calc::{graph::Node, storage::deserialize_witnesscalc_graph};
 
 #[cfg(all(not(target_arch = "wasm32"), not(feature = "multi-message-id")))]
 const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
@@ -102,6 +104,7 @@ pub type VerifyingKey = ArkVerifyingKey<Curve>;
 ///
 /// Contains the deserialized computation graph used for witness calculation.
 /// Parsing this once and reusing it avoids repeated deserialization overhead.
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone)]
 pub struct Graph {
     pub(crate) nodes: Vec<Node>,
@@ -109,7 +112,7 @@ pub struct Graph {
     pub(crate) input_mapping: InputSignalsInfo,
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) tree_depth: usize,
-    #[cfg(all(feature = "multi-message-id", not(target_arch = "wasm32")))]
+    #[cfg(feature = "multi-message-id")]
     pub(crate) max_out: usize,
 }
 
@@ -125,12 +128,11 @@ pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<Zkey, ZKeyReadError> {
 }
 
 /// Parses the witness calculator graph from raw bytes
+#[cfg(not(target_arch = "wasm32"))]
 pub fn graph_from_raw(
     graph_data: &[u8],
     #[cfg(not(target_arch = "wasm32"))] expected_tree_depth: Option<usize>,
-    #[cfg(all(feature = "multi-message-id", not(target_arch = "wasm32")))] expected_max_out: Option<
-        usize,
-    >,
+    #[cfg(feature = "multi-message-id")] expected_max_out: Option<usize>,
 ) -> Result<Graph, GraphReadError> {
     if graph_data.is_empty() {
         return Err(GraphReadError::EmptyBytes);
@@ -159,7 +161,7 @@ pub fn graph_from_raw(
         depth
     };
 
-    #[cfg(all(feature = "multi-message-id", not(target_arch = "wasm32")))]
+    #[cfg(feature = "multi-message-id")]
     let max_out = {
         let count = input_mapping
             .get("messageId")
@@ -184,7 +186,7 @@ pub fn graph_from_raw(
         input_mapping,
         #[cfg(not(target_arch = "wasm32"))]
         tree_depth,
-        #[cfg(all(feature = "multi-message-id", not(target_arch = "wasm32")))]
+        #[cfg(feature = "multi-message-id")]
         max_out,
     })
 }

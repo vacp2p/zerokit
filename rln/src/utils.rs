@@ -8,6 +8,7 @@ use ark_std::UniformRand;
 use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use rand::Rng;
+#[cfg(not(target_arch = "wasm32"))]
 use ruint::aliases::U256;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
@@ -505,6 +506,7 @@ impl IdSecret {
 
     /// Warning: this can leak the secret value
     /// Warning: Leaked value is of type 'U256' which implement Copy (every copy will not be zeroized)
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn to_u256(&self) -> U256 {
         let mut big_int = self.0.into_bigint();
         let res = U256::from_limbs(big_int.0);
@@ -533,18 +535,21 @@ impl Deref for IdSecret {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug, Zeroize, ZeroizeOnDrop)]
 pub(crate) enum FrOrSecret {
     IdSecret(IdSecret),
     Fr(Fr),
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl From<Fr> for FrOrSecret {
     fn from(value: Fr) -> Self {
         FrOrSecret::Fr(value)
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl From<IdSecret> for FrOrSecret {
     fn from(value: IdSecret) -> Self {
         FrOrSecret::IdSecret(value)

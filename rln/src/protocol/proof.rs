@@ -5,10 +5,11 @@ use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
 use num_traits::Signed;
 
-use super::{
-    version::{SerializationVersion, VERSION_BYTE_SIZE},
-    witness::{inputs_for_witness_calculation, RLNWitnessInput},
-};
+use super::version::{SerializationVersion, VERSION_BYTE_SIZE};
+#[cfg(not(target_arch = "wasm32"))]
+use super::witness::{inputs_for_witness_calculation, RLNWitnessInput};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::circuit::{iden3calc::calc_witness, Graph};
 #[cfg(feature = "multi-message-id")]
 use crate::utils::{
     bytes_be_to_vec_bool, bytes_be_to_vec_fr, bytes_le_to_vec_bool, bytes_le_to_vec_fr,
@@ -16,10 +17,7 @@ use crate::utils::{
     VEC_LEN_BYTE_SIZE,
 };
 use crate::{
-    circuit::{
-        iden3calc::calc_witness, qap::CircomReduction, Curve, Fr, Graph, Proof, VerifyingKey, Zkey,
-        COMPRESS_PROOF_SIZE,
-    },
+    circuit::{qap::CircomReduction, Curve, Fr, Proof, VerifyingKey, Zkey, COMPRESS_PROOF_SIZE},
     error::ProtocolError,
     utils::{bytes_be_to_fr, bytes_le_to_fr, fr_to_bytes_be, fr_to_bytes_le, FR_BYTE_SIZE},
 };

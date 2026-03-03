@@ -8,6 +8,8 @@ use super::{
     proof::RLNProofValues,
     version::{SerializationVersion, VERSION_BYTE_SIZE},
 };
+#[cfg(not(target_arch = "wasm32"))]
+use crate::utils::FrOrSecret;
 #[cfg(feature = "multi-message-id")]
 use crate::utils::{
     bytes_be_to_vec_bool, bytes_le_to_vec_bool, vec_bool_to_bytes_be, vec_bool_to_bytes_le,
@@ -19,8 +21,8 @@ use crate::{
     utils::{
         bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_le_to_fr, bytes_le_to_vec_fr,
         bytes_le_to_vec_u8, fr_to_bytes_be, fr_to_bytes_le, to_bigint, vec_fr_to_bytes_be,
-        vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, FrOrSecret, IdSecret,
-        FR_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
+        vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, IdSecret, FR_BYTE_SIZE,
+        VEC_LEN_BYTE_SIZE,
     },
 };
 
@@ -636,6 +638,7 @@ pub fn compute_tree_root(
 }
 
 /// Prepares inputs for witness calculation from RLN witness input.
+#[cfg(not(target_arch = "wasm32"))]
 pub(super) fn inputs_for_witness_calculation(
     witness: &RLNWitnessInput,
 ) -> Result<Vec<(&str, Vec<FrOrSecret>)>, ProtocolError> {

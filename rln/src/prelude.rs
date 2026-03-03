@@ -11,11 +11,14 @@ pub use crate::poseidon_tree::{MerkleProof, PoseidonTree};
 #[cfg(not(feature = "stateless"))]
 pub use crate::protocol::compute_tree_root;
 #[cfg(not(target_arch = "wasm32"))]
-pub use crate::protocol::{generate_zk_proof, verify_zk_proof};
+pub use crate::{
+    circuit::{graph_from_raw, Graph},
+    protocol::{generate_zk_proof, verify_zk_proof},
+};
 pub use crate::{
     circuit::{
-        graph_from_raw, zkey_from_raw, Curve, Fq, Fq2, Fr, G1Affine, G1Projective, G2Affine,
-        G2Projective, Graph, Proof, VerifyingKey, Zkey, COMPRESS_PROOF_SIZE, DEFAULT_TREE_DEPTH,
+        zkey_from_raw, Curve, Fq, Fq2, Fr, G1Affine, G1Projective, G2Affine, G2Projective, Proof,
+        VerifyingKey, Zkey, COMPRESS_PROOF_SIZE, DEFAULT_TREE_DEPTH,
     },
     error::{ProtocolError, RLNError, UtilsError, VerifyError},
     hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash, PoseidonHash},
