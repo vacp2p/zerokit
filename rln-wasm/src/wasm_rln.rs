@@ -248,6 +248,19 @@ impl WasmRLNProofValues {
         Ok(WasmRLNProofValues(proof_values))
     }
 
+    #[wasm_bindgen(js_name = computeIdSecret)]
+    pub fn compute_id_secret_from_shares(
+        share1_x: &WasmFr,
+        share1_y: &WasmFr,
+        share2_x: &WasmFr,
+        share2_y: &WasmFr,
+    ) -> Result<WasmFr, String> {
+        let share1 = (share1_x.inner(), share1_y.inner());
+        let share2 = (share2_x.inner(), share2_y.inner());
+        let secret = compute_id_secret(share1, share2).map_err(|err| err.to_string())?;
+        Ok(WasmFr::from(*secret))
+    }
+
     #[wasm_bindgen(js_name = recoverIdSecret)]
     pub fn recover_id_secret(
         proof_values_1: &WasmRLNProofValues,

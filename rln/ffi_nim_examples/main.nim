@@ -369,6 +369,9 @@ when not defined(ffiStateless):
       cdecl, dynlib: RLN_LIB.}
 
 # Identity secret recovery
+proc ffi_compute_id_secret*(share1_x: ptr CFr, share1_y: ptr CFr,
+    share2_x: ptr CFr, share2_y: ptr CFr): CResultCFrPtrVecU8 {.importc: "ffi_compute_id_secret",
+    cdecl, dynlib: RLN_LIB.}
 proc ffi_recover_id_secret*(proof_values_1: ptr ptr FFI_RLNProofValues,
     proof_values_2: ptr ptr FFI_RLNProofValues): CResultCFrPtrVecU8 {.importc: "ffi_recover_id_secret",
     cdecl, dynlib: RLN_LIB.}

@@ -890,6 +890,27 @@ pub fn ffi_verify_with_roots(
 // Identity secret recovery API
 
 #[ffi_export]
+pub fn ffi_compute_id_secret(
+    share1_x: &CFr,
+    share1_y: &CFr,
+    share2_x: &CFr,
+    share2_y: &CFr,
+) -> CResult<repr_c::Box<CFr>, repr_c::String> {
+    let share1 = (share1_x.0, share1_y.0);
+    let share2 = (share2_x.0, share2_y.0);
+    match compute_id_secret(share1, share2) {
+        Ok(secret) => CResult {
+            ok: Some(Box_::new(CFr::from(*secret))),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
 pub fn ffi_recover_id_secret(
     proof_values_1: &repr_c::Box<FFI_RLNProofValues>,
     proof_values_2: &repr_c::Box<FFI_RLNProofValues>,
