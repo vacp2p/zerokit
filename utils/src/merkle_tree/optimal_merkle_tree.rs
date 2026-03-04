@@ -5,6 +5,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use super::{
     error::{FromConfigError, ZerokitMerkleTreeError},
     merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES},
+    override_range_validation::{validate_override_range_inputs, EmptyIndicesPolicy},
 };
 
 // Optimal Merkle Tree Implementation
@@ -173,7 +174,10 @@ where
     ) -> Result<(), ZerokitMerkleTreeError> {
         // check if the range is valid
         let leaves_len = leaves.len();
-        if start + leaves_len > self.capacity() {
+        let end = start
+            .checked_add(leaves_len)
+            .ok_or(ZerokitMerkleTreeError::TooManySet)?;
+        if end > self.capacity() {
             return Err(ZerokitMerkleTreeError::TooManySet);
         }
         for (i, leaf) in leaves.enumerate() {
@@ -196,14 +200,24 @@ where
         I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
         J: ExactSizeIterator<Item = usize>,
     {
-        let indices = indices.into_iter().collect::<Vec<_>>();
-        if indices.is_empty() {
+        let leaves_vec = leaves.into_iter().collect::<Vec<_>>();
+        let validated = validate_override_range_inputs(
+            start,
+            leaves_vec.len(),
+            indices.into_iter().collect::<Vec<_>>(),
+            self.capacity(),
+            // OptimalMerkleTree's override path currently requires explicit delete indices.
+            EmptyIndicesPolicy::Reject,
+        )?;
+        let indices = validated.indices;
+        let min_index = validated
+            .min_index
+            .ok_or(ZerokitMerkleTreeError::InvalidIndices)?;
+        let max_index = validated.max_index.unwrap_or(start);
+
+        if min_index >= max_index {
             return Err(ZerokitMerkleTreeError::InvalidIndices);
         }
-        let min_index = indices[0];
-        let leaves_vec = leaves.into_iter().collect::<Vec<_>>();
-
-        let max_index = start + leaves_vec.len();
 
         let mut set_values = vec![Self::Hasher::default_leaf(); max_index - min_index];
 
