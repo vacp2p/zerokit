@@ -28,6 +28,14 @@ pub fn to_bigint(el: &Fr) -> BigInt {
     BigUint::from(*el).into()
 }
 
+/// Converts a `BigUint` to `Fr`, rejecting out-of-range values (>= field modulus).
+#[inline(always)]
+fn biguint_to_fr(val: BigUint) -> Result<Fr, UtilsError> {
+    let bigint = <Fr as PrimeField>::BigInt::try_from(val)
+        .map_err(|_| UtilsError::FieldElementOutOfRange)?;
+    Fr::from_bigint(bigint).ok_or(UtilsError::FieldElementOutOfRange)
+}
+
 #[inline(always)]
 pub fn str_to_fr(input: &str, radix: u32) -> Result<Fr, UtilsError> {
     if !(radix == 10 || radix == 16) {
@@ -40,10 +48,10 @@ pub fn str_to_fr(input: &str, radix: u32) -> Result<Fr, UtilsError> {
     input_clean = input_clean.trim().to_string();
 
     if radix == 10 {
-        Ok(BigUint::from_str_radix(&input_clean, radix)?.into())
+        biguint_to_fr(BigUint::from_str_radix(&input_clean, radix)?)
     } else {
         input_clean = input_clean.replace("0x", "");
-        Ok(BigUint::from_str_radix(&input_clean, radix)?.into())
+        biguint_to_fr(BigUint::from_str_radix(&input_clean, radix)?)
     }
 }
 
@@ -56,10 +64,8 @@ pub fn bytes_le_to_fr(input: &[u8]) -> Result<(Fr, usize), UtilsError> {
             actual: input.len(),
         });
     }
-    Ok((
-        Fr::from(BigUint::from_bytes_le(&input[0..el_size])),
-        el_size,
-    ))
+    let fr = biguint_to_fr(BigUint::from_bytes_le(&input[0..el_size]))?;
+    Ok((fr, el_size))
 }
 
 #[inline(always)]
@@ -71,10 +77,8 @@ pub fn bytes_be_to_fr(input: &[u8]) -> Result<(Fr, usize), UtilsError> {
             actual: input.len(),
         });
     }
-    Ok((
-        Fr::from(BigUint::from_bytes_be(&input[0..el_size])),
-        el_size,
-    ))
+    let fr = biguint_to_fr(BigUint::from_bytes_be(&input[0..el_size]))?;
+    Ok((fr, el_size))
 }
 
 #[inline(always)]
@@ -370,10 +374,8 @@ impl IdSecret {
                 actual: input.len(),
             });
         }
-        let b_uint = BigUint::from_bytes_le(&input[0..el_size]);
-        let mut fr = Fr::from(b_uint);
+        let mut fr = biguint_to_fr(BigUint::from_bytes_le(&input[0..el_size]))?;
         let res = IdSecret::from(&mut fr);
-        // Note: no zeroize on b_uint as it has been moved
         Ok((res, el_size))
     }
 
@@ -385,10 +387,8 @@ impl IdSecret {
                 actual: input.len(),
             });
         }
-        let b_uint = BigUint::from_bytes_be(&input[0..el_size]);
-        let mut fr = Fr::from(b_uint);
+        let mut fr = biguint_to_fr(BigUint::from_bytes_be(&input[0..el_size]))?;
         let res = IdSecret::from(&mut fr);
-        // Note: no zeroize on b_uint as it has been moved
         Ok((res, el_size))
     }
 
