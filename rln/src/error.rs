@@ -22,8 +22,8 @@ pub enum UtilsError {
     FromSlice(#[from] TryFromSliceError),
     #[error("Input data too short: expected at least {expected} bytes, got {actual} bytes")]
     InsufficientData { expected: usize, actual: usize },
-    #[error("Field element is out of range")]
-    FieldElementOutOfRange,
+    #[error("Non-canonical field element: value is not in [0, r-1]")]
+    NonCanonicalFieldElement,
 }
 
 /// Errors that can occur during RLN protocol operations (proof generation, verification, etc.)

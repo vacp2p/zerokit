@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod test {
+    use ark_ff::{BigInteger, PrimeField};
     use ark_std::{rand::thread_rng, UniformRand};
+    use num_bigint::BigUint;
     use rln::prelude::*;
 
     #[test]
@@ -420,5 +422,86 @@ mod test {
         let reconstructed_be_usize = bytes_be_to_vec_usize(&be_usize_bytes).unwrap();
         assert_eq!(empty_usize, reconstructed_le_usize);
         assert_eq!(empty_usize, reconstructed_be_usize);
+    }
+
+    #[test]
+    fn test_non_canonical_field_element_modulus_boundary() {
+        let modulus = BigUint::from_bytes_le(&Fr::MODULUS.to_bytes_le());
+
+        // Value == modulus should fail (from_bigint rejects it)
+        let modulus_bytes_le = {
+            let mut bytes = modulus.to_bytes_le();
+            bytes.resize(FR_BYTE_SIZE, 0);
+            bytes
+        };
+        let result = bytes_le_to_fr(&modulus_bytes_le);
+        assert!(result.is_err(), "modulus itself should be rejected");
+        assert!(matches!(
+            result.unwrap_err(),
+            UtilsError::NonCanonicalFieldElement
+        ));
+
+        // Value == modulus + 1 should also fail
+        let modulus_plus_one = &modulus + 1u32;
+        let modulus_plus_one_bytes_le = {
+            let mut bytes = modulus_plus_one.to_bytes_le();
+            bytes.resize(FR_BYTE_SIZE, 0);
+            bytes
+        };
+        let result = bytes_le_to_fr(&modulus_plus_one_bytes_le);
+        assert!(result.is_err(), "modulus + 1 should be rejected");
+        assert!(matches!(
+            result.unwrap_err(),
+            UtilsError::NonCanonicalFieldElement
+        ));
+
+        // Value == modulus - 1 should succeed (largest valid field element)
+        let modulus_minus_one = &modulus - 1u32;
+        let modulus_minus_one_bytes_le = {
+            let mut bytes = modulus_minus_one.to_bytes_le();
+            bytes.resize(FR_BYTE_SIZE, 0);
+            bytes
+        };
+        assert!(
+            bytes_le_to_fr(&modulus_minus_one_bytes_le).is_ok(),
+            "modulus - 1 should be valid"
+        );
+    }
+
+    #[test]
+    fn test_non_canonical_field_element_be() {
+        // Same boundary tests but for big-endian
+        let modulus: BigUint = BigUint::from_bytes_le(&Fr::MODULUS.to_bytes_le());
+
+        // Value == modulus in BE should fail
+        let modulus_bytes_be = {
+            let mut bytes = modulus.to_bytes_be();
+            let to_insert = FR_BYTE_SIZE.saturating_sub(bytes.len());
+            if to_insert > 0 {
+                bytes.splice(0..0, std::iter::repeat_n(0, to_insert));
+            }
+            bytes
+        };
+        let result = bytes_be_to_fr(&modulus_bytes_be);
+        assert!(result.is_err(), "modulus itself should be rejected (BE)");
+        assert!(matches!(
+            result.unwrap_err(),
+            UtilsError::NonCanonicalFieldElement
+        ));
+
+        // Value == modulus - 1 in BE should succeed
+        let modulus_minus_one = &modulus - 1u32;
+        let modulus_minus_one_bytes_be = {
+            let mut bytes = modulus_minus_one.to_bytes_be();
+            let to_insert = FR_BYTE_SIZE.saturating_sub(bytes.len());
+            if to_insert > 0 {
+                bytes.splice(0..0, std::iter::repeat_n(0, to_insert));
+            }
+            bytes
+        };
+        assert!(
+            bytes_be_to_fr(&modulus_minus_one_bytes_be).is_ok(),
+            "modulus - 1 should be valid (BE)"
+        );
     }
 }

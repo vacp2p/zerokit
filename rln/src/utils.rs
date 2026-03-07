@@ -24,16 +24,15 @@ pub const FR_BYTE_SIZE: usize = {
 };
 
 #[inline(always)]
-pub fn to_bigint(el: &Fr) -> BigInt {
-    BigUint::from(*el).into()
-}
-
-/// Converts a `BigUint` to `Fr`, rejecting out-of-range values (>= field modulus).
-#[inline(always)]
 fn biguint_to_fr(val: BigUint) -> Result<Fr, UtilsError> {
     let bigint = <Fr as PrimeField>::BigInt::try_from(val)
-        .map_err(|_| UtilsError::FieldElementOutOfRange)?;
-    Fr::from_bigint(bigint).ok_or(UtilsError::FieldElementOutOfRange)
+        .map_err(|_| UtilsError::NonCanonicalFieldElement)?;
+    Fr::from_bigint(bigint).ok_or(UtilsError::NonCanonicalFieldElement)
+}
+
+#[inline(always)]
+pub fn to_bigint(el: &Fr) -> BigInt {
+    BigUint::from(*el).into()
 }
 
 #[inline(always)]
