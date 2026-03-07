@@ -391,14 +391,14 @@ impl IdSecret {
         Ok((res, el_size))
     }
 
-    pub(crate) fn to_bytes_le(&self) -> Zeroizing<Vec<u8>> {
+    pub fn to_bytes_le(&self) -> Zeroizing<Vec<u8>> {
         let input_biguint: BigUint = self.0.into();
         let mut res = input_biguint.to_bytes_le();
         res.resize(FR_BYTE_SIZE, 0);
         Zeroizing::new(res)
     }
 
-    pub(crate) fn to_bytes_be(&self) -> Zeroizing<Vec<u8>> {
+    pub fn to_bytes_be(&self) -> Zeroizing<Vec<u8>> {
         let input_biguint: BigUint = self.0.into();
         let mut res = input_biguint.to_bytes_be();
         let to_insert_count = FR_BYTE_SIZE.saturating_sub(res.len());
