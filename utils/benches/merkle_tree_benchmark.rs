@@ -4,10 +4,9 @@ use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use tiny_keccak::{Hasher as _, Keccak};
 use zerokit_utils::{
     error::HashError,
-    merkle_tree::validate_override_range_inputs,
     merkle_tree::{
-        EmptyIndicesPolicy, FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig,
-        OptimalMerkleTree, ZerokitMerkleTree,
+        validate_override_range_inputs, EmptyIndicesPolicy, FullMerkleConfig, FullMerkleTree,
+        Hasher, OptimalMerkleConfig, OptimalMerkleTree, ZerokitMerkleTree,
     },
 };
 
