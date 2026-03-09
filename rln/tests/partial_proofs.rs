@@ -72,7 +72,8 @@ fn partial_proof_test() {
     let partial = Groth16Partial::<Bn254, LibsnarkReduction>::prove_partial(
         &pk,
         &PartialAssignment::new(partial_vals),
-    ).unwrap();
+    )
+    .unwrap();
     // finish the proof
     let mut rng_partial = rng.clone();
     let finished_partial_proof = Groth16Partial::<Bn254, LibsnarkReduction>::finish_proof(
@@ -83,7 +84,8 @@ fn partial_proof_test() {
         },
         &mut rng_partial,
         &partial,
-    ).unwrap();
+    )
+    .unwrap();
 
     // this is the proof with full witness
     let mut rng_full = rng.clone(); // clone rng so we get the same randomness
@@ -94,7 +96,8 @@ fn partial_proof_test() {
             b: Some(b),
         },
         &mut rng_full,
-    ).unwrap();
+    )
+    .unwrap();
 
     assert_eq!(finished_partial_proof, proof_full);
     assert!(
@@ -139,7 +142,8 @@ fn partial_proof_with_matrices_test() {
     let partial = Groth16Partial::<Bn254, LibsnarkReduction>::prove_partial(
         &pk,
         &PartialAssignment::new(partial_vals),
-    ).unwrap();
+    )
+    .unwrap();
     // finish the proof
     let r = Fr::rand(&mut rng);
     let s = Fr::rand(&mut rng);
@@ -153,7 +157,8 @@ fn partial_proof_with_matrices_test() {
             num_inputs,
             num_constraints,
             &full_assignment_qap,
-        ).unwrap();
+        )
+        .unwrap();
 
     // this is the proof with full witness
     let proof_full = Groth16::<Bn254>::create_proof_with_reduction_and_matrices(
@@ -164,7 +169,8 @@ fn partial_proof_with_matrices_test() {
         num_inputs,
         num_constraints,
         &full_assignment_qap,
-    ).unwrap();
+    )
+    .unwrap();
 
     assert_eq!(finished_partial_proof, proof_full);
     assert!(

@@ -4,6 +4,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
 use num_traits::Signed;
+
 use super::witness::{
     inputs_for_partial_witness_calculation, inputs_for_witness_calculation, RLNPartialWitnessInput,
     RLNWitnessInput,
@@ -321,7 +322,6 @@ pub fn generate_zk_proof(
     witness: &RLNWitnessInput,
     graph: &Graph,
 ) -> Result<Proof, ProtocolError> {
-
     // Random Values
     let mut rng = thread_rng();
     let r = Fr::rand(&mut rng);
@@ -370,7 +370,7 @@ pub fn generate_partial_zk_proof(
         .map(|(name, values)| (name.to_string(), values));
 
     let full_assignment = calc_witness_partial(inputs, graph)?;
-    let mut partial_values = Vec::with_capacity(full_assignment.len()-1);
+    let mut partial_values = Vec::with_capacity(full_assignment.len() - 1);
     partial_values.extend_from_slice(&full_assignment[1..]);
 
     let partial_assignment = PartialAssignment::new(partial_values);
