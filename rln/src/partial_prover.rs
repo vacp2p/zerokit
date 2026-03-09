@@ -58,6 +58,7 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16Partial<E, QAP> {
 
     /// Finish a proof using precomputed matrices and full assignment (public/instance || witness).
     #[inline]
+    #[allow(clippy::too_many_arguments)]
     pub fn finish_proof_with_matrices(
         pk: &ProvingKey<E>,
         partial: &PartialProof<E>,
@@ -282,6 +283,7 @@ fn finish_partial_proof_with_assignment<E: Pairing>(
 }
 
 /// Finish a proof using precomputed matrices and full assignment (public inputs || witness).
+#[allow(clippy::too_many_arguments)]
 fn finish_proof_with_reduction_and_matrices<E, QAP>(
     pk: &ProvingKey<E>,
     partial: &PartialProof<E>,

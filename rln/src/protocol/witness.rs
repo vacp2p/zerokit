@@ -536,6 +536,7 @@ pub(super) fn inputs_for_witness_calculation(
 
 /// Prepares known inputs for partial witness calculation from RLN witness input.
 /// unknowns are `None`
+#[allow(clippy::type_complexity)]
 pub(super) fn inputs_for_partial_witness_calculation(
     witness: &RLNPartialWitnessInput,
 ) -> Result<[(&str, Vec<Option<FrOrSecret>>); 7], ProtocolError> {
