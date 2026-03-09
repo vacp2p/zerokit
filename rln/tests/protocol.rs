@@ -8,17 +8,53 @@ mod test {
 
     type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
 
+    fn new_single_message_witness(
+        identity_secret: IdSecret,
+        user_message_limit: Fr,
+        message_id: Fr,
+        path_elements: Vec<Fr>,
+        identity_path_index: Vec<u8>,
+        x: Fr,
+        external_nullifier: Fr,
+    ) -> Result<RLNWitnessInput, ProtocolError> {
+        #[cfg(not(feature = "multi-message-id"))]
+        {
+            RLNWitnessInput::new(
+                identity_secret,
+                user_message_limit,
+                message_id,
+                path_elements,
+                identity_path_index,
+                x,
+                external_nullifier,
+            )
+        }
+        #[cfg(feature = "multi-message-id")]
+        {
+            RLNWitnessInput::new(
+                identity_secret,
+                user_message_limit,
+                vec![message_id, Fr::from(0), Fr::from(0), Fr::from(0)],
+                path_elements,
+                identity_path_index,
+                x,
+                external_nullifier,
+                vec![true, false, false, false],
+            )
+        }
+    }
+
     #[test]
     // We test Merkle tree generation, proofs and verification
     fn test_merkle_proof() {
         let leaf_index = 3;
 
-        // generate identity
+        // Generate identity
         let identity_secret = hash_to_field_le(b"test-merkle-proof").unwrap();
         let id_commitment = poseidon_hash(&[identity_secret]).unwrap();
-        let rate_commitment = poseidon_hash(&[id_commitment, 100.into()]).unwrap();
+        let rate_commitment = poseidon_hash(&[id_commitment, Fr::from(100)]).unwrap();
 
-        // generate merkle tree
+        // Generate merkle tree
         let default_leaf = Fr::from(0);
         let mut tree = PoseidonTree::new(
             DEFAULT_TREE_DEPTH,
@@ -89,7 +125,7 @@ mod test {
         let user_message_limit = Fr::from(100);
         let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
 
-        //// generate merkle tree
+        // Generate merkle tree
         let default_leaf = Fr::from(0);
         let mut tree = PoseidonTree::new(
             DEFAULT_TREE_DEPTH,
@@ -105,14 +141,13 @@ mod test {
         let signal = b"hey hey";
         let x = hash_to_field_le(signal).unwrap();
 
-        // We set the remaining values to random ones
         let epoch = hash_to_field_le(b"test-epoch").unwrap();
         let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
 
         let message_id = Fr::from(1);
 
-        RLNWitnessInput::new(
+        new_single_message_witness(
             identity_secret,
             user_message_limit,
             message_id,
@@ -142,7 +177,7 @@ mod test {
         let user_message_limit = Fr::from(user_message_limit);
         let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
 
-        //// generate merkle tree
+        // Generate merkle tree
         let default_leaf = Fr::from(0);
         let mut tree = PoseidonTree::new(
             DEFAULT_TREE_DEPTH,
@@ -156,14 +191,13 @@ mod test {
 
         let x = hash_to_field_le(signal).unwrap();
 
-        // We set the remaining values to random ones
         let epoch = hash_to_field_le(epoch).unwrap();
         let rln_identifier = hash_to_field_le(rln_identifier).unwrap();
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
 
         let message_id = Fr::from(message_id);
 
-        RLNWitnessInput::new(
+        new_single_message_witness(
             identity_secret,
             user_message_limit,
             message_id,
@@ -184,19 +218,19 @@ mod test {
         let proving_key = zkey_from_folder();
         let graph_data = graph_from_folder();
 
-        // Let's generate a zkSNARK proof
+        // Generate a zkSNARK proof
         let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
 
         let proof_values = proof_values_from_witness(&witness).unwrap();
 
-        // Let's verify the proof
-        let success = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
+        // Verify the proof
+        let verified = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
 
-        assert!(success);
+        assert!(verified);
     }
 
     #[test]
-    fn test_witness_serialization() {
+    fn test_witness_and_proof_values_serialization() {
         let witness = get_test_witness();
 
         // We test witness serialization
@@ -216,8 +250,9 @@ mod test {
             Err(ProtocolError::InvalidReadLen(_, _))
         ));
 
-        // We test Proof values serialization
+        // We test proof values serialization
         let proof_values = proof_values_from_witness(&witness).unwrap();
+
         let ser = rln_proof_values_to_bytes_le(&proof_values);
         let (deser, _) = bytes_le_to_rln_proof_values(&ser).unwrap();
         assert_eq!(proof_values, deser);
@@ -226,22 +261,27 @@ mod test {
         let truncated_pv = &ser[..ser.len() - 1];
         assert!(bytes_le_to_rln_proof_values(truncated_pv).is_err());
 
-        // Test extra proof values bytes rejection (note: proof values deserialization doesn't check extra bytes)
-        // But since it's fixed size, extra bytes would be ignored -> we can test truncated
+        // Test extra proof values bytes rejection
+        let mut extra_pv = ser.clone();
+        extra_pv.push(0);
+        assert!(matches!(
+            bytes_le_to_rln_proof_values(&extra_pv),
+            Err(ProtocolError::InvalidReadLen(_, _))
+        ));
     }
 
     #[test]
     fn test_rln_witness_input_validation() {
         let leaf_index = 3;
 
-        // generate identity
+        // Generate identity
         let identity_secret_fr = hash_to_field_le(b"test-witness-validation").unwrap();
         let identity_secret = IdSecret::from(&mut identity_secret_fr.clone());
         let id_commitment = poseidon_hash(&[identity_secret_fr]).unwrap();
         let user_message_limit = Fr::from(100);
         let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
 
-        // generate merkle tree
+        // Generate merkle tree
         let default_leaf = Fr::from(0);
         let mut tree = PoseidonTree::new(
             DEFAULT_TREE_DEPTH,
@@ -263,7 +303,7 @@ mod test {
 
         // Test valid witness input
         let valid_message_id = Fr::from(50);
-        let result = RLNWitnessInput::new(
+        let result = new_single_message_witness(
             identity_secret.clone(),
             user_message_limit,
             valid_message_id,
@@ -276,7 +316,7 @@ mod test {
 
         // Test message_id >= user_message_limit (should fail)
         let invalid_message_id = Fr::from(100); // equal to limit
-        let result = RLNWitnessInput::new(
+        let result = new_single_message_witness(
             identity_secret.clone(),
             user_message_limit,
             invalid_message_id,
@@ -288,7 +328,7 @@ mod test {
         assert!(matches!(result, Err(ProtocolError::InvalidMessageId(_, _))));
 
         let invalid_message_id = Fr::from(150); // greater than limit
-        let result = RLNWitnessInput::new(
+        let result = new_single_message_witness(
             identity_secret.clone(),
             user_message_limit,
             invalid_message_id,
@@ -301,7 +341,7 @@ mod test {
 
         // Test user_message_limit = 0 (should fail)
         let zero_limit = Fr::from(0);
-        let result = RLNWitnessInput::new(
+        let result = new_single_message_witness(
             identity_secret,
             zero_limit,
             Fr::from(0),
@@ -485,11 +525,28 @@ mod test {
         let proving_key = zkey_from_folder();
         let graph_data = graph_from_folder();
         let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
-        let mut proof_values = proof_values_from_witness(&witness).unwrap();
+        let proof_values = proof_values_from_witness(&witness).unwrap();
 
-        proof_values.root += Fr::from(1u64);
+        let new_root = *proof_values.root() + Fr::from(1);
+        #[cfg(not(feature = "multi-message-id"))]
+        let mutated_pv = RLNProofValues::new(
+            new_root,
+            *proof_values.x(),
+            *proof_values.external_nullifier(),
+            *proof_values.y(),
+            *proof_values.nullifier(),
+        );
+        #[cfg(feature = "multi-message-id")]
+        let mutated_pv = RLNProofValues::new(
+            new_root,
+            *proof_values.x(),
+            *proof_values.external_nullifier(),
+            proof_values.ys().to_vec(),
+            proof_values.nullifiers().to_vec(),
+            proof_values.selector_used().to_vec(),
+        );
 
-        let verified = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
+        let verified = verify_zk_proof(&proving_key.0.vk, &proof, &mutated_pv).unwrap();
         assert!(!verified);
     }
 
@@ -550,9 +607,24 @@ mod test {
             json["userMessageLimit"].as_str().unwrap(),
             to_bigint(witness.user_message_limit()).to_str_radix(10)
         );
+        #[cfg(not(feature = "multi-message-id"))]
         assert_eq!(
             json["messageId"].as_str().unwrap(),
             to_bigint(witness.message_id()).to_str_radix(10)
+        );
+        #[cfg(feature = "multi-message-id")]
+        assert_eq!(
+            json["messageId"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_str().unwrap().to_string())
+                .collect::<Vec<_>>(),
+            witness
+                .message_ids()
+                .iter()
+                .map(|id| to_bigint(id).to_str_radix(10))
+                .collect::<Vec<_>>()
         );
         assert_eq!(
             json["x"].as_str().unwrap(),
@@ -585,9 +657,24 @@ mod test {
             json2["userMessageLimit"].as_str().unwrap(),
             to_bigint(witness2.user_message_limit()).to_str_radix(10)
         );
+        #[cfg(not(feature = "multi-message-id"))]
         assert_eq!(
             json2["messageId"].as_str().unwrap(),
             to_bigint(witness2.message_id()).to_str_radix(10)
+        );
+        #[cfg(feature = "multi-message-id")]
+        assert_eq!(
+            json2["messageId"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_str().unwrap().to_string())
+                .collect::<Vec<_>>(),
+            witness2
+                .message_ids()
+                .iter()
+                .map(|id| to_bigint(id).to_str_radix(10))
+                .collect::<Vec<_>>()
         );
         assert_eq!(
             json2["x"].as_str().unwrap(),
@@ -606,5 +693,110 @@ mod test {
             json2["identityPathIndex"].as_array().unwrap().len(),
             witness2.identity_path_index().len()
         );
+    }
+
+    #[cfg(feature = "multi-message-id")]
+    mod multi_message_id_test {
+        use rln::prelude::*;
+        use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
+
+        type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
+
+        fn get_test_witness_multi_message_id() -> RLNWitnessInput {
+            let leaf_index = 3;
+            // Generate identity pair
+            let (identity_secret, id_commitment) = keygen().unwrap();
+            let user_message_limit = Fr::from(100);
+            let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
+
+            // Generate merkle tree
+            let default_leaf = Fr::from(0);
+            let mut tree = PoseidonTree::new(
+                DEFAULT_TREE_DEPTH,
+                default_leaf,
+                ConfigOf::<PoseidonTree>::default(),
+            )
+            .unwrap();
+            tree.set(leaf_index, rate_commitment).unwrap();
+
+            let merkle_proof = tree.proof(leaf_index).unwrap();
+
+            let signal = b"hey hey";
+            let x = hash_to_field_le(signal).unwrap();
+
+            // We set the remaining values to random ones
+            let epoch = hash_to_field_le(b"test-epoch").unwrap();
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
+
+            let message_ids = vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)];
+            let selector_used = vec![false, true, true, false];
+
+            RLNWitnessInput::new(
+                identity_secret,
+                user_message_limit,
+                message_ids,
+                merkle_proof.get_path_elements(),
+                merkle_proof.get_path_index(),
+                x,
+                external_nullifier,
+                selector_used,
+            )
+            .unwrap()
+        }
+
+        #[test]
+        fn test_witness_and_proof_values_serialization() {
+            let witness = get_test_witness_multi_message_id();
+
+            // We test witness serialization
+            let ser_le = rln_witness_to_bytes_le(&witness).unwrap();
+            let (deser_le, _) = bytes_le_to_rln_witness(&ser_le).unwrap();
+            assert_eq!(witness, deser_le);
+
+            let ser_be = rln_witness_to_bytes_be(&witness).unwrap();
+            let (deser_be, _) = bytes_be_to_rln_witness(&ser_be).unwrap();
+            assert_eq!(witness, deser_be);
+
+            // We test proof values serialization
+            let proof_values = proof_values_from_witness(&witness).unwrap();
+
+            let ser_le = rln_proof_values_to_bytes_le(&proof_values);
+            let (deser_le, _) = bytes_le_to_rln_proof_values(&ser_le).unwrap();
+            assert_eq!(proof_values, deser_le);
+
+            let ser_be = rln_proof_values_to_bytes_be(&proof_values);
+            let (deser_be, _) = bytes_be_to_rln_proof_values(&ser_be).unwrap();
+            assert_eq!(proof_values, deser_be);
+        }
+
+        #[test]
+        fn test_end_to_end() {
+            let witness = get_test_witness_multi_message_id();
+
+            // Load multi-message-id circuit resources
+            let arkzkey_bytes = include_bytes!(
+                "../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey"
+            );
+            let graph_bytes =
+                include_bytes!("../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin");
+
+            let proving_key = zkey_from_raw(arkzkey_bytes).unwrap();
+            #[cfg(not(feature = "multi-message-id"))]
+            let graph_data = graph_from_raw(graph_bytes, Some(DEFAULT_TREE_DEPTH)).unwrap();
+            #[cfg(feature = "multi-message-id")]
+            let graph_data =
+                graph_from_raw(graph_bytes, Some(DEFAULT_TREE_DEPTH), Some(4)).unwrap();
+
+            // Generate a zkSNARK proof
+            let proof = generate_zk_proof(&proving_key, &witness, &graph_data).unwrap();
+
+            let proof_values = proof_values_from_witness(&witness).unwrap();
+
+            // Verify the proof
+            let verified = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
+
+            assert!(verified);
+        }
     }
 }

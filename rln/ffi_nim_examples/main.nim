@@ -32,6 +32,11 @@ type
     len*: CSize
     cap*: CSize
 
+  Vec_bool* = object
+    dataPtr*: ptr bool
+    len*: CSize
+    cap*: CSize
+
   SliceRefU8* = object
     dataPtr*: ptr uint8
     len*: CSize
@@ -76,6 +81,10 @@ type
 
   CResultBigIntJsonVecU8* = object
     ok*: Vec_uint8
+    err*: Vec_uint8
+
+  CResultVecBoolVecU8* = object
+    ok*: Vec_bool
     err*: Vec_uint8
 
   CBoolResult* = object
@@ -166,26 +175,76 @@ when defined(ffiStateless):
       graph_data: ptr Vec_uint8): CResultRLNPtrVecU8 {.importc: "ffi_rln_new_with_params",
       cdecl, dynlib: RLN_LIB.}
 else:
-  proc ffi_rln_new*(treeDepth: CSize, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_rln_new_with_params*(treeDepth: CSize, zkey_data: ptr Vec_uint8,
-      graph_data: ptr Vec_uint8, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new_with_params",
-      cdecl, dynlib: RLN_LIB.}
+  when defined(ffiMultiMessageId):
+    proc ffi_rln_new*(treeDepth: CSize, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new",
+        cdecl, dynlib: RLN_LIB.}
+    proc ffi_rln_new_with_params*(treeDepth: CSize, maxOut: CSize,
+        zkey_data: ptr Vec_uint8, graph_data: ptr Vec_uint8,
+            config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new_with_params",
+        cdecl, dynlib: RLN_LIB.}
+  else:
+    proc ffi_rln_new*(treeDepth: CSize, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new",
+        cdecl, dynlib: RLN_LIB.}
+    proc ffi_rln_new_with_params*(treeDepth: CSize, zkey_data: ptr Vec_uint8,
+        graph_data: ptr Vec_uint8, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new_with_params",
+        cdecl, dynlib: RLN_LIB.}
 
 proc ffi_rln_free*(rln: ptr FFI_RLN) {.importc: "ffi_rln_free", cdecl,
     dynlib: RLN_LIB.}
+proc ffi_rln_get_tree_depth*(rln: ptr ptr FFI_RLN): CSize {.importc: "ffi_rln_get_tree_depth",
+    cdecl, dynlib: RLN_LIB.}
+when defined(ffiMultiMessageId):
+  proc ffi_rln_get_max_out*(rln: ptr ptr FFI_RLN): CSize {.importc: "ffi_rln_get_max_out",
+      cdecl, dynlib: RLN_LIB.}
 
 # Witness input functions
-proc ffi_rln_witness_input_new*(
-  identity_secret: ptr CFr,
-  user_message_limit: ptr CFr,
-  message_id: ptr CFr,
-  path_elements: ptr Vec_CFr,
-  identity_path_index: ptr Vec_uint8,
-  x: ptr CFr,
-  external_nullifier: ptr CFr
-): CResultWitnessInputPtrVecU8 {.importc: "ffi_rln_witness_input_new", cdecl,
-    dynlib: RLN_LIB.}
+when defined(ffiMultiMessageId):
+  proc ffi_rln_witness_input_new*(
+    identity_secret: ptr CFr,
+    user_message_limit: ptr CFr,
+    message_ids: ptr Vec_CFr,
+    path_elements: ptr Vec_CFr,
+    identity_path_index: ptr Vec_uint8,
+    x: ptr CFr,
+    external_nullifier: ptr CFr,
+    selector_used: ptr Vec_bool
+  ): CResultWitnessInputPtrVecU8 {.importc: "ffi_rln_witness_input_new", cdecl,
+      dynlib: RLN_LIB.}
+else:
+  proc ffi_rln_witness_input_new*(
+    identity_secret: ptr CFr,
+    user_message_limit: ptr CFr,
+    message_id: ptr CFr,
+    path_elements: ptr Vec_CFr,
+    identity_path_index: ptr Vec_uint8,
+    x: ptr CFr,
+    external_nullifier: ptr CFr
+  ): CResultWitnessInputPtrVecU8 {.importc: "ffi_rln_witness_input_new", cdecl,
+      dynlib: RLN_LIB.}
+proc ffi_rln_witness_input_get_version_byte*(witness: ptr ptr FFI_RLNWitnessInput): uint8 {.importc: "ffi_rln_witness_input_get_version_byte",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_witness_input_get_identity_secret*(witness: ptr ptr FFI_RLNWitnessInput): ptr CFr {.importc: "ffi_rln_witness_input_get_identity_secret",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_witness_input_get_user_message_limit*(witness: ptr ptr FFI_RLNWitnessInput): ptr CFr {.importc: "ffi_rln_witness_input_get_user_message_limit",
+    cdecl, dynlib: RLN_LIB.}
+when defined(ffiMultiMessageId):
+  proc ffi_rln_witness_input_get_message_ids*(witness: ptr ptr FFI_RLNWitnessInput): Vec_CFr {.importc: "ffi_rln_witness_input_get_message_ids",
+      cdecl, dynlib: RLN_LIB.}
+else:
+  proc ffi_rln_witness_input_get_message_id*(witness: ptr ptr FFI_RLNWitnessInput): ptr CFr {.importc: "ffi_rln_witness_input_get_message_id",
+      cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_witness_input_get_path_elements*(witness: ptr ptr FFI_RLNWitnessInput): Vec_CFr {.importc: "ffi_rln_witness_input_get_path_elements",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_witness_input_get_identity_path_index*(witness: ptr ptr FFI_RLNWitnessInput): Vec_uint8 {.importc: "ffi_rln_witness_input_get_identity_path_index",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_witness_input_get_x*(witness: ptr ptr FFI_RLNWitnessInput): ptr CFr {.importc: "ffi_rln_witness_input_get_x",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_witness_input_get_external_nullifier*(witness: ptr ptr FFI_RLNWitnessInput): ptr CFr {.importc: "ffi_rln_witness_input_get_external_nullifier",
+    cdecl, dynlib: RLN_LIB.}
+when defined(ffiMultiMessageId):
+  proc ffi_rln_witness_input_get_selector_used*(witness: ptr ptr FFI_RLNWitnessInput): Vec_bool {.importc: "ffi_rln_witness_input_get_selector_used",
+      cdecl, dynlib: RLN_LIB.}
+
 proc ffi_rln_witness_to_bytes_le*(witness: ptr ptr FFI_RLNWitnessInput): CResultVecU8VecU8 {.importc: "ffi_rln_witness_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_witness_to_bytes_be*(witness: ptr ptr FFI_RLNWitnessInput): CResultVecU8VecU8 {.importc: "ffi_rln_witness_to_bytes_be",
@@ -280,11 +339,18 @@ when not defined(ffiStateless):
       cdecl, dynlib: RLN_LIB.}
 
 # Identity secret recovery
+proc ffi_compute_id_secret*(share1_x: ptr CFr, share1_y: ptr CFr,
+    share2_x: ptr CFr, share2_y: ptr CFr): CResultCFrPtrVecU8 {.importc: "ffi_compute_id_secret",
+    cdecl, dynlib: RLN_LIB.}
 proc ffi_recover_id_secret*(proof_values_1: ptr ptr FFI_RLNProofValues,
     proof_values_2: ptr ptr FFI_RLNProofValues): CResultCFrPtrVecU8 {.importc: "ffi_recover_id_secret",
     cdecl, dynlib: RLN_LIB.}
 
-# RLNProof serialization
+# RLNProof functions
+proc ffi_rln_proof_get_version_byte*(proof: ptr ptr FFI_RLNProof): uint8 {.importc: "ffi_rln_proof_get_version_byte",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_proof_get_values*(proof: ptr ptr FFI_RLNProof): ptr FFI_RLNProofValues {.importc: "ffi_rln_proof_get_values",
+    cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_proof_to_bytes_le*(proof: ptr ptr FFI_RLNProof): CResultVecU8VecU8 {.importc: "ffi_rln_proof_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_proof_to_bytes_be*(proof: ptr ptr FFI_RLNProof): CResultVecU8VecU8 {.importc: "ffi_rln_proof_to_bytes_be",
@@ -295,11 +361,20 @@ proc ffi_bytes_be_to_rln_proof*(bytes: ptr Vec_uint8): CResultProofPtrVecU8 {.im
     cdecl, dynlib: RLN_LIB.}
 
 # RLNProofValues functions
-proc ffi_rln_proof_get_values*(proof: ptr ptr FFI_RLNProof): ptr FFI_RLNProofValues {.importc: "ffi_rln_proof_get_values",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_proof_values_get_y*(pv: ptr ptr FFI_RLNProofValues): ptr CFr {.importc: "ffi_rln_proof_values_get_y",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_proof_values_get_nullifier*(pv: ptr ptr FFI_RLNProofValues): ptr CFr {.importc: "ffi_rln_proof_values_get_nullifier",
+when defined(ffiMultiMessageId):
+  proc ffi_rln_proof_values_get_ys*(pv: ptr ptr FFI_RLNProofValues): CResultVecCFrVecU8 {.importc: "ffi_rln_proof_values_get_ys",
+      cdecl, dynlib: RLN_LIB.}
+  proc ffi_rln_proof_values_get_nullifiers*(pv: ptr ptr FFI_RLNProofValues): CResultVecCFrVecU8 {.importc: "ffi_rln_proof_values_get_nullifiers",
+      cdecl, dynlib: RLN_LIB.}
+else:
+  proc ffi_rln_proof_values_get_y*(pv: ptr ptr FFI_RLNProofValues): CResultCFrPtrVecU8 {.importc: "ffi_rln_proof_values_get_y",
+      cdecl, dynlib: RLN_LIB.}
+  proc ffi_rln_proof_values_get_nullifier*(pv: ptr ptr FFI_RLNProofValues): CResultCFrPtrVecU8 {.importc: "ffi_rln_proof_values_get_nullifier",
+      cdecl, dynlib: RLN_LIB.}
+when defined(ffiMultiMessageId):
+  proc ffi_rln_proof_values_get_selector_used*(pv: ptr ptr FFI_RLNProofValues): CResultVecBoolVecU8 {.importc: "ffi_rln_proof_values_get_selector_used",
+      cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_proof_values_get_version_byte*(pv: ptr ptr FFI_RLNProofValues): uint8 {.importc: "ffi_rln_proof_values_get_version_byte",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_proof_values_get_root*(pv: ptr ptr FFI_RLNProofValues): ptr CFr {.importc: "ffi_rln_proof_values_get_root",
     cdecl, dynlib: RLN_LIB.}
@@ -335,12 +410,37 @@ proc ffi_c_string_free*(s: Vec_uint8) {.importc: "ffi_c_string_free", cdecl,
 when isMainModule:
   echo "Creating RLN instance"
 
+  const treeDepth = 20
+
   var rlnRes: CResultRLNPtrVecU8
   when defined(ffiStateless):
     rlnRes = ffi_rln_new()
   else:
-    let config_path = """../resources/tree_depth_20/config.json""".cstring
-    rlnRes = ffi_rln_new(CSize(20), config_path)
+    when defined(ffiMultiMessageId):
+      let zkeyPath = "../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey"
+      var zkeyFile = open(zkeyPath, fmRead)
+      let zkeySize = zkeyFile.getFileSize()
+      var zkeyData = newSeq[uint8](zkeySize)
+      discard zkeyFile.readBytes(zkeyData, 0, zkeySize)
+      zkeyFile.close()
+
+      var zkeyVec = asVecU8(zkeyData)
+
+      let graphPath = "../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin"
+      var graphFile = open(graphPath, fmRead)
+      let graphSize = graphFile.getFileSize()
+      var graphData = newSeq[uint8](graphSize)
+      discard graphFile.readBytes(graphData, 0, graphSize)
+      graphFile.close()
+
+      var graphVec = asVecU8(graphData)
+
+      let config_path = """../resources/tree_depth_20/multi_message_id/max_out_4/config.json""".cstring
+      rlnRes = ffi_rln_new_with_params(CSize(treeDepth), CSize(4), addr zkeyVec,
+          addr graphVec, config_path)
+    else:
+      let config_path = """../resources/tree_depth_20/config.json""".cstring
+      rlnRes = ffi_rln_new(CSize(treeDepth), config_path)
 
   if rlnRes.ok.isNil:
     stderr.writeLine "Initial RLN instance creation error: ", asString(rlnRes.err)
@@ -349,6 +449,12 @@ when isMainModule:
 
   var rln = rlnRes.ok
   echo "RLN instance created successfully"
+
+  let treeDepthActual = ffi_rln_get_tree_depth(addr rln)
+  echo "  - circuit tree_depth = ", treeDepthActual
+  when defined(ffiMultiMessageId):
+    let maxOut = ffi_rln_get_max_out(addr rln)
+    echo "  - circuit max_out = ", maxOut
 
   echo "\nGenerating identity keys"
   var keysResult = ffi_key_gen()
@@ -373,7 +479,7 @@ when isMainModule:
     ffi_c_string_free(debug)
 
   echo "\nCreating message limit"
-  let userMessageLimit = ffi_uint_to_cfr(1'u32)
+  let userMessageLimit = ffi_uint_to_cfr(10'u32)
 
   block:
     let debug = ffi_cfr_debug(userMessageLimit)
@@ -443,7 +549,6 @@ when isMainModule:
   ffi_vec_u8_free(serKeys)
 
   when defined(ffiStateless):
-    const treeDepth = 20
     const CFR_SIZE = 32
 
     echo "\nBuilding Merkle path for stateless mode"
@@ -634,19 +739,51 @@ when isMainModule:
     echo "  - external_nullifier = ", asString(debug)
     ffi_c_string_free(debug)
 
-  echo "\nCreating message_id"
-  let messageId = ffi_uint_to_cfr(0'u32)
+  when not defined(ffiMultiMessageId):
+    echo "\nCreating message_id"
+    let messageId = ffi_uint_to_cfr(0'u32)
 
-  block:
-    let debug = ffi_cfr_debug(messageId)
-    echo "  - message_id = ", asString(debug)
-    ffi_c_string_free(debug)
+    block:
+      let debug = ffi_cfr_debug(messageId)
+      echo "  - message_id = ", asString(debug)
+      ffi_c_string_free(debug)
+
+  when defined(ffiMultiMessageId):
+    echo "\nCreating message_ids and selector_used (multi-message-id mode)"
+    echo "  - using 2 out of ", maxOut, " slots"
+
+    var msgIdArr = newSeq[ptr CFr](int(maxOut))
+    msgIdArr[0] = ffi_uint_to_cfr(0'u32)
+    msgIdArr[1] = ffi_uint_to_cfr(1'u32)
+    for i in 2..<int(maxOut):
+      msgIdArr[i] = ffi_cfr_zero()
+
+    var messageIds = ffi_vec_cfr_new(maxOut)
+    for i in 0..<int(maxOut):
+      ffi_vec_cfr_push(addr messageIds, msgIdArr[i])
+      ffi_cfr_free(msgIdArr[i])
+
+    var selectorArr = newSeq[bool](int(maxOut))
+    selectorArr[0] = true; selectorArr[1] = true
+    var selectorUsed = Vec_bool(dataPtr: addr selectorArr[0], len: maxOut,
+        cap: maxOut)
+
+    block:
+      let debug = ffi_vec_cfr_debug(addr messageIds)
+      echo "  - message_ids = ", asString(debug)
+      ffi_c_string_free(debug)
 
   echo "\nCreating RLN Witness"
   when defined(ffiStateless):
-    var witnessRes = ffi_rln_witness_input_new(identitySecret,
-        userMessageLimit, messageId, addr pathElements, addr identityPathIndex,
-        x, externalNullifier)
+    when defined(ffiMultiMessageId):
+      var witnessRes = ffi_rln_witness_input_new(identitySecret,
+          userMessageLimit, addr messageIds, addr pathElements,
+          addr identityPathIndex, x, externalNullifier, addr selectorUsed)
+    else:
+      var witnessRes = ffi_rln_witness_input_new(identitySecret,
+          userMessageLimit, messageId, addr pathElements,
+          addr identityPathIndex,
+          x, externalNullifier)
     if witnessRes.ok.isNil:
       stderr.writeLine "RLN Witness creation error: ", asString(witnessRes.err)
       ffi_c_string_free(witnessRes.err)
@@ -654,9 +791,15 @@ when isMainModule:
     var witness = witnessRes.ok
     echo "RLN Witness created successfully"
   else:
-    var witnessRes = ffi_rln_witness_input_new(identitySecret,
-        userMessageLimit, messageId, addr merkleProof.path_elements,
-        addr merkleProof.path_index, x, externalNullifier)
+    when defined(ffiMultiMessageId):
+      var witnessRes = ffi_rln_witness_input_new(identitySecret,
+          userMessageLimit, addr messageIds,
+          addr merkleProof.path_elements, addr merkleProof.path_index, x,
+          externalNullifier, addr selectorUsed)
+    else:
+      var witnessRes = ffi_rln_witness_input_new(identitySecret,
+          userMessageLimit, messageId, addr merkleProof.path_elements,
+          addr merkleProof.path_index, x, externalNullifier)
     if witnessRes.ok.isNil:
       stderr.writeLine "RLN Witness creation error: ", asString(witnessRes.err)
       ffi_c_string_free(witnessRes.err)
@@ -703,19 +846,56 @@ when isMainModule:
   echo "\nGetting proof values"
   var proofValues = ffi_rln_proof_get_values(addr proof)
 
-  block:
-    let y = ffi_rln_proof_values_get_y(addr proofValues)
-    let debug = ffi_cfr_debug(y)
-    echo "  - y = ", asString(debug)
-    ffi_c_string_free(debug)
-    ffi_cfr_free(y)
+  when defined(ffiMultiMessageId):
+    block:
+      let ysResult = ffi_rln_proof_values_get_ys(addr proofValues)
+      if ysResult.err.dataPtr != nil:
+        stderr.writeLine "Get ys error: ", asString(ysResult.err)
+        ffi_c_string_free(ysResult.err)
+        quit 1
+      var ys = ysResult.ok
+      let debug = ffi_vec_cfr_debug(addr ys)
+      echo "  - ys = ", asString(debug)
+      ffi_c_string_free(debug)
+      ffi_vec_cfr_free(ys)
 
-  block:
-    let nullifier = ffi_rln_proof_values_get_nullifier(addr proofValues)
-    let debug = ffi_cfr_debug(nullifier)
-    echo "  - nullifier = ", asString(debug)
-    ffi_c_string_free(debug)
-    ffi_cfr_free(nullifier)
+    block:
+      let nullifiersResult = ffi_rln_proof_values_get_nullifiers(
+          addr proofValues)
+      if nullifiersResult.err.dataPtr != nil:
+        stderr.writeLine "Get nullifiers error: ", asString(
+            nullifiersResult.err)
+        ffi_c_string_free(nullifiersResult.err)
+        quit 1
+      var nullifiers = nullifiersResult.ok
+      let debug = ffi_vec_cfr_debug(addr nullifiers)
+      echo "  - nullifiers = ", asString(debug)
+      ffi_c_string_free(debug)
+      ffi_vec_cfr_free(nullifiers)
+  else:
+    block:
+      let yResult = ffi_rln_proof_values_get_y(addr proofValues)
+      if yResult.ok.isNil:
+        stderr.writeLine "Get y error: ", asString(yResult.err)
+        ffi_c_string_free(yResult.err)
+        quit 1
+      let y = yResult.ok
+      let debug = ffi_cfr_debug(y)
+      echo "  - y = ", asString(debug)
+      ffi_c_string_free(debug)
+      ffi_cfr_free(y)
+
+    block:
+      let nullifierResult = ffi_rln_proof_values_get_nullifier(addr proofValues)
+      if nullifierResult.ok.isNil:
+        stderr.writeLine "Get nullifier error: ", asString(nullifierResult.err)
+        ffi_c_string_free(nullifierResult.err)
+        quit 1
+      let nullifier = nullifierResult.ok
+      let debug = ffi_cfr_debug(nullifier)
+      echo "  - nullifier = ", asString(debug)
+      ffi_c_string_free(debug)
+      ffi_cfr_free(nullifier)
 
   block:
     let root = ffi_rln_proof_values_get_root(addr proofValues)
@@ -828,19 +1008,53 @@ when isMainModule:
     echo "  - x2 = ", asString(debug)
     ffi_c_string_free(debug)
 
-  echo "\nCreating second message with the same id"
-  let messageId2 = ffi_uint_to_cfr(0'u32)
+  when not defined(ffiMultiMessageId):
+    echo "\nCreating second message with the same id"
+    let messageId2 = ffi_uint_to_cfr(0'u32)
 
-  block:
-    let debug = ffi_cfr_debug(messageId2)
-    echo "  - message_id2 = ", asString(debug)
-    ffi_c_string_free(debug)
+    block:
+      let debug = ffi_cfr_debug(messageId2)
+      echo "  - message_id2 = ", asString(debug)
+      ffi_c_string_free(debug)
+
+  when defined(ffiMultiMessageId):
+    echo "\nCreating message_ids2 and selector_used2 (multi-message-id mode)"
+    echo "  - using 2 out of ", maxOut, " slots"
+    echo "  - duplicated slot id 1"
+
+    var msgIdArr2 = newSeq[ptr CFr](int(maxOut))
+    msgIdArr2[0] = ffi_uint_to_cfr(1'u32)
+    msgIdArr2[1] = ffi_cfr_zero()
+    msgIdArr2[2] = ffi_uint_to_cfr(3'u32)
+    for i in 3..<int(maxOut):
+      msgIdArr2[i] = ffi_cfr_zero()
+
+    var messageIds2 = ffi_vec_cfr_new(maxOut)
+    for i in 0..<int(maxOut):
+      ffi_vec_cfr_push(addr messageIds2, msgIdArr2[i])
+      ffi_cfr_free(msgIdArr2[i])
+
+    var selectorArr2 = newSeq[bool](int(maxOut))
+    selectorArr2[0] = true; selectorArr2[2] = true
+    var selectorUsed2 = Vec_bool(dataPtr: addr selectorArr2[0], len: maxOut,
+        cap: maxOut)
+
+    block:
+      let debug = ffi_vec_cfr_debug(addr messageIds2)
+      echo "  - message_ids2 = ", asString(debug)
+      ffi_c_string_free(debug)
 
   echo "\nCreating second RLN Witness"
   when defined(ffiStateless):
-    var witnessRes2 = ffi_rln_witness_input_new(identitySecret,
-        userMessageLimit, messageId2, addr pathElements, addr identityPathIndex,
-        x2, externalNullifier)
+    when defined(ffiMultiMessageId):
+      var witnessRes2 = ffi_rln_witness_input_new(identitySecret,
+          userMessageLimit, addr messageIds2, addr pathElements,
+          addr identityPathIndex, x2, externalNullifier, addr selectorUsed2)
+    else:
+      var witnessRes2 = ffi_rln_witness_input_new(identitySecret,
+          userMessageLimit, messageId2, addr pathElements,
+          addr identityPathIndex,
+          x2, externalNullifier)
     if witnessRes2.ok.isNil:
       stderr.writeLine "Second RLN Witness creation error: ", asString(
           witnessRes2.err)
@@ -849,9 +1063,15 @@ when isMainModule:
     var witness2 = witnessRes2.ok
     echo "Second RLN Witness created successfully"
   else:
-    var witnessRes2 = ffi_rln_witness_input_new(identitySecret,
-        userMessageLimit, messageId2, addr merkleProof.path_elements,
-        addr merkleProof.path_index, x2, externalNullifier)
+    when defined(ffiMultiMessageId):
+      var witnessRes2 = ffi_rln_witness_input_new(identitySecret,
+          userMessageLimit, addr messageIds2,
+          addr merkleProof.path_elements, addr merkleProof.path_index, x2,
+          externalNullifier, addr selectorUsed2)
+    else:
+      var witnessRes2 = ffi_rln_witness_input_new(identitySecret,
+          userMessageLimit, messageId2, addr merkleProof.path_elements,
+          addr merkleProof.path_index, x2, externalNullifier)
     if witnessRes2.ok.isNil:
       stderr.writeLine "Second RLN Witness creation error: ", asString(
           witnessRes2.err)
@@ -913,7 +1133,8 @@ when isMainModule:
   ffi_rln_proof_values_free(proofValues)
   ffi_rln_proof_free(proof2)
   ffi_cfr_free(x2)
-  ffi_cfr_free(messageId2)
+  when not defined(ffiMultiMessageId):
+    ffi_cfr_free(messageId2)
 
   when defined(ffiStateless):
     ffi_rln_witness_input_free(witness2)
@@ -929,12 +1150,17 @@ when isMainModule:
     ffi_rln_witness_input_free(witness)
     ffi_merkle_proof_free(merkleProof)
 
+  when defined(ffiMultiMessageId):
+    ffi_vec_cfr_free(messageIds)
+    ffi_vec_cfr_free(messageIds2)
+
   ffi_cfr_free(rateCommitment)
   ffi_cfr_free(x)
   ffi_cfr_free(epoch)
   ffi_cfr_free(rlnIdentifier)
   ffi_cfr_free(externalNullifier)
   ffi_cfr_free(userMessageLimit)
-  ffi_cfr_free(messageId)
+  when not defined(ffiMultiMessageId):
+    ffi_cfr_free(messageId)
   ffi_vec_cfr_free(keys)
   ffi_rln_free(rln)

@@ -1,10 +1,17 @@
 use ark_ff::AdditiveGroup;
 
+#[cfg(feature = "multi-message-id")]
+use super::proof::RLNOutputs;
 use super::proof::RLNProofValues;
 use crate::{circuit::Fr, error::ProtocolError, utils::IdSecret};
 
 /// Computes identity secret from two (x, y) shares.
-fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<IdSecret, ProtocolError> {
+///
+/// This function is feature-agnostic: it operates on plain `(x, y)` share pairs
+/// that can be extracted from any [`RLNProofValues`] variant (`SingleV1` or `MultiV1`).
+/// By normalizing proof outputs into simple `(x, y)` pairs with a single nullifier,
+/// slashing can be performed across different prover modes without compile-time feature constraints.
+pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<IdSecret, ProtocolError> {
     // Assuming a0 is the identity secret and a1 = poseidonHash([a0, external_nullifier]),
     // a (x,y) share satisfies the following relation
     // y = a_0 + x * a_1
@@ -27,29 +34,66 @@ fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<IdSecret, Pro
     }
 }
 
-/// Recovers identity secret from two proof shares with the same external nullifier.
+/// Recovers identity secret from two [`RLNProofValues`] with the same external nullifier.
 ///
-/// When a user violates rate limits by generating multiple proofs in the same epoch,
-/// their shares can be used to recover their identity secret through polynomial interpolation.
+/// This is a convenience API that accepts two proof values of the **same** variant.
+/// For cross-feature slashing (e.g. one share from `SingleV1` and another from `MultiV1`),
+/// extract the `(x, y)` pair and nullifier from each proof value and call [`compute_id_secret`] directly.
 pub fn recover_id_secret(
     rln_proof_values_1: &RLNProofValues,
     rln_proof_values_2: &RLNProofValues,
 ) -> Result<IdSecret, ProtocolError> {
-    let external_nullifier_1 = rln_proof_values_1.external_nullifier;
-    let external_nullifier_2 = rln_proof_values_2.external_nullifier;
+    let external_nullifier_1 = rln_proof_values_1.external_nullifier();
+    let external_nullifier_2 = rln_proof_values_2.external_nullifier();
 
     // We continue only if the proof values are for the same external nullifier
     if external_nullifier_1 != external_nullifier_2 {
         return Err(ProtocolError::ExternalNullifierMismatch(
-            external_nullifier_1,
-            external_nullifier_2,
+            *external_nullifier_1,
+            *external_nullifier_2,
         ));
     }
 
-    // We extract the two shares
-    let share1 = (rln_proof_values_1.x, rln_proof_values_1.y);
-    let share2 = (rln_proof_values_2.x, rln_proof_values_2.y);
+    match (rln_proof_values_1, rln_proof_values_2) {
+        #[cfg(not(feature = "multi-message-id"))]
+        (pv1, pv2) => {
+            let share1 = (*pv1.x(), *pv1.y());
+            let share2 = (*pv2.x(), *pv2.y());
+            compute_id_secret(share1, share2)
+        }
+        #[cfg(feature = "multi-message-id")]
+        (pv1, pv2) => {
+            let RLNOutputs::MultiV1 {
+                ys: ys1,
+                nullifiers: nullifiers1,
+                selector_used: selector_used1,
+            } = &pv1.outputs;
+            let RLNOutputs::MultiV1 {
+                ys: ys2,
+                nullifiers: nullifiers2,
+                selector_used: selector_used2,
+            } = &pv2.outputs;
 
-    // We recover the secret
-    compute_id_secret(share1, share2)
+            for (i, (nullifier_i, &used_i)) in
+                nullifiers1.iter().zip(selector_used1.iter()).enumerate()
+            {
+                if !used_i {
+                    continue;
+                }
+                for (j, (nullifier_j, &used_j)) in
+                    nullifiers2.iter().zip(selector_used2.iter()).enumerate()
+                {
+                    if !used_j {
+                        continue;
+                    }
+                    if nullifier_i == nullifier_j {
+                        let share1 = (*pv1.x(), ys1[i]);
+                        let share2 = (*pv2.x(), ys2[j]);
+                        return compute_id_secret(share1, share2);
+                    }
+                }
+            }
+            Err(ProtocolError::IdSecretRecovery)
+        }
+    }
 }
