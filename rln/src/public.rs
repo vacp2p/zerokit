@@ -617,8 +617,8 @@ impl RLN {
         &self,
         witness: &RLNWitnessInput,
     ) -> Result<(Proof, RLNProofValues), RLNError> {
-        let proof = generate_zk_proof(&self.zkey, witness, &self.graph)?;
         let proof_values = proof_values_from_witness(witness)?;
+        let proof = generate_zk_proof(&self.zkey, witness, &self.graph)?;
         Ok((proof, proof_values))
     }
 
