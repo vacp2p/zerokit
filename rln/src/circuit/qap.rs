@@ -157,7 +157,7 @@ mod test {
     #[test]
     fn test_h_query_scalars_length() {
         let max_power = 2usize;
-        let domain = GeneralEvaluationDomain::<Fr>::new(2 * max_power + 1).expect("valid domain");
+        let domain = GeneralEvaluationDomain::<Fr>::new(2 * max_power + 1).unwrap();
         let res = CircomReduction::h_query_scalars::<Fr, GeneralEvaluationDomain<Fr>>(
             2,
             Fr::from(5u64),

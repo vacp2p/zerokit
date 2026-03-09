@@ -9,7 +9,6 @@ mod test {
         ffi::{ffi_rln::*, ffi_tree::*, ffi_utils::*},
         prelude::*,
     };
-
     use safer_ffi::prelude::repr_c;
     use zeroize::Zeroize;
 
