@@ -2,14 +2,11 @@
 
 use std::sync::LazyLock;
 
+use num_bigint::BigUint;
 use tiny_keccak::{Hasher, Keccak};
 use zerokit_utils::{error::HashError, poseidon::Poseidon};
 
-use crate::{
-    circuit::Fr,
-    error::UtilsError,
-    utils::{bytes_be_to_fr, bytes_le_to_fr},
-};
+use crate::{circuit::Fr, error::UtilsError};
 
 /// These indexed constants hardcode the supported round parameters tuples (t, RF, RN, SKIP_MATRICES) for the Bn254 scalar field.
 /// SKIP_MATRICES is the index of the randomly generated secure MDS matrix.
@@ -59,10 +56,7 @@ pub fn hash_to_field_le(signal: &[u8]) -> Result<Fr, UtilsError> {
     hasher.update(signal);
     hasher.finalize(&mut hash);
 
-    // We export the hash as a field element
-    let (el, _) = bytes_le_to_fr(hash.as_ref())?;
-
-    Ok(el)
+    Ok(Fr::from(BigUint::from_bytes_le(&hash)))
 }
 
 /// Hashes arbitrary signal to the underlying prime field.
@@ -72,12 +66,7 @@ pub fn hash_to_field_be(signal: &[u8]) -> Result<Fr, UtilsError> {
     let mut hasher = Keccak::v256();
     hasher.update(signal);
     hasher.finalize(&mut hash);
-
-    // Reverse the bytes to get big endian representation
     hash.reverse();
 
-    // We export the hash as a field element
-    let (el, _) = bytes_be_to_fr(hash.as_ref())?;
-
-    Ok(el)
+    Ok(Fr::from(BigUint::from_bytes_be(&hash)))
 }
