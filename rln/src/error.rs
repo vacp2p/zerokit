@@ -55,6 +55,8 @@ pub enum ProtocolError {
     Hash(#[from] HashError),
     #[error("Proof serialization error: {0}")]
     SerializationError(#[from] ark_serialize::SerializationError),
+    #[error("{0} length mismatch: expected {1}, got {2}")]
+    InvalidLength(&'static str, usize, usize),
 }
 
 /// Errors that can occur during proof verification

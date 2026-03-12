@@ -61,6 +61,8 @@ document-features = { version = "0.2.12", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.8.0", features = ["html_reports"] }
+ark-crypto-primitives = { version = "0.5.0", default-features = false, features = ["snark", "sponge"] }
+
 
 [features]
 default = ["parallel", "pmtree-ft"]
@@ -88,6 +90,11 @@ required-features = ["pmtree-ft"]
 [[bench]]
 name = "poseidon_tree_benchmark"
 harness = false
+
+[[bench]]
+name = "partial_proof"
+harness = false
+required-features = ["pmtree-ft"]
 
 [package.metadata.docs.rs]
 all-features = true
