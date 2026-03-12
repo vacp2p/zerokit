@@ -7,17 +7,29 @@ use num_traits::Signed;
 
 use super::version::{SerializationVersion, VERSION_BYTE_SIZE};
 #[cfg(not(target_arch = "wasm32"))]
-use super::witness::{inputs_for_witness_calculation, RLNWitnessInput};
-#[cfg(not(target_arch = "wasm32"))]
-use crate::circuit::{iden3calc::calc_witness, Graph};
+use super::witness::{
+    inputs_for_partial_witness_calculation, inputs_for_witness_calculation, RLNPartialWitnessInput,
+    RLNWitnessInput,
+};
 #[cfg(feature = "multi-message-id")]
 use crate::utils::{
     bytes_be_to_vec_bool, bytes_be_to_vec_fr, bytes_le_to_vec_bool, bytes_le_to_vec_fr,
     vec_bool_to_bytes_be, vec_bool_to_bytes_le, vec_fr_to_bytes_be, vec_fr_to_bytes_le,
     VEC_LEN_BYTE_SIZE,
 };
+#[cfg(not(target_arch = "wasm32"))]
 use crate::{
-    circuit::{qap::CircomReduction, Curve, Fr, Proof, VerifyingKey, Zkey, COMPRESS_PROOF_SIZE},
+    circuit::{
+        iden3calc::{calc_witness, calc_witness_partial},
+        Graph,
+    },
+    partial_proof::{Groth16Partial, PartialAssignment},
+};
+use crate::{
+    circuit::{
+        qap::CircomReduction, Curve, Fr, PartialProof, Proof, VerifyingKey, Zkey,
+        COMPRESS_PROOF_SIZE,
+    },
     error::ProtocolError,
     utils::{bytes_be_to_fr, bytes_le_to_fr, fr_to_bytes_be, fr_to_bytes_le, FR_BYTE_SIZE},
 };
@@ -303,17 +315,17 @@ pub fn bytes_le_to_rln_proof_values(
 
         if selector_used.len() != ys.len() {
             return Err(ProtocolError::FieldLengthMismatch(
-                "ys".into(),
+                "ys",
                 ys.len(),
-                "selector_used".into(),
+                "selector_used",
                 selector_used.len(),
             ));
         }
         if nullifiers.len() != ys.len() {
             return Err(ProtocolError::FieldLengthMismatch(
-                "ys".into(),
+                "ys",
                 ys.len(),
-                "nullifiers".into(),
+                "nullifiers",
                 nullifiers.len(),
             ));
         }
@@ -365,17 +377,17 @@ pub fn bytes_be_to_rln_proof_values(
 
         if selector_used.len() != ys.len() {
             return Err(ProtocolError::FieldLengthMismatch(
-                "ys".into(),
+                "ys",
                 ys.len(),
-                "selector_used".into(),
+                "selector_used",
                 selector_used.len(),
             ));
         }
         if nullifiers.len() != ys.len() {
             return Err(ProtocolError::FieldLengthMismatch(
-                "ys".into(),
+                "ys",
                 ys.len(),
-                "nullifiers".into(),
+                "nullifiers",
                 nullifiers.len(),
             ));
         }
@@ -506,6 +518,29 @@ pub fn bytes_be_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), Protocol
     ))
 }
 
+/// Serializes RLN partial proof to little-endian bytes.
+///
+/// Note: The Groth16 partial proof is serialized ONLY in LE format.
+pub fn rln_partial_proof_to_bytes_le(
+    partial_proof: &PartialProof,
+) -> Result<Vec<u8>, ProtocolError> {
+    let mut bytes = Vec::new();
+    partial_proof.serialize_compressed(&mut bytes)?;
+    Ok(bytes)
+}
+
+/// Deserializes RLN partial proof from little-endian bytes.
+///
+/// Returns the deserialized partial proof and the number of bytes read.
+pub fn bytes_le_to_rln_partial_proof(bytes: &[u8]) -> Result<(PartialProof, usize), ProtocolError> {
+    let mut bytes_ref = bytes;
+    let initial_len = bytes_ref.len();
+    let partial_proof = PartialProof::deserialize_compressed(&mut bytes_ref)?;
+    let read = initial_len - bytes_ref.len();
+
+    Ok((partial_proof, read))
+}
+
 // zkSNARK proof generation and verification
 
 /// Converts calculated witness (BigInt) to field elements.
@@ -541,17 +576,17 @@ fn validate_witness_against_graph(
     let expected_tree_depth = graph.tree_depth;
     if witness.path_elements().len() != expected_tree_depth {
         return Err(ProtocolError::FieldLengthMismatch(
-            "path_elements".into(),
+            "path_elements",
             witness.path_elements().len(),
-            "tree_depth".into(),
+            "tree_depth",
             expected_tree_depth,
         ));
     }
     if witness.identity_path_index().len() != expected_tree_depth {
         return Err(ProtocolError::FieldLengthMismatch(
-            "identity_path_index".into(),
+            "identity_path_index",
             witness.identity_path_index().len(),
-            "tree_depth".into(),
+            "tree_depth",
             expected_tree_depth,
         ));
     }
@@ -561,17 +596,17 @@ fn validate_witness_against_graph(
         let expected_max_out = graph.max_out;
         if witness.message_ids().len() != expected_max_out {
             return Err(ProtocolError::FieldLengthMismatch(
-                "message_ids".into(),
+                "message_ids",
                 witness.message_ids().len(),
-                "max_out".into(),
+                "max_out",
                 expected_max_out,
             ));
         }
         if witness.selector_used().len() != expected_max_out {
             return Err(ProtocolError::FieldLengthMismatch(
-                "selector_used".into(),
+                "selector_used",
                 witness.selector_used().len(),
-                "max_out".into(),
+                "max_out",
                 expected_max_out,
             ));
         }
@@ -620,20 +655,102 @@ pub fn generate_zk_proof(
     graph: &Graph,
 ) -> Result<Proof, ProtocolError> {
     validate_witness_against_graph(witness, graph)?;
+    // Random Values
+    let mut rng = thread_rng();
+    let r = Fr::rand(&mut rng);
+    let s = Fr::rand(&mut rng);
 
+    generate_zk_proof_with_rs(zkey, witness, graph, r, s)
+}
+
+/// Generates a zkSNARK proof from witness input using the provided circuit data.
+/// Takes explicit blinding scalars `r` and `s` instead of sampling them internally.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn generate_zk_proof_with_rs(
+    zkey: &Zkey,
+    witness: &RLNWitnessInput,
+    graph: &Graph,
+    r: Fr,
+    s: Fr,
+) -> Result<Proof, ProtocolError> {
     let inputs = inputs_for_witness_calculation(witness)?
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));
 
     let full_assignment = calc_witness(inputs, graph)?;
 
-    // Random Values
+    let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
+        &zkey.0,
+        r,
+        s,
+        &zkey.1,
+        zkey.1.num_instance_variables,
+        zkey.1.num_constraints,
+        full_assignment.as_slice(),
+    )?;
+
+    Ok(proof)
+}
+
+/// Generates a partial zkSNARK proof from partial (known) witness inputs.
+///
+/// Call [`finish_zk_proof`] with the full witness to complete the proof.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn generate_partial_zk_proof(
+    zkey: &Zkey,
+    partial_witness: &RLNPartialWitnessInput,
+    graph: &Graph,
+) -> Result<PartialProof, ProtocolError> {
+    let inputs = inputs_for_partial_witness_calculation(partial_witness)?
+        .into_iter()
+        .map(|(name, values)| (name.to_string(), values));
+
+    let full_assignment = calc_witness_partial(inputs, graph)?;
+    let mut partial_values = Vec::with_capacity(full_assignment.len() - 1);
+    partial_values.extend_from_slice(&full_assignment[1..]);
+
+    let partial_assignment = PartialAssignment::new(partial_values);
+    let partial_proof =
+        Groth16Partial::<_, CircomReduction>::prove_partial(&zkey.0, &partial_assignment)?;
+
+    Ok(partial_proof)
+}
+
+/// Finishes zkSNARK proof generation from a partial proof and full witness inputs.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn finish_zk_proof(
+    zkey: &Zkey,
+    partial_proof: &PartialProof,
+    witness: &RLNWitnessInput,
+    graph: &Graph,
+) -> Result<Proof, ProtocolError> {
     let mut rng = thread_rng();
     let r = Fr::rand(&mut rng);
     let s = Fr::rand(&mut rng);
 
-    let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
+    finish_zk_proof_with_rs(zkey, partial_proof, witness, graph, r, s)
+}
+
+/// Finishes zkSNARK proof generation from a partial proof and full witness inputs.
+/// Takes explicit blinding scalars `r` and `s` instead of sampling them internally.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn finish_zk_proof_with_rs(
+    zkey: &Zkey,
+    partial_proof: &PartialProof,
+    witness: &RLNWitnessInput,
+    graph: &Graph,
+    r: Fr,
+    s: Fr,
+) -> Result<Proof, ProtocolError> {
+    let inputs = inputs_for_witness_calculation(witness)?
+        .into_iter()
+        .map(|(name, values)| (name.to_string(), values));
+
+    let full_assignment = calc_witness(inputs, graph)?;
+
+    let proof = Groth16Partial::<_, CircomReduction>::finish_proof_with_matrices(
         &zkey.0,
+        partial_proof,
         r,
         s,
         &zkey.1,

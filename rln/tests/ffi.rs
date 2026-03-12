@@ -337,7 +337,7 @@ mod test {
         // We create a RLN instance
         let mut ffi_rln_instance = create_rln_instance();
 
-        // generate identity
+        // Generate identity
         let mut identity_secret_ = hash_to_field_le(b"test-merkle-proof").unwrap();
         let identity_secret = IdSecret::from(&mut identity_secret_);
         let mut to_hash = [*identity_secret.clone()];

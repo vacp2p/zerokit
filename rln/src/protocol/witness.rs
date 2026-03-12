@@ -8,6 +8,8 @@ use super::{
     proof::RLNProofValues,
     version::{SerializationVersion, VERSION_BYTE_SIZE},
 };
+#[cfg(feature = "multi-message-id")]
+use crate::circuit::DEFAULT_MAX_OUT;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::utils::FrOrSecret;
 #[cfg(feature = "multi-message-id")]
@@ -51,6 +53,18 @@ pub struct RLNWitnessInput {
     x: Fr,
     external_nullifier: Fr,
     pub(crate) message_inputs: RLNMessageInputs,
+}
+
+/// Partial witness input for RLN proof precalculation.
+///
+/// Contains the non-changing inputs used to precompute a partial proof
+/// before the signal, external nullifier, and message ID are known.
+#[derive(Debug, PartialEq, Clone)]
+pub struct RLNPartialWitnessInput {
+    identity_secret: IdSecret,
+    user_message_limit: Fr,
+    path_elements: Vec<Fr>,
+    identity_path_index: Vec<u8>,
 }
 
 impl RLNWitnessInput {
@@ -99,9 +113,9 @@ impl RLNWitnessInput {
             // Selector length must match message IDs
             if selector_used.len() != message_ids.len() {
                 return Err(ProtocolError::FieldLengthMismatch(
-                    "message_ids".into(),
+                    "message_ids",
                     message_ids.len(),
-                    "selector_used".into(),
+                    "selector_used",
                     selector_used.len(),
                 ));
             }
@@ -207,6 +221,64 @@ impl RLNWitnessInput {
     pub fn selector_used(&self) -> &[bool] {
         let RLNMessageInputs::MultiV1 { selector_used, .. } = &self.message_inputs;
         selector_used
+    }
+}
+
+impl RLNPartialWitnessInput {
+    /// Creates a new RLNPartialWitnessInput instance.
+    pub fn new(
+        identity_secret: IdSecret,
+        user_message_limit: Fr,
+        path_elements: Vec<Fr>,
+        identity_path_index: Vec<u8>,
+    ) -> Result<Self, ProtocolError> {
+        // Merkle proof length check
+        let path_elements_len = path_elements.len();
+        let identity_path_index_len = identity_path_index.len();
+        if path_elements_len != identity_path_index_len {
+            return Err(ProtocolError::InvalidMerkleProofLength(
+                path_elements_len,
+                identity_path_index_len,
+            ));
+        }
+
+        Ok(Self {
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+        })
+    }
+
+    /// Returns the identity secret.
+    pub fn identity_secret(&self) -> &IdSecret {
+        &self.identity_secret
+    }
+
+    /// Returns the user message limit.
+    pub fn user_message_limit(&self) -> &Fr {
+        &self.user_message_limit
+    }
+
+    /// Returns the Merkle path elements.
+    pub fn path_elements(&self) -> &[Fr] {
+        &self.path_elements
+    }
+
+    /// Returns the Merkle path indices.
+    pub fn identity_path_index(&self) -> &[u8] {
+        &self.identity_path_index
+    }
+}
+
+impl From<&RLNWitnessInput> for RLNPartialWitnessInput {
+    fn from(witness: &RLNWitnessInput) -> Self {
+        Self {
+            identity_secret: witness.identity_secret.clone(),
+            user_message_limit: witness.user_message_limit,
+            path_elements: witness.path_elements.clone(),
+            identity_path_index: witness.identity_path_index.clone(),
+        }
     }
 }
 
@@ -320,6 +392,46 @@ pub fn rln_witness_to_bytes_be(witness: &RLNWitnessInput) -> Result<Vec<u8>, Pro
     Ok(bytes)
 }
 
+/// Serializes an RLN partial witness to little-endian bytes.
+pub fn rln_partial_witness_to_bytes_le(
+    witness: &RLNPartialWitnessInput,
+) -> Result<Vec<u8>, ProtocolError> {
+    // Calculate capacity for Vec:
+    // - 2 field elements: identity_secret, user_message_limit
+    // - variable size of path_elements, identity_path_index
+    // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (path_elements, identity_path_index)
+    let capacity = FR_BYTE_SIZE * (2 + witness.path_elements.len())
+        + witness.identity_path_index.len()
+        + VEC_LEN_BYTE_SIZE * 2;
+    let mut bytes = Vec::with_capacity(capacity);
+    bytes.extend_from_slice(&witness.identity_secret.to_bytes_le());
+    bytes.extend_from_slice(&fr_to_bytes_le(&witness.user_message_limit));
+    bytes.extend_from_slice(&vec_fr_to_bytes_le(&witness.path_elements));
+    bytes.extend_from_slice(&vec_u8_to_bytes_le(&witness.identity_path_index));
+
+    Ok(bytes)
+}
+
+/// Serializes an RLN partial witness to big-endian bytes.
+pub fn rln_partial_witness_to_bytes_be(
+    witness: &RLNPartialWitnessInput,
+) -> Result<Vec<u8>, ProtocolError> {
+    // Calculate capacity for Vec:
+    // - 2 field elements: identity_secret, user_message_limit
+    // - variable size of path_elements, identity_path_index
+    // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (path_elements, identity_path_index)
+    let capacity = FR_BYTE_SIZE * (2 + witness.path_elements.len())
+        + witness.identity_path_index.len()
+        + VEC_LEN_BYTE_SIZE * 2;
+    let mut bytes = Vec::with_capacity(capacity);
+    bytes.extend_from_slice(&witness.identity_secret.to_bytes_be());
+    bytes.extend_from_slice(&fr_to_bytes_be(&witness.user_message_limit));
+    bytes.extend_from_slice(&vec_fr_to_bytes_be(&witness.path_elements));
+    bytes.extend_from_slice(&vec_u8_to_bytes_be(&witness.identity_path_index));
+
+    Ok(bytes)
+}
+
 /// Deserializes an RLN witness from little-endian bytes.
 ///
 /// Returns the deserialized witness and the number of bytes read.
@@ -380,9 +492,9 @@ pub fn bytes_le_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
 
         if selector_used.len() != message_ids.len() {
             return Err(ProtocolError::FieldLengthMismatch(
-                "message_ids".into(),
+                "message_ids",
                 message_ids.len(),
-                "selector_used".into(),
+                "selector_used",
                 selector_used.len(),
             ));
         }
@@ -466,9 +578,9 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
 
         if selector_used.len() != message_ids.len() {
             return Err(ProtocolError::FieldLengthMismatch(
-                "message_ids".into(),
+                "message_ids",
                 message_ids.len(),
-                "selector_used".into(),
+                "selector_used",
                 selector_used.len(),
             ));
         }
@@ -490,6 +602,76 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
             read,
         ))
     }
+}
+
+/// Deserializes an RLN partial witness from little-endian bytes.
+///
+/// Returns the deserialized partial witness and the number of bytes read.
+pub fn bytes_le_to_rln_partial_witness(
+    bytes: &[u8],
+) -> Result<(RLNPartialWitnessInput, usize), ProtocolError> {
+    let mut read: usize = 0;
+
+    let (identity_secret, el_size) = IdSecret::from_bytes_le(&bytes[read..])?;
+    read += el_size;
+
+    let (user_message_limit, el_size) = bytes_le_to_fr(&bytes[read..])?;
+    read += el_size;
+
+    let (path_elements, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
+    read += el_size;
+
+    let (identity_path_index, el_size) = bytes_le_to_vec_u8(&bytes[read..])?;
+    read += el_size;
+
+    if read != bytes.len() {
+        return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
+    }
+
+    Ok((
+        RLNPartialWitnessInput::new(
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+        )?,
+        read,
+    ))
+}
+
+/// Deserializes an RLN partial witness from big-endian bytes.
+///
+/// Returns the deserialized partial witness and the number of bytes read.
+pub fn bytes_be_to_rln_partial_witness(
+    bytes: &[u8],
+) -> Result<(RLNPartialWitnessInput, usize), ProtocolError> {
+    let mut read: usize = 0;
+
+    let (identity_secret, el_size) = IdSecret::from_bytes_be(&bytes[read..])?;
+    read += el_size;
+
+    let (user_message_limit, el_size) = bytes_be_to_fr(&bytes[read..])?;
+    read += el_size;
+
+    let (path_elements, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
+    read += el_size;
+
+    let (identity_path_index, el_size) = bytes_be_to_vec_u8(&bytes[read..])?;
+    read += el_size;
+
+    if read != bytes.len() {
+        return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
+    }
+
+    Ok((
+        RLNPartialWitnessInput::new(
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+        )?,
+        read,
+    ))
 }
 
 /// Converts RLN witness to JSON with BigInt string representation for witness calculator.
@@ -688,6 +870,63 @@ pub(super) fn inputs_for_witness_calculation(
     inputs.push(("identityPathIndex", identity_path_index_fr));
     inputs.push(("x", vec![witness.x.into()]));
     inputs.push(("externalNullifier", vec![witness.external_nullifier.into()]));
+
+    Ok(inputs)
+}
+
+/// Prepares inputs for partial witness calculation from an RLN partial witness input.
+///
+/// Unknown inputs (signal, external nullifier, message ID) are represented as `None`.
+#[allow(clippy::type_complexity)]
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn inputs_for_partial_witness_calculation(
+    witness: &RLNPartialWitnessInput,
+) -> Result<Vec<(&'static str, Vec<Option<FrOrSecret>>)>, ProtocolError> {
+    let mut identity_path_index = Vec::with_capacity(witness.identity_path_index.len());
+    witness
+        .identity_path_index
+        .iter()
+        .for_each(|v| identity_path_index.push(Fr::from(*v)));
+
+    let mut inputs: Vec<(&'static str, Vec<Option<FrOrSecret>>)> = vec![
+        (
+            "identitySecret",
+            vec![Some(witness.identity_secret.clone().into())],
+        ),
+        (
+            "userMessageLimit",
+            vec![Some(witness.user_message_limit.into())],
+        ),
+    ];
+
+    #[cfg(not(feature = "multi-message-id"))]
+    inputs.push(("messageId", vec![None]));
+    #[cfg(feature = "multi-message-id")]
+    {
+        inputs.push(("messageId", vec![None; DEFAULT_MAX_OUT]));
+        inputs.push(("selectorUsed", vec![None; DEFAULT_MAX_OUT]));
+    }
+
+    inputs.push((
+        "pathElements",
+        witness
+            .path_elements
+            .iter()
+            .cloned()
+            .map(Into::into)
+            .map(Some)
+            .collect(),
+    ));
+    inputs.push((
+        "identityPathIndex",
+        identity_path_index
+            .into_iter()
+            .map(Into::into)
+            .map(Some)
+            .collect(),
+    ));
+    inputs.push(("x", vec![None]));
+    inputs.push(("externalNullifier", vec![None]));
 
     Ok(inputs)
 }

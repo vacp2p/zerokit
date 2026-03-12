@@ -230,7 +230,57 @@ mod test {
     }
 
     #[test]
-    fn test_witness_and_proof_values_serialization() {
+    // We test partial proof generation and finishing
+    fn test_partial_end_to_end() {
+        let witness = get_test_witness();
+
+        let partial_witness = RLNPartialWitnessInput::from(&witness);
+
+        let proving_key = zkey_from_folder();
+        let graph_data = graph_from_folder();
+
+        let partial_proof =
+            generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
+        let proof = finish_zk_proof(proving_key, &partial_proof, &witness, graph_data).unwrap();
+
+        let proof_values = proof_values_from_witness(&witness).unwrap();
+        let success = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
+
+        assert!(success);
+    }
+
+    #[test]
+    // We test that finished partial proof equals full proof (with fixed r,s blinding)
+    fn test_partial_equals_full_proof() {
+        let witness = get_test_witness();
+
+        let partial_witness = RLNPartialWitnessInput::from(&witness);
+
+        let proving_key = zkey_from_folder();
+        let graph_data = graph_from_folder();
+
+        let partial_proof =
+            generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
+
+        let r = Fr::from(44u64);
+        let s = Fr::from(77u64);
+
+        let full_proof =
+            generate_zk_proof_with_rs(proving_key, &witness, graph_data, r, s).unwrap();
+        let finished_proof =
+            finish_zk_proof_with_rs(proving_key, &partial_proof, &witness, graph_data, r, s)
+                .unwrap();
+
+        let proof_values = proof_values_from_witness(&witness).unwrap();
+        assert_eq!(full_proof, finished_proof);
+        let success1 = verify_zk_proof(&proving_key.0.vk, &full_proof, &proof_values).unwrap();
+        assert!(success1);
+        let success2 = verify_zk_proof(&proving_key.0.vk, &finished_proof, &proof_values).unwrap();
+        assert!(success2);
+    }
+
+    #[test]
+    fn test_witness_serialization() {
         let witness = get_test_witness();
 
         // We test witness serialization
@@ -268,6 +318,39 @@ mod test {
             bytes_le_to_rln_proof_values(&extra_pv),
             Err(ProtocolError::InvalidReadLen(_, _))
         ));
+    }
+
+    #[test]
+    fn test_partial_witness_serialization() {
+        let witness = get_test_witness();
+
+        let partial_witness = RLNPartialWitnessInput::from(&witness);
+
+        // Test partial witness serialization LE
+        let ser = rln_partial_witness_to_bytes_le(&partial_witness).unwrap();
+        let (deser, _) = bytes_le_to_rln_partial_witness(&ser).unwrap();
+        assert_eq!(partial_witness, deser);
+
+        // Test partial witness serialization BE
+        let ser = rln_partial_witness_to_bytes_be(&partial_witness).unwrap();
+        let (deser, _) = bytes_be_to_rln_partial_witness(&ser).unwrap();
+        assert_eq!(partial_witness, deser);
+    }
+
+    #[test]
+    fn test_partial_proof_serialization() {
+        let witness = get_test_witness();
+        let partial_witness = RLNPartialWitnessInput::from(&witness);
+
+        let proving_key = zkey_from_folder();
+        let graph_data = graph_from_folder();
+        let partial_proof =
+            generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
+
+        let ser = rln_partial_proof_to_bytes_le(&partial_proof).unwrap();
+        let (deser, read) = bytes_le_to_rln_partial_proof(&ser).unwrap();
+        assert_eq!(read, ser.len());
+        assert_eq!(partial_proof, deser);
     }
 
     #[test]

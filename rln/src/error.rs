@@ -62,7 +62,7 @@ pub enum ProtocolError {
     #[error("At least one selector_used value must be true")]
     NoActiveSelectorUsed,
     #[error("The field {0} has length {1}, but the field {2} has length {3}")]
-    FieldLengthMismatch(String, usize, String, usize),
+    FieldLengthMismatch(&'static str, usize, &'static str, usize),
     #[error("No IdSecret could be recovered from the provided proof values")]
     IdSecretRecovery,
     #[error("Merkle tree operation error: {0}")]
