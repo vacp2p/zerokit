@@ -94,6 +94,7 @@ harness = false
 [[bench]]
 name = "partial_proof"
 harness = false
+required-features = ["pmtree-ft"]
 
 [package.metadata.docs.rs]
 all-features = true
