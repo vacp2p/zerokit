@@ -140,6 +140,27 @@ mod test {
     }
 
     #[test]
+    fn test_pmtree_depth_shift_overflow() {
+        let depth = usize::BITS as usize;
+        let result = PmTree::new(depth, Fr::zero(), temp_config());
+        assert!(matches!(
+            result,
+            Err(ZerokitMerkleTreeError::PmtreeErrorKind(_))
+        ));
+    }
+
+    #[test]
+    fn test_pmtree_override_range_min_index_underflow() {
+        let mut tree = PmTree::new(TEST_DEPTH, Fr::zero(), temp_config()).unwrap();
+        let result =
+            tree.override_range(0, vec![Fr::from(1)].into_iter(), vec![5usize].into_iter());
+        assert!(matches!(
+            result,
+            Err(ZerokitMerkleTreeError::PmtreeErrorKind(_))
+        ));
+    }
+
+    #[test]
     fn test_pmtree_basic_operations() {
         let mut tree = PmTree::default(TEST_DEPTH).unwrap();
         let leaf = Fr::from(123);
