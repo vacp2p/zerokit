@@ -12,9 +12,13 @@ A collection of Zero Knowledge modules written in Rust and designed to be used i
 Zerokit provides zero-knowledge cryptographic primitives with a focus on performance, security, and usability.
 The current focus is on Rate-Limiting Nullifier [RLN](https://github.com/Rate-Limiting-Nullifier) implementation.
 
-Current implementation is based on the following
-[specification](https://lip.logos.co/ift-ts/raw/rln-v2)
-and focused on RLNv2 which allows to set a rate limit for the number of messages that can be sent by a user.
+> [!NOTE]
+> **Looking to use RLN?** Head straight to the [**RLN Module**](rln/README.md) for setup instructions, API reference, and examples.
+
+Current implementation is based on the [RLNv2 specification](https://lip.logos.co/ift-ts/raw/rln-v2),
+focused on allowing users to set a rate limit for the number of messages they can send.
+It also supports [Multi-Message-ID burn](https://lip.logos.co/ift-ts/raw/multi-message_id-burn-rln),
+an extension of RLNv2 that allows consuming multiple message_id units in a single proof for improved efficiency.
 
 ## Features
 

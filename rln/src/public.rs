@@ -14,8 +14,9 @@ use {
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
-    circuit::{graph_from_folder, graph_from_raw, zkey_from_folder, Graph},
-    protocol::generate_zk_proof,
+    circuit::{graph_from_folder, graph_from_raw, zkey_from_folder, Graph, PartialProof},
+    prelude::RLNPartialWitnessInput,
+    protocol::{finish_zk_proof, generate_partial_zk_proof, generate_zk_proof},
 };
 use crate::{
     circuit::{zkey_from_raw, Fr, Proof, Zkey},
@@ -646,6 +647,45 @@ impl RLN {
             #[cfg(not(target_arch = "wasm32"))]
             &self.graph,
         )?;
+        Ok((proof, proof_values))
+    }
+
+    /// Generates a partial zkSNARK proof from partial (known) witness inputs.
+    ///
+    /// This is the first step of two-step proof generation.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn generate_partial_zk_proof(
+        &self,
+        partial_witness: &RLNPartialWitnessInput,
+    ) -> Result<PartialProof, RLNError> {
+        let partial_proof = generate_partial_zk_proof(&self.zkey, partial_witness, &self.graph)?;
+        Ok(partial_proof)
+    }
+
+    /// Finishes zkSNARK proof generation from a partial proof and full witness.
+    ///
+    /// This is the second step of two-step proof generation.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn finish_zk_proof(
+        &self,
+        partial_proof: &PartialProof,
+        witness: &RLNWitnessInput,
+    ) -> Result<Proof, RLNError> {
+        let proof = finish_zk_proof(&self.zkey, partial_proof, witness, &self.graph)?;
+        Ok(proof)
+    }
+
+    /// Finishes RLN proof generation from a partial proof and full witness.
+    ///
+    /// This combines `RLN::finish_zk_proof` with proof values.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn finish_rln_proof(
+        &self,
+        partial_proof: &PartialProof,
+        witness: &RLNWitnessInput,
+    ) -> Result<(Proof, RLNProofValues), RLNError> {
+        let proof_values = proof_values_from_witness(witness)?;
+        let proof = finish_zk_proof(&self.zkey, partial_proof, witness, &self.graph)?;
         Ok((proof, proof_values))
     }
 

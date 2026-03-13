@@ -7,17 +7,23 @@ mod version;
 mod witness;
 
 pub use keygen::{extended_keygen, extended_seeded_keygen, keygen, seeded_keygen};
-#[cfg(not(target_arch = "wasm32"))]
-pub use proof::generate_zk_proof;
 pub use proof::{
-    bytes_be_to_rln_proof, bytes_be_to_rln_proof_values, bytes_le_to_rln_proof,
-    bytes_le_to_rln_proof_values, generate_zk_proof_with_witness, rln_proof_to_bytes_be,
-    rln_proof_to_bytes_le, rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le,
-    verify_zk_proof, RLNProof, RLNProofValues,
+    bytes_be_to_rln_partial_proof, bytes_be_to_rln_proof, bytes_be_to_rln_proof_values,
+    bytes_le_to_rln_partial_proof, bytes_le_to_rln_proof, bytes_le_to_rln_proof_values,
+    generate_zk_proof_with_witness, rln_partial_proof_to_bytes_be, rln_partial_proof_to_bytes_le,
+    rln_proof_to_bytes_be, rln_proof_to_bytes_le, rln_proof_values_to_bytes_be,
+    rln_proof_values_to_bytes_le, verify_zk_proof, RLNProof, RLNProofValues,
+};
+#[cfg(not(target_arch = "wasm32"))]
+pub use proof::{
+    finish_zk_proof, finish_zk_proof_with_rs, generate_partial_zk_proof, generate_zk_proof,
+    generate_zk_proof_with_rs,
 };
 pub use slashing::{compute_id_secret, recover_id_secret};
 pub use version::SerializationVersion;
 pub use witness::{
-    bytes_be_to_rln_witness, bytes_le_to_rln_witness, compute_tree_root, proof_values_from_witness,
-    rln_witness_to_bigint_json, rln_witness_to_bytes_be, rln_witness_to_bytes_le, RLNWitnessInput,
+    bytes_be_to_rln_partial_witness, bytes_be_to_rln_witness, bytes_le_to_rln_partial_witness,
+    bytes_le_to_rln_witness, compute_tree_root, proof_values_from_witness,
+    rln_partial_witness_to_bytes_be, rln_partial_witness_to_bytes_le, rln_witness_to_bigint_json,
+    rln_witness_to_bytes_be, rln_witness_to_bytes_le, RLNPartialWitnessInput, RLNWitnessInput,
 };
