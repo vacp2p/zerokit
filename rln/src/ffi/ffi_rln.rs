@@ -308,6 +308,13 @@ pub fn ffi_rln_proof_free(rln_proof: repr_c::Box<FFI_RLNProof>) {
 pub struct FFI_RLNPartialProof(pub(crate) PartialProof);
 
 #[ffi_export]
+pub fn ffi_rln_partial_proof_get_version_byte(
+    partial_proof: &repr_c::Box<FFI_RLNPartialProof>,
+) -> u8 {
+    partial_proof.0.version_byte()
+}
+
+#[ffi_export]
 pub fn ffi_rln_partial_proof_to_bytes_le(
     partial_proof: &repr_c::Box<FFI_RLNPartialProof>,
 ) -> CResult<repr_c::Vec<u8>, repr_c::String> {
@@ -342,6 +349,38 @@ pub fn ffi_bytes_le_to_rln_partial_proof(
 #[ffi_export]
 pub fn ffi_rln_partial_proof_free(partial_proof: repr_c::Box<FFI_RLNPartialProof>) {
     drop(partial_proof);
+}
+
+#[ffi_export]
+pub fn ffi_rln_partial_proof_to_bytes_be(
+    partial_proof: &repr_c::Box<FFI_RLNPartialProof>,
+) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+    match rln_partial_proof_to_bytes_be(&partial_proof.0) {
+        Ok(bytes) => CResult {
+            ok: Some(bytes.into()),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_bytes_be_to_rln_partial_proof(
+    bytes: &repr_c::Vec<u8>,
+) -> CResult<repr_c::Box<FFI_RLNPartialProof>, repr_c::String> {
+    match bytes_be_to_rln_partial_proof(bytes) {
+        Ok((partial_proof, _)) => CResult {
+            ok: Some(Box_::new(FFI_RLNPartialProof(partial_proof))),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 // RLNWitnessInput
@@ -626,6 +665,55 @@ pub fn ffi_rln_partial_witness_input_new(
 }
 
 #[ffi_export]
+pub fn ffi_rln_partial_witness_input_get_version_byte(
+    witness: &repr_c::Box<FFI_RLNPartialWitnessInput>,
+) -> u8 {
+    witness.0.version_byte()
+}
+
+#[ffi_export]
+pub fn ffi_rln_partial_witness_input_get_identity_secret(
+    witness: &repr_c::Box<FFI_RLNPartialWitnessInput>,
+) -> repr_c::Box<CFr> {
+    CFr::from(**witness.0.identity_secret()).into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_partial_witness_input_get_user_message_limit(
+    witness: &repr_c::Box<FFI_RLNPartialWitnessInput>,
+) -> repr_c::Box<CFr> {
+    CFr::from(*witness.0.user_message_limit()).into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_partial_witness_input_get_path_elements(
+    witness: &repr_c::Box<FFI_RLNPartialWitnessInput>,
+) -> repr_c::Vec<CFr> {
+    witness
+        .0
+        .path_elements()
+        .iter()
+        .map(|fr| CFr::from(*fr))
+        .collect::<Vec<_>>()
+        .into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_partial_witness_input_get_identity_path_index(
+    witness: &repr_c::Box<FFI_RLNPartialWitnessInput>,
+) -> repr_c::Vec<u8> {
+    witness.0.identity_path_index().to_vec().into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_witness_to_partial_witness(
+    witness: &repr_c::Box<FFI_RLNWitnessInput>,
+) -> repr_c::Box<FFI_RLNPartialWitnessInput> {
+    let partial = RLNPartialWitnessInput::from(&witness.0);
+    Box_::new(FFI_RLNPartialWitnessInput(partial))
+}
+
+#[ffi_export]
 pub fn ffi_rln_partial_witness_to_bytes_le(
     witness: &repr_c::Box<FFI_RLNPartialWitnessInput>,
 ) -> CResult<repr_c::Vec<u8>, repr_c::String> {
@@ -810,7 +898,7 @@ pub fn ffi_bytes_le_to_rln_proof_values(
         },
         Err(err) => CResult {
             ok: None,
-            err: Some(format!("{:?}", err).into()),
+            err: Some(err.to_string().into()),
         },
     }
 }
@@ -826,7 +914,7 @@ pub fn ffi_bytes_be_to_rln_proof_values(
         },
         Err(err) => CResult {
             ok: None,
-            err: Some(format!("{:?}", err).into()),
+            err: Some(err.to_string().into()),
         },
     }
 }

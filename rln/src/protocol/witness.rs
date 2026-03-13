@@ -8,8 +8,6 @@ use super::{
     proof::RLNProofValues,
     version::{SerializationVersion, VERSION_BYTE_SIZE},
 };
-#[cfg(feature = "multi-message-id")]
-use crate::circuit::DEFAULT_MAX_OUT;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::utils::FrOrSecret;
 #[cfg(feature = "multi-message-id")]
@@ -232,6 +230,11 @@ impl RLNPartialWitnessInput {
         path_elements: Vec<Fr>,
         identity_path_index: Vec<u8>,
     ) -> Result<Self, ProtocolError> {
+        // User message limit check
+        if user_message_limit == Fr::from(0) {
+            return Err(ProtocolError::ZeroUserMessageLimit);
+        }
+
         // Merkle proof length check
         let path_elements_len = path_elements.len();
         let identity_path_index_len = identity_path_index.len();
@@ -268,6 +271,18 @@ impl RLNPartialWitnessInput {
     /// Returns the Merkle path indices.
     pub fn identity_path_index(&self) -> &[u8] {
         &self.identity_path_index
+    }
+
+    /// Returns the version byte for this partial witness's serialization format.
+    pub fn version_byte(&self) -> u8 {
+        #[cfg(not(feature = "multi-message-id"))]
+        {
+            SerializationVersion::SingleV1.into()
+        }
+        #[cfg(feature = "multi-message-id")]
+        {
+            SerializationVersion::MultiV1.into()
+        }
     }
 }
 
@@ -397,13 +412,16 @@ pub fn rln_partial_witness_to_bytes_le(
     witness: &RLNPartialWitnessInput,
 ) -> Result<Vec<u8>, ProtocolError> {
     // Calculate capacity for Vec:
+    // - VERSION_BYTE_SIZE byte for version tag
     // - 2 field elements: identity_secret, user_message_limit
     // - variable size of path_elements, identity_path_index
     // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (path_elements, identity_path_index)
-    let capacity = FR_BYTE_SIZE * (2 + witness.path_elements.len())
+    let capacity = VERSION_BYTE_SIZE
+        + FR_BYTE_SIZE * (2 + witness.path_elements.len())
         + witness.identity_path_index.len()
         + VEC_LEN_BYTE_SIZE * 2;
     let mut bytes = Vec::with_capacity(capacity);
+    bytes.push(witness.version_byte());
     bytes.extend_from_slice(&witness.identity_secret.to_bytes_le());
     bytes.extend_from_slice(&fr_to_bytes_le(&witness.user_message_limit));
     bytes.extend_from_slice(&vec_fr_to_bytes_le(&witness.path_elements));
@@ -417,13 +435,16 @@ pub fn rln_partial_witness_to_bytes_be(
     witness: &RLNPartialWitnessInput,
 ) -> Result<Vec<u8>, ProtocolError> {
     // Calculate capacity for Vec:
+    // - VERSION_BYTE_SIZE byte for version tag
     // - 2 field elements: identity_secret, user_message_limit
     // - variable size of path_elements, identity_path_index
     // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (path_elements, identity_path_index)
-    let capacity = FR_BYTE_SIZE * (2 + witness.path_elements.len())
+    let capacity = VERSION_BYTE_SIZE
+        + FR_BYTE_SIZE * (2 + witness.path_elements.len())
         + witness.identity_path_index.len()
         + VEC_LEN_BYTE_SIZE * 2;
     let mut bytes = Vec::with_capacity(capacity);
+    bytes.push(witness.version_byte());
     bytes.extend_from_slice(&witness.identity_secret.to_bytes_be());
     bytes.extend_from_slice(&fr_to_bytes_be(&witness.user_message_limit));
     bytes.extend_from_slice(&vec_fr_to_bytes_be(&witness.path_elements));
@@ -610,7 +631,12 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
 pub fn bytes_le_to_rln_partial_witness(
     bytes: &[u8],
 ) -> Result<(RLNPartialWitnessInput, usize), ProtocolError> {
-    let mut read: usize = 0;
+    if bytes.is_empty() {
+        return Err(ProtocolError::InvalidReadLen(1, 0));
+    }
+
+    let _version = SerializationVersion::try_from(bytes[0])?;
+    let mut read: usize = VERSION_BYTE_SIZE;
 
     let (identity_secret, el_size) = IdSecret::from_bytes_le(&bytes[read..])?;
     read += el_size;
@@ -645,7 +671,12 @@ pub fn bytes_le_to_rln_partial_witness(
 pub fn bytes_be_to_rln_partial_witness(
     bytes: &[u8],
 ) -> Result<(RLNPartialWitnessInput, usize), ProtocolError> {
-    let mut read: usize = 0;
+    if bytes.is_empty() {
+        return Err(ProtocolError::InvalidReadLen(1, 0));
+    }
+
+    let _version = SerializationVersion::try_from(bytes[0])?;
+    let mut read: usize = VERSION_BYTE_SIZE;
 
     let (identity_secret, el_size) = IdSecret::from_bytes_be(&bytes[read..])?;
     read += el_size;
@@ -881,6 +912,7 @@ pub(super) fn inputs_for_witness_calculation(
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) fn inputs_for_partial_witness_calculation(
     witness: &RLNPartialWitnessInput,
+    #[cfg(feature = "multi-message-id")] max_out: usize,
 ) -> Result<Vec<(&'static str, Vec<Option<FrOrSecret>>)>, ProtocolError> {
     let mut identity_path_index = Vec::with_capacity(witness.identity_path_index.len());
     witness
@@ -903,8 +935,8 @@ pub(super) fn inputs_for_partial_witness_calculation(
     inputs.push(("messageId", vec![None]));
     #[cfg(feature = "multi-message-id")]
     {
-        inputs.push(("messageId", vec![None; DEFAULT_MAX_OUT]));
-        inputs.push(("selectorUsed", vec![None; DEFAULT_MAX_OUT]));
+        inputs.push(("messageId", vec![None; max_out]));
+        inputs.push(("selectorUsed", vec![None; max_out]));
     }
 
     inputs.push((

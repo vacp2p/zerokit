@@ -518,27 +518,77 @@ pub fn bytes_be_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), Protocol
     ))
 }
 
+impl PartialProof {
+    /// Returns the version byte corresponding to the partial proof variant.
+    pub fn version_byte(&self) -> u8 {
+        #[cfg(not(feature = "multi-message-id"))]
+        {
+            SerializationVersion::SingleV1.into()
+        }
+        #[cfg(feature = "multi-message-id")]
+        {
+            SerializationVersion::MultiV1.into()
+        }
+    }
+}
+
 /// Serializes RLN partial proof to little-endian bytes.
 ///
-/// Note: The Groth16 partial proof is serialized ONLY in LE format.
+/// The PartialProof is always serialized in LE format (arkworks behavior).
 pub fn rln_partial_proof_to_bytes_le(
     partial_proof: &PartialProof,
 ) -> Result<Vec<u8>, ProtocolError> {
+    #[cfg(not(feature = "multi-message-id"))]
+    let version_byte: u8 = SerializationVersion::SingleV1.into();
+    #[cfg(feature = "multi-message-id")]
+    let version_byte: u8 = SerializationVersion::MultiV1.into();
+
+    // The compressed PartialProof size is variable (depends on circuit size).
     let mut bytes = Vec::new();
+    bytes.push(version_byte);
     partial_proof.serialize_compressed(&mut bytes)?;
     Ok(bytes)
+}
+
+/// Serializes RLN partial proof to big-endian bytes.
+///
+/// The PartialProof is always serialized in LE format (arkworks behavior).
+pub fn rln_partial_proof_to_bytes_be(
+    partial_proof: &PartialProof,
+) -> Result<Vec<u8>, ProtocolError> {
+    rln_partial_proof_to_bytes_le(partial_proof)
 }
 
 /// Deserializes RLN partial proof from little-endian bytes.
 ///
 /// Returns the deserialized partial proof and the number of bytes read.
 pub fn bytes_le_to_rln_partial_proof(bytes: &[u8]) -> Result<(PartialProof, usize), ProtocolError> {
-    let mut bytes_ref = bytes;
-    let initial_len = bytes_ref.len();
+    if bytes.is_empty() {
+        return Err(ProtocolError::InvalidReadLen(1, 0));
+    }
+
+    let _version = SerializationVersion::try_from(bytes[0])?;
+    let mut read: usize = VERSION_BYTE_SIZE;
+
+    let mut bytes_ref = &bytes[read..];
+    let len_before = bytes_ref.len();
     let partial_proof = PartialProof::deserialize_compressed(&mut bytes_ref)?;
-    let read = initial_len - bytes_ref.len();
+    read += len_before - bytes_ref.len();
+
+    if read != bytes.len() {
+        return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
+    }
 
     Ok((partial_proof, read))
+}
+
+/// Deserializes RLN partial proof from big-endian bytes.
+///
+/// The PartialProof is always serialized in LE format (arkworks behavior).
+///
+/// Returns the deserialized partial proof and the number of bytes read.
+pub fn bytes_be_to_rln_partial_proof(bytes: &[u8]) -> Result<(PartialProof, usize), ProtocolError> {
+    bytes_le_to_rln_partial_proof(bytes)
 }
 
 // zkSNARK proof generation and verification
@@ -565,6 +615,32 @@ fn calculated_witness_to_field_elements<E: ark_ec::pairing::Pairing>(
     }
 
     Ok(field_elements)
+}
+
+/// Validates that a partial witness's dimensions match the graph's expected tree depth.
+#[cfg(not(target_arch = "wasm32"))]
+fn validate_partial_witness_against_graph(
+    witness: &RLNPartialWitnessInput,
+    graph: &Graph,
+) -> Result<(), ProtocolError> {
+    let expected_tree_depth = graph.tree_depth;
+    if witness.path_elements().len() != expected_tree_depth {
+        return Err(ProtocolError::FieldLengthMismatch(
+            "path_elements",
+            witness.path_elements().len(),
+            "tree_depth",
+            expected_tree_depth,
+        ));
+    }
+    if witness.identity_path_index().len() != expected_tree_depth {
+        return Err(ProtocolError::FieldLengthMismatch(
+            "identity_path_index",
+            witness.identity_path_index().len(),
+            "tree_depth",
+            expected_tree_depth,
+        ));
+    }
+    Ok(())
 }
 
 /// Validates that a witness's dimensions match the graph's expected tree depth and max_out.
@@ -701,9 +777,14 @@ pub fn generate_partial_zk_proof(
     partial_witness: &RLNPartialWitnessInput,
     graph: &Graph,
 ) -> Result<PartialProof, ProtocolError> {
-    let inputs = inputs_for_partial_witness_calculation(partial_witness)?
-        .into_iter()
-        .map(|(name, values)| (name.to_string(), values));
+    validate_partial_witness_against_graph(partial_witness, graph)?;
+    let inputs = inputs_for_partial_witness_calculation(
+        partial_witness,
+        #[cfg(feature = "multi-message-id")]
+        graph.max_out,
+    )?
+    .into_iter()
+    .map(|(name, values)| (name.to_string(), values));
 
     let full_assignment = calc_witness_partial(inputs, graph)?;
     let mut partial_values = Vec::with_capacity(full_assignment.len() - 1);
@@ -742,6 +823,7 @@ pub fn finish_zk_proof_with_rs(
     r: Fr,
     s: Fr,
 ) -> Result<Proof, ProtocolError> {
+    validate_witness_against_graph(witness, graph)?;
     let inputs = inputs_for_witness_calculation(witness)?
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));

@@ -20,7 +20,9 @@ type
   CFr* = object
   FFI_RLN* = object
   FFI_RLNProof* = object
+  FFI_RLNPartialProof* = object
   FFI_RLNWitnessInput* = object
+  FFI_RLNPartialWitnessInput* = object
 
   Vec_CFr* = object
     dataPtr*: ptr CFr
@@ -53,8 +55,16 @@ type
     ok*: ptr FFI_RLNProof
     err*: Vec_uint8
 
+  CResultPartialProofPtrVecU8* = object
+    ok*: ptr FFI_RLNPartialProof
+    err*: Vec_uint8
+
   CResultWitnessInputPtrVecU8* = object
     ok*: ptr FFI_RLNWitnessInput
+    err*: Vec_uint8
+
+  CResultPartialWitnessInputPtrVecU8* = object
+    ok*: ptr FFI_RLNPartialWitnessInput
     err*: Vec_uint8
 
   FFI_RLNProofValues* = object
@@ -171,9 +181,15 @@ proc ffi_seeded_extended_key_gen*(seed: ptr Vec_uint8): CResultVecCFrVecU8 {.imp
 when defined(ffiStateless):
   proc ffi_rln_new*(): CResultRLNPtrVecU8 {.importc: "ffi_rln_new", cdecl,
       dynlib: RLN_LIB.}
-  proc ffi_rln_new_with_params*(zkey_data: ptr Vec_uint8,
-      graph_data: ptr Vec_uint8): CResultRLNPtrVecU8 {.importc: "ffi_rln_new_with_params",
-      cdecl, dynlib: RLN_LIB.}
+  when defined(ffiMultiMessageId):
+    proc ffi_rln_new_with_params*(zkey_data: ptr Vec_uint8,
+        graph_data: ptr Vec_uint8,
+        max_out: CSize): CResultRLNPtrVecU8 {.importc: "ffi_rln_new_with_params",
+        cdecl, dynlib: RLN_LIB.}
+  else:
+    proc ffi_rln_new_with_params*(zkey_data: ptr Vec_uint8,
+        graph_data: ptr Vec_uint8): CResultRLNPtrVecU8 {.importc: "ffi_rln_new_with_params",
+        cdecl, dynlib: RLN_LIB.}
 else:
   when defined(ffiMultiMessageId):
     proc ffi_rln_new*(treeDepth: CSize, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new",
@@ -197,7 +213,7 @@ when defined(ffiMultiMessageId):
   proc ffi_rln_get_max_out*(rln: ptr ptr FFI_RLN): CSize {.importc: "ffi_rln_get_max_out",
       cdecl, dynlib: RLN_LIB.}
 
-# Witness input functions
+# RLNWitnessInput functions
 when defined(ffiMultiMessageId):
   proc ffi_rln_witness_input_new*(
     identity_secret: ptr CFr,
@@ -258,20 +274,49 @@ proc ffi_rln_witness_to_bigint_json*(witness: ptr ptr FFI_RLNWitnessInput): CRes
 proc ffi_rln_witness_input_free*(witness: ptr FFI_RLNWitnessInput) {.importc: "ffi_rln_witness_input_free",
     cdecl, dynlib: RLN_LIB.}
 
+# RLNPartialWitnessInput functions
+proc ffi_rln_partial_witness_input_new*(
+    identity_secret: ptr CFr,
+    user_message_limit: ptr CFr,
+    path_elements: ptr Vec_CFr,
+    identity_path_index: ptr Vec_uint8
+): CResultPartialWitnessInputPtrVecU8 {.importc: "ffi_rln_partial_witness_input_new",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_partial_witness_input_get_version_byte*(witness: ptr ptr FFI_RLNPartialWitnessInput): uint8 {.importc: "ffi_rln_partial_witness_input_get_version_byte",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_partial_witness_input_get_identity_secret*(witness: ptr ptr FFI_RLNPartialWitnessInput): ptr CFr {.importc: "ffi_rln_partial_witness_input_get_identity_secret",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_partial_witness_input_get_user_message_limit*(witness: ptr ptr FFI_RLNPartialWitnessInput): ptr CFr {.importc: "ffi_rln_partial_witness_input_get_user_message_limit",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_partial_witness_input_get_path_elements*(witness: ptr ptr FFI_RLNPartialWitnessInput): Vec_CFr {.importc: "ffi_rln_partial_witness_input_get_path_elements",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_partial_witness_input_get_identity_path_index*(witness: ptr ptr FFI_RLNPartialWitnessInput): Vec_uint8 {.importc: "ffi_rln_partial_witness_input_get_identity_path_index",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_witness_to_partial_witness*(witness: ptr ptr FFI_RLNWitnessInput): ptr FFI_RLNPartialWitnessInput {.importc: "ffi_rln_witness_to_partial_witness",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_partial_witness_to_bytes_le*(witness: ptr ptr FFI_RLNPartialWitnessInput): CResultVecU8VecU8 {.importc: "ffi_rln_partial_witness_to_bytes_le",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_partial_witness_to_bytes_be*(witness: ptr ptr FFI_RLNPartialWitnessInput): CResultVecU8VecU8 {.importc: "ffi_rln_partial_witness_to_bytes_be",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_bytes_le_to_rln_partial_witness*(bytes: ptr Vec_uint8): CResultPartialWitnessInputPtrVecU8 {.importc: "ffi_bytes_le_to_rln_partial_witness",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_bytes_be_to_rln_partial_witness*(bytes: ptr Vec_uint8): CResultPartialWitnessInputPtrVecU8 {.importc: "ffi_bytes_be_to_rln_partial_witness",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_partial_witness_input_free*(witness: ptr FFI_RLNPartialWitnessInput) {.importc: "ffi_rln_partial_witness_input_free",
+    cdecl, dynlib: RLN_LIB.}
+
 # Proof generation/verification functions
 proc ffi_generate_rln_proof*(
   rln: ptr ptr FFI_RLN,
   witness: ptr ptr FFI_RLNWitnessInput
 ): CResultProofPtrVecU8 {.importc: "ffi_generate_rln_proof", cdecl,
     dynlib: RLN_LIB.}
-
 proc ffi_generate_rln_proof_with_witness*(
   rln: ptr ptr FFI_RLN,
   calculated_witness: ptr Vec_uint8,
   witness: ptr ptr FFI_RLNWitnessInput
 ): CResultProofPtrVecU8 {.importc: "ffi_generate_rln_proof_with_witness",
     cdecl, dynlib: RLN_LIB.}
-
 when not defined(ffiStateless):
   proc ffi_verify_rln_proof*(
     rln: ptr ptr FFI_RLN,
@@ -279,7 +324,6 @@ when not defined(ffiStateless):
     x: ptr CFr
   ): CBoolResult {.importc: "ffi_verify_rln_proof", cdecl,
       dynlib: RLN_LIB.}
-
 proc ffi_verify_with_roots*(
   rln: ptr ptr FFI_RLN,
   proof: ptr ptr FFI_RLNProof,
@@ -288,8 +332,18 @@ proc ffi_verify_with_roots*(
 ): CBoolResult {.importc: "ffi_verify_with_roots", cdecl,
     dynlib: RLN_LIB.}
 
-proc ffi_rln_proof_free*(p: ptr FFI_RLNProof) {.importc: "ffi_rln_proof_free",
+# Partial proof generation functions
+proc ffi_generate_partial_zk_proof*(
+    rln: ptr ptr FFI_RLN,
+    partial_witness: ptr ptr FFI_RLNPartialWitnessInput
+): CResultPartialProofPtrVecU8 {.importc: "ffi_generate_partial_zk_proof",
     cdecl, dynlib: RLN_LIB.}
+proc ffi_finish_rln_proof*(
+    rln: ptr ptr FFI_RLN,
+    partial_proof: ptr ptr FFI_RLNPartialProof,
+    witness: ptr ptr FFI_RLNWitnessInput
+): CResultProofPtrVecU8 {.importc: "ffi_finish_rln_proof", cdecl,
+    dynlib: RLN_LIB.}
 
 # Merkle tree operations (non-stateless mode)
 when not defined(ffiStateless):
@@ -358,6 +412,22 @@ proc ffi_rln_proof_to_bytes_be*(proof: ptr ptr FFI_RLNProof): CResultVecU8VecU8 
 proc ffi_bytes_le_to_rln_proof*(bytes: ptr Vec_uint8): CResultProofPtrVecU8 {.importc: "ffi_bytes_le_to_rln_proof",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_bytes_be_to_rln_proof*(bytes: ptr Vec_uint8): CResultProofPtrVecU8 {.importc: "ffi_bytes_be_to_rln_proof",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_proof_free*(p: ptr FFI_RLNProof) {.importc: "ffi_rln_proof_free",
+    cdecl, dynlib: RLN_LIB.}
+
+# RLNPartialProof functions
+proc ffi_rln_partial_proof_get_version_byte*(partial_proof: ptr ptr FFI_RLNPartialProof): uint8 {.importc: "ffi_rln_partial_proof_get_version_byte",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_partial_proof_to_bytes_le*(partial_proof: ptr ptr FFI_RLNPartialProof): CResultVecU8VecU8 {.importc: "ffi_rln_partial_proof_to_bytes_le",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_partial_proof_to_bytes_be*(partial_proof: ptr ptr FFI_RLNPartialProof): CResultVecU8VecU8 {.importc: "ffi_rln_partial_proof_to_bytes_be",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_bytes_le_to_rln_partial_proof*(bytes: ptr Vec_uint8): CResultPartialProofPtrVecU8 {.importc: "ffi_bytes_le_to_rln_partial_proof",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_bytes_be_to_rln_partial_proof*(bytes: ptr Vec_uint8): CResultPartialProofPtrVecU8 {.importc: "ffi_bytes_be_to_rln_partial_proof",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_partial_proof_free*(partial_proof: ptr FFI_RLNPartialProof) {.importc: "ffi_rln_partial_proof_free",
     cdecl, dynlib: RLN_LIB.}
 
 # RLNProofValues functions
