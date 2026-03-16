@@ -231,7 +231,7 @@ cd circom-rln && npm install
 cp zkeyFiles/rln/final.zkey <path_to_rln_final.zkey>
 
 # Use this repository for multi-message-id circuit compilation
-git clone https://github.com/vinhtc27/circom-rln
+git clone -b multi-message-id https://github.com/vacp2p/circom-rln.git
 ```
 
 ### 2. Generate Witness Calculation Graph
