@@ -535,7 +535,7 @@ impl Deref for IdSecret {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-#[derive(Debug, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, Clone, Zeroize, ZeroizeOnDrop)]
 pub(crate) enum FrOrSecret {
     IdSecret(IdSecret),
     Fr(Fr),

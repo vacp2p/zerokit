@@ -56,15 +56,14 @@ pub enum ProtocolError {
     #[error("Duplicate message ID found in message_ids")]
     DuplicateMessageIds,
     #[cfg(feature = "multi-message-id")]
-    #[error("The field selector_used is required when using multi-message-id")]
-    MissingSelectorUsed,
-    #[cfg(feature = "multi-message-id")]
     #[error("At least one selector_used value must be true")]
     NoActiveSelectorUsed,
     #[error("The field {0} has length {1}, but the field {2} has length {3}")]
-    FieldLengthMismatch(String, usize, String, usize),
+    FieldLengthMismatch(&'static str, usize, &'static str, usize),
     #[error("No IdSecret could be recovered from the provided proof values")]
     IdSecretRecovery,
+    #[error("Constraint system is not initialized")]
+    UninitializedConstraintSystem,
     #[error("Merkle tree operation error: {0}")]
     MerkleTree(#[from] ZerokitMerkleTreeError),
     #[error("Hash computation error: {0}")]
@@ -73,6 +72,8 @@ pub enum ProtocolError {
     SerializationError(#[from] ark_serialize::SerializationError),
     #[error("Unknown serialization version: {0:#04x}")]
     UnknownSerializationVersion(u8),
+    #[error("Serialization version {0:#04x} is only valid with the '{1}' feature enabled")]
+    IncompatibleSerializationVersion(u8, &'static str),
 }
 
 /// Errors that can occur during proof verification

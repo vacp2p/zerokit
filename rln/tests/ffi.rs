@@ -337,7 +337,7 @@ mod test {
         // We create a RLN instance
         let mut ffi_rln_instance = create_rln_instance();
 
-        // generate identity
+        // Generate identity
         let mut identity_secret_ = hash_to_field_le(b"test-merkle-proof").unwrap();
         let identity_secret = IdSecret::from(&mut identity_secret_);
         let mut to_hash = [*identity_secret.clone()];
@@ -1189,5 +1189,253 @@ mod test {
         }
         let result = ffi_set_next_leaf(&mut ffi_rln_instance, &leaf_value);
         assert!(!result.ok); // should fail
+    }
+
+    #[test]
+    // Computes and verifies a partial+finish RLN ZK proof using FFI APIs
+    fn test_partial_and_finish_proof_ffi() {
+        let user_message_limit = Fr::from(100);
+        let message_id = Fr::from(1);
+
+        // We generate a vector of random leaves
+        let leaves = get_random_leaves();
+
+        // We create a RLN instance
+        let mut ffi_rln_instance = create_rln_instance();
+
+        // We add leaves in a batch into the tree
+        set_leaves_init(&mut ffi_rln_instance, &leaves);
+
+        // We generate a new identity pair
+        let (identity_secret, id_commitment) = identity_pair_gen();
+        let identity_index: usize = NO_OF_LEAVES;
+        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
+
+        // We set as leaf rate_commitment, its index would be equal to no_of_leaves
+        let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(rate_commitment));
+        if !result.ok {
+            panic!("set next leaf call failed: {:?}", result.err);
+        }
+
+        // Get merkle proof for the identity index
+        let merkle_proof = match ffi_get_merkle_proof(&ffi_rln_instance, identity_index) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("get merkle proof call failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // Create a partial witness via FFI
+        let partial_witness = match ffi_rln_partial_witness_input_new(
+            &CFr::from(*identity_secret),
+            &CFr::from(user_message_limit),
+            &merkle_proof.path_elements,
+            &merkle_proof.path_index,
+        ) {
+            CResult {
+                ok: Some(w),
+                err: None,
+            } => w,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("partial witness creation failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // Generate the partial proof via FFI
+        let partial_proof = match ffi_generate_partial_zk_proof(&ffi_rln_instance, &partial_witness)
+        {
+            CResult {
+                ok: Some(pp),
+                err: None,
+            } => pp,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("generate partial zk proof failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // Generate a random signal and epoch
+        let mut rng = rand::thread_rng();
+        let signal: [u8; 32] = rng.gen();
+        let epoch = hash_to_field_le(b"test-epoch-partial").unwrap();
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
+        let x = hash_to_field_le(&signal).unwrap();
+
+        // Create the full witness via FFI
+        let full_witness = match ffi_rln_witness_input_new(
+            &CFr::from(*identity_secret),
+            &CFr::from(user_message_limit),
+            &CFr::from(message_id),
+            &merkle_proof.path_elements,
+            &merkle_proof.path_index,
+            &CFr::from(x),
+            &CFr::from(external_nullifier),
+        ) {
+            CResult {
+                ok: Some(w),
+                err: None,
+            } => w,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("witness creation failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // Finish the partial proof into a full RLN proof via FFI
+        let rln_proof = match ffi_finish_rln_proof(&ffi_rln_instance, &partial_proof, &full_witness)
+        {
+            CResult {
+                ok: Some(p),
+                err: None,
+            } => p,
+            CResult {
+                ok: None,
+                err: Some(err),
+            } => panic!("finish rln proof failed: {}", err),
+            _ => unreachable!(),
+        };
+
+        // Verify the resulting proof
+        assert!(ffi_verify_rln_proof(&ffi_rln_instance, &rln_proof, &CFr::from(x)).ok);
+    }
+
+    #[test]
+    // Tests partial witness serialization round-trip and partial proof serialization via FFI
+    fn test_partial_witness_and_proof_serialization_ffi() {
+        let user_message_limit = Fr::from(100);
+
+        // We create a RLN instance and insert an identity
+        let leaves = get_random_leaves();
+        let mut ffi_rln_instance = create_rln_instance();
+        set_leaves_init(&mut ffi_rln_instance, &leaves);
+
+        let (identity_secret, id_commitment) = identity_pair_gen();
+        let identity_index: usize = NO_OF_LEAVES;
+        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
+        let result = ffi_set_next_leaf(&mut ffi_rln_instance, &CFr::from(rate_commitment));
+        if !result.ok {
+            panic!("set next leaf failed: {:?}", result.err);
+        }
+
+        let merkle_proof = match ffi_get_merkle_proof(&ffi_rln_instance, identity_index) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            _ => panic!("get merkle proof failed"),
+        };
+
+        // Create partial witness
+        let partial_witness = match ffi_rln_partial_witness_input_new(
+            &CFr::from(*identity_secret),
+            &CFr::from(user_message_limit),
+            &merkle_proof.path_elements,
+            &merkle_proof.path_index,
+        ) {
+            CResult {
+                ok: Some(w),
+                err: None,
+            } => w,
+            _ => panic!("partial witness creation failed"),
+        };
+
+        // Test LE serialization round-trip for partial witness
+        let ser_le = match ffi_rln_partial_witness_to_bytes_le(&partial_witness) {
+            CResult {
+                ok: Some(bytes),
+                err: None,
+            } => bytes,
+            _ => panic!("partial witness LE serialization failed"),
+        };
+        let deser_le = ffi_bytes_le_to_rln_partial_witness(&ser_le);
+        assert!(
+            deser_le.ok.is_some(),
+            "partial witness LE deserialization failed"
+        );
+
+        // Test BE serialization round-trip for partial witness
+        let ser_be = match ffi_rln_partial_witness_to_bytes_be(&partial_witness) {
+            CResult {
+                ok: Some(bytes),
+                err: None,
+            } => bytes,
+            _ => panic!("partial witness BE serialization failed"),
+        };
+        let deser_be = ffi_bytes_be_to_rln_partial_witness(&ser_be);
+        assert!(
+            deser_be.ok.is_some(),
+            "partial witness BE deserialization failed"
+        );
+
+        // Generate partial proof and test its serialization round-trip
+        let partial_proof = match ffi_generate_partial_zk_proof(&ffi_rln_instance, &partial_witness)
+        {
+            CResult {
+                ok: Some(pp),
+                err: None,
+            } => pp,
+            _ => panic!("generate partial zk proof failed"),
+        };
+
+        let ser_pp = match ffi_rln_partial_proof_to_bytes_le(&partial_proof) {
+            CResult {
+                ok: Some(bytes),
+                err: None,
+            } => bytes,
+            _ => panic!("partial proof LE serialization failed"),
+        };
+        let deser_pp = ffi_bytes_le_to_rln_partial_proof(&ser_pp);
+        assert!(
+            deser_pp.ok.is_some(),
+            "partial proof LE deserialization failed"
+        );
+
+        // Test trailing bytes rejection for partial proof
+        let mut extra_bytes: Vec<u8> = ser_pp.iter().cloned().collect();
+        extra_bytes.push(0xff);
+        let extra: repr_c::Vec<u8> = extra_bytes.into();
+        let deser_extra = ffi_bytes_le_to_rln_partial_proof(&extra);
+        assert!(
+            deser_extra.ok.is_none(),
+            "partial proof with trailing bytes should be rejected"
+        );
+    }
+
+    #[test]
+    // Tests that partial witness creation fails with zero user_message_limit via FFI
+    fn test_partial_witness_zero_limit_ffi() {
+        let ffi_rln_instance = create_rln_instance();
+
+        let merkle_proof = match ffi_get_merkle_proof(&ffi_rln_instance, 0) {
+            CResult {
+                ok: Some(proof),
+                err: None,
+            } => proof,
+            _ => panic!("get merkle proof failed"),
+        };
+
+        let (identity_secret, _) = identity_pair_gen();
+        let zero_limit = CFr::from(Fr::from(0u64));
+
+        let result = ffi_rln_partial_witness_input_new(
+            &CFr::from(*identity_secret),
+            &zero_limit,
+            &merkle_proof.path_elements,
+            &merkle_proof.path_index,
+        );
+        assert!(
+            result.ok.is_none(),
+            "partial witness with zero user_message_limit should be rejected"
+        );
     }
 }

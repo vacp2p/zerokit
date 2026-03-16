@@ -25,6 +25,7 @@ use self::error::ZKeyReadError;
 use crate::circuit::iden3calc::{
     graph::Node, storage::deserialize_witnesscalc_graph, InputSignalsInfo,
 };
+use crate::partial_proof::PartialProof as ArkPartialProof;
 
 #[cfg(all(not(target_arch = "wasm32"), not(feature = "multi-message-id")))]
 const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
@@ -90,6 +91,9 @@ pub type G2Projective = ArkG2Projective;
 
 /// Groth16 proof for the BN254 curve.
 pub type Proof = ArkProof<Curve>;
+
+/// Partial Groth16 proof for the BN254 curve.
+pub type PartialProof = ArkPartialProof<Curve>;
 
 /// Proving key for the Groth16 proof system.
 pub type ProvingKey = ArkProvingKey<Curve>;
