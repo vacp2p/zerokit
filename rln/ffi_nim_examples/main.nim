@@ -518,7 +518,7 @@ when isMainModule:
     quit 1
 
   var rln = rlnRes.ok
-  echo "RLN instance created successfully"
+  echo "  - RLN instance created successfully"
 
   let treeDepthActual = ffi_rln_get_tree_depth(addr rln)
   echo "  - circuit tree_depth = ", treeDepthActual
@@ -536,7 +536,7 @@ when isMainModule:
   var keys = keysResult.ok
   let identitySecret = ffi_vec_cfr_get(addr keys, CSize(0))
   let idCommitment = ffi_vec_cfr_get(addr keys, CSize(1))
-  echo "Identity generated"
+  echo "  - identity generated successfully"
 
   block:
     let debug = ffi_cfr_debug(identitySecret)
@@ -619,8 +619,6 @@ when isMainModule:
   ffi_vec_u8_free(serKeys)
 
   when defined(ffiStateless):
-    const CFR_SIZE = 32
-
     echo "\nBuilding Merkle path for stateless mode"
 
     let defaultLeaf = ffi_cfr_zero()
@@ -859,7 +857,7 @@ when isMainModule:
       ffi_c_string_free(witnessRes.err)
       quit 1
     var witness = witnessRes.ok
-    echo "RLN Witness created successfully"
+    echo "  - RLN Witness created successfully"
   else:
     when defined(ffiMultiMessageId):
       var witnessRes = ffi_rln_witness_input_new(identitySecret,
@@ -875,7 +873,7 @@ when isMainModule:
       ffi_c_string_free(witnessRes.err)
       quit 1
     var witness = witnessRes.ok
-    echo "RLN Witness created successfully"
+    echo "  - RLN Witness created successfully"
 
   echo "\nRLNWitnessInput serialization: RLNWitnessInput <-> bytes"
   let serWitnessResult = ffi_rln_witness_to_bytes_be(addr witness)
@@ -911,9 +909,9 @@ when isMainModule:
     quit 1
 
   var proof = proofRes.ok
-  echo "Proof generated successfully"
+  echo "  - proof generated successfully"
 
-  echo "\nGetting proof values"
+  echo "\nGetting RLN Proof Values"
   var proofValues = ffi_rln_proof_get_values(addr proof)
 
   when defined(ffiMultiMessageId):
@@ -1023,7 +1021,7 @@ when isMainModule:
   let deserProofValuesResult = ffi_bytes_be_to_rln_proof_values(
       addr serProofValues)
   if deserProofValuesResult.ok.isNil:
-    stderr.writeLine "Proof values deserialization error: ", asString(
+    stderr.writeLine "RLN Proof Values deserialization error: ", asString(
         deserProofValuesResult.err)
     ffi_c_string_free(deserProofValuesResult.err)
     quit 1
@@ -1055,9 +1053,199 @@ when isMainModule:
     ffi_c_string_free(verifyErr.err)
     quit 1
 
-  echo "Proof verified successfully"
+  echo "  - proof verified successfully"
 
   ffi_rln_proof_free(proof)
+
+  echo "\nGenerating partial proof from partial witness"
+  var partialWitness = ffi_rln_witness_to_partial_witness(addr witness)
+  echo "  - partial witness created successfully"
+
+  echo "\nRLNPartialWitnessInput serialization: RLNPartialWitnessInput <-> bytes"
+  let serPartialWitnessResult = ffi_rln_partial_witness_to_bytes_be(
+      addr partialWitness)
+  if serPartialWitnessResult.err.dataPtr != nil:
+    stderr.writeLine "Partial witness serialization error: ", asString(
+        serPartialWitnessResult.err)
+    ffi_c_string_free(serPartialWitnessResult.err)
+    quit 1
+  var serPartialWitness = serPartialWitnessResult.ok
+
+  block:
+    let debug = ffi_vec_u8_debug(addr serPartialWitness)
+    echo "  - serialized partial_witness = ", asString(debug)
+    ffi_c_string_free(debug)
+
+  let deserPartialWitnessResult = ffi_bytes_be_to_rln_partial_witness(
+      addr serPartialWitness)
+  if deserPartialWitnessResult.ok.isNil:
+    stderr.writeLine "Partial witness deserialization error: ", asString(
+        deserPartialWitnessResult.err)
+    ffi_c_string_free(deserPartialWitnessResult.err)
+    quit 1
+
+  echo "  - partial_witness deserialized successfully"
+  ffi_rln_partial_witness_input_free(deserPartialWitnessResult.ok)
+  ffi_vec_u8_free(serPartialWitness)
+
+  echo "\nGenerating partial ZK proof"
+  var partialProofRes = ffi_generate_partial_zk_proof(addr rln,
+      addr partialWitness)
+
+  if partialProofRes.ok.isNil:
+    stderr.writeLine "Partial proof generation error: ", asString(
+        partialProofRes.err)
+    ffi_c_string_free(partialProofRes.err)
+    ffi_rln_partial_witness_input_free(partialWitness)
+    quit 1
+
+  var partialProof = partialProofRes.ok
+  echo "  - partial proof generated successfully"
+
+  echo "\nRLNPartialProof serialization: RLNPartialProof <-> bytes"
+  let serPartialProofResult = ffi_rln_partial_proof_to_bytes_be(
+      addr partialProof)
+  if serPartialProofResult.err.dataPtr != nil:
+    stderr.writeLine "Partial proof serialization error: ", asString(
+        serPartialProofResult.err)
+    ffi_c_string_free(serPartialProofResult.err)
+    quit 1
+  var serPartialProof = serPartialProofResult.ok
+
+  block:
+    let debug = ffi_vec_u8_debug(addr serPartialProof)
+    echo "  - serialized partial_proof = ", asString(debug)
+    ffi_c_string_free(debug)
+
+  let deserPartialProofResult = ffi_bytes_be_to_rln_partial_proof(
+      addr serPartialProof)
+  if deserPartialProofResult.ok.isNil:
+    stderr.writeLine "Partial proof deserialization error: ", asString(
+        deserPartialProofResult.err)
+    ffi_c_string_free(deserPartialProofResult.err)
+    quit 1
+
+  echo "  - partial_proof deserialized successfully"
+  ffi_rln_partial_proof_free(deserPartialProofResult.ok)
+  ffi_vec_u8_free(serPartialProof)
+
+  echo "\nFinishing proof with full witness"
+  var finishProofResult = ffi_finish_rln_proof(addr rln, addr partialProof,
+      addr witness)
+
+  if finishProofResult.ok.isNil:
+    stderr.writeLine "Finish proof error: ", asString(finishProofResult.err)
+    ffi_c_string_free(finishProofResult.err)
+    ffi_rln_partial_proof_free(partialProof)
+    ffi_rln_partial_witness_input_free(partialWitness)
+    quit 1
+
+  var partialRlnProof = finishProofResult.ok
+  echo "  - partial proof finished successfully"
+
+  echo "\nGetting partial RLN Proof Values"
+  var partialProofValues = ffi_rln_proof_get_values(addr partialRlnProof)
+
+  when defined(ffiMultiMessageId):
+    block:
+      let partialYsResult = ffi_rln_proof_values_get_ys(addr partialProofValues)
+      if partialYsResult.err.dataPtr != nil:
+        stderr.writeLine "Get partial ys error: ", asString(
+            partialYsResult.err)
+        ffi_c_string_free(partialYsResult.err)
+        quit 1
+      var partialYs = partialYsResult.ok
+      let debug = ffi_vec_cfr_debug(addr partialYs)
+      echo "  - ys = ", asString(debug)
+      ffi_c_string_free(debug)
+      ffi_vec_cfr_free(partialYs)
+
+    block:
+      let partialNullifiersResult = ffi_rln_proof_values_get_nullifiers(
+          addr partialProofValues)
+      if partialNullifiersResult.err.dataPtr != nil:
+        stderr.writeLine "Get partial nullifiers error: ", asString(
+            partialNullifiersResult.err)
+        ffi_c_string_free(partialNullifiersResult.err)
+        quit 1
+      var partialNullifiers = partialNullifiersResult.ok
+      let debug = ffi_vec_cfr_debug(addr partialNullifiers)
+      echo "  - nullifiers = ", asString(debug)
+      ffi_c_string_free(debug)
+      ffi_vec_cfr_free(partialNullifiers)
+  else:
+    block:
+      let partialYResult = ffi_rln_proof_values_get_y(addr partialProofValues)
+      if partialYResult.ok.isNil:
+        stderr.writeLine "Get partial y error: ", asString(partialYResult.err)
+        ffi_c_string_free(partialYResult.err)
+        quit 1
+      let partialY = partialYResult.ok
+      let debug = ffi_cfr_debug(partialY)
+      echo "  - y = ", asString(debug)
+      ffi_c_string_free(debug)
+      ffi_cfr_free(partialY)
+
+    block:
+      let partialNullifierResult = ffi_rln_proof_values_get_nullifier(
+          addr partialProofValues)
+      if partialNullifierResult.ok.isNil:
+        stderr.writeLine "Get partial nullifier error: ", asString(
+            partialNullifierResult.err)
+        ffi_c_string_free(partialNullifierResult.err)
+        quit 1
+      let partialNullifier = partialNullifierResult.ok
+      let debug = ffi_cfr_debug(partialNullifier)
+      echo "  - nullifier = ", asString(debug)
+      ffi_c_string_free(debug)
+      ffi_cfr_free(partialNullifier)
+
+  block:
+    let partialRoot = ffi_rln_proof_values_get_root(addr partialProofValues)
+    let debug = ffi_cfr_debug(partialRoot)
+    echo "  - root = ", asString(debug)
+    ffi_c_string_free(debug)
+    ffi_cfr_free(partialRoot)
+
+  block:
+    let partialXVal = ffi_rln_proof_values_get_x(addr partialProofValues)
+    let debug = ffi_cfr_debug(partialXVal)
+    echo "  - x = ", asString(debug)
+    ffi_c_string_free(debug)
+    ffi_cfr_free(partialXVal)
+
+  block:
+    let partialExtNullifier = ffi_rln_proof_values_get_external_nullifier(
+        addr partialProofValues)
+    let debug = ffi_cfr_debug(partialExtNullifier)
+    echo "  - external_nullifier = ", asString(debug)
+    ffi_c_string_free(debug)
+    ffi_cfr_free(partialExtNullifier)
+
+  ffi_rln_proof_values_free(partialProofValues)
+
+  echo "\nVerifying partial-generated proof"
+  when defined(ffiStateless):
+    let verifyPartialErr = ffi_verify_with_roots(addr rln,
+        addr partialRlnProof, addr roots, x)
+  else:
+    let verifyPartialErr = ffi_verify_rln_proof(addr rln,
+        addr partialRlnProof, x)
+
+  if not verifyPartialErr.ok:
+    stderr.writeLine "Partial proof verification error: ", asString(
+        verifyPartialErr.err)
+    ffi_c_string_free(verifyPartialErr.err)
+    ffi_rln_proof_free(partialRlnProof)
+    ffi_rln_partial_proof_free(partialProof)
+    ffi_rln_partial_witness_input_free(partialWitness)
+    quit 1
+
+  echo "  - partial-generated proof verified successfully"
+
+  ffi_rln_proof_free(partialRlnProof)
+  ffi_rln_partial_proof_free(partialProof)
+  ffi_rln_partial_witness_input_free(partialWitness)
 
   echo "\nSimulating double-signaling attack (same epoch, different message)"
 
@@ -1131,7 +1319,7 @@ when isMainModule:
       ffi_c_string_free(witnessRes2.err)
       quit 1
     var witness2 = witnessRes2.ok
-    echo "Second RLN Witness created successfully"
+    echo "  - second RLN Witness created successfully"
   else:
     when defined(ffiMultiMessageId):
       var witnessRes2 = ffi_rln_witness_input_new(identitySecret,
@@ -1148,7 +1336,7 @@ when isMainModule:
       ffi_c_string_free(witnessRes2.err)
       quit 1
     var witness2 = witnessRes2.ok
-    echo "Second RLN Witness created successfully"
+    echo "  - second RLN Witness created successfully"
 
   echo "\nGenerating second RLN Proof"
   var proofRes2 = ffi_generate_rln_proof(addr rln, addr witness2)
@@ -1159,7 +1347,7 @@ when isMainModule:
     quit 1
 
   var proof2 = proofRes2.ok
-  echo "Second proof generated successfully"
+  echo "  - second proof generated successfully"
 
   var proofValues2 = ffi_rln_proof_get_values(addr proof2)
 
@@ -1175,7 +1363,7 @@ when isMainModule:
     ffi_c_string_free(verifyErr2.err)
     quit 1
 
-  echo "Second proof verified successfully"
+  echo "  - second proof verified successfully"
 
   echo "\nRecovering identity secret"
   let recoverRes = ffi_recover_id_secret(addr proofValues, addr proofValues2)
@@ -1196,7 +1384,7 @@ when isMainModule:
     echo "  - original_secret  = ", asString(debug)
     ffi_c_string_free(debug)
 
-  echo "Slashing successful: Identity is recovered!"
+  echo "  - identity recovered successfully"
   ffi_cfr_free(recoveredSecret)
 
   ffi_rln_proof_values_free(proofValues2)

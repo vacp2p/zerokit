@@ -64,7 +64,7 @@ async function main() {
     console.error("Initial RLN instance creation error:", error);
     return;
   }
-  console.log("RLN instance created successfully");
+  console.log("  - RLN instance created successfully");
 
   const treeDepth = 20;
   console.log("  - circuit tree_depth = " + treeDepth);
@@ -83,7 +83,7 @@ async function main() {
   }
   const identitySecret = identity.getSecretHash();
   const idCommitment = identity.getCommitment();
-  console.log("Identity generated");
+  console.log("  - identity generated successfully");
   console.log("  - identity_secret = " + identitySecret.debug());
   console.log("  - id_commitment = " + idCommitment.debug());
 
@@ -322,7 +322,7 @@ async function main() {
       externalNullifier,
     );
   }
-  console.log("RLN Witness created successfully");
+  console.log("  - RLN Witness created successfully");
 
   console.log(
     "\nWasmRLNWitnessInput serialization: WasmRLNWitnessInput <-> bytes",
@@ -360,7 +360,7 @@ async function main() {
     witnessJson,
     witnessCalculatorFile,
   );
-  console.log("Witness calculated successfully");
+  console.log("  - witness calculated successfully");
 
   console.log("\nGenerating RLN Proof");
   let rln_proof;
@@ -373,9 +373,9 @@ async function main() {
     console.error("Proof generation error:", error);
     return;
   }
-  console.log("Proof generated successfully");
+  console.log("  - proof generated successfully");
 
-  console.log("\nGetting proof values");
+  console.log("\nGetting RLN Proof Values");
   const proofValues = rln_proof.getValues();
 
   if (MULTI_MESSAGE_ID) {
@@ -432,7 +432,7 @@ async function main() {
   try {
     deserProofValues2 = rlnWasm.WasmRLNProofValues.fromBytesLE(serProofValues);
   } catch (error) {
-    console.error("Proof values deserialization error:", error);
+    console.error("RLN Proof Values deserialization error:", error);
     return;
   }
   console.log("  - proof_values deserialized successfully");
@@ -452,7 +452,7 @@ async function main() {
     return;
   }
   if (isValid) {
-    console.log("Proof verified successfully");
+    console.log("  - proof verified successfully");
   } else {
     console.log("Proof verification failed");
     return;
@@ -530,7 +530,7 @@ async function main() {
       externalNullifier,
     );
   }
-  console.log("Second RLN Witness created successfully");
+  console.log("  - second RLN Witness created successfully");
 
   console.log("\nCalculating second witness");
   let witnessJson2;
@@ -545,7 +545,7 @@ async function main() {
     witnessJson2,
     witnessCalculatorFile,
   );
-  console.log("Second witness calculated successfully");
+  console.log("  - second witness calculated successfully");
 
   console.log("\nGenerating second RLN Proof");
   let rln_proof2;
@@ -558,7 +558,7 @@ async function main() {
     console.error("Second proof generation error:", error);
     return;
   }
-  console.log("Second proof generated successfully");
+  console.log("  - second proof generated successfully");
 
   console.log("\nVerifying second proof");
   let isValid2;
@@ -569,7 +569,7 @@ async function main() {
     return;
   }
   if (isValid2) {
-    console.log("Second proof verified successfully");
+    console.log("  - second proof verified successfully");
 
     console.log("\nRecovering identity secret");
     const proofValues1 = rln_proof.getValues();
@@ -586,7 +586,7 @@ async function main() {
     }
     console.log("  - recovered_secret = " + recoveredSecret.debug());
     console.log("  - original_secret  = " + identitySecret.debug());
-    console.log("Slashing successful: Identity is recovered!");
+    console.log("  - identity recovered successfully");
   } else {
     console.log("Second proof verification failed");
   }
