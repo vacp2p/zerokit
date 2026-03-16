@@ -14,7 +14,7 @@ use rln::prelude::{
 };
 use zerokit_utils::pm_tree::Mode;
 
-const MESSAGE_LIMIT: u32 = 10;
+const MESSAGE_LIMIT: u32 = 4;
 
 const TREE_DEPTH: usize = DEFAULT_TREE_DEPTH;
 
@@ -227,7 +227,7 @@ impl RLNSystem {
         Ok(proof_values)
     }
 
-    fn check_nullifiers(&mut self, proof_values: RLNProofValues) -> Result<()> {
+    fn check_nullifier(&mut self, proof_values: RLNProofValues) -> Result<()> {
         let nullifiers: Vec<Fr> = proof_values.nullifiers().to_vec();
         let selector: Vec<bool> = proof_values.selector_used().to_vec();
 
@@ -295,7 +295,7 @@ fn main() -> Result<()> {
     let rln_epoch = hash_to_field_le(b"epoch")?;
     let rln_identifier = hash_to_field_le(b"rln-identifier")?;
     let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]).unwrap();
-    println!("RLN Multi-Message-ID Relay Example:");
+    println!("RLN Multi-Message-ID Example:");
     println!("Message Limit: {MESSAGE_LIMIT}");
     println!("Message Slots: {} - MAX_OUT", rln_system.rln.max_out());
     println!("----------------------------------");
@@ -345,7 +345,7 @@ fn main() -> Result<()> {
                         external_nullifier,
                     ) {
                         Ok(proof_values) => {
-                            if let Err(err) = rln_system.check_nullifiers(proof_values) {
+                            if let Err(err) = rln_system.check_nullifier(proof_values) {
                                 println!("Check nullifier error: {err}");
                             };
                         }
