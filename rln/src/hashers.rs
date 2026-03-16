@@ -1,7 +1,8 @@
 // This crate instantiates the Poseidon hash algorithm.
 
+use std::sync::LazyLock;
+
 use num_bigint::BigUint;
-use once_cell::sync::Lazy;
 use tiny_keccak::{Hasher, Keccak};
 use zerokit_utils::{error::HashError, poseidon::Poseidon};
 
@@ -22,7 +23,7 @@ const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
 ];
 
 /// Poseidon Hash wrapper over above implementation.
-static POSEIDON: Lazy<Poseidon<Fr>> = Lazy::new(|| Poseidon::<Fr>::from(&ROUND_PARAMS));
+static POSEIDON: LazyLock<Poseidon<Fr>> = LazyLock::new(|| Poseidon::<Fr>::from(&ROUND_PARAMS));
 
 pub fn poseidon_hash(input: &[Fr]) -> Result<Fr, HashError> {
     let hash = POSEIDON.hash(input)?;

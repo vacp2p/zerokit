@@ -9,9 +9,9 @@ use ark_std::{
     rand::{RngCore, SeedableRng},
     test_rng, UniformRand,
 };
-use rln::partial_prover::{Groth16Partial, PartialAssignment};
+use rln::partial_proof::{Groth16Partial, PartialAssignment};
 
-/// simple dummy multiplication circuit
+// Simple dummy multiplication circuit.
 #[derive(Copy, Clone)]
 struct MulCircuit<F: Field> {
     a: Option<F>,
@@ -53,7 +53,7 @@ fn build_cs<F: Field>(circuit: MulCircuit<F>) -> ConstraintSystemRef<F> {
 }
 
 #[test]
-fn partial_proof_test() {
+fn test_partial_proof() {
     let mut rng = ark_std::rand::rngs::StdRng::seed_from_u64(test_rng().next_u64());
 
     let (pk, vk) =
@@ -65,7 +65,7 @@ fn partial_proof_test() {
     let mut c = a;
     c *= b;
 
-    // Partial witness: fix public input (c) and one witness (a), leave b unknown
+    // Partial witness: fix public input (c) and one witness (a), leave b unknown.
     let mut partial_vals = vec![None; 3];
     partial_vals[0] = Some(c);
     partial_vals[1] = Some(a);
@@ -74,7 +74,7 @@ fn partial_proof_test() {
         &PartialAssignment::new(partial_vals),
     )
     .unwrap();
-    // finish the proof
+    // Finish the proof
     let mut rng_partial = rng.clone();
     let finished_partial_proof = Groth16Partial::<Bn254, LibsnarkReduction>::finish_proof(
         &pk,
@@ -87,8 +87,8 @@ fn partial_proof_test() {
     )
     .unwrap();
 
-    // this is the proof with full witness
-    let mut rng_full = rng.clone(); // clone rng so we get the same randomness
+    // This is the proof with full witness
+    let mut rng_full = rng.clone(); // Clone rng so we get the same randomness
     let proof_full = Groth16::<Bn254, LibsnarkReduction>::prove(
         &pk,
         MulCircuit::<Fr> {
@@ -107,7 +107,7 @@ fn partial_proof_test() {
 }
 
 #[test]
-fn partial_proof_with_matrices_test() {
+fn test_partial_proof_with_matrices() {
     let mut rng = ark_std::rand::rngs::StdRng::seed_from_u64(test_rng().next_u64());
 
     let (pk, vk) =
@@ -138,7 +138,7 @@ fn partial_proof_with_matrices_test() {
     let mut partial_vals = vec![None; 3];
     partial_vals[0] = Some(c);
     partial_vals[1] = Some(a);
-    // partial proof
+    // Partial proof
     let partial = Groth16Partial::<Bn254, LibsnarkReduction>::prove_partial(
         &pk,
         &PartialAssignment::new(partial_vals),

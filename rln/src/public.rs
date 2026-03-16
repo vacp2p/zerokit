@@ -14,13 +14,13 @@ use {
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
-    circuit::{graph_from_folder, graph_from_raw, zkey_from_folder, Graph},
-    protocol::generate_zk_proof,
+    circuit::{graph_from_folder, graph_from_raw, zkey_from_folder, Graph, PartialProof},
+    prelude::RLNPartialWitnessInput,
+    protocol::{finish_zk_proof, generate_partial_zk_proof, generate_zk_proof},
 };
 use crate::{
-    circuit::{zkey_from_raw, Fr, PartialProof, Proof, Zkey},
+    circuit::{zkey_from_raw, Fr, Proof, Zkey},
     error::{RLNError, VerifyError},
-    prelude::{finish_zk_proof, generate_partial_zk_proof, RLNPartialWitnessInput},
     protocol::{
         generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof, RLNProofValues,
         RLNWitnessInput,
@@ -141,6 +141,7 @@ impl RLN {
     /// - `tree_depth`: the depth of the internal Merkle tree
     /// - `zkey_data`: a byte vector containing the proving key (`rln_final.arkzkey`) as binary file
     /// - `graph_data`: a byte vector containing the graph data (`graph.bin`) as binary file
+    /// - `max_out` (multi-message-id feature): the maximum number of message ID slots the circuit supports
     /// - `tree_config`: configuration for the Merkle tree (accepts multiple types via TreeConfigInput trait)
     ///
     /// Examples:
@@ -172,12 +173,18 @@ impl RLN {
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn new_with_params<T: TreeConfigInput>(
         tree_depth: usize,
+        #[cfg(feature = "multi-message-id")] max_out: usize,
         zkey_data: Vec<u8>,
         graph_data: Vec<u8>,
         tree_config: T,
     ) -> Result<RLN, RLNError> {
         let zkey = zkey_from_raw(&zkey_data)?;
-        let graph = graph_from_raw(&graph_data, Some(tree_depth))?;
+        let graph = graph_from_raw(
+            &graph_data,
+            Some(tree_depth),
+            #[cfg(feature = "multi-message-id")]
+            Some(max_out),
+        )?;
 
         let config = tree_config.into_tree_config()?;
 
@@ -222,9 +229,18 @@ impl RLN {
     /// )?;
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
-    pub fn new_with_params(zkey_data: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN, RLNError> {
+    pub fn new_with_params(
+        zkey_data: Vec<u8>,
+        graph_data: Vec<u8>,
+        #[cfg(feature = "multi-message-id")] max_out: usize,
+    ) -> Result<RLN, RLNError> {
         let zkey = zkey_from_raw(&zkey_data)?;
-        let graph = graph_from_raw(&graph_data, None)?;
+        let graph = graph_from_raw(
+            &graph_data,
+            None,
+            #[cfg(feature = "multi-message-id")]
+            Some(max_out),
+        )?;
 
         Ok(RLN { zkey, graph })
     }
@@ -250,6 +266,20 @@ impl RLN {
         let zkey = zkey_from_raw(&zkey_data)?;
 
         Ok(RLN { zkey })
+    }
+
+    // Utility APIs
+
+    /// Returns the expected Merkle tree depth based on the graph's configuration.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn tree_depth(&self) -> usize {
+        self.graph.tree_depth
+    }
+
+    /// Returns the maximum number of message ID slots supported by the graph.
+    #[cfg(all(feature = "multi-message-id", not(target_arch = "wasm32")))]
+    pub fn max_out(&self) -> usize {
+        self.graph.max_out
     }
 
     // Merkle-tree APIs
@@ -609,11 +639,19 @@ impl RLN {
         witness: &RLNWitnessInput,
     ) -> Result<(Proof, RLNProofValues), RLNError> {
         let proof_values = proof_values_from_witness(witness)?;
-        let proof = generate_zk_proof_with_witness(calculated_witness, &self.zkey)?;
+        let proof = generate_zk_proof_with_witness(
+            calculated_witness,
+            &self.zkey,
+            #[cfg(not(target_arch = "wasm32"))]
+            witness,
+            #[cfg(not(target_arch = "wasm32"))]
+            &self.graph,
+        )?;
         Ok((proof, proof_values))
     }
 
     /// Generates a partial zkSNARK proof from partial (known) witness inputs.
+    ///
     /// This is the first step of two-step proof generation.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn generate_partial_zk_proof(
@@ -625,6 +663,7 @@ impl RLN {
     }
 
     /// Finishes zkSNARK proof generation from a partial proof and full witness.
+    ///
     /// This is the second step of two-step proof generation.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn finish_zk_proof(
@@ -637,7 +676,8 @@ impl RLN {
     }
 
     /// Finishes RLN proof generation from a partial proof and full witness.
-    /// This combines `RLN::finish_zk_proof` with proof-values.
+    ///
+    /// This combines `RLN::finish_zk_proof` with proof values.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn finish_rln_proof(
         &self,
@@ -686,11 +726,11 @@ impl RLN {
             return Err(VerifyError::InvalidProof.into());
         }
 
-        if self.tree.root() != proof_values.root {
+        if self.tree.root() != *proof_values.root() {
             return Err(VerifyError::InvalidRoot.into());
         }
 
-        if *x != proof_values.x {
+        if x != proof_values.x() {
             return Err(VerifyError::InvalidSignal.into());
         }
 
@@ -712,11 +752,11 @@ impl RLN {
             return Err(VerifyError::InvalidProof.into());
         }
 
-        if !roots.is_empty() && !roots.contains(&proof_values.root) {
+        if !roots.is_empty() && !roots.contains(proof_values.root()) {
             return Err(VerifyError::InvalidRoot.into());
         }
 
-        if *x != proof_values.x {
+        if x != proof_values.x() {
             return Err(VerifyError::InvalidSignal.into());
         }
 

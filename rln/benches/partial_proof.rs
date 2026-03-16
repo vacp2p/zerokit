@@ -11,7 +11,7 @@ fn get_test_witness() -> RLNWitnessInput {
     let user_message_limit = Fr::from(100);
     let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
 
-    //// generate merkle tree
+    // Generate merkle tree
     let default_leaf = Fr::from(0);
     let mut tree = PoseidonTree::new(
         DEFAULT_TREE_DEPTH,
@@ -36,11 +36,16 @@ fn get_test_witness() -> RLNWitnessInput {
     RLNWitnessInput::new(
         identity_secret,
         user_message_limit,
+        #[cfg(not(feature = "multi-message-id"))]
         message_id,
+        #[cfg(feature = "multi-message-id")]
+        vec![message_id, Fr::from(0), Fr::from(0), Fr::from(0)],
         merkle_proof.get_path_elements(),
         merkle_proof.get_path_index(),
         x,
         external_nullifier,
+        #[cfg(feature = "multi-message-id")]
+        vec![true, false, false, false],
     )
     .unwrap()
 }

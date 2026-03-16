@@ -148,6 +148,12 @@ impl VecWasmFr {
     }
 }
 
+impl From<Vec<Fr>> for VecWasmFr {
+    fn from(vec: Vec<Fr>) -> Self {
+        Self(vec)
+    }
+}
+
 // Uint8Array
 
 #[wasm_bindgen]

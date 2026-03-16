@@ -2,7 +2,7 @@ pub mod circuit;
 pub mod error;
 pub mod ffi;
 pub mod hashers;
-pub mod partial_prover;
+pub mod partial_proof;
 pub mod pm_tree_adapter;
 pub mod poseidon_tree;
 pub mod prelude;

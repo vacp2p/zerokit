@@ -16,6 +16,10 @@ pub enum GraphReadError {
     GraphDeserialization(#[from] std::io::Error),
     #[error("Tree depth mismatch: circuit expects depth {expected}, but {actual} was provided")]
     TreeDepthMismatch { expected: usize, actual: usize },
+    #[error("Max out mismatch: circuit expects max_out {expected}, but {actual} was provided")]
+    MaxOutMismatch { expected: usize, actual: usize },
+    #[error("Missing required signal in graph: {0}")]
+    MissingSignal(String),
 }
 
 /// Errors that can occur during witness calculation

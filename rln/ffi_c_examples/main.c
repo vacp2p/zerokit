@@ -8,11 +8,79 @@ int main(int argc, char const *const argv[])
 {
     printf("Creating RLN instance\n");
 
+#define TREE_DEPTH 20
+
 #ifdef STATELESS
     CResult_FFI_RLN_ptr_Vec_uint8_t ffi_rln_new_result = ffi_rln_new();
 #else
+#ifdef MULTI_MESSAGE_ID
+    const char *zkey_path = "../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey";
+    FILE *zkey_file = fopen(zkey_path, "rb");
+    if (!zkey_file)
+    {
+        fprintf(stderr, "Failed to open zkey file: %s\n", zkey_path);
+        return EXIT_FAILURE;
+    }
+
+    fseek(zkey_file, 0, SEEK_END);
+    long zkey_size = ftell(zkey_file);
+    fseek(zkey_file, 0, SEEK_SET);
+
+    uint8_t *zkey_data = (uint8_t *)malloc(zkey_size);
+    if (!zkey_data)
+    {
+        fprintf(stderr, "Failed to allocate memory for zkey\n");
+        fclose(zkey_file);
+        return EXIT_FAILURE;
+    }
+
+    fread(zkey_data, 1, zkey_size, zkey_file);
+    fclose(zkey_file);
+
+    Vec_uint8_t zkey_vec = {
+        .ptr = zkey_data,
+        .len = zkey_size,
+        .cap = zkey_size};
+
+    const char *graph_path = "../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin";
+    FILE *graph_file = fopen(graph_path, "rb");
+    if (!graph_file)
+    {
+        fprintf(stderr, "Failed to open graph file: %s\n", graph_path);
+        free(zkey_data);
+        return EXIT_FAILURE;
+    }
+
+    fseek(graph_file, 0, SEEK_END);
+    long graph_size = ftell(graph_file);
+    fseek(graph_file, 0, SEEK_SET);
+
+    uint8_t *graph_data = (uint8_t *)malloc(graph_size);
+    if (!graph_data)
+    {
+        fprintf(stderr, "Failed to allocate memory for graph\n");
+        fclose(graph_file);
+        free(zkey_data);
+        return EXIT_FAILURE;
+    }
+
+    fread(graph_data, 1, graph_size, graph_file);
+    fclose(graph_file);
+
+    Vec_uint8_t graph_vec = {
+        .ptr = graph_data,
+        .len = graph_size,
+        .cap = graph_size};
+
+    const char *config_path = "../resources/tree_depth_20/multi_message_id/max_out_4/config.json";
+    CResult_FFI_RLN_ptr_Vec_uint8_t ffi_rln_new_result = ffi_rln_new_with_params(TREE_DEPTH, 4, &zkey_vec, &graph_vec, config_path);
+
+    free(zkey_data);
+    free(graph_data);
+#else
     const char *config_path = "../resources/tree_depth_20/config.json";
-    CResult_FFI_RLN_ptr_Vec_uint8_t ffi_rln_new_result = ffi_rln_new(20, config_path);
+    CResult_FFI_RLN_ptr_Vec_uint8_t ffi_rln_new_result = ffi_rln_new(TREE_DEPTH, config_path);
+#endif
 #endif
 
     if (!ffi_rln_new_result.ok)
@@ -24,6 +92,13 @@ int main(int argc, char const *const argv[])
 
     FFI_RLN_t *rln = ffi_rln_new_result.ok;
     printf("RLN instance created successfully\n");
+
+    size_t tree_depth_actual = ffi_rln_get_tree_depth(&rln);
+    printf("  - circuit tree_depth = %zu\n", tree_depth_actual);
+#ifdef MULTI_MESSAGE_ID
+    size_t max_out = ffi_rln_get_max_out(&rln);
+    printf("  - circuit max_out = %zu\n", max_out);
+#endif
 
     printf("\nGenerating identity keys\n");
     CResult_Vec_CFr_Vec_uint8_t keys_result = ffi_key_gen();
@@ -47,7 +122,7 @@ int main(int argc, char const *const argv[])
     ffi_c_string_free(debug);
 
     printf("\nCreating message limit\n");
-    CFr_t *user_message_limit = ffi_uint_to_cfr(1);
+    CFr_t *user_message_limit = ffi_uint_to_cfr(10);
 
     debug = ffi_cfr_debug(user_message_limit);
     printf("  - user_message_limit = %s\n", debug.ptr);
@@ -115,7 +190,6 @@ int main(int argc, char const *const argv[])
     ffi_vec_u8_free(ser_keys);
 
 #ifdef STATELESS
-#define TREE_DEPTH 20
 #define CFR_SIZE 32
 
     printf("\nBuilding Merkle path for stateless mode\n");
@@ -317,23 +391,72 @@ int main(int argc, char const *const argv[])
     printf("  - external_nullifier = %s\n", debug.ptr);
     ffi_c_string_free(debug);
 
+#ifndef MULTI_MESSAGE_ID
     printf("\nCreating message_id\n");
     CFr_t *message_id = ffi_uint_to_cfr(0);
 
     debug = ffi_cfr_debug(message_id);
     printf("  - message_id = %s\n", debug.ptr);
     ffi_c_string_free(debug);
+#endif
+
+#ifdef MULTI_MESSAGE_ID
+    printf("\nCreating message_ids and selector_used (multi-message-id mode)\n");
+    printf("  - using 2 out of %zu slots\n", max_out);
+
+    Vec_CFr_t message_ids = ffi_vec_cfr_new(max_out);
+    {
+        CFr_t *tmp;
+        tmp = ffi_uint_to_cfr(0);
+        ffi_vec_cfr_push(&message_ids, tmp);
+        ffi_cfr_free(tmp);
+        tmp = ffi_uint_to_cfr(1);
+        ffi_vec_cfr_push(&message_ids, tmp);
+        ffi_cfr_free(tmp);
+        for (size_t i = 2; i < max_out; i++)
+        {
+            tmp = ffi_cfr_zero();
+            ffi_vec_cfr_push(&message_ids, tmp);
+            ffi_cfr_free(tmp);
+        }
+    }
+
+    bool *selector_arr = calloc(max_out, sizeof(bool));
+    selector_arr[0] = true;
+    selector_arr[1] = true;
+    Vec_bool_t selector_used = {
+        .ptr = selector_arr,
+        .len = max_out,
+        .cap = max_out};
+
+    debug = ffi_vec_cfr_debug(&message_ids);
+    printf("  - message_ids = %s\n", debug.ptr);
+    ffi_c_string_free(debug);
+#endif
 
     printf("\nCreating RLN Witness\n");
 #ifdef STATELESS
-    CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result = ffi_rln_witness_input_new(
-        identity_secret,
-        user_message_limit,
-        message_id,
-        &path_elements,
-        &identity_path_index,
-        x,
-        external_nullifier);
+    CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result =
+#ifdef MULTI_MESSAGE_ID
+        ffi_rln_witness_input_new(
+            identity_secret,
+            user_message_limit,
+            &message_ids,
+            &path_elements,
+            &identity_path_index,
+            x,
+            external_nullifier,
+            &selector_used);
+#else
+        ffi_rln_witness_input_new(
+            identity_secret,
+            user_message_limit,
+            message_id,
+            &path_elements,
+            &identity_path_index,
+            x,
+            external_nullifier);
+#endif
 
     if (!witness_result.ok)
     {
@@ -344,14 +467,27 @@ int main(int argc, char const *const argv[])
     FFI_RLNWitnessInput_t *witness = witness_result.ok;
     printf("RLN Witness created successfully\n");
 #else
-    CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result = ffi_rln_witness_input_new(
-        identity_secret,
-        user_message_limit,
-        message_id,
-        &merkle_proof->path_elements,
-        &merkle_proof->path_index,
-        x,
-        external_nullifier);
+    CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result =
+#ifdef MULTI_MESSAGE_ID
+        ffi_rln_witness_input_new(
+            identity_secret,
+            user_message_limit,
+            &message_ids,
+            &merkle_proof->path_elements,
+            &merkle_proof->path_index,
+            x,
+            external_nullifier,
+            &selector_used);
+#else
+        ffi_rln_witness_input_new(
+            identity_secret,
+            user_message_limit,
+            message_id,
+            &merkle_proof->path_elements,
+            &merkle_proof->path_index,
+            x,
+            external_nullifier);
+#endif
 
     if (!witness_result.ok)
     {
@@ -409,17 +545,59 @@ int main(int argc, char const *const argv[])
     printf("\nGetting proof values\n");
     FFI_RLNProofValues_t *proof_values = ffi_rln_proof_get_values(&rln_proof);
 
-    CFr_t *y = ffi_rln_proof_values_get_y(&proof_values);
+#ifdef MULTI_MESSAGE_ID
+    CResult_Vec_CFr_Vec_uint8_t ys_result = ffi_rln_proof_values_get_ys(&proof_values);
+    if (ys_result.err.ptr)
+    {
+        fprintf(stderr, "Get ys error: %s\n", ys_result.err.ptr);
+        ffi_c_string_free(ys_result.err);
+        return EXIT_FAILURE;
+    }
+    Vec_CFr_t ys = ys_result.ok;
+    debug = ffi_vec_cfr_debug(&ys);
+    printf("  - ys = %s\n", debug.ptr);
+    ffi_c_string_free(debug);
+    ffi_vec_cfr_free(ys);
+
+    CResult_Vec_CFr_Vec_uint8_t nullifiers_result = ffi_rln_proof_values_get_nullifiers(&proof_values);
+    if (nullifiers_result.err.ptr)
+    {
+        fprintf(stderr, "Get nullifiers error: %s\n", nullifiers_result.err.ptr);
+        ffi_c_string_free(nullifiers_result.err);
+        return EXIT_FAILURE;
+    }
+    Vec_CFr_t nullifiers = nullifiers_result.ok;
+    debug = ffi_vec_cfr_debug(&nullifiers);
+    printf("  - nullifiers = %s\n", debug.ptr);
+    ffi_c_string_free(debug);
+    ffi_vec_cfr_free(nullifiers);
+#else
+    CResult_CFr_ptr_Vec_uint8_t y_result = ffi_rln_proof_values_get_y(&proof_values);
+    if (!y_result.ok)
+    {
+        fprintf(stderr, "Get y error: %s\n", y_result.err.ptr);
+        ffi_c_string_free(y_result.err);
+        return EXIT_FAILURE;
+    }
+    CFr_t *y = y_result.ok;
     debug = ffi_cfr_debug(y);
     printf("  - y = %s\n", debug.ptr);
     ffi_c_string_free(debug);
     ffi_cfr_free(y);
 
-    CFr_t *nullifier = ffi_rln_proof_values_get_nullifier(&proof_values);
+    CResult_CFr_ptr_Vec_uint8_t nullifier_result = ffi_rln_proof_values_get_nullifier(&proof_values);
+    if (!nullifier_result.ok)
+    {
+        fprintf(stderr, "Get nullifier error: %s\n", nullifier_result.err.ptr);
+        ffi_c_string_free(nullifier_result.err);
+        return EXIT_FAILURE;
+    }
+    CFr_t *nullifier = nullifier_result.ok;
     debug = ffi_cfr_debug(nullifier);
     printf("  - nullifier = %s\n", debug.ptr);
     ffi_c_string_free(debug);
     ffi_cfr_free(nullifier);
+#endif
 
     CFr_t *root = ffi_rln_proof_values_get_root(&proof_values);
     debug = ffi_cfr_debug(root);
@@ -529,23 +707,76 @@ int main(int argc, char const *const argv[])
     printf("  - x2 = %s\n", debug.ptr);
     ffi_c_string_free(debug);
 
+#ifndef MULTI_MESSAGE_ID
     printf("\nCreating second message with the same id\n");
     CFr_t *message_id2 = ffi_uint_to_cfr(0);
 
     debug = ffi_cfr_debug(message_id2);
     printf("  - message_id2 = %s\n", debug.ptr);
     ffi_c_string_free(debug);
+#endif
+
+#ifdef MULTI_MESSAGE_ID
+    printf("\nCreating message_ids2 and selector_used2 (multi-message-id mode)\n");
+    printf("  - using 2 out of %zu slots\n", max_out);
+    printf("  - duplicated slot id 1\n");
+
+    Vec_CFr_t message_ids2 = ffi_vec_cfr_new(max_out);
+    {
+        CFr_t *tmp;
+        tmp = ffi_uint_to_cfr(1);
+        ffi_vec_cfr_push(&message_ids2, tmp);
+        ffi_cfr_free(tmp);
+        tmp = ffi_cfr_zero();
+        ffi_vec_cfr_push(&message_ids2, tmp);
+        ffi_cfr_free(tmp);
+        tmp = ffi_uint_to_cfr(3);
+        ffi_vec_cfr_push(&message_ids2, tmp);
+        ffi_cfr_free(tmp);
+        for (size_t i = 3; i < max_out; i++)
+        {
+            tmp = ffi_cfr_zero();
+            ffi_vec_cfr_push(&message_ids2, tmp);
+            ffi_cfr_free(tmp);
+        }
+    }
+
+    bool *selector_arr2 = calloc(max_out, sizeof(bool));
+    selector_arr2[0] = true;
+    selector_arr2[2] = true;
+    Vec_bool_t selector_used2 = {
+        .ptr = selector_arr2,
+        .len = max_out,
+        .cap = max_out};
+
+    debug = ffi_vec_cfr_debug(&message_ids2);
+    printf("  - message_ids2 = %s\n", debug.ptr);
+    ffi_c_string_free(debug);
+#endif
 
     printf("\nCreating second RLN Witness\n");
 #ifdef STATELESS
-    CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result2 = ffi_rln_witness_input_new(
-        identity_secret,
-        user_message_limit,
-        message_id2,
-        &path_elements,
-        &identity_path_index,
-        x2,
-        external_nullifier);
+    CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result2 =
+#ifdef MULTI_MESSAGE_ID
+        ffi_rln_witness_input_new(
+            identity_secret,
+            user_message_limit,
+            &message_ids2,
+            &path_elements,
+            &identity_path_index,
+            x2,
+            external_nullifier,
+            &selector_used2);
+#else
+        ffi_rln_witness_input_new(
+            identity_secret,
+            user_message_limit,
+            message_id2,
+            &path_elements,
+            &identity_path_index,
+            x2,
+            external_nullifier);
+#endif
 
     if (!witness_result2.ok)
     {
@@ -556,14 +787,27 @@ int main(int argc, char const *const argv[])
     FFI_RLNWitnessInput_t *witness2 = witness_result2.ok;
     printf("Second RLN Witness created successfully\n");
 #else
-    CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result2 = ffi_rln_witness_input_new(
-        identity_secret,
-        user_message_limit,
-        message_id2,
-        &merkle_proof->path_elements,
-        &merkle_proof->path_index,
-        x2,
-        external_nullifier);
+    CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result2 =
+#ifdef MULTI_MESSAGE_ID
+        ffi_rln_witness_input_new(
+            identity_secret,
+            user_message_limit,
+            &message_ids2,
+            &merkle_proof->path_elements,
+            &merkle_proof->path_index,
+            x2,
+            external_nullifier,
+            &selector_used2);
+#else
+        ffi_rln_witness_input_new(
+            identity_secret,
+            user_message_limit,
+            message_id2,
+            &merkle_proof->path_elements,
+            &merkle_proof->path_index,
+            x2,
+            external_nullifier);
+#endif
 
     if (!witness_result2.ok)
     {
@@ -574,6 +818,7 @@ int main(int argc, char const *const argv[])
     FFI_RLNWitnessInput_t *witness2 = witness_result2.ok;
     printf("Second RLN Witness created successfully\n");
 #endif
+
     printf("\nGenerating second RLN Proof\n");
     CResult_FFI_RLNProof_ptr_Vec_uint8_t proof_gen_result2 = ffi_generate_rln_proof(
         &rln,
@@ -635,7 +880,9 @@ int main(int argc, char const *const argv[])
     ffi_rln_proof_values_free(proof_values2);
     ffi_rln_proof_values_free(proof_values);
     ffi_cfr_free(x2);
+#ifndef MULTI_MESSAGE_ID
     ffi_cfr_free(message_id2);
+#endif
 
 #ifdef STATELESS
     ffi_rln_witness_input_free(witness2);
@@ -654,13 +901,22 @@ int main(int argc, char const *const argv[])
     ffi_merkle_proof_free(merkle_proof);
 #endif
 
+#ifdef MULTI_MESSAGE_ID
+    ffi_vec_cfr_free(message_ids);
+    ffi_vec_cfr_free(message_ids2);
+    free(selector_arr);
+    free(selector_arr2);
+#endif
+
     ffi_cfr_free(rate_commitment);
     ffi_cfr_free(x);
     ffi_cfr_free(epoch);
     ffi_cfr_free(rln_identifier);
     ffi_cfr_free(external_nullifier);
     ffi_cfr_free(user_message_limit);
+#ifndef MULTI_MESSAGE_ID
     ffi_cfr_free(message_id);
+#endif
     ffi_vec_cfr_free(keys);
     ffi_rln_free(rln);
 

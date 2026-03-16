@@ -13,14 +13,16 @@ use ark_std::{marker::PhantomData, ops::Mul, rand::RngCore, vec::Vec, UniformRan
 
 use crate::error::ProtocolError;
 
-/// A partial assignment (witness)
+/// A partial assignment (witness).
 /// `None` means "unknown" or changing part of the witness, `Some` means fixed and can be precomputed.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PartialAssignment<F: PrimeField> {
     /// Assignment entries, ordered as (public inputs excluding 1) || (witness/aux)
     pub values: Vec<Option<F>>,
 }
+
 impl<F: PrimeField> PartialAssignment<F> {
+    /// Creates a new partial assignment.
     pub fn new(values: Vec<Option<F>>) -> Self {
         Self { values }
     }
@@ -41,7 +43,7 @@ pub struct PartialProof<E: Pairing> {
     pub partial_pi_c: E::G1,
 }
 
-/// Wrapper API generating partial proofs for ark-Groth16
+/// Wrapper API generating partial proofs for ark-Groth16.
 pub struct Groth16Partial<E: Pairing, QAP: R1CSToQAP = LibsnarkReduction> {
     _p: PhantomData<(E, QAP)>,
 }
@@ -113,10 +115,11 @@ fn create_partial_proof_from_assignment<E: Pairing>(
     let expected_len = num_inputs + num_aux - 1;
 
     if partial_assignment.values.len() != expected_len {
-        return Err(ProtocolError::InvalidLength(
+        return Err(ProtocolError::FieldLengthMismatch(
             "partial assignment",
-            expected_len,
             partial_assignment.values.len(),
+            "num_inputs + num_aux - 1",
+            expected_len,
         ));
     }
 
@@ -194,17 +197,19 @@ fn finish_partial_proof_with_assignment<E: Pairing>(
     let expected_len = num_inputs + num_aux - 1;
 
     if full_assignment.len() != expected_len {
-        return Err(ProtocolError::InvalidLength(
+        return Err(ProtocolError::FieldLengthMismatch(
             "full assignment",
-            expected_len,
             full_assignment.len(),
+            "num_inputs + num_aux - 1",
+            expected_len,
         ));
     }
     if partial.mask.len() != expected_len {
-        return Err(ProtocolError::InvalidLength(
+        return Err(ProtocolError::FieldLengthMismatch(
             "partial mask",
-            expected_len,
             partial.mask.len(),
+            "num_inputs + num_aux - 1",
+            expected_len,
         ));
     }
 
@@ -309,8 +314,8 @@ where
     finish_partial_proof_with_assignment(pk, partial, &full_assignment, &h, r, s)
 }
 
-/// Finish a proof from a circuit and a partial proof, sampling blinding/randomness using `rng`
-/// this is similar API to `prove(...)` ark-Groth16
+/// Finish a proof from a circuit and a partial proof, sampling blinding/randomness using `rng`.
+/// This is a similar API to `prove(...)` in ark-groth16.
 fn finish_proof<E, QAP, C, R>(
     pk: &ProvingKey<E>,
     circuit: C,
@@ -340,7 +345,9 @@ where
     let h =
         QAP::witness_map::<E::ScalarField, GeneralEvaluationDomain<E::ScalarField>>(cs.clone())?;
 
-    let prover = cs.borrow().unwrap();
+    let prover = cs
+        .borrow()
+        .ok_or(ProtocolError::UninitializedConstraintSystem)?;
     let full_assignment = [
         prover.instance_assignment.as_slice()[1..].to_vec(),
         prover.witness_assignment.as_slice().to_vec(),

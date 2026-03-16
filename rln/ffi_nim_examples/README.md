@@ -1,24 +1,20 @@
 # RLN FFI Nim example
 
-This example demonstrates how to use the RLN C FFI from Nim in both stateless and non-stateless modes. It covers:
-
-- Creating an RLN handle (stateless or with Merkle tree backend)
-- Generating identity keys and commitments
-- Building a witness (mock Merkle path in stateless mode, real Merkle proof in non-stateless mode)
-- Generating and verifying a proof
-- Serializing/deserializing FFI objects (CFr, Vec\<CFr>, RLNWitnessInput, RLNProof, RLNProofValues)
-- Simulating a double-signaling attack and recovering the identity secret
+This example demonstrates how to use the RLN C FFI from Nim in stateful, stateless, and multi-message-id modes.
 
 ## Build the RLN library
 
 From the repository root:
 
 ```bash
+# Stateful build (with tree APIs)
+cargo build -p rln --release
+
 # Stateless build (no tree APIs)
 cargo build -p rln --release --no-default-features --features stateless
 
-# Non-stateless build (with tree APIs)
-cargo build -p rln --release
+# Multi-message-id build
+cargo build -p rln --release --features multi-message-id
 ```
 
 This produces the shared library in `target/release`:
@@ -27,16 +23,19 @@ This produces the shared library in `target/release`:
 - Linux: `librln.so`
 - Windows: `rln.dll`
 
-## Build the Nim example (two modes)
+## Build the Nim example
 
 From this directory:
 
 ```bash
+# Stateful mode (uses exported tree APIs to insert leaf and fetch proof)
+nim c -d:release main.nim
+
 # Stateless mode (no tree APIs, uses mock Merkle path)
 nim c -d:release -d:ffiStateless main.nim
 
-# Non-stateless mode (uses exported tree APIs to insert leaf and fetch proof)
-nim c -d:release main.nim
+# Multi-message-id mode (with rate limiting using multiple message slots)
+nim c -d:release -d:ffiMultiMessageId main.nim
 ```
 
 Notes:
@@ -45,6 +44,9 @@ Notes:
   set an rpath or environment variable as shown below.
 - The example auto-picks a platform-specific default library name.
   You can override it with `-d:RLN_LIB:"/absolute/path/to/lib"` if needed.
+- **Important**: Ensure the RLN library is compiled with the same feature flags as the Nim example.
+  For example, if you compile the Nim example with `-d:ffiMultiMessageId`, the library must be built
+  with `--features multi-message-id`.
 
 ## Run the example
 
@@ -102,6 +104,14 @@ Slashing successful: Identity is recovered!
 
 ## What the example does
 
+### Stateful mode (default)
+
+1. Creates an RLN handle with a Merkle tree backend and configuration.
+2. Generates identity keys and computes `rateCommitment = Poseidon(id_commitment, user_message_limit)`.
+3. Inserts the leaf with `ffi_set_next_leaf` and fetches a real Merkle path for index 0 via `ffi_get_merkle_proof`.
+4. Builds the witness from the exported proof, generates the proof, and verifies with `ffi_verify_rln_proof` using the current tree root.
+5. Simulates a double-signaling attack and recovers the identity secret from two proofs.
+
 ### Stateless mode
 
 1. Creates an RLN handle via the stateless constructor.
@@ -115,10 +125,11 @@ Slashing successful: Identity is recovered!
 6. Builds the witness, generates the proof, and verifies it with `ffi_verify_with_roots`, passing a one-element roots vector containing the computed root.
 7. Simulates a double-signaling attack and recovers the identity secret from two proofs.
 
-### Non-stateless mode
+### Multi-message-id mode
 
-1. Creates an RLN handle with a Merkle tree backend and configuration.
+1. Creates an RLN handle with the multi-message-id configuration.
 2. Generates identity keys and computes `rateCommitment = Poseidon(id_commitment, user_message_limit)`.
-3. Inserts the leaf with `ffi_set_next_leaf` and fetches a real Merkle path for index 0 via `ffi_get_merkle_proof`.
-4. Builds the witness from the exported proof, generates the proof, and verifies with `ffi_verify_rln_proof` using the current tree root.
-5. Simulates a double-signaling attack and recovers the identity secret from two proofs.
+3. Creates a message_ids vector with 4 slots and a selector indicating which 2 slots are used (e.g., slots 0 and 1).
+4. Builds the witness with the additional message_ids and selector_used parameters.
+5. Generates and verifies the proof, which includes multiple `ys` and `nullifiers` values (one per slot).
+6. Simulates a double-signaling attack by reusing one of the message slots (slot 1) in a second message, allowing the identity secret to be recovered via slashing.
