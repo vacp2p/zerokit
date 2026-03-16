@@ -345,7 +345,9 @@ where
     let h =
         QAP::witness_map::<E::ScalarField, GeneralEvaluationDomain<E::ScalarField>>(cs.clone())?;
 
-    let prover = cs.borrow().unwrap();
+    let prover = cs
+        .borrow()
+        .ok_or(ProtocolError::UninitializedConstraintSystem)?;
     let full_assignment = [
         prover.instance_assignment.as_slice()[1..].to_vec(),
         prover.witness_assignment.as_slice().to_vec(),

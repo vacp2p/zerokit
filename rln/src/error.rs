@@ -62,6 +62,8 @@ pub enum ProtocolError {
     FieldLengthMismatch(&'static str, usize, &'static str, usize),
     #[error("No IdSecret could be recovered from the provided proof values")]
     IdSecretRecovery,
+    #[error("Constraint system is not initialized")]
+    UninitializedConstraintSystem,
     #[error("Merkle tree operation error: {0}")]
     MerkleTree(#[from] ZerokitMerkleTreeError),
     #[error("Hash computation error: {0}")]

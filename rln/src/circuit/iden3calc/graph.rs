@@ -284,7 +284,7 @@ pub(crate) fn evaluate_partial(
             Node::Input(i) => inputs
                 .get(i)
                 .cloned()
-                .unwrap_or(None)
+                .flatten()
                 .map(|x| u256_to_fr(&x))
                 .transpose()?,
             Node::Op(op, a, b) => match (values[a], values[b]) {
