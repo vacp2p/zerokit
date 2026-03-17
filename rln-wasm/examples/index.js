@@ -5,9 +5,11 @@ import { dirname, join } from "path";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const MULTI_MESSAGE_ID = false;
+
 function debugUint8Array(uint8Array) {
   return Array.from(uint8Array, (byte) =>
-    byte.toString(16).padStart(2, "0")
+    byte.toString(16).padStart(2, "0"),
   ).join(", ");
 }
 
@@ -15,12 +17,12 @@ async function calculateWitness(circomPath, inputs, witnessCalculatorFile) {
   const wasmFile = readFileSync(circomPath);
   const wasmFileBuffer = wasmFile.buffer.slice(
     wasmFile.byteOffset,
-    wasmFile.byteOffset + wasmFile.byteLength
+    wasmFile.byteOffset + wasmFile.byteLength,
   );
   const witnessCalculator = await witnessCalculatorFile(wasmFileBuffer);
   const calculatedWitness = await witnessCalculator.calculateWitness(
     inputs,
-    false
+    false,
   );
   return calculatedWitness;
 }
@@ -31,17 +33,23 @@ async function main() {
   const wasmBytes = readFileSync(wasmPath);
   rlnWasm.initSync({ module: wasmBytes });
 
-  const zkeyPath = join(
-    __dirname,
-    "../../rln/resources/tree_depth_20/rln_final.arkzkey"
-  );
-  const circomPath = join(
-    __dirname,
-    "../../rln/resources/tree_depth_20/rln.wasm"
-  );
+  const zkeyPath = MULTI_MESSAGE_ID
+    ? join(
+        __dirname,
+        "../../rln/resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey",
+      )
+    : join(__dirname, "../../rln/resources/tree_depth_20/rln_final.arkzkey");
+
+  const circomPath = MULTI_MESSAGE_ID
+    ? join(
+        __dirname,
+        "../../rln/resources/tree_depth_20/multi_message_id/max_out_4/rln.wasm",
+      )
+    : join(__dirname, "../../rln/resources/tree_depth_20/rln.wasm");
+
   const witnessCalculatorPath = join(
     __dirname,
-    "../resources/witness_calculator.js"
+    "../resources/witness_calculator.js",
   );
   const { builder: witnessCalculatorFile } = await import(
     witnessCalculatorPath
@@ -58,6 +66,13 @@ async function main() {
   }
   console.log("RLN instance created successfully");
 
+  const treeDepth = 20;
+  console.log("  - circuit tree_depth = " + treeDepth);
+  const maxOut = 4;
+  if (MULTI_MESSAGE_ID) {
+    console.log("  - circuit max_out = " + maxOut);
+  }
+
   console.log("\nGenerating identity keys");
   let identity;
   try {
@@ -73,7 +88,7 @@ async function main() {
   console.log("  - id_commitment = " + idCommitment.debug());
 
   console.log("\nCreating message limit");
-  const userMessageLimit = rlnWasm.WasmFr.fromUint(1);
+  const userMessageLimit = rlnWasm.WasmFr.fromUint(10);
   console.log("  - user_message_limit = " + userMessageLimit.debug());
 
   console.log("\nComputing rate commitment");
@@ -81,7 +96,7 @@ async function main() {
   try {
     rateCommitment = rlnWasm.Hasher.poseidonHashPair(
       idCommitment,
-      userMessageLimit
+      userMessageLimit,
     );
   } catch (error) {
     console.error("Rate commitment hash error:", error);
@@ -94,7 +109,7 @@ async function main() {
   console.log(
     "  - serialized rate_commitment = [" +
       debugUint8Array(serRateCommitment) +
-      "]"
+      "]",
   );
 
   let deserRateCommitment;
@@ -105,13 +120,13 @@ async function main() {
     return;
   }
   console.log(
-    "  - deserialized rate_commitment = " + deserRateCommitment.debug()
+    "  - deserialized rate_commitment = " + deserRateCommitment.debug(),
   );
 
   console.log("\nIdentity serialization: Identity <-> bytes");
   const serIdentity = identity.toBytesLE();
   console.log(
-    "  - serialized identity = [" + debugUint8Array(serIdentity) + "]"
+    "  - serialized identity = [" + debugUint8Array(serIdentity) + "]",
   );
 
   let deserIdentity;
@@ -128,23 +143,22 @@ async function main() {
       deserIdentitySecret.debug() +
       ", " +
       deserIdCommitment.debug() +
-      "]"
+      "]",
   );
 
   console.log("\nBuilding Merkle path for stateless mode");
-  const treeDepth = 20;
   const defaultLeaf = rlnWasm.WasmFr.zero();
 
   const defaultHashes = [];
   try {
     defaultHashes[0] = rlnWasm.Hasher.poseidonHashPair(
       defaultLeaf,
-      defaultLeaf
+      defaultLeaf,
     );
     for (let i = 1; i < treeDepth - 1; i++) {
       defaultHashes[i] = rlnWasm.Hasher.poseidonHashPair(
         defaultHashes[i - 1],
-        defaultHashes[i - 1]
+        defaultHashes[i - 1],
       );
     }
   } catch (error) {
@@ -162,7 +176,7 @@ async function main() {
   console.log("\nVecWasmFr serialization: VecWasmFr <-> bytes");
   const serPathElements = pathElements.toBytesLE();
   console.log(
-    "  - serialized path_elements = [" + debugUint8Array(serPathElements) + "]"
+    "  - serialized path_elements = [" + debugUint8Array(serPathElements) + "]",
   );
 
   let deserPathElements;
@@ -177,7 +191,7 @@ async function main() {
   console.log("\nUint8Array serialization: Uint8Array <-> bytes");
   const serPathIndex = rlnWasm.Uint8ArrayUtils.toBytesLE(identityPathIndex);
   console.log(
-    "  - serialized path_index = [" + debugUint8Array(serPathIndex) + "]"
+    "  - serialized path_index = [" + debugUint8Array(serPathIndex) + "]",
   );
 
   let deserPathIndex;
@@ -198,7 +212,7 @@ async function main() {
     for (let i = 1; i < treeDepth; i++) {
       computedRoot = rlnWasm.Hasher.poseidonHashPair(
         computedRoot,
-        defaultHashes[i - 1]
+        defaultHashes[i - 1],
       );
     }
   } catch (error) {
@@ -237,7 +251,7 @@ async function main() {
   let rlnIdentifier;
   try {
     rlnIdentifier = rlnWasm.Hasher.hashToFieldLE(
-      new TextEncoder().encode(rlnIdStr)
+      new TextEncoder().encode(rlnIdStr),
     );
   } catch (error) {
     console.error("Hash RLN identifier error:", error);
@@ -255,24 +269,63 @@ async function main() {
   }
   console.log("  - external_nullifier = " + externalNullifier.debug());
 
-  console.log("\nCreating message_id");
+  if (MULTI_MESSAGE_ID) {
+    console.log("\nCreating default message_id");
+  } else {
+    console.log("\nCreating message_id");
+  }
   const messageId = rlnWasm.WasmFr.fromUint(0);
   console.log("  - message_id = " + messageId.debug());
 
+  let messageIds, selectorUsed;
+  if (MULTI_MESSAGE_ID) {
+    console.log(
+      "\nCreating message_ids and selector_used (multi-message-id mode)",
+    );
+    console.log("  - using 2 out of " + maxOut + " slots");
+
+    messageIds = new rlnWasm.VecWasmFr();
+    messageIds.push(rlnWasm.WasmFr.fromUint(0));
+    messageIds.push(rlnWasm.WasmFr.fromUint(1));
+    messageIds.push(rlnWasm.WasmFr.zero());
+    messageIds.push(rlnWasm.WasmFr.zero());
+
+    selectorUsed = Uint8Array.from([true, true, false, false], (b) =>
+      b ? 1 : 0,
+    );
+
+    console.log("  - message_ids = " + messageIds.debug());
+  }
+
   console.log("\nCreating RLN Witness");
-  const witness = new rlnWasm.WasmRLNWitnessInput(
-    identitySecret,
-    userMessageLimit,
-    messageId,
-    pathElements,
-    identityPathIndex,
-    x,
-    externalNullifier
-  );
+  let witness;
+  if (MULTI_MESSAGE_ID) {
+    witness = new rlnWasm.WasmRLNWitnessInput(
+      identitySecret,
+      userMessageLimit,
+      null,
+      messageIds,
+      pathElements,
+      identityPathIndex,
+      x,
+      externalNullifier,
+      selectorUsed,
+    );
+  } else {
+    witness = new rlnWasm.WasmRLNWitnessInput(
+      identitySecret,
+      userMessageLimit,
+      messageId,
+      pathElements,
+      identityPathIndex,
+      x,
+      externalNullifier,
+    );
+  }
   console.log("RLN Witness created successfully");
 
   console.log(
-    "\nWasmRLNWitnessInput serialization: WasmRLNWitnessInput <-> bytes"
+    "\nWasmRLNWitnessInput serialization: WasmRLNWitnessInput <-> bytes",
   );
   let serWitness;
   try {
@@ -282,7 +335,7 @@ async function main() {
     return;
   }
   console.log(
-    "  - serialized witness = [" + debugUint8Array(serWitness) + " ]"
+    "  - serialized witness = [" + debugUint8Array(serWitness) + " ]",
   );
 
   let deserWitness;
@@ -305,7 +358,7 @@ async function main() {
   const calculatedWitness = await calculateWitness(
     circomPath,
     witnessJson,
-    witnessCalculatorFile
+    witnessCalculatorFile,
   );
   console.log("Witness calculated successfully");
 
@@ -314,7 +367,7 @@ async function main() {
   try {
     rln_proof = rlnInstance.generateRLNProofWithWitness(
       calculatedWitness,
-      witness
+      witness,
     );
   } catch (error) {
     console.error("Proof generation error:", error);
@@ -324,12 +377,30 @@ async function main() {
 
   console.log("\nGetting proof values");
   const proofValues = rln_proof.getValues();
-  console.log("  - y = " + proofValues.y.debug());
-  console.log("  - nullifier = " + proofValues.nullifier.debug());
+
+  if (MULTI_MESSAGE_ID) {
+    try {
+      const ys = proofValues.ys();
+      console.log("  - ys = " + ys.debug());
+    } catch (error) {
+      console.error("Error getting ys:", error);
+    }
+
+    try {
+      const nullifiers = proofValues.nullifiers();
+      console.log("  - nullifiers = " + nullifiers.debug());
+    } catch (error) {
+      console.error("Error getting nullifiers:", error);
+    }
+  } else {
+    console.log("  - y = " + proofValues.y.debug());
+    console.log("  - nullifier = " + proofValues.nullifier.debug());
+  }
+
   console.log("  - root = " + proofValues.root.debug());
   console.log("  - x = " + proofValues.x.debug());
   console.log(
-    "  - external_nullifier = " + proofValues.externalNullifier.debug()
+    "  - external_nullifier = " + proofValues.externalNullifier.debug(),
   );
 
   console.log("\nRLNProof serialization: RLNProof <-> bytes");
@@ -354,7 +425,7 @@ async function main() {
   console.log("\nRLNProofValues serialization: RLNProofValues <-> bytes");
   const serProofValues = proofValues.toBytesLE();
   console.log(
-    "  - serialized proof_values = [" + debugUint8Array(serProofValues) + " ]"
+    "  - serialized proof_values = [" + debugUint8Array(serProofValues) + " ]",
   );
 
   let deserProofValues2;
@@ -367,7 +438,7 @@ async function main() {
   console.log("  - proof_values deserialized successfully");
   console.log(
     "  - deserialized external_nullifier = " +
-      deserProofValues2.externalNullifier.debug()
+      deserProofValues2.externalNullifier.debug(),
   );
 
   console.log("\nVerifying Proof");
@@ -388,7 +459,7 @@ async function main() {
   }
 
   console.log(
-    "\nSimulating double-signaling attack (same epoch, different message)"
+    "\nSimulating double-signaling attack (same epoch, different message)",
   );
 
   console.log("\nHashing second signal");
@@ -405,20 +476,60 @@ async function main() {
   }
   console.log("  - x2 = " + x2.debug());
 
-  console.log("\nCreating second message with the same id");
+  if (MULTI_MESSAGE_ID) {
+    console.log("\nCreating default message_id2");
+  } else {
+    console.log("\nCreating second message with the same id");
+  }
   const messageId2 = rlnWasm.WasmFr.fromUint(0);
   console.log("  - message_id2 = " + messageId2.debug());
 
+  let messageIds2, selectorUsed2;
+  if (MULTI_MESSAGE_ID) {
+    console.log(
+      "\nCreating message_ids2 and selector_used2 (multi-message-id mode)",
+    );
+    console.log("  - using 2 out of " + maxOut + " slots");
+    console.log("  - duplicated slot id 1");
+
+    messageIds2 = new rlnWasm.VecWasmFr();
+    messageIds2.push(rlnWasm.WasmFr.fromUint(1));
+    messageIds2.push(rlnWasm.WasmFr.zero());
+    messageIds2.push(rlnWasm.WasmFr.fromUint(3));
+    messageIds2.push(rlnWasm.WasmFr.zero());
+
+    selectorUsed2 = Uint8Array.from([true, false, true, false], (b) =>
+      b ? 1 : 0,
+    );
+
+    console.log("  - message_ids2 = " + messageIds2.debug());
+  }
+
   console.log("\nCreating second RLN Witness");
-  const witness2 = new rlnWasm.WasmRLNWitnessInput(
-    identitySecret,
-    userMessageLimit,
-    messageId2,
-    pathElements,
-    identityPathIndex,
-    x2,
-    externalNullifier
-  );
+  let witness2;
+  if (MULTI_MESSAGE_ID) {
+    witness2 = new rlnWasm.WasmRLNWitnessInput(
+      identitySecret,
+      userMessageLimit,
+      null,
+      messageIds2,
+      pathElements,
+      identityPathIndex,
+      x2,
+      externalNullifier,
+      selectorUsed2,
+    );
+  } else {
+    witness2 = new rlnWasm.WasmRLNWitnessInput(
+      identitySecret,
+      userMessageLimit,
+      messageId2,
+      pathElements,
+      identityPathIndex,
+      x2,
+      externalNullifier,
+    );
+  }
   console.log("Second RLN Witness created successfully");
 
   console.log("\nCalculating second witness");
@@ -432,7 +543,7 @@ async function main() {
   const calculatedWitness2 = await calculateWitness(
     circomPath,
     witnessJson2,
-    witnessCalculatorFile
+    witnessCalculatorFile,
   );
   console.log("Second witness calculated successfully");
 
@@ -441,7 +552,7 @@ async function main() {
   try {
     rln_proof2 = rlnInstance.generateRLNProofWithWitness(
       calculatedWitness2,
-      witness2
+      witness2,
     );
   } catch (error) {
     console.error("Second proof generation error:", error);
@@ -467,7 +578,7 @@ async function main() {
     try {
       recoveredSecret = rlnWasm.WasmRLNProofValues.recoverIdSecret(
         proofValues1,
-        proofValues2
+        proofValues2,
       );
     } catch (error) {
       console.error("Identity recovery error:", error);

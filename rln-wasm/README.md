@@ -5,7 +5,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 The Zerokit RLN WASM Module provides WebAssembly bindings for working with
-Rate-Limiting Nullifier [RLN](https://rfc.vac.dev/vac/raw/rln-v2) zkSNARK proofs and primitives.
+Rate-Limiting Nullifier [RLN](https://lip.logos.co/ift-ts/raw/rln-v2) zkSNARK proofs and primitives.
 This module is used by [waku-org/js-rln](https://github.com/waku-org/js-rln/) to enable
 RLN functionality in JavaScript/TypeScript applications.
 
@@ -14,7 +14,7 @@ RLN functionality in JavaScript/TypeScript applications.
 > [!NOTE]
 > This project requires the following tools:
 >
-> - `wasm-pack` (v0.13.1) - for compiling Rust to WebAssembly
+> - `wasm-pack` (v0.14.0) - for compiling Rust to WebAssembly
 > - `cargo-make` - for running build commands
 > - `nvm` - to install and manage Node.js (v22.14.0+)
 
@@ -28,7 +28,7 @@ make installdeps
 
 ```bash
 # Install wasm-pack
-cargo install wasm-pack --version=0.13.1
+cargo install wasm-pack --version=0.14.0
 
 # Install cargo-make
 cargo install cargo-make
@@ -50,9 +50,11 @@ cd rln-wasm
 Build commands:
 
 ```bash
-cargo make build          # Default → @waku/zerokit-rln-wasm
-cargo make build_parallel # Parallel → @waku/zerokit-rln-wasm-parallel (requires nightly Rust)
-cargo make build_utils    # Utils only → @waku/zerokit-rln-wasm-utils
+cargo make build                           # Default → @waku/zerokit-rln-wasm
+cargo make build_parallel                  # Parallel → @waku/zerokit-rln-wasm-parallel (requires nightly Rust)
+cargo make build_multi_message_id          # Multi-message-id → @waku/zerokit-rln-wasm-multi-message-id
+cargo make build_parallel_multi_message_id # Parallel + Multi-message-id → @waku/zerokit-rln-wasm-parallel-multi-message-id (requires nightly Rust)
+cargo make build_utils                     # Utils only → @waku/zerokit-rln-wasm-utils
 ```
 
 All packages output to `pkg/` directory.
@@ -60,10 +62,11 @@ All packages output to `pkg/` directory.
 ## Running Tests and Benchmarks
 
 ```bash
-cargo make test           # Standard tests
-cargo make test_browser   # Browser headless mode
-cargo make test_utils     # Utils-only tests
-cargo make test_parallel  # Parallel tests
+cargo make test                   # Deafault tests
+cargo make test_browser           # Browser headless mode
+cargo make test_utils             # Utils-only tests
+cargo make test_parallel          # Parallel tests
+cargo make test_multi_message_id  # Multi-message-id feature tests
 ```
 
 ## Examples

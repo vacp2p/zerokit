@@ -35,7 +35,7 @@ pub enum ProtocolError {
     Utils(#[from] UtilsError),
     #[error("Error calculating witness: {0}")]
     WitnessCalc(#[from] WitnessCalcError),
-    #[error("Expected to read {0} bytes but read only {1} bytes")]
+    #[error("Expected to read {0} bytes but read {1} bytes")]
     InvalidReadLen(usize, usize),
     #[error("Cannot convert bigint {0:?} to biguint")]
     BigUintConversion(BigInt),
@@ -49,12 +49,31 @@ pub enum ProtocolError {
     ExternalNullifierMismatch(Fr, Fr),
     #[error("Cannot recover secret: division by zero")]
     DivisionByZero,
+    #[cfg(feature = "multi-message-id")]
+    #[error("The field message_ids must contain at least one message_id")]
+    EmptyMessageIds,
+    #[cfg(feature = "multi-message-id")]
+    #[error("Duplicate message ID found in message_ids")]
+    DuplicateMessageIds,
+    #[cfg(feature = "multi-message-id")]
+    #[error("At least one selector_used value must be true")]
+    NoActiveSelectorUsed,
+    #[error("The field {0} has length {1}, but the field {2} has length {3}")]
+    FieldLengthMismatch(&'static str, usize, &'static str, usize),
+    #[error("No IdSecret could be recovered from the provided proof values")]
+    IdSecretRecovery,
+    #[error("Constraint system is not initialized")]
+    UninitializedConstraintSystem,
     #[error("Merkle tree operation error: {0}")]
     MerkleTree(#[from] ZerokitMerkleTreeError),
     #[error("Hash computation error: {0}")]
     Hash(#[from] HashError),
     #[error("Proof serialization error: {0}")]
     SerializationError(#[from] ark_serialize::SerializationError),
+    #[error("Unknown serialization version: {0:#04x}")]
+    UnknownSerializationVersion(u8),
+    #[error("Serialization version {0:#04x} is only valid with the '{1}' feature enabled")]
+    IncompatibleSerializationVersion(u8, &'static str),
 }
 
 /// Errors that can occur during proof verification

@@ -8,6 +8,7 @@ use ark_std::UniformRand;
 use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use rand::Rng;
+#[cfg(not(target_arch = "wasm32"))]
 use ruint::aliases::U256;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
@@ -22,6 +23,32 @@ pub const FR_BYTE_SIZE: usize = {
     // Align to the next multiple of alignment_bits and convert to bytes
     ((modulus_bits + alignment_bits - (modulus_bits % alignment_bits)) / 8) as usize
 };
+
+/// Byte size of the length prefix used when serializing variable-length vectors.
+pub const VEC_LEN_BYTE_SIZE: usize = 8;
+
+/// Normalizes a `usize` into an 8-byte array, ensuring consistency across architectures.
+/// On 32-bit systems, the result is zero-padded to 8 bytes.
+/// On 64-bit systems, it directly represents the `usize` value.
+#[inline(always)]
+pub fn normalize_usize_le(input: usize) -> [u8; VEC_LEN_BYTE_SIZE] {
+    let mut bytes = [0u8; VEC_LEN_BYTE_SIZE];
+    let input_bytes = input.to_le_bytes();
+    bytes[..input_bytes.len()].copy_from_slice(&input_bytes);
+    bytes
+}
+
+/// Normalizes a `usize` into an 8-byte array, ensuring consistency across architectures.
+/// On 32-bit systems, the result is zero-padded to 8 bytes.
+/// On 64-bit systems, it directly represents the `usize` value.
+#[inline(always)]
+pub fn normalize_usize_be(input: usize) -> [u8; VEC_LEN_BYTE_SIZE] {
+    let mut bytes = [0u8; VEC_LEN_BYTE_SIZE];
+    let input_bytes = input.to_be_bytes();
+    let offset = VEC_LEN_BYTE_SIZE - input_bytes.len();
+    bytes[offset..].copy_from_slice(&input_bytes);
+    bytes
+}
 
 #[inline(always)]
 fn biguint_to_fr(val: BigUint) -> Result<Fr, UtilsError> {
@@ -105,9 +132,9 @@ pub fn fr_to_bytes_be(input: &Fr) -> Vec<u8> {
 #[inline(always)]
 pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Vec<u8> {
     // Calculate capacity for Vec:
-    // - 8 bytes for normalized vector length (usize)
+    // - VEC_LEN_PREFIX_SIZE bytes for normalized vector length (usize)
     // - each Fr element requires FR_BYTE_SIZE bytes (typically 32 bytes)
-    let mut bytes = Vec::with_capacity(8 + input.len() * FR_BYTE_SIZE);
+    let mut bytes = Vec::with_capacity(VEC_LEN_BYTE_SIZE + input.len() * FR_BYTE_SIZE);
 
     // We store the vector length
     bytes.extend_from_slice(&normalize_usize_le(input.len()));
@@ -123,9 +150,9 @@ pub fn vec_fr_to_bytes_le(input: &[Fr]) -> Vec<u8> {
 #[inline(always)]
 pub fn vec_fr_to_bytes_be(input: &[Fr]) -> Vec<u8> {
     // Calculate capacity for Vec:
-    // - 8 bytes for normalized vector length (usize)
+    // - VEC_LEN_PREFIX_SIZE bytes for normalized vector length (usize)
     // - each Fr element requires FR_BYTE_SIZE bytes (typically 32 bytes)
-    let mut bytes = Vec::with_capacity(8 + input.len() * FR_BYTE_SIZE);
+    let mut bytes = Vec::with_capacity(VEC_LEN_BYTE_SIZE + input.len() * FR_BYTE_SIZE);
 
     // We store the vector length
     bytes.extend_from_slice(&normalize_usize_be(input.len()));
@@ -141,9 +168,9 @@ pub fn vec_fr_to_bytes_be(input: &[Fr]) -> Vec<u8> {
 #[inline(always)]
 pub fn vec_u8_to_bytes_le(input: &[u8]) -> Vec<u8> {
     // Calculate capacity for Vec:
-    // - 8 bytes for normalized vector length (usize)
+    // - VEC_LEN_PREFIX_SIZE bytes for normalized vector length (usize)
     // - variable length input data
-    let mut bytes = Vec::with_capacity(8 + input.len());
+    let mut bytes = Vec::with_capacity(VEC_LEN_BYTE_SIZE + input.len());
 
     // We store the vector length
     bytes.extend_from_slice(&normalize_usize_le(input.len()));
@@ -157,9 +184,9 @@ pub fn vec_u8_to_bytes_le(input: &[u8]) -> Vec<u8> {
 #[inline(always)]
 pub fn vec_u8_to_bytes_be(input: &[u8]) -> Vec<u8> {
     // Calculate capacity for Vec:
-    // - 8 bytes for normalized vector length (usize)
+    // - VEC_LEN_PREFIX_SIZE bytes for normalized vector length (usize)
     // - variable length input data
-    let mut bytes = Vec::with_capacity(8 + input.len());
+    let mut bytes = Vec::with_capacity(VEC_LEN_BYTE_SIZE + input.len());
 
     // We store the vector length
     bytes.extend_from_slice(&normalize_usize_be(input.len()));
@@ -171,23 +198,59 @@ pub fn vec_u8_to_bytes_be(input: &[u8]) -> Vec<u8> {
 }
 
 #[inline(always)]
+pub fn vec_bool_to_bytes_le(input: &[bool]) -> Vec<u8> {
+    // Calculate capacity for Vec:
+    // - VEC_LEN_PREFIX_SIZE bytes for normalized vector length (usize)
+    // - each bool requires 1 byte
+    let mut bytes = Vec::with_capacity(VEC_LEN_BYTE_SIZE + input.len());
+
+    // We store the vector length
+    bytes.extend_from_slice(&normalize_usize_le(input.len()));
+
+    // We store each bool as a single byte (0 or 1)
+    for &b in input {
+        bytes.push(b as u8);
+    }
+
+    bytes
+}
+
+#[inline(always)]
+pub fn vec_bool_to_bytes_be(input: &[bool]) -> Vec<u8> {
+    // Calculate capacity for Vec:
+    // - VEC_LEN_PREFIX_SIZE bytes for normalized vector length (usize)
+    // - each bool requires 1 byte
+    let mut bytes = Vec::with_capacity(VEC_LEN_BYTE_SIZE + input.len());
+
+    // We store the vector length
+    bytes.extend_from_slice(&normalize_usize_be(input.len()));
+
+    // We store each bool as a single byte (0 or 1)
+    for &b in input {
+        bytes.push(b as u8);
+    }
+
+    bytes
+}
+
+#[inline(always)]
 pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), UtilsError> {
     let mut read: usize = 0;
-    if input.len() < 8 {
+    if input.len() < VEC_LEN_BYTE_SIZE {
         return Err(UtilsError::InsufficientData {
-            expected: 8,
+            expected: VEC_LEN_BYTE_SIZE,
             actual: input.len(),
         });
     }
-    let len = usize::try_from(u64::from_le_bytes(input[0..8].try_into()?))?;
-    read += 8;
-    if input.len() < 8 + len {
+    let len = usize::try_from(u64::from_le_bytes(input[0..VEC_LEN_BYTE_SIZE].try_into()?))?;
+    read += VEC_LEN_BYTE_SIZE;
+    if input.len() < VEC_LEN_BYTE_SIZE + len {
         return Err(UtilsError::InsufficientData {
-            expected: 8 + len,
+            expected: VEC_LEN_BYTE_SIZE + len,
             actual: input.len(),
         });
     }
-    let res = input[8..8 + len].to_vec();
+    let res = input[VEC_LEN_BYTE_SIZE..VEC_LEN_BYTE_SIZE + len].to_vec();
     read += res.len();
     Ok((res, read))
 }
@@ -195,21 +258,21 @@ pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), UtilsError> 
 #[inline(always)]
 pub fn bytes_be_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), UtilsError> {
     let mut read: usize = 0;
-    if input.len() < 8 {
+    if input.len() < VEC_LEN_BYTE_SIZE {
         return Err(UtilsError::InsufficientData {
-            expected: 8,
+            expected: VEC_LEN_BYTE_SIZE,
             actual: input.len(),
         });
     }
-    let len = usize::try_from(u64::from_be_bytes(input[0..8].try_into()?))?;
-    read += 8;
-    if input.len() < 8 + len {
+    let len = usize::try_from(u64::from_be_bytes(input[0..VEC_LEN_BYTE_SIZE].try_into()?))?;
+    read += VEC_LEN_BYTE_SIZE;
+    if input.len() < VEC_LEN_BYTE_SIZE + len {
         return Err(UtilsError::InsufficientData {
-            expected: 8 + len,
+            expected: VEC_LEN_BYTE_SIZE + len,
             actual: input.len(),
         });
     }
-    let res = input[8..8 + len].to_vec();
+    let res = input[VEC_LEN_BYTE_SIZE..VEC_LEN_BYTE_SIZE + len].to_vec();
     read += res.len();
     Ok((res, read))
 }
@@ -217,24 +280,26 @@ pub fn bytes_be_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), UtilsError> 
 #[inline(always)]
 pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), UtilsError> {
     let mut read: usize = 0;
-    if input.len() < 8 {
+    if input.len() < VEC_LEN_BYTE_SIZE {
         return Err(UtilsError::InsufficientData {
-            expected: 8,
+            expected: VEC_LEN_BYTE_SIZE,
             actual: input.len(),
         });
     }
-    let len = usize::try_from(u64::from_le_bytes(input[0..8].try_into()?))?;
-    read += 8;
+    let len = usize::try_from(u64::from_le_bytes(input[0..VEC_LEN_BYTE_SIZE].try_into()?))?;
+    read += VEC_LEN_BYTE_SIZE;
     let el_size = FR_BYTE_SIZE;
-    if input.len() < 8 + len * el_size {
+    if input.len() < VEC_LEN_BYTE_SIZE + len * el_size {
         return Err(UtilsError::InsufficientData {
-            expected: 8 + len * el_size,
+            expected: VEC_LEN_BYTE_SIZE + len * el_size,
             actual: input.len(),
         });
     }
     let mut res: Vec<Fr> = Vec::with_capacity(len);
     for i in 0..len {
-        let (curr_el, _) = bytes_le_to_fr(&input[8 + el_size * i..8 + el_size * (i + 1)])?;
+        let start = VEC_LEN_BYTE_SIZE + el_size * i;
+        let end = VEC_LEN_BYTE_SIZE + el_size * (i + 1);
+        let (curr_el, _) = bytes_le_to_fr(&input[start..end])?;
         res.push(curr_el);
         read += el_size;
     }
@@ -244,24 +309,26 @@ pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), UtilsError> 
 #[inline(always)]
 pub fn bytes_be_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), UtilsError> {
     let mut read: usize = 0;
-    if input.len() < 8 {
+    if input.len() < VEC_LEN_BYTE_SIZE {
         return Err(UtilsError::InsufficientData {
-            expected: 8,
+            expected: VEC_LEN_BYTE_SIZE,
             actual: input.len(),
         });
     }
-    let len = usize::try_from(u64::from_be_bytes(input[0..8].try_into()?))?;
-    read += 8;
+    let len = usize::try_from(u64::from_be_bytes(input[0..VEC_LEN_BYTE_SIZE].try_into()?))?;
+    read += VEC_LEN_BYTE_SIZE;
     let el_size = FR_BYTE_SIZE;
-    if input.len() < 8 + len * el_size {
+    if input.len() < VEC_LEN_BYTE_SIZE + len * el_size {
         return Err(UtilsError::InsufficientData {
-            expected: 8 + len * el_size,
+            expected: VEC_LEN_BYTE_SIZE + len * el_size,
             actual: input.len(),
         });
     }
     let mut res: Vec<Fr> = Vec::with_capacity(len);
     for i in 0..len {
-        let (curr_el, _) = bytes_be_to_fr(&input[8 + el_size * i..8 + el_size * (i + 1)])?;
+        let start = VEC_LEN_BYTE_SIZE + el_size * i;
+        let end = VEC_LEN_BYTE_SIZE + el_size * (i + 1);
+        let (curr_el, _) = bytes_be_to_fr(&input[start..end])?;
         res.push(curr_el);
         read += el_size;
     }
@@ -270,24 +337,24 @@ pub fn bytes_be_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), UtilsError> 
 
 #[inline(always)]
 pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, UtilsError> {
-    if input.len() < 8 {
+    if input.len() < VEC_LEN_BYTE_SIZE {
         return Err(UtilsError::InsufficientData {
-            expected: 8,
+            expected: VEC_LEN_BYTE_SIZE,
             actual: input.len(),
         });
     }
-    let nof_elem = usize::try_from(u64::from_le_bytes(input[0..8].try_into()?))?;
+    let nof_elem = usize::try_from(u64::from_le_bytes(input[0..VEC_LEN_BYTE_SIZE].try_into()?))?;
     if nof_elem == 0 {
         Ok(vec![])
     } else {
-        if input.len() < 8 + nof_elem * 8 {
+        if input.len() < VEC_LEN_BYTE_SIZE + nof_elem * VEC_LEN_BYTE_SIZE {
             return Err(UtilsError::InsufficientData {
-                expected: 8 + nof_elem * 8,
+                expected: VEC_LEN_BYTE_SIZE + nof_elem * VEC_LEN_BYTE_SIZE,
                 actual: input.len(),
             });
         }
-        input[8..]
-            .chunks_exact(8)
+        input[VEC_LEN_BYTE_SIZE..]
+            .chunks_exact(VEC_LEN_BYTE_SIZE)
             .take(nof_elem)
             .map(|ch| {
                 ch.try_into()
@@ -300,24 +367,24 @@ pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, UtilsError> {
 
 #[inline(always)]
 pub fn bytes_be_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, UtilsError> {
-    if input.len() < 8 {
+    if input.len() < VEC_LEN_BYTE_SIZE {
         return Err(UtilsError::InsufficientData {
-            expected: 8,
+            expected: VEC_LEN_BYTE_SIZE,
             actual: input.len(),
         });
     }
-    let nof_elem = usize::try_from(u64::from_be_bytes(input[0..8].try_into()?))?;
+    let nof_elem = usize::try_from(u64::from_be_bytes(input[0..VEC_LEN_BYTE_SIZE].try_into()?))?;
     if nof_elem == 0 {
         Ok(vec![])
     } else {
-        if input.len() < 8 + nof_elem * 8 {
+        if input.len() < VEC_LEN_BYTE_SIZE + nof_elem * VEC_LEN_BYTE_SIZE {
             return Err(UtilsError::InsufficientData {
-                expected: 8 + nof_elem * 8,
+                expected: VEC_LEN_BYTE_SIZE + nof_elem * VEC_LEN_BYTE_SIZE,
                 actual: input.len(),
             });
         }
-        input[8..]
-            .chunks_exact(8)
+        input[VEC_LEN_BYTE_SIZE..]
+            .chunks_exact(VEC_LEN_BYTE_SIZE)
             .take(nof_elem)
             .map(|ch| {
                 ch.try_into()
@@ -328,27 +395,54 @@ pub fn bytes_be_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, UtilsError> {
     }
 }
 
-/// Normalizes a `usize` into an 8-byte array, ensuring consistency across architectures.
-/// On 32-bit systems, the result is zero-padded to 8 bytes.
-/// On 64-bit systems, it directly represents the `usize` value.
 #[inline(always)]
-pub fn normalize_usize_le(input: usize) -> [u8; 8] {
-    let mut bytes = [0u8; 8];
-    let input_bytes = input.to_le_bytes();
-    bytes[..input_bytes.len()].copy_from_slice(&input_bytes);
-    bytes
+pub fn bytes_le_to_vec_bool(input: &[u8]) -> Result<(Vec<bool>, usize), UtilsError> {
+    let mut read: usize = 0;
+    if input.len() < VEC_LEN_BYTE_SIZE {
+        return Err(UtilsError::InsufficientData {
+            expected: VEC_LEN_BYTE_SIZE,
+            actual: input.len(),
+        });
+    }
+    let len = usize::try_from(u64::from_le_bytes(input[0..VEC_LEN_BYTE_SIZE].try_into()?))?;
+    read += VEC_LEN_BYTE_SIZE;
+    if input.len() < VEC_LEN_BYTE_SIZE + len {
+        return Err(UtilsError::InsufficientData {
+            expected: VEC_LEN_BYTE_SIZE + len,
+            actual: input.len(),
+        });
+    }
+    let res: Vec<bool> = input[VEC_LEN_BYTE_SIZE..VEC_LEN_BYTE_SIZE + len]
+        .iter()
+        .map(|&b| b != 0)
+        .collect();
+    read += len;
+    Ok((res, read))
 }
 
-/// Normalizes a `usize` into an 8-byte array, ensuring consistency across architectures.
-/// On 32-bit systems, the result is zero-padded to 8 bytes.
-/// On 64-bit systems, it directly represents the `usize` value.
 #[inline(always)]
-pub fn normalize_usize_be(input: usize) -> [u8; 8] {
-    let mut bytes = [0u8; 8];
-    let input_bytes = input.to_be_bytes();
-    let offset = 8 - input_bytes.len();
-    bytes[offset..].copy_from_slice(&input_bytes);
-    bytes
+pub fn bytes_be_to_vec_bool(input: &[u8]) -> Result<(Vec<bool>, usize), UtilsError> {
+    let mut read: usize = 0;
+    if input.len() < VEC_LEN_BYTE_SIZE {
+        return Err(UtilsError::InsufficientData {
+            expected: VEC_LEN_BYTE_SIZE,
+            actual: input.len(),
+        });
+    }
+    let len = usize::try_from(u64::from_be_bytes(input[0..VEC_LEN_BYTE_SIZE].try_into()?))?;
+    read += VEC_LEN_BYTE_SIZE;
+    if input.len() < VEC_LEN_BYTE_SIZE + len {
+        return Err(UtilsError::InsufficientData {
+            expected: VEC_LEN_BYTE_SIZE + len,
+            actual: input.len(),
+        });
+    }
+    let res: Vec<bool> = input[VEC_LEN_BYTE_SIZE..VEC_LEN_BYTE_SIZE + len]
+        .iter()
+        .map(|&b| b != 0)
+        .collect();
+    read += len;
+    Ok((res, read))
 }
 
 #[derive(
@@ -411,6 +505,7 @@ impl IdSecret {
 
     /// Warning: this can leak the secret value
     /// Warning: Leaked value is of type 'U256' which implement Copy (every copy will not be zeroized)
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn to_u256(&self) -> U256 {
         let mut big_int = self.0.into_bigint();
         let res = U256::from_limbs(big_int.0);
@@ -439,18 +534,21 @@ impl Deref for IdSecret {
     }
 }
 
-#[derive(Debug, Zeroize, ZeroizeOnDrop)]
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug, Clone, Zeroize, ZeroizeOnDrop)]
 pub(crate) enum FrOrSecret {
     IdSecret(IdSecret),
     Fr(Fr),
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl From<Fr> for FrOrSecret {
     fn from(value: Fr) -> Self {
         FrOrSecret::Fr(value)
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl From<IdSecret> for FrOrSecret {
     fn from(value: IdSecret) -> Self {
         FrOrSecret::IdSecret(value)
