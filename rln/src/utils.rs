@@ -244,9 +244,9 @@ pub fn bytes_le_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), UtilsError> 
     }
     let len = usize::try_from(u64::from_le_bytes(input[0..VEC_LEN_BYTE_SIZE].try_into()?))?;
     read += VEC_LEN_BYTE_SIZE;
-    if input.len() < VEC_LEN_BYTE_SIZE + len {
+    if len > input.len() - VEC_LEN_BYTE_SIZE {
         return Err(UtilsError::InsufficientData {
-            expected: VEC_LEN_BYTE_SIZE + len,
+            expected: VEC_LEN_BYTE_SIZE.saturating_add(len),
             actual: input.len(),
         });
     }
@@ -266,9 +266,9 @@ pub fn bytes_be_to_vec_u8(input: &[u8]) -> Result<(Vec<u8>, usize), UtilsError> 
     }
     let len = usize::try_from(u64::from_be_bytes(input[0..VEC_LEN_BYTE_SIZE].try_into()?))?;
     read += VEC_LEN_BYTE_SIZE;
-    if input.len() < VEC_LEN_BYTE_SIZE + len {
+    if len > input.len() - VEC_LEN_BYTE_SIZE {
         return Err(UtilsError::InsufficientData {
-            expected: VEC_LEN_BYTE_SIZE + len,
+            expected: VEC_LEN_BYTE_SIZE.saturating_add(len),
             actual: input.len(),
         });
     }
@@ -289,9 +289,9 @@ pub fn bytes_le_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), UtilsError> 
     let len = usize::try_from(u64::from_le_bytes(input[0..VEC_LEN_BYTE_SIZE].try_into()?))?;
     read += VEC_LEN_BYTE_SIZE;
     let el_size = FR_BYTE_SIZE;
-    if input.len() < VEC_LEN_BYTE_SIZE + len * el_size {
+    if len > (input.len() - VEC_LEN_BYTE_SIZE) / el_size {
         return Err(UtilsError::InsufficientData {
-            expected: VEC_LEN_BYTE_SIZE + len * el_size,
+            expected: VEC_LEN_BYTE_SIZE.saturating_add(len.saturating_mul(el_size)),
             actual: input.len(),
         });
     }
@@ -318,9 +318,9 @@ pub fn bytes_be_to_vec_fr(input: &[u8]) -> Result<(Vec<Fr>, usize), UtilsError> 
     let len = usize::try_from(u64::from_be_bytes(input[0..VEC_LEN_BYTE_SIZE].try_into()?))?;
     read += VEC_LEN_BYTE_SIZE;
     let el_size = FR_BYTE_SIZE;
-    if input.len() < VEC_LEN_BYTE_SIZE + len * el_size {
+    if len > (input.len() - VEC_LEN_BYTE_SIZE) / el_size {
         return Err(UtilsError::InsufficientData {
-            expected: VEC_LEN_BYTE_SIZE + len * el_size,
+            expected: VEC_LEN_BYTE_SIZE.saturating_add(len.saturating_mul(el_size)),
             actual: input.len(),
         });
     }
@@ -347,9 +347,9 @@ pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, UtilsError> {
     if nof_elem == 0 {
         Ok(vec![])
     } else {
-        if input.len() < VEC_LEN_BYTE_SIZE + nof_elem * VEC_LEN_BYTE_SIZE {
+        if nof_elem > (input.len() - VEC_LEN_BYTE_SIZE) / VEC_LEN_BYTE_SIZE {
             return Err(UtilsError::InsufficientData {
-                expected: VEC_LEN_BYTE_SIZE + nof_elem * VEC_LEN_BYTE_SIZE,
+                expected: VEC_LEN_BYTE_SIZE.saturating_add(nof_elem.saturating_mul(VEC_LEN_BYTE_SIZE)),
                 actual: input.len(),
             });
         }
@@ -377,9 +377,9 @@ pub fn bytes_be_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, UtilsError> {
     if nof_elem == 0 {
         Ok(vec![])
     } else {
-        if input.len() < VEC_LEN_BYTE_SIZE + nof_elem * VEC_LEN_BYTE_SIZE {
+        if nof_elem > (input.len() - VEC_LEN_BYTE_SIZE) / VEC_LEN_BYTE_SIZE {
             return Err(UtilsError::InsufficientData {
-                expected: VEC_LEN_BYTE_SIZE + nof_elem * VEC_LEN_BYTE_SIZE,
+                expected: VEC_LEN_BYTE_SIZE.saturating_add(nof_elem.saturating_mul(VEC_LEN_BYTE_SIZE)),
                 actual: input.len(),
             });
         }
@@ -406,9 +406,9 @@ pub fn bytes_le_to_vec_bool(input: &[u8]) -> Result<(Vec<bool>, usize), UtilsErr
     }
     let len = usize::try_from(u64::from_le_bytes(input[0..VEC_LEN_BYTE_SIZE].try_into()?))?;
     read += VEC_LEN_BYTE_SIZE;
-    if input.len() < VEC_LEN_BYTE_SIZE + len {
+    if len > input.len() - VEC_LEN_BYTE_SIZE {
         return Err(UtilsError::InsufficientData {
-            expected: VEC_LEN_BYTE_SIZE + len,
+            expected: VEC_LEN_BYTE_SIZE.saturating_add(len),
             actual: input.len(),
         });
     }
@@ -431,9 +431,9 @@ pub fn bytes_be_to_vec_bool(input: &[u8]) -> Result<(Vec<bool>, usize), UtilsErr
     }
     let len = usize::try_from(u64::from_be_bytes(input[0..VEC_LEN_BYTE_SIZE].try_into()?))?;
     read += VEC_LEN_BYTE_SIZE;
-    if input.len() < VEC_LEN_BYTE_SIZE + len {
+    if len > input.len() - VEC_LEN_BYTE_SIZE {
         return Err(UtilsError::InsufficientData {
-            expected: VEC_LEN_BYTE_SIZE + len,
+            expected: VEC_LEN_BYTE_SIZE.saturating_add(len),
             actual: input.len(),
         });
     }
