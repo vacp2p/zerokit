@@ -76,6 +76,9 @@ where
         default_leaf: H::Fr,
         _config: Self::Config,
     ) -> Result<Self, ZerokitMerkleTreeError> {
+        if depth >= usize::BITS as usize {
+            return Err(ZerokitMerkleTreeError::InvalidDepth);
+        }
         // Compute cache node values, leaf to root
         let mut cached_nodes: Vec<H::Fr> = Vec::with_capacity(depth + 1);
         cached_nodes.push(default_leaf);
