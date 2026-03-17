@@ -122,6 +122,55 @@ mod test {
     }
 
     #[test]
+    fn test_full_merkle_tree_new_depth_shift_overflow() {
+        let depth = usize::BITS as usize;
+        let result =
+            FullMerkleTree::<Keccak256>::new(depth, TestFr([0; 32]), FullMerkleConfig::default());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_optimal_merkle_tree_new_depth_shift_overflow() {
+        let depth = usize::BITS as usize;
+        let result = OptimalMerkleTree::<Keccak256>::new(
+            depth,
+            TestFr([0; 32]),
+            OptimalMerkleConfig::default(),
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_full_merkle_tree_set_range_start_overflow() {
+        let mut tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
+        let result = tree_full.set_range(usize::MAX, std::iter::once(TestFr::from(1u32)));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_optimal_merkle_tree_set_range_start_overflow() {
+        let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
+        let result = tree_opt.set_range(usize::MAX, std::iter::once(TestFr::from(1u32)));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_full_merkle_tree_override_range_min_index_underflow() {
+        let mut tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
+        let result =
+            tree_full.override_range(1, std::iter::once(TestFr::from(1u32)), [5usize].into_iter());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_optimal_merkle_tree_override_range_min_index_underflow() {
+        let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
+        let result =
+            tree_opt.override_range(1, std::iter::once(TestFr::from(1u32)), [5usize].into_iter());
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn test_update_next() {
         let mut tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
         let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);

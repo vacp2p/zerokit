@@ -11,7 +11,7 @@ use zerokit_utils::{
     },
     pm_tree::{
         pmtree,
-        pmtree::{tree::Key, Database, Hasher, PmtreeErrorKind},
+        pmtree::{tree::Key, Database, Hasher, PmtreeErrorKind, TreeErrorKind},
         Config, Mode, SledDB,
     },
 };
@@ -239,9 +239,15 @@ impl ZerokitMerkleTree for PmTree {
             Err(_) => pmtree::MerkleTree::new(depth, config.0)?,
         };
 
+        let capacity = 1usize.checked_shl(depth as u32).ok_or({
+            ZerokitMerkleTreeError::PmtreeErrorKind(PmtreeErrorKind::TreeError(
+                TreeErrorKind::IndexOutOfBounds,
+            ))
+        })?;
+
         Ok(PmTree {
             tree,
-            cached_leaves_indices: vec![0; 1 << depth],
+            cached_leaves_indices: vec![0; capacity],
             metadata: Vec::new(),
         })
     }
