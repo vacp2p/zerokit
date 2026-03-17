@@ -262,9 +262,10 @@ pub fn find_poseidon_ark_and_mds<F: PrimeField>(
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use ark_bn254::Fr;
     use num_traits::Zero;
+
+    use super::*;
 
     #[test]
     #[should_panic]
