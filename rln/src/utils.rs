@@ -349,7 +349,8 @@ pub fn bytes_le_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, UtilsError> {
     } else {
         if nof_elem > (input.len() - VEC_LEN_BYTE_SIZE) / VEC_LEN_BYTE_SIZE {
             return Err(UtilsError::InsufficientData {
-                expected: VEC_LEN_BYTE_SIZE.saturating_add(nof_elem.saturating_mul(VEC_LEN_BYTE_SIZE)),
+                expected: VEC_LEN_BYTE_SIZE
+                    .saturating_add(nof_elem.saturating_mul(VEC_LEN_BYTE_SIZE)),
                 actual: input.len(),
             });
         }
@@ -379,7 +380,8 @@ pub fn bytes_be_to_vec_usize(input: &[u8]) -> Result<Vec<usize>, UtilsError> {
     } else {
         if nof_elem > (input.len() - VEC_LEN_BYTE_SIZE) / VEC_LEN_BYTE_SIZE {
             return Err(UtilsError::InsufficientData {
-                expected: VEC_LEN_BYTE_SIZE.saturating_add(nof_elem.saturating_mul(VEC_LEN_BYTE_SIZE)),
+                expected: VEC_LEN_BYTE_SIZE
+                    .saturating_add(nof_elem.saturating_mul(VEC_LEN_BYTE_SIZE)),
                 actual: input.len(),
             });
         }
