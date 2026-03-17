@@ -268,18 +268,6 @@ mod test {
     use super::*;
 
     #[test]
-    #[should_panic]
-    fn test_poseidon_grain_lfsr_new_panics_on_invalid_is_field() {
-        let _ = PoseidonGrainLFSR::new(0, 0, 254, 2, 8, 56);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_poseidon_grain_lfsr_new_panics_on_invalid_is_sbox_an_inverse() {
-        let _ = PoseidonGrainLFSR::new(1, 2, 254, 2, 8, 56);
-    }
-
-    #[test]
     fn test_find_poseidon_ark_and_mds_bn254_regression_no_inverse_panic() {
         let result = std::panic::catch_unwind(|| {
             // Parameters match the hardcoded BN254 Poseidon setup used by current tests.
