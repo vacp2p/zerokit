@@ -116,6 +116,7 @@ for one application to be re-used in another one.
 - **Stateless Mode**: Allows the use of RLN without maintaining state of the Merkle tree.
 - **[Parallel Processing](#parallel-processing)**: Optional parallel computation during proof generation for improved performance.
 - **[Multi-Message-ID](#multi-message-id)**: Consume multiple message_id units in a single proof.
+- **[Partial Proof Generation](#partial-proof-generation)**: Accelerate proof generation by caching the infrequently-changing portion of the witness, so only the small message-specific remainder is computed on each proof.
 - **Pre-compiled Circuits**: Ready-to-use circuits with Merkle tree depth of 10 and 20.
 - **Wasm Support**: WebAssembly bindings via rln-wasm crate with features like:
   - Browser and Node.js compatibility
@@ -317,6 +318,20 @@ When enabled, the RLN module API allows specifying multiple message_id values an
 Two services can independently run in either normal or multi-message-id mode to generate proofs. The full structured format of `RLNWitnessInput` and `RLNProofValues` is only needed for witness calculation, proof generation, and proof verification.
 
 After verification, each active nullifier and its `(x, y)` pair can be extracted individually - unused slots can be ignored. These normalized pairs are then stored separately and checked for duplicate nullifiers via `compute_id_secret` function.
+
+## Partial Proof Generation
+
+**How it works:**
+
+Partial proof generation is an optimization technique that allows us to split the proof generation process into multiple stages:
+
+- Pre-computation: Whenever the Merkle tree changes, compute and cache the partial witness portion that corresponds to the Merkle proof and other static components of the witness.
+- Partial proof generation: For each message, compute only the small per-message witness portion and combine it with the cached partial witness to generate a partial proof.
+- Proof finalization: Finish the partial proof with the message-specific computation to produce the final valid proof.
+
+**Observed speedup:** Finishing a partial proof is roughly **2.5–3× faster** than generating a full proof from scratch, since the expensive Merkle proof contribution is pre-computed and reused across multiple messages. See the [preliminary benchmarks](https://github.com/logos-storage/rln-fast#benchmarks) in the [rln-fast](https://github.com/logos-storage/rln-fast) repository for details.
+
+**When this optimization is less effective:** In environments where the membership set changes very frequently (e.g., a highly dynamic system with many joins/leaves), the cached data is invalidated often and the overhead of pre-computation may outweigh the benefit.
 
 ## Detailed Protocol Flow
 
