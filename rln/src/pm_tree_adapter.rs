@@ -239,7 +239,7 @@ impl ZerokitMerkleTree for PmTree {
             Err(_) => pmtree::MerkleTree::new(depth, config.0)?,
         };
 
-        let capacity = 1usize.checked_shl(depth as u32).ok_or_else(|| {
+        let capacity = 1usize.checked_shl(depth as u32).ok_or({
             ZerokitMerkleTreeError::PmtreeErrorKind(PmtreeErrorKind::TreeError(
                 TreeErrorKind::IndexOutOfBounds,
             ))
