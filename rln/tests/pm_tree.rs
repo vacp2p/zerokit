@@ -156,7 +156,7 @@ mod test {
             tree.override_range(0, vec![Fr::from(1)].into_iter(), vec![5usize].into_iter());
         assert!(matches!(
             result,
-            Err(ZerokitMerkleTreeError::PmtreeErrorKind(_))
+            Err(ZerokitMerkleTreeError::InvalidIndices)
         ));
     }
 
