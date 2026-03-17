@@ -15,6 +15,8 @@ pub enum ZerokitMerkleTreeError {
     InvalidSubTreeIndex,
     #[error("Start level is != from end level")]
     InvalidStartAndEndLevel,
+    #[error("Tree depth exceeds maximum allowed (must be < {})", usize::BITS)]
+    InvalidDepth,
     #[error("set_range got too many leaves")]
     TooManySet,
     #[error("Unknown error while computing merkle proof")]

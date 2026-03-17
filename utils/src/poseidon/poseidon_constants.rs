@@ -259,3 +259,31 @@ pub fn find_poseidon_ark_and_mds<F: PrimeField>(
 
     (ark, mds)
 }
+
+#[cfg(test)]
+mod test {
+    use ark_bn254::Fr;
+    use num_traits::Zero;
+
+    use super::*;
+
+    #[test]
+    fn test_find_poseidon_ark_and_mds_bn254_regression_no_inverse_panic() {
+        let result = std::panic::catch_unwind(|| {
+            // Parameters match the hardcoded BN254 Poseidon setup used by current tests.
+            find_poseidon_ark_and_mds::<Fr>(1, 0, 254, 2, 8, 56, 0)
+        });
+
+        assert!(
+            result.is_ok(),
+            "find_poseidon_ark_and_mds unexpectedly panicked (possible MDS inverse invariant break)"
+        );
+
+        let (ark, mds) = result.unwrap();
+        assert_eq!(ark.len(), (8 + 56) * 2);
+        assert_eq!(mds.len(), 2);
+        assert_eq!(mds[0].len(), 2);
+        assert_eq!(mds[1].len(), 2);
+        assert_ne!(mds[0][0], Fr::zero());
+    }
+}
