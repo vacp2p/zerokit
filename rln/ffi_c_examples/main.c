@@ -91,7 +91,7 @@ int main(int argc, char const *const argv[])
     }
 
     FFI_RLN_t *rln = ffi_rln_new_result.ok;
-    printf("RLN instance created successfully\n");
+    printf("  - RLN instance created successfully\n");
 
     size_t tree_depth_actual = ffi_rln_get_tree_depth(&rln);
     printf("  - circuit tree_depth = %zu\n", tree_depth_actual);
@@ -111,7 +111,7 @@ int main(int argc, char const *const argv[])
     Vec_CFr_t keys = keys_result.ok;
     const CFr_t *identity_secret = ffi_vec_cfr_get(&keys, 0);
     const CFr_t *id_commitment = ffi_vec_cfr_get(&keys, 1);
-    printf("Identity generated\n");
+    printf("  - identity generated successfully\n");
 
     Vec_uint8_t debug = ffi_cfr_debug(identity_secret);
     printf("  - identity_secret = %s\n", debug.ptr);
@@ -190,8 +190,6 @@ int main(int argc, char const *const argv[])
     ffi_vec_u8_free(ser_keys);
 
 #ifdef STATELESS
-#define CFR_SIZE 32
-
     printf("\nBuilding Merkle path for stateless mode\n");
     CFr_t *default_leaf = ffi_cfr_zero();
 
@@ -465,7 +463,7 @@ int main(int argc, char const *const argv[])
         return EXIT_FAILURE;
     }
     FFI_RLNWitnessInput_t *witness = witness_result.ok;
-    printf("RLN Witness created successfully\n");
+    printf("  - RLN Witness created successfully\n");
 #else
     CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result =
 #ifdef MULTI_MESSAGE_ID
@@ -496,7 +494,7 @@ int main(int argc, char const *const argv[])
         return EXIT_FAILURE;
     }
     FFI_RLNWitnessInput_t *witness = witness_result.ok;
-    printf("RLN Witness created successfully\n");
+    printf("  - RLN Witness created successfully\n");
 #endif
 
     printf("\nRLNWitnessInput serialization: RLNWitnessInput <-> bytes\n");
@@ -540,9 +538,9 @@ int main(int argc, char const *const argv[])
     }
 
     FFI_RLNProof_t *rln_proof = proof_gen_result.ok;
-    printf("Proof generated successfully\n");
+    printf("  - proof generated successfully\n");
 
-    printf("\nGetting proof values\n");
+    printf("\nGetting RLN Proof Values\n");
     FFI_RLNProofValues_t *proof_values = ffi_rln_proof_get_values(&rln_proof);
 
 #ifdef MULTI_MESSAGE_ID
@@ -652,7 +650,7 @@ int main(int argc, char const *const argv[])
     CResult_FFI_RLNProofValues_ptr_Vec_uint8_t deser_proof_values_result = ffi_bytes_le_to_rln_proof_values(&ser_proof_values);
     if (!deser_proof_values_result.ok)
     {
-        fprintf(stderr, "Proof values deserialization error: %s\n", deser_proof_values_result.err.ptr);
+        fprintf(stderr, "RLN Proof Values deserialization error: %s\n", deser_proof_values_result.err.ptr);
         ffi_c_string_free(deser_proof_values_result.err);
         return EXIT_FAILURE;
     }
@@ -685,9 +683,204 @@ int main(int argc, char const *const argv[])
         return EXIT_FAILURE;
     }
 
-    printf("Proof verified successfully\n");
+    printf("  - proof verified successfully\n");
 
     ffi_rln_proof_free(rln_proof);
+
+    printf("\nGenerating partial proof from partial witness\n");
+
+    FFI_RLNPartialWitnessInput_t *partial_witness = ffi_rln_witness_to_partial_witness(&witness);
+    printf("  - partial witness created successfully\n");
+
+    printf("\nRLNPartialWitnessInput serialization: RLNPartialWitnessInput <-> bytes\n");
+    CResult_Vec_uint8_Vec_uint8_t ser_partial_witness_result = ffi_rln_partial_witness_to_bytes_le(&partial_witness);
+    if (ser_partial_witness_result.err.ptr)
+    {
+        fprintf(stderr, "Partial witness serialization error: %s\n", ser_partial_witness_result.err.ptr);
+        ffi_c_string_free(ser_partial_witness_result.err);
+        return EXIT_FAILURE;
+    }
+    Vec_uint8_t ser_partial_witness = ser_partial_witness_result.ok;
+
+    debug = ffi_vec_u8_debug(&ser_partial_witness);
+    printf("  - serialized partial_witness = %s\n", debug.ptr);
+    ffi_c_string_free(debug);
+
+    CResult_FFI_RLNPartialWitnessInput_ptr_Vec_uint8_t deser_partial_witness_result = ffi_bytes_le_to_rln_partial_witness(&ser_partial_witness);
+    if (!deser_partial_witness_result.ok)
+    {
+        fprintf(stderr, "Partial witness deserialization error: %s\n", deser_partial_witness_result.err.ptr);
+        ffi_c_string_free(deser_partial_witness_result.err);
+        return EXIT_FAILURE;
+    }
+
+    FFI_RLNPartialWitnessInput_t *deser_partial_witness = deser_partial_witness_result.ok;
+    printf("  - partial_witness deserialized successfully\n");
+
+    ffi_rln_partial_witness_input_free(deser_partial_witness);
+    ffi_vec_u8_free(ser_partial_witness);
+
+    printf("\nGenerating partial ZK proof\n");
+    CResult_FFI_RLNPartialProof_ptr_Vec_uint8_t partial_proof_result = ffi_generate_partial_zk_proof(
+        &rln,
+        &partial_witness);
+
+    if (!partial_proof_result.ok)
+    {
+        fprintf(stderr, "Partial proof generation error: %s\n", partial_proof_result.err.ptr);
+        ffi_c_string_free(partial_proof_result.err);
+        ffi_rln_partial_witness_input_free(partial_witness);
+        return EXIT_FAILURE;
+    }
+
+    FFI_RLNPartialProof_t *partial_proof = partial_proof_result.ok;
+    printf("  - partial proof generated successfully\n");
+
+    printf("\nRLNPartialProof serialization: RLNPartialProof <-> bytes\n");
+    CResult_Vec_uint8_Vec_uint8_t ser_partial_proof_result = ffi_rln_partial_proof_to_bytes_le(&partial_proof);
+    if (ser_partial_proof_result.err.ptr)
+    {
+        fprintf(stderr, "Partial proof serialization error: %s\n", ser_partial_proof_result.err.ptr);
+        ffi_c_string_free(ser_partial_proof_result.err);
+        return EXIT_FAILURE;
+    }
+    Vec_uint8_t ser_partial_proof = ser_partial_proof_result.ok;
+
+    debug = ffi_vec_u8_debug(&ser_partial_proof);
+    printf("  - serialized partial_proof = %s\n", debug.ptr);
+    ffi_c_string_free(debug);
+
+    CResult_FFI_RLNPartialProof_ptr_Vec_uint8_t deser_partial_proof_result = ffi_bytes_le_to_rln_partial_proof(&ser_partial_proof);
+    if (!deser_partial_proof_result.ok)
+    {
+        fprintf(stderr, "Partial proof deserialization error: %s\n", deser_partial_proof_result.err.ptr);
+        ffi_c_string_free(deser_partial_proof_result.err);
+        return EXIT_FAILURE;
+    }
+
+    FFI_RLNPartialProof_t *deser_partial_proof = deser_partial_proof_result.ok;
+    printf("  - partial_proof deserialized successfully\n");
+
+    ffi_rln_partial_proof_free(deser_partial_proof);
+    ffi_vec_u8_free(ser_partial_proof);
+
+    printf("\nFinishing proof with full witness\n");
+    CResult_FFI_RLNProof_ptr_Vec_uint8_t finish_proof_result = ffi_finish_rln_proof(
+        &rln,
+        &partial_proof,
+        &witness);
+
+    if (!finish_proof_result.ok)
+    {
+        fprintf(stderr, "Finish proof error: %s\n", finish_proof_result.err.ptr);
+        ffi_c_string_free(finish_proof_result.err);
+        ffi_rln_partial_proof_free(partial_proof);
+        ffi_rln_partial_witness_input_free(partial_witness);
+        return EXIT_FAILURE;
+    }
+
+    FFI_RLNProof_t *partial_rln_proof = finish_proof_result.ok;
+    printf("  - partial proof finished successfully\n");
+
+    printf("\nGetting partial RLN Proof Values\n");
+    FFI_RLNProofValues_t *partial_proof_values = ffi_rln_proof_get_values(&partial_rln_proof);
+
+#ifdef MULTI_MESSAGE_ID
+    CResult_Vec_CFr_Vec_uint8_t partial_ys_result = ffi_rln_proof_values_get_ys(&partial_proof_values);
+    if (partial_ys_result.err.ptr)
+    {
+        fprintf(stderr, "Get partial ys error: %s\n", partial_ys_result.err.ptr);
+        ffi_c_string_free(partial_ys_result.err);
+        return EXIT_FAILURE;
+    }
+    Vec_CFr_t partial_ys = partial_ys_result.ok;
+    debug = ffi_vec_cfr_debug(&partial_ys);
+    printf("  - ys = %s\n", debug.ptr);
+    ffi_c_string_free(debug);
+    ffi_vec_cfr_free(partial_ys);
+
+    CResult_Vec_CFr_Vec_uint8_t partial_nullifiers_result = ffi_rln_proof_values_get_nullifiers(&partial_proof_values);
+    if (partial_nullifiers_result.err.ptr)
+    {
+        fprintf(stderr, "Get partial nullifiers error: %s\n", partial_nullifiers_result.err.ptr);
+        ffi_c_string_free(partial_nullifiers_result.err);
+        return EXIT_FAILURE;
+    }
+    Vec_CFr_t partial_nullifiers = partial_nullifiers_result.ok;
+    debug = ffi_vec_cfr_debug(&partial_nullifiers);
+    printf("  - nullifiers = %s\n", debug.ptr);
+    ffi_c_string_free(debug);
+    ffi_vec_cfr_free(partial_nullifiers);
+#else
+    CResult_CFr_ptr_Vec_uint8_t partial_y_result = ffi_rln_proof_values_get_y(&partial_proof_values);
+    if (!partial_y_result.ok)
+    {
+        fprintf(stderr, "Get partial y error: %s\n", partial_y_result.err.ptr);
+        ffi_c_string_free(partial_y_result.err);
+        return EXIT_FAILURE;
+    }
+    CFr_t *partial_y = partial_y_result.ok;
+    debug = ffi_cfr_debug(partial_y);
+    printf("  - y = %s\n", debug.ptr);
+    ffi_c_string_free(debug);
+    ffi_cfr_free(partial_y);
+
+    CResult_CFr_ptr_Vec_uint8_t partial_nullifier_result = ffi_rln_proof_values_get_nullifier(&partial_proof_values);
+    if (!partial_nullifier_result.ok)
+    {
+        fprintf(stderr, "Get partial nullifier error: %s\n", partial_nullifier_result.err.ptr);
+        ffi_c_string_free(partial_nullifier_result.err);
+        return EXIT_FAILURE;
+    }
+    CFr_t *partial_nullifier = partial_nullifier_result.ok;
+    debug = ffi_cfr_debug(partial_nullifier);
+    printf("  - nullifier = %s\n", debug.ptr);
+    ffi_c_string_free(debug);
+    ffi_cfr_free(partial_nullifier);
+#endif
+
+    CFr_t *partial_root = ffi_rln_proof_values_get_root(&partial_proof_values);
+    debug = ffi_cfr_debug(partial_root);
+    printf("  - root = %s\n", debug.ptr);
+    ffi_c_string_free(debug);
+    ffi_cfr_free(partial_root);
+
+    CFr_t *partial_x_val = ffi_rln_proof_values_get_x(&partial_proof_values);
+    debug = ffi_cfr_debug(partial_x_val);
+    printf("  - x = %s\n", debug.ptr);
+    ffi_c_string_free(debug);
+    ffi_cfr_free(partial_x_val);
+
+    CFr_t *partial_ext_nullifier = ffi_rln_proof_values_get_external_nullifier(&partial_proof_values);
+    debug = ffi_cfr_debug(partial_ext_nullifier);
+    printf("  - external_nullifier = %s\n", debug.ptr);
+    ffi_c_string_free(debug);
+    ffi_cfr_free(partial_ext_nullifier);
+
+    ffi_rln_proof_values_free(partial_proof_values);
+
+    printf("\nVerifying partial-generated proof\n");
+#ifdef STATELESS
+    CBoolResult_t verify_partial_err = ffi_verify_with_roots(&rln, &partial_rln_proof, &roots, x);
+#else
+    CBoolResult_t verify_partial_err = ffi_verify_rln_proof(&rln, &partial_rln_proof, x);
+#endif
+
+    if (!verify_partial_err.ok)
+    {
+        fprintf(stderr, "Partial proof verification error: %s\n", verify_partial_err.err.ptr);
+        ffi_c_string_free(verify_partial_err.err);
+        ffi_rln_proof_free(partial_rln_proof);
+        ffi_rln_partial_proof_free(partial_proof);
+        ffi_rln_partial_witness_input_free(partial_witness);
+        return EXIT_FAILURE;
+    }
+
+    printf("  - partial-generated proof verified successfully\n");
+
+    ffi_rln_proof_free(partial_rln_proof);
+    ffi_rln_partial_proof_free(partial_proof);
+    ffi_rln_partial_witness_input_free(partial_witness);
 
     printf("\nSimulating double-signaling attack (same epoch, different message)\n");
 
@@ -785,7 +978,7 @@ int main(int argc, char const *const argv[])
         return EXIT_FAILURE;
     }
     FFI_RLNWitnessInput_t *witness2 = witness_result2.ok;
-    printf("Second RLN Witness created successfully\n");
+    printf("  - second RLN Witness created successfully\n");
 #else
     CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result2 =
 #ifdef MULTI_MESSAGE_ID
@@ -816,7 +1009,7 @@ int main(int argc, char const *const argv[])
         return EXIT_FAILURE;
     }
     FFI_RLNWitnessInput_t *witness2 = witness_result2.ok;
-    printf("Second RLN Witness created successfully\n");
+    printf("  - second RLN Witness created successfully\n");
 #endif
 
     printf("\nGenerating second RLN Proof\n");
@@ -832,7 +1025,7 @@ int main(int argc, char const *const argv[])
     }
 
     FFI_RLNProof_t *rln_proof2 = proof_gen_result2.ok;
-    printf("Second proof generated successfully\n");
+    printf("  - second proof generated successfully\n");
 
     FFI_RLNProofValues_t *proof_values2 = ffi_rln_proof_get_values(&rln_proof2);
 
@@ -850,7 +1043,7 @@ int main(int argc, char const *const argv[])
         return EXIT_FAILURE;
     }
 
-    printf("Second proof verified successfully\n");
+    printf("  - second proof verified successfully\n");
 
     ffi_rln_proof_free(rln_proof2);
 
@@ -873,7 +1066,7 @@ int main(int argc, char const *const argv[])
     printf("  - original_secret  = %s\n", debug.ptr);
     ffi_c_string_free(debug);
 
-    printf("Slashing successful: Identity is recovered!\n");
+    printf("  - identity recovered successfully\n");
 
     ffi_cfr_free(recovered_secret);
 
