@@ -331,7 +331,9 @@ Partial proof generation is an optimization technique that allows us to split th
 
 **Observed speedup:** Finishing a partial proof is roughly **2.5–3× faster** than generating a full proof from scratch, since the expensive Merkle proof contribution is pre-computed and reused across multiple messages. See the [preliminary benchmarks](https://github.com/logos-storage/rln-fast#benchmarks) in the [rln-fast](https://github.com/logos-storage/rln-fast) repository for details.
 
-**When this optimization is less effective:** In environments where the membership set changes very frequently (e.g., a highly dynamic system with many joins/leaves), the cached data is invalidated often and the overhead of pre-computation may outweigh the benefit.
+**Using cached partials across recent roots**. To reuse partial proofs while the tree changes, cache the Merkle path alongside the root used to build the partial proof and verify against a bounded set of recent roots (for example, the last few roots) via APIs like [`verify_with_roots`](./src/public.rs#L743). This keeps cached partials usable for short-lived historical roots while limiting replay risk; when a root falls out of the allowed window or a member is removed/slashed, rebuild the partial proof with the latest root and path so revoked members cannot keep proving with stale roots.
+
+**When this optimization is less effective:** In environments where the membership set changes very frequently, the cached data is invalidated often and the overhead of pre-computation may outweigh the benefit.
 
 ## Detailed Protocol Flow
 
