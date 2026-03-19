@@ -13,7 +13,8 @@ designed to be robust and performant.
 This crate provides core cryptographic components optimized for zero-knowledge proof systems:
 
 - **Multiple Merkle Trees**: Various implementations optimised for the trade-off between space and time.
-- **Poseidon Hash Function**: An efficient hashing algorithm suitable for ZK contexts, with customizable parameters.
+- **Poseidon Hash Function**: An efficient hashing algorithm suitable for ZK contexts,
+  with customizable parameters.
 - **Parallel Performance**: Leverages Rayon for significant speed-ups in Merkle tree computations.
 - **Arkworks Compatibility**: Poseidon hash implementation is designed to work seamlessly
   with Arkworks field traits and data structures.
@@ -87,7 +88,8 @@ Key characteristics include:
 ### ⚠️ Security Note
 
 The MDS matrices used in the Poseidon hash function are generated iteratively
-using the Grain LFSR (Linear Feedback Shift Register) algorithm until specific cryptographic criteria are met.
+using the Grain LFSR (Linear Feedback Shift Register) algorithm
+until specific cryptographic criteria are met.
 
 - The reference Poseidon implementation includes validation algorithms to ensure these criteria are satisfied.
   These validation algorithms are not currently implemented in this crate.
@@ -96,8 +98,8 @@ using the Grain LFSR (Linear Feedback Shift Register) algorithm until specific c
 - If you intend to use custom parameters, it is crucial to verify your generated MDS matrix.
   You should consult the Poseidon reference implementation to determine
   how many matrices are typically skipped before a valid one is found.
-  This count should then be passed as the `skip_matrices parameter` to the `find_poseidon_ark_and_mds`
-  function in this crate.
+  This count should then be passed as the `skip_matrices parameter`
+  to the `find_poseidon_ark_and_mds` function in this crate.
 
 ## Installation
 
@@ -121,7 +123,8 @@ cargo make test
 cargo make bench
 ```
 
-To view the results of the benchmark, open the `target/criterion/report/index.html` file generated after the bench
+To view the results of the benchmark,
+open the `target/criterion/report/index.html` file generated after the bench.
 
 ## Acknowledgements
 

@@ -6,17 +6,17 @@
 
 The Zerokit RLN WASM Module provides WebAssembly bindings for working with
 Rate-Limiting Nullifier [RLN](https://lip.logos.co/ift-ts/raw/rln-v2) zkSNARK proofs and primitives.
-This module is used by [waku-org/js-rln](https://github.com/waku-org/js-rln/) to enable
-RLN functionality in JavaScript/TypeScript applications.
+This module is used by [waku-org/js-rln](https://github.com/waku-org/js-rln/)
+to enable RLN functionality in JavaScript/TypeScript applications.
 
 ## Install Dependencies
 
 > [!NOTE]
 > This project requires the following tools:
 >
-> - `wasm-pack` (v0.14.0) - for compiling Rust to WebAssembly
-> - `cargo-make` - for running build commands
-> - `nvm` - to install and manage Node.js (v22.14.0+)
+> - `wasm-pack` (v0.14.0) — for compiling Rust to WebAssembly
+> - `cargo-make` — for running build commands
+> - `nvm` — to install and manage Node.js (v22.14.0+)
 
 ### Quick Install
 
@@ -71,7 +71,8 @@ cargo make test_multi_message_id  # Multi-message-id feature tests
 
 ## Examples
 
-See [Node example](./examples/index.js) and [README](./examples/Readme.md) for proof generation, verification, and slashing.
+See [Node example](./examples/index.js) and [README](./examples/Readme.md)
+for proof generation, verification, and slashing.
 
 ## Parallel Computation
 
@@ -100,9 +101,14 @@ wasmPkg.nowCallAnyExportedFuncs();
 
 ### Feature Detection for Older Browsers
 
-If you're targeting [older browser versions that didn't support WebAssembly threads yet](https://webassembly.org/roadmap/), you'll want to use both builds - the parallel version for modern browsers and the default version as a fallback. Use feature detection to choose the appropriate build on the JavaScript side.
+If you're targeting
+[older browser versions that didn't support WebAssembly threads yet](https://webassembly.org/roadmap/),
+you'll want to use both builds —
+the parallel version for modern browsers and the default version as a fallback.
+Use feature detection to choose the appropriate build on the JavaScript side.
 
-You can use the [wasm-feature-detect](https://github.com/GoogleChromeLabs/wasm-feature-detect) library for this purpose:
+You can use the [wasm-feature-detect](https://github.com/GoogleChromeLabs/wasm-feature-detect)
+library for this purpose:
 
 ```js
 import { threads } from 'wasm-feature-detect';
