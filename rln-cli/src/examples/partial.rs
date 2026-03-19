@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     fs::File,
     io::{stdin, stdout, Read, Write},
     path::{Path, PathBuf},
@@ -16,6 +16,10 @@ const MESSAGE_LIMIT: u32 = 1;
 
 const TREE_DEPTH: usize = 20;
 
+const ROOT_HISTORY_LIMIT: usize = 3;
+
+const PARTIAL_REFRESH_INTERVAL: usize = ROOT_HISTORY_LIMIT;
+
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[derive(Parser)]
@@ -28,6 +32,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     List,
+    Roots,
     Register,
     Send {
         #[arg(short, long)]
@@ -47,6 +52,14 @@ struct Identity {
     id_commitment: Fr,
 }
 
+#[derive(Clone)]
+struct CachedPartialProof {
+    root: Fr,
+    proof: PartialProof,
+    path_elements: Vec<Fr>,
+    path_index: Vec<u8>,
+}
+
 impl Identity {
     fn new() -> Self {
         let (identity_secret, id_commitment) = keygen().unwrap();
@@ -61,8 +74,10 @@ struct RLNSystem {
     rln: RLN,
     used_nullifiers: HashMap<Fr, RLNProofValues>,
     local_identities: HashMap<usize, Identity>,
-    partial_proofs: HashMap<usize, PartialProof>,
+    partial_proofs: HashMap<usize, CachedPartialProof>,
     external_nullifier: Fr,
+    latest_roots: VecDeque<Fr>,
+    pending_registrations: usize,
 }
 
 impl RLNSystem {
@@ -92,6 +107,8 @@ impl RLNSystem {
             resources[1].clone(),
             tree_config,
         )?;
+        let mut latest_roots = VecDeque::new();
+        latest_roots.push_front(rln.get_root());
         println!("RLN instance initialized successfully");
         Ok(RLNSystem {
             rln,
@@ -99,6 +116,8 @@ impl RLNSystem {
             local_identities: HashMap::new(),
             partial_proofs: HashMap::new(),
             external_nullifier,
+            latest_roots,
+            pending_registrations: 0,
         })
     }
 
@@ -110,11 +129,38 @@ impl RLNSystem {
 
         println!("Registered users:");
         for (index, identity) in &self.local_identities {
-            println!("User Index: {index}");
+            println!("User: {index}");
             println!("+ Identity secret: {}", *identity.identity_secret);
             println!("+ Identity commitment: {}", identity.id_commitment);
             println!();
         }
+    }
+
+    fn list_roots(&self) {
+        if self.latest_roots.is_empty() {
+            println!("No roots recorded yet.");
+            return;
+        }
+
+        println!("Latest roots (newest first, max {ROOT_HISTORY_LIMIT}):");
+        for (i, root) in self.latest_roots.iter().enumerate() {
+            println!("#{i}: {root}");
+        }
+    }
+
+    fn record_root(&mut self) {
+        let current_root = self.rln.get_root();
+        if self.latest_roots.front() == Some(&current_root) {
+            return;
+        }
+        self.latest_roots.push_front(current_root);
+        while self.latest_roots.len() > ROOT_HISTORY_LIMIT {
+            self.latest_roots.pop_back();
+        }
+    }
+
+    fn root_is_recent(&self, root: &Fr) -> bool {
+        self.latest_roots.iter().any(|r| r == root)
     }
 
     fn register_user(&mut self) -> Result<usize> {
@@ -125,11 +171,24 @@ impl RLNSystem {
             poseidon_hash(&[identity.id_commitment, Fr::from(MESSAGE_LIMIT)]).unwrap();
         match self.rln.set_next_leaf(rate_commitment) {
             Ok(_) => {
-                println!("Registered User Index: {index}");
+                println!("Registered user: {index}");
                 println!("+ Identity secret: {}", *identity.identity_secret);
                 println!("+ Identity commitment: {}", identity.id_commitment);
                 self.local_identities.insert(index, identity);
-                self.rebuild_partial_proofs()?;
+                self.record_root();
+                self.pending_registrations += 1;
+                if self.pending_registrations >= PARTIAL_REFRESH_INTERVAL {
+                    self.rebuild_partial_proofs()?;
+                    self.pending_registrations = 0;
+                    println!(
+                        "Refreshed partial proofs after {PARTIAL_REFRESH_INTERVAL} registrations"
+                    );
+                } else {
+                    let remaining = PARTIAL_REFRESH_INTERVAL - self.pending_registrations;
+                    println!(
+                        "Skipping partial proof refresh: {remaining} more registration(s) before next refresh"
+                    );
+                }
             }
             Err(_) => {
                 println!("Maximum user limit reached: 2^{TREE_DEPTH}");
@@ -141,6 +200,8 @@ impl RLNSystem {
 
     fn rebuild_partial_proofs(&mut self) -> Result<()> {
         let indices: Vec<usize> = self.local_identities.keys().copied().collect();
+        let current_root = self.rln.get_root();
+        self.partial_proofs.clear();
         for user_index in indices {
             let identity = self.local_identities[&user_index].clone();
             let (path_elements, identity_path_index) = self.rln.get_merkle_proof(user_index)?;
@@ -148,15 +209,23 @@ impl RLNSystem {
                 identity.identity_secret.clone(),
                 Fr::from(MESSAGE_LIMIT),
                 Fr::from(0u32),
-                path_elements,
-                identity_path_index,
+                path_elements.clone(),
+                identity_path_index.clone(),
                 Fr::from(0u64),
                 self.external_nullifier,
             )?;
             let partial_witness = RLNPartialWitnessInput::from(&witness);
             let partial_proof = self.rln.generate_partial_zk_proof(&partial_witness)?;
-            self.partial_proofs.insert(user_index, partial_proof);
-            println!("Pre-generated partial proof for User Index: {user_index}");
+            self.partial_proofs.insert(
+                user_index,
+                CachedPartialProof {
+                    root: current_root,
+                    proof: partial_proof,
+                    path_elements,
+                    path_index: identity_path_index,
+                },
+            );
+            println!("Pre-generated partial proof for user: {user_index}");
         }
         Ok(())
     }
@@ -170,41 +239,68 @@ impl RLNSystem {
     ) -> Result<RLNProofValues> {
         let identity = match self.local_identities.get(&user_index) {
             Some(identity) => identity,
-            None => return Err(format!("user index {user_index} not found").into()),
+            None => return Err(format!("User {user_index} not found").into()),
         };
 
-        let (path_elements, identity_path_index) = self.rln.get_merkle_proof(user_index)?;
         let x = hash_to_field_le(signal.as_bytes())?;
+        let current_root = self.rln.get_root();
 
-        let witness = RLNWitnessInput::new(
-            identity.identity_secret.clone(),
-            Fr::from(MESSAGE_LIMIT),
-            Fr::from(message_id),
-            path_elements,
-            identity_path_index,
-            x,
-            external_nullifier,
-        )?;
-
-        let partial_proof = match self.partial_proofs.get(&user_index) {
-            Some(cached) => {
-                println!("Using cached partial proof for User Index: {user_index}");
-                cached.clone()
+        let (witness, partial_proof) = match self.partial_proofs.get(&user_index) {
+            Some(cached) if self.root_is_recent(&cached.root) => {
+                println!(
+                    "Using cached partial proof for user {user_index} (root {})",
+                    cached.root
+                );
+                let witness = RLNWitnessInput::new(
+                    identity.identity_secret.clone(),
+                    Fr::from(MESSAGE_LIMIT),
+                    Fr::from(message_id),
+                    cached.path_elements.clone(),
+                    cached.path_index.clone(),
+                    x,
+                    external_nullifier,
+                )?;
+                (witness, cached.proof.clone())
             }
-            None => {
+            _ => {
+                println!(
+                    "Cached partial proof missing or stale for user {user_index}; generating fresh proof"
+                );
+                let (path_elements, identity_path_index) = self.rln.get_merkle_proof(user_index)?;
+                let witness = RLNWitnessInput::new(
+                    identity.identity_secret.clone(),
+                    Fr::from(MESSAGE_LIMIT),
+                    Fr::from(message_id),
+                    path_elements.clone(),
+                    identity_path_index.clone(),
+                    x,
+                    external_nullifier,
+                )?;
                 let partial_witness = RLNPartialWitnessInput::from(&witness);
-                self.rln.generate_partial_zk_proof(&partial_witness)?
+                let generated = self.rln.generate_partial_zk_proof(&partial_witness)?;
+                self.partial_proofs.insert(
+                    user_index,
+                    CachedPartialProof {
+                        root: current_root,
+                        proof: generated.clone(),
+                        path_elements,
+                        path_index: identity_path_index,
+                    },
+                );
+                (witness, generated)
             }
         };
 
         let (proof, proof_values) = self.rln.finish_rln_proof(&partial_proof, &witness)?;
-
         println!("Proof generated successfully:");
-        println!("+ User Index: {user_index}");
+        println!("+ User: {user_index}");
         println!("+ Message ID: {message_id}");
         println!("+ Signal: {signal}");
 
-        let verified = self.rln.verify_rln_proof(&proof, &proof_values, &x)?;
+        let latest_roots: Vec<Fr> = self.latest_roots.iter().copied().collect();
+        let verified = self
+            .rln
+            .verify_with_roots(&proof, &proof_values, &x, &latest_roots)?;
         if verified {
             println!("Proof verified successfully");
         }
@@ -254,7 +350,8 @@ impl RLNSystem {
                         self.local_identities.remove(&user_index);
                         self.partial_proofs.remove(&user_index);
                         self.rln.delete_leaf(user_index)?;
-                        println!("User index {user_index} has been SLASHED");
+                        self.record_root();
+                        println!("User {user_index} has been SLASHED");
                         Ok(())
                     }
                 } else {
@@ -290,6 +387,9 @@ fn main() -> Result<()> {
             Ok(cli) => match cli.command {
                 Commands::List => {
                     rln_system.list_users();
+                }
+                Commands::Roots => {
+                    rln_system.list_roots();
                 }
                 Commands::Register => {
                     rln_system.register_user()?;
@@ -334,7 +434,8 @@ fn main() -> Result<()> {
 fn show_commands() {
     println!("Available commands:");
     println!("  list                                        - List registered users");
-    println!("  register                                    - Register a new user index");
+    println!("  roots                                       - Show latest 3 recorded roots");
+    println!("  register                                    - Register a new user");
     println!("  send -u <index> -m <message_id> -s <signal> - Send a message with partial proof");
     println!("  (example: send -u 0 -m 0 -s \"hello\")");
     println!("  clear                                       - Clear the screen");

@@ -106,7 +106,7 @@ impl RLNSystem {
 
         println!("Registered users:");
         for (index, identity) in &self.local_identities {
-            println!("User Index: {index}");
+            println!("User: {index}");
             println!("+ Identity secret: {}", *identity.identity_secret);
             println!("+ Identity commitment: {}", identity.id_commitment);
             println!();
@@ -121,7 +121,7 @@ impl RLNSystem {
             poseidon_hash(&[identity.id_commitment, Fr::from(MESSAGE_LIMIT)]).unwrap();
         match self.rln.set_next_leaf(rate_commitment) {
             Ok(_) => {
-                println!("Registered User Index: {index}");
+                println!("Registered user: {index}");
                 println!("+ Identity secret: {}", *identity.identity_secret);
                 println!("+ Identity commitment: {}", identity.id_commitment);
                 self.local_identities.insert(index, identity);
@@ -143,7 +143,7 @@ impl RLNSystem {
     ) -> Result<RLNProofValues> {
         let identity = match self.local_identities.get(&user_index) {
             Some(identity) => identity,
-            None => return Err(format!("user index {user_index} not found").into()),
+            None => return Err(format!("User {user_index} not found").into()),
         };
 
         let (path_elements, identity_path_index) = self.rln.get_merkle_proof(user_index)?;
@@ -160,9 +160,8 @@ impl RLNSystem {
         )?;
 
         let (proof, proof_values) = self.rln.generate_rln_proof(&witness)?;
-
         println!("Proof generated successfully:");
-        println!("+ User Index: {user_index}");
+        println!("+ User: {user_index}");
         println!("+ Message ID: {message_id}");
         println!("+ Signal: {signal}");
 
@@ -215,7 +214,7 @@ impl RLNSystem {
                         );
                         self.local_identities.remove(&user_index);
                         self.rln.delete_leaf(user_index)?;
-                        println!("User index {user_index} has been SLASHED");
+                        println!("User {user_index} has been SLASHED");
                         Ok(())
                     }
                 } else {
@@ -295,7 +294,7 @@ fn main() -> Result<()> {
 fn show_commands() {
     println!("Available commands:");
     println!("  list                                        - List registered users");
-    println!("  register                                    - Register a new user index");
+    println!("  register                                    - Register a new user");
     println!("  send -u <index> -m <message_id> -s <signal> - Send a message with proof");
     println!("  (example: send -u 0 -m 0 -s \"hello\")");
     println!("  clear                                       - Clear the screen");
