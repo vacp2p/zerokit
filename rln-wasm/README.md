@@ -62,7 +62,7 @@ All packages output to `pkg/` directory.
 ## Running Tests and Benchmarks
 
 ```bash
-cargo make test                   # Deafault tests
+cargo make test                   # Default tests
 cargo make test_browser           # Browser headless mode
 cargo make test_utils             # Utils-only tests
 cargo make test_parallel          # Parallel tests
