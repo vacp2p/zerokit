@@ -4,7 +4,7 @@ The Zerokit RLN-CLI provides a command-line interface examples on how to use pub
 
 ## Relay Example
 
-The following [Relay Example](src/examples/relay.rs) demonstrates how RLN enables spam prevention in anonymous environments for multple users.
+The following [Relay Example](src/examples/relay.rs) demonstrates how RLN enables spam prevention in anonymous environments for multiple users.
 
 You can run the example using the following command:
 
@@ -20,7 +20,7 @@ The customize **TREE_DEPTH** constant differs from the default value of `20` sho
 
 The following [Stateless Example](src/examples/stateless.rs) demonstrates how RLN can be used for stateless features by creating the Merkle tree outside of RLN instance.
 
-This example function similarly to the [Relay Example](#relay-example) but uses a stateless RLN and seperate Merkle tree.
+This example function similarly to the [Relay Example](#relay-example) but uses a stateless RLN and separate Merkle tree.
 
 You can run the example using the following command:
 
@@ -45,6 +45,8 @@ cargo run --example multi_message_id --features multi-message-id
 The following [Partial Proof Example](src/examples/partial.rs) demonstrates how RLN supports accelerated proof generation by pre-computing and caching the static witness portion, then quickly finishing proofs for new messages.
 
 This example functions similarly to the [Relay Example](#relay-example) but demonstrates the partial proof optimization technique for improved proof generation performance.
+
+Cached partial proofs remain usable across tree changes within a small window — verify against a bounded set of recent roots (e.g. via [`verify_with_roots`](../rln/src/public.rs)) instead of regenerating immediately. Once the root falls outside the allowed window, reset by generating a new partial proof with the latest Merkle path. See the [Partial Proof Generation](../rln/README.md#partial-proof-generation) section for details.
 
 You can run the example using the following command:
 
