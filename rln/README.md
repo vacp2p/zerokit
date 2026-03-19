@@ -24,7 +24,7 @@ We start by adding zerokit RLN to our `Cargo.toml`
 
 ```toml
 [dependencies]
-rln = "1.0.0"
+rln = "2.0.0"
 ```
 
 ## Basic Usage Example
@@ -360,7 +360,7 @@ cargo doc --no-deps
 and look at unit tests to have an hint on how to interface and use them.
 
 - Check the [unit tests](https://github.com/vacp2p/zerokit/tree/master/rln/tests) for more usage examples
-- Check the [rln-cli examples](https://github.com/vacp2p/zerokit/tree/master/rln-cli/src/examples) for complete interactive Rust examples of RLN features (relay, stateless, multi-message-id)
+- Check the [rln-cli examples](https://github.com/vacp2p/zerokit/tree/master/rln-cli/src/examples) for complete interactive Rust examples of RLN features (relay, stateless, multi-message-id, partial)
 - [RFC specification](https://lip.logos.co/ift-ts/raw/rln-v2) for the Rate-Limiting Nullifier protocol
 - [Multi-Message-ID RLN RFC](https://lip.logos.co/ift-ts/raw/multi-message_id-burn-rln) for details on the multi-message-ID extension
 - [Zerokit API documentation](https://lip.logos.co/ift-ts/raw/zerokit-api.html) for comprehensive API reference

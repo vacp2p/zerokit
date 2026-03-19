@@ -39,3 +39,15 @@ You can run the example using the following command:
 ```bash
 cargo run --example multi_message_id --features multi-message-id
 ```
+
+## Partial Proof Example
+
+The following [Partial Proof Example](src/examples/partial.rs) demonstrates how RLN supports accelerated proof generation by pre-computing and caching the static witness portion, then quickly finishing proofs for new messages.
+
+This example functions similarly to the [Relay Example](#relay-example) but demonstrates the partial proof optimization technique for improved proof generation performance.
+
+You can run the example using the following command:
+
+```bash
+cargo run --example partial
+```

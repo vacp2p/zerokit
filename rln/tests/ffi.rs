@@ -955,6 +955,7 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::redundant_closure)]
     fn test_witness_serialization_truncated_extra_bytes_ffi() {
         let (_, witness) = setup_rln_with_witness();
         test_serialization_errors(

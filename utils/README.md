@@ -105,7 +105,7 @@ Add zerokit-utils as a dependency to your Cargo.toml file:
 
 ```toml
 [dependencies]
-zerokit-utils = "1.0.0"
+zerokit-utils = "1.1.0"
 ```
 
 ## Building and Testing
