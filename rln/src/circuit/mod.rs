@@ -26,6 +26,8 @@ use crate::circuit::iden3calc::{
     graph::Node, storage::deserialize_witnesscalc_graph, InputSignalsInfo,
 };
 use crate::partial_proof::PartialProof as ArkPartialProof;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::utils::FrOrSecret;
 
 #[cfg(all(not(target_arch = "wasm32"), not(feature = "multi-message-id")))]
 const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
@@ -118,6 +120,21 @@ pub struct Graph {
     pub(crate) tree_depth: usize,
     #[cfg(feature = "multi-message-id")]
     pub(crate) max_out: usize,
+}
+
+/// Trait for witness calculation backends.
+///
+/// Abstracts over the iden3 graph-based witness calculator.
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) trait WitnessCompute {
+    type Error;
+    fn calc_witness(
+        &self,
+        inputs: impl IntoIterator<Item = (String, Vec<FrOrSecret>)>,
+    ) -> Result<Vec<Fr>, Self::Error>;
+    fn tree_depth(&self) -> usize;
+    #[cfg(feature = "multi-message-id")]
+    fn max_out(&self) -> usize;
 }
 
 /// Loads the zkey from raw bytes

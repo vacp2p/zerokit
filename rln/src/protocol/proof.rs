@@ -19,10 +19,7 @@ use crate::utils::{
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
-    circuit::{
-        iden3calc::{calc_witness, calc_witness_partial},
-        Graph,
-    },
+    circuit::{iden3calc::calc_witness_partial, Graph, WitnessCompute},
     partial_proof::{Groth16Partial, PartialAssignment},
 };
 use crate::{
@@ -631,7 +628,7 @@ fn validate_partial_witness_against_graph(
     witness: &RLNPartialWitnessInput,
     graph: &Graph,
 ) -> Result<(), ProtocolError> {
-    let expected_tree_depth = graph.tree_depth;
+    let expected_tree_depth = graph.tree_depth();
     if witness.path_elements().len() != expected_tree_depth {
         return Err(ProtocolError::FieldLengthMismatch(
             "path_elements",
@@ -657,7 +654,7 @@ fn validate_witness_against_graph(
     witness: &RLNWitnessInput,
     graph: &Graph,
 ) -> Result<(), ProtocolError> {
-    let expected_tree_depth = graph.tree_depth;
+    let expected_tree_depth = graph.tree_depth();
     if witness.path_elements().len() != expected_tree_depth {
         return Err(ProtocolError::FieldLengthMismatch(
             "path_elements",
@@ -677,7 +674,7 @@ fn validate_witness_against_graph(
 
     #[cfg(feature = "multi-message-id")]
     {
-        let expected_max_out = graph.max_out;
+        let expected_max_out = graph.max_out();
         if witness.message_ids().len() != expected_max_out {
             return Err(ProtocolError::FieldLengthMismatch(
                 "message_ids",
@@ -761,7 +758,7 @@ pub fn generate_zk_proof_with_rs(
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));
 
-    let full_assignment = calc_witness(inputs, graph)?;
+    let full_assignment = graph.calc_witness(inputs)?;
 
     let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
         &zkey.0,
@@ -789,7 +786,7 @@ pub fn generate_partial_zk_proof(
     let inputs = inputs_for_partial_witness_calculation(
         partial_witness,
         #[cfg(feature = "multi-message-id")]
-        graph.max_out,
+        graph.max_out(),
     )?
     .into_iter()
     .map(|(name, values)| (name.to_string(), values));
@@ -836,7 +833,7 @@ pub fn finish_zk_proof_with_rs(
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));
 
-    let full_assignment = calc_witness(inputs, graph)?;
+    let full_assignment = graph.calc_witness(inputs)?;
 
     let proof = Groth16Partial::<_, CircomReduction>::finish_proof_with_matrices(
         &zkey.0,

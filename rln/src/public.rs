@@ -14,7 +14,9 @@ use {
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
-    circuit::{graph_from_folder, graph_from_raw, zkey_from_folder, Graph, PartialProof},
+    circuit::{
+        graph_from_folder, graph_from_raw, zkey_from_folder, Graph, PartialProof, WitnessCompute,
+    },
     prelude::RLNPartialWitnessInput,
     protocol::{finish_zk_proof, generate_partial_zk_proof, generate_zk_proof},
 };
@@ -270,13 +272,13 @@ impl RLN {
     /// Returns the expected Merkle tree depth based on the graph's configuration.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn tree_depth(&self) -> usize {
-        self.graph.tree_depth
+        self.graph.tree_depth()
     }
 
     /// Returns the maximum number of message ID slots supported by the graph.
     #[cfg(all(feature = "multi-message-id", not(target_arch = "wasm32")))]
     pub fn max_out(&self) -> usize {
-        self.graph.max_out
+        self.graph.max_out()
     }
 
     // Merkle-tree APIs

@@ -14,51 +14,64 @@ use ruint::aliases::U256;
 use zeroize::zeroize_flat_type;
 
 use self::graph::fr_to_u256;
-use super::{error::WitnessCalcError, Fr};
+use super::{error::WitnessCalcError, Fr, Graph, WitnessCompute};
 use crate::utils::FrOrSecret;
 
 pub(crate) type InputSignalsInfo = HashMap<String, (usize, usize)>;
 
-pub(crate) fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
-    inputs: I,
-    graph: &super::Graph,
-) -> Result<Vec<Fr>, WitnessCalcError> {
-    let mut inputs: HashMap<String, Vec<U256>> = inputs
-        .into_iter()
-        .map(|(key, value)| {
-            (
-                key,
-                value
-                    .iter()
-                    .map(|f_| match f_ {
-                        FrOrSecret::IdSecret(s) => s.to_u256(),
-                        FrOrSecret::Fr(f) => fr_to_u256(f),
-                    })
-                    .collect(),
-            )
-        })
-        .collect();
+impl WitnessCompute for Graph {
+    type Error = WitnessCalcError;
 
-    let mut inputs_buffer = get_inputs_buffer(get_inputs_size(&graph.nodes));
+    fn calc_witness(
+        &self,
+        inputs: impl IntoIterator<Item = (String, Vec<FrOrSecret>)>,
+    ) -> Result<Vec<Fr>, Self::Error> {
+        let mut inputs: HashMap<String, Vec<U256>> = inputs
+            .into_iter()
+            .map(|(key, value)| {
+                (
+                    key,
+                    value
+                        .iter()
+                        .map(|f_| match f_ {
+                            FrOrSecret::IdSecret(s) => s.to_u256(),
+                            FrOrSecret::Fr(f) => fr_to_u256(f),
+                        })
+                        .collect(),
+                )
+            })
+            .collect();
 
-    populate_inputs(&inputs, &graph.input_mapping, &mut inputs_buffer)?;
+        let mut inputs_buffer = get_inputs_buffer(get_inputs_size(&self.nodes));
 
-    if let Some(v) = inputs.get_mut("identitySecret") {
-        // DO NOT USE: unsafe { zeroize_flat_type(v) } only clears the Vec pointer, not the data - can cause memory leaks
+        populate_inputs(&inputs, &self.input_mapping, &mut inputs_buffer)?;
 
-        for val in v.iter_mut() {
+        if let Some(v) = inputs.get_mut("identitySecret") {
+            // DO NOT USE: unsafe { zeroize_flat_type(v) } only clears the Vec pointer, not the data - can cause memory leaks
+
+            for val in v.iter_mut() {
+                unsafe { zeroize_flat_type(val) };
+            }
+        }
+
+        let res = graph::evaluate(&self.nodes, inputs_buffer.as_slice(), &self.signals)
+            .map_err(WitnessCalcError::GraphEvaluation)?;
+
+        for val in inputs_buffer.iter_mut() {
             unsafe { zeroize_flat_type(val) };
         }
+
+        Ok(res)
     }
 
-    let res = graph::evaluate(&graph.nodes, inputs_buffer.as_slice(), &graph.signals)
-        .map_err(WitnessCalcError::GraphEvaluation)?;
-
-    for val in inputs_buffer.iter_mut() {
-        unsafe { zeroize_flat_type(val) };
+    fn tree_depth(&self) -> usize {
+        self.tree_depth
     }
 
-    Ok(res)
+    #[cfg(feature = "multi-message-id")]
+    fn max_out(&self) -> usize {
+        return self.max_out;
+    }
 }
 
 pub(crate) fn calc_witness_partial<I: IntoIterator<Item = (String, Vec<Option<FrOrSecret>>)>>(
