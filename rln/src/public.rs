@@ -47,7 +47,7 @@ impl TreeConfigInput for &str {
 }
 
 /// Implementation for direct builder pattern Config struct
-#[cfg(all(feature = "pmtree-ft", not(feature = "stateless")))]
+#[cfg(feature = "pmtree-ft")]
 impl TreeConfigInput for <PoseidonTree as ZerokitMerkleTree>::Config {
     fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError> {
         Ok(self)
