@@ -64,7 +64,7 @@ This example functions similarly to the [Relay Example](#relay-example)
 but demonstrates the partial proof optimization technique
 for improved proof generation performance.
 
-Cached partial proofs remain usable across tree changes within a small window —
+Cached partial proofs remain usable across tree changes within a small window -
 verify against a bounded set of recent roots
 (e.g. via [`verify_with_roots`](../rln/src/public.rs))
 instead of regenerating immediately.

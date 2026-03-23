@@ -76,8 +76,8 @@ cross build --target x86_64-unknown-linux-gnu --release -p rln
 
 Zerokit powers zero-knowledge functionality in:
 
-- [**nwaku**](https://github.com/waku-org/nwaku) — Nim implementation of the Waku v2 protocol
-- [**js-rln**](https://github.com/waku-org/js-rln) — JavaScript bindings for RLN
+- [**nwaku**](https://github.com/waku-org/nwaku) - Nim implementation of the Waku v2 protocol
+- [**js-rln**](https://github.com/waku-org/js-rln) - JavaScript bindings for RLN
 
 ## Acknowledgements
 
