@@ -21,10 +21,7 @@ use crate::{
 use crate::{
     circuit::{zkey_from_raw, Fr, Proof, Zkey},
     error::{RLNError, VerifyError},
-    protocol::{
-        generate_zk_proof_with_witness, verify_zk_proof, RLNProofValues,
-        RLNWitnessInput,
-    },
+    protocol::{generate_zk_proof_with_witness, verify_zk_proof, RLNProofValues, RLNWitnessInput},
 };
 
 /// This trait allows accepting different config input types for tree configuration.

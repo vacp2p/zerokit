@@ -26,10 +26,9 @@ pub use crate::{
     error::{ProtocolError, RLNError, UtilsError, VerifyError},
     hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash, PoseidonHash},
     protocol::{
-        compute_id_secret, extended_keygen, extended_seeded_keygen,
-        generate_zk_proof_with_witness, keygen, recover_id_secret,
-        seeded_keygen, RlnSerialize, RLNPartialWitnessInput,
-        RLNProof, RLNProofValues, RLNWitnessInput,
+        compute_id_secret, extended_keygen, extended_seeded_keygen, generate_zk_proof_with_witness,
+        keygen, recover_id_secret, seeded_keygen, RLNPartialWitnessInput, RLNProof, RLNProofValues,
+        RLNWitnessInput, RlnSerialize,
     },
     public::RLN,
     utils::{

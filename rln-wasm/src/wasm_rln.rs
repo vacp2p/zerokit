@@ -178,12 +178,22 @@ impl WasmRLNProofValues {
 
     #[wasm_bindgen(js_name = toBytesLE)]
     pub fn to_bytes_le(&self) -> Uint8Array {
-        Uint8Array::from(&self.0.to_bytes_le().expect("RLNProofValues serialization is infallible")[..])
+        Uint8Array::from(
+            &self
+                .0
+                .to_bytes_le()
+                .expect("RLNProofValues serialization is infallible")[..],
+        )
     }
 
     #[wasm_bindgen(js_name = toBytesBE)]
     pub fn to_bytes_be(&self) -> Uint8Array {
-        Uint8Array::from(&self.0.to_bytes_be().expect("RLNProofValues serialization is infallible")[..])
+        Uint8Array::from(
+            &self
+                .0
+                .to_bytes_be()
+                .expect("RLNProofValues serialization is infallible")[..],
+        )
     }
 
     #[wasm_bindgen(js_name = fromBytesLE)]
@@ -369,14 +379,16 @@ impl WasmRLNWitnessInput {
     #[wasm_bindgen(js_name = fromBytesLE)]
     pub fn from_bytes_le(bytes: &Uint8Array) -> Result<WasmRLNWitnessInput, String> {
         let bytes_vec = bytes.to_vec();
-        let (witness, _) = RLNWitnessInput::from_bytes_le(&bytes_vec).map_err(|err| err.to_string())?;
+        let (witness, _) =
+            RLNWitnessInput::from_bytes_le(&bytes_vec).map_err(|err| err.to_string())?;
         Ok(WasmRLNWitnessInput(witness))
     }
 
     #[wasm_bindgen(js_name = fromBytesBE)]
     pub fn from_bytes_be(bytes: &Uint8Array) -> Result<WasmRLNWitnessInput, String> {
         let bytes_vec = bytes.to_vec();
-        let (witness, _) = RLNWitnessInput::from_bytes_be(&bytes_vec).map_err(|err| err.to_string())?;
+        let (witness, _) =
+            RLNWitnessInput::from_bytes_be(&bytes_vec).map_err(|err| err.to_string())?;
         Ok(WasmRLNWitnessInput(witness))
     }
 
