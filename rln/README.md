@@ -319,11 +319,11 @@ RLN provides C-compatible bindings for integration with C, C++, Nim, and other l
 
 The FFI layer is organized into several modules:
 
-- [`ffi_rln.rs`](./src/ffi/ffi_rln.rs) — Implements core RLN functionality,
+- [`ffi_rln.rs`](./src/ffi/ffi_rln.rs) - Implements core RLN functionality,
   including initialization functions, proof generation, and proof verification.
-- [`ffi_tree.rs`](./src/ffi/ffi_tree.rs) — Provides all tree-related operations
+- [`ffi_tree.rs`](./src/ffi/ffi_tree.rs) - Provides all tree-related operations
   and helper functions for Merkle tree management.
-- [`ffi_utils.rs`](./src/ffi/ffi_utils.rs) — Contains all utility functions and structure definitions
+- [`ffi_utils.rs`](./src/ffi/ffi_utils.rs) - Contains all utility functions and structure definitions
   used across the FFI layer.
 
 ## Parallel Processing
@@ -357,7 +357,7 @@ Two services can independently run in either normal or multi-message-id mode to 
 The full structured format of `RLNWitnessInput` and `RLNProofValues`
 is only needed for witness calculation, proof generation, and proof verification.
 
-After verification, each active nullifier and its `(x, y)` pair can be extracted individually —
+After verification, each active nullifier and its `(x, y)` pair can be extracted individually -
 unused slots can be ignored.
 These normalized pairs are then stored separately
 and checked for duplicate nullifiers via `compute_id_secret` function.

@@ -21,10 +21,7 @@ use crate::{
 use crate::{
     circuit::{zkey_from_raw, Fr, Proof, Zkey},
     error::{RLNError, VerifyError},
-    protocol::{
-        generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof, RLNProofValues,
-        RLNWitnessInput,
-    },
+    protocol::{generate_zk_proof_with_witness, verify_zk_proof, RLNProofValues, RLNWitnessInput},
 };
 
 /// This trait allows accepting different config input types for tree configuration.
@@ -587,13 +584,13 @@ impl RLN {
 
     // zkSNARK APIs
 
-    /// Generates a zkSNARK proof component of an RLN proof from a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput).
+    /// Generates a zkSNARK proof component of an RLN proof from a [`RLNWitnessInput`].
     ///
-    /// Extract proof values separately using [`proof_values_from_witness`](crate::protocol::proof_values_from_witness).
+    /// Extract proof values separately using [`RLNWitnessInput::proof_values`].
     ///
     /// Example:
     /// ```
-    /// let proof_values = proof_values_from_witness(&witness);
+    /// let proof_values = witness.proof_values();
     ///
     /// // We compute a Groth16 proof
     /// let zk_proof = rln.generate_zk_proof(&witness)?;
@@ -618,7 +615,7 @@ impl RLN {
         &self,
         witness: &RLNWitnessInput,
     ) -> Result<(Proof, RLNProofValues), RLNError> {
-        let proof_values = proof_values_from_witness(witness)?;
+        let proof_values = witness.proof_values()?;
         let proof = generate_zk_proof(&self.zkey, witness, &self.graph)?;
         Ok((proof, proof_values))
     }
@@ -638,7 +635,7 @@ impl RLN {
         calculated_witness: Vec<BigInt>,
         witness: &RLNWitnessInput,
     ) -> Result<(Proof, RLNProofValues), RLNError> {
-        let proof_values = proof_values_from_witness(witness)?;
+        let proof_values = witness.proof_values()?;
         let proof = generate_zk_proof_with_witness(
             calculated_witness,
             &self.zkey,
@@ -684,7 +681,7 @@ impl RLN {
         partial_proof: &PartialProof,
         witness: &RLNWitnessInput,
     ) -> Result<(Proof, RLNProofValues), RLNError> {
-        let proof_values = proof_values_from_witness(witness)?;
+        let proof_values = witness.proof_values()?;
         let proof = finish_zk_proof(&self.zkey, partial_proof, witness, &self.graph)?;
         Ok((proof, proof_values))
     }
@@ -697,7 +694,7 @@ impl RLN {
     /// let zk_proof = rln.generate_zk_proof(&witness)?;
     ///
     /// // We compute proof values directly from witness
-    /// let proof_values = proof_values_from_witness(&witness);
+    /// let proof_values = witness.proof_values();
     ///
     /// // We verify the proof
     /// let verified = rln.verify_zk_proof(&zk_proof, &proof_values)?;
