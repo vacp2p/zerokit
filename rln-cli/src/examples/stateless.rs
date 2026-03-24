@@ -48,7 +48,7 @@ struct Identity {
 
 impl Identity {
     fn new() -> Self {
-        let (identity_secret, id_commitment) = keygen().unwrap();
+        let (identity_secret, id_commitment) = keygen();
         Identity {
             identity_secret,
             id_commitment,
@@ -101,8 +101,7 @@ impl RLNSystem {
         let index = self.tree.leaves_set();
         let identity = Identity::new();
 
-        let rate_commitment =
-            poseidon_hash(&[identity.id_commitment, Fr::from(MESSAGE_LIMIT)]).unwrap();
+        let rate_commitment = poseidon_hash(&[identity.id_commitment, Fr::from(MESSAGE_LIMIT)]);
         self.tree.update_next(rate_commitment)?;
 
         println!("Registered user: {index}");
@@ -221,7 +220,7 @@ fn main() -> Result<()> {
     let mut rln_system = RLNSystem::new()?;
     let rln_epoch = hash_to_field_le(b"epoch");
     let rln_identifier = hash_to_field_le(b"rln-identifier");
-    let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]).unwrap();
+    let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]);
     println!("RLN Stateless Example:");
     println!("Message Limit: {MESSAGE_LIMIT}");
     println!("----------------------------------");

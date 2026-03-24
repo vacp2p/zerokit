@@ -74,13 +74,7 @@ async function main() {
   }
 
   console.log("\nGenerating identity keys");
-  let identity;
-  try {
-    identity = rlnWasm.Identity.generate();
-  } catch (error) {
-    console.error("Key generation error:", error);
-    return;
-  }
+  let identity = rlnWasm.Identity.generate();
   const identitySecret = identity.getSecretHash();
   const idCommitment = identity.getCommitment();
   console.log("  - identity generated successfully");
@@ -92,16 +86,10 @@ async function main() {
   console.log("  - user_message_limit = " + userMessageLimit.debug());
 
   console.log("\nComputing rate commitment");
-  let rateCommitment;
-  try {
-    rateCommitment = rlnWasm.Hasher.poseidonHashPair(
-      idCommitment,
-      userMessageLimit,
-    );
-  } catch (error) {
-    console.error("Rate commitment hash error:", error);
-    return;
-  }
+  let rateCommitment = rlnWasm.Hasher.poseidonHashPair(
+    idCommitment,
+    userMessageLimit,
+  );
   console.log("  - rate_commitment = " + rateCommitment.debug());
 
   console.log("\nWasmFr serialization: WasmFr <-> bytes");
@@ -150,20 +138,12 @@ async function main() {
   const defaultLeaf = rlnWasm.WasmFr.zero();
 
   const defaultHashes = [];
-  try {
-    defaultHashes[0] = rlnWasm.Hasher.poseidonHashPair(
-      defaultLeaf,
-      defaultLeaf,
+  defaultHashes[0] = rlnWasm.Hasher.poseidonHashPair(defaultLeaf, defaultLeaf);
+  for (let i = 1; i < treeDepth - 1; i++) {
+    defaultHashes[i] = rlnWasm.Hasher.poseidonHashPair(
+      defaultHashes[i - 1],
+      defaultHashes[i - 1],
     );
-    for (let i = 1; i < treeDepth - 1; i++) {
-      defaultHashes[i] = rlnWasm.Hasher.poseidonHashPair(
-        defaultHashes[i - 1],
-        defaultHashes[i - 1],
-      );
-    }
-  } catch (error) {
-    console.error("Poseidon hash error:", error);
-    return;
   }
 
   const pathElements = new rlnWasm.VecWasmFr();
@@ -206,18 +186,15 @@ async function main() {
   console.log("\nComputing Merkle root for stateless mode");
   console.log("  - computing root for index 0 with rate_commitment");
 
-  let computedRoot;
-  try {
-    computedRoot = rlnWasm.Hasher.poseidonHashPair(rateCommitment, defaultLeaf);
-    for (let i = 1; i < treeDepth; i++) {
-      computedRoot = rlnWasm.Hasher.poseidonHashPair(
-        computedRoot,
-        defaultHashes[i - 1],
-      );
-    }
-  } catch (error) {
-    console.error("Poseidon hash error:", error);
-    return;
+  let computedRoot = rlnWasm.Hasher.poseidonHashPair(
+    rateCommitment,
+    defaultLeaf,
+  );
+  for (let i = 1; i < treeDepth; i++) {
+    computedRoot = rlnWasm.Hasher.poseidonHashPair(
+      computedRoot,
+      defaultHashes[i - 1],
+    );
   }
   console.log("  - computed_root = " + computedRoot.debug());
 
@@ -260,13 +237,7 @@ async function main() {
   console.log("  - rln_identifier = " + rlnIdentifier.debug());
 
   console.log("\nComputing Poseidon hash for external nullifier");
-  let externalNullifier;
-  try {
-    externalNullifier = rlnWasm.Hasher.poseidonHashPair(epoch, rlnIdentifier);
-  } catch (error) {
-    console.error("External nullifier hash error:", error);
-    return;
-  }
+  let externalNullifier = rlnWasm.Hasher.poseidonHashPair(epoch, rlnIdentifier);
   console.log("  - external_nullifier = " + externalNullifier.debug());
 
   if (MULTI_MESSAGE_ID) {
@@ -303,7 +274,6 @@ async function main() {
     witness = new rlnWasm.WasmRLNWitnessInput(
       identitySecret,
       userMessageLimit,
-      null,
       messageIds,
       pathElements,
       identityPathIndex,
@@ -511,7 +481,6 @@ async function main() {
     witness2 = new rlnWasm.WasmRLNWitnessInput(
       identitySecret,
       userMessageLimit,
-      null,
       messageIds2,
       pathElements,
       identityPathIndex,

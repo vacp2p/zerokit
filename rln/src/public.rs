@@ -6,9 +6,8 @@ use num_bigint::BigInt;
 use {
     crate::poseidon_tree::PoseidonTree,
     std::str::FromStr,
-    zerokit_utils::{
-        error::ZerokitMerkleTreeError,
-        merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
+    zerokit_utils::merkle_tree::{
+        Hasher, ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError,
     },
 };
 
@@ -618,7 +617,7 @@ impl RLN {
         &self,
         witness: &RLNWitnessInput,
     ) -> Result<(Proof, RLNProofValues), RLNError> {
-        let proof_values = proof_values_from_witness(witness)?;
+        let proof_values = proof_values_from_witness(witness);
         let proof = generate_zk_proof(&self.zkey, witness, &self.graph)?;
         Ok((proof, proof_values))
     }
@@ -638,7 +637,7 @@ impl RLN {
         calculated_witness: Vec<BigInt>,
         witness: &RLNWitnessInput,
     ) -> Result<(Proof, RLNProofValues), RLNError> {
-        let proof_values = proof_values_from_witness(witness)?;
+        let proof_values = proof_values_from_witness(witness);
         let proof = generate_zk_proof_with_witness(
             calculated_witness,
             &self.zkey,
@@ -684,7 +683,7 @@ impl RLN {
         partial_proof: &PartialProof,
         witness: &RLNWitnessInput,
     ) -> Result<(Proof, RLNProofValues), RLNError> {
-        let proof_values = proof_values_from_witness(witness)?;
+        let proof_values = proof_values_from_witness(witness);
         let proof = finish_zk_proof(&self.zkey, partial_proof, witness, &self.graph)?;
         Ok((proof, proof_values))
     }

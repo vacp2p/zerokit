@@ -101,14 +101,7 @@ int main(int argc, char const *const argv[])
 #endif
 
     printf("\nGenerating identity keys\n");
-    CResult_Vec_CFr_Vec_uint8_t keys_result = ffi_key_gen();
-    if (keys_result.err.ptr)
-    {
-        fprintf(stderr, "Key generation error: %s\n", keys_result.err.ptr);
-        ffi_c_string_free(keys_result.err);
-        return EXIT_FAILURE;
-    }
-    Vec_CFr_t keys = keys_result.ok;
+    Vec_CFr_t keys = ffi_key_gen();
     const CFr_t *identity_secret = ffi_vec_cfr_get(&keys, 0);
     const CFr_t *id_commitment = ffi_vec_cfr_get(&keys, 1);
     printf("  - identity generated successfully\n");
@@ -129,14 +122,7 @@ int main(int argc, char const *const argv[])
     ffi_c_string_free(debug);
 
     printf("\nComputing rate commitment\n");
-    CResult_CFr_ptr_Vec_uint8_t rate_commitment_result = ffi_poseidon_hash_pair(id_commitment, user_message_limit);
-    if (!rate_commitment_result.ok)
-    {
-        fprintf(stderr, "Rate commitment hash error: %s\n", rate_commitment_result.err.ptr);
-        ffi_c_string_free(rate_commitment_result.err);
-        return EXIT_FAILURE;
-    }
-    CFr_t *rate_commitment = rate_commitment_result.ok;
+    CFr_t *rate_commitment = ffi_poseidon_hash_pair(id_commitment, user_message_limit);
 
     debug = ffi_cfr_debug(rate_commitment);
     printf("  - rate_commitment = %s\n", debug.ptr);
@@ -194,24 +180,10 @@ int main(int argc, char const *const argv[])
     CFr_t *default_leaf = ffi_cfr_zero();
 
     CFr_t *default_hashes[TREE_DEPTH - 1];
-    CResult_CFr_ptr_Vec_uint8_t hash_result = ffi_poseidon_hash_pair(default_leaf, default_leaf);
-    if (!hash_result.ok)
-    {
-        fprintf(stderr, "Poseidon hash error: %s\n", hash_result.err.ptr);
-        ffi_c_string_free(hash_result.err);
-        return EXIT_FAILURE;
-    }
-    default_hashes[0] = hash_result.ok;
+    default_hashes[0] = ffi_poseidon_hash_pair(default_leaf, default_leaf);
     for (size_t i = 1; i < TREE_DEPTH - 1; i++)
     {
-        hash_result = ffi_poseidon_hash_pair(default_hashes[i - 1], default_hashes[i - 1]);
-        if (!hash_result.ok)
-        {
-            fprintf(stderr, "Poseidon hash error: %s\n", hash_result.err.ptr);
-            ffi_c_string_free(hash_result.err);
-            return EXIT_FAILURE;
-        }
-        default_hashes[i] = hash_result.ok;
+        default_hashes[i] = ffi_poseidon_hash_pair(default_hashes[i - 1], default_hashes[i - 1]);
     }
 
     Vec_CFr_t path_elements = ffi_vec_cfr_new(TREE_DEPTH);
@@ -277,24 +249,10 @@ int main(int argc, char const *const argv[])
 
     printf("\nComputing Merkle root for stateless mode\n");
     printf("  - computing root for index 0 with rate_commitment\n");
-    CResult_CFr_ptr_Vec_uint8_t root_result = ffi_poseidon_hash_pair(rate_commitment, default_leaf);
-    if (!root_result.ok)
-    {
-        fprintf(stderr, "Poseidon hash error: %s\n", root_result.err.ptr);
-        ffi_c_string_free(root_result.err);
-        return EXIT_FAILURE;
-    }
-    CFr_t *computed_root = root_result.ok;
+    CFr_t *computed_root = ffi_poseidon_hash_pair(rate_commitment, default_leaf);
     for (size_t i = 1; i < TREE_DEPTH; i++)
     {
-        root_result = ffi_poseidon_hash_pair(computed_root, default_hashes[i - 1]);
-        if (!root_result.ok)
-        {
-            fprintf(stderr, "Poseidon hash error: %s\n", root_result.err.ptr);
-            ffi_c_string_free(root_result.err);
-            return EXIT_FAILURE;
-        }
-        CFr_t *next_root = root_result.ok;
+        CFr_t *next_root = ffi_poseidon_hash_pair(computed_root, default_hashes[i - 1]);
         ffi_cfr_free(computed_root);
         computed_root = next_root;
     }
@@ -355,14 +313,7 @@ int main(int argc, char const *const argv[])
     ffi_c_string_free(debug);
 
     printf("\nComputing Poseidon hash for external nullifier\n");
-    CResult_CFr_ptr_Vec_uint8_t external_nullifier_result = ffi_poseidon_hash_pair(epoch, rln_identifier);
-    if (!external_nullifier_result.ok)
-    {
-        fprintf(stderr, "External nullifier hash error: %s\n", external_nullifier_result.err.ptr);
-        ffi_c_string_free(external_nullifier_result.err);
-        return EXIT_FAILURE;
-    }
-    CFr_t *external_nullifier = external_nullifier_result.ok;
+    CFr_t *external_nullifier = ffi_poseidon_hash_pair(epoch, rln_identifier);
 
     debug = ffi_cfr_debug(external_nullifier);
     printf("  - external_nullifier = %s\n", debug.ptr);

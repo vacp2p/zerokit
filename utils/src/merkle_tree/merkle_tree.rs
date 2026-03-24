@@ -23,14 +23,11 @@ pub trait Hasher {
     /// Type of the leaf and tree node
     type Fr: Clone + Copy + Eq + Default + Debug + Display + FromStr + Send + Sync;
 
-    /// Error type for hash operations - must be convertible to ZerokitMerkleTreeError
-    type Error: Into<ZerokitMerkleTreeError> + std::error::Error + Send + Sync + 'static;
-
     /// Returns the default tree leaf
     fn default_leaf() -> Self::Fr;
 
     /// Utility to compute the hash of an intermediate node
-    fn hash(input: &[Self::Fr]) -> Result<Self::Fr, Self::Error>;
+    fn hash_pair(left: Self::Fr, right: Self::Fr) -> Self::Fr;
 }
 
 pub type FrOf<H> = <H as Hasher>::Fr;
@@ -98,8 +95,5 @@ pub trait ZerokitMerkleProof {
     fn leaf_index(&self) -> usize;
     fn get_path_elements(&self) -> Vec<FrOf<Self::Hasher>>;
     fn get_path_index(&self) -> Vec<Self::Index>;
-    fn compute_root_from(
-        &self,
-        leaf: &FrOf<Self::Hasher>,
-    ) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError>;
+    fn compute_root_from(&self, leaf: &FrOf<Self::Hasher>) -> FrOf<Self::Hasher>;
 }

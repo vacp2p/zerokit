@@ -62,7 +62,7 @@ struct CachedPartialProof {
 
 impl Identity {
     fn new() -> Self {
-        let (identity_secret, id_commitment) = keygen().unwrap();
+        let (identity_secret, id_commitment) = keygen();
         Identity {
             identity_secret,
             id_commitment,
@@ -167,8 +167,7 @@ impl RLNSystem {
         let index = self.rln.leaves_set();
         let identity = Identity::new();
 
-        let rate_commitment =
-            poseidon_hash(&[identity.id_commitment, Fr::from(MESSAGE_LIMIT)]).unwrap();
+        let rate_commitment = poseidon_hash(&[identity.id_commitment, Fr::from(MESSAGE_LIMIT)]);
         match self.rln.set_next_leaf(rate_commitment) {
             Ok(_) => {
                 println!("Registered user: {index}");
@@ -368,7 +367,7 @@ fn main() -> Result<()> {
     print!("\x1B[2J\x1B[1;1H");
     let rln_epoch = hash_to_field_le(b"epoch");
     let rln_identifier = hash_to_field_le(b"rln-identifier");
-    let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]).unwrap();
+    let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]);
     let mut rln_system = RLNSystem::new(external_nullifier)?;
     println!("RLN Partial Proof Example:");
     println!("Message Limit: {MESSAGE_LIMIT}");

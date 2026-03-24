@@ -2,7 +2,7 @@ use std::{array::TryFromSliceError, num::TryFromIntError};
 
 use ark_relations::r1cs::SynthesisError;
 use num_bigint::{BigInt, ParseBigIntError};
-use zerokit_utils::error::{FromConfigError, HashError, ZerokitMerkleTreeError};
+use zerokit_utils::merkle_tree::{FromConfigError, ZerokitMerkleTreeError};
 
 use crate::circuit::{
     error::{GraphReadError, WitnessCalcError, ZKeyReadError},
@@ -66,8 +66,6 @@ pub enum ProtocolError {
     UninitializedConstraintSystem,
     #[error("Merkle tree operation error: {0}")]
     MerkleTree(#[from] ZerokitMerkleTreeError),
-    #[error("Hash computation error: {0}")]
-    Hash(#[from] HashError),
     #[error("Proof serialization error: {0}")]
     SerializationError(#[from] ark_serialize::SerializationError),
     #[error("Unknown serialization version: {0:#04x}")]
@@ -94,8 +92,6 @@ pub enum RLNError {
     Config(#[from] FromConfigError),
     #[error("Merkle tree error: {0}")]
     MerkleTree(#[from] ZerokitMerkleTreeError),
-    #[error("Hash error: {0}")]
-    Hash(#[from] HashError),
     #[error("ZKey error: {0}")]
     ZKey(#[from] ZKeyReadError),
     #[error("Graph error: {0}")]

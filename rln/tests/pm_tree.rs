@@ -312,8 +312,8 @@ mod test {
 
         // Both proofs should reconstruct the current root when used with the correct leaf value,
         // but their *paths/indexes* should differ.
-        let root0 = proof0.compute_root_from(&leaf).unwrap();
-        let root1 = proof1.compute_root_from(&leaf).unwrap();
+        let root0 = proof0.compute_root_from(&leaf);
+        let root1 = proof1.compute_root_from(&leaf);
         assert_eq!(root0, tree.root());
         assert_eq!(root1, tree.root());
 

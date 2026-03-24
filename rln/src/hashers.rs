@@ -4,7 +4,7 @@ use std::sync::LazyLock;
 
 use num_bigint::BigUint;
 use tiny_keccak::{Hasher, Keccak};
-use zerokit_utils::{error::HashError, poseidon::Poseidon};
+use zerokit_utils::poseidon::{Poseidon, PoseidonError};
 
 use crate::circuit::Fr;
 
@@ -25,9 +25,31 @@ const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
 /// Poseidon Hash wrapper over above implementation.
 static POSEIDON: LazyLock<Poseidon<Fr>> = LazyLock::new(|| Poseidon::<Fr>::from(&ROUND_PARAMS));
 
-pub fn poseidon_hash(input: &[Fr]) -> Result<Fr, HashError> {
-    let hash = POSEIDON.hash(input)?;
+/// Hashes a list of field elements using Poseidon.
+///
+///
+/// Panics if the input length does not match any of the supported round parameters.
+pub fn poseidon_hash(input: &[Fr]) -> Fr {
+    POSEIDON
+        .hash(input)
+        .expect("Input length must be valid with supported round parameters")
+}
+
+/// Hashes a list of field elements using Poseidon.
+///
+/// Return an error if the input length does not match any of the supported round parameters.
+pub fn poseidon_hash_try_from(frs: &[Fr]) -> Result<Fr, PoseidonError> {
+    let hash = POSEIDON.hash(frs)?;
     Ok(hash)
+}
+
+/// Hashes a pair of field elements using Poseidon.
+///
+/// No panic or error is expected since the supported round parameters include the case of two elements.
+pub fn poseidon_hash_pair(fr1: Fr, fr2: Fr) -> Fr {
+    POSEIDON
+        .hash(&[fr1, fr2])
+        .expect("Two element input must be valid with supported round parameters")
 }
 
 /// The zerokit RLN Merkle tree Hasher.
@@ -37,14 +59,13 @@ pub struct PoseidonHash;
 /// The default Hasher trait used by Merkle tree implementation in utils.
 impl zerokit_utils::merkle_tree::Hasher for PoseidonHash {
     type Fr = Fr;
-    type Error = HashError;
 
     fn default_leaf() -> Self::Fr {
         Self::Fr::from(0)
     }
 
-    fn hash(inputs: &[Self::Fr]) -> Result<Self::Fr, Self::Error> {
-        poseidon_hash(inputs)
+    fn hash_pair(left: Self::Fr, right: Self::Fr) -> Self::Fr {
+        poseidon_hash_pair(left, right)
     }
 }
 

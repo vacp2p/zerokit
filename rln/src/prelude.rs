@@ -24,7 +24,10 @@ pub use crate::{
         PartialProof, Proof, VerifyingKey, Zkey, COMPRESS_PROOF_SIZE, DEFAULT_TREE_DEPTH,
     },
     error::{ProtocolError, RLNError, UtilsError, VerifyError},
-    hashers::{hash_to_field_be, hash_to_field_le, poseidon_hash, PoseidonHash},
+    hashers::{
+        hash_to_field_be, hash_to_field_le, poseidon_hash, poseidon_hash_pair,
+        poseidon_hash_try_from, PoseidonHash,
+    },
     protocol::{
         bytes_be_to_rln_partial_proof, bytes_be_to_rln_partial_witness, bytes_be_to_rln_proof,
         bytes_be_to_rln_proof_values, bytes_be_to_rln_witness, bytes_le_to_rln_partial_proof,
