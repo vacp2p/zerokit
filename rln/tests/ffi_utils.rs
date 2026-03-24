@@ -215,32 +215,12 @@ mod test {
         let signal_gen: [u8; 32] = rng.gen();
         let signal: Vec<u8> = signal_gen.to_vec();
 
-        let cfr_le_1 = match ffi_hash_to_field_le(&signal.clone().into()) {
-            CResult {
-                ok: Some(cfr),
-                err: None,
-            } => cfr,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("ffi_hash_to_field_le call failed: {}", err),
-            _ => unreachable!(),
-        };
-        let fr_le_2 = hash_to_field_le(&signal).unwrap();
+        let cfr_le_1 = ffi_hash_to_field_le(&signal.clone().into());
+        let fr_le_2 = hash_to_field_le(&signal);
         assert_eq!(*cfr_le_1, fr_le_2);
 
-        let cfr_be_1 = match ffi_hash_to_field_be(&signal.clone().into()) {
-            CResult {
-                ok: Some(cfr),
-                err: None,
-            } => cfr,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("ffi_hash_to_field_be call failed: {}", err),
-            _ => unreachable!(),
-        };
-        let fr_be_2 = hash_to_field_be(&signal).unwrap();
+        let cfr_be_1 = ffi_hash_to_field_be(&signal.clone().into());
+        let fr_be_2 = hash_to_field_be(&signal);
         assert_eq!(*cfr_le_1, fr_be_2);
 
         assert_eq!(*cfr_le_1, *cfr_be_1);

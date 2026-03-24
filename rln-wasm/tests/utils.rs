@@ -186,12 +186,12 @@ mod test {
         let signal_gen: [u8; 32] = rng.gen();
         let signal = Uint8Array::from(&signal_gen[..]);
 
-        let wasmfr_le_1 = Hasher::hash_to_field_le(&signal).unwrap();
-        let fr_le_2 = hash_to_field_le(&signal_gen).unwrap();
+        let wasmfr_le_1 = Hasher::hash_to_field_le(&signal);
+        let fr_le_2 = hash_to_field_le(&signal_gen);
         assert_eq!(*wasmfr_le_1, fr_le_2);
 
-        let wasmfr_be_1 = Hasher::hash_to_field_be(&signal).unwrap();
-        let fr_be_2 = hash_to_field_be(&signal_gen).unwrap();
+        let wasmfr_be_1 = Hasher::hash_to_field_be(&signal);
+        let fr_be_2 = hash_to_field_be(&signal_gen);
         assert_eq!(*wasmfr_be_1, fr_be_2);
 
         assert_eq!(*wasmfr_le_1, *wasmfr_be_1);

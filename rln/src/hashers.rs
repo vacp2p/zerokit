@@ -6,7 +6,7 @@ use num_bigint::BigUint;
 use tiny_keccak::{Hasher, Keccak};
 use zerokit_utils::{error::HashError, poseidon::Poseidon};
 
-use crate::{circuit::Fr, error::UtilsError};
+use crate::circuit::Fr;
 
 /// These indexed constants hardcode the supported round parameters tuples (t, RF, RN, SKIP_MATRICES) for the Bn254 scalar field.
 /// SKIP_MATRICES is the index of the randomly generated secure MDS matrix.
@@ -49,18 +49,18 @@ impl zerokit_utils::merkle_tree::Hasher for PoseidonHash {
 }
 
 /// Hashes arbitrary signal to the underlying prime field.
-pub fn hash_to_field_le(signal: &[u8]) -> Result<Fr, UtilsError> {
+pub fn hash_to_field_le(signal: &[u8]) -> Fr {
     // We hash the input signal using Keccak256
     let mut hash = [0; 32];
     let mut hasher = Keccak::v256();
     hasher.update(signal);
     hasher.finalize(&mut hash);
 
-    Ok(Fr::from(BigUint::from_bytes_le(&hash)))
+    Fr::from(BigUint::from_bytes_le(&hash))
 }
 
 /// Hashes arbitrary signal to the underlying prime field.
-pub fn hash_to_field_be(signal: &[u8]) -> Result<Fr, UtilsError> {
+pub fn hash_to_field_be(signal: &[u8]) -> Fr {
     // We hash the input signal using Keccak256
     let mut hash = [0; 32];
     let mut hasher = Keccak::v256();
@@ -68,5 +68,5 @@ pub fn hash_to_field_be(signal: &[u8]) -> Result<Fr, UtilsError> {
     hasher.finalize(&mut hash);
     hash.reverse();
 
-    Ok(Fr::from(BigUint::from_bytes_be(&hash)))
+    Fr::from(BigUint::from_bytes_be(&hash))
 }

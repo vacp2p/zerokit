@@ -242,7 +242,7 @@ impl RLNSystem {
             None => return Err(format!("User {user_index} not found").into()),
         };
 
-        let x = hash_to_field_le(signal.as_bytes())?;
+        let x = hash_to_field_le(signal.as_bytes());
         let current_root = self.rln.get_root();
 
         let (witness, partial_proof) = match self.partial_proofs.get(&user_index) {
@@ -366,8 +366,8 @@ impl RLNSystem {
 fn main() -> Result<()> {
     println!("Initializing RLN instance...");
     print!("\x1B[2J\x1B[1;1H");
-    let rln_epoch = hash_to_field_le(b"epoch")?;
-    let rln_identifier = hash_to_field_le(b"rln-identifier")?;
+    let rln_epoch = hash_to_field_le(b"epoch");
+    let rln_identifier = hash_to_field_le(b"rln-identifier");
     let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]).unwrap();
     let mut rln_system = RLNSystem::new(external_nullifier)?;
     println!("RLN Partial Proof Example:");

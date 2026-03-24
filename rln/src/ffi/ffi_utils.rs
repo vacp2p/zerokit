@@ -286,31 +286,13 @@ pub fn ffi_vec_u8_free(v: repr_c::Vec<u8>) {
 // Utility APIs
 
 #[ffi_export]
-pub fn ffi_hash_to_field_le(input: &repr_c::Vec<u8>) -> CResult<repr_c::Box<CFr>, repr_c::String> {
-    match hash_to_field_le(input) {
-        Ok(hash_result) => CResult {
-            ok: Some(CFr::from(hash_result).into()),
-            err: None,
-        },
-        Err(err) => CResult {
-            ok: None,
-            err: Some(format!("{:?}", err).into()),
-        },
-    }
+pub fn ffi_hash_to_field_le(input: &repr_c::Vec<u8>) -> repr_c::Box<CFr> {
+    CFr::from(hash_to_field_le(input)).into()
 }
 
 #[ffi_export]
-pub fn ffi_hash_to_field_be(input: &repr_c::Vec<u8>) -> CResult<repr_c::Box<CFr>, repr_c::String> {
-    match hash_to_field_be(input) {
-        Ok(hash_result) => CResult {
-            ok: Some(CFr::from(hash_result).into()),
-            err: None,
-        },
-        Err(err) => CResult {
-            ok: None,
-            err: Some(format!("{:?}", err).into()),
-        },
-    }
+pub fn ffi_hash_to_field_be(input: &repr_c::Vec<u8>) -> repr_c::Box<CFr> {
+    CFr::from(hash_to_field_be(input)).into()
 }
 
 #[ffi_export]

@@ -24,11 +24,11 @@ fn get_test_witness() -> RLNWitnessInput {
     let merkle_proof = tree.proof(leaf_index).unwrap();
 
     let signal = b"hey hey";
-    let x = hash_to_field_le(signal).unwrap();
+    let x = hash_to_field_le(signal);
 
     // We set the remaining values to random ones
-    let epoch = hash_to_field_le(b"test-epoch").unwrap();
-    let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+    let epoch = hash_to_field_le(b"test-epoch");
+    let rln_identifier = hash_to_field_le(b"test-rln-identifier");
     let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
 
     let message_id = Fr::from(1);

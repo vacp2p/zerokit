@@ -338,7 +338,7 @@ mod test {
         let mut ffi_rln_instance = create_rln_instance();
 
         // Generate identity
-        let mut identity_secret_ = hash_to_field_le(b"test-merkle-proof").unwrap();
+        let mut identity_secret_ = hash_to_field_le(b"test-merkle-proof");
         let identity_secret = IdSecret::from(&mut identity_secret_);
         let mut to_hash = [*identity_secret.clone()];
         let id_commitment = poseidon_hash(&to_hash).unwrap();
@@ -504,9 +504,9 @@ mod test {
         let signal: [u8; 32] = rng.gen();
 
         // We generate a random epoch
-        let epoch = hash_to_field_le(b"test-epoch").unwrap();
+        let epoch = hash_to_field_le(b"test-epoch");
         // We generate a random rln_identifier
-        let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         // We generate a external nullifier
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
         // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
@@ -521,7 +521,7 @@ mod test {
         }
 
         // Hash the signal to get x
-        let x = hash_to_field_le(&signal).unwrap();
+        let x = hash_to_field_le(&signal);
 
         let rln_proof = rln_proof_gen(
             &ffi_rln_instance,
@@ -559,9 +559,9 @@ mod test {
         let signal: [u8; 32] = rng.gen();
 
         // We generate a random epoch
-        let epoch = hash_to_field_le(b"test-epoch").unwrap();
+        let epoch = hash_to_field_le(b"test-epoch");
         // We generate a random rln_identifier
-        let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         // We generate a external nullifier
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
         // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
@@ -574,7 +574,7 @@ mod test {
         }
 
         // Hash the signal to get x
-        let x = hash_to_field_le(&signal).unwrap();
+        let x = hash_to_field_le(&signal);
 
         let rln_proof = rln_proof_gen(
             &ffi_rln_instance,
@@ -664,17 +664,17 @@ mod test {
         let signal2: [u8; 32] = rng.gen();
 
         // We generate a random epoch
-        let epoch = hash_to_field_le(b"test-epoch").unwrap();
+        let epoch = hash_to_field_le(b"test-epoch");
         // We generate a random rln_identifier
-        let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         // We generate a external nullifier
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
         // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
         let message_id = Fr::from(1);
 
         // Hash the signals to get x
-        let x1 = hash_to_field_le(&signal1).unwrap();
-        let x2 = hash_to_field_le(&signal2).unwrap();
+        let x1 = hash_to_field_le(&signal1);
+        let x2 = hash_to_field_le(&signal2);
 
         // Generate proofs using witness-based API
         // We call generate_rln_proof for first proof values
@@ -734,7 +734,7 @@ mod test {
 
         // We generate a random signal
         let signal3: [u8; 32] = rng.gen();
-        let x3 = hash_to_field_le(&signal3).unwrap();
+        let x3 = hash_to_field_le(&signal3);
 
         let rln_proof3 = rln_proof_gen(
             &ffi_rln_instance,
@@ -881,9 +881,9 @@ mod test {
         assert!(result.ok);
 
         let signal = b"hey hey";
-        let x = hash_to_field_le(signal).unwrap();
-        let epoch = hash_to_field_le(b"test-epoch").unwrap();
-        let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+        let x = hash_to_field_le(signal);
+        let epoch = hash_to_field_le(b"test-epoch");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
         let message_id = Fr::from(1);
 
@@ -1018,9 +1018,9 @@ mod test {
 
         // Generate valid components
         let signal = b"hey hey";
-        let x = hash_to_field_le(signal).unwrap();
-        let epoch = hash_to_field_le(b"test-epoch").unwrap();
-        let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+        let x = hash_to_field_le(signal);
+        let epoch = hash_to_field_le(b"test-epoch");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
 
         // Test invalid witness input (message_id >= limit)
@@ -1266,10 +1266,10 @@ mod test {
         // Generate a random signal and epoch
         let mut rng = rand::thread_rng();
         let signal: [u8; 32] = rng.gen();
-        let epoch = hash_to_field_le(b"test-epoch-partial").unwrap();
-        let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+        let epoch = hash_to_field_le(b"test-epoch-partial");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
-        let x = hash_to_field_le(&signal).unwrap();
+        let x = hash_to_field_le(&signal);
 
         // Create the full witness via FFI
         let full_witness = match ffi_rln_witness_input_new(

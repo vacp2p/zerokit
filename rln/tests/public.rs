@@ -82,15 +82,15 @@ mod test {
         let mut rng = thread_rng();
 
         let identity_secret = IdSecret::rand(&mut rng);
-        let x = hash_to_field_le(&rng.gen::<[u8; 32]>()).unwrap();
-        let epoch = hash_to_field_le(&rng.gen::<[u8; 32]>()).unwrap();
-        let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+        let x = hash_to_field_le(&rng.gen::<[u8; 32]>());
+        let epoch = hash_to_field_le(&rng.gen::<[u8; 32]>());
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
 
         let mut path_elements: Vec<Fr> = Vec::new();
         let mut identity_path_index: Vec<u8> = Vec::new();
 
         for _ in 0..tree_depth {
-            path_elements.push(hash_to_field_le(&rng.gen::<[u8; 32]>()).unwrap());
+            path_elements.push(hash_to_field_le(&rng.gen::<[u8; 32]>()));
             identity_path_index.push(rng.gen_range(0..2) as u8);
         }
 
@@ -388,11 +388,11 @@ mod test {
             rln.set_next_leaf(rate_commitment).unwrap();
 
             let signal: [u8; 32] = rng.gen();
-            let epoch = hash_to_field_le(b"test-epoch").unwrap();
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+            let epoch = hash_to_field_le(b"test-epoch");
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
             let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
             let message_id = Fr::from(1);
-            let x = hash_to_field_le(&signal).unwrap();
+            let x = hash_to_field_le(&signal);
 
             let (mut path_elements, identity_path_index) =
                 rln.get_merkle_proof(identity_index).unwrap();
@@ -794,16 +794,16 @@ mod test {
             let signal: [u8; 32] = rng.gen();
 
             // We generate a random epoch
-            let epoch = hash_to_field_le(b"test-epoch").unwrap();
+            let epoch = hash_to_field_le(b"test-epoch");
             // We generate a random rln_identifier
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
             // We generate a external nullifier
             let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
             // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
             let message_id = Fr::from(1);
 
             // Hash the signal to get x
-            let x = hash_to_field_le(&signal).unwrap();
+            let x = hash_to_field_le(&signal);
 
             // Get merkle proof for the identity
             let (path_elements, identity_path_index) =
@@ -861,16 +861,16 @@ mod test {
             let signal: [u8; 32] = rng.gen();
 
             // We generate a random epoch
-            let epoch = hash_to_field_le(b"test-epoch").unwrap();
+            let epoch = hash_to_field_le(b"test-epoch");
             // We generate a random rln_identifier
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
             // We generate a external nullifier
             let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
             // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
             let message_id = Fr::from(1);
 
             // Hash the signal to get x
-            let x = hash_to_field_le(&signal).unwrap();
+            let x = hash_to_field_le(&signal);
 
             // Get merkle proof for the identity
             let (path_elements, identity_path_index) =
@@ -929,16 +929,16 @@ mod test {
             let signal: [u8; 32] = rng.gen();
 
             // We generate a random epoch
-            let epoch = hash_to_field_le(b"test-epoch").unwrap();
+            let epoch = hash_to_field_le(b"test-epoch");
             // We generate a random rln_identifier
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
             // We generate a external nullifier
             let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
             // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
             let message_id = Fr::from(1);
 
             // Hash the signal to get x
-            let x = hash_to_field_le(&signal).unwrap();
+            let x = hash_to_field_le(&signal);
 
             // Get merkle proof for the identity
             let (path_elements, identity_path_index) =
@@ -1014,17 +1014,17 @@ mod test {
             let signal2: [u8; 32] = rng.gen();
 
             // We generate a random epoch
-            let epoch = hash_to_field_le(b"test-epoch").unwrap();
+            let epoch = hash_to_field_le(b"test-epoch");
             // We generate a random rln_identifier
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
             // We generate a external nullifier
             let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
             // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
             let message_id = Fr::from(1);
 
             // Hash the signals to get x values
-            let x1 = hash_to_field_le(&signal1).unwrap();
-            let x2 = hash_to_field_le(&signal2).unwrap();
+            let x1 = hash_to_field_le(&signal1);
+            let x2 = hash_to_field_le(&signal2);
 
             // Get merkle proof for the identity
             let (path_elements, identity_path_index) =
@@ -1079,7 +1079,7 @@ mod test {
 
             // We generate a random signal
             let signal3: [u8; 32] = rng.gen();
-            let x3 = hash_to_field_le(&signal3).unwrap();
+            let x3 = hash_to_field_le(&signal3);
 
             // Get merkle proof for the new identity
             let (path_elements_new, identity_path_index_new) =
@@ -1418,13 +1418,13 @@ mod test {
             let signal: [u8; 32] = rng.gen();
 
             // We generate a random epoch
-            let epoch = hash_to_field_le(b"test-epoch").unwrap();
+            let epoch = hash_to_field_le(b"test-epoch");
             // We generate a random rln_identifier
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
             let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
 
             // Hash the signal to get x
-            let x = hash_to_field_le(&signal).unwrap();
+            let x = hash_to_field_le(&signal);
             let merkle_proof = tree.proof(identity_index).unwrap();
             let message_id = Fr::from(1);
 
@@ -1493,18 +1493,18 @@ mod test {
             tree.update_next(rate_commitment).unwrap();
 
             // We generate a random epoch
-            let epoch = hash_to_field_le(b"test-epoch").unwrap();
+            let epoch = hash_to_field_le(b"test-epoch");
             // We generate a random rln_identifier
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
             let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
 
             // We generate a random signal
             let mut rng = thread_rng();
             let signal1: [u8; 32] = rng.gen();
-            let x1 = hash_to_field_le(&signal1).unwrap();
+            let x1 = hash_to_field_le(&signal1);
 
             let signal2: [u8; 32] = rng.gen();
-            let x2 = hash_to_field_le(&signal2).unwrap();
+            let x2 = hash_to_field_le(&signal2);
 
             let identity_index = tree.leaves_set();
             let merkle_proof = tree.proof(identity_index).unwrap();
@@ -1552,7 +1552,7 @@ mod test {
             tree.update_next(rate_commitment_new).unwrap();
 
             let signal3: [u8; 32] = rng.gen();
-            let x3 = hash_to_field_le(&signal3).unwrap();
+            let x3 = hash_to_field_le(&signal3);
 
             let identity_index_new = tree.leaves_set();
             let merkle_proof_new = tree.proof(identity_index_new).unwrap();
@@ -1628,7 +1628,7 @@ mod test {
             let mut path_elements = Vec::new();
             let mut identity_path_index = Vec::new();
             for _ in 0..depth {
-                path_elements.push(hash_to_field_le(&rng.gen::<[u8; 32]>()).unwrap());
+                path_elements.push(hash_to_field_le(&rng.gen::<[u8; 32]>()));
                 identity_path_index.push(rng.gen_range(0..2) as u8);
             }
             (path_elements, identity_path_index)
@@ -1640,8 +1640,8 @@ mod test {
             let identity_secret = IdSecret::rand(&mut rng);
             let user_message_limit = Fr::from(10);
             let (path_elements, identity_path_index) = random_path(DEFAULT_TREE_DEPTH);
-            let x = hash_to_field_le(&rng.gen::<[u8; 32]>()).unwrap();
-            let external_nullifier = hash_to_field_le(&rng.gen::<[u8; 32]>()).unwrap();
+            let x = hash_to_field_le(&rng.gen::<[u8; 32]>());
+            let external_nullifier = hash_to_field_le(&rng.gen::<[u8; 32]>());
 
             // Empty message_ids → EmptyMessageIds
             assert!(matches!(
@@ -1797,12 +1797,12 @@ mod test {
             let user_message_limit = Fr::from(10);
             let (path_elements, identity_path_index) = random_path(DEFAULT_TREE_DEPTH);
 
-            let epoch = hash_to_field_le(b"test-epoch").unwrap();
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+            let epoch = hash_to_field_le(b"test-epoch");
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
             let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
 
             let signal: [u8; 32] = rng.gen();
-            let x = hash_to_field_le(&signal).unwrap();
+            let x = hash_to_field_le(&signal);
 
             let message_ids = vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)];
             let selector_used = vec![false, true, true, false];
@@ -1863,14 +1863,14 @@ mod test {
             let user_message_limit = Fr::from(10);
             let (path_elements, identity_path_index) = random_path(DEFAULT_TREE_DEPTH);
 
-            let epoch = hash_to_field_le(b"test-epoch").unwrap();
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+            let epoch = hash_to_field_le(b"test-epoch");
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
             let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
 
             let signal1: [u8; 32] = rng.gen();
-            let x1 = hash_to_field_le(&signal1).unwrap();
+            let x1 = hash_to_field_le(&signal1);
             let signal2: [u8; 32] = rng.gen();
-            let x2 = hash_to_field_le(&signal2).unwrap();
+            let x2 = hash_to_field_le(&signal2);
 
             // Both witnesses use the same active message slots
             let message_ids = vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)];
@@ -1910,7 +1910,7 @@ mod test {
             // Test recovery fails with different identities (no matching nullifiers)
             let (identity_secret_new, _) = keygen().unwrap();
             let signal3: [u8; 32] = rng.gen();
-            let x3 = hash_to_field_le(&signal3).unwrap();
+            let x3 = hash_to_field_le(&signal3);
 
             let witness3 = RLNWitnessInput::new(
                 identity_secret_new,

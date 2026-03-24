@@ -159,9 +159,9 @@ proc ffi_vec_u8_free*(v: Vec_uint8) {.importc: "ffi_vec_u8_free", cdecl,
     dynlib: RLN_LIB.}
 
 # Hashing functions
-proc ffi_hash_to_field_le*(input: ptr Vec_uint8): CResultCFrPtrVecU8 {.importc: "ffi_hash_to_field_le",
+proc ffi_hash_to_field_le*(input: ptr Vec_uint8): ptr CFr {.importc: "ffi_hash_to_field_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_hash_to_field_be*(input: ptr Vec_uint8): CResultCFrPtrVecU8 {.importc: "ffi_hash_to_field_be",
+proc ffi_hash_to_field_be*(input: ptr Vec_uint8): ptr CFr {.importc: "ffi_hash_to_field_be",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_poseidon_hash_pair*(a: ptr CFr,
     b: ptr CFr): CResultCFrPtrVecU8 {.importc: "ffi_poseidon_hash_pair", cdecl,
@@ -746,12 +746,7 @@ when isMainModule:
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   var signalVec = Vec_uint8(dataPtr: cast[ptr uint8](addr signal[0]),
       len: CSize(signal.len), cap: CSize(signal.len))
-  let xResult = ffi_hash_to_field_be(addr signalVec)
-  if xResult.ok.isNil:
-    stderr.writeLine "Hash signal error: ", asString(xResult.err)
-    ffi_c_string_free(xResult.err)
-    quit 1
-  let x = xResult.ok
+  let x = ffi_hash_to_field_be(addr signalVec)
 
   block:
     let debug = ffi_cfr_debug(x)
@@ -763,12 +758,7 @@ when isMainModule:
   var epochBytes = newSeq[uint8](epochStr.len)
   for i in 0..<epochStr.len: epochBytes[i] = uint8(epochStr[i])
   var epochVec = asVecU8(epochBytes)
-  let epochResult = ffi_hash_to_field_be(addr epochVec)
-  if epochResult.ok.isNil:
-    stderr.writeLine "Hash epoch error: ", asString(epochResult.err)
-    ffi_c_string_free(epochResult.err)
-    quit 1
-  let epoch = epochResult.ok
+  let epoch = ffi_hash_to_field_be(addr epochVec)
 
   block:
     let debug = ffi_cfr_debug(epoch)
@@ -780,13 +770,7 @@ when isMainModule:
   var rlnIdBytes = newSeq[uint8](rlnIdStr.len)
   for i in 0..<rlnIdStr.len: rlnIdBytes[i] = uint8(rlnIdStr[i])
   var rlnIdVec = asVecU8(rlnIdBytes)
-  let rlnIdentifierResult = ffi_hash_to_field_be(addr rlnIdVec)
-  if rlnIdentifierResult.ok.isNil:
-    stderr.writeLine "Hash RLN identifier error: ", asString(
-        rlnIdentifierResult.err)
-    ffi_c_string_free(rlnIdentifierResult.err)
-    quit 1
-  let rlnIdentifier = rlnIdentifierResult.ok
+  let rlnIdentifier = ffi_hash_to_field_be(addr rlnIdVec)
 
   block:
     let debug = ffi_cfr_debug(rlnIdentifier)
@@ -1254,12 +1238,7 @@ when isMainModule:
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   var signal2Vec = Vec_uint8(dataPtr: cast[ptr uint8](addr signal2[0]),
       len: CSize(signal2.len), cap: CSize(signal2.len))
-  let x2Result = ffi_hash_to_field_be(addr signal2Vec)
-  if x2Result.ok.isNil:
-    stderr.writeLine "Hash second signal error: ", asString(x2Result.err)
-    ffi_c_string_free(x2Result.err)
-    quit 1
-  let x2 = x2Result.ok
+  let x2 = ffi_hash_to_field_be(addr signal2Vec)
 
   block:
     let debug = ffi_cfr_debug(x2)

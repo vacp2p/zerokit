@@ -330,14 +330,7 @@ int main(int argc, char const *const argv[])
     printf("\nHashing signal\n");
     uint8_t signal[32] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     Vec_uint8_t signal_vec = {signal, 32, 32};
-    CResult_CFr_ptr_Vec_uint8_t x_result = ffi_hash_to_field_le(&signal_vec);
-    if (!x_result.ok)
-    {
-        fprintf(stderr, "Hash signal error: %s\n", x_result.err.ptr);
-        ffi_c_string_free(x_result.err);
-        return EXIT_FAILURE;
-    }
-    CFr_t *x = x_result.ok;
+    CFr_t *x = ffi_hash_to_field_le(&signal_vec);
 
     debug = ffi_cfr_debug(x);
     printf("  - x = %s\n", debug.ptr);
@@ -346,14 +339,7 @@ int main(int argc, char const *const argv[])
     printf("\nHashing epoch\n");
     const char *epoch_str = "test-epoch";
     Vec_uint8_t epoch_vec = {(uint8_t *)epoch_str, strlen(epoch_str), strlen(epoch_str)};
-    CResult_CFr_ptr_Vec_uint8_t epoch_result = ffi_hash_to_field_le(&epoch_vec);
-    if (!epoch_result.ok)
-    {
-        fprintf(stderr, "Hash epoch error: %s\n", epoch_result.err.ptr);
-        ffi_c_string_free(epoch_result.err);
-        return EXIT_FAILURE;
-    }
-    CFr_t *epoch = epoch_result.ok;
+    CFr_t *epoch = ffi_hash_to_field_le(&epoch_vec);
 
     debug = ffi_cfr_debug(epoch);
     printf("  - epoch = %s\n", debug.ptr);
@@ -362,14 +348,7 @@ int main(int argc, char const *const argv[])
     printf("\nHashing RLN identifier\n");
     const char *rln_id_str = "test-rln-identifier";
     Vec_uint8_t rln_id_vec = {(uint8_t *)rln_id_str, strlen(rln_id_str), strlen(rln_id_str)};
-    CResult_CFr_ptr_Vec_uint8_t rln_identifier_result = ffi_hash_to_field_le(&rln_id_vec);
-    if (!rln_identifier_result.ok)
-    {
-        fprintf(stderr, "Hash RLN identifier error: %s\n", rln_identifier_result.err.ptr);
-        ffi_c_string_free(rln_identifier_result.err);
-        return EXIT_FAILURE;
-    }
-    CFr_t *rln_identifier = rln_identifier_result.ok;
+    CFr_t *rln_identifier = ffi_hash_to_field_le(&rln_id_vec);
 
     debug = ffi_cfr_debug(rln_identifier);
     printf("  - rln_identifier = %s\n", debug.ptr);
@@ -887,14 +866,7 @@ int main(int argc, char const *const argv[])
     printf("\nHashing second signal\n");
     uint8_t signal2[32] = {11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
     Vec_uint8_t signal2_vec = {signal2, 32, 32};
-    CResult_CFr_ptr_Vec_uint8_t x2_result = ffi_hash_to_field_le(&signal2_vec);
-    if (!x2_result.ok)
-    {
-        fprintf(stderr, "Hash second signal error: %s\n", x2_result.err.ptr);
-        ffi_c_string_free(x2_result.err);
-        return EXIT_FAILURE;
-    }
-    CFr_t *x2 = x2_result.ok;
+    CFr_t *x2 = ffi_hash_to_field_le(&signal2_vec);
 
     debug = ffi_cfr_debug(x2);
     printf("  - x2 = %s\n", debug.ptr);

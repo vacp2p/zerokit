@@ -200,17 +200,13 @@ pub struct Hasher;
 #[wasm_bindgen]
 impl Hasher {
     #[wasm_bindgen(js_name = hashToFieldLE)]
-    pub fn hash_to_field_le(input: &Uint8Array) -> Result<WasmFr, String> {
-        hash_to_field_le(&input.to_vec())
-            .map(WasmFr)
-            .map_err(|err| err.to_string())
+    pub fn hash_to_field_le(input: &Uint8Array) -> WasmFr {
+        WasmFr(hash_to_field_le(&input.to_vec()))
     }
 
     #[wasm_bindgen(js_name = hashToFieldBE)]
-    pub fn hash_to_field_be(input: &Uint8Array) -> Result<WasmFr, String> {
-        hash_to_field_be(&input.to_vec())
-            .map(WasmFr)
-            .map_err(|err| err.to_string())
+    pub fn hash_to_field_be(input: &Uint8Array) -> WasmFr {
+        WasmFr(hash_to_field_be(&input.to_vec()))
     }
 
     #[wasm_bindgen(js_name = poseidonHashPair)]
