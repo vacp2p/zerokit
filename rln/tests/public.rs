@@ -1928,7 +1928,7 @@ mod test {
             let recovered_result = recover_id_secret(&proof_values_1, &proof_values_3);
             assert!(matches!(
                 recovered_result.unwrap_err(),
-                ProtocolError::IdSecretRecovery
+                RecoverSecretError::NoMatchingNullifier
             ));
         }
     }

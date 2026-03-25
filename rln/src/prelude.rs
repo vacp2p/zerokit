@@ -23,7 +23,7 @@ pub use crate::{
         zkey_from_raw, Curve, Fq, Fq2, Fr, G1Affine, G1Projective, G2Affine, G2Projective,
         PartialProof, Proof, VerifyingKey, Zkey, COMPRESS_PROOF_SIZE, DEFAULT_TREE_DEPTH,
     },
-    error::{ProtocolError, RLNError, UtilsError, VerifyError},
+    error::{ProtocolError, RLNError, RecoverSecretError, UtilsError, VerifyError},
     hashers::{
         hash_to_field_be, hash_to_field_le, poseidon_hash, poseidon_hash_pair,
         poseidon_hash_try_from, PoseidonHash,
