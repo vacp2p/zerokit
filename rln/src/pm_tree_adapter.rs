@@ -5,9 +5,9 @@ use std::{fmt::Debug, path::PathBuf, str::FromStr};
 use serde_json::Value;
 use tempfile::Builder;
 use zerokit_utils::{
-    error::{FromConfigError, ZerokitMerkleTreeError},
     merkle_tree::{
-        validate_override_range_inputs, EmptyIndicesPolicy, ZerokitMerkleProof, ZerokitMerkleTree,
+        validate_override_range_inputs, EmptyIndicesPolicy, FromConfigError, ZerokitMerkleProof,
+        ZerokitMerkleTree, ZerokitMerkleTreeError,
     },
     pm_tree::{
         pmtree,
@@ -48,7 +48,7 @@ impl Hasher for PoseidonHash {
     }
 
     fn deserialize(value: pmtree::Value) -> Self::Fr {
-        // TODO: allow to handle error properly in pmtree Hasher trait
+        // TODO: add error type to handle deserialization instead of panicking
         let (fr, _) = bytes_le_to_fr(&value).expect("Fr deserialization must be valid");
         fr
     }
@@ -58,8 +58,8 @@ impl Hasher for PoseidonHash {
     }
 
     fn hash(inputs: &[Self::Fr]) -> Self::Fr {
-        // TODO: allow to handle error properly in pmtree Hasher trait
-        poseidon_hash(inputs).expect("Poseidon hash must be valid")
+        // TODO: change to hash_pair for this trait to use poseidon_hash_pair for PoseidonHash
+        poseidon_hash(inputs)
     }
 }
 
@@ -521,11 +521,8 @@ impl ZerokitMerkleProof for PmTreeProof {
         self.proof.get_path_index()
     }
 
-    fn compute_root_from(
-        &self,
-        leaf: &FrOf<Self::Hasher>,
-    ) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError> {
-        Ok(self.proof.compute_root_from(leaf))
+    fn compute_root_from(&self, leaf: &FrOf<Self::Hasher>) -> FrOf<Self::Hasher> {
+        self.proof.compute_root_from(leaf)
     }
 }
 

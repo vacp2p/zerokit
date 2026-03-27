@@ -92,7 +92,7 @@ where
         let mut cached_nodes: Vec<H::Fr> = Vec::with_capacity(depth + 1);
         cached_nodes.push(default_leaf);
         for i in 0..depth {
-            cached_nodes.push(H::hash(&[cached_nodes[i]; 2]).map_err(Into::into)?);
+            cached_nodes.push(H::hash_pair(cached_nodes[i], cached_nodes[i]));
         }
         cached_nodes.reverse();
 
@@ -306,10 +306,14 @@ where
     // Verifies a Merkle proof with respect to the input leaf and the tree root
     fn verify(
         &self,
-        hash: &FrOf<Self::Hasher>,
+        leaf: &FrOf<Self::Hasher>,
         merkle_proof: &FullMerkleProof<H>,
     ) -> Result<bool, ZerokitMerkleTreeError> {
-        Ok(merkle_proof.compute_root_from(hash)? == self.root())
+        if merkle_proof.length() != self.depth {
+            return Err(ZerokitMerkleTreeError::InvalidMerkleProof);
+        }
+        let expected_root = merkle_proof.compute_root_from(leaf);
+        Ok(expected_root.eq(&self.root()))
     }
 
     fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), ZerokitMerkleTreeError> {
@@ -367,34 +371,25 @@ where
         if let (Some(start_parent), Some(end_parent)) =
             (self.parent(start_index), self.parent(end_index))
         {
-            // Use parallel processing when the number of pairs exceeds the threshold
-            if end_parent - start_parent + 1 >= MIN_PARALLEL_NODES {
-                #[allow(clippy::type_complexity)]
-                let updates: Result<Vec<(usize, H::Fr)>, ZerokitMerkleTreeError> = (start_parent
-                    ..=end_parent)
-                    .into_par_iter()
-                    .map(|parent| {
-                        let left_child = self.first_child(parent);
-                        let right_child = left_child + 1;
-                        let hash = H::hash(&[self.nodes[left_child], self.nodes[right_child]])
-                            .map_err(Into::into)?;
-                        Ok((parent, hash))
-                    })
-                    .collect();
+            // Closure to compute the hash of a parent node given its index, by hashing its two children
+            let hash_parent = |parent: usize| {
+                let left = self.first_child(parent);
+                H::hash_pair(self.nodes[left], self.nodes[left + 1])
+            };
 
-                for (parent, hash) in updates? {
-                    self.nodes[parent] = hash;
-                }
+            // Use parallel processing when the number of pairs exceeds the threshold
+            let hashes: Vec<H::Fr> = if end_parent - start_parent + 1 >= MIN_PARALLEL_NODES {
+                (start_parent..=end_parent)
+                    .into_par_iter()
+                    .map(hash_parent)
+                    .collect()
             } else {
                 // Otherwise, fallback to sequential update for small ranges
-                for parent in start_parent..=end_parent {
-                    let left_child = self.first_child(parent);
-                    let right_child = left_child + 1;
-                    self.nodes[parent] =
-                        H::hash(&[self.nodes[left_child], self.nodes[right_child]])
-                            .map_err(Into::into)?;
-                }
-            }
+                (start_parent..=end_parent).map(hash_parent).collect()
+            };
+
+            // Write the hashes back in one contiguous slice copy
+            self.nodes[start_parent..=end_parent].copy_from_slice(&hashes);
 
             // Recurse to update upper levels
             self.update_hashes(start_parent, end_parent)?;
@@ -443,13 +438,10 @@ impl<H: Hasher> ZerokitMerkleProof for FullMerkleProof<H> {
     }
 
     /// Computes the Merkle root corresponding by iteratively hashing a Merkle proof with a given input leaf
-    fn compute_root_from(
-        &self,
-        hash: &FrOf<Self::Hasher>,
-    ) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError> {
-        self.0.iter().try_fold(*hash, |hash, branch| match branch {
-            FullMerkleBranch::Left(sibling) => H::hash(&[hash, *sibling]).map_err(Into::into),
-            FullMerkleBranch::Right(sibling) => H::hash(&[*sibling, hash]).map_err(Into::into),
+    fn compute_root_from(&self, hash: &FrOf<Self::Hasher>) -> FrOf<Self::Hasher> {
+        self.0.iter().fold(*hash, |hash, branch| match branch {
+            FullMerkleBranch::Left(sibling) => H::hash_pair(hash, *sibling),
+            FullMerkleBranch::Right(sibling) => H::hash_pair(*sibling, hash),
         })
     }
 }

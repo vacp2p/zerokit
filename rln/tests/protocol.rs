@@ -4,6 +4,7 @@
 mod test {
     use ark_ff::BigInt;
     use rln::prelude::*;
+    use zeroize::Zeroize;
     use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
 
     type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
@@ -50,9 +51,12 @@ mod test {
         let leaf_index = 3;
 
         // Generate identity
-        let identity_secret = hash_to_field_le(b"test-merkle-proof").unwrap();
-        let id_commitment = poseidon_hash(&[identity_secret]).unwrap();
-        let rate_commitment = poseidon_hash(&[id_commitment, Fr::from(100)]).unwrap();
+        let identity_secret_ = hash_to_field_le(b"test-merkle-proof");
+        let identity_secret = IdSecret::from(&mut identity_secret_.clone());
+        let mut to_hash = [*identity_secret.clone()];
+        let id_commitment = poseidon_hash(&to_hash);
+        to_hash[0].zeroize();
+        let rate_commitment = poseidon_hash_pair(id_commitment, Fr::from(100));
 
         // Generate merkle tree
         let default_leaf = Fr::from(0);
@@ -121,9 +125,9 @@ mod test {
     fn get_test_witness_and_root() -> (RLNWitnessInput, Fr) {
         let leaf_index = 3;
         // Generate identity pair
-        let (identity_secret, id_commitment) = keygen().unwrap();
+        let (identity_secret, id_commitment) = keygen();
         let user_message_limit = Fr::from(100);
-        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
+        let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
 
         // Generate merkle tree
         let default_leaf = Fr::from(0);
@@ -139,11 +143,11 @@ mod test {
         let merkle_proof = tree.proof(leaf_index).unwrap();
 
         let signal = b"hey hey";
-        let x = hash_to_field_le(signal).unwrap();
+        let x = hash_to_field_le(signal);
 
-        let epoch = hash_to_field_le(b"test-epoch").unwrap();
-        let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
-        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
+        let epoch = hash_to_field_le(b"test-epoch");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+        let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
 
         let message_id = Fr::from(1);
 
@@ -173,9 +177,9 @@ mod test {
     ) -> RLNWitnessInput {
         let leaf_index = 3;
         // Generate identity pair
-        let (identity_secret, id_commitment) = keygen().unwrap();
+        let (identity_secret, id_commitment) = keygen();
         let user_message_limit = Fr::from(user_message_limit);
-        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
+        let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
 
         // Generate merkle tree
         let default_leaf = Fr::from(0);
@@ -189,11 +193,11 @@ mod test {
 
         let merkle_proof = tree.proof(leaf_index).unwrap();
 
-        let x = hash_to_field_le(signal).unwrap();
+        let x = hash_to_field_le(signal);
 
-        let epoch = hash_to_field_le(epoch).unwrap();
-        let rln_identifier = hash_to_field_le(rln_identifier).unwrap();
-        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
+        let epoch = hash_to_field_le(epoch);
+        let rln_identifier = hash_to_field_le(rln_identifier);
+        let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
 
         let message_id = Fr::from(message_id);
 
@@ -221,7 +225,7 @@ mod test {
         // Generate a zkSNARK proof
         let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
 
-        let proof_values = proof_values_from_witness(&witness).unwrap();
+        let proof_values = proof_values_from_witness(&witness);
 
         // Verify the proof
         let verified = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
@@ -243,7 +247,7 @@ mod test {
             generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
         let proof = finish_zk_proof(proving_key, &partial_proof, &witness, graph_data).unwrap();
 
-        let proof_values = proof_values_from_witness(&witness).unwrap();
+        let proof_values = proof_values_from_witness(&witness);
         let success = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
 
         assert!(success);
@@ -271,7 +275,7 @@ mod test {
             finish_zk_proof_with_rs(proving_key, &partial_proof, &witness, graph_data, r, s)
                 .unwrap();
 
-        let proof_values = proof_values_from_witness(&witness).unwrap();
+        let proof_values = proof_values_from_witness(&witness);
         assert_eq!(full_proof, finished_proof);
         let success1 = verify_zk_proof(&proving_key.0.vk, &full_proof, &proof_values).unwrap();
         assert!(success1);
@@ -301,7 +305,7 @@ mod test {
         ));
 
         // We test proof values serialization
-        let proof_values = proof_values_from_witness(&witness).unwrap();
+        let proof_values = proof_values_from_witness(&witness);
 
         let ser = rln_proof_values_to_bytes_le(&proof_values);
         let (deser, _) = bytes_le_to_rln_proof_values(&ser).unwrap();
@@ -413,11 +417,9 @@ mod test {
         let leaf_index = 3;
 
         // Generate identity
-        let identity_secret_fr = hash_to_field_le(b"test-witness-validation").unwrap();
-        let identity_secret = IdSecret::from(&mut identity_secret_fr.clone());
-        let id_commitment = poseidon_hash(&[identity_secret_fr]).unwrap();
+        let (identity_secret, id_commitment) = keygen();
         let user_message_limit = Fr::from(100);
-        let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
+        let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
 
         // Generate merkle tree
         let default_leaf = Fr::from(0);
@@ -434,10 +436,10 @@ mod test {
         let identity_path_index = merkle_proof.get_path_index();
 
         let signal = b"hey hey";
-        let x = hash_to_field_le(signal).unwrap();
-        let epoch = hash_to_field_le(b"test-epoch").unwrap();
-        let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
-        let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
+        let x = hash_to_field_le(signal);
+        let epoch = hash_to_field_le(b"test-epoch");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+        let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
 
         // Test valid witness input
         let valid_message_id = Fr::from(50);
@@ -497,7 +499,7 @@ mod test {
     fn test_seeded_keygen() {
         // Generate identity pair using a seed phrase
         let seed_phrase: &str = "A seed phrase example";
-        let (identity_secret, id_commitment) = seeded_keygen(seed_phrase.as_bytes()).unwrap();
+        let (identity_secret, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
 
         // We check against expected values
         let expected_identity_secret_seed_phrase = str_to_fr(
@@ -516,7 +518,7 @@ mod test {
 
         // Generate identity pair using an byte array
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let (identity_secret, id_commitment) = seeded_keygen(seed_bytes).unwrap();
+        let (identity_secret, id_commitment) = seeded_keygen(seed_bytes);
 
         // We check against expected values
         let expected_identity_secret_seed_bytes = str_to_fr(
@@ -534,7 +536,7 @@ mod test {
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
 
         // We check again if the identity pair generated with the same seed phrase corresponds to the previously generated one
-        let (identity_secret, id_commitment) = seeded_keygen(seed_phrase.as_bytes()).unwrap();
+        let (identity_secret, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
 
         assert_eq!(identity_secret, expected_identity_secret_seed_phrase);
         assert_eq!(id_commitment, expected_id_commitment_seed_phrase);
@@ -542,11 +544,12 @@ mod test {
 
     #[test]
     fn test_extended_keygen_relations() {
-        let (trapdoor, nullifier, identity_secret, id_commitment) = extended_keygen().unwrap();
+        let (trapdoor, nullifier, identity_secret, id_commitment) = extended_keygen();
 
-        let expected_identity_secret = poseidon_hash(&[trapdoor, nullifier]).unwrap();
-        let expected_id_commitment = poseidon_hash(&[identity_secret]).unwrap();
-
+        let expected_identity_secret = poseidon_hash_pair(trapdoor, nullifier);
+        let mut to_hash = [identity_secret];
+        let expected_id_commitment = poseidon_hash(&to_hash);
+        to_hash[0].zeroize();
         assert_eq!(identity_secret, expected_identity_secret);
         assert_eq!(id_commitment, expected_id_commitment);
     }
@@ -554,14 +557,16 @@ mod test {
     #[test]
     fn test_extended_seeded_keygen_determinism() {
         let seed = b"test-seed-extended";
-        let first = extended_seeded_keygen(seed).unwrap();
-        let second = extended_seeded_keygen(seed).unwrap();
+        let first = extended_seeded_keygen(seed);
+        let second = extended_seeded_keygen(seed);
 
         assert_eq!(first, second);
 
         let (trapdoor, nullifier, identity_secret, id_commitment) = first;
-        let expected_identity_secret = poseidon_hash(&[trapdoor, nullifier]).unwrap();
-        let expected_id_commitment = poseidon_hash(&[identity_secret]).unwrap();
+        let expected_identity_secret = poseidon_hash_pair(trapdoor, nullifier);
+        let mut to_hash = [identity_secret];
+        let expected_id_commitment = poseidon_hash(&to_hash);
+        to_hash[0].zeroize();
 
         assert_eq!(identity_secret, expected_identity_secret);
         assert_eq!(id_commitment, expected_id_commitment);
@@ -616,7 +621,7 @@ mod test {
     fn test_proof_values_serialization_be_roundtrip() {
         // Test with default witness
         let witness = get_test_witness();
-        let proof_values = proof_values_from_witness(&witness).unwrap();
+        let proof_values = proof_values_from_witness(&witness);
 
         let ser = rln_proof_values_to_bytes_be(&proof_values);
         let (deser, _) = bytes_be_to_rln_proof_values(&ser).unwrap();
@@ -637,7 +642,7 @@ mod test {
 
         // Test with varied witness
         let witness2 = get_test_witness_with_params(b"another signal", b"epoch2", b"id2", 10, 150);
-        let proof_values2 = proof_values_from_witness(&witness2).unwrap();
+        let proof_values2 = proof_values_from_witness(&witness2);
 
         let ser2 = rln_proof_values_to_bytes_be(&proof_values2);
         let (deser2, _) = bytes_be_to_rln_proof_values(&ser2).unwrap();
@@ -651,7 +656,7 @@ mod test {
         let proving_key = zkey_from_folder();
         let graph_data = graph_from_folder();
         let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
-        let proof_values = proof_values_from_witness(&witness).unwrap();
+        let proof_values = proof_values_from_witness(&witness);
 
         let rln_proof = RLNProof {
             proof: proof.clone(),
@@ -671,7 +676,7 @@ mod test {
         let proving_key = zkey_from_folder();
         let graph_data = graph_from_folder();
         let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
-        let proof_values = proof_values_from_witness(&witness).unwrap();
+        let proof_values = proof_values_from_witness(&witness);
 
         let new_root = *proof_values.root() + Fr::from(1);
         #[cfg(not(feature = "multi-message-id"))]
@@ -706,8 +711,7 @@ mod test {
             witness.user_message_limit(),
             witness.path_elements(),
             witness.identity_path_index(),
-        )
-        .unwrap();
+        );
 
         assert_eq!(computed_root, root);
 
@@ -715,9 +719,10 @@ mod test {
         let witness2 =
             get_test_witness_with_params(b"root test signal", b"root epoch", b"root id", 25, 300);
         let leaf_index = 3;
-        let id_commitment = poseidon_hash(&[**witness2.identity_secret()]).unwrap();
-        let rate_commitment =
-            poseidon_hash(&[id_commitment, *witness2.user_message_limit()]).unwrap();
+        let mut to_hash = [*witness2.identity_secret().clone()];
+        let id_commitment = poseidon_hash(&to_hash);
+        to_hash[0].zeroize();
+        let rate_commitment = poseidon_hash_pair(id_commitment, *witness2.user_message_limit());
         let default_leaf = Fr::from(0);
         let mut tree = PoseidonTree::new(
             DEFAULT_TREE_DEPTH,
@@ -733,8 +738,7 @@ mod test {
             witness2.user_message_limit(),
             witness2.path_elements(),
             witness2.identity_path_index(),
-        )
-        .unwrap();
+        );
 
         assert_eq!(computed_root2, root2);
     }
@@ -875,9 +879,9 @@ mod test {
         fn get_test_witness_multi_message_id() -> RLNWitnessInput {
             let leaf_index = 3;
             // Generate identity pair
-            let (identity_secret, id_commitment) = keygen().unwrap();
+            let (identity_secret, id_commitment) = keygen();
             let user_message_limit = Fr::from(100);
-            let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
+            let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
 
             // Generate merkle tree
             let default_leaf = Fr::from(0);
@@ -892,12 +896,12 @@ mod test {
             let merkle_proof = tree.proof(leaf_index).unwrap();
 
             let signal = b"hey hey";
-            let x = hash_to_field_le(signal).unwrap();
+            let x = hash_to_field_le(signal);
 
             // We set the remaining values to random ones
-            let epoch = hash_to_field_le(b"test-epoch").unwrap();
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
-            let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
+            let epoch = hash_to_field_le(b"test-epoch");
+            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+            let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
 
             let message_ids = vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)];
             let selector_used = vec![false, true, true, false];
@@ -929,7 +933,7 @@ mod test {
             assert_eq!(witness, deser_be);
 
             // We test proof values serialization
-            let proof_values = proof_values_from_witness(&witness).unwrap();
+            let proof_values = proof_values_from_witness(&witness);
 
             let ser_le = rln_proof_values_to_bytes_le(&proof_values);
             let (deser_le, _) = bytes_le_to_rln_proof_values(&ser_le).unwrap();
@@ -961,7 +965,7 @@ mod test {
             // Generate a zkSNARK proof
             let proof = generate_zk_proof(&proving_key, &witness, &graph_data).unwrap();
 
-            let proof_values = proof_values_from_witness(&witness).unwrap();
+            let proof_values = proof_values_from_witness(&witness);
 
             // Verify the proof
             let verified = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
@@ -989,7 +993,7 @@ mod test {
             let proof =
                 finish_zk_proof(&proving_key, &partial_proof, &witness, &graph_data).unwrap();
 
-            let proof_values = proof_values_from_witness(&witness).unwrap();
+            let proof_values = proof_values_from_witness(&witness);
             let success = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
             assert!(success);
         }
@@ -1021,7 +1025,7 @@ mod test {
                 finish_zk_proof_with_rs(&proving_key, &partial_proof, &witness, &graph_data, r, s)
                     .unwrap();
 
-            let proof_values = proof_values_from_witness(&witness).unwrap();
+            let proof_values = proof_values_from_witness(&witness);
             assert_eq!(full_proof, finished_proof);
             let success1 = verify_zk_proof(&proving_key.0.vk, &full_proof, &proof_values).unwrap();
             assert!(success1);

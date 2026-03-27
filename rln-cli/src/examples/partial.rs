@@ -62,7 +62,7 @@ struct CachedPartialProof {
 
 impl Identity {
     fn new() -> Self {
-        let (identity_secret, id_commitment) = keygen().unwrap();
+        let (identity_secret, id_commitment) = keygen();
         Identity {
             identity_secret,
             id_commitment,
@@ -167,8 +167,7 @@ impl RLNSystem {
         let index = self.rln.leaves_set();
         let identity = Identity::new();
 
-        let rate_commitment =
-            poseidon_hash(&[identity.id_commitment, Fr::from(MESSAGE_LIMIT)]).unwrap();
+        let rate_commitment = poseidon_hash(&[identity.id_commitment, Fr::from(MESSAGE_LIMIT)]);
         match self.rln.set_next_leaf(rate_commitment) {
             Ok(_) => {
                 println!("Registered user: {index}");
@@ -242,7 +241,7 @@ impl RLNSystem {
             None => return Err(format!("User {user_index} not found").into()),
         };
 
-        let x = hash_to_field_le(signal.as_bytes())?;
+        let x = hash_to_field_le(signal.as_bytes());
         let current_root = self.rln.get_root();
 
         let (witness, partial_proof) = match self.partial_proofs.get(&user_index) {
@@ -366,9 +365,9 @@ impl RLNSystem {
 fn main() -> Result<()> {
     println!("Initializing RLN instance...");
     print!("\x1B[2J\x1B[1;1H");
-    let rln_epoch = hash_to_field_le(b"epoch")?;
-    let rln_identifier = hash_to_field_le(b"rln-identifier")?;
-    let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]).unwrap();
+    let rln_epoch = hash_to_field_le(b"epoch");
+    let rln_identifier = hash_to_field_le(b"rln-identifier");
+    let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]);
     let mut rln_system = RLNSystem::new(external_nullifier)?;
     println!("RLN Partial Proof Example:");
     println!("Message Limit: {MESSAGE_LIMIT}");

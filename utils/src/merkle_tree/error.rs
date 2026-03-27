@@ -1,5 +1,3 @@
-use crate::error::HashError;
-
 /// Errors that can occur during Merkle tree operations
 #[derive(Debug, thiserror::Error)]
 pub enum ZerokitMerkleTreeError {
@@ -26,8 +24,6 @@ pub enum ZerokitMerkleTreeError {
     #[cfg(feature = "pmtree-ft")]
     #[error("Pmtree error: {0}")]
     PmtreeErrorKind(#[from] pmtree::PmtreeErrorKind),
-    #[error("Hash error: {0}")]
-    HashError(#[from] HashError),
 }
 
 /// Errors that can occur while creating Merkle tree from config

@@ -5,12 +5,9 @@ mod test {
 
     use hex_literal::hex;
     use tiny_keccak::{Hasher as _, Keccak};
-    use zerokit_utils::{
-        error::HashError,
-        merkle_tree::{
-            FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree,
-            ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError, MIN_PARALLEL_NODES,
-        },
+    use zerokit_utils::merkle_tree::{
+        FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree,
+        ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError, MIN_PARALLEL_NODES,
     };
     #[derive(Clone, Copy, Eq, PartialEq)]
     struct Keccak256;
@@ -20,20 +17,18 @@ mod test {
 
     impl Hasher for Keccak256 {
         type Fr = TestFr;
-        type Error = HashError;
 
         fn default_leaf() -> Self::Fr {
             TestFr([0; 32])
         }
 
-        fn hash(inputs: &[Self::Fr]) -> Result<Self::Fr, HashError> {
+        fn hash_pair(left: Self::Fr, right: Self::Fr) -> Self::Fr {
             let mut output = [0; 32];
             let mut hasher = Keccak::v256();
-            for element in inputs {
-                hasher.update(element.0.as_slice());
-            }
+            hasher.update(left.0.as_slice());
+            hasher.update(right.0.as_slice());
             hasher.finalize(&mut output);
-            Ok(TestFr(output))
+            TestFr(output)
         }
     }
 
@@ -344,7 +339,7 @@ mod test {
                 let subroot = tree_full.get_subtree_root(n - 1, idx_sr).unwrap();
 
                 // check intermediate nodes
-                assert_eq!(Keccak256::hash(&[prev_l, prev_r]).unwrap(), subroot);
+                assert_eq!(Keccak256::hash_pair(prev_l, prev_r), subroot);
             }
         }
 
@@ -373,7 +368,7 @@ mod test {
                 let subroot = tree_opt.get_subtree_root(n - 1, idx_sr).unwrap();
 
                 // check intermediate nodes
-                assert_eq!(Keccak256::hash(&[prev_l, prev_r]).unwrap(), subroot);
+                assert_eq!(Keccak256::hash_pair(prev_l, prev_r), subroot);
             }
         }
     }
@@ -399,10 +394,7 @@ mod test {
             assert!(tree_full.verify(&leaves[i], &proof).unwrap());
 
             // We ensure that the Merkle proof and the leaf generate the same root as the tree
-            assert_eq!(
-                proof.compute_root_from(&leaves[i]).unwrap(),
-                tree_full.root()
-            );
+            assert_eq!(proof.compute_root_from(&leaves[i]), tree_full.root());
 
             // We check that the proof is not valid for another leaf
             assert!(!tree_full
@@ -426,10 +418,7 @@ mod test {
             assert!(tree_opt.verify(&leaves[i], &proof).unwrap());
 
             // We ensure that the Merkle proof and the leaf generate the same root as the tree
-            assert_eq!(
-                proof.compute_root_from(&leaves[i]).unwrap(),
-                tree_opt.root()
-            );
+            assert_eq!(proof.compute_root_from(&leaves[i]), tree_opt.root());
 
             // We check that the proof is not valid for another leaf
             assert!(!tree_opt

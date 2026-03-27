@@ -2,12 +2,9 @@ use std::{fmt::Display, str::FromStr, sync::LazyLock};
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use tiny_keccak::{Hasher as _, Keccak};
-use zerokit_utils::{
-    error::HashError,
-    merkle_tree::{
-        validate_override_range_inputs, EmptyIndicesPolicy, FullMerkleConfig, FullMerkleTree,
-        Hasher, OptimalMerkleConfig, OptimalMerkleTree, ZerokitMerkleTree,
-    },
+use zerokit_utils::merkle_tree::{
+    validate_override_range_inputs, EmptyIndicesPolicy, FullMerkleConfig, FullMerkleTree, Hasher,
+    OptimalMerkleConfig, OptimalMerkleTree, ZerokitMerkleTree,
 };
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -18,20 +15,18 @@ struct TestFr([u8; 32]);
 
 impl Hasher for Keccak256 {
     type Fr = TestFr;
-    type Error = HashError;
 
     fn default_leaf() -> Self::Fr {
         TestFr([0; 32])
     }
 
-    fn hash(inputs: &[Self::Fr]) -> Result<Self::Fr, HashError> {
+    fn hash_pair(left: Self::Fr, right: Self::Fr) -> Self::Fr {
         let mut output = [0; 32];
         let mut hasher = Keccak::v256();
-        for element in inputs {
-            hasher.update(element.0.as_slice());
-        }
+        hasher.update(left.0.as_slice());
+        hasher.update(right.0.as_slice());
         hasher.finalize(&mut output);
-        Ok(TestFr(output))
+        TestFr(output)
     }
 }
 

@@ -286,119 +286,55 @@ pub fn ffi_vec_u8_free(v: repr_c::Vec<u8>) {
 // Utility APIs
 
 #[ffi_export]
-pub fn ffi_hash_to_field_le(input: &repr_c::Vec<u8>) -> CResult<repr_c::Box<CFr>, repr_c::String> {
-    match hash_to_field_le(input) {
-        Ok(hash_result) => CResult {
-            ok: Some(CFr::from(hash_result).into()),
-            err: None,
-        },
-        Err(err) => CResult {
-            ok: None,
-            err: Some(format!("{:?}", err).into()),
-        },
-    }
+pub fn ffi_hash_to_field_le(input: &repr_c::Vec<u8>) -> repr_c::Box<CFr> {
+    CFr::from(hash_to_field_le(input)).into()
 }
 
 #[ffi_export]
-pub fn ffi_hash_to_field_be(input: &repr_c::Vec<u8>) -> CResult<repr_c::Box<CFr>, repr_c::String> {
-    match hash_to_field_be(input) {
-        Ok(hash_result) => CResult {
-            ok: Some(CFr::from(hash_result).into()),
-            err: None,
-        },
-        Err(err) => CResult {
-            ok: None,
-            err: Some(format!("{:?}", err).into()),
-        },
-    }
+pub fn ffi_hash_to_field_be(input: &repr_c::Vec<u8>) -> repr_c::Box<CFr> {
+    CFr::from(hash_to_field_be(input)).into()
 }
 
 #[ffi_export]
-pub fn ffi_poseidon_hash_pair(a: &CFr, b: &CFr) -> CResult<repr_c::Box<CFr>, repr_c::String> {
-    match poseidon_hash(&[a.0, b.0]) {
-        Ok(hash_result) => CResult {
-            ok: Some(CFr::from(hash_result).into()),
-            err: None,
-        },
-        Err(err) => CResult {
-            ok: None,
-            err: Some(format!("{:?}", err).into()),
-        },
-    }
+pub fn ffi_poseidon_hash_pair(a: &CFr, b: &CFr) -> repr_c::Box<CFr> {
+    CFr::from(poseidon_hash_pair(a.0, b.0)).into()
 }
 
 #[ffi_export]
-pub fn ffi_key_gen() -> CResult<repr_c::Vec<CFr>, repr_c::String> {
-    match keygen() {
-        Ok((identity_secret, id_commitment)) => CResult {
-            ok: Some(vec![CFr(*identity_secret), CFr(id_commitment)].into()),
-            err: None,
-        },
-        Err(err) => CResult {
-            ok: None,
-            err: Some(format!("{:?}", err).into()),
-        },
-    }
+pub fn ffi_key_gen() -> repr_c::Vec<CFr> {
+    let (identity_secret, id_commitment) = keygen();
+    vec![CFr(*identity_secret), CFr(id_commitment)].into()
 }
 
 #[ffi_export]
-pub fn ffi_seeded_key_gen(seed: &repr_c::Vec<u8>) -> CResult<repr_c::Vec<CFr>, repr_c::String> {
-    match seeded_keygen(seed) {
-        Ok((identity_secret, id_commitment)) => CResult {
-            ok: Some(vec![CFr(identity_secret), CFr(id_commitment)].into()),
-            err: None,
-        },
-        Err(err) => CResult {
-            ok: None,
-            err: Some(format!("{:?}", err).into()),
-        },
-    }
+pub fn ffi_seeded_key_gen(seed: &repr_c::Vec<u8>) -> repr_c::Vec<CFr> {
+    let (identity_secret, id_commitment) = seeded_keygen(seed);
+    vec![CFr(identity_secret), CFr(id_commitment)].into()
 }
 
 #[ffi_export]
-pub fn ffi_extended_key_gen() -> CResult<repr_c::Vec<CFr>, repr_c::String> {
-    match extended_keygen() {
-        Ok((identity_trapdoor, identity_nullifier, identity_secret, id_commitment)) => CResult {
-            ok: Some(
-                vec![
-                    CFr(identity_trapdoor),
-                    CFr(identity_nullifier),
-                    CFr(identity_secret),
-                    CFr(id_commitment),
-                ]
-                .into(),
-            ),
-            err: None,
-        },
-        Err(err) => CResult {
-            ok: None,
-            err: Some(format!("{:?}", err).into()),
-        },
-    }
+pub fn ffi_extended_key_gen() -> repr_c::Vec<CFr> {
+    let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) = extended_keygen();
+    vec![
+        CFr(identity_trapdoor),
+        CFr(identity_nullifier),
+        CFr(identity_secret),
+        CFr(id_commitment),
+    ]
+    .into()
 }
 
 #[ffi_export]
-pub fn ffi_seeded_extended_key_gen(
-    seed: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Vec<CFr>, repr_c::String> {
-    match extended_seeded_keygen(seed) {
-        Ok((identity_trapdoor, identity_nullifier, identity_secret, id_commitment)) => CResult {
-            ok: Some(
-                vec![
-                    CFr(identity_trapdoor),
-                    CFr(identity_nullifier),
-                    CFr(identity_secret),
-                    CFr(id_commitment),
-                ]
-                .into(),
-            ),
-            err: None,
-        },
-        Err(err) => CResult {
-            ok: None,
-            err: Some(format!("{:?}", err).into()),
-        },
-    }
+pub fn ffi_seeded_extended_key_gen(seed: &repr_c::Vec<u8>) -> repr_c::Vec<CFr> {
+    let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) =
+        extended_seeded_keygen(seed);
+    vec![
+        CFr(identity_trapdoor),
+        CFr(identity_nullifier),
+        CFr(identity_secret),
+        CFr(id_commitment),
+    ]
+    .into()
 }
 
 #[ffi_export]
