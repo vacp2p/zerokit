@@ -14,9 +14,9 @@ to enable RLN functionality in JavaScript/TypeScript applications.
 > [!NOTE]
 > This project requires the following tools:
 >
-> - `wasm-pack` (v0.14.0) — for compiling Rust to WebAssembly
-> - `cargo-make` — for running build commands
-> - `nvm` — to install and manage Node.js (v22.14.0+)
+> - `wasm-pack` (v0.14.0) - for compiling Rust to WebAssembly
+> - `cargo-make` - for running build commands
+> - `nvm` - to install and manage Node.js (v22.14.0+)
 
 ### Quick Install
 
@@ -103,7 +103,7 @@ wasmPkg.nowCallAnyExportedFuncs();
 
 If you're targeting
 [older browser versions that didn't support WebAssembly threads yet](https://webassembly.org/roadmap/),
-you'll want to use both builds —
+you'll want to use both builds -
 the parallel version for modern browsers and the default version as a fallback.
 Use feature detection to choose the appropriate build on the JavaScript side.
 

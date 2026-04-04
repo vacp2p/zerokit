@@ -100,3 +100,15 @@ impl TryFrom<u8> for SerializationVersion {
         }
     }
 }
+
+/// Serialization trait for RLN protocol types.
+///
+/// Provides version-tagged serialization in both little-endian and big-endian formats.
+pub trait RlnSerialize: Sized {
+    type Error;
+
+    fn to_bytes_le(&self) -> Result<Vec<u8>, Self::Error>;
+    fn to_bytes_be(&self) -> Result<Vec<u8>, Self::Error>;
+    fn from_bytes_le(input: &[u8]) -> Result<(Self, usize), Self::Error>;
+    fn from_bytes_be(input: &[u8]) -> Result<(Self, usize), Self::Error>;
+}
