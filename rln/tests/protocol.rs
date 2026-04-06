@@ -18,9 +18,9 @@ mod test {
         x: Fr,
         external_nullifier: Fr,
     ) -> Result<RLNWitnessInput, ProtocolError> {
-        #[cfg(not(feature = "multi-message-id"))]
-        {
-            RLNWitnessInput::new(
+        let message_mode = MessageMode::from(graph_from_folder());
+        match message_mode {
+            MessageMode::Single => RLNWitnessInput::new_single(
                 identity_secret,
                 user_message_limit,
                 message_id,
@@ -28,20 +28,23 @@ mod test {
                 identity_path_index,
                 x,
                 external_nullifier,
-            )
-        }
-        #[cfg(feature = "multi-message-id")]
-        {
-            RLNWitnessInput::new(
-                identity_secret,
-                user_message_limit,
-                vec![message_id, Fr::from(0), Fr::from(0), Fr::from(0)],
-                path_elements,
-                identity_path_index,
-                x,
-                external_nullifier,
-                vec![true, false, false, false],
-            )
+            ),
+            MessageMode::Multi { max_out } => {
+                let mut message_ids = vec![Fr::from(0); max_out];
+                message_ids[0] = message_id;
+                let mut selector_used = vec![false; max_out];
+                selector_used[0] = true;
+                RLNWitnessInput::new_multi(
+                    identity_secret,
+                    user_message_limit,
+                    message_ids,
+                    path_elements,
+                    identity_path_index,
+                    x,
+                    external_nullifier,
+                    selector_used,
+                )
+            }
         }
     }
 
@@ -679,23 +682,24 @@ mod test {
         let proof_values = witness.proof_values();
 
         let new_root = *proof_values.root() + Fr::from(1);
-        #[cfg(not(feature = "multi-message-id"))]
-        let mutated_pv = RLNProofValues::new(
-            new_root,
-            *proof_values.x(),
-            *proof_values.external_nullifier(),
-            *proof_values.y(),
-            *proof_values.nullifier(),
-        );
-        #[cfg(feature = "multi-message-id")]
-        let mutated_pv = RLNProofValues::new(
-            new_root,
-            *proof_values.x(),
-            *proof_values.external_nullifier(),
-            proof_values.ys().to_vec(),
-            proof_values.nullifiers().to_vec(),
-            proof_values.selector_used().to_vec(),
-        );
+        let message_mode = MessageMode::from(graph_from_folder());
+        let mutated_pv = match message_mode {
+            MessageMode::Single => RLNProofValues::new_single(
+                new_root,
+                *proof_values.x(),
+                *proof_values.external_nullifier(),
+                *proof_values.y(),
+                *proof_values.nullifier(),
+            ),
+            MessageMode::Multi { .. } => RLNProofValues::new_multi(
+                new_root,
+                *proof_values.x(),
+                *proof_values.external_nullifier(),
+                proof_values.ys().to_vec(),
+                proof_values.nullifiers().to_vec(),
+                proof_values.selector_used().to_vec(),
+            ),
+        };
 
         let verified = verify_zk_proof(&proving_key.0.vk, &proof, &mutated_pv).unwrap();
         assert!(!verified);
@@ -781,25 +785,25 @@ mod test {
             json["userMessageLimit"].as_str().unwrap(),
             to_bigint(witness.user_message_limit()).to_str_radix(10)
         );
-        #[cfg(not(feature = "multi-message-id"))]
-        assert_eq!(
-            json["messageId"].as_str().unwrap(),
-            to_bigint(witness.message_id()).to_str_radix(10)
-        );
-        #[cfg(feature = "multi-message-id")]
-        assert_eq!(
-            json["messageId"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|v| v.as_str().unwrap().to_string())
-                .collect::<Vec<_>>(),
-            witness
-                .message_ids()
-                .iter()
-                .map(|id| to_bigint(id).to_str_radix(10))
-                .collect::<Vec<_>>()
-        );
+        match MessageMode::from(graph_from_folder()) {
+            MessageMode::Single => assert_eq!(
+                json["messageId"].as_str().unwrap(),
+                to_bigint(witness.message_id()).to_str_radix(10)
+            ),
+            MessageMode::Multi { .. } => assert_eq!(
+                json["messageId"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_str().unwrap().to_string())
+                    .collect::<Vec<_>>(),
+                witness
+                    .message_ids()
+                    .iter()
+                    .map(|id| to_bigint(id).to_str_radix(10))
+                    .collect::<Vec<_>>()
+            ),
+        }
         assert_eq!(
             json["x"].as_str().unwrap(),
             to_bigint(witness.x()).to_str_radix(10)
@@ -831,25 +835,25 @@ mod test {
             json2["userMessageLimit"].as_str().unwrap(),
             to_bigint(witness2.user_message_limit()).to_str_radix(10)
         );
-        #[cfg(not(feature = "multi-message-id"))]
-        assert_eq!(
-            json2["messageId"].as_str().unwrap(),
-            to_bigint(witness2.message_id()).to_str_radix(10)
-        );
-        #[cfg(feature = "multi-message-id")]
-        assert_eq!(
-            json2["messageId"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|v| v.as_str().unwrap().to_string())
-                .collect::<Vec<_>>(),
-            witness2
-                .message_ids()
-                .iter()
-                .map(|id| to_bigint(id).to_str_radix(10))
-                .collect::<Vec<_>>()
-        );
+        match MessageMode::from(graph_from_folder()) {
+            MessageMode::Single => assert_eq!(
+                json2["messageId"].as_str().unwrap(),
+                to_bigint(witness2.message_id()).to_str_radix(10)
+            ),
+            MessageMode::Multi { .. } => assert_eq!(
+                json2["messageId"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_str().unwrap().to_string())
+                    .collect::<Vec<_>>(),
+                witness2
+                    .message_ids()
+                    .iter()
+                    .map(|id| to_bigint(id).to_str_radix(10))
+                    .collect::<Vec<_>>()
+            ),
+        }
         assert_eq!(
             json2["x"].as_str().unwrap(),
             to_bigint(witness2.x()).to_str_radix(10)
@@ -869,7 +873,6 @@ mod test {
         );
     }
 
-    #[cfg(feature = "multi-message-id")]
     mod multi_message_id_test {
         use rln::prelude::*;
         use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
@@ -906,7 +909,7 @@ mod test {
             let message_ids = vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)];
             let selector_used = vec![false, true, true, false];
 
-            RLNWitnessInput::new(
+            RLNWitnessInput::new_multi(
                 identity_secret,
                 user_message_limit,
                 message_ids,
@@ -956,9 +959,6 @@ mod test {
                 include_bytes!("../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin");
 
             let proving_key = zkey_from_raw(arkzkey_bytes).unwrap();
-            #[cfg(not(feature = "multi-message-id"))]
-            let graph_data = graph_from_raw(graph_bytes, Some(DEFAULT_TREE_DEPTH)).unwrap();
-            #[cfg(feature = "multi-message-id")]
             let graph_data =
                 graph_from_raw(graph_bytes, Some(DEFAULT_TREE_DEPTH), Some(4)).unwrap();
 

@@ -20,7 +20,10 @@ use crate::{
 use crate::{
     circuit::{zkey_from_raw, Fr, Proof, Zkey},
     error::{RLNError, VerifyError},
-    protocol::{generate_zk_proof_with_witness, verify_zk_proof, RLNProofValues, RLNWitnessInput},
+    protocol::{
+        generate_zk_proof_with_witness, verify_zk_proof, MessageMode, RLNProofValues,
+        RLNWitnessInput,
+    },
 };
 
 /// This trait allows accepting different config input types for tree configuration.
@@ -59,6 +62,7 @@ pub struct RLN {
     pub(crate) graph: Graph,
     #[cfg(not(feature = "stateless"))]
     pub(crate) tree: PoseidonTree,
+    pub(crate) message_mode: MessageMode,
 }
 
 impl RLN {
@@ -99,6 +103,7 @@ impl RLN {
     pub fn new<T: TreeConfigInput>(tree_depth: usize, tree_config: T) -> Result<RLN, RLNError> {
         let zkey = zkey_from_folder().to_owned();
         let graph = graph_from_folder().to_owned();
+        let message_mode = MessageMode::from(&graph);
         let config = tree_config.into_tree_config()?;
 
         // We compute a default empty tree
@@ -113,6 +118,7 @@ impl RLN {
             graph,
             #[cfg(not(feature = "stateless"))]
             tree,
+            message_mode,
         })
     }
 
@@ -127,8 +133,13 @@ impl RLN {
     pub fn new() -> Result<RLN, RLNError> {
         let zkey = zkey_from_folder().to_owned();
         let graph = graph_from_folder().clone();
+        let message_mode = MessageMode::from(&graph);
 
-        Ok(RLN { zkey, graph })
+        Ok(RLN {
+            zkey,
+            graph,
+            message_mode,
+        })
     }
 
     /// Creates a new RLN object by passing circuit resources as byte vectors.
@@ -169,18 +180,13 @@ impl RLN {
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn new_with_params<T: TreeConfigInput>(
         tree_depth: usize,
-        #[cfg(feature = "multi-message-id")] max_out: usize,
         zkey_data: Vec<u8>,
         graph_data: Vec<u8>,
         tree_config: T,
     ) -> Result<RLN, RLNError> {
         let zkey = zkey_from_raw(&zkey_data)?;
-        let graph = graph_from_raw(
-            &graph_data,
-            Some(tree_depth),
-            #[cfg(feature = "multi-message-id")]
-            Some(max_out),
-        )?;
+        let graph = graph_from_raw(&graph_data, Some(tree_depth), None)?;
+        let message_mode = MessageMode::from(&graph);
 
         let config = tree_config.into_tree_config()?;
 
@@ -196,6 +202,7 @@ impl RLN {
             graph,
             #[cfg(not(feature = "stateless"))]
             tree,
+            message_mode,
         })
     }
 
@@ -225,20 +232,16 @@ impl RLN {
     /// )?;
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
-    pub fn new_with_params(
-        zkey_data: Vec<u8>,
-        graph_data: Vec<u8>,
-        #[cfg(feature = "multi-message-id")] max_out: usize,
-    ) -> Result<RLN, RLNError> {
+    pub fn new_with_params(zkey_data: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN, RLNError> {
         let zkey = zkey_from_raw(&zkey_data)?;
-        let graph = graph_from_raw(
-            &graph_data,
-            None,
-            #[cfg(feature = "multi-message-id")]
-            Some(max_out),
-        )?;
+        let graph = graph_from_raw(&graph_data, None, None)?;
+        let message_mode = MessageMode::from(&graph);
 
-        Ok(RLN { zkey, graph })
+        Ok(RLN {
+            zkey,
+            graph,
+            message_mode,
+        })
     }
 
     /// Creates a new stateless RLN object by passing circuit resources as a byte vector.
@@ -260,8 +263,9 @@ impl RLN {
     #[cfg(all(target_arch = "wasm32", feature = "stateless"))]
     pub fn new_with_params(zkey_data: Vec<u8>) -> Result<RLN, RLNError> {
         let zkey = zkey_from_raw(&zkey_data)?;
+        let message_mode = MessageMode::Single;
 
-        Ok(RLN { zkey })
+        Ok(RLN { zkey, message_mode })
     }
 
     // Utility APIs
@@ -272,8 +276,13 @@ impl RLN {
         self.graph.tree_depth
     }
 
+    /// Returns the message mode this RLN instance was configured with.
+    pub fn message_mode(&self) -> MessageMode {
+        self.message_mode
+    }
+
     /// Returns the maximum number of message ID slots supported by the graph.
-    #[cfg(all(feature = "multi-message-id", not(target_arch = "wasm32")))]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn max_out(&self) -> usize {
         self.graph.max_out
     }

@@ -78,7 +78,7 @@ mod test {
         };
 
         // Create witness input
-        let witness = match ffi_rln_witness_input_new(
+        let witness = match ffi_rln_witness_input_new_single(
             identity_secret,
             user_message_limit,
             message_id,
@@ -874,7 +874,7 @@ mod test {
             _ => panic!("get merkle proof failed"),
         };
 
-        let witness = match ffi_rln_witness_input_new(
+        let witness = match ffi_rln_witness_input_new_single(
             &CFr::from(*identity_secret),
             &CFr::from(user_message_limit),
             &CFr::from(message_id),
@@ -1009,7 +1009,7 @@ mod test {
         let x_cfr = CFr::from(x);
         let external_nullifier_cfr = CFr::from(external_nullifier);
 
-        let result = ffi_rln_witness_input_new(
+        let result = ffi_rln_witness_input_new_single(
             &identity_secret_cfr,
             &user_message_limit_cfr,
             &invalid_message_id,
@@ -1023,7 +1023,7 @@ mod test {
         // Test invalid witness input (zero user_message_limit)
         let zero_limit = CFr::from(Fr::from(0));
         let valid_message_id = CFr::from(Fr::from(0));
-        let result = ffi_rln_witness_input_new(
+        let result = ffi_rln_witness_input_new_single(
             &identity_secret_cfr,
             &zero_limit,
             &valid_message_id,
@@ -1039,7 +1039,7 @@ mod test {
             merkle_proof.path_elements.iter().cloned().collect();
         bad_path_elements_vec.pop();
         let bad_path_elements: repr_c::Vec<CFr> = bad_path_elements_vec.into();
-        let result = ffi_rln_witness_input_new(
+        let result = ffi_rln_witness_input_new_single(
             &identity_secret_cfr,
             &user_message_limit_cfr,
             &valid_message_id,
@@ -1054,7 +1054,7 @@ mod test {
         let mut bad_path_index_vec: Vec<u8> = merkle_proof.path_index.iter().copied().collect();
         bad_path_index_vec.pop();
         let bad_path_index: repr_c::Vec<u8> = bad_path_index_vec.into();
-        let result = ffi_rln_witness_input_new(
+        let result = ffi_rln_witness_input_new_single(
             &identity_secret_cfr,
             &user_message_limit_cfr,
             &valid_message_id,
@@ -1251,7 +1251,7 @@ mod test {
         let x = hash_to_field_le(&signal);
 
         // Create the full witness via FFI
-        let full_witness = match ffi_rln_witness_input_new(
+        let full_witness = match ffi_rln_witness_input_new_single(
             &CFr::from(*identity_secret),
             &CFr::from(user_message_limit),
             &CFr::from(message_id),

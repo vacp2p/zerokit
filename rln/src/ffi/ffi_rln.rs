@@ -71,7 +71,7 @@ pub fn ffi_rln_new() -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
     }
 }
 
-#[cfg(all(not(feature = "stateless"), not(feature = "multi-message-id")))]
+#[cfg(not(feature = "stateless"))]
 #[ffi_export]
 pub fn ffi_rln_new_with_params(
     tree_depth: usize,
@@ -115,78 +115,13 @@ pub fn ffi_rln_new_with_params(
     }
 }
 
-#[cfg(all(not(feature = "stateless"), feature = "multi-message-id"))]
-#[ffi_export]
-pub fn ffi_rln_new_with_params(
-    tree_depth: usize,
-    max_out: usize,
-    zkey_data: &repr_c::Vec<u8>,
-    graph_data: &repr_c::Vec<u8>,
-    config_path: char_p::Ref<'_>,
-) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
-    let config_str = File::open(config_path.to_str())
-        .and_then(|mut file| {
-            let metadata = file.metadata()?;
-            if metadata.len() > MAX_CONFIG_SIZE {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!(
-                        "Config file too large: {} bytes (max {} bytes)",
-                        metadata.len(),
-                        MAX_CONFIG_SIZE
-                    ),
-                ));
-            }
-            let mut s = String::new();
-            file.read_to_string(&mut s)?;
-            Ok(s)
-        })
-        .unwrap_or_default();
-
-    match RLN::new_with_params(
-        tree_depth,
-        max_out,
-        zkey_data.to_vec(),
-        graph_data.to_vec(),
-        config_str.as_str(),
-    ) {
-        Ok(rln) => CResult {
-            ok: Some(Box_::new(FFI_RLN(rln))),
-            err: None,
-        },
-        Err(err) => CResult {
-            ok: None,
-            err: Some(err.to_string().into()),
-        },
-    }
-}
-
-#[cfg(all(feature = "stateless", not(feature = "multi-message-id")))]
+#[cfg(feature = "stateless")]
 #[ffi_export]
 pub fn ffi_rln_new_with_params(
     zkey_data: &repr_c::Vec<u8>,
     graph_data: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
     match RLN::new_with_params(zkey_data.to_vec(), graph_data.to_vec()) {
-        Ok(rln) => CResult {
-            ok: Some(Box_::new(FFI_RLN(rln))),
-            err: None,
-        },
-        Err(err) => CResult {
-            ok: None,
-            err: Some(err.to_string().into()),
-        },
-    }
-}
-
-#[cfg(all(feature = "stateless", feature = "multi-message-id"))]
-#[ffi_export]
-pub fn ffi_rln_new_with_params(
-    zkey_data: &repr_c::Vec<u8>,
-    graph_data: &repr_c::Vec<u8>,
-    max_out: usize,
-) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
-    match RLN::new_with_params(zkey_data.to_vec(), graph_data.to_vec(), max_out) {
         Ok(rln) => CResult {
             ok: Some(Box_::new(FFI_RLN(rln))),
             err: None,
@@ -208,7 +143,6 @@ pub fn ffi_rln_get_tree_depth(rln: &repr_c::Box<FFI_RLN>) -> usize {
     rln.0.tree_depth()
 }
 
-#[cfg(feature = "multi-message-id")]
 #[ffi_export]
 pub fn ffi_rln_get_max_out(rln: &repr_c::Box<FFI_RLN>) -> usize {
     rln.0.max_out()
@@ -389,9 +323,8 @@ pub fn ffi_bytes_be_to_rln_partial_proof(
 #[repr(opaque)]
 pub struct FFI_RLNWitnessInput(pub(crate) RLNWitnessInput);
 
-#[cfg(not(feature = "multi-message-id"))]
 #[ffi_export]
-pub fn ffi_rln_witness_input_new(
+pub fn ffi_rln_witness_input_new_single(
     identity_secret: &CFr,
     user_message_limit: &CFr,
     message_id: &CFr,
@@ -404,7 +337,7 @@ pub fn ffi_rln_witness_input_new(
     let path_elements: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
     let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
 
-    match RLNWitnessInput::new(
+    match RLNWitnessInput::new_single(
         IdSecret::from(&mut identity_secret_fr),
         user_message_limit.0,
         message_id.0,
@@ -424,9 +357,8 @@ pub fn ffi_rln_witness_input_new(
     }
 }
 
-#[cfg(feature = "multi-message-id")]
 #[ffi_export]
-pub fn ffi_rln_witness_input_new(
+pub fn ffi_rln_witness_input_new_multi(
     identity_secret: &CFr,
     user_message_limit: &CFr,
     message_ids: &repr_c::Vec<CFr>,
@@ -442,7 +374,7 @@ pub fn ffi_rln_witness_input_new(
     let message_ids: Vec<Fr> = message_ids.iter().map(|cfr| cfr.0).collect();
     let selector_used: Vec<bool> = selector_used.iter().copied().collect();
 
-    let result = RLNWitnessInput::new(
+    match RLNWitnessInput::new_multi(
         IdSecret::from(&mut identity_secret_fr),
         user_message_limit.0,
         message_ids,
@@ -451,9 +383,7 @@ pub fn ffi_rln_witness_input_new(
         x.0,
         external_nullifier.0,
         selector_used,
-    );
-
-    match result {
+    ) {
         Ok(witness) => CResult {
             ok: Some(Box_::new(FFI_RLNWitnessInput(witness))),
             err: None,
@@ -484,7 +414,6 @@ pub fn ffi_rln_witness_input_get_user_message_limit(
     CFr::from(*witness.0.user_message_limit()).into()
 }
 
-#[cfg(not(feature = "multi-message-id"))]
 #[ffi_export]
 pub fn ffi_rln_witness_input_get_message_id(
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
@@ -492,7 +421,6 @@ pub fn ffi_rln_witness_input_get_message_id(
     CFr::from(*witness.0.message_id()).into()
 }
 
-#[cfg(feature = "multi-message-id")]
 #[ffi_export]
 pub fn ffi_rln_witness_input_get_message_ids(
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
@@ -538,7 +466,6 @@ pub fn ffi_rln_witness_input_get_external_nullifier(
     CFr::from(*witness.0.external_nullifier()).into()
 }
 
-#[cfg(feature = "multi-message-id")]
 #[ffi_export]
 pub fn ffi_rln_witness_input_get_selector_used(
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
@@ -805,7 +732,6 @@ pub fn ffi_rln_proof_values_get_external_nullifier(
     CFr::from(*pv.0.external_nullifier()).into()
 }
 
-#[cfg(not(feature = "multi-message-id"))]
 #[ffi_export]
 pub fn ffi_rln_proof_values_get_y(
     pv: &repr_c::Box<FFI_RLNProofValues>,
@@ -816,7 +742,6 @@ pub fn ffi_rln_proof_values_get_y(
     }
 }
 
-#[cfg(not(feature = "multi-message-id"))]
 #[ffi_export]
 pub fn ffi_rln_proof_values_get_nullifier(
     pv: &repr_c::Box<FFI_RLNProofValues>,
@@ -827,7 +752,6 @@ pub fn ffi_rln_proof_values_get_nullifier(
     }
 }
 
-#[cfg(feature = "multi-message-id")]
 #[ffi_export]
 pub fn ffi_rln_proof_values_get_selector_used(
     pv: &repr_c::Box<FFI_RLNProofValues>,
@@ -838,7 +762,6 @@ pub fn ffi_rln_proof_values_get_selector_used(
     }
 }
 
-#[cfg(feature = "multi-message-id")]
 #[ffi_export]
 pub fn ffi_rln_proof_values_get_ys(
     pv: &repr_c::Box<FFI_RLNProofValues>,
@@ -855,7 +778,6 @@ pub fn ffi_rln_proof_values_get_ys(
     }
 }
 
-#[cfg(feature = "multi-message-id")]
 #[ffi_export]
 pub fn ffi_rln_proof_values_get_nullifiers(
     pv: &repr_c::Box<FFI_RLNProofValues>,

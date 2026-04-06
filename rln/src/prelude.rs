@@ -1,7 +1,5 @@
 // This module re-exports the most commonly used types and functions from the RLN library
 
-#[cfg(feature = "multi-message-id")]
-pub use crate::circuit::DEFAULT_MAX_OUT;
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::circuit::{graph_from_folder, zkey_from_folder};
 #[cfg(feature = "pmtree-ft")]
@@ -21,7 +19,8 @@ pub use crate::{
 pub use crate::{
     circuit::{
         zkey_from_raw, Curve, Fq, Fq2, Fr, G1Affine, G1Projective, G2Affine, G2Projective,
-        PartialProof, Proof, VerifyingKey, Zkey, COMPRESS_PROOF_SIZE, DEFAULT_TREE_DEPTH,
+        PartialProof, Proof, VerifyingKey, Zkey, COMPRESS_PROOF_SIZE, DEFAULT_MAX_OUT,
+        DEFAULT_TREE_DEPTH,
     },
     error::{ProtocolError, RLNError, RecoverSecretError, UtilsError, VerifyError},
     hashers::{
@@ -30,8 +29,8 @@ pub use crate::{
     },
     protocol::{
         compute_id_secret, extended_keygen, extended_seeded_keygen, generate_zk_proof_with_witness,
-        keygen, recover_id_secret, seeded_keygen, RLNPartialWitnessInput, RLNProof, RLNProofValues,
-        RLNWitnessInput, RlnSerialize,
+        keygen, recover_id_secret, seeded_keygen, MessageMode, RLNPartialWitnessInput, RLNProof,
+        RLNProofValues, RLNWitnessInput, RlnSerialize,
     },
     public::RLN,
     utils::{

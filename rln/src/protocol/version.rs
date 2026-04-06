@@ -6,7 +6,7 @@ pub const VERSION_BYTE_SIZE: usize = 1;
 /// Wire-format version tag for serialized RLN structures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
-pub enum SerializationVersion {
+pub(crate) enum SerializationVersion {
     /// Original single message-id format (RLN v2).
     ///
     /// RLNWitnessInput:
@@ -35,7 +35,6 @@ pub enum SerializationVersion {
     /// - `partial_proof<var>` is a variable-length canonical form in little-endian format (arkworks behavior).
     ///
     /// Spec: <https://lip.logos.co/ift-ts/raw/rln-v2>
-    #[cfg(not(feature = "multi-message-id"))]
     SingleV1 = 0x00,
 
     /// Multi message-id format (RLN v2 extension).
@@ -66,7 +65,6 @@ pub enum SerializationVersion {
     /// - `partial_proof<var>` is a variable-length canonical form in little-endian format (arkworks behavior).
     ///
     /// Spec: <https://lip.logos.co/ift-ts/raw/multi-message_id-burn-rln>
-    #[cfg(feature = "multi-message-id")]
     MultiV1 = 0x01,
 }
 
@@ -82,20 +80,8 @@ impl TryFrom<u8> for SerializationVersion {
 
     fn try_from(byte: u8) -> Result<Self, Self::Error> {
         match byte {
-            #[cfg(not(feature = "multi-message-id"))]
             0x00 => Ok(Self::SingleV1),
-            #[cfg(not(feature = "multi-message-id"))]
-            0x01 => Err(ProtocolError::IncompatibleSerializationVersion(
-                byte,
-                "multi-message-id",
-            )),
-            #[cfg(feature = "multi-message-id")]
             0x01 => Ok(Self::MultiV1),
-            #[cfg(feature = "multi-message-id")]
-            0x00 => Err(ProtocolError::IncompatibleSerializationVersion(
-                byte,
-                "not(multi-message-id)",
-            )),
             other => Err(ProtocolError::UnknownSerializationVersion(other)),
         }
     }

@@ -148,14 +148,15 @@ impl RLNSystem {
         let (path_elements, identity_path_index) = self.rln.get_merkle_proof(user_index)?;
         let x = hash_to_field_le(signal.as_bytes());
 
-        let witness = RLNWitnessInput::new(
+        let witness = RLNWitnessInput::new_multi(
             identity.identity_secret.clone(),
             Fr::from(MESSAGE_LIMIT),
-            Fr::from(message_id),
+            vec![Fr::from(message_id)],
             path_elements,
             identity_path_index,
             x,
             external_nullifier,
+            vec![true; MESSAGE_LIMIT as usize],
         )?;
 
         let (proof, proof_values) = self.rln.generate_rln_proof(&witness)?;

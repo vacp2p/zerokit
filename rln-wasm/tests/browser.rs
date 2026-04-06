@@ -69,21 +69,10 @@ mod test {
 
     const WITNESS_CALCULATOR_JS: &str = include_str!("../resources/witness_calculator.js");
 
-    #[cfg(not(feature = "multi-message-id"))]
     const ARKZKEY_BYTES: &[u8] =
         include_bytes!("../../rln/resources/tree_depth_20/rln_final.arkzkey");
 
-    #[cfg(not(feature = "multi-message-id"))]
     const CIRCOM_BYTES: &[u8] = include_bytes!("../../rln/resources/tree_depth_20/rln.wasm");
-
-    #[cfg(feature = "multi-message-id")]
-    const ARKZKEY_BYTES: &[u8] = include_bytes!(
-        "../../rln/resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey"
-    );
-
-    #[cfg(feature = "multi-message-id")]
-    const CIRCOM_BYTES: &[u8] =
-        include_bytes!("../../rln/resources/tree_depth_20/multi_message_id/max_out_4/rln.wasm");
 
     wasm_bindgen_test_configure!(run_in_browser);
 
@@ -143,7 +132,6 @@ mod test {
         let rate_commitment = Hasher::poseidon_hash_pair(&id_commitment, &user_message_limit);
         tree.update_next(*rate_commitment).unwrap();
 
-        #[cfg(not(feature = "multi-message-id"))]
         let message_id = WasmFr::from_uint(0);
         let signal: [u8; 32] = [0; 32];
         let x = Hasher::hash_to_field_le(&Uint8Array::from(&signal[..]));
@@ -156,42 +144,16 @@ mod test {
         }
         let path_index = Uint8Array::from(&merkle_proof.get_path_index()[..]);
 
-        #[cfg(not(feature = "multi-message-id"))]
-        let witness = {
-            WasmRLNWitnessInput::new(
-                &identity_secret,
-                &user_message_limit,
-                &message_id,
-                &path_elements,
-                &path_index,
-                &x,
-                &external_nullifier,
-            )
-            .unwrap()
-        };
-
-        #[cfg(feature = "multi-message-id")]
-        let witness = {
-            let mut message_ids = VecWasmFr::new();
-            message_ids.push(&WasmFr::from_uint(0));
-            message_ids.push(&WasmFr::from_uint(1));
-            message_ids.push(&WasmFr::zero());
-            message_ids.push(&WasmFr::zero());
-
-            let selector_used = Uint8Array::from(&[1u8, 1u8, 0u8, 0u8][..]);
-
-            WasmRLNWitnessInput::new(
-                &identity_secret,
-                &user_message_limit,
-                message_ids,
-                &path_elements,
-                &path_index,
-                &x,
-                &external_nullifier,
-                selector_used,
-            )
-            .unwrap()
-        };
+        let witness = WasmRLNWitnessInput::new_single(
+            &identity_secret,
+            &user_message_limit,
+            &message_id,
+            &path_elements,
+            &path_index,
+            &x,
+            &external_nullifier,
+        )
+        .unwrap();
 
         let bigint_json = witness.to_bigint_json().unwrap();
 

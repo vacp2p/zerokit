@@ -33,21 +33,36 @@ fn get_test_witness() -> RLNWitnessInput {
 
     let message_id = Fr::from(1);
 
-    RLNWitnessInput::new(
-        identity_secret,
-        user_message_limit,
-        #[cfg(not(feature = "multi-message-id"))]
-        message_id,
-        #[cfg(feature = "multi-message-id")]
-        vec![message_id, Fr::from(0), Fr::from(0), Fr::from(0)],
-        merkle_proof.get_path_elements(),
-        merkle_proof.get_path_index(),
-        x,
-        external_nullifier,
-        #[cfg(feature = "multi-message-id")]
-        vec![true, false, false, false],
-    )
-    .unwrap()
+    let message_mode = MessageMode::from(graph_from_folder());
+    match message_mode {
+        MessageMode::Single => RLNWitnessInput::new_single(
+            identity_secret,
+            user_message_limit,
+            message_id,
+            merkle_proof.get_path_elements(),
+            merkle_proof.get_path_index(),
+            x,
+            external_nullifier,
+        )
+        .unwrap(),
+        MessageMode::Multi { max_out } => {
+            let mut message_ids = vec![Fr::from(0); max_out];
+            message_ids[0] = message_id;
+            let mut selector_used = vec![false; max_out];
+            selector_used[0] = true;
+            RLNWitnessInput::new_multi(
+                identity_secret,
+                user_message_limit,
+                message_ids,
+                merkle_proof.get_path_elements(),
+                merkle_proof.get_path_index(),
+                x,
+                external_nullifier,
+                selector_used,
+            )
+            .unwrap()
+        }
+    }
 }
 
 fn get_partial_witness(witness: &RLNWitnessInput) -> RLNPartialWitnessInput {
