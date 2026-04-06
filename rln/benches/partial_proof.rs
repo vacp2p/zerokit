@@ -33,36 +33,16 @@ fn get_test_witness() -> RLNWitnessInput {
 
     let message_id = Fr::from(1);
 
-    let message_mode = MessageMode::from(graph_from_folder());
-    match message_mode {
-        MessageMode::SingleV1 => RLNWitnessInput::new_single(
-            identity_secret,
-            user_message_limit,
-            message_id,
-            merkle_proof.get_path_elements(),
-            merkle_proof.get_path_index(),
-            x,
-            external_nullifier,
-        )
-        .unwrap(),
-        MessageMode::MultiV1 { max_out } => {
-            let mut message_ids = vec![Fr::from(0); max_out];
-            message_ids[0] = message_id;
-            let mut selector_used = vec![false; max_out];
-            selector_used[0] = true;
-            RLNWitnessInput::new_multi(
-                identity_secret,
-                user_message_limit,
-                message_ids,
-                merkle_proof.get_path_elements(),
-                merkle_proof.get_path_index(),
-                x,
-                external_nullifier,
-                selector_used,
-            )
-            .unwrap()
-        }
-    }
+    RLNWitnessInput::new_single(
+        identity_secret,
+        user_message_limit,
+        message_id,
+        merkle_proof.get_path_elements(),
+        merkle_proof.get_path_index(),
+        x,
+        external_nullifier,
+    )
+    .unwrap()
 }
 
 fn get_partial_witness(witness: &RLNWitnessInput) -> RLNPartialWitnessInput {
@@ -79,8 +59,8 @@ pub fn rln_proof_benchmark(c: &mut Criterion) {
     let witness = get_test_witness();
     let partial_witness = get_partial_witness(&witness);
 
-    let proving_key = zkey_from_folder();
-    let graph_data = graph_from_folder();
+    let proving_key = zkey_single_v1();
+    let graph_data = graph_single_v1();
 
     c.bench_function("rln_full_proof", |b| {
         b.iter(|| {

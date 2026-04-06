@@ -42,45 +42,6 @@ mod test {
             .collect()
     }
 
-    fn new_single_message_witness(
-        identity_secret: IdSecret,
-        user_message_limit: Fr,
-        message_id: Fr,
-        path_elements: Vec<Fr>,
-        identity_path_index: Vec<u8>,
-        x: Fr,
-        external_nullifier: Fr,
-    ) -> Result<RLNWitnessInput, ProtocolError> {
-        let message_mode = MessageMode::from(graph_from_folder());
-        match message_mode {
-            MessageMode::SingleV1 => RLNWitnessInput::new_single(
-                identity_secret,
-                user_message_limit,
-                message_id,
-                path_elements,
-                identity_path_index,
-                x,
-                external_nullifier,
-            ),
-            MessageMode::MultiV1 { max_out } => {
-                let mut message_ids = vec![Fr::from(0); max_out];
-                message_ids[0] = message_id;
-                let mut selector_used = vec![false; max_out];
-                selector_used[0] = true;
-                RLNWitnessInput::new_multi(
-                    identity_secret,
-                    user_message_limit,
-                    message_ids,
-                    path_elements,
-                    identity_path_index,
-                    x,
-                    external_nullifier,
-                    selector_used,
-                )
-            }
-        }
-    }
-
     fn random_rln_witness(tree_depth: usize) -> Result<RLNWitnessInput, ProtocolError> {
         let mut rng = thread_rng();
 
@@ -101,7 +62,7 @@ mod test {
         let message_id = Fr::from(1);
         let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
 
-        new_single_message_witness(
+        RLNWitnessInput::new_single(
             identity_secret,
             user_message_limit,
             message_id,
@@ -331,8 +292,6 @@ mod test {
         use rln::prelude::*;
         use serde_json::json;
 
-        use super::new_single_message_witness;
-
         const NO_OF_LEAVES: usize = 256;
 
         fn setup_rln_proof(
@@ -370,7 +329,7 @@ mod test {
                 path_elements[0] = Fr::rand(&mut rng);
             }
 
-            let rln_witness = new_single_message_witness(
+            let rln_witness = RLNWitnessInput::new_single(
                 identity_secret,
                 user_message_limit,
                 message_id,
@@ -778,7 +737,7 @@ mod test {
                 rln.get_merkle_proof(identity_index).unwrap();
 
             // Create RLN witness
-            let rln_witness = new_single_message_witness(
+            let rln_witness = RLNWitnessInput::new_single(
                 identity_secret,
                 user_message_limit,
                 message_id,
@@ -845,7 +804,7 @@ mod test {
                 rln.get_merkle_proof(identity_index).unwrap();
 
             // Create RLN witness
-            let rln_witness = new_single_message_witness(
+            let rln_witness = RLNWitnessInput::new_single(
                 identity_secret,
                 user_message_limit,
                 message_id,
@@ -913,7 +872,7 @@ mod test {
                 rln.get_merkle_proof(identity_index).unwrap();
 
             // Create RLN witness
-            let rln_witness = new_single_message_witness(
+            let rln_witness = RLNWitnessInput::new_single(
                 identity_secret,
                 user_message_limit,
                 message_id,
@@ -999,7 +958,7 @@ mod test {
                 rln.get_merkle_proof(identity_index).unwrap();
 
             // Create RLN witnesses for both signals
-            let rln_witness1 = new_single_message_witness(
+            let rln_witness1 = RLNWitnessInput::new_single(
                 identity_secret.clone(),
                 user_message_limit,
                 message_id,
@@ -1010,7 +969,7 @@ mod test {
             )
             .unwrap();
 
-            let rln_witness2 = new_single_message_witness(
+            let rln_witness2 = RLNWitnessInput::new_single(
                 identity_secret.clone(),
                 user_message_limit,
                 message_id,
@@ -1053,7 +1012,7 @@ mod test {
                 rln.get_merkle_proof(identity_index_new).unwrap();
 
             // We prepare proof input. Note that epoch is the same as before
-            let rln_witness3 = new_single_message_witness(
+            let rln_witness3 = RLNWitnessInput::new_single(
                 identity_secret.clone(),
                 user_message_limit,
                 message_id,
@@ -1354,7 +1313,7 @@ mod test {
         };
 
         use super::DEFAULT_TREE_DEPTH;
-        use crate::test::{new_single_message_witness, random_rln_witness};
+        use crate::test::random_rln_witness;
 
         type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
 
@@ -1395,7 +1354,7 @@ mod test {
             let merkle_proof = tree.proof(identity_index).unwrap();
             let message_id = Fr::from(1);
 
-            let rln_witness = new_single_message_witness(
+            let rln_witness = RLNWitnessInput::new_single(
                 identity_secret,
                 user_message_limit,
                 message_id,
@@ -1477,7 +1436,7 @@ mod test {
             let merkle_proof = tree.proof(identity_index).unwrap();
             let message_id = Fr::from(1);
 
-            let rln_witness1 = new_single_message_witness(
+            let rln_witness1 = RLNWitnessInput::new_single(
                 identity_secret.clone(),
                 user_message_limit,
                 message_id,
@@ -1488,7 +1447,7 @@ mod test {
             )
             .unwrap();
 
-            let rln_witness2 = new_single_message_witness(
+            let rln_witness2 = RLNWitnessInput::new_single(
                 identity_secret.clone(),
                 user_message_limit,
                 message_id,
@@ -1523,7 +1482,7 @@ mod test {
             let identity_index_new = tree.leaves_set();
             let merkle_proof_new = tree.proof(identity_index_new).unwrap();
 
-            let rln_witness3 = new_single_message_witness(
+            let rln_witness3 = RLNWitnessInput::new_single(
                 identity_secret_new.clone(),
                 user_message_limit,
                 message_id,
@@ -1584,7 +1543,7 @@ mod test {
         }
     }
 
-    #[cfg(feature = "multi-message-id")]
+    #[cfg(not(feature = "stateless"))]
     mod multi_message_id_test {
         use rand::{thread_rng, Rng};
         use rln::prelude::*;

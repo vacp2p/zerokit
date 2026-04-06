@@ -60,16 +60,16 @@ pub const VERSION_BYTE_SIZE: usize = 1;
 /// ```
 ///
 /// ### Encoding conventions
-/// - `<32>` — canonical 32-byte little-endian encoding of
+/// - `<32>` - canonical 32-byte little-endian encoding of
 ///   [`ark_bn254::Fr`](https://github.com/arkworks-rs/algebra/blob/7ad88c46e859a94ab8e0b19fd8a217c3dc472f1c/curves/bn254/src/fields/fr.rs#L9).
-/// - `<var>` — length-prefixed list of `Fr`, except `identity_path_index` which is a
+/// - `<var>` - length-prefixed list of `Fr`, except `identity_path_index` which is a
 ///   length-prefixed `Vec<u8>`.
-/// - `proof<128>` — an
+/// - `proof<128>` - an
 ///   [`ark_groth16::Proof`](https://github.com/arkworks-rs/groth16/blob/9ba21ceab723d6b515a813e17846a0c0ec830c0d/src/data_structures.rs#L9)
 ///   over
 ///   [`ark_bn254::Bn254`](https://github.com/arkworks-rs/algebra/blob/7ad88c46e859a94ab8e0b19fd8a217c3dc472f1c/curves/bn254/src/curves/mod.rs#L44),
 ///   serialized as a fixed 128-byte little-endian canonical form (arkworks default).
-/// - `partial_proof<var>` — variable-length little-endian canonical form (arkworks default).
+/// - `partial_proof<var>` - variable-length little-endian canonical form (arkworks default).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MessageMode {
     /// Single message-id mode (RLN v2, wire byte `0x00`).
@@ -114,9 +114,7 @@ impl fmt::Display for MessageMode {
 
 /// Parses a version byte into a [`MessageMode`] discriminant for deserialization dispatch.
 ///
-/// For [`MessageMode::MultiV1`] the `max_out` field is set to `0` — it is a placeholder only.
-/// Callers must read `max_out` from the payload length and reconstruct the final
-/// [`MessageMode::MultiV1`] value themselves.
+/// For [`MessageMode::MultiV1`] the `max_out` field is set to `0` - it is a placeholder only.
 impl TryFrom<u8> for MessageMode {
     type Error = ProtocolError;
 

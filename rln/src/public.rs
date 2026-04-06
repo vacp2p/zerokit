@@ -13,7 +13,7 @@ use {
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
-    circuit::{graph_from_folder, graph_from_raw, zkey_from_folder, Graph, PartialProof},
+    circuit::{graph_from_raw, graph_single_v1, zkey_single_v1, Graph, PartialProof},
     prelude::RLNPartialWitnessInput,
     protocol::{finish_zk_proof, generate_partial_zk_proof, generate_zk_proof, MessageMode},
 };
@@ -99,9 +99,8 @@ impl RLN {
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn new<T: TreeConfigInput>(tree_depth: usize, tree_config: T) -> Result<RLN, RLNError> {
-        let zkey = zkey_from_folder().to_owned();
-        let graph = graph_from_folder().to_owned();
-        let message_mode = MessageMode::from(&graph);
+        let zkey = zkey_single_v1().to_owned();
+        let graph = graph_single_v1().to_owned();
         let config = tree_config.into_tree_config()?;
 
         // We compute a default empty tree
@@ -114,9 +113,8 @@ impl RLN {
         Ok(RLN {
             zkey,
             graph,
-            #[cfg(not(feature = "stateless"))]
             tree,
-            message_mode,
+            message_mode: MessageMode::SingleV1,
         })
     }
 
@@ -129,14 +127,13 @@ impl RLN {
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
     pub fn new() -> Result<RLN, RLNError> {
-        let zkey = zkey_from_folder().to_owned();
-        let graph = graph_from_folder().clone();
-        let message_mode = MessageMode::from(&graph);
+        let zkey = zkey_single_v1().to_owned();
+        let graph = graph_single_v1().clone();
 
         Ok(RLN {
             zkey,
             graph,
-            message_mode,
+            message_mode: MessageMode::SingleV1,
         })
     }
 
@@ -146,7 +143,6 @@ impl RLN {
     /// - `tree_depth`: the depth of the internal Merkle tree
     /// - `zkey_data`: a byte vector containing the proving key (`rln_final.arkzkey`) as binary file
     /// - `graph_data`: a byte vector containing the graph data (`graph.bin`) as binary file
-    /// - `max_out` (multi-message-id feature): the maximum number of message ID slots the circuit supports
     /// - `tree_config`: configuration for the Merkle tree (accepts multiple types via TreeConfigInput trait)
     ///
     /// Examples:
@@ -198,7 +194,6 @@ impl RLN {
         Ok(RLN {
             zkey,
             graph,
-            #[cfg(not(feature = "stateless"))]
             tree,
             message_mode,
         })

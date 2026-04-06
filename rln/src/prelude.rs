@@ -1,7 +1,7 @@
 // This module re-exports the most commonly used types and functions from the RLN library
 
 #[cfg(not(target_arch = "wasm32"))]
-pub use crate::circuit::{graph_from_folder, zkey_from_folder};
+pub use crate::circuit::{graph_multi_v1, graph_single_v1, zkey_multi_v1, zkey_single_v1};
 #[cfg(feature = "pmtree-ft")]
 pub use crate::pm_tree_adapter::{FrOf, PmTree, PmTreeProof, PmtreeConfig, PmtreeConfigBuilder};
 #[cfg(not(feature = "stateless"))]

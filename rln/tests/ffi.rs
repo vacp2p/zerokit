@@ -1,5 +1,5 @@
 #[cfg(test)]
-#[cfg(all(not(feature = "stateless"), not(feature = "multi-message-id")))]
+#[cfg(not(feature = "stateless"))]
 mod test {
     use std::{fs::File, io::Read};
 

@@ -1,6 +1,5 @@
 #![cfg(target_arch = "wasm32")]
 #![cfg(not(feature = "utils"))]
-#![cfg(not(feature = "multi-message-id"))]
 
 #[cfg(test)]
 mod test {

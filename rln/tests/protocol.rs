@@ -9,45 +9,6 @@ mod test {
 
     type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
 
-    fn new_single_message_witness(
-        identity_secret: IdSecret,
-        user_message_limit: Fr,
-        message_id: Fr,
-        path_elements: Vec<Fr>,
-        identity_path_index: Vec<u8>,
-        x: Fr,
-        external_nullifier: Fr,
-    ) -> Result<RLNWitnessInput, ProtocolError> {
-        let message_mode = MessageMode::from(graph_from_folder());
-        match message_mode {
-            MessageMode::SingleV1 => RLNWitnessInput::new_single(
-                identity_secret,
-                user_message_limit,
-                message_id,
-                path_elements,
-                identity_path_index,
-                x,
-                external_nullifier,
-            ),
-            MessageMode::MultiV1 { max_out } => {
-                let mut message_ids = vec![Fr::from(0); max_out];
-                message_ids[0] = message_id;
-                let mut selector_used = vec![false; max_out];
-                selector_used[0] = true;
-                RLNWitnessInput::new_multi(
-                    identity_secret,
-                    user_message_limit,
-                    message_ids,
-                    path_elements,
-                    identity_path_index,
-                    x,
-                    external_nullifier,
-                    selector_used,
-                )
-            }
-        }
-    }
-
     #[test]
     // We test Merkle tree generation, proofs and verification
     fn test_merkle_proof() {
@@ -154,7 +115,7 @@ mod test {
 
         let message_id = Fr::from(1);
 
-        new_single_message_witness(
+        RLNWitnessInput::new_single(
             identity_secret,
             user_message_limit,
             message_id,
@@ -204,7 +165,7 @@ mod test {
 
         let message_id = Fr::from(message_id);
 
-        new_single_message_witness(
+        RLNWitnessInput::new_single(
             identity_secret,
             user_message_limit,
             message_id,
@@ -222,8 +183,8 @@ mod test {
         let witness = get_test_witness();
 
         // We generate all relevant keys
-        let proving_key = zkey_from_folder();
-        let graph_data = graph_from_folder();
+        let proving_key = zkey_single_v1();
+        let graph_data = graph_single_v1();
 
         // Generate a zkSNARK proof
         let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
@@ -243,8 +204,8 @@ mod test {
 
         let partial_witness = RLNPartialWitnessInput::from(&witness);
 
-        let proving_key = zkey_from_folder();
-        let graph_data = graph_from_folder();
+        let proving_key = zkey_single_v1();
+        let graph_data = graph_single_v1();
 
         let partial_proof =
             generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
@@ -263,8 +224,8 @@ mod test {
 
         let partial_witness = RLNPartialWitnessInput::from(&witness);
 
-        let proving_key = zkey_from_folder();
-        let graph_data = graph_from_folder();
+        let proving_key = zkey_single_v1();
+        let graph_data = graph_single_v1();
 
         let partial_proof =
             generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
@@ -373,8 +334,8 @@ mod test {
         let witness = get_test_witness();
         let partial_witness = RLNPartialWitnessInput::from(&witness);
 
-        let proving_key = zkey_from_folder();
-        let graph_data = graph_from_folder();
+        let proving_key = zkey_single_v1();
+        let graph_data = graph_single_v1();
         let partial_proof =
             generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
 
@@ -446,7 +407,7 @@ mod test {
 
         // Test valid witness input
         let valid_message_id = Fr::from(50);
-        let result = new_single_message_witness(
+        let result = RLNWitnessInput::new_single(
             identity_secret.clone(),
             user_message_limit,
             valid_message_id,
@@ -459,7 +420,7 @@ mod test {
 
         // Test message_id >= user_message_limit (should fail)
         let invalid_message_id = Fr::from(100); // equal to limit
-        let result = new_single_message_witness(
+        let result = RLNWitnessInput::new_single(
             identity_secret.clone(),
             user_message_limit,
             invalid_message_id,
@@ -471,7 +432,7 @@ mod test {
         assert!(matches!(result, Err(ProtocolError::InvalidMessageId(_, _))));
 
         let invalid_message_id = Fr::from(150); // greater than limit
-        let result = new_single_message_witness(
+        let result = RLNWitnessInput::new_single(
             identity_secret.clone(),
             user_message_limit,
             invalid_message_id,
@@ -484,7 +445,7 @@ mod test {
 
         // Test user_message_limit = 0 (should fail)
         let zero_limit = Fr::from(0);
-        let result = new_single_message_witness(
+        let result = RLNWitnessInput::new_single(
             identity_secret,
             zero_limit,
             Fr::from(0),
@@ -656,8 +617,8 @@ mod test {
     #[test]
     fn test_rln_proof_serialization_be_roundtrip() {
         let witness = get_test_witness();
-        let proving_key = zkey_from_folder();
-        let graph_data = graph_from_folder();
+        let proving_key = zkey_single_v1();
+        let graph_data = graph_single_v1();
         let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
         let proof_values = witness.proof_values();
 
@@ -676,30 +637,19 @@ mod test {
     #[test]
     fn test_verify_zk_proof_with_modified_public_value_fails() {
         let witness = get_test_witness();
-        let proving_key = zkey_from_folder();
-        let graph_data = graph_from_folder();
+        let proving_key = zkey_single_v1();
+        let graph_data = graph_single_v1();
         let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
         let proof_values = witness.proof_values();
 
         let new_root = *proof_values.root() + Fr::from(1);
-        let message_mode = MessageMode::from(graph_from_folder());
-        let mutated_pv = match message_mode {
-            MessageMode::SingleV1 => RLNProofValues::new_single(
-                new_root,
-                *proof_values.x(),
-                *proof_values.external_nullifier(),
-                *proof_values.y(),
-                *proof_values.nullifier(),
-            ),
-            MessageMode::MultiV1 { .. } => RLNProofValues::new_multi(
-                new_root,
-                *proof_values.x(),
-                *proof_values.external_nullifier(),
-                proof_values.ys().to_vec(),
-                proof_values.nullifiers().to_vec(),
-                proof_values.selector_used().to_vec(),
-            ),
-        };
+        let mutated_pv = RLNProofValues::new_single(
+            new_root,
+            *proof_values.x(),
+            *proof_values.external_nullifier(),
+            *proof_values.y(),
+            *proof_values.nullifier(),
+        );
 
         let verified = verify_zk_proof(&proving_key.0.vk, &proof, &mutated_pv).unwrap();
         assert!(!verified);
@@ -785,25 +735,10 @@ mod test {
             json["userMessageLimit"].as_str().unwrap(),
             to_bigint(witness.user_message_limit()).to_str_radix(10)
         );
-        match MessageMode::from(graph_from_folder()) {
-            MessageMode::SingleV1 => assert_eq!(
-                json["messageId"].as_str().unwrap(),
-                to_bigint(witness.message_id()).to_str_radix(10)
-            ),
-            MessageMode::MultiV1 { .. } => assert_eq!(
-                json["messageId"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|v| v.as_str().unwrap().to_string())
-                    .collect::<Vec<_>>(),
-                witness
-                    .message_ids()
-                    .iter()
-                    .map(|id| to_bigint(id).to_str_radix(10))
-                    .collect::<Vec<_>>()
-            ),
-        }
+        assert_eq!(
+            json["messageId"].as_str().unwrap(),
+            to_bigint(witness.message_id()).to_str_radix(10)
+        );
         assert_eq!(
             json["x"].as_str().unwrap(),
             to_bigint(witness.x()).to_str_radix(10)
@@ -835,25 +770,10 @@ mod test {
             json2["userMessageLimit"].as_str().unwrap(),
             to_bigint(witness2.user_message_limit()).to_str_radix(10)
         );
-        match MessageMode::from(graph_from_folder()) {
-            MessageMode::SingleV1 => assert_eq!(
-                json2["messageId"].as_str().unwrap(),
-                to_bigint(witness2.message_id()).to_str_radix(10)
-            ),
-            MessageMode::MultiV1 { .. } => assert_eq!(
-                json2["messageId"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|v| v.as_str().unwrap().to_string())
-                    .collect::<Vec<_>>(),
-                witness2
-                    .message_ids()
-                    .iter()
-                    .map(|id| to_bigint(id).to_str_radix(10))
-                    .collect::<Vec<_>>()
-            ),
-        }
+        assert_eq!(
+            json2["messageId"].as_str().unwrap(),
+            to_bigint(witness2.message_id()).to_str_radix(10)
+        );
         assert_eq!(
             json2["x"].as_str().unwrap(),
             to_bigint(witness2.x()).to_str_radix(10)

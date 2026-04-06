@@ -40,17 +40,15 @@ cargo run --example stateless --no-default-features --features stateless
 ## Multi Message ID Example
 
 The following [Multi Message ID Example](src/examples/multi_message_id.rs) demonstrates
-how RLN supports consuming multiple message_id units in a single proof
-using the multi-message-id feature.
+how RLN supports consuming multiple message_id units in a single proof.
 
 This example functions similarly to the [Relay Example](#relay-example)
-but uses different [resource files](../rln/resources/tree_depth_20/multi_message_id)
-that support the multi-message-id feature.
+but uses the [multi-message-id resource files](../rln/resources/tree_depth_20/multi_message_id).
 
 You can run the example using the following command:
 
 ```bash
-cargo run --example multi_message_id --features multi-message-id
+cargo run --example multi_message_id
 ```
 
 ## Partial Proof Example
