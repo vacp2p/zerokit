@@ -53,7 +53,7 @@ mod test {
     ) -> Result<RLNWitnessInput, ProtocolError> {
         let message_mode = MessageMode::from(graph_from_folder());
         match message_mode {
-            MessageMode::Single => RLNWitnessInput::new_single(
+            MessageMode::SingleV1 => RLNWitnessInput::new_single(
                 identity_secret,
                 user_message_limit,
                 message_id,
@@ -62,7 +62,7 @@ mod test {
                 x,
                 external_nullifier,
             ),
-            MessageMode::Multi { max_out } => {
+            MessageMode::MultiV1 { max_out } => {
                 let mut message_ids = vec![Fr::from(0); max_out];
                 message_ids[0] = message_id;
                 let mut selector_used = vec![false; max_out];
@@ -120,7 +120,7 @@ mod test {
         let rln = RLN::new().unwrap();
 
         let (valid_snarkjs_proof, x, valid_proof_values) = match rln.message_mode() {
-            MessageMode::Single => {
+            MessageMode::SingleV1 => {
                 let proof = json!({
                     "pi_a": [
                         "606446415626469993821291758185575230335423926365686267140465300918089871829",
@@ -179,7 +179,7 @@ mod test {
                 );
                 (proof, x, proof_values)
             }
-            MessageMode::Multi { .. } => {
+            MessageMode::MultiV1 { .. } => {
                 let proof = json!({
                     "pi_a": [
                         "18065030346679405936314703365313027854666139282416381597863520591326000485770",
@@ -1116,14 +1116,14 @@ mod test {
             // Mutate external_nullifier by adding 1
             let new_en = *proof_values.external_nullifier() + Fr::from(1);
             let mutated_pv = match rln.message_mode() {
-                MessageMode::Single => RLNProofValues::new_single(
+                MessageMode::SingleV1 => RLNProofValues::new_single(
                     *proof_values.root(),
                     *proof_values.x(),
                     new_en,
                     *proof_values.y(),
                     *proof_values.nullifier(),
                 ),
-                MessageMode::Multi { .. } => RLNProofValues::new_multi(
+                MessageMode::MultiV1 { .. } => RLNProofValues::new_multi(
                     *proof_values.root(),
                     *proof_values.x(),
                     new_en,
@@ -1158,14 +1158,14 @@ mod test {
 
             // Mutate nullifier (simulating mutated message_id)
             let mutated_pv = match rln.message_mode() {
-                MessageMode::Single => RLNProofValues::new_single(
+                MessageMode::SingleV1 => RLNProofValues::new_single(
                     *proof_values.root(),
                     *proof_values.x(),
                     *proof_values.external_nullifier(),
                     *proof_values.y(),
                     Fr::rand(&mut rng),
                 ),
-                MessageMode::Multi { .. } => RLNProofValues::new_multi(
+                MessageMode::MultiV1 { .. } => RLNProofValues::new_multi(
                     *proof_values.root(),
                     *proof_values.x(),
                     *proof_values.external_nullifier(),
@@ -1186,14 +1186,14 @@ mod test {
 
             // Mutate root (simulating mutated path_element)
             let mutated_pv = match rln.message_mode() {
-                MessageMode::Single => RLNProofValues::new_single(
+                MessageMode::SingleV1 => RLNProofValues::new_single(
                     Fr::rand(&mut rng),
                     *proof_values.x(),
                     *proof_values.external_nullifier(),
                     *proof_values.y(),
                     *proof_values.nullifier(),
                 ),
-                MessageMode::Multi { .. } => RLNProofValues::new_multi(
+                MessageMode::MultiV1 { .. } => RLNProofValues::new_multi(
                     Fr::rand(&mut rng),
                     *proof_values.x(),
                     *proof_values.external_nullifier(),
@@ -1216,14 +1216,14 @@ mod test {
             // Mutate external_nullifier by adding 1
             let new_en = *proof_values.external_nullifier() + Fr::from(1);
             let mutated_pv = match rln.message_mode() {
-                MessageMode::Single => RLNProofValues::new_single(
+                MessageMode::SingleV1 => RLNProofValues::new_single(
                     *proof_values.root(),
                     *proof_values.x(),
                     new_en,
                     *proof_values.y(),
                     *proof_values.nullifier(),
                 ),
-                MessageMode::Multi { .. } => RLNProofValues::new_multi(
+                MessageMode::MultiV1 { .. } => RLNProofValues::new_multi(
                     *proof_values.root(),
                     *proof_values.x(),
                     new_en,
@@ -1262,14 +1262,14 @@ mod test {
 
             // Mutate nullifier (simulating mutated message_id)
             let mutated_pv = match rln.message_mode() {
-                MessageMode::Single => RLNProofValues::new_single(
+                MessageMode::SingleV1 => RLNProofValues::new_single(
                     *proof_values.root(),
                     *proof_values.x(),
                     *proof_values.external_nullifier(),
                     *proof_values.y(),
                     Fr::rand(&mut rng),
                 ),
-                MessageMode::Multi { .. } => RLNProofValues::new_multi(
+                MessageMode::MultiV1 { .. } => RLNProofValues::new_multi(
                     *proof_values.root(),
                     *proof_values.x(),
                     *proof_values.external_nullifier(),

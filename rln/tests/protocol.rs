@@ -20,7 +20,7 @@ mod test {
     ) -> Result<RLNWitnessInput, ProtocolError> {
         let message_mode = MessageMode::from(graph_from_folder());
         match message_mode {
-            MessageMode::Single => RLNWitnessInput::new_single(
+            MessageMode::SingleV1 => RLNWitnessInput::new_single(
                 identity_secret,
                 user_message_limit,
                 message_id,
@@ -29,7 +29,7 @@ mod test {
                 x,
                 external_nullifier,
             ),
-            MessageMode::Multi { max_out } => {
+            MessageMode::MultiV1 { max_out } => {
                 let mut message_ids = vec![Fr::from(0); max_out];
                 message_ids[0] = message_id;
                 let mut selector_used = vec![false; max_out];
@@ -684,14 +684,14 @@ mod test {
         let new_root = *proof_values.root() + Fr::from(1);
         let message_mode = MessageMode::from(graph_from_folder());
         let mutated_pv = match message_mode {
-            MessageMode::Single => RLNProofValues::new_single(
+            MessageMode::SingleV1 => RLNProofValues::new_single(
                 new_root,
                 *proof_values.x(),
                 *proof_values.external_nullifier(),
                 *proof_values.y(),
                 *proof_values.nullifier(),
             ),
-            MessageMode::Multi { .. } => RLNProofValues::new_multi(
+            MessageMode::MultiV1 { .. } => RLNProofValues::new_multi(
                 new_root,
                 *proof_values.x(),
                 *proof_values.external_nullifier(),
@@ -786,11 +786,11 @@ mod test {
             to_bigint(witness.user_message_limit()).to_str_radix(10)
         );
         match MessageMode::from(graph_from_folder()) {
-            MessageMode::Single => assert_eq!(
+            MessageMode::SingleV1 => assert_eq!(
                 json["messageId"].as_str().unwrap(),
                 to_bigint(witness.message_id()).to_str_radix(10)
             ),
-            MessageMode::Multi { .. } => assert_eq!(
+            MessageMode::MultiV1 { .. } => assert_eq!(
                 json["messageId"]
                     .as_array()
                     .unwrap()
@@ -836,11 +836,11 @@ mod test {
             to_bigint(witness2.user_message_limit()).to_str_radix(10)
         );
         match MessageMode::from(graph_from_folder()) {
-            MessageMode::Single => assert_eq!(
+            MessageMode::SingleV1 => assert_eq!(
                 json2["messageId"].as_str().unwrap(),
                 to_bigint(witness2.message_id()).to_str_radix(10)
             ),
-            MessageMode::Multi { .. } => assert_eq!(
+            MessageMode::MultiV1 { .. } => assert_eq!(
                 json2["messageId"]
                     .as_array()
                     .unwrap()

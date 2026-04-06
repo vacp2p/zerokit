@@ -15,15 +15,12 @@ use {
 use crate::{
     circuit::{graph_from_folder, graph_from_raw, zkey_from_folder, Graph, PartialProof},
     prelude::RLNPartialWitnessInput,
-    protocol::{finish_zk_proof, generate_partial_zk_proof, generate_zk_proof},
+    protocol::{finish_zk_proof, generate_partial_zk_proof, generate_zk_proof, MessageMode},
 };
 use crate::{
     circuit::{zkey_from_raw, Fr, Proof, Zkey},
     error::{RLNError, VerifyError},
-    protocol::{
-        generate_zk_proof_with_witness, verify_zk_proof, MessageMode, RLNProofValues,
-        RLNWitnessInput,
-    },
+    protocol::{generate_zk_proof_with_witness, verify_zk_proof, RLNProofValues, RLNWitnessInput},
 };
 
 /// This trait allows accepting different config input types for tree configuration.
@@ -62,6 +59,7 @@ pub struct RLN {
     pub(crate) graph: Graph,
     #[cfg(not(feature = "stateless"))]
     pub(crate) tree: PoseidonTree,
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) message_mode: MessageMode,
 }
 
@@ -263,9 +261,8 @@ impl RLN {
     #[cfg(all(target_arch = "wasm32", feature = "stateless"))]
     pub fn new_with_params(zkey_data: Vec<u8>) -> Result<RLN, RLNError> {
         let zkey = zkey_from_raw(&zkey_data)?;
-        let message_mode = MessageMode::Single;
 
-        Ok(RLN { zkey, message_mode })
+        Ok(RLN { zkey })
     }
 
     // Utility APIs
@@ -276,6 +273,7 @@ impl RLN {
         self.graph.tree_depth
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     /// Returns the message mode this RLN instance was configured with.
     pub fn message_mode(&self) -> MessageMode {
         self.message_mode

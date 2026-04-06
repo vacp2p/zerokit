@@ -4,8 +4,8 @@ use num_bigint::BigInt;
 use zeroize::Zeroize;
 
 use super::{
+    mode::{MessageMode, RlnSerialize, VERSION_BYTE_SIZE},
     proof::RLNProofValues,
-    version::{RlnSerialize, SerializationVersion, VERSION_BYTE_SIZE},
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::utils::FrOrSecret;
@@ -39,7 +39,7 @@ pub(crate) enum RLNMessageInputs {
 /// Contains the identity credentials, merkle proof, rate-limiting parameters,
 /// and signal binding data required to generate a Groth16 proof for the RLN protocol.
 ///
-/// The serialization format for this type is defined in [`crate::protocol::SerializationVersion`].
+/// The serialization format for this type is defined in [`crate::protocol::MessageMode`].
 #[derive(Debug, PartialEq, Clone)]
 pub struct RLNWitnessInput {
     identity_secret: IdSecret,
@@ -56,7 +56,7 @@ pub struct RLNWitnessInput {
 /// Contains the non-changing inputs used to precompute a partial proof
 /// before the signal, external nullifier, and message ID are known.
 ///
-/// The serialization format for this type is defined in [`crate::protocol::SerializationVersion`].
+/// The serialization format for this type is defined in [`crate::protocol::MessageMode`].
 #[derive(Debug, PartialEq, Clone)]
 pub struct RLNPartialWitnessInput {
     identity_secret: IdSecret,
@@ -174,8 +174,8 @@ impl RLNWitnessInput {
     /// Returns the version byte corresponding to the witness variant.
     pub fn version_byte(&self) -> u8 {
         match &self.message_inputs {
-            RLNMessageInputs::SingleV1 { .. } => SerializationVersion::SingleV1.into(),
-            RLNMessageInputs::MultiV1 { .. } => SerializationVersion::MultiV1.into(),
+            RLNMessageInputs::SingleV1 { .. } => MessageMode::SingleV1.version_byte(),
+            RLNMessageInputs::MultiV1 { .. } => MessageMode::MultiV1 { max_out: 0 }.version_byte(),
         }
     }
 
@@ -391,7 +391,7 @@ impl RLNPartialWitnessInput {
 
     /// Returns the version byte for this partial witness's serialization format.
     pub fn version_byte(&self) -> u8 {
-        SerializationVersion::SingleV1.into()
+        MessageMode::SingleV1.version_byte()
     }
 }
 
@@ -514,7 +514,7 @@ impl RlnSerialize for RLNWitnessInput {
         if bytes.is_empty() {
             return Err(ProtocolError::InvalidReadLen(1, 0));
         }
-        let version = SerializationVersion::try_from(bytes[0])?;
+        let version = MessageMode::try_from(bytes[0])?;
         let mut read: usize = VERSION_BYTE_SIZE;
 
         let (identity_secret, el_size) = IdSecret::from_bytes_le(&bytes[read..])?;
@@ -523,7 +523,7 @@ impl RlnSerialize for RLNWitnessInput {
         read += el_size;
 
         match version {
-            SerializationVersion::SingleV1 => {
+            MessageMode::SingleV1 => {
                 let (message_id, el_size) = bytes_le_to_fr(&bytes[read..])?;
                 read += el_size;
                 let (path_elements, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
@@ -548,7 +548,7 @@ impl RlnSerialize for RLNWitnessInput {
                 )?;
                 Ok((witness, read))
             }
-            SerializationVersion::MultiV1 => {
+            MessageMode::MultiV1 { .. } => {
                 let (path_elements, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
                 read += el_size;
                 let (identity_path_index, el_size) = bytes_le_to_vec_u8(&bytes[read..])?;
@@ -596,7 +596,7 @@ impl RlnSerialize for RLNWitnessInput {
         if bytes.is_empty() {
             return Err(ProtocolError::InvalidReadLen(1, 0));
         }
-        let version = SerializationVersion::try_from(bytes[0])?;
+        let version = MessageMode::try_from(bytes[0])?;
         let mut read: usize = VERSION_BYTE_SIZE;
 
         let (identity_secret, el_size) = IdSecret::from_bytes_be(&bytes[read..])?;
@@ -605,7 +605,7 @@ impl RlnSerialize for RLNWitnessInput {
         read += el_size;
 
         match version {
-            SerializationVersion::SingleV1 => {
+            MessageMode::SingleV1 => {
                 let (message_id, el_size) = bytes_be_to_fr(&bytes[read..])?;
                 read += el_size;
                 let (path_elements, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
@@ -630,7 +630,7 @@ impl RlnSerialize for RLNWitnessInput {
                 )?;
                 Ok((witness, read))
             }
-            SerializationVersion::MultiV1 => {
+            MessageMode::MultiV1 { .. } => {
                 let (path_elements, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
                 read += el_size;
                 let (identity_path_index, el_size) = bytes_be_to_vec_u8(&bytes[read..])?;
@@ -725,7 +725,7 @@ impl RlnSerialize for RLNPartialWitnessInput {
             return Err(ProtocolError::InvalidReadLen(1, 0));
         }
 
-        let _version = SerializationVersion::try_from(bytes[0])?;
+        let _version = MessageMode::try_from(bytes[0])?;
         let mut read: usize = VERSION_BYTE_SIZE;
 
         let (identity_secret, el_size) = IdSecret::from_bytes_le(&bytes[read..])?;
@@ -763,7 +763,7 @@ impl RlnSerialize for RLNPartialWitnessInput {
             return Err(ProtocolError::InvalidReadLen(1, 0));
         }
 
-        let _version = SerializationVersion::try_from(bytes[0])?;
+        let _version = MessageMode::try_from(bytes[0])?;
         let mut read: usize = VERSION_BYTE_SIZE;
 
         let (identity_secret, el_size) = IdSecret::from_bytes_be(&bytes[read..])?;

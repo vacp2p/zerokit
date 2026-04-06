@@ -5,15 +5,11 @@ use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
 use num_traits::Signed;
 
+use super::mode::{MessageMode, RlnSerialize, VERSION_BYTE_SIZE};
 #[cfg(not(target_arch = "wasm32"))]
 use super::witness::{
-    inputs_for_partial_witness_calculation, inputs_for_witness_calculation, RLNPartialWitnessInput,
-    RLNWitnessInput,
-};
-use super::{
-    mode::MessageMode,
-    version::{RlnSerialize, SerializationVersion, VERSION_BYTE_SIZE},
-    witness::RLNMessageInputs,
+    inputs_for_partial_witness_calculation, inputs_for_witness_calculation, RLNMessageInputs,
+    RLNPartialWitnessInput, RLNWitnessInput,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
@@ -41,7 +37,7 @@ use crate::{
 ///
 /// Combines the Groth16 proof with its public values.
 ///
-/// The serialization format for this type is defined in [`crate::protocol::SerializationVersion`].
+/// The serialization format for this type is defined in [`crate::protocol::MessageMode`].
 #[derive(Debug, PartialEq, Clone)]
 pub struct RLNProof {
     pub proof: Proof,
@@ -74,7 +70,7 @@ pub(crate) enum RLNOutputs {
 /// Contains the circuit's public inputs and outputs. Used in proof verification
 /// and identity secret recovery when rate limit violations are detected.
 ///
-/// The serialization format for this type is defined in [`crate::protocol::SerializationVersion`].
+/// The serialization format for this type is defined in [`crate::protocol::MessageMode`].
 #[derive(Debug, PartialEq, Clone)]
 pub struct RLNProofValues {
     root: Fr,
@@ -118,8 +114,8 @@ impl RLNProofValues {
     /// Returns the version byte corresponding to the proof values variant.
     pub fn version_byte(&self) -> u8 {
         match &self.outputs {
-            RLNOutputs::SingleV1 { .. } => SerializationVersion::SingleV1.into(),
-            RLNOutputs::MultiV1 { .. } => SerializationVersion::MultiV1.into(),
+            RLNOutputs::SingleV1 { .. } => MessageMode::SingleV1.version_byte(),
+            RLNOutputs::MultiV1 { .. } => MessageMode::MultiV1 { max_out: 0 }.version_byte(),
         }
     }
 
@@ -298,7 +294,7 @@ impl RlnSerialize for RLNProofValues {
             return Err(ProtocolError::InvalidReadLen(1, 0));
         }
 
-        let version = SerializationVersion::try_from(bytes[0])?;
+        let version = MessageMode::try_from(bytes[0])?;
         let mut read: usize = VERSION_BYTE_SIZE;
 
         let (root, el_size) = bytes_le_to_fr(&bytes[read..])?;
@@ -309,14 +305,14 @@ impl RlnSerialize for RLNProofValues {
         read += el_size;
 
         let proof_values = match version {
-            SerializationVersion::SingleV1 => {
+            MessageMode::SingleV1 => {
                 let (y, el_size) = bytes_le_to_fr(&bytes[read..])?;
                 read += el_size;
                 let (nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
                 read += el_size;
                 RLNProofValues::new_single(root, x, external_nullifier, y, nullifier)
             }
-            SerializationVersion::MultiV1 => {
+            MessageMode::MultiV1 { .. } => {
                 let (ys, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
                 read += el_size;
                 let (nullifiers, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
@@ -365,7 +361,7 @@ impl RlnSerialize for RLNProofValues {
             return Err(ProtocolError::InvalidReadLen(1, 0));
         }
 
-        let version = SerializationVersion::try_from(bytes[0])?;
+        let version = MessageMode::try_from(bytes[0])?;
         let mut read: usize = VERSION_BYTE_SIZE;
 
         let (root, el_size) = bytes_be_to_fr(&bytes[read..])?;
@@ -376,14 +372,14 @@ impl RlnSerialize for RLNProofValues {
         read += el_size;
 
         let proof_values = match version {
-            SerializationVersion::SingleV1 => {
+            MessageMode::SingleV1 => {
                 let (y, el_size) = bytes_be_to_fr(&bytes[read..])?;
                 read += el_size;
                 let (nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
                 read += el_size;
                 RLNProofValues::new_single(root, x, external_nullifier, y, nullifier)
             }
-            SerializationVersion::MultiV1 => {
+            MessageMode::MultiV1 { .. } => {
                 let (ys, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
                 read += el_size;
                 let (nullifiers, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
@@ -478,7 +474,7 @@ impl RlnSerialize for RLNProof {
             return Err(ProtocolError::InvalidReadLen(1, 0));
         }
 
-        let _version = SerializationVersion::try_from(bytes[0])?;
+        let _version = MessageMode::try_from(bytes[0])?;
         let mut read: usize = VERSION_BYTE_SIZE;
 
         // Deserialize proof (always LE from arkworks)
@@ -517,7 +513,7 @@ impl RlnSerialize for RLNProof {
             return Err(ProtocolError::InvalidReadLen(1, 0));
         }
 
-        let _version = SerializationVersion::try_from(bytes[0])?;
+        let _version = MessageMode::try_from(bytes[0])?;
         let mut read: usize = VERSION_BYTE_SIZE;
 
         // Deserialize proof (always LE from arkworks)
@@ -550,7 +546,7 @@ impl RlnSerialize for RLNProof {
 impl PartialProof {
     /// Returns the version byte corresponding to the partial proof variant.
     pub fn version_byte(&self) -> u8 {
-        SerializationVersion::SingleV1.into()
+        MessageMode::SingleV1.version_byte()
     }
 }
 
@@ -561,7 +557,7 @@ impl RlnSerialize for PartialProof {
     ///
     /// The PartialProof is always serialized in LE format (arkworks behavior).
     fn to_bytes_le(&self) -> Result<Vec<u8>, Self::Error> {
-        let version_byte: u8 = SerializationVersion::SingleV1.into();
+        let version_byte: u8 = MessageMode::SingleV1.version_byte();
 
         // The compressed PartialProof size is variable (depends on circuit size).
         let mut bytes = Vec::new();
@@ -585,7 +581,7 @@ impl RlnSerialize for PartialProof {
             return Err(ProtocolError::InvalidReadLen(1, 0));
         }
 
-        let _version = SerializationVersion::try_from(bytes[0])?;
+        let _version = MessageMode::try_from(bytes[0])?;
         let mut read: usize = VERSION_BYTE_SIZE;
 
         let mut bytes_ref = &bytes[read..];
@@ -687,7 +683,7 @@ fn validate_witness_against_graph(
     }
 
     let witness_mode = MessageMode::from(&witness.message_inputs);
-    let graph_mode = MessageMode::from(graph.max_out);
+    let graph_mode = MessageMode::from(graph);
     if witness_mode != graph_mode {
         return Err(ProtocolError::MessageModeAndGraphMismatch {
             witness_mode,

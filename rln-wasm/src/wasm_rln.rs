@@ -265,6 +265,7 @@ impl WasmRLNWitnessInput {
         Ok(WasmRLNWitnessInput(witness))
     }
 
+    #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen(js_name = newMulti)]
     pub fn new_multi(
         identity_secret: &WasmFr,

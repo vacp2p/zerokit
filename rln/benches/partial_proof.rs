@@ -35,7 +35,7 @@ fn get_test_witness() -> RLNWitnessInput {
 
     let message_mode = MessageMode::from(graph_from_folder());
     match message_mode {
-        MessageMode::Single => RLNWitnessInput::new_single(
+        MessageMode::SingleV1 => RLNWitnessInput::new_single(
             identity_secret,
             user_message_limit,
             message_id,
@@ -45,7 +45,7 @@ fn get_test_witness() -> RLNWitnessInput {
             external_nullifier,
         )
         .unwrap(),
-        MessageMode::Multi { max_out } => {
+        MessageMode::MultiV1 { max_out } => {
             let mut message_ids = vec![Fr::from(0); max_out];
             message_ids[0] = message_id;
             let mut selector_used = vec![false; max_out];

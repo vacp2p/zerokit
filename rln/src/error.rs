@@ -4,11 +4,13 @@ use ark_relations::r1cs::SynthesisError;
 use num_bigint::{BigInt, ParseBigIntError};
 use zerokit_utils::merkle_tree::{FromConfigError, ZerokitMerkleTreeError};
 
-use crate::circuit::{
-    error::{GraphReadError, WitnessCalcError, ZKeyReadError},
-    Fr,
+use crate::{
+    circuit::{
+        error::{GraphReadError, WitnessCalcError, ZKeyReadError},
+        Fr,
+    },
+    protocol::MessageMode,
 };
-use crate::protocol::MessageMode;
 
 /// Errors that can occur during RLN utility operations (conversions, parsing, etc.)
 #[derive(Debug, thiserror::Error)]
@@ -73,8 +75,8 @@ pub enum ProtocolError {
     MerkleTree(#[from] ZerokitMerkleTreeError),
     #[error("Proof serialization error: {0}")]
     SerializationError(#[from] ark_serialize::SerializationError),
-    #[error("Unknown serialization version: {0:#04x}")]
-    UnknownSerializationVersion(u8),
+    #[error("Unknown message mode version byte: {0:#04x}")]
+    UnknownMessageModeVersionByte(u8),
     #[error("Witness message mode {witness_mode} does not match graph mode {graph_mode}")]
     MessageModeAndGraphMismatch {
         witness_mode: MessageMode,

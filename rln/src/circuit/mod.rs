@@ -118,15 +118,6 @@ pub struct Graph {
     pub(crate) max_out: usize,
 }
 
-impl Graph {
-    /// Returns the maximum number of message ID slots for this graph.
-    ///
-    /// This is determined by the presence and size of the `messageId` input in the graph's input mapping.
-    pub fn max_out(&self) -> usize {
-        self.max_out
-    }
-}
-
 /// Loads the zkey from raw bytes
 pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<Zkey, ZKeyReadError> {
     if zkey_data.is_empty() {
