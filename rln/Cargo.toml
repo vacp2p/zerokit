@@ -100,8 +100,7 @@ harness = false
 required-features = ["pmtree-ft"]
 
 [package.metadata.docs.rs]
-features = ["parallel", "pmtree-ft", "multi-message-id"]
-rustdoc-args = ["--cfg", "docsrs"]
+features = ["parallel", "pmtree-ft"]
 
 [[bin]]
 name = "generate-headers"
