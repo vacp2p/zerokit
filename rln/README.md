@@ -24,7 +24,7 @@ We start by adding zerokit RLN to our `Cargo.toml`
 
 ```toml
 [dependencies]
-rln = "2.0.0"
+rln = "2.0.1"
 ```
 
 ## Basic Usage Example

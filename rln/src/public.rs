@@ -587,9 +587,9 @@ impl RLN {
 
     // zkSNARK APIs
 
-    /// Generates a zkSNARK proof component of an RLN proof from a [`RLNWitnessInput`](crate::protocol::RLNWitnessInput).
+    /// Generates a zkSNARK proof component of an RLN proof from a [`RLNWitnessInput`].
     ///
-    /// Extract proof values separately using [`proof_values_from_witness`](crate::protocol::proof_values_from_witness).
+    /// Extract proof values separately using [`proof_values_from_witness`].
     ///
     /// Example:
     /// ```
