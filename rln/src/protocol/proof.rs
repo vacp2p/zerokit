@@ -753,7 +753,7 @@ pub fn generate_zk_proof_with_rs(
     r: Fr,
     s: Fr,
 ) -> Result<Proof, ProtocolError> {
-    let inputs = inputs_for_witness_calculation(witness)?
+    let inputs = inputs_for_witness_calculation(witness)
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));
 
@@ -786,7 +786,7 @@ pub fn generate_partial_zk_proof(
         partial_witness,
         #[cfg(feature = "multi-message-id")]
         graph.max_out,
-    )?
+    )
     .into_iter()
     .map(|(name, values)| (name.to_string(), values));
 
@@ -828,7 +828,7 @@ pub fn finish_zk_proof_with_rs(
     s: Fr,
 ) -> Result<Proof, ProtocolError> {
     validate_witness_against_graph(witness, graph)?;
-    let inputs = inputs_for_witness_calculation(witness)?
+    let inputs = inputs_for_witness_calculation(witness)
         .into_iter()
         .map(|(name, values)| (name.to_string(), values));
 

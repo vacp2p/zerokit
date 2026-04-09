@@ -3,7 +3,7 @@ use ark_ff::AdditiveGroup;
 #[cfg(feature = "multi-message-id")]
 use super::proof::RLNOutputs;
 use super::proof::RLNProofValues;
-use crate::{circuit::Fr, error::ProtocolError, utils::IdSecret};
+use crate::{circuit::Fr, error::RecoverSecretError, utils::IdSecret};
 
 /// Computes identity secret from two (x, y) shares.
 ///
@@ -11,7 +11,10 @@ use crate::{circuit::Fr, error::ProtocolError, utils::IdSecret};
 /// that can be extracted from any [`RLNProofValues`] variant (`SingleV1` or `MultiV1`).
 /// By normalizing proof outputs into simple `(x, y)` pairs with a single nullifier,
 /// slashing can be performed across different prover modes without compile-time feature constraints.
-pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<IdSecret, ProtocolError> {
+pub fn compute_id_secret(
+    share1: (Fr, Fr),
+    share2: (Fr, Fr),
+) -> Result<IdSecret, RecoverSecretError> {
     // Assuming a0 is the identity secret and a1 = poseidonHash([a0, external_nullifier]),
     // a (x,y) share satisfies the following relation
     // y = a_0 + x * a_1
@@ -30,7 +33,7 @@ pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<IdSecret,
         let id_secret = IdSecret::from(&mut a_0);
         Ok(id_secret)
     } else {
-        Err(ProtocolError::DivisionByZero)
+        Err(RecoverSecretError::DivisionByZero)
     }
 }
 
@@ -42,13 +45,13 @@ pub fn compute_id_secret(share1: (Fr, Fr), share2: (Fr, Fr)) -> Result<IdSecret,
 pub fn recover_id_secret(
     rln_proof_values_1: &RLNProofValues,
     rln_proof_values_2: &RLNProofValues,
-) -> Result<IdSecret, ProtocolError> {
+) -> Result<IdSecret, RecoverSecretError> {
     let external_nullifier_1 = rln_proof_values_1.external_nullifier();
     let external_nullifier_2 = rln_proof_values_2.external_nullifier();
 
     // We continue only if the proof values are for the same external nullifier
     if external_nullifier_1 != external_nullifier_2 {
-        return Err(ProtocolError::ExternalNullifierMismatch(
+        return Err(RecoverSecretError::ExternalNullifierMismatch(
             *external_nullifier_1,
             *external_nullifier_2,
         ));
@@ -93,7 +96,7 @@ pub fn recover_id_secret(
                     }
                 }
             }
-            Err(ProtocolError::IdSecretRecovery)
+            Err(RecoverSecretError::NoMatchingNullifier)
         }
     }
 }

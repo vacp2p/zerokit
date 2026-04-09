@@ -768,15 +768,13 @@ pub fn rln_witness_to_bigint_json(
 /// Computes RLN proof values from witness input.
 ///
 /// Calculates the public outputs (y, nullifier, root) that will be part of the proof.
-pub fn proof_values_from_witness(
-    witness: &RLNWitnessInput,
-) -> Result<RLNProofValues, ProtocolError> {
+pub fn proof_values_from_witness(witness: &RLNWitnessInput) -> RLNProofValues {
     let root = compute_tree_root(
         &witness.identity_secret,
         &witness.user_message_limit,
         &witness.path_elements,
         &witness.identity_path_index,
-    )?;
+    );
 
     let a_0 = &witness.identity_secret;
 
@@ -784,18 +782,12 @@ pub fn proof_values_from_witness(
     {
         let RLNMessageInputs::SingleV1 { message_id } = &witness.message_inputs;
         let mut to_hash = [**a_0, witness.external_nullifier, *message_id];
-        let a_1 = poseidon_hash(&to_hash)?;
+        let a_1 = poseidon_hash(&to_hash);
         let y = *(a_0.clone()) + witness.x * a_1;
-        let nullifier = poseidon_hash(&[a_1])?;
+        let nullifier = poseidon_hash(&[a_1]);
         to_hash[0].zeroize();
 
-        Ok(RLNProofValues::new(
-            root,
-            witness.x,
-            witness.external_nullifier,
-            y,
-            nullifier,
-        ))
+        RLNProofValues::new(root, witness.x, witness.external_nullifier, y, nullifier)
     }
     #[cfg(feature = "multi-message-id")]
     {
@@ -808,25 +800,25 @@ pub fn proof_values_from_witness(
 
         for (i, message_id) in message_ids.iter().enumerate() {
             let mut to_hash = [**a_0, witness.external_nullifier, *message_id];
-            let a_1 = poseidon_hash(&to_hash)?;
+            let a_1 = poseidon_hash(&to_hash);
 
             let selector = Fr::from(selector_used[i]);
             let y = (*(a_0.clone()) + witness.x * a_1) * selector;
-            let nullifier = poseidon_hash(&[a_1])? * selector;
+            let nullifier = poseidon_hash(&[a_1]) * selector;
 
             ys.push(y);
             nullifiers.push(nullifier);
             to_hash[0].zeroize();
         }
 
-        Ok(RLNProofValues::new(
+        RLNProofValues::new(
             root,
             witness.x,
             witness.external_nullifier,
             ys,
             nullifiers,
             selector_used.clone(),
-        ))
+        )
     }
 }
 
@@ -836,29 +828,29 @@ pub fn compute_tree_root(
     user_message_limit: &Fr,
     path_elements: &[Fr],
     identity_path_index: &[u8],
-) -> Result<Fr, ProtocolError> {
+) -> Fr {
     let mut to_hash = [*identity_secret.clone()];
-    let id_commitment = poseidon_hash(&to_hash)?;
+    let id_commitment = poseidon_hash(&to_hash);
     to_hash[0].zeroize();
 
-    let mut root = poseidon_hash(&[id_commitment, *user_message_limit])?;
+    let mut root = poseidon_hash(&[id_commitment, *user_message_limit]);
 
     for i in 0..identity_path_index.len() {
         if identity_path_index[i] == 0 {
-            root = poseidon_hash(&[root, path_elements[i]])?;
+            root = poseidon_hash(&[root, path_elements[i]]);
         } else {
-            root = poseidon_hash(&[path_elements[i], root])?;
+            root = poseidon_hash(&[path_elements[i], root]);
         }
     }
 
-    Ok(root)
+    root
 }
 
 /// Prepares inputs for witness calculation from RLN witness input.
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) fn inputs_for_witness_calculation(
     witness: &RLNWitnessInput,
-) -> Result<Vec<(&str, Vec<FrOrSecret>)>, ProtocolError> {
+) -> Vec<(&str, Vec<FrOrSecret>)> {
     let identity_path_index_fr: Vec<FrOrSecret> = witness
         .identity_path_index
         .iter()
@@ -906,7 +898,7 @@ pub(super) fn inputs_for_witness_calculation(
     inputs.push(("x", vec![witness.x.into()]));
     inputs.push(("externalNullifier", vec![witness.external_nullifier.into()]));
 
-    Ok(inputs)
+    inputs
 }
 
 /// Prepares inputs for partial witness calculation from an RLN partial witness input.
@@ -917,7 +909,7 @@ pub(super) fn inputs_for_witness_calculation(
 pub(super) fn inputs_for_partial_witness_calculation(
     witness: &RLNPartialWitnessInput,
     #[cfg(feature = "multi-message-id")] max_out: usize,
-) -> Result<Vec<(&'static str, Vec<Option<FrOrSecret>>)>, ProtocolError> {
+) -> Vec<(&'static str, Vec<Option<FrOrSecret>>)> {
     let mut identity_path_index = Vec::with_capacity(witness.identity_path_index.len());
     witness
         .identity_path_index
@@ -964,5 +956,5 @@ pub(super) fn inputs_for_partial_witness_calculation(
     inputs.push(("x", vec![None]));
     inputs.push(("externalNullifier", vec![None]));
 
-    Ok(inputs)
+    inputs
 }

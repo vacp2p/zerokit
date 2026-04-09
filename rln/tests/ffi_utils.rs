@@ -8,17 +8,7 @@ mod test {
     fn test_seeded_keygen_ffi() {
         // We generate a new identity pair from an input seed
         let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let res = match ffi_seeded_key_gen(&seed_bytes.into()) {
-            CResult {
-                ok: Some(vec_cfr),
-                err: None,
-            } => vec_cfr,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("ffi_seeded_key_gen call failed: {}", err),
-            _ => unreachable!(),
-        };
+        let res = ffi_seeded_key_gen(&seed_bytes.into());
         let identity_secret = res.first().unwrap();
         let id_commitment = res.get(1).unwrap();
 
@@ -43,17 +33,7 @@ mod test {
     fn test_seeded_extended_keygen_ffi() {
         // We generate a new identity tuple from an input seed
         let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let key_gen = match ffi_seeded_extended_key_gen(&seed_bytes.into()) {
-            CResult {
-                ok: Some(vec_cfr),
-                err: None,
-            } => vec_cfr,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("ffi_seeded_extended_key_gen call failed: {}", err),
-            _ => unreachable!(),
-        };
+        let key_gen = ffi_seeded_extended_key_gen(&seed_bytes.into());
         let identity_trapdoor = *key_gen[0];
         let identity_nullifier = *key_gen[1];
         let identity_secret = *key_gen[2];
@@ -105,17 +85,7 @@ mod test {
         let cfr_debug_str = ffi_cfr_debug(Some(&cfr_int));
         assert_eq!(cfr_debug_str.to_string(), "42");
 
-        let key_gen = match ffi_key_gen() {
-            CResult {
-                ok: Some(vec_cfr),
-                err: None,
-            } => vec_cfr,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("ffi_key_gen call failed: {}", err),
-            _ => unreachable!(),
-        };
+        let key_gen = ffi_key_gen();
         let mut id_secret_fr = *key_gen[0];
         let id_secret_hash = IdSecret::from(&mut id_secret_fr);
         let id_commitment = *key_gen[1];
@@ -215,32 +185,12 @@ mod test {
         let signal_gen: [u8; 32] = rng.gen();
         let signal: Vec<u8> = signal_gen.to_vec();
 
-        let cfr_le_1 = match ffi_hash_to_field_le(&signal.clone().into()) {
-            CResult {
-                ok: Some(cfr),
-                err: None,
-            } => cfr,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("ffi_hash_to_field_le call failed: {}", err),
-            _ => unreachable!(),
-        };
-        let fr_le_2 = hash_to_field_le(&signal).unwrap();
+        let cfr_le_1 = ffi_hash_to_field_le(&signal.clone().into());
+        let fr_le_2 = hash_to_field_le(&signal);
         assert_eq!(*cfr_le_1, fr_le_2);
 
-        let cfr_be_1 = match ffi_hash_to_field_be(&signal.clone().into()) {
-            CResult {
-                ok: Some(cfr),
-                err: None,
-            } => cfr,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("ffi_hash_to_field_be call failed: {}", err),
-            _ => unreachable!(),
-        };
-        let fr_be_2 = hash_to_field_be(&signal).unwrap();
+        let cfr_be_1 = ffi_hash_to_field_be(&signal.clone().into());
+        let fr_be_2 = hash_to_field_be(&signal);
         assert_eq!(*cfr_le_1, fr_be_2);
 
         assert_eq!(*cfr_le_1, *cfr_be_1);
@@ -270,19 +220,8 @@ mod test {
         let input_1 = Fr::from(42u8);
         let input_2 = Fr::from(99u8);
 
-        let expected_hash = poseidon_hash(&[input_1, input_2]).unwrap();
-        let received_hash_cfr =
-            match ffi_poseidon_hash_pair(&CFr::from(input_1), &CFr::from(input_2)) {
-                CResult {
-                    ok: Some(cfr),
-                    err: None,
-                } => cfr,
-                CResult {
-                    ok: None,
-                    err: Some(err),
-                } => panic!("ffi_poseidon_hash_pair call failed: {}", err),
-                _ => unreachable!(),
-            };
+        let expected_hash = poseidon_hash_pair(input_1, input_2);
+        let received_hash_cfr = ffi_poseidon_hash_pair(&CFr::from(input_1), &CFr::from(input_2));
         assert_eq!(*received_hash_cfr, expected_hash);
     }
 }

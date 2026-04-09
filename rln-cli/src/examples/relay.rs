@@ -49,7 +49,7 @@ struct Identity {
 
 impl Identity {
     fn new() -> Self {
-        let (identity_secret, id_commitment) = keygen().unwrap();
+        let (identity_secret, id_commitment) = keygen();
         Identity {
             identity_secret,
             id_commitment,
@@ -117,8 +117,7 @@ impl RLNSystem {
         let index = self.rln.leaves_set();
         let identity = Identity::new();
 
-        let rate_commitment =
-            poseidon_hash(&[identity.id_commitment, Fr::from(MESSAGE_LIMIT)]).unwrap();
+        let rate_commitment = poseidon_hash(&[identity.id_commitment, Fr::from(MESSAGE_LIMIT)]);
         match self.rln.set_next_leaf(rate_commitment) {
             Ok(_) => {
                 println!("Registered user: {index}");
@@ -147,7 +146,7 @@ impl RLNSystem {
         };
 
         let (path_elements, identity_path_index) = self.rln.get_merkle_proof(user_index)?;
-        let x = hash_to_field_le(signal.as_bytes())?;
+        let x = hash_to_field_le(signal.as_bytes());
 
         let witness = RLNWitnessInput::new(
             identity.identity_secret.clone(),
@@ -230,9 +229,9 @@ fn main() -> Result<()> {
     println!("Initializing RLN instance...");
     print!("\x1B[2J\x1B[1;1H");
     let mut rln_system = RLNSystem::new()?;
-    let rln_epoch = hash_to_field_le(b"epoch")?;
-    let rln_identifier = hash_to_field_le(b"rln-identifier")?;
-    let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]).unwrap();
+    let rln_epoch = hash_to_field_le(b"epoch");
+    let rln_identifier = hash_to_field_le(b"rln-identifier");
+    let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]);
     println!("RLN Relay Example:");
     println!("Message Limit: {MESSAGE_LIMIT}");
     println!("----------------------------------");

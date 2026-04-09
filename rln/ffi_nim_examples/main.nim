@@ -159,22 +159,22 @@ proc ffi_vec_u8_free*(v: Vec_uint8) {.importc: "ffi_vec_u8_free", cdecl,
     dynlib: RLN_LIB.}
 
 # Hashing functions
-proc ffi_hash_to_field_le*(input: ptr Vec_uint8): CResultCFrPtrVecU8 {.importc: "ffi_hash_to_field_le",
+proc ffi_hash_to_field_le*(input: ptr Vec_uint8): ptr CFr {.importc: "ffi_hash_to_field_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_hash_to_field_be*(input: ptr Vec_uint8): CResultCFrPtrVecU8 {.importc: "ffi_hash_to_field_be",
+proc ffi_hash_to_field_be*(input: ptr Vec_uint8): ptr CFr {.importc: "ffi_hash_to_field_be",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_poseidon_hash_pair*(a: ptr CFr,
-    b: ptr CFr): CResultCFrPtrVecU8 {.importc: "ffi_poseidon_hash_pair", cdecl,
+    b: ptr CFr): ptr CFr {.importc: "ffi_poseidon_hash_pair", cdecl,
     dynlib: RLN_LIB.}
 
 # Keygen function
-proc ffi_key_gen*(): CResultVecCFrVecU8 {.importc: "ffi_key_gen", cdecl,
+proc ffi_key_gen*(): Vec_CFr {.importc: "ffi_key_gen", cdecl,
     dynlib: RLN_LIB.}
-proc ffi_seeded_key_gen*(seed: ptr Vec_uint8): CResultVecCFrVecU8 {.importc: "ffi_seeded_key_gen",
+proc ffi_seeded_key_gen*(seed: ptr Vec_uint8): Vec_CFr {.importc: "ffi_seeded_key_gen",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_extended_key_gen*(): CResultVecCFrVecU8 {.importc: "ffi_extended_key_gen",
+proc ffi_extended_key_gen*(): Vec_CFr {.importc: "ffi_extended_key_gen",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_seeded_extended_key_gen*(seed: ptr Vec_uint8): CResultVecCFrVecU8 {.importc: "ffi_seeded_extended_key_gen",
+proc ffi_seeded_extended_key_gen*(seed: ptr Vec_uint8): Vec_CFr {.importc: "ffi_seeded_extended_key_gen",
     cdecl, dynlib: RLN_LIB.}
 
 # RLN instance functions
@@ -527,13 +527,7 @@ when isMainModule:
     echo "  - circuit max_out = ", maxOut
 
   echo "\nGenerating identity keys"
-  var keysResult = ffi_key_gen()
-  if keysResult.err.dataPtr != nil:
-    let errMsg = asString(keysResult.err)
-    ffi_c_string_free(keysResult.err)
-    echo "Key generation error: ", errMsg
-    quit 1
-  var keys = keysResult.ok
+  var keys = ffi_key_gen()
   let identitySecret = ffi_vec_cfr_get(addr keys, CSize(0))
   let idCommitment = ffi_vec_cfr_get(addr keys, CSize(1))
   echo "  - identity generated successfully"
@@ -557,13 +551,7 @@ when isMainModule:
     ffi_c_string_free(debug)
 
   echo "\nComputing rate commitment"
-  let rateCommitmentResult = ffi_poseidon_hash_pair(idCommitment, userMessageLimit)
-  if rateCommitmentResult.ok.isNil:
-    let errMsg = asString(rateCommitmentResult.err)
-    ffi_c_string_free(rateCommitmentResult.err)
-    echo "Rate commitment hash error: ", errMsg
-    quit 1
-  let rateCommitment = rateCommitmentResult.ok
+  let rateCommitment = ffi_poseidon_hash_pair(idCommitment, userMessageLimit)
 
   block:
     let debug = ffi_cfr_debug(rateCommitment)
@@ -623,22 +611,9 @@ when isMainModule:
 
     let defaultLeaf = ffi_cfr_zero()
     var defaultHashes: array[treeDepth-1, ptr CFr]
-    block:
-      let hashResult = ffi_poseidon_hash_pair(defaultLeaf, defaultLeaf)
-      if hashResult.ok.isNil:
-        let errMsg = asString(hashResult.err)
-        ffi_c_string_free(hashResult.err)
-        echo "Poseidon hash error: ", errMsg
-        quit 1
-      defaultHashes[0] = hashResult.ok
+    defaultHashes[0] = ffi_poseidon_hash_pair(defaultLeaf, defaultLeaf)
     for i in 1..treeDepth-2:
-      let hashResult = ffi_poseidon_hash_pair(defaultHashes[i-1], defaultHashes[i-1])
-      if hashResult.ok.isNil:
-        let errMsg = asString(hashResult.err)
-        ffi_c_string_free(hashResult.err)
-        echo "Poseidon hash error: ", errMsg
-        quit 1
-      defaultHashes[i] = hashResult.ok
+      defaultHashes[i] = ffi_poseidon_hash_pair(defaultHashes[i-1], defaultHashes[i-1])
 
     var pathElements = ffi_vec_cfr_new(CSize(treeDepth))
     ffi_vec_cfr_push(addr pathElements, defaultLeaf)
@@ -698,21 +673,9 @@ when isMainModule:
 
     echo "\nComputing Merkle root for stateless mode"
     echo "  - computing root for index 0 with rate_commitment"
-    let rootResult = ffi_poseidon_hash_pair(rateCommitment, defaultLeaf)
-    if rootResult.ok.isNil:
-      let errMsg = asString(rootResult.err)
-      ffi_c_string_free(rootResult.err)
-      echo "Poseidon hash error: ", errMsg
-      quit 1
-    var computedRoot = rootResult.ok
+    var computedRoot = ffi_poseidon_hash_pair(rateCommitment, defaultLeaf)
     for i in 1..treeDepth-1:
-      let nextResult = ffi_poseidon_hash_pair(computedRoot, defaultHashes[i-1])
-      if nextResult.ok.isNil:
-        let errMsg = asString(nextResult.err)
-        ffi_c_string_free(nextResult.err)
-        echo "Poseidon hash error: ", errMsg
-        quit 1
-      let next = nextResult.ok
+      let next = ffi_poseidon_hash_pair(computedRoot, defaultHashes[i-1])
       ffi_cfr_free(computedRoot)
       computedRoot = next
 
@@ -746,12 +709,7 @@ when isMainModule:
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   var signalVec = Vec_uint8(dataPtr: cast[ptr uint8](addr signal[0]),
       len: CSize(signal.len), cap: CSize(signal.len))
-  let xResult = ffi_hash_to_field_be(addr signalVec)
-  if xResult.ok.isNil:
-    stderr.writeLine "Hash signal error: ", asString(xResult.err)
-    ffi_c_string_free(xResult.err)
-    quit 1
-  let x = xResult.ok
+  let x = ffi_hash_to_field_be(addr signalVec)
 
   block:
     let debug = ffi_cfr_debug(x)
@@ -763,12 +721,7 @@ when isMainModule:
   var epochBytes = newSeq[uint8](epochStr.len)
   for i in 0..<epochStr.len: epochBytes[i] = uint8(epochStr[i])
   var epochVec = asVecU8(epochBytes)
-  let epochResult = ffi_hash_to_field_be(addr epochVec)
-  if epochResult.ok.isNil:
-    stderr.writeLine "Hash epoch error: ", asString(epochResult.err)
-    ffi_c_string_free(epochResult.err)
-    quit 1
-  let epoch = epochResult.ok
+  let epoch = ffi_hash_to_field_be(addr epochVec)
 
   block:
     let debug = ffi_cfr_debug(epoch)
@@ -780,13 +733,7 @@ when isMainModule:
   var rlnIdBytes = newSeq[uint8](rlnIdStr.len)
   for i in 0..<rlnIdStr.len: rlnIdBytes[i] = uint8(rlnIdStr[i])
   var rlnIdVec = asVecU8(rlnIdBytes)
-  let rlnIdentifierResult = ffi_hash_to_field_be(addr rlnIdVec)
-  if rlnIdentifierResult.ok.isNil:
-    stderr.writeLine "Hash RLN identifier error: ", asString(
-        rlnIdentifierResult.err)
-    ffi_c_string_free(rlnIdentifierResult.err)
-    quit 1
-  let rlnIdentifier = rlnIdentifierResult.ok
+  let rlnIdentifier = ffi_hash_to_field_be(addr rlnIdVec)
 
   block:
     let debug = ffi_cfr_debug(rlnIdentifier)
@@ -794,13 +741,7 @@ when isMainModule:
     ffi_c_string_free(debug)
 
   echo "\nComputing Poseidon hash for external nullifier"
-  let externalNullifierResult = ffi_poseidon_hash_pair(epoch, rlnIdentifier)
-  if externalNullifierResult.ok.isNil:
-    let errMsg = asString(externalNullifierResult.err)
-    ffi_c_string_free(externalNullifierResult.err)
-    echo "External nullifier hash error: ", errMsg
-    quit 1
-  let externalNullifier = externalNullifierResult.ok
+  let externalNullifier = ffi_poseidon_hash_pair(epoch, rlnIdentifier)
 
   block:
     let debug = ffi_cfr_debug(externalNullifier)
@@ -1254,12 +1195,7 @@ when isMainModule:
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   var signal2Vec = Vec_uint8(dataPtr: cast[ptr uint8](addr signal2[0]),
       len: CSize(signal2.len), cap: CSize(signal2.len))
-  let x2Result = ffi_hash_to_field_be(addr signal2Vec)
-  if x2Result.ok.isNil:
-    stderr.writeLine "Hash second signal error: ", asString(x2Result.err)
-    ffi_c_string_free(x2Result.err)
-    quit 1
-  let x2 = x2Result.ok
+  let x2 = ffi_hash_to_field_be(addr signal2Vec)
 
   block:
     let debug = ffi_cfr_debug(x2)

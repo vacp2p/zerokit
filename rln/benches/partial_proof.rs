@@ -7,9 +7,9 @@ type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
 fn get_test_witness() -> RLNWitnessInput {
     let leaf_index = 3;
     // Generate identity pair
-    let (identity_secret, id_commitment) = keygen().unwrap();
+    let (identity_secret, id_commitment) = keygen();
     let user_message_limit = Fr::from(100);
-    let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
+    let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
 
     // Generate merkle tree
     let default_leaf = Fr::from(0);
@@ -24,12 +24,12 @@ fn get_test_witness() -> RLNWitnessInput {
     let merkle_proof = tree.proof(leaf_index).unwrap();
 
     let signal = b"hey hey";
-    let x = hash_to_field_le(signal).unwrap();
+    let x = hash_to_field_le(signal);
 
     // We set the remaining values to random ones
-    let epoch = hash_to_field_le(b"test-epoch").unwrap();
-    let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
-    let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
+    let epoch = hash_to_field_le(b"test-epoch");
+    let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+    let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
 
     let message_id = Fr::from(1);
 

@@ -7,10 +7,7 @@ description = "APIs to manage, compute and verify zkSNARK proofs and RLN primiti
 documentation = "https://github.com/vacp2p/zerokit"
 homepage = "https://vac.dev"
 repository = "https://github.com/vacp2p/zerokit"
-exclude = [
-    "resources/tree_depth_10/",
-    "resources/**/*.wasm",
-]
+exclude = ["resources/tree_depth_10/", "resources/**/*.wasm"]
 
 [lib]
 crate-type = ["rlib", "staticlib", "cdylib"]

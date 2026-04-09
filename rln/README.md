@@ -61,10 +61,10 @@ fn main() {
     // 5. Set up external nullifier (epoch + app identifier)
     // We generate epoch from a date seed and we ensure is
     // mapped to a field element by hashing-to-field its content
-    let epoch = hash_to_field_le(b"Today at noon, this year").unwrap();
+    let epoch = hash_to_field_le(b"Today at noon, this year");
     // We generate rln_identifier from an application identifier and
     // we ensure is mapped to a field element by hashing-to-field its content
-    let rln_identifier = hash_to_field_le(b"test-rln-identifier").unwrap();
+    let rln_identifier = hash_to_field_le(b"test-rln-identifier");
     // We generate a external nullifier
     let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
     // We choose a message_id satisfy 0 <= message_id < user_message_limit
@@ -74,7 +74,7 @@ fn main() {
     let signal = b"RLN is awesome";
 
     // 7. Compute x from the signal
-    let x = hash_to_field_le(signal).unwrap();
+    let x = hash_to_field_le(signal);
 
     // 8. Create witness input for RLN proof generation
     let witness = RLNWitnessInput::new(

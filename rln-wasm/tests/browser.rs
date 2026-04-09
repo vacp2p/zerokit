@@ -122,32 +122,31 @@ mod test {
         // Benchmark generate identity
         let start_identity_gen = Date::now();
         for _ in 0..iterations {
-            let _ = Identity::generate().unwrap();
+            let _ = Identity::generate();
         }
         let identity_gen_result = Date::now() - start_identity_gen;
 
         // Generate identity for other benchmarks
-        let identity_pair = Identity::generate().unwrap();
+        let identity_pair = Identity::generate();
         let identity_secret = identity_pair.get_secret_hash();
         let id_commitment = identity_pair.get_commitment();
 
-        let epoch = Hasher::hash_to_field_le(&Uint8Array::from(b"test-epoch" as &[u8])).unwrap();
+        let epoch = Hasher::hash_to_field_le(&Uint8Array::from(b"test-epoch" as &[u8]));
         let rln_identifier =
-            Hasher::hash_to_field_le(&Uint8Array::from(b"test-rln-identifier" as &[u8])).unwrap();
-        let external_nullifier = Hasher::poseidon_hash_pair(&epoch, &rln_identifier).unwrap();
+            Hasher::hash_to_field_le(&Uint8Array::from(b"test-rln-identifier" as &[u8]));
+        let external_nullifier = Hasher::poseidon_hash_pair(&epoch, &rln_identifier);
 
         let identity_index = tree.leaves_set();
 
         let user_message_limit = WasmFr::from_uint(10);
 
-        let rate_commitment =
-            Hasher::poseidon_hash_pair(&id_commitment, &user_message_limit).unwrap();
+        let rate_commitment = Hasher::poseidon_hash_pair(&id_commitment, &user_message_limit);
         tree.update_next(*rate_commitment).unwrap();
 
         #[cfg(not(feature = "multi-message-id"))]
         let message_id = WasmFr::from_uint(0);
         let signal: [u8; 32] = [0; 32];
-        let x = Hasher::hash_to_field_le(&Uint8Array::from(&signal[..])).unwrap();
+        let x = Hasher::hash_to_field_le(&Uint8Array::from(&signal[..]));
 
         let merkle_proof: OptimalMerkleProof<PoseidonHash> = tree.proof(identity_index).unwrap();
 
