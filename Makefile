@@ -8,7 +8,7 @@ all: installdeps build
 .pre-build: .fetch-submodules
 	@cargo install cargo-make
 ifdef CI
-	@cargo install cross --git https://github.com/cross-rs/cross.git --rev 1511a28
+	@cargo install cross --version 0.2.5
 endif
 
 installdeps: .pre-build
