@@ -170,7 +170,7 @@ pub fn ffi_rln_proof_get_version_byte(rln_proof: &repr_c::Box<FFI_RLNProof>) -> 
 pub fn ffi_rln_proof_to_bytes_le(
     rln_proof: &repr_c::Box<FFI_RLNProof>,
 ) -> CResult<repr_c::Vec<u8>, repr_c::String> {
-    match rln_proof.0.to_bytes_le() {
+    match rln_proof_to_bytes_le(&rln_proof.0) {
         Ok(bytes) => CResult {
             ok: Some(bytes.into()),
             err: None,
@@ -186,7 +186,7 @@ pub fn ffi_rln_proof_to_bytes_le(
 pub fn ffi_rln_proof_to_bytes_be(
     rln_proof: &repr_c::Box<FFI_RLNProof>,
 ) -> CResult<repr_c::Vec<u8>, repr_c::String> {
-    match rln_proof.0.to_bytes_be() {
+    match rln_proof_to_bytes_be(&rln_proof.0) {
         Ok(bytes) => CResult {
             ok: Some(bytes.into()),
             err: None,
@@ -202,7 +202,7 @@ pub fn ffi_rln_proof_to_bytes_be(
 pub fn ffi_bytes_le_to_rln_proof(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
-    match RLNProof::from_bytes_le(bytes) {
+    match bytes_le_to_rln_proof(bytes) {
         Ok((rln_proof, _)) => CResult {
             ok: Some(Box_::new(FFI_RLNProof(rln_proof))),
             err: None,
@@ -218,7 +218,7 @@ pub fn ffi_bytes_le_to_rln_proof(
 pub fn ffi_bytes_be_to_rln_proof(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
-    match RLNProof::from_bytes_be(bytes) {
+    match bytes_be_to_rln_proof(bytes) {
         Ok((rln_proof, _)) => CResult {
             ok: Some(Box_::new(FFI_RLNProof(rln_proof))),
             err: None,
@@ -252,7 +252,7 @@ pub fn ffi_rln_partial_proof_get_version_byte(
 pub fn ffi_rln_partial_proof_to_bytes_le(
     partial_proof: &repr_c::Box<FFI_RLNPartialProof>,
 ) -> CResult<repr_c::Vec<u8>, repr_c::String> {
-    match partial_proof.0.to_bytes_le() {
+    match rln_partial_proof_to_bytes_le(&partial_proof.0) {
         Ok(bytes) => CResult {
             ok: Some(bytes.into()),
             err: None,
@@ -268,7 +268,7 @@ pub fn ffi_rln_partial_proof_to_bytes_le(
 pub fn ffi_bytes_le_to_rln_partial_proof(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNPartialProof>, repr_c::String> {
-    match PartialProof::from_bytes_le(bytes) {
+    match bytes_le_to_rln_partial_proof(bytes) {
         Ok((partial_proof, _)) => CResult {
             ok: Some(Box_::new(FFI_RLNPartialProof(partial_proof))),
             err: None,
@@ -289,7 +289,7 @@ pub fn ffi_rln_partial_proof_free(partial_proof: repr_c::Box<FFI_RLNPartialProof
 pub fn ffi_rln_partial_proof_to_bytes_be(
     partial_proof: &repr_c::Box<FFI_RLNPartialProof>,
 ) -> CResult<repr_c::Vec<u8>, repr_c::String> {
-    match partial_proof.0.to_bytes_be() {
+    match rln_partial_proof_to_bytes_be(&partial_proof.0) {
         Ok(bytes) => CResult {
             ok: Some(bytes.into()),
             err: None,
@@ -305,7 +305,7 @@ pub fn ffi_rln_partial_proof_to_bytes_be(
 pub fn ffi_bytes_be_to_rln_partial_proof(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNPartialProof>, repr_c::String> {
-    match PartialProof::from_bytes_be(bytes) {
+    match bytes_be_to_rln_partial_proof(bytes) {
         Ok((partial_proof, _)) => CResult {
             ok: Some(Box_::new(FFI_RLNPartialProof(partial_proof))),
             err: None,
@@ -477,7 +477,7 @@ pub fn ffi_rln_witness_input_get_selector_used(
 pub fn ffi_rln_witness_to_bytes_le(
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
 ) -> CResult<repr_c::Vec<u8>, repr_c::String> {
-    match witness.0.to_bytes_le() {
+    match rln_witness_to_bytes_le(&witness.0) {
         Ok(bytes) => CResult {
             ok: Some(bytes.into()),
             err: None,
@@ -493,7 +493,7 @@ pub fn ffi_rln_witness_to_bytes_le(
 pub fn ffi_rln_witness_to_bytes_be(
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
 ) -> CResult<repr_c::Vec<u8>, repr_c::String> {
-    match witness.0.to_bytes_be() {
+    match rln_witness_to_bytes_be(&witness.0) {
         Ok(bytes) => CResult {
             ok: Some(bytes.into()),
             err: None,
@@ -509,7 +509,7 @@ pub fn ffi_rln_witness_to_bytes_be(
 pub fn ffi_bytes_le_to_rln_witness(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNWitnessInput>, repr_c::String> {
-    match RLNWitnessInput::from_bytes_le(bytes) {
+    match bytes_le_to_rln_witness(bytes) {
         Ok((witness, _)) => CResult {
             ok: Some(Box_::new(FFI_RLNWitnessInput(witness))),
             err: None,
@@ -525,7 +525,7 @@ pub fn ffi_bytes_le_to_rln_witness(
 pub fn ffi_bytes_be_to_rln_witness(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNWitnessInput>, repr_c::String> {
-    match RLNWitnessInput::from_bytes_be(bytes) {
+    match bytes_be_to_rln_witness(bytes) {
         Ok((witness, _)) => CResult {
             ok: Some(Box_::new(FFI_RLNWitnessInput(witness))),
             err: None,
@@ -541,7 +541,7 @@ pub fn ffi_bytes_be_to_rln_witness(
 pub fn ffi_rln_witness_to_bigint_json(
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
 ) -> CResult<repr_c::String, repr_c::String> {
-    match witness.0.to_bigint_json() {
+    match rln_witness_to_bigint_json(&witness.0) {
         Ok(json) => CResult {
             ok: Some(json.to_string().into()),
             err: None,
@@ -644,7 +644,7 @@ pub fn ffi_rln_witness_to_partial_witness(
 pub fn ffi_rln_partial_witness_to_bytes_le(
     witness: &repr_c::Box<FFI_RLNPartialWitnessInput>,
 ) -> CResult<repr_c::Vec<u8>, repr_c::String> {
-    match witness.0.to_bytes_le() {
+    match rln_partial_witness_to_bytes_le(&witness.0) {
         Ok(bytes) => CResult {
             ok: Some(bytes.into()),
             err: None,
@@ -660,7 +660,7 @@ pub fn ffi_rln_partial_witness_to_bytes_le(
 pub fn ffi_rln_partial_witness_to_bytes_be(
     witness: &repr_c::Box<FFI_RLNPartialWitnessInput>,
 ) -> CResult<repr_c::Vec<u8>, repr_c::String> {
-    match witness.0.to_bytes_be() {
+    match rln_partial_witness_to_bytes_be(&witness.0) {
         Ok(bytes) => CResult {
             ok: Some(bytes.into()),
             err: None,
@@ -676,7 +676,7 @@ pub fn ffi_rln_partial_witness_to_bytes_be(
 pub fn ffi_bytes_le_to_rln_partial_witness(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNPartialWitnessInput>, repr_c::String> {
-    match RLNPartialWitnessInput::from_bytes_le(bytes) {
+    match bytes_le_to_rln_partial_witness(bytes) {
         Ok((witness, _)) => CResult {
             ok: Some(Box_::new(FFI_RLNPartialWitnessInput(witness))),
             err: None,
@@ -692,7 +692,7 @@ pub fn ffi_bytes_le_to_rln_partial_witness(
 pub fn ffi_bytes_be_to_rln_partial_witness(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNPartialWitnessInput>, repr_c::String> {
-    match RLNPartialWitnessInput::from_bytes_be(bytes) {
+    match bytes_be_to_rln_partial_witness(bytes) {
         Ok((witness, _)) => CResult {
             ok: Some(Box_::new(FFI_RLNPartialWitnessInput(witness))),
             err: None,
@@ -801,23 +801,19 @@ pub fn ffi_rln_proof_values_get_version_byte(pv: &repr_c::Box<FFI_RLNProofValues
 
 #[ffi_export]
 pub fn ffi_rln_proof_values_to_bytes_le(pv: &repr_c::Box<FFI_RLNProofValues>) -> repr_c::Vec<u8> {
-    pv.0.to_bytes_le()
-        .expect("RLNProofValues serialization is infallible")
-        .into()
+    rln_proof_values_to_bytes_le(&pv.0).into()
 }
 
 #[ffi_export]
 pub fn ffi_rln_proof_values_to_bytes_be(pv: &repr_c::Box<FFI_RLNProofValues>) -> repr_c::Vec<u8> {
-    pv.0.to_bytes_be()
-        .expect("RLNProofValues serialization is infallible")
-        .into()
+    rln_proof_values_to_bytes_be(&pv.0).into()
 }
 
 #[ffi_export]
 pub fn ffi_bytes_le_to_rln_proof_values(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNProofValues>, repr_c::String> {
-    match RLNProofValues::from_bytes_le(bytes) {
+    match bytes_le_to_rln_proof_values(bytes) {
         Ok((pv, _)) => CResult {
             ok: Some(Box_::new(FFI_RLNProofValues(pv))),
             err: None,
@@ -833,7 +829,7 @@ pub fn ffi_bytes_le_to_rln_proof_values(
 pub fn ffi_bytes_be_to_rln_proof_values(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNProofValues>, repr_c::String> {
-    match RLNProofValues::from_bytes_be(bytes) {
+    match bytes_be_to_rln_proof_values(bytes) {
         Ok((pv, _)) => CResult {
             ok: Some(Box_::new(FFI_RLNProofValues(pv))),
             err: None,

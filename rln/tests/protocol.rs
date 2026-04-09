@@ -189,7 +189,7 @@ mod test {
         // Generate a zkSNARK proof
         let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
 
-        let proof_values = witness.proof_values();
+        let proof_values = proof_values_from_witness(&witness);
 
         // Verify the proof
         let verified = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
@@ -211,7 +211,7 @@ mod test {
             generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
         let proof = finish_zk_proof(proving_key, &partial_proof, &witness, graph_data).unwrap();
 
-        let proof_values = witness.proof_values();
+        let proof_values = proof_values_from_witness(&witness);
         let success = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
 
         assert!(success);
@@ -239,7 +239,7 @@ mod test {
             finish_zk_proof_with_rs(proving_key, &partial_proof, &witness, graph_data, r, s)
                 .unwrap();
 
-        let proof_values = witness.proof_values();
+        let proof_values = proof_values_from_witness(&witness);
         assert_eq!(full_proof, finished_proof);
         let success1 = verify_zk_proof(&proving_key.0.vk, &full_proof, &proof_values).unwrap();
         assert!(success1);
@@ -252,38 +252,38 @@ mod test {
         let witness = get_test_witness();
 
         // We test witness serialization
-        let ser = witness.to_bytes_le().unwrap();
-        let (deser, _) = RLNWitnessInput::from_bytes_le(&ser).unwrap();
+        let ser = rln_witness_to_bytes_le(&witness).unwrap();
+        let (deser, _) = bytes_le_to_rln_witness(&ser).unwrap();
         assert_eq!(witness, deser);
 
         // Test truncated witness bytes rejection
         let truncated = &ser[..ser.len() - 1];
-        assert!(RLNWitnessInput::from_bytes_le(truncated).is_err());
+        assert!(bytes_le_to_rln_witness(truncated).is_err());
 
         // Test extra witness bytes rejection
         let mut extra = ser.clone();
         extra.push(0);
         assert!(matches!(
-            RLNWitnessInput::from_bytes_le(&extra),
+            bytes_le_to_rln_witness(&extra),
             Err(ProtocolError::InvalidReadLen(_, _))
         ));
 
         // We test proof values serialization
-        let proof_values = witness.proof_values();
+        let proof_values = proof_values_from_witness(&witness);
 
-        let ser = proof_values.to_bytes_le().unwrap();
-        let (deser, _) = RLNProofValues::from_bytes_le(&ser).unwrap();
+        let ser = rln_proof_values_to_bytes_le(&proof_values);
+        let (deser, _) = bytes_le_to_rln_proof_values(&ser).unwrap();
         assert_eq!(proof_values, deser);
 
         // Test truncated proof values bytes rejection
         let truncated_pv = &ser[..ser.len() - 1];
-        assert!(RLNProofValues::from_bytes_le(truncated_pv).is_err());
+        assert!(bytes_le_to_rln_proof_values(truncated_pv).is_err());
 
         // Test extra proof values bytes rejection
         let mut extra_pv = ser.clone();
         extra_pv.push(0);
         assert!(matches!(
-            RLNProofValues::from_bytes_le(&extra_pv),
+            bytes_le_to_rln_proof_values(&extra_pv),
             Err(ProtocolError::InvalidReadLen(_, _))
         ));
     }
@@ -295,36 +295,36 @@ mod test {
         let partial_witness = RLNPartialWitnessInput::from(&witness);
 
         // Test partial witness serialization LE roundtrip
-        let ser_le = partial_witness.to_bytes_le().unwrap();
-        let (deser, _) = RLNPartialWitnessInput::from_bytes_le(&ser_le).unwrap();
+        let ser_le = rln_partial_witness_to_bytes_le(&partial_witness).unwrap();
+        let (deser, _) = bytes_le_to_rln_partial_witness(&ser_le).unwrap();
         assert_eq!(partial_witness, deser);
 
         // Test truncated LE rejection
         let truncated = &ser_le[..ser_le.len() - 1];
-        assert!(RLNPartialWitnessInput::from_bytes_le(truncated).is_err());
+        assert!(bytes_le_to_rln_partial_witness(truncated).is_err());
 
         // Test extra bytes LE rejection
         let mut extra = ser_le;
         extra.push(0);
         assert!(matches!(
-            RLNPartialWitnessInput::from_bytes_le(&extra),
+            bytes_le_to_rln_partial_witness(&extra),
             Err(ProtocolError::InvalidReadLen(_, _))
         ));
 
         // Test partial witness serialization BE roundtrip
-        let ser_be = partial_witness.to_bytes_be().unwrap();
-        let (deser, _) = RLNPartialWitnessInput::from_bytes_be(&ser_be).unwrap();
+        let ser_be = rln_partial_witness_to_bytes_be(&partial_witness).unwrap();
+        let (deser, _) = bytes_be_to_rln_partial_witness(&ser_be).unwrap();
         assert_eq!(partial_witness, deser);
 
         // Test truncated BE rejection
         let truncated = &ser_be[..ser_be.len() - 1];
-        assert!(RLNPartialWitnessInput::from_bytes_be(truncated).is_err());
+        assert!(bytes_be_to_rln_partial_witness(truncated).is_err());
 
         // Test extra bytes BE rejection
         let mut extra = ser_be;
         extra.push(0);
         assert!(matches!(
-            RLNPartialWitnessInput::from_bytes_be(&extra),
+            bytes_be_to_rln_partial_witness(&extra),
             Err(ProtocolError::InvalidReadLen(_, _))
         ));
     }
@@ -340,38 +340,38 @@ mod test {
             generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
 
         // Test LE roundtrip
-        let ser_le = partial_proof.to_bytes_le().unwrap();
-        let (deser, read) = PartialProof::from_bytes_le(&ser_le).unwrap();
+        let ser_le = rln_partial_proof_to_bytes_le(&partial_proof).unwrap();
+        let (deser, read) = bytes_le_to_rln_partial_proof(&ser_le).unwrap();
         assert_eq!(read, ser_le.len());
         assert_eq!(partial_proof, deser);
 
         // Test truncated LE rejection
         let truncated = &ser_le[..ser_le.len() - 1];
-        assert!(PartialProof::from_bytes_le(truncated).is_err());
+        assert!(bytes_le_to_rln_partial_proof(truncated).is_err());
 
         // Test extra bytes LE rejection
         let mut extra = ser_le;
         extra.push(0);
         assert!(matches!(
-            PartialProof::from_bytes_le(&extra),
+            bytes_le_to_rln_partial_proof(&extra),
             Err(ProtocolError::InvalidReadLen(_, _))
         ));
 
         // Test BE roundtrip (arkworks serialization is always LE, BE variant is identical)
-        let ser_be = partial_proof.to_bytes_be().unwrap();
-        let (deser, read) = PartialProof::from_bytes_be(&ser_be).unwrap();
+        let ser_be = rln_partial_proof_to_bytes_be(&partial_proof).unwrap();
+        let (deser, read) = bytes_be_to_rln_partial_proof(&ser_be).unwrap();
         assert_eq!(read, ser_be.len());
         assert_eq!(partial_proof, deser);
 
         // Test truncated BE rejection
         let truncated = &ser_be[..ser_be.len() - 1];
-        assert!(PartialProof::from_bytes_be(truncated).is_err());
+        assert!(bytes_be_to_rln_partial_proof(truncated).is_err());
 
         // Test extra bytes BE rejection
         let mut extra = ser_be;
         extra.push(0);
         assert!(matches!(
-            PartialProof::from_bytes_be(&extra),
+            bytes_be_to_rln_partial_proof(&extra),
             Err(ProtocolError::InvalidReadLen(_, _))
         ));
     }
@@ -540,8 +540,8 @@ mod test {
     fn test_witness_serialization_be_roundtrip_and_length_check() {
         // Test with default witness
         let witness = get_test_witness();
-        let ser = witness.to_bytes_be().unwrap();
-        let (deser, _) = RLNWitnessInput::from_bytes_be(&ser).unwrap();
+        let ser = rln_witness_to_bytes_be(&witness).unwrap();
+        let (deser, _) = bytes_be_to_rln_witness(&ser).unwrap();
         assert_eq!(witness, deser);
 
         // Test with varied witness
@@ -552,8 +552,8 @@ mod test {
             42,
             200,
         );
-        let ser2 = witness2.to_bytes_be().unwrap();
-        let (deser2, _) = RLNWitnessInput::from_bytes_be(&ser2).unwrap();
+        let ser2 = rln_witness_to_bytes_be(&witness2).unwrap();
+        let (deser2, _) = bytes_be_to_rln_witness(&ser2).unwrap();
         assert_eq!(witness2, deser2);
 
         // Test with extreme values (large message_id and limit)
@@ -564,19 +564,19 @@ mod test {
             1000000,
             2000000,
         );
-        let ser3 = witness3.to_bytes_be().unwrap();
-        let (deser3, _) = RLNWitnessInput::from_bytes_be(&ser3).unwrap();
+        let ser3 = rln_witness_to_bytes_be(&witness3).unwrap();
+        let (deser3, _) = bytes_be_to_rln_witness(&ser3).unwrap();
         assert_eq!(witness3, deser3);
 
         // Test truncated bytes rejection
         let truncated = &ser[..ser.len() - 1];
-        assert!(RLNWitnessInput::from_bytes_be(truncated).is_err());
+        assert!(bytes_be_to_rln_witness(truncated).is_err());
 
         // Test extra bytes rejection
         let mut bad = ser.clone();
         bad.push(0);
         assert!(matches!(
-            RLNWitnessInput::from_bytes_be(&bad),
+            bytes_be_to_rln_witness(&bad),
             Err(ProtocolError::InvalidReadLen(_, _))
         ));
     }
@@ -585,31 +585,31 @@ mod test {
     fn test_proof_values_serialization_be_roundtrip() {
         // Test with default witness
         let witness = get_test_witness();
-        let proof_values = witness.proof_values();
+        let proof_values = proof_values_from_witness(&witness);
 
-        let ser = proof_values.to_bytes_be().unwrap();
-        let (deser, _) = RLNProofValues::from_bytes_be(&ser).unwrap();
+        let ser = rln_proof_values_to_bytes_be(&proof_values);
+        let (deser, _) = bytes_be_to_rln_proof_values(&ser).unwrap();
 
         assert_eq!(proof_values, deser);
 
         // Test truncated proof values bytes rejection
         let truncated = &ser[..ser.len() - 1];
-        assert!(RLNProofValues::from_bytes_be(truncated).is_err());
+        assert!(bytes_be_to_rln_proof_values(truncated).is_err());
 
         // Test extra proof values bytes rejection
         let mut extra = ser.clone();
         extra.push(0);
         assert!(matches!(
-            RLNProofValues::from_bytes_be(&extra),
+            bytes_be_to_rln_proof_values(&extra),
             Err(ProtocolError::InvalidReadLen(_, _))
         ));
 
         // Test with varied witness
         let witness2 = get_test_witness_with_params(b"another signal", b"epoch2", b"id2", 10, 150);
-        let proof_values2 = witness2.proof_values();
+        let proof_values2 = proof_values_from_witness(&witness2);
 
-        let ser2 = proof_values2.to_bytes_be().unwrap();
-        let (deser2, _) = RLNProofValues::from_bytes_be(&ser2).unwrap();
+        let ser2 = rln_proof_values_to_bytes_be(&proof_values2);
+        let (deser2, _) = bytes_be_to_rln_proof_values(&ser2).unwrap();
 
         assert_eq!(proof_values2, deser2);
     }
@@ -620,15 +620,15 @@ mod test {
         let proving_key = zkey_single_v1();
         let graph_data = graph_single_v1();
         let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
-        let proof_values = witness.proof_values();
+        let proof_values = proof_values_from_witness(&witness);
 
         let rln_proof = RLNProof {
             proof: proof.clone(),
             proof_values,
         };
 
-        let ser = rln_proof.to_bytes_be().unwrap();
-        let (deser, _) = RLNProof::from_bytes_be(&ser).unwrap();
+        let ser = rln_proof_to_bytes_be(&rln_proof).unwrap();
+        let (deser, _) = bytes_be_to_rln_proof(&ser).unwrap();
 
         assert_eq!(rln_proof.proof, deser.proof);
         assert_eq!(rln_proof.proof_values, deser.proof_values);
@@ -640,7 +640,7 @@ mod test {
         let proving_key = zkey_single_v1();
         let graph_data = graph_single_v1();
         let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
-        let proof_values = witness.proof_values();
+        let proof_values = proof_values_from_witness(&witness);
 
         let new_root = *proof_values.root() + Fr::from(1);
         let mutated_pv = RLNProofValues::new_single(
@@ -700,32 +700,32 @@ mod test {
     #[test]
     fn test_bytes_le_to_rln_proof_short() {
         let bytes = vec![0u8; COMPRESS_PROOF_SIZE - 1];
-        assert!(RLNProof::from_bytes_le(&bytes).is_err());
+        assert!(bytes_le_to_rln_proof(&bytes).is_err());
     }
 
     #[test]
     fn test_bytes_be_to_rln_proof_short() {
         let bytes = vec![0u8; COMPRESS_PROOF_SIZE - 1];
-        assert!(RLNProof::from_bytes_be(&bytes).is_err());
+        assert!(bytes_be_to_rln_proof(&bytes).is_err());
     }
 
     #[test]
     fn test_bytes_le_to_rln_proof_empty() {
         let bytes = vec![];
-        assert!(RLNProof::from_bytes_le(&bytes).is_err());
+        assert!(bytes_le_to_rln_proof(&bytes).is_err());
     }
 
     #[test]
     fn test_bytes_be_to_rln_proof_empty() {
         let bytes = vec![];
-        assert!(RLNProof::from_bytes_be(&bytes).is_err());
+        assert!(bytes_be_to_rln_proof(&bytes).is_err());
     }
 
     #[test]
     fn test_rln_witness_to_bigint_json_fields() {
         // Test with default witness
         let witness = get_test_witness();
-        let json = witness.to_bigint_json().unwrap();
+        let json = rln_witness_to_bigint_json(&witness).unwrap();
 
         assert_eq!(
             json["identitySecret"].as_str().unwrap(),
@@ -760,7 +760,7 @@ mod test {
         // Test with varied witness
         let witness2 =
             get_test_witness_with_params(b"json test signal", b"json epoch", b"json id", 99, 500);
-        let json2 = witness2.to_bigint_json().unwrap();
+        let json2 = rln_witness_to_bigint_json(&witness2).unwrap();
 
         assert_eq!(
             json2["identitySecret"].as_str().unwrap(),
@@ -847,23 +847,23 @@ mod test {
             let witness = get_test_witness_multi_message_id();
 
             // We test witness serialization
-            let ser_le = witness.to_bytes_le().unwrap();
-            let (deser_le, _) = RLNWitnessInput::from_bytes_le(&ser_le).unwrap();
+            let ser_le = rln_witness_to_bytes_le(&witness).unwrap();
+            let (deser_le, _) = bytes_le_to_rln_witness(&ser_le).unwrap();
             assert_eq!(witness, deser_le);
 
-            let ser_be = witness.to_bytes_be().unwrap();
-            let (deser_be, _) = RLNWitnessInput::from_bytes_be(&ser_be).unwrap();
+            let ser_be = rln_witness_to_bytes_be(&witness).unwrap();
+            let (deser_be, _) = bytes_be_to_rln_witness(&ser_be).unwrap();
             assert_eq!(witness, deser_be);
 
             // We test proof values serialization
-            let proof_values = witness.proof_values();
+            let proof_values = proof_values_from_witness(&witness);
 
-            let ser_le = proof_values.to_bytes_le().unwrap();
-            let (deser_le, _) = RLNProofValues::from_bytes_le(&ser_le).unwrap();
+            let ser_le = rln_proof_values_to_bytes_le(&proof_values);
+            let (deser_le, _) = bytes_le_to_rln_proof_values(&ser_le).unwrap();
             assert_eq!(proof_values, deser_le);
 
-            let ser_be = proof_values.to_bytes_be().unwrap();
-            let (deser_be, _) = RLNProofValues::from_bytes_be(&ser_be).unwrap();
+            let ser_be = rln_proof_values_to_bytes_be(&proof_values);
+            let (deser_be, _) = bytes_be_to_rln_proof_values(&ser_be).unwrap();
             assert_eq!(proof_values, deser_be);
         }
 
@@ -885,7 +885,7 @@ mod test {
             // Generate a zkSNARK proof
             let proof = generate_zk_proof(&proving_key, &witness, &graph_data).unwrap();
 
-            let proof_values = witness.proof_values();
+            let proof_values = proof_values_from_witness(&witness);
 
             // Verify the proof
             let verified = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
@@ -913,7 +913,7 @@ mod test {
             let proof =
                 finish_zk_proof(&proving_key, &partial_proof, &witness, &graph_data).unwrap();
 
-            let proof_values = witness.proof_values();
+            let proof_values = proof_values_from_witness(&witness);
             let success = verify_zk_proof(&proving_key.0.vk, &proof, &proof_values).unwrap();
             assert!(success);
         }
@@ -945,7 +945,7 @@ mod test {
                 finish_zk_proof_with_rs(&proving_key, &partial_proof, &witness, &graph_data, r, s)
                     .unwrap();
 
-            let proof_values = witness.proof_values();
+            let proof_values = proof_values_from_witness(&witness);
             assert_eq!(full_proof, finished_proof);
             let success1 = verify_zk_proof(&proving_key.0.vk, &full_proof, &proof_values).unwrap();
             assert!(success1);
@@ -959,24 +959,24 @@ mod test {
             let witness = get_test_witness_multi_message_id();
             let partial_witness = RLNPartialWitnessInput::from(&witness);
 
-            let ser_le = partial_witness.to_bytes_le().unwrap();
-            let (deser, _) = RLNPartialWitnessInput::from_bytes_le(&ser_le).unwrap();
+            let ser_le = rln_partial_witness_to_bytes_le(&partial_witness).unwrap();
+            let (deser, _) = bytes_le_to_rln_partial_witness(&ser_le).unwrap();
             assert_eq!(partial_witness, deser);
 
             // Test truncated partial witness bytes rejection
             let truncated = &ser_le[..ser_le.len() - 1];
-            assert!(RLNPartialWitnessInput::from_bytes_le(truncated).is_err());
+            assert!(bytes_le_to_rln_partial_witness(truncated).is_err());
 
             // Test extra bytes partial witness rejection
             let mut extra = ser_le;
             extra.push(0);
             assert!(matches!(
-                RLNPartialWitnessInput::from_bytes_le(&extra),
+                bytes_le_to_rln_partial_witness(&extra),
                 Err(ProtocolError::InvalidReadLen(_, _))
             ));
 
-            let ser_be = partial_witness.to_bytes_be().unwrap();
-            let (deser, _) = RLNPartialWitnessInput::from_bytes_be(&ser_be).unwrap();
+            let ser_be = rln_partial_witness_to_bytes_be(&partial_witness).unwrap();
+            let (deser, _) = bytes_be_to_rln_partial_witness(&ser_be).unwrap();
             assert_eq!(partial_witness, deser);
         }
 
@@ -998,25 +998,25 @@ mod test {
             let partial_proof =
                 generate_partial_zk_proof(&proving_key, &partial_witness, &graph_data).unwrap();
 
-            let ser_le = partial_proof.to_bytes_le().unwrap();
-            let (deser, read) = PartialProof::from_bytes_le(&ser_le).unwrap();
+            let ser_le = rln_partial_proof_to_bytes_le(&partial_proof).unwrap();
+            let (deser, read) = bytes_le_to_rln_partial_proof(&ser_le).unwrap();
             assert_eq!(read, ser_le.len());
             assert_eq!(partial_proof, deser);
 
             // Test truncated partial proof bytes rejection
             let truncated = &ser_le[..ser_le.len() - 1];
-            assert!(PartialProof::from_bytes_le(truncated).is_err());
+            assert!(bytes_le_to_rln_partial_proof(truncated).is_err());
 
             // Test extra bytes partial proof rejection
             let mut extra = ser_le;
             extra.push(0);
             assert!(matches!(
-                PartialProof::from_bytes_le(&extra),
+                bytes_le_to_rln_partial_proof(&extra),
                 Err(ProtocolError::InvalidReadLen(_, _))
             ));
 
-            let ser_be = partial_proof.to_bytes_be().unwrap();
-            let (deser, read) = PartialProof::from_bytes_be(&ser_be).unwrap();
+            let ser_be = rln_partial_proof_to_bytes_be(&partial_proof).unwrap();
+            let (deser, read) = bytes_be_to_rln_partial_proof(&ser_be).unwrap();
             assert_eq!(read, ser_be.len());
             assert_eq!(partial_proof, deser);
         }

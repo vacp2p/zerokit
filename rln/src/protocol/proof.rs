@@ -5,7 +5,7 @@ use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
 use num_traits::Signed;
 
-use super::mode::{MessageMode, RlnSerialize, VERSION_BYTE_SIZE};
+use super::mode::{MessageMode, VERSION_BYTE_SIZE};
 #[cfg(not(target_arch = "wasm32"))]
 use super::witness::{
     inputs_for_partial_witness_calculation, inputs_for_witness_calculation, RLNMessageInputs,
@@ -185,362 +185,344 @@ impl RLNProofValues {
     }
 }
 
-impl RlnSerialize for RLNProofValues {
-    type Error = ProtocolError;
+/// Serializes RLN proof values to little-endian bytes.
+pub fn rln_proof_values_to_bytes_le(rln_proof_values: &RLNProofValues) -> Vec<u8> {
+    let RLNProofValues {
+        root,
+        x,
+        external_nullifier,
+        outputs,
+    } = rln_proof_values;
 
-    /// Serializes RLN proof values to little-endian bytes.
-    fn to_bytes_le(&self) -> Result<Vec<u8>, Self::Error> {
-        let RLNProofValues {
-            root,
-            x,
-            external_nullifier,
-            outputs,
-        } = self;
-
-        let capacity = match outputs {
-            RLNOutputs::SingleV1 { .. } => VERSION_BYTE_SIZE + FR_BYTE_SIZE * 5,
-            RLNOutputs::MultiV1 {
-                ys,
-                nullifiers,
-                selector_used,
-            } => {
-                VERSION_BYTE_SIZE
-                    + FR_BYTE_SIZE * 3
-                    + FR_BYTE_SIZE * ys.len()
-                    + FR_BYTE_SIZE * nullifiers.len()
-                    + selector_used.len()
-                    + VEC_LEN_BYTE_SIZE * 3
-            }
-        };
-
-        let mut bytes = Vec::with_capacity(capacity);
-        bytes.push(self.version_byte());
-        bytes.extend_from_slice(&fr_to_bytes_le(root));
-        bytes.extend_from_slice(&fr_to_bytes_le(external_nullifier));
-        bytes.extend_from_slice(&fr_to_bytes_le(x));
-
-        match outputs {
-            RLNOutputs::SingleV1 { y, nullifier } => {
-                bytes.extend_from_slice(&fr_to_bytes_le(y));
-                bytes.extend_from_slice(&fr_to_bytes_le(nullifier));
-            }
-            RLNOutputs::MultiV1 {
-                ys,
-                nullifiers,
-                selector_used,
-            } => {
-                bytes.extend_from_slice(&vec_fr_to_bytes_le(ys));
-                bytes.extend_from_slice(&vec_fr_to_bytes_le(nullifiers));
-                bytes.extend_from_slice(&vec_bool_to_bytes_le(selector_used));
-            }
+    let capacity = match outputs {
+        RLNOutputs::SingleV1 { .. } => VERSION_BYTE_SIZE + FR_BYTE_SIZE * 5,
+        RLNOutputs::MultiV1 {
+            ys,
+            nullifiers,
+            selector_used,
+        } => {
+            VERSION_BYTE_SIZE
+                + FR_BYTE_SIZE * 3
+                + FR_BYTE_SIZE * ys.len()
+                + FR_BYTE_SIZE * nullifiers.len()
+                + selector_used.len()
+                + VEC_LEN_BYTE_SIZE * 3
         }
-        Ok(bytes)
+    };
+
+    let mut bytes = Vec::with_capacity(capacity);
+    bytes.push(rln_proof_values.version_byte());
+    bytes.extend_from_slice(&fr_to_bytes_le(root));
+    bytes.extend_from_slice(&fr_to_bytes_le(external_nullifier));
+    bytes.extend_from_slice(&fr_to_bytes_le(x));
+
+    match outputs {
+        RLNOutputs::SingleV1 { y, nullifier } => {
+            bytes.extend_from_slice(&fr_to_bytes_le(y));
+            bytes.extend_from_slice(&fr_to_bytes_le(nullifier));
+        }
+        RLNOutputs::MultiV1 {
+            ys,
+            nullifiers,
+            selector_used,
+        } => {
+            bytes.extend_from_slice(&vec_fr_to_bytes_le(ys));
+            bytes.extend_from_slice(&vec_fr_to_bytes_le(nullifiers));
+            bytes.extend_from_slice(&vec_bool_to_bytes_le(selector_used));
+        }
     }
-
-    /// Serializes RLN proof values to big-endian bytes.
-    fn to_bytes_be(&self) -> Result<Vec<u8>, Self::Error> {
-        let RLNProofValues {
-            root,
-            x,
-            external_nullifier,
-            outputs,
-        } = self;
-
-        let capacity = match outputs {
-            RLNOutputs::SingleV1 { .. } => VERSION_BYTE_SIZE + FR_BYTE_SIZE * 5,
-            RLNOutputs::MultiV1 {
-                ys,
-                nullifiers,
-                selector_used,
-            } => {
-                VERSION_BYTE_SIZE
-                    + FR_BYTE_SIZE * 3
-                    + FR_BYTE_SIZE * ys.len()
-                    + FR_BYTE_SIZE * nullifiers.len()
-                    + selector_used.len()
-                    + VEC_LEN_BYTE_SIZE * 3
-            }
-        };
-
-        let mut bytes = Vec::with_capacity(capacity);
-        bytes.push(self.version_byte());
-        bytes.extend_from_slice(&fr_to_bytes_be(root));
-        bytes.extend_from_slice(&fr_to_bytes_be(external_nullifier));
-        bytes.extend_from_slice(&fr_to_bytes_be(x));
-
-        match outputs {
-            RLNOutputs::SingleV1 { y, nullifier } => {
-                bytes.extend_from_slice(&fr_to_bytes_be(y));
-                bytes.extend_from_slice(&fr_to_bytes_be(nullifier));
-            }
-            RLNOutputs::MultiV1 {
-                ys,
-                nullifiers,
-                selector_used,
-            } => {
-                bytes.extend_from_slice(&vec_fr_to_bytes_be(ys));
-                bytes.extend_from_slice(&vec_fr_to_bytes_be(nullifiers));
-                bytes.extend_from_slice(&vec_bool_to_bytes_be(selector_used));
-            }
-        }
-        Ok(bytes)
-    }
-
-    /// Deserializes RLN proof values from little-endian bytes.
-    ///
-    /// Returns the deserialized proof values and the number of bytes read.
-    fn from_bytes_le(bytes: &[u8]) -> Result<(Self, usize), Self::Error> {
-        if bytes.is_empty() {
-            return Err(ProtocolError::InvalidReadLen(1, 0));
-        }
-
-        let version = MessageMode::try_from(bytes[0])?;
-        let mut read: usize = VERSION_BYTE_SIZE;
-
-        let (root, el_size) = bytes_le_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (external_nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (x, el_size) = bytes_le_to_fr(&bytes[read..])?;
-        read += el_size;
-
-        let proof_values = match version {
-            MessageMode::SingleV1 => {
-                let (y, el_size) = bytes_le_to_fr(&bytes[read..])?;
-                read += el_size;
-                let (nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
-                read += el_size;
-                RLNProofValues::new_single(root, x, external_nullifier, y, nullifier)
-            }
-            MessageMode::MultiV1 { .. } => {
-                let (ys, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
-                read += el_size;
-                let (nullifiers, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
-                read += el_size;
-                let (selector_used, el_size) = bytes_le_to_vec_bool(&bytes[read..])?;
-                read += el_size;
-
-                if selector_used.len() != ys.len() {
-                    return Err(ProtocolError::FieldLengthMismatch(
-                        "ys",
-                        ys.len(),
-                        "selector_used",
-                        selector_used.len(),
-                    ));
-                }
-                if nullifiers.len() != ys.len() {
-                    return Err(ProtocolError::FieldLengthMismatch(
-                        "ys",
-                        ys.len(),
-                        "nullifiers",
-                        nullifiers.len(),
-                    ));
-                }
-                RLNProofValues::new_multi(
-                    root,
-                    x,
-                    external_nullifier,
-                    ys,
-                    nullifiers,
-                    selector_used,
-                )
-            }
-        };
-
-        if read != bytes.len() {
-            return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-        }
-        Ok((proof_values, read))
-    }
-
-    /// Deserializes RLN proof values from big-endian bytes.
-    ///
-    /// Returns the deserialized proof values and the number of bytes read.
-    fn from_bytes_be(bytes: &[u8]) -> Result<(Self, usize), Self::Error> {
-        if bytes.is_empty() {
-            return Err(ProtocolError::InvalidReadLen(1, 0));
-        }
-
-        let version = MessageMode::try_from(bytes[0])?;
-        let mut read: usize = VERSION_BYTE_SIZE;
-
-        let (root, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (x, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-
-        let proof_values = match version {
-            MessageMode::SingleV1 => {
-                let (y, el_size) = bytes_be_to_fr(&bytes[read..])?;
-                read += el_size;
-                let (nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
-                read += el_size;
-                RLNProofValues::new_single(root, x, external_nullifier, y, nullifier)
-            }
-            MessageMode::MultiV1 { .. } => {
-                let (ys, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
-                read += el_size;
-                let (nullifiers, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
-                read += el_size;
-                let (selector_used, el_size) = bytes_be_to_vec_bool(&bytes[read..])?;
-                read += el_size;
-
-                if selector_used.len() != ys.len() {
-                    return Err(ProtocolError::FieldLengthMismatch(
-                        "ys",
-                        ys.len(),
-                        "selector_used",
-                        selector_used.len(),
-                    ));
-                }
-                if nullifiers.len() != ys.len() {
-                    return Err(ProtocolError::FieldLengthMismatch(
-                        "ys",
-                        ys.len(),
-                        "nullifiers",
-                        nullifiers.len(),
-                    ));
-                }
-                RLNProofValues::new_multi(
-                    root,
-                    x,
-                    external_nullifier,
-                    ys,
-                    nullifiers,
-                    selector_used,
-                )
-            }
-        };
-
-        if read != bytes.len() {
-            return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-        }
-        Ok((proof_values, read))
-    }
+    bytes
 }
 
-impl RlnSerialize for RLNProof {
-    type Error = ProtocolError;
+/// Serializes RLN proof values to big-endian bytes.
+pub fn rln_proof_values_to_bytes_be(rln_proof_values: &RLNProofValues) -> Vec<u8> {
+    let RLNProofValues {
+        root,
+        x,
+        external_nullifier,
+        outputs,
+    } = rln_proof_values;
 
-    /// Serializes RLN proof to little-endian bytes.
-    ///
-    /// The Groth16 proof is always serialized in LE format (arkworks behavior),
-    /// while proof_values are serialized in LE format.
-    fn to_bytes_le(&self) -> Result<Vec<u8>, Self::Error> {
-        // Calculate capacity for Vec:
-        // - VERSION_BYTE_SIZE byte for version tag in rln proof
-        // - variable size of proof values (includes VERSION_BYTE_SIZE)
-        // - COMPRESS_PROOF_SIZE bytes for compressed Groth16 proof
-        let proof_values_bytes = self.proof_values.to_bytes_le()?;
-        let mut bytes =
-            Vec::with_capacity(VERSION_BYTE_SIZE + COMPRESS_PROOF_SIZE + proof_values_bytes.len());
+    let capacity = match outputs {
+        RLNOutputs::SingleV1 { .. } => VERSION_BYTE_SIZE + FR_BYTE_SIZE * 5,
+        RLNOutputs::MultiV1 {
+            ys,
+            nullifiers,
+            selector_used,
+        } => {
+            VERSION_BYTE_SIZE
+                + FR_BYTE_SIZE * 3
+                + FR_BYTE_SIZE * ys.len()
+                + FR_BYTE_SIZE * nullifiers.len()
+                + selector_used.len()
+                + VEC_LEN_BYTE_SIZE * 3
+        }
+    };
 
-        bytes.push(self.proof_values.version_byte());
-        // Serialize proof (always LE format from arkworks)
-        self.proof.serialize_compressed(&mut bytes)?;
-        bytes.extend_from_slice(&proof_values_bytes);
+    let mut bytes = Vec::with_capacity(capacity);
+    bytes.push(rln_proof_values.version_byte());
+    bytes.extend_from_slice(&fr_to_bytes_be(root));
+    bytes.extend_from_slice(&fr_to_bytes_be(external_nullifier));
+    bytes.extend_from_slice(&fr_to_bytes_be(x));
 
-        Ok(bytes)
+    match outputs {
+        RLNOutputs::SingleV1 { y, nullifier } => {
+            bytes.extend_from_slice(&fr_to_bytes_be(y));
+            bytes.extend_from_slice(&fr_to_bytes_be(nullifier));
+        }
+        RLNOutputs::MultiV1 {
+            ys,
+            nullifiers,
+            selector_used,
+        } => {
+            bytes.extend_from_slice(&vec_fr_to_bytes_be(ys));
+            bytes.extend_from_slice(&vec_fr_to_bytes_be(nullifiers));
+            bytes.extend_from_slice(&vec_bool_to_bytes_be(selector_used));
+        }
+    }
+    bytes
+}
+
+/// Deserializes RLN proof values from little-endian bytes.
+///
+/// Returns the deserialized proof values and the number of bytes read.
+pub fn bytes_le_to_rln_proof_values(
+    bytes: &[u8],
+) -> Result<(RLNProofValues, usize), ProtocolError> {
+    if bytes.is_empty() {
+        return Err(ProtocolError::InvalidReadLen(1, 0));
     }
 
-    /// Serializes RLN proof to big-endian bytes.
-    ///
-    /// The Groth16 proof is always serialized in LE format (arkworks behavior),
-    /// while proof_values are serialized in BE format. This creates a mixed-endian format.
-    fn to_bytes_be(&self) -> Result<Vec<u8>, Self::Error> {
-        // Calculate capacity for Vec:
-        // - VERSION_BYTE_SIZE byte for version tag in rln proof
-        // - variable size of proof values (includes VERSION_BYTE_SIZE)
-        // - COMPRESS_PROOF_SIZE bytes for compressed Groth16 proof
-        let proof_values_bytes = self.proof_values.to_bytes_be()?;
-        let mut bytes =
-            Vec::with_capacity(VERSION_BYTE_SIZE + COMPRESS_PROOF_SIZE + proof_values_bytes.len());
+    let version = MessageMode::try_from(bytes[0])?;
+    let mut read: usize = VERSION_BYTE_SIZE;
 
-        bytes.push(self.proof_values.version_byte());
-        // Serialize proof (always LE format from arkworks)
-        self.proof.serialize_compressed(&mut bytes)?;
-        bytes.extend_from_slice(&proof_values_bytes);
+    let (root, el_size) = bytes_le_to_fr(&bytes[read..])?;
+    read += el_size;
+    let (external_nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
+    read += el_size;
+    let (x, el_size) = bytes_le_to_fr(&bytes[read..])?;
+    read += el_size;
 
-        Ok(bytes)
+    let proof_values = match version {
+        MessageMode::SingleV1 => {
+            let (y, el_size) = bytes_le_to_fr(&bytes[read..])?;
+            read += el_size;
+            let (nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
+            read += el_size;
+            RLNProofValues::new_single(root, x, external_nullifier, y, nullifier)
+        }
+        MessageMode::MultiV1 { .. } => {
+            let (ys, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
+            read += el_size;
+            let (nullifiers, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
+            read += el_size;
+            let (selector_used, el_size) = bytes_le_to_vec_bool(&bytes[read..])?;
+            read += el_size;
+
+            if selector_used.len() != ys.len() {
+                return Err(ProtocolError::FieldLengthMismatch(
+                    "ys",
+                    ys.len(),
+                    "selector_used",
+                    selector_used.len(),
+                ));
+            }
+            if nullifiers.len() != ys.len() {
+                return Err(ProtocolError::FieldLengthMismatch(
+                    "ys",
+                    ys.len(),
+                    "nullifiers",
+                    nullifiers.len(),
+                ));
+            }
+            RLNProofValues::new_multi(root, x, external_nullifier, ys, nullifiers, selector_used)
+        }
+    };
+
+    if read != bytes.len() {
+        return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
+    }
+    Ok((proof_values, read))
+}
+
+/// Deserializes RLN proof values from big-endian bytes.
+///
+/// Returns the deserialized proof values and the number of bytes read.
+pub fn bytes_be_to_rln_proof_values(
+    bytes: &[u8],
+) -> Result<(RLNProofValues, usize), ProtocolError> {
+    if bytes.is_empty() {
+        return Err(ProtocolError::InvalidReadLen(1, 0));
     }
 
-    /// Deserializes RLN proof from little-endian bytes.
-    ///
-    /// Returns the deserialized proof and the number of bytes read.
-    fn from_bytes_le(bytes: &[u8]) -> Result<(Self, usize), Self::Error> {
-        if bytes.is_empty() {
-            return Err(ProtocolError::InvalidReadLen(1, 0));
+    let version = MessageMode::try_from(bytes[0])?;
+    let mut read: usize = VERSION_BYTE_SIZE;
+
+    let (root, el_size) = bytes_be_to_fr(&bytes[read..])?;
+    read += el_size;
+    let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
+    read += el_size;
+    let (x, el_size) = bytes_be_to_fr(&bytes[read..])?;
+    read += el_size;
+
+    let proof_values = match version {
+        MessageMode::SingleV1 => {
+            let (y, el_size) = bytes_be_to_fr(&bytes[read..])?;
+            read += el_size;
+            let (nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
+            read += el_size;
+            RLNProofValues::new_single(root, x, external_nullifier, y, nullifier)
         }
+        MessageMode::MultiV1 { .. } => {
+            let (ys, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
+            read += el_size;
+            let (nullifiers, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
+            read += el_size;
+            let (selector_used, el_size) = bytes_be_to_vec_bool(&bytes[read..])?;
+            read += el_size;
 
-        let _version = MessageMode::try_from(bytes[0])?;
-        let mut read: usize = VERSION_BYTE_SIZE;
-
-        // Deserialize proof (always LE from arkworks)
-        if bytes.len() < read + COMPRESS_PROOF_SIZE {
-            return Err(ProtocolError::InvalidReadLen(
-                read + COMPRESS_PROOF_SIZE,
-                bytes.len(),
-            ));
+            if selector_used.len() != ys.len() {
+                return Err(ProtocolError::FieldLengthMismatch(
+                    "ys",
+                    ys.len(),
+                    "selector_used",
+                    selector_used.len(),
+                ));
+            }
+            if nullifiers.len() != ys.len() {
+                return Err(ProtocolError::FieldLengthMismatch(
+                    "ys",
+                    ys.len(),
+                    "nullifiers",
+                    nullifiers.len(),
+                ));
+            }
+            RLNProofValues::new_multi(root, x, external_nullifier, ys, nullifiers, selector_used)
         }
-        let proof = Proof::deserialize_compressed(&bytes[read..read + COMPRESS_PROOF_SIZE])?;
-        read += COMPRESS_PROOF_SIZE;
+    };
 
-        let (values, el_size) = RLNProofValues::from_bytes_le(&bytes[read..])?;
-        read += el_size;
+    if read != bytes.len() {
+        return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
+    }
+    Ok((proof_values, read))
+}
 
-        if read != bytes.len() {
-            return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-        }
+/// Serializes RLN proof to little-endian bytes.
+///
+/// The Groth16 proof is always serialized in LE format (arkworks behavior),
+/// while proof_values are serialized in LE format.
+pub fn rln_proof_to_bytes_le(rln_proof: &RLNProof) -> Result<Vec<u8>, ProtocolError> {
+    // Calculate capacity for Vec:
+    // - VERSION_BYTE_SIZE byte for version tag in rln proof
+    // - variable size of proof values (includes VERSION_BYTE_SIZE)
+    // - COMPRESS_PROOF_SIZE bytes for compressed Groth16 proof
+    let proof_values_bytes = rln_proof_values_to_bytes_le(&rln_proof.proof_values);
+    let mut bytes =
+        Vec::with_capacity(VERSION_BYTE_SIZE + COMPRESS_PROOF_SIZE + proof_values_bytes.len());
 
-        Ok((
-            RLNProof {
-                proof,
-                proof_values: values,
-            },
-            read,
-        ))
+    bytes.push(rln_proof.proof_values.version_byte());
+    // Serialize proof (always LE format from arkworks)
+    rln_proof.proof.serialize_compressed(&mut bytes)?;
+    bytes.extend_from_slice(&proof_values_bytes);
+
+    Ok(bytes)
+}
+
+/// Serializes RLN proof to big-endian bytes.
+///
+/// The Groth16 proof is always serialized in LE format (arkworks behavior),
+/// while proof_values are serialized in BE format. This creates a mixed-endian format.
+pub fn rln_proof_to_bytes_be(rln_proof: &RLNProof) -> Result<Vec<u8>, ProtocolError> {
+    // Calculate capacity for Vec:
+    // - VERSION_BYTE_SIZE byte for version tag in rln proof
+    // - variable size of proof values (includes VERSION_BYTE_SIZE)
+    // - COMPRESS_PROOF_SIZE bytes for compressed Groth16 proof
+    let proof_values_bytes = rln_proof_values_to_bytes_be(&rln_proof.proof_values);
+    let mut bytes =
+        Vec::with_capacity(VERSION_BYTE_SIZE + COMPRESS_PROOF_SIZE + proof_values_bytes.len());
+
+    bytes.push(rln_proof.proof_values.version_byte());
+    // Serialize proof (always LE format from arkworks)
+    rln_proof.proof.serialize_compressed(&mut bytes)?;
+    bytes.extend_from_slice(&proof_values_bytes);
+
+    Ok(bytes)
+}
+
+/// Deserializes RLN proof from little-endian bytes.
+///
+/// Returns the deserialized proof and the number of bytes read.
+pub fn bytes_le_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), ProtocolError> {
+    if bytes.is_empty() {
+        return Err(ProtocolError::InvalidReadLen(1, 0));
     }
 
-    /// Deserializes RLN proof from big-endian bytes.
-    ///
-    /// Mixed-endian format - proof is LE (arkworks), proof_values are BE.
-    ///
-    /// Returns the deserialized proof and the number of bytes read.
-    fn from_bytes_be(bytes: &[u8]) -> Result<(Self, usize), Self::Error> {
-        if bytes.is_empty() {
-            return Err(ProtocolError::InvalidReadLen(1, 0));
-        }
+    let _version = MessageMode::try_from(bytes[0])?;
+    let mut read: usize = VERSION_BYTE_SIZE;
 
-        let _version = MessageMode::try_from(bytes[0])?;
-        let mut read: usize = VERSION_BYTE_SIZE;
-
-        // Deserialize proof (always LE from arkworks)
-        if bytes.len() < read + COMPRESS_PROOF_SIZE {
-            return Err(ProtocolError::InvalidReadLen(
-                read + COMPRESS_PROOF_SIZE,
-                bytes.len(),
-            ));
-        }
-        let proof = Proof::deserialize_compressed(&bytes[read..read + COMPRESS_PROOF_SIZE])?;
-        read += COMPRESS_PROOF_SIZE;
-
-        let (values, el_size) = RLNProofValues::from_bytes_be(&bytes[read..])?;
-        read += el_size;
-
-        if read != bytes.len() {
-            return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-        }
-
-        Ok((
-            RLNProof {
-                proof,
-                proof_values: values,
-            },
-            read,
-        ))
+    // Deserialize proof (always LE from arkworks)
+    if bytes.len() < read + COMPRESS_PROOF_SIZE {
+        return Err(ProtocolError::InvalidReadLen(
+            read + COMPRESS_PROOF_SIZE,
+            bytes.len(),
+        ));
     }
+    let proof = Proof::deserialize_compressed(&bytes[read..read + COMPRESS_PROOF_SIZE])?;
+    read += COMPRESS_PROOF_SIZE;
+
+    let (values, el_size) = bytes_le_to_rln_proof_values(&bytes[read..])?;
+    read += el_size;
+
+    if read != bytes.len() {
+        return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
+    }
+
+    Ok((
+        RLNProof {
+            proof,
+            proof_values: values,
+        },
+        read,
+    ))
+}
+
+/// Deserializes RLN proof from big-endian bytes.
+///
+/// Mixed-endian format - proof is LE (arkworks), proof_values are BE.
+///
+/// Returns the deserialized proof and the number of bytes read.
+pub fn bytes_be_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), ProtocolError> {
+    if bytes.is_empty() {
+        return Err(ProtocolError::InvalidReadLen(1, 0));
+    }
+
+    let _version = MessageMode::try_from(bytes[0])?;
+    let mut read: usize = VERSION_BYTE_SIZE;
+
+    // Deserialize proof (always LE from arkworks)
+    if bytes.len() < read + COMPRESS_PROOF_SIZE {
+        return Err(ProtocolError::InvalidReadLen(
+            read + COMPRESS_PROOF_SIZE,
+            bytes.len(),
+        ));
+    }
+    let proof = Proof::deserialize_compressed(&bytes[read..read + COMPRESS_PROOF_SIZE])?;
+    read += COMPRESS_PROOF_SIZE;
+
+    let (values, el_size) = bytes_be_to_rln_proof_values(&bytes[read..])?;
+    read += el_size;
+
+    if read != bytes.len() {
+        return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
+    }
+
+    Ok((
+        RLNProof {
+            proof,
+            proof_values: values,
+        },
+        read,
+    ))
 }
 
 impl PartialProof {
@@ -550,60 +532,60 @@ impl PartialProof {
     }
 }
 
-impl RlnSerialize for PartialProof {
-    type Error = ProtocolError;
+/// Serializes RLN partial proof to little-endian bytes.
+///
+/// The PartialProof is always serialized in LE format (arkworks behavior).
+pub fn rln_partial_proof_to_bytes_le(
+    partial_proof: &PartialProof,
+) -> Result<Vec<u8>, ProtocolError> {
+    let version_byte: u8 = MessageMode::SingleV1.version_byte();
 
-    /// Serializes RLN partial proof to little-endian bytes.
-    ///
-    /// The PartialProof is always serialized in LE format (arkworks behavior).
-    fn to_bytes_le(&self) -> Result<Vec<u8>, Self::Error> {
-        let version_byte: u8 = MessageMode::SingleV1.version_byte();
+    // The compressed PartialProof size is variable (depends on circuit size).
+    let mut bytes = Vec::new();
+    bytes.push(version_byte);
+    partial_proof.serialize_compressed(&mut bytes)?;
+    Ok(bytes)
+}
 
-        // The compressed PartialProof size is variable (depends on circuit size).
-        let mut bytes = Vec::new();
-        bytes.push(version_byte);
-        self.serialize_compressed(&mut bytes)?;
-        Ok(bytes)
+/// Serializes RLN partial proof to big-endian bytes.
+///
+/// The PartialProof is always serialized in LE format (arkworks behavior).
+pub fn rln_partial_proof_to_bytes_be(
+    partial_proof: &PartialProof,
+) -> Result<Vec<u8>, ProtocolError> {
+    rln_partial_proof_to_bytes_le(partial_proof)
+}
+
+/// Deserializes RLN partial proof from little-endian bytes.
+///
+/// Returns the deserialized partial proof and the number of bytes read.
+pub fn bytes_le_to_rln_partial_proof(bytes: &[u8]) -> Result<(PartialProof, usize), ProtocolError> {
+    if bytes.is_empty() {
+        return Err(ProtocolError::InvalidReadLen(1, 0));
     }
 
-    /// Serializes RLN partial proof to big-endian bytes.
-    ///
-    /// The PartialProof is always serialized in LE format (arkworks behavior).
-    fn to_bytes_be(&self) -> Result<Vec<u8>, Self::Error> {
-        self.to_bytes_le()
+    let _version = MessageMode::try_from(bytes[0])?;
+    let mut read: usize = VERSION_BYTE_SIZE;
+
+    let mut bytes_ref = &bytes[read..];
+    let len_before = bytes_ref.len();
+    let partial_proof = PartialProof::deserialize_compressed(&mut bytes_ref)?;
+    read += len_before - bytes_ref.len();
+
+    if read != bytes.len() {
+        return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
     }
 
-    /// Deserializes RLN partial proof from little-endian bytes.
-    ///
-    /// Returns the deserialized partial proof and the number of bytes read.
-    fn from_bytes_le(bytes: &[u8]) -> Result<(Self, usize), Self::Error> {
-        if bytes.is_empty() {
-            return Err(ProtocolError::InvalidReadLen(1, 0));
-        }
+    Ok((partial_proof, read))
+}
 
-        let _version = MessageMode::try_from(bytes[0])?;
-        let mut read: usize = VERSION_BYTE_SIZE;
-
-        let mut bytes_ref = &bytes[read..];
-        let len_before = bytes_ref.len();
-        let partial_proof = PartialProof::deserialize_compressed(&mut bytes_ref)?;
-        read += len_before - bytes_ref.len();
-
-        if read != bytes.len() {
-            return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-        }
-
-        Ok((partial_proof, read))
-    }
-
-    /// Deserializes RLN partial proof from big-endian bytes.
-    ///
-    /// The PartialProof is always serialized in LE format (arkworks behavior).
-    ///
-    /// Returns the deserialized partial proof and the number of bytes read.
-    fn from_bytes_be(bytes: &[u8]) -> Result<(Self, usize), Self::Error> {
-        Self::from_bytes_le(bytes)
-    }
+/// Deserializes RLN partial proof from big-endian bytes.
+///
+/// The PartialProof is always serialized in LE format (arkworks behavior).
+///
+/// Returns the deserialized partial proof and the number of bytes read.
+pub fn bytes_be_to_rln_partial_proof(bytes: &[u8]) -> Result<(PartialProof, usize), ProtocolError> {
+    bytes_le_to_rln_partial_proof(bytes)
 }
 
 // zkSNARK proof generation and verification
