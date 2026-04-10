@@ -33,13 +33,13 @@ impl<F: PrimeField> PartialAssignment<F> {
 pub struct PartialProof<E: Pairing> {
     /// For each entry in `PartialAssignment::values`.
     pub mask: Vec<bool>,
-    /// partial_pi_a = [alpha]_1 + sum z_j*[A_j]_1
+    /// partial_pi_a = \[alpha\]_1 + sum z_j*\[A_j\]_1
     pub partial_pi_a: E::G1,
-    /// partial_rho = [beta]_1  + sum z_j*[B_j]_1
+    /// partial_rho = \[beta\]_1  + sum z_j*\[B_j\]_1
     pub partial_rho: E::G1,
-    /// partial_pi_b = [beta]_2  + sum z_j*[B_j]_2
+    /// partial_pi_b = \[beta\]_2  + sum z_j*\[B_j\]_2
     pub partial_pi_b: E::G2,
-    /// partial_pi_c =             sum z_j*[K_j]_1
+    /// partial_pi_c =             sum z_j*\[K_j\]_1
     pub partial_pi_c: E::G1,
 }
 
