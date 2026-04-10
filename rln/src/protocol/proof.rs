@@ -37,7 +37,7 @@ use crate::{
 ///
 /// Combines the Groth16 proof with its public values.
 ///
-/// The serialization format for this type is defined in [`crate::protocol::MessageMode`].
+/// The serialization format for this type is defined in the `protocol::mode` module.
 #[derive(Debug, PartialEq, Clone)]
 pub struct RLNProof {
     pub proof: Proof,
@@ -70,7 +70,7 @@ pub(crate) enum RLNOutputs {
 /// Contains the circuit's public inputs and outputs. Used in proof verification
 /// and identity secret recovery when rate limit violations are detected.
 ///
-/// The serialization format for this type is defined in [`crate::protocol::MessageMode`].
+/// The serialization format for this type is defined in the `protocol::mode` module.
 #[derive(Debug, PartialEq, Clone)]
 pub struct RLNProofValues {
     root: Fr,

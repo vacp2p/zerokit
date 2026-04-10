@@ -39,7 +39,7 @@ pub(crate) enum RLNMessageInputs {
 /// Contains the identity credentials, merkle proof, rate-limiting parameters,
 /// and signal binding data required to generate a Groth16 proof for the RLN protocol.
 ///
-/// The serialization format for this type is defined in [`crate::protocol::MessageMode`].
+/// The serialization format for this type is defined in the `protocol::mode` module.
 #[derive(Debug, PartialEq, Clone)]
 pub struct RLNWitnessInput {
     identity_secret: IdSecret,
@@ -56,7 +56,7 @@ pub struct RLNWitnessInput {
 /// Contains the non-changing inputs used to precompute a partial proof
 /// before the signal, external nullifier, and message ID are known.
 ///
-/// The serialization format for this type is defined in [`crate::protocol::MessageMode`].
+/// The serialization format for this type is defined in the `protocol::mode` module.
 #[derive(Debug, PartialEq, Clone)]
 pub struct RLNPartialWitnessInput {
     identity_secret: IdSecret,
