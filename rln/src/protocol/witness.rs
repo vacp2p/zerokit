@@ -293,6 +293,8 @@ impl RLNPartialWitnessInput {
 
     /// Returns the version byte for this partial witness's serialization format.
     pub fn version_byte(&self) -> u8 {
+        // TODO: new enum for partial witness instead of reusing SingleV1 version byte, which is technically not correct
+        // TODO: current master branch return SingleV1 or MultiV1 version byte based compile-time feature flag
         MessageMode::SingleV1.version_byte()
     }
 }
