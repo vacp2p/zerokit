@@ -12,11 +12,12 @@ use num_traits::Signed;
 #[cfg(not(target_arch = "wasm32"))]
 use super::witness::{
     inputs_for_partial_witness_calculation, inputs_for_witness_calculation, RLNMessageInputs,
-    RLNPartialWitnessInput, RLNWitnessInput, RLNWitnessInputV3,
+    RLNPartialWitnessInput, RLNWitnessInput,
 };
 use super::{
     mode::{MessageMode, VERSION_BYTE_SIZE},
     serialize::{CanonicalDeserializeBE, CanonicalSerializeBE},
+    witness::RLNWitnessInputV3,
     zk::RecoverSecret,
 };
 #[cfg(not(target_arch = "wasm32"))]
@@ -929,6 +930,7 @@ pub struct ProofValuesMulti {
 
 impl TryFrom<RLNWitnessInputV3> for ProofValuesSingle {
     type Error = ProtocolError;
+
     fn try_from(_witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
         todo!()
     }
@@ -936,6 +938,7 @@ impl TryFrom<RLNWitnessInputV3> for ProofValuesSingle {
 
 impl TryFrom<RLNWitnessInputV3> for ProofValuesMulti {
     type Error = ProtocolError;
+
     fn try_from(_witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
         todo!()
     }
@@ -943,6 +946,7 @@ impl TryFrom<RLNWitnessInputV3> for ProofValuesMulti {
 
 impl RecoverSecret for ProofValuesSingle {
     type Error = ProtocolError;
+
     fn recover_secret(&self, _other: &Self) -> Result<Fr, Self::Error> {
         todo!()
     }
@@ -950,6 +954,7 @@ impl RecoverSecret for ProofValuesSingle {
 
 impl RecoverSecret for ProofValuesMulti {
     type Error = ProtocolError;
+
     fn recover_secret(&self, _other: &Self) -> Result<Fr, Self::Error> {
         todo!()
     }
@@ -957,6 +962,7 @@ impl RecoverSecret for ProofValuesMulti {
 
 impl RecoverSecret<ProofValuesSingle> for ProofValuesMulti {
     type Error = ProtocolError;
+
     fn recover_secret(&self, _other: &ProofValuesSingle) -> Result<Fr, Self::Error> {
         todo!()
     }
@@ -964,6 +970,7 @@ impl RecoverSecret<ProofValuesSingle> for ProofValuesMulti {
 
 impl RecoverSecret<ProofValuesMulti> for ProofValuesSingle {
     type Error = ProtocolError;
+
     fn recover_secret(&self, _other: &ProofValuesMulti) -> Result<Fr, Self::Error> {
         todo!()
     }
