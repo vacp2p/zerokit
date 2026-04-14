@@ -2,13 +2,12 @@
 // It is used by the FFI, WASM and should be used by tests as well
 
 use num_bigint::BigInt;
+use zerokit_utils::merkle_tree::ZerokitMerkleTree;
 #[cfg(not(feature = "stateless"))]
 use {
     crate::poseidon_tree::PoseidonTree,
     std::str::FromStr,
-    zerokit_utils::merkle_tree::{
-        Hasher, ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError,
-    },
+    zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTreeError},
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -21,8 +20,8 @@ use crate::{
     circuit::{zkey_from_raw, Fr, Proof, Zkey},
     error::{RLNError, VerifyError},
     protocol::{
-        generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof, RLNProofValues,
-        RLNWitnessInput,
+        generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof,
+        RLNPartialZkProof, RLNProofValues, RLNWitnessInput, RLNZkProof, Stateful, Stateless,
     },
 };
 
@@ -762,5 +761,90 @@ impl RLN {
         }
 
         Ok(true)
+    }
+}
+
+pub struct RLNV3<State, ZKBackend> {
+    pub(crate) _zk: ZKBackend,
+    pub(crate) state: State,
+}
+
+impl<ZKBackend> RLNV3<Stateless, ZKBackend> {
+    pub fn new_stateless(zk: ZKBackend) -> Self {
+        Self {
+            _zk: zk,
+            state: Stateless,
+        }
+    }
+}
+
+impl<T, ZKBackend> RLNV3<Stateful<T>, ZKBackend> {
+    pub fn new_stateful(tree: T, zk: ZKBackend) -> Self {
+        Self {
+            _zk: zk,
+            state: Stateful::new(tree),
+        }
+    }
+}
+
+impl<T, ZKBackend> RLNV3<Stateful<T>, ZKBackend> {
+    pub fn tree(&self) -> &T {
+        self.state.tree()
+    }
+
+    pub fn tree_mut(&mut self) -> &mut T {
+        self.state.tree_mut()
+    }
+
+    pub fn into_tree(self) -> T {
+        self.state.into_tree()
+    }
+}
+
+impl<T: ZerokitMerkleTree, ZKBackend> RLNV3<Stateful<T>, ZKBackend> {
+    pub fn tree_depth(&self) -> usize {
+        todo!()
+    }
+
+    pub fn get_root(&self) -> Fr {
+        todo!()
+    }
+
+    pub fn insert_leaf(&mut self, _index: usize, _leaf: Fr) -> Result<(), RLNError> {
+        todo!()
+    }
+}
+
+impl<Tree, ZKBackend: RLNZkProof> RLNV3<Tree, ZKBackend> {
+    pub fn generate_proof(
+        &self,
+        _witness: ZKBackend::Witness,
+    ) -> Result<(ZKBackend::Proof, ZKBackend::Values), RLNError> {
+        todo!()
+    }
+
+    pub fn verify_proof(
+        &self,
+        _proof: &ZKBackend::Proof,
+        _values: &ZKBackend::Values,
+    ) -> Result<bool, RLNError> {
+        todo!()
+    }
+}
+
+impl<Tree, ZKBackend: RLNPartialZkProof> RLNV3<Tree, ZKBackend> {
+    pub fn generate_partial_proof(
+        &self,
+        _partial_witness: ZKBackend::PartialWitness,
+    ) -> Result<ZKBackend::PartialProof, RLNError> {
+        todo!()
+    }
+
+    pub fn finish_proof(
+        &self,
+        _partial_proof: ZKBackend::PartialProof,
+        _witness: ZKBackend::Witness,
+    ) -> Result<ZKBackend::Proof, RLNError> {
+        todo!()
     }
 }

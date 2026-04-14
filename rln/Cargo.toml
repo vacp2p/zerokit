@@ -102,5 +102,8 @@ required-features = ["pmtree-ft"]
 features = ["parallel", "pmtree-ft"]
 
 [[bin]]
-name = "generate-headers"
+name = "generate_headers"
 required-features = ["headers"] # Do not build unless generating headers.
+
+[[bin]]
+name = "test_refactors"

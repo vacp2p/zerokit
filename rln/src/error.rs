@@ -1,6 +1,7 @@
 use std::{array::TryFromSliceError, num::TryFromIntError};
 
 use ark_relations::r1cs::SynthesisError;
+use ark_serialize::SerializationError;
 use num_bigint::{BigInt, ParseBigIntError};
 use zerokit_utils::merkle_tree::{FromConfigError, ZerokitMerkleTreeError};
 
@@ -74,7 +75,7 @@ pub enum ProtocolError {
     #[error("Merkle tree operation error: {0}")]
     MerkleTree(#[from] ZerokitMerkleTreeError),
     #[error("Proof serialization error: {0}")]
-    SerializationError(#[from] ark_serialize::SerializationError),
+    SerializationError(#[from] SerializationError),
     #[error("Unknown message mode version byte: {0:#04x}")]
     UnknownMessageModeVersionByte(u8),
     #[error("Witness message mode {witness_mode} does not match graph mode {graph_mode}")]

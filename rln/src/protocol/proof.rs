@@ -1,15 +1,23 @@
+use std::io::{Read, Write};
+
 use ark_ff::PrimeField;
 use ark_groth16::{prepare_verifying_key, Groth16};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Validate,
+};
 use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
 use num_traits::Signed;
 
-use super::mode::{MessageMode, VERSION_BYTE_SIZE};
 #[cfg(not(target_arch = "wasm32"))]
 use super::witness::{
     inputs_for_partial_witness_calculation, inputs_for_witness_calculation, RLNMessageInputs,
-    RLNPartialWitnessInput, RLNWitnessInput,
+    RLNPartialWitnessInput, RLNWitnessInput, RLNWitnessInputV3,
+};
+use super::{
+    mode::{MessageMode, VERSION_BYTE_SIZE},
+    serialize::{CanonicalDeserializeBE, CanonicalSerializeBE},
+    zk::RecoverSecret,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
@@ -617,22 +625,22 @@ fn calculated_witness_to_field_elements<E: ark_ec::pairing::Pairing>(
 /// Validates that a partial witness's dimensions match the graph's expected tree depth.
 #[cfg(not(target_arch = "wasm32"))]
 fn validate_partial_witness_against_graph(
-    witness: &RLNPartialWitnessInput,
+    partial_witness: &RLNPartialWitnessInput,
     graph: &Graph,
 ) -> Result<(), ProtocolError> {
     let expected_tree_depth = graph.tree_depth;
-    if witness.path_elements().len() != expected_tree_depth {
+    if partial_witness.path_elements().len() != expected_tree_depth {
         return Err(ProtocolError::FieldLengthMismatch(
             "path_elements",
-            witness.path_elements().len(),
+            partial_witness.path_elements().len(),
             "tree_depth",
             expected_tree_depth,
         ));
     }
-    if witness.identity_path_index().len() != expected_tree_depth {
+    if partial_witness.identity_path_index().len() != expected_tree_depth {
         return Err(ProtocolError::FieldLengthMismatch(
             "identity_path_index",
-            witness.identity_path_index().len(),
+            partial_witness.identity_path_index().len(),
             "tree_depth",
             expected_tree_depth,
         ));
@@ -892,4 +900,95 @@ pub fn verify_zk_proof(
     let verified = Groth16::<_, CircomReduction>::verify_proof(&pvk, proof, &inputs)?;
 
     Ok(verified)
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum RLNProofValuesV3 {
+    Single(ProofValuesSingle),
+    Multi(ProofValuesMulti),
+}
+
+#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct ProofValuesSingle {
+    pub root: Fr,
+    pub x: Fr,
+    pub external_nullifier: Fr,
+    pub y: Fr,
+    pub nullifier: Fr,
+}
+
+#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct ProofValuesMulti {
+    pub root: Fr,
+    pub x: Fr,
+    pub external_nullifier: Fr,
+    pub ys: Vec<Fr>,
+    pub nullifiers: Vec<Fr>,
+    pub selector_used: Vec<bool>,
+}
+
+impl TryFrom<RLNWitnessInputV3> for ProofValuesSingle {
+    type Error = ProtocolError;
+    fn try_from(_witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
+impl TryFrom<RLNWitnessInputV3> for ProofValuesMulti {
+    type Error = ProtocolError;
+    fn try_from(_witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
+impl RecoverSecret for ProofValuesSingle {
+    type Error = ProtocolError;
+    fn recover_secret(&self, _other: &Self) -> Result<Fr, Self::Error> {
+        todo!()
+    }
+}
+
+impl RecoverSecret for ProofValuesMulti {
+    type Error = ProtocolError;
+    fn recover_secret(&self, _other: &Self) -> Result<Fr, Self::Error> {
+        todo!()
+    }
+}
+
+impl RecoverSecret<ProofValuesSingle> for ProofValuesMulti {
+    type Error = ProtocolError;
+    fn recover_secret(&self, _other: &ProofValuesSingle) -> Result<Fr, Self::Error> {
+        todo!()
+    }
+}
+
+impl RecoverSecret<ProofValuesMulti> for ProofValuesSingle {
+    type Error = ProtocolError;
+    fn recover_secret(&self, _other: &ProofValuesMulti) -> Result<Fr, Self::Error> {
+        todo!()
+    }
+}
+
+impl CanonicalSerializeBE for ProofValuesSingle {
+    fn serialize_with_mode<W: Write>(
+        &self,
+        _writer: W,
+        _compress: Compress,
+    ) -> Result<(), SerializationError> {
+        todo!()
+    }
+
+    fn serialized_size(&self, _compress: Compress) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeBE for ProofValuesMulti {
+    fn deserialize_with_mode<R: Read>(
+        _reader: R,
+        _compress: Compress,
+        _validate: Validate,
+    ) -> Result<Self, SerializationError> {
+        todo!()
+    }
 }
