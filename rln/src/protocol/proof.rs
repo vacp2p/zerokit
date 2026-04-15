@@ -2,7 +2,9 @@ use std::io::{Read, Write};
 
 use ark_ff::PrimeField;
 use ark_groth16::{prepare_verifying_key, Groth16};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Valid};
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
+};
 use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
 use num_traits::Signed;
@@ -908,32 +910,56 @@ pub enum RLNProofValuesV3 {
 }
 
 impl Valid for RLNProofValuesV3 {
-    fn check(&self) -> Result<(), ark_serialize::SerializationError> {
-        todo!()
+    fn check(&self) -> Result<(), SerializationError> {
+        match self {
+            RLNProofValuesV3::Single(inner) => inner.check(),
+            RLNProofValuesV3::Multi(inner) => inner.check(),
+        }
     }
 }
 
 impl CanonicalSerialize for RLNProofValuesV3 {
     fn serialize_with_mode<W: Write>(
         &self,
-        _writer: W,
-        _compress: ark_serialize::Compress,
-    ) -> Result<(), ark_serialize::SerializationError> {
-        todo!()
+        mut writer: W,
+        compress: Compress,
+    ) -> Result<(), SerializationError> {
+        match self {
+            RLNProofValuesV3::Single(inner) => {
+                0u8.serialize_with_mode(&mut writer, compress)?;
+                inner.serialize_with_mode(&mut writer, compress)
+            }
+            RLNProofValuesV3::Multi(inner) => {
+                1u8.serialize_with_mode(&mut writer, compress)?;
+                inner.serialize_with_mode(&mut writer, compress)
+            }
+        }
     }
 
-    fn serialized_size(&self, _compress: ark_serialize::Compress) -> usize {
-        todo!()
+    fn serialized_size(&self, compress: Compress) -> usize {
+        1 + match self {
+            RLNProofValuesV3::Single(inner) => inner.serialized_size(compress),
+            RLNProofValuesV3::Multi(inner) => inner.serialized_size(compress),
+        }
     }
 }
 
 impl CanonicalDeserialize for RLNProofValuesV3 {
     fn deserialize_with_mode<R: Read>(
-        _reader: R,
-        _compress: ark_serialize::Compress,
-        _validate: ark_serialize::Validate,
-    ) -> Result<Self, ark_serialize::SerializationError> {
-        todo!()
+        mut reader: R,
+        compress: Compress,
+        validate: Validate,
+    ) -> Result<Self, SerializationError> {
+        let tag = u8::deserialize_with_mode(&mut reader, compress, validate)?;
+        match tag {
+            0 => Ok(RLNProofValuesV3::Single(
+                RLNProofValuesSingle::deserialize_with_mode(reader, compress, validate)?,
+            )),
+            1 => Ok(RLNProofValuesV3::Multi(
+                RLNProofValuesMulti::deserialize_with_mode(reader, compress, validate)?,
+            )),
+            _ => Err(SerializationError::InvalidData),
+        }
     }
 }
 

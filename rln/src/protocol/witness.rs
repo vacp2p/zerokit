@@ -3,7 +3,9 @@ use std::{
     io::{Read, Write},
 };
 
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
+};
 use num_bigint::BigInt;
 use zeroize::Zeroize;
 
@@ -939,38 +941,63 @@ pub(super) fn inputs_for_partial_witness_calculation(
     inputs
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub enum RLNWitnessInputV3 {
     Single(RLNWitnessInputSingle),
     Multi(RLNWitnessInputMulti),
 }
 
-impl ark_serialize::Valid for RLNWitnessInputV3 {
+impl Valid for RLNWitnessInputV3 {
     fn check(&self) -> Result<(), SerializationError> {
-        todo!()
+        match self {
+            RLNWitnessInputV3::Single(inner) => inner.check(),
+            RLNWitnessInputV3::Multi(inner) => inner.check(),
+        }
     }
 }
 
 impl CanonicalSerialize for RLNWitnessInputV3 {
     fn serialize_with_mode<W: Write>(
         &self,
-        _writer: W,
-        _compress: ark_serialize::Compress,
+        mut writer: W,
+        compress: Compress,
     ) -> Result<(), SerializationError> {
-        todo!()
+        match self {
+            RLNWitnessInputV3::Single(inner) => {
+                0u8.serialize_with_mode(&mut writer, compress)?;
+                inner.serialize_with_mode(&mut writer, compress)
+            }
+            RLNWitnessInputV3::Multi(inner) => {
+                1u8.serialize_with_mode(&mut writer, compress)?;
+                inner.serialize_with_mode(&mut writer, compress)
+            }
+        }
     }
 
-    fn serialized_size(&self, _compress: ark_serialize::Compress) -> usize {
-        todo!()
+    fn serialized_size(&self, compress: Compress) -> usize {
+        1 + match self {
+            RLNWitnessInputV3::Single(inner) => inner.serialized_size(compress),
+            RLNWitnessInputV3::Multi(inner) => inner.serialized_size(compress),
+        }
     }
 }
 
 impl CanonicalDeserialize for RLNWitnessInputV3 {
     fn deserialize_with_mode<R: Read>(
-        _reader: R,
-        _compress: ark_serialize::Compress,
-        _validate: ark_serialize::Validate,
+        mut reader: R,
+        compress: Compress,
+        validate: Validate,
     ) -> Result<Self, SerializationError> {
-        todo!()
+        let tag = u8::deserialize_with_mode(&mut reader, compress, validate)?;
+        match tag {
+            0 => Ok(RLNWitnessInputV3::Single(
+                RLNWitnessInputSingle::deserialize_with_mode(reader, compress, validate)?,
+            )),
+            1 => Ok(RLNWitnessInputV3::Multi(
+                RLNWitnessInputMulti::deserialize_with_mode(reader, compress, validate)?,
+            )),
+            _ => Err(SerializationError::InvalidData),
+        }
     }
 }
 
