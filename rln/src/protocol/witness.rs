@@ -1001,55 +1001,6 @@ impl CanonicalDeserialize for RLNWitnessInputV3 {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
-pub struct RLNWitnessInputSingle {
-    pub(crate) identity_secret: IdSecret,
-    pub(crate) user_message_limit: Fr,
-    pub(crate) path_elements: Vec<Fr>,
-    pub(crate) identity_path_index: Vec<u8>,
-    pub(crate) x: Fr,
-    pub(crate) external_nullifier: Fr,
-    pub(crate) message_id: Fr,
-}
-
-#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
-pub struct RLNWitnessInputMulti {
-    pub(crate) identity_secret: IdSecret,
-    pub(crate) user_message_limit: Fr,
-    pub(crate) path_elements: Vec<Fr>,
-    pub(crate) identity_path_index: Vec<u8>,
-    pub(crate) x: Fr,
-    pub(crate) external_nullifier: Fr,
-    pub(crate) message_ids: Vec<Fr>,
-    pub(crate) selector_used: Vec<bool>,
-}
-
-#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
-pub struct RLNPartialWitnessInputV3 {
-    pub(crate) identity_secret: IdSecret,
-    pub(crate) user_message_limit: Fr,
-    pub(crate) path_elements: Vec<Fr>,
-    pub(crate) identity_path_index: Vec<u8>,
-}
-
-impl RLNWitnessInputSingle {
-    pub fn new() -> Result<Self, ProtocolError> {
-        todo!()
-    }
-}
-
-impl RLNWitnessInputMulti {
-    pub fn new() -> Result<Self, ProtocolError> {
-        todo!()
-    }
-}
-
-impl RLNPartialWitnessInputV3 {
-    pub fn new() -> Result<Self, ProtocolError> {
-        todo!()
-    }
-}
-
 impl CanonicalSerializeBE for RLNWitnessInputV3 {
     type Error = SerializationError;
 
@@ -1066,6 +1017,23 @@ impl CanonicalDeserializeBE for RLNWitnessInputV3 {
     type Error = SerializationError;
 
     fn deserialize_be<R: Read>(_reader: R) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct RLNWitnessInputSingle {
+    pub(crate) identity_secret: IdSecret,
+    pub(crate) user_message_limit: Fr,
+    pub(crate) path_elements: Vec<Fr>,
+    pub(crate) identity_path_index: Vec<u8>,
+    pub(crate) x: Fr,
+    pub(crate) external_nullifier: Fr,
+    pub(crate) message_id: Fr,
+}
+
+impl RLNWitnessInputSingle {
+    pub fn new() -> Result<Self, ProtocolError> {
         todo!()
     }
 }
@@ -1090,6 +1058,24 @@ impl CanonicalDeserializeBE for RLNWitnessInputSingle {
     }
 }
 
+#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct RLNWitnessInputMulti {
+    pub(crate) identity_secret: IdSecret,
+    pub(crate) user_message_limit: Fr,
+    pub(crate) path_elements: Vec<Fr>,
+    pub(crate) identity_path_index: Vec<u8>,
+    pub(crate) x: Fr,
+    pub(crate) external_nullifier: Fr,
+    pub(crate) message_ids: Vec<Fr>,
+    pub(crate) selector_used: Vec<bool>,
+}
+
+impl RLNWitnessInputMulti {
+    pub fn new() -> Result<Self, ProtocolError> {
+        todo!()
+    }
+}
+
 impl CanonicalSerializeBE for RLNWitnessInputMulti {
     type Error = SerializationError;
 
@@ -1106,6 +1092,20 @@ impl CanonicalDeserializeBE for RLNWitnessInputMulti {
     type Error = SerializationError;
 
     fn deserialize_be<R: Read>(_reader: R) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct RLNPartialWitnessInputV3 {
+    pub(crate) identity_secret: IdSecret,
+    pub(crate) user_message_limit: Fr,
+    pub(crate) path_elements: Vec<Fr>,
+    pub(crate) identity_path_index: Vec<u8>,
+}
+
+impl RLNPartialWitnessInputV3 {
+    pub fn new() -> Result<Self, ProtocolError> {
         todo!()
     }
 }
