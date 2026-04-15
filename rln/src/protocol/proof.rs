@@ -2,9 +2,7 @@ use std::io::{Read, Write};
 
 use ark_ff::PrimeField;
 use ark_groth16::{prepare_verifying_key, Groth16};
-use ark_serialize::{
-    CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Validate,
-};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Valid};
 use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
 use num_traits::Signed;
@@ -905,12 +903,78 @@ pub fn verify_zk_proof(
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum RLNProofValuesV3 {
-    Single(ProofValuesSingle),
-    Multi(ProofValuesMulti),
+    Single(RLNProofValuesSingle),
+    Multi(RLNProofValuesMulti),
+}
+
+impl Valid for RLNProofValuesV3 {
+    fn check(&self) -> Result<(), ark_serialize::SerializationError> {
+        todo!()
+    }
+}
+
+impl CanonicalSerialize for RLNProofValuesV3 {
+    fn serialize_with_mode<W: Write>(
+        &self,
+        _writer: W,
+        _compress: ark_serialize::Compress,
+    ) -> Result<(), ark_serialize::SerializationError> {
+        todo!()
+    }
+
+    fn serialized_size(&self, _compress: ark_serialize::Compress) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserialize for RLNProofValuesV3 {
+    fn deserialize_with_mode<R: Read>(
+        _reader: R,
+        _compress: ark_serialize::Compress,
+        _validate: ark_serialize::Validate,
+    ) -> Result<Self, ark_serialize::SerializationError> {
+        todo!()
+    }
+}
+
+impl TryFrom<RLNWitnessInputV3> for RLNProofValuesV3 {
+    type Error = ProtocolError;
+
+    fn try_from(_witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
+impl RecoverSecret for RLNProofValuesV3 {
+    type Error = ProtocolError;
+
+    fn recover_secret(&self, _other: &Self) -> Result<Fr, Self::Error> {
+        todo!()
+    }
+}
+
+impl CanonicalSerializeBE for RLNProofValuesV3 {
+    type Error = ProtocolError;
+
+    fn serialize_be<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn serialized_size_be(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeBE for RLNProofValuesV3 {
+    type Error = ProtocolError;
+
+    fn deserialize_be<R: Read>(_reader: R) -> Result<Self, Self::Error> {
+        todo!()
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
-pub struct ProofValuesSingle {
+pub struct RLNProofValuesSingle {
     pub root: Fr,
     pub x: Fr,
     pub external_nullifier: Fr,
@@ -918,8 +982,52 @@ pub struct ProofValuesSingle {
     pub nullifier: Fr,
 }
 
+impl TryFrom<RLNWitnessInputV3> for RLNProofValuesSingle {
+    type Error = ProtocolError;
+
+    fn try_from(_witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
+impl RecoverSecret for RLNProofValuesSingle {
+    type Error = ProtocolError;
+
+    fn recover_secret(&self, _other: &Self) -> Result<Fr, Self::Error> {
+        todo!()
+    }
+}
+
+impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
+    type Error = ProtocolError;
+
+    fn recover_secret(&self, _other: &RLNProofValuesSingle) -> Result<Fr, Self::Error> {
+        todo!()
+    }
+}
+
+impl CanonicalSerializeBE for RLNProofValuesSingle {
+    type Error = ProtocolError;
+
+    fn serialize_be<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn serialized_size_be(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeBE for RLNProofValuesSingle {
+    type Error = ProtocolError;
+
+    fn deserialize_be<R: Read>(_reader: R) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
-pub struct ProofValuesMulti {
+pub struct RLNProofValuesMulti {
     pub root: Fr,
     pub x: Fr,
     pub external_nullifier: Fr,
@@ -928,7 +1036,7 @@ pub struct ProofValuesMulti {
     pub selector_used: Vec<bool>,
 }
 
-impl TryFrom<RLNWitnessInputV3> for ProofValuesSingle {
+impl TryFrom<RLNWitnessInputV3> for RLNProofValuesMulti {
     type Error = ProtocolError;
 
     fn try_from(_witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
@@ -936,15 +1044,7 @@ impl TryFrom<RLNWitnessInputV3> for ProofValuesSingle {
     }
 }
 
-impl TryFrom<RLNWitnessInputV3> for ProofValuesMulti {
-    type Error = ProtocolError;
-
-    fn try_from(_witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
-        todo!()
-    }
-}
-
-impl RecoverSecret for ProofValuesSingle {
+impl RecoverSecret for RLNProofValuesMulti {
     type Error = ProtocolError;
 
     fn recover_secret(&self, _other: &Self) -> Result<Fr, Self::Error> {
@@ -952,50 +1052,30 @@ impl RecoverSecret for ProofValuesSingle {
     }
 }
 
-impl RecoverSecret for ProofValuesMulti {
+impl RecoverSecret<RLNProofValuesMulti> for RLNProofValuesSingle {
     type Error = ProtocolError;
 
-    fn recover_secret(&self, _other: &Self) -> Result<Fr, Self::Error> {
+    fn recover_secret(&self, _other: &RLNProofValuesMulti) -> Result<Fr, Self::Error> {
         todo!()
     }
 }
 
-impl RecoverSecret<ProofValuesSingle> for ProofValuesMulti {
+impl CanonicalSerializeBE for RLNProofValuesMulti {
     type Error = ProtocolError;
 
-    fn recover_secret(&self, _other: &ProofValuesSingle) -> Result<Fr, Self::Error> {
+    fn serialize_be<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn serialized_size_be(&self) -> usize {
         todo!()
     }
 }
 
-impl RecoverSecret<ProofValuesMulti> for ProofValuesSingle {
+impl CanonicalDeserializeBE for RLNProofValuesMulti {
     type Error = ProtocolError;
 
-    fn recover_secret(&self, _other: &ProofValuesMulti) -> Result<Fr, Self::Error> {
-        todo!()
-    }
-}
-
-impl CanonicalSerializeBE for ProofValuesSingle {
-    fn serialize_with_mode<W: Write>(
-        &self,
-        _writer: W,
-        _compress: Compress,
-    ) -> Result<(), SerializationError> {
-        todo!()
-    }
-
-    fn serialized_size(&self, _compress: Compress) -> usize {
-        todo!()
-    }
-}
-
-impl CanonicalDeserializeBE for ProofValuesMulti {
-    fn deserialize_with_mode<R: Read>(
-        _reader: R,
-        _compress: Compress,
-        _validate: Validate,
-    ) -> Result<Self, SerializationError> {
+    fn deserialize_be<R: Read>(_reader: R) -> Result<Self, Self::Error> {
         todo!()
     }
 }

@@ -16,8 +16,8 @@ pub use proof::{
     bytes_le_to_rln_partial_proof, bytes_le_to_rln_proof, bytes_le_to_rln_proof_values,
     generate_zk_proof_with_witness, rln_partial_proof_to_bytes_be, rln_partial_proof_to_bytes_le,
     rln_proof_to_bytes_be, rln_proof_to_bytes_le, rln_proof_values_to_bytes_be,
-    rln_proof_values_to_bytes_le, verify_zk_proof, ProofValuesMulti, ProofValuesSingle, RLNProof,
-    RLNProofValues, RLNProofValuesV3,
+    rln_proof_values_to_bytes_le, verify_zk_proof, RLNProof, RLNProofValues, RLNProofValuesMulti,
+    RLNProofValuesSingle, RLNProofValuesV3,
 };
 #[cfg(not(target_arch = "wasm32"))]
 pub use proof::{

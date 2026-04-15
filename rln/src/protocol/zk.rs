@@ -1,4 +1,9 @@
-use crate::circuit::Fr;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+
+use crate::{
+    circuit::Fr,
+    prelude::{CanonicalDeserializeBE, CanonicalSerializeBE},
+};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
     circuit::{ArkGroth16Backend, PartialProof, Proof},
@@ -8,9 +13,20 @@ use crate::{
 };
 
 pub trait RLNZkProof {
-    type Witness;
-    type Values;
-    type Proof;
+    type Witness: CanonicalSerialize
+        + CanonicalDeserialize
+        + CanonicalSerializeBE
+        + CanonicalDeserializeBE;
+    type Proof: CanonicalSerialize
+        + CanonicalDeserialize
+        + CanonicalSerializeBE
+        + CanonicalDeserializeBE;
+    type Values: RecoverSecret
+        + TryFrom<Self::Witness>
+        + CanonicalSerialize
+        + CanonicalDeserialize
+        + CanonicalSerializeBE
+        + CanonicalDeserializeBE;
     type Error;
 
     fn generate_proof(

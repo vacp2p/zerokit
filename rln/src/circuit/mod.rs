@@ -4,6 +4,7 @@ pub(crate) mod error;
 pub(crate) mod iden3calc;
 pub(crate) mod qap;
 
+use std::io::{Read, Write};
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::LazyLock;
 
@@ -16,7 +17,7 @@ use ark_groth16::{
     Proof as ArkProof, ProvingKey as ArkProvingKey, VerifyingKey as ArkVerifyingKey,
 };
 use ark_relations::r1cs::ConstraintMatrices;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
 
 #[cfg(not(target_arch = "wasm32"))]
 use self::error::GraphReadError;
@@ -25,7 +26,10 @@ use self::error::ZKeyReadError;
 use crate::circuit::iden3calc::{
     graph::Node, storage::deserialize_witnesscalc_graph, InputSignalsInfo,
 };
-use crate::partial_proof::PartialProof as ArkPartialProof;
+use crate::{
+    partial_proof::PartialProof as ArkPartialProof,
+    prelude::{CanonicalDeserializeBE, CanonicalSerializeBE},
+};
 
 #[cfg(not(target_arch = "wasm32"))]
 const GRAPH_BYTES_SINGLE_V1: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
@@ -103,6 +107,26 @@ pub type G2Projective = ArkG2Projective;
 
 /// Groth16 proof for the BN254 curve.
 pub type Proof = ArkProof<Curve>;
+
+impl CanonicalSerializeBE for Proof {
+    type Error = SerializationError;
+
+    fn serialize_be<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn serialized_size_be(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeBE for Proof {
+    type Error = SerializationError;
+
+    fn deserialize_be<R: Read>(_reader: R) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
 
 /// Partial Groth16 proof for the BN254 curve.
 pub type PartialProof = ArkPartialProof<Curve>;

@@ -3,9 +3,7 @@ use std::{
     io::{Read, Write},
 };
 
-use ark_serialize::{
-    CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Validate,
-};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
 use num_bigint::BigInt;
 use zeroize::Zeroize;
 
@@ -946,6 +944,36 @@ pub enum RLNWitnessInputV3 {
     Multi(RLNWitnessInputMulti),
 }
 
+impl ark_serialize::Valid for RLNWitnessInputV3 {
+    fn check(&self) -> Result<(), SerializationError> {
+        todo!()
+    }
+}
+
+impl CanonicalSerialize for RLNWitnessInputV3 {
+    fn serialize_with_mode<W: Write>(
+        &self,
+        _writer: W,
+        _compress: ark_serialize::Compress,
+    ) -> Result<(), SerializationError> {
+        todo!()
+    }
+
+    fn serialized_size(&self, _compress: ark_serialize::Compress) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserialize for RLNWitnessInputV3 {
+    fn deserialize_with_mode<R: Read>(
+        _reader: R,
+        _compress: ark_serialize::Compress,
+        _validate: ark_serialize::Validate,
+    ) -> Result<Self, SerializationError> {
+        todo!()
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNWitnessInputSingle {
     pub(crate) identity_secret: IdSecret,
@@ -995,74 +1023,82 @@ impl RLNPartialWitnessInputV3 {
     }
 }
 
-impl CanonicalSerializeBE for RLNWitnessInputSingle {
-    fn serialize_with_mode<W: Write>(
-        &self,
-        _writer: W,
-        _compress: Compress,
-    ) -> Result<(), ark_serialize::SerializationError> {
+impl CanonicalSerializeBE for RLNWitnessInputV3 {
+    type Error = SerializationError;
+
+    fn serialize_be<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size(&self, _compress: Compress) -> usize {
+    fn serialized_size_be(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeBE for RLNWitnessInputV3 {
+    type Error = SerializationError;
+
+    fn deserialize_be<R: Read>(_reader: R) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
+impl CanonicalSerializeBE for RLNWitnessInputSingle {
+    type Error = SerializationError;
+
+    fn serialize_be<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn serialized_size_be(&self) -> usize {
         todo!()
     }
 }
 
 impl CanonicalDeserializeBE for RLNWitnessInputSingle {
-    fn deserialize_with_mode<R: Read>(
-        _reader: R,
-        _compress: Compress,
-        _validate: Validate,
-    ) -> Result<Self, SerializationError> {
+    type Error = SerializationError;
+
+    fn deserialize_be<R: Read>(_reader: R) -> Result<Self, Self::Error> {
         todo!()
     }
 }
 
 impl CanonicalSerializeBE for RLNWitnessInputMulti {
-    fn serialize_with_mode<W: Write>(
-        &self,
-        _writer: W,
-        _compress: Compress,
-    ) -> Result<(), SerializationError> {
+    type Error = SerializationError;
+
+    fn serialize_be<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size(&self, _compress: Compress) -> usize {
+    fn serialized_size_be(&self) -> usize {
         todo!()
     }
 }
 
 impl CanonicalDeserializeBE for RLNWitnessInputMulti {
-    fn deserialize_with_mode<R: Read>(
-        _reader: R,
-        _compress: Compress,
-        _validate: Validate,
-    ) -> Result<Self, SerializationError> {
+    type Error = SerializationError;
+
+    fn deserialize_be<R: Read>(_reader: R) -> Result<Self, Self::Error> {
         todo!()
     }
 }
 
 impl CanonicalSerializeBE for RLNPartialWitnessInputV3 {
-    fn serialize_with_mode<W: Write>(
-        &self,
-        _writer: W,
-        _compress: Compress,
-    ) -> Result<(), SerializationError> {
+    type Error = SerializationError;
+
+    fn serialize_be<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size(&self, _compress: Compress) -> usize {
+    fn serialized_size_be(&self) -> usize {
         todo!()
     }
 }
 
 impl CanonicalDeserializeBE for RLNPartialWitnessInputV3 {
-    fn deserialize_with_mode<R: Read>(
-        _reader: R,
-        _compress: Compress,
-        _validate: Validate,
-    ) -> Result<Self, SerializationError> {
+    type Error = SerializationError;
+
+    fn deserialize_be<R: Read>(_reader: R) -> Result<Self, Self::Error> {
         todo!()
     }
 }
