@@ -17,7 +17,10 @@ use ark_groth16::{
     Proof as ArkProof, ProvingKey as ArkProvingKey, VerifyingKey as ArkVerifyingKey,
 };
 use ark_relations::r1cs::ConstraintMatrices;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
+    CanonicalSerializeWithFlags, Flags, SerializationError,
+};
 
 #[cfg(not(target_arch = "wasm32"))]
 use self::error::GraphReadError;
@@ -27,6 +30,7 @@ use crate::circuit::iden3calc::{
     graph::Node, storage::deserialize_witnesscalc_graph, InputSignalsInfo,
 };
 use crate::{
+    error::ProtocolError,
     partial_proof::PartialProof as ArkPartialProof,
     prelude::{CanonicalDeserializeBE, CanonicalSerializeBE},
 };
@@ -109,7 +113,7 @@ pub type G2Projective = ArkG2Projective;
 pub type Proof = ArkProof<Curve>;
 
 impl CanonicalSerializeBE for Proof {
-    type Error = SerializationError;
+    type Error = ProtocolError;
 
     fn serialize_be<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
         todo!()
@@ -121,7 +125,7 @@ impl CanonicalSerializeBE for Proof {
 }
 
 impl CanonicalDeserializeBE for Proof {
-    type Error = SerializationError;
+    type Error = ProtocolError;
 
     fn deserialize_be<R: Read>(_reader: R) -> Result<Self, Self::Error> {
         todo!()
@@ -130,6 +134,48 @@ impl CanonicalDeserializeBE for Proof {
 
 /// Partial Groth16 proof for the BN254 curve.
 pub type PartialProof = ArkPartialProof<Curve>;
+
+impl CanonicalSerializeBE for PartialProof {
+    type Error = ProtocolError;
+
+    fn serialize_be<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn serialized_size_be(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeBE for PartialProof {
+    type Error = ProtocolError;
+
+    fn deserialize_be<R: Read>(_reader: R) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
+impl CanonicalSerializeWithFlags for PartialProof {
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), SerializationError> {
+        todo!()
+    }
+
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeWithFlags for PartialProof {
+    fn deserialize_with_flags<R: Read, F: Flags>(
+        _reader: R,
+    ) -> Result<(Self, F), SerializationError> {
+        todo!()
+    }
+}
 
 /// Proving key for the Groth16 proof system.
 pub type ProvingKey = ArkProvingKey<Curve>;

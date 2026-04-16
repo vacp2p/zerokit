@@ -152,7 +152,3 @@ impl From<&Graph> for MessageMode {
         }
     }
 }
-
-pub struct SingleMessage;
-
-pub struct MultiMessage;

@@ -2,7 +2,10 @@ use std::io::{Read, Write};
 
 use ark_ff::PrimeField;
 use ark_groth16::{prepare_verifying_key, Groth16};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Valid};
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
+    CanonicalSerializeWithFlags, Compress, Flags, SerializationError, Valid, Validate,
+};
 use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
 use num_traits::Signed;
@@ -908,7 +911,7 @@ pub enum RLNProofValuesV3 {
 }
 
 impl Valid for RLNProofValuesV3 {
-    fn check(&self) -> Result<(), ark_serialize::SerializationError> {
+    fn check(&self) -> Result<(), SerializationError> {
         todo!()
     }
 }
@@ -917,12 +920,12 @@ impl CanonicalSerialize for RLNProofValuesV3 {
     fn serialize_with_mode<W: Write>(
         &self,
         _writer: W,
-        _compress: ark_serialize::Compress,
-    ) -> Result<(), ark_serialize::SerializationError> {
+        _compress: Compress,
+    ) -> Result<(), SerializationError> {
         todo!()
     }
 
-    fn serialized_size(&self, _compress: ark_serialize::Compress) -> usize {
+    fn serialized_size(&self, _compress: Compress) -> usize {
         todo!()
     }
 }
@@ -930,9 +933,31 @@ impl CanonicalSerialize for RLNProofValuesV3 {
 impl CanonicalDeserialize for RLNProofValuesV3 {
     fn deserialize_with_mode<R: Read>(
         _reader: R,
-        _compress: ark_serialize::Compress,
-        _validate: ark_serialize::Validate,
-    ) -> Result<Self, ark_serialize::SerializationError> {
+        _compress: Compress,
+        _validate: Validate,
+    ) -> Result<Self, SerializationError> {
+        todo!()
+    }
+}
+
+impl CanonicalSerializeWithFlags for RLNProofValuesV3 {
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), SerializationError> {
+        todo!()
+    }
+
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeWithFlags for RLNProofValuesV3 {
+    fn deserialize_with_flags<R: Read, F: Flags>(
+        _reader: R,
+    ) -> Result<(Self, F), SerializationError> {
         todo!()
     }
 }

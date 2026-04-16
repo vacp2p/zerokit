@@ -21,5 +21,5 @@ impl<T> Stateful<T> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Stateless;

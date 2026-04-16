@@ -37,11 +37,11 @@ pub use crate::{
         rln_partial_witness_to_bytes_be, rln_partial_witness_to_bytes_le, rln_proof_to_bytes_be,
         rln_proof_to_bytes_le, rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le,
         rln_witness_to_bigint_json, rln_witness_to_bytes_be, rln_witness_to_bytes_le,
-        seeded_keygen, CanonicalDeserializeBE, CanonicalSerializeBE, MessageMode, MultiMessage,
+        seeded_keygen, CanonicalDeserializeBE, CanonicalSerializeBE, MessageMode,
         RLNPartialWitnessInput, RLNPartialWitnessInputV3, RLNPartialZkProof, RLNProof,
         RLNProofValues, RLNProofValuesMulti, RLNProofValuesSingle, RLNProofValuesV3,
         RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle, RLNWitnessInputV3,
-        RLNZkProof, RecoverSecret, SingleMessage, Stateful, Stateless,
+        RLNZkProof, RecoverSecret, Stateful, Stateless,
     },
     public::{RLN, RLNV3},
     utils::{

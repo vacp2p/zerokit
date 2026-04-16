@@ -1,4 +1,7 @@
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
+    CanonicalSerializeWithFlags,
+};
 
 use crate::{
     circuit::Fr,
@@ -13,20 +16,20 @@ use crate::{
 };
 
 pub trait RLNZkProof {
-    type Witness: CanonicalSerialize
-        + CanonicalDeserialize
+    type Witness: CanonicalSerializeWithFlags
+        + CanonicalDeserializeWithFlags
+        + CanonicalSerializeBE
+        + CanonicalDeserializeBE;
+    type Values: RecoverSecret
+        + TryFrom<Self::Witness>
+        + CanonicalSerializeWithFlags
+        + CanonicalDeserializeWithFlags
         + CanonicalSerializeBE
         + CanonicalDeserializeBE;
     type Proof: CanonicalSerialize
         + CanonicalDeserialize
         + CanonicalSerializeBE
-        + CanonicalDeserializeBE;
-    type Values: RecoverSecret
-        + TryFrom<Self::Witness>
-        + CanonicalSerialize
-        + CanonicalDeserialize
-        + CanonicalSerializeBE
-        + CanonicalDeserializeBE;
+        + CanonicalDeserializeBE; // TODO: CanonicalSe/DeserializeWithFlags traits?
     type Error;
 
     fn generate_proof(
@@ -44,8 +47,14 @@ pub trait RecoverSecret<Rhs = Self> {
 }
 
 pub trait RLNPartialZkProof: RLNZkProof {
-    type PartialWitness;
-    type PartialProof;
+    type PartialWitness: CanonicalSerializeWithFlags
+        + CanonicalDeserializeWithFlags
+        + CanonicalSerializeBE
+        + CanonicalDeserializeBE;
+    type PartialProof: CanonicalSerializeWithFlags
+        + CanonicalDeserializeWithFlags
+        + CanonicalSerializeBE
+        + CanonicalDeserializeBE;
 
     fn generate_partial_proof(
         &self,

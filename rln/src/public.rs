@@ -770,7 +770,7 @@ pub struct RLNV3<State, ZKBackend> {
 }
 
 impl<ZKBackend> RLNV3<Stateless, ZKBackend> {
-    pub fn new_stateless(zk: ZKBackend) -> Self {
+    pub fn new(zk: ZKBackend) -> Self {
         Self {
             _zk: zk,
             state: Stateless,
@@ -779,7 +779,7 @@ impl<ZKBackend> RLNV3<Stateless, ZKBackend> {
 }
 
 impl<T, ZKBackend> RLNV3<Stateful<T>, ZKBackend> {
-    pub fn new_stateful(tree: T, zk: ZKBackend) -> Self {
+    pub fn new(tree: T, zk: ZKBackend) -> Self {
         Self {
             _zk: zk,
             state: Stateful::new(tree),
