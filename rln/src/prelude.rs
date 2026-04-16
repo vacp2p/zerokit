@@ -41,7 +41,7 @@ pub use crate::{
         RLNPartialWitnessInput, RLNPartialWitnessInputV3, RLNPartialZkProof, RLNProof,
         RLNProofValues, RLNProofValuesMulti, RLNProofValuesSingle, RLNProofValuesV3,
         RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle, RLNWitnessInputV3,
-        RLNZkProof, RecoverSecret, Stateful, Stateless,
+        RLNZkProof, RecoverSecret,
     },
     public::{RLN, RLNV3},
     utils::{

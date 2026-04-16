@@ -981,11 +981,11 @@ impl RecoverSecret for RLNProofValuesV3 {
 impl CanonicalSerializeBE for RLNProofValuesV3 {
     type Error = ProtocolError;
 
-    fn serialize_be<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
+    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size_be(&self) -> usize {
+    fn serialized_size(&self) -> usize {
         todo!()
     }
 }
@@ -993,7 +993,7 @@ impl CanonicalSerializeBE for RLNProofValuesV3 {
 impl CanonicalDeserializeBE for RLNProofValuesV3 {
     type Error = ProtocolError;
 
-    fn deserialize_be<R: Read>(_reader: R) -> Result<Self, Self::Error> {
+    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
         todo!()
     }
 }
@@ -1034,11 +1034,11 @@ impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
 impl CanonicalSerializeBE for RLNProofValuesSingle {
     type Error = ProtocolError;
 
-    fn serialize_be<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
+    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size_be(&self) -> usize {
+    fn serialized_size(&self) -> usize {
         todo!()
     }
 }
@@ -1046,7 +1046,7 @@ impl CanonicalSerializeBE for RLNProofValuesSingle {
 impl CanonicalDeserializeBE for RLNProofValuesSingle {
     type Error = ProtocolError;
 
-    fn deserialize_be<R: Read>(_reader: R) -> Result<Self, Self::Error> {
+    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
         todo!()
     }
 }
@@ -1088,11 +1088,11 @@ impl RecoverSecret<RLNProofValuesMulti> for RLNProofValuesSingle {
 impl CanonicalSerializeBE for RLNProofValuesMulti {
     type Error = ProtocolError;
 
-    fn serialize_be<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
+    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size_be(&self) -> usize {
+    fn serialized_size(&self) -> usize {
         todo!()
     }
 }
@@ -1100,7 +1100,7 @@ impl CanonicalSerializeBE for RLNProofValuesMulti {
 impl CanonicalDeserializeBE for RLNProofValuesMulti {
     type Error = ProtocolError;
 
-    fn deserialize_be<R: Read>(_reader: R) -> Result<Self, Self::Error> {
+    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
         todo!()
     }
 }

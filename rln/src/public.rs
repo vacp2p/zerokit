@@ -21,7 +21,7 @@ use crate::{
     error::{RLNError, VerifyError},
     protocol::{
         generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof,
-        RLNPartialZkProof, RLNProofValues, RLNWitnessInput, RLNZkProof, Stateful, Stateless,
+        RLNPartialZkProof, RLNProofValues, RLNWitnessInput, RLNZkProof,
     },
 };
 
@@ -764,30 +764,56 @@ impl RLN {
     }
 }
 
-pub struct RLNV3<State, ZKBackend> {
-    pub(crate) _zk: ZKBackend,
-    pub(crate) state: State,
+#[derive(Debug, Clone)]
+pub struct Stateful<T> {
+    pub tree: T,
 }
 
-impl<ZKBackend> RLNV3<Stateless, ZKBackend> {
-    pub fn new(zk: ZKBackend) -> Self {
+impl<T> Stateful<T> {
+    pub fn new(tree: T) -> Self {
+        Self { tree }
+    }
+
+    pub fn tree(&self) -> &T {
+        &self.tree
+    }
+
+    pub fn tree_mut(&mut self) -> &mut T {
+        &mut self.tree
+    }
+
+    pub fn into_tree(self) -> T {
+        self.tree
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Stateless;
+
+pub struct RLNV3<Mode, ZkProof> {
+    pub(crate) _zkp: ZkProof,
+    pub(crate) state: Mode,
+}
+
+impl<ZkProof> RLNV3<Stateless, ZkProof> {
+    pub fn new(zkp: ZkProof) -> Self {
         Self {
-            _zk: zk,
+            _zkp: zkp,
             state: Stateless,
         }
     }
 }
 
-impl<T, ZKBackend> RLNV3<Stateful<T>, ZKBackend> {
-    pub fn new(tree: T, zk: ZKBackend) -> Self {
+impl<T, ZkProof> RLNV3<Stateful<T>, ZkProof> {
+    pub fn new(tree: T, zkp: ZkProof) -> Self {
         Self {
-            _zk: zk,
+            _zkp: zkp,
             state: Stateful::new(tree),
         }
     }
 }
 
-impl<T, ZKBackend> RLNV3<Stateful<T>, ZKBackend> {
+impl<T, ZkProof> RLNV3<Stateful<T>, ZkProof> {
     pub fn tree(&self) -> &T {
         self.state.tree()
     }
@@ -801,7 +827,7 @@ impl<T, ZKBackend> RLNV3<Stateful<T>, ZKBackend> {
     }
 }
 
-impl<T: ZerokitMerkleTree, ZKBackend> RLNV3<Stateful<T>, ZKBackend> {
+impl<T: ZerokitMerkleTree, ZkProof> RLNV3<Stateful<T>, ZkProof> {
     pub fn tree_depth(&self) -> usize {
         todo!()
     }
@@ -815,36 +841,36 @@ impl<T: ZerokitMerkleTree, ZKBackend> RLNV3<Stateful<T>, ZKBackend> {
     }
 }
 
-impl<Tree, ZKBackend: RLNZkProof> RLNV3<Tree, ZKBackend> {
+impl<Tree, ZkProof: RLNZkProof> RLNV3<Tree, ZkProof> {
     pub fn generate_proof(
         &self,
-        _witness: ZKBackend::Witness,
-    ) -> Result<(ZKBackend::Proof, ZKBackend::Values), RLNError> {
+        _witness: ZkProof::Witness,
+    ) -> Result<(ZkProof::Proof, ZkProof::Values), RLNError> {
         todo!()
     }
 
     pub fn verify_proof(
         &self,
-        _proof: &ZKBackend::Proof,
-        _values: &ZKBackend::Values,
+        _proof: &ZkProof::Proof,
+        _values: &ZkProof::Values,
     ) -> Result<bool, RLNError> {
         todo!()
     }
 }
 
-impl<Tree, ZKBackend: RLNPartialZkProof> RLNV3<Tree, ZKBackend> {
+impl<Tree, ZkProof: RLNPartialZkProof> RLNV3<Tree, ZkProof> {
     pub fn generate_partial_proof(
         &self,
-        _partial_witness: ZKBackend::PartialWitness,
-    ) -> Result<ZKBackend::PartialProof, RLNError> {
+        _partial_witness: ZkProof::PartialWitness,
+    ) -> Result<ZkProof::PartialProof, RLNError> {
         todo!()
     }
 
     pub fn finish_proof(
         &self,
-        _partial_proof: ZKBackend::PartialProof,
-        _witness: ZKBackend::Witness,
-    ) -> Result<ZKBackend::Proof, RLNError> {
+        _partial_proof: ZkProof::PartialProof,
+        _witness: ZkProof::Witness,
+    ) -> Result<ZkProof::Proof, RLNError> {
         todo!()
     }
 }

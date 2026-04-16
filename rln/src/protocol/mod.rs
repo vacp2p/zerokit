@@ -5,7 +5,6 @@ mod mode;
 mod proof;
 mod serialize;
 mod slashing;
-mod state;
 mod witness;
 mod zk;
 
@@ -26,7 +25,6 @@ pub use proof::{
 };
 pub use serialize::{CanonicalDeserializeBE, CanonicalSerializeBE};
 pub use slashing::{compute_id_secret, recover_id_secret};
-pub use state::{Stateful, Stateless};
 pub use witness::{
     bytes_be_to_rln_partial_witness, bytes_be_to_rln_witness, bytes_le_to_rln_partial_witness,
     bytes_le_to_rln_witness, compute_tree_root, proof_values_from_witness,
