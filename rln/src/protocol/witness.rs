@@ -1,11 +1,19 @@
-use std::collections::HashSet;
+use std::{
+    collections::HashSet,
+    io::{Read, Write},
+};
 
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
+    CanonicalSerializeWithFlags, Compress, Flags, SerializationError, Valid, Validate,
+};
 use num_bigint::BigInt;
 use zeroize::Zeroize;
 
 use super::{
     mode::{MessageMode, VERSION_BYTE_SIZE},
     proof::RLNProofValues,
+    serialize::{CanonicalDeserializeBE, CanonicalSerializeBE},
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::utils::FrOrSecret;
@@ -626,7 +634,7 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
 
 /// Serializes an RLN partial witness to little-endian bytes.
 pub fn rln_partial_witness_to_bytes_le(
-    witness: &RLNPartialWitnessInput,
+    partial_witness: &RLNPartialWitnessInput,
 ) -> Result<Vec<u8>, ProtocolError> {
     // Calculate capacity for Vec:
     // - VERSION_BYTE_SIZE byte for version tag
@@ -634,22 +642,22 @@ pub fn rln_partial_witness_to_bytes_le(
     // - variable size of path_elements, identity_path_index
     // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (path_elements, identity_path_index)
     let capacity = VERSION_BYTE_SIZE
-        + FR_BYTE_SIZE * (2 + witness.path_elements.len())
-        + witness.identity_path_index.len()
+        + FR_BYTE_SIZE * (2 + partial_witness.path_elements.len())
+        + partial_witness.identity_path_index.len()
         + VEC_LEN_BYTE_SIZE * 2;
     let mut bytes = Vec::with_capacity(capacity);
-    bytes.push(witness.version_byte());
-    bytes.extend_from_slice(&witness.identity_secret.to_bytes_le());
-    bytes.extend_from_slice(&fr_to_bytes_le(&witness.user_message_limit));
-    bytes.extend_from_slice(&vec_fr_to_bytes_le(&witness.path_elements));
-    bytes.extend_from_slice(&vec_u8_to_bytes_le(&witness.identity_path_index));
+    bytes.push(partial_witness.version_byte());
+    bytes.extend_from_slice(&partial_witness.identity_secret.to_bytes_le());
+    bytes.extend_from_slice(&fr_to_bytes_le(&partial_witness.user_message_limit));
+    bytes.extend_from_slice(&vec_fr_to_bytes_le(&partial_witness.path_elements));
+    bytes.extend_from_slice(&vec_u8_to_bytes_le(&partial_witness.identity_path_index));
 
     Ok(bytes)
 }
 
 /// Serializes an RLN partial witness to big-endian bytes.
 pub fn rln_partial_witness_to_bytes_be(
-    witness: &RLNPartialWitnessInput,
+    partial_witness: &RLNPartialWitnessInput,
 ) -> Result<Vec<u8>, ProtocolError> {
     // Calculate capacity for Vec:
     // - VERSION_BYTE_SIZE byte for version tag
@@ -657,15 +665,15 @@ pub fn rln_partial_witness_to_bytes_be(
     // - variable size of path_elements, identity_path_index
     // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (path_elements, identity_path_index)
     let capacity = VERSION_BYTE_SIZE
-        + FR_BYTE_SIZE * (2 + witness.path_elements.len())
-        + witness.identity_path_index.len()
+        + FR_BYTE_SIZE * (2 + partial_witness.path_elements.len())
+        + partial_witness.identity_path_index.len()
         + VEC_LEN_BYTE_SIZE * 2;
     let mut bytes = Vec::with_capacity(capacity);
-    bytes.push(witness.version_byte());
-    bytes.extend_from_slice(&witness.identity_secret.to_bytes_be());
-    bytes.extend_from_slice(&fr_to_bytes_be(&witness.user_message_limit));
-    bytes.extend_from_slice(&vec_fr_to_bytes_be(&witness.path_elements));
-    bytes.extend_from_slice(&vec_u8_to_bytes_be(&witness.identity_path_index));
+    bytes.push(partial_witness.version_byte());
+    bytes.extend_from_slice(&partial_witness.identity_secret.to_bytes_be());
+    bytes.extend_from_slice(&fr_to_bytes_be(&partial_witness.user_message_limit));
+    bytes.extend_from_slice(&vec_fr_to_bytes_be(&partial_witness.path_elements));
+    bytes.extend_from_slice(&vec_u8_to_bytes_be(&partial_witness.identity_path_index));
 
     Ok(bytes)
 }
@@ -932,4 +940,229 @@ pub(super) fn inputs_for_partial_witness_calculation(
     inputs.push(("externalNullifier", vec![None]));
 
     inputs
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum RLNWitnessInputV3 {
+    Single(RLNWitnessInputSingle),
+    Multi(RLNWitnessInputMulti),
+}
+
+impl Valid for RLNWitnessInputV3 {
+    fn check(&self) -> Result<(), SerializationError> {
+        todo!()
+    }
+}
+
+impl CanonicalSerialize for RLNWitnessInputV3 {
+    fn serialize_with_mode<W: Write>(
+        &self,
+        _writer: W,
+        _compress: Compress,
+    ) -> Result<(), SerializationError> {
+        todo!()
+    }
+
+    fn serialized_size(&self, _compress: Compress) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserialize for RLNWitnessInputV3 {
+    fn deserialize_with_mode<R: Read>(
+        _reader: R,
+        _compress: Compress,
+        _validate: Validate,
+    ) -> Result<Self, SerializationError> {
+        todo!()
+    }
+}
+
+impl CanonicalSerializeWithFlags for RLNWitnessInputV3 {
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), SerializationError> {
+        todo!()
+    }
+
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeWithFlags for RLNWitnessInputV3 {
+    fn deserialize_with_flags<R: Read, F: Flags>(
+        _reader: R,
+    ) -> Result<(Self, F), SerializationError> {
+        todo!()
+    }
+}
+
+impl CanonicalSerializeBE for RLNWitnessInputV3 {
+    type Error = ProtocolError;
+
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeBE for RLNWitnessInputV3 {
+    type Error = ProtocolError;
+
+    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
+        todo!()
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct RLNWitnessInputSingle {
+    pub(crate) identity_secret: IdSecret,
+    pub(crate) user_message_limit: Fr,
+    pub(crate) path_elements: Vec<Fr>,
+    pub(crate) identity_path_index: Vec<u8>,
+    pub(crate) x: Fr,
+    pub(crate) external_nullifier: Fr,
+    pub(crate) message_id: Fr,
+}
+
+impl CanonicalSerializeBE for RLNWitnessInputSingle {
+    type Error = ProtocolError;
+
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeBE for RLNWitnessInputSingle {
+    type Error = ProtocolError;
+
+    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
+        todo!()
+    }
+}
+
+impl RLNWitnessInputSingle {
+    pub fn new() -> Result<Self, ProtocolError> {
+        todo!()
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct RLNWitnessInputMulti {
+    pub(crate) identity_secret: IdSecret,
+    pub(crate) user_message_limit: Fr,
+    pub(crate) path_elements: Vec<Fr>,
+    pub(crate) identity_path_index: Vec<u8>,
+    pub(crate) x: Fr,
+    pub(crate) external_nullifier: Fr,
+    pub(crate) message_ids: Vec<Fr>,
+    pub(crate) selector_used: Vec<bool>,
+}
+
+impl CanonicalSerializeBE for RLNWitnessInputMulti {
+    type Error = ProtocolError;
+
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeBE for RLNWitnessInputMulti {
+    type Error = ProtocolError;
+
+    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
+        todo!()
+    }
+}
+
+impl RLNWitnessInputMulti {
+    pub fn new() -> Result<Self, ProtocolError> {
+        todo!()
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct RLNPartialWitnessInputV3 {
+    pub(crate) identity_secret: IdSecret,
+    pub(crate) user_message_limit: Fr,
+    pub(crate) path_elements: Vec<Fr>,
+    pub(crate) identity_path_index: Vec<u8>,
+}
+
+impl CanonicalSerializeWithFlags for RLNPartialWitnessInputV3 {
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), SerializationError> {
+        todo!()
+    }
+
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeWithFlags for RLNPartialWitnessInputV3 {
+    fn deserialize_with_flags<R: Read, F: Flags>(
+        _reader: R,
+    ) -> Result<(Self, F), SerializationError> {
+        todo!()
+    }
+}
+
+impl CanonicalSerializeBE for RLNPartialWitnessInputV3 {
+    type Error = ProtocolError;
+
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeBE for RLNPartialWitnessInputV3 {
+    type Error = ProtocolError;
+
+    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
+        todo!()
+    }
+}
+
+impl RLNPartialWitnessInputV3 {
+    pub fn new() -> Result<Self, ProtocolError> {
+        todo!()
+    }
 }

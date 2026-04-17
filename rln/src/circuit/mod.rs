@@ -4,6 +4,7 @@ pub(crate) mod error;
 pub(crate) mod iden3calc;
 pub(crate) mod qap;
 
+use std::io::{Read, Write};
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::LazyLock;
 
@@ -16,7 +17,10 @@ use ark_groth16::{
     Proof as ArkProof, ProvingKey as ArkProvingKey, VerifyingKey as ArkVerifyingKey,
 };
 use ark_relations::r1cs::ConstraintMatrices;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
+    CanonicalSerializeWithFlags, Flags, SerializationError,
+};
 
 #[cfg(not(target_arch = "wasm32"))]
 use self::error::GraphReadError;
@@ -25,7 +29,11 @@ use self::error::ZKeyReadError;
 use crate::circuit::iden3calc::{
     graph::Node, storage::deserialize_witnesscalc_graph, InputSignalsInfo,
 };
-use crate::partial_proof::PartialProof as ArkPartialProof;
+use crate::{
+    error::ProtocolError,
+    partial_proof::PartialProof as ArkPartialProof,
+    prelude::{CanonicalDeserializeBE, CanonicalSerializeBE},
+};
 
 #[cfg(not(target_arch = "wasm32"))]
 const GRAPH_BYTES_SINGLE_V1: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
@@ -104,8 +112,106 @@ pub type G2Projective = ArkG2Projective;
 /// Groth16 proof for the BN254 curve.
 pub type Proof = ArkProof<Curve>;
 
+/// Groth16 proof with additional flags for the BN254 curve.
+pub type ProofV3 = ProofWithFlags;
+
+#[derive(Clone, Debug, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
+pub struct ProofWithFlags(ArkProof<Curve>);
+
+impl CanonicalSerializeWithFlags for ProofWithFlags {
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), SerializationError> {
+        todo!()
+    }
+
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeWithFlags for ProofWithFlags {
+    fn deserialize_with_flags<R: Read, F: Flags>(
+        _reader: R,
+    ) -> Result<(Self, F), SerializationError> {
+        todo!()
+    }
+}
+
+impl CanonicalSerializeBE for ProofV3 {
+    type Error = ProtocolError;
+
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeBE for ProofV3 {
+    type Error = ProtocolError;
+
+    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
+        todo!()
+    }
+}
+
 /// Partial Groth16 proof for the BN254 curve.
 pub type PartialProof = ArkPartialProof<Curve>;
+
+impl CanonicalSerializeBE for PartialProof {
+    type Error = ProtocolError;
+
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeBE for PartialProof {
+    type Error = ProtocolError;
+
+    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
+        todo!()
+    }
+}
+
+impl CanonicalSerializeWithFlags for PartialProof {
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), SerializationError> {
+        todo!()
+    }
+
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeWithFlags for PartialProof {
+    fn deserialize_with_flags<R: Read, F: Flags>(
+        _reader: R,
+    ) -> Result<(Self, F), SerializationError> {
+        todo!()
+    }
+}
 
 /// Proving key for the Groth16 proof system.
 pub type ProvingKey = ArkProvingKey<Curve>;
@@ -274,6 +380,23 @@ fn read_arkzkey_from_bytes_uncompressed(arkzkey_data: &[u8]) -> Result<Zkey, ZKe
     let zkey = (proving_key, constraint_matrices);
 
     Ok(zkey)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone)]
+pub struct ArkGroth16Backend {
+    pub(crate) _zkey: Zkey,
+    pub(crate) _graph: Graph,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl ArkGroth16Backend {
+    pub fn new(zkey: Zkey, graph: Graph) -> Self {
+        Self {
+            _zkey: zkey,
+            _graph: graph,
+        }
+    }
 }
 
 #[cfg(test)]

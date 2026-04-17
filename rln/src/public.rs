@@ -2,13 +2,12 @@
 // It is used by the FFI, WASM and should be used by tests as well
 
 use num_bigint::BigInt;
+use zerokit_utils::merkle_tree::ZerokitMerkleTree;
 #[cfg(not(feature = "stateless"))]
 use {
     crate::poseidon_tree::PoseidonTree,
     std::str::FromStr,
-    zerokit_utils::merkle_tree::{
-        Hasher, ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError,
-    },
+    zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTreeError},
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -21,8 +20,8 @@ use crate::{
     circuit::{zkey_from_raw, Fr, Proof, Zkey},
     error::{RLNError, VerifyError},
     protocol::{
-        generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof, RLNProofValues,
-        RLNWitnessInput,
+        generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof,
+        RLNPartialZkProof, RLNProofValues, RLNWitnessInput, RLNZkProof,
     },
 };
 
@@ -762,5 +761,116 @@ impl RLN {
         }
 
         Ok(true)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Stateful<T> {
+    pub tree: T,
+}
+
+impl<T> Stateful<T> {
+    pub fn new(tree: T) -> Self {
+        Self { tree }
+    }
+
+    pub fn tree(&self) -> &T {
+        &self.tree
+    }
+
+    pub fn tree_mut(&mut self) -> &mut T {
+        &mut self.tree
+    }
+
+    pub fn into_tree(self) -> T {
+        self.tree
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Stateless;
+
+pub struct RLNV3<Mode, ZkProof> {
+    pub(crate) _zkp: ZkProof,
+    pub(crate) state: Mode,
+}
+
+impl<ZkProof> RLNV3<Stateless, ZkProof> {
+    pub fn new(zkp: ZkProof) -> Self {
+        Self {
+            _zkp: zkp,
+            state: Stateless,
+        }
+    }
+}
+
+impl<T, ZkProof> RLNV3<Stateful<T>, ZkProof> {
+    pub fn new(tree: T, zkp: ZkProof) -> Self {
+        Self {
+            _zkp: zkp,
+            state: Stateful::new(tree),
+        }
+    }
+}
+
+impl<T, ZkProof> RLNV3<Stateful<T>, ZkProof> {
+    pub fn tree(&self) -> &T {
+        self.state.tree()
+    }
+
+    pub fn tree_mut(&mut self) -> &mut T {
+        self.state.tree_mut()
+    }
+
+    pub fn into_tree(self) -> T {
+        self.state.into_tree()
+    }
+}
+
+impl<T: ZerokitMerkleTree, ZkProof> RLNV3<Stateful<T>, ZkProof> {
+    pub fn tree_depth(&self) -> usize {
+        todo!()
+    }
+
+    pub fn get_root(&self) -> Fr {
+        todo!()
+    }
+
+    pub fn insert_leaf(&mut self, _index: usize, _leaf: Fr) -> Result<(), RLNError> {
+        todo!()
+    }
+}
+
+impl<Tree, ZkProof: RLNZkProof> RLNV3<Tree, ZkProof> {
+    pub fn generate_proof(
+        &self,
+        _witness: ZkProof::Witness,
+    ) -> Result<(ZkProof::Proof, ZkProof::Values), RLNError> {
+        todo!()
+    }
+
+    pub fn verify_proof(
+        &self,
+        _proof: &ZkProof::Proof,
+        _values: &ZkProof::Values,
+    ) -> Result<bool, RLNError> {
+        todo!()
+    }
+}
+
+impl<Tree, ZkProof: RLNPartialZkProof> RLNV3<Tree, ZkProof> {
+    pub fn generate_partial_proof(
+        &self,
+        _partial_witness: ZkProof::PartialWitness,
+    ) -> Result<ZkProof::PartialProof, RLNError> {
+        todo!()
+    }
+
+    pub fn finish_proof(
+        &self,
+        _partial_proof: ZkProof::PartialProof,
+        _witness: ZkProof::Witness,
+    ) -> Result<ZkProof::Proof, RLNError> {
+        todo!()
     }
 }

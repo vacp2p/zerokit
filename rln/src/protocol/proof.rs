@@ -1,15 +1,25 @@
+use std::io::{Read, Write};
+
 use ark_ff::PrimeField;
 use ark_groth16::{prepare_verifying_key, Groth16};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
+    CanonicalSerializeWithFlags, Compress, Flags, SerializationError, Valid, Validate,
+};
 use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
 use num_traits::Signed;
 
-use super::mode::{MessageMode, VERSION_BYTE_SIZE};
 #[cfg(not(target_arch = "wasm32"))]
 use super::witness::{
     inputs_for_partial_witness_calculation, inputs_for_witness_calculation, RLNMessageInputs,
     RLNPartialWitnessInput, RLNWitnessInput,
+};
+use super::{
+    mode::{MessageMode, VERSION_BYTE_SIZE},
+    serialize::{CanonicalDeserializeBE, CanonicalSerializeBE},
+    witness::RLNWitnessInputV3,
+    zk::RecoverSecret,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
@@ -617,22 +627,22 @@ fn calculated_witness_to_field_elements<E: ark_ec::pairing::Pairing>(
 /// Validates that a partial witness's dimensions match the graph's expected tree depth.
 #[cfg(not(target_arch = "wasm32"))]
 fn validate_partial_witness_against_graph(
-    witness: &RLNPartialWitnessInput,
+    partial_witness: &RLNPartialWitnessInput,
     graph: &Graph,
 ) -> Result<(), ProtocolError> {
     let expected_tree_depth = graph.tree_depth;
-    if witness.path_elements().len() != expected_tree_depth {
+    if partial_witness.path_elements().len() != expected_tree_depth {
         return Err(ProtocolError::FieldLengthMismatch(
             "path_elements",
-            witness.path_elements().len(),
+            partial_witness.path_elements().len(),
             "tree_depth",
             expected_tree_depth,
         ));
     }
-    if witness.identity_path_index().len() != expected_tree_depth {
+    if partial_witness.identity_path_index().len() != expected_tree_depth {
         return Err(ProtocolError::FieldLengthMismatch(
             "identity_path_index",
-            witness.identity_path_index().len(),
+            partial_witness.identity_path_index().len(),
             "tree_depth",
             expected_tree_depth,
         ));
@@ -892,4 +902,217 @@ pub fn verify_zk_proof(
     let verified = Groth16::<_, CircomReduction>::verify_proof(&pvk, proof, &inputs)?;
 
     Ok(verified)
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum RLNProofValuesV3 {
+    Single(RLNProofValuesSingle),
+    Multi(RLNProofValuesMulti),
+}
+
+impl TryFrom<RLNWitnessInputV3> for RLNProofValuesV3 {
+    type Error = ProtocolError;
+
+    fn try_from(_witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
+impl RecoverSecret for RLNProofValuesV3 {
+    type Error = ProtocolError;
+
+    fn recover_secret(&self, _other: &Self) -> Result<Fr, Self::Error> {
+        todo!()
+    }
+}
+
+impl Valid for RLNProofValuesV3 {
+    fn check(&self) -> Result<(), SerializationError> {
+        todo!()
+    }
+}
+
+impl CanonicalSerialize for RLNProofValuesV3 {
+    fn serialize_with_mode<W: Write>(
+        &self,
+        _writer: W,
+        _compress: Compress,
+    ) -> Result<(), SerializationError> {
+        todo!()
+    }
+
+    fn serialized_size(&self, _compress: Compress) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserialize for RLNProofValuesV3 {
+    fn deserialize_with_mode<R: Read>(
+        _reader: R,
+        _compress: Compress,
+        _validate: Validate,
+    ) -> Result<Self, SerializationError> {
+        todo!()
+    }
+}
+
+impl CanonicalSerializeWithFlags for RLNProofValuesV3 {
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), SerializationError> {
+        todo!()
+    }
+
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeWithFlags for RLNProofValuesV3 {
+    fn deserialize_with_flags<R: Read, F: Flags>(
+        _reader: R,
+    ) -> Result<(Self, F), SerializationError> {
+        todo!()
+    }
+}
+
+impl CanonicalSerializeBE for RLNProofValuesV3 {
+    type Error = ProtocolError;
+
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeBE for RLNProofValuesV3 {
+    type Error = ProtocolError;
+
+    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
+        todo!()
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct RLNProofValuesSingle {
+    pub root: Fr,
+    pub x: Fr,
+    pub external_nullifier: Fr,
+    pub y: Fr,
+    pub nullifier: Fr,
+}
+
+impl TryFrom<RLNWitnessInputV3> for RLNProofValuesSingle {
+    type Error = ProtocolError;
+
+    fn try_from(_witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
+impl RecoverSecret for RLNProofValuesSingle {
+    type Error = ProtocolError;
+
+    fn recover_secret(&self, _other: &Self) -> Result<Fr, Self::Error> {
+        todo!()
+    }
+}
+
+impl RecoverSecret<RLNProofValuesMulti> for RLNProofValuesSingle {
+    type Error = ProtocolError;
+
+    fn recover_secret(&self, _other: &RLNProofValuesMulti) -> Result<Fr, Self::Error> {
+        todo!()
+    }
+}
+
+impl CanonicalSerializeBE for RLNProofValuesSingle {
+    type Error = ProtocolError;
+
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeBE for RLNProofValuesSingle {
+    type Error = ProtocolError;
+
+    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
+        todo!()
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct RLNProofValuesMulti {
+    pub root: Fr,
+    pub x: Fr,
+    pub external_nullifier: Fr,
+    pub ys: Vec<Fr>,
+    pub nullifiers: Vec<Fr>,
+    pub selector_used: Vec<bool>,
+}
+
+impl TryFrom<RLNWitnessInputV3> for RLNProofValuesMulti {
+    type Error = ProtocolError;
+
+    fn try_from(_witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
+impl RecoverSecret for RLNProofValuesMulti {
+    type Error = ProtocolError;
+
+    fn recover_secret(&self, _other: &Self) -> Result<Fr, Self::Error> {
+        todo!()
+    }
+}
+
+impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
+    type Error = ProtocolError;
+
+    fn recover_secret(&self, _other: &RLNProofValuesSingle) -> Result<Fr, Self::Error> {
+        todo!()
+    }
+}
+
+impl CanonicalSerializeBE for RLNProofValuesMulti {
+    type Error = ProtocolError;
+
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+        todo!()
+    }
+}
+
+impl CanonicalDeserializeBE for RLNProofValuesMulti {
+    type Error = ProtocolError;
+
+    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
+        todo!()
+    }
 }
