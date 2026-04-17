@@ -928,53 +928,89 @@ impl RecoverSecret for RLNProofValuesV3 {
 
 impl Valid for RLNProofValuesV3 {
     fn check(&self) -> Result<(), SerializationError> {
-        todo!()
+        match self {
+            RLNProofValuesV3::Single(inner) => inner.check(),
+            RLNProofValuesV3::Multi(inner) => inner.check(),
+        }
     }
 }
 
 impl CanonicalSerialize for RLNProofValuesV3 {
     fn serialize_with_mode<W: Write>(
         &self,
-        _writer: W,
-        _compress: Compress,
+        mut writer: W,
+        compress: Compress,
     ) -> Result<(), SerializationError> {
-        todo!()
+        match self {
+            RLNProofValuesV3::Single(inner) => {
+                0u8.serialize_with_mode(&mut writer, compress)?;
+                inner.serialize_with_mode(&mut writer, compress)
+            }
+            RLNProofValuesV3::Multi(inner) => {
+                1u8.serialize_with_mode(&mut writer, compress)?;
+                inner.serialize_with_mode(&mut writer, compress)
+            }
+        }
     }
 
-    fn serialized_size(&self, _compress: Compress) -> usize {
-        todo!()
+    fn serialized_size(&self, compress: Compress) -> usize {
+        1 + match self {
+            RLNProofValuesV3::Single(inner) => CanonicalSerialize::serialized_size(inner, compress),
+            RLNProofValuesV3::Multi(inner) => CanonicalSerialize::serialized_size(inner, compress),
+        }
     }
 }
 
 impl CanonicalDeserialize for RLNProofValuesV3 {
     fn deserialize_with_mode<R: Read>(
-        _reader: R,
-        _compress: Compress,
-        _validate: Validate,
+        mut reader: R,
+        compress: Compress,
+        validate: Validate,
     ) -> Result<Self, SerializationError> {
-        todo!()
+        let tag = u8::deserialize_with_mode(&mut reader, compress, validate)?;
+        match tag {
+            0 => Ok(RLNProofValuesV3::Single(
+                RLNProofValuesSingle::deserialize_with_mode(reader, compress, validate)?,
+            )),
+            1 => Ok(RLNProofValuesV3::Multi(
+                RLNProofValuesMulti::deserialize_with_mode(reader, compress, validate)?,
+            )),
+            _ => Err(SerializationError::InvalidData),
+        }
     }
 }
 
 impl CanonicalSerializeWithFlags for RLNProofValuesV3 {
     fn serialize_with_flags<W: Write, F: Flags>(
         &self,
-        _writer: W,
-        _flags: F,
+        mut writer: W,
+        flags: F,
     ) -> Result<(), SerializationError> {
-        todo!()
+        self.serialize_compressed(&mut writer)?;
+        if F::BIT_SIZE > 0 {
+            writer.write_all(&[flags.u8_bitmask()])?;
+        }
+        Ok(())
     }
 
     fn serialized_size_with_flags<F: Flags>(&self) -> usize {
-        todo!()
+        self.compressed_size() + usize::from(F::BIT_SIZE > 0)
     }
 }
 
 impl CanonicalDeserializeWithFlags for RLNProofValuesV3 {
     fn deserialize_with_flags<R: Read, F: Flags>(
-        _reader: R,
+        mut reader: R,
     ) -> Result<(Self, F), SerializationError> {
-        todo!()
+        let value = Self::deserialize_compressed(&mut reader)?;
+        let flags = if F::BIT_SIZE > 0 {
+            let mut flags_buf = [0u8; 1];
+            reader.read_exact(&mut flags_buf)?;
+            F::from_u8(flags_buf[0]).ok_or(SerializationError::UnexpectedFlags)?
+        } else {
+            F::from_u8(0).ok_or(SerializationError::UnexpectedFlags)?
+        };
+        Ok((value, flags))
     }
 }
 
@@ -1114,5 +1150,134 @@ impl CanonicalDeserializeBE for RLNProofValuesMulti {
 
     fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use ark_serialize::{
+        CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
+        CanonicalSerializeWithFlags, EmptyFlags,
+    };
+
+    use super::{RLNProofValuesMulti, RLNProofValuesSingle, RLNProofValuesV3};
+    use crate::circuit::Fr;
+
+    fn make_proof_values_single() -> RLNProofValuesV3 {
+        RLNProofValuesV3::Single(RLNProofValuesSingle {
+            root: Fr::from(1u64),
+            x: Fr::from(2u64),
+            external_nullifier: Fr::from(3u64),
+            y: Fr::from(4u64),
+            nullifier: Fr::from(5u64),
+        })
+    }
+
+    fn make_proof_values_multi() -> RLNProofValuesV3 {
+        RLNProofValuesV3::Multi(RLNProofValuesMulti {
+            root: Fr::from(10u64),
+            x: Fr::from(20u64),
+            external_nullifier: Fr::from(30u64),
+            ys: vec![Fr::from(40u64), Fr::from(50u64)],
+            nullifiers: vec![Fr::from(60u64), Fr::from(70u64)],
+            selector_used: vec![true, false],
+        })
+    }
+
+    #[test]
+    fn test_proof_values_v3_single_le_compressed_roundtrip() {
+        let pv = make_proof_values_single();
+        let mut buf = Vec::new();
+        pv.serialize_compressed(&mut buf).unwrap();
+        let deser = RLNProofValuesV3::deserialize_compressed(buf.as_slice()).unwrap();
+        assert_eq!(pv, deser);
+        assert_eq!(pv.compressed_size(), buf.len());
+        assert_eq!(buf[0], 0u8, "Single tag byte must be 0");
+    }
+
+    #[test]
+    fn test_proof_values_v3_multi_le_compressed_roundtrip() {
+        let pv = make_proof_values_multi();
+        let mut buf = Vec::new();
+        pv.serialize_compressed(&mut buf).unwrap();
+        let deser = RLNProofValuesV3::deserialize_compressed(buf.as_slice()).unwrap();
+        assert_eq!(pv, deser);
+        assert_eq!(pv.compressed_size(), buf.len());
+        assert_eq!(buf[0], 1u8, "Multi tag byte must be 1");
+    }
+
+    #[test]
+    fn test_proof_values_v3_le_uncompressed_roundtrip() {
+        for pv in [make_proof_values_single(), make_proof_values_multi()] {
+            let mut buf = Vec::new();
+            pv.serialize_uncompressed(&mut buf).unwrap();
+            let deser = RLNProofValuesV3::deserialize_uncompressed(buf.as_slice()).unwrap();
+            assert_eq!(pv, deser);
+            assert_eq!(pv.uncompressed_size(), buf.len());
+        }
+    }
+
+    #[test]
+    fn test_proof_values_v3_single_le_with_flags_roundtrip() {
+        let pv = make_proof_values_single();
+        let mut buf = Vec::new();
+        pv.serialize_with_flags(&mut buf, EmptyFlags).unwrap();
+        let (deser, _) =
+            RLNProofValuesV3::deserialize_with_flags::<_, EmptyFlags>(buf.as_slice()).unwrap();
+        assert_eq!(pv, deser);
+        assert_eq!(pv.serialized_size_with_flags::<EmptyFlags>(), buf.len());
+        // EmptyFlags adds no extra byte — sizes must match
+        assert_eq!(buf.len(), pv.compressed_size());
+    }
+
+    #[test]
+    fn test_proof_values_v3_multi_le_with_flags_roundtrip() {
+        let pv = make_proof_values_multi();
+        let mut buf = Vec::new();
+        pv.serialize_with_flags(&mut buf, EmptyFlags).unwrap();
+        let (deser, _) =
+            RLNProofValuesV3::deserialize_with_flags::<_, EmptyFlags>(buf.as_slice()).unwrap();
+        assert_eq!(pv, deser);
+        assert_eq!(pv.serialized_size_with_flags::<EmptyFlags>(), buf.len());
+        assert_eq!(buf.len(), pv.compressed_size());
+    }
+
+    #[test]
+    fn test_proof_values_v3_invalid_tag_rejected() {
+        let mut bad = vec![99u8]; // unknown tag
+        bad.extend_from_slice(&[0u8; 32]);
+        assert!(RLNProofValuesV3::deserialize_compressed(bad.as_slice()).is_err());
+    }
+
+    #[test]
+    fn test_proof_values_v3_leaf_structs_le_roundtrip() {
+        // RLNProofValuesSingle derive roundtrip
+        let pv_single = RLNProofValuesSingle {
+            root: Fr::from(1u64),
+            x: Fr::from(2u64),
+            external_nullifier: Fr::from(3u64),
+            y: Fr::from(4u64),
+            nullifier: Fr::from(5u64),
+        };
+        let mut buf = Vec::new();
+        pv_single.serialize_compressed(&mut buf).unwrap();
+        let deser = RLNProofValuesSingle::deserialize_compressed(buf.as_slice()).unwrap();
+        assert_eq!(pv_single, deser);
+        assert_eq!(pv_single.compressed_size(), buf.len());
+
+        // RLNProofValuesMulti derive roundtrip
+        let pv_multi = RLNProofValuesMulti {
+            root: Fr::from(10u64),
+            x: Fr::from(20u64),
+            external_nullifier: Fr::from(30u64),
+            ys: vec![Fr::from(40u64), Fr::from(50u64)],
+            nullifiers: vec![Fr::from(60u64), Fr::from(70u64)],
+            selector_used: vec![true, false],
+        };
+        let mut buf = Vec::new();
+        pv_multi.serialize_compressed(&mut buf).unwrap();
+        let deser = RLNProofValuesMulti::deserialize_compressed(buf.as_slice()).unwrap();
+        assert_eq!(pv_multi, deser);
+        assert_eq!(pv_multi.compressed_size(), buf.len());
     }
 }

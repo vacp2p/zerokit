@@ -121,22 +121,34 @@ pub struct ProofWithFlags(ArkProof<Curve>);
 impl CanonicalSerializeWithFlags for ProofWithFlags {
     fn serialize_with_flags<W: Write, F: Flags>(
         &self,
-        _writer: W,
-        _flags: F,
+        mut writer: W,
+        flags: F,
     ) -> Result<(), SerializationError> {
-        todo!()
+        self.serialize_compressed(&mut writer)?;
+        if F::BIT_SIZE > 0 {
+            writer.write_all(&[flags.u8_bitmask()])?;
+        }
+        Ok(())
     }
 
     fn serialized_size_with_flags<F: Flags>(&self) -> usize {
-        todo!()
+        self.compressed_size() + usize::from(F::BIT_SIZE > 0)
     }
 }
 
 impl CanonicalDeserializeWithFlags for ProofWithFlags {
     fn deserialize_with_flags<R: Read, F: Flags>(
-        _reader: R,
+        mut reader: R,
     ) -> Result<(Self, F), SerializationError> {
-        todo!()
+        let value = Self::deserialize_compressed(&mut reader)?;
+        let flags = if F::BIT_SIZE > 0 {
+            let mut flags_buf = [0u8; 1];
+            reader.read_exact(&mut flags_buf)?;
+            F::from_u8(flags_buf[0]).ok_or(SerializationError::UnexpectedFlags)?
+        } else {
+            F::from_u8(0).ok_or(SerializationError::UnexpectedFlags)?
+        };
+        Ok((value, flags))
     }
 }
 
@@ -194,22 +206,34 @@ impl CanonicalDeserializeBE for PartialProof {
 impl CanonicalSerializeWithFlags for PartialProof {
     fn serialize_with_flags<W: Write, F: Flags>(
         &self,
-        _writer: W,
-        _flags: F,
+        mut writer: W,
+        flags: F,
     ) -> Result<(), SerializationError> {
-        todo!()
+        self.serialize_compressed(&mut writer)?;
+        if F::BIT_SIZE > 0 {
+            writer.write_all(&[flags.u8_bitmask()])?;
+        }
+        Ok(())
     }
 
     fn serialized_size_with_flags<F: Flags>(&self) -> usize {
-        todo!()
+        self.compressed_size() + usize::from(F::BIT_SIZE > 0)
     }
 }
 
 impl CanonicalDeserializeWithFlags for PartialProof {
     fn deserialize_with_flags<R: Read, F: Flags>(
-        _reader: R,
+        mut reader: R,
     ) -> Result<(Self, F), SerializationError> {
-        todo!()
+        let value = Self::deserialize_compressed(&mut reader)?;
+        let flags = if F::BIT_SIZE > 0 {
+            let mut flags_buf = [0u8; 1];
+            reader.read_exact(&mut flags_buf)?;
+            F::from_u8(flags_buf[0]).ok_or(SerializationError::UnexpectedFlags)?
+        } else {
+            F::from_u8(0).ok_or(SerializationError::UnexpectedFlags)?
+        };
+        Ok((value, flags))
     }
 }
 
@@ -401,7 +425,52 @@ impl ArkGroth16Backend {
 
 #[cfg(test)]
 mod test {
+    use ark_bn254::{G1Affine, G1Projective, G2Affine, G2Projective};
+    use ark_groth16::Proof as ArkProof;
+    use ark_serialize::{
+        CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
+        CanonicalSerializeWithFlags, EmptyFlags,
+    };
+
     use super::*;
+
+    fn make_proof_v3() -> ProofV3 {
+        ProofWithFlags(ArkProof {
+            a: G1Affine::default(),
+            b: G2Affine::default(),
+            c: G1Affine::default(),
+        })
+    }
+
+    fn make_partial_proof() -> PartialProof {
+        PartialProof {
+            mask: vec![true, false],
+            partial_pi_a: G1Projective::default(),
+            partial_rho: G1Projective::default(),
+            partial_pi_b: G2Projective::default(),
+            partial_pi_c: G1Projective::default(),
+        }
+    }
+
+    #[test]
+    fn test_proof_v3_le_compressed_roundtrip() {
+        let proof = make_proof_v3();
+        let mut buf = Vec::new();
+        proof.serialize_compressed(&mut buf).unwrap();
+        let deser = ProofV3::deserialize_compressed(buf.as_slice()).unwrap();
+        assert_eq!(proof, deser);
+        assert_eq!(proof.compressed_size(), buf.len());
+    }
+
+    #[test]
+    fn test_partial_proof_le_compressed_roundtrip() {
+        let partial = make_partial_proof();
+        let mut buf = Vec::new();
+        partial.serialize_compressed(&mut buf).unwrap();
+        let deser = PartialProof::deserialize_compressed(buf.as_slice()).unwrap();
+        assert_eq!(partial, deser);
+        assert_eq!(partial.compressed_size(), buf.len());
+    }
 
     #[test]
     fn test_empty_zkey_and_graph() {
@@ -433,5 +502,53 @@ mod test {
         .err()
         .unwrap();
         assert!(matches!(err, GraphReadError::MaxOutMismatch { .. }));
+    }
+
+    #[test]
+    fn test_proof_v3_le_with_flags_roundtrip() {
+        let proof = make_proof_v3();
+        let mut buf = Vec::new();
+        <ProofV3 as CanonicalSerializeWithFlags>::serialize_with_flags(
+            &proof, &mut buf, EmptyFlags,
+        )
+        .unwrap();
+        let (deser, _) = <ProofV3 as CanonicalDeserializeWithFlags>::deserialize_with_flags::<
+            _,
+            EmptyFlags,
+        >(buf.as_slice())
+        .unwrap();
+        assert_eq!(proof, deser);
+        assert_eq!(
+            <ProofV3 as CanonicalSerializeWithFlags>::serialized_size_with_flags::<EmptyFlags>(
+                &proof
+            ),
+            buf.len()
+        );
+        // EmptyFlags adds no extra byte — sizes must match
+        assert_eq!(buf.len(), proof.compressed_size());
+    }
+
+    #[test]
+    fn test_partial_proof_le_with_flags_roundtrip() {
+        let partial = make_partial_proof();
+        let mut buf = Vec::new();
+        <PartialProof as CanonicalSerializeWithFlags>::serialize_with_flags(
+            &partial, &mut buf, EmptyFlags,
+        )
+        .unwrap();
+        let (deser, _) = <PartialProof as CanonicalDeserializeWithFlags>::deserialize_with_flags::<
+            _,
+            EmptyFlags,
+        >(buf.as_slice())
+        .unwrap();
+        assert_eq!(partial, deser);
+        assert_eq!(
+            <PartialProof as CanonicalSerializeWithFlags>::serialized_size_with_flags::<EmptyFlags>(
+                &partial
+            ),
+            buf.len()
+        );
+        // EmptyFlags adds no extra byte — sizes must match
+        assert_eq!(buf.len(), partial.compressed_size());
     }
 }
