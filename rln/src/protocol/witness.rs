@@ -1007,22 +1007,34 @@ impl CanonicalDeserialize for RLNWitnessInputV3 {
 impl CanonicalSerializeWithFlags for RLNWitnessInputV3 {
     fn serialize_with_flags<W: Write, F: Flags>(
         &self,
-        _writer: W,
-        _flags: F,
+        mut writer: W,
+        flags: F,
     ) -> Result<(), SerializationError> {
-        todo!()
+        self.serialize_compressed(&mut writer)?;
+        if F::BIT_SIZE > 0 {
+            writer.write_all(&[flags.u8_bitmask()])?;
+        }
+        Ok(())
     }
 
     fn serialized_size_with_flags<F: Flags>(&self) -> usize {
-        todo!()
+        self.compressed_size() + usize::from(F::BIT_SIZE > 0)
     }
 }
 
 impl CanonicalDeserializeWithFlags for RLNWitnessInputV3 {
     fn deserialize_with_flags<R: Read, F: Flags>(
-        _reader: R,
+        mut reader: R,
     ) -> Result<(Self, F), SerializationError> {
-        todo!()
+        let value = Self::deserialize_compressed(&mut reader)?;
+        let flags = if F::BIT_SIZE > 0 {
+            let mut flags_buf = [0u8; 1];
+            reader.read_exact(&mut flags_buf)?;
+            F::from_u8(flags_buf[0]).ok_or(SerializationError::UnexpectedFlags)?
+        } else {
+            F::from_u8(0).ok_or(SerializationError::UnexpectedFlags)?
+        };
+        Ok((value, flags))
     }
 }
 
@@ -1144,22 +1156,34 @@ pub struct RLNPartialWitnessInputV3 {
 impl CanonicalSerializeWithFlags for RLNPartialWitnessInputV3 {
     fn serialize_with_flags<W: Write, F: Flags>(
         &self,
-        _writer: W,
-        _flags: F,
+        mut writer: W,
+        flags: F,
     ) -> Result<(), SerializationError> {
-        todo!()
+        self.serialize_compressed(&mut writer)?;
+        if F::BIT_SIZE > 0 {
+            writer.write_all(&[flags.u8_bitmask()])?;
+        }
+        Ok(())
     }
 
     fn serialized_size_with_flags<F: Flags>(&self) -> usize {
-        todo!()
+        self.compressed_size() + usize::from(F::BIT_SIZE > 0)
     }
 }
 
 impl CanonicalDeserializeWithFlags for RLNPartialWitnessInputV3 {
     fn deserialize_with_flags<R: Read, F: Flags>(
-        _reader: R,
+        mut reader: R,
     ) -> Result<(Self, F), SerializationError> {
-        todo!()
+        let value = Self::deserialize_compressed(&mut reader)?;
+        let flags = if F::BIT_SIZE > 0 {
+            let mut flags_buf = [0u8; 1];
+            reader.read_exact(&mut flags_buf)?;
+            F::from_u8(flags_buf[0]).ok_or(SerializationError::UnexpectedFlags)?
+        } else {
+            F::from_u8(0).ok_or(SerializationError::UnexpectedFlags)?
+        };
+        Ok((value, flags))
     }
 }
 
@@ -1190,5 +1214,143 @@ impl CanonicalDeserializeBE for RLNPartialWitnessInputV3 {
 impl RLNPartialWitnessInputV3 {
     pub fn new() -> Result<Self, ProtocolError> {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use ark_serialize::{
+        CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
+        CanonicalSerializeWithFlags, EmptyFlags,
+    };
+
+    use super::{
+        RLNPartialWitnessInputV3, RLNWitnessInputMulti, RLNWitnessInputSingle, RLNWitnessInputV3,
+    };
+    use crate::{circuit::Fr, utils::IdSecret};
+
+    fn make_witness_input_single() -> RLNWitnessInputV3 {
+        let identity_secret = IdSecret::from(&mut Fr::from(42u64));
+        RLNWitnessInputV3::Single(RLNWitnessInputSingle {
+            identity_secret,
+            user_message_limit: Fr::from(10u64),
+            path_elements: vec![Fr::from(1u64), Fr::from(2u64)],
+            identity_path_index: vec![0u8, 1u8],
+            x: Fr::from(5u64),
+            external_nullifier: Fr::from(7u64),
+            message_id: Fr::from(3u64),
+        })
+    }
+
+    fn make_witness_input_multi() -> RLNWitnessInputV3 {
+        let identity_secret = IdSecret::from(&mut Fr::from(99u64));
+        RLNWitnessInputV3::Multi(RLNWitnessInputMulti {
+            identity_secret,
+            user_message_limit: Fr::from(10u64),
+            path_elements: vec![Fr::from(1u64), Fr::from(2u64)],
+            identity_path_index: vec![0u8, 1u8],
+            x: Fr::from(5u64),
+            external_nullifier: Fr::from(7u64),
+            message_ids: vec![Fr::from(0u64), Fr::from(1u64)],
+            selector_used: vec![true, false],
+        })
+    }
+
+    fn make_partial() -> RLNPartialWitnessInputV3 {
+        let identity_secret = IdSecret::from(&mut Fr::from(42u64));
+        RLNPartialWitnessInputV3 {
+            identity_secret,
+            user_message_limit: Fr::from(10u64),
+            path_elements: vec![Fr::from(1u64), Fr::from(2u64)],
+            identity_path_index: vec![0u8, 1u8],
+        }
+    }
+
+    #[test]
+    fn test_witness_v3_single_le_compressed_roundtrip() {
+        let w = make_witness_input_single();
+        let mut buf = Vec::new();
+        w.serialize_compressed(&mut buf).unwrap();
+        let deser = RLNWitnessInputV3::deserialize_compressed(buf.as_slice()).unwrap();
+        assert_eq!(w, deser);
+        assert_eq!(w.compressed_size(), buf.len());
+        assert_eq!(buf[0], 0u8, "Single tag byte must be 0");
+    }
+
+    #[test]
+    fn test_witness_v3_multi_le_compressed_roundtrip() {
+        let w = make_witness_input_multi();
+        let mut buf = Vec::new();
+        w.serialize_compressed(&mut buf).unwrap();
+        let deser = RLNWitnessInputV3::deserialize_compressed(buf.as_slice()).unwrap();
+        assert_eq!(w, deser);
+        assert_eq!(w.compressed_size(), buf.len());
+        assert_eq!(buf[0], 1u8, "Multi tag byte must be 1");
+    }
+
+    #[test]
+    fn test_witness_v3_le_uncompressed_roundtrip() {
+        for w in [make_witness_input_single(), make_witness_input_multi()] {
+            let mut buf = Vec::new();
+            w.serialize_uncompressed(&mut buf).unwrap();
+            let deser = RLNWitnessInputV3::deserialize_uncompressed(buf.as_slice()).unwrap();
+            assert_eq!(w, deser);
+            assert_eq!(w.uncompressed_size(), buf.len());
+        }
+    }
+
+    #[test]
+    fn test_witness_v3_single_le_with_flags_roundtrip() {
+        let w = make_witness_input_single();
+        let mut buf = Vec::new();
+        w.serialize_with_flags(&mut buf, EmptyFlags).unwrap();
+        let (deser, _) =
+            RLNWitnessInputV3::deserialize_with_flags::<_, EmptyFlags>(buf.as_slice()).unwrap();
+        assert_eq!(w, deser);
+        assert_eq!(w.serialized_size_with_flags::<EmptyFlags>(), buf.len());
+        // EmptyFlags adds no extra byte — sizes must match
+        assert_eq!(buf.len(), w.compressed_size());
+    }
+
+    #[test]
+    fn test_witness_v3_multi_le_with_flags_roundtrip() {
+        let w = make_witness_input_multi();
+        let mut buf = Vec::new();
+        w.serialize_with_flags(&mut buf, EmptyFlags).unwrap();
+        let (deser, _) =
+            RLNWitnessInputV3::deserialize_with_flags::<_, EmptyFlags>(buf.as_slice()).unwrap();
+        assert_eq!(w, deser);
+        assert_eq!(w.serialized_size_with_flags::<EmptyFlags>(), buf.len());
+        assert_eq!(buf.len(), w.compressed_size());
+    }
+
+    #[test]
+    fn test_witness_v3_invalid_tag_rejected() {
+        let mut bad = vec![99u8]; // unknown tag
+        bad.extend_from_slice(&[0u8; 32]);
+        assert!(RLNWitnessInputV3::deserialize_compressed(bad.as_slice()).is_err());
+    }
+
+    #[test]
+    fn test_partial_witness_v3_le_compressed_roundtrip() {
+        let pw = make_partial();
+        let mut buf = Vec::new();
+        pw.serialize_compressed(&mut buf).unwrap();
+        let deser = RLNPartialWitnessInputV3::deserialize_compressed(buf.as_slice()).unwrap();
+        assert_eq!(pw, deser);
+        assert_eq!(pw.compressed_size(), buf.len());
+    }
+
+    #[test]
+    fn test_partial_witness_v3_le_with_flags_roundtrip() {
+        let pw = make_partial();
+        let mut buf = Vec::new();
+        pw.serialize_with_flags(&mut buf, EmptyFlags).unwrap();
+        let (deser, _) =
+            RLNPartialWitnessInputV3::deserialize_with_flags::<_, EmptyFlags>(buf.as_slice())
+                .unwrap();
+        assert_eq!(pw, deser);
+        assert_eq!(pw.serialized_size_with_flags::<EmptyFlags>(), buf.len());
+        assert_eq!(buf.len(), pw.compressed_size());
     }
 }
