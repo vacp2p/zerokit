@@ -2,27 +2,26 @@
 // It is used by the FFI, WASM and should be used by tests as well
 
 use num_bigint::BigInt;
+use zerokit_utils::merkle_tree::ZerokitMerkleTree;
 #[cfg(not(feature = "stateless"))]
 use {
     crate::poseidon_tree::PoseidonTree,
     std::str::FromStr,
-    zerokit_utils::merkle_tree::{
-        Hasher, ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError,
-    },
+    zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTreeError},
 };
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
-    circuit::{graph_from_folder, graph_from_raw, zkey_from_folder, Graph, PartialProof},
+    circuit::{graph_from_raw, graph_single_v1, zkey_single_v1, Graph, PartialProof},
     prelude::RLNPartialWitnessInput,
-    protocol::{finish_zk_proof, generate_partial_zk_proof, generate_zk_proof},
+    protocol::{finish_zk_proof, generate_partial_zk_proof, generate_zk_proof, MessageMode},
 };
 use crate::{
     circuit::{zkey_from_raw, Fr, Proof, Zkey},
     error::{RLNError, VerifyError},
     protocol::{
-        generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof, RLNProofValues,
-        RLNWitnessInput,
+        generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof,
+        RLNPartialZkProof, RLNProofValues, RLNWitnessInput, RLNZkProof,
     },
 };
 
@@ -62,6 +61,8 @@ pub struct RLN {
     pub(crate) graph: Graph,
     #[cfg(not(feature = "stateless"))]
     pub(crate) tree: PoseidonTree,
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) message_mode: MessageMode,
 }
 
 impl RLN {
@@ -100,8 +101,8 @@ impl RLN {
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn new<T: TreeConfigInput>(tree_depth: usize, tree_config: T) -> Result<RLN, RLNError> {
-        let zkey = zkey_from_folder().to_owned();
-        let graph = graph_from_folder().to_owned();
+        let zkey = zkey_single_v1().to_owned();
+        let graph = graph_single_v1().to_owned();
         let config = tree_config.into_tree_config()?;
 
         // We compute a default empty tree
@@ -114,8 +115,8 @@ impl RLN {
         Ok(RLN {
             zkey,
             graph,
-            #[cfg(not(feature = "stateless"))]
             tree,
+            message_mode: MessageMode::SingleV1,
         })
     }
 
@@ -128,10 +129,14 @@ impl RLN {
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
     pub fn new() -> Result<RLN, RLNError> {
-        let zkey = zkey_from_folder().to_owned();
-        let graph = graph_from_folder().clone();
+        let zkey = zkey_single_v1().to_owned();
+        let graph = graph_single_v1().clone();
 
-        Ok(RLN { zkey, graph })
+        Ok(RLN {
+            zkey,
+            graph,
+            message_mode: MessageMode::SingleV1,
+        })
     }
 
     /// Creates a new RLN object by passing circuit resources as byte vectors.
@@ -140,7 +145,6 @@ impl RLN {
     /// - `tree_depth`: the depth of the internal Merkle tree
     /// - `zkey_data`: a byte vector containing the proving key (`rln_final.arkzkey`) as binary file
     /// - `graph_data`: a byte vector containing the graph data (`graph.bin`) as binary file
-    /// - `max_out` (multi-message-id feature): the maximum number of message ID slots the circuit supports
     /// - `tree_config`: configuration for the Merkle tree (accepts multiple types via TreeConfigInput trait)
     ///
     /// Examples:
@@ -172,18 +176,13 @@ impl RLN {
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn new_with_params<T: TreeConfigInput>(
         tree_depth: usize,
-        #[cfg(feature = "multi-message-id")] max_out: usize,
         zkey_data: Vec<u8>,
         graph_data: Vec<u8>,
         tree_config: T,
     ) -> Result<RLN, RLNError> {
         let zkey = zkey_from_raw(&zkey_data)?;
-        let graph = graph_from_raw(
-            &graph_data,
-            Some(tree_depth),
-            #[cfg(feature = "multi-message-id")]
-            Some(max_out),
-        )?;
+        let graph = graph_from_raw(&graph_data, Some(tree_depth), None)?;
+        let message_mode = MessageMode::from(&graph);
 
         let config = tree_config.into_tree_config()?;
 
@@ -197,8 +196,8 @@ impl RLN {
         Ok(RLN {
             zkey,
             graph,
-            #[cfg(not(feature = "stateless"))]
             tree,
+            message_mode,
         })
     }
 
@@ -228,20 +227,16 @@ impl RLN {
     /// )?;
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
-    pub fn new_with_params(
-        zkey_data: Vec<u8>,
-        graph_data: Vec<u8>,
-        #[cfg(feature = "multi-message-id")] max_out: usize,
-    ) -> Result<RLN, RLNError> {
+    pub fn new_with_params(zkey_data: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN, RLNError> {
         let zkey = zkey_from_raw(&zkey_data)?;
-        let graph = graph_from_raw(
-            &graph_data,
-            None,
-            #[cfg(feature = "multi-message-id")]
-            Some(max_out),
-        )?;
+        let graph = graph_from_raw(&graph_data, None, None)?;
+        let message_mode = MessageMode::from(&graph);
 
-        Ok(RLN { zkey, graph })
+        Ok(RLN {
+            zkey,
+            graph,
+            message_mode,
+        })
     }
 
     /// Creates a new stateless RLN object by passing circuit resources as a byte vector.
@@ -275,8 +270,14 @@ impl RLN {
         self.graph.tree_depth
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    /// Returns the message mode this RLN instance was configured with.
+    pub fn message_mode(&self) -> MessageMode {
+        self.message_mode
+    }
+
     /// Returns the maximum number of message ID slots supported by the graph.
-    #[cfg(all(feature = "multi-message-id", not(target_arch = "wasm32")))]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn max_out(&self) -> usize {
         self.graph.max_out
     }
@@ -592,7 +593,7 @@ impl RLN {
     ///
     /// Example:
     /// ```
-    /// let proof_values = proof_values_from_witness(&witness);
+    /// let proof_values = proof_values_from_witness(witness);
     ///
     /// // We compute a Groth16 proof
     /// let zk_proof = rln.generate_zk_proof(&witness)?;
@@ -696,7 +697,7 @@ impl RLN {
     /// let zk_proof = rln.generate_zk_proof(&witness)?;
     ///
     /// // We compute proof values directly from witness
-    /// let proof_values = proof_values_from_witness(&witness);
+    /// let proof_values = proof_values_from_witness(witness);
     ///
     /// // We verify the proof
     /// let verified = rln.verify_zk_proof(&zk_proof, &proof_values)?;
@@ -760,5 +761,116 @@ impl RLN {
         }
 
         Ok(true)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Stateful<T> {
+    pub tree: T,
+}
+
+impl<T> Stateful<T> {
+    pub fn new(tree: T) -> Self {
+        Self { tree }
+    }
+
+    pub fn tree(&self) -> &T {
+        &self.tree
+    }
+
+    pub fn tree_mut(&mut self) -> &mut T {
+        &mut self.tree
+    }
+
+    pub fn into_tree(self) -> T {
+        self.tree
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Stateless;
+
+pub struct RLNV3<Mode, ZkProof> {
+    pub(crate) _zkp: ZkProof,
+    pub(crate) state: Mode,
+}
+
+impl<ZkProof> RLNV3<Stateless, ZkProof> {
+    pub fn new(zkp: ZkProof) -> Self {
+        Self {
+            _zkp: zkp,
+            state: Stateless,
+        }
+    }
+}
+
+impl<T, ZkProof> RLNV3<Stateful<T>, ZkProof> {
+    pub fn new(tree: T, zkp: ZkProof) -> Self {
+        Self {
+            _zkp: zkp,
+            state: Stateful::new(tree),
+        }
+    }
+}
+
+impl<T, ZkProof> RLNV3<Stateful<T>, ZkProof> {
+    pub fn tree(&self) -> &T {
+        self.state.tree()
+    }
+
+    pub fn tree_mut(&mut self) -> &mut T {
+        self.state.tree_mut()
+    }
+
+    pub fn into_tree(self) -> T {
+        self.state.into_tree()
+    }
+}
+
+impl<T: ZerokitMerkleTree, ZkProof> RLNV3<Stateful<T>, ZkProof> {
+    pub fn tree_depth(&self) -> usize {
+        todo!()
+    }
+
+    pub fn get_root(&self) -> Fr {
+        todo!()
+    }
+
+    pub fn insert_leaf(&mut self, _index: usize, _leaf: Fr) -> Result<(), RLNError> {
+        todo!()
+    }
+}
+
+impl<Tree, ZkProof: RLNZkProof> RLNV3<Tree, ZkProof> {
+    pub fn generate_proof(
+        &self,
+        _witness: ZkProof::Witness,
+    ) -> Result<(ZkProof::Proof, ZkProof::Values), RLNError> {
+        todo!()
+    }
+
+    pub fn verify_proof(
+        &self,
+        _proof: &ZkProof::Proof,
+        _values: &ZkProof::Values,
+    ) -> Result<bool, RLNError> {
+        todo!()
+    }
+}
+
+impl<Tree, ZkProof: RLNPartialZkProof> RLNV3<Tree, ZkProof> {
+    pub fn generate_partial_proof(
+        &self,
+        _partial_witness: ZkProof::PartialWitness,
+    ) -> Result<ZkProof::PartialProof, RLNError> {
+        todo!()
+    }
+
+    pub fn finish_proof(
+        &self,
+        _partial_proof: ZkProof::PartialProof,
+        _witness: ZkProof::Witness,
+    ) -> Result<ZkProof::Proof, RLNError> {
+        todo!()
     }
 }

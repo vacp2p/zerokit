@@ -1,9 +1,7 @@
 // This module re-exports the most commonly used types and functions from the RLN library
 
-#[cfg(feature = "multi-message-id")]
-pub use crate::circuit::DEFAULT_MAX_OUT;
 #[cfg(not(target_arch = "wasm32"))]
-pub use crate::circuit::{graph_from_folder, zkey_from_folder};
+pub use crate::circuit::{graph_multi_v1, graph_single_v1, zkey_multi_v1, zkey_single_v1};
 #[cfg(feature = "pmtree-ft")]
 pub use crate::pm_tree_adapter::{FrOf, PmTree, PmTreeProof, PmtreeConfig, PmtreeConfigBuilder};
 #[cfg(not(feature = "stateless"))]
@@ -12,7 +10,7 @@ pub use crate::poseidon_tree::{MerkleProof, PoseidonTree};
 pub use crate::protocol::compute_tree_root;
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::{
-    circuit::{graph_from_raw, Graph},
+    circuit::{graph_from_raw, ArkGroth16Backend, Graph},
     protocol::{
         finish_zk_proof, finish_zk_proof_with_rs, generate_partial_zk_proof, generate_zk_proof,
         generate_zk_proof_with_rs, verify_zk_proof,
@@ -21,7 +19,8 @@ pub use crate::{
 pub use crate::{
     circuit::{
         zkey_from_raw, Curve, Fq, Fq2, Fr, G1Affine, G1Projective, G2Affine, G2Projective,
-        PartialProof, Proof, VerifyingKey, Zkey, COMPRESS_PROOF_SIZE, DEFAULT_TREE_DEPTH,
+        PartialProof, Proof, VerifyingKey, Zkey, COMPRESS_PROOF_SIZE, DEFAULT_MAX_OUT,
+        DEFAULT_TREE_DEPTH,
     },
     error::{ProtocolError, RLNError, RecoverSecretError, UtilsError, VerifyError},
     hashers::{
@@ -38,9 +37,13 @@ pub use crate::{
         rln_partial_witness_to_bytes_be, rln_partial_witness_to_bytes_le, rln_proof_to_bytes_be,
         rln_proof_to_bytes_le, rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le,
         rln_witness_to_bigint_json, rln_witness_to_bytes_be, rln_witness_to_bytes_le,
-        seeded_keygen, RLNPartialWitnessInput, RLNProof, RLNProofValues, RLNWitnessInput,
+        seeded_keygen, CanonicalDeserializeBE, CanonicalSerializeBE, MessageMode,
+        RLNPartialWitnessInput, RLNPartialWitnessInputV3, RLNPartialZkProof, RLNProof,
+        RLNProofValues, RLNProofValuesMulti, RLNProofValuesSingle, RLNProofValuesV3,
+        RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle, RLNWitnessInputV3,
+        RLNZkProof, RecoverSecret,
     },
-    public::RLN,
+    public::{RLN, RLNV3},
     utils::{
         bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_be_to_vec_usize,
         bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, bytes_le_to_vec_usize,
