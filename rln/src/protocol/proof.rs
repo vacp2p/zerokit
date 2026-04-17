@@ -910,6 +910,22 @@ pub enum RLNProofValuesV3 {
     Multi(RLNProofValuesMulti),
 }
 
+impl TryFrom<RLNWitnessInputV3> for RLNProofValuesV3 {
+    type Error = ProtocolError;
+
+    fn try_from(_witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
+impl RecoverSecret for RLNProofValuesV3 {
+    type Error = ProtocolError;
+
+    fn recover_secret(&self, _other: &Self) -> Result<Fr, Self::Error> {
+        todo!()
+    }
+}
+
 impl Valid for RLNProofValuesV3 {
     fn check(&self) -> Result<(), SerializationError> {
         todo!()
@@ -958,22 +974,6 @@ impl CanonicalDeserializeWithFlags for RLNProofValuesV3 {
     fn deserialize_with_flags<R: Read, F: Flags>(
         _reader: R,
     ) -> Result<(Self, F), SerializationError> {
-        todo!()
-    }
-}
-
-impl TryFrom<RLNWitnessInputV3> for RLNProofValuesV3 {
-    type Error = ProtocolError;
-
-    fn try_from(_witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
-        todo!()
-    }
-}
-
-impl RecoverSecret for RLNProofValuesV3 {
-    type Error = ProtocolError;
-
-    fn recover_secret(&self, _other: &Self) -> Result<Fr, Self::Error> {
         todo!()
     }
 }
@@ -1027,10 +1027,10 @@ impl RecoverSecret for RLNProofValuesSingle {
     }
 }
 
-impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
+impl RecoverSecret<RLNProofValuesMulti> for RLNProofValuesSingle {
     type Error = ProtocolError;
 
-    fn recover_secret(&self, _other: &RLNProofValuesSingle) -> Result<Fr, Self::Error> {
+    fn recover_secret(&self, _other: &RLNProofValuesMulti) -> Result<Fr, Self::Error> {
         todo!()
     }
 }
@@ -1085,10 +1085,10 @@ impl RecoverSecret for RLNProofValuesMulti {
     }
 }
 
-impl RecoverSecret<RLNProofValuesMulti> for RLNProofValuesSingle {
+impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
     type Error = ProtocolError;
 
-    fn recover_secret(&self, _other: &RLNProofValuesMulti) -> Result<Fr, Self::Error> {
+    fn recover_secret(&self, _other: &RLNProofValuesSingle) -> Result<Fr, Self::Error> {
         todo!()
     }
 }

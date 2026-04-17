@@ -19,7 +19,7 @@ use ark_groth16::{
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{
     CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
-    CanonicalSerializeWithFlags, Flags, SerializationError, Valid,
+    CanonicalSerializeWithFlags, Flags, SerializationError,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -115,50 +115,8 @@ pub type Proof = ArkProof<Curve>;
 /// Groth16 proof with additional flags for the BN254 curve.
 pub type ProofV3 = ProofWithFlags;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct ProofWithFlags(ArkProof<Curve>);
-
-impl From<ArkProof<Curve>> for ProofWithFlags {
-    fn from(p: ArkProof<Curve>) -> Self {
-        Self(p)
-    }
-}
-
-impl From<ProofWithFlags> for ArkProof<Curve> {
-    fn from(p: ProofWithFlags) -> Self {
-        p.0
-    }
-}
-
-impl CanonicalSerialize for ProofWithFlags {
-    fn serialize_with_mode<W: Write>(
-        &self,
-        _writer: W,
-        _compress: ark_serialize::Compress,
-    ) -> Result<(), SerializationError> {
-        todo!()
-    }
-
-    fn serialized_size(&self, _compress: ark_serialize::Compress) -> usize {
-        todo!()
-    }
-}
-
-impl Valid for ProofWithFlags {
-    fn check(&self) -> Result<(), SerializationError> {
-        todo!()
-    }
-}
-
-impl CanonicalDeserialize for ProofWithFlags {
-    fn deserialize_with_mode<R: Read>(
-        _reader: R,
-        _compress: ark_serialize::Compress,
-        _validate: ark_serialize::Validate,
-    ) -> Result<Self, SerializationError> {
-        todo!()
-    }
-}
 
 impl CanonicalSerializeWithFlags for ProofWithFlags {
     fn serialize_with_flags<W: Write, F: Flags>(
