@@ -115,18 +115,16 @@ pub type Proof = ArkProof<Curve>;
 /// Groth16 proof with additional flags for the BN254 curve.
 pub type ProofV3 = ProofWithFlags;
 
-type RawProof = ArkProof<Curve>;
-
 #[derive(Clone, Debug, PartialEq)]
-pub struct ProofWithFlags(RawProof);
+pub struct ProofWithFlags(ArkProof<Curve>);
 
-impl From<RawProof> for ProofWithFlags {
-    fn from(p: RawProof) -> Self {
+impl From<ArkProof<Curve>> for ProofWithFlags {
+    fn from(p: ArkProof<Curve>) -> Self {
         Self(p)
     }
 }
 
-impl From<ProofWithFlags> for RawProof {
+impl From<ProofWithFlags> for ArkProof<Curve> {
     fn from(p: ProofWithFlags) -> Self {
         p.0
     }
@@ -135,14 +133,14 @@ impl From<ProofWithFlags> for RawProof {
 impl CanonicalSerialize for ProofWithFlags {
     fn serialize_with_mode<W: Write>(
         &self,
-        writer: W,
-        compress: ark_serialize::Compress,
+        _writer: W,
+        _compress: ark_serialize::Compress,
     ) -> Result<(), SerializationError> {
-        self.0.serialize_with_mode(writer, compress)
+        todo!()
     }
 
-    fn serialized_size(&self, compress: ark_serialize::Compress) -> usize {
-        self.0.serialized_size(compress)
+    fn serialized_size(&self, _compress: ark_serialize::Compress) -> usize {
+        todo!()
     }
 }
 
@@ -154,13 +152,11 @@ impl Valid for ProofWithFlags {
 
 impl CanonicalDeserialize for ProofWithFlags {
     fn deserialize_with_mode<R: Read>(
-        reader: R,
-        compress: ark_serialize::Compress,
-        validate: ark_serialize::Validate,
+        _reader: R,
+        _compress: ark_serialize::Compress,
+        _validate: ark_serialize::Validate,
     ) -> Result<Self, SerializationError> {
-        Ok(Self(RawProof::deserialize_with_mode(
-            reader, compress, validate,
-        )?))
+        todo!()
     }
 }
 
@@ -189,11 +185,15 @@ impl CanonicalDeserializeWithFlags for ProofWithFlags {
 impl CanonicalSerializeBE for ProofV3 {
     type Error = ProtocolError;
 
-    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size(&self) -> usize {
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
         todo!()
     }
 }
@@ -201,7 +201,7 @@ impl CanonicalSerializeBE for ProofV3 {
 impl CanonicalDeserializeBE for ProofV3 {
     type Error = ProtocolError;
 
-    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
+    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
         todo!()
     }
 }
@@ -212,11 +212,15 @@ pub type PartialProof = ArkPartialProof<Curve>;
 impl CanonicalSerializeBE for PartialProof {
     type Error = ProtocolError;
 
-    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size(&self) -> usize {
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
         todo!()
     }
 }
@@ -224,7 +228,7 @@ impl CanonicalSerializeBE for PartialProof {
 impl CanonicalDeserializeBE for PartialProof {
     type Error = ProtocolError;
 
-    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
+    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
         todo!()
     }
 }

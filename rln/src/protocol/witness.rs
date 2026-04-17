@@ -1051,11 +1051,15 @@ impl RLNPartialWitnessInputV3 {
 impl CanonicalSerializeBE for RLNWitnessInputV3 {
     type Error = ProtocolError;
 
-    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size(&self) -> usize {
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
         todo!()
     }
 }
@@ -1063,7 +1067,7 @@ impl CanonicalSerializeBE for RLNWitnessInputV3 {
 impl CanonicalDeserializeBE for RLNWitnessInputV3 {
     type Error = ProtocolError;
 
-    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
+    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
         todo!()
     }
 }
@@ -1071,11 +1075,15 @@ impl CanonicalDeserializeBE for RLNWitnessInputV3 {
 impl CanonicalSerializeBE for RLNWitnessInputSingle {
     type Error = ProtocolError;
 
-    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size(&self) -> usize {
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
         todo!()
     }
 }
@@ -1083,7 +1091,7 @@ impl CanonicalSerializeBE for RLNWitnessInputSingle {
 impl CanonicalDeserializeBE for RLNWitnessInputSingle {
     type Error = ProtocolError;
 
-    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
+    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
         todo!()
     }
 }
@@ -1091,11 +1099,15 @@ impl CanonicalDeserializeBE for RLNWitnessInputSingle {
 impl CanonicalSerializeBE for RLNWitnessInputMulti {
     type Error = ProtocolError;
 
-    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size(&self) -> usize {
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
         todo!()
     }
 }
@@ -1103,7 +1115,7 @@ impl CanonicalSerializeBE for RLNWitnessInputMulti {
 impl CanonicalDeserializeBE for RLNWitnessInputMulti {
     type Error = ProtocolError;
 
-    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
+    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
         todo!()
     }
 }
@@ -1111,11 +1123,15 @@ impl CanonicalDeserializeBE for RLNWitnessInputMulti {
 impl CanonicalSerializeBE for RLNPartialWitnessInputV3 {
     type Error = ProtocolError;
 
-    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
+    fn serialize_with_flags<W: Write, F: Flags>(
+        &self,
+        _writer: W,
+        _flags: F,
+    ) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size(&self) -> usize {
+    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
         todo!()
     }
 }
@@ -1123,7 +1139,7 @@ impl CanonicalSerializeBE for RLNPartialWitnessInputV3 {
 impl CanonicalDeserializeBE for RLNPartialWitnessInputV3 {
     type Error = ProtocolError;
 
-    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
+    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
         todo!()
     }
 }
