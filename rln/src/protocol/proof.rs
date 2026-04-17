@@ -928,31 +928,55 @@ impl RecoverSecret for RLNProofValuesV3 {
 
 impl Valid for RLNProofValuesV3 {
     fn check(&self) -> Result<(), SerializationError> {
-        todo!()
+        match self {
+            RLNProofValuesV3::Single(inner) => inner.check(),
+            RLNProofValuesV3::Multi(inner) => inner.check(),
+        }
     }
 }
 
 impl CanonicalSerialize for RLNProofValuesV3 {
     fn serialize_with_mode<W: Write>(
         &self,
-        _writer: W,
-        _compress: Compress,
+        mut writer: W,
+        compress: Compress,
     ) -> Result<(), SerializationError> {
-        todo!()
+        match self {
+            RLNProofValuesV3::Single(inner) => {
+                0u8.serialize_with_mode(&mut writer, compress)?;
+                inner.serialize_with_mode(&mut writer, compress)
+            }
+            RLNProofValuesV3::Multi(inner) => {
+                1u8.serialize_with_mode(&mut writer, compress)?;
+                inner.serialize_with_mode(&mut writer, compress)
+            }
+        }
     }
 
-    fn serialized_size(&self, _compress: Compress) -> usize {
-        todo!()
+    fn serialized_size(&self, compress: Compress) -> usize {
+        1 + match self {
+            RLNProofValuesV3::Single(inner) => CanonicalSerialize::serialized_size(inner, compress),
+            RLNProofValuesV3::Multi(inner) => CanonicalSerialize::serialized_size(inner, compress),
+        }
     }
 }
 
 impl CanonicalDeserialize for RLNProofValuesV3 {
     fn deserialize_with_mode<R: Read>(
-        _reader: R,
-        _compress: Compress,
-        _validate: Validate,
+        mut reader: R,
+        compress: Compress,
+        validate: Validate,
     ) -> Result<Self, SerializationError> {
-        todo!()
+        let tag = u8::deserialize_with_mode(&mut reader, compress, validate)?;
+        match tag {
+            0 => Ok(RLNProofValuesV3::Single(
+                RLNProofValuesSingle::deserialize_with_mode(reader, compress, validate)?,
+            )),
+            1 => Ok(RLNProofValuesV3::Multi(
+                RLNProofValuesMulti::deserialize_with_mode(reader, compress, validate)?,
+            )),
+            _ => Err(SerializationError::InvalidData),
+        }
     }
 }
 

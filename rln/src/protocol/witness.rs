@@ -950,31 +950,57 @@ pub enum RLNWitnessInputV3 {
 
 impl Valid for RLNWitnessInputV3 {
     fn check(&self) -> Result<(), SerializationError> {
-        todo!()
+        match self {
+            RLNWitnessInputV3::Single(inner) => inner.check(),
+            RLNWitnessInputV3::Multi(inner) => inner.check(),
+        }
     }
 }
 
 impl CanonicalSerialize for RLNWitnessInputV3 {
     fn serialize_with_mode<W: Write>(
         &self,
-        _writer: W,
-        _compress: Compress,
+        mut writer: W,
+        compress: Compress,
     ) -> Result<(), SerializationError> {
-        todo!()
+        match self {
+            RLNWitnessInputV3::Single(inner) => {
+                0u8.serialize_with_mode(&mut writer, compress)?;
+                inner.serialize_with_mode(&mut writer, compress)
+            }
+            RLNWitnessInputV3::Multi(inner) => {
+                1u8.serialize_with_mode(&mut writer, compress)?;
+                inner.serialize_with_mode(&mut writer, compress)
+            }
+        }
     }
 
-    fn serialized_size(&self, _compress: Compress) -> usize {
-        todo!()
+    fn serialized_size(&self, compress: Compress) -> usize {
+        1 + match self {
+            RLNWitnessInputV3::Single(inner) => {
+                CanonicalSerialize::serialized_size(inner, compress)
+            }
+            RLNWitnessInputV3::Multi(inner) => CanonicalSerialize::serialized_size(inner, compress),
+        }
     }
 }
 
 impl CanonicalDeserialize for RLNWitnessInputV3 {
     fn deserialize_with_mode<R: Read>(
-        _reader: R,
-        _compress: Compress,
-        _validate: Validate,
+        mut reader: R,
+        compress: Compress,
+        validate: Validate,
     ) -> Result<Self, SerializationError> {
-        todo!()
+        let tag = u8::deserialize_with_mode(&mut reader, compress, validate)?;
+        match tag {
+            0 => Ok(RLNWitnessInputV3::Single(
+                RLNWitnessInputSingle::deserialize_with_mode(reader, compress, validate)?,
+            )),
+            1 => Ok(RLNWitnessInputV3::Multi(
+                RLNWitnessInputMulti::deserialize_with_mode(reader, compress, validate)?,
+            )),
+            _ => Err(SerializationError::InvalidData),
+        }
     }
 }
 
