@@ -395,7 +395,7 @@ mod test {
             Fr::from(100),
         )
         .unwrap();
-        let proof = generate_zk_proof(&*ARKZKEY_SINGLE_V1, &witness, &*GRAPH_SINGLE_V1).unwrap();
+        let proof = generate_zk_proof(&ARKZKEY_SINGLE_V1, &witness, &GRAPH_SINGLE_V1).unwrap();
         let mut buf = Vec::new();
         proof.serialize_compressed(&mut buf).unwrap();
         let deser = Proof::deserialize_compressed(buf.as_slice()).unwrap();
@@ -416,7 +416,7 @@ mod test {
         )
         .unwrap();
         let partial =
-            generate_partial_zk_proof(&*ARKZKEY_SINGLE_V1, &partial_witness, &*GRAPH_SINGLE_V1)
+            generate_partial_zk_proof(&ARKZKEY_SINGLE_V1, &partial_witness, &GRAPH_SINGLE_V1)
                 .unwrap();
         let mut buf = Vec::new();
         partial.serialize_compressed(&mut buf).unwrap();
