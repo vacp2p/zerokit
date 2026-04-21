@@ -17,10 +17,7 @@ use ark_groth16::{
     Proof as ArkProof, ProvingKey as ArkProvingKey, VerifyingKey as ArkVerifyingKey,
 };
 use ark_relations::r1cs::ConstraintMatrices;
-use ark_serialize::{
-    CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
-    CanonicalSerializeWithFlags, Flags, SerializationError,
-};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 #[cfg(not(target_arch = "wasm32"))]
 use self::error::GraphReadError;
@@ -112,66 +109,22 @@ pub type G2Projective = ArkG2Projective;
 /// Groth16 proof for the BN254 curve.
 pub type Proof = ArkProof<Curve>;
 
-/// Groth16 proof with additional flags for the BN254 curve.
-pub type ProofV3 = ProofWithFlags;
-
-#[derive(Clone, Debug, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
-pub struct ProofWithFlags(ArkProof<Curve>);
-
-impl CanonicalSerializeWithFlags for ProofWithFlags {
-    fn serialize_with_flags<W: Write, F: Flags>(
-        &self,
-        mut writer: W,
-        flags: F,
-    ) -> Result<(), SerializationError> {
-        self.serialize_compressed(&mut writer)?;
-        if F::BIT_SIZE > 0 {
-            writer.write_all(&[flags.u8_bitmask()])?;
-        }
-        Ok(())
-    }
-
-    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
-        self.compressed_size() + usize::from(F::BIT_SIZE > 0)
-    }
-}
-
-impl CanonicalDeserializeWithFlags for ProofWithFlags {
-    fn deserialize_with_flags<R: Read, F: Flags>(
-        mut reader: R,
-    ) -> Result<(Self, F), SerializationError> {
-        let value = Self::deserialize_compressed(&mut reader)?;
-        let flags = if F::BIT_SIZE > 0 {
-            let mut flags_buf = [0u8; 1];
-            reader.read_exact(&mut flags_buf)?;
-            F::from_u8(flags_buf[0]).ok_or(SerializationError::UnexpectedFlags)?
-        } else {
-            F::from_u8(0).ok_or(SerializationError::UnexpectedFlags)?
-        };
-        Ok((value, flags))
-    }
-}
-
-impl CanonicalSerializeBE for ProofV3 {
+impl CanonicalSerializeBE for Proof {
     type Error = ProtocolError;
 
-    fn serialize_with_flags<W: Write, F: Flags>(
-        &self,
-        _writer: W,
-        _flags: F,
-    ) -> Result<(), Self::Error> {
+    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+    fn serialized_size(&self) -> usize {
         todo!()
     }
 }
 
-impl CanonicalDeserializeBE for ProofV3 {
+impl CanonicalDeserializeBE for Proof {
     type Error = ProtocolError;
 
-    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
+    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
         todo!()
     }
 }
@@ -182,15 +135,11 @@ pub type PartialProof = ArkPartialProof<Curve>;
 impl CanonicalSerializeBE for PartialProof {
     type Error = ProtocolError;
 
-    fn serialize_with_flags<W: Write, F: Flags>(
-        &self,
-        _writer: W,
-        _flags: F,
-    ) -> Result<(), Self::Error> {
+    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+    fn serialized_size(&self) -> usize {
         todo!()
     }
 }
@@ -198,42 +147,8 @@ impl CanonicalSerializeBE for PartialProof {
 impl CanonicalDeserializeBE for PartialProof {
     type Error = ProtocolError;
 
-    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
+    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
         todo!()
-    }
-}
-
-impl CanonicalSerializeWithFlags for PartialProof {
-    fn serialize_with_flags<W: Write, F: Flags>(
-        &self,
-        mut writer: W,
-        flags: F,
-    ) -> Result<(), SerializationError> {
-        self.serialize_compressed(&mut writer)?;
-        if F::BIT_SIZE > 0 {
-            writer.write_all(&[flags.u8_bitmask()])?;
-        }
-        Ok(())
-    }
-
-    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
-        self.compressed_size() + usize::from(F::BIT_SIZE > 0)
-    }
-}
-
-impl CanonicalDeserializeWithFlags for PartialProof {
-    fn deserialize_with_flags<R: Read, F: Flags>(
-        mut reader: R,
-    ) -> Result<(Self, F), SerializationError> {
-        let value = Self::deserialize_compressed(&mut reader)?;
-        let flags = if F::BIT_SIZE > 0 {
-            let mut flags_buf = [0u8; 1];
-            reader.read_exact(&mut flags_buf)?;
-            F::from_u8(flags_buf[0]).ok_or(SerializationError::UnexpectedFlags)?
-        } else {
-            F::from_u8(0).ok_or(SerializationError::UnexpectedFlags)?
-        };
-        Ok((value, flags))
     }
 }
 
@@ -425,52 +340,13 @@ impl ArkGroth16Backend {
 
 #[cfg(test)]
 mod test {
-    use ark_bn254::{G1Affine, G1Projective, G2Affine, G2Projective};
-    use ark_groth16::Proof as ArkProof;
-    use ark_serialize::{
-        CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
-        CanonicalSerializeWithFlags, EmptyFlags,
-    };
+    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
     use super::*;
-
-    fn make_proof_v3() -> ProofV3 {
-        ProofWithFlags(ArkProof {
-            a: G1Affine::default(),
-            b: G2Affine::default(),
-            c: G1Affine::default(),
-        })
-    }
-
-    fn make_partial_proof() -> PartialProof {
-        PartialProof {
-            mask: vec![true, false],
-            partial_pi_a: G1Projective::default(),
-            partial_rho: G1Projective::default(),
-            partial_pi_b: G2Projective::default(),
-            partial_pi_c: G1Projective::default(),
-        }
-    }
-
-    #[test]
-    fn test_proof_v3_le_compressed_roundtrip() {
-        let proof = make_proof_v3();
-        let mut buf = Vec::new();
-        proof.serialize_compressed(&mut buf).unwrap();
-        let deser = ProofV3::deserialize_compressed(buf.as_slice()).unwrap();
-        assert_eq!(proof, deser);
-        assert_eq!(proof.compressed_size(), buf.len());
-    }
-
-    #[test]
-    fn test_partial_proof_le_compressed_roundtrip() {
-        let partial = make_partial_proof();
-        let mut buf = Vec::new();
-        partial.serialize_compressed(&mut buf).unwrap();
-        let deser = PartialProof::deserialize_compressed(buf.as_slice()).unwrap();
-        assert_eq!(partial, deser);
-        assert_eq!(partial.compressed_size(), buf.len());
-    }
+    use crate::prelude::{
+        generate_partial_zk_proof, generate_zk_proof, keygen, RLNPartialWitnessInput,
+        RLNWitnessInput,
+    };
 
     #[test]
     fn test_empty_zkey_and_graph() {
@@ -505,50 +381,47 @@ mod test {
     }
 
     #[test]
-    fn test_proof_v3_le_with_flags_roundtrip() {
-        let proof = make_proof_v3();
-        let mut buf = Vec::new();
-        <ProofV3 as CanonicalSerializeWithFlags>::serialize_with_flags(
-            &proof, &mut buf, EmptyFlags,
+    fn test_proof_le_compressed_roundtrip() {
+        let (identity_secret, _) = keygen();
+        let path_elements = vec![Fr::from(0); DEFAULT_TREE_DEPTH];
+        let identity_path_index = vec![0; DEFAULT_TREE_DEPTH];
+        let witness = RLNWitnessInput::new_single(
+            identity_secret,
+            Fr::from(100),
+            Fr::from(1),
+            path_elements,
+            identity_path_index,
+            Fr::from(1),
+            Fr::from(100),
         )
         .unwrap();
-        let (deser, _) = <ProofV3 as CanonicalDeserializeWithFlags>::deserialize_with_flags::<
-            _,
-            EmptyFlags,
-        >(buf.as_slice())
-        .unwrap();
+        let proof = generate_zk_proof(&*ARKZKEY_SINGLE_V1, &witness, &*GRAPH_SINGLE_V1).unwrap();
+        let mut buf = Vec::new();
+        proof.serialize_compressed(&mut buf).unwrap();
+        let deser = Proof::deserialize_compressed(buf.as_slice()).unwrap();
         assert_eq!(proof, deser);
-        assert_eq!(
-            <ProofV3 as CanonicalSerializeWithFlags>::serialized_size_with_flags::<EmptyFlags>(
-                &proof
-            ),
-            buf.len()
-        );
-        // EmptyFlags adds no extra byte — sizes must match
-        assert_eq!(buf.len(), proof.compressed_size());
+        assert_eq!(proof.compressed_size(), buf.len());
     }
 
     #[test]
-    fn test_partial_proof_le_with_flags_roundtrip() {
-        let partial = make_partial_proof();
-        let mut buf = Vec::new();
-        <PartialProof as CanonicalSerializeWithFlags>::serialize_with_flags(
-            &partial, &mut buf, EmptyFlags,
+    fn test_partial_proof_le_compressed_roundtrip() {
+        let (identity_secret, _) = keygen();
+        let path_elements = vec![Fr::from(0); DEFAULT_TREE_DEPTH];
+        let identity_path_index = vec![0; DEFAULT_TREE_DEPTH];
+        let partial_witness = RLNPartialWitnessInput::new(
+            identity_secret,
+            Fr::from(100),
+            path_elements,
+            identity_path_index,
         )
         .unwrap();
-        let (deser, _) = <PartialProof as CanonicalDeserializeWithFlags>::deserialize_with_flags::<
-            _,
-            EmptyFlags,
-        >(buf.as_slice())
-        .unwrap();
+        let partial =
+            generate_partial_zk_proof(&*ARKZKEY_SINGLE_V1, &partial_witness, &*GRAPH_SINGLE_V1)
+                .unwrap();
+        let mut buf = Vec::new();
+        partial.serialize_compressed(&mut buf).unwrap();
+        let deser = PartialProof::deserialize_compressed(buf.as_slice()).unwrap();
         assert_eq!(partial, deser);
-        assert_eq!(
-            <PartialProof as CanonicalSerializeWithFlags>::serialized_size_with_flags::<EmptyFlags>(
-                &partial
-            ),
-            buf.len()
-        );
-        // EmptyFlags adds no extra byte — sizes must match
-        assert_eq!(buf.len(), partial.compressed_size());
+        assert_eq!(partial.compressed_size(), buf.len());
     }
 }

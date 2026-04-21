@@ -4,8 +4,7 @@ use std::{
 };
 
 use ark_serialize::{
-    CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
-    CanonicalSerializeWithFlags, Compress, Flags, SerializationError, Valid, Validate,
+    CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
 use num_bigint::BigInt;
 use zeroize::Zeroize;
@@ -14,6 +13,7 @@ use super::{
     mode::{MessageMode, VERSION_BYTE_SIZE},
     proof::RLNProofValues,
     serialize::{CanonicalDeserializeBE, CanonicalSerializeBE},
+    ENUM_TAG_MULTI, ENUM_TAG_SINGLE, ENUM_TAG_SIZE,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::utils::FrOrSecret;
@@ -965,23 +965,26 @@ impl CanonicalSerialize for RLNWitnessInputV3 {
     ) -> Result<(), SerializationError> {
         match self {
             RLNWitnessInputV3::Single(inner) => {
-                0u8.serialize_with_mode(&mut writer, compress)?;
+                ENUM_TAG_SINGLE.serialize_with_mode(&mut writer, compress)?;
                 inner.serialize_with_mode(&mut writer, compress)
             }
             RLNWitnessInputV3::Multi(inner) => {
-                1u8.serialize_with_mode(&mut writer, compress)?;
+                ENUM_TAG_MULTI.serialize_with_mode(&mut writer, compress)?;
                 inner.serialize_with_mode(&mut writer, compress)
             }
         }
     }
 
     fn serialized_size(&self, compress: Compress) -> usize {
-        1 + match self {
-            RLNWitnessInputV3::Single(inner) => {
-                CanonicalSerialize::serialized_size(inner, compress)
+        ENUM_TAG_SIZE
+            + match self {
+                RLNWitnessInputV3::Single(inner) => {
+                    CanonicalSerialize::serialized_size(inner, compress)
+                }
+                RLNWitnessInputV3::Multi(inner) => {
+                    CanonicalSerialize::serialized_size(inner, compress)
+                }
             }
-            RLNWitnessInputV3::Multi(inner) => CanonicalSerialize::serialized_size(inner, compress),
-        }
     }
 }
 
@@ -993,10 +996,10 @@ impl CanonicalDeserialize for RLNWitnessInputV3 {
     ) -> Result<Self, SerializationError> {
         let tag = u8::deserialize_with_mode(&mut reader, compress, validate)?;
         match tag {
-            0 => Ok(RLNWitnessInputV3::Single(
+            ENUM_TAG_SINGLE => Ok(RLNWitnessInputV3::Single(
                 RLNWitnessInputSingle::deserialize_with_mode(reader, compress, validate)?,
             )),
-            1 => Ok(RLNWitnessInputV3::Multi(
+            ENUM_TAG_MULTI => Ok(RLNWitnessInputV3::Multi(
                 RLNWitnessInputMulti::deserialize_with_mode(reader, compress, validate)?,
             )),
             _ => Err(SerializationError::InvalidData),
@@ -1004,52 +1007,14 @@ impl CanonicalDeserialize for RLNWitnessInputV3 {
     }
 }
 
-impl CanonicalSerializeWithFlags for RLNWitnessInputV3 {
-    fn serialize_with_flags<W: Write, F: Flags>(
-        &self,
-        mut writer: W,
-        flags: F,
-    ) -> Result<(), SerializationError> {
-        self.serialize_compressed(&mut writer)?;
-        if F::BIT_SIZE > 0 {
-            writer.write_all(&[flags.u8_bitmask()])?;
-        }
-        Ok(())
-    }
-
-    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
-        self.compressed_size() + usize::from(F::BIT_SIZE > 0)
-    }
-}
-
-impl CanonicalDeserializeWithFlags for RLNWitnessInputV3 {
-    fn deserialize_with_flags<R: Read, F: Flags>(
-        mut reader: R,
-    ) -> Result<(Self, F), SerializationError> {
-        let value = Self::deserialize_compressed(&mut reader)?;
-        let flags = if F::BIT_SIZE > 0 {
-            let mut flags_buf = [0u8; 1];
-            reader.read_exact(&mut flags_buf)?;
-            F::from_u8(flags_buf[0]).ok_or(SerializationError::UnexpectedFlags)?
-        } else {
-            F::from_u8(0).ok_or(SerializationError::UnexpectedFlags)?
-        };
-        Ok((value, flags))
-    }
-}
-
 impl CanonicalSerializeBE for RLNWitnessInputV3 {
     type Error = ProtocolError;
 
-    fn serialize_with_flags<W: Write, F: Flags>(
-        &self,
-        _writer: W,
-        _flags: F,
-    ) -> Result<(), Self::Error> {
+    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+    fn serialized_size(&self) -> usize {
         todo!()
     }
 }
@@ -1057,7 +1022,7 @@ impl CanonicalSerializeBE for RLNWitnessInputV3 {
 impl CanonicalDeserializeBE for RLNWitnessInputV3 {
     type Error = ProtocolError;
 
-    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
+    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
         todo!()
     }
 }
@@ -1076,15 +1041,11 @@ pub struct RLNWitnessInputSingle {
 impl CanonicalSerializeBE for RLNWitnessInputSingle {
     type Error = ProtocolError;
 
-    fn serialize_with_flags<W: Write, F: Flags>(
-        &self,
-        _writer: W,
-        _flags: F,
-    ) -> Result<(), Self::Error> {
+    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+    fn serialized_size(&self) -> usize {
         todo!()
     }
 }
@@ -1092,7 +1053,7 @@ impl CanonicalSerializeBE for RLNWitnessInputSingle {
 impl CanonicalDeserializeBE for RLNWitnessInputSingle {
     type Error = ProtocolError;
 
-    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
+    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
         todo!()
     }
 }
@@ -1118,15 +1079,11 @@ pub struct RLNWitnessInputMulti {
 impl CanonicalSerializeBE for RLNWitnessInputMulti {
     type Error = ProtocolError;
 
-    fn serialize_with_flags<W: Write, F: Flags>(
-        &self,
-        _writer: W,
-        _flags: F,
-    ) -> Result<(), Self::Error> {
+    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+    fn serialized_size(&self) -> usize {
         todo!()
     }
 }
@@ -1134,7 +1091,7 @@ impl CanonicalSerializeBE for RLNWitnessInputMulti {
 impl CanonicalDeserializeBE for RLNWitnessInputMulti {
     type Error = ProtocolError;
 
-    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
+    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
         todo!()
     }
 }
@@ -1153,52 +1110,14 @@ pub struct RLNPartialWitnessInputV3 {
     pub(crate) identity_path_index: Vec<u8>,
 }
 
-impl CanonicalSerializeWithFlags for RLNPartialWitnessInputV3 {
-    fn serialize_with_flags<W: Write, F: Flags>(
-        &self,
-        mut writer: W,
-        flags: F,
-    ) -> Result<(), SerializationError> {
-        self.serialize_compressed(&mut writer)?;
-        if F::BIT_SIZE > 0 {
-            writer.write_all(&[flags.u8_bitmask()])?;
-        }
-        Ok(())
-    }
-
-    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
-        self.compressed_size() + usize::from(F::BIT_SIZE > 0)
-    }
-}
-
-impl CanonicalDeserializeWithFlags for RLNPartialWitnessInputV3 {
-    fn deserialize_with_flags<R: Read, F: Flags>(
-        mut reader: R,
-    ) -> Result<(Self, F), SerializationError> {
-        let value = Self::deserialize_compressed(&mut reader)?;
-        let flags = if F::BIT_SIZE > 0 {
-            let mut flags_buf = [0u8; 1];
-            reader.read_exact(&mut flags_buf)?;
-            F::from_u8(flags_buf[0]).ok_or(SerializationError::UnexpectedFlags)?
-        } else {
-            F::from_u8(0).ok_or(SerializationError::UnexpectedFlags)?
-        };
-        Ok((value, flags))
-    }
-}
-
 impl CanonicalSerializeBE for RLNPartialWitnessInputV3 {
     type Error = ProtocolError;
 
-    fn serialize_with_flags<W: Write, F: Flags>(
-        &self,
-        _writer: W,
-        _flags: F,
-    ) -> Result<(), Self::Error> {
+    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+    fn serialized_size(&self) -> usize {
         todo!()
     }
 }
@@ -1206,7 +1125,7 @@ impl CanonicalSerializeBE for RLNPartialWitnessInputV3 {
 impl CanonicalDeserializeBE for RLNPartialWitnessInputV3 {
     type Error = ProtocolError;
 
-    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
+    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
         todo!()
     }
 }
@@ -1219,15 +1138,16 @@ impl RLNPartialWitnessInputV3 {
 
 #[cfg(test)]
 mod test {
-    use ark_serialize::{
-        CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
-        CanonicalSerializeWithFlags, EmptyFlags,
-    };
+    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
     use super::{
         RLNPartialWitnessInputV3, RLNWitnessInputMulti, RLNWitnessInputSingle, RLNWitnessInputV3,
     };
-    use crate::{circuit::Fr, utils::IdSecret};
+    use crate::{
+        circuit::Fr,
+        protocol::{ENUM_TAG_MULTI, ENUM_TAG_SINGLE},
+        utils::IdSecret,
+    };
 
     fn make_witness_input_single() -> RLNWitnessInputV3 {
         let identity_secret = IdSecret::from(&mut Fr::from(42u64));
@@ -1274,7 +1194,7 @@ mod test {
         let deser = RLNWitnessInputV3::deserialize_compressed(buf.as_slice()).unwrap();
         assert_eq!(w, deser);
         assert_eq!(w.compressed_size(), buf.len());
-        assert_eq!(buf[0], 0u8, "Single tag byte must be 0");
+        assert_eq!(buf[0], ENUM_TAG_SINGLE);
     }
 
     #[test]
@@ -1285,7 +1205,7 @@ mod test {
         let deser = RLNWitnessInputV3::deserialize_compressed(buf.as_slice()).unwrap();
         assert_eq!(w, deser);
         assert_eq!(w.compressed_size(), buf.len());
-        assert_eq!(buf[0], 1u8, "Multi tag byte must be 1");
+        assert_eq!(buf[0], ENUM_TAG_MULTI);
     }
 
     #[test]
@@ -1297,31 +1217,6 @@ mod test {
             assert_eq!(w, deser);
             assert_eq!(w.uncompressed_size(), buf.len());
         }
-    }
-
-    #[test]
-    fn test_witness_v3_single_le_with_flags_roundtrip() {
-        let w = make_witness_input_single();
-        let mut buf = Vec::new();
-        w.serialize_with_flags(&mut buf, EmptyFlags).unwrap();
-        let (deser, _) =
-            RLNWitnessInputV3::deserialize_with_flags::<_, EmptyFlags>(buf.as_slice()).unwrap();
-        assert_eq!(w, deser);
-        assert_eq!(w.serialized_size_with_flags::<EmptyFlags>(), buf.len());
-        // EmptyFlags adds no extra byte — sizes must match
-        assert_eq!(buf.len(), w.compressed_size());
-    }
-
-    #[test]
-    fn test_witness_v3_multi_le_with_flags_roundtrip() {
-        let w = make_witness_input_multi();
-        let mut buf = Vec::new();
-        w.serialize_with_flags(&mut buf, EmptyFlags).unwrap();
-        let (deser, _) =
-            RLNWitnessInputV3::deserialize_with_flags::<_, EmptyFlags>(buf.as_slice()).unwrap();
-        assert_eq!(w, deser);
-        assert_eq!(w.serialized_size_with_flags::<EmptyFlags>(), buf.len());
-        assert_eq!(buf.len(), w.compressed_size());
     }
 
     #[test]
@@ -1339,18 +1234,5 @@ mod test {
         let deser = RLNPartialWitnessInputV3::deserialize_compressed(buf.as_slice()).unwrap();
         assert_eq!(pw, deser);
         assert_eq!(pw.compressed_size(), buf.len());
-    }
-
-    #[test]
-    fn test_partial_witness_v3_le_with_flags_roundtrip() {
-        let pw = make_partial();
-        let mut buf = Vec::new();
-        pw.serialize_with_flags(&mut buf, EmptyFlags).unwrap();
-        let (deser, _) =
-            RLNPartialWitnessInputV3::deserialize_with_flags::<_, EmptyFlags>(buf.as_slice())
-                .unwrap();
-        assert_eq!(pw, deser);
-        assert_eq!(pw.serialized_size_with_flags::<EmptyFlags>(), buf.len());
-        assert_eq!(buf.len(), pw.compressed_size());
     }
 }

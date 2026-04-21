@@ -8,6 +8,10 @@ mod slashing;
 mod witness;
 mod zk;
 
+pub const ENUM_TAG_SIZE: usize = 1;
+pub const ENUM_TAG_SINGLE: u8 = 0;
+pub const ENUM_TAG_MULTI: u8 = 1;
+
 pub use keygen::{extended_keygen, extended_seeded_keygen, keygen, seeded_keygen};
 pub use mode::MessageMode;
 pub use proof::{

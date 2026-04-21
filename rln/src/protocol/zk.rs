@@ -1,4 +1,4 @@
-use ark_serialize::{CanonicalDeserializeWithFlags, CanonicalSerializeWithFlags};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use crate::{
     circuit::Fr,
@@ -6,25 +6,25 @@ use crate::{
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
-    circuit::{ArkGroth16Backend, PartialProof, ProofV3},
+    circuit::{ArkGroth16Backend, PartialProof, Proof},
     error::RLNError,
     prelude::RLNPartialWitnessInputV3,
     protocol::{RLNProofValuesV3, RLNWitnessInputV3},
 };
 
 pub trait RLNZkProof {
-    type Witness: CanonicalSerializeWithFlags
-        + CanonicalDeserializeWithFlags
+    type Witness: CanonicalSerialize
+        + CanonicalDeserialize
         + CanonicalSerializeBE
         + CanonicalDeserializeBE;
     type Values: RecoverSecret
         + TryFrom<Self::Witness>
-        + CanonicalSerializeWithFlags
-        + CanonicalDeserializeWithFlags
+        + CanonicalSerialize
+        + CanonicalDeserialize
         + CanonicalSerializeBE
         + CanonicalDeserializeBE;
-    type Proof: CanonicalSerializeWithFlags
-        + CanonicalDeserializeWithFlags
+    type Proof: CanonicalSerialize
+        + CanonicalDeserialize
         + CanonicalSerializeBE
         + CanonicalDeserializeBE;
     type Error;
@@ -44,12 +44,12 @@ pub trait RecoverSecret<Rhs = Self> {
 }
 
 pub trait RLNPartialZkProof: RLNZkProof {
-    type PartialWitness: CanonicalSerializeWithFlags
-        + CanonicalDeserializeWithFlags
+    type PartialWitness: CanonicalSerialize
+        + CanonicalDeserialize
         + CanonicalSerializeBE
         + CanonicalDeserializeBE;
-    type PartialProof: CanonicalSerializeWithFlags
-        + CanonicalDeserializeWithFlags
+    type PartialProof: CanonicalSerialize
+        + CanonicalDeserialize
         + CanonicalSerializeBE
         + CanonicalDeserializeBE;
 
@@ -69,7 +69,7 @@ pub trait RLNPartialZkProof: RLNZkProof {
 impl RLNZkProof for ArkGroth16Backend {
     type Witness = RLNWitnessInputV3;
     type Values = RLNProofValuesV3;
-    type Proof = ProofV3;
+    type Proof = Proof;
     type Error = RLNError;
 
     fn generate_proof(
