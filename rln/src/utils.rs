@@ -12,12 +12,25 @@ use rand::Rng;
 use ruint::aliases::U256;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-use crate::{circuit::Fr, error::UtilsError};
+use crate::{
+    circuit::{Fq, Fr},
+    error::UtilsError,
+};
 
-/// Byte size of a field element aligned to 64-bit boundary, computed once at compile time.
+/// Byte size of a scalar field element aligned to 64-bit boundary, computed once at compile time.
 pub const FR_BYTE_SIZE: usize = {
-    // Get the modulus bit size of the field
+    // Get the modulus bit size of the scalar field
     let modulus_bits: u32 = Fr::MODULUS_BIT_SIZE;
+    // Alignment boundary in bits for field element serialization
+    let alignment_bits: u32 = 64;
+    // Align to the next multiple of alignment_bits and convert to bytes
+    ((modulus_bits + alignment_bits - (modulus_bits % alignment_bits)) / 8) as usize
+};
+
+/// Byte size of a base field element aligned to 64-bit boundary, computed once at compile time.
+pub const FQ_BYTE_SIZE: usize = {
+    // Get the modulus bit size of the base field
+    let modulus_bits: u32 = Fq::MODULUS_BIT_SIZE;
     // Alignment boundary in bits for field element serialization
     let alignment_bits: u32 = 64;
     // Align to the next multiple of alignment_bits and convert to bytes
@@ -120,7 +133,7 @@ pub fn fr_to_bytes_le(input: &Fr) -> Vec<u8> {
 pub fn fr_to_bytes_be(input: &Fr) -> Vec<u8> {
     let input_biguint: BigUint = (*input).into();
     let mut res = input_biguint.to_bytes_be();
-    // For BE, insert 0 at the start of the Vec (see also fr_to_bytes_le comments)
+    // For BE, insert 0 at the start of the Vec
     let to_insert_count = FR_BYTE_SIZE.saturating_sub(res.len());
     if to_insert_count > 0 {
         // Insert multi 0 at index 0
@@ -497,6 +510,7 @@ impl IdSecret {
     pub fn to_bytes_be(&self) -> Zeroizing<Vec<u8>> {
         let input_biguint: BigUint = self.0.into();
         let mut res = input_biguint.to_bytes_be();
+        // For BE, insert 0 at the start of the Vec
         let to_insert_count = FR_BYTE_SIZE.saturating_sub(res.len());
         if to_insert_count > 0 {
             // Insert multi 0 at index 0
@@ -555,4 +569,37 @@ impl From<IdSecret> for FrOrSecret {
     fn from(value: IdSecret) -> Self {
         FrOrSecret::IdSecret(value)
     }
+}
+
+#[inline(always)]
+fn biguint_to_fq(val: BigUint) -> Result<Fq, UtilsError> {
+    let bigint = <Fq as PrimeField>::BigInt::try_from(val)
+        .map_err(|_| UtilsError::NonCanonicalFieldElement)?;
+    Fq::from_bigint(bigint).ok_or(UtilsError::NonCanonicalFieldElement)
+}
+
+#[inline(always)]
+pub fn fq_to_bytes_be(input: &Fq) -> Vec<u8> {
+    let input_biguint: BigUint = (*input).into();
+    let mut res = input_biguint.to_bytes_be();
+    // For BE, insert 0 at the start of the Vec
+    let to_insert_count = FQ_BYTE_SIZE.saturating_sub(res.len());
+    if to_insert_count > 0 {
+        // Insert multi 0 at index 0
+        res.splice(0..0, std::iter::repeat_n(0, to_insert_count));
+    }
+    res
+}
+
+#[inline(always)]
+pub fn bytes_be_to_fq(input: &[u8]) -> Result<(Fq, usize), UtilsError> {
+    let el_size = FQ_BYTE_SIZE;
+    if input.len() < el_size {
+        return Err(UtilsError::InsufficientData {
+            expected: el_size,
+            actual: input.len(),
+        });
+    }
+    let fq = biguint_to_fq(BigUint::from_bytes_be(&input[0..el_size]))?;
+    Ok((fq, el_size))
 }

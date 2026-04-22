@@ -12,12 +12,13 @@ use ark_bn254::{
     Bn254, Fq as ArkFq, Fq2 as ArkFq2, Fr as ArkFr, G1Affine as ArkG1Affine,
     G1Projective as ArkG1Projective, G2Affine as ArkG2Affine, G2Projective as ArkG2Projective,
 };
+use ark_ec::CurveGroup;
 use ark_ff::Field;
 use ark_groth16::{
     Proof as ArkProof, ProvingKey as ArkProvingKey, VerifyingKey as ArkVerifyingKey,
 };
 use ark_relations::r1cs::ConstraintMatrices;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Valid};
 
 #[cfg(not(target_arch = "wasm32"))]
 use self::error::GraphReadError;
@@ -30,6 +31,10 @@ use crate::{
     error::ProtocolError,
     partial_proof::PartialProof as ArkPartialProof,
     prelude::{CanonicalDeserializeBE, CanonicalSerializeBE},
+    utils::{
+        bytes_be_to_fq, bytes_be_to_vec_bool, fq_to_bytes_be, vec_bool_to_bytes_be, FQ_BYTE_SIZE,
+        VEC_LEN_BYTE_SIZE,
+    },
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -78,6 +83,7 @@ static GRAPH_MULTI_V1: LazyLock<Graph> = LazyLock::new(|| {
 pub const DEFAULT_MAX_OUT: usize = 4;
 pub const DEFAULT_TREE_DEPTH: usize = 20;
 pub const COMPRESS_PROOF_SIZE: usize = 128;
+pub const UNCOMPRESSED_PROOF_SIZE: usize = 256;
 
 // The following types define the pairing friendly elliptic curve, the underlying finite fields and groups default to this module
 // Note that proofs are serialized assuming Fr to be 4x8 = 32 bytes in size. Hence, changing to a curve with different encoding will make proof verification to fail
@@ -112,20 +118,67 @@ pub type Proof = ArkProof<Curve>;
 impl CanonicalSerializeBE for Proof {
     type Error = ProtocolError;
 
-    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
-        todo!()
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
+        writer.write_all(&fq_to_bytes_be(&self.a.x))?;
+        writer.write_all(&fq_to_bytes_be(&self.a.y))?;
+        writer.write_all(&fq_to_bytes_be(&self.b.x.c1))?;
+        writer.write_all(&fq_to_bytes_be(&self.b.x.c0))?;
+        writer.write_all(&fq_to_bytes_be(&self.b.y.c1))?;
+        writer.write_all(&fq_to_bytes_be(&self.b.y.c0))?;
+        writer.write_all(&fq_to_bytes_be(&self.c.x))?;
+        writer.write_all(&fq_to_bytes_be(&self.c.y))?;
+        Ok(())
     }
 
     fn serialized_size(&self) -> usize {
-        todo!()
+        UNCOMPRESSED_PROOF_SIZE
     }
 }
 
 impl CanonicalDeserializeBE for Proof {
     type Error = ProtocolError;
 
-    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
-        todo!()
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
+        let mut buf = [0u8; FQ_BYTE_SIZE];
+
+        reader.read_exact(&mut buf)?;
+        let (ax, _) = bytes_be_to_fq(&buf)?;
+        reader.read_exact(&mut buf)?;
+        let (ay, _) = bytes_be_to_fq(&buf)?;
+        let a = G1Affine {
+            x: ax,
+            y: ay,
+            infinity: false,
+        };
+        a.check()?;
+
+        reader.read_exact(&mut buf)?;
+        let (bx_c1, _) = bytes_be_to_fq(&buf)?;
+        reader.read_exact(&mut buf)?;
+        let (bx_c0, _) = bytes_be_to_fq(&buf)?;
+        reader.read_exact(&mut buf)?;
+        let (by_c1, _) = bytes_be_to_fq(&buf)?;
+        reader.read_exact(&mut buf)?;
+        let (by_c0, _) = bytes_be_to_fq(&buf)?;
+        let b = G2Affine {
+            x: Fq2::new(bx_c0, bx_c1),
+            y: Fq2::new(by_c0, by_c1),
+            infinity: false,
+        };
+        b.check()?;
+
+        reader.read_exact(&mut buf)?;
+        let (cx, _) = bytes_be_to_fq(&buf)?;
+        reader.read_exact(&mut buf)?;
+        let (cy, _) = bytes_be_to_fq(&buf)?;
+        let c = G1Affine {
+            x: cx,
+            y: cy,
+            infinity: false,
+        };
+        c.check()?;
+
+        Ok(Proof { a, b, c })
     }
 }
 
@@ -135,20 +188,99 @@ pub type PartialProof = ArkPartialProof<Curve>;
 impl CanonicalSerializeBE for PartialProof {
     type Error = ProtocolError;
 
-    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
-        todo!()
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
+        writer.write_all(&vec_bool_to_bytes_be(&self.mask))?;
+        let a = self.partial_pi_a.into_affine();
+        writer.write_all(&fq_to_bytes_be(&a.x))?;
+        writer.write_all(&fq_to_bytes_be(&a.y))?;
+        let rho = self.partial_rho.into_affine();
+        writer.write_all(&fq_to_bytes_be(&rho.x))?;
+        writer.write_all(&fq_to_bytes_be(&rho.y))?;
+        let b = self.partial_pi_b.into_affine();
+        writer.write_all(&fq_to_bytes_be(&b.x.c1))?;
+        writer.write_all(&fq_to_bytes_be(&b.x.c0))?;
+        writer.write_all(&fq_to_bytes_be(&b.y.c1))?;
+        writer.write_all(&fq_to_bytes_be(&b.y.c0))?;
+        let c = self.partial_pi_c.into_affine();
+        writer.write_all(&fq_to_bytes_be(&c.x))?;
+        writer.write_all(&fq_to_bytes_be(&c.y))?;
+        Ok(())
     }
 
     fn serialized_size(&self) -> usize {
-        todo!()
+        VEC_LEN_BYTE_SIZE + self.mask.len() + FQ_BYTE_SIZE * 10
     }
 }
 
 impl CanonicalDeserializeBE for PartialProof {
     type Error = ProtocolError;
 
-    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
-        todo!()
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes)?;
+        let mut read = 0;
+
+        let (mask, el_size) = bytes_be_to_vec_bool(&bytes[read..])?;
+        read += el_size;
+
+        let (ax, el_size) = bytes_be_to_fq(&bytes[read..])?;
+        read += el_size;
+        let (ay, el_size) = bytes_be_to_fq(&bytes[read..])?;
+        read += el_size;
+        let a_affine = G1Affine {
+            x: ax,
+            y: ay,
+            infinity: false,
+        };
+        a_affine.check()?;
+
+        let (rhox, el_size) = bytes_be_to_fq(&bytes[read..])?;
+        read += el_size;
+        let (rhoy, el_size) = bytes_be_to_fq(&bytes[read..])?;
+        read += el_size;
+        let rho_affine = G1Affine {
+            x: rhox,
+            y: rhoy,
+            infinity: false,
+        };
+        rho_affine.check()?;
+
+        let (bx_c1, el_size) = bytes_be_to_fq(&bytes[read..])?;
+        read += el_size;
+        let (bx_c0, el_size) = bytes_be_to_fq(&bytes[read..])?;
+        read += el_size;
+        let (by_c1, el_size) = bytes_be_to_fq(&bytes[read..])?;
+        read += el_size;
+        let (by_c0, el_size) = bytes_be_to_fq(&bytes[read..])?;
+        read += el_size;
+        let b_affine = G2Affine {
+            x: Fq2::new(bx_c0, bx_c1),
+            y: Fq2::new(by_c0, by_c1),
+            infinity: false,
+        };
+        b_affine.check()?;
+
+        let (cx, el_size) = bytes_be_to_fq(&bytes[read..])?;
+        read += el_size;
+        let (cy, el_size) = bytes_be_to_fq(&bytes[read..])?;
+        read += el_size;
+        let c_affine = G1Affine {
+            x: cx,
+            y: cy,
+            infinity: false,
+        };
+        c_affine.check()?;
+
+        if read != bytes.len() {
+            return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
+        }
+        Ok(PartialProof {
+            mask,
+            partial_pi_a: a_affine.into(),
+            partial_rho: rho_affine.into(),
+            partial_pi_b: b_affine.into(),
+            partial_pi_c: c_affine.into(),
+        })
     }
 }
 
@@ -404,6 +536,35 @@ mod test {
     }
 
     #[test]
+    fn test_proof_be_roundtrip() {
+        use crate::prelude::{CanonicalDeserializeBE, CanonicalSerializeBE};
+
+        let (identity_secret, _) = keygen();
+        let path_elements = vec![Fr::from(0); DEFAULT_TREE_DEPTH];
+        let identity_path_index = vec![0; DEFAULT_TREE_DEPTH];
+        let witness = RLNWitnessInput::new_single(
+            identity_secret,
+            Fr::from(100),
+            Fr::from(1),
+            path_elements,
+            identity_path_index,
+            Fr::from(1),
+            Fr::from(100),
+        )
+        .unwrap();
+        let proof = generate_zk_proof(&ARKZKEY_SINGLE_V1, &witness, &GRAPH_SINGLE_V1).unwrap();
+        let mut buf = Vec::new();
+        CanonicalSerializeBE::serialize(&proof, &mut buf).unwrap();
+        assert_eq!(buf.len(), UNCOMPRESSED_PROOF_SIZE);
+        let deser = Proof::deserialize(buf.as_slice()).unwrap();
+        assert_eq!(proof, deser);
+        assert_eq!(
+            CanonicalSerializeBE::serialized_size(&proof),
+            UNCOMPRESSED_PROOF_SIZE
+        );
+    }
+
+    #[test]
     fn test_partial_proof_le_compressed_roundtrip() {
         let (identity_secret, _) = keygen();
         let path_elements = vec![Fr::from(0); DEFAULT_TREE_DEPTH];
@@ -423,5 +584,27 @@ mod test {
         let deser = PartialProof::deserialize_compressed(buf.as_slice()).unwrap();
         assert_eq!(partial, deser);
         assert_eq!(partial.compressed_size(), buf.len());
+    }
+
+    #[test]
+    fn test_partial_proof_be_roundtrip() {
+        let (identity_secret, _) = keygen();
+        let path_elements = vec![Fr::from(0); DEFAULT_TREE_DEPTH];
+        let identity_path_index = vec![0; DEFAULT_TREE_DEPTH];
+        let partial_witness = RLNPartialWitnessInput::new(
+            identity_secret,
+            Fr::from(100),
+            path_elements,
+            identity_path_index,
+        )
+        .unwrap();
+        let partial =
+            generate_partial_zk_proof(&ARKZKEY_SINGLE_V1, &partial_witness, &GRAPH_SINGLE_V1)
+                .unwrap();
+        let mut buf = Vec::new();
+        CanonicalSerializeBE::serialize(&partial, &mut buf).unwrap();
+        let deser = PartialProof::deserialize(buf.as_slice()).unwrap();
+        assert_eq!(partial, deser);
+        assert_eq!(CanonicalSerializeBE::serialized_size(&partial), buf.len());
     }
 }

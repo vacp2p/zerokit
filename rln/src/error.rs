@@ -44,6 +44,8 @@ pub enum RecoverSecretError {
 /// Errors that can occur during RLN protocol operations (proof generation, verification, etc.)
 #[derive(Debug, thiserror::Error)]
 pub enum ProtocolError {
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
     #[error("Error producing proof: {0}")]
     Synthesis(#[from] SynthesisError),
     #[error("RLN utility error: {0}")]

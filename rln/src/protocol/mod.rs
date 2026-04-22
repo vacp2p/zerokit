@@ -9,7 +9,7 @@ mod witness;
 mod zk;
 
 pub use keygen::{extended_keygen, extended_seeded_keygen, keygen, seeded_keygen};
-pub use mode::MessageMode;
+pub use mode::{MessageMode, Stateful, Stateless};
 pub use proof::{
     bytes_be_to_rln_partial_proof, bytes_be_to_rln_proof, bytes_be_to_rln_proof_values,
     bytes_le_to_rln_partial_proof, bytes_le_to_rln_proof, bytes_le_to_rln_proof_values,

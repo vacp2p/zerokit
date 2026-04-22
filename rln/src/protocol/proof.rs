@@ -212,9 +212,7 @@ pub fn rln_proof_values_to_bytes_le(rln_proof_values: &RLNProofValues) -> Vec<u8
             selector_used,
         } => {
             VERSION_BYTE_SIZE
-                + FR_BYTE_SIZE * 3
-                + FR_BYTE_SIZE * ys.len()
-                + FR_BYTE_SIZE * nullifiers.len()
+                + FR_BYTE_SIZE * (3 + ys.len() + nullifiers.len())
                 + selector_used.len()
                 + VEC_LEN_BYTE_SIZE * 3
         }
@@ -261,9 +259,7 @@ pub fn rln_proof_values_to_bytes_be(rln_proof_values: &RLNProofValues) -> Vec<u8
             selector_used,
         } => {
             VERSION_BYTE_SIZE
-                + FR_BYTE_SIZE * 3
-                + FR_BYTE_SIZE * ys.len()
-                + FR_BYTE_SIZE * nullifiers.len()
+                + FR_BYTE_SIZE * (3 + ys.len() + nullifiers.len())
                 + selector_used.len()
                 + VEC_LEN_BYTE_SIZE * 3
         }
@@ -988,20 +984,45 @@ impl CanonicalDeserialize for RLNProofValuesV3 {
 impl CanonicalSerializeBE for RLNProofValuesV3 {
     type Error = ProtocolError;
 
-    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
-        todo!()
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
+        match self {
+            RLNProofValuesV3::Single(inner) => {
+                writer.write_all(&[ENUM_TAG_SINGLE])?;
+                inner.serialize(&mut writer)
+            }
+            RLNProofValuesV3::Multi(inner) => {
+                writer.write_all(&[ENUM_TAG_MULTI])?;
+                inner.serialize(&mut writer)
+            }
+        }
     }
 
     fn serialized_size(&self) -> usize {
-        todo!()
+        ENUM_TAG_SIZE
+            + match self {
+                RLNProofValuesV3::Single(inner) => CanonicalSerializeBE::serialized_size(inner),
+                RLNProofValuesV3::Multi(inner) => CanonicalSerializeBE::serialized_size(inner),
+            }
     }
 }
 
 impl CanonicalDeserializeBE for RLNProofValuesV3 {
     type Error = ProtocolError;
 
-    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
-        todo!()
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
+        let mut tag = [0u8; ENUM_TAG_SIZE];
+        reader.read_exact(&mut tag)?;
+        match tag[0] {
+            ENUM_TAG_SINGLE => Ok(RLNProofValuesV3::Single(RLNProofValuesSingle::deserialize(
+                reader,
+            )?)),
+            ENUM_TAG_MULTI => Ok(RLNProofValuesV3::Multi(RLNProofValuesMulti::deserialize(
+                reader,
+            )?)),
+            _ => Err(ProtocolError::SerializationError(
+                SerializationError::InvalidData,
+            )),
+        }
     }
 }
 
@@ -1041,20 +1062,42 @@ impl RecoverSecret<RLNProofValuesMulti> for RLNProofValuesSingle {
 impl CanonicalSerializeBE for RLNProofValuesSingle {
     type Error = ProtocolError;
 
-    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
-        todo!()
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
+        writer.write_all(&fr_to_bytes_be(&self.root))?;
+        writer.write_all(&fr_to_bytes_be(&self.x))?;
+        writer.write_all(&fr_to_bytes_be(&self.external_nullifier))?;
+        writer.write_all(&fr_to_bytes_be(&self.y))?;
+        writer.write_all(&fr_to_bytes_be(&self.nullifier))?;
+        Ok(())
     }
 
     fn serialized_size(&self) -> usize {
-        todo!()
+        FR_BYTE_SIZE * 5
     }
 }
 
 impl CanonicalDeserializeBE for RLNProofValuesSingle {
     type Error = ProtocolError;
 
-    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
-        todo!()
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
+        let mut buf = [0u8; FR_BYTE_SIZE];
+        reader.read_exact(&mut buf)?;
+        let (root, _) = bytes_be_to_fr(&buf)?;
+        reader.read_exact(&mut buf)?;
+        let (x, _) = bytes_be_to_fr(&buf)?;
+        reader.read_exact(&mut buf)?;
+        let (external_nullifier, _) = bytes_be_to_fr(&buf)?;
+        reader.read_exact(&mut buf)?;
+        let (y, _) = bytes_be_to_fr(&buf)?;
+        reader.read_exact(&mut buf)?;
+        let (nullifier, _) = bytes_be_to_fr(&buf)?;
+        Ok(Self {
+            root,
+            x,
+            external_nullifier,
+            y,
+            nullifier,
+        })
     }
 }
 
@@ -1095,20 +1138,55 @@ impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
 impl CanonicalSerializeBE for RLNProofValuesMulti {
     type Error = ProtocolError;
 
-    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
-        todo!()
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
+        writer.write_all(&fr_to_bytes_be(&self.root))?;
+        writer.write_all(&fr_to_bytes_be(&self.x))?;
+        writer.write_all(&fr_to_bytes_be(&self.external_nullifier))?;
+        writer.write_all(&vec_fr_to_bytes_be(&self.ys))?;
+        writer.write_all(&vec_fr_to_bytes_be(&self.nullifiers))?;
+        writer.write_all(&vec_bool_to_bytes_be(&self.selector_used))?;
+        Ok(())
     }
 
     fn serialized_size(&self) -> usize {
-        todo!()
+        FR_BYTE_SIZE * (3 + self.ys.len() + self.nullifiers.len())
+            + self.selector_used.len()
+            + VEC_LEN_BYTE_SIZE * 3
     }
 }
 
 impl CanonicalDeserializeBE for RLNProofValuesMulti {
     type Error = ProtocolError;
 
-    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
-        todo!()
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes)?;
+        let mut read = 0;
+
+        let (root, el_size) = bytes_be_to_fr(&bytes[read..])?;
+        read += el_size;
+        let (x, el_size) = bytes_be_to_fr(&bytes[read..])?;
+        read += el_size;
+        let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
+        read += el_size;
+        let (ys, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
+        read += el_size;
+        let (nullifiers, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
+        read += el_size;
+        let (selector_used, el_size) = bytes_be_to_vec_bool(&bytes[read..])?;
+        read += el_size;
+
+        if read != bytes.len() {
+            return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
+        }
+        Ok(Self {
+            root,
+            x,
+            external_nullifier,
+            ys,
+            nullifiers,
+            selector_used,
+        })
     }
 }
 
@@ -1119,6 +1197,7 @@ mod test {
     use super::{RLNProofValuesMulti, RLNProofValuesSingle, RLNProofValuesV3};
     use crate::{
         circuit::Fr,
+        prelude::{CanonicalDeserializeBE, CanonicalSerializeBE},
         protocol::{ENUM_TAG_MULTI, ENUM_TAG_SINGLE},
     };
 
@@ -1174,5 +1253,45 @@ mod test {
             assert_eq!(pv, deser);
             assert_eq!(pv.uncompressed_size(), buf.len());
         }
+    }
+
+    #[test]
+    fn test_proof_values_v3_single_le_invalid_tag_rejected() {
+        let pv = make_proof_values_single();
+        let mut buf = Vec::new();
+        pv.serialize_compressed(&mut buf).unwrap();
+        buf[0] = 99; // unknown tag
+        assert!(RLNProofValuesV3::deserialize_compressed(buf.as_slice()).is_err());
+    }
+
+    #[test]
+    fn test_proof_values_v3_single_be_roundtrip() {
+        let pv = make_proof_values_single();
+        let mut buf = Vec::new();
+        pv.serialize(&mut buf).unwrap();
+        assert_eq!(buf[0], ENUM_TAG_SINGLE);
+        assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&pv));
+        let deser = RLNProofValuesV3::deserialize(buf.as_slice()).unwrap();
+        assert_eq!(pv, deser);
+    }
+
+    #[test]
+    fn test_proof_values_v3_multi_be_roundtrip() {
+        let pv = make_proof_values_multi();
+        let mut buf = Vec::new();
+        pv.serialize(&mut buf).unwrap();
+        assert_eq!(buf[0], ENUM_TAG_MULTI);
+        assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&pv));
+        let deser = RLNProofValuesV3::deserialize(buf.as_slice()).unwrap();
+        assert_eq!(pv, deser);
+    }
+
+    #[test]
+    fn test_proof_values_v3_multi_be_invalid_tag_rejected() {
+        let pv = make_proof_values_multi();
+        let mut buf = Vec::new();
+        pv.serialize(&mut buf).unwrap();
+        buf[0] = 99; // unknown tag
+        assert!(RLNProofValuesV3::deserialize(buf.as_slice()).is_err());
     }
 }
