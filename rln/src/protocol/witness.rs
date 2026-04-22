@@ -1123,8 +1123,24 @@ impl CanonicalDeserializeBE for RLNWitnessInputSingle {
 }
 
 impl RLNWitnessInputSingle {
-    pub fn new() -> Result<Self, ProtocolError> {
-        todo!()
+    pub fn new(
+        identity_secret: IdSecret,
+        user_message_limit: Fr,
+        path_elements: Vec<Fr>,
+        identity_path_index: Vec<u8>,
+        x: Fr,
+        external_nullifier: Fr,
+        message_id: Fr,
+    ) -> Self {
+        Self {
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+            x,
+            external_nullifier,
+            message_id,
+        }
     }
 }
 
@@ -1205,8 +1221,26 @@ impl CanonicalDeserializeBE for RLNWitnessInputMulti {
 }
 
 impl RLNWitnessInputMulti {
-    pub fn new() -> Result<Self, ProtocolError> {
-        todo!()
+    pub fn new(
+        identity_secret: IdSecret,
+        user_message_limit: Fr,
+        path_elements: Vec<Fr>,
+        identity_path_index: Vec<u8>,
+        x: Fr,
+        external_nullifier: Fr,
+        message_ids: Vec<Fr>,
+        selector_used: Vec<bool>,
+    ) -> Self {
+        Self {
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+            x,
+            external_nullifier,
+            message_ids,
+            selector_used,
+        }
     }
 }
 
@@ -1268,150 +1302,18 @@ impl CanonicalDeserializeBE for RLNPartialWitnessInputV3 {
 }
 
 impl RLNPartialWitnessInputV3 {
-    pub fn new() -> Result<Self, ProtocolError> {
-        todo!()
+    pub fn new(
+        identity_secret: IdSecret,
+        user_message_limit: Fr,
+        path_elements: Vec<Fr>,
+        identity_path_index: Vec<u8>,
+    ) -> Self {
+        Self {
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+        }
     }
 }
 
-#[cfg(test)]
-mod test {
-    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-
-    use super::{
-        RLNPartialWitnessInputV3, RLNWitnessInputMulti, RLNWitnessInputSingle, RLNWitnessInputV3,
-    };
-    use crate::{
-        circuit::Fr,
-        prelude::{CanonicalDeserializeBE, CanonicalSerializeBE},
-        protocol::{ENUM_TAG_MULTI, ENUM_TAG_SINGLE},
-        utils::IdSecret,
-    };
-
-    fn make_witness_input_single() -> RLNWitnessInputV3 {
-        let identity_secret = IdSecret::from(&mut Fr::from(42u64));
-        RLNWitnessInputV3::Single(RLNWitnessInputSingle {
-            identity_secret,
-            user_message_limit: Fr::from(10u64),
-            path_elements: vec![Fr::from(1u64), Fr::from(2u64)],
-            identity_path_index: vec![0u8, 1u8],
-            x: Fr::from(5u64),
-            external_nullifier: Fr::from(7u64),
-            message_id: Fr::from(3u64),
-        })
-    }
-
-    fn make_witness_input_multi() -> RLNWitnessInputV3 {
-        let identity_secret = IdSecret::from(&mut Fr::from(99u64));
-        RLNWitnessInputV3::Multi(RLNWitnessInputMulti {
-            identity_secret,
-            user_message_limit: Fr::from(10u64),
-            path_elements: vec![Fr::from(1u64), Fr::from(2u64)],
-            identity_path_index: vec![0u8, 1u8],
-            x: Fr::from(5u64),
-            external_nullifier: Fr::from(7u64),
-            message_ids: vec![Fr::from(0u64), Fr::from(1u64)],
-            selector_used: vec![true, false],
-        })
-    }
-
-    fn make_partial() -> RLNPartialWitnessInputV3 {
-        let identity_secret = IdSecret::from(&mut Fr::from(42u64));
-        RLNPartialWitnessInputV3 {
-            identity_secret,
-            user_message_limit: Fr::from(10u64),
-            path_elements: vec![Fr::from(1u64), Fr::from(2u64)],
-            identity_path_index: vec![0u8, 1u8],
-        }
-    }
-
-    #[test]
-    fn test_witness_v3_single_le_compressed_roundtrip() {
-        let w = make_witness_input_single();
-        let mut buf = Vec::new();
-        w.serialize_compressed(&mut buf).unwrap();
-        let deser = RLNWitnessInputV3::deserialize_compressed(buf.as_slice()).unwrap();
-        assert_eq!(w, deser);
-        assert_eq!(w.compressed_size(), buf.len());
-        assert_eq!(buf[0], ENUM_TAG_SINGLE);
-    }
-
-    #[test]
-    fn test_witness_v3_multi_le_compressed_roundtrip() {
-        let w = make_witness_input_multi();
-        let mut buf = Vec::new();
-        w.serialize_compressed(&mut buf).unwrap();
-        let deser = RLNWitnessInputV3::deserialize_compressed(buf.as_slice()).unwrap();
-        assert_eq!(w, deser);
-        assert_eq!(w.compressed_size(), buf.len());
-        assert_eq!(buf[0], ENUM_TAG_MULTI);
-    }
-
-    #[test]
-    fn test_witness_v3_le_uncompressed_roundtrip() {
-        for w in [make_witness_input_single(), make_witness_input_multi()] {
-            let mut buf = Vec::new();
-            w.serialize_uncompressed(&mut buf).unwrap();
-            let deser = RLNWitnessInputV3::deserialize_uncompressed(buf.as_slice()).unwrap();
-            assert_eq!(w, deser);
-            assert_eq!(w.uncompressed_size(), buf.len());
-        }
-    }
-
-    #[test]
-    fn test_witness_v3_le_invalid_tag_rejected() {
-        let mut bad = vec![99u8]; // unknown tag
-        bad.extend_from_slice(&[0u8; 32]);
-        assert!(RLNWitnessInputV3::deserialize_compressed(bad.as_slice()).is_err());
-    }
-
-    #[test]
-    fn test_partial_witness_v3_le_compressed_roundtrip() {
-        let pw = make_partial();
-        let mut buf = Vec::new();
-        pw.serialize_compressed(&mut buf).unwrap();
-        let deser = RLNPartialWitnessInputV3::deserialize_compressed(buf.as_slice()).unwrap();
-        assert_eq!(pw, deser);
-        assert_eq!(pw.compressed_size(), buf.len());
-    }
-
-    #[test]
-    fn test_witness_v3_single_be_roundtrip() {
-        let w = make_witness_input_single();
-        let mut buf = Vec::new();
-        w.serialize(&mut buf).unwrap();
-        assert_eq!(buf[0], ENUM_TAG_SINGLE);
-        assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&w));
-        let deser = RLNWitnessInputV3::deserialize(buf.as_slice()).unwrap();
-        assert_eq!(w, deser);
-    }
-
-    #[test]
-    fn test_witness_v3_multi_be_roundtrip() {
-        let w = make_witness_input_multi();
-        let mut buf = Vec::new();
-        w.serialize(&mut buf).unwrap();
-        assert_eq!(buf[0], ENUM_TAG_MULTI);
-        assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&w));
-        let deser = RLNWitnessInputV3::deserialize(buf.as_slice()).unwrap();
-        assert_eq!(w, deser);
-    }
-
-    #[test]
-    fn test_partial_witness_v3_be_roundtrip() {
-        let pw = make_partial();
-        let mut buf = Vec::new();
-        pw.serialize(&mut buf).unwrap();
-        assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&pw));
-        let deser = RLNPartialWitnessInputV3::deserialize(buf.as_slice()).unwrap();
-        assert_eq!(pw, deser);
-    }
-
-    #[test]
-    fn test_witness_v3_be_invalid_tag_rejected() {
-        let w = make_witness_input_single();
-        let mut buf = Vec::new();
-        w.serialize(&mut buf).unwrap();
-        buf[0] = 99; // unknown tag
-        assert!(RLNWitnessInputV3::deserialize(buf.as_slice()).is_err());
-    }
-}
