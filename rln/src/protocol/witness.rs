@@ -1010,20 +1010,45 @@ impl CanonicalDeserialize for RLNWitnessInputV3 {
 impl CanonicalSerializeBE for RLNWitnessInputV3 {
     type Error = ProtocolError;
 
-    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
-        todo!()
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
+        match self {
+            RLNWitnessInputV3::Single(inner) => {
+                writer.write_all(&[ENUM_TAG_SINGLE])?;
+                inner.serialize(&mut writer)
+            }
+            RLNWitnessInputV3::Multi(inner) => {
+                writer.write_all(&[ENUM_TAG_MULTI])?;
+                inner.serialize(&mut writer)
+            }
+        }
     }
 
     fn serialized_size(&self) -> usize {
-        todo!()
+        ENUM_TAG_SIZE
+            + match self {
+                RLNWitnessInputV3::Single(inner) => CanonicalSerializeBE::serialized_size(inner),
+                RLNWitnessInputV3::Multi(inner) => CanonicalSerializeBE::serialized_size(inner),
+            }
     }
 }
 
 impl CanonicalDeserializeBE for RLNWitnessInputV3 {
     type Error = ProtocolError;
 
-    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
-        todo!()
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
+        let mut tag = [0u8; ENUM_TAG_SIZE];
+        reader.read_exact(&mut tag)?;
+        match tag[0] {
+            ENUM_TAG_SINGLE => Ok(RLNWitnessInputV3::Single(
+                RLNWitnessInputSingle::deserialize(reader)?,
+            )),
+            ENUM_TAG_MULTI => Ok(RLNWitnessInputV3::Multi(RLNWitnessInputMulti::deserialize(
+                reader,
+            )?)),
+            _ => Err(ProtocolError::SerializationError(
+                SerializationError::InvalidData,
+            )),
+        }
     }
 }
 
@@ -1041,20 +1066,59 @@ pub struct RLNWitnessInputSingle {
 impl CanonicalSerializeBE for RLNWitnessInputSingle {
     type Error = ProtocolError;
 
-    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
-        todo!()
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
+        writer.write_all(&self.identity_secret.to_bytes_be())?;
+        writer.write_all(&fr_to_bytes_be(&self.user_message_limit))?;
+        writer.write_all(&vec_fr_to_bytes_be(&self.path_elements))?;
+        writer.write_all(&vec_u8_to_bytes_be(&self.identity_path_index))?;
+        writer.write_all(&fr_to_bytes_be(&self.x))?;
+        writer.write_all(&fr_to_bytes_be(&self.external_nullifier))?;
+        writer.write_all(&fr_to_bytes_be(&self.message_id))?;
+        Ok(())
     }
 
     fn serialized_size(&self) -> usize {
-        todo!()
+        FR_BYTE_SIZE * (5 + self.path_elements.len())
+            + self.identity_path_index.len()
+            + VEC_LEN_BYTE_SIZE * 2
     }
 }
 
 impl CanonicalDeserializeBE for RLNWitnessInputSingle {
     type Error = ProtocolError;
 
-    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
-        todo!()
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes)?;
+        let mut read = 0;
+
+        let (identity_secret, el_size) = IdSecret::from_bytes_be(&bytes[read..])?;
+        read += el_size;
+        let (user_message_limit, el_size) = bytes_be_to_fr(&bytes[read..])?;
+        read += el_size;
+        let (path_elements, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
+        read += el_size;
+        let (identity_path_index, el_size) = bytes_be_to_vec_u8(&bytes[read..])?;
+        read += el_size;
+        let (x, el_size) = bytes_be_to_fr(&bytes[read..])?;
+        read += el_size;
+        let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
+        read += el_size;
+        let (message_id, el_size) = bytes_be_to_fr(&bytes[read..])?;
+        read += el_size;
+
+        if read != bytes.len() {
+            return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
+        }
+        Ok(Self {
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+            x,
+            external_nullifier,
+            message_id,
+        })
     }
 }
 
@@ -1079,20 +1143,64 @@ pub struct RLNWitnessInputMulti {
 impl CanonicalSerializeBE for RLNWitnessInputMulti {
     type Error = ProtocolError;
 
-    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
-        todo!()
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
+        writer.write_all(&self.identity_secret.to_bytes_be())?;
+        writer.write_all(&fr_to_bytes_be(&self.user_message_limit))?;
+        writer.write_all(&vec_fr_to_bytes_be(&self.path_elements))?;
+        writer.write_all(&vec_u8_to_bytes_be(&self.identity_path_index))?;
+        writer.write_all(&fr_to_bytes_be(&self.x))?;
+        writer.write_all(&fr_to_bytes_be(&self.external_nullifier))?;
+        writer.write_all(&vec_fr_to_bytes_be(&self.message_ids))?;
+        writer.write_all(&vec_bool_to_bytes_be(&self.selector_used))?;
+        Ok(())
     }
 
     fn serialized_size(&self) -> usize {
-        todo!()
+        FR_BYTE_SIZE * (4 + self.path_elements.len() + self.message_ids.len())
+            + self.identity_path_index.len()
+            + self.selector_used.len()
+            + VEC_LEN_BYTE_SIZE * 4
     }
 }
 
 impl CanonicalDeserializeBE for RLNWitnessInputMulti {
     type Error = ProtocolError;
 
-    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
-        todo!()
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes)?;
+        let mut read = 0;
+
+        let (identity_secret, el_size) = IdSecret::from_bytes_be(&bytes[read..])?;
+        read += el_size;
+        let (user_message_limit, el_size) = bytes_be_to_fr(&bytes[read..])?;
+        read += el_size;
+        let (path_elements, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
+        read += el_size;
+        let (identity_path_index, el_size) = bytes_be_to_vec_u8(&bytes[read..])?;
+        read += el_size;
+        let (x, el_size) = bytes_be_to_fr(&bytes[read..])?;
+        read += el_size;
+        let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
+        read += el_size;
+        let (message_ids, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
+        read += el_size;
+        let (selector_used, el_size) = bytes_be_to_vec_bool(&bytes[read..])?;
+        read += el_size;
+
+        if read != bytes.len() {
+            return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
+        }
+        Ok(Self {
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+            x,
+            external_nullifier,
+            message_ids,
+            selector_used,
+        })
     }
 }
 
@@ -1113,20 +1221,49 @@ pub struct RLNPartialWitnessInputV3 {
 impl CanonicalSerializeBE for RLNPartialWitnessInputV3 {
     type Error = ProtocolError;
 
-    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
-        todo!()
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
+        writer.write_all(&self.identity_secret.to_bytes_be())?;
+        writer.write_all(&fr_to_bytes_be(&self.user_message_limit))?;
+        writer.write_all(&vec_fr_to_bytes_be(&self.path_elements))?;
+        writer.write_all(&vec_u8_to_bytes_be(&self.identity_path_index))?;
+        Ok(())
     }
 
     fn serialized_size(&self) -> usize {
-        todo!()
+        FR_BYTE_SIZE * 2
+            + VEC_LEN_BYTE_SIZE
+            + FR_BYTE_SIZE * self.path_elements.len()
+            + VEC_LEN_BYTE_SIZE
+            + self.identity_path_index.len()
     }
 }
 
 impl CanonicalDeserializeBE for RLNPartialWitnessInputV3 {
     type Error = ProtocolError;
 
-    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
-        todo!()
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes)?;
+        let mut read = 0;
+
+        let (identity_secret, el_size) = IdSecret::from_bytes_be(&bytes[read..])?;
+        read += el_size;
+        let (user_message_limit, el_size) = bytes_be_to_fr(&bytes[read..])?;
+        read += el_size;
+        let (path_elements, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
+        read += el_size;
+        let (identity_path_index, el_size) = bytes_be_to_vec_u8(&bytes[read..])?;
+        read += el_size;
+
+        if read != bytes.len() {
+            return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
+        }
+        Ok(Self {
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+        })
     }
 }
 
@@ -1145,6 +1282,7 @@ mod test {
     };
     use crate::{
         circuit::Fr,
+        prelude::{CanonicalDeserializeBE, CanonicalSerializeBE},
         protocol::{ENUM_TAG_MULTI, ENUM_TAG_SINGLE},
         utils::IdSecret,
     };
@@ -1220,7 +1358,7 @@ mod test {
     }
 
     #[test]
-    fn test_witness_v3_invalid_tag_rejected() {
+    fn test_witness_v3_le_invalid_tag_rejected() {
         let mut bad = vec![99u8]; // unknown tag
         bad.extend_from_slice(&[0u8; 32]);
         assert!(RLNWitnessInputV3::deserialize_compressed(bad.as_slice()).is_err());
@@ -1234,5 +1372,46 @@ mod test {
         let deser = RLNPartialWitnessInputV3::deserialize_compressed(buf.as_slice()).unwrap();
         assert_eq!(pw, deser);
         assert_eq!(pw.compressed_size(), buf.len());
+    }
+
+    #[test]
+    fn test_witness_v3_single_be_roundtrip() {
+        let w = make_witness_input_single();
+        let mut buf = Vec::new();
+        w.serialize(&mut buf).unwrap();
+        assert_eq!(buf[0], ENUM_TAG_SINGLE);
+        assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&w));
+        let deser = RLNWitnessInputV3::deserialize(buf.as_slice()).unwrap();
+        assert_eq!(w, deser);
+    }
+
+    #[test]
+    fn test_witness_v3_multi_be_roundtrip() {
+        let w = make_witness_input_multi();
+        let mut buf = Vec::new();
+        w.serialize(&mut buf).unwrap();
+        assert_eq!(buf[0], ENUM_TAG_MULTI);
+        assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&w));
+        let deser = RLNWitnessInputV3::deserialize(buf.as_slice()).unwrap();
+        assert_eq!(w, deser);
+    }
+
+    #[test]
+    fn test_partial_witness_v3_be_roundtrip() {
+        let pw = make_partial();
+        let mut buf = Vec::new();
+        pw.serialize(&mut buf).unwrap();
+        assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&pw));
+        let deser = RLNPartialWitnessInputV3::deserialize(buf.as_slice()).unwrap();
+        assert_eq!(pw, deser);
+    }
+
+    #[test]
+    fn test_witness_v3_be_invalid_tag_rejected() {
+        let w = make_witness_input_single();
+        let mut buf = Vec::new();
+        w.serialize(&mut buf).unwrap();
+        buf[0] = 99; // unknown tag
+        assert!(RLNWitnessInputV3::deserialize(buf.as_slice()).is_err());
     }
 }
