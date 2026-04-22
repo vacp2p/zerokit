@@ -1221,6 +1221,7 @@ impl CanonicalDeserializeBE for RLNWitnessInputMulti {
 }
 
 impl RLNWitnessInputMulti {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         identity_secret: IdSecret,
         user_message_limit: Fr,
@@ -1316,4 +1317,3 @@ impl RLNPartialWitnessInputV3 {
         }
     }
 }
-

@@ -1,9 +1,8 @@
 #[cfg(test)]
 mod test {
     use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-    use rln::circuit::Fr;
     use rln::{
-        circuit::{PartialProof, Proof, DEFAULT_TREE_DEPTH, UNCOMPRESSED_PROOF_SIZE},
+        circuit::{Fr, PartialProof, Proof, DEFAULT_TREE_DEPTH, UNCOMPRESSED_PROOF_SIZE},
         prelude::{
             generate_partial_zk_proof, generate_zk_proof, keygen, CanonicalDeserializeBE,
             CanonicalSerializeBE, RLNPartialWitnessInput, RLNPartialWitnessInputV3,

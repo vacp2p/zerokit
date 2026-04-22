@@ -505,5 +505,4 @@ mod test {
         .unwrap();
         assert!(matches!(err, GraphReadError::MaxOutMismatch { .. }));
     }
-
 }
