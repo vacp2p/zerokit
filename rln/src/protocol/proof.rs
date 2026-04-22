@@ -3,8 +3,7 @@ use std::io::{Read, Write};
 use ark_ff::PrimeField;
 use ark_groth16::{prepare_verifying_key, Groth16};
 use ark_serialize::{
-    CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
-    CanonicalSerializeWithFlags, Compress, Flags, SerializationError, Valid, Validate,
+    CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
 use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
@@ -20,6 +19,7 @@ use super::{
     serialize::{CanonicalDeserializeBE, CanonicalSerializeBE},
     witness::RLNWitnessInputV3,
     zk::RecoverSecret,
+    ENUM_TAG_MULTI, ENUM_TAG_SINGLE, ENUM_TAG_SIZE,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
@@ -928,68 +928,71 @@ impl RecoverSecret for RLNProofValuesV3 {
 
 impl Valid for RLNProofValuesV3 {
     fn check(&self) -> Result<(), SerializationError> {
-        todo!()
+        match self {
+            RLNProofValuesV3::Single(inner) => inner.check(),
+            RLNProofValuesV3::Multi(inner) => inner.check(),
+        }
     }
 }
 
 impl CanonicalSerialize for RLNProofValuesV3 {
     fn serialize_with_mode<W: Write>(
         &self,
-        _writer: W,
-        _compress: Compress,
+        mut writer: W,
+        compress: Compress,
     ) -> Result<(), SerializationError> {
-        todo!()
+        match self {
+            RLNProofValuesV3::Single(inner) => {
+                ENUM_TAG_SINGLE.serialize_with_mode(&mut writer, compress)?;
+                inner.serialize_with_mode(&mut writer, compress)
+            }
+            RLNProofValuesV3::Multi(inner) => {
+                ENUM_TAG_MULTI.serialize_with_mode(&mut writer, compress)?;
+                inner.serialize_with_mode(&mut writer, compress)
+            }
+        }
     }
 
-    fn serialized_size(&self, _compress: Compress) -> usize {
-        todo!()
+    fn serialized_size(&self, compress: Compress) -> usize {
+        ENUM_TAG_SIZE
+            + match self {
+                RLNProofValuesV3::Single(inner) => {
+                    CanonicalSerialize::serialized_size(inner, compress)
+                }
+                RLNProofValuesV3::Multi(inner) => {
+                    CanonicalSerialize::serialized_size(inner, compress)
+                }
+            }
     }
 }
 
 impl CanonicalDeserialize for RLNProofValuesV3 {
     fn deserialize_with_mode<R: Read>(
-        _reader: R,
-        _compress: Compress,
-        _validate: Validate,
+        mut reader: R,
+        compress: Compress,
+        validate: Validate,
     ) -> Result<Self, SerializationError> {
-        todo!()
-    }
-}
-
-impl CanonicalSerializeWithFlags for RLNProofValuesV3 {
-    fn serialize_with_flags<W: Write, F: Flags>(
-        &self,
-        _writer: W,
-        _flags: F,
-    ) -> Result<(), SerializationError> {
-        todo!()
-    }
-
-    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
-        todo!()
-    }
-}
-
-impl CanonicalDeserializeWithFlags for RLNProofValuesV3 {
-    fn deserialize_with_flags<R: Read, F: Flags>(
-        _reader: R,
-    ) -> Result<(Self, F), SerializationError> {
-        todo!()
+        let tag = u8::deserialize_with_mode(&mut reader, compress, validate)?;
+        match tag {
+            ENUM_TAG_SINGLE => Ok(RLNProofValuesV3::Single(
+                RLNProofValuesSingle::deserialize_with_mode(reader, compress, validate)?,
+            )),
+            ENUM_TAG_MULTI => Ok(RLNProofValuesV3::Multi(
+                RLNProofValuesMulti::deserialize_with_mode(reader, compress, validate)?,
+            )),
+            _ => Err(SerializationError::InvalidData),
+        }
     }
 }
 
 impl CanonicalSerializeBE for RLNProofValuesV3 {
     type Error = ProtocolError;
 
-    fn serialize_with_flags<W: Write, F: Flags>(
-        &self,
-        _writer: W,
-        _flags: F,
-    ) -> Result<(), Self::Error> {
+    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+    fn serialized_size(&self) -> usize {
         todo!()
     }
 }
@@ -997,7 +1000,7 @@ impl CanonicalSerializeBE for RLNProofValuesV3 {
 impl CanonicalDeserializeBE for RLNProofValuesV3 {
     type Error = ProtocolError;
 
-    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
+    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
         todo!()
     }
 }
@@ -1038,15 +1041,11 @@ impl RecoverSecret<RLNProofValuesMulti> for RLNProofValuesSingle {
 impl CanonicalSerializeBE for RLNProofValuesSingle {
     type Error = ProtocolError;
 
-    fn serialize_with_flags<W: Write, F: Flags>(
-        &self,
-        _writer: W,
-        _flags: F,
-    ) -> Result<(), Self::Error> {
+    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+    fn serialized_size(&self) -> usize {
         todo!()
     }
 }
@@ -1054,7 +1053,7 @@ impl CanonicalSerializeBE for RLNProofValuesSingle {
 impl CanonicalDeserializeBE for RLNProofValuesSingle {
     type Error = ProtocolError;
 
-    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
+    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
         todo!()
     }
 }
@@ -1096,15 +1095,11 @@ impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
 impl CanonicalSerializeBE for RLNProofValuesMulti {
     type Error = ProtocolError;
 
-    fn serialize_with_flags<W: Write, F: Flags>(
-        &self,
-        _writer: W,
-        _flags: F,
-    ) -> Result<(), Self::Error> {
+    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
+    fn serialized_size(&self) -> usize {
         todo!()
     }
 }
@@ -1112,7 +1107,72 @@ impl CanonicalSerializeBE for RLNProofValuesMulti {
 impl CanonicalDeserializeBE for RLNProofValuesMulti {
     type Error = ProtocolError;
 
-    fn deserialize_with_flags<R: Read, F: Flags>(_reader: R) -> Result<(Self, F), Self::Error> {
+    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+
+    use super::{RLNProofValuesMulti, RLNProofValuesSingle, RLNProofValuesV3};
+    use crate::{
+        circuit::Fr,
+        protocol::{ENUM_TAG_MULTI, ENUM_TAG_SINGLE},
+    };
+
+    fn make_proof_values_single() -> RLNProofValuesV3 {
+        RLNProofValuesV3::Single(RLNProofValuesSingle {
+            root: Fr::from(1u64),
+            x: Fr::from(2u64),
+            external_nullifier: Fr::from(3u64),
+            y: Fr::from(4u64),
+            nullifier: Fr::from(5u64),
+        })
+    }
+
+    fn make_proof_values_multi() -> RLNProofValuesV3 {
+        RLNProofValuesV3::Multi(RLNProofValuesMulti {
+            root: Fr::from(10u64),
+            x: Fr::from(20u64),
+            external_nullifier: Fr::from(30u64),
+            ys: vec![Fr::from(40u64), Fr::from(50u64)],
+            nullifiers: vec![Fr::from(60u64), Fr::from(70u64)],
+            selector_used: vec![true, false],
+        })
+    }
+
+    #[test]
+    fn test_proof_values_v3_single_le_compressed_roundtrip() {
+        let pv = make_proof_values_single();
+        let mut buf = Vec::new();
+        pv.serialize_compressed(&mut buf).unwrap();
+        let deser = RLNProofValuesV3::deserialize_compressed(buf.as_slice()).unwrap();
+        assert_eq!(pv, deser);
+        assert_eq!(pv.compressed_size(), buf.len());
+        assert_eq!(buf[0], ENUM_TAG_SINGLE);
+    }
+
+    #[test]
+    fn test_proof_values_v3_multi_le_compressed_roundtrip() {
+        let pv = make_proof_values_multi();
+        let mut buf = Vec::new();
+        pv.serialize_compressed(&mut buf).unwrap();
+        let deser = RLNProofValuesV3::deserialize_compressed(buf.as_slice()).unwrap();
+        assert_eq!(pv, deser);
+        assert_eq!(pv.compressed_size(), buf.len());
+        assert_eq!(buf[0], ENUM_TAG_MULTI);
+    }
+
+    #[test]
+    fn test_proof_values_v3_le_uncompressed_roundtrip() {
+        for pv in [make_proof_values_single(), make_proof_values_multi()] {
+            let mut buf = Vec::new();
+            pv.serialize_uncompressed(&mut buf).unwrap();
+            let deser = RLNProofValuesV3::deserialize_uncompressed(buf.as_slice()).unwrap();
+            assert_eq!(pv, deser);
+            assert_eq!(pv.uncompressed_size(), buf.len());
+        }
     }
 }

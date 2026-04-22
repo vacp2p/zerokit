@@ -23,7 +23,9 @@ pub use proof::{
     finish_zk_proof, finish_zk_proof_with_rs, generate_partial_zk_proof, generate_zk_proof,
     generate_zk_proof_with_rs,
 };
-pub use serialize::{CanonicalDeserializeBE, CanonicalSerializeBE};
+pub use serialize::{
+    CanonicalDeserializeBE, CanonicalSerializeBE, ENUM_TAG_MULTI, ENUM_TAG_SINGLE, ENUM_TAG_SIZE,
+};
 pub use slashing::{compute_id_secret, recover_id_secret};
 pub use witness::{
     bytes_be_to_rln_partial_witness, bytes_be_to_rln_witness, bytes_le_to_rln_partial_witness,

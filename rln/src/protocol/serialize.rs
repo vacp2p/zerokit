@@ -1,33 +1,23 @@
 use std::io::{Read, Write};
 
-use ark_serialize::{EmptyFlags, Flags};
+/// Byte size of the enum variant tag prepended to serialized enum types.
+pub const ENUM_TAG_SIZE: usize = 1;
+
+/// Tag byte for the `Single` variant — single message mode.
+pub const ENUM_TAG_SINGLE: u8 = 0;
+
+/// Tag byte for the `Multi` variant — multi message mode.
+pub const ENUM_TAG_MULTI: u8 = 1;
 
 pub trait CanonicalSerializeBE {
     type Error;
 
-    fn serialize_with_flags<W: Write, F: Flags>(
-        &self,
-        writer: W,
-        flags: F,
-    ) -> Result<(), Self::Error>;
-
-    fn serialized_size_with_flags<F: Flags>(&self) -> usize;
-
-    fn serialize<W: Write>(&self, writer: W) -> Result<(), Self::Error> {
-        self.serialize_with_flags(writer, EmptyFlags)
-    }
-
-    fn serialized_size(&self) -> usize {
-        self.serialized_size_with_flags::<EmptyFlags>()
-    }
+    fn serialize<W: Write>(&self, writer: W) -> Result<(), Self::Error>;
+    fn serialized_size(&self) -> usize;
 }
 
 pub trait CanonicalDeserializeBE: Sized {
     type Error;
 
-    fn deserialize_with_flags<R: Read, F: Flags>(reader: R) -> Result<(Self, F), Self::Error>;
-
-    fn deserialize<R: Read>(reader: R) -> Result<Self, Self::Error> {
-        Ok(Self::deserialize_with_flags::<R, EmptyFlags>(reader)?.0)
-    }
+    fn deserialize<R: Read>(reader: R) -> Result<Self, Self::Error>;
 }
