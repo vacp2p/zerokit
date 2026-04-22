@@ -8,10 +8,6 @@ mod slashing;
 mod witness;
 mod zk;
 
-pub const ENUM_TAG_SIZE: usize = 1;
-pub const ENUM_TAG_SINGLE: u8 = 0;
-pub const ENUM_TAG_MULTI: u8 = 1;
-
 pub use keygen::{extended_keygen, extended_seeded_keygen, keygen, seeded_keygen};
 pub use mode::MessageMode;
 pub use proof::{
@@ -27,7 +23,9 @@ pub use proof::{
     finish_zk_proof, finish_zk_proof_with_rs, generate_partial_zk_proof, generate_zk_proof,
     generate_zk_proof_with_rs,
 };
-pub use serialize::{CanonicalDeserializeBE, CanonicalSerializeBE};
+pub use serialize::{
+    CanonicalDeserializeBE, CanonicalSerializeBE, ENUM_TAG_MULTI, ENUM_TAG_SINGLE, ENUM_TAG_SIZE,
+};
 pub use slashing::{compute_id_secret, recover_id_secret};
 pub use witness::{
     bytes_be_to_rln_partial_witness, bytes_be_to_rln_witness, bytes_le_to_rln_partial_witness,
