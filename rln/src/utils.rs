@@ -17,7 +17,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use crate::{circuit::Fr, error::UtilsError};
 
-/// Byte size of a scalar field element aligned to 64-bit boundary, computed once at compile time.
+/// Byte size of a `Fr` field element aligned to 64-bit boundary, computed once at compile time.
 pub const FR_BYTE_SIZE: usize = {
     // Get the modulus bit size of the scalar field
     let modulus_bits: u32 = Fr::MODULUS_BIT_SIZE;
@@ -26,6 +26,9 @@ pub const FR_BYTE_SIZE: usize = {
     // Align to the next multiple of alignment_bits and convert to bytes
     ((modulus_bits + alignment_bits - (modulus_bits % alignment_bits)) / 8) as usize
 };
+
+/// Byte size of a single 64-bit limb used in `Fr` field element serialization.
+pub const FR_LIMB_BYTE_SIZE: usize = 8;
 
 /// Byte size of the length prefix used when serializing variable-length vectors.
 pub const VEC_LEN_BYTE_SIZE: usize = 8;
@@ -497,24 +500,6 @@ impl IdSecret {
         Zeroizing::new(res)
     }
 
-    pub fn write_be<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        let mut bigint = self.0.into_bigint();
-        let mut buf = Zeroizing::new([0u8; FR_BYTE_SIZE]);
-        for (i, &limb) in bigint.0.iter().rev().enumerate() {
-            buf[i * 8..(i + 1) * 8].copy_from_slice(&limb.to_be_bytes());
-        }
-        let result = writer.write_all(buf.as_ref());
-        bigint.0.zeroize();
-        result
-    }
-
-    pub fn read_be<R: Read>(reader: &mut R) -> Result<Self, UtilsError> {
-        let mut buf = Zeroizing::new([0u8; FR_BYTE_SIZE]);
-        reader.read_exact(buf.as_mut())?;
-        let mut fr = biguint_to_fr(BigUint::from_bytes_be(buf.as_ref()))?;
-        Ok(IdSecret::from(&mut fr))
-    }
-
     pub fn to_bytes_be(&self) -> Zeroizing<Vec<u8>> {
         let input_biguint: BigUint = self.0.into();
         let mut res = input_biguint.to_bytes_be();
@@ -579,6 +564,37 @@ impl From<IdSecret> for FrOrSecret {
     }
 }
 
+impl IdSecret {
+    pub fn write_be<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        let mut bigint = self.0.into_bigint();
+        let mut buf = Zeroizing::new([0u8; FR_BYTE_SIZE]);
+        for (i, &limb) in bigint.0.iter().rev().enumerate() {
+            buf[i * FR_LIMB_BYTE_SIZE..(i + 1) * FR_LIMB_BYTE_SIZE]
+                .copy_from_slice(&limb.to_be_bytes());
+        }
+        let result = writer.write_all(buf.as_ref());
+        bigint.0.zeroize();
+        result
+    }
+
+    pub fn read_be<R: Read>(reader: &mut R) -> Result<Self, UtilsError> {
+        let mut buf = Zeroizing::new([0u8; FR_BYTE_SIZE]);
+        reader.read_exact(buf.as_mut())?;
+        let mut limbs = [0u64; FR_BYTE_SIZE / FR_LIMB_BYTE_SIZE];
+        for (i, limb) in limbs.iter_mut().enumerate() {
+            let start = i * FR_LIMB_BYTE_SIZE;
+            *limb = u64::from_be_bytes(buf[start..start + FR_LIMB_BYTE_SIZE].try_into().unwrap());
+        }
+        limbs.reverse();
+        let bigint = ark_ff::BigInt(limbs);
+        if bigint >= Fr::MODULUS {
+            return Err(UtilsError::NonCanonicalFieldElement);
+        }
+        let mut fr = Fr::from(bigint);
+        Ok(IdSecret::from(&mut fr))
+    }
+}
+
 #[inline(always)]
 pub fn write_fr_be<W: Write>(writer: &mut W, fr: &Fr) -> std::io::Result<()> {
     let bigint = fr.into_bigint();
@@ -593,8 +609,17 @@ pub fn write_fr_be<W: Write>(writer: &mut W, fr: &Fr) -> std::io::Result<()> {
 pub fn read_fr_be<R: Read>(reader: &mut R) -> Result<Fr, UtilsError> {
     let mut buf = [0u8; FR_BYTE_SIZE];
     reader.read_exact(&mut buf)?;
-    let (fr, _) = bytes_be_to_fr(&buf)?;
-    Ok(fr)
+    let mut limbs = [0u64; FR_BYTE_SIZE / FR_LIMB_BYTE_SIZE];
+    for (i, limb) in limbs.iter_mut().enumerate() {
+        let start = i * FR_LIMB_BYTE_SIZE;
+        *limb = u64::from_be_bytes(buf[start..start + FR_LIMB_BYTE_SIZE].try_into().unwrap());
+    }
+    limbs.reverse();
+    let bigint = ark_ff::BigInt(limbs);
+    if bigint >= Fr::MODULUS {
+        return Err(UtilsError::NonCanonicalFieldElement);
+    }
+    Ok(Fr::from(bigint))
 }
 
 #[inline(always)]
