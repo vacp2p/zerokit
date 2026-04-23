@@ -49,6 +49,6 @@ pub use crate::{
         bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, bytes_le_to_vec_usize,
         fr_to_bytes_be, fr_to_bytes_le, normalize_usize_be, normalize_usize_le, str_to_fr,
         to_bigint, vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le,
-        IdSecret, FQ_BYTE_SIZE, FR_BYTE_SIZE,
+        IdSecret, FR_BYTE_SIZE,
     },
 };

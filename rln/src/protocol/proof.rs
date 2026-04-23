@@ -37,8 +37,9 @@ use crate::{
     error::ProtocolError,
     utils::{
         bytes_be_to_fr, bytes_be_to_vec_bool, bytes_be_to_vec_fr, bytes_le_to_fr,
-        bytes_le_to_vec_bool, bytes_le_to_vec_fr, fr_to_bytes_be, fr_to_bytes_le,
-        vec_bool_to_bytes_be, vec_bool_to_bytes_le, vec_fr_to_bytes_be, vec_fr_to_bytes_le,
+        bytes_le_to_vec_bool, bytes_le_to_vec_fr, fr_to_bytes_be, fr_to_bytes_le, read_fr_be,
+        read_vec_bool_be, read_vec_fr_be, vec_bool_to_bytes_be, vec_bool_to_bytes_le,
+        vec_fr_to_bytes_be, vec_fr_to_bytes_le, write_fr_be, write_vec_bool_be, write_vec_fr_be,
         FR_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
     },
 };
@@ -1063,11 +1064,11 @@ impl CanonicalSerializeBE for RLNProofValuesSingle {
     type Error = ProtocolError;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        writer.write_all(&fr_to_bytes_be(&self.root))?;
-        writer.write_all(&fr_to_bytes_be(&self.x))?;
-        writer.write_all(&fr_to_bytes_be(&self.external_nullifier))?;
-        writer.write_all(&fr_to_bytes_be(&self.y))?;
-        writer.write_all(&fr_to_bytes_be(&self.nullifier))?;
+        write_fr_be(&mut writer, &self.root)?;
+        write_fr_be(&mut writer, &self.x)?;
+        write_fr_be(&mut writer, &self.external_nullifier)?;
+        write_fr_be(&mut writer, &self.y)?;
+        write_fr_be(&mut writer, &self.nullifier)?;
         Ok(())
     }
 
@@ -1084,17 +1085,11 @@ impl CanonicalDeserializeBE for RLNProofValuesSingle {
     type Error = ProtocolError;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
-        let mut buf = [0u8; FR_BYTE_SIZE];
-        reader.read_exact(&mut buf)?;
-        let (root, _) = bytes_be_to_fr(&buf)?;
-        reader.read_exact(&mut buf)?;
-        let (x, _) = bytes_be_to_fr(&buf)?;
-        reader.read_exact(&mut buf)?;
-        let (external_nullifier, _) = bytes_be_to_fr(&buf)?;
-        reader.read_exact(&mut buf)?;
-        let (y, _) = bytes_be_to_fr(&buf)?;
-        reader.read_exact(&mut buf)?;
-        let (nullifier, _) = bytes_be_to_fr(&buf)?;
+        let root = read_fr_be(&mut reader)?;
+        let x = read_fr_be(&mut reader)?;
+        let external_nullifier = read_fr_be(&mut reader)?;
+        let y = read_fr_be(&mut reader)?;
+        let nullifier = read_fr_be(&mut reader)?;
         Ok(Self {
             root,
             x,
@@ -1143,12 +1138,12 @@ impl CanonicalSerializeBE for RLNProofValuesMulti {
     type Error = ProtocolError;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        writer.write_all(&fr_to_bytes_be(&self.root))?;
-        writer.write_all(&fr_to_bytes_be(&self.x))?;
-        writer.write_all(&fr_to_bytes_be(&self.external_nullifier))?;
-        writer.write_all(&vec_fr_to_bytes_be(&self.ys))?;
-        writer.write_all(&vec_fr_to_bytes_be(&self.nullifiers))?;
-        writer.write_all(&vec_bool_to_bytes_be(&self.selector_used))?;
+        write_fr_be(&mut writer, &self.root)?;
+        write_fr_be(&mut writer, &self.x)?;
+        write_fr_be(&mut writer, &self.external_nullifier)?;
+        write_vec_fr_be(&mut writer, &self.ys)?;
+        write_vec_fr_be(&mut writer, &self.nullifiers)?;
+        write_vec_bool_be(&mut writer, &self.selector_used)?;
         Ok(())
     }
 
@@ -1166,26 +1161,12 @@ impl CanonicalDeserializeBE for RLNProofValuesMulti {
     type Error = ProtocolError;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes)?;
-        let mut read = 0;
-
-        let (root, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (x, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (ys, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
-        read += el_size;
-        let (nullifiers, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
-        read += el_size;
-        let (selector_used, el_size) = bytes_be_to_vec_bool(&bytes[read..])?;
-        read += el_size;
-
-        if read != bytes.len() {
-            return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-        }
+        let root = read_fr_be(&mut reader)?;
+        let x = read_fr_be(&mut reader)?;
+        let external_nullifier = read_fr_be(&mut reader)?;
+        let ys = read_vec_fr_be(&mut reader)?;
+        let nullifiers = read_vec_fr_be(&mut reader)?;
+        let selector_used = read_vec_bool_be(&mut reader)?;
         Ok(Self {
             root,
             x,

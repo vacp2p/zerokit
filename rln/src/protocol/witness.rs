@@ -24,9 +24,10 @@ use crate::{
     utils::{
         bytes_be_to_fr, bytes_be_to_vec_bool, bytes_be_to_vec_fr, bytes_be_to_vec_u8,
         bytes_le_to_fr, bytes_le_to_vec_bool, bytes_le_to_vec_fr, bytes_le_to_vec_u8,
-        fr_to_bytes_be, fr_to_bytes_le, to_bigint, vec_bool_to_bytes_be, vec_bool_to_bytes_le,
-        vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, IdSecret,
-        FR_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
+        fr_to_bytes_be, fr_to_bytes_le, read_fr_be, read_vec_bool_be, read_vec_fr_be,
+        read_vec_u8_be, to_bigint, vec_bool_to_bytes_be, vec_bool_to_bytes_le, vec_fr_to_bytes_be,
+        vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, write_fr_be, write_vec_bool_be,
+        write_vec_fr_be, write_vec_u8_be, IdSecret, FR_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
     },
 };
 
@@ -1067,13 +1068,13 @@ impl CanonicalSerializeBE for RLNWitnessInputSingle {
     type Error = ProtocolError;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        writer.write_all(&self.identity_secret.to_bytes_be())?;
-        writer.write_all(&fr_to_bytes_be(&self.user_message_limit))?;
-        writer.write_all(&vec_fr_to_bytes_be(&self.path_elements))?;
-        writer.write_all(&vec_u8_to_bytes_be(&self.identity_path_index))?;
-        writer.write_all(&fr_to_bytes_be(&self.x))?;
-        writer.write_all(&fr_to_bytes_be(&self.external_nullifier))?;
-        writer.write_all(&fr_to_bytes_be(&self.message_id))?;
+        self.identity_secret.write_be(&mut writer)?;
+        write_fr_be(&mut writer, &self.user_message_limit)?;
+        write_vec_fr_be(&mut writer, &self.path_elements)?;
+        write_vec_u8_be(&mut writer, &self.identity_path_index)?;
+        write_fr_be(&mut writer, &self.x)?;
+        write_fr_be(&mut writer, &self.external_nullifier)?;
+        write_fr_be(&mut writer, &self.message_id)?;
         Ok(())
     }
 
@@ -1092,28 +1093,13 @@ impl CanonicalDeserializeBE for RLNWitnessInputSingle {
     type Error = ProtocolError;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes)?;
-        let mut read = 0;
-
-        let (identity_secret, el_size) = IdSecret::from_bytes_be(&bytes[read..])?;
-        read += el_size;
-        let (user_message_limit, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (path_elements, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
-        read += el_size;
-        let (identity_path_index, el_size) = bytes_be_to_vec_u8(&bytes[read..])?;
-        read += el_size;
-        let (x, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (message_id, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-
-        if read != bytes.len() {
-            return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-        }
+        let identity_secret = IdSecret::read_be(&mut reader)?;
+        let user_message_limit = read_fr_be(&mut reader)?;
+        let path_elements = read_vec_fr_be(&mut reader)?;
+        let identity_path_index = read_vec_u8_be(&mut reader)?;
+        let x = read_fr_be(&mut reader)?;
+        let external_nullifier = read_fr_be(&mut reader)?;
+        let message_id = read_fr_be(&mut reader)?;
         Ok(Self {
             identity_secret,
             user_message_limit,
@@ -1164,14 +1150,14 @@ impl CanonicalSerializeBE for RLNWitnessInputMulti {
     type Error = ProtocolError;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        writer.write_all(&self.identity_secret.to_bytes_be())?;
-        writer.write_all(&fr_to_bytes_be(&self.user_message_limit))?;
-        writer.write_all(&vec_fr_to_bytes_be(&self.path_elements))?;
-        writer.write_all(&vec_u8_to_bytes_be(&self.identity_path_index))?;
-        writer.write_all(&fr_to_bytes_be(&self.x))?;
-        writer.write_all(&fr_to_bytes_be(&self.external_nullifier))?;
-        writer.write_all(&vec_fr_to_bytes_be(&self.message_ids))?;
-        writer.write_all(&vec_bool_to_bytes_be(&self.selector_used))?;
+        self.identity_secret.write_be(&mut writer)?;
+        write_fr_be(&mut writer, &self.user_message_limit)?;
+        write_vec_fr_be(&mut writer, &self.path_elements)?;
+        write_vec_u8_be(&mut writer, &self.identity_path_index)?;
+        write_fr_be(&mut writer, &self.x)?;
+        write_fr_be(&mut writer, &self.external_nullifier)?;
+        write_vec_fr_be(&mut writer, &self.message_ids)?;
+        write_vec_bool_be(&mut writer, &self.selector_used)?;
         Ok(())
     }
 
@@ -1191,30 +1177,14 @@ impl CanonicalDeserializeBE for RLNWitnessInputMulti {
     type Error = ProtocolError;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes)?;
-        let mut read = 0;
-
-        let (identity_secret, el_size) = IdSecret::from_bytes_be(&bytes[read..])?;
-        read += el_size;
-        let (user_message_limit, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (path_elements, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
-        read += el_size;
-        let (identity_path_index, el_size) = bytes_be_to_vec_u8(&bytes[read..])?;
-        read += el_size;
-        let (x, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (message_ids, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
-        read += el_size;
-        let (selector_used, el_size) = bytes_be_to_vec_bool(&bytes[read..])?;
-        read += el_size;
-
-        if read != bytes.len() {
-            return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-        }
+        let identity_secret = IdSecret::read_be(&mut reader)?;
+        let user_message_limit = read_fr_be(&mut reader)?;
+        let path_elements = read_vec_fr_be(&mut reader)?;
+        let identity_path_index = read_vec_u8_be(&mut reader)?;
+        let x = read_fr_be(&mut reader)?;
+        let external_nullifier = read_fr_be(&mut reader)?;
+        let message_ids = read_vec_fr_be(&mut reader)?;
+        let selector_used = read_vec_bool_be(&mut reader)?;
         Ok(Self {
             identity_secret,
             user_message_limit,
@@ -1265,10 +1235,10 @@ impl CanonicalSerializeBE for RLNPartialWitnessInputV3 {
     type Error = ProtocolError;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        writer.write_all(&self.identity_secret.to_bytes_be())?;
-        writer.write_all(&fr_to_bytes_be(&self.user_message_limit))?;
-        writer.write_all(&vec_fr_to_bytes_be(&self.path_elements))?;
-        writer.write_all(&vec_u8_to_bytes_be(&self.identity_path_index))?;
+        self.identity_secret.write_be(&mut writer)?;
+        write_fr_be(&mut writer, &self.user_message_limit)?;
+        write_vec_fr_be(&mut writer, &self.path_elements)?;
+        write_vec_u8_be(&mut writer, &self.identity_path_index)?;
         Ok(())
     }
 
@@ -1284,22 +1254,10 @@ impl CanonicalDeserializeBE for RLNPartialWitnessInputV3 {
     type Error = ProtocolError;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes)?;
-        let mut read = 0;
-
-        let (identity_secret, el_size) = IdSecret::from_bytes_be(&bytes[read..])?;
-        read += el_size;
-        let (user_message_limit, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (path_elements, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
-        read += el_size;
-        let (identity_path_index, el_size) = bytes_be_to_vec_u8(&bytes[read..])?;
-        read += el_size;
-
-        if read != bytes.len() {
-            return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-        }
+        let identity_secret = IdSecret::read_be(&mut reader)?;
+        let user_message_limit = read_fr_be(&mut reader)?;
+        let path_elements = read_vec_fr_be(&mut reader)?;
+        let identity_path_index = read_vec_u8_be(&mut reader)?;
         Ok(Self {
             identity_secret,
             user_message_limit,

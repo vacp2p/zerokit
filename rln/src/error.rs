@@ -16,6 +16,8 @@ use crate::{
 /// Errors that can occur during RLN utility operations (conversions, parsing, etc.)
 #[derive(Debug, thiserror::Error)]
 pub enum UtilsError {
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
     #[error("Expected radix 10 or 16")]
     WrongRadix,
     #[error("Failed to parse big integer: {0}")]

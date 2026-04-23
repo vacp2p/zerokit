@@ -1,6 +1,9 @@
 // This crate provides cross-module useful utilities (mainly type conversions) not necessarily specific to RLN
 
-use std::ops::Deref;
+use std::{
+    io::{Read, Write},
+    ops::Deref,
+};
 
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -12,25 +15,12 @@ use rand::Rng;
 use ruint::aliases::U256;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-use crate::{
-    circuit::{Fq, Fr},
-    error::UtilsError,
-};
+use crate::{circuit::Fr, error::UtilsError};
 
 /// Byte size of a scalar field element aligned to 64-bit boundary, computed once at compile time.
 pub const FR_BYTE_SIZE: usize = {
     // Get the modulus bit size of the scalar field
     let modulus_bits: u32 = Fr::MODULUS_BIT_SIZE;
-    // Alignment boundary in bits for field element serialization
-    let alignment_bits: u32 = 64;
-    // Align to the next multiple of alignment_bits and convert to bytes
-    ((modulus_bits + alignment_bits - (modulus_bits % alignment_bits)) / 8) as usize
-};
-
-/// Byte size of a base field element aligned to 64-bit boundary, computed once at compile time.
-pub const FQ_BYTE_SIZE: usize = {
-    // Get the modulus bit size of the base field
-    let modulus_bits: u32 = Fq::MODULUS_BIT_SIZE;
     // Alignment boundary in bits for field element serialization
     let alignment_bits: u32 = 64;
     // Align to the next multiple of alignment_bits and convert to bytes
@@ -507,6 +497,24 @@ impl IdSecret {
         Zeroizing::new(res)
     }
 
+    pub fn write_be<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        let mut bigint = self.0.into_bigint();
+        let mut buf = Zeroizing::new([0u8; FR_BYTE_SIZE]);
+        for (i, &limb) in bigint.0.iter().rev().enumerate() {
+            buf[i * 8..(i + 1) * 8].copy_from_slice(&limb.to_be_bytes());
+        }
+        let result = writer.write_all(buf.as_ref());
+        bigint.0.zeroize();
+        result
+    }
+
+    pub fn read_be<R: Read>(reader: &mut R) -> Result<Self, UtilsError> {
+        let mut buf = Zeroizing::new([0u8; FR_BYTE_SIZE]);
+        reader.read_exact(buf.as_mut())?;
+        let mut fr = biguint_to_fr(BigUint::from_bytes_be(buf.as_ref()))?;
+        Ok(IdSecret::from(&mut fr))
+    }
+
     pub fn to_bytes_be(&self) -> Zeroizing<Vec<u8>> {
         let input_biguint: BigUint = self.0.into();
         let mut res = input_biguint.to_bytes_be();
@@ -572,34 +580,75 @@ impl From<IdSecret> for FrOrSecret {
 }
 
 #[inline(always)]
-fn biguint_to_fq(val: BigUint) -> Result<Fq, UtilsError> {
-    let bigint = <Fq as PrimeField>::BigInt::try_from(val)
-        .map_err(|_| UtilsError::NonCanonicalFieldElement)?;
-    Fq::from_bigint(bigint).ok_or(UtilsError::NonCanonicalFieldElement)
+pub fn write_fr_be<W: Write>(writer: &mut W, fr: &Fr) -> std::io::Result<()> {
+    let bigint = fr.into_bigint();
+    let mut buf = [0u8; FR_BYTE_SIZE];
+    for (i, &limb) in bigint.0.iter().rev().enumerate() {
+        buf[i * 8..(i + 1) * 8].copy_from_slice(&limb.to_be_bytes());
+    }
+    writer.write_all(&buf)
 }
 
 #[inline(always)]
-pub fn fq_to_bytes_be(input: &Fq) -> Vec<u8> {
-    let input_biguint: BigUint = (*input).into();
-    let mut res = input_biguint.to_bytes_be();
-    // For BE, insert 0 at the start of the Vec
-    let to_insert_count = FQ_BYTE_SIZE.saturating_sub(res.len());
-    if to_insert_count > 0 {
-        // Insert multi 0 at index 0
-        res.splice(0..0, std::iter::repeat_n(0, to_insert_count));
-    }
-    res
+pub fn read_fr_be<R: Read>(reader: &mut R) -> Result<Fr, UtilsError> {
+    let mut buf = [0u8; FR_BYTE_SIZE];
+    reader.read_exact(&mut buf)?;
+    let (fr, _) = bytes_be_to_fr(&buf)?;
+    Ok(fr)
 }
 
 #[inline(always)]
-pub fn bytes_be_to_fq(input: &[u8]) -> Result<(Fq, usize), UtilsError> {
-    let el_size = FQ_BYTE_SIZE;
-    if input.len() < el_size {
-        return Err(UtilsError::InsufficientData {
-            expected: el_size,
-            actual: input.len(),
-        });
+pub fn write_vec_fr_be<W: Write>(writer: &mut W, frs: &[Fr]) -> std::io::Result<()> {
+    writer.write_all(&normalize_usize_be(frs.len()))?;
+    for fr in frs {
+        write_fr_be(writer, fr)?;
     }
-    let fq = biguint_to_fq(BigUint::from_bytes_be(&input[0..el_size]))?;
-    Ok((fq, el_size))
+    Ok(())
+}
+
+#[inline(always)]
+pub fn read_vec_fr_be<R: Read>(reader: &mut R) -> Result<Vec<Fr>, UtilsError> {
+    let mut len_buf = [0u8; VEC_LEN_BYTE_SIZE];
+    reader.read_exact(&mut len_buf)?;
+    let count = usize::try_from(u64::from_be_bytes(len_buf))?;
+    let mut result = Vec::with_capacity(count);
+    for _ in 0..count {
+        result.push(read_fr_be(reader)?);
+    }
+    Ok(result)
+}
+
+#[inline(always)]
+pub fn write_vec_u8_be<W: Write>(writer: &mut W, v: &[u8]) -> std::io::Result<()> {
+    writer.write_all(&normalize_usize_be(v.len()))?;
+    writer.write_all(v)
+}
+
+#[inline(always)]
+pub fn read_vec_u8_be<R: Read>(reader: &mut R) -> Result<Vec<u8>, UtilsError> {
+    let mut len_buf = [0u8; VEC_LEN_BYTE_SIZE];
+    reader.read_exact(&mut len_buf)?;
+    let count = usize::try_from(u64::from_be_bytes(len_buf))?;
+    let mut result = vec![0u8; count];
+    reader.read_exact(&mut result)?;
+    Ok(result)
+}
+
+#[inline(always)]
+pub fn write_vec_bool_be<W: Write>(writer: &mut W, v: &[bool]) -> std::io::Result<()> {
+    writer.write_all(&normalize_usize_be(v.len()))?;
+    for &b in v {
+        writer.write_all(&[b as u8])?;
+    }
+    Ok(())
+}
+
+#[inline(always)]
+pub fn read_vec_bool_be<R: Read>(reader: &mut R) -> Result<Vec<bool>, UtilsError> {
+    let mut len_buf = [0u8; VEC_LEN_BYTE_SIZE];
+    reader.read_exact(&mut len_buf)?;
+    let count = usize::try_from(u64::from_be_bytes(len_buf))?;
+    let mut raw = vec![0u8; count];
+    reader.read_exact(&mut raw)?;
+    Ok(raw.into_iter().map(|b| b != 0).collect())
 }
