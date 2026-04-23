@@ -2,7 +2,7 @@
 mod test {
     use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
     use rln::{
-        circuit::{Fr, PartialProof, Proof, COMPRESS_PROOF_SIZE, DEFAULT_TREE_DEPTH},
+        circuit::{Fr, PartialProof, Proof, DEFAULT_TREE_DEPTH},
         prelude::{
             generate_partial_zk_proof, generate_zk_proof, keygen, CanonicalDeserializeBE,
             CanonicalSerializeBE, RLNPartialWitnessInput, RLNPartialWitnessInputV3,
@@ -124,21 +124,6 @@ mod test {
 
     #[test]
     #[cfg(not(target_arch = "wasm32"))]
-    fn test_proof_be_roundtrip() {
-        let proof = make_proof();
-        let mut buf = Vec::new();
-        CanonicalSerializeBE::serialize(&proof, &mut buf).unwrap();
-        assert_eq!(buf.len(), COMPRESS_PROOF_SIZE);
-        let deser = Proof::deserialize(buf.as_slice()).unwrap();
-        assert_eq!(proof, deser);
-        assert_eq!(
-            CanonicalSerializeBE::serialized_size(&proof),
-            COMPRESS_PROOF_SIZE
-        );
-    }
-
-    #[test]
-    #[cfg(not(target_arch = "wasm32"))]
     fn test_partial_proof_le_compressed_roundtrip() {
         let partial = make_partial_proof();
         let mut buf = Vec::new();
@@ -146,17 +131,6 @@ mod test {
         let deser = PartialProof::deserialize_compressed(buf.as_slice()).unwrap();
         assert_eq!(partial, deser);
         assert_eq!(partial.compressed_size(), buf.len());
-    }
-
-    #[test]
-    #[cfg(not(target_arch = "wasm32"))]
-    fn test_partial_proof_be_roundtrip() {
-        let partial = make_partial_proof();
-        let mut buf = Vec::new();
-        CanonicalSerializeBE::serialize(&partial, &mut buf).unwrap();
-        let deser = CanonicalDeserializeBE::deserialize(buf.as_slice()).unwrap();
-        assert_eq!(partial, deser);
-        assert_eq!(CanonicalSerializeBE::serialized_size(&partial), buf.len());
     }
 
     #[test]

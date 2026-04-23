@@ -4,7 +4,6 @@ pub(crate) mod error;
 pub(crate) mod iden3calc;
 pub(crate) mod qap;
 
-use std::io::{Read, Write};
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::LazyLock;
 
@@ -17,7 +16,7 @@ use ark_groth16::{
     Proof as ArkProof, ProvingKey as ArkProvingKey, VerifyingKey as ArkVerifyingKey,
 };
 use ark_relations::r1cs::ConstraintMatrices;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 #[cfg(not(target_arch = "wasm32"))]
 use self::error::GraphReadError;
@@ -26,11 +25,7 @@ use self::error::ZKeyReadError;
 use crate::circuit::iden3calc::{
     graph::Node, storage::deserialize_witnesscalc_graph, InputSignalsInfo,
 };
-use crate::{
-    error::ProtocolError,
-    partial_proof::PartialProof as ArkPartialProof,
-    prelude::{CanonicalDeserializeBE, CanonicalSerializeBE},
-};
+use crate::partial_proof::PartialProof as ArkPartialProof;
 
 #[cfg(not(target_arch = "wasm32"))]
 const GRAPH_BYTES_SINGLE_V1: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
@@ -109,53 +104,8 @@ pub type G2Projective = ArkG2Projective;
 /// Groth16 proof for the BN254 curve.
 pub type Proof = ArkProof<Curve>;
 
-impl CanonicalSerializeBE for Proof {
-    type Error = ProtocolError;
-
-    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        self.serialize_with_mode(&mut writer, Compress::Yes)?;
-        Ok(())
-    }
-
-    fn serialized_size(&self) -> usize {
-        CanonicalSerialize::compressed_size(self)
-    }
-}
-
-impl CanonicalDeserializeBE for Proof {
-    type Error = ProtocolError;
-
-    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
-        let proof = Proof::deserialize_with_mode(&mut reader, Compress::Yes, Validate::Yes)?;
-        Ok(proof)
-    }
-}
-
 /// Partial Groth16 proof for the BN254 curve.
 pub type PartialProof = ArkPartialProof<Curve>;
-
-impl CanonicalSerializeBE for PartialProof {
-    type Error = ProtocolError;
-
-    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        self.serialize_with_mode(&mut writer, Compress::Yes)?;
-        Ok(())
-    }
-
-    fn serialized_size(&self) -> usize {
-        CanonicalSerialize::compressed_size(self)
-    }
-}
-
-impl CanonicalDeserializeBE for PartialProof {
-    type Error = ProtocolError;
-
-    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
-        let partial =
-            PartialProof::deserialize_with_mode(&mut reader, Compress::Yes, Validate::Yes)?;
-        Ok(partial)
-    }
-}
 
 /// Proving key for the Groth16 proof system.
 pub type ProvingKey = ArkProvingKey<Curve>;

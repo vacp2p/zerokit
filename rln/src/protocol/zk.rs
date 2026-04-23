@@ -23,10 +23,7 @@ pub trait RLNZkProof {
         + CanonicalDeserialize
         + CanonicalSerializeBE
         + CanonicalDeserializeBE;
-    type Proof: CanonicalSerialize
-        + CanonicalDeserialize
-        + CanonicalSerializeBE
-        + CanonicalDeserializeBE;
+    type Proof: CanonicalSerialize + CanonicalDeserialize;
     type Error;
 
     fn generate_proof(
@@ -48,10 +45,7 @@ pub trait RLNPartialZkProof: RLNZkProof {
         + CanonicalDeserialize
         + CanonicalSerializeBE
         + CanonicalDeserializeBE;
-    type PartialProof: CanonicalSerialize
-        + CanonicalDeserialize
-        + CanonicalSerializeBE
-        + CanonicalDeserializeBE;
+    type PartialProof: CanonicalSerialize + CanonicalDeserialize;
 
     fn generate_partial_proof(
         &self,
