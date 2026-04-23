@@ -1078,9 +1078,13 @@ impl CanonicalSerializeBE for RLNWitnessInputSingle {
     }
 
     fn serialized_size(&self) -> usize {
-        FR_BYTE_SIZE * (5 + self.path_elements.len())
-            + self.identity_path_index.len()
-            + VEC_LEN_BYTE_SIZE * 2
+        FR_BYTE_SIZE // identity_secret
+            + FR_BYTE_SIZE // user_message_limit
+            + VEC_LEN_BYTE_SIZE + FR_BYTE_SIZE * self.path_elements.len() // path_elements
+            + VEC_LEN_BYTE_SIZE + self.identity_path_index.len() // identity_path_index
+            + FR_BYTE_SIZE // x
+            + FR_BYTE_SIZE // external_nullifier
+            + FR_BYTE_SIZE // message_id
     }
 }
 
@@ -1172,10 +1176,14 @@ impl CanonicalSerializeBE for RLNWitnessInputMulti {
     }
 
     fn serialized_size(&self) -> usize {
-        FR_BYTE_SIZE * (4 + self.path_elements.len() + self.message_ids.len())
-            + self.identity_path_index.len()
-            + self.selector_used.len()
-            + VEC_LEN_BYTE_SIZE * 4
+        FR_BYTE_SIZE // identity_secret
+            + FR_BYTE_SIZE // user_message_limit
+            + VEC_LEN_BYTE_SIZE + FR_BYTE_SIZE * self.path_elements.len() // path_elements
+            + VEC_LEN_BYTE_SIZE + self.identity_path_index.len() // identity_path_index
+            + FR_BYTE_SIZE // x
+            + FR_BYTE_SIZE // external_nullifier
+            + VEC_LEN_BYTE_SIZE + FR_BYTE_SIZE * self.message_ids.len() // message_ids
+            + VEC_LEN_BYTE_SIZE + self.selector_used.len() // selector_used
     }
 }
 
@@ -1265,11 +1273,10 @@ impl CanonicalSerializeBE for RLNPartialWitnessInputV3 {
     }
 
     fn serialized_size(&self) -> usize {
-        FR_BYTE_SIZE * 2
-            + VEC_LEN_BYTE_SIZE
-            + FR_BYTE_SIZE * self.path_elements.len()
-            + VEC_LEN_BYTE_SIZE
-            + self.identity_path_index.len()
+        FR_BYTE_SIZE // identity_secret
+            + FR_BYTE_SIZE // user_message_limit
+            + VEC_LEN_BYTE_SIZE + FR_BYTE_SIZE * self.path_elements.len() // path_elements
+            + VEC_LEN_BYTE_SIZE + self.identity_path_index.len() // identity_path_index
     }
 }
 

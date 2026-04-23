@@ -131,7 +131,7 @@ impl CanonicalSerializeBE for Proof {
     }
 
     fn serialized_size(&self) -> usize {
-        UNCOMPRESSED_PROOF_SIZE
+        UNCOMPRESSED_PROOF_SIZE // 8 * FQ_BYTE_SIZE: a(x,y), b(x.c1,x.c0,y.c1,y.c0), c(x,y)
     }
 }
 
@@ -208,7 +208,11 @@ impl CanonicalSerializeBE for PartialProof {
     }
 
     fn serialized_size(&self) -> usize {
-        VEC_LEN_BYTE_SIZE + self.mask.len() + FQ_BYTE_SIZE * 10
+        VEC_LEN_BYTE_SIZE + self.mask.len() // mask
+            + FQ_BYTE_SIZE * 2 // partial_pi_a (G1: x, y)
+            + FQ_BYTE_SIZE * 2 // partial_rho  (G1: x, y)
+            + FQ_BYTE_SIZE * 4 // partial_pi_b (G2: x.c1, x.c0, y.c1, y.c0)
+            + FQ_BYTE_SIZE * 2 // partial_pi_c (G1: x, y)
     }
 }
 

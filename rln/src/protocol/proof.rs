@@ -1072,7 +1072,11 @@ impl CanonicalSerializeBE for RLNProofValuesSingle {
     }
 
     fn serialized_size(&self) -> usize {
-        FR_BYTE_SIZE * 5
+        FR_BYTE_SIZE // root
+            + FR_BYTE_SIZE // x
+            + FR_BYTE_SIZE // external_nullifier
+            + FR_BYTE_SIZE // y
+            + FR_BYTE_SIZE // nullifier
     }
 }
 
@@ -1149,9 +1153,12 @@ impl CanonicalSerializeBE for RLNProofValuesMulti {
     }
 
     fn serialized_size(&self) -> usize {
-        FR_BYTE_SIZE * (3 + self.ys.len() + self.nullifiers.len())
-            + self.selector_used.len()
-            + VEC_LEN_BYTE_SIZE * 3
+        FR_BYTE_SIZE // root
+            + FR_BYTE_SIZE // x
+            + FR_BYTE_SIZE // external_nullifier
+            + VEC_LEN_BYTE_SIZE + FR_BYTE_SIZE * self.ys.len() // ys
+            + VEC_LEN_BYTE_SIZE + FR_BYTE_SIZE * self.nullifiers.len() // nullifiers
+            + VEC_LEN_BYTE_SIZE + self.selector_used.len() // selector_used
     }
 }
 
