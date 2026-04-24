@@ -583,7 +583,7 @@ impl IdSecret {
         let mut limbs = [0u64; FR_BYTE_SIZE / FR_LIMB_BYTE_SIZE];
         for (i, limb) in limbs.iter_mut().enumerate() {
             let start = i * FR_LIMB_BYTE_SIZE;
-            *limb = u64::from_be_bytes(buf[start..start + FR_LIMB_BYTE_SIZE].try_into().unwrap());
+            *limb = u64::from_be_bytes(buf[start..start + FR_LIMB_BYTE_SIZE].try_into()?);
         }
         limbs.reverse();
         let bigint = ark_ff::BigInt(limbs);
@@ -600,7 +600,8 @@ pub fn write_fr_be<W: Write>(writer: &mut W, fr: &Fr) -> std::io::Result<()> {
     let bigint = fr.into_bigint();
     let mut buf = [0u8; FR_BYTE_SIZE];
     for (i, &limb) in bigint.0.iter().rev().enumerate() {
-        buf[i * FR_LIMB_BYTE_SIZE..(i + 1) * FR_LIMB_BYTE_SIZE].copy_from_slice(&limb.to_be_bytes());
+        buf[i * FR_LIMB_BYTE_SIZE..(i + 1) * FR_LIMB_BYTE_SIZE]
+            .copy_from_slice(&limb.to_be_bytes());
     }
     writer.write_all(&buf)
 }
@@ -612,7 +613,7 @@ pub fn read_fr_be<R: Read>(reader: &mut R) -> Result<Fr, UtilsError> {
     let mut limbs = [0u64; FR_BYTE_SIZE / FR_LIMB_BYTE_SIZE];
     for (i, limb) in limbs.iter_mut().enumerate() {
         let start = i * FR_LIMB_BYTE_SIZE;
-        *limb = u64::from_be_bytes(buf[start..start + FR_LIMB_BYTE_SIZE].try_into().unwrap());
+        *limb = u64::from_be_bytes(buf[start..start + FR_LIMB_BYTE_SIZE].try_into()?);
     }
     limbs.reverse();
     let bigint = ark_ff::BigInt(limbs);
