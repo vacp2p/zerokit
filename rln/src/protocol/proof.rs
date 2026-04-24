@@ -1,10 +1,6 @@
-use std::io::{Read, Write};
-
 use ark_ff::PrimeField;
 use ark_groth16::{prepare_verifying_key, Groth16};
-use ark_serialize::{
-    CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
-};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::thread_rng, UniformRand};
 use num_bigint::BigInt;
 use num_traits::Signed;
@@ -16,10 +12,9 @@ use super::witness::{
 };
 use super::{
     mode::{MessageMode, VERSION_BYTE_SIZE},
-    serialize::{CanonicalDeserializeBE, CanonicalSerializeBE},
     witness::RLNWitnessInputV3,
     zk::RecoverSecret,
-    ENUM_TAG_MULTI, ENUM_TAG_SINGLE, ENUM_TAG_SIZE,
+    FR_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
@@ -37,10 +32,8 @@ use crate::{
     error::ProtocolError,
     utils::{
         bytes_be_to_fr, bytes_be_to_vec_bool, bytes_be_to_vec_fr, bytes_le_to_fr,
-        bytes_le_to_vec_bool, bytes_le_to_vec_fr, fr_to_bytes_be, fr_to_bytes_le, read_fr_be,
-        read_vec_bool_be, read_vec_fr_be, vec_bool_to_bytes_be, vec_bool_to_bytes_le,
-        vec_fr_to_bytes_be, vec_fr_to_bytes_le, write_fr_be, write_vec_bool_be, write_vec_fr_be,
-        FR_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
+        bytes_le_to_vec_bool, bytes_le_to_vec_fr, fr_to_bytes_be, fr_to_bytes_le,
+        vec_bool_to_bytes_be, vec_bool_to_bytes_le, vec_fr_to_bytes_be, vec_fr_to_bytes_le,
     },
 };
 
@@ -923,110 +916,6 @@ impl RecoverSecret for RLNProofValuesV3 {
     }
 }
 
-impl Valid for RLNProofValuesV3 {
-    fn check(&self) -> Result<(), SerializationError> {
-        match self {
-            RLNProofValuesV3::Single(inner) => inner.check(),
-            RLNProofValuesV3::Multi(inner) => inner.check(),
-        }
-    }
-}
-
-impl CanonicalSerialize for RLNProofValuesV3 {
-    fn serialize_with_mode<W: Write>(
-        &self,
-        mut writer: W,
-        compress: Compress,
-    ) -> Result<(), SerializationError> {
-        match self {
-            RLNProofValuesV3::Single(inner) => {
-                ENUM_TAG_SINGLE.serialize_with_mode(&mut writer, compress)?;
-                inner.serialize_with_mode(&mut writer, compress)
-            }
-            RLNProofValuesV3::Multi(inner) => {
-                ENUM_TAG_MULTI.serialize_with_mode(&mut writer, compress)?;
-                inner.serialize_with_mode(&mut writer, compress)
-            }
-        }
-    }
-
-    fn serialized_size(&self, compress: Compress) -> usize {
-        ENUM_TAG_SIZE
-            + match self {
-                RLNProofValuesV3::Single(inner) => {
-                    CanonicalSerialize::serialized_size(inner, compress)
-                }
-                RLNProofValuesV3::Multi(inner) => {
-                    CanonicalSerialize::serialized_size(inner, compress)
-                }
-            }
-    }
-}
-
-impl CanonicalDeserialize for RLNProofValuesV3 {
-    fn deserialize_with_mode<R: Read>(
-        mut reader: R,
-        compress: Compress,
-        validate: Validate,
-    ) -> Result<Self, SerializationError> {
-        let tag = u8::deserialize_with_mode(&mut reader, compress, validate)?;
-        match tag {
-            ENUM_TAG_SINGLE => Ok(RLNProofValuesV3::Single(
-                RLNProofValuesSingle::deserialize_with_mode(reader, compress, validate)?,
-            )),
-            ENUM_TAG_MULTI => Ok(RLNProofValuesV3::Multi(
-                RLNProofValuesMulti::deserialize_with_mode(reader, compress, validate)?,
-            )),
-            _ => Err(SerializationError::InvalidData),
-        }
-    }
-}
-
-impl CanonicalSerializeBE for RLNProofValuesV3 {
-    type Error = ProtocolError;
-
-    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        match self {
-            RLNProofValuesV3::Single(inner) => {
-                writer.write_all(&[ENUM_TAG_SINGLE])?;
-                inner.serialize(&mut writer)
-            }
-            RLNProofValuesV3::Multi(inner) => {
-                writer.write_all(&[ENUM_TAG_MULTI])?;
-                inner.serialize(&mut writer)
-            }
-        }
-    }
-
-    fn serialized_size(&self) -> usize {
-        ENUM_TAG_SIZE
-            + match self {
-                RLNProofValuesV3::Single(inner) => CanonicalSerializeBE::serialized_size(inner),
-                RLNProofValuesV3::Multi(inner) => CanonicalSerializeBE::serialized_size(inner),
-            }
-    }
-}
-
-impl CanonicalDeserializeBE for RLNProofValuesV3 {
-    type Error = ProtocolError;
-
-    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
-        let mut tag = [0u8; ENUM_TAG_SIZE];
-        reader.read_exact(&mut tag)?;
-        match tag[0] {
-            ENUM_TAG_SINGLE => Ok(RLNProofValuesV3::Single(RLNProofValuesSingle::deserialize(
-                reader,
-            )?)),
-            ENUM_TAG_MULTI => Ok(RLNProofValuesV3::Multi(RLNProofValuesMulti::deserialize(
-                reader,
-            )?)),
-            _ => Err(ProtocolError::SerializationError(
-                SerializationError::InvalidData,
-            )),
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNProofValuesSingle {
     pub root: Fr,
@@ -1057,46 +946,6 @@ impl RecoverSecret<RLNProofValuesMulti> for RLNProofValuesSingle {
 
     fn recover_secret(&self, _other: &RLNProofValuesMulti) -> Result<Fr, Self::Error> {
         todo!()
-    }
-}
-
-impl CanonicalSerializeBE for RLNProofValuesSingle {
-    type Error = ProtocolError;
-
-    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        write_fr_be(&mut writer, &self.root)?;
-        write_fr_be(&mut writer, &self.x)?;
-        write_fr_be(&mut writer, &self.external_nullifier)?;
-        write_fr_be(&mut writer, &self.y)?;
-        write_fr_be(&mut writer, &self.nullifier)?;
-        Ok(())
-    }
-
-    fn serialized_size(&self) -> usize {
-        FR_BYTE_SIZE // root
-            + FR_BYTE_SIZE // x
-            + FR_BYTE_SIZE // external_nullifier
-            + FR_BYTE_SIZE // y
-            + FR_BYTE_SIZE // nullifier
-    }
-}
-
-impl CanonicalDeserializeBE for RLNProofValuesSingle {
-    type Error = ProtocolError;
-
-    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
-        let root = read_fr_be(&mut reader)?;
-        let x = read_fr_be(&mut reader)?;
-        let external_nullifier = read_fr_be(&mut reader)?;
-        let y = read_fr_be(&mut reader)?;
-        let nullifier = read_fr_be(&mut reader)?;
-        Ok(Self {
-            root,
-            x,
-            external_nullifier,
-            y,
-            nullifier,
-        })
     }
 }
 
@@ -1131,49 +980,5 @@ impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
 
     fn recover_secret(&self, _other: &RLNProofValuesSingle) -> Result<Fr, Self::Error> {
         todo!()
-    }
-}
-
-impl CanonicalSerializeBE for RLNProofValuesMulti {
-    type Error = ProtocolError;
-
-    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        write_fr_be(&mut writer, &self.root)?;
-        write_fr_be(&mut writer, &self.x)?;
-        write_fr_be(&mut writer, &self.external_nullifier)?;
-        write_vec_fr_be(&mut writer, &self.ys)?;
-        write_vec_fr_be(&mut writer, &self.nullifiers)?;
-        write_vec_bool_be(&mut writer, &self.selector_used)?;
-        Ok(())
-    }
-
-    fn serialized_size(&self) -> usize {
-        FR_BYTE_SIZE // root
-            + FR_BYTE_SIZE // x
-            + FR_BYTE_SIZE // external_nullifier
-            + VEC_LEN_BYTE_SIZE + FR_BYTE_SIZE * self.ys.len() // ys
-            + VEC_LEN_BYTE_SIZE + FR_BYTE_SIZE * self.nullifiers.len() // nullifiers
-            + VEC_LEN_BYTE_SIZE + self.selector_used.len() // selector_used
-    }
-}
-
-impl CanonicalDeserializeBE for RLNProofValuesMulti {
-    type Error = ProtocolError;
-
-    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
-        let root = read_fr_be(&mut reader)?;
-        let x = read_fr_be(&mut reader)?;
-        let external_nullifier = read_fr_be(&mut reader)?;
-        let ys = read_vec_fr_be(&mut reader)?;
-        let nullifiers = read_vec_fr_be(&mut reader)?;
-        let selector_used = read_vec_bool_be(&mut reader)?;
-        Ok(Self {
-            root,
-            x,
-            external_nullifier,
-            ys,
-            nullifiers,
-            selector_used,
-        })
     }
 }

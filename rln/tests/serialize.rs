@@ -1,17 +1,261 @@
 #[cfg(test)]
 mod test {
+    use ark_ff::{BigInteger, PrimeField};
     use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+    use ark_std::{rand::thread_rng, UniformRand};
+    use num_bigint::BigUint;
     use rln::{
         circuit::{Fr, PartialProof, Proof, DEFAULT_TREE_DEPTH},
+        error::UtilsError,
         prelude::{
             generate_partial_zk_proof, generate_zk_proof, keygen, CanonicalDeserializeBE,
             CanonicalSerializeBE, RLNPartialWitnessInput, RLNPartialWitnessInputV3,
             RLNProofValuesMulti, RLNProofValuesSingle, RLNProofValuesV3, RLNWitnessInput,
-            RLNWitnessInputMulti, RLNWitnessInputSingle, RLNWitnessInputV3,
+            RLNWitnessInputMulti, RLNWitnessInputSingle, RLNWitnessInputV3, FR_BYTE_SIZE,
         },
         protocol::{ENUM_TAG_MULTI, ENUM_TAG_SINGLE},
         utils::IdSecret,
     };
+
+    #[test]
+    fn test_fr_be_roundtrip() {
+        let mut rng = thread_rng();
+        for _ in 0..10 {
+            let fr = Fr::rand(&mut rng);
+            let mut buf = Vec::new();
+            fr.serialize(&mut buf).unwrap();
+            let deser = Fr::deserialize(buf.as_slice()).unwrap();
+            assert_eq!(fr, deser);
+            assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&fr));
+        }
+    }
+
+    #[test]
+    fn test_fr_be_byte_order() {
+        // BE: MSB at index 0 — Fr(1) should have last byte == 1, all others 0
+        let one = Fr::from(1u64);
+        let mut buf = Vec::new();
+        one.serialize(&mut buf).unwrap();
+        assert_eq!(buf.len(), FR_BYTE_SIZE);
+        assert_eq!(
+            buf[FR_BYTE_SIZE - 1],
+            1,
+            "LSB must be at index FR_BYTE_SIZE-1"
+        );
+        assert!(buf[..FR_BYTE_SIZE - 1].iter().all(|&b| b == 0));
+
+        // Fr(256) — second-to-last byte should be 1
+        let v = Fr::from(256u64);
+        let mut buf2 = Vec::new();
+        v.serialize(&mut buf2).unwrap();
+        assert_eq!(buf2[FR_BYTE_SIZE - 2], 1);
+        assert_eq!(buf2[FR_BYTE_SIZE - 1], 0);
+    }
+
+    #[test]
+    fn test_fr_be_non_canonical_rejected() {
+        let modulus = BigUint::from_bytes_le(&Fr::MODULUS.to_bytes_le());
+
+        let to_be = |val: &BigUint| -> Vec<u8> {
+            let mut bytes = val.to_bytes_be();
+            let pad = FR_BYTE_SIZE.saturating_sub(bytes.len());
+            if pad > 0 {
+                bytes.splice(0..0, std::iter::repeat_n(0, pad));
+            }
+            bytes
+        };
+
+        // Modulus itself must be rejected
+        let modulus_be = to_be(&modulus);
+        let err = Fr::deserialize(modulus_be.as_slice()).unwrap_err();
+        assert!(matches!(err, UtilsError::NonCanonicalFieldElement));
+
+        // Modulus + 1 must be rejected
+        let plus_one_be = to_be(&(&modulus + 1u32));
+        assert!(matches!(
+            Fr::deserialize(plus_one_be.as_slice()).unwrap_err(),
+            UtilsError::NonCanonicalFieldElement
+        ));
+
+        // All 0xFF must be rejected
+        let max_bytes = vec![0xFF; FR_BYTE_SIZE];
+        assert!(matches!(
+            Fr::deserialize(max_bytes.as_slice()).unwrap_err(),
+            UtilsError::NonCanonicalFieldElement
+        ));
+
+        // Modulus - 1 must succeed and round-trip
+        let minus_one_be = to_be(&(&modulus - 1u32));
+        let fr_max = Fr::deserialize(minus_one_be.as_slice()).unwrap();
+        let mut roundtrip = Vec::new();
+        fr_max.serialize(&mut roundtrip).unwrap();
+        assert_eq!(roundtrip, minus_one_be);
+    }
+
+    #[test]
+    fn test_fr_be_insufficient_data_rejected() {
+        let short = vec![0u8; FR_BYTE_SIZE - 1];
+        assert!(Fr::deserialize(short.as_slice()).is_err());
+        assert!(Fr::deserialize([].as_slice()).is_err());
+    }
+
+    #[test]
+    fn test_vec_fr_be_roundtrip() {
+        let mut rng = thread_rng();
+        for size in [0, 1, 5, 10] {
+            let v: Vec<Fr> = (0..size).map(|_| Fr::rand(&mut rng)).collect();
+            let mut buf = Vec::new();
+            v.serialize(&mut buf).unwrap();
+            let deser = Vec::<Fr>::deserialize(buf.as_slice()).unwrap();
+            assert_eq!(v, deser);
+            assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&v));
+        }
+    }
+
+    #[test]
+    fn test_vec_fr_be_non_canonical_element_rejected() {
+        // Craft a length-1 vec with modulus as the element — must be rejected
+        let modulus = BigUint::from_bytes_le(&Fr::MODULUS.to_bytes_le());
+        let mut bytes = modulus.to_bytes_be();
+        let pad = FR_BYTE_SIZE.saturating_sub(bytes.len());
+        if pad > 0 {
+            bytes.splice(0..0, std::iter::repeat_n(0, pad));
+        }
+        // Prepend length=1 as 8-byte BE
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&1u64.to_be_bytes());
+        buf.extend_from_slice(&bytes);
+        assert!(Vec::<Fr>::deserialize(buf.as_slice()).is_err());
+    }
+
+    #[test]
+    fn test_vec_fr_be_insufficient_data_rejected() {
+        // Length prefix says 2 but only 1 element present
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&2u64.to_be_bytes());
+        buf.extend_from_slice(&[0u8; FR_BYTE_SIZE]); // only one element
+        assert!(Vec::<Fr>::deserialize(buf.as_slice()).is_err());
+    }
+
+    #[test]
+    fn test_vec_u8_be_roundtrip() {
+        let test_cases: Vec<Vec<u8>> = vec![
+            vec![],
+            vec![0],
+            vec![255],
+            vec![1, 2, 3, 4, 5],
+            vec![0, 255, 128, 64, 32, 16, 8, 4, 2, 1],
+            (0..100).collect(),
+        ];
+        for v in test_cases {
+            let mut buf = Vec::new();
+            v.serialize(&mut buf).unwrap();
+            let deser = Vec::<u8>::deserialize(buf.as_slice()).unwrap();
+            assert_eq!(v, deser);
+            assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&v));
+        }
+    }
+
+    #[test]
+    fn test_vec_u8_be_insufficient_data_rejected() {
+        // Length prefix says 5 but no data follows
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&5u64.to_be_bytes());
+        assert!(Vec::<u8>::deserialize(buf.as_slice()).is_err());
+    }
+
+    #[test]
+    fn test_vec_bool_be_roundtrip() {
+        let test_cases = vec![
+            vec![],
+            vec![true],
+            vec![false],
+            vec![true, false, true, false, true],
+            vec![true; 50],
+            (0..50).map(|i| i % 2 == 0).collect::<Vec<bool>>(),
+        ];
+        for v in test_cases {
+            let mut buf = Vec::new();
+            v.serialize(&mut buf).unwrap();
+            let deser = Vec::<bool>::deserialize(buf.as_slice()).unwrap();
+            assert_eq!(v, deser);
+            assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&v));
+        }
+    }
+
+    #[test]
+    fn test_vec_bool_be_insufficient_data_rejected() {
+        // Length prefix says 3 but no data follows
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&3u64.to_be_bytes());
+        assert!(Vec::<bool>::deserialize(buf.as_slice()).is_err());
+    }
+
+    #[test]
+    fn test_id_secret_be_roundtrip() {
+        let mut rng = thread_rng();
+        for _ in 0..10 {
+            let secret = IdSecret::rand(&mut rng);
+            let mut buf = Vec::new();
+            secret.serialize(&mut buf).unwrap();
+            let deser = IdSecret::deserialize(buf.as_slice()).unwrap();
+            assert_eq!(secret, deser);
+            assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&secret));
+        }
+    }
+
+    #[test]
+    fn test_id_secret_be_known_value() {
+        // IdSecret(42) BE should match Fr(42) BE — same field element
+        let secret = IdSecret::from(&mut Fr::from(42u64));
+        let mut secret_buf = Vec::new();
+        secret.serialize(&mut secret_buf).unwrap();
+
+        let fr = Fr::from(42u64);
+        let mut fr_buf = Vec::new();
+        fr.serialize(&mut fr_buf).unwrap();
+
+        assert_eq!(secret_buf, fr_buf);
+    }
+
+    #[test]
+    fn test_id_secret_be_non_canonical_rejected() {
+        let modulus = BigUint::from_bytes_le(&Fr::MODULUS.to_bytes_le());
+
+        let to_be = |val: &BigUint| -> Vec<u8> {
+            let mut bytes = val.to_bytes_be();
+            let pad = FR_BYTE_SIZE.saturating_sub(bytes.len());
+            if pad > 0 {
+                bytes.splice(0..0, std::iter::repeat_n(0, pad));
+            }
+            bytes
+        };
+
+        // Modulus must be rejected
+        let modulus_be = to_be(&modulus);
+        assert!(matches!(
+            IdSecret::deserialize(modulus_be.as_slice()).unwrap_err(),
+            UtilsError::NonCanonicalFieldElement
+        ));
+
+        // All 0xFF must be rejected
+        let max_bytes = vec![0xFF; FR_BYTE_SIZE];
+        assert!(matches!(
+            IdSecret::deserialize(max_bytes.as_slice()).unwrap_err(),
+            UtilsError::NonCanonicalFieldElement
+        ));
+
+        // Modulus - 1 must succeed
+        let minus_one_be = to_be(&(&modulus - 1u32));
+        assert!(IdSecret::deserialize(minus_one_be.as_slice()).is_ok());
+    }
+
+    #[test]
+    fn test_id_secret_be_insufficient_data_rejected() {
+        let short = vec![0u8; FR_BYTE_SIZE - 1];
+        assert!(IdSecret::deserialize(short.as_slice()).is_err());
+        assert!(IdSecret::deserialize([].as_slice()).is_err());
+    }
 
     fn make_witness_input_single() -> RLNWitnessInputV3 {
         RLNWitnessInputV3::Single(RLNWitnessInputSingle::new(
