@@ -1,37 +1,34 @@
-#[cfg(feature = "multi-message-id")]
 use std::collections::HashSet;
 
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use num_bigint::BigInt;
 use zeroize::Zeroize;
 
 use super::{
+    mode::{MessageMode, VERSION_BYTE_SIZE},
     proof::RLNProofValues,
-    version::{SerializationVersion, VERSION_BYTE_SIZE},
+    FR_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::utils::FrOrSecret;
-#[cfg(feature = "multi-message-id")]
-use crate::utils::{
-    bytes_be_to_vec_bool, bytes_le_to_vec_bool, vec_bool_to_bytes_be, vec_bool_to_bytes_le,
-};
 use crate::{
     circuit::Fr,
     error::ProtocolError,
     hashers::poseidon_hash,
     utils::{
-        bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_le_to_fr, bytes_le_to_vec_fr,
-        bytes_le_to_vec_u8, fr_to_bytes_be, fr_to_bytes_le, to_bigint, vec_fr_to_bytes_be,
-        vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, IdSecret, FR_BYTE_SIZE,
-        VEC_LEN_BYTE_SIZE,
+        bytes_be_to_fr, bytes_be_to_vec_bool, bytes_be_to_vec_fr, bytes_be_to_vec_u8,
+        bytes_le_to_fr, bytes_le_to_vec_bool, bytes_le_to_vec_fr, bytes_le_to_vec_u8,
+        fr_to_bytes_be, fr_to_bytes_le, to_bigint, vec_bool_to_bytes_be, vec_bool_to_bytes_le,
+        vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, IdSecret,
     },
 };
 
 /// Variant-specific message inputs for RLN witness.
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) enum RLNMessageInputs {
-    #[cfg(not(feature = "multi-message-id"))]
-    SingleV1 { message_id: Fr },
-    #[cfg(feature = "multi-message-id")]
+    SingleV1 {
+        message_id: Fr,
+    },
     MultiV1 {
         message_ids: Vec<Fr>,
         selector_used: Vec<bool>,
@@ -43,7 +40,7 @@ pub(crate) enum RLNMessageInputs {
 /// Contains the identity credentials, merkle proof, rate-limiting parameters,
 /// and signal binding data required to generate a Groth16 proof for the RLN protocol.
 ///
-/// The serialization format for this type is defined in the `protocol::version` module.
+/// The serialization format for this type is defined in the `protocol::mode` module.
 #[derive(Debug, PartialEq, Clone)]
 pub struct RLNWitnessInput {
     identity_secret: IdSecret,
@@ -60,7 +57,7 @@ pub struct RLNWitnessInput {
 /// Contains the non-changing inputs used to precompute a partial proof
 /// before the signal, external nullifier, and message ID are known.
 ///
-/// The serialization format for this type is defined in the `protocol::version` module.
+/// The serialization format for this type is defined in the `protocol::mode` module.
 #[derive(Debug, PartialEq, Clone)]
 pub struct RLNPartialWitnessInput {
     identity_secret: IdSecret,
@@ -70,25 +67,19 @@ pub struct RLNPartialWitnessInput {
 }
 
 impl RLNWitnessInput {
-    /// Creates a new RLNWitnessInput instance.
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    /// Creates a new single message-id witness.
+    pub fn new_single(
         identity_secret: IdSecret,
         user_message_limit: Fr,
-        #[cfg(not(feature = "multi-message-id"))] message_id: Fr,
-        #[cfg(feature = "multi-message-id")] message_ids: Vec<Fr>,
+        message_id: Fr,
         path_elements: Vec<Fr>,
         identity_path_index: Vec<u8>,
         x: Fr,
         external_nullifier: Fr,
-        #[cfg(feature = "multi-message-id")] selector_used: Vec<bool>,
     ) -> Result<Self, ProtocolError> {
-        // User message limit check
         if user_message_limit == Fr::from(0) {
             return Err(ProtocolError::ZeroUserMessageLimit);
         }
-
-        // Merkle proof length check
         let path_elements_len = path_elements.len();
         let identity_path_index_len = identity_path_index.len();
         if path_elements_len != identity_path_index_len {
@@ -97,62 +88,12 @@ impl RLNWitnessInput {
                 identity_path_index_len,
             ));
         }
-
-        #[cfg(not(feature = "multi-message-id"))]
         if message_id >= user_message_limit {
             return Err(ProtocolError::InvalidMessageId(
                 message_id,
                 user_message_limit,
             ));
         }
-
-        #[cfg(feature = "multi-message-id")]
-        {
-            // Message IDs must be non-empty
-            if message_ids.is_empty() {
-                return Err(ProtocolError::EmptyMessageIds);
-            }
-            // Selector length must match message IDs
-            if selector_used.len() != message_ids.len() {
-                return Err(ProtocolError::FieldLengthMismatch(
-                    "message_ids",
-                    message_ids.len(),
-                    "selector_used",
-                    selector_used.len(),
-                ));
-            }
-            // At least one selector must be active
-            if !selector_used.iter().any(|&s| s) {
-                return Err(ProtocolError::NoActiveSelectorUsed);
-            }
-            // Active message IDs must be unique
-            {
-                let mut seen = HashSet::with_capacity(message_ids.len());
-                for (id, &used) in message_ids.iter().zip(&selector_used) {
-                    if used && !seen.insert(*id) {
-                        return Err(ProtocolError::DuplicateMessageIds);
-                    }
-                }
-            }
-            // Active message IDs must be within range
-            for (message_id, used) in message_ids.iter().zip(&selector_used) {
-                if *used && *message_id >= user_message_limit {
-                    return Err(ProtocolError::InvalidMessageId(
-                        *message_id,
-                        user_message_limit,
-                    ));
-                }
-            }
-        }
-
-        #[cfg(not(feature = "multi-message-id"))]
-        let message_inputs = RLNMessageInputs::SingleV1 { message_id };
-        #[cfg(feature = "multi-message-id")]
-        let message_inputs = RLNMessageInputs::MultiV1 {
-            message_ids,
-            selector_used,
-        };
-
         Ok(Self {
             identity_secret,
             user_message_limit,
@@ -160,17 +101,82 @@ impl RLNWitnessInput {
             identity_path_index,
             x,
             external_nullifier,
-            message_inputs,
+            message_inputs: RLNMessageInputs::SingleV1 { message_id },
+        })
+    }
+
+    /// Creates a new multi message-id witness.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_multi(
+        identity_secret: IdSecret,
+        user_message_limit: Fr,
+        message_ids: Vec<Fr>,
+        path_elements: Vec<Fr>,
+        identity_path_index: Vec<u8>,
+        x: Fr,
+        external_nullifier: Fr,
+        selector_used: Vec<bool>,
+    ) -> Result<Self, ProtocolError> {
+        if user_message_limit == Fr::from(0) {
+            return Err(ProtocolError::ZeroUserMessageLimit);
+        }
+        let path_elements_len = path_elements.len();
+        let identity_path_index_len = identity_path_index.len();
+        if path_elements_len != identity_path_index_len {
+            return Err(ProtocolError::InvalidMerkleProofLength(
+                path_elements_len,
+                identity_path_index_len,
+            ));
+        }
+        if message_ids.is_empty() {
+            return Err(ProtocolError::EmptyMessageIds);
+        }
+        if selector_used.len() != message_ids.len() {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "message_ids",
+                message_ids.len(),
+                "selector_used",
+                selector_used.len(),
+            ));
+        }
+        if !selector_used.iter().any(|&s| s) {
+            return Err(ProtocolError::NoActiveSelectorUsed);
+        }
+        {
+            let mut seen = HashSet::with_capacity(message_ids.len());
+            for (id, &used) in message_ids.iter().zip(&selector_used) {
+                if used && !seen.insert(*id) {
+                    return Err(ProtocolError::DuplicateMessageIds);
+                }
+            }
+        }
+        for (message_id, used) in message_ids.iter().zip(&selector_used) {
+            if *used && *message_id >= user_message_limit {
+                return Err(ProtocolError::InvalidMessageId(
+                    *message_id,
+                    user_message_limit,
+                ));
+            }
+        }
+        Ok(Self {
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+            x,
+            external_nullifier,
+            message_inputs: RLNMessageInputs::MultiV1 {
+                message_ids,
+                selector_used,
+            },
         })
     }
 
     /// Returns the version byte corresponding to the witness variant.
     pub fn version_byte(&self) -> u8 {
         match &self.message_inputs {
-            #[cfg(not(feature = "multi-message-id"))]
-            RLNMessageInputs::SingleV1 { .. } => SerializationVersion::SingleV1.into(),
-            #[cfg(feature = "multi-message-id")]
-            RLNMessageInputs::MultiV1 { .. } => SerializationVersion::MultiV1.into(),
+            RLNMessageInputs::SingleV1 { .. } => MessageMode::SingleV1.version_byte(),
+            RLNMessageInputs::MultiV1 { .. } => MessageMode::MultiV1 { max_out: 0 }.version_byte(),
         }
     }
 
@@ -184,18 +190,24 @@ impl RLNWitnessInput {
         &self.user_message_limit
     }
 
-    /// Returns the message ID.
-    #[cfg(not(feature = "multi-message-id"))]
+    /// Returns the message ID (only valid for SingleV1 witnesses).
     pub fn message_id(&self) -> &Fr {
-        let RLNMessageInputs::SingleV1 { message_id } = &self.message_inputs;
-        message_id
+        match &self.message_inputs {
+            RLNMessageInputs::SingleV1 { message_id } => message_id,
+            RLNMessageInputs::MultiV1 { .. } => {
+                panic!("message_id() is not available for MultiV1 witness; use message_ids()")
+            }
+        }
     }
 
-    /// Returns the multi message IDs.
-    #[cfg(feature = "multi-message-id")]
+    /// Returns the multi message IDs (only valid for MultiV1 witnesses).
     pub fn message_ids(&self) -> &[Fr] {
-        let RLNMessageInputs::MultiV1 { message_ids, .. } = &self.message_inputs;
-        message_ids
+        match &self.message_inputs {
+            RLNMessageInputs::MultiV1 { message_ids, .. } => message_ids,
+            RLNMessageInputs::SingleV1 { .. } => {
+                panic!("message_ids() is not available for SingleV1 witness; use message_id()")
+            }
+        }
     }
 
     /// Returns the Merkle path elements.
@@ -218,11 +230,14 @@ impl RLNWitnessInput {
         &self.external_nullifier
     }
 
-    /// Returns the selector flags.
-    #[cfg(feature = "multi-message-id")]
+    /// Returns the selector flags (only valid for MultiV1 witnesses).
     pub fn selector_used(&self) -> &[bool] {
-        let RLNMessageInputs::MultiV1 { selector_used, .. } = &self.message_inputs;
-        selector_used
+        match &self.message_inputs {
+            RLNMessageInputs::MultiV1 { selector_used, .. } => selector_used,
+            RLNMessageInputs::SingleV1 { .. } => {
+                panic!("selector_used() is not available for SingleV1 witness")
+            }
+        }
     }
 }
 
@@ -279,14 +294,9 @@ impl RLNPartialWitnessInput {
 
     /// Returns the version byte for this partial witness's serialization format.
     pub fn version_byte(&self) -> u8 {
-        #[cfg(not(feature = "multi-message-id"))]
-        {
-            SerializationVersion::SingleV1.into()
-        }
-        #[cfg(feature = "multi-message-id")]
-        {
-            SerializationVersion::MultiV1.into()
-        }
+        // TODO: new enum for partial witness instead of reusing SingleV1 version byte, which is technically not correct
+        // TODO: current master branch return SingleV1 or MultiV1 version byte based compile-time feature flag
+        MessageMode::SingleV1.version_byte()
     }
 }
 
@@ -301,159 +311,153 @@ impl From<&RLNWitnessInput> for RLNPartialWitnessInput {
     }
 }
 
+/// Converts the witness to JSON with BigInt string representation for the witness calculator.
+pub fn rln_witness_to_bigint_json(
+    witness: &RLNWitnessInput,
+) -> Result<serde_json::Value, ProtocolError> {
+    let path_elements_str: Vec<String> = witness
+        .path_elements
+        .iter()
+        .map(|v| to_bigint(v).to_str_radix(10))
+        .collect();
+    let identity_path_index_str: Vec<String> = witness
+        .identity_path_index
+        .iter()
+        .map(|v| BigInt::from(*v).to_str_radix(10))
+        .collect();
+
+    match &witness.message_inputs {
+        RLNMessageInputs::SingleV1 { message_id } => Ok(serde_json::json!({
+            "identitySecret": to_bigint(&witness.identity_secret).to_str_radix(10),
+            "userMessageLimit": to_bigint(&witness.user_message_limit).to_str_radix(10),
+            "messageId": to_bigint(message_id).to_str_radix(10),
+            "pathElements": path_elements_str,
+            "identityPathIndex": identity_path_index_str,
+            "x": to_bigint(&witness.x).to_str_radix(10),
+            "externalNullifier": to_bigint(&witness.external_nullifier).to_str_radix(10),
+        })),
+        RLNMessageInputs::MultiV1 {
+            message_ids,
+            selector_used,
+        } => {
+            let message_ids_str: Vec<String> = message_ids
+                .iter()
+                .map(|id| to_bigint(id).to_str_radix(10))
+                .collect();
+            let selector_used_str: Vec<String> = selector_used
+                .iter()
+                .map(|&v| BigInt::from(v).to_str_radix(10))
+                .collect();
+
+            Ok(serde_json::json!({
+                "identitySecret": to_bigint(&witness.identity_secret).to_str_radix(10),
+                "userMessageLimit": to_bigint(&witness.user_message_limit).to_str_radix(10),
+                "messageId": message_ids_str,
+                "selectorUsed": selector_used_str,
+                "pathElements": path_elements_str,
+                "identityPathIndex": identity_path_index_str,
+                "x": to_bigint(&witness.x).to_str_radix(10),
+                "externalNullifier": to_bigint(&witness.external_nullifier).to_str_radix(10),
+            }))
+        }
+    }
+}
+
 /// Serializes an RLN witness to little-endian bytes.
 pub fn rln_witness_to_bytes_le(witness: &RLNWitnessInput) -> Result<Vec<u8>, ProtocolError> {
-    #[cfg(not(feature = "multi-message-id"))]
-    let RLNMessageInputs::SingleV1 { message_id } = &witness.message_inputs;
-    #[cfg(feature = "multi-message-id")]
-    let RLNMessageInputs::MultiV1 {
-        message_ids,
-        selector_used,
-    } = &witness.message_inputs;
-
-    // Calculate capacity for Vec:
-    // - VERSION_BYTE_SIZE byte for version tag
-    // - 2 common field elements: identity_secret, user_message_limit
-    // - variable size of path_elements, identity_path_index
-    #[cfg(not(feature = "multi-message-id"))]
-    // - 3 field elements: message_id, x, external_nullifier
-    // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (path_elements, identity_path_index)
-    let capacity = VERSION_BYTE_SIZE
-        + FR_BYTE_SIZE * (5 + witness.path_elements.len())
-        + witness.identity_path_index.len()
-        + VEC_LEN_BYTE_SIZE * 2;
-    #[cfg(feature = "multi-message-id")]
-    // - 2 field elements: x, external_nullifier
-    // - variable size of message_ids, selector_used
-    // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (path_elements, identity_path_index, message_ids, selector_used)
-    let capacity = VERSION_BYTE_SIZE
-        + FR_BYTE_SIZE * (4 + witness.path_elements.len() + message_ids.len())
-        + witness.identity_path_index.len()
-        + selector_used.len()
-        + VEC_LEN_BYTE_SIZE * 4;
+    let capacity = match &witness.message_inputs {
+        RLNMessageInputs::SingleV1 { .. } => {
+            VERSION_BYTE_SIZE
+                + FR_BYTE_SIZE * (5 + witness.path_elements.len())
+                + witness.identity_path_index.len()
+                + VEC_LEN_BYTE_SIZE * 2
+        }
+        RLNMessageInputs::MultiV1 {
+            message_ids,
+            selector_used,
+        } => {
+            VERSION_BYTE_SIZE
+                + FR_BYTE_SIZE * (4 + witness.path_elements.len() + message_ids.len())
+                + witness.identity_path_index.len()
+                + selector_used.len()
+                + VEC_LEN_BYTE_SIZE * 4
+        }
+    };
 
     let mut bytes = Vec::with_capacity(capacity);
     bytes.push(witness.version_byte());
     bytes.extend_from_slice(&witness.identity_secret.to_bytes_le());
     bytes.extend_from_slice(&fr_to_bytes_le(&witness.user_message_limit));
-    #[cfg(not(feature = "multi-message-id"))]
-    {
-        bytes.extend_from_slice(&fr_to_bytes_le(message_id));
-        bytes.extend_from_slice(&vec_fr_to_bytes_le(&witness.path_elements));
-        bytes.extend_from_slice(&vec_u8_to_bytes_le(&witness.identity_path_index));
-        bytes.extend_from_slice(&fr_to_bytes_le(&witness.x));
-        bytes.extend_from_slice(&fr_to_bytes_le(&witness.external_nullifier));
-    }
-    #[cfg(feature = "multi-message-id")]
-    {
-        bytes.extend_from_slice(&vec_fr_to_bytes_le(&witness.path_elements));
-        bytes.extend_from_slice(&vec_u8_to_bytes_le(&witness.identity_path_index));
-        bytes.extend_from_slice(&fr_to_bytes_le(&witness.x));
-        bytes.extend_from_slice(&fr_to_bytes_le(&witness.external_nullifier));
-        bytes.extend_from_slice(&vec_fr_to_bytes_le(message_ids));
-        bytes.extend_from_slice(&vec_bool_to_bytes_le(selector_used));
+
+    match &witness.message_inputs {
+        RLNMessageInputs::SingleV1 { message_id } => {
+            bytes.extend_from_slice(&fr_to_bytes_le(message_id));
+            bytes.extend_from_slice(&vec_fr_to_bytes_le(&witness.path_elements));
+            bytes.extend_from_slice(&vec_u8_to_bytes_le(&witness.identity_path_index));
+            bytes.extend_from_slice(&fr_to_bytes_le(&witness.x));
+            bytes.extend_from_slice(&fr_to_bytes_le(&witness.external_nullifier));
+        }
+        RLNMessageInputs::MultiV1 {
+            message_ids,
+            selector_used,
+        } => {
+            bytes.extend_from_slice(&vec_fr_to_bytes_le(&witness.path_elements));
+            bytes.extend_from_slice(&vec_u8_to_bytes_le(&witness.identity_path_index));
+            bytes.extend_from_slice(&fr_to_bytes_le(&witness.x));
+            bytes.extend_from_slice(&fr_to_bytes_le(&witness.external_nullifier));
+            bytes.extend_from_slice(&vec_fr_to_bytes_le(message_ids));
+            bytes.extend_from_slice(&vec_bool_to_bytes_le(selector_used));
+        }
     }
     Ok(bytes)
 }
 
 /// Serializes an RLN witness to big-endian bytes.
 pub fn rln_witness_to_bytes_be(witness: &RLNWitnessInput) -> Result<Vec<u8>, ProtocolError> {
-    #[cfg(not(feature = "multi-message-id"))]
-    let RLNMessageInputs::SingleV1 { message_id } = &witness.message_inputs;
-    #[cfg(feature = "multi-message-id")]
-    let RLNMessageInputs::MultiV1 {
-        message_ids,
-        selector_used,
-    } = &witness.message_inputs;
-
-    // Calculate capacity for Vec:
-    // - VERSION_BYTE_SIZE byte for version tag
-    // - 2 common field elements: identity_secret, user_message_limit
-    // - variable size of path_elements, identity_path_index
-    #[cfg(not(feature = "multi-message-id"))]
-    // - 3 field elements: message_id, x, external_nullifier
-    // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (path_elements, identity_path_index)
-    let capacity = VERSION_BYTE_SIZE
-        + FR_BYTE_SIZE * (5 + witness.path_elements.len())
-        + witness.identity_path_index.len()
-        + VEC_LEN_BYTE_SIZE * 2;
-    #[cfg(feature = "multi-message-id")]
-    // - 2 field elements: x, external_nullifier
-    // - variable size of message_ids, selector_used
-    // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (path_elements, identity_path_index, message_ids, selector_used)
-    let capacity = VERSION_BYTE_SIZE
-        + FR_BYTE_SIZE * (4 + witness.path_elements.len() + message_ids.len())
-        + witness.identity_path_index.len()
-        + selector_used.len()
-        + VEC_LEN_BYTE_SIZE * 4;
+    let capacity = match &witness.message_inputs {
+        RLNMessageInputs::SingleV1 { .. } => {
+            VERSION_BYTE_SIZE
+                + FR_BYTE_SIZE * (5 + witness.path_elements.len())
+                + witness.identity_path_index.len()
+                + VEC_LEN_BYTE_SIZE * 2
+        }
+        RLNMessageInputs::MultiV1 {
+            message_ids,
+            selector_used,
+        } => {
+            VERSION_BYTE_SIZE
+                + FR_BYTE_SIZE * (4 + witness.path_elements.len() + message_ids.len())
+                + witness.identity_path_index.len()
+                + selector_used.len()
+                + VEC_LEN_BYTE_SIZE * 4
+        }
+    };
 
     let mut bytes = Vec::with_capacity(capacity);
     bytes.push(witness.version_byte());
     bytes.extend_from_slice(&witness.identity_secret.to_bytes_be());
     bytes.extend_from_slice(&fr_to_bytes_be(&witness.user_message_limit));
-    #[cfg(not(feature = "multi-message-id"))]
-    {
-        bytes.extend_from_slice(&fr_to_bytes_be(message_id));
-        bytes.extend_from_slice(&vec_fr_to_bytes_be(&witness.path_elements));
-        bytes.extend_from_slice(&vec_u8_to_bytes_be(&witness.identity_path_index));
-        bytes.extend_from_slice(&fr_to_bytes_be(&witness.x));
-        bytes.extend_from_slice(&fr_to_bytes_be(&witness.external_nullifier));
+
+    match &witness.message_inputs {
+        RLNMessageInputs::SingleV1 { message_id } => {
+            bytes.extend_from_slice(&fr_to_bytes_be(message_id));
+            bytes.extend_from_slice(&vec_fr_to_bytes_be(&witness.path_elements));
+            bytes.extend_from_slice(&vec_u8_to_bytes_be(&witness.identity_path_index));
+            bytes.extend_from_slice(&fr_to_bytes_be(&witness.x));
+            bytes.extend_from_slice(&fr_to_bytes_be(&witness.external_nullifier));
+        }
+        RLNMessageInputs::MultiV1 {
+            message_ids,
+            selector_used,
+        } => {
+            bytes.extend_from_slice(&vec_fr_to_bytes_be(&witness.path_elements));
+            bytes.extend_from_slice(&vec_u8_to_bytes_be(&witness.identity_path_index));
+            bytes.extend_from_slice(&fr_to_bytes_be(&witness.x));
+            bytes.extend_from_slice(&fr_to_bytes_be(&witness.external_nullifier));
+            bytes.extend_from_slice(&vec_fr_to_bytes_be(message_ids));
+            bytes.extend_from_slice(&vec_bool_to_bytes_be(selector_used));
+        }
     }
-    #[cfg(feature = "multi-message-id")]
-    {
-        bytes.extend_from_slice(&vec_fr_to_bytes_be(&witness.path_elements));
-        bytes.extend_from_slice(&vec_u8_to_bytes_be(&witness.identity_path_index));
-        bytes.extend_from_slice(&fr_to_bytes_be(&witness.x));
-        bytes.extend_from_slice(&fr_to_bytes_be(&witness.external_nullifier));
-        bytes.extend_from_slice(&vec_fr_to_bytes_be(message_ids));
-        bytes.extend_from_slice(&vec_bool_to_bytes_be(selector_used));
-    }
-    Ok(bytes)
-}
-
-/// Serializes an RLN partial witness to little-endian bytes.
-pub fn rln_partial_witness_to_bytes_le(
-    witness: &RLNPartialWitnessInput,
-) -> Result<Vec<u8>, ProtocolError> {
-    // Calculate capacity for Vec:
-    // - VERSION_BYTE_SIZE byte for version tag
-    // - 2 field elements: identity_secret, user_message_limit
-    // - variable size of path_elements, identity_path_index
-    // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (path_elements, identity_path_index)
-    let capacity = VERSION_BYTE_SIZE
-        + FR_BYTE_SIZE * (2 + witness.path_elements.len())
-        + witness.identity_path_index.len()
-        + VEC_LEN_BYTE_SIZE * 2;
-    let mut bytes = Vec::with_capacity(capacity);
-    bytes.push(witness.version_byte());
-    bytes.extend_from_slice(&witness.identity_secret.to_bytes_le());
-    bytes.extend_from_slice(&fr_to_bytes_le(&witness.user_message_limit));
-    bytes.extend_from_slice(&vec_fr_to_bytes_le(&witness.path_elements));
-    bytes.extend_from_slice(&vec_u8_to_bytes_le(&witness.identity_path_index));
-
-    Ok(bytes)
-}
-
-/// Serializes an RLN partial witness to big-endian bytes.
-pub fn rln_partial_witness_to_bytes_be(
-    witness: &RLNPartialWitnessInput,
-) -> Result<Vec<u8>, ProtocolError> {
-    // Calculate capacity for Vec:
-    // - VERSION_BYTE_SIZE byte for version tag
-    // - 2 field elements: identity_secret, user_message_limit
-    // - variable size of path_elements, identity_path_index
-    // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (path_elements, identity_path_index)
-    let capacity = VERSION_BYTE_SIZE
-        + FR_BYTE_SIZE * (2 + witness.path_elements.len())
-        + witness.identity_path_index.len()
-        + VEC_LEN_BYTE_SIZE * 2;
-    let mut bytes = Vec::with_capacity(capacity);
-    bytes.push(witness.version_byte());
-    bytes.extend_from_slice(&witness.identity_secret.to_bytes_be());
-    bytes.extend_from_slice(&fr_to_bytes_be(&witness.user_message_limit));
-    bytes.extend_from_slice(&vec_fr_to_bytes_be(&witness.path_elements));
-    bytes.extend_from_slice(&vec_u8_to_bytes_be(&witness.identity_path_index));
-
     Ok(bytes)
 }
 
@@ -464,8 +468,7 @@ pub fn bytes_le_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
     if bytes.is_empty() {
         return Err(ProtocolError::InvalidReadLen(1, 0));
     }
-
-    let _version = SerializationVersion::try_from(bytes[0])?;
+    let version = MessageMode::try_from(bytes[0])?;
     let mut read: usize = VERSION_BYTE_SIZE;
 
     let (identity_secret, el_size) = IdSecret::from_bytes_le(&bytes[read..])?;
@@ -473,73 +476,70 @@ pub fn bytes_le_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
     let (user_message_limit, el_size) = bytes_le_to_fr(&bytes[read..])?;
     read += el_size;
 
-    #[cfg(not(feature = "multi-message-id"))]
-    {
-        let (message_id, el_size) = bytes_le_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (path_elements, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
-        read += el_size;
-        let (identity_path_index, el_size) = bytes_le_to_vec_u8(&bytes[read..])?;
-        read += el_size;
-        let (x, el_size) = bytes_le_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (external_nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
-        read += el_size;
-
-        if read != bytes.len() {
-            return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-        }
-        let witness = RLNWitnessInput::new(
-            identity_secret,
-            user_message_limit,
-            message_id,
-            path_elements,
-            identity_path_index,
-            x,
-            external_nullifier,
-        )?;
-        Ok((witness, read))
-    }
-    #[cfg(feature = "multi-message-id")]
-    {
-        let (path_elements, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
-        read += el_size;
-        let (identity_path_index, el_size) = bytes_le_to_vec_u8(&bytes[read..])?;
-        read += el_size;
-        let (x, el_size) = bytes_le_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (external_nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (message_ids, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
-        read += el_size;
-        let (selector_used, el_size) = bytes_le_to_vec_bool(&bytes[read..])?;
-        read += el_size;
-
-        if selector_used.len() != message_ids.len() {
-            return Err(ProtocolError::FieldLengthMismatch(
-                "message_ids",
-                message_ids.len(),
-                "selector_used",
-                selector_used.len(),
-            ));
-        }
-        if read != bytes.len() {
-            return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-        }
-
-        Ok((
-            RLNWitnessInput::new(
+    match version {
+        MessageMode::SingleV1 => {
+            let (message_id, el_size) = bytes_le_to_fr(&bytes[read..])?;
+            read += el_size;
+            let (path_elements, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
+            read += el_size;
+            let (identity_path_index, el_size) = bytes_le_to_vec_u8(&bytes[read..])?;
+            read += el_size;
+            let (x, el_size) = bytes_le_to_fr(&bytes[read..])?;
+            read += el_size;
+            let (external_nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
+            read += el_size;
+            if read != bytes.len() {
+                return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
+            }
+            let witness = RLNWitnessInput::new_single(
                 identity_secret,
                 user_message_limit,
-                message_ids,
+                message_id,
                 path_elements,
                 identity_path_index,
                 x,
                 external_nullifier,
-                selector_used,
-            )?,
-            read,
-        ))
+            )?;
+            Ok((witness, read))
+        }
+        MessageMode::MultiV1 { .. } => {
+            let (path_elements, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
+            read += el_size;
+            let (identity_path_index, el_size) = bytes_le_to_vec_u8(&bytes[read..])?;
+            read += el_size;
+            let (x, el_size) = bytes_le_to_fr(&bytes[read..])?;
+            read += el_size;
+            let (external_nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
+            read += el_size;
+            let (message_ids, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
+            read += el_size;
+            let (selector_used, el_size) = bytes_le_to_vec_bool(&bytes[read..])?;
+            read += el_size;
+            if selector_used.len() != message_ids.len() {
+                return Err(ProtocolError::FieldLengthMismatch(
+                    "message_ids",
+                    message_ids.len(),
+                    "selector_used",
+                    selector_used.len(),
+                ));
+            }
+            if read != bytes.len() {
+                return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
+            }
+            Ok((
+                RLNWitnessInput::new_multi(
+                    identity_secret,
+                    user_message_limit,
+                    message_ids,
+                    path_elements,
+                    identity_path_index,
+                    x,
+                    external_nullifier,
+                    selector_used,
+                )?,
+                read,
+            ))
+        }
     }
 }
 
@@ -550,8 +550,7 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
     if bytes.is_empty() {
         return Err(ProtocolError::InvalidReadLen(1, 0));
     }
-
-    let _version = SerializationVersion::try_from(bytes[0])?;
+    let version = MessageMode::try_from(bytes[0])?;
     let mut read: usize = VERSION_BYTE_SIZE;
 
     let (identity_secret, el_size) = IdSecret::from_bytes_be(&bytes[read..])?;
@@ -559,74 +558,117 @@ pub fn bytes_be_to_rln_witness(bytes: &[u8]) -> Result<(RLNWitnessInput, usize),
     let (user_message_limit, el_size) = bytes_be_to_fr(&bytes[read..])?;
     read += el_size;
 
-    #[cfg(not(feature = "multi-message-id"))]
-    {
-        let (message_id, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (path_elements, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
-        read += el_size;
-        let (identity_path_index, el_size) = bytes_be_to_vec_u8(&bytes[read..])?;
-        read += el_size;
-        let (x, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-
-        if read != bytes.len() {
-            return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-        }
-        let witness = RLNWitnessInput::new(
-            identity_secret,
-            user_message_limit,
-            message_id,
-            path_elements,
-            identity_path_index,
-            x,
-            external_nullifier,
-        )?;
-        Ok((witness, read))
-    }
-    #[cfg(feature = "multi-message-id")]
-    {
-        let (path_elements, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
-        read += el_size;
-        let (identity_path_index, el_size) = bytes_be_to_vec_u8(&bytes[read..])?;
-        read += el_size;
-        let (x, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
-        read += el_size;
-        let (message_ids, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
-        read += el_size;
-        let (selector_used, el_size) = bytes_be_to_vec_bool(&bytes[read..])?;
-        read += el_size;
-
-        if selector_used.len() != message_ids.len() {
-            return Err(ProtocolError::FieldLengthMismatch(
-                "message_ids",
-                message_ids.len(),
-                "selector_used",
-                selector_used.len(),
-            ));
-        }
-        if read != bytes.len() {
-            return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-        }
-
-        Ok((
-            RLNWitnessInput::new(
+    match version {
+        MessageMode::SingleV1 => {
+            let (message_id, el_size) = bytes_be_to_fr(&bytes[read..])?;
+            read += el_size;
+            let (path_elements, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
+            read += el_size;
+            let (identity_path_index, el_size) = bytes_be_to_vec_u8(&bytes[read..])?;
+            read += el_size;
+            let (x, el_size) = bytes_be_to_fr(&bytes[read..])?;
+            read += el_size;
+            let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
+            read += el_size;
+            if read != bytes.len() {
+                return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
+            }
+            let witness = RLNWitnessInput::new_single(
                 identity_secret,
                 user_message_limit,
-                message_ids,
+                message_id,
                 path_elements,
                 identity_path_index,
                 x,
                 external_nullifier,
-                selector_used,
-            )?,
-            read,
-        ))
+            )?;
+            Ok((witness, read))
+        }
+        MessageMode::MultiV1 { .. } => {
+            let (path_elements, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
+            read += el_size;
+            let (identity_path_index, el_size) = bytes_be_to_vec_u8(&bytes[read..])?;
+            read += el_size;
+            let (x, el_size) = bytes_be_to_fr(&bytes[read..])?;
+            read += el_size;
+            let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
+            read += el_size;
+            let (message_ids, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
+            read += el_size;
+            let (selector_used, el_size) = bytes_be_to_vec_bool(&bytes[read..])?;
+            read += el_size;
+            if selector_used.len() != message_ids.len() {
+                return Err(ProtocolError::FieldLengthMismatch(
+                    "message_ids",
+                    message_ids.len(),
+                    "selector_used",
+                    selector_used.len(),
+                ));
+            }
+            if read != bytes.len() {
+                return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
+            }
+            Ok((
+                RLNWitnessInput::new_multi(
+                    identity_secret,
+                    user_message_limit,
+                    message_ids,
+                    path_elements,
+                    identity_path_index,
+                    x,
+                    external_nullifier,
+                    selector_used,
+                )?,
+                read,
+            ))
+        }
     }
+}
+
+/// Serializes an RLN partial witness to little-endian bytes.
+pub fn rln_partial_witness_to_bytes_le(
+    partial_witness: &RLNPartialWitnessInput,
+) -> Result<Vec<u8>, ProtocolError> {
+    // Calculate capacity for Vec:
+    // - VERSION_BYTE_SIZE byte for version tag
+    // - 2 field elements: identity_secret, user_message_limit
+    // - variable size of path_elements, identity_path_index
+    // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (path_elements, identity_path_index)
+    let capacity = VERSION_BYTE_SIZE
+        + FR_BYTE_SIZE * (2 + partial_witness.path_elements.len())
+        + partial_witness.identity_path_index.len()
+        + VEC_LEN_BYTE_SIZE * 2;
+    let mut bytes = Vec::with_capacity(capacity);
+    bytes.push(partial_witness.version_byte());
+    bytes.extend_from_slice(&partial_witness.identity_secret.to_bytes_le());
+    bytes.extend_from_slice(&fr_to_bytes_le(&partial_witness.user_message_limit));
+    bytes.extend_from_slice(&vec_fr_to_bytes_le(&partial_witness.path_elements));
+    bytes.extend_from_slice(&vec_u8_to_bytes_le(&partial_witness.identity_path_index));
+
+    Ok(bytes)
+}
+
+/// Serializes an RLN partial witness to big-endian bytes.
+pub fn rln_partial_witness_to_bytes_be(
+    partial_witness: &RLNPartialWitnessInput,
+) -> Result<Vec<u8>, ProtocolError> {
+    // Calculate capacity for Vec:
+    // - VERSION_BYTE_SIZE byte for version tag
+    // - 2 field elements: identity_secret, user_message_limit
+    // - variable size of path_elements, identity_path_index
+    // - VEC_LEN_BYTE_SIZE bytes length prefix per vector (path_elements, identity_path_index)
+    let capacity = VERSION_BYTE_SIZE
+        + FR_BYTE_SIZE * (2 + partial_witness.path_elements.len())
+        + partial_witness.identity_path_index.len()
+        + VEC_LEN_BYTE_SIZE * 2;
+    let mut bytes = Vec::with_capacity(capacity);
+    bytes.push(partial_witness.version_byte());
+    bytes.extend_from_slice(&partial_witness.identity_secret.to_bytes_be());
+    bytes.extend_from_slice(&fr_to_bytes_be(&partial_witness.user_message_limit));
+    bytes.extend_from_slice(&vec_fr_to_bytes_be(&partial_witness.path_elements));
+    bytes.extend_from_slice(&vec_u8_to_bytes_be(&partial_witness.identity_path_index));
+
+    Ok(bytes)
 }
 
 /// Deserializes an RLN partial witness from little-endian bytes.
@@ -639,7 +681,7 @@ pub fn bytes_le_to_rln_partial_witness(
         return Err(ProtocolError::InvalidReadLen(1, 0));
     }
 
-    let _version = SerializationVersion::try_from(bytes[0])?;
+    let _version = MessageMode::try_from(bytes[0])?;
     let mut read: usize = VERSION_BYTE_SIZE;
 
     let (identity_secret, el_size) = IdSecret::from_bytes_le(&bytes[read..])?;
@@ -679,7 +721,7 @@ pub fn bytes_be_to_rln_partial_witness(
         return Err(ProtocolError::InvalidReadLen(1, 0));
     }
 
-    let _version = SerializationVersion::try_from(bytes[0])?;
+    let _version = MessageMode::try_from(bytes[0])?;
     let mut read: usize = VERSION_BYTE_SIZE;
 
     let (identity_secret, el_size) = IdSecret::from_bytes_be(&bytes[read..])?;
@@ -709,62 +751,6 @@ pub fn bytes_be_to_rln_partial_witness(
     ))
 }
 
-/// Converts RLN witness to JSON with BigInt string representation for witness calculator.
-pub fn rln_witness_to_bigint_json(
-    witness: &RLNWitnessInput,
-) -> Result<serde_json::Value, ProtocolError> {
-    let path_elements_str: Vec<String> = witness
-        .path_elements
-        .iter()
-        .map(|v| to_bigint(v).to_str_radix(10))
-        .collect();
-    let identity_path_index_str: Vec<String> = witness
-        .identity_path_index
-        .iter()
-        .map(|v| BigInt::from(*v).to_str_radix(10))
-        .collect();
-
-    #[cfg(not(feature = "multi-message-id"))]
-    {
-        let RLNMessageInputs::SingleV1 { message_id } = &witness.message_inputs;
-        Ok(serde_json::json!({
-            "identitySecret": to_bigint(&witness.identity_secret).to_str_radix(10),
-            "userMessageLimit": to_bigint(&witness.user_message_limit).to_str_radix(10),
-            "messageId": to_bigint(message_id).to_str_radix(10),
-            "pathElements": path_elements_str,
-            "identityPathIndex": identity_path_index_str,
-            "x": to_bigint(&witness.x).to_str_radix(10),
-            "externalNullifier": to_bigint(&witness.external_nullifier).to_str_radix(10),
-        }))
-    }
-    #[cfg(feature = "multi-message-id")]
-    {
-        let RLNMessageInputs::MultiV1 {
-            message_ids,
-            selector_used,
-        } = &witness.message_inputs;
-        let message_ids_str: Vec<String> = message_ids
-            .iter()
-            .map(|id| to_bigint(id).to_str_radix(10))
-            .collect();
-        let selector_used_str: Vec<String> = selector_used
-            .iter()
-            .map(|&v| BigInt::from(v).to_str_radix(10))
-            .collect();
-
-        Ok(serde_json::json!({
-            "identitySecret": to_bigint(&witness.identity_secret).to_str_radix(10),
-            "userMessageLimit": to_bigint(&witness.user_message_limit).to_str_radix(10),
-            "messageId": message_ids_str,
-            "selectorUsed": selector_used_str,
-            "pathElements": path_elements_str,
-            "identityPathIndex": identity_path_index_str,
-            "x": to_bigint(&witness.x).to_str_radix(10),
-            "externalNullifier": to_bigint(&witness.external_nullifier).to_str_radix(10),
-        }))
-    }
-}
-
 /// Computes RLN proof values from witness input.
 ///
 /// Calculates the public outputs (y, nullifier, root) that will be part of the proof.
@@ -778,47 +764,40 @@ pub fn proof_values_from_witness(witness: &RLNWitnessInput) -> RLNProofValues {
 
     let a_0 = &witness.identity_secret;
 
-    #[cfg(not(feature = "multi-message-id"))]
-    {
-        let RLNMessageInputs::SingleV1 { message_id } = &witness.message_inputs;
-        let mut to_hash = [**a_0, witness.external_nullifier, *message_id];
-        let a_1 = poseidon_hash(&to_hash);
-        let y = *(a_0.clone()) + witness.x * a_1;
-        let nullifier = poseidon_hash(&[a_1]);
-        to_hash[0].zeroize();
-
-        RLNProofValues::new(root, witness.x, witness.external_nullifier, y, nullifier)
-    }
-    #[cfg(feature = "multi-message-id")]
-    {
-        let RLNMessageInputs::MultiV1 {
-            message_ids,
-            selector_used,
-        } = &witness.message_inputs;
-        let mut ys = Vec::with_capacity(message_ids.len());
-        let mut nullifiers = Vec::with_capacity(message_ids.len());
-
-        for (i, message_id) in message_ids.iter().enumerate() {
+    match &witness.message_inputs {
+        RLNMessageInputs::SingleV1 { message_id } => {
             let mut to_hash = [**a_0, witness.external_nullifier, *message_id];
             let a_1 = poseidon_hash(&to_hash);
-
-            let selector = Fr::from(selector_used[i]);
-            let y = (*(a_0.clone()) + witness.x * a_1) * selector;
-            let nullifier = poseidon_hash(&[a_1]) * selector;
-
-            ys.push(y);
-            nullifiers.push(nullifier);
+            let y = *(a_0.clone()) + witness.x * a_1;
+            let nullifier = poseidon_hash(&[a_1]);
             to_hash[0].zeroize();
+            RLNProofValues::new_single(root, witness.x, witness.external_nullifier, y, nullifier)
         }
-
-        RLNProofValues::new(
-            root,
-            witness.x,
-            witness.external_nullifier,
-            ys,
-            nullifiers,
-            selector_used.clone(),
-        )
+        RLNMessageInputs::MultiV1 {
+            message_ids,
+            selector_used,
+        } => {
+            let mut ys = Vec::with_capacity(message_ids.len());
+            let mut nullifiers = Vec::with_capacity(message_ids.len());
+            for (i, message_id) in message_ids.iter().enumerate() {
+                let mut to_hash = [**a_0, witness.external_nullifier, *message_id];
+                let a_1 = poseidon_hash(&to_hash);
+                let selector = Fr::from(selector_used[i]);
+                let y = (*(a_0.clone()) + witness.x * a_1) * selector;
+                let nullifier = poseidon_hash(&[a_1]) * selector;
+                ys.push(y);
+                nullifiers.push(nullifier);
+                to_hash[0].zeroize();
+            }
+            RLNProofValues::new_multi(
+                root,
+                witness.x,
+                witness.external_nullifier,
+                ys,
+                nullifiers,
+                selector_used.clone(),
+            )
+        }
     }
 }
 
@@ -865,24 +844,22 @@ pub(super) fn inputs_for_witness_calculation(
         ("userMessageLimit", vec![witness.user_message_limit.into()]),
     ];
 
-    #[cfg(not(feature = "multi-message-id"))]
-    {
-        let RLNMessageInputs::SingleV1 { message_id } = &witness.message_inputs;
-        inputs.push(("messageId", vec![(*message_id).into()]));
-    }
-    #[cfg(feature = "multi-message-id")]
-    {
-        let RLNMessageInputs::MultiV1 {
+    match &witness.message_inputs {
+        RLNMessageInputs::SingleV1 { message_id } => {
+            inputs.push(("messageId", vec![(*message_id).into()]));
+        }
+        RLNMessageInputs::MultiV1 {
             message_ids,
             selector_used,
-        } = &witness.message_inputs;
-        inputs.push((
-            "messageId",
-            message_ids.iter().cloned().map(Into::into).collect(),
-        ));
-        let selector_used_fr: Vec<FrOrSecret> =
-            selector_used.iter().map(|&v| Fr::from(v).into()).collect();
-        inputs.push(("selectorUsed", selector_used_fr));
+        } => {
+            inputs.push((
+                "messageId",
+                message_ids.iter().cloned().map(Into::into).collect(),
+            ));
+            let selector_used_fr: Vec<FrOrSecret> =
+                selector_used.iter().map(|&v| Fr::from(v).into()).collect();
+            inputs.push(("selectorUsed", selector_used_fr));
+        }
     }
 
     inputs.push((
@@ -908,7 +885,7 @@ pub(super) fn inputs_for_witness_calculation(
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) fn inputs_for_partial_witness_calculation(
     witness: &RLNPartialWitnessInput,
-    #[cfg(feature = "multi-message-id")] max_out: usize,
+    max_out: usize,
 ) -> Vec<(&'static str, Vec<Option<FrOrSecret>>)> {
     let mut identity_path_index = Vec::with_capacity(witness.identity_path_index.len());
     witness
@@ -927,10 +904,9 @@ pub(super) fn inputs_for_partial_witness_calculation(
         ),
     ];
 
-    #[cfg(not(feature = "multi-message-id"))]
-    inputs.push(("messageId", vec![None]));
-    #[cfg(feature = "multi-message-id")]
-    {
+    if max_out == 1 {
+        inputs.push(("messageId", vec![None]));
+    } else {
         inputs.push(("messageId", vec![None; max_out]));
         inputs.push(("selectorUsed", vec![None; max_out]));
     }
@@ -957,4 +933,104 @@ pub(super) fn inputs_for_partial_witness_calculation(
     inputs.push(("externalNullifier", vec![None]));
 
     inputs
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum RLNWitnessInputV3 {
+    Single(RLNWitnessInputSingle),
+    Multi(RLNWitnessInputMulti),
+}
+
+#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct RLNWitnessInputSingle {
+    pub(crate) identity_secret: IdSecret,
+    pub(crate) user_message_limit: Fr,
+    pub(crate) path_elements: Vec<Fr>,
+    pub(crate) identity_path_index: Vec<u8>,
+    pub(crate) x: Fr,
+    pub(crate) external_nullifier: Fr,
+    pub(crate) message_id: Fr,
+}
+
+impl RLNWitnessInputSingle {
+    pub fn new(
+        identity_secret: IdSecret,
+        user_message_limit: Fr,
+        path_elements: Vec<Fr>,
+        identity_path_index: Vec<u8>,
+        x: Fr,
+        external_nullifier: Fr,
+        message_id: Fr,
+    ) -> Self {
+        Self {
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+            x,
+            external_nullifier,
+            message_id,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct RLNWitnessInputMulti {
+    pub(crate) identity_secret: IdSecret,
+    pub(crate) user_message_limit: Fr,
+    pub(crate) path_elements: Vec<Fr>,
+    pub(crate) identity_path_index: Vec<u8>,
+    pub(crate) x: Fr,
+    pub(crate) external_nullifier: Fr,
+    pub(crate) message_ids: Vec<Fr>,
+    pub(crate) selector_used: Vec<bool>,
+}
+
+impl RLNWitnessInputMulti {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        identity_secret: IdSecret,
+        user_message_limit: Fr,
+        path_elements: Vec<Fr>,
+        identity_path_index: Vec<u8>,
+        x: Fr,
+        external_nullifier: Fr,
+        message_ids: Vec<Fr>,
+        selector_used: Vec<bool>,
+    ) -> Self {
+        Self {
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+            x,
+            external_nullifier,
+            message_ids,
+            selector_used,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct RLNPartialWitnessInputV3 {
+    pub(crate) identity_secret: IdSecret,
+    pub(crate) user_message_limit: Fr,
+    pub(crate) path_elements: Vec<Fr>,
+    pub(crate) identity_path_index: Vec<u8>,
+}
+
+impl RLNPartialWitnessInputV3 {
+    pub fn new(
+        identity_secret: IdSecret,
+        user_message_limit: Fr,
+        path_elements: Vec<Fr>,
+        identity_path_index: Vec<u8>,
+    ) -> Self {
+        Self {
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+        }
+    }
 }

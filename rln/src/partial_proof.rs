@@ -8,7 +8,7 @@ use ark_poly::GeneralEvaluationDomain;
 use ark_relations::r1cs::{
     ConstraintMatrices, ConstraintSynthesizer, ConstraintSystem, OptimizationGoal, SynthesisMode,
 };
-use ark_serialize::*;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{marker::PhantomData, ops::Mul, rand::RngCore, vec::Vec, UniformRand};
 
 use crate::error::ProtocolError;

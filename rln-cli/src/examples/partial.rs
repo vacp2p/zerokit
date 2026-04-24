@@ -204,7 +204,7 @@ impl RLNSystem {
         for user_index in indices {
             let identity = self.local_identities[&user_index].clone();
             let (path_elements, identity_path_index) = self.rln.get_merkle_proof(user_index)?;
-            let witness = RLNWitnessInput::new(
+            let witness = RLNWitnessInput::new_single(
                 identity.identity_secret.clone(),
                 Fr::from(MESSAGE_LIMIT),
                 Fr::from(0u32),
@@ -250,7 +250,7 @@ impl RLNSystem {
                     "Using cached partial proof for user {user_index} (root {})",
                     cached.root
                 );
-                let witness = RLNWitnessInput::new(
+                let witness = RLNWitnessInput::new_single(
                     identity.identity_secret.clone(),
                     Fr::from(MESSAGE_LIMIT),
                     Fr::from(message_id),
@@ -266,7 +266,7 @@ impl RLNSystem {
                     "Cached partial proof missing or stale for user {user_index}; generating fresh proof"
                 );
                 let (path_elements, identity_path_index) = self.rln.get_merkle_proof(user_index)?;
-                let witness = RLNWitnessInput::new(
+                let witness = RLNWitnessInput::new_single(
                     identity.identity_secret.clone(),
                     Fr::from(MESSAGE_LIMIT),
                     Fr::from(message_id),

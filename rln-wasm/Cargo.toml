@@ -48,7 +48,6 @@ default = []
 utils = []
 panic_hook = ["console_error_panic_hook"]
 parallel = ["rln/parallel", "wasm-bindgen-rayon", "ark-groth16/parallel"]
-multi-message-id = ["rln/multi-message-id"]
 
 [package.metadata.docs.rs]
 all-features = true

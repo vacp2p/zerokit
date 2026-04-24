@@ -284,7 +284,7 @@ impl ZerokitMerkleTree for PmTree {
         values: I,
     ) -> Result<(), ZerokitMerkleTreeError> {
         let v = values.into_iter().collect::<Vec<_>>();
-        self.tree.set_range(start, v.clone().into_iter())?;
+        self.tree.set_range(start, v.clone())?;
         for i in start..v.len() {
             self.cached_leaves_indices[i] = 1
         }

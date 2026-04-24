@@ -33,19 +33,14 @@ fn get_test_witness() -> RLNWitnessInput {
 
     let message_id = Fr::from(1);
 
-    RLNWitnessInput::new(
+    RLNWitnessInput::new_single(
         identity_secret,
         user_message_limit,
-        #[cfg(not(feature = "multi-message-id"))]
         message_id,
-        #[cfg(feature = "multi-message-id")]
-        vec![message_id, Fr::from(0), Fr::from(0), Fr::from(0)],
         merkle_proof.get_path_elements(),
         merkle_proof.get_path_index(),
         x,
         external_nullifier,
-        #[cfg(feature = "multi-message-id")]
-        vec![true, false, false, false],
     )
     .unwrap()
 }
@@ -64,8 +59,8 @@ pub fn rln_proof_benchmark(c: &mut Criterion) {
     let witness = get_test_witness();
     let partial_witness = get_partial_witness(&witness);
 
-    let proving_key = zkey_from_folder();
-    let graph_data = graph_from_folder();
+    let proving_key = zkey_single_v1();
+    let graph_data = graph_single_v1();
 
     c.bench_function("rln_full_proof", |b| {
         b.iter(|| {

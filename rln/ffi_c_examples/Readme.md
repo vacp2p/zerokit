@@ -43,8 +43,8 @@ gcc -Wall -DSTATELESS main.c -o main -lrln -L../../target/release
 ### Compile lib multi-message-id
 
 ```bash
-cargo build -p rln --release --features multi-message-id
-cargo run --features multi-message-id,headers --bin generate-headers
+cargo build -p rln --release
+cargo run --features headers --bin generate-headers
 mv -v rln.h rln/ffi_c_examples/
 ```
 

@@ -83,7 +83,7 @@ fullmerkletree = [] # Pre-allocated tree, fastest access
 optimalmerkletree = [] # Sparse storage, memory efficient
 pmtree-ft = ["zerokit_utils/pmtree-ft"] # Persistent storage, disk-based
 headers = ["safer-ffi/headers"] # Generate C header file with safer-ffi
-multi-message-id = [] # Support multiple message IDs in single RLN proof
+refactors = [] # To avoid clippy checks showing errors in refactor branches
 
 [[bench]]
 name = "pmtree_benchmark"
@@ -103,5 +103,9 @@ required-features = ["pmtree-ft"]
 features = ["parallel", "pmtree-ft"]
 
 [[bin]]
-name = "generate-headers"
+name = "generate_headers"
 required-features = ["headers"] # Do not build unless generating headers.
+
+[[bin]]
+name = "test_refactors"
+required-features = ["refactors"]
