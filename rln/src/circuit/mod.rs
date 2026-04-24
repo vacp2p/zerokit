@@ -4,7 +4,6 @@ pub(crate) mod error;
 pub(crate) mod iden3calc;
 pub(crate) mod qap;
 
-use std::io::{Read, Write};
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::LazyLock;
 
@@ -26,11 +25,7 @@ use self::error::ZKeyReadError;
 use crate::circuit::iden3calc::{
     graph::Node, storage::deserialize_witnesscalc_graph, InputSignalsInfo,
 };
-use crate::{
-    error::ProtocolError,
-    partial_proof::PartialProof as ArkPartialProof,
-    prelude::{CanonicalDeserializeBE, CanonicalSerializeBE},
-};
+use crate::partial_proof::PartialProof as ArkPartialProof;
 
 #[cfg(not(target_arch = "wasm32"))]
 const GRAPH_BYTES_SINGLE_V1: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
@@ -109,48 +104,8 @@ pub type G2Projective = ArkG2Projective;
 /// Groth16 proof for the BN254 curve.
 pub type Proof = ArkProof<Curve>;
 
-impl CanonicalSerializeBE for Proof {
-    type Error = ProtocolError;
-
-    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
-        todo!()
-    }
-
-    fn serialized_size(&self) -> usize {
-        todo!()
-    }
-}
-
-impl CanonicalDeserializeBE for Proof {
-    type Error = ProtocolError;
-
-    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
-        todo!()
-    }
-}
-
 /// Partial Groth16 proof for the BN254 curve.
 pub type PartialProof = ArkPartialProof<Curve>;
-
-impl CanonicalSerializeBE for PartialProof {
-    type Error = ProtocolError;
-
-    fn serialize<W: Write>(&self, _writer: W) -> Result<(), Self::Error> {
-        todo!()
-    }
-
-    fn serialized_size(&self) -> usize {
-        todo!()
-    }
-}
-
-impl CanonicalDeserializeBE for PartialProof {
-    type Error = ProtocolError;
-
-    fn deserialize<R: Read>(_reader: R) -> Result<Self, Self::Error> {
-        todo!()
-    }
-}
 
 /// Proving key for the Groth16 proof system.
 pub type ProvingKey = ArkProvingKey<Curve>;
@@ -340,13 +295,7 @@ impl ArkGroth16Backend {
 
 #[cfg(test)]
 mod test {
-    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-
     use super::*;
-    use crate::prelude::{
-        generate_partial_zk_proof, generate_zk_proof, keygen, RLNPartialWitnessInput,
-        RLNWitnessInput,
-    };
 
     #[test]
     fn test_empty_zkey_and_graph() {
@@ -378,50 +327,5 @@ mod test {
         .err()
         .unwrap();
         assert!(matches!(err, GraphReadError::MaxOutMismatch { .. }));
-    }
-
-    #[test]
-    fn test_proof_le_compressed_roundtrip() {
-        let (identity_secret, _) = keygen();
-        let path_elements = vec![Fr::from(0); DEFAULT_TREE_DEPTH];
-        let identity_path_index = vec![0; DEFAULT_TREE_DEPTH];
-        let witness = RLNWitnessInput::new_single(
-            identity_secret,
-            Fr::from(100),
-            Fr::from(1),
-            path_elements,
-            identity_path_index,
-            Fr::from(1),
-            Fr::from(100),
-        )
-        .unwrap();
-        let proof = generate_zk_proof(&ARKZKEY_SINGLE_V1, &witness, &GRAPH_SINGLE_V1).unwrap();
-        let mut buf = Vec::new();
-        proof.serialize_compressed(&mut buf).unwrap();
-        let deser = Proof::deserialize_compressed(buf.as_slice()).unwrap();
-        assert_eq!(proof, deser);
-        assert_eq!(proof.compressed_size(), buf.len());
-    }
-
-    #[test]
-    fn test_partial_proof_le_compressed_roundtrip() {
-        let (identity_secret, _) = keygen();
-        let path_elements = vec![Fr::from(0); DEFAULT_TREE_DEPTH];
-        let identity_path_index = vec![0; DEFAULT_TREE_DEPTH];
-        let partial_witness = RLNPartialWitnessInput::new(
-            identity_secret,
-            Fr::from(100),
-            path_elements,
-            identity_path_index,
-        )
-        .unwrap();
-        let partial =
-            generate_partial_zk_proof(&ARKZKEY_SINGLE_V1, &partial_witness, &GRAPH_SINGLE_V1)
-                .unwrap();
-        let mut buf = Vec::new();
-        partial.serialize_compressed(&mut buf).unwrap();
-        let deser = PartialProof::deserialize_compressed(buf.as_slice()).unwrap();
-        assert_eq!(partial, deser);
-        assert_eq!(partial.compressed_size(), buf.len());
     }
 }

@@ -9,7 +9,7 @@ mod witness;
 mod zk;
 
 pub use keygen::{extended_keygen, extended_seeded_keygen, keygen, seeded_keygen};
-pub use mode::MessageMode;
+pub use mode::{MessageMode, Stateful, Stateless};
 pub use proof::{
     bytes_be_to_rln_partial_proof, bytes_be_to_rln_proof, bytes_be_to_rln_proof_values,
     bytes_le_to_rln_partial_proof, bytes_le_to_rln_proof, bytes_le_to_rln_proof_values,
@@ -25,6 +25,7 @@ pub use proof::{
 };
 pub use serialize::{
     CanonicalDeserializeBE, CanonicalSerializeBE, ENUM_TAG_MULTI, ENUM_TAG_SINGLE, ENUM_TAG_SIZE,
+    FR_BYTE_SIZE, FR_LIMB_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
 };
 pub use slashing::{compute_id_secret, recover_id_secret};
 pub use witness::{

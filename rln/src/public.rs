@@ -21,7 +21,7 @@ use crate::{
     error::{RLNError, VerifyError},
     protocol::{
         generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof,
-        RLNPartialZkProof, RLNProofValues, RLNWitnessInput, RLNZkProof,
+        RLNPartialZkProof, RLNProofValues, RLNWitnessInput, RLNZkProof, Stateful, Stateless,
     },
 };
 
@@ -763,32 +763,6 @@ impl RLN {
         Ok(true)
     }
 }
-
-#[derive(Debug, Clone)]
-pub struct Stateful<T> {
-    pub tree: T,
-}
-
-impl<T> Stateful<T> {
-    pub fn new(tree: T) -> Self {
-        Self { tree }
-    }
-
-    pub fn tree(&self) -> &T {
-        &self.tree
-    }
-
-    pub fn tree_mut(&mut self) -> &mut T {
-        &mut self.tree
-    }
-
-    pub fn into_tree(self) -> T {
-        self.tree
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Stateless;
 
 pub struct RLNV3<Mode, ZkProof> {
     pub(crate) _zkp: ZkProof,
