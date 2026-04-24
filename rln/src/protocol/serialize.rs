@@ -59,7 +59,7 @@ pub trait CanonicalDeserializeBE: Sized {
 impl CanonicalSerializeBE for Fr {
     type Error = UtilsError;
 
-    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), UtilsError> {
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         let bigint = self.into_bigint();
         let mut buf = [0u8; FR_BYTE_SIZE];
         for (i, &limb) in bigint.0.iter().rev().enumerate() {
@@ -77,7 +77,7 @@ impl CanonicalSerializeBE for Fr {
 impl CanonicalDeserializeBE for Fr {
     type Error = UtilsError;
 
-    fn deserialize<R: Read>(mut reader: R) -> Result<Fr, UtilsError> {
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let mut buf = [0u8; FR_BYTE_SIZE];
         reader.read_exact(&mut buf)?;
         let mut limbs = [0u64; FR_BYTE_SIZE / FR_LIMB_BYTE_SIZE];
@@ -97,7 +97,7 @@ impl CanonicalDeserializeBE for Fr {
 impl CanonicalSerializeBE for IdSecret {
     type Error = UtilsError;
 
-    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), UtilsError> {
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         let mut bigint = self.into_bigint();
         let mut buf = Zeroizing::new([0u8; FR_BYTE_SIZE]);
         for (i, &limb) in bigint.0.iter().rev().enumerate() {
@@ -117,7 +117,7 @@ impl CanonicalSerializeBE for IdSecret {
 impl CanonicalDeserializeBE for IdSecret {
     type Error = UtilsError;
 
-    fn deserialize<R: Read>(mut reader: R) -> Result<IdSecret, UtilsError> {
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let mut buf = Zeroizing::new([0u8; FR_BYTE_SIZE]);
         reader.read_exact(buf.as_mut())?;
         let mut limbs = [0u64; FR_BYTE_SIZE / FR_LIMB_BYTE_SIZE];
@@ -138,7 +138,7 @@ impl CanonicalDeserializeBE for IdSecret {
 impl CanonicalSerializeBE for Vec<Fr> {
     type Error = UtilsError;
 
-    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), UtilsError> {
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         writer
             .write_all(&normalize_usize_be(self.len()))
             .map_err(UtilsError::IoError)?;
@@ -156,7 +156,7 @@ impl CanonicalSerializeBE for Vec<Fr> {
 impl CanonicalDeserializeBE for Vec<Fr> {
     type Error = UtilsError;
 
-    fn deserialize<R: Read>(mut reader: R) -> Result<Vec<Fr>, UtilsError> {
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let mut len_buf = [0u8; VEC_LEN_BYTE_SIZE];
         reader.read_exact(&mut len_buf)?;
         let count = usize::try_from(u64::from_be_bytes(len_buf))?;
@@ -171,7 +171,7 @@ impl CanonicalDeserializeBE for Vec<Fr> {
 impl CanonicalSerializeBE for Vec<u8> {
     type Error = UtilsError;
 
-    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), UtilsError> {
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         writer
             .write_all(&normalize_usize_be(self.len()))
             .map_err(UtilsError::IoError)?;
@@ -186,7 +186,7 @@ impl CanonicalSerializeBE for Vec<u8> {
 impl CanonicalDeserializeBE for Vec<u8> {
     type Error = UtilsError;
 
-    fn deserialize<R: Read>(mut reader: R) -> Result<Vec<u8>, UtilsError> {
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let mut len_buf = [0u8; VEC_LEN_BYTE_SIZE];
         reader.read_exact(&mut len_buf)?;
         let count = usize::try_from(u64::from_be_bytes(len_buf))?;
@@ -199,7 +199,7 @@ impl CanonicalDeserializeBE for Vec<u8> {
 impl CanonicalSerializeBE for Vec<bool> {
     type Error = UtilsError;
 
-    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), UtilsError> {
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         writer
             .write_all(&normalize_usize_be(self.len()))
             .map_err(UtilsError::IoError)?;
@@ -211,6 +211,19 @@ impl CanonicalSerializeBE for Vec<bool> {
 
     fn serialized_size(&self) -> usize {
         VEC_LEN_BYTE_SIZE + self.len()
+    }
+}
+
+impl CanonicalDeserializeBE for Vec<bool> {
+    type Error = UtilsError;
+
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
+        let mut len_buf = [0u8; VEC_LEN_BYTE_SIZE];
+        reader.read_exact(&mut len_buf)?;
+        let count = usize::try_from(u64::from_be_bytes(len_buf))?;
+        let mut raw = vec![0u8; count];
+        reader.read_exact(&mut raw)?;
+        Ok(raw.into_iter().map(|b| b != 0).collect())
     }
 }
 
@@ -270,19 +283,6 @@ impl CanonicalDeserialize for RLNWitnessInputV3 {
             )),
             _ => Err(SerializationError::InvalidData),
         }
-    }
-}
-
-impl CanonicalDeserializeBE for Vec<bool> {
-    type Error = UtilsError;
-
-    fn deserialize<R: Read>(mut reader: R) -> Result<Vec<bool>, UtilsError> {
-        let mut len_buf = [0u8; VEC_LEN_BYTE_SIZE];
-        reader.read_exact(&mut len_buf)?;
-        let count = usize::try_from(u64::from_be_bytes(len_buf))?;
-        let mut raw = vec![0u8; count];
-        reader.read_exact(&mut raw)?;
-        Ok(raw.into_iter().map(|b| b != 0).collect())
     }
 }
 
