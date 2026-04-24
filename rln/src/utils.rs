@@ -600,7 +600,7 @@ pub fn write_fr_be<W: Write>(writer: &mut W, fr: &Fr) -> std::io::Result<()> {
     let bigint = fr.into_bigint();
     let mut buf = [0u8; FR_BYTE_SIZE];
     for (i, &limb) in bigint.0.iter().rev().enumerate() {
-        buf[i * 8..(i + 1) * 8].copy_from_slice(&limb.to_be_bytes());
+        buf[i * FR_LIMB_BYTE_SIZE..(i + 1) * FR_LIMB_BYTE_SIZE].copy_from_slice(&limb.to_be_bytes());
     }
     writer.write_all(&buf)
 }
