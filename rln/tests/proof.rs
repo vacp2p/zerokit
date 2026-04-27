@@ -44,7 +44,7 @@ mod test_rlnv3 {
             x,
             external_nullifier,
             message_id,
-        ))
+        ).unwrap())
     }
 
     fn make_multi_witness(
@@ -65,7 +65,7 @@ mod test_rlnv3 {
             external_nullifier,
             message_ids,
             selector_used,
-        ))
+        ).unwrap())
     }
 
     #[test]
@@ -203,7 +203,7 @@ mod test {
             external_nullifier,
             message_ids,
             selector_used,
-        ))
+        ).unwrap())
     }
 
     fn make_single_witness(
@@ -222,7 +222,7 @@ mod test {
             x,
             external_nullifier,
             message_id,
-        ))
+        ).unwrap())
     }
 
     #[test]
@@ -478,7 +478,7 @@ mod test {
         // Two multi proofs with non-overlapping message_ids
         let message_ids1: Vec<Fr> = (1..=DEFAULT_MAX_OUT).map(|i| Fr::from(i as u64)).collect();
         let message_ids2: Vec<Fr> = (1..=DEFAULT_MAX_OUT)
-            .map(|i| Fr::from((i + 100) as u64))
+            .map(|i| Fr::from((i + DEFAULT_MAX_OUT) as u64))
             .collect();
         let selector_used = vec![true; DEFAULT_MAX_OUT];
 

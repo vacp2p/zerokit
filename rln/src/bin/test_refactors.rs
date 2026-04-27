@@ -14,7 +14,7 @@ fn main() -> Result<(), RLNError> {
         Fr::from(42),
         Fr::from(100),
         Fr::from(1),
-    ));
+    )?);
 
     let (proof, values_single1) = rln.generate_proof(witness_single1)?;
     assert!(rln.verify(&proof, &values_single1)?);
@@ -27,7 +27,7 @@ fn main() -> Result<(), RLNError> {
         Fr::from(11),
         Fr::from(100),
         Fr::from(1),
-    ));
+    )?);
     let (_, values_single2) = rln.generate_proof(witness_single2)?;
     let recovered = values_single1.recover_secret(&values_single2)?;
     assert_eq!(recovered, *identity_secret);
@@ -48,7 +48,7 @@ fn main() -> Result<(), RLNError> {
         Fr::from(100),
         (1..=DEFAULT_MAX_OUT as u64).map(Fr::from).collect(),
         vec![true; DEFAULT_MAX_OUT],
-    ));
+    )?);
     let (proof, values_multi) = rln_multi.generate_proof(witness_multi)?;
     assert!(rln_multi.verify(&proof, &values_multi)?);
 
@@ -70,7 +70,7 @@ fn main() -> Result<(), RLNError> {
         Fr::from(11),
         external_nullifier,
         Fr::from(1),
-    ));
+    )?);
     let witness_multi = RLNWitnessInputV3::Multi(RLNWitnessInputMulti::new(
         identity_secret.clone(),
         Fr::from(10),
@@ -80,7 +80,7 @@ fn main() -> Result<(), RLNError> {
         external_nullifier,
         (1..=DEFAULT_MAX_OUT as u64).map(Fr::from).collect(),
         vec![true; DEFAULT_MAX_OUT],
-    ));
+    )?);
 
     let (_, values_single) = rln_single.generate_proof(witness_single)?;
     let (_, values_multi) = rln_multi2.generate_proof(witness_multi)?;

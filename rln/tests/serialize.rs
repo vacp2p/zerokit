@@ -266,7 +266,7 @@ mod test {
             Fr::from(5u64),
             Fr::from(7u64),
             Fr::from(3u64),
-        ))
+        ).unwrap())
     }
 
     fn make_witness_input_multi() -> RLNWitnessInputV3 {
@@ -279,7 +279,7 @@ mod test {
             Fr::from(7u64),
             vec![Fr::from(0u64), Fr::from(1u64)],
             vec![true, false],
-        ))
+        ).unwrap())
     }
 
     fn make_partial_witness() -> RLNPartialWitnessInputV3 {

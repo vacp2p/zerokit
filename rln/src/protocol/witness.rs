@@ -1017,8 +1017,19 @@ impl RLNWitnessInputSingle {
         x: Fr,
         external_nullifier: Fr,
         message_id: Fr,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, ProtocolError> {
+        if user_message_limit == Fr::from(0) {
+            return Err(ProtocolError::ZeroUserMessageLimit);
+        }
+        let path_len = path_elements.len();
+        let index_len = identity_path_index.len();
+        if path_len != index_len {
+            return Err(ProtocolError::InvalidMerkleProofLength(path_len, index_len));
+        }
+        if message_id >= user_message_limit {
+            return Err(ProtocolError::InvalidMessageId(message_id, user_message_limit));
+        }
+        Ok(Self {
             identity_secret,
             user_message_limit,
             path_elements,
@@ -1026,7 +1037,7 @@ impl RLNWitnessInputSingle {
             x,
             external_nullifier,
             message_id,
-        }
+        })
     }
 }
 
@@ -1053,8 +1064,43 @@ impl RLNWitnessInputMulti {
         external_nullifier: Fr,
         message_ids: Vec<Fr>,
         selector_used: Vec<bool>,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, ProtocolError> {
+        if user_message_limit == Fr::from(0) {
+            return Err(ProtocolError::ZeroUserMessageLimit);
+        }
+        let path_len = path_elements.len();
+        let index_len = identity_path_index.len();
+        if path_len != index_len {
+            return Err(ProtocolError::InvalidMerkleProofLength(path_len, index_len));
+        }
+        if message_ids.is_empty() {
+            return Err(ProtocolError::EmptyMessageIds);
+        }
+        if selector_used.len() != message_ids.len() {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "message_ids",
+                message_ids.len(),
+                "selector_used",
+                selector_used.len(),
+            ));
+        }
+        if !selector_used.iter().any(|&s| s) {
+            return Err(ProtocolError::NoActiveSelectorUsed);
+        }
+        {
+            let mut seen = HashSet::with_capacity(message_ids.len());
+            for (id, &used) in message_ids.iter().zip(&selector_used) {
+                if used && !seen.insert(*id) {
+                    return Err(ProtocolError::DuplicateMessageIds);
+                }
+            }
+        }
+        for (message_id, used) in message_ids.iter().zip(&selector_used) {
+            if *used && *message_id >= user_message_limit {
+                return Err(ProtocolError::InvalidMessageId(*message_id, user_message_limit));
+            }
+        }
+        Ok(Self {
             identity_secret,
             user_message_limit,
             path_elements,
@@ -1063,7 +1109,7 @@ impl RLNWitnessInputMulti {
             external_nullifier,
             message_ids,
             selector_used,
-        }
+        })
     }
 }
 
