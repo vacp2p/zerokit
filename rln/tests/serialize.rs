@@ -288,7 +288,7 @@ mod test {
             Fr::from(10u64),
             vec![Fr::from(1u64), Fr::from(2u64)],
             vec![0u8, 1u8],
-        )
+        ).unwrap()
     }
 
     fn make_proof_values_single() -> RLNProofValuesV3 {

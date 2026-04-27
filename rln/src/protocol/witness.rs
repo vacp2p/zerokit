@@ -1127,12 +1127,20 @@ impl RLNPartialWitnessInputV3 {
         user_message_limit: Fr,
         path_elements: Vec<Fr>,
         identity_path_index: Vec<u8>,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, ProtocolError> {
+        if user_message_limit == Fr::from(0) {
+            return Err(ProtocolError::ZeroUserMessageLimit);
+        }
+        let path_len = path_elements.len();
+        let index_len = identity_path_index.len();
+        if path_len != index_len {
+            return Err(ProtocolError::InvalidMerkleProofLength(path_len, index_len));
+        }
+        Ok(Self {
             identity_secret,
             user_message_limit,
             path_elements,
             identity_path_index,
-        }
+        })
     }
 }
