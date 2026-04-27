@@ -765,14 +765,14 @@ impl RLN {
 }
 
 pub struct RLNV3<Mode, ZkProof> {
-    pub(crate) _zkp: ZkProof,
+    pub(crate) zkp: ZkProof,
     pub(crate) state: Mode,
 }
 
 impl<ZkProof> RLNV3<Stateless, ZkProof> {
     pub fn new(zkp: ZkProof) -> Self {
         Self {
-            _zkp: zkp,
+            zkp,
             state: Stateless,
         }
     }
@@ -781,7 +781,7 @@ impl<ZkProof> RLNV3<Stateless, ZkProof> {
 impl<T, ZkProof> RLNV3<Stateful<T>, ZkProof> {
     pub fn new(tree: T, zkp: ZkProof) -> Self {
         Self {
-            _zkp: zkp,
+            zkp,
             state: Stateful::new(tree),
         }
     }
@@ -815,24 +815,30 @@ impl<T: ZerokitMerkleTree, ZkProof> RLNV3<Stateful<T>, ZkProof> {
     }
 }
 
-impl<Tree, ZkProof: RLNZkProof> RLNV3<Tree, ZkProof> {
+impl<Tree, ZkProof: RLNZkProof> RLNV3<Tree, ZkProof>
+where
+    RLNError: From<ZkProof::Error>,
+{
     pub fn generate_proof(
         &self,
-        _witness: ZkProof::Witness,
+        witness: ZkProof::Witness,
     ) -> Result<(ZkProof::Proof, ZkProof::Values), RLNError> {
-        todo!()
+        Ok(self.zkp.generate_proof(witness)?)
     }
 
     pub fn verify_proof(
         &self,
-        _proof: &ZkProof::Proof,
-        _values: &ZkProof::Values,
+        proof: &ZkProof::Proof,
+        values: &ZkProof::Values,
     ) -> Result<bool, RLNError> {
-        todo!()
+        Ok(self.zkp.verify(proof, values)?)
     }
 }
 
-impl<Tree, ZkProof: RLNPartialZkProof> RLNV3<Tree, ZkProof> {
+impl<Tree, ZkProof: RLNPartialZkProof> RLNV3<Tree, ZkProof>
+where
+    RLNError: From<ZkProof::Error>,
+{
     pub fn generate_partial_proof(
         &self,
         _partial_witness: ZkProof::PartialWitness,

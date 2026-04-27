@@ -878,6 +878,62 @@ pub(super) fn inputs_for_witness_calculation(
     inputs
 }
 
+/// Prepares inputs for witness calculation from RLN witness input.
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn inputs_for_witness_calculation_v3(
+    witness: &RLNWitnessInputV3,
+) -> Vec<(&'static str, Vec<FrOrSecret>)> {
+    match witness {
+        RLNWitnessInputV3::Single(w) => {
+            let identity_path_index_fr: Vec<FrOrSecret> = w
+                .identity_path_index
+                .iter()
+                .map(|v| Fr::from(*v).into())
+                .collect();
+            vec![
+                ("identitySecret", vec![w.identity_secret.clone().into()]),
+                ("userMessageLimit", vec![w.user_message_limit.into()]),
+                ("messageId", vec![w.message_id.into()]),
+                (
+                    "pathElements",
+                    w.path_elements.iter().cloned().map(Into::into).collect(),
+                ),
+                ("identityPathIndex", identity_path_index_fr),
+                ("x", vec![w.x.into()]),
+                ("externalNullifier", vec![w.external_nullifier.into()]),
+            ]
+        }
+        RLNWitnessInputV3::Multi(w) => {
+            let identity_path_index_fr: Vec<FrOrSecret> = w
+                .identity_path_index
+                .iter()
+                .map(|v| Fr::from(*v).into())
+                .collect();
+            let selector_used_fr: Vec<FrOrSecret> = w
+                .selector_used
+                .iter()
+                .map(|&v| Fr::from(v).into())
+                .collect();
+            vec![
+                ("identitySecret", vec![w.identity_secret.clone().into()]),
+                ("userMessageLimit", vec![w.user_message_limit.into()]),
+                (
+                    "messageId",
+                    w.message_ids.iter().cloned().map(Into::into).collect(),
+                ),
+                ("selectorUsed", selector_used_fr),
+                (
+                    "pathElements",
+                    w.path_elements.iter().cloned().map(Into::into).collect(),
+                ),
+                ("identityPathIndex", identity_path_index_fr),
+                ("x", vec![w.x.into()]),
+                ("externalNullifier", vec![w.external_nullifier.into()]),
+            ]
+        }
+    }
+}
+
 /// Prepares inputs for partial witness calculation from an RLN partial witness input.
 ///
 /// Unknown inputs (signal, external nullifier, message ID) are represented as `None`.
