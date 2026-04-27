@@ -1,10 +1,12 @@
+use ark_serialize::SerializationError;
+
 /// Errors that can occur during zkey reading operations
 #[derive(Debug, thiserror::Error)]
 pub enum ZKeyReadError {
     #[error("Empty zkey bytes provided")]
     EmptyBytes,
     #[error("{0}")]
-    SerializationError(#[from] ark_serialize::SerializationError),
+    SerializationError(#[from] SerializationError),
 }
 
 /// Errors that can occur during witness calculation graph reading operations

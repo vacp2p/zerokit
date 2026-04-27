@@ -27,37 +27,49 @@ use crate::circuit::iden3calc::{
 };
 use crate::partial_proof::PartialProof as ArkPartialProof;
 
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "multi-message-id")))]
-const GRAPH_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
+#[cfg(not(target_arch = "wasm32"))]
+const GRAPH_BYTES_SINGLE_V1: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "multi-message-id"))]
-const GRAPH_BYTES: &[u8] =
+#[cfg(not(target_arch = "wasm32"))]
+const ARKZKEY_BYTES_SINGLE_V1: &[u8] =
+    include_bytes!("../../resources/tree_depth_20/rln_final.arkzkey");
+
+#[cfg(not(target_arch = "wasm32"))]
+const GRAPH_BYTES_MULTI_V1: &[u8] =
     include_bytes!("../../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin");
 
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "multi-message-id")))]
-const ARKZKEY_BYTES: &[u8] = include_bytes!("../../resources/tree_depth_20/rln_final.arkzkey");
-
-#[cfg(all(not(target_arch = "wasm32"), feature = "multi-message-id"))]
-const ARKZKEY_BYTES: &[u8] =
+#[cfg(not(target_arch = "wasm32"))]
+const ARKZKEY_BYTES_MULTI_V1: &[u8] =
     include_bytes!("../../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey");
 
 #[cfg(not(target_arch = "wasm32"))]
-static ARKZKEY: LazyLock<Zkey> = LazyLock::new(|| {
-    read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES).expect("Default zkey must be valid")
+static ARKZKEY_SINGLE_V1: LazyLock<Zkey> = LazyLock::new(|| {
+    read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES_SINGLE_V1)
+        .expect("Default SingleV1 zkey must be valid")
 });
 
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "multi-message-id")))]
-static GRAPH: LazyLock<Graph> = LazyLock::new(|| {
-    graph_from_raw(GRAPH_BYTES, Some(DEFAULT_TREE_DEPTH)).expect("Default graph must be valid")
+#[cfg(not(target_arch = "wasm32"))]
+static ARKZKEY_MULTI_V1: LazyLock<Zkey> = LazyLock::new(|| {
+    read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES_MULTI_V1)
+        .expect("Default MultiV1 zkey must be valid")
 });
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "multi-message-id"))]
-static GRAPH: LazyLock<Graph> = LazyLock::new(|| {
-    graph_from_raw(GRAPH_BYTES, Some(DEFAULT_TREE_DEPTH), Some(DEFAULT_MAX_OUT))
-        .expect("Default graph must be valid")
+#[cfg(not(target_arch = "wasm32"))]
+static GRAPH_SINGLE_V1: LazyLock<Graph> = LazyLock::new(|| {
+    graph_from_raw(GRAPH_BYTES_SINGLE_V1, Some(DEFAULT_TREE_DEPTH), None)
+        .expect("Default SingleV1 graph must be valid")
 });
 
-#[cfg(feature = "multi-message-id")]
+#[cfg(not(target_arch = "wasm32"))]
+static GRAPH_MULTI_V1: LazyLock<Graph> = LazyLock::new(|| {
+    graph_from_raw(
+        GRAPH_BYTES_MULTI_V1,
+        Some(DEFAULT_TREE_DEPTH),
+        Some(DEFAULT_MAX_OUT),
+    )
+    .expect("Default MultiV1 graph must be valid")
+});
+
 pub const DEFAULT_MAX_OUT: usize = 4;
 pub const DEFAULT_TREE_DEPTH: usize = 20;
 pub const COMPRESS_PROOF_SIZE: usize = 128;
@@ -114,9 +126,7 @@ pub struct Graph {
     pub(crate) nodes: Vec<Node>,
     pub(crate) signals: Vec<usize>,
     pub(crate) input_mapping: InputSignalsInfo,
-    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) tree_depth: usize,
-    #[cfg(feature = "multi-message-id")]
     pub(crate) max_out: usize,
 }
 
@@ -135,8 +145,8 @@ pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<Zkey, ZKeyReadError> {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn graph_from_raw(
     graph_data: &[u8],
-    #[cfg(not(target_arch = "wasm32"))] expected_tree_depth: Option<usize>,
-    #[cfg(feature = "multi-message-id")] expected_max_out: Option<usize>,
+    expected_tree_depth: Option<usize>,
+    expected_max_out: Option<usize>,
 ) -> Result<Graph, GraphReadError> {
     if graph_data.is_empty() {
         return Err(GraphReadError::EmptyBytes);
@@ -146,7 +156,6 @@ pub fn graph_from_raw(
         deserialize_witnesscalc_graph(std::io::Cursor::new(graph_data))
             .map_err(GraphReadError::GraphDeserialization)?;
 
-    #[cfg(not(target_arch = "wasm32"))]
     let tree_depth = {
         let depth = input_mapping
             .get("pathElements")
@@ -165,46 +174,52 @@ pub fn graph_from_raw(
         depth
     };
 
-    #[cfg(feature = "multi-message-id")]
-    let max_out = {
-        let count = input_mapping
-            .get("messageId")
-            .map(|(_, len)| *len)
-            .ok_or_else(|| GraphReadError::MissingSignal("messageId".into()))?;
-
-        if let Some(expected) = expected_max_out {
-            if expected != count {
-                return Err(GraphReadError::MaxOutMismatch {
-                    expected,
-                    actual: count,
-                });
+    let max_out = match input_mapping.get("messageId") {
+        Some((_, count)) => {
+            if let Some(expected) = expected_max_out {
+                if expected != *count {
+                    return Err(GraphReadError::MaxOutMismatch {
+                        expected,
+                        actual: *count,
+                    });
+                }
             }
+            *count
         }
-
-        count
+        None => 1, // single-message-id graph: max_out = 1
     };
 
     Ok(Graph {
         nodes,
         signals,
         input_mapping,
-        #[cfg(not(target_arch = "wasm32"))]
         tree_depth,
-        #[cfg(feature = "multi-message-id")]
         max_out,
     })
 }
 
-// Loads default zkey from folder
+// Loads default SingleV1 zkey
 #[cfg(not(target_arch = "wasm32"))]
-pub fn zkey_from_folder() -> &'static Zkey {
-    &ARKZKEY
+pub fn zkey_single_v1() -> &'static Zkey {
+    &ARKZKEY_SINGLE_V1
 }
 
-// Loads default parsed graph from folder
+// Loads default MultiV1 zkey
 #[cfg(not(target_arch = "wasm32"))]
-pub fn graph_from_folder() -> &'static Graph {
-    &GRAPH
+pub fn zkey_multi_v1() -> &'static Zkey {
+    &ARKZKEY_MULTI_V1
+}
+
+// Loads default SingleV1 parsed graph
+#[cfg(not(target_arch = "wasm32"))]
+pub fn graph_single_v1() -> &'static Graph {
+    &GRAPH_SINGLE_V1
+}
+
+// Loads default MultiV1 parsed graph
+#[cfg(not(target_arch = "wasm32"))]
+pub fn graph_multi_v1() -> &'static Graph {
+    &GRAPH_MULTI_V1
 }
 
 // The following functions and structs are based on code from ark-zkey:
@@ -261,6 +276,20 @@ fn read_arkzkey_from_bytes_uncompressed(arkzkey_data: &[u8]) -> Result<Zkey, ZKe
     Ok(zkey)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone)]
+pub struct ArkGroth16Backend {
+    pub(crate) zkey: Zkey,
+    pub(crate) graph: Graph,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl ArkGroth16Backend {
+    pub fn new(zkey: Zkey, graph: Graph) -> Self {
+        Self { zkey, graph }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -270,9 +299,6 @@ mod test {
         let err = zkey_from_raw(&[]).unwrap_err();
         assert!(matches!(err, ZKeyReadError::EmptyBytes));
 
-        #[cfg(not(feature = "multi-message-id"))]
-        let err = graph_from_raw(&[], None).err().unwrap();
-        #[cfg(feature = "multi-message-id")]
         let err = graph_from_raw(&[], None, None).err().unwrap();
         assert!(matches!(err, GraphReadError::EmptyBytes));
 
@@ -282,22 +308,16 @@ mod test {
 
     #[test]
     fn test_tree_depth_mismatch() {
-        #[cfg(not(feature = "multi-message-id"))]
-        let err = graph_from_raw(GRAPH_BYTES, Some(DEFAULT_TREE_DEPTH + 1))
-            .err()
-            .unwrap();
-        #[cfg(feature = "multi-message-id")]
-        let err = graph_from_raw(GRAPH_BYTES, Some(DEFAULT_TREE_DEPTH + 1), None)
+        let err = graph_from_raw(GRAPH_BYTES_SINGLE_V1, Some(DEFAULT_TREE_DEPTH + 1), None)
             .err()
             .unwrap();
         assert!(matches!(err, GraphReadError::TreeDepthMismatch { .. }));
     }
 
-    #[cfg(feature = "multi-message-id")]
     #[test]
     fn test_max_out_mismatch() {
         let err = graph_from_raw(
-            GRAPH_BYTES,
+            GRAPH_BYTES_MULTI_V1,
             Some(DEFAULT_TREE_DEPTH),
             Some(DEFAULT_MAX_OUT + 1),
         )
