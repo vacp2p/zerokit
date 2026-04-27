@@ -36,15 +36,18 @@ mod test_rlnv3 {
         external_nullifier: Fr,
     ) -> RLNWitnessInputV3 {
         let depth = path_elements.len();
-        RLNWitnessInputV3::Single(RLNWitnessInputSingle::new(
-            identity_secret,
-            Fr::from(10u64),
-            path_elements,
-            vec![0u8; depth],
-            x,
-            external_nullifier,
-            message_id,
-        ).unwrap())
+        RLNWitnessInputV3::Single(
+            RLNWitnessInputSingle::new(
+                identity_secret,
+                Fr::from(10u64),
+                path_elements,
+                vec![0u8; depth],
+                x,
+                external_nullifier,
+                message_id,
+            )
+            .unwrap(),
+        )
     }
 
     fn make_multi_witness(
@@ -56,16 +59,19 @@ mod test_rlnv3 {
         external_nullifier: Fr,
     ) -> RLNWitnessInputV3 {
         let depth = path_elements.len();
-        RLNWitnessInputV3::Multi(RLNWitnessInputMulti::new(
-            identity_secret,
-            Fr::from(10u64),
-            path_elements,
-            vec![0u8; depth],
-            x,
-            external_nullifier,
-            message_ids,
-            selector_used,
-        ).unwrap())
+        RLNWitnessInputV3::Multi(
+            RLNWitnessInputMulti::new(
+                identity_secret,
+                Fr::from(10u64),
+                path_elements,
+                vec![0u8; depth],
+                x,
+                external_nullifier,
+                message_ids,
+                selector_used,
+            )
+            .unwrap(),
+        )
     }
 
     #[test]
@@ -194,16 +200,19 @@ mod test {
         external_nullifier: Fr,
     ) -> RLNWitnessInputV3 {
         let depth = path_elements.len();
-        RLNWitnessInputV3::Multi(RLNWitnessInputMulti::new(
-            identity_secret,
-            Fr::from(10u64),
-            path_elements,
-            vec![0u8; depth],
-            x,
-            external_nullifier,
-            message_ids,
-            selector_used,
-        ).unwrap())
+        RLNWitnessInputV3::Multi(
+            RLNWitnessInputMulti::new(
+                identity_secret,
+                Fr::from(10u64),
+                path_elements,
+                vec![0u8; depth],
+                x,
+                external_nullifier,
+                message_ids,
+                selector_used,
+            )
+            .unwrap(),
+        )
     }
 
     fn make_single_witness(
@@ -214,15 +223,18 @@ mod test {
         external_nullifier: Fr,
     ) -> RLNWitnessInputV3 {
         let depth = path_elements.len();
-        RLNWitnessInputV3::Single(RLNWitnessInputSingle::new(
-            identity_secret,
-            Fr::from(10u64),
-            path_elements,
-            vec![0u8; depth],
-            x,
-            external_nullifier,
-            message_id,
-        ).unwrap())
+        RLNWitnessInputV3::Single(
+            RLNWitnessInputSingle::new(
+                identity_secret,
+                Fr::from(10u64),
+                path_elements,
+                vec![0u8; depth],
+                x,
+                external_nullifier,
+                message_id,
+            )
+            .unwrap(),
+        )
     }
 
     #[test]

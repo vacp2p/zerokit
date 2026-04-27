@@ -1035,14 +1035,20 @@ impl RecoverSecret for RLNProofValuesMulti {
                 ),
             ));
         }
-        for (i, (nullifier_i, &used_i)) in
-            self.nullifiers.iter().zip(self.selector_used.iter()).enumerate()
+        for (i, (nullifier_i, &used_i)) in self
+            .nullifiers
+            .iter()
+            .zip(self.selector_used.iter())
+            .enumerate()
         {
             if !used_i {
                 continue;
             }
-            for (j, (nullifier_j, &used_j)) in
-                other.nullifiers.iter().zip(other.selector_used.iter()).enumerate()
+            for (j, (nullifier_j, &used_j)) in other
+                .nullifiers
+                .iter()
+                .zip(other.selector_used.iter())
+                .enumerate()
             {
                 if !used_j {
                     continue;
@@ -1072,15 +1078,17 @@ impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
                 ),
             ));
         }
-        for (i, (nullifier_i, &used_i)) in
-            self.nullifiers.iter().zip(self.selector_used.iter()).enumerate()
+        for (i, (nullifier_i, &used_i)) in self
+            .nullifiers
+            .iter()
+            .zip(self.selector_used.iter())
+            .enumerate()
         {
             if !used_i {
                 continue;
             }
             if nullifier_i == &other.nullifier {
-                let id_secret =
-                    compute_id_secret((self.x, self.ys[i]), (other.x, other.y))?;
+                let id_secret = compute_id_secret((self.x, self.ys[i]), (other.x, other.y))?;
                 return Ok(*id_secret);
             }
         }

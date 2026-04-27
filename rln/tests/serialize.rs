@@ -258,28 +258,34 @@ mod test {
     }
 
     fn make_witness_input_single() -> RLNWitnessInputV3 {
-        RLNWitnessInputV3::Single(RLNWitnessInputSingle::new(
-            IdSecret::from(&mut Fr::from(42u64)),
-            Fr::from(10u64),
-            vec![Fr::from(1u64), Fr::from(2u64)],
-            vec![0u8, 1u8],
-            Fr::from(5u64),
-            Fr::from(7u64),
-            Fr::from(3u64),
-        ).unwrap())
+        RLNWitnessInputV3::Single(
+            RLNWitnessInputSingle::new(
+                IdSecret::from(&mut Fr::from(42u64)),
+                Fr::from(10u64),
+                vec![Fr::from(1u64), Fr::from(2u64)],
+                vec![0u8, 1u8],
+                Fr::from(5u64),
+                Fr::from(7u64),
+                Fr::from(3u64),
+            )
+            .unwrap(),
+        )
     }
 
     fn make_witness_input_multi() -> RLNWitnessInputV3 {
-        RLNWitnessInputV3::Multi(RLNWitnessInputMulti::new(
-            IdSecret::from(&mut Fr::from(99u64)),
-            Fr::from(10u64),
-            vec![Fr::from(1u64), Fr::from(2u64)],
-            vec![0u8, 1u8],
-            Fr::from(5u64),
-            Fr::from(7u64),
-            vec![Fr::from(0u64), Fr::from(1u64)],
-            vec![true, false],
-        ).unwrap())
+        RLNWitnessInputV3::Multi(
+            RLNWitnessInputMulti::new(
+                IdSecret::from(&mut Fr::from(99u64)),
+                Fr::from(10u64),
+                vec![Fr::from(1u64), Fr::from(2u64)],
+                vec![0u8, 1u8],
+                Fr::from(5u64),
+                Fr::from(7u64),
+                vec![Fr::from(0u64), Fr::from(1u64)],
+                vec![true, false],
+            )
+            .unwrap(),
+        )
     }
 
     fn make_partial_witness() -> RLNPartialWitnessInputV3 {
@@ -288,7 +294,8 @@ mod test {
             Fr::from(10u64),
             vec![Fr::from(1u64), Fr::from(2u64)],
             vec![0u8, 1u8],
-        ).unwrap()
+        )
+        .unwrap()
     }
 
     fn make_proof_values_single() -> RLNProofValuesV3 {

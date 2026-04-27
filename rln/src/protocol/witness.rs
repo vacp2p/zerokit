@@ -1027,7 +1027,10 @@ impl RLNWitnessInputSingle {
             return Err(ProtocolError::InvalidMerkleProofLength(path_len, index_len));
         }
         if message_id >= user_message_limit {
-            return Err(ProtocolError::InvalidMessageId(message_id, user_message_limit));
+            return Err(ProtocolError::InvalidMessageId(
+                message_id,
+                user_message_limit,
+            ));
         }
         Ok(Self {
             identity_secret,
@@ -1097,7 +1100,10 @@ impl RLNWitnessInputMulti {
         }
         for (message_id, used) in message_ids.iter().zip(&selector_used) {
             if *used && *message_id >= user_message_limit {
-                return Err(ProtocolError::InvalidMessageId(*message_id, user_message_limit));
+                return Err(ProtocolError::InvalidMessageId(
+                    *message_id,
+                    user_message_limit,
+                ));
             }
         }
         Ok(Self {
