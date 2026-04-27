@@ -826,7 +826,7 @@ where
         Ok(self.zkp.generate_proof(witness)?)
     }
 
-    pub fn verify_proof(
+    pub fn verify(
         &self,
         proof: &ZkProof::Proof,
         values: &ZkProof::Values,

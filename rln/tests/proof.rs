@@ -81,7 +81,7 @@ mod test_rlnv3 {
 
         let rln = make_rln_single();
         let (proof, values) = rln.generate_proof(witness).unwrap();
-        assert!(rln.verify_proof(&proof, &values).unwrap());
+        assert!(rln.verify(&proof, &values).unwrap());
     }
 
     #[test]
@@ -99,7 +99,7 @@ mod test_rlnv3 {
 
         let rln = make_rln_multi();
         let (proof, values) = rln.generate_proof(witness).unwrap();
-        assert!(rln.verify_proof(&proof, &values).unwrap());
+        assert!(rln.verify(&proof, &values).unwrap());
     }
 
     #[test]

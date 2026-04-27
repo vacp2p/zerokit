@@ -17,7 +17,7 @@ fn main() -> Result<(), RLNError> {
     ));
 
     let (proof, values_single1) = rln.generate_proof(witness_single1)?;
-    assert!(rln.verify_proof(&proof, &values_single1)?);
+    assert!(rln.verify(&proof, &values_single1)?);
 
     let witness_single2 = RLNWitnessInputV3::Single(RLNWitnessInputSingle::new(
         identity_secret.clone(),
@@ -50,7 +50,7 @@ fn main() -> Result<(), RLNError> {
         vec![true; DEFAULT_MAX_OUT],
     ));
     let (proof, values_multi) = rln_multi.generate_proof(witness_multi)?;
-    assert!(rln_multi.verify_proof(&proof, &values_multi)?);
+    assert!(rln_multi.verify(&proof, &values_multi)?);
 
     // Cross-mode slashing: Single × Multi
     let backend_s =
