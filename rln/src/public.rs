@@ -819,7 +819,7 @@ impl<Tree, ZkProof: RLNZkProof> RLNV3<Tree, ZkProof> {
     pub fn generate_proof(
         &self,
         _witness: ZkProof::Witness,
-    ) -> Result<(ZkProof::Proof, ZkProof::Values), RLNError> {
+    ) -> Result<(ZkProof::Proof, ZkProof::Values), ZkProof::Error> {
         todo!()
     }
 
@@ -827,7 +827,7 @@ impl<Tree, ZkProof: RLNZkProof> RLNV3<Tree, ZkProof> {
         &self,
         _proof: &ZkProof::Proof,
         _values: &ZkProof::Values,
-    ) -> Result<bool, RLNError> {
+    ) -> Result<bool, ZkProof::Error> {
         todo!()
     }
 }
@@ -836,7 +836,7 @@ impl<Tree, ZkProof: RLNPartialZkProof> RLNV3<Tree, ZkProof> {
     pub fn generate_partial_proof(
         &self,
         _partial_witness: ZkProof::PartialWitness,
-    ) -> Result<ZkProof::PartialProof, RLNError> {
+    ) -> Result<ZkProof::PartialProof, ZkProof::Error> {
         todo!()
     }
 
@@ -844,7 +844,7 @@ impl<Tree, ZkProof: RLNPartialZkProof> RLNV3<Tree, ZkProof> {
         &self,
         _partial_proof: ZkProof::PartialProof,
         _witness: ZkProof::Witness,
-    ) -> Result<ZkProof::Proof, RLNError> {
+    ) -> Result<ZkProof::Proof, ZkProof::Error> {
         todo!()
     }
 }

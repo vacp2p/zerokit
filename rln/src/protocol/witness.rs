@@ -294,8 +294,6 @@ impl RLNPartialWitnessInput {
 
     /// Returns the version byte for this partial witness's serialization format.
     pub fn version_byte(&self) -> u8 {
-        // TODO: new enum for partial witness instead of reusing SingleV1 version byte, which is technically not correct
-        // TODO: current master branch return SingleV1 or MultiV1 version byte based compile-time feature flag
         MessageMode::SingleV1.version_byte()
     }
 }
@@ -945,31 +943,31 @@ pub enum RLNWitnessInputV3 {
 pub struct RLNWitnessInputSingle {
     pub(crate) identity_secret: IdSecret,
     pub(crate) user_message_limit: Fr,
+    pub(crate) message_id: Fr,
     pub(crate) path_elements: Vec<Fr>,
     pub(crate) identity_path_index: Vec<u8>,
     pub(crate) x: Fr,
     pub(crate) external_nullifier: Fr,
-    pub(crate) message_id: Fr,
 }
 
 impl RLNWitnessInputSingle {
     pub fn new(
         identity_secret: IdSecret,
         user_message_limit: Fr,
+        message_id: Fr,
         path_elements: Vec<Fr>,
         identity_path_index: Vec<u8>,
         x: Fr,
         external_nullifier: Fr,
-        message_id: Fr,
     ) -> Self {
         Self {
             identity_secret,
             user_message_limit,
+            message_id,
             path_elements,
             identity_path_index,
             x,
             external_nullifier,
-            message_id,
         }
     }
 }
@@ -1032,5 +1030,26 @@ impl RLNPartialWitnessInputV3 {
             path_elements,
             identity_path_index,
         }
+    }
+}
+
+impl From<&RLNWitnessInputV3> for RLNPartialWitnessInputV3 {
+    fn from(witness: &RLNWitnessInputV3) -> Self {
+        match witness {
+            RLNWitnessInputV3::Single(w) => RLNPartialWitnessInputV3::from(w),
+            RLNWitnessInputV3::Multi(w) => RLNPartialWitnessInputV3::from(w),
+        }
+    }
+}
+
+impl From<&RLNWitnessInputSingle> for RLNPartialWitnessInputV3 {
+    fn from(_witness: &RLNWitnessInputSingle) -> Self {
+        todo!()
+    }
+}
+
+impl From<&RLNWitnessInputMulti> for RLNPartialWitnessInputV3 {
+    fn from(_witness: &RLNWitnessInputMulti) -> Self {
+        todo!()
     }
 }

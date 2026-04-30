@@ -918,11 +918,11 @@ impl RecoverSecret for RLNProofValuesV3 {
 
 #[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNProofValuesSingle {
+    pub y: Fr,
     pub root: Fr,
+    pub nullifier: Fr,
     pub x: Fr,
     pub external_nullifier: Fr,
-    pub y: Fr,
-    pub nullifier: Fr,
 }
 
 impl TryFrom<RLNWitnessInputV3> for RLNProofValuesSingle {
@@ -951,11 +951,11 @@ impl RecoverSecret<RLNProofValuesMulti> for RLNProofValuesSingle {
 
 #[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNProofValuesMulti {
+    pub ys: Vec<Fr>,
     pub root: Fr,
+    pub nullifiers: Vec<Fr>,
     pub x: Fr,
     pub external_nullifier: Fr,
-    pub ys: Vec<Fr>,
-    pub nullifiers: Vec<Fr>,
     pub selector_used: Vec<bool>,
 }
 

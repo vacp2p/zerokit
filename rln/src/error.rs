@@ -30,6 +30,8 @@ pub enum UtilsError {
     InsufficientData { expected: usize, actual: usize },
     #[error("Non-canonical field element: value is not in [0, r-1]")]
     NonCanonicalFieldElement,
+    #[error("Non-canonical bool byte: expected 0x00 or 0x01, got {0:#04x}")]
+    NonCanonicalBool(u8),
 }
 
 /// Errors that can occur when recovering an identity secret from shares
