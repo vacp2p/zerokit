@@ -12,20 +12,11 @@ use rand::Rng;
 use ruint::aliases::U256;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-use crate::{circuit::Fr, error::UtilsError};
-
-/// Byte size of a field element aligned to 64-bit boundary, computed once at compile time.
-pub const FR_BYTE_SIZE: usize = {
-    // Get the modulus bit size of the field
-    let modulus_bits: u32 = Fr::MODULUS_BIT_SIZE;
-    // Alignment boundary in bits for field element serialization
-    let alignment_bits: u32 = 64;
-    // Align to the next multiple of alignment_bits and convert to bytes
-    ((modulus_bits + alignment_bits - (modulus_bits % alignment_bits)) / 8) as usize
+use crate::{
+    circuit::Fr,
+    error::UtilsError,
+    protocol::{FR_BYTE_SIZE, VEC_LEN_BYTE_SIZE},
 };
-
-/// Byte size of the length prefix used when serializing variable-length vectors.
-pub const VEC_LEN_BYTE_SIZE: usize = 8;
 
 /// Normalizes a `usize` into an 8-byte array, ensuring consistency across architectures.
 /// On 32-bit systems, the result is zero-padded to 8 bytes.
@@ -120,7 +111,7 @@ pub fn fr_to_bytes_le(input: &Fr) -> Vec<u8> {
 pub fn fr_to_bytes_be(input: &Fr) -> Vec<u8> {
     let input_biguint: BigUint = (*input).into();
     let mut res = input_biguint.to_bytes_be();
-    // For BE, insert 0 at the start of the Vec (see also fr_to_bytes_le comments)
+    // For BE, insert 0 at the start of the Vec
     let to_insert_count = FR_BYTE_SIZE.saturating_sub(res.len());
     if to_insert_count > 0 {
         // Insert multi 0 at index 0
@@ -497,6 +488,7 @@ impl IdSecret {
     pub fn to_bytes_be(&self) -> Zeroizing<Vec<u8>> {
         let input_biguint: BigUint = self.0.into();
         let mut res = input_biguint.to_bytes_be();
+        // For BE, insert 0 at the start of the Vec
         let to_insert_count = FR_BYTE_SIZE.saturating_sub(res.len());
         if to_insert_count > 0 {
             // Insert multi 0 at index 0

@@ -65,7 +65,7 @@ pub fn validate_override_range_inputs(
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::{validate_override_range_inputs, EmptyIndicesPolicy};
     use crate::merkle_tree::ZerokitMerkleTreeError;
 

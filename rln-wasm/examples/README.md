@@ -4,21 +4,13 @@ This example demonstrates how to use the RLN WASM package in a Node.js environme
 
 ## Build the @waku/zerokit-rln-wasm package at the root of rln-wasm module
 
-### Default mode
-
 ```bash
 cargo make build
 ```
 
-### Multi-message-id mode
-
-```bash
-cargo make build_multi_message_id
-```
-
 ## Running the examples
 
-**Note:** Set `MULTI_MESSAGE_ID` constant in [index.js](../examples/index.js) to `true` when testing with multi-message-id features.
+**Note:** Set `MULTI_MESSAGE_ID` constant in [index.js](../examples/index.js) to `true` when testing with multi-message-id mode.
 
 After building the package in any mode, install dependencies and run:
 

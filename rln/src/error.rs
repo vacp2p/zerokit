@@ -1,17 +1,23 @@
 use std::{array::TryFromSliceError, num::TryFromIntError};
 
 use ark_relations::r1cs::SynthesisError;
+use ark_serialize::SerializationError;
 use num_bigint::{BigInt, ParseBigIntError};
 use zerokit_utils::merkle_tree::{FromConfigError, ZerokitMerkleTreeError};
 
-use crate::circuit::{
-    error::{GraphReadError, WitnessCalcError, ZKeyReadError},
-    Fr,
+use crate::{
+    circuit::{
+        error::{GraphReadError, WitnessCalcError, ZKeyReadError},
+        Fr,
+    },
+    protocol::MessageMode,
 };
 
 /// Errors that can occur during RLN utility operations (conversions, parsing, etc.)
 #[derive(Debug, thiserror::Error)]
 pub enum UtilsError {
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
     #[error("Expected radix 10 or 16")]
     WrongRadix,
     #[error("Failed to parse big integer: {0}")]
@@ -24,6 +30,8 @@ pub enum UtilsError {
     InsufficientData { expected: usize, actual: usize },
     #[error("Non-canonical field element: value is not in [0, r-1]")]
     NonCanonicalFieldElement,
+    #[error("Non-canonical bool byte: expected 0x00 or 0x01, got {0:#04x}")]
+    NonCanonicalBool(u8),
 }
 
 /// Errors that can occur when recovering an identity secret from shares
@@ -40,6 +48,8 @@ pub enum RecoverSecretError {
 /// Errors that can occur during RLN protocol operations (proof generation, verification, etc.)
 #[derive(Debug, thiserror::Error)]
 pub enum ProtocolError {
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
     #[error("Error producing proof: {0}")]
     Synthesis(#[from] SynthesisError),
     #[error("RLN utility error: {0}")]
@@ -56,13 +66,10 @@ pub enum ProtocolError {
     ZeroUserMessageLimit,
     #[error("Merkle proof length mismatch: expected {0}, got {1}")]
     InvalidMerkleProofLength(usize, usize),
-    #[cfg(feature = "multi-message-id")]
     #[error("The field message_ids must contain at least one message_id")]
     EmptyMessageIds,
-    #[cfg(feature = "multi-message-id")]
     #[error("Duplicate message ID found in message_ids")]
     DuplicateMessageIds,
-    #[cfg(feature = "multi-message-id")]
     #[error("At least one selector_used value must be true")]
     NoActiveSelectorUsed,
     #[error("The field {0} has length {1}, but the field {2} has length {3}")]
@@ -74,11 +81,14 @@ pub enum ProtocolError {
     #[error("Merkle tree operation error: {0}")]
     MerkleTree(#[from] ZerokitMerkleTreeError),
     #[error("Proof serialization error: {0}")]
-    SerializationError(#[from] ark_serialize::SerializationError),
-    #[error("Unknown serialization version: {0:#04x}")]
-    UnknownSerializationVersion(u8),
-    #[error("Serialization version {0:#04x} is only valid with the '{1}' feature enabled")]
-    IncompatibleSerializationVersion(u8, &'static str),
+    SerializationError(#[from] SerializationError),
+    #[error("Unknown message mode version byte: {0:#04x}")]
+    UnknownMessageModeVersionByte(u8),
+    #[error("Witness message mode {witness_mode} does not match graph mode {graph_mode}")]
+    MessageModeAndGraphMismatch {
+        witness_mode: MessageMode,
+        graph_mode: MessageMode,
+    },
 }
 
 /// Errors that can occur during proof verification

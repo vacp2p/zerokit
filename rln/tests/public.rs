@@ -42,42 +42,6 @@ mod test {
             .collect()
     }
 
-    fn new_single_message_witness(
-        identity_secret: IdSecret,
-        user_message_limit: Fr,
-        message_id: Fr,
-        path_elements: Vec<Fr>,
-        identity_path_index: Vec<u8>,
-        x: Fr,
-        external_nullifier: Fr,
-    ) -> Result<RLNWitnessInput, ProtocolError> {
-        #[cfg(not(feature = "multi-message-id"))]
-        {
-            RLNWitnessInput::new(
-                identity_secret,
-                user_message_limit,
-                message_id,
-                path_elements,
-                identity_path_index,
-                x,
-                external_nullifier,
-            )
-        }
-        #[cfg(feature = "multi-message-id")]
-        {
-            RLNWitnessInput::new(
-                identity_secret,
-                user_message_limit,
-                vec![message_id, Fr::from(0), Fr::from(0), Fr::from(0)],
-                path_elements,
-                identity_path_index,
-                x,
-                external_nullifier,
-                vec![true, false, false, false],
-            )
-        }
-    }
-
     fn random_rln_witness(tree_depth: usize) -> Result<RLNWitnessInput, ProtocolError> {
         let mut rng = thread_rng();
 
@@ -98,7 +62,7 @@ mod test {
         let message_id = Fr::from(1);
         let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
 
-        new_single_message_witness(
+        RLNWitnessInput::new_single(
             identity_secret,
             user_message_limit,
             message_id,
@@ -116,64 +80,137 @@ mod test {
         #[cfg(feature = "stateless")]
         let rln = RLN::new().unwrap();
 
-        #[cfg(not(feature = "multi-message-id"))]
-        let valid_snarkjs_proof = json!({
-            "pi_a": [
-                "606446415626469993821291758185575230335423926365686267140465300918089871829",
-                "14881534001609371078663128199084130129622943308489025453376548677995646280161",
-                "1"
-            ],
-            "pi_b": [
-                [
-                    "18053812507994813734583839134426913715767914942522332114506614735770984570178",
-                    "11219916332635123001710279198522635266707985651975761715977705052386984005181"
-                ],
-                [
-                    "17371289494006920912949790045699521359436706797224428511776122168520286372970",
-                    "14038575727257298083893642903204723310279435927688342924358714639926373603890"
-                ],
-                [
-                    "1",
-                    "0"
-                ]
-            ],
-            "pi_c": [
-                "17701377127561410274754535747274973758826089226897242202671882899370780845888",
-                "12608543716397255084418384146504333522628400182843246910626782513289789807030",
-                "1"
-            ],
-            "protocol": "groth16",
-            "curve": "bn128"
-        });
-        #[cfg(feature = "multi-message-id")]
-        let valid_snarkjs_proof = json!({
-            "pi_a": [
-                "18065030346679405936314703365313027854666139282416381597863520591326000485770",
-                "14771860444670385955411380174213497474946229693924900012944518111443580986423",
-                "1"
-            ],
-            "pi_b": [
-                [
-                    "6735720011967965811552770307926073251484071544628748265245982358598709514632",
-                    "20834884037174490293404784720629481437908298314108873169352614850721890028313"
-                ],
-                [
-                    "4833697662524472564312290961485074084149848067709427572820222800371260836955",
-                    "17340414833348271743289107618101329696856992134080888054049600143320812961128"
-                ],
-                [
-                    "1",
-                    "0"
-                ]
-            ],
-            "pi_c": [
-                "15995592009555866776210915003813915385299392333518806237517816627481425816425",
-                "1089017666060567296165116465606820653924283171865888164456509348741884249923",
-                "1"
-            ],
-            "protocol": "groth16",
-            "curve": "bn128"
-        });
+        let (valid_snarkjs_proof, x, valid_proof_values) = match rln.message_mode() {
+            MessageMode::SingleV1 => {
+                let proof = json!({
+                    "pi_a": [
+                        "606446415626469993821291758185575230335423926365686267140465300918089871829",
+                        "14881534001609371078663128199084130129622943308489025453376548677995646280161",
+                        "1"
+                    ],
+                    "pi_b": [
+                        [
+                            "18053812507994813734583839134426913715767914942522332114506614735770984570178",
+                            "11219916332635123001710279198522635266707985651975761715977705052386984005181"
+                        ],
+                        [
+                            "17371289494006920912949790045699521359436706797224428511776122168520286372970",
+                            "14038575727257298083893642903204723310279435927688342924358714639926373603890"
+                        ],
+                        [
+                            "1",
+                            "0"
+                        ]
+                    ],
+                    "pi_c": [
+                        "17701377127561410274754535747274973758826089226897242202671882899370780845888",
+                        "12608543716397255084418384146504333522628400182843246910626782513289789807030",
+                        "1"
+                    ],
+                    "protocol": "groth16",
+                    "curve": "bn128"
+                });
+                let x = str_to_fr(
+                    "20645213238265527935869146898028115621427162613172918400241870500502509785943",
+                    10,
+                )
+                .unwrap();
+                let proof_values = RLNProofValues::new_single(
+                    str_to_fr(
+                        "8502402278351299594663821509741133196466235670407051417832304486953898514733",
+                        10,
+                    )
+                    .unwrap(),
+                    x,
+                    str_to_fr(
+                        "21074405743803627666274838159589343934394162804826017440941339048886754734203",
+                        10,
+                    )
+                    .unwrap(),
+                    str_to_fr(
+                        "16401008481486069296141645075505218976370369489687327284155463920202585288271",
+                        10,
+                    )
+                    .unwrap(),
+                    str_to_fr(
+                        "9102791780887227194595604713537772536258726662792598131262022534710887343694",
+                        10,
+                    )
+                    .unwrap(),
+                );
+                (proof, x, proof_values)
+            }
+            MessageMode::MultiV1 { .. } => {
+                let proof = json!({
+                    "pi_a": [
+                        "18065030346679405936314703365313027854666139282416381597863520591326000485770",
+                        "14771860444670385955411380174213497474946229693924900012944518111443580986423",
+                        "1"
+                    ],
+                    "pi_b": [
+                        [
+                            "6735720011967965811552770307926073251484071544628748265245982358598709514632",
+                            "20834884037174490293404784720629481437908298314108873169352614850721890028313"
+                        ],
+                        [
+                            "4833697662524472564312290961485074084149848067709427572820222800371260836955",
+                            "17340414833348271743289107618101329696856992134080888054049600143320812961128"
+                        ],
+                        [
+                            "1",
+                            "0"
+                        ]
+                    ],
+                    "pi_c": [
+                        "15995592009555866776210915003813915385299392333518806237517816627481425816425",
+                        "1089017666060567296165116465606820653924283171865888164456509348741884249923",
+                        "1"
+                    ],
+                    "protocol": "groth16",
+                    "curve": "bn128"
+                });
+                let x = str_to_fr(
+                    "19797305253341717859481321525229680688216104810745023646128001903445473018856",
+                    10,
+                )
+                .unwrap();
+                let proof_values = RLNProofValues::new_multi(
+                    str_to_fr(
+                        "3431095415998240809893928695882631208288185026672939778030884659225595068838",
+                        10,
+                    )
+                    .unwrap(),
+                    x,
+                    str_to_fr(
+                        "21092292729219847360221935824233974597185442347481349054190488583986042064831",
+                        10,
+                    )
+                    .unwrap(),
+                    vec![
+                        str_to_fr(
+                            "143052188957058141710854771333369177356024382963719479956590549598262357586",
+                            10,
+                        )
+                        .unwrap(),
+                        Fr::from(0),
+                        Fr::from(0),
+                        Fr::from(0),
+                    ],
+                    vec![
+                        str_to_fr(
+                            "8499590175743632905717993598500718325843782253409297097332874882649203313309",
+                            10,
+                        )
+                        .unwrap(),
+                        Fr::from(0),
+                        Fr::from(0),
+                        Fr::from(0),
+                    ],
+                    vec![true, false, false, false],
+                );
+                (proof, x, proof_values)
+            }
+        };
 
         let valid_ark_proof = Proof {
             a: g1_from_str(&value_to_string_vec(&valid_snarkjs_proof["pi_a"])),
@@ -187,80 +224,6 @@ mod test {
             ),
             c: g1_from_str(&value_to_string_vec(&valid_snarkjs_proof["pi_c"])),
         };
-
-        #[cfg(not(feature = "multi-message-id"))]
-        let x = str_to_fr(
-            "20645213238265527935869146898028115621427162613172918400241870500502509785943",
-            10,
-        )
-        .unwrap();
-        #[cfg(feature = "multi-message-id")]
-        let x = str_to_fr(
-            "19797305253341717859481321525229680688216104810745023646128001903445473018856",
-            10,
-        )
-        .unwrap();
-
-        #[cfg(not(feature = "multi-message-id"))]
-        let valid_proof_values = RLNProofValues::new(
-            str_to_fr(
-                "8502402278351299594663821509741133196466235670407051417832304486953898514733",
-                10,
-            )
-            .unwrap(),
-            x,
-            str_to_fr(
-                "21074405743803627666274838159589343934394162804826017440941339048886754734203",
-                10,
-            )
-            .unwrap(),
-            str_to_fr(
-                "16401008481486069296141645075505218976370369489687327284155463920202585288271",
-                10,
-            )
-            .unwrap(),
-            str_to_fr(
-                "9102791780887227194595604713537772536258726662792598131262022534710887343694",
-                10,
-            )
-            .unwrap(),
-        );
-
-        #[cfg(feature = "multi-message-id")]
-        let valid_proof_values = RLNProofValues::new(
-            str_to_fr(
-                "3431095415998240809893928695882631208288185026672939778030884659225595068838",
-                10,
-            )
-            .unwrap(),
-            x,
-            str_to_fr(
-                "21092292729219847360221935824233974597185442347481349054190488583986042064831",
-                10,
-            )
-            .unwrap(),
-            vec![
-                str_to_fr(
-                    "143052188957058141710854771333369177356024382963719479956590549598262357586",
-                    10,
-                )
-                .unwrap(),
-                Fr::from(0),
-                Fr::from(0),
-                Fr::from(0),
-            ],
-            vec![
-                str_to_fr(
-                    "8499590175743632905717993598500718325843782253409297097332874882649203313309",
-                    10,
-                )
-                .unwrap(),
-                Fr::from(0),
-                Fr::from(0),
-                Fr::from(0),
-            ],
-            vec![true, false, false, false],
-        );
 
         let verified = rln
             .verify_with_roots(&valid_ark_proof, &valid_proof_values, &x, &[])
@@ -312,48 +275,14 @@ mod test {
 
     #[test]
     fn test_initialization_with_params() {
-        #[cfg(not(feature = "multi-message-id"))]
         let zkey_data = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey").to_vec();
-        #[cfg(not(feature = "multi-message-id"))]
         let graph_data = include_bytes!("../resources/tree_depth_20/graph.bin").to_vec();
 
-        #[cfg(feature = "multi-message-id")]
-        let zkey_data = include_bytes!(
-            "../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey"
-        )
-        .to_vec();
-        #[cfg(feature = "multi-message-id")]
-        let graph_data =
-            include_bytes!("../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin")
-                .to_vec();
-
-        #[cfg(all(
-            not(target_arch = "wasm32"),
-            not(feature = "stateless"),
-            not(feature = "multi-message-id")
-        ))]
+        #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
         assert!(RLN::new_with_params(DEFAULT_TREE_DEPTH, zkey_data, graph_data, "").is_ok());
 
-        #[cfg(all(
-            not(target_arch = "wasm32"),
-            not(feature = "stateless"),
-            feature = "multi-message-id"
-        ))]
-        assert!(RLN::new_with_params(DEFAULT_TREE_DEPTH, 4, zkey_data, graph_data, "").is_ok());
-
-        #[cfg(all(
-            not(target_arch = "wasm32"),
-            feature = "stateless",
-            not(feature = "multi-message-id")
-        ))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
         assert!(RLN::new_with_params(zkey_data, graph_data).is_ok());
-
-        #[cfg(all(
-            not(target_arch = "wasm32"),
-            feature = "stateless",
-            feature = "multi-message-id"
-        ))]
-        assert!(RLN::new_with_params(zkey_data, graph_data, 4).is_ok());
     }
 
     #[cfg(not(feature = "stateless"))]
@@ -362,8 +291,6 @@ mod test {
         use rand::{rngs::ThreadRng, Rng};
         use rln::prelude::*;
         use serde_json::json;
-
-        use super::new_single_message_witness;
 
         const NO_OF_LEAVES: usize = 256;
 
@@ -402,7 +329,7 @@ mod test {
                 path_elements[0] = Fr::rand(&mut rng);
             }
 
-            let rln_witness = new_single_message_witness(
+            let rln_witness = RLNWitnessInput::new_single(
                 identity_secret,
                 user_message_limit,
                 message_id,
@@ -810,7 +737,7 @@ mod test {
                 rln.get_merkle_proof(identity_index).unwrap();
 
             // Create RLN witness
-            let rln_witness = new_single_message_witness(
+            let rln_witness = RLNWitnessInput::new_single(
                 identity_secret,
                 user_message_limit,
                 message_id,
@@ -877,7 +804,7 @@ mod test {
                 rln.get_merkle_proof(identity_index).unwrap();
 
             // Create RLN witness
-            let rln_witness = new_single_message_witness(
+            let rln_witness = RLNWitnessInput::new_single(
                 identity_secret,
                 user_message_limit,
                 message_id,
@@ -945,7 +872,7 @@ mod test {
                 rln.get_merkle_proof(identity_index).unwrap();
 
             // Create RLN witness
-            let rln_witness = new_single_message_witness(
+            let rln_witness = RLNWitnessInput::new_single(
                 identity_secret,
                 user_message_limit,
                 message_id,
@@ -1031,7 +958,7 @@ mod test {
                 rln.get_merkle_proof(identity_index).unwrap();
 
             // Create RLN witnesses for both signals
-            let rln_witness1 = new_single_message_witness(
+            let rln_witness1 = RLNWitnessInput::new_single(
                 identity_secret.clone(),
                 user_message_limit,
                 message_id,
@@ -1042,7 +969,7 @@ mod test {
             )
             .unwrap();
 
-            let rln_witness2 = new_single_message_witness(
+            let rln_witness2 = RLNWitnessInput::new_single(
                 identity_secret.clone(),
                 user_message_limit,
                 message_id,
@@ -1085,7 +1012,7 @@ mod test {
                 rln.get_merkle_proof(identity_index_new).unwrap();
 
             // We prepare proof input. Note that epoch is the same as before
-            let rln_witness3 = new_single_message_witness(
+            let rln_witness3 = RLNWitnessInput::new_single(
                 identity_secret.clone(),
                 user_message_limit,
                 message_id,
@@ -1147,23 +1074,23 @@ mod test {
 
             // Mutate external_nullifier by adding 1
             let new_en = *proof_values.external_nullifier() + Fr::from(1);
-            #[cfg(not(feature = "multi-message-id"))]
-            let mutated_pv = RLNProofValues::new(
-                *proof_values.root(),
-                *proof_values.x(),
-                new_en,
-                *proof_values.y(),
-                *proof_values.nullifier(),
-            );
-            #[cfg(feature = "multi-message-id")]
-            let mutated_pv = RLNProofValues::new(
-                *proof_values.root(),
-                *proof_values.x(),
-                new_en,
-                proof_values.ys().to_vec(),
-                proof_values.nullifiers().to_vec(),
-                proof_values.selector_used().to_vec(),
-            );
+            let mutated_pv = match rln.message_mode() {
+                MessageMode::SingleV1 => RLNProofValues::new_single(
+                    *proof_values.root(),
+                    *proof_values.x(),
+                    new_en,
+                    *proof_values.y(),
+                    *proof_values.nullifier(),
+                ),
+                MessageMode::MultiV1 { .. } => RLNProofValues::new_multi(
+                    *proof_values.root(),
+                    *proof_values.x(),
+                    new_en,
+                    proof_values.ys().to_vec(),
+                    proof_values.nullifiers().to_vec(),
+                    proof_values.selector_used().to_vec(),
+                ),
+            };
 
             // Verification should fail
             let verified = rln.verify_rln_proof(&proof, &mutated_pv, &x).is_ok();
@@ -1189,23 +1116,23 @@ mod test {
             let (rln, proof, proof_values, x, mut rng) = setup_rln_proof(false);
 
             // Mutate nullifier (simulating mutated message_id)
-            #[cfg(not(feature = "multi-message-id"))]
-            let mutated_pv = RLNProofValues::new(
-                *proof_values.root(),
-                *proof_values.x(),
-                *proof_values.external_nullifier(),
-                *proof_values.y(),
-                Fr::rand(&mut rng),
-            );
-            #[cfg(feature = "multi-message-id")]
-            let mutated_pv = RLNProofValues::new(
-                *proof_values.root(),
-                *proof_values.x(),
-                *proof_values.external_nullifier(),
-                proof_values.ys().to_vec(),
-                vec![Fr::rand(&mut rng)],
-                proof_values.selector_used().to_vec(),
-            );
+            let mutated_pv = match rln.message_mode() {
+                MessageMode::SingleV1 => RLNProofValues::new_single(
+                    *proof_values.root(),
+                    *proof_values.x(),
+                    *proof_values.external_nullifier(),
+                    *proof_values.y(),
+                    Fr::rand(&mut rng),
+                ),
+                MessageMode::MultiV1 { .. } => RLNProofValues::new_multi(
+                    *proof_values.root(),
+                    *proof_values.x(),
+                    *proof_values.external_nullifier(),
+                    proof_values.ys().to_vec(),
+                    vec![Fr::rand(&mut rng)],
+                    proof_values.selector_used().to_vec(),
+                ),
+            };
 
             // Verification should fail
             let verified = rln.verify_rln_proof(&proof, &mutated_pv, &x).is_ok();
@@ -1217,23 +1144,23 @@ mod test {
             let (rln, proof, proof_values, x, mut rng) = setup_rln_proof(false);
 
             // Mutate root (simulating mutated path_element)
-            #[cfg(not(feature = "multi-message-id"))]
-            let mutated_pv = RLNProofValues::new(
-                Fr::rand(&mut rng),
-                *proof_values.x(),
-                *proof_values.external_nullifier(),
-                *proof_values.y(),
-                *proof_values.nullifier(),
-            );
-            #[cfg(feature = "multi-message-id")]
-            let mutated_pv = RLNProofValues::new(
-                Fr::rand(&mut rng),
-                *proof_values.x(),
-                *proof_values.external_nullifier(),
-                proof_values.ys().to_vec(),
-                proof_values.nullifiers().to_vec(),
-                proof_values.selector_used().to_vec(),
-            );
+            let mutated_pv = match rln.message_mode() {
+                MessageMode::SingleV1 => RLNProofValues::new_single(
+                    Fr::rand(&mut rng),
+                    *proof_values.x(),
+                    *proof_values.external_nullifier(),
+                    *proof_values.y(),
+                    *proof_values.nullifier(),
+                ),
+                MessageMode::MultiV1 { .. } => RLNProofValues::new_multi(
+                    Fr::rand(&mut rng),
+                    *proof_values.x(),
+                    *proof_values.external_nullifier(),
+                    proof_values.ys().to_vec(),
+                    proof_values.nullifiers().to_vec(),
+                    proof_values.selector_used().to_vec(),
+                ),
+            };
 
             // Verification should fail
             let verified = rln.verify_rln_proof(&proof, &mutated_pv, &x).is_ok();
@@ -1247,23 +1174,23 @@ mod test {
 
             // Mutate external_nullifier by adding 1
             let new_en = *proof_values.external_nullifier() + Fr::from(1);
-            #[cfg(not(feature = "multi-message-id"))]
-            let mutated_pv = RLNProofValues::new(
-                *proof_values.root(),
-                *proof_values.x(),
-                new_en,
-                *proof_values.y(),
-                *proof_values.nullifier(),
-            );
-            #[cfg(feature = "multi-message-id")]
-            let mutated_pv = RLNProofValues::new(
-                *proof_values.root(),
-                *proof_values.x(),
-                new_en,
-                proof_values.ys().to_vec(),
-                proof_values.nullifiers().to_vec(),
-                proof_values.selector_used().to_vec(),
-            );
+            let mutated_pv = match rln.message_mode() {
+                MessageMode::SingleV1 => RLNProofValues::new_single(
+                    *proof_values.root(),
+                    *proof_values.x(),
+                    new_en,
+                    *proof_values.y(),
+                    *proof_values.nullifier(),
+                ),
+                MessageMode::MultiV1 { .. } => RLNProofValues::new_multi(
+                    *proof_values.root(),
+                    *proof_values.x(),
+                    new_en,
+                    proof_values.ys().to_vec(),
+                    proof_values.nullifiers().to_vec(),
+                    proof_values.selector_used().to_vec(),
+                ),
+            };
 
             // Verification should fail
             let verified = rln
@@ -1293,23 +1220,23 @@ mod test {
             let roots = vec![rln.get_root()];
 
             // Mutate nullifier (simulating mutated message_id)
-            #[cfg(not(feature = "multi-message-id"))]
-            let mutated_pv = RLNProofValues::new(
-                *proof_values.root(),
-                *proof_values.x(),
-                *proof_values.external_nullifier(),
-                *proof_values.y(),
-                Fr::rand(&mut rng),
-            );
-            #[cfg(feature = "multi-message-id")]
-            let mutated_pv = RLNProofValues::new(
-                *proof_values.root(),
-                *proof_values.x(),
-                *proof_values.external_nullifier(),
-                proof_values.ys().to_vec(),
-                vec![Fr::rand(&mut rng)],
-                proof_values.selector_used().to_vec(),
-            );
+            let mutated_pv = match rln.message_mode() {
+                MessageMode::SingleV1 => RLNProofValues::new_single(
+                    *proof_values.root(),
+                    *proof_values.x(),
+                    *proof_values.external_nullifier(),
+                    *proof_values.y(),
+                    Fr::rand(&mut rng),
+                ),
+                MessageMode::MultiV1 { .. } => RLNProofValues::new_multi(
+                    *proof_values.root(),
+                    *proof_values.x(),
+                    *proof_values.external_nullifier(),
+                    proof_values.ys().to_vec(),
+                    vec![Fr::rand(&mut rng)],
+                    proof_values.selector_used().to_vec(),
+                ),
+            };
 
             // Verification should fail
             let verified = rln
@@ -1386,7 +1313,7 @@ mod test {
         };
 
         use super::DEFAULT_TREE_DEPTH;
-        use crate::test::{new_single_message_witness, random_rln_witness};
+        use crate::test::random_rln_witness;
 
         type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
 
@@ -1427,7 +1354,7 @@ mod test {
             let merkle_proof = tree.proof(identity_index).unwrap();
             let message_id = Fr::from(1);
 
-            let rln_witness = new_single_message_witness(
+            let rln_witness = RLNWitnessInput::new_single(
                 identity_secret,
                 user_message_limit,
                 message_id,
@@ -1509,7 +1436,7 @@ mod test {
             let merkle_proof = tree.proof(identity_index).unwrap();
             let message_id = Fr::from(1);
 
-            let rln_witness1 = new_single_message_witness(
+            let rln_witness1 = RLNWitnessInput::new_single(
                 identity_secret.clone(),
                 user_message_limit,
                 message_id,
@@ -1520,7 +1447,7 @@ mod test {
             )
             .unwrap();
 
-            let rln_witness2 = new_single_message_witness(
+            let rln_witness2 = RLNWitnessInput::new_single(
                 identity_secret.clone(),
                 user_message_limit,
                 message_id,
@@ -1555,7 +1482,7 @@ mod test {
             let identity_index_new = tree.leaves_set();
             let merkle_proof_new = tree.proof(identity_index_new).unwrap();
 
-            let rln_witness3 = new_single_message_witness(
+            let rln_witness3 = RLNWitnessInput::new_single(
                 identity_secret_new.clone(),
                 user_message_limit,
                 message_id,
@@ -1616,7 +1543,7 @@ mod test {
         }
     }
 
-    #[cfg(feature = "multi-message-id")]
+    #[cfg(not(feature = "stateless"))]
     mod multi_message_id_test {
         use rand::{thread_rng, Rng};
         use rln::prelude::*;
@@ -1643,7 +1570,7 @@ mod test {
 
             // Empty message_ids → EmptyMessageIds
             assert!(matches!(
-                RLNWitnessInput::new(
+                RLNWitnessInput::new_multi(
                     identity_secret.clone(),
                     user_message_limit,
                     vec![],
@@ -1659,7 +1586,7 @@ mod test {
 
             // Mismatched selector_used length to message_ids length → FieldLengthMismatch
             assert!(matches!(
-                RLNWitnessInput::new(
+                RLNWitnessInput::new_multi(
                     identity_secret.clone(),
                     user_message_limit,
                     vec![Fr::from(0), Fr::from(1)],
@@ -1675,7 +1602,7 @@ mod test {
 
             // Active message_id >= limit → InvalidMessageId
             assert!(matches!(
-                RLNWitnessInput::new(
+                RLNWitnessInput::new_multi(
                     identity_secret.clone(),
                     user_message_limit,
                     vec![Fr::from(0), Fr::from(10)],
@@ -1690,7 +1617,7 @@ mod test {
             ));
 
             // Inactive message_id >= limit → OK
-            assert!(RLNWitnessInput::new(
+            assert!(RLNWitnessInput::new_multi(
                 identity_secret.clone(),
                 user_message_limit,
                 vec![Fr::from(0), Fr::from(10)],
@@ -1704,7 +1631,7 @@ mod test {
 
             // Zero user_message_limit → ZeroUserMessageLimit
             assert!(matches!(
-                RLNWitnessInput::new(
+                RLNWitnessInput::new_multi(
                     identity_secret.clone(),
                     Fr::from(0),
                     vec![Fr::from(0)],
@@ -1720,7 +1647,7 @@ mod test {
 
             // Duplicate message_ids → DuplicateMessageIds
             assert!(matches!(
-                RLNWitnessInput::new(
+                RLNWitnessInput::new_multi(
                     identity_secret.clone(),
                     user_message_limit,
                     vec![Fr::from(5), Fr::from(5), Fr::from(1), Fr::from(2)],
@@ -1735,7 +1662,7 @@ mod test {
             ));
 
             // Duplicate message_ids when inactive → OK (only active IDs are checked)
-            assert!(RLNWitnessInput::new(
+            assert!(RLNWitnessInput::new_multi(
                 identity_secret.clone(),
                 user_message_limit,
                 vec![Fr::from(0), Fr::from(0), Fr::from(1), Fr::from(2)],
@@ -1749,7 +1676,7 @@ mod test {
 
             // All selectors false → NoActiveSelectorUsed
             assert!(matches!(
-                RLNWitnessInput::new(
+                RLNWitnessInput::new_multi(
                     identity_secret.clone(),
                     user_message_limit,
                     vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)],
@@ -1764,7 +1691,7 @@ mod test {
             ));
 
             // Valid multi-message witness
-            assert!(RLNWitnessInput::new(
+            assert!(RLNWitnessInput::new_multi(
                 identity_secret,
                 user_message_limit,
                 vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)],
@@ -1787,8 +1714,7 @@ mod test {
                 include_bytes!("../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin")
                     .to_vec();
 
-            let rln =
-                RLN::new_with_params(DEFAULT_TREE_DEPTH, 4, zkey_data, graph_data, "").unwrap();
+            let rln = RLN::new_with_params(DEFAULT_TREE_DEPTH, zkey_data, graph_data, "").unwrap();
 
             let mut rng = thread_rng();
             let (identity_secret, _) = keygen();
@@ -1805,7 +1731,7 @@ mod test {
             let message_ids = vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)];
             let selector_used = vec![false, true, true, false];
 
-            let witness = RLNWitnessInput::new(
+            let witness = RLNWitnessInput::new_multi(
                 identity_secret,
                 user_message_limit,
                 message_ids,
@@ -1853,8 +1779,7 @@ mod test {
                 include_bytes!("../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin")
                     .to_vec();
 
-            let rln =
-                RLN::new_with_params(DEFAULT_TREE_DEPTH, 4, zkey_data, graph_data, "").unwrap();
+            let rln = RLN::new_with_params(DEFAULT_TREE_DEPTH, zkey_data, graph_data, "").unwrap();
 
             let mut rng = thread_rng();
             let (identity_secret, _) = keygen();
@@ -1874,7 +1799,7 @@ mod test {
             let message_ids = vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)];
             let selector_used = vec![true, true, false, false];
 
-            let witness1 = RLNWitnessInput::new(
+            let witness1 = RLNWitnessInput::new_multi(
                 identity_secret.clone(),
                 user_message_limit,
                 message_ids.clone(),
@@ -1886,7 +1811,7 @@ mod test {
             )
             .unwrap();
 
-            let witness2 = RLNWitnessInput::new(
+            let witness2 = RLNWitnessInput::new_multi(
                 identity_secret.clone(),
                 user_message_limit,
                 message_ids,
@@ -1910,7 +1835,7 @@ mod test {
             let signal3: [u8; 32] = rng.gen();
             let x3 = hash_to_field_le(&signal3);
 
-            let witness3 = RLNWitnessInput::new(
+            let witness3 = RLNWitnessInput::new_multi(
                 identity_secret_new,
                 user_message_limit,
                 vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)],

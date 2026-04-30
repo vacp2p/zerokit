@@ -14,9 +14,9 @@ to enable RLN functionality in JavaScript/TypeScript applications.
 > [!NOTE]
 > This project requires the following tools:
 >
-> - `wasm-pack` (v0.14.0) — for compiling Rust to WebAssembly
-> - `cargo-make` — for running build commands
-> - `nvm` — to install and manage Node.js (v22.14.0+)
+> - `wasm-pack` (v0.14.0) - for compiling Rust to WebAssembly
+> - `cargo-make` - for running build commands
+> - `nvm` - to install and manage Node.js (v22.14.0+)
 
 ### Quick Install
 
@@ -52,8 +52,6 @@ Build commands:
 ```bash
 cargo make build                           # Default → @waku/zerokit-rln-wasm
 cargo make build_parallel                  # Parallel → @waku/zerokit-rln-wasm-parallel (requires nightly Rust)
-cargo make build_multi_message_id          # Multi-message-id → @waku/zerokit-rln-wasm-multi-message-id
-cargo make build_parallel_multi_message_id # Parallel + Multi-message-id → @waku/zerokit-rln-wasm-parallel-multi-message-id (requires nightly Rust)
 cargo make build_utils                     # Utils only → @waku/zerokit-rln-wasm-utils
 ```
 
@@ -66,7 +64,6 @@ cargo make test                   # Default tests
 cargo make test_browser           # Browser headless mode
 cargo make test_utils             # Utils-only tests
 cargo make test_parallel          # Parallel tests
-cargo make test_multi_message_id  # Multi-message-id feature tests
 ```
 
 ## Examples
@@ -103,7 +100,7 @@ wasmPkg.nowCallAnyExportedFuncs();
 
 If you're targeting
 [older browser versions that didn't support WebAssembly threads yet](https://webassembly.org/roadmap/),
-you'll want to use both builds —
+you'll want to use both builds -
 the parallel version for modern browsers and the default version as a fallback.
 Use feature detection to choose the appropriate build on the JavaScript side.
 

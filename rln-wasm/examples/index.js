@@ -271,7 +271,7 @@ async function main() {
   console.log("\nCreating RLN Witness");
   let witness;
   if (MULTI_MESSAGE_ID) {
-    witness = new rlnWasm.WasmRLNWitnessInput(
+    witness = rlnWasm.WasmRLNWitnessInput.newMulti(
       identitySecret,
       userMessageLimit,
       messageIds,
@@ -282,7 +282,7 @@ async function main() {
       selectorUsed,
     );
   } else {
-    witness = new rlnWasm.WasmRLNWitnessInput(
+    witness = rlnWasm.WasmRLNWitnessInput.newSingle(
       identitySecret,
       userMessageLimit,
       messageId,
@@ -478,7 +478,7 @@ async function main() {
   console.log("\nCreating second RLN Witness");
   let witness2;
   if (MULTI_MESSAGE_ID) {
-    witness2 = new rlnWasm.WasmRLNWitnessInput(
+    witness2 = rlnWasm.WasmRLNWitnessInput.newMulti(
       identitySecret,
       userMessageLimit,
       messageIds2,
@@ -489,7 +489,7 @@ async function main() {
       selectorUsed2,
     );
   } else {
-    witness2 = new rlnWasm.WasmRLNWitnessInput(
+    witness2 = rlnWasm.WasmRLNWitnessInput.newSingle(
       identitySecret,
       userMessageLimit,
       messageId2,

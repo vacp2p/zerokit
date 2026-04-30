@@ -15,7 +15,6 @@ required-features = ["stateless"]
 [[example]]
 name = "multi_message_id"
 path = "src/examples/multi_message_id.rs"
-required-features = ["multi-message-id"]
 
 [[example]]
 name = "partial"
@@ -29,7 +28,6 @@ clap = { version = "4.6.0", features = ["cargo", "derive", "env"] }
 [features]
 default = ["rln/pmtree-ft", "rln/parallel"]
 stateless = ["rln/stateless", "rln/parallel"]
-multi-message-id = ["rln/pmtree-ft", "rln/parallel", "rln/multi-message-id"]
 
 [package.metadata.docs.rs]
 all-features = true

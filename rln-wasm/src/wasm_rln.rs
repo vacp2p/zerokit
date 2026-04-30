@@ -135,19 +135,16 @@ impl WasmRLNProofValues {
         WasmFr::from(*self.0.external_nullifier())
     }
 
-    #[cfg(not(feature = "multi-message-id"))]
     #[wasm_bindgen(getter)]
     pub fn y(&self) -> WasmFr {
         WasmFr::from(*self.0.y())
     }
 
-    #[cfg(not(feature = "multi-message-id"))]
     #[wasm_bindgen(getter)]
     pub fn nullifier(&self) -> WasmFr {
         WasmFr::from(*self.0.nullifier())
     }
 
-    #[cfg(feature = "multi-message-id")]
     #[wasm_bindgen(js_name = selectorUsed)]
     pub fn selector_used(&self) -> Uint8Array {
         let bytes: Vec<u8> = self
@@ -159,13 +156,11 @@ impl WasmRLNProofValues {
         Uint8Array::from(&bytes[..])
     }
 
-    #[cfg(feature = "multi-message-id")]
     #[wasm_bindgen(js_name = ys)]
     pub fn ys(&self) -> VecWasmFr {
         VecWasmFr::from(self.0.ys().to_vec())
     }
 
-    #[cfg(feature = "multi-message-id")]
     #[wasm_bindgen(js_name = nullifiers)]
     pub fn nullifiers(&self) -> VecWasmFr {
         VecWasmFr::from(self.0.nullifiers().to_vec())
@@ -232,9 +227,8 @@ pub struct WasmRLNWitnessInput(RLNWitnessInput);
 
 #[wasm_bindgen]
 impl WasmRLNWitnessInput {
-    #[cfg(not(feature = "multi-message-id"))]
-    #[wasm_bindgen(constructor)]
-    pub fn new(
+    #[wasm_bindgen(js_name = newSingle)]
+    pub fn new_single(
         identity_secret: &WasmFr,
         user_message_limit: &WasmFr,
         message_id: &WasmFr,
@@ -247,7 +241,7 @@ impl WasmRLNWitnessInput {
         let path_elements: Vec<Fr> = path_elements.inner();
         let identity_path_index: Vec<u8> = identity_path_index.to_vec();
 
-        let witness = RLNWitnessInput::new(
+        let witness = RLNWitnessInput::new_single(
             IdSecret::from(&mut identity_secret_fr),
             user_message_limit.inner(),
             message_id.inner(),
@@ -261,9 +255,9 @@ impl WasmRLNWitnessInput {
         Ok(WasmRLNWitnessInput(witness))
     }
 
-    #[cfg(feature = "multi-message-id")]
-    #[wasm_bindgen(constructor)]
-    pub fn new(
+    #[allow(clippy::too_many_arguments)]
+    #[wasm_bindgen(js_name = newMulti)]
+    pub fn new_multi(
         identity_secret: &WasmFr,
         user_message_limit: &WasmFr,
         message_ids: VecWasmFr,
@@ -280,7 +274,7 @@ impl WasmRLNWitnessInput {
         let message_ids: Vec<Fr> = message_ids.inner();
         let selector_used: Vec<bool> = selector_used.to_vec().iter().map(|&b| b != 0).collect();
 
-        let witness = RLNWitnessInput::new(
+        let witness = RLNWitnessInput::new_multi(
             IdSecret::from(&mut identity_secret_fr),
             user_message_limit.inner(),
             message_ids,
@@ -310,13 +304,11 @@ impl WasmRLNWitnessInput {
         WasmFr::from(*self.0.user_message_limit())
     }
 
-    #[cfg(not(feature = "multi-message-id"))]
     #[wasm_bindgen(js_name = getMessageId)]
     pub fn get_message_id(&self) -> WasmFr {
         WasmFr::from(*self.0.message_id())
     }
 
-    #[cfg(feature = "multi-message-id")]
     #[wasm_bindgen(js_name = getMessageIds)]
     pub fn get_message_ids(&self) -> VecWasmFr {
         VecWasmFr::from(self.0.message_ids().to_vec())
@@ -342,7 +334,6 @@ impl WasmRLNWitnessInput {
         WasmFr::from(*self.0.external_nullifier())
     }
 
-    #[cfg(feature = "multi-message-id")]
     #[wasm_bindgen(js_name = getSelectorUsed)]
     pub fn get_selector_used(&self) -> Uint8Array {
         let bytes: Vec<u8> = self

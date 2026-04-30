@@ -73,7 +73,7 @@ int main(int argc, char const *const argv[])
         .cap = graph_size};
 
     const char *config_path = "../resources/tree_depth_20/multi_message_id/max_out_4/config.json";
-    CResult_FFI_RLN_ptr_Vec_uint8_t ffi_rln_new_result = ffi_rln_new_with_params(TREE_DEPTH, 4, &zkey_vec, &graph_vec, config_path);
+    CResult_FFI_RLN_ptr_Vec_uint8_t ffi_rln_new_result = ffi_rln_new_with_params(TREE_DEPTH, &zkey_vec, &graph_vec, config_path);
 
     free(zkey_data);
     free(graph_data);
@@ -366,7 +366,7 @@ int main(int argc, char const *const argv[])
 #ifdef STATELESS
     CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result =
 #ifdef MULTI_MESSAGE_ID
-        ffi_rln_witness_input_new(
+        ffi_rln_witness_input_new_multi(
             identity_secret,
             user_message_limit,
             &message_ids,
@@ -376,7 +376,7 @@ int main(int argc, char const *const argv[])
             external_nullifier,
             &selector_used);
 #else
-        ffi_rln_witness_input_new(
+        ffi_rln_witness_input_new_single(
             identity_secret,
             user_message_limit,
             message_id,
@@ -397,7 +397,7 @@ int main(int argc, char const *const argv[])
 #else
     CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result =
 #ifdef MULTI_MESSAGE_ID
-        ffi_rln_witness_input_new(
+        ffi_rln_witness_input_new_multi(
             identity_secret,
             user_message_limit,
             &message_ids,
@@ -407,7 +407,7 @@ int main(int argc, char const *const argv[])
             external_nullifier,
             &selector_used);
 #else
-        ffi_rln_witness_input_new(
+        ffi_rln_witness_input_new_single(
             identity_secret,
             user_message_limit,
             message_id,
@@ -874,7 +874,7 @@ int main(int argc, char const *const argv[])
 #ifdef STATELESS
     CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result2 =
 #ifdef MULTI_MESSAGE_ID
-        ffi_rln_witness_input_new(
+        ffi_rln_witness_input_new_multi(
             identity_secret,
             user_message_limit,
             &message_ids2,
@@ -884,7 +884,7 @@ int main(int argc, char const *const argv[])
             external_nullifier,
             &selector_used2);
 #else
-        ffi_rln_witness_input_new(
+        ffi_rln_witness_input_new_single(
             identity_secret,
             user_message_limit,
             message_id2,
@@ -905,7 +905,7 @@ int main(int argc, char const *const argv[])
 #else
     CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t witness_result2 =
 #ifdef MULTI_MESSAGE_ID
-        ffi_rln_witness_input_new(
+        ffi_rln_witness_input_new_multi(
             identity_secret,
             user_message_limit,
             &message_ids2,
@@ -915,7 +915,7 @@ int main(int argc, char const *const argv[])
             external_nullifier,
             &selector_used2);
 #else
-        ffi_rln_witness_input_new(
+        ffi_rln_witness_input_new_single(
             identity_secret,
             user_message_limit,
             message_id2,

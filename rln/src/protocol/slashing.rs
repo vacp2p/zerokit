@@ -1,8 +1,6 @@
 use ark_ff::AdditiveGroup;
 
-#[cfg(feature = "multi-message-id")]
-use super::proof::RLNOutputs;
-use super::proof::RLNProofValues;
+use super::proof::{RLNOutputs, RLNProofValues};
 use crate::{circuit::Fr, error::RecoverSecretError, utils::IdSecret};
 
 /// Computes identity secret from two (x, y) shares.
@@ -40,7 +38,7 @@ pub fn compute_id_secret(
 /// Recovers identity secret from two [`RLNProofValues`] with the same external nullifier.
 ///
 /// This is a convenience API that accepts two proof values of the **same** variant.
-/// For cross-feature slashing (e.g. one share from `SingleV1` and another from `MultiV1`),
+/// For cross-mode slashing (e.g. one share from `SingleV1` and another from `MultiV1`),
 /// extract the `(x, y)` pair and nullifier from each proof value and call [`compute_id_secret`] directly.
 pub fn recover_id_secret(
     rln_proof_values_1: &RLNProofValues,
@@ -57,26 +55,24 @@ pub fn recover_id_secret(
         ));
     }
 
-    match (rln_proof_values_1, rln_proof_values_2) {
-        #[cfg(not(feature = "multi-message-id"))]
-        (pv1, pv2) => {
-            let share1 = (*pv1.x(), *pv1.y());
-            let share2 = (*pv2.x(), *pv2.y());
+    match (&rln_proof_values_1.outputs, &rln_proof_values_2.outputs) {
+        (RLNOutputs::SingleV1 { y: y1, .. }, RLNOutputs::SingleV1 { y: y2, .. }) => {
+            let share1 = (*rln_proof_values_1.x(), *y1);
+            let share2 = (*rln_proof_values_2.x(), *y2);
             compute_id_secret(share1, share2)
         }
-        #[cfg(feature = "multi-message-id")]
-        (pv1, pv2) => {
-            let RLNOutputs::MultiV1 {
+        (
+            RLNOutputs::MultiV1 {
                 ys: ys1,
                 nullifiers: nullifiers1,
                 selector_used: selector_used1,
-            } = &pv1.outputs;
-            let RLNOutputs::MultiV1 {
+            },
+            RLNOutputs::MultiV1 {
                 ys: ys2,
                 nullifiers: nullifiers2,
                 selector_used: selector_used2,
-            } = &pv2.outputs;
-
+            },
+        ) => {
             for (i, (nullifier_i, &used_i)) in
                 nullifiers1.iter().zip(selector_used1.iter()).enumerate()
             {
@@ -90,13 +86,15 @@ pub fn recover_id_secret(
                         continue;
                     }
                     if nullifier_i == nullifier_j {
-                        let share1 = (*pv1.x(), ys1[i]);
-                        let share2 = (*pv2.x(), ys2[j]);
+                        let share1 = (*rln_proof_values_1.x(), ys1[i]);
+                        let share2 = (*rln_proof_values_2.x(), ys2[j]);
                         return compute_id_secret(share1, share2);
                     }
                 }
             }
             Err(RecoverSecretError::NoMatchingNullifier)
         }
+        // Cross-mode slashing: extract (x, y) pairs and call compute_id_secret directly.
+        _ => Err(RecoverSecretError::NoMatchingNullifier),
     }
 }

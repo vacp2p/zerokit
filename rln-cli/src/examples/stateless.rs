@@ -127,7 +127,7 @@ impl RLNSystem {
         let merkle_proof = self.tree.proof(user_index)?;
         let x = hash_to_field_le(signal.as_bytes());
 
-        let witness = RLNWitnessInput::new(
+        let witness = RLNWitnessInput::new_single(
             identity.identity_secret.clone(),
             Fr::from(MESSAGE_LIMIT),
             Fr::from(message_id),

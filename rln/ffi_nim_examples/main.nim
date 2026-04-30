@@ -194,10 +194,10 @@ else:
   when defined(ffiMultiMessageId):
     proc ffi_rln_new*(treeDepth: CSize, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new",
         cdecl, dynlib: RLN_LIB.}
-    proc ffi_rln_new_with_params*(treeDepth: CSize, maxOut: CSize,
-        zkey_data: ptr Vec_uint8, graph_data: ptr Vec_uint8,
-            config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new_with_params",
-        cdecl, dynlib: RLN_LIB.}
+    proc ffi_rln_new_with_params*(treeDepth: CSize, zkey_data: ptr Vec_uint8,
+        graph_data: ptr Vec_uint8,
+        config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new_with_params",
+         cdecl, dynlib: RLN_LIB.}
   else:
     proc ffi_rln_new*(treeDepth: CSize, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new",
         cdecl, dynlib: RLN_LIB.}
@@ -215,7 +215,7 @@ when defined(ffiMultiMessageId):
 
 # RLNWitnessInput functions
 when defined(ffiMultiMessageId):
-  proc ffi_rln_witness_input_new*(
+  proc ffi_rln_witness_input_new_multi*(
     identity_secret: ptr CFr,
     user_message_limit: ptr CFr,
     message_ids: ptr Vec_CFr,
@@ -224,10 +224,10 @@ when defined(ffiMultiMessageId):
     x: ptr CFr,
     external_nullifier: ptr CFr,
     selector_used: ptr Vec_bool
-  ): CResultWitnessInputPtrVecU8 {.importc: "ffi_rln_witness_input_new", cdecl,
-      dynlib: RLN_LIB.}
+  ): CResultWitnessInputPtrVecU8 {.importc: "ffi_rln_witness_input_new_multi",
+      cdecl, dynlib: RLN_LIB.}
 else:
-  proc ffi_rln_witness_input_new*(
+  proc ffi_rln_witness_input_new_single*(
     identity_secret: ptr CFr,
     user_message_limit: ptr CFr,
     message_id: ptr CFr,
@@ -235,8 +235,8 @@ else:
     identity_path_index: ptr Vec_uint8,
     x: ptr CFr,
     external_nullifier: ptr CFr
-  ): CResultWitnessInputPtrVecU8 {.importc: "ffi_rln_witness_input_new", cdecl,
-      dynlib: RLN_LIB.}
+  ): CResultWitnessInputPtrVecU8 {.importc: "ffi_rln_witness_input_new_single",
+      cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_witness_input_get_version_byte*(witness: ptr ptr FFI_RLNWitnessInput): uint8 {.importc: "ffi_rln_witness_input_get_version_byte",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_witness_input_get_identity_secret*(witness: ptr ptr FFI_RLNWitnessInput): ptr CFr {.importc: "ffi_rln_witness_input_get_identity_secret",
@@ -506,7 +506,7 @@ when isMainModule:
       var graphVec = asVecU8(graphData)
 
       let config_path = """../resources/tree_depth_20/multi_message_id/max_out_4/config.json""".cstring
-      rlnRes = ffi_rln_new_with_params(CSize(treeDepth), CSize(4), addr zkeyVec,
+      rlnRes = ffi_rln_new_with_params(CSize(treeDepth), addr zkeyVec,
           addr graphVec, config_path)
     else:
       let config_path = """../resources/tree_depth_20/config.json""".cstring
@@ -613,7 +613,8 @@ when isMainModule:
     var defaultHashes: array[treeDepth-1, ptr CFr]
     defaultHashes[0] = ffi_poseidon_hash_pair(defaultLeaf, defaultLeaf)
     for i in 1..treeDepth-2:
-      defaultHashes[i] = ffi_poseidon_hash_pair(defaultHashes[i-1], defaultHashes[i-1])
+      defaultHashes[i] = ffi_poseidon_hash_pair(defaultHashes[i-1],
+          defaultHashes[i-1])
 
     var pathElements = ffi_vec_cfr_new(CSize(treeDepth))
     ffi_vec_cfr_push(addr pathElements, defaultLeaf)
@@ -785,11 +786,11 @@ when isMainModule:
   echo "\nCreating RLN Witness"
   when defined(ffiStateless):
     when defined(ffiMultiMessageId):
-      var witnessRes = ffi_rln_witness_input_new(identitySecret,
+      var witnessRes = ffi_rln_witness_input_new_multi(identitySecret,
           userMessageLimit, addr messageIds, addr pathElements,
           addr identityPathIndex, x, externalNullifier, addr selectorUsed)
     else:
-      var witnessRes = ffi_rln_witness_input_new(identitySecret,
+      var witnessRes = ffi_rln_witness_input_new_single(identitySecret,
           userMessageLimit, messageId, addr pathElements,
           addr identityPathIndex,
           x, externalNullifier)
@@ -801,12 +802,12 @@ when isMainModule:
     echo "  - RLN Witness created successfully"
   else:
     when defined(ffiMultiMessageId):
-      var witnessRes = ffi_rln_witness_input_new(identitySecret,
+      var witnessRes = ffi_rln_witness_input_new_multi(identitySecret,
           userMessageLimit, addr messageIds,
           addr merkleProof.path_elements, addr merkleProof.path_index, x,
           externalNullifier, addr selectorUsed)
     else:
-      var witnessRes = ffi_rln_witness_input_new(identitySecret,
+      var witnessRes = ffi_rln_witness_input_new_single(identitySecret,
           userMessageLimit, messageId, addr merkleProof.path_elements,
           addr merkleProof.path_index, x, externalNullifier)
     if witnessRes.ok.isNil:
@@ -1241,11 +1242,11 @@ when isMainModule:
   echo "\nCreating second RLN Witness"
   when defined(ffiStateless):
     when defined(ffiMultiMessageId):
-      var witnessRes2 = ffi_rln_witness_input_new(identitySecret,
+      var witnessRes2 = ffi_rln_witness_input_new_multi(identitySecret,
           userMessageLimit, addr messageIds2, addr pathElements,
           addr identityPathIndex, x2, externalNullifier, addr selectorUsed2)
     else:
-      var witnessRes2 = ffi_rln_witness_input_new(identitySecret,
+      var witnessRes2 = ffi_rln_witness_input_new_single(identitySecret,
           userMessageLimit, messageId2, addr pathElements,
           addr identityPathIndex,
           x2, externalNullifier)
@@ -1258,12 +1259,12 @@ when isMainModule:
     echo "  - second RLN Witness created successfully"
   else:
     when defined(ffiMultiMessageId):
-      var witnessRes2 = ffi_rln_witness_input_new(identitySecret,
+      var witnessRes2 = ffi_rln_witness_input_new_multi(identitySecret,
           userMessageLimit, addr messageIds2,
           addr merkleProof.path_elements, addr merkleProof.path_index, x2,
           externalNullifier, addr selectorUsed2)
     else:
-      var witnessRes2 = ffi_rln_witness_input_new(identitySecret,
+      var witnessRes2 = ffi_rln_witness_input_new_single(identitySecret,
           userMessageLimit, messageId2, addr merkleProof.path_elements,
           addr merkleProof.path_index, x2, externalNullifier)
     if witnessRes2.ok.isNil:

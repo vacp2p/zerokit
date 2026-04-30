@@ -1,6 +1,5 @@
 #![cfg(target_arch = "wasm32")]
 #![cfg(not(feature = "utils"))]
-#![cfg(not(feature = "multi-message-id"))]
 
 #[cfg(test)]
 mod test {
@@ -180,7 +179,7 @@ mod test {
         }
         let path_index = Uint8Array::from(&merkle_proof.get_path_index()[..]);
 
-        let witness = WasmRLNWitnessInput::new(
+        let witness = WasmRLNWitnessInput::new_single(
             &identity_secret,
             &user_message_limit,
             &message_id,
@@ -298,7 +297,7 @@ mod test {
 
         // Invalid user message limit (zero)
         let zero_limit = WasmFr::zero();
-        let result = WasmRLNWitnessInput::new(
+        let result = WasmRLNWitnessInput::new_single(
             &identity_secret,
             &zero_limit,
             &message_id,
@@ -311,7 +310,7 @@ mod test {
 
         // Invalid message id (>= limit)
         let invalid_message_id = user_message_limit;
-        let result = WasmRLNWitnessInput::new(
+        let result = WasmRLNWitnessInput::new_single(
             &identity_secret,
             &user_message_limit,
             &invalid_message_id,
@@ -327,7 +326,7 @@ mod test {
         for i in 0..path_elements.length().saturating_sub(1) {
             shorter_path_elements.push(&path_elements.get(i).unwrap());
         }
-        let result = WasmRLNWitnessInput::new(
+        let result = WasmRLNWitnessInput::new_single(
             &identity_secret,
             &user_message_limit,
             &message_id,
@@ -339,7 +338,7 @@ mod test {
         assert!(result.is_err());
 
         // Witness bytes: truncated and extra data
-        let valid_witness = WasmRLNWitnessInput::new(
+        let valid_witness = WasmRLNWitnessInput::new_single(
             &identity_secret,
             &user_message_limit,
             &message_id,

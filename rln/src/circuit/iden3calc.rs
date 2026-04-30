@@ -44,7 +44,7 @@ pub(crate) fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
     populate_inputs(&inputs, &graph.input_mapping, &mut inputs_buffer)?;
 
     if let Some(v) = inputs.get_mut("identitySecret") {
-        // DO NOT USE: unsafe { zeroize_flat_type(v) } only clears the Vec pointer, not the data—can cause memory leaks
+        // DO NOT USE: unsafe { zeroize_flat_type(v) } only clears the Vec pointer, not the data - can cause memory leaks
 
         for val in v.iter_mut() {
             unsafe { zeroize_flat_type(val) };
@@ -88,7 +88,7 @@ pub(crate) fn calc_witness_partial<I: IntoIterator<Item = (String, Vec<Option<Fr
     populate_inputs_partial(&inputs, &graph.input_mapping, &mut inputs_buffer)?;
 
     if let Some(v) = inputs.get_mut("identitySecret") {
-        // DO NOT USE: unsafe { zeroize_flat_type(v) } only clears the Vec pointer, not the data—can cause memory leaks
+        // DO NOT USE: unsafe { zeroize_flat_type(v) } only clears the Vec pointer, not the data - can cause memory leaks
 
         for val in v.iter_mut().flatten() {
             unsafe { zeroize_flat_type(val) };

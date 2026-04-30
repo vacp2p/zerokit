@@ -163,9 +163,6 @@ cargo make test
 
 # Test with stateless features
 cargo make test_stateless
-
-# Test with multi_message_id features
-cargo make test_multi_message_id
 ```
 
 ## Advanced: Custom Circuit Compilation
@@ -319,11 +316,11 @@ RLN provides C-compatible bindings for integration with C, C++, Nim, and other l
 
 The FFI layer is organized into several modules:
 
-- [`ffi_rln.rs`](./src/ffi/ffi_rln.rs) — Implements core RLN functionality,
+- [`ffi_rln.rs`](./src/ffi/ffi_rln.rs) - Implements core RLN functionality,
   including initialization functions, proof generation, and proof verification.
-- [`ffi_tree.rs`](./src/ffi/ffi_tree.rs) — Provides all tree-related operations
+- [`ffi_tree.rs`](./src/ffi/ffi_tree.rs) - Provides all tree-related operations
   and helper functions for Merkle tree management.
-- [`ffi_utils.rs`](./src/ffi/ffi_utils.rs) — Contains all utility functions and structure definitions
+- [`ffi_utils.rs`](./src/ffi/ffi_utils.rs) - Contains all utility functions and structure definitions
   used across the FFI layer.
 
 ## Parallel Processing
@@ -338,29 +335,25 @@ for concurrent proof generation.
 
 ## Multi-Message-ID
 
-The `multi-message-id` feature flag enables consuming multiple message_id units in a single proof.
+**How it works:**
 
-**Key capabilities:**
+Multi-message-ID mode allows consuming multiple message_id units in a single proof execution.
+Instead of generating one proof per message slot, a single proof covers up to `max_out` slots:
 
-- Burn multiple message_id units in one proof execution with corresponding nullifiers
-- Use selector bits to determine which message_id slots are consumed
-- Generate one proof instead of multiple for better computational efficiency
-
-When enabled, the RLN module API allows specifying
-multiple message_id values and selector bits during witness creation.
-The proof generation and verification processes
-are updated accordingly to handle the multi-message-id logic.
+- Each slot has a corresponding nullifier and `(x, y)` pair in the proof output
+- Selector bits indicate which slots are actively consumed
+- Unused slots can be ignored by the verifier
 
 **Slashing across modes:**
 
-Two services can independently run in either normal or multi-message-id mode to generate proofs.
+Two services can independently run in either single or multi-message-id mode to generate proofs.
 The full structured format of `RLNWitnessInput` and `RLNProofValues`
 is only needed for witness calculation, proof generation, and proof verification.
 
-After verification, each active nullifier and its `(x, y)` pair can be extracted individually —
-unused slots can be ignored.
-These normalized pairs are then stored separately
-and checked for duplicate nullifiers via `compute_id_secret` function.
+After verification, each active nullifier and its `(x, y)` pair can be extracted individually -
+unused slots are ignored.
+These normalized pairs are stored separately and checked for duplicate nullifiers
+via the `compute_id_secret` function, regardless of which mode generated the proof.
 
 ## Partial Proof Generation
 

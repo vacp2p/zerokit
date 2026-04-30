@@ -1,6 +1,6 @@
 # RLN FFI Nim example
 
-This example demonstrates how to use the RLN C FFI from Nim in stateful, stateless, and multi-message-id modes.
+This example demonstrates how to use the RLN C FFI from Nim in stateful, stateless, and multi-message-id mode.
 
 ## Build the RLN library
 
@@ -14,7 +14,7 @@ cargo build -p rln --release
 cargo build -p rln --release --no-default-features --features stateless
 
 # Multi-message-id build
-cargo build -p rln --release --features multi-message-id
+cargo build -p rln --release
 ```
 
 This produces the shared library in `target/release`:
@@ -44,9 +44,7 @@ Notes:
   set an rpath or environment variable as shown below.
 - The example auto-picks a platform-specific default library name.
   You can override it with `-d:RLN_LIB:"/absolute/path/to/lib"` if needed.
-- **Important**: Ensure the RLN library is compiled with the same feature flags as the Nim example.
-  For example, if you compile the Nim example with `-d:ffiMultiMessageId`, the library must be built
-  with `--features multi-message-id`.
+- **Important**: For stateless mode, ensure the RLN library is compiled with `--features stateless` to match `-d:ffiStateless`.
 
 ## Run the example
 
