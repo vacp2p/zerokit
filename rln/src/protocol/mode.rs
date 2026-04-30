@@ -42,8 +42,8 @@ pub const VERSION_BYTE_SIZE: usize = 1;
 ///
 /// **`RLNProofValues`**
 /// ```text
-/// SingleV1: [ 0x00 | root<32> | external_nullifier<32> | x<32> | y<32> | nullifier<32> ]
-/// MultiV1:  [ 0x01 | root<32> | external_nullifier<32> | x<32> | ys<var> | nullifiers<var>
+/// SingleV1: [ 0x00 | y<32> | root<32> | nullifier<32> | x<32> | external_nullifier<32> ]
+/// MultiV1:  [ 0x01 | ys<var> | root<32> | nullifiers<var> | x<32> | external_nullifier<32>
 ///                  | selector_used<var> ]
 /// ```
 ///

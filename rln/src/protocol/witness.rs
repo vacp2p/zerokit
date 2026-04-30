@@ -1150,3 +1150,24 @@ impl RLNPartialWitnessInputV3 {
         })
     }
 }
+
+impl From<&RLNWitnessInputV3> for RLNPartialWitnessInputV3 {
+    fn from(witness: &RLNWitnessInputV3) -> Self {
+        match witness {
+            RLNWitnessInputV3::Single(w) => RLNPartialWitnessInputV3::from(w),
+            RLNWitnessInputV3::Multi(w) => RLNPartialWitnessInputV3::from(w),
+        }
+    }
+}
+
+impl From<&RLNWitnessInputSingle> for RLNPartialWitnessInputV3 {
+    fn from(_witness: &RLNWitnessInputSingle) -> Self {
+        todo!()
+    }
+}
+
+impl From<&RLNWitnessInputMulti> for RLNPartialWitnessInputV3 {
+    fn from(_witness: &RLNWitnessInputMulti) -> Self {
+        todo!()
+    }
+}

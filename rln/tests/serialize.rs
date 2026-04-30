@@ -192,6 +192,20 @@ mod test {
     }
 
     #[test]
+    fn test_vec_bool_be_non_canonical_byte_rejected() {
+        // Any byte other than 0x00 or 0x01 must be rejected
+        for bad in [0x02u8, 0x05, 0xff] {
+            let mut buf = Vec::new();
+            buf.extend_from_slice(&1u64.to_be_bytes()); // length = 1
+            buf.push(bad);
+            assert!(
+                Vec::<bool>::deserialize(buf.as_slice()).is_err(),
+                "byte {bad:#04x} should have been rejected"
+            );
+        }
+    }
+
+    #[test]
     fn test_id_secret_be_roundtrip() {
         let mut rng = thread_rng();
         for _ in 0..10 {

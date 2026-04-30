@@ -922,11 +922,11 @@ impl TryFrom<RLNWitnessInputV3> for RLNProofValuesV3 {
                 let nullifier = poseidon_hash(&[a_1]);
                 to_hash[0].zeroize();
                 Ok(RLNProofValuesV3::Single(RLNProofValuesSingle {
+                    y,
                     root,
+                    nullifier,
                     x: w.x,
                     external_nullifier: w.external_nullifier,
-                    y,
-                    nullifier,
                 }))
             }
             RLNWitnessInputV3::Multi(w) => {
@@ -949,11 +949,11 @@ impl TryFrom<RLNWitnessInputV3> for RLNProofValuesV3 {
                     nullifiers.push(nullifier);
                 }
                 Ok(RLNProofValuesV3::Multi(RLNProofValuesMulti {
+                    ys,
                     root,
+                    nullifiers,
                     x: w.x,
                     external_nullifier: w.external_nullifier,
-                    ys,
-                    nullifiers,
                     selector_used: w.selector_used.clone(),
                 }))
             }
@@ -976,11 +976,27 @@ impl RecoverSecret for RLNProofValuesV3 {
 
 #[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNProofValuesSingle {
+    pub y: Fr,
     pub root: Fr,
+    pub nullifier: Fr,
     pub x: Fr,
     pub external_nullifier: Fr,
-    pub y: Fr,
-    pub nullifier: Fr,
+}
+
+impl TryFrom<RLNWitnessInputV3> for RLNProofValuesSingle {
+    type Error = ProtocolError;
+
+    fn try_from(witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
+        match RLNProofValuesV3::try_from(witness)? {
+            RLNProofValuesV3::Single(v) => Ok(v),
+            RLNProofValuesV3::Multi(_) => Err(ProtocolError::FieldLengthMismatch(
+                "expected Single",
+                0,
+                "got Multi",
+                0,
+            )),
+        }
+    }
 }
 
 impl RecoverSecret for RLNProofValuesSingle {
@@ -1015,12 +1031,28 @@ impl RecoverSecret<RLNProofValuesMulti> for RLNProofValuesSingle {
 
 #[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNProofValuesMulti {
+    pub ys: Vec<Fr>,
     pub root: Fr,
+    pub nullifiers: Vec<Fr>,
     pub x: Fr,
     pub external_nullifier: Fr,
-    pub ys: Vec<Fr>,
-    pub nullifiers: Vec<Fr>,
     pub selector_used: Vec<bool>,
+}
+
+impl TryFrom<RLNWitnessInputV3> for RLNProofValuesMulti {
+    type Error = ProtocolError;
+
+    fn try_from(witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
+        match RLNProofValuesV3::try_from(witness)? {
+            RLNProofValuesV3::Multi(v) => Ok(v),
+            RLNProofValuesV3::Single(_) => Err(ProtocolError::FieldLengthMismatch(
+                "expected Multi",
+                0,
+                "got Single",
+                0,
+            )),
+        }
+    }
 }
 
 impl RecoverSecret for RLNProofValuesMulti {
