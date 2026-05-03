@@ -9,8 +9,6 @@ use super::{
     proof::RLNProofValues,
     FR_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
 };
-#[cfg(not(target_arch = "wasm32"))]
-use crate::utils::FrOrSecret;
 use crate::{
     circuit::Fr,
     error::ProtocolError,
@@ -22,6 +20,8 @@ use crate::{
         vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, IdSecret,
     },
 };
+#[cfg(not(target_arch = "wasm32"))]
+use crate::{circuit::Graph, utils::FrOrSecret};
 
 /// Variant-specific message inputs for RLN witness.
 #[derive(Debug, PartialEq, Clone)]
@@ -294,8 +294,6 @@ impl RLNPartialWitnessInput {
 
     /// Returns the version byte for this partial witness's serialization format.
     pub fn version_byte(&self) -> u8 {
-        // TODO: new enum for partial witness instead of reusing SingleV1 version byte, which is technically not correct
-        // TODO: current master branch return SingleV1 or MultiV1 version byte based compile-time feature flag
         MessageMode::SingleV1.version_byte()
     }
 }
@@ -878,66 +876,9 @@ pub(super) fn inputs_for_witness_calculation(
     inputs
 }
 
-/// Prepares inputs for witness calculation from RLN witness input.
-#[cfg(not(target_arch = "wasm32"))]
-pub(super) fn inputs_for_witness_calculation_v3(
-    witness: &RLNWitnessInputV3,
-) -> Vec<(&'static str, Vec<FrOrSecret>)> {
-    match witness {
-        RLNWitnessInputV3::Single(w) => {
-            let identity_path_index_fr: Vec<FrOrSecret> = w
-                .identity_path_index
-                .iter()
-                .map(|v| Fr::from(*v).into())
-                .collect();
-            vec![
-                ("identitySecret", vec![w.identity_secret.clone().into()]),
-                ("userMessageLimit", vec![w.user_message_limit.into()]),
-                ("messageId", vec![w.message_id.into()]),
-                (
-                    "pathElements",
-                    w.path_elements.iter().cloned().map(Into::into).collect(),
-                ),
-                ("identityPathIndex", identity_path_index_fr),
-                ("x", vec![w.x.into()]),
-                ("externalNullifier", vec![w.external_nullifier.into()]),
-            ]
-        }
-        RLNWitnessInputV3::Multi(w) => {
-            let identity_path_index_fr: Vec<FrOrSecret> = w
-                .identity_path_index
-                .iter()
-                .map(|v| Fr::from(*v).into())
-                .collect();
-            let selector_used_fr: Vec<FrOrSecret> = w
-                .selector_used
-                .iter()
-                .map(|&v| Fr::from(v).into())
-                .collect();
-            vec![
-                ("identitySecret", vec![w.identity_secret.clone().into()]),
-                ("userMessageLimit", vec![w.user_message_limit.into()]),
-                (
-                    "messageId",
-                    w.message_ids.iter().cloned().map(Into::into).collect(),
-                ),
-                ("selectorUsed", selector_used_fr),
-                (
-                    "pathElements",
-                    w.path_elements.iter().cloned().map(Into::into).collect(),
-                ),
-                ("identityPathIndex", identity_path_index_fr),
-                ("x", vec![w.x.into()]),
-                ("externalNullifier", vec![w.external_nullifier.into()]),
-            ]
-        }
-    }
-}
-
 /// Prepares inputs for partial witness calculation from an RLN partial witness input.
 ///
 /// Unknown inputs (signal, external nullifier, message ID) are represented as `None`.
-#[allow(clippy::type_complexity)]
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) fn inputs_for_partial_witness_calculation(
     witness: &RLNPartialWitnessInput,
@@ -995,6 +936,103 @@ pub(super) fn inputs_for_partial_witness_calculation(
 pub enum RLNWitnessInputV3 {
     Single(RLNWitnessInputSingle),
     Multi(RLNWitnessInputMulti),
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl RLNWitnessInputV3 {
+    pub(super) fn validate_against_graph(&self, graph: &Graph) -> Result<(), ProtocolError> {
+        let (path_len, index_len) = match self {
+            Self::Single(w) => (w.path_elements.len(), w.identity_path_index.len()),
+            Self::Multi(w) => (w.path_elements.len(), w.identity_path_index.len()),
+        };
+        if path_len != graph.tree_depth {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "path_elements",
+                path_len,
+                "tree_depth",
+                graph.tree_depth,
+            ));
+        }
+        if index_len != graph.tree_depth {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "identity_path_index",
+                index_len,
+                "tree_depth",
+                graph.tree_depth,
+            ));
+        }
+        if let Self::Multi(w) = self {
+            if w.message_ids.len() != graph.max_out {
+                return Err(ProtocolError::FieldLengthMismatch(
+                    "message_ids",
+                    w.message_ids.len(),
+                    "max_out",
+                    graph.max_out,
+                ));
+            }
+            if w.selector_used.len() != graph.max_out {
+                return Err(ProtocolError::FieldLengthMismatch(
+                    "selector_used",
+                    w.selector_used.len(),
+                    "max_out",
+                    graph.max_out,
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn to_circuit_inputs(&self) -> Vec<(&'static str, Vec<FrOrSecret>)> {
+        match self {
+            Self::Single(w) => {
+                let identity_path_index_fr: Vec<FrOrSecret> = w
+                    .identity_path_index
+                    .iter()
+                    .map(|v| Fr::from(*v).into())
+                    .collect();
+                vec![
+                    ("identitySecret", vec![w.identity_secret.clone().into()]),
+                    ("userMessageLimit", vec![w.user_message_limit.into()]),
+                    ("messageId", vec![w.message_id.into()]),
+                    (
+                        "pathElements",
+                        w.path_elements.iter().cloned().map(Into::into).collect(),
+                    ),
+                    ("identityPathIndex", identity_path_index_fr),
+                    ("x", vec![w.x.into()]),
+                    ("externalNullifier", vec![w.external_nullifier.into()]),
+                ]
+            }
+            Self::Multi(w) => {
+                let identity_path_index_fr: Vec<FrOrSecret> = w
+                    .identity_path_index
+                    .iter()
+                    .map(|v| Fr::from(*v).into())
+                    .collect();
+                let selector_used_fr: Vec<FrOrSecret> = w
+                    .selector_used
+                    .iter()
+                    .map(|&v| Fr::from(v).into())
+                    .collect();
+                vec![
+                    ("identitySecret", vec![w.identity_secret.clone().into()]),
+                    ("userMessageLimit", vec![w.user_message_limit.into()]),
+                    (
+                        "messageId",
+                        w.message_ids.iter().cloned().map(Into::into).collect(),
+                    ),
+                    ("selectorUsed", selector_used_fr),
+                    (
+                        "pathElements",
+                        w.path_elements.iter().cloned().map(Into::into).collect(),
+                    ),
+                    ("identityPathIndex", identity_path_index_fr),
+                    ("x", vec![w.x.into()]),
+                    ("externalNullifier", vec![w.external_nullifier.into()]),
+                ]
+            }
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
@@ -1149,6 +1187,72 @@ impl RLNPartialWitnessInputV3 {
             identity_path_index,
         })
     }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(super) fn validate_against_graph(&self, graph: &Graph) -> Result<(), ProtocolError> {
+        if self.path_elements.len() != graph.tree_depth {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "path_elements",
+                self.path_elements.len(),
+                "tree_depth",
+                graph.tree_depth,
+            ));
+        }
+        if self.identity_path_index.len() != graph.tree_depth {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "identity_path_index",
+                self.identity_path_index.len(),
+                "tree_depth",
+                graph.tree_depth,
+            ));
+        }
+        Ok(())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(super) fn to_circuit_inputs(
+        &self,
+        max_out: usize,
+    ) -> Vec<(&'static str, Vec<Option<FrOrSecret>>)> {
+        let identity_path_index_fr: Vec<Option<FrOrSecret>> = self
+            .identity_path_index
+            .iter()
+            .map(|v| Some(Fr::from(*v).into()))
+            .collect();
+
+        let mut inputs: Vec<(&'static str, Vec<Option<FrOrSecret>>)> = vec![
+            (
+                "identitySecret",
+                vec![Some(self.identity_secret.clone().into())],
+            ),
+            (
+                "userMessageLimit",
+                vec![Some(self.user_message_limit.into())],
+            ),
+        ];
+
+        if max_out == 1 {
+            inputs.push(("messageId", vec![None]));
+        } else {
+            inputs.push(("messageId", vec![None; max_out]));
+            inputs.push(("selectorUsed", vec![None; max_out]));
+        }
+
+        inputs.push((
+            "pathElements",
+            self.path_elements
+                .iter()
+                .cloned()
+                .map(Into::into)
+                .map(Some)
+                .collect(),
+        ));
+        inputs.push(("identityPathIndex", identity_path_index_fr));
+        inputs.push(("x", vec![None]));
+        inputs.push(("externalNullifier", vec![None]));
+
+        inputs
+    }
 }
 
 impl From<&RLNWitnessInputV3> for RLNPartialWitnessInputV3 {
@@ -1161,13 +1265,23 @@ impl From<&RLNWitnessInputV3> for RLNPartialWitnessInputV3 {
 }
 
 impl From<&RLNWitnessInputSingle> for RLNPartialWitnessInputV3 {
-    fn from(_witness: &RLNWitnessInputSingle) -> Self {
-        todo!()
+    fn from(witness: &RLNWitnessInputSingle) -> Self {
+        Self {
+            identity_secret: witness.identity_secret.clone(),
+            user_message_limit: witness.user_message_limit,
+            path_elements: witness.path_elements.clone(),
+            identity_path_index: witness.identity_path_index.clone(),
+        }
     }
 }
 
 impl From<&RLNWitnessInputMulti> for RLNPartialWitnessInputV3 {
-    fn from(_witness: &RLNWitnessInputMulti) -> Self {
-        todo!()
+    fn from(witness: &RLNWitnessInputMulti) -> Self {
+        Self {
+            identity_secret: witness.identity_secret.clone(),
+            user_message_limit: witness.user_message_limit,
+            path_elements: witness.path_elements.clone(),
+            identity_path_index: witness.identity_path_index.clone(),
+        }
     }
 }

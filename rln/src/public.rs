@@ -12,7 +12,10 @@ use {
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
-    circuit::{graph_from_raw, graph_single_v1, zkey_single_v1, Graph, PartialProof},
+    circuit::{
+        graph_from_raw, graph_multi_v1, graph_single_v1, zkey_multi_v1, zkey_single_v1,
+        ArkGroth16Backend, Graph, PartialProof,
+    },
     prelude::RLNPartialWitnessInput,
     protocol::{finish_zk_proof, generate_partial_zk_proof, generate_zk_proof, MessageMode},
 };
@@ -21,7 +24,8 @@ use crate::{
     error::{RLNError, VerifyError},
     protocol::{
         generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof,
-        RLNPartialZkProof, RLNProofValues, RLNWitnessInput, RLNZkProof, Stateful, Stateless,
+        RLNPartialZkProof, RLNProofValues, RLNProofValuesV3, RLNWitnessInput, RLNZkProof, Stateful,
+        Stateless,
     },
 };
 
@@ -841,16 +845,78 @@ where
 {
     pub fn generate_partial_proof(
         &self,
-        _partial_witness: ZkProof::PartialWitness,
+        partial_witness: ZkProof::PartialWitness,
     ) -> Result<ZkProof::PartialProof, RLNError> {
-        todo!()
+        Ok(self.zkp.generate_partial_proof(partial_witness)?)
     }
 
     pub fn finish_proof(
         &self,
-        _partial_proof: ZkProof::PartialProof,
-        _witness: ZkProof::Witness,
+        partial_proof: ZkProof::PartialProof,
+        witness: ZkProof::Witness,
     ) -> Result<ZkProof::Proof, RLNError> {
-        todo!()
+        Ok(self.zkp.finish_proof(partial_proof, witness)?)
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl RLNV3<Stateless, ArkGroth16Backend> {
+    /// Creates a stateless instance using the embedded Single circuit (tree_depth=20, max_out=1).
+    pub fn new_single() -> Self {
+        Self::new(ArkGroth16Backend::new(
+            zkey_single_v1().to_owned(),
+            graph_single_v1().to_owned(),
+        ))
+    }
+
+    /// Creates a stateless instance using the embedded Multi circuit (tree_depth=20, max_out=4).
+    pub fn new_multi() -> Self {
+        Self::new(ArkGroth16Backend::new(
+            zkey_multi_v1().to_owned(),
+            graph_multi_v1().to_owned(),
+        ))
+    }
+
+    /// Creates a stateless instance from custom zkey and graph bytes.
+    pub fn new_with_params(zkey_data: Vec<u8>, graph_data: Vec<u8>) -> Result<Self, RLNError> {
+        let zkey = zkey_from_raw(&zkey_data)?;
+        let graph = graph_from_raw(&graph_data, None, None)?;
+        Ok(Self::new(ArkGroth16Backend::new(zkey, graph)))
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl<S> RLNV3<S, ArkGroth16Backend> {
+    /// Returns the message mode inferred from the loaded circuit.
+    pub fn message_mode(&self) -> MessageMode {
+        MessageMode::from(&self.zkp.graph)
+    }
+
+    /// Returns the maximum number of message-id slots for the loaded circuit.
+    pub fn max_out(&self) -> usize {
+        self.zkp.graph.max_out
+    }
+
+    /// Verifies a proof and checks that the root is in the provided set and `x` matches the signal.
+    ///
+    /// If `roots` is empty, root membership is skipped. Equivalent to the old `RLN::verify_with_roots`.
+    pub fn verify_with_roots(
+        &self,
+        proof: &Proof,
+        values: &RLNProofValuesV3,
+        x: &Fr,
+        roots: &[Fr],
+    ) -> Result<bool, RLNError> {
+        let verified = self.zkp.verify(proof, values)?;
+        if !verified {
+            return Err(VerifyError::InvalidProof.into());
+        }
+        if !roots.is_empty() && !roots.contains(&values.root()) {
+            return Err(VerifyError::InvalidRoot.into());
+        }
+        if x != &values.x() {
+            return Err(VerifyError::InvalidSignal.into());
+        }
+        Ok(true)
     }
 }

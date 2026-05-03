@@ -3,14 +3,14 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use {
     crate::{
         circuit::{
-            iden3calc::calc_witness, qap::CircomReduction, ArkGroth16Backend, PartialProof, Proof,
+            iden3calc::{calc_witness, calc_witness_partial},
+            qap::CircomReduction,
+            ArkGroth16Backend, PartialProof, Proof,
         },
         error::{ProtocolError, RLNError},
+        partial_proof::{Groth16Partial, PartialAssignment},
         prelude::RLNPartialWitnessInputV3,
-        protocol::{
-            mode::MessageMode, witness::inputs_for_witness_calculation_v3, RLNProofValuesV3,
-            RLNWitnessInputV3,
-        },
+        protocol::{RLNProofValuesV3, RLNWitnessInputV3},
     },
     ark_groth16::{prepare_verifying_key, Groth16},
     ark_std::{rand::thread_rng, UniformRand},
@@ -79,51 +79,10 @@ impl RLNZkProof for ArkGroth16Backend {
         &self,
         witness: Self::Witness,
     ) -> Result<(Self::Proof, Self::Values), Self::Error> {
-        let tree_depth = self.graph.tree_depth;
-        let graph_mode = MessageMode::from(&self.graph);
+        witness.validate_against_graph(&self.graph)?;
 
-        let (path_len, index_len, witness_mode) = match &witness {
-            RLNWitnessInputV3::Single(w) => (
-                w.path_elements.len(),
-                w.identity_path_index.len(),
-                MessageMode::SingleV1,
-            ),
-            RLNWitnessInputV3::Multi(w) => (
-                w.path_elements.len(),
-                w.identity_path_index.len(),
-                MessageMode::MultiV1 {
-                    max_out: w.message_ids.len(),
-                },
-            ),
-        };
-
-        if witness_mode != graph_mode {
-            return Err(ProtocolError::MessageModeAndGraphMismatch {
-                witness_mode,
-                graph_mode,
-            }
-            .into());
-        }
-        if path_len != tree_depth {
-            return Err(ProtocolError::FieldLengthMismatch(
-                "path_elements",
-                path_len,
-                "tree_depth",
-                tree_depth,
-            )
-            .into());
-        }
-        if index_len != tree_depth {
-            return Err(ProtocolError::FieldLengthMismatch(
-                "identity_path_index",
-                index_len,
-                "tree_depth",
-                tree_depth,
-            )
-            .into());
-        }
-
-        let inputs = inputs_for_witness_calculation_v3(&witness)
+        let inputs = witness
+            .to_circuit_inputs()
             .into_iter()
             .map(|(k, v)| (k.to_string(), v));
         let full_assignment = calc_witness(inputs, &self.graph).map_err(ProtocolError::from)?;
@@ -179,16 +138,52 @@ impl RLNPartialZkProof for ArkGroth16Backend {
 
     fn generate_partial_proof(
         &self,
-        _witness: Self::PartialWitness,
+        witness: Self::PartialWitness,
     ) -> Result<Self::PartialProof, Self::Error> {
-        todo!()
+        witness.validate_against_graph(&self.graph)?;
+
+        let inputs = witness
+            .to_circuit_inputs(self.graph.max_out)
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v));
+        let full_assignment =
+            calc_witness_partial(inputs, &self.graph).map_err(ProtocolError::from)?;
+
+        let mut partial_values = Vec::with_capacity(full_assignment.len() - 1);
+        partial_values.extend_from_slice(&full_assignment[1..]);
+        let partial_assignment = PartialAssignment::new(partial_values);
+        let partial_proof =
+            Groth16Partial::<_, CircomReduction>::prove_partial(&self.zkey.0, &partial_assignment)?;
+        Ok(partial_proof)
     }
 
     fn finish_proof(
         &self,
-        _partial: Self::PartialProof,
-        _witness: Self::Witness,
+        partial: Self::PartialProof,
+        witness: Self::Witness,
     ) -> Result<Self::Proof, Self::Error> {
-        todo!()
+        witness.validate_against_graph(&self.graph)?;
+
+        let inputs = witness
+            .to_circuit_inputs()
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v));
+        let full_assignment = calc_witness(inputs, &self.graph).map_err(ProtocolError::from)?;
+
+        let mut rng = thread_rng();
+        let r = Fr::rand(&mut rng);
+        let s = Fr::rand(&mut rng);
+
+        let proof = Groth16Partial::<_, CircomReduction>::finish_proof_with_matrices(
+            &self.zkey.0,
+            &partial,
+            r,
+            s,
+            &self.zkey.1,
+            self.zkey.1.num_instance_variables,
+            self.zkey.1.num_constraints,
+            full_assignment.as_slice(),
+        )?;
+        Ok(proof)
     }
 }

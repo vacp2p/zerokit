@@ -961,6 +961,24 @@ impl TryFrom<RLNWitnessInputV3> for RLNProofValuesV3 {
     }
 }
 
+impl RLNProofValuesV3 {
+    /// Returns the Merkle tree root from either variant.
+    pub fn root(&self) -> Fr {
+        match self {
+            RLNProofValuesV3::Single(v) => v.root,
+            RLNProofValuesV3::Multi(v) => v.root,
+        }
+    }
+
+    /// Returns the signal hash from either variant.
+    pub fn x(&self) -> Fr {
+        match self {
+            RLNProofValuesV3::Single(v) => v.x,
+            RLNProofValuesV3::Multi(v) => v.x,
+        }
+    }
+}
+
 impl RecoverSecret for RLNProofValuesV3 {
     type Error = ProtocolError;
 
