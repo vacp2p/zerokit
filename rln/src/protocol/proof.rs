@@ -1001,22 +1001,6 @@ pub struct RLNProofValuesSingle {
     pub external_nullifier: Fr,
 }
 
-impl TryFrom<RLNWitnessInputV3> for RLNProofValuesSingle {
-    type Error = ProtocolError;
-
-    fn try_from(witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
-        match RLNProofValuesV3::try_from(witness)? {
-            RLNProofValuesV3::Single(v) => Ok(v),
-            RLNProofValuesV3::Multi(_) => Err(ProtocolError::FieldLengthMismatch(
-                "expected Single",
-                0,
-                "got Multi",
-                0,
-            )),
-        }
-    }
-}
-
 impl RecoverSecret for RLNProofValuesSingle {
     type Error = ProtocolError;
 
@@ -1055,22 +1039,6 @@ pub struct RLNProofValuesMulti {
     pub x: Fr,
     pub external_nullifier: Fr,
     pub selector_used: Vec<bool>,
-}
-
-impl TryFrom<RLNWitnessInputV3> for RLNProofValuesMulti {
-    type Error = ProtocolError;
-
-    fn try_from(witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
-        match RLNProofValuesV3::try_from(witness)? {
-            RLNProofValuesV3::Multi(v) => Ok(v),
-            RLNProofValuesV3::Single(_) => Err(ProtocolError::FieldLengthMismatch(
-                "expected Multi",
-                0,
-                "got Single",
-                0,
-            )),
-        }
-    }
 }
 
 impl RecoverSecret for RLNProofValuesMulti {

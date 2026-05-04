@@ -581,7 +581,6 @@ impl CanonicalDeserializeBE for RLNProofValuesV3 {
     }
 }
 
-/// Field order matches master (V3 wire layout): y | root | nullifier | x | external_nullifier
 impl CanonicalSerializeBE for RLNProofValuesSingle {
     type Error = ProtocolError;
 
@@ -622,7 +621,6 @@ impl CanonicalDeserializeBE for RLNProofValuesSingle {
     }
 }
 
-/// Field order matches master (V3 wire layout): ys | root | nullifiers | x | external_nullifier | selector_used
 impl CanonicalSerializeBE for RLNProofValuesMulti {
     type Error = ProtocolError;
 
