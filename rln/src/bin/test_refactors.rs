@@ -52,7 +52,7 @@ fn main() -> Result<(), RLNError> {
     let (proof, values_multi) = rln_multi.generate_proof(witness_multi)?;
     assert!(rln_multi.verify(&proof, &values_multi)?);
 
-    // Cross-mode slashing: Single × Multi
+    // Cross-mode slashing: Stateless Single × Stateless Multi
     let backend_s =
         ArkGroth16Backend::new(zkey_single_v1().to_owned(), graph_single_v1().to_owned());
     let rln_single = RLNV3::<Stateless, ArkGroth16Backend>::new(backend_s);
@@ -93,6 +93,54 @@ fn main() -> Result<(), RLNError> {
         values_multi.recover_secret(&values_single)?,
         *identity_secret
     );
+
+    // Partial Proof — Single
+    let backend_partial =
+        ArkGroth16Backend::new(zkey_single_v1().to_owned(), graph_single_v1().to_owned());
+    let rln_partial = RLNV3::<Stateless, ArkGroth16Backend>::new(backend_partial);
+
+    let (identity_secret, _) = keygen();
+    let witness_for_partial = RLNWitnessInputV3::Single(RLNWitnessInputSingle::new(
+        identity_secret.clone(),
+        Fr::from(10),
+        vec![Fr::from(0); DEFAULT_TREE_DEPTH],
+        vec![0u8; DEFAULT_TREE_DEPTH],
+        Fr::from(55),
+        Fr::from(200),
+        Fr::from(1),
+    )?);
+
+    let partial_witness = RLNPartialWitnessInputV3::from(&witness_for_partial);
+    let partial_proof = rln_partial.generate_partial_proof(partial_witness)?;
+    let values_partial =
+        RLNProofValuesV3::try_from(witness_for_partial.clone()).map_err(RLNError::from)?;
+    let proof_from_partial = rln_partial.finish_proof(partial_proof, witness_for_partial)?;
+    assert!(rln_partial.verify(&proof_from_partial, &values_partial)?);
+
+    // Partial Proof — Multi
+    let backend_partial_multi =
+        ArkGroth16Backend::new(zkey_multi_v1().to_owned(), graph_multi_v1().to_owned());
+    let rln_partial_multi = RLNV3::<Stateless, ArkGroth16Backend>::new(backend_partial_multi);
+
+    let (identity_secret, _) = keygen();
+    let witness_for_partial_multi = RLNWitnessInputV3::Multi(RLNWitnessInputMulti::new(
+        identity_secret.clone(),
+        Fr::from(10),
+        vec![Fr::from(0); DEFAULT_TREE_DEPTH],
+        vec![0u8; DEFAULT_TREE_DEPTH],
+        Fr::from(77),
+        Fr::from(400),
+        (1..=DEFAULT_MAX_OUT as u64).map(Fr::from).collect(),
+        vec![true; DEFAULT_MAX_OUT],
+    )?);
+
+    let partial_witness_multi = RLNPartialWitnessInputV3::from(&witness_for_partial_multi);
+    let partial_proof_multi = rln_partial_multi.generate_partial_proof(partial_witness_multi)?;
+    let values_partial_multi =
+        RLNProofValuesV3::try_from(witness_for_partial_multi.clone()).map_err(RLNError::from)?;
+    let proof_from_partial_multi =
+        rln_partial_multi.finish_proof(partial_proof_multi, witness_for_partial_multi)?;
+    assert!(rln_partial_multi.verify(&proof_from_partial_multi, &values_partial_multi)?);
 
     Ok(())
 }
