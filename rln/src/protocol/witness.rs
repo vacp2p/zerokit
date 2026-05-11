@@ -982,6 +982,7 @@ impl RLNWitnessInputV3 {
         Ok(())
     }
 
+    // TODO: redesign — str-keyed map is fragile; replace with a typed circuit input struct
     pub(super) fn to_circuit_inputs(&self) -> Vec<(&'static str, Vec<FrOrSecret>)> {
         match self {
             Self::Single(w) => {
@@ -1032,6 +1033,18 @@ impl RLNWitnessInputV3 {
                 ]
             }
         }
+    }
+}
+
+impl From<RLNWitnessInputSingle> for RLNWitnessInputV3 {
+    fn from(w: RLNWitnessInputSingle) -> Self {
+        Self::Single(w)
+    }
+}
+
+impl From<RLNWitnessInputMulti> for RLNWitnessInputV3 {
+    fn from(w: RLNWitnessInputMulti) -> Self {
+        Self::Multi(w)
     }
 }
 
@@ -1264,6 +1277,15 @@ impl From<&RLNWitnessInputV3> for RLNPartialWitnessInputV3 {
     }
 }
 
+impl From<RLNWitnessInputV3> for RLNPartialWitnessInputV3 {
+    fn from(witness: RLNWitnessInputV3) -> Self {
+        match witness {
+            RLNWitnessInputV3::Single(w) => RLNPartialWitnessInputV3::from(w),
+            RLNWitnessInputV3::Multi(w) => RLNPartialWitnessInputV3::from(w),
+        }
+    }
+}
+
 impl From<&RLNWitnessInputSingle> for RLNPartialWitnessInputV3 {
     fn from(witness: &RLNWitnessInputSingle) -> Self {
         Self {
@@ -1275,6 +1297,17 @@ impl From<&RLNWitnessInputSingle> for RLNPartialWitnessInputV3 {
     }
 }
 
+impl From<RLNWitnessInputSingle> for RLNPartialWitnessInputV3 {
+    fn from(witness: RLNWitnessInputSingle) -> Self {
+        Self {
+            identity_secret: witness.identity_secret,
+            user_message_limit: witness.user_message_limit,
+            path_elements: witness.path_elements,
+            identity_path_index: witness.identity_path_index,
+        }
+    }
+}
+
 impl From<&RLNWitnessInputMulti> for RLNPartialWitnessInputV3 {
     fn from(witness: &RLNWitnessInputMulti) -> Self {
         Self {
@@ -1282,6 +1315,17 @@ impl From<&RLNWitnessInputMulti> for RLNPartialWitnessInputV3 {
             user_message_limit: witness.user_message_limit,
             path_elements: witness.path_elements.clone(),
             identity_path_index: witness.identity_path_index.clone(),
+        }
+    }
+}
+
+impl From<RLNWitnessInputMulti> for RLNPartialWitnessInputV3 {
+    fn from(witness: RLNWitnessInputMulti) -> Self {
+        Self {
+            identity_secret: witness.identity_secret,
+            user_message_limit: witness.user_message_limit,
+            path_elements: witness.path_elements,
+            identity_path_index: witness.identity_path_index,
         }
     }
 }

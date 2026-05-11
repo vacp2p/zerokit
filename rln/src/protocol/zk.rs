@@ -19,6 +19,7 @@ use {
 use crate::{
     circuit::Fr,
     prelude::{CanonicalDeserializeBE, CanonicalSerializeBE},
+    utils::IdSecret,
 };
 
 pub trait RLNZkProof {
@@ -46,7 +47,7 @@ pub trait RLNZkProof {
 pub trait RecoverSecret<Rhs = Self> {
     type Error;
 
-    fn recover_secret(&self, other: &Rhs) -> Result<Fr, Self::Error>;
+    fn recover_secret(&self, other: &Rhs) -> Result<IdSecret, Self::Error>;
 }
 
 pub trait RLNPartialZkProof: RLNZkProof {

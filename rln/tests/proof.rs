@@ -161,7 +161,7 @@ mod test {
         let (_, v2) = rln.generate_proof(w2).unwrap();
 
         let recovered = v1.recover_secret(&v2).unwrap();
-        assert_eq!(recovered, *identity_secret);
+        assert_eq!(*recovered, *identity_secret);
     }
 
     #[test]
@@ -193,8 +193,8 @@ mod test {
         let (_, sv) = rln_single.generate_proof(w_single).unwrap();
         let (_, mv) = rln_multi.generate_proof(w_multi).unwrap();
 
-        assert_eq!(sv.recover_secret(&mv).unwrap(), *identity_secret);
-        assert_eq!(mv.recover_secret(&sv).unwrap(), *identity_secret);
+        assert_eq!(*sv.recover_secret(&mv).unwrap(), *identity_secret);
+        assert_eq!(*mv.recover_secret(&sv).unwrap(), *identity_secret);
     }
 
     #[test]
@@ -271,7 +271,7 @@ mod test {
         let (_, values2) = backend.generate_proof(w2).unwrap();
 
         let recovered = values1.recover_secret(&values2).unwrap();
-        assert_eq!(recovered, *identity_secret);
+        assert_eq!(*recovered, *identity_secret);
     }
 
     #[test]
@@ -397,7 +397,7 @@ mod test {
         let (_, values2) = backend.generate_proof(w2).unwrap();
 
         let recovered = values1.recover_secret(&values2).unwrap();
-        assert_eq!(recovered, *identity_secret);
+        assert_eq!(*recovered, *identity_secret);
     }
 
     #[test]
@@ -435,11 +435,11 @@ mod test {
 
         // single x multi
         let recovered = single_values.recover_secret(&multi_values).unwrap();
-        assert_eq!(recovered, *identity_secret);
+        assert_eq!(*recovered, *identity_secret);
 
         // multi x single (symmetric)
         let recovered2 = multi_values.recover_secret(&single_values).unwrap();
-        assert_eq!(recovered2, *identity_secret);
+        assert_eq!(*recovered2, *identity_secret);
     }
 
     #[test]
@@ -653,7 +653,7 @@ mod test {
         let (_, v1) = rln.generate_proof(w1).unwrap();
         let (_, v2) = rln.generate_proof(w2).unwrap();
         let recovered = v1.recover_secret(&v2).unwrap();
-        assert_eq!(recovered, *id);
+        assert_eq!(*recovered, *id);
     }
 
     #[test]
@@ -666,7 +666,7 @@ mod test {
         let (_, v1) = rln.generate_proof(w1).unwrap();
         let (_, v2) = rln.generate_proof(w2).unwrap();
         let recovered = v1.recover_secret(&v2).unwrap();
-        assert_eq!(recovered, *id);
+        assert_eq!(*recovered, *id);
     }
 
     #[test]
@@ -684,8 +684,8 @@ mod test {
         let w_multi = make_multi_witness(id.clone(), Fr::from(22u64), external_nullifier);
         let (_, sv) = rln_s.generate_proof(w_single).unwrap();
         let (_, mv) = rln_m.generate_proof(w_multi).unwrap();
-        assert_eq!(sv.recover_secret(&mv).unwrap(), *id);
-        assert_eq!(mv.recover_secret(&sv).unwrap(), *id);
+        assert_eq!(*sv.recover_secret(&mv).unwrap(), *id);
+        assert_eq!(*mv.recover_secret(&sv).unwrap(), *id);
     }
 
     #[test]

@@ -859,6 +859,7 @@ where
     }
 }
 
+// TODO: replace these constructors with a unified RLNBuilder (PR 8)
 #[cfg(not(target_arch = "wasm32"))]
 impl RLNV3<Stateless, ArkGroth16Backend> {
     /// Creates a stateless instance using the embedded Single circuit (tree_depth=20, max_out=1).
@@ -907,15 +908,15 @@ impl<S> RLNV3<S, ArkGroth16Backend> {
         x: &Fr,
         roots: &[Fr],
     ) -> Result<bool, RLNError> {
-        let verified = self.zkp.verify(proof, values)?;
-        if !verified {
-            return Err(VerifyError::InvalidProof.into());
-        }
         if !roots.is_empty() && !roots.contains(&values.root()) {
             return Err(VerifyError::InvalidRoot.into());
         }
         if x != &values.x() {
             return Err(VerifyError::InvalidSignal.into());
+        }
+        let verified = self.zkp.verify(proof, values)?;
+        if !verified {
+            return Err(VerifyError::InvalidProof.into());
         }
         Ok(true)
     }

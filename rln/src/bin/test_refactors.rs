@@ -6,7 +6,7 @@ fn main() -> Result<(), RLNError> {
     let rln = RLNV3::<Stateless, ArkGroth16Backend>::new(backend);
 
     let (identity_secret, _) = keygen();
-    let witness_single1 = RLNWitnessInputV3::Single(RLNWitnessInputSingle::new(
+    let witness_single1 = RLNWitnessInputSingle::new(
         identity_secret.clone(),
         Fr::from(10),
         vec![Fr::from(0); DEFAULT_TREE_DEPTH],
@@ -14,12 +14,13 @@ fn main() -> Result<(), RLNError> {
         Fr::from(42),
         Fr::from(100),
         Fr::from(1),
-    )?);
+    )?
+    .into();
 
     let (proof, values_single1) = rln.generate_proof(witness_single1)?;
     assert!(rln.verify(&proof, &values_single1)?);
 
-    let witness_single2 = RLNWitnessInputV3::Single(RLNWitnessInputSingle::new(
+    let witness_single2 = RLNWitnessInputSingle::new(
         identity_secret.clone(),
         Fr::from(10),
         vec![Fr::from(0); DEFAULT_TREE_DEPTH],
@@ -27,10 +28,11 @@ fn main() -> Result<(), RLNError> {
         Fr::from(11),
         Fr::from(100),
         Fr::from(1),
-    )?);
+    )?
+    .into();
     let (_, values_single2) = rln.generate_proof(witness_single2)?;
     let recovered = values_single1.recover_secret(&values_single2)?;
-    assert_eq!(recovered, *identity_secret);
+    assert_eq!(recovered, identity_secret);
 
     // Stateless Multi
     let multi_backend =
@@ -39,7 +41,7 @@ fn main() -> Result<(), RLNError> {
 
     let (identity_secret, _) = keygen();
 
-    let witness_multi = RLNWitnessInputV3::Multi(RLNWitnessInputMulti::new(
+    let witness_multi = RLNWitnessInputMulti::new(
         identity_secret.clone(),
         Fr::from(10),
         vec![Fr::from(0); DEFAULT_TREE_DEPTH],
@@ -48,7 +50,8 @@ fn main() -> Result<(), RLNError> {
         Fr::from(100),
         (1..=DEFAULT_MAX_OUT as u64).map(Fr::from).collect(),
         vec![true; DEFAULT_MAX_OUT],
-    )?);
+    )?
+    .into();
     let (proof, values_multi) = rln_multi.generate_proof(witness_multi)?;
     assert!(rln_multi.verify(&proof, &values_multi)?);
 
@@ -62,7 +65,7 @@ fn main() -> Result<(), RLNError> {
     let (identity_secret, _) = keygen();
     let external_nullifier = Fr::from(300);
 
-    let witness_single = RLNWitnessInputV3::Single(RLNWitnessInputSingle::new(
+    let witness_single = RLNWitnessInputSingle::new(
         identity_secret.clone(),
         Fr::from(10),
         vec![Fr::from(0); DEFAULT_TREE_DEPTH],
@@ -70,8 +73,9 @@ fn main() -> Result<(), RLNError> {
         Fr::from(11),
         external_nullifier,
         Fr::from(1),
-    )?);
-    let witness_multi = RLNWitnessInputV3::Multi(RLNWitnessInputMulti::new(
+    )?
+    .into();
+    let witness_multi = RLNWitnessInputMulti::new(
         identity_secret.clone(),
         Fr::from(10),
         vec![Fr::from(0); DEFAULT_TREE_DEPTH],
@@ -80,18 +84,19 @@ fn main() -> Result<(), RLNError> {
         external_nullifier,
         (1..=DEFAULT_MAX_OUT as u64).map(Fr::from).collect(),
         vec![true; DEFAULT_MAX_OUT],
-    )?);
+    )?
+    .into();
 
     let (_, values_single) = rln_single.generate_proof(witness_single)?;
     let (_, values_multi) = rln_multi2.generate_proof(witness_multi)?;
 
     assert_eq!(
         values_single.recover_secret(&values_multi)?,
-        *identity_secret
+        identity_secret
     );
     assert_eq!(
         values_multi.recover_secret(&values_single)?,
-        *identity_secret
+        identity_secret
     );
 
     // Partial Proof — Single
@@ -100,7 +105,7 @@ fn main() -> Result<(), RLNError> {
     let rln_partial = RLNV3::<Stateless, ArkGroth16Backend>::new(backend_partial);
 
     let (identity_secret, _) = keygen();
-    let witness_for_partial = RLNWitnessInputV3::Single(RLNWitnessInputSingle::new(
+    let witness_for_partial = RLNWitnessInputSingle::new(
         identity_secret.clone(),
         Fr::from(10),
         vec![Fr::from(0); DEFAULT_TREE_DEPTH],
@@ -108,7 +113,8 @@ fn main() -> Result<(), RLNError> {
         Fr::from(55),
         Fr::from(200),
         Fr::from(1),
-    )?);
+    )?
+    .into();
 
     let partial_witness = RLNPartialWitnessInputV3::from(&witness_for_partial);
     let partial_proof = rln_partial.generate_partial_proof(partial_witness)?;
@@ -123,7 +129,7 @@ fn main() -> Result<(), RLNError> {
     let rln_partial_multi = RLNV3::<Stateless, ArkGroth16Backend>::new(backend_partial_multi);
 
     let (identity_secret, _) = keygen();
-    let witness_for_partial_multi = RLNWitnessInputV3::Multi(RLNWitnessInputMulti::new(
+    let witness_for_partial_multi = RLNWitnessInputMulti::new(
         identity_secret.clone(),
         Fr::from(10),
         vec![Fr::from(0); DEFAULT_TREE_DEPTH],
@@ -132,7 +138,8 @@ fn main() -> Result<(), RLNError> {
         Fr::from(400),
         (1..=DEFAULT_MAX_OUT as u64).map(Fr::from).collect(),
         vec![true; DEFAULT_MAX_OUT],
-    )?);
+    )?
+    .into();
 
     let partial_witness_multi = RLNPartialWitnessInputV3::from(&witness_for_partial_multi);
     let partial_proof_multi = rln_partial_multi.generate_partial_proof(partial_witness_multi)?;
