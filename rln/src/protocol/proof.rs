@@ -940,8 +940,8 @@ impl RecoverSecret for RLNProofValuesV3 {
         match (self, other) {
             (RLNProofValuesV3::Single(s), RLNProofValuesV3::Single(o)) => s.recover_secret(o),
             (RLNProofValuesV3::Multi(s), RLNProofValuesV3::Multi(o)) => s.recover_secret(o),
-            (RLNProofValuesV3::Single(s), RLNProofValuesV3::Multi(o)) => s.recover_secret(o),
-            (RLNProofValuesV3::Multi(s), RLNProofValuesV3::Single(o)) => o.recover_secret(s), // symmetric
+            (RLNProofValuesV3::Single(s), RLNProofValuesV3::Multi(o))
+            | (RLNProofValuesV3::Multi(o), RLNProofValuesV3::Single(s)) => s.recover_secret(o),
         }
     }
 }
