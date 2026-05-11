@@ -4,18 +4,7 @@ mod test {
     use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
     use ark_std::{rand::thread_rng, UniformRand};
     use num_bigint::BigUint;
-    use rln::{
-        circuit::{Fr, PartialProof, Proof, DEFAULT_TREE_DEPTH},
-        error::UtilsError,
-        prelude::{
-            generate_partial_zk_proof, generate_zk_proof, keygen, CanonicalDeserializeBE,
-            CanonicalSerializeBE, RLNPartialWitnessInput, RLNPartialWitnessInputV3,
-            RLNProofValuesMulti, RLNProofValuesSingle, RLNProofValuesV3, RLNWitnessInput,
-            RLNWitnessInputMulti, RLNWitnessInputSingle, RLNWitnessInputV3, FR_BYTE_SIZE,
-        },
-        protocol::{ENUM_TAG_MULTI, ENUM_TAG_SINGLE},
-        utils::IdSecret,
-    };
+    use rln::prelude::*;
 
     #[test]
     fn test_fr_be_roundtrip() {
@@ -32,7 +21,7 @@ mod test {
 
     #[test]
     fn test_fr_be_byte_order() {
-        // BE: MSB at index 0 — Fr(1) should have last byte == 1, all others 0
+        // BE: most significant byte at index 0 — Fr(1) should have last byte == 1, all others 0
         let one = Fr::from(1u64);
         let mut buf = Vec::new();
         one.serialize(&mut buf).unwrap();
@@ -40,7 +29,7 @@ mod test {
         assert_eq!(
             buf[FR_BYTE_SIZE - 1],
             1,
-            "LSB must be at index FR_BYTE_SIZE-1"
+            "least significant byte must be at index FR_BYTE_SIZE-1"
         );
         assert!(buf[..FR_BYTE_SIZE - 1].iter().all(|&b| b == 0));
 
@@ -272,28 +261,34 @@ mod test {
     }
 
     fn make_witness_input_single() -> RLNWitnessInputV3 {
-        RLNWitnessInputV3::Single(RLNWitnessInputSingle::new(
-            IdSecret::from(&mut Fr::from(42u64)),
-            Fr::from(10u64),
-            Fr::from(3u64),
-            vec![Fr::from(1u64), Fr::from(2u64)],
-            vec![0u8, 1u8],
-            Fr::from(5u64),
-            Fr::from(7u64),
-        ))
+        RLNWitnessInputV3::Single(
+            RLNWitnessInputSingle::new(
+                IdSecret::from(&mut Fr::from(42u64)),
+                Fr::from(10u64),
+                vec![Fr::from(1u64), Fr::from(2u64)],
+                vec![0u8, 1u8],
+                Fr::from(5u64),
+                Fr::from(7u64),
+                Fr::from(3u64),
+            )
+            .unwrap(),
+        )
     }
 
     fn make_witness_input_multi() -> RLNWitnessInputV3 {
-        RLNWitnessInputV3::Multi(RLNWitnessInputMulti::new(
-            IdSecret::from(&mut Fr::from(99u64)),
-            Fr::from(10u64),
-            vec![Fr::from(1u64), Fr::from(2u64)],
-            vec![0u8, 1u8],
-            Fr::from(5u64),
-            Fr::from(7u64),
-            vec![Fr::from(0u64), Fr::from(1u64)],
-            vec![true, false],
-        ))
+        RLNWitnessInputV3::Multi(
+            RLNWitnessInputMulti::new(
+                IdSecret::from(&mut Fr::from(99u64)),
+                Fr::from(10u64),
+                vec![Fr::from(1u64), Fr::from(2u64)],
+                vec![0u8, 1u8],
+                Fr::from(5u64),
+                Fr::from(7u64),
+                vec![Fr::from(0u64), Fr::from(1u64)],
+                vec![true, false],
+            )
+            .unwrap(),
+        )
     }
 
     fn make_partial_witness() -> RLNPartialWitnessInputV3 {
@@ -303,6 +298,7 @@ mod test {
             vec![Fr::from(1u64), Fr::from(2u64)],
             vec![0u8, 1u8],
         )
+        .unwrap()
     }
 
     fn make_proof_values_single() -> RLNProofValuesV3 {
@@ -341,12 +337,7 @@ mod test {
             Fr::from(100),
         )
         .unwrap();
-        generate_zk_proof(
-            rln::circuit::zkey_single_v1(),
-            &witness,
-            rln::circuit::graph_single_v1(),
-        )
-        .unwrap()
+        generate_zk_proof(zkey_single_v1(), &witness, graph_single_v1()).unwrap()
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -361,12 +352,7 @@ mod test {
             identity_path_index,
         )
         .unwrap();
-        generate_partial_zk_proof(
-            rln::circuit::zkey_single_v1(),
-            &partial_witness,
-            rln::circuit::graph_single_v1(),
-        )
-        .unwrap()
+        generate_partial_zk_proof(zkey_single_v1(), &partial_witness, graph_single_v1()).unwrap()
     }
 
     #[test]

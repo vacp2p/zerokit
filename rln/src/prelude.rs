@@ -41,8 +41,8 @@ pub use crate::{
         RLNPartialWitnessInput, RLNPartialWitnessInputV3, RLNPartialZkProof, RLNProof,
         RLNProofValues, RLNProofValuesMulti, RLNProofValuesSingle, RLNProofValuesV3,
         RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle, RLNWitnessInputV3,
-        RLNZkProof, RecoverSecret, Stateful, Stateless, FR_BYTE_SIZE, FR_LIMB_BYTE_SIZE,
-        VEC_LEN_BYTE_SIZE,
+        RLNZkProof, RecoverSecret, Stateful, Stateless, ENUM_TAG_MULTI, ENUM_TAG_SINGLE,
+        ENUM_TAG_SIZE, FR_BYTE_SIZE, FR_LIMB_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
     },
     public::{RLN, RLNV3},
     utils::{

@@ -9,8 +9,6 @@ use super::{
     proof::RLNProofValues,
     FR_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
 };
-#[cfg(not(target_arch = "wasm32"))]
-use crate::utils::FrOrSecret;
 use crate::{
     circuit::Fr,
     error::ProtocolError,
@@ -22,6 +20,8 @@ use crate::{
         vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, IdSecret,
     },
 };
+#[cfg(not(target_arch = "wasm32"))]
+use crate::{circuit::Graph, utils::FrOrSecret};
 
 /// Variant-specific message inputs for RLN witness.
 #[derive(Debug, PartialEq, Clone)]
@@ -879,7 +879,6 @@ pub(super) fn inputs_for_witness_calculation(
 /// Prepares inputs for partial witness calculation from an RLN partial witness input.
 ///
 /// Unknown inputs (signal, external nullifier, message ID) are represented as `None`.
-#[allow(clippy::type_complexity)]
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) fn inputs_for_partial_witness_calculation(
     witness: &RLNPartialWitnessInput,
@@ -939,36 +938,160 @@ pub enum RLNWitnessInputV3 {
     Multi(RLNWitnessInputMulti),
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+impl RLNWitnessInputV3 {
+    pub(super) fn validate_against_graph(&self, graph: &Graph) -> Result<(), ProtocolError> {
+        let (path_len, index_len) = match self {
+            Self::Single(w) => (w.path_elements.len(), w.identity_path_index.len()),
+            Self::Multi(w) => (w.path_elements.len(), w.identity_path_index.len()),
+        };
+        if path_len != graph.tree_depth {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "path_elements",
+                path_len,
+                "tree_depth",
+                graph.tree_depth,
+            ));
+        }
+        if index_len != graph.tree_depth {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "identity_path_index",
+                index_len,
+                "tree_depth",
+                graph.tree_depth,
+            ));
+        }
+        if let Self::Multi(w) = self {
+            if w.message_ids.len() != graph.max_out {
+                return Err(ProtocolError::FieldLengthMismatch(
+                    "message_ids",
+                    w.message_ids.len(),
+                    "max_out",
+                    graph.max_out,
+                ));
+            }
+            if w.selector_used.len() != graph.max_out {
+                return Err(ProtocolError::FieldLengthMismatch(
+                    "selector_used",
+                    w.selector_used.len(),
+                    "max_out",
+                    graph.max_out,
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    // TODO: redesign — str-keyed map is fragile; replace with a typed circuit input struct
+    pub(super) fn to_circuit_inputs(&self) -> Vec<(&'static str, Vec<FrOrSecret>)> {
+        match self {
+            Self::Single(w) => {
+                let identity_path_index_fr: Vec<FrOrSecret> = w
+                    .identity_path_index
+                    .iter()
+                    .map(|v| Fr::from(*v).into())
+                    .collect();
+                vec![
+                    ("identitySecret", vec![w.identity_secret.clone().into()]),
+                    ("userMessageLimit", vec![w.user_message_limit.into()]),
+                    ("messageId", vec![w.message_id.into()]),
+                    (
+                        "pathElements",
+                        w.path_elements.iter().cloned().map(Into::into).collect(),
+                    ),
+                    ("identityPathIndex", identity_path_index_fr),
+                    ("x", vec![w.x.into()]),
+                    ("externalNullifier", vec![w.external_nullifier.into()]),
+                ]
+            }
+            Self::Multi(w) => {
+                let identity_path_index_fr: Vec<FrOrSecret> = w
+                    .identity_path_index
+                    .iter()
+                    .map(|v| Fr::from(*v).into())
+                    .collect();
+                let selector_used_fr: Vec<FrOrSecret> = w
+                    .selector_used
+                    .iter()
+                    .map(|&v| Fr::from(v).into())
+                    .collect();
+                vec![
+                    ("identitySecret", vec![w.identity_secret.clone().into()]),
+                    ("userMessageLimit", vec![w.user_message_limit.into()]),
+                    (
+                        "messageId",
+                        w.message_ids.iter().cloned().map(Into::into).collect(),
+                    ),
+                    ("selectorUsed", selector_used_fr),
+                    (
+                        "pathElements",
+                        w.path_elements.iter().cloned().map(Into::into).collect(),
+                    ),
+                    ("identityPathIndex", identity_path_index_fr),
+                    ("x", vec![w.x.into()]),
+                    ("externalNullifier", vec![w.external_nullifier.into()]),
+                ]
+            }
+        }
+    }
+}
+
+impl From<RLNWitnessInputSingle> for RLNWitnessInputV3 {
+    fn from(w: RLNWitnessInputSingle) -> Self {
+        Self::Single(w)
+    }
+}
+
+impl From<RLNWitnessInputMulti> for RLNWitnessInputV3 {
+    fn from(w: RLNWitnessInputMulti) -> Self {
+        Self::Multi(w)
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNWitnessInputSingle {
     pub(crate) identity_secret: IdSecret,
     pub(crate) user_message_limit: Fr,
-    pub(crate) message_id: Fr,
     pub(crate) path_elements: Vec<Fr>,
     pub(crate) identity_path_index: Vec<u8>,
     pub(crate) x: Fr,
     pub(crate) external_nullifier: Fr,
+    pub(crate) message_id: Fr,
 }
 
 impl RLNWitnessInputSingle {
     pub fn new(
         identity_secret: IdSecret,
         user_message_limit: Fr,
-        message_id: Fr,
         path_elements: Vec<Fr>,
         identity_path_index: Vec<u8>,
         x: Fr,
         external_nullifier: Fr,
-    ) -> Self {
-        Self {
+        message_id: Fr,
+    ) -> Result<Self, ProtocolError> {
+        if user_message_limit == Fr::from(0) {
+            return Err(ProtocolError::ZeroUserMessageLimit);
+        }
+        let path_len = path_elements.len();
+        let index_len = identity_path_index.len();
+        if path_len != index_len {
+            return Err(ProtocolError::InvalidMerkleProofLength(path_len, index_len));
+        }
+        if message_id >= user_message_limit {
+            return Err(ProtocolError::InvalidMessageId(
+                message_id,
+                user_message_limit,
+            ));
+        }
+        Ok(Self {
             identity_secret,
             user_message_limit,
-            message_id,
             path_elements,
             identity_path_index,
             x,
             external_nullifier,
-        }
+            message_id,
+        })
     }
 }
 
@@ -995,8 +1118,46 @@ impl RLNWitnessInputMulti {
         external_nullifier: Fr,
         message_ids: Vec<Fr>,
         selector_used: Vec<bool>,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, ProtocolError> {
+        if user_message_limit == Fr::from(0) {
+            return Err(ProtocolError::ZeroUserMessageLimit);
+        }
+        let path_len = path_elements.len();
+        let index_len = identity_path_index.len();
+        if path_len != index_len {
+            return Err(ProtocolError::InvalidMerkleProofLength(path_len, index_len));
+        }
+        if message_ids.is_empty() {
+            return Err(ProtocolError::EmptyMessageIds);
+        }
+        if selector_used.len() != message_ids.len() {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "message_ids",
+                message_ids.len(),
+                "selector_used",
+                selector_used.len(),
+            ));
+        }
+        if !selector_used.iter().any(|&s| s) {
+            return Err(ProtocolError::NoActiveSelectorUsed);
+        }
+        {
+            let mut seen = HashSet::with_capacity(message_ids.len());
+            for (id, &used) in message_ids.iter().zip(&selector_used) {
+                if used && !seen.insert(*id) {
+                    return Err(ProtocolError::DuplicateMessageIds);
+                }
+            }
+        }
+        for (message_id, used) in message_ids.iter().zip(&selector_used) {
+            if *used && *message_id >= user_message_limit {
+                return Err(ProtocolError::InvalidMessageId(
+                    *message_id,
+                    user_message_limit,
+                ));
+            }
+        }
+        Ok(Self {
             identity_secret,
             user_message_limit,
             path_elements,
@@ -1005,7 +1166,7 @@ impl RLNWitnessInputMulti {
             external_nullifier,
             message_ids,
             selector_used,
-        }
+        })
     }
 }
 
@@ -1023,13 +1184,87 @@ impl RLNPartialWitnessInputV3 {
         user_message_limit: Fr,
         path_elements: Vec<Fr>,
         identity_path_index: Vec<u8>,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, ProtocolError> {
+        if user_message_limit == Fr::from(0) {
+            return Err(ProtocolError::ZeroUserMessageLimit);
+        }
+        let path_len = path_elements.len();
+        let index_len = identity_path_index.len();
+        if path_len != index_len {
+            return Err(ProtocolError::InvalidMerkleProofLength(path_len, index_len));
+        }
+        Ok(Self {
             identity_secret,
             user_message_limit,
             path_elements,
             identity_path_index,
+        })
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(super) fn validate_against_graph(&self, graph: &Graph) -> Result<(), ProtocolError> {
+        if self.path_elements.len() != graph.tree_depth {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "path_elements",
+                self.path_elements.len(),
+                "tree_depth",
+                graph.tree_depth,
+            ));
         }
+        if self.identity_path_index.len() != graph.tree_depth {
+            return Err(ProtocolError::FieldLengthMismatch(
+                "identity_path_index",
+                self.identity_path_index.len(),
+                "tree_depth",
+                graph.tree_depth,
+            ));
+        }
+        Ok(())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(super) fn to_circuit_inputs(
+        &self,
+        max_out: usize,
+    ) -> Vec<(&'static str, Vec<Option<FrOrSecret>>)> {
+        let identity_path_index_fr: Vec<Option<FrOrSecret>> = self
+            .identity_path_index
+            .iter()
+            .map(|v| Some(Fr::from(*v).into()))
+            .collect();
+
+        let mut inputs: Vec<(&'static str, Vec<Option<FrOrSecret>>)> = vec![
+            (
+                "identitySecret",
+                vec![Some(self.identity_secret.clone().into())],
+            ),
+            (
+                "userMessageLimit",
+                vec![Some(self.user_message_limit.into())],
+            ),
+        ];
+
+        if max_out == 1 {
+            inputs.push(("messageId", vec![None]));
+        } else {
+            inputs.push(("messageId", vec![None; max_out]));
+            inputs.push(("selectorUsed", vec![None; max_out]));
+        }
+
+        inputs.push((
+            "pathElements",
+            self.path_elements
+                .iter()
+                .cloned()
+                .map(Into::into)
+                .map(Some)
+                .collect(),
+        ));
+        inputs.push(("identityPathIndex", identity_path_index_fr));
+        inputs.push(("x", vec![None]));
+        inputs.push(("externalNullifier", vec![None]));
+
+        inputs
     }
 }
 
@@ -1042,14 +1277,55 @@ impl From<&RLNWitnessInputV3> for RLNPartialWitnessInputV3 {
     }
 }
 
+impl From<RLNWitnessInputV3> for RLNPartialWitnessInputV3 {
+    fn from(witness: RLNWitnessInputV3) -> Self {
+        match witness {
+            RLNWitnessInputV3::Single(w) => RLNPartialWitnessInputV3::from(w),
+            RLNWitnessInputV3::Multi(w) => RLNPartialWitnessInputV3::from(w),
+        }
+    }
+}
+
 impl From<&RLNWitnessInputSingle> for RLNPartialWitnessInputV3 {
-    fn from(_witness: &RLNWitnessInputSingle) -> Self {
-        todo!()
+    fn from(witness: &RLNWitnessInputSingle) -> Self {
+        Self {
+            identity_secret: witness.identity_secret.clone(),
+            user_message_limit: witness.user_message_limit,
+            path_elements: witness.path_elements.clone(),
+            identity_path_index: witness.identity_path_index.clone(),
+        }
+    }
+}
+
+impl From<RLNWitnessInputSingle> for RLNPartialWitnessInputV3 {
+    fn from(witness: RLNWitnessInputSingle) -> Self {
+        Self {
+            identity_secret: witness.identity_secret,
+            user_message_limit: witness.user_message_limit,
+            path_elements: witness.path_elements,
+            identity_path_index: witness.identity_path_index,
+        }
     }
 }
 
 impl From<&RLNWitnessInputMulti> for RLNPartialWitnessInputV3 {
-    fn from(_witness: &RLNWitnessInputMulti) -> Self {
-        todo!()
+    fn from(witness: &RLNWitnessInputMulti) -> Self {
+        Self {
+            identity_secret: witness.identity_secret.clone(),
+            user_message_limit: witness.user_message_limit,
+            path_elements: witness.path_elements.clone(),
+            identity_path_index: witness.identity_path_index.clone(),
+        }
+    }
+}
+
+impl From<RLNWitnessInputMulti> for RLNPartialWitnessInputV3 {
+    fn from(witness: RLNWitnessInputMulti) -> Self {
+        Self {
+            identity_secret: witness.identity_secret,
+            user_message_limit: witness.user_message_limit,
+            path_elements: witness.path_elements,
+            identity_path_index: witness.identity_path_index,
+        }
     }
 }

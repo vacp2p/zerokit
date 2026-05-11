@@ -20,7 +20,6 @@ use rayon::iter::{
 pub(crate) struct CircomReduction;
 
 impl R1CSToQAP for CircomReduction {
-    #[allow(clippy::type_complexity)]
     fn instance_map_with_evaluation<F: PrimeField, D: EvaluationDomain<F>>(
         cs: ConstraintSystemRef<F>,
         t: &F,
