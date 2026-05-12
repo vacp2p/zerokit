@@ -13,14 +13,14 @@ use {
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
     circuit::{
-        graph_from_raw, graph_multi_v1, graph_single_v1, zkey_multi_v1, zkey_single_v1,
-        ArkGroth16Backend, Graph, PartialProof,
+        graph_from_raw, graph_multi_v1, graph_single_v1, zkey_multi_v1, zkey_single_v1, Graph,
+        PartialProof,
     },
     prelude::RLNPartialWitnessInput,
     protocol::{finish_zk_proof, generate_partial_zk_proof, generate_zk_proof, MessageMode},
 };
 use crate::{
-    circuit::{zkey_from_raw, Fr, Proof, Zkey},
+    circuit::{zkey_from_raw, ArkGroth16Backend, Fr, Proof, Zkey},
     error::{RLNError, VerifyError},
     protocol::{
         generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof,
@@ -830,6 +830,16 @@ where
         Ok(self.zkp.generate_proof(witness)?)
     }
 
+    pub fn generate_proof_with_witness(
+        &self,
+        calculated_witness: Vec<BigInt>,
+        witness: ZkProof::Witness,
+    ) -> Result<(ZkProof::Proof, ZkProof::Values), RLNError> {
+        Ok(self
+            .zkp
+            .generate_proof_with_witness(calculated_witness, witness)?)
+    }
+
     pub fn verify(
         &self,
         proof: &ZkProof::Proof,
@@ -897,10 +907,12 @@ impl<S> RLNV3<S, ArkGroth16Backend> {
     pub fn max_out(&self) -> usize {
         self.zkp.graph.max_out
     }
+}
 
+impl<S> RLNV3<S, ArkGroth16Backend> {
     /// Verifies a proof and checks that the root is in the provided set and `x` matches the signal.
     ///
-    /// If `roots` is empty, root membership is skipped. Equivalent to the old `RLN::verify_with_roots`.
+    /// If `roots` is empty, root membership is skipped.
     pub fn verify_with_roots(
         &self,
         proof: &Proof,
@@ -914,8 +926,7 @@ impl<S> RLNV3<S, ArkGroth16Backend> {
         if x != &values.x() {
             return Err(VerifyError::InvalidSignal.into());
         }
-        let verified = self.zkp.verify(proof, values)?;
-        if !verified {
+        if !self.verify(proof, values)? {
             return Err(VerifyError::InvalidProof.into());
         }
         Ok(true)

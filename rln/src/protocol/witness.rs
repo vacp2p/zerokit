@@ -938,6 +938,136 @@ pub enum RLNWitnessInputV3 {
     Multi(RLNWitnessInputMulti),
 }
 
+impl RLNWitnessInputV3 {
+    /// Returns the identity secret.
+    pub fn identity_secret(&self) -> &IdSecret {
+        match self {
+            Self::Single(w) => &w.identity_secret,
+            Self::Multi(w) => &w.identity_secret,
+        }
+    }
+
+    /// Returns the user message limit.
+    pub fn user_message_limit(&self) -> &Fr {
+        match self {
+            Self::Single(w) => &w.user_message_limit,
+            Self::Multi(w) => &w.user_message_limit,
+        }
+    }
+
+    /// Returns the Merkle path elements.
+    pub fn path_elements(&self) -> &[Fr] {
+        match self {
+            Self::Single(w) => &w.path_elements,
+            Self::Multi(w) => &w.path_elements,
+        }
+    }
+
+    /// Returns the identity path index.
+    pub fn identity_path_index(&self) -> &[u8] {
+        match self {
+            Self::Single(w) => &w.identity_path_index,
+            Self::Multi(w) => &w.identity_path_index,
+        }
+    }
+
+    /// Returns the signal `x` value.
+    pub fn x(&self) -> &Fr {
+        match self {
+            Self::Single(w) => &w.x,
+            Self::Multi(w) => &w.x,
+        }
+    }
+
+    /// Returns the external nullifier.
+    pub fn external_nullifier(&self) -> &Fr {
+        match self {
+            Self::Single(w) => &w.external_nullifier,
+            Self::Multi(w) => &w.external_nullifier,
+        }
+    }
+
+    /// Returns the version byte corresponding to the message mode of this witness.
+    pub fn version_byte(&self) -> u8 {
+        match self {
+            Self::Single(_) => MessageMode::SingleV1.version_byte(),
+            Self::Multi(_) => MessageMode::MultiV1 { max_out: 0 }.version_byte(),
+        }
+    }
+
+    /// Returns the single message ID, or `None` for Multi witnesses.
+    pub fn message_id(&self) -> Option<&Fr> {
+        match self {
+            Self::Single(w) => Some(&w.message_id),
+            Self::Multi(_) => None,
+        }
+    }
+
+    /// Returns message IDs slice, or `None` for Single witnesses.
+    pub fn message_ids(&self) -> Option<&[Fr]> {
+        match self {
+            Self::Multi(w) => Some(&w.message_ids),
+            Self::Single(_) => None,
+        }
+    }
+
+    /// Returns selector flags, or `None` for Single witnesses.
+    pub fn selector_used(&self) -> Option<&[bool]> {
+        match self {
+            Self::Multi(w) => Some(&w.selector_used),
+            Self::Single(_) => None,
+        }
+    }
+
+    /// Serializes this witness to a JSON object suitable for circom witness calculation.
+    pub fn to_bigint_json(&self) -> Result<serde_json::Value, ProtocolError> {
+        let path_elements_str: Vec<String> = self
+            .path_elements()
+            .iter()
+            .map(|v| to_bigint(v).to_str_radix(10))
+            .collect();
+        let identity_path_index_str: Vec<String> = self
+            .identity_path_index()
+            .iter()
+            .map(|v| BigInt::from(*v).to_str_radix(10))
+            .collect();
+
+        match self {
+            Self::Single(w) => Ok(serde_json::json!({
+                "identitySecret": to_bigint(&w.identity_secret).to_str_radix(10),
+                "userMessageLimit": to_bigint(&w.user_message_limit).to_str_radix(10),
+                "messageId": to_bigint(&w.message_id).to_str_radix(10),
+                "pathElements": path_elements_str,
+                "identityPathIndex": identity_path_index_str,
+                "x": to_bigint(&w.x).to_str_radix(10),
+                "externalNullifier": to_bigint(&w.external_nullifier).to_str_radix(10),
+            })),
+            Self::Multi(w) => {
+                let message_ids_str: Vec<String> = w
+                    .message_ids
+                    .iter()
+                    .map(|id| to_bigint(id).to_str_radix(10))
+                    .collect();
+                let selector_used_str: Vec<String> = w
+                    .selector_used
+                    .iter()
+                    .map(|&v| BigInt::from(v).to_str_radix(10))
+                    .collect();
+                Ok(serde_json::json!({
+                    "identitySecret": to_bigint(&w.identity_secret).to_str_radix(10),
+                    "userMessageLimit": to_bigint(&w.user_message_limit).to_str_radix(10),
+                    "messageId": message_ids_str,
+                    "selectorUsed": selector_used_str,
+                    "pathElements": path_elements_str,
+                    "identityPathIndex": identity_path_index_str,
+                    "x": to_bigint(&w.x).to_str_radix(10),
+                    "externalNullifier": to_bigint(&w.external_nullifier).to_str_radix(10),
+                }))
+            }
+        }
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 impl RLNWitnessInputV3 {
     pub(super) fn validate_against_graph(&self, graph: &Graph) -> Result<(), ProtocolError> {

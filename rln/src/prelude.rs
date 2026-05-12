@@ -1,5 +1,7 @@
 // This module re-exports the most commonly used types and functions from the RLN library
 
+pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::circuit::{graph_multi_v1, graph_single_v1, zkey_multi_v1, zkey_single_v1};
 #[cfg(feature = "pmtree-ft")]

@@ -1,24 +1,28 @@
+use ark_groth16::{prepare_verifying_key, Groth16};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_std::UniformRand;
+use num_bigint::BigInt;
 #[cfg(not(target_arch = "wasm32"))]
 use {
     crate::{
         circuit::{
             iden3calc::{calc_witness, calc_witness_partial},
-            qap::CircomReduction,
-            ArkGroth16Backend, PartialProof, Proof,
+            PartialProof,
         },
-        error::{ProtocolError, RLNError},
         partial_proof::{Groth16Partial, PartialAssignment},
         prelude::RLNPartialWitnessInputV3,
-        protocol::{RLNProofValuesV3, RLNWitnessInputV3},
     },
-    ark_groth16::{prepare_verifying_key, Groth16},
-    ark_std::{rand::thread_rng, UniformRand},
+    ark_std::rand::thread_rng,
 };
 
 use crate::{
-    circuit::Fr,
+    circuit::{qap::CircomReduction, ArkGroth16Backend, Curve, Fr, Proof},
+    error::{ProtocolError, RLNError},
     prelude::{CanonicalDeserializeBE, CanonicalSerializeBE},
+    protocol::{
+        proof::{calculated_witness_to_field_elements, RLNProofValuesV3},
+        witness::RLNWitnessInputV3,
+    },
     utils::IdSecret,
 };
 
@@ -38,6 +42,12 @@ pub trait RLNZkProof {
 
     fn generate_proof(
         &self,
+        witness: Self::Witness,
+    ) -> Result<(Self::Proof, Self::Values), Self::Error>;
+
+    fn generate_proof_with_witness(
+        &self,
+        calculated_witness: Vec<BigInt>,
         witness: Self::Witness,
     ) -> Result<(Self::Proof, Self::Values), Self::Error>;
 
@@ -69,7 +79,6 @@ pub trait RLNPartialZkProof: RLNZkProof {
     ) -> Result<Self::Proof, Self::Error>;
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl RLNZkProof for ArkGroth16Backend {
     type Witness = RLNWitnessInputV3;
     type Values = RLNProofValuesV3;
@@ -80,15 +89,52 @@ impl RLNZkProof for ArkGroth16Backend {
         &self,
         witness: Self::Witness,
     ) -> Result<(Self::Proof, Self::Values), Self::Error> {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            witness.validate_against_graph(&self.graph)?;
+
+            let inputs = witness
+                .to_circuit_inputs()
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v));
+            let full_assignment = calc_witness(inputs, &self.graph).map_err(ProtocolError::from)?;
+
+            let mut rng = thread_rng();
+            let r = Fr::rand(&mut rng);
+            let s = Fr::rand(&mut rng);
+
+            let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
+                &self.zkey.0,
+                r,
+                s,
+                &self.zkey.1,
+                self.zkey.1.num_instance_variables,
+                self.zkey.1.num_constraints,
+                full_assignment.as_slice(),
+            )
+            .map_err(ProtocolError::from)?;
+
+            let values = RLNProofValuesV3::try_from(witness)?;
+            Ok((proof, values))
+        }
+        #[cfg(target_arch = "wasm32")]
+        unreachable!(
+            "generate_proof requires a circuit graph; use generate_proof_with_witness on WASM instead"
+        )
+    }
+
+    fn generate_proof_with_witness(
+        &self,
+        calculated_witness: Vec<BigInt>,
+        witness: Self::Witness,
+    ) -> Result<(Self::Proof, Self::Values), Self::Error> {
+        #[cfg(not(target_arch = "wasm32"))]
         witness.validate_against_graph(&self.graph)?;
 
-        let inputs = witness
-            .to_circuit_inputs()
-            .into_iter()
-            .map(|(k, v)| (k.to_string(), v));
-        let full_assignment = calc_witness(inputs, &self.graph).map_err(ProtocolError::from)?;
+        let full_assignment = calculated_witness_to_field_elements::<Curve>(calculated_witness)
+            .map_err(RLNError::from)?;
 
-        let mut rng = thread_rng();
+        let mut rng = ark_std::rand::thread_rng();
         let r = Fr::rand(&mut rng);
         let s = Fr::rand(&mut rng);
 

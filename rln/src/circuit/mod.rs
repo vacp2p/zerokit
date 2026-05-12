@@ -276,10 +276,10 @@ fn read_arkzkey_from_bytes_uncompressed(arkzkey_data: &[u8]) -> Result<Zkey, ZKe
     Ok(zkey)
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone)]
 pub struct ArkGroth16Backend {
     pub(crate) zkey: Zkey,
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) graph: Graph,
 }
 
@@ -287,6 +287,13 @@ pub struct ArkGroth16Backend {
 impl ArkGroth16Backend {
     pub fn new(zkey: Zkey, graph: Graph) -> Self {
         Self { zkey, graph }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl ArkGroth16Backend {
+    pub fn new(zkey: Zkey) -> Self {
+        Self { zkey }
     }
 }
 

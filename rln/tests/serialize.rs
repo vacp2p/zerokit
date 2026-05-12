@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod test {
     use ark_ff::{BigInteger, PrimeField};
-    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
     use ark_std::{rand::thread_rng, UniformRand};
     use num_bigint::BigUint;
     use rln::prelude::*;
