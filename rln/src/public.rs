@@ -837,8 +837,7 @@ where
     ) -> Result<(ZkProof::Proof, ZkProof::Values), RLNError> {
         Ok(self
             .zkp
-            .generate_proof_with_witness(calculated_witness, witness)
-            .map_err(RLNError::from)?)
+            .generate_proof_with_witness(calculated_witness, witness)?)
     }
 
     pub fn verify(
@@ -928,8 +927,7 @@ impl<S> RLNV3<S, ArkGroth16Backend> {
     ) -> Result<RLNProofV3, RLNError> {
         let (proof, proof_values) = self
             .zkp
-            .generate_proof_with_witness(calculated_witness, witness)
-            .map_err(RLNError::from)?;
+            .generate_proof_with_witness(calculated_witness, witness)?;
         Ok(RLNProofV3 {
             proof,
             proof_values,

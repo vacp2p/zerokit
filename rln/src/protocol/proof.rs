@@ -893,7 +893,7 @@ pub fn verify_zk_proof(
     Ok(verified)
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNProofV3 {
     pub proof: Proof,
     pub proof_values: RLNProofValuesV3,
