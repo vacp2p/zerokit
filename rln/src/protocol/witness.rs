@@ -190,22 +190,20 @@ impl RLNWitnessInput {
         &self.user_message_limit
     }
 
-    /// Returns the message ID (only valid for SingleV1 witnesses).
     pub fn message_id(&self) -> &Fr {
         match &self.message_inputs {
             RLNMessageInputs::SingleV1 { message_id } => message_id,
             RLNMessageInputs::MultiV1 { .. } => {
-                panic!("message_id() is not available for MultiV1 witness; use message_ids()")
+                todo!("message_id() is not available for MultiV1 witness; use message_ids()")
             }
         }
     }
 
-    /// Returns the multi message IDs (only valid for MultiV1 witnesses).
     pub fn message_ids(&self) -> &[Fr] {
         match &self.message_inputs {
             RLNMessageInputs::MultiV1 { message_ids, .. } => message_ids,
             RLNMessageInputs::SingleV1 { .. } => {
-                panic!("message_ids() is not available for SingleV1 witness; use message_id()")
+                todo!("message_ids() is not available for SingleV1 witness; use message_id()")
             }
         }
     }
@@ -230,12 +228,11 @@ impl RLNWitnessInput {
         &self.external_nullifier
     }
 
-    /// Returns the selector flags (only valid for MultiV1 witnesses).
     pub fn selector_used(&self) -> &[bool] {
         match &self.message_inputs {
             RLNMessageInputs::MultiV1 { selector_used, .. } => selector_used,
             RLNMessageInputs::SingleV1 { .. } => {
-                panic!("selector_used() is not available for SingleV1 witness")
+                todo!("selector_used() is not available for SingleV1 witness")
             }
         }
     }
@@ -939,7 +936,6 @@ pub enum RLNWitnessInputV3 {
 }
 
 impl RLNWitnessInputV3 {
-    /// Returns the identity secret.
     pub fn identity_secret(&self) -> &IdSecret {
         match self {
             Self::Single(w) => &w.identity_secret,
@@ -947,7 +943,6 @@ impl RLNWitnessInputV3 {
         }
     }
 
-    /// Returns the user message limit.
     pub fn user_message_limit(&self) -> &Fr {
         match self {
             Self::Single(w) => &w.user_message_limit,
@@ -955,7 +950,6 @@ impl RLNWitnessInputV3 {
         }
     }
 
-    /// Returns the Merkle path elements.
     pub fn path_elements(&self) -> &[Fr] {
         match self {
             Self::Single(w) => &w.path_elements,
@@ -963,7 +957,6 @@ impl RLNWitnessInputV3 {
         }
     }
 
-    /// Returns the identity path index.
     pub fn identity_path_index(&self) -> &[u8] {
         match self {
             Self::Single(w) => &w.identity_path_index,
@@ -971,7 +964,6 @@ impl RLNWitnessInputV3 {
         }
     }
 
-    /// Returns the signal `x` value.
     pub fn x(&self) -> &Fr {
         match self {
             Self::Single(w) => &w.x,
@@ -979,7 +971,6 @@ impl RLNWitnessInputV3 {
         }
     }
 
-    /// Returns the external nullifier.
     pub fn external_nullifier(&self) -> &Fr {
         match self {
             Self::Single(w) => &w.external_nullifier,
@@ -987,39 +978,39 @@ impl RLNWitnessInputV3 {
         }
     }
 
-    /// Returns the version byte corresponding to the message mode of this witness.
-    pub fn version_byte(&self) -> u8 {
+    /// Single only — `Err` if called on Multi.
+    pub fn message_id(&self) -> Result<&Fr, ProtocolError> {
         match self {
-            Self::Single(_) => MessageMode::SingleV1.version_byte(),
-            Self::Multi(_) => MessageMode::MultiV1 { max_out: 0 }.version_byte(),
+            Self::Single(w) => Ok(&w.message_id),
+            Self::Multi(_) => Err(ProtocolError::FieldNotInVariant {
+                field: "message_id",
+                variant: "Multi",
+            }),
         }
     }
 
-    /// Returns the single message ID, or `None` for Multi witnesses.
-    pub fn message_id(&self) -> Option<&Fr> {
+    /// Multi only — `Err` if called on Single.
+    pub fn message_ids(&self) -> Result<&[Fr], ProtocolError> {
         match self {
-            Self::Single(w) => Some(&w.message_id),
-            Self::Multi(_) => None,
+            Self::Multi(w) => Ok(&w.message_ids),
+            Self::Single(_) => Err(ProtocolError::FieldNotInVariant {
+                field: "message_ids",
+                variant: "Single",
+            }),
         }
     }
 
-    /// Returns message IDs slice, or `None` for Single witnesses.
-    pub fn message_ids(&self) -> Option<&[Fr]> {
+    /// Multi only — `Err` if called on Single.
+    pub fn selector_used(&self) -> Result<&[bool], ProtocolError> {
         match self {
-            Self::Multi(w) => Some(&w.message_ids),
-            Self::Single(_) => None,
+            Self::Multi(w) => Ok(&w.selector_used),
+            Self::Single(_) => Err(ProtocolError::FieldNotInVariant {
+                field: "selector_used",
+                variant: "Single",
+            }),
         }
     }
 
-    /// Returns selector flags, or `None` for Single witnesses.
-    pub fn selector_used(&self) -> Option<&[bool]> {
-        match self {
-            Self::Multi(w) => Some(&w.selector_used),
-            Self::Single(_) => None,
-        }
-    }
-
-    /// Serializes this witness to a JSON object suitable for circom witness calculation.
     pub fn to_bigint_json(&self) -> Result<serde_json::Value, ProtocolError> {
         let path_elements_str: Vec<String> = self
             .path_elements()

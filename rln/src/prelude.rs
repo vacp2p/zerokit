@@ -3,6 +3,8 @@
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 #[cfg(not(target_arch = "wasm32"))]
+pub use crate::circuit::{graph_from_raw, Graph};
+#[cfg(not(target_arch = "wasm32"))]
 pub use crate::circuit::{graph_multi_v1, graph_single_v1, zkey_multi_v1, zkey_single_v1};
 #[cfg(feature = "pmtree-ft")]
 pub use crate::pm_tree_adapter::{FrOf, PmTree, PmTreeProof, PmtreeConfig, PmtreeConfigBuilder};
@@ -11,18 +13,15 @@ pub use crate::poseidon_tree::{MerkleProof, PoseidonTree};
 #[cfg(not(feature = "stateless"))]
 pub use crate::protocol::compute_tree_root;
 #[cfg(not(target_arch = "wasm32"))]
-pub use crate::{
-    circuit::{graph_from_raw, ArkGroth16Backend, Graph},
-    protocol::{
-        finish_zk_proof, finish_zk_proof_with_rs, generate_partial_zk_proof, generate_zk_proof,
-        generate_zk_proof_with_rs, verify_zk_proof,
-    },
+pub use crate::protocol::{
+    finish_zk_proof, finish_zk_proof_with_rs, generate_partial_zk_proof, generate_zk_proof,
+    generate_zk_proof_with_rs, verify_zk_proof,
 };
 pub use crate::{
     circuit::{
-        zkey_from_raw, Curve, Fq, Fq2, Fr, G1Affine, G1Projective, G2Affine, G2Projective,
-        PartialProof, Proof, VerifyingKey, Zkey, COMPRESS_PROOF_SIZE, DEFAULT_MAX_OUT,
-        DEFAULT_TREE_DEPTH,
+        zkey_from_raw, ArkGroth16Backend, Curve, Fq, Fq2, Fr, G1Affine, G1Projective, G2Affine,
+        G2Projective, PartialProof, Proof, VerifyingKey, Zkey, COMPRESS_PROOF_SIZE,
+        DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH,
     },
     error::{ProtocolError, RLNError, RecoverSecretError, UtilsError, VerifyError},
     hashers::{
@@ -40,7 +39,7 @@ pub use crate::{
         rln_proof_to_bytes_le, rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le,
         rln_witness_to_bigint_json, rln_witness_to_bytes_be, rln_witness_to_bytes_le,
         seeded_keygen, CanonicalDeserializeBE, CanonicalSerializeBE, MessageMode,
-        RLNPartialWitnessInput, RLNPartialWitnessInputV3, RLNPartialZkProof, RLNProof,
+        RLNPartialWitnessInput, RLNPartialWitnessInputV3, RLNPartialZkProof, RLNProof, RLNProofV3,
         RLNProofValues, RLNProofValuesMulti, RLNProofValuesSingle, RLNProofValuesV3,
         RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle, RLNWitnessInputV3,
         RLNZkProof, RecoverSecret, Stateful, Stateless, ENUM_TAG_MULTI, ENUM_TAG_SINGLE,

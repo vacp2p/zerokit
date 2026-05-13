@@ -87,7 +87,7 @@ impl RLNZkProof for ArkGroth16Backend {
 
     fn generate_proof(
         &self,
-        witness: Self::Witness,
+        #[allow(unused_variables)] witness: Self::Witness,
     ) -> Result<(Self::Proof, Self::Values), Self::Error> {
         #[cfg(not(target_arch = "wasm32"))]
         {

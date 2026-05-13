@@ -1,3 +1,5 @@
+// TODO(cleanup): dissolve into witness.rs / proof.rs / state.rs — wire-format docs and impls belong with their types.
+
 use std::fmt;
 
 #[cfg(not(target_arch = "wasm32"))]

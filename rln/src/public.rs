@@ -24,8 +24,8 @@ use crate::{
     error::{RLNError, VerifyError},
     protocol::{
         generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof,
-        RLNPartialZkProof, RLNProofValues, RLNProofValuesV3, RLNWitnessInput, RLNZkProof, Stateful,
-        Stateless,
+        RLNPartialZkProof, RLNProofV3, RLNProofValues, RLNProofValuesV3, RLNWitnessInput,
+        RLNWitnessInputV3, RLNZkProof, Stateful, Stateless,
     },
 };
 
@@ -768,9 +768,9 @@ impl RLN {
     }
 }
 
-pub struct RLNV3<Mode, ZkProof> {
+pub struct RLNV3<State, ZkProof> {
     pub(crate) zkp: ZkProof,
-    pub(crate) state: Mode,
+    pub(crate) state: State,
 }
 
 impl<ZkProof> RLNV3<Stateless, ZkProof> {
@@ -837,7 +837,8 @@ where
     ) -> Result<(ZkProof::Proof, ZkProof::Values), RLNError> {
         Ok(self
             .zkp
-            .generate_proof_with_witness(calculated_witness, witness)?)
+            .generate_proof_with_witness(calculated_witness, witness)
+            .map_err(RLNError::from)?)
     }
 
     pub fn verify(
@@ -896,6 +897,15 @@ impl RLNV3<Stateless, ArkGroth16Backend> {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+impl RLNV3<Stateless, ArkGroth16Backend> {
+    /// Creates a stateless instance from zkey bytes (WASM — no graph needed).
+    pub fn new_with_params(zkey_data: Vec<u8>) -> Result<Self, RLNError> {
+        let zkey = zkey_from_raw(&zkey_data)?;
+        Ok(Self::new(ArkGroth16Backend::new(zkey)))
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 impl<S> RLNV3<S, ArkGroth16Backend> {
     /// Returns the message mode inferred from the loaded circuit.
@@ -910,6 +920,22 @@ impl<S> RLNV3<S, ArkGroth16Backend> {
 }
 
 impl<S> RLNV3<S, ArkGroth16Backend> {
+    /// Generates a proof from a pre-computed witness, returning proof and values together.
+    pub fn generate_rln_proof_with_witness(
+        &self,
+        calculated_witness: Vec<BigInt>,
+        witness: RLNWitnessInputV3,
+    ) -> Result<RLNProofV3, RLNError> {
+        let (proof, proof_values) = self
+            .zkp
+            .generate_proof_with_witness(calculated_witness, witness)
+            .map_err(RLNError::from)?;
+        Ok(RLNProofV3 {
+            proof,
+            proof_values,
+        })
+    }
+
     /// Verifies a proof and checks that the root is in the provided set and `x` matches the signal.
     ///
     /// If `roots` is empty, root membership is skipped.

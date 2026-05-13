@@ -89,6 +89,11 @@ pub enum ProtocolError {
         witness_mode: MessageMode,
         graph_mode: MessageMode,
     },
+    #[error("field `{field}` does not exist on the `{variant}` variant")]
+    FieldNotInVariant {
+        field: &'static str,
+        variant: &'static str,
+    },
 }
 
 /// Errors that can occur during proof verification
