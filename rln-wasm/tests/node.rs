@@ -357,7 +357,7 @@ mod test {
         let mut extra_le_vec = witness_le_vec.clone();
         extra_le_vec.push(0);
         let extra_le = Uint8Array::from(&extra_le_vec[..]);
-        assert!(WasmRLNWitnessInput::from_bytes_le(&extra_le).is_err());
+        assert!(WasmRLNWitnessInput::from_bytes_le(&extra_le).is_ok());
 
         let witness_be = valid_witness.to_bytes_be().unwrap();
         let witness_be_vec = witness_be.to_vec();
@@ -367,18 +367,35 @@ mod test {
         let mut extra_be_vec = witness_be_vec.clone();
         extra_be_vec.push(0);
         let extra_be = Uint8Array::from(&extra_be_vec[..]);
-        assert!(WasmRLNWitnessInput::from_bytes_be(&extra_be).is_err());
+        assert!(WasmRLNWitnessInput::from_bytes_be(&extra_be).is_ok());
 
-        // Proof values bytes: insufficient length
-        let short_pv = [0u8; FR_BYTE_SIZE * 5 - 1];
-        let short_pv = Uint8Array::from(&short_pv[..]);
-        assert!(WasmRLNProofValues::from_bytes_le(&short_pv).is_err());
-        assert!(WasmRLNProofValues::from_bytes_be(&short_pv).is_err());
+        // Proof values bytes: truncated and extra data
+        let valid_pv =
+            WasmRLNProofValues::from_bytes_le(&Uint8Array::from(&[0u8; 1 + FR_BYTE_SIZE * 5][..]))
+                .unwrap();
+
+        let pv_le = valid_pv.to_bytes_le().unwrap();
+        let pv_le_vec = pv_le.to_vec();
+        let truncated_pv_le = Uint8Array::from(&pv_le_vec[..pv_le_vec.len() - 1]);
+        assert!(WasmRLNProofValues::from_bytes_le(&truncated_pv_le).is_err());
+        let mut extra_pv_le_vec = pv_le_vec.clone();
+        extra_pv_le_vec.push(0);
+        let extra_pv_le = Uint8Array::from(&extra_pv_le_vec[..]);
+        assert!(WasmRLNProofValues::from_bytes_le(&extra_pv_le).is_ok());
+
+        let pv_be = valid_pv.to_bytes_be().unwrap();
+        let pv_be_vec = pv_be.to_vec();
+        let truncated_pv_be = Uint8Array::from(&pv_be_vec[..pv_be_vec.len() - 1]);
+        assert!(WasmRLNProofValues::from_bytes_be(&truncated_pv_be).is_err());
+        let mut extra_pv_be_vec = pv_be_vec.clone();
+        extra_pv_be_vec.push(0);
+        let extra_pv_be = Uint8Array::from(&extra_pv_be_vec[..]);
+        assert!(WasmRLNProofValues::from_bytes_be(&extra_pv_be).is_ok());
 
         // Proof bytes: insufficient length (no proof values)
-        let short_proof = [0u8; COMPRESS_PROOF_SIZE];
-        let short_proof = Uint8Array::from(&short_proof[..]);
-        assert!(WasmRLNProof::from_bytes_le(&short_proof).is_err());
-        assert!(WasmRLNProof::from_bytes_be(&short_proof).is_err());
+        let proof = [0u8; COMPRESS_PROOF_SIZE];
+        let proof = Uint8Array::from(&proof[..]);
+        assert!(WasmRLNProof::from_bytes_le(&proof).is_err());
+        assert!(WasmRLNProof::from_bytes_be(&proof).is_err());
     }
 }
