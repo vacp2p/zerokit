@@ -1123,7 +1123,7 @@ dependencies = [
 
 [[package]]
 name = "rln"
-version = "2.0.1"
+version = "2.0.2"
 dependencies = [
  "ark-bn254",
  "ark-ec",
