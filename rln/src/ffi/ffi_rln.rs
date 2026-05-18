@@ -1018,6 +1018,44 @@ pub fn ffi_bytes_be_to_rln_proof_values(
     }
 }
 
+#[cfg(not(feature = "multi-message-id"))]
+#[ffi_export]
+pub fn ffi_rln_proof_values_new(
+    root: &CFr,
+    external_nullifier: &CFr,
+    x: &CFr,
+    y: &CFr,
+    nullifier: &CFr,
+) -> repr_c::Box<FFI_RLNProofValues> {
+    Box_::new(FFI_RLNProofValues(RLNProofValues::new(
+        root.0,
+        x.0,
+        external_nullifier.0,
+        y.0,
+        nullifier.0,
+    )))
+}
+
+#[cfg(feature = "multi-message-id")]
+#[ffi_export]
+pub fn ffi_rln_proof_values_new(
+    root: &CFr,
+    external_nullifier: &CFr,
+    x: &CFr,
+    ys: &repr_c::Vec<CFr>,
+    nullifiers: &repr_c::Vec<CFr>,
+    selector_used: &repr_c::Vec<bool>,
+) -> repr_c::Box<FFI_RLNProofValues> {
+    Box_::new(FFI_RLNProofValues(RLNProofValues::new(
+        root.0,
+        x.0,
+        external_nullifier.0,
+        ys.iter().map(|c| c.0).collect(),
+        nullifiers.iter().map(|c| c.0).collect(),
+        selector_used.iter().copied().collect(),
+    )))
+}
+
 #[ffi_export]
 pub fn ffi_rln_proof_values_free(proof_values: repr_c::Box<FFI_RLNProofValues>) {
     drop(proof_values);
