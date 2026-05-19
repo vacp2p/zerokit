@@ -134,12 +134,12 @@ jobs:
       - name: Build rln-wasm package
         run: |
           if [[ ${{ matrix.feature }} == "parallel" ]]; then
-            env CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS="-C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--shared-memory -C link-arg=--max-memory=1073741824 -C link-arg=--import-memory -C link-arg=--export=__wasm_init_tls -C link-arg=--export=__tls_size -C link-arg=--export=__tls_align -C link-arg=--export=__tls_base" \
+            env CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS="-C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--shared-memory -C link-arg=--max-memory=1073741824 -C link-arg=--import-memory -C link-arg=--export=__wasm_init_tls -C link-arg=--export=__tls_size -C link-arg=--export=__tls_align -C link-arg=--export=__tls_base -C link-arg=--export=__heap_base" \
             rustup run nightly wasm-pack build --release --target web --scope waku \
             --features parallel -Z build-std=panic_abort,std
             sed -i.bak 's/rln-wasm/zerokit-rln-wasm-parallel/g' pkg/package.json && rm pkg/package.json.bak
           elif [[ ${{ matrix.feature }} == "parallel-multi-message-id" ]]; then
-            env CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS="-C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--shared-memory -C link-arg=--max-memory=1073741824 -C link-arg=--import-memory -C link-arg=--export=__wasm_init_tls -C link-arg=--export=__tls_size -C link-arg=--export=__tls_align -C link-arg=--export=__tls_base" \
+            env CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS="-C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--shared-memory -C link-arg=--max-memory=1073741824 -C link-arg=--import-memory -C link-arg=--export=__wasm_init_tls -C link-arg=--export=__tls_size -C link-arg=--export=__tls_align -C link-arg=--export=__tls_base -C link-arg=--export=__heap_base" \
             rustup run nightly wasm-pack build --release --target web --scope waku \
             --features parallel,multi-message-id -Z build-std=panic_abort,std
             sed -i.bak 's/rln-wasm/zerokit-rln-wasm-parallel-multi-message-id/g' pkg/package.json && rm pkg/package.json.bak

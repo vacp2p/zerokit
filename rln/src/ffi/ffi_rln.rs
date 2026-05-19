@@ -1,5 +1,6 @@
 #![allow(non_camel_case_types)]
 
+use ark_serialize::CanonicalDeserialize;
 use num_bigint::BigInt;
 use safer_ffi::{boxed::Box_, derive_ReprC, ffi_export, prelude::repr_c};
 #[cfg(not(feature = "stateless"))]
@@ -293,6 +294,104 @@ pub fn ffi_bytes_be_to_rln_proof(
             ok: None,
             err: Some(err.to_string().into()),
         },
+    }
+}
+
+#[cfg(not(feature = "multi-message-id"))]
+#[ffi_export]
+pub fn ffi_rln_proof_new(
+    groth16_bytes: &repr_c::Vec<u8>,
+    root: &CFr,
+    external_nullifier: &CFr,
+    x: &CFr,
+    y: &CFr,
+    nullifier: &CFr,
+) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
+    if groth16_bytes.len() != COMPRESS_PROOF_SIZE {
+        return CResult {
+            ok: None,
+            err: Some(
+                format!(
+                    "Invalid Groth16 proof length: expected {} bytes, got {}",
+                    COMPRESS_PROOF_SIZE,
+                    groth16_bytes.len()
+                )
+                .into(),
+            ),
+        };
+    }
+
+    let proof = match Proof::deserialize_compressed(&groth16_bytes[..]) {
+        Ok(p) => p,
+        Err(err) => {
+            return CResult {
+                ok: None,
+                err: Some(err.to_string().into()),
+            }
+        }
+    };
+
+    let proof_values = RLNProofValues::new(root.0, x.0, external_nullifier.0, y.0, nullifier.0);
+
+    CResult {
+        ok: Some(Box_::new(FFI_RLNProof(RLNProof {
+            proof,
+            proof_values,
+        }))),
+        err: None,
+    }
+}
+
+#[cfg(feature = "multi-message-id")]
+#[ffi_export]
+pub fn ffi_rln_proof_new(
+    groth16_bytes: &repr_c::Vec<u8>,
+    root: &CFr,
+    external_nullifier: &CFr,
+    x: &CFr,
+    ys: &repr_c::Vec<CFr>,
+    nullifiers: &repr_c::Vec<CFr>,
+    selector_used: &repr_c::Vec<bool>,
+) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
+    if groth16_bytes.len() != COMPRESS_PROOF_SIZE {
+        return CResult {
+            ok: None,
+            err: Some(
+                format!(
+                    "Invalid Groth16 proof length: expected {} bytes, got {}",
+                    COMPRESS_PROOF_SIZE,
+                    groth16_bytes.len()
+                )
+                .into(),
+            ),
+        };
+    }
+
+    let proof = match Proof::deserialize_compressed(&groth16_bytes[..]) {
+        Ok(p) => p,
+        Err(err) => {
+            return CResult {
+                ok: None,
+                err: Some(err.to_string().into()),
+            }
+        }
+    };
+
+    let proof_values = RLNProofValues::new(
+        root.0,
+        x.0,
+        external_nullifier.0,
+        ys.iter().map(|c| c.0).collect(),
+        nullifiers.iter().map(|c| c.0).collect(),
+        selector_used.iter().copied().collect(),
+    );
+
+    CResult {
+        ok: Some(Box_::new(FFI_RLNProof(RLNProof {
+            proof,
+            proof_values,
+        }))),
+        err: None,
     }
 }
 
@@ -917,6 +1016,44 @@ pub fn ffi_bytes_be_to_rln_proof_values(
             err: Some(err.to_string().into()),
         },
     }
+}
+
+#[cfg(not(feature = "multi-message-id"))]
+#[ffi_export]
+pub fn ffi_rln_proof_values_new(
+    root: &CFr,
+    external_nullifier: &CFr,
+    x: &CFr,
+    y: &CFr,
+    nullifier: &CFr,
+) -> repr_c::Box<FFI_RLNProofValues> {
+    Box_::new(FFI_RLNProofValues(RLNProofValues::new(
+        root.0,
+        x.0,
+        external_nullifier.0,
+        y.0,
+        nullifier.0,
+    )))
+}
+
+#[cfg(feature = "multi-message-id")]
+#[ffi_export]
+pub fn ffi_rln_proof_values_new(
+    root: &CFr,
+    external_nullifier: &CFr,
+    x: &CFr,
+    ys: &repr_c::Vec<CFr>,
+    nullifiers: &repr_c::Vec<CFr>,
+    selector_used: &repr_c::Vec<bool>,
+) -> repr_c::Box<FFI_RLNProofValues> {
+    Box_::new(FFI_RLNProofValues(RLNProofValues::new(
+        root.0,
+        x.0,
+        external_nullifier.0,
+        ys.iter().map(|c| c.0).collect(),
+        nullifiers.iter().map(|c| c.0).collect(),
+        selector_used.iter().copied().collect(),
+    )))
 }
 
 #[ffi_export]

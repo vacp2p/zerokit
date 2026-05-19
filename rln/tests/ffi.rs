@@ -1418,4 +1418,158 @@ mod test {
             "partial witness with zero user_message_limit should be rejected"
         );
     }
+
+    #[test]
+    fn test_ffi_rln_proof_new_roundtrip() {
+        let (ffi_rln_instance, witness) = setup_rln_with_witness();
+
+        let original = match ffi_generate_rln_proof(&ffi_rln_instance, &witness) {
+            CResult {
+                ok: Some(p),
+                err: None,
+            } => p,
+            _ => panic!("generate rln proof failed"),
+        };
+
+        let original_bytes = match ffi_rln_proof_to_bytes_le(&original) {
+            CResult {
+                ok: Some(b),
+                err: None,
+            } => b,
+            _ => panic!("serialize original proof failed"),
+        };
+
+        let proof_values = ffi_rln_proof_get_values(&original);
+        let root = ffi_rln_proof_values_get_root(&proof_values);
+        let x = ffi_rln_proof_values_get_x(&proof_values);
+        let external_nullifier = ffi_rln_proof_values_get_external_nullifier(&proof_values);
+        let y = match ffi_rln_proof_values_get_y(&proof_values) {
+            CResult {
+                ok: Some(v),
+                err: None,
+            } => v,
+            _ => panic!("get y failed"),
+        };
+        let nullifier = match ffi_rln_proof_values_get_nullifier(&proof_values) {
+            CResult {
+                ok: Some(v),
+                err: None,
+            } => v,
+            _ => panic!("get nullifier failed"),
+        };
+
+        // Wire layout: [outer_ver<1> | groth16<COMPRESS_PROOF_SIZE> | inner_ver<1> | ...]
+        let groth16_bytes: repr_c::Vec<u8> = original_bytes
+            .iter()
+            .skip(1)
+            .take(COMPRESS_PROOF_SIZE)
+            .copied()
+            .collect::<Vec<u8>>()
+            .into();
+
+        let reconstructed = match ffi_rln_proof_new(
+            &groth16_bytes,
+            &root,
+            &external_nullifier,
+            &x,
+            &y,
+            &nullifier,
+        ) {
+            CResult {
+                ok: Some(p),
+                err: None,
+            } => p,
+            CResult {
+                ok: None,
+                err: Some(e),
+            } => panic!("ffi_rln_proof_new failed: {}", e),
+            _ => unreachable!(),
+        };
+
+        let reconstructed_bytes = match ffi_rln_proof_to_bytes_le(&reconstructed) {
+            CResult {
+                ok: Some(b),
+                err: None,
+            } => b,
+            _ => panic!("re-serialize failed"),
+        };
+
+        assert_eq!(
+            original_bytes.iter().copied().collect::<Vec<u8>>(),
+            reconstructed_bytes.iter().copied().collect::<Vec<u8>>(),
+            "reconstructed proof must serialize identically to the original"
+        );
+
+        let tree_root = CFr::from(get_tree_root(&ffi_rln_instance));
+        let roots_vec: repr_c::Vec<CFr> = vec![tree_root].into();
+        let verify_result =
+            ffi_verify_with_roots(&ffi_rln_instance, &reconstructed, &roots_vec, &x);
+        assert!(
+            verify_result.ok,
+            "reconstructed proof must verify against the tree root"
+        );
+    }
+
+    #[test]
+    fn test_ffi_rln_proof_new_invalid_groth16_bytes() {
+        let zero = ffi_cfr_zero();
+
+        let short: repr_c::Vec<u8> = vec![0u8; COMPRESS_PROOF_SIZE - 1].into();
+        let result = ffi_rln_proof_new(&short, &zero, &zero, &zero, &zero, &zero);
+        assert!(
+            result.ok.is_none(),
+            "wrong-length groth16 bytes must be rejected"
+        );
+
+        let garbage: repr_c::Vec<u8> = vec![0xffu8; COMPRESS_PROOF_SIZE].into();
+        let result = ffi_rln_proof_new(&garbage, &zero, &zero, &zero, &zero, &zero);
+        assert!(
+            result.ok.is_none(),
+            "garbage groth16 bytes must fail to deserialize"
+        );
+    }
+
+    #[test]
+    fn test_ffi_rln_proof_values_new_roundtrip() {
+        let (ffi_rln_instance, witness) = setup_rln_with_witness();
+
+        let proof = match ffi_generate_rln_proof(&ffi_rln_instance, &witness) {
+            CResult {
+                ok: Some(p),
+                err: None,
+            } => p,
+            _ => panic!("generate rln proof failed"),
+        };
+
+        let original_pv = ffi_rln_proof_get_values(&proof);
+        let original_bytes = ffi_rln_proof_values_to_bytes_le(&original_pv);
+
+        let root = ffi_rln_proof_values_get_root(&original_pv);
+        let x = ffi_rln_proof_values_get_x(&original_pv);
+        let external_nullifier = ffi_rln_proof_values_get_external_nullifier(&original_pv);
+        let y = match ffi_rln_proof_values_get_y(&original_pv) {
+            CResult {
+                ok: Some(v),
+                err: None,
+            } => v,
+            _ => panic!("get y failed"),
+        };
+        let nullifier = match ffi_rln_proof_values_get_nullifier(&original_pv) {
+            CResult {
+                ok: Some(v),
+                err: None,
+            } => v,
+            _ => panic!("get nullifier failed"),
+        };
+
+        let reconstructed_pv =
+            ffi_rln_proof_values_new(&root, &external_nullifier, &x, &y, &nullifier);
+        let reconstructed_bytes = ffi_rln_proof_values_to_bytes_le(&reconstructed_pv);
+
+        assert_eq!(
+            original_bytes.iter().copied().collect::<Vec<u8>>(),
+            reconstructed_bytes.iter().copied().collect::<Vec<u8>>(),
+            "reconstructed proof values must serialize identically"
+        );
+    }
 }

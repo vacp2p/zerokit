@@ -413,6 +413,27 @@ proc ffi_bytes_le_to_rln_proof*(bytes: ptr Vec_uint8): CResultProofPtrVecU8 {.im
     cdecl, dynlib: RLN_LIB.}
 proc ffi_bytes_be_to_rln_proof*(bytes: ptr Vec_uint8): CResultProofPtrVecU8 {.importc: "ffi_bytes_be_to_rln_proof",
     cdecl, dynlib: RLN_LIB.}
+when defined(ffiMultiMessageId):
+  proc ffi_rln_proof_new*(
+    groth16_bytes: ptr Vec_uint8,
+    root: ptr CFr,
+    external_nullifier: ptr CFr,
+    x: ptr CFr,
+    ys: ptr Vec_CFr,
+    nullifiers: ptr Vec_CFr,
+    selector_used: ptr Vec_bool
+  ): CResultProofPtrVecU8 {.importc: "ffi_rln_proof_new", cdecl,
+      dynlib: RLN_LIB.}
+else:
+  proc ffi_rln_proof_new*(
+    groth16_bytes: ptr Vec_uint8,
+    root: ptr CFr,
+    external_nullifier: ptr CFr,
+    x: ptr CFr,
+    y: ptr CFr,
+    nullifier: ptr CFr
+  ): CResultProofPtrVecU8 {.importc: "ffi_rln_proof_new", cdecl,
+      dynlib: RLN_LIB.}
 proc ffi_rln_proof_free*(p: ptr FFI_RLNProof) {.importc: "ffi_rln_proof_free",
     cdecl, dynlib: RLN_LIB.}
 
@@ -460,6 +481,25 @@ proc ffi_bytes_le_to_rln_proof_values*(bytes: ptr Vec_uint8): CResultRLNProofVal
     cdecl, dynlib: RLN_LIB.}
 proc ffi_bytes_be_to_rln_proof_values*(bytes: ptr Vec_uint8): CResultRLNProofValuesPtrVecU8 {.importc: "ffi_bytes_be_to_rln_proof_values",
     cdecl, dynlib: RLN_LIB.}
+when defined(ffiMultiMessageId):
+  proc ffi_rln_proof_values_new*(
+    root: ptr CFr,
+    external_nullifier: ptr CFr,
+    x: ptr CFr,
+    ys: ptr Vec_CFr,
+    nullifiers: ptr Vec_CFr,
+    selector_used: ptr Vec_bool
+  ): ptr FFI_RLNProofValues {.importc: "ffi_rln_proof_values_new", cdecl,
+      dynlib: RLN_LIB.}
+else:
+  proc ffi_rln_proof_values_new*(
+    root: ptr CFr,
+    external_nullifier: ptr CFr,
+    x: ptr CFr,
+    y: ptr CFr,
+    nullifier: ptr CFr
+  ): ptr FFI_RLNProofValues {.importc: "ffi_rln_proof_values_new", cdecl,
+      dynlib: RLN_LIB.}
 proc ffi_rln_proof_values_free*(pv: ptr FFI_RLNProofValues) {.importc: "ffi_rln_proof_values_free",
     cdecl, dynlib: RLN_LIB.}
 
