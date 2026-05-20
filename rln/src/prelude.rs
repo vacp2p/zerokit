@@ -3,8 +3,6 @@
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 #[cfg(not(target_arch = "wasm32"))]
-pub use crate::circuit::{graph_from_raw, Graph};
-#[cfg(not(target_arch = "wasm32"))]
 pub use crate::circuit::{graph_multi_v1, graph_single_v1, zkey_multi_v1, zkey_single_v1};
 #[cfg(feature = "pmtree-ft")]
 pub use crate::pm_tree_adapter::{FrOf, PmTree, PmTreeProof, PmtreeConfig, PmtreeConfigBuilder};
@@ -19,9 +17,9 @@ pub use crate::protocol::{
 };
 pub use crate::{
     circuit::{
-        zkey_from_raw, ArkGroth16Backend, Curve, Fq, Fq2, Fr, G1Affine, G1Projective, G2Affine,
-        G2Projective, PartialProof, Proof, VerifyingKey, Zkey, COMPRESS_PROOF_SIZE,
-        DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH,
+        graph_from_raw, zkey_from_raw, ArkGroth16BackendWithGraph, ArkGroth16BackendWithoutGraph,
+        Curve, Fq, Fq2, Fr, G1Affine, G1Projective, G2Affine, G2Projective, Graph, PartialProof,
+        Proof, VerifyingKey, Zkey, COMPRESS_PROOF_SIZE, DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH,
     },
     error::{ProtocolError, RLNError, RecoverSecretError, UtilsError, VerifyError},
     hashers::{
@@ -32,18 +30,19 @@ pub use crate::{
         bytes_be_to_rln_partial_proof, bytes_be_to_rln_partial_witness, bytes_be_to_rln_proof,
         bytes_be_to_rln_proof_values, bytes_be_to_rln_witness, bytes_le_to_rln_partial_proof,
         bytes_le_to_rln_partial_witness, bytes_le_to_rln_proof, bytes_le_to_rln_proof_values,
-        bytes_le_to_rln_witness, compute_id_secret, extended_keygen, extended_seeded_keygen,
-        generate_zk_proof_with_witness, keygen, proof_values_from_witness, recover_id_secret,
-        rln_partial_proof_to_bytes_be, rln_partial_proof_to_bytes_le,
-        rln_partial_witness_to_bytes_be, rln_partial_witness_to_bytes_le, rln_proof_to_bytes_be,
-        rln_proof_to_bytes_le, rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le,
-        rln_witness_to_bigint_json, rln_witness_to_bytes_be, rln_witness_to_bytes_le,
-        seeded_keygen, CanonicalDeserializeBE, CanonicalSerializeBE, MessageMode,
-        RLNPartialWitnessInput, RLNPartialWitnessInputV3, RLNPartialZkProof, RLNProof, RLNProofV3,
-        RLNProofValues, RLNProofValuesMulti, RLNProofValuesSingle, RLNProofValuesV3,
-        RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle, RLNWitnessInputV3,
-        RLNZkProof, RecoverSecret, Stateful, Stateless, ENUM_TAG_MULTI, ENUM_TAG_SINGLE,
-        ENUM_TAG_SIZE, FR_BYTE_SIZE, FR_LIMB_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
+        bytes_le_to_rln_witness, calculated_witness_to_field_elements, compute_id_secret,
+        extended_keygen, extended_seeded_keygen, generate_zk_proof_with_witness, keygen,
+        proof_values_from_witness, recover_id_secret, rln_partial_proof_to_bytes_be,
+        rln_partial_proof_to_bytes_le, rln_partial_witness_to_bytes_be,
+        rln_partial_witness_to_bytes_le, rln_proof_to_bytes_be, rln_proof_to_bytes_le,
+        rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le, rln_witness_to_bigint_json,
+        rln_witness_to_bytes_be, rln_witness_to_bytes_le, seeded_keygen, CanonicalDeserializeBE,
+        CanonicalSerializeBE, MessageMode, RLNPartialWitnessInput, RLNPartialWitnessInputV3,
+        RLNPartialZkProof, RLNProof, RLNProofValues, RLNProofValuesMulti, RLNProofValuesSingle,
+        RLNProofValuesV3, RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle,
+        RLNWitnessInputV3, RLNZkProof, RLNZkProofWithGraph, RecoverSecret, Stateful, Stateless,
+        ENUM_TAG_MULTI, ENUM_TAG_SINGLE, ENUM_TAG_SIZE, FR_BYTE_SIZE, FR_LIMB_BYTE_SIZE,
+        VEC_LEN_BYTE_SIZE,
     },
     public::{RLN, RLNV3},
     utils::{

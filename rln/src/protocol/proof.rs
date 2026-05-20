@@ -590,7 +590,7 @@ pub fn bytes_be_to_rln_partial_proof(bytes: &[u8]) -> Result<(PartialProof, usiz
 // zkSNARK proof generation and verification
 
 /// Converts calculated witness (BigInt) to field elements.
-pub(crate) fn calculated_witness_to_field_elements<E: ark_ec::pairing::Pairing>(
+pub fn calculated_witness_to_field_elements<E: ark_ec::pairing::Pairing>(
     calculated_witness: Vec<BigInt>,
 ) -> Result<Vec<E::ScalarField>, ProtocolError> {
     let modulus = <E::ScalarField as PrimeField>::MODULUS;
@@ -891,12 +891,6 @@ pub fn verify_zk_proof(
     let verified = Groth16::<_, CircomReduction>::verify_proof(&pvk, proof, &inputs)?;
 
     Ok(verified)
-}
-
-#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
-pub struct RLNProofV3 {
-    pub proof: Proof,
-    pub proof_values: RLNProofValuesV3,
 }
 
 #[derive(Debug, PartialEq, Clone)]

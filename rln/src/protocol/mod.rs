@@ -13,10 +13,11 @@ pub use mode::{MessageMode, Stateful, Stateless};
 pub use proof::{
     bytes_be_to_rln_partial_proof, bytes_be_to_rln_proof, bytes_be_to_rln_proof_values,
     bytes_le_to_rln_partial_proof, bytes_le_to_rln_proof, bytes_le_to_rln_proof_values,
-    generate_zk_proof_with_witness, rln_partial_proof_to_bytes_be, rln_partial_proof_to_bytes_le,
-    rln_proof_to_bytes_be, rln_proof_to_bytes_le, rln_proof_values_to_bytes_be,
-    rln_proof_values_to_bytes_le, verify_zk_proof, RLNProof, RLNProofV3, RLNProofValues,
-    RLNProofValuesMulti, RLNProofValuesSingle, RLNProofValuesV3,
+    calculated_witness_to_field_elements, generate_zk_proof_with_witness,
+    rln_partial_proof_to_bytes_be, rln_partial_proof_to_bytes_le, rln_proof_to_bytes_be,
+    rln_proof_to_bytes_le, rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le,
+    verify_zk_proof, RLNProof, RLNProofValues, RLNProofValuesMulti, RLNProofValuesSingle,
+    RLNProofValuesV3,
 };
 #[cfg(not(target_arch = "wasm32"))]
 pub use proof::{
@@ -36,4 +37,4 @@ pub use witness::{
     RLNPartialWitnessInputV3, RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle,
     RLNWitnessInputV3,
 };
-pub use zk::{RLNPartialZkProof, RLNZkProof, RecoverSecret};
+pub use zk::{RLNPartialZkProof, RLNZkProof, RLNZkProofWithGraph, RecoverSecret};

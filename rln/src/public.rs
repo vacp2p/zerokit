@@ -10,23 +10,23 @@ use {
     zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTreeError},
 };
 
-#[cfg(not(target_arch = "wasm32"))]
 use crate::{
     circuit::{
-        graph_from_raw, graph_multi_v1, graph_single_v1, zkey_multi_v1, zkey_single_v1, Graph,
-        PartialProof,
+        graph_from_raw, zkey_from_raw, ArkGroth16BackendWithGraph, ArkGroth16BackendWithoutGraph,
+        Fr, Proof, Zkey,
     },
-    prelude::RLNPartialWitnessInput,
-    protocol::{finish_zk_proof, generate_partial_zk_proof, generate_zk_proof, MessageMode},
-};
-use crate::{
-    circuit::{zkey_from_raw, ArkGroth16Backend, Fr, Proof, Zkey},
     error::{RLNError, VerifyError},
     protocol::{
         generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof,
-        RLNPartialZkProof, RLNProofV3, RLNProofValues, RLNProofValuesV3, RLNWitnessInput,
-        RLNWitnessInputV3, RLNZkProof, Stateful, Stateless,
+        RLNPartialZkProof, RLNProofValues, RLNProofValuesV3, RLNWitnessInput, RLNZkProof,
+        RLNZkProofWithGraph, Stateful, Stateless,
     },
+};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::{
+    circuit::{graph_single_v1, zkey_single_v1, Graph, PartialProof},
+    prelude::RLNPartialWitnessInput,
+    protocol::{finish_zk_proof, generate_partial_zk_proof, generate_zk_proof, MessageMode},
 };
 
 /// This trait allows accepting different config input types for tree configuration.
@@ -823,21 +823,13 @@ impl<Tree, ZkProof: RLNZkProof> RLNV3<Tree, ZkProof>
 where
     RLNError: From<ZkProof::Error>,
 {
-    pub fn generate_proof(
+    pub fn generate_proof_from_calculated_witness(
         &self,
-        witness: ZkProof::Witness,
-    ) -> Result<(ZkProof::Proof, ZkProof::Values), RLNError> {
-        Ok(self.zkp.generate_proof(witness)?)
-    }
-
-    pub fn generate_proof_with_witness(
-        &self,
-        calculated_witness: Vec<BigInt>,
-        witness: ZkProof::Witness,
-    ) -> Result<(ZkProof::Proof, ZkProof::Values), RLNError> {
+        calculated_witness: &[Fr],
+    ) -> Result<ZkProof::Proof, RLNError> {
         Ok(self
             .zkp
-            .generate_proof_with_witness(calculated_witness, witness)?)
+            .generate_proof_from_calculated_witness(calculated_witness)?)
     }
 
     pub fn verify(
@@ -846,6 +838,18 @@ where
         values: &ZkProof::Values,
     ) -> Result<bool, RLNError> {
         Ok(self.zkp.verify(proof, values)?)
+    }
+}
+
+impl<Tree, ZkProof: RLNZkProofWithGraph> RLNV3<Tree, ZkProof>
+where
+    RLNError: From<ZkProof::Error>,
+{
+    pub fn generate_proof_from_witness(
+        &self,
+        witness: &ZkProof::Witness,
+    ) -> Result<ZkProof::Proof, RLNError> {
+        Ok(self.zkp.generate_proof_from_witness(witness)?)
     }
 }
 
@@ -870,73 +874,25 @@ where
 }
 
 // TODO: replace these constructors with a unified RLNBuilder (PR 8)
-#[cfg(not(target_arch = "wasm32"))]
-impl RLNV3<Stateless, ArkGroth16Backend> {
-    /// Creates a stateless instance using the embedded Single circuit (tree_depth=20, max_out=1).
-    pub fn new_single() -> Self {
-        Self::new(ArkGroth16Backend::new(
-            zkey_single_v1().to_owned(),
-            graph_single_v1().to_owned(),
-        ))
-    }
-
-    /// Creates a stateless instance using the embedded Multi circuit (tree_depth=20, max_out=4).
-    pub fn new_multi() -> Self {
-        Self::new(ArkGroth16Backend::new(
-            zkey_multi_v1().to_owned(),
-            graph_multi_v1().to_owned(),
-        ))
-    }
-
-    /// Creates a stateless instance from custom zkey and graph bytes.
+impl RLNV3<Stateless, ArkGroth16BackendWithGraph> {
     pub fn new_with_params(zkey_data: Vec<u8>, graph_data: Vec<u8>) -> Result<Self, RLNError> {
         let zkey = zkey_from_raw(&zkey_data)?;
         let graph = graph_from_raw(&graph_data, None, None)?;
-        Ok(Self::new(ArkGroth16Backend::new(zkey, graph)))
+        Ok(Self::new(ArkGroth16BackendWithGraph::new(zkey, graph)))
     }
 }
 
-#[cfg(target_arch = "wasm32")]
-impl RLNV3<Stateless, ArkGroth16Backend> {
-    /// Creates a stateless instance from zkey bytes (WASM — no graph needed).
+impl RLNV3<Stateless, ArkGroth16BackendWithoutGraph> {
     pub fn new_with_params(zkey_data: Vec<u8>) -> Result<Self, RLNError> {
         let zkey = zkey_from_raw(&zkey_data)?;
-        Ok(Self::new(ArkGroth16Backend::new(zkey)))
+        Ok(Self::new(ArkGroth16BackendWithoutGraph::new(zkey)))
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-impl<S> RLNV3<S, ArkGroth16Backend> {
-    /// Returns the message mode inferred from the loaded circuit.
-    pub fn message_mode(&self) -> MessageMode {
-        MessageMode::from(&self.zkp.graph)
-    }
-
-    /// Returns the maximum number of message-id slots for the loaded circuit.
-    pub fn max_out(&self) -> usize {
-        self.zkp.graph.max_out
-    }
-}
-
-impl<S> RLNV3<S, ArkGroth16Backend> {
-    /// Generates a proof from a pre-computed witness, returning proof and values together.
-    pub fn generate_rln_proof_with_witness(
-        &self,
-        calculated_witness: Vec<BigInt>,
-        witness: RLNWitnessInputV3,
-    ) -> Result<RLNProofV3, RLNError> {
-        let (proof, proof_values) = self
-            .zkp
-            .generate_proof_with_witness(calculated_witness, witness)?;
-        Ok(RLNProofV3 {
-            proof,
-            proof_values,
-        })
-    }
-
-    /// Verifies a proof and checks that the root is in the provided set and `x` matches the signal.
-    ///
-    /// If `roots` is empty, root membership is skipped.
+impl<Tree, ZkProof> RLNV3<Tree, ZkProof>
+where
+    ZkProof: RLNZkProof<Values = RLNProofValuesV3, Proof = Proof, Error = RLNError>,
+{
     pub fn verify_with_roots(
         &self,
         proof: &Proof,
@@ -950,7 +906,7 @@ impl<S> RLNV3<S, ArkGroth16Backend> {
         if x != &values.x() {
             return Err(VerifyError::InvalidSignal.into());
         }
-        if !self.verify(proof, values)? {
+        if !self.zkp.verify(proof, values)? {
             return Err(VerifyError::InvalidProof.into());
         }
         Ok(true)

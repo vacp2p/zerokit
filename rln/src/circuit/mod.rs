@@ -18,14 +18,11 @@ use ark_groth16::{
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-#[cfg(not(target_arch = "wasm32"))]
-use self::error::GraphReadError;
-use self::error::ZKeyReadError;
-#[cfg(not(target_arch = "wasm32"))]
-use crate::circuit::iden3calc::{
-    graph::Node, storage::deserialize_witnesscalc_graph, InputSignalsInfo,
+use self::error::{GraphReadError, ZKeyReadError};
+use crate::{
+    circuit::iden3calc::{graph::Node, storage::deserialize_witnesscalc_graph, InputSignalsInfo},
+    partial_proof::PartialProof as ArkPartialProof,
 };
-use crate::partial_proof::PartialProof as ArkPartialProof;
 
 #[cfg(not(target_arch = "wasm32"))]
 const GRAPH_BYTES_SINGLE_V1: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
@@ -120,7 +117,6 @@ pub type VerifyingKey = ArkVerifyingKey<Curve>;
 ///
 /// Contains the deserialized computation graph used for witness calculation.
 /// Parsing this once and reusing it avoids repeated deserialization overhead.
-#[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone)]
 pub struct Graph {
     pub(crate) nodes: Vec<Node>,
@@ -142,7 +138,6 @@ pub fn zkey_from_raw(zkey_data: &[u8]) -> Result<Zkey, ZKeyReadError> {
 }
 
 /// Parses the witness calculator graph from raw bytes
-#[cfg(not(target_arch = "wasm32"))]
 pub fn graph_from_raw(
     graph_data: &[u8],
     expected_tree_depth: Option<usize>,
@@ -277,21 +272,23 @@ fn read_arkzkey_from_bytes_uncompressed(arkzkey_data: &[u8]) -> Result<Zkey, ZKe
 }
 
 #[derive(Clone)]
-pub struct ArkGroth16Backend {
+pub struct ArkGroth16BackendWithGraph {
     pub(crate) zkey: Zkey,
-    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) graph: Graph,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-impl ArkGroth16Backend {
+impl ArkGroth16BackendWithGraph {
     pub fn new(zkey: Zkey, graph: Graph) -> Self {
         Self { zkey, graph }
     }
 }
 
-#[cfg(target_arch = "wasm32")]
-impl ArkGroth16Backend {
+#[derive(Clone)]
+pub struct ArkGroth16BackendWithoutGraph {
+    pub(crate) zkey: Zkey,
+}
+
+impl ArkGroth16BackendWithoutGraph {
     pub fn new(zkey: Zkey) -> Self {
         Self { zkey }
     }

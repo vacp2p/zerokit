@@ -10,18 +10,17 @@ use super::{
     FR_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
 };
 use crate::{
-    circuit::Fr,
+    circuit::{Fr, Graph},
     error::ProtocolError,
     hashers::poseidon_hash,
     utils::{
         bytes_be_to_fr, bytes_be_to_vec_bool, bytes_be_to_vec_fr, bytes_be_to_vec_u8,
         bytes_le_to_fr, bytes_le_to_vec_bool, bytes_le_to_vec_fr, bytes_le_to_vec_u8,
         fr_to_bytes_be, fr_to_bytes_le, to_bigint, vec_bool_to_bytes_be, vec_bool_to_bytes_le,
-        vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, IdSecret,
+        vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, FrOrSecret,
+        IdSecret,
     },
 };
-#[cfg(not(target_arch = "wasm32"))]
-use crate::{circuit::Graph, utils::FrOrSecret};
 
 /// Variant-specific message inputs for RLN witness.
 #[derive(Debug, PartialEq, Clone)]
@@ -1059,7 +1058,6 @@ impl RLNWitnessInputV3 {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl RLNWitnessInputV3 {
     pub(super) fn validate_against_graph(&self, graph: &Graph) -> Result<(), ProtocolError> {
         let (path_len, index_len) = match self {
@@ -1102,9 +1100,11 @@ impl RLNWitnessInputV3 {
         }
         Ok(())
     }
+}
 
+impl RLNWitnessInputV3 {
     // TODO: redesign — str-keyed map is fragile; replace with a typed circuit input struct
-    pub(super) fn to_circuit_inputs(&self) -> Vec<(&'static str, Vec<FrOrSecret>)> {
+    pub(crate) fn to_circuit_inputs(&self) -> Vec<(&'static str, Vec<FrOrSecret>)> {
         match self {
             Self::Single(w) => {
                 let identity_path_index_fr: Vec<FrOrSecret> = w
@@ -1322,7 +1322,6 @@ impl RLNPartialWitnessInputV3 {
         })
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     pub(super) fn validate_against_graph(&self, graph: &Graph) -> Result<(), ProtocolError> {
         if self.path_elements.len() != graph.tree_depth {
             return Err(ProtocolError::FieldLengthMismatch(
@@ -1343,8 +1342,7 @@ impl RLNPartialWitnessInputV3 {
         Ok(())
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    pub(super) fn to_circuit_inputs(
+    pub(crate) fn to_circuit_inputs(
         &self,
         max_out: usize,
     ) -> Vec<(&'static str, Vec<Option<FrOrSecret>>)> {
