@@ -190,6 +190,8 @@ mod test {
         )
         .unwrap();
 
+        let proof_values = witness.to_proof_values().unwrap();
+
         let bigint_json = witness.to_bigint_json().unwrap();
 
         // Benchmark witness calculation
@@ -214,19 +216,19 @@ mod test {
             .map(|x| JsBigInt::new(&x.into()).unwrap())
             .collect();
 
-        // Benchmark proof generation with witness
-        let start_generate_rln_proof_with_witness = Date::now();
+        // Benchmark proof generation from calculated witness
+        let start_generate_proof_from_calculated_witness = Date::now();
         for _ in 0..iterations {
             let _ = rln_instance
-                .generate_rln_proof_with_witness(calculated_witness.clone(), &witness)
+                .generate_proof_from_calculated_witness(calculated_witness.clone())
                 .unwrap();
         }
-        let generate_rln_proof_with_witness_result =
-            Date::now() - start_generate_rln_proof_with_witness;
+        let generate_proof_from_calculated_witness_result =
+            Date::now() - start_generate_proof_from_calculated_witness;
 
-        // Generate proof with witness for other benchmarks
+        // Generate proof from calculated witness for other benchmarks
         let proof: WasmRLNProof = rln_instance
-            .generate_rln_proof_with_witness(calculated_witness, &witness)
+            .generate_proof_from_calculated_witness(calculated_witness)
             .unwrap();
 
         let root = WasmFr::from(tree.root());
@@ -236,12 +238,16 @@ mod test {
         // Benchmark proof verification with the root
         let start_verify_with_roots = Date::now();
         for _ in 0..iterations {
-            let _ = rln_instance.verify_with_roots(&proof, &roots, &x).unwrap();
+            let _ = rln_instance
+                .verify_with_roots(&proof, &proof_values, &roots, &x)
+                .unwrap();
         }
         let verify_with_roots_result = Date::now() - start_verify_with_roots;
 
         // Verify proof with the root for other benchmarks
-        let is_proof_valid = rln_instance.verify_with_roots(&proof, &roots, &x).unwrap();
+        let is_proof_valid = rln_instance
+            .verify_with_roots(&proof, &proof_values, &roots, &x)
+            .unwrap();
         assert!(is_proof_valid, "verification failed");
 
         // Format and display the benchmark results
@@ -267,8 +273,8 @@ mod test {
             format_duration(calculate_witness_result)
         ));
         results.push_str(&format!(
-            "Proof generation with witness: {}\n",
-            format_duration(generate_rln_proof_with_witness_result)
+            "Proof generation from calculated witness: {}\n",
+            format_duration(generate_proof_from_calculated_witness_result)
         ));
         results.push_str(&format!(
             "Proof verification with roots: {}\n",
@@ -370,9 +376,7 @@ mod test {
         assert!(WasmRLNWitnessInput::from_bytes_be(&extra_be).is_ok());
 
         // Proof values bytes: truncated and extra data
-        let valid_pv =
-            WasmRLNProofValues::from_bytes_le(&Uint8Array::from(&[0u8; 1 + FR_BYTE_SIZE * 5][..]))
-                .unwrap();
+        let valid_pv = valid_witness.to_proof_values().unwrap();
 
         let pv_le = valid_pv.to_bytes_le().unwrap();
         let pv_le_vec = pv_le.to_vec();
@@ -392,10 +396,9 @@ mod test {
         let extra_pv_be = Uint8Array::from(&extra_pv_be_vec[..]);
         assert!(WasmRLNProofValues::from_bytes_be(&extra_pv_be).is_ok());
 
-        // Proof bytes: insufficient length (no proof values)
+        // Proof bytes: insufficient length
         let proof = [0u8; COMPRESS_PROOF_SIZE];
         let proof = Uint8Array::from(&proof[..]);
         assert!(WasmRLNProof::from_bytes_le(&proof).is_err());
-        assert!(WasmRLNProof::from_bytes_be(&proof).is_err());
     }
 }

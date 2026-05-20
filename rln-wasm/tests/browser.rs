@@ -155,6 +155,8 @@ mod test {
         )
         .unwrap();
 
+        let proof_values = witness.to_proof_values().unwrap();
+
         let bigint_json = witness.to_bigint_json().unwrap();
 
         // Benchmark witness calculation
@@ -179,19 +181,19 @@ mod test {
             .map(|x| JsBigInt::new(&x.into()).unwrap())
             .collect();
 
-        // Benchmark proof generation with witness
-        let start_generate_rln_proof_with_witness = Date::now();
+        // Benchmark proof generation from calculated witness
+        let start_generate_proof_from_calculated_witness = Date::now();
         for _ in 0..iterations {
             let _ = rln_instance
-                .generate_rln_proof_with_witness(calculated_witness.clone(), &witness)
+                .generate_proof_from_calculated_witness(calculated_witness.clone())
                 .unwrap();
         }
-        let generate_rln_proof_with_witness_result =
-            Date::now() - start_generate_rln_proof_with_witness;
+        let generate_proof_from_calculated_witness_result =
+            Date::now() - start_generate_proof_from_calculated_witness;
 
-        // Generate proof with witness for other benchmarks
+        // Generate proof from calculated witness for other benchmarks
         let proof: WasmRLNProof = rln_instance
-            .generate_rln_proof_with_witness(calculated_witness, &witness)
+            .generate_proof_from_calculated_witness(calculated_witness)
             .unwrap();
 
         let root = WasmFr::from(tree.root());
@@ -201,12 +203,16 @@ mod test {
         // Benchmark proof verification with the root
         let start_verify_with_roots = Date::now();
         for _ in 0..iterations {
-            let _ = rln_instance.verify_with_roots(&proof, &roots, &x).unwrap();
+            let _ = rln_instance
+                .verify_with_roots(&proof, &proof_values, &roots, &x)
+                .unwrap();
         }
         let verify_with_roots_result = Date::now() - start_verify_with_roots;
 
         // Verify proof with the root for other benchmarks
-        let is_proof_valid = rln_instance.verify_with_roots(&proof, &roots, &x).unwrap();
+        let is_proof_valid = rln_instance
+            .verify_with_roots(&proof, &proof_values, &roots, &x)
+            .unwrap();
         assert!(is_proof_valid, "verification failed");
 
         // Format and display the benchmark results
@@ -232,8 +238,8 @@ mod test {
             format_duration(calculate_witness_result)
         ));
         results.push_str(&format!(
-            "Proof generation with witness: {}\n",
-            format_duration(generate_rln_proof_with_witness_result)
+            "Proof generation from calculated witness: {}\n",
+            format_duration(generate_proof_from_calculated_witness_result)
         ));
         results.push_str(&format!(
             "Proof verification with roots: {}\n",
