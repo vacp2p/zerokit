@@ -1,4 +1,4 @@
-// TODO(cleanup): dissolve into witness.rs / proof.rs / state.rs — wire-format docs and impls belong with their types.
+// TODO: dissolve into witness.rs / proof.rs — wire-format docs and impls belong with their types.
 
 use std::fmt;
 
