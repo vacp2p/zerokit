@@ -16,7 +16,10 @@ use crate::{
 };
 
 pub trait RLNZkProof {
-    type CalculatedWitness: AsRef<[Fr]>;
+    type CalculatedWitness: CanonicalSerialize
+        + CanonicalDeserialize
+        + CanonicalSerializeBE
+        + CanonicalDeserializeBE;
     type Values: RecoverSecret
         + CanonicalSerialize
         + CanonicalDeserialize
@@ -25,7 +28,7 @@ pub trait RLNZkProof {
     type Proof: CanonicalSerialize + CanonicalDeserialize;
     type Error;
 
-    fn generate_proof_from_calculated_witness(
+    fn generate_proof(
         &self,
         calculated_witness: &Self::CalculatedWitness,
     ) -> Result<Self::Proof, Self::Error>;
@@ -77,7 +80,7 @@ impl RLNZkProof for ArkGroth16BackendWithGraph {
     type Proof = Proof;
     type Error = RLNError;
 
-    fn generate_proof_from_calculated_witness(
+    fn generate_proof(
         &self,
         calculated_witness: &Self::CalculatedWitness,
     ) -> Result<Self::Proof, Self::Error> {
@@ -108,7 +111,7 @@ impl RLNZkProofWithGraph for ArkGroth16BackendWithGraph {
         witness: &Self::Witness,
     ) -> Result<Self::Proof, Self::Error> {
         let calculated_witness = self.calculate_witness(witness)?;
-        self.generate_proof_from_calculated_witness(&calculated_witness)
+        self.generate_proof(&calculated_witness)
     }
 }
 
@@ -118,7 +121,7 @@ impl RLNZkProof for ArkGroth16Backend {
     type Proof = Proof;
     type Error = RLNError;
 
-    fn generate_proof_from_calculated_witness(
+    fn generate_proof(
         &self,
         calculated_witness: &Self::CalculatedWitness,
     ) -> Result<Self::Proof, Self::Error> {

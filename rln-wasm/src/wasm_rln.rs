@@ -22,7 +22,7 @@ impl WasmRLN {
     }
 
     #[wasm_bindgen(js_name = generateProofFromCalculatedWitness)]
-    pub fn generate_proof_from_calculated_witness(
+    pub fn generate_proof(
         &self,
         calculated_witness_js_bigints: Vec<JsBigInt>,
     ) -> Result<WasmRLNProof, String> {
@@ -48,7 +48,7 @@ impl WasmRLN {
 
         let proof = self
             .0
-            .generate_proof_from_calculated_witness(&calculated_witness)
+            .generate_proof(&calculated_witness)
             .map_err(|err| err.to_string())?;
 
         Ok(WasmRLNProof(proof))

@@ -181,20 +181,17 @@ mod test {
             .map(|x| JsBigInt::new(&x.into()).unwrap())
             .collect();
 
-        // Benchmark proof generation from calculated witness
-        let start_generate_proof_from_calculated_witness = Date::now();
+        // Benchmark proof generation
+        let start_generate_proof = Date::now();
         for _ in 0..iterations {
             let _ = rln_instance
-                .generate_proof_from_calculated_witness(calculated_witness.clone())
+                .generate_proof(calculated_witness.clone())
                 .unwrap();
         }
-        let generate_proof_from_calculated_witness_result =
-            Date::now() - start_generate_proof_from_calculated_witness;
+        let generate_proof_result = Date::now() - start_generate_proof;
 
-        // Generate proof from calculated witness for other benchmarks
-        let proof: WasmRLNProof = rln_instance
-            .generate_proof_from_calculated_witness(calculated_witness)
-            .unwrap();
+        // Generate proof for other benchmarks
+        let proof: WasmRLNProof = rln_instance.generate_proof(calculated_witness).unwrap();
 
         let root = WasmFr::from(tree.root());
         let mut roots = VecWasmFr::new();
@@ -238,8 +235,8 @@ mod test {
             format_duration(calculate_witness_result)
         ));
         results.push_str(&format!(
-            "Proof generation from calculated witness: {}\n",
-            format_duration(generate_proof_from_calculated_witness_result)
+            "Proof generation: {}\n",
+            format_duration(generate_proof_result)
         ));
         results.push_str(&format!(
             "Proof verification with roots: {}\n",

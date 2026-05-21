@@ -117,7 +117,7 @@ pub type VerifyingKey = ArkVerifyingKey<Curve>;
 ///
 /// Contains the deserialized computation graph used for witness calculation.
 /// Parsing this once and reusing it avoids repeated deserialization overhead.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Graph {
     pub(crate) nodes: Vec<Node>,
     pub(crate) signals: Vec<usize>,
@@ -271,7 +271,7 @@ fn read_arkzkey_from_bytes_uncompressed(arkzkey_data: &[u8]) -> Result<Zkey, ZKe
     Ok(zkey)
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ArkGroth16BackendWithGraph {
     pub(crate) zkey: Zkey,
     pub(crate) graph: Graph,
@@ -283,7 +283,7 @@ impl ArkGroth16BackendWithGraph {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ArkGroth16Backend {
     pub(crate) zkey: Zkey,
 }

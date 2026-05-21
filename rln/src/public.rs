@@ -823,13 +823,11 @@ impl<Tree, ZkProof: RLNZkProof> RLNV3<Tree, ZkProof>
 where
     RLNError: From<ZkProof::Error>,
 {
-    pub fn generate_proof_from_calculated_witness(
+    pub fn generate_proof(
         &self,
         calculated_witness: &ZkProof::CalculatedWitness,
     ) -> Result<ZkProof::Proof, RLNError> {
-        Ok(self
-            .zkp
-            .generate_proof_from_calculated_witness(calculated_witness)?)
+        Ok(self.zkp.generate_proof(calculated_witness)?)
     }
 
     pub fn verify(
