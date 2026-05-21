@@ -10,7 +10,7 @@ cargo make build
 
 ## Running the examples
 
-**Note:** Set `MULTI_MESSAGE_ID` constant in [index.js](../examples/index.js) to `true` when testing with multi-message-id mode.
+**Note:** Set `MULTI_MESSAGE_ID` constant in [index.js](../examples/index.js) to `true` when testing with Multi message-id mode.
 
 After building the package in any mode, install dependencies and run:
 

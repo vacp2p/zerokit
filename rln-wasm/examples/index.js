@@ -67,10 +67,10 @@ async function main() {
   console.log("  - RLN instance created successfully");
 
   const treeDepth = 20;
-  console.log("  - circuit tree_depth = " + treeDepth);
+  console.log("  - circuit treeDepth = " + treeDepth);
   const maxOut = 4;
   if (MULTI_MESSAGE_ID) {
-    console.log("  - circuit max_out = " + maxOut);
+    console.log("  - circuit maxOut = " + maxOut);
   }
 
   console.log("\nGenerating identity keys");
@@ -78,24 +78,24 @@ async function main() {
   const identitySecret = identity.getSecretHash();
   const idCommitment = identity.getCommitment();
   console.log("  - identity generated successfully");
-  console.log("  - identity_secret = " + identitySecret.debug());
-  console.log("  - id_commitment = " + idCommitment.debug());
+  console.log("  - identitySecret = " + identitySecret.debug());
+  console.log("  - idCommitment = " + idCommitment.debug());
 
   console.log("\nCreating message limit");
   const userMessageLimit = rlnWasm.WasmFr.fromUint(10);
-  console.log("  - user_message_limit = " + userMessageLimit.debug());
+  console.log("  - userMessageLimit = " + userMessageLimit.debug());
 
   console.log("\nComputing rate commitment");
   let rateCommitment = rlnWasm.Hasher.poseidonHashPair(
     idCommitment,
     userMessageLimit,
   );
-  console.log("  - rate_commitment = " + rateCommitment.debug());
+  console.log("  - rateCommitment = " + rateCommitment.debug());
 
   console.log("\nWasmFr serialization: WasmFr <-> bytes");
   const serRateCommitment = rateCommitment.toBytesLE();
   console.log(
-    "  - serialized rate_commitment = [" +
+    "  - serialized rateCommitment = [" +
       debugUint8Array(serRateCommitment) +
       "]",
   );
@@ -108,7 +108,7 @@ async function main() {
     return;
   }
   console.log(
-    "  - deserialized rate_commitment = " + deserRateCommitment.debug(),
+    "  - deserialized rateCommitment = " + deserRateCommitment.debug(),
   );
 
   console.log("\nIdentity serialization: Identity <-> bytes");
@@ -156,7 +156,7 @@ async function main() {
   console.log("\nVecWasmFr serialization: VecWasmFr <-> bytes");
   const serPathElements = pathElements.toBytesLE();
   console.log(
-    "  - serialized path_elements = [" + debugUint8Array(serPathElements) + "]",
+    "  - serialized pathElements = [" + debugUint8Array(serPathElements) + "]",
   );
 
   let deserPathElements;
@@ -166,12 +166,12 @@ async function main() {
     console.error("Path elements deserialization error:", error);
     return;
   }
-  console.log("  - deserialized path_elements = ", deserPathElements.debug());
+  console.log("  - deserialized pathElements = ", deserPathElements.debug());
 
   console.log("\nUint8Array serialization: Uint8Array <-> bytes");
   const serPathIndex = rlnWasm.Uint8ArrayUtils.toBytesLE(identityPathIndex);
   console.log(
-    "  - serialized path_index = [" + debugUint8Array(serPathIndex) + "]",
+    "  - serialized pathIndex = [" + debugUint8Array(serPathIndex) + "]",
   );
 
   let deserPathIndex;
@@ -181,10 +181,10 @@ async function main() {
     console.error("Path index deserialization error:", error);
     return;
   }
-  console.log("  - deserialized path_index =", deserPathIndex);
+  console.log("  - deserialized pathIndex =", deserPathIndex);
 
   console.log("\nComputing Merkle root for stateless mode");
-  console.log("  - computing root for index 0 with rate_commitment");
+  console.log("  - computing root for index 0 with rateCommitment");
 
   let computedRoot = rlnWasm.Hasher.poseidonHashPair(
     rateCommitment,
@@ -196,7 +196,7 @@ async function main() {
       defaultHashes[i - 1],
     );
   }
-  console.log("  - computed_root = " + computedRoot.debug());
+  console.log("  - computedRoot = " + computedRoot.debug());
 
   console.log("\nHashing first signal");
   const signal1 = new Uint8Array([
@@ -251,7 +251,7 @@ async function main() {
   let messageIds1, selectorUsed1;
   if (MULTI_MESSAGE_ID) {
     console.log(
-      "\nCreating messageIds1 and selectorUsed1 (multi-message-id mode)",
+      "\nCreating messageIds1 and selectorUsed1 (Multi message-id mode)",
     );
     console.log("  - using 2 out of " + maxOut + " slots");
 
@@ -464,7 +464,7 @@ async function main() {
   let messageIds2, selectorUsed2;
   if (MULTI_MESSAGE_ID) {
     console.log(
-      "\nCreating messageIds2 and selectorUsed2 (multi-message-id mode)",
+      "\nCreating messageIds2 and selectorUsed2 (Multi message-id mode)",
     );
     console.log("  - using 2 out of " + maxOut + " slots");
     console.log("  - duplicated slot id 1");
