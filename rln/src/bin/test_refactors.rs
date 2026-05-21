@@ -19,7 +19,7 @@ fn main() -> Result<(), RLNError> {
     .into();
 
     let proof = rln.generate_proof_from_witness(&witness_single1)?;
-    let values_single1 = RLNProofValuesV3::try_from(witness_single1).map_err(RLNError::from)?;
+    let values_single1 = RLNProofValuesV3::try_from(witness_single1)?;
     assert!(rln.verify(&proof, &values_single1)?);
 
     let witness_single2: RLNWitnessInputV3 = RLNWitnessInputSingle::new(
@@ -32,7 +32,7 @@ fn main() -> Result<(), RLNError> {
         Fr::from(1),
     )?
     .into();
-    let values_single2 = RLNProofValuesV3::try_from(witness_single2).map_err(RLNError::from)?;
+    let values_single2 = RLNProofValuesV3::try_from(witness_single2)?;
     let recovered = values_single1.recover_secret(&values_single2)?;
     assert_eq!(recovered, identity_secret);
 
@@ -55,7 +55,7 @@ fn main() -> Result<(), RLNError> {
     )?
     .into();
     let proof = rln_multi.generate_proof_from_witness(&witness_multi)?;
-    let values_multi = RLNProofValuesV3::try_from(witness_multi).map_err(RLNError::from)?;
+    let values_multi = RLNProofValuesV3::try_from(witness_multi)?;
     assert!(rln_multi.verify(&proof, &values_multi)?);
 
     // Cross-mode slashing: Stateless Single × Stateless Multi
@@ -84,8 +84,8 @@ fn main() -> Result<(), RLNError> {
     )?
     .into();
 
-    let values_single = RLNProofValuesV3::try_from(witness_single).map_err(RLNError::from)?;
-    let values_multi = RLNProofValuesV3::try_from(witness_multi).map_err(RLNError::from)?;
+    let values_single = RLNProofValuesV3::try_from(witness_single)?;
+    let values_multi = RLNProofValuesV3::try_from(witness_multi)?;
 
     assert_eq!(
         values_single.recover_secret(&values_multi)?,
@@ -115,8 +115,7 @@ fn main() -> Result<(), RLNError> {
 
     let partial_witness = RLNPartialWitnessInputV3::from(&witness_for_partial);
     let partial_proof = rln_partial.generate_partial_proof(partial_witness)?;
-    let values_partial =
-        RLNProofValuesV3::try_from(witness_for_partial.clone()).map_err(RLNError::from)?;
+    let values_partial = RLNProofValuesV3::try_from(witness_for_partial.clone())?;
     let proof_from_partial = rln_partial.finish_proof(partial_proof, witness_for_partial)?;
     assert!(rln_partial.verify(&proof_from_partial, &values_partial)?);
 
@@ -141,8 +140,7 @@ fn main() -> Result<(), RLNError> {
 
     let partial_witness_multi = RLNPartialWitnessInputV3::from(&witness_for_partial_multi);
     let partial_proof_multi = rln_partial_multi.generate_partial_proof(partial_witness_multi)?;
-    let values_partial_multi =
-        RLNProofValuesV3::try_from(witness_for_partial_multi.clone()).map_err(RLNError::from)?;
+    let values_partial_multi = RLNProofValuesV3::try_from(witness_for_partial_multi.clone())?;
     let proof_from_partial_multi =
         rln_partial_multi.finish_proof(partial_proof_multi, witness_for_partial_multi)?;
     assert!(rln_partial_multi.verify(&proof_from_partial_multi, &values_partial_multi)?);
