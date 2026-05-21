@@ -284,11 +284,11 @@ impl ArkGroth16BackendWithGraph {
 }
 
 #[derive(Clone)]
-pub struct ArkGroth16BackendWithoutGraph {
+pub struct ArkGroth16Backend {
     pub(crate) zkey: Zkey,
 }
 
-impl ArkGroth16BackendWithoutGraph {
+impl ArkGroth16Backend {
     pub fn new(zkey: Zkey) -> Self {
         Self { zkey }
     }

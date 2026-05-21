@@ -10,15 +10,14 @@ use wasm_bindgen::prelude::*;
 use crate::wasm_utils::{VecWasmFr, WasmFr};
 
 #[wasm_bindgen]
-pub struct WasmRLN(RLNV3<Stateless, ArkGroth16BackendWithoutGraph>);
+pub struct WasmRLN(RLNV3<Stateless, ArkGroth16Backend>);
 
 #[wasm_bindgen]
 impl WasmRLN {
     #[wasm_bindgen(constructor)]
     pub fn new(zkey_data: &Uint8Array) -> Result<WasmRLN, String> {
-        let rln =
-            RLNV3::<Stateless, ArkGroth16BackendWithoutGraph>::new_with_params(zkey_data.to_vec())
-                .map_err(|err| err.to_string())?;
+        let rln = RLNV3::<Stateless, ArkGroth16Backend>::new_with_params(zkey_data.to_vec())
+            .map_err(|err| err.to_string())?;
         Ok(WasmRLN(rln))
     }
 

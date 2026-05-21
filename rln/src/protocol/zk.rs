@@ -6,7 +6,7 @@ use crate::{
     circuit::{
         iden3calc::{calc_witness, calc_witness_partial},
         qap::CircomReduction,
-        ArkGroth16BackendWithGraph, ArkGroth16BackendWithoutGraph, Fr, PartialProof, Proof, Zkey,
+        ArkGroth16Backend, ArkGroth16BackendWithGraph, Fr, PartialProof, Proof, Zkey,
     },
     error::{ProtocolError, RLNError},
     partial_proof::{Groth16Partial, PartialAssignment},
@@ -16,6 +16,7 @@ use crate::{
 };
 
 pub trait RLNZkProof {
+    type CalculatedWitness: AsRef<[Fr]>;
     type Values: RecoverSecret
         + CanonicalSerialize
         + CanonicalDeserialize
@@ -26,7 +27,7 @@ pub trait RLNZkProof {
 
     fn generate_proof_from_calculated_witness(
         &self,
-        calculated_witness: &[Fr],
+        calculated_witness: &Self::CalculatedWitness,
     ) -> Result<Self::Proof, Self::Error>;
     fn verify(&self, proof: &Self::Proof, values: &Self::Values) -> Result<bool, Self::Error>;
 }
@@ -71,15 +72,16 @@ pub trait RLNPartialZkProof: RLNZkProofWithGraph {
 }
 
 impl RLNZkProof for ArkGroth16BackendWithGraph {
+    type CalculatedWitness = Vec<Fr>;
     type Values = RLNProofValuesV3;
     type Proof = Proof;
     type Error = RLNError;
 
     fn generate_proof_from_calculated_witness(
         &self,
-        calculated_witness: &[Fr],
+        calculated_witness: &Self::CalculatedWitness,
     ) -> Result<Self::Proof, Self::Error> {
-        prove(&self.zkey, calculated_witness)
+        prove(&self.zkey, calculated_witness.as_ref())
     }
 
     fn verify(&self, proof: &Self::Proof, values: &Self::Values) -> Result<bool, Self::Error> {
@@ -110,16 +112,17 @@ impl RLNZkProofWithGraph for ArkGroth16BackendWithGraph {
     }
 }
 
-impl RLNZkProof for ArkGroth16BackendWithoutGraph {
+impl RLNZkProof for ArkGroth16Backend {
+    type CalculatedWitness = Vec<Fr>;
     type Values = RLNProofValuesV3;
     type Proof = Proof;
     type Error = RLNError;
 
     fn generate_proof_from_calculated_witness(
         &self,
-        calculated_witness: &[Fr],
+        calculated_witness: &Self::CalculatedWitness,
     ) -> Result<Self::Proof, Self::Error> {
-        prove(&self.zkey, calculated_witness)
+        prove(&self.zkey, calculated_witness.as_ref())
     }
 
     fn verify(&self, proof: &Self::Proof, values: &Self::Values) -> Result<bool, Self::Error> {

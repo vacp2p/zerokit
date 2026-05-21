@@ -12,8 +12,8 @@ use {
 
 use crate::{
     circuit::{
-        graph_from_raw, zkey_from_raw, ArkGroth16BackendWithGraph, ArkGroth16BackendWithoutGraph,
-        Fr, Proof, Zkey,
+        graph_from_raw, zkey_from_raw, ArkGroth16Backend, ArkGroth16BackendWithGraph, Fr, Proof,
+        Zkey,
     },
     error::{RLNError, VerifyError},
     protocol::{
@@ -825,7 +825,7 @@ where
 {
     pub fn generate_proof_from_calculated_witness(
         &self,
-        calculated_witness: &[Fr],
+        calculated_witness: &ZkProof::CalculatedWitness,
     ) -> Result<ZkProof::Proof, RLNError> {
         Ok(self
             .zkp
@@ -882,10 +882,10 @@ impl RLNV3<Stateless, ArkGroth16BackendWithGraph> {
     }
 }
 
-impl RLNV3<Stateless, ArkGroth16BackendWithoutGraph> {
+impl RLNV3<Stateless, ArkGroth16Backend> {
     pub fn new_with_params(zkey_data: Vec<u8>) -> Result<Self, RLNError> {
         let zkey = zkey_from_raw(&zkey_data)?;
-        Ok(Self::new(ArkGroth16BackendWithoutGraph::new(zkey)))
+        Ok(Self::new(ArkGroth16Backend::new(zkey)))
     }
 }
 

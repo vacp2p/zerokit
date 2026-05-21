@@ -17,9 +17,9 @@ pub use crate::protocol::{
 };
 pub use crate::{
     circuit::{
-        graph_from_raw, zkey_from_raw, ArkGroth16BackendWithGraph, ArkGroth16BackendWithoutGraph,
-        Curve, Fq, Fq2, Fr, G1Affine, G1Projective, G2Affine, G2Projective, Graph, PartialProof,
-        Proof, VerifyingKey, Zkey, COMPRESS_PROOF_SIZE, DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH,
+        graph_from_raw, zkey_from_raw, ArkGroth16Backend, ArkGroth16BackendWithGraph, Curve, Fq,
+        Fq2, Fr, G1Affine, G1Projective, G2Affine, G2Projective, Graph, PartialProof, Proof,
+        VerifyingKey, Zkey, COMPRESS_PROOF_SIZE, DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH,
     },
     error::{ProtocolError, RLNError, RecoverSecretError, UtilsError, VerifyError},
     hashers::{
