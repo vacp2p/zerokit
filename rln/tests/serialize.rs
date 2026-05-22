@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod test {
     use ark_ff::{BigInteger, PrimeField};
-    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
     use ark_std::{rand::thread_rng, UniformRand};
     use num_bigint::BigUint;
     use rln::prelude::*;
@@ -418,6 +417,25 @@ mod test {
     }
 
     #[test]
+    fn test_witness_v3_le_truncated_rejected() {
+        for w in [make_witness_input_single(), make_witness_input_multi()] {
+            let mut buf = Vec::new();
+            w.serialize_compressed(&mut buf).unwrap();
+            assert!(RLNWitnessInputV3::deserialize_compressed(&buf[..buf.len() - 1]).is_err());
+        }
+    }
+
+    #[test]
+    fn test_witness_v3_le_extra_bytes_accepted() {
+        for w in [make_witness_input_single(), make_witness_input_multi()] {
+            let mut buf = Vec::new();
+            w.serialize_compressed(&mut buf).unwrap();
+            buf.push(0xff);
+            assert!(RLNWitnessInputV3::deserialize_compressed(buf.as_slice()).is_ok());
+        }
+    }
+
+    #[test]
     fn test_witness_v3_single_be_roundtrip() {
         let w = make_witness_input_single();
         let mut buf = Vec::new();
@@ -449,6 +467,25 @@ mod test {
     }
 
     #[test]
+    fn test_witness_v3_be_truncated_rejected() {
+        for w in [make_witness_input_single(), make_witness_input_multi()] {
+            let mut buf = Vec::new();
+            w.serialize(&mut buf).unwrap();
+            assert!(RLNWitnessInputV3::deserialize(&buf[..buf.len() - 1]).is_err());
+        }
+    }
+
+    #[test]
+    fn test_witness_v3_be_extra_bytes_accepted() {
+        for w in [make_witness_input_single(), make_witness_input_multi()] {
+            let mut buf = Vec::new();
+            w.serialize(&mut buf).unwrap();
+            buf.push(0xff);
+            assert!(RLNWitnessInputV3::deserialize(buf.as_slice()).is_ok());
+        }
+    }
+
+    #[test]
     fn test_partial_witness_v3_le_compressed_roundtrip() {
         let pw = make_partial_witness();
         let mut buf = Vec::new();
@@ -459,6 +496,23 @@ mod test {
     }
 
     #[test]
+    fn test_partial_witness_v3_le_truncated_rejected() {
+        let pw = make_partial_witness();
+        let mut buf = Vec::new();
+        pw.serialize_compressed(&mut buf).unwrap();
+        assert!(RLNPartialWitnessInputV3::deserialize_compressed(&buf[..buf.len() - 1]).is_err());
+    }
+
+    #[test]
+    fn test_partial_witness_v3_le_extra_bytes_accepted() {
+        let pw = make_partial_witness();
+        let mut buf = Vec::new();
+        pw.serialize_compressed(&mut buf).unwrap();
+        buf.push(0xff);
+        assert!(RLNPartialWitnessInputV3::deserialize_compressed(buf.as_slice()).is_ok());
+    }
+
+    #[test]
     fn test_partial_witness_v3_be_roundtrip() {
         let pw = make_partial_witness();
         let mut buf = Vec::new();
@@ -466,6 +520,23 @@ mod test {
         assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&pw));
         let deser = RLNPartialWitnessInputV3::deserialize(buf.as_slice()).unwrap();
         assert_eq!(pw, deser);
+    }
+
+    #[test]
+    fn test_partial_witness_v3_be_truncated_rejected() {
+        let pw = make_partial_witness();
+        let mut buf = Vec::new();
+        pw.serialize(&mut buf).unwrap();
+        assert!(RLNPartialWitnessInputV3::deserialize(&buf[..buf.len() - 1]).is_err());
+    }
+
+    #[test]
+    fn test_partial_witness_v3_be_extra_bytes_accepted() {
+        let pw = make_partial_witness();
+        let mut buf = Vec::new();
+        pw.serialize(&mut buf).unwrap();
+        buf.push(0xff);
+        assert!(RLNPartialWitnessInputV3::deserialize(buf.as_slice()).is_ok());
     }
 
     #[test]
@@ -502,12 +573,31 @@ mod test {
     }
 
     #[test]
-    fn test_proof_values_v3_single_le_invalid_tag_rejected() {
+    fn test_proof_values_v3_le_invalid_tag_rejected() {
         let pv = make_proof_values_single();
         let mut buf = Vec::new();
         pv.serialize_compressed(&mut buf).unwrap();
         buf[0] = 99; // unknown tag
         assert!(RLNProofValuesV3::deserialize_compressed(buf.as_slice()).is_err());
+    }
+
+    #[test]
+    fn test_proof_values_v3_le_truncated_rejected() {
+        for pv in [make_proof_values_single(), make_proof_values_multi()] {
+            let mut buf = Vec::new();
+            pv.serialize_compressed(&mut buf).unwrap();
+            assert!(RLNProofValuesV3::deserialize_compressed(&buf[..buf.len() - 1]).is_err());
+        }
+    }
+
+    #[test]
+    fn test_proof_values_v3_le_extra_bytes_accepted() {
+        for pv in [make_proof_values_single(), make_proof_values_multi()] {
+            let mut buf = Vec::new();
+            pv.serialize_compressed(&mut buf).unwrap();
+            buf.push(0xff);
+            assert!(RLNProofValuesV3::deserialize_compressed(buf.as_slice()).is_ok());
+        }
     }
 
     #[test]
@@ -533,11 +623,30 @@ mod test {
     }
 
     #[test]
-    fn test_proof_values_v3_multi_be_invalid_tag_rejected() {
+    fn test_proof_values_v3_be_invalid_tag_rejected() {
         let pv = make_proof_values_multi();
         let mut buf = Vec::new();
         pv.serialize(&mut buf).unwrap();
         buf[0] = 99; // unknown tag
         assert!(RLNProofValuesV3::deserialize(buf.as_slice()).is_err());
+    }
+
+    #[test]
+    fn test_proof_values_v3_be_truncated_rejected() {
+        for pv in [make_proof_values_single(), make_proof_values_multi()] {
+            let mut buf = Vec::new();
+            pv.serialize(&mut buf).unwrap();
+            assert!(RLNProofValuesV3::deserialize(&buf[..buf.len() - 1]).is_err());
+        }
+    }
+
+    #[test]
+    fn test_proof_values_v3_be_extra_bytes_accepted() {
+        for pv in [make_proof_values_single(), make_proof_values_multi()] {
+            let mut buf = Vec::new();
+            pv.serialize(&mut buf).unwrap();
+            buf.push(0xff);
+            assert!(RLNProofValuesV3::deserialize(buf.as_slice()).is_ok());
+        }
     }
 }

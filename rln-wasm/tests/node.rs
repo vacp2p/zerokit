@@ -190,6 +190,8 @@ mod test {
         )
         .unwrap();
 
+        let proof_values = witness.to_proof_values().unwrap();
+
         let bigint_json = witness.to_bigint_json().unwrap();
 
         // Benchmark witness calculation
@@ -214,20 +216,17 @@ mod test {
             .map(|x| JsBigInt::new(&x.into()).unwrap())
             .collect();
 
-        // Benchmark proof generation with witness
-        let start_generate_rln_proof_with_witness = Date::now();
+        // Benchmark proof generation
+        let start_generate_proof = Date::now();
         for _ in 0..iterations {
             let _ = rln_instance
-                .generate_rln_proof_with_witness(calculated_witness.clone(), &witness)
+                .generate_proof(calculated_witness.clone())
                 .unwrap();
         }
-        let generate_rln_proof_with_witness_result =
-            Date::now() - start_generate_rln_proof_with_witness;
+        let generate_proof_result = Date::now() - start_generate_proof;
 
-        // Generate proof with witness for other benchmarks
-        let proof: WasmRLNProof = rln_instance
-            .generate_rln_proof_with_witness(calculated_witness, &witness)
-            .unwrap();
+        // Generate proof for other benchmarks
+        let proof: WasmRLNProof = rln_instance.generate_proof(calculated_witness).unwrap();
 
         let root = WasmFr::from(tree.root());
         let mut roots = VecWasmFr::new();
@@ -236,12 +235,16 @@ mod test {
         // Benchmark proof verification with the root
         let start_verify_with_roots = Date::now();
         for _ in 0..iterations {
-            let _ = rln_instance.verify_with_roots(&proof, &roots, &x).unwrap();
+            let _ = rln_instance
+                .verify_with_roots(&proof, &proof_values, &roots, &x)
+                .unwrap();
         }
         let verify_with_roots_result = Date::now() - start_verify_with_roots;
 
         // Verify proof with the root for other benchmarks
-        let is_proof_valid = rln_instance.verify_with_roots(&proof, &roots, &x).unwrap();
+        let is_proof_valid = rln_instance
+            .verify_with_roots(&proof, &proof_values, &roots, &x)
+            .unwrap();
         assert!(is_proof_valid, "verification failed");
 
         // Format and display the benchmark results
@@ -267,8 +270,8 @@ mod test {
             format_duration(calculate_witness_result)
         ));
         results.push_str(&format!(
-            "Proof generation with witness: {}\n",
-            format_duration(generate_rln_proof_with_witness_result)
+            "Proof generation: {}\n",
+            format_duration(generate_proof_result)
         ));
         results.push_str(&format!(
             "Proof verification with roots: {}\n",
@@ -357,7 +360,7 @@ mod test {
         let mut extra_le_vec = witness_le_vec.clone();
         extra_le_vec.push(0);
         let extra_le = Uint8Array::from(&extra_le_vec[..]);
-        assert!(WasmRLNWitnessInput::from_bytes_le(&extra_le).is_err());
+        assert!(WasmRLNWitnessInput::from_bytes_le(&extra_le).is_ok());
 
         let witness_be = valid_witness.to_bytes_be().unwrap();
         let witness_be_vec = witness_be.to_vec();
@@ -367,18 +370,32 @@ mod test {
         let mut extra_be_vec = witness_be_vec.clone();
         extra_be_vec.push(0);
         let extra_be = Uint8Array::from(&extra_be_vec[..]);
-        assert!(WasmRLNWitnessInput::from_bytes_be(&extra_be).is_err());
+        assert!(WasmRLNWitnessInput::from_bytes_be(&extra_be).is_ok());
 
-        // Proof values bytes: insufficient length
-        let short_pv = [0u8; FR_BYTE_SIZE * 5 - 1];
-        let short_pv = Uint8Array::from(&short_pv[..]);
-        assert!(WasmRLNProofValues::from_bytes_le(&short_pv).is_err());
-        assert!(WasmRLNProofValues::from_bytes_be(&short_pv).is_err());
+        // Proof values bytes: truncated and extra data
+        let valid_pv = valid_witness.to_proof_values().unwrap();
 
-        // Proof bytes: insufficient length (no proof values)
-        let short_proof = [0u8; COMPRESS_PROOF_SIZE];
-        let short_proof = Uint8Array::from(&short_proof[..]);
-        assert!(WasmRLNProof::from_bytes_le(&short_proof).is_err());
-        assert!(WasmRLNProof::from_bytes_be(&short_proof).is_err());
+        let pv_le = valid_pv.to_bytes_le().unwrap();
+        let pv_le_vec = pv_le.to_vec();
+        let truncated_pv_le = Uint8Array::from(&pv_le_vec[..pv_le_vec.len() - 1]);
+        assert!(WasmRLNProofValues::from_bytes_le(&truncated_pv_le).is_err());
+        let mut extra_pv_le_vec = pv_le_vec.clone();
+        extra_pv_le_vec.push(0);
+        let extra_pv_le = Uint8Array::from(&extra_pv_le_vec[..]);
+        assert!(WasmRLNProofValues::from_bytes_le(&extra_pv_le).is_ok());
+
+        let pv_be = valid_pv.to_bytes_be().unwrap();
+        let pv_be_vec = pv_be.to_vec();
+        let truncated_pv_be = Uint8Array::from(&pv_be_vec[..pv_be_vec.len() - 1]);
+        assert!(WasmRLNProofValues::from_bytes_be(&truncated_pv_be).is_err());
+        let mut extra_pv_be_vec = pv_be_vec.clone();
+        extra_pv_be_vec.push(0);
+        let extra_pv_be = Uint8Array::from(&extra_pv_be_vec[..]);
+        assert!(WasmRLNProofValues::from_bytes_be(&extra_pv_be).is_ok());
+
+        // Proof bytes: insufficient length
+        let proof = [0u8; COMPRESS_PROOF_SIZE];
+        let proof = Uint8Array::from(&proof[..]);
+        assert!(WasmRLNProof::from_bytes_le(&proof).is_err());
     }
 }

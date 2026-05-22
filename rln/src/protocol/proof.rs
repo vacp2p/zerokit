@@ -142,52 +142,47 @@ impl RLNProofValues {
         &self.external_nullifier
     }
 
-    /// Returns the `y` value (only valid for SingleV1).
     pub fn y(&self) -> &Fr {
         match &self.outputs {
             RLNOutputs::SingleV1 { y, .. } => y,
             RLNOutputs::MultiV1 { .. } => {
-                panic!("y() is not available for MultiV1 proof values; use ys()")
+                todo!("y() is not available for MultiV1 proof values; use ys()")
             }
         }
     }
 
-    /// Returns the nullifier (only valid for SingleV1).
     pub fn nullifier(&self) -> &Fr {
         match &self.outputs {
             RLNOutputs::SingleV1 { nullifier, .. } => nullifier,
             RLNOutputs::MultiV1 { .. } => {
-                panic!("nullifier() is not available for MultiV1 proof values; use nullifiers()")
+                todo!("nullifier() is not available for MultiV1 proof values; use nullifiers()")
             }
         }
     }
 
-    /// Returns the selector flags (only valid for MultiV1).
     pub fn selector_used(&self) -> &[bool] {
         match &self.outputs {
             RLNOutputs::MultiV1 { selector_used, .. } => selector_used,
             RLNOutputs::SingleV1 { .. } => {
-                panic!("selector_used() is not available for SingleV1 proof values")
+                todo!("selector_used() is not available for SingleV1 proof values")
             }
         }
     }
 
-    /// Returns the per-message-id `y` values (only valid for MultiV1).
     pub fn ys(&self) -> &[Fr] {
         match &self.outputs {
             RLNOutputs::MultiV1 { ys, .. } => ys,
             RLNOutputs::SingleV1 { .. } => {
-                panic!("ys() is not available for SingleV1 proof values; use y()")
+                todo!("ys() is not available for SingleV1 proof values; use y()")
             }
         }
     }
 
-    /// Returns the per-message-id nullifiers (only valid for MultiV1).
     pub fn nullifiers(&self) -> &[Fr] {
         match &self.outputs {
             RLNOutputs::MultiV1 { nullifiers, .. } => nullifiers,
             RLNOutputs::SingleV1 { .. } => {
-                panic!("nullifiers() is not available for SingleV1 proof values; use nullifier()")
+                todo!("nullifiers() is not available for SingleV1 proof values; use nullifier()")
             }
         }
     }
@@ -595,7 +590,7 @@ pub fn bytes_be_to_rln_partial_proof(bytes: &[u8]) -> Result<(PartialProof, usiz
 // zkSNARK proof generation and verification
 
 /// Converts calculated witness (BigInt) to field elements.
-fn calculated_witness_to_field_elements<E: ark_ec::pairing::Pairing>(
+pub fn calculated_witness_to_field_elements<E: ark_ec::pairing::Pairing>(
     calculated_witness: Vec<BigInt>,
 ) -> Result<Vec<E::ScalarField>, ProtocolError> {
     let modulus = <E::ScalarField as PrimeField>::MODULUS;
@@ -905,7 +900,28 @@ pub enum RLNProofValuesV3 {
 }
 
 impl RLNProofValuesV3 {
-    /// Returns the Merkle tree root from either variant.
+    /// Single only — `Err` if called on Multi.
+    pub fn y(&self) -> Result<Fr, ProtocolError> {
+        match self {
+            RLNProofValuesV3::Single(v) => Ok(v.y),
+            RLNProofValuesV3::Multi(_) => Err(ProtocolError::FieldNotInVariant {
+                field: "y",
+                variant: "Multi",
+            }),
+        }
+    }
+
+    /// Multi only — `Err` if called on Single.
+    pub fn ys(&self) -> Result<&[Fr], ProtocolError> {
+        match self {
+            RLNProofValuesV3::Multi(v) => Ok(&v.ys),
+            RLNProofValuesV3::Single(_) => Err(ProtocolError::FieldNotInVariant {
+                field: "ys",
+                variant: "Single",
+            }),
+        }
+    }
+
     pub fn root(&self) -> Fr {
         match self {
             RLNProofValuesV3::Single(v) => v.root,
@@ -913,11 +929,50 @@ impl RLNProofValuesV3 {
         }
     }
 
-    /// Returns the signal hash from either variant.
+    /// Single only — `Err` if called on Multi.
+    pub fn nullifier(&self) -> Result<Fr, ProtocolError> {
+        match self {
+            RLNProofValuesV3::Single(v) => Ok(v.nullifier),
+            RLNProofValuesV3::Multi(_) => Err(ProtocolError::FieldNotInVariant {
+                field: "nullifier",
+                variant: "Multi",
+            }),
+        }
+    }
+
+    /// Multi only — `Err` if called on Single.
+    pub fn nullifiers(&self) -> Result<&[Fr], ProtocolError> {
+        match self {
+            RLNProofValuesV3::Multi(v) => Ok(&v.nullifiers),
+            RLNProofValuesV3::Single(_) => Err(ProtocolError::FieldNotInVariant {
+                field: "nullifiers",
+                variant: "Single",
+            }),
+        }
+    }
+
     pub fn x(&self) -> Fr {
         match self {
             RLNProofValuesV3::Single(v) => v.x,
             RLNProofValuesV3::Multi(v) => v.x,
+        }
+    }
+
+    pub fn external_nullifier(&self) -> Fr {
+        match self {
+            RLNProofValuesV3::Single(v) => v.external_nullifier,
+            RLNProofValuesV3::Multi(v) => v.external_nullifier,
+        }
+    }
+
+    /// Multi only — `Err` if called on Single.
+    pub fn selector_used(&self) -> Result<&[bool], ProtocolError> {
+        match self {
+            RLNProofValuesV3::Multi(v) => Ok(&v.selector_used),
+            RLNProofValuesV3::Single(_) => Err(ProtocolError::FieldNotInVariant {
+                field: "selector_used",
+                variant: "Single",
+            }),
         }
     }
 }

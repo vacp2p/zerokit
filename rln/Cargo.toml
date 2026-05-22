@@ -31,14 +31,14 @@ ark-serialize = { version = "0.5.0", default-features = false }
 thiserror = "2.0.18"
 
 # Utilities
-rayon = { version = "1.11.0", optional = true }
+rayon = { version = "1.12.0", optional = true }
 byteorder = "1.5.0"
 cfg-if = "1.0.4"
 num-bigint = { version = "0.4.6", default-features = false, features = ["std"] }
 num-traits = "0.2.19"
-rand = "0.8.5"
+rand = "0.8.6"
 rand_chacha = "0.3.1"
-ruint = { version = "1.17.2", default-features = false, features = [
+ruint = { version = "1.18.0", default-features = false, features = [
     "rand",
     "serde",
     "ark-ff-05",

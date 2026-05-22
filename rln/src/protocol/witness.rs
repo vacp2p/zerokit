@@ -10,18 +10,17 @@ use super::{
     FR_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
 };
 use crate::{
-    circuit::Fr,
+    circuit::{Fr, Graph},
     error::ProtocolError,
     hashers::poseidon_hash,
     utils::{
         bytes_be_to_fr, bytes_be_to_vec_bool, bytes_be_to_vec_fr, bytes_be_to_vec_u8,
         bytes_le_to_fr, bytes_le_to_vec_bool, bytes_le_to_vec_fr, bytes_le_to_vec_u8,
         fr_to_bytes_be, fr_to_bytes_le, to_bigint, vec_bool_to_bytes_be, vec_bool_to_bytes_le,
-        vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, IdSecret,
+        vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le, FrOrSecret,
+        IdSecret,
     },
 };
-#[cfg(not(target_arch = "wasm32"))]
-use crate::{circuit::Graph, utils::FrOrSecret};
 
 /// Variant-specific message inputs for RLN witness.
 #[derive(Debug, PartialEq, Clone)]
@@ -190,22 +189,20 @@ impl RLNWitnessInput {
         &self.user_message_limit
     }
 
-    /// Returns the message ID (only valid for SingleV1 witnesses).
     pub fn message_id(&self) -> &Fr {
         match &self.message_inputs {
             RLNMessageInputs::SingleV1 { message_id } => message_id,
             RLNMessageInputs::MultiV1 { .. } => {
-                panic!("message_id() is not available for MultiV1 witness; use message_ids()")
+                todo!("message_id() is not available for MultiV1 witness; use message_ids()")
             }
         }
     }
 
-    /// Returns the multi message IDs (only valid for MultiV1 witnesses).
     pub fn message_ids(&self) -> &[Fr] {
         match &self.message_inputs {
             RLNMessageInputs::MultiV1 { message_ids, .. } => message_ids,
             RLNMessageInputs::SingleV1 { .. } => {
-                panic!("message_ids() is not available for SingleV1 witness; use message_id()")
+                todo!("message_ids() is not available for SingleV1 witness; use message_id()")
             }
         }
     }
@@ -230,12 +227,11 @@ impl RLNWitnessInput {
         &self.external_nullifier
     }
 
-    /// Returns the selector flags (only valid for MultiV1 witnesses).
     pub fn selector_used(&self) -> &[bool] {
         match &self.message_inputs {
             RLNMessageInputs::MultiV1 { selector_used, .. } => selector_used,
             RLNMessageInputs::SingleV1 { .. } => {
-                panic!("selector_used() is not available for SingleV1 witness")
+                todo!("selector_used() is not available for SingleV1 witness")
             }
         }
     }
@@ -938,7 +934,130 @@ pub enum RLNWitnessInputV3 {
     Multi(RLNWitnessInputMulti),
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+impl RLNWitnessInputV3 {
+    pub fn identity_secret(&self) -> &IdSecret {
+        match self {
+            Self::Single(w) => &w.identity_secret,
+            Self::Multi(w) => &w.identity_secret,
+        }
+    }
+
+    pub fn user_message_limit(&self) -> &Fr {
+        match self {
+            Self::Single(w) => &w.user_message_limit,
+            Self::Multi(w) => &w.user_message_limit,
+        }
+    }
+
+    pub fn path_elements(&self) -> &[Fr] {
+        match self {
+            Self::Single(w) => &w.path_elements,
+            Self::Multi(w) => &w.path_elements,
+        }
+    }
+
+    pub fn identity_path_index(&self) -> &[u8] {
+        match self {
+            Self::Single(w) => &w.identity_path_index,
+            Self::Multi(w) => &w.identity_path_index,
+        }
+    }
+
+    pub fn x(&self) -> &Fr {
+        match self {
+            Self::Single(w) => &w.x,
+            Self::Multi(w) => &w.x,
+        }
+    }
+
+    pub fn external_nullifier(&self) -> &Fr {
+        match self {
+            Self::Single(w) => &w.external_nullifier,
+            Self::Multi(w) => &w.external_nullifier,
+        }
+    }
+
+    /// Single only — `Err` if called on Multi.
+    pub fn message_id(&self) -> Result<&Fr, ProtocolError> {
+        match self {
+            Self::Single(w) => Ok(&w.message_id),
+            Self::Multi(_) => Err(ProtocolError::FieldNotInVariant {
+                field: "message_id",
+                variant: "Multi",
+            }),
+        }
+    }
+
+    /// Multi only — `Err` if called on Single.
+    pub fn message_ids(&self) -> Result<&[Fr], ProtocolError> {
+        match self {
+            Self::Multi(w) => Ok(&w.message_ids),
+            Self::Single(_) => Err(ProtocolError::FieldNotInVariant {
+                field: "message_ids",
+                variant: "Single",
+            }),
+        }
+    }
+
+    /// Multi only — `Err` if called on Single.
+    pub fn selector_used(&self) -> Result<&[bool], ProtocolError> {
+        match self {
+            Self::Multi(w) => Ok(&w.selector_used),
+            Self::Single(_) => Err(ProtocolError::FieldNotInVariant {
+                field: "selector_used",
+                variant: "Single",
+            }),
+        }
+    }
+
+    pub fn to_bigint_json(&self) -> Result<serde_json::Value, ProtocolError> {
+        let path_elements_str: Vec<String> = self
+            .path_elements()
+            .iter()
+            .map(|v| to_bigint(v).to_str_radix(10))
+            .collect();
+        let identity_path_index_str: Vec<String> = self
+            .identity_path_index()
+            .iter()
+            .map(|v| BigInt::from(*v).to_str_radix(10))
+            .collect();
+
+        match self {
+            Self::Single(w) => Ok(serde_json::json!({
+                "identitySecret": to_bigint(&w.identity_secret).to_str_radix(10),
+                "userMessageLimit": to_bigint(&w.user_message_limit).to_str_radix(10),
+                "messageId": to_bigint(&w.message_id).to_str_radix(10),
+                "pathElements": path_elements_str,
+                "identityPathIndex": identity_path_index_str,
+                "x": to_bigint(&w.x).to_str_radix(10),
+                "externalNullifier": to_bigint(&w.external_nullifier).to_str_radix(10),
+            })),
+            Self::Multi(w) => {
+                let message_ids_str: Vec<String> = w
+                    .message_ids
+                    .iter()
+                    .map(|id| to_bigint(id).to_str_radix(10))
+                    .collect();
+                let selector_used_str: Vec<String> = w
+                    .selector_used
+                    .iter()
+                    .map(|&v| BigInt::from(v).to_str_radix(10))
+                    .collect();
+                Ok(serde_json::json!({
+                    "identitySecret": to_bigint(&w.identity_secret).to_str_radix(10),
+                    "userMessageLimit": to_bigint(&w.user_message_limit).to_str_radix(10),
+                    "messageId": message_ids_str,
+                    "selectorUsed": selector_used_str,
+                    "pathElements": path_elements_str,
+                    "identityPathIndex": identity_path_index_str,
+                    "x": to_bigint(&w.x).to_str_radix(10),
+                    "externalNullifier": to_bigint(&w.external_nullifier).to_str_radix(10),
+                }))
+            }
+        }
+    }
+}
+
 impl RLNWitnessInputV3 {
     pub(super) fn validate_against_graph(&self, graph: &Graph) -> Result<(), ProtocolError> {
         let (path_len, index_len) = match self {
@@ -981,9 +1100,11 @@ impl RLNWitnessInputV3 {
         }
         Ok(())
     }
+}
 
+impl RLNWitnessInputV3 {
     // TODO: redesign — str-keyed map is fragile; replace with a typed circuit input struct
-    pub(super) fn to_circuit_inputs(&self) -> Vec<(&'static str, Vec<FrOrSecret>)> {
+    pub(crate) fn to_circuit_inputs(&self) -> Vec<(&'static str, Vec<FrOrSecret>)> {
         match self {
             Self::Single(w) => {
                 let identity_path_index_fr: Vec<FrOrSecret> = w
@@ -1201,7 +1322,6 @@ impl RLNPartialWitnessInputV3 {
         })
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     pub(super) fn validate_against_graph(&self, graph: &Graph) -> Result<(), ProtocolError> {
         if self.path_elements.len() != graph.tree_depth {
             return Err(ProtocolError::FieldLengthMismatch(
@@ -1222,8 +1342,7 @@ impl RLNPartialWitnessInputV3 {
         Ok(())
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    pub(super) fn to_circuit_inputs(
+    pub(crate) fn to_circuit_inputs(
         &self,
         max_out: usize,
     ) -> Vec<(&'static str, Vec<Option<FrOrSecret>>)> {
