@@ -84,7 +84,7 @@ impl RLNZkProof for ArkGroth16BackendWithGraph {
         &self,
         calculated_witness: &Self::CalculatedWitness,
     ) -> Result<Self::Proof, Self::Error> {
-        prove(&self.zkey, calculated_witness.as_ref())
+        generate_proof(&self.zkey, calculated_witness.as_ref())
     }
 
     fn verify(&self, proof: &Self::Proof, values: &Self::Values) -> Result<bool, Self::Error> {
@@ -125,7 +125,7 @@ impl RLNZkProof for ArkGroth16Backend {
         &self,
         calculated_witness: &Self::CalculatedWitness,
     ) -> Result<Self::Proof, Self::Error> {
-        prove(&self.zkey, calculated_witness.as_ref())
+        generate_proof(&self.zkey, calculated_witness.as_ref())
     }
 
     fn verify(&self, proof: &Self::Proof, values: &Self::Values) -> Result<bool, Self::Error> {
@@ -182,7 +182,7 @@ impl RLNPartialZkProof for ArkGroth16BackendWithGraph {
     }
 }
 
-fn prove(zkey: &Zkey, calculated_witness: &[Fr]) -> Result<Proof, RLNError> {
+fn generate_proof(zkey: &Zkey, calculated_witness: &[Fr]) -> Result<Proof, RLNError> {
     let mut rng = thread_rng();
     let r = Fr::rand(&mut rng);
     let s = Fr::rand(&mut rng);
