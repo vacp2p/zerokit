@@ -2,13 +2,11 @@
 // It is used by the FFI, WASM and should be used by tests as well
 
 use num_bigint::BigInt;
-use zerokit_utils::merkle_tree::ZerokitMerkleTree;
 #[cfg(not(feature = "stateless"))]
-use {
-    crate::poseidon_tree::PoseidonTree,
-    std::str::FromStr,
-    zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTreeError},
-};
+use zerokit_utils::merkle_tree::ZerokitMerkleTreeError;
+use zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
+#[cfg(not(feature = "stateless"))]
+use {crate::poseidon_tree::PoseidonTree, std::str::FromStr};
 
 use crate::{
     circuit::{
@@ -805,17 +803,102 @@ impl<T, ZkProof> RLNV3<Stateful<T>, ZkProof> {
     }
 }
 
-impl<T: ZerokitMerkleTree, ZkProof> RLNV3<Stateful<T>, ZkProof> {
+impl<T, ZkProof> RLNV3<Stateful<T>, ZkProof>
+where
+    T: ZerokitMerkleTree,
+    T::Hasher: Hasher<Fr = Fr>,
+{
     pub fn tree_depth(&self) -> usize {
-        todo!()
+        self.state.tree.depth()
     }
 
     pub fn get_root(&self) -> Fr {
-        todo!()
+        self.state.tree.root()
     }
 
-    pub fn insert_leaf(&mut self, _index: usize, _leaf: Fr) -> Result<(), RLNError> {
-        todo!()
+    pub fn set_leaf(&mut self, index: usize, leaf: Fr) -> Result<(), RLNError> {
+        self.state.tree.set(index, leaf)?;
+        Ok(())
+    }
+
+    pub fn get_leaf(&self, index: usize) -> Result<Fr, RLNError> {
+        Ok(self.state.tree.get(index)?)
+    }
+
+    pub fn set_leaves_from(&mut self, index: usize, leaves: Vec<Fr>) -> Result<(), RLNError> {
+        self.state
+            .tree
+            .override_range(index, leaves.into_iter(), [].into_iter())?;
+        Ok(())
+    }
+
+    pub fn init_tree_with_leaves(&mut self, leaves: Vec<Fr>) -> Result<(), RLNError> {
+        let depth = self.state.tree.depth();
+        self.state.tree = <T as ZerokitMerkleTree>::default(depth)?;
+        self.set_leaves_from(0, leaves)
+    }
+
+    pub fn atomic_operation(
+        &mut self,
+        index: usize,
+        leaves: Vec<Fr>,
+        indices: Vec<usize>,
+    ) -> Result<(), RLNError> {
+        self.state
+            .tree
+            .override_range(index, leaves.into_iter(), indices.into_iter())?;
+        Ok(())
+    }
+
+    pub fn leaves_set(&self) -> usize {
+        self.state.tree.leaves_set()
+    }
+
+    pub fn set_next_leaf(&mut self, leaf: Fr) -> Result<(), RLNError> {
+        self.state.tree.update_next(leaf)?;
+        Ok(())
+    }
+
+    pub fn delete_leaf(&mut self, index: usize) -> Result<(), RLNError> {
+        self.state.tree.delete(index)?;
+        Ok(())
+    }
+
+    pub fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), RLNError> {
+        self.state.tree.set_metadata(metadata)?;
+        Ok(())
+    }
+
+    pub fn get_metadata(&self) -> Result<Vec<u8>, RLNError> {
+        Ok(self.state.tree.metadata()?)
+    }
+
+    pub fn get_subtree_root(&self, level: usize, index: usize) -> Result<Fr, RLNError> {
+        Ok(self.state.tree.get_subtree_root(level, index)?)
+    }
+
+    pub fn get_empty_leaves_indices(&self) -> Vec<usize> {
+        self.state.tree.get_empty_leaves_indices()
+    }
+
+    pub fn flush(&mut self) -> Result<(), RLNError> {
+        self.state.tree.close_db_connection()?;
+        Ok(())
+    }
+}
+
+impl<T, ZkProof> RLNV3<Stateful<T>, ZkProof>
+where
+    T: ZerokitMerkleTree,
+    T::Hasher: Hasher<Fr = Fr>,
+    T::Proof: ZerokitMerkleProof<Index = u8>,
+    <T::Proof as ZerokitMerkleProof>::Hasher: Hasher<Fr = Fr>,
+{
+    pub fn get_merkle_proof(&self, index: usize) -> Result<(Vec<Fr>, Vec<u8>), RLNError> {
+        let merkle_proof = self.state.tree.proof(index)?;
+        let path_elements = merkle_proof.get_path_elements();
+        let identity_path_index = merkle_proof.get_path_index();
+        Ok((path_elements, identity_path_index))
     }
 }
 
