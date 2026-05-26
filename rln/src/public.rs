@@ -2,9 +2,9 @@
 // It is used by the FFI, WASM and should be used by tests as well
 
 use num_bigint::BigInt;
+use zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleTree};
 #[cfg(not(feature = "stateless"))]
-use zerokit_utils::merkle_tree::ZerokitMerkleTreeError;
-use zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
+use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTreeError};
 #[cfg(not(feature = "stateless"))]
 use {crate::poseidon_tree::PoseidonTree, std::str::FromStr};
 
@@ -885,20 +885,10 @@ where
         self.state.tree.close_db_connection()?;
         Ok(())
     }
-}
 
-impl<T, ZkProof> RLNV3<Stateful<T>, ZkProof>
-where
-    T: ZerokitMerkleTree,
-    T::Hasher: Hasher<Fr = Fr>,
-    T::Proof: ZerokitMerkleProof<Index = u8>,
-    <T::Proof as ZerokitMerkleProof>::Hasher: Hasher<Fr = Fr>,
-{
-    pub fn get_merkle_proof(&self, index: usize) -> Result<(Vec<Fr>, Vec<u8>), RLNError> {
+    pub fn get_merkle_proof(&self, index: usize) -> Result<T::Proof, RLNError> {
         let merkle_proof = self.state.tree.proof(index)?;
-        let path_elements = merkle_proof.get_path_elements();
-        let identity_path_index = merkle_proof.get_path_index();
-        Ok((path_elements, identity_path_index))
+        Ok(merkle_proof)
     }
 }
 

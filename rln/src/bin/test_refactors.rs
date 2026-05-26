@@ -1,5 +1,7 @@
 use rln::prelude::*;
-use zerokit_utils::merkle_tree::{FullMerkleTree, Hasher, OptimalMerkleTree, ZerokitMerkleTree};
+use zerokit_utils::merkle_tree::{
+    FullMerkleTree, Hasher, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
+};
 
 fn main() -> Result<(), RLNError> {
     // Stateless Single
@@ -170,12 +172,12 @@ fn main() -> Result<(), RLNError> {
     let external_nullifier = Fr::from(100);
     let message_id = Fr::from(1);
 
-    let (path_elements, identity_path_index) = rln_stateful.get_merkle_proof(leaf_index)?;
+    let merkle_proof = rln_stateful.get_merkle_proof(leaf_index)?;
     let witness_stateful: RLNWitnessInputV3 = RLNWitnessInputSingle::new(
         identity_secret,
         user_message_limit,
-        path_elements,
-        identity_path_index,
+        merkle_proof.get_path_elements(),
+        merkle_proof.get_path_index(),
         x,
         external_nullifier,
         message_id,
@@ -222,14 +224,13 @@ fn main() -> Result<(), RLNError> {
 
     let x_multi = Fr::from(77);
     let external_nullifier_multi = Fr::from(200);
-    let (path_elements_multi, identity_path_index_multi) =
-        rln_stateful_multi.get_merkle_proof(0)?;
+    let merkle_proof_multi = rln_stateful_multi.get_merkle_proof(0)?;
 
     let witness_stateful_multi: RLNWitnessInputV3 = RLNWitnessInputMulti::new(
         identity_secret_multi,
         user_message_limit_multi,
-        path_elements_multi,
-        identity_path_index_multi,
+        merkle_proof_multi.get_path_elements(),
+        merkle_proof_multi.get_path_index(),
         x_multi,
         external_nullifier_multi,
         (1..=DEFAULT_MAX_OUT as u64).map(Fr::from).collect(),
@@ -267,12 +268,12 @@ fn main() -> Result<(), RLNError> {
     rln_stateful_partial.set_leaf(0, rate_commitment_p)?;
 
     let x_p = Fr::from(55);
-    let (path_elements_p, identity_path_index_p) = rln_stateful_partial.get_merkle_proof(0)?;
+    let merkle_proof_p = rln_stateful_partial.get_merkle_proof(0)?;
     let witness_stateful_p: RLNWitnessInputV3 = RLNWitnessInputSingle::new(
         identity_secret_p,
         user_message_limit_p,
-        path_elements_p,
-        identity_path_index_p,
+        merkle_proof_p.get_path_elements(),
+        merkle_proof_p.get_path_index(),
         x_p,
         Fr::from(300),
         Fr::from(1),
