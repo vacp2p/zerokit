@@ -1,9 +1,8 @@
 #![cfg(target_arch = "wasm32")]
 #![cfg(not(feature = "utils"))]
 
-use js_sys::{Object, Uint8Array};
+use js_sys::Uint8Array;
 use rln::prelude::*;
-use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 use crate::wasm_utils::{VecWasmFr, WasmFr};
