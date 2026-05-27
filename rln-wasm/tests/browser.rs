@@ -8,6 +8,7 @@ mod test {
     use rln_wasm::{
         Hasher, Identity, VecWasmFr, WasmFr, WasmRLN, WasmRLNProof, WasmRLNWitnessInput,
     };
+    #[cfg(feature = "parallel")]
     use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
     use wasm_bindgen_test::{console_log, wasm_bindgen_test, wasm_bindgen_test_configure};
     use zerokit_utils::merkle_tree::{
@@ -16,6 +17,7 @@ mod test {
     #[cfg(feature = "parallel")]
     use {rln_wasm::init_thread_pool, wasm_bindgen_futures::JsFuture, web_sys::window};
 
+    #[cfg(feature = "parallel")]
     #[wasm_bindgen(inline_js = r#"
     export function isThreadpoolSupported() {
       return typeof SharedArrayBuffer !== 'undefined' &&
