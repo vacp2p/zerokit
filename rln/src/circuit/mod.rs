@@ -148,8 +148,7 @@ pub fn graph_from_raw(
     }
 
     let (nodes, signals, input_mapping) =
-        deserialize_witnesscalc_graph(std::io::Cursor::new(graph_data))
-            .map_err(GraphReadError::GraphDeserialization)?;
+        deserialize_witnesscalc_graph(std::io::Cursor::new(graph_data))?;
 
     let tree_depth = {
         let depth = input_mapping

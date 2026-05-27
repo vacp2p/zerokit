@@ -381,9 +381,7 @@ impl ZerokitMerkleTree for PmTree {
     /// will not be changed (== previously used index cannot be reused - this to avoid replay
     /// attacks or unexpected and very hard to tackle issues)
     fn delete(&mut self, index: usize) -> Result<(), ZerokitMerkleTreeError> {
-        self.tree
-            .delete(index)
-            .map_err(ZerokitMerkleTreeError::PmtreeErrorKind)?;
+        self.tree.delete(index)?;
         self.cached_leaves_indices[index] = 0;
         Ok(())
     }
@@ -406,10 +404,7 @@ impl ZerokitMerkleTree for PmTree {
     }
 
     fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), ZerokitMerkleTreeError> {
-        self.tree
-            .db
-            .put(METADATA_KEY, metadata.to_vec())
-            .map_err(ZerokitMerkleTreeError::PmtreeErrorKind)?;
+        self.tree.db.put(METADATA_KEY, metadata.to_vec())?;
         self.metadata = metadata.to_vec();
         Ok(())
     }

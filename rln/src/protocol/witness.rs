@@ -1009,53 +1009,6 @@ impl RLNWitnessInputV3 {
             }),
         }
     }
-
-    pub fn to_bigint_json(&self) -> Result<serde_json::Value, ProtocolError> {
-        let path_elements_str: Vec<String> = self
-            .path_elements()
-            .iter()
-            .map(|v| to_bigint(v).to_str_radix(10))
-            .collect();
-        let identity_path_index_str: Vec<String> = self
-            .identity_path_index()
-            .iter()
-            .map(|v| BigInt::from(*v).to_str_radix(10))
-            .collect();
-
-        match self {
-            Self::Single(w) => Ok(serde_json::json!({
-                "identitySecret": to_bigint(&w.identity_secret).to_str_radix(10),
-                "userMessageLimit": to_bigint(&w.user_message_limit).to_str_radix(10),
-                "messageId": to_bigint(&w.message_id).to_str_radix(10),
-                "pathElements": path_elements_str,
-                "identityPathIndex": identity_path_index_str,
-                "x": to_bigint(&w.x).to_str_radix(10),
-                "externalNullifier": to_bigint(&w.external_nullifier).to_str_radix(10),
-            })),
-            Self::Multi(w) => {
-                let message_ids_str: Vec<String> = w
-                    .message_ids
-                    .iter()
-                    .map(|id| to_bigint(id).to_str_radix(10))
-                    .collect();
-                let selector_used_str: Vec<String> = w
-                    .selector_used
-                    .iter()
-                    .map(|&v| BigInt::from(v).to_str_radix(10))
-                    .collect();
-                Ok(serde_json::json!({
-                    "identitySecret": to_bigint(&w.identity_secret).to_str_radix(10),
-                    "userMessageLimit": to_bigint(&w.user_message_limit).to_str_radix(10),
-                    "messageId": message_ids_str,
-                    "selectorUsed": selector_used_str,
-                    "pathElements": path_elements_str,
-                    "identityPathIndex": identity_path_index_str,
-                    "x": to_bigint(&w.x).to_str_radix(10),
-                    "externalNullifier": to_bigint(&w.external_nullifier).to_str_radix(10),
-                }))
-            }
-        }
-    }
 }
 
 impl RLNWitnessInputV3 {

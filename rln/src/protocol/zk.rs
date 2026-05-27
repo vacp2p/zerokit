@@ -8,7 +8,7 @@ use crate::{
         qap::CircomReduction,
         ArkGroth16Backend, Fr, PartialProof, Proof,
     },
-    error::{ProtocolError, RLNError},
+    error::ProtocolError,
     partial_proof::{Groth16Partial, PartialAssignment},
     prelude::{CanonicalDeserializeBE, CanonicalSerializeBE, RLNPartialWitnessInputV3},
     protocol::{proof::RLNProofValuesV3, witness::RLNWitnessInputV3},
@@ -61,7 +61,7 @@ impl RLNZkProof for ArkGroth16Backend {
     type Witness = RLNWitnessInputV3;
     type Values = RLNProofValuesV3;
     type Proof = Proof;
-    type Error = RLNError;
+    type Error = ProtocolError;
 
     fn generate_proof(&self, witness: &Self::Witness) -> Result<Self::Proof, Self::Error> {
         witness.validate_against_graph(&self.graph)?;
@@ -71,12 +71,12 @@ impl RLNZkProof for ArkGroth16Backend {
             .into_iter()
             .map(|(k, v)| (k.to_string(), v));
 
-        let calculated_witness = calc_witness(inputs, &self.graph).map_err(ProtocolError::from)?;
+        let calculated_witness = calc_witness(inputs, &self.graph)?;
 
         let mut rng = thread_rng();
         let r = Fr::rand(&mut rng);
         let s = Fr::rand(&mut rng);
-        Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
+        let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
             &self.zkey.0,
             r,
             s,
@@ -84,9 +84,8 @@ impl RLNZkProof for ArkGroth16Backend {
             self.zkey.1.num_instance_variables,
             self.zkey.1.num_constraints,
             &calculated_witness,
-        )
-        .map_err(ProtocolError::from)
-        .map_err(Into::into)
+        )?;
+        Ok(proof)
     }
 
     fn verify(&self, proof: &Self::Proof, values: &Self::Values) -> Result<bool, Self::Error> {
@@ -95,7 +94,8 @@ impl RLNZkProof for ArkGroth16Backend {
                 vec![v.y, v.root, v.nullifier, v.x, v.external_nullifier]
             }
             RLNProofValuesV3::Multi(v) => {
-                let mut inputs = Vec::with_capacity(3 * v.ys.len() + 3);
+                let mut inputs =
+                    Vec::with_capacity(v.ys.len() + v.nullifiers.len() + v.selector_used.len() + 3);
                 inputs.extend_from_slice(&v.ys);
                 inputs.push(v.root);
                 inputs.extend_from_slice(&v.nullifiers);
@@ -108,9 +108,8 @@ impl RLNZkProof for ArkGroth16Backend {
             }
         };
         let pvk = prepare_verifying_key(&self.zkey.0.vk);
-        Groth16::<_, CircomReduction>::verify_proof(&pvk, proof, &public_inputs)
-            .map_err(ProtocolError::from)
-            .map_err(Into::into)
+        let verified = Groth16::<_, CircomReduction>::verify_proof(&pvk, proof, &public_inputs)?;
+        Ok(verified)
     }
 }
 
@@ -129,12 +128,12 @@ impl RLNPartialZkProof for ArkGroth16Backend {
             .into_iter()
             .map(|(k, v)| (k.to_string(), v));
 
-        let full_assignment =
-            calc_witness_partial(inputs, &self.graph).map_err(ProtocolError::from)?;
+        let full_assignment = calc_witness_partial(inputs, &self.graph)?;
 
         let partial_assignment = PartialAssignment::new(full_assignment[1..].to_vec());
         let partial_proof =
             Groth16Partial::<_, CircomReduction>::prove_partial(&self.zkey.0, &partial_assignment)?;
+
         Ok(partial_proof)
     }
 
@@ -150,12 +149,13 @@ impl RLNPartialZkProof for ArkGroth16Backend {
             .into_iter()
             .map(|(k, v)| (k.to_string(), v));
 
-        let calculated_witness = calc_witness(inputs, &self.graph).map_err(ProtocolError::from)?;
+        let calculated_witness = calc_witness(inputs, &self.graph)?;
 
         let mut rng = thread_rng();
         let r = Fr::rand(&mut rng);
         let s = Fr::rand(&mut rng);
-        Groth16Partial::<_, CircomReduction>::finish_proof_with_matrices(
+
+        let full_proof = Groth16Partial::<_, CircomReduction>::finish_proof_with_matrices(
             &self.zkey.0,
             &partial,
             r,
@@ -164,7 +164,8 @@ impl RLNPartialZkProof for ArkGroth16Backend {
             self.zkey.1.num_instance_variables,
             self.zkey.1.num_constraints,
             &calculated_witness,
-        )
-        .map_err(Into::into)
+        )?;
+
+        Ok(full_proof)
     }
 }

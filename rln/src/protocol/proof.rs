@@ -977,17 +977,6 @@ impl RLNProofValuesV3 {
     }
 }
 
-impl TryFrom<RLNWitnessInputV3> for RLNProofValuesV3 {
-    type Error = ProtocolError;
-
-    fn try_from(witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
-        match witness {
-            RLNWitnessInputV3::Single(w) => Ok(RLNProofValuesV3::Single(w.try_into()?)),
-            RLNWitnessInputV3::Multi(w) => Ok(RLNProofValuesV3::Multi(w.try_into()?)),
-        }
-    }
-}
-
 impl TryFrom<&RLNWitnessInputV3> for RLNProofValuesV3 {
     type Error = ProtocolError;
 
@@ -1019,14 +1008,6 @@ pub struct RLNProofValuesSingle {
     pub nullifier: Fr,
     pub x: Fr,
     pub external_nullifier: Fr,
-}
-
-impl TryFrom<RLNWitnessInputSingle> for RLNProofValuesSingle {
-    type Error = ProtocolError;
-
-    fn try_from(w: RLNWitnessInputSingle) -> Result<Self, Self::Error> {
-        RLNProofValuesSingle::try_from(&w)
-    }
 }
 
 impl TryFrom<&RLNWitnessInputSingle> for RLNProofValuesSingle {
@@ -1092,14 +1073,6 @@ pub struct RLNProofValuesMulti {
     pub x: Fr,
     pub external_nullifier: Fr,
     pub selector_used: Vec<bool>,
-}
-
-impl TryFrom<RLNWitnessInputMulti> for RLNProofValuesMulti {
-    type Error = ProtocolError;
-
-    fn try_from(w: RLNWitnessInputMulti) -> Result<Self, Self::Error> {
-        RLNProofValuesMulti::try_from(&w)
-    }
 }
 
 impl TryFrom<&RLNWitnessInputMulti> for RLNProofValuesMulti {

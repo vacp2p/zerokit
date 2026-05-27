@@ -143,9 +143,7 @@ impl CanonicalSerializeBE for Vec<Fr> {
     type Error = UtilsError;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        writer
-            .write_all(&normalize_usize_be(self.len()))
-            .map_err(UtilsError::IoError)?;
+        writer.write_all(&normalize_usize_be(self.len()))?;
         for fr in self {
             fr.serialize(&mut writer)?;
         }
@@ -176,9 +174,7 @@ impl CanonicalSerializeBE for Vec<u8> {
     type Error = UtilsError;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        writer
-            .write_all(&normalize_usize_be(self.len()))
-            .map_err(UtilsError::IoError)?;
+        writer.write_all(&normalize_usize_be(self.len()))?;
         writer.write_all(self).map_err(UtilsError::IoError)
     }
 
@@ -204,11 +200,9 @@ impl CanonicalSerializeBE for Vec<bool> {
     type Error = UtilsError;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        writer
-            .write_all(&normalize_usize_be(self.len()))
-            .map_err(UtilsError::IoError)?;
+        writer.write_all(&normalize_usize_be(self.len()))?;
         for &b in self {
-            writer.write_all(&[b as u8]).map_err(UtilsError::IoError)?;
+            writer.write_all(&[b as u8])?;
         }
         Ok(())
     }

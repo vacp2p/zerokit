@@ -937,7 +937,8 @@ impl RLNV3<Stateless, ArkGroth16Backend> {
 
 impl<Tree, ZkProof> RLNV3<Tree, ZkProof>
 where
-    ZkProof: RLNZkProof<Values = RLNProofValuesV3, Proof = Proof, Error = RLNError>,
+    ZkProof: RLNZkProof<Values = RLNProofValuesV3, Proof = Proof>,
+    RLNError: From<ZkProof::Error>,
 {
     pub fn verify_with_roots(
         &self,

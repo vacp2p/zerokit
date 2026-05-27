@@ -366,18 +366,4 @@ impl WasmRLNWitnessInput {
             .map(WasmRLNProofValues)
             .map_err(|e| e.to_string())
     }
-
-    #[wasm_bindgen(js_name = toBigIntJson)]
-    pub fn to_bigint_json(&self) -> Result<Object, String> {
-        let bigint_json = self.0.to_bigint_json().map_err(|err| err.to_string())?;
-
-        let serializer = serde_wasm_bindgen::Serializer::json_compatible();
-        let js_value = bigint_json
-            .serialize(&serializer)
-            .map_err(|err| err.to_string())?;
-
-        js_value
-            .dyn_into::<Object>()
-            .map_err(|err| format!("{:#?}", err))
-    }
 }

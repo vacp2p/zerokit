@@ -68,7 +68,7 @@ mod test {
         (1..=DEFAULT_MAX_OUT).map(|i| Fr::from(i as u64)).collect()
     }
 
-    fn values(witness: RLNWitnessInputV3) -> RLNProofValuesV3 {
+    fn values(witness: &RLNWitnessInputV3) -> RLNProofValuesV3 {
         RLNProofValuesV3::try_from(witness).unwrap()
     }
 
@@ -83,7 +83,7 @@ mod test {
             Fr::from(100u64),
         );
         let proof = backend.generate_proof(&witness).unwrap();
-        let vals = values(witness);
+        let vals = values(&witness);
         assert!(backend.verify(&proof, &vals).unwrap());
     }
 
@@ -105,7 +105,7 @@ mod test {
             Fr::from(100u64),
         );
         let proof1 = backend.generate_proof(&w1).unwrap();
-        let vals2 = values(w2);
+        let vals2 = values(&w2);
         assert!(!backend.verify(&proof1, &vals2).unwrap());
     }
 
@@ -134,7 +134,7 @@ mod test {
             Fr::from(100u64),
         );
         let proof = backend.generate_proof(&witness).unwrap();
-        let vals = values(witness);
+        let vals = values(&witness);
         assert!(backend.verify(&proof, &vals).unwrap());
     }
 
@@ -150,7 +150,7 @@ mod test {
             Fr::from(100u64),
         );
         let proof = backend.generate_proof(&witness).unwrap();
-        let vals = values(witness);
+        let vals = values(&witness);
         assert!(backend.verify(&proof, &vals).unwrap());
     }
 
@@ -171,14 +171,14 @@ mod test {
     #[test]
     fn test_recover_secret_single_x_single() {
         let (id, _) = keygen();
-        let v1 = values(single_witness(
+        let v1 = values(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             Fr::from(200u64),
         ));
-        let v2 = values(single_witness(
+        let v2 = values(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
@@ -191,14 +191,14 @@ mod test {
     #[test]
     fn test_recover_secret_mismatched_nullifier_fails() {
         let (id, _) = keygen();
-        let v1 = values(single_witness(
+        let v1 = values(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             Fr::from(200u64),
         ));
-        let v2 = values(single_witness(
+        let v2 = values(&single_witness(
             id,
             default_path(),
             Fr::from(2u64),
@@ -211,7 +211,7 @@ mod test {
     #[test]
     fn test_recover_secret_multi_x_multi() {
         let (id, _) = keygen();
-        let v1 = values(multi_witness(
+        let v1 = values(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
@@ -219,7 +219,7 @@ mod test {
             Fr::from(11u64),
             Fr::from(200u64),
         ));
-        let v2 = values(multi_witness(
+        let v2 = values(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
@@ -236,7 +236,7 @@ mod test {
         let ids2: Vec<Fr> = (1..=DEFAULT_MAX_OUT)
             .map(|i| Fr::from((i + DEFAULT_MAX_OUT) as u64))
             .collect();
-        let v1 = values(multi_witness(
+        let v1 = values(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
@@ -244,7 +244,7 @@ mod test {
             Fr::from(11u64),
             Fr::from(200u64),
         ));
-        let v2 = values(multi_witness(
+        let v2 = values(&multi_witness(
             id,
             default_path(),
             ids2,
@@ -259,14 +259,14 @@ mod test {
     fn test_recover_secret_single_x_multi() {
         let (id, _) = keygen();
         let ext = Fr::from(300u64);
-        let sv = values(single_witness(
+        let sv = values(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             ext,
         ));
-        let mv = values(multi_witness(
+        let mv = values(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
@@ -290,7 +290,7 @@ mod test {
             Fr::from(100u64),
         );
         let proof = rln.generate_proof(&witness).unwrap();
-        assert!(rln.verify(&proof, &values(witness)).unwrap());
+        assert!(rln.verify(&proof, &values(&witness)).unwrap());
     }
 
     #[test]
@@ -306,7 +306,7 @@ mod test {
             Fr::from(100u64),
         );
         let proof = rln.generate_proof(&witness).unwrap();
-        assert!(rln.verify(&proof, &values(witness)).unwrap());
+        assert!(rln.verify(&proof, &values(&witness)).unwrap());
     }
 
     #[test]
@@ -326,8 +326,8 @@ mod test {
             Fr::from(22u64),
             Fr::from(200u64),
         );
-        let v1 = values(w1);
-        let v2 = values(w2);
+        let v1 = values(&w1);
+        let v2 = values(&w2);
         assert_eq!(*v1.recover_secret(&v2).unwrap(), *id);
     }
 
@@ -335,14 +335,14 @@ mod test {
     fn test_rlnv3_stateless_recover_secret_cross_mode() {
         let (id, _) = keygen();
         let ext = Fr::from(300u64);
-        let sv = values(single_witness(
+        let sv = values(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             ext,
         ));
-        let mv = values(multi_witness(
+        let mv = values(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
@@ -374,7 +374,7 @@ mod test {
         .unwrap();
         let partial_proof = rln.generate_partial_proof(partial).unwrap();
         let proof = rln.finish_proof(partial_proof, witness.clone()).unwrap();
-        assert!(rln.verify(&proof, &values(witness)).unwrap());
+        assert!(rln.verify(&proof, &values(&witness)).unwrap());
     }
 
     #[test]
@@ -398,7 +398,7 @@ mod test {
         .unwrap();
         let partial_proof = rln.generate_partial_proof(partial).unwrap();
         let proof = rln.finish_proof(partial_proof, witness.clone()).unwrap();
-        assert!(rln.verify(&proof, &values(witness)).unwrap());
+        assert!(rln.verify(&proof, &values(&witness)).unwrap());
     }
 
     #[test]
@@ -421,7 +421,7 @@ mod test {
         .unwrap();
         let partial_proof = rln.generate_partial_proof(partial).unwrap();
         let proof = rln.finish_proof(partial_proof, witness.clone()).unwrap();
-        assert!(rln.verify(&proof, &values(witness)).unwrap());
+        assert!(rln.verify(&proof, &values(&witness)).unwrap());
     }
 
     #[test]
@@ -467,7 +467,7 @@ mod test {
         let x = Fr::from(42u64);
         let witness = single_witness(id, default_path(), Fr::from(1u64), x, Fr::from(100u64));
         let proof = rln.generate_proof(&witness).unwrap();
-        let vals = values(witness);
+        let vals = values(&witness);
         assert!(rln.verify_with_roots(&proof, &vals, &x, &[]).unwrap());
     }
 
@@ -478,7 +478,7 @@ mod test {
         let x = Fr::from(42u64);
         let witness = single_witness(id, default_path(), Fr::from(1u64), x, Fr::from(100u64));
         let proof = rln.generate_proof(&witness).unwrap();
-        let vals = values(witness);
+        let vals = values(&witness);
         let root = vals.root();
         assert!(rln.verify_with_roots(&proof, &vals, &x, &[root]).unwrap());
     }
@@ -490,7 +490,7 @@ mod test {
         let x = Fr::from(42u64);
         let witness = single_witness(id, default_path(), Fr::from(1u64), x, Fr::from(100u64));
         let proof = rln.generate_proof(&witness).unwrap();
-        let vals = values(witness);
+        let vals = values(&witness);
         assert!(matches!(
             rln.verify_with_roots(&proof, &vals, &x, &[Fr::from(9999u64)]),
             Err(RLNError::Verify(VerifyError::InvalidRoot))
@@ -504,7 +504,7 @@ mod test {
         let x = Fr::from(42u64);
         let witness = single_witness(id, default_path(), Fr::from(1u64), x, Fr::from(100u64));
         let proof = rln.generate_proof(&witness).unwrap();
-        let vals = values(witness);
+        let vals = values(&witness);
         assert!(matches!(
             rln.verify_with_roots(&proof, &vals, &Fr::from(9999u64), &[]),
             Err(RLNError::Verify(VerifyError::InvalidSignal))
@@ -525,7 +525,7 @@ mod test {
             Fr::from(100u64),
         );
         let proof = rln.generate_proof(&witness).unwrap();
-        let vals = values(witness);
+        let vals = values(&witness);
         let root = vals.root();
         assert!(rln.verify_with_roots(&proof, &vals, &x, &[root]).unwrap());
     }
@@ -544,7 +544,7 @@ mod test {
             Fr::from(100u64),
         );
         let proof = rln.generate_proof(&witness).unwrap();
-        let vals = values(witness);
+        let vals = values(&witness);
         assert!(matches!(
             rln.verify_with_roots(&proof, &vals, &x, &[Fr::from(9999u64)]),
             Err(RLNError::Verify(VerifyError::InvalidRoot))
@@ -555,14 +555,14 @@ mod test {
     fn test_v3_recover_id_secret_single() {
         let (id, _) = keygen();
         let ext = Fr::from(100u64);
-        let v1 = values(single_witness(
+        let v1 = values(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             ext,
         ));
-        let v2 = values(single_witness(
+        let v2 = values(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
@@ -576,7 +576,7 @@ mod test {
     fn test_v3_recover_id_secret_multi() {
         let (id, _) = keygen();
         let ext = Fr::from(100u64);
-        let v1 = values(multi_witness(
+        let v1 = values(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
@@ -584,7 +584,7 @@ mod test {
             Fr::from(11u64),
             ext,
         ));
-        let v2 = values(multi_witness(
+        let v2 = values(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
@@ -599,14 +599,14 @@ mod test {
     fn test_v3_recover_id_secret_cross_mode() {
         let (id, _) = keygen();
         let ext = Fr::from(300u64);
-        let sv = values(single_witness(
+        let sv = values(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             ext,
         ));
-        let mv = values(multi_witness(
+        let mv = values(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
