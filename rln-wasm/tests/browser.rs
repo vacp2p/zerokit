@@ -3,7 +3,7 @@
 
 #[cfg(test)]
 mod test {
-    use js_sys::{BigInt as JsBigInt, Date, Object, Uint8Array};
+    use js_sys::{Date, Uint8Array};
     use rln::prelude::*;
     use rln_wasm::{
         Hasher, Identity, VecWasmFr, WasmFr, WasmRLN, WasmRLNProof, WasmRLNWitnessInput,
@@ -23,88 +23,44 @@ mod test {
              typeof crossOriginIsolated !== 'undefined' &&
              crossOriginIsolated;
     }
-
-    export function initWitnessCalculator(jsCode) {
-      const processedCode = jsCode
-        .replace(/export\s+async\s+function\s+builder/, 'async function builder')
-        .replace(/export\s*\{\s*builder\s*\};?/g, '');
-
-      const moduleFunc = new Function(processedCode + '\nreturn { builder };');
-      const witnessCalculatorModule = moduleFunc();
-
-      window.witnessCalculatorBuilder = witnessCalculatorModule.builder;
-
-      if (typeof window.witnessCalculatorBuilder !== 'function') {
-        return false;
-      }
-      return true;
-    }
-
-    export function readFile(data) {
-      return new Uint8Array(data);
-    }
-
-    export async function calculateWitness(circom_data, inputs) {
-      const wasmBuffer = circom_data instanceof Uint8Array ? circom_data : new Uint8Array(circom_data);
-      const witnessCalculator = await window.witnessCalculatorBuilder(wasmBuffer);
-      const calculatedWitness = await witnessCalculator.calculateWitness(inputs, false);
-      return JSON.stringify(calculatedWitness, (key, value) =>
-        typeof value === "bigint" ? value.toString() : value
-      );
-    }
     "#)]
     extern "C" {
         #[wasm_bindgen(catch)]
         fn isThreadpoolSupported() -> Result<bool, JsValue>;
-
-        #[wasm_bindgen(catch)]
-        fn initWitnessCalculator(js: &str) -> Result<bool, JsValue>;
-
-        #[wasm_bindgen(catch)]
-        fn readFile(data: &[u8]) -> Result<Uint8Array, JsValue>;
-
-        #[wasm_bindgen(catch)]
-        async fn calculateWitness(circom_data: &[u8], inputs: Object) -> Result<JsValue, JsValue>;
     }
-
-    const WITNESS_CALCULATOR_JS: &str = include_str!("../resources/witness_calculator.js");
 
     const ARKZKEY_BYTES: &[u8] =
         include_bytes!("../../rln/resources/tree_depth_20/rln_final.arkzkey");
 
-    const CIRCOM_BYTES: &[u8] = include_bytes!("../../rln/resources/tree_depth_20/rln.wasm");
+    const GRAPH_BYTES: &[u8] = include_bytes!("../../rln/resources/tree_depth_20/graph.bin");
 
     wasm_bindgen_test_configure!(run_in_browser);
 
     #[wasm_bindgen_test]
     pub async fn rln_wasm_benchmark() {
-        // Check if thread pool is supported
         #[cfg(feature = "parallel")]
         if !isThreadpoolSupported().unwrap() {
             panic!("Thread pool is NOT supported");
         } else {
-            // Initialize thread pool
             let cpu_count = window().unwrap().navigator().hardware_concurrency() as usize;
             JsFuture::from(init_thread_pool(cpu_count)).await.unwrap();
         }
 
-        // Initialize witness calculator
-        initWitnessCalculator(WITNESS_CALCULATOR_JS).unwrap();
-
         let mut results = String::from("\nBenchmarks:\n");
         let iterations = 10;
 
-        let zkey = readFile(ARKZKEY_BYTES).unwrap();
+        let zkey = Uint8Array::from(ARKZKEY_BYTES);
+        let graph = Uint8Array::from(GRAPH_BYTES);
 
         // Benchmark RLN instance creation
         let start_rln_new = Date::now();
         for _ in 0..iterations {
-            let _ = WasmRLN::new(&zkey).unwrap();
+            let _ = WasmRLN::new_with_params(&zkey, &graph).unwrap();
         }
         let rln_new_result = Date::now() - start_rln_new;
 
         // Create RLN instance for other benchmarks
-        let rln_instance = WasmRLN::new(&zkey).unwrap();
+        let rln_instance = WasmRLN::new_with_params(&zkey, &graph).unwrap();
         let mut tree: OptimalMerkleTree<PoseidonHash> =
             OptimalMerkleTree::default(DEFAULT_TREE_DEPTH).unwrap();
 
@@ -126,9 +82,7 @@ mod test {
         let external_nullifier = Hasher::poseidon_hash_pair(&epoch, &rln_identifier);
 
         let identity_index = tree.leaves_set();
-
         let user_message_limit = WasmFr::from_uint(10);
-
         let rate_commitment = Hasher::poseidon_hash_pair(&id_commitment, &user_message_limit);
         tree.update_next(*rate_commitment).unwrap();
 
@@ -137,7 +91,6 @@ mod test {
         let x = Hasher::hash_to_field_le(&Uint8Array::from(&signal[..]));
 
         let merkle_proof: OptimalMerkleProof<PoseidonHash> = tree.proof(identity_index).unwrap();
-
         let mut path_elements = VecWasmFr::new();
         for path_element in merkle_proof.get_path_elements() {
             path_elements.push(&WasmFr::from(path_element));
@@ -157,41 +110,15 @@ mod test {
 
         let proof_values = witness.to_proof_values().unwrap();
 
-        let bigint_json = witness.to_bigint_json().unwrap();
-
-        // Benchmark witness calculation
-        let start_calculate_witness = Date::now();
-        for _ in 0..iterations {
-            let _ = calculateWitness(CIRCOM_BYTES, bigint_json.clone())
-                .await
-                .unwrap();
-        }
-        let calculate_witness_result = Date::now() - start_calculate_witness;
-
-        // Calculate witness for other benchmarks
-        let calculated_witness_str = calculateWitness(CIRCOM_BYTES, bigint_json.clone())
-            .await
-            .unwrap()
-            .as_string()
-            .unwrap();
-        let calculated_witness_vec_str: Vec<String> =
-            serde_json::from_str(&calculated_witness_str).unwrap();
-        let calculated_witness: Vec<JsBigInt> = calculated_witness_vec_str
-            .iter()
-            .map(|x| JsBigInt::new(&x.into()).unwrap())
-            .collect();
-
         // Benchmark proof generation
         let start_generate_proof = Date::now();
         for _ in 0..iterations {
-            let _ = rln_instance
-                .generate_proof(calculated_witness.clone())
-                .unwrap();
+            let _ = rln_instance.generate_proof(&witness).unwrap();
         }
         let generate_proof_result = Date::now() - start_generate_proof;
 
         // Generate proof for other benchmarks
-        let proof: WasmRLNProof = rln_instance.generate_proof(calculated_witness).unwrap();
+        let proof: WasmRLNProof = rln_instance.generate_proof(&witness).unwrap();
 
         let root = WasmFr::from(tree.root());
         let mut roots = VecWasmFr::new();
@@ -206,13 +133,11 @@ mod test {
         }
         let verify_with_roots_result = Date::now() - start_verify_with_roots;
 
-        // Verify proof with the root for other benchmarks
         let is_proof_valid = rln_instance
             .verify_with_roots(&proof, &proof_values, &roots, &x)
             .unwrap();
         assert!(is_proof_valid, "verification failed");
 
-        // Format and display the benchmark results
         let format_duration = |duration_ms: f64| -> String {
             let avg_ms = duration_ms / (iterations as f64);
             if avg_ms >= 1000.0 {
@@ -231,10 +156,6 @@ mod test {
             format_duration(identity_gen_result)
         ));
         results.push_str(&format!(
-            "Witness calculation: {}\n",
-            format_duration(calculate_witness_result)
-        ));
-        results.push_str(&format!(
             "Proof generation: {}\n",
             format_duration(generate_proof_result)
         ));
@@ -243,7 +164,6 @@ mod test {
             format_duration(verify_with_roots_result)
         ));
 
-        // Log the results
         console_log!("{results}");
     }
 }

@@ -13,20 +13,6 @@ function debugUint8Array(uint8Array) {
   ).join(", ");
 }
 
-async function calculateWitness(circomPath, inputs, witnessCalculatorFile) {
-  const wasmFile = readFileSync(circomPath);
-  const wasmFileBuffer = wasmFile.buffer.slice(
-    wasmFile.byteOffset,
-    wasmFile.byteOffset + wasmFile.byteLength,
-  );
-  const witnessCalculator = await witnessCalculatorFile(wasmFileBuffer);
-  const calculatedWitness = await witnessCalculator.calculateWitness(
-    inputs,
-    false,
-  );
-  return calculatedWitness;
-}
-
 async function main() {
   const rlnWasm = await import("../pkg/rln_wasm.js");
   const wasmPath = join(__dirname, "../pkg/rln_wasm_bg.wasm");
@@ -40,26 +26,19 @@ async function main() {
       )
     : join(__dirname, "../../rln/resources/tree_depth_20/rln_final.arkzkey");
 
-  const circomPath = MULTI_MESSAGE_ID
+  const graphPath = MULTI_MESSAGE_ID
     ? join(
         __dirname,
-        "../../rln/resources/tree_depth_20/multi_message_id/max_out_4/rln.wasm",
+        "../../rln/resources/tree_depth_20/multi_message_id/max_out_4/graph.bin",
       )
-    : join(__dirname, "../../rln/resources/tree_depth_20/rln.wasm");
-
-  const witnessCalculatorPath = join(
-    __dirname,
-    "../resources/witness_calculator.js",
-  );
-  const { builder: witnessCalculatorFile } = await import(
-    witnessCalculatorPath
-  );
+    : join(__dirname, "../../rln/resources/tree_depth_20/graph.bin");
 
   console.log("Creating RLN instance");
   const zkeyData = readFileSync(zkeyPath);
+  const graphData = readFileSync(graphPath);
   let rlnInstance;
   try {
-    rlnInstance = new rlnWasm.WasmRLN(new Uint8Array(zkeyData));
+    rlnInstance = rlnWasm.WasmRLN.newWithParams(zkeyData, graphData);
   } catch (error) {
     console.error("Initial RLN instance creation error:", error);
     return;
@@ -240,11 +219,7 @@ async function main() {
   let externalNullifier = rlnWasm.Hasher.poseidonHashPair(epoch, rlnIdentifier);
   console.log("  - externalNullifier = " + externalNullifier.debug());
 
-  if (MULTI_MESSAGE_ID) {
-    console.log("\nCreating messageId1");
-  } else {
-    console.log("\nCreating messageId1");
-  }
+  console.log("\nCreating messageId1");
   const messageId1 = rlnWasm.WasmFr.fromUint(0);
   console.log("  - messageId1 = " + messageId1.debug());
 
@@ -317,21 +292,6 @@ async function main() {
   }
   console.log("  - witness deserialized successfully");
 
-  console.log("\nCalculating first witness");
-  let witnessJson1;
-  try {
-    witnessJson1 = witness1.toBigIntJson();
-  } catch (error) {
-    console.error("Witness to BigInt JSON error:", error);
-    return;
-  }
-  const calculatedWitness1 = await calculateWitness(
-    circomPath,
-    witnessJson1,
-    witnessCalculatorFile,
-  );
-  console.log("  - first witness calculated successfully");
-
   console.log("\nExtracting first RLN Proof Values from witness");
   let proofValues1;
   try {
@@ -345,8 +305,7 @@ async function main() {
   console.log("\nGenerating first RLN Proof");
   let rlnProof1;
   try {
-    rlnProof1 =
-      rlnInstance.generateProofFromCalculatedWitness(calculatedWitness1);
+    rlnProof1 = rlnInstance.generateProof(witness1);
   } catch (error) {
     console.error("Proof generation error:", error);
     return;
@@ -508,21 +467,6 @@ async function main() {
   }
   console.log("  - second RLN Witness created successfully");
 
-  console.log("\nCalculating second witness");
-  let witnessJson2;
-  try {
-    witnessJson2 = witness2.toBigIntJson();
-  } catch (error) {
-    console.error("Second witness to BigInt JSON error:", error);
-    return;
-  }
-  const calculatedWitness2 = await calculateWitness(
-    circomPath,
-    witnessJson2,
-    witnessCalculatorFile,
-  );
-  console.log("  - second witness calculated successfully");
-
   console.log("\nExtracting second RLN Proof Values from witness");
   let proofValues2;
   try {
@@ -536,8 +480,7 @@ async function main() {
   console.log("\nGenerating second RLN Proof");
   let rlnProof2;
   try {
-    rlnProof2 =
-      rlnInstance.generateProofFromCalculatedWitness(calculatedWitness2);
+    rlnProof2 = rlnInstance.generateProof(witness2);
   } catch (error) {
     console.error("Second proof generation error:", error);
     return;

@@ -988,6 +988,17 @@ impl TryFrom<RLNWitnessInputV3> for RLNProofValuesV3 {
     }
 }
 
+impl TryFrom<&RLNWitnessInputV3> for RLNProofValuesV3 {
+    type Error = ProtocolError;
+
+    fn try_from(witness: &RLNWitnessInputV3) -> Result<Self, Self::Error> {
+        match witness {
+            RLNWitnessInputV3::Single(w) => Ok(RLNProofValuesV3::Single(w.try_into()?)),
+            RLNWitnessInputV3::Multi(w) => Ok(RLNProofValuesV3::Multi(w.try_into()?)),
+        }
+    }
+}
+
 impl RecoverSecret for RLNProofValuesV3 {
     type Error = ProtocolError;
 
@@ -1014,6 +1025,14 @@ impl TryFrom<RLNWitnessInputSingle> for RLNProofValuesSingle {
     type Error = ProtocolError;
 
     fn try_from(w: RLNWitnessInputSingle) -> Result<Self, Self::Error> {
+        RLNProofValuesSingle::try_from(&w)
+    }
+}
+
+impl TryFrom<&RLNWitnessInputSingle> for RLNProofValuesSingle {
+    type Error = ProtocolError;
+
+    fn try_from(w: &RLNWitnessInputSingle) -> Result<Self, Self::Error> {
         let root = compute_tree_root(
             &w.identity_secret,
             &w.user_message_limit,
@@ -1079,6 +1098,14 @@ impl TryFrom<RLNWitnessInputMulti> for RLNProofValuesMulti {
     type Error = ProtocolError;
 
     fn try_from(w: RLNWitnessInputMulti) -> Result<Self, Self::Error> {
+        RLNProofValuesMulti::try_from(&w)
+    }
+}
+
+impl TryFrom<&RLNWitnessInputMulti> for RLNProofValuesMulti {
+    type Error = ProtocolError;
+
+    fn try_from(w: &RLNWitnessInputMulti) -> Result<Self, Self::Error> {
         let root = compute_tree_root(
             &w.identity_secret,
             &w.user_message_limit,
@@ -1103,7 +1130,7 @@ impl TryFrom<RLNWitnessInputMulti> for RLNProofValuesMulti {
             nullifiers,
             x: w.x,
             external_nullifier: w.external_nullifier,
-            selector_used: w.selector_used,
+            selector_used: w.selector_used.clone(),
         })
     }
 }

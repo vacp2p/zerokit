@@ -3,15 +3,15 @@
 mod test {
     use rln::prelude::*;
 
-    fn make_rln(zkey: &Zkey, graph: &Graph) -> RLNV3<Stateless, ArkGroth16BackendWithGraph> {
-        RLNV3::<Stateless, ArkGroth16BackendWithGraph>::new(ArkGroth16BackendWithGraph::new(
+    fn make_rln(zkey: &Zkey, graph: &Graph) -> RLNV3<Stateless, ArkGroth16Backend> {
+        RLNV3::<Stateless, ArkGroth16Backend>::new(ArkGroth16Backend::new(
             zkey.clone(),
             graph.clone(),
         ))
     }
 
-    fn make_backend(zkey: &Zkey, graph: &Graph) -> ArkGroth16BackendWithGraph {
-        ArkGroth16BackendWithGraph::new(zkey.clone(), graph.clone())
+    fn make_backend(zkey: &Zkey, graph: &Graph) -> ArkGroth16Backend {
+        ArkGroth16Backend::new(zkey.clone(), graph.clone())
     }
 
     fn single_witness(
@@ -82,7 +82,7 @@ mod test {
             Fr::from(42u64),
             Fr::from(100u64),
         );
-        let proof = backend.generate_proof_from_witness(&witness).unwrap();
+        let proof = backend.generate_proof(&witness).unwrap();
         let vals = values(witness);
         assert!(backend.verify(&proof, &vals).unwrap());
     }
@@ -104,7 +104,7 @@ mod test {
             Fr::from(99u64),
             Fr::from(100u64),
         );
-        let proof1 = backend.generate_proof_from_witness(&w1).unwrap();
+        let proof1 = backend.generate_proof(&w1).unwrap();
         let vals2 = values(w2);
         assert!(!backend.verify(&proof1, &vals2).unwrap());
     }
@@ -119,7 +119,7 @@ mod test {
             Fr::from(1u64),
             Fr::from(1u64),
         );
-        assert!(backend.generate_proof_from_witness(&witness).is_err());
+        assert!(backend.generate_proof(&witness).is_err());
     }
 
     #[test]
@@ -133,7 +133,7 @@ mod test {
             Fr::from(42u64),
             Fr::from(100u64),
         );
-        let proof = backend.generate_proof_from_witness(&witness).unwrap();
+        let proof = backend.generate_proof(&witness).unwrap();
         let vals = values(witness);
         assert!(backend.verify(&proof, &vals).unwrap());
     }
@@ -149,7 +149,7 @@ mod test {
             Fr::from(42u64),
             Fr::from(100u64),
         );
-        let proof = backend.generate_proof_from_witness(&witness).unwrap();
+        let proof = backend.generate_proof(&witness).unwrap();
         let vals = values(witness);
         assert!(backend.verify(&proof, &vals).unwrap());
     }
@@ -165,7 +165,7 @@ mod test {
             Fr::from(42u64),
             Fr::from(100u64),
         );
-        assert!(backend.generate_proof_from_witness(&witness).is_err());
+        assert!(backend.generate_proof(&witness).is_err());
     }
 
     #[test]
@@ -289,7 +289,7 @@ mod test {
             Fr::from(42u64),
             Fr::from(100u64),
         );
-        let proof = rln.generate_proof_from_witness(&witness).unwrap();
+        let proof = rln.generate_proof(&witness).unwrap();
         assert!(rln.verify(&proof, &values(witness)).unwrap());
     }
 
@@ -305,7 +305,7 @@ mod test {
             Fr::from(42u64),
             Fr::from(100u64),
         );
-        let proof = rln.generate_proof_from_witness(&witness).unwrap();
+        let proof = rln.generate_proof(&witness).unwrap();
         assert!(rln.verify(&proof, &values(witness)).unwrap());
     }
 
@@ -466,7 +466,7 @@ mod test {
         let (id, _) = keygen();
         let x = Fr::from(42u64);
         let witness = single_witness(id, default_path(), Fr::from(1u64), x, Fr::from(100u64));
-        let proof = rln.generate_proof_from_witness(&witness).unwrap();
+        let proof = rln.generate_proof(&witness).unwrap();
         let vals = values(witness);
         assert!(rln.verify_with_roots(&proof, &vals, &x, &[]).unwrap());
     }
@@ -477,7 +477,7 @@ mod test {
         let (id, _) = keygen();
         let x = Fr::from(42u64);
         let witness = single_witness(id, default_path(), Fr::from(1u64), x, Fr::from(100u64));
-        let proof = rln.generate_proof_from_witness(&witness).unwrap();
+        let proof = rln.generate_proof(&witness).unwrap();
         let vals = values(witness);
         let root = vals.root();
         assert!(rln.verify_with_roots(&proof, &vals, &x, &[root]).unwrap());
@@ -489,7 +489,7 @@ mod test {
         let (id, _) = keygen();
         let x = Fr::from(42u64);
         let witness = single_witness(id, default_path(), Fr::from(1u64), x, Fr::from(100u64));
-        let proof = rln.generate_proof_from_witness(&witness).unwrap();
+        let proof = rln.generate_proof(&witness).unwrap();
         let vals = values(witness);
         assert!(matches!(
             rln.verify_with_roots(&proof, &vals, &x, &[Fr::from(9999u64)]),
@@ -503,7 +503,7 @@ mod test {
         let (id, _) = keygen();
         let x = Fr::from(42u64);
         let witness = single_witness(id, default_path(), Fr::from(1u64), x, Fr::from(100u64));
-        let proof = rln.generate_proof_from_witness(&witness).unwrap();
+        let proof = rln.generate_proof(&witness).unwrap();
         let vals = values(witness);
         assert!(matches!(
             rln.verify_with_roots(&proof, &vals, &Fr::from(9999u64), &[]),
@@ -524,7 +524,7 @@ mod test {
             x,
             Fr::from(100u64),
         );
-        let proof = rln.generate_proof_from_witness(&witness).unwrap();
+        let proof = rln.generate_proof(&witness).unwrap();
         let vals = values(witness);
         let root = vals.root();
         assert!(rln.verify_with_roots(&proof, &vals, &x, &[root]).unwrap());
@@ -543,7 +543,7 @@ mod test {
             x,
             Fr::from(100u64),
         );
-        let proof = rln.generate_proof_from_witness(&witness).unwrap();
+        let proof = rln.generate_proof(&witness).unwrap();
         let vals = values(witness);
         assert!(matches!(
             rln.verify_with_roots(&proof, &vals, &x, &[Fr::from(9999u64)]),
@@ -621,7 +621,7 @@ mod test {
     #[test]
     fn test_v3_new_with_params_invalid_zkey() {
         assert!(matches!(
-            RLNV3::<Stateless, ArkGroth16BackendWithGraph>::new_with_params(vec![], vec![1, 2, 3]),
+            RLNV3::<Stateless, ArkGroth16Backend>::new_with_params(vec![], vec![1, 2, 3]),
             Err(RLNError::ZKey(_))
         ));
     }
@@ -630,10 +630,7 @@ mod test {
     fn test_v3_new_with_params_invalid_graph() {
         let valid_zkey = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey").to_vec();
         assert!(matches!(
-            RLNV3::<Stateless, ArkGroth16BackendWithGraph>::new_with_params(
-                valid_zkey,
-                vec![0u8; 50],
-            ),
+            RLNV3::<Stateless, ArkGroth16Backend>::new_with_params(valid_zkey, vec![0u8; 50],),
             Err(RLNError::Graph(_))
         ));
     }

@@ -1,8 +1,7 @@
 #![cfg(target_arch = "wasm32")]
 #![cfg(not(feature = "utils"))]
 
-use js_sys::{BigInt as JsBigInt, Object, Uint8Array};
-use num_bigint::BigInt;
+use js_sys::{Object, Uint8Array};
 use rln::prelude::*;
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
@@ -14,43 +13,25 @@ pub struct WasmRLN(RLNV3<Stateless, ArkGroth16Backend>);
 
 #[wasm_bindgen]
 impl WasmRLN {
-    #[wasm_bindgen(constructor)]
-    pub fn new(zkey_data: &Uint8Array) -> Result<WasmRLN, String> {
-        let rln = RLNV3::<Stateless, ArkGroth16Backend>::new_with_params(zkey_data.to_vec())
-            .map_err(|err| err.to_string())?;
+    #[wasm_bindgen(js_name = newWithParams)]
+    pub fn new_with_params(
+        zkey_data: &Uint8Array,
+        graph_data: &Uint8Array,
+    ) -> Result<WasmRLN, String> {
+        let rln = RLNV3::<Stateless, ArkGroth16Backend>::new_with_params(
+            zkey_data.to_vec(),
+            graph_data.to_vec(),
+        )
+        .map_err(|err| err.to_string())?;
         Ok(WasmRLN(rln))
     }
 
-    #[wasm_bindgen(js_name = generateProofFromCalculatedWitness)]
-    pub fn generate_proof(
-        &self,
-        calculated_witness_js_bigints: Vec<JsBigInt>,
-    ) -> Result<WasmRLNProof, String> {
-        let calculated_witness_bigints: Vec<BigInt> = calculated_witness_js_bigints
-            .iter()
-            .map(|js_bigint| {
-                js_bigint
-                    .to_string(10)
-                    .ok()
-                    .and_then(|js_str| js_str.as_string())
-                    .ok_or_else(|| "Failed to convert JsBigInt to string".to_string())
-                    .and_then(|str_val| {
-                        str_val
-                            .parse::<BigInt>()
-                            .map_err(|err| format!("Failed to parse BigInt: {}", err))
-                    })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let calculated_witness =
-            calculated_witness_to_field_elements::<Curve>(calculated_witness_bigints)
-                .map_err(|err| err.to_string())?;
-
+    #[wasm_bindgen(js_name = generateProof)]
+    pub fn generate_proof(&self, witness: &WasmRLNWitnessInput) -> Result<WasmRLNProof, String> {
         let proof = self
             .0
-            .generate_proof(&calculated_witness)
+            .generate_proof(&witness.0)
             .map_err(|err| err.to_string())?;
-
         Ok(WasmRLNProof(proof))
     }
 
@@ -381,7 +362,7 @@ impl WasmRLNWitnessInput {
 
     #[wasm_bindgen(js_name = toProofValues)]
     pub fn to_proof_values(&self) -> Result<WasmRLNProofValues, String> {
-        RLNProofValuesV3::try_from(self.0.clone())
+        RLNProofValuesV3::try_from(&self.0)
             .map(WasmRLNProofValues)
             .map_err(|e| e.to_string())
     }

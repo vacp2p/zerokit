@@ -9,15 +9,12 @@ use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTreeError};
 use {crate::poseidon_tree::PoseidonTree, std::str::FromStr};
 
 use crate::{
-    circuit::{
-        graph_from_raw, zkey_from_raw, ArkGroth16Backend, ArkGroth16BackendWithGraph, Fr, Proof,
-        Zkey,
-    },
+    circuit::{graph_from_raw, zkey_from_raw, ArkGroth16Backend, Fr, Proof, Zkey},
     error::{RLNError, VerifyError},
     protocol::{
         generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof,
-        RLNPartialZkProof, RLNProofValues, RLNProofValuesV3, RLNWitnessInput, RLNZkProof,
-        RLNZkProofWithGraph, Stateful, Stateless,
+        RLNPartialZkProof, RLNProofValues, RLNProofValuesV3, RLNWitnessInput, RLNZkProof, Stateful,
+        Stateless,
     },
 };
 #[cfg(not(target_arch = "wasm32"))]
@@ -896,11 +893,8 @@ impl<Tree, ZkProof: RLNZkProof> RLNV3<Tree, ZkProof>
 where
     RLNError: From<ZkProof::Error>,
 {
-    pub fn generate_proof(
-        &self,
-        calculated_witness: &ZkProof::CalculatedWitness,
-    ) -> Result<ZkProof::Proof, RLNError> {
-        Ok(self.zkp.generate_proof(calculated_witness)?)
+    pub fn generate_proof(&self, witness: &ZkProof::Witness) -> Result<ZkProof::Proof, RLNError> {
+        Ok(self.zkp.generate_proof(witness)?)
     }
 
     pub fn verify(
@@ -909,18 +903,6 @@ where
         values: &ZkProof::Values,
     ) -> Result<bool, RLNError> {
         Ok(self.zkp.verify(proof, values)?)
-    }
-}
-
-impl<Tree, ZkProof: RLNZkProofWithGraph> RLNV3<Tree, ZkProof>
-where
-    RLNError: From<ZkProof::Error>,
-{
-    pub fn generate_proof_from_witness(
-        &self,
-        witness: &ZkProof::Witness,
-    ) -> Result<ZkProof::Proof, RLNError> {
-        Ok(self.zkp.generate_proof_from_witness(witness)?)
     }
 }
 
@@ -945,18 +927,11 @@ where
 }
 
 // TODO: replace these constructors with a unified RLNBuilder (PR 8)
-impl RLNV3<Stateless, ArkGroth16BackendWithGraph> {
+impl RLNV3<Stateless, ArkGroth16Backend> {
     pub fn new_with_params(zkey_data: Vec<u8>, graph_data: Vec<u8>) -> Result<Self, RLNError> {
         let zkey = zkey_from_raw(&zkey_data)?;
         let graph = graph_from_raw(&graph_data, None, None)?;
-        Ok(Self::new(ArkGroth16BackendWithGraph::new(zkey, graph)))
-    }
-}
-
-impl RLNV3<Stateless, ArkGroth16Backend> {
-    pub fn new_with_params(zkey_data: Vec<u8>) -> Result<Self, RLNError> {
-        let zkey = zkey_from_raw(&zkey_data)?;
-        Ok(Self::new(ArkGroth16Backend::new(zkey)))
+        Ok(Self::new(ArkGroth16Backend::new(zkey, graph)))
     }
 }
 

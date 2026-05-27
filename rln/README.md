@@ -34,8 +34,6 @@ The RLN object constructor requires the following files:
 - `rln_final.arkzkey`: The proving key in arkzkey format.
 - `graph.bin`: The graph file built for the input tree size
 
-Additionally, `rln.wasm` is used for testing in the rln-wasm module.
-
 ```rust
 use rln::prelude::{hash_to_field_le, keygen, poseidon_hash, Fr, RLNWitnessInput, RLN};
 

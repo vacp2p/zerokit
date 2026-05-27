@@ -37,4 +37,4 @@ pub use witness::{
     RLNPartialWitnessInputV3, RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle,
     RLNWitnessInputV3,
 };
-pub use zk::{RLNPartialZkProof, RLNZkProof, RLNZkProofWithGraph, RecoverSecret};
+pub use zk::{RLNPartialZkProof, RLNZkProof, RecoverSecret};
