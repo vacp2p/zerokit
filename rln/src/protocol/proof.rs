@@ -1182,3 +1182,15 @@ impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
         ))
     }
 }
+
+#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct RLNProofV3 {
+    pub proof: Proof,
+    pub values: RLNProofValuesV3,
+}
+
+impl RLNProofV3 {
+    pub fn new(proof: Proof, values: RLNProofValuesV3) -> Self {
+        Self { proof, values }
+    }
+}

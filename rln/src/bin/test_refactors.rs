@@ -20,8 +20,7 @@ fn main() -> Result<(), RLNError> {
     )?
     .into();
 
-    let proof = rln.generate_proof(&witness_single1)?;
-    let values_single1 = RLNProofValuesV3::try_from(&witness_single1)?;
+    let (proof, values_single1) = rln.generate_proof(&witness_single1)?;
     assert!(rln.verify(&proof, &values_single1)?);
 
     let witness_single2: RLNWitnessInputV3 = RLNWitnessInputSingle::new(
@@ -56,8 +55,7 @@ fn main() -> Result<(), RLNError> {
         vec![true; DEFAULT_MAX_OUT],
     )?
     .into();
-    let proof = rln_multi.generate_proof(&witness_multi)?;
-    let values_multi = RLNProofValuesV3::try_from(&witness_multi)?;
+    let (proof, values_multi) = rln_multi.generate_proof(&witness_multi)?;
     assert!(rln_multi.verify(&proof, &values_multi)?);
 
     // Cross-mode slashing: Stateless Single × Stateless Multi
@@ -116,9 +114,9 @@ fn main() -> Result<(), RLNError> {
     .into();
 
     let partial_witness = RLNPartialWitnessInputV3::from(&witness_for_partial);
-    let partial_proof = rln_partial.generate_partial_proof(partial_witness)?;
-    let values_partial = RLNProofValuesV3::try_from(&witness_for_partial)?;
-    let proof_from_partial = rln_partial.finish_proof(partial_proof, witness_for_partial)?;
+    let partial_proof = rln_partial.generate_partial_proof(&partial_witness)?;
+    let (proof_from_partial, values_partial) =
+        rln_partial.finish_proof(&partial_proof, &witness_for_partial)?;
     assert!(rln_partial.verify(&proof_from_partial, &values_partial)?);
 
     // Partial Proof — Multi
@@ -140,10 +138,9 @@ fn main() -> Result<(), RLNError> {
     .into();
 
     let partial_witness_multi = RLNPartialWitnessInputV3::from(&witness_for_partial_multi);
-    let partial_proof_multi = rln_partial_multi.generate_partial_proof(partial_witness_multi)?;
-    let values_partial_multi = RLNProofValuesV3::try_from(&witness_for_partial_multi)?;
-    let proof_from_partial_multi =
-        rln_partial_multi.finish_proof(partial_proof_multi, witness_for_partial_multi)?;
+    let partial_proof_multi = rln_partial_multi.generate_partial_proof(&partial_witness_multi)?;
+    let (proof_from_partial_multi, values_partial_multi) =
+        rln_partial_multi.finish_proof(&partial_proof_multi, &witness_for_partial_multi)?;
     assert!(rln_partial_multi.verify(&proof_from_partial_multi, &values_partial_multi)?);
 
     // Stateful Single — FullMerkleTree
@@ -179,8 +176,7 @@ fn main() -> Result<(), RLNError> {
     )?
     .into();
 
-    let proof_stateful = rln_stateful.generate_proof(&witness_stateful)?;
-    let values_stateful = RLNProofValuesV3::try_from(&witness_stateful)?;
+    let (proof_stateful, values_stateful) = rln_stateful.generate_proof(&witness_stateful)?;
     assert!(rln_stateful.verify(&proof_stateful, &values_stateful)?);
     assert!(rln_stateful.verify_with_roots(
         &proof_stateful,
@@ -233,8 +229,8 @@ fn main() -> Result<(), RLNError> {
     )?
     .into();
 
-    let proof_stateful_multi = rln_stateful_multi.generate_proof(&witness_stateful_multi)?;
-    let values_stateful_multi = RLNProofValuesV3::try_from(&witness_stateful_multi)?;
+    let (proof_stateful_multi, values_stateful_multi) =
+        rln_stateful_multi.generate_proof(&witness_stateful_multi)?;
     assert!(rln_stateful_multi.verify(&proof_stateful_multi, &values_stateful_multi)?);
     assert!(rln_stateful_multi.verify_with_roots(
         &proof_stateful_multi,
@@ -274,10 +270,9 @@ fn main() -> Result<(), RLNError> {
 
     let partial_witness_stateful = RLNPartialWitnessInputV3::from(&witness_stateful_p);
     let partial_proof_stateful =
-        rln_stateful_partial.generate_partial_proof(partial_witness_stateful)?;
-    let values_stateful_p = RLNProofValuesV3::try_from(&witness_stateful_p)?;
-    let proof_from_partial_stateful =
-        rln_stateful_partial.finish_proof(partial_proof_stateful, witness_stateful_p)?;
+        rln_stateful_partial.generate_partial_proof(&partial_witness_stateful)?;
+    let (proof_from_partial_stateful, values_stateful_p) =
+        rln_stateful_partial.finish_proof(&partial_proof_stateful, &witness_stateful_p)?;
     assert!(rln_stateful_partial.verify(&proof_from_partial_stateful, &values_stateful_p)?);
 
     Ok(())

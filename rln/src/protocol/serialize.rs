@@ -13,13 +13,13 @@ use ark_serialize::{
 use zeroize::Zeroizing;
 
 use super::{
-    proof::{RLNProofValuesMulti, RLNProofValuesSingle, RLNProofValuesV3},
+    proof::{RLNProofV3, RLNProofValuesMulti, RLNProofValuesSingle, RLNProofValuesV3},
     witness::{
         RLNPartialWitnessInputV3, RLNWitnessInputMulti, RLNWitnessInputSingle, RLNWitnessInputV3,
     },
 };
 use crate::{
-    circuit::Fr,
+    circuit::{Fr, Proof, COMPRESS_PROOF_SIZE},
     error::{ProtocolError, UtilsError},
     utils::{normalize_usize_be, IdSecret},
 };
@@ -656,5 +656,42 @@ impl CanonicalDeserializeBE for RLNProofValuesMulti {
             external_nullifier,
             selector_used,
         })
+    }
+}
+
+pub trait CanonicalSerializeMixed: CanonicalSerialize {
+    type Error;
+
+    fn serialize<W: Write>(&self, writer: W) -> Result<(), Self::Error>;
+    fn serialized_size(&self) -> usize;
+}
+
+pub trait CanonicalDeserializeMixed: CanonicalDeserialize + Sized {
+    type Error;
+
+    fn deserialize<R: Read>(reader: R) -> Result<Self, Self::Error>;
+}
+
+impl CanonicalSerializeMixed for RLNProofV3 {
+    type Error = ProtocolError;
+
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
+        self.proof.serialize_compressed(&mut writer)?;
+        CanonicalSerializeBE::serialize(&self.values, &mut writer)?;
+        Ok(())
+    }
+
+    fn serialized_size(&self) -> usize {
+        COMPRESS_PROOF_SIZE + CanonicalSerializeBE::serialized_size(&self.values)
+    }
+}
+
+impl CanonicalDeserializeMixed for RLNProofV3 {
+    type Error = ProtocolError;
+
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
+        let proof = Proof::deserialize_compressed(&mut reader)?;
+        let values = <RLNProofValuesV3 as CanonicalDeserializeBE>::deserialize(&mut reader)?;
+        Ok(RLNProofV3 { proof, values })
     }
 }

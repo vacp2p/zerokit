@@ -893,7 +893,10 @@ impl<Tree, ZkProof: RLNZkProof> RLNV3<Tree, ZkProof>
 where
     RLNError: From<ZkProof::Error>,
 {
-    pub fn generate_proof(&self, witness: &ZkProof::Witness) -> Result<ZkProof::Proof, RLNError> {
+    pub fn generate_proof(
+        &self,
+        witness: &ZkProof::Witness,
+    ) -> Result<(ZkProof::Proof, ZkProof::Values), RLNError> {
         Ok(self.zkp.generate_proof(witness)?)
     }
 
@@ -912,16 +915,16 @@ where
 {
     pub fn generate_partial_proof(
         &self,
-        partial_witness: ZkProof::PartialWitness,
+        partial_witness: &ZkProof::PartialWitness,
     ) -> Result<ZkProof::PartialProof, RLNError> {
         Ok(self.zkp.generate_partial_proof(partial_witness)?)
     }
 
     pub fn finish_proof(
         &self,
-        partial_proof: ZkProof::PartialProof,
-        witness: ZkProof::Witness,
-    ) -> Result<ZkProof::Proof, RLNError> {
+        partial_proof: &ZkProof::PartialProof,
+        witness: &ZkProof::Witness,
+    ) -> Result<(ZkProof::Proof, ZkProof::Values), RLNError> {
         Ok(self.zkp.finish_proof(partial_proof, witness)?)
     }
 }
