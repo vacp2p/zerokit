@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use ark_groth16::{prepare_verifying_key, Groth16};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::thread_rng, UniformRand};
@@ -26,14 +28,14 @@ pub trait RLNZkProof {
         + CanonicalSerializeBE
         + CanonicalDeserializeBE;
     type Proof: CanonicalSerialize + CanonicalDeserialize;
-    type Error;
+    type Error: Error;
 
     fn generate_proof(&self, witness: &Self::Witness) -> Result<Self::Proof, Self::Error>;
     fn verify(&self, proof: &Self::Proof, values: &Self::Values) -> Result<bool, Self::Error>;
 }
 
 pub trait RecoverSecret<Rhs = Self> {
-    type Error;
+    type Error: Error;
 
     fn recover_secret(&self, other: &Rhs) -> Result<IdSecret, Self::Error>;
 }
