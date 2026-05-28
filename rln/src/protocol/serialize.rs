@@ -659,6 +659,12 @@ impl CanonicalDeserializeBE for RLNProofValuesMulti {
     }
 }
 
+/// Serialization for types that combine LE and BE encodings in a single wire format.
+///
+/// Some types (e.g. [`RLNProofV3`]) contain fields with different encoding requirements:
+/// the Groth16 proof bytes use arkworks compressed LE format, while the proof values use
+/// BE encoding for Waku wire format interop. Neither [`CanonicalSerialize`] nor
+/// [`CanonicalSerializeBE`] alone covers both - this trait handles the mixed case.
 pub trait CanonicalSerializeMixed: CanonicalSerialize {
     type Error;
 
@@ -666,6 +672,9 @@ pub trait CanonicalSerializeMixed: CanonicalSerialize {
     fn serialized_size(&self) -> usize;
 }
 
+/// Deserialization for types that combine LE and BE encodings in a single wire format.
+///
+/// See [`CanonicalSerializeMixed`] for context on when this is needed.
 pub trait CanonicalDeserializeMixed: CanonicalDeserialize + Sized {
     type Error;
 

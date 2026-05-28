@@ -104,15 +104,15 @@ impl WasmRLNProof {
         Ok(WasmRLNProof(rln_proof))
     }
 
-    #[wasm_bindgen(js_name = toBytesBE)]
-    pub fn to_bytes_be(&self) -> Result<Uint8Array, String> {
+    #[wasm_bindgen(js_name = toBytesMixed)]
+    pub fn to_bytes_mixed(&self) -> Result<Uint8Array, String> {
         let mut bytes = Vec::new();
         CanonicalSerializeMixed::serialize(&self.0, &mut bytes).map_err(|err| err.to_string())?;
         Ok(Uint8Array::from(&bytes[..]))
     }
 
-    #[wasm_bindgen(js_name = fromBytesBE)]
-    pub fn from_bytes_be(bytes: &Uint8Array) -> Result<WasmRLNProof, String> {
+    #[wasm_bindgen(js_name = fromBytesMixed)]
+    pub fn from_bytes_mixed(bytes: &Uint8Array) -> Result<WasmRLNProof, String> {
         let rln_proof = <RLNProofV3 as CanonicalDeserializeMixed>::deserialize(&bytes.to_vec()[..])
             .map_err(|err| err.to_string())?;
         Ok(WasmRLNProof(rln_proof))
