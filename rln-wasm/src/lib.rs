@@ -6,7 +6,10 @@ pub mod wasm_utils;
 #[cfg(all(feature = "parallel", not(feature = "utils")))]
 pub use wasm_bindgen_rayon::init_thread_pool;
 #[cfg(not(feature = "utils"))]
-pub use wasm_rln::{WasmRLN, WasmRLNProof, WasmRLNProofValues, WasmRLNWitnessInput};
+pub use wasm_rln::{
+    WasmRLN, WasmRLNPartialProof, WasmRLNPartialWitnessInput, WasmRLNProof, WasmRLNProofValues,
+    WasmRLNWitnessInput,
+};
 pub use wasm_utils::{ExtendedIdentity, Hasher, Identity, VecWasmFr, WasmFr};
 
 #[cfg(feature = "panic_hook")]

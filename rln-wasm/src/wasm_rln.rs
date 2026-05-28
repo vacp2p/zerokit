@@ -27,29 +27,24 @@ impl WasmRLN {
 
     #[wasm_bindgen(js_name = generateProof)]
     pub fn generate_proof(&self, witness: &WasmRLNWitnessInput) -> Result<WasmRLNProof, String> {
-        let proof = self
+        let (proof, values) = self
             .0
             .generate_proof(&witness.0)
             .map_err(|err| err.to_string())?;
-        Ok(WasmRLNProof(proof))
+        Ok(WasmRLNProof(RLNProofV3::new(proof, values)))
     }
 
     #[wasm_bindgen(js_name = verify)]
-    pub fn verify(
-        &self,
-        proof: &WasmRLNProof,
-        values: &WasmRLNProofValues,
-    ) -> Result<bool, String> {
+    pub fn verify(&self, rln_proof: &WasmRLNProof) -> Result<bool, String> {
         self.0
-            .verify(&proof.0, &values.0)
+            .verify(&rln_proof.0.proof, &rln_proof.0.values)
             .map_err(|err| err.to_string())
     }
 
     #[wasm_bindgen(js_name = verifyWithRoots)]
     pub fn verify_with_roots(
         &self,
-        proof: &WasmRLNProof,
-        values: &WasmRLNProofValues,
+        rln_proof: &WasmRLNProof,
         roots: &VecWasmFr,
         x: &WasmFr,
     ) -> Result<bool, String> {
@@ -58,13 +53,38 @@ impl WasmRLN {
             .map(|root| *root)
             .collect();
         self.0
-            .verify_with_roots(&proof.0, &values.0, x, &roots_fr)
+            .verify_with_roots(&rln_proof.0.proof, &rln_proof.0.values, x, &roots_fr)
             .map_err(|err| err.to_string())
+    }
+
+    #[wasm_bindgen(js_name = generatePartialProof)]
+    pub fn generate_partial_proof(
+        &self,
+        partial_witness: &WasmRLNPartialWitnessInput,
+    ) -> Result<WasmRLNPartialProof, String> {
+        let partial_proof = self
+            .0
+            .generate_partial_proof(&partial_witness.0)
+            .map_err(|err| err.to_string())?;
+        Ok(WasmRLNPartialProof(partial_proof))
+    }
+
+    #[wasm_bindgen(js_name = finishProof)]
+    pub fn finish_proof(
+        &self,
+        partial_proof: &WasmRLNPartialProof,
+        witness: &WasmRLNWitnessInput,
+    ) -> Result<WasmRLNProof, String> {
+        let (full_proof, values) = self
+            .0
+            .finish_proof(&partial_proof.0, &witness.0)
+            .map_err(|err| err.to_string())?;
+        Ok(WasmRLNProof(RLNProofV3::new(full_proof, values)))
     }
 }
 
 #[wasm_bindgen]
-pub struct WasmRLNProof(Proof);
+pub struct WasmRLNProof(RLNProofV3);
 
 #[wasm_bindgen]
 impl WasmRLNProof {
@@ -79,9 +99,28 @@ impl WasmRLNProof {
 
     #[wasm_bindgen(js_name = fromBytesLE)]
     pub fn from_bytes_le(bytes: &Uint8Array) -> Result<WasmRLNProof, String> {
-        let proof =
-            Proof::deserialize_compressed(&bytes.to_vec()[..]).map_err(|err| err.to_string())?;
-        Ok(WasmRLNProof(proof))
+        let rln_proof = RLNProofV3::deserialize_compressed(&bytes.to_vec()[..])
+            .map_err(|err| err.to_string())?;
+        Ok(WasmRLNProof(rln_proof))
+    }
+
+    #[wasm_bindgen(js_name = toBytesBE)]
+    pub fn to_bytes_be(&self) -> Result<Uint8Array, String> {
+        let mut bytes = Vec::new();
+        CanonicalSerializeMixed::serialize(&self.0, &mut bytes).map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
+    }
+
+    #[wasm_bindgen(js_name = fromBytesBE)]
+    pub fn from_bytes_be(bytes: &Uint8Array) -> Result<WasmRLNProof, String> {
+        let rln_proof = <RLNProofV3 as CanonicalDeserializeMixed>::deserialize(&bytes.to_vec()[..])
+            .map_err(|err| err.to_string())?;
+        Ok(WasmRLNProof(rln_proof))
+    }
+
+    #[wasm_bindgen(js_name = getValues)]
+    pub fn get_values(&self) -> WasmRLNProofValues {
+        WasmRLNProofValues(self.0.values.clone())
     }
 }
 
@@ -364,5 +403,69 @@ impl WasmRLNWitnessInput {
         RLNProofValuesV3::try_from(&self.0)
             .map(WasmRLNProofValues)
             .map_err(|e| e.to_string())
+    }
+}
+
+#[wasm_bindgen]
+pub struct WasmRLNPartialWitnessInput(RLNPartialWitnessInputV3);
+
+#[wasm_bindgen]
+impl WasmRLNPartialWitnessInput {
+    #[wasm_bindgen(js_name = fromWitness)]
+    pub fn from_witness(witness: &WasmRLNWitnessInput) -> WasmRLNPartialWitnessInput {
+        WasmRLNPartialWitnessInput(RLNPartialWitnessInputV3::from(&witness.0))
+    }
+
+    #[wasm_bindgen(js_name = toBytesLE)]
+    pub fn to_bytes_le(&self) -> Result<Uint8Array, String> {
+        let mut bytes = Vec::new();
+        self.0
+            .serialize_compressed(&mut bytes)
+            .map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
+    }
+
+    #[wasm_bindgen(js_name = fromBytesLE)]
+    pub fn from_bytes_le(bytes: &Uint8Array) -> Result<WasmRLNPartialWitnessInput, String> {
+        let witness = RLNPartialWitnessInputV3::deserialize_compressed(&bytes.to_vec()[..])
+            .map_err(|err| err.to_string())?;
+        Ok(WasmRLNPartialWitnessInput(witness))
+    }
+
+    #[wasm_bindgen(js_name = toBytesBE)]
+    pub fn to_bytes_be(&self) -> Result<Uint8Array, String> {
+        let mut bytes = Vec::new();
+        CanonicalSerializeBE::serialize(&self.0, &mut bytes).map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
+    }
+
+    #[wasm_bindgen(js_name = fromBytesBE)]
+    pub fn from_bytes_be(bytes: &Uint8Array) -> Result<WasmRLNPartialWitnessInput, String> {
+        let witness =
+            <RLNPartialWitnessInputV3 as CanonicalDeserializeBE>::deserialize(&bytes.to_vec()[..])
+                .map_err(|err| err.to_string())?;
+        Ok(WasmRLNPartialWitnessInput(witness))
+    }
+}
+
+#[wasm_bindgen]
+pub struct WasmRLNPartialProof(PartialProof);
+
+#[wasm_bindgen]
+impl WasmRLNPartialProof {
+    #[wasm_bindgen(js_name = toBytesLE)]
+    pub fn to_bytes_le(&self) -> Result<Uint8Array, String> {
+        let mut bytes = Vec::new();
+        self.0
+            .serialize_compressed(&mut bytes)
+            .map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
+    }
+
+    #[wasm_bindgen(js_name = fromBytesLE)]
+    pub fn from_bytes_le(bytes: &Uint8Array) -> Result<WasmRLNPartialProof, String> {
+        let partial_proof = PartialProof::deserialize_compressed(&bytes.to_vec()[..])
+            .map_err(|err| err.to_string())?;
+        Ok(WasmRLNPartialProof(partial_proof))
     }
 }

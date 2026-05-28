@@ -6,8 +6,8 @@ mod test {
     use js_sys::{Date, Uint8Array};
     use rln::prelude::*;
     use rln_wasm::{
-        Hasher, Identity, VecWasmFr, WasmFr, WasmRLN, WasmRLNProof, WasmRLNProofValues,
-        WasmRLNWitnessInput,
+        Hasher, Identity, VecWasmFr, WasmFr, WasmRLN, WasmRLNPartialProof,
+        WasmRLNPartialWitnessInput, WasmRLNProof, WasmRLNProofValues, WasmRLNWitnessInput,
     };
     use wasm_bindgen_test::{console_log, wasm_bindgen_test};
     use zerokit_utils::merkle_tree::{
@@ -131,8 +131,6 @@ mod test {
         )
         .unwrap();
 
-        let proof_values = witness.to_proof_values().unwrap();
-
         // Benchmark proof generation
         let start_generate_proof = Date::now();
         for _ in 0..iterations {
@@ -150,16 +148,34 @@ mod test {
         // Benchmark proof verification with the root
         let start_verify_with_roots = Date::now();
         for _ in 0..iterations {
-            let _ = rln_instance
-                .verify_with_roots(&proof, &proof_values, &roots, &x)
-                .unwrap();
+            let _ = rln_instance.verify_with_roots(&proof, &roots, &x).unwrap();
         }
         let verify_with_roots_result = Date::now() - start_verify_with_roots;
 
-        let is_proof_valid = rln_instance
-            .verify_with_roots(&proof, &proof_values, &roots, &x)
-            .unwrap();
+        let is_proof_valid = rln_instance.verify_with_roots(&proof, &roots, &x).unwrap();
         assert!(is_proof_valid, "verification failed");
+
+        // Benchmark partial proof generation
+        let partial_witness = WasmRLNPartialWitnessInput::from_witness(&witness);
+        let start_generate_partial_proof = Date::now();
+        for _ in 0..iterations {
+            let _ = rln_instance
+                .generate_partial_proof(&partial_witness)
+                .unwrap();
+        }
+        let generate_partial_proof_result = Date::now() - start_generate_partial_proof;
+
+        // Generate partial proof for finish benchmark
+        let partial_proof: WasmRLNPartialProof = rln_instance
+            .generate_partial_proof(&partial_witness)
+            .unwrap();
+
+        // Benchmark finish full proof
+        let start_finish_full_proof = Date::now();
+        for _ in 0..iterations {
+            let _ = rln_instance.finish_proof(&partial_proof, &witness).unwrap();
+        }
+        let finish_full_proof_result = Date::now() - start_finish_full_proof;
 
         let format_duration = |duration_ms: f64| -> String {
             let avg_ms = duration_ms / (iterations as f64);
@@ -185,6 +201,14 @@ mod test {
         results.push_str(&format!(
             "Proof verification with roots: {}\n",
             format_duration(verify_with_roots_result)
+        ));
+        results.push_str(&format!(
+            "Partial proof generation: {}\n",
+            format_duration(generate_partial_proof_result)
+        ));
+        results.push_str(&format!(
+            "Finish full proof: {}\n",
+            format_duration(finish_full_proof_result)
         ));
 
         console_log!("{results}");
