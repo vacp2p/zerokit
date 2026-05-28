@@ -169,7 +169,7 @@ impl RLNPartialZkProof for ArkGroth16Backend {
 
         let full_proof = Groth16Partial::<_, CircomReduction>::finish_proof_with_matrices(
             &self.zkey.0,
-            &partial,
+            partial,
             r,
             s,
             &self.zkey.1,
