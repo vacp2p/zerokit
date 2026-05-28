@@ -25,6 +25,13 @@
       ];
       forAllSystems = nixpkgs.lib.genAttrs stableSystems;
 
+      # crates.io's WAF returns 403 for the default `curl/X.Y.Z` User-Agent.
+      fetchurlUserAgentOverlay = final: prev: {
+        fetchurl = args: prev.fetchurl (args // {
+          curlOptsList = (args.curlOptsList or []) ++ [ "-A" "zerokit-nix" ];
+        });
+      };
+
       pkgsFor = forAllSystems (
         system: import nixpkgs {
           inherit system;
@@ -33,6 +40,7 @@
             allowUnfree = true;
           };
           overlays = [
+            fetchurlUserAgentOverlay
             (import rust-overlay)
             (f: p: { inherit rust-overlay; })
           ];
