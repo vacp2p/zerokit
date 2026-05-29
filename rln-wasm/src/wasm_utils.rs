@@ -192,7 +192,7 @@ impl Uint8ArrayUtils {
     }
 }
 
-// Utility APIs
+// Hasher
 
 #[wasm_bindgen]
 pub struct Hasher;
@@ -214,6 +214,8 @@ impl Hasher {
         WasmFr(poseidon_hash_pair(a.0, b.0))
     }
 }
+
+// Identity
 
 #[wasm_bindgen]
 pub struct Identity {
@@ -297,6 +299,8 @@ impl Identity {
         })
     }
 }
+
+// ExtendedIdentity
 
 #[wasm_bindgen]
 pub struct ExtendedIdentity {
