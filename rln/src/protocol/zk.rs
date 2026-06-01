@@ -6,11 +6,10 @@ use ark_std::{rand::thread_rng, UniformRand};
 
 use crate::{
     circuit::{
-        iden3calc::{calc_witness, calc_witness_partial},
-        qap::CircomReduction,
-        ArkGroth16Backend, Fr, PartialProof, Proof,
+        qap::CircomReduction, ArkGroth16Backend, CalcWitness, CalcWitnessPartial, Fr, PartialProof,
+        Proof,
     },
-    error::ProtocolError,
+    error::ProtocolErrorV3,
     partial_proof::{Groth16Partial, PartialAssignment},
     prelude::{CanonicalDeserializeBE, CanonicalSerializeBE, RLNPartialWitnessInputV3},
     protocol::{proof::RLNProofValuesV3, witness::RLNWitnessInputV3},
@@ -66,21 +65,16 @@ impl RLNZkProof for ArkGroth16Backend {
     type Witness = RLNWitnessInputV3;
     type Values = RLNProofValuesV3;
     type Proof = Proof;
-    type Error = ProtocolError;
+    type Error = ProtocolErrorV3;
 
     fn generate_proof(
         &self,
         witness: &Self::Witness,
     ) -> Result<(Self::Proof, Self::Values), Self::Error> {
         witness.validate_against_graph(&self.graph)?;
-        let values = RLNProofValuesV3::try_from(witness)?;
+        let values = RLNProofValuesV3::from(witness);
 
-        let inputs = witness
-            .to_circuit_inputs()
-            .into_iter()
-            .map(|(k, v)| (k.to_string(), v));
-
-        let calculated_witness = calc_witness(inputs, &self.graph)?;
+        let full_assignment = witness.calc_witness(&self.graph)?;
 
         let mut rng = thread_rng();
         let r = Fr::rand(&mut rng);
@@ -92,7 +86,7 @@ impl RLNZkProof for ArkGroth16Backend {
             &self.zkey.1,
             self.zkey.1.num_instance_variables,
             self.zkey.1.num_constraints,
-            &calculated_witness,
+            &full_assignment,
         )?;
 
         Ok((proof, values))
@@ -134,16 +128,12 @@ impl RLNPartialZkProof for ArkGroth16Backend {
     ) -> Result<Self::PartialProof, Self::Error> {
         witness.validate_against_graph(&self.graph)?;
 
-        let inputs = witness
-            .to_circuit_inputs(self.graph.max_out)
-            .into_iter()
-            .map(|(k, v)| (k.to_string(), v));
+        let partial_assignment = witness.calc_witness_partial(&self.graph)?;
 
-        let full_assignment = calc_witness_partial(inputs, &self.graph)?;
-
-        let partial_assignment = PartialAssignment::new(full_assignment[1..].to_vec());
-        let partial_proof =
-            Groth16Partial::<_, CircomReduction>::prove_partial(&self.zkey.0, &partial_assignment)?;
+        let partial_proof = Groth16Partial::<_, CircomReduction>::prove_partial(
+            &self.zkey.0,
+            &PartialAssignment::new(partial_assignment[1..].to_vec()),
+        )?;
 
         Ok(partial_proof)
     }
@@ -154,14 +144,9 @@ impl RLNPartialZkProof for ArkGroth16Backend {
         witness: &Self::Witness,
     ) -> Result<(Self::Proof, Self::Values), Self::Error> {
         witness.validate_against_graph(&self.graph)?;
-        let values = RLNProofValuesV3::try_from(witness)?;
+        let values = RLNProofValuesV3::from(witness);
 
-        let inputs = witness
-            .to_circuit_inputs()
-            .into_iter()
-            .map(|(k, v)| (k.to_string(), v));
-
-        let calculated_witness = calc_witness(inputs, &self.graph)?;
+        let full_assignment = witness.calc_witness(&self.graph)?;
 
         let mut rng = thread_rng();
         let r = Fr::rand(&mut rng);
@@ -175,7 +160,7 @@ impl RLNPartialZkProof for ArkGroth16Backend {
             &self.zkey.1,
             self.zkey.1.num_instance_variables,
             self.zkey.1.num_constraints,
-            &calculated_witness,
+            &full_assignment,
         )?;
 
         Ok((full_proof, values))

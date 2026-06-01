@@ -244,10 +244,8 @@ impl WasmRLNWitnessInput {
     }
 
     #[wasm_bindgen(js_name = toProofValues)]
-    pub fn to_proof_values(&self) -> Result<WasmRLNProofValues, String> {
-        RLNProofValuesV3::try_from(&self.0)
-            .map(WasmRLNProofValues)
-            .map_err(|e| e.to_string())
+    pub fn to_proof_values(&self) -> WasmRLNProofValues {
+        WasmRLNProofValues(RLNProofValuesV3::from(&self.0))
     }
 }
 

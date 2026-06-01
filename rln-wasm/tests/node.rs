@@ -306,7 +306,7 @@ mod test {
         assert!(WasmRLNWitnessInput::from_bytes_be(&extra_be).is_ok());
 
         // Proof values bytes: truncated and extra data
-        let valid_pv = valid_witness.to_proof_values().unwrap();
+        let valid_pv = valid_witness.to_proof_values();
 
         let pv_le = valid_pv.to_bytes_le().unwrap();
         let pv_le_vec = pv_le.to_vec();

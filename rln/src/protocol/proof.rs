@@ -31,7 +31,7 @@ use crate::{
         qap::CircomReduction, Curve, Fr, PartialProof, Proof, VerifyingKey, Zkey,
         COMPRESS_PROOF_SIZE,
     },
-    error::{ProtocolError, RecoverSecretError},
+    error::{ProtocolError, ProtocolErrorV3, RecoverSecretError},
     hashers::poseidon_hash,
     utils::{
         bytes_be_to_fr, bytes_be_to_vec_bool, bytes_be_to_vec_fr, bytes_le_to_fr,
@@ -900,22 +900,20 @@ pub enum RLNProofValuesV3 {
 }
 
 impl RLNProofValuesV3 {
-    /// Single only — `Err` if called on Multi.
-    pub fn y(&self) -> Result<Fr, ProtocolError> {
+    pub fn y(&self) -> Result<Fr, ProtocolErrorV3> {
         match self {
             RLNProofValuesV3::Single(v) => Ok(v.y),
-            RLNProofValuesV3::Multi(_) => Err(ProtocolError::FieldNotInVariant {
+            RLNProofValuesV3::Multi(_) => Err(ProtocolErrorV3::FieldNotInVariant {
                 field: "y",
                 variant: "Multi",
             }),
         }
     }
 
-    /// Multi only — `Err` if called on Single.
-    pub fn ys(&self) -> Result<&[Fr], ProtocolError> {
+    pub fn ys(&self) -> Result<&[Fr], ProtocolErrorV3> {
         match self {
             RLNProofValuesV3::Multi(v) => Ok(&v.ys),
-            RLNProofValuesV3::Single(_) => Err(ProtocolError::FieldNotInVariant {
+            RLNProofValuesV3::Single(_) => Err(ProtocolErrorV3::FieldNotInVariant {
                 field: "ys",
                 variant: "Single",
             }),
@@ -929,22 +927,20 @@ impl RLNProofValuesV3 {
         }
     }
 
-    /// Single only — `Err` if called on Multi.
-    pub fn nullifier(&self) -> Result<Fr, ProtocolError> {
+    pub fn nullifier(&self) -> Result<Fr, ProtocolErrorV3> {
         match self {
             RLNProofValuesV3::Single(v) => Ok(v.nullifier),
-            RLNProofValuesV3::Multi(_) => Err(ProtocolError::FieldNotInVariant {
+            RLNProofValuesV3::Multi(_) => Err(ProtocolErrorV3::FieldNotInVariant {
                 field: "nullifier",
                 variant: "Multi",
             }),
         }
     }
 
-    /// Multi only — `Err` if called on Single.
-    pub fn nullifiers(&self) -> Result<&[Fr], ProtocolError> {
+    pub fn nullifiers(&self) -> Result<&[Fr], ProtocolErrorV3> {
         match self {
             RLNProofValuesV3::Multi(v) => Ok(&v.nullifiers),
-            RLNProofValuesV3::Single(_) => Err(ProtocolError::FieldNotInVariant {
+            RLNProofValuesV3::Single(_) => Err(ProtocolErrorV3::FieldNotInVariant {
                 field: "nullifiers",
                 variant: "Single",
             }),
@@ -965,11 +961,10 @@ impl RLNProofValuesV3 {
         }
     }
 
-    /// Multi only — `Err` if called on Single.
-    pub fn selector_used(&self) -> Result<&[bool], ProtocolError> {
+    pub fn selector_used(&self) -> Result<&[bool], ProtocolErrorV3> {
         match self {
             RLNProofValuesV3::Multi(v) => Ok(&v.selector_used),
-            RLNProofValuesV3::Single(_) => Err(ProtocolError::FieldNotInVariant {
+            RLNProofValuesV3::Single(_) => Err(ProtocolErrorV3::FieldNotInVariant {
                 field: "selector_used",
                 variant: "Single",
             }),
@@ -977,19 +972,17 @@ impl RLNProofValuesV3 {
     }
 }
 
-impl TryFrom<&RLNWitnessInputV3> for RLNProofValuesV3 {
-    type Error = ProtocolError;
-
-    fn try_from(witness: &RLNWitnessInputV3) -> Result<Self, Self::Error> {
+impl From<&RLNWitnessInputV3> for RLNProofValuesV3 {
+    fn from(witness: &RLNWitnessInputV3) -> Self {
         match witness {
-            RLNWitnessInputV3::Single(w) => Ok(RLNProofValuesV3::Single(w.try_into()?)),
-            RLNWitnessInputV3::Multi(w) => Ok(RLNProofValuesV3::Multi(w.try_into()?)),
+            RLNWitnessInputV3::Single(w) => RLNProofValuesV3::Single(w.into()),
+            RLNWitnessInputV3::Multi(w) => RLNProofValuesV3::Multi(w.into()),
         }
     }
 }
 
 impl RecoverSecret for RLNProofValuesV3 {
-    type Error = ProtocolError;
+    type Error = RecoverSecretError;
 
     fn recover_secret(&self, other: &Self) -> Result<IdSecret, Self::Error> {
         match (self, other) {
@@ -1010,10 +1003,8 @@ pub struct RLNProofValuesSingle {
     pub external_nullifier: Fr,
 }
 
-impl TryFrom<&RLNWitnessInputSingle> for RLNProofValuesSingle {
-    type Error = ProtocolError;
-
-    fn try_from(w: &RLNWitnessInputSingle) -> Result<Self, Self::Error> {
+impl From<&RLNWitnessInputSingle> for RLNProofValuesSingle {
+    fn from(w: &RLNWitnessInputSingle) -> Self {
         let root = compute_tree_root(
             &w.identity_secret,
             &w.user_message_limit,
@@ -1026,39 +1017,35 @@ impl TryFrom<&RLNWitnessInputSingle> for RLNProofValuesSingle {
         let y = *(a_0.clone()) + w.x * a_1;
         let nullifier = poseidon_hash(&[a_1]);
         to_hash[0].zeroize();
-        Ok(RLNProofValuesSingle {
+        RLNProofValuesSingle {
             y,
             root,
             nullifier,
             x: w.x,
             external_nullifier: w.external_nullifier,
-        })
+        }
     }
 }
 
 impl RecoverSecret for RLNProofValuesSingle {
-    type Error = ProtocolError;
+    type Error = RecoverSecretError;
 
     fn recover_secret(&self, other: &Self) -> Result<IdSecret, Self::Error> {
         if self.external_nullifier != other.external_nullifier {
-            return Err(ProtocolError::IdSecretRecovery(
-                RecoverSecretError::ExternalNullifierMismatch(
-                    self.external_nullifier,
-                    other.external_nullifier,
-                ),
+            return Err(RecoverSecretError::ExternalNullifierMismatch(
+                self.external_nullifier,
+                other.external_nullifier,
             ));
         }
         if self.nullifier != other.nullifier {
-            return Err(ProtocolError::IdSecretRecovery(
-                RecoverSecretError::NoMatchingNullifier,
-            ));
+            return Err(RecoverSecretError::NoMatchingNullifier);
         }
-        Ok(compute_id_secret((self.x, self.y), (other.x, other.y))?)
+        compute_id_secret((self.x, self.y), (other.x, other.y))
     }
 }
 
 impl RecoverSecret<RLNProofValuesMulti> for RLNProofValuesSingle {
-    type Error = ProtocolError;
+    type Error = RecoverSecretError;
 
     fn recover_secret(&self, other: &RLNProofValuesMulti) -> Result<IdSecret, Self::Error> {
         other.recover_secret(self)
@@ -1075,10 +1062,8 @@ pub struct RLNProofValuesMulti {
     pub selector_used: Vec<bool>,
 }
 
-impl TryFrom<&RLNWitnessInputMulti> for RLNProofValuesMulti {
-    type Error = ProtocolError;
-
-    fn try_from(w: &RLNWitnessInputMulti) -> Result<Self, Self::Error> {
+impl From<&RLNWitnessInputMulti> for RLNProofValuesMulti {
+    fn from(w: &RLNWitnessInputMulti) -> Self {
         let root = compute_tree_root(
             &w.identity_secret,
             &w.user_message_limit,
@@ -1097,27 +1082,25 @@ impl TryFrom<&RLNWitnessInputMulti> for RLNProofValuesMulti {
             ys.push(y);
             nullifiers.push(nullifier);
         }
-        Ok(RLNProofValuesMulti {
+        RLNProofValuesMulti {
             ys,
             root,
             nullifiers,
             x: w.x,
             external_nullifier: w.external_nullifier,
             selector_used: w.selector_used.clone(),
-        })
+        }
     }
 }
 
 impl RecoverSecret for RLNProofValuesMulti {
-    type Error = ProtocolError;
+    type Error = RecoverSecretError;
 
     fn recover_secret(&self, other: &Self) -> Result<IdSecret, Self::Error> {
         if self.external_nullifier != other.external_nullifier {
-            return Err(ProtocolError::IdSecretRecovery(
-                RecoverSecretError::ExternalNullifierMismatch(
-                    self.external_nullifier,
-                    other.external_nullifier,
-                ),
+            return Err(RecoverSecretError::ExternalNullifierMismatch(
+                self.external_nullifier,
+                other.external_nullifier,
             ));
         }
         for (i, (nullifier_i, &used_i)) in self
@@ -1139,29 +1122,22 @@ impl RecoverSecret for RLNProofValuesMulti {
                     continue;
                 }
                 if nullifier_i == nullifier_j {
-                    return Ok(compute_id_secret(
-                        (self.x, self.ys[i]),
-                        (other.x, other.ys[j]),
-                    )?);
+                    return compute_id_secret((self.x, self.ys[i]), (other.x, other.ys[j]));
                 }
             }
         }
-        Err(ProtocolError::IdSecretRecovery(
-            RecoverSecretError::NoMatchingNullifier,
-        ))
+        Err(RecoverSecretError::NoMatchingNullifier)
     }
 }
 
 impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
-    type Error = ProtocolError;
+    type Error = RecoverSecretError;
 
     fn recover_secret(&self, other: &RLNProofValuesSingle) -> Result<IdSecret, Self::Error> {
         if self.external_nullifier != other.external_nullifier {
-            return Err(ProtocolError::IdSecretRecovery(
-                RecoverSecretError::ExternalNullifierMismatch(
-                    self.external_nullifier,
-                    other.external_nullifier,
-                ),
+            return Err(RecoverSecretError::ExternalNullifierMismatch(
+                self.external_nullifier,
+                other.external_nullifier,
             ));
         }
         for (i, (nullifier_i, &used_i)) in self
@@ -1174,12 +1150,10 @@ impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
                 continue;
             }
             if nullifier_i == &other.nullifier {
-                return Ok(compute_id_secret((self.x, self.ys[i]), (other.x, other.y))?);
+                return compute_id_secret((self.x, self.ys[i]), (other.x, other.y));
             }
         }
-        Err(ProtocolError::IdSecretRecovery(
-            RecoverSecretError::NoMatchingNullifier,
-        ))
+        Err(RecoverSecretError::NoMatchingNullifier)
     }
 }
 

@@ -20,7 +20,7 @@ mod test {
 
     #[test]
     fn test_fr_be_byte_order() {
-        // BE: most significant byte at index 0 — Fr(1) should have last byte == 1, all others 0
+        // BE: most significant byte at index 0 - Fr(1) should have last byte == 1, all others 0
         let one = Fr::from(1u64);
         let mut buf = Vec::new();
         one.serialize(&mut buf).unwrap();
@@ -32,7 +32,7 @@ mod test {
         );
         assert!(buf[..FR_BYTE_SIZE - 1].iter().all(|&b| b == 0));
 
-        // Fr(256) — second-to-last byte should be 1
+        // Fr(256) - second-to-last byte should be 1
         let v = Fr::from(256u64);
         let mut buf2 = Vec::new();
         v.serialize(&mut buf2).unwrap();
@@ -102,7 +102,7 @@ mod test {
 
     #[test]
     fn test_vec_fr_be_non_canonical_element_rejected() {
-        // Craft a length-1 vec with modulus as the element — must be rejected
+        // Craft a length-1 vec with modulus as the element - must be rejected
         let modulus = BigUint::from_bytes_le(&Fr::MODULUS.to_bytes_le());
         let mut bytes = modulus.to_bytes_be();
         let pad = FR_BYTE_SIZE.saturating_sub(bytes.len());
@@ -208,7 +208,7 @@ mod test {
 
     #[test]
     fn test_id_secret_be_known_value() {
-        // IdSecret(42) BE should match Fr(42) BE — same field element
+        // IdSecret(42) BE should match Fr(42) BE - same field element
         let secret = IdSecret::from(&mut Fr::from(42u64));
         let mut secret_buf = Vec::new();
         secret.serialize(&mut secret_buf).unwrap();

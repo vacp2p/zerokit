@@ -100,7 +100,7 @@ mod test {
             Fr::from(100u64),
         );
         let (proof1, _) = backend.generate_proof(&w1).unwrap();
-        let vals2 = RLNProofValuesV3::try_from(&w2).unwrap();
+        let vals2 = RLNProofValuesV3::from(&w2);
         assert!(!backend.verify(&proof1, &vals2).unwrap());
     }
 
@@ -164,68 +164,62 @@ mod test {
     #[test]
     fn test_recover_secret_single_x_single() {
         let (id, _) = keygen();
-        let v1 = RLNProofValuesV3::try_from(&single_witness(
+        let v1 = RLNProofValuesV3::from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             Fr::from(200u64),
-        ))
-        .unwrap();
-        let v2 = RLNProofValuesV3::try_from(&single_witness(
+        ));
+        let v2 = RLNProofValuesV3::from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(22u64),
             Fr::from(200u64),
-        ))
-        .unwrap();
+        ));
         assert_eq!(*v1.recover_secret(&v2).unwrap(), *id);
     }
 
     #[test]
     fn test_recover_secret_mismatched_nullifier_fails() {
         let (id, _) = keygen();
-        let v1 = RLNProofValuesV3::try_from(&single_witness(
+        let v1 = RLNProofValuesV3::from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             Fr::from(200u64),
-        ))
-        .unwrap();
-        let v2 = RLNProofValuesV3::try_from(&single_witness(
+        ));
+        let v2 = RLNProofValuesV3::from(&single_witness(
             id,
             default_path(),
             Fr::from(2u64),
             Fr::from(22u64),
             Fr::from(200u64),
-        ))
-        .unwrap();
+        ));
         assert!(v1.recover_secret(&v2).is_err());
     }
 
     #[test]
     fn test_recover_secret_multi_x_multi() {
         let (id, _) = keygen();
-        let v1 = RLNProofValuesV3::try_from(&multi_witness(
+        let v1 = RLNProofValuesV3::from(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(11u64),
             Fr::from(200u64),
-        ))
-        .unwrap();
-        let v2 = RLNProofValuesV3::try_from(&multi_witness(
+        ));
+        let v2 = RLNProofValuesV3::from(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(22u64),
             Fr::from(200u64),
-        ))
-        .unwrap();
+        ));
         assert_eq!(*v1.recover_secret(&v2).unwrap(), *id);
     }
 
@@ -235,24 +229,22 @@ mod test {
         let ids2: Vec<Fr> = (1..=DEFAULT_MAX_OUT)
             .map(|i| Fr::from((i + DEFAULT_MAX_OUT) as u64))
             .collect();
-        let v1 = RLNProofValuesV3::try_from(&multi_witness(
+        let v1 = RLNProofValuesV3::from(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(11u64),
             Fr::from(200u64),
-        ))
-        .unwrap();
-        let v2 = RLNProofValuesV3::try_from(&multi_witness(
+        ));
+        let v2 = RLNProofValuesV3::from(&multi_witness(
             id,
             default_path(),
             ids2,
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(22u64),
             Fr::from(200u64),
-        ))
-        .unwrap();
+        ));
         assert!(v1.recover_secret(&v2).is_err());
     }
 
@@ -260,23 +252,21 @@ mod test {
     fn test_recover_secret_single_x_multi() {
         let (id, _) = keygen();
         let ext = Fr::from(300u64);
-        let sv = RLNProofValuesV3::try_from(&single_witness(
+        let sv = RLNProofValuesV3::from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             ext,
-        ))
-        .unwrap();
-        let mv = RLNProofValuesV3::try_from(&multi_witness(
+        ));
+        let mv = RLNProofValuesV3::from(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(22u64),
             ext,
-        ))
-        .unwrap();
+        ));
         assert_eq!(*sv.recover_secret(&mv).unwrap(), *id);
         assert_eq!(*mv.recover_secret(&sv).unwrap(), *id);
     }
@@ -313,22 +303,20 @@ mod test {
     #[test]
     fn test_rlnv3_stateless_recover_secret_single() {
         let (id, _) = keygen();
-        let v1 = RLNProofValuesV3::try_from(&single_witness(
+        let v1 = RLNProofValuesV3::from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             Fr::from(200u64),
-        ))
-        .unwrap();
-        let v2 = RLNProofValuesV3::try_from(&single_witness(
+        ));
+        let v2 = RLNProofValuesV3::from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(22u64),
             Fr::from(200u64),
-        ))
-        .unwrap();
+        ));
         assert_eq!(*v1.recover_secret(&v2).unwrap(), *id);
     }
 
@@ -336,23 +324,21 @@ mod test {
     fn test_rlnv3_stateless_recover_secret_cross_mode() {
         let (id, _) = keygen();
         let ext = Fr::from(300u64);
-        let sv = RLNProofValuesV3::try_from(&single_witness(
+        let sv = RLNProofValuesV3::from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             ext,
-        ))
-        .unwrap();
-        let mv = RLNProofValuesV3::try_from(&multi_witness(
+        ));
+        let mv = RLNProofValuesV3::from(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(22u64),
             ext,
-        ))
-        .unwrap();
+        ));
         assert_eq!(*sv.recover_secret(&mv).unwrap(), *id);
         assert_eq!(*mv.recover_secret(&sv).unwrap(), *id);
     }
@@ -508,7 +494,7 @@ mod test {
         let (proof, vals) = rln.generate_proof(&witness).unwrap();
         assert!(matches!(
             rln.verify_with_roots(&proof, &vals, &x, &[Fr::from(9999u64)]),
-            Err(RLNError::Verify(VerifyError::InvalidRoot))
+            Err(RLNErrorV3::Verify(VerifyError::InvalidRoot))
         ));
     }
 
@@ -526,7 +512,7 @@ mod test {
         let (proof, vals) = rln.generate_proof(&witness).unwrap();
         assert!(matches!(
             rln.verify_with_roots(&proof, &vals, &Fr::from(9999u64), &[]),
-            Err(RLNError::Verify(VerifyError::InvalidSignal))
+            Err(RLNErrorV3::Verify(VerifyError::InvalidSignal))
         ));
     }
 
@@ -562,7 +548,7 @@ mod test {
         let (proof, vals) = rln.generate_proof(&witness).unwrap();
         assert!(matches!(
             rln.verify_with_roots(&proof, &vals, &x, &[Fr::from(9999u64)]),
-            Err(RLNError::Verify(VerifyError::InvalidRoot))
+            Err(RLNErrorV3::Verify(VerifyError::InvalidRoot))
         ));
     }
 
@@ -570,22 +556,20 @@ mod test {
     fn test_v3_recover_id_secret_single() {
         let (id, _) = keygen();
         let ext = Fr::from(100u64);
-        let v1 = RLNProofValuesV3::try_from(&single_witness(
+        let v1 = RLNProofValuesV3::from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             ext,
-        ))
-        .unwrap();
-        let v2 = RLNProofValuesV3::try_from(&single_witness(
+        ));
+        let v2 = RLNProofValuesV3::from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(22u64),
             ext,
-        ))
-        .unwrap();
+        ));
         assert_eq!(*v1.recover_secret(&v2).unwrap(), *id);
     }
 
@@ -593,24 +577,22 @@ mod test {
     fn test_v3_recover_id_secret_multi() {
         let (id, _) = keygen();
         let ext = Fr::from(100u64);
-        let v1 = RLNProofValuesV3::try_from(&multi_witness(
+        let v1 = RLNProofValuesV3::from(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(11u64),
             ext,
-        ))
-        .unwrap();
-        let v2 = RLNProofValuesV3::try_from(&multi_witness(
+        ));
+        let v2 = RLNProofValuesV3::from(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(22u64),
             ext,
-        ))
-        .unwrap();
+        ));
         assert_eq!(*v1.recover_secret(&v2).unwrap(), *id);
     }
 
@@ -618,23 +600,21 @@ mod test {
     fn test_v3_recover_id_secret_cross_mode() {
         let (id, _) = keygen();
         let ext = Fr::from(300u64);
-        let sv = RLNProofValuesV3::try_from(&single_witness(
+        let sv = RLNProofValuesV3::from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             ext,
-        ))
-        .unwrap();
-        let mv = RLNProofValuesV3::try_from(&multi_witness(
+        ));
+        let mv = RLNProofValuesV3::from(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(22u64),
             ext,
-        ))
-        .unwrap();
+        ));
         assert_eq!(*sv.recover_secret(&mv).unwrap(), *id);
         assert_eq!(*mv.recover_secret(&sv).unwrap(), *id);
     }
@@ -643,7 +623,7 @@ mod test {
     fn test_v3_new_with_params_invalid_zkey() {
         assert!(matches!(
             RLNV3::<Stateless, ArkGroth16Backend>::new_with_params(vec![], vec![1, 2, 3]),
-            Err(RLNError::ZKey(_))
+            Err(RLNErrorV3::ZKey(_))
         ));
     }
 
@@ -652,7 +632,7 @@ mod test {
         let valid_zkey = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey").to_vec();
         assert!(matches!(
             RLNV3::<Stateless, ArkGroth16Backend>::new_with_params(valid_zkey, vec![0u8; 50],),
-            Err(RLNError::Graph(_))
+            Err(RLNErrorV3::Graph(_))
         ));
     }
 }

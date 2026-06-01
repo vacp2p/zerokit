@@ -1,4 +1,4 @@
-use std::{array::TryFromSliceError, num::TryFromIntError};
+use std::{array::TryFromSliceError, io::Error, num::TryFromIntError};
 
 use ark_relations::r1cs::SynthesisError;
 use ark_serialize::SerializationError;
@@ -17,7 +17,7 @@ use crate::{
 #[derive(Debug, thiserror::Error)]
 pub enum UtilsError {
     #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
+    IoError(#[from] Error),
     #[error("Expected radix 10 or 16")]
     WrongRadix,
     #[error("Failed to parse big integer: {0}")]
@@ -49,7 +49,7 @@ pub enum RecoverSecretError {
 #[derive(Debug, thiserror::Error)]
 pub enum ProtocolError {
     #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
+    IoError(#[from] Error),
     #[error("Error producing proof: {0}")]
     Synthesis(#[from] SynthesisError),
     #[error("RLN utility error: {0}")]
@@ -122,4 +122,72 @@ pub enum RLNError {
     Protocol(#[from] ProtocolError),
     #[error("Verification error: {0}")]
     Verify(#[from] VerifyError),
+}
+
+// TODO(PR10): delete ProtocolError and RLNError; strip V3 suffixes
+
+/// Errors that can occur during RLN protocol operations (witness creation, proof generation, etc.)
+#[derive(Debug, thiserror::Error)]
+pub enum ProtocolErrorV3 {
+    #[error("User message limit cannot be zero")]
+    ZeroUserMessageLimit,
+    #[error("Message id ({message_id}) is not within user_message_limit ({user_message_limit})")]
+    InvalidMessageId {
+        message_id: Fr,
+        user_message_limit: Fr,
+    },
+    #[error("The field message_ids must contain at least one message_id")]
+    EmptyMessageIds,
+    #[error("Duplicate message ID found in message_ids")]
+    DuplicateMessageIds,
+    #[error("At least one selector_used value must be true")]
+    NoActiveSelectorUsed,
+    #[error("The field {field1} has length {len1}, but the field {field2} has length {len2}")]
+    FieldLengthMismatch {
+        field1: &'static str,
+        len1: usize,
+        field2: &'static str,
+        len2: usize,
+    },
+    #[error("Field `{field}` does not exist on the `{variant}` variant")]
+    FieldNotInVariant {
+        field: &'static str,
+        variant: &'static str,
+    },
+    #[error("Synthesis error: {0}")]
+    Synthesis(#[from] SynthesisError),
+    #[error("Witness calculation error: {0}")]
+    WitnessCalc(#[from] WitnessCalcError),
+}
+
+/// Errors that can occur during serialization/deserialization of RLN types.
+#[derive(Debug, thiserror::Error)]
+pub enum SerializeErrorV3 {
+    #[error("IO error: {0}")]
+    Io(#[from] Error),
+    #[error("RLN utility error: {0}")]
+    Utils(#[from] UtilsError),
+    #[error("Arkworks serialization error: {0}")]
+    Arkworks(#[from] SerializationError),
+}
+
+/// Top-level error type for all V3 RLN operations
+#[derive(Debug, thiserror::Error)]
+pub enum RLNErrorV3 {
+    #[error("ZKey error: {0}")]
+    ZKey(#[from] ZKeyReadError),
+    #[error("Graph error: {0}")]
+    Graph(#[from] GraphReadError),
+    #[error("Merkle tree error: {0}")]
+    MerkleTree(#[from] ZerokitMerkleTreeError),
+    #[error("Configuration error: {0}")]
+    Config(#[from] FromConfigError),
+    #[error("Protocol error: {0}")]
+    Protocol(#[from] ProtocolErrorV3),
+    #[error("Serialization error: {0}")]
+    Serialize(#[from] SerializeErrorV3),
+    #[error("Verification error: {0}")]
+    Verify(#[from] VerifyError),
+    #[error("Secret recovery error: {0}")]
+    RecoverSecret(#[from] RecoverSecretError),
 }

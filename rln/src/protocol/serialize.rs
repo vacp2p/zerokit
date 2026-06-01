@@ -20,17 +20,17 @@ use super::{
 };
 use crate::{
     circuit::{Fr, Proof, COMPRESS_PROOF_SIZE},
-    error::{ProtocolError, UtilsError},
+    error::{SerializeErrorV3, UtilsError},
     utils::{normalize_usize_be, IdSecret},
 };
 
 /// Byte size of the enum variant tag prepended to serialized enum types.
 pub const ENUM_TAG_SIZE: usize = 1;
 
-/// Tag byte for the `Single` variant — Single message-id mode.
+/// Tag byte for the `Single` variant - Single message-id mode.
 pub const ENUM_TAG_SINGLE: u8 = 0;
 
-/// Tag byte for the `Multi` variant — Multi message-id mode.
+/// Tag byte for the `Multi` variant - Multi message-id mode.
 pub const ENUM_TAG_MULTI: u8 = 1;
 
 /// Byte size of a `Fr` field element aligned to 64-bit boundary, computed once at compile time.
@@ -291,7 +291,7 @@ impl CanonicalDeserialize for RLNWitnessInputV3 {
 }
 
 impl CanonicalSerializeBE for RLNWitnessInputV3 {
-    type Error = ProtocolError;
+    type Error = SerializeErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         match self {
@@ -316,7 +316,7 @@ impl CanonicalSerializeBE for RLNWitnessInputV3 {
 }
 
 impl CanonicalDeserializeBE for RLNWitnessInputV3 {
-    type Error = ProtocolError;
+    type Error = SerializeErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let mut tag = [0u8; ENUM_TAG_SIZE];
@@ -328,15 +328,13 @@ impl CanonicalDeserializeBE for RLNWitnessInputV3 {
             ENUM_TAG_MULTI => Ok(RLNWitnessInputV3::Multi(RLNWitnessInputMulti::deserialize(
                 reader,
             )?)),
-            _ => Err(ProtocolError::SerializationError(
-                SerializationError::InvalidData,
-            )),
+            _ => Err(SerializationError::InvalidData.into()),
         }
     }
 }
 
 impl CanonicalSerializeBE for RLNWitnessInputSingle {
-    type Error = ProtocolError;
+    type Error = SerializeErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         self.identity_secret.serialize(&mut writer)?;
@@ -361,7 +359,7 @@ impl CanonicalSerializeBE for RLNWitnessInputSingle {
 }
 
 impl CanonicalDeserializeBE for RLNWitnessInputSingle {
-    type Error = ProtocolError;
+    type Error = SerializeErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let identity_secret = IdSecret::deserialize(&mut reader)?;
@@ -384,7 +382,7 @@ impl CanonicalDeserializeBE for RLNWitnessInputSingle {
 }
 
 impl CanonicalSerializeBE for RLNWitnessInputMulti {
-    type Error = ProtocolError;
+    type Error = SerializeErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         self.identity_secret.serialize(&mut writer)?;
@@ -411,7 +409,7 @@ impl CanonicalSerializeBE for RLNWitnessInputMulti {
 }
 
 impl CanonicalDeserializeBE for RLNWitnessInputMulti {
-    type Error = ProtocolError;
+    type Error = SerializeErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let identity_secret = IdSecret::deserialize(&mut reader)?;
@@ -436,7 +434,7 @@ impl CanonicalDeserializeBE for RLNWitnessInputMulti {
 }
 
 impl CanonicalSerializeBE for RLNPartialWitnessInputV3 {
-    type Error = ProtocolError;
+    type Error = SerializeErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         self.identity_secret.serialize(&mut writer)?;
@@ -455,7 +453,7 @@ impl CanonicalSerializeBE for RLNPartialWitnessInputV3 {
 }
 
 impl CanonicalDeserializeBE for RLNPartialWitnessInputV3 {
-    type Error = ProtocolError;
+    type Error = SerializeErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let identity_secret = IdSecret::deserialize(&mut reader)?;
@@ -531,7 +529,7 @@ impl CanonicalDeserialize for RLNProofValuesV3 {
 }
 
 impl CanonicalSerializeBE for RLNProofValuesV3 {
-    type Error = ProtocolError;
+    type Error = SerializeErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         match self {
@@ -556,7 +554,7 @@ impl CanonicalSerializeBE for RLNProofValuesV3 {
 }
 
 impl CanonicalDeserializeBE for RLNProofValuesV3 {
-    type Error = ProtocolError;
+    type Error = SerializeErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let mut tag = [0u8; ENUM_TAG_SIZE];
@@ -568,15 +566,13 @@ impl CanonicalDeserializeBE for RLNProofValuesV3 {
             ENUM_TAG_MULTI => Ok(RLNProofValuesV3::Multi(RLNProofValuesMulti::deserialize(
                 reader,
             )?)),
-            _ => Err(ProtocolError::SerializationError(
-                SerializationError::InvalidData,
-            )),
+            _ => Err(SerializationError::InvalidData.into()),
         }
     }
 }
 
 impl CanonicalSerializeBE for RLNProofValuesSingle {
-    type Error = ProtocolError;
+    type Error = SerializeErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         self.y.serialize(&mut writer)?;
@@ -597,7 +593,7 @@ impl CanonicalSerializeBE for RLNProofValuesSingle {
 }
 
 impl CanonicalDeserializeBE for RLNProofValuesSingle {
-    type Error = ProtocolError;
+    type Error = SerializeErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let y = Fr::deserialize(&mut reader)?;
@@ -616,7 +612,7 @@ impl CanonicalDeserializeBE for RLNProofValuesSingle {
 }
 
 impl CanonicalSerializeBE for RLNProofValuesMulti {
-    type Error = ProtocolError;
+    type Error = SerializeErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         self.ys.serialize(&mut writer)?;
@@ -639,7 +635,7 @@ impl CanonicalSerializeBE for RLNProofValuesMulti {
 }
 
 impl CanonicalDeserializeBE for RLNProofValuesMulti {
-    type Error = ProtocolError;
+    type Error = SerializeErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let ys = Vec::<Fr>::deserialize(&mut reader)?;
@@ -680,8 +676,7 @@ pub trait CanonicalDeserializeMixed: CanonicalDeserialize + Sized {
 }
 
 impl CanonicalSerializeMixed for RLNProofV3 {
-    //TODO: unify error types across serialization traits to avoid this redundant associated type
-    type Error = ProtocolError;
+    type Error = SerializeErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         self.proof.serialize_compressed(&mut writer)?;
@@ -695,7 +690,7 @@ impl CanonicalSerializeMixed for RLNProofV3 {
 }
 
 impl CanonicalDeserializeMixed for RLNProofV3 {
-    type Error = ProtocolError;
+    type Error = SerializeErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let proof = Proof::deserialize_compressed(&mut reader)?;
