@@ -9,7 +9,7 @@ use crate::{
         qap::CircomReduction, ArkGroth16Backend, CalcWitness, CalcWitnessPartial, Fr, PartialProof,
         Proof,
     },
-    error::ProtocolErrorV3,
+    error::RLNErrorV3,
     partial_proof::{Groth16Partial, PartialAssignment},
     prelude::{CanonicalDeserializeBE, CanonicalSerializeBE, RLNPartialWitnessInputV3},
     protocol::{proof::RLNProofValuesV3, witness::RLNWitnessInputV3},
@@ -65,7 +65,7 @@ impl RLNZkProof for ArkGroth16Backend {
     type Witness = RLNWitnessInputV3;
     type Values = RLNProofValuesV3;
     type Proof = Proof;
-    type Error = ProtocolErrorV3;
+    type Error = RLNErrorV3;
 
     fn generate_proof(
         &self,

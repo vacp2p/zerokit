@@ -11,10 +11,11 @@ use super::{
 };
 use crate::{
     circuit::{
+        error::WitnessCalcError,
         iden3calc::{calc_witness, calc_witness_partial},
         CalcWitness, CalcWitnessPartial, Fr, Graph,
     },
-    error::{ProtocolError, ProtocolErrorV3},
+    error::{ProtocolError, WitnessInputErrorV3},
     hashers::poseidon_hash,
     utils::{
         bytes_be_to_fr, bytes_be_to_vec_bool, bytes_be_to_vec_fr, bytes_be_to_vec_u8,
@@ -980,30 +981,30 @@ impl RLNWitnessInputV3 {
         }
     }
 
-    pub fn message_id(&self) -> Result<&Fr, ProtocolErrorV3> {
+    pub fn message_id(&self) -> Result<&Fr, WitnessInputErrorV3> {
         match self {
             Self::Single(w) => Ok(&w.message_id),
-            Self::Multi(_) => Err(ProtocolErrorV3::FieldNotInVariant {
+            Self::Multi(_) => Err(WitnessInputErrorV3::FieldNotInVariant {
                 field: "message_id",
                 variant: "Multi",
             }),
         }
     }
 
-    pub fn message_ids(&self) -> Result<&[Fr], ProtocolErrorV3> {
+    pub fn message_ids(&self) -> Result<&[Fr], WitnessInputErrorV3> {
         match self {
             Self::Multi(w) => Ok(&w.message_ids),
-            Self::Single(_) => Err(ProtocolErrorV3::FieldNotInVariant {
+            Self::Single(_) => Err(WitnessInputErrorV3::FieldNotInVariant {
                 field: "message_ids",
                 variant: "Single",
             }),
         }
     }
 
-    pub fn selector_used(&self) -> Result<&[bool], ProtocolErrorV3> {
+    pub fn selector_used(&self) -> Result<&[bool], WitnessInputErrorV3> {
         match self {
             Self::Multi(w) => Ok(&w.selector_used),
-            Self::Single(_) => Err(ProtocolErrorV3::FieldNotInVariant {
+            Self::Single(_) => Err(WitnessInputErrorV3::FieldNotInVariant {
                 field: "selector_used",
                 variant: "Single",
             }),
@@ -1012,13 +1013,13 @@ impl RLNWitnessInputV3 {
 }
 
 impl RLNWitnessInputV3 {
-    pub(super) fn validate_against_graph(&self, graph: &Graph) -> Result<(), ProtocolErrorV3> {
+    pub(super) fn validate_against_graph(&self, graph: &Graph) -> Result<(), WitnessInputErrorV3> {
         let (path_len, index_len) = match self {
             Self::Single(w) => (w.path_elements.len(), w.identity_path_index.len()),
             Self::Multi(w) => (w.path_elements.len(), w.identity_path_index.len()),
         };
         if path_len != graph.tree_depth {
-            return Err(ProtocolErrorV3::FieldLengthMismatch {
+            return Err(WitnessInputErrorV3::FieldLengthMismatch {
                 field1: "path_elements",
                 len1: path_len,
                 field2: "tree_depth",
@@ -1026,7 +1027,7 @@ impl RLNWitnessInputV3 {
             });
         }
         if index_len != graph.tree_depth {
-            return Err(ProtocolErrorV3::FieldLengthMismatch {
+            return Err(WitnessInputErrorV3::FieldLengthMismatch {
                 field1: "identity_path_index",
                 len1: index_len,
                 field2: "tree_depth",
@@ -1035,7 +1036,7 @@ impl RLNWitnessInputV3 {
         }
         if let Self::Multi(w) = self {
             if w.message_ids.len() != graph.max_out {
-                return Err(ProtocolErrorV3::FieldLengthMismatch {
+                return Err(WitnessInputErrorV3::FieldLengthMismatch {
                     field1: "message_ids",
                     len1: w.message_ids.len(),
                     field2: "max_out",
@@ -1043,7 +1044,7 @@ impl RLNWitnessInputV3 {
                 });
             }
             if w.selector_used.len() != graph.max_out {
-                return Err(ProtocolErrorV3::FieldLengthMismatch {
+                return Err(WitnessInputErrorV3::FieldLengthMismatch {
                     field1: "selector_used",
                     len1: w.selector_used.len(),
                     field2: "max_out",
@@ -1068,10 +1069,7 @@ impl From<RLNWitnessInputMulti> for RLNWitnessInputV3 {
 }
 
 impl CalcWitness for RLNWitnessInputV3 {
-    fn calc_witness(
-        &self,
-        graph: &Graph,
-    ) -> Result<Vec<Fr>, crate::circuit::error::WitnessCalcError> {
+    fn calc_witness(&self, graph: &Graph) -> Result<Vec<Fr>, WitnessCalcError> {
         let inputs: Vec<(String, Vec<FrOrSecret>)> = match self {
             Self::Single(w) => vec![
                 (
@@ -1143,10 +1141,7 @@ impl CalcWitness for RLNWitnessInputV3 {
 }
 
 impl CalcWitnessPartial for RLNPartialWitnessInputV3 {
-    fn calc_witness_partial(
-        &self,
-        graph: &Graph,
-    ) -> Result<Vec<Option<Fr>>, crate::circuit::error::WitnessCalcError> {
+    fn calc_witness_partial(&self, graph: &Graph) -> Result<Vec<Option<Fr>>, WitnessCalcError> {
         let identity_path_index_fr: Vec<Option<FrOrSecret>> = self
             .identity_path_index
             .iter()
@@ -1208,14 +1203,14 @@ impl RLNWitnessInputSingle {
         x: Fr,
         external_nullifier: Fr,
         message_id: Fr,
-    ) -> Result<Self, ProtocolErrorV3> {
+    ) -> Result<Self, WitnessInputErrorV3> {
         if user_message_limit == Fr::from(0) {
-            return Err(ProtocolErrorV3::ZeroUserMessageLimit);
+            return Err(WitnessInputErrorV3::ZeroUserMessageLimit);
         }
         let path_len = path_elements.len();
         let index_len = identity_path_index.len();
         if path_len != index_len {
-            return Err(ProtocolErrorV3::FieldLengthMismatch {
+            return Err(WitnessInputErrorV3::FieldLengthMismatch {
                 field1: "path_elements",
                 len1: path_len,
                 field2: "identity_path_index",
@@ -1223,7 +1218,7 @@ impl RLNWitnessInputSingle {
             });
         }
         if message_id >= user_message_limit {
-            return Err(ProtocolErrorV3::InvalidMessageId {
+            return Err(WitnessInputErrorV3::InvalidMessageId {
                 message_id,
                 user_message_limit,
             });
@@ -1263,14 +1258,14 @@ impl RLNWitnessInputMulti {
         external_nullifier: Fr,
         message_ids: Vec<Fr>,
         selector_used: Vec<bool>,
-    ) -> Result<Self, ProtocolErrorV3> {
+    ) -> Result<Self, WitnessInputErrorV3> {
         if user_message_limit == Fr::from(0) {
-            return Err(ProtocolErrorV3::ZeroUserMessageLimit);
+            return Err(WitnessInputErrorV3::ZeroUserMessageLimit);
         }
         let path_len = path_elements.len();
         let index_len = identity_path_index.len();
         if path_len != index_len {
-            return Err(ProtocolErrorV3::FieldLengthMismatch {
+            return Err(WitnessInputErrorV3::FieldLengthMismatch {
                 field1: "path_elements",
                 len1: path_len,
                 field2: "identity_path_index",
@@ -1278,10 +1273,10 @@ impl RLNWitnessInputMulti {
             });
         }
         if message_ids.is_empty() {
-            return Err(ProtocolErrorV3::EmptyMessageIds);
+            return Err(WitnessInputErrorV3::EmptyMessageIds);
         }
         if selector_used.len() != message_ids.len() {
-            return Err(ProtocolErrorV3::FieldLengthMismatch {
+            return Err(WitnessInputErrorV3::FieldLengthMismatch {
                 field1: "message_ids",
                 len1: message_ids.len(),
                 field2: "selector_used",
@@ -1289,19 +1284,19 @@ impl RLNWitnessInputMulti {
             });
         }
         if !selector_used.iter().any(|&s| s) {
-            return Err(ProtocolErrorV3::NoActiveSelectorUsed);
+            return Err(WitnessInputErrorV3::NoActiveSelectorUsed);
         }
         {
             let mut seen = HashSet::with_capacity(message_ids.len());
             for (id, &used) in message_ids.iter().zip(&selector_used) {
                 if used && !seen.insert(*id) {
-                    return Err(ProtocolErrorV3::DuplicateMessageIds);
+                    return Err(WitnessInputErrorV3::DuplicateMessageIds);
                 }
             }
         }
         for (message_id, used) in message_ids.iter().zip(&selector_used) {
             if *used && *message_id >= user_message_limit {
-                return Err(ProtocolErrorV3::InvalidMessageId {
+                return Err(WitnessInputErrorV3::InvalidMessageId {
                     message_id: *message_id,
                     user_message_limit,
                 });
@@ -1334,14 +1329,14 @@ impl RLNPartialWitnessInputV3 {
         user_message_limit: Fr,
         path_elements: Vec<Fr>,
         identity_path_index: Vec<u8>,
-    ) -> Result<Self, ProtocolErrorV3> {
+    ) -> Result<Self, WitnessInputErrorV3> {
         if user_message_limit == Fr::from(0) {
-            return Err(ProtocolErrorV3::ZeroUserMessageLimit);
+            return Err(WitnessInputErrorV3::ZeroUserMessageLimit);
         }
         let path_len = path_elements.len();
         let index_len = identity_path_index.len();
         if path_len != index_len {
-            return Err(ProtocolErrorV3::FieldLengthMismatch {
+            return Err(WitnessInputErrorV3::FieldLengthMismatch {
                 field1: "path_elements",
                 len1: path_len,
                 field2: "identity_path_index",
@@ -1356,9 +1351,9 @@ impl RLNPartialWitnessInputV3 {
         })
     }
 
-    pub(super) fn validate_against_graph(&self, graph: &Graph) -> Result<(), ProtocolErrorV3> {
+    pub(super) fn validate_against_graph(&self, graph: &Graph) -> Result<(), WitnessInputErrorV3> {
         if self.path_elements.len() != graph.tree_depth {
-            return Err(ProtocolErrorV3::FieldLengthMismatch {
+            return Err(WitnessInputErrorV3::FieldLengthMismatch {
                 field1: "path_elements",
                 len1: self.path_elements.len(),
                 field2: "tree_depth",
@@ -1366,7 +1361,7 @@ impl RLNPartialWitnessInputV3 {
             });
         }
         if self.identity_path_index.len() != graph.tree_depth {
-            return Err(ProtocolErrorV3::FieldLengthMismatch {
+            return Err(WitnessInputErrorV3::FieldLengthMismatch {
                 field1: "identity_path_index",
                 len1: self.identity_path_index.len(),
                 field2: "tree_depth",

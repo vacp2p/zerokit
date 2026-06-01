@@ -56,20 +56,23 @@ mod test {
         // Modulus itself must be rejected
         let modulus_be = to_be(&modulus);
         let err = Fr::deserialize(modulus_be.as_slice()).unwrap_err();
-        assert!(matches!(err, UtilsError::NonCanonicalFieldElement));
+        assert!(matches!(
+            err,
+            SerializationErrorV3::NonCanonicalFieldElement
+        ));
 
         // Modulus + 1 must be rejected
         let plus_one_be = to_be(&(&modulus + 1u32));
         assert!(matches!(
             Fr::deserialize(plus_one_be.as_slice()).unwrap_err(),
-            UtilsError::NonCanonicalFieldElement
+            SerializationErrorV3::NonCanonicalFieldElement
         ));
 
         // All 0xFF must be rejected
         let max_bytes = vec![0xFF; FR_BYTE_SIZE];
         assert!(matches!(
             Fr::deserialize(max_bytes.as_slice()).unwrap_err(),
-            UtilsError::NonCanonicalFieldElement
+            SerializationErrorV3::NonCanonicalFieldElement
         ));
 
         // Modulus - 1 must succeed and round-trip
@@ -237,14 +240,14 @@ mod test {
         let modulus_be = to_be(&modulus);
         assert!(matches!(
             IdSecret::deserialize(modulus_be.as_slice()).unwrap_err(),
-            UtilsError::NonCanonicalFieldElement
+            SerializationErrorV3::NonCanonicalFieldElement
         ));
 
         // All 0xFF must be rejected
         let max_bytes = vec![0xFF; FR_BYTE_SIZE];
         assert!(matches!(
             IdSecret::deserialize(max_bytes.as_slice()).unwrap_err(),
-            UtilsError::NonCanonicalFieldElement
+            SerializationErrorV3::NonCanonicalFieldElement
         ));
 
         // Modulus - 1 must succeed

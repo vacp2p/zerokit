@@ -124,11 +124,11 @@ pub enum RLNError {
     Verify(#[from] VerifyError),
 }
 
-// TODO(PR10): delete ProtocolError and RLNError; strip V3 suffixes
+// TODO(PR10): delete UtilsError, ProtocolError, RLNError and strip V3 suffixes
 
-/// Errors that can occur during RLN protocol operations (witness creation, proof generation, etc.)
+/// Errors that can occur during witness input operations
 #[derive(Debug, thiserror::Error)]
-pub enum ProtocolErrorV3 {
+pub enum WitnessInputErrorV3 {
     #[error("User message limit cannot be zero")]
     ZeroUserMessageLimit,
     #[error("Message id ({message_id}) is not within user_message_limit ({user_message_limit})")]
@@ -154,38 +154,63 @@ pub enum ProtocolErrorV3 {
         field: &'static str,
         variant: &'static str,
     },
-    #[error("Synthesis error: {0}")]
-    Synthesis(#[from] SynthesisError),
-    #[error("Witness calculation error: {0}")]
-    WitnessCalc(#[from] WitnessCalcError),
 }
 
-/// Errors that can occur during serialization/deserialization of RLN types.
+/// Errors that can occur during proof values operations
 #[derive(Debug, thiserror::Error)]
-pub enum SerializeErrorV3 {
+pub enum ProofValuesErrorV3 {
+    #[error("Field `{field}` does not exist on the `{variant}` proof values variant")]
+    FieldNotInVariant {
+        field: &'static str,
+        variant: &'static str,
+    },
+}
+
+/// Errors that can occur during serialization and deserialization of RLN types
+#[derive(Debug, thiserror::Error)]
+pub enum SerializationErrorV3 {
     #[error("IO error: {0}")]
     Io(#[from] Error),
-    #[error("RLN utility error: {0}")]
-    Utils(#[from] UtilsError),
-    #[error("Arkworks serialization error: {0}")]
-    Arkworks(#[from] SerializationError),
+    #[error("Arkworks canonical serialization error: {0}")]
+    ArkworksSerializationError(#[from] SerializationError),
+    #[error("Non-canonical field element: value is not in [0, r-1]")]
+    NonCanonicalFieldElement,
+    #[error("Non-canonical bool byte: expected 0x00 or 0x01, got {0:#04x}")]
+    NonCanonicalBool(u8),
+    #[error("Failed to convert from slice: {0}")]
+    FromSlice(#[from] TryFromSliceError),
+    #[error("Failed to convert to usize: {0}")]
+    ToUsize(#[from] TryFromIntError),
+}
+
+/// Errors that can occur during RLN instance initialization
+#[derive(Debug, thiserror::Error)]
+pub enum InitErrorV3 {
+    #[error("ZKey error: {0}")]
+    ZKey(#[from] ZKeyReadError),
+    #[error("Graph error: {0}")]
+    Graph(#[from] GraphReadError),
+    #[error("Configuration error: {0}")]
+    Config(#[from] FromConfigError),
 }
 
 /// Top-level error type for all V3 RLN operations
 #[derive(Debug, thiserror::Error)]
 pub enum RLNErrorV3 {
-    #[error("ZKey error: {0}")]
-    ZKey(#[from] ZKeyReadError),
-    #[error("Graph error: {0}")]
-    Graph(#[from] GraphReadError),
+    #[error("Initialization error: {0}")]
+    Init(#[from] InitErrorV3),
+    #[error("Witness input error: {0}")]
+    WitnessInput(#[from] WitnessInputErrorV3),
+    #[error("Proof values error: {0}")]
+    ProofValues(#[from] ProofValuesErrorV3),
+    #[error("Witness calculation error: {0}")]
+    WitnessCalc(#[from] WitnessCalcError),
+    #[error("Synthesis error: {0}")]
+    Synthesis(#[from] SynthesisError),
     #[error("Merkle tree error: {0}")]
     MerkleTree(#[from] ZerokitMerkleTreeError),
-    #[error("Configuration error: {0}")]
-    Config(#[from] FromConfigError),
-    #[error("Protocol error: {0}")]
-    Protocol(#[from] ProtocolErrorV3),
     #[error("Serialization error: {0}")]
-    Serialize(#[from] SerializeErrorV3),
+    Serialization(#[from] SerializationErrorV3),
     #[error("Verification error: {0}")]
     Verify(#[from] VerifyError),
     #[error("Secret recovery error: {0}")]
