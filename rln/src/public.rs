@@ -2,24 +2,19 @@
 // It is used by the FFI, WASM and should be used by tests as well
 
 use num_bigint::BigInt;
-use zerokit_utils::merkle_tree::ZerokitMerkleTree;
+use zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleTree};
 #[cfg(not(feature = "stateless"))]
-use {
-    crate::poseidon_tree::PoseidonTree,
-    std::str::FromStr,
-    zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTreeError},
-};
+use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTreeError};
+#[cfg(not(feature = "stateless"))]
+use {crate::poseidon_tree::PoseidonTree, std::str::FromStr};
 
 use crate::{
-    circuit::{
-        graph_from_raw, zkey_from_raw, ArkGroth16Backend, ArkGroth16BackendWithGraph, Fr, Proof,
-        Zkey,
-    },
+    circuit::{graph_from_raw, zkey_from_raw, ArkGroth16Backend, Fr, Proof, Zkey},
     error::{RLNError, VerifyError},
     protocol::{
         generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof,
-        RLNPartialZkProof, RLNProofValues, RLNProofValuesV3, RLNWitnessInput, RLNZkProof,
-        RLNZkProofWithGraph, Stateful, Stateless,
+        RLNPartialZkProof, RLNProofValues, RLNProofValuesV3, RLNWitnessInput, RLNZkProof, Stateful,
+        Stateless,
     },
 };
 #[cfg(not(target_arch = "wasm32"))]
@@ -805,17 +800,92 @@ impl<T, ZkProof> RLNV3<Stateful<T>, ZkProof> {
     }
 }
 
-impl<T: ZerokitMerkleTree, ZkProof> RLNV3<Stateful<T>, ZkProof> {
+impl<T, ZkProof> RLNV3<Stateful<T>, ZkProof>
+where
+    T: ZerokitMerkleTree,
+    T::Hasher: Hasher<Fr = Fr>,
+{
     pub fn tree_depth(&self) -> usize {
-        todo!()
+        self.state.tree.depth()
     }
 
     pub fn get_root(&self) -> Fr {
-        todo!()
+        self.state.tree.root()
     }
 
-    pub fn insert_leaf(&mut self, _index: usize, _leaf: Fr) -> Result<(), RLNError> {
-        todo!()
+    pub fn set_leaf(&mut self, index: usize, leaf: Fr) -> Result<(), RLNError> {
+        self.state.tree.set(index, leaf)?;
+        Ok(())
+    }
+
+    pub fn get_leaf(&self, index: usize) -> Result<Fr, RLNError> {
+        Ok(self.state.tree.get(index)?)
+    }
+
+    pub fn set_leaves_from(&mut self, index: usize, leaves: Vec<Fr>) -> Result<(), RLNError> {
+        self.state
+            .tree
+            .override_range(index, leaves.into_iter(), [].into_iter())?;
+        Ok(())
+    }
+
+    pub fn init_tree_with_leaves(&mut self, leaves: Vec<Fr>) -> Result<(), RLNError> {
+        let depth = self.state.tree.depth();
+        self.state.tree = <T as ZerokitMerkleTree>::default(depth)?;
+        self.set_leaves_from(0, leaves)
+    }
+
+    pub fn atomic_operation(
+        &mut self,
+        index: usize,
+        leaves: Vec<Fr>,
+        indices: Vec<usize>,
+    ) -> Result<(), RLNError> {
+        self.state
+            .tree
+            .override_range(index, leaves.into_iter(), indices.into_iter())?;
+        Ok(())
+    }
+
+    pub fn leaves_set(&self) -> usize {
+        self.state.tree.leaves_set()
+    }
+
+    pub fn set_next_leaf(&mut self, leaf: Fr) -> Result<(), RLNError> {
+        self.state.tree.update_next(leaf)?;
+        Ok(())
+    }
+
+    pub fn delete_leaf(&mut self, index: usize) -> Result<(), RLNError> {
+        self.state.tree.delete(index)?;
+        Ok(())
+    }
+
+    pub fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), RLNError> {
+        self.state.tree.set_metadata(metadata)?;
+        Ok(())
+    }
+
+    pub fn get_metadata(&self) -> Result<Vec<u8>, RLNError> {
+        Ok(self.state.tree.metadata()?)
+    }
+
+    pub fn get_subtree_root(&self, level: usize, index: usize) -> Result<Fr, RLNError> {
+        Ok(self.state.tree.get_subtree_root(level, index)?)
+    }
+
+    pub fn get_empty_leaves_indices(&self) -> Vec<usize> {
+        self.state.tree.get_empty_leaves_indices()
+    }
+
+    pub fn flush(&mut self) -> Result<(), RLNError> {
+        self.state.tree.close_db_connection()?;
+        Ok(())
+    }
+
+    pub fn get_merkle_proof(&self, index: usize) -> Result<T::Proof, RLNError> {
+        let merkle_proof = self.state.tree.proof(index)?;
+        Ok(merkle_proof)
     }
 }
 
@@ -825,9 +895,9 @@ where
 {
     pub fn generate_proof(
         &self,
-        calculated_witness: &ZkProof::CalculatedWitness,
-    ) -> Result<ZkProof::Proof, RLNError> {
-        Ok(self.zkp.generate_proof(calculated_witness)?)
+        witness: &ZkProof::Witness,
+    ) -> Result<(ZkProof::Proof, ZkProof::Values), RLNError> {
+        Ok(self.zkp.generate_proof(witness)?)
     }
 
     pub fn verify(
@@ -839,57 +909,39 @@ where
     }
 }
 
-impl<Tree, ZkProof: RLNZkProofWithGraph> RLNV3<Tree, ZkProof>
-where
-    RLNError: From<ZkProof::Error>,
-{
-    pub fn generate_proof_from_witness(
-        &self,
-        witness: &ZkProof::Witness,
-    ) -> Result<ZkProof::Proof, RLNError> {
-        Ok(self.zkp.generate_proof_from_witness(witness)?)
-    }
-}
-
 impl<Tree, ZkProof: RLNPartialZkProof> RLNV3<Tree, ZkProof>
 where
     RLNError: From<ZkProof::Error>,
 {
     pub fn generate_partial_proof(
         &self,
-        partial_witness: ZkProof::PartialWitness,
+        partial_witness: &ZkProof::PartialWitness,
     ) -> Result<ZkProof::PartialProof, RLNError> {
         Ok(self.zkp.generate_partial_proof(partial_witness)?)
     }
 
     pub fn finish_proof(
         &self,
-        partial_proof: ZkProof::PartialProof,
-        witness: ZkProof::Witness,
-    ) -> Result<ZkProof::Proof, RLNError> {
+        partial_proof: &ZkProof::PartialProof,
+        witness: &ZkProof::Witness,
+    ) -> Result<(ZkProof::Proof, ZkProof::Values), RLNError> {
         Ok(self.zkp.finish_proof(partial_proof, witness)?)
     }
 }
 
 // TODO: replace these constructors with a unified RLNBuilder (PR 8)
-impl RLNV3<Stateless, ArkGroth16BackendWithGraph> {
+impl RLNV3<Stateless, ArkGroth16Backend> {
     pub fn new_with_params(zkey_data: Vec<u8>, graph_data: Vec<u8>) -> Result<Self, RLNError> {
         let zkey = zkey_from_raw(&zkey_data)?;
         let graph = graph_from_raw(&graph_data, None, None)?;
-        Ok(Self::new(ArkGroth16BackendWithGraph::new(zkey, graph)))
-    }
-}
-
-impl RLNV3<Stateless, ArkGroth16Backend> {
-    pub fn new_with_params(zkey_data: Vec<u8>) -> Result<Self, RLNError> {
-        let zkey = zkey_from_raw(&zkey_data)?;
-        Ok(Self::new(ArkGroth16Backend::new(zkey)))
+        Ok(Self::new(ArkGroth16Backend::new(zkey, graph)))
     }
 }
 
 impl<Tree, ZkProof> RLNV3<Tree, ZkProof>
 where
-    ZkProof: RLNZkProof<Values = RLNProofValuesV3, Proof = Proof, Error = RLNError>,
+    ZkProof: RLNZkProof<Values = RLNProofValuesV3, Proof = Proof>,
+    RLNError: From<ZkProof::Error>,
 {
     pub fn verify_with_roots(
         &self,

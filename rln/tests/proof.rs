@@ -3,15 +3,15 @@
 mod test {
     use rln::prelude::*;
 
-    fn make_rln(zkey: &Zkey, graph: &Graph) -> RLNV3<Stateless, ArkGroth16BackendWithGraph> {
-        RLNV3::<Stateless, ArkGroth16BackendWithGraph>::new(ArkGroth16BackendWithGraph::new(
+    fn make_rln(zkey: &Zkey, graph: &Graph) -> RLNV3<Stateless, ArkGroth16Backend> {
+        RLNV3::<Stateless, ArkGroth16Backend>::new(ArkGroth16Backend::new(
             zkey.clone(),
             graph.clone(),
         ))
     }
 
-    fn make_backend(zkey: &Zkey, graph: &Graph) -> ArkGroth16BackendWithGraph {
-        ArkGroth16BackendWithGraph::new(zkey.clone(), graph.clone())
+    fn make_backend(zkey: &Zkey, graph: &Graph) -> ArkGroth16Backend {
+        ArkGroth16Backend::new(zkey.clone(), graph.clone())
     }
 
     fn single_witness(
@@ -68,10 +68,6 @@ mod test {
         (1..=DEFAULT_MAX_OUT).map(|i| Fr::from(i as u64)).collect()
     }
 
-    fn values(witness: RLNWitnessInputV3) -> RLNProofValuesV3 {
-        RLNProofValuesV3::try_from(witness).unwrap()
-    }
-
     #[test]
     fn test_generate_and_verify_single() {
         let backend = make_backend(zkey_single_v1(), graph_single_v1());
@@ -82,8 +78,7 @@ mod test {
             Fr::from(42u64),
             Fr::from(100u64),
         );
-        let proof = backend.generate_proof_from_witness(&witness).unwrap();
-        let vals = values(witness);
+        let (proof, vals) = backend.generate_proof(&witness).unwrap();
         assert!(backend.verify(&proof, &vals).unwrap());
     }
 
@@ -104,8 +99,8 @@ mod test {
             Fr::from(99u64),
             Fr::from(100u64),
         );
-        let proof1 = backend.generate_proof_from_witness(&w1).unwrap();
-        let vals2 = values(w2);
+        let (proof1, _) = backend.generate_proof(&w1).unwrap();
+        let vals2 = RLNProofValuesV3::try_from(&w2).unwrap();
         assert!(!backend.verify(&proof1, &vals2).unwrap());
     }
 
@@ -119,7 +114,7 @@ mod test {
             Fr::from(1u64),
             Fr::from(1u64),
         );
-        assert!(backend.generate_proof_from_witness(&witness).is_err());
+        assert!(backend.generate_proof(&witness).is_err());
     }
 
     #[test]
@@ -133,8 +128,7 @@ mod test {
             Fr::from(42u64),
             Fr::from(100u64),
         );
-        let proof = backend.generate_proof_from_witness(&witness).unwrap();
-        let vals = values(witness);
+        let (proof, vals) = backend.generate_proof(&witness).unwrap();
         assert!(backend.verify(&proof, &vals).unwrap());
     }
 
@@ -149,8 +143,7 @@ mod test {
             Fr::from(42u64),
             Fr::from(100u64),
         );
-        let proof = backend.generate_proof_from_witness(&witness).unwrap();
-        let vals = values(witness);
+        let (proof, vals) = backend.generate_proof(&witness).unwrap();
         assert!(backend.verify(&proof, &vals).unwrap());
     }
 
@@ -165,68 +158,74 @@ mod test {
             Fr::from(42u64),
             Fr::from(100u64),
         );
-        assert!(backend.generate_proof_from_witness(&witness).is_err());
+        assert!(backend.generate_proof(&witness).is_err());
     }
 
     #[test]
     fn test_recover_secret_single_x_single() {
         let (id, _) = keygen();
-        let v1 = values(single_witness(
+        let v1 = RLNProofValuesV3::try_from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             Fr::from(200u64),
-        ));
-        let v2 = values(single_witness(
+        ))
+        .unwrap();
+        let v2 = RLNProofValuesV3::try_from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(22u64),
             Fr::from(200u64),
-        ));
+        ))
+        .unwrap();
         assert_eq!(*v1.recover_secret(&v2).unwrap(), *id);
     }
 
     #[test]
     fn test_recover_secret_mismatched_nullifier_fails() {
         let (id, _) = keygen();
-        let v1 = values(single_witness(
+        let v1 = RLNProofValuesV3::try_from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             Fr::from(200u64),
-        ));
-        let v2 = values(single_witness(
+        ))
+        .unwrap();
+        let v2 = RLNProofValuesV3::try_from(&single_witness(
             id,
             default_path(),
             Fr::from(2u64),
             Fr::from(22u64),
             Fr::from(200u64),
-        ));
+        ))
+        .unwrap();
         assert!(v1.recover_secret(&v2).is_err());
     }
 
     #[test]
     fn test_recover_secret_multi_x_multi() {
         let (id, _) = keygen();
-        let v1 = values(multi_witness(
+        let v1 = RLNProofValuesV3::try_from(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(11u64),
             Fr::from(200u64),
-        ));
-        let v2 = values(multi_witness(
+        ))
+        .unwrap();
+        let v2 = RLNProofValuesV3::try_from(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(22u64),
             Fr::from(200u64),
-        ));
+        ))
+        .unwrap();
         assert_eq!(*v1.recover_secret(&v2).unwrap(), *id);
     }
 
@@ -236,22 +235,24 @@ mod test {
         let ids2: Vec<Fr> = (1..=DEFAULT_MAX_OUT)
             .map(|i| Fr::from((i + DEFAULT_MAX_OUT) as u64))
             .collect();
-        let v1 = values(multi_witness(
+        let v1 = RLNProofValuesV3::try_from(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(11u64),
             Fr::from(200u64),
-        ));
-        let v2 = values(multi_witness(
+        ))
+        .unwrap();
+        let v2 = RLNProofValuesV3::try_from(&multi_witness(
             id,
             default_path(),
             ids2,
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(22u64),
             Fr::from(200u64),
-        ));
+        ))
+        .unwrap();
         assert!(v1.recover_secret(&v2).is_err());
     }
 
@@ -259,21 +260,23 @@ mod test {
     fn test_recover_secret_single_x_multi() {
         let (id, _) = keygen();
         let ext = Fr::from(300u64);
-        let sv = values(single_witness(
+        let sv = RLNProofValuesV3::try_from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             ext,
-        ));
-        let mv = values(multi_witness(
+        ))
+        .unwrap();
+        let mv = RLNProofValuesV3::try_from(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(22u64),
             ext,
-        ));
+        ))
+        .unwrap();
         assert_eq!(*sv.recover_secret(&mv).unwrap(), *id);
         assert_eq!(*mv.recover_secret(&sv).unwrap(), *id);
     }
@@ -281,53 +284,51 @@ mod test {
     #[test]
     fn test_rlnv3_stateless_single_generate_and_verify() {
         let rln = make_rln(zkey_single_v1(), graph_single_v1());
-        let (id, _) = keygen();
         let witness = single_witness(
-            id,
+            keygen().0,
             default_path(),
             Fr::from(1u64),
             Fr::from(42u64),
             Fr::from(100u64),
         );
-        let proof = rln.generate_proof_from_witness(&witness).unwrap();
-        assert!(rln.verify(&proof, &values(witness)).unwrap());
+        let (proof, vals) = rln.generate_proof(&witness).unwrap();
+        assert!(rln.verify(&proof, &vals).unwrap());
     }
 
     #[test]
     fn test_rlnv3_stateless_multi_generate_and_verify() {
         let rln = make_rln(zkey_multi_v1(), graph_multi_v1());
-        let (id, _) = keygen();
         let witness = multi_witness(
-            id,
+            keygen().0,
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(42u64),
             Fr::from(100u64),
         );
-        let proof = rln.generate_proof_from_witness(&witness).unwrap();
-        assert!(rln.verify(&proof, &values(witness)).unwrap());
+        let (proof, vals) = rln.generate_proof(&witness).unwrap();
+        assert!(rln.verify(&proof, &vals).unwrap());
     }
 
     #[test]
     fn test_rlnv3_stateless_recover_secret_single() {
         let (id, _) = keygen();
-        let w1 = single_witness(
+        let v1 = RLNProofValuesV3::try_from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             Fr::from(200u64),
-        );
-        let w2 = single_witness(
+        ))
+        .unwrap();
+        let v2 = RLNProofValuesV3::try_from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(22u64),
             Fr::from(200u64),
-        );
-        let v1 = values(w1);
-        let v2 = values(w2);
+        ))
+        .unwrap();
         assert_eq!(*v1.recover_secret(&v2).unwrap(), *id);
     }
 
@@ -335,21 +336,23 @@ mod test {
     fn test_rlnv3_stateless_recover_secret_cross_mode() {
         let (id, _) = keygen();
         let ext = Fr::from(300u64);
-        let sv = values(single_witness(
+        let sv = RLNProofValuesV3::try_from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             ext,
-        ));
-        let mv = values(multi_witness(
+        ))
+        .unwrap();
+        let mv = RLNProofValuesV3::try_from(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(22u64),
             ext,
-        ));
+        ))
+        .unwrap();
         assert_eq!(*sv.recover_secret(&mv).unwrap(), *id);
         assert_eq!(*mv.recover_secret(&sv).unwrap(), *id);
     }
@@ -372,9 +375,9 @@ mod test {
             vec![0u8; DEFAULT_TREE_DEPTH],
         )
         .unwrap();
-        let partial_proof = rln.generate_partial_proof(partial).unwrap();
-        let proof = rln.finish_proof(partial_proof, witness.clone()).unwrap();
-        assert!(rln.verify(&proof, &values(witness)).unwrap());
+        let partial_proof = rln.generate_partial_proof(&partial).unwrap();
+        let (proof, vals) = rln.finish_proof(&partial_proof, &witness).unwrap();
+        assert!(rln.verify(&proof, &vals).unwrap());
     }
 
     #[test]
@@ -396,9 +399,9 @@ mod test {
             vec![0u8; DEFAULT_TREE_DEPTH],
         )
         .unwrap();
-        let partial_proof = rln.generate_partial_proof(partial).unwrap();
-        let proof = rln.finish_proof(partial_proof, witness.clone()).unwrap();
-        assert!(rln.verify(&proof, &values(witness)).unwrap());
+        let partial_proof = rln.generate_partial_proof(&partial).unwrap();
+        let (proof, vals) = rln.finish_proof(&partial_proof, &witness).unwrap();
+        assert!(rln.verify(&proof, &vals).unwrap());
     }
 
     #[test]
@@ -419,9 +422,9 @@ mod test {
             vec![0u8; DEFAULT_TREE_DEPTH],
         )
         .unwrap();
-        let partial_proof = rln.generate_partial_proof(partial).unwrap();
-        let proof = rln.finish_proof(partial_proof, witness.clone()).unwrap();
-        assert!(rln.verify(&proof, &values(witness)).unwrap());
+        let partial_proof = rln.generate_partial_proof(&partial).unwrap();
+        let (proof, vals) = rln.finish_proof(&partial_proof, &witness).unwrap();
+        assert!(rln.verify(&proof, &vals).unwrap());
     }
 
     #[test]
@@ -435,7 +438,7 @@ mod test {
             vec![0u8; DEFAULT_TREE_DEPTH + 1],
         )
         .unwrap();
-        assert!(rln.generate_partial_proof(partial).is_err());
+        assert!(rln.generate_partial_proof(&partial).is_err());
     }
 
     #[test]
@@ -449,7 +452,7 @@ mod test {
             vec![0u8; DEFAULT_TREE_DEPTH],
         )
         .unwrap();
-        let partial_proof = rln.generate_partial_proof(partial).unwrap();
+        let partial_proof = rln.generate_partial_proof(&partial).unwrap();
         let bad_witness = single_witness(
             id,
             vec![Fr::from(0u64); DEFAULT_TREE_DEPTH + 1],
@@ -457,28 +460,36 @@ mod test {
             Fr::from(42u64),
             Fr::from(100u64),
         );
-        assert!(rln.finish_proof(partial_proof, bad_witness).is_err());
+        assert!(rln.finish_proof(&partial_proof, &bad_witness).is_err());
     }
 
     #[test]
     fn test_v3_verify_with_roots_empty_skips_root_check() {
         let rln = make_rln(zkey_single_v1(), graph_single_v1());
-        let (id, _) = keygen();
         let x = Fr::from(42u64);
-        let witness = single_witness(id, default_path(), Fr::from(1u64), x, Fr::from(100u64));
-        let proof = rln.generate_proof_from_witness(&witness).unwrap();
-        let vals = values(witness);
+        let witness = single_witness(
+            keygen().0,
+            default_path(),
+            Fr::from(1u64),
+            x,
+            Fr::from(100u64),
+        );
+        let (proof, vals) = rln.generate_proof(&witness).unwrap();
         assert!(rln.verify_with_roots(&proof, &vals, &x, &[]).unwrap());
     }
 
     #[test]
     fn test_v3_verify_with_roots_correct_root_passes() {
         let rln = make_rln(zkey_single_v1(), graph_single_v1());
-        let (id, _) = keygen();
         let x = Fr::from(42u64);
-        let witness = single_witness(id, default_path(), Fr::from(1u64), x, Fr::from(100u64));
-        let proof = rln.generate_proof_from_witness(&witness).unwrap();
-        let vals = values(witness);
+        let witness = single_witness(
+            keygen().0,
+            default_path(),
+            Fr::from(1u64),
+            x,
+            Fr::from(100u64),
+        );
+        let (proof, vals) = rln.generate_proof(&witness).unwrap();
         let root = vals.root();
         assert!(rln.verify_with_roots(&proof, &vals, &x, &[root]).unwrap());
     }
@@ -486,11 +497,15 @@ mod test {
     #[test]
     fn test_v3_verify_with_roots_wrong_root_fails() {
         let rln = make_rln(zkey_single_v1(), graph_single_v1());
-        let (id, _) = keygen();
         let x = Fr::from(42u64);
-        let witness = single_witness(id, default_path(), Fr::from(1u64), x, Fr::from(100u64));
-        let proof = rln.generate_proof_from_witness(&witness).unwrap();
-        let vals = values(witness);
+        let witness = single_witness(
+            keygen().0,
+            default_path(),
+            Fr::from(1u64),
+            x,
+            Fr::from(100u64),
+        );
+        let (proof, vals) = rln.generate_proof(&witness).unwrap();
         assert!(matches!(
             rln.verify_with_roots(&proof, &vals, &x, &[Fr::from(9999u64)]),
             Err(RLNError::Verify(VerifyError::InvalidRoot))
@@ -500,11 +515,15 @@ mod test {
     #[test]
     fn test_v3_verify_with_roots_wrong_signal_fails() {
         let rln = make_rln(zkey_single_v1(), graph_single_v1());
-        let (id, _) = keygen();
         let x = Fr::from(42u64);
-        let witness = single_witness(id, default_path(), Fr::from(1u64), x, Fr::from(100u64));
-        let proof = rln.generate_proof_from_witness(&witness).unwrap();
-        let vals = values(witness);
+        let witness = single_witness(
+            keygen().0,
+            default_path(),
+            Fr::from(1u64),
+            x,
+            Fr::from(100u64),
+        );
+        let (proof, vals) = rln.generate_proof(&witness).unwrap();
         assert!(matches!(
             rln.verify_with_roots(&proof, &vals, &Fr::from(9999u64), &[]),
             Err(RLNError::Verify(VerifyError::InvalidSignal))
@@ -514,18 +533,16 @@ mod test {
     #[test]
     fn test_v3_verify_with_roots_multi_correct_root_passes() {
         let rln = make_rln(zkey_multi_v1(), graph_multi_v1());
-        let (id, _) = keygen();
         let x = Fr::from(42u64);
         let witness = multi_witness(
-            id,
+            keygen().0,
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             x,
             Fr::from(100u64),
         );
-        let proof = rln.generate_proof_from_witness(&witness).unwrap();
-        let vals = values(witness);
+        let (proof, vals) = rln.generate_proof(&witness).unwrap();
         let root = vals.root();
         assert!(rln.verify_with_roots(&proof, &vals, &x, &[root]).unwrap());
     }
@@ -533,18 +550,16 @@ mod test {
     #[test]
     fn test_v3_verify_with_roots_multi_wrong_root_fails() {
         let rln = make_rln(zkey_multi_v1(), graph_multi_v1());
-        let (id, _) = keygen();
         let x = Fr::from(42u64);
         let witness = multi_witness(
-            id,
+            keygen().0,
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             x,
             Fr::from(100u64),
         );
-        let proof = rln.generate_proof_from_witness(&witness).unwrap();
-        let vals = values(witness);
+        let (proof, vals) = rln.generate_proof(&witness).unwrap();
         assert!(matches!(
             rln.verify_with_roots(&proof, &vals, &x, &[Fr::from(9999u64)]),
             Err(RLNError::Verify(VerifyError::InvalidRoot))
@@ -555,20 +570,22 @@ mod test {
     fn test_v3_recover_id_secret_single() {
         let (id, _) = keygen();
         let ext = Fr::from(100u64);
-        let v1 = values(single_witness(
+        let v1 = RLNProofValuesV3::try_from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             ext,
-        ));
-        let v2 = values(single_witness(
+        ))
+        .unwrap();
+        let v2 = RLNProofValuesV3::try_from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(22u64),
             ext,
-        ));
+        ))
+        .unwrap();
         assert_eq!(*v1.recover_secret(&v2).unwrap(), *id);
     }
 
@@ -576,22 +593,24 @@ mod test {
     fn test_v3_recover_id_secret_multi() {
         let (id, _) = keygen();
         let ext = Fr::from(100u64);
-        let v1 = values(multi_witness(
+        let v1 = RLNProofValuesV3::try_from(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(11u64),
             ext,
-        ));
-        let v2 = values(multi_witness(
+        ))
+        .unwrap();
+        let v2 = RLNProofValuesV3::try_from(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(22u64),
             ext,
-        ));
+        ))
+        .unwrap();
         assert_eq!(*v1.recover_secret(&v2).unwrap(), *id);
     }
 
@@ -599,21 +618,23 @@ mod test {
     fn test_v3_recover_id_secret_cross_mode() {
         let (id, _) = keygen();
         let ext = Fr::from(300u64);
-        let sv = values(single_witness(
+        let sv = RLNProofValuesV3::try_from(&single_witness(
             id.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             ext,
-        ));
-        let mv = values(multi_witness(
+        ))
+        .unwrap();
+        let mv = RLNProofValuesV3::try_from(&multi_witness(
             id.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(22u64),
             ext,
-        ));
+        ))
+        .unwrap();
         assert_eq!(*sv.recover_secret(&mv).unwrap(), *id);
         assert_eq!(*mv.recover_secret(&sv).unwrap(), *id);
     }
@@ -621,7 +642,7 @@ mod test {
     #[test]
     fn test_v3_new_with_params_invalid_zkey() {
         assert!(matches!(
-            RLNV3::<Stateless, ArkGroth16BackendWithGraph>::new_with_params(vec![], vec![1, 2, 3]),
+            RLNV3::<Stateless, ArkGroth16Backend>::new_with_params(vec![], vec![1, 2, 3]),
             Err(RLNError::ZKey(_))
         ));
     }
@@ -630,10 +651,7 @@ mod test {
     fn test_v3_new_with_params_invalid_graph() {
         let valid_zkey = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey").to_vec();
         assert!(matches!(
-            RLNV3::<Stateless, ArkGroth16BackendWithGraph>::new_with_params(
-                valid_zkey,
-                vec![0u8; 50],
-            ),
+            RLNV3::<Stateless, ArkGroth16Backend>::new_with_params(valid_zkey, vec![0u8; 50],),
             Err(RLNError::Graph(_))
         ));
     }

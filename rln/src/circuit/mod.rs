@@ -148,8 +148,7 @@ pub fn graph_from_raw(
     }
 
     let (nodes, signals, input_mapping) =
-        deserialize_witnesscalc_graph(std::io::Cursor::new(graph_data))
-            .map_err(GraphReadError::GraphDeserialization)?;
+        deserialize_witnesscalc_graph(std::io::Cursor::new(graph_data))?;
 
     let tree_depth = {
         let depth = input_mapping
@@ -272,25 +271,14 @@ fn read_arkzkey_from_bytes_uncompressed(arkzkey_data: &[u8]) -> Result<Zkey, ZKe
 }
 
 #[derive(Clone, Debug)]
-pub struct ArkGroth16BackendWithGraph {
+pub struct ArkGroth16Backend {
     pub(crate) zkey: Zkey,
     pub(crate) graph: Graph,
 }
 
-impl ArkGroth16BackendWithGraph {
+impl ArkGroth16Backend {
     pub fn new(zkey: Zkey, graph: Graph) -> Self {
         Self { zkey, graph }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ArkGroth16Backend {
-    pub(crate) zkey: Zkey,
-}
-
-impl ArkGroth16Backend {
-    pub fn new(zkey: Zkey) -> Self {
-        Self { zkey }
     }
 }
 

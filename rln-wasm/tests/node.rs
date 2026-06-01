@@ -3,75 +3,21 @@
 
 #[cfg(test)]
 mod test {
-    use js_sys::{BigInt as JsBigInt, Date, Object, Uint8Array};
+    use js_sys::{Date, Uint8Array};
     use rln::prelude::*;
     use rln_wasm::{
-        Hasher, Identity, VecWasmFr, WasmFr, WasmRLN, WasmRLNProof, WasmRLNProofValues,
-        WasmRLNWitnessInput,
+        Hasher, Identity, VecWasmFr, WasmFr, WasmRLN, WasmRLNPartialProof,
+        WasmRLNPartialWitnessInput, WasmRLNProof, WasmRLNProofValues, WasmRLNWitnessInput,
     };
-    use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
     use wasm_bindgen_test::{console_log, wasm_bindgen_test};
     use zerokit_utils::merkle_tree::{
         OptimalMerkleProof, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
     };
 
-    #[wasm_bindgen(inline_js = r#"
-    const fs = require("fs");
+    const ARKZKEY_BYTES: &[u8] =
+        include_bytes!("../../rln/resources/tree_depth_20/rln_final.arkzkey");
 
-    let witnessCalculatorModule = null;
-
-    module.exports = {
-      initWitnessCalculator: function(code) {
-        const processedCode = code
-          .replace(/export\s+async\s+function\s+builder/, 'async function builder')
-          .replace(/export\s*\{\s*builder\s*\};?/g, '');
-
-        const moduleFunc = new Function(processedCode + '\nreturn { builder };');
-        witnessCalculatorModule = moduleFunc();
-
-        if (typeof witnessCalculatorModule.builder !== 'function') {
-          return false;
-        }
-        return true;
-      },
-
-      readFile: function (path) {
-        return fs.readFileSync(path);
-      },
-
-      calculateWitness: async function (circom_path, inputs) {
-        const wasmFile = fs.readFileSync(circom_path);
-        const wasmFileBuffer = wasmFile.buffer.slice(
-          wasmFile.byteOffset,
-          wasmFile.byteOffset + wasmFile.byteLength
-        );
-        const witnessCalculator = await witnessCalculatorModule.builder(wasmFileBuffer);
-        const calculatedWitness = await witnessCalculator.calculateWitness(
-          inputs,
-          false
-        );
-        return JSON.stringify(calculatedWitness, (key, value) =>
-          typeof value === "bigint" ? value.toString() : value
-        );
-      },
-    };
-    "#)]
-    extern "C" {
-        #[wasm_bindgen(catch)]
-        fn initWitnessCalculator(code: &str) -> Result<bool, JsValue>;
-
-        #[wasm_bindgen(catch)]
-        fn readFile(path: &str) -> Result<Uint8Array, JsValue>;
-
-        #[wasm_bindgen(catch)]
-        async fn calculateWitness(circom_path: &str, input: Object) -> Result<JsValue, JsValue>;
-    }
-
-    const WITNESS_CALCULATOR_JS: &str = include_str!("../resources/witness_calculator.js");
-
-    const ARKZKEY_PATH: &str = "../rln/resources/tree_depth_20/rln_final.arkzkey";
-
-    const CIRCOM_PATH: &str = "../rln/resources/tree_depth_20/rln.wasm";
+    const GRAPH_BYTES: &[u8] = include_bytes!("../../rln/resources/tree_depth_20/graph.bin");
 
     fn build_witness_parts() -> (
         WasmFr,
@@ -122,24 +68,22 @@ mod test {
     }
 
     #[wasm_bindgen_test]
-    pub async fn rln_wasm_benchmark() {
-        // Initialize witness calculator
-        initWitnessCalculator(WITNESS_CALCULATOR_JS).unwrap();
-
+    pub fn rln_wasm_benchmark() {
         let mut results = String::from("\nBenchmarks:\n");
         let iterations = 10;
 
-        let zkey = readFile(ARKZKEY_PATH).unwrap();
+        let zkey = Uint8Array::from(ARKZKEY_BYTES);
+        let graph = Uint8Array::from(GRAPH_BYTES);
 
         // Benchmark RLN instance creation
         let start_rln_new = Date::now();
         for _ in 0..iterations {
-            let _ = WasmRLN::new(&zkey).unwrap();
+            let _ = WasmRLN::new_with_params(&zkey, &graph).unwrap();
         }
         let rln_new_result = Date::now() - start_rln_new;
 
         // Create RLN instance for other benchmarks
-        let rln_instance = WasmRLN::new(&zkey).unwrap();
+        let rln_instance = WasmRLN::new_with_params(&zkey, &graph).unwrap();
         let mut tree: OptimalMerkleTree<PoseidonHash> =
             OptimalMerkleTree::default(DEFAULT_TREE_DEPTH).unwrap();
 
@@ -161,9 +105,7 @@ mod test {
         let external_nullifier = Hasher::poseidon_hash_pair(&epoch, &rln_identifier);
 
         let identity_index = tree.leaves_set();
-
         let user_message_limit = WasmFr::from_uint(10);
-
         let rate_commitment = Hasher::poseidon_hash_pair(&id_commitment, &user_message_limit);
         tree.update_next(*rate_commitment).unwrap();
 
@@ -172,7 +114,6 @@ mod test {
         let x = Hasher::hash_to_field_le(&Uint8Array::from(&signal[..]));
 
         let merkle_proof: OptimalMerkleProof<PoseidonHash> = tree.proof(identity_index).unwrap();
-
         let mut path_elements = VecWasmFr::new();
         for path_element in merkle_proof.get_path_elements() {
             path_elements.push(&WasmFr::from(path_element));
@@ -190,43 +131,15 @@ mod test {
         )
         .unwrap();
 
-        let proof_values = witness.to_proof_values().unwrap();
-
-        let bigint_json = witness.to_bigint_json().unwrap();
-
-        // Benchmark witness calculation
-        let start_calculate_witness = Date::now();
-        for _ in 0..iterations {
-            let _ = calculateWitness(CIRCOM_PATH, bigint_json.clone())
-                .await
-                .unwrap();
-        }
-        let calculate_witness_result = Date::now() - start_calculate_witness;
-
-        // Calculate witness for other benchmarks
-        let calculated_witness_str = calculateWitness(CIRCOM_PATH, bigint_json.clone())
-            .await
-            .unwrap()
-            .as_string()
-            .unwrap();
-        let calculated_witness_vec_str: Vec<String> =
-            serde_json::from_str(&calculated_witness_str).unwrap();
-        let calculated_witness: Vec<JsBigInt> = calculated_witness_vec_str
-            .iter()
-            .map(|x| JsBigInt::new(&x.into()).unwrap())
-            .collect();
-
         // Benchmark proof generation
         let start_generate_proof = Date::now();
         for _ in 0..iterations {
-            let _ = rln_instance
-                .generate_proof(calculated_witness.clone())
-                .unwrap();
+            let _ = rln_instance.generate_proof(&witness).unwrap();
         }
         let generate_proof_result = Date::now() - start_generate_proof;
 
         // Generate proof for other benchmarks
-        let proof: WasmRLNProof = rln_instance.generate_proof(calculated_witness).unwrap();
+        let proof: WasmRLNProof = rln_instance.generate_proof(&witness).unwrap();
 
         let root = WasmFr::from(tree.root());
         let mut roots = VecWasmFr::new();
@@ -235,19 +148,35 @@ mod test {
         // Benchmark proof verification with the root
         let start_verify_with_roots = Date::now();
         for _ in 0..iterations {
-            let _ = rln_instance
-                .verify_with_roots(&proof, &proof_values, &roots, &x)
-                .unwrap();
+            let _ = rln_instance.verify_with_roots(&proof, &roots, &x).unwrap();
         }
         let verify_with_roots_result = Date::now() - start_verify_with_roots;
 
-        // Verify proof with the root for other benchmarks
-        let is_proof_valid = rln_instance
-            .verify_with_roots(&proof, &proof_values, &roots, &x)
-            .unwrap();
+        let is_proof_valid = rln_instance.verify_with_roots(&proof, &roots, &x).unwrap();
         assert!(is_proof_valid, "verification failed");
 
-        // Format and display the benchmark results
+        // Benchmark partial proof generation
+        let partial_witness = WasmRLNPartialWitnessInput::from_witness(&witness);
+        let start_generate_partial_proof = Date::now();
+        for _ in 0..iterations {
+            let _ = rln_instance
+                .generate_partial_proof(&partial_witness)
+                .unwrap();
+        }
+        let generate_partial_proof_result = Date::now() - start_generate_partial_proof;
+
+        // Generate partial proof for finish benchmark
+        let partial_proof: WasmRLNPartialProof = rln_instance
+            .generate_partial_proof(&partial_witness)
+            .unwrap();
+
+        // Benchmark finish full proof
+        let start_finish_full_proof = Date::now();
+        for _ in 0..iterations {
+            let _ = rln_instance.finish_proof(&partial_proof, &witness).unwrap();
+        }
+        let finish_full_proof_result = Date::now() - start_finish_full_proof;
+
         let format_duration = |duration_ms: f64| -> String {
             let avg_ms = duration_ms / (iterations as f64);
             if avg_ms >= 1000.0 {
@@ -266,10 +195,6 @@ mod test {
             format_duration(identity_gen_result)
         ));
         results.push_str(&format!(
-            "Witness calculation: {}\n",
-            format_duration(calculate_witness_result)
-        ));
-        results.push_str(&format!(
             "Proof generation: {}\n",
             format_duration(generate_proof_result)
         ));
@@ -277,8 +202,15 @@ mod test {
             "Proof verification with roots: {}\n",
             format_duration(verify_with_roots_result)
         ));
+        results.push_str(&format!(
+            "Partial proof generation: {}\n",
+            format_duration(generate_partial_proof_result)
+        ));
+        results.push_str(&format!(
+            "Finish full proof: {}\n",
+            format_duration(finish_full_proof_result)
+        ));
 
-        // Log the results
         console_log!("{results}");
     }
 
@@ -286,7 +218,8 @@ mod test {
     pub fn test_wasm_invalid_inputs() {
         // Invalid zkey data
         let invalid_zkey = Uint8Array::from(&[0u8; 16][..]);
-        assert!(WasmRLN::new(&invalid_zkey).is_err());
+        let graph = Uint8Array::from(GRAPH_BYTES);
+        assert!(WasmRLN::new_with_params(&invalid_zkey, &graph).is_err());
 
         let (
             identity_secret,

@@ -977,10 +977,10 @@ impl RLNProofValuesV3 {
     }
 }
 
-impl TryFrom<RLNWitnessInputV3> for RLNProofValuesV3 {
+impl TryFrom<&RLNWitnessInputV3> for RLNProofValuesV3 {
     type Error = ProtocolError;
 
-    fn try_from(witness: RLNWitnessInputV3) -> Result<Self, Self::Error> {
+    fn try_from(witness: &RLNWitnessInputV3) -> Result<Self, Self::Error> {
         match witness {
             RLNWitnessInputV3::Single(w) => Ok(RLNProofValuesV3::Single(w.try_into()?)),
             RLNWitnessInputV3::Multi(w) => Ok(RLNProofValuesV3::Multi(w.try_into()?)),
@@ -1010,10 +1010,10 @@ pub struct RLNProofValuesSingle {
     pub external_nullifier: Fr,
 }
 
-impl TryFrom<RLNWitnessInputSingle> for RLNProofValuesSingle {
+impl TryFrom<&RLNWitnessInputSingle> for RLNProofValuesSingle {
     type Error = ProtocolError;
 
-    fn try_from(w: RLNWitnessInputSingle) -> Result<Self, Self::Error> {
+    fn try_from(w: &RLNWitnessInputSingle) -> Result<Self, Self::Error> {
         let root = compute_tree_root(
             &w.identity_secret,
             &w.user_message_limit,
@@ -1075,10 +1075,10 @@ pub struct RLNProofValuesMulti {
     pub selector_used: Vec<bool>,
 }
 
-impl TryFrom<RLNWitnessInputMulti> for RLNProofValuesMulti {
+impl TryFrom<&RLNWitnessInputMulti> for RLNProofValuesMulti {
     type Error = ProtocolError;
 
-    fn try_from(w: RLNWitnessInputMulti) -> Result<Self, Self::Error> {
+    fn try_from(w: &RLNWitnessInputMulti) -> Result<Self, Self::Error> {
         let root = compute_tree_root(
             &w.identity_secret,
             &w.user_message_limit,
@@ -1103,7 +1103,7 @@ impl TryFrom<RLNWitnessInputMulti> for RLNProofValuesMulti {
             nullifiers,
             x: w.x,
             external_nullifier: w.external_nullifier,
-            selector_used: w.selector_used,
+            selector_used: w.selector_used.clone(),
         })
     }
 }
@@ -1180,5 +1180,17 @@ impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
         Err(ProtocolError::IdSecretRecovery(
             RecoverSecretError::NoMatchingNullifier,
         ))
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct RLNProofV3 {
+    pub proof: Proof,
+    pub values: RLNProofValuesV3,
+}
+
+impl RLNProofV3 {
+    pub fn new(proof: Proof, values: RLNProofValuesV3) -> Self {
+        Self { proof, values }
     }
 }

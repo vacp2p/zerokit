@@ -16,8 +16,8 @@ pub use proof::{
     calculated_witness_to_field_elements, generate_zk_proof_with_witness,
     rln_partial_proof_to_bytes_be, rln_partial_proof_to_bytes_le, rln_proof_to_bytes_be,
     rln_proof_to_bytes_le, rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le,
-    verify_zk_proof, RLNProof, RLNProofValues, RLNProofValuesMulti, RLNProofValuesSingle,
-    RLNProofValuesV3,
+    verify_zk_proof, RLNProof, RLNProofV3, RLNProofValues, RLNProofValuesMulti,
+    RLNProofValuesSingle, RLNProofValuesV3,
 };
 #[cfg(not(target_arch = "wasm32"))]
 pub use proof::{
@@ -25,8 +25,9 @@ pub use proof::{
     generate_zk_proof_with_rs,
 };
 pub use serialize::{
-    CanonicalDeserializeBE, CanonicalSerializeBE, ENUM_TAG_MULTI, ENUM_TAG_SINGLE, ENUM_TAG_SIZE,
-    FR_BYTE_SIZE, FR_LIMB_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
+    CanonicalDeserializeBE, CanonicalDeserializeMixed, CanonicalSerializeBE,
+    CanonicalSerializeMixed, ENUM_TAG_MULTI, ENUM_TAG_SINGLE, ENUM_TAG_SIZE, FR_BYTE_SIZE,
+    FR_LIMB_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
 };
 pub use slashing::{compute_id_secret, recover_id_secret};
 pub use witness::{
@@ -37,4 +38,4 @@ pub use witness::{
     RLNPartialWitnessInputV3, RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle,
     RLNWitnessInputV3,
 };
-pub use zk::{RLNPartialZkProof, RLNZkProof, RLNZkProofWithGraph, RecoverSecret};
+pub use zk::{RLNPartialZkProof, RLNZkProof, RecoverSecret};

@@ -321,7 +321,6 @@ mod test {
         })
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn make_proof() -> Proof {
         let (identity_secret, _) = keygen();
         let path_elements = vec![Fr::from(0); DEFAULT_TREE_DEPTH];
@@ -339,7 +338,6 @@ mod test {
         generate_zk_proof(zkey_single_v1(), &witness, graph_single_v1()).unwrap()
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn make_partial_proof() -> PartialProof {
         let (identity_secret, _) = keygen();
         let path_elements = vec![Fr::from(0); DEFAULT_TREE_DEPTH];
@@ -355,7 +353,6 @@ mod test {
     }
 
     #[test]
-    #[cfg(not(target_arch = "wasm32"))]
     fn test_proof_le_compressed_roundtrip() {
         let proof = make_proof();
         let mut buf = Vec::new();
@@ -366,7 +363,6 @@ mod test {
     }
 
     #[test]
-    #[cfg(not(target_arch = "wasm32"))]
     fn test_partial_proof_le_compressed_roundtrip() {
         let partial = make_partial_proof();
         let mut buf = Vec::new();
@@ -648,5 +644,93 @@ mod test {
             buf.push(0xff);
             assert!(RLNProofValuesV3::deserialize(buf.as_slice()).is_ok());
         }
+    }
+
+    #[test]
+    fn test_rln_proof_v3_le_roundtrip() {
+        use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+        for values in [make_proof_values_single(), make_proof_values_multi()] {
+            let rln_proof = RLNProofV3 {
+                proof: make_proof(),
+                values,
+            };
+            let mut buf = Vec::new();
+            rln_proof.serialize_compressed(&mut buf).unwrap();
+            let deser = RLNProofV3::deserialize_compressed(buf.as_slice()).unwrap();
+            assert_eq!(rln_proof, deser);
+        }
+    }
+
+    #[test]
+    fn test_rln_proof_v3_mixed_roundtrip_single() {
+        let rln_proof = RLNProofV3 {
+            proof: make_proof(),
+            values: make_proof_values_single(),
+        };
+        let mut buf = Vec::new();
+        CanonicalSerializeMixed::serialize(&rln_proof, &mut buf).unwrap();
+        assert_eq!(
+            buf.len(),
+            CanonicalSerializeMixed::serialized_size(&rln_proof)
+        );
+        let deser = <RLNProofV3 as CanonicalDeserializeMixed>::deserialize(buf.as_slice()).unwrap();
+        assert_eq!(rln_proof, deser);
+    }
+
+    #[test]
+    fn test_rln_proof_v3_mixed_roundtrip_multi() {
+        let rln_proof = RLNProofV3 {
+            proof: make_proof(),
+            values: make_proof_values_multi(),
+        };
+        let mut buf = Vec::new();
+        CanonicalSerializeMixed::serialize(&rln_proof, &mut buf).unwrap();
+        assert_eq!(
+            buf.len(),
+            CanonicalSerializeMixed::serialized_size(&rln_proof)
+        );
+        let deser = <RLNProofV3 as CanonicalDeserializeMixed>::deserialize(buf.as_slice()).unwrap();
+        assert_eq!(rln_proof, deser);
+    }
+
+    #[test]
+    fn test_rln_proof_v3_mixed_wire_format() {
+        let values = make_proof_values_single();
+        let rln_proof = RLNProofV3 {
+            proof: make_proof(),
+            values: values.clone(),
+        };
+        let mut mixed_buf = Vec::new();
+        CanonicalSerializeMixed::serialize(&rln_proof, &mut mixed_buf).unwrap();
+
+        let proof_le_bytes = {
+            let mut b = Vec::new();
+            rln_proof.proof.serialize_compressed(&mut b).unwrap();
+            b
+        };
+        let values_be_bytes = {
+            let mut b = Vec::new();
+            CanonicalSerializeBE::serialize(&values, &mut b).unwrap();
+            b
+        };
+
+        assert_eq!(&mixed_buf[..COMPRESS_PROOF_SIZE], proof_le_bytes.as_slice());
+        assert_eq!(
+            &mixed_buf[COMPRESS_PROOF_SIZE..],
+            values_be_bytes.as_slice()
+        );
+    }
+
+    #[test]
+    fn test_rln_proof_v3_mixed_truncated_rejected() {
+        let rln_proof = RLNProofV3 {
+            proof: make_proof(),
+            values: make_proof_values_single(),
+        };
+        let mut buf = Vec::new();
+        CanonicalSerializeMixed::serialize(&rln_proof, &mut buf).unwrap();
+        assert!(
+            <RLNProofV3 as CanonicalDeserializeMixed>::deserialize(&buf[..buf.len() - 1]).is_err()
+        );
     }
 }
