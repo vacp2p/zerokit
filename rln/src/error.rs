@@ -1,4 +1,4 @@
-use std::{array::TryFromSliceError, io::Error, num::TryFromIntError};
+use std::{array::TryFromSliceError, num::TryFromIntError};
 
 use ark_relations::r1cs::SynthesisError;
 use ark_serialize::SerializationError;
@@ -17,7 +17,7 @@ use crate::{
 #[derive(Debug, thiserror::Error)]
 pub enum UtilsError {
     #[error("IO error: {0}")]
-    IoError(#[from] Error),
+    IoError(#[from] std::io::Error),
     #[error("Expected radix 10 or 16")]
     WrongRadix,
     #[error("Failed to parse big integer: {0}")]
@@ -49,7 +49,7 @@ pub enum RecoverSecretError {
 #[derive(Debug, thiserror::Error)]
 pub enum ProtocolError {
     #[error("IO error: {0}")]
-    IoError(#[from] Error),
+    IoError(#[from] std::io::Error),
     #[error("Error producing proof: {0}")]
     Synthesis(#[from] SynthesisError),
     #[error("RLN utility error: {0}")]
@@ -170,9 +170,9 @@ pub enum ProofValuesErrorV3 {
 #[derive(Debug, thiserror::Error)]
 pub enum SerializationErrorV3 {
     #[error("IO error: {0}")]
-    Io(#[from] Error),
+    Io(#[from] std::io::Error),
     #[error("Arkworks canonical serialization error: {0}")]
-    ArkworksSerializationError(#[from] SerializationError),
+    Serialize(#[from] SerializationError),
     #[error("Non-canonical field element: value is not in [0, r-1]")]
     NonCanonicalFieldElement,
     #[error("Non-canonical bool byte: expected 0x00 or 0x01, got {0:#04x}")]

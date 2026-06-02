@@ -61,14 +61,14 @@ fn serialize_usize_be(input: usize) -> [u8; VEC_LEN_BYTE_SIZE] {
 }
 
 pub trait CanonicalSerializeBE {
-    type Error;
+    type Error: std::error::Error;
 
     fn serialize<W: Write>(&self, writer: W) -> Result<(), Self::Error>;
     fn serialized_size(&self) -> usize;
 }
 
 pub trait CanonicalDeserializeBE: Sized {
-    type Error;
+    type Error: std::error::Error;
 
     fn deserialize<R: Read>(reader: R) -> Result<Self, Self::Error>;
 }
@@ -674,7 +674,7 @@ impl CanonicalDeserializeBE for RLNProofValuesMulti {
 /// Some types (e.g. [`RLNProofV3`]) contain fields with different encoding requirements:
 /// the Groth16 proof bytes use arkworks compressed LE format, while the proof values use BE format.
 pub trait CanonicalSerializeMixed: CanonicalSerialize {
-    type Error;
+    type Error: std::error::Error;
 
     fn serialize<W: Write>(&self, writer: W) -> Result<(), Self::Error>;
     fn serialized_size(&self) -> usize;
@@ -684,7 +684,7 @@ pub trait CanonicalSerializeMixed: CanonicalSerialize {
 ///
 /// See [`CanonicalSerializeMixed`] for context on when this is needed.
 pub trait CanonicalDeserializeMixed: CanonicalDeserialize {
-    type Error;
+    type Error: std::error::Error;
 
     fn deserialize<R: Read>(reader: R) -> Result<Self, Self::Error>;
 }
