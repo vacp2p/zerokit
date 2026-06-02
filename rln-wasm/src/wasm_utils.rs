@@ -88,7 +88,7 @@ pub struct VecWasmFr(Vec<Fr>);
 
 #[wasm_bindgen]
 impl VecWasmFr {
-    #[wasm_bindgen(constructor)]
+    #[wasm_bindgen(js_name = new)]
     pub fn new() -> Self {
         Self(Vec::new())
     }
