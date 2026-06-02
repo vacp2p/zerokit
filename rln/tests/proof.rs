@@ -494,7 +494,7 @@ mod test {
         let (proof, vals) = rln.generate_proof(&witness).unwrap();
         assert!(matches!(
             rln.verify_with_roots(&proof, &vals, &x, &[Fr::from(9999u64)]),
-            Err(RLNErrorV3::Verify(VerifyError::InvalidRoot))
+            Err(VerifyProofErrorV3::InvalidRoot)
         ));
     }
 
@@ -512,7 +512,7 @@ mod test {
         let (proof, vals) = rln.generate_proof(&witness).unwrap();
         assert!(matches!(
             rln.verify_with_roots(&proof, &vals, &Fr::from(9999u64), &[]),
-            Err(RLNErrorV3::Verify(VerifyError::InvalidSignal))
+            Err(VerifyProofErrorV3::InvalidSignal)
         ));
     }
 
@@ -548,7 +548,7 @@ mod test {
         let (proof, vals) = rln.generate_proof(&witness).unwrap();
         assert!(matches!(
             rln.verify_with_roots(&proof, &vals, &x, &[Fr::from(9999u64)]),
-            Err(RLNErrorV3::Verify(VerifyError::InvalidRoot))
+            Err(VerifyProofErrorV3::InvalidRoot)
         ));
     }
 

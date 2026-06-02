@@ -2,15 +2,15 @@
 // It is used by the FFI, WASM and should be used by tests as well
 
 use num_bigint::BigInt;
-use zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleTree};
 #[cfg(not(feature = "stateless"))]
-use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTreeError};
+use zerokit_utils::merkle_tree::ZerokitMerkleProof;
+use zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleTree, ZerokitMerkleTreeError};
 #[cfg(not(feature = "stateless"))]
 use {crate::poseidon_tree::PoseidonTree, std::str::FromStr};
 
 use crate::{
     circuit::{graph_from_raw, zkey_from_raw, ArkGroth16Backend, Fr, Proof, Zkey},
-    error::{InitErrorV3, RLNError, RLNErrorV3, VerifyError},
+    error::{InitErrorV3, RLNError, VerifyProofErrorV3},
     protocol::{
         generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof,
         RLNPartialZkProof, RLNProofValues, RLNProofValuesV3, RLNWitnessInput, RLNZkProof, Stateful,
@@ -722,15 +722,15 @@ impl RLN {
     ) -> Result<bool, RLNError> {
         let verified = verify_zk_proof(&self.zkey.0.vk, proof, proof_values)?;
         if !verified {
-            return Err(VerifyError::InvalidProof.into());
+            return Err(VerifyProofErrorV3::InvalidProof.into());
         }
 
         if self.tree.root() != *proof_values.root() {
-            return Err(VerifyError::InvalidRoot.into());
+            return Err(VerifyProofErrorV3::InvalidRoot.into());
         }
 
         if x != proof_values.x() {
-            return Err(VerifyError::InvalidSignal.into());
+            return Err(VerifyProofErrorV3::InvalidSignal.into());
         }
 
         Ok(true)
@@ -748,15 +748,15 @@ impl RLN {
     ) -> Result<bool, RLNError> {
         let verified = verify_zk_proof(&self.zkey.0.vk, proof, proof_values)?;
         if !verified {
-            return Err(VerifyError::InvalidProof.into());
+            return Err(VerifyProofErrorV3::InvalidProof.into());
         }
 
         if !roots.is_empty() && !roots.contains(proof_values.root()) {
-            return Err(VerifyError::InvalidRoot.into());
+            return Err(VerifyProofErrorV3::InvalidRoot.into());
         }
 
         if x != proof_values.x() {
-            return Err(VerifyError::InvalidSignal.into());
+            return Err(VerifyProofErrorV3::InvalidSignal.into());
         }
 
         Ok(true)
@@ -813,23 +813,25 @@ where
         self.state.tree.root()
     }
 
-    pub fn set_leaf(&mut self, index: usize, leaf: Fr) -> Result<(), RLNErrorV3> {
-        self.state.tree.set(index, leaf)?;
-        Ok(())
+    pub fn set_leaf(&mut self, index: usize, leaf: Fr) -> Result<(), ZerokitMerkleTreeError> {
+        self.state.tree.set(index, leaf)
     }
 
-    pub fn get_leaf(&self, index: usize) -> Result<Fr, RLNErrorV3> {
-        Ok(self.state.tree.get(index)?)
+    pub fn get_leaf(&self, index: usize) -> Result<Fr, ZerokitMerkleTreeError> {
+        self.state.tree.get(index)
     }
 
-    pub fn set_leaves_from(&mut self, index: usize, leaves: Vec<Fr>) -> Result<(), RLNErrorV3> {
+    pub fn set_leaves_from(
+        &mut self,
+        index: usize,
+        leaves: Vec<Fr>,
+    ) -> Result<(), ZerokitMerkleTreeError> {
         self.state
             .tree
-            .override_range(index, leaves.into_iter(), [].into_iter())?;
-        Ok(())
+            .override_range(index, leaves.into_iter(), [].into_iter())
     }
 
-    pub fn init_tree_with_leaves(&mut self, leaves: Vec<Fr>) -> Result<(), RLNErrorV3> {
+    pub fn init_tree_with_leaves(&mut self, leaves: Vec<Fr>) -> Result<(), ZerokitMerkleTreeError> {
         let depth = self.state.tree.depth();
         self.state.tree = <T as ZerokitMerkleTree>::default(depth)?;
         self.set_leaves_from(0, leaves)
@@ -840,92 +842,84 @@ where
         index: usize,
         leaves: Vec<Fr>,
         indices: Vec<usize>,
-    ) -> Result<(), RLNErrorV3> {
+    ) -> Result<(), ZerokitMerkleTreeError> {
         self.state
             .tree
-            .override_range(index, leaves.into_iter(), indices.into_iter())?;
-        Ok(())
+            .override_range(index, leaves.into_iter(), indices.into_iter())
     }
 
     pub fn leaves_set(&self) -> usize {
         self.state.tree.leaves_set()
     }
 
-    pub fn set_next_leaf(&mut self, leaf: Fr) -> Result<(), RLNErrorV3> {
-        self.state.tree.update_next(leaf)?;
-        Ok(())
+    pub fn set_next_leaf(&mut self, leaf: Fr) -> Result<(), ZerokitMerkleTreeError> {
+        self.state.tree.update_next(leaf)
     }
 
-    pub fn delete_leaf(&mut self, index: usize) -> Result<(), RLNErrorV3> {
-        self.state.tree.delete(index)?;
-        Ok(())
+    pub fn delete_leaf(&mut self, index: usize) -> Result<(), ZerokitMerkleTreeError> {
+        self.state.tree.delete(index)
     }
 
-    pub fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), RLNErrorV3> {
-        self.state.tree.set_metadata(metadata)?;
-        Ok(())
+    pub fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), ZerokitMerkleTreeError> {
+        self.state.tree.set_metadata(metadata)
     }
 
-    pub fn get_metadata(&self) -> Result<Vec<u8>, RLNErrorV3> {
-        Ok(self.state.tree.metadata()?)
+    pub fn get_metadata(&self) -> Result<Vec<u8>, ZerokitMerkleTreeError> {
+        self.state.tree.metadata()
     }
 
-    pub fn get_subtree_root(&self, level: usize, index: usize) -> Result<Fr, RLNErrorV3> {
-        Ok(self.state.tree.get_subtree_root(level, index)?)
+    pub fn get_subtree_root(
+        &self,
+        level: usize,
+        index: usize,
+    ) -> Result<Fr, ZerokitMerkleTreeError> {
+        self.state.tree.get_subtree_root(level, index)
     }
 
     pub fn get_empty_leaves_indices(&self) -> Vec<usize> {
         self.state.tree.get_empty_leaves_indices()
     }
 
-    pub fn flush(&mut self) -> Result<(), RLNErrorV3> {
-        self.state.tree.close_db_connection()?;
-        Ok(())
+    pub fn flush(&mut self) -> Result<(), ZerokitMerkleTreeError> {
+        self.state.tree.close_db_connection()
     }
 
-    pub fn get_merkle_proof(&self, index: usize) -> Result<T::Proof, RLNErrorV3> {
-        let merkle_proof = self.state.tree.proof(index)?;
-        Ok(merkle_proof)
+    pub fn get_merkle_proof(&self, index: usize) -> Result<T::Proof, ZerokitMerkleTreeError> {
+        self.state.tree.proof(index)
     }
 }
 
-impl<Tree, ZkProof: RLNZkProof> RLNV3<Tree, ZkProof>
-where
-    RLNErrorV3: From<ZkProof::Error>,
-{
+impl<Tree, ZkProof: RLNZkProof> RLNV3<Tree, ZkProof> {
     pub fn generate_proof(
         &self,
         witness: &ZkProof::Witness,
-    ) -> Result<(ZkProof::Proof, ZkProof::Values), RLNErrorV3> {
-        Ok(self.zkp.generate_proof(witness)?)
+    ) -> Result<(ZkProof::Proof, ZkProof::Values), ZkProof::GenerateProofError> {
+        self.zkp.generate_proof(witness)
     }
 
     pub fn verify(
         &self,
         proof: &ZkProof::Proof,
         values: &ZkProof::Values,
-    ) -> Result<bool, RLNErrorV3> {
-        Ok(self.zkp.verify(proof, values)?)
+    ) -> Result<bool, ZkProof::VerifyProofError> {
+        self.zkp.verify(proof, values)
     }
 }
 
-impl<Tree, ZkProof: RLNPartialZkProof> RLNV3<Tree, ZkProof>
-where
-    RLNErrorV3: From<ZkProof::Error>,
-{
+impl<Tree, ZkProof: RLNPartialZkProof> RLNV3<Tree, ZkProof> {
     pub fn generate_partial_proof(
         &self,
         partial_witness: &ZkProof::PartialWitness,
-    ) -> Result<ZkProof::PartialProof, RLNErrorV3> {
-        Ok(self.zkp.generate_partial_proof(partial_witness)?)
+    ) -> Result<ZkProof::PartialProof, ZkProof::GeneratePartialProofError> {
+        self.zkp.generate_partial_proof(partial_witness)
     }
 
     pub fn finish_proof(
         &self,
         partial_proof: &ZkProof::PartialProof,
         witness: &ZkProof::Witness,
-    ) -> Result<(ZkProof::Proof, ZkProof::Values), RLNErrorV3> {
-        Ok(self.zkp.finish_proof(partial_proof, witness)?)
+    ) -> Result<(ZkProof::Proof, ZkProof::Values), ZkProof::FinishProofError> {
+        self.zkp.finish_proof(partial_proof, witness)
     }
 }
 
@@ -940,8 +934,8 @@ impl RLNV3<Stateless, ArkGroth16Backend> {
 
 impl<Tree, ZkProof> RLNV3<Tree, ZkProof>
 where
-    ZkProof: RLNZkProof<Values = RLNProofValuesV3, Proof = Proof>,
-    RLNErrorV3: From<ZkProof::Error>,
+    ZkProof:
+        RLNZkProof<Values = RLNProofValuesV3, Proof = Proof, VerifyProofError = VerifyProofErrorV3>,
 {
     pub fn verify_with_roots(
         &self,
@@ -949,15 +943,15 @@ where
         values: &RLNProofValuesV3,
         x: &Fr,
         roots: &[Fr],
-    ) -> Result<bool, RLNErrorV3> {
+    ) -> Result<bool, VerifyProofErrorV3> {
         if !roots.is_empty() && !roots.contains(&values.root()) {
-            return Err(VerifyError::InvalidRoot.into());
+            return Err(VerifyProofErrorV3::InvalidRoot);
         }
         if x != &values.x() {
-            return Err(VerifyError::InvalidSignal.into());
+            return Err(VerifyProofErrorV3::InvalidSignal);
         }
         if !self.zkp.verify(proof, values)? {
-            return Err(VerifyError::InvalidProof.into());
+            return Err(VerifyProofErrorV3::InvalidProof);
         }
         Ok(true)
     }

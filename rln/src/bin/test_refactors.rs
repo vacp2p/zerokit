@@ -3,7 +3,7 @@ use zerokit_utils::merkle_tree::{
     FullMerkleTree, Hasher, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
 };
 
-fn main() -> Result<(), RLNErrorV3> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Stateless Single
     let backend = ArkGroth16Backend::new(zkey_single_v1().to_owned(), graph_single_v1().to_owned());
     let rln = RLNV3::<Stateless, ArkGroth16Backend>::new(backend);

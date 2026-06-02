@@ -22,8 +22,9 @@ pub use crate::{
         COMPRESS_PROOF_SIZE, DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH,
     },
     error::{
-        InitErrorV3, ProofValuesErrorV3, ProtocolError, RLNError, RLNErrorV3, RecoverSecretError,
-        SerializationErrorV3, UtilsError, VerifyError, WitnessInputErrorV3,
+        GenerateProofError, InitErrorV3, ProtocolError, RLNError, RLNPartialWitnessInputErrorV3,
+        RLNWitnessInputMultiErrorV3, RLNWitnessInputSingleErrorV3, RecoverSecretError,
+        SerializationErrorV3, UtilsError, VerifyProofErrorV3,
     },
     hashers::{
         hash_to_field_be, hash_to_field_le, poseidon_hash, poseidon_hash_pair,

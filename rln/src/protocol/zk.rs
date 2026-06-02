@@ -7,7 +7,7 @@ use crate::{
         qap::CircomReduction, ArkGroth16Backend, CalcWitness, CalcWitnessPartial, Fr, PartialProof,
         Proof,
     },
-    error::RLNErrorV3,
+    error::{GenerateProofError, VerifyProofErrorV3},
     partial_proof::{Groth16Partial, PartialAssignment},
     prelude::{CanonicalDeserializeBE, CanonicalSerializeBE, RLNPartialWitnessInputV3},
     protocol::{proof::RLNProofValuesV3, witness::RLNWitnessInputV3},
@@ -25,13 +25,18 @@ pub trait RLNZkProof {
         + CanonicalSerializeBE
         + CanonicalDeserializeBE;
     type Proof: CanonicalSerialize + CanonicalDeserialize;
-    type Error: std::error::Error;
+    type GenerateProofError: std::error::Error;
+    type VerifyProofError: std::error::Error;
 
     fn generate_proof(
         &self,
         witness: &Self::Witness,
-    ) -> Result<(Self::Proof, Self::Values), Self::Error>;
-    fn verify(&self, proof: &Self::Proof, values: &Self::Values) -> Result<bool, Self::Error>;
+    ) -> Result<(Self::Proof, Self::Values), Self::GenerateProofError>;
+    fn verify(
+        &self,
+        proof: &Self::Proof,
+        values: &Self::Values,
+    ) -> Result<bool, Self::VerifyProofError>;
 }
 
 pub trait RecoverSecret<Rhs = Self> {
@@ -46,29 +51,32 @@ pub trait RLNPartialZkProof: RLNZkProof {
         + CanonicalSerializeBE
         + CanonicalDeserializeBE;
     type PartialProof: CanonicalSerialize + CanonicalDeserialize;
+    type GeneratePartialProofError: std::error::Error;
+    type FinishProofError: std::error::Error;
 
     fn generate_partial_proof(
         &self,
         witness: &Self::PartialWitness,
-    ) -> Result<Self::PartialProof, Self::Error>;
+    ) -> Result<Self::PartialProof, Self::GeneratePartialProofError>;
 
     fn finish_proof(
         &self,
         partial: &Self::PartialProof,
         witness: &Self::Witness,
-    ) -> Result<(Self::Proof, Self::Values), Self::Error>;
+    ) -> Result<(Self::Proof, Self::Values), Self::FinishProofError>;
 }
 
 impl RLNZkProof for ArkGroth16Backend {
     type Witness = RLNWitnessInputV3;
     type Values = RLNProofValuesV3;
     type Proof = Proof;
-    type Error = RLNErrorV3;
+    type GenerateProofError = GenerateProofError;
+    type VerifyProofError = VerifyProofErrorV3;
 
     fn generate_proof(
         &self,
         witness: &Self::Witness,
-    ) -> Result<(Self::Proof, Self::Values), Self::Error> {
+    ) -> Result<(Self::Proof, Self::Values), Self::GenerateProofError> {
         witness.validate_against_graph(&self.graph)?;
         let values = RLNProofValuesV3::from(witness);
 
@@ -90,7 +98,11 @@ impl RLNZkProof for ArkGroth16Backend {
         Ok((proof, values))
     }
 
-    fn verify(&self, proof: &Self::Proof, values: &Self::Values) -> Result<bool, Self::Error> {
+    fn verify(
+        &self,
+        proof: &Self::Proof,
+        values: &Self::Values,
+    ) -> Result<bool, Self::VerifyProofError> {
         let public_inputs: Vec<Fr> = match values {
             RLNProofValuesV3::Single(v) => {
                 vec![v.y, v.root, v.nullifier, v.x, v.external_nullifier]
@@ -119,11 +131,13 @@ impl RLNZkProof for ArkGroth16Backend {
 impl RLNPartialZkProof for ArkGroth16Backend {
     type PartialWitness = RLNPartialWitnessInputV3;
     type PartialProof = PartialProof;
+    type GeneratePartialProofError = GenerateProofError;
+    type FinishProofError = GenerateProofError;
 
     fn generate_partial_proof(
         &self,
         witness: &Self::PartialWitness,
-    ) -> Result<Self::PartialProof, Self::Error> {
+    ) -> Result<Self::PartialProof, Self::GeneratePartialProofError> {
         witness.validate_against_graph(&self.graph)?;
 
         let partial_assignment = witness.calc_witness_partial(&self.graph)?;
@@ -140,7 +154,7 @@ impl RLNPartialZkProof for ArkGroth16Backend {
         &self,
         partial: &Self::PartialProof,
         witness: &Self::Witness,
-    ) -> Result<(Self::Proof, Self::Values), Self::Error> {
+    ) -> Result<(Self::Proof, Self::Values), Self::FinishProofError> {
         witness.validate_against_graph(&self.graph)?;
         let values = RLNProofValuesV3::from(witness);
 

@@ -31,7 +31,7 @@ use crate::{
         qap::CircomReduction, Curve, Fr, PartialProof, Proof, VerifyingKey, Zkey,
         COMPRESS_PROOF_SIZE,
     },
-    error::{ProofValuesErrorV3, ProtocolError, RecoverSecretError},
+    error::{ProtocolError, RecoverSecretError},
     hashers::poseidon_hash,
     utils::{
         bytes_be_to_fr, bytes_be_to_vec_bool, bytes_be_to_vec_fr, bytes_le_to_fr,
@@ -900,23 +900,17 @@ pub enum RLNProofValuesV3 {
 }
 
 impl RLNProofValuesV3 {
-    pub fn y(&self) -> Result<Fr, ProofValuesErrorV3> {
+    pub fn y(&self) -> Option<Fr> {
         match self {
-            RLNProofValuesV3::Single(v) => Ok(v.y),
-            RLNProofValuesV3::Multi(_) => Err(ProofValuesErrorV3::FieldNotInVariant {
-                field: "y",
-                variant: "Multi",
-            }),
+            RLNProofValuesV3::Single(v) => Some(v.y),
+            RLNProofValuesV3::Multi(_) => None,
         }
     }
 
-    pub fn ys(&self) -> Result<&[Fr], ProofValuesErrorV3> {
+    pub fn ys(&self) -> Option<&[Fr]> {
         match self {
-            RLNProofValuesV3::Multi(v) => Ok(&v.ys),
-            RLNProofValuesV3::Single(_) => Err(ProofValuesErrorV3::FieldNotInVariant {
-                field: "ys",
-                variant: "Single",
-            }),
+            RLNProofValuesV3::Multi(v) => Some(&v.ys),
+            RLNProofValuesV3::Single(_) => None,
         }
     }
 
@@ -927,23 +921,17 @@ impl RLNProofValuesV3 {
         }
     }
 
-    pub fn nullifier(&self) -> Result<Fr, ProofValuesErrorV3> {
+    pub fn nullifier(&self) -> Option<Fr> {
         match self {
-            RLNProofValuesV3::Single(v) => Ok(v.nullifier),
-            RLNProofValuesV3::Multi(_) => Err(ProofValuesErrorV3::FieldNotInVariant {
-                field: "nullifier",
-                variant: "Multi",
-            }),
+            RLNProofValuesV3::Single(v) => Some(v.nullifier),
+            RLNProofValuesV3::Multi(_) => None,
         }
     }
 
-    pub fn nullifiers(&self) -> Result<&[Fr], ProofValuesErrorV3> {
+    pub fn nullifiers(&self) -> Option<&[Fr]> {
         match self {
-            RLNProofValuesV3::Multi(v) => Ok(&v.nullifiers),
-            RLNProofValuesV3::Single(_) => Err(ProofValuesErrorV3::FieldNotInVariant {
-                field: "nullifiers",
-                variant: "Single",
-            }),
+            RLNProofValuesV3::Multi(v) => Some(&v.nullifiers),
+            RLNProofValuesV3::Single(_) => None,
         }
     }
 
@@ -961,13 +949,10 @@ impl RLNProofValuesV3 {
         }
     }
 
-    pub fn selector_used(&self) -> Result<&[bool], ProofValuesErrorV3> {
+    pub fn selector_used(&self) -> Option<&[bool]> {
         match self {
-            RLNProofValuesV3::Multi(v) => Ok(&v.selector_used),
-            RLNProofValuesV3::Single(_) => Err(ProofValuesErrorV3::FieldNotInVariant {
-                field: "selector_used",
-                variant: "Single",
-            }),
+            RLNProofValuesV3::Multi(v) => Some(&v.selector_used),
+            RLNProofValuesV3::Single(_) => None,
         }
     }
 }
