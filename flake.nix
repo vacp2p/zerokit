@@ -26,6 +26,22 @@
       ];
       forAllSystems = nixpkgs.lib.genAttrs stableSystems;
 
+      # crates.io's WAF returns 403 for the default `python-requests/X.Y.Z`
+      cratesIoUserAgentOverlay = final: prev: {
+        writers = prev.writers // {
+          writePython3Bin = name: settings: content:
+            let
+              patched =
+                if name == "fetch-cargo-vendor-util"
+                then builtins.replaceStrings
+                  [ "session = requests.Session()" ]
+                  [ "session = requests.Session()\n    session.headers.update({\"User-Agent\": \"zerokit-nix\"})" ]
+                  content
+                else content;
+            in prev.writers.writePython3Bin name settings patched;
+        };
+      };
+
       pkgsFor = forAllSystems (
         system: import nixpkgs {
           inherit system;
@@ -34,6 +50,7 @@
             allowUnfree = true;
           };
           overlays = [
+            cratesIoUserAgentOverlay
             (import rust-overlay)
             (f: p: { inherit rust-overlay; })
           ];
