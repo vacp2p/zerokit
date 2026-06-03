@@ -18,7 +18,7 @@ use ark_groth16::{
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use self::error::{GraphReadError, ZKeyReadError};
+use self::error::{GraphReadError, WitnessCalcError, ZKeyReadError};
 use crate::{
     circuit::iden3calc::{graph::Node, storage::deserialize_witnesscalc_graph, InputSignalsInfo},
     partial_proof::PartialProof as ArkPartialProof,
@@ -280,6 +280,16 @@ impl ArkGroth16Backend {
     pub fn new(zkey: Zkey, graph: Graph) -> Self {
         Self { zkey, graph }
     }
+}
+
+/// Witness type can calculate a full circuit witness directly from its fields.
+pub(crate) trait CalcWitness {
+    fn calc_witness(&self, graph: &Graph) -> Result<Vec<Fr>, WitnessCalcError>;
+}
+
+/// Witness type can calculate a partial circuit witness (unknown dynamic fields become `None`).
+pub(crate) trait CalcWitnessPartial {
+    fn calc_witness_partial(&self, graph: &Graph) -> Result<Vec<Option<Fr>>, WitnessCalcError>;
 }
 
 #[cfg(test)]

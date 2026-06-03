@@ -20,17 +20,17 @@ use super::{
 };
 use crate::{
     circuit::{Fr, Proof, COMPRESS_PROOF_SIZE},
-    error::{ProtocolError, UtilsError},
-    utils::{normalize_usize_be, IdSecret},
+    error::SerializationErrorV3,
+    utils::IdSecret,
 };
 
 /// Byte size of the enum variant tag prepended to serialized enum types.
 pub const ENUM_TAG_SIZE: usize = 1;
 
-/// Tag byte for the `Single` variant — Single message-id mode.
+/// Tag byte for the `Single` variant - Single message-id mode.
 pub const ENUM_TAG_SINGLE: u8 = 0;
 
-/// Tag byte for the `Multi` variant — Multi message-id mode.
+/// Tag byte for the `Multi` variant - Multi message-id mode.
 pub const ENUM_TAG_MULTI: u8 = 1;
 
 /// Byte size of a `Fr` field element aligned to 64-bit boundary, computed once at compile time.
@@ -49,21 +49,32 @@ pub const FR_LIMB_BYTE_SIZE: usize = 8;
 /// Byte size of the length prefix used when serializing variable-length vectors.
 pub const VEC_LEN_BYTE_SIZE: usize = 8;
 
+/// Serializes a `usize` as an 8-byte big-endian length prefix.
+/// On 32-bit systems, the result is zero-padded to 8 bytes.
+/// On 64-bit systems, it directly represents the `usize` value.
+fn serialize_usize_be(input: usize) -> [u8; VEC_LEN_BYTE_SIZE] {
+    let mut bytes = [0u8; VEC_LEN_BYTE_SIZE];
+    let input_bytes = input.to_be_bytes();
+    let offset = VEC_LEN_BYTE_SIZE - input_bytes.len();
+    bytes[offset..].copy_from_slice(&input_bytes);
+    bytes
+}
+
 pub trait CanonicalSerializeBE {
-    type Error;
+    type Error: std::error::Error;
 
     fn serialize<W: Write>(&self, writer: W) -> Result<(), Self::Error>;
     fn serialized_size(&self) -> usize;
 }
 
 pub trait CanonicalDeserializeBE: Sized {
-    type Error;
+    type Error: std::error::Error;
 
     fn deserialize<R: Read>(reader: R) -> Result<Self, Self::Error>;
 }
 
 impl CanonicalSerializeBE for Fr {
-    type Error = UtilsError;
+    type Error = SerializationErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         let bigint = self.into_bigint();
@@ -72,7 +83,8 @@ impl CanonicalSerializeBE for Fr {
             buf[i * FR_LIMB_BYTE_SIZE..(i + 1) * FR_LIMB_BYTE_SIZE]
                 .copy_from_slice(&limb.to_be_bytes());
         }
-        writer.write_all(buf.as_ref()).map_err(UtilsError::IoError)
+        writer.write_all(buf.as_ref())?;
+        Ok(())
     }
 
     fn serialized_size(&self) -> usize {
@@ -81,7 +93,7 @@ impl CanonicalSerializeBE for Fr {
 }
 
 impl CanonicalDeserializeBE for Fr {
-    type Error = UtilsError;
+    type Error = SerializationErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let mut buf = [0u8; FR_BYTE_SIZE];
@@ -94,14 +106,14 @@ impl CanonicalDeserializeBE for Fr {
         limbs.reverse();
         let bigint = ark_ff::BigInt(limbs);
         if bigint >= Fr::MODULUS {
-            return Err(UtilsError::NonCanonicalFieldElement);
+            return Err(SerializationErrorV3::NonCanonicalFieldElement);
         }
         Ok(Fr::from(bigint))
     }
 }
 
 impl CanonicalSerializeBE for IdSecret {
-    type Error = UtilsError;
+    type Error = SerializationErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         let bigint = Zeroizing::new(self.into_bigint());
@@ -110,7 +122,8 @@ impl CanonicalSerializeBE for IdSecret {
             buf[i * FR_LIMB_BYTE_SIZE..(i + 1) * FR_LIMB_BYTE_SIZE]
                 .copy_from_slice(&limb.to_be_bytes());
         }
-        writer.write_all(buf.as_ref()).map_err(UtilsError::IoError)
+        writer.write_all(buf.as_ref())?;
+        Ok(())
     }
 
     fn serialized_size(&self) -> usize {
@@ -119,7 +132,7 @@ impl CanonicalSerializeBE for IdSecret {
 }
 
 impl CanonicalDeserializeBE for IdSecret {
-    type Error = UtilsError;
+    type Error = SerializationErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let mut buf = Zeroizing::new([0u8; FR_BYTE_SIZE]);
@@ -132,7 +145,7 @@ impl CanonicalDeserializeBE for IdSecret {
         limbs.reverse();
         let bigint = Zeroizing::new(ark_ff::BigInt(*limbs));
         if *bigint >= Fr::MODULUS {
-            return Err(UtilsError::NonCanonicalFieldElement);
+            return Err(SerializationErrorV3::NonCanonicalFieldElement);
         }
         let mut fr = Fr::from(*bigint);
         Ok(IdSecret::from(&mut fr))
@@ -140,10 +153,10 @@ impl CanonicalDeserializeBE for IdSecret {
 }
 
 impl CanonicalSerializeBE for Vec<Fr> {
-    type Error = UtilsError;
+    type Error = SerializationErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        writer.write_all(&normalize_usize_be(self.len()))?;
+        writer.write_all(&serialize_usize_be(self.len()))?;
         for fr in self {
             fr.serialize(&mut writer)?;
         }
@@ -156,7 +169,7 @@ impl CanonicalSerializeBE for Vec<Fr> {
 }
 
 impl CanonicalDeserializeBE for Vec<Fr> {
-    type Error = UtilsError;
+    type Error = SerializationErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let mut len_buf = [0u8; VEC_LEN_BYTE_SIZE];
@@ -171,11 +184,12 @@ impl CanonicalDeserializeBE for Vec<Fr> {
 }
 
 impl CanonicalSerializeBE for Vec<u8> {
-    type Error = UtilsError;
+    type Error = SerializationErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        writer.write_all(&normalize_usize_be(self.len()))?;
-        writer.write_all(self).map_err(UtilsError::IoError)
+        writer.write_all(&serialize_usize_be(self.len()))?;
+        writer.write_all(self)?;
+        Ok(())
     }
 
     fn serialized_size(&self) -> usize {
@@ -184,7 +198,7 @@ impl CanonicalSerializeBE for Vec<u8> {
 }
 
 impl CanonicalDeserializeBE for Vec<u8> {
-    type Error = UtilsError;
+    type Error = SerializationErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let mut len_buf = [0u8; VEC_LEN_BYTE_SIZE];
@@ -197,10 +211,10 @@ impl CanonicalDeserializeBE for Vec<u8> {
 }
 
 impl CanonicalSerializeBE for Vec<bool> {
-    type Error = UtilsError;
+    type Error = SerializationErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        writer.write_all(&normalize_usize_be(self.len()))?;
+        writer.write_all(&serialize_usize_be(self.len()))?;
         for &b in self {
             writer.write_all(&[b as u8])?;
         }
@@ -213,7 +227,7 @@ impl CanonicalSerializeBE for Vec<bool> {
 }
 
 impl CanonicalDeserializeBE for Vec<bool> {
-    type Error = UtilsError;
+    type Error = SerializationErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let mut len_buf = [0u8; VEC_LEN_BYTE_SIZE];
@@ -225,7 +239,7 @@ impl CanonicalDeserializeBE for Vec<bool> {
             .map(|b| match b {
                 0 => Ok(false),
                 1 => Ok(true),
-                _ => Err(UtilsError::NonCanonicalBool(b)),
+                _ => Err(SerializationErrorV3::NonCanonicalBool(b)),
             })
             .collect()
     }
@@ -291,7 +305,7 @@ impl CanonicalDeserialize for RLNWitnessInputV3 {
 }
 
 impl CanonicalSerializeBE for RLNWitnessInputV3 {
-    type Error = ProtocolError;
+    type Error = SerializationErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         match self {
@@ -316,7 +330,7 @@ impl CanonicalSerializeBE for RLNWitnessInputV3 {
 }
 
 impl CanonicalDeserializeBE for RLNWitnessInputV3 {
-    type Error = ProtocolError;
+    type Error = SerializationErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let mut tag = [0u8; ENUM_TAG_SIZE];
@@ -328,15 +342,13 @@ impl CanonicalDeserializeBE for RLNWitnessInputV3 {
             ENUM_TAG_MULTI => Ok(RLNWitnessInputV3::Multi(RLNWitnessInputMulti::deserialize(
                 reader,
             )?)),
-            _ => Err(ProtocolError::SerializationError(
-                SerializationError::InvalidData,
-            )),
+            _ => Err(SerializationError::InvalidData.into()),
         }
     }
 }
 
 impl CanonicalSerializeBE for RLNWitnessInputSingle {
-    type Error = ProtocolError;
+    type Error = SerializationErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         self.identity_secret.serialize(&mut writer)?;
@@ -361,7 +373,7 @@ impl CanonicalSerializeBE for RLNWitnessInputSingle {
 }
 
 impl CanonicalDeserializeBE for RLNWitnessInputSingle {
-    type Error = ProtocolError;
+    type Error = SerializationErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let identity_secret = IdSecret::deserialize(&mut reader)?;
@@ -384,7 +396,7 @@ impl CanonicalDeserializeBE for RLNWitnessInputSingle {
 }
 
 impl CanonicalSerializeBE for RLNWitnessInputMulti {
-    type Error = ProtocolError;
+    type Error = SerializationErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         self.identity_secret.serialize(&mut writer)?;
@@ -411,7 +423,7 @@ impl CanonicalSerializeBE for RLNWitnessInputMulti {
 }
 
 impl CanonicalDeserializeBE for RLNWitnessInputMulti {
-    type Error = ProtocolError;
+    type Error = SerializationErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let identity_secret = IdSecret::deserialize(&mut reader)?;
@@ -436,7 +448,7 @@ impl CanonicalDeserializeBE for RLNWitnessInputMulti {
 }
 
 impl CanonicalSerializeBE for RLNPartialWitnessInputV3 {
-    type Error = ProtocolError;
+    type Error = SerializationErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         self.identity_secret.serialize(&mut writer)?;
@@ -455,7 +467,7 @@ impl CanonicalSerializeBE for RLNPartialWitnessInputV3 {
 }
 
 impl CanonicalDeserializeBE for RLNPartialWitnessInputV3 {
-    type Error = ProtocolError;
+    type Error = SerializationErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let identity_secret = IdSecret::deserialize(&mut reader)?;
@@ -531,7 +543,7 @@ impl CanonicalDeserialize for RLNProofValuesV3 {
 }
 
 impl CanonicalSerializeBE for RLNProofValuesV3 {
-    type Error = ProtocolError;
+    type Error = SerializationErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         match self {
@@ -556,7 +568,7 @@ impl CanonicalSerializeBE for RLNProofValuesV3 {
 }
 
 impl CanonicalDeserializeBE for RLNProofValuesV3 {
-    type Error = ProtocolError;
+    type Error = SerializationErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let mut tag = [0u8; ENUM_TAG_SIZE];
@@ -568,15 +580,13 @@ impl CanonicalDeserializeBE for RLNProofValuesV3 {
             ENUM_TAG_MULTI => Ok(RLNProofValuesV3::Multi(RLNProofValuesMulti::deserialize(
                 reader,
             )?)),
-            _ => Err(ProtocolError::SerializationError(
-                SerializationError::InvalidData,
-            )),
+            _ => Err(SerializationError::InvalidData.into()),
         }
     }
 }
 
 impl CanonicalSerializeBE for RLNProofValuesSingle {
-    type Error = ProtocolError;
+    type Error = SerializationErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         self.y.serialize(&mut writer)?;
@@ -597,7 +607,7 @@ impl CanonicalSerializeBE for RLNProofValuesSingle {
 }
 
 impl CanonicalDeserializeBE for RLNProofValuesSingle {
-    type Error = ProtocolError;
+    type Error = SerializationErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let y = Fr::deserialize(&mut reader)?;
@@ -616,7 +626,7 @@ impl CanonicalDeserializeBE for RLNProofValuesSingle {
 }
 
 impl CanonicalSerializeBE for RLNProofValuesMulti {
-    type Error = ProtocolError;
+    type Error = SerializationErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         self.ys.serialize(&mut writer)?;
@@ -639,7 +649,7 @@ impl CanonicalSerializeBE for RLNProofValuesMulti {
 }
 
 impl CanonicalDeserializeBE for RLNProofValuesMulti {
-    type Error = ProtocolError;
+    type Error = SerializationErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let ys = Vec::<Fr>::deserialize(&mut reader)?;
@@ -664,7 +674,7 @@ impl CanonicalDeserializeBE for RLNProofValuesMulti {
 /// Some types (e.g. [`RLNProofV3`]) contain fields with different encoding requirements:
 /// the Groth16 proof bytes use arkworks compressed LE format, while the proof values use BE format.
 pub trait CanonicalSerializeMixed: CanonicalSerialize {
-    type Error;
+    type Error: std::error::Error;
 
     fn serialize<W: Write>(&self, writer: W) -> Result<(), Self::Error>;
     fn serialized_size(&self) -> usize;
@@ -673,15 +683,14 @@ pub trait CanonicalSerializeMixed: CanonicalSerialize {
 /// Deserialization for types that combine LE and BE encodings in a single wire format.
 ///
 /// See [`CanonicalSerializeMixed`] for context on when this is needed.
-pub trait CanonicalDeserializeMixed: CanonicalDeserialize + Sized {
-    type Error;
+pub trait CanonicalDeserializeMixed: CanonicalDeserialize {
+    type Error: std::error::Error;
 
     fn deserialize<R: Read>(reader: R) -> Result<Self, Self::Error>;
 }
 
 impl CanonicalSerializeMixed for RLNProofV3 {
-    //TODO: unify error types across serialization traits to avoid this redundant associated type
-    type Error = ProtocolError;
+    type Error = SerializationErrorV3;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
         self.proof.serialize_compressed(&mut writer)?;
@@ -695,7 +704,7 @@ impl CanonicalSerializeMixed for RLNProofV3 {
 }
 
 impl CanonicalDeserializeMixed for RLNProofV3 {
-    type Error = ProtocolError;
+    type Error = SerializationErrorV3;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let proof = Proof::deserialize_compressed(&mut reader)?;

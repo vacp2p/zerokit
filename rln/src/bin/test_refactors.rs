@@ -3,7 +3,7 @@ use zerokit_utils::merkle_tree::{
     FullMerkleTree, Hasher, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
 };
 
-fn main() -> Result<(), RLNError> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Stateless Single
     let backend = ArkGroth16Backend::new(zkey_single_v1().to_owned(), graph_single_v1().to_owned());
     let rln = RLNV3::<Stateless, ArkGroth16Backend>::new(backend);
@@ -33,7 +33,7 @@ fn main() -> Result<(), RLNError> {
         Fr::from(1),
     )?
     .into();
-    let values_single2 = RLNProofValuesV3::try_from(&witness_single2)?;
+    let values_single2 = RLNProofValuesV3::from(&witness_single2);
     let recovered = values_single1.recover_secret(&values_single2)?;
     assert_eq!(recovered, identity_secret);
 
@@ -84,8 +84,8 @@ fn main() -> Result<(), RLNError> {
     )?
     .into();
 
-    let values_single = RLNProofValuesV3::try_from(&witness_single)?;
-    let values_multi = RLNProofValuesV3::try_from(&witness_multi)?;
+    let values_single = RLNProofValuesV3::from(&witness_single);
+    let values_multi = RLNProofValuesV3::from(&witness_multi);
 
     assert_eq!(
         values_single.recover_secret(&values_multi)?,
@@ -96,7 +96,7 @@ fn main() -> Result<(), RLNError> {
         identity_secret
     );
 
-    // Partial Proof — Single
+    // Partial Proof - Single
     let backend_partial =
         ArkGroth16Backend::new(zkey_single_v1().to_owned(), graph_single_v1().to_owned());
     let rln_partial = RLNV3::<Stateless, ArkGroth16Backend>::new(backend_partial);
@@ -119,7 +119,7 @@ fn main() -> Result<(), RLNError> {
         rln_partial.finish_proof(&partial_proof, &witness_for_partial)?;
     assert!(rln_partial.verify(&proof_from_partial, &values_partial)?);
 
-    // Partial Proof — Multi
+    // Partial Proof - Multi
     let backend_partial_multi =
         ArkGroth16Backend::new(zkey_multi_v1().to_owned(), graph_multi_v1().to_owned());
     let rln_partial_multi = RLNV3::<Stateless, ArkGroth16Backend>::new(backend_partial_multi);
@@ -143,7 +143,7 @@ fn main() -> Result<(), RLNError> {
         rln_partial_multi.finish_proof(&partial_proof_multi, &witness_for_partial_multi)?;
     assert!(rln_partial_multi.verify(&proof_from_partial_multi, &values_partial_multi)?);
 
-    // Stateful Single — FullMerkleTree
+    // Stateful Single - FullMerkleTree
     let tree = FullMerkleTree::<PoseidonHash>::new(
         DEFAULT_TREE_DEPTH,
         PoseidonHash::default_leaf(),
@@ -195,7 +195,7 @@ fn main() -> Result<(), RLNError> {
     rln_stateful.delete_leaf(leaf_index)?;
     rln_stateful.init_tree_with_leaves(vec![rate_commitment])?;
 
-    // Stateful Multi — OptimalMerkleTree
+    // Stateful Multi - OptimalMerkleTree
     let tree_multi = OptimalMerkleTree::<PoseidonHash>::new(
         DEFAULT_TREE_DEPTH,
         PoseidonHash::default_leaf(),
@@ -239,7 +239,7 @@ fn main() -> Result<(), RLNError> {
         &[rln_stateful_multi.get_root()],
     )?);
 
-    // Stateful Partial Proof — PmTree
+    // Stateful Partial Proof - PmTree
     let tree_partial = PmTree::new(
         DEFAULT_TREE_DEPTH,
         PoseidonHash::default_leaf(),

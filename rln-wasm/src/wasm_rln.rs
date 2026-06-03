@@ -165,19 +165,13 @@ impl WasmRLNWitnessInput {
     }
 
     #[wasm_bindgen(js_name = getMessageId)]
-    pub fn get_message_id(&self) -> Result<WasmFr, String> {
-        self.0
-            .message_id()
-            .map(|fr| WasmFr::from(*fr))
-            .map_err(|e| e.to_string())
+    pub fn get_message_id(&self) -> Option<WasmFr> {
+        self.0.message_id().map(|fr| WasmFr::from(*fr))
     }
 
     #[wasm_bindgen(js_name = getMessageIds)]
-    pub fn get_message_ids(&self) -> Result<VecWasmFr, String> {
-        self.0
-            .message_ids()
-            .map(|s| VecWasmFr::from(s.to_vec()))
-            .map_err(|e| e.to_string())
+    pub fn get_message_ids(&self) -> Option<VecWasmFr> {
+        self.0.message_ids().map(|s| VecWasmFr::from(s.to_vec()))
     }
 
     #[wasm_bindgen(js_name = getPathElements)]
@@ -201,15 +195,14 @@ impl WasmRLNWitnessInput {
     }
 
     #[wasm_bindgen(js_name = getSelectorUsed)]
-    pub fn get_selector_used(&self) -> Result<Uint8Array, String> {
+    pub fn get_selector_used(&self) -> Option<Uint8Array> {
         let bytes: Vec<u8> = self
             .0
-            .selector_used()
-            .map_err(|e| e.to_string())?
+            .selector_used()?
             .iter()
             .map(|&b| if b { 1u8 } else { 0u8 })
             .collect();
-        Ok(Uint8Array::from(&bytes[..]))
+        Some(Uint8Array::from(&bytes[..]))
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]
@@ -244,10 +237,8 @@ impl WasmRLNWitnessInput {
     }
 
     #[wasm_bindgen(js_name = toProofValues)]
-    pub fn to_proof_values(&self) -> Result<WasmRLNProofValues, String> {
-        RLNProofValuesV3::try_from(&self.0)
-            .map(WasmRLNProofValues)
-            .map_err(|e| e.to_string())
+    pub fn to_proof_values(&self) -> WasmRLNProofValues {
+        WasmRLNProofValues(RLNProofValuesV3::from(&self.0))
     }
 }
 
@@ -258,6 +249,28 @@ pub struct WasmRLNPartialWitnessInput(RLNPartialWitnessInputV3);
 
 #[wasm_bindgen]
 impl WasmRLNPartialWitnessInput {
+    #[wasm_bindgen(js_name = new)]
+    pub fn new(
+        identity_secret: &WasmFr,
+        user_message_limit: &WasmFr,
+        path_elements: &VecWasmFr,
+        identity_path_index: &Uint8Array,
+    ) -> Result<WasmRLNPartialWitnessInput, String> {
+        let mut identity_secret_fr = identity_secret.inner();
+        let path_elements: Vec<Fr> = path_elements.inner();
+        let identity_path_index: Vec<u8> = identity_path_index.to_vec();
+
+        let witness = RLNPartialWitnessInputV3::new(
+            IdSecret::from(&mut identity_secret_fr),
+            user_message_limit.inner(),
+            path_elements,
+            identity_path_index,
+        )
+        .map_err(|err| err.to_string())?;
+
+        Ok(WasmRLNPartialWitnessInput(witness))
+    }
+
     #[wasm_bindgen(js_name = fromWitness)]
     pub fn from_witness(witness: &WasmRLNWitnessInput) -> WasmRLNPartialWitnessInput {
         WasmRLNPartialWitnessInput(RLNPartialWitnessInputV3::from(&witness.0))
@@ -371,60 +384,50 @@ pub struct WasmRLNProofValues(RLNProofValuesV3);
 
 #[wasm_bindgen]
 impl WasmRLNProofValues {
-    #[wasm_bindgen(getter)]
-    pub fn y(&self) -> Result<WasmFr, String> {
-        self.0.y().map(WasmFr::from).map_err(|e| e.to_string())
+    #[wasm_bindgen(js_name = y)]
+    pub fn y(&self) -> Option<WasmFr> {
+        self.0.y().map(WasmFr::from)
     }
 
     #[wasm_bindgen(js_name = ys)]
-    pub fn ys(&self) -> Result<VecWasmFr, String> {
-        self.0
-            .ys()
-            .map(|s| VecWasmFr::from(s.to_vec()))
-            .map_err(|e| e.to_string())
+    pub fn ys(&self) -> Option<VecWasmFr> {
+        self.0.ys().map(|s| VecWasmFr::from(s.to_vec()))
     }
 
-    #[wasm_bindgen(getter)]
+    #[wasm_bindgen(js_name = root)]
     pub fn root(&self) -> WasmFr {
         WasmFr::from(self.0.root())
     }
 
-    #[wasm_bindgen(getter)]
-    pub fn nullifier(&self) -> Result<WasmFr, String> {
-        self.0
-            .nullifier()
-            .map(WasmFr::from)
-            .map_err(|e| e.to_string())
+    #[wasm_bindgen(js_name = nullifier)]
+    pub fn nullifier(&self) -> Option<WasmFr> {
+        self.0.nullifier().map(WasmFr::from)
     }
 
     #[wasm_bindgen(js_name = nullifiers)]
-    pub fn nullifiers(&self) -> Result<VecWasmFr, String> {
-        self.0
-            .nullifiers()
-            .map(|s| VecWasmFr::from(s.to_vec()))
-            .map_err(|e| e.to_string())
+    pub fn nullifiers(&self) -> Option<VecWasmFr> {
+        self.0.nullifiers().map(|s| VecWasmFr::from(s.to_vec()))
     }
 
-    #[wasm_bindgen(getter)]
+    #[wasm_bindgen(js_name = x)]
     pub fn x(&self) -> WasmFr {
         WasmFr::from(self.0.x())
     }
 
-    #[wasm_bindgen(getter, js_name = externalNullifier)]
+    #[wasm_bindgen(js_name = externalNullifier)]
     pub fn external_nullifier(&self) -> WasmFr {
         WasmFr::from(self.0.external_nullifier())
     }
 
     #[wasm_bindgen(js_name = selectorUsed)]
-    pub fn selector_used(&self) -> Result<Uint8Array, String> {
+    pub fn selector_used(&self) -> Option<Uint8Array> {
         let bytes: Vec<u8> = self
             .0
-            .selector_used()
-            .map_err(|e| e.to_string())?
+            .selector_used()?
             .iter()
             .map(|&b| if b { 1u8 } else { 0u8 })
             .collect();
-        Ok(Uint8Array::from(&bytes[..]))
+        Some(Uint8Array::from(&bytes[..]))
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]
