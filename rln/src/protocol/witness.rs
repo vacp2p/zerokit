@@ -1024,6 +1024,14 @@ impl RLNWitnessInputV3 {
                 index_len,
             ));
         }
+        if let Self::Single(_) = self {
+            if graph.max_out != 1 {
+                return Err(GenerateProofError::MessageIdsLengthMismatch(
+                    graph.max_out,
+                    1,
+                ));
+            }
+        }
         if let Self::Multi(w) = self {
             if w.message_ids.len() != graph.max_out {
                 return Err(GenerateProofError::MessageIdsLengthMismatch(

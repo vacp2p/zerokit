@@ -16,6 +16,7 @@ pub use crate::protocol::{
     generate_zk_proof_with_rs, verify_zk_proof,
 };
 pub use crate::{
+    builder::RLNBuilder,
     circuit::{
         graph_from_raw, zkey_from_raw, ArkGroth16Backend, Curve, Fq, Fq2, Fr, G1Affine,
         G1Projective, G2Affine, G2Projective, Graph, PartialProof, Proof, VerifyingKey, Zkey,

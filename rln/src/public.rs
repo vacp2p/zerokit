@@ -8,20 +8,22 @@ use zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleTree, ZerokitMerkleTreeErr
 #[cfg(not(feature = "stateless"))]
 use {crate::poseidon_tree::PoseidonTree, std::str::FromStr};
 
-use crate::{
-    circuit::{graph_from_raw, zkey_from_raw, ArkGroth16Backend, Fr, Proof, Zkey},
-    error::{InitErrorV3, RLNError, VerifyProofErrorV3},
-    protocol::{
-        generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof,
-        RLNPartialZkProof, RLNProofValues, RLNProofValuesV3, RLNWitnessInput, RLNZkProof, Stateful,
-        Stateless,
-    },
-};
+#[cfg(not(all(target_arch = "wasm32", feature = "stateless")))]
+use crate::circuit::graph_from_raw;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
     circuit::{graph_single_v1, zkey_single_v1, Graph, PartialProof},
     prelude::RLNPartialWitnessInput,
     protocol::{finish_zk_proof, generate_partial_zk_proof, generate_zk_proof, MessageMode},
+};
+use crate::{
+    circuit::{zkey_from_raw, Fr, Proof, Zkey},
+    error::{RLNError, VerifyProofErrorV3},
+    protocol::{
+        generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof,
+        RLNPartialZkProof, RLNProofValues, RLNProofValuesV3, RLNWitnessInput, RLNZkProof, Stateful,
+        Stateless,
+    },
 };
 
 /// This trait allows accepting different config input types for tree configuration.
@@ -920,15 +922,6 @@ impl<Tree, ZkProof: RLNPartialZkProof> RLNV3<Tree, ZkProof> {
         witness: &ZkProof::Witness,
     ) -> Result<(ZkProof::Proof, ZkProof::Values), ZkProof::FinishProofError> {
         self.zkp.finish_proof(partial_proof, witness)
-    }
-}
-
-// TODO: replace these constructors with a unified RLNBuilder (PR 8)
-impl RLNV3<Stateless, ArkGroth16Backend> {
-    pub fn new_with_params(zkey_data: Vec<u8>, graph_data: Vec<u8>) -> Result<Self, InitErrorV3> {
-        let zkey = zkey_from_raw(&zkey_data)?;
-        let graph = graph_from_raw(&graph_data, None, None)?;
-        Ok(Self::new(ArkGroth16Backend::new(zkey, graph)))
     }
 }
 

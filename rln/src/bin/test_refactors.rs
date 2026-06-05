@@ -5,8 +5,7 @@ use zerokit_utils::merkle_tree::{
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Stateless Single
-    let backend = ArkGroth16Backend::new(zkey_single_v1().to_owned(), graph_single_v1().to_owned());
-    let rln = RLNV3::<Stateless, ArkGroth16Backend>::new(backend);
+    let rln = RLNBuilder::<ArkGroth16Backend>::from_defaults_single().build_stateless();
 
     let (identity_secret, _) = keygen();
     let witness_single1 = RLNWitnessInputSingle::new(
@@ -38,9 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(recovered, identity_secret);
 
     // Stateless Multi
-    let multi_backend =
-        ArkGroth16Backend::new(zkey_multi_v1().to_owned(), graph_multi_v1().to_owned());
-    let rln_multi = RLNV3::<Stateless, ArkGroth16Backend>::new(multi_backend);
+    let rln_multi = RLNBuilder::<ArkGroth16Backend>::from_defaults_multi().build_stateless();
 
     let (identity_secret, _) = keygen();
 
@@ -97,9 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Partial Proof - Single
-    let backend_partial =
-        ArkGroth16Backend::new(zkey_single_v1().to_owned(), graph_single_v1().to_owned());
-    let rln_partial = RLNV3::<Stateless, ArkGroth16Backend>::new(backend_partial);
+    let rln_partial = RLNBuilder::<ArkGroth16Backend>::from_defaults_single().build_stateless();
 
     let (identity_secret, _) = keygen();
     let witness_for_partial: RLNWitnessInputV3 = RLNWitnessInputSingle::new(
@@ -120,9 +115,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert!(rln_partial.verify(&proof_from_partial, &values_partial)?);
 
     // Partial Proof - Multi
-    let backend_partial_multi =
-        ArkGroth16Backend::new(zkey_multi_v1().to_owned(), graph_multi_v1().to_owned());
-    let rln_partial_multi = RLNV3::<Stateless, ArkGroth16Backend>::new(backend_partial_multi);
+    let rln_partial_multi =
+        RLNBuilder::<ArkGroth16Backend>::from_defaults_multi().build_stateless();
 
     let (identity_secret, _) = keygen();
     let witness_for_partial_multi: RLNWitnessInputV3 = RLNWitnessInputMulti::new(
@@ -149,9 +143,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         PoseidonHash::default_leaf(),
         Default::default(),
     )?;
-    let backend = ArkGroth16Backend::new(zkey_single_v1().to_owned(), graph_single_v1().to_owned());
     let mut rln_stateful =
-        RLNV3::<Stateful<FullMerkleTree<PoseidonHash>>, ArkGroth16Backend>::new(tree, backend);
+        RLNBuilder::<ArkGroth16Backend>::from_defaults_single().build_stateful(tree);
 
     let (identity_secret, id_commitment) = keygen();
     let user_message_limit = Fr::from(10);
@@ -196,17 +189,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     rln_stateful.init_tree_with_leaves(vec![rate_commitment])?;
 
     // Stateful Multi - OptimalMerkleTree
-    let tree_multi = OptimalMerkleTree::<PoseidonHash>::new(
-        DEFAULT_TREE_DEPTH,
-        PoseidonHash::default_leaf(),
-        Default::default(),
-    )?;
-    let backend_multi =
-        ArkGroth16Backend::new(zkey_multi_v1().to_owned(), graph_multi_v1().to_owned());
-    let mut rln_stateful_multi = RLNV3::<
-        Stateful<OptimalMerkleTree<PoseidonHash>>,
-        ArkGroth16Backend,
-    >::new(tree_multi, backend_multi);
+    let mut rln_stateful_multi =
+        RLNBuilder::<ArkGroth16Backend>::from_defaults_multi()
+            .build_stateful_default::<OptimalMerkleTree<PoseidonHash>>(DEFAULT_TREE_DEPTH)?;
 
     let (identity_secret_multi, id_commitment_multi) = keygen();
     let user_message_limit_multi = Fr::from(10);
@@ -240,15 +225,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?);
 
     // Stateful Partial Proof - PmTree
-    let tree_partial = PmTree::new(
-        DEFAULT_TREE_DEPTH,
-        PoseidonHash::default_leaf(),
-        Default::default(),
-    )?;
-    let backend_partial_stateful =
-        ArkGroth16Backend::new(zkey_single_v1().to_owned(), graph_single_v1().to_owned());
-    let mut rln_stateful_partial =
-        RLNV3::<Stateful<PmTree>, ArkGroth16Backend>::new(tree_partial, backend_partial_stateful);
+    let mut rln_stateful_partial = RLNBuilder::<ArkGroth16Backend>::from_defaults_single()
+        .build_stateful_default::<PmTree>(DEFAULT_TREE_DEPTH)?;
 
     let (identity_secret_p, id_commitment_p) = keygen();
     let user_message_limit_p = Fr::from(10);

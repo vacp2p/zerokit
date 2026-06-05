@@ -19,11 +19,10 @@ impl WasmRLN {
         zkey_data: &Uint8Array,
         graph_data: &Uint8Array,
     ) -> Result<WasmRLN, String> {
-        let rln = RLNV3::<Stateless, ArkGroth16Backend>::new_with_params(
-            zkey_data.to_vec(),
-            graph_data.to_vec(),
-        )
-        .map_err(|err| err.to_string())?;
+        let rln =
+            RLNBuilder::<ArkGroth16Backend>::from_raw(zkey_data.to_vec(), graph_data.to_vec())
+                .map_err(|err| err.to_string())?
+                .build_stateless();
         Ok(WasmRLN(rln))
     }
 

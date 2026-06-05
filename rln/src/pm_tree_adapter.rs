@@ -162,6 +162,14 @@ impl PmtreeConfig {
     }
 }
 
+impl TryFrom<PmtreeConfigBuilder> for PmtreeConfig {
+    type Error = FromConfigError;
+
+    fn try_from(builder: PmtreeConfigBuilder) -> Result<Self, Self::Error> {
+        builder.build()
+    }
+}
+
 impl FromStr for PmtreeConfig {
     type Err = FromConfigError;
 
@@ -228,6 +236,14 @@ impl ZerokitMerkleTree for PmTree {
         PmTree::new(depth, Self::Hasher::default_leaf(), default_config)
     }
 
+    // TODO(PR10): two reload bugs to fix here:
+    //   1. Silent depth mismatch — when an existing DB has depth A and `new` is called with
+    //      depth B (A != B), the loaded tree keeps depth A but `cached_leaves_indices` is sized
+    //      for depth B. Validate `tree.depth() == depth` after load, return `InvalidDepth`.
+    //   2. `cached_leaves_indices` reset on reload — vec is always recreated as all-zeros even
+    //      when the DB already contains leaves, so `get_empty_leaves_indices` and any other
+    //      cache-based query report wrong state after reload. Rebuild the cache from the
+    //      loaded tree state (or persist the cache alongside the tree).
     fn new(
         depth: usize,
         _default_leaf: FrOf<Self::Hasher>,

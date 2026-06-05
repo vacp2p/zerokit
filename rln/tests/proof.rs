@@ -4,10 +4,7 @@ mod test {
     use rln::prelude::*;
 
     fn make_rln(zkey: &Zkey, graph: &Graph) -> RLNV3<Stateless, ArkGroth16Backend> {
-        RLNV3::<Stateless, ArkGroth16Backend>::new(ArkGroth16Backend::new(
-            zkey.clone(),
-            graph.clone(),
-        ))
+        RLNBuilder::new(ArkGroth16Backend::new(zkey.clone(), graph.clone())).build_stateless()
     }
 
     fn make_backend(zkey: &Zkey, graph: &Graph) -> ArkGroth16Backend {
@@ -617,22 +614,5 @@ mod test {
         ));
         assert_eq!(*sv.recover_secret(&mv).unwrap(), *id);
         assert_eq!(*mv.recover_secret(&sv).unwrap(), *id);
-    }
-
-    #[test]
-    fn test_v3_new_with_params_invalid_zkey() {
-        assert!(matches!(
-            RLNV3::<Stateless, ArkGroth16Backend>::new_with_params(vec![], vec![1, 2, 3]),
-            Err(InitErrorV3::ZKey(_))
-        ));
-    }
-
-    #[test]
-    fn test_v3_new_with_params_invalid_graph() {
-        let valid_zkey = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey").to_vec();
-        assert!(matches!(
-            RLNV3::<Stateless, ArkGroth16Backend>::new_with_params(valid_zkey, vec![0u8; 50],),
-            Err(InitErrorV3::Graph(_))
-        ));
     }
 }

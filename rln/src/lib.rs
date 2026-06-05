@@ -1,3 +1,4 @@
+pub mod builder;
 pub mod circuit;
 pub mod error;
 pub mod ffi;
