@@ -356,9 +356,9 @@ pub fn ffi_rln_v3_new_with_full_merkle_tree(
         }
     };
     match <FullMerkleTree<PoseidonHash> as ZerokitMerkleTree>::default(tree_depth) {
-        Ok(tree) => {
+        Ok(full_merkle_tree) => {
             let rln = RLNBuilder::stateful()
-                .tree(tree)
+                .tree(full_merkle_tree)
                 .graph(graph)
                 .zkey(zkey)
                 .build();
@@ -390,9 +390,9 @@ pub fn ffi_rln_v3_new_with_optimal_merkle_tree(
         }
     };
     match <OptimalMerkleTree<PoseidonHash> as ZerokitMerkleTree>::default(tree_depth) {
-        Ok(tree) => {
+        Ok(optimal_merkle_tree) => {
             let rln = RLNBuilder::stateful()
-                .tree(tree)
+                .tree(optimal_merkle_tree)
                 .graph(graph)
                 .zkey(zkey)
                 .build();
@@ -445,7 +445,7 @@ pub fn ffi_rln_v3_new_with_pm_tree(
     let tree = if config_str.is_empty() {
         <PmTree as ZerokitMerkleTree>::default(tree_depth)
     } else {
-        let cfg = match PmtreeConfig::from_str(&config_str) {
+        let cfg = match PmTreeConfig::from_str(&config_str) {
             Ok(c) => c,
             Err(err) => {
                 return CResult {
@@ -461,9 +461,9 @@ pub fn ffi_rln_v3_new_with_pm_tree(
         )
     };
     match tree {
-        Ok(tree) => {
+        Ok(pm_tree) => {
             let rln = RLNBuilder::stateful()
-                .tree(tree)
+                .tree(pm_tree)
                 .graph(graph)
                 .zkey(zkey)
                 .build();
@@ -603,17 +603,18 @@ pub fn ffi_rln_v3_witness_input_new_single(
     let path_elements: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
     let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
 
-    match RLNWitnessInputSingle::new(
-        IdSecret::from(&mut identity_secret_fr),
-        user_message_limit.0,
-        path_elements,
-        identity_path_index,
-        x.0,
-        external_nullifier.0,
-        message_id.0,
-    ) {
+    match RLNWitnessInputV3::new_single()
+        .identity_secret(IdSecret::from(&mut identity_secret_fr))
+        .user_message_limit(user_message_limit.0)
+        .path_elements(path_elements)
+        .identity_path_index(identity_path_index)
+        .x(x.0)
+        .external_nullifier(external_nullifier.0)
+        .message_id(message_id.0)
+        .build()
+    {
         Ok(w) => CResult {
-            ok: Some(Box_::new(FFI_RLNV3WitnessInput(w.into()))),
+            ok: Some(Box_::new(FFI_RLNV3WitnessInput(w))),
             err: None,
         },
         Err(err) => CResult {
@@ -640,18 +641,19 @@ pub fn ffi_rln_v3_witness_input_new_multi(
     let message_ids: Vec<Fr> = message_ids.iter().map(|cfr| cfr.0).collect();
     let selector_used: Vec<bool> = selector_used.iter().copied().collect();
 
-    match RLNWitnessInputMulti::new(
-        IdSecret::from(&mut identity_secret_fr),
-        user_message_limit.0,
-        path_elements,
-        identity_path_index,
-        x.0,
-        external_nullifier.0,
-        message_ids,
-        selector_used,
-    ) {
+    match RLNWitnessInputV3::new_multi()
+        .identity_secret(IdSecret::from(&mut identity_secret_fr))
+        .user_message_limit(user_message_limit.0)
+        .path_elements(path_elements)
+        .identity_path_index(identity_path_index)
+        .x(x.0)
+        .external_nullifier(external_nullifier.0)
+        .message_ids(message_ids)
+        .selector_used(selector_used)
+        .build()
+    {
         Ok(w) => CResult {
-            ok: Some(Box_::new(FFI_RLNV3WitnessInput(w.into()))),
+            ok: Some(Box_::new(FFI_RLNV3WitnessInput(w))),
             err: None,
         },
         Err(err) => CResult {
@@ -672,7 +674,7 @@ pub fn ffi_rln_v3_witness_input_get_identity_secret(
 pub fn ffi_rln_v3_witness_input_get_user_message_limit(
     witness: &repr_c::Box<FFI_RLNV3WitnessInput>,
 ) -> repr_c::Box<CFr> {
-    CFr::from(*witness.0.user_message_limit()).into()
+    CFr::from(witness.0.user_message_limit()).into()
 }
 
 #[ffi_export]
@@ -681,7 +683,7 @@ pub fn ffi_rln_v3_witness_input_get_message_id(
 ) -> CResult<repr_c::Box<CFr>, repr_c::String> {
     match witness.0.message_id() {
         Some(id) => CResult {
-            ok: Some(CFr::from(*id).into()),
+            ok: Some(CFr::from(id).into()),
             err: None,
         },
         None => CResult {
@@ -736,14 +738,14 @@ pub fn ffi_rln_v3_witness_input_get_identity_path_index(
 pub fn ffi_rln_v3_witness_input_get_x(
     witness: &repr_c::Box<FFI_RLNV3WitnessInput>,
 ) -> repr_c::Box<CFr> {
-    CFr::from(*witness.0.x()).into()
+    CFr::from(witness.0.x()).into()
 }
 
 #[ffi_export]
 pub fn ffi_rln_v3_witness_input_get_external_nullifier(
     witness: &repr_c::Box<FFI_RLNV3WitnessInput>,
 ) -> repr_c::Box<CFr> {
-    CFr::from(*witness.0.external_nullifier()).into()
+    CFr::from(witness.0.external_nullifier()).into()
 }
 
 #[ffi_export]
@@ -849,12 +851,13 @@ pub fn ffi_rln_v3_partial_witness_input_new(
     let mut identity_secret_fr = identity_secret.0;
     let path_elements: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
     let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
-    match RLNPartialWitnessInputV3::new(
-        IdSecret::from(&mut identity_secret_fr),
-        user_message_limit.0,
-        path_elements,
-        identity_path_index,
-    ) {
+    match RLNPartialWitnessInputV3::new()
+        .identity_secret(IdSecret::from(&mut identity_secret_fr))
+        .user_message_limit(user_message_limit.0)
+        .path_elements(path_elements)
+        .identity_path_index(identity_path_index)
+        .build()
+    {
         Ok(w) => CResult {
             ok: Some(Box_::new(FFI_RLNV3PartialWitnessInput(w))),
             err: None,
