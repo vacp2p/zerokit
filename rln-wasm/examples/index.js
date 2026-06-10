@@ -72,7 +72,13 @@ async function main() {
   console.log("  - rate commitment = " + rateCommitment.debug());
 
   console.log("\nWasmFr serialization: WasmFr <-> bytes");
-  const serRateCommitment = rateCommitment.toBytesLE();
+  let serRateCommitment;
+  try {
+    serRateCommitment = rateCommitment.toBytesLE();
+  } catch (error) {
+    console.error("Rate commitment serialization error:", error);
+    return;
+  }
   console.log(
     "  - serialized rate commitment = [" +
       debugUint8Array(serRateCommitment) +
@@ -91,7 +97,13 @@ async function main() {
   );
 
   console.log("\nIdentity serialization: Identity <-> bytes");
-  const serIdentity = identity.toBytesLE();
+  let serIdentity;
+  try {
+    serIdentity = identity.toBytesLE();
+  } catch (error) {
+    console.error("Identity serialization error:", error);
+    return;
+  }
   console.log(
     "  - serialized identity = [" + debugUint8Array(serIdentity) + "]",
   );
@@ -133,7 +145,13 @@ async function main() {
   const identityPathIndex = new Uint8Array(treeDepth);
 
   console.log("\nVecWasmFr serialization: VecWasmFr <-> bytes");
-  const serPathElements = pathElements.toBytesLE();
+  let serPathElements;
+  try {
+    serPathElements = pathElements.toBytesLE();
+  } catch (error) {
+    console.error("Path elements serialization error:", error);
+    return;
+  }
   console.log(
     "  - serialized path elements = [" + debugUint8Array(serPathElements) + "]",
   );
@@ -148,7 +166,13 @@ async function main() {
   console.log("  - deserialized path elements = ", deserPathElements.debug());
 
   console.log("\nUint8Array serialization: Uint8Array <-> bytes");
-  const serPathIndex = rlnWasm.Uint8ArrayUtils.toBytesLE(identityPathIndex);
+  let serPathIndex;
+  try {
+    serPathIndex = rlnWasm.Uint8ArrayUtils.toBytesLE(identityPathIndex);
+  } catch (error) {
+    console.error("Path index serialization error:", error);
+    return;
+  }
   console.log(
     "  - serialized path index = [" + debugUint8Array(serPathIndex) + "]",
   );

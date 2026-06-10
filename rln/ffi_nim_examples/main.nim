@@ -18,11 +18,12 @@ else:
 type
   CSize* = csize_t
   CFr* = object
-  FFI_RLN* = object
-  FFI_RLNProof* = object
-  FFI_RLNPartialProof* = object
-  FFI_RLNWitnessInput* = object
-  FFI_RLNPartialWitnessInput* = object
+  FFI_RLNV3* = object
+  FFI_RLNV3Proof* = object
+  FFI_RLNV3PartialProof* = object
+  FFI_RLNV3WitnessInput* = object
+  FFI_RLNV3PartialWitnessInput* = object
+  FFI_RLNV3ProofValues* = object
 
   Vec_CFr* = object
     dataPtr*: ptr CFr
@@ -39,66 +40,61 @@ type
     len*: CSize
     cap*: CSize
 
-  SliceRefU8* = object
-    dataPtr*: ptr uint8
+  Vec_size* = object
+    dataPtr*: ptr CSize
     len*: CSize
+    cap*: CSize
 
-  FFI_MerkleProof* = object
+  FFI_RLNV3MerkleProof* = object
     path_elements*: Vec_CFr
     path_index*: Vec_uint8
 
-  CResultRLNPtrVecU8* = object
-    ok*: ptr FFI_RLN
+  CBoolResult* = object
+    ok*: bool
     err*: Vec_uint8
 
-  CResultProofPtrVecU8* = object
-    ok*: ptr FFI_RLNProof
+  CResultRLNV3Ptr* = object
+    ok*: ptr FFI_RLNV3
     err*: Vec_uint8
 
-  CResultPartialProofPtrVecU8* = object
-    ok*: ptr FFI_RLNPartialProof
+  CResultProofPtr* = object
+    ok*: ptr FFI_RLNV3Proof
     err*: Vec_uint8
 
-  CResultWitnessInputPtrVecU8* = object
-    ok*: ptr FFI_RLNWitnessInput
+  CResultPartialProofPtr* = object
+    ok*: ptr FFI_RLNV3PartialProof
     err*: Vec_uint8
 
-  CResultPartialWitnessInputPtrVecU8* = object
-    ok*: ptr FFI_RLNPartialWitnessInput
+  CResultWitnessInputPtr* = object
+    ok*: ptr FFI_RLNV3WitnessInput
     err*: Vec_uint8
 
-  FFI_RLNProofValues* = object
+  CResultPartialWitnessInputPtr* = object
+    ok*: ptr FFI_RLNV3PartialWitnessInput
+    err*: Vec_uint8
 
-  CResultCFrPtrVecU8* = object
+  CResultProofValuesPtr* = object
+    ok*: ptr FFI_RLNV3ProofValues
+    err*: Vec_uint8
+
+  CResultMerkleProofPtr* = object
+    ok*: ptr FFI_RLNV3MerkleProof
+    err*: Vec_uint8
+
+  CResultCFrPtr* = object
     ok*: ptr CFr
     err*: Vec_uint8
 
-  CResultRLNProofValuesPtrVecU8* = object
-    ok*: ptr FFI_RLNProofValues
-    err*: Vec_uint8
-
-  CResultMerkleProofPtrVecU8* = object
-    ok*: ptr FFI_MerkleProof
-    err*: Vec_uint8
-
-  CResultVecCFrVecU8* = object
+  CResultVecCFr* = object
     ok*: Vec_CFr
     err*: Vec_uint8
 
-  CResultVecU8VecU8* = object
+  CResultVecU8* = object
     ok*: Vec_uint8
     err*: Vec_uint8
 
-  CResultBigIntJsonVecU8* = object
-    ok*: Vec_uint8
-    err*: Vec_uint8
-
-  CResultVecBoolVecU8* = object
+  CResultVecBool* = object
     ok*: Vec_bool
-    err*: Vec_uint8
-
-  CBoolResult* = object
-    ok*: bool
     err*: Vec_uint8
 
 # CFr functions
@@ -111,13 +107,13 @@ proc ffi_uint_to_cfr*(value: uint32): ptr CFr {.importc: "ffi_uint_to_cfr",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_cfr_debug*(cfr: ptr CFr): Vec_uint8 {.importc: "ffi_cfr_debug", cdecl,
     dynlib: RLN_LIB.}
-proc ffi_cfr_to_bytes_le*(cfr: ptr CFr): Vec_uint8 {.importc: "ffi_cfr_to_bytes_le",
+proc ffi_cfr_to_bytes_le*(cfr: ptr CFr): CResultVecU8 {.importc: "ffi_cfr_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_cfr_to_bytes_be*(cfr: ptr CFr): Vec_uint8 {.importc: "ffi_cfr_to_bytes_be",
+proc ffi_cfr_to_bytes_be*(cfr: ptr CFr): CResultVecU8 {.importc: "ffi_cfr_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_le_to_cfr*(bytes: ptr Vec_uint8): CResultCFrPtrVecU8 {.importc: "ffi_bytes_le_to_cfr",
+proc ffi_bytes_le_to_cfr*(bytes: ptr Vec_uint8): CResultCFrPtr {.importc: "ffi_bytes_le_to_cfr",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_be_to_cfr*(bytes: ptr Vec_uint8): CResultCFrPtrVecU8 {.importc: "ffi_bytes_be_to_cfr",
+proc ffi_bytes_be_to_cfr*(bytes: ptr Vec_uint8): CResultCFrPtr {.importc: "ffi_bytes_be_to_cfr",
     cdecl, dynlib: RLN_LIB.}
 
 # Vec<CFr> functions
@@ -131,27 +127,27 @@ proc ffi_vec_cfr_len*(v: ptr Vec_CFr): CSize {.importc: "ffi_vec_cfr_len",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_vec_cfr_get*(v: ptr Vec_CFr, i: CSize): ptr CFr {.importc: "ffi_vec_cfr_get",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_vec_cfr_to_bytes_le*(v: ptr Vec_CFr): Vec_uint8 {.importc: "ffi_vec_cfr_to_bytes_le",
+proc ffi_vec_cfr_to_bytes_le*(v: ptr Vec_CFr): CResultVecU8 {.importc: "ffi_vec_cfr_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_vec_cfr_to_bytes_be*(v: ptr Vec_CFr): Vec_uint8 {.importc: "ffi_vec_cfr_to_bytes_be",
+proc ffi_vec_cfr_to_bytes_be*(v: ptr Vec_CFr): CResultVecU8 {.importc: "ffi_vec_cfr_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_le_to_vec_cfr*(bytes: ptr Vec_uint8): CResultVecCFrVecU8 {.importc: "ffi_bytes_le_to_vec_cfr",
+proc ffi_bytes_le_to_vec_cfr*(bytes: ptr Vec_uint8): CResultVecCFr {.importc: "ffi_bytes_le_to_vec_cfr",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_be_to_vec_cfr*(bytes: ptr Vec_uint8): CResultVecCFrVecU8 {.importc: "ffi_bytes_be_to_vec_cfr",
+proc ffi_bytes_be_to_vec_cfr*(bytes: ptr Vec_uint8): CResultVecCFr {.importc: "ffi_bytes_be_to_vec_cfr",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_vec_cfr_debug*(v: ptr Vec_CFr): Vec_uint8 {.importc: "ffi_vec_cfr_debug",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_vec_cfr_free*(v: Vec_CFr) {.importc: "ffi_vec_cfr_free", cdecl,
     dynlib: RLN_LIB.}
 
-# Vec<u8> functions
-proc ffi_vec_u8_to_bytes_le*(v: ptr Vec_uint8): Vec_uint8 {.importc: "ffi_vec_u8_to_bytes_le",
+# Vec<uint8> functions
+proc ffi_vec_u8_to_bytes_le*(v: ptr Vec_uint8): CResultVecU8 {.importc: "ffi_vec_u8_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_vec_u8_to_bytes_be*(v: ptr Vec_uint8): Vec_uint8 {.importc: "ffi_vec_u8_to_bytes_be",
+proc ffi_vec_u8_to_bytes_be*(v: ptr Vec_uint8): CResultVecU8 {.importc: "ffi_vec_u8_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_le_to_vec_u8*(bytes: ptr Vec_uint8): CResultVecU8VecU8 {.importc: "ffi_bytes_le_to_vec_u8",
+proc ffi_bytes_le_to_vec_u8*(bytes: ptr Vec_uint8): CResultVecU8 {.importc: "ffi_bytes_le_to_vec_u8",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_be_to_vec_u8*(bytes: ptr Vec_uint8): CResultVecU8VecU8 {.importc: "ffi_bytes_be_to_vec_u8",
+proc ffi_bytes_be_to_vec_u8*(bytes: ptr Vec_uint8): CResultVecU8 {.importc: "ffi_bytes_be_to_vec_u8",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_vec_u8_debug*(v: ptr Vec_uint8): Vec_uint8 {.importc: "ffi_vec_u8_debug",
     cdecl, dynlib: RLN_LIB.}
@@ -168,1194 +164,844 @@ proc ffi_poseidon_hash_pair*(a: ptr CFr,
     dynlib: RLN_LIB.}
 
 # Keygen function
-proc ffi_key_gen*(): Vec_CFr {.importc: "ffi_key_gen", cdecl,
-    dynlib: RLN_LIB.}
+proc ffi_key_gen*(): Vec_CFr {.importc: "ffi_key_gen", cdecl, dynlib: RLN_LIB.}
 proc ffi_seeded_key_gen*(seed: ptr Vec_uint8): Vec_CFr {.importc: "ffi_seeded_key_gen",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_extended_key_gen*(): Vec_CFr {.importc: "ffi_extended_key_gen",
-    cdecl, dynlib: RLN_LIB.}
+proc ffi_extended_key_gen*(): Vec_CFr {.importc: "ffi_extended_key_gen", cdecl,
+    dynlib: RLN_LIB.}
 proc ffi_seeded_extended_key_gen*(seed: ptr Vec_uint8): Vec_CFr {.importc: "ffi_seeded_extended_key_gen",
     cdecl, dynlib: RLN_LIB.}
 
 # RLN instance functions
-when defined(ffiStateless):
-  proc ffi_rln_new*(): CResultRLNPtrVecU8 {.importc: "ffi_rln_new", cdecl,
-      dynlib: RLN_LIB.}
-  when defined(ffiMultiMessageId):
-    proc ffi_rln_new_with_params*(zkey_data: ptr Vec_uint8,
-        graph_data: ptr Vec_uint8,
-        max_out: CSize): CResultRLNPtrVecU8 {.importc: "ffi_rln_new_with_params",
-        cdecl, dynlib: RLN_LIB.}
-  else:
-    proc ffi_rln_new_with_params*(zkey_data: ptr Vec_uint8,
-        graph_data: ptr Vec_uint8): CResultRLNPtrVecU8 {.importc: "ffi_rln_new_with_params",
-        cdecl, dynlib: RLN_LIB.}
-else:
-  when defined(ffiMultiMessageId):
-    proc ffi_rln_new*(treeDepth: CSize, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new",
-        cdecl, dynlib: RLN_LIB.}
-    proc ffi_rln_new_with_params*(treeDepth: CSize, zkey_data: ptr Vec_uint8,
-        graph_data: ptr Vec_uint8,
-        config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new_with_params",
-         cdecl, dynlib: RLN_LIB.}
-  else:
-    proc ffi_rln_new*(treeDepth: CSize, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new",
-        cdecl, dynlib: RLN_LIB.}
-    proc ffi_rln_new_with_params*(treeDepth: CSize, zkey_data: ptr Vec_uint8,
-        graph_data: ptr Vec_uint8, config: cstring): CResultRLNPtrVecU8 {.importc: "ffi_rln_new_with_params",
-        cdecl, dynlib: RLN_LIB.}
-
-proc ffi_rln_free*(rln: ptr FFI_RLN) {.importc: "ffi_rln_free", cdecl,
-    dynlib: RLN_LIB.}
-proc ffi_rln_get_tree_depth*(rln: ptr ptr FFI_RLN): CSize {.importc: "ffi_rln_get_tree_depth",
+proc ffi_rln_v3_new_stateless*(zkey_data: ptr Vec_uint8,
+    graph_data: ptr Vec_uint8): CResultRLNV3Ptr {.importc: "ffi_rln_v3_new_stateless",
     cdecl, dynlib: RLN_LIB.}
-when defined(ffiMultiMessageId):
-  proc ffi_rln_get_max_out*(rln: ptr ptr FFI_RLN): CSize {.importc: "ffi_rln_get_max_out",
-      cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_new_with_pm_tree*(tree_depth: CSize, zkey_data: ptr Vec_uint8,
+    graph_data: ptr Vec_uint8,
+    config_path: cstring): CResultRLNV3Ptr {.importc: "ffi_rln_v3_new_with_pm_tree",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_new_with_full_merkle_tree*(tree_depth: CSize,
+    zkey_data: ptr Vec_uint8,
+    graph_data: ptr Vec_uint8): CResultRLNV3Ptr {.importc: "ffi_rln_v3_new_with_full_merkle_tree",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_new_with_optimal_merkle_tree*(tree_depth: CSize,
+    zkey_data: ptr Vec_uint8,
+    graph_data: ptr Vec_uint8): CResultRLNV3Ptr {.importc: "ffi_rln_v3_new_with_optimal_merkle_tree",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_generate_proof*(rln: ptr ptr FFI_RLNV3,
+    witness: ptr ptr FFI_RLNV3WitnessInput): CResultProofPtr {.importc: "ffi_rln_v3_generate_proof",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_verify*(rln: ptr ptr FFI_RLNV3, proof: ptr ptr FFI_RLNV3Proof,
+    x: ptr CFr): CBoolResult {.importc: "ffi_rln_v3_verify", cdecl,
+    dynlib: RLN_LIB.}
+proc ffi_rln_v3_verify_with_roots*(rln: ptr ptr FFI_RLNV3,
+    proof: ptr ptr FFI_RLNV3Proof, roots: ptr Vec_CFr,
+    x: ptr CFr): CBoolResult {.importc: "ffi_rln_v3_verify_with_roots", cdecl,
+    dynlib: RLN_LIB.}
+proc ffi_rln_v3_generate_partial_proof*(rln: ptr ptr FFI_RLNV3,
+    witness: ptr ptr FFI_RLNV3PartialWitnessInput): CResultPartialProofPtr {.importc: "ffi_rln_v3_generate_partial_proof",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_finish_proof*(rln: ptr ptr FFI_RLNV3,
+    partial: ptr ptr FFI_RLNV3PartialProof,
+    witness: ptr ptr FFI_RLNV3WitnessInput): CResultProofPtr {.importc: "ffi_rln_v3_finish_proof",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_free*(rln: ptr FFI_RLNV3) {.importc: "ffi_rln_v3_free", cdecl,
+    dynlib: RLN_LIB.}
 
 # RLNWitnessInput functions
-when defined(ffiMultiMessageId):
-  proc ffi_rln_witness_input_new_multi*(
-    identity_secret: ptr CFr,
-    user_message_limit: ptr CFr,
-    message_ids: ptr Vec_CFr,
-    path_elements: ptr Vec_CFr,
-    identity_path_index: ptr Vec_uint8,
-    x: ptr CFr,
+proc ffi_rln_v3_witness_input_new_single*(identity_secret: ptr CFr,
+    user_message_limit: ptr CFr, message_id: ptr CFr,
+    path_elements: ptr Vec_CFr, identity_path_index: ptr Vec_uint8, x: ptr CFr,
+    external_nullifier: ptr CFr): CResultWitnessInputPtr {.importc: "ffi_rln_v3_witness_input_new_single",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_witness_input_new_multi*(identity_secret: ptr CFr,
+    user_message_limit: ptr CFr, message_ids: ptr Vec_CFr,
+    path_elements: ptr Vec_CFr, identity_path_index: ptr Vec_uint8, x: ptr CFr,
     external_nullifier: ptr CFr,
-    selector_used: ptr Vec_bool
-  ): CResultWitnessInputPtrVecU8 {.importc: "ffi_rln_witness_input_new_multi",
-      cdecl, dynlib: RLN_LIB.}
-else:
-  proc ffi_rln_witness_input_new_single*(
-    identity_secret: ptr CFr,
-    user_message_limit: ptr CFr,
-    message_id: ptr CFr,
-    path_elements: ptr Vec_CFr,
-    identity_path_index: ptr Vec_uint8,
-    x: ptr CFr,
-    external_nullifier: ptr CFr
-  ): CResultWitnessInputPtrVecU8 {.importc: "ffi_rln_witness_input_new_single",
-      cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_witness_input_get_version_byte*(witness: ptr ptr FFI_RLNWitnessInput): uint8 {.importc: "ffi_rln_witness_input_get_version_byte",
+    selector_used: ptr Vec_bool): CResultWitnessInputPtr {.importc: "ffi_rln_v3_witness_input_new_multi",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_witness_input_get_identity_secret*(witness: ptr ptr FFI_RLNWitnessInput): ptr CFr {.importc: "ffi_rln_witness_input_get_identity_secret",
+proc ffi_rln_v3_witness_input_get_identity_secret*(
+  w: ptr ptr FFI_RLNV3WitnessInput): ptr CFr {.importc: "ffi_rln_v3_witness_input_get_identity_secret",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_witness_input_get_user_message_limit*(witness: ptr ptr FFI_RLNWitnessInput): ptr CFr {.importc: "ffi_rln_witness_input_get_user_message_limit",
+proc ffi_rln_v3_witness_input_get_user_message_limit*(
+  w: ptr ptr FFI_RLNV3WitnessInput): ptr CFr {.importc: "ffi_rln_v3_witness_input_get_user_message_limit",
     cdecl, dynlib: RLN_LIB.}
-when defined(ffiMultiMessageId):
-  proc ffi_rln_witness_input_get_message_ids*(witness: ptr ptr FFI_RLNWitnessInput): Vec_CFr {.importc: "ffi_rln_witness_input_get_message_ids",
-      cdecl, dynlib: RLN_LIB.}
-else:
-  proc ffi_rln_witness_input_get_message_id*(witness: ptr ptr FFI_RLNWitnessInput): ptr CFr {.importc: "ffi_rln_witness_input_get_message_id",
-      cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_witness_input_get_path_elements*(witness: ptr ptr FFI_RLNWitnessInput): Vec_CFr {.importc: "ffi_rln_witness_input_get_path_elements",
+proc ffi_rln_v3_witness_input_get_message_id*(
+  w: ptr ptr FFI_RLNV3WitnessInput): CResultCFrPtr {.importc: "ffi_rln_v3_witness_input_get_message_id",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_witness_input_get_identity_path_index*(witness: ptr ptr FFI_RLNWitnessInput): Vec_uint8 {.importc: "ffi_rln_witness_input_get_identity_path_index",
+proc ffi_rln_v3_witness_input_get_message_ids*(
+  w: ptr ptr FFI_RLNV3WitnessInput): CResultVecCFr {.importc: "ffi_rln_v3_witness_input_get_message_ids",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_witness_input_get_x*(witness: ptr ptr FFI_RLNWitnessInput): ptr CFr {.importc: "ffi_rln_witness_input_get_x",
+proc ffi_rln_v3_witness_input_get_path_elements*(
+  w: ptr ptr FFI_RLNV3WitnessInput): Vec_CFr {.importc: "ffi_rln_v3_witness_input_get_path_elements",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_witness_input_get_external_nullifier*(witness: ptr ptr FFI_RLNWitnessInput): ptr CFr {.importc: "ffi_rln_witness_input_get_external_nullifier",
+proc ffi_rln_v3_witness_input_get_identity_path_index*(
+  w: ptr ptr FFI_RLNV3WitnessInput): Vec_uint8 {.importc: "ffi_rln_v3_witness_input_get_identity_path_index",
     cdecl, dynlib: RLN_LIB.}
-when defined(ffiMultiMessageId):
-  proc ffi_rln_witness_input_get_selector_used*(witness: ptr ptr FFI_RLNWitnessInput): Vec_bool {.importc: "ffi_rln_witness_input_get_selector_used",
-      cdecl, dynlib: RLN_LIB.}
-
-proc ffi_rln_witness_to_bytes_le*(witness: ptr ptr FFI_RLNWitnessInput): CResultVecU8VecU8 {.importc: "ffi_rln_witness_to_bytes_le",
+proc ffi_rln_v3_witness_input_get_x*(w: ptr ptr FFI_RLNV3WitnessInput): ptr CFr {.importc: "ffi_rln_v3_witness_input_get_x",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_witness_to_bytes_be*(witness: ptr ptr FFI_RLNWitnessInput): CResultVecU8VecU8 {.importc: "ffi_rln_witness_to_bytes_be",
+proc ffi_rln_v3_witness_input_get_external_nullifier*(
+  w: ptr ptr FFI_RLNV3WitnessInput): ptr CFr {.importc: "ffi_rln_v3_witness_input_get_external_nullifier",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_le_to_rln_witness*(bytes: ptr Vec_uint8): CResultWitnessInputPtrVecU8 {.importc: "ffi_bytes_le_to_rln_witness",
+proc ffi_rln_v3_witness_input_get_selector_used*(
+  w: ptr ptr FFI_RLNV3WitnessInput): CResultVecBool {.importc: "ffi_rln_v3_witness_input_get_selector_used",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_be_to_rln_witness*(bytes: ptr Vec_uint8): CResultWitnessInputPtrVecU8 {.importc: "ffi_bytes_be_to_rln_witness",
+proc ffi_rln_v3_witness_to_bytes_le*(w: ptr ptr FFI_RLNV3WitnessInput): CResultVecU8 {.importc: "ffi_rln_v3_witness_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_witness_to_bigint_json*(witness: ptr ptr FFI_RLNWitnessInput): CResultBigIntJsonVecU8 {.importc: "ffi_rln_witness_to_bigint_json",
+proc ffi_rln_v3_witness_to_bytes_be*(w: ptr ptr FFI_RLNV3WitnessInput): CResultVecU8 {.importc: "ffi_rln_v3_witness_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_witness_input_free*(witness: ptr FFI_RLNWitnessInput) {.importc: "ffi_rln_witness_input_free",
+proc ffi_bytes_le_to_rln_v3_witness*(bytes: ptr Vec_uint8): CResultWitnessInputPtr {.importc: "ffi_bytes_le_to_rln_v3_witness",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_bytes_be_to_rln_v3_witness*(bytes: ptr Vec_uint8): CResultWitnessInputPtr {.importc: "ffi_bytes_be_to_rln_v3_witness",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_witness_to_partial_witness*(
+  w: ptr ptr FFI_RLNV3WitnessInput): ptr FFI_RLNV3PartialWitnessInput {.importc: "ffi_rln_v3_witness_to_partial_witness",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_witness_input_free*(w: ptr FFI_RLNV3WitnessInput) {.importc: "ffi_rln_v3_witness_input_free",
     cdecl, dynlib: RLN_LIB.}
 
 # RLNPartialWitnessInput functions
-proc ffi_rln_partial_witness_input_new*(
-    identity_secret: ptr CFr,
-    user_message_limit: ptr CFr,
-    path_elements: ptr Vec_CFr,
-    identity_path_index: ptr Vec_uint8
-): CResultPartialWitnessInputPtrVecU8 {.importc: "ffi_rln_partial_witness_input_new",
+proc ffi_rln_v3_partial_witness_input_new*(identity_secret: ptr CFr,
+    user_message_limit: ptr CFr, path_elements: ptr Vec_CFr,
+    identity_path_index: ptr Vec_uint8): CResultPartialWitnessInputPtr {.importc: "ffi_rln_v3_partial_witness_input_new",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_partial_witness_input_get_version_byte*(witness: ptr ptr FFI_RLNPartialWitnessInput): uint8 {.importc: "ffi_rln_partial_witness_input_get_version_byte",
+proc ffi_rln_v3_partial_witness_input_get_identity_secret*(
+  w: ptr ptr FFI_RLNV3PartialWitnessInput): ptr CFr {.importc: "ffi_rln_v3_partial_witness_input_get_identity_secret",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_partial_witness_input_get_identity_secret*(witness: ptr ptr FFI_RLNPartialWitnessInput): ptr CFr {.importc: "ffi_rln_partial_witness_input_get_identity_secret",
+proc ffi_rln_v3_partial_witness_input_get_user_message_limit*(
+  w: ptr ptr FFI_RLNV3PartialWitnessInput): ptr CFr {.importc: "ffi_rln_v3_partial_witness_input_get_user_message_limit",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_partial_witness_input_get_user_message_limit*(witness: ptr ptr FFI_RLNPartialWitnessInput): ptr CFr {.importc: "ffi_rln_partial_witness_input_get_user_message_limit",
+proc ffi_rln_v3_partial_witness_input_get_path_elements*(
+  w: ptr ptr FFI_RLNV3PartialWitnessInput): Vec_CFr {.importc: "ffi_rln_v3_partial_witness_input_get_path_elements",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_partial_witness_input_get_path_elements*(witness: ptr ptr FFI_RLNPartialWitnessInput): Vec_CFr {.importc: "ffi_rln_partial_witness_input_get_path_elements",
+proc ffi_rln_v3_partial_witness_input_get_identity_path_index*(
+  w: ptr ptr FFI_RLNV3PartialWitnessInput): Vec_uint8 {.importc: "ffi_rln_v3_partial_witness_input_get_identity_path_index",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_partial_witness_input_get_identity_path_index*(witness: ptr ptr FFI_RLNPartialWitnessInput): Vec_uint8 {.importc: "ffi_rln_partial_witness_input_get_identity_path_index",
+proc ffi_rln_v3_partial_witness_to_bytes_le*(
+  w: ptr ptr FFI_RLNV3PartialWitnessInput): CResultVecU8 {.importc: "ffi_rln_v3_partial_witness_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_witness_to_partial_witness*(witness: ptr ptr FFI_RLNWitnessInput): ptr FFI_RLNPartialWitnessInput {.importc: "ffi_rln_witness_to_partial_witness",
+proc ffi_rln_v3_partial_witness_to_bytes_be*(
+  w: ptr ptr FFI_RLNV3PartialWitnessInput): CResultVecU8 {.importc: "ffi_rln_v3_partial_witness_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_partial_witness_to_bytes_le*(witness: ptr ptr FFI_RLNPartialWitnessInput): CResultVecU8VecU8 {.importc: "ffi_rln_partial_witness_to_bytes_le",
+proc ffi_bytes_le_to_rln_v3_partial_witness*(
+  bytes: ptr Vec_uint8): CResultPartialWitnessInputPtr {.importc: "ffi_bytes_le_to_rln_v3_partial_witness",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_partial_witness_to_bytes_be*(witness: ptr ptr FFI_RLNPartialWitnessInput): CResultVecU8VecU8 {.importc: "ffi_rln_partial_witness_to_bytes_be",
+proc ffi_bytes_be_to_rln_v3_partial_witness*(
+  bytes: ptr Vec_uint8): CResultPartialWitnessInputPtr {.importc: "ffi_bytes_be_to_rln_v3_partial_witness",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_le_to_rln_partial_witness*(bytes: ptr Vec_uint8): CResultPartialWitnessInputPtrVecU8 {.importc: "ffi_bytes_le_to_rln_partial_witness",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_be_to_rln_partial_witness*(bytes: ptr Vec_uint8): CResultPartialWitnessInputPtrVecU8 {.importc: "ffi_bytes_be_to_rln_partial_witness",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_partial_witness_input_free*(witness: ptr FFI_RLNPartialWitnessInput) {.importc: "ffi_rln_partial_witness_input_free",
-    cdecl, dynlib: RLN_LIB.}
-
-# Proof generation/verification functions
-proc ffi_generate_rln_proof*(
-  rln: ptr ptr FFI_RLN,
-  witness: ptr ptr FFI_RLNWitnessInput
-): CResultProofPtrVecU8 {.importc: "ffi_generate_rln_proof", cdecl,
-    dynlib: RLN_LIB.}
-proc ffi_generate_rln_proof_with_witness*(
-  rln: ptr ptr FFI_RLN,
-  calculated_witness: ptr Vec_uint8,
-  witness: ptr ptr FFI_RLNWitnessInput
-): CResultProofPtrVecU8 {.importc: "ffi_generate_rln_proof_with_witness",
-    cdecl, dynlib: RLN_LIB.}
-when not defined(ffiStateless):
-  proc ffi_verify_rln_proof*(
-    rln: ptr ptr FFI_RLN,
-    proof: ptr ptr FFI_RLNProof,
-    x: ptr CFr
-  ): CBoolResult {.importc: "ffi_verify_rln_proof", cdecl,
-      dynlib: RLN_LIB.}
-proc ffi_verify_with_roots*(
-  rln: ptr ptr FFI_RLN,
-  proof: ptr ptr FFI_RLNProof,
-  roots: ptr Vec_CFr,
-  x: ptr CFr
-): CBoolResult {.importc: "ffi_verify_with_roots", cdecl,
-    dynlib: RLN_LIB.}
-
-# Partial proof generation functions
-proc ffi_generate_partial_zk_proof*(
-    rln: ptr ptr FFI_RLN,
-    partial_witness: ptr ptr FFI_RLNPartialWitnessInput
-): CResultPartialProofPtrVecU8 {.importc: "ffi_generate_partial_zk_proof",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_finish_rln_proof*(
-    rln: ptr ptr FFI_RLN,
-    partial_proof: ptr ptr FFI_RLNPartialProof,
-    witness: ptr ptr FFI_RLNWitnessInput
-): CResultProofPtrVecU8 {.importc: "ffi_finish_rln_proof", cdecl,
-    dynlib: RLN_LIB.}
-
-# Merkle tree operations (non-stateless mode)
-when not defined(ffiStateless):
-  proc ffi_set_tree*(rln: ptr ptr FFI_RLN,
-      tree_depth: CSize): CBoolResult {.importc: "ffi_set_tree",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_delete_leaf*(rln: ptr ptr FFI_RLN,
-      index: CSize): CBoolResult {.importc: "ffi_delete_leaf",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_set_leaf*(rln: ptr ptr FFI_RLN, index: CSize,
-      leaf: ptr CFr): CBoolResult {.importc: "ffi_set_leaf",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_get_leaf*(rln: ptr ptr FFI_RLN,
-      index: CSize): CResultCFrPtrVecU8 {.importc: "ffi_get_leaf",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_set_next_leaf*(rln: ptr ptr FFI_RLN,
-      leaf: ptr CFr): CBoolResult {.importc: "ffi_set_next_leaf",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_set_leaves_from*(rln: ptr ptr FFI_RLN, index: CSize,
-      leaves: ptr Vec_CFr): CBoolResult {.importc: "ffi_set_leaves_from",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_init_tree_with_leaves*(rln: ptr ptr FFI_RLN,
-      leaves: ptr Vec_CFr): CBoolResult {.importc: "ffi_init_tree_with_leaves",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_atomic_operation*(rln: ptr ptr FFI_RLN, index: CSize,
-      leaves: ptr Vec_CFr,
-      indices: ptr Vec_uint8): CBoolResult {.importc: "ffi_atomic_operation",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_seq_atomic_operation*(rln: ptr ptr FFI_RLN, leaves: ptr Vec_CFr,
-      indices: ptr Vec_uint8): CBoolResult {.importc: "ffi_seq_atomic_operation",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_get_root*(rln: ptr ptr FFI_RLN): ptr CFr {.importc: "ffi_get_root",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_leaves_set*(rln: ptr ptr FFI_RLN): CSize {.importc: "ffi_leaves_set",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_get_merkle_proof*(rln: ptr ptr FFI_RLN,
-      index: CSize): CResultMerkleProofPtrVecU8 {.importc: "ffi_get_merkle_proof",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_set_metadata*(rln: ptr ptr FFI_RLN,
-      metadata: ptr Vec_uint8): CBoolResult {.importc: "ffi_set_metadata",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_get_metadata*(rln: ptr ptr FFI_RLN): CResultVecU8VecU8 {.importc: "ffi_get_metadata",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_flush*(rln: ptr ptr FFI_RLN): CBoolResult {.importc: "ffi_flush",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_merkle_proof_free*(p: ptr FFI_MerkleProof) {.importc: "ffi_merkle_proof_free",
-      cdecl, dynlib: RLN_LIB.}
-
-# Identity secret recovery
-proc ffi_compute_id_secret*(share1_x: ptr CFr, share1_y: ptr CFr,
-    share2_x: ptr CFr, share2_y: ptr CFr): CResultCFrPtrVecU8 {.importc: "ffi_compute_id_secret",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_recover_id_secret*(proof_values_1: ptr ptr FFI_RLNProofValues,
-    proof_values_2: ptr ptr FFI_RLNProofValues): CResultCFrPtrVecU8 {.importc: "ffi_recover_id_secret",
+proc ffi_rln_v3_partial_witness_input_free*(
+  w: ptr FFI_RLNV3PartialWitnessInput) {.importc: "ffi_rln_v3_partial_witness_input_free",
     cdecl, dynlib: RLN_LIB.}
 
 # RLNProof functions
-proc ffi_rln_proof_get_version_byte*(proof: ptr ptr FFI_RLNProof): uint8 {.importc: "ffi_rln_proof_get_version_byte",
+proc ffi_rln_v3_proof_get_values*(p: ptr ptr FFI_RLNV3Proof): ptr FFI_RLNV3ProofValues {.importc: "ffi_rln_v3_proof_get_values",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_proof_get_values*(proof: ptr ptr FFI_RLNProof): ptr FFI_RLNProofValues {.importc: "ffi_rln_proof_get_values",
+proc ffi_rln_v3_proof_to_bytes_le*(p: ptr ptr FFI_RLNV3Proof): CResultVecU8 {.importc: "ffi_rln_v3_proof_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_proof_to_bytes_le*(proof: ptr ptr FFI_RLNProof): CResultVecU8VecU8 {.importc: "ffi_rln_proof_to_bytes_le",
+proc ffi_rln_v3_proof_to_bytes_mixed*(p: ptr ptr FFI_RLNV3Proof): CResultVecU8 {.importc: "ffi_rln_v3_proof_to_bytes_mixed",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_proof_to_bytes_be*(proof: ptr ptr FFI_RLNProof): CResultVecU8VecU8 {.importc: "ffi_rln_proof_to_bytes_be",
+proc ffi_bytes_le_to_rln_v3_proof*(bytes: ptr Vec_uint8): CResultProofPtr {.importc: "ffi_bytes_le_to_rln_v3_proof",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_le_to_rln_proof*(bytes: ptr Vec_uint8): CResultProofPtrVecU8 {.importc: "ffi_bytes_le_to_rln_proof",
+proc ffi_bytes_mixed_to_rln_v3_proof*(bytes: ptr Vec_uint8): CResultProofPtr {.importc: "ffi_bytes_mixed_to_rln_v3_proof",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_be_to_rln_proof*(bytes: ptr Vec_uint8): CResultProofPtrVecU8 {.importc: "ffi_bytes_be_to_rln_proof",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_proof_free*(p: ptr FFI_RLNProof) {.importc: "ffi_rln_proof_free",
+proc ffi_rln_v3_proof_free*(p: ptr FFI_RLNV3Proof) {.importc: "ffi_rln_v3_proof_free",
     cdecl, dynlib: RLN_LIB.}
 
 # RLNPartialProof functions
-proc ffi_rln_partial_proof_get_version_byte*(partial_proof: ptr ptr FFI_RLNPartialProof): uint8 {.importc: "ffi_rln_partial_proof_get_version_byte",
+proc ffi_rln_v3_partial_proof_to_bytes_le*(
+  p: ptr ptr FFI_RLNV3PartialProof): CResultVecU8 {.importc: "ffi_rln_v3_partial_proof_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_partial_proof_to_bytes_le*(partial_proof: ptr ptr FFI_RLNPartialProof): CResultVecU8VecU8 {.importc: "ffi_rln_partial_proof_to_bytes_le",
+proc ffi_bytes_le_to_rln_v3_partial_proof*(
+  bytes: ptr Vec_uint8): CResultPartialProofPtr {.importc: "ffi_bytes_le_to_rln_v3_partial_proof",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_partial_proof_to_bytes_be*(partial_proof: ptr ptr FFI_RLNPartialProof): CResultVecU8VecU8 {.importc: "ffi_rln_partial_proof_to_bytes_be",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_le_to_rln_partial_proof*(bytes: ptr Vec_uint8): CResultPartialProofPtrVecU8 {.importc: "ffi_bytes_le_to_rln_partial_proof",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_be_to_rln_partial_proof*(bytes: ptr Vec_uint8): CResultPartialProofPtrVecU8 {.importc: "ffi_bytes_be_to_rln_partial_proof",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_partial_proof_free*(partial_proof: ptr FFI_RLNPartialProof) {.importc: "ffi_rln_partial_proof_free",
+proc ffi_rln_v3_partial_proof_free*(p: ptr FFI_RLNV3PartialProof) {.importc: "ffi_rln_v3_partial_proof_free",
     cdecl, dynlib: RLN_LIB.}
 
 # RLNProofValues functions
-when defined(ffiMultiMessageId):
-  proc ffi_rln_proof_values_get_ys*(pv: ptr ptr FFI_RLNProofValues): CResultVecCFrVecU8 {.importc: "ffi_rln_proof_values_get_ys",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_rln_proof_values_get_nullifiers*(pv: ptr ptr FFI_RLNProofValues): CResultVecCFrVecU8 {.importc: "ffi_rln_proof_values_get_nullifiers",
-      cdecl, dynlib: RLN_LIB.}
-else:
-  proc ffi_rln_proof_values_get_y*(pv: ptr ptr FFI_RLNProofValues): CResultCFrPtrVecU8 {.importc: "ffi_rln_proof_values_get_y",
-      cdecl, dynlib: RLN_LIB.}
-  proc ffi_rln_proof_values_get_nullifier*(pv: ptr ptr FFI_RLNProofValues): CResultCFrPtrVecU8 {.importc: "ffi_rln_proof_values_get_nullifier",
-      cdecl, dynlib: RLN_LIB.}
-when defined(ffiMultiMessageId):
-  proc ffi_rln_proof_values_get_selector_used*(pv: ptr ptr FFI_RLNProofValues): CResultVecBoolVecU8 {.importc: "ffi_rln_proof_values_get_selector_used",
-      cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_proof_values_get_version_byte*(pv: ptr ptr FFI_RLNProofValues): uint8 {.importc: "ffi_rln_proof_values_get_version_byte",
+proc ffi_rln_v3_proof_values_get_root*(pv: ptr ptr FFI_RLNV3ProofValues): ptr CFr {.importc: "ffi_rln_v3_proof_values_get_root",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_proof_values_get_root*(pv: ptr ptr FFI_RLNProofValues): ptr CFr {.importc: "ffi_rln_proof_values_get_root",
+proc ffi_rln_v3_proof_values_get_x*(pv: ptr ptr FFI_RLNV3ProofValues): ptr CFr {.importc: "ffi_rln_v3_proof_values_get_x",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_proof_values_get_x*(pv: ptr ptr FFI_RLNProofValues): ptr CFr {.importc: "ffi_rln_proof_values_get_x",
+proc ffi_rln_v3_proof_values_get_external_nullifier*(
+  pv: ptr ptr FFI_RLNV3ProofValues): ptr CFr {.importc: "ffi_rln_v3_proof_values_get_external_nullifier",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_proof_values_get_external_nullifier*(pv: ptr ptr FFI_RLNProofValues): ptr CFr {.importc: "ffi_rln_proof_values_get_external_nullifier",
+proc ffi_rln_v3_proof_values_get_y*(pv: ptr ptr FFI_RLNV3ProofValues): CResultCFrPtr {.importc: "ffi_rln_v3_proof_values_get_y",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_proof_values_to_bytes_le*(pv: ptr ptr FFI_RLNProofValues): Vec_uint8 {.importc: "ffi_rln_proof_values_to_bytes_le",
+proc ffi_rln_v3_proof_values_get_nullifier*(
+  pv: ptr ptr FFI_RLNV3ProofValues): CResultCFrPtr {.importc: "ffi_rln_v3_proof_values_get_nullifier",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_proof_values_to_bytes_be*(pv: ptr ptr FFI_RLNProofValues): Vec_uint8 {.importc: "ffi_rln_proof_values_to_bytes_be",
+proc ffi_rln_v3_proof_values_get_ys*(pv: ptr ptr FFI_RLNV3ProofValues): CResultVecCFr {.importc: "ffi_rln_v3_proof_values_get_ys",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_le_to_rln_proof_values*(bytes: ptr Vec_uint8): CResultRLNProofValuesPtrVecU8 {.importc: "ffi_bytes_le_to_rln_proof_values",
+proc ffi_rln_v3_proof_values_get_nullifiers*(
+  pv: ptr ptr FFI_RLNV3ProofValues): CResultVecCFr {.importc: "ffi_rln_v3_proof_values_get_nullifiers",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_be_to_rln_proof_values*(bytes: ptr Vec_uint8): CResultRLNProofValuesPtrVecU8 {.importc: "ffi_bytes_be_to_rln_proof_values",
+proc ffi_rln_v3_proof_values_get_selector_used*(
+  pv: ptr ptr FFI_RLNV3ProofValues): CResultVecBool {.importc: "ffi_rln_v3_proof_values_get_selector_used",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_proof_values_free*(pv: ptr FFI_RLNProofValues) {.importc: "ffi_rln_proof_values_free",
+proc ffi_rln_v3_proof_values_to_bytes_le*(
+  pv: ptr ptr FFI_RLNV3ProofValues): CResultVecU8 {.importc: "ffi_rln_v3_proof_values_to_bytes_le",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_proof_values_to_bytes_be*(
+  pv: ptr ptr FFI_RLNV3ProofValues): CResultVecU8 {.importc: "ffi_rln_v3_proof_values_to_bytes_be",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_bytes_le_to_rln_v3_proof_values*(
+  bytes: ptr Vec_uint8): CResultProofValuesPtr {.importc: "ffi_bytes_le_to_rln_v3_proof_values",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_bytes_be_to_rln_v3_proof_values*(
+  bytes: ptr Vec_uint8): CResultProofValuesPtr {.importc: "ffi_bytes_be_to_rln_v3_proof_values",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_proof_values_free*(pv: ptr FFI_RLNV3ProofValues) {.importc: "ffi_rln_v3_proof_values_free",
+    cdecl, dynlib: RLN_LIB.}
+
+# Identity secret recovery
+proc ffi_rln_v3_compute_id_secret*(share1_x: ptr CFr, share1_y: ptr CFr,
+    share2_x: ptr CFr,
+    share2_y: ptr CFr): CResultCFrPtr {.importc: "ffi_rln_v3_compute_id_secret",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_recover_id_secret*(pv1: ptr ptr FFI_RLNV3ProofValues,
+    pv2: ptr ptr FFI_RLNV3ProofValues): CResultCFrPtr {.importc: "ffi_rln_v3_recover_id_secret",
+    cdecl, dynlib: RLN_LIB.}
+
+# Merkle tree operations (stateful mode)
+proc ffi_rln_v3_set_next_leaf*(rln: ptr ptr FFI_RLNV3,
+    leaf: ptr CFr): CBoolResult {.importc: "ffi_rln_v3_set_next_leaf", cdecl,
+    dynlib: RLN_LIB.}
+proc ffi_rln_v3_set_leaf*(rln: ptr ptr FFI_RLNV3, index: CSize,
+    leaf: ptr CFr): CBoolResult {.importc: "ffi_rln_v3_set_leaf", cdecl,
+    dynlib: RLN_LIB.}
+proc ffi_rln_v3_get_leaf*(rln: ptr ptr FFI_RLNV3,
+    index: CSize): CResultCFrPtr {.importc: "ffi_rln_v3_get_leaf", cdecl,
+    dynlib: RLN_LIB.}
+proc ffi_rln_v3_delete_leaf*(rln: ptr ptr FFI_RLNV3,
+    index: CSize): CBoolResult {.importc: "ffi_rln_v3_delete_leaf", cdecl,
+    dynlib: RLN_LIB.}
+proc ffi_rln_v3_leaves_set*(rln: ptr ptr FFI_RLNV3): CSize {.importc: "ffi_rln_v3_leaves_set",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_get_root*(rln: ptr ptr FFI_RLNV3): ptr CFr {.importc: "ffi_rln_v3_get_root",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_set_leaves_from*(rln: ptr ptr FFI_RLNV3, index: CSize,
+    leaves: ptr Vec_CFr): CBoolResult {.importc: "ffi_rln_v3_set_leaves_from",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_init_tree_with_leaves*(rln: ptr ptr FFI_RLNV3,
+    leaves: ptr Vec_CFr): CBoolResult {.importc: "ffi_rln_v3_init_tree_with_leaves",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_atomic_operation*(rln: ptr ptr FFI_RLNV3, index: CSize,
+    leaves: ptr Vec_CFr,
+    indices: ptr Vec_size): CBoolResult {.importc: "ffi_rln_v3_atomic_operation",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_seq_atomic_operation*(rln: ptr ptr FFI_RLNV3,
+    leaves: ptr Vec_CFr,
+    indices: ptr Vec_uint8): CBoolResult {.importc: "ffi_rln_v3_seq_atomic_operation",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_get_merkle_proof*(rln: ptr ptr FFI_RLNV3,
+    index: CSize): CResultMerkleProofPtr {.importc: "ffi_rln_v3_get_merkle_proof",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_merkle_proof_free*(p: ptr FFI_RLNV3MerkleProof) {.importc: "ffi_rln_v3_merkle_proof_free",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_set_metadata*(rln: ptr ptr FFI_RLNV3,
+    metadata: ptr Vec_uint8): CBoolResult {.importc: "ffi_rln_v3_set_metadata",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_get_metadata*(rln: ptr ptr FFI_RLNV3): CResultVecU8 {.importc: "ffi_rln_v3_get_metadata",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_flush*(rln: ptr ptr FFI_RLNV3): CBoolResult {.importc: "ffi_rln_v3_flush",
     cdecl, dynlib: RLN_LIB.}
 
 # Helpers functions
-proc asVecU8*(buf: var seq[uint8]): Vec_uint8 =
-  result.dataPtr = if buf.len == 0: nil else: addr buf[0]
-  result.len = CSize(buf.len)
-  result.cap = CSize(buf.len)
-
-proc asString*(v: Vec_uint8): string =
-  if v.dataPtr.isNil or v.len == 0: return ""
-  result = newString(v.len.int)
-  copyMem(addr result[0], v.dataPtr, v.len.int)
-
 proc ffi_c_string_free*(s: Vec_uint8) {.importc: "ffi_c_string_free", cdecl,
     dynlib: RLN_LIB.}
 
-when isMainModule:
-  echo "Creating RLN instance"
+proc asVecU8(buf: var seq[uint8]): Vec_uint8 =
+  result.dataPtr = if buf.len > 0: addr buf[0] else: nil
+  result.len = csize_t(buf.len)
+  result.cap = csize_t(buf.len)
 
+proc asString(v: Vec_uint8): string =
+  if v.dataPtr.isNil:
+    return ""
+  result = newString(v.len.int)
+  if v.len > 0:
+    copyMem(addr result[0], v.dataPtr, v.len.int)
+
+proc fileToBytes(path: string): seq[uint8] =
+  let s = readFile(path)
+  result = newSeq[uint8](s.len)
+  if s.len > 0:
+    copyMem(addr result[0], unsafeAddr s[0], s.len)
+
+proc strToBytes(s: string): seq[uint8] =
+  result = newSeq[uint8](s.len)
+  if s.len > 0:
+    copyMem(addr result[0], unsafeAddr s[0], s.len)
+
+proc main() =
   const treeDepth = 20
 
-  var rlnRes: CResultRLNPtrVecU8
+  echo "Creating RLN instance"
+  let zkeyPath = "../resources/tree_depth_20/rln_final.arkzkey"
+  let graphPath = "../resources/tree_depth_20/graph.bin"
+  var zkeyBytes = fileToBytes(zkeyPath)
+  var graphBytes = fileToBytes(graphPath)
+  var zkeyData = asVecU8(zkeyBytes)
+  var graphData = asVecU8(graphBytes)
   when defined(ffiStateless):
-    rlnRes = ffi_rln_new()
+    let rlnInstanceResult = ffi_rln_v3_new_stateless(addr zkeyData,
+        addr graphData)
   else:
-    when defined(ffiMultiMessageId):
-      let zkeyPath = "../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey"
-      var zkeyFile = open(zkeyPath, fmRead)
-      let zkeySize = zkeyFile.getFileSize()
-      var zkeyData = newSeq[uint8](zkeySize)
-      discard zkeyFile.readBytes(zkeyData, 0, zkeySize)
-      zkeyFile.close()
-
-      var zkeyVec = asVecU8(zkeyData)
-
-      let graphPath = "../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin"
-      var graphFile = open(graphPath, fmRead)
-      let graphSize = graphFile.getFileSize()
-      var graphData = newSeq[uint8](graphSize)
-      discard graphFile.readBytes(graphData, 0, graphSize)
-      graphFile.close()
-
-      var graphVec = asVecU8(graphData)
-
-      let config_path = """../resources/tree_depth_20/multi_message_id/max_out_4/config.json""".cstring
-      rlnRes = ffi_rln_new_with_params(CSize(treeDepth), addr zkeyVec,
-          addr graphVec, config_path)
-    else:
-      let config_path = """../resources/tree_depth_20/config.json""".cstring
-      rlnRes = ffi_rln_new(CSize(treeDepth), config_path)
-
-  if rlnRes.ok.isNil:
-    stderr.writeLine "Initial RLN instance creation error: ", asString(rlnRes.err)
-    ffi_c_string_free(rlnRes.err)
-    quit 1
-
-  var rln = rlnRes.ok
+    let rlnInstanceResult = ffi_rln_v3_new_with_pm_tree(csize_t(treeDepth),
+        addr zkeyData, addr graphData, "")
+  if rlnInstanceResult.ok.isNil:
+    stderr.writeLine("RLN instance creation error: " & asString(
+        rlnInstanceResult.err))
+    ffi_c_string_free(rlnInstanceResult.err)
+    return
+  var rlnInstance = rlnInstanceResult.ok
   echo "  - RLN instance created successfully"
-
-  let treeDepthActual = ffi_rln_get_tree_depth(addr rln)
-  echo "  - circuit tree_depth = ", treeDepthActual
-  when defined(ffiMultiMessageId):
-    let maxOut = ffi_rln_get_max_out(addr rln)
-    echo "  - circuit max_out = ", maxOut
+  echo "  - circuit tree depth = " & $treeDepth
 
   echo "\nGenerating identity keys"
   var keys = ffi_key_gen()
-  let identitySecret = ffi_vec_cfr_get(addr keys, CSize(0))
-  let idCommitment = ffi_vec_cfr_get(addr keys, CSize(1))
+  let identitySecret = ffi_vec_cfr_get(addr keys, csize_t(0))
+  let idCommitment = ffi_vec_cfr_get(addr keys, csize_t(1))
   echo "  - identity generated successfully"
-
-  block:
-    let debug = ffi_cfr_debug(identitySecret)
-    echo "  - identity_secret = ", asString(debug)
-    ffi_c_string_free(debug)
-
-  block:
-    let debug = ffi_cfr_debug(idCommitment)
-    echo "  - id_commitment = ", asString(debug)
-    ffi_c_string_free(debug)
+  echo "  - identity secret = " & asString(ffi_cfr_debug(identitySecret))
+  echo "  - id commitment = " & asString(ffi_cfr_debug(idCommitment))
 
   echo "\nCreating message limit"
   let userMessageLimit = ffi_uint_to_cfr(10'u32)
-
-  block:
-    let debug = ffi_cfr_debug(userMessageLimit)
-    echo "  - user_message_limit = ", asString(debug)
-    ffi_c_string_free(debug)
+  echo "  - user message limit = " & asString(ffi_cfr_debug(userMessageLimit))
 
   echo "\nComputing rate commitment"
   let rateCommitment = ffi_poseidon_hash_pair(idCommitment, userMessageLimit)
-
-  block:
-    let debug = ffi_cfr_debug(rateCommitment)
-    echo "  - rate_commitment = ", asString(debug)
-    ffi_c_string_free(debug)
+  echo "  - rate commitment = " & asString(ffi_cfr_debug(rateCommitment))
 
   echo "\nCFr serialization: CFr <-> bytes"
-  var serRateCommitment = ffi_cfr_to_bytes_be(rateCommitment)
-
-  block:
-    let debug = ffi_vec_u8_debug(addr serRateCommitment)
-    echo "  - serialized rate_commitment = ", asString(debug)
-    ffi_c_string_free(debug)
-
-  let deserRateCommitmentResult = ffi_bytes_be_to_cfr(addr serRateCommitment)
+  let serRateCommitmentResult = ffi_cfr_to_bytes_le(rateCommitment)
+  if serRateCommitmentResult.err.dataPtr != nil:
+    stderr.writeLine("Rate commitment serialization error: " & asString(
+        serRateCommitmentResult.err))
+    ffi_c_string_free(serRateCommitmentResult.err)
+    return
+  var serRateCommitment = serRateCommitmentResult.ok
+  echo "  - serialized rate commitment = " & asString(ffi_vec_u8_debug(
+      addr serRateCommitment))
+  let deserRateCommitmentResult = ffi_bytes_le_to_cfr(addr serRateCommitment)
   if deserRateCommitmentResult.ok.isNil:
-    stderr.writeLine "Rate commitment deserialization error: ", asString(
-        deserRateCommitmentResult.err)
+    stderr.writeLine("Rate commitment deserialization error: " & asString(
+        deserRateCommitmentResult.err))
     ffi_c_string_free(deserRateCommitmentResult.err)
-    quit 1
+    return
   let deserRateCommitment = deserRateCommitmentResult.ok
-
-  block:
-    let debug = ffi_cfr_debug(deserRateCommitment)
-    echo "  - deserialized rate_commitment = ", asString(debug)
-    ffi_c_string_free(debug)
-
+  echo "  - deserialized rate commitment = " & asString(ffi_cfr_debug(deserRateCommitment))
   ffi_vec_u8_free(serRateCommitment)
   ffi_cfr_free(deserRateCommitment)
 
-  echo "\nVec<CFr> serialization: Vec<CFr> <-> bytes"
-  var serKeys = ffi_vec_cfr_to_bytes_be(addr keys)
-
-  block:
-    let debug = ffi_vec_u8_debug(addr serKeys)
-    echo "  - serialized keys = ", asString(debug)
-    ffi_c_string_free(debug)
-
-  let deserKeysResult = ffi_bytes_be_to_vec_cfr(addr serKeys)
-  if deserKeysResult.err.dataPtr != nil:
-    stderr.writeLine "Keys deserialization error: ", asString(
-        deserKeysResult.err)
-    ffi_c_string_free(deserKeysResult.err)
-    quit 1
-
-  block:
-    var okKeys = deserKeysResult.ok
-    let debug = ffi_vec_cfr_debug(addr okKeys)
-    echo "  - deserialized keys = ", asString(debug)
-    ffi_c_string_free(debug)
-
-  ffi_vec_cfr_free(deserKeysResult.ok)
-  ffi_vec_u8_free(serKeys)
-
   when defined(ffiStateless):
     echo "\nBuilding Merkle path for stateless mode"
-
     let defaultLeaf = ffi_cfr_zero()
-    var defaultHashes: array[treeDepth-1, ptr CFr]
-    defaultHashes[0] = ffi_poseidon_hash_pair(defaultLeaf, defaultLeaf)
-    for i in 1..treeDepth-2:
-      defaultHashes[i] = ffi_poseidon_hash_pair(defaultHashes[i-1],
-          defaultHashes[i-1])
-
-    var pathElements = ffi_vec_cfr_new(CSize(treeDepth))
+    var defaultHashes: seq[ptr CFr]
+    defaultHashes.add(ffi_poseidon_hash_pair(defaultLeaf, defaultLeaf))
+    for i in 1 ..< treeDepth - 1:
+      defaultHashes.add(ffi_poseidon_hash_pair(defaultHashes[i - 1],
+          defaultHashes[i - 1]))
+    var pathElements = ffi_vec_cfr_new(csize_t(treeDepth))
     ffi_vec_cfr_push(addr pathElements, defaultLeaf)
-    for i in 0..treeDepth-2:
-      ffi_vec_cfr_push(addr pathElements, defaultHashes[i])
+    for i in 1 ..< treeDepth:
+      ffi_vec_cfr_push(addr pathElements, defaultHashes[i - 1])
+    var identityPathIndex = newSeq[uint8](treeDepth)
+    var identityPathIndexVec = asVecU8(identityPathIndex)
 
     echo "\nVec<CFr> serialization: Vec<CFr> <-> bytes"
-    var serPathElements = ffi_vec_cfr_to_bytes_be(addr pathElements)
-
-    block:
-      let debug = ffi_vec_u8_debug(addr serPathElements)
-      echo "  - serialized path_elements = ", asString(debug)
-      ffi_c_string_free(debug)
-
-    let deserPathElements = ffi_bytes_be_to_vec_cfr(addr serPathElements)
-    if deserPathElements.err.dataPtr != nil:
-      stderr.writeLine "Path elements deserialization error: ", asString(
-          deserPathElements.err)
-      ffi_c_string_free(deserPathElements.err)
-      quit 1
-
-    block:
-      var okPathElems = deserPathElements.ok
-      let debug = ffi_vec_cfr_debug(addr okPathElems)
-      echo "  - deserialized path_elements = ", asString(debug)
-      ffi_c_string_free(debug)
-
-    ffi_vec_cfr_free(deserPathElements.ok)
+    let serPathElementsResult = ffi_vec_cfr_to_bytes_le(addr pathElements)
+    if serPathElementsResult.err.dataPtr != nil:
+      stderr.writeLine("Path elements serialization error: " & asString(
+          serPathElementsResult.err))
+      ffi_c_string_free(serPathElementsResult.err)
+      return
+    var serPathElements = serPathElementsResult.ok
+    echo "  - serialized path elements = " & asString(ffi_vec_u8_debug(
+        addr serPathElements))
+    let deserPathElementsResult = ffi_bytes_le_to_vec_cfr(addr serPathElements)
+    if deserPathElementsResult.err.dataPtr != nil:
+      stderr.writeLine("Path elements deserialization error: " & asString(
+          deserPathElementsResult.err))
+      ffi_c_string_free(deserPathElementsResult.err)
+      return
+    var deserPathElements = deserPathElementsResult.ok
+    echo "  - deserialized path elements = " & asString(ffi_vec_cfr_debug(
+        addr deserPathElements))
+    ffi_vec_cfr_free(deserPathElements)
     ffi_vec_u8_free(serPathElements)
 
-    var pathIndexSeq = newSeq[uint8](treeDepth)
-    var identityPathIndex = asVecU8(pathIndexSeq)
-
     echo "\nVec<uint8> serialization: Vec<uint8> <-> bytes"
-    var serPathIndex = ffi_vec_u8_to_bytes_be(addr identityPathIndex)
-
-    block:
-      let debug = ffi_vec_u8_debug(addr serPathIndex)
-      echo "  - serialized path_index = ", asString(debug)
-      ffi_c_string_free(debug)
-
-    let deserPathIndex = ffi_bytes_be_to_vec_u8(addr serPathIndex)
-    if deserPathIndex.err.dataPtr != nil:
-      stderr.writeLine "Path index deserialization error: ", asString(
-          deserPathIndex.err)
-      ffi_c_string_free(deserPathIndex.err)
-      quit 1
-
-    block:
-      var okPathIdx = deserPathIndex.ok
-      let debug = ffi_vec_u8_debug(addr okPathIdx)
-      echo "  - deserialized path_index = ", asString(debug)
-      ffi_c_string_free(debug)
-
-    ffi_vec_u8_free(deserPathIndex.ok)
+    let serPathIndexResult = ffi_vec_u8_to_bytes_le(addr identityPathIndexVec)
+    if serPathIndexResult.err.dataPtr != nil:
+      stderr.writeLine("Path index serialization error: " & asString(
+          serPathIndexResult.err))
+      ffi_c_string_free(serPathIndexResult.err)
+      return
+    var serPathIndex = serPathIndexResult.ok
+    echo "  - serialized path index = " & asString(ffi_vec_u8_debug(
+        addr serPathIndex))
+    let deserPathIndexResult = ffi_bytes_le_to_vec_u8(addr serPathIndex)
+    if deserPathIndexResult.err.dataPtr != nil:
+      stderr.writeLine("Path index deserialization error: " & asString(
+          deserPathIndexResult.err))
+      ffi_c_string_free(deserPathIndexResult.err)
+      return
+    var deserPathIndex = deserPathIndexResult.ok
+    echo "  - deserialized path index = " & asString(ffi_vec_u8_debug(
+        addr deserPathIndex))
+    ffi_vec_u8_free(deserPathIndex)
     ffi_vec_u8_free(serPathIndex)
 
     echo "\nComputing Merkle root for stateless mode"
-    echo "  - computing root for index 0 with rate_commitment"
+    echo "  - computing root for index 0 with rate commitment"
     var computedRoot = ffi_poseidon_hash_pair(rateCommitment, defaultLeaf)
-    for i in 1..treeDepth-1:
-      let next = ffi_poseidon_hash_pair(computedRoot, defaultHashes[i-1])
+    for i in 1 ..< treeDepth:
+      let nextRoot = ffi_poseidon_hash_pair(computedRoot, defaultHashes[i - 1])
       ffi_cfr_free(computedRoot)
-      computedRoot = next
-
-    block:
-      let debug = ffi_cfr_debug(computedRoot)
-      echo "  - computed_root = ", asString(debug)
-      ffi_c_string_free(debug)
+      computedRoot = nextRoot
+    echo "  - computed root = " & asString(ffi_cfr_debug(computedRoot))
   else:
-    echo "\nAdding rate_commitment to tree"
-    var rcPtr = rateCommitment
-    let setErr = ffi_set_next_leaf(addr rln, rcPtr)
-    if not setErr.ok:
-      stderr.writeLine "Set next leaf error: ", asString(setErr.err)
-      ffi_c_string_free(setErr.err)
-      quit 1
-
-    let leafIndex = ffi_leaves_set(addr rln) - 1
-    echo "  - added to tree at index ", leafIndex
+    echo "\nAdding rate commitment to tree"
+    let setLeafResult = ffi_rln_v3_set_next_leaf(addr rlnInstance, rateCommitment)
+    if not setLeafResult.ok:
+      stderr.writeLine("Adding rate commitment error: " & asString(
+          setLeafResult.err))
+      ffi_c_string_free(setLeafResult.err)
+      return
+    echo "  - rate commitment added at leaf 0"
 
     echo "\nGetting Merkle proof"
-    let proofResult = ffi_get_merkle_proof(addr rln, leafIndex)
-    if proofResult.ok.isNil:
-      stderr.writeLine "Get proof error: ", asString(proofResult.err)
-      ffi_c_string_free(proofResult.err)
-      quit 1
-    let merkleProof = proofResult.ok
-    echo "  - proof obtained (depth: ", merkleProof.path_elements.len, ")"
+    let merkleProofResult = ffi_rln_v3_get_merkle_proof(addr rlnInstance,
+        csize_t(0))
+    if merkleProofResult.ok.isNil:
+      stderr.writeLine("Merkle proof error: " & asString(merkleProofResult.err))
+      ffi_c_string_free(merkleProofResult.err)
+      return
+    let merkleProof = merkleProofResult.ok
+    echo "  - merkle proof obtained"
 
-  echo "\nHashing signal"
-  var signal: array[32, uint8] = [1'u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0,
+    echo "\nVec<CFr> serialization: Vec<CFr> <-> bytes"
+    let serPathElementsResult = ffi_vec_cfr_to_bytes_le(
+        addr merkleProof.path_elements)
+    if serPathElementsResult.err.dataPtr != nil:
+      stderr.writeLine("Path elements serialization error: " & asString(
+          serPathElementsResult.err))
+      ffi_c_string_free(serPathElementsResult.err)
+      return
+    var serPathElements = serPathElementsResult.ok
+    echo "  - serialized path elements = " & asString(ffi_vec_u8_debug(
+        addr serPathElements))
+    let deserPathElementsResult = ffi_bytes_le_to_vec_cfr(addr serPathElements)
+    if deserPathElementsResult.err.dataPtr != nil:
+      stderr.writeLine("Path elements deserialization error: " & asString(
+          deserPathElementsResult.err))
+      ffi_c_string_free(deserPathElementsResult.err)
+      return
+    var deserPathElements = deserPathElementsResult.ok
+    echo "  - deserialized path elements = " & asString(ffi_vec_cfr_debug(
+        addr deserPathElements))
+    ffi_vec_cfr_free(deserPathElements)
+    ffi_vec_u8_free(serPathElements)
+
+    echo "\nVec<uint8> serialization: Vec<uint8> <-> bytes"
+    let serPathIndexResult = ffi_vec_u8_to_bytes_le(addr merkleProof.path_index)
+    if serPathIndexResult.err.dataPtr != nil:
+      stderr.writeLine("Path index serialization error: " & asString(
+          serPathIndexResult.err))
+      ffi_c_string_free(serPathIndexResult.err)
+      return
+    var serPathIndex = serPathIndexResult.ok
+    echo "  - serialized path index = " & asString(ffi_vec_u8_debug(
+        addr serPathIndex))
+    let deserPathIndexResult = ffi_bytes_le_to_vec_u8(addr serPathIndex)
+    if deserPathIndexResult.err.dataPtr != nil:
+      stderr.writeLine("Path index deserialization error: " & asString(
+          deserPathIndexResult.err))
+      ffi_c_string_free(deserPathIndexResult.err)
+      return
+    var deserPathIndex = deserPathIndexResult.ok
+    echo "  - deserialized path index = " & asString(ffi_vec_u8_debug(
+        addr deserPathIndex))
+    ffi_vec_u8_free(deserPathIndex)
+    ffi_vec_u8_free(serPathIndex)
+
+  echo "\nHashing first signal"
+  var signal1: array[32, uint8] = [1'u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-  var signalVec = Vec_uint8(dataPtr: cast[ptr uint8](addr signal[0]),
-      len: CSize(signal.len), cap: CSize(signal.len))
-  let x = ffi_hash_to_field_be(addr signalVec)
-
-  block:
-    let debug = ffi_cfr_debug(x)
-    echo "  - x = ", asString(debug)
-    ffi_c_string_free(debug)
+  var signal1Vec = Vec_uint8(dataPtr: addr signal1[0], len: csize_t(32),
+      cap: csize_t(32))
+  let x1 = ffi_hash_to_field_le(addr signal1Vec)
+  echo "  - x1 = " & asString(ffi_cfr_debug(x1))
 
   echo "\nHashing epoch"
   let epochStr = "test-epoch"
-  var epochBytes = newSeq[uint8](epochStr.len)
-  for i in 0..<epochStr.len: epochBytes[i] = uint8(epochStr[i])
-  var epochVec = asVecU8(epochBytes)
-  let epoch = ffi_hash_to_field_be(addr epochVec)
-
-  block:
-    let debug = ffi_cfr_debug(epoch)
-    echo "  - epoch = ", asString(debug)
-    ffi_c_string_free(debug)
+  var epochBuf = strToBytes(epochStr)
+  var epochVec = asVecU8(epochBuf)
+  let epoch = ffi_hash_to_field_le(addr epochVec)
+  echo "  - epoch = " & asString(ffi_cfr_debug(epoch))
 
   echo "\nHashing RLN identifier"
   let rlnIdStr = "test-rln-identifier"
-  var rlnIdBytes = newSeq[uint8](rlnIdStr.len)
-  for i in 0..<rlnIdStr.len: rlnIdBytes[i] = uint8(rlnIdStr[i])
-  var rlnIdVec = asVecU8(rlnIdBytes)
-  let rlnIdentifier = ffi_hash_to_field_be(addr rlnIdVec)
-
-  block:
-    let debug = ffi_cfr_debug(rlnIdentifier)
-    echo "  - rln_identifier = ", asString(debug)
-    ffi_c_string_free(debug)
+  var rlnIdBuf = strToBytes(rlnIdStr)
+  var rlnIdVec = asVecU8(rlnIdBuf)
+  let rlnIdentifier = ffi_hash_to_field_le(addr rlnIdVec)
+  echo "  - RLN identifier = " & asString(ffi_cfr_debug(rlnIdentifier))
 
   echo "\nComputing Poseidon hash for external nullifier"
   let externalNullifier = ffi_poseidon_hash_pair(epoch, rlnIdentifier)
+  echo "  - external nullifier = " & asString(ffi_cfr_debug(externalNullifier))
 
-  block:
-    let debug = ffi_cfr_debug(externalNullifier)
-    echo "  - external_nullifier = ", asString(debug)
-    ffi_c_string_free(debug)
+  echo "\nCreating first message id"
+  let messageId1 = ffi_uint_to_cfr(0'u32)
+  echo "  - message id = " & asString(ffi_cfr_debug(messageId1))
 
-  when not defined(ffiMultiMessageId):
-    echo "\nCreating message_id"
-    let messageId = ffi_uint_to_cfr(0'u32)
-
-    block:
-      let debug = ffi_cfr_debug(messageId)
-      echo "  - message_id = ", asString(debug)
-      ffi_c_string_free(debug)
-
-  when defined(ffiMultiMessageId):
-    echo "\nCreating message_ids and selector_used (multi-message-id mode)"
-    echo "  - using 2 out of ", maxOut, " slots"
-
-    var msgIdArr = newSeq[ptr CFr](int(maxOut))
-    msgIdArr[0] = ffi_uint_to_cfr(0'u32)
-    msgIdArr[1] = ffi_uint_to_cfr(1'u32)
-    for i in 2..<int(maxOut):
-      msgIdArr[i] = ffi_cfr_zero()
-
-    var messageIds = ffi_vec_cfr_new(maxOut)
-    for i in 0..<int(maxOut):
-      ffi_vec_cfr_push(addr messageIds, msgIdArr[i])
-      ffi_cfr_free(msgIdArr[i])
-
-    var selectorArr = newSeq[bool](int(maxOut))
-    selectorArr[0] = true; selectorArr[1] = true
-    var selectorUsed = Vec_bool(dataPtr: addr selectorArr[0], len: maxOut,
-        cap: maxOut)
-
-    block:
-      let debug = ffi_vec_cfr_debug(addr messageIds)
-      echo "  - message_ids = ", asString(debug)
-      ffi_c_string_free(debug)
-
-  echo "\nCreating RLN Witness"
+  echo "\nCreating first RLN witness"
   when defined(ffiStateless):
-    when defined(ffiMultiMessageId):
-      var witnessRes = ffi_rln_witness_input_new_multi(identitySecret,
-          userMessageLimit, addr messageIds, addr pathElements,
-          addr identityPathIndex, x, externalNullifier, addr selectorUsed)
-    else:
-      var witnessRes = ffi_rln_witness_input_new_single(identitySecret,
-          userMessageLimit, messageId, addr pathElements,
-          addr identityPathIndex,
-          x, externalNullifier)
-    if witnessRes.ok.isNil:
-      stderr.writeLine "RLN Witness creation error: ", asString(witnessRes.err)
-      ffi_c_string_free(witnessRes.err)
-      quit 1
-    var witness = witnessRes.ok
-    echo "  - RLN Witness created successfully"
+    let witness1Result = ffi_rln_v3_witness_input_new_single(identitySecret,
+        userMessageLimit, messageId1, addr pathElements,
+        addr identityPathIndexVec, x1, externalNullifier)
   else:
-    when defined(ffiMultiMessageId):
-      var witnessRes = ffi_rln_witness_input_new_multi(identitySecret,
-          userMessageLimit, addr messageIds,
-          addr merkleProof.path_elements, addr merkleProof.path_index, x,
-          externalNullifier, addr selectorUsed)
-    else:
-      var witnessRes = ffi_rln_witness_input_new_single(identitySecret,
-          userMessageLimit, messageId, addr merkleProof.path_elements,
-          addr merkleProof.path_index, x, externalNullifier)
-    if witnessRes.ok.isNil:
-      stderr.writeLine "RLN Witness creation error: ", asString(witnessRes.err)
-      ffi_c_string_free(witnessRes.err)
-      quit 1
-    var witness = witnessRes.ok
-    echo "  - RLN Witness created successfully"
+    let witness1Result = ffi_rln_v3_witness_input_new_single(identitySecret,
+        userMessageLimit, messageId1, addr merkleProof.path_elements,
+        addr merkleProof.path_index, x1, externalNullifier)
+  if witness1Result.ok.isNil:
+    stderr.writeLine("First witness creation error: " & asString(
+        witness1Result.err))
+    ffi_c_string_free(witness1Result.err)
+    return
+  var witness1 = witness1Result.ok
+  echo "  - first RLN witness created successfully"
 
   echo "\nRLNWitnessInput serialization: RLNWitnessInput <-> bytes"
-  let serWitnessResult = ffi_rln_witness_to_bytes_be(addr witness)
-  if serWitnessResult.err.dataPtr != nil:
-    stderr.writeLine "Witness serialization error: ", asString(
-        serWitnessResult.err)
-    ffi_c_string_free(serWitnessResult.err)
-    quit 1
-  var serWitness = serWitnessResult.ok
-
-  block:
-    let debug = ffi_vec_u8_debug(addr serWitness)
-    echo "  - serialized witness = ", asString(debug)
-    ffi_c_string_free(debug)
-
-  let deserWitnessResult = ffi_bytes_be_to_rln_witness(addr serWitness)
-  if deserWitnessResult.ok.isNil:
-    stderr.writeLine "Witness deserialization error: ", asString(
-        deserWitnessResult.err)
-    ffi_c_string_free(deserWitnessResult.err)
-    quit 1
-
+  let serWitness1Result = ffi_rln_v3_witness_to_bytes_le(addr witness1)
+  if serWitness1Result.err.dataPtr != nil:
+    stderr.writeLine("Witness serialization error: " & asString(
+        serWitness1Result.err))
+    ffi_c_string_free(serWitness1Result.err)
+    return
+  var serWitness1 = serWitness1Result.ok
+  echo "  - serialized witness = " & asString(ffi_vec_u8_debug(
+      addr serWitness1))
+  let deserWitness1Result = ffi_bytes_le_to_rln_v3_witness(addr serWitness1)
+  if deserWitness1Result.ok.isNil:
+    stderr.writeLine("Witness deserialization error: " & asString(
+        deserWitness1Result.err))
+    ffi_c_string_free(deserWitness1Result.err)
+    return
+  let deserWitness1 = deserWitness1Result.ok
   echo "  - witness deserialized successfully"
-  ffi_rln_witness_input_free(deserWitnessResult.ok)
-  ffi_vec_u8_free(serWitness)
+  ffi_rln_v3_witness_input_free(deserWitness1)
+  ffi_vec_u8_free(serWitness1)
 
-  echo "\nGenerating RLN Proof"
-  var proofRes = ffi_generate_rln_proof(addr rln, addr witness)
-
-  if proofRes.ok.isNil:
-    stderr.writeLine "Proof generation error: ", asString(proofRes.err)
-    ffi_c_string_free(proofRes.err)
-    quit 1
-
-  var proof = proofRes.ok
+  echo "\nGenerating first RLN proof"
+  let rlnProof1Result = ffi_rln_v3_generate_proof(addr rlnInstance, addr witness1)
+  if rlnProof1Result.ok.isNil:
+    stderr.writeLine("Proof generation error: " & asString(rlnProof1Result.err))
+    ffi_c_string_free(rlnProof1Result.err)
+    return
+  var rlnProof1 = rlnProof1Result.ok
   echo "  - proof generated successfully"
 
-  echo "\nGetting RLN Proof Values"
-  var proofValues = ffi_rln_proof_get_values(addr proof)
-
-  when defined(ffiMultiMessageId):
-    block:
-      let ysResult = ffi_rln_proof_values_get_ys(addr proofValues)
-      if ysResult.err.dataPtr != nil:
-        stderr.writeLine "Get ys error: ", asString(ysResult.err)
-        ffi_c_string_free(ysResult.err)
-        quit 1
-      var ys = ysResult.ok
-      let debug = ffi_vec_cfr_debug(addr ys)
-      echo "  - ys = ", asString(debug)
-      ffi_c_string_free(debug)
-      ffi_vec_cfr_free(ys)
-
-    block:
-      let nullifiersResult = ffi_rln_proof_values_get_nullifiers(
-          addr proofValues)
-      if nullifiersResult.err.dataPtr != nil:
-        stderr.writeLine "Get nullifiers error: ", asString(
-            nullifiersResult.err)
-        ffi_c_string_free(nullifiersResult.err)
-        quit 1
-      var nullifiers = nullifiersResult.ok
-      let debug = ffi_vec_cfr_debug(addr nullifiers)
-      echo "  - nullifiers = ", asString(debug)
-      ffi_c_string_free(debug)
-      ffi_vec_cfr_free(nullifiers)
-  else:
-    block:
-      let yResult = ffi_rln_proof_values_get_y(addr proofValues)
-      if yResult.ok.isNil:
-        stderr.writeLine "Get y error: ", asString(yResult.err)
-        ffi_c_string_free(yResult.err)
-        quit 1
-      let y = yResult.ok
-      let debug = ffi_cfr_debug(y)
-      echo "  - y = ", asString(debug)
-      ffi_c_string_free(debug)
-      ffi_cfr_free(y)
-
-    block:
-      let nullifierResult = ffi_rln_proof_values_get_nullifier(addr proofValues)
-      if nullifierResult.ok.isNil:
-        stderr.writeLine "Get nullifier error: ", asString(nullifierResult.err)
-        ffi_c_string_free(nullifierResult.err)
-        quit 1
-      let nullifier = nullifierResult.ok
-      let debug = ffi_cfr_debug(nullifier)
-      echo "  - nullifier = ", asString(debug)
-      ffi_c_string_free(debug)
-      ffi_cfr_free(nullifier)
-
-  block:
-    let root = ffi_rln_proof_values_get_root(addr proofValues)
-    let debug = ffi_cfr_debug(root)
-    echo "  - root = ", asString(debug)
-    ffi_c_string_free(debug)
-    ffi_cfr_free(root)
-
-  block:
-    let xVal = ffi_rln_proof_values_get_x(addr proofValues)
-    let debug = ffi_cfr_debug(xVal)
-    echo "  - x = ", asString(debug)
-    ffi_c_string_free(debug)
-    ffi_cfr_free(xVal)
-
-  block:
-    let extNullifier = ffi_rln_proof_values_get_external_nullifier(
-        addr proofValues)
-    let debug = ffi_cfr_debug(extNullifier)
-    echo "  - external_nullifier = ", asString(debug)
-    ffi_c_string_free(debug)
-    ffi_cfr_free(extNullifier)
+  echo "\nGetting first RLN proof values"
+  var proofValues1 = ffi_rln_v3_proof_get_values(addr rlnProof1)
+  echo "  - proof values extracted successfully"
+  let yResult = ffi_rln_v3_proof_values_get_y(addr proofValues1)
+  if yResult.ok.isNil:
+    stderr.writeLine("Get y error: " & asString(yResult.err))
+    ffi_c_string_free(yResult.err)
+    return
+  echo "  - y = " & asString(ffi_cfr_debug(yResult.ok))
+  ffi_cfr_free(yResult.ok)
+  let nullifierResult = ffi_rln_v3_proof_values_get_nullifier(addr proofValues1)
+  if nullifierResult.ok.isNil:
+    stderr.writeLine("Get nullifier error: " & asString(nullifierResult.err))
+    ffi_c_string_free(nullifierResult.err)
+    return
+  echo "  - nullifier = " & asString(ffi_cfr_debug(nullifierResult.ok))
+  ffi_cfr_free(nullifierResult.ok)
+  let proofValues1Root = ffi_rln_v3_proof_values_get_root(addr proofValues1)
+  echo "  - root = " & asString(ffi_cfr_debug(proofValues1Root))
+  ffi_cfr_free(proofValues1Root)
+  let proofValues1X = ffi_rln_v3_proof_values_get_x(addr proofValues1)
+  echo "  - x = " & asString(ffi_cfr_debug(proofValues1X))
+  ffi_cfr_free(proofValues1X)
+  let proofValues1ExternalNullifier = ffi_rln_v3_proof_values_get_external_nullifier(
+      addr proofValues1)
+  echo "  - external nullifier = " & asString(ffi_cfr_debug(proofValues1ExternalNullifier))
+  ffi_cfr_free(proofValues1ExternalNullifier)
 
   echo "\nRLNProof serialization: RLNProof <-> bytes"
-  let serProofResult = ffi_rln_proof_to_bytes_be(addr proof)
-  if serProofResult.err.dataPtr != nil:
-    stderr.writeLine "Proof serialization error: ", asString(serProofResult.err)
-    ffi_c_string_free(serProofResult.err)
-    quit 1
-  var serProof = serProofResult.ok
-
-  block:
-    let debug = ffi_vec_u8_debug(addr serProof)
-    echo "  - serialized proof = ", asString(debug)
-    ffi_c_string_free(debug)
-
-  let deserProofResult = ffi_bytes_be_to_rln_proof(addr serProof)
-  if deserProofResult.ok.isNil:
-    stderr.writeLine "Proof deserialization error: ", asString(
-        deserProofResult.err)
-    ffi_c_string_free(deserProofResult.err)
-    quit 1
-
-  var deserProof = deserProofResult.ok
+  let serProof1Result = ffi_rln_v3_proof_to_bytes_le(addr rlnProof1)
+  if serProof1Result.err.dataPtr != nil:
+    stderr.writeLine("Proof serialization error: " & asString(
+        serProof1Result.err))
+    ffi_c_string_free(serProof1Result.err)
+    return
+  var serProof1 = serProof1Result.ok
+  echo "  - serialized proof = " & asString(ffi_vec_u8_debug(addr serProof1))
+  let deserProof1Result = ffi_bytes_le_to_rln_v3_proof(addr serProof1)
+  if deserProof1Result.ok.isNil:
+    stderr.writeLine("Proof deserialization error: " & asString(
+        deserProof1Result.err))
+    ffi_c_string_free(deserProof1Result.err)
+    return
+  let deserProof1 = deserProof1Result.ok
   echo "  - proof deserialized successfully"
+  ffi_rln_v3_proof_free(deserProof1)
+  ffi_vec_u8_free(serProof1)
 
   echo "\nRLNProofValues serialization: RLNProofValues <-> bytes"
-  var serProofValues = ffi_rln_proof_values_to_bytes_be(addr proofValues)
+  let serProofValues1Result = ffi_rln_v3_proof_values_to_bytes_le(
+      addr proofValues1)
+  if serProofValues1Result.err.dataPtr != nil:
+    stderr.writeLine("Proof values serialization error: " & asString(
+        serProofValues1Result.err))
+    ffi_c_string_free(serProofValues1Result.err)
+    return
+  var serProofValues1 = serProofValues1Result.ok
+  echo "  - serialized proof values = " & asString(ffi_vec_u8_debug(
+      addr serProofValues1))
+  let deserProofValues1Result = ffi_bytes_le_to_rln_v3_proof_values(
+      addr serProofValues1)
+  if deserProofValues1Result.ok.isNil:
+    stderr.writeLine("RLN proof values deserialization error: " & asString(
+        deserProofValues1Result.err))
+    ffi_c_string_free(deserProofValues1Result.err)
+    return
+  var deserProofValues1 = deserProofValues1Result.ok
+  echo "  - proof values deserialized successfully"
+  let deserProofValues1ExternalNullifier = ffi_rln_v3_proof_values_get_external_nullifier(
+      addr deserProofValues1)
+  echo "  - deserialized external nullifier = " & asString(ffi_cfr_debug(deserProofValues1ExternalNullifier))
+  ffi_cfr_free(deserProofValues1ExternalNullifier)
+  ffi_rln_v3_proof_values_free(deserProofValues1)
+  ffi_vec_u8_free(serProofValues1)
 
-  block:
-    let debug = ffi_vec_u8_debug(addr serProofValues)
-    echo "  - serialized proof_values = ", asString(debug)
-    ffi_c_string_free(debug)
-
-  let deserProofValuesResult = ffi_bytes_be_to_rln_proof_values(
-      addr serProofValues)
-  if deserProofValuesResult.ok.isNil:
-    stderr.writeLine "RLN Proof Values deserialization error: ", asString(
-        deserProofValuesResult.err)
-    ffi_c_string_free(deserProofValuesResult.err)
-    quit 1
-  var deserProofValues = deserProofValuesResult.ok
-  echo "  - proof_values deserialized successfully"
-
-  block:
-    let deserExternalNullifier = ffi_rln_proof_values_get_external_nullifier(
-        addr deserProofValues)
-    let debug = ffi_cfr_debug(deserExternalNullifier)
-    echo "  - deserialized external_nullifier = ", asString(debug)
-    ffi_c_string_free(debug)
-    ffi_cfr_free(deserExternalNullifier)
-
-  ffi_rln_proof_values_free(deserProofValues)
-  ffi_vec_u8_free(serProofValues)
-  ffi_rln_proof_free(deserProof)
-  ffi_vec_u8_free(serProof)
-
-  echo "\nVerifying Proof"
+  echo "\nVerifying first proof"
   when defined(ffiStateless):
-    var roots = ffi_vec_cfr_from_cfr(computedRoot)
-    let verifyErr = ffi_verify_with_roots(addr rln, addr proof, addr roots, x)
+    var roots = ffi_vec_cfr_new(csize_t(1))
+    ffi_vec_cfr_push(addr roots, computedRoot)
+    let verify1Result = ffi_rln_v3_verify_with_roots(addr rlnInstance,
+        addr rlnProof1, addr roots, x1)
   else:
-    let verifyErr = ffi_verify_rln_proof(addr rln, addr proof, x)
-
-  if not verifyErr.ok:
-    stderr.writeLine "Proof verification error: ", asString(verifyErr.err)
-    ffi_c_string_free(verifyErr.err)
-    quit 1
-
-  echo "  - proof verified successfully"
-
-  ffi_rln_proof_free(proof)
-
-  echo "\nGenerating partial proof from partial witness"
-  var partialWitness = ffi_rln_witness_to_partial_witness(addr witness)
-  echo "  - partial witness created successfully"
-
-  echo "\nRLNPartialWitnessInput serialization: RLNPartialWitnessInput <-> bytes"
-  let serPartialWitnessResult = ffi_rln_partial_witness_to_bytes_be(
-      addr partialWitness)
-  if serPartialWitnessResult.err.dataPtr != nil:
-    stderr.writeLine "Partial witness serialization error: ", asString(
-        serPartialWitnessResult.err)
-    ffi_c_string_free(serPartialWitnessResult.err)
-    quit 1
-  var serPartialWitness = serPartialWitnessResult.ok
-
-  block:
-    let debug = ffi_vec_u8_debug(addr serPartialWitness)
-    echo "  - serialized partial_witness = ", asString(debug)
-    ffi_c_string_free(debug)
-
-  let deserPartialWitnessResult = ffi_bytes_be_to_rln_partial_witness(
-      addr serPartialWitness)
-  if deserPartialWitnessResult.ok.isNil:
-    stderr.writeLine "Partial witness deserialization error: ", asString(
-        deserPartialWitnessResult.err)
-    ffi_c_string_free(deserPartialWitnessResult.err)
-    quit 1
-
-  echo "  - partial_witness deserialized successfully"
-  ffi_rln_partial_witness_input_free(deserPartialWitnessResult.ok)
-  ffi_vec_u8_free(serPartialWitness)
-
-  echo "\nGenerating partial ZK proof"
-  var partialProofRes = ffi_generate_partial_zk_proof(addr rln,
-      addr partialWitness)
-
-  if partialProofRes.ok.isNil:
-    stderr.writeLine "Partial proof generation error: ", asString(
-        partialProofRes.err)
-    ffi_c_string_free(partialProofRes.err)
-    ffi_rln_partial_witness_input_free(partialWitness)
-    quit 1
-
-  var partialProof = partialProofRes.ok
-  echo "  - partial proof generated successfully"
-
-  echo "\nRLNPartialProof serialization: RLNPartialProof <-> bytes"
-  let serPartialProofResult = ffi_rln_partial_proof_to_bytes_be(
-      addr partialProof)
-  if serPartialProofResult.err.dataPtr != nil:
-    stderr.writeLine "Partial proof serialization error: ", asString(
-        serPartialProofResult.err)
-    ffi_c_string_free(serPartialProofResult.err)
-    quit 1
-  var serPartialProof = serPartialProofResult.ok
-
-  block:
-    let debug = ffi_vec_u8_debug(addr serPartialProof)
-    echo "  - serialized partial_proof = ", asString(debug)
-    ffi_c_string_free(debug)
-
-  let deserPartialProofResult = ffi_bytes_be_to_rln_partial_proof(
-      addr serPartialProof)
-  if deserPartialProofResult.ok.isNil:
-    stderr.writeLine "Partial proof deserialization error: ", asString(
-        deserPartialProofResult.err)
-    ffi_c_string_free(deserPartialProofResult.err)
-    quit 1
-
-  echo "  - partial_proof deserialized successfully"
-  ffi_rln_partial_proof_free(deserPartialProofResult.ok)
-  ffi_vec_u8_free(serPartialProof)
-
-  echo "\nFinishing proof with full witness"
-  var finishProofResult = ffi_finish_rln_proof(addr rln, addr partialProof,
-      addr witness)
-
-  if finishProofResult.ok.isNil:
-    stderr.writeLine "Finish proof error: ", asString(finishProofResult.err)
-    ffi_c_string_free(finishProofResult.err)
-    ffi_rln_partial_proof_free(partialProof)
-    ffi_rln_partial_witness_input_free(partialWitness)
-    quit 1
-
-  var partialRlnProof = finishProofResult.ok
-  echo "  - partial proof finished successfully"
-
-  echo "\nGetting partial RLN Proof Values"
-  var partialProofValues = ffi_rln_proof_get_values(addr partialRlnProof)
-
-  when defined(ffiMultiMessageId):
-    block:
-      let partialYsResult = ffi_rln_proof_values_get_ys(addr partialProofValues)
-      if partialYsResult.err.dataPtr != nil:
-        stderr.writeLine "Get partial ys error: ", asString(
-            partialYsResult.err)
-        ffi_c_string_free(partialYsResult.err)
-        quit 1
-      var partialYs = partialYsResult.ok
-      let debug = ffi_vec_cfr_debug(addr partialYs)
-      echo "  - ys = ", asString(debug)
-      ffi_c_string_free(debug)
-      ffi_vec_cfr_free(partialYs)
-
-    block:
-      let partialNullifiersResult = ffi_rln_proof_values_get_nullifiers(
-          addr partialProofValues)
-      if partialNullifiersResult.err.dataPtr != nil:
-        stderr.writeLine "Get partial nullifiers error: ", asString(
-            partialNullifiersResult.err)
-        ffi_c_string_free(partialNullifiersResult.err)
-        quit 1
-      var partialNullifiers = partialNullifiersResult.ok
-      let debug = ffi_vec_cfr_debug(addr partialNullifiers)
-      echo "  - nullifiers = ", asString(debug)
-      ffi_c_string_free(debug)
-      ffi_vec_cfr_free(partialNullifiers)
+    let verify1Result = ffi_rln_v3_verify(addr rlnInstance, addr rlnProof1, x1)
+  if verify1Result.err.dataPtr != nil:
+    stderr.writeLine("Proof verification error: " & asString(verify1Result.err))
+    ffi_c_string_free(verify1Result.err)
+    return
+  if verify1Result.ok:
+    echo "  - first proof verified successfully"
   else:
-    block:
-      let partialYResult = ffi_rln_proof_values_get_y(addr partialProofValues)
-      if partialYResult.ok.isNil:
-        stderr.writeLine "Get partial y error: ", asString(partialYResult.err)
-        ffi_c_string_free(partialYResult.err)
-        quit 1
-      let partialY = partialYResult.ok
-      let debug = ffi_cfr_debug(partialY)
-      echo "  - y = ", asString(debug)
-      ffi_c_string_free(debug)
-      ffi_cfr_free(partialY)
-
-    block:
-      let partialNullifierResult = ffi_rln_proof_values_get_nullifier(
-          addr partialProofValues)
-      if partialNullifierResult.ok.isNil:
-        stderr.writeLine "Get partial nullifier error: ", asString(
-            partialNullifierResult.err)
-        ffi_c_string_free(partialNullifierResult.err)
-        quit 1
-      let partialNullifier = partialNullifierResult.ok
-      let debug = ffi_cfr_debug(partialNullifier)
-      echo "  - nullifier = ", asString(debug)
-      ffi_c_string_free(debug)
-      ffi_cfr_free(partialNullifier)
-
-  block:
-    let partialRoot = ffi_rln_proof_values_get_root(addr partialProofValues)
-    let debug = ffi_cfr_debug(partialRoot)
-    echo "  - root = ", asString(debug)
-    ffi_c_string_free(debug)
-    ffi_cfr_free(partialRoot)
-
-  block:
-    let partialXVal = ffi_rln_proof_values_get_x(addr partialProofValues)
-    let debug = ffi_cfr_debug(partialXVal)
-    echo "  - x = ", asString(debug)
-    ffi_c_string_free(debug)
-    ffi_cfr_free(partialXVal)
-
-  block:
-    let partialExtNullifier = ffi_rln_proof_values_get_external_nullifier(
-        addr partialProofValues)
-    let debug = ffi_cfr_debug(partialExtNullifier)
-    echo "  - external_nullifier = ", asString(debug)
-    ffi_c_string_free(debug)
-    ffi_cfr_free(partialExtNullifier)
-
-  ffi_rln_proof_values_free(partialProofValues)
-
-  echo "\nVerifying partial-generated proof"
-  when defined(ffiStateless):
-    let verifyPartialErr = ffi_verify_with_roots(addr rln,
-        addr partialRlnProof, addr roots, x)
-  else:
-    let verifyPartialErr = ffi_verify_rln_proof(addr rln,
-        addr partialRlnProof, x)
-
-  if not verifyPartialErr.ok:
-    stderr.writeLine "Partial proof verification error: ", asString(
-        verifyPartialErr.err)
-    ffi_c_string_free(verifyPartialErr.err)
-    ffi_rln_proof_free(partialRlnProof)
-    ffi_rln_partial_proof_free(partialProof)
-    ffi_rln_partial_witness_input_free(partialWitness)
-    quit 1
-
-  echo "  - partial-generated proof verified successfully"
-
-  ffi_rln_proof_free(partialRlnProof)
-  ffi_rln_partial_proof_free(partialProof)
-  ffi_rln_partial_witness_input_free(partialWitness)
+    echo "First proof verification failed"
+    return
 
   echo "\nSimulating double-signaling attack (same epoch, different message)"
 
   echo "\nHashing second signal"
   var signal2: array[32, uint8] = [11'u8, 12, 13, 14, 15, 16, 17, 18, 19, 20, 0,
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-  var signal2Vec = Vec_uint8(dataPtr: cast[ptr uint8](addr signal2[0]),
-      len: CSize(signal2.len), cap: CSize(signal2.len))
-  let x2 = ffi_hash_to_field_be(addr signal2Vec)
+  var signal2Vec = Vec_uint8(dataPtr: addr signal2[0], len: csize_t(32),
+      cap: csize_t(32))
+  let x2 = ffi_hash_to_field_le(addr signal2Vec)
+  echo "  - x2 = " & asString(ffi_cfr_debug(x2))
 
-  block:
-    let debug = ffi_cfr_debug(x2)
-    echo "  - x2 = ", asString(debug)
-    ffi_c_string_free(debug)
+  echo "\nCreating second message with the same id"
+  let messageId2 = ffi_uint_to_cfr(0'u32)
+  echo "  - message id = " & asString(ffi_cfr_debug(messageId2))
 
-  when not defined(ffiMultiMessageId):
-    echo "\nCreating second message with the same id"
-    let messageId2 = ffi_uint_to_cfr(0'u32)
-
-    block:
-      let debug = ffi_cfr_debug(messageId2)
-      echo "  - message_id2 = ", asString(debug)
-      ffi_c_string_free(debug)
-
-  when defined(ffiMultiMessageId):
-    echo "\nCreating message_ids2 and selector_used2 (multi-message-id mode)"
-    echo "  - using 2 out of ", maxOut, " slots"
-    echo "  - duplicated slot id 1"
-
-    var msgIdArr2 = newSeq[ptr CFr](int(maxOut))
-    msgIdArr2[0] = ffi_uint_to_cfr(1'u32)
-    msgIdArr2[1] = ffi_cfr_zero()
-    msgIdArr2[2] = ffi_uint_to_cfr(3'u32)
-    for i in 3..<int(maxOut):
-      msgIdArr2[i] = ffi_cfr_zero()
-
-    var messageIds2 = ffi_vec_cfr_new(maxOut)
-    for i in 0..<int(maxOut):
-      ffi_vec_cfr_push(addr messageIds2, msgIdArr2[i])
-      ffi_cfr_free(msgIdArr2[i])
-
-    var selectorArr2 = newSeq[bool](int(maxOut))
-    selectorArr2[0] = true; selectorArr2[2] = true
-    var selectorUsed2 = Vec_bool(dataPtr: addr selectorArr2[0], len: maxOut,
-        cap: maxOut)
-
-    block:
-      let debug = ffi_vec_cfr_debug(addr messageIds2)
-      echo "  - message_ids2 = ", asString(debug)
-      ffi_c_string_free(debug)
-
-  echo "\nCreating second RLN Witness"
+  echo "\nCreating second RLN witness"
   when defined(ffiStateless):
-    when defined(ffiMultiMessageId):
-      var witnessRes2 = ffi_rln_witness_input_new_multi(identitySecret,
-          userMessageLimit, addr messageIds2, addr pathElements,
-          addr identityPathIndex, x2, externalNullifier, addr selectorUsed2)
-    else:
-      var witnessRes2 = ffi_rln_witness_input_new_single(identitySecret,
-          userMessageLimit, messageId2, addr pathElements,
-          addr identityPathIndex,
-          x2, externalNullifier)
-    if witnessRes2.ok.isNil:
-      stderr.writeLine "Second RLN Witness creation error: ", asString(
-          witnessRes2.err)
-      ffi_c_string_free(witnessRes2.err)
-      quit 1
-    var witness2 = witnessRes2.ok
-    echo "  - second RLN Witness created successfully"
+    let witness2Result = ffi_rln_v3_witness_input_new_single(identitySecret,
+        userMessageLimit, messageId2, addr pathElements,
+        addr identityPathIndexVec, x2, externalNullifier)
   else:
-    when defined(ffiMultiMessageId):
-      var witnessRes2 = ffi_rln_witness_input_new_multi(identitySecret,
-          userMessageLimit, addr messageIds2,
-          addr merkleProof.path_elements, addr merkleProof.path_index, x2,
-          externalNullifier, addr selectorUsed2)
-    else:
-      var witnessRes2 = ffi_rln_witness_input_new_single(identitySecret,
-          userMessageLimit, messageId2, addr merkleProof.path_elements,
-          addr merkleProof.path_index, x2, externalNullifier)
-    if witnessRes2.ok.isNil:
-      stderr.writeLine "Second RLN Witness creation error: ", asString(
-          witnessRes2.err)
-      ffi_c_string_free(witnessRes2.err)
-      quit 1
-    var witness2 = witnessRes2.ok
-    echo "  - second RLN Witness created successfully"
+    let witness2Result = ffi_rln_v3_witness_input_new_single(identitySecret,
+        userMessageLimit, messageId2, addr merkleProof.path_elements,
+        addr merkleProof.path_index, x2, externalNullifier)
+  if witness2Result.ok.isNil:
+    stderr.writeLine("Second witness creation error: " & asString(
+        witness2Result.err))
+    ffi_c_string_free(witness2Result.err)
+    return
+  var witness2 = witness2Result.ok
+  echo "  - second RLN witness created successfully"
 
-  echo "\nGenerating second RLN Proof"
-  var proofRes2 = ffi_generate_rln_proof(addr rln, addr witness2)
-
-  if proofRes2.ok.isNil:
-    stderr.writeLine "Second proof generation error: ", asString(proofRes2.err)
-    ffi_c_string_free(proofRes2.err)
-    quit 1
-
-  var proof2 = proofRes2.ok
+  echo "\nGenerating second RLN proof"
+  let rlnProof2Result = ffi_rln_v3_generate_proof(addr rlnInstance, addr witness2)
+  if rlnProof2Result.ok.isNil:
+    stderr.writeLine("Second proof generation error: " & asString(
+        rlnProof2Result.err))
+    ffi_c_string_free(rlnProof2Result.err)
+    return
+  var rlnProof2 = rlnProof2Result.ok
   echo "  - second proof generated successfully"
 
-  var proofValues2 = ffi_rln_proof_get_values(addr proof2)
+  echo "\nGetting second RLN proof values"
+  var proofValues2 = ffi_rln_v3_proof_get_values(addr rlnProof2)
+  echo "  - second proof values extracted successfully"
 
   echo "\nVerifying second proof"
   when defined(ffiStateless):
-    let verifyErr2 = ffi_verify_with_roots(addr rln, addr proof2, addr roots, x2)
+    let verify2Result = ffi_rln_v3_verify_with_roots(addr rlnInstance,
+        addr rlnProof2, addr roots, x2)
   else:
-    let verifyErr2 = ffi_verify_rln_proof(addr rln, addr proof2, x2)
+    let verify2Result = ffi_rln_v3_verify(addr rlnInstance, addr rlnProof2, x2)
+  if verify2Result.err.dataPtr != nil:
+    stderr.writeLine("Proof verification error: " & asString(verify2Result.err))
+    ffi_c_string_free(verify2Result.err)
+    return
+  if verify2Result.ok:
+    echo "  - second proof verified successfully"
 
-  if not verifyErr2.ok:
-    stderr.writeLine "Proof verification error: ", asString(
-        verifyErr2.err)
-    ffi_c_string_free(verifyErr2.err)
-    quit 1
+    echo "\nRecovering identity secret"
+    let recoverResult = ffi_rln_v3_recover_id_secret(addr proofValues1,
+        addr proofValues2)
+    if recoverResult.ok.isNil:
+      stderr.writeLine("Identity recovery error: " & asString(
+          recoverResult.err))
+      ffi_c_string_free(recoverResult.err)
+      return
+    let recoveredSecret = recoverResult.ok
+    echo "  - recovered secret = " & asString(ffi_cfr_debug(recoveredSecret))
+    echo "  - identity secret = " & asString(ffi_cfr_debug(identitySecret))
+    echo "  - identity recovered successfully"
+    ffi_cfr_free(recoveredSecret)
+  else:
+    echo "Second proof verification failed"
 
-  echo "  - second proof verified successfully"
+  echo "\nCreating partial witness from first witness fields"
+  let witness1IdentitySecret = ffi_rln_v3_witness_input_get_identity_secret(addr witness1)
+  let witness1UserMessageLimit = ffi_rln_v3_witness_input_get_user_message_limit(addr witness1)
+  var witness1PathElements = ffi_rln_v3_witness_input_get_path_elements(addr witness1)
+  var witness1PathIndex = ffi_rln_v3_witness_input_get_identity_path_index(addr witness1)
+  let partialWitnessResult = ffi_rln_v3_partial_witness_input_new(
+      witness1IdentitySecret, witness1UserMessageLimit,
+      addr witness1PathElements, addr witness1PathIndex)
+  ffi_cfr_free(witness1IdentitySecret)
+  ffi_cfr_free(witness1UserMessageLimit)
+  ffi_vec_cfr_free(witness1PathElements)
+  ffi_vec_u8_free(witness1PathIndex)
+  if partialWitnessResult.ok.isNil:
+    stderr.writeLine("Partial witness creation error: " & asString(
+        partialWitnessResult.err))
+    ffi_c_string_free(partialWitnessResult.err)
+    return
+  var partialWitness = partialWitnessResult.ok
+  echo "  - partial witness created successfully"
 
-  echo "\nRecovering identity secret"
-  let recoverRes = ffi_recover_id_secret(addr proofValues, addr proofValues2)
-  if recoverRes.ok.isNil:
-    stderr.writeLine "Identity recovery error: ", asString(recoverRes.err)
-    ffi_c_string_free(recoverRes.err)
-    quit 1
+  echo "\nRLNPartialWitnessInput serialization: RLNPartialWitnessInput <-> bytes"
+  let serPartialWitnessResult = ffi_rln_v3_partial_witness_to_bytes_le(
+      addr partialWitness)
+  if serPartialWitnessResult.err.dataPtr != nil:
+    stderr.writeLine("Partial witness serialization error: " & asString(
+        serPartialWitnessResult.err))
+    ffi_c_string_free(serPartialWitnessResult.err)
+    return
+  var serPartialWitness = serPartialWitnessResult.ok
+  echo "  - serialized partial witness = " & asString(ffi_vec_u8_debug(
+      addr serPartialWitness))
+  let deserPartialWitnessResult = ffi_bytes_le_to_rln_v3_partial_witness(
+      addr serPartialWitness)
+  if deserPartialWitnessResult.ok.isNil:
+    stderr.writeLine("Partial witness deserialization error: " & asString(
+        deserPartialWitnessResult.err))
+    ffi_c_string_free(deserPartialWitnessResult.err)
+    return
+  var deserPartialWitness = deserPartialWitnessResult.ok
+  echo "  - partial witness deserialized successfully"
 
-  let recoveredSecret = recoverRes.ok
+  echo "\nGenerating partial ZK proof"
+  let partialProofResult = ffi_rln_v3_generate_partial_proof(addr rlnInstance,
+      addr deserPartialWitness)
+  if partialProofResult.ok.isNil:
+    stderr.writeLine("Partial proof generation error: " & asString(
+        partialProofResult.err))
+    ffi_c_string_free(partialProofResult.err)
+    return
+  var partialProof = partialProofResult.ok
+  echo "  - partial proof generated successfully"
 
-  block:
-    let debug = ffi_cfr_debug(recoveredSecret)
-    echo "  - recovered_secret = ", asString(debug)
-    ffi_c_string_free(debug)
+  echo "\nRLNPartialProof serialization: RLNPartialProof <-> bytes"
+  let serPartialProofResult = ffi_rln_v3_partial_proof_to_bytes_le(
+      addr partialProof)
+  if serPartialProofResult.err.dataPtr != nil:
+    stderr.writeLine("Partial proof serialization error: " & asString(
+        serPartialProofResult.err))
+    ffi_c_string_free(serPartialProofResult.err)
+    return
+  var serPartialProof = serPartialProofResult.ok
+  echo "  - serialized partial proof = " & asString(ffi_vec_u8_debug(
+      addr serPartialProof))
+  let deserPartialProofResult = ffi_bytes_le_to_rln_v3_partial_proof(
+      addr serPartialProof)
+  if deserPartialProofResult.ok.isNil:
+    stderr.writeLine("Partial proof deserialization error: " & asString(
+        deserPartialProofResult.err))
+    ffi_c_string_free(deserPartialProofResult.err)
+    return
+  var deserPartialProof = deserPartialProofResult.ok
+  echo "  - partial proof deserialized successfully"
 
-  block:
-    let debug = ffi_cfr_debug(identitySecret)
-    echo "  - original_secret  = ", asString(debug)
-    ffi_c_string_free(debug)
+  echo "\nFinishing proof with full witness"
+  let fullProofResult = ffi_rln_v3_finish_proof(addr rlnInstance,
+      addr deserPartialProof, addr witness1)
+  if fullProofResult.ok.isNil:
+    stderr.writeLine("Finish proof error: " & asString(fullProofResult.err))
+    ffi_c_string_free(fullProofResult.err)
+    return
+  var fullProof = fullProofResult.ok
+  echo "  - partial proof finished successfully"
 
-  echo "  - identity recovered successfully"
-  ffi_cfr_free(recoveredSecret)
-
-  ffi_rln_proof_values_free(proofValues2)
-  ffi_rln_proof_values_free(proofValues)
-  ffi_rln_proof_free(proof2)
-  ffi_cfr_free(x2)
-  when not defined(ffiMultiMessageId):
-    ffi_cfr_free(messageId2)
-
+  echo "\nVerifying full proof"
   when defined(ffiStateless):
-    ffi_rln_witness_input_free(witness2)
-    ffi_rln_witness_input_free(witness)
-    ffi_vec_cfr_free(roots)
-    ffi_vec_cfr_free(pathElements)
-    for i in 0..treeDepth-2:
-      ffi_cfr_free(defaultHashes[i])
-    ffi_cfr_free(defaultLeaf)
-    ffi_cfr_free(computedRoot)
+    let verifyFullResult = ffi_rln_v3_verify_with_roots(addr rlnInstance,
+        addr fullProof, addr roots, x1)
   else:
-    ffi_rln_witness_input_free(witness2)
-    ffi_rln_witness_input_free(witness)
-    ffi_merkle_proof_free(merkleProof)
+    let verifyFullResult = ffi_rln_v3_verify(addr rlnInstance, addr fullProof, x1)
+  if verifyFullResult.err.dataPtr != nil:
+    stderr.writeLine("Full proof verification error: " & asString(
+        verifyFullResult.err))
+    ffi_c_string_free(verifyFullResult.err)
+    return
+  if verifyFullResult.ok:
+    echo "  - full proof verified successfully"
+  else:
+    echo "Full proof verification failed"
 
-  when defined(ffiMultiMessageId):
-    ffi_vec_cfr_free(messageIds)
-    ffi_vec_cfr_free(messageIds2)
-
-  ffi_cfr_free(rateCommitment)
-  ffi_cfr_free(x)
-  ffi_cfr_free(epoch)
-  ffi_cfr_free(rlnIdentifier)
+  ffi_rln_v3_proof_free(fullProof)
+  ffi_rln_v3_partial_proof_free(deserPartialProof)
+  ffi_vec_u8_free(serPartialProof)
+  ffi_rln_v3_partial_proof_free(partialProof)
+  ffi_rln_v3_partial_witness_input_free(deserPartialWitness)
+  ffi_vec_u8_free(serPartialWitness)
+  ffi_rln_v3_partial_witness_input_free(partialWitness)
+  ffi_rln_v3_proof_values_free(proofValues2)
+  ffi_rln_v3_proof_free(rlnProof2)
+  ffi_rln_v3_witness_input_free(witness2)
+  ffi_cfr_free(messageId2)
+  ffi_rln_v3_proof_values_free(proofValues1)
+  ffi_rln_v3_proof_free(rlnProof1)
+  ffi_rln_v3_witness_input_free(witness1)
+  ffi_cfr_free(messageId1)
+  when defined(ffiStateless):
+    ffi_vec_cfr_free(roots)
+    ffi_cfr_free(computedRoot)
+    ffi_vec_cfr_free(pathElements)
+    for h in defaultHashes:
+      ffi_cfr_free(h)
+    ffi_cfr_free(defaultLeaf)
+  else:
+    ffi_rln_v3_merkle_proof_free(merkleProof)
+  ffi_cfr_free(x2)
+  ffi_cfr_free(x1)
   ffi_cfr_free(externalNullifier)
+  ffi_cfr_free(rlnIdentifier)
+  ffi_cfr_free(epoch)
+  ffi_cfr_free(rateCommitment)
   ffi_cfr_free(userMessageLimit)
-  when not defined(ffiMultiMessageId):
-    ffi_cfr_free(messageId)
   ffi_vec_cfr_free(keys)
-  ffi_rln_free(rln)
+  ffi_rln_v3_free(rlnInstance)
+
+main()

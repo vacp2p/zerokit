@@ -45,27 +45,32 @@ impl WasmFr {
     #[wasm_bindgen(js_name = fromBytesLE)]
     pub fn from_bytes_le(bytes: &Uint8Array) -> Result<Self, String> {
         let bytes_vec = bytes.to_vec();
-        let (fr, _) = bytes_le_to_fr(&bytes_vec).map_err(|err| err.to_string())?;
+        let fr = Fr::deserialize_compressed(&bytes_vec[..]).map_err(|err| err.to_string())?;
         Ok(Self(fr))
     }
 
     #[wasm_bindgen(js_name = fromBytesBE)]
     pub fn from_bytes_be(bytes: &Uint8Array) -> Result<Self, String> {
         let bytes_vec = bytes.to_vec();
-        let (fr, _) = bytes_be_to_fr(&bytes_vec).map_err(|err| err.to_string())?;
+        let fr = <Fr as CanonicalDeserializeBE>::deserialize(&bytes_vec[..])
+            .map_err(|err| err.to_string())?;
         Ok(Self(fr))
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]
-    pub fn to_bytes_le(&self) -> Uint8Array {
-        let bytes = fr_to_bytes_le(&self.0);
-        Uint8Array::from(&bytes[..])
+    pub fn to_bytes_le(&self) -> Result<Uint8Array, String> {
+        let mut bytes = Vec::new();
+        self.0
+            .serialize_compressed(&mut bytes)
+            .map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
     }
 
     #[wasm_bindgen(js_name = toBytesBE)]
-    pub fn to_bytes_be(&self) -> Uint8Array {
-        let bytes = fr_to_bytes_be(&self.0);
-        Uint8Array::from(&bytes[..])
+    pub fn to_bytes_be(&self) -> Result<Uint8Array, String> {
+        let mut bytes = Vec::new();
+        CanonicalSerializeBE::serialize(&self.0, &mut bytes).map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
     }
 
     #[wasm_bindgen(js_name = debug)]
@@ -96,29 +101,33 @@ impl VecWasmFr {
     #[wasm_bindgen(js_name = fromBytesLE)]
     pub fn from_bytes_le(bytes: &Uint8Array) -> Result<VecWasmFr, String> {
         let bytes_vec = bytes.to_vec();
-        bytes_le_to_vec_fr(&bytes_vec)
-            .map(|(vec_fr, _)| VecWasmFr(vec_fr))
+        Vec::<Fr>::deserialize_compressed(&bytes_vec[..])
+            .map(VecWasmFr)
             .map_err(|err| err.to_string())
     }
 
     #[wasm_bindgen(js_name = fromBytesBE)]
     pub fn from_bytes_be(bytes: &Uint8Array) -> Result<VecWasmFr, String> {
         let bytes_vec = bytes.to_vec();
-        bytes_be_to_vec_fr(&bytes_vec)
-            .map(|(vec_fr, _)| VecWasmFr(vec_fr))
+        <Vec<Fr> as CanonicalDeserializeBE>::deserialize(&bytes_vec[..])
+            .map(VecWasmFr)
             .map_err(|err| err.to_string())
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]
-    pub fn to_bytes_le(&self) -> Uint8Array {
-        let bytes = vec_fr_to_bytes_le(&self.0);
-        Uint8Array::from(&bytes[..])
+    pub fn to_bytes_le(&self) -> Result<Uint8Array, String> {
+        let mut bytes = Vec::new();
+        self.0
+            .serialize_compressed(&mut bytes)
+            .map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
     }
 
     #[wasm_bindgen(js_name = toBytesBE)]
-    pub fn to_bytes_be(&self) -> Uint8Array {
-        let bytes = vec_fr_to_bytes_be(&self.0);
-        Uint8Array::from(&bytes[..])
+    pub fn to_bytes_be(&self) -> Result<Uint8Array, String> {
+        let mut bytes = Vec::new();
+        CanonicalSerializeBE::serialize(&self.0, &mut bytes).map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
     }
 
     #[wasm_bindgen(js_name = get)]
@@ -162,32 +171,36 @@ pub struct Uint8ArrayUtils;
 #[wasm_bindgen]
 impl Uint8ArrayUtils {
     #[wasm_bindgen(js_name = toBytesLE)]
-    pub fn to_bytes_le(input: &Uint8Array) -> Uint8Array {
+    pub fn to_bytes_le(input: &Uint8Array) -> Result<Uint8Array, String> {
         let input_vec = input.to_vec();
-        let bytes = vec_u8_to_bytes_le(&input_vec);
-        Uint8Array::from(&bytes[..])
+        let mut bytes = Vec::new();
+        input_vec
+            .serialize_compressed(&mut bytes)
+            .map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
     }
 
     #[wasm_bindgen(js_name = toBytesBE)]
-    pub fn to_bytes_be(input: &Uint8Array) -> Uint8Array {
+    pub fn to_bytes_be(input: &Uint8Array) -> Result<Uint8Array, String> {
         let input_vec = input.to_vec();
-        let bytes = vec_u8_to_bytes_be(&input_vec);
-        Uint8Array::from(&bytes[..])
+        let mut bytes = Vec::new();
+        CanonicalSerializeBE::serialize(&input_vec, &mut bytes).map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
     }
 
     #[wasm_bindgen(js_name = fromBytesLE)]
     pub fn from_bytes_le(bytes: &Uint8Array) -> Result<Uint8Array, String> {
         let bytes_vec = bytes.to_vec();
-        bytes_le_to_vec_u8(&bytes_vec)
-            .map(|(vec_u8, _)| Uint8Array::from(&vec_u8[..]))
+        Vec::<u8>::deserialize_compressed(&bytes_vec[..])
+            .map(|vec_u8| Uint8Array::from(&vec_u8[..]))
             .map_err(|err| err.to_string())
     }
 
     #[wasm_bindgen(js_name = fromBytesBE)]
     pub fn from_bytes_be(bytes: &Uint8Array) -> Result<Uint8Array, String> {
         let bytes_vec = bytes.to_vec();
-        bytes_be_to_vec_u8(&bytes_vec)
-            .map(|(vec_u8, _)| Uint8Array::from(&vec_u8[..]))
+        <Vec<u8> as CanonicalDeserializeBE>::deserialize(&bytes_vec[..])
+            .map(|vec_u8| Uint8Array::from(&vec_u8[..]))
             .map_err(|err| err.to_string())
     }
 }
@@ -260,23 +273,28 @@ impl Identity {
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]
-    pub fn to_bytes_le(&self) -> Uint8Array {
+    pub fn to_bytes_le(&self) -> Result<Uint8Array, String> {
         let vec_fr = vec![self.identity_secret, self.id_commitment];
-        let bytes = vec_fr_to_bytes_le(&vec_fr);
-        Uint8Array::from(&bytes[..])
+        let mut bytes = Vec::new();
+        vec_fr
+            .serialize_compressed(&mut bytes)
+            .map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
     }
 
     #[wasm_bindgen(js_name = toBytesBE)]
-    pub fn to_bytes_be(&self) -> Uint8Array {
+    pub fn to_bytes_be(&self) -> Result<Uint8Array, String> {
         let vec_fr = vec![self.identity_secret, self.id_commitment];
-        let bytes = vec_fr_to_bytes_be(&vec_fr);
-        Uint8Array::from(&bytes[..])
+        let mut bytes = Vec::new();
+        CanonicalSerializeBE::serialize(&vec_fr, &mut bytes).map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
     }
 
     #[wasm_bindgen(js_name = fromBytesLE)]
     pub fn from_bytes_le(bytes: &Uint8Array) -> Result<Identity, String> {
         let bytes_vec = bytes.to_vec();
-        let (vec_fr, _) = bytes_le_to_vec_fr(&bytes_vec).map_err(|err| err.to_string())?;
+        let vec_fr =
+            Vec::<Fr>::deserialize_compressed(&bytes_vec[..]).map_err(|err| err.to_string())?;
         if vec_fr.len() != 2 {
             return Err(format!("Expected 2 elements, got {}", vec_fr.len()));
         }
@@ -289,7 +307,8 @@ impl Identity {
     #[wasm_bindgen(js_name = fromBytesBE)]
     pub fn from_bytes_be(bytes: &Uint8Array) -> Result<Identity, String> {
         let bytes_vec = bytes.to_vec();
-        let (vec_fr, _) = bytes_be_to_vec_fr(&bytes_vec).map_err(|err| err.to_string())?;
+        let vec_fr = <Vec<Fr> as CanonicalDeserializeBE>::deserialize(&bytes_vec[..])
+            .map_err(|err| err.to_string())?;
         if vec_fr.len() != 2 {
             return Err(format!("Expected 2 elements, got {}", vec_fr.len()));
         }
@@ -368,33 +387,38 @@ impl ExtendedIdentity {
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]
-    pub fn to_bytes_le(&self) -> Uint8Array {
+    pub fn to_bytes_le(&self) -> Result<Uint8Array, String> {
         let vec_fr = vec![
             self.identity_trapdoor,
             self.identity_nullifier,
             self.identity_secret,
             self.id_commitment,
         ];
-        let bytes = vec_fr_to_bytes_le(&vec_fr);
-        Uint8Array::from(&bytes[..])
+        let mut bytes = Vec::new();
+        vec_fr
+            .serialize_compressed(&mut bytes)
+            .map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
     }
 
     #[wasm_bindgen(js_name = toBytesBE)]
-    pub fn to_bytes_be(&self) -> Uint8Array {
+    pub fn to_bytes_be(&self) -> Result<Uint8Array, String> {
         let vec_fr = vec![
             self.identity_trapdoor,
             self.identity_nullifier,
             self.identity_secret,
             self.id_commitment,
         ];
-        let bytes = vec_fr_to_bytes_be(&vec_fr);
-        Uint8Array::from(&bytes[..])
+        let mut bytes = Vec::new();
+        CanonicalSerializeBE::serialize(&vec_fr, &mut bytes).map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
     }
 
     #[wasm_bindgen(js_name = fromBytesLE)]
     pub fn from_bytes_le(bytes: &Uint8Array) -> Result<ExtendedIdentity, String> {
         let bytes_vec = bytes.to_vec();
-        let (vec_fr, _) = bytes_le_to_vec_fr(&bytes_vec).map_err(|err| err.to_string())?;
+        let vec_fr =
+            Vec::<Fr>::deserialize_compressed(&bytes_vec[..]).map_err(|err| err.to_string())?;
         if vec_fr.len() != 4 {
             return Err(format!("Expected 4 elements, got {}", vec_fr.len()));
         }
@@ -409,7 +433,8 @@ impl ExtendedIdentity {
     #[wasm_bindgen(js_name = fromBytesBE)]
     pub fn from_bytes_be(bytes: &Uint8Array) -> Result<ExtendedIdentity, String> {
         let bytes_vec = bytes.to_vec();
-        let (vec_fr, _) = bytes_be_to_vec_fr(&bytes_vec).map_err(|err| err.to_string())?;
+        let vec_fr = <Vec<Fr> as CanonicalDeserializeBE>::deserialize(&bytes_vec[..])
+            .map_err(|err| err.to_string())?;
         if vec_fr.len() != 4 {
             return Err(format!("Expected 4 elements, got {}", vec_fr.len()));
         }

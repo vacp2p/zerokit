@@ -8,7 +8,7 @@ This example demonstrates how to use the RLN C FFI in stateful, stateless, and m
 
 ```bash
 cargo build -p rln --release
-cargo run --features headers --bin generate-headers
+cargo run --features headers --bin generate_headers
 mv -v rln.h rln/ffi_c_examples/
 ```
 
@@ -20,31 +20,13 @@ gcc -Wall main.c -o main -lrln -L../../target/release
 ./main
 ```
 
-## Stateless mode
-
-### Compile lib stateless
-
-```bash
-cargo build -p rln --release --no-default-features --features stateless
-cargo run --no-default-features --features stateless,headers --bin generate-headers
-mv -v rln.h rln/ffi_c_examples/
-```
-
-### Compile example stateless
-
-```bash
-cd rln/ffi_c_examples/
-gcc -Wall -DSTATELESS main.c -o main -lrln -L../../target/release
-./main
-```
-
 ## Multi-message-id mode
 
 ### Compile lib multi-message-id
 
 ```bash
 cargo build -p rln --release
-cargo run --features headers --bin generate-headers
+cargo run --features headers --bin generate_headers
 mv -v rln.h rln/ffi_c_examples/
 ```
 
