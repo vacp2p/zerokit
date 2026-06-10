@@ -1,6 +1,7 @@
 // This crate is the main public API for RLN module
 // It is used by the FFI, WASM and should be used by tests as well
 
+use bon::bon;
 use num_bigint::BigInt;
 #[cfg(not(feature = "stateless"))]
 use zerokit_utils::merkle_tree::ZerokitMerkleProof;
@@ -8,16 +9,16 @@ use zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleTree, ZerokitMerkleTreeErr
 #[cfg(not(feature = "stateless"))]
 use {crate::poseidon_tree::PoseidonTree, std::str::FromStr};
 
-#[cfg(not(all(target_arch = "wasm32", feature = "stateless")))]
+#[cfg(not(target_arch = "wasm32"))]
 use crate::circuit::graph_from_raw;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
-    circuit::{graph_single_v1, zkey_single_v1, Graph, PartialProof},
+    circuit::{default_graph_single, default_zkey_single, PartialProof},
     prelude::RLNPartialWitnessInput,
     protocol::{finish_zk_proof, generate_partial_zk_proof, generate_zk_proof, MessageMode},
 };
 use crate::{
-    circuit::{zkey_from_raw, Fr, Proof, Zkey},
+    circuit::{zkey_from_raw, ArkGroth16Backend, Fr, Graph, Proof, Zkey},
     error::{RLNError, VerifyProofErrorV3},
     protocol::{
         generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof,
@@ -102,8 +103,8 @@ impl RLN {
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
     pub fn new<T: TreeConfigInput>(tree_depth: usize, tree_config: T) -> Result<RLN, RLNError> {
-        let zkey = zkey_single_v1().to_owned();
-        let graph = graph_single_v1().to_owned();
+        let zkey = default_zkey_single().to_owned();
+        let graph = default_graph_single().to_owned();
         let config = tree_config.into_tree_config()?;
 
         // We compute a default empty tree
@@ -130,8 +131,8 @@ impl RLN {
     /// ```
     #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
     pub fn new() -> Result<RLN, RLNError> {
-        let zkey = zkey_single_v1().to_owned();
-        let graph = graph_single_v1().clone();
+        let zkey = default_zkey_single().to_owned();
+        let graph = default_graph_single().clone();
 
         Ok(RLN {
             zkey,
@@ -947,5 +948,20 @@ where
             return Err(VerifyProofErrorV3::InvalidProof);
         }
         Ok(true)
+    }
+}
+
+pub struct RLNBuilder;
+
+#[bon]
+impl RLNBuilder {
+    #[builder(finish_fn = build)]
+    pub fn stateless(graph: Graph, zkey: Zkey) -> RLNV3<Stateless, ArkGroth16Backend> {
+        RLNV3::<Stateless, ArkGroth16Backend>::new(ArkGroth16Backend::new(zkey, graph))
+    }
+
+    #[builder(finish_fn = build)]
+    pub fn stateful<T>(tree: T, graph: Graph, zkey: Zkey) -> RLNV3<Stateful<T>, ArkGroth16Backend> {
+        RLNV3::<Stateful<T>, ArkGroth16Backend>::new(tree, ArkGroth16Backend::new(zkey, graph))
     }
 }

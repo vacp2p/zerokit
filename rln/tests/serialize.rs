@@ -338,7 +338,7 @@ mod test {
             Fr::from(100),
         )
         .unwrap();
-        generate_zk_proof(zkey_single_v1(), &witness, graph_single_v1()).unwrap()
+        generate_zk_proof(default_zkey_single(), &witness, default_graph_single()).unwrap()
     }
 
     fn make_partial_proof() -> PartialProof {
@@ -352,7 +352,12 @@ mod test {
             identity_path_index,
         )
         .unwrap();
-        generate_partial_zk_proof(zkey_single_v1(), &partial_witness, graph_single_v1()).unwrap()
+        generate_partial_zk_proof(
+            default_zkey_single(),
+            &partial_witness,
+            default_graph_single(),
+        )
+        .unwrap()
     }
 
     #[test]

@@ -5,7 +5,10 @@ use zerokit_utils::merkle_tree::{
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Stateless Single
-    let rln = RLNBuilder::<ArkGroth16Backend>::from_defaults_single().build_stateless();
+    let rln = RLNBuilder::stateless()
+        .graph(default_graph_single().clone())
+        .zkey(default_zkey_single().clone())
+        .build();
 
     let (identity_secret, _) = keygen();
     let witness_single1 = RLNWitnessInputSingle::new(
@@ -37,7 +40,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(recovered, identity_secret);
 
     // Stateless Multi
-    let rln_multi = RLNBuilder::<ArkGroth16Backend>::from_defaults_multi().build_stateless();
+    let rln_multi = RLNBuilder::stateless()
+        .graph(default_graph_multi().clone())
+        .zkey(default_zkey_multi().clone())
+        .build();
 
     let (identity_secret, _) = keygen();
 
@@ -94,7 +100,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Partial Proof - Single
-    let rln_partial = RLNBuilder::<ArkGroth16Backend>::from_defaults_single().build_stateless();
+    let rln_partial = RLNBuilder::stateless()
+        .graph(default_graph_single().clone())
+        .zkey(default_zkey_single().clone())
+        .build();
 
     let (identity_secret, _) = keygen();
     let witness_for_partial: RLNWitnessInputV3 = RLNWitnessInputSingle::new(
@@ -115,8 +124,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert!(rln_partial.verify(&proof_from_partial, &values_partial)?);
 
     // Partial Proof - Multi
-    let rln_partial_multi =
-        RLNBuilder::<ArkGroth16Backend>::from_defaults_multi().build_stateless();
+    let rln_partial_multi = RLNBuilder::stateless()
+        .graph(default_graph_multi().clone())
+        .zkey(default_zkey_multi().clone())
+        .build();
 
     let (identity_secret, _) = keygen();
     let witness_for_partial_multi: RLNWitnessInputV3 = RLNWitnessInputMulti::new(
@@ -138,13 +149,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert!(rln_partial_multi.verify(&proof_from_partial_multi, &values_partial_multi)?);
 
     // Stateful Single - FullMerkleTree
-    let tree = FullMerkleTree::<PoseidonHash>::new(
+    let full_merkle_tree = FullMerkleTree::<PoseidonHash>::new(
         DEFAULT_TREE_DEPTH,
         PoseidonHash::default_leaf(),
         Default::default(),
     )?;
-    let mut rln_stateful =
-        RLNBuilder::<ArkGroth16Backend>::from_defaults_single().build_stateful(tree);
+    let mut rln_stateful = RLNBuilder::stateful()
+        .tree(full_merkle_tree)
+        .graph(default_graph_single().clone())
+        .zkey(default_zkey_single().clone())
+        .build();
 
     let (identity_secret, id_commitment) = keygen();
     let user_message_limit = Fr::from(10);
@@ -189,9 +203,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     rln_stateful.init_tree_with_leaves(vec![rate_commitment])?;
 
     // Stateful Multi - OptimalMerkleTree
-    let mut rln_stateful_multi =
-        RLNBuilder::<ArkGroth16Backend>::from_defaults_multi()
-            .build_stateful_default::<OptimalMerkleTree<PoseidonHash>>(DEFAULT_TREE_DEPTH)?;
+    let optimal_merkle_tree =
+        <OptimalMerkleTree<PoseidonHash> as ZerokitMerkleTree>::default(DEFAULT_TREE_DEPTH)?;
+    let mut rln_stateful_multi = RLNBuilder::stateful()
+        .tree(optimal_merkle_tree)
+        .graph(default_graph_multi().clone())
+        .zkey(default_zkey_multi().clone())
+        .build();
 
     let (identity_secret_multi, id_commitment_multi) = keygen();
     let user_message_limit_multi = Fr::from(10);
@@ -225,8 +243,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?);
 
     // Stateful Partial Proof - PmTree
-    let mut rln_stateful_partial = RLNBuilder::<ArkGroth16Backend>::from_defaults_single()
-        .build_stateful_default::<PmTree>(DEFAULT_TREE_DEPTH)?;
+    let pm_tree = <PmTree as ZerokitMerkleTree>::default(DEFAULT_TREE_DEPTH)?;
+    let mut rln_stateful_partial = RLNBuilder::stateful()
+        .tree(pm_tree)
+        .graph(default_graph_single().clone())
+        .zkey(default_zkey_single().clone())
+        .build();
 
     let (identity_secret_p, id_commitment_p) = keygen();
     let user_message_limit_p = Fr::from(10);

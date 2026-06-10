@@ -3,7 +3,9 @@
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 #[cfg(not(target_arch = "wasm32"))]
-pub use crate::circuit::{graph_multi_v1, graph_single_v1, zkey_multi_v1, zkey_single_v1};
+pub use crate::circuit::{
+    default_graph_multi, default_graph_single, default_zkey_multi, default_zkey_single,
+};
 #[cfg(feature = "pmtree-ft")]
 pub use crate::pm_tree_adapter::{FrOf, PmTree, PmTreeProof, PmtreeConfig, PmtreeConfigBuilder};
 #[cfg(not(feature = "stateless"))]
@@ -16,7 +18,6 @@ pub use crate::protocol::{
     generate_zk_proof_with_rs, verify_zk_proof,
 };
 pub use crate::{
-    builder::RLNBuilder,
     circuit::{
         graph_from_raw, zkey_from_raw, ArkGroth16Backend, Curve, Fq, Fq2, Fr, G1Affine,
         G1Projective, G2Affine, G2Projective, Graph, PartialProof, Proof, VerifyingKey, Zkey,
@@ -49,7 +50,7 @@ pub use crate::{
         RLNZkProof, RecoverSecret, Stateful, Stateless, ENUM_TAG_MULTI, ENUM_TAG_SINGLE,
         ENUM_TAG_SIZE, FR_BYTE_SIZE, FR_LIMB_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
     },
-    public::{RLN, RLNV3},
+    public::{RLNBuilder, RLN, RLNV3},
     utils::{
         bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_be_to_vec_usize,
         bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, bytes_le_to_vec_usize,

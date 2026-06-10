@@ -59,8 +59,8 @@ pub fn rln_proof_benchmark(c: &mut Criterion) {
     let witness = get_test_witness();
     let partial_witness = get_partial_witness(&witness);
 
-    let proving_key = zkey_single_v1();
-    let graph_data = graph_single_v1();
+    let proving_key = default_zkey_single();
+    let graph_data = default_graph_single();
 
     c.bench_function("rln_full_proof", |b| {
         b.iter(|| {

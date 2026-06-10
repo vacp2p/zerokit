@@ -183,8 +183,8 @@ mod test {
         let witness = get_test_witness();
 
         // We generate all relevant keys
-        let proving_key = zkey_single_v1();
-        let graph_data = graph_single_v1();
+        let proving_key = default_zkey_single();
+        let graph_data = default_graph_single();
 
         // Generate a zkSNARK proof
         let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
@@ -204,8 +204,8 @@ mod test {
 
         let partial_witness = RLNPartialWitnessInput::from(&witness);
 
-        let proving_key = zkey_single_v1();
-        let graph_data = graph_single_v1();
+        let proving_key = default_zkey_single();
+        let graph_data = default_graph_single();
 
         let partial_proof =
             generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
@@ -224,8 +224,8 @@ mod test {
 
         let partial_witness = RLNPartialWitnessInput::from(&witness);
 
-        let proving_key = zkey_single_v1();
-        let graph_data = graph_single_v1();
+        let proving_key = default_zkey_single();
+        let graph_data = default_graph_single();
 
         let partial_proof =
             generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
@@ -334,8 +334,8 @@ mod test {
         let witness = get_test_witness();
         let partial_witness = RLNPartialWitnessInput::from(&witness);
 
-        let proving_key = zkey_single_v1();
-        let graph_data = graph_single_v1();
+        let proving_key = default_zkey_single();
+        let graph_data = default_graph_single();
         let partial_proof =
             generate_partial_zk_proof(proving_key, &partial_witness, graph_data).unwrap();
 
@@ -617,8 +617,8 @@ mod test {
     #[test]
     fn test_rln_proof_serialization_be_roundtrip() {
         let witness = get_test_witness();
-        let proving_key = zkey_single_v1();
-        let graph_data = graph_single_v1();
+        let proving_key = default_zkey_single();
+        let graph_data = default_graph_single();
         let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
         let proof_values = proof_values_from_witness(&witness);
 
@@ -637,8 +637,8 @@ mod test {
     #[test]
     fn test_verify_zk_proof_with_modified_public_value_fails() {
         let witness = get_test_witness();
-        let proving_key = zkey_single_v1();
-        let graph_data = graph_single_v1();
+        let proving_key = default_zkey_single();
+        let graph_data = default_graph_single();
         let proof = generate_zk_proof(proving_key, &witness, graph_data).unwrap();
         let proof_values = proof_values_from_witness(&witness);
 
