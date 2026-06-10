@@ -19,10 +19,10 @@ impl WasmRLN {
         zkey_data: &Uint8Array,
         graph_data: &Uint8Array,
     ) -> Result<WasmRLN, String> {
-        let graph =
-            graph_from_raw(&graph_data.to_vec(), None, None).map_err(|err| err.to_string())?;
-        let zkey = zkey_from_raw(&zkey_data.to_vec()).map_err(|err| err.to_string())?;
-        let rln = RLNBuilder::stateless().graph(graph).zkey(zkey).build();
+        let rln = RLNBuilder::stateless()
+            .graph(graph_from_raw(&graph_data.to_vec(), None, None).map_err(|err| err.to_string())?)
+            .zkey(zkey_from_raw(&zkey_data.to_vec()).map_err(|err| err.to_string())?)
+            .build();
         Ok(WasmRLN(rln))
     }
 
@@ -105,18 +105,18 @@ impl WasmRLNWitnessInput {
         let path_elements: Vec<Fr> = path_elements.inner();
         let identity_path_index: Vec<u8> = identity_path_index.to_vec();
 
-        let witness = RLNWitnessInputSingle::new(
-            IdSecret::from(&mut identity_secret_fr),
-            user_message_limit.inner(),
-            path_elements,
-            identity_path_index,
-            x.inner(),
-            external_nullifier.inner(),
-            message_id.inner(),
-        )
-        .map_err(|err| err.to_string())?;
+        let witness = RLNWitnessInputV3::new_single()
+            .identity_secret(IdSecret::from(&mut identity_secret_fr))
+            .user_message_limit(user_message_limit.inner())
+            .path_elements(path_elements)
+            .identity_path_index(identity_path_index)
+            .x(x.inner())
+            .external_nullifier(external_nullifier.inner())
+            .message_id(message_id.inner())
+            .build()
+            .map_err(|err| err.to_string())?;
 
-        Ok(WasmRLNWitnessInput(witness.into()))
+        Ok(WasmRLNWitnessInput(witness))
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -138,19 +138,19 @@ impl WasmRLNWitnessInput {
         let message_ids: Vec<Fr> = message_ids.inner();
         let selector_used: Vec<bool> = selector_used.to_vec().iter().map(|&b| b != 0).collect();
 
-        let witness = RLNWitnessInputMulti::new(
-            IdSecret::from(&mut identity_secret_fr),
-            user_message_limit.inner(),
-            path_elements,
-            identity_path_index,
-            x.inner(),
-            external_nullifier.inner(),
-            message_ids,
-            selector_used,
-        )
-        .map_err(|err| err.to_string())?;
+        let witness = RLNWitnessInputV3::new_multi()
+            .identity_secret(IdSecret::from(&mut identity_secret_fr))
+            .user_message_limit(user_message_limit.inner())
+            .path_elements(path_elements)
+            .identity_path_index(identity_path_index)
+            .x(x.inner())
+            .external_nullifier(external_nullifier.inner())
+            .message_ids(message_ids)
+            .selector_used(selector_used)
+            .build()
+            .map_err(|err| err.to_string())?;
 
-        Ok(WasmRLNWitnessInput(witness.into()))
+        Ok(WasmRLNWitnessInput(witness))
     }
 
     #[wasm_bindgen(js_name = getIdentitySecret)]
@@ -160,12 +160,12 @@ impl WasmRLNWitnessInput {
 
     #[wasm_bindgen(js_name = getUserMessageLimit)]
     pub fn get_user_message_limit(&self) -> WasmFr {
-        WasmFr::from(*self.0.user_message_limit())
+        WasmFr::from(self.0.user_message_limit())
     }
 
     #[wasm_bindgen(js_name = getMessageId)]
     pub fn get_message_id(&self) -> Option<WasmFr> {
-        self.0.message_id().map(|fr| WasmFr::from(*fr))
+        self.0.message_id().map(WasmFr::from)
     }
 
     #[wasm_bindgen(js_name = getMessageIds)]
@@ -185,12 +185,12 @@ impl WasmRLNWitnessInput {
 
     #[wasm_bindgen(js_name = getX)]
     pub fn get_x(&self) -> WasmFr {
-        WasmFr::from(*self.0.x())
+        WasmFr::from(self.0.x())
     }
 
     #[wasm_bindgen(js_name = getExternalNullifier)]
     pub fn get_external_nullifier(&self) -> WasmFr {
-        WasmFr::from(*self.0.external_nullifier())
+        WasmFr::from(self.0.external_nullifier())
     }
 
     #[wasm_bindgen(js_name = getSelectorUsed)]
@@ -259,13 +259,13 @@ impl WasmRLNPartialWitnessInput {
         let path_elements: Vec<Fr> = path_elements.inner();
         let identity_path_index: Vec<u8> = identity_path_index.to_vec();
 
-        let witness = RLNPartialWitnessInputV3::new(
-            IdSecret::from(&mut identity_secret_fr),
-            user_message_limit.inner(),
-            path_elements,
-            identity_path_index,
-        )
-        .map_err(|err| err.to_string())?;
+        let witness = RLNPartialWitnessInputV3::new()
+            .identity_secret(IdSecret::from(&mut identity_secret_fr))
+            .user_message_limit(user_message_limit.inner())
+            .path_elements(path_elements)
+            .identity_path_index(identity_path_index)
+            .build()
+            .map_err(|err| err.to_string())?;
 
         Ok(WasmRLNPartialWitnessInput(witness))
     }

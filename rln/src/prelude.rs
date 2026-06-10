@@ -7,7 +7,7 @@ pub use crate::circuit::{
     default_graph_multi, default_graph_single, default_zkey_multi, default_zkey_single,
 };
 #[cfg(feature = "pmtree-ft")]
-pub use crate::pm_tree_adapter::{FrOf, PmTree, PmTreeProof, PmtreeConfig, PmtreeConfigBuilder};
+pub use crate::pm_tree_adapter::{FrOf, PmTree, PmTreeConfig, PmTreeProof};
 #[cfg(not(feature = "stateless"))]
 pub use crate::poseidon_tree::{MerkleProof, PoseidonTree};
 #[cfg(not(feature = "stateless"))]
@@ -24,7 +24,7 @@ pub use crate::{
         COMPRESS_PROOF_SIZE, DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH,
     },
     error::{
-        GenerateProofError, InitErrorV3, ProtocolError, RLNError, RLNPartialWitnessInputErrorV3,
+        GenerateProofError, ProtocolError, RLNError, RLNPartialWitnessInputErrorV3,
         RLNWitnessInputMultiErrorV3, RLNWitnessInputSingleErrorV3, RecoverSecretError,
         SerializationErrorV3, UtilsError, VerifyProofErrorV3,
     },

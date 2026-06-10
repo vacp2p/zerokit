@@ -2,8 +2,6 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use rln::prelude::*;
 use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
 
-type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
-
 fn get_test_witness() -> RLNWitnessInput {
     let leaf_index = 3;
     // Generate identity pair
@@ -12,13 +10,7 @@ fn get_test_witness() -> RLNWitnessInput {
     let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
 
     // Generate merkle tree
-    let default_leaf = Fr::from(0);
-    let mut tree = PoseidonTree::new(
-        DEFAULT_TREE_DEPTH,
-        default_leaf,
-        ConfigOf::<PoseidonTree>::default(),
-    )
-    .unwrap();
+    let mut tree = PmTree::default(DEFAULT_TREE_DEPTH).unwrap();
     tree.set(leaf_index, rate_commitment).unwrap();
 
     let merkle_proof = tree.proof(leaf_index).unwrap();

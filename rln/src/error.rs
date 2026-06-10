@@ -206,18 +206,3 @@ pub enum VerifyProofErrorV3 {
     #[error("Synthesis error: {0}")]
     Synthesis(#[from] SynthesisError),
 }
-
-/// Errors that can occur while initializing an RLN instance.
-#[derive(Debug, thiserror::Error)]
-pub enum InitErrorV3 {
-    #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("JSON config error: {0}")]
-    Json(#[from] serde_json::Error),
-    #[error("ZKey error: {0}")]
-    ZKey(#[from] ZKeyReadError),
-    #[error("Graph error: {0}")]
-    Graph(#[from] GraphReadError),
-    #[error("Configuration error: {0}")]
-    Config(#[from] FromConfigError),
-}

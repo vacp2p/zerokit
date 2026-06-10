@@ -1,6 +1,8 @@
 // This crate is the main public API for RLN module
 // It is used by the FFI, WASM and should be used by tests as well
 
+use std::marker::PhantomData;
+
 use bon::bon;
 use num_bigint::BigInt;
 #[cfg(not(feature = "stateless"))]
@@ -829,9 +831,7 @@ where
         index: usize,
         leaves: Vec<Fr>,
     ) -> Result<(), ZerokitMerkleTreeError> {
-        self.state
-            .tree
-            .override_range(index, leaves.into_iter(), [].into_iter())
+        self.state.tree.set_range(index, leaves.into_iter())
     }
 
     pub fn init_tree_with_leaves(&mut self, leaves: Vec<Fr>) -> Result<(), ZerokitMerkleTreeError> {
@@ -951,17 +951,21 @@ where
     }
 }
 
-pub struct RLNBuilder;
+pub struct RLNBuilder<ZKP>(PhantomData<ZKP>);
 
 #[bon]
-impl RLNBuilder {
+impl RLNBuilder<ArkGroth16Backend> {
     #[builder(finish_fn = build)]
     pub fn stateless(graph: Graph, zkey: Zkey) -> RLNV3<Stateless, ArkGroth16Backend> {
         RLNV3::<Stateless, ArkGroth16Backend>::new(ArkGroth16Backend::new(zkey, graph))
     }
 
     #[builder(finish_fn = build)]
-    pub fn stateful<T>(tree: T, graph: Graph, zkey: Zkey) -> RLNV3<Stateful<T>, ArkGroth16Backend> {
-        RLNV3::<Stateful<T>, ArkGroth16Backend>::new(tree, ArkGroth16Backend::new(zkey, graph))
+    pub fn stateful<Tree>(
+        tree: Tree,
+        graph: Graph,
+        zkey: Zkey,
+    ) -> RLNV3<Stateful<Tree>, ArkGroth16Backend> {
+        RLNV3::<Stateful<Tree>, ArkGroth16Backend>::new(tree, ArkGroth16Backend::new(zkey, graph))
     }
 }

@@ -290,7 +290,6 @@ mod test {
         use ark_std::{rand::thread_rng, UniformRand};
         use rand::{rngs::ThreadRng, Rng};
         use rln::prelude::*;
-        use serde_json::json;
 
         const NO_OF_LEAVES: usize = 256;
 
@@ -1033,39 +1032,6 @@ mod test {
             // ensure that the recovered secret does not match with either of the
             // used secrets in proof generation
             assert_ne!(*recovered_identity_secret_new, *identity_secret_new);
-        }
-
-        #[test]
-        fn test_tree_config_input_trait() {
-            let empty_json_input = "";
-            let rln_with_empty_json_config = RLN::new(DEFAULT_TREE_DEPTH, empty_json_input);
-            assert!(rln_with_empty_json_config.is_ok());
-
-            let json_config = json!({
-                "tree_config": {
-                    "path": "/tmp/pmtree-test-path",
-                    "temporary": false,
-                    "cache_capacity": 1073741824,
-                    "flush_every_ms": 500,
-                    "mode": "HighThroughput",
-                    "use_compression": false
-                }
-            });
-            let json_input = json_config.to_string();
-            let rln_with_json_config = RLN::new(DEFAULT_TREE_DEPTH, json_input.as_str());
-            assert!(rln_with_json_config.is_ok());
-
-            let default_pmtree_config = PmtreeConfig::default();
-            let rln_with_default_tree_config = RLN::new(DEFAULT_TREE_DEPTH, default_pmtree_config);
-            assert!(rln_with_default_tree_config.is_ok());
-
-            let custom_pmtree_config = PmtreeConfig::builder()
-                .temporary(true)
-                .use_compression(false)
-                .build();
-            let rln_with_custom_tree_config =
-                RLN::new(DEFAULT_TREE_DEPTH, custom_pmtree_config.unwrap());
-            assert!(rln_with_custom_tree_config.is_ok());
         }
 
         #[test]

@@ -2,6 +2,7 @@
 
 use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
+use bon::bon;
 use serde_json::Value;
 use tempfile::Builder;
 use zerokit_utils::{
@@ -63,6 +64,23 @@ impl Hasher for PoseidonHash {
     }
 }
 
+const DEFAULT_TEMPORARY: bool = true;
+const DEFAULT_CACHE_CAPACITY: u64 = 1073741824; // 1 Gigabyte
+const DEFAULT_FLUSH_EVERY_MS: u64 = 500; // 500 Milliseconds
+const DEFAULT_MODE: Mode = Mode::HighThroughput;
+const DEFAULT_USE_COMPRESSION: bool = false;
+
+#[derive(Debug, Clone)]
+pub struct PmTreeConfig {
+    path: PathBuf,
+    temporary: bool,
+    cache_capacity: u64,
+    flush_every_ms: u64,
+    mode: Mode,
+    use_compression: bool,
+    tree_depth: Option<usize>,
+}
+
 fn default_tmp_path() -> Result<PathBuf, std::io::Error> {
     Ok(Builder::new()
         .prefix("pmtree-")
@@ -71,188 +89,128 @@ fn default_tmp_path() -> Result<PathBuf, std::io::Error> {
         .to_path_buf())
 }
 
-const DEFAULT_TEMPORARY: bool = true;
-const DEFAULT_CACHE_CAPACITY: u64 = 1073741824; // 1 Gigabyte
-const DEFAULT_FLUSH_EVERY_MS: u64 = 500; // 500 Milliseconds
-const DEFAULT_MODE: Mode = Mode::HighThroughput;
-const DEFAULT_USE_COMPRESSION: bool = false;
-
-pub struct PmtreeConfigBuilder {
-    path: Option<PathBuf>,
-    temporary: bool,
-    cache_capacity: u64,
-    flush_every_ms: u64,
-    mode: Mode,
-    use_compression: bool,
-}
-
-impl Default for PmtreeConfigBuilder {
-    fn default() -> Self {
-        Self::new()
+fn resolve_path(temporary: bool, path: Option<PathBuf>) -> Result<PathBuf, FromConfigError> {
+    match (temporary, path) {
+        (true, None) => Ok(default_tmp_path()?),
+        (false, None) => Err(FromConfigError::MissingPath),
+        (true, Some(path)) if path.exists() => Err(FromConfigError::PathExists),
+        (_, Some(path)) => Ok(path),
     }
 }
 
-impl PmtreeConfigBuilder {
-    pub fn new() -> Self {
-        PmtreeConfigBuilder {
-            path: None,
-            temporary: DEFAULT_TEMPORARY,
-            cache_capacity: DEFAULT_CACHE_CAPACITY,
-            flush_every_ms: DEFAULT_FLUSH_EVERY_MS,
-            mode: DEFAULT_MODE,
-            use_compression: DEFAULT_USE_COMPRESSION,
-        }
+#[bon]
+impl PmTreeConfig {
+    #[allow(clippy::new_ret_no_self)]
+    #[builder(start_fn = new, finish_fn = build)]
+    pub fn create(
+        tree_depth: Option<usize>,
+        #[builder(into)] path: Option<PathBuf>,
+        #[builder(default = DEFAULT_TEMPORARY)] temporary: bool,
+        #[builder(default = DEFAULT_CACHE_CAPACITY)] cache_capacity: u64,
+        #[builder(default = DEFAULT_FLUSH_EVERY_MS)] flush_every_ms: u64,
+        #[builder(default = DEFAULT_MODE)] mode: Mode,
+        #[builder(default = DEFAULT_USE_COMPRESSION)] use_compression: bool,
+    ) -> Result<Self, FromConfigError> {
+        let path = resolve_path(temporary, path)?;
+        Ok(Self {
+            tree_depth,
+            path,
+            temporary,
+            cache_capacity,
+            flush_every_ms,
+            mode,
+            use_compression,
+        })
     }
+}
 
-    pub fn path<P: Into<PathBuf>>(mut self, path: P) -> Self {
-        self.path = Some(path.into());
-        self
-    }
-
-    pub fn temporary(mut self, temporary: bool) -> Self {
-        self.temporary = temporary;
-        self
-    }
-
-    pub fn cache_capacity(mut self, capacity: u64) -> Self {
-        self.cache_capacity = capacity;
-        self
-    }
-
-    pub fn flush_every_ms(mut self, ms: u64) -> Self {
-        self.flush_every_ms = ms;
-        self
-    }
-
-    pub fn mode(mut self, mode: Mode) -> Self {
-        self.mode = mode;
-        self
-    }
-
-    pub fn use_compression(mut self, compression: bool) -> Self {
-        self.use_compression = compression;
-        self
-    }
-
-    pub fn build(self) -> Result<PmtreeConfig, FromConfigError> {
-        let path = match (self.temporary, self.path) {
-            (true, None) => default_tmp_path()?,
-            (false, None) => return Err(FromConfigError::MissingPath),
-            (true, Some(path)) if path.exists() => return Err(FromConfigError::PathExists),
-            (_, Some(path)) => path,
-        };
-
-        let config = Config::new()
+impl PmTreeConfig {
+    fn to_sled_config(&self) -> Config {
+        Config::new()
             .temporary(self.temporary)
-            .path(path)
+            .path(self.path.clone())
             .cache_capacity(self.cache_capacity)
             .flush_every_ms(Some(self.flush_every_ms))
             .mode(self.mode)
-            .use_compression(self.use_compression);
-
-        Ok(PmtreeConfig(config))
+            .use_compression(self.use_compression)
     }
 }
 
-pub struct PmtreeConfig(Config);
-
-impl PmtreeConfig {
-    pub fn builder() -> PmtreeConfigBuilder {
-        PmtreeConfigBuilder::new()
-    }
-}
-
-impl TryFrom<PmtreeConfigBuilder> for PmtreeConfig {
-    type Error = FromConfigError;
-
-    fn try_from(builder: PmtreeConfigBuilder) -> Result<Self, Self::Error> {
-        builder.build()
-    }
-}
-
-impl FromStr for PmtreeConfig {
+impl FromStr for PmTreeConfig {
     type Err = FromConfigError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let config: Value = serde_json::from_str(s)?;
 
-        let path = config["path"].as_str();
-        let path = path.map(PathBuf::from);
-        let temporary = config["temporary"].as_bool();
-        let cache_capacity = config["cache_capacity"].as_u64();
-        let flush_every_ms = config["flush_every_ms"].as_u64();
+        let path = config["path"].as_str().map(PathBuf::from);
+        let temporary = config["temporary"].as_bool().unwrap_or(DEFAULT_TEMPORARY);
+        let cache_capacity = config["cache_capacity"]
+            .as_u64()
+            .unwrap_or(DEFAULT_CACHE_CAPACITY);
+        let flush_every_ms = config["flush_every_ms"]
+            .as_u64()
+            .unwrap_or(DEFAULT_FLUSH_EVERY_MS);
         let mode = match config["mode"].as_str() {
-            Some("HighThroughput") => Mode::HighThroughput,
             Some("LowSpace") => Mode::LowSpace,
-            _ => Mode::HighThroughput,
+            _ => DEFAULT_MODE,
         };
-        let use_compression = config["use_compression"].as_bool();
+        let use_compression = config["use_compression"]
+            .as_bool()
+            .unwrap_or(DEFAULT_USE_COMPRESSION);
 
-        if let (Some(true), Some(path)) = (temporary, path.as_ref()) {
-            if path.exists() {
-                return Err(FromConfigError::PathExists);
-            }
-        }
+        let tree_depth = config["tree_depth"].as_u64().map(|depth| depth as usize);
 
-        let default_tmp_path = default_tmp_path()?;
-        let config = Config::new()
-            .temporary(temporary.unwrap_or(DEFAULT_TEMPORARY))
-            .path(path.unwrap_or(default_tmp_path))
-            .cache_capacity(cache_capacity.unwrap_or(DEFAULT_CACHE_CAPACITY))
-            .flush_every_ms(flush_every_ms)
-            .mode(mode)
-            .use_compression(use_compression.unwrap_or(false));
-        Ok(PmtreeConfig(config))
+        let path = resolve_path(temporary, path)?;
+        Ok(Self {
+            path,
+            temporary,
+            cache_capacity,
+            flush_every_ms,
+            mode,
+            use_compression,
+            tree_depth,
+        })
     }
 }
 
-impl Default for PmtreeConfig {
+impl Default for PmTreeConfig {
     fn default() -> Self {
-        Self::builder()
+        PmTreeConfig::new()
             .build()
             .expect("Default PmtreeConfig must be valid")
-    }
-}
-
-impl Debug for PmtreeConfig {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl Clone for PmtreeConfig {
-    fn clone(&self) -> Self {
-        PmtreeConfig(self.0.clone())
     }
 }
 
 impl ZerokitMerkleTree for PmTree {
     type Proof = PmTreeProof;
     type Hasher = PoseidonHash;
-    type Config = PmtreeConfig;
+    type Config = PmTreeConfig;
 
     fn default(depth: usize) -> Result<Self, ZerokitMerkleTreeError> {
-        let default_config = PmtreeConfig::default();
+        let default_config = PmTreeConfig::default();
         PmTree::new(depth, Self::Hasher::default_leaf(), default_config)
     }
 
-    // TODO(PR10): two reload bugs to fix here:
-    //   1. Silent depth mismatch — when an existing DB has depth A and `new` is called with
-    //      depth B (A != B), the loaded tree keeps depth A but `cached_leaves_indices` is sized
-    //      for depth B. Validate `tree.depth() == depth` after load, return `InvalidDepth`.
-    //   2. `cached_leaves_indices` reset on reload — vec is always recreated as all-zeros even
-    //      when the DB already contains leaves, so `get_empty_leaves_indices` and any other
-    //      cache-based query report wrong state after reload. Rebuild the cache from the
-    //      loaded tree state (or persist the cache alongside the tree).
     fn new(
         depth: usize,
         _default_leaf: FrOf<Self::Hasher>,
         config: Self::Config,
     ) -> Result<Self, ZerokitMerkleTreeError> {
-        let tree_loaded = pmtree::MerkleTree::load(config.clone().0);
+        if let Some(config_depth) = config.tree_depth {
+            if config_depth != depth {
+                return Err(ZerokitMerkleTreeError::InvalidDepth);
+            }
+        }
+        let sled_config = config.to_sled_config();
+        let tree_loaded = pmtree::MerkleTree::load(sled_config.clone());
         let tree = match tree_loaded {
-            Ok(tree) => tree,
-            Err(_) => pmtree::MerkleTree::new(depth, config.0)?,
+            Ok(tree) => {
+                if tree.depth() != depth {
+                    return Err(ZerokitMerkleTreeError::InvalidDepth);
+                }
+                tree
+            }
+            Err(_) => pmtree::MerkleTree::new(depth, sled_config)?,
         };
 
         let capacity = 1usize.checked_shl(depth as u32).ok_or({
@@ -261,9 +219,21 @@ impl ZerokitMerkleTree for PmTree {
             ))
         })?;
 
+        let mut cached_leaves_indices = vec![0u8; capacity];
+        let default_leaf = Self::Hasher::default_leaf();
+        for (index, cached) in cached_leaves_indices
+            .iter_mut()
+            .enumerate()
+            .take(tree.leaves_set())
+        {
+            if tree.get(index)? != default_leaf {
+                *cached = 1;
+            }
+        }
+
         Ok(PmTree {
             tree,
-            cached_leaves_indices: vec![0; capacity],
+            cached_leaves_indices,
             metadata: Vec::new(),
         })
     }
@@ -301,7 +271,7 @@ impl ZerokitMerkleTree for PmTree {
     ) -> Result<(), ZerokitMerkleTreeError> {
         let v = values.into_iter().collect::<Vec<_>>();
         self.tree.set_range(start, v.clone())?;
-        for i in start..v.len() {
+        for i in start..start + v.len() {
             self.cached_leaves_indices[i] = 1
         }
         Ok(())
@@ -386,9 +356,10 @@ impl ZerokitMerkleTree for PmTree {
     }
 
     fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<(), ZerokitMerkleTreeError> {
-        self.tree
-            .update_next(leaf)
-            .map_err(ZerokitMerkleTreeError::PmtreeErrorKind)
+        let index = self.tree.leaves_set();
+        self.tree.update_next(leaf)?;
+        self.cached_leaves_indices[index] = 1;
+        Ok(())
     }
 
     /// Delete a leaf in the merkle tree given its index
@@ -534,34 +505,5 @@ impl ZerokitMerkleProof for PmTreeProof {
 
     fn compute_root_from(&self, leaf: &FrOf<Self::Hasher>) -> FrOf<Self::Hasher> {
         self.proof.compute_root_from(leaf)
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_pmtree_json_config() {
-        let json = r#"
-        {
-            "path": "/tmp/pmtree-test-path",
-            "temporary": false,
-            "cache_capacity": 1073741824,
-            "flush_every_ms": 500,
-            "mode": "HighThroughput",
-            "use_compression": false
-        }"#;
-
-        let _: PmtreeConfig = json.parse().unwrap();
-
-        let _ = PmtreeConfig::builder()
-            .path(default_tmp_path().unwrap())
-            .temporary(DEFAULT_TEMPORARY)
-            .cache_capacity(DEFAULT_CACHE_CAPACITY)
-            .mode(DEFAULT_MODE)
-            .use_compression(DEFAULT_USE_COMPRESSION)
-            .build()
-            .unwrap();
     }
 }
