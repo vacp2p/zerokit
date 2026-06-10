@@ -10,7 +10,6 @@ path = "src/examples/relay.rs"
 [[example]]
 name = "stateless"
 path = "src/examples/stateless.rs"
-required-features = ["stateless"]
 
 [[example]]
 name = "multi_message_id"
@@ -27,7 +26,6 @@ clap = { version = "4.6.1", features = ["cargo", "derive", "env"] }
 
 [features]
 default = ["rln/pmtree-ft", "rln/parallel"]
-stateless = ["rln/stateless", "rln/parallel"]
 
 [package.metadata.docs.rs]
 all-features = true

@@ -1,5 +1,3 @@
-#![cfg(feature = "stateless")]
-
 use std::{
     collections::HashMap,
     io::{stdin, stdout, Write},
@@ -7,10 +5,13 @@ use std::{
 
 use clap::{Parser, Subcommand};
 use rln::prelude::{
-    hash_to_field_le, keygen, poseidon_hash, recover_id_secret, Fr, IdSecret, PoseidonHash,
-    RLNProofValues, RLNWitnessInput, DEFAULT_TREE_DEPTH, RLN,
+    default_graph_single, default_zkey_single, hash_to_field_le, keygen, poseidon_hash,
+    ArkGroth16Backend, Fr, IdSecret, PoseidonHash, RLNBuilder, RLNProofValuesV3, RLNWitnessInputV3,
+    RecoverSecret, Stateless, DEFAULT_TREE_DEPTH, RLNV3,
 };
-use zerokit_utils::merkle_tree::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
+use zerokit_utils::merkle_tree::{
+    Hasher, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
+};
 
 const MESSAGE_LIMIT: u32 = 1;
 
@@ -57,26 +58,27 @@ impl Identity {
 }
 
 struct RLNSystem {
-    rln: RLN,
+    rln: RLNV3<Stateless, ArkGroth16Backend>,
     tree: OptimalMerkleTree<PoseidonHash>,
-    used_nullifiers: HashMap<Fr, RLNProofValues>,
+    used_nullifiers: HashMap<Fr, RLNProofValuesV3>,
     local_identities: HashMap<usize, Identity>,
 }
 
 impl RLNSystem {
     fn new() -> Result<Self> {
-        let rln = RLN::new()?;
-        let default_leaf = Fr::from(0);
-        let tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
+        let rln = RLNBuilder::stateless()
+            .graph(default_graph_single().clone())
+            .zkey(default_zkey_single().clone())
+            .build();
+        let optimal_merkle_tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
             DEFAULT_TREE_DEPTH,
-            default_leaf,
+            PoseidonHash::default_leaf(),
             ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
-        )
-        .unwrap();
+        )?;
         println!("RLN stateless instance initialized successfully");
         Ok(RLNSystem {
             rln,
-            tree,
+            tree: optimal_merkle_tree,
             used_nullifiers: HashMap::new(),
             local_identities: HashMap::new(),
         })
@@ -118,7 +120,7 @@ impl RLNSystem {
         message_id: u32,
         signal: &str,
         external_nullifier: Fr,
-    ) -> Result<RLNProofValues> {
+    ) -> Result<RLNProofValuesV3> {
         let identity = match self.local_identities.get(&user_index) {
             Some(identity) => identity,
             None => return Err(format!("User {user_index} not found").into()),
@@ -127,17 +129,17 @@ impl RLNSystem {
         let merkle_proof = self.tree.proof(user_index)?;
         let x = hash_to_field_le(signal.as_bytes());
 
-        let witness = RLNWitnessInput::new_single(
-            identity.identity_secret.clone(),
-            Fr::from(MESSAGE_LIMIT),
-            Fr::from(message_id),
-            merkle_proof.get_path_elements(),
-            merkle_proof.get_path_index(),
-            x,
-            external_nullifier,
-        )?;
+        let witness = RLNWitnessInputV3::new_single()
+            .identity_secret(identity.identity_secret.clone())
+            .user_message_limit(Fr::from(MESSAGE_LIMIT))
+            .path_elements(merkle_proof.get_path_elements())
+            .identity_path_index(merkle_proof.get_path_index())
+            .x(x)
+            .external_nullifier(external_nullifier)
+            .message_id(Fr::from(message_id))
+            .build()?;
 
-        let (proof, proof_values) = self.rln.generate_rln_proof(&witness)?;
+        let (proof, proof_values) = self.rln.generate_proof(&witness)?;
         println!("Proof generated successfully:");
         println!("+ User: {user_index}");
         println!("+ Message ID: {message_id}");
@@ -155,29 +157,31 @@ impl RLNSystem {
         Ok(proof_values)
     }
 
-    fn check_nullifier(&mut self, proof_values: RLNProofValues) -> Result<()> {
+    fn check_nullifier(&mut self, proof_values: RLNProofValuesV3) -> Result<()> {
         let tree_root = self.tree.root();
 
-        if *proof_values.root() != tree_root {
+        if proof_values.root() != tree_root {
             println!("Check nullifier failed: invalid root");
             return Ok(());
         }
 
-        if let Some(previous_proof_values) = self.used_nullifiers.get(proof_values.nullifier()) {
-            self.handle_duplicate_nullifier(previous_proof_values.clone(), proof_values)?;
-            return Ok(());
+        if let Some(nullifier) = proof_values.nullifier() {
+            if let Some(previous_proof_values) = self.used_nullifiers.get(&nullifier) {
+                self.handle_duplicate_nullifier(previous_proof_values.clone(), proof_values)?;
+                return Ok(());
+            }
+
+            self.used_nullifiers.insert(nullifier, proof_values);
+            println!("Message verified and accepted");
         }
 
-        self.used_nullifiers
-            .insert(*proof_values.nullifier(), proof_values);
-        println!("Message verified and accepted");
         Ok(())
     }
 
     fn handle_duplicate_nullifier(
         &mut self,
-        previous_proof_values: RLNProofValues,
-        current_proof_values: RLNProofValues,
+        previous_proof_values: RLNProofValuesV3,
+        current_proof_values: RLNProofValuesV3,
     ) -> Result<()> {
         if previous_proof_values.x() == current_proof_values.x()
             && previous_proof_values.y() == current_proof_values.y()
@@ -185,7 +189,7 @@ impl RLNSystem {
             return Err("this exact message and signal has already been sent".into());
         }
 
-        match recover_id_secret(&previous_proof_values, &current_proof_values) {
+        match previous_proof_values.recover_secret(&current_proof_values) {
             Ok(leaked_identity_secret) => {
                 if let Some((user_index, identity)) = self
                     .local_identities

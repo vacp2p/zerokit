@@ -1,20 +1,21 @@
 use std::{
     collections::HashMap,
-    fs::File,
-    io::{stdin, stdout, Read, Write},
-    path::{Path, PathBuf},
+    io::{stdin, stdout, Write},
 };
 
 use clap::{Parser, Subcommand};
 use rln::prelude::{
-    hash_to_field_le, keygen, poseidon_hash, recover_id_secret, Fr, IdSecret, PmtreeConfigBuilder,
-    RLNProofValues, RLNWitnessInput, DEFAULT_TREE_DEPTH, RLN,
+    default_graph_multi, default_zkey_multi, hash_to_field_le, keygen, poseidon_hash,
+    ArkGroth16Backend, Fr, IdSecret, PmTree, PmTreeConfig, PoseidonHash, RLNBuilder,
+    RLNProofValuesV3, RLNWitnessInputV3, RecoverSecret, Stateful, RLNV3,
 };
-use zerokit_utils::pm_tree::Mode;
+use zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
 
 const MESSAGE_LIMIT: u32 = 4;
 
-const TREE_DEPTH: usize = DEFAULT_TREE_DEPTH;
+const TREE_DEPTH: usize = 20;
+
+const MAX_OUT: usize = 4;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -60,39 +61,33 @@ impl Identity {
 }
 
 struct RLNSystem {
-    rln: RLN,
-    used_nullifiers: HashMap<Fr, RLNProofValues>,
+    rln: RLNV3<Stateful<PmTree>, ArkGroth16Backend>,
+    used_nullifiers: HashMap<Fr, RLNProofValuesV3>,
     local_identities: HashMap<usize, Identity>,
 }
 
 impl RLNSystem {
     fn new() -> Result<Self> {
-        let mut resources: Vec<Vec<u8>> = Vec::new();
-        let resources_path: PathBuf =
-            format!("../rln/resources/tree_depth_{TREE_DEPTH}/multi_message_id/max_out_4").into();
-        let filenames = ["rln_final.arkzkey", "graph.bin"];
-        for filename in filenames {
-            let fullpath = resources_path.join(Path::new(filename));
-            let mut file = File::open(&fullpath)?;
-            let metadata = std::fs::metadata(&fullpath)?;
-            let mut output_buffer = vec![0; metadata.len() as usize];
-            file.read_exact(&mut output_buffer)?;
-            resources.push(output_buffer);
-        }
-        let tree_config = PmtreeConfigBuilder::new()
-            .path("./database")
-            .temporary(false)
-            .cache_capacity(1073741824)
-            .flush_every_ms(500)
-            .mode(Mode::HighThroughput)
-            .use_compression(false)
-            .build()?;
-        let rln = RLN::new_with_params(
+        let pm_tree_config: PmTreeConfig = r#"{
+            "path": "./database",
+            "temporary": false,
+            "cache_capacity": 1073741824,
+            "flush_every_ms": 500,
+            "mode": "HighThroughput",
+            "use_compression": false,
+            "tree_depth": 20
+        }"#
+        .parse()?;
+        let pm_tree = <PmTree as ZerokitMerkleTree>::new(
             TREE_DEPTH,
-            resources[0].clone(),
-            resources[1].clone(),
-            tree_config,
+            PoseidonHash::default_leaf(),
+            pm_tree_config,
         )?;
+        let rln = RLNBuilder::stateful()
+            .tree(pm_tree)
+            .graph(default_graph_multi().clone())
+            .zkey(default_zkey_multi().clone())
+            .build();
         println!("RLN multi-message-id instance initialized successfully");
         Ok(RLNSystem {
             rln,
@@ -144,13 +139,8 @@ impl RLNSystem {
                 Ok(Fr::from(id))
             })
             .collect::<Result<Vec<Fr>>>()?;
-        if ids.len() != self.rln.max_out() {
-            return Err(format!(
-                "expected {} message IDs, got {}",
-                self.rln.max_out(),
-                ids.len()
-            )
-            .into());
+        if ids.len() != MAX_OUT {
+            return Err(format!("expected {} message IDs, got {}", MAX_OUT, ids.len()).into());
         }
         Ok(ids)
     }
@@ -164,10 +154,10 @@ impl RLNSystem {
                 other => Err(format!("invalid selector value: '{other}'")),
             })
             .collect::<std::result::Result<Vec<bool>, String>>()?;
-        if selector.len() != self.rln.max_out() {
+        if selector.len() != MAX_OUT {
             return Err(format!(
                 "expected {} selector values, got {}",
-                self.rln.max_out(),
+                MAX_OUT,
                 selector.len()
             )
             .into());
@@ -182,37 +172,34 @@ impl RLNSystem {
         selector_used: Vec<bool>,
         signal: &str,
         external_nullifier: Fr,
-    ) -> Result<RLNProofValues> {
+    ) -> Result<RLNProofValuesV3> {
         let identity = match self.local_identities.get(&user_index) {
             Some(identity) => identity,
             None => return Err(format!("User {user_index} not found").into()),
         };
 
-        let (path_elements, identity_path_index) = self.rln.get_merkle_proof(user_index)?;
+        let merkle_proof = self.rln.get_merkle_proof(user_index)?;
         let x = hash_to_field_le(signal.as_bytes());
 
-        let witness = RLNWitnessInput::new_multi(
-            identity.identity_secret.clone(),
-            Fr::from(MESSAGE_LIMIT),
-            message_ids.clone(),
-            path_elements,
-            identity_path_index,
-            x,
-            external_nullifier,
-            selector_used.clone(),
-        )?;
+        let witness = RLNWitnessInputV3::new_multi()
+            .identity_secret(identity.identity_secret.clone())
+            .user_message_limit(Fr::from(MESSAGE_LIMIT))
+            .path_elements(merkle_proof.get_path_elements())
+            .identity_path_index(merkle_proof.get_path_index())
+            .x(x)
+            .external_nullifier(external_nullifier)
+            .message_ids(message_ids)
+            .selector_used(selector_used.clone())
+            .build()?;
 
-        let (proof, proof_values) = self.rln.generate_rln_proof(&witness)?;
+        let (proof, proof_values) = self.rln.generate_proof(&witness)?;
         let active_count = selector_used.iter().filter(|&&s| s).count();
         println!("Proof generated successfully:");
         println!("+ User: {user_index}");
-        println!(
-            "+ Active message slots: {active_count}/{}",
-            self.rln.max_out()
-        );
+        println!("+ Active message slots: {active_count}/{}", MAX_OUT);
         println!("+ Signal: {signal}");
 
-        let verified = self.rln.verify_rln_proof(&proof, &proof_values, &x)?;
+        let verified = self.rln.verify(&proof, &proof_values)?;
         if verified {
             println!("Proof verified successfully");
         }
@@ -220,38 +207,44 @@ impl RLNSystem {
         Ok(proof_values)
     }
 
-    fn check_nullifier(&mut self, proof_values: RLNProofValues) -> Result<()> {
-        let nullifiers: Vec<Fr> = proof_values.nullifiers().to_vec();
-        let selector: Vec<bool> = proof_values.selector_used().to_vec();
+    fn check_nullifier(&mut self, proof_values: RLNProofValuesV3) -> Result<()> {
+        if let (Some(nullifiers), Some(selector)) =
+            (proof_values.nullifiers(), proof_values.selector_used())
+        {
+            for (i, (nullifier, active)) in nullifiers.iter().zip(selector.iter()).enumerate() {
+                if !active {
+                    continue;
+                }
 
-        for (i, (nullifier, active)) in nullifiers.iter().zip(selector.iter()).enumerate() {
-            if !active {
-                continue;
+                if let Some(previous_proof_values) = self.used_nullifiers.get(nullifier) {
+                    self.handle_duplicate_nullifier(
+                        previous_proof_values.clone(),
+                        proof_values,
+                        i,
+                    )?;
+                    return Ok(());
+                }
             }
 
-            if let Some(previous_proof_values) = self.used_nullifiers.get(nullifier) {
-                self.handle_duplicate_nullifier(previous_proof_values.clone(), proof_values, i)?;
-                return Ok(());
+            for (nullifier, active) in nullifiers.iter().zip(selector.iter()) {
+                if *active {
+                    self.used_nullifiers
+                        .insert(*nullifier, proof_values.clone());
+                }
             }
+            println!("Message verified and accepted");
         }
 
-        for (nullifier, active) in nullifiers.iter().zip(selector.iter()) {
-            if *active {
-                self.used_nullifiers
-                    .insert(*nullifier, proof_values.clone());
-            }
-        }
-        println!("Message verified and accepted");
         Ok(())
     }
 
     fn handle_duplicate_nullifier(
         &mut self,
-        previous_proof_values: RLNProofValues,
-        current_proof_values: RLNProofValues,
+        previous_proof_values: RLNProofValuesV3,
+        current_proof_values: RLNProofValuesV3,
         duplicated_slot: usize,
     ) -> Result<()> {
-        match recover_id_secret(&previous_proof_values, &current_proof_values) {
+        match previous_proof_values.recover_secret(&current_proof_values) {
             Ok(leaked_identity_secret) => {
                 if let Some((user_index, identity)) = self
                     .local_identities
@@ -290,7 +283,7 @@ fn main() -> Result<()> {
     let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]);
     println!("RLN Multi-Message-ID Example:");
     println!("Message Limit: {MESSAGE_LIMIT}");
-    println!("Message Slots: {} - MAX_OUT", rln_system.rln.max_out());
+    println!("Message Slots: 1 - {MAX_OUT}");
     println!("----------------------------------");
     println!();
     show_commands();
