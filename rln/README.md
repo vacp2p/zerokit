@@ -415,11 +415,11 @@ and look at unit tests to have a hint on how to interface and use them.
 - Check the [rln-cli examples](https://github.com/vacp2p/zerokit/tree/master/rln-cli/src/examples)
   for complete interactive Rust examples of RLN features
   (relay, stateless, multi-message-id, partial)
-- [RFC specification](https://lip.logos.co/ift-ts/raw/rln-v2)
+- [RFC specification](https://lip.logos.co/anoncomms/raw/rln-v2.html)
   for the Rate-Limiting Nullifier protocol
-- [Multi-Message-ID RLN RFC](https://lip.logos.co/ift-ts/raw/multi-message_id-burn-rln)
+- [Multi-Message-ID RLN RFC](https://lip.logos.co/anoncomms/raw/multi-message_id-burn-rln.html)
   for details on the multi-message-ID extension
-- [Zerokit API documentation](https://lip.logos.co/ift-ts/raw/zerokit-api.html)
+- [Zerokit API documentation](https://lip.logos.co/anoncomms/raw/zerokit-api.html)
   for comprehensive API reference
 - [GitHub repository](https://github.com/vacp2p/zerokit)
   for the latest updates
