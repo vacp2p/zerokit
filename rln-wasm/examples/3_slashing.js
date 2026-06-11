@@ -1,6 +1,6 @@
 import {
   initRLN,
-  createMembership,
+  createMember,
   buildMerkleProof,
   computeExternalNullifier,
   hashSignal,
@@ -9,8 +9,8 @@ import {
 
 async function main() {
   const env = await initRLN();
-  const membership = createMembership(env);
-  const merkleProof = buildMerkleProof(env, membership.rateCommitment);
+  const member = createMember(env);
+  const merkleProof = buildMerkleProof(env, member.rateCommitment);
   const externalNullifier = computeExternalNullifier(env);
 
   console.log("\nHashing first signal");
@@ -30,7 +30,7 @@ async function main() {
   try {
     witness1 = createWitness(
       env,
-      membership,
+      member,
       merkleProof,
       messageId1,
       x1,
@@ -93,7 +93,7 @@ async function main() {
   try {
     witness2 = createWitness(
       env,
-      membership,
+      member,
       merkleProof,
       messageId2,
       x2,
@@ -143,7 +143,7 @@ async function main() {
       return;
     }
     console.log("  - recovered secret = " + recoveredSecret.debug());
-    console.log("  - identity secret = " + membership.identitySecret.debug());
+    console.log("  - identity secret = " + member.identitySecret.debug());
     console.log("  - identity recovered successfully");
   } else {
     console.log("Second proof verification failed");

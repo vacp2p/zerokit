@@ -45,7 +45,7 @@ export async function initRLN(multiMessageId = false) {
   return { rlnWasm, rlnInstance, multiMessageId };
 }
 
-export function createMembership(env) {
+export function createMember(env) {
   const { rlnWasm } = env;
   console.log("\nGenerating identity keys");
   const identity = rlnWasm.Identity.generate();

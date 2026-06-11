@@ -1,6 +1,6 @@
 import {
   initRLN,
-  createMembership,
+  createMember,
   buildMerkleProof,
   computeExternalNullifier,
   hashSignal,
@@ -35,8 +35,8 @@ function roundtrip(typeName, subject, value, fromBytesLE, show) {
 async function main() {
   const env = await initRLN();
   const { rlnWasm, rlnInstance } = env;
-  const membership = createMembership(env);
-  const merkleProof = buildMerkleProof(env, membership.rateCommitment);
+  const member = createMember(env);
+  const merkleProof = buildMerkleProof(env, member.rateCommitment);
   const externalNullifier = computeExternalNullifier(env);
 
   console.log("\nHashing signal");
@@ -56,7 +56,7 @@ async function main() {
   try {
     witness = createWitness(
       env,
-      membership,
+      member,
       merkleProof,
       messageId,
       x,
@@ -107,7 +107,7 @@ async function main() {
   roundtrip(
     "WasmFr",
     "rate commitment",
-    membership.rateCommitment,
+    member.rateCommitment,
     rlnWasm.WasmFr.fromBytesLE,
     (value) => "deserialized rate commitment = " + value.debug(),
   );
@@ -115,7 +115,7 @@ async function main() {
   roundtrip(
     "Identity",
     "identity",
-    membership.identity,
+    member.identity,
     rlnWasm.Identity.fromBytesLE,
     (value) =>
       "deserialized identity = [" +

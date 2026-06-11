@@ -1,6 +1,6 @@
 import {
   initRLN,
-  createMembership,
+  createMember,
   buildMerkleProof,
   computeExternalNullifier,
   hashSignal,
@@ -9,7 +9,7 @@ import {
 
 function createMultiWitness(
   env,
-  membership,
+  member,
   merkleProof,
   messageIds,
   selectorUsed,
@@ -17,8 +17,8 @@ function createMultiWitness(
   externalNullifier,
 ) {
   return env.rlnWasm.WasmRLNWitnessInput.newMulti(
-    membership.identitySecret,
-    membership.userMessageLimit,
+    member.identitySecret,
+    member.userMessageLimit,
     messageIds,
     merkleProof.pathElements,
     merkleProof.identityPathIndex,
@@ -31,8 +31,8 @@ function createMultiWitness(
 async function main() {
   const env = await initRLN(true);
   const { rlnWasm, rlnInstance } = env;
-  const membership = createMembership(env);
-  const merkleProof = buildMerkleProof(env, membership.rateCommitment);
+  const member = createMember(env);
+  const merkleProof = buildMerkleProof(env, member.rateCommitment);
   const externalNullifier = computeExternalNullifier(env);
 
   console.log("\nHashing first signal");
@@ -60,7 +60,7 @@ async function main() {
   try {
     witness1 = createMultiWitness(
       env,
-      membership,
+      member,
       merkleProof,
       messageIds1,
       selectorUsed1,
@@ -138,7 +138,7 @@ async function main() {
   try {
     witness2 = createMultiWitness(
       env,
-      membership,
+      member,
       merkleProof,
       messageIds2,
       selectorUsed2,
@@ -185,7 +185,7 @@ async function main() {
       return;
     }
     console.log("  - recovered secret = " + recoveredSecret.debug());
-    console.log("  - identity secret = " + membership.identitySecret.debug());
+    console.log("  - identity secret = " + member.identitySecret.debug());
     console.log("  - identity recovered successfully");
   } else {
     console.log("Second proof verification failed");

@@ -1,6 +1,6 @@
 import {
   initRLN,
-  createMembership,
+  createMember,
   buildMerkleProof,
   computeExternalNullifier,
   hashSignal,
@@ -9,8 +9,8 @@ import {
 
 async function main() {
   const env = await initRLN();
-  const membership = createMembership(env);
-  const merkleProof = buildMerkleProof(env, membership.rateCommitment);
+  const member = createMember(env);
+  const merkleProof = buildMerkleProof(env, member.rateCommitment);
   const externalNullifier = computeExternalNullifier(env);
 
   console.log("\nHashing signal");
@@ -30,7 +30,7 @@ async function main() {
   try {
     witness = createWitness(
       env,
-      membership,
+      member,
       merkleProof,
       messageId,
       x,
