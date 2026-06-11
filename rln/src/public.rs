@@ -957,8 +957,16 @@ pub struct RLNBuilder<ZKP>(PhantomData<ZKP>);
 impl RLNBuilder<ArkGroth16Backend> {
     #[builder(finish_fn = build)]
     pub fn stateless(
-        #[builder(default = default_graph_single().clone())] graph: Graph,
-        #[builder(default = default_zkey_single().clone())] zkey: Zkey,
+        #[cfg_attr(
+            not(target_arch = "wasm32"),
+            builder(default = default_graph_single().clone())
+        )]
+        graph: Graph,
+        #[cfg_attr(
+            not(target_arch = "wasm32"),
+            builder(default = default_zkey_single().clone())
+        )]
+        zkey: Zkey,
     ) -> RLNV3<Stateless, ArkGroth16Backend> {
         RLNV3::<Stateless, ArkGroth16Backend>::new(ArkGroth16Backend::new(zkey, graph))
     }
@@ -966,8 +974,16 @@ impl RLNBuilder<ArkGroth16Backend> {
     #[builder(finish_fn = build)]
     pub fn stateful<Tree>(
         tree: Tree,
-        #[builder(default = default_graph_single().clone())] graph: Graph,
-        #[builder(default = default_zkey_single().clone())] zkey: Zkey,
+        #[cfg_attr(
+            not(target_arch = "wasm32"),
+            builder(default = default_graph_single().clone())
+        )]
+        graph: Graph,
+        #[cfg_attr(
+            not(target_arch = "wasm32"),
+            builder(default = default_zkey_single().clone())
+        )]
+        zkey: Zkey,
     ) -> RLNV3<Stateful<Tree>, ArkGroth16Backend> {
         RLNV3::<Stateful<Tree>, ArkGroth16Backend>::new(tree, ArkGroth16Backend::new(zkey, graph))
     }
