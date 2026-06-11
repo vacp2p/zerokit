@@ -184,8 +184,8 @@ impl RLNSystem {
 
     fn check_nullifier(&mut self, proof_values: RLNProofValuesV3) -> Result<()> {
         if let Some(nullifier) = proof_values.nullifier() {
-            if let Some(previous_proof_values) = self.used_nullifiers.get(&nullifier) {
-                self.handle_duplicate_nullifier(previous_proof_values.clone(), proof_values)?;
+            if let Some(previous_proof_values) = self.used_nullifiers.get(&nullifier).cloned() {
+                self.handle_duplicate_nullifier(&previous_proof_values, &proof_values)?;
                 return Ok(());
             }
 
@@ -198,8 +198,8 @@ impl RLNSystem {
 
     fn handle_duplicate_nullifier(
         &mut self,
-        previous_proof_values: RLNProofValuesV3,
-        current_proof_values: RLNProofValuesV3,
+        previous_proof_values: &RLNProofValuesV3,
+        current_proof_values: &RLNProofValuesV3,
     ) -> Result<()> {
         if previous_proof_values.x() == current_proof_values.x()
             && previous_proof_values.y() == current_proof_values.y()
@@ -207,7 +207,7 @@ impl RLNSystem {
             return Err("this exact message and signal has already been sent".into());
         }
 
-        match previous_proof_values.recover_secret(&current_proof_values) {
+        match previous_proof_values.recover_secret(current_proof_values) {
             Ok(leaked_identity_secret) => {
                 if let Some((user_index, identity)) = self
                     .local_identities

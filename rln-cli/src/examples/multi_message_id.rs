@@ -181,6 +181,7 @@ impl RLNSystem {
         let merkle_proof = self.rln.get_merkle_proof(user_index)?;
         let x = hash_to_field_le(signal.as_bytes());
 
+        let active_count = selector_used.iter().filter(|&&s| s).count();
         let witness = RLNWitnessInputV3::new_multi()
             .identity_secret(identity.identity_secret.clone())
             .user_message_limit(Fr::from(MESSAGE_LIMIT))
@@ -189,11 +190,10 @@ impl RLNSystem {
             .x(x)
             .external_nullifier(external_nullifier)
             .message_ids(message_ids)
-            .selector_used(selector_used.clone())
+            .selector_used(selector_used)
             .build()?;
 
         let (proof, proof_values) = self.rln.generate_proof(&witness)?;
-        let active_count = selector_used.iter().filter(|&&s| s).count();
         println!("Proof generated successfully:");
         println!("+ User: {user_index}");
         println!("+ Active message slots: {active_count}/{}", MAX_OUT);
@@ -216,12 +216,8 @@ impl RLNSystem {
                     continue;
                 }
 
-                if let Some(previous_proof_values) = self.used_nullifiers.get(nullifier) {
-                    self.handle_duplicate_nullifier(
-                        previous_proof_values.clone(),
-                        proof_values,
-                        i,
-                    )?;
+                if let Some(previous_proof_values) = self.used_nullifiers.get(nullifier).cloned() {
+                    self.handle_duplicate_nullifier(&previous_proof_values, &proof_values, i)?;
                     return Ok(());
                 }
             }
@@ -240,11 +236,11 @@ impl RLNSystem {
 
     fn handle_duplicate_nullifier(
         &mut self,
-        previous_proof_values: RLNProofValuesV3,
-        current_proof_values: RLNProofValuesV3,
+        previous_proof_values: &RLNProofValuesV3,
+        current_proof_values: &RLNProofValuesV3,
         duplicated_slot: usize,
     ) -> Result<()> {
-        match previous_proof_values.recover_secret(&current_proof_values) {
+        match previous_proof_values.recover_secret(current_proof_values) {
             Ok(leaked_identity_secret) => {
                 if let Some((user_index, identity)) = self
                     .local_identities

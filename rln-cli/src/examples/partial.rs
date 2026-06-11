@@ -188,7 +188,7 @@ impl RLNSystem {
         let current_root = self.rln.get_root();
         self.partial_proofs.clear();
         for user_index in indices {
-            let identity = self.local_identities[&user_index].clone();
+            let identity = &self.local_identities[&user_index];
             let merkle_proof = self.rln.get_merkle_proof(user_index)?;
             let witness = RLNWitnessInputV3::new_single()
                 .identity_secret(identity.identity_secret.clone())
@@ -230,62 +230,58 @@ impl RLNSystem {
         let x = hash_to_field_le(signal.as_bytes());
         let current_root = self.rln.get_root();
 
-        let (witness, partial_proof) = match self.partial_proofs.get(&user_index) {
-            Some(cached) if self.root_is_recent(&cached.root) => {
-                println!(
-                    "Using cached partial proof for user {user_index} (root {})",
-                    cached.root
-                );
-                let witness = RLNWitnessInputV3::new_single()
-                    .identity_secret(identity.identity_secret.clone())
-                    .user_message_limit(Fr::from(MESSAGE_LIMIT))
-                    .path_elements(cached.path_elements.clone())
-                    .identity_path_index(cached.path_index.clone())
-                    .x(x)
-                    .external_nullifier(external_nullifier)
-                    .message_id(Fr::from(message_id))
-                    .build()?;
-                (witness, cached.proof.clone())
-            }
-            _ => {
-                println!(
-                    "Cached partial proof missing or stale for user {user_index}; generating fresh proof"
-                );
-                let merkle_proof = self.rln.get_merkle_proof(user_index)?;
-                let witness = RLNWitnessInputV3::new_single()
-                    .identity_secret(identity.identity_secret.clone())
-                    .user_message_limit(Fr::from(MESSAGE_LIMIT))
-                    .path_elements(merkle_proof.get_path_elements())
-                    .identity_path_index(merkle_proof.get_path_index())
-                    .x(x)
-                    .external_nullifier(external_nullifier)
-                    .message_id(Fr::from(message_id))
-                    .build()?;
-                let partial_witness = RLNPartialWitnessInputV3::from(&witness);
-                let generated = self.rln.generate_partial_proof(&partial_witness)?;
-                self.partial_proofs.insert(
-                    user_index,
-                    CachedPartialProof {
-                        root: current_root,
-                        proof: generated.clone(),
-                        path_elements: merkle_proof.get_path_elements(),
-                        path_index: merkle_proof.get_path_index(),
-                    },
-                );
-                (witness, generated)
-            }
-        };
+        let cache_is_fresh = matches!(
+            self.partial_proofs.get(&user_index),
+            Some(cached) if self.root_is_recent(&cached.root)
+        );
+        if cache_is_fresh {
+            println!("Using cached partial proof for user {user_index}");
+        } else {
+            println!(
+                "Cached partial proof missing or stale for user {user_index}; generating fresh proof"
+            );
+            let merkle_proof = self.rln.get_merkle_proof(user_index)?;
+            let partial_witness = RLNPartialWitnessInputV3::new()
+                .identity_secret(identity.identity_secret.clone())
+                .user_message_limit(Fr::from(MESSAGE_LIMIT))
+                .path_elements(merkle_proof.get_path_elements())
+                .identity_path_index(merkle_proof.get_path_index())
+                .build()?;
+            let generated = self.rln.generate_partial_proof(&partial_witness)?;
+            self.partial_proofs.insert(
+                user_index,
+                CachedPartialProof {
+                    root: current_root,
+                    proof: generated,
+                    path_elements: merkle_proof.get_path_elements(),
+                    path_index: merkle_proof.get_path_index(),
+                },
+            );
+        }
 
-        let (proof, proof_values) = self.rln.finish_proof(&partial_proof, &witness)?;
+        let cached = &self.partial_proofs[&user_index];
+        let witness = RLNWitnessInputV3::new_single()
+            .identity_secret(identity.identity_secret.clone())
+            .user_message_limit(Fr::from(MESSAGE_LIMIT))
+            .path_elements(cached.path_elements.clone())
+            .identity_path_index(cached.path_index.clone())
+            .x(x)
+            .external_nullifier(external_nullifier)
+            .message_id(Fr::from(message_id))
+            .build()?;
+
+        let (proof, proof_values) = self.rln.finish_proof(&cached.proof, &witness)?;
         println!("Proof generated successfully:");
         println!("+ User: {user_index}");
         println!("+ Message ID: {message_id}");
         println!("+ Signal: {signal}");
 
-        let latest_roots: Vec<Fr> = self.latest_roots.iter().copied().collect();
-        let verified = self
-            .rln
-            .verify_with_roots(&proof, &proof_values, &x, &latest_roots)?;
+        let verified = self.rln.verify_with_roots(
+            &proof,
+            &proof_values,
+            &x,
+            self.latest_roots.make_contiguous(),
+        )?;
         if verified {
             println!("Proof verified successfully");
         }
@@ -295,8 +291,8 @@ impl RLNSystem {
 
     fn check_nullifier(&mut self, proof_values: RLNProofValuesV3) -> Result<()> {
         if let Some(nullifier) = proof_values.nullifier() {
-            if let Some(previous_proof_values) = self.used_nullifiers.get(&nullifier) {
-                self.handle_duplicate_nullifier(previous_proof_values.clone(), proof_values)?;
+            if let Some(previous_proof_values) = self.used_nullifiers.get(&nullifier).cloned() {
+                self.handle_duplicate_nullifier(&previous_proof_values, &proof_values)?;
                 return Ok(());
             }
 
@@ -309,8 +305,8 @@ impl RLNSystem {
 
     fn handle_duplicate_nullifier(
         &mut self,
-        previous_proof_values: RLNProofValuesV3,
-        current_proof_values: RLNProofValuesV3,
+        previous_proof_values: &RLNProofValuesV3,
+        current_proof_values: &RLNProofValuesV3,
     ) -> Result<()> {
         if previous_proof_values.x() == current_proof_values.x()
             && previous_proof_values.y() == current_proof_values.y()
@@ -318,7 +314,7 @@ impl RLNSystem {
             return Err("this exact message and signal has already been sent".into());
         }
 
-        match previous_proof_values.recover_secret(&current_proof_values) {
+        match previous_proof_values.recover_secret(current_proof_values) {
             Ok(leaked_identity_secret) => {
                 if let Some((user_index, identity)) = self
                     .local_identities

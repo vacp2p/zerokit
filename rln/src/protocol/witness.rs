@@ -1007,6 +1007,8 @@ impl RLNWitnessInputV3 {
     }
 }
 
+// TODO(PR11): add a `merkle_proof` setter accepting `impl ZerokitMerkleProof` as an
+// alternative to the `path_elements` + `identity_path_index` pair (keep both ways).
 #[bon]
 impl RLNWitnessInputV3 {
     #[builder(finish_fn = build)]
