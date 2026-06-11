@@ -45,7 +45,7 @@ export async function initRLN(multiMessageId = false) {
   return { rlnWasm, rlnInstance, multiMessageId };
 }
 
-export function generateIdentity(env) {
+export function createMembership(env) {
   const { rlnWasm } = env;
   console.log("\nGenerating identity keys");
   const identity = rlnWasm.Identity.generate();
@@ -150,15 +150,15 @@ export function computeExternalNullifier(
 
 export function createWitness(
   env,
-  identity,
+  membership,
   merkleProof,
   messageId,
   x,
   externalNullifier,
 ) {
   return env.rlnWasm.WasmRLNWitnessInput.newSingle(
-    identity.identitySecret,
-    identity.userMessageLimit,
+    membership.identitySecret,
+    membership.userMessageLimit,
     messageId,
     merkleProof.pathElements,
     merkleProof.identityPathIndex,
