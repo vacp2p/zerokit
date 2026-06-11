@@ -3,9 +3,11 @@
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 #[cfg(not(target_arch = "wasm32"))]
-pub use crate::circuit::{graph_multi_v1, graph_single_v1, zkey_multi_v1, zkey_single_v1};
+pub use crate::circuit::{
+    default_graph_multi, default_graph_single, default_zkey_multi, default_zkey_single,
+};
 #[cfg(feature = "pmtree-ft")]
-pub use crate::pm_tree_adapter::{FrOf, PmTree, PmTreeProof, PmtreeConfig, PmtreeConfigBuilder};
+pub use crate::pm_tree_adapter::{FrOf, PmTree, PmTreeConfig, PmTreeProof};
 #[cfg(not(feature = "stateless"))]
 pub use crate::poseidon_tree::{MerkleProof, PoseidonTree};
 #[cfg(not(feature = "stateless"))]
@@ -22,7 +24,7 @@ pub use crate::{
         COMPRESS_PROOF_SIZE, DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH,
     },
     error::{
-        GenerateProofError, InitErrorV3, ProtocolError, RLNError, RLNPartialWitnessInputErrorV3,
+        GenerateProofError, ProtocolError, RLNError, RLNPartialWitnessInputErrorV3,
         RLNWitnessInputMultiErrorV3, RLNWitnessInputSingleErrorV3, RecoverSecretError,
         SerializationErrorV3, UtilsError, VerifyProofErrorV3,
     },
@@ -48,7 +50,7 @@ pub use crate::{
         RLNZkProof, RecoverSecret, Stateful, Stateless, ENUM_TAG_MULTI, ENUM_TAG_SINGLE,
         ENUM_TAG_SIZE, FR_BYTE_SIZE, FR_LIMB_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
     },
-    public::{RLN, RLNV3},
+    public::{RLNBuilder, RLN, RLNV3},
     utils::{
         bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_be_to_vec_usize,
         bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, bytes_le_to_vec_usize,

@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use bon::bon;
 use num_bigint::BigInt;
 use zeroize::Zeroize;
 
@@ -949,10 +950,10 @@ impl RLNWitnessInputV3 {
         }
     }
 
-    pub fn user_message_limit(&self) -> &Fr {
+    pub fn user_message_limit(&self) -> Fr {
         match self {
-            Self::Single(w) => &w.user_message_limit,
-            Self::Multi(w) => &w.user_message_limit,
+            Self::Single(w) => w.user_message_limit,
+            Self::Multi(w) => w.user_message_limit,
         }
     }
 
@@ -970,23 +971,23 @@ impl RLNWitnessInputV3 {
         }
     }
 
-    pub fn x(&self) -> &Fr {
+    pub fn x(&self) -> Fr {
         match self {
-            Self::Single(w) => &w.x,
-            Self::Multi(w) => &w.x,
+            Self::Single(w) => w.x,
+            Self::Multi(w) => w.x,
         }
     }
 
-    pub fn external_nullifier(&self) -> &Fr {
+    pub fn external_nullifier(&self) -> Fr {
         match self {
-            Self::Single(w) => &w.external_nullifier,
-            Self::Multi(w) => &w.external_nullifier,
+            Self::Single(w) => w.external_nullifier,
+            Self::Multi(w) => w.external_nullifier,
         }
     }
 
-    pub fn message_id(&self) -> Option<&Fr> {
+    pub fn message_id(&self) -> Option<Fr> {
         match self {
-            Self::Single(w) => Some(&w.message_id),
+            Self::Single(w) => Some(w.message_id),
             Self::Multi(_) => None,
         }
     }
@@ -1003,6 +1004,113 @@ impl RLNWitnessInputV3 {
             Self::Multi(w) => Some(&w.selector_used),
             Self::Single(_) => None,
         }
+    }
+}
+
+// TODO(PR11): add a `merkle_proof` setter accepting `impl ZerokitMerkleProof` as an
+// alternative to the `path_elements` + `identity_path_index` pair (keep both ways).
+// TODO(PR11): consider moving `validate_against_graph` from `generate_proof` into the
+// witness builder, validating against the graph at `build()` time.
+#[bon]
+impl RLNWitnessInputV3 {
+    #[builder(finish_fn = build)]
+    pub fn new_single(
+        identity_secret: IdSecret,
+        user_message_limit: Fr,
+        path_elements: Vec<Fr>,
+        identity_path_index: Vec<u8>,
+        x: Fr,
+        external_nullifier: Fr,
+        message_id: Fr,
+    ) -> Result<Self, RLNWitnessInputSingleErrorV3> {
+        if user_message_limit == Fr::from(0) {
+            return Err(RLNWitnessInputSingleErrorV3::ZeroUserMessageLimit);
+        }
+        let path_len = path_elements.len();
+        let index_len = identity_path_index.len();
+        if path_len != index_len {
+            return Err(RLNWitnessInputSingleErrorV3::PathLengthMismatch(
+                path_len, index_len,
+            ));
+        }
+        if message_id >= user_message_limit {
+            return Err(RLNWitnessInputSingleErrorV3::InvalidMessageId(
+                message_id,
+                user_message_limit,
+            ));
+        }
+
+        Ok(Self::Single(RLNWitnessInputSingle {
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+            x,
+            external_nullifier,
+            message_id,
+        }))
+    }
+
+    #[builder(finish_fn = build)]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_multi(
+        identity_secret: IdSecret,
+        user_message_limit: Fr,
+        path_elements: Vec<Fr>,
+        identity_path_index: Vec<u8>,
+        x: Fr,
+        external_nullifier: Fr,
+        message_ids: Vec<Fr>,
+        selector_used: Vec<bool>,
+    ) -> Result<Self, RLNWitnessInputMultiErrorV3> {
+        if user_message_limit == Fr::from(0) {
+            return Err(RLNWitnessInputMultiErrorV3::ZeroUserMessageLimit);
+        }
+        let path_len = path_elements.len();
+        let index_len = identity_path_index.len();
+        if path_len != index_len {
+            return Err(RLNWitnessInputMultiErrorV3::PathLengthMismatch(
+                path_len, index_len,
+            ));
+        }
+        if message_ids.is_empty() {
+            return Err(RLNWitnessInputMultiErrorV3::EmptyMessageIds);
+        }
+        if selector_used.len() != message_ids.len() {
+            return Err(RLNWitnessInputMultiErrorV3::SelectorLengthMismatch(
+                message_ids.len(),
+                selector_used.len(),
+            ));
+        }
+        if !selector_used.iter().any(|&s| s) {
+            return Err(RLNWitnessInputMultiErrorV3::NoActiveSelectorUsed);
+        }
+        {
+            let mut seen = HashSet::with_capacity(message_ids.len());
+            for (id, &used) in message_ids.iter().zip(&selector_used) {
+                if used && !seen.insert(*id) {
+                    return Err(RLNWitnessInputMultiErrorV3::DuplicateMessageIds);
+                }
+            }
+        }
+        for (message_id, used) in message_ids.iter().zip(&selector_used) {
+            if *used && *message_id >= user_message_limit {
+                return Err(RLNWitnessInputMultiErrorV3::InvalidMessageId(
+                    *message_id,
+                    user_message_limit,
+                ));
+            }
+        }
+        Ok(Self::Multi(RLNWitnessInputMulti {
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+            x,
+            external_nullifier,
+            message_ids,
+            selector_used,
+        }))
     }
 }
 
@@ -1023,6 +1131,14 @@ impl RLNWitnessInputV3 {
                 graph.tree_depth,
                 index_len,
             ));
+        }
+        if let Self::Single(_) = self {
+            if graph.max_out != 1 {
+                return Err(GenerateProofError::MessageIdsLengthMismatch(
+                    graph.max_out,
+                    1,
+                ));
+            }
         }
         if let Self::Multi(w) = self {
             if w.message_ids.len() != graph.max_out {
@@ -1180,44 +1296,6 @@ pub struct RLNWitnessInputSingle {
     pub(crate) message_id: Fr,
 }
 
-impl RLNWitnessInputSingle {
-    pub fn new(
-        identity_secret: IdSecret,
-        user_message_limit: Fr,
-        path_elements: Vec<Fr>,
-        identity_path_index: Vec<u8>,
-        x: Fr,
-        external_nullifier: Fr,
-        message_id: Fr,
-    ) -> Result<Self, RLNWitnessInputSingleErrorV3> {
-        if user_message_limit == Fr::from(0) {
-            return Err(RLNWitnessInputSingleErrorV3::ZeroUserMessageLimit);
-        }
-        let path_len = path_elements.len();
-        let index_len = identity_path_index.len();
-        if path_len != index_len {
-            return Err(RLNWitnessInputSingleErrorV3::PathLengthMismatch(
-                path_len, index_len,
-            ));
-        }
-        if message_id >= user_message_limit {
-            return Err(RLNWitnessInputSingleErrorV3::InvalidMessageId(
-                message_id,
-                user_message_limit,
-            ));
-        }
-        Ok(Self {
-            identity_secret,
-            user_message_limit,
-            path_elements,
-            identity_path_index,
-            x,
-            external_nullifier,
-            message_id,
-        })
-    }
-}
-
 #[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNWitnessInputMulti {
     pub(crate) identity_secret: IdSecret,
@@ -1230,69 +1308,6 @@ pub struct RLNWitnessInputMulti {
     pub(crate) selector_used: Vec<bool>,
 }
 
-impl RLNWitnessInputMulti {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        identity_secret: IdSecret,
-        user_message_limit: Fr,
-        path_elements: Vec<Fr>,
-        identity_path_index: Vec<u8>,
-        x: Fr,
-        external_nullifier: Fr,
-        message_ids: Vec<Fr>,
-        selector_used: Vec<bool>,
-    ) -> Result<Self, RLNWitnessInputMultiErrorV3> {
-        if user_message_limit == Fr::from(0) {
-            return Err(RLNWitnessInputMultiErrorV3::ZeroUserMessageLimit);
-        }
-        let path_len = path_elements.len();
-        let index_len = identity_path_index.len();
-        if path_len != index_len {
-            return Err(RLNWitnessInputMultiErrorV3::PathLengthMismatch(
-                path_len, index_len,
-            ));
-        }
-        if message_ids.is_empty() {
-            return Err(RLNWitnessInputMultiErrorV3::EmptyMessageIds);
-        }
-        if selector_used.len() != message_ids.len() {
-            return Err(RLNWitnessInputMultiErrorV3::SelectorLengthMismatch(
-                message_ids.len(),
-                selector_used.len(),
-            ));
-        }
-        if !selector_used.iter().any(|&s| s) {
-            return Err(RLNWitnessInputMultiErrorV3::NoActiveSelectorUsed);
-        }
-        {
-            let mut seen = HashSet::with_capacity(message_ids.len());
-            for (id, &used) in message_ids.iter().zip(&selector_used) {
-                if used && !seen.insert(*id) {
-                    return Err(RLNWitnessInputMultiErrorV3::DuplicateMessageIds);
-                }
-            }
-        }
-        for (message_id, used) in message_ids.iter().zip(&selector_used) {
-            if *used && *message_id >= user_message_limit {
-                return Err(RLNWitnessInputMultiErrorV3::InvalidMessageId(
-                    *message_id,
-                    user_message_limit,
-                ));
-            }
-        }
-        Ok(Self {
-            identity_secret,
-            user_message_limit,
-            path_elements,
-            identity_path_index,
-            x,
-            external_nullifier,
-            message_ids,
-            selector_used,
-        })
-    }
-}
-
 #[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNPartialWitnessInputV3 {
     pub(crate) identity_secret: IdSecret,
@@ -1301,8 +1316,11 @@ pub struct RLNPartialWitnessInputV3 {
     pub(crate) identity_path_index: Vec<u8>,
 }
 
+#[bon]
 impl RLNPartialWitnessInputV3 {
-    pub fn new(
+    #[allow(clippy::new_ret_no_self)]
+    #[builder(start_fn = new, finish_fn = build)]
+    pub fn create(
         identity_secret: IdSecret,
         user_message_limit: Fr,
         path_elements: Vec<Fr>,

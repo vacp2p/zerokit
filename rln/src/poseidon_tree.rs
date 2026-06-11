@@ -1,6 +1,10 @@
 // This crate defines the RLN module default Merkle tree implementation and its Hasher
 // Implementation inspired by https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/poseidon_tree.rs
 
+// TODO(PR10): delete this file — feature-gated wrapper used only by the old `RLN` struct.
+// V3 (`RLNV3` / `RLNBuilder`) accesses tree types directly from `zerokit_utils::merkle_tree`
+// and `crate::pm_tree_adapter`, so this alias is dead weight once the old API is removed.
+
 #![cfg(not(feature = "stateless"))]
 
 use cfg_if::cfg_if;

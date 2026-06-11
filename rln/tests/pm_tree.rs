@@ -6,7 +6,7 @@ mod test {
 
     use num_traits::identities::Zero;
     use rln::{
-        pm_tree_adapter::{PmTree, PmTreeProof, PmtreeConfig},
+        pm_tree_adapter::{PmTree, PmTreeConfig, PmTreeProof},
         prelude::*,
     };
     use tempfile::TempDir;
@@ -17,16 +17,16 @@ mod test {
 
     const TEST_DEPTH: usize = 10;
 
-    fn _default_config() -> PmtreeConfig {
-        PmtreeConfig::default()
+    fn _default_config() -> PmTreeConfig {
+        PmTreeConfig::default()
     }
 
-    fn temp_config() -> PmtreeConfig {
-        PmtreeConfig::builder().temporary(true).build().unwrap()
+    fn temp_config() -> PmTreeConfig {
+        PmTreeConfig::new().temporary(true).build().unwrap()
     }
 
-    fn persistent_config(path: PathBuf) -> PmtreeConfig {
-        PmtreeConfig::builder()
+    fn persistent_config(path: PathBuf) -> PmTreeConfig {
+        PmTreeConfig::new()
             .path(path)
             .temporary(false)
             .build()
@@ -35,7 +35,7 @@ mod test {
 
     #[test]
     fn test_pmtree_config_builder() {
-        let config = PmtreeConfig::builder()
+        let config = PmTreeConfig::new()
             .temporary(true)
             .cache_capacity(1 << 30)
             .flush_every_ms(1000)
@@ -66,7 +66,7 @@ mod test {
             "use_compression": false
         }"#;
 
-        let config: PmtreeConfig = json.parse().unwrap();
+        let config: PmTreeConfig = json.parse().unwrap();
 
         // Verify the config by creating a persistent tree
         let mut tree1 = PmTree::new(TEST_DEPTH, Fr::zero(), config.clone()).unwrap();
@@ -87,7 +87,7 @@ mod test {
         let temp_dir = TempDir::new().unwrap();
         let existing_path = temp_dir.path().to_str().unwrap();
         let invalid_json = format!(r#"{{"temporary": true, "path": "{}"}}"#, existing_path);
-        let result: Result<PmtreeConfig, _> = invalid_json.parse();
+        let result: Result<PmTreeConfig, _> = invalid_json.parse();
         assert!(result.is_err());
     }
 
@@ -127,6 +127,46 @@ mod test {
         assert_eq!(tree2.metadata().unwrap(), b"test metadata");
         assert_eq!(tree2.leaves_set(), 1);
         assert_eq!(tree2.get(0).unwrap(), leaf);
+    }
+
+    #[test]
+    fn test_pmtree_reload_depth_mismatch() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("test.db");
+        let config = persistent_config(db_path);
+
+        let mut tree = PmTree::new(TEST_DEPTH, Fr::zero(), config.clone()).unwrap();
+        tree.update_next(Fr::from(1)).unwrap();
+        tree.close_db_connection().unwrap();
+        drop(tree);
+
+        let result = PmTree::new(TEST_DEPTH + 1, Fr::zero(), config.clone());
+        assert!(matches!(result, Err(ZerokitMerkleTreeError::InvalidDepth)));
+
+        let tree = PmTree::new(TEST_DEPTH, Fr::zero(), config).unwrap();
+        assert_eq!(tree.depth(), TEST_DEPTH);
+        assert_eq!(tree.get(0).unwrap(), Fr::from(1));
+    }
+
+    #[test]
+    fn test_pmtree_reload_rebuilds_empty_leaves_cache() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("test.db");
+        let config = persistent_config(db_path);
+
+        let mut tree = PmTree::new(TEST_DEPTH, Fr::zero(), config.clone()).unwrap();
+        for i in 1..=3u64 {
+            tree.update_next(Fr::from(i)).unwrap();
+        }
+        tree.delete(1).unwrap();
+        let empty_before = tree.get_empty_leaves_indices();
+        assert_eq!(empty_before, vec![1]);
+        tree.close_db_connection().unwrap();
+        drop(tree);
+
+        let tree = PmTree::new(TEST_DEPTH, Fr::zero(), config).unwrap();
+        assert_eq!(tree.leaves_set(), 3);
+        assert_eq!(tree.get_empty_leaves_indices(), empty_before);
     }
 
     #[test]
@@ -189,6 +229,7 @@ mod test {
         tree.set_range(1, leaves.into_iter()).unwrap();
         assert_eq!(tree.get(1).unwrap(), Fr::from(0));
         assert_eq!(tree.get(4).unwrap(), Fr::from(3));
+        assert_eq!(tree.get_empty_leaves_indices(), vec![0]);
     }
 
     #[test]
@@ -324,14 +365,11 @@ mod test {
 
     #[test]
     fn test_pmtree_modes() {
-        let config_ht = PmtreeConfig::builder()
+        let config_ht = PmTreeConfig::new()
             .mode(Mode::HighThroughput)
             .build()
             .unwrap();
-        let config_ls = PmtreeConfig::builder()
-            .mode(Mode::LowSpace)
-            .build()
-            .unwrap();
+        let config_ls = PmTreeConfig::new().mode(Mode::LowSpace).build().unwrap();
         let mut tree_ht = PmTree::new(TEST_DEPTH, Fr::zero(), config_ht).unwrap();
         let mut tree_ls = PmTree::new(TEST_DEPTH, Fr::zero(), config_ls).unwrap();
         tree_ht.set(0, Fr::from(1)).unwrap();
@@ -343,14 +381,8 @@ mod test {
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn test_pmtree_compression() {
-        let config_comp = PmtreeConfig::builder()
-            .use_compression(true)
-            .build()
-            .unwrap();
-        let config_no_comp = PmtreeConfig::builder()
-            .use_compression(false)
-            .build()
-            .unwrap();
+        let config_comp = PmTreeConfig::new().use_compression(true).build().unwrap();
+        let config_no_comp = PmTreeConfig::new().use_compression(false).build().unwrap();
         let mut tree_comp = PmTree::new(TEST_DEPTH, Fr::zero(), config_comp).unwrap();
         let mut tree_no_comp = PmTree::new(TEST_DEPTH, Fr::zero(), config_no_comp).unwrap();
         tree_comp.set(0, Fr::from(1)).unwrap();

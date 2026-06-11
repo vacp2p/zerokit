@@ -4,10 +4,10 @@ mod test {
     use rln::prelude::*;
 
     fn make_rln(zkey: &Zkey, graph: &Graph) -> RLNV3<Stateless, ArkGroth16Backend> {
-        RLNV3::<Stateless, ArkGroth16Backend>::new(ArkGroth16Backend::new(
-            zkey.clone(),
-            graph.clone(),
-        ))
+        RLNBuilder::stateless()
+            .graph(graph.clone())
+            .zkey(zkey.clone())
+            .build()
     }
 
     fn make_backend(zkey: &Zkey, graph: &Graph) -> ArkGroth16Backend {
@@ -22,18 +22,16 @@ mod test {
         external_nullifier: Fr,
     ) -> RLNWitnessInputV3 {
         let depth = path_elements.len();
-        RLNWitnessInputV3::Single(
-            RLNWitnessInputSingle::new(
-                id,
-                Fr::from(10u64),
-                path_elements,
-                vec![0u8; depth],
-                x,
-                external_nullifier,
-                message_id,
-            )
-            .unwrap(),
-        )
+        RLNWitnessInputV3::new_single()
+            .identity_secret(id)
+            .user_message_limit(Fr::from(10u64))
+            .path_elements(path_elements)
+            .identity_path_index(vec![0u8; depth])
+            .x(x)
+            .external_nullifier(external_nullifier)
+            .message_id(message_id)
+            .build()
+            .unwrap()
     }
 
     fn multi_witness(
@@ -45,19 +43,17 @@ mod test {
         external_nullifier: Fr,
     ) -> RLNWitnessInputV3 {
         let depth = path_elements.len();
-        RLNWitnessInputV3::Multi(
-            RLNWitnessInputMulti::new(
-                id,
-                Fr::from(10u64),
-                path_elements,
-                vec![0u8; depth],
-                x,
-                external_nullifier,
-                message_ids,
-                selector_used,
-            )
-            .unwrap(),
-        )
+        RLNWitnessInputV3::new_multi()
+            .identity_secret(id)
+            .user_message_limit(Fr::from(10u64))
+            .path_elements(path_elements)
+            .identity_path_index(vec![0u8; depth])
+            .x(x)
+            .external_nullifier(external_nullifier)
+            .message_ids(message_ids)
+            .selector_used(selector_used)
+            .build()
+            .unwrap()
     }
 
     fn default_path() -> Vec<Fr> {
@@ -70,7 +66,7 @@ mod test {
 
     #[test]
     fn test_generate_and_verify_single() {
-        let backend = make_backend(zkey_single_v1(), graph_single_v1());
+        let backend = make_backend(default_zkey_single(), default_graph_single());
         let witness = single_witness(
             keygen().0,
             default_path(),
@@ -84,7 +80,7 @@ mod test {
 
     #[test]
     fn test_wrong_proof_fails_verification() {
-        let backend = make_backend(zkey_single_v1(), graph_single_v1());
+        let backend = make_backend(default_zkey_single(), default_graph_single());
         let w1 = single_witness(
             keygen().0,
             default_path(),
@@ -106,7 +102,7 @@ mod test {
 
     #[test]
     fn test_tree_depth_mismatch_fails() {
-        let backend = make_backend(zkey_single_v1(), graph_single_v1());
+        let backend = make_backend(default_zkey_single(), default_graph_single());
         let witness = single_witness(
             keygen().0,
             vec![Fr::from(0u64); DEFAULT_TREE_DEPTH + 1],
@@ -119,7 +115,7 @@ mod test {
 
     #[test]
     fn test_generate_and_verify_multi() {
-        let backend = make_backend(zkey_multi_v1(), graph_multi_v1());
+        let backend = make_backend(default_zkey_multi(), default_graph_multi());
         let witness = multi_witness(
             keygen().0,
             default_path(),
@@ -134,7 +130,7 @@ mod test {
 
     #[test]
     fn test_generate_and_verify_multi_partial_selector() {
-        let backend = make_backend(zkey_multi_v1(), graph_multi_v1());
+        let backend = make_backend(default_zkey_multi(), default_graph_multi());
         let witness = multi_witness(
             keygen().0,
             default_path(),
@@ -149,7 +145,7 @@ mod test {
 
     #[test]
     fn test_multi_message_ids_wrong_count_fails() {
-        let backend = make_backend(zkey_multi_v1(), graph_multi_v1());
+        let backend = make_backend(default_zkey_multi(), default_graph_multi());
         let witness = multi_witness(
             keygen().0,
             default_path(),
@@ -273,7 +269,7 @@ mod test {
 
     #[test]
     fn test_rlnv3_stateless_single_generate_and_verify() {
-        let rln = make_rln(zkey_single_v1(), graph_single_v1());
+        let rln = make_rln(default_zkey_single(), default_graph_single());
         let witness = single_witness(
             keygen().0,
             default_path(),
@@ -287,7 +283,7 @@ mod test {
 
     #[test]
     fn test_rlnv3_stateless_multi_generate_and_verify() {
-        let rln = make_rln(zkey_multi_v1(), graph_multi_v1());
+        let rln = make_rln(default_zkey_multi(), default_graph_multi());
         let witness = multi_witness(
             keygen().0,
             default_path(),
@@ -345,7 +341,7 @@ mod test {
 
     #[test]
     fn test_v3_partial_and_finish_single() {
-        let rln = make_rln(zkey_single_v1(), graph_single_v1());
+        let rln = make_rln(default_zkey_single(), default_graph_single());
         let (id, _) = keygen();
         let witness = single_witness(
             id.clone(),
@@ -354,13 +350,13 @@ mod test {
             Fr::from(42u64),
             Fr::from(100u64),
         );
-        let partial = RLNPartialWitnessInputV3::new(
-            id,
-            Fr::from(10u64),
-            default_path(),
-            vec![0u8; DEFAULT_TREE_DEPTH],
-        )
-        .unwrap();
+        let partial = RLNPartialWitnessInputV3::new()
+            .identity_secret(id)
+            .user_message_limit(Fr::from(10u64))
+            .path_elements(default_path())
+            .identity_path_index(vec![0u8; DEFAULT_TREE_DEPTH])
+            .build()
+            .unwrap();
         let partial_proof = rln.generate_partial_proof(&partial).unwrap();
         let (proof, vals) = rln.finish_proof(&partial_proof, &witness).unwrap();
         assert!(rln.verify(&proof, &vals).unwrap());
@@ -368,7 +364,7 @@ mod test {
 
     #[test]
     fn test_v3_partial_and_finish_multi() {
-        let rln = make_rln(zkey_multi_v1(), graph_multi_v1());
+        let rln = make_rln(default_zkey_multi(), default_graph_multi());
         let (id, _) = keygen();
         let witness = multi_witness(
             id.clone(),
@@ -378,13 +374,13 @@ mod test {
             Fr::from(42u64),
             Fr::from(100u64),
         );
-        let partial = RLNPartialWitnessInputV3::new(
-            id,
-            Fr::from(10u64),
-            default_path(),
-            vec![0u8; DEFAULT_TREE_DEPTH],
-        )
-        .unwrap();
+        let partial = RLNPartialWitnessInputV3::new()
+            .identity_secret(id)
+            .user_message_limit(Fr::from(10u64))
+            .path_elements(default_path())
+            .identity_path_index(vec![0u8; DEFAULT_TREE_DEPTH])
+            .build()
+            .unwrap();
         let partial_proof = rln.generate_partial_proof(&partial).unwrap();
         let (proof, vals) = rln.finish_proof(&partial_proof, &witness).unwrap();
         assert!(rln.verify(&proof, &vals).unwrap());
@@ -392,7 +388,7 @@ mod test {
 
     #[test]
     fn test_v3_partial_and_finish_verifies() {
-        let rln = make_rln(zkey_single_v1(), graph_single_v1());
+        let rln = make_rln(default_zkey_single(), default_graph_single());
         let (id, _) = keygen();
         let witness = single_witness(
             id.clone(),
@@ -401,13 +397,13 @@ mod test {
             Fr::from(55u64),
             Fr::from(999u64),
         );
-        let partial = RLNPartialWitnessInputV3::new(
-            id,
-            Fr::from(10u64),
-            default_path(),
-            vec![0u8; DEFAULT_TREE_DEPTH],
-        )
-        .unwrap();
+        let partial = RLNPartialWitnessInputV3::new()
+            .identity_secret(id)
+            .user_message_limit(Fr::from(10u64))
+            .path_elements(default_path())
+            .identity_path_index(vec![0u8; DEFAULT_TREE_DEPTH])
+            .build()
+            .unwrap();
         let partial_proof = rln.generate_partial_proof(&partial).unwrap();
         let (proof, vals) = rln.finish_proof(&partial_proof, &witness).unwrap();
         assert!(rln.verify(&proof, &vals).unwrap());
@@ -415,29 +411,29 @@ mod test {
 
     #[test]
     fn test_partial_witness_depth_mismatch_fails() {
-        let rln = make_rln(zkey_single_v1(), graph_single_v1());
+        let rln = make_rln(default_zkey_single(), default_graph_single());
         let (id, _) = keygen();
-        let partial = RLNPartialWitnessInputV3::new(
-            id,
-            Fr::from(10u64),
-            vec![Fr::from(0u64); DEFAULT_TREE_DEPTH + 1],
-            vec![0u8; DEFAULT_TREE_DEPTH + 1],
-        )
-        .unwrap();
+        let partial = RLNPartialWitnessInputV3::new()
+            .identity_secret(id)
+            .user_message_limit(Fr::from(10u64))
+            .path_elements(vec![Fr::from(0u64); DEFAULT_TREE_DEPTH + 1])
+            .identity_path_index(vec![0u8; DEFAULT_TREE_DEPTH + 1])
+            .build()
+            .unwrap();
         assert!(rln.generate_partial_proof(&partial).is_err());
     }
 
     #[test]
     fn test_finish_proof_wrong_witness_depth_fails() {
-        let rln = make_rln(zkey_single_v1(), graph_single_v1());
+        let rln = make_rln(default_zkey_single(), default_graph_single());
         let (id, _) = keygen();
-        let partial = RLNPartialWitnessInputV3::new(
-            id.clone(),
-            Fr::from(10u64),
-            default_path(),
-            vec![0u8; DEFAULT_TREE_DEPTH],
-        )
-        .unwrap();
+        let partial = RLNPartialWitnessInputV3::new()
+            .identity_secret(id.clone())
+            .user_message_limit(Fr::from(10u64))
+            .path_elements(default_path())
+            .identity_path_index(vec![0u8; DEFAULT_TREE_DEPTH])
+            .build()
+            .unwrap();
         let partial_proof = rln.generate_partial_proof(&partial).unwrap();
         let bad_witness = single_witness(
             id,
@@ -451,7 +447,7 @@ mod test {
 
     #[test]
     fn test_v3_verify_with_roots_empty_skips_root_check() {
-        let rln = make_rln(zkey_single_v1(), graph_single_v1());
+        let rln = make_rln(default_zkey_single(), default_graph_single());
         let x = Fr::from(42u64);
         let witness = single_witness(
             keygen().0,
@@ -466,7 +462,7 @@ mod test {
 
     #[test]
     fn test_v3_verify_with_roots_correct_root_passes() {
-        let rln = make_rln(zkey_single_v1(), graph_single_v1());
+        let rln = make_rln(default_zkey_single(), default_graph_single());
         let x = Fr::from(42u64);
         let witness = single_witness(
             keygen().0,
@@ -482,7 +478,7 @@ mod test {
 
     #[test]
     fn test_v3_verify_with_roots_wrong_root_fails() {
-        let rln = make_rln(zkey_single_v1(), graph_single_v1());
+        let rln = make_rln(default_zkey_single(), default_graph_single());
         let x = Fr::from(42u64);
         let witness = single_witness(
             keygen().0,
@@ -500,7 +496,7 @@ mod test {
 
     #[test]
     fn test_v3_verify_with_roots_wrong_signal_fails() {
-        let rln = make_rln(zkey_single_v1(), graph_single_v1());
+        let rln = make_rln(default_zkey_single(), default_graph_single());
         let x = Fr::from(42u64);
         let witness = single_witness(
             keygen().0,
@@ -518,7 +514,7 @@ mod test {
 
     #[test]
     fn test_v3_verify_with_roots_multi_correct_root_passes() {
-        let rln = make_rln(zkey_multi_v1(), graph_multi_v1());
+        let rln = make_rln(default_zkey_multi(), default_graph_multi());
         let x = Fr::from(42u64);
         let witness = multi_witness(
             keygen().0,
@@ -535,7 +531,7 @@ mod test {
 
     #[test]
     fn test_v3_verify_with_roots_multi_wrong_root_fails() {
-        let rln = make_rln(zkey_multi_v1(), graph_multi_v1());
+        let rln = make_rln(default_zkey_multi(), default_graph_multi());
         let x = Fr::from(42u64);
         let witness = multi_witness(
             keygen().0,
@@ -617,22 +613,5 @@ mod test {
         ));
         assert_eq!(*sv.recover_secret(&mv).unwrap(), *id);
         assert_eq!(*mv.recover_secret(&sv).unwrap(), *id);
-    }
-
-    #[test]
-    fn test_v3_new_with_params_invalid_zkey() {
-        assert!(matches!(
-            RLNV3::<Stateless, ArkGroth16Backend>::new_with_params(vec![], vec![1, 2, 3]),
-            Err(InitErrorV3::ZKey(_))
-        ));
-    }
-
-    #[test]
-    fn test_v3_new_with_params_invalid_graph() {
-        let valid_zkey = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey").to_vec();
-        assert!(matches!(
-            RLNV3::<Stateless, ArkGroth16Backend>::new_with_params(valid_zkey, vec![0u8; 50],),
-            Err(InitErrorV3::Graph(_))
-        ));
     }
 }

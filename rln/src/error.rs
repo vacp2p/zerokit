@@ -16,8 +16,8 @@ use crate::{
 /// Errors that can occur during RLN utility operations (conversions, parsing, etc.)
 #[derive(Debug, thiserror::Error)]
 pub enum UtilsError {
-    #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
     #[error("Expected radix 10 or 16")]
     WrongRadix,
     #[error("Failed to parse big integer: {0}")]
@@ -48,8 +48,8 @@ pub enum RecoverSecretError {
 /// Errors that can occur during RLN protocol operations (proof generation, verification, etc.)
 #[derive(Debug, thiserror::Error)]
 pub enum ProtocolError {
-    #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
     #[error("Error producing proof: {0}")]
     Synthesis(#[from] SynthesisError),
     #[error("RLN utility error: {0}")]
@@ -118,7 +118,7 @@ pub enum RLNError {
 /// Errors that can occur while serializing and deserializing RLN types.
 #[derive(Debug, thiserror::Error)]
 pub enum SerializationErrorV3 {
-    #[error("IO error: {0}")]
+    #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
     #[error("Arkworks canonical serialization error: {0}")]
     Serialize(#[from] SerializationError),
@@ -205,15 +205,4 @@ pub enum VerifyProofErrorV3 {
     InvalidSignal,
     #[error("Synthesis error: {0}")]
     Synthesis(#[from] SynthesisError),
-}
-
-/// Errors that can occur while initializing an RLN instance.
-#[derive(Debug, thiserror::Error)]
-pub enum InitErrorV3 {
-    #[error("ZKey error: {0}")]
-    ZKey(#[from] ZKeyReadError),
-    #[error("Graph error: {0}")]
-    Graph(#[from] GraphReadError),
-    #[error("Configuration error: {0}")]
-    Config(#[from] FromConfigError),
 }

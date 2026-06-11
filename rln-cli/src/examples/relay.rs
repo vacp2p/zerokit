@@ -7,10 +7,14 @@ use std::{
 
 use clap::{Parser, Subcommand};
 use rln::prelude::{
-    hash_to_field_le, keygen, poseidon_hash, recover_id_secret, Fr, IdSecret, PmtreeConfigBuilder,
-    RLNProofValues, RLNWitnessInput, RLN,
+    graph_from_raw, hash_to_field_le, keygen, poseidon_hash, zkey_from_raw, ArkGroth16Backend, Fr,
+    IdSecret, PmTree, PmTreeConfig, PoseidonHash, RLNBuilder, RLNProofValuesV3, RLNWitnessInputV3,
+    RecoverSecret, Stateful, RLNV3,
 };
-use zerokit_utils::pm_tree::Mode;
+use zerokit_utils::{
+    merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
+    pm_tree::Mode,
+};
 
 const MESSAGE_LIMIT: u32 = 1;
 
@@ -58,8 +62,8 @@ impl Identity {
 }
 
 struct RLNSystem {
-    rln: RLN,
-    used_nullifiers: HashMap<Fr, RLNProofValues>,
+    rln: RLNV3<Stateful<PmTree>, ArkGroth16Backend>,
+    used_nullifiers: HashMap<Fr, RLNProofValuesV3>,
     local_identities: HashMap<usize, Identity>,
 }
 
@@ -76,7 +80,9 @@ impl RLNSystem {
             file.read_exact(&mut output_buffer)?;
             resources.push(output_buffer);
         }
-        let tree_config = PmtreeConfigBuilder::new()
+        let zkey = zkey_from_raw(&resources[0])?;
+        let graph = graph_from_raw(&resources[1], Some(TREE_DEPTH), None)?;
+        let pm_tree_config = PmTreeConfig::new()
             .path("./database")
             .temporary(false)
             .cache_capacity(1073741824)
@@ -84,12 +90,16 @@ impl RLNSystem {
             .mode(Mode::HighThroughput)
             .use_compression(false)
             .build()?;
-        let rln = RLN::new_with_params(
+        let pm_tree = <PmTree as ZerokitMerkleTree>::new(
             TREE_DEPTH,
-            resources[0].clone(),
-            resources[1].clone(),
-            tree_config,
+            PoseidonHash::default_leaf(),
+            pm_tree_config,
         )?;
+        let rln = RLNBuilder::stateful()
+            .tree(pm_tree)
+            .graph(graph)
+            .zkey(zkey)
+            .build();
         println!("RLN instance initialized successfully");
         Ok(RLNSystem {
             rln,
@@ -139,32 +149,32 @@ impl RLNSystem {
         message_id: u32,
         signal: &str,
         external_nullifier: Fr,
-    ) -> Result<RLNProofValues> {
+    ) -> Result<RLNProofValuesV3> {
         let identity = match self.local_identities.get(&user_index) {
             Some(identity) => identity,
             None => return Err(format!("User {user_index} not found").into()),
         };
 
-        let (path_elements, identity_path_index) = self.rln.get_merkle_proof(user_index)?;
+        let merkle_proof = self.rln.get_merkle_proof(user_index)?;
         let x = hash_to_field_le(signal.as_bytes());
 
-        let witness = RLNWitnessInput::new_single(
-            identity.identity_secret.clone(),
-            Fr::from(MESSAGE_LIMIT),
-            Fr::from(message_id),
-            path_elements,
-            identity_path_index,
-            x,
-            external_nullifier,
-        )?;
+        let witness = RLNWitnessInputV3::new_single()
+            .identity_secret(identity.identity_secret.clone())
+            .user_message_limit(Fr::from(MESSAGE_LIMIT))
+            .path_elements(merkle_proof.get_path_elements())
+            .identity_path_index(merkle_proof.get_path_index())
+            .x(x)
+            .external_nullifier(external_nullifier)
+            .message_id(Fr::from(message_id))
+            .build()?;
 
-        let (proof, proof_values) = self.rln.generate_rln_proof(&witness)?;
+        let (proof, proof_values) = self.rln.generate_proof(&witness)?;
         println!("Proof generated successfully:");
         println!("+ User: {user_index}");
         println!("+ Message ID: {message_id}");
         println!("+ Signal: {signal}");
 
-        let verified = self.rln.verify_rln_proof(&proof, &proof_values, &x)?;
+        let verified = self.rln.verify(&proof, &proof_values)?;
         if verified {
             println!("Proof verified successfully");
         }
@@ -172,22 +182,24 @@ impl RLNSystem {
         Ok(proof_values)
     }
 
-    fn check_nullifier(&mut self, proof_values: RLNProofValues) -> Result<()> {
-        if let Some(previous_proof_values) = self.used_nullifiers.get(proof_values.nullifier()) {
-            self.handle_duplicate_nullifier(previous_proof_values.clone(), proof_values)?;
-            return Ok(());
+    fn check_nullifier(&mut self, proof_values: RLNProofValuesV3) -> Result<()> {
+        if let Some(nullifier) = proof_values.nullifier() {
+            if let Some(previous_proof_values) = self.used_nullifiers.get(&nullifier).cloned() {
+                self.handle_duplicate_nullifier(&previous_proof_values, &proof_values)?;
+                return Ok(());
+            }
+
+            self.used_nullifiers.insert(nullifier, proof_values);
+            println!("Message verified and accepted");
         }
 
-        self.used_nullifiers
-            .insert(*proof_values.nullifier(), proof_values);
-        println!("Message verified and accepted");
         Ok(())
     }
 
     fn handle_duplicate_nullifier(
         &mut self,
-        previous_proof_values: RLNProofValues,
-        current_proof_values: RLNProofValues,
+        previous_proof_values: &RLNProofValuesV3,
+        current_proof_values: &RLNProofValuesV3,
     ) -> Result<()> {
         if previous_proof_values.x() == current_proof_values.x()
             && previous_proof_values.y() == current_proof_values.y()
@@ -195,7 +207,7 @@ impl RLNSystem {
             return Err("this exact message and signal has already been sent".into());
         }
 
-        match recover_id_secret(&previous_proof_values, &current_proof_values) {
+        match previous_proof_values.recover_secret(current_proof_values) {
             Ok(leaked_identity_secret) => {
                 if let Some((user_index, identity)) = self
                     .local_identities

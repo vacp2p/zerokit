@@ -263,44 +263,40 @@ mod test {
     }
 
     fn make_witness_input_single() -> RLNWitnessInputV3 {
-        RLNWitnessInputV3::Single(
-            RLNWitnessInputSingle::new(
-                IdSecret::from(&mut Fr::from(42u64)),
-                Fr::from(10u64),
-                vec![Fr::from(1u64), Fr::from(2u64)],
-                vec![0u8, 1u8],
-                Fr::from(5u64),
-                Fr::from(7u64),
-                Fr::from(3u64),
-            )
-            .unwrap(),
-        )
+        RLNWitnessInputV3::new_single()
+            .identity_secret(IdSecret::from(&mut Fr::from(42u64)))
+            .user_message_limit(Fr::from(10u64))
+            .path_elements(vec![Fr::from(1u64), Fr::from(2u64)])
+            .identity_path_index(vec![0u8, 1u8])
+            .x(Fr::from(5u64))
+            .external_nullifier(Fr::from(7u64))
+            .message_id(Fr::from(3u64))
+            .build()
+            .unwrap()
     }
 
     fn make_witness_input_multi() -> RLNWitnessInputV3 {
-        RLNWitnessInputV3::Multi(
-            RLNWitnessInputMulti::new(
-                IdSecret::from(&mut Fr::from(99u64)),
-                Fr::from(10u64),
-                vec![Fr::from(1u64), Fr::from(2u64)],
-                vec![0u8, 1u8],
-                Fr::from(5u64),
-                Fr::from(7u64),
-                vec![Fr::from(0u64), Fr::from(1u64)],
-                vec![true, false],
-            )
-            .unwrap(),
-        )
+        RLNWitnessInputV3::new_multi()
+            .identity_secret(IdSecret::from(&mut Fr::from(99u64)))
+            .user_message_limit(Fr::from(10u64))
+            .path_elements(vec![Fr::from(1u64), Fr::from(2u64)])
+            .identity_path_index(vec![0u8, 1u8])
+            .x(Fr::from(5u64))
+            .external_nullifier(Fr::from(7u64))
+            .message_ids(vec![Fr::from(0u64), Fr::from(1u64)])
+            .selector_used(vec![true, false])
+            .build()
+            .unwrap()
     }
 
     fn make_partial_witness() -> RLNPartialWitnessInputV3 {
-        RLNPartialWitnessInputV3::new(
-            IdSecret::from(&mut Fr::from(42u64)),
-            Fr::from(10u64),
-            vec![Fr::from(1u64), Fr::from(2u64)],
-            vec![0u8, 1u8],
-        )
-        .unwrap()
+        RLNPartialWitnessInputV3::new()
+            .identity_secret(IdSecret::from(&mut Fr::from(42u64)))
+            .user_message_limit(Fr::from(10u64))
+            .path_elements(vec![Fr::from(1u64), Fr::from(2u64)])
+            .identity_path_index(vec![0u8, 1u8])
+            .build()
+            .unwrap()
     }
 
     fn make_proof_values_single() -> RLNProofValuesV3 {
@@ -338,7 +334,7 @@ mod test {
             Fr::from(100),
         )
         .unwrap();
-        generate_zk_proof(zkey_single_v1(), &witness, graph_single_v1()).unwrap()
+        generate_zk_proof(default_zkey_single(), &witness, default_graph_single()).unwrap()
     }
 
     fn make_partial_proof() -> PartialProof {
@@ -352,7 +348,12 @@ mod test {
             identity_path_index,
         )
         .unwrap();
-        generate_partial_zk_proof(zkey_single_v1(), &partial_witness, graph_single_v1()).unwrap()
+        generate_partial_zk_proof(
+            default_zkey_single(),
+            &partial_witness,
+            default_graph_single(),
+        )
+        .unwrap()
     }
 
     #[test]
