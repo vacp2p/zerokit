@@ -1,35 +1,35 @@
 import {
   initRLN,
   createMember,
-  buildMerkleProof,
+  computeMerkleProof,
   computeExternalNullifier,
   hashSignal,
   createWitness,
-} from "./0_common.js";
+} from "./common.js";
 
 async function main() {
-  const env = await initRLN();
-  const member = createMember(env);
-  const merkleProof = buildMerkleProof(env, member.rateCommitment);
-  const externalNullifier = computeExternalNullifier(env);
+  const { rlnWasm, rlnInstance } = await initRLN();
+  const member = createMember(rlnWasm);
+  const merkleProof = computeMerkleProof(rlnWasm, member.rateCommitment);
+  const externalNullifier = computeExternalNullifier(rlnWasm);
 
   console.log("\nHashing signal");
   const signal = new Uint8Array([
     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0,
   ]);
-  const x = hashSignal(env, signal);
+  const x = hashSignal(rlnWasm, signal);
   console.log("  - x = " + x.debug());
 
   console.log("\nCreating message id");
-  const messageId = env.rlnWasm.WasmFr.fromUint(0);
+  const messageId = rlnWasm.WasmFr.fromUint(0);
   console.log("  - message id = " + messageId.debug());
 
   console.log("\nCreating RLN witness");
   let witness;
   try {
     witness = createWitness(
-      env,
+      rlnWasm,
       member,
       merkleProof,
       messageId,
@@ -45,7 +45,7 @@ async function main() {
   console.log("\nCreating partial witness from witness fields");
   let partialWitness;
   try {
-    partialWitness = env.rlnWasm.WasmRLNPartialWitnessInput.new(
+    partialWitness = rlnWasm.WasmRLNPartialWitnessInput.new(
       witness.getIdentitySecret(),
       witness.getUserMessageLimit(),
       witness.getPathElements(),
@@ -60,7 +60,7 @@ async function main() {
   console.log("\nGenerating partial ZK proof");
   let partialProof;
   try {
-    partialProof = env.rlnInstance.generatePartialProof(partialWitness);
+    partialProof = rlnInstance.generatePartialProof(partialWitness);
   } catch (error) {
     console.error("Partial proof generation error:", error);
     return;
@@ -70,7 +70,7 @@ async function main() {
   console.log("\nFinishing proof with full witness");
   let fullProof;
   try {
-    fullProof = env.rlnInstance.finishProof(partialProof, witness);
+    fullProof = rlnInstance.finishProof(partialProof, witness);
   } catch (error) {
     console.error("Finish proof error:", error);
     return;
@@ -80,7 +80,7 @@ async function main() {
   console.log("\nVerifying full proof");
   let isFullProofValid;
   try {
-    isFullProofValid = env.rlnInstance.verifyWithRoots(
+    isFullProofValid = rlnInstance.verifyWithRoots(
       fullProof,
       merkleProof.roots,
       x,

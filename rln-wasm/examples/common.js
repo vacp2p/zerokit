@@ -14,13 +14,13 @@ export function debugUint8Array(uint8Array) {
   ).join(", ");
 }
 
-export async function initRLN(multiMessageId = false) {
+export async function initRLN(enableMultiMessageId = false) {
   const rlnWasm = await import("../pkg/rln_wasm.js");
   const wasmPath = join(__dirname, "../pkg/rln_wasm_bg.wasm");
   const wasmBytes = readFileSync(wasmPath);
   rlnWasm.initSync({ module: wasmBytes });
 
-  const resourceDir = multiMessageId
+  const resourceDir = enableMultiMessageId
     ? "../../rln/resources/tree_depth_20/multi_message_id/max_out_4"
     : "../../rln/resources/tree_depth_20";
   const zkeyPath = join(__dirname, resourceDir, "rln_final.arkzkey");
@@ -38,15 +38,14 @@ export async function initRLN(multiMessageId = false) {
   }
   console.log("  - RLN instance created successfully");
   console.log("  - circuit tree depth = " + TREE_DEPTH);
-  if (multiMessageId) {
+  if (enableMultiMessageId) {
     console.log("  - circuit max out = " + MAX_OUT);
   }
 
-  return { rlnWasm, rlnInstance, multiMessageId };
+  return { rlnWasm, rlnInstance };
 }
 
-export function createMember(env) {
-  const { rlnWasm } = env;
+export function createMember(rlnWasm) {
   console.log("\nGenerating identity keys");
   const identity = rlnWasm.Identity.generate();
   const identitySecret = identity.getSecretHash();
@@ -75,9 +74,8 @@ export function createMember(env) {
   };
 }
 
-export function buildMerkleProof(env, rateCommitment) {
-  const { rlnWasm } = env;
-  console.log("\nBuilding Merkle path for stateless mode");
+export function computeMerkleProof(rlnWasm, rateCommitment) {
+  console.log("\nComputing Merkle path for stateless mode");
   const defaultLeaf = rlnWasm.WasmFr.zero();
 
   const defaultHashes = [];
@@ -113,19 +111,18 @@ export function buildMerkleProof(env, rateCommitment) {
   const roots = rlnWasm.VecWasmFr.new();
   roots.push(computedRoot);
 
-  return { pathElements, identityPathIndex, computedRoot, roots };
+  return { pathElements, identityPathIndex, roots };
 }
 
-export function hashSignal(env, signal) {
-  return env.rlnWasm.Hasher.hashToFieldLE(signal);
+export function hashSignal(rlnWasm, signal) {
+  return rlnWasm.Hasher.hashToFieldLE(signal);
 }
 
 export function computeExternalNullifier(
-  env,
+  rlnWasm,
   epochStr = "test-epoch",
   rlnIdStr = "test-rln-identifier",
 ) {
-  const { rlnWasm } = env;
   console.log("\nHashing epoch");
   const epoch = rlnWasm.Hasher.hashToFieldLE(
     new TextEncoder().encode(epochStr),
@@ -149,16 +146,16 @@ export function computeExternalNullifier(
 }
 
 export function createWitness(
-  env,
-  membership,
+  rlnWasm,
+  member,
   merkleProof,
   messageId,
   x,
   externalNullifier,
 ) {
-  return env.rlnWasm.WasmRLNWitnessInput.newSingle(
-    membership.identitySecret,
-    membership.userMessageLimit,
+  return rlnWasm.WasmRLNWitnessInput.newSingle(
+    member.identitySecret,
+    member.userMessageLimit,
     messageId,
     merkleProof.pathElements,
     merkleProof.identityPathIndex,
