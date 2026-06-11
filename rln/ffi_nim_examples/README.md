@@ -1,17 +1,24 @@
-# RLN FFI Nim example
+# RLN FFI Nim Examples
 
-This example demonstrates how to use the RLN C FFI from Nim in stateful and stateless mode.
+These examples demonstrate how to use the RLN C FFI from Nim. Most examples run in stateful mode with a persistent Merkle tree; `stateless.nim` shows the stateless mode where the Merkle proof is computed on the caller side.
+
+| File | Description |
+| --- | --- |
+| [rln.nim](rln.nim) | FFI bindings: types, imported functions, and byte helpers for the RLN shared library |
+| [common.nim](common.nim) | Shared helpers included directly by all examples |
+| [basic_proof.nim](basic_proof.nim) | Creates a witness, generates a proof, reads the proof values, and verifies the proof |
+| [type_serialization.nim](type_serialization.nim) | Serializes a witness and a proof to bytes and back, then verifies the deserialized proof |
+| [recover_secret.nim](recover_secret.nim) | Sends two messages with the same message id, then recovers the identity secret from the two proofs |
+| [partial_proof.nim](partial_proof.nim) | Generates a partial proof ahead of time, finishes it with the full witness, and verifies the result |
+| [multi_message_id.nim](multi_message_id.nim) | Runs the proof and recover secret flows in Multi message-id mode, where one proof covers several message ids |
+| [stateless.nim](stateless.nim) | Stateless mode: computes the Merkle proof manually and verifies with an explicit root list |
 
 ## Build the RLN library
 
 From the repository root:
 
 ```bash
-# Stateful build (with tree APIs)
 cargo build -p rln --release
-
-# Stateless build (no tree APIs)
-cargo build -p rln --release --no-default-features --features stateless
 ```
 
 This produces the shared library in `target/release`:
@@ -20,99 +27,48 @@ This produces the shared library in `target/release`:
 - Linux: `librln.so`
 - Windows: `rln.dll`
 
-## Build the Nim example
+## Build and run the examples
 
 From this directory:
 
 ```bash
-# Stateful mode (uses exported tree APIs to insert leaf and fetch proof)
-nim c -d:release main.nim
-
-# Stateless mode (no tree APIs, uses mock Merkle path)
-nim c -d:release -d:ffiStateless main.nim
+nim c -d:release basic_proof.nim
+nim c -d:release type_serialization.nim
+nim c -d:release recover_secret.nim
+nim c -d:release partial_proof.nim
+nim c -d:release multi_message_id.nim
+nim c -d:release stateless.nim
+./basic_proof
+./type_serialization
+./recover_secret
+./partial_proof
+./multi_message_id
+./stateless
 ```
 
 Notes:
 
-- The example links dynamically. If your OS linker cannot find the library at runtime,
-  set an rpath or environment variable as shown below.
-- The example auto-picks a platform-specific default library name.
+- The examples link dynamically and embed an rpath pointing at `../../target/release`,
+  so they normally run without extra setup.
+- The examples auto-pick a platform-specific default library name.
   You can override it with `-d:RLN_LIB:"/absolute/path/to/lib"` if needed.
-- **Important**: For stateless mode, ensure the RLN library is compiled with `--features stateless` to match `-d:ffiStateless`.
-
-## Run the example
-
-Ensure the dynamic loader can find the RLN library, then run the binary.
+- If your OS linker cannot find the library at runtime, set an environment variable:
 
 macOS:
 
 ```bash
-DYLD_LIBRARY_PATH=../../target/release ./main
+DYLD_LIBRARY_PATH=../../target/release ./basic_proof
 ```
 
 Linux:
 
 ```bash
-LD_LIBRARY_PATH=../../target/release ./main
+LD_LIBRARY_PATH=../../target/release ./basic_proof
 ```
 
 Windows (PowerShell):
 
 ```powershell
 $env:PATH = "$PWD\..\..\target\release;$env:PATH"
-./main.exe
+./basic_proof.exe
 ```
-
-You should see detailed output showing each step, for example:
-
-```text
-Creating RLN instance
-RLN instance created successfully
-
-Generating identity keys
-Identity generated
-  - identity_secret = ...
-  - id_commitment = ...
-
-Creating message limit
-  - user_message_limit = ...
-
-Computing rate commitment
-  - rate_commitment = ...
-
-CFr serialization: CFr <-> bytes
-  - serialized rate_commitment = ...
-  - deserialized rate_commitment = ...
-
-Vec<CFr> serialization: Vec<CFr> <-> bytes
-  - serialized keys = ...
-  - deserialized keys = ...
-
-... (Merkle path, hashing, witness, proof, verification, and slashing steps) ...
-
-Proof verified successfully
-Slashing successful: Identity is recovered!
-```
-
-## What the example does
-
-### Stateful mode (default)
-
-1. Creates an RLN handle with a Merkle tree backend and configuration.
-2. Generates identity keys and computes `rateCommitment = Poseidon(id_commitment, user_message_limit)`.
-3. Inserts the leaf with `ffi_set_next_leaf` and fetches a real Merkle path for index 0 via `ffi_get_merkle_proof`.
-4. Builds the witness from the exported proof, generates the proof, and verifies with `ffi_verify_rln_proof` using the current tree root.
-5. Simulates a double-signaling attack and recovers the identity secret from two proofs.
-
-### Stateless mode
-
-1. Creates an RLN handle via the stateless constructor.
-2. Generates identity keys, sets a `user_message_limit` and `message_id`.
-3. Hashes a signal, epoch, and RLN identifier to field elements.
-4. Computes `rateCommitment = Poseidon(id_commitment, user_message_limit)`.
-5. Builds a mock Merkle path for an empty depth-20 tree at index 0 (no exported tree APIs):
-    - Path siblings: level 0 sibling is `0`, then each level uses precomputed default hashes `H(0,0)`, `H(H(0,0),H(0,0))`, ...
-    - Path indices: all zeros (left at every level)
-    - Root: folds the path upwards with `rateCommitment` at index 0
-6. Builds the witness, generates the proof, and verifies it with `ffi_verify_with_roots`, passing a one-element roots vector containing the computed root.
-7. Simulates a double-signaling attack and recovers the identity secret from two proofs.
