@@ -20,16 +20,16 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    CFr_t *external_nullifier = compute_external_nullifier();
+    CFr *external_nullifier = compute_external_nullifier();
 
     printf("\nHashing signal\n");
     uint8_t signal[32] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    CFr_t *x = hash_signal(signal);
+    CFr *x = hash_signal(signal);
     print_cfr("x", x);
 
     printf("\nCreating message id\n");
-    CFr_t *message_id = ffi_uint_to_cfr(0);
+    CFr *message_id = ffi_uint_to_cfr(0);
     print_cfr("message id", message_id);
 
     printf("\nCreating RLN witness\n");
@@ -52,7 +52,7 @@ int main(void)
         ffi_c_string_free(ser_witness_result.err);
         return EXIT_FAILURE;
     }
-    Vec_uint8_t ser_witness = ser_witness_result.ok;
+    Vec_uint8 ser_witness = ser_witness_result.ok;
     print_vec_u8("serialized witness", &ser_witness);
     WitnessResult deser_witness_result =
         ffi_bytes_le_to_rln_v3_witness(&ser_witness);
@@ -85,7 +85,7 @@ int main(void)
         ffi_c_string_free(ser_proof_result.err);
         return EXIT_FAILURE;
     }
-    Vec_uint8_t ser_proof = ser_proof_result.ok;
+    Vec_uint8 ser_proof = ser_proof_result.ok;
     print_vec_u8("serialized proof", &ser_proof);
     ProofResult deser_proof_result =
         ffi_bytes_le_to_rln_v3_proof(&ser_proof);
@@ -99,7 +99,7 @@ int main(void)
     printf("  - proof deserialized successfully\n");
 
     printf("\nVerifying the deserialized proof\n");
-    CBoolResult_t verify_result = ffi_rln_v3_verify(&rln_instance, &deser_proof, x);
+    CBoolResult verify_result = ffi_rln_v3_verify(&rln_instance, &deser_proof, x);
     if (verify_result.err.ptr)
     {
         fprintf(stderr, "Proof verification error: %s\n", verify_result.err.ptr);

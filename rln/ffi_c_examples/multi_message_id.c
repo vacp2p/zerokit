@@ -3,12 +3,12 @@
 
 #include "common.c"
 
-static Vec_CFr_t create_message_ids(const unsigned int ids[MAX_OUT])
+static Vec_CFr create_message_ids(const unsigned int ids[MAX_OUT])
 {
-    Vec_CFr_t message_ids = ffi_vec_cfr_new(MAX_OUT);
+    Vec_CFr message_ids = ffi_vec_cfr_new(MAX_OUT);
     for (size_t i = 0; i < MAX_OUT; i++)
     {
-        CFr_t *tmp = ffi_uint_to_cfr(ids[i]);
+        CFr *tmp = ffi_uint_to_cfr(ids[i]);
         ffi_vec_cfr_push(&message_ids, tmp);
         ffi_cfr_free(tmp);
     }
@@ -17,14 +17,14 @@ static Vec_CFr_t create_message_ids(const unsigned int ids[MAX_OUT])
 
 static WitnessResult
 create_multi_witness(const Member *member, const MerkleProof *merkle_proof,
-                     const Vec_CFr_t *message_ids, bool selector_used[MAX_OUT], const CFr_t *x,
-                     const CFr_t *external_nullifier)
+                     const Vec_CFr *message_ids, bool selector_used[MAX_OUT], const CFr *x,
+                     const CFr *external_nullifier)
 {
     return ffi_rln_v3_witness_input_new_multi(member->identity_secret,
                                               member->user_message_limit, message_ids,
                                               &merkle_proof->path_elements,
                                               &merkle_proof->path_index, x, external_nullifier,
-                                              &(Vec_bool_t){selector_used, MAX_OUT, MAX_OUT});
+                                              &(Vec_bool){selector_used, MAX_OUT, MAX_OUT});
 }
 
 int main(void)
@@ -44,18 +44,18 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    CFr_t *external_nullifier = compute_external_nullifier();
+    CFr *external_nullifier = compute_external_nullifier();
 
     printf("\nHashing first signal\n");
     uint8_t signal1[32] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0, 0, 0,
                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    CFr_t *x1 = hash_signal(signal1);
+    CFr *x1 = hash_signal(signal1);
     print_cfr("x1", x1);
 
     printf("\nCreating first message ids and selector used\n");
     printf("  - using 2 out of %d slots\n", MAX_OUT);
     const unsigned int ids1[MAX_OUT] = {0, 1, 0, 0};
-    Vec_CFr_t message_ids1 = create_message_ids(ids1);
+    Vec_CFr message_ids1 = create_message_ids(ids1);
     bool selector_used1[MAX_OUT] = {true, true, false, false};
     print_vec_cfr("message ids", &message_ids1);
 
@@ -104,19 +104,19 @@ int main(void)
     }
     print_vec_cfr("nullifiers", &nullifiers1_result.ok);
     ffi_vec_cfr_free(nullifiers1_result.ok);
-    CFr_t *proof_values1_root = ffi_rln_v3_proof_values_get_root(&proof_values1);
+    CFr *proof_values1_root = ffi_rln_v3_proof_values_get_root(&proof_values1);
     print_cfr("root", proof_values1_root);
     ffi_cfr_free(proof_values1_root);
-    CFr_t *proof_values1_x = ffi_rln_v3_proof_values_get_x(&proof_values1);
+    CFr *proof_values1_x = ffi_rln_v3_proof_values_get_x(&proof_values1);
     print_cfr("x", proof_values1_x);
     ffi_cfr_free(proof_values1_x);
-    CFr_t *proof_values1_external_nullifier =
+    CFr *proof_values1_external_nullifier =
         ffi_rln_v3_proof_values_get_external_nullifier(&proof_values1);
     print_cfr("external nullifier", proof_values1_external_nullifier);
     ffi_cfr_free(proof_values1_external_nullifier);
 
     printf("\nVerifying first proof\n");
-    CBoolResult_t verify1_result = ffi_rln_v3_verify(&rln_instance, &rln_proof1, x1);
+    CBoolResult verify1_result = ffi_rln_v3_verify(&rln_instance, &rln_proof1, x1);
     if (verify1_result.err.ptr)
     {
         fprintf(stderr, "Proof verification error: %s\n", verify1_result.err.ptr);
@@ -138,14 +138,14 @@ int main(void)
     printf("\nHashing second signal\n");
     uint8_t signal2[32] = {11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 0, 0, 0, 0, 0, 0,
                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    CFr_t *x2 = hash_signal(signal2);
+    CFr *x2 = hash_signal(signal2);
     print_cfr("x2", x2);
 
     printf("\nCreating second message ids and selector used\n");
     printf("  - using 2 out of %d slots\n", MAX_OUT);
     printf("  - duplicated slot id 1\n");
     const unsigned int ids2[MAX_OUT] = {1, 0, 3, 0};
-    Vec_CFr_t message_ids2 = create_message_ids(ids2);
+    Vec_CFr message_ids2 = create_message_ids(ids2);
     bool selector_used2[MAX_OUT] = {true, false, true, false};
     print_vec_cfr("message ids", &message_ids2);
 
@@ -175,7 +175,7 @@ int main(void)
     printf("  - second proof generated successfully\n");
 
     printf("\nVerifying second proof\n");
-    CBoolResult_t verify2_result = ffi_rln_v3_verify(&rln_instance, &rln_proof2, x2);
+    CBoolResult verify2_result = ffi_rln_v3_verify(&rln_instance, &rln_proof2, x2);
     if (verify2_result.err.ptr)
     {
         fprintf(stderr, "Proof verification error: %s\n", verify2_result.err.ptr);
@@ -195,7 +195,7 @@ int main(void)
             ffi_c_string_free(recover_result.err);
             return EXIT_FAILURE;
         }
-        CFr_t *recovered_secret = recover_result.ok;
+        CFr *recovered_secret = recover_result.ok;
         print_cfr("recovered secret", recovered_secret);
         print_cfr("identity secret", member.identity_secret);
         printf("  - identity recovered successfully\n");

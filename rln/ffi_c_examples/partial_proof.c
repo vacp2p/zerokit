@@ -20,16 +20,16 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    CFr_t *external_nullifier = compute_external_nullifier();
+    CFr *external_nullifier = compute_external_nullifier();
 
     printf("\nHashing signal\n");
     uint8_t signal[32] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    CFr_t *x = hash_signal(signal);
+    CFr *x = hash_signal(signal);
     print_cfr("x", x);
 
     printf("\nCreating message id\n");
-    CFr_t *message_id = ffi_uint_to_cfr(0);
+    CFr *message_id = ffi_uint_to_cfr(0);
     print_cfr("message id", message_id);
 
     printf("\nCreating RLN witness\n");
@@ -45,10 +45,10 @@ int main(void)
     printf("  - RLN witness created successfully\n");
 
     printf("\nCreating partial witness from witness fields\n");
-    CFr_t *witness_identity_secret = ffi_rln_v3_witness_input_get_identity_secret(&witness);
-    CFr_t *witness_user_message_limit = ffi_rln_v3_witness_input_get_user_message_limit(&witness);
-    Vec_CFr_t witness_path_elements = ffi_rln_v3_witness_input_get_path_elements(&witness);
-    Vec_uint8_t witness_path_index = ffi_rln_v3_witness_input_get_identity_path_index(&witness);
+    CFr *witness_identity_secret = ffi_rln_v3_witness_input_get_identity_secret(&witness);
+    CFr *witness_user_message_limit = ffi_rln_v3_witness_input_get_user_message_limit(&witness);
+    Vec_CFr witness_path_elements = ffi_rln_v3_witness_input_get_path_elements(&witness);
+    Vec_uint8 witness_path_index = ffi_rln_v3_witness_input_get_identity_path_index(&witness);
     PartialWitnessResult partial_witness_result =
         ffi_rln_v3_partial_witness_input_new(witness_identity_secret, witness_user_message_limit,
                                              &witness_path_elements, &witness_path_index);
@@ -90,7 +90,7 @@ int main(void)
     printf("  - partial proof finished successfully\n");
 
     printf("\nVerifying full proof\n");
-    CBoolResult_t verify_full_result = ffi_rln_v3_verify(&rln_instance, &full_proof, x);
+    CBoolResult verify_full_result = ffi_rln_v3_verify(&rln_instance, &full_proof, x);
     if (verify_full_result.err.ptr)
     {
         fprintf(stderr, "Full proof verification error: %s\n", verify_full_result.err.ptr);

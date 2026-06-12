@@ -20,16 +20,16 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    CFr_t *external_nullifier = compute_external_nullifier();
+    CFr *external_nullifier = compute_external_nullifier();
 
     printf("\nHashing first signal\n");
     uint8_t signal1[32] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0, 0, 0,
                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    CFr_t *x1 = hash_signal(signal1);
+    CFr *x1 = hash_signal(signal1);
     print_cfr("x1", x1);
 
     printf("\nCreating first message id\n");
-    CFr_t *message_id1 = ffi_uint_to_cfr(0);
+    CFr *message_id1 = ffi_uint_to_cfr(0);
     print_cfr("message id", message_id1);
 
     printf("\nCreating first RLN witness\n");
@@ -58,7 +58,7 @@ int main(void)
     printf("  - first proof generated successfully\n");
 
     printf("\nVerifying first proof\n");
-    CBoolResult_t verify1_result = ffi_rln_v3_verify(&rln_instance, &rln_proof1, x1);
+    CBoolResult verify1_result = ffi_rln_v3_verify(&rln_instance, &rln_proof1, x1);
     if (verify1_result.err.ptr)
     {
         fprintf(stderr, "Proof verification error: %s\n", verify1_result.err.ptr);
@@ -80,11 +80,11 @@ int main(void)
     printf("\nHashing second signal\n");
     uint8_t signal2[32] = {11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 0, 0, 0, 0, 0, 0,
                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    CFr_t *x2 = hash_signal(signal2);
+    CFr *x2 = hash_signal(signal2);
     print_cfr("x2", x2);
 
     printf("\nCreating second message with the same id\n");
-    CFr_t *message_id2 = ffi_uint_to_cfr(0);
+    CFr *message_id2 = ffi_uint_to_cfr(0);
     print_cfr("message id", message_id2);
 
     printf("\nCreating second RLN witness\n");
@@ -113,7 +113,7 @@ int main(void)
     printf("  - second proof generated successfully\n");
 
     printf("\nVerifying second proof\n");
-    CBoolResult_t verify2_result = ffi_rln_v3_verify(&rln_instance, &rln_proof2, x2);
+    CBoolResult verify2_result = ffi_rln_v3_verify(&rln_instance, &rln_proof2, x2);
     if (verify2_result.err.ptr)
     {
         fprintf(stderr, "Proof verification error: %s\n", verify2_result.err.ptr);
@@ -133,7 +133,7 @@ int main(void)
             ffi_c_string_free(recover_result.err);
             return EXIT_FAILURE;
         }
-        CFr_t *recovered_secret = recover_result.ok;
+        CFr *recovered_secret = recover_result.ok;
         print_cfr("recovered secret", recovered_secret);
         print_cfr("identity secret", member.identity_secret);
         printf("  - identity recovered successfully\n");

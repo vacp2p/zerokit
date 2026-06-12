@@ -5,6 +5,11 @@
 
 #include "rln.h"
 
+typedef CFr_t CFr;
+typedef Vec_CFr_t Vec_CFr;
+typedef Vec_uint8_t Vec_uint8;
+typedef Vec_bool_t Vec_bool;
+typedef CBoolResult_t CBoolResult;
 typedef FFI_RLNV3_t RLN;
 typedef FFI_RLNV3WitnessInput_t Witness;
 typedef FFI_RLNV3PartialWitnessInput_t PartialWitness;
@@ -27,14 +32,14 @@ typedef CResult_Vec_uint8_Vec_uint8_t VecU8Result;
 
 typedef struct
 {
-    Vec_CFr_t keys;
-    const CFr_t *identity_secret;
-    const CFr_t *id_commitment;
-    CFr_t *user_message_limit;
-    CFr_t *rate_commitment;
+    Vec_CFr keys;
+    const CFr *identity_secret;
+    const CFr *id_commitment;
+    CFr *user_message_limit;
+    CFr *rate_commitment;
 } Member;
 
-int file_to_bytes(const char *path, Vec_uint8_t *out)
+int file_to_bytes(const char *path, Vec_uint8 *out)
 {
     FILE *f = fopen(path, "rb");
     if (!f)
@@ -58,29 +63,29 @@ int file_to_bytes(const char *path, Vec_uint8_t *out)
     return 0;
 }
 
-void print_cfr(const char *label, const CFr_t *value)
+void print_cfr(const char *label, const CFr *value)
 {
-    Vec_uint8_t debug = ffi_cfr_debug(value);
+    Vec_uint8 debug = ffi_cfr_debug(value);
     printf("  - %s = %s\n", label, debug.ptr);
     ffi_c_string_free(debug);
 }
 
-void print_vec_cfr(const char *label, const Vec_CFr_t *value)
+void print_vec_cfr(const char *label, const Vec_CFr *value)
 {
-    Vec_uint8_t debug = ffi_vec_cfr_debug(value);
+    Vec_uint8 debug = ffi_vec_cfr_debug(value);
     printf("  - %s = %s\n", label, debug.ptr);
     ffi_c_string_free(debug);
 }
 
-void print_vec_u8(const char *label, const Vec_uint8_t *value)
+void print_vec_u8(const char *label, const Vec_uint8 *value)
 {
-    Vec_uint8_t debug = ffi_vec_u8_debug(value);
+    Vec_uint8 debug = ffi_vec_u8_debug(value);
     printf("  - %s = %s\n", label, debug.ptr);
     ffi_c_string_free(debug);
 }
 
-static int load_resources(bool enable_multi_message_id, Vec_uint8_t *zkey_data,
-                          Vec_uint8_t *graph_data)
+static int load_resources(bool enable_multi_message_id, Vec_uint8 *zkey_data,
+                          Vec_uint8 *graph_data)
 {
     const char *zkey_path =
         enable_multi_message_id
@@ -108,8 +113,8 @@ static int load_resources(bool enable_multi_message_id, Vec_uint8_t *zkey_data,
 RLN *init_rln(bool enable_multi_message_id)
 {
     printf("Creating RLN instance\n");
-    Vec_uint8_t zkey_data;
-    Vec_uint8_t graph_data;
+    Vec_uint8 zkey_data;
+    Vec_uint8 graph_data;
     if (load_resources(enable_multi_message_id, &zkey_data, &graph_data) != 0)
     {
         return NULL;
@@ -136,8 +141,8 @@ RLN *init_rln(bool enable_multi_message_id)
 RLN *init_rln_stateless(void)
 {
     printf("Creating RLN instance\n");
-    Vec_uint8_t zkey_data;
-    Vec_uint8_t graph_data;
+    Vec_uint8 zkey_data;
+    Vec_uint8 graph_data;
     if (load_resources(false, &zkey_data, &graph_data) != 0)
     {
         return NULL;
@@ -187,10 +192,10 @@ void member_free(Member *member)
 }
 
 MerkleProof *register_member(RLN **rln_instance,
-                             const CFr_t *rate_commitment)
+                             const CFr *rate_commitment)
 {
     printf("\nAdding rate commitment to tree\n");
-    CBoolResult_t set_leaf_result = ffi_rln_v3_set_next_leaf(rln_instance, rate_commitment);
+    CBoolResult set_leaf_result = ffi_rln_v3_set_next_leaf(rln_instance, rate_commitment);
     if (!set_leaf_result.ok)
     {
         fprintf(stderr, "Adding rate commitment error: %s\n", set_leaf_result.err.ptr);
@@ -212,27 +217,27 @@ MerkleProof *register_member(RLN **rln_instance,
     return merkle_proof_result.ok;
 }
 
-CFr_t *hash_signal(const uint8_t signal[32])
+CFr *hash_signal(const uint8_t signal[32])
 {
-    return ffi_hash_to_field_le(&(Vec_uint8_t){(uint8_t *)signal, 32, 32});
+    return ffi_hash_to_field_le(&(Vec_uint8){(uint8_t *)signal, 32, 32});
 }
 
-CFr_t *compute_external_nullifier(void)
+CFr *compute_external_nullifier(void)
 {
     printf("\nHashing epoch\n");
     const char *epoch_str = "test-epoch";
-    CFr_t *epoch = ffi_hash_to_field_le(
-        &(Vec_uint8_t){(uint8_t *)epoch_str, strlen(epoch_str), strlen(epoch_str)});
+    CFr *epoch = ffi_hash_to_field_le(
+        &(Vec_uint8){(uint8_t *)epoch_str, strlen(epoch_str), strlen(epoch_str)});
     print_cfr("epoch", epoch);
 
     printf("\nHashing RLN identifier\n");
     const char *rln_id_str = "test-rln-identifier";
-    CFr_t *rln_identifier = ffi_hash_to_field_le(
-        &(Vec_uint8_t){(uint8_t *)rln_id_str, strlen(rln_id_str), strlen(rln_id_str)});
+    CFr *rln_identifier = ffi_hash_to_field_le(
+        &(Vec_uint8){(uint8_t *)rln_id_str, strlen(rln_id_str), strlen(rln_id_str)});
     print_cfr("RLN identifier", rln_identifier);
 
     printf("\nComputing Poseidon hash for external nullifier\n");
-    CFr_t *external_nullifier = ffi_poseidon_hash_pair(epoch, rln_identifier);
+    CFr *external_nullifier = ffi_poseidon_hash_pair(epoch, rln_identifier);
     print_cfr("external nullifier", external_nullifier);
 
     ffi_cfr_free(rln_identifier);
@@ -242,7 +247,7 @@ CFr_t *compute_external_nullifier(void)
 
 WitnessResult
 create_witness(const Member *member, const MerkleProof *merkle_proof,
-               const CFr_t *message_id, const CFr_t *x, const CFr_t *external_nullifier)
+               const CFr *message_id, const CFr *x, const CFr *external_nullifier)
 {
     return ffi_rln_v3_witness_input_new_single(member->identity_secret,
                                                member->user_message_limit, message_id,

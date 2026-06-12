@@ -15,45 +15,45 @@ int main(void)
     create_member(&member);
 
     printf("\nComputing Merkle path for stateless mode\n");
-    CFr_t *default_leaf = ffi_cfr_zero();
-    CFr_t *default_hashes[TREE_DEPTH - 1];
+    CFr *default_leaf = ffi_cfr_zero();
+    CFr *default_hashes[TREE_DEPTH - 1];
     default_hashes[0] = ffi_poseidon_hash_pair(default_leaf, default_leaf);
     for (size_t i = 1; i < TREE_DEPTH - 1; i++)
     {
         default_hashes[i] = ffi_poseidon_hash_pair(default_hashes[i - 1], default_hashes[i - 1]);
     }
-    Vec_CFr_t path_elements = ffi_vec_cfr_new(TREE_DEPTH);
+    Vec_CFr path_elements = ffi_vec_cfr_new(TREE_DEPTH);
     ffi_vec_cfr_push(&path_elements, default_leaf);
     for (size_t i = 1; i < TREE_DEPTH; i++)
     {
         ffi_vec_cfr_push(&path_elements, default_hashes[i - 1]);
     }
     uint8_t path_index_data[TREE_DEPTH] = {0};
-    Vec_uint8_t path_index = {path_index_data, TREE_DEPTH, TREE_DEPTH};
+    Vec_uint8 path_index = {path_index_data, TREE_DEPTH, TREE_DEPTH};
 
     printf("\nComputing Merkle root for stateless mode\n");
     printf("  - computing root for index 0 with rate commitment\n");
-    CFr_t *computed_root = ffi_poseidon_hash_pair(member.rate_commitment, default_leaf);
+    CFr *computed_root = ffi_poseidon_hash_pair(member.rate_commitment, default_leaf);
     for (size_t i = 1; i < TREE_DEPTH; i++)
     {
-        CFr_t *next_root = ffi_poseidon_hash_pair(computed_root, default_hashes[i - 1]);
+        CFr *next_root = ffi_poseidon_hash_pair(computed_root, default_hashes[i - 1]);
         ffi_cfr_free(computed_root);
         computed_root = next_root;
     }
     print_cfr("computed root", computed_root);
-    Vec_CFr_t roots = ffi_vec_cfr_new(1);
+    Vec_CFr roots = ffi_vec_cfr_new(1);
     ffi_vec_cfr_push(&roots, computed_root);
 
-    CFr_t *external_nullifier = compute_external_nullifier();
+    CFr *external_nullifier = compute_external_nullifier();
 
     printf("\nHashing signal\n");
     uint8_t signal[32] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    CFr_t *x = hash_signal(signal);
+    CFr *x = hash_signal(signal);
     print_cfr("x", x);
 
     printf("\nCreating message id\n");
-    CFr_t *message_id = ffi_uint_to_cfr(0);
+    CFr *message_id = ffi_uint_to_cfr(0);
     print_cfr("message id", message_id);
 
     printf("\nCreating RLN witness\n");
@@ -102,19 +102,19 @@ int main(void)
     }
     print_cfr("nullifier", nullifier_result.ok);
     ffi_cfr_free(nullifier_result.ok);
-    CFr_t *proof_values_root = ffi_rln_v3_proof_values_get_root(&proof_values);
+    CFr *proof_values_root = ffi_rln_v3_proof_values_get_root(&proof_values);
     print_cfr("root", proof_values_root);
     ffi_cfr_free(proof_values_root);
-    CFr_t *proof_values_x = ffi_rln_v3_proof_values_get_x(&proof_values);
+    CFr *proof_values_x = ffi_rln_v3_proof_values_get_x(&proof_values);
     print_cfr("x", proof_values_x);
     ffi_cfr_free(proof_values_x);
-    CFr_t *proof_values_external_nullifier =
+    CFr *proof_values_external_nullifier =
         ffi_rln_v3_proof_values_get_external_nullifier(&proof_values);
     print_cfr("external nullifier", proof_values_external_nullifier);
     ffi_cfr_free(proof_values_external_nullifier);
 
     printf("\nVerifying proof\n");
-    CBoolResult_t verify_result =
+    CBoolResult verify_result =
         ffi_rln_v3_verify_with_roots(&rln_instance, &rln_proof, &roots, x);
     if (verify_result.err.ptr)
     {
