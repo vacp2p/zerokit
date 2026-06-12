@@ -8,8 +8,8 @@ use std::{
 use clap::{Parser, Subcommand};
 use rln::prelude::{
     graph_from_raw, hash_to_field_le, keygen, poseidon_hash, zkey_from_raw, ArkGroth16Backend, Fr,
-    IdSecret, PmTree, PmTreeConfig, PoseidonHash, RLNBuilder, RLNProofValuesV3, RLNWitnessInputV3,
-    RecoverSecret, Stateful, RLNV3,
+    IdSecret, PmTree, PmTreeConfig, PoseidonHash, RLNBuilder, RLNProofValues, RLNWitnessInput,
+    RecoverSecret, Stateful, RLN,
 };
 use zerokit_utils::{
     merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
@@ -62,8 +62,8 @@ impl Identity {
 }
 
 struct RLNSystem {
-    rln: RLNV3<Stateful<PmTree>, ArkGroth16Backend>,
-    used_nullifiers: HashMap<Fr, RLNProofValuesV3>,
+    rln: RLN<Stateful<PmTree>, ArkGroth16Backend>,
+    used_nullifiers: HashMap<Fr, RLNProofValues>,
     local_identities: HashMap<usize, Identity>,
 }
 
@@ -145,7 +145,7 @@ impl RLNSystem {
         message_id: u32,
         signal: &str,
         external_nullifier: Fr,
-    ) -> Result<RLNProofValuesV3> {
+    ) -> Result<RLNProofValues> {
         let identity = match self.local_identities.get(&user_index) {
             Some(identity) => identity,
             None => return Err(format!("User {user_index} not found").into()),
@@ -154,7 +154,7 @@ impl RLNSystem {
         let merkle_proof = self.rln.get_merkle_proof(user_index)?;
         let x = hash_to_field_le(signal.as_bytes());
 
-        let witness = RLNWitnessInputV3::new_single()
+        let witness = RLNWitnessInput::new_single()
             .identity_secret(identity.identity_secret.clone())
             .user_message_limit(Fr::from(MESSAGE_LIMIT))
             .path_elements(merkle_proof.get_path_elements())
@@ -178,7 +178,7 @@ impl RLNSystem {
         Ok(proof_values)
     }
 
-    fn check_nullifier(&mut self, proof_values: RLNProofValuesV3) -> Result<()> {
+    fn check_nullifier(&mut self, proof_values: RLNProofValues) -> Result<()> {
         if let Some(nullifier) = proof_values.nullifier() {
             if let Some(previous_proof_values) = self.used_nullifiers.get(&nullifier).cloned() {
                 self.handle_duplicate_nullifier(&previous_proof_values, &proof_values)?;
@@ -194,8 +194,8 @@ impl RLNSystem {
 
     fn handle_duplicate_nullifier(
         &mut self,
-        previous_proof_values: &RLNProofValuesV3,
-        current_proof_values: &RLNProofValuesV3,
+        previous_proof_values: &RLNProofValues,
+        current_proof_values: &RLNProofValues,
     ) -> Result<()> {
         if previous_proof_values.x() == current_proof_values.x()
             && previous_proof_values.y() == current_proof_values.y()
