@@ -42,7 +42,7 @@ gcc -Wall stateless.c -o stateless -lrln -L../../target/release
 ## Memory ownership
 
 - Every pointer returned by the FFI is owned by the caller and must be released with its matching `ffi_*_free` function (`ffi_cfr_free`, `ffi_rln_v3_proof_free`, `ffi_rln_v3_witness_input_free`, ...).
-- Debug and error strings are Rust `Vec`s; release them with `ffi_c_string_free`.
+- Debug and error strings are Rust `Vec<u8>`; release them with `ffi_c_string_free`.
 - `ffi_vec_cfr_get` returns a borrowed pointer into the vector: do not free it, and do not use it after the vector itself is freed.
 - The examples free everything explicitly to document this contract.
 
