@@ -14,12 +14,6 @@ pub struct WasmRLN(RLNV3<Stateless, ArkGroth16Backend>);
 
 #[wasm_bindgen]
 impl WasmRLN {
-    #[wasm_bindgen(js_name = newDefault)]
-    pub fn new_default() -> WasmRLN {
-        let rln = RLNBuilder::stateless().build();
-        WasmRLN(rln)
-    }
-
     #[wasm_bindgen(js_name = newWithParams)]
     pub fn new_with_params(
         zkey_data: &Uint8Array,
