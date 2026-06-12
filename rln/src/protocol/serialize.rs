@@ -171,7 +171,7 @@ impl CanonicalDeserializeBE for Vec<Fr> {
         let mut len_buf = [0u8; VEC_LEN_BYTE_SIZE];
         reader.read_exact(&mut len_buf)?;
         let count = usize::try_from(u64::from_be_bytes(len_buf))?;
-        let mut result = Vec::with_capacity(count);
+        let mut result = Vec::new(); // DO NOT preallocate from untrusted length prefix
         for _ in 0..count {
             result.push(Fr::deserialize(&mut reader)?);
         }
@@ -199,9 +199,12 @@ impl CanonicalDeserializeBE for Vec<u8> {
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let mut len_buf = [0u8; VEC_LEN_BYTE_SIZE];
         reader.read_exact(&mut len_buf)?;
-        let count = usize::try_from(u64::from_be_bytes(len_buf))?;
-        let mut result = vec![0u8; count];
-        reader.read_exact(&mut result)?;
+        let count = u64::from_be_bytes(len_buf);
+        let mut result = Vec::new(); // DO NOT preallocate from untrusted length prefix
+        reader.take(count).read_to_end(&mut result)?;
+        if result.len() as u64 != count {
+            return Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof).into());
+        }
         Ok(result)
     }
 }
@@ -228,10 +231,14 @@ impl CanonicalDeserializeBE for Vec<bool> {
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
         let mut len_buf = [0u8; VEC_LEN_BYTE_SIZE];
         reader.read_exact(&mut len_buf)?;
-        let count = usize::try_from(u64::from_be_bytes(len_buf))?;
-        let mut raw = vec![0u8; count];
-        reader.read_exact(&mut raw)?;
-        raw.into_iter()
+        let count = u64::from_be_bytes(len_buf);
+        let mut result = Vec::new(); // DO NOT preallocate from untrusted length prefix
+        reader.take(count).read_to_end(&mut result)?;
+        if result.len() as u64 != count {
+            return Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof).into());
+        }
+        result
+            .into_iter()
             .map(|b| match b {
                 0 => Ok(false),
                 1 => Ok(true),
