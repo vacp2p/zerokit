@@ -39,9 +39,16 @@ gcc -Wall stateless.c -o stateless -lrln -L../../target/release
 ./stateless
 ```
 
-## Note
+## Memory ownership
 
-### Find C lib used by Rust
+- Every pointer returned by the FFI is owned by the caller and must be released with its matching `ffi_*_free` function (`ffi_cfr_free`, `ffi_rln_v3_proof_free`, `ffi_rln_v3_witness_input_free`, ...).
+- Debug and error strings are Rust `Vec`s; release them with `ffi_c_string_free`.
+- `ffi_vec_cfr_get` returns a borrowed pointer into the vector: do not free it, and do not use it after the vector itself is freed.
+- The examples free everything explicitly to document this contract.
+
+## Notes
+
+The examples link against the shared library (`-lrln`). If you instead link the static library (`librln.a`), you must also link the native system libraries that the Rust runtime depends on. Print that list with:
 
 ```bash
 cargo +nightly rustc --release -p rln -- -Z unstable-options --print native-static-libs

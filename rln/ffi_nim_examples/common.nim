@@ -38,7 +38,7 @@ proc loadResources(enableMultiMessageId: bool): (seq[uint8], seq[uint8]) =
       "../resources/tree_depth_20/graph.bin"
   (fileToBytes(zkeyPath), fileToBytes(graphPath))
 
-proc initRLN(enableMultiMessageId: bool): ptr FFI_RLNV3 =
+proc initRLN(enableMultiMessageId: bool): ptr RLN =
   echo "Creating RLN instance"
   var (zkeyBytes, graphBytes) = loadResources(enableMultiMessageId)
   var zkeyData = asVecU8(zkeyBytes)
@@ -56,7 +56,7 @@ proc initRLN(enableMultiMessageId: bool): ptr FFI_RLNV3 =
     echo "  - circuit max out = " & $maxOut
   rlnInstanceResult.ok
 
-proc initRLNStateless(): ptr FFI_RLNV3 =
+proc initRLNStateless(): ptr RLN =
   echo "Creating RLN instance"
   var (zkeyBytes, graphBytes) = loadResources(false)
   var zkeyData = asVecU8(zkeyBytes)
@@ -95,8 +95,8 @@ proc memberFree(member: var Member) =
   ffi_cfr_free(member.userMessageLimit)
   ffi_vec_cfr_free(member.keys)
 
-proc registerMember(rlnInstance: var ptr FFI_RLNV3,
-    rateCommitment: ptr CFr): ptr FFI_RLNV3MerkleProof =
+proc registerMember(rlnInstance: var ptr RLN,
+    rateCommitment: ptr CFr): ptr MerkleProof =
   echo "\nAdding rate commitment to tree"
   let setLeafResult = ffi_rln_v3_set_next_leaf(addr rlnInstance, rateCommitment)
   if not setLeafResult.ok:
@@ -145,8 +145,8 @@ proc computeExternalNullifier(): ptr CFr =
   externalNullifier
 
 proc createWitness(member: Member,
-    merkleProof: ptr FFI_RLNV3MerkleProof, messageId: ptr CFr, x: ptr CFr,
-    externalNullifier: ptr CFr): CResultWitnessInputPtr =
+    merkleProof: ptr MerkleProof, messageId: ptr CFr, x: ptr CFr,
+    externalNullifier: ptr CFr): WitnessResult =
   ffi_rln_v3_witness_input_new_single(member.identitySecret,
       member.userMessageLimit, messageId, addr merkleProof.path_elements,
       addr merkleProof.path_index, x, externalNullifier)

@@ -5,6 +5,23 @@
 
 #include "rln.h"
 
+typedef FFI_RLNV3_t RLN;
+typedef FFI_RLNV3WitnessInput_t Witness;
+typedef FFI_RLNV3PartialWitnessInput_t PartialWitness;
+typedef FFI_RLNV3Proof_t Proof;
+typedef FFI_RLNV3PartialProof_t PartialProof;
+typedef FFI_RLNV3ProofValues_t ProofValues;
+typedef FFI_RLNV3MerkleProof_t MerkleProof;
+typedef CResult_FFI_RLNV3_ptr_Vec_uint8_t RLNResult;
+typedef CResult_FFI_RLNV3WitnessInput_ptr_Vec_uint8_t WitnessResult;
+typedef CResult_FFI_RLNV3PartialWitnessInput_ptr_Vec_uint8_t PartialWitnessResult;
+typedef CResult_FFI_RLNV3Proof_ptr_Vec_uint8_t ProofResult;
+typedef CResult_FFI_RLNV3PartialProof_ptr_Vec_uint8_t PartialProofResult;
+typedef CResult_FFI_RLNV3MerkleProof_ptr_Vec_uint8_t MerkleProofResult;
+typedef CResult_CFr_ptr_Vec_uint8_t CFrResult;
+typedef CResult_Vec_CFr_Vec_uint8_t VecCFrResult;
+typedef CResult_Vec_uint8_Vec_uint8_t VecU8Result;
+
 #define TREE_DEPTH 20
 #define MAX_OUT 4
 
@@ -15,7 +32,7 @@ typedef struct
     const CFr_t *id_commitment;
     CFr_t *user_message_limit;
     CFr_t *rate_commitment;
-} Member_t;
+} Member;
 
 int file_to_bytes(const char *path, Vec_uint8_t *out)
 {
@@ -88,7 +105,7 @@ static int load_resources(bool enable_multi_message_id, Vec_uint8_t *zkey_data,
     return 0;
 }
 
-FFI_RLNV3_t *init_rln(bool enable_multi_message_id)
+RLN *init_rln(bool enable_multi_message_id)
 {
     printf("Creating RLN instance\n");
     Vec_uint8_t zkey_data;
@@ -97,7 +114,7 @@ FFI_RLNV3_t *init_rln(bool enable_multi_message_id)
     {
         return NULL;
     }
-    CResult_FFI_RLNV3_ptr_Vec_uint8_t rln_instance_result =
+    RLNResult rln_instance_result =
         ffi_rln_v3_new_with_pm_tree(TREE_DEPTH, &zkey_data, &graph_data, "");
     free(zkey_data.ptr);
     free(graph_data.ptr);
@@ -116,7 +133,7 @@ FFI_RLNV3_t *init_rln(bool enable_multi_message_id)
     return rln_instance_result.ok;
 }
 
-FFI_RLNV3_t *init_rln_stateless(void)
+RLN *init_rln_stateless(void)
 {
     printf("Creating RLN instance\n");
     Vec_uint8_t zkey_data;
@@ -125,7 +142,7 @@ FFI_RLNV3_t *init_rln_stateless(void)
     {
         return NULL;
     }
-    CResult_FFI_RLNV3_ptr_Vec_uint8_t rln_instance_result =
+    RLNResult rln_instance_result =
         ffi_rln_v3_new_stateless(&zkey_data, &graph_data);
     free(zkey_data.ptr);
     free(graph_data.ptr);
@@ -140,7 +157,7 @@ FFI_RLNV3_t *init_rln_stateless(void)
     return rln_instance_result.ok;
 }
 
-int create_member(Member_t *member)
+int create_member(Member *member)
 {
     printf("\nGenerating identity keys\n");
     member->keys = ffi_key_gen();
@@ -162,15 +179,15 @@ int create_member(Member_t *member)
     return 0;
 }
 
-void member_free(Member_t *member)
+void member_free(Member *member)
 {
     ffi_cfr_free(member->rate_commitment);
     ffi_cfr_free(member->user_message_limit);
     ffi_vec_cfr_free(member->keys);
 }
 
-FFI_RLNV3MerkleProof_t *register_member(FFI_RLNV3_t **rln_instance,
-                                        const CFr_t *rate_commitment)
+MerkleProof *register_member(RLN **rln_instance,
+                             const CFr_t *rate_commitment)
 {
     printf("\nAdding rate commitment to tree\n");
     CBoolResult_t set_leaf_result = ffi_rln_v3_set_next_leaf(rln_instance, rate_commitment);
@@ -183,7 +200,7 @@ FFI_RLNV3MerkleProof_t *register_member(FFI_RLNV3_t **rln_instance,
     printf("  - rate commitment added at leaf 0\n");
 
     printf("\nGetting Merkle proof\n");
-    CResult_FFI_RLNV3MerkleProof_ptr_Vec_uint8_t merkle_proof_result =
+    MerkleProofResult merkle_proof_result =
         ffi_rln_v3_get_merkle_proof(rln_instance, 0);
     if (!merkle_proof_result.ok)
     {
@@ -223,8 +240,8 @@ CFr_t *compute_external_nullifier(void)
     return external_nullifier;
 }
 
-CResult_FFI_RLNV3WitnessInput_ptr_Vec_uint8_t
-create_witness(const Member_t *member, const FFI_RLNV3MerkleProof_t *merkle_proof,
+WitnessResult
+create_witness(const Member *member, const MerkleProof *merkle_proof,
                const CFr_t *message_id, const CFr_t *x, const CFr_t *external_nullifier)
 {
     return ffi_rln_v3_witness_input_new_single(member->identity_secret,

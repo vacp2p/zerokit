@@ -8,9 +8,9 @@ proc createMessageIds(ids: array[maxOut, uint32]): Vec_CFr =
     ffi_cfr_free(tmp)
 
 proc createMultiWitness(member: Member,
-    merkleProof: ptr FFI_RLNV3MerkleProof, messageIds: ptr Vec_CFr,
+    merkleProof: ptr MerkleProof, messageIds: ptr Vec_CFr,
     selectorUsed: var array[maxOut, bool], x: ptr CFr,
-    externalNullifier: ptr CFr): CResultWitnessInputPtr =
+    externalNullifier: ptr CFr): WitnessResult =
   var selectorVec = Vec_bool(dataPtr: addr selectorUsed[0],
       len: csize_t(maxOut), cap: csize_t(maxOut))
   ffi_rln_v3_witness_input_new_multi(member.identitySecret,

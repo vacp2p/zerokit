@@ -5,16 +5,16 @@
 
 int main(void)
 {
-    FFI_RLNV3_t *rln_instance = init_rln(false);
+    RLN *rln_instance = init_rln(false);
     if (!rln_instance)
     {
         return EXIT_FAILURE;
     }
 
-    Member_t member;
+    Member member;
     create_member(&member);
 
-    FFI_RLNV3MerkleProof_t *merkle_proof = register_member(&rln_instance, member.rate_commitment);
+    MerkleProof *merkle_proof = register_member(&rln_instance, member.rate_commitment);
     if (!merkle_proof)
     {
         return EXIT_FAILURE;
@@ -33,7 +33,7 @@ int main(void)
     print_cfr("message id", message_id1);
 
     printf("\nCreating first RLN witness\n");
-    CResult_FFI_RLNV3WitnessInput_ptr_Vec_uint8_t witness1_result =
+    WitnessResult witness1_result =
         create_witness(&member, merkle_proof, message_id1, x1, external_nullifier);
     if (!witness1_result.ok)
     {
@@ -41,11 +41,11 @@ int main(void)
         ffi_c_string_free(witness1_result.err);
         return EXIT_FAILURE;
     }
-    FFI_RLNV3WitnessInput_t *witness1 = witness1_result.ok;
+    Witness *witness1 = witness1_result.ok;
     printf("  - first RLN witness created successfully\n");
 
     printf("\nGenerating first RLN proof\n");
-    CResult_FFI_RLNV3Proof_ptr_Vec_uint8_t rln_proof1_result =
+    ProofResult rln_proof1_result =
         ffi_rln_v3_generate_proof(&rln_instance, &witness1);
     if (!rln_proof1_result.ok)
     {
@@ -53,8 +53,8 @@ int main(void)
         ffi_c_string_free(rln_proof1_result.err);
         return EXIT_FAILURE;
     }
-    FFI_RLNV3Proof_t *rln_proof1 = rln_proof1_result.ok;
-    FFI_RLNV3ProofValues_t *proof_values1 = ffi_rln_v3_proof_get_values(&rln_proof1);
+    Proof *rln_proof1 = rln_proof1_result.ok;
+    ProofValues *proof_values1 = ffi_rln_v3_proof_get_values(&rln_proof1);
     printf("  - first proof generated successfully\n");
 
     printf("\nVerifying first proof\n");
@@ -88,7 +88,7 @@ int main(void)
     print_cfr("message id", message_id2);
 
     printf("\nCreating second RLN witness\n");
-    CResult_FFI_RLNV3WitnessInput_ptr_Vec_uint8_t witness2_result =
+    WitnessResult witness2_result =
         create_witness(&member, merkle_proof, message_id2, x2, external_nullifier);
     if (!witness2_result.ok)
     {
@@ -96,11 +96,11 @@ int main(void)
         ffi_c_string_free(witness2_result.err);
         return EXIT_FAILURE;
     }
-    FFI_RLNV3WitnessInput_t *witness2 = witness2_result.ok;
+    Witness *witness2 = witness2_result.ok;
     printf("  - second RLN witness created successfully\n");
 
     printf("\nGenerating second RLN proof\n");
-    CResult_FFI_RLNV3Proof_ptr_Vec_uint8_t rln_proof2_result =
+    ProofResult rln_proof2_result =
         ffi_rln_v3_generate_proof(&rln_instance, &witness2);
     if (!rln_proof2_result.ok)
     {
@@ -108,8 +108,8 @@ int main(void)
         ffi_c_string_free(rln_proof2_result.err);
         return EXIT_FAILURE;
     }
-    FFI_RLNV3Proof_t *rln_proof2 = rln_proof2_result.ok;
-    FFI_RLNV3ProofValues_t *proof_values2 = ffi_rln_v3_proof_get_values(&rln_proof2);
+    Proof *rln_proof2 = rln_proof2_result.ok;
+    ProofValues *proof_values2 = ffi_rln_v3_proof_get_values(&rln_proof2);
     printf("  - second proof generated successfully\n");
 
     printf("\nVerifying second proof\n");
@@ -125,7 +125,7 @@ int main(void)
         printf("  - second proof verified successfully\n");
 
         printf("\nRecovering identity secret\n");
-        CResult_CFr_ptr_Vec_uint8_t recover_result =
+        CFrResult recover_result =
             ffi_rln_v3_recover_id_secret(&proof_values1, &proof_values2);
         if (!recover_result.ok)
         {

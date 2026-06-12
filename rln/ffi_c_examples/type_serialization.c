@@ -5,16 +5,16 @@
 
 int main(void)
 {
-    FFI_RLNV3_t *rln_instance = init_rln(false);
+    RLN *rln_instance = init_rln(false);
     if (!rln_instance)
     {
         return EXIT_FAILURE;
     }
 
-    Member_t member;
+    Member member;
     create_member(&member);
 
-    FFI_RLNV3MerkleProof_t *merkle_proof = register_member(&rln_instance, member.rate_commitment);
+    MerkleProof *merkle_proof = register_member(&rln_instance, member.rate_commitment);
     if (!merkle_proof)
     {
         return EXIT_FAILURE;
@@ -33,7 +33,7 @@ int main(void)
     print_cfr("message id", message_id);
 
     printf("\nCreating RLN witness\n");
-    CResult_FFI_RLNV3WitnessInput_ptr_Vec_uint8_t witness_result =
+    WitnessResult witness_result =
         create_witness(&member, merkle_proof, message_id, x, external_nullifier);
     if (!witness_result.ok)
     {
@@ -41,11 +41,11 @@ int main(void)
         ffi_c_string_free(witness_result.err);
         return EXIT_FAILURE;
     }
-    FFI_RLNV3WitnessInput_t *witness = witness_result.ok;
+    Witness *witness = witness_result.ok;
     printf("  - RLN witness created successfully\n");
 
     printf("\nRLNWitnessInput serialization: RLNWitnessInput <-> bytes\n");
-    CResult_Vec_uint8_Vec_uint8_t ser_witness_result = ffi_rln_v3_witness_to_bytes_le(&witness);
+    VecU8Result ser_witness_result = ffi_rln_v3_witness_to_bytes_le(&witness);
     if (ser_witness_result.err.ptr)
     {
         fprintf(stderr, "Witness serialization error: %s\n", ser_witness_result.err.ptr);
@@ -54,7 +54,7 @@ int main(void)
     }
     Vec_uint8_t ser_witness = ser_witness_result.ok;
     print_vec_u8("serialized witness", &ser_witness);
-    CResult_FFI_RLNV3WitnessInput_ptr_Vec_uint8_t deser_witness_result =
+    WitnessResult deser_witness_result =
         ffi_bytes_le_to_rln_v3_witness(&ser_witness);
     if (!deser_witness_result.ok)
     {
@@ -62,11 +62,11 @@ int main(void)
         ffi_c_string_free(deser_witness_result.err);
         return EXIT_FAILURE;
     }
-    FFI_RLNV3WitnessInput_t *deser_witness = deser_witness_result.ok;
+    Witness *deser_witness = deser_witness_result.ok;
     printf("  - witness deserialized successfully\n");
 
     printf("\nGenerating RLN proof from the deserialized witness\n");
-    CResult_FFI_RLNV3Proof_ptr_Vec_uint8_t rln_proof_result =
+    ProofResult rln_proof_result =
         ffi_rln_v3_generate_proof(&rln_instance, &deser_witness);
     if (!rln_proof_result.ok)
     {
@@ -74,11 +74,11 @@ int main(void)
         ffi_c_string_free(rln_proof_result.err);
         return EXIT_FAILURE;
     }
-    FFI_RLNV3Proof_t *rln_proof = rln_proof_result.ok;
+    Proof *rln_proof = rln_proof_result.ok;
     printf("  - proof generated successfully\n");
 
     printf("\nRLNProof serialization: RLNProof <-> bytes\n");
-    CResult_Vec_uint8_Vec_uint8_t ser_proof_result = ffi_rln_v3_proof_to_bytes_le(&rln_proof);
+    VecU8Result ser_proof_result = ffi_rln_v3_proof_to_bytes_le(&rln_proof);
     if (ser_proof_result.err.ptr)
     {
         fprintf(stderr, "Proof serialization error: %s\n", ser_proof_result.err.ptr);
@@ -87,7 +87,7 @@ int main(void)
     }
     Vec_uint8_t ser_proof = ser_proof_result.ok;
     print_vec_u8("serialized proof", &ser_proof);
-    CResult_FFI_RLNV3Proof_ptr_Vec_uint8_t deser_proof_result =
+    ProofResult deser_proof_result =
         ffi_bytes_le_to_rln_v3_proof(&ser_proof);
     if (!deser_proof_result.ok)
     {
@@ -95,7 +95,7 @@ int main(void)
         ffi_c_string_free(deser_proof_result.err);
         return EXIT_FAILURE;
     }
-    FFI_RLNV3Proof_t *deser_proof = deser_proof_result.ok;
+    Proof *deser_proof = deser_proof_result.ok;
     printf("  - proof deserialized successfully\n");
 
     printf("\nVerifying the deserialized proof\n");

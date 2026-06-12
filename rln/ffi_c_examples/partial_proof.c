@@ -5,16 +5,16 @@
 
 int main(void)
 {
-    FFI_RLNV3_t *rln_instance = init_rln(false);
+    RLN *rln_instance = init_rln(false);
     if (!rln_instance)
     {
         return EXIT_FAILURE;
     }
 
-    Member_t member;
+    Member member;
     create_member(&member);
 
-    FFI_RLNV3MerkleProof_t *merkle_proof = register_member(&rln_instance, member.rate_commitment);
+    MerkleProof *merkle_proof = register_member(&rln_instance, member.rate_commitment);
     if (!merkle_proof)
     {
         return EXIT_FAILURE;
@@ -33,7 +33,7 @@ int main(void)
     print_cfr("message id", message_id);
 
     printf("\nCreating RLN witness\n");
-    CResult_FFI_RLNV3WitnessInput_ptr_Vec_uint8_t witness_result =
+    WitnessResult witness_result =
         create_witness(&member, merkle_proof, message_id, x, external_nullifier);
     if (!witness_result.ok)
     {
@@ -41,7 +41,7 @@ int main(void)
         ffi_c_string_free(witness_result.err);
         return EXIT_FAILURE;
     }
-    FFI_RLNV3WitnessInput_t *witness = witness_result.ok;
+    Witness *witness = witness_result.ok;
     printf("  - RLN witness created successfully\n");
 
     printf("\nCreating partial witness from witness fields\n");
@@ -49,7 +49,7 @@ int main(void)
     CFr_t *witness_user_message_limit = ffi_rln_v3_witness_input_get_user_message_limit(&witness);
     Vec_CFr_t witness_path_elements = ffi_rln_v3_witness_input_get_path_elements(&witness);
     Vec_uint8_t witness_path_index = ffi_rln_v3_witness_input_get_identity_path_index(&witness);
-    CResult_FFI_RLNV3PartialWitnessInput_ptr_Vec_uint8_t partial_witness_result =
+    PartialWitnessResult partial_witness_result =
         ffi_rln_v3_partial_witness_input_new(witness_identity_secret, witness_user_message_limit,
                                              &witness_path_elements, &witness_path_index);
     ffi_cfr_free(witness_identity_secret);
@@ -62,11 +62,11 @@ int main(void)
         ffi_c_string_free(partial_witness_result.err);
         return EXIT_FAILURE;
     }
-    FFI_RLNV3PartialWitnessInput_t *partial_witness = partial_witness_result.ok;
+    PartialWitness *partial_witness = partial_witness_result.ok;
     printf("  - partial witness created successfully\n");
 
     printf("\nGenerating partial ZK proof\n");
-    CResult_FFI_RLNV3PartialProof_ptr_Vec_uint8_t partial_proof_result =
+    PartialProofResult partial_proof_result =
         ffi_rln_v3_generate_partial_proof(&rln_instance, &partial_witness);
     if (!partial_proof_result.ok)
     {
@@ -74,11 +74,11 @@ int main(void)
         ffi_c_string_free(partial_proof_result.err);
         return EXIT_FAILURE;
     }
-    FFI_RLNV3PartialProof_t *partial_proof = partial_proof_result.ok;
+    PartialProof *partial_proof = partial_proof_result.ok;
     printf("  - partial proof generated successfully\n");
 
     printf("\nFinishing proof with full witness\n");
-    CResult_FFI_RLNV3Proof_ptr_Vec_uint8_t full_proof_result =
+    ProofResult full_proof_result =
         ffi_rln_v3_finish_proof(&rln_instance, &partial_proof, &witness);
     if (!full_proof_result.ok)
     {
@@ -86,7 +86,7 @@ int main(void)
         ffi_c_string_free(full_proof_result.err);
         return EXIT_FAILURE;
     }
-    FFI_RLNV3Proof_t *full_proof = full_proof_result.ok;
+    Proof *full_proof = full_proof_result.ok;
     printf("  - partial proof finished successfully\n");
 
     printf("\nVerifying full proof\n");

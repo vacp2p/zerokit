@@ -5,16 +5,16 @@
 
 int main(void)
 {
-    FFI_RLNV3_t *rln_instance = init_rln(false);
+    RLN *rln_instance = init_rln(false);
     if (!rln_instance)
     {
         return EXIT_FAILURE;
     }
 
-    Member_t member;
+    Member member;
     create_member(&member);
 
-    FFI_RLNV3MerkleProof_t *merkle_proof = register_member(&rln_instance, member.rate_commitment);
+    MerkleProof *merkle_proof = register_member(&rln_instance, member.rate_commitment);
     if (!merkle_proof)
     {
         return EXIT_FAILURE;
@@ -33,7 +33,7 @@ int main(void)
     print_cfr("message id", message_id);
 
     printf("\nCreating RLN witness\n");
-    CResult_FFI_RLNV3WitnessInput_ptr_Vec_uint8_t witness_result =
+    WitnessResult witness_result =
         create_witness(&member, merkle_proof, message_id, x, external_nullifier);
     if (!witness_result.ok)
     {
@@ -41,11 +41,11 @@ int main(void)
         ffi_c_string_free(witness_result.err);
         return EXIT_FAILURE;
     }
-    FFI_RLNV3WitnessInput_t *witness = witness_result.ok;
+    Witness *witness = witness_result.ok;
     printf("  - RLN witness created successfully\n");
 
     printf("\nGenerating RLN proof\n");
-    CResult_FFI_RLNV3Proof_ptr_Vec_uint8_t rln_proof_result =
+    ProofResult rln_proof_result =
         ffi_rln_v3_generate_proof(&rln_instance, &witness);
     if (!rln_proof_result.ok)
     {
@@ -53,12 +53,12 @@ int main(void)
         ffi_c_string_free(rln_proof_result.err);
         return EXIT_FAILURE;
     }
-    FFI_RLNV3Proof_t *rln_proof = rln_proof_result.ok;
+    Proof *rln_proof = rln_proof_result.ok;
     printf("  - proof generated successfully\n");
 
     printf("\nGetting RLN proof values\n");
-    FFI_RLNV3ProofValues_t *proof_values = ffi_rln_v3_proof_get_values(&rln_proof);
-    CResult_CFr_ptr_Vec_uint8_t y_result = ffi_rln_v3_proof_values_get_y(&proof_values);
+    ProofValues *proof_values = ffi_rln_v3_proof_get_values(&rln_proof);
+    CFrResult y_result = ffi_rln_v3_proof_values_get_y(&proof_values);
     if (!y_result.ok)
     {
         fprintf(stderr, "Get y error: %s\n", y_result.err.ptr);
@@ -67,7 +67,7 @@ int main(void)
     }
     print_cfr("y", y_result.ok);
     ffi_cfr_free(y_result.ok);
-    CResult_CFr_ptr_Vec_uint8_t nullifier_result = ffi_rln_v3_proof_values_get_nullifier(&proof_values);
+    CFrResult nullifier_result = ffi_rln_v3_proof_values_get_nullifier(&proof_values);
     if (!nullifier_result.ok)
     {
         fprintf(stderr, "Get nullifier error: %s\n", nullifier_result.err.ptr);
