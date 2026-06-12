@@ -1,4 +1,4 @@
-// This crate implements the Poseidon hash algorithm https://eprint.iacr.org/2019/458.pdf
+// This module implements the Poseidon hash algorithm https://eprint.iacr.org/2019/458.pdf
 
 // Implementation partially taken from https://github.com/arnaucube/poseidon-rs/blob/233027d6075a637c29ad84a8a44f5653b81f0410/src/lib.rs
 // and adapted to work over arkworks field traits and custom data structures

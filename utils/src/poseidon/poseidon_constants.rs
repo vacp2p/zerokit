@@ -1,4 +1,4 @@
-// This crate provides an implementation to compute the Poseidon hash round constants and MDS matrices.
+// This module provides an implementation to compute the Poseidon hash round constants and MDS matrices.
 
 // SECURITY NOTE: The MDS matrices are generated interatively using the Grain LFSR until certain criteria are met.
 // According to the paper, such matrices have to respect some conditions which are checked by 3 different algorithms in the reference implementation.
@@ -174,7 +174,6 @@ impl PoseidonGrainLFSR {
         res
     }
 
-    #[inline]
     fn update(&mut self) -> bool {
         let new_bit = self.state[(self.head + 62) % 80]
             ^ self.state[(self.head + 51) % 80]
