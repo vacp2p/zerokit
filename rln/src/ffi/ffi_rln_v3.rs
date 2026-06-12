@@ -826,7 +826,7 @@ pub fn ffi_rln_v3_witness_to_bytes_be(
 pub fn ffi_bytes_le_to_rln_v3_witness(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNV3WitnessInput>, repr_c::String> {
-    match RLNWitnessInputV3::deserialize_compressed(&bytes.to_vec()[..]) {
+    match RLNWitnessInputV3::deserialize_compressed(&bytes[..]) {
         Ok(w) => CResult {
             ok: Some(Box_::new(FFI_RLNV3WitnessInput(w))),
             err: None,
@@ -842,7 +842,7 @@ pub fn ffi_bytes_le_to_rln_v3_witness(
 pub fn ffi_bytes_be_to_rln_v3_witness(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNV3WitnessInput>, repr_c::String> {
-    match <RLNWitnessInputV3 as CanonicalDeserializeBE>::deserialize(&bytes.to_vec()[..]) {
+    match <RLNWitnessInputV3 as CanonicalDeserializeBE>::deserialize(&bytes[..]) {
         Ok(w) => CResult {
             ok: Some(Box_::new(FFI_RLNV3WitnessInput(w))),
             err: None,
@@ -973,7 +973,7 @@ pub fn ffi_rln_v3_partial_witness_to_bytes_be(
 pub fn ffi_bytes_le_to_rln_v3_partial_witness(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNV3PartialWitnessInput>, repr_c::String> {
-    match RLNPartialWitnessInputV3::deserialize_compressed(&bytes.to_vec()[..]) {
+    match RLNPartialWitnessInputV3::deserialize_compressed(&bytes[..]) {
         Ok(w) => CResult {
             ok: Some(Box_::new(FFI_RLNV3PartialWitnessInput(w))),
             err: None,
@@ -989,7 +989,7 @@ pub fn ffi_bytes_le_to_rln_v3_partial_witness(
 pub fn ffi_bytes_be_to_rln_v3_partial_witness(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNV3PartialWitnessInput>, repr_c::String> {
-    match <RLNPartialWitnessInputV3 as CanonicalDeserializeBE>::deserialize(&bytes.to_vec()[..]) {
+    match <RLNPartialWitnessInputV3 as CanonicalDeserializeBE>::deserialize(&bytes[..]) {
         Ok(w) => CResult {
             ok: Some(Box_::new(FFI_RLNV3PartialWitnessInput(w))),
             err: None,
@@ -1057,7 +1057,7 @@ pub fn ffi_rln_v3_proof_to_bytes_mixed(
 pub fn ffi_bytes_le_to_rln_v3_proof(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNV3Proof>, repr_c::String> {
-    match RLNProofV3::deserialize_compressed(&bytes.to_vec()[..]) {
+    match RLNProofV3::deserialize_compressed(&bytes[..]) {
         Ok(p) => CResult {
             ok: Some(Box_::new(FFI_RLNV3Proof(p))),
             err: None,
@@ -1073,7 +1073,7 @@ pub fn ffi_bytes_le_to_rln_v3_proof(
 pub fn ffi_bytes_mixed_to_rln_v3_proof(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNV3Proof>, repr_c::String> {
-    match <RLNProofV3 as CanonicalDeserializeMixed>::deserialize(&bytes.to_vec()[..]) {
+    match <RLNProofV3 as CanonicalDeserializeMixed>::deserialize(&bytes[..]) {
         Ok(p) => CResult {
             ok: Some(Box_::new(FFI_RLNV3Proof(p))),
             err: None,
@@ -1117,7 +1117,7 @@ pub fn ffi_rln_v3_partial_proof_to_bytes_le(
 pub fn ffi_bytes_le_to_rln_v3_partial_proof(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNV3PartialProof>, repr_c::String> {
-    match PartialProof::deserialize_compressed(&bytes.to_vec()[..]) {
+    match PartialProof::deserialize_compressed(&bytes[..]) {
         Ok(p) => CResult {
             ok: Some(Box_::new(FFI_RLNV3PartialProof(p))),
             err: None,
@@ -1287,7 +1287,7 @@ pub fn ffi_rln_v3_proof_values_to_bytes_be(
 pub fn ffi_bytes_le_to_rln_v3_proof_values(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNV3ProofValues>, repr_c::String> {
-    match RLNProofValuesV3::deserialize_compressed(&bytes.to_vec()[..]) {
+    match RLNProofValuesV3::deserialize_compressed(&bytes[..]) {
         Ok(pv) => CResult {
             ok: Some(Box_::new(FFI_RLNV3ProofValues(pv))),
             err: None,
@@ -1303,7 +1303,7 @@ pub fn ffi_bytes_le_to_rln_v3_proof_values(
 pub fn ffi_bytes_be_to_rln_v3_proof_values(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Box<FFI_RLNV3ProofValues>, repr_c::String> {
-    match <RLNProofValuesV3 as CanonicalDeserializeBE>::deserialize(&bytes.to_vec()[..]) {
+    match <RLNProofValuesV3 as CanonicalDeserializeBE>::deserialize(&bytes[..]) {
         Ok(pv) => CResult {
             ok: Some(Box_::new(FFI_RLNV3ProofValues(pv))),
             err: None,
