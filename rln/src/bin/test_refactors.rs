@@ -195,8 +195,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     rln_stateful.init_tree_with_leaves(vec![rate_commitment])?;
 
     // Stateful Multi - OptimalMerkleTree
-    let optimal_merkle_tree =
-        <OptimalMerkleTree<PoseidonHash> as ZerokitMerkleTree>::default(DEFAULT_TREE_DEPTH)?;
+    let optimal_merkle_tree = OptimalMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH)?;
     let mut rln_stateful_multi = RLNBuilder::stateful()
         .tree(optimal_merkle_tree)
         .graph(default_graph_multi().clone())
@@ -239,7 +238,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .temporary(true)
         .cache_capacity(1024 * 1024)
         .build()?;
-    let pm_tree = <PmTree as ZerokitMerkleTree>::new(
+    let pm_tree = PmTree::new(
         DEFAULT_TREE_DEPTH,
         PoseidonHash::default_leaf(),
         pm_tree_config,

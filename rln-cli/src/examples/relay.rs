@@ -90,11 +90,7 @@ impl RLNSystem {
             .mode(Mode::HighThroughput)
             .use_compression(false)
             .build()?;
-        let pm_tree = <PmTree as ZerokitMerkleTree>::new(
-            TREE_DEPTH,
-            PoseidonHash::default_leaf(),
-            pm_tree_config,
-        )?;
+        let pm_tree = PmTree::new(TREE_DEPTH, PoseidonHash::default_leaf(), pm_tree_config)?;
         let rln = RLNBuilder::stateful()
             .tree(pm_tree)
             .graph(graph)

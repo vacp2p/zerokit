@@ -321,6 +321,12 @@ fn parse_zkey_and_graph(
 }
 
 #[ffi_export]
+pub fn ffi_rln_v3_new_stateless_default() -> repr_c::Box<FFI_RLNV3> {
+    let rln = RLNBuilder::stateless().build();
+    Box_::new(FFI_RLNV3(rln.into()))
+}
+
+#[ffi_export]
 pub fn ffi_rln_v3_new_stateless(
     zkey_data: &repr_c::Vec<u8>,
     graph_data: &repr_c::Vec<u8>,
@@ -341,6 +347,13 @@ pub fn ffi_rln_v3_new_stateless(
 }
 
 #[ffi_export]
+pub fn ffi_rln_v3_new_with_full_merkle_tree_default() -> repr_c::Box<FFI_RLNV3> {
+    let full_merkle_tree = FullMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH).unwrap();
+    let rln = RLNBuilder::stateful().tree(full_merkle_tree).build();
+    Box_::new(FFI_RLNV3(rln.into()))
+}
+
+#[ffi_export]
 pub fn ffi_rln_v3_new_with_full_merkle_tree(
     tree_depth: usize,
     zkey_data: &repr_c::Vec<u8>,
@@ -355,7 +368,7 @@ pub fn ffi_rln_v3_new_with_full_merkle_tree(
             }
         }
     };
-    match <FullMerkleTree<PoseidonHash> as ZerokitMerkleTree>::default(tree_depth) {
+    match FullMerkleTree::<PoseidonHash>::default(tree_depth) {
         Ok(full_merkle_tree) => {
             let rln = RLNBuilder::stateful()
                 .tree(full_merkle_tree)
@@ -375,6 +388,14 @@ pub fn ffi_rln_v3_new_with_full_merkle_tree(
 }
 
 #[ffi_export]
+pub fn ffi_rln_v3_new_with_optimal_merkle_tree_default() -> repr_c::Box<FFI_RLNV3> {
+    let optimal_merkle_tree =
+        OptimalMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH).unwrap();
+    let rln = RLNBuilder::stateful().tree(optimal_merkle_tree).build();
+    Box_::new(FFI_RLNV3(rln.into()))
+}
+
+#[ffi_export]
 pub fn ffi_rln_v3_new_with_optimal_merkle_tree(
     tree_depth: usize,
     zkey_data: &repr_c::Vec<u8>,
@@ -389,7 +410,7 @@ pub fn ffi_rln_v3_new_with_optimal_merkle_tree(
             }
         }
     };
-    match <OptimalMerkleTree<PoseidonHash> as ZerokitMerkleTree>::default(tree_depth) {
+    match OptimalMerkleTree::<PoseidonHash>::default(tree_depth) {
         Ok(optimal_merkle_tree) => {
             let rln = RLNBuilder::stateful()
                 .tree(optimal_merkle_tree)
@@ -406,6 +427,13 @@ pub fn ffi_rln_v3_new_with_optimal_merkle_tree(
             err: Some(err.to_string().into()),
         },
     }
+}
+
+#[ffi_export]
+pub fn ffi_rln_v3_new_with_pm_tree_default() -> repr_c::Box<FFI_RLNV3> {
+    let pm_tree = PmTree::default(DEFAULT_TREE_DEPTH).unwrap();
+    let rln = RLNBuilder::stateful().tree(pm_tree).build();
+    Box_::new(FFI_RLNV3(rln.into()))
 }
 
 #[ffi_export]
@@ -442,8 +470,8 @@ pub fn ffi_rln_v3_new_with_pm_tree(
             Ok(s)
         })
         .unwrap_or_default();
-    let tree = if config_str.is_empty() {
-        <PmTree as ZerokitMerkleTree>::default(tree_depth)
+    let pm_tree = if config_str.is_empty() {
+        PmTree::default(tree_depth)
     } else {
         let cfg = match PmTreeConfig::from_str(&config_str) {
             Ok(c) => c,
@@ -454,13 +482,9 @@ pub fn ffi_rln_v3_new_with_pm_tree(
                 }
             }
         };
-        <PmTree as ZerokitMerkleTree>::new(
-            tree_depth,
-            <PmTree as ZerokitMerkleTree>::Hasher::default_leaf(),
-            cfg,
-        )
+        PmTree::new(tree_depth, PoseidonHash::default_leaf(), cfg)
     };
-    match tree {
+    match pm_tree {
         Ok(pm_tree) => {
             let rln = RLNBuilder::stateful()
                 .tree(pm_tree)

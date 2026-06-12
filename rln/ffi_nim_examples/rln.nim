@@ -101,12 +101,6 @@ type
 proc ffi_cfr_zero*(): ptr CFr {.importc: "ffi_cfr_zero", cdecl,
     dynlib: RLN_LIB.}
 proc ffi_cfr_one*(): ptr CFr {.importc: "ffi_cfr_one", cdecl, dynlib: RLN_LIB.}
-proc ffi_cfr_free*(x: ptr CFr) {.importc: "ffi_cfr_free", cdecl,
-    dynlib: RLN_LIB.}
-proc ffi_uint_to_cfr*(value: uint32): ptr CFr {.importc: "ffi_uint_to_cfr",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_cfr_debug*(cfr: ptr CFr): Vec_uint8 {.importc: "ffi_cfr_debug", cdecl,
-    dynlib: RLN_LIB.}
 proc ffi_cfr_to_bytes_le*(cfr: ptr CFr): VecU8Result {.importc: "ffi_cfr_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_cfr_to_bytes_be*(cfr: ptr CFr): VecU8Result {.importc: "ffi_cfr_to_bytes_be",
@@ -115,6 +109,12 @@ proc ffi_bytes_le_to_cfr*(bytes: ptr Vec_uint8): CFrResult {.importc: "ffi_bytes
     cdecl, dynlib: RLN_LIB.}
 proc ffi_bytes_be_to_cfr*(bytes: ptr Vec_uint8): CFrResult {.importc: "ffi_bytes_be_to_cfr",
     cdecl, dynlib: RLN_LIB.}
+proc ffi_uint_to_cfr*(value: uint32): ptr CFr {.importc: "ffi_uint_to_cfr",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_cfr_debug*(cfr: ptr CFr): Vec_uint8 {.importc: "ffi_cfr_debug", cdecl,
+    dynlib: RLN_LIB.}
+proc ffi_cfr_free*(x: ptr CFr) {.importc: "ffi_cfr_free", cdecl,
+    dynlib: RLN_LIB.}
 
 # Vec<CFr> functions
 proc ffi_vec_cfr_new*(capacity: CSize): Vec_CFr {.importc: "ffi_vec_cfr_new",
@@ -163,41 +163,59 @@ proc ffi_poseidon_hash_pair*(a: ptr CFr,
     b: ptr CFr): ptr CFr {.importc: "ffi_poseidon_hash_pair", cdecl,
     dynlib: RLN_LIB.}
 
-# Keygen function
+# Identity functions
 proc ffi_key_gen*(): Vec_CFr {.importc: "ffi_key_gen", cdecl, dynlib: RLN_LIB.}
 proc ffi_seeded_key_gen*(seed: ptr Vec_uint8): Vec_CFr {.importc: "ffi_seeded_key_gen",
     cdecl, dynlib: RLN_LIB.}
+
+# ExtendedIdentity functions
 proc ffi_extended_key_gen*(): Vec_CFr {.importc: "ffi_extended_key_gen", cdecl,
     dynlib: RLN_LIB.}
 proc ffi_seeded_extended_key_gen*(seed: ptr Vec_uint8): Vec_CFr {.importc: "ffi_seeded_extended_key_gen",
     cdecl, dynlib: RLN_LIB.}
 
+# CString functions
+proc ffi_c_string_free*(s: Vec_uint8) {.importc: "ffi_c_string_free", cdecl,
+    dynlib: RLN_LIB.}
+
 # RLN instance functions
 proc ffi_rln_v3_new_stateless*(zkey_data: ptr Vec_uint8,
     graph_data: ptr Vec_uint8): RLNResult {.importc: "ffi_rln_v3_new_stateless",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_new_with_pm_tree*(tree_depth: CSize, zkey_data: ptr Vec_uint8,
-    graph_data: ptr Vec_uint8,
-    config_path: cstring): RLNResult {.importc: "ffi_rln_v3_new_with_pm_tree",
+proc ffi_rln_v3_new_stateless_default*(): ptr RLN {.importc: "ffi_rln_v3_new_stateless_default",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_v3_new_with_full_merkle_tree*(tree_depth: CSize,
     zkey_data: ptr Vec_uint8,
     graph_data: ptr Vec_uint8): RLNResult {.importc: "ffi_rln_v3_new_with_full_merkle_tree",
     cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_new_with_full_merkle_tree_default*(): ptr RLN {.importc: "ffi_rln_v3_new_with_full_merkle_tree_default",
+    cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_v3_new_with_optimal_merkle_tree*(tree_depth: CSize,
     zkey_data: ptr Vec_uint8,
     graph_data: ptr Vec_uint8): RLNResult {.importc: "ffi_rln_v3_new_with_optimal_merkle_tree",
     cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_new_with_optimal_merkle_tree_default*(): ptr RLN {.importc: "ffi_rln_v3_new_with_optimal_merkle_tree_default",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_new_with_pm_tree*(tree_depth: CSize,
+    zkey_data: ptr Vec_uint8,
+    graph_data: ptr Vec_uint8,
+    config_path: cstring): RLNResult {.importc: "ffi_rln_v3_new_with_pm_tree",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_new_with_pm_tree_default*(config_path: cstring): ptr RLN {.
+    importc: "ffi_rln_v3_new_with_pm_tree_default",
+    cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_v3_generate_proof*(rln: ptr ptr RLN,
     witness: ptr ptr Witness): ProofResult {.importc: "ffi_rln_v3_generate_proof",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_verify*(rln: ptr ptr RLN, proof: ptr ptr Proof,
-    x: ptr CFr): CBoolResult {.importc: "ffi_rln_v3_verify", cdecl,
-    dynlib: RLN_LIB.}
+proc ffi_rln_v3_verify*(rln: ptr ptr RLN,
+    proof: ptr ptr Proof,
+    x: ptr CFr): CBoolResult {.importc: "ffi_rln_v3_verify",
+    cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_v3_verify_with_roots*(rln: ptr ptr RLN,
-    proof: ptr ptr Proof, roots: ptr Vec_CFr,
-    x: ptr CFr): CBoolResult {.importc: "ffi_rln_v3_verify_with_roots", cdecl,
-    dynlib: RLN_LIB.}
+    proof: ptr ptr Proof,
+    roots: ptr Vec_CFr,
+    x: ptr CFr): CBoolResult {.importc: "ffi_rln_v3_verify_with_roots",
+    cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_v3_generate_partial_proof*(rln: ptr ptr RLN,
     witness: ptr ptr PartialWitness): PartialProofResult {.importc: "ffi_rln_v3_generate_partial_proof",
     cdecl, dynlib: RLN_LIB.}
@@ -205,8 +223,8 @@ proc ffi_rln_v3_finish_proof*(rln: ptr ptr RLN,
     partial: ptr ptr PartialProof,
     witness: ptr ptr Witness): ProofResult {.importc: "ffi_rln_v3_finish_proof",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_free*(rln: ptr RLN) {.importc: "ffi_rln_v3_free", cdecl,
-    dynlib: RLN_LIB.}
+proc ffi_rln_v3_free*(rln: ptr RLN) {.importc: "ffi_rln_v3_free",
+    cdecl, dynlib: RLN_LIB.}
 
 # RLNWitnessInput functions
 proc ffi_rln_v3_witness_input_new_single*(identity_secret: ptr CFr,
@@ -254,9 +272,6 @@ proc ffi_bytes_le_to_rln_v3_witness*(bytes: ptr Vec_uint8): WitnessResult {.impo
     cdecl, dynlib: RLN_LIB.}
 proc ffi_bytes_be_to_rln_v3_witness*(bytes: ptr Vec_uint8): WitnessResult {.importc: "ffi_bytes_be_to_rln_v3_witness",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_witness_to_partial_witness*(
-  w: ptr ptr Witness): ptr PartialWitness {.importc: "ffi_rln_v3_witness_to_partial_witness",
-    cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_v3_witness_input_free*(w: ptr Witness) {.importc: "ffi_rln_v3_witness_input_free",
     cdecl, dynlib: RLN_LIB.}
 
@@ -276,6 +291,9 @@ proc ffi_rln_v3_partial_witness_input_get_path_elements*(
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_v3_partial_witness_input_get_identity_path_index*(
   w: ptr ptr PartialWitness): Vec_uint8 {.importc: "ffi_rln_v3_partial_witness_input_get_identity_path_index",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_witness_to_partial_witness*(
+  w: ptr ptr Witness): ptr PartialWitness {.importc: "ffi_rln_v3_witness_to_partial_witness",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_v3_partial_witness_to_bytes_le*(
   w: ptr ptr PartialWitness): VecU8Result {.importc: "ffi_rln_v3_partial_witness_to_bytes_le",
@@ -330,13 +348,13 @@ proc ffi_rln_v3_proof_values_get_y*(pv: ptr ptr ProofValues): CFrResult {.import
 proc ffi_rln_v3_proof_values_get_nullifier*(
   pv: ptr ptr ProofValues): CFrResult {.importc: "ffi_rln_v3_proof_values_get_nullifier",
     cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_proof_values_get_selector_used*(
+  pv: ptr ptr ProofValues): VecBoolResult {.importc: "ffi_rln_v3_proof_values_get_selector_used",
+    cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_v3_proof_values_get_ys*(pv: ptr ptr ProofValues): VecCFrResult {.importc: "ffi_rln_v3_proof_values_get_ys",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_v3_proof_values_get_nullifiers*(
   pv: ptr ptr ProofValues): VecCFrResult {.importc: "ffi_rln_v3_proof_values_get_nullifiers",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_proof_values_get_selector_used*(
-  pv: ptr ptr ProofValues): VecBoolResult {.importc: "ffi_rln_v3_proof_values_get_selector_used",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_v3_proof_values_to_bytes_le*(
   pv: ptr ptr ProofValues): VecU8Result {.importc: "ffi_rln_v3_proof_values_to_bytes_le",
@@ -363,8 +381,10 @@ proc ffi_rln_v3_recover_id_secret*(pv1: ptr ptr ProofValues,
     cdecl, dynlib: RLN_LIB.}
 
 # Merkle tree operations (stateful mode)
-proc ffi_rln_v3_set_next_leaf*(rln: ptr ptr RLN,
-    leaf: ptr CFr): CBoolResult {.importc: "ffi_rln_v3_set_next_leaf", cdecl,
+proc ffi_rln_v3_merkle_proof_free*(p: ptr MerkleProof) {.importc: "ffi_rln_v3_merkle_proof_free",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_delete_leaf*(rln: ptr ptr RLN,
+    index: CSize): CBoolResult {.importc: "ffi_rln_v3_delete_leaf", cdecl,
     dynlib: RLN_LIB.}
 proc ffi_rln_v3_set_leaf*(rln: ptr ptr RLN, index: CSize,
     leaf: ptr CFr): CBoolResult {.importc: "ffi_rln_v3_set_leaf", cdecl,
@@ -372,13 +392,11 @@ proc ffi_rln_v3_set_leaf*(rln: ptr ptr RLN, index: CSize,
 proc ffi_rln_v3_get_leaf*(rln: ptr ptr RLN,
     index: CSize): CFrResult {.importc: "ffi_rln_v3_get_leaf", cdecl,
     dynlib: RLN_LIB.}
-proc ffi_rln_v3_delete_leaf*(rln: ptr ptr RLN,
-    index: CSize): CBoolResult {.importc: "ffi_rln_v3_delete_leaf", cdecl,
-    dynlib: RLN_LIB.}
 proc ffi_rln_v3_leaves_set*(rln: ptr ptr RLN): CSize {.importc: "ffi_rln_v3_leaves_set",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_get_root*(rln: ptr ptr RLN): ptr CFr {.importc: "ffi_rln_v3_get_root",
-    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_set_next_leaf*(rln: ptr ptr RLN,
+    leaf: ptr CFr): CBoolResult {.importc: "ffi_rln_v3_set_next_leaf", cdecl,
+    dynlib: RLN_LIB.}
 proc ffi_rln_v3_set_leaves_from*(rln: ptr ptr RLN, index: CSize,
     leaves: ptr Vec_CFr): CBoolResult {.importc: "ffi_rln_v3_set_leaves_from",
     cdecl, dynlib: RLN_LIB.}
@@ -393,10 +411,10 @@ proc ffi_rln_v3_seq_atomic_operation*(rln: ptr ptr RLN,
     leaves: ptr Vec_CFr,
     indices: ptr Vec_uint8): CBoolResult {.importc: "ffi_rln_v3_seq_atomic_operation",
     cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_v3_get_root*(rln: ptr ptr RLN): ptr CFr {.importc: "ffi_rln_v3_get_root",
+    cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_v3_get_merkle_proof*(rln: ptr ptr RLN,
     index: CSize): MerkleProofResult {.importc: "ffi_rln_v3_get_merkle_proof",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_merkle_proof_free*(p: ptr MerkleProof) {.importc: "ffi_rln_v3_merkle_proof_free",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_v3_set_metadata*(rln: ptr ptr RLN,
     metadata: ptr Vec_uint8): CBoolResult {.importc: "ffi_rln_v3_set_metadata",
@@ -405,10 +423,6 @@ proc ffi_rln_v3_get_metadata*(rln: ptr ptr RLN): VecU8Result {.importc: "ffi_rln
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_v3_flush*(rln: ptr ptr RLN): CBoolResult {.importc: "ffi_rln_v3_flush",
     cdecl, dynlib: RLN_LIB.}
-
-# Helpers functions
-proc ffi_c_string_free*(s: Vec_uint8) {.importc: "ffi_c_string_free", cdecl,
-    dynlib: RLN_LIB.}
 
 proc asVecU8(buf: var seq[uint8]): Vec_uint8 =
   result.dataPtr = if buf.len > 0: addr buf[0] else: nil

@@ -836,7 +836,7 @@ where
 
     pub fn init_tree_with_leaves(&mut self, leaves: Vec<Fr>) -> Result<(), ZerokitMerkleTreeError> {
         let depth = self.state.tree.depth();
-        self.state.tree = <T as ZerokitMerkleTree>::default(depth)?;
+        self.state.tree = T::default(depth)?;
         self.set_leaves_from(0, leaves)
     }
 
