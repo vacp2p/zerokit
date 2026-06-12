@@ -34,11 +34,11 @@ proc main() =
   echo "  - RLN witness created successfully"
 
   echo "\nCreating partial witness from witness fields"
-  let witnessIdentitySecret = ffi_rln_v3_witness_input_get_identity_secret(addr witness)
-  let witnessUserMessageLimit = ffi_rln_v3_witness_input_get_user_message_limit(addr witness)
-  var witnessPathElements = ffi_rln_v3_witness_input_get_path_elements(addr witness)
-  var witnessPathIndex = ffi_rln_v3_witness_input_get_identity_path_index(addr witness)
-  let partialWitnessResult = ffi_rln_v3_partial_witness_input_new(
+  let witnessIdentitySecret = ffi_rln_witness_input_get_identity_secret(addr witness)
+  let witnessUserMessageLimit = ffi_rln_witness_input_get_user_message_limit(addr witness)
+  var witnessPathElements = ffi_rln_witness_input_get_path_elements(addr witness)
+  var witnessPathIndex = ffi_rln_witness_input_get_identity_path_index(addr witness)
+  let partialWitnessResult = ffi_rln_partial_witness_input_new(
       witnessIdentitySecret, witnessUserMessageLimit, addr witnessPathElements,
       addr witnessPathIndex)
   ffi_cfr_free(witnessIdentitySecret)
@@ -54,7 +54,7 @@ proc main() =
   echo "  - partial witness created successfully"
 
   echo "\nGenerating partial ZK proof"
-  let partialProofResult = ffi_rln_v3_generate_partial_proof(addr rlnInstance,
+  let partialProofResult = ffi_rln_generate_partial_proof(addr rlnInstance,
       addr partialWitness)
   if partialProofResult.ok.isNil:
     stderr.writeLine("Partial proof generation error: " & asString(
@@ -65,7 +65,7 @@ proc main() =
   echo "  - partial proof generated successfully"
 
   echo "\nFinishing proof with full witness"
-  let fullProofResult = ffi_rln_v3_finish_proof(addr rlnInstance,
+  let fullProofResult = ffi_rln_finish_proof(addr rlnInstance,
       addr partialProof, addr witness)
   if fullProofResult.ok.isNil:
     stderr.writeLine("Finish proof error: " & asString(fullProofResult.err))
@@ -75,7 +75,7 @@ proc main() =
   echo "  - partial proof finished successfully"
 
   echo "\nVerifying full proof"
-  let verifyFullResult = ffi_rln_v3_verify(addr rlnInstance, addr fullProof, x)
+  let verifyFullResult = ffi_rln_verify(addr rlnInstance, addr fullProof, x)
   if verifyFullResult.err.dataPtr != nil:
     stderr.writeLine("Full proof verification error: " & asString(
         verifyFullResult.err))
@@ -87,15 +87,15 @@ proc main() =
     echo "Full proof verification failed"
     return
 
-  ffi_rln_v3_proof_free(fullProof)
-  ffi_rln_v3_partial_proof_free(partialProof)
-  ffi_rln_v3_partial_witness_input_free(partialWitness)
-  ffi_rln_v3_witness_input_free(witness)
+  ffi_rln_proof_free(fullProof)
+  ffi_rln_partial_proof_free(partialProof)
+  ffi_rln_partial_witness_input_free(partialWitness)
+  ffi_rln_witness_input_free(witness)
   ffi_cfr_free(messageId)
   ffi_cfr_free(x)
   ffi_cfr_free(externalNullifier)
-  ffi_rln_v3_merkle_proof_free(merkleProof)
+  ffi_rln_merkle_proof_free(merkleProof)
   memberFree(member)
-  ffi_rln_v3_free(rlnInstance)
+  ffi_rln_free(rlnInstance)
 
 main()

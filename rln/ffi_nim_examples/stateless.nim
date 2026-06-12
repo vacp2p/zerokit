@@ -46,7 +46,7 @@ proc main() =
   printCfr("message id", messageId)
 
   echo "\nCreating RLN witness"
-  let witnessResult = ffi_rln_v3_witness_input_new_single(member.identitySecret,
+  let witnessResult = ffi_rln_witness_input_new_single(member.identitySecret,
       member.userMessageLimit, messageId, addr pathElements, addr pathIndex, x,
       externalNullifier)
   if witnessResult.ok.isNil:
@@ -57,7 +57,7 @@ proc main() =
   echo "  - RLN witness created successfully"
 
   echo "\nGenerating RLN proof"
-  let rlnProofResult = ffi_rln_v3_generate_proof(addr rlnInstance, addr witness)
+  let rlnProofResult = ffi_rln_generate_proof(addr rlnInstance, addr witness)
   if rlnProofResult.ok.isNil:
     stderr.writeLine("Proof generation error: " & asString(rlnProofResult.err))
     ffi_c_string_free(rlnProofResult.err)
@@ -66,34 +66,34 @@ proc main() =
   echo "  - proof generated successfully"
 
   echo "\nGetting RLN proof values"
-  var proofValues = ffi_rln_v3_proof_get_values(addr rlnProof)
-  let yResult = ffi_rln_v3_proof_values_get_y(addr proofValues)
+  var proofValues = ffi_rln_proof_get_values(addr rlnProof)
+  let yResult = ffi_rln_proof_values_get_y(addr proofValues)
   if yResult.ok.isNil:
     stderr.writeLine("Get y error: " & asString(yResult.err))
     ffi_c_string_free(yResult.err)
     return
   printCfr("y", yResult.ok)
   ffi_cfr_free(yResult.ok)
-  let nullifierResult = ffi_rln_v3_proof_values_get_nullifier(addr proofValues)
+  let nullifierResult = ffi_rln_proof_values_get_nullifier(addr proofValues)
   if nullifierResult.ok.isNil:
     stderr.writeLine("Get nullifier error: " & asString(nullifierResult.err))
     ffi_c_string_free(nullifierResult.err)
     return
   printCfr("nullifier", nullifierResult.ok)
   ffi_cfr_free(nullifierResult.ok)
-  let proofValuesRoot = ffi_rln_v3_proof_values_get_root(addr proofValues)
+  let proofValuesRoot = ffi_rln_proof_values_get_root(addr proofValues)
   printCfr("root", proofValuesRoot)
   ffi_cfr_free(proofValuesRoot)
-  let proofValuesX = ffi_rln_v3_proof_values_get_x(addr proofValues)
+  let proofValuesX = ffi_rln_proof_values_get_x(addr proofValues)
   printCfr("x", proofValuesX)
   ffi_cfr_free(proofValuesX)
   let proofValuesExternalNullifier =
-    ffi_rln_v3_proof_values_get_external_nullifier(addr proofValues)
+    ffi_rln_proof_values_get_external_nullifier(addr proofValues)
   printCfr("external nullifier", proofValuesExternalNullifier)
   ffi_cfr_free(proofValuesExternalNullifier)
 
   echo "\nVerifying proof"
-  let verifyResult = ffi_rln_v3_verify_with_roots(addr rlnInstance,
+  let verifyResult = ffi_rln_verify_with_roots(addr rlnInstance,
       addr rlnProof, addr roots, x)
   if verifyResult.err.dataPtr != nil:
     stderr.writeLine("Proof verification error: " & asString(verifyResult.err))
@@ -105,9 +105,9 @@ proc main() =
     echo "Proof verification failed"
     return
 
-  ffi_rln_v3_proof_values_free(proofValues)
-  ffi_rln_v3_proof_free(rlnProof)
-  ffi_rln_v3_witness_input_free(witness)
+  ffi_rln_proof_values_free(proofValues)
+  ffi_rln_proof_free(rlnProof)
+  ffi_rln_witness_input_free(witness)
   ffi_cfr_free(messageId)
   ffi_cfr_free(x)
   ffi_cfr_free(externalNullifier)
@@ -118,6 +118,6 @@ proc main() =
     ffi_cfr_free(defaultHashes[i])
   ffi_cfr_free(defaultLeaf)
   memberFree(member)
-  ffi_rln_v3_free(rlnInstance)
+  ffi_rln_free(rlnInstance)
 
 main()

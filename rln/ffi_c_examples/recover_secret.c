@@ -46,7 +46,7 @@ int main(void)
 
     printf("\nGenerating first RLN proof\n");
     ProofResult rln_proof1_result =
-        ffi_rln_v3_generate_proof(&rln_instance, &witness1);
+        ffi_rln_generate_proof(&rln_instance, &witness1);
     if (!rln_proof1_result.ok)
     {
         fprintf(stderr, "Proof generation error: %s\n", rln_proof1_result.err.ptr);
@@ -54,11 +54,11 @@ int main(void)
         return EXIT_FAILURE;
     }
     Proof *rln_proof1 = rln_proof1_result.ok;
-    ProofValues *proof_values1 = ffi_rln_v3_proof_get_values(&rln_proof1);
+    ProofValues *proof_values1 = ffi_rln_proof_get_values(&rln_proof1);
     printf("  - first proof generated successfully\n");
 
     printf("\nVerifying first proof\n");
-    CBoolResult verify1_result = ffi_rln_v3_verify(&rln_instance, &rln_proof1, x1);
+    CBoolResult verify1_result = ffi_rln_verify(&rln_instance, &rln_proof1, x1);
     if (verify1_result.err.ptr)
     {
         fprintf(stderr, "Proof verification error: %s\n", verify1_result.err.ptr);
@@ -101,7 +101,7 @@ int main(void)
 
     printf("\nGenerating second RLN proof\n");
     ProofResult rln_proof2_result =
-        ffi_rln_v3_generate_proof(&rln_instance, &witness2);
+        ffi_rln_generate_proof(&rln_instance, &witness2);
     if (!rln_proof2_result.ok)
     {
         fprintf(stderr, "Second proof generation error: %s\n", rln_proof2_result.err.ptr);
@@ -109,11 +109,11 @@ int main(void)
         return EXIT_FAILURE;
     }
     Proof *rln_proof2 = rln_proof2_result.ok;
-    ProofValues *proof_values2 = ffi_rln_v3_proof_get_values(&rln_proof2);
+    ProofValues *proof_values2 = ffi_rln_proof_get_values(&rln_proof2);
     printf("  - second proof generated successfully\n");
 
     printf("\nVerifying second proof\n");
-    CBoolResult verify2_result = ffi_rln_v3_verify(&rln_instance, &rln_proof2, x2);
+    CBoolResult verify2_result = ffi_rln_verify(&rln_instance, &rln_proof2, x2);
     if (verify2_result.err.ptr)
     {
         fprintf(stderr, "Proof verification error: %s\n", verify2_result.err.ptr);
@@ -126,7 +126,7 @@ int main(void)
 
         printf("\nRecovering identity secret\n");
         CFrResult recover_result =
-            ffi_rln_v3_recover_id_secret(&proof_values1, &proof_values2);
+            ffi_rln_recover_id_secret(&proof_values1, &proof_values2);
         if (!recover_result.ok)
         {
             fprintf(stderr, "Identity recovery error: %s\n", recover_result.err.ptr);
@@ -144,19 +144,19 @@ int main(void)
         printf("Second proof verification failed\n");
     }
 
-    ffi_rln_v3_proof_values_free(proof_values2);
-    ffi_rln_v3_proof_free(rln_proof2);
-    ffi_rln_v3_witness_input_free(witness2);
+    ffi_rln_proof_values_free(proof_values2);
+    ffi_rln_proof_free(rln_proof2);
+    ffi_rln_witness_input_free(witness2);
     ffi_cfr_free(message_id2);
     ffi_cfr_free(x2);
-    ffi_rln_v3_proof_values_free(proof_values1);
-    ffi_rln_v3_proof_free(rln_proof1);
-    ffi_rln_v3_witness_input_free(witness1);
+    ffi_rln_proof_values_free(proof_values1);
+    ffi_rln_proof_free(rln_proof1);
+    ffi_rln_witness_input_free(witness1);
     ffi_cfr_free(message_id1);
     ffi_cfr_free(x1);
     ffi_cfr_free(external_nullifier);
-    ffi_rln_v3_merkle_proof_free(merkle_proof);
+    ffi_rln_merkle_proof_free(merkle_proof);
     member_free(&member);
-    ffi_rln_v3_free(rln_instance);
+    ffi_rln_free(rln_instance);
     return EXIT_SUCCESS;
 }

@@ -34,7 +34,7 @@ proc main() =
   echo "  - RLN witness created successfully"
 
   echo "\nRLNWitnessInput serialization: RLNWitnessInput <-> bytes"
-  let serWitnessResult = ffi_rln_v3_witness_to_bytes_le(addr witness)
+  let serWitnessResult = ffi_rln_witness_to_bytes_le(addr witness)
   if serWitnessResult.err.dataPtr != nil:
     stderr.writeLine("Witness serialization error: " & asString(
         serWitnessResult.err))
@@ -42,7 +42,7 @@ proc main() =
     return
   var serWitness = serWitnessResult.ok
   printVecU8("serialized witness", addr serWitness)
-  let deserWitnessResult = ffi_bytes_le_to_rln_v3_witness(addr serWitness)
+  let deserWitnessResult = ffi_bytes_le_to_rln_witness(addr serWitness)
   if deserWitnessResult.ok.isNil:
     stderr.writeLine("Witness deserialization error: " & asString(
         deserWitnessResult.err))
@@ -52,7 +52,7 @@ proc main() =
   echo "  - witness deserialized successfully"
 
   echo "\nGenerating RLN proof from the deserialized witness"
-  let rlnProofResult = ffi_rln_v3_generate_proof(addr rlnInstance,
+  let rlnProofResult = ffi_rln_generate_proof(addr rlnInstance,
       addr deserWitness)
   if rlnProofResult.ok.isNil:
     stderr.writeLine("Proof generation error: " & asString(rlnProofResult.err))
@@ -62,7 +62,7 @@ proc main() =
   echo "  - proof generated successfully"
 
   echo "\nRLNProof serialization: RLNProof <-> bytes"
-  let serProofResult = ffi_rln_v3_proof_to_bytes_le(addr rlnProof)
+  let serProofResult = ffi_rln_proof_to_bytes_le(addr rlnProof)
   if serProofResult.err.dataPtr != nil:
     stderr.writeLine("Proof serialization error: " & asString(
         serProofResult.err))
@@ -70,7 +70,7 @@ proc main() =
     return
   var serProof = serProofResult.ok
   printVecU8("serialized proof", addr serProof)
-  let deserProofResult = ffi_bytes_le_to_rln_v3_proof(addr serProof)
+  let deserProofResult = ffi_bytes_le_to_rln_proof(addr serProof)
   if deserProofResult.ok.isNil:
     stderr.writeLine("Proof deserialization error: " & asString(
         deserProofResult.err))
@@ -80,7 +80,7 @@ proc main() =
   echo "  - proof deserialized successfully"
 
   echo "\nVerifying the deserialized proof"
-  let verifyResult = ffi_rln_v3_verify(addr rlnInstance, addr deserProof, x)
+  let verifyResult = ffi_rln_verify(addr rlnInstance, addr deserProof, x)
   if verifyResult.err.dataPtr != nil:
     stderr.writeLine("Proof verification error: " & asString(verifyResult.err))
     ffi_c_string_free(verifyResult.err)
@@ -91,17 +91,17 @@ proc main() =
     echo "Deserialized proof verification failed"
     return
 
-  ffi_rln_v3_proof_free(deserProof)
+  ffi_rln_proof_free(deserProof)
   ffi_vec_u8_free(serProof)
-  ffi_rln_v3_proof_free(rlnProof)
-  ffi_rln_v3_witness_input_free(deserWitness)
+  ffi_rln_proof_free(rlnProof)
+  ffi_rln_witness_input_free(deserWitness)
   ffi_vec_u8_free(serWitness)
-  ffi_rln_v3_witness_input_free(witness)
+  ffi_rln_witness_input_free(witness)
   ffi_cfr_free(messageId)
   ffi_cfr_free(x)
   ffi_cfr_free(externalNullifier)
-  ffi_rln_v3_merkle_proof_free(merkleProof)
+  ffi_rln_merkle_proof_free(merkleProof)
   memberFree(member)
-  ffi_rln_v3_free(rlnInstance)
+  ffi_rln_free(rlnInstance)
 
 main()
