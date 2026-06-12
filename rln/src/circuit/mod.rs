@@ -1,24 +1,27 @@
-// This crate provides interfaces for the zero-knowledge circuit and keys
+// This module provides interfaces for the zero-knowledge circuit and keys
 
 pub(crate) mod error;
 pub(crate) mod iden3calc;
 pub(crate) mod qap;
 
-use std::sync::Arc;
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::LazyLock;
+use std::{ops::Deref, sync::Arc};
 
 use ark_bn254::{
     Bn254, Fq as ArkFq, Fq2 as ArkFq2, Fr as ArkFr, G1Affine as ArkG1Affine,
     G1Projective as ArkG1Projective, G2Affine as ArkG2Affine, G2Projective as ArkG2Projective,
 };
-use ark_ff::Field;
+use ark_ff::{Field, PrimeField, UniformRand};
 use ark_groth16::{
     prepare_verifying_key, PreparedVerifyingKey as ArkPreparedVerifyingKey, Proof as ArkProof,
     ProvingKey as ArkProvingKey, VerifyingKey as ArkVerifyingKey,
 };
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use rand::Rng;
+use ruint::aliases::U256;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use self::error::{GraphReadError, WitnessCalcError, ZKeyReadError};
 use crate::{
@@ -204,50 +207,89 @@ pub fn graph_from_raw(
 
 // Loads default Single zkey
 #[cfg(not(target_arch = "wasm32"))]
-pub fn default_zkey_single() -> &'static Zkey {
+pub fn default_zkey_single() -> &'static Arc<Zkey> {
     &ARKZKEY_SINGLE
 }
 
 // Loads default Multi zkey
 #[cfg(not(target_arch = "wasm32"))]
-pub fn default_zkey_multi() -> &'static Zkey {
+pub fn default_zkey_multi() -> &'static Arc<Zkey> {
     &ARKZKEY_MULTI
 }
 
 // Loads default Single graph
 #[cfg(not(target_arch = "wasm32"))]
-pub fn default_graph_single() -> &'static Graph {
+pub fn default_graph_single() -> &'static Arc<Graph> {
     &GRAPH_SINGLE
 }
 
 // Loads default Multi graph
 #[cfg(not(target_arch = "wasm32"))]
-pub fn default_graph_multi() -> &'static Graph {
+pub fn default_graph_multi() -> &'static Arc<Graph> {
     &GRAPH_MULTI
 }
 
-// Loads default Single zkey
-#[cfg(not(target_arch = "wasm32"))]
-pub fn default_zkey_single_v3() -> &'static Arc<Zkey> {
-    &ARKZKEY_SINGLE
+// Secret field-element wrapper zeroized on drop.
+#[derive(
+    Debug, Zeroize, ZeroizeOnDrop, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize,
+)]
+pub struct IdSecret(Fr);
+
+impl IdSecret {
+    pub fn rand<R: Rng + ?Sized>(rng: &mut R) -> Self {
+        let mut fr = Fr::rand(rng);
+        let res = Self::from(&mut fr);
+        // No need to zeroize fr (already zeroiz'ed in from implementation)
+        #[allow(clippy::let_and_return)]
+        res
+    }
+
+    /// Warning: this can leak the secret value
+    /// Warning: Leaked value is of type 'U256' which implement Copy (every copy will not be zeroized)
+    pub(crate) fn to_u256(&self) -> U256 {
+        let mut big_int = self.0.into_bigint();
+        let res = U256::from_limbs(big_int.0);
+        big_int.zeroize();
+        res
+    }
 }
 
-// Loads default Multi zkey
-#[cfg(not(target_arch = "wasm32"))]
-pub fn default_zkey_multi_v3() -> &'static Arc<Zkey> {
-    &ARKZKEY_MULTI
+impl From<&mut Fr> for IdSecret {
+    fn from(value: &mut Fr) -> Self {
+        let id_secret = Self(*value);
+        value.zeroize();
+        id_secret
+    }
 }
 
-// Loads default Single graph
-#[cfg(not(target_arch = "wasm32"))]
-pub fn default_graph_single_v3() -> &'static Arc<Graph> {
-    &GRAPH_SINGLE
+impl Deref for IdSecret {
+    type Target = Fr;
+
+    /// Deref to &Fr
+    ///
+    /// Warning: this can leak the secret value
+    /// Warning: Leaked value is of type 'Fr' which implement Copy (every copy will not be zeroized)
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
-// Loads default Multi graph
-#[cfg(not(target_arch = "wasm32"))]
-pub fn default_graph_multi_v3() -> &'static Arc<Graph> {
-    &GRAPH_MULTI
+#[derive(Debug, Clone, Zeroize, ZeroizeOnDrop)]
+pub(crate) enum FrOrSecret {
+    IdSecret(IdSecret),
+    Fr(Fr),
+}
+
+impl From<Fr> for FrOrSecret {
+    fn from(value: Fr) -> Self {
+        FrOrSecret::Fr(value)
+    }
+}
+
+impl From<IdSecret> for FrOrSecret {
+    fn from(value: IdSecret) -> Self {
+        FrOrSecret::IdSecret(value)
+    }
 }
 
 // The following functions and structs are based on code from ark-zkey:

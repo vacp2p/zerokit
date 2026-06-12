@@ -6,56 +6,29 @@ pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 pub use crate::circuit::{
     default_graph_multi, default_graph_single, default_zkey_multi, default_zkey_single,
 };
-#[cfg(feature = "pmtree-ft")]
-pub use crate::pm_tree_adapter::{FrOf, PmTree, PmTreeConfig, PmTreeProof};
-#[cfg(not(feature = "stateless"))]
-pub use crate::poseidon_tree::{MerkleProof, PoseidonTree};
-#[cfg(not(feature = "stateless"))]
-pub use crate::protocol::compute_tree_root;
 #[cfg(not(target_arch = "wasm32"))]
-pub use crate::protocol::{
-    finish_zk_proof, finish_zk_proof_with_rs, generate_partial_zk_proof, generate_zk_proof,
-    generate_zk_proof_with_rs, verify_zk_proof,
-};
+pub use crate::pm_tree::{FrOf, PmTree, PmTreeConfig, PmTreeProof};
 pub use crate::{
     circuit::{
         graph_from_raw, zkey_from_raw, ArkGroth16Backend, Curve, Fq, Fq2, Fr, G1Affine,
-        G1Projective, G2Affine, G2Projective, Graph, PartialProof, Proof, VerifyingKey, Zkey,
-        COMPRESS_PROOF_SIZE, DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH,
+        G1Projective, G2Affine, G2Projective, Graph, IdSecret, PartialProof, Proof, VerifyingKey,
+        Zkey, COMPRESS_PROOF_SIZE, DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH,
     },
     error::{
-        GenerateProofError, ProtocolError, RLNError, RLNPartialWitnessInputErrorV3,
-        RLNWitnessInputMultiErrorV3, RLNWitnessInputSingleErrorV3, RecoverSecretError,
-        SerializationErrorV3, UtilsError, VerifyProofErrorV3,
+        GenerateProofError, RLNPartialWitnessInputError, RLNWitnessInputMultiError,
+        RLNWitnessInputSingleError, RecoverSecretError, SerializationError, VerifyProofError,
     },
     hashers::{
         hash_to_field_be, hash_to_field_le, poseidon_hash, poseidon_hash_pair,
         poseidon_hash_try_from, PoseidonHash,
     },
     protocol::{
-        bytes_be_to_rln_partial_proof, bytes_be_to_rln_partial_witness, bytes_be_to_rln_proof,
-        bytes_be_to_rln_proof_values, bytes_be_to_rln_witness, bytes_le_to_rln_partial_proof,
-        bytes_le_to_rln_partial_witness, bytes_le_to_rln_proof, bytes_le_to_rln_proof_values,
-        bytes_le_to_rln_witness, calculated_witness_to_field_elements, compute_id_secret,
-        extended_keygen, extended_seeded_keygen, generate_zk_proof_with_witness, keygen,
-        proof_values_from_witness, recover_id_secret, rln_partial_proof_to_bytes_be,
-        rln_partial_proof_to_bytes_le, rln_partial_witness_to_bytes_be,
-        rln_partial_witness_to_bytes_le, rln_proof_to_bytes_be, rln_proof_to_bytes_le,
-        rln_proof_values_to_bytes_be, rln_proof_values_to_bytes_le, rln_witness_to_bigint_json,
-        rln_witness_to_bytes_be, rln_witness_to_bytes_le, seeded_keygen, CanonicalDeserializeBE,
-        CanonicalDeserializeMixed, CanonicalSerializeBE, CanonicalSerializeMixed, MessageMode,
-        RLNPartialWitnessInput, RLNPartialWitnessInputV3, RLNPartialZkProof, RLNProof, RLNProofV3,
-        RLNProofValues, RLNProofValuesMulti, RLNProofValuesSingle, RLNProofValuesV3,
-        RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle, RLNWitnessInputV3,
-        RLNZkProof, RecoverSecret, Stateful, Stateless, ENUM_TAG_MULTI, ENUM_TAG_SINGLE,
-        ENUM_TAG_SIZE, FR_BYTE_SIZE, FR_LIMB_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
+        compute_id_secret, extended_keygen, extended_seeded_keygen, keygen, seeded_keygen,
+        CanonicalDeserializeBE, CanonicalDeserializeMixed, CanonicalSerializeBE,
+        CanonicalSerializeMixed, RLNPartialWitnessInput, RLNPartialZkProof, RLNProof,
+        RLNProofValues, RLNProofValuesMulti, RLNProofValuesSingle, RLNWitnessInput,
+        RLNWitnessInputMulti, RLNWitnessInputSingle, RLNZkProof, RecoverSecret, ENUM_TAG_MULTI,
+        ENUM_TAG_SINGLE, ENUM_TAG_SIZE, FR_BYTE_SIZE, FR_LIMB_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
     },
-    public::{RLNBuilder, RLN, RLNV3},
-    utils::{
-        bytes_be_to_fr, bytes_be_to_vec_fr, bytes_be_to_vec_u8, bytes_be_to_vec_usize,
-        bytes_le_to_fr, bytes_le_to_vec_fr, bytes_le_to_vec_u8, bytes_le_to_vec_usize,
-        fr_to_bytes_be, fr_to_bytes_le, normalize_usize_be, normalize_usize_le, str_to_fr,
-        to_bigint, vec_fr_to_bytes_be, vec_fr_to_bytes_le, vec_u8_to_bytes_be, vec_u8_to_bytes_le,
-        IdSecret,
-    },
+    public::{RLNBuilder, Stateful, Stateless, RLN},
 };

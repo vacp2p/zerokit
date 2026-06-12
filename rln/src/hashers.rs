@@ -1,4 +1,4 @@
-// This crate instantiates the Poseidon hash algorithm.
+// This module instantiates the Poseidon hash algorithm.
 
 use std::sync::LazyLock;
 

@@ -1,782 +1,52 @@
-// This crate is the main public API for RLN module
-// It is used by the FFI, WASM and should be used by tests as well
+// This module is the main public API for RLN module
 
 use std::{marker::PhantomData, sync::Arc};
 
 use bon::bon;
-use num_bigint::BigInt;
-#[cfg(not(feature = "stateless"))]
-use zerokit_utils::merkle_tree::ZerokitMerkleProof;
 use zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleTree, ZerokitMerkleTreeError};
-#[cfg(not(feature = "stateless"))]
-use {crate::poseidon_tree::PoseidonTree, std::str::FromStr};
 
 #[cfg(not(target_arch = "wasm32"))]
-use crate::circuit::graph_from_raw;
-#[cfg(not(target_arch = "wasm32"))]
+use crate::circuit::{default_graph_single, default_zkey_single};
 use crate::{
-    circuit::{
-        default_graph_single, default_graph_single_v3, default_zkey_single, default_zkey_single_v3,
-        PartialProof,
-    },
-    prelude::RLNPartialWitnessInput,
-    protocol::{finish_zk_proof, generate_partial_zk_proof, generate_zk_proof, MessageMode},
-};
-use crate::{
-    circuit::{zkey_from_raw, ArkGroth16Backend, Fr, Graph, Proof, Zkey},
-    error::{RLNError, VerifyProofErrorV3},
-    protocol::{
-        generate_zk_proof_with_witness, proof_values_from_witness, verify_zk_proof,
-        RLNPartialZkProof, RLNProofValues, RLNProofValuesV3, RLNWitnessInput, RLNZkProof, Stateful,
-        Stateless,
-    },
+    circuit::{ArkGroth16Backend, Fr, Graph, Proof, Zkey},
+    error::VerifyProofError,
+    protocol::{RLNPartialZkProof, RLNProofValues, RLNZkProof},
 };
 
-/// This trait allows accepting different config input types for tree configuration.
-#[cfg(not(feature = "stateless"))]
-pub trait TreeConfigInput {
-    /// Convert the input to a tree configuration struct.
-    fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError>;
+/// Type-state marker for an RLN instance that owns a Merkle tree.
+#[derive(Debug, Clone)]
+pub struct Stateful<T> {
+    pub tree: T,
 }
 
-/// Implementation for string slices containing JSON configuration
-#[cfg(not(feature = "stateless"))]
-impl TreeConfigInput for &str {
-    fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError> {
-        if self.is_empty() {
-            Ok(<PoseidonTree as ZerokitMerkleTree>::Config::default())
-        } else {
-            Ok(<PoseidonTree as ZerokitMerkleTree>::Config::from_str(self)?)
-        }
-    }
-}
-
-/// Implementation for direct builder pattern Config struct
-#[cfg(feature = "pmtree-ft")]
-impl TreeConfigInput for <PoseidonTree as ZerokitMerkleTree>::Config {
-    fn into_tree_config(self) -> Result<<PoseidonTree as ZerokitMerkleTree>::Config, RLNError> {
-        Ok(self)
-    }
-}
-
-/// The RLN object.
-///
-/// It implements the methods required to update the internal Merkle Tree, generate and verify RLN ZK proofs.
-pub struct RLN {
-    pub(crate) zkey: Zkey,
-    #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) graph: Graph,
-    #[cfg(not(feature = "stateless"))]
-    pub(crate) tree: PoseidonTree,
-    #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) message_mode: MessageMode,
-}
-
-impl RLN {
-    /// Creates a new RLN object by loading circuit resources from a folder.
-    ///
-    /// - `tree_depth`: the depth of the internal Merkle tree
-    /// - `tree_config`: configuration for the Merkle tree (accepts multiple types via TreeConfigInput trait)
-    ///
-    /// The `tree_config` parameter accepts:
-    /// - JSON string: `"{\"path\": \"./database\"}"`
-    /// - Direct config (with pmtree feature): `PmtreeConfigBuilder::new().path("./database").build()?`
-    /// - Empty config for defaults: `""`
-    ///
-    /// Examples:
-    /// ```
-    /// // Using default config
-    /// let rln = RLN::new(20, "")?;
-    ///
-    /// // Using JSON string
-    /// let config_json = r#"{"path": "./database", "cache_capacity": 1073741824}"#;
-    /// let rln = RLN::new(20, config_json)?;
-    ///
-    /// // Using `"` for defaults
-    /// let rln = RLN::new(20, "")?;
-    /// ```
-    ///
-    /// For advanced usage with builder pattern (pmtree feature):
-    /// ```
-    /// let config = PmtreeConfigBuilder::new()
-    ///     .path("./database")
-    ///     .cache_capacity(1073741824)
-    ///     .mode(Mode::HighThroughput)
-    ///     .build()?;
-    ///
-    /// let rln = RLN::new(20, config)?;
-    /// ```
-    #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
-    pub fn new<T: TreeConfigInput>(tree_depth: usize, tree_config: T) -> Result<RLN, RLNError> {
-        let zkey = default_zkey_single().to_owned();
-        let graph = default_graph_single().to_owned();
-        let config = tree_config.into_tree_config()?;
-
-        // We compute a default empty tree
-        let tree = PoseidonTree::new(
-            tree_depth,
-            <PoseidonTree as ZerokitMerkleTree>::Hasher::default_leaf(),
-            config,
-        )?;
-
-        Ok(RLN {
-            zkey,
-            graph,
-            tree,
-            message_mode: MessageMode::SingleV1,
-        })
+impl<T> Stateful<T> {
+    pub fn new(tree: T) -> Self {
+        Self { tree }
     }
 
-    /// Creates a new stateless RLN object by loading circuit resources from a folder.
-    ///
-    /// Example:
-    /// ```
-    /// // We create a new RLN instance
-    /// let mut rln = RLN::new();
-    /// ```
-    #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
-    pub fn new() -> Result<RLN, RLNError> {
-        let zkey = default_zkey_single().to_owned();
-        let graph = default_graph_single().clone();
-
-        Ok(RLN {
-            zkey,
-            graph,
-            message_mode: MessageMode::SingleV1,
-        })
+    pub fn tree(&self) -> &T {
+        &self.tree
     }
 
-    /// Creates a new RLN object by passing circuit resources as byte vectors.
-    ///
-    /// Input parameters are:
-    /// - `tree_depth`: the depth of the internal Merkle tree
-    /// - `zkey_data`: a byte vector containing the proving key (`rln_final.arkzkey`) as binary file
-    /// - `graph_data`: a byte vector containing the graph data (`graph.bin`) as binary file
-    /// - `tree_config`: configuration for the Merkle tree (accepts multiple types via TreeConfigInput trait)
-    ///
-    /// Examples:
-    /// ```
-    /// let tree_depth = 20;
-    /// let resources_folder = "./resources/tree_depth_20/";
-    ///
-    /// let mut resources: Vec<Vec<u8>> = Vec::new();
-    /// for filename in ["rln_final.arkzkey", "graph.bin"] {
-    ///     let fullpath = format!("{resources_folder}{filename}");
-    ///     let mut file = File::open(&fullpath)?;
-    ///     let metadata = std::fs::metadata(&fullpath)?;
-    ///     let mut buffer = vec![0; metadata.len() as usize];
-    ///     file.read_exact(&mut buffer)?;
-    ///     resources.push(buffer);
-    /// }
-    ///
-    /// // Using default config
-    /// let rln = RLN::new_with_params(tree_depth, resources[0].clone(), resources[1].clone(), "")?;
-    ///
-    /// // Using JSON config
-    /// let config_json = r#"{"path": "./database"}"#;
-    /// let rln = RLN::new_with_params(tree_depth, resources[0].clone(), resources[1].clone(), config_json)?;
-    ///
-    /// // Using builder pattern (with pmtree feature)
-    /// let config = PmtreeConfigBuilder::new().path("./database").build()?;
-    /// let rln = RLN::new_with_params(tree_depth, resources[0].clone(), resources[1].clone(), config)?;
-    /// ```
-    #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
-    pub fn new_with_params<T: TreeConfigInput>(
-        tree_depth: usize,
-        zkey_data: Vec<u8>,
-        graph_data: Vec<u8>,
-        tree_config: T,
-    ) -> Result<RLN, RLNError> {
-        let zkey = zkey_from_raw(&zkey_data)?;
-        let graph = graph_from_raw(&graph_data, Some(tree_depth), None)?;
-        let message_mode = MessageMode::from(&graph);
-
-        let config = tree_config.into_tree_config()?;
-
-        // We compute a default empty tree
-        let tree = PoseidonTree::new(
-            tree_depth,
-            <PoseidonTree as ZerokitMerkleTree>::Hasher::default_leaf(),
-            config,
-        )?;
-
-        Ok(RLN {
-            zkey,
-            graph,
-            tree,
-            message_mode,
-        })
+    pub fn tree_mut(&mut self) -> &mut T {
+        &mut self.tree
     }
 
-    /// Creates a new stateless RLN object by passing circuit resources as byte vectors.
-    ///
-    /// Input parameters are:
-    /// - `zkey_data`: a byte vector containing to the proving key (`rln_final.arkzkey`) as binary file
-    /// - `graph_data`: a byte vector containing the graph data (`graph.bin`) as binary file
-    ///
-    /// Example:
-    /// ```
-    /// let resources_folder = "./resources/tree_depth_20/";
-    ///
-    /// let mut resources: Vec<Vec<u8>> = Vec::new();
-    /// for filename in ["rln_final.arkzkey", "graph.bin"] {
-    ///     let fullpath = format!("{resources_folder}{filename}");
-    ///     let mut file = File::open(&fullpath)?;
-    ///     let metadata = std::fs::metadata(&fullpath)?;
-    ///     let mut buffer = vec![0; metadata.len() as usize];
-    ///     file.read_exact(&mut buffer)?;
-    ///     resources.push(buffer);
-    /// }
-    ///
-    /// let mut rln = RLN::new_with_params(
-    ///     resources[0].clone(),
-    ///     resources[1].clone(),
-    /// )?;
-    /// ```
-    #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
-    pub fn new_with_params(zkey_data: Vec<u8>, graph_data: Vec<u8>) -> Result<RLN, RLNError> {
-        let zkey = zkey_from_raw(&zkey_data)?;
-        let graph = graph_from_raw(&graph_data, None, None)?;
-        let message_mode = MessageMode::from(&graph);
-
-        Ok(RLN {
-            zkey,
-            graph,
-            message_mode,
-        })
-    }
-
-    /// Creates a new stateless RLN object by passing circuit resources as a byte vector.
-    ///
-    /// Input parameters are:
-    /// - `zkey_data`: a byte vector containing the proving key (`rln_final.arkzkey`) as binary file
-    ///
-    /// Example:
-    /// ```
-    /// let zkey_path = "./resources/tree_depth_20/rln_final.arkzkey";
-    ///
-    /// let mut file = File::open(zkey_path)?;
-    /// let metadata = std::fs::metadata(zkey_path)?;
-    /// let mut zkey_data = vec![0; metadata.len() as usize];
-    /// file.read_exact(&mut zkey_data)?;
-    ///
-    /// let mut rln = RLN::new_with_params(zkey_data)?;
-    /// ```
-    #[cfg(all(target_arch = "wasm32", feature = "stateless"))]
-    pub fn new_with_params(zkey_data: Vec<u8>) -> Result<RLN, RLNError> {
-        let zkey = zkey_from_raw(&zkey_data)?;
-
-        Ok(RLN { zkey })
-    }
-
-    // Utility APIs
-
-    /// Returns the expected Merkle tree depth based on the graph's configuration.
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn tree_depth(&self) -> usize {
-        self.graph.tree_depth
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    /// Returns the message mode this RLN instance was configured with.
-    pub fn message_mode(&self) -> MessageMode {
-        self.message_mode
-    }
-
-    /// Returns the maximum number of message ID slots supported by the graph.
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn max_out(&self) -> usize {
-        self.graph.max_out
-    }
-
-    // Merkle-tree APIs
-
-    /// Initializes the internal Merkle tree.
-    ///
-    /// Leaves are set to the default value implemented in PoseidonTree implementation.
-    #[cfg(not(feature = "stateless"))]
-    pub fn set_tree(&mut self, tree_depth: usize) -> Result<(), RLNError> {
-        // We compute a default empty tree of desired depth
-        self.tree = PoseidonTree::default(tree_depth)?;
-
-        Ok(())
-    }
-
-    /// Sets a leaf value at position index in the internal Merkle tree.
-    ///
-    /// Example:
-    /// ```
-    /// // We generate a random identity secret and commitment pair
-    /// let (identity_secret, id_commitment) = keygen();
-    ///
-    /// // We define the tree index where rate_commitment will be added
-    /// let leaf_index = 10;
-    /// let user_message_limit = 1;
-    ///
-    /// let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]);
-    ///
-    /// // Set the leaf directly
-    /// rln.set_leaf(leaf_index, rate_commitment)?;
-    /// ```
-    #[cfg(not(feature = "stateless"))]
-    pub fn set_leaf(&mut self, index: usize, leaf: Fr) -> Result<(), RLNError> {
-        self.tree.set(index, leaf)?;
-        Ok(())
-    }
-
-    /// Gets a leaf value at position index in the internal Merkle tree.
-    ///
-    /// Example:
-    /// ```
-    /// let leaf_index = 10;
-    /// let rate_commitment = rln.get_leaf(leaf_index)?;
-    /// ```
-    #[cfg(not(feature = "stateless"))]
-    pub fn get_leaf(&self, index: usize) -> Result<Fr, RLNError> {
-        let leaf = self.tree.get(index)?;
-        Ok(leaf)
-    }
-
-    /// Sets multiple leaves starting from position index in the internal Merkle tree.
-    ///
-    /// If n leaves are passed as input, these will be set at positions `index`, `index+1`, ..., `index+n-1` respectively.
-    ///
-    /// This function updates the internal Merkle tree `next_index` value indicating the next available index corresponding to a never-set leaf as `next_index = max(next_index, index + n)`.
-    ///
-    /// Example:
-    /// ```
-    /// let start_index = 10;
-    /// let no_of_leaves = 256;
-    ///
-    /// // We generate a vector of random leaves
-    /// let mut leaves: Vec<Fr> = Vec::new();
-    /// let mut rng = thread_rng();
-    /// for _ in 0..no_of_leaves {
-    ///     let (_, id_commitment) = keygen();
-    ///     let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
-    ///     leaves.push(rate_commitment);
-    /// }
-    ///
-    /// // We add leaves in a batch into the tree
-    /// rln.set_leaves_from(start_index, leaves)?;
-    /// ```
-    #[cfg(not(feature = "stateless"))]
-    pub fn set_leaves_from(&mut self, index: usize, leaves: Vec<Fr>) -> Result<(), RLNError> {
+    pub fn into_tree(self) -> T {
         self.tree
-            .override_range(index, leaves.into_iter(), [].into_iter())?;
-        Ok(())
-    }
-
-    /// Resets the tree state to default and sets multiple leaves starting from index 0.
-    ///
-    /// In contrast to [`set_leaves_from`](crate::public::RLN::set_leaves_from), this function resets to 0 the internal `next_index` value, before setting the input leaves values.
-    ///
-    /// This requires the tree to be initialized with the correct depth initially.
-    #[cfg(not(feature = "stateless"))]
-    pub fn init_tree_with_leaves(&mut self, leaves: Vec<Fr>) -> Result<(), RLNError> {
-        self.set_tree(self.tree.depth())?;
-        self.set_leaves_from(0, leaves)
-    }
-
-    /// Sets multiple leaves starting from position index in the internal Merkle tree.
-    /// Also accepts an array of indices to remove from the tree.
-    ///
-    /// If n leaves are passed as input, these will be set at positions `index`, `index+1`, ..., `index+n-1` respectively.
-    /// If m indices are passed as input, these will be removed from the tree.
-    ///
-    /// This function updates the internal Merkle tree `next_index` value indicating the next available index corresponding to a never-set leaf as `next_index = max(next_index, index + n)`.
-    ///
-    /// Example:
-    /// ```
-    /// let start_index = 10;
-    /// let no_of_leaves = 256;
-    ///
-    /// // We generate a vector of random leaves
-    /// let mut leaves: Vec<Fr> = Vec::new();
-    /// let mut rng = thread_rng();
-    /// for _ in 0..no_of_leaves {
-    ///     let (_, id_commitment) = keygen();
-    ///     let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
-    ///     leaves.push(rate_commitment);
-    /// }
-    ///
-    /// let mut indices: Vec<usize> = Vec::new();
-    /// for i in 0..no_of_leaves {
-    ///    if i % 2 == 0 {
-    ///       indices.push(i);
-    ///   }
-    /// }
-    ///
-    /// // We atomically add leaves and remove indices from the tree
-    /// rln.atomic_operation(start_index, leaves, indices)?;
-    /// ```
-    #[cfg(not(feature = "stateless"))]
-    pub fn atomic_operation(
-        &mut self,
-        index: usize,
-        leaves: Vec<Fr>,
-        indices: Vec<usize>,
-    ) -> Result<(), RLNError> {
-        self.tree
-            .override_range(index, leaves.into_iter(), indices.into_iter())?;
-        Ok(())
-    }
-
-    /// Returns the number of leaves that have been set in the internal Merkle tree.
-    #[cfg(not(feature = "stateless"))]
-    pub fn leaves_set(&self) -> usize {
-        self.tree.leaves_set()
-    }
-
-    /// Sets a leaf value at the next available never-set leaf index.
-    ///
-    /// This function updates the internal Merkle tree `next_index` value indicating the next available index corresponding to a never-set leaf as `next_index = next_index + 1`.
-    ///
-    /// Example:
-    /// ```
-    /// let tree_depth = 20;
-    /// let start_index = 10;
-    /// let no_of_leaves = 256;
-    ///
-    /// // We reset the tree
-    /// rln.set_tree(tree_depth)?;
-    ///
-    /// // Internal Merkle tree next_index value is now 0
-    ///
-    /// // We generate a vector of random leaves
-    /// let mut leaves: Vec<Fr> = Vec::new();
-    /// let mut rng = thread_rng();
-    /// for _ in 0..no_of_leaves {
-    ///     let (_, id_commitment) = keygen();
-    ///     let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
-    ///     leaves.push(rate_commitment);
-    /// }
-    ///
-    /// // We add leaves in a batch into the tree
-    /// rln.set_leaves_from(start_index, leaves)?;
-    ///
-    /// // We set 256 leaves starting from index 10: next_index value is now max(0, 256+10) = 266
-    ///
-    /// // We set a leaf on next available index
-    /// // rate_commitment will be set at index 266
-    /// let (_, id_commitment) = keygen();
-    /// let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
-    /// rln.set_next_leaf(rate_commitment)?;
-    /// ```
-    #[cfg(not(feature = "stateless"))]
-    pub fn set_next_leaf(&mut self, leaf: Fr) -> Result<(), RLNError> {
-        self.tree.update_next(leaf)?;
-        Ok(())
-    }
-
-    /// Sets the value of the leaf at position index to the hardcoded default value.
-    ///
-    /// This function does not change the internal Merkle tree `next_index` value.
-    ///
-    /// Example:
-    /// ```
-    ///
-    /// let index = 10;
-    /// rln.delete_leaf(index)?;
-    /// ```
-    #[cfg(not(feature = "stateless"))]
-    pub fn delete_leaf(&mut self, index: usize) -> Result<(), RLNError> {
-        self.tree.delete(index)?;
-        Ok(())
-    }
-
-    /// Sets some metadata that a consuming application may want to store in the RLN object.
-    ///
-    /// This metadata is not used by the RLN module.
-    ///
-    /// Example:
-    ///
-    /// ```
-    /// let metadata = b"some metadata";
-    /// rln.set_metadata(metadata)?;
-    /// ```
-    #[cfg(not(feature = "stateless"))]
-    pub fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), RLNError> {
-        self.tree.set_metadata(metadata)?;
-        Ok(())
-    }
-
-    /// Returns the metadata stored in the RLN object.
-    ///
-    /// Example:
-    ///
-    /// ```
-    /// let metadata = rln.get_metadata()?;
-    /// ```
-    #[cfg(not(feature = "stateless"))]
-    pub fn get_metadata(&self) -> Result<Vec<u8>, RLNError> {
-        let metadata = self.tree.metadata()?;
-        Ok(metadata)
-    }
-
-    /// Returns the Merkle tree root
-    ///
-    /// Example:
-    /// ```
-    /// let root = rln.get_root();
-    /// ```
-    #[cfg(not(feature = "stateless"))]
-    pub fn get_root(&self) -> Fr {
-        self.tree.root()
-    }
-
-    /// Returns the root of subtree in the Merkle tree
-    ///
-    /// Example:
-    /// ```
-    /// let level = 1;
-    /// let index = 2;
-    /// let subroot = rln.get_subtree_root(level, index)?;
-    /// ```
-    #[cfg(not(feature = "stateless"))]
-    pub fn get_subtree_root(&self, level: usize, index: usize) -> Result<Fr, RLNError> {
-        let subroot = self.tree.get_subtree_root(level, index)?;
-        Ok(subroot)
-    }
-
-    /// Returns the Merkle proof of the leaf at position index
-    ///
-    /// Example:
-    /// ```
-    /// let index = 10;
-    /// let (path_elements, identity_path_index) = rln.get_merkle_proof(index)?;
-    /// ```
-    #[cfg(not(feature = "stateless"))]
-    pub fn get_merkle_proof(&self, index: usize) -> Result<(Vec<Fr>, Vec<u8>), RLNError> {
-        let merkle_proof = self.tree.proof(index)?;
-        let path_elements = merkle_proof.get_path_elements();
-        let identity_path_index = merkle_proof.get_path_index();
-
-        Ok((path_elements, identity_path_index))
-    }
-
-    /// Returns indices of leaves in the tree are set to zero (upto the final leaf that was set).
-    ///
-    /// Example:
-    /// ```
-    /// let start_index = 5;
-    /// let no_of_leaves = 256;
-    ///
-    /// // We generate a vector of random leaves
-    /// let mut leaves: Vec<Fr> = Vec::new();
-    /// let mut rng = thread_rng();
-    /// for _ in 0..no_of_leaves {
-    ///     let (_, id_commitment) = keygen();
-    ///     let rate_commitment = poseidon_hash(&[id_commitment, 1.into()]);
-    ///     leaves.push(rate_commitment);
-    /// }
-    ///
-    /// // We add leaves in a batch into the tree
-    /// rln.set_leaves_from(start_index, leaves)?;
-    ///
-    /// // Get indices of first empty leaves upto start_index
-    /// let idxs = rln.get_empty_leaves_indices();
-    /// assert_eq!(idxs, [0, 1, 2, 3, 4]);
-    /// ```
-    #[cfg(not(feature = "stateless"))]
-    pub fn get_empty_leaves_indices(&self) -> Vec<usize> {
-        self.tree.get_empty_leaves_indices()
-    }
-
-    /// Closes the connection to the Merkle tree database.
-    ///
-    /// This function should be called before the RLN object is dropped.
-    /// If not called, the connection will be closed when the RLN object is dropped.
-    #[cfg(not(feature = "stateless"))]
-    pub fn flush(&mut self) -> Result<(), ZerokitMerkleTreeError> {
-        self.tree.close_db_connection()
-    }
-
-    // zkSNARK APIs
-
-    /// Generates a zkSNARK proof component of an RLN proof from a [`RLNWitnessInput`].
-    ///
-    /// Extract proof values separately using [`proof_values_from_witness`].
-    ///
-    /// Example:
-    /// ```
-    /// let proof_values = proof_values_from_witness(witness);
-    ///
-    /// // We compute a Groth16 proof
-    /// let zk_proof = rln.generate_zk_proof(&witness)?;
-    /// ```
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn generate_zk_proof(&self, witness: &RLNWitnessInput) -> Result<Proof, RLNError> {
-        let proof = generate_zk_proof(&self.zkey, witness, &self.graph)?;
-        Ok(proof)
-    }
-
-    /// Generates a RLN proof and proof values from a witness.
-    ///
-    /// This is a convenience method that combines proof generation and proof values extraction.
-    ///
-    /// Example:
-    /// ```
-    /// let witness = RLNWitnessInput::new(...);
-    /// let (proof, proof_values) = rln.generate_rln_proof(&witness)?;
-    /// ```
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn generate_rln_proof(
-        &self,
-        witness: &RLNWitnessInput,
-    ) -> Result<(Proof, RLNProofValues), RLNError> {
-        let proof_values = proof_values_from_witness(witness);
-        let proof = generate_zk_proof(&self.zkey, witness, &self.graph)?;
-        Ok((proof, proof_values))
-    }
-
-    /// Generate RLN Proof using a pre-calculated witness from witness calculator.
-    ///
-    /// This is used when the witness has been calculated externally using a witness calculator.
-    ///
-    /// Example:
-    /// ```
-    /// let witness = RLNWitnessInput::new(...);
-    /// let calculated_witness: Vec<BigInt> = ...; // obtained from external witness calculator
-    /// let (proof, proof_values) = rln.generate_rln_proof_with_witness(calculated_witness, &witness)?;
-    /// ```
-    pub fn generate_rln_proof_with_witness(
-        &self,
-        calculated_witness: Vec<BigInt>,
-        witness: &RLNWitnessInput,
-    ) -> Result<(Proof, RLNProofValues), RLNError> {
-        let proof_values = proof_values_from_witness(witness);
-        let proof = generate_zk_proof_with_witness(
-            calculated_witness,
-            &self.zkey,
-            #[cfg(not(target_arch = "wasm32"))]
-            witness,
-            #[cfg(not(target_arch = "wasm32"))]
-            &self.graph,
-        )?;
-        Ok((proof, proof_values))
-    }
-
-    /// Generates a partial zkSNARK proof from partial (known) witness inputs.
-    ///
-    /// This is the first step of two-step proof generation.
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn generate_partial_zk_proof(
-        &self,
-        partial_witness: &RLNPartialWitnessInput,
-    ) -> Result<PartialProof, RLNError> {
-        let partial_proof = generate_partial_zk_proof(&self.zkey, partial_witness, &self.graph)?;
-        Ok(partial_proof)
-    }
-
-    /// Finishes zkSNARK proof generation from a partial proof and full witness.
-    ///
-    /// This is the second step of two-step proof generation.
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn finish_zk_proof(
-        &self,
-        partial_proof: &PartialProof,
-        witness: &RLNWitnessInput,
-    ) -> Result<Proof, RLNError> {
-        let proof = finish_zk_proof(&self.zkey, partial_proof, witness, &self.graph)?;
-        Ok(proof)
-    }
-
-    /// Finishes RLN proof generation from a partial proof and full witness.
-    ///
-    /// This combines `RLN::finish_zk_proof` with proof values.
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn finish_rln_proof(
-        &self,
-        partial_proof: &PartialProof,
-        witness: &RLNWitnessInput,
-    ) -> Result<(Proof, RLNProofValues), RLNError> {
-        let proof_values = proof_values_from_witness(witness);
-        let proof = finish_zk_proof(&self.zkey, partial_proof, witness, &self.graph)?;
-        Ok((proof, proof_values))
-    }
-
-    /// Verifies a zkSNARK proof only.
-    ///
-    /// Example:
-    /// ```
-    /// // We compute a Groth16 proof
-    /// let zk_proof = rln.generate_zk_proof(&witness)?;
-    ///
-    /// // We compute proof values directly from witness
-    /// let proof_values = proof_values_from_witness(witness);
-    ///
-    /// // We verify the proof
-    /// let verified = rln.verify_zk_proof(&zk_proof, &proof_values)?;
-    ///
-    /// assert!(verified);
-    /// ```
-    pub fn verify_zk_proof(
-        &self,
-        proof: &Proof,
-        proof_values: &RLNProofValues,
-    ) -> Result<bool, RLNError> {
-        let verified = verify_zk_proof(&self.zkey.0.vk, proof, proof_values)?;
-        Ok(verified)
-    }
-
-    /// Verifies a zkSNARK RLN proof against the internal Merkle tree root with x check.
-    #[cfg(not(feature = "stateless"))]
-    pub fn verify_rln_proof(
-        &self,
-        proof: &Proof,
-        proof_values: &RLNProofValues,
-        x: &Fr,
-    ) -> Result<bool, RLNError> {
-        let verified = verify_zk_proof(&self.zkey.0.vk, proof, proof_values)?;
-        if !verified {
-            return Err(VerifyProofErrorV3::InvalidProof.into());
-        }
-
-        if self.tree.root() != *proof_values.root() {
-            return Err(VerifyProofErrorV3::InvalidRoot.into());
-        }
-
-        if x != proof_values.x() {
-            return Err(VerifyProofErrorV3::InvalidSignal.into());
-        }
-
-        Ok(true)
-    }
-
-    /// Verifies a zkSNARK RLN proof against provided roots with x check.
-    ///
-    /// If the roots slice is empty, root verification is skipped.
-    pub fn verify_with_roots(
-        &self,
-        proof: &Proof,
-        proof_values: &RLNProofValues,
-        x: &Fr,
-        roots: &[Fr],
-    ) -> Result<bool, RLNError> {
-        let verified = verify_zk_proof(&self.zkey.0.vk, proof, proof_values)?;
-        if !verified {
-            return Err(VerifyProofErrorV3::InvalidProof.into());
-        }
-
-        if !roots.is_empty() && !roots.contains(proof_values.root()) {
-            return Err(VerifyProofErrorV3::InvalidRoot.into());
-        }
-
-        if x != proof_values.x() {
-            return Err(VerifyProofErrorV3::InvalidSignal.into());
-        }
-
-        Ok(true)
     }
 }
 
-pub struct RLNV3<State, ZkProof> {
+/// Type-state marker for an RLN instance without tree state.
+#[derive(Debug, Clone)]
+pub struct Stateless;
+
+pub struct RLN<State, ZkProof> {
     pub(crate) zkp: ZkProof,
     pub(crate) state: State,
 }
 
-impl<ZkProof> RLNV3<Stateless, ZkProof> {
+impl<ZkProof> RLN<Stateless, ZkProof> {
     pub fn new(zkp: ZkProof) -> Self {
         Self {
             zkp,
@@ -785,7 +55,7 @@ impl<ZkProof> RLNV3<Stateless, ZkProof> {
     }
 }
 
-impl<T, ZkProof> RLNV3<Stateful<T>, ZkProof> {
+impl<T, ZkProof> RLN<Stateful<T>, ZkProof> {
     pub fn new(tree: T, zkp: ZkProof) -> Self {
         Self {
             zkp,
@@ -794,7 +64,7 @@ impl<T, ZkProof> RLNV3<Stateful<T>, ZkProof> {
     }
 }
 
-impl<T, ZkProof> RLNV3<Stateful<T>, ZkProof> {
+impl<T, ZkProof> RLN<Stateful<T>, ZkProof> {
     pub fn tree(&self) -> &T {
         self.state.tree()
     }
@@ -808,7 +78,7 @@ impl<T, ZkProof> RLNV3<Stateful<T>, ZkProof> {
     }
 }
 
-impl<T, ZkProof> RLNV3<Stateful<T>, ZkProof>
+impl<T, ZkProof> RLN<Stateful<T>, ZkProof>
 where
     T: ZerokitMerkleTree,
     T::Hasher: Hasher<Fr = Fr>,
@@ -895,7 +165,7 @@ where
     }
 }
 
-impl<Tree, ZkProof: RLNZkProof> RLNV3<Tree, ZkProof> {
+impl<Tree, ZkProof: RLNZkProof> RLN<Tree, ZkProof> {
     pub fn generate_proof(
         &self,
         witness: &ZkProof::Witness,
@@ -912,7 +182,7 @@ impl<Tree, ZkProof: RLNZkProof> RLNV3<Tree, ZkProof> {
     }
 }
 
-impl<Tree, ZkProof: RLNPartialZkProof> RLNV3<Tree, ZkProof> {
+impl<Tree, ZkProof: RLNPartialZkProof> RLN<Tree, ZkProof> {
     pub fn generate_partial_proof(
         &self,
         partial_witness: &ZkProof::PartialWitness,
@@ -929,26 +199,26 @@ impl<Tree, ZkProof: RLNPartialZkProof> RLNV3<Tree, ZkProof> {
     }
 }
 
-impl<Tree, ZkProof> RLNV3<Tree, ZkProof>
+impl<Tree, ZkProof> RLN<Tree, ZkProof>
 where
     ZkProof:
-        RLNZkProof<Values = RLNProofValuesV3, Proof = Proof, VerifyProofError = VerifyProofErrorV3>,
+        RLNZkProof<Values = RLNProofValues, Proof = Proof, VerifyProofError = VerifyProofError>,
 {
     pub fn verify_with_roots(
         &self,
         proof: &Proof,
-        values: &RLNProofValuesV3,
+        values: &RLNProofValues,
         x: &Fr,
         roots: &[Fr],
-    ) -> Result<bool, VerifyProofErrorV3> {
+    ) -> Result<bool, VerifyProofError> {
         if !roots.is_empty() && !roots.contains(&values.root()) {
-            return Err(VerifyProofErrorV3::InvalidRoot);
+            return Err(VerifyProofError::InvalidRoot);
         }
         if x != &values.x() {
-            return Err(VerifyProofErrorV3::InvalidSignal);
+            return Err(VerifyProofError::InvalidSignal);
         }
         if !self.zkp.verify(proof, values)? {
-            return Err(VerifyProofErrorV3::InvalidProof);
+            return Err(VerifyProofError::InvalidProof);
         }
         Ok(true)
     }
@@ -962,18 +232,18 @@ impl RLNBuilder<ArkGroth16Backend> {
     pub fn stateless(
         #[cfg_attr(
             not(target_arch = "wasm32"),
-            builder(default = default_graph_single_v3().clone(), into)
+            builder(default = default_graph_single().clone(), into)
         )]
         #[cfg_attr(target_arch = "wasm32", builder(into))]
         graph: Arc<Graph>,
         #[cfg_attr(
             not(target_arch = "wasm32"),
-            builder(default = default_zkey_single_v3().clone(), into)
+            builder(default = default_zkey_single().clone(), into)
         )]
         #[cfg_attr(target_arch = "wasm32", builder(into))]
         zkey: Arc<Zkey>,
-    ) -> RLNV3<Stateless, ArkGroth16Backend> {
-        RLNV3::<Stateless, ArkGroth16Backend>::new(ArkGroth16Backend::new(zkey, graph))
+    ) -> RLN<Stateless, ArkGroth16Backend> {
+        RLN::<Stateless, ArkGroth16Backend>::new(ArkGroth16Backend::new(zkey, graph))
     }
 
     #[builder(finish_fn = build)]
@@ -981,17 +251,17 @@ impl RLNBuilder<ArkGroth16Backend> {
         tree: Tree,
         #[cfg_attr(
             not(target_arch = "wasm32"),
-            builder(default = default_graph_single_v3().clone(), into)
+            builder(default = default_graph_single().clone(), into)
         )]
         #[cfg_attr(target_arch = "wasm32", builder(into))]
         graph: Arc<Graph>,
         #[cfg_attr(
             not(target_arch = "wasm32"),
-            builder(default = default_zkey_single_v3().clone(), into)
+            builder(default = default_zkey_single().clone(), into)
         )]
         #[cfg_attr(target_arch = "wasm32", builder(into))]
         zkey: Arc<Zkey>,
-    ) -> RLNV3<Stateful<Tree>, ArkGroth16Backend> {
-        RLNV3::<Stateful<Tree>, ArkGroth16Backend>::new(tree, ArkGroth16Backend::new(zkey, graph))
+    ) -> RLN<Stateful<Tree>, ArkGroth16Backend> {
+        RLN::<Stateful<Tree>, ArkGroth16Backend>::new(tree, ArkGroth16Backend::new(zkey, graph))
     }
 }

@@ -1,4 +1,4 @@
-// This crate is based on the code by iden3. Its preimage can be found here:
+// This module is based on the code by iden3. Its preimage can be found here:
 // https://github.com/iden3/circom-witnesscalc/blob/5cb365b6e4d9052ecc69d4567fcf5bc061c20e94/src/lib.rs
 
 pub(crate) mod graph;
@@ -13,7 +13,7 @@ use zeroize::zeroize_flat_type;
 
 use self::graph::fr_to_u256;
 use super::{error::WitnessCalcError, Fr};
-use crate::utils::FrOrSecret;
+use crate::circuit::FrOrSecret;
 
 pub(crate) type InputSignalsInfo = HashMap<String, (usize, usize)>;
 
