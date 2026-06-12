@@ -23,13 +23,23 @@ result
 rln/examples/database
 
 # FFI C examples
-rln/ffi_c_examples/main
-rln/ffi_c_examples/rln.h
+rln/ffi_c_examples/*.h
 rln/ffi_c_examples/database
+rln/ffi_c_examples/basic_proof
+rln/ffi_c_examples/type_serialization
+rln/ffi_c_examples/recover_secret
+rln/ffi_c_examples/partial_proof
+rln/ffi_c_examples/multi_message_id
+rln/ffi_c_examples/stateless
 
 # FFI Nim examples
-rln/ffi_nim_examples/main
 rln/ffi_nim_examples/database
+rln/ffi_nim_examples/basic_proof
+rln/ffi_nim_examples/type_serialization
+rln/ffi_nim_examples/recover_secret
+rln/ffi_nim_examples/partial_proof
+rln/ffi_nim_examples/multi_message_id
+rln/ffi_nim_examples/stateless
 
 # Vscode
 .vscode

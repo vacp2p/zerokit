@@ -3,9 +3,14 @@
   "version": "1.0.0",
   "description": "Node.js example for RLN WASM",
   "type": "module",
-  "main": "index.js",
+  "main": "basic_proof.js",
   "scripts": {
-    "start": "node index.js"
+    "basic_proof": "node basic_proof.js",
+    "type_serialization": "node type_serialization.js",
+    "recover_secret": "node recover_secret.js",
+    "partial_proof": "node partial_proof.js",
+    "multi_message_id": "node multi_message_id.js",
+    "all": "npm run basic_proof && npm run type_serialization && npm run recover_secret && npm run partial_proof && npm run multi_message_id"
   },
   "dependencies": {
     "@waku/zerokit-rln-wasm": "file:../../pkg"

@@ -102,12 +102,32 @@ mod test {
         let signal_gen: [u8; 32] = rng.gen();
         let signal: Vec<u8> = signal_gen.to_vec();
 
-        let bytes_le = ffi_vec_u8_to_bytes_le(&signal.clone().into());
-        let expected_le = vec_u8_to_bytes_le(&signal);
+        let bytes_le = match ffi_vec_u8_to_bytes_le(&signal.clone().into()) {
+            CResult {
+                ok: Some(bytes),
+                err: None,
+            } => bytes,
+            CResult { err: Some(err), .. } => {
+                panic!("ffi_vec_u8_to_bytes_le call failed: {}", err)
+            }
+            _ => unreachable!(),
+        };
+        let mut expected_le = Vec::new();
+        signal.serialize_compressed(&mut expected_le).unwrap();
         assert_eq!(bytes_le.iter().copied().collect::<Vec<_>>(), expected_le);
 
-        let bytes_be = ffi_vec_u8_to_bytes_be(&signal.clone().into());
-        let expected_be = vec_u8_to_bytes_be(&signal);
+        let bytes_be = match ffi_vec_u8_to_bytes_be(&signal.clone().into()) {
+            CResult {
+                ok: Some(bytes),
+                err: None,
+            } => bytes,
+            CResult { err: Some(err), .. } => {
+                panic!("ffi_vec_u8_to_bytes_be call failed: {}", err)
+            }
+            _ => unreachable!(),
+        };
+        let mut expected_be = Vec::new();
+        CanonicalSerializeBE::serialize(&signal, &mut expected_be).unwrap();
         assert_eq!(bytes_be.iter().copied().collect::<Vec<_>>(), expected_be);
 
         let signal_from_le = match ffi_bytes_le_to_vec_u8(&bytes_le) {
@@ -115,10 +135,9 @@ mod test {
                 ok: Some(vec_u8),
                 err: None,
             } => vec_u8,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("ffi_bytes_le_to_vec_u8 call failed: {}", err),
+            CResult { err: Some(err), .. } => {
+                panic!("ffi_bytes_le_to_vec_u8 call failed: {}", err)
+            }
             _ => unreachable!(),
         };
         assert_eq!(signal_from_le.iter().copied().collect::<Vec<_>>(), signal);
@@ -128,10 +147,9 @@ mod test {
                 ok: Some(vec_u8),
                 err: None,
             } => vec_u8,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("ffi_bytes_be_to_vec_u8 call failed: {}", err),
+            CResult { err: Some(err), .. } => {
+                panic!("ffi_bytes_be_to_vec_u8 call failed: {}", err)
+            }
             _ => unreachable!(),
         };
         assert_eq!(signal_from_be.iter().copied().collect::<Vec<_>>(), signal);
@@ -143,12 +161,35 @@ mod test {
         let vec_fr = [Fr::from(1u8), Fr::from(2u8), Fr::from(3u8), Fr::from(4u8)];
         let vec_cfr: Vec<CFr> = vec_fr.iter().map(|fr| CFr::from(*fr)).collect();
 
-        let bytes_le = ffi_vec_cfr_to_bytes_le(&vec_cfr.clone().into());
-        let expected_le = vec_fr_to_bytes_le(&vec_fr);
+        let bytes_le = match ffi_vec_cfr_to_bytes_le(&vec_cfr.clone().into()) {
+            CResult {
+                ok: Some(bytes),
+                err: None,
+            } => bytes,
+            CResult { err: Some(err), .. } => {
+                panic!("ffi_vec_cfr_to_bytes_le call failed: {}", err)
+            }
+            _ => unreachable!(),
+        };
+        let mut expected_le = Vec::new();
+        vec_fr
+            .to_vec()
+            .serialize_compressed(&mut expected_le)
+            .unwrap();
         assert_eq!(bytes_le.iter().copied().collect::<Vec<_>>(), expected_le);
 
-        let bytes_be = ffi_vec_cfr_to_bytes_be(&vec_cfr.clone().into());
-        let expected_be = vec_fr_to_bytes_be(&vec_fr);
+        let bytes_be = match ffi_vec_cfr_to_bytes_be(&vec_cfr.clone().into()) {
+            CResult {
+                ok: Some(bytes),
+                err: None,
+            } => bytes,
+            CResult { err: Some(err), .. } => {
+                panic!("ffi_vec_cfr_to_bytes_be call failed: {}", err)
+            }
+            _ => unreachable!(),
+        };
+        let mut expected_be = Vec::new();
+        CanonicalSerializeBE::serialize(&vec_fr.to_vec(), &mut expected_be).unwrap();
         assert_eq!(bytes_be.iter().copied().collect::<Vec<_>>(), expected_be);
 
         let vec_cfr_from_le = match ffi_bytes_le_to_vec_cfr(&bytes_le) {
@@ -156,10 +197,9 @@ mod test {
                 ok: Some(vec_cfr),
                 err: None,
             } => vec_cfr,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("ffi_bytes_le_to_vec_cfr call failed: {}", err),
+            CResult { err: Some(err), .. } => {
+                panic!("ffi_bytes_le_to_vec_cfr call failed: {}", err)
+            }
             _ => unreachable!(),
         };
         assert_eq!(vec_cfr_from_le.iter().copied().collect::<Vec<_>>(), vec_cfr);
@@ -169,10 +209,9 @@ mod test {
                 ok: Some(vec_cfr),
                 err: None,
             } => vec_cfr,
-            CResult {
-                ok: None,
-                err: Some(err),
-            } => panic!("ffi_bytes_be_to_vec_cfr call failed: {}", err),
+            CResult { err: Some(err), .. } => {
+                panic!("ffi_bytes_be_to_vec_cfr call failed: {}", err)
+            }
             _ => unreachable!(),
         };
         assert_eq!(vec_cfr_from_be.iter().copied().collect::<Vec<_>>(), vec_cfr);
@@ -196,18 +235,32 @@ mod test {
         assert_eq!(*cfr_le_1, *cfr_be_1);
         assert_eq!(fr_le_2, fr_be_2);
 
-        let hash_cfr_le_1 = ffi_cfr_to_bytes_le(&cfr_le_1)
-            .iter()
-            .copied()
-            .collect::<Vec<_>>();
-        let hash_fr_le_2 = fr_to_bytes_le(&fr_le_2);
+        let hash_cfr_le_1 = match ffi_cfr_to_bytes_le(&cfr_le_1) {
+            CResult {
+                ok: Some(bytes),
+                err: None,
+            } => bytes.iter().copied().collect::<Vec<_>>(),
+            CResult { err: Some(err), .. } => {
+                panic!("ffi_cfr_to_bytes_le call failed: {}", err)
+            }
+            _ => unreachable!(),
+        };
+        let mut hash_fr_le_2 = Vec::new();
+        fr_le_2.serialize_compressed(&mut hash_fr_le_2).unwrap();
         assert_eq!(hash_cfr_le_1, hash_fr_le_2);
 
-        let hash_cfr_be_1 = ffi_cfr_to_bytes_be(&cfr_be_1)
-            .iter()
-            .copied()
-            .collect::<Vec<_>>();
-        let hash_fr_be_2 = fr_to_bytes_be(&fr_be_2);
+        let hash_cfr_be_1 = match ffi_cfr_to_bytes_be(&cfr_be_1) {
+            CResult {
+                ok: Some(bytes),
+                err: None,
+            } => bytes.iter().copied().collect::<Vec<_>>(),
+            CResult { err: Some(err), .. } => {
+                panic!("ffi_cfr_to_bytes_be call failed: {}", err)
+            }
+            _ => unreachable!(),
+        };
+        let mut hash_fr_be_2 = Vec::new();
+        CanonicalSerializeBE::serialize(&fr_be_2, &mut hash_fr_be_2).unwrap();
         assert_eq!(hash_cfr_be_1, hash_fr_be_2);
 
         assert_ne!(hash_cfr_le_1, hash_cfr_be_1);

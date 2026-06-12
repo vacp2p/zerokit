@@ -1,4 +1,4 @@
-use ark_groth16::{prepare_verifying_key, Groth16};
+use ark_groth16::Groth16;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::thread_rng, UniformRand};
 
@@ -121,8 +121,8 @@ impl RLNZkProof for ArkGroth16Backend {
                 inputs
             }
         };
-        let pvk = prepare_verifying_key(&self.zkey.0.vk);
-        let verified = Groth16::<_, CircomReduction>::verify_proof(&pvk, proof, &public_inputs)?;
+        let verified =
+            Groth16::<_, CircomReduction>::verify_proof(&self.pvk, proof, &public_inputs)?;
 
         Ok(verified)
     }
@@ -140,11 +140,12 @@ impl RLNPartialZkProof for ArkGroth16Backend {
     ) -> Result<Self::PartialProof, Self::GeneratePartialProofError> {
         witness.validate_against_graph(&self.graph)?;
 
-        let partial_assignment = witness.calc_witness_partial(&self.graph)?;
+        let mut partial_assignment = witness.calc_witness_partial(&self.graph)?;
+        partial_assignment.drain(..1);
 
         let partial_proof = Groth16Partial::<_, CircomReduction>::prove_partial(
             &self.zkey.0,
-            &PartialAssignment::new(partial_assignment[1..].to_vec()),
+            &PartialAssignment::new(partial_assignment),
         )?;
 
         Ok(partial_proof)

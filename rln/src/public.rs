@@ -1,7 +1,7 @@
 // This crate is the main public API for RLN module
 // It is used by the FFI, WASM and should be used by tests as well
 
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 
 use bon::bon;
 use num_bigint::BigInt;
@@ -15,7 +15,10 @@ use {crate::poseidon_tree::PoseidonTree, std::str::FromStr};
 use crate::circuit::graph_from_raw;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
-    circuit::{default_graph_single, default_zkey_single, PartialProof},
+    circuit::{
+        default_graph_single, default_graph_single_v3, default_zkey_single, default_zkey_single_v3,
+        PartialProof,
+    },
     prelude::RLNPartialWitnessInput,
     protocol::{finish_zk_proof, generate_partial_zk_proof, generate_zk_proof, MessageMode},
 };
@@ -836,7 +839,7 @@ where
 
     pub fn init_tree_with_leaves(&mut self, leaves: Vec<Fr>) -> Result<(), ZerokitMerkleTreeError> {
         let depth = self.state.tree.depth();
-        self.state.tree = <T as ZerokitMerkleTree>::default(depth)?;
+        self.state.tree = T::default(depth)?;
         self.set_leaves_from(0, leaves)
     }
 
@@ -959,14 +962,16 @@ impl RLNBuilder<ArkGroth16Backend> {
     pub fn stateless(
         #[cfg_attr(
             not(target_arch = "wasm32"),
-            builder(default = default_graph_single().clone())
+            builder(default = default_graph_single_v3().clone(), into)
         )]
-        graph: Graph,
+        #[cfg_attr(target_arch = "wasm32", builder(into))]
+        graph: Arc<Graph>,
         #[cfg_attr(
             not(target_arch = "wasm32"),
-            builder(default = default_zkey_single().clone())
+            builder(default = default_zkey_single_v3().clone(), into)
         )]
-        zkey: Zkey,
+        #[cfg_attr(target_arch = "wasm32", builder(into))]
+        zkey: Arc<Zkey>,
     ) -> RLNV3<Stateless, ArkGroth16Backend> {
         RLNV3::<Stateless, ArkGroth16Backend>::new(ArkGroth16Backend::new(zkey, graph))
     }
@@ -976,14 +981,16 @@ impl RLNBuilder<ArkGroth16Backend> {
         tree: Tree,
         #[cfg_attr(
             not(target_arch = "wasm32"),
-            builder(default = default_graph_single().clone())
+            builder(default = default_graph_single_v3().clone(), into)
         )]
-        graph: Graph,
+        #[cfg_attr(target_arch = "wasm32", builder(into))]
+        graph: Arc<Graph>,
         #[cfg_attr(
             not(target_arch = "wasm32"),
-            builder(default = default_zkey_single().clone())
+            builder(default = default_zkey_single_v3().clone(), into)
         )]
-        zkey: Zkey,
+        #[cfg_attr(target_arch = "wasm32", builder(into))]
+        zkey: Arc<Zkey>,
     ) -> RLNV3<Stateful<Tree>, ArkGroth16Backend> {
         RLNV3::<Stateful<Tree>, ArkGroth16Backend>::new(tree, ArkGroth16Backend::new(zkey, graph))
     }

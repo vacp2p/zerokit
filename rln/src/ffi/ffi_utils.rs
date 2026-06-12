@@ -77,39 +77,59 @@ pub fn ffi_cfr_one() -> repr_c::Box<CFr> {
 }
 
 #[ffi_export]
-pub fn ffi_cfr_to_bytes_le(cfr: &CFr) -> repr_c::Vec<u8> {
-    fr_to_bytes_le(&cfr.0).into()
-}
-
-#[ffi_export]
-pub fn ffi_cfr_to_bytes_be(cfr: &CFr) -> repr_c::Vec<u8> {
-    fr_to_bytes_be(&cfr.0).into()
-}
-
-#[ffi_export]
-pub fn ffi_bytes_le_to_cfr(bytes: &repr_c::Vec<u8>) -> CResult<repr_c::Box<CFr>, repr_c::String> {
-    match bytes_le_to_fr(bytes) {
-        Ok((cfr, _)) => CResult {
-            ok: Some(CFr(cfr).into()),
+pub fn ffi_cfr_to_bytes_le(cfr: &CFr) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+    let mut bytes = Vec::new();
+    match cfr.0.serialize_compressed(&mut bytes) {
+        Ok(()) => CResult {
+            ok: Some(bytes.into()),
             err: None,
         },
         Err(err) => CResult {
             ok: None,
-            err: Some(format!("{:?}", err).into()),
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_cfr_to_bytes_be(cfr: &CFr) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+    let mut bytes = Vec::new();
+    match CanonicalSerializeBE::serialize(&cfr.0, &mut bytes) {
+        Ok(()) => CResult {
+            ok: Some(bytes.into()),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_bytes_le_to_cfr(bytes: &repr_c::Vec<u8>) -> CResult<repr_c::Box<CFr>, repr_c::String> {
+    match Fr::deserialize_compressed(&bytes[..]) {
+        Ok(fr) => CResult {
+            ok: Some(CFr(fr).into()),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
         },
     }
 }
 
 #[ffi_export]
 pub fn ffi_bytes_be_to_cfr(bytes: &repr_c::Vec<u8>) -> CResult<repr_c::Box<CFr>, repr_c::String> {
-    match bytes_be_to_fr(bytes) {
-        Ok((cfr, _)) => CResult {
-            ok: Some(CFr(cfr).into()),
+    match <Fr as CanonicalDeserializeBE>::deserialize(&bytes[..]) {
+        Ok(fr) => CResult {
+            ok: Some(CFr(fr).into()),
             err: None,
         },
         Err(err) => CResult {
             ok: None,
-            err: Some(format!("{:?}", err).into()),
+            err: Some(err.to_string().into()),
         },
     }
 }
@@ -165,23 +185,43 @@ pub fn ffi_vec_cfr_get(v: &repr_c::Vec<CFr>, i: usize) -> Option<&CFr> {
 }
 
 #[ffi_export]
-pub fn ffi_vec_cfr_to_bytes_le(vec: &repr_c::Vec<CFr>) -> repr_c::Vec<u8> {
+pub fn ffi_vec_cfr_to_bytes_le(vec: &repr_c::Vec<CFr>) -> CResult<repr_c::Vec<u8>, repr_c::String> {
     let vec_fr: Vec<Fr> = vec.iter().map(|cfr| cfr.0).collect();
-    vec_fr_to_bytes_le(&vec_fr).into()
+    let mut bytes = Vec::new();
+    match vec_fr.serialize_compressed(&mut bytes) {
+        Ok(()) => CResult {
+            ok: Some(bytes.into()),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 #[ffi_export]
-pub fn ffi_vec_cfr_to_bytes_be(vec: &repr_c::Vec<CFr>) -> repr_c::Vec<u8> {
+pub fn ffi_vec_cfr_to_bytes_be(vec: &repr_c::Vec<CFr>) -> CResult<repr_c::Vec<u8>, repr_c::String> {
     let vec_fr: Vec<Fr> = vec.iter().map(|cfr| cfr.0).collect();
-    vec_fr_to_bytes_be(&vec_fr).into()
+    let mut bytes = Vec::new();
+    match CanonicalSerializeBE::serialize(&vec_fr, &mut bytes) {
+        Ok(()) => CResult {
+            ok: Some(bytes.into()),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 #[ffi_export]
 pub fn ffi_bytes_le_to_vec_cfr(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Vec<CFr>, repr_c::String> {
-    match bytes_le_to_vec_fr(bytes) {
-        Ok((vec_fr, _)) => {
+    match Vec::<Fr>::deserialize_compressed(&bytes[..]) {
+        Ok(vec_fr) => {
             let vec_cfr: Vec<CFr> = vec_fr.into_iter().map(CFr).collect();
             CResult {
                 ok: Some(vec_cfr.into()),
@@ -199,8 +239,8 @@ pub fn ffi_bytes_le_to_vec_cfr(
 pub fn ffi_bytes_be_to_vec_cfr(
     bytes: &repr_c::Vec<u8>,
 ) -> CResult<repr_c::Vec<CFr>, repr_c::String> {
-    match bytes_be_to_vec_fr(bytes) {
-        Ok((vec_fr, _)) => {
+    match <Vec<Fr> as CanonicalDeserializeBE>::deserialize(&bytes[..]) {
+        Ok(vec_fr) => {
             let vec_cfr: Vec<CFr> = vec_fr.into_iter().map(CFr).collect();
             CResult {
                 ok: Some(vec_cfr.into()),
@@ -233,19 +273,39 @@ pub fn ffi_vec_cfr_free(v: repr_c::Vec<CFr>) {
 // Vec<u8>
 
 #[ffi_export]
-pub fn ffi_vec_u8_to_bytes_le(vec: &repr_c::Vec<u8>) -> repr_c::Vec<u8> {
-    vec_u8_to_bytes_le(vec).into()
+pub fn ffi_vec_u8_to_bytes_le(vec: &repr_c::Vec<u8>) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+    let mut bytes = Vec::new();
+    match vec[..].serialize_compressed(&mut bytes) {
+        Ok(()) => CResult {
+            ok: Some(bytes.into()),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 #[ffi_export]
-pub fn ffi_vec_u8_to_bytes_be(vec: &repr_c::Vec<u8>) -> repr_c::Vec<u8> {
-    vec_u8_to_bytes_be(vec).into()
+pub fn ffi_vec_u8_to_bytes_be(vec: &repr_c::Vec<u8>) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+    let mut bytes = Vec::new();
+    match CanonicalSerializeBE::serialize(&vec.to_vec(), &mut bytes) {
+        Ok(()) => CResult {
+            ok: Some(bytes.into()),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 #[ffi_export]
 pub fn ffi_bytes_le_to_vec_u8(bytes: &repr_c::Vec<u8>) -> CResult<repr_c::Vec<u8>, repr_c::String> {
-    match bytes_le_to_vec_u8(bytes) {
-        Ok((vec, _)) => CResult {
+    match Vec::<u8>::deserialize_compressed(&bytes[..]) {
+        Ok(vec) => CResult {
             ok: Some(vec.into()),
             err: None,
         },
@@ -258,8 +318,8 @@ pub fn ffi_bytes_le_to_vec_u8(bytes: &repr_c::Vec<u8>) -> CResult<repr_c::Vec<u8
 
 #[ffi_export]
 pub fn ffi_bytes_be_to_vec_u8(bytes: &repr_c::Vec<u8>) -> CResult<repr_c::Vec<u8>, repr_c::String> {
-    match bytes_be_to_vec_u8(bytes) {
-        Ok((vec, _)) => CResult {
+    match <Vec<u8> as CanonicalDeserializeBE>::deserialize(&bytes[..]) {
+        Ok(vec) => CResult {
             ok: Some(vec.into()),
             err: None,
         },
@@ -283,7 +343,7 @@ pub fn ffi_vec_u8_free(v: repr_c::Vec<u8>) {
     drop(v);
 }
 
-// Utility APIs
+// Hasher
 
 #[ffi_export]
 pub fn ffi_hash_to_field_le(input: &repr_c::Vec<u8>) -> repr_c::Box<CFr> {
@@ -300,6 +360,8 @@ pub fn ffi_poseidon_hash_pair(a: &CFr, b: &CFr) -> repr_c::Box<CFr> {
     CFr::from(poseidon_hash_pair(a.0, b.0)).into()
 }
 
+// Identity
+
 #[ffi_export]
 pub fn ffi_key_gen() -> repr_c::Vec<CFr> {
     let (identity_secret, id_commitment) = keygen();
@@ -311,6 +373,8 @@ pub fn ffi_seeded_key_gen(seed: &repr_c::Vec<u8>) -> repr_c::Vec<CFr> {
     let (identity_secret, id_commitment) = seeded_keygen(seed);
     vec![CFr(identity_secret), CFr(id_commitment)].into()
 }
+
+// ExtendedIdentity
 
 #[ffi_export]
 pub fn ffi_extended_key_gen() -> repr_c::Vec<CFr> {
@@ -336,6 +400,8 @@ pub fn ffi_seeded_extended_key_gen(seed: &repr_c::Vec<u8>) -> repr_c::Vec<CFr> {
     ]
     .into()
 }
+
+// CString
 
 #[ffi_export]
 pub fn ffi_c_string_free(s: repr_c::String) {

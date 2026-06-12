@@ -124,10 +124,11 @@ fn create_partial_proof_from_assignment<E: Pairing>(
         .map(|v| v.is_some())
         .collect::<Vec<_>>();
 
-    let mut a1_points = Vec::new();
-    let mut scalars = Vec::new(); // these are the public input + known witnesses
-    let mut b1_points = Vec::new();
-    let mut b2_points = Vec::new();
+    let known_len = mask.iter().filter(|&&known| known).count();
+    let mut a1_points = Vec::with_capacity(known_len);
+    let mut scalars = Vec::with_capacity(known_len); // these are the public input + known witnesses
+    let mut b1_points = Vec::with_capacity(known_len);
+    let mut b2_points = Vec::with_capacity(known_len);
 
     for (i, val) in partial_assignment.values.iter().enumerate() {
         if let Some(s) = val {
@@ -139,8 +140,8 @@ fn create_partial_proof_from_assignment<E: Pairing>(
         }
     }
 
-    let mut l_points = Vec::new();
-    let mut l_scalars = Vec::new(); // these are the public inputs and known witnesses
+    let mut l_points = Vec::with_capacity(known_len);
+    let mut l_scalars = Vec::with_capacity(known_len); // these are the public inputs and known witnesses
     let aux_start = num_inputs - 1; // skip the public input and "1"
     for (i, val) in partial_assignment.values.iter().enumerate().skip(aux_start) {
         if let Some(s) = val {
@@ -197,10 +198,11 @@ fn finish_partial_proof_with_assignment<E: Pairing>(
         return Err(SynthesisError::MalformedVerifyingKey);
     }
 
-    let mut a1_points = Vec::new();
-    let mut scalars = Vec::new(); // these are the public input + known witnesses
-    let mut b1_points = Vec::new();
-    let mut b2_points = Vec::new();
+    let unknown_len = partial.mask.iter().filter(|&&known| !known).count();
+    let mut a1_points = Vec::with_capacity(unknown_len);
+    let mut scalars = Vec::with_capacity(unknown_len); // these are the public input + known witnesses
+    let mut b1_points = Vec::with_capacity(unknown_len);
+    let mut b2_points = Vec::with_capacity(unknown_len);
 
     for (i, s_i) in full_assignment.iter().enumerate() {
         if !partial.mask[i] {
@@ -212,8 +214,8 @@ fn finish_partial_proof_with_assignment<E: Pairing>(
     }
 
     let aux_start = num_inputs - 1;
-    let mut l_points = Vec::new();
-    let mut l_scalars = Vec::new();
+    let mut l_points = Vec::with_capacity(unknown_len);
+    let mut l_scalars = Vec::with_capacity(unknown_len);
     for (i, s_i) in full_assignment.iter().enumerate().skip(aux_start) {
         if !partial.mask[i] {
             l_points.push(pk.l_query[i - aux_start]);
@@ -293,9 +295,7 @@ where
     >(matrices, num_inputs, num_constraints, full_assignment_qap)?;
 
     // take (instance excluding "1" || witness)
-    let full_assignment = full_assignment_qap[1..].to_vec();
-
-    finish_partial_proof_with_assignment(pk, partial, &full_assignment, &h, r, s)
+    finish_partial_proof_with_assignment(pk, partial, &full_assignment_qap[1..], &h, r, s)
 }
 
 /// Finish a proof from a circuit and a partial proof, sampling blinding/randomness using `rng`.

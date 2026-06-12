@@ -4,6 +4,7 @@ pub(crate) mod error;
 pub(crate) mod iden3calc;
 pub(crate) mod qap;
 
+use std::sync::Arc;
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::LazyLock;
 
@@ -13,7 +14,8 @@ use ark_bn254::{
 };
 use ark_ff::Field;
 use ark_groth16::{
-    Proof as ArkProof, ProvingKey as ArkProvingKey, VerifyingKey as ArkVerifyingKey,
+    prepare_verifying_key, PreparedVerifyingKey as ArkPreparedVerifyingKey, Proof as ArkProof,
+    ProvingKey as ArkProvingKey, VerifyingKey as ArkVerifyingKey,
 };
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -40,31 +42,39 @@ const ARKZKEY_BYTES_MULTI: &[u8] =
     include_bytes!("../../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey");
 
 #[cfg(not(target_arch = "wasm32"))]
-static ARKZKEY_SINGLE: LazyLock<Zkey> = LazyLock::new(|| {
-    read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES_SINGLE)
-        .expect("Default Single zkey must be valid")
-});
-
-#[cfg(not(target_arch = "wasm32"))]
-static ARKZKEY_MULTI: LazyLock<Zkey> = LazyLock::new(|| {
-    read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES_MULTI)
-        .expect("Default Multi zkey must be valid")
-});
-
-#[cfg(not(target_arch = "wasm32"))]
-static GRAPH_SINGLE: LazyLock<Graph> = LazyLock::new(|| {
-    graph_from_raw(GRAPH_BYTES_SINGLE, Some(DEFAULT_TREE_DEPTH), None)
-        .expect("Default Single graph must be valid")
-});
-
-#[cfg(not(target_arch = "wasm32"))]
-static GRAPH_MULTI: LazyLock<Graph> = LazyLock::new(|| {
-    graph_from_raw(
-        GRAPH_BYTES_MULTI,
-        Some(DEFAULT_TREE_DEPTH),
-        Some(DEFAULT_MAX_OUT),
+static ARKZKEY_SINGLE: LazyLock<Arc<Zkey>> = LazyLock::new(|| {
+    Arc::new(
+        read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES_SINGLE)
+            .expect("Default Single zkey must be valid"),
     )
-    .expect("Default Multi graph must be valid")
+});
+
+#[cfg(not(target_arch = "wasm32"))]
+static ARKZKEY_MULTI: LazyLock<Arc<Zkey>> = LazyLock::new(|| {
+    Arc::new(
+        read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES_MULTI)
+            .expect("Default Multi zkey must be valid"),
+    )
+});
+
+#[cfg(not(target_arch = "wasm32"))]
+static GRAPH_SINGLE: LazyLock<Arc<Graph>> = LazyLock::new(|| {
+    Arc::new(
+        graph_from_raw(GRAPH_BYTES_SINGLE, Some(DEFAULT_TREE_DEPTH), None)
+            .expect("Default Single graph must be valid"),
+    )
+});
+
+#[cfg(not(target_arch = "wasm32"))]
+static GRAPH_MULTI: LazyLock<Arc<Graph>> = LazyLock::new(|| {
+    Arc::new(
+        graph_from_raw(
+            GRAPH_BYTES_MULTI,
+            Some(DEFAULT_TREE_DEPTH),
+            Some(DEFAULT_MAX_OUT),
+        )
+        .expect("Default Multi graph must be valid"),
+    )
 });
 
 pub const DEFAULT_MAX_OUT: usize = 4;
@@ -113,7 +123,7 @@ pub type Zkey = (ArkProvingKey<Curve>, ConstraintMatrices<Fr>);
 /// Verifying key for the Groth16 proof system.
 pub type VerifyingKey = ArkVerifyingKey<Curve>;
 
-/// Parsed witness calculator graph.
+/// Witness calculator graph.
 ///
 /// Contains the deserialized computation graph used for witness calculation.
 /// Parsing this once and reusing it avoids repeated deserialization overhead.
@@ -204,15 +214,39 @@ pub fn default_zkey_multi() -> &'static Zkey {
     &ARKZKEY_MULTI
 }
 
-// Loads default Single parsed graph
+// Loads default Single graph
 #[cfg(not(target_arch = "wasm32"))]
 pub fn default_graph_single() -> &'static Graph {
     &GRAPH_SINGLE
 }
 
-// Loads default Multi parsed graph
+// Loads default Multi graph
 #[cfg(not(target_arch = "wasm32"))]
 pub fn default_graph_multi() -> &'static Graph {
+    &GRAPH_MULTI
+}
+
+// Loads default Single zkey
+#[cfg(not(target_arch = "wasm32"))]
+pub fn default_zkey_single_v3() -> &'static Arc<Zkey> {
+    &ARKZKEY_SINGLE
+}
+
+// Loads default Multi zkey
+#[cfg(not(target_arch = "wasm32"))]
+pub fn default_zkey_multi_v3() -> &'static Arc<Zkey> {
+    &ARKZKEY_MULTI
+}
+
+// Loads default Single graph
+#[cfg(not(target_arch = "wasm32"))]
+pub fn default_graph_single_v3() -> &'static Arc<Graph> {
+    &GRAPH_SINGLE
+}
+
+// Loads default Multi graph
+#[cfg(not(target_arch = "wasm32"))]
+pub fn default_graph_multi_v3() -> &'static Arc<Graph> {
     &GRAPH_MULTI
 }
 
@@ -272,13 +306,17 @@ fn read_arkzkey_from_bytes_uncompressed(arkzkey_data: &[u8]) -> Result<Zkey, ZKe
 
 #[derive(Clone, Debug)]
 pub struct ArkGroth16Backend {
-    pub(crate) zkey: Zkey,
-    pub(crate) graph: Graph,
+    pub(crate) zkey: Arc<Zkey>,
+    pub(crate) graph: Arc<Graph>,
+    pub(crate) pvk: ArkPreparedVerifyingKey<Curve>,
 }
 
 impl ArkGroth16Backend {
-    pub fn new(zkey: Zkey, graph: Graph) -> Self {
-        Self { zkey, graph }
+    pub fn new(zkey: impl Into<Arc<Zkey>>, graph: impl Into<Arc<Graph>>) -> Self {
+        let zkey = zkey.into();
+        let graph = graph.into();
+        let pvk = prepare_verifying_key(&zkey.0.vk);
+        Self { zkey, graph, pvk }
     }
 }
 
