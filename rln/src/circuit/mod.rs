@@ -164,36 +164,37 @@ pub fn graph_from_raw(
         deserialize_witnesscalc_graph(std::io::Cursor::new(graph_data))?;
 
     let tree_depth = {
-        let depth = input_mapping
+        let (_, depth) = input_mapping
             .get("pathElements")
-            .map(|(_, len)| *len)
-            .unwrap_or_default();
+            .ok_or_else(|| GraphReadError::MissingSignal("pathElements".to_string()))?;
 
         if let Some(expected) = expected_tree_depth {
-            if expected != depth {
+            if expected != *depth {
                 return Err(GraphReadError::TreeDepthMismatch {
                     expected,
-                    actual: depth,
+                    actual: *depth,
                 });
             }
         }
 
-        depth
+        *depth
     };
 
-    let max_out = match input_mapping.get("messageId") {
-        Some((_, count)) => {
-            if let Some(expected) = expected_max_out {
-                if expected != *count {
-                    return Err(GraphReadError::MaxOutMismatch {
-                        expected,
-                        actual: *count,
-                    });
-                }
+    let max_out = {
+        let (_, count) = input_mapping
+            .get("messageId")
+            .ok_or_else(|| GraphReadError::MissingSignal("messageId".to_string()))?;
+
+        if let Some(expected) = expected_max_out {
+            if expected != *count {
+                return Err(GraphReadError::MaxOutMismatch {
+                    expected,
+                    actual: *count,
+                });
             }
-            *count
         }
-        None => 1, // single-message-id graph: max_out = 1
+
+        *count
     };
 
     Ok(Graph {
@@ -406,5 +407,25 @@ mod test {
         .err()
         .unwrap();
         assert!(matches!(err, GraphReadError::MaxOutMismatch { .. }));
+    }
+
+    #[test]
+    fn test_missing_signal_rejected() {
+        let single = graph_from_raw(GRAPH_BYTES_SINGLE, None, None).unwrap();
+        assert!(single.input_mapping.contains_key("pathElements"));
+        assert!(single.input_mapping.contains_key("messageId"));
+
+        let multi = graph_from_raw(GRAPH_BYTES_MULTI, None, None).unwrap();
+        assert!(multi.input_mapping.contains_key("pathElements"));
+        assert!(multi.input_mapping.contains_key("messageId"));
+    }
+
+    #[test]
+    fn test_id_secret_from_fr_zeroizes_source() {
+        let mut fr = Fr::from(42);
+        let id_secret = IdSecret::from(&mut fr);
+
+        assert_ne!(fr, Fr::from(42));
+        assert_eq!(*id_secret, Fr::from(42));
     }
 }
