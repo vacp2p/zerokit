@@ -70,7 +70,7 @@ proc main() =
   ffi_cfr_free(proofValuesExternalNullifier)
 
   echo "\nVerifying proof"
-  let verifyResult = ffi_rln_verify(addr rlnInstance, addr rlnProof, x)
+  let verifyResult = verifyStatefulProof(rlnInstance, rlnProof, x)
   if verifyResult.err.dataPtr != nil:
     stderr.writeLine("Proof verification error: " & asString(verifyResult.err))
     ffi_c_string_free(verifyResult.err)

@@ -90,7 +90,7 @@ int main(void)
     printf("  - partial proof finished successfully\n");
 
     printf("\nVerifying full proof\n");
-    CBoolResult verify_full_result = ffi_rln_verify(&rln_instance, &full_proof, x);
+    CBoolResult verify_full_result = verify_stateful_proof(&rln_instance, &full_proof, x);
     if (verify_full_result.err.ptr)
     {
         fprintf(stderr, "Full proof verification error: %s\n", verify_full_result.err.ptr);

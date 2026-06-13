@@ -208,8 +208,11 @@ proc ffi_rln_generate_proof*(rln: ptr ptr RLN,
     witness: ptr ptr Witness): ProofResult {.importc: "ffi_rln_generate_proof",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_verify*(rln: ptr ptr RLN,
+    proof: ptr ptr Proof): CBoolResult {.importc: "ffi_rln_verify",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_verify_with_signal*(rln: ptr ptr RLN,
     proof: ptr ptr Proof,
-    x: ptr CFr): CBoolResult {.importc: "ffi_rln_verify",
+    x: ptr CFr): CBoolResult {.importc: "ffi_rln_verify_with_signal",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_verify_with_roots*(rln: ptr ptr RLN,
     proof: ptr ptr Proof,

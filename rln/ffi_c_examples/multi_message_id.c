@@ -116,7 +116,7 @@ int main(void)
     ffi_cfr_free(proof_values1_external_nullifier);
 
     printf("\nVerifying first proof\n");
-    CBoolResult verify1_result = ffi_rln_verify(&rln_instance, &rln_proof1, x1);
+    CBoolResult verify1_result = verify_stateful_proof(&rln_instance, &rln_proof1, x1);
     if (verify1_result.err.ptr)
     {
         fprintf(stderr, "Proof verification error: %s\n", verify1_result.err.ptr);
@@ -175,7 +175,7 @@ int main(void)
     printf("  - second proof generated successfully\n");
 
     printf("\nVerifying second proof\n");
-    CBoolResult verify2_result = ffi_rln_verify(&rln_instance, &rln_proof2, x2);
+    CBoolResult verify2_result = verify_stateful_proof(&rln_instance, &rln_proof2, x2);
     if (verify2_result.err.ptr)
     {
         fprintf(stderr, "Proof verification error: %s\n", verify2_result.err.ptr);

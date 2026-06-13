@@ -88,7 +88,7 @@ int main(void)
     ffi_cfr_free(proof_values_external_nullifier);
 
     printf("\nVerifying proof\n");
-    CBoolResult verify_result = ffi_rln_verify(&rln_instance, &rln_proof, x);
+    CBoolResult verify_result = verify_stateful_proof(&rln_instance, &rln_proof, x);
     if (verify_result.err.ptr)
     {
         fprintf(stderr, "Proof verification error: %s\n", verify_result.err.ptr);

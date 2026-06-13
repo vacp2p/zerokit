@@ -45,7 +45,7 @@ proc main() =
   echo "  - first proof generated successfully"
 
   echo "\nVerifying first proof"
-  let verify1Result = ffi_rln_verify(addr rlnInstance, addr rlnProof1, x1)
+  let verify1Result = verifyStatefulProof(rlnInstance, rlnProof1, x1)
   if verify1Result.err.dataPtr != nil:
     stderr.writeLine("Proof verification error: " & asString(verify1Result.err))
     ffi_c_string_free(verify1Result.err)
@@ -91,7 +91,7 @@ proc main() =
   echo "  - second proof generated successfully"
 
   echo "\nVerifying second proof"
-  let verify2Result = ffi_rln_verify(addr rlnInstance, addr rlnProof2, x2)
+  let verify2Result = verifyStatefulProof(rlnInstance, rlnProof2, x2)
   if verify2Result.err.dataPtr != nil:
     stderr.writeLine("Proof verification error: " & asString(verify2Result.err))
     ffi_c_string_free(verify2Result.err)

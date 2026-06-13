@@ -52,6 +52,28 @@ impl FFI_RLN_Inner {
         }
     }
 
+    fn verify_with_signal(
+        &self,
+        proof: &Proof,
+        values: &RLNProofValues,
+        x: &Fr,
+    ) -> Result<bool, String> {
+        match self {
+            Self::Stateless(r) => r
+                .verify_with_signal(proof, values, x)
+                .map_err(|err| err.to_string()),
+            Self::StatefulFullMerkleTree(r) => r
+                .verify_with_signal(proof, values, x)
+                .map_err(|err| err.to_string()),
+            Self::StatefulOptimalMerkleTree(r) => r
+                .verify_with_signal(proof, values, x)
+                .map_err(|err| err.to_string()),
+            Self::StatefulPmTree(r) => r
+                .verify_with_signal(proof, values, x)
+                .map_err(|err| err.to_string()),
+        }
+    }
+
     fn verify_with_roots(
         &self,
         proof: &Proof,
@@ -521,15 +543,29 @@ pub fn ffi_rln_generate_proof(
 pub fn ffi_rln_verify(
     rln: &repr_c::Box<FFI_RLN>,
     rln_proof: &repr_c::Box<FFI_RLNProof>,
+) -> CBoolResult {
+    match rln.0.verify(&rln_proof.0.proof, &rln_proof.0.values) {
+        Ok(verified) => CBoolResult {
+            ok: verified,
+            err: None,
+        },
+        Err(err) => CBoolResult {
+            ok: false,
+            err: Some(err.into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_rln_verify_with_signal(
+    rln: &repr_c::Box<FFI_RLN>,
+    rln_proof: &repr_c::Box<FFI_RLNProof>,
     x: &CFr,
 ) -> CBoolResult {
-    if rln_proof.0.values.x() != x.0 {
-        return CBoolResult {
-            ok: false,
-            err: None,
-        };
-    }
-    match rln.0.verify(&rln_proof.0.proof, &rln_proof.0.values) {
+    match rln
+        .0
+        .verify_with_signal(&rln_proof.0.proof, &rln_proof.0.values, &x.0)
+    {
         Ok(verified) => CBoolResult {
             ok: verified,
             err: None,

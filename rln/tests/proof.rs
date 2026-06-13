@@ -429,7 +429,7 @@ mod test {
     }
 
     #[test]
-    fn test_verify_with_roots_wrong_signal_fails_single() {
+    fn test_verify_with_signal_wrong_signal_fails_single() {
         let rln = make_rln(default_zkey_single(), default_graph_single());
         let x = Fr::from(42u64);
         let witness = single_witness(
@@ -441,7 +441,7 @@ mod test {
         );
         let (proof, vals) = rln.generate_proof(&witness).unwrap();
         assert!(matches!(
-            rln.verify_with_roots(&proof, &vals, &Fr::from(9999u64), &[]),
+            rln.verify_with_signal(&proof, &vals, &Fr::from(9999u64)),
             Err(VerifyProofError::InvalidSignal)
         ));
     }

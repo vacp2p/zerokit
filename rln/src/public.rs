@@ -204,6 +204,21 @@ where
     ZkProof:
         RLNZkProof<Values = RLNProofValues, Proof = Proof, VerifyProofError = VerifyProofError>,
 {
+    pub fn verify_with_signal(
+        &self,
+        proof: &Proof,
+        values: &RLNProofValues,
+        x: &Fr,
+    ) -> Result<bool, VerifyProofError> {
+        if x != &values.x() {
+            return Err(VerifyProofError::InvalidSignal);
+        }
+        if !self.zkp.verify(proof, values)? {
+            return Err(VerifyProofError::InvalidProof);
+        }
+        Ok(true)
+    }
+
     pub fn verify_with_roots(
         &self,
         proof: &Proof,
@@ -214,13 +229,7 @@ where
         if !roots.is_empty() && !roots.contains(&values.root()) {
             return Err(VerifyProofError::InvalidRoot);
         }
-        if x != &values.x() {
-            return Err(VerifyProofError::InvalidSignal);
-        }
-        if !self.zkp.verify(proof, values)? {
-            return Err(VerifyProofError::InvalidProof);
-        }
-        Ok(true)
+        self.verify_with_signal(proof, values, x)
     }
 }
 

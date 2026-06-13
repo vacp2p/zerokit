@@ -150,3 +150,11 @@ proc createWitness(member: Member,
   ffi_rln_witness_input_new_single(member.identitySecret,
       member.userMessageLimit, messageId, addr merkleProof.path_elements,
       addr merkleProof.path_index, x, externalNullifier)
+
+proc verifyStatefulProof(rlnInstance: var ptr RLN, rlnProof: var ptr Proof,
+    x: ptr CFr): CBoolResult =
+  let root = ffi_rln_get_root(addr rlnInstance)
+  var roots = ffi_vec_cfr_from_cfr(root)
+  result = ffi_rln_verify_with_roots(addr rlnInstance, addr rlnProof, addr roots, x)
+  ffi_vec_cfr_free(roots)
+  ffi_cfr_free(root)

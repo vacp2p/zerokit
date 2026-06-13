@@ -80,7 +80,7 @@ proc main() =
   echo "  - proof deserialized successfully"
 
   echo "\nVerifying the deserialized proof"
-  let verifyResult = ffi_rln_verify(addr rlnInstance, addr deserProof, x)
+  let verifyResult = verifyStatefulProof(rlnInstance, deserProof, x)
   if verifyResult.err.dataPtr != nil:
     stderr.writeLine("Proof verification error: " & asString(verifyResult.err))
     ffi_c_string_free(verifyResult.err)

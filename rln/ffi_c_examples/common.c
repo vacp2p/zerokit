@@ -255,3 +255,14 @@ create_witness(const Member *member, const MerkleProof *merkle_proof,
                                                &merkle_proof->path_index, x,
                                                external_nullifier);
 }
+
+CBoolResult
+verify_stateful_proof(RLN **rln_instance, Proof **rln_proof, const CFr *x)
+{
+    CFr *root = ffi_rln_get_root(rln_instance);
+    Vec_CFr roots = ffi_vec_cfr_from_cfr(root);
+    CBoolResult result = ffi_rln_verify_with_roots(rln_instance, rln_proof, &roots, x);
+    ffi_vec_cfr_free(roots);
+    ffi_cfr_free(root);
+    return result;
+}

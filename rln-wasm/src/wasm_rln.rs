@@ -42,6 +42,13 @@ impl WasmRLN {
             .map_err(|err| err.to_string())
     }
 
+    #[wasm_bindgen(js_name = verifyWithSignal)]
+    pub fn verify_with_signal(&self, rln_proof: &WasmRLNProof, x: &WasmFr) -> Result<bool, String> {
+        self.0
+            .verify_with_signal(&rln_proof.0.proof, &rln_proof.0.values, x)
+            .map_err(|err| err.to_string())
+    }
+
     #[wasm_bindgen(js_name = verifyWithRoots)]
     pub fn verify_with_roots(
         &self,

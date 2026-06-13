@@ -99,7 +99,7 @@ int main(void)
     printf("  - proof deserialized successfully\n");
 
     printf("\nVerifying the deserialized proof\n");
-    CBoolResult verify_result = ffi_rln_verify(&rln_instance, &deser_proof, x);
+    CBoolResult verify_result = verify_stateful_proof(&rln_instance, &deser_proof, x);
     if (verify_result.err.ptr)
     {
         fprintf(stderr, "Proof verification error: %s\n", verify_result.err.ptr);

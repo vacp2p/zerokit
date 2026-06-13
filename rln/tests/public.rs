@@ -208,7 +208,7 @@ mod test {
 
         let ark_proof = ark_proof_from_snarkjs(&snarkjs_proof);
         assert!(rln
-            .verify_with_roots(&ark_proof, &proof_values, &x, &[])
+            .verify_with_signal(&ark_proof, &proof_values, &x)
             .is_ok());
     }
 
@@ -277,7 +277,7 @@ mod test {
 
         let ark_proof = ark_proof_from_snarkjs(&snarkjs_proof);
         assert!(rln
-            .verify_with_roots(&ark_proof, &proof_values, &x, &[])
+            .verify_with_signal(&ark_proof, &proof_values, &x)
             .is_ok());
     }
 

@@ -75,7 +75,7 @@ proc main() =
   echo "  - partial proof finished successfully"
 
   echo "\nVerifying full proof"
-  let verifyFullResult = ffi_rln_verify(addr rlnInstance, addr fullProof, x)
+  let verifyFullResult = verifyStatefulProof(rlnInstance, fullProof, x)
   if verifyFullResult.err.dataPtr != nil:
     stderr.writeLine("Full proof verification error: " & asString(
         verifyFullResult.err))

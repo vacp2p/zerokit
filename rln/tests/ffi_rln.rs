@@ -324,12 +324,18 @@ mod test {
             "ffi_rln_generate_proof",
         );
 
-        assert_bool_ok(ffi_rln_verify(&rln, &rln_proof, &x), "ffi_rln_verify");
+        assert_bool_ok(
+            ffi_rln_verify_with_signal(&rln, &rln_proof, &x),
+            "ffi_rln_verify_with_signal",
+        );
 
         // Verification with a wrong signal fails
         let wrong_x = random_signal_hash();
-        let result = ffi_rln_verify(&rln, &rln_proof, &wrong_x);
+        let result = ffi_rln_verify_with_signal(&rln, &rln_proof, &wrong_x);
         assert!(!result.ok);
+
+        // Pure ZK verify accepts the proof without a signal binding
+        assert_bool_ok(ffi_rln_verify(&rln, &rln_proof), "ffi_rln_verify");
     }
 
     #[test]
@@ -443,7 +449,10 @@ mod test {
             "ffi_rln_finish_proof",
         );
 
-        assert_bool_ok(ffi_rln_verify(&rln, &rln_proof, &x), "ffi_rln_verify");
+        assert_bool_ok(
+            ffi_rln_verify_with_signal(&rln, &rln_proof, &x),
+            "ffi_rln_verify_with_signal",
+        );
     }
 
     #[test]
@@ -518,8 +527,8 @@ mod test {
 
                 let deser = unwrap_ok!($from_bytes(&bytes), "proof deserialization");
                 assert_bool_ok(
-                    ffi_rln_verify(&rln, &deser, &x),
-                    "ffi_rln_verify on deserialized proof",
+                    ffi_rln_verify_with_signal(&rln, &deser, &x),
+                    "ffi_rln_verify_with_signal on deserialized proof",
                 );
             }};
         }
@@ -582,7 +591,10 @@ mod test {
             ffi_rln_finish_proof(&rln, &partial_proof_deser, &witness),
             "ffi_rln_finish_proof",
         );
-        assert_bool_ok(ffi_rln_verify(&rln, &rln_proof, &x), "ffi_rln_verify");
+        assert_bool_ok(
+            ffi_rln_verify_with_signal(&rln, &rln_proof, &x),
+            "ffi_rln_verify_with_signal",
+        );
     }
 
     #[test]
