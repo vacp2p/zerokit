@@ -34,6 +34,11 @@ in targetPlatformPkgs.rustPlatform.buildRustPackage {
 
   buildPhase = ''
     export CARGO_HOME=$TMPDIR/cargo
+  '' + pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
+    # Set install_name to @rpath at link time so consumers can dlopen
+    # librln.dylib from any location without post-build fixups.
+    export RUSTFLAGS="''${RUSTFLAGS:-} -C link-arg=-Wl,-install_name,@rpath/librln.dylib"
+  '' + ''
     cargo build --lib \
       ${if release             then "--release" else ""} \
       ${if rust-target != null then "--target=${rust-target}" else ""} \
