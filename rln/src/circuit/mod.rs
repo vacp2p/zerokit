@@ -206,31 +206,31 @@ pub fn graph_from_raw(
     })
 }
 
-// Loads default Single zkey
+/// Loads default Single zkey
 #[cfg(not(target_arch = "wasm32"))]
 pub fn default_zkey_single() -> &'static Arc<Zkey> {
     &ARKZKEY_SINGLE
 }
 
-// Loads default Multi zkey
+/// Loads default Multi zkey
 #[cfg(not(target_arch = "wasm32"))]
 pub fn default_zkey_multi() -> &'static Arc<Zkey> {
     &ARKZKEY_MULTI
 }
 
-// Loads default Single graph
+/// Loads default Single graph
 #[cfg(not(target_arch = "wasm32"))]
 pub fn default_graph_single() -> &'static Arc<Graph> {
     &GRAPH_SINGLE
 }
 
-// Loads default Multi graph
+/// Loads default Multi graph
 #[cfg(not(target_arch = "wasm32"))]
 pub fn default_graph_multi() -> &'static Arc<Graph> {
     &GRAPH_MULTI
 }
 
-// Secret field-element wrapper zeroized on drop.
+/// Secret field-element wrapper zeroized on drop.
 #[derive(
     Debug, Zeroize, ZeroizeOnDrop, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize,
 )]

@@ -2,7 +2,7 @@
 
 use std::sync::LazyLock;
 
-use num_bigint::BigUint;
+use ark_ff::PrimeField;
 use tiny_keccak::{Hasher, Keccak};
 use zerokit_utils::poseidon::{Poseidon, PoseidonError};
 
@@ -77,7 +77,7 @@ pub fn hash_to_field_le(signal: &[u8]) -> Fr {
     hasher.update(signal);
     hasher.finalize(&mut hash);
 
-    Fr::from(BigUint::from_bytes_le(&hash))
+    Fr::from_le_bytes_mod_order(&hash)
 }
 
 /// Hashes arbitrary signal to the underlying prime field.
@@ -87,7 +87,6 @@ pub fn hash_to_field_be(signal: &[u8]) -> Fr {
     let mut hasher = Keccak::v256();
     hasher.update(signal);
     hasher.finalize(&mut hash);
-    hash.reverse();
 
-    Fr::from(BigUint::from_bytes_be(&hash))
+    Fr::from_be_bytes_mod_order(&hash)
 }
