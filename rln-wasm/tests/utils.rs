@@ -186,8 +186,9 @@ mod test {
         let fr_be_2 = hash_to_field_be(&signal_gen);
         assert_eq!(*wasmfr_be_1, fr_be_2);
 
-        assert_eq!(*wasmfr_le_1, *wasmfr_be_1);
-        assert_eq!(fr_le_2, fr_be_2);
+        // LE and BE interpret the hash bytes differently
+        assert_ne!(*wasmfr_le_1, *wasmfr_be_1);
+        assert_ne!(fr_le_2, fr_be_2);
 
         let hash_wasmfr_le_1 = wasmfr_le_1.to_bytes_le().unwrap();
         let mut hash_fr_le_2 = Vec::new();

@@ -216,7 +216,7 @@ mod test {
         let fr_be_2 = hash_to_field_be(&signal);
         assert_eq!(*cfr_be_1, fr_be_2);
 
-        // LE and BE interpret the hash bytes differently, so produce distinct field elements
+        // LE and BE interpret the hash bytes differently
         assert_ne!(*cfr_le_1, *cfr_be_1);
         assert_ne!(fr_le_2, fr_be_2);
 
