@@ -1,12 +1,10 @@
-#![cfg(feature = "pmtree-ft")]
-
 #[cfg(test)]
 mod test {
     use std::path::PathBuf;
 
-    use num_traits::identities::Zero;
+    use ark_ff::AdditiveGroup;
     use rln::{
-        pm_tree_adapter::{PmTree, PmTreeConfig, PmTreeProof},
+        pm_tree::{PmTree, PmTreeConfig, PmTreeProof},
         prelude::*,
     };
     use tempfile::TempDir;
@@ -45,13 +43,13 @@ mod test {
             .unwrap();
 
         // Indirect confirmation: create a tree with the config and verify operations work
-        let mut tree = PmTree::new(TEST_DEPTH, Fr::zero(), config).unwrap();
+        let mut tree = PmTree::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
         let leaf = Fr::from(42);
         tree.set(0, leaf).unwrap();
         assert_eq!(tree.get(0).unwrap(), leaf);
         assert_eq!(tree.leaves_set(), 1);
         let root = tree.root();
-        assert_ne!(root, Fr::zero());
+        assert_ne!(root, Fr::ZERO);
     }
 
     #[test]
@@ -69,7 +67,7 @@ mod test {
         let config: PmTreeConfig = json.parse().unwrap();
 
         // Verify the config by creating a persistent tree
-        let mut tree1 = PmTree::new(TEST_DEPTH, Fr::zero(), config.clone()).unwrap();
+        let mut tree1 = PmTree::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
         let leaf = Fr::from(42);
         tree1.set(0, leaf).unwrap();
         let root1 = tree1.root();
@@ -77,7 +75,7 @@ mod test {
         drop(tree1);
 
         // Reopen and verify persistence
-        let tree2 = PmTree::new(TEST_DEPTH, Fr::zero(), config).unwrap();
+        let tree2 = PmTree::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
         assert_eq!(tree2.get(0).unwrap(), leaf);
         assert_eq!(tree2.root(), root1);
     }
@@ -113,7 +111,7 @@ mod test {
         let config = persistent_config(db_path.clone());
 
         // Create and populate
-        let mut tree1 = PmTree::new(TEST_DEPTH, Fr::zero(), config.clone()).unwrap();
+        let mut tree1 = PmTree::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
         let leaf = Fr::from(42);
         tree1.update_next(leaf).unwrap();
         let root1 = tree1.root();
@@ -122,7 +120,7 @@ mod test {
         drop(tree1);
 
         // Load and verify
-        let tree2 = PmTree::new(TEST_DEPTH, Fr::zero(), config).unwrap();
+        let tree2 = PmTree::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
         assert_eq!(tree2.root(), root1);
         assert_eq!(tree2.metadata().unwrap(), b"test metadata");
         assert_eq!(tree2.leaves_set(), 1);
@@ -135,15 +133,15 @@ mod test {
         let db_path = temp_dir.path().join("test.db");
         let config = persistent_config(db_path);
 
-        let mut tree = PmTree::new(TEST_DEPTH, Fr::zero(), config.clone()).unwrap();
+        let mut tree = PmTree::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
         tree.update_next(Fr::from(1)).unwrap();
         tree.close_db_connection().unwrap();
         drop(tree);
 
-        let result = PmTree::new(TEST_DEPTH + 1, Fr::zero(), config.clone());
+        let result = PmTree::new(TEST_DEPTH + 1, Fr::ZERO, config.clone());
         assert!(matches!(result, Err(ZerokitMerkleTreeError::InvalidDepth)));
 
-        let tree = PmTree::new(TEST_DEPTH, Fr::zero(), config).unwrap();
+        let tree = PmTree::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
         assert_eq!(tree.depth(), TEST_DEPTH);
         assert_eq!(tree.get(0).unwrap(), Fr::from(1));
     }
@@ -154,7 +152,7 @@ mod test {
         let db_path = temp_dir.path().join("test.db");
         let config = persistent_config(db_path);
 
-        let mut tree = PmTree::new(TEST_DEPTH, Fr::zero(), config.clone()).unwrap();
+        let mut tree = PmTree::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
         for i in 1..=3u64 {
             tree.update_next(Fr::from(i)).unwrap();
         }
@@ -164,7 +162,7 @@ mod test {
         tree.close_db_connection().unwrap();
         drop(tree);
 
-        let tree = PmTree::new(TEST_DEPTH, Fr::zero(), config).unwrap();
+        let tree = PmTree::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
         assert_eq!(tree.leaves_set(), 3);
         assert_eq!(tree.get_empty_leaves_indices(), empty_before);
     }
@@ -172,7 +170,7 @@ mod test {
     #[test]
     fn test_pmtree_load_nonexistent() {
         let config = persistent_config(PathBuf::from("\0invalid"));
-        let result = PmTree::new(TEST_DEPTH, Fr::zero(), config);
+        let result = PmTree::new(TEST_DEPTH, Fr::ZERO, config);
         assert!(matches!(
             result,
             Err(ZerokitMerkleTreeError::PmtreeErrorKind(_))
@@ -182,7 +180,7 @@ mod test {
     #[test]
     fn test_pmtree_depth_shift_overflow() {
         let depth = usize::BITS as usize;
-        let result = PmTree::new(depth, Fr::zero(), temp_config());
+        let result = PmTree::new(depth, Fr::ZERO, temp_config());
         assert!(matches!(
             result,
             Err(ZerokitMerkleTreeError::PmtreeErrorKind(_))
@@ -191,7 +189,7 @@ mod test {
 
     #[test]
     fn test_pmtree_override_range_min_index_underflow() {
-        let mut tree = PmTree::new(TEST_DEPTH, Fr::zero(), temp_config()).unwrap();
+        let mut tree = PmTree::new(TEST_DEPTH, Fr::ZERO, temp_config()).unwrap();
         let result =
             tree.override_range(0, vec![Fr::from(1)].into_iter(), vec![5usize].into_iter());
         assert!(matches!(
@@ -207,7 +205,7 @@ mod test {
         tree.set(5, leaf).unwrap();
         assert_eq!(tree.get(5).unwrap(), leaf);
         assert_eq!(tree.leaves_set(), 6); // Next index
-        assert_ne!(tree.root(), Fr::zero());
+        assert_ne!(tree.root(), Fr::ZERO);
     }
 
     #[test]
@@ -239,7 +237,7 @@ mod test {
         tree.set(2, leaf).unwrap();
         assert_eq!(tree.get(2).unwrap(), leaf);
         tree.delete(2).unwrap();
-        assert_eq!(tree.get(2).unwrap(), Fr::zero()); // Default leaf
+        assert_eq!(tree.get(2).unwrap(), Fr::ZERO); // Default leaf
         assert_eq!(tree.leaves_set(), 3); // Unchanged
     }
 
@@ -259,7 +257,7 @@ mod test {
         // Delete indices
         tree.override_range(0, vec![].into_iter(), vec![0].into_iter())
             .unwrap();
-        assert_eq!(tree.get(0).unwrap(), Fr::zero());
+        assert_eq!(tree.get(0).unwrap(), Fr::ZERO);
     }
 
     #[test]
@@ -314,7 +312,7 @@ mod test {
         // Verify idempotence: calling close again should succeed
         tree.close_db_connection().unwrap();
         // Verify that the tree still works after close (close is a no-op)
-        assert_eq!(tree.get(0).unwrap(), Fr::zero());
+        assert_eq!(tree.get(0).unwrap(), Fr::ZERO);
     }
 
     #[test]
@@ -370,8 +368,8 @@ mod test {
             .build()
             .unwrap();
         let config_ls = PmTreeConfig::new().mode(Mode::LowSpace).build().unwrap();
-        let mut tree_ht = PmTree::new(TEST_DEPTH, Fr::zero(), config_ht).unwrap();
-        let mut tree_ls = PmTree::new(TEST_DEPTH, Fr::zero(), config_ls).unwrap();
+        let mut tree_ht = PmTree::new(TEST_DEPTH, Fr::ZERO, config_ht).unwrap();
+        let mut tree_ls = PmTree::new(TEST_DEPTH, Fr::ZERO, config_ls).unwrap();
         tree_ht.set(0, Fr::from(1)).unwrap();
         tree_ls.set(0, Fr::from(1)).unwrap();
         // Roots should be same regardless of mode
@@ -383,8 +381,8 @@ mod test {
     fn test_pmtree_compression() {
         let config_comp = PmTreeConfig::new().use_compression(true).build().unwrap();
         let config_no_comp = PmTreeConfig::new().use_compression(false).build().unwrap();
-        let mut tree_comp = PmTree::new(TEST_DEPTH, Fr::zero(), config_comp).unwrap();
-        let mut tree_no_comp = PmTree::new(TEST_DEPTH, Fr::zero(), config_no_comp).unwrap();
+        let mut tree_comp = PmTree::new(TEST_DEPTH, Fr::ZERO, config_comp).unwrap();
+        let mut tree_no_comp = PmTree::new(TEST_DEPTH, Fr::ZERO, config_no_comp).unwrap();
         tree_comp.set(0, Fr::from(1)).unwrap();
         tree_no_comp.set(0, Fr::from(1)).unwrap();
         assert_eq!(tree_comp.root(), tree_no_comp.root());
@@ -439,31 +437,31 @@ mod test {
 
         // First open: write data, close, and fully drop the tree.
         {
-            let mut tree1 = PmTree::new(TEST_DEPTH, Fr::zero(), config.clone()).unwrap();
+            let mut tree1 = PmTree::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
             tree1.set(0, Fr::from(1)).unwrap();
 
             // Optional stronger signal than just leaf persistence:
-            assert_ne!(tree1.root(), Fr::zero());
+            assert_ne!(tree1.root(), Fr::ZERO);
 
             tree1.close_db_connection().unwrap();
         }
 
         // Second open: verify data, close, and drop.
         {
-            let mut tree2 = PmTree::new(TEST_DEPTH, Fr::zero(), config.clone()).unwrap();
+            let mut tree2 = PmTree::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
             assert_eq!(tree2.get(0).unwrap(), Fr::from(1));
 
             // Optional: verify tree is still non-empty (depending on semantics).
-            assert_ne!(tree2.root(), Fr::zero());
+            assert_ne!(tree2.root(), Fr::ZERO);
 
             tree2.close_db_connection().unwrap();
         }
 
         // Third open: verify again.
         {
-            let tree3 = PmTree::new(TEST_DEPTH, Fr::zero(), config).unwrap();
+            let tree3 = PmTree::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
             assert_eq!(tree3.get(0).unwrap(), Fr::from(1));
-            assert_ne!(tree3.root(), Fr::zero());
+            assert_ne!(tree3.root(), Fr::ZERO);
         }
     }
 
@@ -498,5 +496,40 @@ mod test {
         let empty = tree.get_empty_leaves_indices();
         assert_eq!(empty.len(), 25);
         assert!(empty.iter().all(|&i| i < 25));
+    }
+
+    #[test]
+    fn test_pmtree_subtree_root() {
+        const DEPTH: usize = 3;
+        const LEAVES_LEN: usize = 8;
+
+        let mut tree = PmTree::new(DEPTH, Fr::from(0), temp_config()).unwrap();
+        let leaves: Vec<Fr> = (0..LEAVES_LEN).map(|s| Fr::from(s as i32)).collect();
+        tree.set_range(0, leaves.into_iter()).unwrap();
+
+        for i in 0..LEAVES_LEN {
+            // check leaves
+            assert_eq!(
+                tree.get(i).unwrap(),
+                tree.get_subtree_root(DEPTH, i).unwrap()
+            );
+            // check root
+            assert_eq!(tree.root(), tree.get_subtree_root(0, i).unwrap());
+        }
+
+        // check intermediate nodes
+        for n in (1..=DEPTH).rev() {
+            for i in (0..(1 << n)).step_by(2) {
+                let idx_l = i * (1 << (DEPTH - n));
+                let idx_r = (i + 1) * (1 << (DEPTH - n));
+                let idx_sr = idx_l;
+
+                let prev_l = tree.get_subtree_root(n, idx_l).unwrap();
+                let prev_r = tree.get_subtree_root(n, idx_r).unwrap();
+                let subroot = tree.get_subtree_root(n - 1, idx_sr).unwrap();
+
+                assert_eq!(poseidon_hash_pair(prev_l, prev_r), subroot);
+            }
+        }
     }
 }

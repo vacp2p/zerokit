@@ -1,13 +1,24 @@
 #[cfg(test)]
+#[cfg(not(target_arch = "wasm32"))]
 mod test {
     use std::str::FromStr;
 
-    use rand::{thread_rng, Rng};
+    use ark_std::UniformRand;
+    use rand::{rngs::ThreadRng, thread_rng, Rng};
     use rln::prelude::*;
     use serde_json::{json, Value};
+    use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
+
+    const NO_OF_LEAVES: usize = 256;
+
+    type StatefulRLN = RLN<Stateful<PmTree>, ArkGroth16Backend>;
 
     fn fq_from_str(s: &str) -> Fq {
         Fq::from_str(s).unwrap()
+    }
+
+    fn fr_from_dec(s: &str) -> Fr {
+        Fr::from_str(s).unwrap()
     }
 
     fn g1_from_str(g1: &[String]) -> G1Affine {
@@ -42,1785 +53,608 @@ mod test {
             .collect()
     }
 
-    fn random_rln_witness(tree_depth: usize) -> Result<RLNWitnessInput, ProtocolError> {
-        let mut rng = thread_rng();
-
-        let identity_secret = IdSecret::rand(&mut rng);
-        let x = hash_to_field_le(&rng.gen::<[u8; 32]>());
-        let epoch = hash_to_field_le(&rng.gen::<[u8; 32]>());
-        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-
-        let mut path_elements: Vec<Fr> = Vec::new();
-        let mut identity_path_index: Vec<u8> = Vec::new();
-
-        for _ in 0..tree_depth {
-            path_elements.push(hash_to_field_le(&rng.gen::<[u8; 32]>()));
-            identity_path_index.push(rng.gen_range(0..2) as u8);
-        }
-
-        let user_message_limit = Fr::from(100);
-        let message_id = Fr::from(1);
-        let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
-
-        RLNWitnessInput::new_single(
-            identity_secret,
-            user_message_limit,
-            message_id,
-            path_elements,
-            identity_path_index,
-            x,
-            external_nullifier,
-        )
-    }
-
-    #[test]
-    fn test_groth16_proof_hardcoded() {
-        #[cfg(not(feature = "stateless"))]
-        let rln = RLN::new(DEFAULT_TREE_DEPTH, "").unwrap();
-        #[cfg(feature = "stateless")]
-        let rln = RLN::new().unwrap();
-
-        let (valid_snarkjs_proof, x, valid_proof_values) = match rln.message_mode() {
-            MessageMode::SingleV1 => {
-                let proof = json!({
-                    "pi_a": [
-                        "606446415626469993821291758185575230335423926365686267140465300918089871829",
-                        "14881534001609371078663128199084130129622943308489025453376548677995646280161",
-                        "1"
-                    ],
-                    "pi_b": [
-                        [
-                            "18053812507994813734583839134426913715767914942522332114506614735770984570178",
-                            "11219916332635123001710279198522635266707985651975761715977705052386984005181"
-                        ],
-                        [
-                            "17371289494006920912949790045699521359436706797224428511776122168520286372970",
-                            "14038575727257298083893642903204723310279435927688342924358714639926373603890"
-                        ],
-                        [
-                            "1",
-                            "0"
-                        ]
-                    ],
-                    "pi_c": [
-                        "17701377127561410274754535747274973758826089226897242202671882899370780845888",
-                        "12608543716397255084418384146504333522628400182843246910626782513289789807030",
-                        "1"
-                    ],
-                    "protocol": "groth16",
-                    "curve": "bn128"
-                });
-                let x = str_to_fr(
-                    "20645213238265527935869146898028115621427162613172918400241870500502509785943",
-                    10,
-                )
-                .unwrap();
-                let proof_values = RLNProofValues::new_single(
-                    str_to_fr(
-                        "8502402278351299594663821509741133196466235670407051417832304486953898514733",
-                        10,
-                    )
-                    .unwrap(),
-                    x,
-                    str_to_fr(
-                        "21074405743803627666274838159589343934394162804826017440941339048886754734203",
-                        10,
-                    )
-                    .unwrap(),
-                    str_to_fr(
-                        "16401008481486069296141645075505218976370369489687327284155463920202585288271",
-                        10,
-                    )
-                    .unwrap(),
-                    str_to_fr(
-                        "9102791780887227194595604713537772536258726662792598131262022534710887343694",
-                        10,
-                    )
-                    .unwrap(),
-                );
-                (proof, x, proof_values)
-            }
-            MessageMode::MultiV1 { .. } => {
-                let proof = json!({
-                    "pi_a": [
-                        "18065030346679405936314703365313027854666139282416381597863520591326000485770",
-                        "14771860444670385955411380174213497474946229693924900012944518111443580986423",
-                        "1"
-                    ],
-                    "pi_b": [
-                        [
-                            "6735720011967965811552770307926073251484071544628748265245982358598709514632",
-                            "20834884037174490293404784720629481437908298314108873169352614850721890028313"
-                        ],
-                        [
-                            "4833697662524472564312290961485074084149848067709427572820222800371260836955",
-                            "17340414833348271743289107618101329696856992134080888054049600143320812961128"
-                        ],
-                        [
-                            "1",
-                            "0"
-                        ]
-                    ],
-                    "pi_c": [
-                        "15995592009555866776210915003813915385299392333518806237517816627481425816425",
-                        "1089017666060567296165116465606820653924283171865888164456509348741884249923",
-                        "1"
-                    ],
-                    "protocol": "groth16",
-                    "curve": "bn128"
-                });
-                let x = str_to_fr(
-                    "19797305253341717859481321525229680688216104810745023646128001903445473018856",
-                    10,
-                )
-                .unwrap();
-                let proof_values = RLNProofValues::new_multi(
-                    str_to_fr(
-                        "3431095415998240809893928695882631208288185026672939778030884659225595068838",
-                        10,
-                    )
-                    .unwrap(),
-                    x,
-                    str_to_fr(
-                        "21092292729219847360221935824233974597185442347481349054190488583986042064831",
-                        10,
-                    )
-                    .unwrap(),
-                    vec![
-                        str_to_fr(
-                            "143052188957058141710854771333369177356024382963719479956590549598262357586",
-                            10,
-                        )
-                        .unwrap(),
-                        Fr::from(0),
-                        Fr::from(0),
-                        Fr::from(0),
-                    ],
-                    vec![
-                        str_to_fr(
-                            "8499590175743632905717993598500718325843782253409297097332874882649203313309",
-                            10,
-                        )
-                        .unwrap(),
-                        Fr::from(0),
-                        Fr::from(0),
-                        Fr::from(0),
-                    ],
-                    vec![true, false, false, false],
-                );
-                (proof, x, proof_values)
-            }
-        };
-
-        let valid_ark_proof = Proof {
-            a: g1_from_str(&value_to_string_vec(&valid_snarkjs_proof["pi_a"])),
+    fn ark_proof_from_snarkjs(snarkjs_proof: &Value) -> Proof {
+        Proof {
+            a: g1_from_str(&value_to_string_vec(&snarkjs_proof["pi_a"])),
             b: g2_from_str(
-                &valid_snarkjs_proof["pi_b"]
+                &snarkjs_proof["pi_b"]
                     .as_array()
                     .unwrap()
                     .iter()
                     .map(value_to_string_vec)
                     .collect::<Vec<Vec<String>>>(),
             ),
-            c: g1_from_str(&value_to_string_vec(&valid_snarkjs_proof["pi_c"])),
-        };
+            c: g1_from_str(&value_to_string_vec(&snarkjs_proof["pi_c"])),
+        }
+    }
 
-        let verified = rln
-            .verify_with_roots(&valid_ark_proof, &valid_proof_values, &x, &[])
-            .is_ok();
+    fn random_merkle_proof(depth: usize) -> (Vec<Fr>, Vec<u8>) {
+        let mut rng = thread_rng();
+        let mut path_elements = Vec::new();
+        let mut identity_path_index = Vec::new();
+        for _ in 0..depth {
+            path_elements.push(hash_to_field_le(&rng.gen::<[u8; 32]>()));
+            identity_path_index.push(rng.gen_range(0..2) as u8);
+        }
+        (path_elements, identity_path_index)
+    }
 
-        assert!(verified);
+    fn random_rln_witness(tree_depth: usize) -> RLNWitnessInput {
+        let mut rng = thread_rng();
+
+        let identity_secret = IdSecret::rand(&mut rng);
+        let x = hash_to_field_le(&rng.gen::<[u8; 32]>());
+        let epoch = hash_to_field_le(&rng.gen::<[u8; 32]>());
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+        let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
+
+        let (path_elements, identity_path_index) = random_merkle_proof(tree_depth);
+
+        RLNWitnessInput::new_single()
+            .identity_secret(identity_secret)
+            .user_message_limit(Fr::from(100))
+            .path_elements(path_elements)
+            .identity_path_index(identity_path_index)
+            .x(x)
+            .external_nullifier(external_nullifier)
+            .message_id(Fr::from(1))
+            .build()
+            .unwrap()
+    }
+
+    fn create_rln(tree_depth: usize) -> StatefulRLN {
+        RLNBuilder::stateful()
+            .tree(PmTree::default(tree_depth).unwrap())
+            .build()
+    }
+
+    fn random_leaves(rng: &mut ThreadRng) -> Vec<Fr> {
+        (0..NO_OF_LEAVES).map(|_| Fr::rand(rng)).collect()
+    }
+
+    fn setup_rln_proof(
+        mutate_path_elements: bool,
+    ) -> (StatefulRLN, Proof, RLNProofValues, Fr, ThreadRng) {
+        let mut rng = thread_rng();
+        let leaves = random_leaves(&mut rng);
+
+        let mut rln = create_rln(DEFAULT_TREE_DEPTH);
+        rln.init_tree_with_leaves(leaves).unwrap();
+
+        let (identity_secret, id_commitment) = keygen();
+        let identity_index = rln.leaves_set();
+        let user_message_limit = Fr::from(100);
+        let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
+        rln.set_next_leaf(rate_commitment).unwrap();
+
+        let signal: [u8; 32] = rng.gen();
+        let epoch = hash_to_field_le(b"test-epoch");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+        let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
+        let x = hash_to_field_le(&signal);
+
+        let merkle_proof = rln.get_merkle_proof(identity_index).unwrap();
+        let mut path_elements = merkle_proof.get_path_elements();
+        let identity_path_index = merkle_proof.get_path_index();
+
+        if mutate_path_elements && !path_elements.is_empty() {
+            path_elements[0] = Fr::rand(&mut rng);
+        }
+
+        let rln_witness = RLNWitnessInput::new_single()
+            .identity_secret(identity_secret)
+            .user_message_limit(user_message_limit)
+            .path_elements(path_elements)
+            .identity_path_index(identity_path_index)
+            .x(x)
+            .external_nullifier(external_nullifier)
+            .message_id(Fr::from(1))
+            .build()
+            .unwrap();
+
+        let (proof, proof_values) = rln.generate_proof(&rln_witness).unwrap();
+
+        (rln, proof, proof_values, x, rng)
     }
 
     #[test]
-    fn test_groth16_proof() {
-        let tree_depth = DEFAULT_TREE_DEPTH;
+    fn test_groth16_proof_hardcoded_single() {
+        let rln = RLNBuilder::stateless().build();
 
-        #[cfg(not(feature = "stateless"))]
-        let rln = RLN::new(tree_depth, "").unwrap();
-        #[cfg(feature = "stateless")]
-        let rln = RLN::new().unwrap();
+        let snarkjs_proof = json!({
+            "pi_a": [
+                "606446415626469993821291758185575230335423926365686267140465300918089871829",
+                "14881534001609371078663128199084130129622943308489025453376548677995646280161",
+                "1"
+            ],
+            "pi_b": [
+                [
+                    "18053812507994813734583839134426913715767914942522332114506614735770984570178",
+                    "11219916332635123001710279198522635266707985651975761715977705052386984005181"
+                ],
+                [
+                    "17371289494006920912949790045699521359436706797224428511776122168520286372970",
+                    "14038575727257298083893642903204723310279435927688342924358714639926373603890"
+                ],
+                ["1", "0"]
+            ],
+            "pi_c": [
+                "17701377127561410274754535747274973758826089226897242202671882899370780845888",
+                "12608543716397255084418384146504333522628400182843246910626782513289789807030",
+                "1"
+            ],
+            "protocol": "groth16",
+            "curve": "bn128"
+        });
 
-        // Note: we only test Groth16 proof generation, so we ignore setting the tree in the RLN object
-        let rln_witness = random_rln_witness(tree_depth).unwrap();
+        let x = fr_from_dec(
+            "20645213238265527935869146898028115621427162613172918400241870500502509785943",
+        );
+        let proof_values = RLNProofValues::Single(RLNProofValuesSingle {
+            root: fr_from_dec(
+                "8502402278351299594663821509741133196466235670407051417832304486953898514733",
+            ),
+            y: fr_from_dec(
+                "16401008481486069296141645075505218976370369489687327284155463920202585288271",
+            ),
+            nullifier: fr_from_dec(
+                "9102791780887227194595604713537772536258726662792598131262022534710887343694",
+            ),
+            x,
+            external_nullifier: fr_from_dec(
+                "21074405743803627666274838159589343934394162804826017440941339048886754734203",
+            ),
+        });
 
-        // We compute a Groth16 proof and proof values
-        let (proof, proof_values) = rln.generate_rln_proof(&rln_witness).unwrap();
-
-        // We verify the Groth16 proof against the provided proof values
-        let verified = rln.verify_zk_proof(&proof, &proof_values).is_ok();
-
-        assert!(verified);
+        let ark_proof = ark_proof_from_snarkjs(&snarkjs_proof);
+        assert!(rln
+            .verify_with_roots(&ark_proof, &proof_values, &x, &[])
+            .is_ok());
     }
 
     #[test]
-    fn test_partial_and_finish_proof_generation() {
-        let tree_depth = DEFAULT_TREE_DEPTH;
-        #[cfg(not(feature = "stateless"))]
-        let rln = RLN::new(tree_depth, "").unwrap();
-        #[cfg(feature = "stateless")]
-        let rln = RLN::new().unwrap();
+    fn test_groth16_proof_hardcoded_multi() {
+        let rln = RLNBuilder::stateless()
+            .graph(default_graph_multi().clone())
+            .zkey(default_zkey_multi().clone())
+            .build();
 
-        let rln_witness = random_rln_witness(tree_depth).unwrap();
-        let partial_witness = RLNPartialWitnessInput::from(&rln_witness);
+        let snarkjs_proof = json!({
+            "pi_a": [
+                "18065030346679405936314703365313027854666139282416381597863520591326000485770",
+                "14771860444670385955411380174213497474946229693924900012944518111443580986423",
+                "1"
+            ],
+            "pi_b": [
+                [
+                    "6735720011967965811552770307926073251484071544628748265245982358598709514632",
+                    "20834884037174490293404784720629481437908298314108873169352614850721890028313"
+                ],
+                [
+                    "4833697662524472564312290961485074084149848067709427572820222800371260836955",
+                    "17340414833348271743289107618101329696856992134080888054049600143320812961128"
+                ],
+                ["1", "0"]
+            ],
+            "pi_c": [
+                "15995592009555866776210915003813915385299392333518806237517816627481425816425",
+                "1089017666060567296165116465606820653924283171865888164456509348741884249923",
+                "1"
+            ],
+            "protocol": "groth16",
+            "curve": "bn128"
+        });
 
-        // first step: compute partial proof
-        let partial_proof = rln.generate_partial_zk_proof(&partial_witness).unwrap();
-        // second step: finish proof
-        let (proof, proof_values) = rln.finish_rln_proof(&partial_proof, &rln_witness).unwrap();
+        let x = fr_from_dec(
+            "19797305253341717859481321525229680688216104810745023646128001903445473018856",
+        );
+        let proof_values = RLNProofValues::Multi(RLNProofValuesMulti {
+            root: fr_from_dec(
+                "3431095415998240809893928695882631208288185026672939778030884659225595068838",
+            ),
+            x,
+            external_nullifier: fr_from_dec(
+                "21092292729219847360221935824233974597185442347481349054190488583986042064831",
+            ),
+            ys: vec![
+                fr_from_dec(
+                    "143052188957058141710854771333369177356024382963719479956590549598262357586",
+                ),
+                Fr::from(0),
+                Fr::from(0),
+                Fr::from(0),
+            ],
+            nullifiers: vec![
+                fr_from_dec(
+                    "8499590175743632905717993598500718325843782253409297097332874882649203313309",
+                ),
+                Fr::from(0),
+                Fr::from(0),
+                Fr::from(0),
+            ],
+            selector_used: vec![true, false, false, false],
+        });
 
-        let verified = rln.verify_zk_proof(&proof, &proof_values).is_ok();
-        assert!(verified);
+        let ark_proof = ark_proof_from_snarkjs(&snarkjs_proof);
+        assert!(rln
+            .verify_with_roots(&ark_proof, &proof_values, &x, &[])
+            .is_ok());
     }
 
     #[test]
     fn test_initialization_with_params() {
-        let zkey_data = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey").to_vec();
-        let graph_data = include_bytes!("../resources/tree_depth_20/graph.bin").to_vec();
+        let zkey_data = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey");
+        let graph_data = include_bytes!("../resources/tree_depth_20/graph.bin");
 
-        #[cfg(all(not(target_arch = "wasm32"), not(feature = "stateless")))]
-        assert!(RLN::new_with_params(DEFAULT_TREE_DEPTH, zkey_data, graph_data, "").is_ok());
+        let zkey = zkey_from_raw(zkey_data).unwrap();
+        let graph = graph_from_raw(graph_data, Some(DEFAULT_TREE_DEPTH), None).unwrap();
 
-        #[cfg(all(not(target_arch = "wasm32"), feature = "stateless"))]
-        assert!(RLN::new_with_params(zkey_data, graph_data).is_ok());
+        let rln = RLNBuilder::stateless().zkey(zkey).graph(graph).build();
+        let rln_witness = random_rln_witness(DEFAULT_TREE_DEPTH);
+        let (proof, proof_values) = rln.generate_proof(&rln_witness).unwrap();
+        assert!(rln.verify(&proof, &proof_values).unwrap());
     }
 
-    #[cfg(not(feature = "stateless"))]
-    mod tree_test {
-        use ark_std::{rand::thread_rng, UniformRand};
-        use rand::{rngs::ThreadRng, Rng};
-        use rln::prelude::*;
-
-        const NO_OF_LEAVES: usize = 256;
-
-        fn setup_rln_proof(
-            mutate_path_elements: bool,
-        ) -> (RLN, Proof, RLNProofValues, Fr, ThreadRng) {
-            let tree_depth = DEFAULT_TREE_DEPTH;
-
-            let mut leaves: Vec<Fr> = Vec::new();
-            let mut rng = thread_rng();
-            for _ in 0..NO_OF_LEAVES {
-                leaves.push(Fr::rand(&mut rng));
-            }
-
-            let mut rln = RLN::new(tree_depth, "").unwrap();
-            rln.init_tree_with_leaves(leaves.clone()).unwrap();
-
-            let (identity_secret, id_commitment) = keygen();
-            let identity_index = rln.leaves_set();
-            let user_message_limit = Fr::from(100);
-            let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
-            rln.set_next_leaf(rate_commitment).unwrap();
-
-            let signal: [u8; 32] = rng.gen();
-            let epoch = hash_to_field_le(b"test-epoch");
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-            let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
-            let message_id = Fr::from(1);
-            let x = hash_to_field_le(&signal);
-
-            let (mut path_elements, identity_path_index) =
-                rln.get_merkle_proof(identity_index).unwrap();
-
-            // Mutate path_elements if requested (simulating mutated path_element)
-            if mutate_path_elements && !path_elements.is_empty() {
-                path_elements[0] = Fr::rand(&mut rng);
-            }
-
-            let rln_witness = RLNWitnessInput::new_single(
-                identity_secret,
-                user_message_limit,
-                message_id,
-                path_elements,
-                identity_path_index,
-                x,
-                external_nullifier,
-            )
-            .unwrap();
-
-            let (proof, proof_values) = rln.generate_rln_proof(&rln_witness).unwrap();
-
-            (rln, proof, proof_values, x, rng)
-        }
-
-        #[test]
-        // We test merkle batch Merkle tree additions
-        fn test_merkle_operations() {
-            let tree_depth = DEFAULT_TREE_DEPTH;
-
-            // We generate a vector of random leaves
-            let mut leaves: Vec<Fr> = Vec::new();
-            let mut rng = thread_rng();
-            for _ in 0..NO_OF_LEAVES {
-                leaves.push(Fr::rand(&mut rng));
-            }
-
-            // We create a new tree
-            let mut rln = RLN::new(tree_depth, "").unwrap();
-
-            // We first add leaves one by one specifying the index
-            for (i, leaf) in leaves.iter().enumerate() {
-                // We check if the number of leaves set is consistent
-                assert_eq!(rln.leaves_set(), i);
-
-                rln.set_leaf(i, *leaf).unwrap();
-            }
-
-            // We get the root of the tree obtained adding one leaf per time
-            let root_single = rln.get_root();
-
-            // We reset the tree to default
-            rln.set_tree(tree_depth).unwrap();
-
-            // We add leaves one by one using the internal index (new leaves goes in next available position)
-            for leaf in &leaves {
-                rln.set_next_leaf(*leaf).unwrap();
-            }
-
-            // We check if numbers of leaves set is consistent
-            assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
-
-            // We get the root of the tree obtained adding leaves using the internal index
-            let root_next = rln.get_root();
-
-            // We check if roots are the same
-            assert_eq!(root_single, root_next);
-
-            // We reset the tree to default
-            rln.set_tree(tree_depth).unwrap();
-
-            // We add leaves in a batch into the tree
-            rln.init_tree_with_leaves(leaves.clone()).unwrap();
-
-            // We check if number of leaves set is consistent
-            assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
-
-            // We get the root of the tree obtained adding leaves in batch
-            let root_batch = rln.get_root();
-
-            // We check if roots are the same
-            assert_eq!(root_single, root_batch);
-
-            // We now delete all leaves set and check if the root corresponds to the empty tree root
-            // delete calls over indexes higher than no_of_leaves are ignored and will not increase self.tree.next_index
-            for i in 0..NO_OF_LEAVES {
-                rln.delete_leaf(i).unwrap();
-            }
-
-            // We check if number of leaves set is consistent
-            assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
-
-            // We get the root of the tree obtained deleting all leaves
-            let root_delete = rln.get_root();
-
-            // We reset the tree to default
-            rln.set_tree(tree_depth).unwrap();
-
-            // We get the root of the empty tree
-            let root_empty = rln.get_root();
-
-            // We check if roots are the same
-            assert_eq!(root_delete, root_empty);
-        }
-
-        #[test]
-        // This test is similar to the one in ffi.rs but it uses the RLN object directly
-        // Uses `set_leaves_from` to set leaves in a batch
-        fn test_leaf_setting_with_index() {
-            let tree_depth = DEFAULT_TREE_DEPTH;
-
-            // We generate a vector of random leaves
-            let mut leaves: Vec<Fr> = Vec::new();
-            let mut rng = thread_rng();
-            for _ in 0..NO_OF_LEAVES {
-                leaves.push(Fr::rand(&mut rng));
-            }
-
-            // set_index is the index from which we start setting leaves
-            // random number between 0..no_of_leaves
-            let set_index = rng.gen_range(0..NO_OF_LEAVES) as usize;
-
-            // We create a new tree
-            let mut rln = RLN::new(tree_depth, "").unwrap();
-
-            // We add leaves in a batch into the tree
-            rln.init_tree_with_leaves(leaves.clone()).unwrap();
-
-            // We check if number of leaves set is consistent
-            assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
-
-            // We get the root of the tree obtained adding leaves in batch
-            let root_batch_with_init = rln.get_root();
-
-            // `init_tree_with_leaves` resets the tree to the depth it was initialized with, using `set_tree`
-
-            // We add leaves in a batch starting from index 0..set_index
-            rln.init_tree_with_leaves(leaves[0..set_index].to_vec())
-                .unwrap();
-
-            // We add the remaining n leaves in a batch starting from index set_index
-            rln.set_leaves_from(set_index, leaves[set_index..].to_vec())
-                .unwrap();
-
-            // We check if number of leaves set is consistent
-            assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
-
-            // We get the root of the tree obtained adding leaves in batch
-            let root_batch_with_custom_index = rln.get_root();
-
-            assert_eq!(root_batch_with_init, root_batch_with_custom_index);
-
-            // We reset the tree to default
-            rln.set_tree(tree_depth).unwrap();
-
-            // We add leaves one by one using the internal index (new leaves goes in next available position)
-            for leaf in &leaves {
-                rln.set_next_leaf(*leaf).unwrap();
-            }
-
-            // We check if numbers of leaves set is consistent
-            assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
-
-            // We get the root of the tree obtained adding leaves using the internal index
-            let root_single_additions = rln.get_root();
-
-            assert_eq!(root_batch_with_init, root_single_additions);
-
-            rln.flush().unwrap();
-        }
-
-        #[test]
-        // This test is similar to the one in ffi.rs but it uses the RLN object directly
-        // Tests the atomic_operation fn, which set_leaves_from uses internally
-        fn test_atomic_operation() {
-            let tree_depth = DEFAULT_TREE_DEPTH;
-
-            // We generate a vector of random leaves
-            let mut leaves: Vec<Fr> = Vec::new();
-            let mut rng = thread_rng();
-            for _ in 0..NO_OF_LEAVES {
-                leaves.push(Fr::rand(&mut rng));
-            }
-
-            // We create a new tree
-            let mut rln = RLN::new(tree_depth, "").unwrap();
-
-            // We add leaves in a batch into the tree
-            rln.init_tree_with_leaves(leaves.clone()).unwrap();
-
-            // We check if number of leaves set is consistent
-            assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
-
-            // We get the root of the tree obtained adding leaves in batch
-            let root_after_insertion = rln.get_root();
-
-            // We check if number of leaves set is consistent
-            assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
-
-            let last_leaf = *leaves.last().unwrap();
-            let last_leaf_index = NO_OF_LEAVES - 1;
-            let indices = vec![last_leaf_index];
-            let last_leaf_vec = vec![last_leaf];
-
-            rln.atomic_operation(last_leaf_index, last_leaf_vec, indices)
-                .unwrap();
-
-            // We get the root of the tree obtained after a no-op
-            let root_after_noop = rln.get_root();
-
-            assert_eq!(root_after_insertion, root_after_noop);
-        }
-
-        #[test]
-        fn test_atomic_operation_zero_indexed() {
-            // Test duplicated from https://github.com/waku-org/go-zerokit-rln/pull/12/files
-            let tree_depth = DEFAULT_TREE_DEPTH;
-
-            // We generate a vector of random leaves
-            let mut leaves: Vec<Fr> = Vec::new();
-            let mut rng = thread_rng();
-            for _ in 0..NO_OF_LEAVES {
-                leaves.push(Fr::rand(&mut rng));
-            }
-
-            // We create a new tree
-            let mut rln = RLN::new(tree_depth, "").unwrap();
-
-            // We add leaves in a batch into the tree
-            rln.init_tree_with_leaves(leaves.clone()).unwrap();
-
-            // We check if number of leaves set is consistent
-            assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
-
-            // We get the root of the tree obtained adding leaves in batch
-            let root_after_insertion = rln.get_root();
-
-            let zero_index = 0;
-            let indices = vec![zero_index];
-            let zero_leaf: Vec<Fr> = vec![];
-            rln.atomic_operation(0, zero_leaf, indices).unwrap();
-
-            // We get the root of the tree obtained after a deletion
-            let root_after_deletion = rln.get_root();
-
-            assert_ne!(root_after_insertion, root_after_deletion);
-        }
-
-        #[test]
-        fn test_atomic_operation_consistency() {
-            // Test duplicated from https://github.com/waku-org/go-zerokit-rln/pull/12/files
-            let tree_depth = DEFAULT_TREE_DEPTH;
-
-            // We generate a vector of random leaves
-            let mut leaves: Vec<Fr> = Vec::new();
-            let mut rng = thread_rng();
-            for _ in 0..NO_OF_LEAVES {
-                leaves.push(Fr::rand(&mut rng));
-            }
-
-            // We create a new tree
-            let mut rln = RLN::new(tree_depth, "").unwrap();
-
-            // We add leaves in a batch into the tree
-            rln.init_tree_with_leaves(leaves.clone()).unwrap();
-
-            // We check if number of leaves set is consistent
-            assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
-
-            // We get the root of the tree obtained adding leaves in batch
-            let root_after_insertion = rln.get_root();
-
-            let set_index = rng.gen_range(0..NO_OF_LEAVES) as usize;
-            let indices = vec![set_index];
-            let zero_leaf: Vec<Fr> = vec![];
-            rln.atomic_operation(0, zero_leaf, indices).unwrap();
-
-            // We get the root of the tree obtained after a deletion
-            let root_after_deletion = rln.get_root();
-
-            assert_ne!(root_after_insertion, root_after_deletion);
-
-            // We get the leaf
-            let received_leaf = rln.get_leaf(set_index).unwrap();
-
-            assert_eq!(received_leaf, Fr::from(0));
-        }
-
-        #[test]
-        // This test is similar to the one in ffi.rs but it uses the RLN object directly
-        // This test checks if `set_leaves_from` throws an error when the index is out of bounds
-        fn test_set_leaves_bad_index() {
-            let tree_depth = DEFAULT_TREE_DEPTH;
-
-            // We generate a vector of random leaves
-            let mut leaves: Vec<Fr> = Vec::new();
-            let mut rng = thread_rng();
-            for _ in 0..NO_OF_LEAVES {
-                leaves.push(Fr::rand(&mut rng));
-            }
-            let bad_index = (1 << tree_depth) - rng.gen_range(0..NO_OF_LEAVES) as usize;
-
-            // We create a new tree
-            let mut rln = RLN::new(tree_depth, "").unwrap();
-
-            // Get root of empty tree
-            let root_empty = rln.get_root();
-
-            // We add leaves in a batch into the tree
-            assert!(rln.set_leaves_from(bad_index, leaves).is_err());
-
-            // We check if number of leaves set is consistent
-            assert_eq!(rln.leaves_set(), 0);
-
-            // Get root of tree after attempted set
-            let root_after_bad_set = rln.get_root();
-
-            assert_eq!(root_empty, root_after_bad_set);
-        }
-
-        #[test]
-        fn test_get_leaf() {
-            // We generate a random tree
-            let tree_depth = 10;
-            let mut rng = thread_rng();
-            let mut rln = RLN::new(tree_depth, "").unwrap();
-
-            // We generate a random leaf
-            let leaf = Fr::rand(&mut rng);
-
-            // We generate a random index
-            let index = rng.gen_range(0..(1 << tree_depth));
-
-            // We add the leaf to the tree
-            rln.set_leaf(index, leaf).unwrap();
-
-            // We get the leaf
-            let received_leaf = rln.get_leaf(index).unwrap();
-
-            // We ensure that the leaf is the same as the one we added
-            assert_eq!(received_leaf, leaf);
-        }
-
-        #[test]
-        fn test_valid_metadata() {
-            let tree_depth = DEFAULT_TREE_DEPTH;
-
-            let mut rln = RLN::new(tree_depth, "").unwrap();
-
-            let arbitrary_metadata: &[u8] = b"block_number:200000";
-            rln.set_metadata(arbitrary_metadata).unwrap();
-
-            let received_metadata = rln.get_metadata().unwrap();
-
-            assert_eq!(arbitrary_metadata, received_metadata);
-        }
-
-        #[test]
-        fn test_empty_metadata() {
-            let tree_depth = DEFAULT_TREE_DEPTH;
-
-            let rln = RLN::new(tree_depth, "").unwrap();
-
-            let received_metadata = rln.get_metadata().unwrap();
-
-            assert_eq!(received_metadata.len(), 0);
-        }
-
-        #[test]
-        fn test_rln_proof() {
-            let tree_depth = DEFAULT_TREE_DEPTH;
-
-            // We generate a vector of random leaves
-            let mut leaves: Vec<Fr> = Vec::new();
-            let mut rng = thread_rng();
-            for _ in 0..NO_OF_LEAVES {
-                let id_commitment = Fr::rand(&mut rng);
-                let rate_commitment = poseidon_hash_pair(id_commitment, Fr::from(100));
-                leaves.push(rate_commitment);
-            }
-
-            // We create a new RLN instance
-            let mut rln = RLN::new(tree_depth, "").unwrap();
-
-            // We add leaves in a batch into the tree
-            rln.init_tree_with_leaves(leaves.clone()).unwrap();
-
-            // Generate identity pair
-            let (identity_secret, id_commitment) = keygen();
-
-            // We set as leaf rate_commitment after storing its index
-            let identity_index = rln.leaves_set();
-            let user_message_limit = Fr::from(65535);
-            let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
-            rln.set_next_leaf(rate_commitment).unwrap();
-
-            // We generate a random signal
-            let mut rng = rand::thread_rng();
-            let signal: [u8; 32] = rng.gen();
-
-            // We generate a random epoch
-            let epoch = hash_to_field_le(b"test-epoch");
-            // We generate a random rln_identifier
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-            // We generate a external nullifier
-            let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
-            // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
-            let message_id = Fr::from(1);
-
-            // Hash the signal to get x
-            let x = hash_to_field_le(&signal);
-
-            // Get merkle proof for the identity
-            let (path_elements, identity_path_index) =
-                rln.get_merkle_proof(identity_index).unwrap();
-
-            // Create RLN witness
-            let rln_witness = RLNWitnessInput::new_single(
-                identity_secret,
-                user_message_limit,
-                message_id,
-                path_elements,
-                identity_path_index,
-                x,
-                external_nullifier,
-            )
-            .unwrap();
-
-            // Generate proof
-            let (proof, proof_values) = rln.generate_rln_proof(&rln_witness).unwrap();
-
-            // Verify proof
-            let verified = rln.verify_rln_proof(&proof, &proof_values, &x).is_ok();
-
-            assert!(verified);
-        }
-
-        #[test]
-        fn test_rln_with_witness() {
-            let tree_depth = DEFAULT_TREE_DEPTH;
-
-            // We generate a vector of random leaves
-            let mut leaves: Vec<Fr> = Vec::new();
-            let mut rng = thread_rng();
-            for _ in 0..NO_OF_LEAVES {
-                leaves.push(Fr::rand(&mut rng));
-            }
-
-            // We create a new RLN instance
-            let mut rln = RLN::new(tree_depth, "").unwrap();
-
-            // We add leaves in a batch into the tree
-            rln.init_tree_with_leaves(leaves.clone()).unwrap();
-
-            // Generate identity pair
-            let (identity_secret, id_commitment) = keygen();
-
-            // We set as leaf rate_commitment after storing its index
-            let identity_index = rln.leaves_set();
-            let user_message_limit = Fr::from(100);
-            let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
-            rln.set_next_leaf(rate_commitment).unwrap();
-
-            // We generate a random signal
-            let mut rng = rand::thread_rng();
-            let signal: [u8; 32] = rng.gen();
-
-            // We generate a random epoch
-            let epoch = hash_to_field_le(b"test-epoch");
-            // We generate a random rln_identifier
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-            // We generate a external nullifier
-            let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
-            // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
-            let message_id = Fr::from(1);
-
-            // Hash the signal to get x
-            let x = hash_to_field_le(&signal);
-
-            // Get merkle proof for the identity
-            let (path_elements, identity_path_index) =
-                rln.get_merkle_proof(identity_index).unwrap();
-
-            // Create RLN witness
-            let rln_witness = RLNWitnessInput::new_single(
-                identity_secret,
-                user_message_limit,
-                message_id,
-                path_elements,
-                identity_path_index,
-                x,
-                external_nullifier,
-            )
-            .unwrap();
-
-            // Generate proof using witness
-            let (proof, proof_values) = rln.generate_rln_proof(&rln_witness).unwrap();
-
-            // Verify proof
-            let verified = rln.verify_rln_proof(&proof, &proof_values, &x).is_ok();
-
-            assert!(verified);
-        }
-
-        #[test]
-        fn proof_verification_with_roots() {
-            // The first part is similar to test_rln_with_witness
-            let tree_depth = DEFAULT_TREE_DEPTH;
-
-            // We generate a vector of random leaves
-            let mut leaves: Vec<Fr> = Vec::new();
-            let mut rng = thread_rng();
-            for _ in 0..NO_OF_LEAVES {
-                leaves.push(Fr::rand(&mut rng));
-            }
-
-            // We create a new RLN instance
-            let mut rln = RLN::new(tree_depth, "").unwrap();
-
-            // We add leaves in a batch into the tree
-            rln.init_tree_with_leaves(leaves.clone()).unwrap();
-
-            // Generate identity pair
-            let (identity_secret, id_commitment) = keygen();
-
-            // We set as leaf rate_commitment after storing its index
-            let identity_index = rln.leaves_set();
-            let user_message_limit = Fr::from(100);
-            let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
-            rln.set_next_leaf(rate_commitment).unwrap();
-
-            // We generate a random signal
-            let mut rng = thread_rng();
-            let signal: [u8; 32] = rng.gen();
-
-            // We generate a random epoch
-            let epoch = hash_to_field_le(b"test-epoch");
-            // We generate a random rln_identifier
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-            // We generate a external nullifier
-            let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
-            // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
-            let message_id = Fr::from(1);
-
-            // Hash the signal to get x
-            let x = hash_to_field_le(&signal);
-
-            // Get merkle proof for the identity
-            let (path_elements, identity_path_index) =
-                rln.get_merkle_proof(identity_index).unwrap();
-
-            // Create RLN witness
-            let rln_witness = RLNWitnessInput::new_single(
-                identity_secret,
-                user_message_limit,
-                message_id,
-                path_elements,
-                identity_path_index,
-                x,
-                external_nullifier,
-            )
-            .unwrap();
-
-            // Generate proof
-            let (proof, proof_values) = rln.generate_rln_proof(&rln_witness).unwrap();
-
-            // If no roots is provided, proof validation is skipped and if the remaining proof values are valid, the proof will be correctly verified
-            let empty_roots: Vec<Fr> = vec![];
-            let verified = rln
-                .verify_with_roots(&proof, &proof_values, &x, &empty_roots)
-                .is_ok();
-
-            assert!(verified);
-
-            // We serialize random roots and check that the proof is not verified since it doesn't contain the correct root
-            let mut random_roots: Vec<Fr> = Vec::new();
-            for _ in 0..5 {
-                random_roots.push(Fr::rand(&mut rng));
-            }
-            let verified = rln
-                .verify_with_roots(&proof, &proof_values, &x, &random_roots)
-                .is_ok();
-
-            assert!(!verified);
-
-            // We get the root of the tree
-            let root = rln.get_root();
-
-            // We add the real root and we check if now the proof is verified
-            random_roots.push(root);
-            let verified = rln
-                .verify_with_roots(&proof, &proof_values, &x, &random_roots)
-                .is_ok();
-
-            assert!(verified);
-        }
-
-        #[test]
-        fn test_recover_id_secret() {
-            let tree_depth = DEFAULT_TREE_DEPTH;
-
-            // We create a new RLN instance
-            let mut rln = RLN::new(tree_depth, "").unwrap();
-
-            // Generate identity pair
-            let (identity_secret, id_commitment) = keygen();
-            let user_message_limit = Fr::from(100);
-            let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
-
-            // We set as leaf rate_commitment, its index would be equal to 0 since tree is empty
-            let identity_index = rln.leaves_set();
-            rln.set_next_leaf(rate_commitment).unwrap();
-
-            // We generate two proofs using same epoch but different signals.
-
-            // We generate two random signals
-            let mut rng = rand::thread_rng();
-            let signal1: [u8; 32] = rng.gen();
-            let signal2: [u8; 32] = rng.gen();
-
-            // We generate a random epoch
-            let epoch = hash_to_field_le(b"test-epoch");
-            // We generate a random rln_identifier
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-            // We generate a external nullifier
-            let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
-            // We choose a message_id satisfy 0 <= message_id < MESSAGE_LIMIT
-            let message_id = Fr::from(1);
-
-            // Hash the signals to get x values
-            let x1 = hash_to_field_le(&signal1);
-            let x2 = hash_to_field_le(&signal2);
-
-            // Get merkle proof for the identity
-            let (path_elements, identity_path_index) =
-                rln.get_merkle_proof(identity_index).unwrap();
-
-            // Create RLN witnesses for both signals
-            let rln_witness1 = RLNWitnessInput::new_single(
-                identity_secret.clone(),
-                user_message_limit,
-                message_id,
-                path_elements.clone(),
-                identity_path_index.clone(),
-                x1,
-                external_nullifier,
-            )
-            .unwrap();
-
-            let rln_witness2 = RLNWitnessInput::new_single(
-                identity_secret.clone(),
-                user_message_limit,
-                message_id,
-                path_elements.clone(),
-                identity_path_index.clone(),
-                x2,
-                external_nullifier,
-            )
-            .unwrap();
-
-            // Generate the first proof
-            let (_proof1, proof_values_1) = rln.generate_rln_proof(&rln_witness1).unwrap();
-
-            // Generate the second proof
-            let (_proof2, proof_values_2) = rln.generate_rln_proof(&rln_witness2).unwrap();
-
-            // Recover identity secret from two proof values
-            let recovered_identity_secret =
-                recover_id_secret(&proof_values_1, &proof_values_2).unwrap();
-
-            // We check if the recovered identity secret corresponds to the original one
-            assert_eq!(*recovered_identity_secret, *identity_secret);
-
-            // We now test that computing identity_secret is unsuccessful if shares computed from two different identity secret but within same epoch are passed
-
-            // We generate a new identity pair
-            let (identity_secret_new, id_commitment_new) = keygen();
-            let rate_commitment_new = poseidon_hash_pair(id_commitment_new, user_message_limit);
-
-            // We add it to the tree
-            let identity_index_new = rln.leaves_set();
-            rln.set_next_leaf(rate_commitment_new).unwrap();
-
-            // We generate a random signal
-            let signal3: [u8; 32] = rng.gen();
-            let x3 = hash_to_field_le(&signal3);
-
-            // Get merkle proof for the new identity
-            let (path_elements_new, identity_path_index_new) =
-                rln.get_merkle_proof(identity_index_new).unwrap();
-
-            // We prepare proof input. Note that epoch is the same as before
-            let rln_witness3 = RLNWitnessInput::new_single(
-                identity_secret.clone(),
-                user_message_limit,
-                message_id,
-                path_elements_new,
-                identity_path_index_new,
-                x3,
-                external_nullifier,
-            )
-            .unwrap();
-
-            // We generate the proof
-            let (_proof3, proof_values_3) = rln.generate_rln_proof(&rln_witness3).unwrap();
-
-            // We attempt to recover the secret using share1 (coming from identity_secret) and share3 (coming from identity_secret_new)
-            let recovered_identity_secret_new =
-                recover_id_secret(&proof_values_1, &proof_values_3).unwrap();
-
-            // ensure that the recovered secret does not match with either of the
-            // used secrets in proof generation
-            assert_ne!(*recovered_identity_secret_new, *identity_secret_new);
-        }
-
-        #[test]
-        fn test_verify_rln_proof_failure_mutated_external_nullifier() {
-            let (rln, proof, proof_values, x, _rng) = setup_rln_proof(false);
-
-            // Mutate external_nullifier by adding 1
-            let new_en = *proof_values.external_nullifier() + Fr::from(1);
-            let mutated_pv = match rln.message_mode() {
-                MessageMode::SingleV1 => RLNProofValues::new_single(
-                    *proof_values.root(),
-                    *proof_values.x(),
-                    new_en,
-                    *proof_values.y(),
-                    *proof_values.nullifier(),
-                ),
-                MessageMode::MultiV1 { .. } => RLNProofValues::new_multi(
-                    *proof_values.root(),
-                    *proof_values.x(),
-                    new_en,
-                    proof_values.ys().to_vec(),
-                    proof_values.nullifiers().to_vec(),
-                    proof_values.selector_used().to_vec(),
-                ),
-            };
-
-            // Verification should fail
-            let verified = rln.verify_rln_proof(&proof, &mutated_pv, &x).is_ok();
-            assert!(!verified);
-        }
-
-        #[test]
-        fn test_verify_rln_proof_failure_mutated_x() {
-            let (rln, proof, proof_values, _, mut rng) = setup_rln_proof(false);
-
-            // Generate unrelated x
-            let mutated_x = Fr::rand(&mut rng);
-
-            // Verification should fail
-            let verified = rln
-                .verify_rln_proof(&proof, &proof_values, &mutated_x)
-                .is_ok();
-            assert!(!verified);
-        }
-
-        #[test]
-        fn test_verify_rln_proof_failure_mutated_nullifier() {
-            let (rln, proof, proof_values, x, mut rng) = setup_rln_proof(false);
-
-            // Mutate nullifier (simulating mutated message_id)
-            let mutated_pv = match rln.message_mode() {
-                MessageMode::SingleV1 => RLNProofValues::new_single(
-                    *proof_values.root(),
-                    *proof_values.x(),
-                    *proof_values.external_nullifier(),
-                    *proof_values.y(),
-                    Fr::rand(&mut rng),
-                ),
-                MessageMode::MultiV1 { .. } => RLNProofValues::new_multi(
-                    *proof_values.root(),
-                    *proof_values.x(),
-                    *proof_values.external_nullifier(),
-                    proof_values.ys().to_vec(),
-                    vec![Fr::rand(&mut rng)],
-                    proof_values.selector_used().to_vec(),
-                ),
-            };
-
-            // Verification should fail
-            let verified = rln.verify_rln_proof(&proof, &mutated_pv, &x).is_ok();
-            assert!(!verified);
-        }
-
-        #[test]
-        fn test_verify_rln_proof_failure_mutated_root() {
-            let (rln, proof, proof_values, x, mut rng) = setup_rln_proof(false);
-
-            // Mutate root (simulating mutated path_element)
-            let mutated_pv = match rln.message_mode() {
-                MessageMode::SingleV1 => RLNProofValues::new_single(
-                    Fr::rand(&mut rng),
-                    *proof_values.x(),
-                    *proof_values.external_nullifier(),
-                    *proof_values.y(),
-                    *proof_values.nullifier(),
-                ),
-                MessageMode::MultiV1 { .. } => RLNProofValues::new_multi(
-                    Fr::rand(&mut rng),
-                    *proof_values.x(),
-                    *proof_values.external_nullifier(),
-                    proof_values.ys().to_vec(),
-                    proof_values.nullifiers().to_vec(),
-                    proof_values.selector_used().to_vec(),
-                ),
-            };
-
-            // Verification should fail
-            let verified = rln.verify_rln_proof(&proof, &mutated_pv, &x).is_ok();
-            assert!(!verified);
-        }
-
-        #[test]
-        fn test_verify_with_roots_failure_mutated_external_nullifier() {
-            let (rln, proof, proof_values, x, _rng) = setup_rln_proof(false);
-            let roots = vec![rln.get_root()];
-
-            // Mutate external_nullifier by adding 1
-            let new_en = *proof_values.external_nullifier() + Fr::from(1);
-            let mutated_pv = match rln.message_mode() {
-                MessageMode::SingleV1 => RLNProofValues::new_single(
-                    *proof_values.root(),
-                    *proof_values.x(),
-                    new_en,
-                    *proof_values.y(),
-                    *proof_values.nullifier(),
-                ),
-                MessageMode::MultiV1 { .. } => RLNProofValues::new_multi(
-                    *proof_values.root(),
-                    *proof_values.x(),
-                    new_en,
-                    proof_values.ys().to_vec(),
-                    proof_values.nullifiers().to_vec(),
-                    proof_values.selector_used().to_vec(),
-                ),
-            };
-
-            // Verification should fail
-            let verified = rln
-                .verify_with_roots(&proof, &mutated_pv, &x, &roots)
-                .is_ok();
-            assert!(!verified);
-        }
-
-        #[test]
-        fn test_verify_with_roots_failure_mutated_x() {
-            let (rln, proof, proof_values, _, mut rng) = setup_rln_proof(false);
-            let roots = vec![rln.get_root()];
-
-            // Mutate x
-            let mutated_x = Fr::rand(&mut rng);
-
-            // Verification should fail
-            let verified = rln
-                .verify_with_roots(&proof, &proof_values, &mutated_x, &roots)
-                .is_ok();
-            assert!(!verified);
-        }
-
-        #[test]
-        fn test_verify_with_roots_failure_mutated_nullifier() {
-            let (rln, proof, proof_values, x, mut rng) = setup_rln_proof(false);
-            let roots = vec![rln.get_root()];
-
-            // Mutate nullifier (simulating mutated message_id)
-            let mutated_pv = match rln.message_mode() {
-                MessageMode::SingleV1 => RLNProofValues::new_single(
-                    *proof_values.root(),
-                    *proof_values.x(),
-                    *proof_values.external_nullifier(),
-                    *proof_values.y(),
-                    Fr::rand(&mut rng),
-                ),
-                MessageMode::MultiV1 { .. } => RLNProofValues::new_multi(
-                    *proof_values.root(),
-                    *proof_values.x(),
-                    *proof_values.external_nullifier(),
-                    proof_values.ys().to_vec(),
-                    vec![Fr::rand(&mut rng)],
-                    proof_values.selector_used().to_vec(),
-                ),
-            };
-
-            // Verification should fail
-            let verified = rln
-                .verify_with_roots(&proof, &mutated_pv, &x, &roots)
-                .is_ok();
-            assert!(!verified);
-        }
-        #[test]
-        fn test_verify_with_roots_failure_mutated_root() {
-            let (rln, proof, proof_values, x, _rng) = setup_rln_proof(true);
-            let roots = vec![rln.get_root()];
-
-            // Verification should fail due to mutated path_elements leading to wrong root
-            let verified = rln
-                .verify_with_roots(&proof, &proof_values, &x, &roots)
-                .is_ok();
-
-            assert!(!verified);
-        }
-
-        #[test]
-        fn test_verify_rln_proof_failure_mutated_proof_a() {
-            let (rln, proof, proof_values, x, _rng) = setup_rln_proof(false);
-
-            // Mutate proof.a by changing its x coordinate
-            let mut mutated_proof = proof.clone();
-            mutated_proof.a.x += Fq::from(1);
-
-            // Verification should fail
-            let verified = rln
-                .verify_rln_proof(&mutated_proof, &proof_values, &x)
-                .is_ok();
-            assert!(!verified);
-        }
-
-        #[test]
-        fn test_verify_rln_proof_failure_mutated_proof_b() {
-            let (rln, proof, proof_values, x, _rng) = setup_rln_proof(false);
-
-            // Mutate proof.b by changing its x.c0 coordinate
-            let mut mutated_proof = proof.clone();
-            mutated_proof.b.x.c0 += Fq::from(1);
-
-            // Verification should fail
-            let verified = rln
-                .verify_rln_proof(&mutated_proof, &proof_values, &x)
-                .is_ok();
-            assert!(!verified);
-        }
-
-        #[test]
-        fn test_verify_rln_proof_failure_mutated_proof_c() {
-            let (rln, proof, proof_values, x, _rng) = setup_rln_proof(false);
-
-            // Mutate proof.c by changing its x coordinate
-            let mut mutated_proof = proof.clone();
-            mutated_proof.c.x += Fq::from(1);
-
-            // Verification should fail
-            let verified = rln
-                .verify_rln_proof(&mutated_proof, &proof_values, &x)
-                .is_ok();
-            assert!(!verified);
-        }
+    #[test]
+    fn test_rln_resource_errors() {
+        // Empty rln_final.arkzkey
+        assert!(zkey_from_raw(&[]).is_err());
+
+        // Invalid rln_final.arkzkey
+        assert!(zkey_from_raw(&[0u8; 100]).is_err());
+
+        // Empty graph.bin
+        assert!(graph_from_raw(&[], None, None).is_err());
+
+        // Invalid graph.bin
+        assert!(graph_from_raw(&[1, 2, 3], None, None).is_err());
+
+        // Mismatched tree depth between graph and expectation
+        let graph_depth_20 = include_bytes!("../resources/tree_depth_20/graph.bin");
+        assert!(graph_from_raw(graph_depth_20, Some(10), None).is_err());
+
+        // Witness with wrong tree depth fails proof generation against the circuit
+        let zkey_depth_10 = include_bytes!("../resources/tree_depth_10/rln_final.arkzkey");
+        let zkey = zkey_from_raw(zkey_depth_10).unwrap();
+        let graph = graph_from_raw(graph_depth_20, Some(DEFAULT_TREE_DEPTH), None).unwrap();
+        let rln = RLNBuilder::stateless().zkey(zkey).graph(graph).build();
+
+        let rln_witness_wrong_depth = random_rln_witness(10);
+        assert!(matches!(
+            rln.generate_proof(&rln_witness_wrong_depth),
+            Err(GenerateProofError::PathElementsLengthMismatch(_, _))
+        ));
     }
 
-    #[cfg(feature = "stateless")]
-    mod stateless_test {
-        use ark_std::{rand::thread_rng, UniformRand};
-        use rand::Rng;
-        use rln::prelude::*;
-        use zerokit_utils::merkle_tree::{
-            OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
+    #[test]
+    fn test_merkle_operations() {
+        let mut rng = thread_rng();
+        let leaves = random_leaves(&mut rng);
+
+        let mut rln = create_rln(DEFAULT_TREE_DEPTH);
+
+        for (i, leaf) in leaves.iter().enumerate() {
+            assert_eq!(rln.leaves_set(), i);
+            rln.set_leaf(i, *leaf).unwrap();
+        }
+
+        let root_single = rln.get_root();
+
+        // Reset by creating a new instance, then re-add via internal index
+        // NOTE: `init_tree_with_leaves(vec![])` panics inside pmtree (PR11).
+        let mut rln = create_rln(DEFAULT_TREE_DEPTH);
+        for leaf in &leaves {
+            rln.set_next_leaf(*leaf).unwrap();
+        }
+        assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
+        assert_eq!(rln.get_root(), root_single);
+
+        // Batch insert
+        rln.init_tree_with_leaves(leaves.clone()).unwrap();
+        assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
+        assert_eq!(rln.get_root(), root_single);
+
+        // Delete every leaf; root must match a fresh empty tree
+        for i in 0..NO_OF_LEAVES {
+            rln.delete_leaf(i).unwrap();
+        }
+        assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
+        let root_after_delete = rln.get_root();
+
+        let rln_empty = create_rln(DEFAULT_TREE_DEPTH);
+        assert_eq!(root_after_delete, rln_empty.get_root());
+    }
+
+    #[test]
+    fn test_leaf_setting_with_index() {
+        let mut rng = thread_rng();
+        let leaves = random_leaves(&mut rng);
+        let set_index = rng.gen_range(0..NO_OF_LEAVES) as usize;
+
+        let mut rln = create_rln(DEFAULT_TREE_DEPTH);
+        rln.init_tree_with_leaves(leaves.clone()).unwrap();
+        assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
+        let root_batch = rln.get_root();
+
+        let mut rln = create_rln(DEFAULT_TREE_DEPTH);
+        rln.init_tree_with_leaves(leaves[0..set_index].to_vec())
+            .unwrap();
+        rln.set_leaves_from(set_index, leaves[set_index..].to_vec())
+            .unwrap();
+        assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
+        assert_eq!(rln.get_root(), root_batch);
+
+        let mut rln = create_rln(DEFAULT_TREE_DEPTH);
+        for leaf in &leaves {
+            rln.set_next_leaf(*leaf).unwrap();
+        }
+        assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
+        assert_eq!(rln.get_root(), root_batch);
+
+        rln.flush().unwrap();
+    }
+
+    #[test]
+    fn test_atomic_operation() {
+        let leaves = random_leaves(&mut thread_rng());
+
+        let mut rln = create_rln(DEFAULT_TREE_DEPTH);
+        rln.init_tree_with_leaves(leaves.clone()).unwrap();
+        assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
+        let root_after_insert = rln.get_root();
+
+        // Atomic set+delete on the same index is a no-op
+        let last_leaf = *leaves.last().unwrap();
+        let last_leaf_index = NO_OF_LEAVES - 1;
+        rln.atomic_operation(last_leaf_index, vec![last_leaf], vec![last_leaf_index])
+            .unwrap();
+
+        assert_eq!(rln.get_root(), root_after_insert);
+    }
+
+    #[test]
+    fn test_atomic_operation_zero_indexed() {
+        // Reproduced from https://github.com/waku-org/go-zerokit-rln/pull/12/files
+        let leaves = random_leaves(&mut thread_rng());
+
+        let mut rln = create_rln(DEFAULT_TREE_DEPTH);
+        rln.init_tree_with_leaves(leaves).unwrap();
+        let root_after_insert = rln.get_root();
+
+        rln.atomic_operation(0, vec![], vec![0]).unwrap();
+        assert_ne!(rln.get_root(), root_after_insert);
+    }
+
+    #[test]
+    fn test_atomic_operation_consistency() {
+        // Reproduced from https://github.com/waku-org/go-zerokit-rln/pull/12/files
+        let mut rng = thread_rng();
+        let leaves = random_leaves(&mut rng);
+
+        let mut rln = create_rln(DEFAULT_TREE_DEPTH);
+        rln.init_tree_with_leaves(leaves).unwrap();
+        let root_after_insert = rln.get_root();
+
+        let set_index = rng.gen_range(0..NO_OF_LEAVES) as usize;
+        rln.atomic_operation(0, vec![], vec![set_index]).unwrap();
+
+        assert_ne!(rln.get_root(), root_after_insert);
+        assert_eq!(rln.get_leaf(set_index).unwrap(), Fr::from(0));
+    }
+
+    #[test]
+    fn test_set_leaves_bad_index() {
+        let mut rng = thread_rng();
+        let leaves = random_leaves(&mut rng);
+        let bad_index = (1 << DEFAULT_TREE_DEPTH) - rng.gen_range(0..NO_OF_LEAVES) as usize;
+
+        let mut rln = create_rln(DEFAULT_TREE_DEPTH);
+        let root_empty = rln.get_root();
+
+        assert!(rln.set_leaves_from(bad_index, leaves).is_err());
+
+        assert_eq!(rln.leaves_set(), 0);
+        assert_eq!(rln.get_root(), root_empty);
+    }
+
+    #[test]
+    fn test_get_leaf() {
+        let tree_depth = 10;
+        let mut rng = thread_rng();
+        let mut rln = create_rln(tree_depth);
+
+        let leaf = Fr::rand(&mut rng);
+        let index = rng.gen_range(0..(1 << tree_depth));
+
+        rln.set_leaf(index, leaf).unwrap();
+        assert_eq!(rln.get_leaf(index).unwrap(), leaf);
+    }
+
+    #[test]
+    fn test_valid_metadata() {
+        let mut rln = create_rln(DEFAULT_TREE_DEPTH);
+
+        let arbitrary_metadata: &[u8] = b"block_number:200000";
+        rln.set_metadata(arbitrary_metadata).unwrap();
+
+        assert_eq!(rln.get_metadata().unwrap(), arbitrary_metadata);
+    }
+
+    #[test]
+    fn test_empty_metadata() {
+        let rln = create_rln(DEFAULT_TREE_DEPTH);
+        assert!(rln.get_metadata().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_stateful_rln_proof() {
+        let mut rng = thread_rng();
+        let mut leaves: Vec<Fr> = Vec::new();
+        for _ in 0..NO_OF_LEAVES {
+            let id_commitment = Fr::rand(&mut rng);
+            let rate_commitment = poseidon_hash_pair(id_commitment, Fr::from(100));
+            leaves.push(rate_commitment);
+        }
+
+        let mut rln = create_rln(DEFAULT_TREE_DEPTH);
+        rln.init_tree_with_leaves(leaves).unwrap();
+
+        let (identity_secret, id_commitment) = keygen();
+        let identity_index = rln.leaves_set();
+        let user_message_limit = Fr::from(65535);
+        let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
+        rln.set_next_leaf(rate_commitment).unwrap();
+
+        let signal: [u8; 32] = rng.gen();
+        let epoch = hash_to_field_le(b"test-epoch");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+        let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
+        let x = hash_to_field_le(&signal);
+
+        let merkle_proof = rln.get_merkle_proof(identity_index).unwrap();
+
+        let rln_witness = RLNWitnessInput::new_single()
+            .identity_secret(identity_secret)
+            .user_message_limit(user_message_limit)
+            .path_elements(merkle_proof.get_path_elements())
+            .identity_path_index(merkle_proof.get_path_index())
+            .x(x)
+            .external_nullifier(external_nullifier)
+            .message_id(Fr::from(1))
+            .build()
+            .unwrap();
+
+        let (proof, proof_values) = rln.generate_proof(&rln_witness).unwrap();
+
+        assert!(rln.verify(&proof, &proof_values).unwrap());
+        assert_eq!(proof_values.root(), rln.get_root());
+    }
+
+    #[test]
+    fn test_verify_with_roots_against_real_tree_root() {
+        let (rln, proof, proof_values, x, mut rng) = setup_rln_proof(false);
+
+        // Empty roots skip the root check
+        assert!(rln
+            .verify_with_roots(&proof, &proof_values, &x, &[])
+            .is_ok());
+
+        // Random roots reject
+        let random_roots: Vec<Fr> = (0..5).map(|_| Fr::rand(&mut rng)).collect();
+        assert!(matches!(
+            rln.verify_with_roots(&proof, &proof_values, &x, &random_roots),
+            Err(VerifyProofError::InvalidRoot)
+        ));
+
+        // Real tree root accepts
+        let mut roots = random_roots;
+        roots.push(rln.get_root());
+        assert!(rln
+            .verify_with_roots(&proof, &proof_values, &x, &roots)
+            .is_ok());
+    }
+
+    #[test]
+    fn test_recover_secret_with_tree_proof() {
+        let mut rln = create_rln(DEFAULT_TREE_DEPTH);
+
+        let (identity_secret, id_commitment) = keygen();
+        let user_message_limit = Fr::from(100);
+        let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
+
+        let identity_index = rln.leaves_set();
+        rln.set_next_leaf(rate_commitment).unwrap();
+
+        let mut rng = rand::thread_rng();
+        let signal1: [u8; 32] = rng.gen();
+        let signal2: [u8; 32] = rng.gen();
+
+        let epoch = hash_to_field_le(b"test-epoch");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+        let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
+
+        let x1 = hash_to_field_le(&signal1);
+        let x2 = hash_to_field_le(&signal2);
+
+        let merkle_proof = rln.get_merkle_proof(identity_index).unwrap();
+
+        let make_witness = |x: Fr| -> RLNWitnessInput {
+            RLNWitnessInput::new_single()
+                .identity_secret(identity_secret.clone())
+                .user_message_limit(user_message_limit)
+                .path_elements(merkle_proof.get_path_elements())
+                .identity_path_index(merkle_proof.get_path_index())
+                .x(x)
+                .external_nullifier(external_nullifier)
+                .message_id(Fr::from(1))
+                .build()
+                .unwrap()
         };
 
-        use super::DEFAULT_TREE_DEPTH;
-        use crate::test::random_rln_witness;
+        let (_proof1, proof_values_1) = rln.generate_proof(&make_witness(x1)).unwrap();
+        let (_proof2, proof_values_2) = rln.generate_proof(&make_witness(x2)).unwrap();
 
-        type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
+        assert_eq!(
+            proof_values_1.recover_secret(&proof_values_2).unwrap(),
+            identity_secret
+        );
 
-        #[test]
-        fn test_stateless_rln_proof() {
-            // We create a new RLN instance
-            let rln = RLN::new().unwrap();
+        // Recovery must fail when shares come from two different identity secrets
+        let (identity_secret_new, id_commitment_new) = keygen();
+        let rate_commitment_new = poseidon_hash_pair(id_commitment_new, user_message_limit);
 
-            let default_leaf = Fr::from(0);
-            let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
-                DEFAULT_TREE_DEPTH,
-                default_leaf,
-                ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
-            )
+        let identity_index_new = rln.leaves_set();
+        rln.set_next_leaf(rate_commitment_new).unwrap();
+
+        let signal3: [u8; 32] = rng.gen();
+        let x3 = hash_to_field_le(&signal3);
+
+        let merkle_proof_new = rln.get_merkle_proof(identity_index_new).unwrap();
+
+        let rln_witness3 = RLNWitnessInput::new_single()
+            .identity_secret(identity_secret_new)
+            .user_message_limit(user_message_limit)
+            .path_elements(merkle_proof_new.get_path_elements())
+            .identity_path_index(merkle_proof_new.get_path_index())
+            .x(x3)
+            .external_nullifier(external_nullifier)
+            .message_id(Fr::from(1))
+            .build()
             .unwrap();
 
-            // Generate identity pair
-            let (identity_secret, id_commitment) = keygen();
+        let (_proof3, proof_values_3) = rln.generate_proof(&rln_witness3).unwrap();
 
-            // We set as leaf rate_commitment after storing its index
-            let identity_index = tree.leaves_set();
-            let user_message_limit = Fr::from(100);
-            let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
-            tree.update_next(rate_commitment).unwrap();
-
-            // We generate a random signal
-            let mut rng = thread_rng();
-            let signal: [u8; 32] = rng.gen();
-
-            // We generate a random epoch
-            let epoch = hash_to_field_le(b"test-epoch");
-            // We generate a random rln_identifier
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-            let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
-
-            // Hash the signal to get x
-            let x = hash_to_field_le(&signal);
-            let merkle_proof = tree.proof(identity_index).unwrap();
-            let message_id = Fr::from(1);
-
-            let rln_witness = RLNWitnessInput::new_single(
-                identity_secret,
-                user_message_limit,
-                message_id,
-                merkle_proof.get_path_elements(),
-                merkle_proof.get_path_index(),
-                x,
-                external_nullifier,
-            )
-            .unwrap();
-
-            // Generate proof
-            let (proof, proof_values) = rln.generate_rln_proof(&rln_witness).unwrap();
-
-            // If no roots is provided, proof validation is skipped and if the remaining proof values are valid, the proof will be correctly verified
-            let empty_roots: Vec<Fr> = vec![];
-            let verified = rln
-                .verify_with_roots(&proof, &proof_values, &x, &empty_roots)
-                .is_ok();
-
-            assert!(verified);
-
-            // We check that the proof is not verified with random roots
-            let mut random_roots: Vec<Fr> = Vec::new();
-            for _ in 0..5 {
-                random_roots.push(Fr::rand(&mut rng));
-            }
-            let verified = rln
-                .verify_with_roots(&proof, &proof_values, &x, &random_roots)
-                .is_ok();
-
-            assert!(!verified);
-
-            // We get the root of the tree obtained adding one leaf per time
-            let root = tree.root();
-
-            // We add the real root and we check if now the proof is verified
-            random_roots.push(root);
-            let verified = rln
-                .verify_with_roots(&proof, &proof_values, &x, &random_roots)
-                .is_ok();
-
-            assert!(verified);
-        }
-
-        #[test]
-        fn test_stateless_recover_id_secret() {
-            // We create a new RLN instance
-            let rln = RLN::new().unwrap();
-
-            let default_leaf = Fr::from(0);
-            let mut tree: OptimalMerkleTree<PoseidonHash> = OptimalMerkleTree::new(
-                DEFAULT_TREE_DEPTH,
-                default_leaf,
-                ConfigOf::<OptimalMerkleTree<PoseidonHash>>::default(),
-            )
-            .unwrap();
-
-            // Generate identity pair
-            let (identity_secret, id_commitment) = keygen();
-            let user_message_limit = Fr::from(100);
-            let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
-            tree.update_next(rate_commitment).unwrap();
-
-            // We generate a random epoch
-            let epoch = hash_to_field_le(b"test-epoch");
-            // We generate a random rln_identifier
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-            let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
-
-            // We generate a random signal
-            let mut rng = thread_rng();
-            let signal1: [u8; 32] = rng.gen();
-            let x1 = hash_to_field_le(&signal1);
-
-            let signal2: [u8; 32] = rng.gen();
-            let x2 = hash_to_field_le(&signal2);
-
-            let identity_index = tree.leaves_set();
-            let merkle_proof = tree.proof(identity_index).unwrap();
-            let message_id = Fr::from(1);
-
-            let rln_witness1 = RLNWitnessInput::new_single(
-                identity_secret.clone(),
-                user_message_limit,
-                message_id,
-                merkle_proof.get_path_elements(),
-                merkle_proof.get_path_index(),
-                x1,
-                external_nullifier,
-            )
-            .unwrap();
-
-            let rln_witness2 = RLNWitnessInput::new_single(
-                identity_secret.clone(),
-                user_message_limit,
-                message_id,
-                merkle_proof.get_path_elements(),
-                merkle_proof.get_path_index(),
-                x2,
-                external_nullifier,
-            )
-            .unwrap();
-
-            // Generate proofs
-            let (_proof1, proof_values_1) = rln.generate_rln_proof(&rln_witness1).unwrap();
-            let (_proof2, proof_values_2) = rln.generate_rln_proof(&rln_witness2).unwrap();
-
-            // Recover identity secret from two proof values
-            let recovered_identity_secret =
-                recover_id_secret(&proof_values_1, &proof_values_2).unwrap();
-
-            // We check if the recovered identity secret corresponds to the original one
-            assert_eq!(*recovered_identity_secret, *identity_secret);
-
-            // We now test that computing identity_secret is unsuccessful if shares computed from two different identity secret but within same epoch are passed
-
-            // We generate a new identity pair
-            let (identity_secret_new, id_commitment_new) = keygen();
-            let rate_commitment_new = poseidon_hash_pair(id_commitment_new, user_message_limit);
-            tree.update_next(rate_commitment_new).unwrap();
-
-            let signal3: [u8; 32] = rng.gen();
-            let x3 = hash_to_field_le(&signal3);
-
-            let identity_index_new = tree.leaves_set();
-            let merkle_proof_new = tree.proof(identity_index_new).unwrap();
-
-            let rln_witness3 = RLNWitnessInput::new_single(
-                identity_secret_new.clone(),
-                user_message_limit,
-                message_id,
-                merkle_proof_new.get_path_elements(),
-                merkle_proof_new.get_path_index(),
-                x3,
-                external_nullifier,
-            )
-            .unwrap();
-
-            // Generate proof with different identity
-            let (_proof3, proof_values_3) = rln.generate_rln_proof(&rln_witness3).unwrap();
-
-            // Attempt to recover secret from mismatched shares
-            let recovered_identity_secret_new =
-                recover_id_secret(&proof_values_1, &proof_values_3).unwrap();
-
-            // ensure that the recovered secret does not match with either of the
-            // used secrets in proof generation
-            assert_ne!(*recovered_identity_secret_new, *identity_secret_new);
-        }
-
-        #[test]
-        fn test_rln_resource_errors() {
-            // Test missing rln_final.arkzkey
-            let invalid_zkey_data = vec![];
-            let result = RLN::new_with_params(invalid_zkey_data, vec![1, 2, 3]);
-            assert!(result.is_err());
-            assert!(matches!(result.err().unwrap(), RLNError::ZKey(_)));
-
-            // Test invalid rln_final.arkzkey
-            let invalid_zkey_data = vec![0u8; 100]; // Invalid zkey data
-            let result = RLN::new_with_params(invalid_zkey_data, vec![1, 2, 3]);
-            assert!(result.is_err());
-            assert!(matches!(result.err().unwrap(), RLNError::ZKey(_)));
-
-            // Test missing/invalid graph.bin - this would typically fail during proof generation
-            let valid_zkey_data =
-                include_bytes!("../resources/tree_depth_20/rln_final.arkzkey").to_vec();
-            let invalid_graph_data = vec![];
-            let result = RLN::new_with_params(valid_zkey_data, invalid_graph_data);
-            assert!(matches!(result.err().unwrap(), RLNError::Graph(_)));
-
-            // Test mismatched tree depth - using zkey from different depth
-            let zkey_depth_10 =
-                include_bytes!("../resources/tree_depth_10/rln_final.arkzkey").to_vec();
-            let graph_depth_20 = include_bytes!("../resources/tree_depth_20/graph.bin").to_vec();
-            let rln = RLN::new_with_params(zkey_depth_10, graph_depth_20).unwrap();
-
-            // Create witness with wrong tree depth (10 instead of 20)
-            let rln_witness_wrong_depth = random_rln_witness(10).unwrap();
-            let proof_result = rln.generate_rln_proof(&rln_witness_wrong_depth);
-            // Proof generation should fail due to depth mismatch between witness and circuit
-            assert!(matches!(
-                proof_result.err().unwrap(),
-                RLNError::Protocol(ProtocolError::FieldLengthMismatch(_, _, _, _))
-            ));
-        }
+        assert!(matches!(
+            proof_values_1.recover_secret(&proof_values_3),
+            Err(RecoverSecretError::NoMatchingNullifier)
+        ));
     }
 
-    #[cfg(not(feature = "stateless"))]
-    mod multi_message_id_test {
-        use rand::{thread_rng, Rng};
-        use rln::prelude::*;
+    #[test]
+    fn test_verify_failure_mutated_proof_points() {
+        let (rln, proof, proof_values, _x, _rng) = setup_rln_proof(false);
 
-        fn random_path(depth: usize) -> (Vec<Fr>, Vec<u8>) {
-            let mut rng = thread_rng();
-            let mut path_elements = Vec::new();
-            let mut identity_path_index = Vec::new();
-            for _ in 0..depth {
-                path_elements.push(hash_to_field_le(&rng.gen::<[u8; 32]>()));
-                identity_path_index.push(rng.gen_range(0..2) as u8);
-            }
-            (path_elements, identity_path_index)
-        }
+        let mut mutated_a = proof.clone();
+        mutated_a.a.x += Fq::from(1);
+        assert!(!rln.verify(&mutated_a, &proof_values).unwrap_or(false));
 
-        #[test]
-        fn test_multi_message_witness_validation() {
-            let mut rng = thread_rng();
-            let identity_secret = IdSecret::rand(&mut rng);
-            let user_message_limit = Fr::from(10);
-            let (path_elements, identity_path_index) = random_path(DEFAULT_TREE_DEPTH);
-            let x = hash_to_field_le(&rng.gen::<[u8; 32]>());
-            let external_nullifier = hash_to_field_le(&rng.gen::<[u8; 32]>());
+        let mut mutated_b = proof.clone();
+        mutated_b.b.x.c0 += Fq::from(1);
+        assert!(!rln.verify(&mutated_b, &proof_values).unwrap_or(false));
 
-            // Empty message_ids → EmptyMessageIds
-            assert!(matches!(
-                RLNWitnessInput::new_multi(
-                    identity_secret.clone(),
-                    user_message_limit,
-                    vec![],
-                    path_elements.clone(),
-                    identity_path_index.clone(),
-                    x,
-                    external_nullifier,
-                    vec![],
-                )
-                .unwrap_err(),
-                ProtocolError::EmptyMessageIds
-            ));
+        let mut mutated_c = proof.clone();
+        mutated_c.c.x += Fq::from(1);
+        assert!(!rln.verify(&mutated_c, &proof_values).unwrap_or(false));
+    }
 
-            // Mismatched selector_used length to message_ids length → FieldLengthMismatch
-            assert!(matches!(
-                RLNWitnessInput::new_multi(
-                    identity_secret.clone(),
-                    user_message_limit,
-                    vec![Fr::from(0), Fr::from(1)],
-                    path_elements.clone(),
-                    identity_path_index.clone(),
-                    x,
-                    external_nullifier,
-                    vec![true],
-                )
-                .unwrap_err(),
-                ProtocolError::FieldLengthMismatch(..)
-            ));
+    #[test]
+    fn test_verify_with_roots_fails_for_mutated_path_elements() {
+        let (rln, proof, proof_values, x, _rng) = setup_rln_proof(true);
+        let roots = vec![rln.get_root()];
 
-            // Active message_id >= limit → InvalidMessageId
-            assert!(matches!(
-                RLNWitnessInput::new_multi(
-                    identity_secret.clone(),
-                    user_message_limit,
-                    vec![Fr::from(0), Fr::from(10)],
-                    path_elements.clone(),
-                    identity_path_index.clone(),
-                    x,
-                    external_nullifier,
-                    vec![true, true],
-                )
-                .unwrap_err(),
-                ProtocolError::InvalidMessageId(_, _)
-            ));
-
-            // Inactive message_id >= limit → OK
-            assert!(RLNWitnessInput::new_multi(
-                identity_secret.clone(),
-                user_message_limit,
-                vec![Fr::from(0), Fr::from(10)],
-                path_elements.clone(),
-                identity_path_index.clone(),
-                x,
-                external_nullifier,
-                vec![true, false],
-            )
-            .is_ok());
-
-            // Zero user_message_limit → ZeroUserMessageLimit
-            assert!(matches!(
-                RLNWitnessInput::new_multi(
-                    identity_secret.clone(),
-                    Fr::from(0),
-                    vec![Fr::from(0)],
-                    path_elements.clone(),
-                    identity_path_index.clone(),
-                    x,
-                    external_nullifier,
-                    vec![true],
-                )
-                .unwrap_err(),
-                ProtocolError::ZeroUserMessageLimit
-            ));
-
-            // Duplicate message_ids → DuplicateMessageIds
-            assert!(matches!(
-                RLNWitnessInput::new_multi(
-                    identity_secret.clone(),
-                    user_message_limit,
-                    vec![Fr::from(5), Fr::from(5), Fr::from(1), Fr::from(2)],
-                    path_elements.clone(),
-                    identity_path_index.clone(),
-                    x,
-                    external_nullifier,
-                    vec![true, true, false, false],
-                )
-                .unwrap_err(),
-                ProtocolError::DuplicateMessageIds
-            ));
-
-            // Duplicate message_ids when inactive → OK (only active IDs are checked)
-            assert!(RLNWitnessInput::new_multi(
-                identity_secret.clone(),
-                user_message_limit,
-                vec![Fr::from(0), Fr::from(0), Fr::from(1), Fr::from(2)],
-                path_elements.clone(),
-                identity_path_index.clone(),
-                x,
-                external_nullifier,
-                vec![false, false, true, true],
-            )
-            .is_ok());
-
-            // All selectors false → NoActiveSelectorUsed
-            assert!(matches!(
-                RLNWitnessInput::new_multi(
-                    identity_secret.clone(),
-                    user_message_limit,
-                    vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)],
-                    path_elements.clone(),
-                    identity_path_index.clone(),
-                    x,
-                    external_nullifier,
-                    vec![false, false, false, false],
-                )
-                .unwrap_err(),
-                ProtocolError::NoActiveSelectorUsed
-            ));
-
-            // Valid multi-message witness
-            assert!(RLNWitnessInput::new_multi(
-                identity_secret,
-                user_message_limit,
-                vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)],
-                path_elements,
-                identity_path_index,
-                x,
-                external_nullifier,
-                vec![true, true, false, false],
-            )
-            .is_ok());
-        }
-
-        #[test]
-        fn test_multi_message_rln_proof() {
-            let zkey_data = include_bytes!(
-                "../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey"
-            )
-            .to_vec();
-            let graph_data =
-                include_bytes!("../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin")
-                    .to_vec();
-
-            let rln = RLN::new_with_params(DEFAULT_TREE_DEPTH, zkey_data, graph_data, "").unwrap();
-
-            let mut rng = thread_rng();
-            let (identity_secret, _) = keygen();
-            let user_message_limit = Fr::from(10);
-            let (path_elements, identity_path_index) = random_path(DEFAULT_TREE_DEPTH);
-
-            let epoch = hash_to_field_le(b"test-epoch");
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-            let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
-
-            let signal: [u8; 32] = rng.gen();
-            let x = hash_to_field_le(&signal);
-
-            let message_ids = vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)];
-            let selector_used = vec![false, true, true, false];
-
-            let witness = RLNWitnessInput::new_multi(
-                identity_secret,
-                user_message_limit,
-                message_ids,
-                path_elements,
-                identity_path_index,
-                x,
-                external_nullifier,
-                selector_used.clone(),
-            )
-            .unwrap();
-
-            let (proof, proof_values) = rln.generate_rln_proof(&witness).unwrap();
-
-            let ys = proof_values.ys();
-            let nullifiers = proof_values.nullifiers();
-            let selector = proof_values.selector_used();
-            assert_eq!(ys.len(), 4);
-            assert_eq!(nullifiers.len(), 4);
-            assert_eq!(*selector, selector_used);
-
-            // Inactive slots should have zero values
-            assert_eq!(ys[0], Fr::from(0));
-            assert_eq!(ys[3], Fr::from(0));
-            assert_eq!(nullifiers[0], Fr::from(0));
-            assert_eq!(nullifiers[3], Fr::from(0));
-
-            // Active slots should have non-zero values
-            assert_ne!(ys[1], Fr::from(0));
-            assert_ne!(ys[2], Fr::from(0));
-            assert_ne!(nullifiers[1], Fr::from(0));
-            assert_ne!(nullifiers[2], Fr::from(0));
-
-            // Verify zk proof
-            let verified = rln.verify_zk_proof(&proof, &proof_values).unwrap();
-            assert!(verified);
-        }
-
-        #[test]
-        fn test_multi_message_recover_id_secret() {
-            let zkey_data = include_bytes!(
-                "../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey"
-            )
-            .to_vec();
-            let graph_data =
-                include_bytes!("../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin")
-                    .to_vec();
-
-            let rln = RLN::new_with_params(DEFAULT_TREE_DEPTH, zkey_data, graph_data, "").unwrap();
-
-            let mut rng = thread_rng();
-            let (identity_secret, _) = keygen();
-            let user_message_limit = Fr::from(10);
-            let (path_elements, identity_path_index) = random_path(DEFAULT_TREE_DEPTH);
-
-            let epoch = hash_to_field_le(b"test-epoch");
-            let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-            let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
-
-            let signal1: [u8; 32] = rng.gen();
-            let x1 = hash_to_field_le(&signal1);
-            let signal2: [u8; 32] = rng.gen();
-            let x2 = hash_to_field_le(&signal2);
-
-            // Both witnesses use the same active message slots
-            let message_ids = vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)];
-            let selector_used = vec![true, true, false, false];
-
-            let witness1 = RLNWitnessInput::new_multi(
-                identity_secret.clone(),
-                user_message_limit,
-                message_ids.clone(),
-                path_elements.clone(),
-                identity_path_index.clone(),
-                x1,
-                external_nullifier,
-                selector_used.clone(),
-            )
-            .unwrap();
-
-            let witness2 = RLNWitnessInput::new_multi(
-                identity_secret.clone(),
-                user_message_limit,
-                message_ids,
-                path_elements.clone(),
-                identity_path_index.clone(),
-                x2,
-                external_nullifier,
-                selector_used,
-            )
-            .unwrap();
-
-            let (_, proof_values_1) = rln.generate_rln_proof(&witness1).unwrap();
-            let (_, proof_values_2) = rln.generate_rln_proof(&witness2).unwrap();
-
-            // Recovery should succeed with matching nullifiers
-            let recovered = recover_id_secret(&proof_values_1, &proof_values_2).unwrap();
-            assert_eq!(*recovered, *identity_secret);
-
-            // Test recovery fails with different identities (no matching nullifiers)
-            let (identity_secret_new, _) = keygen();
-            let signal3: [u8; 32] = rng.gen();
-            let x3 = hash_to_field_le(&signal3);
-
-            let witness3 = RLNWitnessInput::new_multi(
-                identity_secret_new,
-                user_message_limit,
-                vec![Fr::from(0), Fr::from(1), Fr::from(2), Fr::from(3)],
-                path_elements,
-                identity_path_index,
-                x3,
-                external_nullifier,
-                vec![true, true, false, false],
-            )
-            .unwrap();
-
-            let (_, proof_values_3) = rln.generate_rln_proof(&witness3).unwrap();
-
-            // Different identities produce different nullifiers, so no matching nullifier
-            let recovered_result = recover_id_secret(&proof_values_1, &proof_values_3);
-            assert!(matches!(
-                recovered_result.unwrap_err(),
-                RecoverSecretError::NoMatchingNullifier
-            ));
-        }
+        assert!(matches!(
+            rln.verify_with_roots(&proof, &proof_values, &x, &roots),
+            Err(VerifyProofError::InvalidRoot)
+        ));
     }
 }
