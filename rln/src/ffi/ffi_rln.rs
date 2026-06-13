@@ -1488,35 +1488,6 @@ pub fn ffi_rln_atomic_operation(
 }
 
 #[ffi_export]
-pub fn ffi_rln_seq_atomic_operation(
-    rln: &mut repr_c::Box<FFI_RLN>,
-    leaves: &repr_c::Vec<CFr>,
-    indices: &repr_c::Vec<u8>,
-) -> CBoolResult {
-    let index = match rln.0.leaves_set() {
-        Ok(i) => i,
-        Err(err) => {
-            return CBoolResult {
-                ok: false,
-                err: Some(err.into()),
-            }
-        }
-    };
-    let leaves_vec: Vec<_> = leaves.iter().map(|cfr| cfr.0).collect();
-    let indices_vec: Vec<_> = indices.iter().map(|x| *x as usize).collect();
-    match rln.0.atomic_operation(index, leaves_vec, indices_vec) {
-        Ok(_) => CBoolResult {
-            ok: true,
-            err: None,
-        },
-        Err(err) => CBoolResult {
-            ok: false,
-            err: Some(err.into()),
-        },
-    }
-}
-
-#[ffi_export]
 pub fn ffi_rln_get_root(rln: &repr_c::Box<FFI_RLN>) -> repr_c::Box<CFr> {
     let root = rln.0.get_root().unwrap_or_else(|_| Fr::from(0u64));
     CFr::from(root).into()

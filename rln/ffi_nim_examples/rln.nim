@@ -407,10 +407,6 @@ proc ffi_rln_atomic_operation*(rln: ptr ptr RLN, index: CSize,
     leaves: ptr Vec_CFr,
     indices: ptr Vec_size): CBoolResult {.importc: "ffi_rln_atomic_operation",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_seq_atomic_operation*(rln: ptr ptr RLN,
-    leaves: ptr Vec_CFr,
-    indices: ptr Vec_uint8): CBoolResult {.importc: "ffi_rln_seq_atomic_operation",
-    cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_get_root*(rln: ptr ptr RLN): ptr CFr {.importc: "ffi_rln_get_root",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_get_merkle_proof*(rln: ptr ptr RLN,
