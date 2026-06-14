@@ -5,9 +5,8 @@ use tiny_keccak::{Hasher as _, Keccak};
 use zeroize::Zeroize;
 
 use crate::{
-    circuit::Fr,
+    circuit::{Fr, IdSecret},
     hashers::{poseidon_hash, poseidon_hash_pair},
-    utils::IdSecret,
 };
 
 /// Generates a random RLN identity using a cryptographically secure RNG.

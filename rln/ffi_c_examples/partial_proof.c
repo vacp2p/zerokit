@@ -45,12 +45,12 @@ int main(void)
     printf("  - RLN witness created successfully\n");
 
     printf("\nCreating partial witness from witness fields\n");
-    CFr *witness_identity_secret = ffi_rln_v3_witness_input_get_identity_secret(&witness);
-    CFr *witness_user_message_limit = ffi_rln_v3_witness_input_get_user_message_limit(&witness);
-    Vec_CFr witness_path_elements = ffi_rln_v3_witness_input_get_path_elements(&witness);
-    Vec_uint8 witness_path_index = ffi_rln_v3_witness_input_get_identity_path_index(&witness);
+    CFr *witness_identity_secret = ffi_rln_witness_input_get_identity_secret(&witness);
+    CFr *witness_user_message_limit = ffi_rln_witness_input_get_user_message_limit(&witness);
+    Vec_CFr witness_path_elements = ffi_rln_witness_input_get_path_elements(&witness);
+    Vec_uint8 witness_path_index = ffi_rln_witness_input_get_identity_path_index(&witness);
     PartialWitnessResult partial_witness_result =
-        ffi_rln_v3_partial_witness_input_new(witness_identity_secret, witness_user_message_limit,
+        ffi_rln_partial_witness_input_new(witness_identity_secret, witness_user_message_limit,
                                              &witness_path_elements, &witness_path_index);
     ffi_cfr_free(witness_identity_secret);
     ffi_cfr_free(witness_user_message_limit);
@@ -67,7 +67,7 @@ int main(void)
 
     printf("\nGenerating partial ZK proof\n");
     PartialProofResult partial_proof_result =
-        ffi_rln_v3_generate_partial_proof(&rln_instance, &partial_witness);
+        ffi_rln_generate_partial_proof(&rln_instance, &partial_witness);
     if (!partial_proof_result.ok)
     {
         fprintf(stderr, "Partial proof generation error: %s\n", partial_proof_result.err.ptr);
@@ -79,7 +79,7 @@ int main(void)
 
     printf("\nFinishing proof with full witness\n");
     ProofResult full_proof_result =
-        ffi_rln_v3_finish_proof(&rln_instance, &partial_proof, &witness);
+        ffi_rln_finish_proof(&rln_instance, &partial_proof, &witness);
     if (!full_proof_result.ok)
     {
         fprintf(stderr, "Finish proof error: %s\n", full_proof_result.err.ptr);
@@ -90,7 +90,7 @@ int main(void)
     printf("  - partial proof finished successfully\n");
 
     printf("\nVerifying full proof\n");
-    CBoolResult verify_full_result = ffi_rln_v3_verify(&rln_instance, &full_proof, x);
+    CBoolResult verify_full_result = verify_stateful_proof(&rln_instance, &full_proof, x);
     if (verify_full_result.err.ptr)
     {
         fprintf(stderr, "Full proof verification error: %s\n", verify_full_result.err.ptr);
@@ -107,15 +107,15 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    ffi_rln_v3_proof_free(full_proof);
-    ffi_rln_v3_partial_proof_free(partial_proof);
-    ffi_rln_v3_partial_witness_input_free(partial_witness);
-    ffi_rln_v3_witness_input_free(witness);
+    ffi_rln_proof_free(full_proof);
+    ffi_rln_partial_proof_free(partial_proof);
+    ffi_rln_partial_witness_input_free(partial_witness);
+    ffi_rln_witness_input_free(witness);
     ffi_cfr_free(message_id);
     ffi_cfr_free(x);
     ffi_cfr_free(external_nullifier);
-    ffi_rln_v3_merkle_proof_free(merkle_proof);
+    ffi_rln_merkle_proof_free(merkle_proof);
     member_free(&member);
-    ffi_rln_v3_free(rln_instance);
+    ffi_rln_free(rln_instance);
     return EXIT_SUCCESS;
 }

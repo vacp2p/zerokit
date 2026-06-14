@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod test {
+    use std::str::FromStr;
+
     use ark_bn254::Fr;
-    use num_bigint::BigUint;
-    use num_traits::Num;
     use zerokit_utils::poseidon::Poseidon;
 
     const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
@@ -16,20 +16,17 @@ mod test {
         (9, 8, 63, 0),
     ];
 
-    fn str_to_fr(input: &str, radix: u32) -> Fr {
-        assert!((radix == 10) || (radix == 16));
+    fn fr_from_hex(input: &str) -> Fr {
+        input
+            .trim_start_matches("0x")
+            .chars()
+            .fold(Fr::from(0), |acc, c| {
+                acc * Fr::from(16) + Fr::from(c.to_digit(16).unwrap())
+            })
+    }
 
-        // We remove any quote present and we trim
-        let single_quote: char = '\"';
-        let mut input_clean = input.replace(single_quote, "");
-        input_clean = input_clean.trim().to_string();
-
-        if radix == 10 {
-            BigUint::from_str_radix(&input_clean, radix).unwrap().into()
-        } else {
-            input_clean = input_clean.replace("0x", "");
-            BigUint::from_str_radix(&input_clean, radix).unwrap().into()
-        }
+    fn fr_from_dec(input: &str) -> Fr {
+        Fr::from_str(input).unwrap()
     }
     // The following constants were taken from https://github.com/arnaucube/poseidon-rs/blob/233027d6075a637c29ad84a8a44f5653b81f0410/src/constants.rs
     // Constants were generated from the Poseidon reference implementation
@@ -3497,7 +3494,7 @@ mod test {
         for c_i in c_str {
             let mut ci: Vec<Fr> = Vec::new();
             for c_i_j in c_i {
-                let b: Fr = str_to_fr(c_i_j, 10);
+                let b: Fr = fr_from_dec(c_i_j);
                 ci.push(b);
             }
             c.push(ci);
@@ -3508,7 +3505,7 @@ mod test {
             for m_i_j in m_i {
                 let mut mij: Vec<Fr> = Vec::new();
                 for m_i_j_k in m_i_j {
-                    let b: Fr = str_to_fr(m_i_j_k, 10);
+                    let b: Fr = fr_from_dec(m_i_j_k);
                     mij.push(b);
                 }
                 mi.push(mij);
@@ -3523,10 +3520,7 @@ mod test {
     fn test_bn254_constants_generation() {
         // Hardcoded constants are only for Bn254 scalar field. So we check if field characteristic corresponds to 0
         if Fr::from(0)
-            == str_to_fr(
-                "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
-                16,
-            )
+            == fr_from_hex("0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001")
         {
             // We check if the round constants and matrices correspond to the one generated when instantiating Poseidon with ROUND_PARAMS
             let (loaded_c, loaded_m) = load_constants();

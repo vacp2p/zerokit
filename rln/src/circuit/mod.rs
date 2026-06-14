@@ -1,24 +1,27 @@
-// This crate provides interfaces for the zero-knowledge circuit and keys
+// This module provides interfaces for the zero-knowledge circuit and keys
 
 pub(crate) mod error;
 pub(crate) mod iden3calc;
 pub(crate) mod qap;
 
-use std::sync::Arc;
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::LazyLock;
+use std::{ops::Deref, sync::Arc};
 
 use ark_bn254::{
     Bn254, Fq as ArkFq, Fq2 as ArkFq2, Fr as ArkFr, G1Affine as ArkG1Affine,
     G1Projective as ArkG1Projective, G2Affine as ArkG2Affine, G2Projective as ArkG2Projective,
 };
-use ark_ff::Field;
+use ark_ff::{Field, PrimeField, UniformRand};
 use ark_groth16::{
     prepare_verifying_key, PreparedVerifyingKey as ArkPreparedVerifyingKey, Proof as ArkProof,
     ProvingKey as ArkProvingKey, VerifyingKey as ArkVerifyingKey,
 };
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use rand::Rng;
+use ruint::aliases::U256;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use self::error::{GraphReadError, WitnessCalcError, ZKeyReadError};
 use crate::{
@@ -161,36 +164,37 @@ pub fn graph_from_raw(
         deserialize_witnesscalc_graph(std::io::Cursor::new(graph_data))?;
 
     let tree_depth = {
-        let depth = input_mapping
+        let (_, depth) = input_mapping
             .get("pathElements")
-            .map(|(_, len)| *len)
-            .unwrap_or_default();
+            .ok_or_else(|| GraphReadError::MissingSignal("pathElements".to_string()))?;
 
         if let Some(expected) = expected_tree_depth {
-            if expected != depth {
+            if expected != *depth {
                 return Err(GraphReadError::TreeDepthMismatch {
                     expected,
-                    actual: depth,
+                    actual: *depth,
                 });
             }
         }
 
-        depth
+        *depth
     };
 
-    let max_out = match input_mapping.get("messageId") {
-        Some((_, count)) => {
-            if let Some(expected) = expected_max_out {
-                if expected != *count {
-                    return Err(GraphReadError::MaxOutMismatch {
-                        expected,
-                        actual: *count,
-                    });
-                }
+    let max_out = {
+        let (_, count) = input_mapping
+            .get("messageId")
+            .ok_or_else(|| GraphReadError::MissingSignal("messageId".to_string()))?;
+
+        if let Some(expected) = expected_max_out {
+            if expected != *count {
+                return Err(GraphReadError::MaxOutMismatch {
+                    expected,
+                    actual: *count,
+                });
             }
-            *count
         }
-        None => 1, // single-message-id graph: max_out = 1
+
+        *count
     };
 
     Ok(Graph {
@@ -202,52 +206,91 @@ pub fn graph_from_raw(
     })
 }
 
-// Loads default Single zkey
+/// Loads default Single zkey
 #[cfg(not(target_arch = "wasm32"))]
-pub fn default_zkey_single() -> &'static Zkey {
+pub fn default_zkey_single() -> &'static Arc<Zkey> {
     &ARKZKEY_SINGLE
 }
 
-// Loads default Multi zkey
+/// Loads default Multi zkey
 #[cfg(not(target_arch = "wasm32"))]
-pub fn default_zkey_multi() -> &'static Zkey {
+pub fn default_zkey_multi() -> &'static Arc<Zkey> {
     &ARKZKEY_MULTI
 }
 
-// Loads default Single graph
+/// Loads default Single graph
 #[cfg(not(target_arch = "wasm32"))]
-pub fn default_graph_single() -> &'static Graph {
+pub fn default_graph_single() -> &'static Arc<Graph> {
     &GRAPH_SINGLE
 }
 
-// Loads default Multi graph
+/// Loads default Multi graph
 #[cfg(not(target_arch = "wasm32"))]
-pub fn default_graph_multi() -> &'static Graph {
+pub fn default_graph_multi() -> &'static Arc<Graph> {
     &GRAPH_MULTI
 }
 
-// Loads default Single zkey
-#[cfg(not(target_arch = "wasm32"))]
-pub fn default_zkey_single_v3() -> &'static Arc<Zkey> {
-    &ARKZKEY_SINGLE
+/// Secret field-element wrapper zeroized on drop.
+#[derive(
+    Debug, Zeroize, ZeroizeOnDrop, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize,
+)]
+pub struct IdSecret(Fr);
+
+impl IdSecret {
+    pub fn rand<R: Rng + ?Sized>(rng: &mut R) -> Self {
+        let mut fr = Fr::rand(rng);
+        let res = Self::from(&mut fr);
+        // No need to zeroize fr (already zeroiz'ed in from implementation)
+        #[allow(clippy::let_and_return)]
+        res
+    }
+
+    /// Warning: this can leak the secret value
+    /// Warning: Leaked value is of type 'U256' which implement Copy (every copy will not be zeroized)
+    pub(crate) fn to_u256(&self) -> U256 {
+        let mut big_int = self.0.into_bigint();
+        let res = U256::from_limbs(big_int.0);
+        big_int.zeroize();
+        res
+    }
 }
 
-// Loads default Multi zkey
-#[cfg(not(target_arch = "wasm32"))]
-pub fn default_zkey_multi_v3() -> &'static Arc<Zkey> {
-    &ARKZKEY_MULTI
+impl From<&mut Fr> for IdSecret {
+    fn from(value: &mut Fr) -> Self {
+        let id_secret = Self(*value);
+        value.zeroize();
+        id_secret
+    }
 }
 
-// Loads default Single graph
-#[cfg(not(target_arch = "wasm32"))]
-pub fn default_graph_single_v3() -> &'static Arc<Graph> {
-    &GRAPH_SINGLE
+impl Deref for IdSecret {
+    type Target = Fr;
+
+    /// Deref to &Fr
+    ///
+    /// Warning: this can leak the secret value
+    /// Warning: Leaked value is of type 'Fr' which implement Copy (every copy will not be zeroized)
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
-// Loads default Multi graph
-#[cfg(not(target_arch = "wasm32"))]
-pub fn default_graph_multi_v3() -> &'static Arc<Graph> {
-    &GRAPH_MULTI
+#[derive(Debug, Clone, Zeroize, ZeroizeOnDrop)]
+pub(crate) enum FrOrSecret {
+    IdSecret(IdSecret),
+    Fr(Fr),
+}
+
+impl From<Fr> for FrOrSecret {
+    fn from(value: Fr) -> Self {
+        FrOrSecret::Fr(value)
+    }
+}
+
+impl From<IdSecret> for FrOrSecret {
+    fn from(value: IdSecret) -> Self {
+        FrOrSecret::IdSecret(value)
+    }
 }
 
 // The following functions and structs are based on code from ark-zkey:
@@ -364,5 +407,25 @@ mod test {
         .err()
         .unwrap();
         assert!(matches!(err, GraphReadError::MaxOutMismatch { .. }));
+    }
+
+    #[test]
+    fn test_missing_signal_rejected() {
+        let single = graph_from_raw(GRAPH_BYTES_SINGLE, None, None).unwrap();
+        assert!(single.input_mapping.contains_key("pathElements"));
+        assert!(single.input_mapping.contains_key("messageId"));
+
+        let multi = graph_from_raw(GRAPH_BYTES_MULTI, None, None).unwrap();
+        assert!(multi.input_mapping.contains_key("pathElements"));
+        assert!(multi.input_mapping.contains_key("messageId"));
+    }
+
+    #[test]
+    fn test_id_secret_from_fr_zeroizes_source() {
+        let mut fr = Fr::from(42);
+        let id_secret = IdSecret::from(&mut fr);
+
+        assert_ne!(fr, Fr::from(42));
+        assert_eq!(*id_secret, Fr::from(42));
     }
 }

@@ -15,26 +15,22 @@ bench = false
 ark-ff = { version = "0.5.0", default-features = false }
 num-bigint = { version = "0.4.6", default-features = false }
 pmtree = { package = "vacp2p_pmtree", version = "2.0.3", optional = true }
-sled = "0.34.7"
+sled = { version = "0.34.7", features = ["compression"], optional = true }
 serde_json = "1.0.150"
 rayon = "1.12.0"
 thiserror = "2.0.18"
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-sled = { version = "0.34.7", features = ["compression"] }
 
 [dev-dependencies]
 hex = "0.4.3"
 hex-literal = "1.1.0"
 ark-bn254 = { version = "0.5.0", features = ["std"] }
-num-traits = "0.2.19"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 criterion = { version = "0.8.2", features = ["html_reports"] }
 
 [features]
 default = []
 parallel = ["ark-ff/parallel"]
-pmtree-ft = ["pmtree"]
+pmtree-ft = ["pmtree", "sled"]
 
 [[bench]]
 name = "merkle_tree_benchmark"

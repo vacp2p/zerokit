@@ -13,6 +13,14 @@ mod test {
     };
     use wasm_bindgen_test::wasm_bindgen_test;
 
+    fn fr_from_hex(hex: &str) -> Fr {
+        hex.trim_start_matches("0x")
+            .chars()
+            .fold(Fr::from(0u8), |acc, c| {
+                acc * Fr::from(16u8) + Fr::from(c.to_digit(16).unwrap())
+            })
+    }
+
     #[wasm_bindgen_test]
     fn test_keygen_wasm() {
         let identity = Identity::generate();
@@ -59,16 +67,10 @@ mod test {
         let identity_secret = *identity.get_secret_hash();
         let id_commitment = *identity.get_commitment();
 
-        let expected_identity_secret_seed_bytes = str_to_fr(
-            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
-            16,
-        )
-        .unwrap();
-        let expected_id_commitment_seed_bytes = str_to_fr(
-            "0xbf16d2b5c0d6f9d9d561e05bfca16a81b4b873bb063508fae360d8c74cef51f",
-            16,
-        )
-        .unwrap();
+        let expected_identity_secret_seed_bytes =
+            fr_from_hex("0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716");
+        let expected_id_commitment_seed_bytes =
+            fr_from_hex("0xbf16d2b5c0d6f9d9d561e05bfca16a81b4b873bb063508fae360d8c74cef51f");
 
         assert_eq!(identity_secret, expected_identity_secret_seed_bytes);
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
@@ -86,26 +88,14 @@ mod test {
         let identity_secret = *identity.get_secret_hash();
         let id_commitment = *identity.get_commitment();
 
-        let expected_identity_trapdoor_seed_bytes = str_to_fr(
-            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
-            16,
-        )
-        .unwrap();
-        let expected_identity_nullifier_seed_bytes = str_to_fr(
-            "0x1f18714c7bc83b5bca9e89d404cf6f2f585bc4c0f7ed8b53742b7e2b298f50b4",
-            16,
-        )
-        .unwrap();
-        let expected_identity_secret_seed_bytes = str_to_fr(
-            "0x2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521",
-            16,
-        )
-        .unwrap();
-        let expected_id_commitment_seed_bytes = str_to_fr(
-            "0x68b66aa0a8320d2e56842581553285393188714c48f9b17acd198b4f1734c5c",
-            16,
-        )
-        .unwrap();
+        let expected_identity_trapdoor_seed_bytes =
+            fr_from_hex("0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716");
+        let expected_identity_nullifier_seed_bytes =
+            fr_from_hex("0x1f18714c7bc83b5bca9e89d404cf6f2f585bc4c0f7ed8b53742b7e2b298f50b4");
+        let expected_identity_secret_seed_bytes =
+            fr_from_hex("0x2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521");
+        let expected_id_commitment_seed_bytes =
+            fr_from_hex("0x68b66aa0a8320d2e56842581553285393188714c48f9b17acd198b4f1734c5c");
 
         assert_eq!(identity_trapdoor, expected_identity_trapdoor_seed_bytes);
         assert_eq!(identity_nullifier, expected_identity_nullifier_seed_bytes);
@@ -149,11 +139,13 @@ mod test {
         }
 
         let bytes_le = vec_wasmfr.to_bytes_le().unwrap();
-        let expected_le = vec_fr_to_bytes_le(&vec_fr);
+        let mut expected_le = Vec::new();
+        vec_fr.serialize_compressed(&mut expected_le).unwrap();
         assert_eq!(bytes_le.to_vec(), expected_le);
 
         let bytes_be = vec_wasmfr.to_bytes_be().unwrap();
-        let expected_be = vec_fr_to_bytes_be(&vec_fr);
+        let mut expected_be = Vec::new();
+        CanonicalSerializeBE::serialize(&vec_fr, &mut expected_be).unwrap();
         assert_eq!(bytes_be.to_vec(), expected_be);
 
         let vec_wasmfr_from_le = match VecWasmFr::from_bytes_le(&bytes_le) {
@@ -194,15 +186,18 @@ mod test {
         let fr_be_2 = hash_to_field_be(&signal_gen);
         assert_eq!(*wasmfr_be_1, fr_be_2);
 
-        assert_eq!(*wasmfr_le_1, *wasmfr_be_1);
-        assert_eq!(fr_le_2, fr_be_2);
+        // LE and BE interpret the hash bytes differently
+        assert_ne!(*wasmfr_le_1, *wasmfr_be_1);
+        assert_ne!(fr_le_2, fr_be_2);
 
         let hash_wasmfr_le_1 = wasmfr_le_1.to_bytes_le().unwrap();
-        let hash_fr_le_2 = fr_to_bytes_le(&fr_le_2);
+        let mut hash_fr_le_2 = Vec::new();
+        fr_le_2.serialize_compressed(&mut hash_fr_le_2).unwrap();
         assert_eq!(hash_wasmfr_le_1.to_vec(), hash_fr_le_2);
 
         let hash_wasmfr_be_1 = wasmfr_be_1.to_bytes_be().unwrap();
-        let hash_fr_be_2 = fr_to_bytes_be(&fr_be_2);
+        let mut hash_fr_be_2 = Vec::new();
+        CanonicalSerializeBE::serialize(&fr_be_2, &mut hash_fr_be_2).unwrap();
         assert_eq!(hash_wasmfr_be_1.to_vec(), hash_fr_be_2);
 
         assert_ne!(hash_wasmfr_le_1.to_vec(), hash_wasmfr_be_1.to_vec());
@@ -237,21 +232,23 @@ mod test {
     #[wasm_bindgen_test]
     fn test_vec_wasmfr_from_bytes_invalid() {
         let vec_fr = vec![Fr::from(1u8)];
-        let bytes_le = vec_fr_to_bytes_le(&vec_fr);
+        let mut bytes_le = Vec::new();
+        vec_fr.serialize_compressed(&mut bytes_le).unwrap();
         let truncated = Uint8Array::from(&bytes_le[..bytes_le.len() - 1]);
         assert!(VecWasmFr::from_bytes_le(&truncated).is_err());
 
         let mut wrong_len = bytes_le.clone();
-        wrong_len[..8].copy_from_slice(&normalize_usize_le(2));
+        wrong_len[..VEC_LEN_BYTE_SIZE].copy_from_slice(&2u64.to_le_bytes());
         let wrong_len = Uint8Array::from(&wrong_len[..]);
         assert!(VecWasmFr::from_bytes_le(&wrong_len).is_err());
 
-        let bytes_be = vec_fr_to_bytes_be(&vec_fr);
+        let mut bytes_be = Vec::new();
+        CanonicalSerializeBE::serialize(&vec_fr, &mut bytes_be).unwrap();
         let truncated_be = Uint8Array::from(&bytes_be[..bytes_be.len() - 1]);
         assert!(VecWasmFr::from_bytes_be(&truncated_be).is_err());
 
         let mut wrong_len_be = bytes_be.clone();
-        wrong_len_be[..8].copy_from_slice(&normalize_usize_be(2));
+        wrong_len_be[..VEC_LEN_BYTE_SIZE].copy_from_slice(&2u64.to_be_bytes());
         let wrong_len_be = Uint8Array::from(&wrong_len_be[..]);
         assert!(VecWasmFr::from_bytes_be(&wrong_len_be).is_err());
     }
@@ -262,33 +259,39 @@ mod test {
         assert!(Uint8ArrayUtils::from_bytes_le(&short).is_err());
         assert!(Uint8ArrayUtils::from_bytes_be(&short).is_err());
 
-        let invalid_len_le = Vec::from(normalize_usize_le(5));
+        let invalid_len_le = Vec::from(5u64.to_le_bytes());
         let invalid_len_le = Uint8Array::from(&invalid_len_le[..]);
         assert!(Uint8ArrayUtils::from_bytes_le(&invalid_len_le).is_err());
 
-        let invalid_len_be = Vec::from(normalize_usize_be(5));
+        let invalid_len_be = Vec::from(5u64.to_be_bytes());
         let invalid_len_be = Uint8Array::from(&invalid_len_be[..]);
         assert!(Uint8ArrayUtils::from_bytes_be(&invalid_len_be).is_err());
     }
 
     #[wasm_bindgen_test]
     fn test_identity_from_bytes_invalid_len() {
-        let bytes_le = vec_fr_to_bytes_le(&[Fr::from(1u8)]);
+        let vec_fr = vec![Fr::from(1u8)];
+        let mut bytes_le = Vec::new();
+        vec_fr.serialize_compressed(&mut bytes_le).unwrap();
         let bytes_le = Uint8Array::from(&bytes_le[..]);
         assert!(Identity::from_bytes_le(&bytes_le).is_err());
 
-        let bytes_be = vec_fr_to_bytes_be(&[Fr::from(1u8)]);
+        let mut bytes_be = Vec::new();
+        CanonicalSerializeBE::serialize(&vec_fr, &mut bytes_be).unwrap();
         let bytes_be = Uint8Array::from(&bytes_be[..]);
         assert!(Identity::from_bytes_be(&bytes_be).is_err());
     }
 
     #[wasm_bindgen_test]
     fn test_extended_identity_from_bytes_invalid_len() {
-        let bytes_le = vec_fr_to_bytes_le(&[Fr::from(1u8), Fr::from(2u8), Fr::from(3u8)]);
+        let vec_fr = vec![Fr::from(1u8), Fr::from(2u8), Fr::from(3u8)];
+        let mut bytes_le = Vec::new();
+        vec_fr.serialize_compressed(&mut bytes_le).unwrap();
         let bytes_le = Uint8Array::from(&bytes_le[..]);
         assert!(ExtendedIdentity::from_bytes_le(&bytes_le).is_err());
 
-        let bytes_be = vec_fr_to_bytes_be(&[Fr::from(1u8), Fr::from(2u8), Fr::from(3u8)]);
+        let mut bytes_be = Vec::new();
+        CanonicalSerializeBE::serialize(&vec_fr, &mut bytes_be).unwrap();
         let bytes_be = Uint8Array::from(&bytes_be[..]);
         assert!(ExtendedIdentity::from_bytes_be(&bytes_be).is_err());
     }

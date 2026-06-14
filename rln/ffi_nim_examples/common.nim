@@ -43,7 +43,7 @@ proc initRLN(enableMultiMessageId: bool): ptr RLN =
   var (zkeyBytes, graphBytes) = loadResources(enableMultiMessageId)
   var zkeyData = asVecU8(zkeyBytes)
   var graphData = asVecU8(graphBytes)
-  let rlnInstanceResult = ffi_rln_v3_new_with_pm_tree(csize_t(treeDepth),
+  let rlnInstanceResult = ffi_rln_new_with_pm_tree(csize_t(treeDepth),
       addr zkeyData, addr graphData, "")
   if rlnInstanceResult.ok.isNil:
     stderr.writeLine("RLN instance creation error: " & asString(
@@ -61,7 +61,7 @@ proc initRLNStateless(): ptr RLN =
   var (zkeyBytes, graphBytes) = loadResources(false)
   var zkeyData = asVecU8(zkeyBytes)
   var graphData = asVecU8(graphBytes)
-  let rlnInstanceResult = ffi_rln_v3_new_stateless(addr zkeyData,
+  let rlnInstanceResult = ffi_rln_new_stateless(addr zkeyData,
       addr graphData)
   if rlnInstanceResult.ok.isNil:
     stderr.writeLine("RLN instance creation error: " & asString(
@@ -98,7 +98,7 @@ proc memberFree(member: var Member) =
 proc registerMember(rlnInstance: var ptr RLN,
     rateCommitment: ptr CFr): ptr MerkleProof =
   echo "\nAdding rate commitment to tree"
-  let setLeafResult = ffi_rln_v3_set_next_leaf(addr rlnInstance, rateCommitment)
+  let setLeafResult = ffi_rln_set_next_leaf(addr rlnInstance, rateCommitment)
   if not setLeafResult.ok:
     stderr.writeLine("Adding rate commitment error: " & asString(
         setLeafResult.err))
@@ -107,7 +107,7 @@ proc registerMember(rlnInstance: var ptr RLN,
   echo "  - rate commitment added at leaf 0"
 
   echo "\nGetting Merkle proof"
-  let merkleProofResult = ffi_rln_v3_get_merkle_proof(addr rlnInstance,
+  let merkleProofResult = ffi_rln_get_merkle_proof(addr rlnInstance,
       csize_t(0))
   if merkleProofResult.ok.isNil:
     stderr.writeLine("Merkle proof error: " & asString(merkleProofResult.err))
@@ -147,6 +147,14 @@ proc computeExternalNullifier(): ptr CFr =
 proc createWitness(member: Member,
     merkleProof: ptr MerkleProof, messageId: ptr CFr, x: ptr CFr,
     externalNullifier: ptr CFr): WitnessResult =
-  ffi_rln_v3_witness_input_new_single(member.identitySecret,
+  ffi_rln_witness_input_new_single(member.identitySecret,
       member.userMessageLimit, messageId, addr merkleProof.path_elements,
       addr merkleProof.path_index, x, externalNullifier)
+
+proc verifyStatefulProof(rlnInstance: var ptr RLN, rlnProof: var ptr Proof,
+    x: ptr CFr): CBoolResult =
+  let root = ffi_rln_get_root(addr rlnInstance)
+  var roots = ffi_vec_cfr_from_cfr(root)
+  result = ffi_rln_verify_with_roots(addr rlnInstance, addr rlnProof, addr roots, x)
+  ffi_vec_cfr_free(roots)
+  ffi_cfr_free(root)

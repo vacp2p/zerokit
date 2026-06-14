@@ -3,8 +3,15 @@ mod test {
     use rand::Rng;
     use rln::{ffi::ffi_utils::*, prelude::*};
 
+    fn fr_from_hex(hex: &str) -> Fr {
+        hex.trim_start_matches("0x")
+            .chars()
+            .fold(Fr::from(0), |acc, c| {
+                acc * Fr::from(16) + Fr::from(c.to_digit(16).unwrap())
+            })
+    }
+
     #[test]
-    // Tests hash to field using FFI APIs
     fn test_seeded_keygen_ffi() {
         // We generate a new identity pair from an input seed
         let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -13,23 +20,16 @@ mod test {
         let id_commitment = res.get(1).unwrap();
 
         // We check against expected values
-        let expected_identity_secret_seed_bytes = str_to_fr(
-            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
-            16,
-        )
-        .unwrap();
-        let expected_id_commitment_seed_bytes = str_to_fr(
-            "0xbf16d2b5c0d6f9d9d561e05bfca16a81b4b873bb063508fae360d8c74cef51f",
-            16,
-        )
-        .unwrap();
+        let expected_identity_secret_seed_bytes =
+            fr_from_hex("0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716");
+        let expected_id_commitment_seed_bytes =
+            fr_from_hex("0xbf16d2b5c0d6f9d9d561e05bfca16a81b4b873bb063508fae360d8c74cef51f");
 
         assert_eq!(*identity_secret, expected_identity_secret_seed_bytes);
         assert_eq!(*id_commitment, expected_id_commitment_seed_bytes);
     }
 
     #[test]
-    // Tests hash to field using FFI APIs
     fn test_seeded_extended_keygen_ffi() {
         // We generate a new identity tuple from an input seed
         let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -40,26 +40,14 @@ mod test {
         let id_commitment = *key_gen[3];
 
         // We check against expected values
-        let expected_identity_trapdoor_seed_bytes = str_to_fr(
-            "0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
-            16,
-        )
-        .unwrap();
-        let expected_identity_nullifier_seed_bytes = str_to_fr(
-            "0x1f18714c7bc83b5bca9e89d404cf6f2f585bc4c0f7ed8b53742b7e2b298f50b4",
-            16,
-        )
-        .unwrap();
-        let expected_identity_secret_seed_bytes = str_to_fr(
-            "0x2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521",
-            16,
-        )
-        .unwrap();
-        let expected_id_commitment_seed_bytes = str_to_fr(
-            "0x68b66aa0a8320d2e56842581553285393188714c48f9b17acd198b4f1734c5c",
-            16,
-        )
-        .unwrap();
+        let expected_identity_trapdoor_seed_bytes =
+            fr_from_hex("0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716");
+        let expected_identity_nullifier_seed_bytes =
+            fr_from_hex("0x1f18714c7bc83b5bca9e89d404cf6f2f585bc4c0f7ed8b53742b7e2b298f50b4");
+        let expected_identity_secret_seed_bytes =
+            fr_from_hex("0x2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521");
+        let expected_id_commitment_seed_bytes =
+            fr_from_hex("0x68b66aa0a8320d2e56842581553285393188714c48f9b17acd198b4f1734c5c");
 
         assert_eq!(identity_trapdoor, expected_identity_trapdoor_seed_bytes);
         assert_eq!(identity_nullifier, expected_identity_nullifier_seed_bytes);
@@ -68,7 +56,6 @@ mod test {
     }
 
     #[test]
-    // Test CFr FFI functions
     fn test_cfr_ffi() {
         let cfr_zero = ffi_cfr_zero();
         let fr_zero = Fr::from(0u8);
@@ -96,7 +83,6 @@ mod test {
     }
 
     #[test]
-    // Test Vec<u8> FFI functions
     fn test_vec_u8_ffi() {
         let mut rng = rand::thread_rng();
         let signal_gen: [u8; 32] = rng.gen();
@@ -156,7 +142,6 @@ mod test {
     }
 
     #[test]
-    // Test Vec<CFr> FFI functions
     fn test_vec_cfr_ffi() {
         let vec_fr = [Fr::from(1u8), Fr::from(2u8), Fr::from(3u8), Fr::from(4u8)];
         let vec_cfr: Vec<CFr> = vec_fr.iter().map(|fr| CFr::from(*fr)).collect();
@@ -218,7 +203,6 @@ mod test {
     }
 
     #[test]
-    // Tests hash to field using FFI APIs
     fn test_hash_to_field_ffi() {
         let mut rng = rand::thread_rng();
         let signal_gen: [u8; 32] = rng.gen();
@@ -230,10 +214,11 @@ mod test {
 
         let cfr_be_1 = ffi_hash_to_field_be(&signal.clone().into());
         let fr_be_2 = hash_to_field_be(&signal);
-        assert_eq!(*cfr_le_1, fr_be_2);
+        assert_eq!(*cfr_be_1, fr_be_2);
 
-        assert_eq!(*cfr_le_1, *cfr_be_1);
-        assert_eq!(fr_le_2, fr_be_2);
+        // LE and BE interpret the hash bytes differently
+        assert_ne!(*cfr_le_1, *cfr_be_1);
+        assert_ne!(fr_le_2, fr_be_2);
 
         let hash_cfr_le_1 = match ffi_cfr_to_bytes_le(&cfr_le_1) {
             CResult {
@@ -268,7 +253,6 @@ mod test {
     }
 
     #[test]
-    // Test Poseidon hash FFI
     fn test_poseidon_hash_pair_ffi() {
         let input_1 = Fr::from(42u8);
         let input_2 = Fr::from(99u8);

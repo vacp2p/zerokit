@@ -34,9 +34,7 @@ thiserror = "2.0.18"
 bon = "3.9"
 rayon = { version = "1.12.0", optional = true }
 byteorder = "1.5.0"
-cfg-if = "1.0.4"
 num-bigint = { version = "0.4.6", default-features = false, features = ["std"] }
-num-traits = "0.2.19"
 rand = "0.8.6"
 rand_chacha = "0.3.1"
 ruint = { version = "1.18.0", default-features = false, features = [
@@ -47,7 +45,7 @@ ruint = { version = "1.18.0", default-features = false, features = [
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 zeroize = "1.8.2"
 tempfile = "3.27.0"
-zerokit_utils = { version = "1.2.0", path = "../utils", default-features = false }
+zerokit_utils = { path = "../utils", version = "1.2.0", default-features = false }
 
 # FFI
 safer-ffi = "0.1.13"
@@ -60,6 +58,12 @@ serde = { version = "1.0.228", features = ["derive"] }
 # Documentation
 document-features = { version = "0.2.12", optional = true }
 
+# Non-WASM
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+zerokit_utils = { path = "../utils", version = "1.2.0", default-features = false, features = [
+    "pmtree-ft",
+] }
+
 [dev-dependencies]
 criterion = { version = "0.8.2", features = ["html_reports"] }
 ark-crypto-primitives = { version = "0.5.0", default-features = false, features = [
@@ -68,8 +72,7 @@ ark-crypto-primitives = { version = "0.5.0", default-features = false, features 
 ] }
 
 [features]
-default = ["parallel", "pmtree-ft"]
-stateless = []
+default = ["parallel"]
 parallel = [
     "rayon",
     "ark-ff/parallel",
@@ -80,33 +83,15 @@ parallel = [
     "ark-serialize/parallel",
     "zerokit_utils/parallel",
 ]
-fullmerkletree = [] # Pre-allocated tree, fastest access
-optimalmerkletree = [] # Sparse storage, memory efficient
-pmtree-ft = ["zerokit_utils/pmtree-ft"] # Persistent storage, disk-based
 headers = ["safer-ffi/headers"] # Generate C header file with safer-ffi
-refactors = [] # To avoid clippy checks showing errors in refactor branches
 
 [[bench]]
-name = "pmtree_benchmark"
+name = "generate_proof"
 harness = false
-required-features = ["pmtree-ft"]
-
-[[bench]]
-name = "poseidon_tree_benchmark"
-harness = false
-
-[[bench]]
-name = "partial_proof"
-harness = false
-required-features = ["pmtree-ft"]
 
 [package.metadata.docs.rs]
-features = ["parallel", "pmtree-ft"]
+features = ["parallel"]
 
 [[bin]]
 name = "generate_headers"
 required-features = ["headers"] # Do not build unless generating headers.
-
-[[bin]]
-name = "test_refactors"
-required-features = ["refactors"]

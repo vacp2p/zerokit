@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use rln::prelude::{
     default_graph_multi, default_zkey_multi, hash_to_field_le, keygen, poseidon_hash,
     ArkGroth16Backend, Fr, IdSecret, PmTree, PmTreeConfig, PoseidonHash, RLNBuilder,
-    RLNProofValuesV3, RLNWitnessInputV3, RecoverSecret, Stateful, RLNV3,
+    RLNProofValues, RLNWitnessInput, RecoverSecret, Stateful, RLN,
 };
 use zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
 
@@ -61,8 +61,8 @@ impl Identity {
 }
 
 struct RLNSystem {
-    rln: RLNV3<Stateful<PmTree>, ArkGroth16Backend>,
-    used_nullifiers: HashMap<Fr, RLNProofValuesV3>,
+    rln: RLN<Stateful<PmTree>, ArkGroth16Backend>,
+    used_nullifiers: HashMap<Fr, RLNProofValues>,
     local_identities: HashMap<usize, Identity>,
 }
 
@@ -168,7 +168,7 @@ impl RLNSystem {
         selector_used: Vec<bool>,
         signal: &str,
         external_nullifier: Fr,
-    ) -> Result<RLNProofValuesV3> {
+    ) -> Result<RLNProofValues> {
         let identity = match self.local_identities.get(&user_index) {
             Some(identity) => identity,
             None => return Err(format!("User {user_index} not found").into()),
@@ -178,7 +178,7 @@ impl RLNSystem {
         let x = hash_to_field_le(signal.as_bytes());
 
         let active_count = selector_used.iter().filter(|&&s| s).count();
-        let witness = RLNWitnessInputV3::new_multi()
+        let witness = RLNWitnessInput::new_multi()
             .identity_secret(identity.identity_secret.clone())
             .user_message_limit(Fr::from(MESSAGE_LIMIT))
             .path_elements(merkle_proof.get_path_elements())
@@ -203,7 +203,7 @@ impl RLNSystem {
         Ok(proof_values)
     }
 
-    fn check_nullifier(&mut self, proof_values: RLNProofValuesV3) -> Result<()> {
+    fn check_nullifier(&mut self, proof_values: RLNProofValues) -> Result<()> {
         if let (Some(nullifiers), Some(selector)) =
             (proof_values.nullifiers(), proof_values.selector_used())
         {
@@ -232,8 +232,8 @@ impl RLNSystem {
 
     fn handle_duplicate_nullifier(
         &mut self,
-        previous_proof_values: &RLNProofValuesV3,
-        current_proof_values: &RLNProofValuesV3,
+        previous_proof_values: &RLNProofValues,
+        current_proof_values: &RLNProofValues,
         duplicated_slot: usize,
     ) -> Result<()> {
         match previous_proof_values.recover_secret(current_proof_values) {

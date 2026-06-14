@@ -10,19 +10,19 @@ typedef Vec_CFr_t Vec_CFr;
 typedef Vec_uint8_t Vec_uint8;
 typedef Vec_bool_t Vec_bool;
 typedef CBoolResult_t CBoolResult;
-typedef FFI_RLNV3_t RLN;
-typedef FFI_RLNV3WitnessInput_t Witness;
-typedef FFI_RLNV3PartialWitnessInput_t PartialWitness;
-typedef FFI_RLNV3Proof_t Proof;
-typedef FFI_RLNV3PartialProof_t PartialProof;
-typedef FFI_RLNV3ProofValues_t ProofValues;
-typedef FFI_RLNV3MerkleProof_t MerkleProof;
-typedef CResult_FFI_RLNV3_ptr_Vec_uint8_t RLNResult;
-typedef CResult_FFI_RLNV3WitnessInput_ptr_Vec_uint8_t WitnessResult;
-typedef CResult_FFI_RLNV3PartialWitnessInput_ptr_Vec_uint8_t PartialWitnessResult;
-typedef CResult_FFI_RLNV3Proof_ptr_Vec_uint8_t ProofResult;
-typedef CResult_FFI_RLNV3PartialProof_ptr_Vec_uint8_t PartialProofResult;
-typedef CResult_FFI_RLNV3MerkleProof_ptr_Vec_uint8_t MerkleProofResult;
+typedef FFI_RLN_t RLN;
+typedef FFI_RLNWitnessInput_t Witness;
+typedef FFI_RLNPartialWitnessInput_t PartialWitness;
+typedef FFI_RLNProof_t Proof;
+typedef FFI_RLNPartialProof_t PartialProof;
+typedef FFI_RLNProofValues_t ProofValues;
+typedef FFI_RLNMerkleProof_t MerkleProof;
+typedef CResult_FFI_RLN_ptr_Vec_uint8_t RLNResult;
+typedef CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t WitnessResult;
+typedef CResult_FFI_RLNPartialWitnessInput_ptr_Vec_uint8_t PartialWitnessResult;
+typedef CResult_FFI_RLNProof_ptr_Vec_uint8_t ProofResult;
+typedef CResult_FFI_RLNPartialProof_ptr_Vec_uint8_t PartialProofResult;
+typedef CResult_FFI_RLNMerkleProof_ptr_Vec_uint8_t MerkleProofResult;
 typedef CResult_CFr_ptr_Vec_uint8_t CFrResult;
 typedef CResult_Vec_CFr_Vec_uint8_t VecCFrResult;
 typedef CResult_Vec_uint8_Vec_uint8_t VecU8Result;
@@ -120,7 +120,7 @@ RLN *init_rln(bool enable_multi_message_id)
         return NULL;
     }
     RLNResult rln_instance_result =
-        ffi_rln_v3_new_with_pm_tree(TREE_DEPTH, &zkey_data, &graph_data, "");
+        ffi_rln_new_with_pm_tree(TREE_DEPTH, &zkey_data, &graph_data, "");
     free(zkey_data.ptr);
     free(graph_data.ptr);
     if (!rln_instance_result.ok)
@@ -148,7 +148,7 @@ RLN *init_rln_stateless(void)
         return NULL;
     }
     RLNResult rln_instance_result =
-        ffi_rln_v3_new_stateless(&zkey_data, &graph_data);
+        ffi_rln_new_stateless(&zkey_data, &graph_data);
     free(zkey_data.ptr);
     free(graph_data.ptr);
     if (!rln_instance_result.ok)
@@ -195,7 +195,7 @@ MerkleProof *register_member(RLN **rln_instance,
                              const CFr *rate_commitment)
 {
     printf("\nAdding rate commitment to tree\n");
-    CBoolResult set_leaf_result = ffi_rln_v3_set_next_leaf(rln_instance, rate_commitment);
+    CBoolResult set_leaf_result = ffi_rln_set_next_leaf(rln_instance, rate_commitment);
     if (!set_leaf_result.ok)
     {
         fprintf(stderr, "Adding rate commitment error: %s\n", set_leaf_result.err.ptr);
@@ -206,7 +206,7 @@ MerkleProof *register_member(RLN **rln_instance,
 
     printf("\nGetting Merkle proof\n");
     MerkleProofResult merkle_proof_result =
-        ffi_rln_v3_get_merkle_proof(rln_instance, 0);
+        ffi_rln_get_merkle_proof(rln_instance, 0);
     if (!merkle_proof_result.ok)
     {
         fprintf(stderr, "Merkle proof error: %s\n", merkle_proof_result.err.ptr);
@@ -249,9 +249,20 @@ WitnessResult
 create_witness(const Member *member, const MerkleProof *merkle_proof,
                const CFr *message_id, const CFr *x, const CFr *external_nullifier)
 {
-    return ffi_rln_v3_witness_input_new_single(member->identity_secret,
+    return ffi_rln_witness_input_new_single(member->identity_secret,
                                                member->user_message_limit, message_id,
                                                &merkle_proof->path_elements,
                                                &merkle_proof->path_index, x,
                                                external_nullifier);
+}
+
+CBoolResult
+verify_stateful_proof(RLN **rln_instance, Proof **rln_proof, const CFr *x)
+{
+    CFr *root = ffi_rln_get_root(rln_instance);
+    Vec_CFr roots = ffi_vec_cfr_from_cfr(root);
+    CBoolResult result = ffi_rln_verify_with_roots(rln_instance, rln_proof, &roots, x);
+    ffi_vec_cfr_free(roots);
+    ffi_cfr_free(root);
+    return result;
 }
