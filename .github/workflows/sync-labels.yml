@@ -1,16 +1,22 @@
 name: Sync labels
+
 on:
   push:
     branches:
       - master
     paths:
       - .github/labels.yml
+
 jobs:
-  build:
+  sync:
+    name: Sync repo labels
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: micnncim/action-label-syncer@v1
+      - name: Checkout sources
+        uses: actions/checkout@v5
+      - name: Sync labels
+        uses: micnncim/action-label-syncer@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
