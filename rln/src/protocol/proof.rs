@@ -144,7 +144,7 @@ impl From<&RLNWitnessInputSingle> for RLNProofValuesSingle {
         let a_1 = poseidon_hash(&to_hash);
         let y = *(a_0.clone()) + w.x * a_1;
         let nullifier = poseidon_hash(&[a_1]);
-        to_hash[0].zeroize();
+        to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
         RLNProofValuesSingle {
             y,
             root,
@@ -206,7 +206,7 @@ impl From<&RLNWitnessInputMulti> for RLNProofValuesMulti {
             let selector = Fr::from(selected);
             let y = (*w.identity_secret + w.x * a_1) * selector;
             let nullifier = poseidon_hash(&[a_1]) * selector;
-            to_hash[0].zeroize();
+            to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
             ys.push(y);
             nullifiers.push(nullifier);
         }

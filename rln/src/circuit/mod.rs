@@ -250,7 +250,7 @@ impl IdSecret {
     pub(crate) fn to_u256(&self) -> U256 {
         let mut big_int = self.0.into_bigint();
         let res = U256::from_limbs(big_int.0);
-        big_int.zeroize();
+        big_int.zeroize(); // wipe the secret limbs after copying them into the leaked U256
         res
     }
 }
@@ -258,7 +258,7 @@ impl IdSecret {
 impl From<&mut Fr> for IdSecret {
     fn from(value: &mut Fr) -> Self {
         let id_secret = Self(*value);
-        value.zeroize();
+        value.zeroize(); // clear the caller-owned source Fr after the secret moved into IdSecret
         id_secret
     }
 }

@@ -17,7 +17,7 @@ pub fn keygen() -> (IdSecret, Fr) {
     let identity_secret = IdSecret::rand(&mut rng);
     let mut to_hash = [*identity_secret.clone()];
     let id_commitment = poseidon_hash(&to_hash);
-    to_hash[0].zeroize();
+    to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
     (identity_secret, id_commitment)
 }
 
@@ -33,7 +33,7 @@ pub fn extended_keygen() -> (Fr, Fr, Fr, Fr) {
     let identity_secret = poseidon_hash_pair(identity_trapdoor, identity_nullifier);
     let mut to_hash = [identity_secret];
     let id_commitment = poseidon_hash(&to_hash);
-    to_hash[0].zeroize();
+    to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
     (
         identity_trapdoor,
         identity_nullifier,
@@ -58,7 +58,7 @@ pub fn seeded_keygen(signal: &[u8]) -> (Fr, Fr) {
     let identity_secret = Fr::rand(&mut rng);
     let mut to_hash = [identity_secret];
     let id_commitment = poseidon_hash(&to_hash);
-    to_hash[0].zeroize();
+    to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
     (identity_secret, id_commitment)
 }
 
@@ -81,7 +81,7 @@ pub fn extended_seeded_keygen(signal: &[u8]) -> (Fr, Fr, Fr, Fr) {
     let identity_secret = poseidon_hash_pair(identity_trapdoor, identity_nullifier);
     let mut to_hash = [identity_secret];
     let id_commitment = poseidon_hash(&to_hash);
-    to_hash[0].zeroize();
+    to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
     (
         identity_trapdoor,
         identity_nullifier,
