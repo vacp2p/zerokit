@@ -10,13 +10,10 @@ jobs:
   add-to-project:
     name: Add issue to project
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/add-to-project@v0.3.0
+      - name: Add to project board
+        uses: actions/add-to-project@v1
         with:
-          # You can target a repository in a different organization
-          # to the issue
           project-url: https://github.com/orgs/vacp2p/projects/6
           github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
-          # NOTE Currently all issues are added, might want to limit this
-          #labeled: bug, needs-triage
-          #label-operator: OR
