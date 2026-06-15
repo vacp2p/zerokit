@@ -199,6 +199,11 @@ impl<Tree, ZkProof: RLNPartialZkProof> RLN<Tree, ZkProof> {
     }
 }
 
+// TODO(PR11): rename `verify_with_signal` / `verify_with_roots` — the suffixes are
+// confusing and the dev UX is unclear (e.g. `verify_with_roots` also re-checks the signal
+// via `verify_with_signal`). Pick names that reflect the actual semantics (e.g.
+// `verify_signal` for signal-only, `verify_signal_with_roots` or `verify_with_known_roots`
+// for the root-checking variant). To be addressed in a follow-up PR.
 impl<Tree, ZkProof> RLN<Tree, ZkProof>
 where
     ZkProof:

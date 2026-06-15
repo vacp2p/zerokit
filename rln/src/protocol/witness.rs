@@ -10,8 +10,8 @@ use crate::{
         CalcWitness, CalcWitnessPartial, Fr, FrOrSecret, Graph, IdSecret,
     },
     error::{
-        GenerateProofError, RLNPartialWitnessInputError, RLNWitnessInputMultiError,
-        RLNWitnessInputSingleError,
+        GenerateProofError, PartialWitnessInputError, WitnessInputMultiError,
+        WitnessInputSingleError,
     },
 };
 
@@ -101,19 +101,19 @@ impl RLNWitnessInput {
         x: Fr,
         external_nullifier: Fr,
         message_id: Fr,
-    ) -> Result<Self, RLNWitnessInputSingleError> {
+    ) -> Result<Self, WitnessInputSingleError> {
         if user_message_limit == Fr::from(0) {
-            return Err(RLNWitnessInputSingleError::ZeroUserMessageLimit);
+            return Err(WitnessInputSingleError::ZeroUserMessageLimit);
         }
         let path_len = path_elements.len();
         let index_len = identity_path_index.len();
         if path_len != index_len {
-            return Err(RLNWitnessInputSingleError::PathLengthMismatch(
+            return Err(WitnessInputSingleError::PathLengthMismatch(
                 path_len, index_len,
             ));
         }
         if message_id >= user_message_limit {
-            return Err(RLNWitnessInputSingleError::InvalidMessageId(
+            return Err(WitnessInputSingleError::InvalidMessageId(
                 message_id,
                 user_message_limit,
             ));
@@ -141,40 +141,40 @@ impl RLNWitnessInput {
         external_nullifier: Fr,
         message_ids: Vec<Fr>,
         selector_used: Vec<bool>,
-    ) -> Result<Self, RLNWitnessInputMultiError> {
+    ) -> Result<Self, WitnessInputMultiError> {
         if user_message_limit == Fr::from(0) {
-            return Err(RLNWitnessInputMultiError::ZeroUserMessageLimit);
+            return Err(WitnessInputMultiError::ZeroUserMessageLimit);
         }
         let path_len = path_elements.len();
         let index_len = identity_path_index.len();
         if path_len != index_len {
-            return Err(RLNWitnessInputMultiError::PathLengthMismatch(
+            return Err(WitnessInputMultiError::PathLengthMismatch(
                 path_len, index_len,
             ));
         }
         if message_ids.is_empty() {
-            return Err(RLNWitnessInputMultiError::EmptyMessageIds);
+            return Err(WitnessInputMultiError::EmptyMessageIds);
         }
         if selector_used.len() != message_ids.len() {
-            return Err(RLNWitnessInputMultiError::SelectorLengthMismatch(
+            return Err(WitnessInputMultiError::SelectorLengthMismatch(
                 message_ids.len(),
                 selector_used.len(),
             ));
         }
         if !selector_used.iter().any(|&s| s) {
-            return Err(RLNWitnessInputMultiError::NoActiveSelectorUsed);
+            return Err(WitnessInputMultiError::NoActiveSelectorUsed);
         }
         {
             let mut seen = HashSet::with_capacity(message_ids.len());
             for (id, &used) in message_ids.iter().zip(&selector_used) {
                 if used && !seen.insert(*id) {
-                    return Err(RLNWitnessInputMultiError::DuplicateMessageIds);
+                    return Err(WitnessInputMultiError::DuplicateMessageIds);
                 }
             }
         }
         for (message_id, used) in message_ids.iter().zip(&selector_used) {
             if *used && *message_id >= user_message_limit {
-                return Err(RLNWitnessInputMultiError::InvalidMessageId(
+                return Err(WitnessInputMultiError::InvalidMessageId(
                     *message_id,
                     user_message_limit,
                 ));
@@ -404,14 +404,14 @@ impl RLNPartialWitnessInput {
         user_message_limit: Fr,
         path_elements: Vec<Fr>,
         identity_path_index: Vec<u8>,
-    ) -> Result<Self, RLNPartialWitnessInputError> {
+    ) -> Result<Self, PartialWitnessInputError> {
         if user_message_limit == Fr::from(0) {
-            return Err(RLNPartialWitnessInputError::ZeroUserMessageLimit);
+            return Err(PartialWitnessInputError::ZeroUserMessageLimit);
         }
         let path_len = path_elements.len();
         let index_len = identity_path_index.len();
         if path_len != index_len {
-            return Err(RLNPartialWitnessInputError::PathLengthMismatch(
+            return Err(PartialWitnessInputError::PathLengthMismatch(
                 path_len, index_len,
             ));
         }

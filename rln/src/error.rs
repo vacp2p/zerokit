@@ -35,7 +35,7 @@ pub enum SerializationError {
 
 /// Errors that can occur while constructing an [`RLNWitnessInputSingle`].
 #[derive(Debug, thiserror::Error)]
-pub enum RLNWitnessInputSingleError {
+pub enum WitnessInputSingleError {
     #[error("User message limit cannot be zero")]
     ZeroUserMessageLimit,
     #[error(
@@ -48,7 +48,7 @@ pub enum RLNWitnessInputSingleError {
 
 /// Errors that can occur while constructing an [`RLNWitnessInputMulti`].
 #[derive(Debug, thiserror::Error)]
-pub enum RLNWitnessInputMultiError {
+pub enum WitnessInputMultiError {
     #[error("User message limit cannot be zero")]
     ZeroUserMessageLimit,
     #[error(
@@ -69,7 +69,7 @@ pub enum RLNWitnessInputMultiError {
 
 /// Errors that can occur while constructing an [`RLNPartialWitnessInput`].
 #[derive(Debug, thiserror::Error)]
-pub enum RLNPartialWitnessInputError {
+pub enum PartialWitnessInputError {
     #[error("User message limit cannot be zero")]
     ZeroUserMessageLimit,
     #[error(

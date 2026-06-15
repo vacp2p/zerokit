@@ -6,20 +6,14 @@ mod test {
 
     use ark_std::rand::thread_rng;
     use js_sys::Uint8Array;
+    use num_bigint::BigUint;
+    use num_traits::Num;
     use rand::Rng;
     use rln::prelude::*;
     use rln_wasm::{
         wasm_utils::Uint8ArrayUtils, ExtendedIdentity, Hasher, Identity, VecWasmFr, WasmFr,
     };
     use wasm_bindgen_test::wasm_bindgen_test;
-
-    fn fr_from_hex(hex: &str) -> Fr {
-        hex.trim_start_matches("0x")
-            .chars()
-            .fold(Fr::from(0u8), |acc, c| {
-                acc * Fr::from(16u8) + Fr::from(c.to_digit(16).unwrap())
-            })
-    }
 
     #[wasm_bindgen_test]
     fn test_keygen_wasm() {
@@ -67,10 +61,20 @@ mod test {
         let identity_secret = *identity.get_secret_hash();
         let id_commitment = *identity.get_commitment();
 
-        let expected_identity_secret_seed_bytes =
-            fr_from_hex("0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716");
-        let expected_id_commitment_seed_bytes =
-            fr_from_hex("0xbf16d2b5c0d6f9d9d561e05bfca16a81b4b873bb063508fae360d8c74cef51f");
+        let expected_identity_secret_seed_bytes = Fr::from(
+            BigUint::from_str_radix(
+                "766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
+                16,
+            )
+            .unwrap(),
+        );
+        let expected_id_commitment_seed_bytes = Fr::from(
+            BigUint::from_str_radix(
+                "bf16d2b5c0d6f9d9d561e05bfca16a81b4b873bb063508fae360d8c74cef51f",
+                16,
+            )
+            .unwrap(),
+        );
 
         assert_eq!(identity_secret, expected_identity_secret_seed_bytes);
         assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
@@ -88,14 +92,34 @@ mod test {
         let identity_secret = *identity.get_secret_hash();
         let id_commitment = *identity.get_commitment();
 
-        let expected_identity_trapdoor_seed_bytes =
-            fr_from_hex("0x766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716");
-        let expected_identity_nullifier_seed_bytes =
-            fr_from_hex("0x1f18714c7bc83b5bca9e89d404cf6f2f585bc4c0f7ed8b53742b7e2b298f50b4");
-        let expected_identity_secret_seed_bytes =
-            fr_from_hex("0x2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521");
-        let expected_id_commitment_seed_bytes =
-            fr_from_hex("0x68b66aa0a8320d2e56842581553285393188714c48f9b17acd198b4f1734c5c");
+        let expected_identity_trapdoor_seed_bytes = Fr::from(
+            BigUint::from_str_radix(
+                "766ce6c7e7a01bdf5b3f257616f603918c30946fa23480f2859c597817e6716",
+                16,
+            )
+            .unwrap(),
+        );
+        let expected_identity_nullifier_seed_bytes = Fr::from(
+            BigUint::from_str_radix(
+                "1f18714c7bc83b5bca9e89d404cf6f2f585bc4c0f7ed8b53742b7e2b298f50b4",
+                16,
+            )
+            .unwrap(),
+        );
+        let expected_identity_secret_seed_bytes = Fr::from(
+            BigUint::from_str_radix(
+                "2aca62aaa7abaf3686fff2caf00f55ab9462dc12db5b5d4bcf3994e671f8e521",
+                16,
+            )
+            .unwrap(),
+        );
+        let expected_id_commitment_seed_bytes = Fr::from(
+            BigUint::from_str_radix(
+                "68b66aa0a8320d2e56842581553285393188714c48f9b17acd198b4f1734c5c",
+                16,
+            )
+            .unwrap(),
+        );
 
         assert_eq!(identity_trapdoor, expected_identity_trapdoor_seed_bytes);
         assert_eq!(identity_nullifier, expected_identity_nullifier_seed_bytes);

@@ -13,32 +13,24 @@ mod test {
 
     type StatefulRLN = RLN<Stateful<PmTree>, ArkGroth16Backend>;
 
-    fn fq_from_str(s: &str) -> Fq {
-        Fq::from_str(s).unwrap()
-    }
-
-    fn fr_from_dec(s: &str) -> Fr {
-        Fr::from_str(s).unwrap()
-    }
-
     fn g1_from_str(g1: &[String]) -> G1Affine {
-        let x = fq_from_str(&g1[0]);
-        let y = fq_from_str(&g1[1]);
-        let z = fq_from_str(&g1[2]);
+        let x = Fq::from_str(&g1[0]).unwrap();
+        let y = Fq::from_str(&g1[1]).unwrap();
+        let z = Fq::from_str(&g1[2]).unwrap();
         G1Affine::from(G1Projective::new(x, y, z))
     }
 
     fn g2_from_str(g2: &[Vec<String>]) -> G2Affine {
-        let c0 = fq_from_str(&g2[0][0]);
-        let c1 = fq_from_str(&g2[0][1]);
+        let c0 = Fq::from_str(&g2[0][0]).unwrap();
+        let c1 = Fq::from_str(&g2[0][1]).unwrap();
         let x = Fq2::new(c0, c1);
 
-        let c0 = fq_from_str(&g2[1][0]);
-        let c1 = fq_from_str(&g2[1][1]);
+        let c0 = Fq::from_str(&g2[1][0]).unwrap();
+        let c1 = Fq::from_str(&g2[1][1]).unwrap();
         let y = Fq2::new(c0, c1);
 
-        let c0 = fq_from_str(&g2[2][0]);
-        let c1 = fq_from_str(&g2[2][1]);
+        let c0 = Fq::from_str(&g2[2][0]).unwrap();
+        let c1 = Fq::from_str(&g2[2][1]).unwrap();
         let z = Fq2::new(c0, c1);
 
         G2Affine::from(G2Projective::new(x, y, z))
@@ -187,23 +179,28 @@ mod test {
             "curve": "bn128"
         });
 
-        let x = fr_from_dec(
+        let x = Fr::from_str(
             "20645213238265527935869146898028115621427162613172918400241870500502509785943",
-        );
+        )
+        .unwrap();
         let proof_values = RLNProofValues::Single(RLNProofValuesSingle {
-            root: fr_from_dec(
+            root: Fr::from_str(
                 "8502402278351299594663821509741133196466235670407051417832304486953898514733",
-            ),
-            y: fr_from_dec(
+            )
+            .unwrap(),
+            y: Fr::from_str(
                 "16401008481486069296141645075505218976370369489687327284155463920202585288271",
-            ),
-            nullifier: fr_from_dec(
+            )
+            .unwrap(),
+            nullifier: Fr::from_str(
                 "9102791780887227194595604713537772536258726662792598131262022534710887343694",
-            ),
+            )
+            .unwrap(),
             x,
-            external_nullifier: fr_from_dec(
+            external_nullifier: Fr::from_str(
                 "21074405743803627666274838159589343934394162804826017440941339048886754734203",
-            ),
+            )
+            .unwrap(),
         });
 
         let ark_proof = ark_proof_from_snarkjs(&snarkjs_proof);
@@ -245,29 +242,34 @@ mod test {
             "curve": "bn128"
         });
 
-        let x = fr_from_dec(
+        let x = Fr::from_str(
             "19797305253341717859481321525229680688216104810745023646128001903445473018856",
-        );
+        )
+        .unwrap();
         let proof_values = RLNProofValues::Multi(RLNProofValuesMulti {
-            root: fr_from_dec(
+            root: Fr::from_str(
                 "3431095415998240809893928695882631208288185026672939778030884659225595068838",
-            ),
+            )
+            .unwrap(),
             x,
-            external_nullifier: fr_from_dec(
+            external_nullifier: Fr::from_str(
                 "21092292729219847360221935824233974597185442347481349054190488583986042064831",
-            ),
+            )
+            .unwrap(),
             ys: vec![
-                fr_from_dec(
+                Fr::from_str(
                     "143052188957058141710854771333369177356024382963719479956590549598262357586",
-                ),
+                )
+                .unwrap(),
                 Fr::from(0),
                 Fr::from(0),
                 Fr::from(0),
             ],
             nullifiers: vec![
-                fr_from_dec(
+                Fr::from_str(
                     "8499590175743632905717993598500718325843782253409297097332874882649203313309",
-                ),
+                )
+                .unwrap(),
                 Fr::from(0),
                 Fr::from(0),
                 Fr::from(0),

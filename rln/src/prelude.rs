@@ -15,8 +15,8 @@ pub use crate::{
         Zkey, COMPRESS_PROOF_SIZE, DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH,
     },
     error::{
-        GenerateProofError, RLNPartialWitnessInputError, RLNWitnessInputMultiError,
-        RLNWitnessInputSingleError, RecoverSecretError, SerializationError, VerifyProofError,
+        GenerateProofError, PartialWitnessInputError, RecoverSecretError, SerializationError,
+        VerifyProofError, WitnessInputMultiError, WitnessInputSingleError,
     },
     hashers::{
         hash_to_field_be, hash_to_field_le, poseidon_hash, poseidon_hash_pair,

@@ -48,7 +48,7 @@ mod test {
             .build();
         assert!(matches!(
             result,
-            Err(RLNWitnessInputSingleError::InvalidMessageId(_, _))
+            Err(WitnessInputSingleError::InvalidMessageId(_, _))
         ));
 
         // message_id > user_message_limit fails
@@ -63,7 +63,7 @@ mod test {
             .build();
         assert!(matches!(
             result,
-            Err(RLNWitnessInputSingleError::InvalidMessageId(_, _))
+            Err(WitnessInputSingleError::InvalidMessageId(_, _))
         ));
 
         // user_message_limit == 0 fails
@@ -78,7 +78,7 @@ mod test {
             .build();
         assert!(matches!(
             result,
-            Err(RLNWitnessInputSingleError::ZeroUserMessageLimit)
+            Err(WitnessInputSingleError::ZeroUserMessageLimit)
         ));
 
         // path_elements and identity_path_index length mismatch fails
@@ -93,7 +93,7 @@ mod test {
             .build();
         assert!(matches!(
             result,
-            Err(RLNWitnessInputSingleError::PathLengthMismatch(_, _))
+            Err(WitnessInputSingleError::PathLengthMismatch(_, _))
         ));
     }
 
@@ -109,7 +109,7 @@ mod test {
         let new_multi = |message_ids: Vec<Fr>,
                          selector_used: Vec<bool>,
                          user_message_limit: Fr|
-         -> Result<RLNWitnessInput, RLNWitnessInputMultiError> {
+         -> Result<RLNWitnessInput, WitnessInputMultiError> {
             RLNWitnessInput::new_multi()
                 .identity_secret(identity_secret.clone())
                 .user_message_limit(user_message_limit)
@@ -125,7 +125,7 @@ mod test {
         // Empty message_ids fails
         assert!(matches!(
             new_multi(vec![], vec![], user_message_limit).unwrap_err(),
-            RLNWitnessInputMultiError::EmptyMessageIds
+            WitnessInputMultiError::EmptyMessageIds
         ));
 
         // Mismatched selector_used length to message_ids length fails
@@ -136,7 +136,7 @@ mod test {
                 user_message_limit
             )
             .unwrap_err(),
-            RLNWitnessInputMultiError::SelectorLengthMismatch(_, _)
+            WitnessInputMultiError::SelectorLengthMismatch(_, _)
         ));
 
         // Active message_id >= limit fails
@@ -147,7 +147,7 @@ mod test {
                 user_message_limit
             )
             .unwrap_err(),
-            RLNWitnessInputMultiError::InvalidMessageId(_, _)
+            WitnessInputMultiError::InvalidMessageId(_, _)
         ));
 
         // Inactive message_id >= limit succeeds
@@ -161,7 +161,7 @@ mod test {
         // Zero user_message_limit fails
         assert!(matches!(
             new_multi(vec![Fr::from(0)], vec![true], Fr::from(0)).unwrap_err(),
-            RLNWitnessInputMultiError::ZeroUserMessageLimit
+            WitnessInputMultiError::ZeroUserMessageLimit
         ));
 
         // Duplicate active message_ids fails
@@ -172,7 +172,7 @@ mod test {
                 user_message_limit
             )
             .unwrap_err(),
-            RLNWitnessInputMultiError::DuplicateMessageIds
+            WitnessInputMultiError::DuplicateMessageIds
         ));
 
         // Duplicate message_ids when inactive succeeds (only active IDs are checked)
@@ -191,7 +191,7 @@ mod test {
                 user_message_limit
             )
             .unwrap_err(),
-            RLNWitnessInputMultiError::NoActiveSelectorUsed
+            WitnessInputMultiError::NoActiveSelectorUsed
         ));
 
         // Valid multi-message witness
@@ -227,7 +227,7 @@ mod test {
             .build();
         assert!(matches!(
             result,
-            Err(RLNPartialWitnessInputError::ZeroUserMessageLimit)
+            Err(PartialWitnessInputError::ZeroUserMessageLimit)
         ));
 
         // path_elements and identity_path_index length mismatch fails
@@ -239,7 +239,7 @@ mod test {
             .build();
         assert!(matches!(
             result,
-            Err(RLNPartialWitnessInputError::PathLengthMismatch(_, _))
+            Err(PartialWitnessInputError::PathLengthMismatch(_, _))
         ));
     }
 

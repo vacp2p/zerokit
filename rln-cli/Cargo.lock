@@ -1201,6 +1201,7 @@ dependencies = [
  "bon",
  "byteorder",
  "num-bigint",
+ "num-traits",
  "prost",
  "rand 0.8.6",
  "rand_chacha 0.3.1",
