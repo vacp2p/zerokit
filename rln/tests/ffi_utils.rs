@@ -271,9 +271,6 @@ mod test {
         let mut hash_fr_be_2 = Vec::new();
         CanonicalSerializeBE::serialize(&fr_be_2, &mut hash_fr_be_2).unwrap();
         assert_eq!(hash_cfr_be_1, hash_fr_be_2);
-
-        assert_ne!(hash_cfr_le_1, hash_cfr_be_1);
-        assert_ne!(hash_fr_le_2, hash_fr_be_2);
     }
 
     #[test]

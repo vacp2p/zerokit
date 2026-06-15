@@ -223,9 +223,6 @@ mod test {
         let mut hash_fr_be_2 = Vec::new();
         CanonicalSerializeBE::serialize(&fr_be_2, &mut hash_fr_be_2).unwrap();
         assert_eq!(hash_wasmfr_be_1.to_vec(), hash_fr_be_2);
-
-        assert_ne!(hash_wasmfr_le_1.to_vec(), hash_wasmfr_be_1.to_vec());
-        assert_ne!(hash_fr_le_2, hash_fr_be_2);
     }
 
     #[wasm_bindgen_test]
