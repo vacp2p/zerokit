@@ -12,6 +12,7 @@ use crate::{
     hashers::poseidon_hash,
 };
 
+//TODO(PR11): this should be added to a MerkleProof type or something similar
 /// Computes the Merkle tree root from identity credentials and Merkle membership proof.
 fn compute_tree_root(
     identity_secret: &IdSecret,

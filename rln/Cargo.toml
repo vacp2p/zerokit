@@ -87,7 +87,11 @@ parallel = [
 headers = ["safer-ffi/headers"] # Generate C header file with safer-ffi
 
 [[bench]]
-name = "generate_proof"
+name = "generate_proof_benchmark"
+harness = false
+
+[[bench]]
+name = "pm_tree_benchmark"
 harness = false
 
 [package.metadata.docs.rs]

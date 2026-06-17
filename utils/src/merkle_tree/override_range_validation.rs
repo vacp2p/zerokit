@@ -15,11 +15,11 @@ pub enum EmptyIndicesPolicy {
 
 /// Validates and normalizes `override_range` inputs.
 ///
-/// `start + leaves_len` is checked with `checked_add` to prevent overflow and
+/// `start + leaf_count` is checked with `checked_add` to prevent overflow and
 /// all indices are normalized (sorted and deduplicated) before use.
 pub fn validate_override_range_inputs(
     start: usize,
-    leaves_len: usize,
+    leaf_count: usize,
     mut indices: Vec<usize>,
     capacity: usize,
     empty_indices_policy: EmptyIndicesPolicy,
@@ -37,11 +37,11 @@ pub fn validate_override_range_inputs(
 
     let min_index = indices.first().copied();
 
-    let max_index = if leaves_len == 0 {
+    let max_index = if leaf_count == 0 {
         None
     } else {
         let end = start
-            .checked_add(leaves_len)
+            .checked_add(leaf_count)
             .ok_or(ZerokitMerkleTreeError::TooManySet)?;
         if end > capacity {
             return Err(ZerokitMerkleTreeError::TooManySet);
@@ -81,7 +81,7 @@ mod test {
         )
         .unwrap();
         assert_eq!(validated.min_index, Some(0));
-        assert_eq!(validated.max_index, Some(5)); // start + leaves_len
+        assert_eq!(validated.max_index, Some(5)); // start + leaf_count
         assert_eq!(validated.indices, vec![0, 1]); // sorted
     }
 

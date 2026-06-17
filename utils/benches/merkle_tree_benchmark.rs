@@ -56,19 +56,19 @@ static LEAVES: LazyLock<Vec<TestFr>> = LazyLock::new(|| {
 
 static INDICES: LazyLock<Vec<usize>> = LazyLock::new(|| (0..(1 << 20)).collect());
 
-const NOF_LEAVES: usize = 8192;
+const LEAF_COUNT: usize = 8192;
 
 pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
     let mut tree =
         OptimalMerkleTree::<Keccak256>::new(20, TestFr([0; 32]), OptimalMerkleConfig::default())
             .unwrap();
 
-    for i in 0..NOF_LEAVES {
+    for i in 0..LEAF_COUNT {
         tree.set(i, LEAVES[i % LEAVES.len()]).unwrap();
     }
 
     c.bench_function("OptimalMerkleTree::set", |b| {
-        let mut index = NOF_LEAVES;
+        let mut index = LEAF_COUNT;
         b.iter(|| {
             tree.set(index % (1 << 20), LEAVES[index % LEAVES.len()])
                 .unwrap();
@@ -79,32 +79,32 @@ pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
     c.bench_function("OptimalMerkleTree::delete", |b| {
         let mut index = 0;
         b.iter(|| {
-            tree.delete(index % NOF_LEAVES).unwrap();
-            tree.set(index % NOF_LEAVES, LEAVES[index % LEAVES.len()])
+            tree.delete(index % LEAF_COUNT).unwrap();
+            tree.set(index % LEAF_COUNT, LEAVES[index % LEAVES.len()])
                 .unwrap();
-            index = (index + 1) % NOF_LEAVES;
+            index = (index + 1) % LEAF_COUNT;
         })
     });
 
     c.bench_function("OptimalMerkleTree::override_range", |b| {
         let mut offset = 0;
         b.iter(|| {
-            let range = offset..offset + NOF_LEAVES;
+            let range = offset..offset + LEAF_COUNT;
             tree.override_range(
                 offset,
                 LEAVES[range.clone()].iter().cloned(),
                 INDICES[range.clone()].iter().cloned(),
             )
             .unwrap();
-            offset = (offset + NOF_LEAVES) % (1 << 20);
+            offset = (offset + LEAF_COUNT) % (1 << 20);
         })
     });
 
     c.bench_function("OptimalMerkleTree::get", |b| {
         let mut index = 0;
         b.iter(|| {
-            tree.get(index % NOF_LEAVES).unwrap();
-            index = (index + 1) % NOF_LEAVES;
+            tree.get(index % LEAF_COUNT).unwrap();
+            index = (index + 1) % LEAF_COUNT;
         })
     });
 
@@ -130,12 +130,12 @@ pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
     let mut tree =
         FullMerkleTree::<Keccak256>::new(20, TestFr([0; 32]), FullMerkleConfig::default()).unwrap();
 
-    for i in 0..NOF_LEAVES {
+    for i in 0..LEAF_COUNT {
         tree.set(i, LEAVES[i % LEAVES.len()]).unwrap();
     }
 
     c.bench_function("FullMerkleTree::set", |b| {
-        let mut index = NOF_LEAVES;
+        let mut index = LEAF_COUNT;
         b.iter(|| {
             tree.set(index % (1 << 20), LEAVES[index % LEAVES.len()])
                 .unwrap();
@@ -146,32 +146,32 @@ pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
     c.bench_function("FullMerkleTree::delete", |b| {
         let mut index = 0;
         b.iter(|| {
-            tree.delete(index % NOF_LEAVES).unwrap();
-            tree.set(index % NOF_LEAVES, LEAVES[index % LEAVES.len()])
+            tree.delete(index % LEAF_COUNT).unwrap();
+            tree.set(index % LEAF_COUNT, LEAVES[index % LEAVES.len()])
                 .unwrap();
-            index = (index + 1) % NOF_LEAVES;
+            index = (index + 1) % LEAF_COUNT;
         })
     });
 
     c.bench_function("FullMerkleTree::override_range", |b| {
         let mut offset = 0;
         b.iter(|| {
-            let range = offset..offset + NOF_LEAVES;
+            let range = offset..offset + LEAF_COUNT;
             tree.override_range(
                 offset,
                 LEAVES[range.clone()].iter().cloned(),
                 INDICES[range.clone()].iter().cloned(),
             )
             .unwrap();
-            offset = (offset + NOF_LEAVES) % (1 << 20);
+            offset = (offset + LEAF_COUNT) % (1 << 20);
         })
     });
 
     c.bench_function("FullMerkleTree::get", |b| {
         let mut index = 0;
         b.iter(|| {
-            tree.get(index % NOF_LEAVES).unwrap();
-            index = (index + 1) % NOF_LEAVES;
+            tree.get(index % LEAF_COUNT).unwrap();
+            index = (index + 1) % LEAF_COUNT;
         })
     });
 
@@ -193,6 +193,7 @@ pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
     });
 }
 
+// TODO(PR11): revisit this bench as part of the Merkle tree override_range work.
 /// Benchmarks `validate_override_range_inputs` in isolation against a full
 /// `override_range` call at several index-set sizes, to measure what fraction
 /// of the total cost is pure validation (sort + dedup + bounds checks).
@@ -229,7 +230,7 @@ pub fn validate_override_range_benchmark(c: &mut Criterion) {
         FullMerkleTree::<Keccak256>::new(20, TestFr([0; 32]), FullMerkleConfig::default()).unwrap();
 
     // Seed both trees so `override_range` has real data to read back.
-    for i in 0..NOF_LEAVES {
+    for i in 0..LEAF_COUNT {
         optimal_tree.set(i, LEAVES[i]).unwrap();
         full_tree.set(i, LEAVES[i]).unwrap();
     }
@@ -269,7 +270,7 @@ pub fn validate_override_range_benchmark(c: &mut Criterion) {
         );
 
         // --- full override_range (OptimalMerkleTree) ---
-        // start = n so delete indices [0..n) all lie before start, leaves_len = 1.
+        // start = n so delete indices [0..n) all lie before start, leaf_count = 1.
         let start = n.min(CAPACITY - 1);
         group.bench_with_input(
             BenchmarkId::new("OptimalMerkleTree/override_range", n),

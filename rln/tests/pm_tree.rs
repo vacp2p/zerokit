@@ -501,13 +501,13 @@ mod test {
     #[test]
     fn test_pmtree_subtree_root() {
         const DEPTH: usize = 3;
-        const LEAVES_LEN: usize = 8;
+        const LEAF_COUNT: usize = 8;
 
         let mut tree = PmTree::new(DEPTH, Fr::from(0), temp_config()).unwrap();
-        let leaves: Vec<Fr> = (0..LEAVES_LEN).map(|s| Fr::from(s as i32)).collect();
+        let leaves: Vec<Fr> = (0..LEAF_COUNT).map(|s| Fr::from(s as i32)).collect();
         tree.set_range(0, leaves.into_iter()).unwrap();
 
-        for i in 0..LEAVES_LEN {
+        for i in 0..LEAF_COUNT {
             // check leaves
             assert_eq!(
                 tree.get(i).unwrap(),

@@ -9,7 +9,7 @@ mod test {
     use serde_json::{json, Value};
     use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
 
-    const NO_OF_LEAVES: usize = 256;
+    const LEAF_COUNT: usize = 256;
 
     type StatefulRLN = RLN<Stateful<PmTree>, ArkGroth16Backend>;
 
@@ -101,7 +101,7 @@ mod test {
     }
 
     fn random_leaves(rng: &mut ThreadRng) -> Vec<Fr> {
-        (0..NO_OF_LEAVES).map(|_| Fr::rand(rng)).collect()
+        (0..LEAF_COUNT).map(|_| Fr::rand(rng)).collect()
     }
 
     fn setup_rln_proof(
@@ -153,6 +153,7 @@ mod test {
     fn test_groth16_proof_hardcoded_single() {
         let rln = RLNBuilder::stateless().build();
 
+        // This proof was generated against the single-circuit manually using snarkjs
         let snarkjs_proof = json!({
             "pi_a": [
                 "606446415626469993821291758185575230335423926365686267140465300918089871829",
@@ -216,6 +217,7 @@ mod test {
             .zkey(default_zkey_multi().clone())
             .build();
 
+        // This proof was generated against the multi-circuit manually using snarkjs
         let snarkjs_proof = json!({
             "pi_a": [
                 "18065030346679405936314703365313027854666139282416381597863520591326000485770",
@@ -348,19 +350,19 @@ mod test {
         for leaf in &leaves {
             rln.set_next_leaf(*leaf).unwrap();
         }
-        assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
+        assert_eq!(rln.leaves_set(), LEAF_COUNT);
         assert_eq!(rln.get_root(), root_single);
 
         // Batch insert
         rln.init_tree_with_leaves(leaves.clone()).unwrap();
-        assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
+        assert_eq!(rln.leaves_set(), LEAF_COUNT);
         assert_eq!(rln.get_root(), root_single);
 
         // Delete every leaf; root must match a fresh empty tree
-        for i in 0..NO_OF_LEAVES {
+        for i in 0..LEAF_COUNT {
             rln.delete_leaf(i).unwrap();
         }
-        assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
+        assert_eq!(rln.leaves_set(), LEAF_COUNT);
         let root_after_delete = rln.get_root();
 
         let rln_empty = create_rln(DEFAULT_TREE_DEPTH);
@@ -371,11 +373,11 @@ mod test {
     fn test_leaf_setting_with_index() {
         let mut rng = thread_rng();
         let leaves = random_leaves(&mut rng);
-        let set_index = rng.gen_range(0..NO_OF_LEAVES) as usize;
+        let set_index = rng.gen_range(0..LEAF_COUNT) as usize;
 
         let mut rln = create_rln(DEFAULT_TREE_DEPTH);
         rln.init_tree_with_leaves(leaves.clone()).unwrap();
-        assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
+        assert_eq!(rln.leaves_set(), LEAF_COUNT);
         let root_batch = rln.get_root();
 
         let mut rln = create_rln(DEFAULT_TREE_DEPTH);
@@ -383,14 +385,14 @@ mod test {
             .unwrap();
         rln.set_leaves_from(set_index, leaves[set_index..].to_vec())
             .unwrap();
-        assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
+        assert_eq!(rln.leaves_set(), LEAF_COUNT);
         assert_eq!(rln.get_root(), root_batch);
 
         let mut rln = create_rln(DEFAULT_TREE_DEPTH);
         for leaf in &leaves {
             rln.set_next_leaf(*leaf).unwrap();
         }
-        assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
+        assert_eq!(rln.leaves_set(), LEAF_COUNT);
         assert_eq!(rln.get_root(), root_batch);
 
         rln.flush().unwrap();
@@ -402,12 +404,12 @@ mod test {
 
         let mut rln = create_rln(DEFAULT_TREE_DEPTH);
         rln.init_tree_with_leaves(leaves.clone()).unwrap();
-        assert_eq!(rln.leaves_set(), NO_OF_LEAVES);
+        assert_eq!(rln.leaves_set(), LEAF_COUNT);
         let root_after_insert = rln.get_root();
 
         // Atomic set+delete on the same index is a no-op
         let last_leaf = *leaves.last().unwrap();
-        let last_leaf_index = NO_OF_LEAVES - 1;
+        let last_leaf_index = LEAF_COUNT - 1;
         rln.atomic_operation(last_leaf_index, vec![last_leaf], vec![last_leaf_index])
             .unwrap();
 
@@ -437,7 +439,7 @@ mod test {
         rln.init_tree_with_leaves(leaves).unwrap();
         let root_after_insert = rln.get_root();
 
-        let set_index = rng.gen_range(0..NO_OF_LEAVES) as usize;
+        let set_index = rng.gen_range(0..LEAF_COUNT) as usize;
         rln.atomic_operation(0, vec![], vec![set_index]).unwrap();
 
         assert_ne!(rln.get_root(), root_after_insert);
@@ -448,7 +450,7 @@ mod test {
     fn test_set_leaves_bad_index() {
         let mut rng = thread_rng();
         let leaves = random_leaves(&mut rng);
-        let bad_index = (1 << DEFAULT_TREE_DEPTH) - rng.gen_range(0..NO_OF_LEAVES) as usize;
+        let bad_index = (1 << DEFAULT_TREE_DEPTH) - rng.gen_range(0..LEAF_COUNT) as usize;
 
         let mut rln = create_rln(DEFAULT_TREE_DEPTH);
         let root_empty = rln.get_root();
@@ -492,7 +494,7 @@ mod test {
     fn test_stateful_rln_proof() {
         let mut rng = thread_rng();
         let mut leaves: Vec<Fr> = Vec::new();
-        for _ in 0..NO_OF_LEAVES {
+        for _ in 0..LEAF_COUNT {
             let id_commitment = Fr::rand(&mut rng);
             let rate_commitment = poseidon_hash_pair(id_commitment, Fr::from(100));
             leaves.push(rate_commitment);

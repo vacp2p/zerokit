@@ -9,7 +9,7 @@ mod test {
     };
     use safer_ffi::prelude::repr_c;
 
-    const NO_OF_LEAVES: usize = 256;
+    const LEAF_COUNT: usize = 256;
 
     macro_rules! unwrap_ok {
         ($result:expr, $context:expr $(,)?) => {
@@ -36,9 +36,9 @@ mod test {
         ffi_rln_new_with_pm_tree_default()
     }
 
-    fn random_leaves(no_of_leaves: usize) -> Vec<CFr> {
+    fn random_leaves(leaf_count: usize) -> Vec<CFr> {
         let mut rng = thread_rng();
-        (0..no_of_leaves)
+        (0..leaf_count)
             .map(|_| CFr::from(Fr::rand(&mut rng)))
             .collect()
     }
@@ -103,7 +103,7 @@ mod test {
 
     #[test]
     fn test_merkle_operations() {
-        let leaves = random_leaves(NO_OF_LEAVES);
+        let leaves = random_leaves(LEAF_COUNT);
 
         // We create a new RLN instance
         let mut rln = create_rln_instance();
@@ -125,7 +125,7 @@ mod test {
                 "ffi_rln_set_next_leaf",
             );
         }
-        assert_eq!(ffi_rln_leaves_set(&rln), NO_OF_LEAVES);
+        assert_eq!(ffi_rln_leaves_set(&rln), LEAF_COUNT);
         let root_next = ffi_rln_get_root(&rln);
         assert_eq!(*root_single, *root_next);
 
@@ -135,15 +135,15 @@ mod test {
             ffi_rln_init_tree_with_leaves(&mut rln, &leaves.clone().into()),
             "ffi_rln_init_tree_with_leaves",
         );
-        assert_eq!(ffi_rln_leaves_set(&rln), NO_OF_LEAVES);
+        assert_eq!(ffi_rln_leaves_set(&rln), LEAF_COUNT);
         let root_batch = ffi_rln_get_root(&rln);
         assert_eq!(*root_single, *root_batch);
 
         // We now delete all leaves set and check if the root corresponds to the empty tree root
-        for i in 0..NO_OF_LEAVES {
+        for i in 0..LEAF_COUNT {
             assert_bool_ok(ffi_rln_delete_leaf(&mut rln, i), "ffi_rln_delete_leaf");
         }
-        assert_eq!(ffi_rln_leaves_set(&rln), NO_OF_LEAVES);
+        assert_eq!(ffi_rln_leaves_set(&rln), LEAF_COUNT);
         let root_delete = ffi_rln_get_root(&rln);
 
         let rln_empty = create_rln_instance();
@@ -154,8 +154,8 @@ mod test {
     #[test]
     fn test_leaf_setting_with_index() {
         let mut rng = thread_rng();
-        let leaves = random_leaves(NO_OF_LEAVES);
-        let set_index = rng.gen_range(0..NO_OF_LEAVES) as usize;
+        let leaves = random_leaves(LEAF_COUNT);
+        let set_index = rng.gen_range(0..LEAF_COUNT) as usize;
 
         // We add leaves in a single batch
         let mut rln = create_rln_instance();
@@ -163,7 +163,7 @@ mod test {
             ffi_rln_init_tree_with_leaves(&mut rln, &leaves.clone().into()),
             "ffi_rln_init_tree_with_leaves",
         );
-        assert_eq!(ffi_rln_leaves_set(&rln), NO_OF_LEAVES);
+        assert_eq!(ffi_rln_leaves_set(&rln), LEAF_COUNT);
         let root_batch_with_init = ffi_rln_get_root(&rln);
 
         // We add leaves in two batches: 0..set_index then set_index..
@@ -176,7 +176,7 @@ mod test {
             ffi_rln_set_leaves_from(&mut rln, set_index, &leaves[set_index..].to_vec().into()),
             "ffi_rln_set_leaves_from",
         );
-        assert_eq!(ffi_rln_leaves_set(&rln), NO_OF_LEAVES);
+        assert_eq!(ffi_rln_leaves_set(&rln), LEAF_COUNT);
         let root_batch_with_custom_index = ffi_rln_get_root(&rln);
 
         assert_eq!(*root_batch_with_init, *root_batch_with_custom_index);
@@ -184,18 +184,18 @@ mod test {
 
     #[test]
     fn test_atomic_operation() {
-        let leaves = random_leaves(NO_OF_LEAVES);
+        let leaves = random_leaves(LEAF_COUNT);
 
         let mut rln = create_rln_instance();
         assert_bool_ok(
             ffi_rln_init_tree_with_leaves(&mut rln, &leaves.clone().into()),
             "ffi_rln_init_tree_with_leaves",
         );
-        assert_eq!(ffi_rln_leaves_set(&rln), NO_OF_LEAVES);
+        assert_eq!(ffi_rln_leaves_set(&rln), LEAF_COUNT);
         let root_after_insertion = ffi_rln_get_root(&rln);
 
         let last_leaf = leaves.last().unwrap();
-        let last_leaf_index = NO_OF_LEAVES - 1;
+        let last_leaf_index = LEAF_COUNT - 1;
         let indices: Vec<usize> = vec![last_leaf_index];
         let last_leaf_vec: Vec<CFr> = vec![CFr::from(**last_leaf)];
         assert_bool_ok(
@@ -215,8 +215,8 @@ mod test {
     #[test]
     fn test_set_leaves_bad_index() {
         let mut rng = thread_rng();
-        let leaves = random_leaves(NO_OF_LEAVES);
-        let bad_index = (1 << DEFAULT_TREE_DEPTH) - rng.gen_range(0..NO_OF_LEAVES) as usize;
+        let leaves = random_leaves(LEAF_COUNT);
+        let bad_index = (1 << DEFAULT_TREE_DEPTH) - rng.gen_range(0..LEAF_COUNT) as usize;
 
         let mut rln = create_rln_instance();
         let root_empty = ffi_rln_get_root(&rln);
@@ -310,7 +310,7 @@ mod test {
         let mut rln = create_rln_instance();
 
         // Pre-populate the tree
-        let leaves = random_leaves(NO_OF_LEAVES);
+        let leaves = random_leaves(LEAF_COUNT);
         assert_bool_ok(
             ffi_rln_init_tree_with_leaves(&mut rln, &leaves.into()),
             "ffi_rln_init_tree_with_leaves",
