@@ -4,12 +4,10 @@ use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
 
 fn get_test_witness() -> RLNWitnessInput {
     let leaf_index = 3;
-    // Generate identity pair
     let (identity_secret, id_commitment) = keygen();
     let user_message_limit = Fr::from(100);
     let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
 
-    // Generate merkle tree
     let mut tree = PmTree::default(DEFAULT_TREE_DEPTH).unwrap();
     tree.set(leaf_index, rate_commitment).unwrap();
 
@@ -18,7 +16,6 @@ fn get_test_witness() -> RLNWitnessInput {
     let signal = b"hey hey";
     let x = hash_to_field_le(signal);
 
-    // We set the remaining values to random ones
     let epoch = hash_to_field_le(b"test-epoch");
     let rln_identifier = hash_to_field_le(b"test-rln-identifier");
     let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
@@ -43,20 +40,20 @@ pub fn rln_proof_benchmark(c: &mut Criterion) {
     let witness = get_test_witness();
     let partial_witness = RLNPartialWitnessInput::from(&witness);
 
-    c.bench_function("rln_generate_proof", |b| {
+    c.bench_function("RLN::generate_proof", |b| {
         b.iter(|| {
             let _ = rln.generate_proof(&witness).unwrap();
         })
     });
 
-    c.bench_function("rln_generate_partial_proof", |b| {
+    c.bench_function("RLN::generate_partial_proof", |b| {
         b.iter(|| {
             let _ = rln.generate_partial_proof(&partial_witness).unwrap();
         })
     });
 
     let partial_proof = rln.generate_partial_proof(&partial_witness).unwrap();
-    c.bench_function("rln_finish_full_proof", |b| {
+    c.bench_function("RLN::finish_proof", |b| {
         b.iter(|| {
             let _ = rln.finish_proof(&partial_proof, &witness).unwrap();
         })
