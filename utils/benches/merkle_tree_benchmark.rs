@@ -67,9 +67,16 @@ pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
         tree.set(i, LEAVES[i % LEAVES.len()]).unwrap();
     }
 
+    let mut verify_tree =
+        OptimalMerkleTree::<Keccak256>::new(20, TestFr([0; 32]), OptimalMerkleConfig::default())
+            .unwrap();
+    for i in 0..LEAF_COUNT {
+        verify_tree.set(i, LEAVES[i % LEAVES.len()]).unwrap();
+    }
+
     let cached_leaf_index = 0;
     let cached_leaf = LEAVES[cached_leaf_index];
-    let cached_proof = tree.proof(cached_leaf_index).unwrap();
+    let cached_proof = verify_tree.proof(cached_leaf_index).unwrap();
 
     let mut update_next_tree =
         OptimalMerkleTree::<Keccak256>::new(20, TestFr([0; 32]), OptimalMerkleConfig::default())
@@ -171,7 +178,7 @@ pub fn optimal_merkle_tree_benchmark(c: &mut Criterion) {
 
     c.bench_function("OptimalMerkleTree::verify", |b| {
         b.iter(|| {
-            tree.verify(&cached_leaf, &cached_proof).unwrap();
+            verify_tree.verify(&cached_leaf, &cached_proof).unwrap();
         })
     });
 
@@ -190,9 +197,15 @@ pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
         tree.set(i, LEAVES[i % LEAVES.len()]).unwrap();
     }
 
+    let mut verify_tree =
+        FullMerkleTree::<Keccak256>::new(20, TestFr([0; 32]), FullMerkleConfig::default()).unwrap();
+    for i in 0..LEAF_COUNT {
+        verify_tree.set(i, LEAVES[i % LEAVES.len()]).unwrap();
+    }
+
     let cached_leaf_index = 0;
     let cached_leaf = LEAVES[cached_leaf_index];
-    let cached_proof = tree.proof(cached_leaf_index).unwrap();
+    let cached_proof = verify_tree.proof(cached_leaf_index).unwrap();
 
     let mut update_next_tree =
         FullMerkleTree::<Keccak256>::new(20, TestFr([0; 32]), FullMerkleConfig::default()).unwrap();
@@ -293,7 +306,7 @@ pub fn full_merkle_tree_benchmark(c: &mut Criterion) {
 
     c.bench_function("FullMerkleTree::verify", |b| {
         b.iter(|| {
-            tree.verify(&cached_leaf, &cached_proof).unwrap();
+            verify_tree.verify(&cached_leaf, &cached_proof).unwrap();
         })
     });
 
