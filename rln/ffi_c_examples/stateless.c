@@ -58,7 +58,7 @@ int main(void)
 
     printf("\nCreating RLN witness\n");
     WitnessResult witness_result =
-        ffi_rln_v3_witness_input_new_single(member.identity_secret, member.user_message_limit,
+        ffi_rln_witness_input_new_single(member.identity_secret, member.user_message_limit,
                                             message_id, &path_elements, &path_index, x,
                                             external_nullifier);
     if (!witness_result.ok)
@@ -72,7 +72,7 @@ int main(void)
 
     printf("\nGenerating RLN proof\n");
     ProofResult rln_proof_result =
-        ffi_rln_v3_generate_proof(&rln_instance, &witness);
+        ffi_rln_generate_proof(&rln_instance, &witness);
     if (!rln_proof_result.ok)
     {
         fprintf(stderr, "Proof generation error: %s\n", rln_proof_result.err.ptr);
@@ -83,8 +83,8 @@ int main(void)
     printf("  - proof generated successfully\n");
 
     printf("\nGetting RLN proof values\n");
-    ProofValues *proof_values = ffi_rln_v3_proof_get_values(&rln_proof);
-    CFrResult y_result = ffi_rln_v3_proof_values_get_y(&proof_values);
+    ProofValues *proof_values = ffi_rln_proof_get_values(&rln_proof);
+    CFrResult y_result = ffi_rln_proof_values_get_y(&proof_values);
     if (!y_result.ok)
     {
         fprintf(stderr, "Get y error: %s\n", y_result.err.ptr);
@@ -93,7 +93,7 @@ int main(void)
     }
     print_cfr("y", y_result.ok);
     ffi_cfr_free(y_result.ok);
-    CFrResult nullifier_result = ffi_rln_v3_proof_values_get_nullifier(&proof_values);
+    CFrResult nullifier_result = ffi_rln_proof_values_get_nullifier(&proof_values);
     if (!nullifier_result.ok)
     {
         fprintf(stderr, "Get nullifier error: %s\n", nullifier_result.err.ptr);
@@ -102,20 +102,20 @@ int main(void)
     }
     print_cfr("nullifier", nullifier_result.ok);
     ffi_cfr_free(nullifier_result.ok);
-    CFr *proof_values_root = ffi_rln_v3_proof_values_get_root(&proof_values);
+    CFr *proof_values_root = ffi_rln_proof_values_get_root(&proof_values);
     print_cfr("root", proof_values_root);
     ffi_cfr_free(proof_values_root);
-    CFr *proof_values_x = ffi_rln_v3_proof_values_get_x(&proof_values);
+    CFr *proof_values_x = ffi_rln_proof_values_get_x(&proof_values);
     print_cfr("x", proof_values_x);
     ffi_cfr_free(proof_values_x);
     CFr *proof_values_external_nullifier =
-        ffi_rln_v3_proof_values_get_external_nullifier(&proof_values);
+        ffi_rln_proof_values_get_external_nullifier(&proof_values);
     print_cfr("external nullifier", proof_values_external_nullifier);
     ffi_cfr_free(proof_values_external_nullifier);
 
     printf("\nVerifying proof\n");
     CBoolResult verify_result =
-        ffi_rln_v3_verify_with_roots(&rln_instance, &rln_proof, &roots, x);
+        ffi_rln_verify_with_roots(&rln_instance, &rln_proof, &roots, x);
     if (verify_result.err.ptr)
     {
         fprintf(stderr, "Proof verification error: %s\n", verify_result.err.ptr);
@@ -132,9 +132,9 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    ffi_rln_v3_proof_values_free(proof_values);
-    ffi_rln_v3_proof_free(rln_proof);
-    ffi_rln_v3_witness_input_free(witness);
+    ffi_rln_proof_values_free(proof_values);
+    ffi_rln_proof_free(rln_proof);
+    ffi_rln_witness_input_free(witness);
     ffi_cfr_free(message_id);
     ffi_cfr_free(x);
     ffi_cfr_free(external_nullifier);
@@ -147,6 +147,6 @@ int main(void)
     }
     ffi_cfr_free(default_leaf);
     member_free(&member);
-    ffi_rln_v3_free(rln_instance);
+    ffi_rln_free(rln_instance);
     return EXIT_SUCCESS;
 }

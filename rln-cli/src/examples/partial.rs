@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use rln::prelude::{
     default_graph_single, default_zkey_single, hash_to_field_le, keygen, poseidon_hash,
     ArkGroth16Backend, Fr, IdSecret, PartialProof, PoseidonHash, RLNBuilder,
-    RLNPartialWitnessInputV3, RLNProofValuesV3, RLNWitnessInputV3, RecoverSecret, Stateful, RLNV3,
+    RLNPartialWitnessInput, RLNProofValues, RLNWitnessInput, RecoverSecret, Stateful, RLN,
 };
 use zerokit_utils::merkle_tree::{FullMerkleTree, Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
 
@@ -71,8 +71,8 @@ impl Identity {
 }
 
 struct RLNSystem {
-    rln: RLNV3<Stateful<FullMerkleTree<PoseidonHash>>, ArkGroth16Backend>,
-    used_nullifiers: HashMap<Fr, RLNProofValuesV3>,
+    rln: RLN<Stateful<FullMerkleTree<PoseidonHash>>, ArkGroth16Backend>,
+    used_nullifiers: HashMap<Fr, RLNProofValues>,
     local_identities: HashMap<usize, Identity>,
     partial_proofs: HashMap<usize, CachedPartialProof>,
     external_nullifier: Fr,
@@ -190,7 +190,7 @@ impl RLNSystem {
         for user_index in indices {
             let identity = &self.local_identities[&user_index];
             let merkle_proof = self.rln.get_merkle_proof(user_index)?;
-            let witness = RLNWitnessInputV3::new_single()
+            let witness = RLNWitnessInput::new_single()
                 .identity_secret(identity.identity_secret.clone())
                 .user_message_limit(Fr::from(MESSAGE_LIMIT))
                 .path_elements(merkle_proof.get_path_elements())
@@ -199,7 +199,7 @@ impl RLNSystem {
                 .external_nullifier(self.external_nullifier)
                 .message_id(Fr::from(0u64))
                 .build()?;
-            let partial_witness = RLNPartialWitnessInputV3::from(&witness);
+            let partial_witness = RLNPartialWitnessInput::from(&witness);
             let partial_proof = self.rln.generate_partial_proof(&partial_witness)?;
             self.partial_proofs.insert(
                 user_index,
@@ -221,7 +221,7 @@ impl RLNSystem {
         message_id: u32,
         signal: &str,
         external_nullifier: Fr,
-    ) -> Result<RLNProofValuesV3> {
+    ) -> Result<RLNProofValues> {
         let identity = match self.local_identities.get(&user_index) {
             Some(identity) => identity,
             None => return Err(format!("User {user_index} not found").into()),
@@ -241,7 +241,7 @@ impl RLNSystem {
                 "Cached partial proof missing or stale for user {user_index}; generating fresh proof"
             );
             let merkle_proof = self.rln.get_merkle_proof(user_index)?;
-            let partial_witness = RLNPartialWitnessInputV3::new()
+            let partial_witness = RLNPartialWitnessInput::new()
                 .identity_secret(identity.identity_secret.clone())
                 .user_message_limit(Fr::from(MESSAGE_LIMIT))
                 .path_elements(merkle_proof.get_path_elements())
@@ -260,7 +260,7 @@ impl RLNSystem {
         }
 
         let cached = &self.partial_proofs[&user_index];
-        let witness = RLNWitnessInputV3::new_single()
+        let witness = RLNWitnessInput::new_single()
             .identity_secret(identity.identity_secret.clone())
             .user_message_limit(Fr::from(MESSAGE_LIMIT))
             .path_elements(cached.path_elements.clone())
@@ -289,7 +289,7 @@ impl RLNSystem {
         Ok(proof_values)
     }
 
-    fn check_nullifier(&mut self, proof_values: RLNProofValuesV3) -> Result<()> {
+    fn check_nullifier(&mut self, proof_values: RLNProofValues) -> Result<()> {
         if let Some(nullifier) = proof_values.nullifier() {
             if let Some(previous_proof_values) = self.used_nullifiers.get(&nullifier).cloned() {
                 self.handle_duplicate_nullifier(&previous_proof_values, &proof_values)?;
@@ -305,8 +305,8 @@ impl RLNSystem {
 
     fn handle_duplicate_nullifier(
         &mut self,
-        previous_proof_values: &RLNProofValuesV3,
-        current_proof_values: &RLNProofValuesV3,
+        previous_proof_values: &RLNProofValues,
+        current_proof_values: &RLNProofValues,
     ) -> Result<()> {
         if previous_proof_values.x() == current_proof_values.x()
             && previous_proof_values.y() == current_proof_values.y()

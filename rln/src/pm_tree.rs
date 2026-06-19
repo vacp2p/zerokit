@@ -1,7 +1,8 @@
-#![cfg(feature = "pmtree-ft")]
+#![cfg(not(target_arch = "wasm32"))]
 
 use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bon::bon;
 use serde_json::Value;
 use tempfile::Builder;
@@ -20,7 +21,6 @@ use zerokit_utils::{
 use crate::{
     circuit::Fr,
     hashers::{poseidon_hash, PoseidonHash},
-    utils::{bytes_le_to_fr, fr_to_bytes_le},
 };
 
 const METADATA_KEY: [u8; 8] = *b"metadata";
@@ -45,13 +45,16 @@ impl Hasher for PoseidonHash {
     type Fr = Fr;
 
     fn serialize(value: Self::Fr) -> pmtree::Value {
-        fr_to_bytes_le(&value)
+        let mut bytes = Vec::with_capacity(value.compressed_size());
+        value
+            .serialize_compressed(&mut bytes)
+            .expect("Fr serialization into a Vec cannot fail");
+        bytes
     }
 
     fn deserialize(value: pmtree::Value) -> Self::Fr {
-        // TODO: add error type to handle deserialization instead of panicking
-        let (fr, _) = bytes_le_to_fr(&value).expect("Fr deserialization must be valid");
-        fr
+        // TODO(PR11): add error type to handle deserialization instead of panicking (new PR in vacp2p_pmtree)
+        Fr::deserialize_compressed(value.as_slice()).expect("Fr deserialization must be valid")
     }
 
     fn default_leaf() -> Self::Fr {
@@ -59,7 +62,7 @@ impl Hasher for PoseidonHash {
     }
 
     fn hash(inputs: &[Self::Fr]) -> Self::Fr {
-        // TODO: change to hash_pair for this trait to use poseidon_hash_pair for PoseidonHash
+        // TODO(PR11): change to hash_pair for this trait to use poseidon_hash_pair for PoseidonHash (new PR in vacp2p_pmtree)
         poseidon_hash(inputs)
     }
 }

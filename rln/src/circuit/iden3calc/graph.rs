@@ -1,4 +1,4 @@
-// This crate is based on the code by iden3. Its preimage can be found here:
+// This module is based on the code by iden3. Its preimage can be found here:
 // https://github.com/iden3/circom-witnesscalc/blob/5cb365b6e4d9052ecc69d4567fcf5bc061c20e94/src/graph.rs
 
 use std::cmp::Ordering;
@@ -33,12 +33,10 @@ where
     a.map_err(serde::de::Error::custom)
 }
 
-#[inline(always)]
 pub(crate) fn fr_to_u256(x: &Fr) -> U256 {
     U256::from_limbs(x.into_bigint().0)
 }
 
-#[inline(always)]
 pub(crate) fn u256_to_fr(x: &U256) -> Result<Fr, String> {
     Fr::from_bigint(BigInt::new(x.into_limbs()))
         .ok_or_else(|| "Failed to convert U256 to Fr".to_string())

@@ -1,4 +1,4 @@
-// This crate provides different implementation of Merkle tree
+// This module provides different implementation of Merkle tree
 // Currently two interchangeable implementations are supported:
 //    - FullMerkleTree: each tree node is stored
 //    - OptimalMerkleTree: only nodes used to prove accumulation of set leaves are stored

@@ -1378,7 +1378,6 @@ dependencies = [
  "ark-std",
  "bon",
  "byteorder",
- "cfg-if",
  "criterion",
  "document-features",
  "num-bigint",

@@ -1,4 +1,4 @@
-// This crate provides an implementation to compute the Poseidon hash round constants and MDS matrices.
+// This module provides an implementation to compute the Poseidon hash round constants and MDS matrices.
 
 // SECURITY NOTE: The MDS matrices are generated interatively using the Grain LFSR until certain criteria are met.
 // According to the paper, such matrices have to respect some conditions which are checked by 3 different algorithms in the reference implementation.
@@ -174,7 +174,6 @@ impl PoseidonGrainLFSR {
         res
     }
 
-    #[inline]
     fn update(&mut self) -> bool {
         let new_bit = self.state[(self.head + 62) % 80]
             ^ self.state[(self.head + 51) % 80]
@@ -231,7 +230,7 @@ pub fn find_poseidon_ark_and_mds<F: PrimeField>(
     }
 
     let mut mds = Vec::<Vec<F>>::with_capacity(rate);
-    mds.resize(rate, vec![F::zero(); rate]);
+    mds.resize(rate, vec![F::ZERO; rate]);
 
     // Note that we build the MDS matrix generating 2*rate elements. If the matrix built is not secure (see checks with algorithm 1, 2, 3 in reference implementation)
     // it has to be skipped. Since here we do not implement such algorithm we allow to pass a parameter to skip generations of elements giving unsecure matrixes.
@@ -263,7 +262,7 @@ pub fn find_poseidon_ark_and_mds<F: PrimeField>(
 #[cfg(test)]
 mod test {
     use ark_bn254::Fr;
-    use num_traits::Zero;
+    use ark_ff::AdditiveGroup;
 
     use super::*;
 
@@ -284,6 +283,6 @@ mod test {
         assert_eq!(mds.len(), 2);
         assert_eq!(mds[0].len(), 2);
         assert_eq!(mds[1].len(), 2);
-        assert_ne!(mds[0][0], Fr::zero());
+        assert_ne!(mds[0][0], Fr::ZERO);
     }
 }

@@ -20,7 +20,7 @@ create_multi_witness(const Member *member, const MerkleProof *merkle_proof,
                      const Vec_CFr *message_ids, bool selector_used[MAX_OUT], const CFr *x,
                      const CFr *external_nullifier)
 {
-    return ffi_rln_v3_witness_input_new_multi(member->identity_secret,
+    return ffi_rln_witness_input_new_multi(member->identity_secret,
                                               member->user_message_limit, message_ids,
                                               &merkle_proof->path_elements,
                                               &merkle_proof->path_index, x, external_nullifier,
@@ -73,7 +73,7 @@ int main(void)
 
     printf("\nGenerating first RLN proof\n");
     ProofResult rln_proof1_result =
-        ffi_rln_v3_generate_proof(&rln_instance, &witness1);
+        ffi_rln_generate_proof(&rln_instance, &witness1);
     if (!rln_proof1_result.ok)
     {
         fprintf(stderr, "Proof generation error: %s\n", rln_proof1_result.err.ptr);
@@ -84,8 +84,8 @@ int main(void)
     printf("  - proof generated successfully\n");
 
     printf("\nGetting first RLN proof values\n");
-    ProofValues *proof_values1 = ffi_rln_v3_proof_get_values(&rln_proof1);
-    VecCFrResult ys1_result = ffi_rln_v3_proof_values_get_ys(&proof_values1);
+    ProofValues *proof_values1 = ffi_rln_proof_get_values(&rln_proof1);
+    VecCFrResult ys1_result = ffi_rln_proof_values_get_ys(&proof_values1);
     if (ys1_result.err.ptr)
     {
         fprintf(stderr, "Get ys error: %s\n", ys1_result.err.ptr);
@@ -95,7 +95,7 @@ int main(void)
     print_vec_cfr("ys", &ys1_result.ok);
     ffi_vec_cfr_free(ys1_result.ok);
     VecCFrResult nullifiers1_result =
-        ffi_rln_v3_proof_values_get_nullifiers(&proof_values1);
+        ffi_rln_proof_values_get_nullifiers(&proof_values1);
     if (nullifiers1_result.err.ptr)
     {
         fprintf(stderr, "Get nullifiers error: %s\n", nullifiers1_result.err.ptr);
@@ -104,19 +104,19 @@ int main(void)
     }
     print_vec_cfr("nullifiers", &nullifiers1_result.ok);
     ffi_vec_cfr_free(nullifiers1_result.ok);
-    CFr *proof_values1_root = ffi_rln_v3_proof_values_get_root(&proof_values1);
+    CFr *proof_values1_root = ffi_rln_proof_values_get_root(&proof_values1);
     print_cfr("root", proof_values1_root);
     ffi_cfr_free(proof_values1_root);
-    CFr *proof_values1_x = ffi_rln_v3_proof_values_get_x(&proof_values1);
+    CFr *proof_values1_x = ffi_rln_proof_values_get_x(&proof_values1);
     print_cfr("x", proof_values1_x);
     ffi_cfr_free(proof_values1_x);
     CFr *proof_values1_external_nullifier =
-        ffi_rln_v3_proof_values_get_external_nullifier(&proof_values1);
+        ffi_rln_proof_values_get_external_nullifier(&proof_values1);
     print_cfr("external nullifier", proof_values1_external_nullifier);
     ffi_cfr_free(proof_values1_external_nullifier);
 
     printf("\nVerifying first proof\n");
-    CBoolResult verify1_result = ffi_rln_v3_verify(&rln_instance, &rln_proof1, x1);
+    CBoolResult verify1_result = verify_stateful_proof(&rln_instance, &rln_proof1, x1);
     if (verify1_result.err.ptr)
     {
         fprintf(stderr, "Proof verification error: %s\n", verify1_result.err.ptr);
@@ -163,7 +163,7 @@ int main(void)
 
     printf("\nGenerating second RLN proof\n");
     ProofResult rln_proof2_result =
-        ffi_rln_v3_generate_proof(&rln_instance, &witness2);
+        ffi_rln_generate_proof(&rln_instance, &witness2);
     if (!rln_proof2_result.ok)
     {
         fprintf(stderr, "Second proof generation error: %s\n", rln_proof2_result.err.ptr);
@@ -171,11 +171,11 @@ int main(void)
         return EXIT_FAILURE;
     }
     Proof *rln_proof2 = rln_proof2_result.ok;
-    ProofValues *proof_values2 = ffi_rln_v3_proof_get_values(&rln_proof2);
+    ProofValues *proof_values2 = ffi_rln_proof_get_values(&rln_proof2);
     printf("  - second proof generated successfully\n");
 
     printf("\nVerifying second proof\n");
-    CBoolResult verify2_result = ffi_rln_v3_verify(&rln_instance, &rln_proof2, x2);
+    CBoolResult verify2_result = verify_stateful_proof(&rln_instance, &rln_proof2, x2);
     if (verify2_result.err.ptr)
     {
         fprintf(stderr, "Proof verification error: %s\n", verify2_result.err.ptr);
@@ -188,7 +188,7 @@ int main(void)
 
         printf("\nRecovering identity secret\n");
         CFrResult recover_result =
-            ffi_rln_v3_recover_id_secret(&proof_values1, &proof_values2);
+            ffi_rln_recover_id_secret(&proof_values1, &proof_values2);
         if (!recover_result.ok)
         {
             fprintf(stderr, "Identity recovery error: %s\n", recover_result.err.ptr);
@@ -206,19 +206,19 @@ int main(void)
         printf("Second proof verification failed\n");
     }
 
-    ffi_rln_v3_proof_values_free(proof_values2);
-    ffi_rln_v3_proof_free(rln_proof2);
-    ffi_rln_v3_witness_input_free(witness2);
+    ffi_rln_proof_values_free(proof_values2);
+    ffi_rln_proof_free(rln_proof2);
+    ffi_rln_witness_input_free(witness2);
     ffi_vec_cfr_free(message_ids2);
     ffi_cfr_free(x2);
-    ffi_rln_v3_proof_values_free(proof_values1);
-    ffi_rln_v3_proof_free(rln_proof1);
-    ffi_rln_v3_witness_input_free(witness1);
+    ffi_rln_proof_values_free(proof_values1);
+    ffi_rln_proof_free(rln_proof1);
+    ffi_rln_witness_input_free(witness1);
     ffi_vec_cfr_free(message_ids1);
     ffi_cfr_free(x1);
     ffi_cfr_free(external_nullifier);
-    ffi_rln_v3_merkle_proof_free(merkle_proof);
+    ffi_rln_merkle_proof_free(merkle_proof);
     member_free(&member);
-    ffi_rln_v3_free(rln_instance);
+    ffi_rln_free(rln_instance);
     return EXIT_SUCCESS;
 }

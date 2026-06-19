@@ -80,19 +80,19 @@ mod test {
         ]
         .map(TestFr);
 
-        let nof_leaves = 4;
-        let leaves: Vec<TestFr> = (1..=nof_leaves as u32).map(TestFr::from).collect();
+        let leaf_count = 4;
+        let leaves: Vec<TestFr> = (1..=leaf_count as u32).map(TestFr::from).collect();
 
         let mut tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
         assert_eq!(tree_full.root(), default_tree_root);
-        for i in 0..nof_leaves {
+        for i in 0..leaf_count {
             tree_full.set(i, leaves[i]).unwrap();
             assert_eq!(tree_full.root(), roots[i]);
         }
 
         let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
         assert_eq!(tree_opt.root(), default_tree_root);
-        for i in 0..nof_leaves {
+        for i in 0..leaf_count {
             tree_opt.set(i, leaves[i]).unwrap();
             assert_eq!(tree_opt.root(), roots[i]);
         }
@@ -222,8 +222,8 @@ mod test {
     #[test]
     fn test_get_empty_leaves_indices() {
         let depth = 4;
-        let nof_leaves: usize = 1 << (depth - 1);
-        let leaves: Vec<TestFr> = (0..nof_leaves as u32).map(TestFr::from).collect();
+        let leaf_count: usize = 1 << (depth - 1);
+        let leaves: Vec<TestFr> = (0..leaf_count as u32).map(TestFr::from).collect();
         let leaves_2: Vec<TestFr> = (0u32..2).map(TestFr::from).collect();
         let leaves_4: Vec<TestFr> = (0u32..4).map(TestFr::from).collect();
 
@@ -232,13 +232,13 @@ mod test {
         assert!(tree_full.get_empty_leaves_indices().is_empty());
 
         let mut vec_idxs = Vec::new();
-        for i in 0..nof_leaves {
+        for i in 0..leaf_count {
             vec_idxs.push(i);
             let _ = tree_full.delete(i);
             assert_eq!(tree_full.get_empty_leaves_indices(), vec_idxs);
         }
 
-        for i in (0..nof_leaves).rev() {
+        for i in (0..leaf_count).rev() {
             vec_idxs.pop();
             let _ = tree_full.set(i, leaves[i]);
             assert_eq!(tree_full.get_empty_leaves_indices(), vec_idxs);
@@ -272,12 +272,12 @@ mod test {
         assert!(tree_opt.get_empty_leaves_indices().is_empty());
 
         let mut vec_idxs = Vec::new();
-        for i in 0..nof_leaves {
+        for i in 0..leaf_count {
             vec_idxs.push(i);
             let _ = tree_opt.delete(i);
             assert_eq!(tree_opt.get_empty_leaves_indices(), vec_idxs);
         }
-        for i in (0..nof_leaves).rev() {
+        for i in (0..leaf_count).rev() {
             vec_idxs.pop();
             let _ = tree_opt.set(i, leaves[i]);
             assert_eq!(tree_opt.get_empty_leaves_indices(), vec_idxs);
@@ -310,13 +310,13 @@ mod test {
     #[test]
     fn test_subtree_root() {
         let depth = 3;
-        let nof_leaves: usize = 4;
-        let leaves: Vec<TestFr> = (0..nof_leaves as u32).map(TestFr::from).collect();
+        let leaf_count: usize = 4;
+        let leaves: Vec<TestFr> = (0..leaf_count as u32).map(TestFr::from).collect();
 
         let mut tree_full = default_full_merkle_tree(depth);
         let _ = tree_full.set_range(0, leaves.iter().cloned());
 
-        for i in 0..nof_leaves {
+        for i in 0..leaf_count {
             // check leaves
             assert_eq!(
                 tree_full.get(i).unwrap(),
@@ -346,7 +346,7 @@ mod test {
         let mut tree_opt = default_optimal_merkle_tree(depth);
         let _ = tree_opt.set_range(0, leaves.iter().cloned());
 
-        for i in 0..nof_leaves {
+        for i in 0..leaf_count {
             // check leaves
             assert_eq!(
                 tree_opt.get(i).unwrap(),
@@ -375,12 +375,12 @@ mod test {
 
     #[test]
     fn test_proof() {
-        let nof_leaves = 4;
-        let leaves: Vec<TestFr> = (0..nof_leaves as u32).map(TestFr::from).collect();
+        let leaf_count = 4;
+        let leaves: Vec<TestFr> = (0..leaf_count as u32).map(TestFr::from).collect();
 
         // We test the FullMerkleTree implementation
         let mut tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
-        for i in 0..nof_leaves {
+        for i in 0..leaf_count {
             // We set the leaves
             tree_full.set(i, leaves[i]).unwrap();
 
@@ -398,13 +398,13 @@ mod test {
 
             // We check that the proof is not valid for another leaf
             assert!(!tree_full
-                .verify(&leaves[(i + 1) % nof_leaves], &proof)
+                .verify(&leaves[(i + 1) % leaf_count], &proof)
                 .unwrap());
         }
 
         // We test the OptimalMerkleTree implementation
         let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
-        for i in 0..nof_leaves {
+        for i in 0..leaf_count {
             // We set the leaves
             tree_opt.set(i, leaves[i]).unwrap();
 
@@ -422,7 +422,7 @@ mod test {
 
             // We check that the proof is not valid for another leaf
             assert!(!tree_opt
-                .verify(&leaves[(i + 1) % nof_leaves], &proof)
+                .verify(&leaves[(i + 1) % leaf_count], &proof)
                 .unwrap());
         }
     }
@@ -444,8 +444,8 @@ mod test {
 
     #[test]
     fn test_override_range() {
-        let nof_leaves = 4;
-        let leaves: Vec<TestFr> = (0..nof_leaves as u32).map(TestFr::from).collect();
+        let leaf_count = 4;
+        let leaves: Vec<TestFr> = (0..leaf_count as u32).map(TestFr::from).collect();
 
         let new_leaves = [
             hex!("0000000000000000000000000000000000000000000000000000000000000005"),
@@ -489,13 +489,13 @@ mod test {
     #[test]
     fn test_override_range_parallel_triggered() {
         let depth = 13;
-        let nof_leaves = 8192;
+        let leaf_count = 8192;
 
         // number of leaves larger than MIN_PARALLEL_NODES to trigger parallel hashing
-        assert!(MIN_PARALLEL_NODES < nof_leaves);
+        assert!(MIN_PARALLEL_NODES < leaf_count);
 
-        let leaves: Vec<TestFr> = (0..nof_leaves as u32).map(TestFr::from).collect();
-        let indices: Vec<usize> = (0..nof_leaves).collect();
+        let leaves: Vec<TestFr> = (0..leaf_count as u32).map(TestFr::from).collect();
+        let indices: Vec<usize> = (0..leaf_count).collect();
 
         let mut tree_full = default_full_merkle_tree(depth);
 
@@ -550,8 +550,8 @@ mod test {
 
     #[test]
     fn test_verify_tampered_sibling() {
-        let nof_leaves = 4;
-        let leaves: Vec<TestFr> = (0..nof_leaves as u32).map(TestFr::from).collect();
+        let leaf_count = 4;
+        let leaves: Vec<TestFr> = (0..leaf_count as u32).map(TestFr::from).collect();
 
         let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
         tree_opt.set_range(0, leaves.iter().cloned()).unwrap();
@@ -568,8 +568,8 @@ mod test {
 
     #[test]
     fn test_verify_tampered_direction() {
-        let nof_leaves = 4;
-        let leaves: Vec<TestFr> = (0..nof_leaves as u32).map(TestFr::from).collect();
+        let leaf_count = 4;
+        let leaves: Vec<TestFr> = (0..leaf_count as u32).map(TestFr::from).collect();
 
         let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
         tree_opt.set_range(0, leaves.iter().cloned()).unwrap();
@@ -586,8 +586,8 @@ mod test {
 
     #[test]
     fn test_verify_mismatched_root() {
-        let nof_leaves = 4;
-        let leaves: Vec<TestFr> = (0..nof_leaves as u32).map(TestFr::from).collect();
+        let leaf_count = 4;
+        let leaves: Vec<TestFr> = (0..leaf_count as u32).map(TestFr::from).collect();
 
         let mut tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
         let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);

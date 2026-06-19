@@ -6,8 +6,8 @@ use std::{
 use clap::{Parser, Subcommand};
 use rln::prelude::{
     default_graph_single, default_zkey_single, hash_to_field_le, keygen, poseidon_hash,
-    ArkGroth16Backend, Fr, IdSecret, PoseidonHash, RLNBuilder, RLNProofValuesV3, RLNWitnessInputV3,
-    RecoverSecret, Stateless, DEFAULT_TREE_DEPTH, RLNV3,
+    ArkGroth16Backend, Fr, IdSecret, PoseidonHash, RLNBuilder, RLNProofValues, RLNWitnessInput,
+    RecoverSecret, Stateless, DEFAULT_TREE_DEPTH, RLN,
 };
 use zerokit_utils::merkle_tree::{
     Hasher, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
@@ -58,9 +58,9 @@ impl Identity {
 }
 
 struct RLNSystem {
-    rln: RLNV3<Stateless, ArkGroth16Backend>,
+    rln: RLN<Stateless, ArkGroth16Backend>,
     tree: OptimalMerkleTree<PoseidonHash>,
-    used_nullifiers: HashMap<Fr, RLNProofValuesV3>,
+    used_nullifiers: HashMap<Fr, RLNProofValues>,
     local_identities: HashMap<usize, Identity>,
 }
 
@@ -120,7 +120,7 @@ impl RLNSystem {
         message_id: u32,
         signal: &str,
         external_nullifier: Fr,
-    ) -> Result<RLNProofValuesV3> {
+    ) -> Result<RLNProofValues> {
         let identity = match self.local_identities.get(&user_index) {
             Some(identity) => identity,
             None => return Err(format!("User {user_index} not found").into()),
@@ -129,7 +129,7 @@ impl RLNSystem {
         let merkle_proof = self.tree.proof(user_index)?;
         let x = hash_to_field_le(signal.as_bytes());
 
-        let witness = RLNWitnessInputV3::new_single()
+        let witness = RLNWitnessInput::new_single()
             .identity_secret(identity.identity_secret.clone())
             .user_message_limit(Fr::from(MESSAGE_LIMIT))
             .path_elements(merkle_proof.get_path_elements())
@@ -157,7 +157,7 @@ impl RLNSystem {
         Ok(proof_values)
     }
 
-    fn check_nullifier(&mut self, proof_values: RLNProofValuesV3) -> Result<()> {
+    fn check_nullifier(&mut self, proof_values: RLNProofValues) -> Result<()> {
         let tree_root = self.tree.root();
 
         if proof_values.root() != tree_root {
@@ -180,8 +180,8 @@ impl RLNSystem {
 
     fn handle_duplicate_nullifier(
         &mut self,
-        previous_proof_values: &RLNProofValuesV3,
-        current_proof_values: &RLNProofValuesV3,
+        previous_proof_values: &RLNProofValues,
+        current_proof_values: &RLNProofValues,
     ) -> Result<()> {
         if previous_proof_values.x() == current_proof_values.x()
             && previous_proof_values.y() == current_proof_values.y()

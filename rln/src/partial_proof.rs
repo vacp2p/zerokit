@@ -49,7 +49,6 @@ pub struct Groth16Partial<E: Pairing, QAP: R1CSToQAP = LibsnarkReduction> {
 
 impl<E: Pairing, QAP: R1CSToQAP> Groth16Partial<E, QAP> {
     /// Precompute a partial proof from a partial assignment.
-    #[inline]
     pub fn prove_partial(
         pk: &ProvingKey<E>,
         partial_assignment: &PartialAssignment<E::ScalarField>,
@@ -58,7 +57,6 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16Partial<E, QAP> {
     }
 
     /// Finish a proof using precomputed matrices and full assignment (public/instance || witness).
-    #[inline]
     #[allow(clippy::too_many_arguments)]
     pub fn finish_proof_with_matrices(
         pk: &ProvingKey<E>,
@@ -83,7 +81,6 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16Partial<E, QAP> {
     }
 
     /// Finish a proof from a circuit and a partial proof, sampling blinding/randomness with `rng`.
-    #[inline]
     pub fn finish_proof<C: ConstraintSynthesizer<E::ScalarField>, R: RngCore>(
         pk: &ProvingKey<E>,
         circuit: C,

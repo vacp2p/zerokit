@@ -177,9 +177,9 @@ where
         leaves: I,
     ) -> Result<(), ZerokitMerkleTreeError> {
         // check if the range is valid
-        let leaves_len = leaves.len();
+        let leaf_count = leaves.len();
         let end = start
-            .checked_add(leaves_len)
+            .checked_add(leaf_count)
             .ok_or(ZerokitMerkleTreeError::TooManySet)?;
         if end > self.capacity() {
             return Err(ZerokitMerkleTreeError::TooManySet);
@@ -188,8 +188,8 @@ where
             self.nodes.insert((self.depth, start + i), leaf);
             self.cached_leaves_indices[start + i] = 1;
         }
-        self.update_hashes(start, leaves_len)?;
-        self.next_index = max(self.next_index, start + leaves_len);
+        self.update_hashes(start, leaf_count)?;
+        self.next_index = max(self.next_index, start + leaf_count);
         Ok(())
     }
 

@@ -4,14 +4,13 @@ use ark_std::{rand::thread_rng, UniformRand};
 
 use crate::{
     circuit::{
-        qap::CircomReduction, ArkGroth16Backend, CalcWitness, CalcWitnessPartial, Fr, PartialProof,
-        Proof,
+        qap::CircomReduction, ArkGroth16Backend, CalcWitness, CalcWitnessPartial, Fr, IdSecret,
+        PartialProof, Proof,
     },
-    error::{GenerateProofError, VerifyProofErrorV3},
+    error::{GenerateProofError, VerifyProofError},
     partial_proof::{Groth16Partial, PartialAssignment},
-    prelude::{CanonicalDeserializeBE, CanonicalSerializeBE, RLNPartialWitnessInputV3},
-    protocol::{proof::RLNProofValuesV3, witness::RLNWitnessInputV3},
-    utils::IdSecret,
+    prelude::{CanonicalDeserializeBE, CanonicalSerializeBE, RLNPartialWitnessInput},
+    protocol::{proof::RLNProofValues, witness::RLNWitnessInput},
 };
 
 pub trait RLNZkProof {
@@ -67,18 +66,18 @@ pub trait RLNPartialZkProof: RLNZkProof {
 }
 
 impl RLNZkProof for ArkGroth16Backend {
-    type Witness = RLNWitnessInputV3;
-    type Values = RLNProofValuesV3;
+    type Witness = RLNWitnessInput;
+    type Values = RLNProofValues;
     type Proof = Proof;
     type GenerateProofError = GenerateProofError;
-    type VerifyProofError = VerifyProofErrorV3;
+    type VerifyProofError = VerifyProofError;
 
     fn generate_proof(
         &self,
         witness: &Self::Witness,
     ) -> Result<(Self::Proof, Self::Values), Self::GenerateProofError> {
         witness.validate_against_graph(&self.graph)?;
-        let values = RLNProofValuesV3::from(witness);
+        let values = RLNProofValues::from(witness);
 
         let full_assignment = witness.calc_witness(&self.graph)?;
 
@@ -104,10 +103,10 @@ impl RLNZkProof for ArkGroth16Backend {
         values: &Self::Values,
     ) -> Result<bool, Self::VerifyProofError> {
         let public_inputs: Vec<Fr> = match values {
-            RLNProofValuesV3::Single(v) => {
+            RLNProofValues::Single(v) => {
                 vec![v.y, v.root, v.nullifier, v.x, v.external_nullifier]
             }
-            RLNProofValuesV3::Multi(v) => {
+            RLNProofValues::Multi(v) => {
                 let mut inputs =
                     Vec::with_capacity(v.ys.len() + v.nullifiers.len() + v.selector_used.len() + 3);
                 inputs.extend_from_slice(&v.ys);
@@ -129,7 +128,7 @@ impl RLNZkProof for ArkGroth16Backend {
 }
 
 impl RLNPartialZkProof for ArkGroth16Backend {
-    type PartialWitness = RLNPartialWitnessInputV3;
+    type PartialWitness = RLNPartialWitnessInput;
     type PartialProof = PartialProof;
     type GeneratePartialProofError = GenerateProofError;
     type FinishProofError = GenerateProofError;
@@ -157,7 +156,7 @@ impl RLNPartialZkProof for ArkGroth16Backend {
         witness: &Self::Witness,
     ) -> Result<(Self::Proof, Self::Values), Self::FinishProofError> {
         witness.validate_against_graph(&self.graph)?;
-        let values = RLNProofValuesV3::from(witness);
+        let values = RLNProofValues::from(witness);
 
         let full_assignment = witness.calc_witness(&self.graph)?;
 
