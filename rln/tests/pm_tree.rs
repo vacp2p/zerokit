@@ -3,14 +3,10 @@ mod test {
     use std::path::PathBuf;
 
     use ark_ff::AdditiveGroup;
-    use rln::{
-        pm_tree::{PmTree, PmTreeConfig, PmTreeProof},
-        prelude::*,
-    };
+    use rln::prelude::*;
     use tempfile::TempDir;
-    use zerokit_utils::{
-        merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError},
-        pm_tree::Mode,
+    use zerokit_utils::merkle_tree::{
+        ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError,
     };
 
     const TEST_DEPTH: usize = 10;
@@ -37,7 +33,7 @@ mod test {
             .temporary(true)
             .cache_capacity(1 << 30)
             .flush_every_ms(1000)
-            .mode(Mode::LowSpace)
+            .mode(PmTreeMode::LowSpace)
             .use_compression(false)
             .build()
             .unwrap();
@@ -173,7 +169,7 @@ mod test {
         let result = PmTree::new(TEST_DEPTH, Fr::ZERO, config);
         assert!(matches!(
             result,
-            Err(ZerokitMerkleTreeError::PmtreeErrorKind(_))
+            Err(ZerokitMerkleTreeError::StorageBackend(_))
         ));
     }
 
@@ -181,10 +177,7 @@ mod test {
     fn test_pmtree_depth_shift_overflow() {
         let depth = usize::BITS as usize;
         let result = PmTree::new(depth, Fr::ZERO, temp_config());
-        assert!(matches!(
-            result,
-            Err(ZerokitMerkleTreeError::PmtreeErrorKind(_))
-        ));
+        assert!(matches!(result, Err(ZerokitMerkleTreeError::InvalidDepth)));
     }
 
     #[test]
@@ -321,11 +314,11 @@ mod test {
         let capacity = tree.capacity();
         assert!(matches!(
             tree.proof(capacity),
-            Err(ZerokitMerkleTreeError::PmtreeErrorKind(_))
+            Err(ZerokitMerkleTreeError::StorageBackend(_))
         ));
         assert!(matches!(
             tree.get(capacity),
-            Err(ZerokitMerkleTreeError::PmtreeErrorKind(_))
+            Err(ZerokitMerkleTreeError::StorageBackend(_))
         ));
     }
 
@@ -364,10 +357,13 @@ mod test {
     #[test]
     fn test_pmtree_modes() {
         let config_ht = PmTreeConfig::new()
-            .mode(Mode::HighThroughput)
+            .mode(PmTreeMode::HighThroughput)
             .build()
             .unwrap();
-        let config_ls = PmTreeConfig::new().mode(Mode::LowSpace).build().unwrap();
+        let config_ls = PmTreeConfig::new()
+            .mode(PmTreeMode::LowSpace)
+            .build()
+            .unwrap();
         let mut tree_ht = PmTree::new(TEST_DEPTH, Fr::ZERO, config_ht).unwrap();
         let mut tree_ls = PmTree::new(TEST_DEPTH, Fr::ZERO, config_ls).unwrap();
         tree_ht.set(0, Fr::from(1)).unwrap();
@@ -410,11 +406,11 @@ mod test {
         // Try overflow
         assert!(matches!(
             tree.update_next(Fr::from(16)),
-            Err(ZerokitMerkleTreeError::PmtreeErrorKind(_))
+            Err(ZerokitMerkleTreeError::StorageBackend(_))
         ));
         assert!(matches!(
             tree.set(16, Fr::from(16)),
-            Err(ZerokitMerkleTreeError::PmtreeErrorKind(_))
+            Err(ZerokitMerkleTreeError::StorageBackend(_))
         ));
     }
 

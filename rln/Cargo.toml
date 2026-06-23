@@ -61,9 +61,8 @@ document-features = { version = "0.2.12", optional = true }
 
 # Non-WASM
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-zerokit_utils = { path = "../utils", version = "1.2.0", default-features = false, features = [
-    "pmtree-ft",
-] }
+pmtree = { package = "vacp2p_pmtree", version = "2.0.3" }
+sled = { version = "0.34.7", features = ["compression"] }
 
 [dev-dependencies]
 criterion = { version = "0.8.2", features = ["html_reports"] }

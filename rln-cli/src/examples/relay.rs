@@ -8,13 +8,10 @@ use std::{
 use clap::{Parser, Subcommand};
 use rln::prelude::{
     graph_from_raw, hash_to_field_le, keygen, poseidon_hash, zkey_from_raw, ArkGroth16Backend, Fr,
-    IdSecret, PmTree, PmTreeConfig, PoseidonHash, RLNBuilder, RLNProofValues, RLNWitnessInput,
-    RecoverSecret, Stateful, RLN,
+    IdSecret, PmTree, PmTreeConfig, PmTreeMode, PoseidonHash, RLNBuilder, RLNProofValues,
+    RLNWitnessInput, RecoverSecret, Stateful, RLN,
 };
-use zerokit_utils::{
-    merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree},
-    pm_tree::Mode,
-};
+use zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
 
 const MESSAGE_LIMIT: u32 = 1;
 
@@ -87,7 +84,7 @@ impl RLNSystem {
             .temporary(false)
             .cache_capacity(1073741824)
             .flush_every_ms(500)
-            .mode(Mode::HighThroughput)
+            .mode(PmTreeMode::HighThroughput)
             .use_compression(false)
             .build()?;
         let pm_tree = PmTree::new(TREE_DEPTH, PoseidonHash::default_leaf(), pm_tree_config)?;

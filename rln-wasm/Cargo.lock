@@ -1209,9 +1209,11 @@ dependencies = [
  "safer-ffi",
  "serde",
  "serde_json",
+ "sled",
  "tempfile",
  "thiserror",
  "tiny-keccak",
+ "vacp2p_pmtree",
  "zeroize",
  "zerokit_utils",
 ]
@@ -2086,9 +2088,7 @@ dependencies = [
  "num-bigint",
  "rayon",
  "serde_json",
- "sled",
  "thiserror",
- "vacp2p_pmtree",
 ]
 
 [[package]]
