@@ -290,7 +290,7 @@ pub fn ffi_vec_u8_to_bytes_le(vec: &repr_c::Vec<u8>) -> CResult<repr_c::Vec<u8>,
 #[ffi_export]
 pub fn ffi_vec_u8_to_bytes_be(vec: &repr_c::Vec<u8>) -> CResult<repr_c::Vec<u8>, repr_c::String> {
     let mut bytes = Vec::new();
-    match CanonicalSerializeBE::serialize(&vec.to_vec(), &mut bytes) {
+    match CanonicalSerializeBE::serialize(&vec[..], &mut bytes) {
         Ok(()) => CResult {
             ok: Some(bytes.into()),
             err: None,

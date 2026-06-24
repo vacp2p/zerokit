@@ -199,25 +199,21 @@ where
         start: usize,
         leaves: I,
     ) -> Result<(), ZerokitMerkleTreeError> {
-        let mut count = 0;
-        // first count number of leaves, and check that they fit in the tree
-        // then insert into the tree
-        let leaves = leaves.into_iter().collect::<Vec<_>>();
+        let leaf_count = leaves.len();
         let end = start
-            .checked_add(leaves.len())
+            .checked_add(leaf_count)
             .ok_or(ZerokitMerkleTreeError::TooManySet)?;
         if end > self.capacity() {
             return Err(ZerokitMerkleTreeError::TooManySet);
         }
         let index = self.capacity() + start - 1;
-        leaves.into_iter().for_each(|hash| {
-            self.nodes[index + count] = hash;
-            self.cached_leaves_indices[start + count] = 1;
-            count += 1;
-        });
-        if count != 0 {
-            self.update_hashes(index, index + (count - 1))?;
-            self.next_index = max(self.next_index, start + count);
+        for (offset, hash) in leaves.enumerate() {
+            self.nodes[index + offset] = hash;
+            self.cached_leaves_indices[start + offset] = 1;
+        }
+        if leaf_count != 0 {
+            self.update_hashes(index, index + (leaf_count - 1))?;
+            self.next_index = max(self.next_index, start + leaf_count);
         }
         Ok(())
     }

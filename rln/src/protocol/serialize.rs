@@ -179,6 +179,20 @@ impl CanonicalDeserializeBE for Vec<Fr> {
     }
 }
 
+impl CanonicalSerializeBE for [u8] {
+    type Error = SerializationError;
+
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
+        writer.write_all(&serialize_usize_be(self.len()))?;
+        writer.write_all(self)?;
+        Ok(())
+    }
+
+    fn serialized_size(&self) -> usize {
+        VEC_LEN_BYTE_SIZE + self.len()
+    }
+}
+
 impl CanonicalSerializeBE for Vec<u8> {
     type Error = SerializationError;
 

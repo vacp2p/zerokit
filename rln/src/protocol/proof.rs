@@ -1,5 +1,6 @@
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use zeroize::Zeroize;
+use zerokit_utils::merkle_tree::compute_tree_root;
 
 use super::{
     slashing::compute_id_secret,
@@ -9,33 +10,8 @@ use super::{
 use crate::{
     circuit::{Fr, IdSecret, Proof},
     error::RecoverSecretError,
-    hashers::poseidon_hash,
+    hashers::{poseidon_hash, PoseidonHash},
 };
-
-//TODO(PR11): this should be added to a MerkleProof type or something similar
-/// Computes the Merkle tree root from identity credentials and Merkle membership proof.
-fn compute_tree_root(
-    identity_secret: &IdSecret,
-    user_message_limit: &Fr,
-    path_elements: &[Fr],
-    identity_path_index: &[u8],
-) -> Fr {
-    let mut to_hash = [*identity_secret.clone()];
-    let id_commitment = poseidon_hash(&to_hash);
-    to_hash[0].zeroize();
-
-    let mut root = poseidon_hash(&[id_commitment, *user_message_limit]);
-
-    for i in 0..identity_path_index.len() {
-        if identity_path_index[i] == 0 {
-            root = poseidon_hash(&[root, path_elements[i]]);
-        } else {
-            root = poseidon_hash(&[path_elements[i], root]);
-        }
-    }
-
-    root
-}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum RLNProofValues {
@@ -134,12 +110,13 @@ pub struct RLNProofValuesSingle {
 
 impl From<&RLNWitnessInputSingle> for RLNProofValuesSingle {
     fn from(w: &RLNWitnessInputSingle) -> Self {
-        let root = compute_tree_root(
-            &w.identity_secret,
-            &w.user_message_limit,
-            &w.path_elements,
-            &w.identity_path_index,
-        );
+        let mut to_hash = [*w.identity_secret.clone()];
+        let id_commitment = poseidon_hash(&to_hash);
+        to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
+        let leaf = poseidon_hash(&[id_commitment, w.user_message_limit]);
+        let root =
+            compute_tree_root::<PoseidonHash>(leaf, &w.path_elements, &w.identity_path_index);
+
         let a_0 = &w.identity_secret;
         let mut to_hash = [**a_0, w.external_nullifier, w.message_id];
         let a_1 = poseidon_hash(&to_hash);
@@ -193,12 +170,13 @@ pub struct RLNProofValuesMulti {
 
 impl From<&RLNWitnessInputMulti> for RLNProofValuesMulti {
     fn from(w: &RLNWitnessInputMulti) -> Self {
-        let root = compute_tree_root(
-            &w.identity_secret,
-            &w.user_message_limit,
-            &w.path_elements,
-            &w.identity_path_index,
-        );
+        let mut to_hash = [*w.identity_secret.clone()];
+        let id_commitment = poseidon_hash(&to_hash);
+        to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
+        let leaf = poseidon_hash(&[id_commitment, w.user_message_limit]);
+        let root =
+            compute_tree_root::<PoseidonHash>(leaf, &w.path_elements, &w.identity_path_index);
+
         let mut ys = Vec::with_capacity(w.message_ids.len());
         let mut nullifiers = Vec::with_capacity(w.message_ids.len());
         for (message_id, &selected) in w.message_ids.iter().zip(w.selector_used.iter()) {

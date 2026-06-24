@@ -91,7 +91,7 @@ where
         Ok(OptimalMerkleTree {
             depth,
             cached_nodes,
-            nodes: HashMap::with_capacity(1 << depth),
+            nodes: HashMap::new(), // Not preallocated because sparse tree only stores touched nodes, so it grows on demand
             cached_leaves_indices: vec![0; 1 << depth],
             next_index: 0,
             metadata: Vec::new(),

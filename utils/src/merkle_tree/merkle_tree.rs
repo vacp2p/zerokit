@@ -97,3 +97,21 @@ pub trait ZerokitMerkleProof {
     fn get_path_index(&self) -> Vec<Self::Index>;
     fn compute_root_from(&self, leaf: &FrOf<Self::Hasher>) -> FrOf<Self::Hasher>;
 }
+
+/// Computes a Merkle root from a leaf and a Merkle path (path elements and path index)
+pub fn compute_tree_root<H: Hasher>(
+    leaf: FrOf<H>,
+    path_elements: &[FrOf<H>],
+    path_index: &[u8],
+) -> FrOf<H> {
+    path_elements
+        .iter()
+        .zip(path_index)
+        .fold(leaf, |acc, (sibling, &index)| {
+            if index == 0 {
+                H::hash_pair(acc, *sibling)
+            } else {
+                H::hash_pair(*sibling, acc)
+            }
+        })
+}
