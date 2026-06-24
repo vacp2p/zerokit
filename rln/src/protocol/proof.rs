@@ -108,6 +108,13 @@ pub struct RLNProofValuesSingle {
     pub external_nullifier: Fr,
 }
 
+// TODO(rln-generic-hash): the RLN protocol math (this `From`, the `RLNProofValuesMulti` `From` below,
+// and `keygen.rs`) calls `poseidon_hash` at arity 1/2/3 directly (id_commitment, leaf, a_1, nullifier),
+// hardcoding Poseidon. To support another ZK hash (e.g. Poseidon2), lift these behind a variable-arity
+// hash trait and make the protocol generic over it (`RLN<State, ZKP>` has no hash param today). GATED:
+// the in-proof hash must equal what the embedded circuit computes, so a new hash only works with a
+// matching new circom-rln circuit. See CLAUDE.md backlog (generic hash plumbing). Interface unchanged
+// until a real second hash + circuit land.
 impl From<&RLNWitnessInputSingle> for RLNProofValuesSingle {
     fn from(w: &RLNWitnessInputSingle) -> Self {
         let mut to_hash = [*w.identity_secret.clone()];

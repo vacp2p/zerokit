@@ -61,7 +61,7 @@ impl Identity {
 }
 
 struct RLNSystem {
-    rln: RLN<Stateful<PmTree>, ArkGroth16Backend>,
+    rln: RLN<Stateful<PmTree<PoseidonHash>>, ArkGroth16Backend>,
     used_nullifiers: HashMap<Fr, RLNProofValues>,
     local_identities: HashMap<usize, Identity>,
 }
@@ -78,7 +78,8 @@ impl RLNSystem {
             "tree_depth": 20
         }"#
         .parse()?;
-        let pm_tree = PmTree::new(TREE_DEPTH, PoseidonHash::default_leaf(), pm_tree_config)?;
+        let pm_tree =
+            PmTree::<PoseidonHash>::new(TREE_DEPTH, PoseidonHash::default_leaf(), pm_tree_config)?;
         let rln = RLNBuilder::stateful()
             .tree(pm_tree)
             .graph(default_graph_multi().clone())

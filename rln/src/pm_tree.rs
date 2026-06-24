@@ -1,32 +1,30 @@
 #![cfg(not(target_arch = "wasm32"))]
 
-use std::{collections::HashMap, fmt::Debug, path::PathBuf, str::FromStr, thread, time::Duration};
+use std::{
+    collections::HashMap, fmt::Debug, marker::PhantomData, path::PathBuf, str::FromStr, thread,
+    time::Duration,
+};
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bon::bon;
 use pmtree::{
-    tree::Key, DBKey, Database, DatabaseErrorKind, Hasher, PmtreeErrorKind, PmtreeResult,
-    TreeErrorKind,
+    tree::Key, DBKey, Database, DatabaseErrorKind, Hasher, MerkleTree, PmtreeErrorKind,
+    PmtreeResult, TreeErrorKind,
 };
 use serde_json::Value;
 use sled::{Config, Db, Mode};
 use tempfile::Builder;
 use zerokit_utils::merkle_tree::{
-    validate_override_range_inputs, EmptyIndicesPolicy, FromConfigError, ZerokitMerkleProof,
-    ZerokitMerkleTree, ZerokitMerkleTreeError,
-};
-
-use crate::{
-    circuit::Fr,
-    hashers::{poseidon_hash, PoseidonHash},
+    validate_override_range_inputs, EmptyIndicesPolicy, FromConfigError, Hasher as ZerokitHasher,
+    ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError,
 };
 
 const METADATA_KEY: [u8; 8] = *b"metadata";
 
 pub type PmTreeMode = Mode;
 
-pub struct PmTree {
-    tree: pmtree::MerkleTree<SledDB, PoseidonHash>,
+pub struct PmTree<H: PmTreeHasher> {
+    tree: MerkleTree<SledDB, PmtreeHasherAdapter<H>>,
     /// The indices of leaves which are set into zero upto next_index.
     /// Set to 0 if the leaf is empty and set to 1 in otherwise.
     cached_leaves_indices: Vec<u8>,
@@ -34,15 +32,29 @@ pub struct PmTree {
     metadata: Vec<u8>,
 }
 
-pub struct PmTreeProof {
-    proof: pmtree::tree::MerkleProof<PoseidonHash>,
+pub struct PmTreeProof<H: PmTreeHasher> {
+    proof: pmtree::tree::MerkleProof<PmtreeHasherAdapter<H>>,
 }
 
-pub type FrOf<H> = <H as Hasher>::Fr;
+pub type FrOf<H> = <H as ZerokitHasher>::Fr;
 
-// The pmtree Hasher trait used by pmtree Merkle tree
-impl Hasher for PoseidonHash {
-    type Fr = Fr;
+// TODO(pmtree-upstream): `PmTreeHasher` + `PmtreeHasherAdapter` exist ONLY to bridge pmtree's bespoke
+// `Hasher` (serialize/deserialize + variable-arity `hash`) to zerokit's `Hasher` (`hash_pair`). Once
+// vacp2p_pmtree converges its `Hasher` to { `hash_pair`, `Fr: CanonicalSerialize + CanonicalDeserialize`,
+// internal serialize } (spec: ctx_post_v3_tree_patch.md), delete the adapter + marker and use
+// `PmTree<H: ZerokitHasher>` with `tree: pmtree::MerkleTree<SledDB, H>` directly — like Full/Optimal.
+// Public interface (`PmTree`, `PmTree<PoseidonHash>`) does NOT change.
+
+/// A zerokit [`Hasher`](ZerokitHasher) with a persistable field element — a valid [`PmTree`] backend (blanket-impl'd).
+pub trait PmTreeHasher: ZerokitHasher<Fr: CanonicalSerialize + CanonicalDeserialize> {}
+
+impl<H: ZerokitHasher<Fr: CanonicalSerialize + CanonicalDeserialize>> PmTreeHasher for H {}
+
+/// Bridges any zerokit [`Hasher`](ZerokitHasher) to pmtree's storage `Hasher` (pairs → `hash_pair`), so `PmTree<H>` needs no per-hash pmtree impl.
+pub struct PmtreeHasherAdapter<H>(PhantomData<H>);
+
+impl<H: PmTreeHasher> Hasher for PmtreeHasherAdapter<H> {
+    type Fr = FrOf<H>;
 
     fn serialize(value: Self::Fr) -> pmtree::Value {
         let mut bytes = Vec::with_capacity(value.compressed_size());
@@ -53,17 +65,17 @@ impl Hasher for PoseidonHash {
     }
 
     fn deserialize(value: pmtree::Value) -> Self::Fr {
-        // TODO(PR11): add error type to handle deserialization instead of panicking (new PR in vacp2p_pmtree)
-        Fr::deserialize_compressed(value.as_slice()).expect("Fr deserialization must be valid")
+        // TODO(pmtree-upstream): make pmtree::Hasher::deserialize fallible instead of panicking
+        Self::Fr::deserialize_compressed(value.as_slice())
+            .expect("Fr deserialization must be valid")
     }
 
     fn default_leaf() -> Self::Fr {
-        Fr::from(0)
+        H::default_leaf()
     }
 
     fn hash(inputs: &[Self::Fr]) -> Self::Fr {
-        // TODO(PR11): change to hash_pair for this trait to use poseidon_hash_pair for PoseidonHash (new PR in vacp2p_pmtree)
-        poseidon_hash(inputs)
+        H::hash_pair(inputs[0], inputs[1])
     }
 }
 
@@ -184,14 +196,14 @@ impl Default for PmTreeConfig {
     }
 }
 
-impl ZerokitMerkleTree for PmTree {
-    type Proof = PmTreeProof;
-    type Hasher = PoseidonHash;
+impl<H: PmTreeHasher> ZerokitMerkleTree for PmTree<H> {
+    type Proof = PmTreeProof<H>;
+    type Hasher = H;
     type Config = PmTreeConfig;
 
     fn default(depth: usize) -> Result<Self, ZerokitMerkleTreeError> {
         let default_config = PmTreeConfig::default();
-        PmTree::new(depth, Self::Hasher::default_leaf(), default_config)
+        Self::new(depth, Self::Hasher::default_leaf(), default_config)
     }
 
     fn new(
@@ -208,7 +220,7 @@ impl ZerokitMerkleTree for PmTree {
             }
         }
         let sled_config = config.to_sled_config();
-        let tree_loaded = pmtree::MerkleTree::load(sled_config.clone());
+        let tree_loaded = MerkleTree::<SledDB, PmtreeHasherAdapter<H>>::load(sled_config.clone());
         let tree = match tree_loaded {
             Ok(tree) => {
                 if tree.depth() != depth {
@@ -216,7 +228,7 @@ impl ZerokitMerkleTree for PmTree {
                 }
                 tree
             }
-            Err(_) => pmtree::MerkleTree::new(depth, sled_config)
+            Err(_) => MerkleTree::<SledDB, PmtreeHasherAdapter<H>>::new(depth, sled_config)
                 .map_err(|err| ZerokitMerkleTreeError::StorageBackend(err.to_string()))?,
         };
 
@@ -442,10 +454,7 @@ impl ZerokitMerkleTree for PmTree {
     }
 }
 
-type PmTreeHasher = <PmTree as ZerokitMerkleTree>::Hasher;
-type FrOfPmTreeHasher = FrOf<PmTreeHasher>;
-
-impl PmTree {
+impl<H: PmTreeHasher> PmTree<H> {
     fn remove_indices(&mut self, indices: &[usize]) -> Result<(), PmtreeErrorKind> {
         if indices.is_empty() {
             return Err(PmtreeErrorKind::TreeError(
@@ -455,7 +464,7 @@ impl PmTree {
         let start = indices[0];
         let end = indices[indices.len() - 1] + 1;
 
-        let new_leaves = (start..end).map(|_| PmTreeHasher::default_leaf());
+        let new_leaves = (start..end).map(|_| H::default_leaf());
 
         self.tree.set_range(start, new_leaves)?;
 
@@ -468,7 +477,7 @@ impl PmTree {
     fn remove_indices_and_set_leaves(
         &mut self,
         start: usize,
-        leaves: Vec<FrOfPmTreeHasher>,
+        leaves: Vec<FrOf<H>>,
         indices: &[usize],
         max_index: usize,
     ) -> Result<(), PmtreeErrorKind> {
@@ -484,7 +493,7 @@ impl PmTree {
             ));
         }
 
-        let mut set_values = vec![PmTreeHasher::default_leaf(); max_index - min_index];
+        let mut set_values = vec![H::default_leaf(); max_index - min_index];
 
         for i in min_index..start {
             if !indices.contains(&i) {
@@ -510,9 +519,9 @@ impl PmTree {
     }
 }
 
-impl ZerokitMerkleProof for PmTreeProof {
+impl<H: PmTreeHasher> ZerokitMerkleProof for PmTreeProof<H> {
     type Index = u8;
-    type Hasher = PoseidonHash;
+    type Hasher = H;
 
     fn length(&self) -> usize {
         self.proof.length()

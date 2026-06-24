@@ -9,6 +9,8 @@ use crate::{
     hashers::{poseidon_hash, poseidon_hash_pair},
 };
 
+// TODO(rln-generic-hash): id_commitment (and the other keygen fns) hardcode `poseidon_hash`. To make
+// RLN's hash swappable for another ZK hash, see the plan in `protocol/proof.rs` (circuit-gated).
 /// Generates a random RLN identity using a cryptographically secure RNG.
 ///
 /// Returns `(identity_secret, id_commitment)` where the commitment is `PoseidonHash(identity_secret)`.

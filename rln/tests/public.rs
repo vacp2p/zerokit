@@ -11,7 +11,7 @@ mod test {
 
     const LEAF_COUNT: usize = 256;
 
-    type StatefulRLN = RLN<Stateful<PmTree>, ArkGroth16Backend>;
+    type StatefulRLN = RLN<Stateful<PmTree<PoseidonHash>>, ArkGroth16Backend>;
 
     fn g1_from_str(g1: &[String]) -> G1Affine {
         let x = Fq::from_str(&g1[0]).unwrap();

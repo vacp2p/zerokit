@@ -39,7 +39,7 @@ mod test {
             .unwrap();
 
         // Indirect confirmation: create a tree with the config and verify operations work
-        let mut tree = PmTree::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
+        let mut tree = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
         let leaf = Fr::from(42);
         tree.set(0, leaf).unwrap();
         assert_eq!(tree.get(0).unwrap(), leaf);
@@ -63,7 +63,7 @@ mod test {
         let config: PmTreeConfig = json.parse().unwrap();
 
         // Verify the config by creating a persistent tree
-        let mut tree1 = PmTree::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
+        let mut tree1 = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
         let leaf = Fr::from(42);
         tree1.set(0, leaf).unwrap();
         let root1 = tree1.root();
@@ -71,7 +71,7 @@ mod test {
         drop(tree1);
 
         // Reopen and verify persistence
-        let tree2 = PmTree::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
+        let tree2 = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
         assert_eq!(tree2.get(0).unwrap(), leaf);
         assert_eq!(tree2.root(), root1);
     }
@@ -87,7 +87,7 @@ mod test {
 
     #[test]
     fn test_pmtree_tree_creation_default() {
-        let tree = PmTree::default(TEST_DEPTH).unwrap();
+        let tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
         assert_eq!(tree.depth(), TEST_DEPTH);
         assert_eq!(tree.capacity(), 1 << TEST_DEPTH);
         assert_eq!(tree.leaves_set(), 0);
@@ -96,7 +96,7 @@ mod test {
     #[test]
     fn test_pmtree_tree_creation_new() {
         let config = temp_config();
-        let tree = PmTree::new(TEST_DEPTH, Fr::from(0), config).unwrap();
+        let tree = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::from(0), config).unwrap();
         assert_eq!(tree.depth(), TEST_DEPTH);
     }
 
@@ -107,7 +107,7 @@ mod test {
         let config = persistent_config(db_path.clone());
 
         // Create and populate
-        let mut tree1 = PmTree::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
+        let mut tree1 = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
         let leaf = Fr::from(42);
         tree1.update_next(leaf).unwrap();
         let root1 = tree1.root();
@@ -116,7 +116,7 @@ mod test {
         drop(tree1);
 
         // Load and verify
-        let tree2 = PmTree::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
+        let tree2 = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
         assert_eq!(tree2.root(), root1);
         assert_eq!(tree2.metadata().unwrap(), b"test metadata");
         assert_eq!(tree2.leaves_set(), 1);
@@ -129,15 +129,15 @@ mod test {
         let db_path = temp_dir.path().join("test.db");
         let config = persistent_config(db_path);
 
-        let mut tree = PmTree::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
+        let mut tree = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
         tree.update_next(Fr::from(1)).unwrap();
         tree.close_db_connection().unwrap();
         drop(tree);
 
-        let result = PmTree::new(TEST_DEPTH + 1, Fr::ZERO, config.clone());
+        let result = PmTree::<PoseidonHash>::new(TEST_DEPTH + 1, Fr::ZERO, config.clone());
         assert!(matches!(result, Err(ZerokitMerkleTreeError::InvalidDepth)));
 
-        let tree = PmTree::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
+        let tree = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
         assert_eq!(tree.depth(), TEST_DEPTH);
         assert_eq!(tree.get(0).unwrap(), Fr::from(1));
     }
@@ -148,7 +148,7 @@ mod test {
         let db_path = temp_dir.path().join("test.db");
         let config = persistent_config(db_path);
 
-        let mut tree = PmTree::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
+        let mut tree = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
         for i in 1..=3u64 {
             tree.update_next(Fr::from(i)).unwrap();
         }
@@ -158,7 +158,7 @@ mod test {
         tree.close_db_connection().unwrap();
         drop(tree);
 
-        let tree = PmTree::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
+        let tree = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
         assert_eq!(tree.leaves_set(), 3);
         assert_eq!(tree.get_empty_leaves_indices(), empty_before);
     }
@@ -166,7 +166,7 @@ mod test {
     #[test]
     fn test_pmtree_load_nonexistent() {
         let config = persistent_config(PathBuf::from("\0invalid"));
-        let result = PmTree::new(TEST_DEPTH, Fr::ZERO, config);
+        let result = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config);
         assert!(matches!(
             result,
             Err(ZerokitMerkleTreeError::StorageBackend(_))
@@ -176,13 +176,13 @@ mod test {
     #[test]
     fn test_pmtree_depth_shift_overflow() {
         let depth = usize::BITS as usize;
-        let result = PmTree::new(depth, Fr::ZERO, temp_config());
+        let result = PmTree::<PoseidonHash>::new(depth, Fr::ZERO, temp_config());
         assert!(matches!(result, Err(ZerokitMerkleTreeError::InvalidDepth)));
     }
 
     #[test]
     fn test_pmtree_override_range_min_index_underflow() {
-        let mut tree = PmTree::new(TEST_DEPTH, Fr::ZERO, temp_config()).unwrap();
+        let mut tree = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, temp_config()).unwrap();
         let result =
             tree.override_range(0, vec![Fr::from(1)].into_iter(), vec![5usize].into_iter());
         assert!(matches!(
@@ -193,7 +193,7 @@ mod test {
 
     #[test]
     fn test_pmtree_basic_operations() {
-        let mut tree = PmTree::default(TEST_DEPTH).unwrap();
+        let mut tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
         let leaf = Fr::from(123);
         tree.set(5, leaf).unwrap();
         assert_eq!(tree.get(5).unwrap(), leaf);
@@ -203,7 +203,7 @@ mod test {
 
     #[test]
     fn test_pmtree_update_next() {
-        let mut tree = PmTree::default(TEST_DEPTH).unwrap();
+        let mut tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
         for i in 0..5 {
             tree.update_next(Fr::from(i as u64)).unwrap();
         }
@@ -215,7 +215,7 @@ mod test {
 
     #[test]
     fn test_pmtree_set_range() {
-        let mut tree = PmTree::default(TEST_DEPTH).unwrap();
+        let mut tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
         let leaves: Vec<Fr> = (0..4).map(|i| Fr::from(i as u64)).collect();
         tree.set_range(1, leaves.into_iter()).unwrap();
         assert_eq!(tree.get(1).unwrap(), Fr::from(0));
@@ -225,7 +225,7 @@ mod test {
 
     #[test]
     fn test_pmtree_delete() {
-        let mut tree = PmTree::default(TEST_DEPTH).unwrap();
+        let mut tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
         let leaf = Fr::from(99);
         tree.set(2, leaf).unwrap();
         assert_eq!(tree.get(2).unwrap(), leaf);
@@ -236,7 +236,7 @@ mod test {
 
     #[test]
     fn test_pmtree_override_range() {
-        let mut tree = PmTree::default(TEST_DEPTH).unwrap();
+        let mut tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
         tree.set(0, Fr::from(1)).unwrap();
         tree.set(1, Fr::from(2)).unwrap();
 
@@ -255,7 +255,7 @@ mod test {
 
     #[test]
     fn test_pmtree_get_empty_leaves_indices() {
-        let mut tree = PmTree::default(TEST_DEPTH).unwrap();
+        let mut tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
         tree.set(0, Fr::from(1)).unwrap();
         tree.set(2, Fr::from(3)).unwrap();
         tree.delete(0).unwrap();
@@ -267,10 +267,10 @@ mod test {
 
     #[test]
     fn test_pmtree_proof_and_verify() {
-        let mut tree = PmTree::default(TEST_DEPTH).unwrap();
+        let mut tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
         let leaf = Fr::from(42);
         tree.set(3, leaf).unwrap();
-        let proof: PmTreeProof = tree.proof(3).unwrap();
+        let proof = tree.proof(3).unwrap();
         assert_eq!(proof.leaf_index(), 3);
         assert!(tree.verify(&leaf, &proof).unwrap());
         assert!(matches!(
@@ -281,7 +281,7 @@ mod test {
 
     #[test]
     fn test_pmtree_get_subtree_root() {
-        let mut tree = PmTree::default(3).unwrap(); // Depth 3 for simplicity
+        let mut tree = PmTree::<PoseidonHash>::default(3).unwrap(); // Depth 3 for simplicity
         tree.set(0, Fr::from(1)).unwrap();
         tree.set(1, Fr::from(2)).unwrap();
         // Root is level 0
@@ -292,7 +292,7 @@ mod test {
 
     #[test]
     fn test_pmtree_metadata() {
-        let mut tree = PmTree::default(TEST_DEPTH).unwrap();
+        let mut tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
         let meta = b"hello world";
         tree.set_metadata(meta).unwrap();
         assert_eq!(tree.metadata().unwrap(), meta);
@@ -300,7 +300,7 @@ mod test {
 
     #[test]
     fn test_pmtree_close_db() {
-        let mut tree = PmTree::default(TEST_DEPTH).unwrap();
+        let mut tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
         tree.close_db_connection().unwrap();
         // Verify idempotence: calling close again should succeed
         tree.close_db_connection().unwrap();
@@ -310,7 +310,7 @@ mod test {
 
     #[test]
     fn test_pmtree_invalid_index() {
-        let tree = PmTree::default(TEST_DEPTH).unwrap();
+        let tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
         let capacity = tree.capacity();
         assert!(matches!(
             tree.proof(capacity),
@@ -324,7 +324,7 @@ mod test {
 
     #[test]
     fn test_pmtree_invalid_subtree_root() {
-        let tree = PmTree::default(TEST_DEPTH).unwrap();
+        let tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
         assert!(matches!(
             tree.get_subtree_root(TEST_DEPTH + 1, 0),
             Err(ZerokitMerkleTreeError::InvalidLevel)
@@ -333,14 +333,14 @@ mod test {
 
     #[test]
     fn test_pmtree_proof_binds_to_leaf_index_even_if_leaf_value_same() {
-        let mut tree = PmTree::default(TEST_DEPTH).unwrap();
+        let mut tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
 
         let leaf = Fr::from(42);
         tree.set(0, leaf).unwrap();
         tree.set(1, leaf).unwrap();
 
-        let proof0: PmTreeProof = tree.proof(0).unwrap();
-        let proof1: PmTreeProof = tree.proof(1).unwrap();
+        let proof0 = tree.proof(0).unwrap();
+        let proof1 = tree.proof(1).unwrap();
 
         // Both proofs should reconstruct the current root when used with the correct leaf value,
         // but their *paths/indexes* should differ.
@@ -364,8 +364,8 @@ mod test {
             .mode(PmTreeMode::LowSpace)
             .build()
             .unwrap();
-        let mut tree_ht = PmTree::new(TEST_DEPTH, Fr::ZERO, config_ht).unwrap();
-        let mut tree_ls = PmTree::new(TEST_DEPTH, Fr::ZERO, config_ls).unwrap();
+        let mut tree_ht = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config_ht).unwrap();
+        let mut tree_ls = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config_ls).unwrap();
         tree_ht.set(0, Fr::from(1)).unwrap();
         tree_ls.set(0, Fr::from(1)).unwrap();
         // Roots should be same regardless of mode
@@ -377,8 +377,9 @@ mod test {
     fn test_pmtree_compression() {
         let config_comp = PmTreeConfig::new().use_compression(true).build().unwrap();
         let config_no_comp = PmTreeConfig::new().use_compression(false).build().unwrap();
-        let mut tree_comp = PmTree::new(TEST_DEPTH, Fr::ZERO, config_comp).unwrap();
-        let mut tree_no_comp = PmTree::new(TEST_DEPTH, Fr::ZERO, config_no_comp).unwrap();
+        let mut tree_comp = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config_comp).unwrap();
+        let mut tree_no_comp =
+            PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config_no_comp).unwrap();
         tree_comp.set(0, Fr::from(1)).unwrap();
         tree_no_comp.set(0, Fr::from(1)).unwrap();
         assert_eq!(tree_comp.root(), tree_no_comp.root());
@@ -386,7 +387,7 @@ mod test {
 
     #[test]
     fn test_pmtree_stress_large() {
-        let mut tree = PmTree::default(15).unwrap(); // Smaller for test
+        let mut tree = PmTree::<PoseidonHash>::default(15).unwrap(); // Smaller for test
         for i in 0..100 {
             tree.update_next(Fr::from(i as u64)).unwrap();
         }
@@ -397,7 +398,7 @@ mod test {
 
     #[test]
     fn test_pmtree_full_tree() {
-        let mut tree = PmTree::default(4).unwrap(); // 16 capacity
+        let mut tree = PmTree::<PoseidonHash>::default(4).unwrap(); // 16 capacity
         for i in 0..16 {
             tree.set(i, Fr::from(i as u64)).unwrap();
         }
@@ -416,7 +417,7 @@ mod test {
 
     #[test]
     fn test_pmtree_large_batch() {
-        let mut tree = PmTree::default(TEST_DEPTH).unwrap();
+        let mut tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
         let leaves: Vec<Fr> = (0..100).map(|i| Fr::from(i as u64)).collect();
         tree.set_range(0, leaves.into_iter()).unwrap();
         assert_eq!(tree.leaves_set(), 100);
@@ -433,7 +434,8 @@ mod test {
 
         // First open: write data, close, and fully drop the tree.
         {
-            let mut tree1 = PmTree::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
+            let mut tree1 =
+                PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
             tree1.set(0, Fr::from(1)).unwrap();
 
             // Optional stronger signal than just leaf persistence:
@@ -444,7 +446,8 @@ mod test {
 
         // Second open: verify data, close, and drop.
         {
-            let mut tree2 = PmTree::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
+            let mut tree2 =
+                PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
             assert_eq!(tree2.get(0).unwrap(), Fr::from(1));
 
             // Optional: verify tree is still non-empty (depending on semantics).
@@ -455,7 +458,7 @@ mod test {
 
         // Third open: verify again.
         {
-            let tree3 = PmTree::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
+            let tree3 = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
             assert_eq!(tree3.get(0).unwrap(), Fr::from(1));
             assert_ne!(tree3.root(), Fr::ZERO);
         }
@@ -464,14 +467,14 @@ mod test {
     #[test]
     fn test_pmtree_depth_extremes() {
         // Depth 0 (minimal valid depth)
-        let result = PmTree::default(0);
+        let result = PmTree::<PoseidonHash>::default(0);
         assert!(result.is_ok());
         if let Ok(tree) = result {
             assert_eq!(tree.depth(), 0);
             assert_eq!(tree.capacity(), 1);
         }
         // Depth 32
-        let result = PmTree::default(32);
+        let result = PmTree::<PoseidonHash>::default(32);
         if let Ok(tree) = result {
             assert_eq!(tree.depth(), 32);
             assert_eq!(tree.capacity(), 1usize << 32);
@@ -480,7 +483,7 @@ mod test {
 
     #[test]
     fn test_pmtree_compaction() {
-        let mut tree = PmTree::default(TEST_DEPTH).unwrap();
+        let mut tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
         for i in 0..50 {
             tree.set(i, Fr::from(i as u64)).unwrap();
         }
@@ -499,7 +502,7 @@ mod test {
         const DEPTH: usize = 3;
         const LEAF_COUNT: usize = 8;
 
-        let mut tree = PmTree::new(DEPTH, Fr::from(0), temp_config()).unwrap();
+        let mut tree = PmTree::<PoseidonHash>::new(DEPTH, Fr::from(0), temp_config()).unwrap();
         let leaves: Vec<Fr> = (0..LEAF_COUNT).map(|s| Fr::from(s as i32)).collect();
         tree.set_range(0, leaves.into_iter()).unwrap();
 

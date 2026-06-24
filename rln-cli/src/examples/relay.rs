@@ -59,7 +59,7 @@ impl Identity {
 }
 
 struct RLNSystem {
-    rln: RLN<Stateful<PmTree>, ArkGroth16Backend>,
+    rln: RLN<Stateful<PmTree<PoseidonHash>>, ArkGroth16Backend>,
     used_nullifiers: HashMap<Fr, RLNProofValues>,
     local_identities: HashMap<usize, Identity>,
 }
