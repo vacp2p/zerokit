@@ -139,7 +139,7 @@ mod test {
         assert!(matches!(
             result,
             Err(PmTreeError::MerkleTree(
-                ZerokitMerkleTreeError::InvalidDepth
+                ZerokitMerkleTreeError::DepthMismatch
             ))
         ));
 
@@ -186,7 +186,7 @@ mod test {
         assert!(matches!(
             result,
             Err(PmTreeError::MerkleTree(
-                ZerokitMerkleTreeError::InvalidDepth
+                ZerokitMerkleTreeError::DepthTooLarge
             ))
         ));
     }
@@ -236,7 +236,9 @@ mod test {
         let unset = tree.leaves_set();
         assert!(matches!(
             tree.delete(unset),
-            Err(PmTreeError::Backend(PmTreeBackendError::IndexOutOfBounds))
+            Err(PmTreeError::MerkleTree(
+                ZerokitMerkleTreeError::DeleteUnsetLeaf
+            ))
         ));
     }
 
@@ -372,38 +374,44 @@ mod test {
         }
         assert_eq!(tree.get_empty_leaves_indices(), vec![1, 3]);
 
-        // Validation: both inputs empty -> InvalidLeaf.
+        // Validation: both inputs empty -> EmptyOverrideArgs.
         let mut tree = PmTree::<PoseidonHash>::default(3).unwrap();
         tree.set_range(0, vec![Fr::from(10), Fr::from(20)].into_iter())
             .unwrap();
         assert!(matches!(
             tree.override_range(0, Vec::<Fr>::new(), Vec::<usize>::new()),
-            Err(PmTreeError::MerkleTree(ZerokitMerkleTreeError::InvalidLeaf))
+            Err(PmTreeError::MerkleTree(
+                ZerokitMerkleTreeError::EmptyOverrideArgs
+            ))
         ));
 
-        // Validation: a non-overlapping delete index >= leaves_set -> InvalidIndices.
+        // Validation: a non-overlapping delete index >= leaves_set -> InvalidRemoveIndex.
         let mut tree = PmTree::<PoseidonHash>::default(3).unwrap();
         tree.set_range(0, vec![Fr::from(10), Fr::from(20)].into_iter())
             .unwrap();
         assert!(matches!(
             tree.override_range(0, vec![Fr::from(5)], vec![5usize]),
             Err(PmTreeError::MerkleTree(
-                ZerokitMerkleTreeError::InvalidIndices
+                ZerokitMerkleTreeError::InvalidRemoveIndex
             ))
         ));
 
-        // Validation: start + leaves.len() > capacity -> TooManySet.
+        // Validation: start + leaves.len() > capacity -> RangeTooLarge.
         let mut tree = PmTree::<PoseidonHash>::default(2).unwrap();
         assert!(matches!(
             tree.override_range(3, vec![Fr::from(1), Fr::from(2)], Vec::<usize>::new()),
-            Err(PmTreeError::MerkleTree(ZerokitMerkleTreeError::TooManySet))
+            Err(PmTreeError::MerkleTree(
+                ZerokitMerkleTreeError::RangeTooLarge
+            ))
         ));
 
-        // Validation: start + leaves.len() overflows usize -> TooManySet.
+        // Validation: start + leaves.len() overflows usize -> RangeTooLarge.
         let mut tree = PmTree::<PoseidonHash>::default(2).unwrap();
         assert!(matches!(
             tree.override_range(usize::MAX, vec![Fr::from(1)], Vec::<usize>::new()),
-            Err(PmTreeError::MerkleTree(ZerokitMerkleTreeError::TooManySet))
+            Err(PmTreeError::MerkleTree(
+                ZerokitMerkleTreeError::RangeTooLarge
+            ))
         ));
     }
 
@@ -470,11 +478,15 @@ mod test {
         let capacity = tree.capacity();
         assert!(matches!(
             tree.proof(capacity),
-            Err(PmTreeError::Backend(PmTreeBackendError::IndexOutOfBounds))
+            Err(PmTreeError::MerkleTree(
+                ZerokitMerkleTreeError::LeafIndexOutOfBounds
+            ))
         ));
         assert!(matches!(
             tree.get(capacity),
-            Err(PmTreeError::Backend(PmTreeBackendError::IndexOutOfBounds))
+            Err(PmTreeError::MerkleTree(
+                ZerokitMerkleTreeError::LeafIndexOutOfBounds
+            ))
         ));
     }
 
@@ -484,7 +496,7 @@ mod test {
         assert!(matches!(
             tree.get_subtree_root(TEST_DEPTH + 1, 0),
             Err(PmTreeError::MerkleTree(
-                ZerokitMerkleTreeError::InvalidLevel
+                ZerokitMerkleTreeError::LevelOutOfBounds
             ))
         ));
     }
@@ -565,11 +577,15 @@ mod test {
         // Try overflow
         assert!(matches!(
             tree.update_next(Fr::from(16)),
-            Err(PmTreeError::Backend(PmTreeBackendError::IndexOutOfBounds))
+            Err(PmTreeError::MerkleTree(
+                ZerokitMerkleTreeError::RangeTooLarge
+            ))
         ));
         assert!(matches!(
             tree.set(16, Fr::from(16)),
-            Err(PmTreeError::Backend(PmTreeBackendError::IndexOutOfBounds))
+            Err(PmTreeError::MerkleTree(
+                ZerokitMerkleTreeError::LeafIndexOutOfBounds
+            ))
         ));
     }
 

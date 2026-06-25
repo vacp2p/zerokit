@@ -80,13 +80,13 @@ pub trait ZerokitMerkleTree {
         let to_remove_indices = to_remove_indices.into_iter().collect::<Vec<_>>();
 
         if leaves.is_empty() && to_remove_indices.is_empty() {
-            return Err(ZerokitMerkleTreeError::InvalidLeaf.into());
+            return Err(ZerokitMerkleTreeError::EmptyOverrideArgs.into());
         }
         let end = start
             .checked_add(leaves.len())
-            .ok_or(ZerokitMerkleTreeError::TooManySet)?;
+            .ok_or(ZerokitMerkleTreeError::RangeTooLarge)?;
         if end > self.capacity() {
-            return Err(ZerokitMerkleTreeError::TooManySet.into());
+            return Err(ZerokitMerkleTreeError::RangeTooLarge.into());
         }
         // Capture before `set_range` grows it. Only indices the written range does NOT cover are
         // actually deleted; each such index must point at a set leaf. Overlapping indices are exempt
@@ -94,7 +94,7 @@ pub trait ZerokitMerkleTree {
         let leaves_set = self.leaves_set();
         for &index in &to_remove_indices {
             if (index < start || index >= end) && index >= leaves_set {
-                return Err(ZerokitMerkleTreeError::InvalidIndices.into());
+                return Err(ZerokitMerkleTreeError::InvalidRemoveIndex.into());
             }
         }
 

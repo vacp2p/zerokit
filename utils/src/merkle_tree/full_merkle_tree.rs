@@ -8,7 +8,7 @@ use std::{
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use super::{
-    error::{FromConfigError, ZerokitMerkleTreeError},
+    error::{FromConfigError, MerkleTreeInvariant, ZerokitMerkleTreeError},
     merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES},
 };
 
@@ -85,7 +85,7 @@ where
         _config: Self::Config,
     ) -> Result<Self, Self::Error> {
         if depth >= usize::BITS as usize {
-            return Err(ZerokitMerkleTreeError::InvalidDepth);
+            return Err(ZerokitMerkleTreeError::DepthTooLarge);
         }
 
         // Compute cache node values, leaf to root
@@ -137,10 +137,10 @@ where
     /// Returns the root of the subtree at level n and index
     fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr, Self::Error> {
         if n > self.depth() {
-            return Err(ZerokitMerkleTreeError::InvalidLevel);
+            return Err(ZerokitMerkleTreeError::LevelOutOfBounds);
         }
         if index >= self.capacity() {
-            return Err(ZerokitMerkleTreeError::InvalidLeaf);
+            return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds);
         }
         if n == 0 {
             Ok(self.root())
@@ -150,9 +150,9 @@ where
             let mut idx = self.capacity() + index - 1;
             let mut nd = self.depth;
             loop {
-                let parent = self
-                    .parent(idx)
-                    .ok_or(ZerokitMerkleTreeError::InvalidIndex)?;
+                let parent = self.parent(idx).ok_or(ZerokitMerkleTreeError::Invariant(
+                    MerkleTreeInvariant::SubtreeWalkParentMissing,
+                ))?;
                 nd -= 1;
                 if nd == n {
                     return Ok(self.nodes[parent]);
@@ -165,6 +165,9 @@ where
 
     /// Sets a leaf at the specified tree index
     fn set(&mut self, leaf: usize, hash: FrOf<Self::Hasher>) -> Result<(), Self::Error> {
+        if leaf >= self.capacity() {
+            return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds);
+        }
         self.set_range(leaf, once(hash))?;
         self.next_index = max(self.next_index, leaf + 1);
         Ok(())
@@ -179,9 +182,9 @@ where
         let leaf_count = leaves.len();
         let end = start
             .checked_add(leaf_count)
-            .ok_or(ZerokitMerkleTreeError::TooManySet)?;
+            .ok_or(ZerokitMerkleTreeError::RangeTooLarge)?;
         if end > self.capacity() {
-            return Err(ZerokitMerkleTreeError::TooManySet);
+            return Err(ZerokitMerkleTreeError::RangeTooLarge);
         }
         let index = self.capacity() + start - 1;
         for (offset, hash) in leaves.enumerate() {
@@ -198,7 +201,7 @@ where
     /// Get a leaf from the specified tree index
     fn get(&self, leaf: usize) -> Result<FrOf<Self::Hasher>, Self::Error> {
         if leaf >= self.capacity() {
-            return Err(ZerokitMerkleTreeError::InvalidLeaf);
+            return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds);
         }
         Ok(self.nodes[self.capacity() + leaf - 1])
     }
@@ -219,6 +222,9 @@ where
 
     /// Sets a leaf at the next available index
     fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<(), Self::Error> {
+        if self.next_index >= self.capacity() {
+            return Err(ZerokitMerkleTreeError::RangeTooLarge);
+        }
         self.set(self.next_index, leaf)?;
         Ok(())
     }
@@ -226,7 +232,7 @@ where
     /// Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
     fn delete(&mut self, index: usize) -> Result<(), Self::Error> {
         if index >= self.next_index {
-            return Err(ZerokitMerkleTreeError::InvalidLeaf);
+            return Err(ZerokitMerkleTreeError::DeleteUnsetLeaf);
         }
         self.set(index, H::default_leaf())?;
         self.cached_leaves_indices[index] = 0;
@@ -236,7 +242,7 @@ where
     // Computes a merkle proof the leaf at the specified index
     fn proof(&self, leaf: usize) -> Result<FullMerkleProof<H>, Self::Error> {
         if leaf >= self.capacity() {
-            return Err(ZerokitMerkleTreeError::InvalidLeaf);
+            return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds);
         }
         let mut index = self.capacity() + leaf - 1;
         let mut path = Vec::with_capacity(self.depth + 1);
@@ -317,7 +323,9 @@ where
     ) -> Result<(), ZerokitMerkleTreeError> {
         // Ensure the range is within the same tree level
         if self.levels(start_index) != self.levels(end_index) {
-            return Err(ZerokitMerkleTreeError::InvalidStartAndEndLevel);
+            return Err(ZerokitMerkleTreeError::Invariant(
+                MerkleTreeInvariant::UpdateHashesLevelMismatch,
+            ));
         }
 
         // Compute parent indices for the range

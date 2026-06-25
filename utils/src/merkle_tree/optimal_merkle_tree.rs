@@ -3,7 +3,7 @@ use std::{cmp::max, collections::HashMap, fmt::Debug, str::FromStr};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use super::{
-    error::{FromConfigError, ZerokitMerkleTreeError},
+    error::{FromConfigError, MerkleTreeInvariant, ZerokitMerkleTreeError},
     merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES},
 };
 
@@ -73,7 +73,7 @@ where
     /// depth - the depth of the tree made only of hash nodes. 2^depth is the maximum number of leaves hash nodes
     fn new(depth: usize, default_leaf: H::Fr, _config: Self::Config) -> Result<Self, Self::Error> {
         if depth >= usize::BITS as usize {
-            return Err(ZerokitMerkleTreeError::InvalidDepth);
+            return Err(ZerokitMerkleTreeError::DepthTooLarge);
         }
 
         // Compute cache node values, leaf to root
@@ -117,10 +117,10 @@ where
     /// Returns the root of the subtree at level n and index
     fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr, Self::Error> {
         if n > self.depth() {
-            return Err(ZerokitMerkleTreeError::InvalidLevel);
+            return Err(ZerokitMerkleTreeError::LevelOutOfBounds);
         }
         if index >= self.capacity() {
-            return Err(ZerokitMerkleTreeError::InvalidLeaf);
+            return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds);
         }
         if n == 0 {
             Ok(self.root())
@@ -134,7 +134,7 @@ where
     /// Sets a leaf at the specified tree index
     fn set(&mut self, index: usize, leaf: H::Fr) -> Result<(), Self::Error> {
         if index >= self.capacity() {
-            return Err(ZerokitMerkleTreeError::InvalidLeaf);
+            return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds);
         }
         self.nodes.insert((self.depth, index), leaf);
         self.update_hashes(index, 1)?;
@@ -153,9 +153,9 @@ where
         let leaf_count = leaves.len();
         let end = start
             .checked_add(leaf_count)
-            .ok_or(ZerokitMerkleTreeError::TooManySet)?;
+            .ok_or(ZerokitMerkleTreeError::RangeTooLarge)?;
         if end > self.capacity() {
-            return Err(ZerokitMerkleTreeError::TooManySet);
+            return Err(ZerokitMerkleTreeError::RangeTooLarge);
         }
         for (i, leaf) in leaves.enumerate() {
             self.nodes.insert((self.depth, start + i), leaf);
@@ -169,7 +169,7 @@ where
     /// Get a leaf from the specified tree index
     fn get(&self, index: usize) -> Result<H::Fr, Self::Error> {
         if index >= self.capacity() {
-            return Err(ZerokitMerkleTreeError::InvalidLeaf);
+            return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds);
         }
         Ok(self.get_node(self.depth, index))
     }
@@ -190,6 +190,9 @@ where
 
     /// Sets a leaf at the next available index
     fn update_next(&mut self, leaf: H::Fr) -> Result<(), Self::Error> {
+        if self.next_index >= self.capacity() {
+            return Err(ZerokitMerkleTreeError::RangeTooLarge);
+        }
         self.set(self.next_index, leaf)?;
         Ok(())
     }
@@ -197,7 +200,7 @@ where
     /// Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
     fn delete(&mut self, index: usize) -> Result<(), Self::Error> {
         if index >= self.next_index {
-            return Err(ZerokitMerkleTreeError::InvalidLeaf);
+            return Err(ZerokitMerkleTreeError::DeleteUnsetLeaf);
         }
         self.set(index, H::default_leaf())?;
         self.cached_leaves_indices[index] = 0;
@@ -207,7 +210,7 @@ where
     /// Computes a merkle proof the leaf at the specified index
     fn proof(&self, index: usize) -> Result<Self::Proof, Self::Error> {
         if index >= self.capacity() {
-            return Err(ZerokitMerkleTreeError::InvalidLeaf);
+            return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds);
         }
         let mut witness = Vec::<(H::Fr, u8)>::with_capacity(self.depth);
         let mut i = index;
@@ -222,7 +225,9 @@ where
             }
         }
         if i != 0 {
-            Err(ZerokitMerkleTreeError::ComputingProofError)
+            Err(ZerokitMerkleTreeError::Invariant(
+                MerkleTreeInvariant::ProofWalkNotTerminated,
+            ))
         } else {
             Ok(OptimalMerkleProof(witness))
         }

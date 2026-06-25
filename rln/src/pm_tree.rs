@@ -17,6 +17,8 @@ use crate::hashers::PoseidonHash;
 
 const METADATA_KEY: [u8; 8] = *b"metadata";
 
+const MAX_DEPTH: usize = 31;
+
 pub type PmTreeMode = Mode;
 
 pub type FrOf<H> = <H as ZerokitHasher>::Fr;
@@ -214,12 +216,12 @@ where
         _default_leaf: FrOf<Self::Hasher>,
         config: Self::Config,
     ) -> Result<Self, Self::Error> {
-        if depth >= usize::BITS as usize {
-            return Err(ZerokitMerkleTreeError::InvalidDepth.into());
+        if depth >= usize::BITS as usize || depth > MAX_DEPTH {
+            return Err(ZerokitMerkleTreeError::DepthTooLarge.into());
         }
         if let Some(config_depth) = config.tree_depth {
             if config_depth != depth {
-                return Err(ZerokitMerkleTreeError::InvalidDepth.into());
+                return Err(ZerokitMerkleTreeError::DepthMismatch.into());
             }
         }
         let sled_config = config.to_sled_config();
@@ -227,7 +229,7 @@ where
         let tree = match tree_loaded {
             Ok(tree) => {
                 if tree.depth() != depth {
-                    return Err(ZerokitMerkleTreeError::InvalidDepth.into());
+                    return Err(ZerokitMerkleTreeError::DepthMismatch.into());
                 }
                 tree
             }
@@ -236,7 +238,7 @@ where
 
         let capacity = 1usize
             .checked_shl(depth as u32)
-            .ok_or(ZerokitMerkleTreeError::InvalidDepth)?;
+            .ok_or(ZerokitMerkleTreeError::DepthTooLarge)?;
 
         let mut cached_leaves_indices = vec![0u8; capacity];
         let default_leaf = <Self::Hasher as ZerokitHasher>::default_leaf();
@@ -280,16 +282,19 @@ where
     /// Returns the root of the subtree at level n and index
     fn get_subtree_root(&self, n: usize, index: usize) -> Result<FrOf<Self::Hasher>, Self::Error> {
         if n > self.depth() {
-            return Err(ZerokitMerkleTreeError::InvalidLevel.into());
+            return Err(ZerokitMerkleTreeError::LevelOutOfBounds.into());
         }
         if index >= self.capacity() {
-            return Err(ZerokitMerkleTreeError::InvalidLeaf.into());
+            return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds.into());
         }
         self.tree.subtree_root(n, index).map_err(Into::into)
     }
 
     /// Sets a leaf at the specified tree index
     fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>) -> Result<(), Self::Error> {
+        if index >= self.capacity() {
+            return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds.into());
+        }
         self.tree.set(index, leaf)?;
         self.cached_leaves_indices[index] = 1;
         Ok(())
@@ -302,6 +307,12 @@ where
         values: I,
     ) -> Result<(), Self::Error> {
         let v = values.into_iter().collect::<Vec<_>>();
+        let end = start
+            .checked_add(v.len())
+            .ok_or(ZerokitMerkleTreeError::RangeTooLarge)?;
+        if end > self.capacity() {
+            return Err(ZerokitMerkleTreeError::RangeTooLarge.into());
+        }
         self.tree.set_range(start, &v)?;
         for i in start..start + v.len() {
             self.cached_leaves_indices[i] = 1
@@ -311,6 +322,9 @@ where
 
     /// Get a leaf from the specified tree index
     fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>, Self::Error> {
+        if index >= self.capacity() {
+            return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds.into());
+        }
         self.tree.get(index).map_err(Into::into)
     }
 
@@ -338,20 +352,20 @@ where
         let to_remove = indices.into_iter().collect::<Vec<_>>();
 
         if leaves.is_empty() && to_remove.is_empty() {
-            return Err(ZerokitMerkleTreeError::InvalidLeaf.into());
+            return Err(ZerokitMerkleTreeError::EmptyOverrideArgs.into());
         }
         let end = start
             .checked_add(leaves.len())
-            .ok_or(ZerokitMerkleTreeError::TooManySet)?;
+            .ok_or(ZerokitMerkleTreeError::RangeTooLarge)?;
         if end > self.capacity() {
-            return Err(ZerokitMerkleTreeError::TooManySet.into());
+            return Err(ZerokitMerkleTreeError::RangeTooLarge.into());
         }
         // Only indices the written range does not cover are actually deleted; each such index must
         // point at a set leaf (overlapping indices are overwritten by the write).
         let leaves_set = self.leaves_set();
         for &index in &to_remove {
             if (index < start || index >= end) && index >= leaves_set {
-                return Err(ZerokitMerkleTreeError::InvalidIndices.into());
+                return Err(ZerokitMerkleTreeError::InvalidRemoveIndex.into());
             }
         }
 
@@ -383,6 +397,9 @@ where
 
     /// Sets a leaf at the next available index
     fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<(), Self::Error> {
+        if self.leaves_set() >= self.capacity() {
+            return Err(ZerokitMerkleTreeError::RangeTooLarge.into());
+        }
         let index = self.tree.leaves_set();
         self.tree.update_next(leaf)?;
         self.cached_leaves_indices[index] = 1;
@@ -391,6 +408,9 @@ where
 
     /// Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
     fn delete(&mut self, index: usize) -> Result<(), Self::Error> {
+        if index >= self.leaves_set() {
+            return Err(ZerokitMerkleTreeError::DeleteUnsetLeaf.into());
+        }
         self.tree.delete(index)?;
         self.cached_leaves_indices[index] = 0;
         Ok(())
@@ -398,6 +418,9 @@ where
 
     /// Computes a merkle proof the leaf at the specified index
     fn proof(&self, index: usize) -> Result<Self::Proof, Self::Error> {
+        if index >= self.capacity() {
+            return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds.into());
+        }
         let proof = self.tree.proof(index)?;
         Ok(PmTreeProof { proof })
     }

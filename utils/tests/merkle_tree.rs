@@ -252,34 +252,34 @@ mod test {
         }
         assert_eq!(tree_full.get_empty_leaves_indices(), vec![1, 3]);
 
-        // Validation: both inputs empty -> InvalidLeaf.
+        // Validation: both inputs empty -> EmptyOverrideArgs.
         let mut tree_full = default_full_merkle_tree(3);
         tree_full
             .set_range(0, [10, 20].map(TestFr::from).into_iter())
             .unwrap();
         assert!(matches!(
             tree_full.override_range(0, std::iter::empty::<TestFr>(), std::iter::empty::<usize>()),
-            Err(ZerokitMerkleTreeError::InvalidLeaf)
+            Err(ZerokitMerkleTreeError::EmptyOverrideArgs)
         ));
 
-        // Validation: a non-overlapping delete index >= leaves_set -> InvalidIndices.
+        // Validation: a non-overlapping delete index >= leaves_set -> InvalidRemoveIndex.
         let mut tree_full = default_full_merkle_tree(3);
         tree_full
             .set_range(0, [10, 20].map(TestFr::from).into_iter())
             .unwrap();
         assert!(matches!(
             tree_full.override_range(0, std::iter::once(TestFr::from(5)), [5usize]),
-            Err(ZerokitMerkleTreeError::InvalidIndices)
+            Err(ZerokitMerkleTreeError::InvalidRemoveIndex)
         ));
 
-        // Validation: start + leaves.len() > capacity -> TooManySet.
+        // Validation: start + leaves.len() > capacity -> RangeTooLarge.
         let mut tree_full = default_full_merkle_tree(2);
         assert!(matches!(
             tree_full.override_range(3, [1, 2].map(TestFr::from), std::iter::empty::<usize>()),
-            Err(ZerokitMerkleTreeError::TooManySet)
+            Err(ZerokitMerkleTreeError::RangeTooLarge)
         ));
 
-        // Validation: start + leaves.len() overflows usize -> TooManySet.
+        // Validation: start + leaves.len() overflows usize -> RangeTooLarge.
         let mut tree_full = default_full_merkle_tree(2);
         assert!(matches!(
             tree_full.override_range(
@@ -287,7 +287,7 @@ mod test {
                 std::iter::once(TestFr::from(1)),
                 std::iter::empty::<usize>()
             ),
-            Err(ZerokitMerkleTreeError::TooManySet)
+            Err(ZerokitMerkleTreeError::RangeTooLarge)
         ));
     }
 
@@ -394,34 +394,34 @@ mod test {
         }
         assert_eq!(tree_opt.get_empty_leaves_indices(), vec![1, 3]);
 
-        // Validation: both inputs empty -> InvalidLeaf.
+        // Validation: both inputs empty -> EmptyOverrideArgs.
         let mut tree_opt = default_optimal_merkle_tree(3);
         tree_opt
             .set_range(0, [10, 20].map(TestFr::from).into_iter())
             .unwrap();
         assert!(matches!(
             tree_opt.override_range(0, std::iter::empty::<TestFr>(), std::iter::empty::<usize>()),
-            Err(ZerokitMerkleTreeError::InvalidLeaf)
+            Err(ZerokitMerkleTreeError::EmptyOverrideArgs)
         ));
 
-        // Validation: a non-overlapping delete index >= leaves_set -> InvalidIndices.
+        // Validation: a non-overlapping delete index >= leaves_set -> InvalidRemoveIndex.
         let mut tree_opt = default_optimal_merkle_tree(3);
         tree_opt
             .set_range(0, [10, 20].map(TestFr::from).into_iter())
             .unwrap();
         assert!(matches!(
             tree_opt.override_range(0, std::iter::once(TestFr::from(5)), [5usize]),
-            Err(ZerokitMerkleTreeError::InvalidIndices)
+            Err(ZerokitMerkleTreeError::InvalidRemoveIndex)
         ));
 
-        // Validation: start + leaves.len() > capacity -> TooManySet.
+        // Validation: start + leaves.len() > capacity -> RangeTooLarge.
         let mut tree_opt = default_optimal_merkle_tree(2);
         assert!(matches!(
             tree_opt.override_range(3, [1, 2].map(TestFr::from), std::iter::empty::<usize>()),
-            Err(ZerokitMerkleTreeError::TooManySet)
+            Err(ZerokitMerkleTreeError::RangeTooLarge)
         ));
 
-        // Validation: start + leaves.len() overflows usize -> TooManySet.
+        // Validation: start + leaves.len() overflows usize -> RangeTooLarge.
         let mut tree_opt = default_optimal_merkle_tree(2);
         assert!(matches!(
             tree_opt.override_range(
@@ -429,7 +429,7 @@ mod test {
                 std::iter::once(TestFr::from(1)),
                 std::iter::empty::<usize>()
             ),
-            Err(ZerokitMerkleTreeError::TooManySet)
+            Err(ZerokitMerkleTreeError::RangeTooLarge)
         ));
     }
 
@@ -490,12 +490,12 @@ mod test {
         let unset_full = tree_full.leaves_set();
         assert!(matches!(
             tree_full.delete(unset_full),
-            Err(ZerokitMerkleTreeError::InvalidLeaf)
+            Err(ZerokitMerkleTreeError::DeleteUnsetLeaf)
         ));
         let unset_opt = tree_opt.leaves_set();
         assert!(matches!(
             tree_opt.delete(unset_opt),
-            Err(ZerokitMerkleTreeError::InvalidLeaf)
+            Err(ZerokitMerkleTreeError::DeleteUnsetLeaf)
         ));
     }
 
@@ -716,11 +716,11 @@ mod test {
 
         assert!(matches!(
             tree_full.proof(invalid_index),
-            Err(ZerokitMerkleTreeError::InvalidLeaf)
+            Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds)
         ));
         assert!(matches!(
             tree_opt.proof(invalid_index),
-            Err(ZerokitMerkleTreeError::InvalidLeaf)
+            Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds)
         ));
     }
 
@@ -804,11 +804,11 @@ mod test {
         let out_of_bounds = tree_full.capacity();
         assert!(matches!(
             tree_full.get(out_of_bounds),
-            Err(ZerokitMerkleTreeError::InvalidLeaf)
+            Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds)
         ));
         assert!(matches!(
             tree_opt.get(out_of_bounds),
-            Err(ZerokitMerkleTreeError::InvalidLeaf)
+            Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds)
         ));
     }
 
