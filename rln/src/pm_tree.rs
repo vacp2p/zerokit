@@ -297,7 +297,7 @@ where
         values: I,
     ) -> Result<(), Self::Error> {
         let v = values.into_iter().collect::<Vec<_>>();
-        self.tree.set_range(start, v.clone())?;
+        self.tree.set_range(start, &v)?;
         for i in start..start + v.len() {
             self.cached_leaves_indices[i] = 1
         }
