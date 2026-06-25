@@ -35,7 +35,7 @@ where
     /// (deletions leave next_index unchanged)
     next_index: usize,
 
-    /// metadata that an application may use to store additional information
+    /// Metadata that an application may use to store additional information
     metadata: Vec<u8>,
 }
 
@@ -196,11 +196,11 @@ where
 
     /// Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
     fn delete(&mut self, index: usize) -> Result<(), Self::Error> {
-        // We reset the leaf only if we previously set a leaf at that index
-        if index < self.next_index {
-            self.set(index, H::default_leaf())?;
-            self.cached_leaves_indices[index] = 0;
+        if index >= self.next_index {
+            return Err(ZerokitMerkleTreeError::InvalidLeaf);
         }
+        self.set(index, H::default_leaf())?;
+        self.cached_leaves_indices[index] = 0;
         Ok(())
     }
 

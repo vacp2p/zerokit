@@ -485,6 +485,18 @@ mod test {
         assert_ne!(root_after_delete, root_after_reset);
         assert_ne!(root_with_original, root_after_reset);
         assert_eq!(tree_opt.get(index).unwrap(), new_leaf);
+
+        // Deleting an unset index (>= leaves_set) errors on both in-memory backends.
+        let unset_full = tree_full.leaves_set();
+        assert!(matches!(
+            tree_full.delete(unset_full),
+            Err(ZerokitMerkleTreeError::InvalidLeaf)
+        ));
+        let unset_opt = tree_opt.leaves_set();
+        assert!(matches!(
+            tree_opt.delete(unset_opt),
+            Err(ZerokitMerkleTreeError::InvalidLeaf)
+        ));
     }
 
     #[test]

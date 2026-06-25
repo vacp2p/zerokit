@@ -232,6 +232,12 @@ mod test {
         tree.delete(2).unwrap();
         assert_eq!(tree.get(2).unwrap(), Fr::ZERO); // Default leaf
         assert_eq!(tree.leaves_set(), 3); // Unchanged
+
+        let unset = tree.leaves_set();
+        assert!(matches!(
+            tree.delete(unset),
+            Err(PmTreeError::Backend(PmTreeBackendError::IndexOutOfBounds))
+        ));
     }
 
     #[test]

@@ -48,11 +48,16 @@ impl Hasher for PoseidonHash {
 }
 
 pub struct PmTree<H: Hasher> {
+    /// The underlying Merkle tree from the pmtree crate
     tree: MerkleTree<SledDB, H>,
     /// The indices of leaves which are set into zero upto next_index.
     /// Set to 0 if the leaf is empty and set to 1 in otherwise.
+    ///
+    /// On reload, occupancy is rebuilt from stored values (sled keeps only values), so a leaf
+    /// explicitly written with `default_leaf` reads as empty after a close/reopen. Affects only the
+    /// raw set/set_range/override_range/update_next API; RLN leaves are rate commitments, never default.
     cached_leaves_indices: Vec<u8>,
-    // metadata that an application may use to store additional information
+    /// Metadata that an application may use to store additional information
     metadata: Vec<u8>,
 }
 
