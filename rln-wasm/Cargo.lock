@@ -1660,9 +1660,10 @@ checksum = "0976c77def3f1f75c4ef892a292c31c0bbe9e3d0702c63044d7c76db298171a3"
 
 [[package]]
 name = "vacp2p_pmtree"
-version = "2.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47145034d8885c2f7ff7562c504ee8be6e78b564a60cc26fc174f861c61bdec2"
+version = "3.0.0"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "valuable"

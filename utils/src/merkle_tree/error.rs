@@ -21,8 +21,6 @@ pub enum ZerokitMerkleTreeError {
     ComputingProofError,
     #[error("Invalid merkle proof length (!= tree depth)")]
     InvalidMerkleProof,
-    #[error("Tree storage backend error: {0}")]
-    StorageBackend(String),
 }
 
 /// Errors that can occur while creating Merkle tree from config

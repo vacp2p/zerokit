@@ -38,53 +38,49 @@ pub trait ZerokitMerkleTree {
     type Proof: ZerokitMerkleProof;
     type Hasher: Hasher;
     type Config: Default + FromStr;
+    type Error: std::error::Error + From<ZerokitMerkleTreeError>;
 
-    fn default(depth: usize) -> Result<Self, ZerokitMerkleTreeError>
+    fn default(depth: usize) -> Result<Self, Self::Error>
     where
         Self: Sized;
     fn new(
         depth: usize,
         default_leaf: FrOf<Self::Hasher>,
         config: Self::Config,
-    ) -> Result<Self, ZerokitMerkleTreeError>
+    ) -> Result<Self, Self::Error>
     where
         Self: Sized;
     fn depth(&self) -> usize;
     fn capacity(&self) -> usize;
     fn leaves_set(&self) -> usize;
     fn root(&self) -> FrOf<Self::Hasher>;
-    fn get_subtree_root(
-        &self,
-        n: usize,
-        index: usize,
-    ) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError>;
-    fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>)
-        -> Result<(), ZerokitMerkleTreeError>;
-    fn set_range<I>(&mut self, start: usize, leaves: I) -> Result<(), ZerokitMerkleTreeError>
+    fn get_subtree_root(&self, n: usize, index: usize) -> Result<FrOf<Self::Hasher>, Self::Error>;
+    fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>) -> Result<(), Self::Error>;
+    fn set_range<I>(&mut self, start: usize, leaves: I) -> Result<(), Self::Error>
     where
         I: ExactSizeIterator<Item = FrOf<Self::Hasher>>;
-    fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError>;
+    fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>, Self::Error>;
     fn get_empty_leaves_indices(&self) -> Vec<usize>;
     fn override_range<I, J>(
         &mut self,
         start: usize,
         leaves: I,
         to_remove_indices: J,
-    ) -> Result<(), ZerokitMerkleTreeError>
+    ) -> Result<(), Self::Error>
     where
         I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
         J: ExactSizeIterator<Item = usize>;
-    fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<(), ZerokitMerkleTreeError>;
-    fn delete(&mut self, index: usize) -> Result<(), ZerokitMerkleTreeError>;
-    fn proof(&self, index: usize) -> Result<Self::Proof, ZerokitMerkleTreeError>;
+    fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<(), Self::Error>;
+    fn delete(&mut self, index: usize) -> Result<(), Self::Error>;
+    fn proof(&self, index: usize) -> Result<Self::Proof, Self::Error>;
     fn verify(
         &self,
         leaf: &FrOf<Self::Hasher>,
         merkle_proof: &Self::Proof,
-    ) -> Result<bool, ZerokitMerkleTreeError>;
-    fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), ZerokitMerkleTreeError>;
-    fn metadata(&self) -> Result<Vec<u8>, ZerokitMerkleTreeError>;
-    fn close_db_connection(&mut self) -> Result<(), ZerokitMerkleTreeError>;
+    ) -> Result<bool, Self::Error>;
+    fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), Self::Error>;
+    fn metadata(&self) -> Result<Vec<u8>, Self::Error>;
+    fn close_db_connection(&mut self) -> Result<(), Self::Error>;
 }
 
 pub trait ZerokitMerkleProof {

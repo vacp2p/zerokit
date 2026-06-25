@@ -72,8 +72,9 @@ where
     type Proof = FullMerkleProof<H>;
     type Hasher = H;
     type Config = FullMerkleConfig;
+    type Error = ZerokitMerkleTreeError;
 
-    fn default(depth: usize) -> Result<Self, ZerokitMerkleTreeError> {
+    fn default(depth: usize) -> Result<Self, Self::Error> {
         FullMerkleTree::<H>::new(depth, Self::Hasher::default_leaf(), Self::Config::default())
     }
 
@@ -83,7 +84,7 @@ where
         depth: usize,
         default_leaf: FrOf<Self::Hasher>,
         _config: Self::Config,
-    ) -> Result<Self, ZerokitMerkleTreeError> {
+    ) -> Result<Self, Self::Error> {
         if depth >= usize::BITS as usize {
             return Err(ZerokitMerkleTreeError::InvalidDepth);
         }
@@ -114,7 +115,7 @@ where
         })
     }
 
-    fn close_db_connection(&mut self) -> Result<(), ZerokitMerkleTreeError> {
+    fn close_db_connection(&mut self) -> Result<(), Self::Error> {
         Ok(())
     }
 
@@ -139,14 +140,14 @@ where
     }
 
     /// Sets a leaf at the specified tree index
-    fn set(&mut self, leaf: usize, hash: FrOf<Self::Hasher>) -> Result<(), ZerokitMerkleTreeError> {
+    fn set(&mut self, leaf: usize, hash: FrOf<Self::Hasher>) -> Result<(), Self::Error> {
         self.set_range(leaf, once(hash))?;
         self.next_index = max(self.next_index, leaf + 1);
         Ok(())
     }
 
     /// Get a leaf from the specified tree index
-    fn get(&self, leaf: usize) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError> {
+    fn get(&self, leaf: usize) -> Result<FrOf<Self::Hasher>, Self::Error> {
         if leaf >= self.capacity() {
             return Err(ZerokitMerkleTreeError::InvalidLeaf);
         }
@@ -154,7 +155,7 @@ where
     }
 
     /// Returns the root of the subtree at level n and index
-    fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr, ZerokitMerkleTreeError> {
+    fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr, Self::Error> {
         if n > self.depth() {
             return Err(ZerokitMerkleTreeError::InvalidIndex);
         }
@@ -198,7 +199,7 @@ where
         &mut self,
         start: usize,
         leaves: I,
-    ) -> Result<(), ZerokitMerkleTreeError> {
+    ) -> Result<(), Self::Error> {
         let leaf_count = leaves.len();
         let end = start
             .checked_add(leaf_count)
@@ -224,7 +225,7 @@ where
         start: usize,
         leaves: I,
         indices: J,
-    ) -> Result<(), ZerokitMerkleTreeError>
+    ) -> Result<(), Self::Error>
     where
         I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
         J: ExactSizeIterator<Item = usize>,
@@ -265,13 +266,13 @@ where
     }
 
     /// Sets a leaf at the next available index
-    fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<(), ZerokitMerkleTreeError> {
+    fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<(), Self::Error> {
         self.set(self.next_index, leaf)?;
         Ok(())
     }
 
     /// Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
-    fn delete(&mut self, index: usize) -> Result<(), ZerokitMerkleTreeError> {
+    fn delete(&mut self, index: usize) -> Result<(), Self::Error> {
         // We reset the leaf only if we previously set a leaf at that index
         if index < self.next_index {
             self.set(index, H::default_leaf())?;
@@ -281,7 +282,7 @@ where
     }
 
     // Computes a merkle proof the leaf at the specified index
-    fn proof(&self, leaf: usize) -> Result<FullMerkleProof<H>, ZerokitMerkleTreeError> {
+    fn proof(&self, leaf: usize) -> Result<FullMerkleProof<H>, Self::Error> {
         if leaf >= self.capacity() {
             return Err(ZerokitMerkleTreeError::InvalidLeaf);
         }
@@ -304,7 +305,7 @@ where
         &self,
         leaf: &FrOf<Self::Hasher>,
         merkle_proof: &FullMerkleProof<H>,
-    ) -> Result<bool, ZerokitMerkleTreeError> {
+    ) -> Result<bool, Self::Error> {
         if merkle_proof.length() != self.depth {
             return Err(ZerokitMerkleTreeError::InvalidMerkleProof);
         }
@@ -312,12 +313,12 @@ where
         Ok(expected_root.eq(&self.root()))
     }
 
-    fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), ZerokitMerkleTreeError> {
+    fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), Self::Error> {
         self.metadata = metadata.to_vec();
         Ok(())
     }
 
-    fn metadata(&self) -> Result<Vec<u8>, ZerokitMerkleTreeError> {
+    fn metadata(&self) -> Result<Vec<u8>, Self::Error> {
         Ok(self.metadata.to_vec())
     }
 }

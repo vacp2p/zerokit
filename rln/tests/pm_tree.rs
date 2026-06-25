@@ -135,7 +135,12 @@ mod test {
         drop(tree);
 
         let result = PmTree::<PoseidonHash>::new(TEST_DEPTH + 1, Fr::ZERO, config.clone());
-        assert!(matches!(result, Err(ZerokitMerkleTreeError::InvalidDepth)));
+        assert!(matches!(
+            result,
+            Err(PmTreeError::MerkleTree(
+                ZerokitMerkleTreeError::InvalidDepth
+            ))
+        ));
 
         let tree = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
         assert_eq!(tree.depth(), TEST_DEPTH);
@@ -169,7 +174,7 @@ mod test {
         let result = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config);
         assert!(matches!(
             result,
-            Err(ZerokitMerkleTreeError::StorageBackend(_))
+            Err(PmTreeError::Backend(PmTreeBackendError::Database(_)))
         ));
     }
 
@@ -177,7 +182,12 @@ mod test {
     fn test_pmtree_depth_shift_overflow() {
         let depth = usize::BITS as usize;
         let result = PmTree::<PoseidonHash>::new(depth, Fr::ZERO, temp_config());
-        assert!(matches!(result, Err(ZerokitMerkleTreeError::InvalidDepth)));
+        assert!(matches!(
+            result,
+            Err(PmTreeError::MerkleTree(
+                ZerokitMerkleTreeError::InvalidDepth
+            ))
+        ));
     }
 
     #[test]
@@ -187,7 +197,9 @@ mod test {
             tree.override_range(0, vec![Fr::from(1)].into_iter(), vec![5usize].into_iter());
         assert!(matches!(
             result,
-            Err(ZerokitMerkleTreeError::InvalidIndices)
+            Err(PmTreeError::MerkleTree(
+                ZerokitMerkleTreeError::InvalidIndices
+            ))
         ));
     }
 
@@ -275,7 +287,9 @@ mod test {
         assert!(tree.verify(&leaf, &proof).unwrap());
         assert!(matches!(
             tree.verify(&Fr::from(43), &proof),
-            Err(ZerokitMerkleTreeError::InvalidMerkleProof)
+            Err(PmTreeError::MerkleTree(
+                ZerokitMerkleTreeError::InvalidMerkleProof
+            ))
         ));
     }
 
@@ -314,11 +328,11 @@ mod test {
         let capacity = tree.capacity();
         assert!(matches!(
             tree.proof(capacity),
-            Err(ZerokitMerkleTreeError::StorageBackend(_))
+            Err(PmTreeError::Backend(PmTreeBackendError::IndexOutOfBounds))
         ));
         assert!(matches!(
             tree.get(capacity),
-            Err(ZerokitMerkleTreeError::StorageBackend(_))
+            Err(PmTreeError::Backend(PmTreeBackendError::IndexOutOfBounds))
         ));
     }
 
@@ -327,7 +341,9 @@ mod test {
         let tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
         assert!(matches!(
             tree.get_subtree_root(TEST_DEPTH + 1, 0),
-            Err(ZerokitMerkleTreeError::InvalidLevel)
+            Err(PmTreeError::MerkleTree(
+                ZerokitMerkleTreeError::InvalidLevel
+            ))
         ));
     }
 
@@ -407,11 +423,11 @@ mod test {
         // Try overflow
         assert!(matches!(
             tree.update_next(Fr::from(16)),
-            Err(ZerokitMerkleTreeError::StorageBackend(_))
+            Err(PmTreeError::Backend(PmTreeBackendError::IndexOutOfBounds))
         ));
         assert!(matches!(
             tree.set(16, Fr::from(16)),
-            Err(ZerokitMerkleTreeError::StorageBackend(_))
+            Err(PmTreeError::Backend(PmTreeBackendError::IndexOutOfBounds))
         ));
     }
 

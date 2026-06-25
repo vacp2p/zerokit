@@ -3,7 +3,7 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use bon::bon;
-use zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleTree, ZerokitMerkleTreeError};
+use zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleTree};
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::circuit::{default_graph_single, default_zkey_single};
@@ -91,11 +91,11 @@ where
         self.state.tree.root()
     }
 
-    pub fn set_leaf(&mut self, index: usize, leaf: Fr) -> Result<(), ZerokitMerkleTreeError> {
+    pub fn set_leaf(&mut self, index: usize, leaf: Fr) -> Result<(), T::Error> {
         self.state.tree.set(index, leaf)
     }
 
-    pub fn get_leaf(&self, index: usize) -> Result<Fr, ZerokitMerkleTreeError> {
+    pub fn get_leaf(&self, index: usize) -> Result<Fr, T::Error> {
         self.state.tree.get(index)
     }
 
@@ -103,11 +103,11 @@ where
         &mut self,
         index: usize,
         leaves: Vec<Fr>,
-    ) -> Result<(), ZerokitMerkleTreeError> {
+    ) -> Result<(), T::Error> {
         self.state.tree.set_range(index, leaves.into_iter())
     }
 
-    pub fn init_tree_with_leaves(&mut self, leaves: Vec<Fr>) -> Result<(), ZerokitMerkleTreeError> {
+    pub fn init_tree_with_leaves(&mut self, leaves: Vec<Fr>) -> Result<(), T::Error> {
         let depth = self.state.tree.depth();
         self.state.tree = T::default(depth)?;
         self.set_leaves_from(0, leaves)
@@ -118,7 +118,7 @@ where
         index: usize,
         leaves: Vec<Fr>,
         indices: Vec<usize>,
-    ) -> Result<(), ZerokitMerkleTreeError> {
+    ) -> Result<(), T::Error> {
         self.state
             .tree
             .override_range(index, leaves.into_iter(), indices.into_iter())
@@ -128,19 +128,19 @@ where
         self.state.tree.leaves_set()
     }
 
-    pub fn set_next_leaf(&mut self, leaf: Fr) -> Result<(), ZerokitMerkleTreeError> {
+    pub fn set_next_leaf(&mut self, leaf: Fr) -> Result<(), T::Error> {
         self.state.tree.update_next(leaf)
     }
 
-    pub fn delete_leaf(&mut self, index: usize) -> Result<(), ZerokitMerkleTreeError> {
+    pub fn delete_leaf(&mut self, index: usize) -> Result<(), T::Error> {
         self.state.tree.delete(index)
     }
 
-    pub fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), ZerokitMerkleTreeError> {
+    pub fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), T::Error> {
         self.state.tree.set_metadata(metadata)
     }
 
-    pub fn get_metadata(&self) -> Result<Vec<u8>, ZerokitMerkleTreeError> {
+    pub fn get_metadata(&self) -> Result<Vec<u8>, T::Error> {
         self.state.tree.metadata()
     }
 
@@ -148,7 +148,7 @@ where
         &self,
         level: usize,
         index: usize,
-    ) -> Result<Fr, ZerokitMerkleTreeError> {
+    ) -> Result<Fr, T::Error> {
         self.state.tree.get_subtree_root(level, index)
     }
 
@@ -156,11 +156,11 @@ where
         self.state.tree.get_empty_leaves_indices()
     }
 
-    pub fn flush(&mut self) -> Result<(), ZerokitMerkleTreeError> {
+    pub fn flush(&mut self) -> Result<(), T::Error> {
         self.state.tree.close_db_connection()
     }
 
-    pub fn get_merkle_proof(&self, index: usize) -> Result<T::Proof, ZerokitMerkleTreeError> {
+    pub fn get_merkle_proof(&self, index: usize) -> Result<T::Proof, T::Error> {
         self.state.tree.proof(index)
     }
 }
