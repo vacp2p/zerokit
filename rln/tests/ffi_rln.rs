@@ -33,7 +33,10 @@ mod test {
     }
 
     fn create_rln_instance() -> repr_c::Box<FFI_RLN> {
-        ffi_rln_new_with_pm_tree_default()
+        unwrap_ok!(
+            ffi_rln_new_with_pm_tree_default(),
+            "ffi_rln_new_with_pm_tree_default",
+        )
     }
 
     fn random_leaves(leaf_count: usize) -> Vec<CFr> {

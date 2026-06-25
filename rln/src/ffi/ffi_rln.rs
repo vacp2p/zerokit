@@ -366,10 +366,21 @@ pub fn ffi_rln_new_stateless(
 }
 
 #[ffi_export]
-pub fn ffi_rln_new_with_full_merkle_tree_default() -> repr_c::Box<FFI_RLN> {
-    let full_merkle_tree = FullMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH).unwrap();
-    let rln = RLNBuilder::stateful().tree(full_merkle_tree).build();
-    Box_::new(FFI_RLN(rln.into()))
+pub fn ffi_rln_new_with_full_merkle_tree_default() -> CResult<repr_c::Box<FFI_RLN>, repr_c::String>
+{
+    match FullMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH) {
+        Ok(full_merkle_tree) => {
+            let rln = RLNBuilder::stateful().tree(full_merkle_tree).build();
+            CResult {
+                ok: Some(Box_::new(FFI_RLN(rln.into()))),
+                err: None,
+            }
+        }
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 #[ffi_export]
@@ -407,11 +418,21 @@ pub fn ffi_rln_new_with_full_merkle_tree(
 }
 
 #[ffi_export]
-pub fn ffi_rln_new_with_optimal_merkle_tree_default() -> repr_c::Box<FFI_RLN> {
-    let optimal_merkle_tree =
-        OptimalMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH).unwrap();
-    let rln = RLNBuilder::stateful().tree(optimal_merkle_tree).build();
-    Box_::new(FFI_RLN(rln.into()))
+pub fn ffi_rln_new_with_optimal_merkle_tree_default(
+) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
+    match OptimalMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH) {
+        Ok(optimal_merkle_tree) => {
+            let rln = RLNBuilder::stateful().tree(optimal_merkle_tree).build();
+            CResult {
+                ok: Some(Box_::new(FFI_RLN(rln.into()))),
+                err: None,
+            }
+        }
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 #[ffi_export]
@@ -449,10 +470,20 @@ pub fn ffi_rln_new_with_optimal_merkle_tree(
 }
 
 #[ffi_export]
-pub fn ffi_rln_new_with_pm_tree_default() -> repr_c::Box<FFI_RLN> {
-    let pm_tree = PmTree::default(DEFAULT_TREE_DEPTH).unwrap();
-    let rln = RLNBuilder::stateful().tree(pm_tree).build();
-    Box_::new(FFI_RLN(rln.into()))
+pub fn ffi_rln_new_with_pm_tree_default() -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
+    match PmTree::default(DEFAULT_TREE_DEPTH) {
+        Ok(pm_tree) => {
+            let rln = RLNBuilder::stateful().tree(pm_tree).build();
+            CResult {
+                ok: Some(Box_::new(FFI_RLN(rln.into()))),
+                err: None,
+            }
+        }
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 #[ffi_export]

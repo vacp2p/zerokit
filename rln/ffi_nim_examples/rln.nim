@@ -188,20 +188,22 @@ proc ffi_rln_new_with_full_merkle_tree*(tree_depth: CSize,
     zkey_data: ptr Vec_uint8,
     graph_data: ptr Vec_uint8): RLNResult {.importc: "ffi_rln_new_with_full_merkle_tree",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_new_with_full_merkle_tree_default*(): ptr RLN {.importc: "ffi_rln_new_with_full_merkle_tree_default",
+proc ffi_rln_new_with_full_merkle_tree_default*(): RLNResult {.
+    importc: "ffi_rln_new_with_full_merkle_tree_default",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_new_with_optimal_merkle_tree*(tree_depth: CSize,
     zkey_data: ptr Vec_uint8,
     graph_data: ptr Vec_uint8): RLNResult {.importc: "ffi_rln_new_with_optimal_merkle_tree",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_new_with_optimal_merkle_tree_default*(): ptr RLN {.importc: "ffi_rln_new_with_optimal_merkle_tree_default",
+proc ffi_rln_new_with_optimal_merkle_tree_default*(): RLNResult {.
+    importc: "ffi_rln_new_with_optimal_merkle_tree_default",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_new_with_pm_tree*(tree_depth: CSize,
     zkey_data: ptr Vec_uint8,
     graph_data: ptr Vec_uint8,
     config_path: cstring): RLNResult {.importc: "ffi_rln_new_with_pm_tree",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_new_with_pm_tree_default*(config_path: cstring): ptr RLN {.
+proc ffi_rln_new_with_pm_tree_default*(): RLNResult {.
     importc: "ffi_rln_new_with_pm_tree_default",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_generate_proof*(rln: ptr ptr RLN,
