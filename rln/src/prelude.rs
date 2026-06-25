@@ -1,6 +1,8 @@
 // This module re-exports the most commonly used types and functions from the RLN library
 
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+#[cfg(not(target_arch = "wasm32"))]
+pub use pmtree::PmtreeError as PmTreeBackendError;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::circuit::{
@@ -32,5 +34,3 @@ pub use crate::{
     },
     public::{RLNBuilder, Stateful, Stateless, RLN},
 };
-#[cfg(not(target_arch = "wasm32"))]
-pub use pmtree::PmtreeError as PmTreeBackendError;

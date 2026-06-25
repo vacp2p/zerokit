@@ -87,23 +87,23 @@ where
         self.state.tree.depth()
     }
 
+    pub fn leaves_set(&self) -> usize {
+        self.state.tree.leaves_set()
+    }
+
     pub fn get_root(&self) -> Fr {
         self.state.tree.root()
+    }
+
+    pub fn get_subtree_root(&self, level: usize, index: usize) -> Result<Fr, T::Error> {
+        self.state.tree.get_subtree_root(level, index)
     }
 
     pub fn set_leaf(&mut self, index: usize, leaf: Fr) -> Result<(), T::Error> {
         self.state.tree.set(index, leaf)
     }
 
-    pub fn get_leaf(&self, index: usize) -> Result<Fr, T::Error> {
-        self.state.tree.get(index)
-    }
-
-    pub fn set_leaves_from(
-        &mut self,
-        index: usize,
-        leaves: Vec<Fr>,
-    ) -> Result<(), T::Error> {
+    pub fn set_leaves_from(&mut self, index: usize, leaves: Vec<Fr>) -> Result<(), T::Error> {
         self.state.tree.set_range(index, leaves.into_iter())
     }
 
@@ -113,19 +113,21 @@ where
         self.set_leaves_from(0, leaves)
     }
 
+    pub fn get_leaf(&self, index: usize) -> Result<Fr, T::Error> {
+        self.state.tree.get(index)
+    }
+
+    pub fn get_empty_leaves_indices(&self) -> Vec<usize> {
+        self.state.tree.get_empty_leaves_indices()
+    }
+
     pub fn atomic_operation(
         &mut self,
         index: usize,
         leaves: Vec<Fr>,
         indices: Vec<usize>,
     ) -> Result<(), T::Error> {
-        self.state
-            .tree
-            .override_range(index, leaves.into_iter(), indices.into_iter())
-    }
-
-    pub fn leaves_set(&self) -> usize {
-        self.state.tree.leaves_set()
+        self.state.tree.override_range(index, leaves, indices)
     }
 
     pub fn set_next_leaf(&mut self, leaf: Fr) -> Result<(), T::Error> {
@@ -136,6 +138,10 @@ where
         self.state.tree.delete(index)
     }
 
+    pub fn get_merkle_proof(&self, index: usize) -> Result<T::Proof, T::Error> {
+        self.state.tree.proof(index)
+    }
+
     pub fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), T::Error> {
         self.state.tree.set_metadata(metadata)
     }
@@ -144,24 +150,8 @@ where
         self.state.tree.metadata()
     }
 
-    pub fn get_subtree_root(
-        &self,
-        level: usize,
-        index: usize,
-    ) -> Result<Fr, T::Error> {
-        self.state.tree.get_subtree_root(level, index)
-    }
-
-    pub fn get_empty_leaves_indices(&self) -> Vec<usize> {
-        self.state.tree.get_empty_leaves_indices()
-    }
-
     pub fn flush(&mut self) -> Result<(), T::Error> {
         self.state.tree.close_db_connection()
-    }
-
-    pub fn get_merkle_proof(&self, index: usize) -> Result<T::Proof, T::Error> {
-        self.state.tree.proof(index)
     }
 }
 
@@ -199,11 +189,7 @@ impl<Tree, ZkProof: RLNPartialZkProof> RLN<Tree, ZkProof> {
     }
 }
 
-// TODO(PR11): rename `verify_with_signal` / `verify_with_roots` — the suffixes are
-// confusing and the dev UX is unclear (e.g. `verify_with_roots` also re-checks the signal
-// via `verify_with_signal`). Pick names that reflect the actual semantics (e.g.
-// `verify_signal` for signal-only, `verify_signal_with_roots` or `verify_with_known_roots`
-// for the root-checking variant). To be addressed in a follow-up PR.
+// TODO(PR12): consider renaming `verify_with_signal` / `verify_with_roots` for better semantics.
 impl<Tree, ZkProof> RLN<Tree, ZkProof>
 where
     ZkProof:

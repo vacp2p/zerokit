@@ -61,6 +61,10 @@ pub trait ZerokitMerkleTree {
         I: ExactSizeIterator<Item = FrOf<Self::Hasher>>;
     fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>, Self::Error>;
     fn get_empty_leaves_indices(&self) -> Vec<usize>;
+    /// Overrides a range of leaves: writes `leaves` from `start`, then resets each non-overlapping
+    /// index in `to_remove_indices` (writes win over deletes on overlap). Validates before mutating.
+    /// The default impl composes `delete` + `set_range`; it is not crash-atomic, so a persistent
+    /// backend should override it with a single atomic commit (see `PmTree`).
     fn override_range<I, J>(
         &mut self,
         start: usize,
@@ -68,8 +72,42 @@ pub trait ZerokitMerkleTree {
         to_remove_indices: J,
     ) -> Result<(), Self::Error>
     where
-        I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
-        J: ExactSizeIterator<Item = usize>;
+        I: IntoIterator<Item = FrOf<Self::Hasher>>,
+        J: IntoIterator<Item = usize>,
+        Self: Sized,
+    {
+        let leaves = leaves.into_iter().collect::<Vec<_>>();
+        let to_remove_indices = to_remove_indices.into_iter().collect::<Vec<_>>();
+
+        if leaves.is_empty() && to_remove_indices.is_empty() {
+            return Err(ZerokitMerkleTreeError::InvalidLeaf.into());
+        }
+        let end = start
+            .checked_add(leaves.len())
+            .ok_or(ZerokitMerkleTreeError::TooManySet)?;
+        if end > self.capacity() {
+            return Err(ZerokitMerkleTreeError::TooManySet.into());
+        }
+        // Capture before `set_range` grows it. Only indices the written range does NOT cover are
+        // actually deleted; each such index must point at a set leaf. Overlapping indices are exempt
+        // (the write overwrites them), so they need not be set beforehand. Validate before mutating.
+        let leaves_set = self.leaves_set();
+        for &index in &to_remove_indices {
+            if (index < start || index >= end) && index >= leaves_set {
+                return Err(ZerokitMerkleTreeError::InvalidIndices.into());
+            }
+        }
+
+        for &index in &to_remove_indices {
+            if index < start || index >= end {
+                self.delete(index)?;
+            }
+        }
+        if !leaves.is_empty() {
+            self.set_range(start, leaves.into_iter())?;
+        }
+        Ok(())
+    }
     fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<(), Self::Error>;
     fn delete(&mut self, index: usize) -> Result<(), Self::Error>;
     fn proof(&self, index: usize) -> Result<Self::Proof, Self::Error>;

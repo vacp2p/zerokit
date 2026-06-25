@@ -3,7 +3,6 @@ pub mod full_merkle_tree;
 #[allow(clippy::module_inception)]
 pub mod merkle_tree;
 pub mod optimal_merkle_tree;
-pub mod override_range_validation;
 
 pub use error::{FromConfigError, ZerokitMerkleTreeError};
 pub use full_merkle_tree::{FullMerkleConfig, FullMerkleProof, FullMerkleTree};
@@ -11,6 +10,3 @@ pub use merkle_tree::{
     compute_tree_root, FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES,
 };
 pub use optimal_merkle_tree::{OptimalMerkleConfig, OptimalMerkleProof, OptimalMerkleTree};
-pub use override_range_validation::{
-    validate_override_range_inputs, EmptyIndicesPolicy, OverrideRangeValidation,
-};

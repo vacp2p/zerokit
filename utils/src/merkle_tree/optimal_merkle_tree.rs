@@ -4,8 +4,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use super::{
     error::{FromConfigError, ZerokitMerkleTreeError},
-    merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES},
-    override_range_validation::{validate_override_range_inputs, EmptyIndicesPolicy},
+    merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES},
 };
 
 // Optimal Merkle Tree Implementation
@@ -72,11 +71,7 @@ where
 
     /// Creates a new `MerkleTree`
     /// depth - the depth of the tree made only of hash nodes. 2^depth is the maximum number of leaves hash nodes
-    fn new(
-        depth: usize,
-        default_leaf: H::Fr,
-        _config: Self::Config,
-    ) -> Result<Self, Self::Error> {
+    fn new(depth: usize, default_leaf: H::Fr, _config: Self::Config) -> Result<Self, Self::Error> {
         if depth >= usize::BITS as usize {
             return Err(ZerokitMerkleTreeError::InvalidDepth);
         }
@@ -99,10 +94,6 @@ where
         })
     }
 
-    fn close_db_connection(&mut self) -> Result<(), Self::Error> {
-        Ok(())
-    }
-
     /// Returns the depth of the tree
     fn depth(&self) -> usize {
         self.depth
@@ -123,26 +114,6 @@ where
         self.get_node(0, 0)
     }
 
-    /// Sets a leaf at the specified tree index
-    fn set(&mut self, index: usize, leaf: H::Fr) -> Result<(), Self::Error> {
-        if index >= self.capacity() {
-            return Err(ZerokitMerkleTreeError::InvalidLeaf);
-        }
-        self.nodes.insert((self.depth, index), leaf);
-        self.update_hashes(index, 1)?;
-        self.next_index = max(self.next_index, index + 1);
-        self.cached_leaves_indices[index] = 1;
-        Ok(())
-    }
-
-    /// Get a leaf from the specified tree index
-    fn get(&self, index: usize) -> Result<H::Fr, Self::Error> {
-        if index >= self.capacity() {
-            return Err(ZerokitMerkleTreeError::InvalidLeaf);
-        }
-        Ok(self.get_node(self.depth, index))
-    }
-
     /// Returns the root of the subtree at level n and index
     fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr, Self::Error> {
         if n > self.depth() {
@@ -160,15 +131,16 @@ where
         }
     }
 
-    /// Returns the indices of the leaves that are empty
-    fn get_empty_leaves_indices(&self) -> Vec<usize> {
-        self.cached_leaves_indices
-            .iter()
-            .take(self.next_index)
-            .enumerate()
-            .filter(|&(_, &v)| v == 0u8)
-            .map(|(idx, _)| idx)
-            .collect()
+    /// Sets a leaf at the specified tree index
+    fn set(&mut self, index: usize, leaf: H::Fr) -> Result<(), Self::Error> {
+        if index >= self.capacity() {
+            return Err(ZerokitMerkleTreeError::InvalidLeaf);
+        }
+        self.nodes.insert((self.depth, index), leaf);
+        self.update_hashes(index, 1)?;
+        self.next_index = max(self.next_index, index + 1);
+        self.cached_leaves_indices[index] = 1;
+        Ok(())
     }
 
     /// Sets multiple leaves from the specified tree index
@@ -194,55 +166,27 @@ where
         Ok(())
     }
 
-    /// Overrides a range of leaves while resetting specified indices to default and preserving unaffected values.
-    fn override_range<I, J>(
-        &mut self,
-        start: usize,
-        leaves: I,
-        indices: J,
-    ) -> Result<(), Self::Error>
-    where
-        I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
-        J: ExactSizeIterator<Item = usize>,
-    {
-        let leaves_vec = leaves.into_iter().collect::<Vec<_>>();
-        let validated = validate_override_range_inputs(
-            start,
-            leaves_vec.len(),
-            indices.into_iter().collect::<Vec<_>>(),
-            self.capacity(),
-            // OptimalMerkleTree's override path currently requires explicit delete indices.
-            EmptyIndicesPolicy::Reject,
-        )?;
-        let indices = validated.indices;
-        let min_index = validated
-            .min_index
-            .ok_or(ZerokitMerkleTreeError::InvalidIndices)?;
-        let max_index = validated.max_index.unwrap_or(start);
-
-        if min_index >= max_index {
-            return Err(ZerokitMerkleTreeError::InvalidIndices);
+    /// Get a leaf from the specified tree index
+    fn get(&self, index: usize) -> Result<H::Fr, Self::Error> {
+        if index >= self.capacity() {
+            return Err(ZerokitMerkleTreeError::InvalidLeaf);
         }
-
-        let mut set_values = vec![Self::Hasher::default_leaf(); max_index - min_index];
-
-        for i in min_index..start {
-            if !indices.contains(&i) {
-                let value = self.get(i)?;
-                set_values[i - min_index] = value;
-            }
-        }
-
-        for i in 0..leaves_vec.len() {
-            set_values[start - min_index + i] = leaves_vec[i];
-        }
-
-        for i in indices {
-            self.cached_leaves_indices[i] = 0;
-        }
-
-        self.set_range(start, set_values.into_iter())
+        Ok(self.get_node(self.depth, index))
     }
+
+    /// Returns the indices of the leaves that are empty
+    fn get_empty_leaves_indices(&self) -> Vec<usize> {
+        self.cached_leaves_indices
+            .iter()
+            .take(self.next_index)
+            .enumerate()
+            .filter(|&(_, &v)| v == 0u8)
+            .map(|(idx, _)| idx)
+            .collect()
+    }
+
+    // Trait method `override_range` uses the default `ZerokitMerkleTree` implementation
+    // In-memory, so the default `delete` + `set_range` is sufficient (no crash-atomicity concern).
 
     /// Sets a leaf at the next available index
     fn update_next(&mut self, leaf: H::Fr) -> Result<(), Self::Error> {
@@ -285,11 +229,7 @@ where
     }
 
     /// Verifies a Merkle proof with respect to the input leaf and the tree root
-    fn verify(
-        &self,
-        leaf: &H::Fr,
-        merkle_proof: &Self::Proof,
-    ) -> Result<bool, Self::Error> {
+    fn verify(&self, leaf: &H::Fr, merkle_proof: &Self::Proof) -> Result<bool, Self::Error> {
         if merkle_proof.length() != self.depth {
             return Err(ZerokitMerkleTreeError::InvalidMerkleProof);
         }
@@ -304,6 +244,10 @@ where
 
     fn metadata(&self) -> Result<Vec<u8>, Self::Error> {
         Ok(self.metadata.to_vec())
+    }
+
+    fn close_db_connection(&mut self) -> Result<(), Self::Error> {
+        Ok(())
     }
 }
 

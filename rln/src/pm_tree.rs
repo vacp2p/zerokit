@@ -9,8 +9,8 @@ use serde_json::Value;
 use sled::{Config, Db, Mode};
 use tempfile::Builder;
 use zerokit_utils::merkle_tree::{
-    validate_override_range_inputs, EmptyIndicesPolicy, FromConfigError, Hasher as ZerokitHasher,
-    ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError,
+    FromConfigError, Hasher as ZerokitHasher, ZerokitMerkleProof, ZerokitMerkleTree,
+    ZerokitMerkleTreeError,
 };
 
 use crate::hashers::PoseidonHash;
@@ -203,6 +203,7 @@ where
         )
     }
 
+    /// Creates a new tree, loading the existing one at the configured path if present
     fn new(
         depth: usize,
         _default_leaf: FrOf<Self::Hasher>,
@@ -251,28 +252,45 @@ where
         })
     }
 
+    /// Returns the depth of the tree
     fn depth(&self) -> usize {
         self.tree.depth()
     }
 
+    /// Returns the capacity of the tree, i.e. the maximum number of accumulatable leaves
     fn capacity(&self) -> usize {
         self.tree.capacity()
     }
 
+    /// Returns the total number of leaves set
     fn leaves_set(&self) -> usize {
         self.tree.leaves_set()
     }
 
+    /// Returns the root of the tree
     fn root(&self) -> FrOf<Self::Hasher> {
         self.tree.root()
     }
 
+    /// Returns the root of the subtree at level n and index
+    fn get_subtree_root(&self, n: usize, index: usize) -> Result<FrOf<Self::Hasher>, Self::Error> {
+        if n > self.depth() {
+            return Err(ZerokitMerkleTreeError::InvalidLevel.into());
+        }
+        if index >= self.capacity() {
+            return Err(ZerokitMerkleTreeError::InvalidLeaf.into());
+        }
+        self.tree.subtree_root(n, index).map_err(Into::into)
+    }
+
+    /// Sets a leaf at the specified tree index
     fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>) -> Result<(), Self::Error> {
         self.tree.set(index, leaf)?;
         self.cached_leaves_indices[index] = 1;
         Ok(())
     }
 
+    /// Sets multiple leaves from the specified tree index
     fn set_range<I: IntoIterator<Item = FrOf<Self::Hasher>>>(
         &mut self,
         start: usize,
@@ -286,20 +304,12 @@ where
         Ok(())
     }
 
+    /// Get a leaf from the specified tree index
     fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>, Self::Error> {
         self.tree.get(index).map_err(Into::into)
     }
 
-    fn get_subtree_root(&self, n: usize, index: usize) -> Result<FrOf<Self::Hasher>, Self::Error> {
-        if n > self.depth() {
-            return Err(ZerokitMerkleTreeError::InvalidLevel.into());
-        }
-        if index >= self.capacity() {
-            return Err(ZerokitMerkleTreeError::InvalidLeaf.into());
-        }
-        self.tree.subtree_root(n, index).map_err(Into::into)
-    }
-
+    /// Returns the indices of the leaves that are empty
     fn get_empty_leaves_indices(&self) -> Vec<usize> {
         let next_idx = self.leaves_set();
         self.cached_leaves_indices
@@ -311,6 +321,8 @@ where
             .collect()
     }
 
+    /// Overrides a range of leaves atomically: same semantics as the default, but commits the
+    /// scattered resets and writes in one `pmtree` `batch_set` so a sled-backed tree stays crash-safe
     fn override_range<I: IntoIterator<Item = FrOf<Self::Hasher>>, J: IntoIterator<Item = usize>>(
         &mut self,
         start: usize,
@@ -318,35 +330,53 @@ where
         indices: J,
     ) -> Result<(), Self::Error> {
         let leaves = leaves.into_iter().collect::<Vec<_>>();
-        let validated = validate_override_range_inputs(
-            start,
-            leaves.len(),
-            indices.into_iter().collect::<Vec<_>>(),
-            self.capacity(),
-            // PMTree supports set-only overrides (`indices` can be empty).
-            EmptyIndicesPolicy::Allow,
-        )?;
-        let indices = validated.indices;
+        let to_remove = indices.into_iter().collect::<Vec<_>>();
 
-        match (leaves.len(), indices.len()) {
-            (0, 0) => Err(ZerokitMerkleTreeError::InvalidLeaf.into()),
-            (1, 0) => self.set(start, leaves[0]),
-            (0, 1) => self.delete(indices[0]),
-            (_, 0) => self.set_range(start, leaves.into_iter()),
-            (0, _) => self.remove_indices(&indices).map_err(Into::into),
-            (_, _) => self
-                .remove_indices_and_set_leaves(
-                    start,
-                    leaves,
-                    &indices,
-                    validated
-                        .max_index
-                        .ok_or(ZerokitMerkleTreeError::InvalidIndices)?,
-                )
-                .map_err(Into::into),
+        if leaves.is_empty() && to_remove.is_empty() {
+            return Err(ZerokitMerkleTreeError::InvalidLeaf.into());
         }
+        let end = start
+            .checked_add(leaves.len())
+            .ok_or(ZerokitMerkleTreeError::TooManySet)?;
+        if end > self.capacity() {
+            return Err(ZerokitMerkleTreeError::TooManySet.into());
+        }
+        // Only indices the written range does not cover are actually deleted; each such index must
+        // point at a set leaf (overlapping indices are overwritten by the write).
+        let leaves_set = self.leaves_set();
+        for &index in &to_remove {
+            if (index < start || index >= end) && index >= leaves_set {
+                return Err(ZerokitMerkleTreeError::InvalidIndices.into());
+            }
+        }
+
+        // Build scattered (index, value) pairs (non-overlapping deletes as the default leaf, then
+        // the contiguous writes) and commit them in ONE atomic batch.
+        let default_leaf = <H as ZerokitHasher>::default_leaf();
+        let mut pairs = Vec::with_capacity(to_remove.len() + leaves.len());
+        for &index in &to_remove {
+            if index < start || index >= end {
+                pairs.push((index, default_leaf));
+            }
+        }
+        for (offset, &leaf) in leaves.iter().enumerate() {
+            pairs.push((start + offset, leaf));
+        }
+        self.tree.batch_set(&pairs)?;
+
+        // Mirror the writes in the empty-leaves cache: deletes -> 0, writes -> 1.
+        for &index in &to_remove {
+            if index < start || index >= end {
+                self.cached_leaves_indices[index] = 0;
+            }
+        }
+        for offset in 0..leaves.len() {
+            self.cached_leaves_indices[start + offset] = 1;
+        }
+        Ok(())
     }
 
+    /// Sets a leaf at the next available index
     fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<(), Self::Error> {
         let index = self.tree.leaves_set();
         self.tree.update_next(leaf)?;
@@ -354,22 +384,20 @@ where
         Ok(())
     }
 
-    /// Delete a leaf in the merkle tree given its index
-    ///
-    /// Deleting a leaf is done by resetting it to its default value. Note that the next_index field
-    /// will not be changed (== previously used index cannot be reused - this to avoid replay
-    /// attacks or unexpected and very hard to tackle issues)
+    /// Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
     fn delete(&mut self, index: usize) -> Result<(), Self::Error> {
         self.tree.delete(index)?;
         self.cached_leaves_indices[index] = 0;
         Ok(())
     }
 
+    /// Computes a merkle proof the leaf at the specified index
     fn proof(&self, index: usize) -> Result<Self::Proof, Self::Error> {
         let proof = self.tree.proof(index)?;
         Ok(PmTreeProof { proof })
     }
 
+    /// Verifies a Merkle proof with respect to the input leaf and the tree root
     fn verify(
         &self,
         leaf: &FrOf<Self::Hasher>,
@@ -401,68 +429,6 @@ where
 
     fn close_db_connection(&mut self) -> Result<(), Self::Error> {
         self.tree.db.close().map_err(Into::into)
-    }
-}
-
-impl<H> PmTree<H>
-where
-    H: ZerokitHasher + Hasher<Fr = FrOf<H>>,
-{
-    fn remove_indices(&mut self, indices: &[usize]) -> PmtreeResult<()> {
-        if indices.is_empty() {
-            return Err(PmtreeError::IndexOutOfBounds);
-        }
-        let start = indices[0];
-        let end = indices[indices.len() - 1] + 1;
-
-        let new_leaves = (start..end).map(|_| <H as ZerokitHasher>::default_leaf());
-
-        self.tree.set_range(start, new_leaves)?;
-
-        for i in start..end {
-            self.cached_leaves_indices[i] = 0
-        }
-        Ok(())
-    }
-
-    fn remove_indices_and_set_leaves(
-        &mut self,
-        start: usize,
-        leaves: Vec<FrOf<H>>,
-        indices: &[usize],
-        max_index: usize,
-    ) -> PmtreeResult<()> {
-        if indices.is_empty() {
-            return Err(PmtreeError::IndexOutOfBounds);
-        }
-        let min_index = indices[0];
-        if min_index >= max_index || min_index > start {
-            return Err(PmtreeError::IndexOutOfBounds);
-        }
-
-        let mut set_values = vec![<H as ZerokitHasher>::default_leaf(); max_index - min_index];
-
-        for i in min_index..start {
-            if !indices.contains(&i) {
-                let value = self.tree.get(i)?;
-                set_values[i - min_index] = value;
-            }
-        }
-
-        for (i, &leaf) in leaves.iter().enumerate() {
-            set_values[start - min_index + i] = leaf;
-        }
-
-        self.tree.set_range(start, set_values)?;
-
-        for i in indices {
-            self.cached_leaves_indices[*i] = 0;
-        }
-
-        for i in start..(max_index - min_index) {
-            self.cached_leaves_indices[i] = 1
-        }
-        Ok(())
     }
 }
 

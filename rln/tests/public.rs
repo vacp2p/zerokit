@@ -418,7 +418,6 @@ mod test {
 
     #[test]
     fn test_atomic_operation_zero_indexed() {
-        // Reproduced from https://github.com/waku-org/go-zerokit-rln/pull/12/files
         let leaves = random_leaves(&mut thread_rng());
 
         let mut rln = create_rln(DEFAULT_TREE_DEPTH);
@@ -431,7 +430,6 @@ mod test {
 
     #[test]
     fn test_atomic_operation_consistency() {
-        // Reproduced from https://github.com/waku-org/go-zerokit-rln/pull/12/files
         let mut rng = thread_rng();
         let leaves = random_leaves(&mut rng);
 

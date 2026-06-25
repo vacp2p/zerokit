@@ -6,7 +6,8 @@ mod test {
     use rln::prelude::*;
     use tempfile::TempDir;
     use zerokit_utils::merkle_tree::{
-        ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError,
+        FullMerkleTree, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
+        ZerokitMerkleTreeError,
     };
 
     const TEST_DEPTH: usize = 10;
@@ -191,19 +192,6 @@ mod test {
     }
 
     #[test]
-    fn test_pmtree_override_range_min_index_underflow() {
-        let mut tree = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, temp_config()).unwrap();
-        let result =
-            tree.override_range(0, vec![Fr::from(1)].into_iter(), vec![5usize].into_iter());
-        assert!(matches!(
-            result,
-            Err(PmTreeError::MerkleTree(
-                ZerokitMerkleTreeError::InvalidIndices
-            ))
-        ));
-    }
-
-    #[test]
     fn test_pmtree_basic_operations() {
         let mut tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
         let leaf = Fr::from(123);
@@ -248,21 +236,169 @@ mod test {
 
     #[test]
     fn test_pmtree_override_range() {
-        let mut tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
-        tree.set(0, Fr::from(1)).unwrap();
-        tree.set(1, Fr::from(2)).unwrap();
+        // PmTree routes override_range to pmtree's atomic `batch_set` (single commit), so the same
+        // cases the in-memory backends cover must hold here too. Each case sets a fresh tree, applies
+        // one override_range, then checks BOTH the leaf values and the empty-leaves cache.
 
-        // Set new leaves
-        let new_leaves = vec![Fr::from(10), Fr::from(20)];
-        tree.override_range(0, new_leaves.into_iter(), vec![].into_iter())
+        // Full overlap: write [5,6] over deleted [0,1] (writes win, untouched leaves preserved).
+        let mut tree = PmTree::<PoseidonHash>::default(3).unwrap();
+        tree.set_range(
+            0,
+            vec![Fr::from(10), Fr::from(20), Fr::from(30), Fr::from(40)].into_iter(),
+        )
+        .unwrap();
+        tree.override_range(0, vec![Fr::from(5), Fr::from(6)], vec![0usize, 1])
             .unwrap();
-        assert_eq!(tree.get(0).unwrap(), Fr::from(10));
-        assert_eq!(tree.get(1).unwrap(), Fr::from(20));
+        for (i, &v) in [5u64, 6, 30, 40].iter().enumerate() {
+            assert_eq!(tree.get(i).unwrap(), Fr::from(v), "leaf {i}");
+        }
+        assert_eq!(tree.get_empty_leaves_indices(), Vec::<usize>::new());
 
-        // Delete indices
-        tree.override_range(0, vec![].into_iter(), vec![0].into_iter())
+        // Shift repro: delete idx0, write 99 at idx2 (the write must NOT shift right).
+        let mut tree = PmTree::<PoseidonHash>::default(3).unwrap();
+        tree.set_range(
+            0,
+            vec![Fr::from(10), Fr::from(20), Fr::from(30), Fr::from(40)].into_iter(),
+        )
+        .unwrap();
+        tree.override_range(2, vec![Fr::from(99)], vec![0usize])
             .unwrap();
-        assert_eq!(tree.get(0).unwrap(), Fr::ZERO);
+        for (i, &v) in [0u64, 20, 99, 40].iter().enumerate() {
+            assert_eq!(tree.get(i).unwrap(), Fr::from(v), "leaf {i}");
+        }
+        assert_eq!(tree.get_empty_leaves_indices(), vec![0]);
+
+        // More deletes than writes: write [5,6] at start, delete [0,1,2,3].
+        let mut tree = PmTree::<PoseidonHash>::default(3).unwrap();
+        tree.set_range(
+            0,
+            vec![Fr::from(10), Fr::from(20), Fr::from(30), Fr::from(40)].into_iter(),
+        )
+        .unwrap();
+        tree.override_range(0, vec![Fr::from(5), Fr::from(6)], vec![0usize, 1, 2, 3])
+            .unwrap();
+        for (i, &v) in [5u64, 6, 0, 0].iter().enumerate() {
+            assert_eq!(tree.get(i).unwrap(), Fr::from(v), "leaf {i}");
+        }
+        assert_eq!(tree.get_empty_leaves_indices(), vec![2, 3]);
+
+        // Deletes entirely before the write range (no overlap).
+        let mut tree = PmTree::<PoseidonHash>::default(3).unwrap();
+        tree.set_range(
+            0,
+            vec![
+                Fr::from(10),
+                Fr::from(20),
+                Fr::from(30),
+                Fr::from(40),
+                Fr::from(50),
+                Fr::from(60),
+                Fr::from(70),
+                Fr::from(80),
+            ]
+            .into_iter(),
+        )
+        .unwrap();
+        tree.override_range(
+            4,
+            vec![Fr::from(1), Fr::from(2), Fr::from(3), Fr::from(4)],
+            vec![0usize, 1, 2, 3],
+        )
+        .unwrap();
+        for (i, &v) in [0u64, 0, 0, 0, 1, 2, 3, 4].iter().enumerate() {
+            assert_eq!(tree.get(i).unwrap(), Fr::from(v), "leaf {i}");
+        }
+        assert_eq!(tree.get_empty_leaves_indices(), vec![0, 1, 2, 3]);
+
+        // Partial overlap: write [1,2,3,4] at idx2, delete [0,1,2,3] (idx2,3 overlap the write).
+        let mut tree = PmTree::<PoseidonHash>::default(3).unwrap();
+        tree.set_range(
+            0,
+            vec![
+                Fr::from(10),
+                Fr::from(20),
+                Fr::from(30),
+                Fr::from(40),
+                Fr::from(50),
+                Fr::from(60),
+                Fr::from(70),
+                Fr::from(80),
+            ]
+            .into_iter(),
+        )
+        .unwrap();
+        tree.override_range(
+            2,
+            vec![Fr::from(1), Fr::from(2), Fr::from(3), Fr::from(4)],
+            vec![0usize, 1, 2, 3],
+        )
+        .unwrap();
+        for (i, &v) in [0u64, 0, 1, 2, 3, 4, 70, 80].iter().enumerate() {
+            assert_eq!(tree.get(i).unwrap(), Fr::from(v), "leaf {i}");
+        }
+        assert_eq!(tree.get_empty_leaves_indices(), vec![0, 1]);
+
+        // Writes only (empty deletes).
+        let mut tree = PmTree::<PoseidonHash>::default(3).unwrap();
+        tree.set_range(
+            0,
+            vec![Fr::from(10), Fr::from(20), Fr::from(30), Fr::from(40)].into_iter(),
+        )
+        .unwrap();
+        tree.override_range(1, vec![Fr::from(7), Fr::from(8)], Vec::<usize>::new())
+            .unwrap();
+        for (i, &v) in [10u64, 7, 8, 40].iter().enumerate() {
+            assert_eq!(tree.get(i).unwrap(), Fr::from(v), "leaf {i}");
+        }
+        assert_eq!(tree.get_empty_leaves_indices(), Vec::<usize>::new());
+
+        // Deletes only (empty writes).
+        let mut tree = PmTree::<PoseidonHash>::default(3).unwrap();
+        tree.set_range(
+            0,
+            vec![Fr::from(10), Fr::from(20), Fr::from(30), Fr::from(40)].into_iter(),
+        )
+        .unwrap();
+        tree.override_range(0, Vec::<Fr>::new(), vec![1usize, 3])
+            .unwrap();
+        for (i, &v) in [10u64, 0, 30, 0].iter().enumerate() {
+            assert_eq!(tree.get(i).unwrap(), Fr::from(v), "leaf {i}");
+        }
+        assert_eq!(tree.get_empty_leaves_indices(), vec![1, 3]);
+
+        // Validation: both inputs empty -> InvalidLeaf.
+        let mut tree = PmTree::<PoseidonHash>::default(3).unwrap();
+        tree.set_range(0, vec![Fr::from(10), Fr::from(20)].into_iter())
+            .unwrap();
+        assert!(matches!(
+            tree.override_range(0, Vec::<Fr>::new(), Vec::<usize>::new()),
+            Err(PmTreeError::MerkleTree(ZerokitMerkleTreeError::InvalidLeaf))
+        ));
+
+        // Validation: a non-overlapping delete index >= leaves_set -> InvalidIndices.
+        let mut tree = PmTree::<PoseidonHash>::default(3).unwrap();
+        tree.set_range(0, vec![Fr::from(10), Fr::from(20)].into_iter())
+            .unwrap();
+        assert!(matches!(
+            tree.override_range(0, vec![Fr::from(5)], vec![5usize]),
+            Err(PmTreeError::MerkleTree(
+                ZerokitMerkleTreeError::InvalidIndices
+            ))
+        ));
+
+        // Validation: start + leaves.len() > capacity -> TooManySet.
+        let mut tree = PmTree::<PoseidonHash>::default(2).unwrap();
+        assert!(matches!(
+            tree.override_range(3, vec![Fr::from(1), Fr::from(2)], Vec::<usize>::new()),
+            Err(PmTreeError::MerkleTree(ZerokitMerkleTreeError::TooManySet))
+        ));
+
+        // Validation: start + leaves.len() overflows usize -> TooManySet.
+        let mut tree = PmTree::<PoseidonHash>::default(2).unwrap();
+        assert!(matches!(
+            tree.override_range(usize::MAX, vec![Fr::from(1)], Vec::<usize>::new()),
+            Err(PmTreeError::MerkleTree(ZerokitMerkleTreeError::TooManySet))
+        ));
     }
 
     #[test]
@@ -545,6 +681,74 @@ mod test {
 
                 assert_eq!(poseidon_hash_pair(prev_l, prev_r), subroot);
             }
+        }
+    }
+
+    #[test]
+    fn test_pmtree_full_root_and_proof_equivalence() {
+        // PmTree must agree with FullMerkleTree on the root and proof for the same set of leaves.
+        let depth = 4;
+        let leaves: Vec<Fr> = (0..(1u64 << depth)).map(|i| Fr::from(i * 3 + 1)).collect();
+
+        let mut tree_pm = PmTree::<PoseidonHash>::default(depth).unwrap();
+        let mut tree_full = FullMerkleTree::<PoseidonHash>::default(depth).unwrap();
+        tree_pm.set_range(0, leaves.clone().into_iter()).unwrap();
+        tree_full.set_range(0, leaves.clone().into_iter()).unwrap();
+
+        assert_eq!(tree_pm.root(), tree_full.root());
+
+        for (index, leaf) in leaves.iter().enumerate() {
+            let proof_pm = tree_pm.proof(index).unwrap();
+            let proof_full = tree_full.proof(index).unwrap();
+            assert_eq!(
+                proof_pm.get_path_elements(),
+                proof_full.get_path_elements(),
+                "path elements at {index}"
+            );
+            assert_eq!(
+                proof_pm.get_path_index(),
+                proof_full.get_path_index(),
+                "path index at {index}"
+            );
+            assert_eq!(
+                proof_pm.compute_root_from(leaf),
+                tree_pm.root(),
+                "recomputed root at {index}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_pmtree_optimal_root_and_proof_equivalence() {
+        // PmTree must agree with OptimalMerkleTree on the root and proof for the same set of leaves.
+        let depth = 4;
+        let leaves: Vec<Fr> = (0..(1u64 << depth)).map(|i| Fr::from(i * 3 + 1)).collect();
+
+        let mut tree_pm = PmTree::<PoseidonHash>::default(depth).unwrap();
+        let mut tree_opt = OptimalMerkleTree::<PoseidonHash>::default(depth).unwrap();
+        tree_pm.set_range(0, leaves.clone().into_iter()).unwrap();
+        tree_opt.set_range(0, leaves.clone().into_iter()).unwrap();
+
+        assert_eq!(tree_pm.root(), tree_opt.root());
+
+        for (index, leaf) in leaves.iter().enumerate() {
+            let proof_pm = tree_pm.proof(index).unwrap();
+            let proof_opt = tree_opt.proof(index).unwrap();
+            assert_eq!(
+                proof_pm.get_path_elements(),
+                proof_opt.get_path_elements(),
+                "path elements at {index}"
+            );
+            assert_eq!(
+                proof_pm.get_path_index(),
+                proof_opt.get_path_index(),
+                "path index at {index}"
+            );
+            assert_eq!(
+                proof_pm.compute_root_from(leaf),
+                tree_pm.root(),
+                "recomputed root at {index}"
+            );
         }
     }
 }
