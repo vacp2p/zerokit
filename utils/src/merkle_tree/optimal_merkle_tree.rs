@@ -114,20 +114,20 @@ where
         self.get_node(0, 0)
     }
 
-    /// Returns the root of the subtree at level n and index
-    fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr, Self::Error> {
-        if n > self.depth() {
+    /// Returns the root of the subtree at `level` (`0` = root, `depth` = leaf) on the path to leaf `index`.
+    fn get_subtree_root(&self, level: usize, index: usize) -> Result<H::Fr, Self::Error> {
+        if level > self.depth() {
             return Err(ZerokitMerkleTreeError::LevelOutOfBounds);
         }
         if index >= self.capacity() {
             return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds);
         }
-        if n == 0 {
+        if level == 0 {
             Ok(self.root())
-        } else if n == self.depth {
+        } else if level == self.depth {
             self.get(index)
         } else {
-            Ok(self.get_node(n, index >> (self.depth - n)))
+            Ok(self.get_node(level, index >> (self.depth - level)))
         }
     }
 
@@ -251,9 +251,8 @@ where
         Ok(self.metadata.to_vec())
     }
 
-    fn close_db_connection(&mut self) -> Result<(), Self::Error> {
-        Ok(())
-    }
+    // Trait method `close` uses the default `ZerokitMerkleTree` implementation
+    // In-memory, so the default `close` is sufficient (no crash-atomicity concern).
 }
 
 // Utilities for updating the tree nodes

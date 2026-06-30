@@ -134,17 +134,17 @@ where
         self.nodes[0]
     }
 
-    /// Returns the root of the subtree at level n and index
-    fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr, Self::Error> {
-        if n > self.depth() {
+    /// Returns the root of the subtree at `level` (`0` = root, `depth` = leaf) on the path to leaf `index`.
+    fn get_subtree_root(&self, level: usize, index: usize) -> Result<H::Fr, Self::Error> {
+        if level > self.depth() {
             return Err(ZerokitMerkleTreeError::LevelOutOfBounds);
         }
         if index >= self.capacity() {
             return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds);
         }
-        if n == 0 {
+        if level == 0 {
             Ok(self.root())
-        } else if n == self.depth {
+        } else if level == self.depth {
             self.get(index)
         } else {
             let mut idx = self.capacity() + index - 1;
@@ -154,7 +154,7 @@ where
                     MerkleTreeInvariant::SubtreeWalkParentMissing,
                 ))?;
                 nd -= 1;
-                if nd == n {
+                if nd == level {
                     return Ok(self.nodes[parent]);
                 } else {
                     idx = parent;
@@ -187,10 +187,10 @@ where
             return Err(ZerokitMerkleTreeError::RangeTooLarge);
         }
         let index = self.capacity() + start - 1;
-        for (offset, hash) in leaves.enumerate() {
+        leaves.enumerate().for_each(|(offset, hash)| {
             self.nodes[index + offset] = hash;
             self.cached_leaves_indices[start + offset] = 1;
-        }
+        });
         if leaf_count != 0 {
             self.update_hashes(index, index + (leaf_count - 1))?;
             self.next_index = max(self.next_index, start + leaf_count);
@@ -212,8 +212,7 @@ where
             .iter()
             .take(self.next_index)
             .enumerate()
-            .filter(|&(_, &v)| v == 0u8)
-            .map(|(idx, _)| idx)
+            .filter_map(|(index, &v)| (v == 0u8).then_some(index))
             .collect()
     }
 
@@ -280,9 +279,8 @@ where
         Ok(self.metadata.to_vec())
     }
 
-    fn close_db_connection(&mut self) -> Result<(), Self::Error> {
-        Ok(())
-    }
+    // Trait method `close` uses the default `ZerokitMerkleTree` implementation
+    // In-memory, so the default `close` is sufficient (no crash-atomicity concern).
 }
 
 // Utilities for updating the tree nodes

@@ -97,6 +97,10 @@ type
     ok*: Vec_bool
     err*: Vec_uint8
 
+  VecSizeResult* = object
+    ok*: Vec_size
+    err*: Vec_uint8
+
 # CFr functions
 proc ffi_cfr_zero*(): ptr CFr {.importc: "ffi_cfr_zero", cdecl,
     dynlib: RLN_LIB.}
@@ -388,19 +392,17 @@ proc ffi_rln_recover_id_secret*(pv1: ptr ptr ProofValues,
 # Merkle tree operations (stateful mode)
 proc ffi_rln_merkle_proof_free*(p: ptr MerkleProof) {.importc: "ffi_rln_merkle_proof_free",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_delete_leaf*(rln: ptr ptr RLN,
-    index: CSize): CBoolResult {.importc: "ffi_rln_delete_leaf", cdecl,
+proc ffi_rln_tree_depth*(rln: ptr ptr RLN): CSize {.importc: "ffi_rln_tree_depth",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_leaves_set*(rln: ptr ptr RLN): CSize {.importc: "ffi_rln_leaves_set",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_get_root*(rln: ptr ptr RLN): ptr CFr {.importc: "ffi_rln_get_root",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_get_subtree_root*(rln: ptr ptr RLN, level: CSize,
+    index: CSize): CFrResult {.importc: "ffi_rln_get_subtree_root", cdecl,
     dynlib: RLN_LIB.}
 proc ffi_rln_set_leaf*(rln: ptr ptr RLN, index: CSize,
     leaf: ptr CFr): CBoolResult {.importc: "ffi_rln_set_leaf", cdecl,
-    dynlib: RLN_LIB.}
-proc ffi_rln_get_leaf*(rln: ptr ptr RLN,
-    index: CSize): CFrResult {.importc: "ffi_rln_get_leaf", cdecl,
-    dynlib: RLN_LIB.}
-proc ffi_rln_leaves_set*(rln: ptr ptr RLN): CSize {.importc: "ffi_rln_leaves_set",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_set_next_leaf*(rln: ptr ptr RLN,
-    leaf: ptr CFr): CBoolResult {.importc: "ffi_rln_set_next_leaf", cdecl,
     dynlib: RLN_LIB.}
 proc ffi_rln_set_leaves_from*(rln: ptr ptr RLN, index: CSize,
     leaves: ptr Vec_CFr): CBoolResult {.importc: "ffi_rln_set_leaves_from",
@@ -408,12 +410,21 @@ proc ffi_rln_set_leaves_from*(rln: ptr ptr RLN, index: CSize,
 proc ffi_rln_init_tree_with_leaves*(rln: ptr ptr RLN,
     leaves: ptr Vec_CFr): CBoolResult {.importc: "ffi_rln_init_tree_with_leaves",
     cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_get_leaf*(rln: ptr ptr RLN,
+    index: CSize): CFrResult {.importc: "ffi_rln_get_leaf", cdecl,
+    dynlib: RLN_LIB.}
+proc ffi_rln_get_empty_leaves_indices*(rln: ptr ptr RLN): VecSizeResult {.importc: "ffi_rln_get_empty_leaves_indices",
+    cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_atomic_operation*(rln: ptr ptr RLN, index: CSize,
     leaves: ptr Vec_CFr,
     indices: ptr Vec_size): CBoolResult {.importc: "ffi_rln_atomic_operation",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_get_root*(rln: ptr ptr RLN): ptr CFr {.importc: "ffi_rln_get_root",
-    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_set_next_leaf*(rln: ptr ptr RLN,
+    leaf: ptr CFr): CBoolResult {.importc: "ffi_rln_set_next_leaf", cdecl,
+    dynlib: RLN_LIB.}
+proc ffi_rln_delete_leaf*(rln: ptr ptr RLN,
+    index: CSize): CBoolResult {.importc: "ffi_rln_delete_leaf", cdecl,
+    dynlib: RLN_LIB.}
 proc ffi_rln_get_merkle_proof*(rln: ptr ptr RLN,
     index: CSize): MerkleProofResult {.importc: "ffi_rln_get_merkle_proof",
     cdecl, dynlib: RLN_LIB.}
@@ -422,7 +433,7 @@ proc ffi_rln_set_metadata*(rln: ptr ptr RLN,
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_get_metadata*(rln: ptr ptr RLN): VecU8Result {.importc: "ffi_rln_get_metadata",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_flush*(rln: ptr ptr RLN): CBoolResult {.importc: "ffi_rln_flush",
+proc ffi_rln_close*(rln: ptr ptr RLN): CBoolResult {.importc: "ffi_rln_close",
     cdecl, dynlib: RLN_LIB.}
 
 proc asVecU8(buf: var seq[uint8]): Vec_uint8 =

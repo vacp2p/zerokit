@@ -1,15 +1,12 @@
 // This module re-exports the most commonly used types and functions from the RLN library
 
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-#[cfg(not(target_arch = "wasm32"))]
-pub use pmtree::PmtreeError as PmTreeBackendError;
 
 #[cfg(not(target_arch = "wasm32"))]
-pub use crate::circuit::{
-    default_graph_multi, default_graph_single, default_zkey_multi, default_zkey_single,
+pub use crate::{
+    circuit::{default_graph_multi, default_graph_single, default_zkey_multi, default_zkey_single},
+    pm_tree::{PmTree, PmTreeConfig, PmTreeError, PmTreeMode, PmTreeProof},
 };
-#[cfg(not(target_arch = "wasm32"))]
-pub use crate::pm_tree::{FrOf, PmTree, PmTreeConfig, PmTreeError, PmTreeMode, PmTreeProof};
 pub use crate::{
     circuit::{
         graph_from_raw, zkey_from_raw, ArkGroth16Backend, Curve, Fq, Fq2, Fr, G1Affine,
@@ -22,7 +19,7 @@ pub use crate::{
     },
     hashers::{
         hash_to_field_be, hash_to_field_le, poseidon_hash, poseidon_hash_pair,
-        poseidon_hash_try_from, PoseidonHash,
+        poseidon_hash_secret, poseidon_hash_try_from, PoseidonHash,
     },
     protocol::{
         compute_id_secret, extended_keygen, extended_seeded_keygen, keygen, seeded_keygen,

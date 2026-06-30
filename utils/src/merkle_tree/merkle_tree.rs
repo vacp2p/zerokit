@@ -54,7 +54,12 @@ pub trait ZerokitMerkleTree {
     fn capacity(&self) -> usize;
     fn leaves_set(&self) -> usize;
     fn root(&self) -> FrOf<Self::Hasher>;
-    fn get_subtree_root(&self, n: usize, index: usize) -> Result<FrOf<Self::Hasher>, Self::Error>;
+    /// Returns the root of the subtree at `level` (`0` = root, `depth` = leaf) on the path to leaf `index`.
+    fn get_subtree_root(
+        &self,
+        level: usize,
+        index: usize,
+    ) -> Result<FrOf<Self::Hasher>, Self::Error>;
     fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>) -> Result<(), Self::Error>;
     fn set_range<I>(&mut self, start: usize, leaves: I) -> Result<(), Self::Error>
     where
@@ -118,7 +123,11 @@ pub trait ZerokitMerkleTree {
     ) -> Result<bool, Self::Error>;
     fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), Self::Error>;
     fn metadata(&self) -> Result<Vec<u8>, Self::Error>;
-    fn close_db_connection(&mut self) -> Result<(), Self::Error>;
+    /// Closes the tree, flushing pending writes for persistent backends.
+    /// Optional: the default is a no-op (in-memory trees), and persistent backends also flush on drop.
+    fn close(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
 }
 
 pub trait ZerokitMerkleProof {

@@ -395,7 +395,7 @@ mod test {
         assert_eq!(rln.leaves_set(), LEAF_COUNT);
         assert_eq!(rln.get_root(), root_batch);
 
-        rln.flush().unwrap();
+        rln.close().unwrap();
     }
 
     #[test]

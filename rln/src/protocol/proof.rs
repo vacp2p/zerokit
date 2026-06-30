@@ -10,7 +10,7 @@ use super::{
 use crate::{
     circuit::{Fr, IdSecret, Proof},
     error::RecoverSecretError,
-    hashers::{poseidon_hash, PoseidonHash},
+    hashers::{poseidon_hash, poseidon_hash_secret, PoseidonHash},
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -117,9 +117,7 @@ pub struct RLNProofValuesSingle {
 // until a real second hash + circuit land.
 impl From<&RLNWitnessInputSingle> for RLNProofValuesSingle {
     fn from(w: &RLNWitnessInputSingle) -> Self {
-        let mut to_hash = [*w.identity_secret.clone()];
-        let id_commitment = poseidon_hash(&to_hash);
-        to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
+        let id_commitment = poseidon_hash_secret(&w.identity_secret);
         let leaf = poseidon_hash(&[id_commitment, w.user_message_limit]);
         let root =
             compute_tree_root::<PoseidonHash>(leaf, &w.path_elements, &w.identity_path_index);
@@ -127,7 +125,7 @@ impl From<&RLNWitnessInputSingle> for RLNProofValuesSingle {
         let a_0 = &w.identity_secret;
         let mut to_hash = [**a_0, w.external_nullifier, w.message_id];
         let a_1 = poseidon_hash(&to_hash);
-        let y = *(a_0.clone()) + w.x * a_1;
+        let y = **a_0 + w.x * a_1;
         let nullifier = poseidon_hash(&[a_1]);
         to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
         RLNProofValuesSingle {
@@ -177,9 +175,7 @@ pub struct RLNProofValuesMulti {
 
 impl From<&RLNWitnessInputMulti> for RLNProofValuesMulti {
     fn from(w: &RLNWitnessInputMulti) -> Self {
-        let mut to_hash = [*w.identity_secret.clone()];
-        let id_commitment = poseidon_hash(&to_hash);
-        to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
+        let id_commitment = poseidon_hash_secret(&w.identity_secret);
         let leaf = poseidon_hash(&[id_commitment, w.user_message_limit]);
         let root =
             compute_tree_root::<PoseidonHash>(leaf, &w.path_elements, &w.identity_path_index);

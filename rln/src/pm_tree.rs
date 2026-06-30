@@ -9,7 +9,7 @@ use serde_json::Value;
 use sled::{Config, Db, Mode};
 use tempfile::Builder;
 use zerokit_utils::merkle_tree::{
-    FromConfigError, Hasher as ZerokitHasher, ZerokitMerkleProof, ZerokitMerkleTree,
+    FrOf, FromConfigError, Hasher as ZerokitHasher, ZerokitMerkleProof, ZerokitMerkleTree,
     ZerokitMerkleTreeError,
 };
 
@@ -20,8 +20,6 @@ const METADATA_KEY: [u8; 8] = *b"metadata";
 const MAX_DEPTH: usize = 31;
 
 pub type PmTreeMode = Mode;
-
-pub type FrOf<H> = <H as ZerokitHasher>::Fr;
 
 impl Hasher for PoseidonHash {
     type Fr = FrOf<PoseidonHash>;
@@ -279,15 +277,19 @@ where
         self.tree.root()
     }
 
-    /// Returns the root of the subtree at level n and index
-    fn get_subtree_root(&self, n: usize, index: usize) -> Result<FrOf<Self::Hasher>, Self::Error> {
-        if n > self.depth() {
+    /// Returns the root of the subtree at `level` (`0` = root, `depth` = leaf) on the path to leaf `index`.
+    fn get_subtree_root(
+        &self,
+        level: usize,
+        index: usize,
+    ) -> Result<FrOf<Self::Hasher>, Self::Error> {
+        if level > self.depth() {
             return Err(ZerokitMerkleTreeError::LevelOutOfBounds.into());
         }
         if index >= self.capacity() {
             return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds.into());
         }
-        self.tree.subtree_root(n, index).map_err(Into::into)
+        self.tree.subtree_root(level, index).map_err(Into::into)
     }
 
     /// Sets a leaf at the specified tree index
@@ -455,7 +457,7 @@ where
         Ok(data.unwrap_or_default())
     }
 
-    fn close_db_connection(&mut self) -> Result<(), Self::Error> {
+    fn close(&mut self) -> Result<(), Self::Error> {
         self.tree.db.close().map_err(Into::into)
     }
 }

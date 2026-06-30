@@ -68,7 +68,7 @@ mod test {
         let leaf = Fr::from(42);
         tree1.set(0, leaf).unwrap();
         let root1 = tree1.root();
-        tree1.close_db_connection().unwrap();
+        tree1.close().unwrap();
         drop(tree1);
 
         // Reopen and verify persistence
@@ -113,7 +113,7 @@ mod test {
         tree1.update_next(leaf).unwrap();
         let root1 = tree1.root();
         tree1.set_metadata(b"test metadata").unwrap();
-        tree1.close_db_connection().unwrap();
+        tree1.close().unwrap();
         drop(tree1);
 
         // Load and verify
@@ -132,7 +132,7 @@ mod test {
 
         let mut tree = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config.clone()).unwrap();
         tree.update_next(Fr::from(1)).unwrap();
-        tree.close_db_connection().unwrap();
+        tree.close().unwrap();
         drop(tree);
 
         let result = PmTree::<PoseidonHash>::new(TEST_DEPTH + 1, Fr::ZERO, config.clone());
@@ -161,7 +161,7 @@ mod test {
         tree.delete(1).unwrap();
         let empty_before = tree.get_empty_leaves_indices();
         assert_eq!(empty_before, vec![1]);
-        tree.close_db_connection().unwrap();
+        tree.close().unwrap();
         drop(tree);
 
         let tree = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config).unwrap();
@@ -173,10 +173,7 @@ mod test {
     fn test_pmtree_load_nonexistent() {
         let config = persistent_config(PathBuf::from("\0invalid"));
         let result = PmTree::<PoseidonHash>::new(TEST_DEPTH, Fr::ZERO, config);
-        assert!(matches!(
-            result,
-            Err(PmTreeError::Backend(PmTreeBackendError::Database(_)))
-        ));
+        assert!(matches!(result, Err(PmTreeError::Backend(_))));
     }
 
     #[test]
@@ -465,9 +462,9 @@ mod test {
     #[test]
     fn test_pmtree_close_db() {
         let mut tree = PmTree::<PoseidonHash>::default(TEST_DEPTH).unwrap();
-        tree.close_db_connection().unwrap();
+        tree.close().unwrap();
         // Verify idempotence: calling close again should succeed
-        tree.close_db_connection().unwrap();
+        tree.close().unwrap();
         // Verify that the tree still works after close (close is a no-op)
         assert_eq!(tree.get(0).unwrap(), Fr::ZERO);
     }
@@ -615,7 +612,7 @@ mod test {
             // Optional stronger signal than just leaf persistence:
             assert_ne!(tree1.root(), Fr::ZERO);
 
-            tree1.close_db_connection().unwrap();
+            tree1.close().unwrap();
         }
 
         // Second open: verify data, close, and drop.
@@ -627,7 +624,7 @@ mod test {
             // Optional: verify tree is still non-empty (depending on semantics).
             assert_ne!(tree2.root(), Fr::ZERO);
 
-            tree2.close_db_connection().unwrap();
+            tree2.close().unwrap();
         }
 
         // Third open: verify again.

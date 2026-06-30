@@ -150,8 +150,8 @@ where
         self.state.tree.metadata()
     }
 
-    pub fn flush(&mut self) -> Result<(), T::Error> {
-        self.state.tree.close_db_connection()
+    pub fn close(&mut self) -> Result<(), T::Error> {
+        self.state.tree.close()
     }
 }
 

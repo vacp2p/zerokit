@@ -2,6 +2,7 @@
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum ZerokitMerkleTreeError {
+    /// The requested depth exceeds the supported maximum depth.
     #[error("Tree depth exceeds the supported maximum")]
     DepthTooLarge,
     /// The requested depth does not match the depth of the already existing (persisted) tree.
