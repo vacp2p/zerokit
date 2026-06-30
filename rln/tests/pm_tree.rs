@@ -43,14 +43,14 @@ mod test {
     }
 
     #[derive(Default)]
-    struct MemDb(HashMap<DBKey, pmtree::Value>);
-    impl Database for MemDb {
+    struct MemDB(HashMap<DBKey, pmtree::Value>);
+    impl Database for MemDB {
         type Config = MemConfig;
         fn new(_config: Self::Config) -> PmtreeResult<Self> {
             Ok(Self::default())
         }
         fn load(_config: Self::Config) -> PmtreeResult<Self> {
-            Err(PmtreeError::Database("MemDb is not persistent".into()))
+            Err(PmtreeError::Database("MemDB is not persistent".into()))
         }
         fn get(&self, key: DBKey) -> PmtreeResult<Option<pmtree::Value>> {
             Ok(self.0.get(&key).cloned())
@@ -70,7 +70,7 @@ mod test {
 
     #[test]
     fn test_pmtree_generic_over_backend() {
-        let mut tree = PmTree::<MemDb, PoseidonHash>::new(2, Fr::from(0u64), MemConfig).unwrap();
+        let mut tree = PmTree::<MemDB, PoseidonHash>::new(2, Fr::from(0u64), MemConfig).unwrap();
         let leaf = Fr::from(7u64);
         tree.set(0, leaf).unwrap();
         assert_eq!(tree.get(0).unwrap(), leaf);
