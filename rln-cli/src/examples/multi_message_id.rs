@@ -6,8 +6,8 @@ use std::{
 use clap::{Parser, Subcommand};
 use rln::prelude::{
     default_graph_multi, default_zkey_multi, hash_to_field_le, keygen, poseidon_hash,
-    ArkGroth16Backend, Fr, IdSecret, PmTree, PmTreeConfig, PoseidonHash, RLNBuilder,
-    RLNProofValues, RLNWitnessInput, RecoverSecret, Stateful, RLN,
+    ArkGroth16Backend, Fr, IdSecret, PmTree, PmTreeSledConfig, PoseidonHash, RLNBuilder,
+    RLNProofValues, RLNWitnessInput, RecoverSecret, SledDB, Stateful, RLN,
 };
 use zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
 
@@ -61,14 +61,14 @@ impl Identity {
 }
 
 struct RLNSystem {
-    rln: RLN<Stateful<PmTree<PoseidonHash>>, ArkGroth16Backend>,
+    rln: RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend>,
     used_nullifiers: HashMap<Fr, RLNProofValues>,
     local_identities: HashMap<usize, Identity>,
 }
 
 impl RLNSystem {
     fn new() -> Result<Self> {
-        let pm_tree_config: PmTreeConfig = r#"{
+        let pm_tree_config: PmTreeSledConfig = r#"{
             "path": "./database",
             "temporary": false,
             "cache_capacity": 1073741824,
@@ -78,8 +78,11 @@ impl RLNSystem {
             "tree_depth": 20
         }"#
         .parse()?;
-        let pm_tree =
-            PmTree::<PoseidonHash>::new(TREE_DEPTH, PoseidonHash::default_leaf(), pm_tree_config)?;
+        let pm_tree = PmTree::<SledDB, PoseidonHash>::new(
+            TREE_DEPTH,
+            PoseidonHash::default_leaf(),
+            pm_tree_config,
+        )?;
         let rln = RLNBuilder::stateful()
             .tree(pm_tree)
             .graph(default_graph_multi().clone())

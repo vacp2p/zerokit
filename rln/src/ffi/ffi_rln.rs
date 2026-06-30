@@ -22,7 +22,7 @@ pub(crate) enum FFI_RLN_Inner {
     Stateless(RLN<Stateless, ArkGroth16Backend>),
     StatefulFullMerkleTree(RLN<Stateful<FullMerkleTree<PoseidonHash>>, ArkGroth16Backend>),
     StatefulOptimalMerkleTree(RLN<Stateful<OptimalMerkleTree<PoseidonHash>>, ArkGroth16Backend>),
-    StatefulPmTree(RLN<Stateful<PmTree<PoseidonHash>>, ArkGroth16Backend>),
+    StatefulPmTree(RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend>),
 }
 
 impl FFI_RLN_Inner {
@@ -351,8 +351,8 @@ impl From<RLN<Stateful<OptimalMerkleTree<PoseidonHash>>, ArkGroth16Backend>> for
     }
 }
 
-impl From<RLN<Stateful<PmTree<PoseidonHash>>, ArkGroth16Backend>> for FFI_RLN_Inner {
-    fn from(r: RLN<Stateful<PmTree<PoseidonHash>>, ArkGroth16Backend>) -> Self {
+impl From<RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend>> for FFI_RLN_Inner {
+    fn from(r: RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend>) -> Self {
         Self::StatefulPmTree(r)
     }
 }
@@ -556,7 +556,7 @@ pub fn ffi_rln_new_with_pm_tree(
     let pm_tree = if config_str.is_empty() {
         PmTree::default(tree_depth)
     } else {
-        let cfg = match PmTreeConfig::from_str(&config_str) {
+        let cfg = match PmTreeSledConfig::from_str(&config_str) {
             Ok(c) => c,
             Err(err) => {
                 return CResult {

@@ -47,9 +47,20 @@ impl Hasher for PoseidonHash {
     }
 }
 
-pub struct PmTree<H: Hasher> {
+/// A trait for the configuration of [`PmTree`] backends.
+pub trait PmTreeBackendConfig: Default + FromStr + Clone {
+    /// The tree depth this config expects; rechecked against the requested depth on reload.
+    fn tree_depth(&self) -> Option<usize>;
+}
+
+/// A persistent Merkle tree over a [`pmtree::Database`] backend (sled by default).
+/// Generic over the backend `D`: adding one is just `impl pmtree::Database` with a
+/// `type Config:` [`PmTreeBackendConfig`], and all tree logic here is reused.
+///
+/// The backend's `put_batch` method must be atomic for crash-safety.
+pub struct PmTree<D: Database, H: Hasher> {
     /// The underlying Merkle tree from the pmtree crate
-    tree: MerkleTree<SledDB, H>,
+    tree: MerkleTree<D, H>,
     /// The indices of leaves which are set into zero upto next_index.
     /// Set to 0 if the leaf is empty and set to 1 in otherwise.
     ///
@@ -80,7 +91,7 @@ const DEFAULT_MODE: PmTreeMode = PmTreeMode::HighThroughput;
 const DEFAULT_USE_COMPRESSION: bool = false;
 
 #[derive(Debug, Clone)]
-pub struct PmTreeConfig {
+pub struct PmTreeSledConfig {
     path: PathBuf,
     temporary: bool,
     cache_capacity: u64,
@@ -108,7 +119,7 @@ fn resolve_path(temporary: bool, path: Option<PathBuf>) -> Result<PathBuf, FromC
 }
 
 #[bon]
-impl PmTreeConfig {
+impl PmTreeSledConfig {
     #[allow(clippy::new_ret_no_self)]
     #[builder(start_fn = new, finish_fn = build)]
     pub fn create(
@@ -133,7 +144,7 @@ impl PmTreeConfig {
     }
 }
 
-impl PmTreeConfig {
+impl PmTreeSledConfig {
     fn to_sled_config(&self) -> Config {
         Config::new()
             .temporary(self.temporary)
@@ -145,7 +156,7 @@ impl PmTreeConfig {
     }
 }
 
-impl FromStr for PmTreeConfig {
+impl FromStr for PmTreeSledConfig {
     type Err = FromConfigError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -182,25 +193,33 @@ impl FromStr for PmTreeConfig {
     }
 }
 
-impl Default for PmTreeConfig {
+impl Default for PmTreeSledConfig {
     fn default() -> Self {
-        PmTreeConfig::new()
+        PmTreeSledConfig::new()
             .build()
-            .expect("Default PmtreeConfig must be valid")
+            .expect("Default PmTreeSledConfig must be valid")
     }
 }
 
-impl<H> ZerokitMerkleTree for PmTree<H>
+impl PmTreeBackendConfig for PmTreeSledConfig {
+    fn tree_depth(&self) -> Option<usize> {
+        self.tree_depth
+    }
+}
+
+impl<D, H> ZerokitMerkleTree for PmTree<D, H>
 where
+    D: Database,
+    D::Config: PmTreeBackendConfig,
     H: ZerokitHasher + Hasher<Fr = FrOf<H>>,
 {
     type Proof = PmTreeProof<H>;
     type Hasher = H;
-    type Config = PmTreeConfig;
+    type Config = D::Config;
     type Error = PmTreeError;
 
     fn default(depth: usize) -> Result<Self, Self::Error> {
-        let default_config = PmTreeConfig::default();
+        let default_config = Self::Config::default();
         Self::new(
             depth,
             <Self::Hasher as ZerokitHasher>::default_leaf(),
@@ -217,13 +236,12 @@ where
         if depth >= usize::BITS as usize || depth > MAX_DEPTH {
             return Err(ZerokitMerkleTreeError::DepthTooLarge.into());
         }
-        if let Some(config_depth) = config.tree_depth {
+        if let Some(config_depth) = config.tree_depth() {
             if config_depth != depth {
                 return Err(ZerokitMerkleTreeError::DepthMismatch.into());
             }
         }
-        let sled_config = config.to_sled_config();
-        let tree_loaded = MerkleTree::<SledDB, H>::load(sled_config.clone());
+        let tree_loaded = MerkleTree::<D, H>::load(config.clone());
         let tree = match tree_loaded {
             Ok(tree) => {
                 if tree.depth() != depth {
@@ -231,7 +249,7 @@ where
                 }
                 tree
             }
-            Err(_) => MerkleTree::<SledDB, H>::new(depth, sled_config)?,
+            Err(_) => MerkleTree::<D, H>::new(depth, config)?,
         };
 
         let capacity = 1usize
@@ -494,7 +512,7 @@ where
 pub struct SledDB(Db);
 
 impl SledDB {
-    fn new_with_tries(config: <SledDB as Database>::Config, tries: u32) -> PmtreeResult<Self> {
+    fn new_with_tries(config: Config, tries: u32) -> PmtreeResult<Self> {
         // If we've tried more than 10 times, we give up and return an error.
         if tries >= 10 {
             return Err(PmtreeError::Database(format!(
@@ -520,15 +538,16 @@ impl SledDB {
 }
 
 impl Database for SledDB {
-    type Config = sled::Config;
+    type Config = PmTreeSledConfig;
 
     fn new(config: Self::Config) -> PmtreeResult<Self> {
-        let db = Self::new_with_tries(config, 0)?;
+        let db = Self::new_with_tries(config.to_sled_config(), 0)?;
         Ok(db)
     }
 
     fn load(config: Self::Config) -> PmtreeResult<Self> {
-        let db = match config.open() {
+        let sled_config = config.to_sled_config();
+        let db = match sled_config.open() {
             Ok(db) => db,
             Err(err) => {
                 return Err(PmtreeError::Database(format!(
@@ -540,7 +559,7 @@ impl Database for SledDB {
         if !db.was_recovered() {
             return Err(PmtreeError::Database(format!(
                 "Database was not recovered: {}",
-                config.path.display()
+                sled_config.path.display()
             )));
         }
 

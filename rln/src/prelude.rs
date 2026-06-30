@@ -5,7 +5,9 @@ pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::{
     circuit::{default_graph_multi, default_graph_single, default_zkey_multi, default_zkey_single},
-    pm_tree::{PmTree, PmTreeConfig, PmTreeError, PmTreeMode, PmTreeProof},
+    pm_tree::{
+        PmTree, PmTreeBackendConfig, PmTreeError, PmTreeMode, PmTreeProof, PmTreeSledConfig, SledDB,
+    },
 };
 pub use crate::{
     circuit::{

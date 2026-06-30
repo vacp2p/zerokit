@@ -8,8 +8,8 @@ use std::{
 use clap::{Parser, Subcommand};
 use rln::prelude::{
     graph_from_raw, hash_to_field_le, keygen, poseidon_hash, zkey_from_raw, ArkGroth16Backend, Fr,
-    IdSecret, PmTree, PmTreeConfig, PmTreeMode, PoseidonHash, RLNBuilder, RLNProofValues,
-    RLNWitnessInput, RecoverSecret, Stateful, RLN,
+    IdSecret, PmTree, PmTreeMode, PmTreeSledConfig, PoseidonHash, RLNBuilder, RLNProofValues,
+    RLNWitnessInput, RecoverSecret, SledDB, Stateful, RLN,
 };
 use zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
 
@@ -59,7 +59,7 @@ impl Identity {
 }
 
 struct RLNSystem {
-    rln: RLN<Stateful<PmTree<PoseidonHash>>, ArkGroth16Backend>,
+    rln: RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend>,
     used_nullifiers: HashMap<Fr, RLNProofValues>,
     local_identities: HashMap<usize, Identity>,
 }
@@ -79,7 +79,7 @@ impl RLNSystem {
         }
         let zkey = zkey_from_raw(&resources[0])?;
         let graph = graph_from_raw(&resources[1], Some(TREE_DEPTH), None)?;
-        let pm_tree_config = PmTreeConfig::new()
+        let pm_tree_config = PmTreeSledConfig::new()
             .path("./database")
             .temporary(false)
             .cache_capacity(1073741824)

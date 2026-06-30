@@ -8,7 +8,7 @@ fn get_test_witness() -> RLNWitnessInput {
     let user_message_limit = Fr::from(100);
     let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
 
-    let mut tree = PmTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH).unwrap();
+    let mut tree = PmTree::<SledDB, PoseidonHash>::default(DEFAULT_TREE_DEPTH).unwrap();
     tree.set(leaf_index, rate_commitment).unwrap();
 
     let merkle_proof = tree.proof(leaf_index).unwrap();
