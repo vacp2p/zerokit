@@ -360,8 +360,9 @@ where
             .collect()
     }
 
-    /// Overrides a range of leaves atomically: same semantics as the default, but commits the
-    /// scattered resets and writes in one `pmtree` `batch_set` so a sled-backed tree stays crash-safe
+    /// Overrides a range atomically, reusing the shared [`Self::validate_override_range`].
+    ///
+    /// The resets and contiguous writes commit in one `pmtree` `batch_set`, so a persistent tree stays crash-safe.
     fn override_range<I: IntoIterator<Item = FrOf<Self::Hasher>>, J: IntoIterator<Item = usize>>(
         &mut self,
         start: usize,
@@ -371,32 +372,14 @@ where
         let leaves = leaves.into_iter().collect::<Vec<_>>();
         let to_remove = indices.into_iter().collect::<Vec<_>>();
 
-        if leaves.is_empty() && to_remove.is_empty() {
-            return Err(ZerokitMerkleTreeError::EmptyOverrideArgs.into());
-        }
-        let end = start
-            .checked_add(leaves.len())
-            .ok_or(ZerokitMerkleTreeError::RangeTooLarge)?;
-        if end > self.capacity() {
-            return Err(ZerokitMerkleTreeError::RangeTooLarge.into());
-        }
-        // Only indices the written range does not cover are actually deleted; each such index must
-        // point at a set leaf (overlapping indices are overwritten by the write).
-        let leaves_set = self.leaves_set();
-        for &index in &to_remove {
-            if (index < start || index >= end) && index >= leaves_set {
-                return Err(ZerokitMerkleTreeError::InvalidRemoveIndex.into());
-            }
-        }
+        let deletes = self.validate_override_range(start, leaves.len(), &to_remove)?;
 
         // Build scattered (index, value) pairs (non-overlapping deletes as the default leaf, then
         // the contiguous writes) and commit them in ONE atomic batch.
         let default_leaf = <H as ZerokitHasher>::default_leaf();
-        let mut pairs = Vec::with_capacity(to_remove.len() + leaves.len());
-        for &index in &to_remove {
-            if index < start || index >= end {
-                pairs.push((index, default_leaf));
-            }
+        let mut pairs = Vec::with_capacity(deletes.len() + leaves.len());
+        for &index in &deletes {
+            pairs.push((index, default_leaf));
         }
         for (offset, &leaf) in leaves.iter().enumerate() {
             pairs.push((start + offset, leaf));
@@ -404,10 +387,8 @@ where
         self.tree.batch_set(&pairs)?;
 
         // Mirror the writes in the empty-leaves cache: deletes -> 0, writes -> 1.
-        for &index in &to_remove {
-            if index < start || index >= end {
-                self.cached_leaves_indices[index] = 0;
-            }
+        for &index in &deletes {
+            self.cached_leaves_indices[index] = 0;
         }
         for offset in 0..leaves.len() {
             self.cached_leaves_indices[start + offset] = 1;

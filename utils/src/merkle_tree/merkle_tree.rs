@@ -66,10 +66,41 @@ pub trait ZerokitMerkleTree {
         I: ExactSizeIterator<Item = FrOf<Self::Hasher>>;
     fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>, Self::Error>;
     fn get_empty_leaves_indices(&self) -> Vec<usize>;
-    /// Overrides a range of leaves: writes `leaves` from `start`, then resets each non-overlapping
-    /// index in `to_remove_indices` (writes win over deletes on overlap). Validates before mutating.
-    /// The default impl composes `delete` + `set_range`; it is not crash-atomic, so a persistent
-    /// backend should override it with a single atomic commit (see `PmTree`).
+    /// Validates an `override_range` request and returns the non-overlapping indices to reset to the default leaf.
+    ///
+    /// Indices inside the write range are overwritten by it, so they are skipped.
+    /// This is the single shared validator, so every backend reports the same error variant for the same misuse.
+    fn validate_override_range(
+        &self,
+        start: usize,
+        leaves_len: usize,
+        to_remove_indices: &[usize],
+    ) -> Result<Vec<usize>, Self::Error> {
+        if leaves_len == 0 && to_remove_indices.is_empty() {
+            return Err(ZerokitMerkleTreeError::EmptyOverrideArgs.into());
+        }
+        let end = start
+            .checked_add(leaves_len)
+            .ok_or(ZerokitMerkleTreeError::RangeTooLarge)?;
+        if end > self.capacity() {
+            return Err(ZerokitMerkleTreeError::RangeTooLarge.into());
+        }
+        let leaves_set = self.leaves_set();
+        let mut deletes = Vec::new();
+        for &index in to_remove_indices {
+            if index < start || index >= end {
+                if index >= leaves_set {
+                    return Err(ZerokitMerkleTreeError::InvalidRemoveIndex.into());
+                }
+                deletes.push(index);
+            }
+        }
+        Ok(deletes)
+    }
+    /// Writes `leaves` contiguously from `start`, then resets the non-overlapping `to_remove_indices` (writes win on overlap).
+    ///
+    /// Validation is shared via [`Self::validate_override_range`].
+    /// The default apply (`delete` + `set_range`) is not crash-atomic, so a persistent backend overrides only the apply step (see `PmTree`).
     fn override_range<I, J>(
         &mut self,
         start: usize,
@@ -84,29 +115,10 @@ pub trait ZerokitMerkleTree {
         let leaves = leaves.into_iter().collect::<Vec<_>>();
         let to_remove_indices = to_remove_indices.into_iter().collect::<Vec<_>>();
 
-        if leaves.is_empty() && to_remove_indices.is_empty() {
-            return Err(ZerokitMerkleTreeError::EmptyOverrideArgs.into());
-        }
-        let end = start
-            .checked_add(leaves.len())
-            .ok_or(ZerokitMerkleTreeError::RangeTooLarge)?;
-        if end > self.capacity() {
-            return Err(ZerokitMerkleTreeError::RangeTooLarge.into());
-        }
-        // Capture before `set_range` grows it. Only indices the written range does NOT cover are
-        // actually deleted; each such index must point at a set leaf. Overlapping indices are exempt
-        // (the write overwrites them), so they need not be set beforehand. Validate before mutating.
-        let leaves_set = self.leaves_set();
-        for &index in &to_remove_indices {
-            if (index < start || index >= end) && index >= leaves_set {
-                return Err(ZerokitMerkleTreeError::InvalidRemoveIndex.into());
-            }
-        }
+        let deletes = self.validate_override_range(start, leaves.len(), &to_remove_indices)?;
 
-        for &index in &to_remove_indices {
-            if index < start || index >= end {
-                self.delete(index)?;
-            }
+        for index in deletes {
+            self.delete(index)?;
         }
         if !leaves.is_empty() {
             self.set_range(start, leaves.into_iter())?;
