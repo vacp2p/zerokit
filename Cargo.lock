@@ -1863,9 +1863,11 @@ checksum = "0976c77def3f1f75c4ef892a292c31c0bbe9e3d0702c63044d7c76db298171a3"
 [[package]]
 name = "vacp2p_pmtree"
 version = "3.0.0"
-source = "git+https://github.com/vacp2p/pmtree#8d42624d070e2c1b776d6a3979be0eb493b3c941"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a76814def196c9b18fefc130673acc9af4d76b02ddddf50792e6002b15558168"
 dependencies = [
  "parking_lot 0.12.5",
+ "rayon",
  "thiserror",
 ]
 
