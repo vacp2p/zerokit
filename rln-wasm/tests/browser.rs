@@ -50,7 +50,7 @@ mod test {
         }
 
         let mut results = String::from("\nBenchmarks:\n");
-        let iterations = 3;
+        let iterations = 5;
 
         let zkey = Uint8Array::from(ARKZKEY_BYTES);
         let graph = Uint8Array::from(GRAPH_BYTES);
