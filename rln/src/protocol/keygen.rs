@@ -44,7 +44,7 @@ pub fn extended_keygen() -> (Fr, Fr, Fr, Fr) {
 ///
 /// Uses ChaCha20 RNG seeded with Keccak-256 hash of the input.
 /// Returns `(identity_secret, id_commitment)`. Same input always produces the same identity.
-pub fn seeded_keygen(signal: &[u8]) -> (Fr, Fr) {
+pub fn seeded_keygen(signal: &[u8]) -> (IdSecret, Fr) {
     // ChaCha20 requires a seed of exactly 32 bytes.
     // We first hash the input seed signal to a 32 bytes array and pass this as seed to ChaCha20
     let mut seed = [0; 32];
@@ -53,7 +53,7 @@ pub fn seeded_keygen(signal: &[u8]) -> (Fr, Fr) {
     hasher.finalize(&mut seed);
 
     let mut rng = ChaCha20Rng::from_seed(seed);
-    let identity_secret = Fr::rand(&mut rng);
+    let identity_secret = IdSecret::rand(&mut rng);
     let id_commitment = poseidon_hash_secret(&identity_secret);
     (identity_secret, id_commitment)
 }

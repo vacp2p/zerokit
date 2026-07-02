@@ -252,7 +252,7 @@ impl Identity {
         let seed_vec = seed.to_vec();
         let (identity_secret, id_commitment) = seeded_keygen(&seed_vec);
         Identity {
-            identity_secret,
+            identity_secret: *identity_secret,
             id_commitment,
         }
     }

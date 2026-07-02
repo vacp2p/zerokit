@@ -371,7 +371,7 @@ pub fn ffi_key_gen() -> repr_c::Vec<CFr> {
 #[ffi_export]
 pub fn ffi_seeded_key_gen(seed: &repr_c::Vec<u8>) -> repr_c::Vec<CFr> {
     let (identity_secret, id_commitment) = seeded_keygen(seed);
-    vec![CFr(identity_secret), CFr(id_commitment)].into()
+    vec![CFr(*identity_secret), CFr(id_commitment)].into()
 }
 
 // ExtendedIdentity
