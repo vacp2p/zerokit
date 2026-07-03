@@ -242,6 +242,7 @@ impl Identity {
     pub fn generate() -> Identity {
         let (identity_secret, id_commitment) = keygen();
         Identity {
+            // TODO(PR12): Leaking secret here, consider using a more secure approach to handle secrets in WASM.
             identity_secret: *identity_secret,
             id_commitment,
         }
@@ -252,6 +253,7 @@ impl Identity {
         let seed_vec = seed.to_vec();
         let (identity_secret, id_commitment) = seeded_keygen(&seed_vec);
         Identity {
+            // TODO(PR12): Leaking secret here, consider using a more secure approach to handle secrets in WASM.
             identity_secret: *identity_secret,
             id_commitment,
         }

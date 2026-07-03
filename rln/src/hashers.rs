@@ -11,7 +11,7 @@ use crate::circuit::Fr;
 
 /// These indexed constants hardcode the supported round parameters tuples (t, RF, RN, SKIP_MATRICES) for the Bn254 scalar field.
 /// SKIP_MATRICES is the index of the randomly generated secure MDS matrix.
-/// TODO: generate these parameters
+/// TODO: Generate these parameters
 const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
     (2, 8, 56, 0),
     (3, 8, 57, 0),

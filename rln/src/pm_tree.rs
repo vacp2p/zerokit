@@ -18,6 +18,7 @@ use crate::hashers::PoseidonHash;
 /// The key used to store the metadata in database.
 const METADATA_KEY: [u8; 8] = *b"metadata";
 
+//TODO: Export this constant from pmtree crate instead of hardcoding it here.
 /// Maximum tree depth, limited by `pmtree` crate.
 const MAX_DEPTH: usize = 31;
 
@@ -213,7 +214,7 @@ impl<D, H> ZerokitMerkleTree for PmTree<D, H>
 where
     D: Database,
     D::Config: PmTreeBackendConfig,
-    // TODO: unify the two hasher traits (utils `ZerokitHasher` + pmtree `Hasher`).
+    // TODO: Unify the two hasher traits (utils `ZerokitHasher` + pmtree `Hasher`).
     H: ZerokitHasher + Hasher<Fr = FrOf<H>>,
 {
     type Proof = PmTreeProof<H>;

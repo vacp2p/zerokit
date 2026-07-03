@@ -365,12 +365,14 @@ pub fn ffi_poseidon_hash_pair(a: &CFr, b: &CFr) -> repr_c::Box<CFr> {
 #[ffi_export]
 pub fn ffi_key_gen() -> repr_c::Vec<CFr> {
     let (identity_secret, id_commitment) = keygen();
+    // TODO(PR12): Leaking secret here, consider using a more secure approach to handle secrets in FFI.
     vec![CFr(*identity_secret), CFr(id_commitment)].into()
 }
 
 #[ffi_export]
 pub fn ffi_seeded_key_gen(seed: &repr_c::Vec<u8>) -> repr_c::Vec<CFr> {
     let (identity_secret, id_commitment) = seeded_keygen(seed);
+    // TODO(PR12): Leaking secret here, consider using a more secure approach to handle secrets in FFI.
     vec![CFr(*identity_secret), CFr(id_commitment)].into()
 }
 
