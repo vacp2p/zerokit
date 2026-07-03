@@ -22,7 +22,7 @@ pub(crate) enum FFI_RLN_Inner {
     Stateless(RLN<Stateless, ArkGroth16Backend>),
     StatefulFullMerkleTree(RLN<Stateful<FullMerkleTree<PoseidonHash>>, ArkGroth16Backend>),
     StatefulOptimalMerkleTree(RLN<Stateful<OptimalMerkleTree<PoseidonHash>>, ArkGroth16Backend>),
-    StatefulPmTree(RLN<Stateful<PmTree>, ArkGroth16Backend>),
+    StatefulPmTree(RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend>),
 }
 
 impl FFI_RLN_Inner {
@@ -138,12 +138,45 @@ impl FFI_RLN_Inner {
         }
     }
 
+    fn tree_depth(&self) -> Result<usize, String> {
+        match self {
+            Self::Stateless(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTree(r) => Ok(r.tree_depth()),
+            Self::StatefulOptimalMerkleTree(r) => Ok(r.tree_depth()),
+            Self::StatefulPmTree(r) => Ok(r.tree_depth()),
+        }
+    }
+
+    fn leaves_set(&self) -> Result<usize, String> {
+        match self {
+            Self::Stateless(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTree(r) => Ok(r.leaves_set()),
+            Self::StatefulOptimalMerkleTree(r) => Ok(r.leaves_set()),
+            Self::StatefulPmTree(r) => Ok(r.leaves_set()),
+        }
+    }
+
     fn get_root(&self) -> Result<Fr, String> {
         match self {
             Self::Stateless(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
             Self::StatefulFullMerkleTree(r) => Ok(r.get_root()),
             Self::StatefulOptimalMerkleTree(r) => Ok(r.get_root()),
             Self::StatefulPmTree(r) => Ok(r.get_root()),
+        }
+    }
+
+    fn get_subtree_root(&self, level: usize, index: usize) -> Result<Fr, String> {
+        match self {
+            Self::Stateless(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTree(r) => r
+                .get_subtree_root(level, index)
+                .map_err(|err| err.to_string()),
+            Self::StatefulOptimalMerkleTree(r) => r
+                .get_subtree_root(level, index)
+                .map_err(|err| err.to_string()),
+            Self::StatefulPmTree(r) => r
+                .get_subtree_root(level, index)
+                .map_err(|err| err.to_string()),
         }
     }
 
@@ -157,35 +190,6 @@ impl FFI_RLN_Inner {
                 r.set_leaf(index, leaf).map_err(|err| err.to_string())
             }
             Self::StatefulPmTree(r) => r.set_leaf(index, leaf).map_err(|err| err.to_string()),
-        }
-    }
-
-    fn get_leaf(&self, index: usize) -> Result<Fr, String> {
-        match self {
-            Self::Stateless(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
-            Self::StatefulFullMerkleTree(r) => r.get_leaf(index).map_err(|err| err.to_string()),
-            Self::StatefulOptimalMerkleTree(r) => r.get_leaf(index).map_err(|err| err.to_string()),
-            Self::StatefulPmTree(r) => r.get_leaf(index).map_err(|err| err.to_string()),
-        }
-    }
-
-    fn leaves_set(&self) -> Result<usize, String> {
-        match self {
-            Self::Stateless(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
-            Self::StatefulFullMerkleTree(r) => Ok(r.leaves_set()),
-            Self::StatefulOptimalMerkleTree(r) => Ok(r.leaves_set()),
-            Self::StatefulPmTree(r) => Ok(r.leaves_set()),
-        }
-    }
-
-    fn set_next_leaf(&mut self, leaf: Fr) -> Result<(), String> {
-        match self {
-            Self::Stateless(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
-            Self::StatefulFullMerkleTree(r) => r.set_next_leaf(leaf).map_err(|err| err.to_string()),
-            Self::StatefulOptimalMerkleTree(r) => {
-                r.set_next_leaf(leaf).map_err(|err| err.to_string())
-            }
-            Self::StatefulPmTree(r) => r.set_next_leaf(leaf).map_err(|err| err.to_string()),
         }
     }
 
@@ -204,17 +208,6 @@ impl FFI_RLN_Inner {
         }
     }
 
-    fn delete_leaf(&mut self, index: usize) -> Result<(), String> {
-        match self {
-            Self::Stateless(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
-            Self::StatefulFullMerkleTree(r) => r.delete_leaf(index).map_err(|err| err.to_string()),
-            Self::StatefulOptimalMerkleTree(r) => {
-                r.delete_leaf(index).map_err(|err| err.to_string())
-            }
-            Self::StatefulPmTree(r) => r.delete_leaf(index).map_err(|err| err.to_string()),
-        }
-    }
-
     fn init_tree_with_leaves(&mut self, leaves: Vec<Fr>) -> Result<(), String> {
         match self {
             Self::Stateless(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
@@ -227,6 +220,24 @@ impl FFI_RLN_Inner {
             Self::StatefulPmTree(r) => r
                 .init_tree_with_leaves(leaves)
                 .map_err(|err| err.to_string()),
+        }
+    }
+
+    fn get_leaf(&self, index: usize) -> Result<Fr, String> {
+        match self {
+            Self::Stateless(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTree(r) => r.get_leaf(index).map_err(|err| err.to_string()),
+            Self::StatefulOptimalMerkleTree(r) => r.get_leaf(index).map_err(|err| err.to_string()),
+            Self::StatefulPmTree(r) => r.get_leaf(index).map_err(|err| err.to_string()),
+        }
+    }
+
+    fn get_empty_leaves_indices(&self) -> Result<Vec<usize>, String> {
+        match self {
+            Self::Stateless(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTree(r) => Ok(r.get_empty_leaves_indices()),
+            Self::StatefulOptimalMerkleTree(r) => Ok(r.get_empty_leaves_indices()),
+            Self::StatefulPmTree(r) => Ok(r.get_empty_leaves_indices()),
         }
     }
 
@@ -247,6 +258,28 @@ impl FFI_RLN_Inner {
             Self::StatefulPmTree(r) => r
                 .atomic_operation(index, leaves, indices)
                 .map_err(|err| err.to_string()),
+        }
+    }
+
+    fn set_next_leaf(&mut self, leaf: Fr) -> Result<(), String> {
+        match self {
+            Self::Stateless(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTree(r) => r.set_next_leaf(leaf).map_err(|err| err.to_string()),
+            Self::StatefulOptimalMerkleTree(r) => {
+                r.set_next_leaf(leaf).map_err(|err| err.to_string())
+            }
+            Self::StatefulPmTree(r) => r.set_next_leaf(leaf).map_err(|err| err.to_string()),
+        }
+    }
+
+    fn delete_leaf(&mut self, index: usize) -> Result<(), String> {
+        match self {
+            Self::Stateless(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTree(r) => r.delete_leaf(index).map_err(|err| err.to_string()),
+            Self::StatefulOptimalMerkleTree(r) => {
+                r.delete_leaf(index).map_err(|err| err.to_string())
+            }
+            Self::StatefulPmTree(r) => r.delete_leaf(index).map_err(|err| err.to_string()),
         }
     }
 
@@ -290,12 +323,12 @@ impl FFI_RLN_Inner {
         }
     }
 
-    fn flush(&mut self) -> Result<(), String> {
+    fn close(&mut self) -> Result<(), String> {
         match self {
             Self::Stateless(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
-            Self::StatefulFullMerkleTree(r) => r.flush().map_err(|err| err.to_string()),
-            Self::StatefulOptimalMerkleTree(r) => r.flush().map_err(|err| err.to_string()),
-            Self::StatefulPmTree(r) => r.flush().map_err(|err| err.to_string()),
+            Self::StatefulFullMerkleTree(r) => r.close().map_err(|err| err.to_string()),
+            Self::StatefulOptimalMerkleTree(r) => r.close().map_err(|err| err.to_string()),
+            Self::StatefulPmTree(r) => r.close().map_err(|err| err.to_string()),
         }
     }
 }
@@ -318,8 +351,8 @@ impl From<RLN<Stateful<OptimalMerkleTree<PoseidonHash>>, ArkGroth16Backend>> for
     }
 }
 
-impl From<RLN<Stateful<PmTree>, ArkGroth16Backend>> for FFI_RLN_Inner {
-    fn from(r: RLN<Stateful<PmTree>, ArkGroth16Backend>) -> Self {
+impl From<RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend>> for FFI_RLN_Inner {
+    fn from(r: RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend>) -> Self {
         Self::StatefulPmTree(r)
     }
 }
@@ -366,10 +399,21 @@ pub fn ffi_rln_new_stateless(
 }
 
 #[ffi_export]
-pub fn ffi_rln_new_with_full_merkle_tree_default() -> repr_c::Box<FFI_RLN> {
-    let full_merkle_tree = FullMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH).unwrap();
-    let rln = RLNBuilder::stateful().tree(full_merkle_tree).build();
-    Box_::new(FFI_RLN(rln.into()))
+pub fn ffi_rln_new_with_full_merkle_tree_default() -> CResult<repr_c::Box<FFI_RLN>, repr_c::String>
+{
+    match FullMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH) {
+        Ok(full_merkle_tree) => {
+            let rln = RLNBuilder::stateful().tree(full_merkle_tree).build();
+            CResult {
+                ok: Some(Box_::new(FFI_RLN(rln.into()))),
+                err: None,
+            }
+        }
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 #[ffi_export]
@@ -407,11 +451,21 @@ pub fn ffi_rln_new_with_full_merkle_tree(
 }
 
 #[ffi_export]
-pub fn ffi_rln_new_with_optimal_merkle_tree_default() -> repr_c::Box<FFI_RLN> {
-    let optimal_merkle_tree =
-        OptimalMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH).unwrap();
-    let rln = RLNBuilder::stateful().tree(optimal_merkle_tree).build();
-    Box_::new(FFI_RLN(rln.into()))
+pub fn ffi_rln_new_with_optimal_merkle_tree_default(
+) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
+    match OptimalMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH) {
+        Ok(optimal_merkle_tree) => {
+            let rln = RLNBuilder::stateful().tree(optimal_merkle_tree).build();
+            CResult {
+                ok: Some(Box_::new(FFI_RLN(rln.into()))),
+                err: None,
+            }
+        }
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 #[ffi_export]
@@ -449,10 +503,20 @@ pub fn ffi_rln_new_with_optimal_merkle_tree(
 }
 
 #[ffi_export]
-pub fn ffi_rln_new_with_pm_tree_default() -> repr_c::Box<FFI_RLN> {
-    let pm_tree = PmTree::default(DEFAULT_TREE_DEPTH).unwrap();
-    let rln = RLNBuilder::stateful().tree(pm_tree).build();
-    Box_::new(FFI_RLN(rln.into()))
+pub fn ffi_rln_new_with_pm_tree_default() -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
+    match PmTree::default(DEFAULT_TREE_DEPTH) {
+        Ok(pm_tree) => {
+            let rln = RLNBuilder::stateful().tree(pm_tree).build();
+            CResult {
+                ok: Some(Box_::new(FFI_RLN(rln.into()))),
+                err: None,
+            }
+        }
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
 }
 
 #[ffi_export]
@@ -492,7 +556,7 @@ pub fn ffi_rln_new_with_pm_tree(
     let pm_tree = if config_str.is_empty() {
         PmTree::default(tree_depth)
     } else {
-        let cfg = match PmTreeConfig::from_str(&config_str) {
+        let cfg = match PmTreeSledConfig::from_str(&config_str) {
             Ok(c) => c,
             Err(err) => {
                 return CResult {
@@ -1402,41 +1466,30 @@ pub fn ffi_rln_merkle_proof_free(merkle_proof: repr_c::Box<FFI_RLNMerkleProof>) 
 }
 
 #[ffi_export]
-pub fn ffi_rln_delete_leaf(rln: &mut repr_c::Box<FFI_RLN>, index: usize) -> CBoolResult {
-    match rln.0.delete_leaf(index) {
-        Ok(_) => CBoolResult {
-            ok: true,
-            err: None,
-        },
-        Err(err) => CBoolResult {
-            ok: false,
-            err: Some(err.into()),
-        },
-    }
+pub fn ffi_rln_tree_depth(rln: &repr_c::Box<FFI_RLN>) -> usize {
+    rln.0.tree_depth().unwrap_or(0)
 }
 
 #[ffi_export]
-pub fn ffi_rln_set_leaf(rln: &mut repr_c::Box<FFI_RLN>, index: usize, leaf: &CFr) -> CBoolResult {
-    match rln.0.set_leaf(index, leaf.0) {
-        Ok(_) => CBoolResult {
-            ok: true,
-            err: None,
-        },
-        Err(err) => CBoolResult {
-            ok: false,
-            err: Some(err.into()),
-        },
-    }
+pub fn ffi_rln_leaves_set(rln: &repr_c::Box<FFI_RLN>) -> usize {
+    rln.0.leaves_set().unwrap_or(0)
 }
 
 #[ffi_export]
-pub fn ffi_rln_get_leaf(
+pub fn ffi_rln_get_root(rln: &repr_c::Box<FFI_RLN>) -> repr_c::Box<CFr> {
+    let root = rln.0.get_root().unwrap_or_else(|_| Fr::from(0u64));
+    CFr::from(root).into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_get_subtree_root(
     rln: &repr_c::Box<FFI_RLN>,
+    level: usize,
     index: usize,
 ) -> CResult<repr_c::Box<CFr>, repr_c::String> {
-    match rln.0.get_leaf(index) {
-        Ok(leaf) => CResult {
-            ok: Some(CFr::from(leaf).into()),
+    match rln.0.get_subtree_root(level, index) {
+        Ok(root) => CResult {
+            ok: Some(CFr::from(root).into()),
             err: None,
         },
         Err(err) => CResult {
@@ -1447,13 +1500,8 @@ pub fn ffi_rln_get_leaf(
 }
 
 #[ffi_export]
-pub fn ffi_rln_leaves_set(rln: &repr_c::Box<FFI_RLN>) -> usize {
-    rln.0.leaves_set().unwrap_or(0)
-}
-
-#[ffi_export]
-pub fn ffi_rln_set_next_leaf(rln: &mut repr_c::Box<FFI_RLN>, leaf: &CFr) -> CBoolResult {
-    match rln.0.set_next_leaf(leaf.0) {
+pub fn ffi_rln_set_leaf(rln: &mut repr_c::Box<FFI_RLN>, index: usize, leaf: &CFr) -> CBoolResult {
+    match rln.0.set_leaf(index, leaf.0) {
         Ok(_) => CBoolResult {
             ok: true,
             err: None,
@@ -1503,6 +1551,39 @@ pub fn ffi_rln_init_tree_with_leaves(
 }
 
 #[ffi_export]
+pub fn ffi_rln_get_leaf(
+    rln: &repr_c::Box<FFI_RLN>,
+    index: usize,
+) -> CResult<repr_c::Box<CFr>, repr_c::String> {
+    match rln.0.get_leaf(index) {
+        Ok(leaf) => CResult {
+            ok: Some(CFr::from(leaf).into()),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_rln_get_empty_leaves_indices(
+    rln: &repr_c::Box<FFI_RLN>,
+) -> CResult<repr_c::Vec<usize>, repr_c::String> {
+    match rln.0.get_empty_leaves_indices() {
+        Ok(indices) => CResult {
+            ok: Some(indices.into()),
+            err: None,
+        },
+        Err(err) => CResult {
+            ok: None,
+            err: Some(err.into()),
+        },
+    }
+}
+
+#[ffi_export]
 pub fn ffi_rln_atomic_operation(
     rln: &mut repr_c::Box<FFI_RLN>,
     index: usize,
@@ -1524,9 +1605,31 @@ pub fn ffi_rln_atomic_operation(
 }
 
 #[ffi_export]
-pub fn ffi_rln_get_root(rln: &repr_c::Box<FFI_RLN>) -> repr_c::Box<CFr> {
-    let root = rln.0.get_root().unwrap_or_else(|_| Fr::from(0u64));
-    CFr::from(root).into()
+pub fn ffi_rln_set_next_leaf(rln: &mut repr_c::Box<FFI_RLN>, leaf: &CFr) -> CBoolResult {
+    match rln.0.set_next_leaf(leaf.0) {
+        Ok(_) => CBoolResult {
+            ok: true,
+            err: None,
+        },
+        Err(err) => CBoolResult {
+            ok: false,
+            err: Some(err.into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_rln_delete_leaf(rln: &mut repr_c::Box<FFI_RLN>, index: usize) -> CBoolResult {
+    match rln.0.delete_leaf(index) {
+        Ok(_) => CBoolResult {
+            ok: true,
+            err: None,
+        },
+        Err(err) => CBoolResult {
+            ok: false,
+            err: Some(err.into()),
+        },
+    }
 }
 
 #[ffi_export]
@@ -1591,8 +1694,8 @@ pub fn ffi_rln_get_metadata(
 }
 
 #[ffi_export]
-pub fn ffi_rln_flush(rln: &mut repr_c::Box<FFI_RLN>) -> CBoolResult {
-    match rln.0.flush() {
+pub fn ffi_rln_close(rln: &mut repr_c::Box<FFI_RLN>) -> CBoolResult {
+    match rln.0.close() {
         Ok(_) => CBoolResult {
             ok: true,
             err: None,

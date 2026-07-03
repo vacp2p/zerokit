@@ -86,10 +86,11 @@ impl RLNWitnessInput {
     }
 }
 
-// TODO(PR11): add a `merkle_proof` setter accepting `impl ZerokitMerkleProof` as an
+// TODO(PR12): consider adding a `merkle_proof` setter accepting `impl ZerokitMerkleProof` as an
 // alternative to the `path_elements` + `identity_path_index` pair (keep both ways).
-// TODO(PR11): consider moving `validate_against_graph` from `generate_proof` into the
+// TODO(PR12): consider moving `validate_against_graph` from `generate_proof` into the
 // witness builder, validating against the graph at `build()` time.
+
 #[bon]
 impl RLNWitnessInput {
     #[builder(finish_fn = build)]

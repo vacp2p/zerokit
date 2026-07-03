@@ -1,5 +1,6 @@
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use zeroize::Zeroize;
+use zerokit_utils::merkle_tree::compute_tree_root;
 
 use super::{
     slashing::compute_id_secret,
@@ -9,33 +10,8 @@ use super::{
 use crate::{
     circuit::{Fr, IdSecret, Proof},
     error::RecoverSecretError,
-    hashers::poseidon_hash,
+    hashers::{poseidon_hash, poseidon_hash_secret, PoseidonHash},
 };
-
-//TODO(PR11): this should be added to a MerkleProof type or something similar
-/// Computes the Merkle tree root from identity credentials and Merkle membership proof.
-fn compute_tree_root(
-    identity_secret: &IdSecret,
-    user_message_limit: &Fr,
-    path_elements: &[Fr],
-    identity_path_index: &[u8],
-) -> Fr {
-    let mut to_hash = [*identity_secret.clone()];
-    let id_commitment = poseidon_hash(&to_hash);
-    to_hash[0].zeroize();
-
-    let mut root = poseidon_hash(&[id_commitment, *user_message_limit]);
-
-    for i in 0..identity_path_index.len() {
-        if identity_path_index[i] == 0 {
-            root = poseidon_hash(&[root, path_elements[i]]);
-        } else {
-            root = poseidon_hash(&[path_elements[i], root]);
-        }
-    }
-
-    root
-}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum RLNProofValues {
@@ -132,18 +108,24 @@ pub struct RLNProofValuesSingle {
     pub external_nullifier: Fr,
 }
 
+// TODO(rln-generic-hash): the RLN protocol math (this `From`, the `RLNProofValuesMulti` `From` below,
+// and `keygen.rs`) calls `poseidon_hash` at arity 1/2/3 directly (id_commitment, leaf, a_1, nullifier),
+// hardcoding Poseidon. To support another ZK hash (e.g. Poseidon2), lift these behind a variable-arity
+// hash trait and make the protocol generic over it (`RLN<State, ZKP>` has no hash param today). GATED:
+// the in-proof hash must equal what the embedded circuit computes, so a new hash only works with a
+// matching new circom-rln circuit. See CLAUDE.md backlog (generic hash plumbing). Interface unchanged
+// until a real second hash + circuit land.
 impl From<&RLNWitnessInputSingle> for RLNProofValuesSingle {
     fn from(w: &RLNWitnessInputSingle) -> Self {
-        let root = compute_tree_root(
-            &w.identity_secret,
-            &w.user_message_limit,
-            &w.path_elements,
-            &w.identity_path_index,
-        );
+        let id_commitment = poseidon_hash_secret(&w.identity_secret);
+        let leaf = poseidon_hash(&[id_commitment, w.user_message_limit]);
+        let root =
+            compute_tree_root::<PoseidonHash>(leaf, &w.path_elements, &w.identity_path_index);
+
         let a_0 = &w.identity_secret;
         let mut to_hash = [**a_0, w.external_nullifier, w.message_id];
         let a_1 = poseidon_hash(&to_hash);
-        let y = *(a_0.clone()) + w.x * a_1;
+        let y = **a_0 + w.x * a_1;
         let nullifier = poseidon_hash(&[a_1]);
         to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
         RLNProofValuesSingle {
@@ -193,12 +175,11 @@ pub struct RLNProofValuesMulti {
 
 impl From<&RLNWitnessInputMulti> for RLNProofValuesMulti {
     fn from(w: &RLNWitnessInputMulti) -> Self {
-        let root = compute_tree_root(
-            &w.identity_secret,
-            &w.user_message_limit,
-            &w.path_elements,
-            &w.identity_path_index,
-        );
+        let id_commitment = poseidon_hash_secret(&w.identity_secret);
+        let leaf = poseidon_hash(&[id_commitment, w.user_message_limit]);
+        let root =
+            compute_tree_root::<PoseidonHash>(leaf, &w.path_elements, &w.identity_path_index);
+
         let mut ys = Vec::with_capacity(w.message_ids.len());
         let mut nullifiers = Vec::with_capacity(w.message_ids.len());
         for (message_id, &selected) in w.message_ids.iter().zip(w.selector_used.iter()) {

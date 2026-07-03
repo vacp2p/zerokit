@@ -17,13 +17,13 @@ static INDICES: LazyLock<Vec<usize>> = LazyLock::new(|| (0..(1 << 20)).collect()
 const LEAF_COUNT: usize = 8192;
 
 pub fn pm_tree_benchmark(c: &mut Criterion) {
-    let mut tree = PmTree::default(20).unwrap();
+    let mut tree = PmTree::<SledDB, PoseidonHash>::default(20).unwrap();
 
     for i in 0..LEAF_COUNT {
         tree.set(i, LEAVES[i % LEAVES.len()]).unwrap();
     }
 
-    let mut verify_tree = PmTree::default(20).unwrap();
+    let mut verify_tree = PmTree::<SledDB, PoseidonHash>::default(20).unwrap();
     for i in 0..LEAF_COUNT {
         verify_tree.set(i, LEAVES[i % LEAVES.len()]).unwrap();
     }
@@ -32,7 +32,7 @@ pub fn pm_tree_benchmark(c: &mut Criterion) {
     let cached_leaf = LEAVES[cached_leaf_index];
     let cached_proof = verify_tree.proof(cached_leaf_index).unwrap();
 
-    let mut update_next_tree = PmTree::default(20).unwrap();
+    let mut update_next_tree = PmTree::<SledDB, PoseidonHash>::default(20).unwrap();
 
     c.bench_function("PmTree::get_subtree_root", |b| {
         let mut level = 1;

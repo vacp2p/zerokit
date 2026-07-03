@@ -4,13 +4,14 @@ use std::sync::LazyLock;
 
 use ark_ff::PrimeField;
 use tiny_keccak::{Hasher, Keccak};
+use zeroize::Zeroize;
 use zerokit_utils::poseidon::{Poseidon, PoseidonError};
 
 use crate::circuit::Fr;
 
 /// These indexed constants hardcode the supported round parameters tuples (t, RF, RN, SKIP_MATRICES) for the Bn254 scalar field.
 /// SKIP_MATRICES is the index of the randomly generated secure MDS matrix.
-/// TODO: generate these parameters
+/// TODO: Generate these parameters
 const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
     (2, 8, 56, 0),
     (3, 8, 57, 0),
@@ -50,6 +51,14 @@ pub fn poseidon_hash_pair(fr1: Fr, fr2: Fr) -> Fr {
     POSEIDON
         .hash(&[fr1, fr2])
         .expect("Two element input must be valid with supported round parameters")
+}
+
+/// Computes identity commitment from identity secret using Poseidon hash.
+pub fn poseidon_hash_secret(secret: &Fr) -> Fr {
+    let mut to_hash = [*secret];
+    let id_commitment = poseidon_hash(&to_hash);
+    to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
+    id_commitment
 }
 
 /// The zerokit RLN Merkle tree Hasher.

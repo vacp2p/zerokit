@@ -39,22 +39,11 @@ pub const FR_BYTE_SIZE: usize = {
     ((modulus_bits + alignment_bits - (modulus_bits % alignment_bits)) / 8) as usize
 };
 
-/// Byte size of a single 64-bit limb used in `Fr` field element serialization.
+/// Byte size of the `u64` limb of a `Fr`, used for big-endian serialization of `Fr`.
 pub const FR_LIMB_BYTE_SIZE: usize = 8;
 
-/// Byte size of the length prefix used when serializing variable-length vectors.
+/// Byte size of the `u64` big-endian length prefix written before a variable-length vector.
 pub const VEC_LEN_BYTE_SIZE: usize = 8;
-
-/// Serializes a `usize` as an 8-byte big-endian length prefix.
-/// On 32-bit systems, the result is zero-padded to 8 bytes.
-/// On 64-bit systems, it directly represents the `usize` value.
-fn serialize_usize_be(input: usize) -> [u8; VEC_LEN_BYTE_SIZE] {
-    let mut bytes = [0u8; VEC_LEN_BYTE_SIZE];
-    let input_bytes = input.to_be_bytes();
-    let offset = VEC_LEN_BYTE_SIZE - input_bytes.len();
-    bytes[offset..].copy_from_slice(&input_bytes);
-    bytes
-}
 
 pub trait CanonicalSerializeBE {
     type Error: std::error::Error;
@@ -152,7 +141,8 @@ impl CanonicalSerializeBE for Vec<Fr> {
     type Error = SerializationError;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        writer.write_all(&serialize_usize_be(self.len()))?;
+        let len = u64::try_from(self.len())?;
+        writer.write_all(&len.to_be_bytes())?;
         for fr in self {
             fr.serialize(&mut writer)?;
         }
@@ -179,11 +169,27 @@ impl CanonicalDeserializeBE for Vec<Fr> {
     }
 }
 
+impl CanonicalSerializeBE for [u8] {
+    type Error = SerializationError;
+
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
+        let len = u64::try_from(self.len())?;
+        writer.write_all(&len.to_be_bytes())?;
+        writer.write_all(self)?;
+        Ok(())
+    }
+
+    fn serialized_size(&self) -> usize {
+        VEC_LEN_BYTE_SIZE + self.len()
+    }
+}
+
 impl CanonicalSerializeBE for Vec<u8> {
     type Error = SerializationError;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        writer.write_all(&serialize_usize_be(self.len()))?;
+        let len = u64::try_from(self.len())?;
+        writer.write_all(&len.to_be_bytes())?;
         writer.write_all(self)?;
         Ok(())
     }
@@ -210,7 +216,8 @@ impl CanonicalSerializeBE for Vec<bool> {
     type Error = SerializationError;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
-        writer.write_all(&serialize_usize_be(self.len()))?;
+        let len = u64::try_from(self.len())?;
+        writer.write_all(&len.to_be_bytes())?;
         for &b in self {
             writer.write_all(&[b as u8])?;
         }

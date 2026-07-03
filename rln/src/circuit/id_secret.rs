@@ -8,6 +8,9 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use super::Fr;
 
+// TODO(PR12): consider renaming `IdSecret` to a general `SecretFr` wrapper so the extended keygen
+// secrets (`identity_trapdoor` / `identity_nullifier`, today raw `Fr`) can be zeroize-protected too.
+
 /// Secret field-element wrapper zeroized on drop.
 #[derive(
     Debug, Zeroize, ZeroizeOnDrop, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize,

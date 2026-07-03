@@ -192,7 +192,7 @@ jobs:
         run: cargo install cargo-tarpaulin
       - name: Run coverage
         run: |
-          cargo tarpaulin --out Html --output-dir ./coverage -- --test-threads 1
+          cargo tarpaulin --engine llvm --timeout 300 --out Html --output-dir ./coverage -- --test-threads 1
       - name: Upload coverage reports
         uses: actions/upload-artifact@v7
         with:

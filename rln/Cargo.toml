@@ -61,9 +61,8 @@ document-features = { version = "0.2.12", optional = true }
 
 # Non-WASM
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-zerokit_utils = { path = "../utils", version = "1.2.0", default-features = false, features = [
-    "pmtree-ft",
-] }
+pmtree = { package = "vacp2p_pmtree", version = "3.0.0" }
+sled = { version = "0.34.7", features = ["compression"] }
 
 [dev-dependencies]
 criterion = { version = "0.8.2", features = ["html_reports"] }
@@ -76,6 +75,7 @@ ark-crypto-primitives = { version = "0.5.0", default-features = false, features 
 default = ["parallel"]
 parallel = [
     "rayon",
+    "pmtree/parallel",
     "ark-ff/parallel",
     "ark-ec/parallel",
     "ark-std/parallel",

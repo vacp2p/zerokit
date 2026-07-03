@@ -11,7 +11,7 @@ mod test {
 
     const LEAF_COUNT: usize = 256;
 
-    type StatefulRLN = RLN<Stateful<PmTree>, ArkGroth16Backend>;
+    type StatefulRLN = RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend>;
 
     fn g1_from_str(g1: &[String]) -> G1Affine {
         let x = Fq::from_str(&g1[0]).unwrap();
@@ -395,7 +395,7 @@ mod test {
         assert_eq!(rln.leaves_set(), LEAF_COUNT);
         assert_eq!(rln.get_root(), root_batch);
 
-        rln.flush().unwrap();
+        rln.close().unwrap();
     }
 
     #[test]
@@ -418,7 +418,6 @@ mod test {
 
     #[test]
     fn test_atomic_operation_zero_indexed() {
-        // Reproduced from https://github.com/waku-org/go-zerokit-rln/pull/12/files
         let leaves = random_leaves(&mut thread_rng());
 
         let mut rln = create_rln(DEFAULT_TREE_DEPTH);
@@ -431,7 +430,6 @@ mod test {
 
     #[test]
     fn test_atomic_operation_consistency() {
-        // Reproduced from https://github.com/waku-org/go-zerokit-rln/pull/12/files
         let mut rng = thread_rng();
         let leaves = random_leaves(&mut rng);
 

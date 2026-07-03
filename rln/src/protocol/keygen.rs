@@ -2,12 +2,14 @@ use ark_std::{rand::thread_rng, UniformRand};
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use tiny_keccak::{Hasher as _, Keccak};
-use zeroize::Zeroize;
 
 use crate::{
     circuit::{Fr, IdSecret},
-    hashers::{poseidon_hash, poseidon_hash_pair},
+    hashers::{poseidon_hash_pair, poseidon_hash_secret},
 };
+
+// TODO(rln-generic-hash): id_commitment (and the other keygen fns) hardcode `poseidon_hash`. To make
+// RLN's hash swappable for another ZK hash, see the plan in `protocol/proof.rs` (circuit-gated).
 
 /// Generates a random RLN identity using a cryptographically secure RNG.
 ///
@@ -15,9 +17,7 @@ use crate::{
 pub fn keygen() -> (IdSecret, Fr) {
     let mut rng = thread_rng();
     let identity_secret = IdSecret::rand(&mut rng);
-    let mut to_hash = [*identity_secret.clone()];
-    let id_commitment = poseidon_hash(&to_hash);
-    to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
+    let id_commitment = poseidon_hash_secret(&identity_secret);
     (identity_secret, id_commitment)
 }
 
@@ -31,9 +31,7 @@ pub fn extended_keygen() -> (Fr, Fr, Fr, Fr) {
     let identity_trapdoor = Fr::rand(&mut rng);
     let identity_nullifier = Fr::rand(&mut rng);
     let identity_secret = poseidon_hash_pair(identity_trapdoor, identity_nullifier);
-    let mut to_hash = [identity_secret];
-    let id_commitment = poseidon_hash(&to_hash);
-    to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
+    let id_commitment = poseidon_hash_secret(&identity_secret);
     (
         identity_trapdoor,
         identity_nullifier,
@@ -46,7 +44,7 @@ pub fn extended_keygen() -> (Fr, Fr, Fr, Fr) {
 ///
 /// Uses ChaCha20 RNG seeded with Keccak-256 hash of the input.
 /// Returns `(identity_secret, id_commitment)`. Same input always produces the same identity.
-pub fn seeded_keygen(signal: &[u8]) -> (Fr, Fr) {
+pub fn seeded_keygen(signal: &[u8]) -> (IdSecret, Fr) {
     // ChaCha20 requires a seed of exactly 32 bytes.
     // We first hash the input seed signal to a 32 bytes array and pass this as seed to ChaCha20
     let mut seed = [0; 32];
@@ -55,10 +53,8 @@ pub fn seeded_keygen(signal: &[u8]) -> (Fr, Fr) {
     hasher.finalize(&mut seed);
 
     let mut rng = ChaCha20Rng::from_seed(seed);
-    let identity_secret = Fr::rand(&mut rng);
-    let mut to_hash = [identity_secret];
-    let id_commitment = poseidon_hash(&to_hash);
-    to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
+    let identity_secret = IdSecret::rand(&mut rng);
+    let id_commitment = poseidon_hash_secret(&identity_secret);
     (identity_secret, id_commitment)
 }
 
@@ -79,9 +75,7 @@ pub fn extended_seeded_keygen(signal: &[u8]) -> (Fr, Fr, Fr, Fr) {
     let identity_trapdoor = Fr::rand(&mut rng);
     let identity_nullifier = Fr::rand(&mut rng);
     let identity_secret = poseidon_hash_pair(identity_trapdoor, identity_nullifier);
-    let mut to_hash = [identity_secret];
-    let id_commitment = poseidon_hash(&to_hash);
-    to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
+    let id_commitment = poseidon_hash_secret(&identity_secret);
     (
         identity_trapdoor,
         identity_nullifier,
