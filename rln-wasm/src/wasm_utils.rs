@@ -338,9 +338,9 @@ impl ExtendedIdentity {
         let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) =
             extended_keygen();
         ExtendedIdentity {
-            identity_trapdoor,
-            identity_nullifier,
-            identity_secret,
+            identity_trapdoor: *identity_trapdoor,
+            identity_nullifier: *identity_nullifier,
+            identity_secret: *identity_secret,
             id_commitment,
         }
     }
@@ -351,9 +351,9 @@ impl ExtendedIdentity {
         let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) =
             extended_seeded_keygen(&seed_vec);
         ExtendedIdentity {
-            identity_trapdoor,
-            identity_nullifier,
-            identity_secret,
+            identity_trapdoor: *identity_trapdoor,
+            identity_nullifier: *identity_nullifier,
+            identity_secret: *identity_secret,
             id_commitment,
         }
     }

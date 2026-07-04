@@ -98,7 +98,7 @@ mod test {
 
         let key_gen = ffi_key_gen();
         let mut id_secret_fr = *key_gen[0];
-        let id_secret_hash = IdSecret::from(&mut id_secret_fr);
+        let id_secret_hash = SecretFr::from(&mut id_secret_fr);
         let id_commitment = *key_gen[1];
         let cfr_id_secret_hash = ffi_vec_cfr_get(&key_gen, 0).unwrap();
         assert_eq!(*cfr_id_secret_hash, *id_secret_hash);

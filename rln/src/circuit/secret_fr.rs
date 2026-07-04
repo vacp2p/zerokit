@@ -8,16 +8,13 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use super::Fr;
 
-// TODO(PR12): consider renaming `IdSecret` to a general `SecretFr` wrapper so the extended keygen
-// secrets (`identity_trapdoor` / `identity_nullifier`, today raw `Fr`) can be zeroize-protected too.
-
 /// Secret field-element wrapper zeroized on drop.
 #[derive(
     Debug, Zeroize, ZeroizeOnDrop, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize,
 )]
-pub struct IdSecret(Fr);
+pub struct SecretFr(Fr);
 
-impl IdSecret {
+impl SecretFr {
     pub fn rand<R: Rng + ?Sized>(rng: &mut R) -> Self {
         let mut fr = Fr::rand(rng);
         let res = Self::from(&mut fr);
@@ -36,15 +33,15 @@ impl IdSecret {
     }
 }
 
-impl From<&mut Fr> for IdSecret {
+impl From<&mut Fr> for SecretFr {
     fn from(value: &mut Fr) -> Self {
         let id_secret = Self(*value);
-        value.zeroize(); // clear the caller-owned source Fr after the secret moved into IdSecret
+        value.zeroize(); // clear the caller-owned source Fr after the secret moved into SecretFr
         id_secret
     }
 }
 
-impl Deref for IdSecret {
+impl Deref for SecretFr {
     type Target = Fr;
 
     /// Deref to &Fr
@@ -58,7 +55,7 @@ impl Deref for IdSecret {
 
 #[derive(Debug, Clone, Zeroize, ZeroizeOnDrop)]
 pub(crate) enum FrOrSecret {
-    IdSecret(IdSecret),
+    SecretFr(SecretFr),
     Fr(Fr),
 }
 
@@ -68,9 +65,9 @@ impl From<Fr> for FrOrSecret {
     }
 }
 
-impl From<IdSecret> for FrOrSecret {
-    fn from(value: IdSecret) -> Self {
-        FrOrSecret::IdSecret(value)
+impl From<SecretFr> for FrOrSecret {
+    fn from(value: SecretFr) -> Self {
+        FrOrSecret::SecretFr(value)
     }
 }
 
@@ -81,7 +78,7 @@ mod test {
     #[test]
     fn test_id_secret_from_fr_zeroizes_source() {
         let mut fr = Fr::from(42);
-        let id_secret = IdSecret::from(&mut fr);
+        let id_secret = SecretFr::from(&mut fr);
 
         assert_ne!(fr, Fr::from(42));
         assert_eq!(*id_secret, Fr::from(42));

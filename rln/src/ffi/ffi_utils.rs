@@ -382,9 +382,9 @@ pub fn ffi_seeded_key_gen(seed: &repr_c::Vec<u8>) -> repr_c::Vec<CFr> {
 pub fn ffi_extended_key_gen() -> repr_c::Vec<CFr> {
     let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) = extended_keygen();
     vec![
-        CFr(identity_trapdoor),
-        CFr(identity_nullifier),
-        CFr(identity_secret),
+        CFr(*identity_trapdoor),
+        CFr(*identity_nullifier),
+        CFr(*identity_secret),
         CFr(id_commitment),
     ]
     .into()
@@ -395,9 +395,9 @@ pub fn ffi_seeded_extended_key_gen(seed: &repr_c::Vec<u8>) -> repr_c::Vec<CFr> {
     let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) =
         extended_seeded_keygen(seed);
     vec![
-        CFr(identity_trapdoor),
-        CFr(identity_nullifier),
-        CFr(identity_secret),
+        CFr(*identity_trapdoor),
+        CFr(*identity_nullifier),
+        CFr(*identity_secret),
         CFr(id_commitment),
     ]
     .into()

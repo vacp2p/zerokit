@@ -18,7 +18,7 @@ mod test {
     #[test]
     fn test_single_witness_validation() {
         let mut rng = thread_rng();
-        let identity_secret = IdSecret::rand(&mut rng);
+        let identity_secret = SecretFr::rand(&mut rng);
         let user_message_limit = Fr::from(100);
         let (path_elements, identity_path_index) = random_merkle_proof(DEFAULT_TREE_DEPTH);
         let x = hash_to_field_le(&rng.gen::<[u8; 32]>());
@@ -100,7 +100,7 @@ mod test {
     #[test]
     fn test_multi_witness_validation() {
         let mut rng = thread_rng();
-        let identity_secret = IdSecret::rand(&mut rng);
+        let identity_secret = SecretFr::rand(&mut rng);
         let user_message_limit = Fr::from(10);
         let (path_elements, identity_path_index) = random_merkle_proof(DEFAULT_TREE_DEPTH);
         let x = hash_to_field_le(&rng.gen::<[u8; 32]>());
@@ -206,7 +206,7 @@ mod test {
     #[test]
     fn test_partial_witness_validation() {
         let mut rng = thread_rng();
-        let identity_secret = IdSecret::rand(&mut rng);
+        let identity_secret = SecretFr::rand(&mut rng);
         let (path_elements, identity_path_index) = random_merkle_proof(DEFAULT_TREE_DEPTH);
 
         // Valid partial witness
@@ -249,7 +249,7 @@ mod test {
         let mut rng = thread_rng();
         let (path_elements, identity_path_index) = random_merkle_proof(DEFAULT_TREE_DEPTH + 1);
         let witness = RLNWitnessInput::new_single()
-            .identity_secret(IdSecret::rand(&mut rng))
+            .identity_secret(SecretFr::rand(&mut rng))
             .user_message_limit(Fr::from(10))
             .path_elements(path_elements)
             .identity_path_index(identity_path_index)
@@ -270,7 +270,7 @@ mod test {
         let mut rng = thread_rng();
         let (path_elements, identity_path_index) = random_merkle_proof(DEFAULT_TREE_DEPTH);
         let witness = RLNWitnessInput::new_multi()
-            .identity_secret(IdSecret::rand(&mut rng))
+            .identity_secret(SecretFr::rand(&mut rng))
             .user_message_limit(Fr::from(10))
             .path_elements(path_elements)
             .identity_path_index(identity_path_index)
@@ -295,7 +295,7 @@ mod test {
         let mut rng = thread_rng();
         let (path_elements, identity_path_index) = random_merkle_proof(DEFAULT_TREE_DEPTH);
         let witness = RLNWitnessInput::new_multi()
-            .identity_secret(IdSecret::rand(&mut rng))
+            .identity_secret(SecretFr::rand(&mut rng))
             .user_message_limit(Fr::from(10))
             .path_elements(path_elements)
             .identity_path_index(identity_path_index)
@@ -317,7 +317,7 @@ mod test {
         let mut rng = thread_rng();
         let (path_elements, identity_path_index) = random_merkle_proof(DEFAULT_TREE_DEPTH + 1);
         let partial_witness = RLNPartialWitnessInput::new()
-            .identity_secret(IdSecret::rand(&mut rng))
+            .identity_secret(SecretFr::rand(&mut rng))
             .user_message_limit(Fr::from(10))
             .path_elements(path_elements)
             .identity_path_index(identity_path_index)
@@ -330,7 +330,7 @@ mod test {
     fn test_finish_proof_wrong_witness_depth_fails() {
         let rln = RLNBuilder::stateless().build();
         let mut rng = thread_rng();
-        let identity_secret = IdSecret::rand(&mut rng);
+        let identity_secret = SecretFr::rand(&mut rng);
         let (path_elements, identity_path_index) = random_merkle_proof(DEFAULT_TREE_DEPTH);
         let partial_witness = RLNPartialWitnessInput::new()
             .identity_secret(identity_secret.clone())

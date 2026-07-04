@@ -29,7 +29,7 @@ pub(crate) fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
                 value
                     .iter()
                     .map(|f_| match f_ {
-                        FrOrSecret::IdSecret(s) => s.to_u256(),
+                        FrOrSecret::SecretFr(s) => s.to_u256(),
                         FrOrSecret::Fr(f) => fr_to_u256(f),
                     })
                     .collect(),
@@ -72,7 +72,7 @@ pub(crate) fn calc_witness_partial<I: IntoIterator<Item = (String, Vec<Option<Fr
                     .iter()
                     .map(|f_| {
                         f_.as_ref().map(|v| match v {
-                            FrOrSecret::IdSecret(s) => s.to_u256(),
+                            FrOrSecret::SecretFr(s) => s.to_u256(),
                             FrOrSecret::Fr(f) => fr_to_u256(f),
                         })
                     })

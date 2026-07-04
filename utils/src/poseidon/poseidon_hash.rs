@@ -110,8 +110,8 @@ impl<F: PrimeField> Poseidon<F> {
             .position(|el| el.t == t)
             .ok_or(PoseidonError::NoParametersForInputLength(inp.len()))?;
 
-        // The state vectors hold a copy of the input, which may be secret material (identity
-        // secrets); Zeroizing wipes them on drop so no secret bytes linger on the heap.
+        // The state vectors hold a copy of the input, which may be secret material (identity secrets),
+        // Zeroizing wipes them on drop so no secret bytes remain in memory after the hash is computed.
         let mut state = Zeroizing::new(vec![F::ZERO; t]);
         let mut state_2 = state.clone();
         state[1..].clone_from_slice(inp);

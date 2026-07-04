@@ -6,8 +6,8 @@ use std::{
 use clap::{Parser, Subcommand};
 use rln::prelude::{
     default_graph_single, default_zkey_single, hash_to_field_le, keygen, poseidon_hash,
-    ArkGroth16Backend, Fr, IdSecret, PoseidonHash, RLNBuilder, RLNProofValues, RLNWitnessInput,
-    RecoverSecret, Stateless, DEFAULT_TREE_DEPTH, RLN,
+    ArkGroth16Backend, Fr, PoseidonHash, RLNBuilder, RLNProofValues, RLNWitnessInput,
+    RecoverSecret, SecretFr, Stateless, DEFAULT_TREE_DEPTH, RLN,
 };
 use zerokit_utils::merkle_tree::{
     Hasher, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
@@ -43,7 +43,7 @@ enum Commands {
 
 #[derive(Debug, Clone)]
 struct Identity {
-    identity_secret: IdSecret,
+    identity_secret: SecretFr,
     id_commitment: Fr,
 }
 

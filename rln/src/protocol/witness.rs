@@ -7,7 +7,7 @@ use crate::{
     circuit::{
         error::WitnessCalcError,
         iden3calc::{calc_witness, calc_witness_partial},
-        CalcWitness, CalcWitnessPartial, Fr, FrOrSecret, Graph, IdSecret,
+        CalcWitness, CalcWitnessPartial, Fr, FrOrSecret, Graph, SecretFr,
     },
     error::{
         GenerateProofError, PartialWitnessInputError, WitnessInputMultiError,
@@ -22,7 +22,7 @@ pub enum RLNWitnessInput {
 }
 
 impl RLNWitnessInput {
-    pub fn identity_secret(&self) -> &IdSecret {
+    pub fn identity_secret(&self) -> &SecretFr {
         match self {
             Self::Single(w) => &w.identity_secret,
             Self::Multi(w) => &w.identity_secret,
@@ -95,7 +95,7 @@ impl RLNWitnessInput {
 impl RLNWitnessInput {
     #[builder(finish_fn = build)]
     pub fn new_single(
-        identity_secret: IdSecret,
+        identity_secret: SecretFr,
         user_message_limit: Fr,
         path_elements: Vec<Fr>,
         identity_path_index: Vec<u8>,
@@ -134,7 +134,7 @@ impl RLNWitnessInput {
     #[builder(finish_fn = build)]
     #[allow(clippy::too_many_arguments)]
     pub fn new_multi(
-        identity_secret: IdSecret,
+        identity_secret: SecretFr,
         user_message_limit: Fr,
         path_elements: Vec<Fr>,
         identity_path_index: Vec<u8>,
@@ -367,7 +367,7 @@ impl CalcWitnessPartial for RLNPartialWitnessInput {
 
 #[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNWitnessInputSingle {
-    pub(crate) identity_secret: IdSecret,
+    pub(crate) identity_secret: SecretFr,
     pub(crate) user_message_limit: Fr,
     pub(crate) path_elements: Vec<Fr>,
     pub(crate) identity_path_index: Vec<u8>,
@@ -378,7 +378,7 @@ pub struct RLNWitnessInputSingle {
 
 #[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNWitnessInputMulti {
-    pub(crate) identity_secret: IdSecret,
+    pub(crate) identity_secret: SecretFr,
     pub(crate) user_message_limit: Fr,
     pub(crate) path_elements: Vec<Fr>,
     pub(crate) identity_path_index: Vec<u8>,
@@ -390,7 +390,7 @@ pub struct RLNWitnessInputMulti {
 
 #[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNPartialWitnessInput {
-    pub(crate) identity_secret: IdSecret,
+    pub(crate) identity_secret: SecretFr,
     pub(crate) user_message_limit: Fr,
     pub(crate) path_elements: Vec<Fr>,
     pub(crate) identity_path_index: Vec<u8>,
@@ -401,7 +401,7 @@ impl RLNPartialWitnessInput {
     #[allow(clippy::new_ret_no_self)]
     #[builder(start_fn = new, finish_fn = build)]
     pub fn create(
-        identity_secret: IdSecret,
+        identity_secret: SecretFr,
         user_message_limit: Fr,
         path_elements: Vec<Fr>,
         identity_path_index: Vec<u8>,

@@ -8,9 +8,9 @@ use super::{
     zk::RecoverSecret,
 };
 use crate::{
-    circuit::{Fr, IdSecret, Proof},
+    circuit::{Fr, Proof, SecretFr},
     error::RecoverSecretError,
-    hashers::{poseidon_hash, poseidon_hash_secret, PoseidonHash},
+    hashers::{poseidon_hash, poseidon_hash_id_secret, PoseidonHash},
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -89,7 +89,7 @@ impl From<&RLNWitnessInput> for RLNProofValues {
 impl RecoverSecret for RLNProofValues {
     type Error = RecoverSecretError;
 
-    fn recover_secret(&self, other: &Self) -> Result<IdSecret, Self::Error> {
+    fn recover_secret(&self, other: &Self) -> Result<SecretFr, Self::Error> {
         match (self, other) {
             (RLNProofValues::Single(s), RLNProofValues::Single(o)) => s.recover_secret(o),
             (RLNProofValues::Multi(s), RLNProofValues::Multi(o)) => s.recover_secret(o),
@@ -117,7 +117,7 @@ pub struct RLNProofValuesSingle {
 // until a real second hash + circuit land.
 impl From<&RLNWitnessInputSingle> for RLNProofValuesSingle {
     fn from(w: &RLNWitnessInputSingle) -> Self {
-        let id_commitment = poseidon_hash_secret(&w.identity_secret);
+        let id_commitment = poseidon_hash_id_secret(&w.identity_secret);
         let leaf = poseidon_hash(&[id_commitment, w.user_message_limit]);
         let root =
             compute_tree_root::<PoseidonHash>(leaf, &w.path_elements, &w.identity_path_index);
@@ -141,7 +141,7 @@ impl From<&RLNWitnessInputSingle> for RLNProofValuesSingle {
 impl RecoverSecret for RLNProofValuesSingle {
     type Error = RecoverSecretError;
 
-    fn recover_secret(&self, other: &Self) -> Result<IdSecret, Self::Error> {
+    fn recover_secret(&self, other: &Self) -> Result<SecretFr, Self::Error> {
         if self.external_nullifier != other.external_nullifier {
             return Err(RecoverSecretError::ExternalNullifierMismatch(
                 self.external_nullifier,
@@ -158,7 +158,7 @@ impl RecoverSecret for RLNProofValuesSingle {
 impl RecoverSecret<RLNProofValuesMulti> for RLNProofValuesSingle {
     type Error = RecoverSecretError;
 
-    fn recover_secret(&self, other: &RLNProofValuesMulti) -> Result<IdSecret, Self::Error> {
+    fn recover_secret(&self, other: &RLNProofValuesMulti) -> Result<SecretFr, Self::Error> {
         other.recover_secret(self)
     }
 }
@@ -175,7 +175,7 @@ pub struct RLNProofValuesMulti {
 
 impl From<&RLNWitnessInputMulti> for RLNProofValuesMulti {
     fn from(w: &RLNWitnessInputMulti) -> Self {
-        let id_commitment = poseidon_hash_secret(&w.identity_secret);
+        let id_commitment = poseidon_hash_id_secret(&w.identity_secret);
         let leaf = poseidon_hash(&[id_commitment, w.user_message_limit]);
         let root =
             compute_tree_root::<PoseidonHash>(leaf, &w.path_elements, &w.identity_path_index);
@@ -206,7 +206,7 @@ impl From<&RLNWitnessInputMulti> for RLNProofValuesMulti {
 impl RecoverSecret for RLNProofValuesMulti {
     type Error = RecoverSecretError;
 
-    fn recover_secret(&self, other: &Self) -> Result<IdSecret, Self::Error> {
+    fn recover_secret(&self, other: &Self) -> Result<SecretFr, Self::Error> {
         if self.external_nullifier != other.external_nullifier {
             return Err(RecoverSecretError::ExternalNullifierMismatch(
                 self.external_nullifier,
@@ -243,7 +243,7 @@ impl RecoverSecret for RLNProofValuesMulti {
 impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
     type Error = RecoverSecretError;
 
-    fn recover_secret(&self, other: &RLNProofValuesSingle) -> Result<IdSecret, Self::Error> {
+    fn recover_secret(&self, other: &RLNProofValuesSingle) -> Result<SecretFr, Self::Error> {
         if self.external_nullifier != other.external_nullifier {
             return Err(RecoverSecretError::ExternalNullifierMismatch(
                 self.external_nullifier,

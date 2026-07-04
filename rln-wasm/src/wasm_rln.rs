@@ -113,7 +113,7 @@ impl WasmRLNWitnessInput {
         let identity_path_index: Vec<u8> = identity_path_index.to_vec();
 
         let witness = RLNWitnessInput::new_single()
-            .identity_secret(IdSecret::from(&mut identity_secret_fr))
+            .identity_secret(SecretFr::from(&mut identity_secret_fr))
             .user_message_limit(user_message_limit.inner())
             .path_elements(path_elements)
             .identity_path_index(identity_path_index)
@@ -146,7 +146,7 @@ impl WasmRLNWitnessInput {
         let selector_used: Vec<bool> = selector_used.to_vec().iter().map(|&b| b != 0).collect();
 
         let witness = RLNWitnessInput::new_multi()
-            .identity_secret(IdSecret::from(&mut identity_secret_fr))
+            .identity_secret(SecretFr::from(&mut identity_secret_fr))
             .user_message_limit(user_message_limit.inner())
             .path_elements(path_elements)
             .identity_path_index(identity_path_index)
@@ -266,7 +266,7 @@ impl WasmRLNPartialWitnessInput {
         let identity_path_index: Vec<u8> = identity_path_index.to_vec();
 
         let witness = RLNPartialWitnessInput::new()
-            .identity_secret(IdSecret::from(&mut identity_secret_fr))
+            .identity_secret(SecretFr::from(&mut identity_secret_fr))
             .user_message_limit(user_message_limit.inner())
             .path_elements(path_elements)
             .identity_path_index(identity_path_index)

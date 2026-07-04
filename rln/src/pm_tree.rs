@@ -214,9 +214,7 @@ impl<D, H> ZerokitMerkleTree for PmTree<D, H>
 where
     D: Database,
     D::Config: PmTreeBackendConfig,
-    // TODO(pmtree): unify the two tree hasher traits (utils `ZerokitHasher` + pmtree
-    // `Hasher`); needs an upstream pmtree change. Protocol-level arities are already unified
-    // behind `RLNHasher` (rln/src/hashers.rs).
+    // TODO(pmtree): unify the two tree hasher traits (utils `ZerokitHasher` + pmtree `Hasher`).
     H: ZerokitHasher + Hasher<Fr = FrOf<H>>,
 {
     type Proof = PmTreeProof<H>;

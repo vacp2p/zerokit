@@ -725,7 +725,7 @@ pub fn ffi_rln_witness_input_new_single(
     let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
 
     match RLNWitnessInput::new_single()
-        .identity_secret(IdSecret::from(&mut identity_secret_fr))
+        .identity_secret(SecretFr::from(&mut identity_secret_fr))
         .user_message_limit(user_message_limit.0)
         .path_elements(path_elements)
         .identity_path_index(identity_path_index)
@@ -763,7 +763,7 @@ pub fn ffi_rln_witness_input_new_multi(
     let selector_used: Vec<bool> = selector_used.iter().copied().collect();
 
     match RLNWitnessInput::new_multi()
-        .identity_secret(IdSecret::from(&mut identity_secret_fr))
+        .identity_secret(SecretFr::from(&mut identity_secret_fr))
         .user_message_limit(user_message_limit.0)
         .path_elements(path_elements)
         .identity_path_index(identity_path_index)
@@ -971,7 +971,7 @@ pub fn ffi_rln_partial_witness_input_new(
     let path_elements: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
     let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
     match RLNPartialWitnessInput::new()
-        .identity_secret(IdSecret::from(&mut identity_secret_fr))
+        .identity_secret(SecretFr::from(&mut identity_secret_fr))
         .user_message_limit(user_message_limit.0)
         .path_elements(path_elements)
         .identity_path_index(identity_path_index)

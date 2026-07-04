@@ -146,7 +146,7 @@ mod test {
 
         let identity = Identity::generate();
         let mut id_secret_fr = *identity.get_secret_hash();
-        let id_secret_hash = IdSecret::from(&mut id_secret_fr);
+        let id_secret_hash = SecretFr::from(&mut id_secret_fr);
         let id_commitment = *identity.get_commitment();
         let wasmfr_id_secret_hash = *identity.get_secret_hash();
         assert_eq!(wasmfr_id_secret_hash, *id_secret_hash);

@@ -29,7 +29,7 @@ mod test {
     }
 
     fn single_witness(
-        id: IdSecret,
+        id: SecretFr,
         path_elements: Vec<Fr>,
         message_id: Fr,
         x: Fr,
@@ -49,7 +49,7 @@ mod test {
     }
 
     fn multi_witness(
-        id: IdSecret,
+        id: SecretFr,
         path_elements: Vec<Fr>,
         message_ids: Vec<Fr>,
         selector_used: Vec<bool>,
@@ -481,7 +481,7 @@ mod test {
         let leaf_index = 3;
 
         let identity_secret_seed = hash_to_field_le(b"test-merkle-proof");
-        let identity_secret = IdSecret::from(&mut identity_secret_seed.clone());
+        let identity_secret = SecretFr::from(&mut identity_secret_seed.clone());
         let mut to_hash = [*identity_secret.clone()];
         let id_commitment = poseidon_hash(&to_hash);
         to_hash[0].zeroize();
