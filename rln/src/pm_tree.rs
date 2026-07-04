@@ -18,7 +18,7 @@ use crate::hashers::PoseidonHash;
 /// The key used to store the metadata in database.
 const METADATA_KEY: [u8; 8] = *b"metadata";
 
-//TODO: Export this constant from pmtree crate instead of hardcoding it here.
+// TODO(pmtree): export this constant from the pmtree crate instead of hardcoding it here.
 /// Maximum tree depth, limited by `pmtree` crate.
 const MAX_DEPTH: usize = 31;
 
@@ -214,7 +214,9 @@ impl<D, H> ZerokitMerkleTree for PmTree<D, H>
 where
     D: Database,
     D::Config: PmTreeBackendConfig,
-    // TODO: Unify the two hasher traits (utils `ZerokitHasher` + pmtree `Hasher`).
+    // TODO(pmtree): unify the two tree hasher traits (utils `ZerokitHasher` + pmtree
+    // `Hasher`); needs an upstream pmtree change. Protocol-level arities are already unified
+    // behind `RLNHasher` (rln/src/hashers.rs).
     H: ZerokitHasher + Hasher<Fr = FrOf<H>>,
 {
     type Proof = PmTreeProof<H>;
