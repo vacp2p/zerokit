@@ -2230,6 +2230,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tiny-keccak",
+ "zeroize",
 ]
 
 [[package]]
