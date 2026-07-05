@@ -32,6 +32,7 @@ This produces the shared library in `target/release`:
 From this directory:
 
 ```bash
+cd rln/ffi_nim_examples/
 nim c -d:release basic_proof.nim
 nim c -d:release type_serialization.nim
 nim c -d:release recover_secret.nim
@@ -48,9 +49,9 @@ nim c -d:release stateless.nim
 
 ## Memory ownership
 
-- Every pointer returned by the FFI is owned by the caller and must be released with its matching `ffi_*_free` function (`ffi_cfr_free`, `ffi_rln_proof_free`, `ffi_rln_witness_input_free`, ...).
+- Every pointer returned by the FFI is owned by the caller and must be released with its matching `ffi_*_free` function (`ffi_fr_free`, `ffi_rln_proof_free`, `ffi_rln_witness_input_free`, `ffi_identity_keys_free`,...).
 - Debug and error strings are Rust `Vec<u8>`; release them with `ffi_c_string_free`.
-- `ffi_vec_cfr_get` returns a borrowed pointer into the vector: do not free it, and do not use it after the vector itself is freed.
+- `ffi_vec_fr_get` returns a borrowed pointer into the vector: do not free it, and do not use it after the vector itself is freed.
 - The examples free everything explicitly to document this contract.
 
 ## Notes

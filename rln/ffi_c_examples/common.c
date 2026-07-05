@@ -177,6 +177,7 @@ int create_member(Member *member)
     IdentityKeys *keys = ffi_identity_keys_generate();
     member->identity_secret = ffi_identity_keys_get_secret(keys);
     member->id_commitment = ffi_identity_keys_get_commitment(keys);
+
     printf("  - identity generated successfully\n");
     print_secret_fr("identity secret", member->identity_secret);
     print_fr("id commitment", member->id_commitment);
@@ -190,6 +191,7 @@ int create_member(Member *member)
         ffi_poseidon_hash_pair(member->id_commitment, member->user_message_limit);
     print_fr("rate commitment", member->rate_commitment);
 
+    ffi_identity_keys_free(keys);
     return 0;
 }
 

@@ -17,11 +17,11 @@ proc main() =
   var signal: array[32, uint8] = [1'u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   let x = hashSignal(signal)
-  printCfr("x", x)
+  printFr("x", x)
 
   echo "\nCreating message id"
-  let messageId = ffi_uint_to_cfr(0'u32)
-  printCfr("message id", messageId)
+  let messageId = ffi_uint_to_fr(0'u32)
+  printFr("message id", messageId)
 
   echo "\nCreating RLN witness"
   let witnessResult = createWitness(member, merkleProof, messageId, x,
@@ -49,25 +49,25 @@ proc main() =
     stderr.writeLine("Get y error: " & asString(yResult.err))
     ffi_c_string_free(yResult.err)
     return
-  printCfr("y", yResult.ok)
-  ffi_cfr_free(yResult.ok)
+  printFr("y", yResult.ok)
+  ffi_fr_free(yResult.ok)
   let nullifierResult = ffi_rln_proof_values_get_nullifier(addr proofValues)
   if nullifierResult.ok.isNil:
     stderr.writeLine("Get nullifier error: " & asString(nullifierResult.err))
     ffi_c_string_free(nullifierResult.err)
     return
-  printCfr("nullifier", nullifierResult.ok)
-  ffi_cfr_free(nullifierResult.ok)
+  printFr("nullifier", nullifierResult.ok)
+  ffi_fr_free(nullifierResult.ok)
   let proofValuesRoot = ffi_rln_proof_values_get_root(addr proofValues)
-  printCfr("root", proofValuesRoot)
-  ffi_cfr_free(proofValuesRoot)
+  printFr("root", proofValuesRoot)
+  ffi_fr_free(proofValuesRoot)
   let proofValuesX = ffi_rln_proof_values_get_x(addr proofValues)
-  printCfr("x", proofValuesX)
-  ffi_cfr_free(proofValuesX)
+  printFr("x", proofValuesX)
+  ffi_fr_free(proofValuesX)
   let proofValuesExternalNullifier =
     ffi_rln_proof_values_get_external_nullifier(addr proofValues)
-  printCfr("external nullifier", proofValuesExternalNullifier)
-  ffi_cfr_free(proofValuesExternalNullifier)
+  printFr("external nullifier", proofValuesExternalNullifier)
+  ffi_fr_free(proofValuesExternalNullifier)
 
   echo "\nVerifying proof"
   let verifyResult = verifyStatefulProof(rlnInstance, rlnProof, x)
@@ -84,9 +84,9 @@ proc main() =
   ffi_rln_proof_values_free(proofValues)
   ffi_rln_proof_free(rlnProof)
   ffi_rln_witness_input_free(witness)
-  ffi_cfr_free(messageId)
-  ffi_cfr_free(x)
-  ffi_cfr_free(externalNullifier)
+  ffi_fr_free(messageId)
+  ffi_fr_free(x)
+  ffi_fr_free(externalNullifier)
   ffi_rln_merkle_proof_free(merkleProof)
   memberFree(member)
   ffi_rln_free(rlnInstance)

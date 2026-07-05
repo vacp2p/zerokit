@@ -17,11 +17,11 @@ proc main() =
   var signal1: array[32, uint8] = [1'u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   let x1 = hashSignal(signal1)
-  printCfr("x1", x1)
+  printFr("x1", x1)
 
   echo "\nCreating first message id"
-  let messageId1 = ffi_uint_to_cfr(0'u32)
-  printCfr("message id", messageId1)
+  let messageId1 = ffi_uint_to_fr(0'u32)
+  printFr("message id", messageId1)
 
   echo "\nCreating first RLN witness"
   let witness1Result = createWitness(member, merkleProof, messageId1, x1,
@@ -62,11 +62,11 @@ proc main() =
   var signal2: array[32, uint8] = [11'u8, 12, 13, 14, 15, 16, 17, 18, 19, 20, 0,
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   let x2 = hashSignal(signal2)
-  printCfr("x2", x2)
+  printFr("x2", x2)
 
   echo "\nCreating second message with the same id"
-  let messageId2 = ffi_uint_to_cfr(0'u32)
-  printCfr("message id", messageId2)
+  let messageId2 = ffi_uint_to_fr(0'u32)
+  printFr("message id", messageId2)
 
   echo "\nCreating second RLN witness"
   let witness2Result = createWitness(member, merkleProof, messageId2, x2,
@@ -108,24 +108,24 @@ proc main() =
       ffi_c_string_free(recoverResult.err)
       return
     let recoveredSecret = recoverResult.ok
-    printCfr("recovered secret", recoveredSecret)
-    printCfr("identity secret", member.identitySecret)
+    printSecretFr("recovered secret", recoveredSecret)
+    printSecretFr("identity secret", member.identitySecret)
     echo "  - identity recovered successfully"
-    ffi_cfr_free(recoveredSecret)
+    ffi_secret_fr_free(recoveredSecret)
   else:
     echo "Second proof verification failed"
 
   ffi_rln_proof_values_free(proofValues2)
   ffi_rln_proof_free(rlnProof2)
   ffi_rln_witness_input_free(witness2)
-  ffi_cfr_free(messageId2)
-  ffi_cfr_free(x2)
+  ffi_fr_free(messageId2)
+  ffi_fr_free(x2)
   ffi_rln_proof_values_free(proofValues1)
   ffi_rln_proof_free(rlnProof1)
   ffi_rln_witness_input_free(witness1)
-  ffi_cfr_free(messageId1)
-  ffi_cfr_free(x1)
-  ffi_cfr_free(externalNullifier)
+  ffi_fr_free(messageId1)
+  ffi_fr_free(x1)
+  ffi_fr_free(externalNullifier)
   ffi_rln_merkle_proof_free(merkleProof)
   memberFree(member)
   ffi_rln_free(rlnInstance)
