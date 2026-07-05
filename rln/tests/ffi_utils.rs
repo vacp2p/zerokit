@@ -9,9 +9,9 @@ mod test {
     fn test_seeded_keygen_ffi() {
         // We generate a new identity pair from an input seed
         let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let res = ffi_seeded_key_gen(&seed_bytes.into());
-        let identity_secret = res.first().unwrap();
-        let id_commitment = res.get(1).unwrap();
+        let identity_keys = ffi_identity_keys_generate_seeded(&seed_bytes.into());
+        let identity_secret = ffi_identity_keys_get_secret(&identity_keys);
+        let id_commitment = ffi_identity_keys_get_commitment(&identity_keys);
 
         // We check against expected values
         let expected_identity_secret_seed_bytes = Fr::from(
@@ -29,19 +29,22 @@ mod test {
             .unwrap(),
         );
 
-        assert_eq!(*identity_secret, expected_identity_secret_seed_bytes);
-        assert_eq!(*id_commitment, expected_id_commitment_seed_bytes);
+        assert_eq!(
+            **identity_secret.inner(),
+            expected_identity_secret_seed_bytes
+        );
+        assert_eq!(**id_commitment, expected_id_commitment_seed_bytes);
     }
 
     #[test]
     fn test_seeded_extended_keygen_ffi() {
         // We generate a new identity tuple from an input seed
         let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let key_gen = ffi_seeded_extended_key_gen(&seed_bytes.into());
-        let identity_trapdoor = *key_gen[0];
-        let identity_nullifier = *key_gen[1];
-        let identity_secret = *key_gen[2];
-        let id_commitment = *key_gen[3];
+        let identity_keys = ffi_extended_identity_keys_generate_seeded(&seed_bytes.into());
+        let identity_trapdoor = ffi_extended_identity_keys_get_trapdoor(&identity_keys);
+        let identity_nullifier = ffi_extended_identity_keys_get_nullifier(&identity_keys);
+        let identity_secret = ffi_extended_identity_keys_get_secret(&identity_keys);
+        let id_commitment = ffi_extended_identity_keys_get_commitment(&identity_keys);
 
         // We check against expected values
         let expected_identity_trapdoor_seed_bytes = Fr::from(
@@ -73,37 +76,125 @@ mod test {
             .unwrap(),
         );
 
-        assert_eq!(identity_trapdoor, expected_identity_trapdoor_seed_bytes);
-        assert_eq!(identity_nullifier, expected_identity_nullifier_seed_bytes);
-        assert_eq!(identity_secret, expected_identity_secret_seed_bytes);
-        assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
+        assert_eq!(
+            **identity_trapdoor.inner(),
+            expected_identity_trapdoor_seed_bytes
+        );
+        assert_eq!(
+            **identity_nullifier.inner(),
+            expected_identity_nullifier_seed_bytes
+        );
+        assert_eq!(
+            **identity_secret.inner(),
+            expected_identity_secret_seed_bytes
+        );
+        assert_eq!(**id_commitment, expected_id_commitment_seed_bytes);
     }
 
     #[test]
-    fn test_cfr_ffi() {
-        let cfr_zero = ffi_cfr_zero();
+    fn test_fr_ffi() {
+        let ffi_fr_zero = ffi_fr_zero();
         let fr_zero = Fr::from(0u8);
-        assert_eq!(*cfr_zero, fr_zero);
+        assert_eq!(*ffi_fr_zero, fr_zero);
 
-        let cfr_one = ffi_cfr_one();
+        let ffi_fr_one = ffi_fr_one();
         let fr_one = Fr::from(1u8);
-        assert_eq!(*cfr_one, fr_one);
+        assert_eq!(*ffi_fr_one, fr_one);
 
-        let cfr_int = ffi_uint_to_cfr(42);
+        let ffi_fr_int = ffi_uint_to_fr(42);
         let fr_int = Fr::from(42u8);
-        assert_eq!(*cfr_int, fr_int);
+        assert_eq!(*ffi_fr_int, fr_int);
 
-        let cfr_debug_str = ffi_cfr_debug(Some(&cfr_int));
-        assert_eq!(cfr_debug_str.to_string(), "42");
+        let ffi_fr_debug_str = ffi_fr_debug(Some(&ffi_fr_int));
+        assert_eq!(ffi_fr_debug_str.to_string(), "42");
 
-        let key_gen = ffi_key_gen();
-        let mut id_secret_fr = *key_gen[0];
-        let id_secret_hash = SecretFr::from(&mut id_secret_fr);
-        let id_commitment = *key_gen[1];
-        let cfr_id_secret_hash = ffi_vec_cfr_get(&key_gen, 0).unwrap();
-        assert_eq!(*cfr_id_secret_hash, *id_secret_hash);
-        let cfr_id_commitment = ffi_vec_cfr_get(&key_gen, 1).unwrap();
-        assert_eq!(*cfr_id_commitment, id_commitment);
+        let identity_keys = ffi_identity_keys_generate();
+        let identity_secret = ffi_identity_keys_get_secret(&identity_keys);
+        let expected_id_commitment = poseidon_hash(&[**identity_secret.inner()]);
+        assert_eq!(
+            **ffi_identity_keys_get_commitment(&identity_keys),
+            expected_id_commitment
+        );
+    }
+
+    #[test]
+    fn test_identity_keys_roundtrip_ffi() {
+        let identity_keys = ffi_identity_keys_generate();
+        let bytes = match ffi_identity_keys_to_bytes_le(&identity_keys) {
+            FFI_Result {
+                ok: Some(bytes),
+                err: None,
+            } => bytes,
+            FFI_Result { err: Some(err), .. } => {
+                panic!("ffi_identity_keys_to_bytes_le call failed: {}", err)
+            }
+            _ => unreachable!(),
+        };
+        let restored_keys = match ffi_identity_keys_from_bytes_le(&bytes) {
+            FFI_Result {
+                ok: Some(identity_keys),
+                err: None,
+            } => identity_keys,
+            FFI_Result { err: Some(err), .. } => {
+                panic!("ffi_identity_keys_from_bytes_le call failed: {}", err)
+            }
+            _ => unreachable!(),
+        };
+        assert_eq!(
+            **ffi_identity_keys_get_secret(&restored_keys).inner(),
+            **ffi_identity_keys_get_secret(&identity_keys).inner()
+        );
+        assert_eq!(
+            **ffi_identity_keys_get_commitment(&restored_keys),
+            **ffi_identity_keys_get_commitment(&identity_keys)
+        );
+    }
+
+    #[test]
+    fn test_extended_identity_keys_roundtrip_ffi() {
+        let identity_keys = ffi_extended_identity_keys_generate();
+        let bytes = match ffi_extended_identity_keys_to_bytes_le(&identity_keys) {
+            FFI_Result {
+                ok: Some(bytes),
+                err: None,
+            } => bytes,
+            FFI_Result { err: Some(err), .. } => {
+                panic!(
+                    "ffi_extended_identity_keys_to_bytes_le call failed: {}",
+                    err
+                )
+            }
+            _ => unreachable!(),
+        };
+        let restored_keys = match ffi_extended_identity_keys_from_bytes_le(&bytes) {
+            FFI_Result {
+                ok: Some(identity_keys),
+                err: None,
+            } => identity_keys,
+            FFI_Result { err: Some(err), .. } => {
+                panic!(
+                    "ffi_extended_identity_keys_from_bytes_le call failed: {}",
+                    err
+                )
+            }
+            _ => unreachable!(),
+        };
+        assert_eq!(
+            **ffi_extended_identity_keys_get_trapdoor(&restored_keys).inner(),
+            **ffi_extended_identity_keys_get_trapdoor(&identity_keys).inner()
+        );
+        assert_eq!(
+            **ffi_extended_identity_keys_get_nullifier(&restored_keys).inner(),
+            **ffi_extended_identity_keys_get_nullifier(&identity_keys).inner()
+        );
+        assert_eq!(
+            **ffi_extended_identity_keys_get_secret(&restored_keys).inner(),
+            **ffi_extended_identity_keys_get_secret(&identity_keys).inner()
+        );
+        assert_eq!(
+            **ffi_extended_identity_keys_get_commitment(&restored_keys),
+            **ffi_extended_identity_keys_get_commitment(&identity_keys)
+        );
     }
 
     #[test]
@@ -113,11 +204,11 @@ mod test {
         let signal: Vec<u8> = signal_gen.to_vec();
 
         let bytes_le = match ffi_vec_u8_to_bytes_le(&signal.clone().into()) {
-            CResult {
+            FFI_Result {
                 ok: Some(bytes),
                 err: None,
             } => bytes,
-            CResult { err: Some(err), .. } => {
+            FFI_Result { err: Some(err), .. } => {
                 panic!("ffi_vec_u8_to_bytes_le call failed: {}", err)
             }
             _ => unreachable!(),
@@ -127,11 +218,11 @@ mod test {
         assert_eq!(bytes_le.iter().copied().collect::<Vec<_>>(), expected_le);
 
         let bytes_be = match ffi_vec_u8_to_bytes_be(&signal.clone().into()) {
-            CResult {
+            FFI_Result {
                 ok: Some(bytes),
                 err: None,
             } => bytes,
-            CResult { err: Some(err), .. } => {
+            FFI_Result { err: Some(err), .. } => {
                 panic!("ffi_vec_u8_to_bytes_be call failed: {}", err)
             }
             _ => unreachable!(),
@@ -141,11 +232,11 @@ mod test {
         assert_eq!(bytes_be.iter().copied().collect::<Vec<_>>(), expected_be);
 
         let signal_from_le = match ffi_bytes_le_to_vec_u8(&bytes_le) {
-            CResult {
+            FFI_Result {
                 ok: Some(vec_u8),
                 err: None,
             } => vec_u8,
-            CResult { err: Some(err), .. } => {
+            FFI_Result { err: Some(err), .. } => {
                 panic!("ffi_bytes_le_to_vec_u8 call failed: {}", err)
             }
             _ => unreachable!(),
@@ -153,11 +244,11 @@ mod test {
         assert_eq!(signal_from_le.iter().copied().collect::<Vec<_>>(), signal);
 
         let signal_from_be = match ffi_bytes_be_to_vec_u8(&bytes_be) {
-            CResult {
+            FFI_Result {
                 ok: Some(vec_u8),
                 err: None,
             } => vec_u8,
-            CResult { err: Some(err), .. } => {
+            FFI_Result { err: Some(err), .. } => {
                 panic!("ffi_bytes_be_to_vec_u8 call failed: {}", err)
             }
             _ => unreachable!(),
@@ -166,17 +257,17 @@ mod test {
     }
 
     #[test]
-    fn test_vec_cfr_ffi() {
+    fn test_vec_fr_ffi() {
         let vec_fr = [Fr::from(1u8), Fr::from(2u8), Fr::from(3u8), Fr::from(4u8)];
-        let vec_cfr: Vec<CFr> = vec_fr.iter().map(|fr| CFr::from(*fr)).collect();
+        let ffi_vec_fr: Vec<FFI_Fr> = vec_fr.iter().map(|fr| FFI_Fr::from(*fr)).collect();
 
-        let bytes_le = match ffi_vec_cfr_to_bytes_le(&vec_cfr.clone().into()) {
-            CResult {
+        let bytes_le = match ffi_vec_fr_to_bytes_le(&ffi_vec_fr.clone().into()) {
+            FFI_Result {
                 ok: Some(bytes),
                 err: None,
             } => bytes,
-            CResult { err: Some(err), .. } => {
-                panic!("ffi_vec_cfr_to_bytes_le call failed: {}", err)
+            FFI_Result { err: Some(err), .. } => {
+                panic!("ffi_vec_fr_to_bytes_le call failed: {}", err)
             }
             _ => unreachable!(),
         };
@@ -187,13 +278,13 @@ mod test {
             .unwrap();
         assert_eq!(bytes_le.iter().copied().collect::<Vec<_>>(), expected_le);
 
-        let bytes_be = match ffi_vec_cfr_to_bytes_be(&vec_cfr.clone().into()) {
-            CResult {
+        let bytes_be = match ffi_vec_fr_to_bytes_be(&ffi_vec_fr.clone().into()) {
+            FFI_Result {
                 ok: Some(bytes),
                 err: None,
             } => bytes,
-            CResult { err: Some(err), .. } => {
-                panic!("ffi_vec_cfr_to_bytes_be call failed: {}", err)
+            FFI_Result { err: Some(err), .. } => {
+                panic!("ffi_vec_fr_to_bytes_be call failed: {}", err)
             }
             _ => unreachable!(),
         };
@@ -201,29 +292,35 @@ mod test {
         CanonicalSerializeBE::serialize(&vec_fr.to_vec(), &mut expected_be).unwrap();
         assert_eq!(bytes_be.iter().copied().collect::<Vec<_>>(), expected_be);
 
-        let vec_cfr_from_le = match ffi_bytes_le_to_vec_cfr(&bytes_le) {
-            CResult {
-                ok: Some(vec_cfr),
+        let ffi_vec_fr_from_le = match ffi_bytes_le_to_vec_fr(&bytes_le) {
+            FFI_Result {
+                ok: Some(ffi_vec_fr),
                 err: None,
-            } => vec_cfr,
-            CResult { err: Some(err), .. } => {
-                panic!("ffi_bytes_le_to_vec_cfr call failed: {}", err)
+            } => ffi_vec_fr,
+            FFI_Result { err: Some(err), .. } => {
+                panic!("ffi_bytes_le_to_vec_fr call failed: {}", err)
             }
             _ => unreachable!(),
         };
-        assert_eq!(vec_cfr_from_le.iter().copied().collect::<Vec<_>>(), vec_cfr);
+        assert_eq!(
+            ffi_vec_fr_from_le.iter().copied().collect::<Vec<_>>(),
+            ffi_vec_fr
+        );
 
-        let vec_cfr_from_be = match ffi_bytes_be_to_vec_cfr(&bytes_be) {
-            CResult {
-                ok: Some(vec_cfr),
+        let ffi_vec_fr_from_be = match ffi_bytes_be_to_vec_fr(&bytes_be) {
+            FFI_Result {
+                ok: Some(ffi_vec_fr),
                 err: None,
-            } => vec_cfr,
-            CResult { err: Some(err), .. } => {
-                panic!("ffi_bytes_be_to_vec_cfr call failed: {}", err)
+            } => ffi_vec_fr,
+            FFI_Result { err: Some(err), .. } => {
+                panic!("ffi_bytes_be_to_vec_fr call failed: {}", err)
             }
             _ => unreachable!(),
         };
-        assert_eq!(vec_cfr_from_be.iter().copied().collect::<Vec<_>>(), vec_cfr);
+        assert_eq!(
+            ffi_vec_fr_from_be.iter().copied().collect::<Vec<_>>(),
+            ffi_vec_fr
+        );
     }
 
     #[test]
@@ -232,45 +329,44 @@ mod test {
         let signal_gen: [u8; 32] = rng.gen();
         let signal: Vec<u8> = signal_gen.to_vec();
 
-        let cfr_le_1 = ffi_hash_to_field_le(&signal.clone().into());
-        let fr_le_2 = hash_to_field_le(&signal);
-        assert_eq!(*cfr_le_1, fr_le_2);
+        let ffi_fr_le = ffi_hash_to_field_le(&signal.clone().into());
+        let fr_le = hash_to_field_le(&signal);
+        assert_eq!(*ffi_fr_le, fr_le);
 
-        let cfr_be_1 = ffi_hash_to_field_be(&signal.clone().into());
-        let fr_be_2 = hash_to_field_be(&signal);
-        assert_eq!(*cfr_be_1, fr_be_2);
+        let ffi_fr_be = ffi_hash_to_field_be(&signal.clone().into());
+        let fr_be = hash_to_field_be(&signal);
+        assert_eq!(*ffi_fr_be, fr_be);
 
-        // LE and BE interpret the hash bytes differently
-        assert_ne!(*cfr_le_1, *cfr_be_1);
-        assert_ne!(fr_le_2, fr_be_2);
+        assert_ne!(*ffi_fr_le, *ffi_fr_be);
+        assert_ne!(fr_le, fr_be);
 
-        let hash_cfr_le_1 = match ffi_cfr_to_bytes_le(&cfr_le_1) {
-            CResult {
+        let ffi_fr_le_bytes = match ffi_fr_to_bytes_le(&ffi_fr_le) {
+            FFI_Result {
                 ok: Some(bytes),
                 err: None,
             } => bytes.iter().copied().collect::<Vec<_>>(),
-            CResult { err: Some(err), .. } => {
-                panic!("ffi_cfr_to_bytes_le call failed: {}", err)
+            FFI_Result { err: Some(err), .. } => {
+                panic!("ffi_fr_to_bytes_le call failed: {}", err)
             }
             _ => unreachable!(),
         };
-        let mut hash_fr_le_2 = Vec::new();
-        fr_le_2.serialize_compressed(&mut hash_fr_le_2).unwrap();
-        assert_eq!(hash_cfr_le_1, hash_fr_le_2);
+        let mut fr_le_bytes = Vec::new();
+        fr_le.serialize_compressed(&mut fr_le_bytes).unwrap();
+        assert_eq!(ffi_fr_le_bytes, fr_le_bytes);
 
-        let hash_cfr_be_1 = match ffi_cfr_to_bytes_be(&cfr_be_1) {
-            CResult {
+        let ffi_fr_be_bytes = match ffi_fr_to_bytes_be(&ffi_fr_be) {
+            FFI_Result {
                 ok: Some(bytes),
                 err: None,
             } => bytes.iter().copied().collect::<Vec<_>>(),
-            CResult { err: Some(err), .. } => {
-                panic!("ffi_cfr_to_bytes_be call failed: {}", err)
+            FFI_Result { err: Some(err), .. } => {
+                panic!("ffi_fr_to_bytes_be call failed: {}", err)
             }
             _ => unreachable!(),
         };
-        let mut hash_fr_be_2 = Vec::new();
-        CanonicalSerializeBE::serialize(&fr_be_2, &mut hash_fr_be_2).unwrap();
-        assert_eq!(hash_cfr_be_1, hash_fr_be_2);
+        let mut fr_be_bytes = Vec::new();
+        CanonicalSerializeBE::serialize(&fr_be, &mut fr_be_bytes).unwrap();
+        assert_eq!(ffi_fr_be_bytes, fr_be_bytes);
     }
 
     #[test]
@@ -279,7 +375,8 @@ mod test {
         let input_2 = Fr::from(99u8);
 
         let expected_hash = poseidon_hash_pair(input_1, input_2);
-        let received_hash_cfr = ffi_poseidon_hash_pair(&CFr::from(input_1), &CFr::from(input_2));
-        assert_eq!(*received_hash_cfr, expected_hash);
+        let ffi_received_hash =
+            ffi_poseidon_hash_pair(&FFI_Fr::from(input_1), &FFI_Fr::from(input_2));
+        assert_eq!(*ffi_received_hash, expected_hash);
     }
 }

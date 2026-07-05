@@ -14,11 +14,11 @@ mod test {
     macro_rules! unwrap_ok {
         ($result:expr, $context:expr $(,)?) => {
             match $result {
-                CResult {
+                FFI_Result {
                     ok: Some(value),
                     err: None,
                 } => value,
-                CResult {
+                FFI_Result {
                     ok: None,
                     err: Some(err),
                 } => panic!("{} failed: {}", $context, err),
@@ -27,7 +27,7 @@ mod test {
         };
     }
 
-    fn assert_bool_ok(result: CBoolResult, context: &str) {
+    fn assert_bool_ok(result: FFI_BoolResult, context: &str) {
         assert!(result.err.is_none(), "{context} returned an error");
         assert!(result.ok, "{context} returned false");
     }
@@ -39,27 +39,20 @@ mod test {
         )
     }
 
-    fn random_leaves(leaf_count: usize) -> Vec<CFr> {
+    fn random_leaves(leaf_count: usize) -> Vec<FFI_Fr> {
         let mut rng = thread_rng();
         (0..leaf_count)
-            .map(|_| CFr::from(Fr::rand(&mut rng)))
+            .map(|_| FFI_Fr::from(Fr::rand(&mut rng)))
             .collect()
     }
 
-    fn identity_pair_gen() -> (repr_c::Box<CFr>, repr_c::Box<CFr>) {
-        let keys = ffi_key_gen();
-        let identity_secret: repr_c::Box<CFr> = ffi_vec_cfr_get(&keys, 0).unwrap().into();
-        let id_commitment: repr_c::Box<CFr> = ffi_vec_cfr_get(&keys, 1).unwrap().into();
-        (identity_secret, id_commitment)
-    }
-
-    fn external_nullifier() -> repr_c::Box<CFr> {
+    fn external_nullifier() -> repr_c::Box<FFI_Fr> {
         let epoch = ffi_hash_to_field_le(&b"test-epoch".to_vec().into());
         let rln_identifier = ffi_hash_to_field_le(&b"test-rln-identifier".to_vec().into());
         ffi_poseidon_hash_pair(&epoch, &rln_identifier)
     }
 
-    fn random_signal_hash() -> repr_c::Box<CFr> {
+    fn random_signal_hash() -> repr_c::Box<FFI_Fr> {
         let mut rng = rand::thread_rng();
         let signal: [u8; 32] = rng.gen();
         ffi_hash_to_field_le(&signal.to_vec().into())
@@ -68,10 +61,12 @@ mod test {
     // Registers an identity, returns (identity_secret, witness) ready for proof generation
     fn setup_witness(
         rln: &mut repr_c::Box<FFI_RLN>,
-        x: &CFr,
-    ) -> (repr_c::Box<CFr>, repr_c::Box<FFI_RLNWitnessInput>) {
-        let (identity_secret, id_commitment) = identity_pair_gen();
-        let user_message_limit = ffi_uint_to_cfr(100);
+        x: &FFI_Fr,
+    ) -> (repr_c::Box<FFI_SecretFr>, repr_c::Box<FFI_RLNWitnessInput>) {
+        let identity_keys = ffi_identity_keys_generate();
+        let identity_secret = ffi_identity_keys_get_secret(&identity_keys);
+        let id_commitment = ffi_identity_keys_get_commitment(&identity_keys);
+        let user_message_limit = ffi_uint_to_fr(100);
         let rate_commitment = ffi_poseidon_hash_pair(&id_commitment, &user_message_limit);
 
         let identity_index = ffi_rln_leaves_set(rln);
@@ -86,7 +81,7 @@ mod test {
         );
 
         let external_nullifier = external_nullifier();
-        let message_id = ffi_uint_to_cfr(1);
+        let message_id = ffi_uint_to_fr(1);
 
         let witness = unwrap_ok!(
             ffi_rln_witness_input_new_single(
@@ -200,7 +195,7 @@ mod test {
         let last_leaf = leaves.last().unwrap();
         let last_leaf_index = LEAF_COUNT - 1;
         let indices: Vec<usize> = vec![last_leaf_index];
-        let last_leaf_vec: Vec<CFr> = vec![CFr::from(**last_leaf)];
+        let last_leaf_vec: Vec<FFI_Fr> = vec![FFI_Fr::from(**last_leaf)];
         assert_bool_ok(
             ffi_rln_atomic_operation(
                 &mut rln,
@@ -238,7 +233,7 @@ mod test {
         let mut rng = thread_rng();
         let mut rln = create_rln_instance();
 
-        let leaf = CFr::from(Fr::rand(&mut rng));
+        let leaf = FFI_Fr::from(Fr::rand(&mut rng));
         let index = rng.gen_range(0..(1 << DEFAULT_TREE_DEPTH));
 
         assert_bool_ok(ffi_rln_set_leaf(&mut rln, index, &leaf), "ffi_rln_set_leaf");
@@ -258,11 +253,11 @@ mod test {
         );
 
         let received_metadata = match ffi_rln_get_metadata(&rln) {
-            CResult {
+            FFI_Result {
                 ok: Some(metadata),
                 err: None,
             } => metadata,
-            CResult {
+            FFI_Result {
                 ok: None,
                 err: Some(err),
             } => panic!("ffi_rln_get_metadata failed: {err}"),
@@ -276,7 +271,7 @@ mod test {
         let rln = create_rln_instance();
 
         let received_metadata = match ffi_rln_get_metadata(&rln) {
-            CResult {
+            FFI_Result {
                 ok: Some(metadata),
                 err: None,
             } => metadata,
@@ -354,14 +349,14 @@ mod test {
         );
 
         // Empty roots skip the root check
-        let empty_roots: Vec<CFr> = vec![];
+        let empty_roots: Vec<FFI_Fr> = vec![];
         assert_bool_ok(
             ffi_rln_verify_with_roots(&rln, &rln_proof, &empty_roots.into(), &x),
             "ffi_rln_verify_with_roots with empty roots",
         );
 
         // Random roots do not contain the correct root
-        let random_roots: Vec<CFr> = (0..5).map(|_| CFr::from(Fr::rand(&mut rng))).collect();
+        let random_roots: Vec<FFI_Fr> = (0..5).map(|_| FFI_Fr::from(Fr::rand(&mut rng))).collect();
         let result = ffi_rln_verify_with_roots(&rln, &rln_proof, &random_roots.clone().into(), &x);
         assert!(!result.ok);
 
@@ -384,8 +379,8 @@ mod test {
 
         // Second witness: same identity, same message id, different signal
         let x2 = random_signal_hash();
-        let user_message_limit = ffi_uint_to_cfr(100);
-        let message_id = ffi_uint_to_cfr(1);
+        let user_message_limit = ffi_uint_to_fr(100);
+        let message_id = ffi_uint_to_fr(1);
         let external_nullifier = external_nullifier();
         let merkle_proof = unwrap_ok!(
             ffi_rln_get_merkle_proof(&rln, 0),
@@ -420,7 +415,7 @@ mod test {
             ffi_rln_recover_id_secret(&proof_values_1, &proof_values_2),
             "ffi_rln_recover_id_secret",
         );
-        assert_eq!(*recovered, *identity_secret);
+        assert_eq!(**recovered.inner(), **identity_secret.inner());
 
         // Recovery with proofs from two different identities fails
         let x3 = random_signal_hash();
@@ -580,7 +575,7 @@ mod test {
             "ffi_rln_generate_partial_proof",
         );
         let bytes = match ffi_rln_partial_proof_to_bytes_le(&partial_proof) {
-            CResult {
+            FFI_Result {
                 ok: Some(bytes),
                 err: None,
             } => bytes,
@@ -603,19 +598,20 @@ mod test {
     #[test]
     fn test_invalid_witness_input() {
         let mut rng = thread_rng();
-        let (identity_secret, _) = identity_pair_gen();
+        let identity_keys = ffi_identity_keys_generate();
+        let identity_secret = ffi_identity_keys_get_secret(&identity_keys);
         let x = random_signal_hash();
         let external_nullifier = external_nullifier();
 
-        let path_elements: Vec<CFr> = (0..DEFAULT_TREE_DEPTH)
-            .map(|_| CFr::from(Fr::rand(&mut rng)))
+        let path_elements: Vec<FFI_Fr> = (0..DEFAULT_TREE_DEPTH)
+            .map(|_| FFI_Fr::from(Fr::rand(&mut rng)))
             .collect();
         let identity_path_index: Vec<u8> = vec![0; DEFAULT_TREE_DEPTH];
 
-        let user_message_limit = ffi_uint_to_cfr(100);
+        let user_message_limit = ffi_uint_to_fr(100);
 
         // message_id >= user_message_limit fails
-        let invalid_message_id = ffi_uint_to_cfr(100);
+        let invalid_message_id = ffi_uint_to_fr(100);
         let result = ffi_rln_witness_input_new_single(
             &identity_secret,
             &user_message_limit,
@@ -628,8 +624,8 @@ mod test {
         assert!(result.ok.is_none());
 
         // user_message_limit == 0 fails
-        let zero_limit = ffi_uint_to_cfr(0);
-        let zero_message_id = ffi_uint_to_cfr(0);
+        let zero_limit = ffi_uint_to_fr(0);
+        let zero_message_id = ffi_uint_to_fr(0);
         let result = ffi_rln_witness_input_new_single(
             &identity_secret,
             &zero_limit,
@@ -642,7 +638,7 @@ mod test {
         assert!(result.ok.is_none());
 
         // path_elements and identity_path_index length mismatch fails
-        let message_id = ffi_uint_to_cfr(1);
+        let message_id = ffi_uint_to_fr(1);
         let short_index: Vec<u8> = vec![0; DEFAULT_TREE_DEPTH - 1];
         let result = ffi_rln_witness_input_new_single(
             &identity_secret,
@@ -659,14 +655,15 @@ mod test {
     #[test]
     fn test_partial_witness_zero_limit() {
         let mut rng = thread_rng();
-        let (identity_secret, _) = identity_pair_gen();
+        let identity_keys = ffi_identity_keys_generate();
+        let identity_secret = ffi_identity_keys_get_secret(&identity_keys);
 
-        let path_elements: Vec<CFr> = (0..DEFAULT_TREE_DEPTH)
-            .map(|_| CFr::from(Fr::rand(&mut rng)))
+        let path_elements: Vec<FFI_Fr> = (0..DEFAULT_TREE_DEPTH)
+            .map(|_| FFI_Fr::from(Fr::rand(&mut rng)))
             .collect();
         let identity_path_index: Vec<u8> = vec![0; DEFAULT_TREE_DEPTH];
 
-        let zero_limit = ffi_uint_to_cfr(0);
+        let zero_limit = ffi_uint_to_fr(0);
         let result = ffi_rln_partial_witness_input_new(
             &identity_secret,
             &zero_limit,
@@ -681,7 +678,7 @@ mod test {
         let mut rng = thread_rng();
         let mut rln = create_rln_instance();
         let max_index = 1 << DEFAULT_TREE_DEPTH;
-        let leaf = CFr::from(Fr::rand(&mut rng));
+        let leaf = FFI_Fr::from(Fr::rand(&mut rng));
 
         // set_leaf beyond capacity
         let result = ffi_rln_set_leaf(&mut rln, max_index, &leaf);
@@ -704,7 +701,7 @@ mod test {
     fn test_stateless_tree_ops_rejected() {
         let mut rln = ffi_rln_new_stateless_default();
         let mut rng = thread_rng();
-        let leaf = CFr::from(Fr::rand(&mut rng));
+        let leaf = FFI_Fr::from(Fr::rand(&mut rng));
 
         let result = ffi_rln_set_leaf(&mut rln, 0, &leaf);
         assert!(!result.ok);
@@ -731,7 +728,7 @@ mod test {
 
         // Verify against the stateful tree root through verify_with_roots
         let root = ffi_rln_get_root(&stateful_rln);
-        let roots: Vec<CFr> = vec![(*root)];
+        let roots: Vec<FFI_Fr> = vec![(*root)];
         assert_bool_ok(
             ffi_rln_verify_with_roots(&stateless_rln, &rln_proof, &roots.into(), &x),
             "ffi_rln_verify_with_roots on stateless instance",
@@ -746,8 +743,8 @@ mod test {
         let (identity_secret, witness1) = setup_witness(&mut rln, &x1);
 
         let x2 = random_signal_hash();
-        let user_message_limit = ffi_uint_to_cfr(100);
-        let message_id = ffi_uint_to_cfr(1);
+        let user_message_limit = ffi_uint_to_fr(100);
+        let message_id = ffi_uint_to_fr(1);
         let external_nullifier = external_nullifier();
         let merkle_proof = unwrap_ok!(
             ffi_rln_get_merkle_proof(&rln, 0),
@@ -790,6 +787,6 @@ mod test {
             ffi_rln_compute_id_secret(&x1, &y1, &x2, &y2),
             "ffi_rln_compute_id_secret",
         );
-        assert_eq!(*recovered, *identity_secret);
+        assert_eq!(**recovered.inner(), **identity_secret.inner());
     }
 }
