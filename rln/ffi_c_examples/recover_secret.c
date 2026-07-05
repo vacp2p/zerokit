@@ -20,17 +20,17 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    CFr *external_nullifier = compute_external_nullifier();
+    Fr *external_nullifier = compute_external_nullifier();
 
     printf("\nHashing first signal\n");
     uint8_t signal1[32] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0, 0, 0,
                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    CFr *x1 = hash_signal(signal1);
-    print_cfr("x1", x1);
+    Fr *x1 = hash_signal(signal1);
+    print_fr("x1", x1);
 
     printf("\nCreating first message id\n");
-    CFr *message_id1 = ffi_uint_to_cfr(0);
-    print_cfr("message id", message_id1);
+    Fr *message_id1 = ffi_uint_to_fr(0);
+    print_fr("message id", message_id1);
 
     printf("\nCreating first RLN witness\n");
     WitnessResult witness1_result =
@@ -80,12 +80,12 @@ int main(void)
     printf("\nHashing second signal\n");
     uint8_t signal2[32] = {11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 0, 0, 0, 0, 0, 0,
                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    CFr *x2 = hash_signal(signal2);
-    print_cfr("x2", x2);
+    Fr *x2 = hash_signal(signal2);
+    print_fr("x2", x2);
 
     printf("\nCreating second message with the same id\n");
-    CFr *message_id2 = ffi_uint_to_cfr(0);
-    print_cfr("message id", message_id2);
+    Fr *message_id2 = ffi_uint_to_fr(0);
+    print_fr("message id", message_id2);
 
     printf("\nCreating second RLN witness\n");
     WitnessResult witness2_result =
@@ -125,7 +125,7 @@ int main(void)
         printf("  - second proof verified successfully\n");
 
         printf("\nRecovering identity secret\n");
-        CFrResult recover_result =
+        SecretFrResult recover_result =
             ffi_rln_recover_id_secret(&proof_values1, &proof_values2);
         if (!recover_result.ok)
         {
@@ -133,11 +133,11 @@ int main(void)
             ffi_c_string_free(recover_result.err);
             return EXIT_FAILURE;
         }
-        CFr *recovered_secret = recover_result.ok;
-        print_cfr("recovered secret", recovered_secret);
-        print_cfr("identity secret", member.identity_secret);
+        SecretFr *recovered_secret = recover_result.ok;
+        print_secret_fr("recovered secret", recovered_secret);
+        print_secret_fr("identity secret", member.identity_secret);
         printf("  - identity recovered successfully\n");
-        ffi_cfr_free(recovered_secret);
+        ffi_secret_fr_free(recovered_secret);
     }
     else
     {
@@ -147,14 +147,14 @@ int main(void)
     ffi_rln_proof_values_free(proof_values2);
     ffi_rln_proof_free(rln_proof2);
     ffi_rln_witness_input_free(witness2);
-    ffi_cfr_free(message_id2);
-    ffi_cfr_free(x2);
+    ffi_fr_free(message_id2);
+    ffi_fr_free(x2);
     ffi_rln_proof_values_free(proof_values1);
     ffi_rln_proof_free(rln_proof1);
     ffi_rln_witness_input_free(witness1);
-    ffi_cfr_free(message_id1);
-    ffi_cfr_free(x1);
-    ffi_cfr_free(external_nullifier);
+    ffi_fr_free(message_id1);
+    ffi_fr_free(x1);
+    ffi_fr_free(external_nullifier);
     ffi_rln_merkle_proof_free(merkle_proof);
     member_free(&member);
     ffi_rln_free(rln_instance);

@@ -3,28 +3,28 @@
 
 #include "common.c"
 
-static Vec_CFr create_message_ids(const unsigned int ids[MAX_OUT])
+static Vec_Fr create_message_ids(const unsigned int ids[MAX_OUT])
 {
-    Vec_CFr message_ids = ffi_vec_cfr_new(MAX_OUT);
+    Vec_Fr message_ids = ffi_vec_fr_new(MAX_OUT);
     for (size_t i = 0; i < MAX_OUT; i++)
     {
-        CFr *tmp = ffi_uint_to_cfr(ids[i]);
-        ffi_vec_cfr_push(&message_ids, tmp);
-        ffi_cfr_free(tmp);
+        Fr *tmp = ffi_uint_to_fr(ids[i]);
+        ffi_vec_fr_push(&message_ids, tmp);
+        ffi_fr_free(tmp);
     }
     return message_ids;
 }
 
 static WitnessResult
 create_multi_witness(const Member *member, const MerkleProof *merkle_proof,
-                     const Vec_CFr *message_ids, bool selector_used[MAX_OUT], const CFr *x,
-                     const CFr *external_nullifier)
+                     const Vec_Fr *message_ids, bool selector_used[MAX_OUT], const Fr *x,
+                     const Fr *external_nullifier)
 {
     return ffi_rln_witness_input_new_multi(member->identity_secret,
-                                              member->user_message_limit, message_ids,
-                                              &merkle_proof->path_elements,
-                                              &merkle_proof->path_index, x, external_nullifier,
-                                              &(Vec_bool){selector_used, MAX_OUT, MAX_OUT});
+                                           member->user_message_limit, message_ids,
+                                           &merkle_proof->path_elements,
+                                           &merkle_proof->path_index, x, external_nullifier,
+                                           &(Vec_bool){selector_used, MAX_OUT, MAX_OUT});
 }
 
 int main(void)
@@ -44,20 +44,20 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    CFr *external_nullifier = compute_external_nullifier();
+    Fr *external_nullifier = compute_external_nullifier();
 
     printf("\nHashing first signal\n");
     uint8_t signal1[32] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0, 0, 0,
                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    CFr *x1 = hash_signal(signal1);
-    print_cfr("x1", x1);
+    Fr *x1 = hash_signal(signal1);
+    print_fr("x1", x1);
 
     printf("\nCreating first message ids and selector used\n");
     printf("  - using 2 out of %d slots\n", MAX_OUT);
     const unsigned int ids1[MAX_OUT] = {0, 1, 0, 0};
-    Vec_CFr message_ids1 = create_message_ids(ids1);
+    Vec_Fr message_ids1 = create_message_ids(ids1);
     bool selector_used1[MAX_OUT] = {true, true, false, false};
-    print_vec_cfr("message ids", &message_ids1);
+    print_vec_fr("message ids", &message_ids1);
 
     printf("\nCreating first RLN witness\n");
     WitnessResult witness1_result = create_multi_witness(
@@ -85,16 +85,16 @@ int main(void)
 
     printf("\nGetting first RLN proof values\n");
     ProofValues *proof_values1 = ffi_rln_proof_get_values(&rln_proof1);
-    VecCFrResult ys1_result = ffi_rln_proof_values_get_ys(&proof_values1);
+    VecFrResult ys1_result = ffi_rln_proof_values_get_ys(&proof_values1);
     if (ys1_result.err.ptr)
     {
         fprintf(stderr, "Get ys error: %s\n", ys1_result.err.ptr);
         ffi_c_string_free(ys1_result.err);
         return EXIT_FAILURE;
     }
-    print_vec_cfr("ys", &ys1_result.ok);
-    ffi_vec_cfr_free(ys1_result.ok);
-    VecCFrResult nullifiers1_result =
+    print_vec_fr("ys", &ys1_result.ok);
+    ffi_vec_fr_free(ys1_result.ok);
+    VecFrResult nullifiers1_result =
         ffi_rln_proof_values_get_nullifiers(&proof_values1);
     if (nullifiers1_result.err.ptr)
     {
@@ -102,18 +102,18 @@ int main(void)
         ffi_c_string_free(nullifiers1_result.err);
         return EXIT_FAILURE;
     }
-    print_vec_cfr("nullifiers", &nullifiers1_result.ok);
-    ffi_vec_cfr_free(nullifiers1_result.ok);
-    CFr *proof_values1_root = ffi_rln_proof_values_get_root(&proof_values1);
-    print_cfr("root", proof_values1_root);
-    ffi_cfr_free(proof_values1_root);
-    CFr *proof_values1_x = ffi_rln_proof_values_get_x(&proof_values1);
-    print_cfr("x", proof_values1_x);
-    ffi_cfr_free(proof_values1_x);
-    CFr *proof_values1_external_nullifier =
+    print_vec_fr("nullifiers", &nullifiers1_result.ok);
+    ffi_vec_fr_free(nullifiers1_result.ok);
+    Fr *proof_values1_root = ffi_rln_proof_values_get_root(&proof_values1);
+    print_fr("root", proof_values1_root);
+    ffi_fr_free(proof_values1_root);
+    Fr *proof_values1_x = ffi_rln_proof_values_get_x(&proof_values1);
+    print_fr("x", proof_values1_x);
+    ffi_fr_free(proof_values1_x);
+    Fr *proof_values1_external_nullifier =
         ffi_rln_proof_values_get_external_nullifier(&proof_values1);
-    print_cfr("external nullifier", proof_values1_external_nullifier);
-    ffi_cfr_free(proof_values1_external_nullifier);
+    print_fr("external nullifier", proof_values1_external_nullifier);
+    ffi_fr_free(proof_values1_external_nullifier);
 
     printf("\nVerifying first proof\n");
     CBoolResult verify1_result = verify_stateful_proof(&rln_instance, &rln_proof1, x1);
@@ -138,16 +138,16 @@ int main(void)
     printf("\nHashing second signal\n");
     uint8_t signal2[32] = {11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 0, 0, 0, 0, 0, 0,
                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    CFr *x2 = hash_signal(signal2);
-    print_cfr("x2", x2);
+    Fr *x2 = hash_signal(signal2);
+    print_fr("x2", x2);
 
     printf("\nCreating second message ids and selector used\n");
     printf("  - using 2 out of %d slots\n", MAX_OUT);
     printf("  - duplicated slot id 1\n");
     const unsigned int ids2[MAX_OUT] = {1, 0, 3, 0};
-    Vec_CFr message_ids2 = create_message_ids(ids2);
+    Vec_Fr message_ids2 = create_message_ids(ids2);
     bool selector_used2[MAX_OUT] = {true, false, true, false};
-    print_vec_cfr("message ids", &message_ids2);
+    print_vec_fr("message ids", &message_ids2);
 
     printf("\nCreating second RLN witness\n");
     WitnessResult witness2_result = create_multi_witness(
@@ -187,7 +187,7 @@ int main(void)
         printf("  - second proof verified successfully\n");
 
         printf("\nRecovering identity secret\n");
-        CFrResult recover_result =
+        SecretFrResult recover_result =
             ffi_rln_recover_id_secret(&proof_values1, &proof_values2);
         if (!recover_result.ok)
         {
@@ -195,11 +195,11 @@ int main(void)
             ffi_c_string_free(recover_result.err);
             return EXIT_FAILURE;
         }
-        CFr *recovered_secret = recover_result.ok;
-        print_cfr("recovered secret", recovered_secret);
-        print_cfr("identity secret", member.identity_secret);
+        SecretFr *recovered_secret = recover_result.ok;
+        print_secret_fr("recovered secret", recovered_secret);
+        print_secret_fr("identity secret", member.identity_secret);
         printf("  - identity recovered successfully\n");
-        ffi_cfr_free(recovered_secret);
+        ffi_secret_fr_free(recovered_secret);
     }
     else
     {
@@ -209,14 +209,14 @@ int main(void)
     ffi_rln_proof_values_free(proof_values2);
     ffi_rln_proof_free(rln_proof2);
     ffi_rln_witness_input_free(witness2);
-    ffi_vec_cfr_free(message_ids2);
-    ffi_cfr_free(x2);
+    ffi_vec_fr_free(message_ids2);
+    ffi_fr_free(x2);
     ffi_rln_proof_values_free(proof_values1);
     ffi_rln_proof_free(rln_proof1);
     ffi_rln_witness_input_free(witness1);
-    ffi_vec_cfr_free(message_ids1);
-    ffi_cfr_free(x1);
-    ffi_cfr_free(external_nullifier);
+    ffi_vec_fr_free(message_ids1);
+    ffi_fr_free(x1);
+    ffi_fr_free(external_nullifier);
     ffi_rln_merkle_proof_free(merkle_proof);
     member_free(&member);
     ffi_rln_free(rln_instance);
