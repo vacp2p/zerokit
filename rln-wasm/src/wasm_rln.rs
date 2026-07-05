@@ -5,7 +5,7 @@ use js_sys::Uint8Array;
 use rln::prelude::*;
 use wasm_bindgen::prelude::*;
 
-use crate::wasm_utils::{VecWasmFr, WasmFr};
+use crate::wasm_utils::{VecWasmFr, WasmFr, WasmSecretFr};
 
 // WasmRLN
 
@@ -100,7 +100,7 @@ pub struct WasmRLNWitnessInput(RLNWitnessInput);
 impl WasmRLNWitnessInput {
     #[wasm_bindgen(js_name = newSingle)]
     pub fn new_single(
-        identity_secret: &WasmFr,
+        identity_secret: &WasmSecretFr,
         user_message_limit: &WasmFr,
         message_id: &WasmFr,
         path_elements: &VecWasmFr,
@@ -108,12 +108,11 @@ impl WasmRLNWitnessInput {
         x: &WasmFr,
         external_nullifier: &WasmFr,
     ) -> Result<WasmRLNWitnessInput, String> {
-        let mut identity_secret_fr = identity_secret.inner();
         let path_elements: Vec<Fr> = path_elements.inner();
         let identity_path_index: Vec<u8> = identity_path_index.to_vec();
 
         let witness = RLNWitnessInput::new_single()
-            .identity_secret(SecretFr::from(&mut identity_secret_fr))
+            .identity_secret(identity_secret.inner().clone())
             .user_message_limit(user_message_limit.inner())
             .path_elements(path_elements)
             .identity_path_index(identity_path_index)
@@ -129,7 +128,7 @@ impl WasmRLNWitnessInput {
     #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen(js_name = newMulti)]
     pub fn new_multi(
-        identity_secret: &WasmFr,
+        identity_secret: &WasmSecretFr,
         user_message_limit: &WasmFr,
         message_ids: VecWasmFr,
         path_elements: &VecWasmFr,
@@ -138,7 +137,6 @@ impl WasmRLNWitnessInput {
         external_nullifier: &WasmFr,
         selector_used: Uint8Array,
     ) -> Result<WasmRLNWitnessInput, String> {
-        let mut identity_secret_fr = identity_secret.inner();
         let path_elements: Vec<Fr> = path_elements.inner();
         let identity_path_index: Vec<u8> = identity_path_index.to_vec();
 
@@ -146,7 +144,7 @@ impl WasmRLNWitnessInput {
         let selector_used: Vec<bool> = selector_used.to_vec().iter().map(|&b| b != 0).collect();
 
         let witness = RLNWitnessInput::new_multi()
-            .identity_secret(SecretFr::from(&mut identity_secret_fr))
+            .identity_secret(identity_secret.inner().clone())
             .user_message_limit(user_message_limit.inner())
             .path_elements(path_elements)
             .identity_path_index(identity_path_index)
@@ -161,8 +159,8 @@ impl WasmRLNWitnessInput {
     }
 
     #[wasm_bindgen(js_name = getIdentitySecret)]
-    pub fn get_identity_secret(&self) -> WasmFr {
-        WasmFr::from(**self.0.identity_secret())
+    pub fn get_identity_secret(&self) -> WasmSecretFr {
+        WasmSecretFr::from(self.0.identity_secret().clone())
     }
 
     #[wasm_bindgen(js_name = getUserMessageLimit)]
@@ -256,17 +254,16 @@ pub struct WasmRLNPartialWitnessInput(RLNPartialWitnessInput);
 impl WasmRLNPartialWitnessInput {
     #[wasm_bindgen(js_name = new)]
     pub fn new(
-        identity_secret: &WasmFr,
+        identity_secret: &WasmSecretFr,
         user_message_limit: &WasmFr,
         path_elements: &VecWasmFr,
         identity_path_index: &Uint8Array,
     ) -> Result<WasmRLNPartialWitnessInput, String> {
-        let mut identity_secret_fr = identity_secret.inner();
         let path_elements: Vec<Fr> = path_elements.inner();
         let identity_path_index: Vec<u8> = identity_path_index.to_vec();
 
         let witness = RLNPartialWitnessInput::new()
-            .identity_secret(SecretFr::from(&mut identity_secret_fr))
+            .identity_secret(identity_secret.inner().clone())
             .user_message_limit(user_message_limit.inner())
             .path_elements(path_elements)
             .identity_path_index(identity_path_index)
@@ -472,22 +469,22 @@ impl WasmRLNProofValues {
         share1_y: &WasmFr,
         share2_x: &WasmFr,
         share2_y: &WasmFr,
-    ) -> Result<WasmFr, String> {
+    ) -> Result<WasmSecretFr, String> {
         let share1 = (share1_x.inner(), share1_y.inner());
         let share2 = (share2_x.inner(), share2_y.inner());
         let secret = compute_id_secret(share1, share2).map_err(|err| err.to_string())?;
-        Ok(WasmFr::from(*secret))
+        Ok(WasmSecretFr::from(secret))
     }
 
     #[wasm_bindgen(js_name = recoverIdSecret)]
     pub fn recover_id_secret(
         proof_values_1: &WasmRLNProofValues,
         proof_values_2: &WasmRLNProofValues,
-    ) -> Result<WasmFr, String> {
+    ) -> Result<WasmSecretFr, String> {
         let recovered_identity_secret = proof_values_1
             .0
             .recover_secret(&proof_values_2.0)
             .map_err(|err| err.to_string())?;
-        Ok(WasmFr::from(*recovered_identity_secret))
+        Ok(WasmSecretFr::from(recovered_identity_secret))
     }
 }
