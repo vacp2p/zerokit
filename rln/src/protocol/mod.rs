@@ -7,7 +7,7 @@ mod slashing;
 mod witness;
 mod zk;
 
-pub use keygen::{extended_keygen, extended_seeded_keygen, keygen, seeded_keygen};
+pub use keygen::{ExtendedIdentityKeys, IdentityKeys};
 pub use proof::{RLNProof, RLNProofValues, RLNProofValuesMulti, RLNProofValuesSingle};
 pub use serialize::{
     CanonicalDeserializeBE, CanonicalDeserializeMixed, CanonicalSerializeBE,

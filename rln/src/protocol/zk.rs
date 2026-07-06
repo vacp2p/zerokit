@@ -1,6 +1,7 @@
 use ark_groth16::Groth16;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::thread_rng, UniformRand};
+use zerokit_utils::hasher::ZerokitHasher;
 
 use crate::{
     circuit::{
@@ -9,11 +10,14 @@ use crate::{
     },
     error::{GenerateProofError, VerifyProofError},
     partial_proof::{Groth16Partial, PartialAssignment},
-    prelude::{CanonicalDeserializeBE, CanonicalSerializeBE, RLNPartialWitnessInput},
-    protocol::{proof::RLNProofValues, witness::RLNWitnessInput},
+    protocol::{
+        proof::RLNProofValues, witness::RLNWitnessInput, CanonicalDeserializeBE,
+        CanonicalSerializeBE, RLNPartialWitnessInput,
+    },
 };
 
 pub trait RLNZkProof {
+    type Hasher: ZerokitHasher<Fr = Fr>;
     type Witness: CanonicalSerialize
         + CanonicalDeserialize
         + CanonicalSerializeBE
@@ -65,7 +69,8 @@ pub trait RLNPartialZkProof: RLNZkProof {
     ) -> Result<(Self::Proof, Self::Values), Self::FinishProofError>;
 }
 
-impl RLNZkProof for ArkGroth16Backend {
+impl<H: ZerokitHasher<Fr = Fr>> RLNZkProof for ArkGroth16Backend<H> {
+    type Hasher = H;
     type Witness = RLNWitnessInput;
     type Values = RLNProofValues;
     type Proof = Proof;
@@ -77,7 +82,7 @@ impl RLNZkProof for ArkGroth16Backend {
         witness: &Self::Witness,
     ) -> Result<(Self::Proof, Self::Values), Self::GenerateProofError> {
         witness.validate_against_graph(&self.graph)?;
-        let values = RLNProofValues::from(witness);
+        let values = RLNProofValues::from_witness::<Self::Hasher>(witness);
 
         let full_assignment = witness.calc_witness(&self.graph)?;
 
@@ -127,7 +132,7 @@ impl RLNZkProof for ArkGroth16Backend {
     }
 }
 
-impl RLNPartialZkProof for ArkGroth16Backend {
+impl<H: ZerokitHasher<Fr = Fr>> RLNPartialZkProof for ArkGroth16Backend<H> {
     type PartialWitness = RLNPartialWitnessInput;
     type PartialProof = PartialProof;
     type GeneratePartialProofError = GenerateProofError;
@@ -156,7 +161,7 @@ impl RLNPartialZkProof for ArkGroth16Backend {
         witness: &Self::Witness,
     ) -> Result<(Self::Proof, Self::Values), Self::FinishProofError> {
         witness.validate_against_graph(&self.graph)?;
-        let values = RLNProofValues::from(witness);
+        let values = RLNProofValues::from_witness::<Self::Hasher>(witness);
 
         let full_assignment = witness.calc_witness(&self.graph)?;
 

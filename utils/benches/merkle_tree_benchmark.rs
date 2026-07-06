@@ -3,7 +3,7 @@ use std::{fmt::Display, hint::black_box, str::FromStr, sync::LazyLock};
 use criterion::{criterion_group, criterion_main, Criterion};
 use tiny_keccak::{Hasher as _, Keccak};
 use zerokit_utils::merkle_tree::{
-    FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree,
+    FullMerkleConfig, FullMerkleTree, OptimalMerkleConfig, OptimalMerkleTree, ZerokitHasher,
     ZerokitMerkleProof, ZerokitMerkleTree,
 };
 
@@ -13,18 +13,15 @@ struct Keccak256;
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Default)]
 struct TestFr([u8; 32]);
 
-impl Hasher for Keccak256 {
+impl ZerokitHasher for Keccak256 {
     type Fr = TestFr;
 
-    fn default_leaf() -> Self::Fr {
-        TestFr([0; 32])
-    }
-
-    fn hash_pair(left: Self::Fr, right: Self::Fr) -> Self::Fr {
+    fn hash(input: &[Self::Fr]) -> Self::Fr {
         let mut output = [0; 32];
         let mut hasher = Keccak::v256();
-        hasher.update(left.0.as_slice());
-        hasher.update(right.0.as_slice());
+        for fr in input {
+            hasher.update(fr.0.as_slice());
+        }
         hasher.finalize(&mut output);
         TestFr(output)
     }

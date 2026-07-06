@@ -22,10 +22,10 @@ pub enum RLNWitnessInput {
 }
 
 impl RLNWitnessInput {
-    pub fn identity_secret(&self) -> &SecretFr {
+    pub fn identity_secret(&self) -> SecretFr {
         match self {
-            Self::Single(w) => &w.identity_secret,
-            Self::Multi(w) => &w.identity_secret,
+            Self::Single(w) => w.identity_secret.clone(),
+            Self::Multi(w) => w.identity_secret.clone(),
         }
     }
 
@@ -86,9 +86,9 @@ impl RLNWitnessInput {
     }
 }
 
-// TODO(PR12): consider adding a `merkle_proof` setter accepting `impl ZerokitMerkleProof` as an
+// TODO(PR14): consider adding a `merkle_proof` setter accepting `impl ZerokitMerkleProof` as an
 // alternative to the `path_elements` + `identity_path_index` pair (keep both ways).
-// TODO(PR12): consider moving `validate_against_graph` from `generate_proof` into the
+// TODO(PR14): consider moving `validate_against_graph` from `generate_proof` into the
 // witness builder, validating against the graph at `build()` time.
 
 #[bon]

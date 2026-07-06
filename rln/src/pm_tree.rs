@@ -4,16 +4,16 @@ use std::{collections::HashMap, fmt::Debug, path::PathBuf, str::FromStr, thread,
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bon::bon;
-use pmtree::{DBKey, Database, Hasher, MerkleTree, PmtreeError, PmtreeResult};
+use pmtree::{DBKey, Database, Hasher as PmTreeHasher, MerkleTree, PmtreeError, PmtreeResult};
 use serde_json::Value;
 use sled::{Config, Db, Mode};
 use tempfile::Builder;
-use zerokit_utils::merkle_tree::{
-    FrOf, FromConfigError, Hasher as ZerokitHasher, ZerokitMerkleProof, ZerokitMerkleTree,
-    ZerokitMerkleTreeError,
+use zerokit_utils::{
+    hasher::{FrOf, ZerokitHasher},
+    merkle_tree::{FromConfigError, ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError},
 };
 
-use crate::hashers::PoseidonHash;
+use crate::hashers::{Hasher, PoseidonHash};
 
 /// The key used to store the metadata in database.
 const METADATA_KEY: [u8; 8] = *b"metadata";
@@ -24,7 +24,7 @@ const MAX_DEPTH: usize = 31;
 
 pub type PmTreeMode = Mode;
 
-impl Hasher for PoseidonHash {
+impl PmTreeHasher for PoseidonHash {
     type Fr = FrOf<PoseidonHash>;
 
     fn serialize(value: Self::Fr) -> PmtreeResult<pmtree::Value> {
@@ -41,12 +41,8 @@ impl Hasher for PoseidonHash {
         Ok(value)
     }
 
-    fn default_leaf() -> Self::Fr {
-        <Self as ZerokitHasher>::default_leaf()
-    }
-
     fn hash_pair(left: Self::Fr, right: Self::Fr) -> Self::Fr {
-        <Self as ZerokitHasher>::hash_pair(left, right)
+        Hasher::<PoseidonHash>::hash_pair(left, right)
     }
 }
 
@@ -61,7 +57,7 @@ pub trait PmTreeBackendConfig: Default + FromStr + Clone {
 /// `type Config:` [`PmTreeBackendConfig`], and all tree logic here is reused.
 ///
 /// The backend's `put_batch` method must be atomic for crash-safety.
-pub struct PmTree<D: Database, H: Hasher> {
+pub struct PmTree<D: Database, H: PmTreeHasher> {
     /// The underlying Merkle tree from the pmtree crate
     tree: MerkleTree<D, H>,
     /// The indices of leaves which are set into zero upto next_index.
@@ -75,7 +71,7 @@ pub struct PmTree<D: Database, H: Hasher> {
     metadata: Vec<u8>,
 }
 
-pub struct PmTreeProof<H: Hasher> {
+pub struct PmTreeProof<H: PmTreeHasher> {
     proof: pmtree::tree::MerkleProof<H>,
 }
 
@@ -214,8 +210,7 @@ impl<D, H> ZerokitMerkleTree for PmTree<D, H>
 where
     D: Database,
     D::Config: PmTreeBackendConfig,
-    // TODO(pmtree): unify the two tree hasher traits (utils `ZerokitHasher` + pmtree `Hasher`).
-    H: ZerokitHasher + Hasher<Fr = FrOf<H>>,
+    H: ZerokitHasher + PmTreeHasher<Fr = FrOf<H>>,
 {
     type Proof = PmTreeProof<H>;
     type Hasher = H;
@@ -224,11 +219,7 @@ where
 
     fn default(depth: usize) -> Result<Self, Self::Error> {
         let default_config = Self::Config::default();
-        Self::new(
-            depth,
-            <Self::Hasher as ZerokitHasher>::default_leaf(),
-            default_config,
-        )
+        Self::new(depth, Self::Hasher::default_leaf(), default_config)
     }
 
     /// Creates a new tree, loading the existing one at the configured path if present
@@ -261,7 +252,7 @@ where
             .ok_or(ZerokitMerkleTreeError::DepthTooLarge)?;
 
         let mut cached_leaves_indices = vec![0u8; capacity];
-        let default_leaf = <Self::Hasher as ZerokitHasher>::default_leaf();
+        let default_leaf = Self::Hasher::default_leaf();
         for (index, cached) in cached_leaves_indices
             .iter_mut()
             .enumerate()
@@ -380,7 +371,7 @@ where
 
         // Build scattered (index, value) pairs (non-overlapping deletes as the default leaf, then
         // the contiguous writes) and commit them in ONE atomic batch.
-        let default_leaf = <H as ZerokitHasher>::default_leaf();
+        let default_leaf = H::default_leaf();
         let mut pairs = Vec::with_capacity(deletes.len() + leaves.len());
         for &index in &deletes {
             pairs.push((index, default_leaf));
@@ -467,7 +458,7 @@ where
 
 impl<H> ZerokitMerkleProof for PmTreeProof<H>
 where
-    H: ZerokitHasher + Hasher<Fr = FrOf<H>>,
+    H: ZerokitHasher + PmTreeHasher<Fr = FrOf<H>>,
 {
     type Index = u8;
     type Hasher = H;

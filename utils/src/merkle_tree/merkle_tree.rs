@@ -7,36 +7,19 @@
 // Merkle tree implementations are adapted from https://github.com/kilic/rln/blob/master/src/merkle.rs
 // and https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/merkle_tree.rs
 
-use std::{
-    fmt::{Debug, Display},
-    str::FromStr,
-};
+use std::str::FromStr;
 
 use super::error::ZerokitMerkleTreeError;
+use crate::hasher::{FrOf, ZerokitHasher};
 
 /// Enables parallel hashing when there are at least 8 nodes (4 pairs to hash), justifying the overhead.
 pub const MIN_PARALLEL_NODES: usize = 8;
-
-/// In the Hasher trait we define the node type, the default leaf,
-/// and the hash function used to initialize a Merkle Tree implementation.
-pub trait Hasher {
-    /// Type of the leaf and tree node
-    type Fr: Clone + Copy + Eq + Default + Debug + Display + FromStr + Send + Sync;
-
-    /// Returns the default tree leaf
-    fn default_leaf() -> Self::Fr;
-
-    /// Utility to compute the hash of an intermediate node
-    fn hash_pair(left: Self::Fr, right: Self::Fr) -> Self::Fr;
-}
-
-pub type FrOf<H> = <H as Hasher>::Fr;
 
 /// In the ZerokitMerkleTree trait we define the methods that are required to be implemented by a Merkle tree
 /// Including, OptimalMerkleTree, FullMerkleTree
 pub trait ZerokitMerkleTree {
     type Proof: ZerokitMerkleProof;
-    type Hasher: Hasher;
+    type Hasher: ZerokitHasher;
     type Config: Default + FromStr;
     type Error: std::error::Error + From<ZerokitMerkleTreeError>;
 
@@ -144,7 +127,7 @@ pub trait ZerokitMerkleTree {
 
 pub trait ZerokitMerkleProof {
     type Index;
-    type Hasher: Hasher;
+    type Hasher: ZerokitHasher;
 
     fn length(&self) -> usize;
     fn leaf_index(&self) -> usize;
@@ -154,7 +137,7 @@ pub trait ZerokitMerkleProof {
 }
 
 /// Computes a Merkle root from a leaf and a Merkle path (path elements and path index)
-pub fn compute_tree_root<H: Hasher>(
+pub fn compute_tree_root<H: ZerokitHasher>(
     leaf: FrOf<H>,
     path_elements: &[FrOf<H>],
     path_index: &[u8],
@@ -164,9 +147,9 @@ pub fn compute_tree_root<H: Hasher>(
         .zip(path_index)
         .fold(leaf, |acc, (sibling, &index)| {
             if index == 0 {
-                H::hash_pair(acc, *sibling)
+                H::hash(&[acc, *sibling])
             } else {
-                H::hash_pair(*sibling, acc)
+                H::hash(&[*sibling, acc])
             }
         })
 }

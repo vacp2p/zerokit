@@ -89,7 +89,7 @@ Enables multi-threaded browser execution using `wasm-bindgen-rayon`.
 Direct usage (modern browsers with WebAssembly threads support):
 
 ```js
-import * as wasmPkg from '@waku/zerokit-rln-wasm-parallel';
+import * as wasmPkg from "@waku/zerokit-rln-wasm-parallel";
 
 await wasmPkg.default();
 await wasmPkg.initThreadPool(navigator.hardwareConcurrency);
@@ -108,16 +108,16 @@ You can use the [wasm-feature-detect](https://github.com/GoogleChromeLabs/wasm-f
 library for this purpose:
 
 ```js
-import { threads } from 'wasm-feature-detect';
+import { threads } from "wasm-feature-detect";
 
 let wasmPkg;
 
 if (await threads()) {
-  wasmPkg = await import('@waku/zerokit-rln-wasm-parallel');
+  wasmPkg = await import("@waku/zerokit-rln-wasm-parallel");
   await wasmPkg.default();
   await wasmPkg.initThreadPool(navigator.hardwareConcurrency);
 } else {
-  wasmPkg = await import('@waku/zerokit-rln-wasm');
+  wasmPkg = await import("@waku/zerokit-rln-wasm");
   await wasmPkg.default();
 }
 

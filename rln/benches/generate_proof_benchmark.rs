@@ -4,9 +4,10 @@ use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
 
 fn get_test_witness() -> RLNWitnessInput {
     let leaf_index = 3;
-    let (identity_secret, id_commitment) = keygen();
+    let identity_keys = IdentityKeys::generate::<PoseidonHash>();
     let user_message_limit = Fr::from(100);
-    let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
+    let rate_commitment =
+        Hasher::<PoseidonHash>::hash_pair(identity_keys.id_commitment(), user_message_limit);
 
     let mut tree = PmTree::<SledDB, PoseidonHash>::default(DEFAULT_TREE_DEPTH).unwrap();
     tree.set(leaf_index, rate_commitment).unwrap();
@@ -18,12 +19,12 @@ fn get_test_witness() -> RLNWitnessInput {
 
     let epoch = hash_to_field_le(b"test-epoch");
     let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-    let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
+    let external_nullifier = Hasher::<PoseidonHash>::hash_pair(epoch, rln_identifier);
 
     let message_id = Fr::from(1);
 
     RLNWitnessInput::new_single()
-        .identity_secret(identity_secret)
+        .identity_secret(identity_keys.identity_secret())
         .user_message_limit(user_message_limit)
         .path_elements(merkle_proof.get_path_elements())
         .identity_path_index(merkle_proof.get_path_index())

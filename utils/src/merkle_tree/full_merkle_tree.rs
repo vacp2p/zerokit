@@ -9,8 +9,9 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use super::{
     error::{FromConfigError, MerkleTreeInvariant, ZerokitMerkleTreeError},
-    merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES},
+    merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES},
 };
+use crate::hasher::{FrOf, ZerokitHasher};
 
 // Full Merkle Tree Implementation
 
@@ -18,10 +19,13 @@ use super::{
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct FullMerkleTree<H>
 where
-    H: Hasher,
+    H: ZerokitHasher,
 {
     /// The depth of the tree, i.e. the number of levels from leaf to root
     depth: usize,
+
+    /// The value an empty leaf resets to, fixed at construction
+    default_leaf: H::Fr,
 
     /// The tree nodes
     nodes: Vec<H::Fr>,
@@ -40,7 +44,7 @@ where
 
 /// Element of a Merkle proof
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum FullMerkleBranch<H: Hasher> {
+pub(crate) enum FullMerkleBranch<H: ZerokitHasher> {
     /// Left branch taken, value is the right sibling hash.
     Left(H::Fr),
 
@@ -50,7 +54,7 @@ pub(crate) enum FullMerkleBranch<H: Hasher> {
 
 /// Merkle proof path, bottom to top.
 #[derive(Clone, PartialEq, Eq)]
-pub struct FullMerkleProof<H: Hasher>(Vec<FullMerkleBranch<H>>);
+pub struct FullMerkleProof<H: ZerokitHasher>(Vec<FullMerkleBranch<H>>);
 
 #[derive(Default)]
 pub struct FullMerkleConfig(());
@@ -64,9 +68,9 @@ impl FromStr for FullMerkleConfig {
 }
 
 /// Implementations
-impl<H: Hasher> ZerokitMerkleTree for FullMerkleTree<H>
+impl<H: ZerokitHasher> ZerokitMerkleTree for FullMerkleTree<H>
 where
-    H: Hasher,
+    H: ZerokitHasher,
 {
     type Proof = FullMerkleProof<H>;
     type Hasher = H;
@@ -74,7 +78,7 @@ where
     type Error = ZerokitMerkleTreeError;
 
     fn default(depth: usize) -> Result<Self, Self::Error> {
-        FullMerkleTree::<H>::new(depth, Self::Hasher::default_leaf(), Self::Config::default())
+        FullMerkleTree::<H>::new(depth, FrOf::<H>::default(), Self::Config::default())
     }
 
     /// Creates a new `MerkleTree`
@@ -92,7 +96,7 @@ where
         let mut cached_nodes: Vec<H::Fr> = Vec::with_capacity(depth + 1);
         cached_nodes.push(default_leaf);
         for i in 0..depth {
-            cached_nodes.push(H::hash_pair(cached_nodes[i], cached_nodes[i]));
+            cached_nodes.push(H::hash(&[cached_nodes[i], cached_nodes[i]]));
         }
         cached_nodes.reverse();
 
@@ -107,6 +111,7 @@ where
 
         Ok(Self {
             depth,
+            default_leaf,
             nodes,
             cached_leaves_indices: vec![0; 1 << depth],
             next_index: 0,
@@ -233,7 +238,8 @@ where
         if index >= self.next_index {
             return Err(ZerokitMerkleTreeError::DeleteUnsetLeaf);
         }
-        self.set(index, H::default_leaf())?;
+        let default_leaf = self.default_leaf;
+        self.set(index, default_leaf)?;
         self.cached_leaves_indices[index] = 0;
         Ok(())
     }
@@ -284,9 +290,9 @@ where
 }
 
 // Utilities for updating the tree nodes
-impl<H: Hasher> FullMerkleTree<H>
+impl<H: ZerokitHasher> FullMerkleTree<H>
 where
-    H: Hasher,
+    H: ZerokitHasher,
 {
     /// For a given node index, return the parent node index
     /// Returns None if there is no parent (root node)
@@ -333,7 +339,7 @@ where
             // Closure to compute the hash of a parent node given its index, by hashing its two children
             let hash_parent = |parent: usize| {
                 let left = self.first_child(parent);
-                H::hash_pair(self.nodes[left], self.nodes[left + 1])
+                H::hash(&[self.nodes[left], self.nodes[left + 1]])
             };
 
             // Use parallel processing when the number of pairs exceeds the threshold
@@ -358,7 +364,7 @@ where
     }
 }
 
-impl<H: Hasher> ZerokitMerkleProof for FullMerkleProof<H> {
+impl<H: ZerokitHasher> ZerokitMerkleProof for FullMerkleProof<H> {
     type Index = u8;
     type Hasher = H;
 
@@ -399,8 +405,8 @@ impl<H: Hasher> ZerokitMerkleProof for FullMerkleProof<H> {
     /// Computes the Merkle root corresponding by iteratively hashing a Merkle proof with a given input leaf
     fn compute_root_from(&self, hash: &FrOf<Self::Hasher>) -> FrOf<Self::Hasher> {
         self.0.iter().fold(*hash, |hash, branch| match branch {
-            FullMerkleBranch::Left(sibling) => H::hash_pair(hash, *sibling),
-            FullMerkleBranch::Right(sibling) => H::hash_pair(*sibling, hash),
+            FullMerkleBranch::Left(sibling) => H::hash(&[hash, *sibling]),
+            FullMerkleBranch::Right(sibling) => H::hash(&[*sibling, hash]),
         })
     }
 }
@@ -408,7 +414,7 @@ impl<H: Hasher> ZerokitMerkleProof for FullMerkleProof<H> {
 // Debug formatting for printing a (Full) Merkle Proof Branch
 impl<H> Debug for FullMerkleBranch<H>
 where
-    H: Hasher,
+    H: ZerokitHasher,
     H::Fr: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -422,7 +428,7 @@ where
 // Debug formatting for printing a (Full) Merkle Proof
 impl<H> Debug for FullMerkleProof<H>
 where
-    H: Hasher,
+    H: ZerokitHasher,
     H::Fr: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

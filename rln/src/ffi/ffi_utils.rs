@@ -7,7 +7,6 @@ use safer_ffi::{
     derive_ReprC, ffi_export,
     prelude::{repr_c, ReprC},
 };
-use zeroize::Zeroizing;
 
 use crate::prelude::*;
 
@@ -391,7 +390,7 @@ pub fn ffi_vec_u8_free(v: repr_c::Vec<u8>) {
     drop(v);
 }
 
-// Hasher
+// Hashing
 
 #[ffi_export]
 pub fn ffi_hash_to_field_le(input: &repr_c::Vec<u8>) -> repr_c::Box<FFI_Fr> {
@@ -405,53 +404,43 @@ pub fn ffi_hash_to_field_be(input: &repr_c::Vec<u8>) -> repr_c::Box<FFI_Fr> {
 
 #[ffi_export]
 pub fn ffi_poseidon_hash_pair(a: &FFI_Fr, b: &FFI_Fr) -> repr_c::Box<FFI_Fr> {
-    FFI_Fr::from(poseidon_hash_pair(a.0, b.0)).into()
+    FFI_Fr::from(Hasher::<PoseidonHash>::hash_pair(a.0, b.0)).into()
 }
 
 // FFI_IdentityKeys
 
 #[derive_ReprC]
 #[repr(opaque)]
-pub struct FFI_IdentityKeys {
-    identity_secret: SecretFr,
-    id_commitment: Fr,
-}
+pub struct FFI_IdentityKeys(IdentityKeys);
 
 #[ffi_export]
 pub fn ffi_identity_keys_generate() -> repr_c::Box<FFI_IdentityKeys> {
-    let (identity_secret, id_commitment) = keygen();
-    Box_::new(FFI_IdentityKeys {
-        identity_secret,
-        id_commitment,
-    })
+    Box_::new(FFI_IdentityKeys(IdentityKeys::generate::<PoseidonHash>()))
 }
 
 #[ffi_export]
 pub fn ffi_identity_keys_generate_seeded(seed: &repr_c::Vec<u8>) -> repr_c::Box<FFI_IdentityKeys> {
-    let (identity_secret, id_commitment) = seeded_keygen(seed);
-    Box_::new(FFI_IdentityKeys {
-        identity_secret,
-        id_commitment,
-    })
+    Box_::new(FFI_IdentityKeys(IdentityKeys::generate_seeded::<
+        PoseidonHash,
+    >(seed)))
 }
 
 #[ffi_export]
 pub fn ffi_identity_keys_get_secret(identity: &FFI_IdentityKeys) -> repr_c::Box<FFI_SecretFr> {
-    Box_::new(FFI_SecretFr::from(identity.identity_secret.clone()))
+    Box_::new(FFI_SecretFr::from(identity.0.identity_secret()))
 }
 
 #[ffi_export]
 pub fn ffi_identity_keys_get_commitment(identity: &FFI_IdentityKeys) -> repr_c::Box<FFI_Fr> {
-    FFI_Fr::from(identity.id_commitment).into()
+    FFI_Fr::from(identity.0.id_commitment()).into()
 }
 
 #[ffi_export]
 pub fn ffi_identity_keys_to_bytes_le(
     identity: &FFI_IdentityKeys,
 ) -> FFI_Result<repr_c::Vec<u8>, repr_c::String> {
-    let vec_fr = Zeroizing::new(vec![*identity.identity_secret, identity.id_commitment]);
     let mut bytes = Vec::new();
-    match vec_fr.serialize_compressed(&mut bytes) {
+    match identity.0.serialize_compressed(&mut bytes) {
         Ok(()) => FFI_Result {
             ok: Some(bytes.into()),
             err: None,
@@ -467,9 +456,8 @@ pub fn ffi_identity_keys_to_bytes_le(
 pub fn ffi_identity_keys_to_bytes_be(
     identity: &FFI_IdentityKeys,
 ) -> FFI_Result<repr_c::Vec<u8>, repr_c::String> {
-    let vec_fr = Zeroizing::new(vec![*identity.identity_secret, identity.id_commitment]);
     let mut bytes = Vec::new();
-    match CanonicalSerializeBE::serialize(&*vec_fr, &mut bytes) {
+    match CanonicalSerializeBE::serialize(&identity.0, &mut bytes) {
         Ok(()) => FFI_Result {
             ok: Some(bytes.into()),
             err: None,
@@ -485,27 +473,15 @@ pub fn ffi_identity_keys_to_bytes_be(
 pub fn ffi_identity_keys_from_bytes_le(
     bytes: &repr_c::Vec<u8>,
 ) -> FFI_Result<repr_c::Box<FFI_IdentityKeys>, repr_c::String> {
-    let mut vec_fr = match Vec::<Fr>::deserialize_compressed(&bytes[..]) {
-        Ok(vec_fr) => Zeroizing::new(vec_fr),
-        Err(err) => {
-            return FFI_Result {
-                ok: None,
-                err: Some(err.to_string().into()),
-            }
-        }
-    };
-    if vec_fr.len() != 2 {
-        return FFI_Result {
+    match IdentityKeys::deserialize_compressed(&bytes[..]) {
+        Ok(identity) => FFI_Result {
+            ok: Some(Box_::new(FFI_IdentityKeys(identity))),
+            err: None,
+        },
+        Err(err) => FFI_Result {
             ok: None,
-            err: Some(format!("Expected 2 elements, got {}", vec_fr.len()).into()),
-        };
-    }
-    FFI_Result {
-        ok: Some(Box_::new(FFI_IdentityKeys {
-            identity_secret: SecretFr::from(&mut vec_fr[0]),
-            id_commitment: vec_fr[1],
-        })),
-        err: None,
+            err: Some(err.to_string().into()),
+        },
     }
 }
 
@@ -513,27 +489,15 @@ pub fn ffi_identity_keys_from_bytes_le(
 pub fn ffi_identity_keys_from_bytes_be(
     bytes: &repr_c::Vec<u8>,
 ) -> FFI_Result<repr_c::Box<FFI_IdentityKeys>, repr_c::String> {
-    let mut vec_fr = match <Vec<Fr> as CanonicalDeserializeBE>::deserialize(&bytes[..]) {
-        Ok(vec_fr) => Zeroizing::new(vec_fr),
-        Err(err) => {
-            return FFI_Result {
-                ok: None,
-                err: Some(err.to_string().into()),
-            }
-        }
-    };
-    if vec_fr.len() != 2 {
-        return FFI_Result {
+    match <IdentityKeys as CanonicalDeserializeBE>::deserialize(&bytes[..]) {
+        Ok(identity) => FFI_Result {
+            ok: Some(Box_::new(FFI_IdentityKeys(identity))),
+            err: None,
+        },
+        Err(err) => FFI_Result {
             ok: None,
-            err: Some(format!("Expected 2 elements, got {}", vec_fr.len()).into()),
-        };
-    }
-    FFI_Result {
-        ok: Some(Box_::new(FFI_IdentityKeys {
-            identity_secret: SecretFr::from(&mut vec_fr[0]),
-            id_commitment: vec_fr[1],
-        })),
-        err: None,
+            err: Some(err.to_string().into()),
+        },
     }
 }
 
@@ -546,78 +510,58 @@ pub fn ffi_identity_keys_free(identity: repr_c::Box<FFI_IdentityKeys>) {
 
 #[derive_ReprC]
 #[repr(opaque)]
-pub struct FFI_ExtendedIdentityKeys {
-    identity_trapdoor: SecretFr,
-    identity_nullifier: SecretFr,
-    identity_secret: SecretFr,
-    id_commitment: Fr,
-}
+pub struct FFI_ExtendedIdentityKeys(ExtendedIdentityKeys);
 
 #[ffi_export]
 pub fn ffi_extended_identity_keys_generate() -> repr_c::Box<FFI_ExtendedIdentityKeys> {
-    let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) = extended_keygen();
-    Box_::new(FFI_ExtendedIdentityKeys {
-        identity_trapdoor,
-        identity_nullifier,
-        identity_secret,
-        id_commitment,
-    })
+    Box_::new(FFI_ExtendedIdentityKeys(ExtendedIdentityKeys::generate::<
+        PoseidonHash,
+    >()))
 }
 
 #[ffi_export]
 pub fn ffi_extended_identity_keys_generate_seeded(
     seed: &repr_c::Vec<u8>,
 ) -> repr_c::Box<FFI_ExtendedIdentityKeys> {
-    let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) =
-        extended_seeded_keygen(seed);
-    Box_::new(FFI_ExtendedIdentityKeys {
-        identity_trapdoor,
-        identity_nullifier,
-        identity_secret,
-        id_commitment,
-    })
+    Box_::new(FFI_ExtendedIdentityKeys(
+        ExtendedIdentityKeys::generate_seeded::<PoseidonHash>(seed),
+    ))
 }
 
 #[ffi_export]
 pub fn ffi_extended_identity_keys_get_trapdoor(
     identity: &FFI_ExtendedIdentityKeys,
 ) -> repr_c::Box<FFI_SecretFr> {
-    Box_::new(FFI_SecretFr::from(identity.identity_trapdoor.clone()))
+    Box_::new(FFI_SecretFr::from(identity.0.identity_trapdoor()))
 }
 
 #[ffi_export]
 pub fn ffi_extended_identity_keys_get_nullifier(
     identity: &FFI_ExtendedIdentityKeys,
 ) -> repr_c::Box<FFI_SecretFr> {
-    Box_::new(FFI_SecretFr::from(identity.identity_nullifier.clone()))
+    Box_::new(FFI_SecretFr::from(identity.0.identity_nullifier()))
 }
 
 #[ffi_export]
 pub fn ffi_extended_identity_keys_get_secret(
     identity: &FFI_ExtendedIdentityKeys,
 ) -> repr_c::Box<FFI_SecretFr> {
-    Box_::new(FFI_SecretFr::from(identity.identity_secret.clone()))
+    Box_::new(FFI_SecretFr::from(identity.0.identity_secret()))
 }
 
 #[ffi_export]
 pub fn ffi_extended_identity_keys_get_commitment(
     identity: &FFI_ExtendedIdentityKeys,
 ) -> repr_c::Box<FFI_Fr> {
-    FFI_Fr::from(identity.id_commitment).into()
+    FFI_Fr::from(identity.0.id_commitment()).into()
 }
 
 #[ffi_export]
 pub fn ffi_extended_identity_keys_to_bytes_le(
     identity: &FFI_ExtendedIdentityKeys,
 ) -> FFI_Result<repr_c::Vec<u8>, repr_c::String> {
-    let vec_fr = Zeroizing::new(vec![
-        *identity.identity_trapdoor,
-        *identity.identity_nullifier,
-        *identity.identity_secret,
-        identity.id_commitment,
-    ]);
     let mut bytes = Vec::new();
-    match vec_fr.serialize_compressed(&mut bytes) {
+    match identity.0.serialize_compressed(&mut bytes) {
         Ok(()) => FFI_Result {
             ok: Some(bytes.into()),
             err: None,
@@ -633,14 +577,8 @@ pub fn ffi_extended_identity_keys_to_bytes_le(
 pub fn ffi_extended_identity_keys_to_bytes_be(
     identity: &FFI_ExtendedIdentityKeys,
 ) -> FFI_Result<repr_c::Vec<u8>, repr_c::String> {
-    let vec_fr = Zeroizing::new(vec![
-        *identity.identity_trapdoor,
-        *identity.identity_nullifier,
-        *identity.identity_secret,
-        identity.id_commitment,
-    ]);
     let mut bytes = Vec::new();
-    match CanonicalSerializeBE::serialize(&*vec_fr, &mut bytes) {
+    match CanonicalSerializeBE::serialize(&identity.0, &mut bytes) {
         Ok(()) => FFI_Result {
             ok: Some(bytes.into()),
             err: None,
@@ -656,29 +594,15 @@ pub fn ffi_extended_identity_keys_to_bytes_be(
 pub fn ffi_extended_identity_keys_from_bytes_le(
     bytes: &repr_c::Vec<u8>,
 ) -> FFI_Result<repr_c::Box<FFI_ExtendedIdentityKeys>, repr_c::String> {
-    let mut vec_fr = match Vec::<Fr>::deserialize_compressed(&bytes[..]) {
-        Ok(vec_fr) => Zeroizing::new(vec_fr),
-        Err(err) => {
-            return FFI_Result {
-                ok: None,
-                err: Some(err.to_string().into()),
-            }
-        }
-    };
-    if vec_fr.len() != 4 {
-        return FFI_Result {
+    match ExtendedIdentityKeys::deserialize_compressed(&bytes[..]) {
+        Ok(identity) => FFI_Result {
+            ok: Some(Box_::new(FFI_ExtendedIdentityKeys(identity))),
+            err: None,
+        },
+        Err(err) => FFI_Result {
             ok: None,
-            err: Some(format!("Expected 4 elements, got {}", vec_fr.len()).into()),
-        };
-    }
-    FFI_Result {
-        ok: Some(Box_::new(FFI_ExtendedIdentityKeys {
-            identity_trapdoor: SecretFr::from(&mut vec_fr[0]),
-            identity_nullifier: SecretFr::from(&mut vec_fr[1]),
-            identity_secret: SecretFr::from(&mut vec_fr[2]),
-            id_commitment: vec_fr[3],
-        })),
-        err: None,
+            err: Some(err.to_string().into()),
+        },
     }
 }
 
@@ -686,29 +610,15 @@ pub fn ffi_extended_identity_keys_from_bytes_le(
 pub fn ffi_extended_identity_keys_from_bytes_be(
     bytes: &repr_c::Vec<u8>,
 ) -> FFI_Result<repr_c::Box<FFI_ExtendedIdentityKeys>, repr_c::String> {
-    let mut vec_fr = match <Vec<Fr> as CanonicalDeserializeBE>::deserialize(&bytes[..]) {
-        Ok(vec_fr) => Zeroizing::new(vec_fr),
-        Err(err) => {
-            return FFI_Result {
-                ok: None,
-                err: Some(err.to_string().into()),
-            }
-        }
-    };
-    if vec_fr.len() != 4 {
-        return FFI_Result {
+    match <ExtendedIdentityKeys as CanonicalDeserializeBE>::deserialize(&bytes[..]) {
+        Ok(identity) => FFI_Result {
+            ok: Some(Box_::new(FFI_ExtendedIdentityKeys(identity))),
+            err: None,
+        },
+        Err(err) => FFI_Result {
             ok: None,
-            err: Some(format!("Expected 4 elements, got {}", vec_fr.len()).into()),
-        };
-    }
-    FFI_Result {
-        ok: Some(Box_::new(FFI_ExtendedIdentityKeys {
-            identity_trapdoor: SecretFr::from(&mut vec_fr[0]),
-            identity_nullifier: SecretFr::from(&mut vec_fr[1]),
-            identity_secret: SecretFr::from(&mut vec_fr[2]),
-            id_commitment: vec_fr[3],
-        })),
-        err: None,
+            err: Some(err.to_string().into()),
+        },
     }
 }
 

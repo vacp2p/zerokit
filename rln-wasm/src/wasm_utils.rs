@@ -5,7 +5,6 @@ use std::ops::Deref;
 use js_sys::Uint8Array;
 use rln::prelude::*;
 use wasm_bindgen::prelude::*;
-use zeroize::Zeroizing;
 
 // WasmFr
 
@@ -231,73 +230,55 @@ impl WasmUint8ArrayUtils {
     }
 }
 
-// WasmHasher
+// Hashing
 
-#[wasm_bindgen]
-pub struct WasmHasher;
+#[wasm_bindgen(js_name = poseidonHashPair)]
+pub fn wasm_poseidon_hash_pair(a: &WasmFr, b: &WasmFr) -> WasmFr {
+    WasmFr::from(Hasher::<PoseidonHash>::hash_pair(a.0, b.0))
+}
 
-#[wasm_bindgen]
-impl WasmHasher {
-    #[wasm_bindgen(js_name = hashToFieldLE)]
-    pub fn hash_to_field_le(input: &Uint8Array) -> WasmFr {
-        WasmFr::from(hash_to_field_le(&input.to_vec()))
-    }
+#[wasm_bindgen(js_name = hashToFieldLE)]
+pub fn wasm_hash_to_field_le(input: &Uint8Array) -> WasmFr {
+    WasmFr::from(hash_to_field_le(&input.to_vec()))
+}
 
-    #[wasm_bindgen(js_name = hashToFieldBE)]
-    pub fn hash_to_field_be(input: &Uint8Array) -> WasmFr {
-        WasmFr::from(hash_to_field_be(&input.to_vec()))
-    }
-
-    #[wasm_bindgen(js_name = poseidonHashPair)]
-    pub fn poseidon_hash_pair(a: &WasmFr, b: &WasmFr) -> WasmFr {
-        WasmFr::from(poseidon_hash_pair(a.0, b.0))
-    }
+#[wasm_bindgen(js_name = hashToFieldBE)]
+pub fn wasm_hash_to_field_be(input: &Uint8Array) -> WasmFr {
+    WasmFr::from(hash_to_field_be(&input.to_vec()))
 }
 
 // WasmIdentityKeys
 
 #[wasm_bindgen]
-pub struct WasmIdentityKeys {
-    identity_secret: SecretFr,
-    id_commitment: Fr,
-}
+pub struct WasmIdentityKeys(IdentityKeys);
 
 #[wasm_bindgen]
 impl WasmIdentityKeys {
     #[wasm_bindgen(js_name = generate)]
     pub fn generate() -> WasmIdentityKeys {
-        let (identity_secret, id_commitment) = keygen();
-        WasmIdentityKeys {
-            identity_secret,
-            id_commitment,
-        }
+        WasmIdentityKeys(IdentityKeys::generate::<PoseidonHash>())
     }
 
     #[wasm_bindgen(js_name = generateSeeded)]
     pub fn generate_seeded(seed: &Uint8Array) -> WasmIdentityKeys {
         let seed_vec = seed.to_vec();
-        let (identity_secret, id_commitment) = seeded_keygen(&seed_vec);
-        WasmIdentityKeys {
-            identity_secret,
-            id_commitment,
-        }
+        WasmIdentityKeys(IdentityKeys::generate_seeded::<PoseidonHash>(&seed_vec))
     }
 
     #[wasm_bindgen(js_name = getSecret)]
     pub fn get_secret(&self) -> WasmSecretFr {
-        WasmSecretFr::from(self.identity_secret.clone())
+        WasmSecretFr::from(self.0.identity_secret())
     }
 
     #[wasm_bindgen(js_name = getCommitment)]
     pub fn get_commitment(&self) -> WasmFr {
-        WasmFr::from(self.id_commitment)
+        WasmFr::from(self.0.id_commitment())
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]
     pub fn to_bytes_le(&self) -> Result<Uint8Array, String> {
-        let vec_fr = Zeroizing::new(vec![*self.identity_secret, self.id_commitment]);
         let mut bytes = Vec::new();
-        vec_fr
+        self.0
             .serialize_compressed(&mut bytes)
             .map_err(|err| err.to_string())?;
         Ok(Uint8Array::from(&bytes[..]))
@@ -305,111 +286,72 @@ impl WasmIdentityKeys {
 
     #[wasm_bindgen(js_name = toBytesBE)]
     pub fn to_bytes_be(&self) -> Result<Uint8Array, String> {
-        let vec_fr = Zeroizing::new(vec![*self.identity_secret, self.id_commitment]);
         let mut bytes = Vec::new();
-        CanonicalSerializeBE::serialize(&*vec_fr, &mut bytes).map_err(|err| err.to_string())?;
+        CanonicalSerializeBE::serialize(&self.0, &mut bytes).map_err(|err| err.to_string())?;
         Ok(Uint8Array::from(&bytes[..]))
     }
 
     #[wasm_bindgen(js_name = fromBytesLE)]
     pub fn from_bytes_le(bytes: &Uint8Array) -> Result<WasmIdentityKeys, String> {
         let bytes_vec = bytes.to_vec();
-        let mut vec_fr = Zeroizing::new(
-            Vec::<Fr>::deserialize_compressed(&bytes_vec[..]).map_err(|err| err.to_string())?,
-        );
-        if vec_fr.len() != 2 {
-            return Err(format!("Expected 2 elements, got {}", vec_fr.len()));
-        }
-        Ok(WasmIdentityKeys {
-            identity_secret: SecretFr::from(&mut vec_fr[0]),
-            id_commitment: vec_fr[1],
-        })
+        IdentityKeys::deserialize_compressed(&bytes_vec[..])
+            .map(WasmIdentityKeys)
+            .map_err(|err| err.to_string())
     }
 
     #[wasm_bindgen(js_name = fromBytesBE)]
     pub fn from_bytes_be(bytes: &Uint8Array) -> Result<WasmIdentityKeys, String> {
         let bytes_vec = bytes.to_vec();
-        let mut vec_fr = Zeroizing::new(
-            <Vec<Fr> as CanonicalDeserializeBE>::deserialize(&bytes_vec[..])
-                .map_err(|err| err.to_string())?,
-        );
-        if vec_fr.len() != 2 {
-            return Err(format!("Expected 2 elements, got {}", vec_fr.len()));
-        }
-        Ok(WasmIdentityKeys {
-            identity_secret: SecretFr::from(&mut vec_fr[0]),
-            id_commitment: vec_fr[1],
-        })
+        <IdentityKeys as CanonicalDeserializeBE>::deserialize(&bytes_vec[..])
+            .map(WasmIdentityKeys)
+            .map_err(|err| err.to_string())
     }
 }
 
 // WasmExtendedIdentityKeys
 
 #[wasm_bindgen]
-pub struct WasmExtendedIdentityKeys {
-    identity_trapdoor: SecretFr,
-    identity_nullifier: SecretFr,
-    identity_secret: SecretFr,
-    id_commitment: Fr,
-}
+pub struct WasmExtendedIdentityKeys(ExtendedIdentityKeys);
 
 #[wasm_bindgen]
 impl WasmExtendedIdentityKeys {
     #[wasm_bindgen(js_name = generate)]
     pub fn generate() -> WasmExtendedIdentityKeys {
-        let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) =
-            extended_keygen();
-        WasmExtendedIdentityKeys {
-            identity_trapdoor,
-            identity_nullifier,
-            identity_secret,
-            id_commitment,
-        }
+        WasmExtendedIdentityKeys(ExtendedIdentityKeys::generate::<PoseidonHash>())
     }
 
     #[wasm_bindgen(js_name = generateSeeded)]
     pub fn generate_seeded(seed: &Uint8Array) -> WasmExtendedIdentityKeys {
         let seed_vec = seed.to_vec();
-        let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) =
-            extended_seeded_keygen(&seed_vec);
-        WasmExtendedIdentityKeys {
-            identity_trapdoor,
-            identity_nullifier,
-            identity_secret,
-            id_commitment,
-        }
+        WasmExtendedIdentityKeys(ExtendedIdentityKeys::generate_seeded::<PoseidonHash>(
+            &seed_vec,
+        ))
     }
 
     #[wasm_bindgen(js_name = getTrapdoor)]
     pub fn get_trapdoor(&self) -> WasmSecretFr {
-        WasmSecretFr::from(self.identity_trapdoor.clone())
+        WasmSecretFr::from(self.0.identity_trapdoor())
     }
 
     #[wasm_bindgen(js_name = getNullifier)]
     pub fn get_nullifier(&self) -> WasmSecretFr {
-        WasmSecretFr::from(self.identity_nullifier.clone())
+        WasmSecretFr::from(self.0.identity_nullifier())
     }
 
     #[wasm_bindgen(js_name = getSecret)]
     pub fn get_secret(&self) -> WasmSecretFr {
-        WasmSecretFr::from(self.identity_secret.clone())
+        WasmSecretFr::from(self.0.identity_secret())
     }
 
     #[wasm_bindgen(js_name = getCommitment)]
     pub fn get_commitment(&self) -> WasmFr {
-        WasmFr::from(self.id_commitment)
+        WasmFr::from(self.0.id_commitment())
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]
     pub fn to_bytes_le(&self) -> Result<Uint8Array, String> {
-        let vec_fr = Zeroizing::new(vec![
-            *self.identity_trapdoor,
-            *self.identity_nullifier,
-            *self.identity_secret,
-            self.id_commitment,
-        ]);
         let mut bytes = Vec::new();
-        vec_fr
+        self.0
             .serialize_compressed(&mut bytes)
             .map_err(|err| err.to_string())?;
         Ok(Uint8Array::from(&bytes[..]))
@@ -417,49 +359,24 @@ impl WasmExtendedIdentityKeys {
 
     #[wasm_bindgen(js_name = toBytesBE)]
     pub fn to_bytes_be(&self) -> Result<Uint8Array, String> {
-        let vec_fr = Zeroizing::new(vec![
-            *self.identity_trapdoor,
-            *self.identity_nullifier,
-            *self.identity_secret,
-            self.id_commitment,
-        ]);
         let mut bytes = Vec::new();
-        CanonicalSerializeBE::serialize(&*vec_fr, &mut bytes).map_err(|err| err.to_string())?;
+        CanonicalSerializeBE::serialize(&self.0, &mut bytes).map_err(|err| err.to_string())?;
         Ok(Uint8Array::from(&bytes[..]))
     }
 
     #[wasm_bindgen(js_name = fromBytesLE)]
     pub fn from_bytes_le(bytes: &Uint8Array) -> Result<WasmExtendedIdentityKeys, String> {
         let bytes_vec = bytes.to_vec();
-        let mut vec_fr = Zeroizing::new(
-            Vec::<Fr>::deserialize_compressed(&bytes_vec[..]).map_err(|err| err.to_string())?,
-        );
-        if vec_fr.len() != 4 {
-            return Err(format!("Expected 4 elements, got {}", vec_fr.len()));
-        }
-        Ok(WasmExtendedIdentityKeys {
-            identity_trapdoor: SecretFr::from(&mut vec_fr[0]),
-            identity_nullifier: SecretFr::from(&mut vec_fr[1]),
-            identity_secret: SecretFr::from(&mut vec_fr[2]),
-            id_commitment: vec_fr[3],
-        })
+        ExtendedIdentityKeys::deserialize_compressed(&bytes_vec[..])
+            .map(WasmExtendedIdentityKeys)
+            .map_err(|err| err.to_string())
     }
 
     #[wasm_bindgen(js_name = fromBytesBE)]
     pub fn from_bytes_be(bytes: &Uint8Array) -> Result<WasmExtendedIdentityKeys, String> {
         let bytes_vec = bytes.to_vec();
-        let mut vec_fr = Zeroizing::new(
-            <Vec<Fr> as CanonicalDeserializeBE>::deserialize(&bytes_vec[..])
-                .map_err(|err| err.to_string())?,
-        );
-        if vec_fr.len() != 4 {
-            return Err(format!("Expected 4 elements, got {}", vec_fr.len()));
-        }
-        Ok(WasmExtendedIdentityKeys {
-            identity_trapdoor: SecretFr::from(&mut vec_fr[0]),
-            identity_nullifier: SecretFr::from(&mut vec_fr[1]),
-            identity_secret: SecretFr::from(&mut vec_fr[2]),
-            id_commitment: vec_fr[3],
-        })
+        <ExtendedIdentityKeys as CanonicalDeserializeBE>::deserialize(&bytes_vec[..])
+            .map(WasmExtendedIdentityKeys)
+            .map_err(|err| err.to_string())
     }
 }

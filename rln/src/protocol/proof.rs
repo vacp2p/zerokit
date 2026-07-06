@@ -1,6 +1,5 @@
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use zeroize::Zeroize;
-use zerokit_utils::merkle_tree::compute_tree_root;
+use zerokit_utils::{hasher::ZerokitHasher, merkle_tree::compute_tree_root};
 
 use super::{
     slashing::compute_id_secret,
@@ -10,7 +9,7 @@ use super::{
 use crate::{
     circuit::{Fr, Proof, SecretFr},
     error::RecoverSecretError,
-    hashers::{poseidon_hash, poseidon_hash_id_secret, PoseidonHash},
+    hashers::Hasher,
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -77,11 +76,15 @@ impl RLNProofValues {
     }
 }
 
-impl From<&RLNWitnessInput> for RLNProofValues {
-    fn from(witness: &RLNWitnessInput) -> Self {
+impl RLNProofValues {
+    pub fn from_witness<H: ZerokitHasher<Fr = Fr>>(witness: &RLNWitnessInput) -> Self {
         match witness {
-            RLNWitnessInput::Single(w) => RLNProofValues::Single(w.into()),
-            RLNWitnessInput::Multi(w) => RLNProofValues::Multi(w.into()),
+            RLNWitnessInput::Single(w) => {
+                RLNProofValues::Single(RLNProofValuesSingle::from_witness::<H>(w))
+            }
+            RLNWitnessInput::Multi(w) => {
+                RLNProofValues::Multi(RLNProofValuesMulti::from_witness::<H>(w))
+            }
         }
     }
 }
@@ -108,26 +111,16 @@ pub struct RLNProofValuesSingle {
     pub external_nullifier: Fr,
 }
 
-// TODO(rln-generic-hash): the RLN protocol math (this `From`, the `RLNProofValuesMulti` `From` below,
-// and `keygen.rs`) calls `poseidon_hash` at arity 1/2/3 directly (id_commitment, leaf, a_1, nullifier),
-// hardcoding Poseidon. To support another ZK hash (e.g. Poseidon2), lift these behind a variable-arity
-// hash trait and make the protocol generic over it (`RLN<State, ZKP>` has no hash param today). GATED:
-// the in-proof hash must equal what the embedded circuit computes, so a new hash only works with a
-// matching new circom-rln circuit. See CLAUDE.md backlog (generic hash plumbing). Interface unchanged
-// until a real second hash + circuit land.
-impl From<&RLNWitnessInputSingle> for RLNProofValuesSingle {
-    fn from(w: &RLNWitnessInputSingle) -> Self {
-        let id_commitment = poseidon_hash_id_secret(&w.identity_secret);
-        let leaf = poseidon_hash(&[id_commitment, w.user_message_limit]);
-        let root =
-            compute_tree_root::<PoseidonHash>(leaf, &w.path_elements, &w.identity_path_index);
+impl RLNProofValuesSingle {
+    pub fn from_witness<H: ZerokitHasher<Fr = Fr>>(w: &RLNWitnessInputSingle) -> Self {
+        let id_commitment = Hasher::<H>::compute_id_commitment(&w.identity_secret);
+        let leaf = Hasher::<H>::hash_pair(id_commitment, w.user_message_limit);
+        let root = compute_tree_root::<H>(leaf, &w.path_elements, &w.identity_path_index);
 
         let a_0 = &w.identity_secret;
-        let mut to_hash = [**a_0, w.external_nullifier, w.message_id];
-        let a_1 = poseidon_hash(&to_hash);
+        let a_1 = Hasher::<H>::compute_share_slope(a_0, w.external_nullifier, w.message_id);
         let y = **a_0 + w.x * a_1;
-        let nullifier = poseidon_hash(&[a_1]);
-        to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
+        let nullifier = Hasher::<H>::hash_single(a_1);
         RLNProofValuesSingle {
             y,
             root,
@@ -173,22 +166,23 @@ pub struct RLNProofValuesMulti {
     pub selector_used: Vec<bool>,
 }
 
-impl From<&RLNWitnessInputMulti> for RLNProofValuesMulti {
-    fn from(w: &RLNWitnessInputMulti) -> Self {
-        let id_commitment = poseidon_hash_id_secret(&w.identity_secret);
-        let leaf = poseidon_hash(&[id_commitment, w.user_message_limit]);
-        let root =
-            compute_tree_root::<PoseidonHash>(leaf, &w.path_elements, &w.identity_path_index);
+impl RLNProofValuesMulti {
+    pub fn from_witness<H: ZerokitHasher<Fr = Fr>>(w: &RLNWitnessInputMulti) -> Self {
+        let id_commitment = Hasher::<H>::compute_id_commitment(&w.identity_secret);
+        let leaf = Hasher::<H>::hash_pair(id_commitment, w.user_message_limit);
+        let root = compute_tree_root::<H>(leaf, &w.path_elements, &w.identity_path_index);
 
         let mut ys = Vec::with_capacity(w.message_ids.len());
         let mut nullifiers = Vec::with_capacity(w.message_ids.len());
         for (message_id, &selected) in w.message_ids.iter().zip(w.selector_used.iter()) {
-            let mut to_hash = [*w.identity_secret, w.external_nullifier, *message_id];
-            let a_1 = poseidon_hash(&to_hash);
+            let a_1 = Hasher::<H>::compute_share_slope(
+                &w.identity_secret,
+                w.external_nullifier,
+                *message_id,
+            );
             let selector = Fr::from(selected);
             let y = (*w.identity_secret + w.x * a_1) * selector;
-            let nullifier = poseidon_hash(&[a_1]) * selector;
-            to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
+            let nullifier = Hasher::<H>::hash_single(a_1) * selector;
             ys.push(y);
             nullifiers.push(nullifier);
         }

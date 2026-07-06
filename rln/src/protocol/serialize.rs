@@ -10,6 +10,7 @@ use ark_serialize::{
 use zeroize::Zeroizing;
 
 use super::{
+    keygen::{ExtendedIdentityKeys, IdentityKeys},
     proof::{RLNProof, RLNProofValues, RLNProofValuesMulti, RLNProofValuesSingle},
     witness::{
         RLNPartialWitnessInput, RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle,
@@ -305,6 +306,70 @@ impl CanonicalDeserialize for RLNWitnessInput {
             )),
             _ => Err(ArkSerializationError::InvalidData),
         }
+    }
+}
+
+impl CanonicalSerializeBE for IdentityKeys {
+    type Error = SerializationError;
+
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
+        self.identity_secret.serialize(&mut writer)?;
+        self.id_commitment.serialize(&mut writer)?;
+        Ok(())
+    }
+
+    fn serialized_size(&self) -> usize {
+        CanonicalSerializeBE::serialized_size(&self.identity_secret)
+            + CanonicalSerializeBE::serialized_size(&self.id_commitment)
+    }
+}
+
+impl CanonicalDeserializeBE for IdentityKeys {
+    type Error = SerializationError;
+
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
+        let identity_secret = SecretFr::deserialize(&mut reader)?;
+        let id_commitment = Fr::deserialize(&mut reader)?;
+        Ok(Self {
+            identity_secret,
+            id_commitment,
+        })
+    }
+}
+
+impl CanonicalSerializeBE for ExtendedIdentityKeys {
+    type Error = SerializationError;
+
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
+        self.identity_trapdoor.serialize(&mut writer)?;
+        self.identity_nullifier.serialize(&mut writer)?;
+        self.identity_secret.serialize(&mut writer)?;
+        self.id_commitment.serialize(&mut writer)?;
+        Ok(())
+    }
+
+    fn serialized_size(&self) -> usize {
+        CanonicalSerializeBE::serialized_size(&self.identity_trapdoor)
+            + CanonicalSerializeBE::serialized_size(&self.identity_nullifier)
+            + CanonicalSerializeBE::serialized_size(&self.identity_secret)
+            + CanonicalSerializeBE::serialized_size(&self.id_commitment)
+    }
+}
+
+impl CanonicalDeserializeBE for ExtendedIdentityKeys {
+    type Error = SerializationError;
+
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
+        let identity_trapdoor = SecretFr::deserialize(&mut reader)?;
+        let identity_nullifier = SecretFr::deserialize(&mut reader)?;
+        let identity_secret = SecretFr::deserialize(&mut reader)?;
+        let id_commitment = Fr::deserialize(&mut reader)?;
+        Ok(Self {
+            identity_trapdoor,
+            identity_nullifier,
+            identity_secret,
+            id_commitment,
+        })
     }
 }
 

@@ -762,7 +762,7 @@ mod test {
                 let prev_r = tree.get_subtree_root(n, idx_r).unwrap();
                 let subroot = tree.get_subtree_root(n - 1, idx_sr).unwrap();
 
-                assert_eq!(poseidon_hash_pair(prev_l, prev_r), subroot);
+                assert_eq!(Hasher::<PoseidonHash>::hash_pair(prev_l, prev_r), subroot);
             }
         }
     }

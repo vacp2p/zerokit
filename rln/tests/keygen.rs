@@ -3,22 +3,20 @@ mod test {
     use num_bigint::BigUint;
     use num_traits::Num;
     use rln::prelude::*;
-    use zeroize::Zeroize;
 
     #[test]
     fn test_keygen_commitment_relation() {
-        let (identity_secret, id_commitment) = keygen();
-        let mut to_hash = [*identity_secret.clone()];
-        let expected_id_commitment = poseidon_hash(&to_hash);
-        to_hash[0].zeroize();
-        assert_eq!(id_commitment, expected_id_commitment);
+        let identity_keys = IdentityKeys::generate::<PoseidonHash>();
+        let expected_id_commitment =
+            Hasher::<PoseidonHash>::hash_single(*identity_keys.identity_secret());
+        assert_eq!(identity_keys.id_commitment(), expected_id_commitment);
     }
 
     #[test]
     fn test_seeded_keygen() {
         // Generate identity pair using a seed phrase
         let seed_phrase: &str = "A seed phrase example";
-        let (identity_secret, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
+        let identity_keys = IdentityKeys::generate_seeded::<PoseidonHash>(seed_phrase.as_bytes());
 
         // We check against expected values
         let expected_identity_secret_seed_phrase = Fr::from(
@@ -36,12 +34,18 @@ mod test {
             .unwrap(),
         );
 
-        assert_eq!(*identity_secret, expected_identity_secret_seed_phrase);
-        assert_eq!(id_commitment, expected_id_commitment_seed_phrase);
+        assert_eq!(
+            *identity_keys.identity_secret(),
+            expected_identity_secret_seed_phrase
+        );
+        assert_eq!(
+            identity_keys.id_commitment(),
+            expected_id_commitment_seed_phrase
+        );
 
         // Generate identity pair using a byte array
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let (identity_secret, id_commitment) = seeded_keygen(seed_bytes);
+        let identity_keys = IdentityKeys::generate_seeded::<PoseidonHash>(seed_bytes);
 
         // We check against expected values
         let expected_identity_secret_seed_bytes = Fr::from(
@@ -59,34 +63,54 @@ mod test {
             .unwrap(),
         );
 
-        assert_eq!(*identity_secret, expected_identity_secret_seed_bytes);
-        assert_eq!(id_commitment, expected_id_commitment_seed_bytes);
+        assert_eq!(
+            *identity_keys.identity_secret(),
+            expected_identity_secret_seed_bytes
+        );
+        assert_eq!(
+            identity_keys.id_commitment(),
+            expected_id_commitment_seed_bytes
+        );
 
         // We check again if the identity pair generated with the same seed phrase corresponds to the previously generated one
-        let (identity_secret, id_commitment) = seeded_keygen(seed_phrase.as_bytes());
+        let identity_keys = IdentityKeys::generate_seeded::<PoseidonHash>(seed_phrase.as_bytes());
 
-        assert_eq!(*identity_secret, expected_identity_secret_seed_phrase);
-        assert_eq!(id_commitment, expected_id_commitment_seed_phrase);
+        assert_eq!(
+            *identity_keys.identity_secret(),
+            expected_identity_secret_seed_phrase
+        );
+        assert_eq!(
+            identity_keys.id_commitment(),
+            expected_id_commitment_seed_phrase
+        );
     }
 
     #[test]
     fn test_extended_keygen_relations() {
-        let (trapdoor, nullifier, identity_secret, id_commitment) = extended_keygen();
+        let extended_identity_keys = ExtendedIdentityKeys::generate::<PoseidonHash>();
 
-        let expected_identity_secret = poseidon_hash_pair(*trapdoor, *nullifier);
-        let mut to_hash = [*identity_secret];
-        let expected_id_commitment = poseidon_hash(&to_hash);
-        to_hash[0].zeroize();
-        assert_eq!(*identity_secret, expected_identity_secret);
-        assert_eq!(id_commitment, expected_id_commitment);
+        let expected_identity_secret = Hasher::<PoseidonHash>::hash_pair(
+            *extended_identity_keys.identity_trapdoor(),
+            *extended_identity_keys.identity_nullifier(),
+        );
+        let expected_id_commitment =
+            Hasher::<PoseidonHash>::hash_single(*extended_identity_keys.identity_secret());
+        assert_eq!(
+            *extended_identity_keys.identity_secret(),
+            expected_identity_secret
+        );
+        assert_eq!(
+            extended_identity_keys.id_commitment(),
+            expected_id_commitment
+        );
     }
 
     #[test]
     fn test_extended_seeded_keygen() {
         // Generate identity tuple using a byte array
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let (identity_trapdoor, identity_nullifier, identity_secret, id_commitment) =
-            extended_seeded_keygen(seed_bytes);
+        let extended_identity_keys =
+            ExtendedIdentityKeys::generate_seeded::<PoseidonHash>(seed_bytes);
 
         // We check against expected values
         let expected_identity_trapdoor = Fr::from(
@@ -118,21 +142,88 @@ mod test {
             .unwrap(),
         );
 
-        assert_eq!(*identity_trapdoor, expected_identity_trapdoor);
-        assert_eq!(*identity_nullifier, expected_identity_nullifier);
-        assert_eq!(*identity_secret, expected_identity_secret);
-        assert_eq!(id_commitment, expected_id_commitment);
+        assert_eq!(
+            *extended_identity_keys.identity_trapdoor(),
+            expected_identity_trapdoor
+        );
+        assert_eq!(
+            *extended_identity_keys.identity_nullifier(),
+            expected_identity_nullifier
+        );
+        assert_eq!(
+            *extended_identity_keys.identity_secret(),
+            expected_identity_secret
+        );
+        assert_eq!(
+            extended_identity_keys.id_commitment(),
+            expected_id_commitment
+        );
 
         // We check again if the identity tuple generated with the same byte array corresponds to the previously generated one
-        let second = extended_seeded_keygen(seed_bytes);
+        let second = ExtendedIdentityKeys::generate_seeded::<PoseidonHash>(seed_bytes);
         assert_eq!(
             (
-                identity_trapdoor,
-                identity_nullifier,
-                identity_secret,
-                id_commitment
+                *second.identity_trapdoor(),
+                *second.identity_nullifier(),
+                *second.identity_secret(),
+                second.id_commitment()
             ),
-            second
+            (
+                expected_identity_trapdoor,
+                expected_identity_nullifier,
+                expected_identity_secret,
+                expected_id_commitment
+            )
         );
+    }
+
+    #[test]
+    fn test_identity_keys_serde_roundtrip() {
+        // IdentityKeys: little-endian roundtrip
+        let identity_keys = IdentityKeys::generate::<PoseidonHash>();
+        let mut bytes = Vec::new();
+        identity_keys.serialize_compressed(&mut bytes).unwrap();
+        let recovered = IdentityKeys::deserialize_compressed(&bytes[..]).unwrap();
+        assert_eq!(identity_keys.identity_secret(), recovered.identity_secret());
+        assert_eq!(identity_keys.id_commitment(), recovered.id_commitment());
+
+        // IdentityKeys: big-endian roundtrip
+        let mut bytes = Vec::new();
+        CanonicalSerializeBE::serialize(&identity_keys, &mut bytes).unwrap();
+        let recovered = <IdentityKeys as CanonicalDeserializeBE>::deserialize(&bytes[..]).unwrap();
+        assert_eq!(identity_keys.identity_secret(), recovered.identity_secret());
+        assert_eq!(identity_keys.id_commitment(), recovered.id_commitment());
+
+        // ExtendedIdentityKeys: little-endian roundtrip
+        let extended_keys = ExtendedIdentityKeys::generate::<PoseidonHash>();
+        let mut bytes = Vec::new();
+        extended_keys.serialize_compressed(&mut bytes).unwrap();
+        let recovered = ExtendedIdentityKeys::deserialize_compressed(&bytes[..]).unwrap();
+        assert_eq!(
+            extended_keys.identity_trapdoor(),
+            recovered.identity_trapdoor()
+        );
+        assert_eq!(
+            extended_keys.identity_nullifier(),
+            recovered.identity_nullifier()
+        );
+        assert_eq!(extended_keys.identity_secret(), recovered.identity_secret());
+        assert_eq!(extended_keys.id_commitment(), recovered.id_commitment());
+
+        // ExtendedIdentityKeys: big-endian roundtrip
+        let mut bytes = Vec::new();
+        CanonicalSerializeBE::serialize(&extended_keys, &mut bytes).unwrap();
+        let recovered =
+            <ExtendedIdentityKeys as CanonicalDeserializeBE>::deserialize(&bytes[..]).unwrap();
+        assert_eq!(
+            extended_keys.identity_trapdoor(),
+            recovered.identity_trapdoor()
+        );
+        assert_eq!(
+            extended_keys.identity_nullifier(),
+            recovered.identity_nullifier()
+        );
+        assert_eq!(extended_keys.identity_secret(), recovered.identity_secret());
+        assert_eq!(extended_keys.id_commitment(), recovered.id_commitment());
     }
 }

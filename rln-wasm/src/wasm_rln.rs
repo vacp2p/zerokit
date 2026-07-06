@@ -10,7 +10,7 @@ use crate::wasm_utils::{VecWasmFr, WasmFr, WasmSecretFr};
 // WasmRLN
 
 #[wasm_bindgen]
-pub struct WasmRLN(RLN<Stateless, ArkGroth16Backend>);
+pub struct WasmRLN(RLN<Stateless, ArkGroth16Backend<PoseidonHash>>);
 
 #[wasm_bindgen]
 impl WasmRLN {
@@ -130,12 +130,12 @@ impl WasmRLNWitnessInput {
     pub fn new_multi(
         identity_secret: &WasmSecretFr,
         user_message_limit: &WasmFr,
-        message_ids: VecWasmFr,
+        message_ids: &VecWasmFr,
         path_elements: &VecWasmFr,
         identity_path_index: &Uint8Array,
         x: &WasmFr,
         external_nullifier: &WasmFr,
-        selector_used: Uint8Array,
+        selector_used: &Uint8Array,
     ) -> Result<WasmRLNWitnessInput, String> {
         let path_elements: Vec<Fr> = path_elements.inner();
         let identity_path_index: Vec<u8> = identity_path_index.to_vec();
@@ -241,7 +241,7 @@ impl WasmRLNWitnessInput {
 
     #[wasm_bindgen(js_name = toProofValues)]
     pub fn to_proof_values(&self) -> WasmRLNProofValues {
-        WasmRLNProofValues(RLNProofValues::from(&self.0))
+        WasmRLNProofValues(RLNProofValues::from_witness::<PoseidonHash>(&self.0))
     }
 }
 
