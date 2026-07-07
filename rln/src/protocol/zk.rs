@@ -17,16 +17,16 @@ use crate::{
 };
 
 pub trait RLNZkProof {
-    type Hasher: ZerokitHasher<Fr = Fr>;
+    type Hasher: ZerokitHasher<Scalar = Fr>;
     type Witness: CanonicalSerialize
         + CanonicalDeserialize
         + CanonicalSerializeBE
         + CanonicalDeserializeBE;
-    type Values: RecoverSecret
-        + CanonicalSerialize
+    type Values: CanonicalSerialize
         + CanonicalDeserialize
         + CanonicalSerializeBE
-        + CanonicalDeserializeBE;
+        + CanonicalDeserializeBE
+        + RecoverSecret;
     type Proof: CanonicalSerialize + CanonicalDeserialize;
     type GenerateProofError: std::error::Error;
     type VerifyProofError: std::error::Error;
@@ -69,7 +69,7 @@ pub trait RLNPartialZkProof: RLNZkProof {
     ) -> Result<(Self::Proof, Self::Values), Self::FinishProofError>;
 }
 
-impl<H: ZerokitHasher<Fr = Fr>> RLNZkProof for ArkGroth16Backend<H> {
+impl<H: ZerokitHasher<Scalar = Fr>> RLNZkProof for ArkGroth16Backend<H> {
     type Hasher = H;
     type Witness = RLNWitnessInput;
     type Values = RLNProofValues;
@@ -132,7 +132,7 @@ impl<H: ZerokitHasher<Fr = Fr>> RLNZkProof for ArkGroth16Backend<H> {
     }
 }
 
-impl<H: ZerokitHasher<Fr = Fr>> RLNPartialZkProof for ArkGroth16Backend<H> {
+impl<H: ZerokitHasher<Scalar = Fr>> RLNPartialZkProof for ArkGroth16Backend<H> {
     type PartialWitness = RLNPartialWitnessInput;
     type PartialProof = PartialProof;
     type GeneratePartialProofError = GenerateProofError;

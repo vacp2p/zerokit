@@ -10,7 +10,7 @@ use super::Fr;
 
 /// Secret field-element wrapper zeroized on drop.
 #[derive(
-    Debug, Zeroize, ZeroizeOnDrop, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize,
+    Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize, Zeroize, ZeroizeOnDrop,
 )]
 pub struct SecretFr(Fr);
 

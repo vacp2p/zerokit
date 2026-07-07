@@ -1,24 +1,22 @@
 // Tests adapted from https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/merkle_tree.rs
 #[cfg(test)]
 mod test {
-    use std::{fmt::Display, str::FromStr};
-
     use hex_literal::hex;
     use tiny_keccak::{Hasher as _, Keccak};
     use zerokit_utils::merkle_tree::{
         FullMerkleConfig, FullMerkleTree, OptimalMerkleConfig, OptimalMerkleTree, ZerokitHasher,
         ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError, MIN_PARALLEL_NODES,
     };
-    #[derive(Clone, Copy, Eq, PartialEq)]
+    #[derive(Clone, Copy, PartialEq, Eq)]
     struct Keccak256;
 
-    #[derive(Clone, Copy, Eq, PartialEq, Debug, Default)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
     struct TestFr([u8; 32]);
 
     impl ZerokitHasher for Keccak256 {
-        type Fr = TestFr;
+        type Scalar = TestFr;
 
-        fn hash(input: &[Self::Fr]) -> Self::Fr {
+        fn hash(input: &[Self::Scalar]) -> Self::Scalar {
             let mut output = [0; 32];
             let mut hasher = Keccak::v256();
             for fr in input {
@@ -26,20 +24,6 @@ mod test {
             }
             hasher.finalize(&mut output);
             TestFr(output)
-        }
-    }
-
-    impl Display for TestFr {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "{}", hex::encode(self.0.as_slice()))
-        }
-    }
-
-    impl FromStr for TestFr {
-        type Err = std::string::FromUtf8Error;
-
-        fn from_str(s: &str) -> Result<Self, Self::Err> {
-            Ok(TestFr(s.as_bytes().try_into().unwrap()))
         }
     }
 
@@ -229,7 +213,7 @@ mod test {
             .set_range(0, [10, 20, 30, 40].map(TestFr::from).into_iter())
             .unwrap();
         tree_full
-            .override_range(1, [7, 8].map(TestFr::from), std::iter::empty::<usize>())
+            .override_range(1, [7, 8].map(TestFr::from), std::iter::empty())
             .unwrap();
         for (i, &v) in [10u32, 7, 8, 40].iter().enumerate() {
             assert_eq!(tree_full.get(i).unwrap(), TestFr::from(v), "full leaf {i}");
@@ -242,7 +226,7 @@ mod test {
             .set_range(0, [10, 20, 30, 40].map(TestFr::from).into_iter())
             .unwrap();
         tree_full
-            .override_range(0, std::iter::empty::<TestFr>(), [1usize, 3])
+            .override_range(0, std::iter::empty(), [1usize, 3])
             .unwrap();
         for (i, &v) in [10u32, 0, 30, 0].iter().enumerate() {
             assert_eq!(tree_full.get(i).unwrap(), TestFr::from(v), "full leaf {i}");
@@ -255,7 +239,7 @@ mod test {
             .set_range(0, [10, 20].map(TestFr::from).into_iter())
             .unwrap();
         assert!(matches!(
-            tree_full.override_range(0, std::iter::empty::<TestFr>(), std::iter::empty::<usize>()),
+            tree_full.override_range(0, std::iter::empty(), std::iter::empty()),
             Err(ZerokitMerkleTreeError::EmptyOverrideArgs)
         ));
 
@@ -272,7 +256,7 @@ mod test {
         // Validation: start + leaves.len() > capacity -> RangeTooLarge.
         let mut tree_full = default_full_merkle_tree(2);
         assert!(matches!(
-            tree_full.override_range(3, [1, 2].map(TestFr::from), std::iter::empty::<usize>()),
+            tree_full.override_range(3, [1, 2].map(TestFr::from), std::iter::empty()),
             Err(ZerokitMerkleTreeError::RangeTooLarge)
         ));
 
@@ -282,7 +266,7 @@ mod test {
             tree_full.override_range(
                 usize::MAX,
                 std::iter::once(TestFr::from(1)),
-                std::iter::empty::<usize>()
+                std::iter::empty()
             ),
             Err(ZerokitMerkleTreeError::RangeTooLarge)
         ));
@@ -371,7 +355,7 @@ mod test {
             .set_range(0, [10, 20, 30, 40].map(TestFr::from).into_iter())
             .unwrap();
         tree_opt
-            .override_range(1, [7, 8].map(TestFr::from), std::iter::empty::<usize>())
+            .override_range(1, [7, 8].map(TestFr::from), std::iter::empty())
             .unwrap();
         for (i, &v) in [10u32, 7, 8, 40].iter().enumerate() {
             assert_eq!(tree_opt.get(i).unwrap(), TestFr::from(v), "opt leaf {i}");
@@ -384,7 +368,7 @@ mod test {
             .set_range(0, [10, 20, 30, 40].map(TestFr::from).into_iter())
             .unwrap();
         tree_opt
-            .override_range(0, std::iter::empty::<TestFr>(), [1usize, 3])
+            .override_range(0, std::iter::empty(), [1usize, 3])
             .unwrap();
         for (i, &v) in [10u32, 0, 30, 0].iter().enumerate() {
             assert_eq!(tree_opt.get(i).unwrap(), TestFr::from(v), "opt leaf {i}");
@@ -397,7 +381,7 @@ mod test {
             .set_range(0, [10, 20].map(TestFr::from).into_iter())
             .unwrap();
         assert!(matches!(
-            tree_opt.override_range(0, std::iter::empty::<TestFr>(), std::iter::empty::<usize>()),
+            tree_opt.override_range(0, std::iter::empty(), std::iter::empty()),
             Err(ZerokitMerkleTreeError::EmptyOverrideArgs)
         ));
 
@@ -414,7 +398,7 @@ mod test {
         // Validation: start + leaves.len() > capacity -> RangeTooLarge.
         let mut tree_opt = default_optimal_merkle_tree(2);
         assert!(matches!(
-            tree_opt.override_range(3, [1, 2].map(TestFr::from), std::iter::empty::<usize>()),
+            tree_opt.override_range(3, [1, 2].map(TestFr::from), std::iter::empty()),
             Err(ZerokitMerkleTreeError::RangeTooLarge)
         ));
 
@@ -424,7 +408,7 @@ mod test {
             tree_opt.override_range(
                 usize::MAX,
                 std::iter::once(TestFr::from(1)),
-                std::iter::empty::<usize>()
+                std::iter::empty()
             ),
             Err(ZerokitMerkleTreeError::RangeTooLarge)
         ));

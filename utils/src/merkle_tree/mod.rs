@@ -11,4 +11,4 @@ pub use merkle_tree::{
 };
 pub use optimal_merkle_tree::{OptimalMerkleConfig, OptimalMerkleProof, OptimalMerkleTree};
 
-pub use crate::hasher::{FrOf, ZerokitHasher};
+pub use crate::hasher::ZerokitHasher;

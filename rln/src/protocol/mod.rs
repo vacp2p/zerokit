@@ -2,6 +2,7 @@
 
 mod keygen;
 mod proof;
+mod secret;
 mod serialize;
 mod slashing;
 mod witness;

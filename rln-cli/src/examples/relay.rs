@@ -92,26 +92,28 @@ impl RLNSystem {
         }
 
         println!("Registered users:");
-        for (index, identity) in &self.local_identities {
+        for (index, identity_keys) in &self.local_identities {
             println!("User: {index}");
-            println!("+ Identity secret: {}", *identity.identity_secret());
-            println!("+ Identity commitment: {}", identity.id_commitment());
+            println!("+ Identity secret: {}", *identity_keys.identity_secret());
+            println!("+ Identity commitment: {}", identity_keys.id_commitment());
             println!();
         }
     }
 
     fn register_user(&mut self) -> Result<usize> {
         let index = self.rln.leaves_set();
-        let identity = IdentityKeys::generate::<PoseidonHash>();
+        let identity_keys = IdentityKeys::generate::<PoseidonHash>();
 
-        let rate_commitment =
-            Hasher::<PoseidonHash>::hash_pair(identity.id_commitment(), Fr::from(MESSAGE_LIMIT));
+        let rate_commitment = Hasher::<PoseidonHash>::hash_pair(
+            identity_keys.id_commitment(),
+            Fr::from(MESSAGE_LIMIT),
+        );
         match self.rln.set_next_leaf(rate_commitment) {
             Ok(_) => {
                 println!("Registered user: {index}");
-                println!("+ Identity secret: {}", *identity.identity_secret());
-                println!("+ Identity commitment: {}", identity.id_commitment());
-                self.local_identities.insert(index, identity);
+                println!("+ Identity secret: {}", *identity_keys.identity_secret());
+                println!("+ Identity commitment: {}", identity_keys.id_commitment());
+                self.local_identities.insert(index, identity_keys);
             }
             Err(_) => {
                 println!("Maximum user limit reached: 2^{TREE_DEPTH}");
@@ -128,8 +130,8 @@ impl RLNSystem {
         signal: &str,
         external_nullifier: Fr,
     ) -> Result<RLNProofValues> {
-        let identity = match self.local_identities.get(&user_index) {
-            Some(identity) => identity,
+        let identity_keys = match self.local_identities.get(&user_index) {
+            Some(identity_keys) => identity_keys,
             None => return Err(format!("User {user_index} not found").into()),
         };
 
@@ -137,7 +139,7 @@ impl RLNSystem {
         let x = hash_to_field_le(signal.as_bytes());
 
         let witness = RLNWitnessInput::new_single()
-            .identity_secret(identity.identity_secret())
+            .identity_secret(identity_keys.identity_secret())
             .user_message_limit(Fr::from(MESSAGE_LIMIT))
             .path_elements(merkle_proof.get_path_elements())
             .identity_path_index(merkle_proof.get_path_index())
@@ -187,13 +189,15 @@ impl RLNSystem {
 
         match previous_proof_values.recover_secret(current_proof_values) {
             Ok(leaked_identity_secret) => {
-                if let Some((user_index, identity)) = self
+                if let Some((user_index, identity_keys)) = self
                     .local_identities
                     .iter()
-                    .find(|(_, identity)| identity.identity_secret() == leaked_identity_secret)
-                    .map(|(index, identity)| (*index, identity))
+                    .find(|(_, identity_keys)| {
+                        identity_keys.identity_secret() == leaked_identity_secret
+                    })
+                    .map(|(index, identity_keys)| (*index, identity_keys))
                 {
-                    let real_identity_secret = identity.identity_secret();
+                    let real_identity_secret = identity_keys.identity_secret();
                     if leaked_identity_secret != real_identity_secret {
                         Err("Identity secret mismatch: leaked_identity_secret != real_identity_secret".into())
                     } else {

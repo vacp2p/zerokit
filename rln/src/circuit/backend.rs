@@ -7,15 +7,15 @@ use super::{Curve, Graph, Zkey};
 use crate::circuit::Fr;
 
 /// The arkworks Groth16 proving backend over the RLN circuit with a specific hash function `H`.
-#[derive(Clone, Debug)]
-pub struct ArkGroth16Backend<H: ZerokitHasher<Fr = Fr>> {
+#[derive(Debug, Clone)]
+pub struct ArkGroth16Backend<H: ZerokitHasher<Scalar = Fr>> {
     pub(crate) zkey: Arc<Zkey>,
     pub(crate) graph: Arc<Graph>,
     pub(crate) pvk: ArkPreparedVerifyingKey<Curve>,
     _hasher: PhantomData<H>,
 }
 
-impl<H: ZerokitHasher<Fr = Fr>> ArkGroth16Backend<H> {
+impl<H: ZerokitHasher<Scalar = Fr>> ArkGroth16Backend<H> {
     pub fn new(zkey: impl Into<Arc<Zkey>>, graph: impl Into<Arc<Graph>>) -> Self {
         let zkey = zkey.into();
         let graph = graph.into();

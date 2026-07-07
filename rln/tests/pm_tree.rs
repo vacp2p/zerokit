@@ -28,7 +28,7 @@ mod test {
     }
 
     // A simple in-memory backend for testing the generic PmTree over any Database.
-    #[derive(Default, Clone)]
+    #[derive(Clone, Default)]
     struct MemConfig;
     impl FromStr for MemConfig {
         type Err = std::convert::Infallible;
@@ -405,7 +405,7 @@ mod test {
             vec![Fr::from(10), Fr::from(20), Fr::from(30), Fr::from(40)].into_iter(),
         )
         .unwrap();
-        tree.override_range(1, vec![Fr::from(7), Fr::from(8)], Vec::<usize>::new())
+        tree.override_range(1, vec![Fr::from(7), Fr::from(8)], Vec::new())
             .unwrap();
         for (i, &v) in [10u64, 7, 8, 40].iter().enumerate() {
             assert_eq!(tree.get(i).unwrap(), Fr::from(v), "leaf {i}");
@@ -419,8 +419,7 @@ mod test {
             vec![Fr::from(10), Fr::from(20), Fr::from(30), Fr::from(40)].into_iter(),
         )
         .unwrap();
-        tree.override_range(0, Vec::<Fr>::new(), vec![1usize, 3])
-            .unwrap();
+        tree.override_range(0, Vec::new(), vec![1usize, 3]).unwrap();
         for (i, &v) in [10u64, 0, 30, 0].iter().enumerate() {
             assert_eq!(tree.get(i).unwrap(), Fr::from(v), "leaf {i}");
         }
@@ -431,7 +430,7 @@ mod test {
         tree.set_range(0, vec![Fr::from(10), Fr::from(20)].into_iter())
             .unwrap();
         assert!(matches!(
-            tree.override_range(0, Vec::<Fr>::new(), Vec::<usize>::new()),
+            tree.override_range(0, Vec::new(), Vec::new()),
             Err(PmTreeError::MerkleTree(
                 ZerokitMerkleTreeError::EmptyOverrideArgs
             ))
@@ -451,7 +450,7 @@ mod test {
         // Validation: start + leaves.len() > capacity -> RangeTooLarge.
         let mut tree = PmTree::<SledDB, PoseidonHash>::default(2).unwrap();
         assert!(matches!(
-            tree.override_range(3, vec![Fr::from(1), Fr::from(2)], Vec::<usize>::new()),
+            tree.override_range(3, vec![Fr::from(1), Fr::from(2)], Vec::new()),
             Err(PmTreeError::MerkleTree(
                 ZerokitMerkleTreeError::RangeTooLarge
             ))
@@ -460,7 +459,7 @@ mod test {
         // Validation: start + leaves.len() overflows usize -> RangeTooLarge.
         let mut tree = PmTree::<SledDB, PoseidonHash>::default(2).unwrap();
         assert!(matches!(
-            tree.override_range(usize::MAX, vec![Fr::from(1)], Vec::<usize>::new()),
+            tree.override_range(usize::MAX, vec![Fr::from(1)], Vec::new()),
             Err(PmTreeError::MerkleTree(
                 ZerokitMerkleTreeError::RangeTooLarge
             ))

@@ -42,7 +42,7 @@ pub(crate) fn u256_to_fr(x: &U256) -> Result<Fr, String> {
         .ok_or_else(|| "Failed to convert U256 to Fr".to_string())
 }
 
-#[derive(Hash, PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) enum Operation {
     Mul,
     Div,
@@ -168,7 +168,7 @@ impl From<&Operation> for proto::DuoOp {
     }
 }
 
-#[derive(Hash, PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) enum UnoOperation {
     Neg,
     Id, // identity - just return self
@@ -203,7 +203,7 @@ impl From<&UnoOperation> for proto::UnoOp {
     }
 }
 
-#[derive(Hash, PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) enum TresOperation {
     TernCond,
 }

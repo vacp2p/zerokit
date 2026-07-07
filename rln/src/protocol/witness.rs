@@ -15,7 +15,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum RLNWitnessInput {
     Single(RLNWitnessInputSingle),
     Multi(RLNWitnessInputMulti),
@@ -365,7 +365,7 @@ impl CalcWitnessPartial for RLNPartialWitnessInput {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNWitnessInputSingle {
     pub(crate) identity_secret: SecretFr,
     pub(crate) user_message_limit: Fr,
@@ -376,7 +376,7 @@ pub struct RLNWitnessInputSingle {
     pub(crate) message_id: Fr,
 }
 
-#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNWitnessInputMulti {
     pub(crate) identity_secret: SecretFr,
     pub(crate) user_message_limit: Fr,
@@ -388,7 +388,7 @@ pub struct RLNWitnessInputMulti {
     pub(crate) selector_used: Vec<bool>,
 }
 
-#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNPartialWitnessInput {
     pub(crate) identity_secret: SecretFr,
     pub(crate) user_message_limit: Fr,

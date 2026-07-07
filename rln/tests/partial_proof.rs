@@ -12,7 +12,7 @@ use ark_std::{
 use rln::partial_proof::{Groth16Partial, PartialAssignment};
 
 // Simple dummy multiplication circuit.
-#[derive(Copy, Clone)]
+#[derive(Clone, Copy)]
 struct MulCircuit<F: Field> {
     a: Option<F>,
     b: Option<F>,

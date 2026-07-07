@@ -14,7 +14,7 @@ use ark_std::{marker::PhantomData, ops::Mul, rand::RngCore, vec::Vec, UniformRan
 
 /// A partial assignment (witness).
 /// `None` means "unknown" or changing part of the witness, `Some` means fixed and can be precomputed.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PartialAssignment<F: PrimeField> {
     /// Assignment entries, ordered as (public inputs excluding 1) || (witness/aux)
     pub values: Vec<Option<F>>,
@@ -28,7 +28,7 @@ impl<F: PrimeField> PartialAssignment<F> {
 }
 
 /// Precomputed partial proof elements for a given `PartialAssignment`
-#[derive(Clone, Debug, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct PartialProof<E: Pairing> {
     /// For each entry in `PartialAssignment::values`.
     pub mask: Vec<bool>,

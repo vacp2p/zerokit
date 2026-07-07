@@ -59,7 +59,7 @@ mod test {
 
         // map (key: what to hash, value: expected value)
         for (k, v) in map.into_iter() {
-            let hasher = Poseidon::<Fr>::from(&ROUND_PARAMS);
+            let hasher = Poseidon::from(&ROUND_PARAMS);
             let h = hasher.hash(&[k]);
             assert_eq!(h.unwrap(), v);
         }
@@ -123,7 +123,7 @@ mod test {
         ]);
 
         for (k, v) in map.into_iter() {
-            let hasher = Poseidon::<Fr>::from(&ROUND_PARAMS);
+            let hasher = Poseidon::from(&ROUND_PARAMS);
             let h = hasher.hash(&[k.0, k.1]);
             assert_eq!(h.unwrap(), v);
         }

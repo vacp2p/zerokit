@@ -5,10 +5,8 @@ use rand_chacha::ChaCha20Rng;
 use tiny_keccak::{Hasher as _, Keccak};
 use zerokit_utils::hasher::ZerokitHasher;
 
-use crate::{
-    circuit::{Fr, SecretFr},
-    hashers::Hasher,
-};
+use super::secret::{compute_id_commitment, compute_identity_secret};
+use crate::circuit::{Fr, SecretFr};
 
 /// Derives a 32-byte ChaCha20 seed from an arbitrary-length signal using Keccak-256.
 fn chacha_seed(signal: &[u8]) -> [u8; 32] {
@@ -33,10 +31,10 @@ pub struct IdentityKeys {
 impl IdentityKeys {
     /// Generates a random RLN identity using a cryptographically secure RNG and the
     /// protocol hash `H`.
-    pub fn generate<H: ZerokitHasher<Fr = Fr>>() -> Self {
+    pub fn generate<H: ZerokitHasher<Scalar = Fr>>() -> Self {
         let mut rng = thread_rng();
         let identity_secret = SecretFr::rand(&mut rng);
-        let id_commitment = Hasher::<H>::compute_id_commitment(&identity_secret);
+        let id_commitment = compute_id_commitment::<H>(&identity_secret);
         Self {
             identity_secret,
             id_commitment,
@@ -47,10 +45,10 @@ impl IdentityKeys {
     ///
     /// Uses ChaCha20 RNG seeded with the Keccak-256 hash of the input.
     /// The same input always produces the same identity.
-    pub fn generate_seeded<H: ZerokitHasher<Fr = Fr>>(seed: &[u8]) -> Self {
+    pub fn generate_seeded<H: ZerokitHasher<Scalar = Fr>>(seed: &[u8]) -> Self {
         let mut rng = ChaCha20Rng::from_seed(chacha_seed(seed));
         let identity_secret = SecretFr::rand(&mut rng);
-        let id_commitment = Hasher::<H>::compute_id_commitment(&identity_secret);
+        let id_commitment = compute_id_commitment::<H>(&identity_secret);
         Self {
             identity_secret,
             id_commitment,
@@ -86,7 +84,7 @@ pub struct ExtendedIdentityKeys {
 impl ExtendedIdentityKeys {
     /// Generates a random extended RLN identity using a cryptographically secure RNG and the
     /// protocol hash `H`.
-    pub fn generate<H: ZerokitHasher<Fr = Fr>>() -> Self {
+    pub fn generate<H: ZerokitHasher<Scalar = Fr>>() -> Self {
         let mut rng = thread_rng();
         let identity_trapdoor = SecretFr::rand(&mut rng);
         let identity_nullifier = SecretFr::rand(&mut rng);
@@ -97,7 +95,7 @@ impl ExtendedIdentityKeys {
     ///
     /// Uses ChaCha20 RNG seeded with the Keccak-256 hash of the input.
     /// The same input always produces the same identity.
-    pub fn generate_seeded<H: ZerokitHasher<Fr = Fr>>(seed: &[u8]) -> Self {
+    pub fn generate_seeded<H: ZerokitHasher<Scalar = Fr>>(seed: &[u8]) -> Self {
         let mut rng = ChaCha20Rng::from_seed(chacha_seed(seed));
         let identity_trapdoor = SecretFr::rand(&mut rng);
         let identity_nullifier = SecretFr::rand(&mut rng);
@@ -105,13 +103,12 @@ impl ExtendedIdentityKeys {
     }
 
     /// Builds the extended identity from its two source secrets using the protocol hash `H`.
-    fn from_secrets<H: ZerokitHasher<Fr = Fr>>(
+    fn from_secrets<H: ZerokitHasher<Scalar = Fr>>(
         identity_trapdoor: SecretFr,
         identity_nullifier: SecretFr,
     ) -> Self {
-        let identity_secret =
-            Hasher::<H>::compute_identity_secret(&identity_trapdoor, &identity_nullifier);
-        let id_commitment = Hasher::<H>::compute_id_commitment(&identity_secret);
+        let identity_secret = compute_identity_secret::<H>(&identity_trapdoor, &identity_nullifier);
+        let id_commitment = compute_id_commitment::<H>(&identity_secret);
         Self {
             identity_trapdoor,
             identity_nullifier,

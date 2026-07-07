@@ -1,4 +1,4 @@
-use std::{fmt::Display, hint::black_box, str::FromStr, sync::LazyLock};
+use std::{hint::black_box, sync::LazyLock};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use tiny_keccak::{Hasher as _, Keccak};
@@ -7,16 +7,16 @@ use zerokit_utils::merkle_tree::{
     ZerokitMerkleProof, ZerokitMerkleTree,
 };
 
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 struct Keccak256;
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 struct TestFr([u8; 32]);
 
 impl ZerokitHasher for Keccak256 {
-    type Fr = TestFr;
+    type Scalar = TestFr;
 
-    fn hash(input: &[Self::Fr]) -> Self::Fr {
+    fn hash(input: &[Self::Scalar]) -> Self::Scalar {
         let mut output = [0; 32];
         let mut hasher = Keccak::v256();
         for fr in input {
@@ -24,20 +24,6 @@ impl ZerokitHasher for Keccak256 {
         }
         hasher.finalize(&mut output);
         TestFr(output)
-    }
-}
-
-impl Display for TestFr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", String::from_utf8_lossy(self.0.as_slice()))
-    }
-}
-
-impl FromStr for TestFr {
-    type Err = std::string::FromUtf8Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(TestFr(s.as_bytes().try_into().unwrap()))
     }
 }
 

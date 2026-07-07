@@ -4,10 +4,9 @@ use std::{marker::PhantomData, sync::LazyLock};
 
 use ark_ff::PrimeField;
 use tiny_keccak::{Hasher as _, Keccak};
-use zeroize::Zeroizing;
 use zerokit_utils::{hasher::ZerokitHasher, poseidon::Poseidon};
 
-use crate::circuit::{Fr, SecretFr};
+use crate::circuit::Fr;
 
 /// TODO(backlog): Generate these parameters
 /// These indexed constants hardcode the supported round parameters tuples (t, RF, RN, SKIP_MATRICES) for the Bn254 scalar field.
@@ -24,14 +23,14 @@ const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
 ];
 
 /// The Poseidon instance over the Bn254 scalar field, parameterized by [`rln::hashers::ROUND_PARAMS`].
-static POSEIDON: LazyLock<Poseidon<Fr>> = LazyLock::new(|| Poseidon::<Fr>::from(&ROUND_PARAMS));
+static POSEIDON: LazyLock<Poseidon<Fr>> = LazyLock::new(|| Poseidon::from(&ROUND_PARAMS));
 
 /// The Poseidon hash function over the Bn254 scalar field.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct PoseidonHash;
 
 impl ZerokitHasher for PoseidonHash {
-    type Fr = Fr;
+    type Scalar = Fr;
 
     fn hash(input: &[Fr]) -> Fr {
         POSEIDON
@@ -43,9 +42,9 @@ impl ZerokitHasher for PoseidonHash {
 /// The RLN hashing facade. All hashing in the crate goes through this one type.
 ///
 /// For example, `Hasher::<PoseidonHash>::hash_pair(left, right)`.
-pub struct Hasher<H: ZerokitHasher<Fr = Fr>>(PhantomData<H>);
+pub struct Hasher<H>(PhantomData<H>);
 
-impl<H: ZerokitHasher<Fr = Fr>> Hasher<H> {
+impl<H: ZerokitHasher<Scalar = Fr>> Hasher<H> {
     /// Hashes a single field element.
     pub fn hash_single(input: Fr) -> Fr {
         H::hash(&[input])
@@ -59,27 +58,6 @@ impl<H: ZerokitHasher<Fr = Fr>> Hasher<H> {
     /// Hashes a list of field elements.
     pub fn hash_list(input: &[Fr]) -> Fr {
         H::hash(input)
-    }
-
-    /// Computes the identity commitment `H(identity_secret)` from the identity secret.
-    pub fn compute_id_commitment(secret: &SecretFr) -> Fr {
-        let to_hash = Zeroizing::new([**secret]);
-        H::hash(&*to_hash)
-    }
-
-    /// Computes the Shamir share slope `a_1 = H(identity_secret, external_nullifier, message_id)`.
-    pub fn compute_share_slope(secret: &SecretFr, second: Fr, third: Fr) -> Fr {
-        let to_hash = Zeroizing::new([**secret, second, third]);
-        H::hash(&*to_hash)
-    }
-
-    /// Computes the identity secret `H(identity_trapdoor, identity_nullifier)` from the two source secrets.
-    pub fn compute_identity_secret(left: &SecretFr, right: &SecretFr) -> SecretFr {
-        let to_hash = Zeroizing::new([**left, **right]);
-        let mut hashed = H::hash(&*to_hash);
-
-        // SecretFr::from wipes the intermediate hash result after wrapping it
-        SecretFr::from(&mut hashed)
     }
 }
 
@@ -125,24 +103,6 @@ mod test {
         assert_eq!(
             Hasher::<PoseidonHash>::hash_list(&[first, second, third]),
             PoseidonHash::hash(&[first, second, third])
-        );
-    }
-
-    #[test]
-    fn test_facade_secret_methods_match_concrete_poseidon() {
-        let secret = SecretFr::from(&mut Fr::from(42));
-        let other = SecretFr::from(&mut Fr::from(43));
-        assert_eq!(
-            Hasher::<PoseidonHash>::compute_id_commitment(&secret),
-            PoseidonHash::hash(&[*secret])
-        );
-        assert_eq!(
-            *Hasher::<PoseidonHash>::compute_identity_secret(&secret, &other),
-            PoseidonHash::hash(&[*secret, *other])
-        );
-        assert_eq!(
-            Hasher::<PoseidonHash>::compute_share_slope(&secret, Fr::from(5), Fr::from(6)),
-            PoseidonHash::hash(&[*secret, Fr::from(5), Fr::from(6)])
         );
     }
 }

@@ -9,7 +9,7 @@ use serde_json::Value;
 use sled::{Config, Db, Mode};
 use tempfile::Builder;
 use zerokit_utils::{
-    hasher::{FrOf, ZerokitHasher},
+    hasher::ZerokitHasher,
     merkle_tree::{FromConfigError, ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError},
 };
 
@@ -25,7 +25,8 @@ const MAX_DEPTH: usize = 31;
 pub type PmTreeMode = Mode;
 
 impl PmTreeHasher for PoseidonHash {
-    type Fr = FrOf<PoseidonHash>;
+    // TODO(pmtree): rename `Fr` to `Scalar` in the `PmTreeHasher` trait.
+    type Fr = <PoseidonHash as ZerokitHasher>::Scalar;
 
     fn serialize(value: Self::Fr) -> PmtreeResult<pmtree::Value> {
         let mut bytes = Vec::with_capacity(value.compressed_size());
@@ -47,7 +48,7 @@ impl PmTreeHasher for PoseidonHash {
 }
 
 /// A trait for the configuration of [`PmTree`] backends.
-pub trait PmTreeBackendConfig: Default + FromStr + Clone {
+pub trait PmTreeBackendConfig: Clone + Default + FromStr {
     /// The tree depth this config expects; rechecked against the requested depth on reload.
     fn tree_depth(&self) -> Option<usize>;
 }
@@ -210,7 +211,7 @@ impl<D, H> ZerokitMerkleTree for PmTree<D, H>
 where
     D: Database,
     D::Config: PmTreeBackendConfig,
-    H: ZerokitHasher + PmTreeHasher<Fr = FrOf<H>>,
+    H: ZerokitHasher + PmTreeHasher<Fr = H::Scalar>,
 {
     type Proof = PmTreeProof<H>;
     type Hasher = H;
@@ -225,7 +226,7 @@ where
     /// Creates a new tree, loading the existing one at the configured path if present
     fn new(
         depth: usize,
-        _default_leaf: FrOf<Self::Hasher>,
+        _default_leaf: H::Scalar,
         config: Self::Config,
     ) -> Result<Self, Self::Error> {
         if depth >= usize::BITS as usize || depth > MAX_DEPTH {
@@ -236,7 +237,7 @@ where
                 return Err(ZerokitMerkleTreeError::DepthMismatch.into());
             }
         }
-        let tree_loaded = MerkleTree::<D, H>::load(config.clone());
+        let tree_loaded = MerkleTree::load(config.clone());
         let tree = match tree_loaded {
             Ok(tree) => {
                 if tree.depth() != depth {
@@ -244,7 +245,7 @@ where
                 }
                 tree
             }
-            Err(_) => MerkleTree::<D, H>::new(depth, config)?,
+            Err(_) => MerkleTree::new(depth, config)?,
         };
 
         let capacity = 1usize
@@ -286,16 +287,12 @@ where
     }
 
     /// Returns the root of the tree
-    fn root(&self) -> FrOf<Self::Hasher> {
+    fn root(&self) -> H::Scalar {
         self.tree.root()
     }
 
     /// Returns the root of the subtree at `level` (`0` = root, `depth` = leaf) on the path to leaf `index`.
-    fn get_subtree_root(
-        &self,
-        level: usize,
-        index: usize,
-    ) -> Result<FrOf<Self::Hasher>, Self::Error> {
+    fn get_subtree_root(&self, level: usize, index: usize) -> Result<H::Scalar, Self::Error> {
         if level > self.depth() {
             return Err(ZerokitMerkleTreeError::LevelOutOfBounds.into());
         }
@@ -306,7 +303,7 @@ where
     }
 
     /// Sets a leaf at the specified tree index
-    fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>) -> Result<(), Self::Error> {
+    fn set(&mut self, index: usize, leaf: H::Scalar) -> Result<(), Self::Error> {
         if index >= self.capacity() {
             return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds.into());
         }
@@ -316,7 +313,7 @@ where
     }
 
     /// Sets multiple leaves from the specified tree index
-    fn set_range<I: IntoIterator<Item = FrOf<Self::Hasher>>>(
+    fn set_range<I: IntoIterator<Item = H::Scalar>>(
         &mut self,
         start: usize,
         values: I,
@@ -336,7 +333,7 @@ where
     }
 
     /// Get a leaf from the specified tree index
-    fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>, Self::Error> {
+    fn get(&self, index: usize) -> Result<H::Scalar, Self::Error> {
         if index >= self.capacity() {
             return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds.into());
         }
@@ -358,7 +355,7 @@ where
     /// Overrides a range atomically, reusing the shared [`Self::validate_override_range`].
     ///
     /// The resets and contiguous writes commit in one `pmtree` `batch_set`, so a persistent tree stays crash-safe.
-    fn override_range<I: IntoIterator<Item = FrOf<Self::Hasher>>, J: IntoIterator<Item = usize>>(
+    fn override_range<I: IntoIterator<Item = H::Scalar>, J: IntoIterator<Item = usize>>(
         &mut self,
         start: usize,
         leaves: I,
@@ -392,7 +389,7 @@ where
     }
 
     /// Sets a leaf at the next available index
-    fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<(), Self::Error> {
+    fn update_next(&mut self, leaf: H::Scalar) -> Result<(), Self::Error> {
         if self.leaves_set() >= self.capacity() {
             return Err(ZerokitMerkleTreeError::RangeTooLarge.into());
         }
@@ -422,11 +419,7 @@ where
     }
 
     /// Verifies a Merkle proof with respect to the input leaf and the tree root
-    fn verify(
-        &self,
-        leaf: &FrOf<Self::Hasher>,
-        merkle_proof: &Self::Proof,
-    ) -> Result<bool, Self::Error> {
+    fn verify(&self, leaf: &H::Scalar, merkle_proof: &Self::Proof) -> Result<bool, Self::Error> {
         if self.tree.verify(leaf, &merkle_proof.proof) {
             Ok(true)
         } else {
@@ -458,7 +451,7 @@ where
 
 impl<H> ZerokitMerkleProof for PmTreeProof<H>
 where
-    H: ZerokitHasher + PmTreeHasher<Fr = FrOf<H>>,
+    H: ZerokitHasher + PmTreeHasher<Fr = H::Scalar>,
 {
     type Index = u8;
     type Hasher = H;
@@ -471,7 +464,7 @@ where
         self.proof.leaf_index()
     }
 
-    fn get_path_elements(&self) -> Vec<FrOf<Self::Hasher>> {
+    fn get_path_elements(&self) -> Vec<H::Scalar> {
         self.proof.get_path_elements()
     }
 
@@ -479,7 +472,7 @@ where
         self.proof.get_path_index()
     }
 
-    fn compute_root_from(&self, leaf: &FrOf<Self::Hasher>) -> FrOf<Self::Hasher> {
+    fn compute_root_from(&self, leaf: &H::Scalar) -> H::Scalar {
         self.proof.compute_root_from(leaf)
     }
 }

@@ -202,16 +202,16 @@ mod test {
     #[test]
     fn test_partial_and_finish_single() {
         let rln = make_rln(default_zkey_single(), default_graph_single());
-        let id = IdentityKeys::generate::<PoseidonHash>().identity_secret();
+        let id_secret = IdentityKeys::generate::<PoseidonHash>().identity_secret();
         let witness = single_witness(
-            id.clone(),
+            id_secret.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(42u64),
             Fr::from(100u64),
         );
         let partial_witness = RLNPartialWitnessInput::new()
-            .identity_secret(id)
+            .identity_secret(id_secret)
             .user_message_limit(Fr::from(10u64))
             .path_elements(default_path())
             .identity_path_index(vec![0u8; DEFAULT_TREE_DEPTH])
@@ -225,9 +225,9 @@ mod test {
     #[test]
     fn test_partial_and_finish_multi() {
         let rln = make_rln(default_zkey_multi(), default_graph_multi());
-        let id = IdentityKeys::generate::<PoseidonHash>().identity_secret();
+        let id_secret = IdentityKeys::generate::<PoseidonHash>().identity_secret();
         let witness = multi_witness(
-            id.clone(),
+            id_secret.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
@@ -235,7 +235,7 @@ mod test {
             Fr::from(100u64),
         );
         let partial_witness = RLNPartialWitnessInput::new()
-            .identity_secret(id)
+            .identity_secret(id_secret)
             .user_message_limit(Fr::from(10u64))
             .path_elements(default_path())
             .identity_path_index(vec![0u8; DEFAULT_TREE_DEPTH])
@@ -249,9 +249,9 @@ mod test {
     #[test]
     fn test_partial_proof_values_match_full_proof_values() {
         let rln = make_rln(default_zkey_single(), default_graph_single());
-        let id = IdentityKeys::generate::<PoseidonHash>().identity_secret();
+        let id_secret = IdentityKeys::generate::<PoseidonHash>().identity_secret();
         let witness = single_witness(
-            id.clone(),
+            id_secret,
             default_path(),
             Fr::from(1u64),
             Fr::from(42u64),
@@ -269,36 +269,36 @@ mod test {
 
     #[test]
     fn test_recover_secret_single() {
-        let id = IdentityKeys::generate::<PoseidonHash>().identity_secret();
+        let id_secret = IdentityKeys::generate::<PoseidonHash>().identity_secret();
         let v1 = RLNProofValues::from_witness::<PoseidonHash>(&single_witness(
-            id.clone(),
+            id_secret.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             Fr::from(200u64),
         ));
         let v2 = RLNProofValues::from_witness::<PoseidonHash>(&single_witness(
-            id.clone(),
+            id_secret.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(22u64),
             Fr::from(200u64),
         ));
-        assert_eq!(*v1.recover_secret(&v2).unwrap(), *id);
+        assert_eq!(*v1.recover_secret(&v2).unwrap(), *id_secret);
     }
 
     #[test]
     fn test_recover_secret_single_mismatched_nullifier_fails() {
-        let id = IdentityKeys::generate::<PoseidonHash>().identity_secret();
+        let id_secret = IdentityKeys::generate::<PoseidonHash>().identity_secret();
         let v1 = RLNProofValues::from_witness::<PoseidonHash>(&single_witness(
-            id.clone(),
+            id_secret.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             Fr::from(200u64),
         ));
         let v2 = RLNProofValues::from_witness::<PoseidonHash>(&single_witness(
-            id,
+            id_secret,
             default_path(),
             Fr::from(2u64),
             Fr::from(22u64),
@@ -309,9 +309,9 @@ mod test {
 
     #[test]
     fn test_recover_secret_multi() {
-        let id = IdentityKeys::generate::<PoseidonHash>().identity_secret();
+        let id_secret = IdentityKeys::generate::<PoseidonHash>().identity_secret();
         let v1 = RLNProofValues::from_witness::<PoseidonHash>(&multi_witness(
-            id.clone(),
+            id_secret.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
@@ -319,24 +319,24 @@ mod test {
             Fr::from(200u64),
         ));
         let v2 = RLNProofValues::from_witness::<PoseidonHash>(&multi_witness(
-            id.clone(),
+            id_secret.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(22u64),
             Fr::from(200u64),
         ));
-        assert_eq!(*v1.recover_secret(&v2).unwrap(), *id);
+        assert_eq!(*v1.recover_secret(&v2).unwrap(), *id_secret);
     }
 
     #[test]
     fn test_recover_secret_multi_mismatched_nullifier_fails() {
-        let id = IdentityKeys::generate::<PoseidonHash>().identity_secret();
+        let id_secret = IdentityKeys::generate::<PoseidonHash>().identity_secret();
         let ids2: Vec<Fr> = (1..=DEFAULT_MAX_OUT)
             .map(|i| Fr::from((i + DEFAULT_MAX_OUT) as u64))
             .collect();
         let v1 = RLNProofValues::from_witness::<PoseidonHash>(&multi_witness(
-            id.clone(),
+            id_secret.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
@@ -344,7 +344,7 @@ mod test {
             Fr::from(200u64),
         ));
         let v2 = RLNProofValues::from_witness::<PoseidonHash>(&multi_witness(
-            id,
+            id_secret,
             default_path(),
             ids2,
             vec![true; DEFAULT_MAX_OUT],
@@ -356,25 +356,25 @@ mod test {
 
     #[test]
     fn test_recover_secret_cross_mode() {
-        let id = IdentityKeys::generate::<PoseidonHash>().identity_secret();
+        let id_secret = IdentityKeys::generate::<PoseidonHash>().identity_secret();
         let ext = Fr::from(300u64);
         let sv = RLNProofValues::from_witness::<PoseidonHash>(&single_witness(
-            id.clone(),
+            id_secret.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             ext,
         ));
         let mv = RLNProofValues::from_witness::<PoseidonHash>(&multi_witness(
-            id.clone(),
+            id_secret.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(22u64),
             ext,
         ));
-        assert_eq!(*sv.recover_secret(&mv).unwrap(), *id);
-        assert_eq!(*mv.recover_secret(&sv).unwrap(), *id);
+        assert_eq!(*sv.recover_secret(&mv).unwrap(), *id_secret);
+        assert_eq!(*mv.recover_secret(&sv).unwrap(), *id_secret);
     }
 
     #[test]

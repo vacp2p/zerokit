@@ -86,7 +86,7 @@ impl<T, ZkProof> RLN<Stateful<T>, ZkProof> {
 impl<T, ZkProof> RLN<Stateful<T>, ZkProof>
 where
     T: ZerokitMerkleTree,
-    T::Hasher: ZerokitHasher<Fr = Fr>,
+    T::Hasher: ZerokitHasher<Scalar = Fr>,
 {
     pub fn tree_depth(&self) -> usize {
         self.state.tree.depth()
@@ -248,7 +248,7 @@ impl RLNBuilder<ArkGroth16Backend<PoseidonHash>> {
         #[cfg_attr(target_arch = "wasm32", builder(into))]
         zkey: Arc<Zkey>,
     ) -> RLN<Stateless, ArkGroth16Backend<PoseidonHash>> {
-        RLN::<Stateless, ArkGroth16Backend<PoseidonHash>>::new(ArkGroth16Backend::new(zkey, graph))
+        RLN::<Stateless, _>::new(ArkGroth16Backend::new(zkey, graph))
     }
 
     #[builder(finish_fn = build)]
@@ -267,9 +267,6 @@ impl RLNBuilder<ArkGroth16Backend<PoseidonHash>> {
         #[cfg_attr(target_arch = "wasm32", builder(into))]
         zkey: Arc<Zkey>,
     ) -> RLN<Stateful<State>, ArkGroth16Backend<PoseidonHash>> {
-        RLN::<Stateful<State>, ArkGroth16Backend<PoseidonHash>>::new(
-            tree,
-            ArkGroth16Backend::new(zkey, graph),
-        )
+        RLN::<Stateful<State>, _>::new(tree, ArkGroth16Backend::new(zkey, graph))
     }
 }

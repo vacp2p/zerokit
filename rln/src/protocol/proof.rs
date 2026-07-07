@@ -2,6 +2,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use zerokit_utils::{hasher::ZerokitHasher, merkle_tree::compute_tree_root};
 
 use super::{
+    secret::{compute_id_commitment, compute_share_slope},
     slashing::compute_id_secret,
     witness::{RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle},
     zk::RecoverSecret,
@@ -12,7 +13,7 @@ use crate::{
     hashers::Hasher,
 };
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum RLNProofValues {
     Single(RLNProofValuesSingle),
     Multi(RLNProofValuesMulti),
@@ -77,7 +78,7 @@ impl RLNProofValues {
 }
 
 impl RLNProofValues {
-    pub fn from_witness<H: ZerokitHasher<Fr = Fr>>(witness: &RLNWitnessInput) -> Self {
+    pub fn from_witness<H: ZerokitHasher<Scalar = Fr>>(witness: &RLNWitnessInput) -> Self {
         match witness {
             RLNWitnessInput::Single(w) => {
                 RLNProofValues::Single(RLNProofValuesSingle::from_witness::<H>(w))
@@ -102,7 +103,7 @@ impl RecoverSecret for RLNProofValues {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNProofValuesSingle {
     pub y: Fr,
     pub root: Fr,
@@ -112,13 +113,13 @@ pub struct RLNProofValuesSingle {
 }
 
 impl RLNProofValuesSingle {
-    pub fn from_witness<H: ZerokitHasher<Fr = Fr>>(w: &RLNWitnessInputSingle) -> Self {
-        let id_commitment = Hasher::<H>::compute_id_commitment(&w.identity_secret);
+    pub fn from_witness<H: ZerokitHasher<Scalar = Fr>>(w: &RLNWitnessInputSingle) -> Self {
+        let id_commitment = compute_id_commitment::<H>(&w.identity_secret);
         let leaf = Hasher::<H>::hash_pair(id_commitment, w.user_message_limit);
         let root = compute_tree_root::<H>(leaf, &w.path_elements, &w.identity_path_index);
 
         let a_0 = &w.identity_secret;
-        let a_1 = Hasher::<H>::compute_share_slope(a_0, w.external_nullifier, w.message_id);
+        let a_1 = compute_share_slope::<H>(a_0, w.external_nullifier, w.message_id);
         let y = **a_0 + w.x * a_1;
         let nullifier = Hasher::<H>::hash_single(a_1);
         RLNProofValuesSingle {
@@ -156,7 +157,7 @@ impl RecoverSecret<RLNProofValuesMulti> for RLNProofValuesSingle {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNProofValuesMulti {
     pub ys: Vec<Fr>,
     pub root: Fr,
@@ -167,19 +168,16 @@ pub struct RLNProofValuesMulti {
 }
 
 impl RLNProofValuesMulti {
-    pub fn from_witness<H: ZerokitHasher<Fr = Fr>>(w: &RLNWitnessInputMulti) -> Self {
-        let id_commitment = Hasher::<H>::compute_id_commitment(&w.identity_secret);
+    pub fn from_witness<H: ZerokitHasher<Scalar = Fr>>(w: &RLNWitnessInputMulti) -> Self {
+        let id_commitment = compute_id_commitment::<H>(&w.identity_secret);
         let leaf = Hasher::<H>::hash_pair(id_commitment, w.user_message_limit);
         let root = compute_tree_root::<H>(leaf, &w.path_elements, &w.identity_path_index);
 
         let mut ys = Vec::with_capacity(w.message_ids.len());
         let mut nullifiers = Vec::with_capacity(w.message_ids.len());
         for (message_id, &selected) in w.message_ids.iter().zip(w.selector_used.iter()) {
-            let a_1 = Hasher::<H>::compute_share_slope(
-                &w.identity_secret,
-                w.external_nullifier,
-                *message_id,
-            );
+            let a_1 =
+                compute_share_slope::<H>(&w.identity_secret, w.external_nullifier, *message_id);
             let selector = Fr::from(selected);
             let y = (*w.identity_secret + w.x * a_1) * selector;
             let nullifier = Hasher::<H>::hash_single(a_1) * selector;
@@ -261,7 +259,7 @@ impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNProof {
     pub proof: Proof,
     pub values: RLNProofValues,
