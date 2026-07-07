@@ -17,11 +17,11 @@ proc main() =
   var signal: array[32, uint8] = [1'u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   let x = hashSignal(signal)
-  printCfr("x", x)
+  printFr("x", x)
 
   echo "\nCreating message id"
-  let messageId = ffi_uint_to_cfr(0'u32)
-  printCfr("message id", messageId)
+  let messageId = ffi_uint_to_fr(0'u32)
+  printFr("message id", messageId)
 
   echo "\nCreating RLN witness"
   let witnessResult = createWitness(member, merkleProof, messageId, x,
@@ -97,9 +97,9 @@ proc main() =
   ffi_rln_witness_input_free(deserWitness)
   ffi_vec_u8_free(serWitness)
   ffi_rln_witness_input_free(witness)
-  ffi_cfr_free(messageId)
-  ffi_cfr_free(x)
-  ffi_cfr_free(externalNullifier)
+  ffi_fr_free(messageId)
+  ffi_fr_free(x)
+  ffi_fr_free(externalNullifier)
   ffi_rln_merkle_proof_free(merkleProof)
   memberFree(member)
   ffi_rln_free(rlnInstance)

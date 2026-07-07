@@ -1,16 +1,16 @@
 include "common"
 
-proc createMessageIds(ids: array[maxOut, uint32]): Vec_CFr =
-  result = ffi_vec_cfr_new(csize_t(maxOut))
+proc createMessageIds(ids: array[maxOut, uint32]): Vec_Fr =
+  result = ffi_vec_fr_new(csize_t(maxOut))
   for id in ids:
-    let tmp = ffi_uint_to_cfr(id)
-    ffi_vec_cfr_push(addr result, tmp)
-    ffi_cfr_free(tmp)
+    let tmp = ffi_uint_to_fr(id)
+    ffi_vec_fr_push(addr result, tmp)
+    ffi_fr_free(tmp)
 
 proc createMultiWitness(member: Member,
-    merkleProof: ptr MerkleProof, messageIds: ptr Vec_CFr,
-    selectorUsed: var array[maxOut, bool], x: ptr CFr,
-    externalNullifier: ptr CFr): WitnessResult =
+    merkleProof: ptr MerkleProof, messageIds: ptr Vec_Fr,
+    selectorUsed: var array[maxOut, bool], x: ptr Fr,
+    externalNullifier: ptr Fr): WitnessResult =
   var selectorVec = Vec_bool(dataPtr: addr selectorUsed[0],
       len: csize_t(maxOut), cap: csize_t(maxOut))
   ffi_rln_witness_input_new_multi(member.identitySecret,
@@ -34,13 +34,13 @@ proc main() =
   var signal1: array[32, uint8] = [1'u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   let x1 = hashSignal(signal1)
-  printCfr("x1", x1)
+  printFr("x1", x1)
 
   echo "\nCreating first message ids and selector used"
   echo "  - using 2 out of " & $maxOut & " slots"
   var messageIds1 = createMessageIds([0'u32, 1, 0, 0])
   var selectorUsed1 = [true, true, false, false]
-  printVecCfr("message ids", addr messageIds1)
+  printVecFr("message ids", addr messageIds1)
 
   echo "\nCreating first RLN witness"
   let witness1Result = createMultiWitness(member, merkleProof,
@@ -70,26 +70,26 @@ proc main() =
     ffi_c_string_free(ys1Result.err)
     return
   var ys1 = ys1Result.ok
-  printVecCfr("ys", addr ys1)
-  ffi_vec_cfr_free(ys1)
+  printVecFr("ys", addr ys1)
+  ffi_vec_fr_free(ys1)
   let nullifiers1Result = ffi_rln_proof_values_get_nullifiers(addr proofValues1)
   if nullifiers1Result.err.dataPtr != nil:
     stderr.writeLine("Get nullifiers error: " & asString(nullifiers1Result.err))
     ffi_c_string_free(nullifiers1Result.err)
     return
   var nullifiers1 = nullifiers1Result.ok
-  printVecCfr("nullifiers", addr nullifiers1)
-  ffi_vec_cfr_free(nullifiers1)
+  printVecFr("nullifiers", addr nullifiers1)
+  ffi_vec_fr_free(nullifiers1)
   let proofValues1Root = ffi_rln_proof_values_get_root(addr proofValues1)
-  printCfr("root", proofValues1Root)
-  ffi_cfr_free(proofValues1Root)
+  printFr("root", proofValues1Root)
+  ffi_fr_free(proofValues1Root)
   let proofValues1X = ffi_rln_proof_values_get_x(addr proofValues1)
-  printCfr("x", proofValues1X)
-  ffi_cfr_free(proofValues1X)
+  printFr("x", proofValues1X)
+  ffi_fr_free(proofValues1X)
   let proofValues1ExternalNullifier =
     ffi_rln_proof_values_get_external_nullifier(addr proofValues1)
-  printCfr("external nullifier", proofValues1ExternalNullifier)
-  ffi_cfr_free(proofValues1ExternalNullifier)
+  printFr("external nullifier", proofValues1ExternalNullifier)
+  ffi_fr_free(proofValues1ExternalNullifier)
 
   echo "\nVerifying first proof"
   let verify1Result = verifyStatefulProof(rlnInstance, rlnProof1, x1)
@@ -109,14 +109,14 @@ proc main() =
   var signal2: array[32, uint8] = [11'u8, 12, 13, 14, 15, 16, 17, 18, 19, 20, 0,
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   let x2 = hashSignal(signal2)
-  printCfr("x2", x2)
+  printFr("x2", x2)
 
   echo "\nCreating second message ids and selector used"
   echo "  - using 2 out of " & $maxOut & " slots"
   echo "  - duplicated slot id 1"
   var messageIds2 = createMessageIds([1'u32, 0, 3, 0])
   var selectorUsed2 = [true, false, true, false]
-  printVecCfr("message ids", addr messageIds2)
+  printVecFr("message ids", addr messageIds2)
 
   echo "\nCreating second RLN witness"
   let witness2Result = createMultiWitness(member, merkleProof,
@@ -158,24 +158,24 @@ proc main() =
       ffi_c_string_free(recoverResult.err)
       return
     let recoveredSecret = recoverResult.ok
-    printCfr("recovered secret", recoveredSecret)
-    printCfr("identity secret", member.identitySecret)
+    printSecretFr("recovered secret", recoveredSecret)
+    printSecretFr("identity secret", member.identitySecret)
     echo "  - identity recovered successfully"
-    ffi_cfr_free(recoveredSecret)
+    ffi_secret_fr_free(recoveredSecret)
   else:
     echo "Second proof verification failed"
 
   ffi_rln_proof_values_free(proofValues2)
   ffi_rln_proof_free(rlnProof2)
   ffi_rln_witness_input_free(witness2)
-  ffi_vec_cfr_free(messageIds2)
-  ffi_cfr_free(x2)
+  ffi_vec_fr_free(messageIds2)
+  ffi_fr_free(x2)
   ffi_rln_proof_values_free(proofValues1)
   ffi_rln_proof_free(rlnProof1)
   ffi_rln_witness_input_free(witness1)
-  ffi_vec_cfr_free(messageIds1)
-  ffi_cfr_free(x1)
-  ffi_cfr_free(externalNullifier)
+  ffi_vec_fr_free(messageIds1)
+  ffi_fr_free(x1)
+  ffi_fr_free(externalNullifier)
   ffi_rln_merkle_proof_free(merkleProof)
   memberFree(member)
   ffi_rln_free(rlnInstance)

@@ -34,7 +34,7 @@ fn get_test_witness() -> RLNWitnessInput {
         .unwrap()
 }
 
-pub fn rln_proof_benchmark(c: &mut Criterion) {
+pub fn generate_proof_benchmark(c: &mut Criterion) {
     let rln = RLNBuilder::stateless().build();
 
     let witness = get_test_witness();
@@ -60,5 +60,5 @@ pub fn rln_proof_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, rln_proof_benchmark);
+criterion_group!(benches, generate_proof_benchmark);
 criterion_main!(benches);

@@ -10,7 +10,9 @@ pub use wasm_rln::{
     WasmRLN, WasmRLNPartialProof, WasmRLNPartialWitnessInput, WasmRLNProof, WasmRLNProofValues,
     WasmRLNWitnessInput,
 };
-pub use wasm_utils::{ExtendedIdentity, Hasher, Identity, VecWasmFr, WasmFr};
+pub use wasm_utils::{
+    VecWasmFr, WasmExtendedIdentityKeys, WasmFr, WasmHasher, WasmIdentityKeys, WasmSecretFr,
+};
 
 #[cfg(feature = "panic_hook")]
 #[wasm_bindgen(js_name = initPanicHook)]

@@ -5,11 +5,13 @@
 
 #include "rln.h"
 
-typedef CFr_t CFr;
-typedef Vec_CFr_t Vec_CFr;
+typedef FFI_Fr_t Fr;
+typedef FFI_SecretFr_t SecretFr;
+typedef FFI_IdentityKeys_t IdentityKeys;
+typedef Vec_FFI_Fr_t Vec_Fr;
 typedef Vec_uint8_t Vec_uint8;
 typedef Vec_bool_t Vec_bool;
-typedef CBoolResult_t CBoolResult;
+typedef FFI_BoolResult_t CBoolResult;
 typedef FFI_RLN_t RLN;
 typedef FFI_RLNWitnessInput_t Witness;
 typedef FFI_RLNPartialWitnessInput_t PartialWitness;
@@ -17,26 +19,26 @@ typedef FFI_RLNProof_t Proof;
 typedef FFI_RLNPartialProof_t PartialProof;
 typedef FFI_RLNProofValues_t ProofValues;
 typedef FFI_RLNMerkleProof_t MerkleProof;
-typedef CResult_FFI_RLN_ptr_Vec_uint8_t RLNResult;
-typedef CResult_FFI_RLNWitnessInput_ptr_Vec_uint8_t WitnessResult;
-typedef CResult_FFI_RLNPartialWitnessInput_ptr_Vec_uint8_t PartialWitnessResult;
-typedef CResult_FFI_RLNProof_ptr_Vec_uint8_t ProofResult;
-typedef CResult_FFI_RLNPartialProof_ptr_Vec_uint8_t PartialProofResult;
-typedef CResult_FFI_RLNMerkleProof_ptr_Vec_uint8_t MerkleProofResult;
-typedef CResult_CFr_ptr_Vec_uint8_t CFrResult;
-typedef CResult_Vec_CFr_Vec_uint8_t VecCFrResult;
-typedef CResult_Vec_uint8_Vec_uint8_t VecU8Result;
+typedef FFI_Result_FFI_RLN_ptr_Vec_uint8_t RLNResult;
+typedef FFI_Result_FFI_RLNWitnessInput_ptr_Vec_uint8_t WitnessResult;
+typedef FFI_Result_FFI_RLNPartialWitnessInput_ptr_Vec_uint8_t PartialWitnessResult;
+typedef FFI_Result_FFI_RLNProof_ptr_Vec_uint8_t ProofResult;
+typedef FFI_Result_FFI_RLNPartialProof_ptr_Vec_uint8_t PartialProofResult;
+typedef FFI_Result_FFI_RLNMerkleProof_ptr_Vec_uint8_t MerkleProofResult;
+typedef FFI_Result_FFI_Fr_ptr_Vec_uint8_t FrResult;
+typedef FFI_Result_FFI_SecretFr_ptr_Vec_uint8_t SecretFrResult;
+typedef FFI_Result_Vec_FFI_Fr_Vec_uint8_t VecFrResult;
+typedef FFI_Result_Vec_uint8_Vec_uint8_t VecU8Result;
 
 #define TREE_DEPTH 20
 #define MAX_OUT 4
 
 typedef struct
 {
-    Vec_CFr keys;
-    const CFr *identity_secret;
-    const CFr *id_commitment;
-    CFr *user_message_limit;
-    CFr *rate_commitment;
+    SecretFr *identity_secret;
+    Fr *id_commitment;
+    Fr *user_message_limit;
+    Fr *rate_commitment;
 } Member;
 
 int file_to_bytes(const char *path, Vec_uint8 *out)
@@ -63,16 +65,23 @@ int file_to_bytes(const char *path, Vec_uint8 *out)
     return 0;
 }
 
-void print_cfr(const char *label, const CFr *value)
+void print_fr(const char *label, const Fr *value)
 {
-    Vec_uint8 debug = ffi_cfr_debug(value);
+    Vec_uint8 debug = ffi_fr_debug(value);
     printf("  - %s = %s\n", label, debug.ptr);
     ffi_c_string_free(debug);
 }
 
-void print_vec_cfr(const char *label, const Vec_CFr *value)
+void print_secret_fr(const char *label, const SecretFr *value)
 {
-    Vec_uint8 debug = ffi_vec_cfr_debug(value);
+    Vec_uint8 debug = ffi_secret_fr_debug(value);
+    printf("  - %s = %s\n", label, debug.ptr);
+    ffi_c_string_free(debug);
+}
+
+void print_vec_fr(const char *label, const Vec_Fr *value)
+{
+    Vec_uint8 debug = ffi_vec_fr_debug(value);
     printf("  - %s = %s\n", label, debug.ptr);
     ffi_c_string_free(debug);
 }
@@ -165,34 +174,37 @@ RLN *init_rln_stateless(void)
 int create_member(Member *member)
 {
     printf("\nGenerating identity keys\n");
-    member->keys = ffi_key_gen();
-    member->identity_secret = ffi_vec_cfr_get(&member->keys, 0);
-    member->id_commitment = ffi_vec_cfr_get(&member->keys, 1);
+    IdentityKeys *keys = ffi_identity_keys_generate();
+    member->identity_secret = ffi_identity_keys_get_secret(keys);
+    member->id_commitment = ffi_identity_keys_get_commitment(keys);
+
     printf("  - identity generated successfully\n");
-    print_cfr("identity secret", member->identity_secret);
-    print_cfr("id commitment", member->id_commitment);
+    print_secret_fr("identity secret", member->identity_secret);
+    print_fr("id commitment", member->id_commitment);
 
     printf("\nCreating message limit\n");
-    member->user_message_limit = ffi_uint_to_cfr(10);
-    print_cfr("user message limit", member->user_message_limit);
+    member->user_message_limit = ffi_uint_to_fr(10);
+    print_fr("user message limit", member->user_message_limit);
 
     printf("\nComputing rate commitment\n");
     member->rate_commitment =
         ffi_poseidon_hash_pair(member->id_commitment, member->user_message_limit);
-    print_cfr("rate commitment", member->rate_commitment);
+    print_fr("rate commitment", member->rate_commitment);
 
+    ffi_identity_keys_free(keys);
     return 0;
 }
 
 void member_free(Member *member)
 {
-    ffi_cfr_free(member->rate_commitment);
-    ffi_cfr_free(member->user_message_limit);
-    ffi_vec_cfr_free(member->keys);
+    ffi_fr_free(member->rate_commitment);
+    ffi_fr_free(member->user_message_limit);
+    ffi_secret_fr_free(member->identity_secret);
+    ffi_fr_free(member->id_commitment);
 }
 
 MerkleProof *register_member(RLN **rln_instance,
-                             const CFr *rate_commitment)
+                             const Fr *rate_commitment)
 {
     printf("\nAdding rate commitment to tree\n");
     CBoolResult set_leaf_result = ffi_rln_set_next_leaf(rln_instance, rate_commitment);
@@ -217,52 +229,52 @@ MerkleProof *register_member(RLN **rln_instance,
     return merkle_proof_result.ok;
 }
 
-CFr *hash_signal(const uint8_t signal[32])
+Fr *hash_signal(const uint8_t signal[32])
 {
     return ffi_hash_to_field_le(&(Vec_uint8){(uint8_t *)signal, 32, 32});
 }
 
-CFr *compute_external_nullifier(void)
+Fr *compute_external_nullifier(void)
 {
     printf("\nHashing epoch\n");
     const char *epoch_str = "test-epoch";
-    CFr *epoch = ffi_hash_to_field_le(
+    Fr *epoch = ffi_hash_to_field_le(
         &(Vec_uint8){(uint8_t *)epoch_str, strlen(epoch_str), strlen(epoch_str)});
-    print_cfr("epoch", epoch);
+    print_fr("epoch", epoch);
 
     printf("\nHashing RLN identifier\n");
     const char *rln_id_str = "test-rln-identifier";
-    CFr *rln_identifier = ffi_hash_to_field_le(
+    Fr *rln_identifier = ffi_hash_to_field_le(
         &(Vec_uint8){(uint8_t *)rln_id_str, strlen(rln_id_str), strlen(rln_id_str)});
-    print_cfr("RLN identifier", rln_identifier);
+    print_fr("RLN identifier", rln_identifier);
 
     printf("\nComputing Poseidon hash for external nullifier\n");
-    CFr *external_nullifier = ffi_poseidon_hash_pair(epoch, rln_identifier);
-    print_cfr("external nullifier", external_nullifier);
+    Fr *external_nullifier = ffi_poseidon_hash_pair(epoch, rln_identifier);
+    print_fr("external nullifier", external_nullifier);
 
-    ffi_cfr_free(rln_identifier);
-    ffi_cfr_free(epoch);
+    ffi_fr_free(rln_identifier);
+    ffi_fr_free(epoch);
     return external_nullifier;
 }
 
 WitnessResult
 create_witness(const Member *member, const MerkleProof *merkle_proof,
-               const CFr *message_id, const CFr *x, const CFr *external_nullifier)
+               const Fr *message_id, const Fr *x, const Fr *external_nullifier)
 {
     return ffi_rln_witness_input_new_single(member->identity_secret,
-                                               member->user_message_limit, message_id,
-                                               &merkle_proof->path_elements,
-                                               &merkle_proof->path_index, x,
-                                               external_nullifier);
+                                            member->user_message_limit, message_id,
+                                            &merkle_proof->path_elements,
+                                            &merkle_proof->path_index, x,
+                                            external_nullifier);
 }
 
 CBoolResult
-verify_stateful_proof(RLN **rln_instance, Proof **rln_proof, const CFr *x)
+verify_stateful_proof(RLN **rln_instance, Proof **rln_proof, const Fr *x)
 {
-    CFr *root = ffi_rln_get_root(rln_instance);
-    Vec_CFr roots = ffi_vec_cfr_from_cfr(root);
+    Fr *root = ffi_rln_get_root(rln_instance);
+    Vec_Fr roots = ffi_vec_fr_from_fr(root);
     CBoolResult result = ffi_rln_verify_with_roots(rln_instance, rln_proof, &roots, x);
-    ffi_vec_cfr_free(roots);
-    ffi_cfr_free(root);
+    ffi_vec_fr_free(roots);
+    ffi_fr_free(root);
     return result;
 }

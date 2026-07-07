@@ -7,11 +7,11 @@ use tiny_keccak::{Hasher, Keccak};
 use zeroize::Zeroize;
 use zerokit_utils::poseidon::{Poseidon, PoseidonError};
 
-use crate::circuit::Fr;
+use crate::circuit::{Fr, SecretFr};
 
+/// TODO(backlog): Generate these parameters
 /// These indexed constants hardcode the supported round parameters tuples (t, RF, RN, SKIP_MATRICES) for the Bn254 scalar field.
 /// SKIP_MATRICES is the index of the randomly generated secure MDS matrix.
-/// TODO: Generate these parameters
 const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
     (2, 8, 56, 0),
     (3, 8, 57, 0),
@@ -28,20 +28,11 @@ static POSEIDON: LazyLock<Poseidon<Fr>> = LazyLock::new(|| Poseidon::<Fr>::from(
 
 /// Hashes a list of field elements using Poseidon.
 ///
-///
 /// Panics if the input length does not match any of the supported round parameters.
 pub fn poseidon_hash(input: &[Fr]) -> Fr {
     POSEIDON
         .hash(input)
         .expect("Input length must be valid with supported round parameters")
-}
-
-/// Hashes a list of field elements using Poseidon.
-///
-/// Return an error if the input length does not match any of the supported round parameters.
-pub fn poseidon_hash_try_from(frs: &[Fr]) -> Result<Fr, PoseidonError> {
-    let hash = POSEIDON.hash(frs)?;
-    Ok(hash)
 }
 
 /// Hashes a pair of field elements using Poseidon.
@@ -53,12 +44,34 @@ pub fn poseidon_hash_pair(fr1: Fr, fr2: Fr) -> Fr {
         .expect("Two element input must be valid with supported round parameters")
 }
 
-/// Computes identity commitment from identity secret using Poseidon hash.
-pub fn poseidon_hash_secret(secret: &Fr) -> Fr {
-    let mut to_hash = [*secret];
+/// Hashes a list of field elements using Poseidon.
+///
+/// Return an error if the input length does not match any of the supported round parameters.
+pub fn poseidon_hash_list(frs: &[Fr]) -> Result<Fr, PoseidonError> {
+    let hash = POSEIDON.hash(frs)?;
+    Ok(hash)
+}
+
+/// Computes the Poseidon hash of identity secret into a identity commitment.
+///
+/// The internal copy of the secret is zeroized after hashing.
+pub(crate) fn poseidon_hash_id_secret(secret: &SecretFr) -> Fr {
+    let mut to_hash = [**secret];
     let id_commitment = poseidon_hash(&to_hash);
-    to_hash[0].zeroize(); // wipe the identity secret copy from the stack buffer
+    to_hash[0].zeroize(); // wipe the secret copy from the stack buffer
     id_commitment
+}
+
+/// Computes the Poseidon hash of a pair of secret field elements into a new secret.
+///
+/// The internal copies of the secrets are zeroized after hashing.
+pub(crate) fn poseidon_hash_secret_pair(secret1: &SecretFr, secret2: &SecretFr) -> SecretFr {
+    let mut to_hash = [**secret1, **secret2];
+    let mut hashed = poseidon_hash(&to_hash);
+    to_hash.zeroize(); // wipe the secret copies from the stack buffer
+
+    // SecretFr::from wipes the intermediate hash result after wrapping it
+    SecretFr::from(&mut hashed)
 }
 
 /// The zerokit RLN Merkle tree Hasher.

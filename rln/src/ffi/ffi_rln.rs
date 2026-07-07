@@ -12,7 +12,7 @@ use zerokit_utils::merkle_tree::{
     FullMerkleTree, Hasher, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
 };
 
-use super::ffi_utils::{CBoolResult, CFr, CResult};
+use super::ffi_utils::{FFI_BoolResult, FFI_Fr, FFI_Result, FFI_SecretFr};
 use crate::prelude::*;
 
 const MAX_CONFIG_SIZE: u64 = 1024 * 1024;
@@ -382,16 +382,16 @@ pub fn ffi_rln_new_stateless_default() -> repr_c::Box<FFI_RLN> {
 pub fn ffi_rln_new_stateless(
     zkey_data: &repr_c::Vec<u8>,
     graph_data: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_RLN>, repr_c::String> {
     match parse_zkey_and_graph(zkey_data, graph_data) {
         Ok((zkey, graph)) => {
             let rln = RLNBuilder::stateless().graph(graph).zkey(zkey).build();
-            CResult {
+            FFI_Result {
                 ok: Some(Box_::new(FFI_RLN(rln.into()))),
                 err: None,
             }
         }
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.into()),
         },
@@ -399,17 +399,17 @@ pub fn ffi_rln_new_stateless(
 }
 
 #[ffi_export]
-pub fn ffi_rln_new_with_full_merkle_tree_default() -> CResult<repr_c::Box<FFI_RLN>, repr_c::String>
-{
+pub fn ffi_rln_new_with_full_merkle_tree_default(
+) -> FFI_Result<repr_c::Box<FFI_RLN>, repr_c::String> {
     match FullMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH) {
         Ok(full_merkle_tree) => {
             let rln = RLNBuilder::stateful().tree(full_merkle_tree).build();
-            CResult {
+            FFI_Result {
                 ok: Some(Box_::new(FFI_RLN(rln.into()))),
                 err: None,
             }
         }
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -421,11 +421,11 @@ pub fn ffi_rln_new_with_full_merkle_tree(
     tree_depth: usize,
     zkey_data: &repr_c::Vec<u8>,
     graph_data: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_RLN>, repr_c::String> {
     let (zkey, graph) = match parse_zkey_and_graph(zkey_data, graph_data) {
         Ok(parsed) => parsed,
         Err(err) => {
-            return CResult {
+            return FFI_Result {
                 ok: None,
                 err: Some(err.into()),
             }
@@ -438,12 +438,12 @@ pub fn ffi_rln_new_with_full_merkle_tree(
                 .graph(graph)
                 .zkey(zkey)
                 .build();
-            CResult {
+            FFI_Result {
                 ok: Some(Box_::new(FFI_RLN(rln.into()))),
                 err: None,
             }
         }
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -452,16 +452,16 @@ pub fn ffi_rln_new_with_full_merkle_tree(
 
 #[ffi_export]
 pub fn ffi_rln_new_with_optimal_merkle_tree_default(
-) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_RLN>, repr_c::String> {
     match OptimalMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH) {
         Ok(optimal_merkle_tree) => {
             let rln = RLNBuilder::stateful().tree(optimal_merkle_tree).build();
-            CResult {
+            FFI_Result {
                 ok: Some(Box_::new(FFI_RLN(rln.into()))),
                 err: None,
             }
         }
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -473,11 +473,11 @@ pub fn ffi_rln_new_with_optimal_merkle_tree(
     tree_depth: usize,
     zkey_data: &repr_c::Vec<u8>,
     graph_data: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_RLN>, repr_c::String> {
     let (zkey, graph) = match parse_zkey_and_graph(zkey_data, graph_data) {
         Ok(parsed) => parsed,
         Err(err) => {
-            return CResult {
+            return FFI_Result {
                 ok: None,
                 err: Some(err.into()),
             }
@@ -490,12 +490,12 @@ pub fn ffi_rln_new_with_optimal_merkle_tree(
                 .graph(graph)
                 .zkey(zkey)
                 .build();
-            CResult {
+            FFI_Result {
                 ok: Some(Box_::new(FFI_RLN(rln.into()))),
                 err: None,
             }
         }
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -503,16 +503,16 @@ pub fn ffi_rln_new_with_optimal_merkle_tree(
 }
 
 #[ffi_export]
-pub fn ffi_rln_new_with_pm_tree_default() -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
+pub fn ffi_rln_new_with_pm_tree_default() -> FFI_Result<repr_c::Box<FFI_RLN>, repr_c::String> {
     match PmTree::default(DEFAULT_TREE_DEPTH) {
         Ok(pm_tree) => {
             let rln = RLNBuilder::stateful().tree(pm_tree).build();
-            CResult {
+            FFI_Result {
                 ok: Some(Box_::new(FFI_RLN(rln.into()))),
                 err: None,
             }
         }
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -525,11 +525,11 @@ pub fn ffi_rln_new_with_pm_tree(
     zkey_data: &repr_c::Vec<u8>,
     graph_data: &repr_c::Vec<u8>,
     config_path: char_p::Ref<'_>,
-) -> CResult<repr_c::Box<FFI_RLN>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_RLN>, repr_c::String> {
     let (zkey, graph) = match parse_zkey_and_graph(zkey_data, graph_data) {
         Ok(parsed) => parsed,
         Err(err) => {
-            return CResult {
+            return FFI_Result {
                 ok: None,
                 err: Some(err.into()),
             }
@@ -556,16 +556,16 @@ pub fn ffi_rln_new_with_pm_tree(
     let pm_tree = if config_str.is_empty() {
         PmTree::default(tree_depth)
     } else {
-        let cfg = match PmTreeSledConfig::from_str(&config_str) {
-            Ok(c) => c,
+        let config = match PmTreeSledConfig::from_str(&config_str) {
+            Ok(config) => config,
             Err(err) => {
-                return CResult {
+                return FFI_Result {
                     ok: None,
                     err: Some(err.to_string().into()),
                 }
             }
         };
-        PmTree::new(tree_depth, PoseidonHash::default_leaf(), cfg)
+        PmTree::new(tree_depth, PoseidonHash::default_leaf(), config)
     };
     match pm_tree {
         Ok(pm_tree) => {
@@ -574,12 +574,12 @@ pub fn ffi_rln_new_with_pm_tree(
                 .graph(graph)
                 .zkey(zkey)
                 .build();
-            CResult {
+            FFI_Result {
                 ok: Some(Box_::new(FFI_RLN(rln.into()))),
                 err: None,
             }
         }
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -590,13 +590,13 @@ pub fn ffi_rln_new_with_pm_tree(
 pub fn ffi_rln_generate_proof(
     rln: &repr_c::Box<FFI_RLN>,
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
-) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_RLNProof>, repr_c::String> {
     match rln.0.generate_proof(&witness.0) {
-        Ok((proof, values)) => CResult {
+        Ok((proof, values)) => FFI_Result {
             ok: Some(Box_::new(FFI_RLNProof(RLNProof::new(proof, values)))),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.into()),
         },
@@ -607,13 +607,13 @@ pub fn ffi_rln_generate_proof(
 pub fn ffi_rln_verify(
     rln: &repr_c::Box<FFI_RLN>,
     rln_proof: &repr_c::Box<FFI_RLNProof>,
-) -> CBoolResult {
+) -> FFI_BoolResult {
     match rln.0.verify(&rln_proof.0.proof, &rln_proof.0.values) {
-        Ok(verified) => CBoolResult {
+        Ok(verified) => FFI_BoolResult {
             ok: verified,
             err: None,
         },
-        Err(err) => CBoolResult {
+        Err(err) => FFI_BoolResult {
             ok: false,
             err: Some(err.into()),
         },
@@ -624,17 +624,17 @@ pub fn ffi_rln_verify(
 pub fn ffi_rln_verify_with_signal(
     rln: &repr_c::Box<FFI_RLN>,
     rln_proof: &repr_c::Box<FFI_RLNProof>,
-    x: &CFr,
-) -> CBoolResult {
+    x: &FFI_Fr,
+) -> FFI_BoolResult {
     match rln
         .0
         .verify_with_signal(&rln_proof.0.proof, &rln_proof.0.values, &x.0)
     {
-        Ok(verified) => CBoolResult {
+        Ok(verified) => FFI_BoolResult {
             ok: verified,
             err: None,
         },
-        Err(err) => CBoolResult {
+        Err(err) => FFI_BoolResult {
             ok: false,
             err: Some(err.into()),
         },
@@ -645,19 +645,19 @@ pub fn ffi_rln_verify_with_signal(
 pub fn ffi_rln_verify_with_roots(
     rln: &repr_c::Box<FFI_RLN>,
     rln_proof: &repr_c::Box<FFI_RLNProof>,
-    roots: &repr_c::Vec<CFr>,
-    x: &CFr,
-) -> CBoolResult {
-    let roots_fr: Vec<Fr> = roots.iter().map(|cfr| cfr.0).collect();
+    roots: &repr_c::Vec<FFI_Fr>,
+    x: &FFI_Fr,
+) -> FFI_BoolResult {
+    let roots_fr: Vec<Fr> = roots.iter().map(|fr| fr.0).collect();
     match rln
         .0
         .verify_with_roots(&rln_proof.0.proof, &rln_proof.0.values, &x.0, &roots_fr)
     {
-        Ok(verified) => CBoolResult {
+        Ok(verified) => FFI_BoolResult {
             ok: verified,
             err: None,
         },
-        Err(err) => CBoolResult {
+        Err(err) => FFI_BoolResult {
             ok: false,
             err: Some(err.into()),
         },
@@ -668,13 +668,13 @@ pub fn ffi_rln_verify_with_roots(
 pub fn ffi_rln_generate_partial_proof(
     rln: &repr_c::Box<FFI_RLN>,
     partial_witness: &repr_c::Box<FFI_RLNPartialWitnessInput>,
-) -> CResult<repr_c::Box<FFI_RLNPartialProof>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_RLNPartialProof>, repr_c::String> {
     match rln.0.generate_partial_proof(&partial_witness.0) {
-        Ok(pp) => CResult {
+        Ok(pp) => FFI_Result {
             ok: Some(Box_::new(FFI_RLNPartialProof(pp))),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.into()),
         },
@@ -686,13 +686,13 @@ pub fn ffi_rln_finish_proof(
     rln: &repr_c::Box<FFI_RLN>,
     partial_proof: &repr_c::Box<FFI_RLNPartialProof>,
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
-) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_RLNProof>, repr_c::String> {
     match rln.0.finish_proof(&partial_proof.0, &witness.0) {
-        Ok((proof, values)) => CResult {
+        Ok((proof, values)) => FFI_Result {
             ok: Some(Box_::new(FFI_RLNProof(RLNProof::new(proof, values)))),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.into()),
         },
@@ -712,20 +712,19 @@ pub struct FFI_RLNWitnessInput(pub(crate) RLNWitnessInput);
 
 #[ffi_export]
 pub fn ffi_rln_witness_input_new_single(
-    identity_secret: &CFr,
-    user_message_limit: &CFr,
-    message_id: &CFr,
-    path_elements: &repr_c::Vec<CFr>,
+    identity_secret: &FFI_SecretFr,
+    user_message_limit: &FFI_Fr,
+    message_id: &FFI_Fr,
+    path_elements: &repr_c::Vec<FFI_Fr>,
     identity_path_index: &repr_c::Vec<u8>,
-    x: &CFr,
-    external_nullifier: &CFr,
-) -> CResult<repr_c::Box<FFI_RLNWitnessInput>, repr_c::String> {
-    let mut identity_secret_fr = identity_secret.0;
-    let path_elements: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
+    x: &FFI_Fr,
+    external_nullifier: &FFI_Fr,
+) -> FFI_Result<repr_c::Box<FFI_RLNWitnessInput>, repr_c::String> {
+    let path_elements: Vec<Fr> = path_elements.iter().map(|fr| fr.0).collect();
     let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
 
     match RLNWitnessInput::new_single()
-        .identity_secret(IdSecret::from(&mut identity_secret_fr))
+        .identity_secret(identity_secret.0.clone())
         .user_message_limit(user_message_limit.0)
         .path_elements(path_elements)
         .identity_path_index(identity_path_index)
@@ -734,11 +733,11 @@ pub fn ffi_rln_witness_input_new_single(
         .message_id(message_id.0)
         .build()
     {
-        Ok(w) => CResult {
+        Ok(w) => FFI_Result {
             ok: Some(Box_::new(FFI_RLNWitnessInput(w))),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -747,23 +746,22 @@ pub fn ffi_rln_witness_input_new_single(
 
 #[ffi_export]
 pub fn ffi_rln_witness_input_new_multi(
-    identity_secret: &CFr,
-    user_message_limit: &CFr,
-    message_ids: &repr_c::Vec<CFr>,
-    path_elements: &repr_c::Vec<CFr>,
+    identity_secret: &FFI_SecretFr,
+    user_message_limit: &FFI_Fr,
+    message_ids: &repr_c::Vec<FFI_Fr>,
+    path_elements: &repr_c::Vec<FFI_Fr>,
     identity_path_index: &repr_c::Vec<u8>,
-    x: &CFr,
-    external_nullifier: &CFr,
+    x: &FFI_Fr,
+    external_nullifier: &FFI_Fr,
     selector_used: &repr_c::Vec<bool>,
-) -> CResult<repr_c::Box<FFI_RLNWitnessInput>, repr_c::String> {
-    let mut identity_secret_fr = identity_secret.0;
-    let path_elements: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
+) -> FFI_Result<repr_c::Box<FFI_RLNWitnessInput>, repr_c::String> {
+    let path_elements: Vec<Fr> = path_elements.iter().map(|fr| fr.0).collect();
     let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
-    let message_ids: Vec<Fr> = message_ids.iter().map(|cfr| cfr.0).collect();
+    let message_ids: Vec<Fr> = message_ids.iter().map(|fr| fr.0).collect();
     let selector_used: Vec<bool> = selector_used.iter().copied().collect();
 
     match RLNWitnessInput::new_multi()
-        .identity_secret(IdSecret::from(&mut identity_secret_fr))
+        .identity_secret(identity_secret.0.clone())
         .user_message_limit(user_message_limit.0)
         .path_elements(path_elements)
         .identity_path_index(identity_path_index)
@@ -773,11 +771,11 @@ pub fn ffi_rln_witness_input_new_multi(
         .selector_used(selector_used)
         .build()
     {
-        Ok(w) => CResult {
+        Ok(w) => FFI_Result {
             ok: Some(Box_::new(FFI_RLNWitnessInput(w))),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -787,27 +785,27 @@ pub fn ffi_rln_witness_input_new_multi(
 #[ffi_export]
 pub fn ffi_rln_witness_input_get_identity_secret(
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
-) -> repr_c::Box<CFr> {
-    CFr::from(**witness.0.identity_secret()).into()
+) -> repr_c::Box<FFI_SecretFr> {
+    Box_::new(FFI_SecretFr::from(witness.0.identity_secret().clone()))
 }
 
 #[ffi_export]
 pub fn ffi_rln_witness_input_get_user_message_limit(
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
-) -> repr_c::Box<CFr> {
-    CFr::from(witness.0.user_message_limit()).into()
+) -> repr_c::Box<FFI_Fr> {
+    FFI_Fr::from(witness.0.user_message_limit()).into()
 }
 
 #[ffi_export]
 pub fn ffi_rln_witness_input_get_message_id(
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
-) -> CResult<repr_c::Box<CFr>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_Fr>, repr_c::String> {
     match witness.0.message_id() {
-        Some(id) => CResult {
-            ok: Some(CFr::from(id).into()),
+        Some(id) => FFI_Result {
+            ok: Some(FFI_Fr::from(id).into()),
             err: None,
         },
-        None => CResult {
+        None => FFI_Result {
             ok: None,
             err: Some("witness is Multi; use get_message_ids".into()),
         },
@@ -817,18 +815,18 @@ pub fn ffi_rln_witness_input_get_message_id(
 #[ffi_export]
 pub fn ffi_rln_witness_input_get_message_ids(
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
-) -> CResult<repr_c::Vec<CFr>, repr_c::String> {
+) -> FFI_Result<repr_c::Vec<FFI_Fr>, repr_c::String> {
     match witness.0.message_ids() {
-        Some(ids) => CResult {
+        Some(ids) => FFI_Result {
             ok: Some(
                 ids.iter()
-                    .map(|fr| CFr::from(*fr))
+                    .map(|fr| FFI_Fr::from(*fr))
                     .collect::<Vec<_>>()
                     .into(),
             ),
             err: None,
         },
-        None => CResult {
+        None => FFI_Result {
             ok: None,
             err: Some("witness is Single; use get_message_id".into()),
         },
@@ -838,12 +836,12 @@ pub fn ffi_rln_witness_input_get_message_ids(
 #[ffi_export]
 pub fn ffi_rln_witness_input_get_path_elements(
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
-) -> repr_c::Vec<CFr> {
+) -> repr_c::Vec<FFI_Fr> {
     witness
         .0
         .path_elements()
         .iter()
-        .map(|fr| CFr::from(*fr))
+        .map(|fr| FFI_Fr::from(*fr))
         .collect::<Vec<_>>()
         .into()
 }
@@ -856,27 +854,29 @@ pub fn ffi_rln_witness_input_get_identity_path_index(
 }
 
 #[ffi_export]
-pub fn ffi_rln_witness_input_get_x(witness: &repr_c::Box<FFI_RLNWitnessInput>) -> repr_c::Box<CFr> {
-    CFr::from(witness.0.x()).into()
+pub fn ffi_rln_witness_input_get_x(
+    witness: &repr_c::Box<FFI_RLNWitnessInput>,
+) -> repr_c::Box<FFI_Fr> {
+    FFI_Fr::from(witness.0.x()).into()
 }
 
 #[ffi_export]
 pub fn ffi_rln_witness_input_get_external_nullifier(
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
-) -> repr_c::Box<CFr> {
-    CFr::from(witness.0.external_nullifier()).into()
+) -> repr_c::Box<FFI_Fr> {
+    FFI_Fr::from(witness.0.external_nullifier()).into()
 }
 
 #[ffi_export]
 pub fn ffi_rln_witness_input_get_selector_used(
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
-) -> CResult<repr_c::Vec<bool>, repr_c::String> {
+) -> FFI_Result<repr_c::Vec<bool>, repr_c::String> {
     match witness.0.selector_used() {
-        Some(s) => CResult {
+        Some(s) => FFI_Result {
             ok: Some(s.to_vec().into()),
             err: None,
         },
-        None => CResult {
+        None => FFI_Result {
             ok: None,
             err: Some("witness is Single; selector_used is Multi-only".into()),
         },
@@ -886,14 +886,14 @@ pub fn ffi_rln_witness_input_get_selector_used(
 #[ffi_export]
 pub fn ffi_rln_witness_to_bytes_le(
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
-) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+) -> FFI_Result<repr_c::Vec<u8>, repr_c::String> {
     let mut bytes = Vec::new();
     match witness.0.serialize_compressed(&mut bytes) {
-        Ok(()) => CResult {
+        Ok(()) => FFI_Result {
             ok: Some(bytes.into()),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -903,14 +903,14 @@ pub fn ffi_rln_witness_to_bytes_le(
 #[ffi_export]
 pub fn ffi_rln_witness_to_bytes_be(
     witness: &repr_c::Box<FFI_RLNWitnessInput>,
-) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+) -> FFI_Result<repr_c::Vec<u8>, repr_c::String> {
     let mut bytes = Vec::new();
     match CanonicalSerializeBE::serialize(&witness.0, &mut bytes) {
-        Ok(()) => CResult {
+        Ok(()) => FFI_Result {
             ok: Some(bytes.into()),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -920,13 +920,13 @@ pub fn ffi_rln_witness_to_bytes_be(
 #[ffi_export]
 pub fn ffi_bytes_le_to_rln_witness(
     bytes: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Box<FFI_RLNWitnessInput>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_RLNWitnessInput>, repr_c::String> {
     match RLNWitnessInput::deserialize_compressed(&bytes[..]) {
-        Ok(w) => CResult {
+        Ok(w) => FFI_Result {
             ok: Some(Box_::new(FFI_RLNWitnessInput(w))),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -936,13 +936,13 @@ pub fn ffi_bytes_le_to_rln_witness(
 #[ffi_export]
 pub fn ffi_bytes_be_to_rln_witness(
     bytes: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Box<FFI_RLNWitnessInput>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_RLNWitnessInput>, repr_c::String> {
     match <RLNWitnessInput as CanonicalDeserializeBE>::deserialize(&bytes[..]) {
-        Ok(w) => CResult {
+        Ok(w) => FFI_Result {
             ok: Some(Box_::new(FFI_RLNWitnessInput(w))),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -962,26 +962,25 @@ pub struct FFI_RLNPartialWitnessInput(pub(crate) RLNPartialWitnessInput);
 
 #[ffi_export]
 pub fn ffi_rln_partial_witness_input_new(
-    identity_secret: &CFr,
-    user_message_limit: &CFr,
-    path_elements: &repr_c::Vec<CFr>,
+    identity_secret: &FFI_SecretFr,
+    user_message_limit: &FFI_Fr,
+    path_elements: &repr_c::Vec<FFI_Fr>,
     identity_path_index: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Box<FFI_RLNPartialWitnessInput>, repr_c::String> {
-    let mut identity_secret_fr = identity_secret.0;
-    let path_elements: Vec<Fr> = path_elements.iter().map(|cfr| cfr.0).collect();
+) -> FFI_Result<repr_c::Box<FFI_RLNPartialWitnessInput>, repr_c::String> {
+    let path_elements: Vec<Fr> = path_elements.iter().map(|fr| fr.0).collect();
     let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
     match RLNPartialWitnessInput::new()
-        .identity_secret(IdSecret::from(&mut identity_secret_fr))
+        .identity_secret(identity_secret.0.clone())
         .user_message_limit(user_message_limit.0)
         .path_elements(path_elements)
         .identity_path_index(identity_path_index)
         .build()
     {
-        Ok(w) => CResult {
+        Ok(w) => FFI_Result {
             ok: Some(Box_::new(FFI_RLNPartialWitnessInput(w))),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -991,26 +990,26 @@ pub fn ffi_rln_partial_witness_input_new(
 #[ffi_export]
 pub fn ffi_rln_partial_witness_input_get_identity_secret(
     witness: &repr_c::Box<FFI_RLNPartialWitnessInput>,
-) -> repr_c::Box<CFr> {
-    CFr::from(*witness.0.identity_secret).into()
+) -> repr_c::Box<FFI_SecretFr> {
+    Box_::new(FFI_SecretFr::from(witness.0.identity_secret.clone()))
 }
 
 #[ffi_export]
 pub fn ffi_rln_partial_witness_input_get_user_message_limit(
     witness: &repr_c::Box<FFI_RLNPartialWitnessInput>,
-) -> repr_c::Box<CFr> {
-    CFr::from(witness.0.user_message_limit).into()
+) -> repr_c::Box<FFI_Fr> {
+    FFI_Fr::from(witness.0.user_message_limit).into()
 }
 
 #[ffi_export]
 pub fn ffi_rln_partial_witness_input_get_path_elements(
     witness: &repr_c::Box<FFI_RLNPartialWitnessInput>,
-) -> repr_c::Vec<CFr> {
+) -> repr_c::Vec<FFI_Fr> {
     witness
         .0
         .path_elements
         .iter()
-        .map(|fr| CFr::from(*fr))
+        .map(|fr| FFI_Fr::from(*fr))
         .collect::<Vec<_>>()
         .into()
 }
@@ -1033,14 +1032,14 @@ pub fn ffi_rln_witness_to_partial_witness(
 #[ffi_export]
 pub fn ffi_rln_partial_witness_to_bytes_le(
     witness: &repr_c::Box<FFI_RLNPartialWitnessInput>,
-) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+) -> FFI_Result<repr_c::Vec<u8>, repr_c::String> {
     let mut bytes = Vec::new();
     match witness.0.serialize_compressed(&mut bytes) {
-        Ok(()) => CResult {
+        Ok(()) => FFI_Result {
             ok: Some(bytes.into()),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -1050,14 +1049,14 @@ pub fn ffi_rln_partial_witness_to_bytes_le(
 #[ffi_export]
 pub fn ffi_rln_partial_witness_to_bytes_be(
     witness: &repr_c::Box<FFI_RLNPartialWitnessInput>,
-) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+) -> FFI_Result<repr_c::Vec<u8>, repr_c::String> {
     let mut bytes = Vec::new();
     match CanonicalSerializeBE::serialize(&witness.0, &mut bytes) {
-        Ok(()) => CResult {
+        Ok(()) => FFI_Result {
             ok: Some(bytes.into()),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -1067,13 +1066,13 @@ pub fn ffi_rln_partial_witness_to_bytes_be(
 #[ffi_export]
 pub fn ffi_bytes_le_to_rln_partial_witness(
     bytes: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Box<FFI_RLNPartialWitnessInput>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_RLNPartialWitnessInput>, repr_c::String> {
     match RLNPartialWitnessInput::deserialize_compressed(&bytes[..]) {
-        Ok(w) => CResult {
+        Ok(w) => FFI_Result {
             ok: Some(Box_::new(FFI_RLNPartialWitnessInput(w))),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -1083,13 +1082,13 @@ pub fn ffi_bytes_le_to_rln_partial_witness(
 #[ffi_export]
 pub fn ffi_bytes_be_to_rln_partial_witness(
     bytes: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Box<FFI_RLNPartialWitnessInput>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_RLNPartialWitnessInput>, repr_c::String> {
     match <RLNPartialWitnessInput as CanonicalDeserializeBE>::deserialize(&bytes[..]) {
-        Ok(w) => CResult {
+        Ok(w) => FFI_Result {
             ok: Some(Box_::new(FFI_RLNPartialWitnessInput(w))),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -1117,14 +1116,14 @@ pub fn ffi_rln_proof_get_values(
 #[ffi_export]
 pub fn ffi_rln_proof_to_bytes_le(
     rln_proof: &repr_c::Box<FFI_RLNProof>,
-) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+) -> FFI_Result<repr_c::Vec<u8>, repr_c::String> {
     let mut bytes = Vec::new();
     match rln_proof.0.serialize_compressed(&mut bytes) {
-        Ok(()) => CResult {
+        Ok(()) => FFI_Result {
             ok: Some(bytes.into()),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -1134,14 +1133,14 @@ pub fn ffi_rln_proof_to_bytes_le(
 #[ffi_export]
 pub fn ffi_rln_proof_to_bytes_mixed(
     rln_proof: &repr_c::Box<FFI_RLNProof>,
-) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+) -> FFI_Result<repr_c::Vec<u8>, repr_c::String> {
     let mut bytes = Vec::new();
     match CanonicalSerializeMixed::serialize(&rln_proof.0, &mut bytes) {
-        Ok(()) => CResult {
+        Ok(()) => FFI_Result {
             ok: Some(bytes.into()),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -1151,13 +1150,13 @@ pub fn ffi_rln_proof_to_bytes_mixed(
 #[ffi_export]
 pub fn ffi_bytes_le_to_rln_proof(
     bytes: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_RLNProof>, repr_c::String> {
     match RLNProof::deserialize_compressed(&bytes[..]) {
-        Ok(p) => CResult {
+        Ok(p) => FFI_Result {
             ok: Some(Box_::new(FFI_RLNProof(p))),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -1167,13 +1166,13 @@ pub fn ffi_bytes_le_to_rln_proof(
 #[ffi_export]
 pub fn ffi_bytes_mixed_to_rln_proof(
     bytes: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Box<FFI_RLNProof>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_RLNProof>, repr_c::String> {
     match <RLNProof as CanonicalDeserializeMixed>::deserialize(&bytes[..]) {
-        Ok(p) => CResult {
+        Ok(p) => FFI_Result {
             ok: Some(Box_::new(FFI_RLNProof(p))),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -1194,14 +1193,14 @@ pub struct FFI_RLNPartialProof(pub(crate) PartialProof);
 #[ffi_export]
 pub fn ffi_rln_partial_proof_to_bytes_le(
     partial_proof: &repr_c::Box<FFI_RLNPartialProof>,
-) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+) -> FFI_Result<repr_c::Vec<u8>, repr_c::String> {
     let mut bytes = Vec::new();
     match partial_proof.0.serialize_compressed(&mut bytes) {
-        Ok(()) => CResult {
+        Ok(()) => FFI_Result {
             ok: Some(bytes.into()),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -1211,13 +1210,13 @@ pub fn ffi_rln_partial_proof_to_bytes_le(
 #[ffi_export]
 pub fn ffi_bytes_le_to_rln_partial_proof(
     bytes: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Box<FFI_RLNPartialProof>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_RLNPartialProof>, repr_c::String> {
     match PartialProof::deserialize_compressed(&bytes[..]) {
-        Ok(p) => CResult {
+        Ok(p) => FFI_Result {
             ok: Some(Box_::new(FFI_RLNPartialProof(p))),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -1236,32 +1235,32 @@ pub fn ffi_rln_partial_proof_free(partial_proof: repr_c::Box<FFI_RLNPartialProof
 pub struct FFI_RLNProofValues(pub(crate) RLNProofValues);
 
 #[ffi_export]
-pub fn ffi_rln_proof_values_get_root(pv: &repr_c::Box<FFI_RLNProofValues>) -> repr_c::Box<CFr> {
-    CFr::from(pv.0.root()).into()
+pub fn ffi_rln_proof_values_get_root(pv: &repr_c::Box<FFI_RLNProofValues>) -> repr_c::Box<FFI_Fr> {
+    FFI_Fr::from(pv.0.root()).into()
 }
 
 #[ffi_export]
-pub fn ffi_rln_proof_values_get_x(pv: &repr_c::Box<FFI_RLNProofValues>) -> repr_c::Box<CFr> {
-    CFr::from(pv.0.x()).into()
+pub fn ffi_rln_proof_values_get_x(pv: &repr_c::Box<FFI_RLNProofValues>) -> repr_c::Box<FFI_Fr> {
+    FFI_Fr::from(pv.0.x()).into()
 }
 
 #[ffi_export]
 pub fn ffi_rln_proof_values_get_external_nullifier(
     pv: &repr_c::Box<FFI_RLNProofValues>,
-) -> repr_c::Box<CFr> {
-    CFr::from(pv.0.external_nullifier()).into()
+) -> repr_c::Box<FFI_Fr> {
+    FFI_Fr::from(pv.0.external_nullifier()).into()
 }
 
 #[ffi_export]
 pub fn ffi_rln_proof_values_get_y(
     pv: &repr_c::Box<FFI_RLNProofValues>,
-) -> CResult<repr_c::Box<CFr>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_Fr>, repr_c::String> {
     match pv.0.y() {
-        Some(y) => CResult {
-            ok: Some(CFr::from(y).into()),
+        Some(y) => FFI_Result {
+            ok: Some(FFI_Fr::from(y).into()),
             err: None,
         },
-        None => CResult {
+        None => FFI_Result {
             ok: None,
             err: Some("values are Multi; use get_ys".into()),
         },
@@ -1271,13 +1270,13 @@ pub fn ffi_rln_proof_values_get_y(
 #[ffi_export]
 pub fn ffi_rln_proof_values_get_nullifier(
     pv: &repr_c::Box<FFI_RLNProofValues>,
-) -> CResult<repr_c::Box<CFr>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_Fr>, repr_c::String> {
     match pv.0.nullifier() {
-        Some(n) => CResult {
-            ok: Some(CFr::from(n).into()),
+        Some(n) => FFI_Result {
+            ok: Some(FFI_Fr::from(n).into()),
             err: None,
         },
-        None => CResult {
+        None => FFI_Result {
             ok: None,
             err: Some("values are Multi; use get_nullifiers".into()),
         },
@@ -1287,13 +1286,13 @@ pub fn ffi_rln_proof_values_get_nullifier(
 #[ffi_export]
 pub fn ffi_rln_proof_values_get_selector_used(
     pv: &repr_c::Box<FFI_RLNProofValues>,
-) -> CResult<repr_c::Vec<bool>, repr_c::String> {
+) -> FFI_Result<repr_c::Vec<bool>, repr_c::String> {
     match pv.0.selector_used() {
-        Some(s) => CResult {
+        Some(s) => FFI_Result {
             ok: Some(s.to_vec().into()),
             err: None,
         },
-        None => CResult {
+        None => FFI_Result {
             ok: None,
             err: Some("values are Single; selector_used is Multi-only".into()),
         },
@@ -1303,18 +1302,18 @@ pub fn ffi_rln_proof_values_get_selector_used(
 #[ffi_export]
 pub fn ffi_rln_proof_values_get_ys(
     pv: &repr_c::Box<FFI_RLNProofValues>,
-) -> CResult<repr_c::Vec<CFr>, repr_c::String> {
+) -> FFI_Result<repr_c::Vec<FFI_Fr>, repr_c::String> {
     match pv.0.ys() {
-        Some(ys) => CResult {
+        Some(ys) => FFI_Result {
             ok: Some(
                 ys.iter()
-                    .map(|fr| CFr::from(*fr))
+                    .map(|fr| FFI_Fr::from(*fr))
                     .collect::<Vec<_>>()
                     .into(),
             ),
             err: None,
         },
-        None => CResult {
+        None => FFI_Result {
             ok: None,
             err: Some("values are Single; use get_y".into()),
         },
@@ -1324,18 +1323,18 @@ pub fn ffi_rln_proof_values_get_ys(
 #[ffi_export]
 pub fn ffi_rln_proof_values_get_nullifiers(
     pv: &repr_c::Box<FFI_RLNProofValues>,
-) -> CResult<repr_c::Vec<CFr>, repr_c::String> {
+) -> FFI_Result<repr_c::Vec<FFI_Fr>, repr_c::String> {
     match pv.0.nullifiers() {
-        Some(ns) => CResult {
+        Some(ns) => FFI_Result {
             ok: Some(
                 ns.iter()
-                    .map(|fr| CFr::from(*fr))
+                    .map(|fr| FFI_Fr::from(*fr))
                     .collect::<Vec<_>>()
                     .into(),
             ),
             err: None,
         },
-        None => CResult {
+        None => FFI_Result {
             ok: None,
             err: Some("values are Single; use get_nullifier".into()),
         },
@@ -1345,14 +1344,14 @@ pub fn ffi_rln_proof_values_get_nullifiers(
 #[ffi_export]
 pub fn ffi_rln_proof_values_to_bytes_le(
     pv: &repr_c::Box<FFI_RLNProofValues>,
-) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+) -> FFI_Result<repr_c::Vec<u8>, repr_c::String> {
     let mut bytes = Vec::new();
     match pv.0.serialize_compressed(&mut bytes) {
-        Ok(()) => CResult {
+        Ok(()) => FFI_Result {
             ok: Some(bytes.into()),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -1362,14 +1361,14 @@ pub fn ffi_rln_proof_values_to_bytes_le(
 #[ffi_export]
 pub fn ffi_rln_proof_values_to_bytes_be(
     pv: &repr_c::Box<FFI_RLNProofValues>,
-) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+) -> FFI_Result<repr_c::Vec<u8>, repr_c::String> {
     let mut bytes = Vec::new();
     match CanonicalSerializeBE::serialize(&pv.0, &mut bytes) {
-        Ok(()) => CResult {
+        Ok(()) => FFI_Result {
             ok: Some(bytes.into()),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -1379,13 +1378,13 @@ pub fn ffi_rln_proof_values_to_bytes_be(
 #[ffi_export]
 pub fn ffi_bytes_le_to_rln_proof_values(
     bytes: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Box<FFI_RLNProofValues>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_RLNProofValues>, repr_c::String> {
     match RLNProofValues::deserialize_compressed(&bytes[..]) {
-        Ok(pv) => CResult {
+        Ok(pv) => FFI_Result {
             ok: Some(Box_::new(FFI_RLNProofValues(pv))),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -1395,13 +1394,13 @@ pub fn ffi_bytes_le_to_rln_proof_values(
 #[ffi_export]
 pub fn ffi_bytes_be_to_rln_proof_values(
     bytes: &repr_c::Vec<u8>,
-) -> CResult<repr_c::Box<FFI_RLNProofValues>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_RLNProofValues>, repr_c::String> {
     match <RLNProofValues as CanonicalDeserializeBE>::deserialize(&bytes[..]) {
-        Ok(pv) => CResult {
+        Ok(pv) => FFI_Result {
             ok: Some(Box_::new(FFI_RLNProofValues(pv))),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -1415,19 +1414,19 @@ pub fn ffi_rln_proof_values_free(proof_values: repr_c::Box<FFI_RLNProofValues>) 
 
 #[ffi_export]
 pub fn ffi_rln_compute_id_secret(
-    share1_x: &CFr,
-    share1_y: &CFr,
-    share2_x: &CFr,
-    share2_y: &CFr,
-) -> CResult<repr_c::Box<CFr>, repr_c::String> {
+    share1_x: &FFI_Fr,
+    share1_y: &FFI_Fr,
+    share2_x: &FFI_Fr,
+    share2_y: &FFI_Fr,
+) -> FFI_Result<repr_c::Box<FFI_SecretFr>, repr_c::String> {
     let share1 = (share1_x.0, share1_y.0);
     let share2 = (share2_x.0, share2_y.0);
     match compute_id_secret(share1, share2) {
-        Ok(secret) => CResult {
-            ok: Some(Box_::new(CFr::from(*secret))),
+        Ok(secret) => FFI_Result {
+            ok: Some(Box_::new(FFI_SecretFr::from(secret))),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -1438,13 +1437,13 @@ pub fn ffi_rln_compute_id_secret(
 pub fn ffi_rln_recover_id_secret(
     proof_values_1: &repr_c::Box<FFI_RLNProofValues>,
     proof_values_2: &repr_c::Box<FFI_RLNProofValues>,
-) -> CResult<repr_c::Box<CFr>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_SecretFr>, repr_c::String> {
     match proof_values_1.0.recover_secret(&proof_values_2.0) {
-        Ok(secret) => CResult {
-            ok: Some(Box_::new(CFr::from(*secret))),
+        Ok(secret) => FFI_Result {
+            ok: Some(Box_::new(FFI_SecretFr::from(secret))),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.to_string().into()),
         },
@@ -1456,7 +1455,7 @@ pub fn ffi_rln_recover_id_secret(
 #[derive_ReprC]
 #[repr(C)]
 pub struct FFI_RLNMerkleProof {
-    pub path_elements: repr_c::Vec<CFr>,
+    pub path_elements: repr_c::Vec<FFI_Fr>,
     pub path_index: repr_c::Vec<u8>,
 }
 
@@ -1476,9 +1475,9 @@ pub fn ffi_rln_leaves_set(rln: &repr_c::Box<FFI_RLN>) -> usize {
 }
 
 #[ffi_export]
-pub fn ffi_rln_get_root(rln: &repr_c::Box<FFI_RLN>) -> repr_c::Box<CFr> {
+pub fn ffi_rln_get_root(rln: &repr_c::Box<FFI_RLN>) -> repr_c::Box<FFI_Fr> {
     let root = rln.0.get_root().unwrap_or_else(|_| Fr::from(0u64));
-    CFr::from(root).into()
+    FFI_Fr::from(root).into()
 }
 
 #[ffi_export]
@@ -1486,13 +1485,13 @@ pub fn ffi_rln_get_subtree_root(
     rln: &repr_c::Box<FFI_RLN>,
     level: usize,
     index: usize,
-) -> CResult<repr_c::Box<CFr>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_Fr>, repr_c::String> {
     match rln.0.get_subtree_root(level, index) {
-        Ok(root) => CResult {
-            ok: Some(CFr::from(root).into()),
+        Ok(root) => FFI_Result {
+            ok: Some(FFI_Fr::from(root).into()),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.into()),
         },
@@ -1500,13 +1499,17 @@ pub fn ffi_rln_get_subtree_root(
 }
 
 #[ffi_export]
-pub fn ffi_rln_set_leaf(rln: &mut repr_c::Box<FFI_RLN>, index: usize, leaf: &CFr) -> CBoolResult {
+pub fn ffi_rln_set_leaf(
+    rln: &mut repr_c::Box<FFI_RLN>,
+    index: usize,
+    leaf: &FFI_Fr,
+) -> FFI_BoolResult {
     match rln.0.set_leaf(index, leaf.0) {
-        Ok(_) => CBoolResult {
+        Ok(_) => FFI_BoolResult {
             ok: true,
             err: None,
         },
-        Err(err) => CBoolResult {
+        Err(err) => FFI_BoolResult {
             ok: false,
             err: Some(err.into()),
         },
@@ -1517,15 +1520,15 @@ pub fn ffi_rln_set_leaf(rln: &mut repr_c::Box<FFI_RLN>, index: usize, leaf: &CFr
 pub fn ffi_rln_set_leaves_from(
     rln: &mut repr_c::Box<FFI_RLN>,
     index: usize,
-    leaves: &repr_c::Vec<CFr>,
-) -> CBoolResult {
-    let leaves_vec: Vec<_> = leaves.iter().map(|cfr| cfr.0).collect();
+    leaves: &repr_c::Vec<FFI_Fr>,
+) -> FFI_BoolResult {
+    let leaves_vec: Vec<_> = leaves.iter().map(|fr| fr.0).collect();
     match rln.0.set_leaves_from(index, leaves_vec) {
-        Ok(_) => CBoolResult {
+        Ok(_) => FFI_BoolResult {
             ok: true,
             err: None,
         },
-        Err(err) => CBoolResult {
+        Err(err) => FFI_BoolResult {
             ok: false,
             err: Some(err.into()),
         },
@@ -1535,15 +1538,15 @@ pub fn ffi_rln_set_leaves_from(
 #[ffi_export]
 pub fn ffi_rln_init_tree_with_leaves(
     rln: &mut repr_c::Box<FFI_RLN>,
-    leaves: &repr_c::Vec<CFr>,
-) -> CBoolResult {
-    let leaves_vec: Vec<_> = leaves.iter().map(|cfr| cfr.0).collect();
+    leaves: &repr_c::Vec<FFI_Fr>,
+) -> FFI_BoolResult {
+    let leaves_vec: Vec<_> = leaves.iter().map(|fr| fr.0).collect();
     match rln.0.init_tree_with_leaves(leaves_vec) {
-        Ok(_) => CBoolResult {
+        Ok(_) => FFI_BoolResult {
             ok: true,
             err: None,
         },
-        Err(err) => CBoolResult {
+        Err(err) => FFI_BoolResult {
             ok: false,
             err: Some(err.into()),
         },
@@ -1554,13 +1557,13 @@ pub fn ffi_rln_init_tree_with_leaves(
 pub fn ffi_rln_get_leaf(
     rln: &repr_c::Box<FFI_RLN>,
     index: usize,
-) -> CResult<repr_c::Box<CFr>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_Fr>, repr_c::String> {
     match rln.0.get_leaf(index) {
-        Ok(leaf) => CResult {
-            ok: Some(CFr::from(leaf).into()),
+        Ok(leaf) => FFI_Result {
+            ok: Some(FFI_Fr::from(leaf).into()),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.into()),
         },
@@ -1570,13 +1573,13 @@ pub fn ffi_rln_get_leaf(
 #[ffi_export]
 pub fn ffi_rln_get_empty_leaves_indices(
     rln: &repr_c::Box<FFI_RLN>,
-) -> CResult<repr_c::Vec<usize>, repr_c::String> {
+) -> FFI_Result<repr_c::Vec<usize>, repr_c::String> {
     match rln.0.get_empty_leaves_indices() {
-        Ok(indices) => CResult {
+        Ok(indices) => FFI_Result {
             ok: Some(indices.into()),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.into()),
         },
@@ -1587,17 +1590,17 @@ pub fn ffi_rln_get_empty_leaves_indices(
 pub fn ffi_rln_atomic_operation(
     rln: &mut repr_c::Box<FFI_RLN>,
     index: usize,
-    leaves: &repr_c::Vec<CFr>,
+    leaves: &repr_c::Vec<FFI_Fr>,
     indices: &repr_c::Vec<usize>,
-) -> CBoolResult {
-    let leaves_vec: Vec<_> = leaves.iter().map(|cfr| cfr.0).collect();
+) -> FFI_BoolResult {
+    let leaves_vec: Vec<_> = leaves.iter().map(|fr| fr.0).collect();
     let indices_vec: Vec<_> = indices.iter().copied().collect();
     match rln.0.atomic_operation(index, leaves_vec, indices_vec) {
-        Ok(_) => CBoolResult {
+        Ok(_) => FFI_BoolResult {
             ok: true,
             err: None,
         },
-        Err(err) => CBoolResult {
+        Err(err) => FFI_BoolResult {
             ok: false,
             err: Some(err.into()),
         },
@@ -1605,13 +1608,13 @@ pub fn ffi_rln_atomic_operation(
 }
 
 #[ffi_export]
-pub fn ffi_rln_set_next_leaf(rln: &mut repr_c::Box<FFI_RLN>, leaf: &CFr) -> CBoolResult {
+pub fn ffi_rln_set_next_leaf(rln: &mut repr_c::Box<FFI_RLN>, leaf: &FFI_Fr) -> FFI_BoolResult {
     match rln.0.set_next_leaf(leaf.0) {
-        Ok(_) => CBoolResult {
+        Ok(_) => FFI_BoolResult {
             ok: true,
             err: None,
         },
-        Err(err) => CBoolResult {
+        Err(err) => FFI_BoolResult {
             ok: false,
             err: Some(err.into()),
         },
@@ -1619,13 +1622,13 @@ pub fn ffi_rln_set_next_leaf(rln: &mut repr_c::Box<FFI_RLN>, leaf: &CFr) -> CBoo
 }
 
 #[ffi_export]
-pub fn ffi_rln_delete_leaf(rln: &mut repr_c::Box<FFI_RLN>, index: usize) -> CBoolResult {
+pub fn ffi_rln_delete_leaf(rln: &mut repr_c::Box<FFI_RLN>, index: usize) -> FFI_BoolResult {
     match rln.0.delete_leaf(index) {
-        Ok(_) => CBoolResult {
+        Ok(_) => FFI_BoolResult {
             ok: true,
             err: None,
         },
-        Err(err) => CBoolResult {
+        Err(err) => FFI_BoolResult {
             ok: false,
             err: Some(err.into()),
         },
@@ -1636,16 +1639,16 @@ pub fn ffi_rln_delete_leaf(rln: &mut repr_c::Box<FFI_RLN>, index: usize) -> CBoo
 pub fn ffi_rln_get_merkle_proof(
     rln: &repr_c::Box<FFI_RLN>,
     index: usize,
-) -> CResult<repr_c::Box<FFI_RLNMerkleProof>, repr_c::String> {
+) -> FFI_Result<repr_c::Box<FFI_RLNMerkleProof>, repr_c::String> {
     match rln.0.get_merkle_proof(index) {
         Ok((path_elements, path_index)) => {
-            let path_elements: repr_c::Vec<CFr> = path_elements
+            let path_elements: repr_c::Vec<FFI_Fr> = path_elements
                 .iter()
-                .map(|fr| CFr::from(*fr))
+                .map(|fr| FFI_Fr::from(*fr))
                 .collect::<Vec<_>>()
                 .into();
             let path_index: repr_c::Vec<u8> = path_index.into();
-            CResult {
+            FFI_Result {
                 ok: Some(Box_::new(FFI_RLNMerkleProof {
                     path_elements,
                     path_index,
@@ -1653,7 +1656,7 @@ pub fn ffi_rln_get_merkle_proof(
                 err: None,
             }
         }
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.into()),
         },
@@ -1664,13 +1667,13 @@ pub fn ffi_rln_get_merkle_proof(
 pub fn ffi_rln_set_metadata(
     rln: &mut repr_c::Box<FFI_RLN>,
     metadata: &repr_c::Vec<u8>,
-) -> CBoolResult {
+) -> FFI_BoolResult {
     match rln.0.set_metadata(metadata) {
-        Ok(_) => CBoolResult {
+        Ok(_) => FFI_BoolResult {
             ok: true,
             err: None,
         },
-        Err(err) => CBoolResult {
+        Err(err) => FFI_BoolResult {
             ok: false,
             err: Some(err.into()),
         },
@@ -1680,13 +1683,13 @@ pub fn ffi_rln_set_metadata(
 #[ffi_export]
 pub fn ffi_rln_get_metadata(
     rln: &repr_c::Box<FFI_RLN>,
-) -> CResult<repr_c::Vec<u8>, repr_c::String> {
+) -> FFI_Result<repr_c::Vec<u8>, repr_c::String> {
     match rln.0.get_metadata() {
-        Ok(metadata) => CResult {
+        Ok(metadata) => FFI_Result {
             ok: Some(metadata.into()),
             err: None,
         },
-        Err(err) => CResult {
+        Err(err) => FFI_Result {
             ok: None,
             err: Some(err.into()),
         },
@@ -1694,13 +1697,13 @@ pub fn ffi_rln_get_metadata(
 }
 
 #[ffi_export]
-pub fn ffi_rln_close(rln: &mut repr_c::Box<FFI_RLN>) -> CBoolResult {
+pub fn ffi_rln_close(rln: &mut repr_c::Box<FFI_RLN>) -> FFI_BoolResult {
     match rln.0.close() {
-        Ok(_) => CBoolResult {
+        Ok(_) => FFI_BoolResult {
             ok: true,
             err: None,
         },
-        Err(err) => CBoolResult {
+        Err(err) => FFI_BoolResult {
             ok: false,
             err: Some(err.into()),
         },

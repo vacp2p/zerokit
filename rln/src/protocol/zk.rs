@@ -4,8 +4,8 @@ use ark_std::{rand::thread_rng, UniformRand};
 
 use crate::{
     circuit::{
-        qap::CircomReduction, ArkGroth16Backend, CalcWitness, CalcWitnessPartial, Fr, IdSecret,
-        PartialProof, Proof,
+        qap::CircomReduction, ArkGroth16Backend, CalcWitness, CalcWitnessPartial, Fr, PartialProof,
+        Proof, SecretFr,
     },
     error::{GenerateProofError, VerifyProofError},
     partial_proof::{Groth16Partial, PartialAssignment},
@@ -41,7 +41,7 @@ pub trait RLNZkProof {
 pub trait RecoverSecret<Rhs = Self> {
     type Error: std::error::Error;
 
-    fn recover_secret(&self, other: &Rhs) -> Result<IdSecret, Self::Error>;
+    fn recover_secret(&self, other: &Rhs) -> Result<SecretFr, Self::Error>;
 }
 
 pub trait RLNPartialZkProof: RLNZkProof {

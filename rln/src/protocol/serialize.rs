@@ -16,7 +16,7 @@ use super::{
     },
 };
 use crate::{
-    circuit::{Fr, IdSecret, Proof, COMPRESS_PROOF_SIZE},
+    circuit::{Fr, Proof, SecretFr, COMPRESS_PROOF_SIZE},
     error::SerializationError,
 };
 
@@ -97,7 +97,7 @@ impl CanonicalDeserializeBE for Fr {
     }
 }
 
-impl CanonicalSerializeBE for IdSecret {
+impl CanonicalSerializeBE for SecretFr {
     type Error = SerializationError;
 
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
@@ -116,7 +116,7 @@ impl CanonicalSerializeBE for IdSecret {
     }
 }
 
-impl CanonicalDeserializeBE for IdSecret {
+impl CanonicalDeserializeBE for SecretFr {
     type Error = SerializationError;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
@@ -133,7 +133,7 @@ impl CanonicalDeserializeBE for IdSecret {
             return Err(SerializationError::NonCanonicalFieldElement);
         }
         let mut fr = Fr::from(*bigint);
-        Ok(IdSecret::from(&mut fr))
+        Ok(SecretFr::from(&mut fr))
     }
 }
 
@@ -380,7 +380,7 @@ impl CanonicalDeserializeBE for RLNWitnessInputSingle {
     type Error = SerializationError;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
-        let identity_secret = IdSecret::deserialize(&mut reader)?;
+        let identity_secret = SecretFr::deserialize(&mut reader)?;
         let user_message_limit = Fr::deserialize(&mut reader)?;
         let message_id = Fr::deserialize(&mut reader)?;
         let path_elements = Vec::<Fr>::deserialize(&mut reader)?;
@@ -430,7 +430,7 @@ impl CanonicalDeserializeBE for RLNWitnessInputMulti {
     type Error = SerializationError;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
-        let identity_secret = IdSecret::deserialize(&mut reader)?;
+        let identity_secret = SecretFr::deserialize(&mut reader)?;
         let user_message_limit = Fr::deserialize(&mut reader)?;
         let path_elements = Vec::<Fr>::deserialize(&mut reader)?;
         let identity_path_index = Vec::<u8>::deserialize(&mut reader)?;
@@ -474,7 +474,7 @@ impl CanonicalDeserializeBE for RLNPartialWitnessInput {
     type Error = SerializationError;
 
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
-        let identity_secret = IdSecret::deserialize(&mut reader)?;
+        let identity_secret = SecretFr::deserialize(&mut reader)?;
         let user_message_limit = Fr::deserialize(&mut reader)?;
         let path_elements = Vec::<Fr>::deserialize(&mut reader)?;
         let identity_path_index = Vec::<u8>::deserialize(&mut reader)?;

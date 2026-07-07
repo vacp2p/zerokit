@@ -20,17 +20,17 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    CFr *external_nullifier = compute_external_nullifier();
+    Fr *external_nullifier = compute_external_nullifier();
 
     printf("\nHashing signal\n");
     uint8_t signal[32] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    CFr *x = hash_signal(signal);
-    print_cfr("x", x);
+    Fr *x = hash_signal(signal);
+    print_fr("x", x);
 
     printf("\nCreating message id\n");
-    CFr *message_id = ffi_uint_to_cfr(0);
-    print_cfr("message id", message_id);
+    Fr *message_id = ffi_uint_to_fr(0);
+    print_fr("message id", message_id);
 
     printf("\nCreating RLN witness\n");
     WitnessResult witness_result =
@@ -122,9 +122,9 @@ int main(void)
     ffi_rln_witness_input_free(deser_witness);
     ffi_vec_u8_free(ser_witness);
     ffi_rln_witness_input_free(witness);
-    ffi_cfr_free(message_id);
-    ffi_cfr_free(x);
-    ffi_cfr_free(external_nullifier);
+    ffi_fr_free(message_id);
+    ffi_fr_free(x);
+    ffi_fr_free(external_nullifier);
     ffi_rln_merkle_proof_free(merkle_proof);
     member_free(&member);
     ffi_rln_free(rln_instance);

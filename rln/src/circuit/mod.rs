@@ -6,7 +6,7 @@ pub(crate) mod qap;
 
 mod backend;
 mod graph;
-mod id_secret;
+mod secret_fr;
 mod types;
 mod zkey;
 
@@ -15,8 +15,8 @@ pub use backend::ArkGroth16Backend;
 pub use graph::{default_graph_multi, default_graph_single};
 pub use graph::{graph_from_raw, Graph};
 pub(crate) use graph::{CalcWitness, CalcWitnessPartial};
-pub(crate) use id_secret::FrOrSecret;
-pub use id_secret::IdSecret;
+pub(crate) use secret_fr::FrOrSecret;
+pub use secret_fr::SecretFr;
 pub use types::{
     Curve, Fq, Fq2, Fr, G1Affine, G1Projective, G2Affine, G2Projective, PartialProof, Proof,
     ProvingKey, VerifyingKey, Zkey, COMPRESS_PROOF_SIZE, DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH,

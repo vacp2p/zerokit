@@ -12,7 +12,7 @@ pub use crate::{
 pub use crate::{
     circuit::{
         graph_from_raw, zkey_from_raw, ArkGroth16Backend, Curve, Fq, Fq2, Fr, G1Affine,
-        G1Projective, G2Affine, G2Projective, Graph, IdSecret, PartialProof, Proof, VerifyingKey,
+        G1Projective, G2Affine, G2Projective, Graph, PartialProof, Proof, SecretFr, VerifyingKey,
         Zkey, COMPRESS_PROOF_SIZE, DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH,
     },
     error::{
@@ -20,8 +20,8 @@ pub use crate::{
         VerifyProofError, WitnessInputMultiError, WitnessInputSingleError,
     },
     hashers::{
-        hash_to_field_be, hash_to_field_le, poseidon_hash, poseidon_hash_pair,
-        poseidon_hash_secret, poseidon_hash_try_from, PoseidonHash,
+        hash_to_field_be, hash_to_field_le, poseidon_hash, poseidon_hash_list, poseidon_hash_pair,
+        PoseidonHash,
     },
     protocol::{
         compute_id_secret, extended_keygen, extended_seeded_keygen, keygen, seeded_keygen,

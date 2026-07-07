@@ -74,7 +74,7 @@ mod test {
     fn random_rln_witness(tree_depth: usize) -> RLNWitnessInput {
         let mut rng = thread_rng();
 
-        let identity_secret = IdSecret::rand(&mut rng);
+        let identity_secret = SecretFr::rand(&mut rng);
         let x = hash_to_field_le(&rng.gen::<[u8; 32]>());
         let epoch = hash_to_field_le(&rng.gen::<[u8; 32]>());
         let rln_identifier = hash_to_field_le(b"test-rln-identifier");

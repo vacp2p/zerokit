@@ -266,10 +266,10 @@ mod test {
     fn test_id_secret_be_roundtrip() {
         let mut rng = thread_rng();
         for _ in 0..10 {
-            let secret = IdSecret::rand(&mut rng);
+            let secret = SecretFr::rand(&mut rng);
             let mut buf = Vec::new();
             secret.serialize(&mut buf).unwrap();
-            let deser = IdSecret::deserialize(buf.as_slice()).unwrap();
+            let deser = SecretFr::deserialize(buf.as_slice()).unwrap();
             assert_eq!(secret, deser);
             assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&secret));
         }
@@ -277,8 +277,8 @@ mod test {
 
     #[test]
     fn test_id_secret_be_known_value() {
-        // IdSecret(42) BE should match Fr(42) BE - same field element
-        let secret = IdSecret::from(&mut Fr::from(42u64));
+        // SecretFr(42) BE should match Fr(42) BE - same field element
+        let secret = SecretFr::from(&mut Fr::from(42u64));
         let mut secret_buf = Vec::new();
         secret.serialize(&mut secret_buf).unwrap();
 
@@ -305,32 +305,32 @@ mod test {
         // Modulus must be rejected
         let modulus_be = to_be(&modulus);
         assert!(matches!(
-            IdSecret::deserialize(modulus_be.as_slice()).unwrap_err(),
+            SecretFr::deserialize(modulus_be.as_slice()).unwrap_err(),
             SerializationError::NonCanonicalFieldElement
         ));
 
         // All 0xFF must be rejected
         let max_bytes = vec![0xFF; FR_BYTE_SIZE];
         assert!(matches!(
-            IdSecret::deserialize(max_bytes.as_slice()).unwrap_err(),
+            SecretFr::deserialize(max_bytes.as_slice()).unwrap_err(),
             SerializationError::NonCanonicalFieldElement
         ));
 
         // Modulus - 1 must succeed
         let minus_one_be = to_be(&(&modulus - 1u32));
-        assert!(IdSecret::deserialize(minus_one_be.as_slice()).is_ok());
+        assert!(SecretFr::deserialize(minus_one_be.as_slice()).is_ok());
     }
 
     #[test]
     fn test_id_secret_be_insufficient_data_rejected() {
         let short = vec![0u8; FR_BYTE_SIZE - 1];
-        assert!(IdSecret::deserialize(short.as_slice()).is_err());
-        assert!(IdSecret::deserialize([].as_slice()).is_err());
+        assert!(SecretFr::deserialize(short.as_slice()).is_err());
+        assert!(SecretFr::deserialize([].as_slice()).is_err());
     }
 
     fn make_witness_input_single() -> RLNWitnessInput {
         RLNWitnessInput::new_single()
-            .identity_secret(IdSecret::from(&mut Fr::from(42u64)))
+            .identity_secret(SecretFr::from(&mut Fr::from(42u64)))
             .user_message_limit(Fr::from(10u64))
             .path_elements(vec![Fr::from(1u64), Fr::from(2u64)])
             .identity_path_index(vec![0u8, 1u8])
@@ -343,7 +343,7 @@ mod test {
 
     fn make_witness_input_multi() -> RLNWitnessInput {
         RLNWitnessInput::new_multi()
-            .identity_secret(IdSecret::from(&mut Fr::from(99u64)))
+            .identity_secret(SecretFr::from(&mut Fr::from(99u64)))
             .user_message_limit(Fr::from(10u64))
             .path_elements(vec![Fr::from(1u64), Fr::from(2u64)])
             .identity_path_index(vec![0u8, 1u8])
@@ -357,7 +357,7 @@ mod test {
 
     fn make_partial_witness() -> RLNPartialWitnessInput {
         RLNPartialWitnessInput::new()
-            .identity_secret(IdSecret::from(&mut Fr::from(42u64)))
+            .identity_secret(SecretFr::from(&mut Fr::from(42u64)))
             .user_message_limit(Fr::from(10u64))
             .path_elements(vec![Fr::from(1u64), Fr::from(2u64)])
             .identity_path_index(vec![0u8, 1u8])

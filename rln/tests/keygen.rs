@@ -73,11 +73,11 @@ mod test {
     fn test_extended_keygen_relations() {
         let (trapdoor, nullifier, identity_secret, id_commitment) = extended_keygen();
 
-        let expected_identity_secret = poseidon_hash_pair(trapdoor, nullifier);
-        let mut to_hash = [identity_secret];
+        let expected_identity_secret = poseidon_hash_pair(*trapdoor, *nullifier);
+        let mut to_hash = [*identity_secret];
         let expected_id_commitment = poseidon_hash(&to_hash);
         to_hash[0].zeroize();
-        assert_eq!(identity_secret, expected_identity_secret);
+        assert_eq!(*identity_secret, expected_identity_secret);
         assert_eq!(id_commitment, expected_id_commitment);
     }
 
@@ -118,9 +118,9 @@ mod test {
             .unwrap(),
         );
 
-        assert_eq!(identity_trapdoor, expected_identity_trapdoor);
-        assert_eq!(identity_nullifier, expected_identity_nullifier);
-        assert_eq!(identity_secret, expected_identity_secret);
+        assert_eq!(*identity_trapdoor, expected_identity_trapdoor);
+        assert_eq!(*identity_nullifier, expected_identity_nullifier);
+        assert_eq!(*identity_secret, expected_identity_secret);
         assert_eq!(id_commitment, expected_id_commitment);
 
         // We check again if the identity tuple generated with the same byte array corresponds to the previously generated one

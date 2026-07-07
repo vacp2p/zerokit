@@ -47,8 +47,8 @@ export async function initRLN(enableMultiMessageId = false) {
 
 export function createMember(rlnWasm) {
   console.log("\nGenerating identity keys");
-  const identity = rlnWasm.Identity.generate();
-  const identitySecret = identity.getSecretHash();
+  const identity = rlnWasm.WasmIdentityKeys.generate();
+  const identitySecret = identity.getSecret();
   const idCommitment = identity.getCommitment();
   console.log("  - identity generated successfully");
   console.log("  - identity secret = " + identitySecret.debug());
@@ -59,7 +59,7 @@ export function createMember(rlnWasm) {
   console.log("  - user message limit = " + userMessageLimit.debug());
 
   console.log("\nComputing rate commitment");
-  const rateCommitment = rlnWasm.Hasher.poseidonHashPair(
+  const rateCommitment = rlnWasm.WasmHasher.poseidonHashPair(
     idCommitment,
     userMessageLimit,
   );
@@ -79,9 +79,9 @@ export function computeMerkleProof(rlnWasm, rateCommitment) {
   const defaultLeaf = rlnWasm.WasmFr.zero();
 
   const defaultHashes = [];
-  defaultHashes[0] = rlnWasm.Hasher.poseidonHashPair(defaultLeaf, defaultLeaf);
+  defaultHashes[0] = rlnWasm.WasmHasher.poseidonHashPair(defaultLeaf, defaultLeaf);
   for (let i = 1; i < TREE_DEPTH - 1; i++) {
-    defaultHashes[i] = rlnWasm.Hasher.poseidonHashPair(
+    defaultHashes[i] = rlnWasm.WasmHasher.poseidonHashPair(
       defaultHashes[i - 1],
       defaultHashes[i - 1],
     );
@@ -96,12 +96,12 @@ export function computeMerkleProof(rlnWasm, rateCommitment) {
 
   console.log("\nComputing Merkle root for stateless mode");
   console.log("  - computing root for index 0 with rate commitment");
-  let computedRoot = rlnWasm.Hasher.poseidonHashPair(
+  let computedRoot = rlnWasm.WasmHasher.poseidonHashPair(
     rateCommitment,
     defaultLeaf,
   );
   for (let i = 1; i < TREE_DEPTH; i++) {
-    computedRoot = rlnWasm.Hasher.poseidonHashPair(
+    computedRoot = rlnWasm.WasmHasher.poseidonHashPair(
       computedRoot,
       defaultHashes[i - 1],
     );
@@ -115,7 +115,7 @@ export function computeMerkleProof(rlnWasm, rateCommitment) {
 }
 
 export function hashSignal(rlnWasm, signal) {
-  return rlnWasm.Hasher.hashToFieldLE(signal);
+  return rlnWasm.WasmHasher.hashToFieldLE(signal);
 }
 
 export function computeExternalNullifier(
@@ -124,19 +124,19 @@ export function computeExternalNullifier(
   rlnIdStr = "test-rln-identifier",
 ) {
   console.log("\nHashing epoch");
-  const epoch = rlnWasm.Hasher.hashToFieldLE(
+  const epoch = rlnWasm.WasmHasher.hashToFieldLE(
     new TextEncoder().encode(epochStr),
   );
   console.log("  - epoch = " + epoch.debug());
 
   console.log("\nHashing RLN identifier");
-  const rlnIdentifier = rlnWasm.Hasher.hashToFieldLE(
+  const rlnIdentifier = rlnWasm.WasmHasher.hashToFieldLE(
     new TextEncoder().encode(rlnIdStr),
   );
   console.log("  - RLN identifier = " + rlnIdentifier.debug());
 
   console.log("\nComputing Poseidon hash for external nullifier");
-  const externalNullifier = rlnWasm.Hasher.poseidonHashPair(
+  const externalNullifier = rlnWasm.WasmHasher.poseidonHashPair(
     epoch,
     rlnIdentifier,
   );

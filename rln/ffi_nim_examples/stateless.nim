@@ -8,16 +8,16 @@ proc main() =
   var member = createMember()
 
   echo "\nComputing Merkle path for stateless mode"
-  let defaultLeaf = ffi_cfr_zero()
-  var defaultHashes: array[treeDepth - 1, ptr CFr]
+  let defaultLeaf = ffi_fr_zero()
+  var defaultHashes: array[treeDepth - 1, ptr Fr]
   defaultHashes[0] = ffi_poseidon_hash_pair(defaultLeaf, defaultLeaf)
   for i in 1 ..< treeDepth - 1:
     defaultHashes[i] = ffi_poseidon_hash_pair(defaultHashes[i - 1],
         defaultHashes[i - 1])
-  var pathElements = ffi_vec_cfr_new(csize_t(treeDepth))
-  ffi_vec_cfr_push(addr pathElements, defaultLeaf)
+  var pathElements = ffi_vec_fr_new(csize_t(treeDepth))
+  ffi_vec_fr_push(addr pathElements, defaultLeaf)
   for i in 1 ..< treeDepth:
-    ffi_vec_cfr_push(addr pathElements, defaultHashes[i - 1])
+    ffi_vec_fr_push(addr pathElements, defaultHashes[i - 1])
   var pathIndexData: array[treeDepth, uint8]
   var pathIndex = Vec_uint8(dataPtr: addr pathIndexData[0],
       len: csize_t(treeDepth), cap: csize_t(treeDepth))
@@ -27,11 +27,11 @@ proc main() =
   var computedRoot = ffi_poseidon_hash_pair(member.rateCommitment, defaultLeaf)
   for i in 1 ..< treeDepth:
     let nextRoot = ffi_poseidon_hash_pair(computedRoot, defaultHashes[i - 1])
-    ffi_cfr_free(computedRoot)
+    ffi_fr_free(computedRoot)
     computedRoot = nextRoot
-  printCfr("computed root", computedRoot)
-  var roots = ffi_vec_cfr_new(csize_t(1))
-  ffi_vec_cfr_push(addr roots, computedRoot)
+  printFr("computed root", computedRoot)
+  var roots = ffi_vec_fr_new(csize_t(1))
+  ffi_vec_fr_push(addr roots, computedRoot)
 
   let externalNullifier = computeExternalNullifier()
 
@@ -39,11 +39,11 @@ proc main() =
   var signal: array[32, uint8] = [1'u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   let x = hashSignal(signal)
-  printCfr("x", x)
+  printFr("x", x)
 
   echo "\nCreating message id"
-  let messageId = ffi_uint_to_cfr(0'u32)
-  printCfr("message id", messageId)
+  let messageId = ffi_uint_to_fr(0'u32)
+  printFr("message id", messageId)
 
   echo "\nCreating RLN witness"
   let witnessResult = ffi_rln_witness_input_new_single(member.identitySecret,
@@ -72,25 +72,25 @@ proc main() =
     stderr.writeLine("Get y error: " & asString(yResult.err))
     ffi_c_string_free(yResult.err)
     return
-  printCfr("y", yResult.ok)
-  ffi_cfr_free(yResult.ok)
+  printFr("y", yResult.ok)
+  ffi_fr_free(yResult.ok)
   let nullifierResult = ffi_rln_proof_values_get_nullifier(addr proofValues)
   if nullifierResult.ok.isNil:
     stderr.writeLine("Get nullifier error: " & asString(nullifierResult.err))
     ffi_c_string_free(nullifierResult.err)
     return
-  printCfr("nullifier", nullifierResult.ok)
-  ffi_cfr_free(nullifierResult.ok)
+  printFr("nullifier", nullifierResult.ok)
+  ffi_fr_free(nullifierResult.ok)
   let proofValuesRoot = ffi_rln_proof_values_get_root(addr proofValues)
-  printCfr("root", proofValuesRoot)
-  ffi_cfr_free(proofValuesRoot)
+  printFr("root", proofValuesRoot)
+  ffi_fr_free(proofValuesRoot)
   let proofValuesX = ffi_rln_proof_values_get_x(addr proofValues)
-  printCfr("x", proofValuesX)
-  ffi_cfr_free(proofValuesX)
+  printFr("x", proofValuesX)
+  ffi_fr_free(proofValuesX)
   let proofValuesExternalNullifier =
     ffi_rln_proof_values_get_external_nullifier(addr proofValues)
-  printCfr("external nullifier", proofValuesExternalNullifier)
-  ffi_cfr_free(proofValuesExternalNullifier)
+  printFr("external nullifier", proofValuesExternalNullifier)
+  ffi_fr_free(proofValuesExternalNullifier)
 
   echo "\nVerifying proof"
   let verifyResult = ffi_rln_verify_with_roots(addr rlnInstance,
@@ -108,15 +108,15 @@ proc main() =
   ffi_rln_proof_values_free(proofValues)
   ffi_rln_proof_free(rlnProof)
   ffi_rln_witness_input_free(witness)
-  ffi_cfr_free(messageId)
-  ffi_cfr_free(x)
-  ffi_cfr_free(externalNullifier)
-  ffi_vec_cfr_free(roots)
-  ffi_cfr_free(computedRoot)
-  ffi_vec_cfr_free(pathElements)
+  ffi_fr_free(messageId)
+  ffi_fr_free(x)
+  ffi_fr_free(externalNullifier)
+  ffi_vec_fr_free(roots)
+  ffi_fr_free(computedRoot)
+  ffi_vec_fr_free(pathElements)
   for i in 0 ..< treeDepth - 1:
-    ffi_cfr_free(defaultHashes[i])
-  ffi_cfr_free(defaultLeaf)
+    ffi_fr_free(defaultHashes[i])
+  ffi_fr_free(defaultLeaf)
   memberFree(member)
   ffi_rln_free(rlnInstance)
 
