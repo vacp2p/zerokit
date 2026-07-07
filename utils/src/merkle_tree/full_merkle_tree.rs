@@ -16,7 +16,7 @@ use crate::hasher::ZerokitHasher;
 // Full Merkle Tree Implementation
 
 /// Merkle tree with all leaf and intermediate hashes stored
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FullMerkleTree<H: ZerokitHasher> {
     /// The depth of the tree, i.e. the number of levels from leaf to root
     depth: usize,
@@ -40,7 +40,7 @@ pub struct FullMerkleTree<H: ZerokitHasher> {
 }
 
 /// Element of a Merkle proof
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq)]
 pub(crate) enum FullMerkleBranch<H: ZerokitHasher> {
     /// Left branch taken, value is the right sibling hash.
     Left(H::Scalar),
@@ -50,7 +50,7 @@ pub(crate) enum FullMerkleBranch<H: ZerokitHasher> {
 }
 
 /// Merkle proof path, bottom to top.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq)]
 pub struct FullMerkleProof<H: ZerokitHasher>(Vec<FullMerkleBranch<H>>);
 
 #[derive(Default)]
@@ -65,7 +65,10 @@ impl FromStr for FullMerkleConfig {
 }
 
 /// Implementations
-impl<H: ZerokitHasher> ZerokitMerkleTree for FullMerkleTree<H> {
+impl<H> ZerokitMerkleTree for FullMerkleTree<H>
+where
+    H: ZerokitHasher,
+{
     type Proof = FullMerkleProof<H>;
     type Hasher = H;
     type Config = FullMerkleConfig;
@@ -284,7 +287,10 @@ impl<H: ZerokitHasher> ZerokitMerkleTree for FullMerkleTree<H> {
 }
 
 // Utilities for updating the tree nodes
-impl<H: ZerokitHasher> FullMerkleTree<H> {
+impl<H> FullMerkleTree<H>
+where
+    H: ZerokitHasher,
+{
     /// For a given node index, return the parent node index
     /// Returns None if there is no parent (root node)
     fn parent(&self, index: usize) -> Option<usize> {
@@ -355,7 +361,10 @@ impl<H: ZerokitHasher> FullMerkleTree<H> {
     }
 }
 
-impl<H: ZerokitHasher> ZerokitMerkleProof for FullMerkleProof<H> {
+impl<H> ZerokitMerkleProof for FullMerkleProof<H>
+where
+    H: ZerokitHasher,
+{
     type Index = u8;
     type Hasher = H;
 
@@ -403,8 +412,9 @@ impl<H: ZerokitHasher> ZerokitMerkleProof for FullMerkleProof<H> {
 }
 
 // Debug formatting for printing a (Full) Merkle Proof Branch
-impl<H: ZerokitHasher> Debug for FullMerkleBranch<H>
+impl<H> Debug for FullMerkleBranch<H>
 where
+    H: ZerokitHasher,
     H::Scalar: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -416,8 +426,9 @@ where
 }
 
 // Debug formatting for printing a (Full) Merkle Proof
-impl<H: ZerokitHasher> Debug for FullMerkleProof<H>
+impl<H> Debug for FullMerkleProof<H>
 where
+    H: ZerokitHasher,
     H::Scalar: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -18,7 +18,10 @@ struct MulCircuit<F: Field> {
     b: Option<F>,
 }
 
-impl<ConstraintF: Field> ConstraintSynthesizer<ConstraintF> for MulCircuit<ConstraintF> {
+impl<ConstraintF> ConstraintSynthesizer<ConstraintF> for MulCircuit<ConstraintF>
+where
+    ConstraintF: Field,
+{
     fn generate_constraints(
         self,
         cs: ConstraintSystemRef<ConstraintF>,

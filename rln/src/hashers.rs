@@ -26,7 +26,7 @@ const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
 static POSEIDON: LazyLock<Poseidon<Fr>> = LazyLock::new(|| Poseidon::from(&ROUND_PARAMS));
 
 /// The Poseidon hash function over the Bn254 scalar field.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct PoseidonHash;
 
 impl ZerokitHasher for PoseidonHash {
@@ -44,7 +44,10 @@ impl ZerokitHasher for PoseidonHash {
 /// For example, `Hasher::<PoseidonHash>::hash_pair(left, right)`.
 pub struct Hasher<H>(PhantomData<H>);
 
-impl<H: ZerokitHasher<Scalar = Fr>> Hasher<H> {
+impl<H> Hasher<H>
+where
+    H: ZerokitHasher<Scalar = Fr>,
+{
     /// Hashes a single field element.
     pub fn hash_single(input: Fr) -> Fr {
         H::hash(&[input])
@@ -61,9 +64,12 @@ impl<H: ZerokitHasher<Scalar = Fr>> Hasher<H> {
     }
 }
 
-/// Hashes arbitrary signal to the underlying prime field.
+/// Hashes an arbitrary-length signal to the prime field.
+/// Keccak-256 digest reduced little-endian modulo the field order.
+///
+/// Keccak-256 is used because this mapping runs outside the circuit: the circuit only
+/// consumes the resulting field elements (signal `x`, `epoch`, `rln_identifier`).
 pub fn hash_to_field_le(signal: &[u8]) -> Fr {
-    // We hash the input signal using Keccak256
     let mut hash = [0; 32];
     let mut hasher = Keccak::v256();
     hasher.update(signal);
@@ -72,9 +78,12 @@ pub fn hash_to_field_le(signal: &[u8]) -> Fr {
     Fr::from_le_bytes_mod_order(&hash)
 }
 
-/// Hashes arbitrary signal to the underlying prime field.
+/// Hashes an arbitrary-length signal to the prime field.
+/// Keccak-256 digest reduced big-endian modulo the field order.
+///
+/// Keccak-256 is used because this mapping runs outside the circuit: the circuit only
+/// consumes the resulting field elements (signal `x`, `epoch`, `rln_identifier`).
 pub fn hash_to_field_be(signal: &[u8]) -> Fr {
-    // We hash the input signal using Keccak256
     let mut hash = [0; 32];
     let mut hasher = Keccak::v256();
     hasher.update(signal);

@@ -20,7 +20,10 @@ pub struct PartialAssignment<F: PrimeField> {
     pub values: Vec<Option<F>>,
 }
 
-impl<F: PrimeField> PartialAssignment<F> {
+impl<F> PartialAssignment<F>
+where
+    F: PrimeField,
+{
     /// Creates a new partial assignment.
     pub fn new(values: Vec<Option<F>>) -> Self {
         Self { values }
@@ -47,7 +50,11 @@ pub struct Groth16Partial<E: Pairing, QAP: R1CSToQAP = LibsnarkReduction> {
     _p: PhantomData<(E, QAP)>,
 }
 
-impl<E: Pairing, QAP: R1CSToQAP> Groth16Partial<E, QAP> {
+impl<E, QAP> Groth16Partial<E, QAP>
+where
+    E: Pairing,
+    QAP: R1CSToQAP,
+{
     /// Precompute a partial proof from a partial assignment.
     pub fn prove_partial(
         pk: &ProvingKey<E>,

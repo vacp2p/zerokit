@@ -35,7 +35,7 @@ pub enum ZerokitMerkleTreeError {
 }
 
 /// Invariants that can be violated during Merkle tree operations of `FullMerkleTree` and `OptimalMerkleTree`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum MerkleTreeInvariant {
     /// `FullMerkleTree`: a non-root node reported no parent during a subtree-root walk.
     #[error("FullMerkleTree: parent returned None during subtree walk")]

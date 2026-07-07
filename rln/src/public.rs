@@ -160,7 +160,10 @@ where
     }
 }
 
-impl<State, ZkProof: RLNZkProof> RLN<State, ZkProof> {
+impl<State, ZkProof> RLN<State, ZkProof>
+where
+    ZkProof: RLNZkProof,
+{
     pub fn generate_proof(
         &self,
         witness: &ZkProof::Witness,
@@ -177,7 +180,10 @@ impl<State, ZkProof: RLNZkProof> RLN<State, ZkProof> {
     }
 }
 
-impl<State, ZkProof: RLNPartialZkProof> RLN<State, ZkProof> {
+impl<State, ZkProof> RLN<State, ZkProof>
+where
+    ZkProof: RLNPartialZkProof,
+{
     pub fn generate_partial_proof(
         &self,
         partial_witness: &ZkProof::PartialWitness,

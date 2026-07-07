@@ -7,10 +7,10 @@ use zerokit_utils::merkle_tree::{
     ZerokitMerkleProof, ZerokitMerkleTree,
 };
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq)]
 struct Keccak256;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 struct TestFr([u8; 32]);
 
 impl ZerokitHasher for Keccak256 {

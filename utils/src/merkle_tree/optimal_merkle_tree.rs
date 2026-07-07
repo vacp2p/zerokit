@@ -11,7 +11,7 @@ use crate::hasher::ZerokitHasher;
 // Optimal Merkle Tree Implementation
 
 /// The Merkle tree structure
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct OptimalMerkleTree<H: ZerokitHasher> {
     /// The depth of the tree, i.e. the number of levels from leaf to root
     depth: usize,
@@ -42,7 +42,7 @@ pub struct OptimalMerkleTree<H: ZerokitHasher> {
 
 /// The Merkle proof
 /// Contains a vector of (node, branch_index) that defines the proof path elements and branch direction (1 or 0)
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq)]
 pub struct OptimalMerkleProof<H: ZerokitHasher>(pub Vec<(H::Scalar, u8)>);
 
 #[derive(Default)]
@@ -57,7 +57,10 @@ impl FromStr for OptimalMerkleConfig {
 }
 
 /// Implementations
-impl<H: ZerokitHasher> ZerokitMerkleTree for OptimalMerkleTree<H> {
+impl<H> ZerokitMerkleTree for OptimalMerkleTree<H>
+where
+    H: ZerokitHasher,
+{
     type Proof = OptimalMerkleProof<H>;
     type Hasher = H;
     type Config = OptimalMerkleConfig;
@@ -260,7 +263,10 @@ impl<H: ZerokitHasher> ZerokitMerkleTree for OptimalMerkleTree<H> {
 }
 
 // Utilities for updating the tree nodes
-impl<H: ZerokitHasher> OptimalMerkleTree<H> {
+impl<H> OptimalMerkleTree<H>
+where
+    H: ZerokitHasher,
+{
     /// Returns the value of a node at a specific (depth, index).
     /// Falls back to a cached default if the node hasn't been set.
     fn get_node(&self, depth: usize, index: usize) -> H::Scalar {
@@ -335,7 +341,10 @@ impl<H: ZerokitHasher> OptimalMerkleTree<H> {
     }
 }
 
-impl<H: ZerokitHasher> ZerokitMerkleProof for OptimalMerkleProof<H> {
+impl<H> ZerokitMerkleProof for OptimalMerkleProof<H>
+where
+    H: ZerokitHasher,
+{
     type Index = u8;
     type Hasher = H;
 
@@ -377,8 +386,9 @@ impl<H: ZerokitHasher> ZerokitMerkleProof for OptimalMerkleProof<H> {
 }
 
 // Debug formatting for printing a (Optimal) Merkle Proof
-impl<H: ZerokitHasher> Debug for OptimalMerkleProof<H>
+impl<H> Debug for OptimalMerkleProof<H>
 where
+    H: ZerokitHasher,
     H::Scalar: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

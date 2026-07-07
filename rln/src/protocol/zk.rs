@@ -69,7 +69,10 @@ pub trait RLNPartialZkProof: RLNZkProof {
     ) -> Result<(Self::Proof, Self::Values), Self::FinishProofError>;
 }
 
-impl<H: ZerokitHasher<Scalar = Fr>> RLNZkProof for ArkGroth16Backend<H> {
+impl<H> RLNZkProof for ArkGroth16Backend<H>
+where
+    H: ZerokitHasher<Scalar = Fr>,
+{
     type Hasher = H;
     type Witness = RLNWitnessInput;
     type Values = RLNProofValues;
@@ -132,7 +135,10 @@ impl<H: ZerokitHasher<Scalar = Fr>> RLNZkProof for ArkGroth16Backend<H> {
     }
 }
 
-impl<H: ZerokitHasher<Scalar = Fr>> RLNPartialZkProof for ArkGroth16Backend<H> {
+impl<H> RLNPartialZkProof for ArkGroth16Backend<H>
+where
+    H: ZerokitHasher<Scalar = Fr>,
+{
     type PartialWitness = RLNPartialWitnessInput;
     type PartialProof = PartialProof;
     type GeneratePartialProofError = GenerateProofError;
