@@ -27,7 +27,8 @@ impl IdentityKeys {
         }
     }
 
-    /// Generates a deterministic RLN identity from a seed using the protocol hash `H` and the provided RNG `R`.
+    /// Generates a deterministic RLN identity from a seed using the protocol hash `H` and the
+    /// provided RNG `R`.
     pub fn generate_seeded<H: ZerokitHasher<Scalar = Fr>, R: Rng + CryptoRng + SeedableRng>(
         signal: &[u8],
     ) -> Self {
@@ -66,7 +67,8 @@ pub struct ExtendedIdentityKeys {
 }
 
 impl ExtendedIdentityKeys {
-    /// Generates a random extended RLN identity using the protocol hash `H` and the provided RNG `rng`.
+    /// Generates a random extended RLN identity using the protocol hash `H` and the provided
+    /// RNG `rng`.
     pub fn generate<H: ZerokitHasher<Scalar = Fr>, R: Rng + CryptoRng>(rng: &mut R) -> Self {
         let identity_trapdoor = SecretFr::rand(rng);
         let identity_nullifier = SecretFr::rand(rng);
@@ -81,7 +83,8 @@ impl ExtendedIdentityKeys {
         }
     }
 
-    /// Generates a deterministic extended RLN identity from a seed using the protocol hash `H` and the provided RNG `R`.
+    /// Generates a deterministic extended RLN identity from a seed using the protocol hash `H`
+    /// and the provided RNG `R`.
     pub fn generate_seeded<H: ZerokitHasher<Scalar = Fr>, R: Rng + CryptoRng + SeedableRng>(
         signal: &[u8],
     ) -> Self {

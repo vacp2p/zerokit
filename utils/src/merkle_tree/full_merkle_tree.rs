@@ -30,12 +30,12 @@ where
     /// The tree nodes
     nodes: Vec<H::Scalar>,
 
-    /// The indices of leaves which are set into zero upto next_index.
+    /// The indices of leaves which are set into zero upto `next_index`.
     /// Set to 0 if the leaf is empty and set to 1 in otherwise.
     cached_leaves_indices: Vec<u8>,
 
-    /// The next available (i.e., never used) tree index. Equivalently, the number of leaves added to the tree
-    /// (deletions leave next_index unchanged)
+    /// The next available (i.e., never used) tree index. Equivalently, the number of leaves added
+    /// to the tree (deletions leave `next_index` unchanged)
     next_index: usize,
 
     /// Metadata that an application may use to store additional information
@@ -88,7 +88,8 @@ where
     }
 
     /// Creates a new `MerkleTree`
-    /// depth - the depth of the tree made only of hash nodes. 2^depth is the maximum number of leaves hash nodes
+    /// depth - the depth of the tree made only of hash nodes. `2^depth` is the maximum number of
+    /// leaves hash nodes
     fn new(
         depth: usize,
         default_leaf: H::Scalar,
@@ -145,7 +146,8 @@ where
         self.nodes[0]
     }
 
-    /// Returns the root of the subtree at `level` (`0` = root, `depth` = leaf) on the path to leaf `index`.
+    /// Returns the root of the subtree at `level` (`0` = root, `depth` = leaf) on the path to
+    /// leaf `index`.
     fn get_subtree_root(&self, level: usize, index: usize) -> Result<H::Scalar, Self::Error> {
         if level > self.depth() {
             return Err(ZerokitMerkleTreeError::LevelOutOfBounds);
@@ -239,7 +241,8 @@ where
         Ok(())
     }
 
-    /// Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
+    /// Deletes a leaf at a certain index by setting it to its default value (`next_index` is not
+    /// updated)
     fn delete(&mut self, index: usize) -> Result<(), Self::Error> {
         if index >= self.next_index {
             return Err(ZerokitMerkleTreeError::DeleteUnsetLeaf);
@@ -413,7 +416,8 @@ where
             .collect()
     }
 
-    /// Computes the Merkle root corresponding by iteratively hashing a Merkle proof with a given input leaf
+    /// Computes the Merkle root corresponding by iteratively hashing a Merkle proof with a given
+    /// input leaf
     fn compute_root_from(&self, hash: &H::Scalar) -> H::Scalar {
         self.0.iter().fold(*hash, |hash, branch| match branch {
             FullMerkleBranch::Left(sibling) => H::hash(&[hash, *sibling]),

@@ -15,13 +15,17 @@ use crate::{
     },
 };
 
+/// The witness inputs for an RLN proof, in either Single or Multi message-id mode.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RLNWitnessInput {
+    /// Witness inputs for Single message-id mode.
     Single(RLNWitnessInputSingle),
+    /// Witness inputs for Multi message-id mode.
     Multi(RLNWitnessInputMulti),
 }
 
 impl RLNWitnessInput {
+    /// Returns a clone of the identity secret.
     pub fn identity_secret(&self) -> SecretFr {
         match self {
             Self::Single(w) => w.identity_secret.clone(),
@@ -29,6 +33,7 @@ impl RLNWitnessInput {
         }
     }
 
+    /// Returns the user message limit.
     pub fn user_message_limit(&self) -> Fr {
         match self {
             Self::Single(w) => w.user_message_limit,
@@ -36,6 +41,7 @@ impl RLNWitnessInput {
         }
     }
 
+    /// Returns the Merkle path elements.
     pub fn path_elements(&self) -> &[Fr] {
         match self {
             Self::Single(w) => &w.path_elements,
@@ -43,6 +49,7 @@ impl RLNWitnessInput {
         }
     }
 
+    /// Returns the Merkle path index bits.
     pub fn identity_path_index(&self) -> &[u8] {
         match self {
             Self::Single(w) => &w.identity_path_index,
@@ -50,6 +57,7 @@ impl RLNWitnessInput {
         }
     }
 
+    /// Returns the signal `x`.
     pub fn x(&self) -> Fr {
         match self {
             Self::Single(w) => w.x,
@@ -57,6 +65,7 @@ impl RLNWitnessInput {
         }
     }
 
+    /// Returns the external nullifier.
     pub fn external_nullifier(&self) -> Fr {
         match self {
             Self::Single(w) => w.external_nullifier,
@@ -64,6 +73,7 @@ impl RLNWitnessInput {
         }
     }
 
+    /// Returns the message id in Single message-id mode, or `None` in Multi mode.
     pub fn message_id(&self) -> Option<Fr> {
         match self {
             Self::Single(w) => Some(w.message_id),
@@ -71,6 +81,7 @@ impl RLNWitnessInput {
         }
     }
 
+    /// Returns the message ids in Multi message-id mode, or `None` in Single mode.
     pub fn message_ids(&self) -> Option<&[Fr]> {
         match self {
             Self::Multi(w) => Some(&w.message_ids),
@@ -78,6 +89,7 @@ impl RLNWitnessInput {
         }
     }
 
+    /// Returns the per-slot selector flags in Multi message-id mode, or `None` in Single mode.
     pub fn selector_used(&self) -> Option<&[bool]> {
         match self {
             Self::Multi(w) => Some(&w.selector_used),
@@ -88,6 +100,7 @@ impl RLNWitnessInput {
 
 #[bon]
 impl RLNWitnessInput {
+    /// Starts building a Single message-id witness; call `build` to validate and construct it.
     #[builder(finish_fn = build)]
     pub fn new_single(
         identity_secret: SecretFr,
@@ -126,6 +139,7 @@ impl RLNWitnessInput {
         }))
     }
 
+    /// Starts building a Multi message-id witness; call `build` to validate and construct it.
     #[builder(finish_fn = build)]
     #[allow(clippy::too_many_arguments)]
     pub fn new_multi(
@@ -360,6 +374,7 @@ impl CalcWitnessPartial for RLNPartialWitnessInput {
     }
 }
 
+/// Witness inputs for Single message-id mode.
 #[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNWitnessInputSingle {
     pub(crate) identity_secret: SecretFr,
@@ -371,6 +386,7 @@ pub struct RLNWitnessInputSingle {
     pub(crate) message_id: Fr,
 }
 
+/// Witness inputs for Multi message-id mode.
 #[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNWitnessInputMulti {
     pub(crate) identity_secret: SecretFr,
@@ -383,6 +399,7 @@ pub struct RLNWitnessInputMulti {
     pub(crate) selector_used: Vec<bool>,
 }
 
+/// The partial witness inputs known before the message-specific values.
 #[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNPartialWitnessInput {
     pub(crate) identity_secret: SecretFr,
@@ -393,6 +410,7 @@ pub struct RLNPartialWitnessInput {
 
 #[bon]
 impl RLNPartialWitnessInput {
+    /// Starts building a partial witness; call `build` to validate and construct it.
     #[allow(clippy::new_ret_no_self)]
     #[builder(start_fn = new, finish_fn = build)]
     pub fn create(

@@ -12,11 +12,13 @@ use std::str::FromStr;
 use super::error::ZerokitMerkleTreeError;
 use crate::hasher::ZerokitHasher;
 
-/// Enables parallel hashing when there are at least 8 nodes (4 pairs to hash), justifying the overhead.
+/// Enables parallel hashing when there are at least 8 nodes (4 pairs to hash), justifying the
+/// overhead.
 pub const MIN_PARALLEL_NODES: usize = 8;
 
-/// In the ZerokitMerkleTree trait we define the methods that are required to be implemented by a Merkle tree
-/// Including, OptimalMerkleTree, FullMerkleTree
+/// In the [`ZerokitMerkleTree`] trait we define the methods that are required to be implemented by
+/// a Merkle tree, including [`OptimalMerkleTree`](crate::merkle_tree::OptimalMerkleTree) and
+/// [`FullMerkleTree`](crate::merkle_tree::FullMerkleTree).
 pub trait ZerokitMerkleTree {
     type Proof: ZerokitMerkleProof;
     type Hasher: ZerokitHasher;
@@ -37,7 +39,8 @@ pub trait ZerokitMerkleTree {
     fn capacity(&self) -> usize;
     fn leaves_set(&self) -> usize;
     fn root(&self) -> <Self::Hasher as ZerokitHasher>::Scalar;
-    /// Returns the root of the subtree at `level` (`0` = root, `depth` = leaf) on the path to leaf `index`.
+    /// Returns the root of the subtree at `level` (`0` = root, `depth` = leaf) on the path to
+    /// leaf `index`.
     fn get_subtree_root(
         &self,
         level: usize,
@@ -53,10 +56,12 @@ pub trait ZerokitMerkleTree {
         I: ExactSizeIterator<Item = <Self::Hasher as ZerokitHasher>::Scalar>;
     fn get(&self, index: usize) -> Result<<Self::Hasher as ZerokitHasher>::Scalar, Self::Error>;
     fn get_empty_leaves_indices(&self) -> Vec<usize>;
-    /// Validates an `override_range` request and returns the non-overlapping indices to reset to the default leaf.
+    /// Validates an `override_range` request and returns the non-overlapping indices to reset to
+    /// the default leaf.
     ///
     /// Indices inside the write range are overwritten by it, so they are skipped.
-    /// This is the single shared validator, so every backend reports the same error variant for the same misuse.
+    /// This is the single shared validator, so every backend reports the same error variant for
+    /// the same misuse.
     fn validate_override_range(
         &self,
         start: usize,
@@ -84,10 +89,12 @@ pub trait ZerokitMerkleTree {
         }
         Ok(deletes)
     }
-    /// Writes `leaves` contiguously from `start`, then resets the non-overlapping `to_remove_indices` (writes win on overlap).
+    /// Writes `leaves` contiguously from `start`, then resets the non-overlapping
+    /// `to_remove_indices` (writes win on overlap).
     ///
     /// Validation is shared via [`Self::validate_override_range`].
-    /// The default apply (`delete` + `set_range`) is not crash-atomic, so a persistent backend overrides only the apply step (see `PmTree`).
+    /// The default apply (`delete` + `set_range`) is not crash-atomic, so a persistent backend
+    /// overrides only the apply step (see `PmTree`).
     fn override_range<I, J>(
         &mut self,
         start: usize,
@@ -126,7 +133,8 @@ pub trait ZerokitMerkleTree {
     fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), Self::Error>;
     fn metadata(&self) -> Result<Vec<u8>, Self::Error>;
     /// Closes the tree, flushing pending writes for persistent backends.
-    /// Optional: the default is a no-op (in-memory trees), and persistent backends also flush on drop.
+    ///
+    /// Optional: the default is a no-op (in-memory trees).
     fn close(&mut self) -> Result<(), Self::Error> {
         Ok(())
     }

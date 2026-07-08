@@ -19,6 +19,7 @@ impl<H> ArkGroth16Backend<H>
 where
     H: ZerokitHasher<Scalar = Fr>,
 {
+    /// Creates a new backend from Groth16 circuit resources (`zkey` and `graph`).
     pub fn new(zkey: impl Into<Arc<Zkey>>, graph: impl Into<Arc<Graph>>) -> Self {
         let zkey = zkey.into();
         let graph = graph.into();

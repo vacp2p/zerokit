@@ -16,25 +16,34 @@ use crate::{
     },
 };
 
+/// A zkSNARK proof backend for RLN: generates and verifies proofs and their public values.
 pub trait RLNZkProof {
+    /// The protocol hash used to derive proof values.
     type Hasher: ZerokitHasher<Scalar = Fr>;
+    /// The witness type consumed by proof generation.
     type Witness: CanonicalSerialize
         + CanonicalDeserialize
         + CanonicalSerializeBE
         + CanonicalDeserializeBE;
+    /// The public proof values type produced alongside a proof.
     type Values: CanonicalSerialize
         + CanonicalDeserialize
         + CanonicalSerializeBE
         + CanonicalDeserializeBE
         + RecoverSecret;
+    /// The zkSNARK proof type.
     type Proof: CanonicalSerialize + CanonicalDeserialize;
+    /// The error type returned by [`Self::generate_proof`].
     type GenerateProofError: std::error::Error;
+    /// The error type returned by [`Self::verify`].
     type VerifyProofError: std::error::Error;
 
+    /// Generates a proof and its public values from a `witness`.
     fn generate_proof(
         &self,
         witness: &Self::Witness,
     ) -> Result<(Self::Proof, Self::Values), Self::GenerateProofError>;
+    /// Verifies a `proof` against its public `values`.
     fn verify(
         &self,
         proof: &Self::Proof,
@@ -42,26 +51,38 @@ pub trait RLNZkProof {
     ) -> Result<bool, Self::VerifyProofError>;
 }
 
+/// Recovers an identity secret from two sets of proof values that reused an external nullifier.
 pub trait RecoverSecret<Rhs = Self> {
+    /// The error type returned by [`Self::recover_secret`].
     type Error: std::error::Error;
 
+    /// Recovers the identity secret from `self` and `other`, or returns an error if they do not
+    /// yield a matching nullifier (no slashing possible).
     fn recover_secret(&self, other: &Rhs) -> Result<SecretFr, Self::Error>;
 }
 
+/// Two-step proof generation on top of [`RLNZkProof`]: a partial proof from the known inputs,
+/// finished later with the full witness.
 pub trait RLNPartialZkProof: RLNZkProof {
+    /// The partial witness type consumed by [`Self::generate_partial_proof`].
     type PartialWitness: CanonicalSerialize
         + CanonicalDeserialize
         + CanonicalSerializeBE
         + CanonicalDeserializeBE;
+    /// The partial proof type produced by [`Self::generate_partial_proof`].
     type PartialProof: CanonicalSerialize + CanonicalDeserialize;
+    /// The error type returned by [`Self::generate_partial_proof`].
     type GeneratePartialProofError: std::error::Error;
+    /// The error type returned by [`Self::finish_proof`].
     type FinishProofError: std::error::Error;
 
+    /// Generates a partial proof from partial `witness` inputs.
     fn generate_partial_proof(
         &self,
         witness: &Self::PartialWitness,
     ) -> Result<Self::PartialProof, Self::GeneratePartialProofError>;
 
+    /// Completes proof generation from a `partial` proof and the full `witness`.
     fn finish_proof(
         &self,
         partial: &Self::PartialProof,

@@ -15,6 +15,7 @@ use super::Fr;
 pub struct SecretFr(Fr);
 
 impl SecretFr {
+    /// Samples a random secret field element from `rng`.
     pub fn rand<R: Rng + ?Sized>(rng: &mut R) -> Self {
         let mut fr = Fr::rand(rng);
         let res = Self::from(&mut fr);
@@ -24,7 +25,8 @@ impl SecretFr {
     }
 
     /// Warning: this can leak the secret value
-    /// Warning: Leaked value is of type 'U256' which implement Copy (every copy will not be zeroized)
+    /// Warning: Leaked value is of type 'U256' which implement Copy (every copy will not be
+    /// zeroized)
     pub(crate) fn to_u256(&self) -> U256 {
         let mut big_int = self.0.into_bigint();
         let res = U256::from_limbs(big_int.0);

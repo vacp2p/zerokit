@@ -13,13 +13,17 @@ use crate::{
     hashers::Hasher,
 };
 
+/// The public values of an RLN proof, in either Single or Multi message-id mode.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RLNProofValues {
+    /// Proof values for Single message-id mode.
     Single(RLNProofValuesSingle),
+    /// Proof values for Multi message-id mode.
     Multi(RLNProofValuesMulti),
 }
 
 impl RLNProofValues {
+    /// Returns the share `y` in Single message-id mode, or `None` in Multi mode.
     pub fn y(&self) -> Option<Fr> {
         match self {
             RLNProofValues::Single(v) => Some(v.y),
@@ -27,6 +31,7 @@ impl RLNProofValues {
         }
     }
 
+    /// Returns the per-slot shares `ys` in Multi message-id mode, or `None` in Single mode.
     pub fn ys(&self) -> Option<&[Fr]> {
         match self {
             RLNProofValues::Multi(v) => Some(&v.ys),
@@ -34,6 +39,7 @@ impl RLNProofValues {
         }
     }
 
+    /// Returns the Merkle root the proof was generated against.
     pub fn root(&self) -> Fr {
         match self {
             RLNProofValues::Single(v) => v.root,
@@ -41,6 +47,7 @@ impl RLNProofValues {
         }
     }
 
+    /// Returns the nullifier in Single message-id mode, or `None` in Multi mode.
     pub fn nullifier(&self) -> Option<Fr> {
         match self {
             RLNProofValues::Single(v) => Some(v.nullifier),
@@ -48,6 +55,7 @@ impl RLNProofValues {
         }
     }
 
+    /// Returns the per-slot nullifiers in Multi message-id mode, or `None` in Single mode.
     pub fn nullifiers(&self) -> Option<&[Fr]> {
         match self {
             RLNProofValues::Multi(v) => Some(&v.nullifiers),
@@ -55,6 +63,7 @@ impl RLNProofValues {
         }
     }
 
+    /// Returns the signal `x` bound in the proof.
     pub fn x(&self) -> Fr {
         match self {
             RLNProofValues::Single(v) => v.x,
@@ -62,6 +71,7 @@ impl RLNProofValues {
         }
     }
 
+    /// Returns the external nullifier bound in the proof.
     pub fn external_nullifier(&self) -> Fr {
         match self {
             RLNProofValues::Single(v) => v.external_nullifier,
@@ -69,6 +79,7 @@ impl RLNProofValues {
         }
     }
 
+    /// Returns the per-slot selector flags in Multi message-id mode, or `None` in Single mode.
     pub fn selector_used(&self) -> Option<&[bool]> {
         match self {
             RLNProofValues::Multi(v) => Some(&v.selector_used),
@@ -78,6 +89,7 @@ impl RLNProofValues {
 }
 
 impl RLNProofValues {
+    /// Computes the proof values from a `witness` using the protocol hash `H`.
     pub fn from_witness<H: ZerokitHasher<Scalar = Fr>>(witness: &RLNWitnessInput) -> Self {
         match witness {
             RLNWitnessInput::Single(w) => {
@@ -103,16 +115,23 @@ impl RecoverSecret for RLNProofValues {
     }
 }
 
+/// Public proof values for Single message-id mode.
 #[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNProofValuesSingle {
+    /// The share `y = a_0 + x * a_1`.
     pub y: Fr,
+    /// The Merkle root the proof was generated against.
     pub root: Fr,
+    /// The nullifier `H(a_1)`.
     pub nullifier: Fr,
+    /// The signal `x`.
     pub x: Fr,
+    /// The external nullifier.
     pub external_nullifier: Fr,
 }
 
 impl RLNProofValuesSingle {
+    /// Computes the proof values from a Single message-id `witness` using the protocol hash `H`.
     pub fn from_witness<H: ZerokitHasher<Scalar = Fr>>(w: &RLNWitnessInputSingle) -> Self {
         let id_commitment = compute_id_commitment::<H>(&w.identity_secret);
         let leaf = Hasher::<H>::hash_pair(id_commitment, w.user_message_limit);
@@ -157,17 +176,25 @@ impl RecoverSecret<RLNProofValuesMulti> for RLNProofValuesSingle {
     }
 }
 
+/// Public proof values for Multi message-id mode.
 #[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNProofValuesMulti {
+    /// The per-slot shares `ys`.
     pub ys: Vec<Fr>,
+    /// The Merkle root the proof was generated against.
     pub root: Fr,
+    /// The per-slot nullifiers.
     pub nullifiers: Vec<Fr>,
+    /// The signal `x`.
     pub x: Fr,
+    /// The external nullifier.
     pub external_nullifier: Fr,
+    /// The per-slot selector flags.
     pub selector_used: Vec<bool>,
 }
 
 impl RLNProofValuesMulti {
+    /// Computes the proof values from a Multi message-id `witness` using the protocol hash `H`.
     pub fn from_witness<H: ZerokitHasher<Scalar = Fr>>(w: &RLNWitnessInputMulti) -> Self {
         let id_commitment = compute_id_commitment::<H>(&w.identity_secret);
         let leaf = Hasher::<H>::hash_pair(id_commitment, w.user_message_limit);
@@ -259,13 +286,17 @@ impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
     }
 }
 
+/// An RLN proof bundled with its public proof values.
 #[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNProof {
+    /// The zkSNARK proof.
     pub proof: Proof,
+    /// The public proof values.
     pub values: RLNProofValues,
 }
 
 impl RLNProof {
+    /// Creates a new [`RLNProof`] from a `proof` and its `values`.
     pub fn new(proof: Proof, values: RLNProofValues) -> Self {
         Self { proof, values }
     }

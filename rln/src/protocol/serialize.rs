@@ -46,16 +46,23 @@ pub const FR_LIMB_BYTE_SIZE: usize = 8;
 /// Byte size of the `u64` big-endian length prefix written before a variable-length vector.
 pub const VEC_LEN_BYTE_SIZE: usize = 8;
 
+/// Big-endian canonical serialization, mirroring arkworks' little-endian `CanonicalSerialize`.
 pub trait CanonicalSerializeBE {
+    /// The error type returned by [`Self::serialize`].
     type Error: std::error::Error;
 
+    /// Serializes `self` in big-endian canonical form into `writer`.
     fn serialize<W: Write>(&self, writer: W) -> Result<(), Self::Error>;
+    /// Returns the number of bytes [`Self::serialize`] writes.
     fn serialized_size(&self) -> usize;
 }
 
+/// Big-endian canonical deserialization, mirroring arkworks' little-endian `CanonicalDeserialize`.
 pub trait CanonicalDeserializeBE: Sized {
+    /// The error type returned by [`Self::deserialize`].
     type Error: std::error::Error;
 
+    /// Deserializes a value in big-endian canonical form from `reader`.
     fn deserialize<R: Read>(reader: R) -> Result<Self, Self::Error>;
 }
 
@@ -743,9 +750,12 @@ impl CanonicalDeserializeBE for RLNProofValuesMulti {
 /// Some types (e.g. [`RLNProof`]) contain fields with different encoding requirements:
 /// the Groth16 proof bytes use arkworks compressed LE format, while the proof values use BE format.
 pub trait CanonicalSerializeMixed: CanonicalSerialize {
+    /// The error type returned by [`Self::serialize`].
     type Error: std::error::Error;
 
+    /// Serializes `self` in the mixed LE/BE wire format into `writer`.
     fn serialize<W: Write>(&self, writer: W) -> Result<(), Self::Error>;
+    /// Returns the number of bytes [`Self::serialize`] writes.
     fn serialized_size(&self) -> usize;
 }
 
@@ -753,8 +763,10 @@ pub trait CanonicalSerializeMixed: CanonicalSerialize {
 ///
 /// See [`CanonicalSerializeMixed`] for context on when this is needed.
 pub trait CanonicalDeserializeMixed: CanonicalDeserialize {
+    /// The error type returned by [`Self::deserialize`].
     type Error: std::error::Error;
 
+    /// Deserializes a value in the mixed LE/BE wire format from `reader`.
     fn deserialize<R: Read>(reader: R) -> Result<Self, Self::Error>;
 }
 

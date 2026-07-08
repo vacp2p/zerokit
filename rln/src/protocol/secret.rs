@@ -26,7 +26,8 @@ pub(crate) fn compute_share_slope<H: ZerokitHasher<Scalar = Fr>>(
     H::hash(&*to_hash)
 }
 
-/// Computes the identity secret `H(identity_trapdoor, identity_nullifier)` from the two source secrets.
+/// Computes the identity secret `H(identity_trapdoor, identity_nullifier)` from the two source
+/// secrets.
 pub(crate) fn compute_identity_secret<H: ZerokitHasher<Scalar = Fr>>(
     identity_trapdoor: &SecretFr,
     identity_nullifier: &SecretFr,

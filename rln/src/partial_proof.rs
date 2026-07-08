@@ -13,7 +13,9 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{marker::PhantomData, ops::Mul, rand::RngCore, vec::Vec, UniformRand};
 
 /// A partial assignment (witness).
-/// `None` means "unknown" or changing part of the witness, `Some` means fixed and can be precomputed.
+///
+/// `None` means "unknown" or changing part of the witness, `Some` means fixed and can be
+/// precomputed.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PartialAssignment<F: PrimeField> {
     /// Assignment entries, ordered as (public inputs excluding 1) || (witness/aux)

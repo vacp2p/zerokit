@@ -14,16 +14,17 @@ pub enum ZerokitMerkleTreeError {
     /// A subtree level is greater than the tree depth.
     #[error("Level exceeds tree depth")]
     LevelOutOfBounds,
-    /// A contiguous write (set_range/override_range/update_next) would exceed the tree capacity.
+    /// A contiguous write (`set_range`/`override_range`/`update_next`) would exceed the tree
+    /// capacity.
     #[error("Leaf range exceeds tree capacity")]
     RangeTooLarge,
-    /// A delete targeted an index that holds no set leaf (index >= leaves_set).
+    /// A delete targeted an index that holds no set leaf (`index >= leaves_set`).
     #[error("Cannot delete an unset leaf")]
     DeleteUnsetLeaf,
-    /// An override_range remove index is unset or out of range.
+    /// An `override_range` remove index is unset or out of range.
     #[error("Override remove index is unset or out of range")]
     InvalidRemoveIndex,
-    /// override_range was called with neither leaves to write nor indices to remove.
+    /// `override_range` was called with neither leaves to write nor indices to remove.
     #[error("Override called with no leaves and no removals")]
     EmptyOverrideArgs,
     /// A Merkle proof length does not match the tree depth.
@@ -34,7 +35,8 @@ pub enum ZerokitMerkleTreeError {
     Invariant(MerkleTreeInvariant),
 }
 
-/// Invariants that can be violated during Merkle tree operations of `FullMerkleTree` and `OptimalMerkleTree`.
+/// Invariants that can be violated during Merkle tree operations of `FullMerkleTree` and
+/// `OptimalMerkleTree`.
 #[derive(Debug, thiserror::Error)]
 pub enum MerkleTreeInvariant {
     /// `FullMerkleTree`: a non-root node reported no parent during a subtree-root walk.
