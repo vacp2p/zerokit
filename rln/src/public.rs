@@ -200,7 +200,6 @@ where
     }
 }
 
-// TODO(PR14): consider renaming `verify_with_signal` / `verify_with_roots` for better semantics.
 impl<State, ZkProof> RLN<State, ZkProof>
 where
     ZkProof:
