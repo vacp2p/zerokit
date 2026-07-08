@@ -2,11 +2,13 @@
 mod test {
     use num_bigint::BigUint;
     use num_traits::Num;
+    use rand::{rngs::ThreadRng, thread_rng};
+    use rand_chacha::ChaCha20Rng;
     use rln::prelude::*;
 
     #[test]
     fn test_keygen_commitment_relation() {
-        let identity_keys = IdentityKeys::generate::<PoseidonHash>();
+        let identity_keys = IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
         let expected_id_commitment =
             Hasher::<PoseidonHash>::hash_single(*identity_keys.identity_secret());
         assert_eq!(identity_keys.id_commitment(), expected_id_commitment);
@@ -16,7 +18,8 @@ mod test {
     fn test_seeded_keygen() {
         // Generate identity pair using a seed phrase
         let seed_phrase: &str = "A seed phrase example";
-        let identity_keys = IdentityKeys::generate_seeded::<PoseidonHash>(seed_phrase.as_bytes());
+        let identity_keys =
+            IdentityKeys::generate_seeded::<PoseidonHash, ChaCha20Rng>(seed_phrase.as_bytes());
 
         // We check against expected values
         let expected_identity_secret_seed_phrase = Fr::from(
@@ -45,7 +48,7 @@ mod test {
 
         // Generate identity pair using a byte array
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let identity_keys = IdentityKeys::generate_seeded::<PoseidonHash>(seed_bytes);
+        let identity_keys = IdentityKeys::generate_seeded::<PoseidonHash, ChaCha20Rng>(seed_bytes);
 
         // We check against expected values
         let expected_identity_secret_seed_bytes = Fr::from(
@@ -73,7 +76,8 @@ mod test {
         );
 
         // We check again if the identity pair generated with the same seed phrase corresponds to the previously generated one
-        let identity_keys = IdentityKeys::generate_seeded::<PoseidonHash>(seed_phrase.as_bytes());
+        let identity_keys =
+            IdentityKeys::generate_seeded::<PoseidonHash, ChaCha20Rng>(seed_phrase.as_bytes());
 
         assert_eq!(
             *identity_keys.identity_secret(),
@@ -87,7 +91,8 @@ mod test {
 
     #[test]
     fn test_extended_keygen_relations() {
-        let extended_identity_keys = ExtendedIdentityKeys::generate::<PoseidonHash>();
+        let extended_identity_keys =
+            ExtendedIdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
 
         let expected_identity_secret = Hasher::<PoseidonHash>::hash_pair(
             *extended_identity_keys.identity_trapdoor(),
@@ -110,7 +115,7 @@ mod test {
         // Generate identity tuple using a byte array
         let seed_bytes: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         let extended_identity_keys =
-            ExtendedIdentityKeys::generate_seeded::<PoseidonHash>(seed_bytes);
+            ExtendedIdentityKeys::generate_seeded::<PoseidonHash, ChaCha20Rng>(seed_bytes);
 
         // We check against expected values
         let expected_identity_trapdoor = Fr::from(
@@ -160,7 +165,7 @@ mod test {
         );
 
         // We check again if the identity tuple generated with the same byte array corresponds to the previously generated one
-        let second = ExtendedIdentityKeys::generate_seeded::<PoseidonHash>(seed_bytes);
+        let second = ExtendedIdentityKeys::generate_seeded::<PoseidonHash, ChaCha20Rng>(seed_bytes);
         assert_eq!(
             (
                 *second.identity_trapdoor(),
@@ -180,7 +185,7 @@ mod test {
     #[test]
     fn test_identity_keys_serde_roundtrip() {
         // IdentityKeys: little-endian roundtrip
-        let identity_keys = IdentityKeys::generate::<PoseidonHash>();
+        let identity_keys = IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
         let mut bytes = Vec::new();
         identity_keys.serialize_compressed(&mut bytes).unwrap();
         let recovered = IdentityKeys::deserialize_compressed(&bytes[..]).unwrap();
@@ -195,7 +200,8 @@ mod test {
         assert_eq!(identity_keys.id_commitment(), recovered.id_commitment());
 
         // ExtendedIdentityKeys: little-endian roundtrip
-        let extended_keys = ExtendedIdentityKeys::generate::<PoseidonHash>();
+        let extended_keys =
+            ExtendedIdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
         let mut bytes = Vec::new();
         extended_keys.serialize_compressed(&mut bytes).unwrap();
         let recovered = ExtendedIdentityKeys::deserialize_compressed(&bytes[..]).unwrap();

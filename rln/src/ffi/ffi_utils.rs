@@ -2,6 +2,8 @@
 
 use std::ops::Deref;
 
+use rand::{rngs::ThreadRng, thread_rng};
+use rand_chacha::ChaCha20Rng;
 use safer_ffi::{
     boxed::Box_,
     derive_ReprC, ffi_export,
@@ -415,13 +417,17 @@ pub struct FFI_IdentityKeys(IdentityKeys);
 
 #[ffi_export]
 pub fn ffi_identity_keys_generate() -> repr_c::Box<FFI_IdentityKeys> {
-    Box_::new(FFI_IdentityKeys(IdentityKeys::generate::<PoseidonHash>()))
+    Box_::new(FFI_IdentityKeys(IdentityKeys::generate::<
+        PoseidonHash,
+        ThreadRng,
+    >(&mut thread_rng())))
 }
 
 #[ffi_export]
 pub fn ffi_identity_keys_generate_seeded(seed: &repr_c::Vec<u8>) -> repr_c::Box<FFI_IdentityKeys> {
     Box_::new(FFI_IdentityKeys(IdentityKeys::generate_seeded::<
         PoseidonHash,
+        ChaCha20Rng,
     >(seed)))
 }
 
@@ -516,7 +522,8 @@ pub struct FFI_ExtendedIdentityKeys(ExtendedIdentityKeys);
 pub fn ffi_extended_identity_keys_generate() -> repr_c::Box<FFI_ExtendedIdentityKeys> {
     Box_::new(FFI_ExtendedIdentityKeys(ExtendedIdentityKeys::generate::<
         PoseidonHash,
-    >()))
+        ThreadRng,
+    >(&mut thread_rng())))
 }
 
 #[ffi_export]
@@ -524,7 +531,7 @@ pub fn ffi_extended_identity_keys_generate_seeded(
     seed: &repr_c::Vec<u8>,
 ) -> repr_c::Box<FFI_ExtendedIdentityKeys> {
     Box_::new(FFI_ExtendedIdentityKeys(
-        ExtendedIdentityKeys::generate_seeded::<PoseidonHash>(seed),
+        ExtendedIdentityKeys::generate_seeded::<PoseidonHash, ChaCha20Rng>(seed),
     ))
 }
 

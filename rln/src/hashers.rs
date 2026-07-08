@@ -8,7 +8,8 @@ use zerokit_utils::{hasher::ZerokitHasher, poseidon::Poseidon};
 
 use crate::circuit::Fr;
 
-/// TODO(backlog): Generate these parameters
+// TODO(backlog): Generate these parameters
+
 /// These indexed constants hardcode the supported round parameters tuples (t, RF, RN, SKIP_MATRICES) for the Bn254 scalar field.
 /// SKIP_MATRICES is the index of the randomly generated secure MDS matrix.
 const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [

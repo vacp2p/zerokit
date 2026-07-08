@@ -1,10 +1,11 @@
 use criterion::{criterion_group, criterion_main, Criterion};
+use rand::{rngs::ThreadRng, thread_rng};
 use rln::prelude::*;
 use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
 
 fn get_test_witness() -> RLNWitnessInput {
     let leaf_index = 3;
-    let identity_keys = IdentityKeys::generate::<PoseidonHash>();
+    let identity_keys = IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
     let user_message_limit = Fr::from(100);
     let rate_commitment =
         Hasher::<PoseidonHash>::hash_pair(identity_keys.id_commitment(), user_message_limit);

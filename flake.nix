@@ -66,7 +66,7 @@
           rust-target = "aarch64-apple-ios";
         };
 
-        # TODO: Remove legacy name for RLN android library
+        # TODO(backlog): Remove legacy name for RLN android library
         zerokit-android-arm64 = rln-android-arm64;
 
         default = rln;

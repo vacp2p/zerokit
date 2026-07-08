@@ -1,23 +1,10 @@
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::rand::thread_rng;
-use rand::SeedableRng;
-use rand_chacha::ChaCha20Rng;
+use rand::{CryptoRng, Rng, SeedableRng};
 use tiny_keccak::{Hasher as _, Keccak};
 use zerokit_utils::hasher::ZerokitHasher;
 
 use super::secret::{compute_id_commitment, compute_identity_secret};
 use crate::circuit::{Fr, SecretFr};
-
-/// Derives a 32-byte ChaCha20 seed from an arbitrary-length signal using Keccak-256.
-fn chacha_seed(signal: &[u8]) -> [u8; 32] {
-    // ChaCha20 requires a seed of exactly 32 bytes.
-    // We first hash the input seed signal to a 32 bytes array and pass this as seed to ChaCha20
-    let mut seed = [0; 32];
-    let mut hasher = Keccak::v256();
-    hasher.update(signal);
-    hasher.finalize(&mut seed);
-    seed
-}
 
 /// An RLN identity: the identity secret and its commitment `H(identity_secret)`.
 ///
@@ -29,30 +16,27 @@ pub struct IdentityKeys {
 }
 
 impl IdentityKeys {
-    /// Generates a random RLN identity using a cryptographically secure RNG and the
-    /// protocol hash `H`.
-    pub fn generate<H: ZerokitHasher<Scalar = Fr>>() -> Self {
-        let mut rng = thread_rng();
-        let identity_secret = SecretFr::rand(&mut rng);
+    /// Generates a random RLN identity using the protocol hash `H` and the provided RNG `rng`.
+    pub fn generate<H: ZerokitHasher<Scalar = Fr>, R: Rng + CryptoRng>(rng: &mut R) -> Self {
+        let identity_secret = SecretFr::rand(rng);
         let id_commitment = compute_id_commitment::<H>(&identity_secret);
+
         Self {
             identity_secret,
             id_commitment,
         }
     }
 
-    /// Generates a deterministic RLN identity from a seed using the protocol hash `H`.
-    ///
-    /// Uses ChaCha20 RNG seeded with the Keccak-256 hash of the input.
-    /// The same input always produces the same identity.
-    pub fn generate_seeded<H: ZerokitHasher<Scalar = Fr>>(seed: &[u8]) -> Self {
-        let mut rng = ChaCha20Rng::from_seed(chacha_seed(seed));
-        let identity_secret = SecretFr::rand(&mut rng);
-        let id_commitment = compute_id_commitment::<H>(&identity_secret);
-        Self {
-            identity_secret,
-            id_commitment,
-        }
+    /// Generates a deterministic RLN identity from a seed using the protocol hash `H` and the provided RNG `R`.
+    pub fn generate_seeded<H: ZerokitHasher<Scalar = Fr>, R: Rng + CryptoRng + SeedableRng>(
+        signal: &[u8],
+    ) -> Self {
+        let mut seed = R::Seed::default();
+        let mut hasher = Keccak::v256();
+        hasher.update(signal);
+        hasher.finalize(seed.as_mut());
+
+        Self::generate::<H, R>(&mut R::from_seed(seed))
     }
 
     /// Returns the identity secret.
@@ -82,39 +66,31 @@ pub struct ExtendedIdentityKeys {
 }
 
 impl ExtendedIdentityKeys {
-    /// Generates a random extended RLN identity using a cryptographically secure RNG and the
-    /// protocol hash `H`.
-    pub fn generate<H: ZerokitHasher<Scalar = Fr>>() -> Self {
-        let mut rng = thread_rng();
-        let identity_trapdoor = SecretFr::rand(&mut rng);
-        let identity_nullifier = SecretFr::rand(&mut rng);
-        Self::from_secrets::<H>(identity_trapdoor, identity_nullifier)
-    }
-
-    /// Generates a deterministic extended RLN identity from a seed using the protocol hash `H`.
-    ///
-    /// Uses ChaCha20 RNG seeded with the Keccak-256 hash of the input.
-    /// The same input always produces the same identity.
-    pub fn generate_seeded<H: ZerokitHasher<Scalar = Fr>>(seed: &[u8]) -> Self {
-        let mut rng = ChaCha20Rng::from_seed(chacha_seed(seed));
-        let identity_trapdoor = SecretFr::rand(&mut rng);
-        let identity_nullifier = SecretFr::rand(&mut rng);
-        Self::from_secrets::<H>(identity_trapdoor, identity_nullifier)
-    }
-
-    /// Builds the extended identity from its two source secrets using the protocol hash `H`.
-    fn from_secrets<H: ZerokitHasher<Scalar = Fr>>(
-        identity_trapdoor: SecretFr,
-        identity_nullifier: SecretFr,
-    ) -> Self {
+    /// Generates a random extended RLN identity using the protocol hash `H` and the provided RNG `rng`.
+    pub fn generate<H: ZerokitHasher<Scalar = Fr>, R: Rng + CryptoRng>(rng: &mut R) -> Self {
+        let identity_trapdoor = SecretFr::rand(rng);
+        let identity_nullifier = SecretFr::rand(rng);
         let identity_secret = compute_identity_secret::<H>(&identity_trapdoor, &identity_nullifier);
         let id_commitment = compute_id_commitment::<H>(&identity_secret);
+
         Self {
             identity_trapdoor,
             identity_nullifier,
             identity_secret,
             id_commitment,
         }
+    }
+
+    /// Generates a deterministic extended RLN identity from a seed using the protocol hash `H` and the provided RNG `R`.
+    pub fn generate_seeded<H: ZerokitHasher<Scalar = Fr>, R: Rng + CryptoRng + SeedableRng>(
+        signal: &[u8],
+    ) -> Self {
+        let mut seed = R::Seed::default();
+        let mut hasher = Keccak::v256();
+        hasher.update(signal);
+        hasher.finalize(seed.as_mut());
+
+        Self::generate::<H, R>(&mut R::from_seed(seed))
     }
 
     /// Returns the identity trapdoor.

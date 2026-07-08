@@ -113,7 +113,7 @@ mod test {
         let mut rln = create_rln(DEFAULT_TREE_DEPTH);
         rln.init_tree_with_leaves(leaves).unwrap();
 
-        let identity_keys = IdentityKeys::generate::<PoseidonHash>();
+        let identity_keys = IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
         let identity_secret = identity_keys.identity_secret();
         let id_commitment = identity_keys.id_commitment();
         let identity_index = rln.leaves_set();
@@ -503,7 +503,7 @@ mod test {
         let mut rln = create_rln(DEFAULT_TREE_DEPTH);
         rln.init_tree_with_leaves(leaves).unwrap();
 
-        let identity_keys = IdentityKeys::generate::<PoseidonHash>();
+        let identity_keys = IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
         let identity_secret = identity_keys.identity_secret();
         let id_commitment = identity_keys.id_commitment();
         let identity_index = rln.leaves_set();
@@ -564,7 +564,7 @@ mod test {
     fn test_recover_secret_with_tree_proof() {
         let mut rln = create_rln(DEFAULT_TREE_DEPTH);
 
-        let identity_keys = IdentityKeys::generate::<PoseidonHash>();
+        let identity_keys = IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
         let identity_secret = identity_keys.identity_secret();
         let id_commitment = identity_keys.id_commitment();
         let user_message_limit = Fr::from(100);
@@ -608,7 +608,8 @@ mod test {
         );
 
         // Recovery must fail when shares come from two different identity secrets
-        let identity_keys_new = IdentityKeys::generate::<PoseidonHash>();
+        let identity_keys_new =
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
         let identity_secret_new = identity_keys_new.identity_secret();
         let id_commitment_new = identity_keys_new.id_commitment();
         let rate_commitment_new =

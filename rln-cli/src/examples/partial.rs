@@ -4,6 +4,7 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
+use rand::{rngs::ThreadRng, thread_rng};
 use rln::prelude::{
     default_graph_single, default_zkey_single, hash_to_field_le, ArkGroth16Backend, Fr, Hasher,
     IdentityKeys, PartialProof, PoseidonHash, RLNBuilder, RLNPartialWitnessInput, RLNProofValues,
@@ -133,7 +134,7 @@ impl RLNSystem {
 
     fn register_user(&mut self) -> Result<usize> {
         let index = self.rln.leaves_set();
-        let identity_keys = IdentityKeys::generate::<PoseidonHash>();
+        let identity_keys = IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
 
         let rate_commitment = Hasher::<PoseidonHash>::hash_pair(
             identity_keys.id_commitment(),

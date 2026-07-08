@@ -3,6 +3,8 @@
 use std::ops::Deref;
 
 use js_sys::Uint8Array;
+use rand::{rngs::ThreadRng, thread_rng};
+use rand_chacha::ChaCha20Rng;
 use rln::prelude::*;
 use wasm_bindgen::prelude::*;
 
@@ -256,13 +258,17 @@ pub struct WasmIdentityKeys(IdentityKeys);
 impl WasmIdentityKeys {
     #[wasm_bindgen(js_name = generate)]
     pub fn generate() -> WasmIdentityKeys {
-        WasmIdentityKeys(IdentityKeys::generate::<PoseidonHash>())
+        WasmIdentityKeys(IdentityKeys::generate::<PoseidonHash, ThreadRng>(
+            &mut thread_rng(),
+        ))
     }
 
     #[wasm_bindgen(js_name = generateSeeded)]
     pub fn generate_seeded(seed: &Uint8Array) -> WasmIdentityKeys {
         let seed_vec = seed.to_vec();
-        WasmIdentityKeys(IdentityKeys::generate_seeded::<PoseidonHash>(&seed_vec))
+        WasmIdentityKeys(IdentityKeys::generate_seeded::<PoseidonHash, ChaCha20Rng>(
+            &seed_vec,
+        ))
     }
 
     #[wasm_bindgen(js_name = getSecret)]
@@ -317,15 +323,18 @@ pub struct WasmExtendedIdentityKeys(ExtendedIdentityKeys);
 impl WasmExtendedIdentityKeys {
     #[wasm_bindgen(js_name = generate)]
     pub fn generate() -> WasmExtendedIdentityKeys {
-        WasmExtendedIdentityKeys(ExtendedIdentityKeys::generate::<PoseidonHash>())
+        WasmExtendedIdentityKeys(ExtendedIdentityKeys::generate::<PoseidonHash, ThreadRng>(
+            &mut thread_rng(),
+        ))
     }
 
     #[wasm_bindgen(js_name = generateSeeded)]
     pub fn generate_seeded(seed: &Uint8Array) -> WasmExtendedIdentityKeys {
         let seed_vec = seed.to_vec();
-        WasmExtendedIdentityKeys(ExtendedIdentityKeys::generate_seeded::<PoseidonHash>(
-            &seed_vec,
-        ))
+        WasmExtendedIdentityKeys(ExtendedIdentityKeys::generate_seeded::<
+            PoseidonHash,
+            ChaCha20Rng,
+        >(&seed_vec))
     }
 
     #[wasm_bindgen(js_name = getTrapdoor)]
