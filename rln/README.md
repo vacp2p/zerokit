@@ -20,16 +20,17 @@ We start by adding zerokit RLN to our `Cargo.toml`
 
 ```toml
 [dependencies]
+rand = "0.8.6"
 rln = "3.0.0"
 zerokit-utils = "3.0.0"
-rand = "0.8.6"
 ```
 
 ## Basic Usage Example
 
 On native targets the example below uses the built-in default circuit resources, so no files need
-to be loaded. To use custom circuits, supply your own resources (see
-[Custom Circuit Compilation](#advanced-custom-circuit-compilation)):
+to be loaded.
+
+To use custom circuits, supply your own resources (see [Custom Circuit Compilation](#advanced-custom-circuit-compilation)):
 
 - `rln_final.arkzkey`: The proving key in arkzkey format.
 - `graph.bin`: The graph file built for the input tree size.
@@ -409,7 +410,7 @@ We invite you to check our API documentation by running
 cargo doc --no-deps
 ```
 
-and look at unit tests to have a hint on how to interface and use them.
+Or look at the [documentation](https://docs.rs/rln/latest/rln) for the latest rln version.
 
 - Check the [unit tests](https://github.com/vacp2p/zerokit/tree/master/rln/tests)
   for more usage examples

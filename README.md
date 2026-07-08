@@ -94,11 +94,3 @@ Zerokit powers zero-knowledge functionality in:
 > The circom-witnesscalc code fragments have been borrowed instead of depending on this crate,
 > because its types of input and output data were incompatible with the corresponding zerokit code fragments,
 > and circom-witnesscalc has some dependencies, which are redundant for our purpose.
-
-## Documentation
-
-For detailed documentation on each module:
-
-```bash
-cargo doc --open
-```
