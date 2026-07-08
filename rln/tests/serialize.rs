@@ -266,7 +266,7 @@ mod test {
     }
 
     #[test]
-    fn test_id_secret_be_roundtrip() {
+    fn test_secret_fr_be_roundtrip() {
         let mut rng = thread_rng();
         for _ in 0..10 {
             let secret = SecretFr::rand(&mut rng);
@@ -279,7 +279,7 @@ mod test {
     }
 
     #[test]
-    fn test_id_secret_be_known_value() {
+    fn test_secret_fr_be_known_value() {
         // SecretFr(42) BE should match Fr(42) BE - same field element
         let secret = SecretFr::from(&mut Fr::from(42u64));
         let mut secret_buf = Vec::new();
@@ -293,7 +293,7 @@ mod test {
     }
 
     #[test]
-    fn test_id_secret_be_non_canonical_rejected() {
+    fn test_secret_fr_be_non_canonical_rejected() {
         let modulus = BigUint::from_bytes_le(&Fr::MODULUS.to_bytes_le());
 
         let to_be = |val: &BigUint| -> Vec<u8> {
@@ -325,7 +325,7 @@ mod test {
     }
 
     #[test]
-    fn test_id_secret_be_insufficient_data_rejected() {
+    fn test_secret_fr_be_insufficient_data_rejected() {
         let short = vec![0u8; FR_BYTE_SIZE - 1];
         assert!(SecretFr::deserialize(short.as_slice()).is_err());
         assert!(SecretFr::deserialize([].as_slice()).is_err());

@@ -99,7 +99,7 @@ impl RLNSystem {
         println!("Registered users:");
         for (index, identity_keys) in &self.local_identities {
             println!("User: {index}");
-            println!("+ Identity secret: {}", *identity_keys.identity_secret());
+            println!("+ Identity secret: {:?}", identity_keys.identity_secret());
             println!("+ Identity commitment: {}", identity_keys.id_commitment());
             println!();
         }
@@ -143,7 +143,7 @@ impl RLNSystem {
         match self.rln.set_next_leaf(rate_commitment) {
             Ok(_) => {
                 println!("Registered user: {index}");
-                println!("+ Identity secret: {}", *identity_keys.identity_secret());
+                println!("+ Identity secret: {:?}", identity_keys.identity_secret());
                 println!("+ Identity commitment: {}", identity_keys.id_commitment());
                 self.local_identities.insert(index, identity_keys);
                 self.record_root();
@@ -315,8 +315,8 @@ impl RLNSystem {
                         Err("Identity secret mismatch: leaked_identity_secret != real_identity_secret".into())
                     } else {
                         println!(
-                            "DUPLICATE message ID detected! Reveal identity secret: {}",
-                            *leaked_identity_secret
+                            "DUPLICATE message ID detected!\nRecovered secret matches user {}'s identity secret: {}",
+                            user_index, leaked_identity_secret == real_identity_secret
                         );
                         self.local_identities.remove(&user_index);
                         self.partial_proofs.remove(&user_index);

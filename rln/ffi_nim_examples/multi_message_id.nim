@@ -158,9 +158,11 @@ proc main() =
       ffi_c_string_free(recoverResult.err)
       return
     let recoveredSecret = recoverResult.ok
-    printSecretFr("recovered secret", recoveredSecret)
-    printSecretFr("identity secret", member.identitySecret)
-    echo "  - identity recovered successfully"
+    if ffi_secret_fr_eq(recoveredSecret, member.identitySecret):
+      let recoveredDebug = ffi_secret_fr_debug(recoveredSecret)
+      echo "  - recovered secret = " & asString(recoveredDebug) &
+          " matches the original identity secret"
+      ffi_c_string_free(recoveredDebug)
     ffi_secret_fr_free(recoveredSecret)
   else:
     echo "Second proof verification failed"

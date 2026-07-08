@@ -98,6 +98,11 @@ impl WasmSecretFr {
     pub fn debug(&self) -> String {
         format!("{:?}", self.0)
     }
+
+    #[wasm_bindgen(js_name = equals)]
+    pub fn equals(&self, other: &WasmSecretFr) -> bool {
+        self.0 == other.0
+    }
 }
 
 impl WasmSecretFr {

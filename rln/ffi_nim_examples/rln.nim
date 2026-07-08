@@ -191,6 +191,8 @@ proc ffi_poseidon_hash_pair*(a: ptr Fr,
     dynlib: RLN_LIB.}
 
 # SecretFr functions
+proc ffi_secret_fr_eq*(a: ptr SecretFr, b: ptr SecretFr): bool {.importc: "ffi_secret_fr_eq",
+    cdecl, dynlib: RLN_LIB.}
 proc ffi_secret_fr_debug*(secret: ptr SecretFr): Vec_uint8 {.importc: "ffi_secret_fr_debug",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_secret_fr_free*(secret: ptr SecretFr) {.importc: "ffi_secret_fr_free",

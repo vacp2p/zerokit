@@ -134,9 +134,13 @@ int main(void)
             return EXIT_FAILURE;
         }
         SecretFr *recovered_secret = recover_result.ok;
-        print_secret_fr("recovered secret", recovered_secret);
-        print_secret_fr("identity secret", member.identity_secret);
-        printf("  - identity recovered successfully\n");
+        if (ffi_secret_fr_eq(recovered_secret, member.identity_secret))
+        {
+            Vec_uint8 recovered_debug = ffi_secret_fr_debug(recovered_secret);
+            printf("  - recovered secret = %s matches the original identity secret\n",
+                   recovered_debug.ptr);
+            ffi_c_string_free(recovered_debug);
+        }
         ffi_secret_fr_free(recovered_secret);
     }
     else

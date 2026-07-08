@@ -86,7 +86,7 @@ impl RLNSystem {
         println!("Registered users:");
         for (index, identity_keys) in &self.local_identities {
             println!("User: {index}");
-            println!("+ Identity secret: {}", *identity_keys.identity_secret());
+            println!("+ Identity secret: {:?}", identity_keys.identity_secret());
             println!("+ Identity commitment: {}", identity_keys.id_commitment());
             println!();
         }
@@ -103,7 +103,7 @@ impl RLNSystem {
         match self.rln.set_next_leaf(rate_commitment) {
             Ok(_) => {
                 println!("Registered user: {index}");
-                println!("+ Identity secret: {}", *identity_keys.identity_secret());
+                println!("+ Identity secret: {:?}", identity_keys.identity_secret());
                 println!("+ Identity commitment: {}", identity_keys.id_commitment());
                 self.local_identities.insert(index, identity_keys);
             }
@@ -239,8 +239,8 @@ impl RLNSystem {
                         Err("Identity secret mismatch: leaked_identity_secret != real_identity_secret".into())
                     } else {
                         println!(
-                            "DUPLICATE nullifier detected at slot {}! Reveal identity secret: {}",
-                            duplicated_slot, *leaked_identity_secret
+                            "DUPLICATE nullifier detected at slot {}!\nRecovered secret matches user {}'s identity secret: {}",
+                            duplicated_slot, user_index, leaked_identity_secret == real_identity_secret
                         );
                         self.local_identities.remove(&user_index);
                         self.rln.delete_leaf(user_index)?;

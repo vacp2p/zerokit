@@ -134,9 +134,13 @@ async function main() {
       console.error("Identity recovery error:", error);
       return;
     }
-    console.log("  - recovered secret = " + recoveredSecret.debug());
-    console.log("  - identity secret = " + member.identitySecret.debug());
-    console.log("  - identity recovered successfully");
+    if (recoveredSecret.equals(member.identitySecret)) {
+      console.log(
+        "  - recovered secret = " +
+          recoveredSecret.debug() +
+          " matches the original identity secret",
+      );
+    }
   } else {
     console.log("Second proof verification failed");
   }

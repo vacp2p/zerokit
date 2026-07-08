@@ -262,10 +262,10 @@ where
         let mut path = Vec::with_capacity(self.depth + 1);
         while let Some(parent) = self.parent(index) {
             // Add proof for node at index to parent
-            path.push(match index & 1 {
-                1 => FullMerkleBranch::Left(self.nodes[index + 1]),
-                0 => FullMerkleBranch::Right(self.nodes[index - 1]),
-                _ => unreachable!(),
+            path.push(if index & 1 == 1 {
+                FullMerkleBranch::Left(self.nodes[index + 1])
+            } else {
+                FullMerkleBranch::Right(self.nodes[index - 1])
             });
             index = parent;
         }

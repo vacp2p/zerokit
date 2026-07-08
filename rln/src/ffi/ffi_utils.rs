@@ -177,6 +177,14 @@ impl From<SecretFr> for FFI_SecretFr {
 }
 
 #[ffi_export]
+pub fn ffi_secret_fr_eq(a: Option<&FFI_SecretFr>, b: Option<&FFI_SecretFr>) -> bool {
+    match (a, b) {
+        (Some(a), Some(b)) => a.0 == b.0,
+        _ => false,
+    }
+}
+
+#[ffi_export]
 pub fn ffi_secret_fr_debug(secret: Option<&FFI_SecretFr>) -> repr_c::String {
     match secret {
         Some(secret) => format!("{:?}", secret.0).into(),

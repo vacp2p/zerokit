@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{fmt, ops::Deref};
 
 use ark_ff::{PrimeField, UniformRand};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -9,10 +9,15 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use super::Fr;
 
 /// Secret field-element wrapper zeroized on drop.
-#[derive(
-    Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize, Zeroize, ZeroizeOnDrop,
-)]
+#[derive(Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize, Zeroize, ZeroizeOnDrop)]
 pub struct SecretFr(Fr);
+
+impl fmt::Debug for SecretFr {
+    /// Redacts the wrapped secret so `{:?}` never prints the plaintext field element.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("SecretFr(********)")
+    }
+}
 
 impl SecretFr {
     /// Samples a random secret field element from `rng`.
@@ -55,10 +60,20 @@ impl Deref for SecretFr {
     }
 }
 
-#[derive(Debug, Clone, Zeroize, ZeroizeOnDrop)]
+#[derive(Clone, Zeroize, ZeroizeOnDrop)]
 pub(crate) enum FrOrSecret {
     SecretFr(SecretFr),
     Fr(Fr),
+}
+
+impl fmt::Debug for FrOrSecret {
+    /// Redacts the wrapped secret so `{:?}` never prints the plaintext field element.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            FrOrSecret::SecretFr(secret) => write!(f, "FrOrSecret::SecretFr({secret:?})"),
+            FrOrSecret::Fr(fr) => write!(f, "FrOrSecret::Fr({fr:?})"),
+        }
+    }
 }
 
 impl From<Fr> for FrOrSecret {
@@ -78,11 +93,24 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_id_secret_from_fr_zeroizes_source() {
+    fn test_secret_fr() {
         let mut fr = Fr::from(42);
         let id_secret = SecretFr::from(&mut fr);
 
         assert_ne!(fr, Fr::from(42));
         assert_eq!(*id_secret, Fr::from(42));
+
+        let secret = SecretFr(Fr::from(42));
+        assert_eq!(format!("{secret:?}"), "SecretFr(********)");
+
+        let wrapped_secret = FrOrSecret::from(SecretFr(Fr::from(42)));
+        assert_eq!(
+            format!("{wrapped_secret:?}"),
+            "FrOrSecret::SecretFr(SecretFr(********))"
+        );
+        assert_eq!(
+            format!("{:?}", FrOrSecret::from(Fr::from(7))),
+            format!("FrOrSecret::Fr({:?})", Fr::from(7))
+        );
     }
 }
