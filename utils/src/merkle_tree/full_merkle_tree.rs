@@ -17,7 +17,10 @@ use crate::hasher::ZerokitHasher;
 
 /// Merkle tree with all leaf and intermediate hashes stored
 #[derive(Debug, Clone, PartialEq)]
-pub struct FullMerkleTree<H: ZerokitHasher> {
+pub struct FullMerkleTree<H: ZerokitHasher>
+where
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
+{
     /// The depth of the tree, i.e. the number of levels from leaf to root
     depth: usize,
 
@@ -41,7 +44,10 @@ pub struct FullMerkleTree<H: ZerokitHasher> {
 
 /// Element of a Merkle proof
 #[derive(Clone, Copy, PartialEq)]
-pub(crate) enum FullMerkleBranch<H: ZerokitHasher> {
+pub(crate) enum FullMerkleBranch<H: ZerokitHasher>
+where
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
+{
     /// Left branch taken, value is the right sibling hash.
     Left(H::Scalar),
 
@@ -51,7 +57,9 @@ pub(crate) enum FullMerkleBranch<H: ZerokitHasher> {
 
 /// Merkle proof path, bottom to top.
 #[derive(Clone, PartialEq)]
-pub struct FullMerkleProof<H: ZerokitHasher>(Vec<FullMerkleBranch<H>>);
+pub struct FullMerkleProof<H: ZerokitHasher>(Vec<FullMerkleBranch<H>>)
+where
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync;
 
 #[derive(Default)]
 pub struct FullMerkleConfig(());
@@ -68,6 +76,7 @@ impl FromStr for FullMerkleConfig {
 impl<H> ZerokitMerkleTree for FullMerkleTree<H>
 where
     H: ZerokitHasher,
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
 {
     type Proof = FullMerkleProof<H>;
     type Hasher = H;
@@ -290,6 +299,7 @@ where
 impl<H> FullMerkleTree<H>
 where
     H: ZerokitHasher,
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
 {
     /// For a given node index, return the parent node index
     /// Returns None if there is no parent (root node)
@@ -364,6 +374,7 @@ where
 impl<H> ZerokitMerkleProof for FullMerkleProof<H>
 where
     H: ZerokitHasher,
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
 {
     type Index = u8;
     type Hasher = H;
@@ -415,7 +426,7 @@ where
 impl<H> Debug for FullMerkleBranch<H>
 where
     H: ZerokitHasher,
-    H::Scalar: Debug,
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -429,7 +440,7 @@ where
 impl<H> Debug for FullMerkleProof<H>
 where
     H: ZerokitHasher,
-    H::Scalar: Debug,
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("Proof").field(&self.0).finish()

@@ -12,7 +12,10 @@ use crate::hasher::ZerokitHasher;
 
 /// The Merkle tree structure
 #[derive(Debug, Clone, PartialEq)]
-pub struct OptimalMerkleTree<H: ZerokitHasher> {
+pub struct OptimalMerkleTree<H: ZerokitHasher>
+where
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
+{
     /// The depth of the tree, i.e. the number of levels from leaf to root
     depth: usize,
 
@@ -43,7 +46,9 @@ pub struct OptimalMerkleTree<H: ZerokitHasher> {
 /// The Merkle proof
 /// Contains a vector of (node, branch_index) that defines the proof path elements and branch direction (1 or 0)
 #[derive(Clone, PartialEq)]
-pub struct OptimalMerkleProof<H: ZerokitHasher>(pub Vec<(H::Scalar, u8)>);
+pub struct OptimalMerkleProof<H: ZerokitHasher>(pub Vec<(H::Scalar, u8)>)
+where
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync;
 
 #[derive(Default)]
 pub struct OptimalMerkleConfig(());
@@ -60,6 +65,7 @@ impl FromStr for OptimalMerkleConfig {
 impl<H> ZerokitMerkleTree for OptimalMerkleTree<H>
 where
     H: ZerokitHasher,
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
 {
     type Proof = OptimalMerkleProof<H>;
     type Hasher = H;
@@ -266,6 +272,7 @@ where
 impl<H> OptimalMerkleTree<H>
 where
     H: ZerokitHasher,
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
 {
     /// Returns the value of a node at a specific (depth, index).
     /// Falls back to a cached default if the node hasn't been set.
@@ -344,6 +351,7 @@ where
 impl<H> ZerokitMerkleProof for OptimalMerkleProof<H>
 where
     H: ZerokitHasher,
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
 {
     type Index = u8;
     type Hasher = H;
@@ -389,7 +397,7 @@ where
 impl<H> Debug for OptimalMerkleProof<H>
 where
     H: ZerokitHasher,
-    H::Scalar: Debug,
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("Proof").field(&self.0).finish()

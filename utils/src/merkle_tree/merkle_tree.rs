@@ -147,11 +147,15 @@ pub trait ZerokitMerkleProof {
 }
 
 /// Computes a Merkle root from a leaf and a Merkle path (path elements and path index)
-pub fn compute_tree_root<H: ZerokitHasher>(
+pub fn compute_tree_root<H>(
     leaf: H::Scalar,
     path_elements: &[H::Scalar],
     path_index: &[u8],
-) -> H::Scalar {
+) -> H::Scalar
+where
+    H: ZerokitHasher,
+    H::Scalar: Copy,
+{
     path_elements
         .iter()
         .zip(path_index)

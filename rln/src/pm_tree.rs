@@ -212,6 +212,7 @@ where
     D: Database,
     D::Config: PmTreeBackendConfig,
     H: ZerokitHasher + PmTreeHasher<Fr = H::Scalar>,
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
 {
     type Proof = PmTreeProof<H>;
     type Hasher = H;
@@ -452,6 +453,7 @@ where
 impl<H> ZerokitMerkleProof for PmTreeProof<H>
 where
     H: ZerokitHasher + PmTreeHasher<Fr = H::Scalar>,
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
 {
     type Index = u8;
     type Hasher = H;
