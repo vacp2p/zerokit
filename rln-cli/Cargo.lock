@@ -1220,7 +1220,7 @@ dependencies = [
 
 [[package]]
 name = "rln"
-version = "2.0.1"
+version = "3.0.0"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -1253,7 +1253,7 @@ dependencies = [
 
 [[package]]
 name = "rln-cli"
-version = "0.6.0"
+version = "3.0.0"
 dependencies = [
  "clap",
  "rand 0.8.6",
@@ -1946,7 +1946,7 @@ dependencies = [
 
 [[package]]
 name = "zerokit_utils"
-version = "1.2.0"
+version = "3.0.0"
 dependencies = [
  "ark-ff",
  "num-bigint",

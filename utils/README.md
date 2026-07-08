@@ -98,7 +98,7 @@ until specific cryptographic criteria are met.
 - If you intend to use custom parameters, it is crucial to verify your generated MDS matrix.
   You should consult the Poseidon reference implementation to determine
   how many matrices are typically skipped before a valid one is found.
-  This count should then be passed as the `skip_matrices parameter`
+  This count should then be passed as the `skip_matrices` parameter
   to the `find_poseidon_ark_and_mds` function in this crate.
 
 ## Installation
@@ -107,7 +107,7 @@ Add zerokit-utils as a dependency to your Cargo.toml file:
 
 ```toml
 [dependencies]
-zerokit-utils = "1.1.0"
+zerokit-utils = "3.0.0"
 ```
 
 ## Building and Testing

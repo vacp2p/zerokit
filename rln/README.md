@@ -14,90 +14,96 @@ This module allows you to:
 
 ## Quick Start
 
-> [!IMPORTANT]
-> Version 0.7.0 is the only version that does not support WASM and x32 architecture.
-> WASM support is available in version 0.8.0 and above.
-
 ### Add RLN as dependency
 
 We start by adding zerokit RLN to our `Cargo.toml`
 
 ```toml
 [dependencies]
-rln = "2.0.1"
+rln = "3.0.0"
+zerokit-utils = "3.0.0"
+rand = "0.8.6"
 ```
 
 ## Basic Usage Example
 
-The RLN object constructor requires the following files:
+On native targets the example below uses the built-in default circuit resources, so no files need
+to be loaded. To use custom circuits, supply your own resources (see
+[Custom Circuit Compilation](#advanced-custom-circuit-compilation)):
 
 - `rln_final.arkzkey`: The proving key in arkzkey format.
-- `graph.bin`: The graph file built for the input tree size
+- `graph.bin`: The graph file built for the input tree size.
 
 ```rust
-use rln::prelude::{hash_to_field_le, keygen, poseidon_hash, Fr, RLNWitnessInput, RLN};
+use rand::{rngs::ThreadRng, thread_rng};
+use rln::prelude::{
+    hash_to_field_le, Fr, Hasher, IdentityKeys, PmTree, PmTreeSledConfig, PoseidonHash, RLNBuilder,
+    RLNWitnessInput, SledDB, DEFAULT_TREE_DEPTH,
+};
+use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
 
 fn main() {
-    // 1. Initialize RLN with parameters:
-    // - the tree depth;
-    // - the tree config, if it is not defined, the default value will be set
-    let tree_depth = 20;
-    let mut rln = RLN::new(tree_depth, "").unwrap();
+    // 1. Build a sled-backed Merkle tree with a given depth and config builder
+    let tree_config = PmTreeSledConfig::new()
+        .path("./database")
+        .temporary(false)
+        .build()
+        .unwrap();
+    let tree = PmTree::<SledDB, PoseidonHash>::new(DEFAULT_TREE_DEPTH, Fr::default(), tree_config)
+        .unwrap();
 
-    // 2. Generate an identity keypair
-    let (identity_secret, id_commitment) = keygen().unwrap();
+    // 2. Build a stateful RLN over the tree; on native targets the circuit `graph` and `zkey`
+    // default to the single message-id resources.
+    let mut rln = RLNBuilder::stateful().tree(tree).build();
 
-    // 3. Add a rate commitment to the Merkle tree
+    // 3. Generate an identity key pair.
+    let identity_keys = IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
+
+    // 4. Add the rate commitment `H(id_commitment, user_message_limit)` as a leaf in the tree.
     let leaf_index = 10;
     let user_message_limit = Fr::from(10);
-    let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
+    let rate_commitment =
+        Hasher::<PoseidonHash>::hash_pair(identity_keys.id_commitment(), user_message_limit);
     rln.set_leaf(leaf_index, rate_commitment).unwrap();
 
-    // 4. Get the Merkle proof for the added commitment
-    let (path_elements, identity_path_index) = rln.get_merkle_proof(leaf_index).unwrap();
+    // 5. Get the Merkle proof for the added commitment.
+    let merkle_proof = rln.get_merkle_proof(leaf_index).unwrap();
 
-    // 5. Set up external nullifier (epoch + app identifier)
-    // We generate epoch from a date seed and we ensure is
-    // mapped to a field element by hashing-to-field its content
+    // 6. Set up the external nullifier `H(epoch, rln_identifier)` from an epoch seed and an
+    // application identifier, each mapped to a field element by hashing to field.
     let epoch = hash_to_field_le(b"Today at noon, this year");
-    // We generate rln_identifier from an application identifier and
-    // we ensure is mapped to a field element by hashing-to-field its content
     let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-    // We generate a external nullifier
-    let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
-    // We choose a message_id satisfy 0 <= message_id < user_message_limit
+    let external_nullifier = Hasher::<PoseidonHash>::hash_pair(epoch, rln_identifier);
+
+    // 7. Choose a `message_id` satisfying `0 <= message_id < user_message_limit`.
     let message_id = Fr::from(1);
 
-    // 6. Define the message signal
-    let signal = b"RLN is awesome";
+    // 8. Compute the signal `x` by hashing the message to a field element.
+    let x = hash_to_field_le(b"RLN is awesome");
 
-    // 7. Compute x from the signal
-    let x = hash_to_field_le(signal);
+    // 9. Build the witness and generate a proof with its public proof values.
+    let witness = RLNWitnessInput::new_single()
+        .identity_secret(identity_keys.identity_secret())
+        .user_message_limit(user_message_limit)
+        .path_elements(merkle_proof.get_path_elements())
+        .identity_path_index(merkle_proof.get_path_index())
+        .x(x)
+        .external_nullifier(external_nullifier)
+        .message_id(message_id)
+        .build()
+        .unwrap();
+    let (proof, proof_values) = rln.generate_proof(&witness).unwrap();
 
-    // 8. Create witness input for RLN proof generation
-    let witness = RLNWitnessInput::new(
-        identity_secret,
-        user_message_limit,
-        message_id,
-        path_elements,
-        identity_path_index,
-        x,
-        external_nullifier,
-    )
-    .unwrap();
-
-    // 9. Generate a RLN proof
-    // We generate proof and proof values from the witness
-    let (proof, proof_values) = rln.generate_rln_proof(&witness).unwrap();
-
-    // 10. Verify the RLN proof
-    // We verify the proof using the proof and proof values and the hashed signal x
-    let verified = rln.verify_rln_proof(&proof, &proof_values, &x).unwrap();
+    // 10. Verify the proof against the signal `x` and the current tree root.
+    let root = rln.get_root();
+    let verified = rln
+        .verify_with_roots(&proof, &proof_values, &x, &[root])
+        .unwrap();
     assert!(verified);
 }
 ```
 
-### Comments for the code above for point 5
+### Comments for the code above for point 6
 
 The `external nullifier` includes two parameters.
 
@@ -131,14 +137,14 @@ and it's used to prevent a RLN ZK proof generated for one application to be re-u
   - Optional parallel feature support using
     [wasm-bindgen-rayon](https://github.com/RReverser/wasm-bindgen-rayon)
   - Headless browser testing capabilities
-- **Merkle Tree Implementations**: Multiple tree variants optimized for different use cases:
+- **Merkle Tree Implementations**: Multiple tree variants optimized for different use cases,
+  selected by type (there are no tree feature flags):
   - **Full Merkle Tree**: Fastest access with complete pre-allocated tree in memory.
-    Best for frequent random access (enable with `fullmerkletree` feature).
-  - **Optimal Merkle Tree**: Memory-efficient sparse storage using HashMap.
-    Ideal for partially populated trees (enable with `optimalmerkletree` feature).
+    Best for frequent random access (use the `FullMerkleTree` type).
+  - **Optimal Merkle Tree**: Memory-efficient sparse storage using `HashMap`.
+    Ideal for partially populated trees (use the `OptimalMerkleTree` type).
   - **Persistent Merkle Tree**: Disk-based storage with [sled](https://github.com/spacejam/sled)
-    for persistence across application restarts and large datasets
-    (enable with `pmtree-ft` feature).
+    for persistence across application restarts and large datasets (use the `PmTree` type).
 
 ## Building and Testing
 
@@ -158,9 +164,6 @@ cargo make build
 
 # Test with default features
 cargo make test
-
-# Test with stateless features
-cargo make test_stateless
 ```
 
 ## Advanced: Custom Circuit Compilation
@@ -315,9 +318,7 @@ RLN provides C-compatible bindings for integration with C, C++, Nim, and other l
 The FFI layer is organized into several modules:
 
 - [`ffi_rln.rs`](./src/ffi/ffi_rln.rs) - Implements core RLN functionality,
-  including initialization functions, proof generation, and proof verification.
-- [`ffi_tree.rs`](./src/ffi/ffi_tree.rs) - Provides all tree-related operations
-  and helper functions for Merkle tree management.
+  including initialization functions, tree operations, proof generation, and proof verification.
 - [`ffi_utils.rs`](./src/ffi/ffi_utils.rs) - Contains all utility functions and structure definitions
   used across the FFI layer.
 
@@ -377,7 +378,7 @@ in the [rln-fast](https://github.com/logos-storage/rln-fast) repository for deta
 **Using cached partials across recent roots**. To reuse partial proofs while the tree changes,
 cache the Merkle path alongside the root used to build the partial proof
 and verify against a bounded set of recent roots
-(for example, the last few roots) via APIs like [`verify_with_roots`](./src/public.rs#L743).
+(for example, the last few roots) via APIs like [`verify_with_roots`](./src/public.rs).
 This keeps cached partials usable for short-lived historical roots while limiting replay risk;
 when a root falls out of the allowed window or a member is removed/slashed,
 rebuild the partial proof with the latest root and path

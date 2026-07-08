@@ -68,7 +68,7 @@ cargo make test_parallel          # Parallel tests
 
 ## Examples
 
-See [Node example](./examples/index.js) and [README](./examples/Readme.md)
+See the [Node examples](./examples/) and their [README](./examples/README.md)
 for proof generation, verification, and slashing.
 
 ## Parallel Computation

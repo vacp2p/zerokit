@@ -1,6 +1,6 @@
 [package]
 name = "rln-cli"
-version = "0.6.0"
+version = "3.0.0"
 edition = "2021"
 
 [[example]]
@@ -20,8 +20,8 @@ name = "partial"
 path = "src/examples/partial.rs"
 
 [dependencies]
-rln = { path = "../rln", version = "2.0.1", default-features = false }
-zerokit_utils = { path = "../utils", version = "1.2.0", default-features = false }
+rln = { path = "../rln", version = "3.0.0", default-features = false }
+zerokit_utils = { path = "../utils", version = "3.0.0", default-features = false }
 clap = { version = "4.6.1", features = ["cargo", "derive", "env"] }
 rand = "0.8.6"
 

@@ -34,7 +34,7 @@ but uses a stateless RLN and separate Merkle tree.
 You can run the example using the following command:
 
 ```bash
-cargo run --example stateless --no-default-features --features stateless
+cargo run --example stateless
 ```
 
 ## Multi Message ID Example

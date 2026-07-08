@@ -39,7 +39,7 @@ in a single proof for improved efficiency.
 ## Architecture
 
 Zerokit currently focuses on RLN (Rate-Limiting Nullifier) implementation
-using [Circom](https://iden3.io/circom) circuits through ark-circom,
+using [Circom](https://iden3.io/circom) circuits with arkworks (`ark-groth16`),
 providing an alternative to existing native Rust implementations.
 
 ## Build and Test
@@ -83,8 +83,8 @@ Zerokit powers zero-knowledge functionality in:
 
 - Inspired by [Applied ZKP](https://zkp.science/) group work,
   including [zk-kit](https://github.com/appliedzkp/zk-kit)
-- Uses [ark-circom](https://github.com/gakonst/ark-circom)
-  for zkey and Groth16 proof generation
+- Groth16 proof generation and zkey handling use
+  [arkworks](https://github.com/arkworks-rs) (`ark-groth16`, `ark-serialize`)
 - Witness calculation based on
   [circom-witnesscalc](https://github.com/iden3/circom-witnesscalc) by iden3.
   The execution graph file used by this code has been generated
