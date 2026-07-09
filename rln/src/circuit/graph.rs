@@ -40,7 +40,7 @@ static GRAPH_MULTI: LazyLock<Arc<Graph>> = LazyLock::new(|| {
 ///
 /// Contains the deserialized computation graph used for witness calculation.
 /// Parsing this once and reusing it avoids repeated deserialization overhead.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct Graph {
     pub(crate) nodes: Vec<Node>,
     pub(crate) signals: Vec<usize>,

@@ -306,7 +306,10 @@ struct WriteBackReader<R: Read> {
     buffer: Vec<u8>,
 }
 
-impl<R: Read> WriteBackReader<R> {
+impl<R> WriteBackReader<R>
+where
+    R: Read,
+{
     fn new(reader: R) -> Self {
         WriteBackReader {
             reader,
@@ -315,7 +318,10 @@ impl<R: Read> WriteBackReader<R> {
     }
 }
 
-impl<R: Read> Read for WriteBackReader<R> {
+impl<R> Read for WriteBackReader<R>
+where
+    R: Read,
+{
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         if buf.is_empty() {
             return Ok(0);
@@ -347,7 +353,10 @@ impl<R: Read> Read for WriteBackReader<R> {
     }
 }
 
-impl<R: Read> Write for WriteBackReader<R> {
+impl<R> Write for WriteBackReader<R>
+where
+    R: Read,
+{
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.buffer.reserve(buf.len());
         self.buffer.extend(buf.iter().rev());

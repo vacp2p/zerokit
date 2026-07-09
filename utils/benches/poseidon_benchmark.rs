@@ -16,7 +16,7 @@ const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
 ];
 
 pub fn poseidon_benchmark(c: &mut Criterion) {
-    let hasher = Poseidon::<Fr>::from(&ROUND_PARAMS);
+    let hasher = Poseidon::from(&ROUND_PARAMS);
     let mut group = c.benchmark_group("Poseidon::hash");
 
     for size in [10u32, 100, 1000].iter() {

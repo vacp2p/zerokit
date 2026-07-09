@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod test {
     use ark_ff::{BigInteger, PrimeField};
-    use ark_std::{rand::thread_rng, UniformRand};
+    use ark_std::{
+        rand::{rngs::ThreadRng, thread_rng},
+        UniformRand,
+    };
     use num_bigint::BigUint;
     use rln::prelude::*;
 
@@ -388,7 +391,8 @@ mod test {
 
     fn make_proof() -> Proof {
         let rln = RLNBuilder::stateless().build();
-        let (identity_secret, _) = keygen();
+        let identity_secret =
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret();
         let witness = RLNWitnessInput::new_single()
             .identity_secret(identity_secret)
             .user_message_limit(Fr::from(100))
@@ -405,7 +409,8 @@ mod test {
 
     fn make_partial_proof() -> PartialProof {
         let rln = RLNBuilder::stateless().build();
-        let (identity_secret, _) = keygen();
+        let identity_secret =
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret();
         let partial_witness = RLNPartialWitnessInput::new()
             .identity_secret(identity_secret)
             .user_message_limit(Fr::from(100))

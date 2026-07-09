@@ -11,7 +11,8 @@ pub use wasm_rln::{
     WasmRLNWitnessInput,
 };
 pub use wasm_utils::{
-    VecWasmFr, WasmExtendedIdentityKeys, WasmFr, WasmHasher, WasmIdentityKeys, WasmSecretFr,
+    wasm_hash_to_field_be, wasm_hash_to_field_le, wasm_poseidon_hash_pair, VecWasmFr,
+    WasmExtendedIdentityKeys, WasmFr, WasmIdentityKeys, WasmSecretFr,
 };
 
 #[cfg(feature = "panic_hook")]

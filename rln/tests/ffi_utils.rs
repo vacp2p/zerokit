@@ -110,7 +110,7 @@ mod test {
 
         let identity_keys = ffi_identity_keys_generate();
         let identity_secret = ffi_identity_keys_get_secret(&identity_keys);
-        let expected_id_commitment = poseidon_hash(&[**identity_secret.inner()]);
+        let expected_id_commitment = Hasher::<PoseidonHash>::hash_single(**identity_secret.inner());
         assert_eq!(
             **ffi_identity_keys_get_commitment(&identity_keys),
             expected_id_commitment
@@ -374,7 +374,7 @@ mod test {
         let input_1 = Fr::from(42u8);
         let input_2 = Fr::from(99u8);
 
-        let expected_hash = poseidon_hash_pair(input_1, input_2);
+        let expected_hash = Hasher::<PoseidonHash>::hash_pair(input_1, input_2);
         let ffi_received_hash =
             ffi_poseidon_hash_pair(&FFI_Fr::from(input_1), &FFI_Fr::from(input_2));
         assert_eq!(*ffi_received_hash, expected_hash);

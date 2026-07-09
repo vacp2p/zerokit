@@ -58,10 +58,10 @@ pub fn default_zkey_multi() -> &'static Arc<Zkey> {
 // The following functions and structs are based on code from ark-zkey:
 // https://github.com/zkmopro/ark-zkey/blob/main/src/lib.rs#L106
 
-#[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 struct SerializableProvingKey(ArkProvingKey<Curve>);
 
-#[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 struct SerializableConstraintMatrices<F: Field> {
     num_instance_variables: usize,
     num_witness_variables: usize,
@@ -74,7 +74,7 @@ struct SerializableConstraintMatrices<F: Field> {
     c: SerializableMatrix<F>,
 }
 
-#[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 struct SerializableMatrix<F: Field> {
     pub data: Vec<Vec<(F, usize)>>,
 }

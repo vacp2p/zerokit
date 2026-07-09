@@ -1,46 +1,29 @@
-use std::{fmt::Display, hint::black_box, str::FromStr, sync::LazyLock};
+use std::{hint::black_box, sync::LazyLock};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use tiny_keccak::{Hasher as _, Keccak};
 use zerokit_utils::merkle_tree::{
-    FullMerkleConfig, FullMerkleTree, Hasher, OptimalMerkleConfig, OptimalMerkleTree,
+    FullMerkleConfig, FullMerkleTree, OptimalMerkleConfig, OptimalMerkleTree, ZerokitHasher,
     ZerokitMerkleProof, ZerokitMerkleTree,
 };
 
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 struct Keccak256;
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 struct TestFr([u8; 32]);
 
-impl Hasher for Keccak256 {
-    type Fr = TestFr;
+impl ZerokitHasher for Keccak256 {
+    type Scalar = TestFr;
 
-    fn default_leaf() -> Self::Fr {
-        TestFr([0; 32])
-    }
-
-    fn hash_pair(left: Self::Fr, right: Self::Fr) -> Self::Fr {
+    fn hash(input: &[Self::Scalar]) -> Self::Scalar {
         let mut output = [0; 32];
         let mut hasher = Keccak::v256();
-        hasher.update(left.0.as_slice());
-        hasher.update(right.0.as_slice());
+        for fr in input {
+            hasher.update(fr.0.as_slice());
+        }
         hasher.finalize(&mut output);
         TestFr(output)
-    }
-}
-
-impl Display for TestFr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", String::from_utf8_lossy(self.0.as_slice()))
-    }
-}
-
-impl FromStr for TestFr {
-    type Err = std::string::FromUtf8Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(TestFr(s.as_bytes().try_into().unwrap()))
     }
 }
 

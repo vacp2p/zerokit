@@ -3,13 +3,14 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use bon::bon;
-use zerokit_utils::merkle_tree::{Hasher, ZerokitMerkleTree};
+use zerokit_utils::{hasher::ZerokitHasher, merkle_tree::ZerokitMerkleTree};
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::circuit::{default_graph_single, default_zkey_single};
 use crate::{
     circuit::{ArkGroth16Backend, Fr, Graph, Proof, Zkey},
     error::VerifyProofError,
+    hashers::PoseidonHash,
     protocol::{RLNPartialZkProof, RLNProofValues, RLNZkProof},
 };
 
@@ -37,29 +38,33 @@ impl<T> Stateful<T> {
     }
 }
 
-/// Type-state marker for an RLN instance without tree state.
+/// Type-state marker for an RLN instance without merkle tree.
 #[derive(Debug, Clone)]
 pub struct Stateless;
 
 pub struct RLN<State, ZkProof> {
-    pub(crate) zkp: ZkProof,
     pub(crate) state: State,
+    pub(crate) zkp: ZkProof,
 }
 
 impl<ZkProof> RLN<Stateless, ZkProof> {
     pub fn new(zkp: ZkProof) -> Self {
         Self {
-            zkp,
             state: Stateless,
+            zkp,
         }
     }
 }
 
-impl<T, ZkProof> RLN<Stateful<T>, ZkProof> {
+impl<T, ZkProof> RLN<Stateful<T>, ZkProof>
+where
+    ZkProof: RLNZkProof,
+    T: ZerokitMerkleTree<Hasher = ZkProof::Hasher>,
+{
     pub fn new(tree: T, zkp: ZkProof) -> Self {
         Self {
-            zkp,
             state: Stateful::new(tree),
+            zkp,
         }
     }
 }
@@ -81,7 +86,7 @@ impl<T, ZkProof> RLN<Stateful<T>, ZkProof> {
 impl<T, ZkProof> RLN<Stateful<T>, ZkProof>
 where
     T: ZerokitMerkleTree,
-    T::Hasher: Hasher<Fr = Fr>,
+    T::Hasher: ZerokitHasher<Scalar = Fr>,
 {
     pub fn tree_depth(&self) -> usize {
         self.state.tree.depth()
@@ -155,7 +160,10 @@ where
     }
 }
 
-impl<Tree, ZkProof: RLNZkProof> RLN<Tree, ZkProof> {
+impl<State, ZkProof> RLN<State, ZkProof>
+where
+    ZkProof: RLNZkProof,
+{
     pub fn generate_proof(
         &self,
         witness: &ZkProof::Witness,
@@ -172,7 +180,10 @@ impl<Tree, ZkProof: RLNZkProof> RLN<Tree, ZkProof> {
     }
 }
 
-impl<Tree, ZkProof: RLNPartialZkProof> RLN<Tree, ZkProof> {
+impl<State, ZkProof> RLN<State, ZkProof>
+where
+    ZkProof: RLNPartialZkProof,
+{
     pub fn generate_partial_proof(
         &self,
         partial_witness: &ZkProof::PartialWitness,
@@ -189,8 +200,8 @@ impl<Tree, ZkProof: RLNPartialZkProof> RLN<Tree, ZkProof> {
     }
 }
 
-// TODO(PR12): consider renaming `verify_with_signal` / `verify_with_roots` for better semantics.
-impl<Tree, ZkProof> RLN<Tree, ZkProof>
+// TODO(PR14): consider renaming `verify_with_signal` / `verify_with_roots` for better semantics.
+impl<State, ZkProof> RLN<State, ZkProof>
 where
     ZkProof:
         RLNZkProof<Values = RLNProofValues, Proof = Proof, VerifyProofError = VerifyProofError>,
@@ -227,7 +238,7 @@ where
 pub struct RLNBuilder<ZKP>(PhantomData<ZKP>);
 
 #[bon]
-impl RLNBuilder<ArkGroth16Backend> {
+impl RLNBuilder<ArkGroth16Backend<PoseidonHash>> {
     #[builder(finish_fn = build)]
     pub fn stateless(
         #[cfg_attr(
@@ -242,13 +253,13 @@ impl RLNBuilder<ArkGroth16Backend> {
         )]
         #[cfg_attr(target_arch = "wasm32", builder(into))]
         zkey: Arc<Zkey>,
-    ) -> RLN<Stateless, ArkGroth16Backend> {
-        RLN::<Stateless, ArkGroth16Backend>::new(ArkGroth16Backend::new(zkey, graph))
+    ) -> RLN<Stateless, ArkGroth16Backend<PoseidonHash>> {
+        RLN::<Stateless, _>::new(ArkGroth16Backend::new(zkey, graph))
     }
 
     #[builder(finish_fn = build)]
-    pub fn stateful<Tree>(
-        tree: Tree,
+    pub fn stateful<State: ZerokitMerkleTree<Hasher = PoseidonHash>>(
+        tree: State,
         #[cfg_attr(
             not(target_arch = "wasm32"),
             builder(default = default_graph_single().clone(), into)
@@ -261,7 +272,7 @@ impl RLNBuilder<ArkGroth16Backend> {
         )]
         #[cfg_attr(target_arch = "wasm32", builder(into))]
         zkey: Arc<Zkey>,
-    ) -> RLN<Stateful<Tree>, ArkGroth16Backend> {
-        RLN::<Stateful<Tree>, ArkGroth16Backend>::new(tree, ArkGroth16Backend::new(zkey, graph))
+    ) -> RLN<Stateful<State>, ArkGroth16Backend<PoseidonHash>> {
+        RLN::<Stateful<State>, _>::new(tree, ArkGroth16Backend::new(zkey, graph))
     }
 }

@@ -1,85 +1,115 @@
-use ark_std::rand::thread_rng;
-use rand::SeedableRng;
-use rand_chacha::ChaCha20Rng;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use rand::{CryptoRng, Rng, SeedableRng};
 use tiny_keccak::{Hasher as _, Keccak};
+use zerokit_utils::hasher::ZerokitHasher;
 
-use crate::{
-    circuit::{Fr, SecretFr},
-    hashers::{poseidon_hash_id_secret, poseidon_hash_secret_pair},
-};
+use super::secret::{compute_id_commitment, compute_identity_secret};
+use crate::circuit::{Fr, SecretFr};
 
-// TODO(rln-generic-hash): id_commitment (and the other keygen fns) hardcode `poseidon_hash`. To make
-// RLN's hash swappable for another ZK hash, see the plan in `protocol/proof.rs` (circuit-gated).
-
-/// Generates a random RLN identity using a cryptographically secure RNG.
+/// An RLN identity: the identity secret and its commitment `H(identity_secret)`.
 ///
-/// Returns `(identity_secret, id_commitment)` where the commitment is `PoseidonHash(identity_secret)`.
-pub fn keygen() -> (SecretFr, Fr) {
-    let mut rng = thread_rng();
-    let identity_secret = SecretFr::rand(&mut rng);
-    let id_commitment = poseidon_hash_id_secret(&identity_secret);
-    (identity_secret, id_commitment)
+/// The secret is held as [`SecretFr`], so it is zeroized on drop.
+#[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
+pub struct IdentityKeys {
+    pub(crate) identity_secret: SecretFr,
+    pub(crate) id_commitment: Fr,
 }
 
-/// Generates an extended RLN identity compatible with Semaphore.
-///
-/// Returns `(identity_trapdoor, identity_nullifier, identity_secret, id_commitment)` where:
-/// - `identity_secret = PoseidonHash(identity_trapdoor, identity_nullifier)`
-/// - `id_commitment = PoseidonHash(identity_secret)`
-pub fn extended_keygen() -> (SecretFr, SecretFr, SecretFr, Fr) {
-    let mut rng = thread_rng();
-    let identity_trapdoor = SecretFr::rand(&mut rng);
-    let identity_nullifier = SecretFr::rand(&mut rng);
-    let identity_secret = poseidon_hash_secret_pair(&identity_trapdoor, &identity_nullifier);
-    let id_commitment = poseidon_hash_id_secret(&identity_secret);
-    (
-        identity_trapdoor,
-        identity_nullifier,
-        identity_secret,
-        id_commitment,
-    )
+impl IdentityKeys {
+    /// Generates a random RLN identity using the protocol hash `H` and the provided RNG `rng`.
+    pub fn generate<H: ZerokitHasher<Scalar = Fr>, R: Rng + CryptoRng>(rng: &mut R) -> Self {
+        let identity_secret = SecretFr::rand(rng);
+        let id_commitment = compute_id_commitment::<H>(&identity_secret);
+
+        Self {
+            identity_secret,
+            id_commitment,
+        }
+    }
+
+    /// Generates a deterministic RLN identity from a seed using the protocol hash `H` and the provided RNG `R`.
+    pub fn generate_seeded<H: ZerokitHasher<Scalar = Fr>, R: Rng + CryptoRng + SeedableRng>(
+        signal: &[u8],
+    ) -> Self {
+        let mut seed = R::Seed::default();
+        let mut hasher = Keccak::v256();
+        hasher.update(signal);
+        hasher.finalize(seed.as_mut());
+
+        Self::generate::<H, R>(&mut R::from_seed(seed))
+    }
+
+    /// Returns the identity secret.
+    pub fn identity_secret(&self) -> SecretFr {
+        self.identity_secret.clone()
+    }
+
+    /// Returns the identity commitment `H(identity_secret)`.
+    pub fn id_commitment(&self) -> Fr {
+        self.id_commitment
+    }
 }
 
-/// Generates a deterministic RLN identity from a seed.
+/// An extended RLN identity compatible with Semaphore.
 ///
-/// Uses ChaCha20 RNG seeded with Keccak-256 hash of the input.
-/// Returns `(identity_secret, id_commitment)`. Same input always produces the same identity.
-pub fn seeded_keygen(signal: &[u8]) -> (SecretFr, Fr) {
-    // ChaCha20 requires a seed of exactly 32 bytes.
-    // We first hash the input seed signal to a 32 bytes array and pass this as seed to ChaCha20
-    let mut seed = [0; 32];
-    let mut hasher = Keccak::v256();
-    hasher.update(signal);
-    hasher.finalize(&mut seed);
-
-    let mut rng = ChaCha20Rng::from_seed(seed);
-    let identity_secret = SecretFr::rand(&mut rng);
-    let id_commitment = poseidon_hash_id_secret(&identity_secret);
-    (identity_secret, id_commitment)
+/// Holds `(identity_trapdoor, identity_nullifier, identity_secret, id_commitment)` where:
+/// - `identity_secret = H(identity_trapdoor, identity_nullifier)`
+/// - `id_commitment = H(identity_secret)`
+///
+/// All three secrets are held as [`SecretFr`], so they are zeroized on drop.
+#[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
+pub struct ExtendedIdentityKeys {
+    pub(crate) identity_trapdoor: SecretFr,
+    pub(crate) identity_nullifier: SecretFr,
+    pub(crate) identity_secret: SecretFr,
+    pub(crate) id_commitment: Fr,
 }
 
-/// Generates a deterministic extended RLN identity from a seed, compatible with Semaphore.
-///
-/// Uses ChaCha20 RNG seeded with Keccak-256 hash of the input.
-/// Returns `(identity_trapdoor, identity_nullifier, identity_secret, id_commitment)`.
-/// Same input always produces the same identity.
-pub fn extended_seeded_keygen(signal: &[u8]) -> (SecretFr, SecretFr, SecretFr, Fr) {
-    // ChaCha20 requires a seed of exactly 32 bytes.
-    // We first hash the input seed signal to a 32 bytes array and pass this as seed to ChaCha20
-    let mut seed = [0; 32];
-    let mut hasher = Keccak::v256();
-    hasher.update(signal);
-    hasher.finalize(&mut seed);
+impl ExtendedIdentityKeys {
+    /// Generates a random extended RLN identity using the protocol hash `H` and the provided RNG `rng`.
+    pub fn generate<H: ZerokitHasher<Scalar = Fr>, R: Rng + CryptoRng>(rng: &mut R) -> Self {
+        let identity_trapdoor = SecretFr::rand(rng);
+        let identity_nullifier = SecretFr::rand(rng);
+        let identity_secret = compute_identity_secret::<H>(&identity_trapdoor, &identity_nullifier);
+        let id_commitment = compute_id_commitment::<H>(&identity_secret);
 
-    let mut rng = ChaCha20Rng::from_seed(seed);
-    let identity_trapdoor = SecretFr::rand(&mut rng);
-    let identity_nullifier = SecretFr::rand(&mut rng);
-    let identity_secret = poseidon_hash_secret_pair(&identity_trapdoor, &identity_nullifier);
-    let id_commitment = poseidon_hash_id_secret(&identity_secret);
-    (
-        identity_trapdoor,
-        identity_nullifier,
-        identity_secret,
-        id_commitment,
-    )
+        Self {
+            identity_trapdoor,
+            identity_nullifier,
+            identity_secret,
+            id_commitment,
+        }
+    }
+
+    /// Generates a deterministic extended RLN identity from a seed using the protocol hash `H` and the provided RNG `R`.
+    pub fn generate_seeded<H: ZerokitHasher<Scalar = Fr>, R: Rng + CryptoRng + SeedableRng>(
+        signal: &[u8],
+    ) -> Self {
+        let mut seed = R::Seed::default();
+        let mut hasher = Keccak::v256();
+        hasher.update(signal);
+        hasher.finalize(seed.as_mut());
+
+        Self::generate::<H, R>(&mut R::from_seed(seed))
+    }
+
+    /// Returns the identity trapdoor.
+    pub fn identity_trapdoor(&self) -> SecretFr {
+        self.identity_trapdoor.clone()
+    }
+
+    /// Returns the identity nullifier.
+    pub fn identity_nullifier(&self) -> SecretFr {
+        self.identity_nullifier.clone()
+    }
+
+    /// Returns the identity secret `H(identity_trapdoor, identity_nullifier)`.
+    pub fn identity_secret(&self) -> SecretFr {
+        self.identity_secret.clone()
+    }
+
+    /// Returns the identity commitment `H(identity_secret)`.
+    pub fn id_commitment(&self) -> Fr {
+        self.id_commitment
+    }
 }

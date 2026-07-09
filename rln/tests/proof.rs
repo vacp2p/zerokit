@@ -5,15 +5,18 @@ mod test {
 
     use num_bigint::BigUint;
     use num_traits::Num;
+    use rand::{rngs::ThreadRng, thread_rng};
     use rln::prelude::*;
-    use zeroize::Zeroize;
     use zerokit_utils::merkle_tree::{FullMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
 
-    fn make_backend(zkey: &Arc<Zkey>, graph: &Arc<Graph>) -> ArkGroth16Backend {
+    fn make_backend(zkey: &Arc<Zkey>, graph: &Arc<Graph>) -> ArkGroth16Backend<PoseidonHash> {
         ArkGroth16Backend::new(zkey.clone(), graph.clone())
     }
 
-    fn make_rln(zkey: &Arc<Zkey>, graph: &Arc<Graph>) -> RLN<Stateless, ArkGroth16Backend> {
+    fn make_rln(
+        zkey: &Arc<Zkey>,
+        graph: &Arc<Graph>,
+    ) -> RLN<Stateless, ArkGroth16Backend<PoseidonHash>> {
         RLNBuilder::stateless()
             .graph(graph.clone())
             .zkey(zkey.clone())
@@ -72,9 +75,11 @@ mod test {
 
     fn tree_witness_and_root() -> (RLNWitnessInput, Fr) {
         let leaf_index = 3;
-        let (identity_secret, id_commitment) = keygen();
+        let identity_keys = IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
+        let identity_secret = identity_keys.identity_secret();
+        let id_commitment = identity_keys.id_commitment();
         let user_message_limit = Fr::from(100);
-        let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
+        let rate_commitment = Hasher::<PoseidonHash>::hash_pair(id_commitment, user_message_limit);
 
         let mut tree = FullMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH).unwrap();
         tree.set(leaf_index, rate_commitment).unwrap();
@@ -85,7 +90,7 @@ mod test {
         let x = hash_to_field_le(b"hey hey");
         let epoch = hash_to_field_le(b"test-epoch");
         let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-        let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
+        let external_nullifier = Hasher::<PoseidonHash>::hash_pair(epoch, rln_identifier);
 
         let witness = RLNWitnessInput::new_single()
             .identity_secret(identity_secret)
@@ -104,7 +109,7 @@ mod test {
     fn test_generate_and_verify_single() {
         let backend = make_backend(default_zkey_single(), default_graph_single());
         let witness = single_witness(
-            keygen().0,
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret(),
             default_path(),
             Fr::from(1u64),
             Fr::from(42u64),
@@ -118,7 +123,7 @@ mod test {
     fn test_generate_and_verify_multi() {
         let backend = make_backend(default_zkey_multi(), default_graph_multi());
         let witness = multi_witness(
-            keygen().0,
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
@@ -133,7 +138,7 @@ mod test {
     fn test_generate_and_verify_multi_partial_selector() {
         let backend = make_backend(default_zkey_multi(), default_graph_multi());
         let witness = multi_witness(
-            keygen().0,
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret(),
             default_path(),
             default_message_ids(),
             vec![true, false, true, false],
@@ -148,21 +153,21 @@ mod test {
     fn test_wrong_proof_fails_verification() {
         let backend = make_backend(default_zkey_single(), default_graph_single());
         let w1 = single_witness(
-            keygen().0,
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret(),
             default_path(),
             Fr::from(1u64),
             Fr::from(42u64),
             Fr::from(100u64),
         );
         let w2 = single_witness(
-            keygen().0,
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret(),
             default_path(),
             Fr::from(1u64),
             Fr::from(99u64),
             Fr::from(100u64),
         );
         let (proof1, _) = backend.generate_proof(&w1).unwrap();
-        let vals2 = RLNProofValues::from(&w2);
+        let vals2 = RLNProofValues::from_witness::<PoseidonHash>(&w2);
         assert!(!backend.verify(&proof1, &vals2).unwrap());
     }
 
@@ -170,7 +175,7 @@ mod test {
     fn test_rln_generate_and_verify_single() {
         let rln = make_rln(default_zkey_single(), default_graph_single());
         let witness = single_witness(
-            keygen().0,
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret(),
             default_path(),
             Fr::from(1u64),
             Fr::from(42u64),
@@ -184,7 +189,7 @@ mod test {
     fn test_rln_generate_and_verify_multi() {
         let rln = make_rln(default_zkey_multi(), default_graph_multi());
         let witness = multi_witness(
-            keygen().0,
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
@@ -198,16 +203,17 @@ mod test {
     #[test]
     fn test_partial_and_finish_single() {
         let rln = make_rln(default_zkey_single(), default_graph_single());
-        let (id, _) = keygen();
+        let id_secret =
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret();
         let witness = single_witness(
-            id.clone(),
+            id_secret.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(42u64),
             Fr::from(100u64),
         );
         let partial_witness = RLNPartialWitnessInput::new()
-            .identity_secret(id)
+            .identity_secret(id_secret)
             .user_message_limit(Fr::from(10u64))
             .path_elements(default_path())
             .identity_path_index(vec![0u8; DEFAULT_TREE_DEPTH])
@@ -221,9 +227,10 @@ mod test {
     #[test]
     fn test_partial_and_finish_multi() {
         let rln = make_rln(default_zkey_multi(), default_graph_multi());
-        let (id, _) = keygen();
+        let id_secret =
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret();
         let witness = multi_witness(
-            id.clone(),
+            id_secret.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
@@ -231,7 +238,7 @@ mod test {
             Fr::from(100u64),
         );
         let partial_witness = RLNPartialWitnessInput::new()
-            .identity_secret(id)
+            .identity_secret(id_secret)
             .user_message_limit(Fr::from(10u64))
             .path_elements(default_path())
             .identity_path_index(vec![0u8; DEFAULT_TREE_DEPTH])
@@ -245,9 +252,10 @@ mod test {
     #[test]
     fn test_partial_proof_values_match_full_proof_values() {
         let rln = make_rln(default_zkey_single(), default_graph_single());
-        let (id, _) = keygen();
+        let id_secret =
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret();
         let witness = single_witness(
-            id.clone(),
+            id_secret,
             default_path(),
             Fr::from(1u64),
             Fr::from(42u64),
@@ -265,36 +273,38 @@ mod test {
 
     #[test]
     fn test_recover_secret_single() {
-        let (id, _) = keygen();
-        let v1 = RLNProofValues::from(&single_witness(
-            id.clone(),
+        let id_secret =
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret();
+        let v1 = RLNProofValues::from_witness::<PoseidonHash>(&single_witness(
+            id_secret.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             Fr::from(200u64),
         ));
-        let v2 = RLNProofValues::from(&single_witness(
-            id.clone(),
+        let v2 = RLNProofValues::from_witness::<PoseidonHash>(&single_witness(
+            id_secret.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(22u64),
             Fr::from(200u64),
         ));
-        assert_eq!(*v1.recover_secret(&v2).unwrap(), *id);
+        assert_eq!(*v1.recover_secret(&v2).unwrap(), *id_secret);
     }
 
     #[test]
     fn test_recover_secret_single_mismatched_nullifier_fails() {
-        let (id, _) = keygen();
-        let v1 = RLNProofValues::from(&single_witness(
-            id.clone(),
+        let id_secret =
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret();
+        let v1 = RLNProofValues::from_witness::<PoseidonHash>(&single_witness(
+            id_secret.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             Fr::from(200u64),
         ));
-        let v2 = RLNProofValues::from(&single_witness(
-            id,
+        let v2 = RLNProofValues::from_witness::<PoseidonHash>(&single_witness(
+            id_secret,
             default_path(),
             Fr::from(2u64),
             Fr::from(22u64),
@@ -305,42 +315,44 @@ mod test {
 
     #[test]
     fn test_recover_secret_multi() {
-        let (id, _) = keygen();
-        let v1 = RLNProofValues::from(&multi_witness(
-            id.clone(),
+        let id_secret =
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret();
+        let v1 = RLNProofValues::from_witness::<PoseidonHash>(&multi_witness(
+            id_secret.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(11u64),
             Fr::from(200u64),
         ));
-        let v2 = RLNProofValues::from(&multi_witness(
-            id.clone(),
+        let v2 = RLNProofValues::from_witness::<PoseidonHash>(&multi_witness(
+            id_secret.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(22u64),
             Fr::from(200u64),
         ));
-        assert_eq!(*v1.recover_secret(&v2).unwrap(), *id);
+        assert_eq!(*v1.recover_secret(&v2).unwrap(), *id_secret);
     }
 
     #[test]
     fn test_recover_secret_multi_mismatched_nullifier_fails() {
-        let (id, _) = keygen();
+        let id_secret =
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret();
         let ids2: Vec<Fr> = (1..=DEFAULT_MAX_OUT)
             .map(|i| Fr::from((i + DEFAULT_MAX_OUT) as u64))
             .collect();
-        let v1 = RLNProofValues::from(&multi_witness(
-            id.clone(),
+        let v1 = RLNProofValues::from_witness::<PoseidonHash>(&multi_witness(
+            id_secret.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(11u64),
             Fr::from(200u64),
         ));
-        let v2 = RLNProofValues::from(&multi_witness(
-            id,
+        let v2 = RLNProofValues::from_witness::<PoseidonHash>(&multi_witness(
+            id_secret,
             default_path(),
             ids2,
             vec![true; DEFAULT_MAX_OUT],
@@ -352,25 +364,26 @@ mod test {
 
     #[test]
     fn test_recover_secret_cross_mode() {
-        let (id, _) = keygen();
+        let id_secret =
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret();
         let ext = Fr::from(300u64);
-        let sv = RLNProofValues::from(&single_witness(
-            id.clone(),
+        let sv = RLNProofValues::from_witness::<PoseidonHash>(&single_witness(
+            id_secret.clone(),
             default_path(),
             Fr::from(1u64),
             Fr::from(11u64),
             ext,
         ));
-        let mv = RLNProofValues::from(&multi_witness(
-            id.clone(),
+        let mv = RLNProofValues::from_witness::<PoseidonHash>(&multi_witness(
+            id_secret.clone(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
             Fr::from(22u64),
             ext,
         ));
-        assert_eq!(*sv.recover_secret(&mv).unwrap(), *id);
-        assert_eq!(*mv.recover_secret(&sv).unwrap(), *id);
+        assert_eq!(*sv.recover_secret(&mv).unwrap(), *id_secret);
+        assert_eq!(*mv.recover_secret(&sv).unwrap(), *id_secret);
     }
 
     #[test]
@@ -378,7 +391,7 @@ mod test {
         let rln = make_rln(default_zkey_single(), default_graph_single());
         let x = Fr::from(42u64);
         let witness = single_witness(
-            keygen().0,
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret(),
             default_path(),
             Fr::from(1u64),
             x,
@@ -393,7 +406,7 @@ mod test {
         let rln = make_rln(default_zkey_single(), default_graph_single());
         let x = Fr::from(42u64);
         let witness = single_witness(
-            keygen().0,
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret(),
             default_path(),
             Fr::from(1u64),
             x,
@@ -409,7 +422,7 @@ mod test {
         let rln = make_rln(default_zkey_single(), default_graph_single());
         let x = Fr::from(42u64);
         let witness = single_witness(
-            keygen().0,
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret(),
             default_path(),
             Fr::from(1u64),
             x,
@@ -427,7 +440,7 @@ mod test {
         let rln = make_rln(default_zkey_single(), default_graph_single());
         let x = Fr::from(42u64);
         let witness = single_witness(
-            keygen().0,
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret(),
             default_path(),
             Fr::from(1u64),
             x,
@@ -445,7 +458,7 @@ mod test {
         let rln = make_rln(default_zkey_multi(), default_graph_multi());
         let x = Fr::from(42u64);
         let witness = multi_witness(
-            keygen().0,
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
@@ -462,7 +475,7 @@ mod test {
         let rln = make_rln(default_zkey_multi(), default_graph_multi());
         let x = Fr::from(42u64);
         let witness = multi_witness(
-            keygen().0,
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret(),
             default_path(),
             default_message_ids(),
             vec![true; DEFAULT_MAX_OUT],
@@ -480,12 +493,10 @@ mod test {
     fn test_merkle_proof_hardcoded() {
         let leaf_index = 3;
 
-        let identity_secret_seed = hash_to_field_le(b"test-merkle-proof");
-        let identity_secret = SecretFr::from(&mut identity_secret_seed.clone());
-        let mut to_hash = [*identity_secret.clone()];
-        let id_commitment = poseidon_hash(&to_hash);
-        to_hash[0].zeroize();
-        let rate_commitment = poseidon_hash_pair(id_commitment, Fr::from(100));
+        let mut identity_secret_seed = hash_to_field_le(b"test-merkle-proof");
+        let identity_secret = SecretFr::from(&mut identity_secret_seed);
+        let id_commitment = Hasher::<PoseidonHash>::hash_single(*identity_secret);
+        let rate_commitment = Hasher::<PoseidonHash>::hash_pair(id_commitment, Fr::from(100));
 
         let mut tree = FullMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH).unwrap();
         tree.set(leaf_index, rate_commitment).unwrap();
@@ -559,7 +570,7 @@ mod test {
     #[test]
     fn test_proof_values_root_matches_merkle_tree_root() {
         let (witness, root) = tree_witness_and_root();
-        let proof_values = RLNProofValues::from(&witness);
+        let proof_values = RLNProofValues::from_witness::<PoseidonHash>(&witness);
         assert_eq!(proof_values.root(), root);
     }
 

@@ -43,7 +43,9 @@ async function main() {
   }
   console.log("  - RLN witness created successfully");
 
-  console.log("\nWasmRLNWitnessInput serialization: WasmRLNWitnessInput <-> bytes");
+  console.log(
+    "\nWasmRLNWitnessInput serialization: WasmRLNWitnessInput <-> bytes",
+  );
   let serWitness;
   try {
     serWitness = witness.toBytesLE();

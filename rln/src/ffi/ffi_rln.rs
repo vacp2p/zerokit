@@ -9,7 +9,7 @@ use safer_ffi::{
     prelude::{char_p, repr_c},
 };
 use zerokit_utils::merkle_tree::{
-    FullMerkleTree, Hasher, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
+    FullMerkleTree, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
 };
 
 use super::ffi_utils::{FFI_BoolResult, FFI_Fr, FFI_Result, FFI_SecretFr};
@@ -19,10 +19,14 @@ const MAX_CONFIG_SIZE: u64 = 1024 * 1024;
 const NO_STATELESS_TREE_ERR: &str = "tree op unsupported on stateless RLN";
 
 pub(crate) enum FFI_RLN_Inner {
-    Stateless(RLN<Stateless, ArkGroth16Backend>),
-    StatefulFullMerkleTree(RLN<Stateful<FullMerkleTree<PoseidonHash>>, ArkGroth16Backend>),
-    StatefulOptimalMerkleTree(RLN<Stateful<OptimalMerkleTree<PoseidonHash>>, ArkGroth16Backend>),
-    StatefulPmTree(RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend>),
+    Stateless(RLN<Stateless, ArkGroth16Backend<PoseidonHash>>),
+    StatefulFullMerkleTree(
+        RLN<Stateful<FullMerkleTree<PoseidonHash>>, ArkGroth16Backend<PoseidonHash>>,
+    ),
+    StatefulOptimalMerkleTree(
+        RLN<Stateful<OptimalMerkleTree<PoseidonHash>>, ArkGroth16Backend<PoseidonHash>>,
+    ),
+    StatefulPmTree(RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend<PoseidonHash>>),
 }
 
 impl FFI_RLN_Inner {
@@ -333,26 +337,38 @@ impl FFI_RLN_Inner {
     }
 }
 
-impl From<RLN<Stateless, ArkGroth16Backend>> for FFI_RLN_Inner {
-    fn from(r: RLN<Stateless, ArkGroth16Backend>) -> Self {
+impl From<RLN<Stateless, ArkGroth16Backend<PoseidonHash>>> for FFI_RLN_Inner {
+    fn from(r: RLN<Stateless, ArkGroth16Backend<PoseidonHash>>) -> Self {
         Self::Stateless(r)
     }
 }
 
-impl From<RLN<Stateful<FullMerkleTree<PoseidonHash>>, ArkGroth16Backend>> for FFI_RLN_Inner {
-    fn from(r: RLN<Stateful<FullMerkleTree<PoseidonHash>>, ArkGroth16Backend>) -> Self {
+impl From<RLN<Stateful<FullMerkleTree<PoseidonHash>>, ArkGroth16Backend<PoseidonHash>>>
+    for FFI_RLN_Inner
+{
+    fn from(
+        r: RLN<Stateful<FullMerkleTree<PoseidonHash>>, ArkGroth16Backend<PoseidonHash>>,
+    ) -> Self {
         Self::StatefulFullMerkleTree(r)
     }
 }
 
-impl From<RLN<Stateful<OptimalMerkleTree<PoseidonHash>>, ArkGroth16Backend>> for FFI_RLN_Inner {
-    fn from(r: RLN<Stateful<OptimalMerkleTree<PoseidonHash>>, ArkGroth16Backend>) -> Self {
+impl From<RLN<Stateful<OptimalMerkleTree<PoseidonHash>>, ArkGroth16Backend<PoseidonHash>>>
+    for FFI_RLN_Inner
+{
+    fn from(
+        r: RLN<Stateful<OptimalMerkleTree<PoseidonHash>>, ArkGroth16Backend<PoseidonHash>>,
+    ) -> Self {
         Self::StatefulOptimalMerkleTree(r)
     }
 }
 
-impl From<RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend>> for FFI_RLN_Inner {
-    fn from(r: RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend>) -> Self {
+impl From<RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend<PoseidonHash>>>
+    for FFI_RLN_Inner
+{
+    fn from(
+        r: RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend<PoseidonHash>>,
+    ) -> Self {
         Self::StatefulPmTree(r)
     }
 }
@@ -565,7 +581,7 @@ pub fn ffi_rln_new_with_pm_tree(
                 }
             }
         };
-        PmTree::new(tree_depth, PoseidonHash::default_leaf(), config)
+        PmTree::new(tree_depth, Fr::default(), config)
     };
     match pm_tree {
         Ok(pm_tree) => {

@@ -81,7 +81,7 @@ pub(crate) struct GraphMetadata {
     #[prost(map = "string, message", tag = "2")]
     pub inputs: HashMap<String, SignalDescription>,
 }
-#[derive(Clone, Copy, Debug, PartialEq, prost::Enumeration)]
+#[derive(Debug, Clone, Copy, PartialEq, prost::Enumeration)]
 pub(crate) enum DuoOp {
     Mul = 0,
     Div = 1,
@@ -105,13 +105,13 @@ pub(crate) enum DuoOp {
     Bxor = 19,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, prost::Enumeration)]
+#[derive(Debug, Clone, Copy, PartialEq, prost::Enumeration)]
 pub(crate) enum UnoOp {
     Neg = 0,
     Id = 1,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, prost::Enumeration)]
+#[derive(Debug, Clone, Copy, PartialEq, prost::Enumeration)]
 pub(crate) enum TresOp {
     TernCond = 0,
 }

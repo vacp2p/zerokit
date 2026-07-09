@@ -11,7 +11,7 @@ mod test {
 
     const LEAF_COUNT: usize = 256;
 
-    type StatefulRLN = RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend>;
+    type PmTreeRLN = RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend<PoseidonHash>>;
 
     fn g1_from_str(g1: &[String]) -> G1Affine {
         let x = Fq::from_str(&g1[0]).unwrap();
@@ -78,7 +78,7 @@ mod test {
         let x = hash_to_field_le(&rng.gen::<[u8; 32]>());
         let epoch = hash_to_field_le(&rng.gen::<[u8; 32]>());
         let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-        let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
+        let external_nullifier = Hasher::<PoseidonHash>::hash_pair(epoch, rln_identifier);
 
         let (path_elements, identity_path_index) = random_merkle_proof(tree_depth);
 
@@ -94,7 +94,7 @@ mod test {
             .unwrap()
     }
 
-    fn create_rln(tree_depth: usize) -> StatefulRLN {
+    fn create_rln(tree_depth: usize) -> PmTreeRLN {
         RLNBuilder::stateful()
             .tree(PmTree::default(tree_depth).unwrap())
             .build()
@@ -106,23 +106,25 @@ mod test {
 
     fn setup_rln_proof(
         mutate_path_elements: bool,
-    ) -> (StatefulRLN, Proof, RLNProofValues, Fr, ThreadRng) {
+    ) -> (PmTreeRLN, Proof, RLNProofValues, Fr, ThreadRng) {
         let mut rng = thread_rng();
         let leaves = random_leaves(&mut rng);
 
         let mut rln = create_rln(DEFAULT_TREE_DEPTH);
         rln.init_tree_with_leaves(leaves).unwrap();
 
-        let (identity_secret, id_commitment) = keygen();
+        let identity_keys = IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
+        let identity_secret = identity_keys.identity_secret();
+        let id_commitment = identity_keys.id_commitment();
         let identity_index = rln.leaves_set();
         let user_message_limit = Fr::from(100);
-        let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
+        let rate_commitment = Hasher::<PoseidonHash>::hash_pair(id_commitment, user_message_limit);
         rln.set_next_leaf(rate_commitment).unwrap();
 
         let signal: [u8; 32] = rng.gen();
         let epoch = hash_to_field_le(b"test-epoch");
         let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-        let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
+        let external_nullifier = Hasher::<PoseidonHash>::hash_pair(epoch, rln_identifier);
         let x = hash_to_field_le(&signal);
 
         let merkle_proof = rln.get_merkle_proof(identity_index).unwrap();
@@ -494,23 +496,25 @@ mod test {
         let mut leaves: Vec<Fr> = Vec::new();
         for _ in 0..LEAF_COUNT {
             let id_commitment = Fr::rand(&mut rng);
-            let rate_commitment = poseidon_hash_pair(id_commitment, Fr::from(100));
+            let rate_commitment = Hasher::<PoseidonHash>::hash_pair(id_commitment, Fr::from(100));
             leaves.push(rate_commitment);
         }
 
         let mut rln = create_rln(DEFAULT_TREE_DEPTH);
         rln.init_tree_with_leaves(leaves).unwrap();
 
-        let (identity_secret, id_commitment) = keygen();
+        let identity_keys = IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
+        let identity_secret = identity_keys.identity_secret();
+        let id_commitment = identity_keys.id_commitment();
         let identity_index = rln.leaves_set();
         let user_message_limit = Fr::from(65535);
-        let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
+        let rate_commitment = Hasher::<PoseidonHash>::hash_pair(id_commitment, user_message_limit);
         rln.set_next_leaf(rate_commitment).unwrap();
 
         let signal: [u8; 32] = rng.gen();
         let epoch = hash_to_field_le(b"test-epoch");
         let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-        let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
+        let external_nullifier = Hasher::<PoseidonHash>::hash_pair(epoch, rln_identifier);
         let x = hash_to_field_le(&signal);
 
         let merkle_proof = rln.get_merkle_proof(identity_index).unwrap();
@@ -560,9 +564,11 @@ mod test {
     fn test_recover_secret_with_tree_proof() {
         let mut rln = create_rln(DEFAULT_TREE_DEPTH);
 
-        let (identity_secret, id_commitment) = keygen();
+        let identity_keys = IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
+        let identity_secret = identity_keys.identity_secret();
+        let id_commitment = identity_keys.id_commitment();
         let user_message_limit = Fr::from(100);
-        let rate_commitment = poseidon_hash_pair(id_commitment, user_message_limit);
+        let rate_commitment = Hasher::<PoseidonHash>::hash_pair(id_commitment, user_message_limit);
 
         let identity_index = rln.leaves_set();
         rln.set_next_leaf(rate_commitment).unwrap();
@@ -573,7 +579,7 @@ mod test {
 
         let epoch = hash_to_field_le(b"test-epoch");
         let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-        let external_nullifier = poseidon_hash_pair(epoch, rln_identifier);
+        let external_nullifier = Hasher::<PoseidonHash>::hash_pair(epoch, rln_identifier);
 
         let x1 = hash_to_field_le(&signal1);
         let x2 = hash_to_field_le(&signal2);
@@ -602,8 +608,12 @@ mod test {
         );
 
         // Recovery must fail when shares come from two different identity secrets
-        let (identity_secret_new, id_commitment_new) = keygen();
-        let rate_commitment_new = poseidon_hash_pair(id_commitment_new, user_message_limit);
+        let identity_keys_new =
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
+        let identity_secret_new = identity_keys_new.identity_secret();
+        let id_commitment_new = identity_keys_new.id_commitment();
+        let rate_commitment_new =
+            Hasher::<PoseidonHash>::hash_pair(id_commitment_new, user_message_limit);
 
         let identity_index_new = rln.leaves_set();
         rln.set_next_leaf(rate_commitment_new).unwrap();

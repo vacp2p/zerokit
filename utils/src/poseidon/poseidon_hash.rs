@@ -8,7 +8,7 @@ use zeroize::Zeroizing;
 
 use super::{error::PoseidonError, poseidon_constants::find_poseidon_ark_and_mds};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RoundParameters<F: PrimeField> {
     pub t: usize,
     pub n_rounds_f: usize,
@@ -22,12 +22,15 @@ pub struct Poseidon<F: PrimeField> {
     round_params: Vec<RoundParameters<F>>,
 }
 
-impl<F: PrimeField> Poseidon<F> {
+impl<F> Poseidon<F>
+where
+    F: PrimeField,
+{
     // Loads round parameters and generates round constants
     // poseidon_params is a vector containing tuples (t, RF, RP, skip_matrices)
     // where: t is the rate (input length + 1), RF is the number of full rounds, RP is the number of partial rounds
     // and skip_matrices is a (temporary) parameter used to generate secure MDS matrices (see comments in the description of find_poseidon_ark_and_mds)
-    // TODO(backlog): implement automatic generation of round parameters.
+    // TODO(backlog): Implement automatic generation of round parameters.
     pub fn from(poseidon_params: &[(usize, usize, usize, usize)]) -> Self {
         let mut read_params = Vec::<RoundParameters<F>>::with_capacity(poseidon_params.len());
 

@@ -6,9 +6,9 @@ mod test {
     use js_sys::{Date, Uint8Array};
     use rln::prelude::*;
     use rln_wasm::{
-        VecWasmFr, WasmFr, WasmHasher, WasmIdentityKeys, WasmRLN, WasmRLNPartialProof,
-        WasmRLNPartialWitnessInput, WasmRLNProof, WasmRLNProofValues, WasmRLNWitnessInput,
-        WasmSecretFr,
+        wasm_hash_to_field_le, wasm_poseidon_hash_pair, VecWasmFr, WasmFr, WasmIdentityKeys,
+        WasmRLN, WasmRLNPartialProof, WasmRLNPartialWitnessInput, WasmRLNProof, WasmRLNProofValues,
+        WasmRLNWitnessInput, WasmSecretFr,
     };
     use wasm_bindgen_test::{console_log, wasm_bindgen_test};
     use zerokit_utils::merkle_tree::{
@@ -36,19 +36,19 @@ mod test {
         let identity_secret = identity_pair.get_secret();
         let id_commitment = identity_pair.get_commitment();
 
-        let epoch = WasmHasher::hash_to_field_le(&Uint8Array::from(b"test-epoch" as &[u8]));
+        let epoch = wasm_hash_to_field_le(&Uint8Array::from(b"test-epoch" as &[u8]));
         let rln_identifier =
-            WasmHasher::hash_to_field_le(&Uint8Array::from(b"test-rln-identifier" as &[u8]));
-        let external_nullifier = WasmHasher::poseidon_hash_pair(&epoch, &rln_identifier);
+            wasm_hash_to_field_le(&Uint8Array::from(b"test-rln-identifier" as &[u8]));
+        let external_nullifier = wasm_poseidon_hash_pair(&epoch, &rln_identifier);
 
         let identity_index = tree.leaves_set();
         let user_message_limit = WasmFr::from_uint(10);
-        let rate_commitment = WasmHasher::poseidon_hash_pair(&id_commitment, &user_message_limit);
+        let rate_commitment = wasm_poseidon_hash_pair(&id_commitment, &user_message_limit);
         tree.update_next(*rate_commitment).unwrap();
 
         let message_id = WasmFr::from_uint(0);
         let signal: [u8; 32] = [0; 32];
-        let x = WasmHasher::hash_to_field_le(&Uint8Array::from(&signal[..]));
+        let x = wasm_hash_to_field_le(&Uint8Array::from(&signal[..]));
 
         let merkle_proof: OptimalMerkleProof<PoseidonHash> = tree.proof(identity_index).unwrap();
         let mut path_elements = VecWasmFr::new();
@@ -100,19 +100,19 @@ mod test {
         let identity_secret = identity_pair.get_secret();
         let id_commitment = identity_pair.get_commitment();
 
-        let epoch = WasmHasher::hash_to_field_le(&Uint8Array::from(b"test-epoch" as &[u8]));
+        let epoch = wasm_hash_to_field_le(&Uint8Array::from(b"test-epoch" as &[u8]));
         let rln_identifier =
-            WasmHasher::hash_to_field_le(&Uint8Array::from(b"test-rln-identifier" as &[u8]));
-        let external_nullifier = WasmHasher::poseidon_hash_pair(&epoch, &rln_identifier);
+            wasm_hash_to_field_le(&Uint8Array::from(b"test-rln-identifier" as &[u8]));
+        let external_nullifier = wasm_poseidon_hash_pair(&epoch, &rln_identifier);
 
         let identity_index = tree.leaves_set();
         let user_message_limit = WasmFr::from_uint(10);
-        let rate_commitment = WasmHasher::poseidon_hash_pair(&id_commitment, &user_message_limit);
+        let rate_commitment = wasm_poseidon_hash_pair(&id_commitment, &user_message_limit);
         tree.update_next(*rate_commitment).unwrap();
 
         let message_id = WasmFr::from_uint(0);
         let signal: [u8; 32] = [0; 32];
-        let x = WasmHasher::hash_to_field_le(&Uint8Array::from(&signal[..]));
+        let x = wasm_hash_to_field_le(&Uint8Array::from(&signal[..]));
 
         let merkle_proof: OptimalMerkleProof<PoseidonHash> = tree.proof(identity_index).unwrap();
         let mut path_elements = VecWasmFr::new();

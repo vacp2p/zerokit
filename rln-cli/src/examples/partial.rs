@@ -4,12 +4,15 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
+use rand::{rngs::ThreadRng, thread_rng};
 use rln::prelude::{
-    default_graph_single, default_zkey_single, hash_to_field_le, keygen, poseidon_hash,
-    ArkGroth16Backend, Fr, PartialProof, PoseidonHash, RLNBuilder, RLNPartialWitnessInput,
-    RLNProofValues, RLNWitnessInput, RecoverSecret, SecretFr, Stateful, RLN,
+    default_graph_single, default_zkey_single, hash_to_field_le, ArkGroth16Backend, Fr, Hasher,
+    IdentityKeys, PartialProof, PoseidonHash, RLNBuilder, RLNPartialWitnessInput, RLNProofValues,
+    RLNWitnessInput, RecoverSecret, Stateful, RLN,
 };
-use zerokit_utils::merkle_tree::{FullMerkleTree, Hasher, ZerokitMerkleProof, ZerokitMerkleTree};
+use zerokit_utils::merkle_tree::{
+    FullMerkleConfig, FullMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
+};
 
 const MESSAGE_LIMIT: u32 = 1;
 
@@ -20,7 +23,6 @@ const ROOT_HISTORY_LIMIT: usize = 3;
 const PARTIAL_REFRESH_INTERVAL: usize = ROOT_HISTORY_LIMIT;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-type ConfigOf<T> = <T as ZerokitMerkleTree>::Config;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -46,12 +48,6 @@ enum Commands {
     Exit,
 }
 
-#[derive(Debug, Clone)]
-struct Identity {
-    identity_secret: SecretFr,
-    id_commitment: Fr,
-}
-
 #[derive(Clone)]
 struct CachedPartialProof {
     root: Fr,
@@ -60,20 +56,10 @@ struct CachedPartialProof {
     path_index: Vec<u8>,
 }
 
-impl Identity {
-    fn new() -> Self {
-        let (identity_secret, id_commitment) = keygen();
-        Identity {
-            identity_secret,
-            id_commitment,
-        }
-    }
-}
-
 struct RLNSystem {
-    rln: RLN<Stateful<FullMerkleTree<PoseidonHash>>, ArkGroth16Backend>,
+    rln: RLN<Stateful<FullMerkleTree<PoseidonHash>>, ArkGroth16Backend<PoseidonHash>>,
     used_nullifiers: HashMap<Fr, RLNProofValues>,
-    local_identities: HashMap<usize, Identity>,
+    local_identities: HashMap<usize, IdentityKeys>,
     partial_proofs: HashMap<usize, CachedPartialProof>,
     external_nullifier: Fr,
     latest_roots: VecDeque<Fr>,
@@ -82,11 +68,8 @@ struct RLNSystem {
 
 impl RLNSystem {
     fn new(external_nullifier: Fr) -> Result<Self> {
-        let full_merkle_tree: FullMerkleTree<PoseidonHash> = FullMerkleTree::new(
-            TREE_DEPTH,
-            PoseidonHash::default_leaf(),
-            ConfigOf::<FullMerkleTree<PoseidonHash>>::default(),
-        )?;
+        let full_merkle_tree =
+            FullMerkleTree::new(TREE_DEPTH, Fr::default(), FullMerkleConfig::default())?;
         let rln = RLNBuilder::stateful()
             .tree(full_merkle_tree)
             .graph(default_graph_single().clone())
@@ -114,10 +97,10 @@ impl RLNSystem {
         }
 
         println!("Registered users:");
-        for (index, identity) in &self.local_identities {
+        for (index, identity_keys) in &self.local_identities {
             println!("User: {index}");
-            println!("+ Identity secret: {}", *identity.identity_secret);
-            println!("+ Identity commitment: {}", identity.id_commitment);
+            println!("+ Identity secret: {}", *identity_keys.identity_secret());
+            println!("+ Identity commitment: {}", identity_keys.id_commitment());
             println!();
         }
     }
@@ -151,15 +134,18 @@ impl RLNSystem {
 
     fn register_user(&mut self) -> Result<usize> {
         let index = self.rln.leaves_set();
-        let identity = Identity::new();
+        let identity_keys = IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
 
-        let rate_commitment = poseidon_hash(&[identity.id_commitment, Fr::from(MESSAGE_LIMIT)]);
+        let rate_commitment = Hasher::<PoseidonHash>::hash_pair(
+            identity_keys.id_commitment(),
+            Fr::from(MESSAGE_LIMIT),
+        );
         match self.rln.set_next_leaf(rate_commitment) {
             Ok(_) => {
                 println!("Registered user: {index}");
-                println!("+ Identity secret: {}", *identity.identity_secret);
-                println!("+ Identity commitment: {}", identity.id_commitment);
-                self.local_identities.insert(index, identity);
+                println!("+ Identity secret: {}", *identity_keys.identity_secret());
+                println!("+ Identity commitment: {}", identity_keys.id_commitment());
+                self.local_identities.insert(index, identity_keys);
                 self.record_root();
                 self.pending_registrations += 1;
                 if self.pending_registrations >= PARTIAL_REFRESH_INTERVAL {
@@ -188,10 +174,10 @@ impl RLNSystem {
         let current_root = self.rln.get_root();
         self.partial_proofs.clear();
         for user_index in indices {
-            let identity = &self.local_identities[&user_index];
+            let identity_keys = &self.local_identities[&user_index];
             let merkle_proof = self.rln.get_merkle_proof(user_index)?;
             let witness = RLNWitnessInput::new_single()
-                .identity_secret(identity.identity_secret.clone())
+                .identity_secret(identity_keys.identity_secret())
                 .user_message_limit(Fr::from(MESSAGE_LIMIT))
                 .path_elements(merkle_proof.get_path_elements())
                 .identity_path_index(merkle_proof.get_path_index())
@@ -222,8 +208,8 @@ impl RLNSystem {
         signal: &str,
         external_nullifier: Fr,
     ) -> Result<RLNProofValues> {
-        let identity = match self.local_identities.get(&user_index) {
-            Some(identity) => identity,
+        let identity_keys = match self.local_identities.get(&user_index) {
+            Some(identity_keys) => identity_keys,
             None => return Err(format!("User {user_index} not found").into()),
         };
 
@@ -242,7 +228,7 @@ impl RLNSystem {
             );
             let merkle_proof = self.rln.get_merkle_proof(user_index)?;
             let partial_witness = RLNPartialWitnessInput::new()
-                .identity_secret(identity.identity_secret.clone())
+                .identity_secret(identity_keys.identity_secret())
                 .user_message_limit(Fr::from(MESSAGE_LIMIT))
                 .path_elements(merkle_proof.get_path_elements())
                 .identity_path_index(merkle_proof.get_path_index())
@@ -261,7 +247,7 @@ impl RLNSystem {
 
         let cached = &self.partial_proofs[&user_index];
         let witness = RLNWitnessInput::new_single()
-            .identity_secret(identity.identity_secret.clone())
+            .identity_secret(identity_keys.identity_secret())
             .user_message_limit(Fr::from(MESSAGE_LIMIT))
             .path_elements(cached.path_elements.clone())
             .identity_path_index(cached.path_index.clone())
@@ -316,13 +302,15 @@ impl RLNSystem {
 
         match previous_proof_values.recover_secret(current_proof_values) {
             Ok(leaked_identity_secret) => {
-                if let Some((user_index, identity)) = self
+                if let Some((user_index, identity_keys)) = self
                     .local_identities
                     .iter()
-                    .find(|(_, identity)| identity.identity_secret == leaked_identity_secret)
-                    .map(|(index, identity)| (*index, identity))
+                    .find(|(_, identity_keys)| {
+                        identity_keys.identity_secret() == leaked_identity_secret
+                    })
+                    .map(|(index, identity_keys)| (*index, identity_keys))
                 {
-                    let real_identity_secret = identity.identity_secret.clone();
+                    let real_identity_secret = identity_keys.identity_secret();
                     if leaked_identity_secret != real_identity_secret {
                         Err("Identity secret mismatch: leaked_identity_secret != real_identity_secret".into())
                     } else {
@@ -351,7 +339,7 @@ fn main() -> Result<()> {
     print!("\x1B[2J\x1B[1;1H");
     let rln_epoch = hash_to_field_le(b"epoch");
     let rln_identifier = hash_to_field_le(b"rln-identifier");
-    let external_nullifier = poseidon_hash(&[rln_epoch, rln_identifier]);
+    let external_nullifier = Hasher::<PoseidonHash>::hash_pair(rln_epoch, rln_identifier);
     let mut rln_system = RLNSystem::new(external_nullifier)?;
     println!("RLN Partial Proof Example:");
     println!("Message Limit: {MESSAGE_LIMIT}");

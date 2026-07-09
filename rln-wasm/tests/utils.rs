@@ -11,7 +11,8 @@ mod test {
     use rand::Rng;
     use rln::prelude::*;
     use rln_wasm::{
-        wasm_utils::WasmUint8ArrayUtils, VecWasmFr, WasmExtendedIdentityKeys, WasmFr, WasmHasher,
+        wasm_hash_to_field_be, wasm_hash_to_field_le, wasm_poseidon_hash_pair,
+        wasm_utils::WasmUint8ArrayUtils, VecWasmFr, WasmExtendedIdentityKeys, WasmFr,
         WasmIdentityKeys,
     };
     use wasm_bindgen_test::wasm_bindgen_test;
@@ -203,11 +204,11 @@ mod test {
         let signal_gen: [u8; 32] = rng.gen();
         let signal = Uint8Array::from(&signal_gen[..]);
 
-        let wasmfr_le_1 = WasmHasher::hash_to_field_le(&signal);
+        let wasmfr_le_1 = wasm_hash_to_field_le(&signal);
         let fr_le_2 = hash_to_field_le(&signal_gen);
         assert_eq!(*wasmfr_le_1, fr_le_2);
 
-        let wasmfr_be_1 = WasmHasher::hash_to_field_be(&signal);
+        let wasmfr_be_1 = wasm_hash_to_field_be(&signal);
         let fr_be_2 = hash_to_field_be(&signal_gen);
         assert_eq!(*wasmfr_be_1, fr_be_2);
 
@@ -230,10 +231,10 @@ mod test {
         let input_1 = Fr::from(42u8);
         let input_2 = Fr::from(99u8);
 
-        let expected_hash = poseidon_hash(&[input_1, input_2]);
+        let expected_hash = Hasher::<PoseidonHash>::hash_pair(input_1, input_2);
         let wasmfr_1 = WasmFr::from_uint(42);
         let wasmfr_2 = WasmFr::from_uint(99);
-        let received_hash = WasmHasher::poseidon_hash_pair(&wasmfr_1, &wasmfr_2);
+        let received_hash = wasm_poseidon_hash_pair(&wasmfr_1, &wasmfr_2);
 
         assert_eq!(*received_hash, expected_hash);
     }
