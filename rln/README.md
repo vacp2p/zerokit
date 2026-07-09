@@ -128,10 +128,8 @@ and it's used to prevent a RLN ZK proof generated for one application to be re-u
 - **Pre-compiled Circuits**: Ready-to-use circuits with Merkle tree depth of 10 and 20.
   > **Note:** The crates.io package only includes tree depth 20 resources
   > (arkzkey and graph files) that are compiled into the binary at build time.
-  > Tree depth 10 resources and `.wasm` files are excluded from the package
-  > to stay within the crates.io size limit.
-  > If you need tree depth 10 or `.wasm` circuit files,
-  > download them from the
+  > Tree depth 10 resources are excluded from the package to stay within the
+  > crates.io size limit. If you need tree depth 10 resources, download them from the
   > [GitHub repository](https://github.com/vacp2p/zerokit/tree/master/rln/resources).
 - **Wasm Support**: WebAssembly bindings via rln-wasm crate with features like:
   - Browser and Node.js compatibility
