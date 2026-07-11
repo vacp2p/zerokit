@@ -1694,7 +1694,8 @@ checksum = "0976c77def3f1f75c4ef892a292c31c0bbe9e3d0702c63044d7c76db298171a3"
 [[package]]
 name = "vacp2p_pmtree"
 version = "3.0.1"
-source = "git+https://github.com/vacp2p/pmtree?branch=small-fix-for-zerokit-v3#0bc4f6fa2a269946f3c248c6db5606155699e258"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99b2e4a0dfd23116632f070a0db358257997e5d0e6f48e799f458a0b0c295f94"
 dependencies = [
  "parking_lot 0.12.5",
  "rayon",

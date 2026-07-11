@@ -13,8 +13,6 @@ use crate::partial_proof::PartialProof as ArkPartialProof;
 pub const DEFAULT_MAX_OUT: usize = 4;
 /// Default Merkle tree depth.
 pub const DEFAULT_TREE_DEPTH: usize = 20;
-/// Byte size of a Groth16 proof in arkworks compressed form.
-pub const COMPRESS_PROOF_SIZE: usize = 128;
 
 // The following types define the pairing friendly elliptic curve, the underlying finite fields and groups default to this module
 // Note that proofs are serialized assuming Fr to be 4x8 = 32 bytes in size. Hence, changing to a curve with different encoding will make proof verification to fail

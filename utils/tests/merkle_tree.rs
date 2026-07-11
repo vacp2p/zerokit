@@ -5,7 +5,7 @@ mod test {
     use tiny_keccak::{Hasher as _, Keccak};
     use zerokit_utils::merkle_tree::{
         FullMerkleConfig, FullMerkleTree, OptimalMerkleConfig, OptimalMerkleTree, ZerokitHasher,
-        ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError, MIN_PARALLEL_NODES,
+        ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError,
     };
     #[derive(Clone, Copy, PartialEq)]
     struct Keccak256;
@@ -660,10 +660,8 @@ mod test {
     #[test]
     fn test_override_range_parallel_triggered() {
         let depth = 13;
-        let leaf_count = 8192;
-
         // number of leaves larger than MIN_PARALLEL_NODES to trigger parallel hashing
-        assert!(MIN_PARALLEL_NODES < leaf_count);
+        let leaf_count = 8192;
 
         let leaves: Vec<TestFr> = (0..leaf_count as u32).map(TestFr::from).collect();
         let indices: Vec<usize> = (0..leaf_count).collect();

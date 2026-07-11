@@ -183,7 +183,10 @@ impl RLNSystem {
         println!("+ Active message slots: {active_count}/{}", MAX_OUT);
         println!("+ Signal: {signal}");
 
-        let verified = self.rln.verify(&proof, &proof_values)?;
+        let current_root = self.rln.get_root();
+        let verified = self
+            .rln
+            .verify_with_roots(&proof, &proof_values, &x, &[current_root])?;
         if verified {
             println!("Proof verified successfully");
         }

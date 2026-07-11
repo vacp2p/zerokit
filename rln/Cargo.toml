@@ -59,8 +59,7 @@ document-features = { version = "0.2.12", optional = true }
 
 # Non-WASM
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-# TODO(PR14): Use the official v3.0.1 version of pmtree once it is released.
-pmtree = { version = "3.0.1", package = "vacp2p_pmtree", git = "https://github.com/vacp2p/pmtree", branch = "small-fix-for-zerokit-v3" }
+pmtree = { version = "3.0.1", package = "vacp2p_pmtree" }
 sled = { version = "0.34.7", features = ["compression"] }
 
 [dev-dependencies]

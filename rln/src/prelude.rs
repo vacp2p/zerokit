@@ -13,7 +13,7 @@ pub use crate::{
     circuit::{
         graph_from_raw, zkey_from_raw, ArkGroth16Backend, Curve, Fq, Fq2, Fr, G1Affine,
         G1Projective, G2Affine, G2Projective, Graph, PartialProof, Proof, SecretFr, VerifyingKey,
-        Zkey, COMPRESS_PROOF_SIZE, DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH,
+        Zkey, DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH,
     },
     error::{
         GenerateProofError, PartialWitnessInputError, RecoverSecretError, SerializationError,
@@ -25,8 +25,8 @@ pub use crate::{
         CanonicalSerializeMixed, ExtendedIdentityKeys, IdentityKeys, RLNPartialWitnessInput,
         RLNPartialZkProof, RLNProof, RLNProofValues, RLNProofValuesMulti, RLNProofValuesSingle,
         RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle, RLNZkProof, RecoverSecret,
-        ENUM_TAG_MULTI, ENUM_TAG_SINGLE, ENUM_TAG_SIZE, FR_BYTE_SIZE, FR_LIMB_BYTE_SIZE,
-        VEC_LEN_BYTE_SIZE,
+        COMPRESS_PROOF_SIZE, ENUM_TAG_MULTI, ENUM_TAG_SINGLE, ENUM_TAG_SIZE, FR_BYTE_SIZE,
+        FR_LIMB_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
     },
     public::{RLNBuilder, Stateful, Stateless, RLN},
 };

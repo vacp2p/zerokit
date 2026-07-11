@@ -17,9 +17,12 @@ use super::{
     },
 };
 use crate::{
-    circuit::{Fr, Proof, SecretFr, COMPRESS_PROOF_SIZE},
+    circuit::{Fr, Proof, SecretFr},
     error::SerializationError,
 };
+
+/// Byte size of a Groth16 proof in arkworks compressed form.
+pub const COMPRESS_PROOF_SIZE: usize = 128;
 
 /// Byte size of the enum variant tag prepended to serialized enum types.
 pub const ENUM_TAG_SIZE: usize = 1;

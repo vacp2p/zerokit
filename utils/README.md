@@ -76,6 +76,9 @@ Both `OptimalMerkleTree` and `FullMerkleTree` internally utilize the Rayon crate
 to accelerate computations through data parallelism.
 This can lead to significant performance improvements, particularly during updates to large Merkle trees.
 
+Parallel hashing only engages once a tree level has at least `MIN_PARALLEL_NODES` nodes to hash;
+below this threshold the thread-pool overhead would outweigh the gain.
+
 ## Poseidon Hash Implementation
 
 This crate provides an implementation for computing Poseidon hash round constants and MDS matrices.

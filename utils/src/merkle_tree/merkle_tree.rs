@@ -12,9 +12,9 @@ use std::str::FromStr;
 use super::error::ZerokitMerkleTreeError;
 use crate::hasher::ZerokitHasher;
 
-/// Enables parallel hashing when there are at least 8 nodes (4 pairs to hash), justifying the
-/// overhead.
-pub const MIN_PARALLEL_NODES: usize = 8;
+/// Minimum number of nodes (or parent pairs, depending on the tree implementation) in a level
+/// before parallel hashing engages, justifying the thread-pool overhead.
+pub(crate) const MIN_PARALLEL_NODES: usize = 8;
 
 /// In the [`ZerokitMerkleTree`] trait we define the methods that are required to be implemented by
 /// a Merkle tree, including [`OptimalMerkleTree`](crate::merkle_tree::OptimalMerkleTree) and

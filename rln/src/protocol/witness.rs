@@ -18,9 +18,7 @@ use crate::{
 /// The witness inputs for an RLN proof, in either Single or Multi message-id mode.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RLNWitnessInput {
-    /// Witness inputs for Single message-id mode.
     Single(RLNWitnessInputSingle),
-    /// Witness inputs for Multi message-id mode.
     Multi(RLNWitnessInputMulti),
 }
 

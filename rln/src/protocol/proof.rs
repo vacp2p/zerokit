@@ -16,9 +16,7 @@ use crate::{
 /// The public values of an RLN proof, in either Single or Multi message-id mode.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RLNProofValues {
-    /// Proof values for Single message-id mode.
     Single(RLNProofValuesSingle),
-    /// Proof values for Multi message-id mode.
     Multi(RLNProofValuesMulti),
 }
 

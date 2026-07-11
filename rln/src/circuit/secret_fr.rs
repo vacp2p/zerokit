@@ -60,20 +60,11 @@ impl Deref for SecretFr {
     }
 }
 
-#[derive(Clone, Zeroize, ZeroizeOnDrop)]
+/// FrOrSecret is a wrapper type that can hold either a SecretFr or a regular Fr.
+#[derive(Debug, Clone, Zeroize, ZeroizeOnDrop)]
 pub(crate) enum FrOrSecret {
     SecretFr(SecretFr),
     Fr(Fr),
-}
-
-impl fmt::Debug for FrOrSecret {
-    /// Redacts the wrapped secret so `{:?}` never prints the plaintext field element.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            FrOrSecret::SecretFr(secret) => write!(f, "FrOrSecret::SecretFr({secret:?})"),
-            FrOrSecret::Fr(fr) => write!(f, "FrOrSecret::Fr({fr:?})"),
-        }
-    }
 }
 
 impl From<Fr> for FrOrSecret {
@@ -102,15 +93,5 @@ mod test {
 
         let secret = SecretFr(Fr::from(42));
         assert_eq!(format!("{secret:?}"), "SecretFr(********)");
-
-        let wrapped_secret = FrOrSecret::from(SecretFr(Fr::from(42)));
-        assert_eq!(
-            format!("{wrapped_secret:?}"),
-            "FrOrSecret::SecretFr(SecretFr(********))"
-        );
-        assert_eq!(
-            format!("{:?}", FrOrSecret::from(Fr::from(7))),
-            format!("FrOrSecret::Fr({:?})", Fr::from(7))
-        );
     }
 }

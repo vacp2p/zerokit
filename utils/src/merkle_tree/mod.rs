@@ -6,9 +6,7 @@ pub mod optimal_merkle_tree;
 
 pub use error::{FromConfigError, MerkleTreeInvariant, ZerokitMerkleTreeError};
 pub use full_merkle_tree::{FullMerkleConfig, FullMerkleProof, FullMerkleTree};
-pub use merkle_tree::{
-    compute_tree_root, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES,
-};
+pub use merkle_tree::{compute_tree_root, ZerokitMerkleProof, ZerokitMerkleTree};
 pub use optimal_merkle_tree::{OptimalMerkleConfig, OptimalMerkleProof, OptimalMerkleTree};
 
 pub use crate::hasher::ZerokitHasher;

@@ -1320,9 +1320,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.12.4"
+version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1292b7759ae1cb9ec195452d1390a074f0cd8541ab7a5a8c31cd6db45d4a6ba"
+checksum = "2a0e75113e14dc5acb068cd0786884f214f1312650a3d36d269f5c4f3cdee8a2"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -1332,9 +1332,9 @@ dependencies = [
 
 [[package]]
 name = "regex-automata"
-version = "0.4.14"
+version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e1dd4122fc1595e8162618945476892eefca7b88c52820e74af6262213cae8f"
+checksum = "1f388202e4b80542a0921078cc23b6333bcf1409c1e3f86404cae4766a6131db"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -1809,7 +1809,8 @@ checksum = "0976c77def3f1f75c4ef892a292c31c0bbe9e3d0702c63044d7c76db298171a3"
 [[package]]
 name = "vacp2p_pmtree"
 version = "3.0.1"
-source = "git+https://github.com/vacp2p/pmtree?branch=small-fix-for-zerokit-v3#0bc4f6fa2a269946f3c248c6db5606155699e258"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99b2e4a0dfd23116632f070a0db358257997e5d0e6f48e799f458a0b0c295f94"
 dependencies = [
  "parking_lot 0.12.5",
  "rayon",

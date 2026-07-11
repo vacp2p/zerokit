@@ -21,10 +21,10 @@ The current focus is on Rate-Limiting Nullifier
 > API reference, and examples.
 
 Current implementation is based on the
-[RLNv2 specification](https://lip.logos.co/ift-ts/raw/rln-v2),
+[RLNv2 specification](https://lip.logos.co/anoncomms/raw/rln-v2.html),
 focused on allowing users to set a rate limit for the number of messages they can send.
 It also supports
-[Multi-Message-ID burn](https://lip.logos.co/ift-ts/raw/multi-message_id-burn-rln),
+[Multi-Message-ID burn](https://lip.logos.co/anoncomms/raw/multi-message_id-burn-rln.html),
 an extension of RLNv2 that allows consuming multiple message_id units
 in a single proof for improved efficiency.
 
