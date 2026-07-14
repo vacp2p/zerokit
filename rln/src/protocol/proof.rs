@@ -9,7 +9,7 @@ use super::{
 };
 use crate::{
     circuit::{Fr, Proof, SecretFr},
-    error::RecoverSecretError,
+    error::{RecoverSecretError, SerializationError},
     hashers::Hasher,
 };
 
@@ -218,6 +218,15 @@ impl RLNProofValuesMulti {
             selector_used: w.selector_used.clone(),
         }
     }
+
+    /// Checks that `ys`, `nullifiers`, and `selector_used` all have the same length.
+    pub fn validate(&self) -> Result<(), SerializationError> {
+        if self.ys.len() == self.nullifiers.len() && self.ys.len() == self.selector_used.len() {
+            Ok(())
+        } else {
+            Err(SerializationError::InconsistentProofValueLengths)
+        }
+    }
 }
 
 impl RecoverSecret for RLNProofValuesMulti {
@@ -230,6 +239,8 @@ impl RecoverSecret for RLNProofValuesMulti {
                 other.external_nullifier,
             ));
         }
+        self.validate()?;
+        other.validate()?;
         for (i, (nullifier_i, &used_i)) in self
             .nullifiers
             .iter()
@@ -267,6 +278,7 @@ impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
                 other.external_nullifier,
             ));
         }
+        self.validate()?;
         for (i, (nullifier_i, &used_i)) in self
             .nullifiers
             .iter()

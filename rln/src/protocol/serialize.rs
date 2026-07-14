@@ -263,8 +263,18 @@ impl CanonicalDeserializeBE for Vec<bool> {
 impl Valid for RLNWitnessInput {
     fn check(&self) -> Result<(), ArkSerializationError> {
         match self {
-            RLNWitnessInput::Single(inner) => inner.check(),
-            RLNWitnessInput::Multi(inner) => inner.check(),
+            RLNWitnessInput::Single(inner) => {
+                inner.check()?;
+                inner
+                    .validate()
+                    .map_err(|_| ArkSerializationError::InvalidData)
+            }
+            RLNWitnessInput::Multi(inner) => {
+                inner.check()?;
+                inner
+                    .validate()
+                    .map_err(|_| ArkSerializationError::InvalidData)
+            }
         }
     }
 }
@@ -307,15 +317,20 @@ impl CanonicalDeserialize for RLNWitnessInput {
         validate: Validate,
     ) -> Result<Self, ArkSerializationError> {
         let tag = u8::deserialize_with_mode(&mut reader, compress, validate)?;
-        match tag {
-            ENUM_TAG_SINGLE => Ok(RLNWitnessInput::Single(
-                RLNWitnessInputSingle::deserialize_with_mode(reader, compress, validate)?,
-            )),
-            ENUM_TAG_MULTI => Ok(RLNWitnessInput::Multi(
-                RLNWitnessInputMulti::deserialize_with_mode(reader, compress, validate)?,
-            )),
-            _ => Err(ArkSerializationError::InvalidData),
+        let value =
+            match tag {
+                ENUM_TAG_SINGLE => RLNWitnessInput::Single(
+                    RLNWitnessInputSingle::deserialize_with_mode(&mut reader, compress, validate)?,
+                ),
+                ENUM_TAG_MULTI => RLNWitnessInput::Multi(
+                    RLNWitnessInputMulti::deserialize_with_mode(&mut reader, compress, validate)?,
+                ),
+                _ => return Err(ArkSerializationError::InvalidData),
+            };
+        if let Validate::Yes = validate {
+            value.check()?;
         }
+        Ok(value)
     }
 }
 
@@ -462,7 +477,7 @@ impl CanonicalDeserializeBE for RLNWitnessInputSingle {
         let identity_path_index = Vec::<u8>::deserialize(&mut reader)?;
         let x = Fr::deserialize(&mut reader)?;
         let external_nullifier = Fr::deserialize(&mut reader)?;
-        Ok(Self {
+        let value = Self {
             identity_secret,
             user_message_limit,
             message_id,
@@ -470,7 +485,11 @@ impl CanonicalDeserializeBE for RLNWitnessInputSingle {
             identity_path_index,
             x,
             external_nullifier,
-        })
+        };
+        value
+            .validate()
+            .map_err(|_| ArkSerializationError::InvalidData)?;
+        Ok(value)
     }
 }
 
@@ -513,7 +532,7 @@ impl CanonicalDeserializeBE for RLNWitnessInputMulti {
         let external_nullifier = Fr::deserialize(&mut reader)?;
         let message_ids = Vec::<Fr>::deserialize(&mut reader)?;
         let selector_used = Vec::<bool>::deserialize(&mut reader)?;
-        Ok(Self {
+        let value = Self {
             identity_secret,
             user_message_limit,
             path_elements,
@@ -522,7 +541,11 @@ impl CanonicalDeserializeBE for RLNWitnessInputMulti {
             external_nullifier,
             message_ids,
             selector_used,
-        })
+        };
+        value
+            .validate()
+            .map_err(|_| ArkSerializationError::InvalidData)?;
+        Ok(value)
     }
 }
 
@@ -553,12 +576,53 @@ impl CanonicalDeserializeBE for RLNPartialWitnessInput {
         let user_message_limit = Fr::deserialize(&mut reader)?;
         let path_elements = Vec::<Fr>::deserialize(&mut reader)?;
         let identity_path_index = Vec::<u8>::deserialize(&mut reader)?;
-        Ok(Self {
+        let value = Self {
             identity_secret,
             user_message_limit,
             path_elements,
             identity_path_index,
-        })
+        };
+        value
+            .validate()
+            .map_err(|_| ArkSerializationError::InvalidData)?;
+        Ok(value)
+    }
+}
+
+// Hand-written (not derived) so deserialize runs `validate`; field order must match the
+// derived `CanonicalSerialize`.
+impl Valid for RLNPartialWitnessInput {
+    fn check(&self) -> Result<(), ArkSerializationError> {
+        self.identity_secret.check()?;
+        self.user_message_limit.check()?;
+        self.path_elements.check()?;
+        self.identity_path_index.check()?;
+        self.validate()
+            .map_err(|_| ArkSerializationError::InvalidData)
+    }
+}
+
+impl CanonicalDeserialize for RLNPartialWitnessInput {
+    fn deserialize_with_mode<R: Read>(
+        mut reader: R,
+        compress: Compress,
+        validate: Validate,
+    ) -> Result<Self, ArkSerializationError> {
+        let identity_secret = SecretFr::deserialize_with_mode(&mut reader, compress, validate)?;
+        let user_message_limit = Fr::deserialize_with_mode(&mut reader, compress, validate)?;
+        let path_elements = Vec::<Fr>::deserialize_with_mode(&mut reader, compress, validate)?;
+        let identity_path_index =
+            Vec::<u8>::deserialize_with_mode(&mut reader, compress, validate)?;
+        let value = Self {
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+        };
+        if let Validate::Yes = validate {
+            value.check()?;
+        }
+        Ok(value)
     }
 }
 
@@ -566,7 +630,12 @@ impl Valid for RLNProofValues {
     fn check(&self) -> Result<(), ArkSerializationError> {
         match self {
             RLNProofValues::Single(inner) => inner.check(),
-            RLNProofValues::Multi(inner) => inner.check(),
+            RLNProofValues::Multi(inner) => {
+                inner.check()?;
+                inner
+                    .validate()
+                    .map_err(|_| ArkSerializationError::InvalidData)
+            }
         }
     }
 }
@@ -609,15 +678,20 @@ impl CanonicalDeserialize for RLNProofValues {
         validate: Validate,
     ) -> Result<Self, ArkSerializationError> {
         let tag = u8::deserialize_with_mode(&mut reader, compress, validate)?;
-        match tag {
-            ENUM_TAG_SINGLE => Ok(RLNProofValues::Single(
-                RLNProofValuesSingle::deserialize_with_mode(reader, compress, validate)?,
-            )),
-            ENUM_TAG_MULTI => Ok(RLNProofValues::Multi(
-                RLNProofValuesMulti::deserialize_with_mode(reader, compress, validate)?,
-            )),
-            _ => Err(ArkSerializationError::InvalidData),
+        let value =
+            match tag {
+                ENUM_TAG_SINGLE => RLNProofValues::Single(
+                    RLNProofValuesSingle::deserialize_with_mode(&mut reader, compress, validate)?,
+                ),
+                ENUM_TAG_MULTI => RLNProofValues::Multi(
+                    RLNProofValuesMulti::deserialize_with_mode(&mut reader, compress, validate)?,
+                ),
+                _ => return Err(ArkSerializationError::InvalidData),
+            };
+        if let Validate::Yes = validate {
+            value.check()?;
         }
+        Ok(value)
     }
 }
 
@@ -737,14 +811,16 @@ impl CanonicalDeserializeBE for RLNProofValuesMulti {
         let x = Fr::deserialize(&mut reader)?;
         let external_nullifier = Fr::deserialize(&mut reader)?;
         let selector_used = Vec::<bool>::deserialize(&mut reader)?;
-        Ok(Self {
+        let value = Self {
             ys,
             root,
             nullifiers,
             x,
             external_nullifier,
             selector_used,
-        })
+        };
+        value.validate()?;
+        Ok(value)
     }
 }
 

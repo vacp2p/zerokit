@@ -337,6 +337,28 @@ mod test {
     }
 
     #[test]
+    fn test_recover_secret_inconsistent_lengths_fails() {
+        // A multi with mismatched vector lengths can only be built directly (fields are
+        // pub); recover_secret must error rather than panic indexing `ys`.
+        let malformed = RLNProofValues::Multi(RLNProofValuesMulti {
+            root: Fr::from(1u64),
+            x: Fr::from(7u64),
+            external_nullifier: Fr::from(9u64),
+            ys: vec![],
+            nullifiers: vec![Fr::from(42u64)],
+            selector_used: vec![true],
+        });
+        let other = RLNProofValues::Single(RLNProofValuesSingle {
+            y: Fr::from(3u64),
+            root: Fr::from(1u64),
+            nullifier: Fr::from(42u64),
+            x: Fr::from(5u64),
+            external_nullifier: Fr::from(9u64),
+        });
+        assert!(malformed.recover_secret(&other).is_err());
+    }
+
+    #[test]
     fn test_recover_secret_multi_mismatched_nullifier_fails() {
         let id_secret =
             IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret();
