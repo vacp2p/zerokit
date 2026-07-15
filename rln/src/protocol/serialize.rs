@@ -317,16 +317,18 @@ impl CanonicalDeserialize for RLNWitnessInput {
         validate: Validate,
     ) -> Result<Self, ArkSerializationError> {
         let tag = u8::deserialize_with_mode(&mut reader, compress, validate)?;
-        let value =
-            match tag {
-                ENUM_TAG_SINGLE => RLNWitnessInput::Single(
-                    RLNWitnessInputSingle::deserialize_with_mode(&mut reader, compress, validate)?,
-                ),
-                ENUM_TAG_MULTI => RLNWitnessInput::Multi(
-                    RLNWitnessInputMulti::deserialize_with_mode(&mut reader, compress, validate)?,
-                ),
-                _ => return Err(ArkSerializationError::InvalidData),
-            };
+        // The inner value is deserialized unchecked; the trailing `check` below covers it.
+        let value = match tag {
+            ENUM_TAG_SINGLE => RLNWitnessInput::Single(
+                RLNWitnessInputSingle::deserialize_with_mode(&mut reader, compress, Validate::No)?,
+            ),
+            ENUM_TAG_MULTI => RLNWitnessInput::Multi(RLNWitnessInputMulti::deserialize_with_mode(
+                &mut reader,
+                compress,
+                Validate::No,
+            )?),
+            _ => return Err(ArkSerializationError::InvalidData),
+        };
         if let Validate::Yes = validate {
             value.check()?;
         }
@@ -608,11 +610,12 @@ impl CanonicalDeserialize for RLNPartialWitnessInput {
         compress: Compress,
         validate: Validate,
     ) -> Result<Self, ArkSerializationError> {
-        let identity_secret = SecretFr::deserialize_with_mode(&mut reader, compress, validate)?;
-        let user_message_limit = Fr::deserialize_with_mode(&mut reader, compress, validate)?;
-        let path_elements = Vec::<Fr>::deserialize_with_mode(&mut reader, compress, validate)?;
+        // Fields are deserialized unchecked; the trailing `check` below covers them.
+        let identity_secret = SecretFr::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let user_message_limit = Fr::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let path_elements = Vec::<Fr>::deserialize_with_mode(&mut reader, compress, Validate::No)?;
         let identity_path_index =
-            Vec::<u8>::deserialize_with_mode(&mut reader, compress, validate)?;
+            Vec::<u8>::deserialize_with_mode(&mut reader, compress, Validate::No)?;
         let value = Self {
             identity_secret,
             user_message_limit,
@@ -678,16 +681,20 @@ impl CanonicalDeserialize for RLNProofValues {
         validate: Validate,
     ) -> Result<Self, ArkSerializationError> {
         let tag = u8::deserialize_with_mode(&mut reader, compress, validate)?;
-        let value =
-            match tag {
-                ENUM_TAG_SINGLE => RLNProofValues::Single(
-                    RLNProofValuesSingle::deserialize_with_mode(&mut reader, compress, validate)?,
-                ),
-                ENUM_TAG_MULTI => RLNProofValues::Multi(
-                    RLNProofValuesMulti::deserialize_with_mode(&mut reader, compress, validate)?,
-                ),
-                _ => return Err(ArkSerializationError::InvalidData),
-            };
+        // The inner value is deserialized unchecked; the trailing `check` below covers it.
+        let value = match tag {
+            ENUM_TAG_SINGLE => RLNProofValues::Single(RLNProofValuesSingle::deserialize_with_mode(
+                &mut reader,
+                compress,
+                Validate::No,
+            )?),
+            ENUM_TAG_MULTI => RLNProofValues::Multi(RLNProofValuesMulti::deserialize_with_mode(
+                &mut reader,
+                compress,
+                Validate::No,
+            )?),
+            _ => return Err(ArkSerializationError::InvalidData),
+        };
         if let Validate::Yes = validate {
             value.check()?;
         }
