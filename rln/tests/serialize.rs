@@ -726,6 +726,31 @@ mod test {
     }
 
     #[test]
+    fn test_proof_values_le_non_canonical_field_rejected() {
+        let modulus = BigUint::from_bytes_le(&Fr::MODULUS.to_bytes_le());
+        let mut y = modulus.to_bytes_le();
+        y.resize(FR_BYTE_SIZE, 0);
+
+        let mut buf = vec![ENUM_TAG_SINGLE];
+        buf.extend_from_slice(&y);
+        buf.extend_from_slice(&[0u8; FR_BYTE_SIZE * 4]);
+        assert!(RLNProofValues::deserialize_compressed(buf.as_slice()).is_err());
+    }
+
+    #[test]
+    fn test_proof_values_be_non_canonical_field_rejected() {
+        let modulus = BigUint::from_bytes_le(&Fr::MODULUS.to_bytes_le());
+        let mut y = modulus.to_bytes_be();
+        let mut padded = vec![0u8; FR_BYTE_SIZE - y.len()];
+        padded.append(&mut y);
+
+        let mut buf = vec![ENUM_TAG_SINGLE];
+        buf.extend_from_slice(&padded);
+        buf.extend_from_slice(&[0u8; FR_BYTE_SIZE * 4]);
+        assert!(RLNProofValues::deserialize(buf.as_slice()).is_err());
+    }
+
+    #[test]
     fn test_proof_le_compressed_roundtrip() {
         let proof = make_proof();
         let mut buf = Vec::new();
