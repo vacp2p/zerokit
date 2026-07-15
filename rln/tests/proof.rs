@@ -355,7 +355,16 @@ mod test {
             x: Fr::from(5u64),
             external_nullifier: Fr::from(9u64),
         });
-        assert!(malformed.recover_secret(&other).is_err());
+        let err = malformed.recover_secret(&other).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                RecoverSecretError::InvalidProofValues(
+                    SerializationError::InconsistentProofValueLengths
+                )
+            ),
+            "expected InconsistentProofValueLengths, got: {err:?}"
+        );
     }
 
     #[test]
