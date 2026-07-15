@@ -149,15 +149,15 @@ impl PmTreeSledConfig {
     }
 }
 
-impl PmTreeSledConfig {
-    fn to_sled_config(&self) -> Config {
+impl From<&PmTreeSledConfig> for Config {
+    fn from(config: &PmTreeSledConfig) -> Self {
         Config::new()
-            .temporary(self.temporary)
-            .path(self.path.clone())
-            .cache_capacity(self.cache_capacity)
-            .flush_every_ms(Some(self.flush_every_ms))
-            .mode(self.mode)
-            .use_compression(self.use_compression)
+            .temporary(config.temporary)
+            .path(config.path.clone())
+            .cache_capacity(config.cache_capacity)
+            .flush_every_ms(Some(config.flush_every_ms))
+            .mode(config.mode)
+            .use_compression(config.use_compression)
     }
 }
 
@@ -534,12 +534,12 @@ impl Database for SledDB {
     type Config = PmTreeSledConfig;
 
     fn new(config: Self::Config) -> PmtreeResult<Self> {
-        let db = Self::new_with_tries(config.to_sled_config(), 0)?;
+        let db = Self::new_with_tries(Config::from(&config), 0)?;
         Ok(db)
     }
 
     fn load(config: Self::Config) -> PmtreeResult<Self> {
-        let sled_config = config.to_sled_config();
+        let sled_config = Config::from(&config);
         let db = match sled_config.open() {
             Ok(db) => db,
             Err(err) => {

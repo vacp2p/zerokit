@@ -7,7 +7,7 @@ use crate::{
     circuit::{
         error::WitnessCalcError,
         iden3calc::{calc_witness, calc_witness_partial},
-        CalcWitness, CalcWitnessPartial, Fr, FrOrSecret, Graph, SecretFr,
+        Fr, FrOrSecret, Graph, SecretFr,
     },
     error::{
         GenerateProofError, PartialWitnessInputError, WitnessInputMultiError,
@@ -257,8 +257,9 @@ impl From<RLNWitnessInputMulti> for RLNWitnessInput {
     }
 }
 
-impl CalcWitness for RLNWitnessInput {
-    fn calc_witness(&self, graph: &Graph) -> Result<Vec<Fr>, WitnessCalcError> {
+impl RLNWitnessInput {
+    /// Calculates the full circuit witness assignment directly from the input fields.
+    pub(crate) fn calc_witness(&self, graph: &Graph) -> Result<Vec<Fr>, WitnessCalcError> {
         let inputs: Vec<(String, Vec<FrOrSecret>)> = match self {
             Self::Single(w) => vec![
                 (
@@ -329,8 +330,12 @@ impl CalcWitness for RLNWitnessInput {
     }
 }
 
-impl CalcWitnessPartial for RLNPartialWitnessInput {
-    fn calc_witness_partial(&self, graph: &Graph) -> Result<Vec<Option<Fr>>, WitnessCalcError> {
+impl RLNPartialWitnessInput {
+    /// Calculates the partial circuit witness assignment; unknown dynamic inputs become `None`.
+    pub(crate) fn calc_witness_partial(
+        &self,
+        graph: &Graph,
+    ) -> Result<Vec<Option<Fr>>, WitnessCalcError> {
         let identity_path_index_fr: Vec<Option<FrOrSecret>> = self
             .identity_path_index
             .iter()
