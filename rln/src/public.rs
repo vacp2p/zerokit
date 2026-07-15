@@ -248,6 +248,9 @@ where
 {
     /// Verifies a `proof` against its proof `values` and checks that the signal `x` matches the
     /// value bound in the proof.
+    ///
+    /// Returns the zkSNARK verdict: `Ok(false)` means the proof is invalid. A signal mismatch is
+    /// reported as [`VerifyProofError::InvalidSignal`] before verification runs.
     pub fn verify_with_signal(
         &self,
         proof: &Proof,
@@ -257,17 +260,15 @@ where
         if x != &values.x() {
             return Err(VerifyProofError::InvalidSignal);
         }
-        if !self.zkp.verify(proof, values)? {
-            return Err(VerifyProofError::InvalidProof);
-        }
-        Ok(true)
+        self.zkp.verify(proof, values)
     }
 
     /// Verifies a `proof` against its proof `values`, checks the signal `x`, and checks that the
     /// proof root is among `roots`.
     ///
-    /// If `roots` is empty, the root check is skipped. The signal check is the same as in
-    /// [`Self::verify_with_signal`].
+    /// If `roots` is empty, the root check is skipped. The signal check and the returned verdict
+    /// are the same as in [`Self::verify_with_signal`]; a root mismatch is reported as
+    /// [`VerifyProofError::InvalidRoot`].
     ///
     /// ## Example:
     ///

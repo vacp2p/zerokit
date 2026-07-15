@@ -34,10 +34,10 @@ proc main() =
   echo "  - RLN witness created successfully"
 
   echo "\nCreating partial witness from witness fields"
-  let witnessIdentitySecret = ffi_rln_witness_input_get_identity_secret(addr witness)
-  let witnessUserMessageLimit = ffi_rln_witness_input_get_user_message_limit(addr witness)
-  var witnessPathElements = ffi_rln_witness_input_get_path_elements(addr witness)
-  var witnessPathIndex = ffi_rln_witness_input_get_identity_path_index(addr witness)
+  let witnessIdentitySecret = ffi_rln_witness_input_get_identity_secret(witness)
+  let witnessUserMessageLimit = ffi_rln_witness_input_get_user_message_limit(witness)
+  var witnessPathElements = ffi_rln_witness_input_get_path_elements(witness)
+  var witnessPathIndex = ffi_rln_witness_input_get_identity_path_index(witness)
   let partialWitnessResult = ffi_rln_partial_witness_input_new(
       witnessIdentitySecret, witnessUserMessageLimit, addr witnessPathElements,
       addr witnessPathIndex)
@@ -54,8 +54,8 @@ proc main() =
   echo "  - partial witness created successfully"
 
   echo "\nGenerating partial ZK proof"
-  let partialProofResult = ffi_rln_generate_partial_proof(addr rlnInstance,
-      addr partialWitness)
+  let partialProofResult = ffi_rln_generate_partial_proof(rlnInstance,
+      partialWitness)
   if partialProofResult.ok.isNil:
     stderr.writeLine("Partial proof generation error: " & asString(
         partialProofResult.err))
@@ -65,8 +65,8 @@ proc main() =
   echo "  - partial proof generated successfully"
 
   echo "\nFinishing proof with full witness"
-  let fullProofResult = ffi_rln_finish_proof(addr rlnInstance,
-      addr partialProof, addr witness)
+  let fullProofResult = ffi_rln_finish_proof(rlnInstance,
+      partialProof, witness)
   if fullProofResult.ok.isNil:
     stderr.writeLine("Finish proof error: " & asString(fullProofResult.err))
     ffi_c_string_free(fullProofResult.err)

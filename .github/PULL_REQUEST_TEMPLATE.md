@@ -59,16 +59,12 @@ CI runs clippy across multiple crate/feature combinations. Run the relevant chec
 # Default features - workspace root (rln + utils)
 cargo clippy --all-targets --tests --release -- -D warnings
 
-# Stateless feature - from rln/
-cd rln && cargo clippy --all-targets --tests --release \
-  --features=stateless --no-default-features -- -D warnings
-
 # WASM target - from rln-wasm/
 cd rln-wasm && cargo clippy --target wasm32-unknown-unknown \
   --tests --release -- -D warnings
 ```
 
-At minimum, run the default-features check. If your changes touch `stateless` or `rln-wasm`, run those checks as well.
+At minimum, run the default-features check. If your changes touch `rln-wasm`, run that check as well.
 
 ## Checklist
 

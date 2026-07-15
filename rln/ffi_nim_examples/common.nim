@@ -104,7 +104,7 @@ proc memberFree(member: var Member) =
 proc registerMember(rlnInstance: var ptr RLN,
     rateCommitment: ptr Fr): ptr MerkleProof =
   echo "\nAdding rate commitment to tree"
-  let setLeafResult = ffi_rln_set_next_leaf(addr rlnInstance, rateCommitment)
+  let setLeafResult = ffi_rln_set_next_leaf(rlnInstance, rateCommitment)
   if not setLeafResult.ok:
     stderr.writeLine("Adding rate commitment error: " & asString(
         setLeafResult.err))
@@ -113,7 +113,7 @@ proc registerMember(rlnInstance: var ptr RLN,
   echo "  - rate commitment added at leaf 0"
 
   echo "\nGetting Merkle proof"
-  let merkleProofResult = ffi_rln_get_merkle_proof(addr rlnInstance,
+  let merkleProofResult = ffi_rln_get_merkle_proof(rlnInstance,
       csize_t(0))
   if merkleProofResult.ok.isNil:
     stderr.writeLine("Merkle proof error: " & asString(merkleProofResult.err))
@@ -159,9 +159,12 @@ proc createWitness(member: Member,
 
 proc verifyStatefulProof(rlnInstance: var ptr RLN, rlnProof: var ptr Proof,
     x: ptr Fr): CBoolResult =
-  let root = ffi_rln_get_root(addr rlnInstance)
+  let rootResult = ffi_rln_get_root(rlnInstance)
+  if rootResult.ok == nil:
+    return CBoolResult(ok: false, err: rootResult.err)
+  let root = rootResult.ok
   var roots = ffi_vec_fr_from_fr(root)
-  result = ffi_rln_verify_with_roots(addr rlnInstance, addr rlnProof,
+  result = ffi_rln_verify_with_roots(rlnInstance, rlnProof,
       addr roots, x)
   ffi_vec_fr_free(roots)
   ffi_fr_free(root)

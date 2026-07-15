@@ -30,6 +30,15 @@ pub struct FFI_BoolResult {
     pub err: Option<repr_c::String>,
 }
 
+// FFI_UsizeResult
+
+#[derive_ReprC]
+#[repr(C)]
+pub struct FFI_UsizeResult {
+    pub ok: usize,
+    pub err: Option<repr_c::String>,
+}
+
 // FFI_Fr
 
 #[derive_ReprC]
@@ -109,7 +118,7 @@ pub fn ffi_fr_to_bytes_be(fr: &FFI_Fr) -> FFI_Result<repr_c::Vec<u8>, repr_c::St
 }
 
 #[ffi_export]
-pub fn ffi_bytes_le_to_fr(
+pub fn ffi_fr_from_bytes_le(
     bytes: &repr_c::Vec<u8>,
 ) -> FFI_Result<repr_c::Box<FFI_Fr>, repr_c::String> {
     match Fr::deserialize_compressed(&bytes[..]) {
@@ -125,7 +134,7 @@ pub fn ffi_bytes_le_to_fr(
 }
 
 #[ffi_export]
-pub fn ffi_bytes_be_to_fr(
+pub fn ffi_fr_from_bytes_be(
     bytes: &repr_c::Vec<u8>,
 ) -> FFI_Result<repr_c::Box<FFI_Fr>, repr_c::String> {
     match <Fr as CanonicalDeserializeBE>::deserialize(&bytes[..]) {
@@ -266,7 +275,7 @@ pub fn ffi_vec_fr_to_bytes_be(
 }
 
 #[ffi_export]
-pub fn ffi_bytes_le_to_vec_fr(
+pub fn ffi_vec_fr_from_bytes_le(
     bytes: &repr_c::Vec<u8>,
 ) -> FFI_Result<repr_c::Vec<FFI_Fr>, repr_c::String> {
     match Vec::<Fr>::deserialize_compressed(&bytes[..]) {
@@ -285,7 +294,7 @@ pub fn ffi_bytes_le_to_vec_fr(
 }
 
 #[ffi_export]
-pub fn ffi_bytes_be_to_vec_fr(
+pub fn ffi_vec_fr_from_bytes_be(
     bytes: &repr_c::Vec<u8>,
 ) -> FFI_Result<repr_c::Vec<FFI_Fr>, repr_c::String> {
     match <Vec<Fr> as CanonicalDeserializeBE>::deserialize(&bytes[..]) {
@@ -356,7 +365,7 @@ pub fn ffi_vec_u8_to_bytes_be(
 }
 
 #[ffi_export]
-pub fn ffi_bytes_le_to_vec_u8(
+pub fn ffi_vec_u8_from_bytes_le(
     bytes: &repr_c::Vec<u8>,
 ) -> FFI_Result<repr_c::Vec<u8>, repr_c::String> {
     match Vec::<u8>::deserialize_compressed(&bytes[..]) {
@@ -372,7 +381,7 @@ pub fn ffi_bytes_le_to_vec_u8(
 }
 
 #[ffi_export]
-pub fn ffi_bytes_be_to_vec_u8(
+pub fn ffi_vec_u8_from_bytes_be(
     bytes: &repr_c::Vec<u8>,
 ) -> FFI_Result<repr_c::Vec<u8>, repr_c::String> {
     match <Vec<u8> as CanonicalDeserializeBE>::deserialize(&bytes[..]) {
@@ -397,6 +406,20 @@ pub fn ffi_vec_u8_debug(v: Option<&repr_c::Vec<u8>>) -> repr_c::String {
 
 #[ffi_export]
 pub fn ffi_vec_u8_free(v: repr_c::Vec<u8>) {
+    drop(v);
+}
+
+// Vec<bool>
+
+#[ffi_export]
+pub fn ffi_vec_bool_free(v: repr_c::Vec<bool>) {
+    drop(v);
+}
+
+// Vec<usize>
+
+#[ffi_export]
+pub fn ffi_vec_usize_free(v: repr_c::Vec<usize>) {
     drop(v);
 }
 
