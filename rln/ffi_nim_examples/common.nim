@@ -154,8 +154,7 @@ proc createWitness(member: Member,
     merkleProof: ptr MerkleProof, messageId: ptr Fr, x: ptr Fr,
     externalNullifier: ptr Fr): WitnessResult =
   ffi_rln_witness_input_new_single(member.identitySecret,
-      member.userMessageLimit, messageId, addr merkleProof.path_elements,
-      addr merkleProof.path_index, x, externalNullifier)
+      member.userMessageLimit, messageId, merkleProof, x, externalNullifier)
 
 proc verifyStatefulProof(rlnInstance: var ptr RLN, rlnProof: var ptr Proof,
     x: ptr Fr): CBoolResult =

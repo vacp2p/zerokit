@@ -17,6 +17,7 @@ pub use serialize::{
 };
 pub use slashing::compute_id_secret;
 pub use witness::{
-    RLNPartialWitnessInput, RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle,
+    RLNMerkleProof, RLNPartialWitnessInput, RLNWitnessInput, RLNWitnessInputMulti,
+    RLNWitnessInputSingle,
 };
 pub use zk::{RLNPartialZkProof, RLNZkProof, RecoverSecret};

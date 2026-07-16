@@ -48,15 +48,13 @@ int main(void)
     printf("\nCreating partial witness from witness fields\n");
     SecretFr *witness_identity_secret = ffi_rln_witness_input_get_identity_secret(witness);
     Fr *witness_user_message_limit = ffi_rln_witness_input_get_user_message_limit(witness);
-    Vec_Fr witness_path_elements = ffi_rln_witness_input_get_path_elements(witness);
-    Vec_uint8 witness_path_index = ffi_rln_witness_input_get_identity_path_index(witness);
+    MerkleProof *witness_merkle_proof = ffi_rln_witness_input_get_merkle_proof(witness);
     PartialWitnessResult partial_witness_result =
         ffi_rln_partial_witness_input_new(witness_identity_secret, witness_user_message_limit,
-                                          &witness_path_elements, &witness_path_index);
+                                          witness_merkle_proof);
     ffi_secret_fr_free(witness_identity_secret);
     ffi_fr_free(witness_user_message_limit);
-    ffi_vec_fr_free(witness_path_elements);
-    ffi_vec_u8_free(witness_path_index);
+    ffi_rln_merkle_proof_free(witness_merkle_proof);
     if (!partial_witness_result.ok)
     {
         fprintf(stderr, "Partial witness creation error: %.*s\n",

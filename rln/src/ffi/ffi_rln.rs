@@ -8,9 +8,7 @@ use safer_ffi::{
     derive_ReprC, ffi_export,
     prelude::{char_p, repr_c},
 };
-use zerokit_utils::merkle_tree::{
-    FullMerkleTree, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
-};
+use zerokit_utils::merkle_tree::{FullMerkleTree, OptimalMerkleTree, ZerokitMerkleTree};
 
 use super::ffi_utils::{FFI_BoolResult, FFI_Fr, FFI_Result, FFI_SecretFr, FFI_UsizeResult};
 use crate::prelude::*;
@@ -287,20 +285,20 @@ impl FFI_RLN_Inner {
         }
     }
 
-    fn get_merkle_proof(&self, index: usize) -> Result<(Vec<Fr>, Vec<u8>), String> {
+    fn get_merkle_proof(&self, index: usize) -> Result<RLNMerkleProof, String> {
         match self {
             Self::Stateless(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
             Self::StatefulFullMerkleTree(r) => {
                 let p = r.get_merkle_proof(index).map_err(|err| err.to_string())?;
-                Ok((p.get_path_elements(), p.get_path_index()))
+                Ok(RLNMerkleProof::from(&p))
             }
             Self::StatefulOptimalMerkleTree(r) => {
                 let p = r.get_merkle_proof(index).map_err(|err| err.to_string())?;
-                Ok((p.get_path_elements(), p.get_path_index()))
+                Ok(RLNMerkleProof::from(&p))
             }
             Self::StatefulPmTree(r) => {
                 let p = r.get_merkle_proof(index).map_err(|err| err.to_string())?;
-                Ok((p.get_path_elements(), p.get_path_index()))
+                Ok(RLNMerkleProof::from(&p))
             }
         }
     }
@@ -728,6 +726,116 @@ pub fn ffi_rln_free(rln: repr_c::Box<FFI_RLN>) {
     drop(rln);
 }
 
+// FFI_RLNMerkleProof
+
+#[derive_ReprC]
+#[repr(opaque)]
+pub struct FFI_RLNMerkleProof(pub(crate) RLNMerkleProof);
+
+#[ffi_export]
+pub fn ffi_rln_merkle_proof_new(
+    path_elements: &repr_c::Vec<FFI_Fr>,
+    identity_path_index: &repr_c::Vec<u8>,
+) -> repr_c::Box<FFI_RLNMerkleProof> {
+    let path_elements: Vec<Fr> = path_elements.iter().map(|fr| fr.0).collect();
+    let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
+    Box_::new(FFI_RLNMerkleProof(RLNMerkleProof::new(
+        path_elements,
+        identity_path_index,
+    )))
+}
+
+#[ffi_export]
+pub fn ffi_rln_merkle_proof_get_path_elements(
+    merkle_proof: &FFI_RLNMerkleProof,
+) -> repr_c::Vec<FFI_Fr> {
+    merkle_proof
+        .0
+        .path_elements()
+        .iter()
+        .map(|fr| FFI_Fr::from(*fr))
+        .collect::<Vec<_>>()
+        .into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_merkle_proof_get_identity_path_index(
+    merkle_proof: &FFI_RLNMerkleProof,
+) -> repr_c::Vec<u8> {
+    merkle_proof.0.identity_path_index().to_vec().into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_merkle_proof_to_bytes_le(
+    merkle_proof: &FFI_RLNMerkleProof,
+) -> FFI_Result<repr_c::Vec<u8>, repr_c::String> {
+    let mut bytes = Vec::new();
+    match merkle_proof.0.serialize_compressed(&mut bytes) {
+        Ok(()) => FFI_Result {
+            ok: Some(bytes.into()),
+            err: None,
+        },
+        Err(err) => FFI_Result {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_rln_merkle_proof_to_bytes_be(
+    merkle_proof: &FFI_RLNMerkleProof,
+) -> FFI_Result<repr_c::Vec<u8>, repr_c::String> {
+    let mut bytes = Vec::new();
+    match CanonicalSerializeBE::serialize(&merkle_proof.0, &mut bytes) {
+        Ok(()) => FFI_Result {
+            ok: Some(bytes.into()),
+            err: None,
+        },
+        Err(err) => FFI_Result {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_rln_merkle_proof_from_bytes_le(
+    bytes: &repr_c::Vec<u8>,
+) -> FFI_Result<repr_c::Box<FFI_RLNMerkleProof>, repr_c::String> {
+    match RLNMerkleProof::deserialize_compressed(&bytes[..]) {
+        Ok(merkle_proof) => FFI_Result {
+            ok: Some(Box_::new(FFI_RLNMerkleProof(merkle_proof))),
+            err: None,
+        },
+        Err(err) => FFI_Result {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_rln_merkle_proof_from_bytes_be(
+    bytes: &repr_c::Vec<u8>,
+) -> FFI_Result<repr_c::Box<FFI_RLNMerkleProof>, repr_c::String> {
+    match <RLNMerkleProof as CanonicalDeserializeBE>::deserialize(&bytes[..]) {
+        Ok(merkle_proof) => FFI_Result {
+            ok: Some(Box_::new(FFI_RLNMerkleProof(merkle_proof))),
+            err: None,
+        },
+        Err(err) => FFI_Result {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_rln_merkle_proof_free(merkle_proof: repr_c::Box<FFI_RLNMerkleProof>) {
+    drop(merkle_proof);
+}
+
 // FFI_RLNWitnessInput
 
 #[derive_ReprC]
@@ -739,19 +847,14 @@ pub fn ffi_rln_witness_input_new_single(
     identity_secret: &FFI_SecretFr,
     user_message_limit: &FFI_Fr,
     message_id: &FFI_Fr,
-    path_elements: &repr_c::Vec<FFI_Fr>,
-    identity_path_index: &repr_c::Vec<u8>,
+    merkle_proof: &FFI_RLNMerkleProof,
     x: &FFI_Fr,
     external_nullifier: &FFI_Fr,
 ) -> FFI_Result<repr_c::Box<FFI_RLNWitnessInput>, repr_c::String> {
-    let path_elements: Vec<Fr> = path_elements.iter().map(|fr| fr.0).collect();
-    let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
-
     match RLNWitnessInput::new_single()
         .identity_secret(identity_secret.0.clone())
         .user_message_limit(user_message_limit.0)
-        .path_elements(path_elements)
-        .identity_path_index(identity_path_index)
+        .merkle_proof(merkle_proof.0.clone())
         .x(x.0)
         .external_nullifier(external_nullifier.0)
         .message_id(message_id.0)
@@ -773,22 +876,18 @@ pub fn ffi_rln_witness_input_new_multi(
     identity_secret: &FFI_SecretFr,
     user_message_limit: &FFI_Fr,
     message_ids: &repr_c::Vec<FFI_Fr>,
-    path_elements: &repr_c::Vec<FFI_Fr>,
-    identity_path_index: &repr_c::Vec<u8>,
+    merkle_proof: &FFI_RLNMerkleProof,
     x: &FFI_Fr,
     external_nullifier: &FFI_Fr,
     selector_used: &repr_c::Vec<bool>,
 ) -> FFI_Result<repr_c::Box<FFI_RLNWitnessInput>, repr_c::String> {
-    let path_elements: Vec<Fr> = path_elements.iter().map(|fr| fr.0).collect();
-    let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
     let message_ids: Vec<Fr> = message_ids.iter().map(|fr| fr.0).collect();
     let selector_used: Vec<bool> = selector_used.iter().copied().collect();
 
     match RLNWitnessInput::new_multi()
         .identity_secret(identity_secret.0.clone())
         .user_message_limit(user_message_limit.0)
-        .path_elements(path_elements)
-        .identity_path_index(identity_path_index)
+        .merkle_proof(merkle_proof.0.clone())
         .x(x.0)
         .external_nullifier(external_nullifier.0)
         .message_ids(message_ids)
@@ -875,6 +974,13 @@ pub fn ffi_rln_witness_input_get_identity_path_index(
     witness: &FFI_RLNWitnessInput,
 ) -> repr_c::Vec<u8> {
     witness.0.identity_path_index().to_vec().into()
+}
+
+#[ffi_export]
+pub fn ffi_rln_witness_input_get_merkle_proof(
+    witness: &FFI_RLNWitnessInput,
+) -> repr_c::Box<FFI_RLNMerkleProof> {
+    Box_::new(FFI_RLNMerkleProof(witness.0.merkle_proof()))
 }
 
 #[ffi_export]
@@ -986,16 +1092,12 @@ pub struct FFI_RLNPartialWitnessInput(pub(crate) RLNPartialWitnessInput);
 pub fn ffi_rln_partial_witness_input_new(
     identity_secret: &FFI_SecretFr,
     user_message_limit: &FFI_Fr,
-    path_elements: &repr_c::Vec<FFI_Fr>,
-    identity_path_index: &repr_c::Vec<u8>,
+    merkle_proof: &FFI_RLNMerkleProof,
 ) -> FFI_Result<repr_c::Box<FFI_RLNPartialWitnessInput>, repr_c::String> {
-    let path_elements: Vec<Fr> = path_elements.iter().map(|fr| fr.0).collect();
-    let identity_path_index: Vec<u8> = identity_path_index.iter().copied().collect();
     match RLNPartialWitnessInput::new()
         .identity_secret(identity_secret.0.clone())
         .user_message_limit(user_message_limit.0)
-        .path_elements(path_elements)
-        .identity_path_index(identity_path_index)
+        .merkle_proof(merkle_proof.0.clone())
         .build()
     {
         Ok(w) => FFI_Result {
@@ -1468,20 +1570,6 @@ pub fn ffi_rln_recover_id_secret(
     }
 }
 
-// FFI_RLNMerkleProof
-
-#[derive_ReprC]
-#[repr(C)]
-pub struct FFI_RLNMerkleProof {
-    pub path_elements: repr_c::Vec<FFI_Fr>,
-    pub path_index: repr_c::Vec<u8>,
-}
-
-#[ffi_export]
-pub fn ffi_rln_merkle_proof_free(merkle_proof: repr_c::Box<FFI_RLNMerkleProof>) {
-    drop(merkle_proof);
-}
-
 #[ffi_export]
 pub fn ffi_rln_tree_depth(rln: &FFI_RLN) -> FFI_UsizeResult {
     match rln.0.tree_depth() {
@@ -1681,21 +1769,10 @@ pub fn ffi_rln_get_merkle_proof(
     index: usize,
 ) -> FFI_Result<repr_c::Box<FFI_RLNMerkleProof>, repr_c::String> {
     match rln.0.get_merkle_proof(index) {
-        Ok((path_elements, path_index)) => {
-            let path_elements: repr_c::Vec<FFI_Fr> = path_elements
-                .iter()
-                .map(|fr| FFI_Fr::from(*fr))
-                .collect::<Vec<_>>()
-                .into();
-            let path_index: repr_c::Vec<u8> = path_index.into();
-            FFI_Result {
-                ok: Some(Box_::new(FFI_RLNMerkleProof {
-                    path_elements,
-                    path_index,
-                })),
-                err: None,
-            }
-        }
+        Ok(merkle_proof) => FFI_Result {
+            ok: Some(Box_::new(FFI_RLNMerkleProof(merkle_proof))),
+            err: None,
+        },
         Err(err) => FFI_Result {
             ok: None,
             err: Some(err.into()),

@@ -335,8 +335,10 @@ mod test {
         RLNWitnessInput::new_single()
             .identity_secret(SecretFr::from(&mut Fr::from(42u64)))
             .user_message_limit(Fr::from(10u64))
-            .path_elements(vec![Fr::from(1u64), Fr::from(2u64)])
-            .identity_path_index(vec![0u8, 1u8])
+            .merkle_proof(RLNMerkleProof::new(
+                vec![Fr::from(1u64), Fr::from(2u64)],
+                vec![0u8, 1u8],
+            ))
             .x(Fr::from(5u64))
             .external_nullifier(Fr::from(7u64))
             .message_id(Fr::from(3u64))
@@ -348,8 +350,10 @@ mod test {
         RLNWitnessInput::new_multi()
             .identity_secret(SecretFr::from(&mut Fr::from(99u64)))
             .user_message_limit(Fr::from(10u64))
-            .path_elements(vec![Fr::from(1u64), Fr::from(2u64)])
-            .identity_path_index(vec![0u8, 1u8])
+            .merkle_proof(RLNMerkleProof::new(
+                vec![Fr::from(1u64), Fr::from(2u64)],
+                vec![0u8, 1u8],
+            ))
             .x(Fr::from(5u64))
             .external_nullifier(Fr::from(7u64))
             .message_ids(vec![Fr::from(0u64), Fr::from(1u64)])
@@ -362,8 +366,10 @@ mod test {
         RLNPartialWitnessInput::new()
             .identity_secret(SecretFr::from(&mut Fr::from(42u64)))
             .user_message_limit(Fr::from(10u64))
-            .path_elements(vec![Fr::from(1u64), Fr::from(2u64)])
-            .identity_path_index(vec![0u8, 1u8])
+            .merkle_proof(RLNMerkleProof::new(
+                vec![Fr::from(1u64), Fr::from(2u64)],
+                vec![0u8, 1u8],
+            ))
             .build()
             .unwrap()
     }
@@ -396,8 +402,10 @@ mod test {
         let witness = RLNWitnessInput::new_single()
             .identity_secret(identity_secret)
             .user_message_limit(Fr::from(100))
-            .path_elements(vec![Fr::from(0); DEFAULT_TREE_DEPTH])
-            .identity_path_index(vec![0; DEFAULT_TREE_DEPTH])
+            .merkle_proof(RLNMerkleProof::new(
+                vec![Fr::from(0); DEFAULT_TREE_DEPTH],
+                vec![0; DEFAULT_TREE_DEPTH],
+            ))
             .x(Fr::from(1))
             .external_nullifier(Fr::from(100))
             .message_id(Fr::from(1))
@@ -414,11 +422,45 @@ mod test {
         let partial_witness = RLNPartialWitnessInput::new()
             .identity_secret(identity_secret)
             .user_message_limit(Fr::from(100))
-            .path_elements(vec![Fr::from(0); DEFAULT_TREE_DEPTH])
-            .identity_path_index(vec![0; DEFAULT_TREE_DEPTH])
+            .merkle_proof(RLNMerkleProof::new(
+                vec![Fr::from(0); DEFAULT_TREE_DEPTH],
+                vec![0; DEFAULT_TREE_DEPTH],
+            ))
             .build()
             .unwrap();
         rln.generate_partial_proof(&partial_witness).unwrap()
+    }
+
+    #[test]
+    fn test_merkle_proof_roundtrip() {
+        let merkle_proof =
+            RLNMerkleProof::new(vec![Fr::from(1u64), Fr::from(2u64)], vec![0u8, 1u8]);
+
+        let mut le_buf = Vec::new();
+        merkle_proof.serialize_compressed(&mut le_buf).unwrap();
+        assert_eq!(le_buf.len(), merkle_proof.compressed_size());
+        assert_eq!(
+            RLNMerkleProof::deserialize_compressed(le_buf.as_slice()).unwrap(),
+            merkle_proof
+        );
+
+        let mut be_buf = Vec::new();
+        CanonicalSerializeBE::serialize(&merkle_proof, &mut be_buf).unwrap();
+        assert_eq!(
+            be_buf.len(),
+            CanonicalSerializeBE::serialized_size(&merkle_proof)
+        );
+        assert_eq!(
+            <RLNMerkleProof as CanonicalDeserializeBE>::deserialize(be_buf.as_slice()).unwrap(),
+            merkle_proof
+        );
+
+        // Truncated bytes must be rejected
+        assert!(RLNMerkleProof::deserialize_compressed(&le_buf[..le_buf.len() - 1]).is_err());
+        assert!(<RLNMerkleProof as CanonicalDeserializeBE>::deserialize(
+            &be_buf[..be_buf.len() - 1]
+        )
+        .is_err());
     }
 
     #[test]

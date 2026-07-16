@@ -57,10 +57,10 @@ int main(void)
     print_fr("message id", message_id);
 
     printf("\nCreating RLN witness\n");
+    MerkleProof *merkle_proof = ffi_rln_merkle_proof_new(&path_elements, &path_index);
     WitnessResult witness_result =
         ffi_rln_witness_input_new_single(member.identity_secret, member.user_message_limit,
-                                         message_id, &path_elements, &path_index, x,
-                                         external_nullifier);
+                                         message_id, merkle_proof, x, external_nullifier);
     if (!witness_result.ok)
     {
         fprintf(stderr, "Witness creation error: %.*s\n",
@@ -140,6 +140,7 @@ int main(void)
     ffi_rln_proof_values_free(proof_values);
     ffi_rln_proof_free(rln_proof);
     ffi_rln_witness_input_free(witness);
+    ffi_rln_merkle_proof_free(merkle_proof);
     ffi_fr_free(message_id);
     ffi_fr_free(x);
     ffi_fr_free(external_nullifier);

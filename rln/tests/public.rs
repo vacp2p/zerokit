@@ -60,7 +60,7 @@ mod test {
         }
     }
 
-    fn random_merkle_proof(depth: usize) -> (Vec<Fr>, Vec<u8>) {
+    fn random_merkle_proof(depth: usize) -> RLNMerkleProof {
         let mut rng = thread_rng();
         let mut path_elements = Vec::new();
         let mut identity_path_index = Vec::new();
@@ -68,7 +68,7 @@ mod test {
             path_elements.push(hash_to_field_le(&rng.gen::<[u8; 32]>()));
             identity_path_index.push(rng.gen_range(0..2) as u8);
         }
-        (path_elements, identity_path_index)
+        RLNMerkleProof::new(path_elements, identity_path_index)
     }
 
     fn random_rln_witness(tree_depth: usize) -> RLNWitnessInput {
@@ -80,13 +80,10 @@ mod test {
         let rln_identifier = hash_to_field_le(b"test-rln-identifier");
         let external_nullifier = Hasher::<PoseidonHash>::hash_pair(epoch, rln_identifier);
 
-        let (path_elements, identity_path_index) = random_merkle_proof(tree_depth);
-
         RLNWitnessInput::new_single()
             .identity_secret(identity_secret)
             .user_message_limit(Fr::from(100))
-            .path_elements(path_elements)
-            .identity_path_index(identity_path_index)
+            .merkle_proof(random_merkle_proof(tree_depth))
             .x(x)
             .external_nullifier(external_nullifier)
             .message_id(Fr::from(1))
@@ -138,8 +135,7 @@ mod test {
         let rln_witness = RLNWitnessInput::new_single()
             .identity_secret(identity_secret)
             .user_message_limit(user_message_limit)
-            .path_elements(path_elements)
-            .identity_path_index(identity_path_index)
+            .merkle_proof(RLNMerkleProof::new(path_elements, identity_path_index))
             .x(x)
             .external_nullifier(external_nullifier)
             .message_id(Fr::from(1))
@@ -522,8 +518,7 @@ mod test {
         let rln_witness = RLNWitnessInput::new_single()
             .identity_secret(identity_secret)
             .user_message_limit(user_message_limit)
-            .path_elements(merkle_proof.get_path_elements())
-            .identity_path_index(merkle_proof.get_path_index())
+            .merkle_proof(&merkle_proof)
             .x(x)
             .external_nullifier(external_nullifier)
             .message_id(Fr::from(1))
@@ -590,8 +585,7 @@ mod test {
             RLNWitnessInput::new_single()
                 .identity_secret(identity_secret.clone())
                 .user_message_limit(user_message_limit)
-                .path_elements(merkle_proof.get_path_elements())
-                .identity_path_index(merkle_proof.get_path_index())
+                .merkle_proof(&merkle_proof)
                 .x(x)
                 .external_nullifier(external_nullifier)
                 .message_id(Fr::from(1))
@@ -626,8 +620,7 @@ mod test {
         let rln_witness3 = RLNWitnessInput::new_single()
             .identity_secret(identity_secret_new)
             .user_message_limit(user_message_limit)
-            .path_elements(merkle_proof_new.get_path_elements())
-            .identity_path_index(merkle_proof_new.get_path_index())
+            .merkle_proof(&merkle_proof_new)
             .x(x3)
             .external_nullifier(external_nullifier)
             .message_id(Fr::from(1))

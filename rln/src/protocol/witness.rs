@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bon::bon;
+use zerokit_utils::{hasher::ZerokitHasher, merkle_tree::ZerokitMerkleProof};
 
 use crate::{
     circuit::{
@@ -14,6 +15,46 @@ use crate::{
         WitnessInputSingleError,
     },
 };
+
+/// A Merkle proof consisting of the path elements and
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
+pub struct RLNMerkleProof {
+    pub(crate) path_elements: Vec<Fr>,
+    pub(crate) identity_path_index: Vec<u8>,
+}
+
+impl RLNMerkleProof {
+    /// Creates a new Merkle proof from the given path elements and path index.
+    pub fn new(path_elements: Vec<Fr>, identity_path_index: Vec<u8>) -> Self {
+        Self {
+            path_elements,
+            identity_path_index,
+        }
+    }
+
+    /// Returns the path elements.
+    pub fn path_elements(&self) -> &[Fr] {
+        &self.path_elements
+    }
+
+    /// Returns the path index.
+    pub fn identity_path_index(&self) -> &[u8] {
+        &self.identity_path_index
+    }
+}
+
+impl<P> From<&P> for RLNMerkleProof
+where
+    P: ZerokitMerkleProof<Index = u8>,
+    P::Hasher: ZerokitHasher<Scalar = Fr>,
+{
+    fn from(proof: &P) -> Self {
+        Self {
+            path_elements: proof.get_path_elements(),
+            identity_path_index: proof.get_path_index(),
+        }
+    }
+}
 
 /// The witness inputs for an RLN proof, in either Single or Multi message-id mode.
 #[derive(Debug, Clone, PartialEq)]
@@ -52,6 +93,14 @@ impl RLNWitnessInput {
         match self {
             Self::Single(w) => &w.identity_path_index,
             Self::Multi(w) => &w.identity_path_index,
+        }
+    }
+
+    /// Returns the Merkle proof as an `RLNMerkleProof`.
+    pub fn merkle_proof(&self) -> RLNMerkleProof {
+        RLNMerkleProof {
+            path_elements: self.path_elements().to_vec(),
+            identity_path_index: self.identity_path_index().to_vec(),
         }
     }
 
@@ -103,8 +152,7 @@ impl RLNWitnessInput {
     pub fn new_single(
         identity_secret: SecretFr,
         user_message_limit: Fr,
-        path_elements: Vec<Fr>,
-        identity_path_index: Vec<u8>,
+        #[builder(into)] merkle_proof: RLNMerkleProof,
         x: Fr,
         external_nullifier: Fr,
         message_id: Fr,
@@ -112,6 +160,10 @@ impl RLNWitnessInput {
         if user_message_limit == Fr::from(0) {
             return Err(WitnessInputSingleError::ZeroUserMessageLimit);
         }
+        let RLNMerkleProof {
+            path_elements,
+            identity_path_index,
+        } = merkle_proof;
         let path_len = path_elements.len();
         let index_len = identity_path_index.len();
         if path_len != index_len {
@@ -143,8 +195,7 @@ impl RLNWitnessInput {
     pub fn new_multi(
         identity_secret: SecretFr,
         user_message_limit: Fr,
-        path_elements: Vec<Fr>,
-        identity_path_index: Vec<u8>,
+        #[builder(into)] merkle_proof: RLNMerkleProof,
         x: Fr,
         external_nullifier: Fr,
         message_ids: Vec<Fr>,
@@ -153,6 +204,10 @@ impl RLNWitnessInput {
         if user_message_limit == Fr::from(0) {
             return Err(WitnessInputMultiError::ZeroUserMessageLimit);
         }
+        let RLNMerkleProof {
+            path_elements,
+            identity_path_index,
+        } = merkle_proof;
         let path_len = path_elements.len();
         let index_len = identity_path_index.len();
         if path_len != index_len {
@@ -419,12 +474,15 @@ impl RLNPartialWitnessInput {
     pub fn create(
         identity_secret: SecretFr,
         user_message_limit: Fr,
-        path_elements: Vec<Fr>,
-        identity_path_index: Vec<u8>,
+        #[builder(into)] merkle_proof: RLNMerkleProof,
     ) -> Result<Self, PartialWitnessInputError> {
         if user_message_limit == Fr::from(0) {
             return Err(PartialWitnessInputError::ZeroUserMessageLimit);
         }
+        let RLNMerkleProof {
+            path_elements,
+            identity_path_index,
+        } = merkle_proof;
         let path_len = path_elements.len();
         let index_len = identity_path_index.len();
         if path_len != index_len {

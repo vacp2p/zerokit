@@ -14,8 +14,8 @@ proc createMultiWitness(member: Member,
   var selectorVec = Vec_bool(dataPtr: addr selectorUsed[0],
       len: csize_t(maxOut), cap: csize_t(maxOut))
   ffi_rln_witness_input_new_multi(member.identitySecret,
-      member.userMessageLimit, messageIds, addr merkleProof.path_elements,
-      addr merkleProof.path_index, x, externalNullifier, addr selectorVec)
+      member.userMessageLimit, messageIds, merkleProof, x, externalNullifier,
+      addr selectorVec)
 
 proc main() =
   var rlnInstance = initRLN(true)

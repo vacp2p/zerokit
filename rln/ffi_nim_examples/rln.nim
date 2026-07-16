@@ -47,8 +47,6 @@ type
     cap*: CSize
 
   MerkleProof* = object
-    path_elements*: Vec_Fr
-    path_index*: Vec_uint8
 
   IdentityKeys* = object
     identity_secret*: ptr SecretFr
@@ -323,15 +321,40 @@ proc ffi_rln_finish_proof*(rln: ptr RLN,
 proc ffi_rln_free*(rln: ptr RLN) {.importc: "ffi_rln_free",
     cdecl, dynlib: RLN_LIB.}
 
+# RLNMerkleProof functions
+proc ffi_rln_merkle_proof_new*(path_elements: ptr Vec_Fr,
+    identity_path_index: ptr Vec_uint8): ptr MerkleProof {.importc: "ffi_rln_merkle_proof_new",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_merkle_proof_get_path_elements*(
+  p: ptr MerkleProof): Vec_Fr {.importc: "ffi_rln_merkle_proof_get_path_elements",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_merkle_proof_get_identity_path_index*(
+  p: ptr MerkleProof): Vec_uint8 {.importc: "ffi_rln_merkle_proof_get_identity_path_index",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_merkle_proof_to_bytes_le*(
+  p: ptr MerkleProof): VecU8Result {.importc: "ffi_rln_merkle_proof_to_bytes_le",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_merkle_proof_to_bytes_be*(
+  p: ptr MerkleProof): VecU8Result {.importc: "ffi_rln_merkle_proof_to_bytes_be",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_merkle_proof_from_bytes_le*(
+  bytes: ptr Vec_uint8): MerkleProofResult {.importc: "ffi_rln_merkle_proof_from_bytes_le",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_merkle_proof_from_bytes_be*(
+  bytes: ptr Vec_uint8): MerkleProofResult {.importc: "ffi_rln_merkle_proof_from_bytes_be",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_merkle_proof_free*(p: ptr MerkleProof) {.importc: "ffi_rln_merkle_proof_free",
+    cdecl, dynlib: RLN_LIB.}
+
 # RLNWitnessInput functions
 proc ffi_rln_witness_input_new_single*(identity_secret: ptr SecretFr,
     user_message_limit: ptr Fr, message_id: ptr Fr,
-    path_elements: ptr Vec_Fr, identity_path_index: ptr Vec_uint8, x: ptr Fr,
+    merkle_proof: ptr MerkleProof, x: ptr Fr,
     external_nullifier: ptr Fr): WitnessResult {.importc: "ffi_rln_witness_input_new_single",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_witness_input_new_multi*(identity_secret: ptr SecretFr,
     user_message_limit: ptr Fr, message_ids: ptr Vec_Fr,
-    path_elements: ptr Vec_Fr, identity_path_index: ptr Vec_uint8, x: ptr Fr,
+    merkle_proof: ptr MerkleProof, x: ptr Fr,
     external_nullifier: ptr Fr,
     selector_used: ptr Vec_bool): WitnessResult {.importc: "ffi_rln_witness_input_new_multi",
     cdecl, dynlib: RLN_LIB.}
@@ -349,6 +372,9 @@ proc ffi_rln_witness_input_get_message_ids*(
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_witness_input_get_path_elements*(
   w: ptr Witness): Vec_Fr {.importc: "ffi_rln_witness_input_get_path_elements",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_witness_input_get_merkle_proof*(
+  w: ptr Witness): ptr MerkleProof {.importc: "ffi_rln_witness_input_get_merkle_proof",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_witness_input_get_identity_path_index*(
   w: ptr Witness): Vec_uint8 {.importc: "ffi_rln_witness_input_get_identity_path_index",
@@ -374,8 +400,8 @@ proc ffi_rln_witness_input_free*(w: ptr Witness) {.importc: "ffi_rln_witness_inp
 
 # RLNPartialWitnessInput functions
 proc ffi_rln_partial_witness_input_new*(identity_secret: ptr SecretFr,
-    user_message_limit: ptr Fr, path_elements: ptr Vec_Fr,
-    identity_path_index: ptr Vec_uint8): PartialWitnessResult {.importc: "ffi_rln_partial_witness_input_new",
+    user_message_limit: ptr Fr,
+    merkle_proof: ptr MerkleProof): PartialWitnessResult {.importc: "ffi_rln_partial_witness_input_new",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_partial_witness_input_get_identity_secret*(
   w: ptr PartialWitness): ptr SecretFr {.importc: "ffi_rln_partial_witness_input_get_identity_secret",
@@ -478,8 +504,6 @@ proc ffi_rln_recover_id_secret*(pv1: ptr ProofValues,
     cdecl, dynlib: RLN_LIB.}
 
 # Merkle tree operations (stateful mode)
-proc ffi_rln_merkle_proof_free*(p: ptr MerkleProof) {.importc: "ffi_rln_merkle_proof_free",
-    cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_tree_depth*(rln: ptr RLN): UsizeResult {.importc: "ffi_rln_tree_depth",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_leaves_set*(rln: ptr RLN): UsizeResult {.importc: "ffi_rln_leaves_set",

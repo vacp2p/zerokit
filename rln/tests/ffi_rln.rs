@@ -98,8 +98,7 @@ mod test {
                 &identity_secret,
                 &user_message_limit,
                 &message_id,
-                &merkle_proof.path_elements,
-                &merkle_proof.path_index,
+                &merkle_proof,
                 x,
                 &external_nullifier,
             ),
@@ -401,8 +400,7 @@ mod test {
                 &identity_secret,
                 &user_message_limit,
                 &message_id,
-                &merkle_proof.path_elements,
-                &merkle_proof.path_index,
+                &merkle_proof,
                 &x2,
                 &external_nullifier,
             ),
@@ -526,6 +524,54 @@ mod test {
     }
 
     #[test]
+    fn test_merkle_proof_serialization() {
+        let mut rln = create_rln_instance();
+        let x = random_signal_hash();
+        let (_identity_secret, witness) = setup_witness(&mut rln, &x);
+        let merkle_proof = ffi_rln_witness_input_get_merkle_proof(&witness);
+
+        macro_rules! merkle_proof_roundtrip {
+            ($to_bytes:ident, $from_bytes:ident) => {{
+                let bytes = unwrap_ok!($to_bytes(&merkle_proof), "merkle proof serialization");
+
+                let deser = unwrap_ok!($from_bytes(&bytes), "merkle proof deserialization");
+                assert_eq!(
+                    ffi_rln_merkle_proof_get_path_elements(&deser)
+                        .iter()
+                        .copied()
+                        .collect::<Vec<_>>(),
+                    ffi_rln_merkle_proof_get_path_elements(&merkle_proof)
+                        .iter()
+                        .copied()
+                        .collect::<Vec<_>>()
+                );
+                assert_eq!(
+                    ffi_rln_merkle_proof_get_identity_path_index(&deser)
+                        .iter()
+                        .copied()
+                        .collect::<Vec<_>>(),
+                    ffi_rln_merkle_proof_get_identity_path_index(&merkle_proof)
+                        .iter()
+                        .copied()
+                        .collect::<Vec<_>>()
+                );
+
+                // Truncated bytes must be rejected
+                let truncated: Vec<u8> = bytes[..bytes.len() - 1].to_vec();
+                assert!($from_bytes(&truncated.into()).ok.is_none());
+            }};
+        }
+        merkle_proof_roundtrip!(
+            ffi_rln_merkle_proof_to_bytes_le,
+            ffi_rln_merkle_proof_from_bytes_le
+        );
+        merkle_proof_roundtrip!(
+            ffi_rln_merkle_proof_to_bytes_be,
+            ffi_rln_merkle_proof_from_bytes_be
+        );
+    }
+
+    #[test]
     fn test_rln_proof_serialization() {
         let mut rln = create_rln_instance();
         let x = random_signal_hash();
@@ -623,6 +669,10 @@ mod test {
             .map(|_| FFI_Fr::from(Fr::rand(&mut rng)))
             .collect();
         let identity_path_index: Vec<u8> = vec![0; DEFAULT_TREE_DEPTH];
+        let merkle_proof = ffi_rln_merkle_proof_new(
+            &path_elements.clone().into(),
+            &identity_path_index.clone().into(),
+        );
 
         let user_message_limit = ffi_uint_to_fr(100);
 
@@ -632,8 +682,7 @@ mod test {
             &identity_secret,
             &user_message_limit,
             &invalid_message_id,
-            &path_elements.clone().into(),
-            &identity_path_index.clone().into(),
+            &merkle_proof,
             &x,
             &external_nullifier,
         );
@@ -646,8 +695,7 @@ mod test {
             &identity_secret,
             &zero_limit,
             &zero_message_id,
-            &path_elements.clone().into(),
-            &identity_path_index.clone().into(),
+            &merkle_proof,
             &x,
             &external_nullifier,
         );
@@ -656,12 +704,13 @@ mod test {
         // path_elements and identity_path_index length mismatch fails
         let message_id = ffi_uint_to_fr(1);
         let short_index: Vec<u8> = vec![0; DEFAULT_TREE_DEPTH - 1];
+        let short_merkle_proof =
+            ffi_rln_merkle_proof_new(&path_elements.into(), &short_index.into());
         let result = ffi_rln_witness_input_new_single(
             &identity_secret,
             &user_message_limit,
             &message_id,
-            &path_elements.into(),
-            &short_index.into(),
+            &short_merkle_proof,
             &x,
             &external_nullifier,
         );
@@ -679,13 +728,12 @@ mod test {
             .collect();
         let identity_path_index: Vec<u8> = vec![0; DEFAULT_TREE_DEPTH];
 
+        let merkle_proof =
+            ffi_rln_merkle_proof_new(&path_elements.into(), &identity_path_index.into());
+
         let zero_limit = ffi_uint_to_fr(0);
-        let result = ffi_rln_partial_witness_input_new(
-            &identity_secret,
-            &zero_limit,
-            &path_elements.into(),
-            &identity_path_index.into(),
-        );
+        let result =
+            ffi_rln_partial_witness_input_new(&identity_secret, &zero_limit, &merkle_proof);
         assert!(result.ok.is_none());
     }
 
@@ -771,8 +819,7 @@ mod test {
                 &identity_secret,
                 &user_message_limit,
                 &message_id,
-                &merkle_proof.path_elements,
-                &merkle_proof.path_index,
+                &merkle_proof,
                 &x2,
                 &external_nullifier,
             ),

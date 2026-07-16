@@ -23,8 +23,8 @@ pub struct Stateful<T> {
 
 /// Type-state marker for an [`RLN`] instance that does not own a Merkle tree.
 ///
-/// The Merkle tree is managed externally; the caller supplies the Merkle proof inputs
-/// (`path_elements` and `identity_path_index`) when building a witness.
+/// The Merkle tree is managed externally; the caller supplies the Merkle proof inputs as an
+/// [`RLNMerkleProof`](crate::protocol::RLNMerkleProof) when building a witness.
 #[derive(Debug, Clone)]
 pub struct Stateless;
 
@@ -158,9 +158,9 @@ where
     /// ## Example:
     ///
     /// ```
+    /// // The proof feeds the witness directly through their `merkle_proof` setter.
     /// let merkle_proof = rln.get_merkle_proof(10)?;
-    /// let path_elements = merkle_proof.get_path_elements();
-    /// let identity_path_index = merkle_proof.get_path_index();
+    /// let witness = RLNWitnessInput::new_single().merkle_proof(&merkle_proof);
     /// ```
     pub fn get_merkle_proof(&self, index: usize) -> Result<T::Proof, T::Error> {
         self.state.tree.proof(index)

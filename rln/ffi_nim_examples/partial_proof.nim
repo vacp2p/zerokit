@@ -36,15 +36,12 @@ proc main() =
   echo "\nCreating partial witness from witness fields"
   let witnessIdentitySecret = ffi_rln_witness_input_get_identity_secret(witness)
   let witnessUserMessageLimit = ffi_rln_witness_input_get_user_message_limit(witness)
-  var witnessPathElements = ffi_rln_witness_input_get_path_elements(witness)
-  var witnessPathIndex = ffi_rln_witness_input_get_identity_path_index(witness)
+  let witnessMerkleProof = ffi_rln_witness_input_get_merkle_proof(witness)
   let partialWitnessResult = ffi_rln_partial_witness_input_new(
-      witnessIdentitySecret, witnessUserMessageLimit, addr witnessPathElements,
-      addr witnessPathIndex)
+      witnessIdentitySecret, witnessUserMessageLimit, witnessMerkleProof)
   ffi_secret_fr_free(witnessIdentitySecret)
   ffi_fr_free(witnessUserMessageLimit)
-  ffi_vec_fr_free(witnessPathElements)
-  ffi_vec_u8_free(witnessPathIndex)
+  ffi_rln_merkle_proof_free(witnessMerkleProof)
   if partialWitnessResult.ok.isNil:
     stderr.writeLine("Partial witness creation error: " & asString(
         partialWitnessResult.err))

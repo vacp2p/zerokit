@@ -13,7 +13,8 @@ use super::{
     keygen::{ExtendedIdentityKeys, IdentityKeys},
     proof::{RLNProof, RLNProofValues, RLNProofValuesMulti, RLNProofValuesSingle},
     witness::{
-        RLNPartialWitnessInput, RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle,
+        RLNMerkleProof, RLNPartialWitnessInput, RLNWitnessInput, RLNWitnessInputMulti,
+        RLNWitnessInputSingle,
     },
 };
 use crate::{
@@ -257,6 +258,31 @@ impl CanonicalDeserializeBE for Vec<bool> {
                 _ => Err(SerializationError::NonCanonicalBool(b)),
             })
             .collect()
+    }
+}
+
+impl CanonicalSerializeBE for RLNMerkleProof {
+    type Error = SerializationError;
+
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
+        self.path_elements.serialize(&mut writer)?;
+        self.identity_path_index.serialize(&mut writer)?;
+        Ok(())
+    }
+
+    fn serialized_size(&self) -> usize {
+        CanonicalSerializeBE::serialized_size(&self.path_elements)
+            + CanonicalSerializeBE::serialized_size(&self.identity_path_index)
+    }
+}
+
+impl CanonicalDeserializeBE for RLNMerkleProof {
+    type Error = SerializationError;
+
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
+        let path_elements = Vec::<Fr>::deserialize(&mut reader)?;
+        let identity_path_index = Vec::<u8>::deserialize(&mut reader)?;
+        Ok(Self::new(path_elements, identity_path_index))
     }
 }
 

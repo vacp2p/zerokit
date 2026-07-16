@@ -22,8 +22,7 @@ create_multi_witness(const Member *member, const MerkleProof *merkle_proof,
 {
     return ffi_rln_witness_input_new_multi(member->identity_secret,
                                            member->user_message_limit, message_ids,
-                                           &merkle_proof->path_elements,
-                                           &merkle_proof->path_index, x, external_nullifier,
+                                           merkle_proof, x, external_nullifier,
                                            &(Vec_bool){selector_used, MAX_OUT, MAX_OUT});
 }
 

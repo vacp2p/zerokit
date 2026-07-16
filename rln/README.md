@@ -41,7 +41,7 @@ use rln::prelude::{
     hash_to_field_le, Fr, Hasher, IdentityKeys, PoseidonHash, RLNBuilder, RLNWitnessInput,
     DEFAULT_TREE_DEPTH,
 };
-use zerokit_utils::merkle_tree::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
+use zerokit_utils::merkle_tree::{OptimalMerkleTree, ZerokitMerkleTree};
 
 fn main() {
     // 1. Build an in-memory Merkle tree with a given depth. For a persistent sled-backed
@@ -81,8 +81,7 @@ fn main() {
     let witness = RLNWitnessInput::new_single()
         .identity_secret(identity_keys.identity_secret())
         .user_message_limit(user_message_limit)
-        .path_elements(merkle_proof.get_path_elements())
-        .identity_path_index(merkle_proof.get_path_index())
+        .merkle_proof(&merkle_proof)
         .x(x)
         .external_nullifier(external_nullifier)
         .message_id(message_id)

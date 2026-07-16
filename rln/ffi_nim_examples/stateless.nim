@@ -46,9 +46,9 @@ proc main() =
   printFr("message id", messageId)
 
   echo "\nCreating RLN witness"
+  let merkleProof = ffi_rln_merkle_proof_new(addr pathElements, addr pathIndex)
   let witnessResult = ffi_rln_witness_input_new_single(member.identitySecret,
-      member.userMessageLimit, messageId, addr pathElements, addr pathIndex, x,
-      externalNullifier)
+      member.userMessageLimit, messageId, merkleProof, x, externalNullifier)
   if witnessResult.ok.isNil:
     stderr.writeLine("Witness creation error: " & asString(witnessResult.err))
     ffi_c_string_free(witnessResult.err)
@@ -108,6 +108,7 @@ proc main() =
   ffi_rln_proof_values_free(proofValues)
   ffi_rln_proof_free(rlnProof)
   ffi_rln_witness_input_free(witness)
+  ffi_rln_merkle_proof_free(merkleProof)
   ffi_fr_free(messageId)
   ffi_fr_free(x)
   ffi_fr_free(externalNullifier)

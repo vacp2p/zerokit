@@ -22,11 +22,11 @@ pub use crate::{
     hashers::{hash_to_field_be, hash_to_field_le, Hasher, PoseidonHash},
     protocol::{
         compute_id_secret, CanonicalDeserializeBE, CanonicalDeserializeMixed, CanonicalSerializeBE,
-        CanonicalSerializeMixed, ExtendedIdentityKeys, IdentityKeys, RLNPartialWitnessInput,
-        RLNPartialZkProof, RLNProof, RLNProofValues, RLNProofValuesMulti, RLNProofValuesSingle,
-        RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle, RLNZkProof, RecoverSecret,
-        COMPRESS_PROOF_SIZE, ENUM_TAG_MULTI, ENUM_TAG_SINGLE, ENUM_TAG_SIZE, FR_BYTE_SIZE,
-        FR_LIMB_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
+        CanonicalSerializeMixed, ExtendedIdentityKeys, IdentityKeys, RLNMerkleProof,
+        RLNPartialWitnessInput, RLNPartialZkProof, RLNProof, RLNProofValues, RLNProofValuesMulti,
+        RLNProofValuesSingle, RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle,
+        RLNZkProof, RecoverSecret, COMPRESS_PROOF_SIZE, ENUM_TAG_MULTI, ENUM_TAG_SINGLE,
+        ENUM_TAG_SIZE, FR_BYTE_SIZE, FR_LIMB_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
     },
     public::{RLNBuilder, Stateful, Stateless, RLN},
 };
