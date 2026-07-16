@@ -337,37 +337,6 @@ mod test {
     }
 
     #[test]
-    fn test_recover_secret_inconsistent_lengths_fails() {
-        // A multi with mismatched vector lengths can only be built directly (fields are
-        // pub); recover_secret must error rather than panic indexing `ys`.
-        let malformed = RLNProofValues::Multi(RLNProofValuesMulti {
-            root: Fr::from(1u64),
-            x: Fr::from(7u64),
-            external_nullifier: Fr::from(9u64),
-            ys: vec![],
-            nullifiers: vec![Fr::from(42u64)],
-            selector_used: vec![true],
-        });
-        let other = RLNProofValues::Single(RLNProofValuesSingle {
-            y: Fr::from(3u64),
-            root: Fr::from(1u64),
-            nullifier: Fr::from(42u64),
-            x: Fr::from(5u64),
-            external_nullifier: Fr::from(9u64),
-        });
-        let err = malformed.recover_secret(&other).unwrap_err();
-        assert!(
-            matches!(
-                err,
-                RecoverSecretError::InvalidProofValues(
-                    SerializationError::InconsistentProofValueLengths
-                )
-            ),
-            "expected InconsistentProofValueLengths, got: {err:?}"
-        );
-    }
-
-    #[test]
     fn test_recover_secret_multi_mismatched_nullifier_fails() {
         let id_secret =
             IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret();
@@ -612,36 +581,34 @@ mod test {
         let (proof, proof_values) = rln.generate_proof(&witness).unwrap();
         assert!(rln.verify(&proof, &proof_values).unwrap());
 
-        let RLNProofValues::Single(values) = proof_values else {
-            panic!("expected single proof values");
+        let (y, root, nullifier, x, external_nullifier) = (
+            proof_values.y().unwrap(),
+            proof_values.root(),
+            proof_values.nullifier().unwrap(),
+            proof_values.x(),
+            proof_values.external_nullifier(),
+        );
+        let single = |y: Fr, root: Fr, nullifier: Fr, x: Fr, external_nullifier: Fr| {
+            RLNProofValues::new_single()
+                .y(y)
+                .root(root)
+                .nullifier(nullifier)
+                .x(x)
+                .external_nullifier(external_nullifier)
+                .build()
         };
 
-        let mutations: Vec<RLNProofValuesSingle> = vec![
-            RLNProofValuesSingle {
-                root: values.root + Fr::from(1),
-                ..values.clone()
-            },
-            RLNProofValuesSingle {
-                x: values.x + Fr::from(1),
-                ..values.clone()
-            },
-            RLNProofValuesSingle {
-                external_nullifier: values.external_nullifier + Fr::from(1),
-                ..values.clone()
-            },
-            RLNProofValuesSingle {
-                y: values.y + Fr::from(1),
-                ..values.clone()
-            },
-            RLNProofValuesSingle {
-                nullifier: values.nullifier + Fr::from(1),
-                ..values.clone()
-            },
+        // Mutating any single public input must break verification.
+        let one = Fr::from(1);
+        let mutations = vec![
+            single(y, root + one, nullifier, x, external_nullifier),
+            single(y, root, nullifier, x + one, external_nullifier),
+            single(y, root, nullifier, x, external_nullifier + one),
+            single(y + one, root, nullifier, x, external_nullifier),
+            single(y, root, nullifier + one, x, external_nullifier),
         ];
         for mutated in mutations {
-            assert!(!rln
-                .verify(&proof, &RLNProofValues::Single(mutated))
-                .unwrap());
+            assert!(!rln.verify(&proof, &mutated).unwrap());
         }
     }
 }

@@ -369,36 +369,25 @@ mod test {
     }
 
     fn make_proof_values_single() -> RLNProofValues {
-        RLNProofValues::Single(RLNProofValuesSingle {
-            root: Fr::from(1u64),
-            x: Fr::from(2u64),
-            external_nullifier: Fr::from(3u64),
-            y: Fr::from(4u64),
-            nullifier: Fr::from(5u64),
-        })
+        RLNProofValues::new_single()
+            .root(Fr::from(1u64))
+            .x(Fr::from(2u64))
+            .external_nullifier(Fr::from(3u64))
+            .y(Fr::from(4u64))
+            .nullifier(Fr::from(5u64))
+            .build()
     }
 
     fn make_proof_values_multi() -> RLNProofValues {
-        RLNProofValues::Multi(RLNProofValuesMulti {
-            root: Fr::from(10u64),
-            x: Fr::from(20u64),
-            external_nullifier: Fr::from(30u64),
-            ys: vec![Fr::from(40u64), Fr::from(50u64)],
-            nullifiers: vec![Fr::from(60u64), Fr::from(70u64)],
-            selector_used: vec![true, false],
-        })
-    }
-
-    /// A multi with mismatched per-slot vector lengths (`ys` empty, others length 1).
-    fn make_inconsistent_proof_values_multi() -> RLNProofValues {
-        RLNProofValues::Multi(RLNProofValuesMulti {
-            root: Fr::from(10u64),
-            x: Fr::from(20u64),
-            external_nullifier: Fr::from(30u64),
-            ys: vec![],
-            nullifiers: vec![Fr::from(60u64)],
-            selector_used: vec![true],
-        })
+        RLNProofValues::new_multi()
+            .root(Fr::from(10u64))
+            .x(Fr::from(20u64))
+            .external_nullifier(Fr::from(30u64))
+            .ys(vec![Fr::from(40u64), Fr::from(50u64)])
+            .nullifiers(vec![Fr::from(60u64), Fr::from(70u64)])
+            .selector_used(vec![true, false])
+            .build()
+            .unwrap()
     }
 
     fn make_proof() -> Proof {
@@ -708,24 +697,6 @@ mod test {
     }
 
     #[test]
-    fn test_proof_values_le_inconsistent_lengths_rejected() {
-        let mut buf = Vec::new();
-        make_inconsistent_proof_values_multi()
-            .serialize_compressed(&mut buf)
-            .unwrap();
-        assert!(RLNProofValues::deserialize_compressed(buf.as_slice()).is_err());
-    }
-
-    #[test]
-    fn test_proof_values_be_inconsistent_lengths_rejected() {
-        let mut buf = Vec::new();
-        make_inconsistent_proof_values_multi()
-            .serialize(&mut buf)
-            .unwrap();
-        assert!(RLNProofValues::deserialize(buf.as_slice()).is_err());
-    }
-
-    #[test]
     fn test_proof_values_le_non_canonical_field_rejected() {
         let modulus = BigUint::from_bytes_le(&Fr::MODULUS.to_bytes_le());
         let mut y = modulus.to_bytes_le();
@@ -782,17 +753,6 @@ mod test {
             let deser = RLNProof::deserialize_compressed(buf.as_slice()).unwrap();
             assert_eq!(rln_proof, deser);
         }
-    }
-
-    #[test]
-    fn test_rln_proof_le_inconsistent_values_rejected() {
-        let rln_proof = RLNProof {
-            proof: make_proof(),
-            values: make_inconsistent_proof_values_multi(),
-        };
-        let mut buf = Vec::new();
-        rln_proof.serialize_compressed(&mut buf).unwrap();
-        assert!(RLNProof::deserialize_compressed(buf.as_slice()).is_err());
     }
 
     #[test]
