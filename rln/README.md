@@ -152,9 +152,9 @@ make installdeps
 `make installdeps` installs the build dependencies:
 
 - [cargo-make](https://github.com/sagiegurari/cargo-make): the build and test runner.
-- CMake and [Ninja](https://ninja-build.org/): native build tools.
-- [wasm-pack](https://rustwasm.github.io/wasm-pack/) `0.15.0` and Node.js `22.14.0` via
-  [nvm](https://github.com/nvm-sh/nvm): only needed for `rln-wasm` builds and tests.
+- [cmake](https://github.com/kitware/cmake) and [ninja-build](https://github.com/ninja-build/ninja): native build tools.
+- [wasm-pack](https://github.com/wasm-bindgen/wasm-pack) `0.15.0` and Node.js `22.14.0` via
+  [nvm](https://github.com/nvm-sh/nvm) (only needed for `rln-wasm` builds and tests).
 
 Automatic installation supports macOS (Homebrew) and Debian/Ubuntu (apt);
 on NixOS the packages are expected to come from your system configuration.
