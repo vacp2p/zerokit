@@ -25,8 +25,7 @@ pub use crate::{
         CanonicalSerializeMixed, ExtendedIdentityKeys, IdentityKeys, RLNMerkleProof,
         RLNPartialWitnessInput, RLNPartialZkProof, RLNProof, RLNProofValues, RLNProofValuesMulti,
         RLNProofValuesSingle, RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle,
-        RLNZkProof, RecoverSecret, COMPRESS_PROOF_SIZE, ENUM_TAG_MULTI, ENUM_TAG_SINGLE,
-        ENUM_TAG_SIZE, FR_BYTE_SIZE, FR_LIMB_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
+        RLNZkProof, RecoverSecret,
     },
     public::{RLNBuilder, Stateful, Stateless, RLN},
 };

@@ -416,8 +416,8 @@ the cached data is invalidated often and the overhead of pre-computation may out
    `id_commitment = Poseidon(id_secret)`.
    The secret proves membership; only the commitment is shared.
 2. **Rate Commitment**: Compute `rate_commitment = Poseidon(id_commitment, user_message_limit)`
-   and insert it as a leaf in the Merkle tree. This registers the member and binds them to a
-   per-epoch message budget.
+   and insert it as a leaf in the Merkle tree. This registers the member and binds that member
+   to a per-epoch message budget.
 3. **External Nullifier Setup**: Compute `external_nullifier = Poseidon(epoch, rln_identifier)`,
    scoping proofs to a time window (`epoch`) and to one application (`rln_identifier`)
    so a proof generated for one application cannot be replayed in another.

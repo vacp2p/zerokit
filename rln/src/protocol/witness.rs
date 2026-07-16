@@ -16,7 +16,7 @@ use crate::{
     },
 };
 
-/// A Merkle proof consisting of the path elements and
+/// A Merkle proof consisting of the path elements and the path index.
 #[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNMerkleProof {
     pub(crate) path_elements: Vec<Fr>,

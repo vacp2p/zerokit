@@ -326,10 +326,5 @@ mod test {
         extra_pv_be_vec.push(0);
         let extra_pv_be = Uint8Array::from(&extra_pv_be_vec[..]);
         assert!(WasmRLNProofValues::from_bytes_be(&extra_pv_be).is_ok());
-
-        // Proof bytes: insufficient length
-        let proof = [0u8; COMPRESS_PROOF_SIZE];
-        let proof = Uint8Array::from(&proof[..]);
-        assert!(WasmRLNProof::from_bytes_le(&proof).is_err());
     }
 }

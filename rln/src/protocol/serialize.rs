@@ -22,20 +22,17 @@ use crate::{
     error::SerializationError,
 };
 
-/// Byte size of a Groth16 proof in arkworks compressed form.
-pub const COMPRESS_PROOF_SIZE: usize = 128;
-
 /// Byte size of the enum variant tag prepended to serialized enum types.
-pub const ENUM_TAG_SIZE: usize = 1;
+const ENUM_TAG_SIZE: usize = 1;
 
 /// Tag byte for the `Single` variant - Single message-id mode.
-pub const ENUM_TAG_SINGLE: u8 = 0;
+const ENUM_TAG_SINGLE: u8 = 0;
 
 /// Tag byte for the `Multi` variant - Multi message-id mode.
-pub const ENUM_TAG_MULTI: u8 = 1;
+const ENUM_TAG_MULTI: u8 = 1;
 
 /// Byte size of a `Fr` field element aligned to 64-bit boundary, computed once at compile time.
-pub const FR_BYTE_SIZE: usize = {
+const FR_BYTE_SIZE: usize = {
     // Get the modulus bit size of the scalar field
     let modulus_bits: u32 = Fr::MODULUS_BIT_SIZE;
     // Alignment boundary in bits for field element serialization
@@ -45,10 +42,10 @@ pub const FR_BYTE_SIZE: usize = {
 };
 
 /// Byte size of the `u64` limb of a `Fr`, used for big-endian serialization of `Fr`.
-pub const FR_LIMB_BYTE_SIZE: usize = 8;
+const FR_LIMB_BYTE_SIZE: usize = 8;
 
 /// Byte size of the `u64` big-endian length prefix written before a variable-length vector.
-pub const VEC_LEN_BYTE_SIZE: usize = 8;
+const VEC_LEN_BYTE_SIZE: usize = 8;
 
 /// Big-endian canonical serialization, mirroring arkworks' little-endian `CanonicalSerialize`.
 pub trait CanonicalSerializeBE {
@@ -809,7 +806,8 @@ impl CanonicalSerializeMixed for RLNProof {
     }
 
     fn serialized_size(&self) -> usize {
-        COMPRESS_PROOF_SIZE + CanonicalSerializeBE::serialized_size(&self.values)
+        CanonicalSerialize::serialized_size(&self.proof, Compress::Yes)
+            + CanonicalSerializeBE::serialized_size(&self.values)
     }
 }
 

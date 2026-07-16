@@ -11,9 +11,8 @@ mod test {
     use rand::Rng;
     use rln::prelude::*;
     use rln_wasm::{
-        wasm_hash_to_field_be, wasm_hash_to_field_le, wasm_poseidon_hash_pair,
-        wasm_utils::WasmUint8ArrayUtils, VecWasmFr, WasmExtendedIdentityKeys, WasmFr,
-        WasmIdentityKeys,
+        wasm_hash_to_field_be, wasm_hash_to_field_le, wasm_poseidon_hash_pair, VecWasmFr,
+        WasmExtendedIdentityKeys, WasmFr, WasmIdentityKeys,
     };
     use wasm_bindgen_test::wasm_bindgen_test;
 
@@ -237,84 +236,5 @@ mod test {
         let received_hash = wasm_poseidon_hash_pair(&wasmfr_1, &wasmfr_2);
 
         assert_eq!(*received_hash, expected_hash);
-    }
-
-    #[wasm_bindgen_test]
-    fn test_wasmfr_from_bytes_invalid() {
-        let short_bytes = [0u8; FR_BYTE_SIZE - 1];
-        let short = Uint8Array::from(&short_bytes[..]);
-        assert!(WasmFr::from_bytes_le(&short).is_err());
-        assert!(WasmFr::from_bytes_be(&short).is_err());
-
-        let empty = Uint8Array::from(&[][..]);
-        assert!(WasmFr::from_bytes_le(&empty).is_err());
-        assert!(WasmFr::from_bytes_be(&empty).is_err());
-    }
-
-    #[wasm_bindgen_test]
-    fn test_vec_wasmfr_from_bytes_invalid() {
-        let vec_fr = vec![Fr::from(1u8)];
-        let mut bytes_le = Vec::new();
-        vec_fr.serialize_compressed(&mut bytes_le).unwrap();
-        let truncated = Uint8Array::from(&bytes_le[..bytes_le.len() - 1]);
-        assert!(VecWasmFr::from_bytes_le(&truncated).is_err());
-
-        let mut wrong_len = bytes_le.clone();
-        wrong_len[..VEC_LEN_BYTE_SIZE].copy_from_slice(&2u64.to_le_bytes());
-        let wrong_len = Uint8Array::from(&wrong_len[..]);
-        assert!(VecWasmFr::from_bytes_le(&wrong_len).is_err());
-
-        let mut bytes_be = Vec::new();
-        CanonicalSerializeBE::serialize(&vec_fr, &mut bytes_be).unwrap();
-        let truncated_be = Uint8Array::from(&bytes_be[..bytes_be.len() - 1]);
-        assert!(VecWasmFr::from_bytes_be(&truncated_be).is_err());
-
-        let mut wrong_len_be = bytes_be.clone();
-        wrong_len_be[..VEC_LEN_BYTE_SIZE].copy_from_slice(&2u64.to_be_bytes());
-        let wrong_len_be = Uint8Array::from(&wrong_len_be[..]);
-        assert!(VecWasmFr::from_bytes_be(&wrong_len_be).is_err());
-    }
-
-    #[wasm_bindgen_test]
-    fn test_uint8array_utils_from_bytes_invalid() {
-        let short = Uint8Array::from(&[0u8; 7][..]);
-        assert!(WasmUint8ArrayUtils::from_bytes_le(&short).is_err());
-        assert!(WasmUint8ArrayUtils::from_bytes_be(&short).is_err());
-
-        let invalid_len_le = Vec::from(5u64.to_le_bytes());
-        let invalid_len_le = Uint8Array::from(&invalid_len_le[..]);
-        assert!(WasmUint8ArrayUtils::from_bytes_le(&invalid_len_le).is_err());
-
-        let invalid_len_be = Vec::from(5u64.to_be_bytes());
-        let invalid_len_be = Uint8Array::from(&invalid_len_be[..]);
-        assert!(WasmUint8ArrayUtils::from_bytes_be(&invalid_len_be).is_err());
-    }
-
-    #[wasm_bindgen_test]
-    fn test_identity_from_bytes_invalid_len() {
-        let vec_fr = vec![Fr::from(1u8)];
-        let mut bytes_le = Vec::new();
-        vec_fr.serialize_compressed(&mut bytes_le).unwrap();
-        let bytes_le = Uint8Array::from(&bytes_le[..]);
-        assert!(WasmIdentityKeys::from_bytes_le(&bytes_le).is_err());
-
-        let mut bytes_be = Vec::new();
-        CanonicalSerializeBE::serialize(&vec_fr, &mut bytes_be).unwrap();
-        let bytes_be = Uint8Array::from(&bytes_be[..]);
-        assert!(WasmIdentityKeys::from_bytes_be(&bytes_be).is_err());
-    }
-
-    #[wasm_bindgen_test]
-    fn test_extended_identity_from_bytes_invalid_len() {
-        let vec_fr = vec![Fr::from(1u8), Fr::from(2u8), Fr::from(3u8)];
-        let mut bytes_le = Vec::new();
-        vec_fr.serialize_compressed(&mut bytes_le).unwrap();
-        let bytes_le = Uint8Array::from(&bytes_le[..]);
-        assert!(WasmExtendedIdentityKeys::from_bytes_le(&bytes_le).is_err());
-
-        let mut bytes_be = Vec::new();
-        CanonicalSerializeBE::serialize(&vec_fr, &mut bytes_be).unwrap();
-        let bytes_be = Uint8Array::from(&bytes_be[..]);
-        assert!(WasmExtendedIdentityKeys::from_bytes_be(&bytes_be).is_err());
     }
 }

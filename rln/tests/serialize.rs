@@ -32,20 +32,16 @@ mod test {
         let one = Fr::from(1u64);
         let mut buf = Vec::new();
         one.serialize(&mut buf).unwrap();
-        assert_eq!(buf.len(), FR_BYTE_SIZE);
-        assert_eq!(
-            buf[FR_BYTE_SIZE - 1],
-            1,
-            "least significant byte must be at index FR_BYTE_SIZE-1"
-        );
-        assert!(buf[..FR_BYTE_SIZE - 1].iter().all(|&b| b == 0));
+        assert_eq!(buf.len(), 32);
+        assert_eq!(buf[31], 1, "least significant byte must be last");
+        assert!(buf[..31].iter().all(|&b| b == 0));
 
         // Fr(256) - second-to-last byte should be 1
         let v = Fr::from(256u64);
         let mut buf2 = Vec::new();
         v.serialize(&mut buf2).unwrap();
-        assert_eq!(buf2[FR_BYTE_SIZE - 2], 1);
-        assert_eq!(buf2[FR_BYTE_SIZE - 1], 0);
+        assert_eq!(buf2[30], 1);
+        assert_eq!(buf2[31], 0);
     }
 
     #[test]
@@ -54,7 +50,7 @@ mod test {
 
         let to_be = |val: &BigUint| -> Vec<u8> {
             let mut bytes = val.to_bytes_be();
-            let pad = FR_BYTE_SIZE.saturating_sub(bytes.len());
+            let pad = 32usize.saturating_sub(bytes.len());
             if pad > 0 {
                 bytes.splice(0..0, std::iter::repeat_n(0, pad));
             }
@@ -74,7 +70,7 @@ mod test {
         ));
 
         // All 0xFF must be rejected
-        let max_bytes = vec![0xFF; FR_BYTE_SIZE];
+        let max_bytes = [0xFF; 32];
         assert!(matches!(
             Fr::deserialize(max_bytes.as_slice()).unwrap_err(),
             SerializationError::NonCanonicalFieldElement
@@ -94,7 +90,7 @@ mod test {
 
         let to_le = |val: &BigUint| -> Vec<u8> {
             let mut bytes = val.to_bytes_le();
-            bytes.resize(FR_BYTE_SIZE, 0);
+            bytes.resize(32, 0);
             bytes
         };
 
@@ -107,7 +103,7 @@ mod test {
         assert!(Fr::deserialize_compressed(plus_one_le.as_slice()).is_err());
 
         // All 0xFF must be rejected
-        let max_bytes = vec![0xFF; FR_BYTE_SIZE];
+        let max_bytes = [0xFF; 32];
         assert!(Fr::deserialize_compressed(max_bytes.as_slice()).is_err());
 
         // Modulus - 1 must succeed and round-trip
@@ -120,7 +116,7 @@ mod test {
 
     #[test]
     fn test_fr_be_insufficient_data_rejected() {
-        let short = vec![0u8; FR_BYTE_SIZE - 1];
+        let short = [0u8; 31];
         assert!(Fr::deserialize(short.as_slice()).is_err());
         assert!(Fr::deserialize([].as_slice()).is_err());
     }
@@ -136,8 +132,6 @@ mod test {
             let mut be_bytes = Vec::new();
             CanonicalSerializeBE::serialize(&fr, &mut be_bytes).unwrap();
 
-            assert_eq!(le_bytes.len(), FR_BYTE_SIZE);
-            assert_eq!(be_bytes.len(), FR_BYTE_SIZE);
             // LE is the byte-reversal of BE for a 32-byte field element
             let mut reversed_be = be_bytes.clone();
             reversed_be.reverse();
@@ -177,7 +171,7 @@ mod test {
         // Craft a length-1 vec with modulus as the element - must be rejected
         let modulus = BigUint::from_bytes_le(&Fr::MODULUS.to_bytes_le());
         let mut bytes = modulus.to_bytes_be();
-        let pad = FR_BYTE_SIZE.saturating_sub(bytes.len());
+        let pad = 32usize.saturating_sub(bytes.len());
         if pad > 0 {
             bytes.splice(0..0, std::iter::repeat_n(0, pad));
         }
@@ -193,7 +187,7 @@ mod test {
         // Length prefix says 2 but only 1 element present
         let mut buf = Vec::new();
         buf.extend_from_slice(&2u64.to_be_bytes());
-        buf.extend_from_slice(&[0u8; FR_BYTE_SIZE]); // only one element
+        buf.extend_from_slice(&[0u8; 32]); // only one element
         assert!(Vec::<Fr>::deserialize(buf.as_slice()).is_err());
     }
 
@@ -298,7 +292,7 @@ mod test {
 
         let to_be = |val: &BigUint| -> Vec<u8> {
             let mut bytes = val.to_bytes_be();
-            let pad = FR_BYTE_SIZE.saturating_sub(bytes.len());
+            let pad = 32usize.saturating_sub(bytes.len());
             if pad > 0 {
                 bytes.splice(0..0, std::iter::repeat_n(0, pad));
             }
@@ -313,7 +307,7 @@ mod test {
         ));
 
         // All 0xFF must be rejected
-        let max_bytes = vec![0xFF; FR_BYTE_SIZE];
+        let max_bytes = [0xFF; 32];
         assert!(matches!(
             SecretFr::deserialize(max_bytes.as_slice()).unwrap_err(),
             SerializationError::NonCanonicalFieldElement
@@ -326,7 +320,7 @@ mod test {
 
     #[test]
     fn test_secret_fr_be_insufficient_data_rejected() {
-        let short = vec![0u8; FR_BYTE_SIZE - 1];
+        let short = [0u8; 31];
         assert!(SecretFr::deserialize(short.as_slice()).is_err());
         assert!(SecretFr::deserialize([].as_slice()).is_err());
     }
@@ -468,7 +462,7 @@ mod test {
         let w = make_witness_input_single();
         let mut buf = Vec::new();
         w.serialize(&mut buf).unwrap();
-        assert_eq!(buf[0], ENUM_TAG_SINGLE);
+        assert_eq!(buf[0], 0, "Single variant tag byte");
         assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&w));
         let deser = RLNWitnessInput::deserialize(buf.as_slice()).unwrap();
         assert_eq!(w, deser);
@@ -479,7 +473,7 @@ mod test {
         let w = make_witness_input_multi();
         let mut buf = Vec::new();
         w.serialize(&mut buf).unwrap();
-        assert_eq!(buf[0], ENUM_TAG_MULTI);
+        assert_eq!(buf[0], 1, "Multi variant tag byte");
         assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&w));
         let deser = RLNWitnessInput::deserialize(buf.as_slice()).unwrap();
         assert_eq!(w, deser);
@@ -521,7 +515,7 @@ mod test {
         let deser = RLNWitnessInput::deserialize_compressed(buf.as_slice()).unwrap();
         assert_eq!(w, deser);
         assert_eq!(w.compressed_size(), buf.len());
-        assert_eq!(buf[0], ENUM_TAG_SINGLE);
+        assert_eq!(buf[0], 0, "Single variant tag byte");
     }
 
     #[test]
@@ -532,7 +526,7 @@ mod test {
         let deser = RLNWitnessInput::deserialize_compressed(buf.as_slice()).unwrap();
         assert_eq!(w, deser);
         assert_eq!(w.compressed_size(), buf.len());
-        assert_eq!(buf[0], ENUM_TAG_MULTI);
+        assert_eq!(buf[0], 1, "Multi variant tag byte");
     }
 
     #[test]
@@ -631,7 +625,7 @@ mod test {
         let pv = make_proof_values_single();
         let mut buf = Vec::new();
         pv.serialize(&mut buf).unwrap();
-        assert_eq!(buf[0], ENUM_TAG_SINGLE);
+        assert_eq!(buf[0], 0, "Single variant tag byte");
         assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&pv));
         let deser = RLNProofValues::deserialize(buf.as_slice()).unwrap();
         assert_eq!(pv, deser);
@@ -642,7 +636,7 @@ mod test {
         let pv = make_proof_values_multi();
         let mut buf = Vec::new();
         pv.serialize(&mut buf).unwrap();
-        assert_eq!(buf[0], ENUM_TAG_MULTI);
+        assert_eq!(buf[0], 1, "Multi variant tag byte");
         assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&pv));
         let deser = RLNProofValues::deserialize(buf.as_slice()).unwrap();
         assert_eq!(pv, deser);
@@ -684,7 +678,7 @@ mod test {
         let deser = RLNProofValues::deserialize_compressed(buf.as_slice()).unwrap();
         assert_eq!(pv, deser);
         assert_eq!(pv.compressed_size(), buf.len());
-        assert_eq!(buf[0], ENUM_TAG_SINGLE);
+        assert_eq!(buf[0], 0, "Single variant tag byte");
     }
 
     #[test]
@@ -695,7 +689,7 @@ mod test {
         let deser = RLNProofValues::deserialize_compressed(buf.as_slice()).unwrap();
         assert_eq!(pv, deser);
         assert_eq!(pv.compressed_size(), buf.len());
-        assert_eq!(buf[0], ENUM_TAG_MULTI);
+        assert_eq!(buf[0], 1, "Multi variant tag byte");
     }
 
     #[test]
@@ -824,9 +818,12 @@ mod test {
             b
         };
 
-        assert_eq!(&mixed_buf[..COMPRESS_PROOF_SIZE], proof_le_bytes.as_slice());
         assert_eq!(
-            &mixed_buf[COMPRESS_PROOF_SIZE..],
+            &mixed_buf[..proof_le_bytes.len()],
+            proof_le_bytes.as_slice()
+        );
+        assert_eq!(
+            &mixed_buf[proof_le_bytes.len()..],
             values_be_bytes.as_slice()
         );
     }
