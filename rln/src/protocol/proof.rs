@@ -236,8 +236,11 @@ impl RLNProofValuesMulti {
         let leaf = Hasher::<H>::hash_pair(id_commitment, w.user_message_limit);
         let root = compute_tree_root::<H>(leaf, &w.path_elements, &w.identity_path_index);
 
+        // `selector_used` is collected from the same zip as `ys` and `nullifiers` rather than
+        // cloned, so the three stay equal in length even if the witness is malformed.
         let mut ys = Vec::with_capacity(w.message_ids.len());
         let mut nullifiers = Vec::with_capacity(w.message_ids.len());
+        let mut selector_used = Vec::with_capacity(w.message_ids.len());
         for (message_id, &selected) in w.message_ids.iter().zip(w.selector_used.iter()) {
             let a_1 =
                 compute_share_slope::<H>(&w.identity_secret, w.external_nullifier, *message_id);
@@ -246,6 +249,7 @@ impl RLNProofValuesMulti {
             let nullifier = Hasher::<H>::hash_single(a_1) * selector;
             ys.push(y);
             nullifiers.push(nullifier);
+            selector_used.push(selected);
         }
         RLNProofValuesMulti {
             ys,
@@ -253,7 +257,7 @@ impl RLNProofValuesMulti {
             nullifiers,
             x: w.x,
             external_nullifier: w.external_nullifier,
-            selector_used: w.selector_used.clone(),
+            selector_used,
         }
     }
 
@@ -356,9 +360,13 @@ mod validation_tests {
     //! `pub(crate)`, so proof values with mismatched lengths can only be built here.
 
     use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+    use rand::thread_rng;
 
     use super::*;
-    use crate::prelude::{CanonicalDeserializeBE, CanonicalSerializeBE};
+    use crate::{
+        hashers::PoseidonHash,
+        prelude::{CanonicalDeserializeBE, CanonicalSerializeBE},
+    };
 
     /// A multi with mismatched per-slot vector lengths (`ys` empty, others length 1).
     fn inconsistent_multi() -> RLNProofValues {
@@ -370,6 +378,30 @@ mod validation_tests {
             nullifiers: vec![Fr::from(60u64)],
             selector_used: vec![true],
         })
+    }
+
+    /// `zip` stops at the shorter of `message_ids`/`selector_used`, so cloning `selector_used`
+    /// wholesale would emit values that fail their own invariant.
+    #[test]
+    fn from_witness_stays_consistent_for_a_malformed_witness() {
+        let w = RLNWitnessInputMulti {
+            identity_secret: SecretFr::rand(&mut thread_rng()),
+            user_message_limit: Fr::from(5u64),
+            path_elements: vec![Fr::from(1u64)],
+            identity_path_index: vec![0u8],
+            x: Fr::from(7u64),
+            external_nullifier: Fr::from(9u64),
+            message_ids: vec![Fr::from(1u64), Fr::from(2u64)],
+            selector_used: vec![true, true, true],
+        };
+        let values = RLNProofValuesMulti::from_witness::<PoseidonHash>(&w);
+        assert!(
+            values.validate().is_ok(),
+            "from_witness must not emit values that fail validate: ys={} nullifiers={} selector_used={}",
+            values.ys.len(),
+            values.nullifiers.len(),
+            values.selector_used.len()
+        );
     }
 
     #[test]
