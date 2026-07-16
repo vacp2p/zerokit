@@ -10,6 +10,7 @@ repository = "https://github.com/vacp2p/zerokit"
 
 [lib]
 bench = false
+doctest = false
 
 [dependencies]
 rayon = { workspace = true }

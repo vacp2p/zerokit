@@ -461,7 +461,7 @@ impl WasmRLNProofValues {
     }
 
     #[wasm_bindgen(js_name = computeIdSecret)]
-    pub fn compute_id_secret_from_shares(
+    pub fn compute_id_secret(
         share1_x: &WasmFr,
         share1_y: &WasmFr,
         share2_x: &WasmFr,

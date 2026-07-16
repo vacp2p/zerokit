@@ -131,7 +131,7 @@ mod test {
     }
 
     #[wasm_bindgen_test]
-    fn test_wasmfr() {
+    fn test_wasm_fr() {
         let wasmfr_zero = WasmFr::zero();
         let fr_zero = Fr::from(0u8);
         assert_eq!(*wasmfr_zero, fr_zero);
@@ -156,7 +156,21 @@ mod test {
     }
 
     #[wasm_bindgen_test]
-    fn test_vec_wasmfr() {
+    fn test_wasm_secretfr() {
+        let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let seed = Uint8Array::from(&seed_bytes[..]);
+        let secret = WasmIdentityKeys::generate_seeded(&seed).get_secret();
+        assert_eq!(secret.debug(), "SecretFr(********)");
+
+        let same = WasmIdentityKeys::generate_seeded(&seed).get_secret();
+        assert!(secret.equals(&same));
+
+        let other = WasmIdentityKeys::generate().get_secret();
+        assert!(!secret.equals(&other));
+    }
+
+    #[wasm_bindgen_test]
+    fn test_vec_wasm_fr() {
         let vec_fr = vec![Fr::from(1u8), Fr::from(2u8), Fr::from(3u8), Fr::from(4u8)];
         let mut vec_wasmfr = VecWasmFr::new();
         for fr in &vec_fr {
