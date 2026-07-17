@@ -260,21 +260,105 @@ impl CanonicalDeserializeBE for Vec<bool> {
     }
 }
 
+impl Valid for RLNWitnessInputSingle {
+    fn check(&self) -> Result<(), ArkSerializationError> {
+        self.identity_secret.check()?;
+        self.user_message_limit.check()?;
+        self.path_elements.check()?;
+        self.identity_path_index.check()?;
+        self.x.check()?;
+        self.external_nullifier.check()?;
+        self.message_id.check()?;
+        self.validate()
+            .map_err(|_| ArkSerializationError::InvalidData)
+    }
+}
+
+impl CanonicalDeserialize for RLNWitnessInputSingle {
+    fn deserialize_with_mode<R: Read>(
+        mut reader: R,
+        compress: Compress,
+        validate: Validate,
+    ) -> Result<Self, ArkSerializationError> {
+        // Fields are deserialized unchecked; the trailing `check` below covers them.
+        let identity_secret = SecretFr::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let user_message_limit = Fr::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let path_elements = Vec::<Fr>::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let identity_path_index =
+            Vec::<u8>::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let x = Fr::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let external_nullifier = Fr::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let message_id = Fr::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let value = Self {
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+            x,
+            external_nullifier,
+            message_id,
+        };
+        if let Validate::Yes = validate {
+            value.check()?;
+        }
+        Ok(value)
+    }
+}
+
+impl Valid for RLNWitnessInputMulti {
+    fn check(&self) -> Result<(), ArkSerializationError> {
+        self.identity_secret.check()?;
+        self.user_message_limit.check()?;
+        self.path_elements.check()?;
+        self.identity_path_index.check()?;
+        self.x.check()?;
+        self.external_nullifier.check()?;
+        self.message_ids.check()?;
+        self.selector_used.check()?;
+        self.validate()
+            .map_err(|_| ArkSerializationError::InvalidData)
+    }
+}
+
+impl CanonicalDeserialize for RLNWitnessInputMulti {
+    fn deserialize_with_mode<R: Read>(
+        mut reader: R,
+        compress: Compress,
+        validate: Validate,
+    ) -> Result<Self, ArkSerializationError> {
+        // Fields are deserialized unchecked; the trailing `check` below covers them.
+        let identity_secret = SecretFr::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let user_message_limit = Fr::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let path_elements = Vec::<Fr>::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let identity_path_index =
+            Vec::<u8>::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let x = Fr::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let external_nullifier = Fr::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let message_ids = Vec::<Fr>::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let selector_used =
+            Vec::<bool>::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let value = Self {
+            identity_secret,
+            user_message_limit,
+            path_elements,
+            identity_path_index,
+            x,
+            external_nullifier,
+            message_ids,
+            selector_used,
+        };
+        if let Validate::Yes = validate {
+            value.check()?;
+        }
+        Ok(value)
+    }
+}
+
 impl Valid for RLNWitnessInput {
     fn check(&self) -> Result<(), ArkSerializationError> {
         match self {
-            RLNWitnessInput::Single(inner) => {
-                inner.check()?;
-                inner
-                    .validate()
-                    .map_err(|_| ArkSerializationError::InvalidData)
-            }
-            RLNWitnessInput::Multi(inner) => {
-                inner.check()?;
-                inner
-                    .validate()
-                    .map_err(|_| ArkSerializationError::InvalidData)
-            }
+            RLNWitnessInput::Single(inner) => inner.check(),
+            RLNWitnessInput::Multi(inner) => inner.check(),
         }
     }
 }
@@ -629,16 +713,53 @@ impl CanonicalDeserialize for RLNPartialWitnessInput {
     }
 }
 
+impl Valid for RLNProofValuesMulti {
+    fn check(&self) -> Result<(), ArkSerializationError> {
+        self.ys.check()?;
+        self.root.check()?;
+        self.nullifiers.check()?;
+        self.x.check()?;
+        self.external_nullifier.check()?;
+        self.selector_used.check()?;
+        self.validate()
+            .map_err(|_| ArkSerializationError::InvalidData)
+    }
+}
+
+impl CanonicalDeserialize for RLNProofValuesMulti {
+    fn deserialize_with_mode<R: Read>(
+        mut reader: R,
+        compress: Compress,
+        validate: Validate,
+    ) -> Result<Self, ArkSerializationError> {
+        // Fields are deserialized unchecked; the trailing `check` below covers them.
+        let ys = Vec::<Fr>::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let root = Fr::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let nullifiers = Vec::<Fr>::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let x = Fr::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let external_nullifier = Fr::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let selector_used =
+            Vec::<bool>::deserialize_with_mode(&mut reader, compress, Validate::No)?;
+        let value = Self {
+            ys,
+            root,
+            nullifiers,
+            x,
+            external_nullifier,
+            selector_used,
+        };
+        if let Validate::Yes = validate {
+            value.check()?;
+        }
+        Ok(value)
+    }
+}
+
 impl Valid for RLNProofValues {
     fn check(&self) -> Result<(), ArkSerializationError> {
         match self {
             RLNProofValues::Single(inner) => inner.check(),
-            RLNProofValues::Multi(inner) => {
-                inner.check()?;
-                inner
-                    .validate()
-                    .map_err(|_| ArkSerializationError::InvalidData)
-            }
+            RLNProofValues::Multi(inner) => inner.check(),
         }
     }
 }

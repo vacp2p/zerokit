@@ -46,6 +46,9 @@ pub enum SerializationError {
     /// A multi proof-values had inconsistent per-slot vector lengths.
     #[error("`ys`, `nullifiers`, and `selector_used` have mismatched lengths")]
     InconsistentProofValueLengths,
+    /// A multi proof-values had no per-slot entries.
+    #[error("multi proof values must have at least one per-slot entry")]
+    EmptyProofValues,
 }
 
 /// Errors that can occur while constructing an

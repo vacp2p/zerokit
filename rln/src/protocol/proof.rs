@@ -213,7 +213,10 @@ impl RecoverSecret<RLNProofValuesMulti> for RLNProofValuesSingle {
 }
 
 /// Public proof values for Multi message-id mode.
-#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
+///
+/// `CanonicalDeserialize` is hand-written (see `serialize.rs`) so deserialization runs
+/// [`RLNProofValuesMulti::validate`].
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize)]
 pub struct RLNProofValuesMulti {
     /// The per-slot shares `ys`.
     pub(crate) ys: Vec<Fr>,
@@ -231,6 +234,9 @@ pub struct RLNProofValuesMulti {
 
 impl RLNProofValuesMulti {
     /// Computes the proof values from a Multi message-id `witness` using the protocol hash `H`.
+    ///
+    /// Assumes `w` is a validated witness; the output's validity only mirrors the input's
+    /// (the builder and deserialize paths guarantee this — a `Validate::No` witness does not).
     pub fn from_witness<H: ZerokitHasher<Scalar = Fr>>(w: &RLNWitnessInputMulti) -> Self {
         let id_commitment = compute_id_commitment::<H>(&w.identity_secret);
         let leaf = Hasher::<H>::hash_pair(id_commitment, w.user_message_limit);
@@ -261,13 +267,16 @@ impl RLNProofValuesMulti {
         }
     }
 
-    /// Checks that `ys`, `nullifiers`, and `selector_used` all have the same length.
+    /// Checks that `ys`, `nullifiers`, and `selector_used`
+    /// are non-empty and all have the same length.
     pub(crate) fn validate(&self) -> Result<(), SerializationError> {
-        if self.ys.len() == self.nullifiers.len() && self.ys.len() == self.selector_used.len() {
-            Ok(())
-        } else {
-            Err(SerializationError::InconsistentProofValueLengths)
+        if self.ys.len() != self.nullifiers.len() || self.ys.len() != self.selector_used.len() {
+            return Err(SerializationError::InconsistentProofValueLengths);
         }
+        if self.ys.is_empty() {
+            return Err(SerializationError::EmptyProofValues);
+        }
+        Ok(())
     }
 }
 
@@ -415,6 +424,32 @@ mod validation_tests {
         ));
     }
 
+    /// Consistent-but-empty vectors carry no message slot
+    #[test]
+    fn validate_rejects_empty_slots() {
+        let empty = RLNProofValuesMulti {
+            root: Fr::from(1u64),
+            x: Fr::from(2u64),
+            external_nullifier: Fr::from(3u64),
+            ys: vec![],
+            nullifiers: vec![],
+            selector_used: vec![],
+        };
+        assert!(matches!(
+            empty.validate(),
+            Err(SerializationError::EmptyProofValues)
+        ));
+
+        let mut le = Vec::new();
+        RLNProofValues::Multi(empty)
+            .serialize_compressed(&mut le)
+            .unwrap();
+        assert!(
+            RLNProofValues::deserialize_compressed(&le[..]).is_err(),
+            "deserialize must reject empty multi proof values"
+        );
+    }
+
     #[test]
     fn deserialize_rejects_mismatched_lengths() {
         let values = inconsistent_multi();
@@ -431,6 +466,16 @@ mod validation_tests {
         assert!(
             <RLNProofValues as CanonicalDeserializeBE>::deserialize(&be[..]).is_err(),
             "big-endian deserialize must reject the mismatched lengths"
+        );
+
+        let RLNProofValues::Multi(inner) = values else {
+            unreachable!("inconsistent_multi builds a Multi variant");
+        };
+        let mut inner_le = Vec::new();
+        inner.serialize_compressed(&mut inner_le).unwrap();
+        assert!(
+            RLNProofValuesMulti::deserialize_compressed(&inner_le[..]).is_err(),
+            "inner compressed deserialize must reject the mismatched lengths"
         );
     }
 

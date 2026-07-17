@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_serialize::CanonicalSerialize;
 use bon::bon;
 
 use crate::{
@@ -322,7 +322,10 @@ impl CalcWitnessPartial for RLNPartialWitnessInput {
 }
 
 /// Witness inputs for Single message-id mode.
-#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
+///
+/// `CanonicalDeserialize` is hand-written (see `serialize.rs`) so deserialization runs
+/// [`RLNWitnessInputSingle::validate`].
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize)]
 pub struct RLNWitnessInputSingle {
     pub(crate) identity_secret: SecretFr,
     pub(crate) user_message_limit: Fr,
@@ -357,7 +360,10 @@ impl RLNWitnessInputSingle {
 }
 
 /// Witness inputs for Multi message-id mode.
-#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
+///
+/// `CanonicalDeserialize` is hand-written (see `serialize.rs`) so deserialization runs
+/// [`RLNWitnessInputMulti::validate`].
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize)]
 pub struct RLNWitnessInputMulti {
     pub(crate) identity_secret: SecretFr,
     pub(crate) user_message_limit: Fr,
@@ -547,6 +553,7 @@ mod validation_tests {
     //! Witness invariant validation. Crate-internal because the inner fields are
     //! `pub(crate)`, so a malformed witness can only be built here.
 
+    use ark_serialize::CanonicalDeserialize;
     use rand::thread_rng;
 
     use super::*;
@@ -577,7 +584,8 @@ mod validation_tests {
         }
     }
 
-    /// Deserialization rejects `witness` on both the compressed and big-endian paths.
+    /// Deserialization rejects `witness` on the enum's compressed and big-endian paths, and on
+    /// the inner struct's own compressed path (reachable without going through the enum).
     fn assert_deserialize_rejects(witness: &RLNWitnessInput) {
         let mut le = Vec::new();
         witness.serialize_compressed(&mut le).unwrap();
@@ -592,6 +600,24 @@ mod validation_tests {
             <RLNWitnessInput as CanonicalDeserializeBE>::deserialize(&be[..]).is_err(),
             "big-endian deserialize must reject the invalid witness"
         );
+
+        let mut inner = Vec::new();
+        match witness {
+            RLNWitnessInput::Single(w) => {
+                w.serialize_compressed(&mut inner).unwrap();
+                assert!(
+                    RLNWitnessInputSingle::deserialize_compressed(&inner[..]).is_err(),
+                    "inner compressed deserialize must reject the invalid witness"
+                );
+            }
+            RLNWitnessInput::Multi(w) => {
+                w.serialize_compressed(&mut inner).unwrap();
+                assert!(
+                    RLNWitnessInputMulti::deserialize_compressed(&inner[..]).is_err(),
+                    "inner compressed deserialize must reject the invalid witness"
+                );
+            }
+        }
     }
 
     #[test]
