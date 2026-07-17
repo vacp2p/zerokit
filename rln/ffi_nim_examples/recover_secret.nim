@@ -35,13 +35,13 @@ proc main() =
   echo "  - first RLN witness created successfully"
 
   echo "\nGenerating first RLN proof"
-  let rlnProof1Result = ffi_rln_generate_proof(addr rlnInstance, addr witness1)
+  let rlnProof1Result = ffi_rln_generate_proof(rlnInstance, witness1)
   if rlnProof1Result.ok.isNil:
     stderr.writeLine("Proof generation error: " & asString(rlnProof1Result.err))
     ffi_c_string_free(rlnProof1Result.err)
     return
   var rlnProof1 = rlnProof1Result.ok
-  var proofValues1 = ffi_rln_proof_get_values(addr rlnProof1)
+  var proofValues1 = ffi_rln_proof_get_values(rlnProof1)
   echo "  - first proof generated successfully"
 
   echo "\nVerifying first proof"
@@ -80,14 +80,14 @@ proc main() =
   echo "  - second RLN witness created successfully"
 
   echo "\nGenerating second RLN proof"
-  let rlnProof2Result = ffi_rln_generate_proof(addr rlnInstance, addr witness2)
+  let rlnProof2Result = ffi_rln_generate_proof(rlnInstance, witness2)
   if rlnProof2Result.ok.isNil:
     stderr.writeLine("Second proof generation error: " & asString(
         rlnProof2Result.err))
     ffi_c_string_free(rlnProof2Result.err)
     return
   var rlnProof2 = rlnProof2Result.ok
-  var proofValues2 = ffi_rln_proof_get_values(addr rlnProof2)
+  var proofValues2 = ffi_rln_proof_get_values(rlnProof2)
   echo "  - second proof generated successfully"
 
   echo "\nVerifying second proof"
@@ -100,8 +100,8 @@ proc main() =
     echo "  - second proof verified successfully"
 
     echo "\nRecovering identity secret"
-    let recoverResult = ffi_rln_recover_id_secret(addr proofValues1,
-        addr proofValues2)
+    let recoverResult = ffi_rln_recover_id_secret(proofValues1,
+        proofValues2)
     if recoverResult.ok.isNil:
       stderr.writeLine("Identity recovery error: " & asString(
           recoverResult.err))

@@ -4,10 +4,7 @@ use ark_std::{rand::thread_rng, UniformRand};
 use zerokit_utils::hasher::ZerokitHasher;
 
 use crate::{
-    circuit::{
-        qap::CircomReduction, ArkGroth16Backend, CalcWitness, CalcWitnessPartial, Fr, PartialProof,
-        Proof, SecretFr,
-    },
+    circuit::{qap::CircomReduction, ArkGroth16Backend, Fr, PartialProof, Proof, SecretFr},
     error::{GenerateProofError, VerifyProofError},
     partial_proof::{Groth16Partial, PartialAssignment},
     protocol::{

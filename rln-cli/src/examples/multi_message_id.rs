@@ -10,7 +10,7 @@ use rln::prelude::{
     IdentityKeys, PmTree, PmTreeSledConfig, PoseidonHash, RLNBuilder, RLNProofValues,
     RLNWitnessInput, RecoverSecret, SledDB, Stateful, RLN,
 };
-use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
+use zerokit_utils::merkle_tree::ZerokitMerkleTree;
 
 const MESSAGE_LIMIT: u32 = 4;
 
@@ -169,8 +169,7 @@ impl RLNSystem {
         let witness = RLNWitnessInput::new_multi()
             .identity_secret(identity_keys.identity_secret())
             .user_message_limit(Fr::from(MESSAGE_LIMIT))
-            .path_elements(merkle_proof.get_path_elements())
-            .identity_path_index(merkle_proof.get_path_index())
+            .merkle_proof(&merkle_proof)
             .x(x)
             .external_nullifier(external_nullifier)
             .message_ids(message_ids)

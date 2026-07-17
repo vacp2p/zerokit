@@ -29,6 +29,7 @@ typedef FFI_Result_FFI_Fr_ptr_Vec_uint8_t FrResult;
 typedef FFI_Result_FFI_SecretFr_ptr_Vec_uint8_t SecretFrResult;
 typedef FFI_Result_Vec_FFI_Fr_Vec_uint8_t VecFrResult;
 typedef FFI_Result_Vec_uint8_Vec_uint8_t VecU8Result;
+typedef FFI_Result_Vec_bool_Vec_uint8_t VecBoolResult;
 
 #define TREE_DEPTH 20
 #define MAX_OUT 4
@@ -68,28 +69,28 @@ int file_to_bytes(const char *path, Vec_uint8 *out)
 void print_fr(const char *label, const Fr *value)
 {
     Vec_uint8 debug = ffi_fr_debug(value);
-    printf("  - %s = %s\n", label, debug.ptr);
+    printf("  - %s = %.*s\n", label, (int)debug.len, (char *)debug.ptr);
     ffi_c_string_free(debug);
 }
 
 void print_secret_fr(const char *label, const SecretFr *value)
 {
     Vec_uint8 debug = ffi_secret_fr_debug(value);
-    printf("  - %s = %s\n", label, debug.ptr);
+    printf("  - %s = %.*s\n", label, (int)debug.len, (char *)debug.ptr);
     ffi_c_string_free(debug);
 }
 
 void print_vec_fr(const char *label, const Vec_Fr *value)
 {
     Vec_uint8 debug = ffi_vec_fr_debug(value);
-    printf("  - %s = %s\n", label, debug.ptr);
+    printf("  - %s = %.*s\n", label, (int)debug.len, (char *)debug.ptr);
     ffi_c_string_free(debug);
 }
 
 void print_vec_u8(const char *label, const Vec_uint8 *value)
 {
     Vec_uint8 debug = ffi_vec_u8_debug(value);
-    printf("  - %s = %s\n", label, debug.ptr);
+    printf("  - %s = %.*s\n", label, (int)debug.len, (char *)debug.ptr);
     ffi_c_string_free(debug);
 }
 
@@ -134,7 +135,8 @@ RLN *init_rln(bool enable_multi_message_id)
     free(graph_data.ptr);
     if (!rln_instance_result.ok)
     {
-        fprintf(stderr, "RLN instance creation error: %s\n", rln_instance_result.err.ptr);
+        fprintf(stderr, "RLN instance creation error: %.*s\n",
+                (int)rln_instance_result.err.len, (char *)rln_instance_result.err.ptr);
         ffi_c_string_free(rln_instance_result.err);
         return NULL;
     }
@@ -162,7 +164,8 @@ RLN *init_rln_stateless(void)
     free(graph_data.ptr);
     if (!rln_instance_result.ok)
     {
-        fprintf(stderr, "RLN instance creation error: %s\n", rln_instance_result.err.ptr);
+        fprintf(stderr, "RLN instance creation error: %.*s\n",
+                (int)rln_instance_result.err.len, (char *)rln_instance_result.err.ptr);
         ffi_c_string_free(rln_instance_result.err);
         return NULL;
     }
@@ -203,14 +206,15 @@ void member_free(Member *member)
     ffi_fr_free(member->id_commitment);
 }
 
-MerkleProof *register_member(RLN **rln_instance,
+MerkleProof *register_member(RLN *rln_instance,
                              const Fr *rate_commitment)
 {
     printf("\nAdding rate commitment to tree\n");
     CBoolResult set_leaf_result = ffi_rln_set_next_leaf(rln_instance, rate_commitment);
     if (!set_leaf_result.ok)
     {
-        fprintf(stderr, "Adding rate commitment error: %s\n", set_leaf_result.err.ptr);
+        fprintf(stderr, "Adding rate commitment error: %.*s\n",
+                (int)set_leaf_result.err.len, (char *)set_leaf_result.err.ptr);
         ffi_c_string_free(set_leaf_result.err);
         return NULL;
     }
@@ -221,7 +225,8 @@ MerkleProof *register_member(RLN **rln_instance,
         ffi_rln_get_merkle_proof(rln_instance, 0);
     if (!merkle_proof_result.ok)
     {
-        fprintf(stderr, "Merkle proof error: %s\n", merkle_proof_result.err.ptr);
+        fprintf(stderr, "Merkle proof error: %.*s\n",
+                (int)merkle_proof_result.err.len, (char *)merkle_proof_result.err.ptr);
         ffi_c_string_free(merkle_proof_result.err);
         return NULL;
     }
@@ -263,15 +268,19 @@ create_witness(const Member *member, const MerkleProof *merkle_proof,
 {
     return ffi_rln_witness_input_new_single(member->identity_secret,
                                             member->user_message_limit, message_id,
-                                            &merkle_proof->path_elements,
-                                            &merkle_proof->path_index, x,
-                                            external_nullifier);
+                                            merkle_proof, x, external_nullifier);
 }
 
 CBoolResult
-verify_stateful_proof(RLN **rln_instance, Proof **rln_proof, const Fr *x)
+verify_stateful_proof(RLN *rln_instance, Proof *rln_proof, const Fr *x)
 {
-    Fr *root = ffi_rln_get_root(rln_instance);
+    FrResult root_result = ffi_rln_get_root(rln_instance);
+    if (!root_result.ok)
+    {
+        CBoolResult error_result = {false, root_result.err};
+        return error_result;
+    }
+    Fr *root = root_result.ok;
     Vec_Fr roots = ffi_vec_fr_from_fr(root);
     CBoolResult result = ffi_rln_verify_with_roots(rln_instance, rln_proof, &roots, x);
     ffi_vec_fr_free(roots);

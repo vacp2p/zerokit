@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use rand::{rngs::ThreadRng, thread_rng};
 use rln::prelude::*;
-use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
+use zerokit_utils::merkle_tree::ZerokitMerkleTree;
 
 fn get_test_witness() -> RLNWitnessInput {
     let leaf_index = 3;
@@ -27,8 +27,7 @@ fn get_test_witness() -> RLNWitnessInput {
     RLNWitnessInput::new_single()
         .identity_secret(identity_keys.identity_secret())
         .user_message_limit(user_message_limit)
-        .path_elements(merkle_proof.get_path_elements())
-        .identity_path_index(merkle_proof.get_path_index())
+        .merkle_proof(&merkle_proof)
         .x(x)
         .external_nullifier(external_nullifier)
         .message_id(message_id)

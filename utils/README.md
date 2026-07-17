@@ -76,8 +76,9 @@ Both `OptimalMerkleTree` and `FullMerkleTree` internally utilize the Rayon crate
 to accelerate computations through data parallelism.
 This can lead to significant performance improvements, particularly during updates to large Merkle trees.
 
-Parallel hashing only engages once a tree level has at least `MIN_PARALLEL_NODES` nodes to hash;
-below this threshold the thread-pool overhead would outweigh the gain.
+Parallel hashing only engages once a tree level has at least `MIN_PARALLEL_NODES` nodes to hash in parallel
+(currently `8`); below this threshold the thread-pool overhead would outweigh the benefits of parallelism.
+The number of worker threads is chosen by Rayon based on the available CPU cores.
 
 ## Poseidon Hash Implementation
 

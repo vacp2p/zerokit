@@ -86,6 +86,8 @@ async function main() {
   const proofValues1 = rlnProof1.getValues();
   console.log("  - ys = " + proofValues1.ys().debug());
   console.log("  - nullifiers = " + proofValues1.nullifiers().debug());
+  const selectorUsed = Array.from(proofValues1.selectorUsed(), (b) => b !== 0);
+  console.log("  - selector used = [" + selectorUsed.join(", ") + "]");
   console.log("  - root = " + proofValues1.root().debug());
   console.log("  - x = " + proofValues1.x().debug());
   console.log(

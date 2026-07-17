@@ -23,8 +23,8 @@ pub struct Stateful<T> {
 
 /// Type-state marker for an [`RLN`] instance that does not own a Merkle tree.
 ///
-/// The Merkle tree is managed externally; the caller supplies the Merkle proof inputs
-/// (`path_elements` and `identity_path_index`) when building a witness.
+/// The Merkle tree is managed externally; the caller supplies the Merkle proof inputs as an
+/// [`RLNMerkleProof`](crate::protocol::RLNMerkleProof) when building a witness.
 #[derive(Debug, Clone)]
 pub struct Stateless;
 
@@ -158,9 +158,9 @@ where
     /// ## Example:
     ///
     /// ```
+    /// // The proof feeds the witness directly through their `merkle_proof` setter.
     /// let merkle_proof = rln.get_merkle_proof(10)?;
-    /// let path_elements = merkle_proof.get_path_elements();
-    /// let identity_path_index = merkle_proof.get_path_index();
+    /// let witness = RLNWitnessInput::new_single().merkle_proof(&merkle_proof);
     /// ```
     pub fn get_merkle_proof(&self, index: usize) -> Result<T::Proof, T::Error> {
         self.state.tree.proof(index)
@@ -248,6 +248,9 @@ where
 {
     /// Verifies a `proof` against its proof `values` and checks that the signal `x` matches the
     /// value bound in the proof.
+    ///
+    /// Returns the zkSNARK verdict: `Ok(false)` means the proof is invalid. A signal mismatch is
+    /// reported as [`VerifyProofError::InvalidSignal`] before verification runs.
     pub fn verify_with_signal(
         &self,
         proof: &Proof,
@@ -257,17 +260,15 @@ where
         if x != &values.x() {
             return Err(VerifyProofError::InvalidSignal);
         }
-        if !self.zkp.verify(proof, values)? {
-            return Err(VerifyProofError::InvalidProof);
-        }
-        Ok(true)
+        self.zkp.verify(proof, values)
     }
 
     /// Verifies a `proof` against its proof `values`, checks the signal `x`, and checks that the
     /// proof root is among `roots`.
     ///
-    /// If `roots` is empty, the root check is skipped. The signal check is the same as in
-    /// [`Self::verify_with_signal`].
+    /// If `roots` is empty, the root check is skipped. The signal check and the returned verdict
+    /// are the same as in [`Self::verify_with_signal`]; a root mismatch is reported as
+    /// [`VerifyProofError::InvalidRoot`].
     ///
     /// ## Example:
     ///

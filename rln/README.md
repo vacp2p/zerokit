@@ -20,7 +20,7 @@ We start by adding zerokit RLN to our `Cargo.toml`
 
 ```toml
 [dependencies]
-rand = "0.8.6"
+rand = "0.8.7"
 rln = "3.0.0"
 zerokit-utils = "3.0.0"
 ```
@@ -41,11 +41,11 @@ use rln::prelude::{
     hash_to_field_le, Fr, Hasher, IdentityKeys, PoseidonHash, RLNBuilder, RLNWitnessInput,
     DEFAULT_TREE_DEPTH,
 };
-use zerokit_utils::merkle_tree::{OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree};
+use zerokit_utils::merkle_tree::{OptimalMerkleTree, ZerokitMerkleTree};
 
 fn main() {
     // 1. Build an in-memory Merkle tree with a given depth. For a persistent sled-backed
-    // tree, use the `PmTree` type instead (see the tree variants under Features).
+    // tree, use the `PmTree` type instead (see the tree variants under Features section).
     let tree = OptimalMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH).unwrap();
 
     // 2. Build a stateful RLN over the tree; on native targets the circuit `graph` and `zkey`
@@ -81,8 +81,7 @@ fn main() {
     let witness = RLNWitnessInput::new_single()
         .identity_secret(identity_keys.identity_secret())
         .user_message_limit(user_message_limit)
-        .path_elements(merkle_proof.get_path_elements())
-        .identity_path_index(merkle_proof.get_path_index())
+        .merkle_proof(&merkle_proof)
         .x(x)
         .external_nullifier(external_nullifier)
         .message_id(message_id)
@@ -149,6 +148,18 @@ git clone https://github.com/vacp2p/zerokit.git
 cd zerokit/rln
 make installdeps
 ```
+
+`make installdeps` installs the build dependencies:
+
+- [cargo-make](https://github.com/sagiegurari/cargo-make): the build and test runner.
+- [cmake](https://github.com/kitware/cmake) and [ninja-build](https://github.com/ninja-build/ninja): native build tools.
+- [wasm-pack](https://github.com/wasm-bindgen/wasm-pack) `0.15.0` and Node.js `22.14.0` via
+  [nvm](https://github.com/nvm-sh/nvm) (only needed for `rln-wasm` builds and tests).
+
+Automatic installation supports macOS (Homebrew) and Debian/Ubuntu (apt);
+on NixOS the packages are expected to come from your system configuration.
+On other systems (Windows, Fedora, ...), install the packages above manually,
+then run the `cargo make` commands directly.
 
 ### Build Commands
 
@@ -318,6 +329,18 @@ The FFI layer is organized into several modules:
 - [`ffi_utils.rs`](./src/ffi/ffi_utils.rs) - Contains all utility functions
   and structure definitions used across the FFI layer.
 
+Compared to the native Rust API, the FFI layer has the following limitations:
+
+- Poseidon is the only supported hash; the generic `ZerokitHasher` layer is not exposed.
+- Proofs are always Groth16 over BN254 (`ArkGroth16Backend`); the zkSNARK backend is not
+  pluggable.
+- Tree selection is limited to the built-in backends (`FullMerkleTree`, `OptimalMerkleTree`
+  and the sled-backed `PmTree`); custom `ZerokitMerkleTree` implementations cannot cross the
+  C boundary.
+- Errors are returned as strings rather than typed errors.
+- Identity secrets stay behind opaque handles that only expose redacted debug output and
+  equality checks; raw secret bytes never cross the boundary on their own.
+
 Working examples for C and Nim live in [ffi_c_examples](./ffi_c_examples) and
 [ffi_nim_examples](./ffi_nim_examples), each with its own README and build instructions.
 
@@ -393,8 +416,8 @@ the cached data is invalidated often and the overhead of pre-computation may out
    `id_commitment = Poseidon(id_secret)`.
    The secret proves membership; only the commitment is shared.
 2. **Rate Commitment**: Compute `rate_commitment = Poseidon(id_commitment, user_message_limit)`
-   and insert it as a leaf in the Merkle tree.
-   This registers the member and binds it to a per-epoch message budget.
+   and insert it as a leaf in the Merkle tree. This registers the member and binds that member
+   to a per-epoch message budget.
 3. **External Nullifier Setup**: Compute `external_nullifier = Poseidon(epoch, rln_identifier)`,
    scoping proofs to a time window (`epoch`) and to one application (`rln_identifier`)
    so a proof generated for one application cannot be replayed in another.

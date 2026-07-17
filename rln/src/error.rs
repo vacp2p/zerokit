@@ -137,9 +137,6 @@ pub enum GenerateProofError {
 /// Errors that can occur while verifying a proof.
 #[derive(Debug, thiserror::Error)]
 pub enum VerifyProofError {
-    /// The zkSNARK proof failed verification.
-    #[error("Invalid proof provided")]
-    InvalidProof,
     /// The proof root was not among the provided roots.
     #[error("Expected one of the provided roots")]
     InvalidRoot,

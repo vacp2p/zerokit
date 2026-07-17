@@ -114,8 +114,7 @@ impl WasmRLNWitnessInput {
         let witness = RLNWitnessInput::new_single()
             .identity_secret(identity_secret.inner().clone())
             .user_message_limit(user_message_limit.inner())
-            .path_elements(path_elements)
-            .identity_path_index(identity_path_index)
+            .merkle_proof(RLNMerkleProof::new(path_elements, identity_path_index))
             .x(x.inner())
             .external_nullifier(external_nullifier.inner())
             .message_id(message_id.inner())
@@ -146,8 +145,7 @@ impl WasmRLNWitnessInput {
         let witness = RLNWitnessInput::new_multi()
             .identity_secret(identity_secret.inner().clone())
             .user_message_limit(user_message_limit.inner())
-            .path_elements(path_elements)
-            .identity_path_index(identity_path_index)
+            .merkle_proof(RLNMerkleProof::new(path_elements, identity_path_index))
             .x(x.inner())
             .external_nullifier(external_nullifier.inner())
             .message_ids(message_ids)
@@ -265,8 +263,7 @@ impl WasmRLNPartialWitnessInput {
         let witness = RLNPartialWitnessInput::new()
             .identity_secret(identity_secret.inner().clone())
             .user_message_limit(user_message_limit.inner())
-            .path_elements(path_elements)
-            .identity_path_index(identity_path_index)
+            .merkle_proof(RLNMerkleProof::new(path_elements, identity_path_index))
             .build()
             .map_err(|err| err.to_string())?;
 
@@ -464,7 +461,7 @@ impl WasmRLNProofValues {
     }
 
     #[wasm_bindgen(js_name = computeIdSecret)]
-    pub fn compute_id_secret_from_shares(
+    pub fn compute_id_secret(
         share1_x: &WasmFr,
         share1_y: &WasmFr,
         share2_x: &WasmFr,

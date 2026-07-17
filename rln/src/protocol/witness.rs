@@ -1,19 +1,60 @@
 use std::collections::HashSet;
 
-use ark_serialize::CanonicalSerialize;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bon::bon;
+use zerokit_utils::{hasher::ZerokitHasher, merkle_tree::ZerokitMerkleProof};
 
 use crate::{
     circuit::{
         error::WitnessCalcError,
         iden3calc::{calc_witness, calc_witness_partial},
-        CalcWitness, CalcWitnessPartial, Fr, FrOrSecret, Graph, SecretFr,
+        Fr, FrOrSecret, Graph, SecretFr,
     },
     error::{
         GenerateProofError, PartialWitnessInputError, WitnessInputMultiError,
         WitnessInputSingleError,
     },
 };
+
+/// A Merkle proof consisting of the path elements and the path index.
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
+pub struct RLNMerkleProof {
+    pub(crate) path_elements: Vec<Fr>,
+    pub(crate) identity_path_index: Vec<u8>,
+}
+
+impl RLNMerkleProof {
+    /// Creates a new Merkle proof from the given path elements and path index.
+    pub fn new(path_elements: Vec<Fr>, identity_path_index: Vec<u8>) -> Self {
+        Self {
+            path_elements,
+            identity_path_index,
+        }
+    }
+
+    /// Returns the path elements.
+    pub fn path_elements(&self) -> &[Fr] {
+        &self.path_elements
+    }
+
+    /// Returns the path index.
+    pub fn identity_path_index(&self) -> &[u8] {
+        &self.identity_path_index
+    }
+}
+
+impl<P> From<&P> for RLNMerkleProof
+where
+    P: ZerokitMerkleProof<Index = u8>,
+    P::Hasher: ZerokitHasher<Scalar = Fr>,
+{
+    fn from(proof: &P) -> Self {
+        Self {
+            path_elements: proof.get_path_elements(),
+            identity_path_index: proof.get_path_index(),
+        }
+    }
+}
 
 /// The witness inputs for an RLN proof, in either Single or Multi message-id mode.
 #[derive(Debug, Clone, PartialEq)]
@@ -52,6 +93,14 @@ impl RLNWitnessInput {
         match self {
             Self::Single(w) => &w.identity_path_index,
             Self::Multi(w) => &w.identity_path_index,
+        }
+    }
+
+    /// Returns the Merkle proof as an `RLNMerkleProof`.
+    pub fn merkle_proof(&self) -> RLNMerkleProof {
+        RLNMerkleProof {
+            path_elements: self.path_elements().to_vec(),
+            identity_path_index: self.identity_path_index().to_vec(),
         }
     }
 
@@ -103,12 +152,15 @@ impl RLNWitnessInput {
     pub fn new_single(
         identity_secret: SecretFr,
         user_message_limit: Fr,
-        path_elements: Vec<Fr>,
-        identity_path_index: Vec<u8>,
+        #[builder(into)] merkle_proof: RLNMerkleProof,
         x: Fr,
         external_nullifier: Fr,
         message_id: Fr,
     ) -> Result<Self, WitnessInputSingleError> {
+        let RLNMerkleProof {
+            path_elements,
+            identity_path_index,
+        } = merkle_proof;
         let inner = RLNWitnessInputSingle {
             identity_secret,
             user_message_limit,
@@ -128,13 +180,16 @@ impl RLNWitnessInput {
     pub fn new_multi(
         identity_secret: SecretFr,
         user_message_limit: Fr,
-        path_elements: Vec<Fr>,
-        identity_path_index: Vec<u8>,
+        #[builder(into)] merkle_proof: RLNMerkleProof,
         x: Fr,
         external_nullifier: Fr,
         message_ids: Vec<Fr>,
         selector_used: Vec<bool>,
     ) -> Result<Self, WitnessInputMultiError> {
+        let RLNMerkleProof {
+            path_elements,
+            identity_path_index,
+        } = merkle_proof;
         let inner = RLNWitnessInputMulti {
             identity_secret,
             user_message_limit,
@@ -206,8 +261,9 @@ impl From<RLNWitnessInputMulti> for RLNWitnessInput {
     }
 }
 
-impl CalcWitness for RLNWitnessInput {
-    fn calc_witness(&self, graph: &Graph) -> Result<Vec<Fr>, WitnessCalcError> {
+impl RLNWitnessInput {
+    /// Calculates the full circuit witness assignment directly from the input fields.
+    pub(crate) fn calc_witness(&self, graph: &Graph) -> Result<Vec<Fr>, WitnessCalcError> {
         let inputs: Vec<(String, Vec<FrOrSecret>)> = match self {
             Self::Single(w) => vec![
                 (
@@ -278,8 +334,12 @@ impl CalcWitness for RLNWitnessInput {
     }
 }
 
-impl CalcWitnessPartial for RLNPartialWitnessInput {
-    fn calc_witness_partial(&self, graph: &Graph) -> Result<Vec<Option<Fr>>, WitnessCalcError> {
+impl RLNPartialWitnessInput {
+    /// Calculates the partial circuit witness assignment; unknown dynamic inputs become `None`.
+    pub(crate) fn calc_witness_partial(
+        &self,
+        graph: &Graph,
+    ) -> Result<Vec<Option<Fr>>, WitnessCalcError> {
         let identity_path_index_fr: Vec<Option<FrOrSecret>> = self
             .identity_path_index
             .iter()
@@ -456,9 +516,12 @@ impl RLNPartialWitnessInput {
     pub fn create(
         identity_secret: SecretFr,
         user_message_limit: Fr,
-        path_elements: Vec<Fr>,
-        identity_path_index: Vec<u8>,
+        #[builder(into)] merkle_proof: RLNMerkleProof,
     ) -> Result<Self, PartialWitnessInputError> {
+        let RLNMerkleProof {
+            path_elements,
+            identity_path_index,
+        } = merkle_proof;
         let partial = Self {
             identity_secret,
             user_message_limit,

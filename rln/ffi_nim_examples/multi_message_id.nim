@@ -14,8 +14,8 @@ proc createMultiWitness(member: Member,
   var selectorVec = Vec_bool(dataPtr: addr selectorUsed[0],
       len: csize_t(maxOut), cap: csize_t(maxOut))
   ffi_rln_witness_input_new_multi(member.identitySecret,
-      member.userMessageLimit, messageIds, addr merkleProof.path_elements,
-      addr merkleProof.path_index, x, externalNullifier, addr selectorVec)
+      member.userMessageLimit, messageIds, merkleProof, x, externalNullifier,
+      addr selectorVec)
 
 proc main() =
   var rlnInstance = initRLN(true)
@@ -54,7 +54,7 @@ proc main() =
   echo "  - first RLN witness created successfully"
 
   echo "\nGenerating first RLN proof"
-  let rlnProof1Result = ffi_rln_generate_proof(addr rlnInstance, addr witness1)
+  let rlnProof1Result = ffi_rln_generate_proof(rlnInstance, witness1)
   if rlnProof1Result.ok.isNil:
     stderr.writeLine("Proof generation error: " & asString(rlnProof1Result.err))
     ffi_c_string_free(rlnProof1Result.err)
@@ -63,8 +63,8 @@ proc main() =
   echo "  - proof generated successfully"
 
   echo "\nGetting first RLN proof values"
-  var proofValues1 = ffi_rln_proof_get_values(addr rlnProof1)
-  let ys1Result = ffi_rln_proof_values_get_ys(addr proofValues1)
+  var proofValues1 = ffi_rln_proof_get_values(rlnProof1)
+  let ys1Result = ffi_rln_proof_values_get_ys(proofValues1)
   if ys1Result.err.dataPtr != nil:
     stderr.writeLine("Get ys error: " & asString(ys1Result.err))
     ffi_c_string_free(ys1Result.err)
@@ -72,7 +72,7 @@ proc main() =
   var ys1 = ys1Result.ok
   printVecFr("ys", addr ys1)
   ffi_vec_fr_free(ys1)
-  let nullifiers1Result = ffi_rln_proof_values_get_nullifiers(addr proofValues1)
+  let nullifiers1Result = ffi_rln_proof_values_get_nullifiers(proofValues1)
   if nullifiers1Result.err.dataPtr != nil:
     stderr.writeLine("Get nullifiers error: " & asString(nullifiers1Result.err))
     ffi_c_string_free(nullifiers1Result.err)
@@ -80,14 +80,30 @@ proc main() =
   var nullifiers1 = nullifiers1Result.ok
   printVecFr("nullifiers", addr nullifiers1)
   ffi_vec_fr_free(nullifiers1)
-  let proofValues1Root = ffi_rln_proof_values_get_root(addr proofValues1)
+  let selectorUsedResult = ffi_rln_proof_values_get_selector_used(
+      proofValues1)
+  if selectorUsedResult.err.dataPtr != nil:
+    stderr.writeLine("Get selector used error: " & asString(
+        selectorUsedResult.err))
+    ffi_c_string_free(selectorUsedResult.err)
+    return
+  let proofSelectorUsed = selectorUsedResult.ok
+  var selectorStr = ""
+  for i in 0 ..< int(proofSelectorUsed.len):
+    if i > 0:
+      selectorStr.add(", ")
+    let slot = cast[ptr UncheckedArray[bool]](proofSelectorUsed.dataPtr)[i]
+    selectorStr.add(if slot: "true" else: "false")
+  echo "  - selector used = [" & selectorStr & "]"
+  ffi_vec_bool_free(proofSelectorUsed)
+  let proofValues1Root = ffi_rln_proof_values_get_root(proofValues1)
   printFr("root", proofValues1Root)
   ffi_fr_free(proofValues1Root)
-  let proofValues1X = ffi_rln_proof_values_get_x(addr proofValues1)
+  let proofValues1X = ffi_rln_proof_values_get_x(proofValues1)
   printFr("x", proofValues1X)
   ffi_fr_free(proofValues1X)
   let proofValues1ExternalNullifier =
-    ffi_rln_proof_values_get_external_nullifier(addr proofValues1)
+    ffi_rln_proof_values_get_external_nullifier(proofValues1)
   printFr("external nullifier", proofValues1ExternalNullifier)
   ffi_fr_free(proofValues1ExternalNullifier)
 
@@ -130,14 +146,14 @@ proc main() =
   echo "  - second RLN witness created successfully"
 
   echo "\nGenerating second RLN proof"
-  let rlnProof2Result = ffi_rln_generate_proof(addr rlnInstance, addr witness2)
+  let rlnProof2Result = ffi_rln_generate_proof(rlnInstance, witness2)
   if rlnProof2Result.ok.isNil:
     stderr.writeLine("Second proof generation error: " & asString(
         rlnProof2Result.err))
     ffi_c_string_free(rlnProof2Result.err)
     return
   var rlnProof2 = rlnProof2Result.ok
-  var proofValues2 = ffi_rln_proof_get_values(addr rlnProof2)
+  var proofValues2 = ffi_rln_proof_get_values(rlnProof2)
   echo "  - second proof generated successfully"
 
   echo "\nVerifying second proof"
@@ -150,8 +166,8 @@ proc main() =
     echo "  - second proof verified successfully"
 
     echo "\nRecovering identity secret"
-    let recoverResult = ffi_rln_recover_id_secret(addr proofValues1,
-        addr proofValues2)
+    let recoverResult = ffi_rln_recover_id_secret(proofValues1,
+        proofValues2)
     if recoverResult.ok.isNil:
       stderr.writeLine("Identity recovery error: " & asString(
           recoverResult.err))

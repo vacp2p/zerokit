@@ -231,25 +231,25 @@ mod test {
         CanonicalSerializeBE::serialize(&signal, &mut expected_be).unwrap();
         assert_eq!(bytes_be.iter().copied().collect::<Vec<_>>(), expected_be);
 
-        let signal_from_le = match ffi_bytes_le_to_vec_u8(&bytes_le) {
+        let signal_from_le = match ffi_vec_u8_from_bytes_le(&bytes_le) {
             FFI_Result {
                 ok: Some(vec_u8),
                 err: None,
             } => vec_u8,
             FFI_Result { err: Some(err), .. } => {
-                panic!("ffi_bytes_le_to_vec_u8 call failed: {}", err)
+                panic!("ffi_vec_u8_from_bytes_le call failed: {}", err)
             }
             _ => unreachable!(),
         };
         assert_eq!(signal_from_le.iter().copied().collect::<Vec<_>>(), signal);
 
-        let signal_from_be = match ffi_bytes_be_to_vec_u8(&bytes_be) {
+        let signal_from_be = match ffi_vec_u8_from_bytes_be(&bytes_be) {
             FFI_Result {
                 ok: Some(vec_u8),
                 err: None,
             } => vec_u8,
             FFI_Result { err: Some(err), .. } => {
-                panic!("ffi_bytes_be_to_vec_u8 call failed: {}", err)
+                panic!("ffi_vec_u8_from_bytes_be call failed: {}", err)
             }
             _ => unreachable!(),
         };
@@ -292,13 +292,13 @@ mod test {
         CanonicalSerializeBE::serialize(&vec_fr.to_vec(), &mut expected_be).unwrap();
         assert_eq!(bytes_be.iter().copied().collect::<Vec<_>>(), expected_be);
 
-        let ffi_vec_fr_from_le = match ffi_bytes_le_to_vec_fr(&bytes_le) {
+        let ffi_vec_fr_from_le = match ffi_vec_fr_from_bytes_le(&bytes_le) {
             FFI_Result {
                 ok: Some(ffi_vec_fr),
                 err: None,
             } => ffi_vec_fr,
             FFI_Result { err: Some(err), .. } => {
-                panic!("ffi_bytes_le_to_vec_fr call failed: {}", err)
+                panic!("ffi_vec_fr_from_bytes_le call failed: {}", err)
             }
             _ => unreachable!(),
         };
@@ -307,13 +307,13 @@ mod test {
             ffi_vec_fr
         );
 
-        let ffi_vec_fr_from_be = match ffi_bytes_be_to_vec_fr(&bytes_be) {
+        let ffi_vec_fr_from_be = match ffi_vec_fr_from_bytes_be(&bytes_be) {
             FFI_Result {
                 ok: Some(ffi_vec_fr),
                 err: None,
             } => ffi_vec_fr,
             FFI_Result { err: Some(err), .. } => {
-                panic!("ffi_bytes_be_to_vec_fr call failed: {}", err)
+                panic!("ffi_vec_fr_from_bytes_be call failed: {}", err)
             }
             _ => unreachable!(),
         };

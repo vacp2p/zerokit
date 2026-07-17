@@ -57,13 +57,14 @@ int main(void)
     print_fr("message id", message_id);
 
     printf("\nCreating RLN witness\n");
+    MerkleProof *merkle_proof = ffi_rln_merkle_proof_new(&path_elements, &path_index);
     WitnessResult witness_result =
         ffi_rln_witness_input_new_single(member.identity_secret, member.user_message_limit,
-                                         message_id, &path_elements, &path_index, x,
-                                         external_nullifier);
+                                         message_id, merkle_proof, x, external_nullifier);
     if (!witness_result.ok)
     {
-        fprintf(stderr, "Witness creation error: %s\n", witness_result.err.ptr);
+        fprintf(stderr, "Witness creation error: %.*s\n",
+                (int)witness_result.err.len, (char *)witness_result.err.ptr);
         ffi_c_string_free(witness_result.err);
         return EXIT_FAILURE;
     }
@@ -72,10 +73,11 @@ int main(void)
 
     printf("\nGenerating RLN proof\n");
     ProofResult rln_proof_result =
-        ffi_rln_generate_proof(&rln_instance, &witness);
+        ffi_rln_generate_proof(rln_instance, witness);
     if (!rln_proof_result.ok)
     {
-        fprintf(stderr, "Proof generation error: %s\n", rln_proof_result.err.ptr);
+        fprintf(stderr, "Proof generation error: %.*s\n",
+                (int)rln_proof_result.err.len, (char *)rln_proof_result.err.ptr);
         ffi_c_string_free(rln_proof_result.err);
         return EXIT_FAILURE;
     }
@@ -83,42 +85,45 @@ int main(void)
     printf("  - proof generated successfully\n");
 
     printf("\nGetting RLN proof values\n");
-    ProofValues *proof_values = ffi_rln_proof_get_values(&rln_proof);
-    FrResult y_result = ffi_rln_proof_values_get_y(&proof_values);
+    ProofValues *proof_values = ffi_rln_proof_get_values(rln_proof);
+    FrResult y_result = ffi_rln_proof_values_get_y(proof_values);
     if (!y_result.ok)
     {
-        fprintf(stderr, "Get y error: %s\n", y_result.err.ptr);
+        fprintf(stderr, "Get y error: %.*s\n",
+                (int)y_result.err.len, (char *)y_result.err.ptr);
         ffi_c_string_free(y_result.err);
         return EXIT_FAILURE;
     }
     print_fr("y", y_result.ok);
     ffi_fr_free(y_result.ok);
-    FrResult nullifier_result = ffi_rln_proof_values_get_nullifier(&proof_values);
+    FrResult nullifier_result = ffi_rln_proof_values_get_nullifier(proof_values);
     if (!nullifier_result.ok)
     {
-        fprintf(stderr, "Get nullifier error: %s\n", nullifier_result.err.ptr);
+        fprintf(stderr, "Get nullifier error: %.*s\n",
+                (int)nullifier_result.err.len, (char *)nullifier_result.err.ptr);
         ffi_c_string_free(nullifier_result.err);
         return EXIT_FAILURE;
     }
     print_fr("nullifier", nullifier_result.ok);
     ffi_fr_free(nullifier_result.ok);
-    Fr *proof_values_root = ffi_rln_proof_values_get_root(&proof_values);
+    Fr *proof_values_root = ffi_rln_proof_values_get_root(proof_values);
     print_fr("root", proof_values_root);
     ffi_fr_free(proof_values_root);
-    Fr *proof_values_x = ffi_rln_proof_values_get_x(&proof_values);
+    Fr *proof_values_x = ffi_rln_proof_values_get_x(proof_values);
     print_fr("x", proof_values_x);
     ffi_fr_free(proof_values_x);
     Fr *proof_values_external_nullifier =
-        ffi_rln_proof_values_get_external_nullifier(&proof_values);
+        ffi_rln_proof_values_get_external_nullifier(proof_values);
     print_fr("external nullifier", proof_values_external_nullifier);
     ffi_fr_free(proof_values_external_nullifier);
 
     printf("\nVerifying proof\n");
     CBoolResult verify_result =
-        ffi_rln_verify_with_roots(&rln_instance, &rln_proof, &roots, x);
+        ffi_rln_verify_with_roots(rln_instance, rln_proof, &roots, x);
     if (verify_result.err.ptr)
     {
-        fprintf(stderr, "Proof verification error: %s\n", verify_result.err.ptr);
+        fprintf(stderr, "Proof verification error: %.*s\n",
+                (int)verify_result.err.len, (char *)verify_result.err.ptr);
         ffi_c_string_free(verify_result.err);
         return EXIT_FAILURE;
     }
@@ -135,6 +140,7 @@ int main(void)
     ffi_rln_proof_values_free(proof_values);
     ffi_rln_proof_free(rln_proof);
     ffi_rln_witness_input_free(witness);
+    ffi_rln_merkle_proof_free(merkle_proof);
     ffi_fr_free(message_id);
     ffi_fr_free(x);
     ffi_fr_free(external_nullifier);

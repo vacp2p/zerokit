@@ -13,7 +13,8 @@ use super::{
     keygen::{ExtendedIdentityKeys, IdentityKeys},
     proof::{RLNProof, RLNProofValues, RLNProofValuesMulti, RLNProofValuesSingle},
     witness::{
-        RLNPartialWitnessInput, RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle,
+        RLNMerkleProof, RLNPartialWitnessInput, RLNWitnessInput, RLNWitnessInputMulti,
+        RLNWitnessInputSingle,
     },
 };
 use crate::{
@@ -21,20 +22,17 @@ use crate::{
     error::SerializationError,
 };
 
-/// Byte size of a Groth16 proof in arkworks compressed form.
-pub const COMPRESS_PROOF_SIZE: usize = 128;
-
 /// Byte size of the enum variant tag prepended to serialized enum types.
-pub const ENUM_TAG_SIZE: usize = 1;
+const ENUM_TAG_SIZE: usize = 1;
 
 /// Tag byte for the `Single` variant - Single message-id mode.
-pub const ENUM_TAG_SINGLE: u8 = 0;
+const ENUM_TAG_SINGLE: u8 = 0;
 
 /// Tag byte for the `Multi` variant - Multi message-id mode.
-pub const ENUM_TAG_MULTI: u8 = 1;
+const ENUM_TAG_MULTI: u8 = 1;
 
 /// Byte size of a `Fr` field element aligned to 64-bit boundary, computed once at compile time.
-pub const FR_BYTE_SIZE: usize = {
+const FR_BYTE_SIZE: usize = {
     // Get the modulus bit size of the scalar field
     let modulus_bits: u32 = Fr::MODULUS_BIT_SIZE;
     // Alignment boundary in bits for field element serialization
@@ -44,10 +42,10 @@ pub const FR_BYTE_SIZE: usize = {
 };
 
 /// Byte size of the `u64` limb of a `Fr`, used for big-endian serialization of `Fr`.
-pub const FR_LIMB_BYTE_SIZE: usize = 8;
+const FR_LIMB_BYTE_SIZE: usize = 8;
 
 /// Byte size of the `u64` big-endian length prefix written before a variable-length vector.
-pub const VEC_LEN_BYTE_SIZE: usize = 8;
+const VEC_LEN_BYTE_SIZE: usize = 8;
 
 /// Big-endian canonical serialization, mirroring arkworks' little-endian `CanonicalSerialize`.
 pub trait CanonicalSerializeBE {
@@ -351,6 +349,31 @@ impl CanonicalDeserialize for RLNWitnessInputMulti {
             value.check()?;
         }
         Ok(value)
+    }
+}
+
+impl CanonicalSerializeBE for RLNMerkleProof {
+    type Error = SerializationError;
+
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), Self::Error> {
+        self.path_elements.serialize(&mut writer)?;
+        self.identity_path_index.serialize(&mut writer)?;
+        Ok(())
+    }
+
+    fn serialized_size(&self) -> usize {
+        CanonicalSerializeBE::serialized_size(&self.path_elements)
+            + CanonicalSerializeBE::serialized_size(&self.identity_path_index)
+    }
+}
+
+impl CanonicalDeserializeBE for RLNMerkleProof {
+    type Error = SerializationError;
+
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, Self::Error> {
+        let path_elements = Vec::<Fr>::deserialize(&mut reader)?;
+        let identity_path_index = Vec::<u8>::deserialize(&mut reader)?;
+        Ok(Self::new(path_elements, identity_path_index))
     }
 }
 
@@ -987,7 +1010,8 @@ impl CanonicalSerializeMixed for RLNProof {
     }
 
     fn serialized_size(&self) -> usize {
-        COMPRESS_PROOF_SIZE + CanonicalSerializeBE::serialized_size(&self.values)
+        CanonicalSerialize::serialized_size(&self.proof, Compress::Yes)
+            + CanonicalSerializeBE::serialized_size(&self.values)
     }
 }
 
@@ -998,5 +1022,43 @@ impl CanonicalDeserializeMixed for RLNProof {
         let proof = Proof::deserialize_compressed(&mut reader)?;
         let values = <RLNProofValues as CanonicalDeserializeBE>::deserialize(&mut reader)?;
         Ok(RLNProof { proof, values })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Crate-internal because the tests craft raw bytes using the module-private
+    //! `ENUM_TAG_SINGLE` and `FR_BYTE_SIZE` constants.
+
+    use ark_ff::{BigInteger, PrimeField};
+    use num_bigint::BigUint;
+
+    use super::*;
+
+    /// A `Single` variant deserializes its inner value unchecked and relies on the trailing
+    /// `check`, so a non-canonical field element inside it must still be rejected.
+    #[test]
+    fn proof_values_le_non_canonical_field_rejected() {
+        let modulus = BigUint::from_bytes_le(&Fr::MODULUS.to_bytes_le());
+        let mut y = modulus.to_bytes_le();
+        y.resize(FR_BYTE_SIZE, 0);
+
+        let mut buf = vec![ENUM_TAG_SINGLE];
+        buf.extend_from_slice(&y);
+        buf.extend_from_slice(&[0u8; FR_BYTE_SIZE * 4]);
+        assert!(RLNProofValues::deserialize_compressed(buf.as_slice()).is_err());
+    }
+
+    #[test]
+    fn proof_values_be_non_canonical_field_rejected() {
+        let modulus = BigUint::from_bytes_le(&Fr::MODULUS.to_bytes_le());
+        let mut y = modulus.to_bytes_be();
+        let mut padded = vec![0u8; FR_BYTE_SIZE - y.len()];
+        padded.append(&mut y);
+
+        let mut buf = vec![ENUM_TAG_SINGLE];
+        buf.extend_from_slice(&padded);
+        buf.extend_from_slice(&[0u8; FR_BYTE_SIZE * 4]);
+        assert!(<RLNProofValues as CanonicalDeserializeBE>::deserialize(buf.as_slice()).is_err());
     }
 }

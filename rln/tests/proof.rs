@@ -42,8 +42,7 @@ mod test {
         RLNWitnessInput::new_single()
             .identity_secret(id)
             .user_message_limit(Fr::from(10u64))
-            .path_elements(path_elements)
-            .identity_path_index(vec![0u8; depth])
+            .merkle_proof(RLNMerkleProof::new(path_elements, vec![0u8; depth]))
             .x(x)
             .external_nullifier(external_nullifier)
             .message_id(message_id)
@@ -63,8 +62,7 @@ mod test {
         RLNWitnessInput::new_multi()
             .identity_secret(id)
             .user_message_limit(Fr::from(10u64))
-            .path_elements(path_elements)
-            .identity_path_index(vec![0u8; depth])
+            .merkle_proof(RLNMerkleProof::new(path_elements, vec![0u8; depth]))
             .x(x)
             .external_nullifier(external_nullifier)
             .message_ids(message_ids)
@@ -95,8 +93,7 @@ mod test {
         let witness = RLNWitnessInput::new_single()
             .identity_secret(identity_secret)
             .user_message_limit(user_message_limit)
-            .path_elements(merkle_proof.get_path_elements())
-            .identity_path_index(merkle_proof.get_path_index())
+            .merkle_proof(&merkle_proof)
             .x(x)
             .external_nullifier(external_nullifier)
             .message_id(Fr::from(1))
@@ -215,8 +212,10 @@ mod test {
         let partial_witness = RLNPartialWitnessInput::new()
             .identity_secret(id_secret)
             .user_message_limit(Fr::from(10u64))
-            .path_elements(default_path())
-            .identity_path_index(vec![0u8; DEFAULT_TREE_DEPTH])
+            .merkle_proof(RLNMerkleProof::new(
+                default_path(),
+                vec![0u8; DEFAULT_TREE_DEPTH],
+            ))
             .build()
             .unwrap();
         let partial_proof = rln.generate_partial_proof(&partial_witness).unwrap();
@@ -240,8 +239,10 @@ mod test {
         let partial_witness = RLNPartialWitnessInput::new()
             .identity_secret(id_secret)
             .user_message_limit(Fr::from(10u64))
-            .path_elements(default_path())
-            .identity_path_index(vec![0u8; DEFAULT_TREE_DEPTH])
+            .merkle_proof(RLNMerkleProof::new(
+                default_path(),
+                vec![0u8; DEFAULT_TREE_DEPTH],
+            ))
             .build()
             .unwrap();
         let partial_proof = rln.generate_partial_proof(&partial_witness).unwrap();

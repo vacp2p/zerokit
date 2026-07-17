@@ -3,6 +3,8 @@
 pub mod wasm_rln;
 pub mod wasm_utils;
 
+#[cfg(feature = "panic_hook")]
+use wasm_bindgen::prelude::wasm_bindgen;
 #[cfg(all(feature = "parallel", not(feature = "utils")))]
 pub use wasm_bindgen_rayon::init_thread_pool;
 #[cfg(not(feature = "utils"))]
