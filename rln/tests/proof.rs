@@ -582,36 +582,34 @@ mod test {
         let (proof, proof_values) = rln.generate_proof(&witness).unwrap();
         assert!(rln.verify(&proof, &proof_values).unwrap());
 
-        let RLNProofValues::Single(values) = proof_values else {
-            panic!("expected single proof values");
+        let (y, root, nullifier, x, external_nullifier) = (
+            proof_values.y().unwrap(),
+            proof_values.root(),
+            proof_values.nullifier().unwrap(),
+            proof_values.x(),
+            proof_values.external_nullifier(),
+        );
+        let single = |y: Fr, root: Fr, nullifier: Fr, x: Fr, external_nullifier: Fr| {
+            RLNProofValues::new_single()
+                .y(y)
+                .root(root)
+                .nullifier(nullifier)
+                .x(x)
+                .external_nullifier(external_nullifier)
+                .build()
         };
 
-        let mutations: Vec<RLNProofValuesSingle> = vec![
-            RLNProofValuesSingle {
-                root: values.root + Fr::from(1),
-                ..values.clone()
-            },
-            RLNProofValuesSingle {
-                x: values.x + Fr::from(1),
-                ..values.clone()
-            },
-            RLNProofValuesSingle {
-                external_nullifier: values.external_nullifier + Fr::from(1),
-                ..values.clone()
-            },
-            RLNProofValuesSingle {
-                y: values.y + Fr::from(1),
-                ..values.clone()
-            },
-            RLNProofValuesSingle {
-                nullifier: values.nullifier + Fr::from(1),
-                ..values.clone()
-            },
+        // Mutating any single public input must break verification.
+        let one = Fr::from(1);
+        let mutations = vec![
+            single(y, root + one, nullifier, x, external_nullifier),
+            single(y, root, nullifier, x + one, external_nullifier),
+            single(y, root, nullifier, x, external_nullifier + one),
+            single(y + one, root, nullifier, x, external_nullifier),
+            single(y, root, nullifier + one, x, external_nullifier),
         ];
         for mutated in mutations {
-            assert!(!rln
-                .verify(&proof, &RLNProofValues::Single(mutated))
-                .unwrap());
+            assert!(!rln.verify(&proof, &mutated).unwrap());
         }
     }
 }

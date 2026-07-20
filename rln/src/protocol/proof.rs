@@ -1,4 +1,5 @@
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use bon::bon;
 use zerokit_utils::{hasher::ZerokitHasher, merkle_tree::compute_tree_root};
 
 use super::{
@@ -9,7 +10,7 @@ use super::{
 };
 use crate::{
     circuit::{Fr, Proof, SecretFr},
-    error::RecoverSecretError,
+    error::{RecoverSecretError, SerializationError},
     hashers::Hasher,
 };
 
@@ -86,6 +87,43 @@ impl RLNProofValues {
     }
 }
 
+#[bon]
+impl RLNProofValues {
+    /// Starts building Single message-id proof values; call `build` to construct them.
+    #[builder(finish_fn = build)]
+    pub fn new_single(y: Fr, root: Fr, nullifier: Fr, x: Fr, external_nullifier: Fr) -> Self {
+        Self::Single(RLNProofValuesSingle {
+            y,
+            root,
+            nullifier,
+            x,
+            external_nullifier,
+        })
+    }
+
+    /// Starts building Multi message-id proof values; call `build` to validate and construct them.
+    #[builder(finish_fn = build)]
+    pub fn new_multi(
+        ys: Vec<Fr>,
+        root: Fr,
+        nullifiers: Vec<Fr>,
+        x: Fr,
+        external_nullifier: Fr,
+        selector_used: Vec<bool>,
+    ) -> Result<Self, SerializationError> {
+        let inner = RLNProofValuesMulti {
+            ys,
+            root,
+            nullifiers,
+            x,
+            external_nullifier,
+            selector_used,
+        };
+        inner.validate()?;
+        Ok(Self::Multi(inner))
+    }
+}
+
 impl RLNProofValues {
     /// Computes the proof values from a `witness` using the protocol hash `H`.
     pub fn from_witness<H: ZerokitHasher<Scalar = Fr>>(witness: &RLNWitnessInput) -> Self {
@@ -117,15 +155,15 @@ impl RecoverSecret for RLNProofValues {
 #[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNProofValuesSingle {
     /// The share `y = a_0 + x * a_1`.
-    pub y: Fr,
+    pub(crate) y: Fr,
     /// The Merkle root the proof was generated against.
-    pub root: Fr,
+    pub(crate) root: Fr,
     /// The nullifier `H(a_1)`.
-    pub nullifier: Fr,
+    pub(crate) nullifier: Fr,
     /// The signal `x`.
-    pub x: Fr,
+    pub(crate) x: Fr,
     /// The external nullifier.
-    pub external_nullifier: Fr,
+    pub(crate) external_nullifier: Fr,
 }
 
 impl RLNProofValuesSingle {
@@ -175,31 +213,40 @@ impl RecoverSecret<RLNProofValuesMulti> for RLNProofValuesSingle {
 }
 
 /// Public proof values for Multi message-id mode.
-#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
+///
+/// `CanonicalDeserialize` is hand-written (see `serialize.rs`) so deserialization runs
+/// [`RLNProofValuesMulti::validate`].
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize)]
 pub struct RLNProofValuesMulti {
     /// The per-slot shares `ys`.
-    pub ys: Vec<Fr>,
+    pub(crate) ys: Vec<Fr>,
     /// The Merkle root the proof was generated against.
-    pub root: Fr,
+    pub(crate) root: Fr,
     /// The per-slot nullifiers.
-    pub nullifiers: Vec<Fr>,
+    pub(crate) nullifiers: Vec<Fr>,
     /// The signal `x`.
-    pub x: Fr,
+    pub(crate) x: Fr,
     /// The external nullifier.
-    pub external_nullifier: Fr,
+    pub(crate) external_nullifier: Fr,
     /// The per-slot selector flags.
-    pub selector_used: Vec<bool>,
+    pub(crate) selector_used: Vec<bool>,
 }
 
 impl RLNProofValuesMulti {
     /// Computes the proof values from a Multi message-id `witness` using the protocol hash `H`.
+    ///
+    /// Assumes `w` is a validated witness; the output's validity only mirrors the input's
+    /// (the builder and deserialize paths guarantee this — a `Validate::No` witness does not).
     pub fn from_witness<H: ZerokitHasher<Scalar = Fr>>(w: &RLNWitnessInputMulti) -> Self {
         let id_commitment = compute_id_commitment::<H>(&w.identity_secret);
         let leaf = Hasher::<H>::hash_pair(id_commitment, w.user_message_limit);
         let root = compute_tree_root::<H>(leaf, &w.path_elements, &w.identity_path_index);
 
+        // `selector_used` is collected from the same zip as `ys` and `nullifiers` rather than
+        // cloned, so the three stay equal in length even if the witness is malformed.
         let mut ys = Vec::with_capacity(w.message_ids.len());
         let mut nullifiers = Vec::with_capacity(w.message_ids.len());
+        let mut selector_used = Vec::with_capacity(w.message_ids.len());
         for (message_id, &selected) in w.message_ids.iter().zip(w.selector_used.iter()) {
             let a_1 =
                 compute_share_slope::<H>(&w.identity_secret, w.external_nullifier, *message_id);
@@ -208,6 +255,7 @@ impl RLNProofValuesMulti {
             let nullifier = Hasher::<H>::hash_single(a_1) * selector;
             ys.push(y);
             nullifiers.push(nullifier);
+            selector_used.push(selected);
         }
         RLNProofValuesMulti {
             ys,
@@ -215,8 +263,20 @@ impl RLNProofValuesMulti {
             nullifiers,
             x: w.x,
             external_nullifier: w.external_nullifier,
-            selector_used: w.selector_used.clone(),
+            selector_used,
         }
+    }
+
+    /// Checks that `ys`, `nullifiers`, and `selector_used`
+    /// are non-empty and all have the same length.
+    pub(crate) fn validate(&self) -> Result<(), SerializationError> {
+        if self.ys.len() != self.nullifiers.len() || self.ys.len() != self.selector_used.len() {
+            return Err(SerializationError::InconsistentProofValueLengths);
+        }
+        if self.ys.is_empty() {
+            return Err(SerializationError::EmptyProofValues);
+        }
+        Ok(())
     }
 }
 
@@ -230,6 +290,8 @@ impl RecoverSecret for RLNProofValuesMulti {
                 other.external_nullifier,
             ));
         }
+        self.validate()?;
+        other.validate()?;
         for (i, (nullifier_i, &used_i)) in self
             .nullifiers
             .iter()
@@ -267,6 +329,7 @@ impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
                 other.external_nullifier,
             ));
         }
+        self.validate()?;
         for (i, (nullifier_i, &used_i)) in self
             .nullifiers
             .iter()
@@ -297,5 +360,164 @@ impl RLNProof {
     /// Creates a new [`RLNProof`] from a `proof` and its `values`.
     pub fn new(proof: Proof, values: RLNProofValues) -> Self {
         Self { proof, values }
+    }
+}
+
+#[cfg(test)]
+mod validation_tests {
+    //! Multi proof-values invariant validation. Crate-internal because the inner fields are
+    //! `pub(crate)`, so proof values with mismatched lengths can only be built here.
+
+    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+    use rand::thread_rng;
+
+    use super::*;
+    use crate::{
+        hashers::PoseidonHash,
+        prelude::{CanonicalDeserializeBE, CanonicalSerializeBE},
+    };
+
+    /// A multi with mismatched per-slot vector lengths (`ys` empty, others length 1).
+    fn inconsistent_multi() -> RLNProofValues {
+        RLNProofValues::Multi(RLNProofValuesMulti {
+            root: Fr::from(10u64),
+            x: Fr::from(20u64),
+            external_nullifier: Fr::from(30u64),
+            ys: vec![],
+            nullifiers: vec![Fr::from(60u64)],
+            selector_used: vec![true],
+        })
+    }
+
+    /// `zip` stops at the shorter of `message_ids`/`selector_used`, so cloning `selector_used`
+    /// wholesale would emit values that fail their own invariant.
+    #[test]
+    fn from_witness_stays_consistent_for_a_malformed_witness() {
+        let w = RLNWitnessInputMulti {
+            identity_secret: SecretFr::rand(&mut thread_rng()),
+            user_message_limit: Fr::from(5u64),
+            path_elements: vec![Fr::from(1u64)],
+            identity_path_index: vec![0u8],
+            x: Fr::from(7u64),
+            external_nullifier: Fr::from(9u64),
+            message_ids: vec![Fr::from(1u64), Fr::from(2u64)],
+            selector_used: vec![true, true, true],
+        };
+        let values = RLNProofValuesMulti::from_witness::<PoseidonHash>(&w);
+        assert!(
+            values.validate().is_ok(),
+            "from_witness must not emit values that fail validate: ys={} nullifiers={} selector_used={}",
+            values.ys.len(),
+            values.nullifiers.len(),
+            values.selector_used.len()
+        );
+    }
+
+    #[test]
+    fn validate_rejects_mismatched_lengths() {
+        let RLNProofValues::Multi(inner) = inconsistent_multi() else {
+            panic!("expected multi proof values");
+        };
+        assert!(matches!(
+            inner.validate(),
+            Err(SerializationError::InconsistentProofValueLengths)
+        ));
+    }
+
+    /// Consistent-but-empty vectors carry no message slot
+    #[test]
+    fn validate_rejects_empty_slots() {
+        let empty = RLNProofValuesMulti {
+            root: Fr::from(1u64),
+            x: Fr::from(2u64),
+            external_nullifier: Fr::from(3u64),
+            ys: vec![],
+            nullifiers: vec![],
+            selector_used: vec![],
+        };
+        assert!(matches!(
+            empty.validate(),
+            Err(SerializationError::EmptyProofValues)
+        ));
+
+        let mut le = Vec::new();
+        RLNProofValues::Multi(empty)
+            .serialize_compressed(&mut le)
+            .unwrap();
+        assert!(
+            RLNProofValues::deserialize_compressed(&le[..]).is_err(),
+            "deserialize must reject empty multi proof values"
+        );
+    }
+
+    #[test]
+    fn deserialize_rejects_mismatched_lengths() {
+        let values = inconsistent_multi();
+
+        let mut le = Vec::new();
+        values.serialize_compressed(&mut le).unwrap();
+        assert!(
+            RLNProofValues::deserialize_compressed(&le[..]).is_err(),
+            "compressed deserialize must reject the mismatched lengths"
+        );
+
+        let mut be = Vec::new();
+        CanonicalSerializeBE::serialize(&values, &mut be).unwrap();
+        assert!(
+            <RLNProofValues as CanonicalDeserializeBE>::deserialize(&be[..]).is_err(),
+            "big-endian deserialize must reject the mismatched lengths"
+        );
+
+        let RLNProofValues::Multi(inner) = values else {
+            unreachable!("inconsistent_multi builds a Multi variant");
+        };
+        let mut inner_le = Vec::new();
+        inner.serialize_compressed(&mut inner_le).unwrap();
+        assert!(
+            RLNProofValuesMulti::deserialize_compressed(&inner_le[..]).is_err(),
+            "inner compressed deserialize must reject the mismatched lengths"
+        );
+    }
+
+    #[test]
+    fn rln_proof_deserialize_rejects_mismatched_lengths() {
+        let rln_proof = RLNProof {
+            proof: Proof::default(),
+            values: inconsistent_multi(),
+        };
+        let mut le = Vec::new();
+        rln_proof.serialize_compressed(&mut le).unwrap();
+        assert!(RLNProof::deserialize_compressed(&le[..]).is_err());
+    }
+
+    #[test]
+    fn recover_secret_errors_instead_of_panicking() {
+        // The nullifiers match, so without `validate` this would index `ys[0]` and panic.
+        let malformed = RLNProofValues::Multi(RLNProofValuesMulti {
+            root: Fr::from(1u64),
+            x: Fr::from(7u64),
+            external_nullifier: Fr::from(9u64),
+            ys: vec![],
+            nullifiers: vec![Fr::from(42u64)],
+            selector_used: vec![true],
+        });
+        let other = RLNProofValues::new_single()
+            .y(Fr::from(3u64))
+            .root(Fr::from(1u64))
+            .nullifier(Fr::from(42u64))
+            .x(Fr::from(5u64))
+            .external_nullifier(Fr::from(9u64))
+            .build();
+
+        let err = malformed.recover_secret(&other).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                RecoverSecretError::InvalidProofValues(
+                    SerializationError::InconsistentProofValueLengths
+                )
+            ),
+            "expected InconsistentProofValueLengths, got: {err:?}"
+        );
     }
 }

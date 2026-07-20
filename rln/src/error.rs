@@ -17,6 +17,9 @@ pub enum RecoverSecretError {
     /// No matching nullifier was found across the provided proof values.
     #[error("No matching nullifier found across the provided proof values")]
     NoMatchingNullifier,
+    /// The provided proof values are structurally invalid.
+    #[error("Invalid proof values: {0}")]
+    InvalidProofValues(#[from] SerializationError),
 }
 
 /// Errors that can occur while serializing and deserializing RLN types.
@@ -40,6 +43,12 @@ pub enum SerializationError {
     /// An integer could not be converted to `usize`.
     #[error("Failed to convert to usize: {0}")]
     ToUsize(#[from] TryFromIntError),
+    /// A multi proof-values had inconsistent per-slot vector lengths.
+    #[error("`ys`, `nullifiers`, and `selector_used` have mismatched lengths")]
+    InconsistentProofValueLengths,
+    /// A multi proof-values had no per-slot entries.
+    #[error("multi proof values must have at least one per-slot entry")]
+    EmptyProofValues,
 }
 
 /// Errors that can occur while constructing an

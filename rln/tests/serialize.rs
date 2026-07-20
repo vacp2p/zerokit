@@ -369,24 +369,25 @@ mod test {
     }
 
     fn make_proof_values_single() -> RLNProofValues {
-        RLNProofValues::Single(RLNProofValuesSingle {
-            root: Fr::from(1u64),
-            x: Fr::from(2u64),
-            external_nullifier: Fr::from(3u64),
-            y: Fr::from(4u64),
-            nullifier: Fr::from(5u64),
-        })
+        RLNProofValues::new_single()
+            .root(Fr::from(1u64))
+            .x(Fr::from(2u64))
+            .external_nullifier(Fr::from(3u64))
+            .y(Fr::from(4u64))
+            .nullifier(Fr::from(5u64))
+            .build()
     }
 
     fn make_proof_values_multi() -> RLNProofValues {
-        RLNProofValues::Multi(RLNProofValuesMulti {
-            root: Fr::from(10u64),
-            x: Fr::from(20u64),
-            external_nullifier: Fr::from(30u64),
-            ys: vec![Fr::from(40u64), Fr::from(50u64)],
-            nullifiers: vec![Fr::from(60u64), Fr::from(70u64)],
-            selector_used: vec![true, false],
-        })
+        RLNProofValues::new_multi()
+            .root(Fr::from(10u64))
+            .x(Fr::from(20u64))
+            .external_nullifier(Fr::from(30u64))
+            .ys(vec![Fr::from(40u64), Fr::from(50u64)])
+            .nullifiers(vec![Fr::from(60u64), Fr::from(70u64)])
+            .selector_used(vec![true, false])
+            .build()
+            .unwrap()
     }
 
     fn make_proof() -> Proof {
