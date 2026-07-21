@@ -19,7 +19,7 @@ pub enum RecoverSecretError {
     NoMatchingNullifier,
     /// The provided proof values are structurally invalid.
     #[error("Invalid proof values: {0}")]
-    InvalidProofValues(#[from] SerializationError),
+    InvalidProofValues(#[from] ProofValuesMultiError),
 }
 
 /// Errors that can occur while serializing and deserializing RLN types.
@@ -43,12 +43,18 @@ pub enum SerializationError {
     /// An integer could not be converted to `usize`.
     #[error("Failed to convert to usize: {0}")]
     ToUsize(#[from] TryFromIntError),
-    /// A multi proof-values had inconsistent per-slot vector lengths.
-    #[error("`ys`, `nullifiers`, and `selector_used` have mismatched lengths")]
-    InconsistentProofValueLengths,
-    /// A multi proof-values had no per-slot entries.
-    #[error("multi proof values must have at least one per-slot entry")]
-    EmptyProofValues,
+    /// A deserialized Single message-id witness failed structural validation.
+    #[error("Invalid Single message-id witness: {0}")]
+    InvalidWitnessSingle(#[from] WitnessInputSingleError),
+    /// A deserialized Multi message-id witness failed structural validation.
+    #[error("Invalid Multi message-id witness: {0}")]
+    InvalidWitnessMulti(#[from] WitnessInputMultiError),
+    /// A deserialized partial witness failed structural validation.
+    #[error("Invalid partial witness: {0}")]
+    InvalidPartialWitness(#[from] PartialWitnessInputError),
+    /// A deserialized multi proof-values failed structural validation.
+    #[error("Invalid proof values: {0}")]
+    InvalidProofValues(#[from] ProofValuesMultiError),
 }
 
 /// Errors that can occur while constructing an
@@ -109,6 +115,20 @@ pub enum PartialWitnessInputError {
         "Field `path_elements` has length {0}, but field `identity_path_index` has length {1}"
     )]
     PathLengthMismatch(usize, usize),
+}
+
+/// Errors that can occur while constructing an
+/// [`RLNProofValuesMulti`](crate::protocol::RLNProofValuesMulti).
+#[derive(Debug, thiserror::Error)]
+pub enum ProofValuesMultiError {
+    /// Fields `ys`, `nullifiers`, and `selector_used` have different lengths.
+    #[error(
+        "Field `ys` has length {0}, but field `nullifiers` has length {1} and field `selector_used` has length {2}"
+    )]
+    LengthMismatch(usize, usize, usize),
+    /// The per-slot vectors were empty.
+    #[error("Multi proof values must contain at least one per-slot entry")]
+    EmptyProofValues,
 }
 
 /// Errors that can occur while generating a proof.

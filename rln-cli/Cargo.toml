@@ -23,7 +23,7 @@ path = "src/examples/partial.rs"
 [dependencies]
 rand = { workspace = true }
 rln = { path = "../rln", version = "3.0.0", default-features = false }
-clap = { version = "4.6.2", features = ["cargo", "derive", "env"] }
+clap = { version = "4.6.3", features = ["cargo", "derive", "env"] }
 zerokit_utils = { path = "../utils", version = "3.0.0", default-features = false }
 
 [features]

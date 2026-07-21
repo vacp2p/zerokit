@@ -14,7 +14,7 @@ pub use wasm_rln::{
 };
 pub use wasm_utils::{
     wasm_hash_to_field_be, wasm_hash_to_field_le, wasm_poseidon_hash_pair, VecWasmFr,
-    WasmExtendedIdentityKeys, WasmFr, WasmIdentityKeys, WasmSecretFr,
+    WasmExtendedIdentityKeys, WasmFr, WasmIdentityKeys, WasmSecretFr, WasmUint8ArrayUtils,
 };
 
 #[cfg(feature = "panic_hook")]

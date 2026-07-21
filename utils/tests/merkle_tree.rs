@@ -4,8 +4,9 @@ mod test {
     use hex_literal::hex;
     use tiny_keccak::{Hasher as _, Keccak};
     use zerokit_utils::merkle_tree::{
-        FullMerkleConfig, FullMerkleTree, OptimalMerkleConfig, OptimalMerkleTree, ZerokitHasher,
-        ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError,
+        compute_tree_root, FullMerkleConfig, FullMerkleTree, OptimalMerkleConfig,
+        OptimalMerkleTree, ZerokitHasher, ZerokitMerkleProof, ZerokitMerkleTree,
+        ZerokitMerkleTreeError,
     };
     #[derive(Clone, Copy, PartialEq)]
     struct Keccak256;
@@ -862,5 +863,43 @@ mod test {
                 "recomputed root at {index}"
             );
         }
+    }
+
+    #[test]
+    fn test_compute_tree_root() {
+        // The treeless free fn must agree with both tree backends on every proof.
+        let leaf_count = 4;
+        let leaves: Vec<TestFr> = (0..leaf_count as u32).map(TestFr::from).collect();
+
+        let mut tree_full = default_full_merkle_tree(DEFAULT_DEPTH);
+        let mut tree_opt = default_optimal_merkle_tree(DEFAULT_DEPTH);
+        tree_full.set_range(0, leaves.iter().cloned()).unwrap();
+        tree_opt.set_range(0, leaves.iter().cloned()).unwrap();
+
+        for (index, leaf) in leaves.iter().enumerate() {
+            let proof_full = tree_full.proof(index).unwrap();
+            let root_full = compute_tree_root::<Keccak256>(
+                *leaf,
+                &proof_full.get_path_elements(),
+                &proof_full.get_path_index(),
+            );
+            assert_eq!(root_full, tree_full.root(), "full tree root at {index}");
+
+            let proof_opt = tree_opt.proof(index).unwrap();
+            let root_opt = compute_tree_root::<Keccak256>(
+                *leaf,
+                &proof_opt.get_path_elements(),
+                &proof_opt.get_path_index(),
+            );
+            assert_eq!(root_opt, tree_opt.root(), "optimal tree root at {index}");
+        }
+
+        // A flipped path index bit must change the computed root.
+        let proof = tree_full.proof(0).unwrap();
+        let mut path_index = proof.get_path_index();
+        path_index[0] ^= 1;
+        let tampered =
+            compute_tree_root::<Keccak256>(leaves[0], &proof.get_path_elements(), &path_index);
+        assert_ne!(tampered, tree_full.root());
     }
 }

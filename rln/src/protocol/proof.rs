@@ -10,7 +10,7 @@ use super::{
 };
 use crate::{
     circuit::{Fr, Proof, SecretFr},
-    error::{RecoverSecretError, SerializationError},
+    error::{ProofValuesMultiError, RecoverSecretError},
     hashers::Hasher,
 };
 
@@ -110,7 +110,7 @@ impl RLNProofValues {
         x: Fr,
         external_nullifier: Fr,
         selector_used: Vec<bool>,
-    ) -> Result<Self, SerializationError> {
+    ) -> Result<Self, ProofValuesMultiError> {
         let inner = RLNProofValuesMulti {
             ys,
             root,
@@ -214,8 +214,8 @@ impl RecoverSecret<RLNProofValuesMulti> for RLNProofValuesSingle {
 
 /// Public proof values for Multi message-id mode.
 ///
-/// `CanonicalDeserialize` is hand-written (see `serialize.rs`) so deserialization runs
-/// [`RLNProofValuesMulti::validate`].
+/// `CanonicalDeserialize` is hand-written (see `serialize.rs`) so deserialization runs the
+/// crate-internal `RLNProofValuesMulti::validate`.
 #[derive(Debug, Clone, PartialEq, CanonicalSerialize)]
 pub struct RLNProofValuesMulti {
     /// The per-slot shares `ys`.
@@ -236,7 +236,7 @@ impl RLNProofValuesMulti {
     /// Computes the proof values from a Multi message-id `witness` using the protocol hash `H`.
     ///
     /// Assumes `w` is a validated witness; the output's validity only mirrors the input's
-    /// (the builder and deserialize paths guarantee this — a `Validate::No` witness does not).
+    /// (the builder and deserialize paths guarantee this; a `Validate::No` witness does not).
     pub fn from_witness<H: ZerokitHasher<Scalar = Fr>>(w: &RLNWitnessInputMulti) -> Self {
         let id_commitment = compute_id_commitment::<H>(&w.identity_secret);
         let leaf = Hasher::<H>::hash_pair(id_commitment, w.user_message_limit);
@@ -267,14 +267,18 @@ impl RLNProofValuesMulti {
         }
     }
 
-    /// Checks that `ys`, `nullifiers`, and `selector_used`
-    /// are non-empty and all have the same length.
-    pub(crate) fn validate(&self) -> Result<(), SerializationError> {
+    /// Checks that `ys`, `nullifiers`, and `selector_used` are non-empty and all have the same
+    /// length.
+    pub(crate) fn validate(&self) -> Result<(), ProofValuesMultiError> {
         if self.ys.len() != self.nullifiers.len() || self.ys.len() != self.selector_used.len() {
-            return Err(SerializationError::InconsistentProofValueLengths);
+            return Err(ProofValuesMultiError::LengthMismatch(
+                self.ys.len(),
+                self.nullifiers.len(),
+                self.selector_used.len(),
+            ));
         }
         if self.ys.is_empty() {
-            return Err(SerializationError::EmptyProofValues);
+            return Err(ProofValuesMultiError::EmptyProofValues);
         }
         Ok(())
     }
@@ -364,9 +368,9 @@ impl RLNProof {
 }
 
 #[cfg(test)]
-mod validation_tests {
-    //! Multi proof-values invariant validation. Crate-internal because the inner fields are
-    //! `pub(crate)`, so proof values with mismatched lengths can only be built here.
+mod test {
+    // Multi proof-values invariant validation. Crate-internal because the inner fields are
+    // `pub(crate)`, so proof values with mismatched lengths can only be built here.
 
     use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
     use rand::thread_rng;
@@ -392,7 +396,7 @@ mod validation_tests {
     /// `zip` stops at the shorter of `message_ids`/`selector_used`, so cloning `selector_used`
     /// wholesale would emit values that fail their own invariant.
     #[test]
-    fn from_witness_stays_consistent_for_a_malformed_witness() {
+    fn test_from_witness_stays_consistent_for_a_malformed_witness() {
         let w = RLNWitnessInputMulti {
             identity_secret: SecretFr::rand(&mut thread_rng()),
             user_message_limit: Fr::from(5u64),
@@ -414,19 +418,19 @@ mod validation_tests {
     }
 
     #[test]
-    fn validate_rejects_mismatched_lengths() {
+    fn test_validate_rejects_mismatched_lengths() {
         let RLNProofValues::Multi(inner) = inconsistent_multi() else {
             panic!("expected multi proof values");
         };
         assert!(matches!(
             inner.validate(),
-            Err(SerializationError::InconsistentProofValueLengths)
+            Err(ProofValuesMultiError::LengthMismatch(..))
         ));
     }
 
-    /// Consistent-but-empty vectors carry no message slot
+    /// Consistent-but-empty vectors carry no message slot.
     #[test]
-    fn validate_rejects_empty_slots() {
+    fn test_validate_rejects_empty_slots() {
         let empty = RLNProofValuesMulti {
             root: Fr::from(1u64),
             x: Fr::from(2u64),
@@ -437,7 +441,7 @@ mod validation_tests {
         };
         assert!(matches!(
             empty.validate(),
-            Err(SerializationError::EmptyProofValues)
+            Err(ProofValuesMultiError::EmptyProofValues)
         ));
 
         let mut le = Vec::new();
@@ -451,7 +455,7 @@ mod validation_tests {
     }
 
     #[test]
-    fn deserialize_rejects_mismatched_lengths() {
+    fn test_deserialize_rejects_mismatched_lengths() {
         let values = inconsistent_multi();
 
         let mut le = Vec::new();
@@ -480,7 +484,7 @@ mod validation_tests {
     }
 
     #[test]
-    fn rln_proof_deserialize_rejects_mismatched_lengths() {
+    fn test_rln_proof_deserialize_rejects_mismatched_lengths() {
         let rln_proof = RLNProof {
             proof: Proof::default(),
             values: inconsistent_multi(),
@@ -491,7 +495,7 @@ mod validation_tests {
     }
 
     #[test]
-    fn recover_secret_errors_instead_of_panicking() {
+    fn test_recover_secret_errors_instead_of_panicking() {
         // The nullifiers match, so without `validate` this would index `ys[0]` and panic.
         let malformed = RLNProofValues::Multi(RLNProofValuesMulti {
             root: Fr::from(1u64),
@@ -513,11 +517,9 @@ mod validation_tests {
         assert!(
             matches!(
                 err,
-                RecoverSecretError::InvalidProofValues(
-                    SerializationError::InconsistentProofValueLengths
-                )
+                RecoverSecretError::InvalidProofValues(ProofValuesMultiError::LengthMismatch(..))
             ),
-            "expected InconsistentProofValueLengths, got: {err:?}"
+            "expected LengthMismatch, got: {err:?}"
         );
     }
 }

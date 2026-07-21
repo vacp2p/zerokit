@@ -383,8 +383,8 @@ impl RLNPartialWitnessInput {
 
 /// Witness inputs for Single message-id mode.
 ///
-/// `CanonicalDeserialize` is hand-written (see `serialize.rs`) so deserialization runs
-/// [`RLNWitnessInputSingle::validate`].
+/// `CanonicalDeserialize` is hand-written (see `serialize.rs`) so deserialization runs the
+/// crate-internal `RLNWitnessInputSingle::validate`.
 #[derive(Debug, Clone, PartialEq, CanonicalSerialize)]
 pub struct RLNWitnessInputSingle {
     pub(crate) identity_secret: SecretFr,
@@ -421,8 +421,8 @@ impl RLNWitnessInputSingle {
 
 /// Witness inputs for Multi message-id mode.
 ///
-/// `CanonicalDeserialize` is hand-written (see `serialize.rs`) so deserialization runs
-/// [`RLNWitnessInputMulti::validate`].
+/// `CanonicalDeserialize` is hand-written (see `serialize.rs`) so deserialization runs the
+/// crate-internal `RLNWitnessInputMulti::validate`.
 #[derive(Debug, Clone, PartialEq, CanonicalSerialize)]
 pub struct RLNWitnessInputMulti {
     pub(crate) identity_secret: SecretFr,
@@ -482,8 +482,8 @@ impl RLNWitnessInputMulti {
 
 /// The partial witness inputs known before the message-specific values.
 ///
-/// `CanonicalDeserialize` is hand-written (see `serialize.rs`) so deserialization runs
-/// [`RLNPartialWitnessInput::validate`].
+/// `CanonicalDeserialize` is hand-written (see `serialize.rs`) so deserialization runs the
+/// crate-internal `RLNPartialWitnessInput::validate`.
 #[derive(Debug, Clone, PartialEq, CanonicalSerialize)]
 pub struct RLNPartialWitnessInput {
     pub(crate) identity_secret: SecretFr,
@@ -612,9 +612,9 @@ impl From<RLNWitnessInputMulti> for RLNPartialWitnessInput {
 }
 
 #[cfg(test)]
-mod validation_tests {
-    //! Witness invariant validation. Crate-internal because the inner fields are
-    //! `pub(crate)`, so a malformed witness can only be built here.
+mod test {
+    // Witness invariant validation. Crate-internal because the inner fields are
+    // `pub(crate)`, so a malformed witness can only be built here.
 
     use ark_serialize::CanonicalDeserialize;
     use rand::thread_rng;
@@ -684,7 +684,7 @@ mod validation_tests {
     }
 
     #[test]
-    fn single_validate_rejects_each_invariant() {
+    fn test_single_validate_rejects_each_invariant() {
         let mut zero = valid_single();
         zero.user_message_limit = Fr::from(0u64);
         assert!(matches!(
@@ -710,7 +710,7 @@ mod validation_tests {
     }
 
     #[test]
-    fn multi_validate_rejects_each_invariant() {
+    fn test_multi_validate_rejects_each_invariant() {
         let mut zero = valid_multi();
         zero.user_message_limit = Fr::from(0u64);
         assert!(matches!(
@@ -758,21 +758,21 @@ mod validation_tests {
     }
 
     #[test]
-    fn single_deserialize_rejects_out_of_range_message_id() {
+    fn test_single_deserialize_rejects_out_of_range_message_id() {
         let mut w = valid_single();
         w.message_id = Fr::from(100u64); // >= limit (5)
         assert_deserialize_rejects(&RLNWitnessInput::Single(w));
     }
 
     #[test]
-    fn multi_deserialize_rejects_duplicate_message_ids() {
+    fn test_multi_deserialize_rejects_duplicate_message_ids() {
         let mut w = valid_multi();
         w.message_ids = vec![Fr::from(1u64), Fr::from(1u64)];
         assert_deserialize_rejects(&RLNWitnessInput::Multi(w));
     }
 
     #[test]
-    fn deserialize_rejects_zero_user_message_limit() {
+    fn test_deserialize_rejects_zero_user_message_limit() {
         let mut single = valid_single();
         single.user_message_limit = Fr::from(0u64);
         assert_deserialize_rejects(&RLNWitnessInput::Single(single));
@@ -783,7 +783,7 @@ mod validation_tests {
     }
 
     #[test]
-    fn valid_witnesses_still_round_trip() {
+    fn test_valid_witnesses_still_round_trip() {
         for witness in [
             RLNWitnessInput::Single(valid_single()),
             RLNWitnessInput::Multi(valid_multi()),
@@ -814,7 +814,7 @@ mod validation_tests {
     }
 
     #[test]
-    fn partial_validate_rejects_each_invariant() {
+    fn test_partial_validate_rejects_each_invariant() {
         let mut zero = valid_partial();
         zero.user_message_limit = Fr::from(0u64);
         assert!(matches!(
@@ -833,7 +833,7 @@ mod validation_tests {
     }
 
     #[test]
-    fn partial_deserialize_rejects_zero_limit_and_round_trips() {
+    fn test_partial_deserialize_rejects_zero_limit_and_round_trips() {
         let mut bad = valid_partial();
         bad.user_message_limit = Fr::from(0u64);
 

@@ -595,9 +595,7 @@ impl CanonicalDeserializeBE for RLNWitnessInputSingle {
             x,
             external_nullifier,
         };
-        value
-            .validate()
-            .map_err(|_| ArkSerializationError::InvalidData)?;
+        value.validate()?;
         Ok(value)
     }
 }
@@ -651,9 +649,7 @@ impl CanonicalDeserializeBE for RLNWitnessInputMulti {
             message_ids,
             selector_used,
         };
-        value
-            .validate()
-            .map_err(|_| ArkSerializationError::InvalidData)?;
+        value.validate()?;
         Ok(value)
     }
 }
@@ -691,9 +687,7 @@ impl CanonicalDeserializeBE for RLNPartialWitnessInput {
             path_elements,
             identity_path_index,
         };
-        value
-            .validate()
-            .map_err(|_| ArkSerializationError::InvalidData)?;
+        value.validate()?;
         Ok(value)
     }
 }
@@ -1026,9 +1020,9 @@ impl CanonicalDeserializeMixed for RLNProof {
 }
 
 #[cfg(test)]
-mod tests {
-    //! Crate-internal because the tests craft raw bytes using the module-private
-    //! `ENUM_TAG_SINGLE` and `FR_BYTE_SIZE` constants.
+mod test {
+    // Crate-internal because the tests craft raw bytes using the module-private
+    // `ENUM_TAG_SINGLE` and `FR_BYTE_SIZE` constants.
 
     use ark_ff::{BigInteger, PrimeField};
     use num_bigint::BigUint;
@@ -1038,27 +1032,24 @@ mod tests {
     /// A `Single` variant deserializes its inner value unchecked and relies on the trailing
     /// `check`, so a non-canonical field element inside it must still be rejected.
     #[test]
-    fn proof_values_le_non_canonical_field_rejected() {
+    fn test_proof_values_non_canonical_field_rejected() {
         let modulus = BigUint::from_bytes_le(&Fr::MODULUS.to_bytes_le());
-        let mut y = modulus.to_bytes_le();
-        y.resize(FR_BYTE_SIZE, 0);
 
-        let mut buf = vec![ENUM_TAG_SINGLE];
-        buf.extend_from_slice(&y);
-        buf.extend_from_slice(&[0u8; FR_BYTE_SIZE * 4]);
-        assert!(RLNProofValues::deserialize_compressed(buf.as_slice()).is_err());
-    }
+        let mut y_le = modulus.to_bytes_le();
+        y_le.resize(32, 0);
+        let mut le_buf = vec![0u8]; // Single variant tag
+        le_buf.extend_from_slice(&y_le);
+        le_buf.extend_from_slice(&[0u8; 32 * 4]); // root, nullifier, x, external_nullifier
+        assert!(RLNProofValues::deserialize_compressed(le_buf.as_slice()).is_err());
 
-    #[test]
-    fn proof_values_be_non_canonical_field_rejected() {
-        let modulus = BigUint::from_bytes_le(&Fr::MODULUS.to_bytes_le());
-        let mut y = modulus.to_bytes_be();
-        let mut padded = vec![0u8; FR_BYTE_SIZE - y.len()];
-        padded.append(&mut y);
-
-        let mut buf = vec![ENUM_TAG_SINGLE];
-        buf.extend_from_slice(&padded);
-        buf.extend_from_slice(&[0u8; FR_BYTE_SIZE * 4]);
-        assert!(<RLNProofValues as CanonicalDeserializeBE>::deserialize(buf.as_slice()).is_err());
+        let mut y_be = modulus.to_bytes_be();
+        let mut padded = vec![0u8; 32 - y_be.len()];
+        padded.append(&mut y_be);
+        let mut be_buf = vec![0u8]; // Single variant tag
+        be_buf.extend_from_slice(&padded);
+        be_buf.extend_from_slice(&[0u8; 32 * 4]); // root, nullifier, x, external_nullifier
+        assert!(
+            <RLNProofValues as CanonicalDeserializeBE>::deserialize(be_buf.as_slice()).is_err()
+        );
     }
 }

@@ -18,7 +18,7 @@ ark-relations = { version = "0.5.1", features = ["std"] }
 ark-serialize = { version = "0.5.0", default-features = false }
 
 # Error Handling
-thiserror = "2.0.18"
+thiserror = "2.0.19"
 
 # Utilities
 rand = "0.8.7"
@@ -30,8 +30,8 @@ rand_chacha = "0.3.1"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 
 # Serialization
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.150"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
 
 # Benchmarking
 criterion = { version = "0.8.2", features = ["html_reports"] }
