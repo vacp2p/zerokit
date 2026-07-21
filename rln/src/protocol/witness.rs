@@ -147,7 +147,8 @@ impl RLNWitnessInput {
 
 #[bon]
 impl RLNWitnessInput {
-    /// Starts building a Single message-id witness; call `build` to validate and construct it.
+    /// Starts building a Single message-id witness; call `build` to check the structural
+    /// invariants and construct it.
     #[builder(finish_fn = build)]
     pub fn new_single(
         identity_secret: SecretFr,
@@ -174,7 +175,8 @@ impl RLNWitnessInput {
         Ok(Self::Single(inner))
     }
 
-    /// Starts building a Multi message-id witness; call `build` to validate and construct it.
+    /// Starts building a Multi message-id witness; call `build` to check the structural
+    /// invariants and construct it.
     #[builder(finish_fn = build)]
     #[allow(clippy::too_many_arguments)]
     pub fn new_multi(
@@ -206,6 +208,8 @@ impl RLNWitnessInput {
 }
 
 impl RLNWitnessInput {
+    /// Checks that the witness dimensions match the `graph` circuit: path lengths against the
+    /// tree depth, and message-id slot counts against `max_out`.
     pub(super) fn validate_against_graph(&self, graph: &Graph) -> Result<(), GenerateProofError> {
         let (path_len, index_len) = match self {
             Self::Single(w) => (w.path_elements.len(), w.identity_path_index.len()),
@@ -510,7 +514,8 @@ impl RLNPartialWitnessInput {
 
 #[bon]
 impl RLNPartialWitnessInput {
-    /// Starts building a partial witness; call `build` to validate and construct it.
+    /// Starts building a partial witness; call `build` to check the structural invariants and
+    /// construct it.
     #[allow(clippy::new_ret_no_self)]
     #[builder(start_fn = new, finish_fn = build)]
     pub fn create(
@@ -532,6 +537,7 @@ impl RLNPartialWitnessInput {
         Ok(partial)
     }
 
+    /// Checks that the partial witness path lengths match the `graph` circuit tree depth.
     pub(super) fn validate_against_graph(&self, graph: &Graph) -> Result<(), GenerateProofError> {
         if self.path_elements.len() != graph.tree_depth {
             return Err(GenerateProofError::PathElementsLengthMismatch(

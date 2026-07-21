@@ -346,7 +346,8 @@ where
         if let (Some(start_parent), Some(end_parent)) =
             (self.parent(start_index), self.parent(end_index))
         {
-            // Closure to compute the hash of a parent node given its index, by hashing its two children
+            // Closure to compute the hash of a parent node given its index, by hashing its two
+            // children
             let hash_parent = |parent: usize| {
                 let left = self.first_child(parent);
                 H::hash(&[self.nodes[left], self.nodes[left + 1]])

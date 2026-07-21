@@ -159,7 +159,8 @@ mod test {
         }
         assert_eq!(tree_full.get_empty_leaves_indices(), vec![0]);
 
-        // More deletes than writes: write [5,6] at start, delete [0,1,2,3] (writes win, untouched leaves preserved).
+        // More deletes than writes: write [5,6] at start, delete [0,1,2,3] (writes win, untouched
+        // leaves preserved).
         let mut tree_full = default_full_merkle_tree(3);
         tree_full
             .set_range(0, [10, 20, 30, 40].map(TestFr::from).into_iter())

@@ -14,8 +14,8 @@ pub const DEFAULT_MAX_OUT: usize = 4;
 /// Default Merkle tree depth.
 pub const DEFAULT_TREE_DEPTH: usize = 20;
 
-// The following types define the pairing friendly elliptic curve, the underlying finite fields and groups default to this module
-// Note that proofs are serialized assuming Fr to be 4x8 = 32 bytes in size. Hence, changing to a curve with different encoding will make proof verification to fail
+// The following types define the pairing friendly elliptic curve, the underlying finite fields
+// and groups default to this module.
 
 /// BN254 pairing-friendly elliptic curve.
 pub type Curve = Bn254;

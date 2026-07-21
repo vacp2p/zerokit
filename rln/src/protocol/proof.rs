@@ -101,7 +101,8 @@ impl RLNProofValues {
         })
     }
 
-    /// Starts building Multi message-id proof values; call `build` to validate and construct them.
+    /// Starts building Multi message-id proof values; call `build` to check the structural
+    /// invariants and construct them.
     #[builder(finish_fn = build)]
     pub fn new_multi(
         ys: Vec<Fr>,
@@ -496,7 +497,8 @@ mod test {
 
     #[test]
     fn test_recover_secret_errors_instead_of_panicking() {
-        // The nullifiers match, so without `validate` this would index `ys[0]` and panic.
+        // The nullifiers match, so without `validate` this would index `ys[0]` and
+        // panic.
         let malformed = RLNProofValues::Multi(RLNProofValuesMulti {
             root: Fr::from(1u64),
             x: Fr::from(7u64),

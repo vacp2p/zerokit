@@ -305,7 +305,8 @@ where
         // Round down to include the left sibling in the pair (if start is odd)
         let mut current_index = start & !1;
 
-        // Compute the max index at this level, round up to include the last updated leaf’s right sibling (if start + length is odd)
+        // Compute the max index at this level, round up to include the last updated leaf’s right
+        // sibling (if start + length is odd)
         let mut current_index_max = (start + length + 1) & !1;
 
         // Traverse from the leaf level up to the root
@@ -313,7 +314,8 @@ where
             // Compute the parent level (one level above the current)
             let parent_depth = current_depth - 1;
 
-            // Closure to compute the parent hash and its HashMap key, given a child index at the current depth
+            // Closure to compute the parent hash and its HashMap key, given a child index at the
+            // current depth
             let hash_node = |index: usize| {
                 (
                     (parent_depth, index >> 1),
@@ -367,7 +369,8 @@ where
 
     /// Computes the leaf index corresponding to a Merkle proof
     fn leaf_index(&self) -> usize {
-        // In current implementation the path indexes in a proof correspond to the binary representation of the leaf index
+        // In current implementation the path indexes in a proof correspond to the binary
+        // representation of the leaf index
         let mut binary_repr = self.get_path_index();
         binary_repr.reverse();
         binary_repr

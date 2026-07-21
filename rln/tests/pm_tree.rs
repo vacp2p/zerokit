@@ -297,8 +297,8 @@ mod test {
     #[test]
     fn test_pmtree_override_range() {
         // PmTree routes override_range to pmtree's atomic `batch_set` (single commit), so the same
-        // cases the in-memory backends cover must hold here too. Each case sets a fresh tree, applies
-        // one override_range, then checks BOTH the leaf values and the empty-leaves cache.
+        // cases the in-memory backends cover must hold here too. Each case sets a fresh tree,
+        // applies one override_range, then checks BOTH the leaf values and the empty-leaves cache.
 
         // Full overlap: write [5,6] over deleted [0,1] (writes win, untouched leaves preserved).
         let mut tree = PmTree::<SledDB, PoseidonHash>::default(3).unwrap();
@@ -802,7 +802,8 @@ mod test {
 
     #[test]
     fn test_pmtree_optimal_root_and_proof_equivalence() {
-        // PmTree must agree with OptimalMerkleTree on the root and proof for the same set of leaves.
+        // PmTree must agree with OptimalMerkleTree on the root and proof for the same set of
+        // leaves.
         let depth = 4;
         let leaves: Vec<Fr> = (0..(1u64 << depth)).map(|i| Fr::from(i * 3 + 1)).collect();
 
