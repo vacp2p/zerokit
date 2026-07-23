@@ -93,6 +93,10 @@ export function computeMerkleProof(rlnWasm, rateCommitment) {
     pathElements.push(defaultHashes[i - 1]);
   }
   const identityPathIndex = new Uint8Array(TREE_DEPTH);
+  const merkleProof = rlnWasm.WasmRLNMerkleProof.new(
+    pathElements,
+    identityPathIndex,
+  );
 
   console.log("\nComputing Merkle root for stateless mode");
   console.log("  - computing root for index 0 with rate commitment");
@@ -105,7 +109,7 @@ export function computeMerkleProof(rlnWasm, rateCommitment) {
   const roots = rlnWasm.VecWasmFr.new();
   roots.push(computedRoot);
 
-  return { pathElements, identityPathIndex, roots };
+  return { merkleProof, roots };
 }
 
 export function hashSignal(rlnWasm, signal) {
@@ -146,8 +150,7 @@ export function createWitness(
     member.identitySecret,
     member.userMessageLimit,
     messageId,
-    merkleProof.pathElements,
-    merkleProof.identityPathIndex,
+    merkleProof,
     x,
     externalNullifier,
   );

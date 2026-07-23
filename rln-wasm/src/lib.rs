@@ -9,8 +9,8 @@ use wasm_bindgen::prelude::wasm_bindgen;
 pub use wasm_bindgen_rayon::init_thread_pool;
 #[cfg(not(feature = "utils"))]
 pub use wasm_rln::{
-    WasmRLN, WasmRLNPartialProof, WasmRLNPartialWitnessInput, WasmRLNProof, WasmRLNProofValues,
-    WasmRLNWitnessInput,
+    WasmRLN, WasmRLNMerkleProof, WasmRLNPartialProof, WasmRLNPartialWitnessInput, WasmRLNProof,
+    WasmRLNProofValues, WasmRLNWitnessInput,
 };
 pub use wasm_utils::{
     wasm_hash_to_field_be, wasm_hash_to_field_le, wasm_poseidon_hash_pair, VecWasmFr,

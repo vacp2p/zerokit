@@ -210,7 +210,7 @@ impl RLNWitnessInput {
 impl RLNWitnessInput {
     /// Checks that the witness dimensions match the `graph` circuit: path lengths against the
     /// tree depth, and message-id slot counts against `max_out`.
-    pub(super) fn validate_against_graph(&self, graph: &Graph) -> Result<(), GenerateProofError> {
+    pub(crate) fn validate_against_graph(&self, graph: &Graph) -> Result<(), GenerateProofError> {
         let (path_len, index_len) = match self {
             Self::Single(w) => (w.path_elements.len(), w.identity_path_index.len()),
             Self::Multi(w) => (w.path_elements.len(), w.identity_path_index.len()),
@@ -538,7 +538,7 @@ impl RLNPartialWitnessInput {
     }
 
     /// Checks that the partial witness path lengths match the `graph` circuit tree depth.
-    pub(super) fn validate_against_graph(&self, graph: &Graph) -> Result<(), GenerateProofError> {
+    pub(crate) fn validate_against_graph(&self, graph: &Graph) -> Result<(), GenerateProofError> {
         if self.path_elements.len() != graph.tree_depth {
             return Err(GenerateProofError::PathElementsLengthMismatch(
                 graph.tree_depth,

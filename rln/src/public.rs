@@ -197,6 +197,10 @@ where
     }
 
     /// Verifies a `proof` against its proof `values` (zkSNARK verification only).
+    ///
+    /// This checks neither the signal nor the membership root, so on its own it does not tie the
+    /// proof to a message or a group. Use [`Self::verify_with_signal`] or
+    /// [`Self::verify_with_roots`] unless both checks are performed elsewhere.
     pub fn verify(
         &self,
         proof: &ZkProof::Proof,
@@ -251,6 +255,11 @@ where
     ///
     /// Returns the zkSNARK verdict: `Ok(false)` means the proof is invalid. A signal mismatch is
     /// reported as [`VerifyProofError::InvalidSignal`] before verification runs.
+    ///
+    /// This method does not check the membership root: use it when root validity is already
+    /// established, e.g. on a [`Stateful`] instance whose internal tree is the only root source.
+    /// When proofs may be generated against older or external roots, use
+    /// [`Self::verify_with_roots`] instead.
     pub fn verify_with_signal(
         &self,
         proof: &Proof,
@@ -269,6 +278,10 @@ where
     /// If `roots` is empty, the root check is skipped. The signal check and the returned verdict
     /// are the same as in [`Self::verify_with_signal`]; a root mismatch is reported as
     /// [`VerifyProofError::InvalidRoot`].
+    ///
+    /// This is the recommended verification entry point: pass the accepted root window when
+    /// membership changes over time, or the externally obtained roots when the tree is managed
+    /// outside the instance (stateless deployments).
     ///
     /// ## Example:
     ///

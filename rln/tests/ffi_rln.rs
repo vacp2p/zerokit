@@ -380,7 +380,7 @@ mod test {
     }
 
     #[test]
-    fn test_recover_secret_with_tree_proof() {
+    fn test_recover_secret_with_merkle_proof() {
         let mut rln = create_rln_instance();
 
         let x1 = random_signal_hash();

@@ -567,7 +567,7 @@ mod test {
     }
 
     #[test]
-    fn test_recover_secret_with_tree_proof() {
+    fn test_recover_secret_with_merkle_proof() {
         let mut rln = create_rln(DEFAULT_TREE_DEPTH);
 
         let identity_keys = IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());

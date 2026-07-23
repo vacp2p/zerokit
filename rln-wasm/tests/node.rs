@@ -7,8 +7,8 @@ mod test {
     use rln::prelude::*;
     use rln_wasm::{
         wasm_hash_to_field_le, wasm_poseidon_hash_pair, VecWasmFr, WasmFr, WasmIdentityKeys,
-        WasmRLN, WasmRLNPartialProof, WasmRLNPartialWitnessInput, WasmRLNProof, WasmRLNProofValues,
-        WasmRLNWitnessInput, WasmSecretFr,
+        WasmRLN, WasmRLNMerkleProof, WasmRLNPartialProof, WasmRLNPartialWitnessInput, WasmRLNProof,
+        WasmRLNProofValues, WasmRLNWitnessInput, WasmSecretFr,
     };
     use wasm_bindgen_test::{console_log, wasm_bindgen_test};
     use zerokit_utils::merkle_tree::{
@@ -24,8 +24,7 @@ mod test {
         WasmSecretFr,
         WasmFr,
         WasmFr,
-        VecWasmFr,
-        Uint8Array,
+        WasmRLNMerkleProof,
         WasmFr,
         WasmFr,
     ) {
@@ -50,19 +49,20 @@ mod test {
         let signal: [u8; 32] = [0; 32];
         let x = wasm_hash_to_field_le(&Uint8Array::from(&signal[..]));
 
-        let merkle_proof: OptimalMerkleProof<PoseidonHash> = tree.proof(identity_index).unwrap();
+        let tree_merkle_proof: OptimalMerkleProof<PoseidonHash> =
+            tree.proof(identity_index).unwrap();
         let mut path_elements = VecWasmFr::new();
-        for path_element in merkle_proof.get_path_elements() {
+        for path_element in tree_merkle_proof.get_path_elements() {
             path_elements.push(&WasmFr::from(path_element));
         }
-        let path_index = Uint8Array::from(&merkle_proof.get_path_index()[..]);
+        let path_index = Uint8Array::from(&tree_merkle_proof.get_path_index()[..]);
+        let merkle_proof = WasmRLNMerkleProof::new(&path_elements, &path_index);
 
         (
             identity_secret,
             user_message_limit,
             message_id,
-            path_elements,
-            path_index,
+            merkle_proof,
             x,
             external_nullifier,
         )
@@ -114,19 +114,20 @@ mod test {
         let signal: [u8; 32] = [0; 32];
         let x = wasm_hash_to_field_le(&Uint8Array::from(&signal[..]));
 
-        let merkle_proof: OptimalMerkleProof<PoseidonHash> = tree.proof(identity_index).unwrap();
+        let tree_merkle_proof: OptimalMerkleProof<PoseidonHash> =
+            tree.proof(identity_index).unwrap();
         let mut path_elements = VecWasmFr::new();
-        for path_element in merkle_proof.get_path_elements() {
+        for path_element in tree_merkle_proof.get_path_elements() {
             path_elements.push(&WasmFr::from(path_element));
         }
-        let path_index = Uint8Array::from(&merkle_proof.get_path_index()[..]);
+        let path_index = Uint8Array::from(&tree_merkle_proof.get_path_index()[..]);
+        let merkle_proof = WasmRLNMerkleProof::new(&path_elements, &path_index);
 
         let witness = WasmRLNWitnessInput::new_single(
             &identity_secret,
             &user_message_limit,
             &message_id,
-            &path_elements,
-            &path_index,
+            &merkle_proof,
             &x,
             &external_nullifier,
         )
@@ -222,15 +223,8 @@ mod test {
         let graph = Uint8Array::from(GRAPH_BYTES);
         assert!(WasmRLN::new_with_params(&invalid_zkey, &graph).is_err());
 
-        let (
-            identity_secret,
-            user_message_limit,
-            message_id,
-            path_elements,
-            path_index,
-            x,
-            external_nullifier,
-        ) = build_witness_parts();
+        let (identity_secret, user_message_limit, message_id, merkle_proof, x, external_nullifier) =
+            build_witness_parts();
 
         // Invalid user message limit (zero)
         let zero_limit = WasmFr::zero();
@@ -238,8 +232,7 @@ mod test {
             &identity_secret,
             &zero_limit,
             &message_id,
-            &path_elements,
-            &path_index,
+            &merkle_proof,
             &x,
             &external_nullifier,
         );
@@ -251,36 +244,50 @@ mod test {
             &identity_secret,
             &user_message_limit,
             &invalid_message_id,
-            &path_elements,
-            &path_index,
+            &merkle_proof,
             &x,
             &external_nullifier,
         );
         assert!(result.is_err());
 
         // Invalid merkle proof length (path elements vs path index)
+        let path_elements = merkle_proof.get_path_elements();
+        let path_index = merkle_proof.get_identity_path_index();
         let mut shorter_path_elements = VecWasmFr::new();
         for i in 0..path_elements.length().saturating_sub(1) {
             shorter_path_elements.push(&path_elements.get(i).unwrap());
         }
+        let shorter_merkle_proof = WasmRLNMerkleProof::new(&shorter_path_elements, &path_index);
         let result = WasmRLNWitnessInput::new_single(
             &identity_secret,
             &user_message_limit,
             &message_id,
-            &shorter_path_elements,
-            &path_index,
+            &shorter_merkle_proof,
             &x,
             &external_nullifier,
         );
         assert!(result.is_err());
+
+        // Merkle proof bytes: LE and BE roundtrip
+        let merkle_proof_le = merkle_proof.to_bytes_le().unwrap();
+        let merkle_proof_from_le = WasmRLNMerkleProof::from_bytes_le(&merkle_proof_le).unwrap();
+        assert_eq!(
+            merkle_proof_from_le.get_identity_path_index().to_vec(),
+            path_index.to_vec()
+        );
+        let merkle_proof_be = merkle_proof.to_bytes_be().unwrap();
+        let merkle_proof_from_be = WasmRLNMerkleProof::from_bytes_be(&merkle_proof_be).unwrap();
+        assert_eq!(
+            merkle_proof_from_be.get_identity_path_index().to_vec(),
+            path_index.to_vec()
+        );
 
         // Witness bytes: truncated and extra data
         let valid_witness = WasmRLNWitnessInput::new_single(
             &identity_secret,
             &user_message_limit,
             &message_id,
-            &path_elements,
-            &path_index,
+            &merkle_proof,
             &x,
             &external_nullifier,
         )

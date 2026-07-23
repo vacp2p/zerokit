@@ -20,8 +20,7 @@ function createMultiWitness(
     member.identitySecret,
     member.userMessageLimit,
     messageIds,
-    merkleProof.pathElements,
-    merkleProof.identityPathIndex,
+    merkleProof,
     x,
     externalNullifier,
     selectorUsed,
@@ -31,7 +30,10 @@ function createMultiWitness(
 async function main() {
   const { rlnWasm, rlnInstance } = await initRLN(true);
   const member = createMember(rlnWasm);
-  const merkleProof = computeMerkleProof(rlnWasm, member.rateCommitment);
+  const { merkleProof, roots } = computeMerkleProof(
+    rlnWasm,
+    member.rateCommitment,
+  );
   const externalNullifier = computeExternalNullifier(rlnWasm);
 
   console.log("\nHashing first signal");
@@ -97,7 +99,7 @@ async function main() {
   console.log("\nVerifying first proof");
   let isValid1;
   try {
-    isValid1 = rlnInstance.verifyWithRoots(rlnProof1, merkleProof.roots, x1);
+    isValid1 = rlnInstance.verifyWithRoots(rlnProof1, roots, x1);
   } catch (error) {
     console.error("Proof verification error:", error);
     return;
@@ -166,7 +168,7 @@ async function main() {
   console.log("\nVerifying second proof");
   let isValid2;
   try {
-    isValid2 = rlnInstance.verifyWithRoots(rlnProof2, merkleProof.roots, x2);
+    isValid2 = rlnInstance.verifyWithRoots(rlnProof2, roots, x2);
   } catch (error) {
     console.error("Proof verification error:", error);
     return;
