@@ -11,9 +11,7 @@ mod test {
         WasmRLNProofValues, WasmRLNWitnessInput, WasmSecretFr,
     };
     use wasm_bindgen_test::{console_log, wasm_bindgen_test};
-    use zerokit_utils::merkle_tree::{
-        OptimalMerkleProof, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
-    };
+    use zerokit_utils::merkle_tree::{OptimalMerkleProof, OptimalMerkleTree, ZerokitMerkleTree};
 
     const ARKZKEY_BYTES: &[u8] =
         include_bytes!("../../rln/resources/tree_depth_20/rln_final.arkzkey");
@@ -51,12 +49,7 @@ mod test {
 
         let tree_merkle_proof: OptimalMerkleProof<PoseidonHash> =
             tree.proof(identity_index).unwrap();
-        let mut path_elements = VecWasmFr::new();
-        for path_element in tree_merkle_proof.get_path_elements() {
-            path_elements.push(&WasmFr::from(path_element));
-        }
-        let path_index = Uint8Array::from(&tree_merkle_proof.get_path_index()[..]);
-        let merkle_proof = WasmRLNMerkleProof::new(&path_elements, &path_index);
+        let merkle_proof = WasmRLNMerkleProof::from(RLNMerkleProof::from(&tree_merkle_proof));
 
         (
             identity_secret,
@@ -116,12 +109,7 @@ mod test {
 
         let tree_merkle_proof: OptimalMerkleProof<PoseidonHash> =
             tree.proof(identity_index).unwrap();
-        let mut path_elements = VecWasmFr::new();
-        for path_element in tree_merkle_proof.get_path_elements() {
-            path_elements.push(&WasmFr::from(path_element));
-        }
-        let path_index = Uint8Array::from(&tree_merkle_proof.get_path_index()[..]);
-        let merkle_proof = WasmRLNMerkleProof::new(&path_elements, &path_index);
+        let merkle_proof = WasmRLNMerkleProof::from(RLNMerkleProof::from(&tree_merkle_proof));
 
         let witness = WasmRLNWitnessInput::new_single(
             &identity_secret,

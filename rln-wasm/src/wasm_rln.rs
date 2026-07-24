@@ -96,6 +96,12 @@ impl WasmRLN {
 #[wasm_bindgen]
 pub struct WasmRLNMerkleProof(RLNMerkleProof);
 
+impl From<RLNMerkleProof> for WasmRLNMerkleProof {
+    fn from(merkle_proof: RLNMerkleProof) -> Self {
+        WasmRLNMerkleProof(merkle_proof)
+    }
+}
+
 #[wasm_bindgen]
 impl WasmRLNMerkleProof {
     #[wasm_bindgen(js_name = new)]

@@ -176,9 +176,11 @@ where
         self.state.tree.metadata()
     }
 
-    /// Closes the tree, flushing pending writes for persistent backends.
+    /// Closes the tree, flushing pending writes for persistent backends (a no-op for in-memory
+    /// backends).
     ///
-    /// Persistent backends also flush on drop; for in-memory backends this is a no-op.
+    /// Dropping the instance does not flush, so persistent-backend users must call
+    /// [`Self::close`] before exit to guarantee durability.
     pub fn close(&mut self) -> Result<(), T::Error> {
         self.state.tree.close()
     }
