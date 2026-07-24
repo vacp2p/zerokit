@@ -17,6 +17,11 @@ use crate::{
 };
 
 /// A Merkle proof consisting of the path elements and the path index.
+///
+/// This is the data type the witness builders consume. It lets callers without a tree build
+/// witnesses from externally provided path data, serializes on its own (LE and BE), and backs
+/// the `FFI_RLNMerkleProof` / `WasmRLNMerkleProof` handles. The [`From`] impl below converts
+/// the proof of every built-in tree, or of any tree implementing [`ZerokitMerkleProof`], into it.
 #[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNMerkleProof {
     pub(crate) path_elements: Vec<Fr>,
@@ -43,6 +48,10 @@ impl RLNMerkleProof {
     }
 }
 
+/// Converts any tree proof into [`RLNMerkleProof`] by extracting its path data.
+///
+/// Covers every [`ZerokitMerkleProof`] implementor: `FullMerkleProof`, `OptimalMerkleProof`,
+/// `PmTreeProof`, and any future backend's proof type.
 impl<P> From<&P> for RLNMerkleProof
 where
     P: ZerokitMerkleProof<Index = u8>,
