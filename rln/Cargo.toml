@@ -61,10 +61,7 @@ sled = { version = "0.34.7", features = ["compression"] }
 
 [dev-dependencies]
 criterion = { workspace = true }
-ark-crypto-primitives = { version = "0.5.0", default-features = false, features = [
-    "snark",
-    "sponge",
-] }
+ark-crypto-primitives = { workspace = true, features = ["snark", "sponge"] }
 
 [features]
 default = ["parallel"]
