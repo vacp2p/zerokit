@@ -7,15 +7,13 @@ mod test {
     use rln::prelude::*;
     use rln_wasm::{
         wasm_hash_to_field_le, wasm_poseidon_hash_pair, VecWasmFr, WasmFr, WasmIdentityKeys,
-        WasmRLN, WasmRLNPartialProof, WasmRLNPartialWitnessInput, WasmRLNProof,
+        WasmRLN, WasmRLNMerkleProof, WasmRLNPartialProof, WasmRLNPartialWitnessInput, WasmRLNProof,
         WasmRLNWitnessInput,
     };
     #[cfg(feature = "parallel")]
     use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
     use wasm_bindgen_test::{console_log, wasm_bindgen_test, wasm_bindgen_test_configure};
-    use zerokit_utils::merkle_tree::{
-        OptimalMerkleProof, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
-    };
+    use zerokit_utils::merkle_tree::{OptimalMerkleProof, OptimalMerkleTree, ZerokitMerkleTree};
     #[cfg(feature = "parallel")]
     use {rln_wasm::init_thread_pool, wasm_bindgen_futures::JsFuture, web_sys::window};
 
@@ -94,19 +92,15 @@ mod test {
         let signal: [u8; 32] = [0; 32];
         let x = wasm_hash_to_field_le(&Uint8Array::from(&signal[..]));
 
-        let merkle_proof: OptimalMerkleProof<PoseidonHash> = tree.proof(identity_index).unwrap();
-        let mut path_elements = VecWasmFr::new();
-        for path_element in merkle_proof.get_path_elements() {
-            path_elements.push(&WasmFr::from(path_element));
-        }
-        let path_index = Uint8Array::from(&merkle_proof.get_path_index()[..]);
+        let tree_merkle_proof: OptimalMerkleProof<PoseidonHash> =
+            tree.proof(identity_index).unwrap();
+        let merkle_proof = WasmRLNMerkleProof::from(RLNMerkleProof::from(&tree_merkle_proof));
 
         let witness = WasmRLNWitnessInput::new_single(
             &identity_secret,
             &user_message_limit,
             &message_id,
-            &path_elements,
-            &path_index,
+            &merkle_proof,
             &x,
             &external_nullifier,
         )

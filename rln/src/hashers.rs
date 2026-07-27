@@ -10,7 +10,8 @@ use crate::circuit::Fr;
 
 // TODO(backlog): Generate these parameters
 
-/// These indexed constants hardcode the supported round parameters tuples (t, RF, RN, SKIP_MATRICES) for the Bn254 scalar field.
+/// These indexed constants hardcode the supported round parameters tuples
+/// (t, RF, RN, SKIP_MATRICES) for the Bn254 scalar field.
 /// SKIP_MATRICES is the index of the randomly generated secure MDS matrix.
 const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
     (2, 8, 56, 0),
@@ -23,7 +24,7 @@ const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
     (9, 8, 63, 0),
 ];
 
-/// The Poseidon instance over the Bn254 scalar field, parameterized by [`rln::hashers::ROUND_PARAMS`].
+/// The Poseidon instance over the Bn254 scalar field, parameterized by [`ROUND_PARAMS`].
 static POSEIDON: LazyLock<Poseidon<Fr>> = LazyLock::new(|| Poseidon::from(&ROUND_PARAMS));
 
 /// The Poseidon hash function over the Bn254 scalar field.

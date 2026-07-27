@@ -75,7 +75,8 @@ mod test {
             expected_id_commitment_seed_bytes
         );
 
-        // We check again if the identity pair generated with the same seed phrase corresponds to the previously generated one
+        // We check again if the identity pair generated with the same seed phrase corresponds to
+        // the previously generated one
         let identity_keys =
             IdentityKeys::generate_seeded::<PoseidonHash, ChaCha20Rng>(seed_phrase.as_bytes());
 
@@ -164,7 +165,8 @@ mod test {
             expected_id_commitment
         );
 
-        // We check again if the identity tuple generated with the same byte array corresponds to the previously generated one
+        // We check again if the identity tuple generated with the same byte array corresponds to
+        // the previously generated one
         let second = ExtendedIdentityKeys::generate_seeded::<PoseidonHash, ChaCha20Rng>(seed_bytes);
         assert_eq!(
             (

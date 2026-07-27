@@ -42,8 +42,7 @@ mod test {
         RLNWitnessInput::new_single()
             .identity_secret(id)
             .user_message_limit(Fr::from(10u64))
-            .path_elements(path_elements)
-            .identity_path_index(vec![0u8; depth])
+            .merkle_proof(RLNMerkleProof::new(path_elements, vec![0u8; depth]))
             .x(x)
             .external_nullifier(external_nullifier)
             .message_id(message_id)
@@ -63,8 +62,7 @@ mod test {
         RLNWitnessInput::new_multi()
             .identity_secret(id)
             .user_message_limit(Fr::from(10u64))
-            .path_elements(path_elements)
-            .identity_path_index(vec![0u8; depth])
+            .merkle_proof(RLNMerkleProof::new(path_elements, vec![0u8; depth]))
             .x(x)
             .external_nullifier(external_nullifier)
             .message_ids(message_ids)
@@ -95,8 +93,7 @@ mod test {
         let witness = RLNWitnessInput::new_single()
             .identity_secret(identity_secret)
             .user_message_limit(user_message_limit)
-            .path_elements(merkle_proof.get_path_elements())
-            .identity_path_index(merkle_proof.get_path_index())
+            .merkle_proof(&merkle_proof)
             .x(x)
             .external_nullifier(external_nullifier)
             .message_id(Fr::from(1))
@@ -215,8 +212,10 @@ mod test {
         let partial_witness = RLNPartialWitnessInput::new()
             .identity_secret(id_secret)
             .user_message_limit(Fr::from(10u64))
-            .path_elements(default_path())
-            .identity_path_index(vec![0u8; DEFAULT_TREE_DEPTH])
+            .merkle_proof(RLNMerkleProof::new(
+                default_path(),
+                vec![0u8; DEFAULT_TREE_DEPTH],
+            ))
             .build()
             .unwrap();
         let partial_proof = rln.generate_partial_proof(&partial_witness).unwrap();
@@ -240,8 +239,10 @@ mod test {
         let partial_witness = RLNPartialWitnessInput::new()
             .identity_secret(id_secret)
             .user_message_limit(Fr::from(10u64))
-            .path_elements(default_path())
-            .identity_path_index(vec![0u8; DEFAULT_TREE_DEPTH])
+            .merkle_proof(RLNMerkleProof::new(
+                default_path(),
+                vec![0u8; DEFAULT_TREE_DEPTH],
+            ))
             .build()
             .unwrap();
         let partial_proof = rln.generate_partial_proof(&partial_witness).unwrap();
@@ -581,36 +582,34 @@ mod test {
         let (proof, proof_values) = rln.generate_proof(&witness).unwrap();
         assert!(rln.verify(&proof, &proof_values).unwrap());
 
-        let RLNProofValues::Single(values) = proof_values else {
-            panic!("expected single proof values");
+        let (y, root, nullifier, x, external_nullifier) = (
+            proof_values.y().unwrap(),
+            proof_values.root(),
+            proof_values.nullifier().unwrap(),
+            proof_values.x(),
+            proof_values.external_nullifier(),
+        );
+        let single = |y: Fr, root: Fr, nullifier: Fr, x: Fr, external_nullifier: Fr| {
+            RLNProofValues::new_single()
+                .y(y)
+                .root(root)
+                .nullifier(nullifier)
+                .x(x)
+                .external_nullifier(external_nullifier)
+                .build()
         };
 
-        let mutations: Vec<RLNProofValuesSingle> = vec![
-            RLNProofValuesSingle {
-                root: values.root + Fr::from(1),
-                ..values.clone()
-            },
-            RLNProofValuesSingle {
-                x: values.x + Fr::from(1),
-                ..values.clone()
-            },
-            RLNProofValuesSingle {
-                external_nullifier: values.external_nullifier + Fr::from(1),
-                ..values.clone()
-            },
-            RLNProofValuesSingle {
-                y: values.y + Fr::from(1),
-                ..values.clone()
-            },
-            RLNProofValuesSingle {
-                nullifier: values.nullifier + Fr::from(1),
-                ..values.clone()
-            },
+        // Mutating any single public input must break verification.
+        let one = Fr::from(1);
+        let mutations = vec![
+            single(y, root + one, nullifier, x, external_nullifier),
+            single(y, root, nullifier, x + one, external_nullifier),
+            single(y, root, nullifier, x, external_nullifier + one),
+            single(y + one, root, nullifier, x, external_nullifier),
+            single(y, root, nullifier + one, x, external_nullifier),
         ];
         for mutated in mutations {
-            assert!(!rln
-                .verify(&proof, &RLNProofValues::Single(mutated))
-                .unwrap());
+            assert!(!rln.verify(&proof, &mutated).unwrap());
         }
     }
 }

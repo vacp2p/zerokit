@@ -13,20 +13,19 @@ pub use crate::{
     circuit::{
         graph_from_raw, zkey_from_raw, ArkGroth16Backend, Curve, Fq, Fq2, Fr, G1Affine,
         G1Projective, G2Affine, G2Projective, Graph, PartialProof, Proof, SecretFr, VerifyingKey,
-        Zkey, COMPRESS_PROOF_SIZE, DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH,
+        Zkey, DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH,
     },
     error::{
-        GenerateProofError, PartialWitnessInputError, RecoverSecretError, SerializationError,
-        VerifyProofError, WitnessInputMultiError, WitnessInputSingleError,
+        GenerateProofError, PartialWitnessInputError, ProofValuesMultiError, RecoverSecretError,
+        SerializationError, VerifyProofError, WitnessInputMultiError, WitnessInputSingleError,
     },
     hashers::{hash_to_field_be, hash_to_field_le, Hasher, PoseidonHash},
     protocol::{
         compute_id_secret, CanonicalDeserializeBE, CanonicalDeserializeMixed, CanonicalSerializeBE,
-        CanonicalSerializeMixed, ExtendedIdentityKeys, IdentityKeys, RLNPartialWitnessInput,
-        RLNPartialZkProof, RLNProof, RLNProofValues, RLNProofValuesMulti, RLNProofValuesSingle,
-        RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle, RLNZkProof, RecoverSecret,
-        ENUM_TAG_MULTI, ENUM_TAG_SINGLE, ENUM_TAG_SIZE, FR_BYTE_SIZE, FR_LIMB_BYTE_SIZE,
-        VEC_LEN_BYTE_SIZE,
+        CanonicalSerializeMixed, ExtendedIdentityKeys, IdentityKeys, RLNMerkleProof,
+        RLNPartialWitnessInput, RLNPartialZkProof, RLNProof, RLNProofValues, RLNProofValuesMulti,
+        RLNProofValuesSingle, RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle,
+        RLNZkProof, RecoverSecret,
     },
     public::{RLNBuilder, Stateful, Stateless, RLN},
 };

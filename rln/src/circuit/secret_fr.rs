@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{fmt, ops::Deref};
 
 use ark_ff::{PrimeField, UniformRand};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -9,12 +9,18 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use super::Fr;
 
 /// Secret field-element wrapper zeroized on drop.
-#[derive(
-    Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize, Zeroize, ZeroizeOnDrop,
-)]
+#[derive(Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize, Zeroize, ZeroizeOnDrop)]
 pub struct SecretFr(Fr);
 
+impl fmt::Debug for SecretFr {
+    /// Redacts the wrapped secret so `{:?}` never prints the plaintext field element.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("SecretFr(********)")
+    }
+}
+
 impl SecretFr {
+    /// Samples a random secret field element from `rng`.
     pub fn rand<R: Rng + ?Sized>(rng: &mut R) -> Self {
         let mut fr = Fr::rand(rng);
         let res = Self::from(&mut fr);
@@ -24,7 +30,8 @@ impl SecretFr {
     }
 
     /// Warning: this can leak the secret value
-    /// Warning: Leaked value is of type 'U256' which implement Copy (every copy will not be zeroized)
+    /// Warning: Leaked value is of type 'U256' which implement Copy (every copy will not be
+    /// zeroized)
     pub(crate) fn to_u256(&self) -> U256 {
         let mut big_int = self.0.into_bigint();
         let res = U256::from_limbs(big_int.0);
@@ -53,6 +60,7 @@ impl Deref for SecretFr {
     }
 }
 
+/// FrOrSecret is a wrapper type that can hold either a SecretFr or a regular Fr.
 #[derive(Debug, Clone, Zeroize, ZeroizeOnDrop)]
 pub(crate) enum FrOrSecret {
     SecretFr(SecretFr),
@@ -76,11 +84,14 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_id_secret_from_fr_zeroizes_source() {
+    fn test_secret_fr() {
         let mut fr = Fr::from(42);
         let id_secret = SecretFr::from(&mut fr);
 
         assert_ne!(fr, Fr::from(42));
         assert_eq!(*id_secret, Fr::from(42));
+
+        let secret = SecretFr(Fr::from(42));
+        assert_eq!(format!("{secret:?}"), "SecretFr(********)");
     }
 }

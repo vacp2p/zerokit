@@ -14,7 +14,7 @@ int main(void)
     Member member;
     create_member(&member);
 
-    MerkleProof *merkle_proof = register_member(&rln_instance, member.rate_commitment);
+    MerkleProof *merkle_proof = register_member(rln_instance, member.rate_commitment);
     if (!merkle_proof)
     {
         return EXIT_FAILURE;
@@ -37,7 +37,8 @@ int main(void)
         create_witness(&member, merkle_proof, message_id, x, external_nullifier);
     if (!witness_result.ok)
     {
-        fprintf(stderr, "Witness creation error: %s\n", witness_result.err.ptr);
+        fprintf(stderr, "Witness creation error: %.*s\n",
+                (int)witness_result.err.len, (char *)witness_result.err.ptr);
         ffi_c_string_free(witness_result.err);
         return EXIT_FAILURE;
     }
@@ -45,20 +46,22 @@ int main(void)
     printf("  - RLN witness created successfully\n");
 
     printf("\nRLNWitnessInput serialization: RLNWitnessInput <-> bytes\n");
-    VecU8Result ser_witness_result = ffi_rln_witness_to_bytes_le(&witness);
+    VecU8Result ser_witness_result = ffi_rln_witness_input_to_bytes_le(witness);
     if (ser_witness_result.err.ptr)
     {
-        fprintf(stderr, "Witness serialization error: %s\n", ser_witness_result.err.ptr);
+        fprintf(stderr, "Witness serialization error: %.*s\n",
+                (int)ser_witness_result.err.len, (char *)ser_witness_result.err.ptr);
         ffi_c_string_free(ser_witness_result.err);
         return EXIT_FAILURE;
     }
     Vec_uint8 ser_witness = ser_witness_result.ok;
     print_vec_u8("serialized witness", &ser_witness);
     WitnessResult deser_witness_result =
-        ffi_bytes_le_to_rln_witness(&ser_witness);
+        ffi_rln_witness_input_from_bytes_le(&ser_witness);
     if (!deser_witness_result.ok)
     {
-        fprintf(stderr, "Witness deserialization error: %s\n", deser_witness_result.err.ptr);
+        fprintf(stderr, "Witness deserialization error: %.*s\n",
+                (int)deser_witness_result.err.len, (char *)deser_witness_result.err.ptr);
         ffi_c_string_free(deser_witness_result.err);
         return EXIT_FAILURE;
     }
@@ -67,10 +70,11 @@ int main(void)
 
     printf("\nGenerating RLN proof from the deserialized witness\n");
     ProofResult rln_proof_result =
-        ffi_rln_generate_proof(&rln_instance, &deser_witness);
+        ffi_rln_generate_proof(rln_instance, deser_witness);
     if (!rln_proof_result.ok)
     {
-        fprintf(stderr, "Proof generation error: %s\n", rln_proof_result.err.ptr);
+        fprintf(stderr, "Proof generation error: %.*s\n",
+                (int)rln_proof_result.err.len, (char *)rln_proof_result.err.ptr);
         ffi_c_string_free(rln_proof_result.err);
         return EXIT_FAILURE;
     }
@@ -78,20 +82,22 @@ int main(void)
     printf("  - proof generated successfully\n");
 
     printf("\nRLNProof serialization: RLNProof <-> bytes\n");
-    VecU8Result ser_proof_result = ffi_rln_proof_to_bytes_le(&rln_proof);
+    VecU8Result ser_proof_result = ffi_rln_proof_to_bytes_le(rln_proof);
     if (ser_proof_result.err.ptr)
     {
-        fprintf(stderr, "Proof serialization error: %s\n", ser_proof_result.err.ptr);
+        fprintf(stderr, "Proof serialization error: %.*s\n",
+                (int)ser_proof_result.err.len, (char *)ser_proof_result.err.ptr);
         ffi_c_string_free(ser_proof_result.err);
         return EXIT_FAILURE;
     }
     Vec_uint8 ser_proof = ser_proof_result.ok;
     print_vec_u8("serialized proof", &ser_proof);
     ProofResult deser_proof_result =
-        ffi_bytes_le_to_rln_proof(&ser_proof);
+        ffi_rln_proof_from_bytes_le(&ser_proof);
     if (!deser_proof_result.ok)
     {
-        fprintf(stderr, "Proof deserialization error: %s\n", deser_proof_result.err.ptr);
+        fprintf(stderr, "Proof deserialization error: %.*s\n",
+                (int)deser_proof_result.err.len, (char *)deser_proof_result.err.ptr);
         ffi_c_string_free(deser_proof_result.err);
         return EXIT_FAILURE;
     }
@@ -99,10 +105,11 @@ int main(void)
     printf("  - proof deserialized successfully\n");
 
     printf("\nVerifying the deserialized proof\n");
-    CBoolResult verify_result = verify_stateful_proof(&rln_instance, &deser_proof, x);
+    CBoolResult verify_result = verify_stateful_proof(rln_instance, deser_proof, x);
     if (verify_result.err.ptr)
     {
-        fprintf(stderr, "Proof verification error: %s\n", verify_result.err.ptr);
+        fprintf(stderr, "Proof verification error: %.*s\n",
+                (int)verify_result.err.len, (char *)verify_result.err.ptr);
         ffi_c_string_free(verify_result.err);
         return EXIT_FAILURE;
     }

@@ -91,6 +91,69 @@ impl WasmRLN {
     }
 }
 
+// WasmRLNMerkleProof
+
+#[wasm_bindgen]
+pub struct WasmRLNMerkleProof(RLNMerkleProof);
+
+impl From<RLNMerkleProof> for WasmRLNMerkleProof {
+    fn from(merkle_proof: RLNMerkleProof) -> Self {
+        WasmRLNMerkleProof(merkle_proof)
+    }
+}
+
+#[wasm_bindgen]
+impl WasmRLNMerkleProof {
+    #[wasm_bindgen(js_name = new)]
+    pub fn new(path_elements: &VecWasmFr, identity_path_index: &Uint8Array) -> WasmRLNMerkleProof {
+        WasmRLNMerkleProof(RLNMerkleProof::new(
+            path_elements.inner(),
+            identity_path_index.to_vec(),
+        ))
+    }
+
+    #[wasm_bindgen(js_name = getPathElements)]
+    pub fn get_path_elements(&self) -> VecWasmFr {
+        VecWasmFr::from(self.0.path_elements().to_vec())
+    }
+
+    #[wasm_bindgen(js_name = getIdentityPathIndex)]
+    pub fn get_identity_path_index(&self) -> Uint8Array {
+        Uint8Array::from(self.0.identity_path_index())
+    }
+
+    #[wasm_bindgen(js_name = toBytesLE)]
+    pub fn to_bytes_le(&self) -> Result<Uint8Array, String> {
+        let mut bytes = Vec::new();
+        self.0
+            .serialize_compressed(&mut bytes)
+            .map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
+    }
+
+    #[wasm_bindgen(js_name = toBytesBE)]
+    pub fn to_bytes_be(&self) -> Result<Uint8Array, String> {
+        let mut bytes = Vec::new();
+        CanonicalSerializeBE::serialize(&self.0, &mut bytes).map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
+    }
+
+    #[wasm_bindgen(js_name = fromBytesLE)]
+    pub fn from_bytes_le(bytes: &Uint8Array) -> Result<WasmRLNMerkleProof, String> {
+        let merkle_proof = RLNMerkleProof::deserialize_compressed(&bytes.to_vec()[..])
+            .map_err(|err| err.to_string())?;
+        Ok(WasmRLNMerkleProof(merkle_proof))
+    }
+
+    #[wasm_bindgen(js_name = fromBytesBE)]
+    pub fn from_bytes_be(bytes: &Uint8Array) -> Result<WasmRLNMerkleProof, String> {
+        let merkle_proof =
+            <RLNMerkleProof as CanonicalDeserializeBE>::deserialize(&bytes.to_vec()[..])
+                .map_err(|err| err.to_string())?;
+        Ok(WasmRLNMerkleProof(merkle_proof))
+    }
+}
+
 // WasmRLNWitnessInput
 
 #[wasm_bindgen]
@@ -103,19 +166,14 @@ impl WasmRLNWitnessInput {
         identity_secret: &WasmSecretFr,
         user_message_limit: &WasmFr,
         message_id: &WasmFr,
-        path_elements: &VecWasmFr,
-        identity_path_index: &Uint8Array,
+        merkle_proof: &WasmRLNMerkleProof,
         x: &WasmFr,
         external_nullifier: &WasmFr,
     ) -> Result<WasmRLNWitnessInput, String> {
-        let path_elements: Vec<Fr> = path_elements.inner();
-        let identity_path_index: Vec<u8> = identity_path_index.to_vec();
-
         let witness = RLNWitnessInput::new_single()
             .identity_secret(identity_secret.inner().clone())
             .user_message_limit(user_message_limit.inner())
-            .path_elements(path_elements)
-            .identity_path_index(identity_path_index)
+            .merkle_proof(merkle_proof.0.clone())
             .x(x.inner())
             .external_nullifier(external_nullifier.inner())
             .message_id(message_id.inner())
@@ -125,29 +183,23 @@ impl WasmRLNWitnessInput {
         Ok(WasmRLNWitnessInput(witness))
     }
 
-    #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen(js_name = newMulti)]
     pub fn new_multi(
         identity_secret: &WasmSecretFr,
         user_message_limit: &WasmFr,
         message_ids: &VecWasmFr,
-        path_elements: &VecWasmFr,
-        identity_path_index: &Uint8Array,
+        merkle_proof: &WasmRLNMerkleProof,
         x: &WasmFr,
         external_nullifier: &WasmFr,
         selector_used: &Uint8Array,
     ) -> Result<WasmRLNWitnessInput, String> {
-        let path_elements: Vec<Fr> = path_elements.inner();
-        let identity_path_index: Vec<u8> = identity_path_index.to_vec();
-
         let message_ids: Vec<Fr> = message_ids.inner();
         let selector_used: Vec<bool> = selector_used.to_vec().iter().map(|&b| b != 0).collect();
 
         let witness = RLNWitnessInput::new_multi()
             .identity_secret(identity_secret.inner().clone())
             .user_message_limit(user_message_limit.inner())
-            .path_elements(path_elements)
-            .identity_path_index(identity_path_index)
+            .merkle_proof(merkle_proof.0.clone())
             .x(x.inner())
             .external_nullifier(external_nullifier.inner())
             .message_ids(message_ids)
@@ -186,6 +238,11 @@ impl WasmRLNWitnessInput {
     #[wasm_bindgen(js_name = getIdentityPathIndex)]
     pub fn get_identity_path_index(&self) -> Uint8Array {
         Uint8Array::from(self.0.identity_path_index())
+    }
+
+    #[wasm_bindgen(js_name = getMerkleProof)]
+    pub fn get_merkle_proof(&self) -> WasmRLNMerkleProof {
+        WasmRLNMerkleProof(self.0.merkle_proof())
     }
 
     #[wasm_bindgen(js_name = getX)]
@@ -256,17 +313,12 @@ impl WasmRLNPartialWitnessInput {
     pub fn new(
         identity_secret: &WasmSecretFr,
         user_message_limit: &WasmFr,
-        path_elements: &VecWasmFr,
-        identity_path_index: &Uint8Array,
+        merkle_proof: &WasmRLNMerkleProof,
     ) -> Result<WasmRLNPartialWitnessInput, String> {
-        let path_elements: Vec<Fr> = path_elements.inner();
-        let identity_path_index: Vec<u8> = identity_path_index.to_vec();
-
         let witness = RLNPartialWitnessInput::new()
             .identity_secret(identity_secret.inner().clone())
             .user_message_limit(user_message_limit.inner())
-            .path_elements(path_elements)
-            .identity_path_index(identity_path_index)
+            .merkle_proof(merkle_proof.0.clone())
             .build()
             .map_err(|err| err.to_string())?;
 
@@ -464,7 +516,7 @@ impl WasmRLNProofValues {
     }
 
     #[wasm_bindgen(js_name = computeIdSecret)]
-    pub fn compute_id_secret_from_shares(
+    pub fn compute_id_secret(
         share1_x: &WasmFr,
         share1_y: &WasmFr,
         share2_x: &WasmFr,

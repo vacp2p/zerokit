@@ -118,6 +118,33 @@ mod test {
     }
 
     #[test]
+    fn test_secret_fr_ffi() {
+        // The debug string must stay redacted so the secret never prints
+        let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let identity_keys = ffi_identity_keys_generate_seeded(&seed_bytes.clone().into());
+        let secret = ffi_identity_keys_get_secret(&identity_keys);
+        assert_eq!(
+            ffi_secret_fr_debug(Some(&secret)).to_string(),
+            "SecretFr(********)"
+        );
+
+        // Two secrets from the same seed compare equal without revealing either
+        let same_keys = ffi_identity_keys_generate_seeded(&seed_bytes.into());
+        let same = ffi_identity_keys_get_secret(&same_keys);
+        assert!(ffi_secret_fr_eq(Some(&secret), Some(&same)));
+
+        // A secret from a fresh random identity compares unequal
+        let other_keys = ffi_identity_keys_generate();
+        let other = ffi_identity_keys_get_secret(&other_keys);
+        assert!(!ffi_secret_fr_eq(Some(&secret), Some(&other)));
+
+        // Null pointers never compare equal and print "None"
+        assert!(!ffi_secret_fr_eq(Some(&secret), None));
+        assert!(!ffi_secret_fr_eq(None, None));
+        assert_eq!(ffi_secret_fr_debug(None).to_string(), "None");
+    }
+
+    #[test]
     fn test_identity_keys_roundtrip_ffi() {
         let identity_keys = ffi_identity_keys_generate();
         let bytes = match ffi_identity_keys_to_bytes_le(&identity_keys) {
@@ -231,25 +258,25 @@ mod test {
         CanonicalSerializeBE::serialize(&signal, &mut expected_be).unwrap();
         assert_eq!(bytes_be.iter().copied().collect::<Vec<_>>(), expected_be);
 
-        let signal_from_le = match ffi_bytes_le_to_vec_u8(&bytes_le) {
+        let signal_from_le = match ffi_vec_u8_from_bytes_le(&bytes_le) {
             FFI_Result {
                 ok: Some(vec_u8),
                 err: None,
             } => vec_u8,
             FFI_Result { err: Some(err), .. } => {
-                panic!("ffi_bytes_le_to_vec_u8 call failed: {}", err)
+                panic!("ffi_vec_u8_from_bytes_le call failed: {}", err)
             }
             _ => unreachable!(),
         };
         assert_eq!(signal_from_le.iter().copied().collect::<Vec<_>>(), signal);
 
-        let signal_from_be = match ffi_bytes_be_to_vec_u8(&bytes_be) {
+        let signal_from_be = match ffi_vec_u8_from_bytes_be(&bytes_be) {
             FFI_Result {
                 ok: Some(vec_u8),
                 err: None,
             } => vec_u8,
             FFI_Result { err: Some(err), .. } => {
-                panic!("ffi_bytes_be_to_vec_u8 call failed: {}", err)
+                panic!("ffi_vec_u8_from_bytes_be call failed: {}", err)
             }
             _ => unreachable!(),
         };
@@ -292,13 +319,13 @@ mod test {
         CanonicalSerializeBE::serialize(&vec_fr.to_vec(), &mut expected_be).unwrap();
         assert_eq!(bytes_be.iter().copied().collect::<Vec<_>>(), expected_be);
 
-        let ffi_vec_fr_from_le = match ffi_bytes_le_to_vec_fr(&bytes_le) {
+        let ffi_vec_fr_from_le = match ffi_vec_fr_from_bytes_le(&bytes_le) {
             FFI_Result {
                 ok: Some(ffi_vec_fr),
                 err: None,
             } => ffi_vec_fr,
             FFI_Result { err: Some(err), .. } => {
-                panic!("ffi_bytes_le_to_vec_fr call failed: {}", err)
+                panic!("ffi_vec_fr_from_bytes_le call failed: {}", err)
             }
             _ => unreachable!(),
         };
@@ -307,13 +334,13 @@ mod test {
             ffi_vec_fr
         );
 
-        let ffi_vec_fr_from_be = match ffi_bytes_be_to_vec_fr(&bytes_be) {
+        let ffi_vec_fr_from_be = match ffi_vec_fr_from_bytes_be(&bytes_be) {
             FFI_Result {
                 ok: Some(ffi_vec_fr),
                 err: None,
             } => ffi_vec_fr,
             FFI_Result { err: Some(err), .. } => {
-                panic!("ffi_bytes_be_to_vec_fr call failed: {}", err)
+                panic!("ffi_vec_fr_from_bytes_be call failed: {}", err)
             }
             _ => unreachable!(),
         };

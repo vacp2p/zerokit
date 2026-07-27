@@ -4,7 +4,7 @@ mod test {
     use rand::{thread_rng, Rng};
     use rln::prelude::*;
 
-    fn random_merkle_proof(depth: usize) -> (Vec<Fr>, Vec<u8>) {
+    fn random_merkle_proof(depth: usize) -> RLNMerkleProof {
         let mut rng = thread_rng();
         let mut path_elements = Vec::new();
         let mut identity_path_index = Vec::new();
@@ -12,7 +12,15 @@ mod test {
             path_elements.push(hash_to_field_le(&rng.gen::<[u8; 32]>()));
             identity_path_index.push(rng.gen_range(0..2) as u8);
         }
-        (path_elements, identity_path_index)
+        RLNMerkleProof::new(path_elements, identity_path_index)
+    }
+
+    fn mismatched_merkle_proof(merkle_proof: &RLNMerkleProof) -> RLNMerkleProof {
+        RLNMerkleProof::new(
+            merkle_proof.path_elements().to_vec(),
+            merkle_proof.identity_path_index()[..merkle_proof.identity_path_index().len() - 1]
+                .to_vec(),
+        )
     }
 
     #[test]
@@ -20,7 +28,7 @@ mod test {
         let mut rng = thread_rng();
         let identity_secret = SecretFr::rand(&mut rng);
         let user_message_limit = Fr::from(100);
-        let (path_elements, identity_path_index) = random_merkle_proof(DEFAULT_TREE_DEPTH);
+        let merkle_proof = random_merkle_proof(DEFAULT_TREE_DEPTH);
         let x = hash_to_field_le(&rng.gen::<[u8; 32]>());
         let external_nullifier = hash_to_field_le(&rng.gen::<[u8; 32]>());
 
@@ -28,8 +36,7 @@ mod test {
         let result = RLNWitnessInput::new_single()
             .identity_secret(identity_secret.clone())
             .user_message_limit(user_message_limit)
-            .path_elements(path_elements.clone())
-            .identity_path_index(identity_path_index.clone())
+            .merkle_proof(merkle_proof.clone())
             .x(x)
             .external_nullifier(external_nullifier)
             .message_id(Fr::from(50))
@@ -40,8 +47,7 @@ mod test {
         let result = RLNWitnessInput::new_single()
             .identity_secret(identity_secret.clone())
             .user_message_limit(user_message_limit)
-            .path_elements(path_elements.clone())
-            .identity_path_index(identity_path_index.clone())
+            .merkle_proof(merkle_proof.clone())
             .x(x)
             .external_nullifier(external_nullifier)
             .message_id(Fr::from(100))
@@ -55,8 +61,7 @@ mod test {
         let result = RLNWitnessInput::new_single()
             .identity_secret(identity_secret.clone())
             .user_message_limit(user_message_limit)
-            .path_elements(path_elements.clone())
-            .identity_path_index(identity_path_index.clone())
+            .merkle_proof(merkle_proof.clone())
             .x(x)
             .external_nullifier(external_nullifier)
             .message_id(Fr::from(150))
@@ -70,8 +75,7 @@ mod test {
         let result = RLNWitnessInput::new_single()
             .identity_secret(identity_secret.clone())
             .user_message_limit(Fr::from(0))
-            .path_elements(path_elements.clone())
-            .identity_path_index(identity_path_index.clone())
+            .merkle_proof(merkle_proof.clone())
             .x(x)
             .external_nullifier(external_nullifier)
             .message_id(Fr::from(0))
@@ -85,8 +89,7 @@ mod test {
         let result = RLNWitnessInput::new_single()
             .identity_secret(identity_secret)
             .user_message_limit(user_message_limit)
-            .path_elements(path_elements)
-            .identity_path_index(identity_path_index[..DEFAULT_TREE_DEPTH - 1].to_vec())
+            .merkle_proof(mismatched_merkle_proof(&merkle_proof))
             .x(x)
             .external_nullifier(external_nullifier)
             .message_id(Fr::from(50))
@@ -102,7 +105,7 @@ mod test {
         let mut rng = thread_rng();
         let identity_secret = SecretFr::rand(&mut rng);
         let user_message_limit = Fr::from(10);
-        let (path_elements, identity_path_index) = random_merkle_proof(DEFAULT_TREE_DEPTH);
+        let merkle_proof = random_merkle_proof(DEFAULT_TREE_DEPTH);
         let x = hash_to_field_le(&rng.gen::<[u8; 32]>());
         let external_nullifier = hash_to_field_le(&rng.gen::<[u8; 32]>());
 
@@ -113,8 +116,7 @@ mod test {
             RLNWitnessInput::new_multi()
                 .identity_secret(identity_secret.clone())
                 .user_message_limit(user_message_limit)
-                .path_elements(path_elements.clone())
-                .identity_path_index(identity_path_index.clone())
+                .merkle_proof(merkle_proof.clone())
                 .x(x)
                 .external_nullifier(external_nullifier)
                 .message_ids(message_ids)
@@ -207,14 +209,13 @@ mod test {
     fn test_partial_witness_validation() {
         let mut rng = thread_rng();
         let identity_secret = SecretFr::rand(&mut rng);
-        let (path_elements, identity_path_index) = random_merkle_proof(DEFAULT_TREE_DEPTH);
+        let merkle_proof = random_merkle_proof(DEFAULT_TREE_DEPTH);
 
         // Valid partial witness
         let result = RLNPartialWitnessInput::new()
             .identity_secret(identity_secret.clone())
             .user_message_limit(Fr::from(10))
-            .path_elements(path_elements.clone())
-            .identity_path_index(identity_path_index.clone())
+            .merkle_proof(merkle_proof.clone())
             .build();
         assert!(result.is_ok());
 
@@ -222,8 +223,7 @@ mod test {
         let result = RLNPartialWitnessInput::new()
             .identity_secret(identity_secret.clone())
             .user_message_limit(Fr::from(0))
-            .path_elements(path_elements.clone())
-            .identity_path_index(identity_path_index.clone())
+            .merkle_proof(merkle_proof.clone())
             .build();
         assert!(matches!(
             result,
@@ -234,8 +234,7 @@ mod test {
         let result = RLNPartialWitnessInput::new()
             .identity_secret(identity_secret)
             .user_message_limit(Fr::from(10))
-            .path_elements(path_elements)
-            .identity_path_index(identity_path_index[..DEFAULT_TREE_DEPTH - 1].to_vec())
+            .merkle_proof(mismatched_merkle_proof(&merkle_proof))
             .build();
         assert!(matches!(
             result,
@@ -247,12 +246,10 @@ mod test {
     fn test_witness_tree_depth_mismatch_against_graph_fails() {
         let rln = RLNBuilder::stateless().build();
         let mut rng = thread_rng();
-        let (path_elements, identity_path_index) = random_merkle_proof(DEFAULT_TREE_DEPTH + 1);
         let witness = RLNWitnessInput::new_single()
             .identity_secret(SecretFr::rand(&mut rng))
             .user_message_limit(Fr::from(10))
-            .path_elements(path_elements)
-            .identity_path_index(identity_path_index)
+            .merkle_proof(random_merkle_proof(DEFAULT_TREE_DEPTH + 1))
             .x(Fr::from(1))
             .external_nullifier(Fr::from(1))
             .message_id(Fr::from(1))
@@ -268,12 +265,10 @@ mod test {
     fn test_multi_witness_on_single_graph_fails() {
         let rln = RLNBuilder::stateless().build();
         let mut rng = thread_rng();
-        let (path_elements, identity_path_index) = random_merkle_proof(DEFAULT_TREE_DEPTH);
         let witness = RLNWitnessInput::new_multi()
             .identity_secret(SecretFr::rand(&mut rng))
             .user_message_limit(Fr::from(10))
-            .path_elements(path_elements)
-            .identity_path_index(identity_path_index)
+            .merkle_proof(random_merkle_proof(DEFAULT_TREE_DEPTH))
             .x(Fr::from(1))
             .external_nullifier(Fr::from(1))
             .message_ids(vec![Fr::from(1), Fr::from(2)])
@@ -293,12 +288,10 @@ mod test {
             .zkey(default_zkey_multi().clone())
             .build();
         let mut rng = thread_rng();
-        let (path_elements, identity_path_index) = random_merkle_proof(DEFAULT_TREE_DEPTH);
         let witness = RLNWitnessInput::new_multi()
             .identity_secret(SecretFr::rand(&mut rng))
             .user_message_limit(Fr::from(10))
-            .path_elements(path_elements)
-            .identity_path_index(identity_path_index)
+            .merkle_proof(random_merkle_proof(DEFAULT_TREE_DEPTH))
             .x(Fr::from(42))
             .external_nullifier(Fr::from(100))
             .message_ids(vec![Fr::from(1), Fr::from(2)])
@@ -315,12 +308,10 @@ mod test {
     fn test_partial_witness_tree_depth_mismatch_against_graph_fails() {
         let rln = RLNBuilder::stateless().build();
         let mut rng = thread_rng();
-        let (path_elements, identity_path_index) = random_merkle_proof(DEFAULT_TREE_DEPTH + 1);
         let partial_witness = RLNPartialWitnessInput::new()
             .identity_secret(SecretFr::rand(&mut rng))
             .user_message_limit(Fr::from(10))
-            .path_elements(path_elements)
-            .identity_path_index(identity_path_index)
+            .merkle_proof(random_merkle_proof(DEFAULT_TREE_DEPTH + 1))
             .build()
             .unwrap();
         assert!(rln.generate_partial_proof(&partial_witness).is_err());
@@ -331,23 +322,18 @@ mod test {
         let rln = RLNBuilder::stateless().build();
         let mut rng = thread_rng();
         let identity_secret = SecretFr::rand(&mut rng);
-        let (path_elements, identity_path_index) = random_merkle_proof(DEFAULT_TREE_DEPTH);
         let partial_witness = RLNPartialWitnessInput::new()
             .identity_secret(identity_secret.clone())
             .user_message_limit(Fr::from(10))
-            .path_elements(path_elements)
-            .identity_path_index(identity_path_index)
+            .merkle_proof(random_merkle_proof(DEFAULT_TREE_DEPTH))
             .build()
             .unwrap();
         let partial_proof = rln.generate_partial_proof(&partial_witness).unwrap();
 
-        let (bad_path_elements, bad_identity_path_index) =
-            random_merkle_proof(DEFAULT_TREE_DEPTH + 1);
         let bad_witness = RLNWitnessInput::new_single()
             .identity_secret(identity_secret)
             .user_message_limit(Fr::from(10))
-            .path_elements(bad_path_elements)
-            .identity_path_index(bad_identity_path_index)
+            .merkle_proof(random_merkle_proof(DEFAULT_TREE_DEPTH + 1))
             .x(Fr::from(42))
             .external_nullifier(Fr::from(100))
             .message_id(Fr::from(1))

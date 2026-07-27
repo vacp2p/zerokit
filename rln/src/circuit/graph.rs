@@ -2,9 +2,8 @@
 use std::sync::{Arc, LazyLock};
 
 use super::{
-    error::{GraphReadError, WitnessCalcError},
+    error::GraphReadError,
     iden3calc::{graph::Node, storage::deserialize_witnesscalc_graph, InputSignalsInfo},
-    Fr,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use super::{DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH};
@@ -115,16 +114,6 @@ pub fn default_graph_single() -> &'static Arc<Graph> {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn default_graph_multi() -> &'static Arc<Graph> {
     &GRAPH_MULTI
-}
-
-/// Witness type can calculate a full circuit witness directly from its fields.
-pub(crate) trait CalcWitness {
-    fn calc_witness(&self, graph: &Graph) -> Result<Vec<Fr>, WitnessCalcError>;
-}
-
-/// Witness type can calculate a partial circuit witness (unknown dynamic fields become `None`).
-pub(crate) trait CalcWitnessPartial {
-    fn calc_witness_partial(&self, graph: &Graph) -> Result<Vec<Option<Fr>>, WitnessCalcError>;
 }
 
 #[cfg(test)]

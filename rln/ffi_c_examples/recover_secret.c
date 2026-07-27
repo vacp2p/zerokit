@@ -14,7 +14,7 @@ int main(void)
     Member member;
     create_member(&member);
 
-    MerkleProof *merkle_proof = register_member(&rln_instance, member.rate_commitment);
+    MerkleProof *merkle_proof = register_member(rln_instance, member.rate_commitment);
     if (!merkle_proof)
     {
         return EXIT_FAILURE;
@@ -37,7 +37,8 @@ int main(void)
         create_witness(&member, merkle_proof, message_id1, x1, external_nullifier);
     if (!witness1_result.ok)
     {
-        fprintf(stderr, "First witness creation error: %s\n", witness1_result.err.ptr);
+        fprintf(stderr, "First witness creation error: %.*s\n",
+                (int)witness1_result.err.len, (char *)witness1_result.err.ptr);
         ffi_c_string_free(witness1_result.err);
         return EXIT_FAILURE;
     }
@@ -46,22 +47,24 @@ int main(void)
 
     printf("\nGenerating first RLN proof\n");
     ProofResult rln_proof1_result =
-        ffi_rln_generate_proof(&rln_instance, &witness1);
+        ffi_rln_generate_proof(rln_instance, witness1);
     if (!rln_proof1_result.ok)
     {
-        fprintf(stderr, "Proof generation error: %s\n", rln_proof1_result.err.ptr);
+        fprintf(stderr, "Proof generation error: %.*s\n",
+                (int)rln_proof1_result.err.len, (char *)rln_proof1_result.err.ptr);
         ffi_c_string_free(rln_proof1_result.err);
         return EXIT_FAILURE;
     }
     Proof *rln_proof1 = rln_proof1_result.ok;
-    ProofValues *proof_values1 = ffi_rln_proof_get_values(&rln_proof1);
+    ProofValues *proof_values1 = ffi_rln_proof_get_values(rln_proof1);
     printf("  - first proof generated successfully\n");
 
     printf("\nVerifying first proof\n");
-    CBoolResult verify1_result = verify_stateful_proof(&rln_instance, &rln_proof1, x1);
+    CBoolResult verify1_result = verify_stateful_proof(rln_instance, rln_proof1, x1);
     if (verify1_result.err.ptr)
     {
-        fprintf(stderr, "Proof verification error: %s\n", verify1_result.err.ptr);
+        fprintf(stderr, "Proof verification error: %.*s\n",
+                (int)verify1_result.err.len, (char *)verify1_result.err.ptr);
         ffi_c_string_free(verify1_result.err);
         return EXIT_FAILURE;
     }
@@ -92,7 +95,8 @@ int main(void)
         create_witness(&member, merkle_proof, message_id2, x2, external_nullifier);
     if (!witness2_result.ok)
     {
-        fprintf(stderr, "Second witness creation error: %s\n", witness2_result.err.ptr);
+        fprintf(stderr, "Second witness creation error: %.*s\n",
+                (int)witness2_result.err.len, (char *)witness2_result.err.ptr);
         ffi_c_string_free(witness2_result.err);
         return EXIT_FAILURE;
     }
@@ -101,22 +105,24 @@ int main(void)
 
     printf("\nGenerating second RLN proof\n");
     ProofResult rln_proof2_result =
-        ffi_rln_generate_proof(&rln_instance, &witness2);
+        ffi_rln_generate_proof(rln_instance, witness2);
     if (!rln_proof2_result.ok)
     {
-        fprintf(stderr, "Second proof generation error: %s\n", rln_proof2_result.err.ptr);
+        fprintf(stderr, "Second proof generation error: %.*s\n",
+                (int)rln_proof2_result.err.len, (char *)rln_proof2_result.err.ptr);
         ffi_c_string_free(rln_proof2_result.err);
         return EXIT_FAILURE;
     }
     Proof *rln_proof2 = rln_proof2_result.ok;
-    ProofValues *proof_values2 = ffi_rln_proof_get_values(&rln_proof2);
+    ProofValues *proof_values2 = ffi_rln_proof_get_values(rln_proof2);
     printf("  - second proof generated successfully\n");
 
     printf("\nVerifying second proof\n");
-    CBoolResult verify2_result = verify_stateful_proof(&rln_instance, &rln_proof2, x2);
+    CBoolResult verify2_result = verify_stateful_proof(rln_instance, rln_proof2, x2);
     if (verify2_result.err.ptr)
     {
-        fprintf(stderr, "Proof verification error: %s\n", verify2_result.err.ptr);
+        fprintf(stderr, "Proof verification error: %.*s\n",
+                (int)verify2_result.err.len, (char *)verify2_result.err.ptr);
         ffi_c_string_free(verify2_result.err);
         return EXIT_FAILURE;
     }
@@ -126,17 +132,22 @@ int main(void)
 
         printf("\nRecovering identity secret\n");
         SecretFrResult recover_result =
-            ffi_rln_recover_id_secret(&proof_values1, &proof_values2);
+            ffi_rln_recover_id_secret(proof_values1, proof_values2);
         if (!recover_result.ok)
         {
-            fprintf(stderr, "Identity recovery error: %s\n", recover_result.err.ptr);
+            fprintf(stderr, "Identity recovery error: %.*s\n",
+                    (int)recover_result.err.len, (char *)recover_result.err.ptr);
             ffi_c_string_free(recover_result.err);
             return EXIT_FAILURE;
         }
         SecretFr *recovered_secret = recover_result.ok;
-        print_secret_fr("recovered secret", recovered_secret);
-        print_secret_fr("identity secret", member.identity_secret);
-        printf("  - identity recovered successfully\n");
+        if (ffi_secret_fr_eq(recovered_secret, member.identity_secret))
+        {
+            Vec_uint8 recovered_debug = ffi_secret_fr_debug(recovered_secret);
+            printf("  - recovered secret = %.*s matches the original identity secret\n",
+                   (int)recovered_debug.len, (char *)recovered_debug.ptr);
+            ffi_c_string_free(recovered_debug);
+        }
         ffi_secret_fr_free(recovered_secret);
     }
     else

@@ -10,7 +10,10 @@ import {
 async function main() {
   const { rlnWasm, rlnInstance } = await initRLN();
   const member = createMember(rlnWasm);
-  const merkleProof = computeMerkleProof(rlnWasm, member.rateCommitment);
+  const { merkleProof, roots } = computeMerkleProof(
+    rlnWasm,
+    member.rateCommitment,
+  );
   const externalNullifier = computeExternalNullifier(rlnWasm);
 
   console.log("\nHashing signal");
@@ -48,8 +51,7 @@ async function main() {
     partialWitness = rlnWasm.WasmRLNPartialWitnessInput.new(
       witness.getIdentitySecret(),
       witness.getUserMessageLimit(),
-      witness.getPathElements(),
-      witness.getIdentityPathIndex(),
+      witness.getMerkleProof(),
     );
   } catch (error) {
     console.error("Partial witness creation error:", error);
@@ -82,7 +84,7 @@ async function main() {
   try {
     isFullProofValid = rlnInstance.verifyWithRoots(
       fullProof,
-      merkleProof.roots,
+      roots,
       x,
     );
   } catch (error) {

@@ -3,16 +3,18 @@
 pub mod wasm_rln;
 pub mod wasm_utils;
 
+#[cfg(feature = "panic_hook")]
+use wasm_bindgen::prelude::wasm_bindgen;
 #[cfg(all(feature = "parallel", not(feature = "utils")))]
 pub use wasm_bindgen_rayon::init_thread_pool;
 #[cfg(not(feature = "utils"))]
 pub use wasm_rln::{
-    WasmRLN, WasmRLNPartialProof, WasmRLNPartialWitnessInput, WasmRLNProof, WasmRLNProofValues,
-    WasmRLNWitnessInput,
+    WasmRLN, WasmRLNMerkleProof, WasmRLNPartialProof, WasmRLNPartialWitnessInput, WasmRLNProof,
+    WasmRLNProofValues, WasmRLNWitnessInput,
 };
 pub use wasm_utils::{
     wasm_hash_to_field_be, wasm_hash_to_field_le, wasm_poseidon_hash_pair, VecWasmFr,
-    WasmExtendedIdentityKeys, WasmFr, WasmIdentityKeys, WasmSecretFr,
+    WasmExtendedIdentityKeys, WasmFr, WasmIdentityKeys, WasmSecretFr, WasmUint8ArrayUtils,
 };
 
 #[cfg(feature = "panic_hook")]

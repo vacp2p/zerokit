@@ -5,7 +5,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 The Zerokit RLN WASM Module provides WebAssembly bindings for working with
-Rate-Limiting Nullifier [RLN](https://lip.logos.co/ift-ts/raw/rln-v2) zkSNARK proofs and primitives.
+Rate-Limiting Nullifier [RLN](https://lip.logos.co/anoncomms/raw/rln-v2.html) zkSNARK proofs and primitives.
 This module is used by [waku-org/js-rln](https://github.com/waku-org/js-rln/)
 to enable RLN functionality in JavaScript/TypeScript applications.
 
@@ -68,7 +68,7 @@ cargo make test_parallel          # Parallel tests
 
 ## Examples
 
-See [Node example](./examples/index.js) and [README](./examples/Readme.md)
+See the [Node examples](./examples/) and their [README](./examples/README.md)
 for proof generation, verification, and slashing.
 
 ## Parallel Computation

@@ -10,9 +10,7 @@ use rln::prelude::{
     IdentityKeys, PoseidonHash, RLNBuilder, RLNProofValues, RLNWitnessInput, RecoverSecret,
     Stateless, DEFAULT_TREE_DEPTH, RLN,
 };
-use zerokit_utils::merkle_tree::{
-    OptimalMerkleConfig, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
-};
+use zerokit_utils::merkle_tree::{OptimalMerkleConfig, OptimalMerkleTree, ZerokitMerkleTree};
 
 const MESSAGE_LIMIT: u32 = 1;
 
@@ -77,7 +75,7 @@ impl RLNSystem {
         println!("Registered users:");
         for (index, identity_keys) in &self.local_identities {
             println!("User: {index}");
-            println!("+ Identity secret: {}", *identity_keys.identity_secret());
+            println!("+ Identity secret: {:?}", identity_keys.identity_secret());
             println!("+ Identity commitment: {}", identity_keys.id_commitment());
             println!();
         }
@@ -94,7 +92,7 @@ impl RLNSystem {
         self.tree.update_next(rate_commitment)?;
 
         println!("Registered user: {index}");
-        println!("+ Identity secret: {}", *identity_keys.identity_secret());
+        println!("+ Identity secret: {:?}", identity_keys.identity_secret());
         println!("+ Identity commitment: {}", identity_keys.id_commitment());
 
         self.local_identities.insert(index, identity_keys);
@@ -119,8 +117,7 @@ impl RLNSystem {
         let witness = RLNWitnessInput::new_single()
             .identity_secret(identity_keys.identity_secret())
             .user_message_limit(Fr::from(MESSAGE_LIMIT))
-            .path_elements(merkle_proof.get_path_elements())
-            .identity_path_index(merkle_proof.get_path_index())
+            .merkle_proof(&merkle_proof)
             .x(x)
             .external_nullifier(external_nullifier)
             .message_id(Fr::from(message_id))
@@ -191,8 +188,8 @@ impl RLNSystem {
                         Err("Identity secret mismatch: leaked_identity_secret != real_identity_secret".into())
                     } else {
                         println!(
-                            "DUPLICATE message ID detected! Reveal identity secret: {}",
-                            *leaked_identity_secret
+                            "DUPLICATE message ID detected!\nRecovered secret matches user {}'s identity secret: {}",
+                            user_index, leaked_identity_secret == real_identity_secret
                         );
                         self.local_identities.remove(&user_index);
                         println!("User {user_index} has been SLASHED");

@@ -32,6 +32,16 @@ mod test {
         assert!(result.ok, "{context} returned false");
     }
 
+    fn get_root_ok(rln: &repr_c::Box<FFI_RLN>) -> repr_c::Box<FFI_Fr> {
+        unwrap_ok!(ffi_rln_get_root(rln), "ffi_rln_get_root")
+    }
+
+    fn leaves_set_ok(rln: &repr_c::Box<FFI_RLN>) -> usize {
+        let result = ffi_rln_leaves_set(rln);
+        assert!(result.err.is_none(), "ffi_rln_leaves_set returned an error");
+        result.ok
+    }
+
     fn create_rln_instance() -> repr_c::Box<FFI_RLN> {
         unwrap_ok!(
             ffi_rln_new_with_pm_tree_default(),
@@ -69,7 +79,7 @@ mod test {
         let user_message_limit = ffi_uint_to_fr(100);
         let rate_commitment = ffi_poseidon_hash_pair(&id_commitment, &user_message_limit);
 
-        let identity_index = ffi_rln_leaves_set(rln);
+        let identity_index = leaves_set_ok(rln);
         assert_bool_ok(
             ffi_rln_set_next_leaf(rln, &rate_commitment),
             "ffi_rln_set_next_leaf",
@@ -88,8 +98,7 @@ mod test {
                 &identity_secret,
                 &user_message_limit,
                 &message_id,
-                &merkle_proof.path_elements,
-                &merkle_proof.path_index,
+                &merkle_proof,
                 x,
                 &external_nullifier,
             ),
@@ -108,12 +117,12 @@ mod test {
 
         // We first add leaves one by one specifying the index
         for (i, leaf) in leaves.iter().enumerate() {
-            assert_eq!(ffi_rln_leaves_set(&rln), i);
+            assert_eq!(leaves_set_ok(&rln), i);
             assert_bool_ok(ffi_rln_set_leaf(&mut rln, i, leaf), "ffi_rln_set_leaf");
         }
 
         // We get the root of the tree obtained adding one leaf per time
-        let root_single = ffi_rln_get_root(&rln);
+        let root_single = get_root_ok(&rln);
 
         // We reset and add leaves one by one using the internal index
         let mut rln = create_rln_instance();
@@ -123,8 +132,8 @@ mod test {
                 "ffi_rln_set_next_leaf",
             );
         }
-        assert_eq!(ffi_rln_leaves_set(&rln), LEAF_COUNT);
-        let root_next = ffi_rln_get_root(&rln);
+        assert_eq!(leaves_set_ok(&rln), LEAF_COUNT);
+        let root_next = get_root_ok(&rln);
         assert_eq!(*root_single, *root_next);
 
         // We reset and add leaves in a batch into the tree
@@ -133,19 +142,19 @@ mod test {
             ffi_rln_init_tree_with_leaves(&mut rln, &leaves.clone().into()),
             "ffi_rln_init_tree_with_leaves",
         );
-        assert_eq!(ffi_rln_leaves_set(&rln), LEAF_COUNT);
-        let root_batch = ffi_rln_get_root(&rln);
+        assert_eq!(leaves_set_ok(&rln), LEAF_COUNT);
+        let root_batch = get_root_ok(&rln);
         assert_eq!(*root_single, *root_batch);
 
         // We now delete all leaves set and check if the root corresponds to the empty tree root
         for i in 0..LEAF_COUNT {
             assert_bool_ok(ffi_rln_delete_leaf(&mut rln, i), "ffi_rln_delete_leaf");
         }
-        assert_eq!(ffi_rln_leaves_set(&rln), LEAF_COUNT);
-        let root_delete = ffi_rln_get_root(&rln);
+        assert_eq!(leaves_set_ok(&rln), LEAF_COUNT);
+        let root_delete = get_root_ok(&rln);
 
         let rln_empty = create_rln_instance();
-        let root_empty = ffi_rln_get_root(&rln_empty);
+        let root_empty = get_root_ok(&rln_empty);
         assert_eq!(*root_delete, *root_empty);
     }
 
@@ -161,8 +170,8 @@ mod test {
             ffi_rln_init_tree_with_leaves(&mut rln, &leaves.clone().into()),
             "ffi_rln_init_tree_with_leaves",
         );
-        assert_eq!(ffi_rln_leaves_set(&rln), LEAF_COUNT);
-        let root_batch_with_init = ffi_rln_get_root(&rln);
+        assert_eq!(leaves_set_ok(&rln), LEAF_COUNT);
+        let root_batch_with_init = get_root_ok(&rln);
 
         // We add leaves in two batches: 0..set_index then set_index..
         let mut rln = create_rln_instance();
@@ -174,8 +183,8 @@ mod test {
             ffi_rln_set_leaves_from(&mut rln, set_index, &leaves[set_index..].to_vec().into()),
             "ffi_rln_set_leaves_from",
         );
-        assert_eq!(ffi_rln_leaves_set(&rln), LEAF_COUNT);
-        let root_batch_with_custom_index = ffi_rln_get_root(&rln);
+        assert_eq!(leaves_set_ok(&rln), LEAF_COUNT);
+        let root_batch_with_custom_index = get_root_ok(&rln);
 
         assert_eq!(*root_batch_with_init, *root_batch_with_custom_index);
     }
@@ -189,8 +198,8 @@ mod test {
             ffi_rln_init_tree_with_leaves(&mut rln, &leaves.clone().into()),
             "ffi_rln_init_tree_with_leaves",
         );
-        assert_eq!(ffi_rln_leaves_set(&rln), LEAF_COUNT);
-        let root_after_insertion = ffi_rln_get_root(&rln);
+        assert_eq!(leaves_set_ok(&rln), LEAF_COUNT);
+        let root_after_insertion = get_root_ok(&rln);
 
         let last_leaf = leaves.last().unwrap();
         let last_leaf_index = LEAF_COUNT - 1;
@@ -206,7 +215,7 @@ mod test {
             "ffi_rln_atomic_operation",
         );
 
-        let root_after_noop = ffi_rln_get_root(&rln);
+        let root_after_noop = get_root_ok(&rln);
         assert_eq!(*root_after_insertion, *root_after_noop);
     }
 
@@ -217,14 +226,14 @@ mod test {
         let bad_index = (1 << DEFAULT_TREE_DEPTH) - rng.gen_range(0..LEAF_COUNT) as usize;
 
         let mut rln = create_rln_instance();
-        let root_empty = ffi_rln_get_root(&rln);
+        let root_empty = get_root_ok(&rln);
 
         let result = ffi_rln_set_leaves_from(&mut rln, bad_index, &leaves.into());
         assert!(!result.ok);
         assert!(result.err.is_some());
 
-        assert_eq!(ffi_rln_leaves_set(&rln), 0);
-        let root_after_bad_set = ffi_rln_get_root(&rln);
+        assert_eq!(leaves_set_ok(&rln), 0);
+        let root_after_bad_set = get_root_ok(&rln);
         assert_eq!(*root_empty, *root_after_bad_set);
     }
 
@@ -283,7 +292,7 @@ mod test {
     #[test]
     fn test_initialization_with_params() {
         let rln_default = create_rln_instance();
-        let root_default = ffi_rln_get_root(&rln_default);
+        let root_default = get_root_ok(&rln_default);
 
         let zkey_data = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey").to_vec();
         let graph_data = include_bytes!("../resources/tree_depth_20/graph.bin").to_vec();
@@ -298,7 +307,7 @@ mod test {
             ),
             "ffi_rln_new_with_pm_tree",
         );
-        let root_raw = ffi_rln_get_root(&rln_raw);
+        let root_raw = get_root_ok(&rln_raw);
 
         assert_eq!(*root_default, *root_raw);
     }
@@ -361,7 +370,7 @@ mod test {
         assert!(!result.ok);
 
         // Adding the real root makes verification pass
-        let root = ffi_rln_get_root(&rln);
+        let root = get_root_ok(&rln);
         let mut roots_with_real = random_roots;
         roots_with_real.push(*root);
         assert_bool_ok(
@@ -371,7 +380,7 @@ mod test {
     }
 
     #[test]
-    fn test_recover_secret_with_tree_proof() {
+    fn test_recover_secret_with_merkle_proof() {
         let mut rln = create_rln_instance();
 
         let x1 = random_signal_hash();
@@ -391,8 +400,7 @@ mod test {
                 &identity_secret,
                 &user_message_limit,
                 &message_id,
-                &merkle_proof.path_elements,
-                &merkle_proof.path_index,
+                &merkle_proof,
                 &x2,
                 &external_nullifier,
             ),
@@ -437,7 +445,7 @@ mod test {
         let x = random_signal_hash();
         let (_identity_secret, witness) = setup_witness(&mut rln, &x);
 
-        let partial_witness = ffi_rln_witness_to_partial_witness(&witness);
+        let partial_witness = ffi_rln_witness_input_to_partial_witness(&witness);
         let partial_proof = unwrap_ok!(
             ffi_rln_generate_partial_proof(&rln, &partial_witness),
             "ffi_rln_generate_partial_proof",
@@ -474,8 +482,14 @@ mod test {
                 assert!(truncated_result.ok.is_none());
             }};
         }
-        witness_roundtrip!(ffi_rln_witness_to_bytes_le, ffi_bytes_le_to_rln_witness);
-        witness_roundtrip!(ffi_rln_witness_to_bytes_be, ffi_bytes_be_to_rln_witness);
+        witness_roundtrip!(
+            ffi_rln_witness_input_to_bytes_le,
+            ffi_rln_witness_input_from_bytes_le
+        );
+        witness_roundtrip!(
+            ffi_rln_witness_input_to_bytes_be,
+            ffi_rln_witness_input_from_bytes_be
+        );
 
         // Proof values roundtrip LE + BE
         let rln_proof = unwrap_ok!(
@@ -501,11 +515,59 @@ mod test {
         }
         proof_values_roundtrip!(
             ffi_rln_proof_values_to_bytes_le,
-            ffi_bytes_le_to_rln_proof_values
+            ffi_rln_proof_values_from_bytes_le
         );
         proof_values_roundtrip!(
             ffi_rln_proof_values_to_bytes_be,
-            ffi_bytes_be_to_rln_proof_values
+            ffi_rln_proof_values_from_bytes_be
+        );
+    }
+
+    #[test]
+    fn test_merkle_proof_serialization() {
+        let mut rln = create_rln_instance();
+        let x = random_signal_hash();
+        let (_identity_secret, witness) = setup_witness(&mut rln, &x);
+        let merkle_proof = ffi_rln_witness_input_get_merkle_proof(&witness);
+
+        macro_rules! merkle_proof_roundtrip {
+            ($to_bytes:ident, $from_bytes:ident) => {{
+                let bytes = unwrap_ok!($to_bytes(&merkle_proof), "merkle proof serialization");
+
+                let deser = unwrap_ok!($from_bytes(&bytes), "merkle proof deserialization");
+                assert_eq!(
+                    ffi_rln_merkle_proof_get_path_elements(&deser)
+                        .iter()
+                        .copied()
+                        .collect::<Vec<_>>(),
+                    ffi_rln_merkle_proof_get_path_elements(&merkle_proof)
+                        .iter()
+                        .copied()
+                        .collect::<Vec<_>>()
+                );
+                assert_eq!(
+                    ffi_rln_merkle_proof_get_identity_path_index(&deser)
+                        .iter()
+                        .copied()
+                        .collect::<Vec<_>>(),
+                    ffi_rln_merkle_proof_get_identity_path_index(&merkle_proof)
+                        .iter()
+                        .copied()
+                        .collect::<Vec<_>>()
+                );
+
+                // Truncated bytes must be rejected
+                let truncated: Vec<u8> = bytes[..bytes.len() - 1].to_vec();
+                assert!($from_bytes(&truncated.into()).ok.is_none());
+            }};
+        }
+        merkle_proof_roundtrip!(
+            ffi_rln_merkle_proof_to_bytes_le,
+            ffi_rln_merkle_proof_from_bytes_le
+        );
+        merkle_proof_roundtrip!(
+            ffi_rln_merkle_proof_to_bytes_be,
+            ffi_rln_merkle_proof_from_bytes_be
         );
     }
 
@@ -530,8 +592,8 @@ mod test {
                 );
             }};
         }
-        proof_roundtrip!(ffi_rln_proof_to_bytes_le, ffi_bytes_le_to_rln_proof);
-        proof_roundtrip!(ffi_rln_proof_to_bytes_mixed, ffi_bytes_mixed_to_rln_proof);
+        proof_roundtrip!(ffi_rln_proof_to_bytes_le, ffi_rln_proof_from_bytes_le);
+        proof_roundtrip!(ffi_rln_proof_to_bytes_mixed, ffi_rln_proof_from_bytes_mixed);
     }
 
     #[test]
@@ -540,7 +602,7 @@ mod test {
         let x = random_signal_hash();
         let (_identity_secret, witness) = setup_witness(&mut rln, &x);
 
-        let partial_witness = ffi_rln_witness_to_partial_witness(&witness);
+        let partial_witness = ffi_rln_witness_input_to_partial_witness(&witness);
 
         // Partial witness roundtrip LE + BE
         macro_rules! partial_witness_roundtrip {
@@ -561,12 +623,12 @@ mod test {
             }};
         }
         partial_witness_roundtrip!(
-            ffi_rln_partial_witness_to_bytes_le,
-            ffi_bytes_le_to_rln_partial_witness
+            ffi_rln_partial_witness_input_to_bytes_le,
+            ffi_rln_partial_witness_input_from_bytes_le
         );
         partial_witness_roundtrip!(
-            ffi_rln_partial_witness_to_bytes_be,
-            ffi_bytes_be_to_rln_partial_witness
+            ffi_rln_partial_witness_input_to_bytes_be,
+            ffi_rln_partial_witness_input_from_bytes_be
         );
 
         // Partial proof roundtrip LE; the finished proof must still verify
@@ -582,7 +644,7 @@ mod test {
             _ => panic!("partial proof serialization failed"),
         };
         let partial_proof_deser = unwrap_ok!(
-            ffi_bytes_le_to_rln_partial_proof(&bytes),
+            ffi_rln_partial_proof_from_bytes_le(&bytes),
             "partial proof deserialization",
         );
         let rln_proof = unwrap_ok!(
@@ -607,6 +669,10 @@ mod test {
             .map(|_| FFI_Fr::from(Fr::rand(&mut rng)))
             .collect();
         let identity_path_index: Vec<u8> = vec![0; DEFAULT_TREE_DEPTH];
+        let merkle_proof = ffi_rln_merkle_proof_new(
+            &path_elements.clone().into(),
+            &identity_path_index.clone().into(),
+        );
 
         let user_message_limit = ffi_uint_to_fr(100);
 
@@ -616,8 +682,7 @@ mod test {
             &identity_secret,
             &user_message_limit,
             &invalid_message_id,
-            &path_elements.clone().into(),
-            &identity_path_index.clone().into(),
+            &merkle_proof,
             &x,
             &external_nullifier,
         );
@@ -630,8 +695,7 @@ mod test {
             &identity_secret,
             &zero_limit,
             &zero_message_id,
-            &path_elements.clone().into(),
-            &identity_path_index.clone().into(),
+            &merkle_proof,
             &x,
             &external_nullifier,
         );
@@ -640,12 +704,13 @@ mod test {
         // path_elements and identity_path_index length mismatch fails
         let message_id = ffi_uint_to_fr(1);
         let short_index: Vec<u8> = vec![0; DEFAULT_TREE_DEPTH - 1];
+        let short_merkle_proof =
+            ffi_rln_merkle_proof_new(&path_elements.into(), &short_index.into());
         let result = ffi_rln_witness_input_new_single(
             &identity_secret,
             &user_message_limit,
             &message_id,
-            &path_elements.into(),
-            &short_index.into(),
+            &short_merkle_proof,
             &x,
             &external_nullifier,
         );
@@ -663,13 +728,12 @@ mod test {
             .collect();
         let identity_path_index: Vec<u8> = vec![0; DEFAULT_TREE_DEPTH];
 
+        let merkle_proof =
+            ffi_rln_merkle_proof_new(&path_elements.into(), &identity_path_index.into());
+
         let zero_limit = ffi_uint_to_fr(0);
-        let result = ffi_rln_partial_witness_input_new(
-            &identity_secret,
-            &zero_limit,
-            &path_elements.into(),
-            &identity_path_index.into(),
-        );
+        let result =
+            ffi_rln_partial_witness_input_new(&identity_secret, &zero_limit, &merkle_proof);
         assert!(result.ok.is_none());
     }
 
@@ -727,7 +791,7 @@ mod test {
         );
 
         // Verify against the stateful tree root through verify_with_roots
-        let root = ffi_rln_get_root(&stateful_rln);
+        let root = get_root_ok(&stateful_rln);
         let roots: Vec<FFI_Fr> = vec![(*root)];
         assert_bool_ok(
             ffi_rln_verify_with_roots(&stateless_rln, &rln_proof, &roots.into(), &x),
@@ -755,8 +819,7 @@ mod test {
                 &identity_secret,
                 &user_message_limit,
                 &message_id,
-                &merkle_proof.path_elements,
-                &merkle_proof.path_index,
+                &merkle_proof,
                 &x2,
                 &external_nullifier,
             ),

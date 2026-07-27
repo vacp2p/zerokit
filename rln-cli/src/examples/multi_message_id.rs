@@ -10,7 +10,7 @@ use rln::prelude::{
     IdentityKeys, PmTree, PmTreeSledConfig, PoseidonHash, RLNBuilder, RLNProofValues,
     RLNWitnessInput, RecoverSecret, SledDB, Stateful, RLN,
 };
-use zerokit_utils::merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree};
+use zerokit_utils::merkle_tree::ZerokitMerkleTree;
 
 const MESSAGE_LIMIT: u32 = 4;
 
@@ -86,7 +86,7 @@ impl RLNSystem {
         println!("Registered users:");
         for (index, identity_keys) in &self.local_identities {
             println!("User: {index}");
-            println!("+ Identity secret: {}", *identity_keys.identity_secret());
+            println!("+ Identity secret: {:?}", identity_keys.identity_secret());
             println!("+ Identity commitment: {}", identity_keys.id_commitment());
             println!();
         }
@@ -103,7 +103,7 @@ impl RLNSystem {
         match self.rln.set_next_leaf(rate_commitment) {
             Ok(_) => {
                 println!("Registered user: {index}");
-                println!("+ Identity secret: {}", *identity_keys.identity_secret());
+                println!("+ Identity secret: {:?}", identity_keys.identity_secret());
                 println!("+ Identity commitment: {}", identity_keys.id_commitment());
                 self.local_identities.insert(index, identity_keys);
             }
@@ -169,8 +169,7 @@ impl RLNSystem {
         let witness = RLNWitnessInput::new_multi()
             .identity_secret(identity_keys.identity_secret())
             .user_message_limit(Fr::from(MESSAGE_LIMIT))
-            .path_elements(merkle_proof.get_path_elements())
-            .identity_path_index(merkle_proof.get_path_index())
+            .merkle_proof(&merkle_proof)
             .x(x)
             .external_nullifier(external_nullifier)
             .message_ids(message_ids)
@@ -183,7 +182,10 @@ impl RLNSystem {
         println!("+ Active message slots: {active_count}/{}", MAX_OUT);
         println!("+ Signal: {signal}");
 
-        let verified = self.rln.verify(&proof, &proof_values)?;
+        let current_root = self.rln.get_root();
+        let verified = self
+            .rln
+            .verify_with_roots(&proof, &proof_values, &x, &[current_root])?;
         if verified {
             println!("Proof verified successfully");
         }
@@ -239,8 +241,8 @@ impl RLNSystem {
                         Err("Identity secret mismatch: leaked_identity_secret != real_identity_secret".into())
                     } else {
                         println!(
-                            "DUPLICATE nullifier detected at slot {}! Reveal identity secret: {}",
-                            duplicated_slot, *leaked_identity_secret
+                            "DUPLICATE nullifier detected at slot {}!\nRecovered secret matches user {}'s identity secret: {}",
+                            duplicated_slot, user_index, leaked_identity_secret == real_identity_secret
                         );
                         self.local_identities.remove(&user_index);
                         self.rln.delete_leaf(user_index)?;

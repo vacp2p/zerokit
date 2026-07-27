@@ -35,50 +35,41 @@ Please keep the following in mind (see [CONTRIBUTING.md](../CONTRIBUTING.md) for
 
 ### Error Handling
 
-- **No panics in library code.** Do not use `unwrap()`, `expect()`, or `panic!()`
-  in production paths inside `rln/src/` or `utils/src/`.
-  The only acceptable exception is an internal invariant that is statically guaranteed - and even then, prefer returning an error.
-- Use the project's `thiserror`-based error types (`RLNError`, `ProtocolError`, `UtilsError`, etc.)
-  and propagate errors with `?`.
-- Provide context in error variants (e.g., `InsufficientData { expected, actual }`).
+- **No panics in library code.** Do not use `unwrap()`, `expect()`, `panic!()`, or `unreachable!()`
+  in production paths inside `rln/src/` or `utils/src/` - return a typed error instead.
+- There is no crate-wide error enum: each fallible method returns its narrowest
+  `thiserror`-based error type (e.g. `GenerateProofError`, `SerializationError`) and
+  propagates with `?`.
+- Carry context in error variants, e.g. `PathLengthMismatch(expected, actual)`.
 - `unwrap()` is fine in **tests**.
 
 ### Code Style
 
-- Run `cargo make fmt` at the root of the repository to auto-format the entire codebase with rules defined in [`rustfmt.toml`](../rustfmt.toml).
-- Run `cargo make fmt_check` to verify formatting (CI enforces this on stable).
-- Group imports: std first, then external crates, then local modules (see `rustfmt.toml`).
+- Run `cargo make fmt` at the repo root to auto-format all crates with the rules in
+  [`rustfmt.toml`](../rustfmt.toml) (nightly rustfmt; import grouping is applied automatically).
+- Run `cargo make fmt_check` to verify formatting (CI enforces this).
 - Use `pub(crate)` for items that should not be part of the public API.
 - Apply `Zeroize` / `ZeroizeOnDrop` to any struct holding secret material.
 
 ### Linting (mirrors CI)
 
-CI runs clippy across multiple crate/feature combinations. Run the relevant checks locally before pushing:
-
 ```bash
-# Default features - workspace root (rln + utils)
+# Core crates (rln + utils) and rln-cli - from the repo root
 cargo clippy --all-targets --tests --release -- -D warnings
 
-# Stateless feature - from rln/
-cd rln && cargo clippy --all-targets --tests --release \
-  --features=stateless --no-default-features -- -D warnings
-
 # WASM target - from rln-wasm/
-cd rln-wasm && cargo clippy --target wasm32-unknown-unknown \
-  --tests --release -- -D warnings
+cargo clippy --target wasm32-unknown-unknown --tests --release -- -D warnings
 ```
 
-At minimum, run the default-features check. If your changes touch `stateless` or `rln-wasm`, run those checks as well.
+At minimum, run the core-crates check. If your changes touch `rln-wasm`, run that check as well.
 
 ## Checklist
 
 - [ ] My PR title follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format
 - [ ] I have linked the related issue(s)
-- [ ] I have run `cargo +nightly fmt --all` to apply all `rustfmt.toml` rules (including import grouping)
-- [ ] `cargo fmt --all -- --check` produces no changes
+- [ ] I have verified that `cargo make fmt_check` and `make test` pass locally
 - [ ] Clippy passes for all affected crate/feature combinations (see [Linting](#linting-mirrors-ci) above)
-- [ ] `make test` passes locally
-- [ ] No new `unwrap()` / `expect()` / `panic!()` in library code
+- [ ] No new `unwrap()` / `expect()` / `panic!()` / `unreachable!()` in library code
 - [ ] New code includes appropriate tests (unit / integration / WASM where applicable)
-- [ ] I have run the CI coverage report - add the `run-coverage` label to enable it
+- [ ] I have added the `run-coverage` label to enable the CI coverage report (Optional)
 - [ ] All CI checks pass and the PR is marked **Ready for review**

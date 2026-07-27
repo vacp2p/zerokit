@@ -7,12 +7,10 @@ use clap::{Parser, Subcommand};
 use rand::{rngs::ThreadRng, thread_rng};
 use rln::prelude::{
     default_graph_single, default_zkey_single, hash_to_field_le, ArkGroth16Backend, Fr, Hasher,
-    IdentityKeys, PartialProof, PoseidonHash, RLNBuilder, RLNPartialWitnessInput, RLNProofValues,
-    RLNWitnessInput, RecoverSecret, Stateful, RLN,
+    IdentityKeys, PartialProof, PoseidonHash, RLNBuilder, RLNMerkleProof, RLNPartialWitnessInput,
+    RLNProofValues, RLNWitnessInput, RecoverSecret, Stateful, RLN,
 };
-use zerokit_utils::merkle_tree::{
-    FullMerkleConfig, FullMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
-};
+use zerokit_utils::merkle_tree::{FullMerkleConfig, FullMerkleTree, ZerokitMerkleTree};
 
 const MESSAGE_LIMIT: u32 = 1;
 
@@ -52,8 +50,7 @@ enum Commands {
 struct CachedPartialProof {
     root: Fr,
     proof: PartialProof,
-    path_elements: Vec<Fr>,
-    path_index: Vec<u8>,
+    merkle_proof: RLNMerkleProof,
 }
 
 struct RLNSystem {
@@ -99,7 +96,7 @@ impl RLNSystem {
         println!("Registered users:");
         for (index, identity_keys) in &self.local_identities {
             println!("User: {index}");
-            println!("+ Identity secret: {}", *identity_keys.identity_secret());
+            println!("+ Identity secret: {:?}", identity_keys.identity_secret());
             println!("+ Identity commitment: {}", identity_keys.id_commitment());
             println!();
         }
@@ -143,7 +140,7 @@ impl RLNSystem {
         match self.rln.set_next_leaf(rate_commitment) {
             Ok(_) => {
                 println!("Registered user: {index}");
-                println!("+ Identity secret: {}", *identity_keys.identity_secret());
+                println!("+ Identity secret: {:?}", identity_keys.identity_secret());
                 println!("+ Identity commitment: {}", identity_keys.id_commitment());
                 self.local_identities.insert(index, identity_keys);
                 self.record_root();
@@ -179,8 +176,7 @@ impl RLNSystem {
             let witness = RLNWitnessInput::new_single()
                 .identity_secret(identity_keys.identity_secret())
                 .user_message_limit(Fr::from(MESSAGE_LIMIT))
-                .path_elements(merkle_proof.get_path_elements())
-                .identity_path_index(merkle_proof.get_path_index())
+                .merkle_proof(&merkle_proof)
                 .x(Fr::from(0u64))
                 .external_nullifier(self.external_nullifier)
                 .message_id(Fr::from(0u64))
@@ -192,8 +188,7 @@ impl RLNSystem {
                 CachedPartialProof {
                     root: current_root,
                     proof: partial_proof,
-                    path_elements: merkle_proof.get_path_elements(),
-                    path_index: merkle_proof.get_path_index(),
+                    merkle_proof: RLNMerkleProof::from(&merkle_proof),
                 },
             );
             println!("Pre-generated partial proof for user: {user_index}");
@@ -230,8 +225,7 @@ impl RLNSystem {
             let partial_witness = RLNPartialWitnessInput::new()
                 .identity_secret(identity_keys.identity_secret())
                 .user_message_limit(Fr::from(MESSAGE_LIMIT))
-                .path_elements(merkle_proof.get_path_elements())
-                .identity_path_index(merkle_proof.get_path_index())
+                .merkle_proof(&merkle_proof)
                 .build()?;
             let generated = self.rln.generate_partial_proof(&partial_witness)?;
             self.partial_proofs.insert(
@@ -239,8 +233,7 @@ impl RLNSystem {
                 CachedPartialProof {
                     root: current_root,
                     proof: generated,
-                    path_elements: merkle_proof.get_path_elements(),
-                    path_index: merkle_proof.get_path_index(),
+                    merkle_proof: RLNMerkleProof::from(&merkle_proof),
                 },
             );
         }
@@ -249,8 +242,7 @@ impl RLNSystem {
         let witness = RLNWitnessInput::new_single()
             .identity_secret(identity_keys.identity_secret())
             .user_message_limit(Fr::from(MESSAGE_LIMIT))
-            .path_elements(cached.path_elements.clone())
-            .identity_path_index(cached.path_index.clone())
+            .merkle_proof(cached.merkle_proof.clone())
             .x(x)
             .external_nullifier(external_nullifier)
             .message_id(Fr::from(message_id))
@@ -315,8 +307,8 @@ impl RLNSystem {
                         Err("Identity secret mismatch: leaked_identity_secret != real_identity_secret".into())
                     } else {
                         println!(
-                            "DUPLICATE message ID detected! Reveal identity secret: {}",
-                            *leaked_identity_secret
+                            "DUPLICATE message ID detected!\nRecovered secret matches user {}'s identity secret: {}",
+                            user_index, leaked_identity_secret == real_identity_secret
                         );
                         self.local_identities.remove(&user_index);
                         self.partial_proofs.remove(&user_index);

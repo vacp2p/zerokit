@@ -22,21 +22,21 @@ where
     /// The value an empty leaf resets to, fixed at construction
     default_leaf: H::Scalar,
 
-    /// The nodes cached from the empty part of the tree (where leaves are set to default).
-    /// Since the rightmost part of the tree is usually changed much later than its creation,
-    /// we can prove accumulation of elements in the leftmost part, with no need to initialize the full tree
-    /// and by caching few intermediate nodes to the root computed from default leaves
+    /// The nodes cached from the empty part of the tree (where leaves are set to default). Since
+    /// the rightmost part of the tree is usually changed much later than its creation, we can prove
+    /// accumulation of elements in the leftmost part, with no need to initialize the full tree and
+    /// by caching few intermediate nodes to the root computed from default leaves
     cached_nodes: Vec<H::Scalar>,
 
     /// The tree nodes
     nodes: HashMap<(usize, usize), H::Scalar>,
 
-    /// The indices of leaves which are set into zero upto next_index.
+    /// The indices of leaves which are set into zero upto `next_index`.
     /// Set to 0 if the leaf is empty and set to 1 in otherwise.
     cached_leaves_indices: Vec<u8>,
 
-    /// The next available (i.e., never used) tree index. Equivalently, the number of leaves added to the tree
-    /// (deletions leave next_index unchanged)
+    /// The next available (i.e., never used) tree index. Equivalently, the number of leaves added
+    /// to the tree (deletions leave `next_index` unchanged)
     next_index: usize,
 
     /// Metadata that an application may use to store additional information
@@ -44,7 +44,8 @@ where
 }
 
 /// The Merkle proof
-/// Contains a vector of (node, branch_index) that defines the proof path elements and branch direction (1 or 0)
+/// Contains a vector of (node, `branch_index`) that defines the proof path elements and branch
+/// direction (1 or 0)
 #[derive(Clone, PartialEq)]
 pub struct OptimalMerkleProof<H: ZerokitHasher>(pub Vec<(H::Scalar, u8)>)
 where
@@ -77,7 +78,8 @@ where
     }
 
     /// Creates a new `MerkleTree`
-    /// depth - the depth of the tree made only of hash nodes. 2^depth is the maximum number of leaves hash nodes
+    /// depth - the depth of the tree made only of hash nodes. `2^depth` is the maximum number of
+    /// leaves hash nodes
     fn new(
         depth: usize,
         default_leaf: H::Scalar,
@@ -126,7 +128,8 @@ where
         self.get_node(0, 0)
     }
 
-    /// Returns the root of the subtree at `level` (`0` = root, `depth` = leaf) on the path to leaf `index`.
+    /// Returns the root of the subtree at `level` (`0` = root, `depth` = leaf) on the path to
+    /// leaf `index`.
     fn get_subtree_root(&self, level: usize, index: usize) -> Result<H::Scalar, Self::Error> {
         if level > self.depth() {
             return Err(ZerokitMerkleTreeError::LevelOutOfBounds);
@@ -209,7 +212,8 @@ where
         Ok(())
     }
 
-    /// Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
+    /// Deletes a leaf at a certain index by setting it to its default value (`next_index` is not
+    /// updated)
     fn delete(&mut self, index: usize) -> Result<(), Self::Error> {
         if index >= self.next_index {
             return Err(ZerokitMerkleTreeError::DeleteUnsetLeaf);
@@ -301,7 +305,8 @@ where
         // Round down to include the left sibling in the pair (if start is odd)
         let mut current_index = start & !1;
 
-        // Compute the max index at this level, round up to include the last updated leaf’s right sibling (if start + length is odd)
+        // Compute the max index at this level, round up to include the last updated leaf’s right
+        // sibling (if start + length is odd)
         let mut current_index_max = (start + length + 1) & !1;
 
         // Traverse from the leaf level up to the root
@@ -309,7 +314,8 @@ where
             // Compute the parent level (one level above the current)
             let parent_depth = current_depth - 1;
 
-            // Closure to compute the parent hash and its HashMap key, given a child index at the current depth
+            // Closure to compute the parent hash and its HashMap key, given a child index at the
+            // current depth
             let hash_node = |index: usize| {
                 (
                     (parent_depth, index >> 1),
@@ -363,7 +369,8 @@ where
 
     /// Computes the leaf index corresponding to a Merkle proof
     fn leaf_index(&self) -> usize {
-        // In current implementation the path indexes in a proof correspond to the binary representation of the leaf index
+        // In current implementation the path indexes in a proof correspond to the binary
+        // representation of the leaf index
         let mut binary_repr = self.get_path_index();
         binary_repr.reverse();
         binary_repr
@@ -381,7 +388,8 @@ where
         self.0.iter().map(|x| x.1).collect()
     }
 
-    /// Computes the Merkle root corresponding by iteratively hashing a Merkle proof with a given input leaf
+    /// Computes the Merkle root corresponding by iteratively hashing a Merkle proof with a given
+    /// input leaf
     fn compute_root_from(&self, leaf: &H::Scalar) -> H::Scalar {
         self.0.iter().fold(*leaf, |acc, w| {
             if w.1 == 0 {
