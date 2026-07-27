@@ -34,6 +34,13 @@ USER ubuntu
 # Add Cargo to the PATH so the IDE and terminal can find it
 ENV PATH="$HOME/.cargo/bin:$PATH"
 
+# Add wasm32 target (rln-wasm compilation)
+RUN rustup target add wasm32-unknown-unknown
+# Add nightly toolchain: rustfmt (nightly-only group_imports) and rust-src (parallel wasm build)
+RUN rustup toolchain install nightly \
+    --component rustfmt --component rust-src \
+    --target wasm32-unknown-unknown
+
 # Add cargo-make (for Makefile)
 RUN cargo install --locked cargo-make --version=0.37.24
 # Add wasm-pack (rln-wasm compilation)
