@@ -1,0 +1,30 @@
+{
+  "name": "Devcontainer Zerokit - Ubuntu 26.04",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  // For IDE server and terminal
+  "remoteUser": "ubuntu",
+  // The container user
+  "containerUser": "ubuntu",
+  // Prevent error when building devcontainer in RustRover
+  // error: `ERROR: failed to build: resolve : lstat /tmp/uidUpdate-abcde: no such file or directory`
+  "updateRemoteUserUID": false,
+  "customizations": {
+    "jetbrains": {
+      "backend": "RustRover"
+    }
+  },
+  // Expose port to the host machine
+  "forwardPorts": [],
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "workspaceFolder": "/workspace",
+  "runArgs": [
+    // ---------------------------------------------------------
+    // SECURITY FEATURES (Uncomment to apply after testing)
+    // ---------------------------------------------------------
+    // "--cap-drop=ALL",
+    // "--security-opt=no-new-privileges:true"
+  ]
+}
