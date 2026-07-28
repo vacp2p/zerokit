@@ -102,15 +102,19 @@ mod test {
 
     #[test]
     fn test_pmtree_config_from_str() {
-        let json = r#"
-        {
-            "path": "/tmp/pmtree-test-path",
+        let temp_dir = TempDir::new().unwrap();
+        let json = format!(
+            r#"
+        {{
+            "path": "{}",
             "temporary": false,
             "cache_capacity": 1073741824,
             "flush_every_ms": 500,
             "mode": "HighThroughput",
             "use_compression": false
-        }"#;
+        }}"#,
+            temp_dir.path().display()
+        );
 
         let config: PmTreeSledConfig = json.parse().unwrap();
 
