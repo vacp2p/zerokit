@@ -49,6 +49,10 @@ impl PmTreeHasher for PoseidonHash {
 pub trait PmTreeBackendConfig: Clone + Default + FromStr {
     /// The tree depth this config expects; rechecked against the requested depth on reload.
     fn tree_depth(&self) -> Option<usize>;
+
+    /// Returns `true` when no persisted tree exists, so a new one is initialized; `false`
+    /// loads the existing tree and propagates load errors. In-memory backends return `true`.
+    fn is_fresh(&self) -> bool;
 }
 
 /// A persistent Merkle tree over a [`pmtree::Database`] backend (sled by default).
@@ -210,6 +214,16 @@ impl PmTreeBackendConfig for PmTreeSledConfig {
     fn tree_depth(&self) -> Option<usize> {
         self.tree_depth
     }
+
+    fn is_fresh(&self) -> bool {
+        // Fresh when the path does not exist yet or is an empty directory.
+        !self.path.exists()
+            || self
+                .path
+                .read_dir()
+                .map(|mut entries| entries.next().is_none())
+                .unwrap_or(false)
+    }
 }
 
 impl<D, H> ZerokitMerkleTree for PmTree<D, H>
@@ -229,7 +243,7 @@ where
         Self::new(depth, Self::Hasher::default_leaf(), default_config)
     }
 
-    /// Creates a new tree, loading the existing one at the configured path if present
+    /// Creates a new tree, loading the existing one when the config is not fresh.
     fn new(
         depth: usize,
         _default_leaf: <H as ZerokitHasher>::Scalar,
@@ -243,15 +257,14 @@ where
                 return Err(ZerokitMerkleTreeError::DepthMismatch.into());
             }
         }
-        let tree_loaded = MerkleTree::load(config.clone());
-        let tree = match tree_loaded {
-            Ok(tree) => {
-                if tree.depth() != depth {
-                    return Err(ZerokitMerkleTreeError::DepthMismatch.into());
-                }
-                tree
+        let tree = if config.is_fresh() {
+            MerkleTree::new(depth, config)?
+        } else {
+            let tree = MerkleTree::load(config)?;
+            if tree.depth() != depth {
+                return Err(ZerokitMerkleTreeError::DepthMismatch.into());
             }
-            Err(_) => MerkleTree::new(depth, config)?,
+            tree
         };
 
         let capacity = 1usize
@@ -540,19 +553,13 @@ impl Database for SledDB {
 
     fn load(config: Self::Config) -> PmtreeResult<Self> {
         let sled_config = Config::from(&config);
-        let db = match sled_config.open() {
-            Ok(db) => db,
-            Err(err) => {
-                return Err(PmtreeError::Database(format!(
-                    "Cannot load database: {err}"
-                )))
-            }
-        };
+        let path = sled_config.path.clone();
+        let SledDB(db) = Self::new_with_tries(sled_config, 0)?;
 
         if !db.was_recovered() {
             return Err(PmtreeError::Database(format!(
                 "Database was not recovered: {}",
-                sled_config.path.display()
+                path.display()
             )));
         }
 
