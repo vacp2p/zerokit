@@ -1,4 +1,4 @@
-name: Devcontainer image
+name: CI
 
 # On master / develop pushes: build the devcontainer image and publish it to
 # GHCR, so contributors pull prebuilt layers (build.cacheFrom in
@@ -22,7 +22,7 @@ on:
 
 jobs:
   build:
-    name: Build devcontainer image
+    name: Build - devcontainer
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
