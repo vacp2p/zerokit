@@ -40,6 +40,10 @@ mod test {
         fn tree_depth(&self) -> Option<usize> {
             None
         }
+
+        fn is_fresh(&self) -> bool {
+            true
+        }
     }
 
     #[derive(Default)]
