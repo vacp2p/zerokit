@@ -72,6 +72,9 @@ jobs:
       - name: Test rln-wasm on browser
         run: cargo make test_browser --release
         working-directory: rln-wasm
+      - name: Test rln-wasm utils on node
+        run: cargo make test_utils --release
+        working-directory: rln-wasm
 
   rln-wasm-parallel-test:
     name: Test - rln-wasm-parallel - ${{ matrix.platform }}
@@ -116,7 +119,7 @@ jobs:
         with:
           components: rustfmt
       - name: Install cargo-make
-        run: cargo install cargo-make
+        run: cargo install --locked cargo-make --version "$(make -s print-CARGO_MAKE_VERSION)"
       - name: Check formatting
         run: cargo make fmt_check
 

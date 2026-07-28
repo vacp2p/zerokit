@@ -2,7 +2,10 @@
   "name": "Devcontainer Zerokit - Ubuntu 26.04",
   "build": {
     "dockerfile": "Dockerfile",
-    "context": ".."
+    "context": "..",
+    // Pull prebuilt layers from the CI-published image so local builds reuse
+    // them instead of recompiling (see .github/workflows/devcontainer.yml).
+    "cacheFrom": "ghcr.io/vacp2p/zerokit-devcontainer"
   },
   // For IDE server and terminal
   "remoteUser": "ubuntu",
@@ -23,15 +26,16 @@
       ]
     }
   },
-  // Expose port to the host machine
-  "forwardPorts": [],
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
   "workspaceFolder": "/workspace",
   "runArgs": [
     // ---------------------------------------------------------
-    // SECURITY FEATURES (Uncomment to apply after testing)
+    // SECURITY FEATURES
     // ---------------------------------------------------------
-    // "--cap-drop=ALL",
-    // "--security-opt=no-new-privileges:true"
+    // Low-risk hardening, enabled by default.
+    "--security-opt=no-new-privileges:true"
+    // Dropping all capabilities can break IDE backends that need to write
+    // outside $HOME. Enable once verified in both VSCode and RustRover:
+    // "--cap-drop=ALL"
   ]
 }

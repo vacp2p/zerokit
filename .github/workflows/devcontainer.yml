@@ -1,0 +1,39 @@
+name: Devcontainer image
+
+# Builds the devcontainer image once in CI and publishes it to GHCR so that
+# contributors pull prebuilt layers (via build.cacheFrom in devcontainer.json)
+# instead of recompiling locally. Public repo => GHCR storage and these runners
+# are free. Mark the published package Public once for anonymous pulls.
+on:
+  push:
+    branches:
+      - master
+      - "develop/**"
+    paths:
+      - ".devcontainer/**"
+      - "Makefile"
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    name: Build and push devcontainer image
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push devcontainer
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: ghcr.io/vacp2p/zerokit-devcontainer
+          cacheFrom: ghcr.io/vacp2p/zerokit-devcontainer
+          push: always
