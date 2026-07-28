@@ -1,5 +1,4 @@
-.PHONY: all installdeps installdeps-system installdeps-tools installdeps-cross \
-        installdeps-node installdeps-wasm installdeps-wasm-parallel \
+.PHONY: all installdeps installdeps-wasm installdeps-wasm-parallel \
         build test bench clean
 
 # Pinned tool and runtime versions.
@@ -13,44 +12,41 @@ NVM_VERSION        ?= 0.40.6
 
 all: installdeps build
 
-# Everything a native build needs; adds cross under CI.
-INSTALLDEPS_DEPS := installdeps-system installdeps-tools installdeps-node
-ifdef CI
-INSTALLDEPS_DEPS += installdeps-cross
-endif
-installdeps: $(INSTALLDEPS_DEPS)
-
-# cmake + ninja.
-installdeps-system:
+# Native build deps: cmake + ninja + cargo-make; cross added under CI.
+installdeps:
 ifeq ($(shell uname),Darwin)
-	@brew install cmake ninja
+	@command -v cmake > /dev/null && command -v ninja > /dev/null || \
+		brew install cmake ninja
 else ifeq ($(shell uname),Linux)
-	@if [ -f /etc/os-release ] && grep -q "ID=nixos" /etc/os-release; then \
+	@if command -v cmake > /dev/null && command -v ninja > /dev/null; then \
+		:; \
+	elif [ -f /etc/os-release ] && grep -q "ID=nixos" /etc/os-release; then \
 		echo "Detected NixOS, skipping apt installation."; \
 	else \
 		sudo apt-get update; \
 		sudo apt-get install -y cmake ninja-build; \
 	fi
 endif
-
-# cargo-make + wasm-pack, as prebuilt binaries via cargo-binstall.
-installdeps-tools:
 	@command -v cargo-binstall > /dev/null || \
 		curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-	@cargo binstall --no-confirm cargo-make@$(CARGO_MAKE_VERSION) wasm-pack@$(WASM_PACK_VERSION)
-
-# cross, for the release cross-compile matrix.
-installdeps-cross:
+	@cargo make --version 2>/dev/null | grep -q "$(CARGO_MAKE_VERSION)" || \
+		cargo binstall --no-confirm --force cargo-make@$(CARGO_MAKE_VERSION)
+ifdef CI
 	@cargo install cross --version $(CROSS_VERSION)
+endif
 
-# Node via nvm (the devcontainer installs it via apt instead).
-installdeps-node:
-	@test -s "$$HOME/.nvm/nvm.sh" || curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v$(NVM_VERSION)/install.sh | bash
-	@bash -c '. "$$HOME/.nvm/nvm.sh"; [ "$$(node -v 2>/dev/null)" = "v$(NODE_VERSION)" ] || nvm install $(NODE_VERSION); nvm use $(NODE_VERSION); nvm alias default $(NODE_VERSION)'
-
-# wasm32 target, for the default and utils rln-wasm builds.
+# Everything the default rln-wasm build needs: wasm32 target, wasm-pack, node
+# via nvm. NO_NVM=1 skips the node step (the devcontainer uses apt node instead).
 installdeps-wasm:
 	@rustup target add wasm32-unknown-unknown
+	@command -v cargo-binstall > /dev/null || \
+		curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+	@wasm-pack --version 2>/dev/null | grep -q "$(WASM_PACK_VERSION)" || \
+		cargo binstall --no-confirm --force wasm-pack@$(WASM_PACK_VERSION)
+ifndef NO_NVM
+	@test -s "$$HOME/.nvm/nvm.sh" || curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v$(NVM_VERSION)/install.sh | bash
+	@bash -c '. "$$HOME/.nvm/nvm.sh"; [ "$$(node -v 2>/dev/null)" = "v$(NODE_VERSION)" ] || nvm install $(NODE_VERSION); nvm use $(NODE_VERSION); nvm alias default $(NODE_VERSION)'
+endif
 
 # Nightly + rust-src for the parallel wasm build, rustfmt for `cargo make fmt`.
 installdeps-wasm-parallel:

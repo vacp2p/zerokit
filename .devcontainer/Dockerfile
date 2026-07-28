@@ -52,10 +52,7 @@ USER ubuntu
 # Add Cargo to the PATH so the IDE and terminal can find it
 ENV PATH="$HOME/.cargo/bin:$PATH"
 
-# wasm toolchains via the Makefile - both the stable wasm32 target (default/utils
-# builds) and the nightly toolchain (parallel build + cargo make fmt), so the
-# container covers every rln-wasm variant.
-RUN make installdeps-wasm installdeps-wasm-parallel
-
-# Rust tooling (cargo-make, wasm-pack) via the Makefile.
-RUN make installdeps-tools
+# Toolchains via the Makefile (cmake/ninja and node already installed via apt
+# above, so the apt step is skipped and NO_NVM=1 keeps nvm out of the image).
+RUN make installdeps \
+    && make NO_NVM=1 installdeps-wasm installdeps-wasm-parallel

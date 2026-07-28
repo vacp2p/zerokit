@@ -97,15 +97,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - name: Install nightly toolchain
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rust-src
-          targets: wasm32-unknown-unknown
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
       - name: Install dependencies
-        run: make installdeps
+        run: make installdeps installdeps-wasm installdeps-wasm-parallel
       - name: Build rln-wasm package
         run: |
           if [[ ${{ matrix.build.feature }} == "parallel" ]]; then
