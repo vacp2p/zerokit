@@ -7,7 +7,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Base packages, incl. the system build deps (cmake, ninja) the crates need.
 # No sudo: we build as root, and no-new-privileges (devcontainer.json) would
 # block setuid sudo at runtime anyway.
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     curl \
     git \
     build-essential \
