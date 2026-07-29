@@ -62,7 +62,7 @@ jobs:
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
       - name: Install dependencies
-        run: make installdeps
+        run: make installdeps installdeps-wasm
       - name: Build rln-wasm
         run: cargo make build
         working-directory: rln-wasm
@@ -71,6 +71,9 @@ jobs:
         working-directory: rln-wasm
       - name: Test rln-wasm on browser
         run: cargo make test_browser --release
+        working-directory: rln-wasm
+      - name: Test rln-wasm utils on node
+        run: cargo make test_utils --release
         working-directory: rln-wasm
 
   rln-wasm-parallel-test:
@@ -85,15 +88,12 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6
-      - name: Install nightly toolchain
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rust-src
-          targets: wasm32-unknown-unknown
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
       - name: Install dependencies
-        run: make installdeps
+        run: make installdeps installdeps-wasm installdeps-wasm-parallel
       - name: Build rln-wasm in parallel mode
         run: cargo make build_parallel
         working-directory: rln-wasm
@@ -116,7 +116,7 @@ jobs:
         with:
           components: rustfmt
       - name: Install cargo-make
-        run: cargo install cargo-make
+        run: cargo install --locked cargo-make --version "$(make -s print-CARGO_MAKE_VERSION)"
       - name: Check formatting
         run: cargo make fmt_check
 
