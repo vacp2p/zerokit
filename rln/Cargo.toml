@@ -37,7 +37,7 @@ num-traits = { workspace = true }
 rand_chacha = { workspace = true }
 tiny-keccak = { workspace = true }
 bon = "3.9"
-ruint = { version = "1.19.0", default-features = false, features = [
+ruint = { version = "1.20.0", default-features = false, features = [
     "rand",
     "serde",
     "ark-ff-05",
