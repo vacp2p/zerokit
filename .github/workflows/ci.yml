@@ -34,7 +34,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
       - name: Setup Rust cache
@@ -56,7 +56,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
       - name: Setup Rust cache
@@ -87,7 +87,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
       - name: Setup Rust cache
@@ -110,7 +110,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@nightly
         with:
@@ -132,7 +132,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -165,7 +165,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
       - name: Compare benchmarks
@@ -181,7 +181,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
       - name: Setup Rust cache
