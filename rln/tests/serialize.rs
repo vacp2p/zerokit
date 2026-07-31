@@ -1,20 +1,28 @@
 #[cfg(test)]
 mod test {
     use ark_ff::{BigInteger, PrimeField};
-    use ark_std::{rand::thread_rng, UniformRand};
+    use ark_std::{
+        rand::{rngs::ThreadRng, thread_rng},
+        UniformRand,
+    };
     use num_bigint::BigUint;
     use rln::prelude::*;
 
     #[test]
-    fn test_fr_be_roundtrip() {
+    fn test_fr_roundtrip() {
         let mut rng = thread_rng();
         for _ in 0..10 {
             let fr = Fr::rand(&mut rng);
-            let mut buf = Vec::new();
-            fr.serialize(&mut buf).unwrap();
-            let deser = Fr::deserialize(buf.as_slice()).unwrap();
-            assert_eq!(fr, deser);
-            assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&fr));
+
+            let mut be_buf = Vec::new();
+            fr.serialize(&mut be_buf).unwrap();
+            assert_eq!(Fr::deserialize(be_buf.as_slice()).unwrap(), fr);
+            assert_eq!(be_buf.len(), CanonicalSerializeBE::serialized_size(&fr));
+
+            let mut le_buf = Vec::new();
+            fr.serialize_compressed(&mut le_buf).unwrap();
+            assert_eq!(Fr::deserialize_compressed(le_buf.as_slice()).unwrap(), fr);
+            assert_eq!(le_buf.len(), fr.compressed_size());
         }
     }
 
@@ -24,70 +32,111 @@ mod test {
         let one = Fr::from(1u64);
         let mut buf = Vec::new();
         one.serialize(&mut buf).unwrap();
-        assert_eq!(buf.len(), FR_BYTE_SIZE);
-        assert_eq!(
-            buf[FR_BYTE_SIZE - 1],
-            1,
-            "least significant byte must be at index FR_BYTE_SIZE-1"
-        );
-        assert!(buf[..FR_BYTE_SIZE - 1].iter().all(|&b| b == 0));
+        assert_eq!(buf.len(), 32);
+        assert_eq!(buf[31], 1, "least significant byte must be last");
+        assert!(buf[..31].iter().all(|&b| b == 0));
 
         // Fr(256) - second-to-last byte should be 1
         let v = Fr::from(256u64);
         let mut buf2 = Vec::new();
         v.serialize(&mut buf2).unwrap();
-        assert_eq!(buf2[FR_BYTE_SIZE - 2], 1);
-        assert_eq!(buf2[FR_BYTE_SIZE - 1], 0);
+        assert_eq!(buf2[30], 1);
+        assert_eq!(buf2[31], 0);
     }
 
     #[test]
-    fn test_fr_be_non_canonical_rejected() {
+    fn test_fr_non_canonical_rejected() {
         let modulus = BigUint::from_bytes_le(&Fr::MODULUS.to_bytes_le());
 
         let to_be = |val: &BigUint| -> Vec<u8> {
             let mut bytes = val.to_bytes_be();
-            let pad = FR_BYTE_SIZE.saturating_sub(bytes.len());
+            let pad = 32usize.saturating_sub(bytes.len());
             if pad > 0 {
                 bytes.splice(0..0, std::iter::repeat_n(0, pad));
             }
             bytes
         };
+        let to_le = |val: &BigUint| -> Vec<u8> {
+            let mut bytes = val.to_bytes_le();
+            bytes.resize(32, 0);
+            bytes
+        };
 
         // Modulus itself must be rejected
-        let modulus_be = to_be(&modulus);
-        let err = Fr::deserialize(modulus_be.as_slice()).unwrap_err();
         assert!(matches!(
-            err,
-            SerializationErrorV3::NonCanonicalFieldElement
+            Fr::deserialize(to_be(&modulus).as_slice()).unwrap_err(),
+            SerializationError::NonCanonicalFieldElement
         ));
+        assert!(Fr::deserialize_compressed(to_le(&modulus).as_slice()).is_err());
 
         // Modulus + 1 must be rejected
-        let plus_one_be = to_be(&(&modulus + 1u32));
+        let plus_one = &modulus + 1u32;
         assert!(matches!(
-            Fr::deserialize(plus_one_be.as_slice()).unwrap_err(),
-            SerializationErrorV3::NonCanonicalFieldElement
+            Fr::deserialize(to_be(&plus_one).as_slice()).unwrap_err(),
+            SerializationError::NonCanonicalFieldElement
         ));
+        assert!(Fr::deserialize_compressed(to_le(&plus_one).as_slice()).is_err());
 
         // All 0xFF must be rejected
-        let max_bytes = vec![0xFF; FR_BYTE_SIZE];
+        let max_bytes = [0xFF; 32];
         assert!(matches!(
             Fr::deserialize(max_bytes.as_slice()).unwrap_err(),
-            SerializationErrorV3::NonCanonicalFieldElement
+            SerializationError::NonCanonicalFieldElement
         ));
+        assert!(Fr::deserialize_compressed(max_bytes.as_slice()).is_err());
 
-        // Modulus - 1 must succeed and round-trip
-        let minus_one_be = to_be(&(&modulus - 1u32));
+        // Modulus - 1 must succeed and round-trip in both endiannesses
+        let minus_one = &modulus - 1u32;
+        let minus_one_be = to_be(&minus_one);
         let fr_max = Fr::deserialize(minus_one_be.as_slice()).unwrap();
-        let mut roundtrip = Vec::new();
-        fr_max.serialize(&mut roundtrip).unwrap();
-        assert_eq!(roundtrip, minus_one_be);
+        let mut be_roundtrip = Vec::new();
+        fr_max.serialize(&mut be_roundtrip).unwrap();
+        assert_eq!(be_roundtrip, minus_one_be);
+
+        let minus_one_le = to_le(&minus_one);
+        let fr_max = Fr::deserialize_compressed(minus_one_le.as_slice()).unwrap();
+        let mut le_roundtrip = Vec::new();
+        fr_max.serialize_compressed(&mut le_roundtrip).unwrap();
+        assert_eq!(le_roundtrip, minus_one_le);
     }
 
     #[test]
     fn test_fr_be_insufficient_data_rejected() {
-        let short = vec![0u8; FR_BYTE_SIZE - 1];
+        let short = [0u8; 31];
         assert!(Fr::deserialize(short.as_slice()).is_err());
         assert!(Fr::deserialize([].as_slice()).is_err());
+    }
+
+    #[test]
+    fn test_endianness_differences() {
+        let mut rng = thread_rng();
+        for _ in 0..10 {
+            let fr = Fr::rand(&mut rng);
+
+            let mut le_bytes = Vec::new();
+            fr.serialize_compressed(&mut le_bytes).unwrap();
+            let mut be_bytes = Vec::new();
+            CanonicalSerializeBE::serialize(&fr, &mut be_bytes).unwrap();
+
+            // LE is the byte-reversal of BE for a 32-byte field element
+            let mut reversed_be = be_bytes.clone();
+            reversed_be.reverse();
+            assert_eq!(le_bytes, reversed_be);
+
+            // Both reconstruct the same field element
+            let from_le = Fr::deserialize_compressed(le_bytes.as_slice()).unwrap();
+            let from_be = <Fr as CanonicalDeserializeBE>::deserialize(be_bytes.as_slice()).unwrap();
+            assert_eq!(from_le, fr);
+            assert_eq!(from_be, fr);
+        }
+
+        // Zero serializes identically in both endiannesses
+        let zero = Fr::from(0);
+        let mut zero_le = Vec::new();
+        zero.serialize_compressed(&mut zero_le).unwrap();
+        let mut zero_be = Vec::new();
+        CanonicalSerializeBE::serialize(&zero, &mut zero_be).unwrap();
+        assert_eq!(zero_le, zero_be);
     }
 
     #[test]
@@ -108,7 +157,7 @@ mod test {
         // Craft a length-1 vec with modulus as the element - must be rejected
         let modulus = BigUint::from_bytes_le(&Fr::MODULUS.to_bytes_le());
         let mut bytes = modulus.to_bytes_be();
-        let pad = FR_BYTE_SIZE.saturating_sub(bytes.len());
+        let pad = 32usize.saturating_sub(bytes.len());
         if pad > 0 {
             bytes.splice(0..0, std::iter::repeat_n(0, pad));
         }
@@ -124,7 +173,7 @@ mod test {
         // Length prefix says 2 but only 1 element present
         let mut buf = Vec::new();
         buf.extend_from_slice(&2u64.to_be_bytes());
-        buf.extend_from_slice(&[0u8; FR_BYTE_SIZE]); // only one element
+        buf.extend_from_slice(&[0u8; 32]); // only one element
         assert!(Vec::<Fr>::deserialize(buf.as_slice()).is_err());
     }
 
@@ -197,22 +246,22 @@ mod test {
     }
 
     #[test]
-    fn test_id_secret_be_roundtrip() {
+    fn test_secret_fr_be_roundtrip() {
         let mut rng = thread_rng();
         for _ in 0..10 {
-            let secret = IdSecret::rand(&mut rng);
+            let secret = SecretFr::rand(&mut rng);
             let mut buf = Vec::new();
             secret.serialize(&mut buf).unwrap();
-            let deser = IdSecret::deserialize(buf.as_slice()).unwrap();
+            let deser = SecretFr::deserialize(buf.as_slice()).unwrap();
             assert_eq!(secret, deser);
             assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&secret));
         }
     }
 
     #[test]
-    fn test_id_secret_be_known_value() {
-        // IdSecret(42) BE should match Fr(42) BE - same field element
-        let secret = IdSecret::from(&mut Fr::from(42u64));
+    fn test_secret_fr_be_known_value() {
+        // SecretFr(42) BE should match Fr(42) BE - same field element
+        let secret = SecretFr::from(&mut Fr::from(42u64));
         let mut secret_buf = Vec::new();
         secret.serialize(&mut secret_buf).unwrap();
 
@@ -224,12 +273,12 @@ mod test {
     }
 
     #[test]
-    fn test_id_secret_be_non_canonical_rejected() {
+    fn test_secret_fr_be_non_canonical_rejected() {
         let modulus = BigUint::from_bytes_le(&Fr::MODULUS.to_bytes_le());
 
         let to_be = |val: &BigUint| -> Vec<u8> {
             let mut bytes = val.to_bytes_be();
-            let pad = FR_BYTE_SIZE.saturating_sub(bytes.len());
+            let pad = 32usize.saturating_sub(bytes.len());
             if pad > 0 {
                 bytes.splice(0..0, std::iter::repeat_n(0, pad));
             }
@@ -239,35 +288,37 @@ mod test {
         // Modulus must be rejected
         let modulus_be = to_be(&modulus);
         assert!(matches!(
-            IdSecret::deserialize(modulus_be.as_slice()).unwrap_err(),
-            SerializationErrorV3::NonCanonicalFieldElement
+            SecretFr::deserialize(modulus_be.as_slice()).unwrap_err(),
+            SerializationError::NonCanonicalFieldElement
         ));
 
         // All 0xFF must be rejected
-        let max_bytes = vec![0xFF; FR_BYTE_SIZE];
+        let max_bytes = [0xFF; 32];
         assert!(matches!(
-            IdSecret::deserialize(max_bytes.as_slice()).unwrap_err(),
-            SerializationErrorV3::NonCanonicalFieldElement
+            SecretFr::deserialize(max_bytes.as_slice()).unwrap_err(),
+            SerializationError::NonCanonicalFieldElement
         ));
 
         // Modulus - 1 must succeed
         let minus_one_be = to_be(&(&modulus - 1u32));
-        assert!(IdSecret::deserialize(minus_one_be.as_slice()).is_ok());
+        assert!(SecretFr::deserialize(minus_one_be.as_slice()).is_ok());
     }
 
     #[test]
-    fn test_id_secret_be_insufficient_data_rejected() {
-        let short = vec![0u8; FR_BYTE_SIZE - 1];
-        assert!(IdSecret::deserialize(short.as_slice()).is_err());
-        assert!(IdSecret::deserialize([].as_slice()).is_err());
+    fn test_secret_fr_be_insufficient_data_rejected() {
+        let short = [0u8; 31];
+        assert!(SecretFr::deserialize(short.as_slice()).is_err());
+        assert!(SecretFr::deserialize([].as_slice()).is_err());
     }
 
-    fn make_witness_input_single() -> RLNWitnessInputV3 {
-        RLNWitnessInputV3::new_single()
-            .identity_secret(IdSecret::from(&mut Fr::from(42u64)))
+    fn make_witness_input_single() -> RLNWitnessInput {
+        RLNWitnessInput::new_single()
+            .identity_secret(SecretFr::from(&mut Fr::from(42u64)))
             .user_message_limit(Fr::from(10u64))
-            .path_elements(vec![Fr::from(1u64), Fr::from(2u64)])
-            .identity_path_index(vec![0u8, 1u8])
+            .merkle_proof(RLNMerkleProof::new(
+                vec![Fr::from(1u64), Fr::from(2u64)],
+                vec![0u8, 1u8],
+            ))
             .x(Fr::from(5u64))
             .external_nullifier(Fr::from(7u64))
             .message_id(Fr::from(3u64))
@@ -275,12 +326,14 @@ mod test {
             .unwrap()
     }
 
-    fn make_witness_input_multi() -> RLNWitnessInputV3 {
-        RLNWitnessInputV3::new_multi()
-            .identity_secret(IdSecret::from(&mut Fr::from(99u64)))
+    fn make_witness_input_multi() -> RLNWitnessInput {
+        RLNWitnessInput::new_multi()
+            .identity_secret(SecretFr::from(&mut Fr::from(99u64)))
             .user_message_limit(Fr::from(10u64))
-            .path_elements(vec![Fr::from(1u64), Fr::from(2u64)])
-            .identity_path_index(vec![0u8, 1u8])
+            .merkle_proof(RLNMerkleProof::new(
+                vec![Fr::from(1u64), Fr::from(2u64)],
+                vec![0u8, 1u8],
+            ))
             .x(Fr::from(5u64))
             .external_nullifier(Fr::from(7u64))
             .message_ids(vec![Fr::from(0u64), Fr::from(1u64)])
@@ -289,71 +342,345 @@ mod test {
             .unwrap()
     }
 
-    fn make_partial_witness() -> RLNPartialWitnessInputV3 {
-        RLNPartialWitnessInputV3::new()
-            .identity_secret(IdSecret::from(&mut Fr::from(42u64)))
+    fn make_partial_witness() -> RLNPartialWitnessInput {
+        RLNPartialWitnessInput::new()
+            .identity_secret(SecretFr::from(&mut Fr::from(42u64)))
             .user_message_limit(Fr::from(10u64))
-            .path_elements(vec![Fr::from(1u64), Fr::from(2u64)])
-            .identity_path_index(vec![0u8, 1u8])
+            .merkle_proof(RLNMerkleProof::new(
+                vec![Fr::from(1u64), Fr::from(2u64)],
+                vec![0u8, 1u8],
+            ))
             .build()
             .unwrap()
     }
 
-    fn make_proof_values_single() -> RLNProofValuesV3 {
-        RLNProofValuesV3::Single(RLNProofValuesSingle {
-            root: Fr::from(1u64),
-            x: Fr::from(2u64),
-            external_nullifier: Fr::from(3u64),
-            y: Fr::from(4u64),
-            nullifier: Fr::from(5u64),
-        })
+    fn make_proof_values_single() -> RLNProofValues {
+        RLNProofValues::new_single()
+            .root(Fr::from(1u64))
+            .x(Fr::from(2u64))
+            .external_nullifier(Fr::from(3u64))
+            .y(Fr::from(4u64))
+            .nullifier(Fr::from(5u64))
+            .build()
     }
 
-    fn make_proof_values_multi() -> RLNProofValuesV3 {
-        RLNProofValuesV3::Multi(RLNProofValuesMulti {
-            root: Fr::from(10u64),
-            x: Fr::from(20u64),
-            external_nullifier: Fr::from(30u64),
-            ys: vec![Fr::from(40u64), Fr::from(50u64)],
-            nullifiers: vec![Fr::from(60u64), Fr::from(70u64)],
-            selector_used: vec![true, false],
-        })
+    fn make_proof_values_multi() -> RLNProofValues {
+        RLNProofValues::new_multi()
+            .root(Fr::from(10u64))
+            .x(Fr::from(20u64))
+            .external_nullifier(Fr::from(30u64))
+            .ys(vec![Fr::from(40u64), Fr::from(50u64)])
+            .nullifiers(vec![Fr::from(60u64), Fr::from(70u64)])
+            .selector_used(vec![true, false])
+            .build()
+            .unwrap()
     }
 
     fn make_proof() -> Proof {
-        let (identity_secret, _) = keygen();
-        let path_elements = vec![Fr::from(0); DEFAULT_TREE_DEPTH];
-        let identity_path_index = vec![0; DEFAULT_TREE_DEPTH];
-        let witness = RLNWitnessInput::new_single(
-            identity_secret,
-            Fr::from(100),
-            Fr::from(1),
-            path_elements,
-            identity_path_index,
-            Fr::from(1),
-            Fr::from(100),
-        )
-        .unwrap();
-        generate_zk_proof(default_zkey_single(), &witness, default_graph_single()).unwrap()
+        let rln = RLNBuilder::stateless().build();
+        let identity_secret =
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret();
+        let witness = RLNWitnessInput::new_single()
+            .identity_secret(identity_secret)
+            .user_message_limit(Fr::from(100))
+            .merkle_proof(RLNMerkleProof::new(
+                vec![Fr::from(0); DEFAULT_TREE_DEPTH],
+                vec![0; DEFAULT_TREE_DEPTH],
+            ))
+            .x(Fr::from(1))
+            .external_nullifier(Fr::from(100))
+            .message_id(Fr::from(1))
+            .build()
+            .unwrap();
+        let (proof, _) = rln.generate_proof(&witness).unwrap();
+        proof
     }
 
     fn make_partial_proof() -> PartialProof {
-        let (identity_secret, _) = keygen();
-        let path_elements = vec![Fr::from(0); DEFAULT_TREE_DEPTH];
-        let identity_path_index = vec![0; DEFAULT_TREE_DEPTH];
-        let partial_witness = RLNPartialWitnessInput::new(
-            identity_secret,
-            Fr::from(100),
-            path_elements,
-            identity_path_index,
+        let rln = RLNBuilder::stateless().build();
+        let identity_secret =
+            IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng()).identity_secret();
+        let partial_witness = RLNPartialWitnessInput::new()
+            .identity_secret(identity_secret)
+            .user_message_limit(Fr::from(100))
+            .merkle_proof(RLNMerkleProof::new(
+                vec![Fr::from(0); DEFAULT_TREE_DEPTH],
+                vec![0; DEFAULT_TREE_DEPTH],
+            ))
+            .build()
+            .unwrap();
+        rln.generate_partial_proof(&partial_witness).unwrap()
+    }
+
+    #[test]
+    fn test_merkle_proof_roundtrip() {
+        let merkle_proof =
+            RLNMerkleProof::new(vec![Fr::from(1u64), Fr::from(2u64)], vec![0u8, 1u8]);
+
+        let mut le_buf = Vec::new();
+        merkle_proof.serialize_compressed(&mut le_buf).unwrap();
+        assert_eq!(le_buf.len(), merkle_proof.compressed_size());
+        assert_eq!(
+            RLNMerkleProof::deserialize_compressed(le_buf.as_slice()).unwrap(),
+            merkle_proof
+        );
+
+        let mut be_buf = Vec::new();
+        CanonicalSerializeBE::serialize(&merkle_proof, &mut be_buf).unwrap();
+        assert_eq!(
+            be_buf.len(),
+            CanonicalSerializeBE::serialized_size(&merkle_proof)
+        );
+        assert_eq!(
+            <RLNMerkleProof as CanonicalDeserializeBE>::deserialize(be_buf.as_slice()).unwrap(),
+            merkle_proof
+        );
+
+        // Truncated bytes must be rejected
+        assert!(RLNMerkleProof::deserialize_compressed(&le_buf[..le_buf.len() - 1]).is_err());
+        assert!(<RLNMerkleProof as CanonicalDeserializeBE>::deserialize(
+            &be_buf[..be_buf.len() - 1]
         )
-        .unwrap();
-        generate_partial_zk_proof(
-            default_zkey_single(),
-            &partial_witness,
-            default_graph_single(),
-        )
-        .unwrap()
+        .is_err());
+    }
+
+    #[test]
+    fn test_witness_single_roundtrip() {
+        let w = make_witness_input_single();
+
+        let mut be_buf = Vec::new();
+        w.serialize(&mut be_buf).unwrap();
+        assert_eq!(be_buf[0], 0, "Single variant tag byte");
+        assert_eq!(be_buf.len(), CanonicalSerializeBE::serialized_size(&w));
+        assert_eq!(RLNWitnessInput::deserialize(be_buf.as_slice()).unwrap(), w);
+
+        let mut le_buf = Vec::new();
+        w.serialize_compressed(&mut le_buf).unwrap();
+        assert_eq!(le_buf[0], 0, "Single variant tag byte");
+        assert_eq!(le_buf.len(), w.compressed_size());
+        assert_eq!(
+            RLNWitnessInput::deserialize_compressed(le_buf.as_slice()).unwrap(),
+            w
+        );
+    }
+
+    #[test]
+    fn test_witness_multi_roundtrip() {
+        let w = make_witness_input_multi();
+
+        let mut be_buf = Vec::new();
+        w.serialize(&mut be_buf).unwrap();
+        assert_eq!(be_buf[0], 1, "Multi variant tag byte");
+        assert_eq!(be_buf.len(), CanonicalSerializeBE::serialized_size(&w));
+        assert_eq!(RLNWitnessInput::deserialize(be_buf.as_slice()).unwrap(), w);
+
+        let mut le_buf = Vec::new();
+        w.serialize_compressed(&mut le_buf).unwrap();
+        assert_eq!(le_buf[0], 1, "Multi variant tag byte");
+        assert_eq!(le_buf.len(), w.compressed_size());
+        assert_eq!(
+            RLNWitnessInput::deserialize_compressed(le_buf.as_slice()).unwrap(),
+            w
+        );
+    }
+
+    #[test]
+    fn test_witness_le_uncompressed_roundtrip() {
+        for w in [make_witness_input_single(), make_witness_input_multi()] {
+            let mut buf = Vec::new();
+            w.serialize_uncompressed(&mut buf).unwrap();
+            let deser = RLNWitnessInput::deserialize_uncompressed(buf.as_slice()).unwrap();
+            assert_eq!(w, deser);
+            assert_eq!(w.uncompressed_size(), buf.len());
+        }
+    }
+
+    #[test]
+    fn test_witness_invalid_tag_rejected() {
+        let w = make_witness_input_single();
+
+        let mut be_buf = Vec::new();
+        w.serialize(&mut be_buf).unwrap();
+        be_buf[0] = 99; // unknown tag
+        assert!(RLNWitnessInput::deserialize(be_buf.as_slice()).is_err());
+
+        let mut le_buf = Vec::new();
+        w.serialize_compressed(&mut le_buf).unwrap();
+        le_buf[0] = 99; // unknown tag
+        assert!(RLNWitnessInput::deserialize_compressed(le_buf.as_slice()).is_err());
+    }
+
+    #[test]
+    fn test_witness_truncated_rejected() {
+        for w in [make_witness_input_single(), make_witness_input_multi()] {
+            let mut be_buf = Vec::new();
+            w.serialize(&mut be_buf).unwrap();
+            assert!(RLNWitnessInput::deserialize(&be_buf[..be_buf.len() - 1]).is_err());
+
+            let mut le_buf = Vec::new();
+            w.serialize_compressed(&mut le_buf).unwrap();
+            assert!(RLNWitnessInput::deserialize_compressed(&le_buf[..le_buf.len() - 1]).is_err());
+        }
+    }
+
+    #[test]
+    fn test_witness_extra_bytes_accepted() {
+        for w in [make_witness_input_single(), make_witness_input_multi()] {
+            let mut be_buf = Vec::new();
+            w.serialize(&mut be_buf).unwrap();
+            be_buf.push(0xff);
+            assert!(RLNWitnessInput::deserialize(be_buf.as_slice()).is_ok());
+
+            let mut le_buf = Vec::new();
+            w.serialize_compressed(&mut le_buf).unwrap();
+            le_buf.push(0xff);
+            assert!(RLNWitnessInput::deserialize_compressed(le_buf.as_slice()).is_ok());
+        }
+    }
+
+    #[test]
+    fn test_partial_witness_roundtrip() {
+        let pw = make_partial_witness();
+
+        let mut be_buf = Vec::new();
+        pw.serialize(&mut be_buf).unwrap();
+        assert_eq!(be_buf.len(), CanonicalSerializeBE::serialized_size(&pw));
+        assert_eq!(
+            RLNPartialWitnessInput::deserialize(be_buf.as_slice()).unwrap(),
+            pw
+        );
+
+        let mut le_buf = Vec::new();
+        pw.serialize_compressed(&mut le_buf).unwrap();
+        assert_eq!(le_buf.len(), pw.compressed_size());
+        assert_eq!(
+            RLNPartialWitnessInput::deserialize_compressed(le_buf.as_slice()).unwrap(),
+            pw
+        );
+    }
+
+    #[test]
+    fn test_partial_witness_truncated_rejected() {
+        let pw = make_partial_witness();
+
+        let mut be_buf = Vec::new();
+        pw.serialize(&mut be_buf).unwrap();
+        assert!(RLNPartialWitnessInput::deserialize(&be_buf[..be_buf.len() - 1]).is_err());
+
+        let mut le_buf = Vec::new();
+        pw.serialize_compressed(&mut le_buf).unwrap();
+        assert!(
+            RLNPartialWitnessInput::deserialize_compressed(&le_buf[..le_buf.len() - 1]).is_err()
+        );
+    }
+
+    #[test]
+    fn test_partial_witness_extra_bytes_accepted() {
+        let pw = make_partial_witness();
+
+        let mut be_buf = Vec::new();
+        pw.serialize(&mut be_buf).unwrap();
+        be_buf.push(0xff);
+        assert!(RLNPartialWitnessInput::deserialize(be_buf.as_slice()).is_ok());
+
+        let mut le_buf = Vec::new();
+        pw.serialize_compressed(&mut le_buf).unwrap();
+        le_buf.push(0xff);
+        assert!(RLNPartialWitnessInput::deserialize_compressed(le_buf.as_slice()).is_ok());
+    }
+
+    #[test]
+    fn test_proof_values_single_roundtrip() {
+        let pv = make_proof_values_single();
+
+        let mut be_buf = Vec::new();
+        pv.serialize(&mut be_buf).unwrap();
+        assert_eq!(be_buf[0], 0, "Single variant tag byte");
+        assert_eq!(be_buf.len(), CanonicalSerializeBE::serialized_size(&pv));
+        assert_eq!(RLNProofValues::deserialize(be_buf.as_slice()).unwrap(), pv);
+
+        let mut le_buf = Vec::new();
+        pv.serialize_compressed(&mut le_buf).unwrap();
+        assert_eq!(le_buf[0], 0, "Single variant tag byte");
+        assert_eq!(le_buf.len(), pv.compressed_size());
+        assert_eq!(
+            RLNProofValues::deserialize_compressed(le_buf.as_slice()).unwrap(),
+            pv
+        );
+    }
+
+    #[test]
+    fn test_proof_values_multi_roundtrip() {
+        let pv = make_proof_values_multi();
+
+        let mut be_buf = Vec::new();
+        pv.serialize(&mut be_buf).unwrap();
+        assert_eq!(be_buf[0], 1, "Multi variant tag byte");
+        assert_eq!(be_buf.len(), CanonicalSerializeBE::serialized_size(&pv));
+        assert_eq!(RLNProofValues::deserialize(be_buf.as_slice()).unwrap(), pv);
+
+        let mut le_buf = Vec::new();
+        pv.serialize_compressed(&mut le_buf).unwrap();
+        assert_eq!(le_buf[0], 1, "Multi variant tag byte");
+        assert_eq!(le_buf.len(), pv.compressed_size());
+        assert_eq!(
+            RLNProofValues::deserialize_compressed(le_buf.as_slice()).unwrap(),
+            pv
+        );
+    }
+
+    #[test]
+    fn test_proof_values_le_uncompressed_roundtrip() {
+        for pv in [make_proof_values_single(), make_proof_values_multi()] {
+            let mut buf = Vec::new();
+            pv.serialize_uncompressed(&mut buf).unwrap();
+            let deser = RLNProofValues::deserialize_uncompressed(buf.as_slice()).unwrap();
+            assert_eq!(pv, deser);
+            assert_eq!(pv.uncompressed_size(), buf.len());
+        }
+    }
+
+    #[test]
+    fn test_proof_values_invalid_tag_rejected() {
+        let pv = make_proof_values_multi();
+
+        let mut be_buf = Vec::new();
+        pv.serialize(&mut be_buf).unwrap();
+        be_buf[0] = 99; // unknown tag
+        assert!(RLNProofValues::deserialize(be_buf.as_slice()).is_err());
+
+        let mut le_buf = Vec::new();
+        pv.serialize_compressed(&mut le_buf).unwrap();
+        le_buf[0] = 99; // unknown tag
+        assert!(RLNProofValues::deserialize_compressed(le_buf.as_slice()).is_err());
+    }
+
+    #[test]
+    fn test_proof_values_truncated_rejected() {
+        for pv in [make_proof_values_single(), make_proof_values_multi()] {
+            let mut be_buf = Vec::new();
+            pv.serialize(&mut be_buf).unwrap();
+            assert!(RLNProofValues::deserialize(&be_buf[..be_buf.len() - 1]).is_err());
+
+            let mut le_buf = Vec::new();
+            pv.serialize_compressed(&mut le_buf).unwrap();
+            assert!(RLNProofValues::deserialize_compressed(&le_buf[..le_buf.len() - 1]).is_err());
+        }
+    }
+
+    #[test]
+    fn test_proof_values_extra_bytes_accepted() {
+        for pv in [make_proof_values_single(), make_proof_values_multi()] {
+            let mut be_buf = Vec::new();
+            pv.serialize(&mut be_buf).unwrap();
+            be_buf.push(0xff);
+            assert!(RLNProofValues::deserialize(be_buf.as_slice()).is_ok());
+
+            let mut le_buf = Vec::new();
+            pv.serialize_compressed(&mut le_buf).unwrap();
+            le_buf.push(0xff);
+            assert!(RLNProofValues::deserialize_compressed(le_buf.as_slice()).is_ok());
+        }
     }
 
     #[test]
@@ -377,297 +704,22 @@ mod test {
     }
 
     #[test]
-    fn test_witness_v3_single_le_compressed_roundtrip() {
-        let w = make_witness_input_single();
-        let mut buf = Vec::new();
-        w.serialize_compressed(&mut buf).unwrap();
-        let deser = RLNWitnessInputV3::deserialize_compressed(buf.as_slice()).unwrap();
-        assert_eq!(w, deser);
-        assert_eq!(w.compressed_size(), buf.len());
-        assert_eq!(buf[0], ENUM_TAG_SINGLE);
-    }
-
-    #[test]
-    fn test_witness_v3_multi_le_compressed_roundtrip() {
-        let w = make_witness_input_multi();
-        let mut buf = Vec::new();
-        w.serialize_compressed(&mut buf).unwrap();
-        let deser = RLNWitnessInputV3::deserialize_compressed(buf.as_slice()).unwrap();
-        assert_eq!(w, deser);
-        assert_eq!(w.compressed_size(), buf.len());
-        assert_eq!(buf[0], ENUM_TAG_MULTI);
-    }
-
-    #[test]
-    fn test_witness_v3_le_uncompressed_roundtrip() {
-        for w in [make_witness_input_single(), make_witness_input_multi()] {
-            let mut buf = Vec::new();
-            w.serialize_uncompressed(&mut buf).unwrap();
-            let deser = RLNWitnessInputV3::deserialize_uncompressed(buf.as_slice()).unwrap();
-            assert_eq!(w, deser);
-            assert_eq!(w.uncompressed_size(), buf.len());
-        }
-    }
-
-    #[test]
-    fn test_witness_v3_le_invalid_tag_rejected() {
-        let mut bad = vec![99u8]; // unknown tag
-        bad.extend_from_slice(&[0u8; 32]);
-        assert!(RLNWitnessInputV3::deserialize_compressed(bad.as_slice()).is_err());
-    }
-
-    #[test]
-    fn test_witness_v3_le_truncated_rejected() {
-        for w in [make_witness_input_single(), make_witness_input_multi()] {
-            let mut buf = Vec::new();
-            w.serialize_compressed(&mut buf).unwrap();
-            assert!(RLNWitnessInputV3::deserialize_compressed(&buf[..buf.len() - 1]).is_err());
-        }
-    }
-
-    #[test]
-    fn test_witness_v3_le_extra_bytes_accepted() {
-        for w in [make_witness_input_single(), make_witness_input_multi()] {
-            let mut buf = Vec::new();
-            w.serialize_compressed(&mut buf).unwrap();
-            buf.push(0xff);
-            assert!(RLNWitnessInputV3::deserialize_compressed(buf.as_slice()).is_ok());
-        }
-    }
-
-    #[test]
-    fn test_witness_v3_single_be_roundtrip() {
-        let w = make_witness_input_single();
-        let mut buf = Vec::new();
-        w.serialize(&mut buf).unwrap();
-        assert_eq!(buf[0], ENUM_TAG_SINGLE);
-        assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&w));
-        let deser = RLNWitnessInputV3::deserialize(buf.as_slice()).unwrap();
-        assert_eq!(w, deser);
-    }
-
-    #[test]
-    fn test_witness_v3_multi_be_roundtrip() {
-        let w = make_witness_input_multi();
-        let mut buf = Vec::new();
-        w.serialize(&mut buf).unwrap();
-        assert_eq!(buf[0], ENUM_TAG_MULTI);
-        assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&w));
-        let deser = RLNWitnessInputV3::deserialize(buf.as_slice()).unwrap();
-        assert_eq!(w, deser);
-    }
-
-    #[test]
-    fn test_witness_v3_be_invalid_tag_rejected() {
-        let w = make_witness_input_single();
-        let mut buf = Vec::new();
-        w.serialize(&mut buf).unwrap();
-        buf[0] = 99; // unknown tag
-        assert!(RLNWitnessInputV3::deserialize(buf.as_slice()).is_err());
-    }
-
-    #[test]
-    fn test_witness_v3_be_truncated_rejected() {
-        for w in [make_witness_input_single(), make_witness_input_multi()] {
-            let mut buf = Vec::new();
-            w.serialize(&mut buf).unwrap();
-            assert!(RLNWitnessInputV3::deserialize(&buf[..buf.len() - 1]).is_err());
-        }
-    }
-
-    #[test]
-    fn test_witness_v3_be_extra_bytes_accepted() {
-        for w in [make_witness_input_single(), make_witness_input_multi()] {
-            let mut buf = Vec::new();
-            w.serialize(&mut buf).unwrap();
-            buf.push(0xff);
-            assert!(RLNWitnessInputV3::deserialize(buf.as_slice()).is_ok());
-        }
-    }
-
-    #[test]
-    fn test_partial_witness_v3_le_compressed_roundtrip() {
-        let pw = make_partial_witness();
-        let mut buf = Vec::new();
-        pw.serialize_compressed(&mut buf).unwrap();
-        let deser = RLNPartialWitnessInputV3::deserialize_compressed(buf.as_slice()).unwrap();
-        assert_eq!(pw, deser);
-        assert_eq!(pw.compressed_size(), buf.len());
-    }
-
-    #[test]
-    fn test_partial_witness_v3_le_truncated_rejected() {
-        let pw = make_partial_witness();
-        let mut buf = Vec::new();
-        pw.serialize_compressed(&mut buf).unwrap();
-        assert!(RLNPartialWitnessInputV3::deserialize_compressed(&buf[..buf.len() - 1]).is_err());
-    }
-
-    #[test]
-    fn test_partial_witness_v3_le_extra_bytes_accepted() {
-        let pw = make_partial_witness();
-        let mut buf = Vec::new();
-        pw.serialize_compressed(&mut buf).unwrap();
-        buf.push(0xff);
-        assert!(RLNPartialWitnessInputV3::deserialize_compressed(buf.as_slice()).is_ok());
-    }
-
-    #[test]
-    fn test_partial_witness_v3_be_roundtrip() {
-        let pw = make_partial_witness();
-        let mut buf = Vec::new();
-        pw.serialize(&mut buf).unwrap();
-        assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&pw));
-        let deser = RLNPartialWitnessInputV3::deserialize(buf.as_slice()).unwrap();
-        assert_eq!(pw, deser);
-    }
-
-    #[test]
-    fn test_partial_witness_v3_be_truncated_rejected() {
-        let pw = make_partial_witness();
-        let mut buf = Vec::new();
-        pw.serialize(&mut buf).unwrap();
-        assert!(RLNPartialWitnessInputV3::deserialize(&buf[..buf.len() - 1]).is_err());
-    }
-
-    #[test]
-    fn test_partial_witness_v3_be_extra_bytes_accepted() {
-        let pw = make_partial_witness();
-        let mut buf = Vec::new();
-        pw.serialize(&mut buf).unwrap();
-        buf.push(0xff);
-        assert!(RLNPartialWitnessInputV3::deserialize(buf.as_slice()).is_ok());
-    }
-
-    #[test]
-    fn test_proof_values_v3_single_le_compressed_roundtrip() {
-        let pv = make_proof_values_single();
-        let mut buf = Vec::new();
-        pv.serialize_compressed(&mut buf).unwrap();
-        let deser = RLNProofValuesV3::deserialize_compressed(buf.as_slice()).unwrap();
-        assert_eq!(pv, deser);
-        assert_eq!(pv.compressed_size(), buf.len());
-        assert_eq!(buf[0], ENUM_TAG_SINGLE);
-    }
-
-    #[test]
-    fn test_proof_values_v3_multi_le_compressed_roundtrip() {
-        let pv = make_proof_values_multi();
-        let mut buf = Vec::new();
-        pv.serialize_compressed(&mut buf).unwrap();
-        let deser = RLNProofValuesV3::deserialize_compressed(buf.as_slice()).unwrap();
-        assert_eq!(pv, deser);
-        assert_eq!(pv.compressed_size(), buf.len());
-        assert_eq!(buf[0], ENUM_TAG_MULTI);
-    }
-
-    #[test]
-    fn test_proof_values_v3_le_uncompressed_roundtrip() {
-        for pv in [make_proof_values_single(), make_proof_values_multi()] {
-            let mut buf = Vec::new();
-            pv.serialize_uncompressed(&mut buf).unwrap();
-            let deser = RLNProofValuesV3::deserialize_uncompressed(buf.as_slice()).unwrap();
-            assert_eq!(pv, deser);
-            assert_eq!(pv.uncompressed_size(), buf.len());
-        }
-    }
-
-    #[test]
-    fn test_proof_values_v3_le_invalid_tag_rejected() {
-        let pv = make_proof_values_single();
-        let mut buf = Vec::new();
-        pv.serialize_compressed(&mut buf).unwrap();
-        buf[0] = 99; // unknown tag
-        assert!(RLNProofValuesV3::deserialize_compressed(buf.as_slice()).is_err());
-    }
-
-    #[test]
-    fn test_proof_values_v3_le_truncated_rejected() {
-        for pv in [make_proof_values_single(), make_proof_values_multi()] {
-            let mut buf = Vec::new();
-            pv.serialize_compressed(&mut buf).unwrap();
-            assert!(RLNProofValuesV3::deserialize_compressed(&buf[..buf.len() - 1]).is_err());
-        }
-    }
-
-    #[test]
-    fn test_proof_values_v3_le_extra_bytes_accepted() {
-        for pv in [make_proof_values_single(), make_proof_values_multi()] {
-            let mut buf = Vec::new();
-            pv.serialize_compressed(&mut buf).unwrap();
-            buf.push(0xff);
-            assert!(RLNProofValuesV3::deserialize_compressed(buf.as_slice()).is_ok());
-        }
-    }
-
-    #[test]
-    fn test_proof_values_v3_single_be_roundtrip() {
-        let pv = make_proof_values_single();
-        let mut buf = Vec::new();
-        pv.serialize(&mut buf).unwrap();
-        assert_eq!(buf[0], ENUM_TAG_SINGLE);
-        assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&pv));
-        let deser = RLNProofValuesV3::deserialize(buf.as_slice()).unwrap();
-        assert_eq!(pv, deser);
-    }
-
-    #[test]
-    fn test_proof_values_v3_multi_be_roundtrip() {
-        let pv = make_proof_values_multi();
-        let mut buf = Vec::new();
-        pv.serialize(&mut buf).unwrap();
-        assert_eq!(buf[0], ENUM_TAG_MULTI);
-        assert_eq!(buf.len(), CanonicalSerializeBE::serialized_size(&pv));
-        let deser = RLNProofValuesV3::deserialize(buf.as_slice()).unwrap();
-        assert_eq!(pv, deser);
-    }
-
-    #[test]
-    fn test_proof_values_v3_be_invalid_tag_rejected() {
-        let pv = make_proof_values_multi();
-        let mut buf = Vec::new();
-        pv.serialize(&mut buf).unwrap();
-        buf[0] = 99; // unknown tag
-        assert!(RLNProofValuesV3::deserialize(buf.as_slice()).is_err());
-    }
-
-    #[test]
-    fn test_proof_values_v3_be_truncated_rejected() {
-        for pv in [make_proof_values_single(), make_proof_values_multi()] {
-            let mut buf = Vec::new();
-            pv.serialize(&mut buf).unwrap();
-            assert!(RLNProofValuesV3::deserialize(&buf[..buf.len() - 1]).is_err());
-        }
-    }
-
-    #[test]
-    fn test_proof_values_v3_be_extra_bytes_accepted() {
-        for pv in [make_proof_values_single(), make_proof_values_multi()] {
-            let mut buf = Vec::new();
-            pv.serialize(&mut buf).unwrap();
-            buf.push(0xff);
-            assert!(RLNProofValuesV3::deserialize(buf.as_slice()).is_ok());
-        }
-    }
-
-    #[test]
-    fn test_rln_proof_v3_le_roundtrip() {
-        use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+    fn test_rln_proof_le_roundtrip() {
         for values in [make_proof_values_single(), make_proof_values_multi()] {
-            let rln_proof = RLNProofV3 {
+            let rln_proof = RLNProof {
                 proof: make_proof(),
                 values,
             };
             let mut buf = Vec::new();
             rln_proof.serialize_compressed(&mut buf).unwrap();
-            let deser = RLNProofV3::deserialize_compressed(buf.as_slice()).unwrap();
+            let deser = RLNProof::deserialize_compressed(buf.as_slice()).unwrap();
             assert_eq!(rln_proof, deser);
         }
     }
 
     #[test]
-    fn test_rln_proof_v3_mixed_roundtrip_single() {
-        let rln_proof = RLNProofV3 {
+    fn test_rln_proof_mixed_roundtrip_single() {
+        let rln_proof = RLNProof {
             proof: make_proof(),
             values: make_proof_values_single(),
         };
@@ -677,13 +729,13 @@ mod test {
             buf.len(),
             CanonicalSerializeMixed::serialized_size(&rln_proof)
         );
-        let deser = <RLNProofV3 as CanonicalDeserializeMixed>::deserialize(buf.as_slice()).unwrap();
+        let deser = <RLNProof as CanonicalDeserializeMixed>::deserialize(buf.as_slice()).unwrap();
         assert_eq!(rln_proof, deser);
     }
 
     #[test]
-    fn test_rln_proof_v3_mixed_roundtrip_multi() {
-        let rln_proof = RLNProofV3 {
+    fn test_rln_proof_mixed_roundtrip_multi() {
+        let rln_proof = RLNProof {
             proof: make_proof(),
             values: make_proof_values_multi(),
         };
@@ -693,14 +745,14 @@ mod test {
             buf.len(),
             CanonicalSerializeMixed::serialized_size(&rln_proof)
         );
-        let deser = <RLNProofV3 as CanonicalDeserializeMixed>::deserialize(buf.as_slice()).unwrap();
+        let deser = <RLNProof as CanonicalDeserializeMixed>::deserialize(buf.as_slice()).unwrap();
         assert_eq!(rln_proof, deser);
     }
 
     #[test]
-    fn test_rln_proof_v3_mixed_wire_format() {
+    fn test_rln_proof_mixed_wire_format() {
         let values = make_proof_values_single();
-        let rln_proof = RLNProofV3 {
+        let rln_proof = RLNProof {
             proof: make_proof(),
             values: values.clone(),
         };
@@ -718,23 +770,26 @@ mod test {
             b
         };
 
-        assert_eq!(&mixed_buf[..COMPRESS_PROOF_SIZE], proof_le_bytes.as_slice());
         assert_eq!(
-            &mixed_buf[COMPRESS_PROOF_SIZE..],
+            &mixed_buf[..proof_le_bytes.len()],
+            proof_le_bytes.as_slice()
+        );
+        assert_eq!(
+            &mixed_buf[proof_le_bytes.len()..],
             values_be_bytes.as_slice()
         );
     }
 
     #[test]
-    fn test_rln_proof_v3_mixed_truncated_rejected() {
-        let rln_proof = RLNProofV3 {
+    fn test_rln_proof_mixed_truncated_rejected() {
+        let rln_proof = RLNProof {
             proof: make_proof(),
             values: make_proof_values_single(),
         };
         let mut buf = Vec::new();
         CanonicalSerializeMixed::serialize(&rln_proof, &mut buf).unwrap();
         assert!(
-            <RLNProofV3 as CanonicalDeserializeMixed>::deserialize(&buf[..buf.len() - 1]).is_err()
+            <RLNProof as CanonicalDeserializeMixed>::deserialize(&buf[..buf.len() - 1]).is_err()
         );
     }
 }

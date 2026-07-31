@@ -17,7 +17,8 @@ else:
 # FFI objects
 type
   CSize* = csize_t
-  CFr* = object
+  Fr* = object
+  SecretFr* = object
   RLN* = object
   Proof* = object
   PartialProof* = object
@@ -25,8 +26,8 @@ type
   PartialWitness* = object
   ProofValues* = object
 
-  Vec_CFr* = object
-    dataPtr*: ptr CFr
+  Vec_Fr* = object
+    dataPtr*: ptr Fr
     len*: CSize
     cap*: CSize
 
@@ -46,11 +47,23 @@ type
     cap*: CSize
 
   MerkleProof* = object
-    path_elements*: Vec_CFr
-    path_index*: Vec_uint8
+
+  IdentityKeys* = object
+    identity_secret*: ptr SecretFr
+    id_commitment*: ptr Fr
+
+  ExtendedIdentityKeys* = object
+    identity_trapdoor*: ptr SecretFr
+    identity_nullifier*: ptr SecretFr
+    identity_secret*: ptr SecretFr
+    id_commitment*: ptr Fr
 
   CBoolResult* = object
     ok*: bool
+    err*: Vec_uint8
+
+  UsizeResult* = object
+    ok*: CSize
     err*: Vec_uint8
 
   RLNResult* = object
@@ -81,12 +94,24 @@ type
     ok*: ptr MerkleProof
     err*: Vec_uint8
 
-  CFrResult* = object
-    ok*: ptr CFr
+  IdentityKeysResult* = object
+    ok*: ptr IdentityKeys
     err*: Vec_uint8
 
-  VecCFrResult* = object
-    ok*: Vec_CFr
+  ExtendedIdentityKeysResult* = object
+    ok*: ptr ExtendedIdentityKeys
+    err*: Vec_uint8
+
+  FrResult* = object
+    ok*: ptr Fr
+    err*: Vec_uint8
+
+  SecretFrResult* = object
+    ok*: ptr SecretFr
+    err*: Vec_uint8
+
+  VecFrResult* = object
+    ok*: Vec_Fr
     err*: Vec_uint8
 
   VecU8Result* = object
@@ -97,47 +122,51 @@ type
     ok*: Vec_bool
     err*: Vec_uint8
 
-# CFr functions
-proc ffi_cfr_zero*(): ptr CFr {.importc: "ffi_cfr_zero", cdecl,
+  VecSizeResult* = object
+    ok*: Vec_size
+    err*: Vec_uint8
+
+# Fr functions
+proc ffi_fr_zero*(): ptr Fr {.importc: "ffi_fr_zero", cdecl,
     dynlib: RLN_LIB.}
-proc ffi_cfr_one*(): ptr CFr {.importc: "ffi_cfr_one", cdecl, dynlib: RLN_LIB.}
-proc ffi_cfr_to_bytes_le*(cfr: ptr CFr): VecU8Result {.importc: "ffi_cfr_to_bytes_le",
+proc ffi_fr_one*(): ptr Fr {.importc: "ffi_fr_one", cdecl, dynlib: RLN_LIB.}
+proc ffi_fr_to_bytes_le*(fr: ptr Fr): VecU8Result {.importc: "ffi_fr_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_cfr_to_bytes_be*(cfr: ptr CFr): VecU8Result {.importc: "ffi_cfr_to_bytes_be",
+proc ffi_fr_to_bytes_be*(fr: ptr Fr): VecU8Result {.importc: "ffi_fr_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_le_to_cfr*(bytes: ptr Vec_uint8): CFrResult {.importc: "ffi_bytes_le_to_cfr",
+proc ffi_fr_from_bytes_le*(bytes: ptr Vec_uint8): FrResult {.importc: "ffi_fr_from_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_be_to_cfr*(bytes: ptr Vec_uint8): CFrResult {.importc: "ffi_bytes_be_to_cfr",
+proc ffi_fr_from_bytes_be*(bytes: ptr Vec_uint8): FrResult {.importc: "ffi_fr_from_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_uint_to_cfr*(value: uint32): ptr CFr {.importc: "ffi_uint_to_cfr",
+proc ffi_uint_to_fr*(value: uint32): ptr Fr {.importc: "ffi_uint_to_fr",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_cfr_debug*(cfr: ptr CFr): Vec_uint8 {.importc: "ffi_cfr_debug", cdecl,
+proc ffi_fr_debug*(fr: ptr Fr): Vec_uint8 {.importc: "ffi_fr_debug", cdecl,
     dynlib: RLN_LIB.}
-proc ffi_cfr_free*(x: ptr CFr) {.importc: "ffi_cfr_free", cdecl,
+proc ffi_fr_free*(x: ptr Fr) {.importc: "ffi_fr_free", cdecl,
     dynlib: RLN_LIB.}
 
-# Vec<CFr> functions
-proc ffi_vec_cfr_new*(capacity: CSize): Vec_CFr {.importc: "ffi_vec_cfr_new",
+# Vec<Fr> functions
+proc ffi_vec_fr_new*(capacity: CSize): Vec_Fr {.importc: "ffi_vec_fr_new",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_vec_cfr_from_cfr*(cfr: ptr CFr): Vec_CFr {.importc: "ffi_vec_cfr_from_cfr",
+proc ffi_vec_fr_from_fr*(fr: ptr Fr): Vec_Fr {.importc: "ffi_vec_fr_from_fr",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_vec_cfr_push*(v: ptr Vec_CFr, cfr: ptr CFr) {.importc: "ffi_vec_cfr_push",
+proc ffi_vec_fr_push*(v: ptr Vec_Fr, fr: ptr Fr) {.importc: "ffi_vec_fr_push",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_vec_cfr_len*(v: ptr Vec_CFr): CSize {.importc: "ffi_vec_cfr_len",
+proc ffi_vec_fr_len*(v: ptr Vec_Fr): CSize {.importc: "ffi_vec_fr_len",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_vec_cfr_get*(v: ptr Vec_CFr, i: CSize): ptr CFr {.importc: "ffi_vec_cfr_get",
+proc ffi_vec_fr_get*(v: ptr Vec_Fr, i: CSize): ptr Fr {.importc: "ffi_vec_fr_get",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_vec_cfr_to_bytes_le*(v: ptr Vec_CFr): VecU8Result {.importc: "ffi_vec_cfr_to_bytes_le",
+proc ffi_vec_fr_to_bytes_le*(v: ptr Vec_Fr): VecU8Result {.importc: "ffi_vec_fr_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_vec_cfr_to_bytes_be*(v: ptr Vec_CFr): VecU8Result {.importc: "ffi_vec_cfr_to_bytes_be",
+proc ffi_vec_fr_to_bytes_be*(v: ptr Vec_Fr): VecU8Result {.importc: "ffi_vec_fr_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_le_to_vec_cfr*(bytes: ptr Vec_uint8): VecCFrResult {.importc: "ffi_bytes_le_to_vec_cfr",
+proc ffi_vec_fr_from_bytes_le*(bytes: ptr Vec_uint8): VecFrResult {.importc: "ffi_vec_fr_from_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_be_to_vec_cfr*(bytes: ptr Vec_uint8): VecCFrResult {.importc: "ffi_bytes_be_to_vec_cfr",
+proc ffi_vec_fr_from_bytes_be*(bytes: ptr Vec_uint8): VecFrResult {.importc: "ffi_vec_fr_from_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_vec_cfr_debug*(v: ptr Vec_CFr): Vec_uint8 {.importc: "ffi_vec_cfr_debug",
+proc ffi_vec_fr_debug*(v: ptr Vec_Fr): Vec_uint8 {.importc: "ffi_vec_fr_debug",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_vec_cfr_free*(v: Vec_CFr) {.importc: "ffi_vec_cfr_free", cdecl,
+proc ffi_vec_fr_free*(v: Vec_Fr) {.importc: "ffi_vec_fr_free", cdecl,
     dynlib: RLN_LIB.}
 
 # Vec<uint8> functions
@@ -145,283 +174,378 @@ proc ffi_vec_u8_to_bytes_le*(v: ptr Vec_uint8): VecU8Result {.importc: "ffi_vec_
     cdecl, dynlib: RLN_LIB.}
 proc ffi_vec_u8_to_bytes_be*(v: ptr Vec_uint8): VecU8Result {.importc: "ffi_vec_u8_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_le_to_vec_u8*(bytes: ptr Vec_uint8): VecU8Result {.importc: "ffi_bytes_le_to_vec_u8",
+proc ffi_vec_u8_from_bytes_le*(bytes: ptr Vec_uint8): VecU8Result {.importc: "ffi_vec_u8_from_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_be_to_vec_u8*(bytes: ptr Vec_uint8): VecU8Result {.importc: "ffi_bytes_be_to_vec_u8",
+proc ffi_vec_u8_from_bytes_be*(bytes: ptr Vec_uint8): VecU8Result {.importc: "ffi_vec_u8_from_bytes_be",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_vec_u8_debug*(v: ptr Vec_uint8): Vec_uint8 {.importc: "ffi_vec_u8_debug",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_vec_u8_free*(v: Vec_uint8) {.importc: "ffi_vec_u8_free", cdecl,
     dynlib: RLN_LIB.}
 
+# Vec<bool> functions
+proc ffi_vec_bool_free*(v: Vec_bool) {.importc: "ffi_vec_bool_free", cdecl,
+    dynlib: RLN_LIB.}
+
+# Vec<usize> functions
+proc ffi_vec_usize_free*(v: Vec_size) {.importc: "ffi_vec_usize_free", cdecl,
+    dynlib: RLN_LIB.}
+
 # Hashing functions
-proc ffi_hash_to_field_le*(input: ptr Vec_uint8): ptr CFr {.importc: "ffi_hash_to_field_le",
+proc ffi_hash_to_field_le*(input: ptr Vec_uint8): ptr Fr {.importc: "ffi_hash_to_field_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_hash_to_field_be*(input: ptr Vec_uint8): ptr CFr {.importc: "ffi_hash_to_field_be",
+proc ffi_hash_to_field_be*(input: ptr Vec_uint8): ptr Fr {.importc: "ffi_hash_to_field_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_poseidon_hash_pair*(a: ptr CFr,
-    b: ptr CFr): ptr CFr {.importc: "ffi_poseidon_hash_pair", cdecl,
+proc ffi_poseidon_hash_pair*(a: ptr Fr,
+    b: ptr Fr): ptr Fr {.importc: "ffi_poseidon_hash_pair", cdecl,
     dynlib: RLN_LIB.}
 
-# Identity functions
-proc ffi_key_gen*(): Vec_CFr {.importc: "ffi_key_gen", cdecl, dynlib: RLN_LIB.}
-proc ffi_seeded_key_gen*(seed: ptr Vec_uint8): Vec_CFr {.importc: "ffi_seeded_key_gen",
+# SecretFr functions
+proc ffi_secret_fr_eq*(a: ptr SecretFr, b: ptr SecretFr): bool {.importc: "ffi_secret_fr_eq",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_secret_fr_debug*(secret: ptr SecretFr): Vec_uint8 {.importc: "ffi_secret_fr_debug",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_secret_fr_free*(secret: ptr SecretFr) {.importc: "ffi_secret_fr_free",
     cdecl, dynlib: RLN_LIB.}
 
-# ExtendedIdentity functions
-proc ffi_extended_key_gen*(): Vec_CFr {.importc: "ffi_extended_key_gen", cdecl,
-    dynlib: RLN_LIB.}
-proc ffi_seeded_extended_key_gen*(seed: ptr Vec_uint8): Vec_CFr {.importc: "ffi_seeded_extended_key_gen",
-    cdecl, dynlib: RLN_LIB.}
+# Identity key functions
+proc ffi_identity_keys_generate*(): ptr IdentityKeys {.importc: "ffi_identity_keys_generate",
+  cdecl, dynlib: RLN_LIB.}
+proc ffi_identity_keys_generate_seeded*(
+  seed: ptr Vec_uint8): ptr IdentityKeys {.importc: "ffi_identity_keys_generate_seeded",
+     cdecl, dynlib: RLN_LIB.}
+proc ffi_identity_keys_get_secret*(identity: ptr IdentityKeys): ptr SecretFr {.importc: "ffi_identity_keys_get_secret",
+  cdecl, dynlib: RLN_LIB.}
+proc ffi_identity_keys_get_commitment*(identity: ptr IdentityKeys): ptr Fr {.importc: "ffi_identity_keys_get_commitment",
+  cdecl, dynlib: RLN_LIB.}
+proc ffi_identity_keys_to_bytes_le*(identity: ptr IdentityKeys): VecU8Result {.importc: "ffi_identity_keys_to_bytes_le",
+  cdecl, dynlib: RLN_LIB.}
+proc ffi_identity_keys_to_bytes_be*(identity: ptr IdentityKeys): VecU8Result {.importc: "ffi_identity_keys_to_bytes_be",
+  cdecl, dynlib: RLN_LIB.}
+proc ffi_identity_keys_from_bytes_le*(bytes: ptr Vec_uint8): IdentityKeysResult {.importc: "ffi_identity_keys_from_bytes_le",
+  cdecl, dynlib: RLN_LIB.}
+proc ffi_identity_keys_from_bytes_be*(bytes: ptr Vec_uint8): IdentityKeysResult {.importc: "ffi_identity_keys_from_bytes_be",
+  cdecl, dynlib: RLN_LIB.}
+proc ffi_identity_keys_free*(identity: ptr IdentityKeys) {.importc: "ffi_identity_keys_free",
+  cdecl, dynlib: RLN_LIB.}
+
+# Extended identity key functions
+proc ffi_extended_identity_keys_generate*(
+  ): ptr ExtendedIdentityKeys {.importc: "ffi_extended_identity_keys_generate",
+
+cdecl, dynlib: RLN_LIB.}
+proc ffi_extended_identity_keys_generate_seeded*(
+  seed: ptr Vec_uint8): ptr ExtendedIdentityKeys {.importc: "ffi_extended_identity_keys_generate_seeded",
+     cdecl, dynlib: RLN_LIB.}
+proc ffi_extended_identity_keys_get_trapdoor*(
+  identity: ptr ExtendedIdentityKeys): ptr SecretFr {.importc: "ffi_extended_identity_keys_get_trapdoor",
+     cdecl, dynlib: RLN_LIB.}
+proc ffi_extended_identity_keys_get_nullifier*(
+  identity: ptr ExtendedIdentityKeys): ptr SecretFr {.importc: "ffi_extended_identity_keys_get_nullifier",
+     cdecl, dynlib: RLN_LIB.}
+proc ffi_extended_identity_keys_get_secret*(
+  identity: ptr ExtendedIdentityKeys): ptr SecretFr {.importc: "ffi_extended_identity_keys_get_secret",
+     cdecl, dynlib: RLN_LIB.}
+proc ffi_extended_identity_keys_get_commitment*(
+  identity: ptr ExtendedIdentityKeys): ptr Fr {.importc: "ffi_extended_identity_keys_get_commitment",
+     cdecl, dynlib: RLN_LIB.}
+proc ffi_extended_identity_keys_to_bytes_le*(
+  identity: ptr ExtendedIdentityKeys): VecU8Result {.importc: "ffi_extended_identity_keys_to_bytes_le",
+     cdecl, dynlib: RLN_LIB.}
+proc ffi_extended_identity_keys_to_bytes_be*(
+  identity: ptr ExtendedIdentityKeys): VecU8Result {.importc: "ffi_extended_identity_keys_to_bytes_be",
+     cdecl, dynlib: RLN_LIB.}
+proc ffi_extended_identity_keys_from_bytes_le*(
+  bytes: ptr Vec_uint8): ExtendedIdentityKeysResult {.importc: "ffi_extended_identity_keys_from_bytes_le",
+     cdecl, dynlib: RLN_LIB.}
+proc ffi_extended_identity_keys_from_bytes_be*(
+  bytes: ptr Vec_uint8): ExtendedIdentityKeysResult {.importc: "ffi_extended_identity_keys_from_bytes_be",
+     cdecl, dynlib: RLN_LIB.}
+proc ffi_extended_identity_keys_free*(identity: ptr ExtendedIdentityKeys) {.importc: "ffi_extended_identity_keys_free",
+  cdecl, dynlib: RLN_LIB.}
 
 # CString functions
 proc ffi_c_string_free*(s: Vec_uint8) {.importc: "ffi_c_string_free", cdecl,
     dynlib: RLN_LIB.}
 
 # RLN instance functions
-proc ffi_rln_v3_new_stateless*(zkey_data: ptr Vec_uint8,
-    graph_data: ptr Vec_uint8): RLNResult {.importc: "ffi_rln_v3_new_stateless",
+proc ffi_rln_new_stateless*(zkey_data: ptr Vec_uint8,
+    graph_data: ptr Vec_uint8): RLNResult {.importc: "ffi_rln_new_stateless",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_new_stateless_default*(): ptr RLN {.importc: "ffi_rln_v3_new_stateless_default",
+proc ffi_rln_new_stateless_default*(): ptr RLN {.importc: "ffi_rln_new_stateless_default",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_new_with_full_merkle_tree*(tree_depth: CSize,
+proc ffi_rln_new_with_full_merkle_tree*(tree_depth: CSize,
     zkey_data: ptr Vec_uint8,
-    graph_data: ptr Vec_uint8): RLNResult {.importc: "ffi_rln_v3_new_with_full_merkle_tree",
+    graph_data: ptr Vec_uint8): RLNResult {.importc: "ffi_rln_new_with_full_merkle_tree",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_new_with_full_merkle_tree_default*(): ptr RLN {.importc: "ffi_rln_v3_new_with_full_merkle_tree_default",
+proc ffi_rln_new_with_full_merkle_tree_default*(): RLNResult {.
+    importc: "ffi_rln_new_with_full_merkle_tree_default",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_new_with_optimal_merkle_tree*(tree_depth: CSize,
+proc ffi_rln_new_with_optimal_merkle_tree*(tree_depth: CSize,
     zkey_data: ptr Vec_uint8,
-    graph_data: ptr Vec_uint8): RLNResult {.importc: "ffi_rln_v3_new_with_optimal_merkle_tree",
+    graph_data: ptr Vec_uint8): RLNResult {.importc: "ffi_rln_new_with_optimal_merkle_tree",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_new_with_optimal_merkle_tree_default*(): ptr RLN {.importc: "ffi_rln_v3_new_with_optimal_merkle_tree_default",
+proc ffi_rln_new_with_optimal_merkle_tree_default*(): RLNResult {.
+    importc: "ffi_rln_new_with_optimal_merkle_tree_default",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_new_with_pm_tree*(tree_depth: CSize,
+proc ffi_rln_new_with_pm_tree*(tree_depth: CSize,
     zkey_data: ptr Vec_uint8,
     graph_data: ptr Vec_uint8,
-    config_path: cstring): RLNResult {.importc: "ffi_rln_v3_new_with_pm_tree",
+    config_path: cstring): RLNResult {.importc: "ffi_rln_new_with_pm_tree",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_new_with_pm_tree_default*(config_path: cstring): ptr RLN {.
-    importc: "ffi_rln_v3_new_with_pm_tree_default",
+proc ffi_rln_new_with_pm_tree_default*(): RLNResult {.
+    importc: "ffi_rln_new_with_pm_tree_default",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_generate_proof*(rln: ptr ptr RLN,
-    witness: ptr ptr Witness): ProofResult {.importc: "ffi_rln_v3_generate_proof",
+proc ffi_rln_generate_proof*(rln: ptr RLN,
+    witness: ptr Witness): ProofResult {.importc: "ffi_rln_generate_proof",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_verify*(rln: ptr ptr RLN,
-    proof: ptr ptr Proof,
-    x: ptr CFr): CBoolResult {.importc: "ffi_rln_v3_verify",
+proc ffi_rln_verify*(rln: ptr RLN,
+    proof: ptr Proof): CBoolResult {.importc: "ffi_rln_verify",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_verify_with_roots*(rln: ptr ptr RLN,
-    proof: ptr ptr Proof,
-    roots: ptr Vec_CFr,
-    x: ptr CFr): CBoolResult {.importc: "ffi_rln_v3_verify_with_roots",
+proc ffi_rln_verify_with_signal*(rln: ptr RLN,
+    proof: ptr Proof,
+    x: ptr Fr): CBoolResult {.importc: "ffi_rln_verify_with_signal",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_generate_partial_proof*(rln: ptr ptr RLN,
-    witness: ptr ptr PartialWitness): PartialProofResult {.importc: "ffi_rln_v3_generate_partial_proof",
+proc ffi_rln_verify_with_roots*(rln: ptr RLN,
+    proof: ptr Proof,
+    roots: ptr Vec_Fr,
+    x: ptr Fr): CBoolResult {.importc: "ffi_rln_verify_with_roots",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_finish_proof*(rln: ptr ptr RLN,
-    partial: ptr ptr PartialProof,
-    witness: ptr ptr Witness): ProofResult {.importc: "ffi_rln_v3_finish_proof",
+proc ffi_rln_generate_partial_proof*(rln: ptr RLN,
+    witness: ptr PartialWitness): PartialProofResult {.importc: "ffi_rln_generate_partial_proof",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_free*(rln: ptr RLN) {.importc: "ffi_rln_v3_free",
+proc ffi_rln_finish_proof*(rln: ptr RLN,
+    partial: ptr PartialProof,
+    witness: ptr Witness): ProofResult {.importc: "ffi_rln_finish_proof",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_free*(rln: ptr RLN) {.importc: "ffi_rln_free",
+    cdecl, dynlib: RLN_LIB.}
+
+# RLNMerkleProof functions
+proc ffi_rln_merkle_proof_new*(path_elements: ptr Vec_Fr,
+    identity_path_index: ptr Vec_uint8): ptr MerkleProof {.importc: "ffi_rln_merkle_proof_new",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_merkle_proof_get_path_elements*(
+  p: ptr MerkleProof): Vec_Fr {.importc: "ffi_rln_merkle_proof_get_path_elements",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_merkle_proof_get_identity_path_index*(
+  p: ptr MerkleProof): Vec_uint8 {.importc: "ffi_rln_merkle_proof_get_identity_path_index",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_merkle_proof_to_bytes_le*(
+  p: ptr MerkleProof): VecU8Result {.importc: "ffi_rln_merkle_proof_to_bytes_le",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_merkle_proof_to_bytes_be*(
+  p: ptr MerkleProof): VecU8Result {.importc: "ffi_rln_merkle_proof_to_bytes_be",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_merkle_proof_from_bytes_le*(
+  bytes: ptr Vec_uint8): MerkleProofResult {.importc: "ffi_rln_merkle_proof_from_bytes_le",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_merkle_proof_from_bytes_be*(
+  bytes: ptr Vec_uint8): MerkleProofResult {.importc: "ffi_rln_merkle_proof_from_bytes_be",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_merkle_proof_free*(p: ptr MerkleProof) {.importc: "ffi_rln_merkle_proof_free",
     cdecl, dynlib: RLN_LIB.}
 
 # RLNWitnessInput functions
-proc ffi_rln_v3_witness_input_new_single*(identity_secret: ptr CFr,
-    user_message_limit: ptr CFr, message_id: ptr CFr,
-    path_elements: ptr Vec_CFr, identity_path_index: ptr Vec_uint8, x: ptr CFr,
-    external_nullifier: ptr CFr): WitnessResult {.importc: "ffi_rln_v3_witness_input_new_single",
+proc ffi_rln_witness_input_new_single*(identity_secret: ptr SecretFr,
+    user_message_limit: ptr Fr, message_id: ptr Fr,
+    merkle_proof: ptr MerkleProof, x: ptr Fr,
+    external_nullifier: ptr Fr): WitnessResult {.importc: "ffi_rln_witness_input_new_single",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_witness_input_new_multi*(identity_secret: ptr CFr,
-    user_message_limit: ptr CFr, message_ids: ptr Vec_CFr,
-    path_elements: ptr Vec_CFr, identity_path_index: ptr Vec_uint8, x: ptr CFr,
-    external_nullifier: ptr CFr,
-    selector_used: ptr Vec_bool): WitnessResult {.importc: "ffi_rln_v3_witness_input_new_multi",
+proc ffi_rln_witness_input_new_multi*(identity_secret: ptr SecretFr,
+    user_message_limit: ptr Fr, message_ids: ptr Vec_Fr,
+    merkle_proof: ptr MerkleProof, x: ptr Fr,
+    external_nullifier: ptr Fr,
+    selector_used: ptr Vec_bool): WitnessResult {.importc: "ffi_rln_witness_input_new_multi",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_witness_input_get_identity_secret*(
-  w: ptr ptr Witness): ptr CFr {.importc: "ffi_rln_v3_witness_input_get_identity_secret",
+proc ffi_rln_witness_input_get_identity_secret*(
+  w: ptr Witness): ptr SecretFr {.importc: "ffi_rln_witness_input_get_identity_secret",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_witness_input_get_user_message_limit*(
-  w: ptr ptr Witness): ptr CFr {.importc: "ffi_rln_v3_witness_input_get_user_message_limit",
+proc ffi_rln_witness_input_get_user_message_limit*(
+  w: ptr Witness): ptr Fr {.importc: "ffi_rln_witness_input_get_user_message_limit",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_witness_input_get_message_id*(
-  w: ptr ptr Witness): CFrResult {.importc: "ffi_rln_v3_witness_input_get_message_id",
+proc ffi_rln_witness_input_get_message_id*(
+  w: ptr Witness): FrResult {.importc: "ffi_rln_witness_input_get_message_id",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_witness_input_get_message_ids*(
-  w: ptr ptr Witness): VecCFrResult {.importc: "ffi_rln_v3_witness_input_get_message_ids",
+proc ffi_rln_witness_input_get_message_ids*(
+  w: ptr Witness): VecFrResult {.importc: "ffi_rln_witness_input_get_message_ids",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_witness_input_get_path_elements*(
-  w: ptr ptr Witness): Vec_CFr {.importc: "ffi_rln_v3_witness_input_get_path_elements",
+proc ffi_rln_witness_input_get_path_elements*(
+  w: ptr Witness): Vec_Fr {.importc: "ffi_rln_witness_input_get_path_elements",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_witness_input_get_identity_path_index*(
-  w: ptr ptr Witness): Vec_uint8 {.importc: "ffi_rln_v3_witness_input_get_identity_path_index",
+proc ffi_rln_witness_input_get_merkle_proof*(
+  w: ptr Witness): ptr MerkleProof {.importc: "ffi_rln_witness_input_get_merkle_proof",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_witness_input_get_x*(w: ptr ptr Witness): ptr CFr {.importc: "ffi_rln_v3_witness_input_get_x",
+proc ffi_rln_witness_input_get_identity_path_index*(
+  w: ptr Witness): Vec_uint8 {.importc: "ffi_rln_witness_input_get_identity_path_index",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_witness_input_get_external_nullifier*(
-  w: ptr ptr Witness): ptr CFr {.importc: "ffi_rln_v3_witness_input_get_external_nullifier",
+proc ffi_rln_witness_input_get_x*(w: ptr Witness): ptr Fr {.importc: "ffi_rln_witness_input_get_x",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_witness_input_get_selector_used*(
-  w: ptr ptr Witness): VecBoolResult {.importc: "ffi_rln_v3_witness_input_get_selector_used",
+proc ffi_rln_witness_input_get_external_nullifier*(
+  w: ptr Witness): ptr Fr {.importc: "ffi_rln_witness_input_get_external_nullifier",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_witness_to_bytes_le*(w: ptr ptr Witness): VecU8Result {.importc: "ffi_rln_v3_witness_to_bytes_le",
+proc ffi_rln_witness_input_get_selector_used*(
+  w: ptr Witness): VecBoolResult {.importc: "ffi_rln_witness_input_get_selector_used",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_witness_to_bytes_be*(w: ptr ptr Witness): VecU8Result {.importc: "ffi_rln_v3_witness_to_bytes_be",
+proc ffi_rln_witness_input_to_bytes_le*(w: ptr Witness): VecU8Result {.importc: "ffi_rln_witness_input_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_le_to_rln_v3_witness*(bytes: ptr Vec_uint8): WitnessResult {.importc: "ffi_bytes_le_to_rln_v3_witness",
+proc ffi_rln_witness_input_to_bytes_be*(w: ptr Witness): VecU8Result {.importc: "ffi_rln_witness_input_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_be_to_rln_v3_witness*(bytes: ptr Vec_uint8): WitnessResult {.importc: "ffi_bytes_be_to_rln_v3_witness",
+proc ffi_rln_witness_input_from_bytes_le*(bytes: ptr Vec_uint8): WitnessResult {.importc: "ffi_rln_witness_input_from_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_witness_input_free*(w: ptr Witness) {.importc: "ffi_rln_v3_witness_input_free",
+proc ffi_rln_witness_input_from_bytes_be*(bytes: ptr Vec_uint8): WitnessResult {.importc: "ffi_rln_witness_input_from_bytes_be",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_witness_input_free*(w: ptr Witness) {.importc: "ffi_rln_witness_input_free",
     cdecl, dynlib: RLN_LIB.}
 
 # RLNPartialWitnessInput functions
-proc ffi_rln_v3_partial_witness_input_new*(identity_secret: ptr CFr,
-    user_message_limit: ptr CFr, path_elements: ptr Vec_CFr,
-    identity_path_index: ptr Vec_uint8): PartialWitnessResult {.importc: "ffi_rln_v3_partial_witness_input_new",
+proc ffi_rln_partial_witness_input_new*(identity_secret: ptr SecretFr,
+    user_message_limit: ptr Fr,
+    merkle_proof: ptr MerkleProof): PartialWitnessResult {.importc: "ffi_rln_partial_witness_input_new",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_partial_witness_input_get_identity_secret*(
-  w: ptr ptr PartialWitness): ptr CFr {.importc: "ffi_rln_v3_partial_witness_input_get_identity_secret",
+proc ffi_rln_partial_witness_input_get_identity_secret*(
+  w: ptr PartialWitness): ptr SecretFr {.importc: "ffi_rln_partial_witness_input_get_identity_secret",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_partial_witness_input_get_user_message_limit*(
-  w: ptr ptr PartialWitness): ptr CFr {.importc: "ffi_rln_v3_partial_witness_input_get_user_message_limit",
+proc ffi_rln_partial_witness_input_get_user_message_limit*(
+  w: ptr PartialWitness): ptr Fr {.importc: "ffi_rln_partial_witness_input_get_user_message_limit",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_partial_witness_input_get_path_elements*(
-  w: ptr ptr PartialWitness): Vec_CFr {.importc: "ffi_rln_v3_partial_witness_input_get_path_elements",
+proc ffi_rln_partial_witness_input_get_path_elements*(
+  w: ptr PartialWitness): Vec_Fr {.importc: "ffi_rln_partial_witness_input_get_path_elements",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_partial_witness_input_get_identity_path_index*(
-  w: ptr ptr PartialWitness): Vec_uint8 {.importc: "ffi_rln_v3_partial_witness_input_get_identity_path_index",
+proc ffi_rln_partial_witness_input_get_identity_path_index*(
+  w: ptr PartialWitness): Vec_uint8 {.importc: "ffi_rln_partial_witness_input_get_identity_path_index",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_witness_to_partial_witness*(
-  w: ptr ptr Witness): ptr PartialWitness {.importc: "ffi_rln_v3_witness_to_partial_witness",
+proc ffi_rln_witness_input_to_partial_witness*(
+  w: ptr Witness): ptr PartialWitness {.importc: "ffi_rln_witness_input_to_partial_witness",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_partial_witness_to_bytes_le*(
-  w: ptr ptr PartialWitness): VecU8Result {.importc: "ffi_rln_v3_partial_witness_to_bytes_le",
+proc ffi_rln_partial_witness_input_to_bytes_le*(
+  w: ptr PartialWitness): VecU8Result {.importc: "ffi_rln_partial_witness_input_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_partial_witness_to_bytes_be*(
-  w: ptr ptr PartialWitness): VecU8Result {.importc: "ffi_rln_v3_partial_witness_to_bytes_be",
+proc ffi_rln_partial_witness_input_to_bytes_be*(
+  w: ptr PartialWitness): VecU8Result {.importc: "ffi_rln_partial_witness_input_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_le_to_rln_v3_partial_witness*(
-  bytes: ptr Vec_uint8): PartialWitnessResult {.importc: "ffi_bytes_le_to_rln_v3_partial_witness",
+proc ffi_rln_partial_witness_input_from_bytes_le*(
+  bytes: ptr Vec_uint8): PartialWitnessResult {.importc: "ffi_rln_partial_witness_input_from_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_be_to_rln_v3_partial_witness*(
-  bytes: ptr Vec_uint8): PartialWitnessResult {.importc: "ffi_bytes_be_to_rln_v3_partial_witness",
+proc ffi_rln_partial_witness_input_from_bytes_be*(
+  bytes: ptr Vec_uint8): PartialWitnessResult {.importc: "ffi_rln_partial_witness_input_from_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_partial_witness_input_free*(
-  w: ptr PartialWitness) {.importc: "ffi_rln_v3_partial_witness_input_free",
+proc ffi_rln_partial_witness_input_free*(
+  w: ptr PartialWitness) {.importc: "ffi_rln_partial_witness_input_free",
     cdecl, dynlib: RLN_LIB.}
 
 # RLNProof functions
-proc ffi_rln_v3_proof_get_values*(p: ptr ptr Proof): ptr ProofValues {.importc: "ffi_rln_v3_proof_get_values",
+proc ffi_rln_proof_get_values*(p: ptr Proof): ptr ProofValues {.importc: "ffi_rln_proof_get_values",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_proof_to_bytes_le*(p: ptr ptr Proof): VecU8Result {.importc: "ffi_rln_v3_proof_to_bytes_le",
+proc ffi_rln_proof_to_bytes_le*(p: ptr Proof): VecU8Result {.importc: "ffi_rln_proof_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_proof_to_bytes_mixed*(p: ptr ptr Proof): VecU8Result {.importc: "ffi_rln_v3_proof_to_bytes_mixed",
+proc ffi_rln_proof_to_bytes_mixed*(p: ptr Proof): VecU8Result {.importc: "ffi_rln_proof_to_bytes_mixed",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_le_to_rln_v3_proof*(bytes: ptr Vec_uint8): ProofResult {.importc: "ffi_bytes_le_to_rln_v3_proof",
+proc ffi_rln_proof_from_bytes_le*(bytes: ptr Vec_uint8): ProofResult {.importc: "ffi_rln_proof_from_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_mixed_to_rln_v3_proof*(bytes: ptr Vec_uint8): ProofResult {.importc: "ffi_bytes_mixed_to_rln_v3_proof",
+proc ffi_rln_proof_from_bytes_mixed*(bytes: ptr Vec_uint8): ProofResult {.importc: "ffi_rln_proof_from_bytes_mixed",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_proof_free*(p: ptr Proof) {.importc: "ffi_rln_v3_proof_free",
+proc ffi_rln_proof_free*(p: ptr Proof) {.importc: "ffi_rln_proof_free",
     cdecl, dynlib: RLN_LIB.}
 
 # RLNPartialProof functions
-proc ffi_rln_v3_partial_proof_to_bytes_le*(
-  p: ptr ptr PartialProof): VecU8Result {.importc: "ffi_rln_v3_partial_proof_to_bytes_le",
+proc ffi_rln_partial_proof_to_bytes_le*(
+  p: ptr PartialProof): VecU8Result {.importc: "ffi_rln_partial_proof_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_le_to_rln_v3_partial_proof*(
-  bytes: ptr Vec_uint8): PartialProofResult {.importc: "ffi_bytes_le_to_rln_v3_partial_proof",
+proc ffi_rln_partial_proof_from_bytes_le*(
+  bytes: ptr Vec_uint8): PartialProofResult {.importc: "ffi_rln_partial_proof_from_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_partial_proof_free*(p: ptr PartialProof) {.importc: "ffi_rln_v3_partial_proof_free",
+proc ffi_rln_partial_proof_free*(p: ptr PartialProof) {.importc: "ffi_rln_partial_proof_free",
     cdecl, dynlib: RLN_LIB.}
 
 # RLNProofValues functions
-proc ffi_rln_v3_proof_values_get_root*(pv: ptr ptr ProofValues): ptr CFr {.importc: "ffi_rln_v3_proof_values_get_root",
+proc ffi_rln_proof_values_get_root*(pv: ptr ProofValues): ptr Fr {.importc: "ffi_rln_proof_values_get_root",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_proof_values_get_x*(pv: ptr ptr ProofValues): ptr CFr {.importc: "ffi_rln_v3_proof_values_get_x",
+proc ffi_rln_proof_values_get_x*(pv: ptr ProofValues): ptr Fr {.importc: "ffi_rln_proof_values_get_x",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_proof_values_get_external_nullifier*(
-  pv: ptr ptr ProofValues): ptr CFr {.importc: "ffi_rln_v3_proof_values_get_external_nullifier",
+proc ffi_rln_proof_values_get_external_nullifier*(
+  pv: ptr ProofValues): ptr Fr {.importc: "ffi_rln_proof_values_get_external_nullifier",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_proof_values_get_y*(pv: ptr ptr ProofValues): CFrResult {.importc: "ffi_rln_v3_proof_values_get_y",
+proc ffi_rln_proof_values_get_y*(pv: ptr ProofValues): FrResult {.importc: "ffi_rln_proof_values_get_y",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_proof_values_get_nullifier*(
-  pv: ptr ptr ProofValues): CFrResult {.importc: "ffi_rln_v3_proof_values_get_nullifier",
+proc ffi_rln_proof_values_get_nullifier*(
+  pv: ptr ProofValues): FrResult {.importc: "ffi_rln_proof_values_get_nullifier",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_proof_values_get_selector_used*(
-  pv: ptr ptr ProofValues): VecBoolResult {.importc: "ffi_rln_v3_proof_values_get_selector_used",
+proc ffi_rln_proof_values_get_selector_used*(
+  pv: ptr ProofValues): VecBoolResult {.importc: "ffi_rln_proof_values_get_selector_used",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_proof_values_get_ys*(pv: ptr ptr ProofValues): VecCFrResult {.importc: "ffi_rln_v3_proof_values_get_ys",
+proc ffi_rln_proof_values_get_ys*(pv: ptr ProofValues): VecFrResult {.importc: "ffi_rln_proof_values_get_ys",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_proof_values_get_nullifiers*(
-  pv: ptr ptr ProofValues): VecCFrResult {.importc: "ffi_rln_v3_proof_values_get_nullifiers",
+proc ffi_rln_proof_values_get_nullifiers*(
+  pv: ptr ProofValues): VecFrResult {.importc: "ffi_rln_proof_values_get_nullifiers",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_proof_values_to_bytes_le*(
-  pv: ptr ptr ProofValues): VecU8Result {.importc: "ffi_rln_v3_proof_values_to_bytes_le",
+proc ffi_rln_proof_values_to_bytes_le*(
+  pv: ptr ProofValues): VecU8Result {.importc: "ffi_rln_proof_values_to_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_proof_values_to_bytes_be*(
-  pv: ptr ptr ProofValues): VecU8Result {.importc: "ffi_rln_v3_proof_values_to_bytes_be",
+proc ffi_rln_proof_values_to_bytes_be*(
+  pv: ptr ProofValues): VecU8Result {.importc: "ffi_rln_proof_values_to_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_le_to_rln_v3_proof_values*(
-  bytes: ptr Vec_uint8): ProofValuesResult {.importc: "ffi_bytes_le_to_rln_v3_proof_values",
+proc ffi_rln_proof_values_from_bytes_le*(
+  bytes: ptr Vec_uint8): ProofValuesResult {.importc: "ffi_rln_proof_values_from_bytes_le",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_bytes_be_to_rln_v3_proof_values*(
-  bytes: ptr Vec_uint8): ProofValuesResult {.importc: "ffi_bytes_be_to_rln_v3_proof_values",
+proc ffi_rln_proof_values_from_bytes_be*(
+  bytes: ptr Vec_uint8): ProofValuesResult {.importc: "ffi_rln_proof_values_from_bytes_be",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_proof_values_free*(pv: ptr ProofValues) {.importc: "ffi_rln_v3_proof_values_free",
+proc ffi_rln_proof_values_free*(pv: ptr ProofValues) {.importc: "ffi_rln_proof_values_free",
     cdecl, dynlib: RLN_LIB.}
 
 # Identity secret recovery
-proc ffi_rln_v3_compute_id_secret*(share1_x: ptr CFr, share1_y: ptr CFr,
-    share2_x: ptr CFr,
-    share2_y: ptr CFr): CFrResult {.importc: "ffi_rln_v3_compute_id_secret",
+proc ffi_rln_compute_id_secret*(share1_x: ptr Fr, share1_y: ptr Fr,
+    share2_x: ptr Fr,
+    share2_y: ptr Fr): SecretFrResult {.importc: "ffi_rln_compute_id_secret",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_recover_id_secret*(pv1: ptr ptr ProofValues,
-    pv2: ptr ptr ProofValues): CFrResult {.importc: "ffi_rln_v3_recover_id_secret",
+proc ffi_rln_recover_id_secret*(pv1: ptr ProofValues,
+    pv2: ptr ProofValues): SecretFrResult {.importc: "ffi_rln_recover_id_secret",
     cdecl, dynlib: RLN_LIB.}
 
 # Merkle tree operations (stateful mode)
-proc ffi_rln_v3_merkle_proof_free*(p: ptr MerkleProof) {.importc: "ffi_rln_v3_merkle_proof_free",
+proc ffi_rln_tree_depth*(rln: ptr RLN): UsizeResult {.importc: "ffi_rln_tree_depth",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_delete_leaf*(rln: ptr ptr RLN,
-    index: CSize): CBoolResult {.importc: "ffi_rln_v3_delete_leaf", cdecl,
+proc ffi_rln_leaves_set*(rln: ptr RLN): UsizeResult {.importc: "ffi_rln_leaves_set",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_get_root*(rln: ptr RLN): FrResult {.importc: "ffi_rln_get_root",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_get_subtree_root*(rln: ptr RLN, level: CSize,
+    index: CSize): FrResult {.importc: "ffi_rln_get_subtree_root", cdecl,
     dynlib: RLN_LIB.}
-proc ffi_rln_v3_set_leaf*(rln: ptr ptr RLN, index: CSize,
-    leaf: ptr CFr): CBoolResult {.importc: "ffi_rln_v3_set_leaf", cdecl,
+proc ffi_rln_set_leaf*(rln: ptr RLN, index: CSize,
+    leaf: ptr Fr): CBoolResult {.importc: "ffi_rln_set_leaf", cdecl,
     dynlib: RLN_LIB.}
-proc ffi_rln_v3_get_leaf*(rln: ptr ptr RLN,
-    index: CSize): CFrResult {.importc: "ffi_rln_v3_get_leaf", cdecl,
+proc ffi_rln_set_leaves_from*(rln: ptr RLN, index: CSize,
+    leaves: ptr Vec_Fr): CBoolResult {.importc: "ffi_rln_set_leaves_from",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_init_tree_with_leaves*(rln: ptr RLN,
+    leaves: ptr Vec_Fr): CBoolResult {.importc: "ffi_rln_init_tree_with_leaves",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_get_leaf*(rln: ptr RLN,
+    index: CSize): FrResult {.importc: "ffi_rln_get_leaf", cdecl,
     dynlib: RLN_LIB.}
-proc ffi_rln_v3_leaves_set*(rln: ptr ptr RLN): CSize {.importc: "ffi_rln_v3_leaves_set",
+proc ffi_rln_get_empty_leaves_indices*(rln: ptr RLN): VecSizeResult {.importc: "ffi_rln_get_empty_leaves_indices",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_set_next_leaf*(rln: ptr ptr RLN,
-    leaf: ptr CFr): CBoolResult {.importc: "ffi_rln_v3_set_next_leaf", cdecl,
+proc ffi_rln_atomic_operation*(rln: ptr RLN, index: CSize,
+    leaves: ptr Vec_Fr,
+    indices: ptr Vec_size): CBoolResult {.importc: "ffi_rln_atomic_operation",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_set_next_leaf*(rln: ptr RLN,
+    leaf: ptr Fr): CBoolResult {.importc: "ffi_rln_set_next_leaf", cdecl,
     dynlib: RLN_LIB.}
-proc ffi_rln_v3_set_leaves_from*(rln: ptr ptr RLN, index: CSize,
-    leaves: ptr Vec_CFr): CBoolResult {.importc: "ffi_rln_v3_set_leaves_from",
+proc ffi_rln_delete_leaf*(rln: ptr RLN,
+    index: CSize): CBoolResult {.importc: "ffi_rln_delete_leaf", cdecl,
+    dynlib: RLN_LIB.}
+proc ffi_rln_get_merkle_proof*(rln: ptr RLN,
+    index: CSize): MerkleProofResult {.importc: "ffi_rln_get_merkle_proof",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_init_tree_with_leaves*(rln: ptr ptr RLN,
-    leaves: ptr Vec_CFr): CBoolResult {.importc: "ffi_rln_v3_init_tree_with_leaves",
+proc ffi_rln_set_metadata*(rln: ptr RLN,
+    metadata: ptr Vec_uint8): CBoolResult {.importc: "ffi_rln_set_metadata",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_atomic_operation*(rln: ptr ptr RLN, index: CSize,
-    leaves: ptr Vec_CFr,
-    indices: ptr Vec_size): CBoolResult {.importc: "ffi_rln_v3_atomic_operation",
+proc ffi_rln_get_metadata*(rln: ptr RLN): VecU8Result {.importc: "ffi_rln_get_metadata",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_seq_atomic_operation*(rln: ptr ptr RLN,
-    leaves: ptr Vec_CFr,
-    indices: ptr Vec_uint8): CBoolResult {.importc: "ffi_rln_v3_seq_atomic_operation",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_get_root*(rln: ptr ptr RLN): ptr CFr {.importc: "ffi_rln_v3_get_root",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_get_merkle_proof*(rln: ptr ptr RLN,
-    index: CSize): MerkleProofResult {.importc: "ffi_rln_v3_get_merkle_proof",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_set_metadata*(rln: ptr ptr RLN,
-    metadata: ptr Vec_uint8): CBoolResult {.importc: "ffi_rln_v3_set_metadata",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_get_metadata*(rln: ptr ptr RLN): VecU8Result {.importc: "ffi_rln_v3_get_metadata",
-    cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_v3_flush*(rln: ptr ptr RLN): CBoolResult {.importc: "ffi_rln_v3_flush",
+proc ffi_rln_close*(rln: ptr RLN): CBoolResult {.importc: "ffi_rln_close",
     cdecl, dynlib: RLN_LIB.}
 
 proc asVecU8(buf: var seq[uint8]): Vec_uint8 =

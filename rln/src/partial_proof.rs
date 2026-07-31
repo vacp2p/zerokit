@@ -13,14 +13,19 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{marker::PhantomData, ops::Mul, rand::RngCore, vec::Vec, UniformRand};
 
 /// A partial assignment (witness).
-/// `None` means "unknown" or changing part of the witness, `Some` means fixed and can be precomputed.
-#[derive(Clone, Debug, PartialEq)]
+///
+/// `None` means "unknown" or changing part of the witness, `Some` means fixed and can be
+/// precomputed.
+#[derive(Debug, Clone, PartialEq)]
 pub struct PartialAssignment<F: PrimeField> {
     /// Assignment entries, ordered as (public inputs excluding 1) || (witness/aux)
     pub values: Vec<Option<F>>,
 }
 
-impl<F: PrimeField> PartialAssignment<F> {
+impl<F> PartialAssignment<F>
+where
+    F: PrimeField,
+{
     /// Creates a new partial assignment.
     pub fn new(values: Vec<Option<F>>) -> Self {
         Self { values }
@@ -28,7 +33,7 @@ impl<F: PrimeField> PartialAssignment<F> {
 }
 
 /// Precomputed partial proof elements for a given `PartialAssignment`
-#[derive(Clone, Debug, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct PartialProof<E: Pairing> {
     /// For each entry in `PartialAssignment::values`.
     pub mask: Vec<bool>,
@@ -47,9 +52,12 @@ pub struct Groth16Partial<E: Pairing, QAP: R1CSToQAP = LibsnarkReduction> {
     _p: PhantomData<(E, QAP)>,
 }
 
-impl<E: Pairing, QAP: R1CSToQAP> Groth16Partial<E, QAP> {
+impl<E, QAP> Groth16Partial<E, QAP>
+where
+    E: Pairing,
+    QAP: R1CSToQAP,
+{
     /// Precompute a partial proof from a partial assignment.
-    #[inline]
     pub fn prove_partial(
         pk: &ProvingKey<E>,
         partial_assignment: &PartialAssignment<E::ScalarField>,
@@ -58,7 +66,6 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16Partial<E, QAP> {
     }
 
     /// Finish a proof using precomputed matrices and full assignment (public/instance || witness).
-    #[inline]
     #[allow(clippy::too_many_arguments)]
     pub fn finish_proof_with_matrices(
         pk: &ProvingKey<E>,
@@ -83,7 +90,6 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16Partial<E, QAP> {
     }
 
     /// Finish a proof from a circuit and a partial proof, sampling blinding/randomness with `rng`.
-    #[inline]
     pub fn finish_proof<C: ConstraintSynthesizer<E::ScalarField>, R: RngCore>(
         pk: &ProvingKey<E>,
         circuit: C,

@@ -21,10 +21,10 @@ The current focus is on Rate-Limiting Nullifier
 > API reference, and examples.
 
 Current implementation is based on the
-[RLNv2 specification](https://lip.logos.co/ift-ts/raw/rln-v2),
+[RLNv2 specification](https://lip.logos.co/anoncomms/raw/rln-v2.html),
 focused on allowing users to set a rate limit for the number of messages they can send.
 It also supports
-[Multi-Message-ID burn](https://lip.logos.co/ift-ts/raw/multi-message_id-burn-rln),
+[Multi-Message-ID burn](https://lip.logos.co/anoncomms/raw/multi-message_id-burn-rln.html),
 an extension of RLNv2 that allows consuming multiple message_id units
 in a single proof for improved efficiency.
 
@@ -39,7 +39,7 @@ in a single proof for improved efficiency.
 ## Architecture
 
 Zerokit currently focuses on RLN (Rate-Limiting Nullifier) implementation
-using [Circom](https://iden3.io/circom) circuits through ark-circom,
+using [Circom](https://iden3.io/circom) circuits with arkworks (`ark-groth16`),
 providing an alternative to existing native Rust implementations.
 
 ## Build and Test
@@ -83,8 +83,8 @@ Zerokit powers zero-knowledge functionality in:
 
 - Inspired by [Applied ZKP](https://zkp.science/) group work,
   including [zk-kit](https://github.com/appliedzkp/zk-kit)
-- Uses [ark-circom](https://github.com/gakonst/ark-circom)
-  for zkey and Groth16 proof generation
+- Groth16 proof generation and zkey handling use
+  [arkworks](https://github.com/arkworks-rs) (`ark-groth16`, `ark-serialize`)
 - Witness calculation based on
   [circom-witnesscalc](https://github.com/iden3/circom-witnesscalc) by iden3.
   The execution graph file used by this code has been generated
@@ -94,11 +94,3 @@ Zerokit powers zero-knowledge functionality in:
 > The circom-witnesscalc code fragments have been borrowed instead of depending on this crate,
 > because its types of input and output data were incompatible with the corresponding zerokit code fragments,
 > and circom-witnesscalc has some dependencies, which are redundant for our purpose.
-
-## Documentation
-
-For detailed documentation on each module:
-
-```bash
-cargo doc --open
-```

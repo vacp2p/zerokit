@@ -16,13 +16,13 @@ const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
 ];
 
 pub fn poseidon_benchmark(c: &mut Criterion) {
-    let hasher = Poseidon::<Fr>::from(&ROUND_PARAMS);
-    let mut group = c.benchmark_group("poseidon Fr");
+    let hasher = Poseidon::from(&ROUND_PARAMS);
+    let mut group = c.benchmark_group("Poseidon::hash");
 
     for size in [10u32, 100, 1000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
 
-        group.bench_with_input(BenchmarkId::new("Array hash", size), size, |b, &size| {
+        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             b.iter_batched(
                 // Setup: create values for each benchmark iteration
                 || {
@@ -44,7 +44,7 @@ pub fn poseidon_benchmark(c: &mut Criterion) {
     }
 
     // Benchmark single hash operation separately
-    group.bench_function("Single hash", |b| {
+    group.bench_function("single", |b| {
         let input = [Fr::from(u64::MAX)];
         b.iter(|| {
             let _ = hasher.hash(black_box(&input[..]));

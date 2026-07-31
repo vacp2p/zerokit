@@ -6,18 +6,6 @@ args = ["build", "--release"]
 command = "cargo"
 args = ["test", "--release", "--", "--nocapture"]
 
-[tasks.test_stateless]
-command = "cargo"
-args = [
-	"test",
-	"--release",
-	"--no-default-features",
-	"--features",
-	"stateless",
-	"--",
-	"--nocapture",
-]
-
 [tasks.bench]
 command = "cargo"
 args = ["bench"]

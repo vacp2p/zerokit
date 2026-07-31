@@ -1,4 +1,4 @@
-// This crate provides different implementation of Merkle tree
+// This module provides different implementation of Merkle tree
 // Currently two interchangeable implementations are supported:
 //    - FullMerkleTree: each tree node is stored
 //    - OptimalMerkleTree: only nodes used to prove accumulation of set leaves are stored
@@ -7,93 +7,171 @@
 // Merkle tree implementations are adapted from https://github.com/kilic/rln/blob/master/src/merkle.rs
 // and https://github.com/worldcoin/semaphore-rs/blob/d462a4372f1fd9c27610f2acfe4841fab1d396aa/src/merkle_tree.rs
 
-use std::{
-    fmt::{Debug, Display},
-    str::FromStr,
-};
+use std::str::FromStr;
 
 use super::error::ZerokitMerkleTreeError;
+use crate::hasher::ZerokitHasher;
 
-/// Enables parallel hashing when there are at least 8 nodes (4 pairs to hash), justifying the overhead.
-pub const MIN_PARALLEL_NODES: usize = 8;
+/// Minimum number of nodes (or parent pairs, depending on the tree implementation) in a level
+/// before parallel hashing engages, justifying the thread-pool overhead.
+pub(crate) const MIN_PARALLEL_NODES: usize = 8;
 
-/// In the Hasher trait we define the node type, the default leaf,
-/// and the hash function used to initialize a Merkle Tree implementation.
-pub trait Hasher {
-    /// Type of the leaf and tree node
-    type Fr: Clone + Copy + Eq + Default + Debug + Display + FromStr + Send + Sync;
-
-    /// Returns the default tree leaf
-    fn default_leaf() -> Self::Fr;
-
-    /// Utility to compute the hash of an intermediate node
-    fn hash_pair(left: Self::Fr, right: Self::Fr) -> Self::Fr;
-}
-
-pub type FrOf<H> = <H as Hasher>::Fr;
-
-/// In the ZerokitMerkleTree trait we define the methods that are required to be implemented by a Merkle tree
-/// Including, OptimalMerkleTree, FullMerkleTree
+/// In the [`ZerokitMerkleTree`] trait we define the methods that are required to be implemented by
+/// a Merkle tree, including [`OptimalMerkleTree`](crate::merkle_tree::OptimalMerkleTree) and
+/// [`FullMerkleTree`](crate::merkle_tree::FullMerkleTree).
 pub trait ZerokitMerkleTree {
     type Proof: ZerokitMerkleProof;
-    type Hasher: Hasher;
+    type Hasher: ZerokitHasher;
     type Config: Default + FromStr;
+    type Error: std::error::Error + From<ZerokitMerkleTreeError>;
 
-    fn default(depth: usize) -> Result<Self, ZerokitMerkleTreeError>
+    fn default(depth: usize) -> Result<Self, Self::Error>
     where
         Self: Sized;
     fn new(
         depth: usize,
-        default_leaf: FrOf<Self::Hasher>,
+        default_leaf: <Self::Hasher as ZerokitHasher>::Scalar,
         config: Self::Config,
-    ) -> Result<Self, ZerokitMerkleTreeError>
+    ) -> Result<Self, Self::Error>
     where
         Self: Sized;
     fn depth(&self) -> usize;
     fn capacity(&self) -> usize;
     fn leaves_set(&self) -> usize;
-    fn root(&self) -> FrOf<Self::Hasher>;
+    fn root(&self) -> <Self::Hasher as ZerokitHasher>::Scalar;
+    /// Returns the root of the subtree at `level` (`0` = root, `depth` = leaf) on the path to
+    /// leaf `index`.
     fn get_subtree_root(
         &self,
-        n: usize,
+        level: usize,
         index: usize,
-    ) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError>;
-    fn set(&mut self, index: usize, leaf: FrOf<Self::Hasher>)
-        -> Result<(), ZerokitMerkleTreeError>;
-    fn set_range<I>(&mut self, start: usize, leaves: I) -> Result<(), ZerokitMerkleTreeError>
+    ) -> Result<<Self::Hasher as ZerokitHasher>::Scalar, Self::Error>;
+    fn set(
+        &mut self,
+        index: usize,
+        leaf: <Self::Hasher as ZerokitHasher>::Scalar,
+    ) -> Result<(), Self::Error>;
+    fn set_range<I>(&mut self, start: usize, leaves: I) -> Result<(), Self::Error>
     where
-        I: ExactSizeIterator<Item = FrOf<Self::Hasher>>;
-    fn get(&self, index: usize) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError>;
+        I: ExactSizeIterator<Item = <Self::Hasher as ZerokitHasher>::Scalar>;
+    fn get(&self, index: usize) -> Result<<Self::Hasher as ZerokitHasher>::Scalar, Self::Error>;
     fn get_empty_leaves_indices(&self) -> Vec<usize>;
+    /// Validates an `override_range` request and returns the non-overlapping indices to reset to
+    /// the default leaf.
+    ///
+    /// Indices inside the write range are overwritten by it, so they are skipped.
+    /// This is the single shared validator, so every backend reports the same error variant for
+    /// the same misuse.
+    fn validate_override_range(
+        &self,
+        start: usize,
+        leaves_len: usize,
+        to_remove_indices: &[usize],
+    ) -> Result<Vec<usize>, Self::Error> {
+        if leaves_len == 0 && to_remove_indices.is_empty() {
+            return Err(ZerokitMerkleTreeError::EmptyOverrideArgs.into());
+        }
+        let end = start
+            .checked_add(leaves_len)
+            .ok_or(ZerokitMerkleTreeError::RangeTooLarge)?;
+        if end > self.capacity() {
+            return Err(ZerokitMerkleTreeError::RangeTooLarge.into());
+        }
+        let leaves_set = self.leaves_set();
+        let mut deletes = Vec::new();
+        for &index in to_remove_indices {
+            if index < start || index >= end {
+                if index >= leaves_set {
+                    return Err(ZerokitMerkleTreeError::InvalidRemoveIndex.into());
+                }
+                deletes.push(index);
+            }
+        }
+        Ok(deletes)
+    }
+    /// Writes `leaves` contiguously from `start`, then resets the non-overlapping
+    /// `to_remove_indices` (writes win on overlap).
+    ///
+    /// Validation is shared via [`Self::validate_override_range`].
+    /// The default apply (`delete` + `set_range`) is not crash-atomic, so a persistent backend
+    /// overrides only the apply step (see `PmTree`).
     fn override_range<I, J>(
         &mut self,
         start: usize,
         leaves: I,
         to_remove_indices: J,
-    ) -> Result<(), ZerokitMerkleTreeError>
+    ) -> Result<(), Self::Error>
     where
-        I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
-        J: ExactSizeIterator<Item = usize>;
-    fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<(), ZerokitMerkleTreeError>;
-    fn delete(&mut self, index: usize) -> Result<(), ZerokitMerkleTreeError>;
-    fn proof(&self, index: usize) -> Result<Self::Proof, ZerokitMerkleTreeError>;
+        I: IntoIterator<Item = <Self::Hasher as ZerokitHasher>::Scalar>,
+        J: IntoIterator<Item = usize>,
+        Self: Sized,
+    {
+        let leaves = leaves.into_iter().collect::<Vec<_>>();
+        let to_remove_indices = to_remove_indices.into_iter().collect::<Vec<_>>();
+
+        let deletes = self.validate_override_range(start, leaves.len(), &to_remove_indices)?;
+
+        for index in deletes {
+            self.delete(index)?;
+        }
+        if !leaves.is_empty() {
+            self.set_range(start, leaves.into_iter())?;
+        }
+        Ok(())
+    }
+    fn update_next(
+        &mut self,
+        leaf: <Self::Hasher as ZerokitHasher>::Scalar,
+    ) -> Result<(), Self::Error>;
+    fn delete(&mut self, index: usize) -> Result<(), Self::Error>;
+    fn proof(&self, index: usize) -> Result<Self::Proof, Self::Error>;
     fn verify(
         &self,
-        leaf: &FrOf<Self::Hasher>,
+        leaf: &<Self::Hasher as ZerokitHasher>::Scalar,
         merkle_proof: &Self::Proof,
-    ) -> Result<bool, ZerokitMerkleTreeError>;
-    fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), ZerokitMerkleTreeError>;
-    fn metadata(&self) -> Result<Vec<u8>, ZerokitMerkleTreeError>;
-    fn close_db_connection(&mut self) -> Result<(), ZerokitMerkleTreeError>;
+    ) -> Result<bool, Self::Error>;
+    fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), Self::Error>;
+    fn metadata(&self) -> Result<Vec<u8>, Self::Error>;
+    /// Closes the tree, flushing pending writes for persistent backends.
+    ///
+    /// Optional: the default is a no-op (in-memory trees).
+    fn close(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
 }
 
 pub trait ZerokitMerkleProof {
     type Index;
-    type Hasher: Hasher;
+    type Hasher: ZerokitHasher;
 
     fn length(&self) -> usize;
     fn leaf_index(&self) -> usize;
-    fn get_path_elements(&self) -> Vec<FrOf<Self::Hasher>>;
+    fn get_path_elements(&self) -> Vec<<Self::Hasher as ZerokitHasher>::Scalar>;
     fn get_path_index(&self) -> Vec<Self::Index>;
-    fn compute_root_from(&self, leaf: &FrOf<Self::Hasher>) -> FrOf<Self::Hasher>;
+    fn compute_root_from(
+        &self,
+        leaf: &<Self::Hasher as ZerokitHasher>::Scalar,
+    ) -> <Self::Hasher as ZerokitHasher>::Scalar;
+}
+
+/// Computes a Merkle root from a leaf and a Merkle path (path elements and path index)
+pub fn compute_tree_root<H>(
+    leaf: H::Scalar,
+    path_elements: &[H::Scalar],
+    path_index: &[u8],
+) -> H::Scalar
+where
+    H: ZerokitHasher,
+    H::Scalar: Copy,
+{
+    path_elements
+        .iter()
+        .zip(path_index)
+        .fold(leaf, |acc, (sibling, &index)| {
+            if index == 0 {
+                H::hash(&[acc, *sibling])
+            } else {
+                H::hash(&[*sibling, acc])
+            }
+        })
 }

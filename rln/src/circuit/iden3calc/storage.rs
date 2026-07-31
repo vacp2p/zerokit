@@ -1,4 +1,4 @@
-// This crate is based on the code by iden3. Its preimage can be found here:
+// This module is based on the code by iden3. Its preimage can be found here:
 // https://github.com/iden3/circom-witnesscalc/blob/5cb365b6e4d9052ecc69d4567fcf5bc061c20e94/src/storage.rs
 
 use std::io::{Read, Write};
@@ -13,12 +13,12 @@ use super::{
 };
 use crate::circuit::Fr;
 
-/// Format of the wtns.graph file:
-/// + magic line: wtns.graph.001
+/// Format of the `wtns.graph` file:
+/// + magic line: `wtns.graph.001`
 /// + 4 bytes unsigned LE 32-bit integer: number of nodes
 /// + series of protobuf serialized nodes. Each node prefixed by varint length
-/// + protobuf serialized GraphMetadata
-/// + 8 bytes unsigned LE 64-bit integer: offset of GraphMetadata message
+/// + protobuf serialized `GraphMetadata`
+/// + 8 bytes unsigned LE 64-bit integer: offset of `GraphMetadata` message
 const WITNESSCALC_GRAPH_MAGIC: &[u8] = b"wtns.graph.001";
 
 const MAX_VARINT_LENGTH: usize = 10;
@@ -306,7 +306,10 @@ struct WriteBackReader<R: Read> {
     buffer: Vec<u8>,
 }
 
-impl<R: Read> WriteBackReader<R> {
+impl<R> WriteBackReader<R>
+where
+    R: Read,
+{
     fn new(reader: R) -> Self {
         WriteBackReader {
             reader,
@@ -315,7 +318,10 @@ impl<R: Read> WriteBackReader<R> {
     }
 }
 
-impl<R: Read> Read for WriteBackReader<R> {
+impl<R> Read for WriteBackReader<R>
+where
+    R: Read,
+{
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         if buf.is_empty() {
             return Ok(0);
@@ -347,7 +353,10 @@ impl<R: Read> Read for WriteBackReader<R> {
     }
 }
 
-impl<R: Read> Write for WriteBackReader<R> {
+impl<R> Write for WriteBackReader<R>
+where
+    R: Read,
+{
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.buffer.reserve(buf.len());
         self.buffer.extend(buf.iter().rev());

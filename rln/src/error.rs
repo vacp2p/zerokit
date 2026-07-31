@@ -1,208 +1,169 @@
 use std::{array::TryFromSliceError, num::TryFromIntError};
 
 use ark_relations::r1cs::SynthesisError;
-use ark_serialize::SerializationError;
-use num_bigint::{BigInt, ParseBigIntError};
-use zerokit_utils::merkle_tree::{FromConfigError, ZerokitMerkleTreeError};
+use ark_serialize::SerializationError as ArkSerializationError;
 
-use crate::{
-    circuit::{
-        error::{GraphReadError, WitnessCalcError, ZKeyReadError},
-        Fr,
-    },
-    protocol::MessageMode,
-};
+use crate::circuit::{error::WitnessCalcError, Fr};
 
-/// Errors that can occur during RLN utility operations (conversions, parsing, etc.)
-#[derive(Debug, thiserror::Error)]
-pub enum UtilsError {
-    #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("Expected radix 10 or 16")]
-    WrongRadix,
-    #[error("Failed to parse big integer: {0}")]
-    ParseBigInt(#[from] ParseBigIntError),
-    #[error("Failed to convert to usize: {0}")]
-    ToUsize(#[from] TryFromIntError),
-    #[error("Failed to convert from slice: {0}")]
-    FromSlice(#[from] TryFromSliceError),
-    #[error("Input data too short: expected at least {expected} bytes, got {actual} bytes")]
-    InsufficientData { expected: usize, actual: usize },
-    #[error("Non-canonical field element: value is not in [0, r-1]")]
-    NonCanonicalFieldElement,
-    #[error("Non-canonical bool byte: expected 0x00 or 0x01, got {0:#04x}")]
-    NonCanonicalBool(u8),
-}
-
-/// Errors that can occur when recovering an identity secret from shares
+/// Errors that can occur when recovering an identity secret from shares.
 #[derive(Debug, thiserror::Error)]
 pub enum RecoverSecretError {
+    /// The shares have the same `x` value, so the secret cannot be recovered.
     #[error("Cannot recover secret: division by zero (shares have the same x value)")]
     DivisionByZero,
+    /// The two proofs were generated for different external nullifiers.
     #[error("External nullifiers mismatch: {0} != {1}")]
     ExternalNullifierMismatch(Fr, Fr),
+    /// No matching nullifier was found across the provided proof values.
     #[error("No matching nullifier found across the provided proof values")]
     NoMatchingNullifier,
+    /// The provided proof values are structurally invalid.
+    #[error("Invalid proof values: {0}")]
+    InvalidProofValues(#[from] ProofValuesMultiError),
 }
-
-/// Errors that can occur during RLN protocol operations (proof generation, verification, etc.)
-#[derive(Debug, thiserror::Error)]
-pub enum ProtocolError {
-    #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("Error producing proof: {0}")]
-    Synthesis(#[from] SynthesisError),
-    #[error("RLN utility error: {0}")]
-    Utils(#[from] UtilsError),
-    #[error("Error calculating witness: {0}")]
-    WitnessCalc(#[from] WitnessCalcError),
-    #[error("Expected to read {0} bytes but read {1} bytes")]
-    InvalidReadLen(usize, usize),
-    #[error("Cannot convert bigint {0:?} to biguint")]
-    BigUintConversion(BigInt),
-    #[error("Message id ({0}) is not within user_message_limit ({1})")]
-    InvalidMessageId(Fr, Fr),
-    #[error("User message limit cannot be zero")]
-    ZeroUserMessageLimit,
-    #[error("Merkle proof length mismatch: expected {0}, got {1}")]
-    InvalidMerkleProofLength(usize, usize),
-    #[error("The field message_ids must contain at least one message_id")]
-    EmptyMessageIds,
-    #[error("Duplicate message ID found in message_ids")]
-    DuplicateMessageIds,
-    #[error("At least one selector_used value must be true")]
-    NoActiveSelectorUsed,
-    #[error("The field {0} has length {1}, but the field {2} has length {3}")]
-    FieldLengthMismatch(&'static str, usize, &'static str, usize),
-    #[error("Identity secret recovery error: {0}")]
-    IdSecretRecovery(#[from] RecoverSecretError),
-    #[error("Constraint system is not initialized")]
-    UninitializedConstraintSystem,
-    #[error("Merkle tree operation error: {0}")]
-    MerkleTree(#[from] ZerokitMerkleTreeError),
-    #[error("Proof serialization error: {0}")]
-    SerializationError(#[from] SerializationError),
-    #[error("Unknown message mode version byte: {0:#04x}")]
-    UnknownMessageModeVersionByte(u8),
-    #[error("Witness message mode {witness_mode} does not match graph mode {graph_mode}")]
-    MessageModeAndGraphMismatch {
-        witness_mode: MessageMode,
-        graph_mode: MessageMode,
-    },
-    #[error("Field `{field}` does not exist on the `{variant}` variant")]
-    FieldNotInVariant {
-        field: &'static str,
-        variant: &'static str,
-    },
-}
-
-/// Top-level RLN error type encompassing all RLN operations
-#[derive(Debug, thiserror::Error)]
-pub enum RLNError {
-    #[error("Configuration error: {0}")]
-    Config(#[from] FromConfigError),
-    #[error("Merkle tree error: {0}")]
-    MerkleTree(#[from] ZerokitMerkleTreeError),
-    #[error("ZKey error: {0}")]
-    ZKey(#[from] ZKeyReadError),
-    #[error("Graph error: {0}")]
-    Graph(#[from] GraphReadError),
-    #[error("Protocol error: {0}")]
-    Protocol(#[from] ProtocolError),
-    #[error("Verification error: {0}")]
-    Verify(#[from] VerifyProofErrorV3),
-}
-
-// TODO(PR10): delete all error types above and strip V3 suffixes of below error types
 
 /// Errors that can occur while serializing and deserializing RLN types.
 #[derive(Debug, thiserror::Error)]
-pub enum SerializationErrorV3 {
+pub enum SerializationError {
+    /// An underlying I/O error occurred.
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
+    /// An arkworks canonical (de)serialization error occurred.
     #[error("Arkworks canonical serialization error: {0}")]
-    Serialize(#[from] SerializationError),
+    Serialize(#[from] ArkSerializationError),
+    /// A field element was not in the canonical range `[0, r - 1]`.
     #[error("Non-canonical field element: value is not in [0, r-1]")]
     NonCanonicalFieldElement,
+    /// A boolean byte was neither `0x00` nor `0x01`.
     #[error("Non-canonical bool byte: expected 0x00 or 0x01, got {0:#04x}")]
     NonCanonicalBool(u8),
+    /// A slice could not be converted to a fixed-size array.
     #[error("Failed to convert from slice: {0}")]
     FromSlice(#[from] TryFromSliceError),
+    /// An integer could not be converted to `usize`.
     #[error("Failed to convert to usize: {0}")]
     ToUsize(#[from] TryFromIntError),
+    /// A deserialized Single message-id witness failed structural validation.
+    #[error("Invalid Single message-id witness: {0}")]
+    InvalidWitnessSingle(#[from] WitnessInputSingleError),
+    /// A deserialized Multi message-id witness failed structural validation.
+    #[error("Invalid Multi message-id witness: {0}")]
+    InvalidWitnessMulti(#[from] WitnessInputMultiError),
+    /// A deserialized partial witness failed structural validation.
+    #[error("Invalid partial witness: {0}")]
+    InvalidPartialWitness(#[from] PartialWitnessInputError),
+    /// A deserialized multi proof-values failed structural validation.
+    #[error("Invalid proof values: {0}")]
+    InvalidProofValues(#[from] ProofValuesMultiError),
 }
 
-/// Errors that can occur while constructing an [`RLNWitnessInputSingle`].
+/// Errors that can occur while constructing an
+/// [`RLNWitnessInputSingle`](crate::protocol::RLNWitnessInputSingle).
 #[derive(Debug, thiserror::Error)]
-pub enum RLNWitnessInputSingleErrorV3 {
+pub enum WitnessInputSingleError {
+    /// The user message limit was zero.
     #[error("User message limit cannot be zero")]
     ZeroUserMessageLimit,
+    /// Field `path_elements` and `identity_path_index` have different lengths.
     #[error(
         "Field `path_elements` has length {0}, but field `identity_path_index` has length {1}"
     )]
     PathLengthMismatch(usize, usize),
+    /// The message id was not within the user message limit.
     #[error("Message id ({0}) is not within user_message_limit ({1})")]
     InvalidMessageId(Fr, Fr),
 }
 
-/// Errors that can occur while constructing an [`RLNWitnessInputMulti`].
+/// Errors that can occur while constructing an
+/// [`RLNWitnessInputMulti`](crate::protocol::RLNWitnessInputMulti).
 #[derive(Debug, thiserror::Error)]
-pub enum RLNWitnessInputMultiErrorV3 {
+pub enum WitnessInputMultiError {
+    /// The user message limit was zero.
     #[error("User message limit cannot be zero")]
     ZeroUserMessageLimit,
+    /// Field `path_elements` and `identity_path_index` have different lengths.
     #[error(
         "Field `path_elements` has length {0}, but field `identity_path_index` has length {1}"
     )]
     PathLengthMismatch(usize, usize),
-    #[error("The field `message_ids` must contain at least one message_id")]
+    /// Field `message_ids` was empty.
+    #[error("Field `message_ids` must contain at least one message_id")]
     EmptyMessageIds,
+    /// Field `message_ids` and `selector_used` have different lengths.
     #[error("Field `message_ids` has length {0}, but field `selector_used` has length {1}")]
     SelectorLengthMismatch(usize, usize),
+    /// No entry in `selector_used` was `true`.
     #[error("At least one value in `selector_used` must be true")]
     NoActiveSelectorUsed,
+    /// Field `message_ids` contained a duplicate active message id.
     #[error("Duplicate message ID found in `message_ids`")]
     DuplicateMessageIds,
+    /// A message id was not within the user message limit.
     #[error("Message id ({0}) is not within user_message_limit ({1})")]
     InvalidMessageId(Fr, Fr),
 }
 
-/// Errors that can occur while constructing an [`RLNPartialWitnessInputV3`].
+/// Errors that can occur while constructing an
+/// [`RLNPartialWitnessInput`](crate::protocol::RLNPartialWitnessInput).
 #[derive(Debug, thiserror::Error)]
-pub enum RLNPartialWitnessInputErrorV3 {
+pub enum PartialWitnessInputError {
+    /// The user message limit was zero.
     #[error("User message limit cannot be zero")]
     ZeroUserMessageLimit,
+    /// Field `path_elements` and `identity_path_index` have different lengths.
     #[error(
         "Field `path_elements` has length {0}, but field `identity_path_index` has length {1}"
     )]
     PathLengthMismatch(usize, usize),
+}
+
+/// Errors that can occur while constructing an
+/// [`RLNProofValuesMulti`](crate::protocol::RLNProofValuesMulti).
+#[derive(Debug, thiserror::Error)]
+pub enum ProofValuesMultiError {
+    /// Fields `ys`, `nullifiers`, and `selector_used` have different lengths.
+    #[error(
+        "Field `ys` has length {0}, but field `nullifiers` has length {1} and field `selector_used` has length {2}"
+    )]
+    LengthMismatch(usize, usize, usize),
+    /// The per-slot vectors were empty.
+    #[error("Multi proof values must contain at least one per-slot entry")]
+    EmptyProofValues,
 }
 
 /// Errors that can occur while generating a proof.
 #[derive(Debug, thiserror::Error)]
 pub enum GenerateProofError {
+    /// Field `path_elements` length does not match the circuit tree depth.
     #[error("Field `path_elements` has length {1}, but circuit tree_depth is {0}")]
     PathElementsLengthMismatch(usize, usize),
+    /// Field `identity_path_index` length does not match the circuit tree depth.
     #[error("Field `identity_path_index` has length {1}, but circuit tree_depth is {0}")]
     IdentityPathIndexLengthMismatch(usize, usize),
+    /// Field `message_ids` length does not match the circuit `max_out`.
     #[error("Field `message_ids` has length {1}, but circuit max_out is {0}")]
     MessageIdsLengthMismatch(usize, usize),
+    /// Field `selector_used` length does not match the circuit `max_out`.
     #[error("Field `selector_used` has length {1}, but circuit max_out is {0}")]
     SelectorUsedLengthMismatch(usize, usize),
+    /// The witness calculation failed.
     #[error("Witness calculation error: {0}")]
     WitnessCalc(#[from] WitnessCalcError),
+    /// The circuit synthesis failed.
     #[error("Synthesis error: {0}")]
     Synthesis(#[from] SynthesisError),
 }
 
 /// Errors that can occur while verifying a proof.
 #[derive(Debug, thiserror::Error)]
-pub enum VerifyProofErrorV3 {
-    #[error("Invalid proof provided")]
-    InvalidProof,
+pub enum VerifyProofError {
+    /// The proof root was not among the provided roots.
     #[error("Expected one of the provided roots")]
     InvalidRoot,
+    /// The signal `x` did not match the value bound in the proof.
     #[error("Signal value does not match")]
     InvalidSignal,
+    /// The circuit synthesis failed.
     #[error("Synthesis error: {0}")]
     Synthesis(#[from] SynthesisError),
 }

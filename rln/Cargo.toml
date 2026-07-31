@@ -1,77 +1,73 @@
 [package]
 name = "rln"
-version = "2.0.1"
+version = "3.0.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "APIs to manage, compute and verify zkSNARK proofs and RLN primitives"
 documentation = "https://github.com/vacp2p/zerokit"
 homepage = "https://vac.dev"
 repository = "https://github.com/vacp2p/zerokit"
-exclude = ["resources/tree_depth_10/", "resources/**/*.wasm"]
+exclude = ["resources/tree_depth_10/"]
 
 [lib]
 crate-type = ["rlib", "staticlib", "cdylib"]
 bench = false
-
-# This flag disables cargo doctests, i.e. testing example code-snippets in documentation
 doctest = false
 
 [dependencies]
 # ZKP Generation
-ark-bn254 = { version = "0.5.0", features = ["std"] }
-ark-relations = { version = "0.5.1", features = ["std"] }
-ark-ff = { version = "0.5.0", default-features = false }
-ark-ec = { version = "0.5.0", default-features = false }
-ark-std = { version = "0.5.0", default-features = false }
-ark-poly = { version = "0.5.0", default-features = false }
-ark-groth16 = { version = "0.5.0", default-features = false }
-ark-serialize = { version = "0.5.0", default-features = false }
+ark-ec = { workspace = true }
+ark-ff = { workspace = true }
+ark-std = { workspace = true }
+ark-poly = { workspace = true }
+ark-bn254 = { workspace = true }
+ark-groth16 = { workspace = true }
+ark-relations = { workspace = true }
+ark-serialize = { workspace = true }
 
 # Error Handling
-thiserror = "2.0.18"
+thiserror = { workspace = true }
 
 # Utilities
+rand = { workspace = true }
+rayon = { workspace = true, optional = true }
+zeroize = { workspace = true }
+num-bigint = { workspace = true, features = ["std"] }
+num-traits = { workspace = true }
+rand_chacha = { workspace = true }
+tiny-keccak = { workspace = true }
 bon = "3.9"
-rayon = { version = "1.12.0", optional = true }
-byteorder = "1.5.0"
-cfg-if = "1.0.4"
-num-bigint = { version = "0.4.6", default-features = false, features = ["std"] }
-num-traits = "0.2.19"
-rand = "0.8.6"
-rand_chacha = "0.3.1"
-ruint = { version = "1.18.0", default-features = false, features = [
+ruint = { version = "1.20.0", default-features = false, features = [
     "rand",
     "serde",
     "ark-ff-05",
 ] }
-tiny-keccak = { version = "2.0.2", features = ["keccak"] }
-zeroize = "1.8.2"
 tempfile = "3.27.0"
-zerokit_utils = { version = "1.2.0", path = "../utils", default-features = false }
+byteorder = "1.5.0"
+zerokit_utils = { path = "../utils", version = "3.0.0", default-features = false }
 
 # FFI
 safer-ffi = "0.1.13"
 
 # Serialization
-prost = "0.14.3"
-serde_json = "1.0.150"
-serde = { version = "1.0.228", features = ["derive"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+prost = "0.14.4"
 
-# Documentation
-document-features = { version = "0.2.12", optional = true }
+# Non-WASM
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+pmtree = { version = "3.0.1", package = "vacp2p_pmtree" }
+sled = { version = "0.34.7", features = ["compression"] }
 
 [dev-dependencies]
-criterion = { version = "0.8.2", features = ["html_reports"] }
-ark-crypto-primitives = { version = "0.5.0", default-features = false, features = [
-    "snark",
-    "sponge",
-] }
+criterion = { workspace = true }
+ark-crypto-primitives = { workspace = true, features = ["snark", "sponge"] }
 
 [features]
-default = ["parallel", "pmtree-ft"]
-stateless = []
+default = ["parallel"]
 parallel = [
     "rayon",
+    "pmtree/parallel",
     "ark-ff/parallel",
     "ark-ec/parallel",
     "ark-std/parallel",
@@ -80,33 +76,19 @@ parallel = [
     "ark-serialize/parallel",
     "zerokit_utils/parallel",
 ]
-fullmerkletree = [] # Pre-allocated tree, fastest access
-optimalmerkletree = [] # Sparse storage, memory efficient
-pmtree-ft = ["zerokit_utils/pmtree-ft"] # Persistent storage, disk-based
 headers = ["safer-ffi/headers"] # Generate C header file with safer-ffi
-refactors = [] # To avoid clippy checks showing errors in refactor branches
 
 [[bench]]
-name = "pmtree_benchmark"
-harness = false
-required-features = ["pmtree-ft"]
-
-[[bench]]
-name = "poseidon_tree_benchmark"
+name = "generate_proof_benchmark"
 harness = false
 
 [[bench]]
-name = "partial_proof"
+name = "pm_tree_benchmark"
 harness = false
-required-features = ["pmtree-ft"]
 
 [package.metadata.docs.rs]
-features = ["parallel", "pmtree-ft"]
+all-features = true
 
 [[bin]]
 name = "generate_headers"
 required-features = ["headers"] # Do not build unless generating headers.
-
-[[bin]]
-name = "test_refactors"
-required-features = ["refactors"]

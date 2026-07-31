@@ -6,15 +6,14 @@ mod test {
     use js_sys::{Date, Uint8Array};
     use rln::prelude::*;
     use rln_wasm::{
-        Hasher, Identity, VecWasmFr, WasmFr, WasmRLN, WasmRLNPartialProof,
-        WasmRLNPartialWitnessInput, WasmRLNProof, WasmRLNWitnessInput,
+        wasm_hash_to_field_le, wasm_poseidon_hash_pair, VecWasmFr, WasmFr, WasmIdentityKeys,
+        WasmRLN, WasmRLNMerkleProof, WasmRLNPartialProof, WasmRLNPartialWitnessInput, WasmRLNProof,
+        WasmRLNWitnessInput,
     };
     #[cfg(feature = "parallel")]
     use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
     use wasm_bindgen_test::{console_log, wasm_bindgen_test, wasm_bindgen_test_configure};
-    use zerokit_utils::merkle_tree::{
-        OptimalMerkleProof, OptimalMerkleTree, ZerokitMerkleProof, ZerokitMerkleTree,
-    };
+    use zerokit_utils::merkle_tree::{OptimalMerkleProof, OptimalMerkleTree, ZerokitMerkleTree};
     #[cfg(feature = "parallel")]
     use {rln_wasm::init_thread_pool, wasm_bindgen_futures::JsFuture, web_sys::window};
 
@@ -40,7 +39,7 @@ mod test {
     wasm_bindgen_test_configure!(run_in_browser);
 
     #[wasm_bindgen_test]
-    pub async fn rln_wasm_benchmark() {
+    pub async fn test_wasm_benchmark() {
         #[cfg(feature = "parallel")]
         if !isThreadpoolSupported().unwrap() {
             panic!("Thread pool is NOT supported");
@@ -50,7 +49,7 @@ mod test {
         }
 
         let mut results = String::from("\nBenchmarks:\n");
-        let iterations = 10;
+        let iterations = 5;
 
         let zkey = Uint8Array::from(ARKZKEY_BYTES);
         let graph = Uint8Array::from(GRAPH_BYTES);
@@ -70,42 +69,38 @@ mod test {
         // Benchmark generate identity
         let start_identity_gen = Date::now();
         for _ in 0..iterations {
-            let _ = Identity::generate();
+            let _ = WasmIdentityKeys::generate();
         }
         let identity_gen_result = Date::now() - start_identity_gen;
 
         // Generate identity for other benchmarks
-        let identity_pair = Identity::generate();
-        let identity_secret = identity_pair.get_secret_hash();
+        let identity_pair = WasmIdentityKeys::generate();
+        let identity_secret = identity_pair.get_secret();
         let id_commitment = identity_pair.get_commitment();
 
-        let epoch = Hasher::hash_to_field_le(&Uint8Array::from(b"test-epoch" as &[u8]));
+        let epoch = wasm_hash_to_field_le(&Uint8Array::from(b"test-epoch" as &[u8]));
         let rln_identifier =
-            Hasher::hash_to_field_le(&Uint8Array::from(b"test-rln-identifier" as &[u8]));
-        let external_nullifier = Hasher::poseidon_hash_pair(&epoch, &rln_identifier);
+            wasm_hash_to_field_le(&Uint8Array::from(b"test-rln-identifier" as &[u8]));
+        let external_nullifier = wasm_poseidon_hash_pair(&epoch, &rln_identifier);
 
         let identity_index = tree.leaves_set();
         let user_message_limit = WasmFr::from_uint(10);
-        let rate_commitment = Hasher::poseidon_hash_pair(&id_commitment, &user_message_limit);
+        let rate_commitment = wasm_poseidon_hash_pair(&id_commitment, &user_message_limit);
         tree.update_next(*rate_commitment).unwrap();
 
         let message_id = WasmFr::from_uint(0);
         let signal: [u8; 32] = [0; 32];
-        let x = Hasher::hash_to_field_le(&Uint8Array::from(&signal[..]));
+        let x = wasm_hash_to_field_le(&Uint8Array::from(&signal[..]));
 
-        let merkle_proof: OptimalMerkleProof<PoseidonHash> = tree.proof(identity_index).unwrap();
-        let mut path_elements = VecWasmFr::new();
-        for path_element in merkle_proof.get_path_elements() {
-            path_elements.push(&WasmFr::from(path_element));
-        }
-        let path_index = Uint8Array::from(&merkle_proof.get_path_index()[..]);
+        let tree_merkle_proof: OptimalMerkleProof<PoseidonHash> =
+            tree.proof(identity_index).unwrap();
+        let merkle_proof = WasmRLNMerkleProof::from(RLNMerkleProof::from(&tree_merkle_proof));
 
         let witness = WasmRLNWitnessInput::new_single(
             &identity_secret,
             &user_message_limit,
             &message_id,
-            &path_elements,
-            &path_index,
+            &merkle_proof,
             &x,
             &external_nullifier,
         )

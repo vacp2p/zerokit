@@ -8,50 +8,58 @@ use std::{
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use super::{
-    error::{FromConfigError, ZerokitMerkleTreeError},
-    merkle_tree::{FrOf, Hasher, ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES},
-    override_range_validation::{validate_override_range_inputs, EmptyIndicesPolicy},
+    error::{FromConfigError, MerkleTreeInvariant, ZerokitMerkleTreeError},
+    merkle_tree::{ZerokitMerkleProof, ZerokitMerkleTree, MIN_PARALLEL_NODES},
 };
+use crate::hasher::ZerokitHasher;
 
 // Full Merkle Tree Implementation
 
 /// Merkle tree with all leaf and intermediate hashes stored
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct FullMerkleTree<H>
+#[derive(Debug, Clone, PartialEq)]
+pub struct FullMerkleTree<H: ZerokitHasher>
 where
-    H: Hasher,
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
 {
     /// The depth of the tree, i.e. the number of levels from leaf to root
     depth: usize,
 
-    /// The tree nodes
-    nodes: Vec<H::Fr>,
+    /// The value an empty leaf resets to, fixed at construction
+    default_leaf: H::Scalar,
 
-    /// The indices of leaves which are set into zero upto next_index.
+    /// The tree nodes
+    nodes: Vec<H::Scalar>,
+
+    /// The indices of leaves which are set into zero upto `next_index`.
     /// Set to 0 if the leaf is empty and set to 1 in otherwise.
     cached_leaves_indices: Vec<u8>,
 
-    /// The next available (i.e., never used) tree index. Equivalently, the number of leaves added to the tree
-    /// (deletions leave next_index unchanged)
+    /// The next available (i.e., never used) tree index. Equivalently, the number of leaves added
+    /// to the tree (deletions leave `next_index` unchanged)
     next_index: usize,
 
-    /// metadata that an application may use to store additional information
+    /// Metadata that an application may use to store additional information
     metadata: Vec<u8>,
 }
 
 /// Element of a Merkle proof
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum FullMerkleBranch<H: Hasher> {
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum FullMerkleBranch<H: ZerokitHasher>
+where
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
+{
     /// Left branch taken, value is the right sibling hash.
-    Left(H::Fr),
+    Left(H::Scalar),
 
     /// Right branch taken, value is the left sibling hash.
-    Right(H::Fr),
+    Right(H::Scalar),
 }
 
 /// Merkle proof path, bottom to top.
-#[derive(Clone, PartialEq, Eq)]
-pub struct FullMerkleProof<H: Hasher>(Vec<FullMerkleBranch<H>>);
+#[derive(Clone, PartialEq)]
+pub struct FullMerkleProof<H: ZerokitHasher>(Vec<FullMerkleBranch<H>>)
+where
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync;
 
 #[derive(Default)]
 pub struct FullMerkleConfig(());
@@ -65,34 +73,37 @@ impl FromStr for FullMerkleConfig {
 }
 
 /// Implementations
-impl<H: Hasher> ZerokitMerkleTree for FullMerkleTree<H>
+impl<H> ZerokitMerkleTree for FullMerkleTree<H>
 where
-    H: Hasher,
+    H: ZerokitHasher,
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
 {
     type Proof = FullMerkleProof<H>;
     type Hasher = H;
     type Config = FullMerkleConfig;
+    type Error = ZerokitMerkleTreeError;
 
-    fn default(depth: usize) -> Result<Self, ZerokitMerkleTreeError> {
-        FullMerkleTree::<H>::new(depth, Self::Hasher::default_leaf(), Self::Config::default())
+    fn default(depth: usize) -> Result<Self, Self::Error> {
+        Self::new(depth, H::Scalar::default(), Self::Config::default())
     }
 
     /// Creates a new `MerkleTree`
-    /// depth - the depth of the tree made only of hash nodes. 2^depth is the maximum number of leaves hash nodes
+    /// depth - the depth of the tree made only of hash nodes. `2^depth` is the maximum number of
+    /// leaves hash nodes
     fn new(
         depth: usize,
-        default_leaf: FrOf<Self::Hasher>,
+        default_leaf: H::Scalar,
         _config: Self::Config,
-    ) -> Result<Self, ZerokitMerkleTreeError> {
+    ) -> Result<Self, Self::Error> {
         if depth >= usize::BITS as usize {
-            return Err(ZerokitMerkleTreeError::InvalidDepth);
+            return Err(ZerokitMerkleTreeError::DepthTooLarge);
         }
 
         // Compute cache node values, leaf to root
-        let mut cached_nodes: Vec<H::Fr> = Vec::with_capacity(depth + 1);
+        let mut cached_nodes: Vec<H::Scalar> = Vec::with_capacity(depth + 1);
         cached_nodes.push(default_leaf);
         for i in 0..depth {
-            cached_nodes.push(H::hash_pair(cached_nodes[i], cached_nodes[i]));
+            cached_nodes.push(H::hash(&[cached_nodes[i], cached_nodes[i]]));
         }
         cached_nodes.reverse();
 
@@ -107,15 +118,12 @@ where
 
         Ok(Self {
             depth,
+            default_leaf,
             nodes,
             cached_leaves_indices: vec![0; 1 << depth],
             next_index: 0,
             metadata: Vec::new(),
         })
-    }
-
-    fn close_db_connection(&mut self) -> Result<(), ZerokitMerkleTreeError> {
-        Ok(())
     }
 
     /// Returns the depth of the tree
@@ -134,46 +142,32 @@ where
     }
 
     /// Returns the root of the tree
-    fn root(&self) -> FrOf<Self::Hasher> {
+    fn root(&self) -> H::Scalar {
         self.nodes[0]
     }
 
-    /// Sets a leaf at the specified tree index
-    fn set(&mut self, leaf: usize, hash: FrOf<Self::Hasher>) -> Result<(), ZerokitMerkleTreeError> {
-        self.set_range(leaf, once(hash))?;
-        self.next_index = max(self.next_index, leaf + 1);
-        Ok(())
-    }
-
-    /// Get a leaf from the specified tree index
-    fn get(&self, leaf: usize) -> Result<FrOf<Self::Hasher>, ZerokitMerkleTreeError> {
-        if leaf >= self.capacity() {
-            return Err(ZerokitMerkleTreeError::InvalidLeaf);
-        }
-        Ok(self.nodes[self.capacity() + leaf - 1])
-    }
-
-    /// Returns the root of the subtree at level n and index
-    fn get_subtree_root(&self, n: usize, index: usize) -> Result<H::Fr, ZerokitMerkleTreeError> {
-        if n > self.depth() {
-            return Err(ZerokitMerkleTreeError::InvalidIndex);
+    /// Returns the root of the subtree at `level` (`0` = root, `depth` = leaf) on the path to
+    /// leaf `index`.
+    fn get_subtree_root(&self, level: usize, index: usize) -> Result<H::Scalar, Self::Error> {
+        if level > self.depth() {
+            return Err(ZerokitMerkleTreeError::LevelOutOfBounds);
         }
         if index >= self.capacity() {
-            return Err(ZerokitMerkleTreeError::InvalidLeaf);
+            return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds);
         }
-        if n == 0 {
+        if level == 0 {
             Ok(self.root())
-        } else if n == self.depth {
+        } else if level == self.depth {
             self.get(index)
         } else {
             let mut idx = self.capacity() + index - 1;
             let mut nd = self.depth;
             loop {
-                let parent = self
-                    .parent(idx)
-                    .ok_or(ZerokitMerkleTreeError::InvalidIndex)?;
+                let parent = self.parent(idx).ok_or(ZerokitMerkleTreeError::Invariant(
+                    MerkleTreeInvariant::SubtreeWalkParentMissing,
+                ))?;
                 nd -= 1;
-                if nd == n {
+                if nd == level {
                     return Ok(self.nodes[parent]);
                 } else {
                     idx = parent;
@@ -182,121 +176,96 @@ where
         }
     }
 
+    /// Sets a leaf at the specified tree index
+    fn set(&mut self, leaf: usize, hash: H::Scalar) -> Result<(), Self::Error> {
+        if leaf >= self.capacity() {
+            return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds);
+        }
+        self.set_range(leaf, once(hash))?;
+        self.next_index = max(self.next_index, leaf + 1);
+        Ok(())
+    }
+
+    /// Sets multiple leaves from the specified tree index
+    fn set_range<I: ExactSizeIterator<Item = H::Scalar>>(
+        &mut self,
+        start: usize,
+        leaves: I,
+    ) -> Result<(), Self::Error> {
+        let leaf_count = leaves.len();
+        let end = start
+            .checked_add(leaf_count)
+            .ok_or(ZerokitMerkleTreeError::RangeTooLarge)?;
+        if end > self.capacity() {
+            return Err(ZerokitMerkleTreeError::RangeTooLarge);
+        }
+        let index = self.capacity() + start - 1;
+        leaves.enumerate().for_each(|(offset, hash)| {
+            self.nodes[index + offset] = hash;
+            self.cached_leaves_indices[start + offset] = 1;
+        });
+        if leaf_count != 0 {
+            self.update_hashes(index, index + (leaf_count - 1))?;
+            self.next_index = max(self.next_index, start + leaf_count);
+        }
+        Ok(())
+    }
+
+    /// Get a leaf from the specified tree index
+    fn get(&self, leaf: usize) -> Result<H::Scalar, Self::Error> {
+        if leaf >= self.capacity() {
+            return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds);
+        }
+        Ok(self.nodes[self.capacity() + leaf - 1])
+    }
+
     /// Returns the indices of the leaves that are empty
     fn get_empty_leaves_indices(&self) -> Vec<usize> {
         self.cached_leaves_indices
             .iter()
             .take(self.next_index)
             .enumerate()
-            .filter(|&(_, &v)| v == 0u8)
-            .map(|(idx, _)| idx)
+            .filter_map(|(index, &v)| (v == 0u8).then_some(index))
             .collect()
     }
 
-    /// Sets multiple leaves from the specified tree index
-    fn set_range<I: ExactSizeIterator<Item = FrOf<Self::Hasher>>>(
-        &mut self,
-        start: usize,
-        leaves: I,
-    ) -> Result<(), ZerokitMerkleTreeError> {
-        let mut count = 0;
-        // first count number of leaves, and check that they fit in the tree
-        // then insert into the tree
-        let leaves = leaves.into_iter().collect::<Vec<_>>();
-        let end = start
-            .checked_add(leaves.len())
-            .ok_or(ZerokitMerkleTreeError::TooManySet)?;
-        if end > self.capacity() {
-            return Err(ZerokitMerkleTreeError::TooManySet);
-        }
-        let index = self.capacity() + start - 1;
-        leaves.into_iter().for_each(|hash| {
-            self.nodes[index + count] = hash;
-            self.cached_leaves_indices[start + count] = 1;
-            count += 1;
-        });
-        if count != 0 {
-            self.update_hashes(index, index + (count - 1))?;
-            self.next_index = max(self.next_index, start + count);
-        }
-        Ok(())
-    }
-
-    /// Overrides a range of leaves while resetting specified indices to default and preserving unaffected values.
-    fn override_range<I, J>(
-        &mut self,
-        start: usize,
-        leaves: I,
-        indices: J,
-    ) -> Result<(), ZerokitMerkleTreeError>
-    where
-        I: ExactSizeIterator<Item = FrOf<Self::Hasher>>,
-        J: ExactSizeIterator<Item = usize>,
-    {
-        let leaves_vec = leaves.into_iter().collect::<Vec<_>>();
-        let validated = validate_override_range_inputs(
-            start,
-            leaves_vec.len(),
-            indices.into_iter().collect::<Vec<_>>(),
-            self.capacity(),
-            // FullMerkleTree's override path currently requires explicit delete indices.
-            EmptyIndicesPolicy::Reject,
-        )?;
-        let indices = validated.indices;
-        let min_index = validated
-            .min_index
-            .ok_or(ZerokitMerkleTreeError::InvalidIndices)?;
-        let max_index = validated.max_index.unwrap_or(start);
-
-        let mut set_values = vec![Self::Hasher::default_leaf(); max_index - min_index];
-
-        for i in min_index..start {
-            if !indices.contains(&i) {
-                let value = self.get(i)?;
-                set_values[i - min_index] = value;
-            }
-        }
-
-        for i in 0..leaves_vec.len() {
-            set_values[start - min_index + i] = leaves_vec[i];
-        }
-
-        for i in indices {
-            self.cached_leaves_indices[i] = 0;
-        }
-
-        self.set_range(start, set_values.into_iter())
-    }
+    // Trait method `override_range` uses the default `ZerokitMerkleTree` implementation
+    // In-memory, so the default `delete` + `set_range` is sufficient (no crash-atomicity concern).
 
     /// Sets a leaf at the next available index
-    fn update_next(&mut self, leaf: FrOf<Self::Hasher>) -> Result<(), ZerokitMerkleTreeError> {
+    fn update_next(&mut self, leaf: H::Scalar) -> Result<(), Self::Error> {
+        if self.next_index >= self.capacity() {
+            return Err(ZerokitMerkleTreeError::RangeTooLarge);
+        }
         self.set(self.next_index, leaf)?;
         Ok(())
     }
 
-    /// Deletes a leaf at a certain index by setting it to its default value (next_index is not updated)
-    fn delete(&mut self, index: usize) -> Result<(), ZerokitMerkleTreeError> {
-        // We reset the leaf only if we previously set a leaf at that index
-        if index < self.next_index {
-            self.set(index, H::default_leaf())?;
-            self.cached_leaves_indices[index] = 0;
+    /// Deletes a leaf at a certain index by setting it to its default value (`next_index` is not
+    /// updated)
+    fn delete(&mut self, index: usize) -> Result<(), Self::Error> {
+        if index >= self.next_index {
+            return Err(ZerokitMerkleTreeError::DeleteUnsetLeaf);
         }
+        let default_leaf = self.default_leaf;
+        self.set(index, default_leaf)?;
+        self.cached_leaves_indices[index] = 0;
         Ok(())
     }
 
     // Computes a merkle proof the leaf at the specified index
-    fn proof(&self, leaf: usize) -> Result<FullMerkleProof<H>, ZerokitMerkleTreeError> {
+    fn proof(&self, leaf: usize) -> Result<FullMerkleProof<H>, Self::Error> {
         if leaf >= self.capacity() {
-            return Err(ZerokitMerkleTreeError::InvalidLeaf);
+            return Err(ZerokitMerkleTreeError::LeafIndexOutOfBounds);
         }
         let mut index = self.capacity() + leaf - 1;
         let mut path = Vec::with_capacity(self.depth + 1);
         while let Some(parent) = self.parent(index) {
             // Add proof for node at index to parent
-            path.push(match index & 1 {
-                1 => FullMerkleBranch::Left(self.nodes[index + 1]),
-                0 => FullMerkleBranch::Right(self.nodes[index - 1]),
-                _ => unreachable!(),
+            path.push(if index & 1 == 1 {
+                FullMerkleBranch::Left(self.nodes[index + 1])
+            } else {
+                FullMerkleBranch::Right(self.nodes[index - 1])
             });
             index = parent;
         }
@@ -306,9 +275,9 @@ where
     // Verifies a Merkle proof with respect to the input leaf and the tree root
     fn verify(
         &self,
-        leaf: &FrOf<Self::Hasher>,
+        leaf: &H::Scalar,
         merkle_proof: &FullMerkleProof<H>,
-    ) -> Result<bool, ZerokitMerkleTreeError> {
+    ) -> Result<bool, Self::Error> {
         if merkle_proof.length() != self.depth {
             return Err(ZerokitMerkleTreeError::InvalidMerkleProof);
         }
@@ -316,20 +285,24 @@ where
         Ok(expected_root.eq(&self.root()))
     }
 
-    fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), ZerokitMerkleTreeError> {
+    fn set_metadata(&mut self, metadata: &[u8]) -> Result<(), Self::Error> {
         self.metadata = metadata.to_vec();
         Ok(())
     }
 
-    fn metadata(&self) -> Result<Vec<u8>, ZerokitMerkleTreeError> {
+    fn metadata(&self) -> Result<Vec<u8>, Self::Error> {
         Ok(self.metadata.to_vec())
     }
+
+    // Trait method `close` uses the default `ZerokitMerkleTree` implementation
+    // In-memory, so the default `close` is sufficient (no crash-atomicity concern).
 }
 
 // Utilities for updating the tree nodes
-impl<H: Hasher> FullMerkleTree<H>
+impl<H> FullMerkleTree<H>
 where
-    H: Hasher,
+    H: ZerokitHasher,
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
 {
     /// For a given node index, return the parent node index
     /// Returns None if there is no parent (root node)
@@ -364,21 +337,24 @@ where
     ) -> Result<(), ZerokitMerkleTreeError> {
         // Ensure the range is within the same tree level
         if self.levels(start_index) != self.levels(end_index) {
-            return Err(ZerokitMerkleTreeError::InvalidStartAndEndLevel);
+            return Err(ZerokitMerkleTreeError::Invariant(
+                MerkleTreeInvariant::UpdateHashesLevelMismatch,
+            ));
         }
 
         // Compute parent indices for the range
         if let (Some(start_parent), Some(end_parent)) =
             (self.parent(start_index), self.parent(end_index))
         {
-            // Closure to compute the hash of a parent node given its index, by hashing its two children
+            // Closure to compute the hash of a parent node given its index, by hashing its two
+            // children
             let hash_parent = |parent: usize| {
                 let left = self.first_child(parent);
-                H::hash_pair(self.nodes[left], self.nodes[left + 1])
+                H::hash(&[self.nodes[left], self.nodes[left + 1]])
             };
 
             // Use parallel processing when the number of pairs exceeds the threshold
-            let hashes: Vec<H::Fr> = if end_parent - start_parent + 1 >= MIN_PARALLEL_NODES {
+            let hashes: Vec<H::Scalar> = if end_parent - start_parent + 1 >= MIN_PARALLEL_NODES {
                 (start_parent..=end_parent)
                     .into_par_iter()
                     .map(hash_parent)
@@ -399,7 +375,11 @@ where
     }
 }
 
-impl<H: Hasher> ZerokitMerkleProof for FullMerkleProof<H> {
+impl<H> ZerokitMerkleProof for FullMerkleProof<H>
+where
+    H: ZerokitHasher,
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
+{
     type Index = u8;
     type Hasher = H;
 
@@ -417,7 +397,7 @@ impl<H: Hasher> ZerokitMerkleProof for FullMerkleProof<H> {
     }
 
     /// Returns the path elements forming a Merkle proof
-    fn get_path_elements(&self) -> Vec<FrOf<Self::Hasher>> {
+    fn get_path_elements(&self) -> Vec<H::Scalar> {
         self.0
             .iter()
             .map(|x| match x {
@@ -437,11 +417,12 @@ impl<H: Hasher> ZerokitMerkleProof for FullMerkleProof<H> {
             .collect()
     }
 
-    /// Computes the Merkle root corresponding by iteratively hashing a Merkle proof with a given input leaf
-    fn compute_root_from(&self, hash: &FrOf<Self::Hasher>) -> FrOf<Self::Hasher> {
+    /// Computes the Merkle root corresponding by iteratively hashing a Merkle proof with a given
+    /// input leaf
+    fn compute_root_from(&self, hash: &H::Scalar) -> H::Scalar {
         self.0.iter().fold(*hash, |hash, branch| match branch {
-            FullMerkleBranch::Left(sibling) => H::hash_pair(hash, *sibling),
-            FullMerkleBranch::Right(sibling) => H::hash_pair(*sibling, hash),
+            FullMerkleBranch::Left(sibling) => H::hash(&[hash, *sibling]),
+            FullMerkleBranch::Right(sibling) => H::hash(&[*sibling, hash]),
         })
     }
 }
@@ -449,8 +430,8 @@ impl<H: Hasher> ZerokitMerkleProof for FullMerkleProof<H> {
 // Debug formatting for printing a (Full) Merkle Proof Branch
 impl<H> Debug for FullMerkleBranch<H>
 where
-    H: Hasher,
-    H::Fr: Debug,
+    H: ZerokitHasher,
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -463,8 +444,8 @@ where
 // Debug formatting for printing a (Full) Merkle Proof
 impl<H> Debug for FullMerkleProof<H>
 where
-    H: Hasher,
-    H::Fr: Debug,
+    H: ZerokitHasher,
+    H::Scalar: Debug + Copy + PartialEq + Default + Send + Sync,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("Proof").field(&self.0).finish()

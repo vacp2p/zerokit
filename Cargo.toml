@@ -1,7 +1,41 @@
 [workspace]
-members = ["rln", "utils"]
-exclude = ["rln-cli", "rln-wasm"]
+# Root-level workspace commands (test, clippy, ...) operate on the core crates;
+# rln-cli and rln-wasm are built explicitly with -p or from their own directory.
+members = ["rln", "utils", "rln-cli", "rln-wasm"]
+default-members = ["rln", "utils"]
 resolver = "2"
+
+# Dependencies shared by two or more workspace members.
+[workspace.dependencies]
+# ZKP Generation
+ark-ec = { version = "0.5.0", default-features = false }
+ark-ff = { version = "0.5.0", default-features = false }
+ark-std = { version = "0.5.0", default-features = false }
+ark-poly = { version = "0.5.0", default-features = false }
+ark-bn254 = { version = "0.5.0", features = ["std"] }
+ark-groth16 = { version = "0.5.0", default-features = false }
+ark-relations = { version = "0.5.1", features = ["std"] }
+ark-serialize = { version = "0.5.0", default-features = false }
+ark-crypto-primitives = { version = "0.5.0", default-features = false }
+
+# Error Handling
+thiserror = "2.0.19"
+
+# Utilities
+rand = "0.8.7"
+rayon = "1.12.0"
+zeroize = "1.9.0"
+num-bigint = { version = "0.4.8", default-features = false }
+num-traits = "0.2.19"
+rand_chacha = "0.3.1"
+tiny-keccak = { version = "2.0.2", features = ["keccak"] }
+
+# Serialization
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+
+# Benchmarking
+criterion = { version = "0.8.2", features = ["html_reports"] }
 
 # Compilation profile for any non-workspace member.
 # Dependencies are optimized, even in a dev build.

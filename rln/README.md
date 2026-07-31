@@ -5,7 +5,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 The Zerokit RLN Module provides a Rust implementation for working with
-Rate-Limiting Nullifier [RLN](https://lip.logos.co/ift-ts/raw/rln-v2) zkSNARK proofs and primitives.
+Rate-Limiting Nullifier [RLN](https://lip.logos.co/anoncomms/raw/rln-v2.html) zkSNARK proofs and primitives.
 This module allows you to:
 
 - Generate and verify RLN proofs
@@ -14,96 +14,97 @@ This module allows you to:
 
 ## Quick Start
 
-> [!IMPORTANT]
-> Version 0.7.0 is the only version that does not support WASM and x32 architecture.
-> WASM support is available in version 0.8.0 and above.
-
 ### Add RLN as dependency
 
 We start by adding zerokit RLN to our `Cargo.toml`
 
 ```toml
 [dependencies]
-rln = "2.0.1"
+rand = "0.8.7"
+rln = "3.0.0"
+zerokit-utils = "3.0.0"
 ```
 
 ## Basic Usage Example
 
-The RLN object constructor requires the following files:
+On native targets the example below uses the built-in default circuit resources, so no files need
+to be loaded.
+
+To use custom circuits, supply your own resources (see [Custom Circuit Compilation](#advanced-custom-circuit-compilation)):
 
 - `rln_final.arkzkey`: The proving key in arkzkey format.
-- `graph.bin`: The graph file built for the input tree size
+- `graph.bin`: The graph file built for the input tree size.
 
 ```rust
-use rln::prelude::{hash_to_field_le, keygen, poseidon_hash, Fr, RLNWitnessInput, RLN};
+use rand::{rngs::ThreadRng, thread_rng};
+use rln::prelude::{
+    hash_to_field_le, Fr, Hasher, IdentityKeys, PoseidonHash, RLNBuilder, RLNWitnessInput,
+    DEFAULT_TREE_DEPTH,
+};
+use zerokit_utils::merkle_tree::{OptimalMerkleTree, ZerokitMerkleTree};
 
 fn main() {
-    // 1. Initialize RLN with parameters:
-    // - the tree depth;
-    // - the tree config, if it is not defined, the default value will be set
-    let tree_depth = 20;
-    let mut rln = RLN::new(tree_depth, "").unwrap();
+    // 1. Build an in-memory Merkle tree with a given depth. For a persistent sled-backed
+    // tree, use the `PmTree` type instead (see the tree variants under Features section).
+    let tree = OptimalMerkleTree::<PoseidonHash>::default(DEFAULT_TREE_DEPTH).unwrap();
 
-    // 2. Generate an identity keypair
-    let (identity_secret, id_commitment) = keygen().unwrap();
+    // 2. Build a stateful RLN over the tree; on native targets the circuit `graph` and `zkey`
+    // default to the single message-id resources.
+    let mut rln = RLNBuilder::stateful().tree(tree).build();
 
-    // 3. Add a rate commitment to the Merkle tree
+    // 3. Generate an identity key pair.
+    let identity_keys = IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
+
+    // 4. Add the rate commitment `H(id_commitment, user_message_limit)` as a leaf in the tree.
     let leaf_index = 10;
     let user_message_limit = Fr::from(10);
-    let rate_commitment = poseidon_hash(&[id_commitment, user_message_limit]).unwrap();
+    let rate_commitment =
+        Hasher::<PoseidonHash>::hash_pair(identity_keys.id_commitment(), user_message_limit);
     rln.set_leaf(leaf_index, rate_commitment).unwrap();
 
-    // 4. Get the Merkle proof for the added commitment
-    let (path_elements, identity_path_index) = rln.get_merkle_proof(leaf_index).unwrap();
+    // 5. Get the Merkle proof for the added commitment.
+    let merkle_proof = rln.get_merkle_proof(leaf_index).unwrap();
 
-    // 5. Set up external nullifier (epoch + app identifier)
-    // We generate epoch from a date seed and we ensure is
-    // mapped to a field element by hashing-to-field its content
+    // 6. Set up the external nullifier `H(epoch, rln_identifier)` from an epoch seed and an
+    // application identifier, each mapped to a field element by hashing to field.
     let epoch = hash_to_field_le(b"Today at noon, this year");
-    // We generate rln_identifier from an application identifier and
-    // we ensure is mapped to a field element by hashing-to-field its content
     let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-    // We generate a external nullifier
-    let external_nullifier = poseidon_hash(&[epoch, rln_identifier]).unwrap();
-    // We choose a message_id satisfy 0 <= message_id < user_message_limit
+    let external_nullifier = Hasher::<PoseidonHash>::hash_pair(epoch, rln_identifier);
+
+    // 7. Choose a `message_id` satisfying `0 <= message_id < user_message_limit`.
     let message_id = Fr::from(1);
 
-    // 6. Define the message signal
-    let signal = b"RLN is awesome";
+    // 8. Compute the signal `x` by hashing the message to a field element.
+    let x = hash_to_field_le(b"RLN is awesome");
 
-    // 7. Compute x from the signal
-    let x = hash_to_field_le(signal);
+    // 9. Build the witness and generate a proof with its public proof values.
+    let witness = RLNWitnessInput::new_single()
+        .identity_secret(identity_keys.identity_secret())
+        .user_message_limit(user_message_limit)
+        .merkle_proof(&merkle_proof)
+        .x(x)
+        .external_nullifier(external_nullifier)
+        .message_id(message_id)
+        .build()
+        .unwrap();
+    let (proof, proof_values) = rln.generate_proof(&witness).unwrap();
 
-    // 8. Create witness input for RLN proof generation
-    let witness = RLNWitnessInput::new(
-        identity_secret,
-        user_message_limit,
-        message_id,
-        path_elements,
-        identity_path_index,
-        x,
-        external_nullifier,
-    )
-    .unwrap();
-
-    // 9. Generate a RLN proof
-    // We generate proof and proof values from the witness
-    let (proof, proof_values) = rln.generate_rln_proof(&witness).unwrap();
-
-    // 10. Verify the RLN proof
-    // We verify the proof using the proof and proof values and the hashed signal x
-    let verified = rln.verify_rln_proof(&proof, &proof_values, &x).unwrap();
+    // 10. Verify the proof against the signal `x` and the current tree root.
+    let root = rln.get_root();
+    let verified = rln
+        .verify_with_roots(&proof, &proof_values, &x, &[root])
+        .unwrap();
     assert!(verified);
 }
 ```
 
-### Comments for the code above for point 5
+### Comments for the code above for point 6
 
 The `external nullifier` includes two parameters.
 
 The first one is `epoch` and it's used to identify messages received in a certain time frame.
-It usually corresponds to the current UNIX time but can also be set to a random value or generated by a seed,
-provided that it corresponds to a field element.
+It usually corresponds to the current UNIX time but can also be set to a random value or
+generated by a seed, provided that it corresponds to a field element.
 
 The second one is `rln_identifier`
 and it's used to prevent a RLN ZK proof generated for one application to be re-used in another one.
@@ -111,6 +112,14 @@ and it's used to prevent a RLN ZK proof generated for one application to be re-u
 ### Features
 
 - **Stateful Mode**: Merkle tree management APIs for commitment storage and membership proofs.
+  The tree backend is configurable at the type level:
+  pick a tree type, construct it, and pass it to `RLNBuilder::stateful().tree(...)`:
+  - **Full Merkle Tree**: Fastest access with complete pre-allocated tree in memory.
+    Best for frequent random access (use the `FullMerkleTree` type).
+  - **Optimal Merkle Tree**: Memory-efficient sparse storage using `HashMap`.
+    Ideal for partially populated trees (use the `OptimalMerkleTree` type).
+  - **Persistent Merkle Tree**: Disk-based storage with [sled](https://github.com/spacejam/sled)
+    for persistence across application restarts and large datasets (use the `PmTree` type).
 - **Stateless Mode**: Allows the use of RLN without maintaining state of the Merkle tree.
 - **[Parallel Processing](#parallel-processing)**:
   Optional parallel computation during proof generation for improved performance.
@@ -121,24 +130,14 @@ and it's used to prevent a RLN ZK proof generated for one application to be re-u
 - **Pre-compiled Circuits**: Ready-to-use circuits with Merkle tree depth of 10 and 20.
   > **Note:** The crates.io package only includes tree depth 20 resources
   > (arkzkey and graph files) that are compiled into the binary at build time.
-  > Tree depth 10 resources and `.wasm` files are excluded from the package
-  > to stay within the crates.io size limit.
-  > If you need tree depth 10 or `.wasm` circuit files,
-  > download them from the
+  > Tree depth 10 resources are excluded from the package to stay within the
+  > crates.io size limit. If you need tree depth 10 resources, download them from the
   > [GitHub repository](https://github.com/vacp2p/zerokit/tree/master/rln/resources).
-- **Wasm Support**: WebAssembly bindings via rln-wasm crate with features like:
-  - Browser and Node.js compatibility
+- **Wasm Support**: WebAssembly bindings via rln-wasm module with features like:
+  - Browser and Node.js compatibility.
   - Optional parallel feature support using
-    [wasm-bindgen-rayon](https://github.com/RReverser/wasm-bindgen-rayon)
-  - Headless browser testing capabilities
-- **Merkle Tree Implementations**: Multiple tree variants optimized for different use cases:
-  - **Full Merkle Tree**: Fastest access with complete pre-allocated tree in memory.
-    Best for frequent random access (enable with `fullmerkletree` feature).
-  - **Optimal Merkle Tree**: Memory-efficient sparse storage using HashMap.
-    Ideal for partially populated trees (enable with `optimalmerkletree` feature).
-  - **Persistent Merkle Tree**: Disk-based storage with [sled](https://github.com/spacejam/sled)
-    for persistence across application restarts and large datasets
-    (enable with `pmtree-ft` feature).
+    [wasm-bindgen-rayon](https://github.com/RReverser/wasm-bindgen-rayon).
+  - Headless browser testing capabilities.
 
 ## Building and Testing
 
@@ -146,9 +145,21 @@ and it's used to prevent a RLN ZK proof generated for one application to be re-u
 
 ```sh
 git clone https://github.com/vacp2p/zerokit.git
-make installdeps
 cd zerokit/rln
+make installdeps
 ```
+
+`make installdeps` installs the build dependencies:
+
+- [cargo-make](https://github.com/sagiegurari/cargo-make): the build and test runner.
+- [cmake](https://github.com/kitware/cmake) and [ninja-build](https://github.com/ninja-build/ninja): native build tools.
+- [wasm-pack](https://github.com/wasm-bindgen/wasm-pack) `0.15.0` and Node.js `22.14.0` via
+  [nvm](https://github.com/nvm-sh/nvm) (only needed for `rln-wasm` builds and tests).
+
+Automatic installation supports macOS (Homebrew) and Debian/Ubuntu (apt);
+on NixOS the packages are expected to come from your system configuration.
+On other systems (Windows, Fedora, ...), install the packages above manually,
+then run the `cargo make` commands directly.
 
 ### Build Commands
 
@@ -158,9 +169,6 @@ cargo make build
 
 # Test with default features
 cargo make test
-
-# Test with stateless features
-cargo make test_stateless
 ```
 
 ## Advanced: Custom Circuit Compilation
@@ -177,7 +185,8 @@ This script actually generates not only the zkey file for the RLN circuit,
 but also the execution wasm file used for witness calculation.
 However, the wasm file is not needed for the `rln` module,
 because current implementation uses the iden3 graph file for witness calculation.
-This graph file is generated by the `circom-witnesscalc` tool in [step 2](#2-generate-witness-calculation-graph).
+This graph file is generated by the `circom-witnesscalc` tool
+in [step 2](#2-generate-witness-calculation-graph).
 
 To customize the circuit parameters, modify `circom-rln/circuits/rln.circom`:
 
@@ -191,7 +200,8 @@ Where:
 
 - `N`: Merkle tree depth, determining the maximum membership capacity (2^N members).
 
-- `M`: Bit size for range checks, setting an upper bound for the number of messages per epoch (2^M messages).
+- `M`: Bit size for range checks,
+  setting an upper bound for the number of messages per epoch (2^M messages).
 
 > [!NOTE]
 > However, if `N` is too big, this might require a larger Powers of Tau ceremony
@@ -315,11 +325,24 @@ RLN provides C-compatible bindings for integration with C, C++, Nim, and other l
 The FFI layer is organized into several modules:
 
 - [`ffi_rln.rs`](./src/ffi/ffi_rln.rs) - Implements core RLN functionality,
-  including initialization functions, proof generation, and proof verification.
-- [`ffi_tree.rs`](./src/ffi/ffi_tree.rs) - Provides all tree-related operations
-  and helper functions for Merkle tree management.
-- [`ffi_utils.rs`](./src/ffi/ffi_utils.rs) - Contains all utility functions and structure definitions
-  used across the FFI layer.
+  including initialization functions, tree operations, proof generation, and proof verification.
+- [`ffi_utils.rs`](./src/ffi/ffi_utils.rs) - Contains all utility functions
+  and structure definitions used across the FFI layer.
+
+Compared to the native Rust API, the FFI layer has the following limitations:
+
+- Poseidon is the only supported hash; the generic `ZerokitHasher` layer is not exposed.
+- Proofs are always Groth16 over BN254 (`ArkGroth16Backend`); the zkSNARK backend is not
+  pluggable.
+- Tree selection is limited to the built-in backends (`FullMerkleTree`, `OptimalMerkleTree`
+  and the sled-backed `PmTree`); custom `ZerokitMerkleTree` implementations cannot cross the
+  C boundary.
+- Errors are returned as strings rather than typed errors.
+- Identity secrets stay behind opaque handles that only expose redacted debug output and
+  equality checks; raw secret bytes never cross the boundary on their own.
+
+Working examples for C and Nim live in [ffi_c_examples](./ffi_c_examples) and
+[ffi_nim_examples](./ffi_nim_examples), each with its own README and build instructions.
 
 ## Parallel Processing
 
@@ -377,30 +400,41 @@ in the [rln-fast](https://github.com/logos-storage/rln-fast) repository for deta
 **Using cached partials across recent roots**. To reuse partial proofs while the tree changes,
 cache the Merkle path alongside the root used to build the partial proof
 and verify against a bounded set of recent roots
-(for example, the last few roots) via APIs like [`verify_with_roots`](./src/public.rs#L743).
+(for example, the last few roots) via APIs like [`verify_with_roots`](./src/public.rs).
 This keeps cached partials usable for short-lived historical roots while limiting replay risk;
 when a root falls out of the allowed window or a member is removed/slashed,
 rebuild the partial proof with the latest root and path
 so revoked members cannot keep proving with stale roots.
 
-**When this optimization is less effective:** In environments where the membership set changes very frequently,
+**When this optimization is less effective:**
+In environments where the membership set changes very frequently,
 the cached data is invalidated often and the overhead of pre-computation may outweigh the benefit.
 
 ## Detailed Protocol Flow
 
-1. **Identity Creation**: Generate a secret key and commitment
-2. **Rate Commitment**: Add commitment to a Merkle tree
-3. **External Nullifier Setup**: Combine epoch and application identifier
-4. **Proof Generation**: Create a zkSNARK proof that:
-   - Proves membership in the Merkle tree
-   - Ensures rate-limiting constraints are satisfied
-   - Generates a nullifier to prevent double-usage
-5. **Proof Verification**: Verify the proof without revealing the prover's identity
-6. **Slashing Mechanism**: Detect and penalize double-usage attempts
+1. **Identity Creation**: Generate an identity secret and derive its public identity commitment
+   `id_commitment = Poseidon(id_secret)`.
+   The secret proves membership; only the commitment is shared.
+2. **Rate Commitment**: Compute `rate_commitment = Poseidon(id_commitment, user_message_limit)`
+   and insert it as a leaf in the Merkle tree. This registers the member and binds that member
+   to a per-epoch message budget.
+3. **External Nullifier Setup**: Compute `external_nullifier = Poseidon(epoch, rln_identifier)`,
+   scoping proofs to a time window (`epoch`) and to one application (`rln_identifier`)
+   so a proof generated for one application cannot be replayed in another.
+4. **Proof Generation**: Create a Groth16 zkSNARK proof that:
+   - Proves the member's rate commitment is included in the Merkle tree
+   - Enforces the rate limit by checking `0 <= message_id < user_message_limit`
+   - Derives a nullifier so reuse of the same message slot is detectable
+5. **Proof Verification**: Verify the Groth16 proof against the signal and a recent Merkle root
+   without learning the prover's identity.
+6. **Slashing Mechanism**: If a member exceeds their limit (two proofs sharing an
+   `external_nullifier` but with different `message_id`), Shamir secret sharing allows anyone
+   to recover the member's `id_secret` from the two proofs and slash them.
 
 ## Getting Involved
 
-Zerokit RLN public and FFI APIs allow interaction with many more features than what briefly showcased above.
+Zerokit RLN public and FFI APIs allow interaction with many more features
+than what briefly showcased above.
 
 We invite you to check our API documentation by running
 
@@ -408,17 +442,19 @@ We invite you to check our API documentation by running
 cargo doc --no-deps
 ```
 
-and look at unit tests to have a hint on how to interface and use them.
+Or look at the [documentation](https://docs.rs/rln/latest/rln) for the latest rln version.
 
 - Check the [unit tests](https://github.com/vacp2p/zerokit/tree/master/rln/tests)
   for more usage examples
 - Check the [rln-cli examples](https://github.com/vacp2p/zerokit/tree/master/rln-cli/src/examples)
   for complete interactive Rust examples of RLN features
   (relay, stateless, multi-message-id, partial)
+- Check the [C examples](./ffi_c_examples) and [Nim examples](./ffi_nim_examples)
+  for complete FFI usage from other languages
 - [RFC specification](https://lip.logos.co/anoncomms/raw/rln-v2.html)
   for the Rate-Limiting Nullifier protocol
 - [Multi-Message-ID RLN RFC](https://lip.logos.co/anoncomms/raw/multi-message_id-burn-rln.html)
-  for details on the multi-message-ID extension
+  for details on the Multi-Message-ID extension
 - [Zerokit API documentation](https://lip.logos.co/anoncomms/raw/zerokit-api.html)
   for comprehensive API reference
 - [GitHub repository](https://github.com/vacp2p/zerokit)

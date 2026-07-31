@@ -5,12 +5,12 @@ use js_sys::Uint8Array;
 use rln::prelude::*;
 use wasm_bindgen::prelude::*;
 
-use crate::wasm_utils::{VecWasmFr, WasmFr};
+use crate::wasm_utils::{VecWasmFr, WasmFr, WasmSecretFr};
 
 // WasmRLN
 
 #[wasm_bindgen]
-pub struct WasmRLN(RLNV3<Stateless, ArkGroth16Backend>);
+pub struct WasmRLN(RLN<Stateless, ArkGroth16Backend<PoseidonHash>>);
 
 #[wasm_bindgen]
 impl WasmRLN {
@@ -32,13 +32,20 @@ impl WasmRLN {
             .0
             .generate_proof(&witness.0)
             .map_err(|err| err.to_string())?;
-        Ok(WasmRLNProof(RLNProofV3::new(proof, values)))
+        Ok(WasmRLNProof(RLNProof::new(proof, values)))
     }
 
     #[wasm_bindgen(js_name = verify)]
     pub fn verify(&self, rln_proof: &WasmRLNProof) -> Result<bool, String> {
         self.0
             .verify(&rln_proof.0.proof, &rln_proof.0.values)
+            .map_err(|err| err.to_string())
+    }
+
+    #[wasm_bindgen(js_name = verifyWithSignal)]
+    pub fn verify_with_signal(&self, rln_proof: &WasmRLNProof, x: &WasmFr) -> Result<bool, String> {
+        self.0
+            .verify_with_signal(&rln_proof.0.proof, &rln_proof.0.values, x)
             .map_err(|err| err.to_string())
     }
 
@@ -80,36 +87,93 @@ impl WasmRLN {
             .0
             .finish_proof(&partial_proof.0, &witness.0)
             .map_err(|err| err.to_string())?;
-        Ok(WasmRLNProof(RLNProofV3::new(full_proof, values)))
+        Ok(WasmRLNProof(RLNProof::new(full_proof, values)))
+    }
+}
+
+// WasmRLNMerkleProof
+
+#[wasm_bindgen]
+pub struct WasmRLNMerkleProof(RLNMerkleProof);
+
+impl From<RLNMerkleProof> for WasmRLNMerkleProof {
+    fn from(merkle_proof: RLNMerkleProof) -> Self {
+        WasmRLNMerkleProof(merkle_proof)
+    }
+}
+
+#[wasm_bindgen]
+impl WasmRLNMerkleProof {
+    #[wasm_bindgen(js_name = new)]
+    pub fn new(path_elements: &VecWasmFr, identity_path_index: &Uint8Array) -> WasmRLNMerkleProof {
+        WasmRLNMerkleProof(RLNMerkleProof::new(
+            path_elements.inner(),
+            identity_path_index.to_vec(),
+        ))
+    }
+
+    #[wasm_bindgen(js_name = getPathElements)]
+    pub fn get_path_elements(&self) -> VecWasmFr {
+        VecWasmFr::from(self.0.path_elements().to_vec())
+    }
+
+    #[wasm_bindgen(js_name = getIdentityPathIndex)]
+    pub fn get_identity_path_index(&self) -> Uint8Array {
+        Uint8Array::from(self.0.identity_path_index())
+    }
+
+    #[wasm_bindgen(js_name = toBytesLE)]
+    pub fn to_bytes_le(&self) -> Result<Uint8Array, String> {
+        let mut bytes = Vec::new();
+        self.0
+            .serialize_compressed(&mut bytes)
+            .map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
+    }
+
+    #[wasm_bindgen(js_name = toBytesBE)]
+    pub fn to_bytes_be(&self) -> Result<Uint8Array, String> {
+        let mut bytes = Vec::new();
+        CanonicalSerializeBE::serialize(&self.0, &mut bytes).map_err(|err| err.to_string())?;
+        Ok(Uint8Array::from(&bytes[..]))
+    }
+
+    #[wasm_bindgen(js_name = fromBytesLE)]
+    pub fn from_bytes_le(bytes: &Uint8Array) -> Result<WasmRLNMerkleProof, String> {
+        let merkle_proof = RLNMerkleProof::deserialize_compressed(&bytes.to_vec()[..])
+            .map_err(|err| err.to_string())?;
+        Ok(WasmRLNMerkleProof(merkle_proof))
+    }
+
+    #[wasm_bindgen(js_name = fromBytesBE)]
+    pub fn from_bytes_be(bytes: &Uint8Array) -> Result<WasmRLNMerkleProof, String> {
+        let merkle_proof =
+            <RLNMerkleProof as CanonicalDeserializeBE>::deserialize(&bytes.to_vec()[..])
+                .map_err(|err| err.to_string())?;
+        Ok(WasmRLNMerkleProof(merkle_proof))
     }
 }
 
 // WasmRLNWitnessInput
 
 #[wasm_bindgen]
-pub struct WasmRLNWitnessInput(RLNWitnessInputV3);
+pub struct WasmRLNWitnessInput(RLNWitnessInput);
 
 #[wasm_bindgen]
 impl WasmRLNWitnessInput {
     #[wasm_bindgen(js_name = newSingle)]
     pub fn new_single(
-        identity_secret: &WasmFr,
+        identity_secret: &WasmSecretFr,
         user_message_limit: &WasmFr,
         message_id: &WasmFr,
-        path_elements: &VecWasmFr,
-        identity_path_index: &Uint8Array,
+        merkle_proof: &WasmRLNMerkleProof,
         x: &WasmFr,
         external_nullifier: &WasmFr,
     ) -> Result<WasmRLNWitnessInput, String> {
-        let mut identity_secret_fr = identity_secret.inner();
-        let path_elements: Vec<Fr> = path_elements.inner();
-        let identity_path_index: Vec<u8> = identity_path_index.to_vec();
-
-        let witness = RLNWitnessInputV3::new_single()
-            .identity_secret(IdSecret::from(&mut identity_secret_fr))
+        let witness = RLNWitnessInput::new_single()
+            .identity_secret(identity_secret.inner().clone())
             .user_message_limit(user_message_limit.inner())
-            .path_elements(path_elements)
-            .identity_path_index(identity_path_index)
+            .merkle_proof(merkle_proof.0.clone())
             .x(x.inner())
             .external_nullifier(external_nullifier.inner())
             .message_id(message_id.inner())
@@ -119,30 +183,23 @@ impl WasmRLNWitnessInput {
         Ok(WasmRLNWitnessInput(witness))
     }
 
-    #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen(js_name = newMulti)]
     pub fn new_multi(
-        identity_secret: &WasmFr,
+        identity_secret: &WasmSecretFr,
         user_message_limit: &WasmFr,
-        message_ids: VecWasmFr,
-        path_elements: &VecWasmFr,
-        identity_path_index: &Uint8Array,
+        message_ids: &VecWasmFr,
+        merkle_proof: &WasmRLNMerkleProof,
         x: &WasmFr,
         external_nullifier: &WasmFr,
-        selector_used: Uint8Array,
+        selector_used: &Uint8Array,
     ) -> Result<WasmRLNWitnessInput, String> {
-        let mut identity_secret_fr = identity_secret.inner();
-        let path_elements: Vec<Fr> = path_elements.inner();
-        let identity_path_index: Vec<u8> = identity_path_index.to_vec();
-
         let message_ids: Vec<Fr> = message_ids.inner();
         let selector_used: Vec<bool> = selector_used.to_vec().iter().map(|&b| b != 0).collect();
 
-        let witness = RLNWitnessInputV3::new_multi()
-            .identity_secret(IdSecret::from(&mut identity_secret_fr))
+        let witness = RLNWitnessInput::new_multi()
+            .identity_secret(identity_secret.inner().clone())
             .user_message_limit(user_message_limit.inner())
-            .path_elements(path_elements)
-            .identity_path_index(identity_path_index)
+            .merkle_proof(merkle_proof.0.clone())
             .x(x.inner())
             .external_nullifier(external_nullifier.inner())
             .message_ids(message_ids)
@@ -154,8 +211,8 @@ impl WasmRLNWitnessInput {
     }
 
     #[wasm_bindgen(js_name = getIdentitySecret)]
-    pub fn get_identity_secret(&self) -> WasmFr {
-        WasmFr::from(**self.0.identity_secret())
+    pub fn get_identity_secret(&self) -> WasmSecretFr {
+        WasmSecretFr::from(self.0.identity_secret().clone())
     }
 
     #[wasm_bindgen(js_name = getUserMessageLimit)]
@@ -181,6 +238,11 @@ impl WasmRLNWitnessInput {
     #[wasm_bindgen(js_name = getIdentityPathIndex)]
     pub fn get_identity_path_index(&self) -> Uint8Array {
         Uint8Array::from(self.0.identity_path_index())
+    }
+
+    #[wasm_bindgen(js_name = getMerkleProof)]
+    pub fn get_merkle_proof(&self) -> WasmRLNMerkleProof {
+        WasmRLNMerkleProof(self.0.merkle_proof())
     }
 
     #[wasm_bindgen(js_name = getX)]
@@ -222,48 +284,41 @@ impl WasmRLNWitnessInput {
 
     #[wasm_bindgen(js_name = fromBytesLE)]
     pub fn from_bytes_le(bytes: &Uint8Array) -> Result<WasmRLNWitnessInput, String> {
-        let witness = RLNWitnessInputV3::deserialize_compressed(&bytes.to_vec()[..])
+        let witness = RLNWitnessInput::deserialize_compressed(&bytes.to_vec()[..])
             .map_err(|err| err.to_string())?;
         Ok(WasmRLNWitnessInput(witness))
     }
 
     #[wasm_bindgen(js_name = fromBytesBE)]
     pub fn from_bytes_be(bytes: &Uint8Array) -> Result<WasmRLNWitnessInput, String> {
-        let witness =
-            <RLNWitnessInputV3 as CanonicalDeserializeBE>::deserialize(&bytes.to_vec()[..])
-                .map_err(|err| err.to_string())?;
+        let witness = <RLNWitnessInput as CanonicalDeserializeBE>::deserialize(&bytes.to_vec()[..])
+            .map_err(|err| err.to_string())?;
         Ok(WasmRLNWitnessInput(witness))
     }
 
     #[wasm_bindgen(js_name = toProofValues)]
     pub fn to_proof_values(&self) -> WasmRLNProofValues {
-        WasmRLNProofValues(RLNProofValuesV3::from(&self.0))
+        WasmRLNProofValues(RLNProofValues::from_witness::<PoseidonHash>(&self.0))
     }
 }
 
 // WasmRLNPartialWitnessInput
 
 #[wasm_bindgen]
-pub struct WasmRLNPartialWitnessInput(RLNPartialWitnessInputV3);
+pub struct WasmRLNPartialWitnessInput(RLNPartialWitnessInput);
 
 #[wasm_bindgen]
 impl WasmRLNPartialWitnessInput {
     #[wasm_bindgen(js_name = new)]
     pub fn new(
-        identity_secret: &WasmFr,
+        identity_secret: &WasmSecretFr,
         user_message_limit: &WasmFr,
-        path_elements: &VecWasmFr,
-        identity_path_index: &Uint8Array,
+        merkle_proof: &WasmRLNMerkleProof,
     ) -> Result<WasmRLNPartialWitnessInput, String> {
-        let mut identity_secret_fr = identity_secret.inner();
-        let path_elements: Vec<Fr> = path_elements.inner();
-        let identity_path_index: Vec<u8> = identity_path_index.to_vec();
-
-        let witness = RLNPartialWitnessInputV3::new()
-            .identity_secret(IdSecret::from(&mut identity_secret_fr))
+        let witness = RLNPartialWitnessInput::new()
+            .identity_secret(identity_secret.inner().clone())
             .user_message_limit(user_message_limit.inner())
-            .path_elements(path_elements)
-            .identity_path_index(identity_path_index)
+            .merkle_proof(merkle_proof.0.clone())
             .build()
             .map_err(|err| err.to_string())?;
 
@@ -272,7 +327,7 @@ impl WasmRLNPartialWitnessInput {
 
     #[wasm_bindgen(js_name = fromWitness)]
     pub fn from_witness(witness: &WasmRLNWitnessInput) -> WasmRLNPartialWitnessInput {
-        WasmRLNPartialWitnessInput(RLNPartialWitnessInputV3::from(&witness.0))
+        WasmRLNPartialWitnessInput(RLNPartialWitnessInput::from(&witness.0))
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]
@@ -286,7 +341,7 @@ impl WasmRLNPartialWitnessInput {
 
     #[wasm_bindgen(js_name = fromBytesLE)]
     pub fn from_bytes_le(bytes: &Uint8Array) -> Result<WasmRLNPartialWitnessInput, String> {
-        let witness = RLNPartialWitnessInputV3::deserialize_compressed(&bytes.to_vec()[..])
+        let witness = RLNPartialWitnessInput::deserialize_compressed(&bytes.to_vec()[..])
             .map_err(|err| err.to_string())?;
         Ok(WasmRLNPartialWitnessInput(witness))
     }
@@ -301,7 +356,7 @@ impl WasmRLNPartialWitnessInput {
     #[wasm_bindgen(js_name = fromBytesBE)]
     pub fn from_bytes_be(bytes: &Uint8Array) -> Result<WasmRLNPartialWitnessInput, String> {
         let witness =
-            <RLNPartialWitnessInputV3 as CanonicalDeserializeBE>::deserialize(&bytes.to_vec()[..])
+            <RLNPartialWitnessInput as CanonicalDeserializeBE>::deserialize(&bytes.to_vec()[..])
                 .map_err(|err| err.to_string())?;
         Ok(WasmRLNPartialWitnessInput(witness))
     }
@@ -310,7 +365,7 @@ impl WasmRLNPartialWitnessInput {
 // WasmRLNProof
 
 #[wasm_bindgen]
-pub struct WasmRLNProof(RLNProofV3);
+pub struct WasmRLNProof(RLNProof);
 
 #[wasm_bindgen]
 impl WasmRLNProof {
@@ -325,8 +380,8 @@ impl WasmRLNProof {
 
     #[wasm_bindgen(js_name = fromBytesLE)]
     pub fn from_bytes_le(bytes: &Uint8Array) -> Result<WasmRLNProof, String> {
-        let rln_proof = RLNProofV3::deserialize_compressed(&bytes.to_vec()[..])
-            .map_err(|err| err.to_string())?;
+        let rln_proof =
+            RLNProof::deserialize_compressed(&bytes.to_vec()[..]).map_err(|err| err.to_string())?;
         Ok(WasmRLNProof(rln_proof))
     }
 
@@ -341,7 +396,7 @@ impl WasmRLNProof {
     /// Deserializes from mixed-endian format produced by `toBytesMixed`.
     #[wasm_bindgen(js_name = fromBytesMixed)]
     pub fn from_bytes_mixed(bytes: &Uint8Array) -> Result<WasmRLNProof, String> {
-        let rln_proof = <RLNProofV3 as CanonicalDeserializeMixed>::deserialize(&bytes.to_vec()[..])
+        let rln_proof = <RLNProof as CanonicalDeserializeMixed>::deserialize(&bytes.to_vec()[..])
             .map_err(|err| err.to_string())?;
         Ok(WasmRLNProof(rln_proof))
     }
@@ -379,7 +434,7 @@ impl WasmRLNPartialProof {
 // WasmRLNProofValues
 
 #[wasm_bindgen]
-pub struct WasmRLNProofValues(RLNProofValuesV3);
+pub struct WasmRLNProofValues(RLNProofValues);
 
 #[wasm_bindgen]
 impl WasmRLNProofValues {
@@ -447,7 +502,7 @@ impl WasmRLNProofValues {
 
     #[wasm_bindgen(js_name = fromBytesLE)]
     pub fn from_bytes_le(bytes: &Uint8Array) -> Result<WasmRLNProofValues, String> {
-        let proof_values = RLNProofValuesV3::deserialize_compressed(&bytes.to_vec()[..])
+        let proof_values = RLNProofValues::deserialize_compressed(&bytes.to_vec()[..])
             .map_err(|err| err.to_string())?;
         Ok(WasmRLNProofValues(proof_values))
     }
@@ -455,33 +510,33 @@ impl WasmRLNProofValues {
     #[wasm_bindgen(js_name = fromBytesBE)]
     pub fn from_bytes_be(bytes: &Uint8Array) -> Result<WasmRLNProofValues, String> {
         let proof_values =
-            <RLNProofValuesV3 as CanonicalDeserializeBE>::deserialize(&bytes.to_vec()[..])
+            <RLNProofValues as CanonicalDeserializeBE>::deserialize(&bytes.to_vec()[..])
                 .map_err(|err| err.to_string())?;
         Ok(WasmRLNProofValues(proof_values))
     }
 
     #[wasm_bindgen(js_name = computeIdSecret)]
-    pub fn compute_id_secret_from_shares(
+    pub fn compute_id_secret(
         share1_x: &WasmFr,
         share1_y: &WasmFr,
         share2_x: &WasmFr,
         share2_y: &WasmFr,
-    ) -> Result<WasmFr, String> {
+    ) -> Result<WasmSecretFr, String> {
         let share1 = (share1_x.inner(), share1_y.inner());
         let share2 = (share2_x.inner(), share2_y.inner());
         let secret = compute_id_secret(share1, share2).map_err(|err| err.to_string())?;
-        Ok(WasmFr::from(*secret))
+        Ok(WasmSecretFr::from(secret))
     }
 
     #[wasm_bindgen(js_name = recoverIdSecret)]
     pub fn recover_id_secret(
         proof_values_1: &WasmRLNProofValues,
         proof_values_2: &WasmRLNProofValues,
-    ) -> Result<WasmFr, String> {
+    ) -> Result<WasmSecretFr, String> {
         let recovered_identity_secret = proof_values_1
             .0
             .recover_secret(&proof_values_2.0)
             .map_err(|err| err.to_string())?;
-        Ok(WasmFr::from(*recovered_identity_secret))
+        Ok(WasmSecretFr::from(recovered_identity_secret))
     }
 }

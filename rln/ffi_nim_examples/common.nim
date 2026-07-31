@@ -4,19 +4,23 @@ const treeDepth = 20
 const maxOut = 4
 
 type Member = object
-  keys: Vec_CFr
-  identitySecret: ptr CFr
-  idCommitment: ptr CFr
-  userMessageLimit: ptr CFr
-  rateCommitment: ptr CFr
+  identitySecret: ptr SecretFr
+  idCommitment: ptr Fr
+  userMessageLimit: ptr Fr
+  rateCommitment: ptr Fr
 
-proc printCfr(label: string, value: ptr CFr) =
-  let debug = ffi_cfr_debug(value)
+proc printFr(label: string, value: ptr Fr) =
+  let debug = ffi_fr_debug(value)
   echo "  - " & label & " = " & asString(debug)
   ffi_c_string_free(debug)
 
-proc printVecCfr(label: string, value: ptr Vec_CFr) =
-  let debug = ffi_vec_cfr_debug(value)
+proc printSecretFr(label: string, value: ptr SecretFr) =
+  let debug = ffi_secret_fr_debug(value)
+  echo "  - " & label & " = " & asString(debug)
+  ffi_c_string_free(debug)
+
+proc printVecFr(label: string, value: ptr Vec_Fr) =
+  let debug = ffi_vec_fr_debug(value)
   echo "  - " & label & " = " & asString(debug)
   ffi_c_string_free(debug)
 
@@ -43,7 +47,7 @@ proc initRLN(enableMultiMessageId: bool): ptr RLN =
   var (zkeyBytes, graphBytes) = loadResources(enableMultiMessageId)
   var zkeyData = asVecU8(zkeyBytes)
   var graphData = asVecU8(graphBytes)
-  let rlnInstanceResult = ffi_rln_v3_new_with_pm_tree(csize_t(treeDepth),
+  let rlnInstanceResult = ffi_rln_new_with_pm_tree(csize_t(treeDepth),
       addr zkeyData, addr graphData, "")
   if rlnInstanceResult.ok.isNil:
     stderr.writeLine("RLN instance creation error: " & asString(
@@ -61,7 +65,7 @@ proc initRLNStateless(): ptr RLN =
   var (zkeyBytes, graphBytes) = loadResources(false)
   var zkeyData = asVecU8(zkeyBytes)
   var graphData = asVecU8(graphBytes)
-  let rlnInstanceResult = ffi_rln_v3_new_stateless(addr zkeyData,
+  let rlnInstanceResult = ffi_rln_new_stateless(addr zkeyData,
       addr graphData)
   if rlnInstanceResult.ok.isNil:
     stderr.writeLine("RLN instance creation error: " & asString(
@@ -74,31 +78,33 @@ proc initRLNStateless(): ptr RLN =
 
 proc createMember(): Member =
   echo "\nGenerating identity keys"
-  result.keys = ffi_key_gen()
-  result.identitySecret = ffi_vec_cfr_get(addr result.keys, csize_t(0))
-  result.idCommitment = ffi_vec_cfr_get(addr result.keys, csize_t(1))
+  let keys = ffi_identity_keys_generate()
+  result.identitySecret = ffi_identity_keys_get_secret(keys)
+  result.idCommitment = ffi_identity_keys_get_commitment(keys)
+  ffi_identity_keys_free(keys)
   echo "  - identity generated successfully"
-  printCfr("identity secret", result.identitySecret)
-  printCfr("id commitment", result.idCommitment)
+  printSecretFr("identity secret", result.identitySecret)
+  printFr("id commitment", result.idCommitment)
 
   echo "\nCreating message limit"
-  result.userMessageLimit = ffi_uint_to_cfr(10'u32)
-  printCfr("user message limit", result.userMessageLimit)
+  result.userMessageLimit = ffi_uint_to_fr(10'u32)
+  printFr("user message limit", result.userMessageLimit)
 
   echo "\nComputing rate commitment"
   result.rateCommitment = ffi_poseidon_hash_pair(result.idCommitment,
       result.userMessageLimit)
-  printCfr("rate commitment", result.rateCommitment)
+  printFr("rate commitment", result.rateCommitment)
 
 proc memberFree(member: var Member) =
-  ffi_cfr_free(member.rateCommitment)
-  ffi_cfr_free(member.userMessageLimit)
-  ffi_vec_cfr_free(member.keys)
+  ffi_fr_free(member.rateCommitment)
+  ffi_fr_free(member.userMessageLimit)
+  ffi_secret_fr_free(member.identitySecret)
+  ffi_fr_free(member.idCommitment)
 
 proc registerMember(rlnInstance: var ptr RLN,
-    rateCommitment: ptr CFr): ptr MerkleProof =
+    rateCommitment: ptr Fr): ptr MerkleProof =
   echo "\nAdding rate commitment to tree"
-  let setLeafResult = ffi_rln_v3_set_next_leaf(addr rlnInstance, rateCommitment)
+  let setLeafResult = ffi_rln_set_next_leaf(rlnInstance, rateCommitment)
   if not setLeafResult.ok:
     stderr.writeLine("Adding rate commitment error: " & asString(
         setLeafResult.err))
@@ -107,7 +113,7 @@ proc registerMember(rlnInstance: var ptr RLN,
   echo "  - rate commitment added at leaf 0"
 
   echo "\nGetting Merkle proof"
-  let merkleProofResult = ffi_rln_v3_get_merkle_proof(addr rlnInstance,
+  let merkleProofResult = ffi_rln_get_merkle_proof(rlnInstance,
       csize_t(0))
   if merkleProofResult.ok.isNil:
     stderr.writeLine("Merkle proof error: " & asString(merkleProofResult.err))
@@ -116,37 +122,48 @@ proc registerMember(rlnInstance: var ptr RLN,
   echo "  - merkle proof obtained"
   merkleProofResult.ok
 
-proc hashSignal(signal: var array[32, uint8]): ptr CFr =
+proc hashSignal(signal: var array[32, uint8]): ptr Fr =
   var signalVec = Vec_uint8(dataPtr: addr signal[0], len: csize_t(32),
       cap: csize_t(32))
   ffi_hash_to_field_le(addr signalVec)
 
-proc computeExternalNullifier(): ptr CFr =
+proc computeExternalNullifier(): ptr Fr =
   echo "\nHashing epoch"
   let epochStr = "test-epoch"
   var epochBuf = strToBytes(epochStr)
   var epochVec = asVecU8(epochBuf)
   let epoch = ffi_hash_to_field_le(addr epochVec)
-  printCfr("epoch", epoch)
+  printFr("epoch", epoch)
 
   echo "\nHashing RLN identifier"
   let rlnIdStr = "test-rln-identifier"
   var rlnIdBuf = strToBytes(rlnIdStr)
   var rlnIdVec = asVecU8(rlnIdBuf)
   let rlnIdentifier = ffi_hash_to_field_le(addr rlnIdVec)
-  printCfr("RLN identifier", rlnIdentifier)
+  printFr("RLN identifier", rlnIdentifier)
 
   echo "\nComputing Poseidon hash for external nullifier"
   let externalNullifier = ffi_poseidon_hash_pair(epoch, rlnIdentifier)
-  printCfr("external nullifier", externalNullifier)
+  printFr("external nullifier", externalNullifier)
 
-  ffi_cfr_free(rlnIdentifier)
-  ffi_cfr_free(epoch)
+  ffi_fr_free(rlnIdentifier)
+  ffi_fr_free(epoch)
   externalNullifier
 
 proc createWitness(member: Member,
-    merkleProof: ptr MerkleProof, messageId: ptr CFr, x: ptr CFr,
-    externalNullifier: ptr CFr): WitnessResult =
-  ffi_rln_v3_witness_input_new_single(member.identitySecret,
-      member.userMessageLimit, messageId, addr merkleProof.path_elements,
-      addr merkleProof.path_index, x, externalNullifier)
+    merkleProof: ptr MerkleProof, messageId: ptr Fr, x: ptr Fr,
+    externalNullifier: ptr Fr): WitnessResult =
+  ffi_rln_witness_input_new_single(member.identitySecret,
+      member.userMessageLimit, messageId, merkleProof, x, externalNullifier)
+
+proc verifyStatefulProof(rlnInstance: var ptr RLN, rlnProof: var ptr Proof,
+    x: ptr Fr): CBoolResult =
+  let rootResult = ffi_rln_get_root(rlnInstance)
+  if rootResult.ok == nil:
+    return CBoolResult(ok: false, err: rootResult.err)
+  let root = rootResult.ok
+  var roots = ffi_vec_fr_from_fr(root)
+  result = ffi_rln_verify_with_roots(rlnInstance, rlnProof,
+      addr roots, x)
+  ffi_vec_fr_free(roots)
+  ffi_fr_free(root)

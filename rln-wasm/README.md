@@ -5,7 +5,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 The Zerokit RLN WASM Module provides WebAssembly bindings for working with
-Rate-Limiting Nullifier [RLN](https://lip.logos.co/ift-ts/raw/rln-v2) zkSNARK proofs and primitives.
+Rate-Limiting Nullifier [RLN](https://lip.logos.co/anoncomms/raw/rln-v2.html) zkSNARK proofs and primitives.
 This module is used by [waku-org/js-rln](https://github.com/waku-org/js-rln/)
 to enable RLN functionality in JavaScript/TypeScript applications.
 
@@ -68,7 +68,7 @@ cargo make test_parallel          # Parallel tests
 
 ## Examples
 
-See [Node example](./examples/index.js) and [README](./examples/Readme.md)
+See the [Node examples](./examples/) and their [README](./examples/README.md)
 for proof generation, verification, and slashing.
 
 ## Parallel Computation
@@ -89,7 +89,7 @@ Enables multi-threaded browser execution using `wasm-bindgen-rayon`.
 Direct usage (modern browsers with WebAssembly threads support):
 
 ```js
-import * as wasmPkg from '@waku/zerokit-rln-wasm-parallel';
+import * as wasmPkg from "@waku/zerokit-rln-wasm-parallel";
 
 await wasmPkg.default();
 await wasmPkg.initThreadPool(navigator.hardwareConcurrency);
@@ -108,16 +108,16 @@ You can use the [wasm-feature-detect](https://github.com/GoogleChromeLabs/wasm-f
 library for this purpose:
 
 ```js
-import { threads } from 'wasm-feature-detect';
+import { threads } from "wasm-feature-detect";
 
 let wasmPkg;
 
 if (await threads()) {
-  wasmPkg = await import('@waku/zerokit-rln-wasm-parallel');
+  wasmPkg = await import("@waku/zerokit-rln-wasm-parallel");
   await wasmPkg.default();
   await wasmPkg.initThreadPool(navigator.hardwareConcurrency);
 } else {
-  wasmPkg = await import('@waku/zerokit-rln-wasm');
+  wasmPkg = await import("@waku/zerokit-rln-wasm");
   await wasmPkg.default();
 }
 

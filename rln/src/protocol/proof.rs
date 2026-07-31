@@ -1,1007 +1,183 @@
-use ark_ff::PrimeField;
-use ark_groth16::{prepare_verifying_key, Groth16};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::{rand::thread_rng, UniformRand};
-use num_bigint::BigInt;
-use num_traits::Signed;
-use zeroize::Zeroize;
+use bon::bon;
+use zerokit_utils::{hasher::ZerokitHasher, merkle_tree::compute_tree_root};
 
-#[cfg(not(target_arch = "wasm32"))]
-use super::witness::{
-    inputs_for_partial_witness_calculation, inputs_for_witness_calculation, RLNMessageInputs,
-    RLNPartialWitnessInput, RLNWitnessInput,
-};
 use super::{
-    mode::{MessageMode, VERSION_BYTE_SIZE},
+    secret::{compute_id_commitment, compute_share_slope},
     slashing::compute_id_secret,
-    witness::{compute_tree_root, RLNWitnessInputMulti, RLNWitnessInputSingle, RLNWitnessInputV3},
+    witness::{RLNWitnessInput, RLNWitnessInputMulti, RLNWitnessInputSingle},
     zk::RecoverSecret,
-    FR_BYTE_SIZE, VEC_LEN_BYTE_SIZE,
-};
-#[cfg(not(target_arch = "wasm32"))]
-use crate::{
-    circuit::{
-        iden3calc::{calc_witness, calc_witness_partial},
-        Graph,
-    },
-    partial_proof::{Groth16Partial, PartialAssignment},
 };
 use crate::{
-    circuit::{
-        qap::CircomReduction, Curve, Fr, PartialProof, Proof, VerifyingKey, Zkey,
-        COMPRESS_PROOF_SIZE,
-    },
-    error::{ProtocolError, RecoverSecretError},
-    hashers::poseidon_hash,
-    utils::{
-        bytes_be_to_fr, bytes_be_to_vec_bool, bytes_be_to_vec_fr, bytes_le_to_fr,
-        bytes_le_to_vec_bool, bytes_le_to_vec_fr, fr_to_bytes_be, fr_to_bytes_le,
-        vec_bool_to_bytes_be, vec_bool_to_bytes_le, vec_fr_to_bytes_be, vec_fr_to_bytes_le,
-        IdSecret,
-    },
+    circuit::{Fr, Proof, SecretFr},
+    error::{ProofValuesMultiError, RecoverSecretError},
+    hashers::Hasher,
 };
 
-/// Complete RLN proof.
-///
-/// Combines the Groth16 proof with its public values.
-///
-/// The serialization format for this type is defined in the `protocol::mode` module.
-#[derive(Debug, PartialEq, Clone)]
-pub struct RLNProof {
-    pub proof: Proof,
-    pub proof_values: RLNProofValues,
-}
-
-impl RLNProof {
-    /// Returns the version byte corresponding to the proof values variant.
-    pub fn version_byte(&self) -> u8 {
-        self.proof_values.version_byte()
-    }
-}
-
-/// Variant-specific outputs for RLN proof verification.
-#[derive(Debug, PartialEq, Clone)]
-pub(crate) enum RLNOutputs {
-    SingleV1 {
-        y: Fr,
-        nullifier: Fr,
-    },
-    MultiV1 {
-        ys: Vec<Fr>,
-        nullifiers: Vec<Fr>,
-        selector_used: Vec<bool>,
-    },
-}
-
-/// Public values for RLN proof verification.
-///
-/// Contains the circuit's public inputs and outputs. Used in proof verification
-/// and identity secret recovery when rate limit violations are detected.
-///
-/// The serialization format for this type is defined in the `protocol::mode` module.
-#[derive(Debug, PartialEq, Clone)]
-pub struct RLNProofValues {
-    root: Fr,
-    x: Fr,
-    external_nullifier: Fr,
-    pub(crate) outputs: RLNOutputs,
-}
-
-impl RLNProofValues {
-    /// Creates a new single message-id RLNProofValues.
-    pub fn new_single(root: Fr, x: Fr, external_nullifier: Fr, y: Fr, nullifier: Fr) -> Self {
-        Self {
-            root,
-            x,
-            external_nullifier,
-            outputs: RLNOutputs::SingleV1 { y, nullifier },
-        }
-    }
-
-    /// Creates a new multi message-id RLNProofValues.
-    pub fn new_multi(
-        root: Fr,
-        x: Fr,
-        external_nullifier: Fr,
-        ys: Vec<Fr>,
-        nullifiers: Vec<Fr>,
-        selector_used: Vec<bool>,
-    ) -> Self {
-        Self {
-            root,
-            x,
-            external_nullifier,
-            outputs: RLNOutputs::MultiV1 {
-                ys,
-                nullifiers,
-                selector_used,
-            },
-        }
-    }
-
-    /// Returns the version byte corresponding to the proof values variant.
-    pub fn version_byte(&self) -> u8 {
-        match &self.outputs {
-            RLNOutputs::SingleV1 { .. } => MessageMode::SingleV1.version_byte(),
-            RLNOutputs::MultiV1 { .. } => MessageMode::MultiV1 { max_out: 0 }.version_byte(),
-        }
-    }
-
-    /// Returns the Merkle tree root.
-    pub fn root(&self) -> &Fr {
-        &self.root
-    }
-
-    /// Returns the signal hash.
-    pub fn x(&self) -> &Fr {
-        &self.x
-    }
-
-    /// Returns the external nullifier.
-    pub fn external_nullifier(&self) -> &Fr {
-        &self.external_nullifier
-    }
-
-    pub fn y(&self) -> &Fr {
-        match &self.outputs {
-            RLNOutputs::SingleV1 { y, .. } => y,
-            RLNOutputs::MultiV1 { .. } => {
-                todo!("y() is not available for MultiV1 proof values; use ys()")
-            }
-        }
-    }
-
-    pub fn nullifier(&self) -> &Fr {
-        match &self.outputs {
-            RLNOutputs::SingleV1 { nullifier, .. } => nullifier,
-            RLNOutputs::MultiV1 { .. } => {
-                todo!("nullifier() is not available for MultiV1 proof values; use nullifiers()")
-            }
-        }
-    }
-
-    pub fn selector_used(&self) -> &[bool] {
-        match &self.outputs {
-            RLNOutputs::MultiV1 { selector_used, .. } => selector_used,
-            RLNOutputs::SingleV1 { .. } => {
-                todo!("selector_used() is not available for SingleV1 proof values")
-            }
-        }
-    }
-
-    pub fn ys(&self) -> &[Fr] {
-        match &self.outputs {
-            RLNOutputs::MultiV1 { ys, .. } => ys,
-            RLNOutputs::SingleV1 { .. } => {
-                todo!("ys() is not available for SingleV1 proof values; use y()")
-            }
-        }
-    }
-
-    pub fn nullifiers(&self) -> &[Fr] {
-        match &self.outputs {
-            RLNOutputs::MultiV1 { nullifiers, .. } => nullifiers,
-            RLNOutputs::SingleV1 { .. } => {
-                todo!("nullifiers() is not available for SingleV1 proof values; use nullifier()")
-            }
-        }
-    }
-}
-
-/// Serializes RLN proof values to little-endian bytes.
-pub fn rln_proof_values_to_bytes_le(rln_proof_values: &RLNProofValues) -> Vec<u8> {
-    let RLNProofValues {
-        root,
-        x,
-        external_nullifier,
-        outputs,
-    } = rln_proof_values;
-
-    let capacity = match outputs {
-        RLNOutputs::SingleV1 { .. } => VERSION_BYTE_SIZE + FR_BYTE_SIZE * 5,
-        RLNOutputs::MultiV1 {
-            ys,
-            nullifiers,
-            selector_used,
-        } => {
-            VERSION_BYTE_SIZE
-                + FR_BYTE_SIZE * (3 + ys.len() + nullifiers.len())
-                + selector_used.len()
-                + VEC_LEN_BYTE_SIZE * 3
-        }
-    };
-
-    let mut bytes = Vec::with_capacity(capacity);
-    bytes.push(rln_proof_values.version_byte());
-    bytes.extend_from_slice(&fr_to_bytes_le(root));
-    bytes.extend_from_slice(&fr_to_bytes_le(external_nullifier));
-    bytes.extend_from_slice(&fr_to_bytes_le(x));
-
-    match outputs {
-        RLNOutputs::SingleV1 { y, nullifier } => {
-            bytes.extend_from_slice(&fr_to_bytes_le(y));
-            bytes.extend_from_slice(&fr_to_bytes_le(nullifier));
-        }
-        RLNOutputs::MultiV1 {
-            ys,
-            nullifiers,
-            selector_used,
-        } => {
-            bytes.extend_from_slice(&vec_fr_to_bytes_le(ys));
-            bytes.extend_from_slice(&vec_fr_to_bytes_le(nullifiers));
-            bytes.extend_from_slice(&vec_bool_to_bytes_le(selector_used));
-        }
-    }
-    bytes
-}
-
-/// Serializes RLN proof values to big-endian bytes.
-pub fn rln_proof_values_to_bytes_be(rln_proof_values: &RLNProofValues) -> Vec<u8> {
-    let RLNProofValues {
-        root,
-        x,
-        external_nullifier,
-        outputs,
-    } = rln_proof_values;
-
-    let capacity = match outputs {
-        RLNOutputs::SingleV1 { .. } => VERSION_BYTE_SIZE + FR_BYTE_SIZE * 5,
-        RLNOutputs::MultiV1 {
-            ys,
-            nullifiers,
-            selector_used,
-        } => {
-            VERSION_BYTE_SIZE
-                + FR_BYTE_SIZE * (3 + ys.len() + nullifiers.len())
-                + selector_used.len()
-                + VEC_LEN_BYTE_SIZE * 3
-        }
-    };
-
-    let mut bytes = Vec::with_capacity(capacity);
-    bytes.push(rln_proof_values.version_byte());
-    bytes.extend_from_slice(&fr_to_bytes_be(root));
-    bytes.extend_from_slice(&fr_to_bytes_be(external_nullifier));
-    bytes.extend_from_slice(&fr_to_bytes_be(x));
-
-    match outputs {
-        RLNOutputs::SingleV1 { y, nullifier } => {
-            bytes.extend_from_slice(&fr_to_bytes_be(y));
-            bytes.extend_from_slice(&fr_to_bytes_be(nullifier));
-        }
-        RLNOutputs::MultiV1 {
-            ys,
-            nullifiers,
-            selector_used,
-        } => {
-            bytes.extend_from_slice(&vec_fr_to_bytes_be(ys));
-            bytes.extend_from_slice(&vec_fr_to_bytes_be(nullifiers));
-            bytes.extend_from_slice(&vec_bool_to_bytes_be(selector_used));
-        }
-    }
-    bytes
-}
-
-/// Deserializes RLN proof values from little-endian bytes.
-///
-/// Returns the deserialized proof values and the number of bytes read.
-pub fn bytes_le_to_rln_proof_values(
-    bytes: &[u8],
-) -> Result<(RLNProofValues, usize), ProtocolError> {
-    if bytes.is_empty() {
-        return Err(ProtocolError::InvalidReadLen(1, 0));
-    }
-
-    let version = MessageMode::try_from(bytes[0])?;
-    let mut read: usize = VERSION_BYTE_SIZE;
-
-    let (root, el_size) = bytes_le_to_fr(&bytes[read..])?;
-    read += el_size;
-    let (external_nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
-    read += el_size;
-    let (x, el_size) = bytes_le_to_fr(&bytes[read..])?;
-    read += el_size;
-
-    let proof_values = match version {
-        MessageMode::SingleV1 => {
-            let (y, el_size) = bytes_le_to_fr(&bytes[read..])?;
-            read += el_size;
-            let (nullifier, el_size) = bytes_le_to_fr(&bytes[read..])?;
-            read += el_size;
-            RLNProofValues::new_single(root, x, external_nullifier, y, nullifier)
-        }
-        MessageMode::MultiV1 { .. } => {
-            let (ys, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
-            read += el_size;
-            let (nullifiers, el_size) = bytes_le_to_vec_fr(&bytes[read..])?;
-            read += el_size;
-            let (selector_used, el_size) = bytes_le_to_vec_bool(&bytes[read..])?;
-            read += el_size;
-
-            if selector_used.len() != ys.len() {
-                return Err(ProtocolError::FieldLengthMismatch(
-                    "ys",
-                    ys.len(),
-                    "selector_used",
-                    selector_used.len(),
-                ));
-            }
-            if nullifiers.len() != ys.len() {
-                return Err(ProtocolError::FieldLengthMismatch(
-                    "ys",
-                    ys.len(),
-                    "nullifiers",
-                    nullifiers.len(),
-                ));
-            }
-            RLNProofValues::new_multi(root, x, external_nullifier, ys, nullifiers, selector_used)
-        }
-    };
-
-    if read != bytes.len() {
-        return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-    }
-    Ok((proof_values, read))
-}
-
-/// Deserializes RLN proof values from big-endian bytes.
-///
-/// Returns the deserialized proof values and the number of bytes read.
-pub fn bytes_be_to_rln_proof_values(
-    bytes: &[u8],
-) -> Result<(RLNProofValues, usize), ProtocolError> {
-    if bytes.is_empty() {
-        return Err(ProtocolError::InvalidReadLen(1, 0));
-    }
-
-    let version = MessageMode::try_from(bytes[0])?;
-    let mut read: usize = VERSION_BYTE_SIZE;
-
-    let (root, el_size) = bytes_be_to_fr(&bytes[read..])?;
-    read += el_size;
-    let (external_nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
-    read += el_size;
-    let (x, el_size) = bytes_be_to_fr(&bytes[read..])?;
-    read += el_size;
-
-    let proof_values = match version {
-        MessageMode::SingleV1 => {
-            let (y, el_size) = bytes_be_to_fr(&bytes[read..])?;
-            read += el_size;
-            let (nullifier, el_size) = bytes_be_to_fr(&bytes[read..])?;
-            read += el_size;
-            RLNProofValues::new_single(root, x, external_nullifier, y, nullifier)
-        }
-        MessageMode::MultiV1 { .. } => {
-            let (ys, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
-            read += el_size;
-            let (nullifiers, el_size) = bytes_be_to_vec_fr(&bytes[read..])?;
-            read += el_size;
-            let (selector_used, el_size) = bytes_be_to_vec_bool(&bytes[read..])?;
-            read += el_size;
-
-            if selector_used.len() != ys.len() {
-                return Err(ProtocolError::FieldLengthMismatch(
-                    "ys",
-                    ys.len(),
-                    "selector_used",
-                    selector_used.len(),
-                ));
-            }
-            if nullifiers.len() != ys.len() {
-                return Err(ProtocolError::FieldLengthMismatch(
-                    "ys",
-                    ys.len(),
-                    "nullifiers",
-                    nullifiers.len(),
-                ));
-            }
-            RLNProofValues::new_multi(root, x, external_nullifier, ys, nullifiers, selector_used)
-        }
-    };
-
-    if read != bytes.len() {
-        return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-    }
-    Ok((proof_values, read))
-}
-
-/// Serializes RLN proof to little-endian bytes.
-///
-/// The Groth16 proof is always serialized in LE format (arkworks behavior),
-/// while proof_values are serialized in LE format.
-pub fn rln_proof_to_bytes_le(rln_proof: &RLNProof) -> Result<Vec<u8>, ProtocolError> {
-    // Calculate capacity for Vec:
-    // - VERSION_BYTE_SIZE byte for version tag in rln proof
-    // - variable size of proof values (includes VERSION_BYTE_SIZE)
-    // - COMPRESS_PROOF_SIZE bytes for compressed Groth16 proof
-    let proof_values_bytes = rln_proof_values_to_bytes_le(&rln_proof.proof_values);
-    let mut bytes =
-        Vec::with_capacity(VERSION_BYTE_SIZE + COMPRESS_PROOF_SIZE + proof_values_bytes.len());
-
-    bytes.push(rln_proof.proof_values.version_byte());
-    // Serialize proof (always LE format from arkworks)
-    rln_proof.proof.serialize_compressed(&mut bytes)?;
-    bytes.extend_from_slice(&proof_values_bytes);
-
-    Ok(bytes)
-}
-
-/// Serializes RLN proof to big-endian bytes.
-///
-/// The Groth16 proof is always serialized in LE format (arkworks behavior),
-/// while proof_values are serialized in BE format. This creates a mixed-endian format.
-pub fn rln_proof_to_bytes_be(rln_proof: &RLNProof) -> Result<Vec<u8>, ProtocolError> {
-    // Calculate capacity for Vec:
-    // - VERSION_BYTE_SIZE byte for version tag in rln proof
-    // - variable size of proof values (includes VERSION_BYTE_SIZE)
-    // - COMPRESS_PROOF_SIZE bytes for compressed Groth16 proof
-    let proof_values_bytes = rln_proof_values_to_bytes_be(&rln_proof.proof_values);
-    let mut bytes =
-        Vec::with_capacity(VERSION_BYTE_SIZE + COMPRESS_PROOF_SIZE + proof_values_bytes.len());
-
-    bytes.push(rln_proof.proof_values.version_byte());
-    // Serialize proof (always LE format from arkworks)
-    rln_proof.proof.serialize_compressed(&mut bytes)?;
-    bytes.extend_from_slice(&proof_values_bytes);
-
-    Ok(bytes)
-}
-
-/// Deserializes RLN proof from little-endian bytes.
-///
-/// Returns the deserialized proof and the number of bytes read.
-pub fn bytes_le_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), ProtocolError> {
-    if bytes.is_empty() {
-        return Err(ProtocolError::InvalidReadLen(1, 0));
-    }
-
-    let _version = MessageMode::try_from(bytes[0])?;
-    let mut read: usize = VERSION_BYTE_SIZE;
-
-    // Deserialize proof (always LE from arkworks)
-    if bytes.len() < read + COMPRESS_PROOF_SIZE {
-        return Err(ProtocolError::InvalidReadLen(
-            read + COMPRESS_PROOF_SIZE,
-            bytes.len(),
-        ));
-    }
-    let proof = Proof::deserialize_compressed(&bytes[read..read + COMPRESS_PROOF_SIZE])?;
-    read += COMPRESS_PROOF_SIZE;
-
-    let (values, el_size) = bytes_le_to_rln_proof_values(&bytes[read..])?;
-    read += el_size;
-
-    if read != bytes.len() {
-        return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-    }
-
-    Ok((
-        RLNProof {
-            proof,
-            proof_values: values,
-        },
-        read,
-    ))
-}
-
-/// Deserializes RLN proof from big-endian bytes.
-///
-/// Mixed-endian format - proof is LE (arkworks), proof_values are BE.
-///
-/// Returns the deserialized proof and the number of bytes read.
-pub fn bytes_be_to_rln_proof(bytes: &[u8]) -> Result<(RLNProof, usize), ProtocolError> {
-    if bytes.is_empty() {
-        return Err(ProtocolError::InvalidReadLen(1, 0));
-    }
-
-    let _version = MessageMode::try_from(bytes[0])?;
-    let mut read: usize = VERSION_BYTE_SIZE;
-
-    // Deserialize proof (always LE from arkworks)
-    if bytes.len() < read + COMPRESS_PROOF_SIZE {
-        return Err(ProtocolError::InvalidReadLen(
-            read + COMPRESS_PROOF_SIZE,
-            bytes.len(),
-        ));
-    }
-    let proof = Proof::deserialize_compressed(&bytes[read..read + COMPRESS_PROOF_SIZE])?;
-    read += COMPRESS_PROOF_SIZE;
-
-    let (values, el_size) = bytes_be_to_rln_proof_values(&bytes[read..])?;
-    read += el_size;
-
-    if read != bytes.len() {
-        return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-    }
-
-    Ok((
-        RLNProof {
-            proof,
-            proof_values: values,
-        },
-        read,
-    ))
-}
-
-impl PartialProof {
-    /// Returns the version byte corresponding to the partial proof variant.
-    pub fn version_byte(&self) -> u8 {
-        MessageMode::SingleV1.version_byte()
-    }
-}
-
-/// Serializes RLN partial proof to little-endian bytes.
-///
-/// The PartialProof is always serialized in LE format (arkworks behavior).
-pub fn rln_partial_proof_to_bytes_le(
-    partial_proof: &PartialProof,
-) -> Result<Vec<u8>, ProtocolError> {
-    let version_byte: u8 = MessageMode::SingleV1.version_byte();
-
-    // The compressed PartialProof size is variable (depends on circuit size).
-    let mut bytes = Vec::new();
-    bytes.push(version_byte);
-    partial_proof.serialize_compressed(&mut bytes)?;
-    Ok(bytes)
-}
-
-/// Serializes RLN partial proof to big-endian bytes.
-///
-/// The PartialProof is always serialized in LE format (arkworks behavior).
-pub fn rln_partial_proof_to_bytes_be(
-    partial_proof: &PartialProof,
-) -> Result<Vec<u8>, ProtocolError> {
-    rln_partial_proof_to_bytes_le(partial_proof)
-}
-
-/// Deserializes RLN partial proof from little-endian bytes.
-///
-/// Returns the deserialized partial proof and the number of bytes read.
-pub fn bytes_le_to_rln_partial_proof(bytes: &[u8]) -> Result<(PartialProof, usize), ProtocolError> {
-    if bytes.is_empty() {
-        return Err(ProtocolError::InvalidReadLen(1, 0));
-    }
-
-    let _version = MessageMode::try_from(bytes[0])?;
-    let mut read: usize = VERSION_BYTE_SIZE;
-
-    let mut bytes_ref = &bytes[read..];
-    let len_before = bytes_ref.len();
-    let partial_proof = PartialProof::deserialize_compressed(&mut bytes_ref)?;
-    read += len_before - bytes_ref.len();
-
-    if read != bytes.len() {
-        return Err(ProtocolError::InvalidReadLen(read, bytes.len()));
-    }
-
-    Ok((partial_proof, read))
-}
-
-/// Deserializes RLN partial proof from big-endian bytes.
-///
-/// The PartialProof is always serialized in LE format (arkworks behavior).
-///
-/// Returns the deserialized partial proof and the number of bytes read.
-pub fn bytes_be_to_rln_partial_proof(bytes: &[u8]) -> Result<(PartialProof, usize), ProtocolError> {
-    bytes_le_to_rln_partial_proof(bytes)
-}
-
-// zkSNARK proof generation and verification
-
-/// Converts calculated witness (BigInt) to field elements.
-pub fn calculated_witness_to_field_elements<E: ark_ec::pairing::Pairing>(
-    calculated_witness: Vec<BigInt>,
-) -> Result<Vec<E::ScalarField>, ProtocolError> {
-    let modulus = <E::ScalarField as PrimeField>::MODULUS;
-
-    // Convert it to field elements
-    let mut field_elements = vec![];
-    for w in calculated_witness.into_iter() {
-        let w = if w.sign() == num_bigint::Sign::Minus {
-            // Need to negate the witness element if negative
-            modulus.into()
-                - w.abs()
-                    .to_biguint()
-                    .ok_or(ProtocolError::BigUintConversion(w))?
-        } else {
-            w.to_biguint().ok_or(ProtocolError::BigUintConversion(w))?
-        };
-        field_elements.push(E::ScalarField::from(w))
-    }
-
-    Ok(field_elements)
-}
-
-/// Validates that a partial witness's dimensions match the graph's expected tree depth.
-#[cfg(not(target_arch = "wasm32"))]
-fn validate_partial_witness_against_graph(
-    partial_witness: &RLNPartialWitnessInput,
-    graph: &Graph,
-) -> Result<(), ProtocolError> {
-    let expected_tree_depth = graph.tree_depth;
-    if partial_witness.path_elements().len() != expected_tree_depth {
-        return Err(ProtocolError::FieldLengthMismatch(
-            "path_elements",
-            partial_witness.path_elements().len(),
-            "tree_depth",
-            expected_tree_depth,
-        ));
-    }
-    if partial_witness.identity_path_index().len() != expected_tree_depth {
-        return Err(ProtocolError::FieldLengthMismatch(
-            "identity_path_index",
-            partial_witness.identity_path_index().len(),
-            "tree_depth",
-            expected_tree_depth,
-        ));
-    }
-    Ok(())
-}
-
-/// Validates that a witness's dimensions match the graph's expected tree depth and max_out.
-#[cfg(not(target_arch = "wasm32"))]
-fn validate_witness_against_graph(
-    witness: &RLNWitnessInput,
-    graph: &Graph,
-) -> Result<(), ProtocolError> {
-    let expected_tree_depth = graph.tree_depth;
-    if witness.path_elements().len() != expected_tree_depth {
-        return Err(ProtocolError::FieldLengthMismatch(
-            "path_elements",
-            witness.path_elements().len(),
-            "tree_depth",
-            expected_tree_depth,
-        ));
-    }
-    if witness.identity_path_index().len() != expected_tree_depth {
-        return Err(ProtocolError::FieldLengthMismatch(
-            "identity_path_index",
-            witness.identity_path_index().len(),
-            "tree_depth",
-            expected_tree_depth,
-        ));
-    }
-
-    let witness_mode = MessageMode::from(&witness.message_inputs);
-    let graph_mode = MessageMode::from(graph);
-    if witness_mode != graph_mode {
-        return Err(ProtocolError::MessageModeAndGraphMismatch {
-            witness_mode,
-            graph_mode,
-        });
-    }
-
-    if let RLNMessageInputs::MultiV1 {
-        message_ids,
-        selector_used,
-    } = &witness.message_inputs
-    {
-        let expected_max_out = graph.max_out;
-        if message_ids.len() != expected_max_out {
-            return Err(ProtocolError::FieldLengthMismatch(
-                "message_ids",
-                message_ids.len(),
-                "max_out",
-                expected_max_out,
-            ));
-        }
-        if selector_used.len() != expected_max_out {
-            return Err(ProtocolError::FieldLengthMismatch(
-                "selector_used",
-                selector_used.len(),
-                "max_out",
-                expected_max_out,
-            ));
-        }
-    }
-
-    Ok(())
-}
-
-/// Generates a zkSNARK proof from pre-calculated witness values.
-///
-/// Use this when witness calculation is performed externally.
-pub fn generate_zk_proof_with_witness(
-    calculated_witness: Vec<BigInt>,
-    zkey: &Zkey,
-    #[cfg(not(target_arch = "wasm32"))] witness: &RLNWitnessInput,
-    #[cfg(not(target_arch = "wasm32"))] graph: &Graph,
-) -> Result<Proof, ProtocolError> {
-    #[cfg(not(target_arch = "wasm32"))]
-    validate_witness_against_graph(witness, graph)?;
-
-    let full_assignment = calculated_witness_to_field_elements::<Curve>(calculated_witness)?;
-
-    // Random Values
-    let mut rng = thread_rng();
-    let r = Fr::rand(&mut rng);
-    let s = Fr::rand(&mut rng);
-
-    let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
-        &zkey.0,
-        r,
-        s,
-        &zkey.1,
-        zkey.1.num_instance_variables,
-        zkey.1.num_constraints,
-        full_assignment.as_slice(),
-    )?;
-
-    Ok(proof)
-}
-
-/// Generates a zkSNARK proof from witness input using the provided circuit data.
-#[cfg(not(target_arch = "wasm32"))]
-pub fn generate_zk_proof(
-    zkey: &Zkey,
-    witness: &RLNWitnessInput,
-    graph: &Graph,
-) -> Result<Proof, ProtocolError> {
-    validate_witness_against_graph(witness, graph)?;
-    // Random Values
-    let mut rng = thread_rng();
-    let r = Fr::rand(&mut rng);
-    let s = Fr::rand(&mut rng);
-
-    generate_zk_proof_with_rs(zkey, witness, graph, r, s)
-}
-
-/// Generates a zkSNARK proof from witness input using the provided circuit data.
-/// Takes explicit blinding scalars `r` and `s` instead of sampling them internally.
-#[cfg(not(target_arch = "wasm32"))]
-pub fn generate_zk_proof_with_rs(
-    zkey: &Zkey,
-    witness: &RLNWitnessInput,
-    graph: &Graph,
-    r: Fr,
-    s: Fr,
-) -> Result<Proof, ProtocolError> {
-    let inputs = inputs_for_witness_calculation(witness)
-        .into_iter()
-        .map(|(name, values)| (name.to_string(), values));
-
-    let full_assignment = calc_witness(inputs, graph)?;
-
-    let proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
-        &zkey.0,
-        r,
-        s,
-        &zkey.1,
-        zkey.1.num_instance_variables,
-        zkey.1.num_constraints,
-        full_assignment.as_slice(),
-    )?;
-
-    Ok(proof)
-}
-
-/// Generates a partial zkSNARK proof from partial (known) witness inputs.
-///
-/// Call [`finish_zk_proof`] with the full witness to complete the proof.
-#[cfg(not(target_arch = "wasm32"))]
-pub fn generate_partial_zk_proof(
-    zkey: &Zkey,
-    partial_witness: &RLNPartialWitnessInput,
-    graph: &Graph,
-) -> Result<PartialProof, ProtocolError> {
-    validate_partial_witness_against_graph(partial_witness, graph)?;
-    let inputs = inputs_for_partial_witness_calculation(partial_witness, graph.max_out)
-        .into_iter()
-        .map(|(name, values)| (name.to_string(), values));
-
-    let full_assignment = calc_witness_partial(inputs, graph)?;
-    let mut partial_values = Vec::with_capacity(full_assignment.len() - 1);
-    partial_values.extend_from_slice(&full_assignment[1..]);
-
-    let partial_assignment = PartialAssignment::new(partial_values);
-    let partial_proof =
-        Groth16Partial::<_, CircomReduction>::prove_partial(&zkey.0, &partial_assignment)?;
-
-    Ok(partial_proof)
-}
-
-/// Finishes zkSNARK proof generation from a partial proof and full witness inputs.
-#[cfg(not(target_arch = "wasm32"))]
-pub fn finish_zk_proof(
-    zkey: &Zkey,
-    partial_proof: &PartialProof,
-    witness: &RLNWitnessInput,
-    graph: &Graph,
-) -> Result<Proof, ProtocolError> {
-    let mut rng = thread_rng();
-    let r = Fr::rand(&mut rng);
-    let s = Fr::rand(&mut rng);
-
-    finish_zk_proof_with_rs(zkey, partial_proof, witness, graph, r, s)
-}
-
-/// Finishes zkSNARK proof generation from a partial proof and full witness inputs.
-/// Takes explicit blinding scalars `r` and `s` instead of sampling them internally.
-#[cfg(not(target_arch = "wasm32"))]
-pub fn finish_zk_proof_with_rs(
-    zkey: &Zkey,
-    partial_proof: &PartialProof,
-    witness: &RLNWitnessInput,
-    graph: &Graph,
-    r: Fr,
-    s: Fr,
-) -> Result<Proof, ProtocolError> {
-    validate_witness_against_graph(witness, graph)?;
-    let inputs = inputs_for_witness_calculation(witness)
-        .into_iter()
-        .map(|(name, values)| (name.to_string(), values));
-
-    let full_assignment = calc_witness(inputs, graph)?;
-
-    let proof = Groth16Partial::<_, CircomReduction>::finish_proof_with_matrices(
-        &zkey.0,
-        partial_proof,
-        r,
-        s,
-        &zkey.1,
-        zkey.1.num_instance_variables,
-        zkey.1.num_constraints,
-        full_assignment.as_slice(),
-    )?;
-
-    Ok(proof)
-}
-
-/// Verifies a zkSNARK proof against the verifying key and public values.
-///
-/// Returns `true` if the proof is cryptographically valid, `false` if verification fails.
-///
-/// Verification failure may occur due to proof computation errors, not necessarily malicious proofs.
-pub fn verify_zk_proof(
-    verifying_key: &VerifyingKey,
-    proof: &Proof,
-    proof_values: &RLNProofValues,
-) -> Result<bool, ProtocolError> {
-    // We re-arrange proof-values according to the circuit specification
-    let inputs = match &proof_values.outputs {
-        RLNOutputs::SingleV1 { y, nullifier } => vec![
-            *y,
-            proof_values.root,
-            *nullifier,
-            proof_values.x,
-            proof_values.external_nullifier,
-        ],
-        RLNOutputs::MultiV1 {
-            ys,
-            nullifiers,
-            selector_used,
-        } => {
-            let mut inputs = Vec::with_capacity(3 * ys.len() + 3);
-            inputs.extend_from_slice(ys);
-            inputs.push(proof_values.root);
-            inputs.extend_from_slice(nullifiers);
-            inputs.push(proof_values.x);
-            inputs.push(proof_values.external_nullifier);
-            for &used in selector_used.iter() {
-                inputs.push(Fr::from(used));
-            }
-            inputs
-        }
-    };
-
-    // Check that the proof is valid
-    let pvk = prepare_verifying_key(verifying_key);
-
-    let verified = Groth16::<_, CircomReduction>::verify_proof(&pvk, proof, &inputs)?;
-
-    Ok(verified)
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum RLNProofValuesV3 {
+/// The public values of an RLN proof, in either Single or Multi message-id mode.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RLNProofValues {
     Single(RLNProofValuesSingle),
     Multi(RLNProofValuesMulti),
 }
 
-impl RLNProofValuesV3 {
+impl RLNProofValues {
+    /// Returns the share `y` in Single message-id mode, or `None` in Multi mode.
     pub fn y(&self) -> Option<Fr> {
         match self {
-            RLNProofValuesV3::Single(v) => Some(v.y),
-            RLNProofValuesV3::Multi(_) => None,
+            RLNProofValues::Single(v) => Some(v.y),
+            RLNProofValues::Multi(_) => None,
         }
     }
 
+    /// Returns the per-slot shares `ys` in Multi message-id mode, or `None` in Single mode.
     pub fn ys(&self) -> Option<&[Fr]> {
         match self {
-            RLNProofValuesV3::Multi(v) => Some(&v.ys),
-            RLNProofValuesV3::Single(_) => None,
+            RLNProofValues::Multi(v) => Some(&v.ys),
+            RLNProofValues::Single(_) => None,
         }
     }
 
+    /// Returns the Merkle root the proof was generated against.
     pub fn root(&self) -> Fr {
         match self {
-            RLNProofValuesV3::Single(v) => v.root,
-            RLNProofValuesV3::Multi(v) => v.root,
+            RLNProofValues::Single(v) => v.root,
+            RLNProofValues::Multi(v) => v.root,
         }
     }
 
+    /// Returns the nullifier in Single message-id mode, or `None` in Multi mode.
     pub fn nullifier(&self) -> Option<Fr> {
         match self {
-            RLNProofValuesV3::Single(v) => Some(v.nullifier),
-            RLNProofValuesV3::Multi(_) => None,
+            RLNProofValues::Single(v) => Some(v.nullifier),
+            RLNProofValues::Multi(_) => None,
         }
     }
 
+    /// Returns the per-slot nullifiers in Multi message-id mode, or `None` in Single mode.
     pub fn nullifiers(&self) -> Option<&[Fr]> {
         match self {
-            RLNProofValuesV3::Multi(v) => Some(&v.nullifiers),
-            RLNProofValuesV3::Single(_) => None,
+            RLNProofValues::Multi(v) => Some(&v.nullifiers),
+            RLNProofValues::Single(_) => None,
         }
     }
 
+    /// Returns the signal `x` bound in the proof.
     pub fn x(&self) -> Fr {
         match self {
-            RLNProofValuesV3::Single(v) => v.x,
-            RLNProofValuesV3::Multi(v) => v.x,
+            RLNProofValues::Single(v) => v.x,
+            RLNProofValues::Multi(v) => v.x,
         }
     }
 
+    /// Returns the external nullifier bound in the proof.
     pub fn external_nullifier(&self) -> Fr {
         match self {
-            RLNProofValuesV3::Single(v) => v.external_nullifier,
-            RLNProofValuesV3::Multi(v) => v.external_nullifier,
+            RLNProofValues::Single(v) => v.external_nullifier,
+            RLNProofValues::Multi(v) => v.external_nullifier,
         }
     }
 
+    /// Returns the per-slot selector flags in Multi message-id mode, or `None` in Single mode.
     pub fn selector_used(&self) -> Option<&[bool]> {
         match self {
-            RLNProofValuesV3::Multi(v) => Some(&v.selector_used),
-            RLNProofValuesV3::Single(_) => None,
+            RLNProofValues::Multi(v) => Some(&v.selector_used),
+            RLNProofValues::Single(_) => None,
         }
     }
 }
 
-impl From<&RLNWitnessInputV3> for RLNProofValuesV3 {
-    fn from(witness: &RLNWitnessInputV3) -> Self {
+#[bon]
+impl RLNProofValues {
+    /// Starts building Single message-id proof values; call `build` to construct them.
+    #[builder(finish_fn = build)]
+    pub fn new_single(y: Fr, root: Fr, nullifier: Fr, x: Fr, external_nullifier: Fr) -> Self {
+        Self::Single(RLNProofValuesSingle {
+            y,
+            root,
+            nullifier,
+            x,
+            external_nullifier,
+        })
+    }
+
+    /// Starts building Multi message-id proof values; call `build` to check the structural
+    /// invariants and construct them.
+    #[builder(finish_fn = build)]
+    pub fn new_multi(
+        ys: Vec<Fr>,
+        root: Fr,
+        nullifiers: Vec<Fr>,
+        x: Fr,
+        external_nullifier: Fr,
+        selector_used: Vec<bool>,
+    ) -> Result<Self, ProofValuesMultiError> {
+        let inner = RLNProofValuesMulti {
+            ys,
+            root,
+            nullifiers,
+            x,
+            external_nullifier,
+            selector_used,
+        };
+        inner.validate()?;
+        Ok(Self::Multi(inner))
+    }
+}
+
+impl RLNProofValues {
+    /// Computes the proof values from a `witness` using the protocol hash `H`.
+    pub fn from_witness<H: ZerokitHasher<Scalar = Fr>>(witness: &RLNWitnessInput) -> Self {
         match witness {
-            RLNWitnessInputV3::Single(w) => RLNProofValuesV3::Single(w.into()),
-            RLNWitnessInputV3::Multi(w) => RLNProofValuesV3::Multi(w.into()),
+            RLNWitnessInput::Single(w) => {
+                RLNProofValues::Single(RLNProofValuesSingle::from_witness::<H>(w))
+            }
+            RLNWitnessInput::Multi(w) => {
+                RLNProofValues::Multi(RLNProofValuesMulti::from_witness::<H>(w))
+            }
         }
     }
 }
 
-impl RecoverSecret for RLNProofValuesV3 {
+impl RecoverSecret for RLNProofValues {
     type Error = RecoverSecretError;
 
-    fn recover_secret(&self, other: &Self) -> Result<IdSecret, Self::Error> {
+    fn recover_secret(&self, other: &Self) -> Result<SecretFr, Self::Error> {
         match (self, other) {
-            (RLNProofValuesV3::Single(s), RLNProofValuesV3::Single(o)) => s.recover_secret(o),
-            (RLNProofValuesV3::Multi(s), RLNProofValuesV3::Multi(o)) => s.recover_secret(o),
-            (RLNProofValuesV3::Single(s), RLNProofValuesV3::Multi(o))
-            | (RLNProofValuesV3::Multi(o), RLNProofValuesV3::Single(s)) => s.recover_secret(o),
+            (RLNProofValues::Single(s), RLNProofValues::Single(o)) => s.recover_secret(o),
+            (RLNProofValues::Multi(s), RLNProofValues::Multi(o)) => s.recover_secret(o),
+            (RLNProofValues::Single(s), RLNProofValues::Multi(o))
+            | (RLNProofValues::Multi(o), RLNProofValues::Single(s)) => s.recover_secret(o),
         }
     }
 }
 
-#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+/// Public proof values for Single message-id mode.
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RLNProofValuesSingle {
-    pub y: Fr,
-    pub root: Fr,
-    pub nullifier: Fr,
-    pub x: Fr,
-    pub external_nullifier: Fr,
+    /// The share `y = a_0 + x * a_1`.
+    pub(crate) y: Fr,
+    /// The Merkle root the proof was generated against.
+    pub(crate) root: Fr,
+    /// The nullifier `H(a_1)`.
+    pub(crate) nullifier: Fr,
+    /// The signal `x`.
+    pub(crate) x: Fr,
+    /// The external nullifier.
+    pub(crate) external_nullifier: Fr,
 }
 
-impl From<&RLNWitnessInputSingle> for RLNProofValuesSingle {
-    fn from(w: &RLNWitnessInputSingle) -> Self {
-        let root = compute_tree_root(
-            &w.identity_secret,
-            &w.user_message_limit,
-            &w.path_elements,
-            &w.identity_path_index,
-        );
+impl RLNProofValuesSingle {
+    /// Computes the proof values from a Single message-id `witness` using the protocol hash `H`.
+    pub fn from_witness<H: ZerokitHasher<Scalar = Fr>>(w: &RLNWitnessInputSingle) -> Self {
+        let id_commitment = compute_id_commitment::<H>(&w.identity_secret);
+        let leaf = Hasher::<H>::hash_pair(id_commitment, w.user_message_limit);
+        let root = compute_tree_root::<H>(leaf, &w.path_elements, &w.identity_path_index);
+
         let a_0 = &w.identity_secret;
-        let mut to_hash = [**a_0, w.external_nullifier, w.message_id];
-        let a_1 = poseidon_hash(&to_hash);
-        let y = *(a_0.clone()) + w.x * a_1;
-        let nullifier = poseidon_hash(&[a_1]);
-        to_hash[0].zeroize();
+        let a_1 = compute_share_slope::<H>(a_0, w.external_nullifier, w.message_id);
+        let y = **a_0 + w.x * a_1;
+        let nullifier = Hasher::<H>::hash_single(a_1);
         RLNProofValuesSingle {
             y,
             root,
@@ -1015,7 +191,7 @@ impl From<&RLNWitnessInputSingle> for RLNProofValuesSingle {
 impl RecoverSecret for RLNProofValuesSingle {
     type Error = RecoverSecretError;
 
-    fn recover_secret(&self, other: &Self) -> Result<IdSecret, Self::Error> {
+    fn recover_secret(&self, other: &Self) -> Result<SecretFr, Self::Error> {
         if self.external_nullifier != other.external_nullifier {
             return Err(RecoverSecretError::ExternalNullifierMismatch(
                 self.external_nullifier,
@@ -1032,40 +208,55 @@ impl RecoverSecret for RLNProofValuesSingle {
 impl RecoverSecret<RLNProofValuesMulti> for RLNProofValuesSingle {
     type Error = RecoverSecretError;
 
-    fn recover_secret(&self, other: &RLNProofValuesMulti) -> Result<IdSecret, Self::Error> {
+    fn recover_secret(&self, other: &RLNProofValuesMulti) -> Result<SecretFr, Self::Error> {
         other.recover_secret(self)
     }
 }
 
-#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
+/// Public proof values for Multi message-id mode.
+///
+/// `CanonicalDeserialize` is hand-written (see `serialize.rs`) so deserialization runs the
+/// crate-internal `RLNProofValuesMulti::validate`.
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize)]
 pub struct RLNProofValuesMulti {
-    pub ys: Vec<Fr>,
-    pub root: Fr,
-    pub nullifiers: Vec<Fr>,
-    pub x: Fr,
-    pub external_nullifier: Fr,
-    pub selector_used: Vec<bool>,
+    /// The per-slot shares `ys`.
+    pub(crate) ys: Vec<Fr>,
+    /// The Merkle root the proof was generated against.
+    pub(crate) root: Fr,
+    /// The per-slot nullifiers.
+    pub(crate) nullifiers: Vec<Fr>,
+    /// The signal `x`.
+    pub(crate) x: Fr,
+    /// The external nullifier.
+    pub(crate) external_nullifier: Fr,
+    /// The per-slot selector flags.
+    pub(crate) selector_used: Vec<bool>,
 }
 
-impl From<&RLNWitnessInputMulti> for RLNProofValuesMulti {
-    fn from(w: &RLNWitnessInputMulti) -> Self {
-        let root = compute_tree_root(
-            &w.identity_secret,
-            &w.user_message_limit,
-            &w.path_elements,
-            &w.identity_path_index,
-        );
+impl RLNProofValuesMulti {
+    /// Computes the proof values from a Multi message-id `witness` using the protocol hash `H`.
+    ///
+    /// Assumes `w` is a validated witness; the output's validity only mirrors the input's
+    /// (the builder and deserialize paths guarantee this; a `Validate::No` witness does not).
+    pub fn from_witness<H: ZerokitHasher<Scalar = Fr>>(w: &RLNWitnessInputMulti) -> Self {
+        let id_commitment = compute_id_commitment::<H>(&w.identity_secret);
+        let leaf = Hasher::<H>::hash_pair(id_commitment, w.user_message_limit);
+        let root = compute_tree_root::<H>(leaf, &w.path_elements, &w.identity_path_index);
+
+        // `selector_used` is collected from the same zip as `ys` and `nullifiers` rather than
+        // cloned, so the three stay equal in length even if the witness is malformed.
         let mut ys = Vec::with_capacity(w.message_ids.len());
         let mut nullifiers = Vec::with_capacity(w.message_ids.len());
+        let mut selector_used = Vec::with_capacity(w.message_ids.len());
         for (message_id, &selected) in w.message_ids.iter().zip(w.selector_used.iter()) {
-            let mut to_hash = [*w.identity_secret, w.external_nullifier, *message_id];
-            let a_1 = poseidon_hash(&to_hash);
+            let a_1 =
+                compute_share_slope::<H>(&w.identity_secret, w.external_nullifier, *message_id);
             let selector = Fr::from(selected);
             let y = (*w.identity_secret + w.x * a_1) * selector;
-            let nullifier = poseidon_hash(&[a_1]) * selector;
-            to_hash[0].zeroize();
+            let nullifier = Hasher::<H>::hash_single(a_1) * selector;
             ys.push(y);
             nullifiers.push(nullifier);
+            selector_used.push(selected);
         }
         RLNProofValuesMulti {
             ys,
@@ -1073,21 +264,39 @@ impl From<&RLNWitnessInputMulti> for RLNProofValuesMulti {
             nullifiers,
             x: w.x,
             external_nullifier: w.external_nullifier,
-            selector_used: w.selector_used.clone(),
+            selector_used,
         }
+    }
+
+    /// Checks that `ys`, `nullifiers`, and `selector_used` are non-empty and all have the same
+    /// length.
+    pub(crate) fn validate(&self) -> Result<(), ProofValuesMultiError> {
+        if self.ys.len() != self.nullifiers.len() || self.ys.len() != self.selector_used.len() {
+            return Err(ProofValuesMultiError::LengthMismatch(
+                self.ys.len(),
+                self.nullifiers.len(),
+                self.selector_used.len(),
+            ));
+        }
+        if self.ys.is_empty() {
+            return Err(ProofValuesMultiError::EmptyProofValues);
+        }
+        Ok(())
     }
 }
 
 impl RecoverSecret for RLNProofValuesMulti {
     type Error = RecoverSecretError;
 
-    fn recover_secret(&self, other: &Self) -> Result<IdSecret, Self::Error> {
+    fn recover_secret(&self, other: &Self) -> Result<SecretFr, Self::Error> {
         if self.external_nullifier != other.external_nullifier {
             return Err(RecoverSecretError::ExternalNullifierMismatch(
                 self.external_nullifier,
                 other.external_nullifier,
             ));
         }
+        self.validate()?;
+        other.validate()?;
         for (i, (nullifier_i, &used_i)) in self
             .nullifiers
             .iter()
@@ -1118,13 +327,14 @@ impl RecoverSecret for RLNProofValuesMulti {
 impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
     type Error = RecoverSecretError;
 
-    fn recover_secret(&self, other: &RLNProofValuesSingle) -> Result<IdSecret, Self::Error> {
+    fn recover_secret(&self, other: &RLNProofValuesSingle) -> Result<SecretFr, Self::Error> {
         if self.external_nullifier != other.external_nullifier {
             return Err(RecoverSecretError::ExternalNullifierMismatch(
                 self.external_nullifier,
                 other.external_nullifier,
             ));
         }
+        self.validate()?;
         for (i, (nullifier_i, &used_i)) in self
             .nullifiers
             .iter()
@@ -1142,14 +352,176 @@ impl RecoverSecret<RLNProofValuesSingle> for RLNProofValuesMulti {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, CanonicalSerialize, CanonicalDeserialize)]
-pub struct RLNProofV3 {
+/// An RLN proof bundled with its public proof values.
+#[derive(Debug, Clone, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
+pub struct RLNProof {
+    /// The zkSNARK proof.
     pub proof: Proof,
-    pub values: RLNProofValuesV3,
+    /// The public proof values.
+    pub values: RLNProofValues,
 }
 
-impl RLNProofV3 {
-    pub fn new(proof: Proof, values: RLNProofValuesV3) -> Self {
+impl RLNProof {
+    /// Creates a new [`RLNProof`] from a `proof` and its `values`.
+    pub fn new(proof: Proof, values: RLNProofValues) -> Self {
         Self { proof, values }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    // Multi proof-values invariant validation. Crate-internal because the inner fields are
+    // `pub(crate)`, so proof values with mismatched lengths can only be built here.
+
+    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+    use rand::thread_rng;
+
+    use super::*;
+    use crate::{
+        hashers::PoseidonHash,
+        prelude::{CanonicalDeserializeBE, CanonicalSerializeBE},
+    };
+
+    /// A multi with mismatched per-slot vector lengths (`ys` empty, others length 1).
+    fn inconsistent_multi() -> RLNProofValues {
+        RLNProofValues::Multi(RLNProofValuesMulti {
+            root: Fr::from(10u64),
+            x: Fr::from(20u64),
+            external_nullifier: Fr::from(30u64),
+            ys: vec![],
+            nullifiers: vec![Fr::from(60u64)],
+            selector_used: vec![true],
+        })
+    }
+
+    /// `zip` stops at the shorter of `message_ids`/`selector_used`, so cloning `selector_used`
+    /// wholesale would emit values that fail their own invariant.
+    #[test]
+    fn test_from_witness_stays_consistent_for_a_malformed_witness() {
+        let w = RLNWitnessInputMulti {
+            identity_secret: SecretFr::rand(&mut thread_rng()),
+            user_message_limit: Fr::from(5u64),
+            path_elements: vec![Fr::from(1u64)],
+            identity_path_index: vec![0u8],
+            x: Fr::from(7u64),
+            external_nullifier: Fr::from(9u64),
+            message_ids: vec![Fr::from(1u64), Fr::from(2u64)],
+            selector_used: vec![true, true, true],
+        };
+        let values = RLNProofValuesMulti::from_witness::<PoseidonHash>(&w);
+        assert!(
+            values.validate().is_ok(),
+            "from_witness must not emit values that fail validate: ys={} nullifiers={} selector_used={}",
+            values.ys.len(),
+            values.nullifiers.len(),
+            values.selector_used.len()
+        );
+    }
+
+    #[test]
+    fn test_validate_rejects_mismatched_lengths() {
+        let RLNProofValues::Multi(inner) = inconsistent_multi() else {
+            panic!("expected multi proof values");
+        };
+        assert!(matches!(
+            inner.validate(),
+            Err(ProofValuesMultiError::LengthMismatch(..))
+        ));
+    }
+
+    /// Consistent-but-empty vectors carry no message slot.
+    #[test]
+    fn test_validate_rejects_empty_slots() {
+        let empty = RLNProofValuesMulti {
+            root: Fr::from(1u64),
+            x: Fr::from(2u64),
+            external_nullifier: Fr::from(3u64),
+            ys: vec![],
+            nullifiers: vec![],
+            selector_used: vec![],
+        };
+        assert!(matches!(
+            empty.validate(),
+            Err(ProofValuesMultiError::EmptyProofValues)
+        ));
+
+        let mut le = Vec::new();
+        RLNProofValues::Multi(empty)
+            .serialize_compressed(&mut le)
+            .unwrap();
+        assert!(
+            RLNProofValues::deserialize_compressed(&le[..]).is_err(),
+            "deserialize must reject empty multi proof values"
+        );
+    }
+
+    #[test]
+    fn test_deserialize_rejects_mismatched_lengths() {
+        let values = inconsistent_multi();
+
+        let mut le = Vec::new();
+        values.serialize_compressed(&mut le).unwrap();
+        assert!(
+            RLNProofValues::deserialize_compressed(&le[..]).is_err(),
+            "compressed deserialize must reject the mismatched lengths"
+        );
+
+        let mut be = Vec::new();
+        CanonicalSerializeBE::serialize(&values, &mut be).unwrap();
+        assert!(
+            <RLNProofValues as CanonicalDeserializeBE>::deserialize(&be[..]).is_err(),
+            "big-endian deserialize must reject the mismatched lengths"
+        );
+
+        let RLNProofValues::Multi(inner) = values else {
+            unreachable!("inconsistent_multi builds a Multi variant");
+        };
+        let mut inner_le = Vec::new();
+        inner.serialize_compressed(&mut inner_le).unwrap();
+        assert!(
+            RLNProofValuesMulti::deserialize_compressed(&inner_le[..]).is_err(),
+            "inner compressed deserialize must reject the mismatched lengths"
+        );
+    }
+
+    #[test]
+    fn test_rln_proof_deserialize_rejects_mismatched_lengths() {
+        let rln_proof = RLNProof {
+            proof: Proof::default(),
+            values: inconsistent_multi(),
+        };
+        let mut le = Vec::new();
+        rln_proof.serialize_compressed(&mut le).unwrap();
+        assert!(RLNProof::deserialize_compressed(&le[..]).is_err());
+    }
+
+    #[test]
+    fn test_recover_secret_errors_instead_of_panicking() {
+        // The nullifiers match, so without `validate` this would index `ys[0]` and
+        // panic.
+        let malformed = RLNProofValues::Multi(RLNProofValuesMulti {
+            root: Fr::from(1u64),
+            x: Fr::from(7u64),
+            external_nullifier: Fr::from(9u64),
+            ys: vec![],
+            nullifiers: vec![Fr::from(42u64)],
+            selector_used: vec![true],
+        });
+        let other = RLNProofValues::new_single()
+            .y(Fr::from(3u64))
+            .root(Fr::from(1u64))
+            .nullifier(Fr::from(42u64))
+            .x(Fr::from(5u64))
+            .external_nullifier(Fr::from(9u64))
+            .build();
+
+        let err = malformed.recover_secret(&other).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                RecoverSecretError::InvalidProofValues(ProofValuesMultiError::LengthMismatch(..))
+            ),
+            "expected LengthMismatch, got: {err:?}"
+        );
     }
 }

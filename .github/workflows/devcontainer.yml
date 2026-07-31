@@ -1,0 +1,46 @@
+name: CI
+
+# On master / develop pushes: build the devcontainer image and publish it to
+# GHCR, so contributors pull prebuilt layers (build.cacheFrom in
+# devcontainer.json) instead of compiling locally. On PRs touching the
+# devcontainer or Makefile: build only (no push) to verify it still builds.
+# Public repo => GHCR storage and these runners are free. Mark the published
+# package Public once for anonymous pulls.
+on:
+  push:
+    branches:
+      - master
+      - "develop/**"
+    paths:
+      - ".devcontainer/**"
+      - "Makefile"
+  pull_request:
+    paths:
+      - ".devcontainer/**"
+      - "Makefile"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build - devcontainer
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build devcontainer (push on master/develop only)
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: ghcr.io/vacp2p/zerokit-devcontainer
+          cacheFrom: ghcr.io/vacp2p/zerokit-devcontainer
+          push: ${{ github.event_name == 'pull_request' && 'never' || 'always' }}

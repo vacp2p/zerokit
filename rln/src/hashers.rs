@@ -1,16 +1,18 @@
-// This crate instantiates the Poseidon hash algorithm.
+// This module defines the hashing facade for the RLN module.
 
-use std::sync::LazyLock;
+use std::{marker::PhantomData, sync::LazyLock};
 
-use num_bigint::BigUint;
-use tiny_keccak::{Hasher, Keccak};
-use zerokit_utils::poseidon::{Poseidon, PoseidonError};
+use ark_ff::PrimeField;
+use tiny_keccak::{Hasher as _, Keccak};
+use zerokit_utils::{hasher::ZerokitHasher, poseidon::Poseidon};
 
 use crate::circuit::Fr;
 
-/// These indexed constants hardcode the supported round parameters tuples (t, RF, RN, SKIP_MATRICES) for the Bn254 scalar field.
+// TODO(backlog): Generate these parameters
+
+/// These indexed constants hardcode the supported round parameters tuples
+/// (t, RF, RN, SKIP_MATRICES) for the Bn254 scalar field.
 /// SKIP_MATRICES is the index of the randomly generated secure MDS matrix.
-/// TODO: generate these parameters
 const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
     (2, 8, 56, 0),
     (3, 8, 57, 0),
@@ -22,72 +24,96 @@ const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
     (9, 8, 63, 0),
 ];
 
-/// Poseidon Hash wrapper over above implementation.
-static POSEIDON: LazyLock<Poseidon<Fr>> = LazyLock::new(|| Poseidon::<Fr>::from(&ROUND_PARAMS));
+/// The Poseidon instance over the Bn254 scalar field, parameterized by [`ROUND_PARAMS`].
+static POSEIDON: LazyLock<Poseidon<Fr>> = LazyLock::new(|| Poseidon::from(&ROUND_PARAMS));
 
-/// Hashes a list of field elements using Poseidon.
-///
-///
-/// Panics if the input length does not match any of the supported round parameters.
-pub fn poseidon_hash(input: &[Fr]) -> Fr {
-    POSEIDON
-        .hash(input)
-        .expect("Input length must be valid with supported round parameters")
-}
-
-/// Hashes a list of field elements using Poseidon.
-///
-/// Return an error if the input length does not match any of the supported round parameters.
-pub fn poseidon_hash_try_from(frs: &[Fr]) -> Result<Fr, PoseidonError> {
-    let hash = POSEIDON.hash(frs)?;
-    Ok(hash)
-}
-
-/// Hashes a pair of field elements using Poseidon.
-///
-/// No panic or error is expected since the supported round parameters include the case of two elements.
-pub fn poseidon_hash_pair(fr1: Fr, fr2: Fr) -> Fr {
-    POSEIDON
-        .hash(&[fr1, fr2])
-        .expect("Two element input must be valid with supported round parameters")
-}
-
-/// The zerokit RLN Merkle tree Hasher.
-#[derive(Clone, Copy, PartialEq, Eq)]
+/// The Poseidon hash function over the Bn254 scalar field.
+#[derive(Clone, Copy, PartialEq)]
 pub struct PoseidonHash;
 
-/// The default Hasher trait used by Merkle tree implementation in utils.
-impl zerokit_utils::merkle_tree::Hasher for PoseidonHash {
-    type Fr = Fr;
+impl ZerokitHasher for PoseidonHash {
+    type Scalar = Fr;
 
-    fn default_leaf() -> Self::Fr {
-        Self::Fr::from(0)
-    }
-
-    fn hash_pair(left: Self::Fr, right: Self::Fr) -> Self::Fr {
-        poseidon_hash_pair(left, right)
+    fn hash(input: &[Fr]) -> Fr {
+        POSEIDON
+            .hash(input)
+            .expect("Input length must be valid with supported round parameters")
     }
 }
 
-/// Hashes arbitrary signal to the underlying prime field.
+/// The RLN hashing facade. All hashing in the crate goes through this one type.
+///
+/// For example, `Hasher::<PoseidonHash>::hash_pair(left, right)`.
+pub struct Hasher<H>(PhantomData<H>);
+
+impl<H> Hasher<H>
+where
+    H: ZerokitHasher<Scalar = Fr>,
+{
+    /// Hashes a single field element.
+    pub fn hash_single(input: Fr) -> Fr {
+        H::hash(&[input])
+    }
+
+    /// Hashes two field elements.
+    pub fn hash_pair(left: Fr, right: Fr) -> Fr {
+        H::hash(&[left, right])
+    }
+
+    /// Hashes a list of field elements.
+    pub fn hash_list(input: &[Fr]) -> Fr {
+        H::hash(input)
+    }
+}
+
+/// Hashes an arbitrary-length signal to the prime field.
+/// Keccak-256 digest reduced little-endian modulo the field order.
+///
+/// Keccak-256 is used because this mapping runs outside the circuit: the circuit only
+/// consumes the resulting field elements (signal `x`, `epoch`, `rln_identifier`).
 pub fn hash_to_field_le(signal: &[u8]) -> Fr {
-    // We hash the input signal using Keccak256
     let mut hash = [0; 32];
     let mut hasher = Keccak::v256();
     hasher.update(signal);
     hasher.finalize(&mut hash);
 
-    Fr::from(BigUint::from_bytes_le(&hash))
+    Fr::from_le_bytes_mod_order(&hash)
 }
 
-/// Hashes arbitrary signal to the underlying prime field.
+/// Hashes an arbitrary-length signal to the prime field.
+/// Keccak-256 digest reduced big-endian modulo the field order.
+///
+/// Keccak-256 is used because this mapping runs outside the circuit: the circuit only
+/// consumes the resulting field elements (signal `x`, `epoch`, `rln_identifier`).
 pub fn hash_to_field_be(signal: &[u8]) -> Fr {
-    // We hash the input signal using Keccak256
     let mut hash = [0; 32];
     let mut hasher = Keccak::v256();
     hasher.update(signal);
     hasher.finalize(&mut hash);
-    hash.reverse();
 
-    Fr::from(BigUint::from_bytes_be(&hash))
+    Fr::from_be_bytes_mod_order(&hash)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_facade_arities_match_concrete_poseidon() {
+        let first = Fr::from(1);
+        let second = Fr::from(2);
+        let third = Fr::from(3);
+        assert_eq!(
+            Hasher::<PoseidonHash>::hash_single(first),
+            PoseidonHash::hash(&[first])
+        );
+        assert_eq!(
+            Hasher::<PoseidonHash>::hash_pair(first, second),
+            PoseidonHash::hash(&[first, second])
+        );
+        assert_eq!(
+            Hasher::<PoseidonHash>::hash_list(&[first, second, third]),
+            PoseidonHash::hash(&[first, second, third])
+        );
+    }
 }

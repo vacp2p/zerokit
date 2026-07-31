@@ -1,4 +1,4 @@
-// This crate is based on the code by iden3. Its preimage can be found here:
+// This module is based on the code by iden3. Its preimage can be found here:
 // https://github.com/iden3/circom-witnesscalc/blob/5cb365b6e4d9052ecc69d4567fcf5bc061c20e94/src/lib.rs
 
 pub(crate) mod graph;
@@ -13,7 +13,7 @@ use zeroize::zeroize_flat_type;
 
 use self::graph::fr_to_u256;
 use super::{error::WitnessCalcError, Fr};
-use crate::utils::FrOrSecret;
+use crate::circuit::FrOrSecret;
 
 pub(crate) type InputSignalsInfo = HashMap<String, (usize, usize)>;
 
@@ -29,7 +29,7 @@ pub(crate) fn calc_witness<I: IntoIterator<Item = (String, Vec<FrOrSecret>)>>(
                 value
                     .iter()
                     .map(|f_| match f_ {
-                        FrOrSecret::IdSecret(s) => s.to_u256(),
+                        FrOrSecret::SecretFr(s) => s.to_u256(),
                         FrOrSecret::Fr(f) => fr_to_u256(f),
                     })
                     .collect(),
@@ -72,7 +72,7 @@ pub(crate) fn calc_witness_partial<I: IntoIterator<Item = (String, Vec<Option<Fr
                     .iter()
                     .map(|f_| {
                         f_.as_ref().map(|v| match v {
-                            FrOrSecret::IdSecret(s) => s.to_u256(),
+                            FrOrSecret::SecretFr(s) => s.to_u256(),
                             FrOrSecret::Fr(f) => fr_to_u256(f),
                         })
                     })

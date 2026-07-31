@@ -17,11 +17,11 @@ proc main() =
   var signal: array[32, uint8] = [1'u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   let x = hashSignal(signal)
-  printCfr("x", x)
+  printFr("x", x)
 
   echo "\nCreating message id"
-  let messageId = ffi_uint_to_cfr(0'u32)
-  printCfr("message id", messageId)
+  let messageId = ffi_uint_to_fr(0'u32)
+  printFr("message id", messageId)
 
   echo "\nCreating RLN witness"
   let witnessResult = createWitness(member, merkleProof, messageId, x,
@@ -34,17 +34,14 @@ proc main() =
   echo "  - RLN witness created successfully"
 
   echo "\nCreating partial witness from witness fields"
-  let witnessIdentitySecret = ffi_rln_v3_witness_input_get_identity_secret(addr witness)
-  let witnessUserMessageLimit = ffi_rln_v3_witness_input_get_user_message_limit(addr witness)
-  var witnessPathElements = ffi_rln_v3_witness_input_get_path_elements(addr witness)
-  var witnessPathIndex = ffi_rln_v3_witness_input_get_identity_path_index(addr witness)
-  let partialWitnessResult = ffi_rln_v3_partial_witness_input_new(
-      witnessIdentitySecret, witnessUserMessageLimit, addr witnessPathElements,
-      addr witnessPathIndex)
-  ffi_cfr_free(witnessIdentitySecret)
-  ffi_cfr_free(witnessUserMessageLimit)
-  ffi_vec_cfr_free(witnessPathElements)
-  ffi_vec_u8_free(witnessPathIndex)
+  let witnessIdentitySecret = ffi_rln_witness_input_get_identity_secret(witness)
+  let witnessUserMessageLimit = ffi_rln_witness_input_get_user_message_limit(witness)
+  let witnessMerkleProof = ffi_rln_witness_input_get_merkle_proof(witness)
+  let partialWitnessResult = ffi_rln_partial_witness_input_new(
+      witnessIdentitySecret, witnessUserMessageLimit, witnessMerkleProof)
+  ffi_secret_fr_free(witnessIdentitySecret)
+  ffi_fr_free(witnessUserMessageLimit)
+  ffi_rln_merkle_proof_free(witnessMerkleProof)
   if partialWitnessResult.ok.isNil:
     stderr.writeLine("Partial witness creation error: " & asString(
         partialWitnessResult.err))
@@ -54,8 +51,8 @@ proc main() =
   echo "  - partial witness created successfully"
 
   echo "\nGenerating partial ZK proof"
-  let partialProofResult = ffi_rln_v3_generate_partial_proof(addr rlnInstance,
-      addr partialWitness)
+  let partialProofResult = ffi_rln_generate_partial_proof(rlnInstance,
+      partialWitness)
   if partialProofResult.ok.isNil:
     stderr.writeLine("Partial proof generation error: " & asString(
         partialProofResult.err))
@@ -65,8 +62,8 @@ proc main() =
   echo "  - partial proof generated successfully"
 
   echo "\nFinishing proof with full witness"
-  let fullProofResult = ffi_rln_v3_finish_proof(addr rlnInstance,
-      addr partialProof, addr witness)
+  let fullProofResult = ffi_rln_finish_proof(rlnInstance,
+      partialProof, witness)
   if fullProofResult.ok.isNil:
     stderr.writeLine("Finish proof error: " & asString(fullProofResult.err))
     ffi_c_string_free(fullProofResult.err)
@@ -75,7 +72,7 @@ proc main() =
   echo "  - partial proof finished successfully"
 
   echo "\nVerifying full proof"
-  let verifyFullResult = ffi_rln_v3_verify(addr rlnInstance, addr fullProof, x)
+  let verifyFullResult = verifyStatefulProof(rlnInstance, fullProof, x)
   if verifyFullResult.err.dataPtr != nil:
     stderr.writeLine("Full proof verification error: " & asString(
         verifyFullResult.err))
@@ -87,15 +84,15 @@ proc main() =
     echo "Full proof verification failed"
     return
 
-  ffi_rln_v3_proof_free(fullProof)
-  ffi_rln_v3_partial_proof_free(partialProof)
-  ffi_rln_v3_partial_witness_input_free(partialWitness)
-  ffi_rln_v3_witness_input_free(witness)
-  ffi_cfr_free(messageId)
-  ffi_cfr_free(x)
-  ffi_cfr_free(externalNullifier)
-  ffi_rln_v3_merkle_proof_free(merkleProof)
+  ffi_rln_proof_free(fullProof)
+  ffi_rln_partial_proof_free(partialProof)
+  ffi_rln_partial_witness_input_free(partialWitness)
+  ffi_rln_witness_input_free(witness)
+  ffi_fr_free(messageId)
+  ffi_fr_free(x)
+  ffi_fr_free(externalNullifier)
+  ffi_rln_merkle_proof_free(merkleProof)
   memberFree(member)
-  ffi_rln_v3_free(rlnInstance)
+  ffi_rln_free(rlnInstance)
 
 main()

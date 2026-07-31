@@ -10,7 +10,10 @@ import {
 async function main() {
   const { rlnWasm, rlnInstance } = await initRLN();
   const member = createMember(rlnWasm);
-  const merkleProof = computeMerkleProof(rlnWasm, member.rateCommitment);
+  const { merkleProof, roots } = computeMerkleProof(
+    rlnWasm,
+    member.rateCommitment,
+  );
   const externalNullifier = computeExternalNullifier(rlnWasm);
 
   console.log("\nHashing signal");
@@ -65,7 +68,7 @@ async function main() {
   console.log("\nVerifying proof");
   let isValid;
   try {
-    isValid = rlnInstance.verifyWithRoots(rlnProof, merkleProof.roots, x);
+    isValid = rlnInstance.verifyWithRoots(rlnProof, roots, x);
   } catch (error) {
     console.error("Proof verification error:", error);
     return;

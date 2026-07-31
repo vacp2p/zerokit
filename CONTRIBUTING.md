@@ -42,9 +42,9 @@ make build
 make test
 
 # Module-specific testing
-cd rln && cargo make test_stateless        # Test stateless features
-cd rln-wasm && cargo make test_browser     # Test in browser headless mode
-cd rln-wasm && cargo make test_parallel    # Test parallel features
+cd rln-wasm && cargo make test_utils    # Test utility functions
+cd rln-wasm && cargo make test_browser  # Test in browser headless mode
+cd rln-wasm && cargo make test_parallel # Test in browser parallel feature
 ```
 
 ### Tools

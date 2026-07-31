@@ -36,12 +36,12 @@
   color: B60205
 - name: infra
   description: Infra, devops, CI and related tasks
+  color: 006b75
 - name: milestone
   description: Milestone issue with a subset of issues within a specific track
   color: 1CC0B0
 
 # Waku Product labels
-  color: 277196
 - name: rqt:platforms
   description: Requirement coming from a platform
   color: A51BB5

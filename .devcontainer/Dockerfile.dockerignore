@@ -1,0 +1,5 @@
+# BuildKit reads this file for .devcontainer/Dockerfile specifically, scoping
+# the build context. The Dockerfile only COPYs the Makefile, so ignore
+# everything else (notably target/ and .git/) to keep the context tiny.
+*
+!Makefile
