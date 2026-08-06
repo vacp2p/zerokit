@@ -13,7 +13,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Add to project board
-        uses: actions/add-to-project@v1
+        uses: actions/add-to-project@v2
         with:
           project-url: https://github.com/orgs/vacp2p/projects/6
           github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
