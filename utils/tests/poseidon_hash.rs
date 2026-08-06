@@ -4,18 +4,7 @@ mod test {
 
     use ark_bn254::Fr;
     use ark_ff::{AdditiveGroup, Field};
-    use zerokit_utils::poseidon::Poseidon;
-
-    const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
-        (2, 8, 56, 0),
-        (3, 8, 57, 0),
-        (4, 8, 56, 0),
-        (5, 8, 60, 0),
-        (6, 8, 60, 0),
-        (7, 8, 63, 0),
-        (8, 8, 64, 0),
-        (9, 8, 63, 0),
-    ];
+    use zerokit_utils::poseidon::{Poseidon, BN254_ROUND_PARAMS};
 
     #[test]
     fn test_poseidon_hash_basic() {
@@ -59,7 +48,7 @@ mod test {
 
         // map (key: what to hash, value: expected value)
         for (k, v) in map.into_iter() {
-            let hasher = Poseidon::from(&ROUND_PARAMS);
+            let hasher = Poseidon::from(&BN254_ROUND_PARAMS);
             let h = hasher.hash(&[k]);
             assert_eq!(h.unwrap(), v);
         }
@@ -123,7 +112,7 @@ mod test {
         ]);
 
         for (k, v) in map.into_iter() {
-            let hasher = Poseidon::from(&ROUND_PARAMS);
+            let hasher = Poseidon::from(&BN254_ROUND_PARAMS);
             let h = hasher.hash(&[k.0, k.1]);
             assert_eq!(h.unwrap(), v);
         }

@@ -12,6 +12,28 @@
 use ark_ff::PrimeField;
 use num_bigint::BigUint;
 
+/// The Poseidon round parameters tuples `(t, RF, RP, SKIP_MATRICES)` for the Bn254 scalar field,
+/// matching circomlib for `1..=16` inputs (`t = inputs + 1`): `RF = 8` and `RP` per width taken
+/// from `N_ROUNDS_P` in https://github.com/iden3/circomlib/blob/master/circuits/poseidon.circom.
+pub const BN254_ROUND_PARAMS: [(usize, usize, usize, usize); 16] = [
+    (2, 8, 56, 0),
+    (3, 8, 57, 0),
+    (4, 8, 56, 0),
+    (5, 8, 60, 0),
+    (6, 8, 60, 0),
+    (7, 8, 63, 0),
+    (8, 8, 64, 0),
+    (9, 8, 63, 0),
+    (10, 8, 60, 0),
+    (11, 8, 66, 0),
+    (12, 8, 60, 0),
+    (13, 8, 65, 0),
+    (14, 8, 70, 0),
+    (15, 8, 60, 0),
+    (16, 8, 64, 0),
+    (17, 8, 68, 0),
+];
+
 struct PoseidonGrainLFSR {
     pub prime_num_bits: u64,
     pub state: [bool; 80],

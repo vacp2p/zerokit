@@ -2,21 +2,10 @@ use std::hint::black_box;
 
 use ark_bn254::Fr;
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput};
-use zerokit_utils::poseidon::Poseidon;
-
-const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
-    (2, 8, 56, 0),
-    (3, 8, 57, 0),
-    (4, 8, 56, 0),
-    (5, 8, 60, 0),
-    (6, 8, 60, 0),
-    (7, 8, 63, 0),
-    (8, 8, 64, 0),
-    (9, 8, 63, 0),
-];
+use zerokit_utils::poseidon::{Poseidon, BN254_ROUND_PARAMS};
 
 pub fn poseidon_benchmark(c: &mut Criterion) {
-    let hasher = Poseidon::from(&ROUND_PARAMS);
+    let hasher = Poseidon::from(&BN254_ROUND_PARAMS);
     let mut group = c.benchmark_group("Poseidon::hash");
 
     for size in [10u32, 100, 1000].iter() {

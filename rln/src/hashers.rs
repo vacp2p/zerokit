@@ -4,28 +4,16 @@ use std::{marker::PhantomData, sync::LazyLock};
 
 use ark_ff::PrimeField;
 use tiny_keccak::{Hasher as _, Keccak};
-use zerokit_utils::{hasher::ZerokitHasher, poseidon::Poseidon};
+use zerokit_utils::{
+    hasher::ZerokitHasher,
+    poseidon::{Poseidon, BN254_ROUND_PARAMS},
+};
 
 use crate::circuit::Fr;
 
-// TODO(backlog): Generate these parameters
-
-/// These indexed constants hardcode the supported round parameters tuples
-/// (t, RF, RN, SKIP_MATRICES) for the Bn254 scalar field.
-/// SKIP_MATRICES is the index of the randomly generated secure MDS matrix.
-const ROUND_PARAMS: [(usize, usize, usize, usize); 8] = [
-    (2, 8, 56, 0),
-    (3, 8, 57, 0),
-    (4, 8, 56, 0),
-    (5, 8, 60, 0),
-    (6, 8, 60, 0),
-    (7, 8, 63, 0),
-    (8, 8, 64, 0),
-    (9, 8, 63, 0),
-];
-
-/// The Poseidon instance over the Bn254 scalar field, parameterized by [`ROUND_PARAMS`].
-static POSEIDON: LazyLock<Poseidon<Fr>> = LazyLock::new(|| Poseidon::from(&ROUND_PARAMS));
+/// The Poseidon instance over the Bn254 scalar field, parameterized by [`BN254_ROUND_PARAMS`]
+/// (circomlib-compatible round parameters for `1..=16` inputs).
+static POSEIDON: LazyLock<Poseidon<Fr>> = LazyLock::new(|| Poseidon::from(&BN254_ROUND_PARAMS));
 
 /// The Poseidon hash function over the Bn254 scalar field.
 #[derive(Clone, Copy, PartialEq)]
@@ -97,6 +85,42 @@ pub fn hash_to_field_be(signal: &[u8]) -> Fr {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_poseidon_hash_against_circomlib() {
+        // Real outputs from circomlibjs `poseidon([1n, ..., n])` for arity `1..=16`.
+        // Pins circom interop and `SKIP_MATRICES = 0` for every width in `BN254_ROUND_PARAMS`.
+        let real_circomlibjs_outputs = [
+            "18586133768512220936620570745912940619677854269274689475585506675881198879027",
+            "7853200120776062878684798364095072458815029376092732009249414926327459813530",
+            "6542985608222806190361240322586112750744169038454362455181422643027100751666",
+            "18821383157269793795438455681495246036402687001665670618754263018637548127333",
+            "6183221330272524995739186171720101788151706631170188140075976616310159254464",
+            "20400040500897583745843009878988256314335038853985262692600694741116813247201",
+            "12748163991115452309045839028154629052133952896122405799815156419278439301912",
+            "18604317144381847857886385684060986177838410221561136253933256952257712543953",
+            "13589767895268936107593642967621470491511464502761040466226072462545218539640",
+            "3657500514307717306974218405144578736633140001277925127187636780142269815841",
+            "3572015662710076994097916907865950486270383304442561406230608893458731714472",
+            "2501997477381648492950318384533644783248002172679259592360114615426357826485",
+            "7041832639553862712666971417715061873827921493498355005117622707743491651590",
+            "8354478399926161176778659061636406690034081872658507739535256090879947077494",
+            "4203130618016961831408770638653325366880478848856764494148034853759773445968",
+            "9989051620750914585850546081941653841776809718687451684622678807385399211877",
+        ];
+        for (arity, expected) in real_circomlibjs_outputs
+            .iter()
+            .enumerate()
+            .map(|(i, e)| (i + 1, e))
+        {
+            let input: Vec<Fr> = (1..=arity as u64).map(Fr::from).collect();
+            assert_eq!(
+                PoseidonHash::hash(&input).to_string(),
+                *expected,
+                "Poseidon hash mismatch for arity {arity}"
+            );
+        }
+    }
 
     #[test]
     fn test_facade_arities_match_concrete_poseidon() {

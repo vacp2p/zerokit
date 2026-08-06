@@ -26,12 +26,14 @@ impl<F> Poseidon<F>
 where
     F: PrimeField,
 {
-    // Loads round parameters and generates round constants
-    // poseidon_params is a vector containing tuples (t, RF, RP, skip_matrices)
-    // where: t is the rate (input length + 1), RF is the number of full rounds, RP is the number
-    // of partial rounds and skip_matrices is a (temporary) parameter used to generate secure MDS
-    // matrices (see comments in the description of find_poseidon_ark_and_mds)
-    // TODO(backlog): Implement automatic generation of round parameters.
+    /// Loads the round parameters and derives the round constants for every tuple in
+    /// `poseidon_params`.
+    ///
+    /// Each tuple is `(t, RF, RP, skip_matrices)` where `t` is the state width (input length
+    /// plus `1`), `RF` is the number of full rounds, `RP` is the number of partial rounds and
+    /// `skip_matrices` is the number of candidate MDS matrices to discard before a secure one
+    /// is found (see [`find_poseidon_ark_and_mds`]). For the Bn254 scalar field use
+    /// [`BN254_ROUND_PARAMS`](crate::poseidon::BN254_ROUND_PARAMS).
     pub fn from(poseidon_params: &[(usize, usize, usize, usize)]) -> Self {
         let mut read_params = Vec::<RoundParameters<F>>::with_capacity(poseidon_params.len());
 

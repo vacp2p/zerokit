@@ -37,7 +37,7 @@ mod test {
         assert_eq!(**be_restored.get_secret().inner(), identity_secret);
         assert_eq!(*be_restored.get_commitment(), id_commitment);
 
-        // Seeded generation must reproduce the known golden values
+        // Seeded generation must reproduce the known values
         let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         let seed = Uint8Array::from(&seed_bytes[..]);
         let seeded = WasmIdentityKeys::generate_seeded(&seed);
@@ -94,7 +94,7 @@ mod test {
         assert_eq!(**be_restored.get_secret().inner(), identity_secret);
         assert_eq!(*be_restored.get_commitment(), id_commitment);
 
-        // Seeded generation must reproduce the known golden values
+        // Seeded generation must reproduce the known values
         let seed_bytes: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         let seed = Uint8Array::from(&seed_bytes[..]);
         let seeded = WasmExtendedIdentityKeys::generate_seeded(&seed);
