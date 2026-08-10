@@ -1,7 +1,7 @@
 use std::hint::black_box;
 
 use ark_bn254::Fr;
-use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use zerokit_utils::poseidon::{Poseidon, BN254_ROUND_PARAMS};
 
 pub fn poseidon_benchmark(c: &mut Criterion) {
@@ -9,8 +9,6 @@ pub fn poseidon_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("Poseidon::hash");
 
     for size in [10u32, 100, 1000].iter() {
-        group.throughput(Throughput::Elements(*size as u64));
-
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             b.iter_batched(
                 // Setup: create values for each benchmark iteration

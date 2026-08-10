@@ -40,6 +40,12 @@
 - name: milestone
   description: Milestone issue with a subset of issues within a specific track
   color: 1CC0B0
+- name: run-coverage
+  description: Run the CI coverage job on this PR
+  color: 0E8A16
+- name: skip-benchmark
+  description: Skip the CI benchmark comparison job on this PR
+  color: EDEDED
 
 # Waku Product labels
 - name: rqt:platforms

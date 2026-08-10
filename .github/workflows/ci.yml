@@ -155,8 +155,9 @@ jobs:
 
   benchmark:
     name: Benchmark - ${{ matrix.crate }}
-    # run only on ready PRs
-    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+    # run only on ready PRs, unless the PR carries the skip-benchmark label
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft &&
+        !contains(github.event.pull_request.labels.*.name, 'skip-benchmark')
     strategy:
       matrix:
         # run benchmarks only on ubuntu
