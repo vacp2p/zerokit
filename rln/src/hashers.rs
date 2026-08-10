@@ -124,20 +124,22 @@ mod test {
 
     #[test]
     fn test_facade_arities_match_concrete_poseidon() {
-        let first = Fr::from(1);
-        let second = Fr::from(2);
-        let third = Fr::from(3);
+        // Every facade method must delegate to `PoseidonHash::hash` unchanged.
+        let input: Vec<Fr> = (1..=16u64).map(Fr::from).collect();
         assert_eq!(
-            Hasher::<PoseidonHash>::hash_single(first),
-            PoseidonHash::hash(&[first])
+            Hasher::<PoseidonHash>::hash_single(input[0]),
+            PoseidonHash::hash(&input[..1])
         );
         assert_eq!(
-            Hasher::<PoseidonHash>::hash_pair(first, second),
-            PoseidonHash::hash(&[first, second])
+            Hasher::<PoseidonHash>::hash_pair(input[0], input[1]),
+            PoseidonHash::hash(&input[..2])
         );
-        assert_eq!(
-            Hasher::<PoseidonHash>::hash_list(&[first, second, third]),
-            PoseidonHash::hash(&[first, second, third])
-        );
+        for arity in 1..=input.len() {
+            assert_eq!(
+                Hasher::<PoseidonHash>::hash_list(&input[..arity]),
+                PoseidonHash::hash(&input[..arity]),
+                "Facade `hash_list` mismatch for arity {arity}"
+            );
+        }
     }
 }
