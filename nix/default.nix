@@ -28,7 +28,7 @@ in targetPlatformPkgs.rustPlatform.buildRustPackage {
 
   inherit src;
 
-  cargoHash = "sha256-WXxQ8mAPD/mPBSnLrunhbDyCAQ0D82t1MILbo+Vfcqk=";
+  cargoHash = "sha256-/wSh0vuBcBV8DGfA39af3W600hTv+Kkeo6bLFPq4pNo=";
 
   nativeBuildInputs = with pkgs; [ rust-cbindgen ];
 
