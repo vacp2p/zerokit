@@ -7,9 +7,13 @@
   };
 
   inputs = {
-    # Pinning the commit to use same commit across different projects.
     # A commit from nixpkgs 25.11 release : https://github.com/NixOS/nixpkgs/tree/release-25.11
-    nixpkgs.url = "github:NixOS/nixpkgs?rev=23d72dabcb3b12469f57b37170fcbc1789bd7457";
+    # Bumped from rev 23d72dab… (2026-02-07) to a post-2026-04-24 rev so that
+    # rustPlatform.fetchCargoVendor uses `fetch-cargo-vendor-util-v2.py`, which
+    # sets a `nixpkgs-fetchCargoVendor/2` User-Agent. The previous script sent
+    # no User-Agent and crates.io returns 403 for empty-UA requests, breaking
+    # `nix build .#rln` for anyone without a warm vendor cache.
+    nixpkgs.url = "github:NixOS/nixpkgs?rev=cd648d6ea62bc0ffba91e61fcfe5e33c1e2004b1";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
