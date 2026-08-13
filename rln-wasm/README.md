@@ -14,9 +14,9 @@ to enable RLN functionality in JavaScript/TypeScript applications.
 > [!NOTE]
 > This project requires the following tools:
 >
-> - `wasm-pack` (v0.15.0) - for compiling Rust to WebAssembly
+> - `wasm-pack` - for compiling Rust to WebAssembly (v0.15.0 is mandatory)
 > - `cargo-make` - for running build commands
-> - `nvm` - to install and manage Node.js (v22.14.0+)
+> - `nvm` - to install and manage Node.js (v22.0.0+ is recommended)
 
 ### Quick Install
 
@@ -34,9 +34,9 @@ cargo install wasm-pack --version=0.15.0
 cargo install cargo-make
 
 # Install Node.js via nvm
-nvm install 22.14.0
-nvm use 22.14.0
-nvm alias default 22.14.0
+nvm install 26.5.0
+nvm use 26.5.0
+nvm alias default 26.5.0
 ```
 
 ## Building the Library
@@ -55,7 +55,7 @@ cargo make build_parallel                  # Parallel → @waku/zerokit-rln-wasm
 cargo make build_utils                     # Utils only → @waku/zerokit-rln-wasm-utils
 ```
 
-All packages output to `pkg/` directory.
+All packages are output to the `pkg/` directory. Published packages are available on [Waku's npm registry](https://www.npmjs.com/org/waku).
 
 ## Running Tests and Benchmarks
 
