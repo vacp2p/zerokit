@@ -51,6 +51,10 @@
       in rec {
         rln = buildRln;
 
+        # mix-rln-spam-protection-plugin's Nim binding calls the zero-arg
+        # form of ffi_rln_new, which zerokit exposes only under `stateless`.
+        rln-stateless = buildRln.override (old: { features = "stateless"; });
+
         rln-linux-arm64 = buildRln {
           target-platform = "aarch64-multiplatform";
           rust-target = "aarch64-unknown-linux-gnu";
