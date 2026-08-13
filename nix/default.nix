@@ -28,7 +28,7 @@ in targetPlatformPkgs.rustPlatform.buildRustPackage {
 
   inherit src;
 
-  cargoHash = "sha256-3wFnSJYUSQ01tQLe4nZGUZdoU1A9vsl9dpJU3vPeiHo=";
+  cargoHash = "sha256-PNwEdZLgGQPqQDrEK2hsQtSybVfBbD6xn4K47fPFJUU=";
 
   nativeBuildInputs = with pkgs; [ rust-cbindgen ];
 
@@ -37,7 +37,7 @@ in targetPlatformPkgs.rustPlatform.buildRustPackage {
     cargo build --lib \
       ${if release             then "--release" else ""} \
       ${if rust-target != null then "--target=${rust-target}" else ""} \
-      ${if features != null    then "--features=${features}" else ""} \
+      ${if features != null    then "--no-default-features --features=${features}" else ""} \
       --manifest-path rln/Cargo.toml
   '';
 
