@@ -6,9 +6,10 @@ mod test {
     use js_sys::{Date, Uint8Array};
     use rln::prelude::*;
     use rln_wasm::{
-        wasm_hash_to_field_le, wasm_poseidon_hash_pair, VecWasmFr, WasmFr, WasmIdentityKeys,
-        WasmRLN, WasmRLNMerkleProof, WasmRLNPartialProof, WasmRLNPartialWitnessInput, WasmRLNProof,
-        WasmRLNProofValues, WasmRLNWitnessInput, WasmSecretFr,
+        wasm_hash_to_field_le, wasm_poseidon2_hash_pair, wasm_poseidon_hash_pair, VecWasmFr,
+        WasmFr, WasmIdentityKeys, WasmRLN, WasmRLNMerkleProof, WasmRLNPartialProof,
+        WasmRLNPartialWitnessInput, WasmRLNPoseidon2, WasmRLNProof, WasmRLNProofValues,
+        WasmRLNWitnessInput, WasmSecretFr,
     };
     use wasm_bindgen_test::{console_log, wasm_bindgen_test};
     use zerokit_utils::merkle_tree::{OptimalMerkleProof, OptimalMerkleTree, ZerokitMerkleTree};
@@ -18,6 +19,12 @@ mod test {
 
     const GRAPH_BYTES: &[u8] =
         include_bytes!("../../rln/resources/tree_depth_20/rln_single/graph.bin");
+
+    const ARKZKEY_BYTES_POSEIDON2: &[u8] =
+        include_bytes!("../../rln/resources/tree_depth_20/rln_poseidon2_single/rln_final.arkzkey");
+
+    const GRAPH_BYTES_POSEIDON2: &[u8] =
+        include_bytes!("../../rln/resources/tree_depth_20/rln_poseidon2_single/graph.bin");
 
     fn build_witness_parts() -> (
         WasmSecretFr,
@@ -203,6 +210,59 @@ mod test {
         ));
 
         console_log!("{results}");
+    }
+
+    #[wasm_bindgen_test]
+    pub fn test_wasm_poseidon2_proof() {
+        let zkey = Uint8Array::from(ARKZKEY_BYTES_POSEIDON2);
+        let graph = Uint8Array::from(GRAPH_BYTES_POSEIDON2);
+        let rln_instance = WasmRLNPoseidon2::new_with_params(&zkey, &graph).unwrap();
+
+        let mut tree: OptimalMerkleTree<Poseidon2Hash> =
+            OptimalMerkleTree::default(DEFAULT_TREE_DEPTH).unwrap();
+
+        let identity_pair = WasmIdentityKeys::generate_poseidon2();
+        let identity_secret = identity_pair.get_secret();
+        let id_commitment = identity_pair.get_commitment();
+
+        let epoch = wasm_hash_to_field_le(&Uint8Array::from(b"test-epoch" as &[u8]));
+        let rln_identifier =
+            wasm_hash_to_field_le(&Uint8Array::from(b"test-rln-identifier" as &[u8]));
+        let external_nullifier = wasm_poseidon2_hash_pair(&epoch, &rln_identifier);
+
+        let identity_index = tree.leaves_set();
+        let user_message_limit = WasmFr::from_uint(10);
+        let rate_commitment = wasm_poseidon2_hash_pair(&id_commitment, &user_message_limit);
+        tree.update_next(*rate_commitment).unwrap();
+
+        let message_id = WasmFr::from_uint(0);
+        let signal: [u8; 32] = [0; 32];
+        let x = wasm_hash_to_field_le(&Uint8Array::from(&signal[..]));
+
+        let tree_merkle_proof: OptimalMerkleProof<Poseidon2Hash> =
+            tree.proof(identity_index).unwrap();
+        let merkle_proof = WasmRLNMerkleProof::from(RLNMerkleProof::from(&tree_merkle_proof));
+
+        let witness = WasmRLNWitnessInput::new_single(
+            &identity_secret,
+            &user_message_limit,
+            &message_id,
+            &merkle_proof,
+            &x,
+            &external_nullifier,
+        )
+        .unwrap();
+
+        let proof = rln_instance.generate_proof(&witness).unwrap();
+
+        let root = WasmFr::from(tree.root());
+        let mut roots = VecWasmFr::new();
+        roots.push(&root);
+        assert!(rln_instance.verify_with_roots(&proof, &roots, &x).unwrap());
+
+        let proof_values = witness.to_proof_values_poseidon2();
+        let pv_le = proof_values.to_bytes_le().unwrap();
+        assert!(WasmRLNProofValues::from_bytes_le(&pv_le).is_ok());
     }
 
     #[wasm_bindgen_test]
