@@ -51,6 +51,20 @@ You can run the example using the following command:
 cargo run --example multi_message_id
 ```
 
+## Poseidon2 Example
+
+The following [Poseidon2 Example](src/examples/poseidon2.rs) demonstrates
+how RLN works with the Poseidon2 hash.
+
+This example functions similarly to the [Relay Example](#relay-example)
+but uses the [Poseidon2 resource files](../rln/resources/tree_depth_20/rln_poseidon2_single).
+
+You can run the example using the following command:
+
+```bash
+cargo run --example poseidon2
+```
+
 ## Partial Proof Example
 
 The following [Partial Proof Example](src/examples/partial.rs) demonstrates
