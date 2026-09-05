@@ -99,12 +99,12 @@ static int load_resources(bool enable_multi_message_id, Vec_uint8 *zkey_data,
 {
     const char *zkey_path =
         enable_multi_message_id
-            ? "../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey"
-            : "../resources/tree_depth_20/rln_final.arkzkey";
+            ? "../resources/tree_depth_20/rln_multi/rln_final.arkzkey"
+            : "../resources/tree_depth_20/rln_single/rln_final.arkzkey";
     const char *graph_path =
         enable_multi_message_id
-            ? "../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin"
-            : "../resources/tree_depth_20/graph.bin";
+            ? "../resources/tree_depth_20/rln_multi/graph.bin"
+            : "../resources/tree_depth_20/rln_single/graph.bin";
 
     if (file_to_bytes(zkey_path, zkey_data) != 0)
     {

@@ -52,7 +52,8 @@ struct RLNSystem {
 impl RLNSystem {
     fn new() -> Result<Self> {
         let mut resources: Vec<Vec<u8>> = Vec::new();
-        let resources_path: PathBuf = format!("../rln/resources/tree_depth_{TREE_DEPTH}").into();
+        let resources_path: PathBuf =
+            format!("../rln/resources/tree_depth_{TREE_DEPTH}/rln_single").into();
         let filenames = ["rln_final.arkzkey", "graph.bin"];
         for filename in filenames {
             let fullpath = resources_path.join(Path::new(filename));

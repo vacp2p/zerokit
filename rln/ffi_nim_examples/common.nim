@@ -32,14 +32,14 @@ proc printVecU8(label: string, value: ptr Vec_uint8) =
 proc loadResources(enableMultiMessageId: bool): (seq[uint8], seq[uint8]) =
   let zkeyPath =
     if enableMultiMessageId:
-      "../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey"
+      "../resources/tree_depth_20/rln_multi/rln_final.arkzkey"
     else:
-      "../resources/tree_depth_20/rln_final.arkzkey"
+      "../resources/tree_depth_20/rln_single/rln_final.arkzkey"
   let graphPath =
     if enableMultiMessageId:
-      "../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin"
+      "../resources/tree_depth_20/rln_multi/graph.bin"
     else:
-      "../resources/tree_depth_20/graph.bin"
+      "../resources/tree_depth_20/rln_single/graph.bin"
   (fileToBytes(zkeyPath), fileToBytes(graphPath))
 
 proc initRLN(enableMultiMessageId: bool): ptr RLN =

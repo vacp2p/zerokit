@@ -32,9 +32,10 @@ mod test {
     }
 
     const ARKZKEY_BYTES: &[u8] =
-        include_bytes!("../../rln/resources/tree_depth_20/rln_final.arkzkey");
+        include_bytes!("../../rln/resources/tree_depth_20/rln_single/rln_final.arkzkey");
 
-    const GRAPH_BYTES: &[u8] = include_bytes!("../../rln/resources/tree_depth_20/graph.bin");
+    const GRAPH_BYTES: &[u8] =
+        include_bytes!("../../rln/resources/tree_depth_20/rln_single/graph.bin");
 
     wasm_bindgen_test_configure!(run_in_browser);
 
