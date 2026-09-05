@@ -10,6 +10,7 @@ These examples demonstrate how to use the RLN WASM package in a Node.js environm
 | [recover_secret.js](recover_secret.js) | Sends two messages with the same message id, then recovers the identity secret from the two proofs |
 | [partial_proof.js](partial_proof.js) | Generates a partial proof ahead of time, finishes it with the full witness, and verifies the result |
 | [multi_message_id.js](multi_message_id.js) | Runs the proof and recover secret flows in Multi message-id mode, where one proof covers several message ids |
+| [poseidon2.js](poseidon2.js) | Runs the proof flow with the Poseidon2 hash and its circuit resources |
 
 ## Build the package
 
@@ -29,6 +30,7 @@ npm run type_serialization
 npm run recover_secret
 npm run partial_proof
 npm run multi_message_id
+npm run poseidon2
 ```
 
 Or run everything in order:

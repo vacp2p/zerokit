@@ -149,6 +149,40 @@ RLN *init_rln(bool enable_multi_message_id)
     return rln_instance_result.ok;
 }
 
+RLN *init_rln_poseidon2(void)
+{
+    printf("Creating RLN instance (Poseidon2)\n");
+    Vec_uint8 zkey_data;
+    Vec_uint8 graph_data;
+    if (file_to_bytes("../resources/tree_depth_20/rln_poseidon2_single/rln_final.arkzkey",
+                      &zkey_data) != 0)
+    {
+        fprintf(stderr, "Failed to read Poseidon2 zkey\n");
+        return NULL;
+    }
+    if (file_to_bytes("../resources/tree_depth_20/rln_poseidon2_single/graph.bin",
+                      &graph_data) != 0)
+    {
+        fprintf(stderr, "Failed to read Poseidon2 graph\n");
+        free(zkey_data.ptr);
+        return NULL;
+    }
+    RLNResult rln_instance_result =
+        ffi_rln_new_with_pm_tree_poseidon2(TREE_DEPTH, &zkey_data, &graph_data, "");
+    free(zkey_data.ptr);
+    free(graph_data.ptr);
+    if (!rln_instance_result.ok)
+    {
+        fprintf(stderr, "RLN instance creation error: %.*s\n",
+                (int)rln_instance_result.err.len, (char *)rln_instance_result.err.ptr);
+        ffi_c_string_free(rln_instance_result.err);
+        return NULL;
+    }
+    printf("  - RLN instance created successfully\n");
+    printf("  - circuit tree depth = %d\n", TREE_DEPTH);
+    return rln_instance_result.ok;
+}
+
 RLN *init_rln_stateless(void)
 {
     printf("Creating RLN instance\n");
@@ -192,6 +226,30 @@ int create_member(Member *member)
     printf("\nComputing rate commitment\n");
     member->rate_commitment =
         ffi_poseidon_hash_pair(member->id_commitment, member->user_message_limit);
+    print_fr("rate commitment", member->rate_commitment);
+
+    ffi_identity_keys_free(keys);
+    return 0;
+}
+
+int create_member_poseidon2(Member *member)
+{
+    printf("\nGenerating identity keys (Poseidon2)\n");
+    IdentityKeys *keys = ffi_identity_keys_generate_poseidon2();
+    member->identity_secret = ffi_identity_keys_get_secret(keys);
+    member->id_commitment = ffi_identity_keys_get_commitment(keys);
+
+    printf("  - identity generated successfully\n");
+    print_secret_fr("identity secret", member->identity_secret);
+    print_fr("id commitment", member->id_commitment);
+
+    printf("\nCreating message limit\n");
+    member->user_message_limit = ffi_uint_to_fr(10);
+    print_fr("user message limit", member->user_message_limit);
+
+    printf("\nComputing rate commitment\n");
+    member->rate_commitment =
+        ffi_poseidon2_hash_pair(member->id_commitment, member->user_message_limit);
     print_fr("rate commitment", member->rate_commitment);
 
     ffi_identity_keys_free(keys);
@@ -255,6 +313,29 @@ Fr *compute_external_nullifier(void)
 
     printf("\nComputing Poseidon hash for external nullifier\n");
     Fr *external_nullifier = ffi_poseidon_hash_pair(epoch, rln_identifier);
+    print_fr("external nullifier", external_nullifier);
+
+    ffi_fr_free(rln_identifier);
+    ffi_fr_free(epoch);
+    return external_nullifier;
+}
+
+Fr *compute_external_nullifier_poseidon2(void)
+{
+    printf("\nHashing epoch\n");
+    const char *epoch_str = "test-epoch";
+    Fr *epoch = ffi_hash_to_field_le(
+        &(Vec_uint8){(uint8_t *)epoch_str, strlen(epoch_str), strlen(epoch_str)});
+    print_fr("epoch", epoch);
+
+    printf("\nHashing RLN identifier\n");
+    const char *rln_id_str = "test-rln-identifier";
+    Fr *rln_identifier = ffi_hash_to_field_le(
+        &(Vec_uint8){(uint8_t *)rln_id_str, strlen(rln_id_str), strlen(rln_id_str)});
+    print_fr("RLN identifier", rln_identifier);
+
+    printf("\nComputing Poseidon2 hash for external nullifier\n");
+    Fr *external_nullifier = ffi_poseidon2_hash_pair(epoch, rln_identifier);
     print_fr("external nullifier", external_nullifier);
 
     ffi_fr_free(rln_identifier);

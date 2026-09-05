@@ -60,6 +60,25 @@ proc initRLN(enableMultiMessageId: bool): ptr RLN =
     echo "  - circuit max out = " & $maxOut
   rlnInstanceResult.ok
 
+proc initRLNPoseidon2(): ptr RLN =
+  echo "Creating RLN instance (Poseidon2)"
+  var zkeyBytes = fileToBytes(
+      "../resources/tree_depth_20/rln_poseidon2_single/rln_final.arkzkey")
+  var graphBytes = fileToBytes(
+      "../resources/tree_depth_20/rln_poseidon2_single/graph.bin")
+  var zkeyData = asVecU8(zkeyBytes)
+  var graphData = asVecU8(graphBytes)
+  let rlnInstanceResult = ffi_rln_new_with_pm_tree_poseidon2(csize_t(treeDepth),
+      addr zkeyData, addr graphData, "")
+  if rlnInstanceResult.ok.isNil:
+    stderr.writeLine("RLN instance creation error: " & asString(
+        rlnInstanceResult.err))
+    ffi_c_string_free(rlnInstanceResult.err)
+    return nil
+  echo "  - RLN instance created successfully"
+  echo "  - circuit tree depth = " & $treeDepth
+  rlnInstanceResult.ok
+
 proc initRLNStateless(): ptr RLN =
   echo "Creating RLN instance"
   var (zkeyBytes, graphBytes) = loadResources(false)
@@ -92,6 +111,25 @@ proc createMember(): Member =
 
   echo "\nComputing rate commitment"
   result.rateCommitment = ffi_poseidon_hash_pair(result.idCommitment,
+      result.userMessageLimit)
+  printFr("rate commitment", result.rateCommitment)
+
+proc createMemberPoseidon2(): Member =
+  echo "\nGenerating identity keys (Poseidon2)"
+  let keys = ffi_identity_keys_generate_poseidon2()
+  result.identitySecret = ffi_identity_keys_get_secret(keys)
+  result.idCommitment = ffi_identity_keys_get_commitment(keys)
+  ffi_identity_keys_free(keys)
+  echo "  - identity generated successfully"
+  printSecretFr("identity secret", result.identitySecret)
+  printFr("id commitment", result.idCommitment)
+
+  echo "\nCreating message limit"
+  result.userMessageLimit = ffi_uint_to_fr(10'u32)
+  printFr("user message limit", result.userMessageLimit)
+
+  echo "\nComputing rate commitment"
+  result.rateCommitment = ffi_poseidon2_hash_pair(result.idCommitment,
       result.userMessageLimit)
   printFr("rate commitment", result.rateCommitment)
 
@@ -144,6 +182,29 @@ proc computeExternalNullifier(): ptr Fr =
 
   echo "\nComputing Poseidon hash for external nullifier"
   let externalNullifier = ffi_poseidon_hash_pair(epoch, rlnIdentifier)
+  printFr("external nullifier", externalNullifier)
+
+  ffi_fr_free(rlnIdentifier)
+  ffi_fr_free(epoch)
+  externalNullifier
+
+proc computeExternalNullifierPoseidon2(): ptr Fr =
+  echo "\nHashing epoch"
+  let epochStr = "test-epoch"
+  var epochBuf = strToBytes(epochStr)
+  var epochVec = asVecU8(epochBuf)
+  let epoch = ffi_hash_to_field_le(addr epochVec)
+  printFr("epoch", epoch)
+
+  echo "\nHashing RLN identifier"
+  let rlnIdStr = "test-rln-identifier"
+  var rlnIdBuf = strToBytes(rlnIdStr)
+  var rlnIdVec = asVecU8(rlnIdBuf)
+  let rlnIdentifier = ffi_hash_to_field_le(addr rlnIdVec)
+  printFr("RLN identifier", rlnIdentifier)
+
+  echo "\nComputing Poseidon2 hash for external nullifier"
+  let externalNullifier = ffi_poseidon2_hash_pair(epoch, rlnIdentifier)
   printFr("external nullifier", externalNullifier)
 
   ffi_fr_free(rlnIdentifier)
