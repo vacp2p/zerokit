@@ -7,7 +7,8 @@ mod test {
     use zerokit_utils::poseidon::{Poseidon, PoseidonError, POSEIDON_ROUND_PARAMS};
 
     #[test]
-    fn test_poseidon_hash_basic() {
+    fn test_poseidon_hash() {
+        // Single-input hashes
         let map = HashMap::from([
             (
                 Fr::ZERO,
@@ -52,11 +53,8 @@ mod test {
             let h = hasher.hash(&[k]);
             assert_eq!(h.unwrap(), v);
         }
-    }
 
-    #[test]
-    fn test_poseidon_hash_multi() {
-        // All hashes done in a merkle tree (with leaves: [0, 1, 2, 3, 4, 5, 6, 7])
+        // Pair hashes done in a merkle tree (with leaves: [0, 1, 2, 3, 4, 5, 6, 7])
 
         // ~ leaves
         let fr_0 = Fr::ZERO;

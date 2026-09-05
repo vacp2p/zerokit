@@ -139,6 +139,19 @@ mod test {
             .unwrap());
     }
 
+    #[test]
+    fn test_rln_poseidon2_resource_mismatch() {
+        // A Poseidon2 backend over the embedded Poseidon circuit resources constructs by
+        // design, but the circuit computes Poseidon, so its proofs must fail to verify.
+        let rln = RLNBuilder::stateless_poseidon2()
+            .graph(default_graph_single().clone())
+            .zkey(default_zkey_single().clone())
+            .build();
+        let rln_witness = random_rln_witness(DEFAULT_TREE_DEPTH);
+        let (proof, proof_values) = rln.generate_proof(&rln_witness).unwrap();
+        assert!(!rln.verify(&proof, &proof_values).unwrap());
+    }
+
     fn random_leaves(rng: &mut ThreadRng) -> Vec<Fr> {
         (0..LEAF_COUNT).map(|_| Fr::rand(rng)).collect()
     }

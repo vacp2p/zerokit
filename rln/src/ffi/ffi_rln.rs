@@ -25,6 +25,16 @@ pub(crate) enum FFI_RLN_Inner {
         RLN<Stateful<OptimalMerkleTree<PoseidonHash>>, ArkGroth16Backend<PoseidonHash>>,
     ),
     StatefulPmTree(RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend<PoseidonHash>>),
+    StatelessPoseidon2(RLN<Stateless, ArkGroth16Backend<Poseidon2Hash>>),
+    StatefulFullMerkleTreePoseidon2(
+        RLN<Stateful<FullMerkleTree<Poseidon2Hash>>, ArkGroth16Backend<Poseidon2Hash>>,
+    ),
+    StatefulOptimalMerkleTreePoseidon2(
+        RLN<Stateful<OptimalMerkleTree<Poseidon2Hash>>, ArkGroth16Backend<Poseidon2Hash>>,
+    ),
+    StatefulPmTreePoseidon2(
+        RLN<Stateful<PmTree<SledDB, Poseidon2Hash>>, ArkGroth16Backend<Poseidon2Hash>>,
+    ),
 }
 
 impl FFI_RLN_Inner {
@@ -38,6 +48,16 @@ impl FFI_RLN_Inner {
                 r.generate_proof(witness).map_err(|err| err.to_string())
             }
             Self::StatefulPmTree(r) => r.generate_proof(witness).map_err(|err| err.to_string()),
+            Self::StatelessPoseidon2(r) => r.generate_proof(witness).map_err(|err| err.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => {
+                r.generate_proof(witness).map_err(|err| err.to_string())
+            }
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => {
+                r.generate_proof(witness).map_err(|err| err.to_string())
+            }
+            Self::StatefulPmTreePoseidon2(r) => {
+                r.generate_proof(witness).map_err(|err| err.to_string())
+            }
         }
     }
 
@@ -51,6 +71,16 @@ impl FFI_RLN_Inner {
                 r.verify(proof, values).map_err(|err| err.to_string())
             }
             Self::StatefulPmTree(r) => r.verify(proof, values).map_err(|err| err.to_string()),
+            Self::StatelessPoseidon2(r) => r.verify(proof, values).map_err(|err| err.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => {
+                r.verify(proof, values).map_err(|err| err.to_string())
+            }
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => {
+                r.verify(proof, values).map_err(|err| err.to_string())
+            }
+            Self::StatefulPmTreePoseidon2(r) => {
+                r.verify(proof, values).map_err(|err| err.to_string())
+            }
         }
     }
 
@@ -71,6 +101,18 @@ impl FFI_RLN_Inner {
                 .verify_with_signal(proof, values, x)
                 .map_err(|err| err.to_string()),
             Self::StatefulPmTree(r) => r
+                .verify_with_signal(proof, values, x)
+                .map_err(|err| err.to_string()),
+            Self::StatelessPoseidon2(r) => r
+                .verify_with_signal(proof, values, x)
+                .map_err(|err| err.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => r
+                .verify_with_signal(proof, values, x)
+                .map_err(|err| err.to_string()),
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => r
+                .verify_with_signal(proof, values, x)
+                .map_err(|err| err.to_string()),
+            Self::StatefulPmTreePoseidon2(r) => r
                 .verify_with_signal(proof, values, x)
                 .map_err(|err| err.to_string()),
         }
@@ -96,6 +138,18 @@ impl FFI_RLN_Inner {
             Self::StatefulPmTree(r) => r
                 .verify_with_roots(proof, values, x, roots)
                 .map_err(|err| err.to_string()),
+            Self::StatelessPoseidon2(r) => r
+                .verify_with_roots(proof, values, x, roots)
+                .map_err(|err| err.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => r
+                .verify_with_roots(proof, values, x, roots)
+                .map_err(|err| err.to_string()),
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => r
+                .verify_with_roots(proof, values, x, roots)
+                .map_err(|err| err.to_string()),
+            Self::StatefulPmTreePoseidon2(r) => r
+                .verify_with_roots(proof, values, x, roots)
+                .map_err(|err| err.to_string()),
         }
     }
 
@@ -114,6 +168,18 @@ impl FFI_RLN_Inner {
                 .generate_partial_proof(partial_witness)
                 .map_err(|err| err.to_string()),
             Self::StatefulPmTree(r) => r
+                .generate_partial_proof(partial_witness)
+                .map_err(|err| err.to_string()),
+            Self::StatelessPoseidon2(r) => r
+                .generate_partial_proof(partial_witness)
+                .map_err(|err| err.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => r
+                .generate_partial_proof(partial_witness)
+                .map_err(|err| err.to_string()),
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => r
+                .generate_partial_proof(partial_witness)
+                .map_err(|err| err.to_string()),
+            Self::StatefulPmTreePoseidon2(r) => r
                 .generate_partial_proof(partial_witness)
                 .map_err(|err| err.to_string()),
         }
@@ -137,6 +203,18 @@ impl FFI_RLN_Inner {
             Self::StatefulPmTree(r) => r
                 .finish_proof(partial_proof, witness)
                 .map_err(|err| err.to_string()),
+            Self::StatelessPoseidon2(r) => r
+                .finish_proof(partial_proof, witness)
+                .map_err(|err| err.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => r
+                .finish_proof(partial_proof, witness)
+                .map_err(|err| err.to_string()),
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => r
+                .finish_proof(partial_proof, witness)
+                .map_err(|err| err.to_string()),
+            Self::StatefulPmTreePoseidon2(r) => r
+                .finish_proof(partial_proof, witness)
+                .map_err(|err| err.to_string()),
         }
     }
 
@@ -146,6 +224,10 @@ impl FFI_RLN_Inner {
             Self::StatefulFullMerkleTree(r) => Ok(r.tree_depth()),
             Self::StatefulOptimalMerkleTree(r) => Ok(r.tree_depth()),
             Self::StatefulPmTree(r) => Ok(r.tree_depth()),
+            Self::StatelessPoseidon2(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => Ok(r.tree_depth()),
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => Ok(r.tree_depth()),
+            Self::StatefulPmTreePoseidon2(r) => Ok(r.tree_depth()),
         }
     }
 
@@ -155,6 +237,10 @@ impl FFI_RLN_Inner {
             Self::StatefulFullMerkleTree(r) => Ok(r.leaves_set()),
             Self::StatefulOptimalMerkleTree(r) => Ok(r.leaves_set()),
             Self::StatefulPmTree(r) => Ok(r.leaves_set()),
+            Self::StatelessPoseidon2(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => Ok(r.leaves_set()),
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => Ok(r.leaves_set()),
+            Self::StatefulPmTreePoseidon2(r) => Ok(r.leaves_set()),
         }
     }
 
@@ -164,6 +250,10 @@ impl FFI_RLN_Inner {
             Self::StatefulFullMerkleTree(r) => Ok(r.get_root()),
             Self::StatefulOptimalMerkleTree(r) => Ok(r.get_root()),
             Self::StatefulPmTree(r) => Ok(r.get_root()),
+            Self::StatelessPoseidon2(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => Ok(r.get_root()),
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => Ok(r.get_root()),
+            Self::StatefulPmTreePoseidon2(r) => Ok(r.get_root()),
         }
     }
 
@@ -179,6 +269,16 @@ impl FFI_RLN_Inner {
             Self::StatefulPmTree(r) => r
                 .get_subtree_root(level, index)
                 .map_err(|err| err.to_string()),
+            Self::StatelessPoseidon2(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => r
+                .get_subtree_root(level, index)
+                .map_err(|err| err.to_string()),
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => r
+                .get_subtree_root(level, index)
+                .map_err(|err| err.to_string()),
+            Self::StatefulPmTreePoseidon2(r) => r
+                .get_subtree_root(level, index)
+                .map_err(|err| err.to_string()),
         }
     }
 
@@ -192,6 +292,16 @@ impl FFI_RLN_Inner {
                 r.set_leaf(index, leaf).map_err(|err| err.to_string())
             }
             Self::StatefulPmTree(r) => r.set_leaf(index, leaf).map_err(|err| err.to_string()),
+            Self::StatelessPoseidon2(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => {
+                r.set_leaf(index, leaf).map_err(|err| err.to_string())
+            }
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => {
+                r.set_leaf(index, leaf).map_err(|err| err.to_string())
+            }
+            Self::StatefulPmTreePoseidon2(r) => {
+                r.set_leaf(index, leaf).map_err(|err| err.to_string())
+            }
         }
     }
 
@@ -205,6 +315,16 @@ impl FFI_RLN_Inner {
                 .set_leaves_from(index, leaves)
                 .map_err(|err| err.to_string()),
             Self::StatefulPmTree(r) => r
+                .set_leaves_from(index, leaves)
+                .map_err(|err| err.to_string()),
+            Self::StatelessPoseidon2(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => r
+                .set_leaves_from(index, leaves)
+                .map_err(|err| err.to_string()),
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => r
+                .set_leaves_from(index, leaves)
+                .map_err(|err| err.to_string()),
+            Self::StatefulPmTreePoseidon2(r) => r
                 .set_leaves_from(index, leaves)
                 .map_err(|err| err.to_string()),
         }
@@ -222,6 +342,16 @@ impl FFI_RLN_Inner {
             Self::StatefulPmTree(r) => r
                 .init_tree_with_leaves(leaves)
                 .map_err(|err| err.to_string()),
+            Self::StatelessPoseidon2(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => r
+                .init_tree_with_leaves(leaves)
+                .map_err(|err| err.to_string()),
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => r
+                .init_tree_with_leaves(leaves)
+                .map_err(|err| err.to_string()),
+            Self::StatefulPmTreePoseidon2(r) => r
+                .init_tree_with_leaves(leaves)
+                .map_err(|err| err.to_string()),
         }
     }
 
@@ -231,6 +361,14 @@ impl FFI_RLN_Inner {
             Self::StatefulFullMerkleTree(r) => r.get_leaf(index).map_err(|err| err.to_string()),
             Self::StatefulOptimalMerkleTree(r) => r.get_leaf(index).map_err(|err| err.to_string()),
             Self::StatefulPmTree(r) => r.get_leaf(index).map_err(|err| err.to_string()),
+            Self::StatelessPoseidon2(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => {
+                r.get_leaf(index).map_err(|err| err.to_string())
+            }
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => {
+                r.get_leaf(index).map_err(|err| err.to_string())
+            }
+            Self::StatefulPmTreePoseidon2(r) => r.get_leaf(index).map_err(|err| err.to_string()),
         }
     }
 
@@ -240,6 +378,10 @@ impl FFI_RLN_Inner {
             Self::StatefulFullMerkleTree(r) => Ok(r.get_empty_leaves_indices()),
             Self::StatefulOptimalMerkleTree(r) => Ok(r.get_empty_leaves_indices()),
             Self::StatefulPmTree(r) => Ok(r.get_empty_leaves_indices()),
+            Self::StatelessPoseidon2(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => Ok(r.get_empty_leaves_indices()),
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => Ok(r.get_empty_leaves_indices()),
+            Self::StatefulPmTreePoseidon2(r) => Ok(r.get_empty_leaves_indices()),
         }
     }
 
@@ -260,6 +402,16 @@ impl FFI_RLN_Inner {
             Self::StatefulPmTree(r) => r
                 .atomic_operation(index, leaves, indices)
                 .map_err(|err| err.to_string()),
+            Self::StatelessPoseidon2(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => r
+                .atomic_operation(index, leaves, indices)
+                .map_err(|err| err.to_string()),
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => r
+                .atomic_operation(index, leaves, indices)
+                .map_err(|err| err.to_string()),
+            Self::StatefulPmTreePoseidon2(r) => r
+                .atomic_operation(index, leaves, indices)
+                .map_err(|err| err.to_string()),
         }
     }
 
@@ -271,6 +423,16 @@ impl FFI_RLN_Inner {
                 r.set_next_leaf(leaf).map_err(|err| err.to_string())
             }
             Self::StatefulPmTree(r) => r.set_next_leaf(leaf).map_err(|err| err.to_string()),
+            Self::StatelessPoseidon2(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => {
+                r.set_next_leaf(leaf).map_err(|err| err.to_string())
+            }
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => {
+                r.set_next_leaf(leaf).map_err(|err| err.to_string())
+            }
+            Self::StatefulPmTreePoseidon2(r) => {
+                r.set_next_leaf(leaf).map_err(|err| err.to_string())
+            }
         }
     }
 
@@ -282,6 +444,14 @@ impl FFI_RLN_Inner {
                 r.delete_leaf(index).map_err(|err| err.to_string())
             }
             Self::StatefulPmTree(r) => r.delete_leaf(index).map_err(|err| err.to_string()),
+            Self::StatelessPoseidon2(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => {
+                r.delete_leaf(index).map_err(|err| err.to_string())
+            }
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => {
+                r.delete_leaf(index).map_err(|err| err.to_string())
+            }
+            Self::StatefulPmTreePoseidon2(r) => r.delete_leaf(index).map_err(|err| err.to_string()),
         }
     }
 
@@ -300,6 +470,19 @@ impl FFI_RLN_Inner {
                 let p = r.get_merkle_proof(index).map_err(|err| err.to_string())?;
                 Ok(RLNMerkleProof::from(&p))
             }
+            Self::StatelessPoseidon2(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => {
+                let p = r.get_merkle_proof(index).map_err(|err| err.to_string())?;
+                Ok(RLNMerkleProof::from(&p))
+            }
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => {
+                let p = r.get_merkle_proof(index).map_err(|err| err.to_string())?;
+                Ok(RLNMerkleProof::from(&p))
+            }
+            Self::StatefulPmTreePoseidon2(r) => {
+                let p = r.get_merkle_proof(index).map_err(|err| err.to_string())?;
+                Ok(RLNMerkleProof::from(&p))
+            }
         }
     }
 
@@ -313,6 +496,16 @@ impl FFI_RLN_Inner {
                 r.set_metadata(metadata).map_err(|err| err.to_string())
             }
             Self::StatefulPmTree(r) => r.set_metadata(metadata).map_err(|err| err.to_string()),
+            Self::StatelessPoseidon2(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => {
+                r.set_metadata(metadata).map_err(|err| err.to_string())
+            }
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => {
+                r.set_metadata(metadata).map_err(|err| err.to_string())
+            }
+            Self::StatefulPmTreePoseidon2(r) => {
+                r.set_metadata(metadata).map_err(|err| err.to_string())
+            }
         }
     }
 
@@ -322,6 +515,14 @@ impl FFI_RLN_Inner {
             Self::StatefulFullMerkleTree(r) => r.get_metadata().map_err(|err| err.to_string()),
             Self::StatefulOptimalMerkleTree(r) => r.get_metadata().map_err(|err| err.to_string()),
             Self::StatefulPmTree(r) => r.get_metadata().map_err(|err| err.to_string()),
+            Self::StatelessPoseidon2(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => {
+                r.get_metadata().map_err(|err| err.to_string())
+            }
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => {
+                r.get_metadata().map_err(|err| err.to_string())
+            }
+            Self::StatefulPmTreePoseidon2(r) => r.get_metadata().map_err(|err| err.to_string()),
         }
     }
 
@@ -331,6 +532,10 @@ impl FFI_RLN_Inner {
             Self::StatefulFullMerkleTree(r) => r.close().map_err(|err| err.to_string()),
             Self::StatefulOptimalMerkleTree(r) => r.close().map_err(|err| err.to_string()),
             Self::StatefulPmTree(r) => r.close().map_err(|err| err.to_string()),
+            Self::StatelessPoseidon2(_) => Err(NO_STATELESS_TREE_ERR.to_string()),
+            Self::StatefulFullMerkleTreePoseidon2(r) => r.close().map_err(|err| err.to_string()),
+            Self::StatefulOptimalMerkleTreePoseidon2(r) => r.close().map_err(|err| err.to_string()),
+            Self::StatefulPmTreePoseidon2(r) => r.close().map_err(|err| err.to_string()),
         }
     }
 }
@@ -368,6 +573,42 @@ impl From<RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend<Poseidon
         r: RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend<PoseidonHash>>,
     ) -> Self {
         Self::StatefulPmTree(r)
+    }
+}
+
+impl From<RLN<Stateless, ArkGroth16Backend<Poseidon2Hash>>> for FFI_RLN_Inner {
+    fn from(r: RLN<Stateless, ArkGroth16Backend<Poseidon2Hash>>) -> Self {
+        Self::StatelessPoseidon2(r)
+    }
+}
+
+impl From<RLN<Stateful<FullMerkleTree<Poseidon2Hash>>, ArkGroth16Backend<Poseidon2Hash>>>
+    for FFI_RLN_Inner
+{
+    fn from(
+        r: RLN<Stateful<FullMerkleTree<Poseidon2Hash>>, ArkGroth16Backend<Poseidon2Hash>>,
+    ) -> Self {
+        Self::StatefulFullMerkleTreePoseidon2(r)
+    }
+}
+
+impl From<RLN<Stateful<OptimalMerkleTree<Poseidon2Hash>>, ArkGroth16Backend<Poseidon2Hash>>>
+    for FFI_RLN_Inner
+{
+    fn from(
+        r: RLN<Stateful<OptimalMerkleTree<Poseidon2Hash>>, ArkGroth16Backend<Poseidon2Hash>>,
+    ) -> Self {
+        Self::StatefulOptimalMerkleTreePoseidon2(r)
+    }
+}
+
+impl From<RLN<Stateful<PmTree<SledDB, Poseidon2Hash>>, ArkGroth16Backend<Poseidon2Hash>>>
+    for FFI_RLN_Inner
+{
+    fn from(
+        r: RLN<Stateful<PmTree<SledDB, Poseidon2Hash>>, ArkGroth16Backend<Poseidon2Hash>>,
+    ) -> Self {
+        Self::StatefulPmTreePoseidon2(r)
     }
 }
 
@@ -595,6 +836,239 @@ pub fn ffi_rln_new_with_pm_tree(
     match pm_tree {
         Ok(pm_tree) => {
             let rln = RLNBuilder::stateful()
+                .tree(pm_tree)
+                .graph(graph)
+                .zkey(zkey)
+                .build();
+            FFI_Result {
+                ok: Some(Box_::new(FFI_RLN(rln.into()))),
+                err: None,
+            }
+        }
+        Err(err) => FFI_Result {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_rln_new_stateless_default_poseidon2() -> repr_c::Box<FFI_RLN> {
+    let rln = RLNBuilder::stateless_poseidon2().build();
+    Box_::new(FFI_RLN(rln.into()))
+}
+
+#[ffi_export]
+pub fn ffi_rln_new_stateless_poseidon2(
+    zkey_data: &repr_c::Vec<u8>,
+    graph_data: &repr_c::Vec<u8>,
+) -> FFI_Result<repr_c::Box<FFI_RLN>, repr_c::String> {
+    match parse_zkey_and_graph(zkey_data, graph_data) {
+        Ok((zkey, graph)) => {
+            let rln = RLNBuilder::stateless_poseidon2()
+                .graph(graph)
+                .zkey(zkey)
+                .build();
+            FFI_Result {
+                ok: Some(Box_::new(FFI_RLN(rln.into()))),
+                err: None,
+            }
+        }
+        Err(err) => FFI_Result {
+            ok: None,
+            err: Some(err.into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_rln_new_with_full_merkle_tree_default_poseidon2(
+) -> FFI_Result<repr_c::Box<FFI_RLN>, repr_c::String> {
+    match FullMerkleTree::<Poseidon2Hash>::default(DEFAULT_TREE_DEPTH) {
+        Ok(full_merkle_tree) => {
+            let rln = RLNBuilder::stateful_poseidon2()
+                .tree(full_merkle_tree)
+                .build();
+            FFI_Result {
+                ok: Some(Box_::new(FFI_RLN(rln.into()))),
+                err: None,
+            }
+        }
+        Err(err) => FFI_Result {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_rln_new_with_full_merkle_tree_poseidon2(
+    tree_depth: usize,
+    zkey_data: &repr_c::Vec<u8>,
+    graph_data: &repr_c::Vec<u8>,
+) -> FFI_Result<repr_c::Box<FFI_RLN>, repr_c::String> {
+    let (zkey, graph) = match parse_zkey_and_graph(zkey_data, graph_data) {
+        Ok(parsed) => parsed,
+        Err(err) => {
+            return FFI_Result {
+                ok: None,
+                err: Some(err.into()),
+            }
+        }
+    };
+    match FullMerkleTree::<Poseidon2Hash>::default(tree_depth) {
+        Ok(full_merkle_tree) => {
+            let rln = RLNBuilder::stateful_poseidon2()
+                .tree(full_merkle_tree)
+                .graph(graph)
+                .zkey(zkey)
+                .build();
+            FFI_Result {
+                ok: Some(Box_::new(FFI_RLN(rln.into()))),
+                err: None,
+            }
+        }
+        Err(err) => FFI_Result {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_rln_new_with_optimal_merkle_tree_default_poseidon2(
+) -> FFI_Result<repr_c::Box<FFI_RLN>, repr_c::String> {
+    match OptimalMerkleTree::<Poseidon2Hash>::default(DEFAULT_TREE_DEPTH) {
+        Ok(optimal_merkle_tree) => {
+            let rln = RLNBuilder::stateful_poseidon2()
+                .tree(optimal_merkle_tree)
+                .build();
+            FFI_Result {
+                ok: Some(Box_::new(FFI_RLN(rln.into()))),
+                err: None,
+            }
+        }
+        Err(err) => FFI_Result {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_rln_new_with_optimal_merkle_tree_poseidon2(
+    tree_depth: usize,
+    zkey_data: &repr_c::Vec<u8>,
+    graph_data: &repr_c::Vec<u8>,
+) -> FFI_Result<repr_c::Box<FFI_RLN>, repr_c::String> {
+    let (zkey, graph) = match parse_zkey_and_graph(zkey_data, graph_data) {
+        Ok(parsed) => parsed,
+        Err(err) => {
+            return FFI_Result {
+                ok: None,
+                err: Some(err.into()),
+            }
+        }
+    };
+    match OptimalMerkleTree::<Poseidon2Hash>::default(tree_depth) {
+        Ok(optimal_merkle_tree) => {
+            let rln = RLNBuilder::stateful_poseidon2()
+                .tree(optimal_merkle_tree)
+                .graph(graph)
+                .zkey(zkey)
+                .build();
+            FFI_Result {
+                ok: Some(Box_::new(FFI_RLN(rln.into()))),
+                err: None,
+            }
+        }
+        Err(err) => FFI_Result {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_rln_new_with_pm_tree_default_poseidon2(
+) -> FFI_Result<repr_c::Box<FFI_RLN>, repr_c::String> {
+    match PmTree::<SledDB, Poseidon2Hash>::default(DEFAULT_TREE_DEPTH) {
+        Ok(pm_tree) => {
+            let rln = RLNBuilder::stateful_poseidon2().tree(pm_tree).build();
+            FFI_Result {
+                ok: Some(Box_::new(FFI_RLN(rln.into()))),
+                err: None,
+            }
+        }
+        Err(err) => FFI_Result {
+            ok: None,
+            err: Some(err.to_string().into()),
+        },
+    }
+}
+
+#[ffi_export]
+pub fn ffi_rln_new_with_pm_tree_poseidon2(
+    tree_depth: usize,
+    zkey_data: &repr_c::Vec<u8>,
+    graph_data: &repr_c::Vec<u8>,
+    config_path: char_p::Ref<'_>,
+) -> FFI_Result<repr_c::Box<FFI_RLN>, repr_c::String> {
+    let (zkey, graph) = match parse_zkey_and_graph(zkey_data, graph_data) {
+        Ok(parsed) => parsed,
+        Err(err) => {
+            return FFI_Result {
+                ok: None,
+                err: Some(err.into()),
+            }
+        }
+    };
+    let config_str = if config_path.to_str().is_empty() {
+        String::new()
+    } else {
+        let read_result = File::open(config_path.to_str()).and_then(|mut file| {
+            let metadata = file.metadata()?;
+            if metadata.len() > MAX_CONFIG_SIZE {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!(
+                        "Config file too large: {} bytes (max {} bytes)",
+                        metadata.len(),
+                        MAX_CONFIG_SIZE
+                    ),
+                ));
+            }
+            let mut s = String::new();
+            file.read_to_string(&mut s)?;
+            Ok(s)
+        });
+        match read_result {
+            Ok(s) => s,
+            Err(err) => {
+                return FFI_Result {
+                    ok: None,
+                    err: Some(err.to_string().into()),
+                }
+            }
+        }
+    };
+    let pm_tree = if config_str.is_empty() {
+        PmTree::<SledDB, Poseidon2Hash>::default(tree_depth)
+    } else {
+        let config = match PmTreeSledConfig::from_str(&config_str) {
+            Ok(config) => config,
+            Err(err) => {
+                return FFI_Result {
+                    ok: None,
+                    err: Some(err.to_string().into()),
+                }
+            }
+        };
+        PmTree::<SledDB, Poseidon2Hash>::new(tree_depth, Fr::default(), config)
+    };
+    match pm_tree {
+        Ok(pm_tree) => {
+            let rln = RLNBuilder::stateful_poseidon2()
                 .tree(pm_tree)
                 .graph(graph)
                 .zkey(zkey)

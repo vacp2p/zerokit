@@ -91,6 +91,90 @@ impl WasmRLN {
     }
 }
 
+// WasmRLNPoseidon2
+
+#[wasm_bindgen]
+pub struct WasmRLNPoseidon2(RLN<Stateless, ArkGroth16Backend<Poseidon2Hash>>);
+
+#[wasm_bindgen]
+impl WasmRLNPoseidon2 {
+    #[wasm_bindgen(js_name = newWithParams)]
+    pub fn new_with_params(
+        zkey_data: &Uint8Array,
+        graph_data: &Uint8Array,
+    ) -> Result<WasmRLNPoseidon2, String> {
+        let rln = RLNBuilder::stateless_poseidon2()
+            .graph(graph_from_raw(&graph_data.to_vec(), None, None).map_err(|err| err.to_string())?)
+            .zkey(zkey_from_raw(&zkey_data.to_vec()).map_err(|err| err.to_string())?)
+            .build();
+        Ok(WasmRLNPoseidon2(rln))
+    }
+
+    #[wasm_bindgen(js_name = generateProof)]
+    pub fn generate_proof(&self, witness: &WasmRLNWitnessInput) -> Result<WasmRLNProof, String> {
+        let (proof, values) = self
+            .0
+            .generate_proof(&witness.0)
+            .map_err(|err| err.to_string())?;
+        Ok(WasmRLNProof(RLNProof::new(proof, values)))
+    }
+
+    #[wasm_bindgen(js_name = verify)]
+    pub fn verify(&self, rln_proof: &WasmRLNProof) -> Result<bool, String> {
+        self.0
+            .verify(&rln_proof.0.proof, &rln_proof.0.values)
+            .map_err(|err| err.to_string())
+    }
+
+    #[wasm_bindgen(js_name = verifyWithSignal)]
+    pub fn verify_with_signal(&self, rln_proof: &WasmRLNProof, x: &WasmFr) -> Result<bool, String> {
+        self.0
+            .verify_with_signal(&rln_proof.0.proof, &rln_proof.0.values, x)
+            .map_err(|err| err.to_string())
+    }
+
+    #[wasm_bindgen(js_name = verifyWithRoots)]
+    pub fn verify_with_roots(
+        &self,
+        rln_proof: &WasmRLNProof,
+        roots: &VecWasmFr,
+        x: &WasmFr,
+    ) -> Result<bool, String> {
+        let roots_fr: Vec<Fr> = (0..roots.length())
+            .filter_map(|i| roots.get(i))
+            .map(|root| *root)
+            .collect();
+        self.0
+            .verify_with_roots(&rln_proof.0.proof, &rln_proof.0.values, x, &roots_fr)
+            .map_err(|err| err.to_string())
+    }
+
+    #[wasm_bindgen(js_name = generatePartialProof)]
+    pub fn generate_partial_proof(
+        &self,
+        partial_witness: &WasmRLNPartialWitnessInput,
+    ) -> Result<WasmRLNPartialProof, String> {
+        let partial_proof = self
+            .0
+            .generate_partial_proof(&partial_witness.0)
+            .map_err(|err| err.to_string())?;
+        Ok(WasmRLNPartialProof(partial_proof))
+    }
+
+    #[wasm_bindgen(js_name = finishProof)]
+    pub fn finish_proof(
+        &self,
+        partial_proof: &WasmRLNPartialProof,
+        witness: &WasmRLNWitnessInput,
+    ) -> Result<WasmRLNProof, String> {
+        let (full_proof, values) = self
+            .0
+            .finish_proof(&partial_proof.0, &witness.0)
+            .map_err(|err| err.to_string())?;
+        Ok(WasmRLNProof(RLNProof::new(full_proof, values)))
+    }
+}
+
 // WasmRLNMerkleProof
 
 #[wasm_bindgen]
@@ -299,6 +383,11 @@ impl WasmRLNWitnessInput {
     #[wasm_bindgen(js_name = toProofValues)]
     pub fn to_proof_values(&self) -> WasmRLNProofValues {
         WasmRLNProofValues(RLNProofValues::from_witness::<PoseidonHash>(&self.0))
+    }
+
+    #[wasm_bindgen(js_name = toProofValuesPoseidon2)]
+    pub fn to_proof_values_poseidon2(&self) -> WasmRLNProofValues {
+        WasmRLNProofValues(RLNProofValues::from_witness::<Poseidon2Hash>(&self.0))
     }
 }
 
