@@ -21,8 +21,8 @@ export async function initRLN(enableMultiMessageId = false) {
   rlnWasm.initSync({ module: wasmBytes });
 
   const resourceDir = enableMultiMessageId
-    ? "../../rln/resources/tree_depth_20/multi_message_id/max_out_4"
-    : "../../rln/resources/tree_depth_20";
+    ? "../../rln/resources/tree_depth_20/rln_multi"
+    : "../../rln/resources/tree_depth_20/rln_single";
   const zkeyPath = join(__dirname, resourceDir, "rln_final.arkzkey");
   const graphPath = join(__dirname, resourceDir, "graph.bin");
 

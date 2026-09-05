@@ -4,7 +4,7 @@ mod test {
 
     use ark_bn254::Fr;
     use ark_ff::{AdditiveGroup, Field};
-    use zerokit_utils::poseidon::{Poseidon, BN254_ROUND_PARAMS};
+    use zerokit_utils::poseidon::{Poseidon, PoseidonError, POSEIDON_ROUND_PARAMS};
 
     #[test]
     fn test_poseidon_hash_basic() {
@@ -48,7 +48,7 @@ mod test {
 
         // map (key: what to hash, value: expected value)
         for (k, v) in map.into_iter() {
-            let hasher = Poseidon::from(&BN254_ROUND_PARAMS);
+            let hasher = Poseidon::from(&POSEIDON_ROUND_PARAMS);
             let h = hasher.hash(&[k]);
             assert_eq!(h.unwrap(), v);
         }
@@ -112,9 +112,20 @@ mod test {
         ]);
 
         for (k, v) in map.into_iter() {
-            let hasher = Poseidon::from(&BN254_ROUND_PARAMS);
+            let hasher = Poseidon::from(&POSEIDON_ROUND_PARAMS);
             let h = hasher.hash(&[k.0, k.1]);
             assert_eq!(h.unwrap(), v);
         }
+    }
+
+    #[test]
+    fn test_poseidon_input_errors() {
+        // Test that the Poseidon hash rejects empty input and input lengths for which no parameters exist.
+        let hasher = Poseidon::<Fr>::from(&POSEIDON_ROUND_PARAMS);
+        assert!(matches!(hasher.hash(&[]), Err(PoseidonError::EmptyInput)));
+        assert!(matches!(
+            hasher.hash(&[Fr::from(1u64); 17]),
+            Err(PoseidonError::NoParametersForInputLength(17))
+        ));
     }
 }

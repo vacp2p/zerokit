@@ -97,6 +97,48 @@ mod test {
             .build()
     }
 
+    #[test]
+    fn test_rln_poseidon2_proof_roundtrip() {
+        let _stateless = RLNBuilder::stateless_poseidon2().build();
+
+        let mut rng = thread_rng();
+        let tree = PmTree::<SledDB, Poseidon2Hash>::default(DEFAULT_TREE_DEPTH).unwrap();
+        let mut rln = RLNBuilder::stateful_poseidon2().tree(tree).build();
+        assert_eq!(rln.leaves_set(), 0);
+
+        let identity_keys = IdentityKeys::generate::<Poseidon2Hash, ThreadRng>(&mut thread_rng());
+        let identity_secret = identity_keys.identity_secret();
+        let user_message_limit = Fr::from(100);
+        let rate_commitment =
+            Hasher::<Poseidon2Hash>::hash_pair(identity_keys.id_commitment(), user_message_limit);
+        let identity_index = rln.leaves_set();
+        rln.set_next_leaf(rate_commitment).unwrap();
+
+        let signal: [u8; 32] = rng.gen();
+        let x = hash_to_field_le(&signal);
+        let epoch = hash_to_field_le(b"test-epoch");
+        let rln_identifier = hash_to_field_le(b"test-rln-identifier");
+        let external_nullifier = Hasher::<Poseidon2Hash>::hash_pair(epoch, rln_identifier);
+
+        let merkle_proof = rln.get_merkle_proof(identity_index).unwrap();
+
+        let rln_witness = RLNWitnessInput::new_single()
+            .identity_secret(identity_secret)
+            .user_message_limit(user_message_limit)
+            .merkle_proof(&merkle_proof)
+            .x(x)
+            .external_nullifier(external_nullifier)
+            .message_id(Fr::from(1))
+            .build()
+            .unwrap();
+
+        let (proof, proof_values) = rln.generate_proof(&rln_witness).unwrap();
+        let root = rln.get_root();
+        assert!(rln
+            .verify_with_roots(&proof, &proof_values, &x, &[root])
+            .unwrap());
+    }
+
     fn random_leaves(rng: &mut ThreadRng) -> Vec<Fr> {
         (0..LEAF_COUNT).map(|_| Fr::rand(rng)).collect()
     }
@@ -296,8 +338,8 @@ mod test {
 
     #[test]
     fn test_initialization_with_params() {
-        let zkey_data = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey");
-        let graph_data = include_bytes!("../resources/tree_depth_20/graph.bin");
+        let zkey_data = include_bytes!("../resources/tree_depth_20/rln_single/rln_final.arkzkey");
+        let graph_data = include_bytes!("../resources/tree_depth_20/rln_single/graph.bin");
 
         let zkey = zkey_from_raw(zkey_data).unwrap();
         let graph = graph_from_raw(graph_data, Some(DEFAULT_TREE_DEPTH), None).unwrap();
@@ -323,11 +365,12 @@ mod test {
         assert!(graph_from_raw(&[1, 2, 3], None, None).is_err());
 
         // Mismatched tree depth between graph and expectation
-        let graph_depth_20 = include_bytes!("../resources/tree_depth_20/graph.bin");
+        let graph_depth_20 = include_bytes!("../resources/tree_depth_20/rln_single/graph.bin");
         assert!(graph_from_raw(graph_depth_20, Some(10), None).is_err());
 
         // Witness with wrong tree depth fails proof generation against the circuit
-        let zkey_depth_10 = include_bytes!("../resources/tree_depth_10/rln_final.arkzkey");
+        let zkey_depth_10 =
+            include_bytes!("../resources/tree_depth_10/rln_single/rln_final.arkzkey");
         let zkey = zkey_from_raw(zkey_depth_10).unwrap();
         let graph = graph_from_raw(graph_depth_20, Some(DEFAULT_TREE_DEPTH), None).unwrap();
         let rln = RLNBuilder::stateless().zkey(zkey).graph(graph).build();

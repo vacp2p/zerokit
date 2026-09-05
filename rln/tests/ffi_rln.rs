@@ -294,8 +294,9 @@ mod test {
         let rln_default = create_rln_instance();
         let root_default = get_root_ok(&rln_default);
 
-        let zkey_data = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey").to_vec();
-        let graph_data = include_bytes!("../resources/tree_depth_20/graph.bin").to_vec();
+        let zkey_data =
+            include_bytes!("../resources/tree_depth_20/rln_single/rln_final.arkzkey").to_vec();
+        let graph_data = include_bytes!("../resources/tree_depth_20/rln_single/graph.bin").to_vec();
 
         let config = std::ffi::CString::new("").unwrap();
         let rln_raw = unwrap_ok!(

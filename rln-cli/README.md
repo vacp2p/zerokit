@@ -43,7 +43,7 @@ The following [Multi Message ID Example](src/examples/multi_message_id.rs) demon
 how RLN supports consuming multiple message_id units in a single proof.
 
 This example functions similarly to the [Relay Example](#relay-example)
-but uses the [multi-message-id resource files](../rln/resources/tree_depth_20/multi_message_id).
+but uses the [multi-message-id resource files](../rln/resources/tree_depth_20/rln_multi).
 
 You can run the example using the following command:
 
