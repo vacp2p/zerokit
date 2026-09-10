@@ -2,8 +2,9 @@
 
 // The permutation follows the HorizenLabs reference implementation
 // https://github.com/HorizenLabs/poseidon2/blob/main/plain_implementations/src/poseidon2/poseidon2.rs
-// and is pinned against its published known-answer test for t = 3. Hashing keeps the one-shot
-// layout of the original Poseidon: state [0, x1, .., xN] with t = N + 1, output state[0].
+// Hashing uses the one-shot compression layout of the Logos ecosystem (the compress function
+// of https://github.com/logos-storage/rust-poseidon-bn254-pure and the Nomos compression
+// mode): state [x1, .., xN, 0] with t = N + 1, capacity zero last, output state[0].
 
 use ark_ff::PrimeField;
 use zeroize::Zeroizing;
@@ -74,8 +75,8 @@ where
         &self.round_params
     }
 
-    /// Hashes `inp` in the one-shot layout: the input is placed in `state[1..]` with
-    /// `state[0] = 0`, the permutation runs once and `state[0]` is returned.
+    /// Hashes `inp` in the one-shot compression layout: the input is placed in `state[..N]`
+    /// with the capacity zero last (`state[N] = 0`), permutation runs once and returns `state[0]`.
     pub fn hash(&self, inp: &[F]) -> Result<F, Poseidon2Error> {
         // Note that the state width t becomes input length + 1; hence for length N we pick
         // parameters with T = N + 1
@@ -103,7 +104,7 @@ where
         // secrets), Zeroizing wipes it on drop so no secret bytes remain in memory after the
         // hash is computed.
         let mut state = Zeroizing::new(vec![F::ZERO; t]);
-        state[1..].clone_from_slice(inp);
+        state[..inp.len()].clone_from_slice(inp);
 
         // Initial linear layer: Poseidon2 multiplies the state by M_E once before any round.
         Self::matmul_external(&mut state);
