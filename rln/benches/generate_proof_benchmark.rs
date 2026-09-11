@@ -1,16 +1,21 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use rand::{rngs::ThreadRng, thread_rng};
 use rln::prelude::*;
-use zerokit_utils::merkle_tree::ZerokitMerkleTree;
+use zerokit_utils::{
+    hasher::ZerokitHasher,
+    merkle_tree::{OptimalMerkleTree, ZerokitMerkleTree},
+};
 
-fn get_test_witness() -> RLNWitnessInput {
+fn get_test_witness<H>() -> RLNWitnessInput
+where
+    H: ZerokitHasher<Scalar = Fr>,
+{
     let leaf_index = 3;
-    let identity_keys = IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
+    let identity_keys = IdentityKeys::generate::<H, ThreadRng>(&mut thread_rng());
     let user_message_limit = Fr::from(100);
-    let rate_commitment =
-        Hasher::<PoseidonHash>::hash_pair(identity_keys.id_commitment(), user_message_limit);
+    let rate_commitment = Hasher::<H>::hash_pair(identity_keys.id_commitment(), user_message_limit);
 
-    let mut tree = PmTree::<SledDB, PoseidonHash>::default(DEFAULT_TREE_DEPTH).unwrap();
+    let mut tree = OptimalMerkleTree::<H>::default(DEFAULT_TREE_DEPTH).unwrap();
     tree.set(leaf_index, rate_commitment).unwrap();
 
     let merkle_proof = tree.proof(leaf_index).unwrap();
@@ -20,7 +25,7 @@ fn get_test_witness() -> RLNWitnessInput {
 
     let epoch = hash_to_field_le(b"test-epoch");
     let rln_identifier = hash_to_field_le(b"test-rln-identifier");
-    let external_nullifier = Hasher::<PoseidonHash>::hash_pair(epoch, rln_identifier);
+    let external_nullifier = Hasher::<H>::hash_pair(epoch, rln_identifier);
 
     let message_id = Fr::from(1);
 
@@ -38,7 +43,7 @@ fn get_test_witness() -> RLNWitnessInput {
 pub fn generate_proof_benchmark(c: &mut Criterion) {
     let rln = RLNBuilder::stateless().build();
 
-    let witness = get_test_witness();
+    let witness = get_test_witness::<PoseidonHash>();
     let partial_witness = RLNPartialWitnessInput::from(&witness);
 
     c.bench_function("RLN::generate_proof", |b| {
@@ -61,5 +66,35 @@ pub fn generate_proof_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, generate_proof_benchmark);
+pub fn generate_proof_poseidon2_benchmark(c: &mut Criterion) {
+    let rln = RLNBuilder::stateless_poseidon2().build();
+
+    let witness = get_test_witness::<Poseidon2Hash>();
+    let partial_witness = RLNPartialWitnessInput::from(&witness);
+
+    c.bench_function("RLN::generate_proof_poseidon2", |b| {
+        b.iter(|| {
+            let _ = rln.generate_proof(&witness).unwrap();
+        })
+    });
+
+    c.bench_function("RLN::generate_partial_proof_poseidon2", |b| {
+        b.iter(|| {
+            let _ = rln.generate_partial_proof(&partial_witness).unwrap();
+        })
+    });
+
+    let partial_proof = rln.generate_partial_proof(&partial_witness).unwrap();
+    c.bench_function("RLN::finish_proof_poseidon2", |b| {
+        b.iter(|| {
+            let _ = rln.finish_proof(&partial_proof, &witness).unwrap();
+        })
+    });
+}
+
+criterion_group!(
+    benches,
+    generate_proof_benchmark,
+    generate_proof_poseidon2_benchmark
+);
 criterion_main!(benches);

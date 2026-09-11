@@ -8,16 +8,26 @@ use zeroize::Zeroizing;
 
 use super::{error::PoseidonError, poseidon_constants::find_poseidon_ark_and_mds};
 
+/// Derived round parameters for one Poseidon state width.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RoundParameters<F: PrimeField> {
+    /// State width (input length plus `1`).
     pub t: usize,
+    /// Number of full rounds `RF`.
     pub n_rounds_f: usize,
+    /// Number of partial rounds `RP`.
     pub n_rounds_p: usize,
+    /// Number of candidate MDS matrices discarded before a secure one is found (see
+    /// [`find_poseidon_ark_and_mds`]).
     pub skip_matrices: usize,
+    /// Round constants (ARK), one row of `t` constants per round in round order, flattened.
     pub c: Vec<F>,
+    /// The `t x t` MDS matrix applied in the mixing step of every round.
     pub m: Vec<Vec<F>>,
 }
 
+/// The Poseidon hash engine over a prime field: holds the derived round parameters for every
+/// configured state width.
 pub struct Poseidon<F: PrimeField> {
     round_params: Vec<RoundParameters<F>>,
 }
@@ -33,7 +43,7 @@ where
     /// plus `1`), `RF` is the number of full rounds, `RP` is the number of partial rounds and
     /// `skip_matrices` is the number of candidate MDS matrices to discard before a secure one
     /// is found (see [`find_poseidon_ark_and_mds`]). For the Bn254 scalar field use
-    /// [`BN254_ROUND_PARAMS`](crate::poseidon::BN254_ROUND_PARAMS).
+    /// [`POSEIDON_ROUND_PARAMS`](crate::poseidon::POSEIDON_ROUND_PARAMS).
     pub fn from(poseidon_params: &[(usize, usize, usize, usize)]) -> Self {
         let mut read_params = Vec::<RoundParameters<F>>::with_capacity(poseidon_params.len());
 
@@ -63,16 +73,21 @@ where
         }
     }
 
+    /// Returns the derived round parameters, one entry per configured state width.
     pub fn get_parameters(&self) -> &Vec<RoundParameters<F>> {
         &self.round_params
     }
 
+    /// Adds the round constants to the state: cell `i` receives `c[it + i]`, where `it` is the
+    /// offset of the current round into the flattened constant vector.
     pub fn ark(&self, state: &mut [F], c: &[F], it: usize) {
         state.iter_mut().enumerate().for_each(|(i, elem)| {
             *elem += c[it + i];
         });
     }
 
+    /// Applies the S-box `x^5` for round `i`: to every cell in a full round, to `state[0]`
+    /// only in a partial round (rounds `RF / 2 .. RF / 2 + RP`).
     pub fn sbox(&self, n_rounds_f: usize, n_rounds_p: usize, state: &mut [F], i: usize) {
         if (i < n_rounds_f / 2) || (i >= n_rounds_f / 2 + n_rounds_p) {
             state.iter_mut().for_each(|current_state| {
@@ -89,6 +104,8 @@ where
         }
     }
 
+    /// Multiplies the state by the MDS matrix `m`, writing the result into `state_2` (the
+    /// caller swaps the two buffers afterwards).
     pub fn mix_2(&self, state: &[F], m: &[Vec<F>], state_2: &mut [F]) {
         for i in 0..state.len() {
             // Cache the row reference
@@ -101,6 +118,8 @@ where
         }
     }
 
+    /// Hashes `inp` in the one-shot layout: the input is placed in `state[1..]` with
+    /// `state[0] = 0`, the permutation runs once and `state[0]` is returned.
     pub fn hash(&self, inp: &[F]) -> Result<F, PoseidonError> {
         // Note that the rate t becomes input length + 1; hence for length N we pick parameters
         // with T = N + 1

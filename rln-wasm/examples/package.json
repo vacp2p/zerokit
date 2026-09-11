@@ -10,7 +10,8 @@
     "recover_secret": "node recover_secret.js",
     "partial_proof": "node partial_proof.js",
     "multi_message_id": "node multi_message_id.js",
-    "all": "npm run basic_proof && npm run type_serialization && npm run recover_secret && npm run partial_proof && npm run multi_message_id"
+    "poseidon2": "node poseidon2.js",
+    "all": "npm run basic_proof && npm run type_serialization && npm run recover_secret && npm run partial_proof && npm run multi_message_id && npm run poseidon2"
   },
   "dependencies": {
     "@waku/zerokit-rln-wasm": "file:../../pkg"

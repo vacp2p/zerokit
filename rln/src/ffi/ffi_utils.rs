@@ -440,6 +440,11 @@ pub fn ffi_poseidon_hash_pair(a: &FFI_Fr, b: &FFI_Fr) -> repr_c::Box<FFI_Fr> {
     FFI_Fr::from(Hasher::<PoseidonHash>::hash_pair(a.0, b.0)).into()
 }
 
+#[ffi_export]
+pub fn ffi_poseidon2_hash_pair(a: &FFI_Fr, b: &FFI_Fr) -> repr_c::Box<FFI_Fr> {
+    FFI_Fr::from(Hasher::<Poseidon2Hash>::hash_pair(a.0, b.0)).into()
+}
+
 // FFI_IdentityKeys
 
 #[derive_ReprC]
@@ -458,6 +463,24 @@ pub fn ffi_identity_keys_generate() -> repr_c::Box<FFI_IdentityKeys> {
 pub fn ffi_identity_keys_generate_seeded(seed: &repr_c::Vec<u8>) -> repr_c::Box<FFI_IdentityKeys> {
     Box_::new(FFI_IdentityKeys(IdentityKeys::generate_seeded::<
         PoseidonHash,
+        ChaCha20Rng,
+    >(seed)))
+}
+
+#[ffi_export]
+pub fn ffi_identity_keys_generate_poseidon2() -> repr_c::Box<FFI_IdentityKeys> {
+    Box_::new(FFI_IdentityKeys(IdentityKeys::generate::<
+        Poseidon2Hash,
+        ThreadRng,
+    >(&mut thread_rng())))
+}
+
+#[ffi_export]
+pub fn ffi_identity_keys_generate_seeded_poseidon2(
+    seed: &repr_c::Vec<u8>,
+) -> repr_c::Box<FFI_IdentityKeys> {
+    Box_::new(FFI_IdentityKeys(IdentityKeys::generate_seeded::<
+        Poseidon2Hash,
         ChaCha20Rng,
     >(seed)))
 }
@@ -563,6 +586,23 @@ pub fn ffi_extended_identity_keys_generate_seeded(
 ) -> repr_c::Box<FFI_ExtendedIdentityKeys> {
     Box_::new(FFI_ExtendedIdentityKeys(
         ExtendedIdentityKeys::generate_seeded::<PoseidonHash, ChaCha20Rng>(seed),
+    ))
+}
+
+#[ffi_export]
+pub fn ffi_extended_identity_keys_generate_poseidon2() -> repr_c::Box<FFI_ExtendedIdentityKeys> {
+    Box_::new(FFI_ExtendedIdentityKeys(ExtendedIdentityKeys::generate::<
+        Poseidon2Hash,
+        ThreadRng,
+    >(&mut thread_rng())))
+}
+
+#[ffi_export]
+pub fn ffi_extended_identity_keys_generate_seeded_poseidon2(
+    seed: &repr_c::Vec<u8>,
+) -> repr_c::Box<FFI_ExtendedIdentityKeys> {
+    Box_::new(FFI_ExtendedIdentityKeys(
+        ExtendedIdentityKeys::generate_seeded::<Poseidon2Hash, ChaCha20Rng>(seed),
     ))
 }
 

@@ -294,8 +294,9 @@ mod test {
         let rln_default = create_rln_instance();
         let root_default = get_root_ok(&rln_default);
 
-        let zkey_data = include_bytes!("../resources/tree_depth_20/rln_final.arkzkey").to_vec();
-        let graph_data = include_bytes!("../resources/tree_depth_20/graph.bin").to_vec();
+        let zkey_data =
+            include_bytes!("../resources/tree_depth_20/rln_single/rln_final.arkzkey").to_vec();
+        let graph_data = include_bytes!("../resources/tree_depth_20/rln_single/graph.bin").to_vec();
 
         let config = std::ffi::CString::new("").unwrap();
         let rln_raw = unwrap_ok!(
@@ -343,6 +344,59 @@ mod test {
 
         // Pure ZK verify accepts the proof without a signal binding
         assert_bool_ok(ffi_rln_verify(&rln, &rln_proof), "ffi_rln_verify");
+    }
+
+    #[test]
+    fn test_stateful_rln_proof_poseidon2() {
+        let mut rln = unwrap_ok!(
+            ffi_rln_new_with_pm_tree_default_poseidon2(),
+            "ffi_rln_new_with_pm_tree_default_poseidon2",
+        );
+
+        let identity_keys = ffi_identity_keys_generate_poseidon2();
+        let identity_secret = ffi_identity_keys_get_secret(&identity_keys);
+        let id_commitment = ffi_identity_keys_get_commitment(&identity_keys);
+        let user_message_limit = ffi_uint_to_fr(100);
+        let rate_commitment = ffi_poseidon2_hash_pair(&id_commitment, &user_message_limit);
+
+        let identity_index = leaves_set_ok(&rln);
+        assert_bool_ok(
+            ffi_rln_set_next_leaf(&mut rln, &rate_commitment),
+            "ffi_rln_set_next_leaf",
+        );
+
+        let merkle_proof = unwrap_ok!(
+            ffi_rln_get_merkle_proof(&rln, identity_index),
+            "ffi_rln_get_merkle_proof",
+        );
+
+        let epoch = ffi_hash_to_field_le(&b"test-epoch".to_vec().into());
+        let rln_identifier = ffi_hash_to_field_le(&b"test-rln-identifier".to_vec().into());
+        let external_nullifier = ffi_poseidon2_hash_pair(&epoch, &rln_identifier);
+        let message_id = ffi_uint_to_fr(1);
+        let x = random_signal_hash();
+
+        let witness = unwrap_ok!(
+            ffi_rln_witness_input_new_single(
+                &identity_secret,
+                &user_message_limit,
+                &message_id,
+                &merkle_proof,
+                &x,
+                &external_nullifier,
+            ),
+            "ffi_rln_witness_input_new_single",
+        );
+
+        let rln_proof = unwrap_ok!(
+            ffi_rln_generate_proof(&rln, &witness),
+            "ffi_rln_generate_proof",
+        );
+
+        assert_bool_ok(
+            ffi_rln_verify_with_signal(&rln, &rln_proof, &x),
+            "ffi_rln_verify_with_signal",
+        );
     }
 
     #[test]

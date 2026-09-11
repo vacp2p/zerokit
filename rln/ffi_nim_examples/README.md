@@ -12,6 +12,7 @@ These examples demonstrate how to use the RLN C FFI from Nim. Most examples run 
 | [partial_proof.nim](partial_proof.nim) | Generates a partial proof ahead of time, finishes it with the full witness, and verifies the result |
 | [multi_message_id.nim](multi_message_id.nim) | Runs the proof and recover secret flows in Multi message-id mode, where one proof covers several message ids |
 | [stateless.nim](stateless.nim) | Stateless mode: computes the Merkle proof manually and verifies with an explicit root list |
+| [poseidon2.nim](poseidon2.nim) | Runs the proof flow with the Poseidon2 hash and its circuit resources |
 
 ## Build the RLN library
 
@@ -39,12 +40,14 @@ nim c -d:release recover_secret.nim
 nim c -d:release partial_proof.nim
 nim c -d:release multi_message_id.nim
 nim c -d:release stateless.nim
+nim c -d:release poseidon2.nim
 ./basic_proof
 ./type_serialization
 ./recover_secret
 ./partial_proof
 ./multi_message_id
 ./stateless
+./poseidon2
 ```
 
 ## Memory ownership

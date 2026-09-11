@@ -1,16 +1,14 @@
 use std::{
     collections::HashMap,
-    fs::File,
-    io::{stdin, stdout, Read, Write},
-    path::{Path, PathBuf},
+    io::{stdin, stdout, Write},
 };
 
 use clap::{Parser, Subcommand};
 use rand::{rngs::ThreadRng, thread_rng};
 use rln::prelude::{
-    graph_from_raw, hash_to_field_le, zkey_from_raw, ArkGroth16Backend, Fr, Hasher, IdentityKeys,
-    PmTree, PmTreeMode, PmTreeSledConfig, PoseidonHash, RLNBuilder, RLNProofValues,
-    RLNWitnessInput, RecoverSecret, SledDB, Stateful, RLN,
+    hash_to_field_le, ArkGroth16Backend, Fr, Hasher, IdentityKeys, PmTree, PmTreeMode,
+    PmTreeSledConfig, Poseidon2Hash, RLNBuilder, RLNProofValues, RLNWitnessInput, RecoverSecret,
+    SledDB, Stateful, RLN,
 };
 use zerokit_utils::merkle_tree::ZerokitMerkleTree;
 
@@ -44,27 +42,13 @@ enum Commands {
 }
 
 struct RLNSystem {
-    rln: RLN<Stateful<PmTree<SledDB, PoseidonHash>>, ArkGroth16Backend<PoseidonHash>>,
+    rln: RLN<Stateful<PmTree<SledDB, Poseidon2Hash>>, ArkGroth16Backend<Poseidon2Hash>>,
     used_nullifiers: HashMap<Fr, RLNProofValues>,
     local_identities: HashMap<usize, IdentityKeys>,
 }
 
 impl RLNSystem {
     fn new() -> Result<Self> {
-        let mut resources: Vec<Vec<u8>> = Vec::new();
-        let resources_path: PathBuf =
-            format!("../rln/resources/tree_depth_{TREE_DEPTH}/rln_single").into();
-        let filenames = ["rln_final.arkzkey", "graph.bin"];
-        for filename in filenames {
-            let fullpath = resources_path.join(Path::new(filename));
-            let mut file = File::open(&fullpath)?;
-            let metadata = std::fs::metadata(&fullpath)?;
-            let mut output_buffer = vec![0; metadata.len() as usize];
-            file.read_exact(&mut output_buffer)?;
-            resources.push(output_buffer);
-        }
-        let zkey = zkey_from_raw(&resources[0])?;
-        let graph = graph_from_raw(&resources[1], Some(TREE_DEPTH), None)?;
         let pm_tree_config = PmTreeSledConfig::new()
             .path("./database")
             .temporary(false)
@@ -74,12 +58,8 @@ impl RLNSystem {
             .use_compression(false)
             .build()?;
         let pm_tree = PmTree::new(TREE_DEPTH, Fr::default(), pm_tree_config)?;
-        let rln = RLNBuilder::stateful()
-            .tree(pm_tree)
-            .graph(graph)
-            .zkey(zkey)
-            .build();
-        println!("RLN instance initialized successfully");
+        let rln = RLNBuilder::stateful_poseidon2().tree(pm_tree).build();
+        println!("RLN Poseidon2 instance initialized successfully");
         Ok(RLNSystem {
             rln,
             used_nullifiers: HashMap::new(),
@@ -104,9 +84,9 @@ impl RLNSystem {
 
     fn register_user(&mut self) -> Result<usize> {
         let index = self.rln.leaves_set();
-        let identity_keys = IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
+        let identity_keys = IdentityKeys::generate::<Poseidon2Hash, ThreadRng>(&mut thread_rng());
 
-        let rate_commitment = Hasher::<PoseidonHash>::hash_pair(
+        let rate_commitment = Hasher::<Poseidon2Hash>::hash_pair(
             identity_keys.id_commitment(),
             Fr::from(MESSAGE_LIMIT),
         );
@@ -229,8 +209,8 @@ fn main() -> Result<()> {
     let mut rln_system = RLNSystem::new()?;
     let rln_epoch = hash_to_field_le(b"epoch");
     let rln_identifier = hash_to_field_le(b"rln-identifier");
-    let external_nullifier = Hasher::<PoseidonHash>::hash_pair(rln_epoch, rln_identifier);
-    println!("RLN Relay Example:");
+    let external_nullifier = Hasher::<Poseidon2Hash>::hash_pair(rln_epoch, rln_identifier);
+    println!("RLN Poseidon2 Example:");
     println!("Message Limit: {MESSAGE_LIMIT}");
     println!("----------------------------------");
     println!();

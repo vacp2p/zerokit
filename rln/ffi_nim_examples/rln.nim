@@ -199,6 +199,9 @@ proc ffi_hash_to_field_be*(input: ptr Vec_uint8): ptr Fr {.importc: "ffi_hash_to
 proc ffi_poseidon_hash_pair*(a: ptr Fr,
     b: ptr Fr): ptr Fr {.importc: "ffi_poseidon_hash_pair", cdecl,
     dynlib: RLN_LIB.}
+proc ffi_poseidon2_hash_pair*(a: ptr Fr,
+    b: ptr Fr): ptr Fr {.importc: "ffi_poseidon2_hash_pair", cdecl,
+    dynlib: RLN_LIB.}
 
 # SecretFr functions
 proc ffi_secret_fr_eq*(a: ptr SecretFr, b: ptr SecretFr): bool {.importc: "ffi_secret_fr_eq",
@@ -213,6 +216,13 @@ proc ffi_identity_keys_generate*(): ptr IdentityKeys {.importc: "ffi_identity_ke
   cdecl, dynlib: RLN_LIB.}
 proc ffi_identity_keys_generate_seeded*(
   seed: ptr Vec_uint8): ptr IdentityKeys {.importc: "ffi_identity_keys_generate_seeded",
+     cdecl, dynlib: RLN_LIB.}
+proc ffi_identity_keys_generate_poseidon2*(
+  ): ptr IdentityKeys {.importc: "ffi_identity_keys_generate_poseidon2",
+
+cdecl, dynlib: RLN_LIB.}
+proc ffi_identity_keys_generate_seeded_poseidon2*(
+  seed: ptr Vec_uint8): ptr IdentityKeys {.importc: "ffi_identity_keys_generate_seeded_poseidon2",
      cdecl, dynlib: RLN_LIB.}
 proc ffi_identity_keys_get_secret*(identity: ptr IdentityKeys): ptr SecretFr {.importc: "ffi_identity_keys_get_secret",
   cdecl, dynlib: RLN_LIB.}
@@ -236,6 +246,12 @@ proc ffi_extended_identity_keys_generate*(
 cdecl, dynlib: RLN_LIB.}
 proc ffi_extended_identity_keys_generate_seeded*(
   seed: ptr Vec_uint8): ptr ExtendedIdentityKeys {.importc: "ffi_extended_identity_keys_generate_seeded",
+     cdecl, dynlib: RLN_LIB.}
+proc ffi_extended_identity_keys_generate_poseidon2*(
+  ): ptr ExtendedIdentityKeys {.importc: "ffi_extended_identity_keys_generate_poseidon2",
+     cdecl, dynlib: RLN_LIB.}
+proc ffi_extended_identity_keys_generate_seeded_poseidon2*(
+  seed: ptr Vec_uint8): ptr ExtendedIdentityKeys {.importc: "ffi_extended_identity_keys_generate_seeded_poseidon2",
      cdecl, dynlib: RLN_LIB.}
 proc ffi_extended_identity_keys_get_trapdoor*(
   identity: ptr ExtendedIdentityKeys): ptr SecretFr {.importc: "ffi_extended_identity_keys_get_trapdoor",
@@ -295,6 +311,34 @@ proc ffi_rln_new_with_pm_tree*(tree_depth: CSize,
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_new_with_pm_tree_default*(): RLNResult {.
     importc: "ffi_rln_new_with_pm_tree_default",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_new_stateless_poseidon2*(zkey_data: ptr Vec_uint8,
+    graph_data: ptr Vec_uint8): RLNResult {.importc: "ffi_rln_new_stateless_poseidon2",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_new_stateless_default_poseidon2*(): ptr RLN {.
+    importc: "ffi_rln_new_stateless_default_poseidon2",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_new_with_full_merkle_tree_poseidon2*(tree_depth: CSize,
+    zkey_data: ptr Vec_uint8,
+    graph_data: ptr Vec_uint8): RLNResult {.importc: "ffi_rln_new_with_full_merkle_tree_poseidon2",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_new_with_full_merkle_tree_default_poseidon2*(): RLNResult {.
+    importc: "ffi_rln_new_with_full_merkle_tree_default_poseidon2",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_new_with_optimal_merkle_tree_poseidon2*(tree_depth: CSize,
+    zkey_data: ptr Vec_uint8,
+    graph_data: ptr Vec_uint8): RLNResult {.importc: "ffi_rln_new_with_optimal_merkle_tree_poseidon2",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_new_with_optimal_merkle_tree_default_poseidon2*(): RLNResult {.
+    importc: "ffi_rln_new_with_optimal_merkle_tree_default_poseidon2",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_new_with_pm_tree_poseidon2*(tree_depth: CSize,
+    zkey_data: ptr Vec_uint8,
+    graph_data: ptr Vec_uint8,
+    config_path: cstring): RLNResult {.importc: "ffi_rln_new_with_pm_tree_poseidon2",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_new_with_pm_tree_default_poseidon2*(): RLNResult {.
+    importc: "ffi_rln_new_with_pm_tree_default_poseidon2",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_generate_proof*(rln: ptr RLN,
     witness: ptr Witness): ProofResult {.importc: "ffi_rln_generate_proof",
