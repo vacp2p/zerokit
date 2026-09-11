@@ -1,0 +1,21 @@
+# Vendored from https://github.com/logos-storage/rust-poseidon-bn254-pure at revision
+# 012ab9f5cc772ddf85f0b1f7b700e6fccd278fd6 (the revision LEZ PR #304 benchmarks), with
+# two build fixes for current toolchains: the portable platform selected instead of the
+# bitrotted `unstable` one, and the removed `bigint_helper_methods` feature gate dropped.
+# Hash logic is untouched. Building still needs `RUSTC_BOOTSTRAP=1` for
+# `generic_const_exprs` (see ../../run.sh).
+
+[package]
+name = "rust-poseidon-bn254-pure"
+version = "0.0.1"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+authors = ["Balazs Komuves"]
+
+[workspace]
+
+[dependencies]
+unroll = ">= 0.1.5"
+
+[lib]
+bench = false

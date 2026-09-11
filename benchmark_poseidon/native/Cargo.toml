@@ -1,0 +1,12 @@
+[package]
+name = "native"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+zerokit_utils = { path = "../../utils", default-features = false }
+light-poseidon = "0.4"
+jf-poseidon2 = { git = "https://github.com/EspressoSystems/jellyfish" }
+rust-poseidon-bn254-pure = { path = "../vendor/rust-poseidon-bn254-pure" }
+ark-bn254 = "0.5"
+ark-ff = "0.5"
