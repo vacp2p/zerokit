@@ -17,15 +17,15 @@
 
   outputs = { self, nixpkgs, rust-overlay }:
     let
-      stableSystems = [
+      nativeSystems = [
         "x86_64-linux" "aarch64-linux"
         "x86_64-darwin" "aarch64-darwin"
-        "x86_64-windows" "i686-linux"
-        "i686-windows"
+        "i686-linux"
       ];
-      forAllSystems = nixpkgs.lib.genAttrs stableSystems;
+      windowsSystems = [ "x86_64-windows" ];
+      forAllNativeSystems = nixpkgs.lib.genAttrs nativeSystems;
 
-      pkgsFor = forAllSystems (
+      pkgsFor = forAllNativeSystems (
         system: import nixpkgs {
           inherit system;
           config = {
@@ -38,9 +38,15 @@
           ];
         }
       );
+      windowsTargets = {
+        x86_64-windows = {
+          target-platform = "mingwW64";
+          rust-target = "x86_64-pc-windows-gnu";
+        };
+      };
     in rec
     {
-      packages = forAllSystems (system: let
+      packages = forAllNativeSystems (system: let
         pkgs = pkgsFor.${system};
 
         buildRln = pkgs.callPackage ./nix/default.nix {
@@ -69,9 +75,21 @@
         zerokit-android-arm64 = rln-android-arm64;
 
         default = rln;
-      });
+      }) // nixpkgs.lib.genAttrs windowsSystems (system: let
+          pkgs = pkgsFor.x86_64-linux;
+          target = windowsTargets.${system};
+          buildRln = pkgs.callPackage ./nix/default.nix {
+            src = self;
+          };
+        in rec {
+          rln = buildRln.override {
+            inherit (target) target-platform rust-target;
+            windows-gnu = true;
+          };
+          default = rln;
+        });
 
-      devShells = forAllSystems (system: let
+      devShells = forAllNativeSystems (system: let
         pkgs = pkgsFor.${system};
       in {
         default = pkgs.mkShell {
