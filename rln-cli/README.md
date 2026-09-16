@@ -43,12 +43,26 @@ The following [Multi Message ID Example](src/examples/multi_message_id.rs) demon
 how RLN supports consuming multiple message_id units in a single proof.
 
 This example functions similarly to the [Relay Example](#relay-example)
-but uses the [multi-message-id resource files](../rln/resources/tree_depth_20/multi_message_id).
+but uses the [multi-message-id resource files](../rln/resources/tree_depth_20/rln_multi).
 
 You can run the example using the following command:
 
 ```bash
 cargo run --example multi_message_id
+```
+
+## Poseidon2 Example
+
+The following [Poseidon2 Example](src/examples/poseidon2.rs) demonstrates
+how RLN works with the Poseidon2 hash.
+
+This example functions similarly to the [Relay Example](#relay-example)
+but uses the [Poseidon2 resource files](../rln/resources/tree_depth_20/rln_poseidon2_single).
+
+You can run the example using the following command:
+
+```bash
+cargo run --example poseidon2
 ```
 
 ## Partial Proof Example

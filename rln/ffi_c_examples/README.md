@@ -12,6 +12,7 @@ These examples demonstrate how to use the RLN C FFI. Most examples run in statef
 | [partial_proof.c](partial_proof.c) | Generates a partial proof ahead of time, finishes it with the full witness, and verifies the result |
 | [multi_message_id.c](multi_message_id.c) | Runs the proof and recover secret flows in Multi message-id mode, where one proof covers several message ids |
 | [stateless.c](stateless.c) | Stateless mode: computes the Merkle proof manually and verifies with an explicit root list |
+| [poseidon2.c](poseidon2.c) | Runs the proof flow with the Poseidon2 hash and its circuit resources |
 
 ## Compile the library and generate the header
 
@@ -31,12 +32,14 @@ gcc -Wall recover_secret.c -o recover_secret -lrln -L../../target/release
 gcc -Wall partial_proof.c -o partial_proof -lrln -L../../target/release
 gcc -Wall multi_message_id.c -o multi_message_id -lrln -L../../target/release
 gcc -Wall stateless.c -o stateless -lrln -L../../target/release
+gcc -Wall poseidon2.c -o poseidon2 -lrln -L../../target/release
 ./basic_proof
 ./type_serialization
 ./recover_secret
 ./partial_proof
 ./multi_message_id
 ./stateless
+./poseidon2
 ```
 
 ## Memory ownership

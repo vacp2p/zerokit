@@ -4,7 +4,11 @@ pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::{
-    circuit::{default_graph_multi, default_graph_single, default_zkey_multi, default_zkey_single},
+    circuit::{
+        default_graph_multi, default_graph_poseidon2_multi, default_graph_poseidon2_single,
+        default_graph_single, default_zkey_multi, default_zkey_poseidon2_multi,
+        default_zkey_poseidon2_single, default_zkey_single,
+    },
     pm_tree::{
         PmTree, PmTreeBackendConfig, PmTreeError, PmTreeMode, PmTreeProof, PmTreeSledConfig, SledDB,
     },
@@ -19,7 +23,7 @@ pub use crate::{
         GenerateProofError, PartialWitnessInputError, ProofValuesMultiError, RecoverSecretError,
         SerializationError, VerifyProofError, WitnessInputMultiError, WitnessInputSingleError,
     },
-    hashers::{hash_to_field_be, hash_to_field_le, Hasher, PoseidonHash},
+    hashers::{hash_to_field_be, hash_to_field_le, Hasher, Poseidon2Hash, PoseidonHash},
     protocol::{
         compute_id_secret, CanonicalDeserializeBE, CanonicalDeserializeMixed, CanonicalSerializeBE,
         CanonicalSerializeMixed, ExtendedIdentityKeys, IdentityKeys, RLNMerkleProof,

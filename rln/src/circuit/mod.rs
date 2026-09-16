@@ -12,7 +12,10 @@ mod zkey;
 
 pub use backend::ArkGroth16Backend;
 #[cfg(not(target_arch = "wasm32"))]
-pub use graph::{default_graph_multi, default_graph_single};
+pub use graph::{
+    default_graph_multi, default_graph_poseidon2_multi, default_graph_poseidon2_single,
+    default_graph_single,
+};
 pub use graph::{graph_from_raw, Graph};
 pub(crate) use secret_fr::FrOrSecret;
 pub use secret_fr::SecretFr;
@@ -22,4 +25,7 @@ pub use types::{
 };
 pub use zkey::zkey_from_raw;
 #[cfg(not(target_arch = "wasm32"))]
-pub use zkey::{default_zkey_multi, default_zkey_single};
+pub use zkey::{
+    default_zkey_multi, default_zkey_poseidon2_multi, default_zkey_poseidon2_single,
+    default_zkey_single,
+};

@@ -9,11 +9,12 @@ use super::{
 use super::{DEFAULT_MAX_OUT, DEFAULT_TREE_DEPTH};
 
 #[cfg(not(target_arch = "wasm32"))]
-const GRAPH_BYTES_SINGLE: &[u8] = include_bytes!("../../resources/tree_depth_20/graph.bin");
+const GRAPH_BYTES_SINGLE: &[u8] =
+    include_bytes!("../../resources/tree_depth_20/rln_single/graph.bin");
 
 #[cfg(not(target_arch = "wasm32"))]
 const GRAPH_BYTES_MULTI: &[u8] =
-    include_bytes!("../../resources/tree_depth_20/multi_message_id/max_out_4/graph.bin");
+    include_bytes!("../../resources/tree_depth_20/rln_multi/graph.bin");
 
 #[cfg(not(target_arch = "wasm32"))]
 static GRAPH_SINGLE: LazyLock<Arc<Graph>> = LazyLock::new(|| {
@@ -32,6 +33,34 @@ static GRAPH_MULTI: LazyLock<Arc<Graph>> = LazyLock::new(|| {
             Some(DEFAULT_MAX_OUT),
         )
         .expect("Default Multi graph must be valid"),
+    )
+});
+
+#[cfg(not(target_arch = "wasm32"))]
+const GRAPH_BYTES_POSEIDON2_SINGLE: &[u8] =
+    include_bytes!("../../resources/tree_depth_20/rln_poseidon2_single/graph.bin");
+
+#[cfg(not(target_arch = "wasm32"))]
+const GRAPH_BYTES_POSEIDON2_MULTI: &[u8] =
+    include_bytes!("../../resources/tree_depth_20/rln_poseidon2_multi/graph.bin");
+
+#[cfg(not(target_arch = "wasm32"))]
+static GRAPH_POSEIDON2_SINGLE: LazyLock<Arc<Graph>> = LazyLock::new(|| {
+    Arc::new(
+        graph_from_raw(GRAPH_BYTES_POSEIDON2_SINGLE, Some(DEFAULT_TREE_DEPTH), None)
+            .expect("Default Poseidon2 Single graph must be valid"),
+    )
+});
+
+#[cfg(not(target_arch = "wasm32"))]
+static GRAPH_POSEIDON2_MULTI: LazyLock<Arc<Graph>> = LazyLock::new(|| {
+    Arc::new(
+        graph_from_raw(
+            GRAPH_BYTES_POSEIDON2_MULTI,
+            Some(DEFAULT_TREE_DEPTH),
+            Some(DEFAULT_MAX_OUT),
+        )
+        .expect("Default Poseidon2 Multi graph must be valid"),
     )
 });
 
@@ -114,6 +143,18 @@ pub fn default_graph_single() -> &'static Arc<Graph> {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn default_graph_multi() -> &'static Arc<Graph> {
     &GRAPH_MULTI
+}
+
+/// Loads default Poseidon2 Single graph
+#[cfg(not(target_arch = "wasm32"))]
+pub fn default_graph_poseidon2_single() -> &'static Arc<Graph> {
+    &GRAPH_POSEIDON2_SINGLE
+}
+
+/// Loads default Poseidon2 Multi graph
+#[cfg(not(target_arch = "wasm32"))]
+pub fn default_graph_poseidon2_multi() -> &'static Arc<Graph> {
+    &GRAPH_POSEIDON2_MULTI
 }
 
 #[cfg(test)]

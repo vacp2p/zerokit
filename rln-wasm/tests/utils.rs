@@ -62,10 +62,8 @@ mod test {
             expected_identity_secret_seed_bytes
         );
         assert_eq!(*seeded.get_commitment(), expected_id_commitment_seed_bytes);
-    }
 
-    #[wasm_bindgen_test]
-    fn test_extended_keygen_wasm() {
+        // Extended keygen follows the same shape with trapdoor and nullifier
         let identity = WasmExtendedIdentityKeys::generate();
 
         let identity_trapdoor = **identity.get_trapdoor().inner();

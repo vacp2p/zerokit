@@ -10,11 +10,11 @@ use super::{error::ZKeyReadError, Curve, Fr, ProvingKey, Zkey};
 
 #[cfg(not(target_arch = "wasm32"))]
 const ARKZKEY_BYTES_SINGLE: &[u8] =
-    include_bytes!("../../resources/tree_depth_20/rln_final.arkzkey");
+    include_bytes!("../../resources/tree_depth_20/rln_single/rln_final.arkzkey");
 
 #[cfg(not(target_arch = "wasm32"))]
 const ARKZKEY_BYTES_MULTI: &[u8] =
-    include_bytes!("../../resources/tree_depth_20/multi_message_id/max_out_4/rln_final.arkzkey");
+    include_bytes!("../../resources/tree_depth_20/rln_multi/rln_final.arkzkey");
 
 #[cfg(not(target_arch = "wasm32"))]
 static ARKZKEY_SINGLE: LazyLock<Arc<Zkey>> = LazyLock::new(|| {
@@ -29,6 +29,30 @@ static ARKZKEY_MULTI: LazyLock<Arc<Zkey>> = LazyLock::new(|| {
     Arc::new(
         read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES_MULTI)
             .expect("Default Multi zkey must be valid"),
+    )
+});
+
+#[cfg(not(target_arch = "wasm32"))]
+const ARKZKEY_BYTES_POSEIDON2_SINGLE: &[u8] =
+    include_bytes!("../../resources/tree_depth_20/rln_poseidon2_single/rln_final.arkzkey");
+
+#[cfg(not(target_arch = "wasm32"))]
+const ARKZKEY_BYTES_POSEIDON2_MULTI: &[u8] =
+    include_bytes!("../../resources/tree_depth_20/rln_poseidon2_multi/rln_final.arkzkey");
+
+#[cfg(not(target_arch = "wasm32"))]
+static ARKZKEY_POSEIDON2_SINGLE: LazyLock<Arc<Zkey>> = LazyLock::new(|| {
+    Arc::new(
+        read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES_POSEIDON2_SINGLE)
+            .expect("Default Poseidon2 Single zkey must be valid"),
+    )
+});
+
+#[cfg(not(target_arch = "wasm32"))]
+static ARKZKEY_POSEIDON2_MULTI: LazyLock<Arc<Zkey>> = LazyLock::new(|| {
+    Arc::new(
+        read_arkzkey_from_bytes_uncompressed(ARKZKEY_BYTES_POSEIDON2_MULTI)
+            .expect("Default Poseidon2 Multi zkey must be valid"),
     )
 });
 
@@ -53,6 +77,18 @@ pub fn default_zkey_single() -> &'static Arc<Zkey> {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn default_zkey_multi() -> &'static Arc<Zkey> {
     &ARKZKEY_MULTI
+}
+
+/// Loads default Poseidon2 Single zkey
+#[cfg(not(target_arch = "wasm32"))]
+pub fn default_zkey_poseidon2_single() -> &'static Arc<Zkey> {
+    &ARKZKEY_POSEIDON2_SINGLE
+}
+
+/// Loads default Poseidon2 Multi zkey
+#[cfg(not(target_arch = "wasm32"))]
+pub fn default_zkey_poseidon2_multi() -> &'static Arc<Zkey> {
+    &ARKZKEY_POSEIDON2_MULTI
 }
 
 // The following functions and structs are based on code from ark-zkey:
