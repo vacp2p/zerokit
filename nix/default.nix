@@ -50,7 +50,7 @@ in rustPlatform.buildRustPackage {
 
   cargoHash = "sha256-/wSh0vuBcBV8DGfA39af3W600hTv+Kkeo6bLFPq4pNo=";
 
-  nativeBuildInputs = [ pkgs.rust-cbindgen ]
+  nativeBuildInputs = [ ]
     ++ pkgs.lib.optional windows-gnu crossCC;
 
   env = pkgs.lib.optionalAttrs windows-gnu {
