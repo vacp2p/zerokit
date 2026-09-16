@@ -56,6 +56,15 @@ make installdeps
 nix develop
 ```
 
+Nix can also build the x86_64 RLN C ABI for Windows GNU from a Linux builder:
+
+```bash
+nix build .#rln-windows-x86_64
+```
+
+The result places `rln.dll` in `bin/`, with the static and import libraries in
+`lib/` and the generated C header in `include/`.
+
 ### Build and Test All Crates
 
 ```bash
