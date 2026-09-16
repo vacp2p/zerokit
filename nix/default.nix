@@ -86,7 +86,8 @@ in rustPlatform.buildRustPackage {
     ''}
 
     mkdir -p $out/include
-    cbindgen ./rln -l c > "$out/include/rln.h"
+    cargo run --manifest-path rln/Cargo.toml --features headers --bin generate_headers
+    cp -v rln.h "$out/include/rln.h"
 
     ${if windows-gnu then ''
     if [ ! -f "$out/bin/rln.dll" ] \
