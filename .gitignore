@@ -32,6 +32,7 @@ rln/ffi_c_examples/recover_secret
 rln/ffi_c_examples/partial_proof
 rln/ffi_c_examples/multi_message_id
 rln/ffi_c_examples/stateless
+rln/ffi_c_examples/poseidon2
 
 # FFI Nim examples
 rln/ffi_nim_examples/database
@@ -41,6 +42,7 @@ rln/ffi_nim_examples/recover_secret
 rln/ffi_nim_examples/partial_proof
 rln/ffi_nim_examples/multi_message_id
 rln/ffi_nim_examples/stateless
+rln/ffi_nim_examples/poseidon2
 
 # Vscode
 .vscode

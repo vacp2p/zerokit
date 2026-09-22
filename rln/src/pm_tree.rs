@@ -15,7 +15,7 @@ use zerokit_utils::{
     merkle_tree::{FromConfigError, ZerokitMerkleProof, ZerokitMerkleTree, ZerokitMerkleTreeError},
 };
 
-use crate::hashers::{Hasher, PoseidonHash};
+use crate::hashers::{Hasher, Poseidon2Hash, PoseidonHash};
 
 /// The key used to store the metadata in database.
 const METADATA_KEY: [u8; 8] = *b"metadata";
@@ -42,6 +42,28 @@ impl PmTreeHasher for PoseidonHash {
 
     fn hash_pair(left: Self::Scalar, right: Self::Scalar) -> Self::Scalar {
         Hasher::<PoseidonHash>::hash_pair(left, right)
+    }
+}
+
+impl PmTreeHasher for Poseidon2Hash {
+    type Scalar = <Poseidon2Hash as ZerokitHasher>::Scalar;
+
+    fn serialize(value: Self::Scalar) -> PmtreeResult<pmtree::Value> {
+        let mut bytes = Vec::with_capacity(value.compressed_size());
+        value
+            .serialize_compressed(&mut bytes)
+            .map_err(|err| PmtreeError::Hasher(format!("Cannot serialize Scalar: {err}")))?;
+        Ok(bytes)
+    }
+
+    fn deserialize(bytes: &[u8]) -> PmtreeResult<Self::Scalar> {
+        let value = Self::Scalar::deserialize_compressed(bytes)
+            .map_err(|err| PmtreeError::Hasher(format!("Cannot deserialize Scalar: {err}")))?;
+        Ok(value)
+    }
+
+    fn hash_pair(left: Self::Scalar, right: Self::Scalar) -> Self::Scalar {
+        Hasher::<Poseidon2Hash>::hash_pair(left, right)
     }
 }
 
