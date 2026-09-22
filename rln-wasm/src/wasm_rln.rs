@@ -379,16 +379,6 @@ impl WasmRLNWitnessInput {
             .map_err(|err| err.to_string())?;
         Ok(WasmRLNWitnessInput(witness))
     }
-
-    #[wasm_bindgen(js_name = toProofValues)]
-    pub fn to_proof_values(&self) -> WasmRLNProofValues {
-        WasmRLNProofValues(RLNProofValues::from_witness::<PoseidonHash>(&self.0))
-    }
-
-    #[wasm_bindgen(js_name = toProofValuesPoseidon2)]
-    pub fn to_proof_values_poseidon2(&self) -> WasmRLNProofValues {
-        WasmRLNProofValues(RLNProofValues::from_witness::<Poseidon2Hash>(&self.0))
-    }
 }
 
 // WasmRLNPartialWitnessInput
@@ -417,6 +407,31 @@ impl WasmRLNPartialWitnessInput {
     #[wasm_bindgen(js_name = fromWitness)]
     pub fn from_witness(witness: &WasmRLNWitnessInput) -> WasmRLNPartialWitnessInput {
         WasmRLNPartialWitnessInput(RLNPartialWitnessInput::from(&witness.0))
+    }
+
+    #[wasm_bindgen(js_name = getIdentitySecret)]
+    pub fn get_identity_secret(&self) -> WasmSecretFr {
+        WasmSecretFr::from(self.0.identity_secret())
+    }
+
+    #[wasm_bindgen(js_name = getUserMessageLimit)]
+    pub fn get_user_message_limit(&self) -> WasmFr {
+        WasmFr::from(self.0.user_message_limit())
+    }
+
+    #[wasm_bindgen(js_name = getPathElements)]
+    pub fn get_path_elements(&self) -> VecWasmFr {
+        VecWasmFr::from(self.0.path_elements().to_vec())
+    }
+
+    #[wasm_bindgen(js_name = getIdentityPathIndex)]
+    pub fn get_identity_path_index(&self) -> Uint8Array {
+        Uint8Array::from(self.0.identity_path_index())
+    }
+
+    #[wasm_bindgen(js_name = getMerkleProof)]
+    pub fn get_merkle_proof(&self) -> WasmRLNMerkleProof {
+        WasmRLNMerkleProof(self.0.merkle_proof())
     }
 
     #[wasm_bindgen(js_name = toBytesLE)]

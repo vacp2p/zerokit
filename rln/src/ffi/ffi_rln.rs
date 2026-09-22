@@ -1586,17 +1586,25 @@ pub fn ffi_rln_partial_witness_input_new(
 }
 
 #[ffi_export]
+pub fn ffi_rln_partial_witness_input_from_witness(
+    witness: &FFI_RLNWitnessInput,
+) -> repr_c::Box<FFI_RLNPartialWitnessInput> {
+    let partial = RLNPartialWitnessInput::from(&witness.0);
+    Box_::new(FFI_RLNPartialWitnessInput(partial))
+}
+
+#[ffi_export]
 pub fn ffi_rln_partial_witness_input_get_identity_secret(
     witness: &FFI_RLNPartialWitnessInput,
 ) -> repr_c::Box<FFI_SecretFr> {
-    Box_::new(FFI_SecretFr::from(witness.0.identity_secret.clone()))
+    Box_::new(FFI_SecretFr::from(witness.0.identity_secret()))
 }
 
 #[ffi_export]
 pub fn ffi_rln_partial_witness_input_get_user_message_limit(
     witness: &FFI_RLNPartialWitnessInput,
 ) -> repr_c::Box<FFI_Fr> {
-    FFI_Fr::from(witness.0.user_message_limit).into()
+    FFI_Fr::from(witness.0.user_message_limit()).into()
 }
 
 #[ffi_export]
@@ -1605,7 +1613,7 @@ pub fn ffi_rln_partial_witness_input_get_path_elements(
 ) -> repr_c::Vec<FFI_Fr> {
     witness
         .0
-        .path_elements
+        .path_elements()
         .iter()
         .map(|fr| FFI_Fr::from(*fr))
         .collect::<Vec<_>>()
@@ -1616,15 +1624,14 @@ pub fn ffi_rln_partial_witness_input_get_path_elements(
 pub fn ffi_rln_partial_witness_input_get_identity_path_index(
     witness: &FFI_RLNPartialWitnessInput,
 ) -> repr_c::Vec<u8> {
-    witness.0.identity_path_index.to_vec().into()
+    witness.0.identity_path_index().to_vec().into()
 }
 
 #[ffi_export]
-pub fn ffi_rln_witness_input_to_partial_witness(
-    witness: &FFI_RLNWitnessInput,
-) -> repr_c::Box<FFI_RLNPartialWitnessInput> {
-    let partial = RLNPartialWitnessInput::from(&witness.0);
-    Box_::new(FFI_RLNPartialWitnessInput(partial))
+pub fn ffi_rln_partial_witness_input_get_merkle_proof(
+    witness: &FFI_RLNPartialWitnessInput,
+) -> repr_c::Box<FFI_RLNMerkleProof> {
+    Box_::new(FFI_RLNMerkleProof(witness.0.merkle_proof()))
 }
 
 #[ffi_export]

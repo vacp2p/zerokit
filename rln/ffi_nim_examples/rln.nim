@@ -459,8 +459,11 @@ proc ffi_rln_partial_witness_input_get_path_elements*(
 proc ffi_rln_partial_witness_input_get_identity_path_index*(
   w: ptr PartialWitness): Vec_uint8 {.importc: "ffi_rln_partial_witness_input_get_identity_path_index",
     cdecl, dynlib: RLN_LIB.}
-proc ffi_rln_witness_input_to_partial_witness*(
-  w: ptr Witness): ptr PartialWitness {.importc: "ffi_rln_witness_input_to_partial_witness",
+proc ffi_rln_partial_witness_input_get_merkle_proof*(
+  w: ptr PartialWitness): ptr MerkleProof {.importc: "ffi_rln_partial_witness_input_get_merkle_proof",
+    cdecl, dynlib: RLN_LIB.}
+proc ffi_rln_partial_witness_input_from_witness*(
+  w: ptr Witness): ptr PartialWitness {.importc: "ffi_rln_partial_witness_input_from_witness",
     cdecl, dynlib: RLN_LIB.}
 proc ffi_rln_partial_witness_input_to_bytes_le*(
   w: ptr PartialWitness): VecU8Result {.importc: "ffi_rln_partial_witness_input_to_bytes_le",

@@ -506,6 +506,34 @@ pub struct RLNPartialWitnessInput {
 }
 
 impl RLNPartialWitnessInput {
+    /// Returns a clone of the identity secret.
+    pub fn identity_secret(&self) -> SecretFr {
+        self.identity_secret.clone()
+    }
+
+    /// Returns the user message limit.
+    pub fn user_message_limit(&self) -> Fr {
+        self.user_message_limit
+    }
+
+    /// Returns the Merkle path elements.
+    pub fn path_elements(&self) -> &[Fr] {
+        &self.path_elements
+    }
+
+    /// Returns the Merkle path index bits.
+    pub fn identity_path_index(&self) -> &[u8] {
+        &self.identity_path_index
+    }
+
+    /// Returns the Merkle proof as an `RLNMerkleProof`.
+    pub fn merkle_proof(&self) -> RLNMerkleProof {
+        RLNMerkleProof {
+            path_elements: self.path_elements.clone(),
+            identity_path_index: self.identity_path_index.clone(),
+        }
+    }
+
     /// Checks the partial witness invariants: non-zero limit, matching path lengths.
     pub(crate) fn validate(&self) -> Result<(), PartialWitnessInputError> {
         if self.user_message_limit == Fr::from(0) {

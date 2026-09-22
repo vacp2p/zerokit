@@ -499,7 +499,13 @@ mod test {
         let x = random_signal_hash();
         let (_identity_secret, witness) = setup_witness(&mut rln, &x);
 
-        let partial_witness = ffi_rln_witness_input_to_partial_witness(&witness);
+        let partial_witness = ffi_rln_partial_witness_input_from_witness(&witness);
+        let partial_merkle_proof = ffi_rln_partial_witness_input_get_merkle_proof(&partial_witness);
+        let witness_merkle_proof = ffi_rln_witness_input_get_merkle_proof(&witness);
+        assert_eq!(
+            ffi_rln_merkle_proof_get_identity_path_index(&partial_merkle_proof).to_vec(),
+            ffi_rln_merkle_proof_get_identity_path_index(&witness_merkle_proof).to_vec()
+        );
         let partial_proof = unwrap_ok!(
             ffi_rln_generate_partial_proof(&rln, &partial_witness),
             "ffi_rln_generate_partial_proof",
@@ -656,7 +662,7 @@ mod test {
         let x = random_signal_hash();
         let (_identity_secret, witness) = setup_witness(&mut rln, &x);
 
-        let partial_witness = ffi_rln_witness_input_to_partial_witness(&witness);
+        let partial_witness = ffi_rln_partial_witness_input_from_witness(&witness);
 
         // Partial witness roundtrip LE + BE
         macro_rules! partial_witness_roundtrip {

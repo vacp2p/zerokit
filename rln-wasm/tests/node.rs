@@ -260,7 +260,7 @@ mod test {
         roots.push(&root);
         assert!(rln_instance.verify_with_roots(&proof, &roots, &x).unwrap());
 
-        let proof_values = witness.to_proof_values_poseidon2();
+        let proof_values = proof.get_values();
         let pv_le = proof_values.to_bytes_le().unwrap();
         assert!(WasmRLNProofValues::from_bytes_le(&pv_le).is_ok());
     }
@@ -363,7 +363,12 @@ mod test {
         assert!(WasmRLNWitnessInput::from_bytes_be(&extra_be).is_ok());
 
         // Proof values bytes: truncated and extra data
-        let valid_pv = valid_witness.to_proof_values();
+        let zkey = Uint8Array::from(ARKZKEY_BYTES);
+        let rln_instance = WasmRLN::new_with_params(&zkey, &graph).unwrap();
+        let valid_pv = rln_instance
+            .generate_proof(&valid_witness)
+            .unwrap()
+            .get_values();
 
         let pv_le = valid_pv.to_bytes_le().unwrap();
         let pv_le_vec = pv_le.to_vec();
