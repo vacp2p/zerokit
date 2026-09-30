@@ -244,6 +244,11 @@ pub fn wasm_poseidon_hash_pair(a: &WasmFr, b: &WasmFr) -> WasmFr {
     WasmFr::from(Hasher::<PoseidonHash>::hash_pair(a.0, b.0))
 }
 
+#[wasm_bindgen(js_name = poseidon2HashPair)]
+pub fn wasm_poseidon2_hash_pair(a: &WasmFr, b: &WasmFr) -> WasmFr {
+    WasmFr::from(Hasher::<Poseidon2Hash>::hash_pair(a.0, b.0))
+}
+
 #[wasm_bindgen(js_name = hashToFieldLE)]
 pub fn wasm_hash_to_field_le(input: &Uint8Array) -> WasmFr {
     WasmFr::from(hash_to_field_le(&input.to_vec()))
@@ -272,6 +277,21 @@ impl WasmIdentityKeys {
     pub fn generate_seeded(seed: &Uint8Array) -> WasmIdentityKeys {
         let seed_vec = seed.to_vec();
         WasmIdentityKeys(IdentityKeys::generate_seeded::<PoseidonHash, ChaCha20Rng>(
+            &seed_vec,
+        ))
+    }
+
+    #[wasm_bindgen(js_name = generatePoseidon2)]
+    pub fn generate_poseidon2() -> WasmIdentityKeys {
+        WasmIdentityKeys(IdentityKeys::generate::<Poseidon2Hash, ThreadRng>(
+            &mut thread_rng(),
+        ))
+    }
+
+    #[wasm_bindgen(js_name = generateSeededPoseidon2)]
+    pub fn generate_seeded_poseidon2(seed: &Uint8Array) -> WasmIdentityKeys {
+        let seed_vec = seed.to_vec();
+        WasmIdentityKeys(IdentityKeys::generate_seeded::<Poseidon2Hash, ChaCha20Rng>(
             &seed_vec,
         ))
     }
@@ -338,6 +358,22 @@ impl WasmExtendedIdentityKeys {
         let seed_vec = seed.to_vec();
         WasmExtendedIdentityKeys(ExtendedIdentityKeys::generate_seeded::<
             PoseidonHash,
+            ChaCha20Rng,
+        >(&seed_vec))
+    }
+
+    #[wasm_bindgen(js_name = generatePoseidon2)]
+    pub fn generate_poseidon2() -> WasmExtendedIdentityKeys {
+        WasmExtendedIdentityKeys(ExtendedIdentityKeys::generate::<Poseidon2Hash, ThreadRng>(
+            &mut thread_rng(),
+        ))
+    }
+
+    #[wasm_bindgen(js_name = generateSeededPoseidon2)]
+    pub fn generate_seeded_poseidon2(seed: &Uint8Array) -> WasmExtendedIdentityKeys {
+        let seed_vec = seed.to_vec();
+        WasmExtendedIdentityKeys(ExtendedIdentityKeys::generate_seeded::<
+            Poseidon2Hash,
             ChaCha20Rng,
         >(&seed_vec))
     }

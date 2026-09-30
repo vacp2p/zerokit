@@ -9,12 +9,13 @@ use wasm_bindgen::prelude::wasm_bindgen;
 pub use wasm_bindgen_rayon::init_thread_pool;
 #[cfg(not(feature = "utils"))]
 pub use wasm_rln::{
-    WasmRLN, WasmRLNMerkleProof, WasmRLNPartialProof, WasmRLNPartialWitnessInput, WasmRLNProof,
-    WasmRLNProofValues, WasmRLNWitnessInput,
+    WasmRLN, WasmRLNMerkleProof, WasmRLNPartialProof, WasmRLNPartialWitnessInput, WasmRLNPoseidon2,
+    WasmRLNProof, WasmRLNProofValues, WasmRLNWitnessInput,
 };
 pub use wasm_utils::{
-    wasm_hash_to_field_be, wasm_hash_to_field_le, wasm_poseidon_hash_pair, VecWasmFr,
-    WasmExtendedIdentityKeys, WasmFr, WasmIdentityKeys, WasmSecretFr, WasmUint8ArrayUtils,
+    wasm_hash_to_field_be, wasm_hash_to_field_le, wasm_poseidon2_hash_pair,
+    wasm_poseidon_hash_pair, VecWasmFr, WasmExtendedIdentityKeys, WasmFr, WasmIdentityKeys,
+    WasmSecretFr, WasmUint8ArrayUtils,
 };
 
 #[cfg(feature = "panic_hook")]

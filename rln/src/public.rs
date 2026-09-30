@@ -6,11 +6,14 @@ use bon::bon;
 use zerokit_utils::{hasher::ZerokitHasher, merkle_tree::ZerokitMerkleTree};
 
 #[cfg(not(target_arch = "wasm32"))]
-use crate::circuit::{default_graph_single, default_zkey_single};
+use crate::circuit::{
+    default_graph_poseidon2_single, default_graph_single, default_zkey_poseidon2_single,
+    default_zkey_single,
+};
 use crate::{
     circuit::{ArkGroth16Backend, Fr, Graph, Proof, Zkey},
     error::VerifyProofError,
-    hashers::PoseidonHash,
+    hashers::{Poseidon2Hash, PoseidonHash},
     protocol::{RLNPartialZkProof, RLNProofValues, RLNZkProof},
 };
 
@@ -305,7 +308,12 @@ where
     }
 }
 
-/// Builder for [`RLN`] instances backed by [`ArkGroth16Backend`] with [`PoseidonHash`].
+/// Builder for [`RLN`] instances backed by [`ArkGroth16Backend`].
+///
+/// The hash is chosen by the constructor: [`Self::stateless`] and [`Self::stateful`] build over
+/// [`PoseidonHash`], while [`Self::stateless_poseidon2`] and [`Self::stateful_poseidon2`] build
+/// over [`Poseidon2Hash`]. On native targets every constructor defaults the circuit `graph` and
+/// `zkey` to the embedded resources of its own hash; on `wasm32` they must be supplied.
 pub struct RLNBuilder<ZKP>(PhantomData<ZKP>);
 
 #[bon]
@@ -377,6 +385,83 @@ impl RLNBuilder<ArkGroth16Backend<PoseidonHash>> {
         #[cfg_attr(target_arch = "wasm32", builder(into))]
         zkey: Arc<Zkey>,
     ) -> RLN<Stateful<State>, ArkGroth16Backend<PoseidonHash>> {
+        RLN {
+            state: Stateful { tree },
+            zkp: ArkGroth16Backend::new(zkey, graph),
+        }
+    }
+}
+
+#[bon]
+impl RLNBuilder<ArkGroth16Backend<Poseidon2Hash>> {
+    /// Builds a [`Stateless`] RLN instance with [`Poseidon2Hash`] from the circuit `graph` and
+    /// `zkey` resources.
+    ///
+    /// On native targets both resources default to the single message-id Poseidon2 circuit; on
+    /// `wasm32` they must be supplied.
+    ///
+    /// ## Example:
+    ///
+    /// ```
+    /// use rln::prelude::RLNBuilder;
+    ///
+    /// // Native targets default the circuit resources to the single message-id Poseidon2 circuit.
+    /// let rln = RLNBuilder::stateless_poseidon2().build();
+    /// ```
+    #[builder(finish_fn = build)]
+    pub fn stateless_poseidon2(
+        #[cfg_attr(
+            not(target_arch = "wasm32"),
+            builder(default = default_graph_poseidon2_single().clone(), into)
+        )]
+        #[cfg_attr(target_arch = "wasm32", builder(into))]
+        graph: Arc<Graph>,
+        #[cfg_attr(
+            not(target_arch = "wasm32"),
+            builder(default = default_zkey_poseidon2_single().clone(), into)
+        )]
+        #[cfg_attr(target_arch = "wasm32", builder(into))]
+        zkey: Arc<Zkey>,
+    ) -> RLN<Stateless, ArkGroth16Backend<Poseidon2Hash>> {
+        RLN {
+            state: Stateless,
+            zkp: ArkGroth16Backend::new(zkey, graph),
+        }
+    }
+
+    /// Builds a [`Stateful`] RLN instance with [`Poseidon2Hash`] from a Merkle `tree` and the
+    /// circuit `graph` and `zkey` resources.
+    ///
+    /// On native targets both resources default to the single message-id Poseidon2 circuit; on
+    /// `wasm32` they must be supplied.
+    ///
+    /// ## Example:
+    ///
+    /// ```
+    /// use rln::prelude::{
+    ///     Fr, PmTree, PmTreeSledConfig, Poseidon2Hash, RLNBuilder, SledDB, DEFAULT_TREE_DEPTH,
+    /// };
+    ///
+    /// let config = PmTreeSledConfig::new().temporary(true).build()?;
+    /// let tree = PmTree::<SledDB, Poseidon2Hash>::new(DEFAULT_TREE_DEPTH, Fr::default(), config)?;
+    /// let mut rln = RLNBuilder::stateful_poseidon2().tree(tree).build();
+    /// ```
+    #[builder(finish_fn = build)]
+    pub fn stateful_poseidon2<State: ZerokitMerkleTree<Hasher = Poseidon2Hash>>(
+        tree: State,
+        #[cfg_attr(
+            not(target_arch = "wasm32"),
+            builder(default = default_graph_poseidon2_single().clone(), into)
+        )]
+        #[cfg_attr(target_arch = "wasm32", builder(into))]
+        graph: Arc<Graph>,
+        #[cfg_attr(
+            not(target_arch = "wasm32"),
+            builder(default = default_zkey_poseidon2_single().clone(), into)
+        )]
+        #[cfg_attr(target_arch = "wasm32", builder(into))]
+        zkey: Arc<Zkey>,
+    ) -> RLN<Stateful<State>, ArkGroth16Backend<Poseidon2Hash>> {
         RLN {
             state: Stateful { tree },
             zkp: ArkGroth16Backend::new(zkey, graph),
