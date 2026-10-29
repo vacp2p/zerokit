@@ -35,18 +35,22 @@ in each developer's own tool file, never here.
 
 ## 1. Session protocol (every agent, every task)
 
-- Never commit, push, tag, publish, post a review comment or open a PR unless the developer
+- NEVER commit, push, tag, publish, post a review comment or open a PR unless the developer
   explicitly asks in that message. A sentence ending in a question mark is a question, not
   an order: prepare the command, show it, wait.
-- No destructive git (`reset --hard`, force push, branch deletion) without an explicit ask.
+- NEVER run destructive git (`reset --hard`, force push, branch deletion) without an explicit ask.
+- ALWAYS ASK before installing anything outside the working tree (package managers,
+  `cargo install`, toolchains, system tools), every time, even when the task needs it: the
+  host check of section 13 names what is missing and asks; the developer installs, or says
+  yes to `make installdeps`. Never assume a yes from an earlier session or an earlier task.
 - Before reporting a change as done: `cargo make fmt` (nightly rustfmt), `cargo clippy
   --all-targets --tests -- -D warnings`, the relevant tests, and the audit one-liners of
-  section 8. Report failures with their output; never describe skipped steps as done.
-- Dev builds are debug. Never pass `--release` locally except where section 3 allows it.
-- Keep tracked files free of em-dashes (`U+2014`): use a comma, colon, parentheses or a
+  section 8. Report failures with their output; NEVER describe skipped steps as done.
+- Dev builds are debug. NEVER pass `--release` locally except where section 3 allows it.
+- NO em-dashes (`U+2014`) in tracked files: use a comma, colon, parentheses or a
   period. Gate: `git grep -nP '\x{2014}'` must print nothing (the pattern is spelled as a
   code point so this file passes its own gate).
-- Read the ledger (section 12) before proposing a design change; do not re-propose a row.
+- Read the ledger (section 12) before proposing a design change; DO NOT re-propose a row.
 - Clean up what you create: scratch files and temporary caches. Build artifacts go through
   `cargo clean`; removing a directory is the developer's call, hand them the command.
 
@@ -108,7 +112,7 @@ slash: id_secret   = (y2 * x1 - y1 * x2) / (x1 - x2)
 
 ## 4. Dependencies and manifests
 
-- `ark-*` pinned to 0.5. Do not bump: `ark-ec` 0.6.0 builds a local rayon pool that panics
+- `ark-*` pinned to 0.5. DO NOT bump: `ark-ec` 0.6.0 builds a local rayon pool that panics
   on wasm32. Unpin only to a release that contains arkworks-rs/algebra#1112, then run the
   browser tests with `parallel` first. No vendoring, no `[patch.crates-io]`.
 - `[workspace.dependencies]` holds deps shared by two or more members, plus two family
@@ -172,9 +176,9 @@ slash: id_secret   = (y2 * x1 - y1 * x2) / (x1 - x2)
 
 ## 6. Validation, errors, wire format
 
-- No `.unwrap()`, `panic!()`, `unreachable!()` in library code (tests may). Sanctioned
+- NO `.unwrap()`, `panic!()`, `unreachable!()` in library code (tests may). Sanctioned
   `.expect("message")` sites: `impl Default for PmTreeSledConfig`, embedded Poseidon constant
-  init, and the documented `# Panics` arity contract in the facade. Do not re-flag them.
+  init, and the documented `# Panics` arity contract in the facade. DO NOT re-flag them.
 - Narrowest error per method, no top-level union error. Validation function is named
   `validate` everywhere; it runs at `build()` and at deserialize. Proof-values validation
   error is `ProofValuesMultiError`; `SerializationError` wraps typed validation errors with
@@ -254,8 +258,8 @@ slash: id_secret   = (y2 * x1 - y1 * x2) / (x1 - x2)
   type in scope is linked bare, a type out of scope by explicit path, a private target is a
   plain backtick. Gate: `cargo doc -p rln --no-deps` with zero warnings. Vendored
   `iden3calc/*` comments stay as they are.
-- Audit one-liners (all must print nothing, the last must warn nothing). `rg` is ripgrep;
-  it is not part of `make installdeps`, install it with your package manager:
+- Audit one-liners (all must print nothing, the last must warn nothing; `rg` is ripgrep,
+  see the host check in section 13):
 
 ```bash
 git grep -nP '\x{2014}' -- '*.rs' '*.toml' '*.md'                                   # em-dash
@@ -282,7 +286,7 @@ cargo doc -p rln --no-deps
   and overflow in FFI code are real findings. No suppression file is tracked.
 - Benches (Criterion): one file per grouping, suffix `_benchmark.rs`, `[[bench]]` name
   matches, bench id exactly `<RustType>::<method>`, arm order = trait order, depth 20,
-  `LEAF_COUNT = 8192`, cache `(leaf, proof)` outside `b.iter`. Never call
+  `LEAF_COUNT = 8192`, cache `(leaf, proof)` outside `b.iter`. NEVER call
   `group.throughput(...)` (breaks the CI comparison action). PRs that would break the
   comparison carry the `skip-benchmark` label.
 - Coverage CI: `cargo tarpaulin --engine llvm --timeout 300` (ptrace hangs on sled threads).
@@ -295,7 +299,7 @@ cargo doc -p rln --no-deps
   ownership rules before touching a boundary function.
 - Hash naming: unsuffixed means Poseidon (`generate`, `WasmRLN`, `ffi_rln_new_*`); every
   other hash carries its name as a suffix (`ffi_poseidon2_hash_pair`, `WasmRLNPoseidon2`).
-  Never rename the unsuffixed defaults.
+  NEVER rename the unsuffixed defaults.
 - FFI names: `ffi_<type>_<action>_<variant>`, type = the wrapper type in full, action in
   `new / get_* / to_bytes / from_bytes / free`, variant `_le / _be / _mixed` or none. Getters
   wrapping a native method mirror its name (`ffi_rln_leaves_set` is a count getter).
@@ -336,7 +340,7 @@ cargo doc -p rln --no-deps
   (circomspect, Picus, zkFuzz) live under `scripts/` in circom-rln; verdicts are recorded in
   that repo's PR descriptions, not here.
 
-## 12. Decision ledger (do not re-propose)
+## 12. Decision ledger (DO NOT re-propose)
 
 | Proposal | Verdict |
 | --- | --- |
@@ -369,6 +373,16 @@ cargo doc -p rln --no-deps
 
 ## 13. Tool notes and local permission setup
 
+- First session with any tool, check the host and report before the first task; `make
+  installdeps` covers only part of it. Always: git, a C toolchain and `make`, rustup with a
+  stable and a nightly toolchain (nightly `rustfmt` for `cargo make fmt`), cmake, ninja and
+  cargo-make (`make installdeps` installs these three), ripgrep for the audit one-liners,
+  `gh` for reading PRs and CI. For rln-wasm: the wasm32 target, wasm-pack and node (`make
+  installdeps-wasm`), Chrome for `test_browser`. For the FFI examples: gcc and nim. Optional:
+  nix for the flake, valgrind (Linux) or `leaks` (macOS) for memory checks, cargo-tarpaulin
+  for coverage. List what is missing with the install command for the developer's platform
+  and ASK; run `make installdeps` or `make installdeps-wasm` only on a yes, and never install
+  the rest yourself.
 - First session with any tool: if the developer has no local instruction file for this repo
   yet, create one from this skeleton (sections, not content; fill it from the developer's
   answers and keep it gitignored), importing or pointing to this file first:
