@@ -21,14 +21,14 @@ in each developer's own tool file, never here.
   notes, scratch context) in those gitignored files. Nothing personal or in-progress is
   committed: this file changes only for a repo-wide rule, so it rarely changes and never
   becomes a merge-conflict magnet.
-- Change this file rarely: every edit is a reviewed PR. Add a rule only when it is general,
-  stable and not derivable from the code. Size: target 20 KB, hard ceiling 32 KiB (Codex
-  truncates larger instruction files by default; every tool pays the size in context on every
-  session). Above the target, tighten an existing rule before adding one.
+- Change this file rarely, and always through a reviewed PR. A change of policy alone gets a
+  PR of its own, not mixed with other work. Add a rule only when it is general, stable and not
+  derivable from the code. Size: target 20 KB, hard ceiling 32 KiB (some tools truncate larger
+  instruction files). Above the target, tighten an existing rule before adding one.
 - Keep it true: a PR that changes a convention, an invariant, a command, a feature flag, a
-  dependency pin, a boundary name or a release step updates the matching section in the same
-  PR (one commit `docs(agents): ...` is fine). A rule that no longer matches the code is a
-  bug in this file, not a license to ignore it: fix the file.
+  dependency pin, a boundary name or a release step updates the matching section in that same
+  PR (one commit `docs(agents): ...` is fine), so the file never lags the code. A rule that no
+  longer matches the code is a bug in this file, not a license to ignore it: fix the file.
 - Before every release, review this file against the codebase as a release-checklist step
   (section 3) and land the corrections before tagging. The tag never ships a stale policy.
 - The same rules apply whatever model or tool runs. Nothing here depends on a vendor feature.
@@ -56,8 +56,11 @@ RLN (Rate-Limiting Nullifiers): a zero-knowledge protocol for anonymous rate lim
 Groth16 (arkworks + circom), Poseidon or Poseidon2 for arithmetic hashing, Keccak-256 to map a
 signal to a field element. A Merkle tree holds rate commitments; Shamir secret sharing makes
 two proofs with the same `external_nullifier` and different `message_id` reveal the secret
-(slashing). Consumers: native Rust (full API), WASM (stateless only), FFI (C ABI). Every
-protocol hash goes through the `Hasher<H>` facade (arity 1, 2, 3):
+(slashing). Consumers: native Rust (full API), WASM (stateless only), FFI (C ABI). Specs, when
+a task needs them: RLN-V2 <https://rfc.vac.dev/vac/32/rln-v2>, RLN-API
+<https://lip.logos.co/anoncomms/raw/rln-api.html>, Zerokit-API
+<https://lip.logos.co/anoncomms/raw/zerokit-api.html>, circuits <https://github.com/vacp2p/circom-rln>.
+Every protocol hash goes through the `Hasher<H>` facade (arity 1, 2, 3):
 
 ```text
 id_commitment      = Poseidon(id_secret)
@@ -147,7 +150,7 @@ slash: id_secret   = (y2 * x1 - y1 * x2) / (x1 - x2)
   `POSEIDON2_ROUND_PARAMS` (t = 2..4, RF 8, RP 56, HorizenLabs "new" set) in utils; golden
   tests against circomlibjs, the Nomos vectors and rust-poseidon-bn254-pure pin them. Any
   parameter change must keep those tests green. Poseidon2 is one-shot per arity with the zero
-  LAST (`[inputs.., 0]`); Poseidon1 stays circomlib zero-first. Do not reopen.
+  LAST (`[inputs.., 0]`); Poseidon1 stays circomlib zero-first.
 - Circuit gating: a hash without a matching circuit compiles but cannot produce valid proofs;
   mixing hash and resources yields `Ok(false)`, pinned by a test. Four depth-20 circuits are
   embedded (`rln_single`, `rln_multi`, `rln_poseidon2_single`, `rln_poseidon2_multi`).
@@ -183,7 +186,7 @@ slash: id_secret   = (y2 * x1 - y1 * x2) / (x1 - x2)
 - Fr malleability: every untrusted BE input rejects values `>= Fr::MODULUS` with a limb-wise
   check into `NonCanonicalFieldElement`, no BigUint detour.
 - A forged length prefix panics on purpose (`Vec::with_capacity` from the prefix, LE and BE),
-  matching arkworks; callers bound input size. No streaming workaround.
+  matching arkworks; callers bound input size.
 - `Proof` / `PartialProof` are LE-only. All BE impls live in `protocol/serialize.rs`;
   endianness is chosen by `_le` / `_be` suffixes, never an enum. Enum wire = one tag byte
   (`0` Single, `1` Multi) then the inner struct. Hand-written deserialize reads with
@@ -251,7 +254,8 @@ slash: id_secret   = (y2 * x1 - y1 * x2) / (x1 - x2)
   type in scope is linked bare, a type out of scope by explicit path, a private target is a
   plain backtick. Gate: `cargo doc -p rln --no-deps` with zero warnings. Vendored
   `iden3calc/*` comments stay as they are.
-- Audit one-liners (all must print nothing, the last must warn nothing):
+- Audit one-liners (all must print nothing, the last must warn nothing). `rg` is ripgrep;
+  it is not part of `make installdeps`, install it with your package manager:
 
 ```bash
 git grep -nP '\x{2014}' -- '*.rs' '*.toml' '*.md'                                   # em-dash
@@ -275,8 +279,7 @@ cargo doc -p rln --no-deps
 - Memory checks (Linux `cargo valgrind test`, macOS `leaks --atExit`): reports from statics
   (the graph cache, Poseidon constants) and sled/rayon pools alive at exit are known false
   positives (fixed one-time init, does not grow per proof). Only use-after-free, double-free
-  and overflow in FFI code are real findings. No suppression file is tracked; do not drop the
-  static caches to silence the reports.
+  and overflow in FFI code are real findings. No suppression file is tracked.
 - Benches (Criterion): one file per grouping, suffix `_benchmark.rs`, `[[bench]]` name
   matches, bench id exactly `<RustType>::<method>`, arm order = trait order, depth 20,
   `LEAF_COUNT = 8192`, cache `(leaf, proof)` outside `b.iter`. Never call
@@ -286,6 +289,10 @@ cargo doc -p rln --no-deps
 
 ## 10. FFI and WASM boundaries
 
+- The FFI is built with the `safer-ffi` crate: `#[ffi_export]` functions, `#[derive_ReprC]`
+  types, `repr_c::{Box, Vec, String}` for owned data across the boundary, and the `rln.h`
+  header generated by `generate_headers` through the `headers` feature. Read safer-ffi's
+  ownership rules before touching a boundary function.
 - Hash naming: unsuffixed means Poseidon (`generate`, `WasmRLN`, `ffi_rln_new_*`); every
   other hash carries its name as a suffix (`ffi_poseidon2_hash_pair`, `WasmRLNPoseidon2`).
   Never rename the unsuffixed defaults.
@@ -320,8 +327,7 @@ cargo doc -p rln --no-deps
   v1.0.0. Externally audited at v1.0.0: `rln_single`, `withdraw`,
   `MerkleTreeInclusionProof`, `RangeCheck`. Everything post-fork (`rln_multi`,
   `ConditionalRangeCheck`, the Poseidon2 circuits) is not externally audited; say so in docs.
-- Poseidon2 decisions are closed: HorizenLabs "new" constants, zero-last one-shot, t = 2..4.
-  `poseidon2_constants.circom` keeps its `if / else if / else` shape with no `assert` and no
+- `poseidon2_constants.circom` keeps its `if / else if / else` shape with no `assert` and no
   fall-through array return (static-analysis tools misread anything else).
 - Resource regeneration: build the circuits in circom-rln, convert zkeys with
   `rln/convert_zkey.sh`, build the witness graph with circom-witnesscalc `build-circuit` at the
@@ -335,6 +341,7 @@ cargo doc -p rln --no-deps
 | Proposal | Verdict |
 | --- | --- |
 | Bump `ark-*` to 0.6 | No: breaks the browser thread pool (`parallel`) |
+| Change the Poseidon2 constant set, the zero-last padding or the arity range; make Poseidon1 zero-last too | No: fixed by the embedded circuits and the golden vectors (Nomos, rust-poseidon-bn254-pure, circomlibjs) |
 | Rename `validate` | Reverted; keep `validate` |
 | Marker or gate trait over `ZerokitHasher` | No: `# Panics` contract instead |
 | Type aliases `StatefulRLN<T>` / `StatelessRLN<H>` | Reverted; spell full types |
