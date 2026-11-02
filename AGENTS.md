@@ -38,7 +38,12 @@ in each developer's own tool file, never here.
 - NEVER commit, push, tag, publish, post a review comment or open a PR unless the developer
   explicitly asks in that message. A sentence ending in a question mark is a question, not
   an order: prepare the command, show it, wait.
-- NEVER run destructive git (`reset --hard`, force push, branch deletion) without an explicit ask.
+- NEVER delete, discard, rewrite or force: no branch deletion (`-d` as much as `-D`), no
+  `reset`, `restore`, `checkout --`, `stash drop`, `clean`, `rebase`, `--amend`, force push,
+  no `rm` or `mv` inside a working tree. The ACTION is forbidden, not a spelling: another
+  flag, `cd x &&`, `sh -c`, `xargs`, `find -delete`, a scripting one-liner or another
+  repository change nothing; "merged" or "untracked" is no license. Hand the developer the
+  exact command and stop.
 - ALWAYS ASK before installing anything outside the working tree (package managers,
   `cargo install`, toolchains, system tools), every time, even when the task needs it: the
   host check of section 13 names what is missing and asks; the developer installs, or says
@@ -51,8 +56,8 @@ in each developer's own tool file, never here.
   period. Gate: `git grep -nP '\x{2014}'` must print nothing (the pattern is spelled as a
   code point so this file passes its own gate).
 - Read the ledger (section 12) before proposing a design change; DO NOT re-propose a row.
-- Clean up what you create: scratch files and temporary caches. Build artifacts go through
-  `cargo clean`; removing a directory is the developer's call, hand them the command.
+- Clean up what you create under the temp dir or the tool's scratchpad; build artifacts go
+  through `cargo clean`. Removing anything inside a working tree is the developer's call.
 
 ## 2. What Zerokit is
 
@@ -402,35 +407,39 @@ cargo doc -p rln --no-deps
   mirror copy when its scratch file is retired; Claude Code users can use the tool's own
   per-project directory under `~/.claude/`).
 
-- First session with any tool: if the tool has no local permission settings for this repo,
-  create them before the first task so that build, test, lint and read-only git/gh commands
-  run without prompts, everything that writes outside the working tree (commit, push, PR)
-  prompts, and recursive `rm`, force push, hard reset, `git clean -f`, `git branch -D`,
-  `cargo publish`, `gh pr merge` and `gh release` are denied outright. Show the developer
-  the file you created.
+- First session with any tool: check that the developer's permission settings cover this
+  repo and recommend what is missing (they install, ideally once at USER level for every
+  repository): build, test, lint and read-only git/gh commands run without prompts;
+  commit, push and PR prompt; every section 1 delete/discard/rewrite/force action,
+  installs, `sudo`, `cargo publish`, `gh pr merge` and `gh release` are denied outright. A
+  pattern list matches spellings, not actions, so where the tool supports a command hook
+  recommend one that matches the action at any command position (flag order, `cd` prefix,
+  `sh -c`, `xargs`, one-liners) and allows plain `rm` / `mv` on temp-dir paths only.
 - Local tooling is the developer's choice, not repo policy: skills, plugins, MCP servers,
   hooks, code-graph or indexing tools and their outputs stay in the developer's gitignored
   files and are never required or described here. A rule in this file must be followable
   with the plain tool and the repo alone.
 - Claude Code: the repo-level `CLAUDE.md` is gitignored and personal; it imports this file
   with an `@AGENTS.md` line near the top, then holds only local workflow, local tooling and
-  work state. If `.claude/settings.local.json` is missing, create it with this content (hooks are
-  optional):
+  work state. Repo-local `.claude/settings.local.json` holds the `allow` list only: the
+  section 3 build/test/lint commands, `rg`, read-only `git` (`status`, `diff`, `log`,
+  `show`, `blame`, `ls-files`) and read-only `gh` (`pr view|list|diff|checks`, `issue
+  view`, `run view`) as `"Bash(<cmd> *)"` entries. Recommended once in the user-level
+  `~/.claude/settings.json`: a `PreToolUse` hook on `Bash` running a guard script from
+  `~/.claude/hooks/` that denies the section 1 actions by regex at any command position,
+  plus this `deny` list:
 
   ```json
   { "permissions": {
-      "allow": ["Bash(cargo check *)", "Bash(cargo build *)", "Bash(cargo test *)",
-        "Bash(cargo clippy *)", "Bash(cargo run *)", "Bash(cargo doc *)", "Bash(cargo fmt *)",
-        "Bash(cargo +nightly fmt *)", "Bash(cargo make *)", "Bash(cargo package *)",
-        "Bash(make build)", "Bash(make test)", "Bash(rg *)",
-        "Bash(git status*)", "Bash(git diff *)", "Bash(git log *)", "Bash(git show *)",
-        "Bash(git blame *)", "Bash(git ls-files *)",
-        "Bash(gh pr view *)", "Bash(gh pr list *)", "Bash(gh pr diff *)", "Bash(gh pr checks *)",
-        "Bash(gh issue view *)", "Bash(gh run view *)"],
-      "deny": ["Bash(rm -rf *)", "Bash(rm -fr *)", "Bash(rm -r *)", "Bash(rm -R *)",
-        "Bash(git push --force*)", "Bash(git push *--force*)", "Bash(git reset --hard*)",
-        "Bash(git clean -f*)", "Bash(git branch -D *)",
-        "Bash(cargo publish *)", "Bash(gh pr merge *)", "Bash(gh release *)"] } }
+      "deny": ["Bash(rm -r*)", "Bash(rm -R*)", "Bash(rm -f*)", "Bash(find * -delete*)",
+        "Bash(xargs rm*)", "Bash(sudo *)", "Bash(git branch -d *)", "Bash(git branch -D *)",
+        "Bash(git branch --delete *)", "Bash(git reset *)", "Bash(git restore *)",
+        "Bash(git checkout -- *)", "Bash(git checkout .*)", "Bash(git clean *)",
+        "Bash(git stash drop*)", "Bash(git stash clear*)", "Bash(git push --force*)",
+        "Bash(git push *--force*)", "Bash(git push -f*)",
+        "Bash(git rebase *)", "Bash(git commit --amend*)", "Bash(git rm *)",
+        "Bash(cargo install *)", "Bash(rustup *)", "Bash(cargo publish *)",
+        "Bash(gh pr merge *)", "Bash(gh release *)"] } }
   ```
 
 - Codex: `~/.codex/config.toml` with `approval_policy = "on-request"` and
