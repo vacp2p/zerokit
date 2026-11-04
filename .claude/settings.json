@@ -1,0 +1,66 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo check *)", "Bash(cargo build *)", "Bash(cargo test *)",
+      "Bash(cargo clippy *)", "Bash(cargo run *)", "Bash(cargo doc *)",
+      "Bash(cargo fmt *)", "Bash(cargo +nightly fmt *)", "Bash(cargo make *)",
+      "Bash(cargo package *)", "Bash(cargo clean*)", "Bash(make build)", "Bash(make test)",
+
+      "Bash(rg *)",
+
+      "Bash(git status*)", "Bash(git diff *)", "Bash(git log *)",
+      "Bash(git show *)", "Bash(git blame *)", "Bash(git ls-files *)",
+
+      "Bash(gh pr view *)", "Bash(gh pr list *)", "Bash(gh pr diff *)",
+      "Bash(gh pr checks *)", "Bash(gh issue view *)", "Bash(gh run view *)"
+    ],
+    "deny": [
+      "Bash(rm -r*)", "Bash(rm -R*)", "Bash(rm -f*)", "Bash(shred *)",
+      "Bash(find * -delete*)", "Bash(xargs rm*)",
+
+      "Bash(git branch -d *)", "Bash(git branch -D *)", "Bash(git branch --delete *)",
+      "Bash(git branch -m *)", "Bash(git branch -M *)",
+      "Bash(git reset *)", "Bash(git restore *)", "Bash(git checkout -- *)",
+      "Bash(git checkout .*)", "Bash(git checkout -f*)", "Bash(git switch -C *)",
+      "Bash(git clean *)", "Bash(git stash drop*)", "Bash(git stash clear*)",
+      "Bash(git rebase *)", "Bash(git commit --amend*)", "Bash(git filter-branch *)",
+      "Bash(git rm *)", "Bash(git worktree remove *)", "Bash(git tag -d *)",
+      "Bash(git push -f*)", "Bash(git push --force*)", "Bash(git push *--force*)",
+      "Bash(git push --delete *)",
+
+      "Bash(cargo publish *)", "Bash(gh pr merge *)", "Bash(gh pr close *)",
+      "Bash(gh release *)", "Bash(gh repo delete *)",
+
+      "Bash(cargo install *)", "Bash(rustup toolchain *)", "Bash(rustup target *)",
+      "Bash(rustup component *)", "Bash(rustup update*)", "Bash(rustup self *)",
+      "Bash(rustup default *)", "Bash(rustup override *)", "Bash(brew install *)",
+      "Bash(curl *)", "Bash(wget *)",
+      "Bash(sudo *)", "Bash(mkfs *)", "Bash(dd if=*)", "Bash(crontab *)",
+      "Bash(chmod +s *)", "Bash(chmod 777 *)", "Bash(chown root*)",
+      "Bash(nc *)", "Bash(ncat *)", "Bash(netcat *)", "Bash(eval *)",
+      "Bash(history -c*)", "Bash(unset HISTFILE*)",
+
+      "Edit(~/.bashrc)", "Edit(~/.zshrc)", "Edit(~/.profile)", "Edit(~/.bash_profile)",
+      "Edit(~/.zprofile)", "Edit(~/.ssh/**)", "Edit(~/.gnupg/**)",
+
+      "Read(~/.ssh/**)", "Read(~/.gnupg/**)", "Read(~/.aws/**)", "Read(~/.azure/**)",
+      "Read(~/.config/gh/**)", "Read(~/.config/gcloud/**)", "Read(~/.config/op/**)",
+      "Read(~/.git-credentials)", "Read(~/.netrc)", "Read(~/.vault-token)",
+      "Read(~/.docker/config.json)", "Read(~/.kube/**)", "Read(~/.npmrc)", "Read(~/.npm/**)",
+      "Read(~/.pypirc)", "Read(~/.gem/credentials)", "Read(~/.terraform.d/**)",
+      "Read(~/.cargo/credentials*)", "Read(~/Library/Keychains/**)",
+      "Read(~/Library/Application Support/**/metamask*/**)",
+      "Read(~/Library/Application Support/**/electrum*/**)",
+      "Read(~/Library/Application Support/**/exodus*/**)",
+      "Read(~/Library/Application Support/**/phantom*/**)",
+      "Read(~/Library/Application Support/**/solflare*/**)",
+      "Read(~/Library/Application Support/**/frame*/**)",
+      "Read(~/Library/Application Support/**/rainbow*/**)",
+      "Read(~/Library/Application Support/**/ledger*/**)",
+      "Read(~/Library/Application Support/**/trezor*/**)",
+      "Read(~/Library/Application Support/**/1password*/**)",
+      "Read(~/Library/Application Support/**/bitwarden*/**)",
+      "Read(~/Library/Application Support/**/keybase*/**)"
+    ]
+  }
+}
