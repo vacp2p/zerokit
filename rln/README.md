@@ -21,8 +21,8 @@ We start by adding zerokit RLN to our `Cargo.toml`
 ```toml
 [dependencies]
 rand = "0.8.7"
-rln = "3.0.0"
-zerokit-utils = "3.0.0"
+rln = "3.1.0"
+zerokit-utils = "3.1.0"
 ```
 
 ## Basic Usage Example
