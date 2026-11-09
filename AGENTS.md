@@ -99,8 +99,8 @@ slash: id_secret   = (y2 * x1 - y1 * x2) / (x1 - x2)
   workspace members; `default-members = ["rln", "utils"]`, so plain root `cargo` commands hit
   the core crates and `-p` reaches the others. Root `cargo make build/test/bench` iterates all
   four, including rln-wasm's wasm-pack tasks; `make installdeps` is native-only by decision,
-  `make installdeps-wasm` adds wasm-pack and node. One root `Cargo.lock`; per-crate lock files
-  are banned.
+  `make installdeps-wasm` adds wasm-opt (binaryen, pinned on Linux), wasm-pack and node. One
+  root `Cargo.lock`; per-crate lock files are banned.
 - Commands: `make installdeps | build | test | bench`; `cargo check -p rln`;
   `cd rln-wasm && cargo make test` (Node; `test_browser` Chrome; `test_parallel` nightly);
   `cargo make fmt | fmt_check` (nightly); `cargo run --bin generate_headers --features=headers`
@@ -394,7 +394,7 @@ cargo doc -p rln --no-deps
   git, a C toolchain and `make`, rustup with stable and nightly (nightly `rustfmt` for
   `cargo make fmt`), cmake, ninja and cargo-make (`make installdeps` installs these three),
   ripgrep for the audit one-liners, `gh` for reading PRs and CI. For rln-wasm: the wasm32
-  target, wasm-pack and node (`make installdeps-wasm`), Chrome for `test_browser`. FFI
+  target, wasm-opt, wasm-pack and node (`make installdeps-wasm`), Chrome for `test_browser`. FFI
   examples: gcc and nim. Optional: nix, valgrind (Linux) or `leaks` (macOS), cargo-tarpaulin.
   List what is missing with the install command for the platform and ASK; run `make
   installdeps` / `make installdeps-wasm` only on a yes, never install the rest yourself.
