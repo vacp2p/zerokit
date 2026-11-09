@@ -4,6 +4,8 @@
 # Pinned tool and runtime versions.
 CARGO_MAKE_VERSION ?= 0.37.24
 WASM_PACK_VERSION  ?= 0.15.0
+# binaryen release (wasm-opt) for Linux; macOS takes Homebrew's.
+BINARYEN_VERSION   ?= 133
 CROSS_VERSION      ?= 0.2.5
 NODE_VERSION       ?= 26.5.0
 # Major version, for NodeSource's setup_<major>.x URL.
@@ -35,10 +37,20 @@ ifdef CI
 	@cargo install cross --version $(CROSS_VERSION)
 endif
 
-# Everything the default rln-wasm build needs: wasm32 target, wasm-pack, node
-# via nvm. NO_NVM=1 skips the node step (the devcontainer uses apt node instead).
+# Everything the default rln-wasm build needs: wasm32 target, wasm-opt (binaryen; wasm-pack
+# uses the one in PATH, its own download is flaky and Ubuntu's apt package is too old),
+# wasm-pack, node via nvm. NO_NVM=1 skips the node step (the devcontainer uses apt node instead).
 installdeps-wasm:
 	@rustup target add wasm32-unknown-unknown
+ifeq ($(shell uname),Darwin)
+	@command -v wasm-opt > /dev/null || brew install binaryen
+else ifeq ($(shell uname),Linux)
+	@command -v wasm-opt > /dev/null || { \
+		url=https://github.com/WebAssembly/binaryen/releases/download/version_$(BINARYEN_VERSION)/binaryen-version_$(BINARYEN_VERSION)-$$(uname -m)-linux.tar.gz; \
+		mkdir -p "$$HOME/.local/opt" && \
+		curl -fsSL --retry 5 --retry-all-errors "$$url" | tar -xz -C "$$HOME/.local/opt" && \
+		ln -sf "$$HOME/.local/opt/binaryen-version_$(BINARYEN_VERSION)/bin/wasm-opt" "$$HOME/.cargo/bin/wasm-opt"; }
+endif
 	@command -v cargo-binstall > /dev/null || \
 		curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
 	@wasm-pack --version 2>/dev/null | grep -q "$(WASM_PACK_VERSION)" || \
