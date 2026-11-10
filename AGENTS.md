@@ -226,12 +226,12 @@ precedence and the same "keep it true" duty as this file. Read the matching file
 - Permissions, two layers. The repo ships the floor: the tracked `.claude/settings.json`
   has three lists. `deny`: the section 1 actions, publishing, installs, network tools
   (`curl`, `wget`, `ssh`, `scp`, `nc`), `sudo`, `eval`, secret-store CLIs (`security`,
-  `gpg --export-secret`), reads or edits of shell rc files, `~/.ssh`, `~/.gnupg`,
-  credential files and `.env`. `ask`: `git commit|push|restore`, anything that posts to
-  GitHub (`gh pr create|comment|review`, `gh issue`, `gh api`), `make installdeps`,
+  `gpg --export-secret`), edits of shell rc files and `~/.gitconfig`, reads of `~/.ssh`,
+  `~/.gnupg`, credential files and `.env`. `ask`: `git commit|push|restore`, anything that
+  posts to GitHub (`gh pr create|comment|review`, `gh issue`, `gh api`), `make installdeps`,
   interpreters and `sh -c`, web access, and edits of the injection surface (`.github/`,
-  build files, manifests, `Cargo.lock`, `rln/resources/`, this file, `.claude/`). `allow`:
-  build, test, lint, read-only git/gh. A local file can add allows but cannot loosen a deny
+  build files, manifests, `Cargo.lock`, `rln/resources/`, this file, `agents/`, `.claude/`).
+  `allow`: build, test, lint, read-only git/gh. A local file can add allows but cannot loosen a deny
   or an ask. Personal guards (wallets, password managers) are user-level rules, not repo
   policy. The developer adds, once at user level, a command hook that matches the section 1
   actions at any position (flag order, `cd` prefix, `sh -c`, `xargs`). Neither layer
