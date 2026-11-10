@@ -31,7 +31,8 @@ graphify-out/
 # Misc
 *.log
 tmp/
-docs/
+docs/*
+!docs/agents/
 
 # Rust examples
 rln/examples/database
