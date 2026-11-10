@@ -25,7 +25,8 @@ Read it before a task touches this area.
   assoc type: spell `H::Scalar`, `<Self::Hasher as ZerokitHasher>::Scalar` in trait defs,
   `<H as ZerokitHasher>::Scalar` where pmtree's `Hasher` is also in scope. `default_leaf` is
   not on the trait; trees store it as a field. Arity capability is a documented contract on
-  `ZerokitHasher::hash` (the `///` doc, not a trait bound).
+  `ZerokitHasher::hash`, not a trait bound: `PoseidonHash::hash` and `Poseidon2Hash::hash`
+  `.expect` on an input length outside their range (`1..=16`, `1..=3`).
 - Round parameters: `POSEIDON_ROUND_PARAMS` (t = 2..17, circomlib parity) and
   `POSEIDON2_ROUND_PARAMS` (t = 2..4, RF 8, RP 56, HorizenLabs "new" set) in utils; golden
   tests against circomlibjs, the Nomos vectors and rust-poseidon-bn254-pure pin them. Any

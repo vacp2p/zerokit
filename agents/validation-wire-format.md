@@ -8,7 +8,8 @@ Read it before a task touches this area.
 
 - NO `.unwrap()`, `panic!()`, `unreachable!()` in library code (tests may). Sanctioned
   `.expect("message")` sites: `impl Default for PmTreeSledConfig`, embedded Poseidon constant
-  init, and the documented arity contract in the facade. DO NOT re-flag them.
+  init, and the arity `.expect` in `PoseidonHash::hash` and `Poseidon2Hash::hash`. DO NOT
+  re-flag them.
 - Narrowest error per method, no top-level union error. Validation function is named
   `validate` everywhere; it runs at `build()` and at deserialize. Proof-values validation
   error is `ProofValuesMultiError`; `SerializationError` wraps typed validation errors with

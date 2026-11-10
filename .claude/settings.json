@@ -21,7 +21,7 @@
       "Edit(rln/resources/**)", "Edit(AGENTS.md)", "Edit(agents/**)", "Edit(.claude/**)"
     ],
     "deny": [
-      "Bash(rm -r*)", "Bash(rm -f*)",
+      "Bash(rm -r*)", "Bash(rm -R*)", "Bash(rm -f*)",
       "Bash(git reset --hard*)", "Bash(git reset --merge*)", "Bash(git reset --keep*)",
       "Bash(git clean *)", "Bash(git stash drop*)", "Bash(git stash clear*)",
       "Bash(git checkout -- *)", "Bash(git checkout .*)", "Bash(git switch -C *)",
