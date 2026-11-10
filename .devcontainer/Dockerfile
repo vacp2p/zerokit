@@ -52,7 +52,7 @@ USER ubuntu
 # Add Cargo to the PATH so the IDE and terminal can find it
 ENV PATH="$HOME/.cargo/bin:$PATH"
 
-# Toolchains via the Makefile (cmake/ninja and node already installed via apt
-# above, so the apt step is skipped and NO_NVM=1 keeps nvm out of the image).
+# Toolchains via the Makefile (cmake/ninja and node come from apt above, so the apt
+# step is skipped and NO_NVM=1 keeps nvm out of the image; binaryen is the pinned release).
 RUN make installdeps \
     && make NO_NVM=1 installdeps-wasm installdeps-wasm-parallel
