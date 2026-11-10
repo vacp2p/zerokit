@@ -48,7 +48,7 @@ in rustPlatform.buildRustPackage {
 
   inherit src;
 
-  cargoHash = "sha256-/wSh0vuBcBV8DGfA39af3W600hTv+Kkeo6bLFPq4pNo=";
+  cargoHash = "sha256-ZngLXbL0kkGS/1uaYYv6RgPIkP6zHCI7mZ0iV28NKpQ=";
 
   nativeBuildInputs = [ ]
     ++ pkgs.lib.optional windows-gnu crossCC;
