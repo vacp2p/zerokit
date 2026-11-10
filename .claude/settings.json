@@ -17,7 +17,7 @@
       "Bash(make installdeps*)",
       "Bash(bash -c *)", "Bash(node *)", "Bash(python*)", "Bash(sh -c *)",
       "WebFetch", "WebSearch",
-      "Edit(.cargo/**)", "Edit(.claude/**)", "Edit(.github/**)", "Edit(AGENTS.md)",
+      "Edit(.cargo/**)", "Edit(.claude/settings.json)", "Edit(.github/**)", "Edit(AGENTS.md)",
       "Edit(agents/**)", "Edit(Cargo.lock)", "Edit(**/Cargo.toml)", "Edit(Makefile)",
       "Edit(**/Makefile.toml)", "Edit(**/build.rs)", "Edit(rust-toolchain*)",
       "Edit(rln/resources/**)"

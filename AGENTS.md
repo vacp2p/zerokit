@@ -230,7 +230,8 @@ precedence and the same "keep it true" duty as this file. Read the matching file
   `~/.gnupg`, credential files and `.env`. `ask`: `git commit|push|restore`, anything that
   posts to GitHub (`gh pr create|comment|review`, `gh issue`, `gh api`), `make installdeps`,
   interpreters and `sh -c`, web access, and edits of the injection surface (`.github/`,
-  build files, manifests, `Cargo.lock`, `rln/resources/`, this file, `agents/`, `.claude/`).
+  build files, manifests, `Cargo.lock`, `rln/resources/`, this file, `agents/`, the tracked
+  `.claude/settings.json`; the rest of `.claude/` is gitignored and personal).
   `allow`: build, test, lint, read-only git/gh. A local file can add allows but cannot loosen a deny
   or an ask. Personal guards (wallets, password managers) are user-level rules, not repo
   policy. The developer adds, once at user level, a command hook that matches the section 1
