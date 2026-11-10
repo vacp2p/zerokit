@@ -18,7 +18,7 @@
       "WebFetch", "WebSearch",
       "Edit(.github/**)", "Edit(Makefile)", "Edit(**/Makefile.toml)", "Edit(.cargo/**)",
       "Edit(**/build.rs)", "Edit(rust-toolchain*)", "Edit(**/Cargo.toml)", "Edit(Cargo.lock)",
-      "Edit(rln/resources/**)", "Edit(AGENTS.md)", "Edit(docs/agents/**)", "Edit(.claude/**)"
+      "Edit(rln/resources/**)", "Edit(AGENTS.md)", "Edit(agents/**)", "Edit(.claude/**)"
     ],
     "deny": [
       "Bash(rm -r*)", "Bash(rm -f*)",
