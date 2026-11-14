@@ -140,16 +140,58 @@ mod test {
     }
 
     #[test]
-    fn test_rln_poseidon2_resource_mismatch() {
-        // A Poseidon2 backend over the embedded Poseidon circuit resources constructs by
-        // design, but the circuit computes Poseidon, so its proofs must fail to verify.
+    fn test_rln_hasher_graph_mismatch_is_refused_at_proving() {
+        // A Poseidon2 backend over the Poseidon circuit resources builds, but proving refuses.
         let rln = RLNBuilder::stateless_poseidon2()
             .graph(default_graph_single().clone())
             .zkey(default_zkey_single().clone())
             .build();
         let rln_witness = random_rln_witness(DEFAULT_TREE_DEPTH);
+        assert!(matches!(
+            rln.generate_proof(&rln_witness),
+            Err(GenerateProofError::HasherGraphMismatch)
+        ));
+        let partial_witness = RLNPartialWitnessInput::from(&rln_witness);
+        let partial_proof = rln.generate_partial_proof(&partial_witness).unwrap();
+        assert!(matches!(
+            rln.finish_proof(&partial_proof, &rln_witness),
+            Err(GenerateProofError::HasherGraphMismatch)
+        ));
+        // And a Poseidon backend over the Poseidon2 resources.
+        let rln = RLNBuilder::stateless()
+            .graph(default_graph_poseidon2_single().clone())
+            .zkey(default_zkey_poseidon2_single().clone())
+            .build();
+        assert!(matches!(
+            rln.generate_proof(&rln_witness),
+            Err(GenerateProofError::HasherGraphMismatch)
+        ));
+    }
+
+    #[test]
+    fn test_rln_zkey_graph_mismatch_is_refused_at_proving() {
+        let rln_witness = random_rln_witness(DEFAULT_TREE_DEPTH);
+        // The zkey of the other hash, then of the other mode.
+        let rln = RLNBuilder::stateless()
+            .graph(default_graph_single().clone())
+            .zkey(default_zkey_poseidon2_single().clone())
+            .build();
+        assert!(matches!(
+            rln.generate_proof(&rln_witness),
+            Err(GenerateProofError::ZkeyGraphMismatch)
+        ));
+        let rln = RLNBuilder::stateless()
+            .graph(default_graph_single().clone())
+            .zkey(default_zkey_multi().clone())
+            .build();
+        assert!(matches!(
+            rln.generate_proof(&rln_witness),
+            Err(GenerateProofError::ZkeyGraphMismatch)
+        ));
+        // Matching resources still prove and verify.
+        let rln = RLNBuilder::stateless().build();
         let (proof, proof_values) = rln.generate_proof(&rln_witness).unwrap();
-        assert!(!rln.verify(&proof, &proof_values).unwrap());
+        assert!(rln.verify(&proof, &proof_values).unwrap());
     }
 
     fn random_leaves(rng: &mut ThreadRng) -> Vec<Fr> {

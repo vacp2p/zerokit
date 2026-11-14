@@ -152,6 +152,12 @@ pub enum GenerateProofError {
     /// The circuit synthesis failed.
     #[error("Synthesis error: {0}")]
     Synthesis(#[from] SynthesisError),
+    /// The witness graph computes another protocol hash than the backend.
+    #[error("Witness graph and backend hash do not match")]
+    HasherGraphMismatch,
+    /// The proving key does not belong to the circuit of the witness graph.
+    #[error("Proving key and witness graph do not match")]
+    ZkeyGraphMismatch,
 }
 
 /// Errors that can occur while verifying a proof.
