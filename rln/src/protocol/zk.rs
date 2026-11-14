@@ -87,6 +87,45 @@ pub trait RLNPartialZkProof: RLNZkProof {
     ) -> Result<(Self::Proof, Self::Values), Self::FinishProofError>;
 }
 
+impl<H> ArkGroth16Backend<H>
+where
+    H: ZerokitHasher<Scalar = Fr>,
+{
+    /// Checks that the zkey sizes the graph's circuit and that the graph's public values are the
+    /// backend hash's, before proving.
+    fn check_resources_before_proving(
+        &self,
+        full_assignment: &[Fr],
+        public_inputs: &[Fr],
+    ) -> Result<(), GenerateProofError> {
+        // The constant `1` is counted in both variable counts.
+        let matrices = &self.zkey.1;
+        let instance_end = matrices.num_instance_variables;
+        if instance_end != public_inputs.len() + 1
+            || full_assignment.len() != instance_end - 1 + matrices.num_witness_variables
+        {
+            return Err(GenerateProofError::ZkeyGraphMismatch);
+        }
+        if full_assignment[1..instance_end] != *public_inputs {
+            return Err(GenerateProofError::HasherGraphMismatch);
+        }
+        Ok(())
+    }
+
+    /// Checks that the proof verifies under the zkey's own verifying key, after proving.
+    fn check_proof_verifies(
+        &self,
+        proof: &Proof,
+        public_inputs: &[Fr],
+    ) -> Result<(), GenerateProofError> {
+        if Groth16::<_, CircomReduction>::verify_proof(&self.pvk, proof, public_inputs)? {
+            Ok(())
+        } else {
+            Err(GenerateProofError::ZkeyGraphMismatch)
+        }
+    }
+}
+
 impl<H> RLNZkProof for ArkGroth16Backend<H>
 where
     H: ZerokitHasher<Scalar = Fr>,
@@ -104,8 +143,10 @@ where
     ) -> Result<(Self::Proof, Self::Values), Self::GenerateProofError> {
         witness.validate_against_graph(&self.graph)?;
         let values = RLNProofValues::from_witness::<Self::Hasher>(witness);
+        let public_inputs = values.public_inputs();
 
         let full_assignment = witness.calc_witness(&self.graph)?;
+        self.check_resources_before_proving(&full_assignment, &public_inputs)?;
 
         let mut rng = thread_rng();
         let r = Fr::rand(&mut rng);
@@ -119,6 +160,7 @@ where
             self.zkey.1.num_constraints,
             &full_assignment,
         )?;
+        self.check_proof_verifies(&proof, &public_inputs)?;
 
         Ok((proof, values))
     }
@@ -128,26 +170,8 @@ where
         proof: &Self::Proof,
         values: &Self::Values,
     ) -> Result<bool, Self::VerifyProofError> {
-        let public_inputs: Vec<Fr> = match values {
-            RLNProofValues::Single(v) => {
-                vec![v.y, v.root, v.nullifier, v.x, v.external_nullifier]
-            }
-            RLNProofValues::Multi(v) => {
-                let mut inputs =
-                    Vec::with_capacity(v.ys.len() + v.nullifiers.len() + v.selector_used.len() + 3);
-                inputs.extend_from_slice(&v.ys);
-                inputs.push(v.root);
-                inputs.extend_from_slice(&v.nullifiers);
-                inputs.push(v.x);
-                inputs.push(v.external_nullifier);
-                for &used in &v.selector_used {
-                    inputs.push(Fr::from(used));
-                }
-                inputs
-            }
-        };
         let verified =
-            Groth16::<_, CircomReduction>::verify_proof(&self.pvk, proof, &public_inputs)?;
+            Groth16::<_, CircomReduction>::verify_proof(&self.pvk, proof, &values.public_inputs())?;
 
         Ok(verified)
     }
@@ -186,8 +210,10 @@ where
     ) -> Result<(Self::Proof, Self::Values), Self::FinishProofError> {
         witness.validate_against_graph(&self.graph)?;
         let values = RLNProofValues::from_witness::<Self::Hasher>(witness);
+        let public_inputs = values.public_inputs();
 
         let full_assignment = witness.calc_witness(&self.graph)?;
+        self.check_resources_before_proving(&full_assignment, &public_inputs)?;
 
         let mut rng = thread_rng();
         let r = Fr::rand(&mut rng);
@@ -203,6 +229,7 @@ where
             self.zkey.1.num_constraints,
             &full_assignment,
         )?;
+        self.check_proof_verifies(&full_proof, &public_inputs)?;
 
         Ok((full_proof, values))
     }
