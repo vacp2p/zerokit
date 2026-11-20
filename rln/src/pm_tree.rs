@@ -372,8 +372,13 @@ where
             return Err(ZerokitMerkleTreeError::RangeTooLarge.into());
         }
         self.tree.set_range(start, &v)?;
-        for i in start..start + v.len() {
-            self.cached_leaves_indices[i] = 1
+        for cached in self
+            .cached_leaves_indices
+            .iter_mut()
+            .skip(start)
+            .take(v.len())
+        {
+            *cached = 1
         }
         Ok(())
     }
