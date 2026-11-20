@@ -137,6 +137,28 @@ impl RLNProofValues {
             }
         }
     }
+
+    /// Returns the circuit's public inputs in witness order (outputs first, then inputs).
+    pub(crate) fn public_inputs(&self) -> Vec<Fr> {
+        match self {
+            RLNProofValues::Single(v) => {
+                vec![v.y, v.root, v.nullifier, v.x, v.external_nullifier]
+            }
+            RLNProofValues::Multi(v) => {
+                let mut inputs =
+                    Vec::with_capacity(v.ys.len() + v.nullifiers.len() + v.selector_used.len() + 3);
+                inputs.extend_from_slice(&v.ys);
+                inputs.push(v.root);
+                inputs.extend_from_slice(&v.nullifiers);
+                inputs.push(v.x);
+                inputs.push(v.external_nullifier);
+                for &used in &v.selector_used {
+                    inputs.push(Fr::from(used));
+                }
+                inputs
+            }
+        }
+    }
 }
 
 impl RecoverSecret for RLNProofValues {
